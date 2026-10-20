@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b9b-hd-items -->
+<!-- glencraft-build: b9c-highlands -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,14 +474,14 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.9 \u2022 b8';
+const GAME_VERSION = 'v0.9.0 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
 // BASE = 25 extra layers of underground below the old world floor
 // GLX-B7: 10 more layers of deep stone (DEEP) under everything; saves from 56-high worlds are shifted up on load
-const DEEP = 10, BASE = 25 + DEEP, H = 56 + DEEP, SEA = 6 + BASE;
-const NEW_W = 156;   // GLX-B8: new worlds are 156 x 156 (older 40/56 saves keep their own size)
+const DEEP = 10, BASE = 25 + DEEP, H = 80 + DEEP, SEA = 6 + BASE;   // GLX-B9: 24 more layers of sky for real mountains
+const NEW_W = 320;   // GLX-B8: new worlds are 156 x 156 (older 40/56 saves keep their own size)
 let W = NEW_W, D = NEW_W; // new worlds are 56 x 56 (old 40 x 40 saves still load at their own size)
 const T = {AIR:0, GRASS:1, DIRT:2, STONE:3, HEATHER:4, WATER:5, SAND:6, PEAT:7, LOG:8, LEAVES:9, PLANKS:10, COBBLE:12, TABLE:13, FURNACE:14,
   TALLGRASS:15, THISTLE:16, FARM:17, CAULDRON:18, BED:19, WHEAT0:20, WHEAT3:23, POTATO0:24, POTATO3:27,
@@ -5438,9 +5438,9 @@ function applySave(d) {
   d = Object.assign({inv: null, hp: 20, food: 20, sat: 5, dayClock: 0.3, dayNum: 1}, d);
   if (!(d.v >= 1)) d.v = 1;
   setWorldSize(d.W || 40); dirtyAll = true;
-  const oldH = d.H || 56, shift = H - oldH;
+  const oldH = d.H || 56, shift = oldH < 66 ? 66 - oldH : 0;   // only pre-b7 saves are lifted; 66-high saves just gain sky
   if (shift > 0) upgradeDepth(d, shift);
-  try { if (shift > 0) { const tmp = new Uint8Array(W * oldH * D); rleDecode(d.world, tmp); padWorld(tmp, oldH, shift); } else rleDecode(d.world, world); } catch (e) { console.warn('world data damaged, regenerating terrain', e); generate(); placeTrees(); placeDecor(); }
+  try { if (shift > 0 || oldH !== H) { const tmp = new Uint8Array(W * oldH * D); rleDecode(d.world, tmp); padWorld(tmp, oldH, shift); } else rleDecode(d.world, world); } catch (e) { console.warn('world data damaged, regenerating terrain', e); generate(); placeTrees(); placeDecor(); }
   if (typeof d.hp !== 'number' || !(d.hp > 0)) d.hp = 20;
   for (const k in inv) delete inv[k];
   Object.assign(inv, d.inv || {});
@@ -7486,6 +7486,338 @@ function buildGripHand() {
   fa.rotation.set(0.12, 0, 0);
   realArm.fa = fa;
 })();
+
+/* ===================== GLX-B9d: Scottish fantasy highlands generator (deterministic, seeded) ===================== */
+// glens and meadows, rolling hills, ridged mountains up to ~45 blocks above the sea, lochs in the glen floors, heather moor,
+// peat bogs, pine forests, big open caverns joined by tunnels, lava and underground lochs deep down, standing stones and mossy ruins.
+var GEN9 = 9, gSeed = 0, genVer = 0;
+function g9rng(seed) { let s = (seed >>> 0) || 1; return () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; }; }
+function g9perm(seed) { const r = g9rng(seed), p = new Uint8Array(512), a = [...Array(256).keys()]; for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } for (let i = 0; i < 512; i++) p[i] = a[i & 255]; return p; }
+var G9P = null;
+function g9fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function g9n2(x, z) {
+  const p = G9P, X = Math.floor(x), Z = Math.floor(z), xf = x - X, zf = z - Z, xi = X & 255, zi = Z & 255;
+  const g = (h, x, z) => { switch (h & 7) { case 0: return x + z; case 1: return -x + z; case 2: return x - z; case 3: return -x - z; case 4: return x; case 5: return -x; case 6: return z; default: return -z; } };
+  const u = g9fade(xf), v = g9fade(zf);
+  const a = p[p[xi] + zi], b = p[p[xi + 1] + zi], c = p[p[xi] + zi + 1], d = p[p[xi + 1] + zi + 1];
+  const l1 = g(a, xf, zf) + u * (g(b, xf - 1, zf) - g(a, xf, zf)), l2 = g(c, xf, zf - 1) + u * (g(d, xf - 1, zf - 1) - g(c, xf, zf - 1));
+  return (l1 + v * (l2 - l1)) * 0.7;
+}
+function g9n3(x, y, z) {
+  const p = G9P, X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z), xf = x - X, yf = y - Y, zf = z - Z, xi = X & 255, yi = Y & 255, zi = Z & 255;
+  const g = (h, x, y, z) => { h &= 15; const u = h < 8 ? x : y, v = h < 4 ? y : (h === 12 || h === 14 ? x : z); return ((h & 1) ? -u : u) + ((h & 2) ? -v : v); };
+  const u = g9fade(xf), v = g9fade(yf), w = g9fade(zf);
+  const A = p[xi] + yi, AA = p[A] + zi, AB = p[A + 1] + zi, B = p[xi + 1] + yi, BA = p[B] + zi, BB = p[B + 1] + zi;
+  const L = (a, b, t) => a + t * (b - a);
+  return L(L(L(g(p[AA], xf, yf, zf), g(p[BA], xf - 1, yf, zf), u), L(g(p[AB], xf, yf - 1, zf), g(p[BB], xf - 1, yf - 1, zf), u), v),
+           L(L(g(p[AA + 1], xf, yf, zf - 1), g(p[BA + 1], xf - 1, yf, zf - 1), u), L(g(p[AB + 1], xf, yf - 1, zf - 1), g(p[BB + 1], xf - 1, yf - 1, zf - 1), u), v), w);
+}
+function g9fbm(x, z, oct) { let s = 0, a = 1, f = 1, n = 0; for (let i = 0; i < oct; i++) { s += a * g9n2(x * f + i * 31.7, z * f - i * 17.3); n += a; a *= 0.5; f *= 2; } return s / n; }
+var g9cols = null;   // per-column info for decorating: [height, kind]
+function g9height(x, z) {
+  const hills = g9fbm(x / 52, z / 52, 3) * 0.5 + 0.5;
+  const mMask = Math.max(0, Math.min(1, (g9fbm(x / 160 + 40, z / 160 - 20, 2) + 0.06) / 0.28));
+  const ridge = 1 - Math.abs(g9fbm(x / 64 - 9, z / 64 + 4, 4)), rr = ridge * ridge * ridge;
+  let h = SEA + 3 + hills * 8 + mMask * mMask * (rr * 30 + mMask * 18 + hills * 6);
+  // glens: long flat valley floors along the zero lines of a low-frequency field; some hold lochs
+  const gv = Math.abs(g9fbm(x / 150 + 70, z / 150 - 35, 2)), glen = 1 - Math.min(1, Math.max(0, (gv - 0.02) / 0.12));
+  const loch = g9fbm(x / 70 - 13, z / 70 + 51, 2) > 0.12;
+  const floor = loch ? SEA - 4 + hills * 2 : SEA + 1.5 + hills * 1.5;
+  h = h * (1 - glen * 0.95) + floor * glen * 0.95;
+  return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), glen, mMask, loch: loch && glen > 0.55};
+}
+function generate() {
+  if (!gSeed) gSeed = (Math.random() * 2 ** 31) | 0;
+  G9P = g9perm(gSeed); genVer = GEN9; NSEED = gSeed;
+  const rnd = g9rng(gSeed ^ 0x9e3779b9), hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  world.fill(T.AIR);
+  g9cols = new Int16Array(W * D * 2);
+  // cavern density on a coarse 4x4x4 lattice, trilinearly interpolated (64x fewer noise calls)
+  const SX = Math.ceil(W / 4) + 1, SY = Math.ceil(H / 4) + 1, SZ = Math.ceil(D / 4) + 1, cav = new Float32Array(SX * SY * SZ), tun = new Float32Array(SX * SY * SZ);
+  for (let i = 0; i < SX; i++) for (let j = 0; j < SY; j++) for (let k = 0; k < SZ; k++) {
+    const x = i * 4, y = j * 4, z = k * 4, o = (i * SY + j) * SZ + k;
+    cav[o] = g9n3(x / 38, y / 16, z / 38) + 0.5 * g9n3(x / 17, y / 9, z / 17);
+    tun[o] = Math.abs(g9n3(x / 26 + 100, y / 15, z / 26 - 50));
+  }
+  const tri = (A, x, y, z) => {
+    const fx = x / 4, fy = y / 4, fz = z / 4, i = Math.floor(fx), j = Math.floor(fy), k = Math.floor(fz), u = fx - i, v = fy - j, w = fz - k;
+    const at = (a, b, c) => A[((i + a) * SY + (j + b)) * SZ + (k + c)];
+    const L = (a, b, t) => a + (b - a) * t;
+    return L(L(L(at(0, 0, 0), at(1, 0, 0), u), L(at(0, 1, 0), at(1, 1, 0), u), v), L(L(at(0, 0, 1), at(1, 0, 1), u), L(at(0, 1, 1), at(1, 1, 1), u), v), w);
+  };
+  for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
+    const c = g9height(x, z), h = c.h;
+    const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
+    let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
+    const steep = Math.abs(g9height(x + 1, z).h - h) + Math.abs(g9height(x, z + 1).h - h) >= 4;
+    if (h <= SEA) { top = hash(x, 1, z) < 0.5 ? T.SAND : T.DIRT; sub = T.SAND; kind = 5; }
+    else if (h <= SEA + 1 && c.glen > 0.4) { top = T.SAND; sub = T.SAND; kind = 4; }
+    else if (h >= SEA + 30 || (steep && h >= SEA + 14)) { top = T.STONE; sub = T.STONE; kind = 3; }
+    else if (c.glen > 0.6 && bog > 0.18) { top = hash(x, 2, z) < 0.6 ? T.PEAT : T.MUD; kind = 2; }
+    else if (heath > 0.08 && h > SEA + 5) { top = T.HEATHER; kind = 1; }
+    g9cols[(x * D + z) * 2] = h; g9cols[(x * D + z) * 2 + 1] = kind;
+    const col = x * H * D + z;
+    for (let y = 0; y < h; y++) {
+      let b = y === h - 1 ? top : y >= h - 4 ? sub : (y < 14 ? T.DEEPSLATE : T.STONE);
+      if (y === 0) b = T.DEEPSLATE;
+      world[col + y * D] = b;
+    }
+    for (let y = h; y <= SEA; y++) world[col + y * D] = T.WATER;
+    // caverns + tunnels: open halls well below the surface, kept under lochs/sea by a thick roof
+    const roof = h - (h <= SEA + 1 ? 9 : 6);
+    for (let y = 3; y < roof; y++) {
+      const depthK = y < 20 ? 0.0 : (y - 20) / 60;
+      const d = tri(cav, x, y, z), t = tri(tun, x, y, z);
+      if (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8)) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
+    }
+  }
+  // ores: veins by depth (rarity per 1000 columns)
+  const vein = (ore, n, y0, y1, r) => {
+    for (let i = 0; i < n; i++) {
+      const cx = Math.floor(rnd() * W), cz = Math.floor(rnd() * D), cy = y0 + Math.floor(rnd() * (y1 - y0));
+      const len = 3 + Math.floor(rnd() * (r * 3));
+      let x = cx, y = cy, z = cz;
+      for (let k = 0; k < len; k++) {
+        const b = getB(x, y, z); if (b === T.STONE || b === T.DEEPSLATE) world[idx(x, y, z)] = ore;
+        x += Math.floor(rnd() * 3) - 1; y += Math.floor(rnd() * 3) - 1; z += Math.floor(rnd() * 3) - 1;
+      }
+    }
+  };
+  const A = W * D / 1000;
+  vein(T.COALORE, Math.round(A * 32), 14, H - 6, 3); vein(T.COPPERORE, Math.round(A * 16), 18, SEA + 10, 2);
+  vein(T.IRONORE, Math.round(A * 20), 6, SEA + 4, 2); vein(T.GOLDORE, Math.round(A * 6), 3, 24, 2);
+  vein(T.REDORE, Math.round(A * 6), 2, 18, 2); vein(T.DIAMONDORE, Math.round(A * 3), 2, 14, 1);
+  // underground lochs: some cavern floors flood (only at depth)
+  for (let n = 0; n < Math.round(A * 0.6); n++) {
+    const x0 = Math.floor(rnd() * W), z0 = Math.floor(rnd() * D);
+    for (let y = 8; y < 26; y++) if (getB(x0, y, z0) === T.AIR && solid(x0, y - 1, z0)) {
+      for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) { const x = x0 + dx, z = z0 + dz; if (getB(x, y, z) === T.AIR && solid(x, y - 1, z) && dx * dx + dz * dz < 36) world[idx(x, y, z)] = T.WATER; }
+      break;
+    }
+  }
+  gGenFeatures(rnd, hash);
+  dirtyAll = true;
+}
+function g9top(x, z) { if (!g9cols || x < 0 || z < 0 || x >= W || z >= D) return groundTop(x, z); for (let y = H - 1; y > 0; y--) { const b = world[idx(x, y, z)]; if (b !== T.AIR && b !== T.WATER && b !== T.LEAVES && b !== T.LOG) return y; } return 0; }
+function gPine(x, z, h, put) {
+  const top = g9top(x, z), b = getB(x, top, z);
+  if (b !== T.GRASS && b !== T.HEATHER && b !== T.DIRT) return false;
+  if (getB(x, top + 1, z) !== T.AIR || top + h + 3 >= H) return false;
+  for (let y = 1; y <= h; y++) put(x, top + y, z, T.LOG);
+  // cone of needles: wider rings low down, tapering to a spire
+  for (let y = 3; y <= h + 2; y++) {
+    const t = (y - 3) / (h - 1), r = Math.max(0, Math.round((1 - t) * 2.6 + ((y & 1) ? 0.4 : 0)));
+    for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+      if (dx * dx + dz * dz > r * r + 1 || (dx === 0 && dz === 0 && y <= h)) continue;
+      put(x + dx, top + y, z + dz, T.LEAVES);
+    }
+  }
+  put(x, top + h + 1, z, T.LEAVES); put(x, top + h + 2, z, T.LEAVES);
+  return true;
+}
+function gGenFeatures(rnd, hash) {
+  const put = (x, y, z, b) => { if (x > 0 && z > 0 && x < W - 1 && z < D - 1 && y > 0 && y < H - 1 && getB(x, y, z) === T.AIR) world[idx(x, y, z)] = b; };
+  const kindAt = (x, z) => g9cols[(x * D + z) * 2 + 1], hAt = (x, z) => g9cols[(x * D + z) * 2];
+  // pine forests (dense patches) + lone Scots pines on the moor
+  for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) {
+    const f = g9fbm(x / 60 + 300, z / 60 - 300, 2), k = kindAt(x, z), h = hAt(x, z);
+    if (k !== 0 && k !== 1) continue; if (h > SEA + 26) continue;
+    const r = hash(x, 77, z);
+    if ((f > 0.12 && r < 0.055) || (f > 0.3 && r < 0.09) || (k === 1 && r < 0.003)) gPine(x, z, 6 + Math.floor(hash(x, 78, z) * 5), put);
+    else if (k === 0 && f < -0.25 && r < 0.004) { const t = g9top(x, z); if (getB(x, t, z) === T.GRASS && getB(x, t + 1, z) === T.AIR) plantTree(x, z); }
+  }
+  // standing stones: rings of tall stones on flat meadow or moor
+  const flatSpot = (x, z, r) => { const h0 = hAt(x, z); for (let dx = -r; dx <= r; dx += 2) for (let dz = -r; dz <= r; dz += 2) { const xx = x + dx, zz = z + dz; if (xx < 2 || zz < 2 || xx >= W - 2 || zz >= D - 2 || Math.abs(hAt(xx, zz) - h0) > 1 || hAt(xx, zz) <= SEA + 1) return false; } return true; };
+  let rings = 0, ruins = 0;
+  for (let tries = 0; tries < 900 && (rings < Math.max(3, W * D / 25000) || ruins < Math.max(4, W * D / 18000)); tries++) {
+    const x = 10 + Math.floor(rnd() * (W - 20)), z = 10 + Math.floor(rnd() * (D - 20)), k = kindAt(x, z);
+    if (k > 1 || !flatSpot(x, z, 6)) continue;
+    const h = g9top(x, z);
+    if (rings < ruins + 1) {
+      const n = 7 + Math.floor(rnd() * 4), rad = 4 + Math.floor(rnd() * 2);
+      for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, sx = Math.round(x + Math.cos(a) * rad), sz = Math.round(z + Math.sin(a) * rad), sh = 2 + Math.floor(rnd() * 3), gt = g9top(sx, sz);
+        for (let y = 1; y <= sh; y++) world[idx(sx, gt + y, sz)] = y === sh && rnd() < 0.5 ? T.MOSSYBRICK : T.STONE; }
+      world[idx(x, h + 1, z)] = T.MOSSYBRICK; rings++;
+    } else {
+      // a ruined bothy / tower: broken walls, moss, an empty doorway
+      const sx = 3 + Math.floor(rnd() * 3), sz = 3 + Math.floor(rnd() * 3), tall = 3 + Math.floor(rnd() * 4);
+      for (let dx = -sx; dx <= sx; dx++) for (let dz = -sz; dz <= sz; dz++) {
+        const edge = Math.abs(dx) === sx || Math.abs(dz) === sz; const gx = x + dx, gz = z + dz, gt = g9top(gx, gz);
+        if (!edge) { if (rnd() < 0.5) world[idx(gx, gt, gz)] = T.COBBLE; continue; }
+        if (dz === sz && Math.abs(dx) <= 0) continue;                        // doorway
+        const wh = Math.max(0, Math.round(tall * (0.4 + 0.6 * g9n2(gx / 3, gz / 3) + 0.4) - rnd() * 2));
+        for (let y = 1; y <= wh; y++) world[idx(gx, gt + y, gz)] = rnd() < 0.45 ? T.MOSSYBRICK : rnd() < 0.6 ? T.STONEBRICK : T.COBBLE;
+      }
+      ruins++;
+    }
+  }
+}
+placeTrees = function () { if (genVer >= GEN9) return; };
+// spawn in a meadow near the middle of the map (unless a bed says otherwise)
+var g9spawn = null;
+function g9findSpawn() {
+  const cx = W >> 1, cz = D >> 1;
+  for (let r = 0; r < W / 2; r += 2) for (let a = 0; a < 16; a++) {
+    const x = Math.round(cx + Math.cos(a / 16 * 6.283) * r), z = Math.round(cz + Math.sin(a / 16 * 6.283) * r);
+    if (x < 4 || z < 4 || x >= W - 4 || z >= D - 4) continue;
+    const t = g9top(x, z), b = getB(x, t, z);
+    if ((b === T.GRASS || b === T.HEATHER) && t > SEA + 1 && getB(x, t + 1, z) === T.AIR && getB(x, t + 2, z) === T.AIR) return [x, t, z];
+  }
+  return [cx, g9top(cx, cz), cz];
+}
+(function spawnHook() {
+  const base = spawnPlayer;
+  spawnPlayer = function () {
+    if (genVer < GEN9 || (spawnPt && getB(spawnPt[0], spawnPt[1], spawnPt[2]) === T.BED)) return base.apply(this, arguments);
+    if (!g9spawn || getB(g9spawn[0], g9spawn[1] + 1, g9spawn[2]) !== T.AIR) g9spawn = g9findSpawn();
+    P.x = g9spawn[0] + 0.5; P.z = g9spawn[2] + 0.5; P.y = g9top(g9spawn[0], g9spawn[2]) + 1; P.vy = 0; P.fallTop = null; P.kbx = P.kbz = 0;
+  };
+})();
+// remember the generator + seed in the save; old saves keep their own terrain
+(function genSaveHooks() {
+  const ser = serialize;
+  serialize = function () { const d = ser.apply(this, arguments); d.gen = genVer; d.gseed = gSeed; d.g9spawn = g9spawn; return d; };
+  const ap = applySave;
+  applySave = function (d) { genVer = d.gen || 0; gSeed = d.gseed || 0; g9spawn = d.g9spawn || null; if (gSeed) G9P = g9perm(gSeed); return ap.apply(this, arguments); };
+})();
+
+/* ===================== GLX-B9e: chunk streaming (only chunks near the player have meshes) ===================== */
+var STREAM_R = 4, streamT = 0;
+function streamRadius() { const far = scene.fog ? scene.fog.far : 62; return Math.ceil((far + CH) / CH) + 1; }
+rebuild = function (budget) {
+  const ncx = Math.ceil(W / CH), ncz = Math.ceil(D / CH);
+  if (dirtyAll) {
+    for (const g of chunkObjs.values()) { blockGroup.remove(g); g.children.forEach(c => { if (c.isInstancedMesh) c.dispose(); else if (c.geometry) c.geometry.dispose(); }); }
+    chunkObjs.clear(); chunkLists.clear();
+    for (let cx = 0; cx < ncx; cx++) for (let cz = 0; cz < ncz; cz++) dirtyCh.add(cx * 64 + cz);
+    dirtyAll = false;
+  }
+  const R = STREAM_R = streamRadius(), pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5;
+  const dist = id => Math.max(Math.abs(Math.floor(id / 64) - pcx), Math.abs(id % 64 - pcz));
+  // unload far chunks (they stay "dirty" so they rebuild when you come back)
+  const now = performance.now();
+  if (now - streamT > 700) {
+    streamT = now;
+    for (const [id, g] of chunkObjs) if (dist(id) > R + 1.5) {
+      blockGroup.remove(g); g.children.forEach(c => { if (c.isInstancedMesh) c.dispose(); else if (c.geometry) c.geometry.dispose(); });
+      chunkObjs.delete(id); chunkLists.delete(id); dirtyCh.add(id); rebuild._unloaded = true;
+    }
+  }
+  let ids = [...dirtyCh].filter(id => dist(id) <= R);
+  if (!ids.length && !rebuild._unloaded) return;
+  rebuild._unloaded = false;
+  ids.sort((a, b) => dist(a) - dist(b));
+  const tB = performance.now();
+  for (const id of ids) { buildChunk(Math.floor(id / 64), id % 64); dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  const all = {};
+  for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
+  redOres = all[T.REDORE] || [];
+  syncCauldrons(all[T.CAULDRON] || []);
+  syncEntities(all);
+};
+(function streamTick() {
+  // walking into new ground: queue a rebuild pass even when nothing was edited
+  let lc = -1;
+  setInterval(() => { if (!started) return; const c = Math.floor(P.x / CH) * 64 + Math.floor(P.z / CH); if (c !== lc) { lc = c; if ([...dirtyCh].length) rebuild(8); } }, 250);
+})();
+
+/* ===================== GLX-B9f: one-time Gold world migration to the highlands generator ===================== */
+var BUILT_T = null, migrNote = null, g9noMig = false;
+(function () { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); if (g9noMig) d.noMigrate = true; return d; }; })();
+function g9BuiltSet() {
+  if (BUILT_T) return BUILT_T;
+  BUILT_T = new Uint8Array(256);
+  [T.PLANKS, T.COBBLE, T.TABLE, T.FURNACE, T.FARM, T.CAULDRON, T.BED, T.STONEBRICK, T.WOOL, T.GLASS, T.CHEST, T.DOOR, T.DOORTOP, T.TORCH,
+   T.WOOLPURPLE, T.WOOLBLUE, T.WOOLYELLOW, T.WOOLORANGE, T.IRONBLOCK, T.GOLDBLOCK, T.COPPERBLOCK, T.BRICK, T.TV, T.SANDSTONE].forEach(t => BUILT_T[t] = 1);
+  for (let t = T.WHEAT0; t <= T.WHEAT3; t++) BUILT_T[t] = 1;
+  for (let t = T.POTATO0; t <= T.POTATO3; t++) BUILT_T[t] = 1;
+  for (let t = T.NEEP0; t <= T.NEEP3; t++) BUILT_T[t] = 1;
+  return BUILT_T;
+}
+function g9Migrate(d) {
+  const t0 = performance.now(), B = g9BuiltSet();
+  const oW = W, oD = D, old = world.slice();
+  const oi = (x, y, z) => (x * H + y) * oD + z;
+  // 1) find player-built blocks and group them into zones (8x8 column cells, flood-filled)
+  const CS = 8, gx = Math.ceil(oW / CS), gz = Math.ceil(oD / CS), cnt = new Int32Array(gx * gz);
+  for (let x = 0; x < oW; x++) for (let z = 0; z < oD; z++) for (let y = 1; y < H; y++) if (B[old[oi(x, y, z)]]) cnt[Math.floor(x / CS) * gz + Math.floor(z / CS)]++;
+  const seen = new Uint8Array(gx * gz), zones = [];
+  for (let c = 0; c < gx * gz; c++) if (cnt[c] && !seen[c]) {
+    const st = [c]; seen[c] = 1; let n = 0, x0 = 1e9, x1 = -1, z0 = 1e9, z1 = -1;
+    while (st.length) { const q = st.pop(), a = Math.floor(q / gz), b = q % gz; n += cnt[q]; x0 = Math.min(x0, a); x1 = Math.max(x1, a); z0 = Math.min(z0, b); z1 = Math.max(z1, b);
+      for (let da = -1; da <= 1; da++) for (let db = -1; db <= 1; db++) { const A = a + da, Bb = b + db; if (A < 0 || Bb < 0 || A >= gx || Bb >= gz) continue; const r = A * gz + Bb; if (cnt[r] && !seen[r]) { seen[r] = 1; st.push(r); } } }
+    if (n < 3) continue;
+    // tight bounding box of the actual built blocks inside those cells, plus a 3-block margin
+    let bx0 = 1e9, bx1 = -1, bz0 = 1e9, bz1 = -1, by0 = 1e9;
+    for (let x = x0 * CS; x < Math.min(oW, (x1 + 1) * CS); x++) for (let z = z0 * CS; z < Math.min(oD, (z1 + 1) * CS); z++) for (let y = 1; y < H; y++) if (B[old[oi(x, y, z)]]) { bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); bz0 = Math.min(bz0, z); bz1 = Math.max(bz1, z); by0 = Math.min(by0, y); }
+    zones.push({x0: Math.max(0, bx0 - 3), x1: Math.min(oW - 1, bx1 + 3), z0: Math.max(0, bz0 - 3), z1: Math.min(oD - 1, bz1 + 3), by0, n});
+  }
+  // old ground level around each zone (median surface height along its rim)
+  const oldTop = (x, z) => { for (let y = H - 1; y > 0; y--) { const b = old[oi(x, y, z)]; if (b !== T.AIR && b !== T.WATER && b !== T.LEAVES && b !== T.LOG && !B[b] && b !== T.TALLGRASS && b !== T.THISTLE && b < 60 || b === T.MOSSYBRICK) return y; } return SEA; };
+  const rimMed = (z, f) => { const v = []; for (let x = z.x0; x <= z.x1; x++) { v.push(f(x, z.z0)); v.push(f(x, z.z1)); } for (let q = z.z0; q <= z.z1; q++) { v.push(f(z.x0, q)); v.push(f(z.x1, q)); } v.sort((a, b) => a - b); return v[v.length >> 1]; };
+  zones.forEach(z => z.og = rimMed(z, oldTop));
+  // 2) brand-new highlands terrain at the big size; the old map is centred in it
+  const ox = Math.max(0, (NEW_W - oW) >> 1), oz = Math.max(0, (NEW_W - oD) >> 1);
+  setWorldSize(Math.max(NEW_W, oW)); gSeed = 0; generate();
+  zones.forEach(z => { z.ng = rimMed(z, (x, q) => g9top(x + ox, q + oz)); z.dy = Math.max(-z.by0 + 2, Math.min(H - 4 - z.og, z.ng - z.og)); });
+  // 3) transplant each built area: everything from a few blocks under the old ground (cellars, foundations) upward
+  let moved = 0;
+  for (const z of zones) {
+    const floorY = Math.min(z.og - 4, z.by0 - 1);
+    for (let x = z.x0; x <= z.x1; x++) for (let q = z.z0; q <= z.z1; q++) {
+      const nx = x + ox, nz = q + oz;
+      for (let y = Math.max(1, floorY); y < H; y++) { const ny = y + z.dy; if (ny < 1 || ny >= H) continue; const b = old[oi(x, y, q)]; world[idx(nx, ny, nz)] = b; if (B[b]) moved++; }
+      // fill any gap between the transplanted floor and the new ground below it
+      for (let ny = Math.max(1, floorY + z.dy) - 1; ny > 0 && (world[idx(nx, ny, nz)] === T.AIR || world[idx(nx, ny, nz)] === T.WATER); ny--) world[idx(nx, ny, nz)] = ny > z.og + z.dy - 3 ? T.DIRT : T.STONE;
+    }
+  }
+  // 4) move block metadata (crops, chests, doors, furnaces, beds/torches/TVs, cauldrons) with their zone
+  const zoneOf = (x, z) => zones.find(Z => x >= Z.x0 && x <= Z.x1 && z >= Z.z0 && z <= Z.z1);
+  const mv = k => { const [x, y, z] = k.split(',').map(Number), Z = zoneOf(x, z); return Z ? keyOf(x + ox, y + Z.dy, z + oz) : null; };
+  const remap = (m, lostOk) => { const e = [...m.entries()]; m.clear(); e.forEach(([k, v]) => { const n = mv(k); if (n) m.set(n, v); }); };
+  [crops, chests, doorState, furnaces, entMeta].forEach(m => remap(m));
+  if (d.cauldrons) d.cauldrons = d.cauldrons.map(([k, v]) => [mv(k), v]).filter(a => a[0]);
+  // 5) player + bed spawn follow their zone, otherwise go to the new spawn
+  const mvP = p => { if (!p) return null; const Z = zoneOf(Math.floor(p.x), Math.floor(p.z)); return Z ? {x: p.x + ox, y: p.y + Z.dy, z: p.z + oz} : null; };
+  const np = mvP(P); if (np) Object.assign(P, np); else { spawnPlayer(); }
+  if (spawnPt) spawnPt = mvP(spawnPt) || null;
+  dirtyAll = true;
+  const info = {zones: zones.length, blocks: moved, ms: Math.round(performance.now() - t0), oldW: oW, newW: W, ox, oz, dys: zones.map(z => z.dy)};
+  console.log('[migrate]', info);
+  return info;
+}
+(function () {
+  const ap = applySave;
+  applySave = function (d) {
+    const r = ap.apply(this, arguments);
+    g9noMig = !!d.noMigrate;
+    if (current && isGold(current) && genVer !== GEN9 && !d.noMigrate && d.world) {
+      const backup = Object.assign({}, d, {backupOf: current.id, backedUp: Date.now()});
+      const id = current.id;
+      try { idbPut('worlds', 'backup_' + id, backup).catch(() => {}); } catch (_) {}
+      try { localStorage.setItem('glen_backup_meta_' + id, JSON.stringify({at: Date.now(), from: d.v || 1})); } catch (_) {}
+      const info = g9Migrate(d);
+      rebuild();
+      (d.cauldrons || []).forEach(([k, v]) => { const c = cauldrons.get(k); if (c) { Object.assign(c, v); c.water.visible = c.full; } });
+      migrNote = info;
+      // save the migrated world as soon as play starts so it never runs twice
+      const w = setInterval(() => { if (started) { clearInterval(w); saveWorld(true); showMigrNote(id, info); } }, 300);
+    }
+    return r;
+  };
+})();
+function showMigrNote(id, info) {
+  const el = document.createElement('div'); el.id = 'migrNote';
+  el.style.cssText = 'position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:60;max-width:min(560px,90vw);background:rgba(20,28,22,.94);color:#f3ead2;border:2px solid #d9b45a;border-radius:14px;padding:16px 20px;font:15px/1.4 system-ui,sans-serif;box-shadow:0 8px 30px #0008;text-align:left';
+  el.innerHTML = '<b style="font-size:18px;color:#ffd77a">&#9733; Your Gold world moved to the new Highlands</b><br>The land around you is brand new (bigger map, glens, lochs, mountains and deep caverns). Your inventory, armour and ' + info.blocks + ' placed blocks in ' + info.zones + ' build area' + (info.zones === 1 ? '' : 's') + ' came with you, settled onto the new ground. A copy of the old world was kept safe.<div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap"><button id="migrOk" style="padding:8px 16px;border-radius:9px;border:0;background:#d9b45a;font-weight:700">Explore (A)</button><button id="migrUndo" style="padding:8px 14px;border-radius:9px;border:1px solid #d9b45a;background:transparent;color:#f3ead2">Restore old world</button></div>';
+  document.body.appendChild(el);
+  const close = () => { el.remove(); clearInterval(pt); };
+  $('migrOk').onclick = close;
+  $('migrUndo').onclick = async () => { const b = await idbGet('worlds', 'backup_' + id); if (!b) { toast('Backup not found'); return; }
+    started = false; b.noMigrate = true; b.updated = Date.now(); await idbPut('worlds', id, b); try { localStorage.removeItem('glen_w_' + id); } catch (_) {} location.reload(); };
+  let pressed = true; const pt = setInterval(() => { const g = (navigator.getGamepads ? [...navigator.getGamepads()] : []).find(p => p); const a = g && g.buttons[0] && g.buttons[0].pressed; if (a && !pressed) close(); pressed = !!a; }, 100);
+  setTimeout(() => { if (el.isConnected) el.style.opacity = '.9'; }, 30000);
+}
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
