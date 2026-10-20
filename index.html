@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b4-world -->
+<!-- glencraft-build: b5-world -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -1019,17 +1019,27 @@ const crackTex = [];
 (function () {
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const lines = [];
-  for (let i = 0; i < 36; i++) {
-    let cx = 64 + (rnd() - .5) * 50, cy = 64 + (rnd() - .5) * 50; const seg = [];
-    for (let j = 0; j < 4; j++) { const nx = cx + (rnd() - .5) * 46, ny = cy + (rnd() - .5) * 46; seg.push([cx, cy, nx, ny]); cx = nx; cy = ny; }
+  // GLX-B5: 512px procedural cracks that branch out from the centre, drawn with a dark core and a pale chipped edge, smoothly filtered
+  const S = 512;
+  for (let i = 0; i < 40; i++) {
+    let cx = S / 2 + (rnd() - .5) * S * 0.25, cy = S / 2 + (rnd() - .5) * S * 0.25; const seg = [];
+    let ang = rnd() * Math.PI * 2;
+    for (let j = 0; j < 7; j++) { ang += (rnd() - .5) * 1.1; const len = S * (0.04 + rnd() * 0.07); const nx = cx + Math.cos(ang) * len, ny = cy + Math.sin(ang) * len; seg.push([cx, cy, nx, ny, 1 - j / 8]); cx = nx; cy = ny; }
     lines.push(seg);
   }
   for (let s = 0; s < 8; s++) {
-    const c = document.createElement('canvas'); c.width = c.height = 128;
-    const g = c.getContext('2d'); g.strokeStyle = 'rgba(12,9,6,.9)'; g.lineWidth = 2.4; g.lineCap = 'square';
-    const n = Math.round((s + 1) / 8 * lines.length);
-    for (let i = 0; i < n; i++) { g.beginPath(); for (const [a, b, x2, y2] of lines[i]) { g.moveTo(a, b); g.lineTo(x2, y2); } g.stroke(); }
-    crackTex.push(new THREE.CanvasTexture(c));
+    const c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'); g.lineCap = 'round'; g.lineJoin = 'round';
+    const n = Math.round((s + 1) / 8 * lines.length), reach = 3 + Math.round(s / 7 * 4);
+    for (const pass of [0, 1]) for (let i = 0; i < n; i++) {
+      lines[i].slice(0, reach).forEach(([a, b, x2, y2, w]) => {
+        g.strokeStyle = pass ? 'rgba(10,8,6,.92)' : 'rgba(255,255,255,.18)';
+        g.lineWidth = (pass ? 3.2 : 6.5) * (0.5 + w * (0.6 + s * 0.08));
+        g.beginPath(); g.moveTo(a + (pass ? 0 : 1.5), b + (pass ? 0 : 1.5)); g.lineTo(x2 + (pass ? 0 : 1.5), y2 + (pass ? 0 : 1.5)); g.stroke();
+      });
+    }
+    const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.anisotropy = 4;
+    crackTex.push(t);
   }
 })();
 const crackMat = new THREE.MeshBasicMaterial({map: crackTex[0], transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2});
@@ -1155,6 +1165,33 @@ const torchStickMat = new THREE.MeshLambertMaterial({color: 0x5b3d22});
 const torchFlameMat = new THREE.MeshBasicMaterial({color: 0xffb040, transparent: true, opacity: 0.95});
 const torchCoreMat = new THREE.MeshBasicMaterial({color: 0xfff2a0});
 const latchMat = new THREE.MeshLambertMaterial({color: 0xc9a04a});
+// GLX-B5: torch to match the reference: tapered wooden shaft, two dark iron bands, glowing ember head, animated flame + glow sprites
+const TORCH_ICON = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAbSElEQVR42u2dWbCtx1Xff6u7v2HP+wz33EG60tVoTZZlY4NNcCRBbAykiB0iQ4VKIClCEipU4CFVeYos8pLwQhWppGKohIKESixVilRCiAkUsowxxrEtWaMt6c7DuWfe8/6G7l55ONcUlQqPET5n7//L97Ifztf9+9b6r9V9uoUFkYLwMw+1SKYO37AADHzNqbsC99+lpGWkyoL8g1+tUV2UYcEszJs+jWArg29YGp0E6xydZk4xyLlwkDBtOUazVD/zz1IWSGZhvv5Ld6bMCkdROsrC4ZOcZsgwRQN/LePa5YSJWrZfT/Urn06WABwjCShNbUCSYMeGauRglFAUGWGW4/ebyG5Kt3IkK5YvfT3T5593izA2C/GS+hN35rikRZMuw9STYLEiiDMkJuKtpZoLo4OS9kpF4uErv52pahARXQJw1JXZjKp2pI0GjSSStFpoXUEACNQEEEM5EHYuKydvj6Q3lf/5yylQLgE4yl//0zg25wkhCt6l4ITcrYA11Frj6zmpejCO+Rzq7cA0jdxvIrtXnEIlcGyjwPH3AJfudHiX4p1DrMEmbaJvI7ZPDG2i5viQEE2Oy5qoaRC3G+zOUqSy/NrTmT79tFkCcFTlkxQjGRot01kFHjwZ6jtMJuCrhKAGDQkxdBF6JK7FRHPG3tLC8XA3U1SWABxFrU4yAoIrBQkBkRbN7Da8B/UOfBMbEvCgKnga1DHFzxIOdh3lvuHyi4ZnP5UsAThq+f9nyRi6FAqI3PqC1SAmobplAsOtcfCS4NUgPkU1QXBU25brpTAphcuTRD99/PoDxzsC7PWahJnQypU0BV8ZQlVS1hNEBSTgrBDUQEiw2gZpEGqhCgaSFDdO6DcdkysCNxJ99im7rAKOimoVWiqEQsCAS2DuC8x8hMm6SCjBgsSAmADGAQW1RNLcQt5k7i0mn0ATBlcD6UMJ34obywjwbRz+f5qEbp7QzYWYWEQNZAmus0K0LdTk5M0uJhFMnmMdiAlEE0iSBibpU+kJytgnzrqkLiNmjpVmos8+nSrIEoBvh4lW5P+eDH2KlLrdJ88sXoVaDbUzkCakroFzGdY2UNdmbtaI+Qli8xxk90L2LoLej69WcDFHfQOXtFl1jtVgOZhZ0mbGq08fCz9wpCnW5593vPZczst/EvmVr84FVJ8iJWv1WV+zTIIlaaZonWBtC5+ewslJMrMCdh3Md3Cy/RCzOqDiCLJP0C2CvIRmL4LZxyWGJD+g093m1Ikxc42kZz3nEg8PF/Lkk37pAf4iJv/ZZy3n+m16P5VQT2t+1jo1W4ZyNyW/NfnNnkEroYoW08qxro0NEGyk9vfyxIN/hUfvNrzyNkwqOChuI+h97E4naGXppJE4i9T+Tcpsm3IguKYw2bLs3KXc/Waqzz/PUYbg6JrAxx5zuEabFe947Ic99cwzdYbktLB5XYmJJXqDBotzFl+AzT1q2yTmCR46+4PcdZuh3Yt85KPCeABvvS3sTHKUR8jSB2k2hKK4xv60ohynjKIjywKrmbJ70UA/4e4OwBKAd1zX/0h46BM5LuSsnq157AciBMdoW5n/YU08r9TecsvdYTk0eFbv5N5T38ejdyWstpWNBwzJQ9DbhbwH33wdVtbuxYfI5t5l6mCBNtNpj1YyJy2U4ZYhaURqNRx8NVFVKyJhCcA7lvufdmStJnVtCWSknYwz77XEyuLf9DzwXYHt9cDuJWW8JQTrEGdQV0JYY73bYP2Ecu77BXMPaARpQV+hdxMaXklTw+ZujmpO0JoYVhiVI2QcybsBGw2zIlK2DV//X7mqzo7i0vHRjADVPRmVdcymFmsMWjschllw9DYaxKCYZiRfMdx4q+bgCiTNJpPRHbz/vid44mOW3ppi+kACUoEKuFOQ92G2KaydhH5rlf39S4yKLSQL+CpnPC7xBOo1ZaNUGCrFir1lqJcA/P8v+542/HGeMZxZ/MDgU0sIhnpmqQqLrxKyVkL3pEFroRjXTLYD5bzLmf7384H3nKPZ1sO+/5tgJyBdEAVmcOIOaJ+AXg9abxgQZT1/D6NQEPwBQZR5ZZCBUDSF2Vy4eePILhcfvQggzyi/9WsRVxjGe4rrC1YFr5ZQJXhv8aXFqCPrpwQpSJNAurrGbav3srEKN99SbCrUJZyaQ5JCOYW5h/ZJOHk7vP77sLNd0u+sMZwUbE8rnPXUlWJ8ZDKFdWA4gl7bLAF45xoXqnvbgeZMMf2afvTkzYR6rEwmBg0psbbUVYIvMlChezYjyz9Ar3kHXkFFuHIFsgzau7C7DZMZhAgn96Cu4aUXlbJKGU0mbM5eRtwuoe5gmTOe1LS7UBwIOYatl4V//akmMFkC8E4ozAJ7u1B+o8LeUzGOwmgPojjyRgtrHBoMMThC7YjFI6x0nuTu2/rc3Ff2doWtHeVkX6hmsHMAhYfMwbmzcGJF+UYq7Aw2uXbwApq8BSXYLKI2oRVS0nmknAhVmTGvc9J6rqrTo2YEjyYAKyNlBAw3I/XunOGsRoOj2U/prVc0eg2iOqpZm3LUIas/RDc5S7sBOzPhxi5M5jVJkrB7IDgOJx+FnS0l1MJgNmbz4POIvYT4Ckwk1oKqpXQtMIa88hS+DQmYcrisAt4pTWNG7QXnhcEwIM6RWpjvlVg3B9sF06YqG1BvMJ9WFLNI9LC/F8hVaPVTfIS9iWetZXnkdmE0h5deF+44Bdv75xkWr9Jw+4gWRC3BCBJbSClgU6Z4rBPyxogT5wZLD/BOVAFPP22Yb6UEp0xnSjNGqhgJIsRCmWwHogeTdgnVOsF3aOoGmSZcuaJsb4JE4WQHZh6iVGwN5lzYXGN/rGwNxgRtMZpeQcw+RdwHP8FJido5pg6oKJ4El1no1CSh5iep+DtLAN4hD9APpFctUyKhMoRS8aq4FCZ7MB0LecsRwyni/C5azTOcbAvBg4mWooLdPSCF4GEyG/DG9RxiRMMIH5vkaZc4NyTOYrTGh4K0qiiqkhA8WSfiYsnZB0bcOB1EnonLCPBO6JlnlH/zDyNTDuv2wQDIArYOhETBVAy3AlUjEmPEz+aMtebtK9DKlKJShtOa4VhotlJMbJK5HvPyKqkxGDVY62k3T6HDFGMFMQ4JhioaUmeROmLmgeykyN//lZojrKNZBgKkTtFKGVdKcJGsCIQQieIh7DM+6OHMiDJsEydQ+w8iKEW9RfSeNFvBlqtoVJxrUAM+TMldRgxTZsUeiVkh6j7ipkg0EA1BBDIhVTgorP78BxvyS1+aLwF4J2VDSeFzvFWcUaiUIEooA84EfD0n6B5JvEEiTcp4gWl9BksLjZ5AjU0axACGCDGlkawDA6xRQpzi/YTMniFqQWSMZhHD7HDEYkSMIR0r0nfLCPCOl4EHnt0iUs0tNCAUQqggEqlmkYACJZXcwHGORFIqvY7THqm5GxEIpdJuQqvhMAbUrFGUCUlSYW0NWuNQgu0S4+0Iu+AOiDZgq5KiMmSNSDXQJQB/ATaQSgOkgvOKFwVRpFK8RBJKfDkk5Ks4TRCx+HiDKFMknMJJBzTgg5I5YbULva6wN+uxdzAhS5s0G6cJfkKtEZGSigkYQ5DDVrAzhxNv22YJwDut1x4S+OMI44g0Dt13lh3u1ZU6IhacjZT1NsGsIDEBySDURM6Du5t++zRZYljrwgMPQGcFtrcgcS32BmP67RPkaeRgVFOX24g4QqiwscKLkoiiU8hXj3QEOJr0ru5bOmuGyiqzGeQuYnPF3urEZU3FOXCuRLlE4JtEnaB4lH2sBPLMkKWwtg6n74CNh+G+98OjjwprqxkuScnzNtY5lMMNoIpHqMnqQ+hsGmgm8yUA77ROryp0oN0G6sikUsLk0Ajm7UMQXBpJMyFNPakbYdjH2SbW5oeTmCqrXWg0IQrYPjTvg9MPwAMPZRiTUtXQyk/SSFYJpiShhhLqW6CNk1KeecEvAXin9dSnapqTwy1YLXeYj30MpDYSvJLYiLEB0YA1BqwjyVNaWYd2ukKj4TA2kmYwnsLoAKoDQCFbh1YX+r0G6ytrnFi9l8Q6CDtonONF0SpS1oFsWHDEdSQBEBGllkDmlGRNyBvgRAm1QohURSQExZgAUpFmhtZKg6xt6HW7tFoZXgN583AVcHsHNl+Gra/A5AZMJ+CcpdNpU9UH7JevYNIx0VQ4qQ7/iEEt/+rtI394xNGtYfPWnDymDD0kY8UDpY24MlJLRDUSa38IgUlBwbiAdRXWFLjMI0lKtwlJDntDxU2E8RswHFfs7m8yntxkc/g1pHEFzIzgPaEIxEJRnXMMdHRLmJ/+tKdyikuFOgpuTfG1MqsVUytaRowGogZsWqEqWJORNYRGx6GJUit6xzmIFm5sC/tD2BtMubm9w3hywPbgbeb2qzRbe7QakdRFXKmkecWnN48FAEc2AoiI6qd/2lNPU5KWUpfgGsp4GsnySKIRb6HRVUx7gqsjrSRlfX2DrLceUTG5Q8QSdw+i2R3ux0s3tyjrsXEUTKrLTPkT0vQiaTbHukCsIlVLGdVB5HgcG3O0/zt4NPMkIeKdwUWBDFITmfhInkN7LfG25WItucvM6Zg2VqWyYvu5Na0O1GXgy6+NzLWt1yjidROy83gzCsXM2DrZwrWuEsOI/lqkuy5c+XokpAE/mHFMdLQBmJQ1q0TwEUkjLSOUXSBCvprQWWts7hVn/uuLrz/zo594cnX1nnsastYxUez5eG3zpCul/dYb9crLV3nfwMu79g7GD3xoo/nrH7777FtMJyVlMcTvT0lahhgrfKnYOJdfv1wsAfi20EORfFMJUzAVxNySRUMrtTT7GUknrWfD1e/47veezVYy6jiJye6U2dD+F2578o3Z5Zc/sbe2/pViev4jN69d//DlUXni+rj4kQ9//CM/N//aa2mjXc4ZETi4WkDpcVnA7c05RjrqB0REqkRptWCkgg9CljiSTlK3NkISYnnqrjsfOtt00bT7Kt2mKd6+qa+8ufczvfL+n3nkx37qn3c+/8WT922sXP1sHf8wt67RseJo3u7t6UmgGnhwkXonkMTIznAu/+L1agnAt1sVMw+HKSAhkLYcjb4mzZXIPNZpztjZuUGMMgyi85Zem9Xtl776xX958fxrN959duOB8xcvZDvXrl2ISkVqWp/5jc+860c/9oM/V04T0aiae1UG1zzZ9w3hCywB+HbRwxjqdWG4pdg8UKsl73laJ2uavZR+v47XX51zd5foRfXGVA4miI9oM3B6f2v39MFKj+/43icxjS/dP9rbZXBjl729PeHE7Ybpgc8b/UjhlBVVnn/92B0Vd6QBkE8+U+nzTw8IrYz9QZs0r+mtQNqx9FYDY5OlJ/M+LUscJoTVDslakwfWE2n0etpZ6WqcjKS/scKTP/FjxJdejOPtfVOeOJVwz7sb2cWLA5ppxOWRMZGHTuoSgG83CJ58xgNef/XnM6Ia8k4g60UkE7/75op75J4+95zDkYgrIifbp1mtBZvkMr65JYVYXvraRcLWBd51Z9PkYSZ6adCApM1tDx1wcAmYgyHKM0dz4+exBuBP1WPOsJHQbkVkzddlHZPVU+XelT1NJoEYJW6+dcOOXZcJjlanT1XXTGdjtnb2kfEBD/z1D+JuXiH93S/2yFtnefSBa0wSg/SVcVpwDHVsTgmTT/7SnDydE894Njbq5La7J3znT543ee+mTKe88dU3eHlvxiCxPPjB95F0+0xsG83abKx2WTvZo/z8l7FrG+R/++/FOmiLwX5GkhicjRSvhuMIwPE6JzB7eEqWOWzH0l0N9JjZBx+u5qNNHjt9hoc7J9m6tkMikfu/61HCH7/MaH/McDanHSpm50dU3/gsG099VJMP/OURr121nLzdkySe/dX6OAJwrFytKsIffaHN+qPZoJh2+u85Nf/f//aX//H1b770T8/ccUfg1Dk7PJhzam2d+3/4BzCxJhnuUwz2SKKn2r8W569/w7Ra7Rezez76jzDtA1IzZLQ/44nHhsfx8gh37HC+coen23HTN2vfh/Dmqxfi3bnl6xev85UXr7DS7XOyuc2r568xwXCi5XCJQF3xl558t67+1Q8Rt8bjgke28o1CoCz4b/9+JE++91jeGeCO2fyrfulsdfWDNIo4U1j1FyaTKPWcc52uvh5LssmIup5zc7THzXnkgoWimDIejfi93/4d8/HbMu5bTx+7/Xvlfk5/4jWKeTiO7v/YmcA/1VPETiBq1lBA3t8RfzYLfLOuqROofcFsNOLx9zT4wIbn/WdX+ZGPfDfD0Zj9yVxuP9uJ5Wzefe1zn32UM9SD0VA4xjp2AIiIFsObdbezVvOl82sfPmuye7KSZHpgTTlju6447wO/9+WrtCjx0x269R6Pn2vxT37+e7jv449pZ6Ops9n4BICGuLw06qjp1HtOzadfvtTh1d9bydsbX/79qzs3vnM9PXPHYK5XxrW8NYev3Qi8dF0RK7z49kXedyLl3vetQynSSo2I121gNrmwVS0BOHpRIG6+pOPWbffvuerdw9/+71/YzxvpmbmPeiYxcjZRVmzNVlBuquV3r4/Z3oMf+sp1qlbCy2/ciK/4e197P4zv+OR3LyPAUdTpx2R68aJeP3fpRjvv5JnLnBa15w0vFKMChjOavmYwKzkXKn7h4++mce2a/tYXLsmvfn1r+JEf/5svG2PjcSuVj3Uf4M/xOPGvff8H/51E83e3DybhYFxYUSFGoeUMD55a4UMrGY8/2EbqKn71i2+Y/7xZvPA/zt/8PhGJHOMr4xYFAAU2Tm+cfLHb7p1aX1uhmWViYuC7Trd47x0nePXaAYP9QSiqwvzOa5d+8f2nmr/43OvXhsCxB8AecwD08ccfd5cvXx4/cPc5c/q20x9d63eCWMysqhh5oawC4+mMC8MifmNnZC8fDH/jpRu7f3RrbOIxH58FuToWJBozyBOYzceMJ3OsREyS8/Y0sH1zyMFoKNujEWjYWYDIuDgAbGxsKKBZ6r4ZQ8lKu2mqsqauCibjMWUZ2Boc4JyYqLGsQnj9VtiPiwCAWRTSO7n1rWaDVrtBs9Egy1JMYhiXBaWvtNHIZTYvqzzPd7+VPpYAHAM9++xzEeBd71q/stJrzVxiTFUXmiYOl1jmRUmzketoMsUYe3NlZWXGET36fQnA/7MpdPgc1dnEGMossThnaDQyYlQQIU0SNcawstLdv3z5csECaRFSgCrIbJaORcyNlW6Tu+7YiI08ZX21h6oyms7od9tYkZQF00J4gE89jTz33HOh1UguZonj7EZf11aaWGtY6bXJEqO190yL8tUFKY8Xpg8AIBsbTxlXuBOzUP/4eFbdOZxWlF7NhWu7uLRJkma6czAys3l5ZT6fPXcr/y+EB5AFgTysr69/uNc/8fkka0RBTauZcmNzk067Q1VWur+/J3VdTa2VO8fj8d6iGMGFKQOLwpOlhtQosZ7jq4pGljKfjxkM9vC+ImqIqrowTSBYjE6gAtLrtW7OZtPNGCen8izXrZ0t0aDEeHimtIigUUeTPKkXCYBF8AD6+OOPu1deeWX3nrvO3N7rtD9U12W4baNv0kQwAom1IcRoROQXquHw+VsfRlxGgGOiJ4AXQN77yP3fLMqK+bTEWbi5s0ev02FvMJay9iDy9T8TNZYp4LhFAhFcq5kjqhzsD0mTFGOMWmNsCHEOvHHrt3FRBmUhTODnvpXvJO4aEURUmo2MMydXWe13FQGEnf39/QMWTAsRAW6tCHL7bScuDEclnWYuk8mMEJRuN1V96wouSbaBhVoHWKgyEKAughMEjYcHgZ49s06SOIqiJkuSwa3JX5aBx1Xzuo5RDXWIiHXs7I24ePWm3loxeuvWl78QO4EWMgJcvLrlDsZT5lWgqCIXr21zffvg8AIR1d5TTz1lFyn8L0wE2N7eFoAXX7/4VJqkJM7FTrdltrf30RjdZDL1Cn/jD/7gDz4L/Idb4+KXABwTvfDCCwBMxuONxCYkiWM6mzKflWRZymw+pyqrNARdW7QqYFFSgALkWf41l7goYiT4wxbwaDhWjSoiZmqM3vyzv18EyQK9pwLtH/ro91zN06w/HE/04GAklfd+fzBxw8HwP05ms7+1SOF/4aoAoCmIXV1t0243aTdyNrf3mKYVzWbzxmQ2Y9G0UFUAa2tz0NF0VjIaz9SHwGQ6pyxLyrp+mwXUwngAVRX29saoXu+0GqhG9SFijKHRyHHGuEUEYGFeWm5tD242M9NvN4khsrm1T7uZ37pMxOgyAiyAuu0mtfckVkgTR6/XxhghsJhaOADSNCEqpIml08oREcSYhSr9FrkKwFlLjIfXC/oYCSEaARpJ8sai9QAWEoBmnuC9UitUlUdUMSI08rxcxAiwcCnAh0jeyEAizgoiQlXXVAu2G3hxAahDcMYAlixNiBrxPuC9X1YBx10/+7GPZUa0X3uPsyJZ6kicQxWqqnJLAI5xGwDQ/TWyEGMvxIhGL772CkiIviiKYnsRTeBCdQJ/8zc/O0rT5EqeJkSI86Kkrr0YY4rx2OwsAVgAlUVlyioynVdYZxERDOrpsZBauLy3ezAkSRPQiK/qGEKwWZpcYjgcsGA7ghcsAsitXACqiq8jIUTEgLVOWVAtXApoNhJ1Vmg1E4JC8Mq8KFgCcPx94GHOc4lzRgi1J8aIdZaqrpcAHHc999wnDYA15oK1BuucGmux1iKLFwgXD4DXXjvcGu6M7IkIdQg4a0AVH8MSgMXxguKKosbXNc4aZkVJVS5TwOI4AVFNUoc1FjFQVRVBdQnAsdfnDh+D4VRjHUicpao83gdU4xKABZl/htOZCzFQVBVFWSECVpYm8NjriVvP9W77fJolGCM0EoczwnG8EXQJwJ9DQKfduGGMIXUJ1lryNMUs6JbwhTSBdV0+qD4Qo8cYEGMwzgy/VSMsATjmci5bt9bgrMUYUUUgypsAjz++eOOxcC8cxXivgrEOEUNU0D8dh8eXKeDY9wFAsryBdQmKoaz+bBPohSUAx10+RHWJo9HIQAwhKiHGRZ3/BYwAah3iCFFRVUIIfGulcAHnf/EAmBV+2Gi1aDWbzKvDcyCcsbqYDmABAcjy7I2yqCkLz3Q2RwFj7bIPsDBVQO1N5UvGszmqYI0lxHh+CcCCqNHMrDHCrChRMSBQeb+19ADHXZ/7VhUQtmaTgoiIMQYRIfqYLSPAMdfrtw6Mtom5FIC11VXpdbvUdVBrZbQEYEFUTGZZnqZaVbXuHQy0rCqJNd/yAAu3Krgw7ve5555TgOFofuPG1q4MxlOr0ds8S/3cz/eWACxAAQDIjb3p5t54+hmDfqDVyP4wxMF/Go/Hb3K4ErhwW4P+D12H6JKjc5IUAAAAAElFTkSuQmCC';
+let torchMats = null;
+function torchSpriteTex(kind) {
+  const c = document.createElement('canvas'); c.width = 64; c.height = kind === 'flame' ? 128 : 64; const g = c.getContext('2d');
+  if (kind === 'flame') {
+    const gr = g.createRadialGradient(32, 92, 2, 32, 80, 60); gr.addColorStop(0, 'rgba(255,250,210,1)'); gr.addColorStop(0.25, 'rgba(255,200,80,.95)'); gr.addColorStop(0.55, 'rgba(255,110,20,.7)'); gr.addColorStop(1, 'rgba(255,60,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(32, 2); g.bezierCurveTo(52, 40, 62, 70, 54, 100); g.bezierCurveTo(48, 122, 16, 122, 10, 100); g.bezierCurveTo(2, 70, 12, 40, 32, 2); g.fill();
+  } else { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,190,90,.9)'); gr.addColorStop(0.4, 'rgba(255,130,40,.35)'); gr.addColorStop(1, 'rgba(255,90,10,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); }
+  return new THREE.CanvasTexture(c);
+}
+function makeTorchModel() {
+  if (!torchMats) torchMats = {
+    wood: new THREE.MeshPhongMaterial({color: 0x6b4c30, shininess: 4, specular: 0x000000}),
+    iron: new THREE.MeshPhongMaterial({color: 0x2a2826, shininess: 40, specular: 0x555555}),
+    ember: new THREE.MeshPhongMaterial({color: 0x3a1a0c, emissive: 0xff5a14, emissiveIntensity: 0.9, shininess: 10}),
+    flameT: torchSpriteTex('flame'), glowT: torchSpriteTex('glow')};
+  const M = torchMats, g = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.032, 0.52, 8), M.wood); shaft.position.y = 0.26; g.add(shaft);
+  for (const by of [0.3, 0.4]) { const band = new THREE.Mesh(new THREE.CylinderGeometry(0.056, 0.056, 0.035, 8), M.iron); band.position.y = by; g.add(band); }
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.068, 0.056, 0.13, 8), M.ember); head.position.y = 0.58; g.add(head);
+  const flame = new THREE.Sprite(new THREE.SpriteMaterial({map: M.flameT, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true}));
+  flame.scale.set(0.34, 0.5, 1); flame.position.y = 0.82; g.add(flame);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({map: M.glowT, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.6}));
+  glow.scale.set(0.75, 0.75, 1); glow.position.y = 0.68; g.add(glow);
+  return {g, flame, glow, head};
+}
 function buildEnt(type, x, y, z) {
   const k = keyOf(x, y, z), meta = entMeta.get(k) || {face: 0};
   const g = new THREE.Group(); g.position.set(x + .5, y, z + .5); g.rotation.y = meta.face * Math.PI / 2;
@@ -1173,10 +1210,17 @@ function buildEnt(type, x, y, z) {
     panel.position.set(0.5, 1, 0); pivot.add(panel);
     o.pivot = pivot; o.open = doorOpenAt(x, y, z) ? 1 : 0;
   } else if (type === T.TORCH) {
-    const st = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.5, 0.09), torchStickMat); st.position.y = 0.25; g.add(st);
-    const fl = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.22, 6), torchFlameMat); fl.position.y = 0.6; g.add(fl);
-    const core = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.07), torchCoreMat); core.position.y = 0.54; g.add(core);
-    o.flame = fl;
+    const tm = makeTorchModel(); const piv = new THREE.Group(); piv.add(tm.g); g.add(piv);
+    const w = meta.wall;
+    g.rotation.y = 0;
+    if (w) {
+      // wall torch: foot against the wall face it was placed on, leaning ~25 degrees out into the room
+      const tilt = 0.44;
+      g.position.set(x + .5 + w[0] * 0.36, y + 0.12, z + .5 + w[1] * 0.36);
+      if (w[0]) piv.rotation.z = w[0] * tilt; else piv.rotation.x = -w[1] * tilt;
+    }
+    o.flame = tm.flame; o.glow = tm.glow; o.head = tm.head;
+    g.updateMatrixWorld(true); const hp = new THREE.Vector3(); tm.flame.getWorldPosition(hp); o.lp = [hp.x, hp.y, hp.z];
   }
   scene.add(g);
   return o;
@@ -1203,8 +1247,10 @@ function updateEntities(dt) {
       o.open += (target - o.open) * Math.min(1, dt * 10);
       o.pivot.rotation.y = o.open * Math.PI / 2;
     } else if (o.type === T.TORCH) {
-      const s = 0.85 + Math.sin(now * 17 + o.x) * 0.1 + Math.random() * 0.08;
-      o.flame.scale.set(1, s, 1);
+      const s = 0.85 + Math.sin(now * 17 + o.x) * 0.1 + Math.sin(now * 29 + o.z) * 0.05 + Math.random() * 0.05;
+      o.flame.scale.set(0.34 * (0.95 + Math.sin(now * 11 + o.z) * 0.05), 0.5 * s, 1);
+      o.flame.material.rotation = Math.sin(now * 3 + o.x) * 0.08;
+      if (o.glow) { o.glow.material.opacity = 0.55 + Math.sin(now * 9 + o.x) * 0.1; const gs = 0.75 + Math.sin(now * 7 + o.z) * 0.05; o.glow.scale.set(gs, gs, 1); }
     }
   }
   updateLights(dt);
@@ -2914,7 +2960,7 @@ function buildIcons() {
   const bucket = water => drawIcon(g => { g.strokeStyle = '#3b2a1a'; g.lineWidth = 3; g.beginPath(); g.arc(0, -8, 18, Math.PI, 0); g.stroke(); g.fillStyle = '#8a6239'; g.beginPath(); g.moveTo(-18, -8); g.lineTo(18, -8); g.lineTo(13, 24); g.lineTo(-13, 24); g.closePath(); g.fill(); g.fillStyle = '#5b3d22'; g.fillRect(-17, 0, 34, 4); g.fillRect(-15, 14, 30, 4); if (water) { g.fillStyle = '#4a8fd0'; g.beginPath(); g.ellipse(0, -8, 17, 5, 0, 0, 7); g.fill(); } });
   ICONS[IT.BUCKET] = bucket(false); ICONS[IT.WATERB] = bucket(true);
   ICONS[T.CAULDRON] = drawIcon(g => { g.fillStyle = '#ff8a20'; for (const x of [-10, 0, 10]) { g.beginPath(); g.moveTo(x - 5, 28); g.lineTo(x, 12); g.lineTo(x + 5, 28); g.fill(); } g.fillStyle = '#2a2c30'; g.beginPath(); g.moveTo(-22, -14); g.lineTo(22, -14); g.quadraticCurveTo(22, 16, 0, 16); g.quadraticCurveTo(-22, 16, -22, -14); g.fill(); g.fillStyle = '#5a5e64'; g.fillRect(-24, -18, 48, 6); });
-  ICONS[T.TORCH] = drawIcon(g => { g.rotate(0.3); g.fillStyle = '#5b3d22'; g.fillRect(-4, -8, 8, 34); g.fillStyle = '#ff9a2a'; g.beginPath(); g.ellipse(0, -16, 9, 13, 0, 0, 7); g.fill(); g.fillStyle = '#ffe680'; g.beginPath(); g.ellipse(0, -13, 4, 7, 0, 0, 7); g.fill(); });
+  ICONS[T.TORCH] = TORCH_ICON; void drawIcon(g => { g.rotate(0.3); g.fillStyle = '#5b3d22'; g.fillRect(-4, -8, 8, 34); g.fillStyle = '#ff9a2a'; g.beginPath(); g.ellipse(0, -16, 9, 13, 0, 0, 7); g.fill(); g.fillStyle = '#ffe680'; g.beginPath(); g.ellipse(0, -13, 4, 7, 0, 0, 7); g.fill(); });
   ICONS[IT.COAL] = lump('#1c1d20', '#4a4d55'); ICONS[IT.CHARCOAL] = lump('#2e241c', '#5a4a3a');
   ICONS[IT.RAWIRON] = lump('#c7a084', '#ecd3bf', '#8a5a3c'); ICONS[IT.RAWCOPPER] = lump('#c8673a', '#f3a070', '#3fa58c'); ICONS[IT.RAWGOLD] = lump('#e0a92a', '#ffe27a', '#a8741a');
   ICONS[IT.DIAMOND] = drawIcon(g => {
@@ -3260,7 +3306,15 @@ function breakAt(x, y, z) {
   // the big 2 x 2 bed comes away as one piece
   if (b === T.BED) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) if (getB(x + dx, y, z + dz) === T.BED) setB(x + dx, y, z + dz, T.AIR);
   const up = getB(x, y + 1, z);
-  if (isPlant(up) || up === T.TORCH) popBlock(x, y + 1, z);
+  if (isPlant(up) || (up === T.TORCH && !(entMeta.get(keyOf(x, y + 1, z)) || {}).wall)) popBlock(x, y + 1, z);
+  // wall torches fall off when the block they hang on goes
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const tx = x + dx, tz = z + dz;
+    if (getB(tx, y, tz) !== T.TORCH) continue;
+    const w = (entMeta.get(keyOf(tx, y, tz)) || {}).wall;
+    if (w && w[0] === -dx && w[1] === -dz) { popBlock(tx, y, tz); entMeta.delete(keyOf(tx, y, tz)); }
+  }
+  if (b === T.TORCH) entMeta.delete(keyOf(x, y, z));
   sfx('break', 1, matOf(b));
   rebuild();
 }
@@ -3351,13 +3405,17 @@ function useItem() {
   if (b !== T.AIR && b !== T.WATER && b !== T.TALLGRASS) return;
   if (y >= H - 1) return;
   const below = getB(x, y - 1, z);
-  if ((isPlant(id) || id === T.TORCH) && !solid(x, y - 1, z)) { toast(NAMES[id] + ' needs solid ground below'); return; }
+  let torchWall = null;
+  if (id === T.TORCH && r.hit && r.hit[1] === y && (r.hit[0] !== x || r.hit[2] !== z) && solid(r.hit[0], r.hit[1], r.hit[2])) torchWall = [r.hit[0] - x, r.hit[2] - z];
+  if (id === T.TORCH && !torchWall && r.hit && r.hit[1] > y) { toast('Torches go on the ground or on a wall'); return; }
+  if ((isPlant(id) || (id === T.TORCH && !torchWall)) && !solid(x, y - 1, z)) { toast(NAMES[id] + ' needs solid ground below'); return; }
   if (isPlant(id) && below !== T.GRASS && below !== T.DIRT && below !== T.FARM && below !== T.HEATHER) { toast('Flowers grow on grass or dirt'); return; }
   if (id === T.DOOR && getB(x, y + 1, z) !== T.AIR) { toast('A door needs two blocks of space'); return; }
   const blocksBody = !isPlant(id) && id !== T.TORCH;
   const hh = id === T.DOOR ? 2 : 1;
   if (blocksBody && x < P.x + R && x + 1 > P.x - R && y < P.y + HEIGHT && y + hh > P.y && z < P.z + R && z + 1 > P.z - R) return;
   if (id === T.CHEST || id === T.DOOR || id === T.TV) entMeta.set(keyOf(x, y, z), {face: faceFromYaw()});
+  if (id === T.TORCH) { if (torchWall) entMeta.set(keyOf(x, y, z), {face: 0, wall: torchWall}); else entMeta.delete(keyOf(x, y, z)); }
   if (id === T.BED) {
     const ax = Math.sin(-P.yaw) > 0 ? 1 : -1, az = -Math.cos(P.yaw) > 0 ? 1 : -1;
     const cells = [[x, z], [x + ax, z], [x, z + az], [x + ax, z + az]];
@@ -4047,7 +4105,7 @@ function updateLights(dt) {
   if (torchPick <= 0) {
     torchPick = 0.3;
     const list = [...entObjs.values()].filter(o => o.type === T.TORCH)
-      .map(o => [Math.hypot(o.x + .5 - P.x, o.y - P.y, o.z + .5 - P.z), o.x + .5, o.y + .75, o.z + .5, 0]).filter(e => e[0] < 26);
+      .map(o => o.lp ? [Math.hypot(o.lp[0] - P.x, o.lp[1] - P.y, o.lp[2] - P.z), o.lp[0], o.lp[1] + 0.1, o.lp[2], 0] : [Math.hypot(o.x + .5 - P.x, o.y - P.y, o.z + .5 - P.z), o.x + .5, o.y + .75, o.z + .5, 0]).filter(e => e[0] < 26);
     for (let i = 0; i < redOres.length; i += 3) {
       const x = redOres[i], y = redOres[i + 1], z = redOres[i + 2], d = Math.hypot(x + .5 - P.x, y - P.y, z + .5 - P.z);
       if (d < 12) list.push([d + 4, x + .5, y + .5, z + .5, 1]);
@@ -5569,6 +5627,13 @@ function menuCamera(now) {
   camera.position.set(x, menuCamY + Math.sin(t * 0.7) * 1.5, z);
   camera.lookAt(cx, ty, cz);
 }
+
+// held / dropped torch uses the same 3D model as the placed one
+const makeItemMeshBase = makeItemMesh;
+makeItemMesh = function (id) {
+  if (id === T.TORCH) { const g = new THREE.Group(), t = makeTorchModel(); t.g.scale.setScalar(0.42); t.g.position.y = -0.1; g.add(t.g); g.userData.torch = t; return g; }
+  return makeItemMeshBase(id);
+};
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
