@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b8g-tv-remote -->
+<!-- glencraft-build: b8h-tv-playlist -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.6 \u2022 b8';
+const GAME_VERSION = 'v0.8.7 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -5181,8 +5181,8 @@ tvInput.addEventListener('change', () => {
 let tvPendingKey = null;
 (function tvPickUI() {
   const d = document.createElement('div'); d.id = 'tvPick'; d.className = 'hidden'; d.dataset.testid = 'tv-picker';
-  d.innerHTML = '<div class="panel"><h2>Choose video</h2><div class="sub">Pick what this TV plays. A file from your device stays on this phone until you pick another (controller: A = default, X = file, B = cancel).</div>' +
-    '<button class="btn" id="tvDefault" data-testid="tv-default-button">Default clip</button> <button class="btn" id="tvChoose" data-testid="tv-choose-button">Choose file from device</button> <button class="btn small" id="tvCancel" data-testid="tv-cancel-button">Cancel</button></div>';
+  d.innerHTML = '<div class="panel"><h2>Choose video</h2><div class="sub">Pick what this TV plays. A file from your device stays on this phone until you pick another (controller: A = shuffle playlist, X = file, B = cancel).</div>' +
+    '<button class="btn" id="tvDefault" data-testid="tv-default-button">Shuffle playlist</button> <button class="btn" id="tvChoose" data-testid="tv-choose-button">Choose file from device</button> <button class="btn small" id="tvCancel" data-testid="tv-cancel-button">Cancel</button></div>';
   document.body.appendChild(d);
   d.querySelector('#tvChoose').addEventListener('click', () => tvInput.click());
   d.querySelector('#tvDefault').addEventListener('click', () => tvChoose(tvPendingKey, 'default'));
@@ -7159,7 +7159,7 @@ function tvChoose(k, which) {
   if (!k) return;
   const m = entMeta.get(k) || {}; m.video = which; entMeta.set(k, m);
   if (which === 'file' && !tvFileURL) { toast('No file chosen yet'); return; }
-  tvOnKey = k; tvSetSrc(tvSrcFor(k)); tvPlay(); toast(which === 'file' ? 'Playing your video' : 'Playing the default clip');
+  tvOnKey = k; tvSetSrc(tvSrcFor(k)); tvPlay(); toast(which === 'file' ? 'Playing your video' : 'Playing the shuffle playlist');
   tvPendingKey = null;
 }
 function tvOpenPicker(k) {
@@ -7213,6 +7213,42 @@ ICONS[140] = drawIcon(g => {
     return g;
   };
 })();
+
+
+/* ===================== GLX-B8h: shuffled TV playlist (shuffle-bag, lazy, one clip loaded at a time) ===================== */
+var TV_CLIPS = ['tv/clip1.mp4', 'tv/clip2.mp4', 'tv/clip3.mp4', 'tv/clip4.mp4', 'tv/clip5.mp4'];
+var tvBag = [], tvLastClip = -1, tvClipLog = [];
+function tvNextClip() {
+  if (!tvBag.length) {
+    tvBag = TV_CLIPS.map((_, i) => i);
+    for (let i = tvBag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [tvBag[i], tvBag[j]] = [tvBag[j], tvBag[i]]; }
+    // never the same clip twice in a row across a cycle boundary
+    if (tvBag.length > 1 && tvBag[0] === tvLastClip) { const j = 1 + Math.floor(Math.random() * (tvBag.length - 1)); [tvBag[0], tvBag[j]] = [tvBag[j], tvBag[0]]; }
+  }
+  tvLastClip = tvBag.shift(); tvClipLog.push(tvLastClip);
+  return tvLastClip;
+}
+function tvIsClip(src) { return TV_CLIPS.includes(src); }
+tvSrcFor = function (k) {
+  const m = entMeta.get(k) || {};
+  if (m.video === 'file' && tvFileURL) return tvFileURL;
+  return tvIsClip(tvCurSrc) ? tvCurSrc : TV_CLIPS[tvNextClip()];   // keep the playing clip when re-tuning; else next from the bag
+};
+tvSetSrc = function (src) {
+  const clip = tvIsClip(src);
+  tvVideo.loop = !clip;                         // playlist advances on 'ended'; a phone file loops
+  if (tvCurSrc === src) return;
+  const kindChanged = tvIsClip(tvCurSrc) !== clip;
+  tvCurSrc = src; tvVideo.preload = 'metadata'; tvVideo.src = src;
+  if (kindChanged) { tvMode = 'full'; tvSlowN = 0; tvStats.mode = 'full'; tvAvg.length = 0; }   // keep the watchdog verdict between playlist clips
+  if (clip) tvName = 'Glencraft TV - clip ' + (TV_CLIPS.indexOf(src) + 1);
+};
+tvVideo.addEventListener('ended', () => {
+  if (!tvIsClip(tvCurSrc)) return;
+  tvSetSrc(TV_CLIPS[tvNextClip()]);
+  if (tvOnKey && !tvFarPaused) tvStart();
+});
+
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
