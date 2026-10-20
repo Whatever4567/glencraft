@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b8b-animals -->
+<!-- glencraft-build: b8c-tv -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.1 \u2022 b8';
+const GAME_VERSION = 'v0.8.2 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -5201,7 +5201,7 @@ function buildTV(x, y, z) {
   return {g, type: T.TV, x, y, z, screen, led};
 }
 function tvPlay() {
-  if (!tvTex) { tvTex = new THREE.VideoTexture(tvVideo); tvOnMat.map = tvTex; tvOnMat.needsUpdate = true; }
+  tvEnsureTex();
   initAudio();
   try {
     if (AC && !tvSrcNode) {
@@ -5210,7 +5210,7 @@ function tvPlay() {
       tvGain = AC.createGain(); tvSrcNode.connect(tvPanner); tvPanner.connect(tvGain); tvGain.connect(AC.destination);
     }
   } catch (_) {}
-  const p = tvVideo.play(); if (p && p.catch) p.catch(() => toast('Tap the TV again to start it'));
+  tvStart();
   sfx('pop', .4);
 }
 function useTV(x, y, z) {
@@ -5230,6 +5230,7 @@ function updateTV(dt) {
     o.led.material.color.setHex(on ? 0x30ff40 : 0x330000);
   }
   if (tvOnKey && !entObjs.has(tvOnKey)) { tvOnKey = null; tvVideo.pause(); }
+  tvTick(dt);
   if (!tvOnKey || !AC || !tvPanner) return;
   const [x, y, z] = tvOnKey.split(',').map(Number), t = AC.currentTime;
   const set = (p, v) => { if (p && p.setTargetAtTime) p.setTargetAtTime(v, t, 0.05); };
@@ -5237,7 +5238,7 @@ function updateTV(dt) {
   const L = AC.listener, d = lookDir(), cp = camera.position;
   if (L.positionX) { set(L.positionX, cp.x); set(L.positionY, cp.y); set(L.positionZ, cp.z); set(L.forwardX, d[0]); set(L.forwardY, d[1]); set(L.forwardZ, d[2]); set(L.upX, 0); set(L.upY, 1); set(L.upZ, 0); }
   else { L.setPosition(cp.x, cp.y, cp.z); L.setOrientation(d[0], d[1], d[2], 0, 1, 0); }
-  if (tvGain) tvGain.gain.value = clamp(SET.vol, 0, 1);
+  if (tvGain) { const v = clamp(Number(SET.sfx), 0, 1); tvGain.gain.value = Number.isFinite(v) ? v : 0.8; }
 }
 
 /* ===================== CREATIVE MODE =====================
@@ -5639,12 +5640,12 @@ function frame(now) {
   last = now;
   const g = readPad();
   let moved = 0;
-  for (let s = 0; s < TS; s++) moved = step(dt, g);
+  for (let s = 0; s < TS; s++) { try { moved = step(dt, g); } catch (e) { loopErr(e); } }
   updateCamFx(paused ? 0 : dt, moved);
   if (stumbleT > 0) stumbleT -= dt;
   updateHand(paused ? 0 : dt, moved > 0);
   updateHud();
-  render();
+  try { render(); } catch (e) { loopErr(e); }
   requestAnimationFrame(frame);
 }
 function step(dt, g) {
@@ -6799,6 +6800,54 @@ function convertLegacyBeds() {
     return o;
   };
 })();
+
+
+/* ===================== GLX-B8b: TV crash fix =====================
+   Root cause: updateTV set tvGain.gain.value = clamp(SET.vol) but SET.vol never existed -> NaN -> Chrome throws
+   "AudioParam value is non-finite" inside the game loop every frame, so the loop died the moment a video played.
+   Also hardened: the TV picture is a small canvas (max 480x270, ~20 fps, no mipmaps) instead of a VideoTexture
+   uploading full-resolution phone video every frame; play() rejections fall back to muted playback; errors show
+   a no-signal card; the video pauses when you walk away; the game loop survives any single exception. */
+var tvCanvas = null, tvCtx = null, tvDrawT = 0, tvFarPaused = false, loopErrN = 0;
+function loopErr(e) { if (loopErrN++ < 5) console.error('Glencraft loop error (recovered):', e); }
+function tvNoSignal(msg) {
+  if (!tvCtx) return;
+  const w = tvCanvas.width, h = tvCanvas.height;
+  for (let y = 0; y < h; y += 4) for (let x = 0; x < w; x += 4) { const v = Math.random() * 90 | 0; tvCtx.fillStyle = `rgb(${v},${v},${v})`; tvCtx.fillRect(x, y, 4, 4); }
+  tvCtx.fillStyle = 'rgba(0,0,0,.6)'; tvCtx.fillRect(0, h / 2 - 22, w, 44); tvCtx.fillStyle = '#fff'; tvCtx.font = 'bold 22px sans-serif'; tvCtx.textAlign = 'center'; tvCtx.fillText(msg || 'NO SIGNAL', w / 2, h / 2 + 8);
+  if (tvTex) tvTex.needsUpdate = true;
+}
+function tvEnsureTex() {
+  if (tvTex) return;
+  tvCanvas = document.createElement('canvas'); tvCanvas.width = 480; tvCanvas.height = 270; tvCtx = tvCanvas.getContext('2d');
+  tvTex = new THREE.CanvasTexture(tvCanvas); tvTex.generateMipmaps = false; tvTex.minFilter = THREE.LinearFilter; tvTex.magFilter = THREE.LinearFilter;
+  tvOnMat.map = tvTex; tvOnMat.needsUpdate = true; tvNoSignal('LOADING...');
+}
+function tvStart() {
+  tvFarPaused = false;
+  let p; try { p = tvVideo.play(); } catch (e) { p = null; tvNoSignal('CANNOT PLAY'); }
+  if (p && p.catch) p.catch(() => {
+    tvVideo.muted = true;                                   // autoplay policy: retry muted, sound on next tap
+    const q = tvVideo.play(); if (q && q.catch) q.catch(() => { tvNoSignal('TAP TO PLAY'); toast('Tap the TV again to start it'); });
+    toast('TV playing muted: tap it again for sound');
+  });
+}
+tvVideo.addEventListener('error', () => { tvEnsureTex(); tvNoSignal("CAN'T PLAY THIS VIDEO"); toast("That video can't play on this device: crouch + use the TV to pick another"); });
+function tvTick(dt) {
+  if (!tvOnKey || !tvTex) return;
+  const [x, y, z] = tvOnKey.split(',').map(Number), d = Math.hypot(x + .5 - P.x, y - P.y, z + .5 - P.z);
+  if (d > 32) { if (!tvVideo.paused) { tvVideo.pause(); tvFarPaused = true; } return; }
+  if (tvFarPaused && d < 28) { tvFarPaused = false; tvStart(); }
+  tvDrawT -= dt; if (tvDrawT > 0) return; tvDrawT = 0.05;   // ~20 fps picture updates
+  if (tvVideo.readyState < 2 || !tvVideo.videoWidth) return;
+  const vw = tvVideo.videoWidth, vh = tvVideo.videoHeight, cw = tvCanvas.width, ch = tvCanvas.height, k = Math.min(cw / vw, ch / vh), w = vw * k, h = vh * k;
+  try { tvCtx.fillStyle = '#000'; tvCtx.fillRect(0, 0, cw, ch); tvCtx.drawImage(tvVideo, (cw - w) / 2, (ch - h) / 2, w, h); tvTex.needsUpdate = true; } catch (e) { tvNoSignal('NO SIGNAL'); }
+}
+(function hookTvUnmute() {
+  const base = useTV;
+  useTV = function (x, y, z) { if (tvOnKey === keyOf(x, y, z) && tvVideo.muted && !tvVideo.paused) { tvVideo.muted = false; toast('TV sound on'); return; } return base.apply(this, arguments); };
+})();
+canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); try { tvVideo.pause(); } catch (_) {} toast('Graphics were reset by the device: reloading the view...'); });
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
