@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b8h-tv-playlist -->
+<!-- glencraft-build: b9a-controller-ui -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.7 \u2022 b8';
+const GAME_VERSION = 'v0.8.8 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -2992,7 +2992,7 @@ function toggleCamera() {
 function updateWorldModel(dt, moved) {
   hand.visible = camMode === 0;
   if (!worldModel) return;
-  worldModel.visible = camMode === 1;
+  worldModel.visible = camMode !== 0;
   if (!camMode) return;
   const u = worldModel.userData;
   worldModel.position.set(P.x, P.y, P.z);
@@ -3903,8 +3903,9 @@ function readPad() {
   if (fwd && !padFwd) { if (nowT - padFwdT < 400) sprintPad = true; }
   if (!fwd && padFwd) padFwdT = nowT;
   padFwd = fwd;
-  if (E[2]) eat();
-  if (E[3]) openMenu(true);
+  if (E[2]) { openMenu(true); setTab('craft'); }                // X: crafting
+  if (E[3]) { openMenu(true); setTab('char'); }                 // Y: inventory + character / armour
+  if (E[11]) pickBlock();                                         // RS click: pick block
   if (E[4] || E[14]) cycleSel(-1);
   if (E[8]) toggleCamera();
   if (E[5] || E[15]) cycleSel(1);
@@ -4751,7 +4752,7 @@ function updateHand(dt, moving) {
 function updateWorldModel(dt, moved) {
   hand.visible = camMode === 0;
   if (!worldModel) return;
-  worldModel.visible = camMode === 1;
+  worldModel.visible = camMode !== 0;
   if (!camMode) return;
   const u = worldModel.userData;
   worldModel.position.set(P.x, P.y, P.z);
@@ -5119,21 +5120,22 @@ function menuPadInput(E, axes, gp) {
   let dir = E[12] ? 'u' : E[13] ? 'd' : E[14] ? 'l' : E[15] ? 'r' : '';
   const st = Math.abs(axes.lx) > 0.6 || Math.abs(axes.ly) > 0.6 ? (Math.abs(axes.lx) > Math.abs(axes.ly) ? (axes.lx > 0 ? 'r' : 'l') : (axes.ly > 0 ? 'd' : 'u')) : '';
   const now = performance.now();
-  if (!dir && st) { if (st !== navDir) { dir = st; navRep = now + 380; } else if (now > navRep) { dir = st; navRep = now + 120; } }
+  if (!dir && st) { if (st !== navDir) { dir = st; navRep = now + 300; } else if (now > navRep) { dir = st; navRep = now + 90; } }
   navDir = st;
   if (dir) navMove(dir === 'l' ? -1 : dir === 'r' ? 1 : 0, dir === 'u' ? -1 : dir === 'd' ? 1 : 0);
   scrollActive(axes.ry);
   if (invTab === 'char' && !$('craft').classList.contains('hidden')) charYaw += axes.rx * 0.08;
   const inCraft = !$('craft').classList.contains('hidden');
-  if (inCraft && (E[6] || E[7])) { const i = TABS.indexOf(invTab === 'cbag' ? 'bag' : invTab); setTab(TABS[(i + (E[7] ? 1 : TABS.length - 1)) % TABS.length]); }
-  if (inCraft && invTab === 'craft' && (E[4] || E[5])) { const i = CATS.findIndex(c => c[0] === craftCat); setCat(CATS[(i + (E[5] ? 1 : CATS.length - 1)) % CATS.length][0]); }
+  if (inCraft && (E[4] || E[5])) { const i = TABS.indexOf(invTab === 'cbag' ? 'bag' : invTab); setTab(TABS[(i + (E[5] ? 1 : TABS.length - 1)) % TABS.length]); sfx('pop', .2); }
+  if (inCraft && invTab === 'craft' && (E[6] || E[7])) { const i = CATS.findIndex(c => c[0] === craftCat); setCat(CATS[(i + (E[7] ? 1 : CATS.length - 1)) % CATS.length][0]); }
   if (E[0]) {
     if (inCraft && invTab === 'craft' && navEl && navEl.classList.contains('rec2')) craft(navEl._ri);
     else if (navEl) navEl.click();
     navRefresh();
   }
   if (E[2] && navEl && navEl._half) { navEl._half(); navRefresh(); }
-  if (E[1] || E[3]) { if (cursor && E[1]) { returnCursor(); const p = activePanel(); if (p === $('chestUI')) renderChest(); else if (p === $('furnUI')) renderFurnace(); else if (invTab === 'bag') renderBag(); } else openMenu(false); }
+  if (E[3]) quickMove();
+  if (E[1]) { if (cursor) { returnCursor(); const p = activePanel(); if (p === $('chestUI')) renderChest(); else if (p === $('furnUI')) renderFurnace(); else if (invTab === 'bag') renderBag(); } else openMenu(false); }
 }
 
 // ---------- full screen button (hides itself once you are full screen) ----------
@@ -7249,6 +7251,116 @@ tvVideo.addEventListener('ended', () => {
   if (tvOnKey && !tvFarPaused) tvStart();
 });
 
+
+/* ===================== GLX-B9a: menus never overlap slots (any aspect ratio) ===================== */
+(function menuLayoutFix() {
+  const st = document.createElement('style'); st.id = 'glxLayout';
+  st.textContent = `
+#craft .panel>*{flex-shrink:0}
+#craft .panel>#invPane,#craft .panel>#craftTab,#craft .panel>#charTab{flex:1 1 0;min-height:0}
+#invPane{overflow-y:auto;overscroll-behavior:contain;flex-direction:column}
+#invPane>*{flex-shrink:0}
+#recipes>*{flex-shrink:0}
+#recGrid{min-height:56px}
+body.inmenu #hotbar,body.inmenu #touch,body.inmenu #crosshair,body.inmenu #fsBtn{visibility:hidden}
+#furnUI .panel,#chestUI .panel{display:flex;flex-direction:column}
+#furnUI .panel>*,#chestUI .panel>*{flex-shrink:0}
+#fSmelt,#chestGrid,#chestInv{overflow-y:auto;min-height:48px;overscroll-behavior:contain}
+.catname{position:static!important}
+@media (orientation:landscape) and (max-height:600px){
+  #craft .panel,#furnUI .panel,#chestUI .panel{height:calc(100vh - 12px - var(--sat,0px) - var(--sab,0px));max-height:none;max-width:min(96vw,980px);padding:10px 14px}
+  #craft .tabs{margin-bottom:6px} #craft .tabs button{padding:5px 8px;font-size:13px;line-height:1.15}
+  #recipes{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,36%);grid-template-rows:auto auto minmax(0,1fr);column-gap:12px;overflow:hidden}
+  #recipes>:first-child{grid-column:1;grid-row:1;overflow-x:auto;flex-wrap:nowrap}
+  #catName{grid-column:1;grid-row:2;margin:4px 0}
+  #recGrid{grid-column:1;grid-row:3;overflow-y:auto;min-height:0;align-content:start}
+  #recDetail{grid-column:2;grid-row:1/span 3;overflow-y:auto;min-height:0;margin:0;align-self:stretch}
+  #invPane[style*="flex"]{display:grid!important;grid-template-columns:auto;align-content:start}
+  #furnUI .panel{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;column-gap:16px}
+  #furnUI .panel>h2{grid-column:1/span 2;margin:0 0 6px}
+  #furnUI .furn{grid-column:1;grid-row:2/span 2;align-self:start}
+  #furnUI .panel>.sub{grid-column:2;grid-row:2;margin-top:0}
+  #fSmelt{grid-column:2;grid-row:3;min-height:0;margin:0;align-content:start}
+  #furnUI #furnClose{grid-column:1;grid-row:4;justify-self:start}
+  #chestGrid,#chestInv{max-height:none;flex:1 1 0}
+}`;
+  document.head.appendChild(st);
+  const tick = () => { document.body.classList.toggle('inmenu', !!menuOpen); requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+})();
+
+
+/* ===================== GLX-B9b: X crafting / Y inventory, quick-move, pick block, nav polish, front camera ===================== */
+function quickMove() {
+  const p = activePanel();
+  const isIn = (el, id) => el && $(id) && $(id).contains(el);
+  if (p === $('furnUI')) {
+    if (!cursor && navEl && isIn(navEl, 'fSmelt')) navEl.click();           // pick it up first (Minecraft shift-click)
+    else if (!cursor && navEl && (navEl === $('fOut') || navEl === $('fIn') || navEl === $('fFuel'))) { navEl.click(); if (cursor) { returnCursor(); renderFurnace(); sfx('pop', .3); } return; }
+    if (!cursor) return;
+    const id = cursor.id, smelt = SMELT[id] !== undefined, fuel = !!FUEL[id];
+    const order = smelt ? ['fIn', 'fFuel'] : ['fFuel', 'fIn'];
+    for (const sid of order) { if ((sid === 'fIn' && !smelt) || (sid === 'fFuel' && !fuel)) continue; $(sid).click(); navEl = $(sid); break; }
+    if (cursor && !smelt && !fuel) { toast(NAMES[id] + " can't go in a furnace"); }
+    navRefresh(); return;
+  }
+  if (p === $('chestUI')) { if (navEl) navEl.click(); navRefresh(); return; }
+  if (invTab === 'craft') { if (RECIPES[craftFocus]) craft(craftFocus); navRefresh(); return; }
+  if (invTab === 'bag') {
+    if (!cursor && navEl && isIn(navEl, 'invHot')) {           // hotbar -> back to the bag
+      const i = [...$('invHot').children].indexOf(navEl); if (i >= 0 && MODE.hotbar) { MODE.hotbar[i] = 0; renderBag(); renderHotbar(); sfx('pop', .3); }
+      navRefresh(); return;
+    }
+    if (!cursor && navEl && isIn(navEl, 'invGrid')) navEl.click();
+    if (!cursor) return;
+    ensureHotbar();
+    let i = MODE.hotbar.indexOf(cursor.id); if (i < 0) i = MODE.hotbar.findIndex(x => !x || cnt(x) <= 0); if (i < 0) i = MODE.hotbar.length - 1;
+    const b = $('invHot').children[i]; if (b) { b.click(); navEl = $('invHot').children[i] || navEl; }
+    navRefresh(); return;
+  }
+  if (invTab === 'char') { if (navEl) navEl.click(); navRefresh(); }
+}
+function pickBlock() {
+  if (menuOpen || paused || dead || !started) return;
+  const r = raycast(8); if (!r) return;
+  let id = getB(...r.hit);
+  if (id === T.DOORTOP) id = T.DOOR;
+  if (id === T.FARM) id = T.DIRT;
+  if (!id || !NAMES[id]) return;
+  if (MODE.infinite) inv[id] = Math.max(cnt(id), 64);
+  if (cnt(id) <= 0) { toast("You don't have any " + NAMES[id]); return; }
+  ensureHotbar();
+  if (MODE.hotbar) {
+    let i = MODE.hotbar.indexOf(id);
+    if (i < 0) { i = MODE.hotbar.indexOf(selId); if (i < 0) i = 0; MODE.hotbar[i] = id; }
+  }
+  selId = id; renderHotbar(); sfx('pop', .3); toast(NAMES[id]);
+}
+toggleCamera = function () {
+  camMode = (camMode + 1) % 3;
+  if (!worldModel) { worldModel = buildPlayerModel(false); scene.add(worldModel); dressModel(worldModel); heldId = -1; }
+  toast(['First person view', 'Third person (behind)', 'Third person (front)'][camMode]);
+};
+placeCamera = function (bx, by, rx, rz) {
+  const ex = P.x + rx * bx, ey = P.y + EYE + by + landDip, ez = P.z + rz * bx;
+  if (camMode === 0) { camera.position.set(ex, ey, ez); return; }
+  const d = lookDir(), sgn = camMode === 2 ? -1 : 1; let dist = 4;
+  for (let t = 0.3; t < 4; t += 0.1) if (solid(Math.floor(ex - sgn * d[0] * t), Math.floor(ey - sgn * d[1] * t), Math.floor(ez - sgn * d[2] * t))) { dist = Math.max(0.4, t - 0.3); break; }
+  camera.position.set(ex - sgn * d[0] * dist, ey - sgn * d[1] * dist + 0.2, ez - sgn * d[2] * dist);
+  if (camMode === 2) camera.lookAt(ex, ey, ez);
+};
+(function navPolish() {
+  const st = document.createElement('style');
+  st.textContent = `.navf{outline:3px solid #ffd34d!important;outline-offset:2px;box-shadow:0 0 0 5px rgba(255,211,77,.25),0 0 18px rgba(255,211,77,.45)!important;transform:scale(1.06);z-index:2;position:relative;transition:transform .08s ease-out,box-shadow .12s}
+.gslot.navf,.fslot.navf,.rec2.navf{border-color:#ffd34d!important}
+.tabs button.navf{transform:none}`;
+  document.head.appendChild(st);
+  // update on-screen controller hints
+  const fix = () => document.querySelectorAll('.padhint,#craft .panel > div:last-child span, #craft .panel > div:last-child .sub').forEach(e => {
+    if (/LB \/ RB|LT \/ RT/.test(e.textContent)) e.innerHTML = 'LB / RB: tabs &nbsp; LT / RT: category &nbsp; D-pad: choose &nbsp; A: pick up / craft &nbsp; X: half &nbsp; Y: quick-move &nbsp; B: back';
+  });
+  setInterval(fix, 1000);
+})();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
