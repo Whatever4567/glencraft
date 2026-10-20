@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b9c-highlands -->
+<!-- glencraft-build: c1-survival -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.0 \u2022 b8';
+const GAME_VERSION = 'v0.9.1 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -3411,7 +3411,7 @@ function popBlock(x, y, z) {
   const b = getB(x, y, z);
   setB(x, y, z, T.AIR);
   crops.delete(x + ',' + y + ',' + z);
-  const weak = underTooled(b) && b !== T.STONE && b !== T.COBBLE;
+  const weak = underTooled(b);
   if (!MODE.infinite && !weak) for (const [id, n] of dropsFor(b)) dropItem(id, n, x + .5, y + .4, z + .5, (Math.random() - .5) * 1.4, 2.6, (Math.random() - .5) * 1.4, 0.25);
   burst(x + .5, y + .5, z + .5, isPlant(b) ? 0x6aa040 : b === T.GLASS ? 0xdcecf5 : blockColor(b), isPlant(b) ? 6 : 14);
   return b;
@@ -3578,13 +3578,8 @@ function updateInteraction(dt) {
   if (swingNow) { sfx('dig', .8, matOf(b)); shake(0.05, 0.006); }
   const key = x + ',' + y + ',' + z;
   if (mine.key !== key) { mine.key = key; mine.t = 0; }
-  let speed = 1;
-  if (NEEDS_PICK.has(b)) speed = bestTool('pick').spd * 0.7;
-  if (underTooled(b)) { speed = 0.16; if (warnT <= 0 && REQ[b] > 1) { toast('Too weak a pickaxe: this will take ages and drop nothing'); warnT = 6; } }
-  if ((b === T.LEAVES || b === T.COBWEB) && cnt(IT.SHEARS)) speed = 8;
-  if (b === T.COBWEB && !cnt(IT.SHEARS)) speed = Math.max(speed, bestTool('sword').spd || 1);
-  if (AXE_ON.has(b)) speed = bestTool('axe').spd;
-  if (SHOVEL_ON.has(b)) speed = bestTool('shovel').spd;
+  let speed = mcMineRate(b);
+  if (underTooled(b) && warnT <= 0 && REQ[b] > 1) { toast('Too weak a pickaxe: this will take ages and drop nothing'); warnT = 6; }
   if (MODE.instantBreak) speed = 999;
   mine.t += dt * speed;
   const k = mine.t / HARD[b];
@@ -7586,7 +7581,7 @@ function generate() {
   const A = W * D / 1000;
   vein(T.COALORE, Math.round(A * 32), 14, H - 6, 3); vein(T.COPPERORE, Math.round(A * 16), 18, SEA + 10, 2);
   vein(T.IRONORE, Math.round(A * 20), 6, SEA + 4, 2); vein(T.GOLDORE, Math.round(A * 6), 3, 24, 2);
-  vein(T.REDORE, Math.round(A * 6), 2, 18, 2); vein(T.DIAMONDORE, Math.round(A * 3), 2, 14, 1);
+  vein(T.REDORE, Math.round(A * 6), 2, 18, 2); vein(T.DIAMONDORE, Math.round(A * 9), 2, 16, 1.4);   // GLX-C1: ~MC rate (was A*3)
   // underground lochs: some cavern floors flood (only at depth)
   for (let n = 0; n < Math.round(A * 0.6); n++) {
     const x0 = Math.floor(rnd() * W), z0 = Math.floor(rnd() * D);
@@ -7818,6 +7813,149 @@ function showMigrNote(id, info) {
   let pressed = true; const pt = setInterval(() => { const g = (navigator.getGamepads ? [...navigator.getGamepads()] : []).find(p => p); const a = g && g.buttons[0] && g.buttons[0].pressed; if (a && !pressed) close(); pressed = !!a; }, 100);
   setTimeout(() => { if (el.isConnected) el.style.opacity = '.9'; }, 30000);
 }
+
+/* ===================== GLX-C1: Minecraft-accurate survival (held-tool rules, break times, combat) ===================== */
+// tool stats come from the item in your hand (as in Minecraft), not the best one in your bag
+function heldToolId() { return TOOL[selId] && cnt(selId) > 0 ? selId : 0; }
+bestTool = function (kind) {
+  const id = heldToolId(), t = id && TOOL[id];
+  if (t && t[0] === kind) return {lvl: t[1], spd: t[2], dmg: t[3]};
+  return {lvl: 0, spd: 1, dmg: 1};
+};
+const heldShears = () => selId === IT.SHEARS && cnt(IT.SHEARS) > 0;
+// Minecraft Java hardness values (seconds base = hardness x 1.5 with the right tool, x 5 without)
+var MC_HARD = {[T.GRASS]: .6, [T.DIRT]: .5, [T.STONE]: 1.5, [T.HEATHER]: .6, [T.SAND]: .5, [T.PEAT]: .6, [T.LOG]: 2, [T.LEAVES]: .2, [T.PLANKS]: 2,
+  [T.COBBLE]: 2, [T.TABLE]: 2.5, [T.FURNACE]: 3.5, [T.FARM]: .6, [T.CAULDRON]: 2, [T.BED]: .2, [T.STONEBRICK]: 1.5, [T.MOSSYBRICK]: 1.5,
+  [T.WOOL]: .8, [T.WOOLPURPLE]: .8, [T.WOOLBLUE]: .8, [T.WOOLYELLOW]: .8, [T.WOOLORANGE]: .8, [T.COALORE]: 3, [T.IRONORE]: 3, [T.COPPERORE]: 3,
+  [T.GOLDORE]: 3, [T.DIAMONDORE]: 3, [T.REDORE]: 3, [T.GLASS]: .3, [T.CHEST]: 2.5, [T.DOOR]: 3, [T.DOORTOP]: 3, [T.IRONBLOCK]: 5, [T.GOLDBLOCK]: 3,
+  [T.COPPERBLOCK]: 3, [T.SANDSTONE]: .8, [T.BRICK]: 2, [T.MUD]: .5, [T.COBWEB]: 4, [T.TV]: 1, [T.DEEPSLATE]: 3, [T.BLOSSOM]: .2};
+// tier speed: wood 2, stone 4, iron 6, diamond 8, gold 12
+function toolTierSpeed(id) { const m = toolMat(id); return {wood: 2, stone: 4, iron: 6, diamond: 8, gold: 12}[m] || 1; }
+function rightToolKind(b) {
+  if (NEEDS_PICK.has(b) || b === T.MOSSYBRICK || b === T.CAULDRON) return 'pick';
+  if (AXE_ON.has(b)) return 'axe';
+  if (SHOVEL_ON.has(b)) return 'shovel';
+  if (b === T.LEAVES || b === T.BLOSSOM) return 'hoe';
+  return null;
+}
+function mcBreakSeconds(b) {
+  if (MODE.instantBreak) return 0;
+  const h = MC_HARD[b] != null ? MC_HARD[b] : (HARD[b] || 1) * 0.8;
+  if (h <= 0.06) return 0.05;   // plants, torches, crops: instant
+  const id = heldToolId(), t = id && TOOL[id], need = rightToolKind(b);
+  let speed = 1;
+  if (t && need && t[0] === need) speed = toolTierSpeed(id);
+  if (b === T.COBWEB) speed = heldShears() ? 15 : (t && t[0] === 'sword') ? 15 : 1;
+  if ((b === T.LEAVES || b === T.BLOSSOM) && heldShears()) speed = 15;
+  if ((b === T.LEAVES || b === T.BLOSSOM) && t && t[0] === 'sword') speed = 1.5;
+  if (b >= T.WOOL && b <= T.WOOL && heldShears()) speed = 5;
+  const harvest = !needsHarvestTool(b) || !underTooled(b);
+  // MC: damage per tick = speed / hardness / (30 or 100); ticks = ceil(1/that); seconds = ticks/20
+  const ticks = Math.ceil(1 / (speed / h / (harvest ? 30 : 100)));
+  return ticks / 20;
+}
+function needsHarvestTool(b) { return NEEDS_PICK.has(b) || b === T.MOSSYBRICK || b === T.CAULDRON || b === T.COBWEB; }
+function mcMineRate(b) { const s = mcBreakSeconds(b); return s <= 0 ? 999 : (HARD[b] || 1) / s; }
+underTooled = function (b) {
+  if (b === T.COBWEB) return false;
+  const need = (REQ[b] || 0) || ((NEEDS_PICK.has(b) || b === T.MOSSYBRICK || b === T.CAULDRON) ? 1 : 0);
+  return need > 0 && bestTool('pick').lvl < need;
+};
+// drops: shears-only blocks use the held shears; cobweb gives string-less web only with shears, else nothing
+(function () {
+  const df = dropsFor;
+  dropsFor = function (b) {
+    const r = Math.random();
+    if (b === T.LEAVES || b === T.BLOSSOM) return heldShears() ? [[b, 1]] : r < 0.05 ? [[IT.STICK, 1]] : [];
+    if (b === T.COBWEB) return heldShears() ? [[T.COBWEB, 1]] : [];
+    if (b === T.GLASS) return [];
+    return df.apply(this, arguments);
+  };
+})();
+// ---- combat ----
+// Java attack damage by tool [wood, stone, iron, gold, diamond] and attack speed (attacks per second)
+var MC_DMG = {sword: [4, 5, 6, 4, 7], axe: [7, 9, 9, 7, 9], pick: [2, 3, 4, 2, 5], shovel: [2.5, 3.5, 4.5, 2.5, 5.5], hoe: [1, 1, 1, 1, 1]};
+var MC_SPD = {sword: [1.6, 1.6, 1.6, 1.6, 1.6], axe: [0.8, 0.8, 0.9, 1.0, 1.0], pick: [1.2, 1.2, 1.2, 1.2, 1.2], shovel: [1, 1, 1, 1, 1], hoe: [1, 2, 3, 4, 4]};
+var MOB_HP = {sheep: 8, cow: 10, pig: 10, duck: 4, haggis: 6, zombie: 20, skeleton: 20, creeper: 20, spider: 16, treeman: 40, puffer: 6};
+function mcAttack() {
+  const id = heldToolId(), t = id && TOOL[id];
+  if (!t) return {dmg: 1, cd: 0.25, kind: null};
+  const i = {wood: 0, stone: 1, iron: 2, gold: 3, diamond: 4}[toolMat(id)] || 0;
+  return {dmg: MC_DMG[t[0]][i], cd: 1 / MC_SPD[t[0]][i], kind: t[0]};
+}
+var lastAttackAt = 0;
+(function () {
+  const sm = spawnMob;
+  spawnMob = function (kind) { const a = sm.apply(this, arguments); if (a && MOB_HP[kind]) { a.hp = a.maxHp = MOB_HP[kind]; } return a; };
+})();
+hitMob = function (a) {
+  if (a.kind === 'puffer') { if (!(a.fuse > 0)) { a.fuse = 1.8; sfx('hit'); toast('It is swelling up... RUN!'); } return; }
+  const now = performance.now() / 1000;
+  if (a.iframe && now < a.iframe) return;               // MC: 0.5 s of invulnerability after a hit
+  const at = mcAttack();
+  // charge: MC scales damage by 0.2 + 0.8 x charge^2 if you swing before the cooldown refills
+  const charge = Math.min(1, (now - lastAttackAt) / at.cd); lastAttackAt = now;
+  let dmg = at.dmg * (0.2 + 0.8 * charge * charge);
+  const crit = !P.onGround && P.vy < 0 && charge > 0.9;
+  if (crit) dmg *= 1.5;
+  if (a.kind === 'treeman' && at.kind !== 'sword' && at.kind !== 'axe' && warnT <= 0) { toast('Your fist barely dents the bark. Swords and axes are its weakness!'); warnT = 3; }
+  if (a.kind === 'treeman' && at.kind !== 'sword' && at.kind !== 'axe') dmg = Math.min(dmg, 1);
+  attackCd = at.cd * 0.98;
+  a.iframe = now + 0.5;
+  // MC knockback: ~0.4 blocks/tick away, a bit more when sprinting; small hop
+  const kx = a.g.position.x - P.x, kz = a.g.position.z - P.z, kl = Math.hypot(kx, kz) || 1;
+  const kb = (a.kind === 'treeman' ? 1.5 : 5.5) * (sprinting ? 1.6 : 1) * (0.4 + 0.6 * charge);
+  a.kbx = kx / kl * kb; a.kbz = kz / kl * kb;
+  if (a.onGround) { a.vy = a.kind === 'treeman' ? 2 : 4.2; a.onGround = false; }
+  sfx('hit'); if (crit) burst(a.g.position.x, a.g.position.y + (a.hitY || .8), a.g.position.z, 0xffffff, 8, .9);
+  if (a.kind === 'haggis') sfx3d('squeal', a.g.position, 13);
+  damageMob(a, Math.round(dmg * 10) / 10, true);
+};
+// the haggis only rages if it survives with more than half its health
+(function () {
+  const dm = damageMob;
+  damageMob = function (a, dmg, byPlayer) { if (a.kind === 'haggis' && byPlayer) { const hp0 = a.hp; dm.call(this, a, dmg, false); if (a.hp > 0 && hp0 - dmg >= 3) { a.angry = 6; a.flee = 0; toast('The haggis is raging!'); } return; } return dm.apply(this, arguments); };
+})();
+// GLX-C1: deep caverns show diamonds in their walls (small exposed clusters below y 16)
+function diamondBoost(seed) {
+  let h = seed | 1; const rnd = () => { h ^= h << 13; h ^= h >>> 17; h ^= h << 5; return (h >>> 0) / 4294967296; };
+  let n = 0;
+  for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) for (let y = 2; y < 16; y++) {
+    const i = idx(x, y, z), b = world[i]; if (b !== T.STONE && b !== T.DEEPSLATE) continue;
+    if (world[i + 1] !== T.AIR && world[i - 1] !== T.AIR && world[idx(x, y + 1, z)] !== T.AIR && world[idx(x + 1, y, z)] !== T.AIR && world[idx(x - 1, y, z)] !== T.AIR) continue;
+    if (rnd() < 0.0022) { for (let k = 0; k < 1 + Math.floor(rnd() * 4); k++) { const xx = x + Math.floor(rnd() * 2), yy = y + Math.floor(rnd() * 2) - 1, zz = z + Math.floor(rnd() * 2); const j = idx(xx, yy, zz); if (world[j] === T.STONE || world[j] === T.DEEPSLATE) { world[j] = T.DIAMONDORE; n++; } } }
+  }
+  return n;
+}
+(function () { const g = generate; generate = function () { const r = g.apply(this, arguments); diamondBoost(gSeed ^ 0x51ed); return r; }; })();
+function countDiamonds() {
+  let all = 0, exp = 0;
+  for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) for (let y = 1; y < H - 1; y++) { const i = idx(x, y, z); if (world[i] !== T.DIAMONDORE) continue; all++;
+    if (world[i + 1] === T.AIR || world[i - 1] === T.AIR || world[idx(x, y + 1, z)] === T.AIR || world[idx(x, y - 1, z)] === T.AIR || world[idx(x + 1, y, z)] === T.AIR || world[idx(x - 1, y, z)] === T.AIR) exp++; }
+  return {all, exposed: exp, perChunk16: +(all / (W * D / 256)).toFixed(1), exposedPerChunk16: +(exp / (W * D / 256)).toFixed(2)};
+}
+// ---- GLX-C1: Minecraft-style first-person held item pose + skin-toned hand ----
+armMat.color.setHex(0xd8956c);   // same skin tone as the player model
+(function () {
+  const base = setHeld;
+  setHeld = function (id) {
+    const before = heldId; base.apply(this, arguments); if (heldId === before) return;
+    const h = held.children[0];
+    held.position.set(0, 0.04, -0.24); held.rotation.set(0, 0, 0); held.scale.setScalar(1);
+    if (h && h.userData.tool) {
+      // MC: the tool rests diagonally, head up-left and leaning away from you, blade edge facing forward
+      const turn = h.children[0], tool = turn && turn.children[0], sword = tool && tool.userData.sword;
+      h.rotation.set(-0.62, 0.1, 0.62); h.position.set(0, 0, -0.02);
+      if (turn && !sword) turn.rotation.y = Math.PI / 2;   // pick/axe/hoe heads point forward into the world, not back at you
+    } else if (h) {
+      // small items and blocks sit on the cupped hand: fixed pose, no hand overlap
+      const box = new THREE.Box3().setFromObject(h), sz = box.getSize(new THREE.Vector3()), m = Math.max(sz.x, sz.y, sz.z) || 0.2;
+      const s = (h.userData.block ? 0.17 : 0.2) / m; h.scale.multiplyScalar(s);
+      h.position.set(0.0, 0.035, 0.02); h.rotation.set(h.userData.block ? 0.35 : 0.15, h.userData.block ? 0.7 : 0.4, 0);
+      if (gripHand) { gripHand.position.set(0.0, -0.02, -0.2); gripHand.rotation.set(Math.PI / 2 - 0.2, 0, 0.25); gripHand.scale.setScalar(1.0); }
+    }
+  };
+})();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
