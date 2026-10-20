@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b8f-tv-video -->
+<!-- glencraft-build: b8g-tv-remote -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.5 \u2022 b8';
+const GAME_VERSION = 'v0.8.6 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -3890,7 +3890,7 @@ function readPad() {
   }
   if (E[9]) { setPause(true); return none; }
   if (menuOpen) {
-    if (!$('tvPick').classList.contains('hidden')) { if (E[1]) { $('tvPick').classList.add('hidden'); menuOpen = false; } if (E[0]) tvInput.click(); return none; }
+    if (!$('tvPick').classList.contains('hidden')) { if (E[1]) { $('tvPick').classList.add('hidden'); menuOpen = false; } if (E[0]) tvChoose(tvPendingKey, 'default'); if (E[2]) tvInput.click(); return none; }
     menuPadInput(E, axes, gp);
     return none;
   }
@@ -5165,7 +5165,7 @@ async function tvLoadSaved() {
   try {
     const db = await idb();
     const blob = await new Promise(res => { const q = db.transaction('files').objectStore('files').get('tv'); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
-    if (blob) { tvVideo.src = URL.createObjectURL(blob); tvHasVideo = true; }
+    if (blob) { tvFileURL = URL.createObjectURL(blob); }
   } catch (_) {}
 }
 tvLoadSaved();
@@ -5173,17 +5173,19 @@ async function tvSave(file) { try { const db = await idb(); db.transaction('file
 const tvInput = document.createElement('input'); tvInput.type = 'file'; tvInput.accept = 'video/*'; tvInput.style.display = 'none'; tvInput.dataset.testid = 'tv-file-input'; document.body.appendChild(tvInput);
 tvInput.addEventListener('change', () => {
   const f = tvInput.files && tvInput.files[0]; if (!f) return;
-  tvVideo.src = URL.createObjectURL(f); tvHasVideo = true; tvSave(f);
-  toast('Video loaded onto the TV'); $('tvPick').classList.add('hidden');
-  if (tvPendingKey) { tvOnKey = tvPendingKey; tvPlay(); }
+  if (tvFileURL) URL.revokeObjectURL(tvFileURL);
+  tvFileURL = URL.createObjectURL(f); tvName = f.name; tvSave(f); tvInput.value = '';
+  toast('Video loaded onto the TV'); $('tvPick').classList.add('hidden'); menuOpen = false;
+  if (tvPendingKey) tvChoose(tvPendingKey, 'file');
 });
 let tvPendingKey = null;
 (function tvPickUI() {
   const d = document.createElement('div'); d.id = 'tvPick'; d.className = 'hidden'; d.dataset.testid = 'tv-picker';
-  d.innerHTML = '<div class="panel"><h2>TV</h2><div class="sub">Choose a video from this device. It stays on this phone for every TV you place.</div>' +
-    '<button class="btn" id="tvChoose" data-testid="tv-choose-button">Choose a video</button> <button class="btn small" id="tvCancel" data-testid="tv-cancel-button">Cancel</button></div>';
+  d.innerHTML = '<div class="panel"><h2>Choose video</h2><div class="sub">Pick what this TV plays. A file from your device stays on this phone until you pick another (controller: A = default, X = file, B = cancel).</div>' +
+    '<button class="btn" id="tvDefault" data-testid="tv-default-button">Default clip</button> <button class="btn" id="tvChoose" data-testid="tv-choose-button">Choose file from device</button> <button class="btn small" id="tvCancel" data-testid="tv-cancel-button">Cancel</button></div>';
   document.body.appendChild(d);
   d.querySelector('#tvChoose').addEventListener('click', () => tvInput.click());
+  d.querySelector('#tvDefault').addEventListener('click', () => tvChoose(tvPendingKey, 'default'));
   d.querySelector('#tvCancel').addEventListener('click', () => { d.classList.add('hidden'); menuOpen = false; });
 })();
 function buildTV(x, y, z) {
@@ -7131,6 +7133,85 @@ tvTick = function (dt) {
   tvOnMat.needsUpdate = true;
   const base = tvNoSignal;
   tvNoSignal = function () { tvShow('card'); return base.apply(this, arguments); };
+})();
+
+
+/* ===================== GLX-B8g: default TV clip (lazy, relative URL) + TV Remote ===================== */
+var tvFileURL = null, tvCurSrc = '', TV_DEFAULT_URL = 'tv-default.mp4';
+IT.REMOTE = 140; NAMES[140] = 'TV Remote';
+if (!ORDER.includes(140)) ORDER.push(140);
+if (!CREATIVE_ALL.includes(140)) CREATIVE_ALL.push(140);
+RECIPES.push(rc('TV Remote', '1 Iron ingot + 1 Redstone dust + 1 Planks', 140, 1, [[IT.IRONINGOT, 1], [IT.REDSTONE, 1], [T.PLANKS, 1]], 1));
+tvHasVideo = true;   // there is always something to play now
+function tvSrcFor(k) {
+  const m = entMeta.get(k) || {};
+  if (m.video === 'file' && tvFileURL) return tvFileURL;
+  return TV_DEFAULT_URL;                       // also the fallback when a picked file is gone after a reload
+}
+function tvSetSrc(src) {
+  if (tvCurSrc === src) return;
+  tvCurSrc = src; tvVideo.preload = 'metadata'; tvVideo.src = src;
+  tvMode = 'full'; tvSlowN = 0; tvStats.mode = 'full'; tvAvg.length = 0;
+  if (src === TV_DEFAULT_URL) tvName = 'Glencraft TV';
+}
+function tvChoose(k, which) {
+  $('tvPick').classList.add('hidden'); menuOpen = false;
+  if (!k) return;
+  const m = entMeta.get(k) || {}; m.video = which; entMeta.set(k, m);
+  if (which === 'file' && !tvFileURL) { toast('No file chosen yet'); return; }
+  tvOnKey = k; tvSetSrc(tvSrcFor(k)); tvPlay(); toast(which === 'file' ? 'Playing your video' : 'Playing the default clip');
+  tvPendingKey = null;
+}
+function tvOpenPicker(k) {
+  tvPendingKey = k; $('tvPick').classList.remove('hidden'); menuOpen = true;
+  if (document.pointerLockElement) document.exitPointerLock();
+}
+useTV = function (x, y, z) {
+  const k = keyOf(x, y, z);
+  if (tvOnKey === k && tvVideo.muted && !tvVideo.paused) { tvVideo.muted = false; toast('TV sound on'); return; }
+  swing();
+  if (sneakHeld) { tvOpenPicker(k); return; }                      // old path kept as a fallback
+  if (tvOnKey === k) { tvOnKey = null; tvVideo.pause(); toast('TV off'); return; }
+  tvOnKey = k; tvSetSrc(tvSrcFor(k)); tvPlay();
+  toast('TV on' + (cnt(IT.REMOTE) > 0 ? '' : ' (craft a TV Remote to change the video)'));
+};
+function tvNearest(maxD) {
+  let best = null, bd = maxD;
+  for (const o of entObjs.values()) if (o.type === T.TV) { const d = Math.hypot(o.x + .5 - P.x, o.y + .5 - P.y, o.z + .5 - P.z); if (d < bd) { bd = d; best = o; } }
+  return best;
+}
+(function remoteUse() {
+  const base = useItem;
+  useItem = function () {
+    if (!(menuOpen || paused || dead || !started) && selId === IT.REMOTE && cnt(IT.REMOTE) > 0) {
+      const r = raycast(12), tb = r ? getB(...r.hit) : 0;
+      const o = tb === T.TV ? {x: r.hit[0], y: r.hit[1], z: r.hit[2]} : tvNearest(6);
+      swing();
+      if (!o) { toast('Point the remote at a TV (or stand within 6 blocks)'); return; }
+      tvOpenPicker(keyOf(o.x, o.y, o.z)); return;
+    }
+    return base.apply(this, arguments);
+  };
+})();
+ICONS[140] = drawIcon(g => {
+  g.rotate(Math.PI / 6);
+  g.fillStyle = '#16171a'; g.strokeStyle = '#000'; g.lineWidth = 2; g.beginPath(); g.roundRect ? g.roundRect(-10, -26, 20, 52, 6) : g.rect(-10, -26, 20, 52); g.fill(); g.stroke();
+  g.fillStyle = '#e0322a'; g.beginPath(); g.arc(0, -18, 3.5, 0, 7); g.fill();
+  g.fillStyle = '#6b7078'; for (let r = 0; r < 4; r++) for (let c = -1; c <= 1; c++) { g.beginPath(); g.arc(c * 5.5, -6 + r * 6, 1.9, 0, 7); g.fill(); }
+  g.fillStyle = '#3a8ee8'; g.fillRect(-5, 18, 10, 3);
+});
+(function remoteModel() {
+  const base = makeItemMesh;
+  makeItemMesh = function (id) {
+    if (id !== IT.REMOTE) return base.apply(this, arguments);
+    const g = new THREE.Group(), bodyM = new THREE.MeshPhongMaterial({color: 0x15161a, shininess: 60}), btnM = new THREE.MeshPhongMaterial({color: 0x6b7078, shininess: 30}), red = new THREE.MeshPhongMaterial({color: 0xe0322a, emissive: 0x300000});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.24, 0.025), bodyM); body.position.y = 0.1; g.add(body);
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.008, 10), red); p.rotation.x = Math.PI / 2; p.position.set(0, 0.195, 0.015); g.add(p);
+    for (let r = 0; r < 4; r++) for (let c = -1; c <= 1; c++) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.012, 0.006), btnM); b.position.set(c * 0.018, 0.15 - r * 0.025, 0.015); g.add(b); }
+    const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.006, 14), btnM); pad.rotation.x = Math.PI / 2; pad.position.set(0, 0.035, 0.015); g.add(pad);
+    g.userData.tool = true; g.userData.kind = 'remote';
+    return g;
+  };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
