@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b7c-sun -->
+<!-- glencraft-build: b7d-fixes -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.7.1 \u2022 b7';
+const GAME_VERSION = 'v0.7.2 \u2022 b7';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -3328,7 +3328,7 @@ function updatePlayer(dt, mx, mz) {
   const feetB = getB(fx0, Math.floor(P.y + 0.3), fz0), bodyB = getB(fx0, Math.floor(P.y + 1.1), fz0);
   swimming = !MODE.fly && (feetB === T.WATER || bodyB === T.WATER);
   const webbed = feetB === T.COBWEB || bodyB === T.COBWEB;
-  const sp = (MODE.fly ? (sprinting ? 14 : 9) : sprinting ? 10.5 : 4.6) * (inLava ? 0.35 : 1) * (swimming ? 0.55 : 1) * (webbed ? 0.22 : 1) * (ironBuzz > 0 ? 1.25 : 1) * dt;
+  const sp = (MODE.fly ? (sprinting ? 14 : 9) : sprinting ? 5.8 : 4.3)   /* GLX-B8: Minecraft-like walk 4.3 / sprint 5.8 blocks/s (was 4.6 / 10.5) */ * (inLava ? 0.35 : 1) * (swimming ? 0.55 : 1) * (webbed ? 0.22 : 1) * (ironBuzz > 0 ? 1.25 : 1) * dt;
   moveAxis(dx * sp, 0); moveAxis(0, dz * sp);
   if (Math.abs(P.kbx) + Math.abs(P.kbz) > 0.02) {
     moveAxis(P.kbx * dt, 0); moveAxis(0, P.kbz * dt);
@@ -3411,13 +3411,13 @@ function popBlock(x, y, z) {
   return b;
 }
 function breakAt(x, y, z) {
-  const b = getB(x, y, z);
+  const b = getB(x, y, z), bedM = b === T.BED ? bedFace(x, y, z) : null;
   removeEntityData(x, y, z, b);
   popBlock(x, y, z);
   // cutting the bottom of a trunk brings the whole tree down
   if (b === T.LOG && getB(x, y + 1, z) === T.LOG) fellTree(x, y, z);
   // the big 2 x 2 bed comes away as one piece
-  if (b === T.BED) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) if (getB(x + dx, y, z + dz) === T.BED) setB(x + dx, y, z + dz, T.AIR);
+  if (b === T.BED) breakBedPartner(x, y, z, bedM);
   const up = getB(x, y + 1, z);
   if (isPlant(up) || (up === T.TORCH && !(entMeta.get(keyOf(x, y + 1, z)) || {}).wall)) popBlock(x, y + 1, z);
   // wall torches fall off when the block they hang on goes
@@ -3527,13 +3527,14 @@ function useItem() {
   const blocksBody = !isPlant(id) && id !== T.TORCH;
   const hh = id === T.DOOR ? 2 : 1;
   if (blocksBody && x < P.x + R && x + 1 > P.x - R && y < P.y + HEIGHT && y + hh > P.y && z < P.z + R && z + 1 > P.z - R) return;
-  if (id === T.CHEST || id === T.DOOR || id === T.TV) entMeta.set(keyOf(x, y, z), {face: faceFromYaw()});
+  if (id === T.CHEST || id === T.DOOR || id === T.TV || id === T.FURNACE) entMeta.set(keyOf(x, y, z), {face: faceFromYaw()});
   if (id === T.TORCH) { if (torchWall) entMeta.set(keyOf(x, y, z), {face: 0, wall: torchWall}); else entMeta.delete(keyOf(x, y, z)); }
   if (id === T.BED) {
-    const ax = Math.sin(-P.yaw) > 0 ? 1 : -1, az = -Math.cos(P.yaw) > 0 ? 1 : -1;
-    const cells = [[x, z], [x + ax, z], [x, z + az], [x + ax, z + az]];
-    if (!cells.every(([cx, cz]) => getB(cx, y, cz) === T.AIR && solid(cx, y - 1, cz) && !(cx < P.x + R && cx + 1 > P.x - R && y < P.y + HEIGHT && y + 1 > P.y && cz < P.z + R && cz + 1 > P.z - R))) { toast('A bed needs a flat 2 x 2 space'); return; }
-    cells.forEach(([cx, cz]) => setB(cx, y, cz, T.BED));
+    // GLX-B8: 2-block bed: foot where you click, head one block further away from you
+    const f = faceFromYaw(), hx = x - Math.round(Math.sin(f * Math.PI / 2)), hz = z - Math.round(Math.cos(f * Math.PI / 2));
+    if (getB(hx, y, hz) !== T.AIR || !solid(hx, y - 1, hz) || !solid(x, y - 1, z) || (hx < P.x + R && hx + 1 > P.x - R && y < P.y + HEIGHT && y + 1 > P.y && hz < P.z + R && hz + 1 > P.z - R)) { toast('A bed needs 2 blocks of flat floor'); return; }
+    entMeta.set(keyOf(x, y, z), {face: f, bed: 'foot'}); entMeta.set(keyOf(hx, y, hz), {face: f, bed: 'head'});
+    setB(hx, y, hz, T.BED); refreshBedsNear(x, y, z); refreshBedsNear(hx, y, hz);
   }
   setB(x, y, z, id);
   if (id === T.DOOR) { setB(x, y + 1, z, T.DOORTOP); doorState.set(keyOf(x, y, z), false); }
@@ -3819,7 +3820,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyV' && started && !paused) toggleCamera();
   if (e.code === 'KeyC') sneakHeld = true;
   if (e.code === 'KeyW' || e.code === 'ArrowUp') { const now = performance.now(); if (now - lastW < 300) sprintDbl = true; lastW = now; }
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprintShift = true;
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'ControlLeft' || e.code === 'ControlRight') sprintShift = true;
   if (e.code === 'Escape') { if (!started) { if (!$('pause').classList.contains('hidden')) closeTitleSettings(); return; } if (menuOpen) openMenu(false); else if (!dead) setPause(!paused); return; }
   if (e.code === 'KeyP' && started) setPause(!paused);
   if (paused) return;
@@ -3831,7 +3832,7 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => {
   keys[e.code] = false;
   if (e.code === 'KeyW' || e.code === 'ArrowUp') sprintDbl = false;
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') sprintShift = false;
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'ControlLeft' || e.code === 'ControlRight') sprintShift = false;
   if (e.code === 'KeyC') sneakHeld = false;
 });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; sprintShift = sprintDbl = false; attackMouse = false; });
@@ -3890,8 +3891,10 @@ function readPad() {
   jumpHeldPad = pressed(0); sneakHeld = pressed(1) || !!keys.KeyC;
   if (E[12]) toggleCamera();
   // push the left stick forward twice quickly to sprint
-  const fwd = axes.ly < (padFwd ? -0.45 : -0.6), nowT = performance.now();
-  if (fwd && !padFwd) { if (nowT - padFwdT < 450) { sprintPad = true; toast('Sprinting'); } padFwdT = nowT; }
+  // GLX-B8: forward = stick past -0.6, released = back above -0.3 (hysteresis); a second push within 400 ms of the last release sprints
+  const nowT = performance.now(), fwd = padFwd ? axes.ly < -0.3 : axes.ly < -0.6;
+  if (fwd && !padFwd) { if (nowT - padFwdT < 400) sprintPad = true; }
+  if (!fwd && padFwd) padFwdT = nowT;
   padFwd = fwd;
   if (E[2]) eat();
   if (E[3]) openMenu(true);
@@ -3900,9 +3903,8 @@ function readPad() {
   if (E[5] || E[15]) cycleSel(1);
   if (E[6]) useItem();
   if (E[13]) dropOne();
-  if (E[10]) sprintPad = !sprintPad;
-  if (Math.abs(axes.lx) + Math.abs(axes.ly) < 0.1 && nowT - padFwdT > 350) sprintPad = false;
-  if (axes.ly > -0.3) { if (sprintPad && axes.ly > 0.2) sprintPad = false; }
+  if (E[10]) sprintPad = true;                                   // click the left stick (L3) to sprint
+  if (sprintPad && !fwd && !E[10] && Math.hypot(axes.lx, axes.ly) < 0.25) sprintPad = false;   // let go of the stick: stop sprinting
   attackPad = pressed(7);
   return axes;
 }
@@ -4121,7 +4123,7 @@ function buildChunk(cx, cz) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   for (const t in lists) {
     const tid = Number(t), arr = lists[t], n = arr.length / 3;
-    if (ENT[tid]) continue;
+    if (ENT[tid] || tid === T.FURNACE || tid === T.BED) continue;
     if (tid === T.WATER) { const wg = buildWaterGeo(arr); if (wg) { const wm = new THREE.Mesh(wg, waterMat); wm.renderOrder = 3; grp.add(wm); } continue; }
     const plant = isPlant(tid);
     const im = new THREE.InstancedMesh(plant ? crossGeo : tid === T.BED ? bedGeo : blockGeo, plant ? PLANT_MATS[tid] : BLOCK_MATS[t], n);
@@ -4153,7 +4155,7 @@ function rebuild() {
   } else for (const id of dirtyCh) buildChunk(Math.floor(id / 64), id % 64);
   dirtyCh.clear();
   const all = {};
-  for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
+  for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
   syncCauldrons(all[T.CAULDRON] || []);
   syncEntities(all);
@@ -6030,6 +6032,109 @@ function updateRays(dt, sx, sy, wd) {
   sunHalo.material.opacity += (want - sunHalo.material.opacity) * Math.min(1, dt * 2);
   sunHalo.visible = sunHalo.material.opacity > 0.005;
 }
+
+/* ===================== GLX-B7d: 2-block beds, facing furnaces ===================== */
+// ---------- beds: 2-block Minecraft-style model; side-by-side beds merge into a double ----------
+function bedFace(x, y, z) { const m = entMeta.get(keyOf(x, y, z)); return m && m.bed ? m : null; }
+function breakBedPartner(x, y, z, m0) {
+  const m = m0 || bedFace(x, y, z);
+  if (m) {
+    const s = Math.round(Math.sin(m.face * Math.PI / 2)), c = Math.round(Math.cos(m.face * Math.PI / 2));
+    const px = m.bed === 'foot' ? x - s : x + s, pz = m.bed === 'foot' ? z - c : z + c;
+    if (getB(px, y, pz) === T.BED) { setB(px, y, pz, T.AIR); entMeta.delete(keyOf(px, y, pz)); refreshBedsNear(px, y, pz); }
+    entMeta.delete(keyOf(x, y, z)); refreshBedsNear(x, y, z);
+    return;
+  }
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) if (getB(x + dx, y, z + dz) === T.BED && !bedFace(x + dx, y, z + dz)) setB(x + dx, y, z + dz, T.AIR);
+}
+function refreshBedsNear(x, y, z) {
+  for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) { const k = keyOf(x + dx, y, z + dz), o = entObjs.get(k); if (o && o.type === T.BED) { scene.remove(o.g); entObjs.delete(k); } }
+}
+var bedMats = null;
+function buildBed(x, y, z) {
+  if (!bedMats) bedMats = {wood: new THREE.MeshLambertMaterial({map: tex('planks')}), blanket: new THREE.MeshLambertMaterial({map: tex('wool'), color: 0xb3262a}),
+    sheet: new THREE.MeshLambertMaterial({map: tex('wool'), color: 0xf2efe6}), pillow: new THREE.MeshLambertMaterial({map: tex('wool'), color: 0xffffff}), trim: new THREE.MeshLambertMaterial({map: tex('wool'), color: 0x7a1518})};
+  const M = bedMats, m = bedFace(x, y, z) || {face: 0, bed: 'foot'};
+  const g = new THREE.Group(); g.position.set(x + .5, y, z + .5); g.rotation.y = m.face * Math.PI / 2;
+  // local +z points towards the foot end (towards where you stood), -z towards the head
+  const s = Math.round(Math.sin(m.face * Math.PI / 2)), c = Math.round(Math.cos(m.face * Math.PI / 2));
+  const same = (dx, dz) => { const o = bedFace(x + dx, y, z + dz); return o && o.face === m.face && o.bed === m.bed; };
+  const rightW = same(c, -s), leftW = same(-c, s);                       // local +x / -x neighbours
+  const box = (w, h, d, px, py, pz, mat) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); b.position.set(px, py, pz); g.add(b); return b; };
+  const x0 = leftW ? -0.5 : -0.5, x1 = rightW ? 0.5 : 0.5, w = x1 - x0, cx = (x0 + x1) / 2;
+  const head = m.bed === 'head';
+  box(w, 0.1, 1, cx, 0.24, 0, M.wood);                                    // frame
+  box(w - 0.002, 0.18, 1, cx, 0.38, 0, M.sheet);                          // mattress
+  if (head) {
+    box(w - 0.004, 0.2, 0.62, cx, 0.4, 0.19, M.blanket);                  // blanket ends under the pillow
+    box(w - 0.004, 0.05, 0.08, cx, 0.5, -0.11, M.trim);                   // folded edge
+    box(0.74, 0.09, 0.3, cx, 0.515, -0.3, M.pillow);
+    box(w, 0.36, 0.08, cx, 0.36, -0.46, M.wood);                          // headboard
+  } else {
+    box(w - 0.004, 0.2, 1, cx, 0.4, 0, M.blanket);
+    box(w - 0.004, 0.17, 0.02, cx, 0.39, 0.5, M.trim);
+  }
+  const end = head ? -0.4 : 0.4;
+  if (!leftW) box(0.12, 0.2, 0.12, -0.42, 0.1, end, M.wood);
+  if (!rightW) box(0.12, 0.2, 0.12, 0.42, 0.1, end, M.wood);
+  scene.add(g);
+  return {type: T.BED, g, x, y, z, open: 0};
+}
+// ---------- furnace: faces you, two openings, glows and flickers while smelting ----------
+var furnMats = null;
+function furnFrontTex(lit) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  let sd = lit ? 77 : 33; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x * 16, y * 16, 16, 16); };
+  const open = (x, y) => (x >= 3 && x <= 12 && y >= 3 && y <= 6) || (x >= 3 && x <= 12 && y >= 9 && y <= 12);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    if (open(x, y)) {
+      if (!lit) { const v = 14 + r() * 14; px(x, y, `rgb(${v + 4},${v},${v})`); if (y === 6 || y === 12) if (r() < 0.4) px(x, y, '#3a1a0e'); continue; }
+      const lower = y >= 9, hot = lower ? (y - 9) / 3 : (y - 3) / 3, q = r();
+      px(x, y, lower ? (q < 0.35 + hot * 0.3 ? '#fff7d0' : q < 0.75 ? '#ffd23a' : '#ff9a1a') : (q < 0.25 + hot * 0.3 ? '#ffd23a' : q < 0.7 ? '#ff8a14' : '#d8420c'));
+      continue;
+    }
+    if (lit) continue;
+    const edge = x === 0 || y === 0 || x === 15 || y === 15, v = edge ? 40 + r() * 14 : 52 + r() * 26;
+    px(x, y, `rgb(${v | 0},${(v - 2) | 0},${(v + 6) | 0})`);
+    if (open(x, y + 1) || open(x, y - 1) || open(x + 1, y) || open(x - 1, y)) px(x, y, `rgb(${(v * 0.6) | 0},${(v * 0.6) | 0},${(v * 0.65) | 0})`);
+  }
+  const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; return t;
+}
+function buildFurnace(x, y, z) {
+  if (!furnMats) {
+    const side = tex('furnace_side'), top = tex('cobblestone');
+    const sm = new THREE.MeshLambertMaterial({map: side}), tm = new THREE.MeshLambertMaterial({map: top}), fm = new THREE.MeshLambertMaterial({map: furnFrontTex(false)});
+    furnMats = {box: [sm, sm, tm, tm, fm, sm], fire: new THREE.MeshBasicMaterial({map: furnFrontTex(true), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1})};
+  }
+  const meta = entMeta.get(keyOf(x, y, z)) || {face: 0};
+  const g = new THREE.Group(); g.position.set(x + .5, y, z + .5); g.rotation.y = meta.face * Math.PI / 2;
+  const b = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), furnMats.box); b.position.y = 0.5; g.add(b);
+  const fire = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), furnMats.fire.clone()); fire.position.set(0, 0.5, 0.502); fire.visible = false; g.add(fire);
+  scene.add(g);
+  return {type: T.FURNACE, g, x, y, z, open: 0, fire};
+}
+function syncEntities(lists) {
+  const want = new Map();
+  for (const t of [T.CHEST, T.DOOR, T.TORCH, T.TV, T.FURNACE, T.BED]) { const a = lists[t] || []; for (let i = 0; i < a.length; i += 3) want.set(keyOf(a[i], a[i + 1], a[i + 2]), t); }
+  for (const [k, o] of entObjs) if (want.get(k) !== o.type) { scene.remove(o.g); entObjs.delete(k); }
+  for (const [k, t] of want) if (!entObjs.has(k)) {
+    const [x, y, z] = k.split(',').map(Number);
+    entObjs.set(k, t === T.TV ? buildTV(x, y, z) : t === T.FURNACE ? buildFurnace(x, y, z) : t === T.BED ? buildBed(x, y, z) : buildEnt(t, x, y, z));
+  }
+}
+(function hookFurnaceGlow() {
+  const base = updateEntities;
+  updateEntities = function (dt) {
+    base(dt);
+    const now = performance.now() / 1000;
+    for (const o of entObjs.values()) if (o.type === T.FURNACE) {
+      const f = furnaces.get(keyOf(o.x, o.y, o.z)), lit = !!(f && f.burn > 0);
+      o.fire.visible = lit;
+      if (lit) o.fire.material.opacity = 0.78 + Math.sin(now * 13 + o.x) * 0.1 + Math.sin(now * 31 + o.z) * 0.07 + Math.random() * 0.05;
+    }
+  };
+})();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
