@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: d2d -->
+<!-- glencraft-build: d3-island -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.6 \u2022 b1';
+const GAME_VERSION = 'v0.9.7 \u2022 b1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -3735,7 +3735,7 @@ function updateSky(dt) {
   tmpC.lerp(CAVE_FOG, caveK * 0.85);
   scene.fog.color.copy(tmpC); scene.background.copy(tmpC);
   scene.fog.near = (14 + 8 * daylight) * (1 - wd * 0.4) * (1 - caveK * 0.4); scene.fog.far = (52 + 22 * daylight) * (1 - wd * 0.42) * (1 - caveK * 0.3); if (PERF) { scene.fog.near *= 0.7; scene.fog.far *= 0.62; }
-  if (W > 80) { scene.fog.far = Math.min(scene.fog.far, PERF ? 40 : 62); scene.fog.near = Math.min(scene.fog.near, scene.fog.far * 0.4); }   // GLX-B8 view distance
+  if (W > 80) { const VF = SET.dist === 2 ? 210 : SET.dist === 1 ? 110 : 62; if (SET.dist) { scene.fog.far = Math.max(scene.fog.far, VF * (0.55 + 0.45 * daylight) * (1 - caveK * 0.6)); scene.fog.near = scene.fog.far * 0.35; } scene.fog.far = Math.min(scene.fog.far, PERF && !SET.dist ? 40 : VF); scene.fog.near = Math.min(scene.fog.near, scene.fog.far * 0.4); if (camera.far < VF + 20) { camera.far = VF + 20; camera.updateProjectionMatrix(); } }   // GLX-B8 view distance
   // ambient: warm day, cool blue moonlit night (brighter at full moon), some light always reaches into caves
   hemi.color.copy(NIGHT_HEMI).lerp(DAY_HEMI, daylight);
   hemi.intensity = ((0.22 + 0.16 * moon * night + 0.58 * daylight) * (1 - wd * 0.38) + flashA * 1.4 * (1 - caveK)) * (1 - caveK * 0.72);
@@ -8239,7 +8239,7 @@ function applyCityEdits(s) { const e = b64ToU32(s); cityEdits = new Map(); for (
   const ew = enterWorld;
   enterWorld = function (save) {
     const needs = !c1Want && ((!save && current.mode === 'creative') || (save && save.gen === GEN10 && !isGold(current)));
-    if (!save && current.mode !== 'creative') { NEW_W = 320; setWorldSize(320); gSeed = 0; generate(); dirtyAll = true; g9spawn = null; }
+    if (!save && current.mode !== 'creative') { const nw = g9Island ? ISL_W : 320; NEW_W = nw; setWorldSize(nw); gSeed = 0; generate(); dirtyAll = true; g9spawn = null; }
     if (!needs) return ew.apply(this, arguments);
     const go = () => {
       if (!save && CLY) { gSeed = 0; setWorldSize(CLY.N); clyGenerate(); NEW_W = CLY.N; dirtyAll = true; }
@@ -8285,7 +8285,7 @@ setInterval(() => {
   add(); setTimeout(add, 3000);
 })();
 // the Highlands' painted mountain ring doesn't belong around Clydebank
-setInterval(() => { if (typeof scenery === 'undefined' || !scenery) return; const v = !(genVer >= GEN10 && started); const set = o => { if (o && o.isObject3D) o.visible = v; }; if (scenery.isObject3D) set(scenery); else for (const k in scenery) set(scenery[k]); }, 1000);
+setInterval(() => { if (typeof scenery === 'undefined' || !scenery) return; const v = !((genVer >= GEN10 || g9Island) && started); const set = o => { if (o && o.isObject3D) o.visible = v; }; if (scenery.isObject3D) set(scenery); else for (const k in scenery) set(scenery[k]); }, 1000);
 /* ===================== GLX-C3: survival = Highlands again (+ the four castles); Gold world back from Clydebank ===================== */
 var castleAvoid = [], cityBackDone = false;
 function g9PlaceCastles() {
@@ -8330,12 +8330,12 @@ function cityBackMigrate(d) {
     zones.push({x0: bx0 - 3, x1: bx1 + 3, z0: bz0 - 3, z1: bz1 + 3, by0, n});
   }
   // pack the zones into the 320 map around its centre, keeping their layout (squeezed if spread wider than the map)
-  const NW = 320; let cx = 0, cz = 0, tn = 0; zones.forEach(z => { cx += (z.x0 + z.x1) / 2 * z.n; cz += (z.z0 + z.z1) / 2 * z.n; tn += z.n; }); cx = tn ? cx / tn : oN / 2; cz = tn ? cz / tn : oN / 2;
+  const NW = g9Island ? ISL_W : 320; let cx = 0, cz = 0, tn = 0; zones.forEach(z => { cx += (z.x0 + z.x1) / 2 * z.n; cz += (z.z0 + z.z1) / 2 * z.n; tn += z.n; }); cx = tn ? cx / tn : oN / 2; cz = tn ? cz / tn : oN / 2;
   let spread = 1; zones.forEach(z => { spread = Math.max(spread, Math.abs((z.x0 + z.x1) / 2 - cx) + (z.x1 - z.x0) / 2, Math.abs((z.z0 + z.z1) / 2 - cz) + (z.z1 - z.z0) / 2); });
   const k = Math.min(1, 130 / spread);
-  zones.forEach(z => { const mx = (z.x0 + z.x1) / 2, mz = (z.z0 + z.z1) / 2; z.ox = Math.round(NW / 2 + (mx - cx) * k - mx); z.oz = Math.round(NW / 2 + (mz - cz) * k - mz); });
+  zones.forEach(z => { const mx = (z.x0 + z.x1) / 2, mz = (z.z0 + z.z1) / 2, KX = g9Island ? ISL_C[0] : NW / 2, KZ = g9Island ? ISL_C[1] : NW / 2; z.ox = Math.round(KX + (mx - cx) * k - mx); z.oz = Math.round(KZ + (mz - cz) * k - mz); });
   castleAvoid = zones.map(z => ({x0: z.x0 + z.ox, x1: z.x1 + z.ox, z0: z.z0 + z.oz, z1: z.z1 + z.oz}));
-  setWorldSize(NW); gSeed = 0; cityGen = false; genVer = GEN9; generate(); castleAvoid = [];
+  if (g9Island) H = ISL_H; setWorldSize(NW); gSeed = 0; cityGen = false; genVer = GEN9; generate(); castleAvoid = [];
   // ground under each zone in the new land; the lowest placed block sits on it
   const rim = z => { const v = []; for (let x = z.x0; x <= z.x1; x++) { v.push(g9top(x + z.ox, z.z0 + z.oz)); v.push(g9top(x + z.ox, z.z1 + z.oz)); } for (let q = z.z0; q <= z.z1; q++) { v.push(g9top(z.x0 + z.ox, q + z.oz)); v.push(g9top(z.x1 + z.ox, q + z.oz)); } v.sort((a, b) => a - b); return v[v.length >> 1]; };
   zones.forEach(z => { z.dy = Math.max(1 - z.by0, Math.min(H - 6 - z.by0, rim(z) + 1 - z.by0)); });
@@ -8669,7 +8669,7 @@ function c1EditsFrom(s) { const e = b64ToU32(s || ''); c1Edits = new Map(); for 
   const ew = enterWorld;
   enterWorld = function (save) {
     const want = (!save && current.mode === 'creative') || (save && save.gen === GEN11);
-    if (!want) { if (H !== 80 + DEEP) { H = 80 + DEEP; world = new Uint8Array(W * H * D); } c1Want = false; return ew.apply(this, arguments); }
+    if (!want) { const wantH = g9Island ? ISL_H : 80 + DEEP; if (H !== wantH) { H = wantH; world = new Uint8Array(W * H * D); } c1Want = false; return ew.apply(this, arguments); }
     c1Want = true;
     const go = () => {
       if (!save) { c1Edits = new Map(); c1Generate(null); }
@@ -9199,6 +9199,223 @@ function glowTexture() { const c = document.createElement('canvas'); c.width = c
       farGlow.geometry.setDrawRange(0, n); farGlow.geometry.attributes.position.needsUpdate = true;
       farGlow.material.opacity = 0.25 + 0.75 * Math.max(night, caveK);
     }
+  };
+})();
+
+/* ===================== GLX-D3 (v0.9.7): island survival world, sea mountain + peak castle, Ultra view distance, boats ===================== */
+var g9Island = false, g9NoIsland = false, ISL_W = 448, ISL_H = 128, ISL_C = [170, 224], ISL_R = 112, MT_C = [372, 224], MT_R = 58, peakCastle = null;
+function sstep(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); }
+(function islandHeight() {
+  const gh = g9height;
+  g9height = function (x, z) {
+    const r = gh(x, z);
+    if (!g9Island) return r;
+    // island: the Highlands inside a noisy coastline, sloping down into the sea
+    const ang = Math.atan2(z - ISL_C[1], x - ISL_C[0]);
+    const wob = 1 + 0.16 * g9fbm(Math.cos(ang) * 2.2 + 11, Math.sin(ang) * 2.2 - 7, 3) + 0.06 * g9fbm(x / 23, z / 23, 2);
+    const d = Math.hypot(x - ISL_C[0], z - ISL_C[1]) / (ISL_R * wob);
+    const m = 1 - sstep(0.72, 1.0, d);                     // 1 inland, 0 at sea
+    const sea = SEA - 6 - Math.min(10, (d - 1) * 30) + g9fbm(x / 30, z / 30, 2) * 2;
+    let h = r.h * m + Math.min(r.h, sea) * (1 - m);
+    if (m < 1) h = Math.min(h, SEA + 2 + (r.h - SEA - 2) * sstep(0.0, 0.55, m));   // beaches: coast falls gently to the waterline
+    // the great mountain across the water
+    const dm = Math.hypot(x - MT_C[0], z - MT_C[1]) / (MT_R * (1 + 0.12 * g9fbm(x / 40 + 3, z / 40, 2)));
+    let mt = false;
+    if (dm < 1.15) {
+      const k = Math.max(0, 1 - dm), ridge = 1 - Math.abs(g9fbm(x / 26 - 5, z / 26 + 9, 3));
+      const mh = SEA - 8 + (H - 16 - SEA + 8) * Math.pow(k, 1.35) + ridge * ridge * 16 * k + g9fbm(x / 17, z / 17, 3) * 7 * Math.sqrt(k) + g9fbm(x / 7, z / 7, 2) * 2;
+      if (mh > h) { h = mh; mt = true; }
+    }
+    const glen = m > 0.98 && !mt ? r.glen : 0;
+    return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), glen, mMask: mt ? 1 : r.mMask * m, loch: r.loch && m > 0.98 && !mt};
+  };
+  const fs = g9findSpawn;
+  g9findSpawn = function () {
+    if (!g9Island) return fs.apply(this, arguments);
+    const cx = ISL_C[0], cz = ISL_C[1];
+    for (let r = 0; r < 100; r += 2) for (let a = 0; a < 16; a++) {
+      const x = Math.round(cx + Math.cos(a / 16 * 6.283) * r), z = Math.round(cz + Math.sin(a / 16 * 6.283) * r);
+      const t = g9top(x, z), b = getB(x, t, z);
+      if ((b === T.GRASS || b === T.HEATHER) && t > SEA + 1 && getB(x, t + 1, z) === T.AIR && getB(x, t + 2, z) === T.AIR) return [x, t, z];
+    }
+    return fs.apply(this, arguments);
+  };
+  // castles: island castles stay on the island; a lit tower near the summit of the sea mountain
+  const pc = g9PlaceCastles;
+  g9PlaceCastles = function () {
+    if (!g9Island) return pc.apply(this, arguments);
+    const keep = castleAvoid;
+    castleAvoid = keep.concat([{x0: MT_C[0] - MT_R - 30, x1: W + 40, z0: -40, z1: D + 40}, {x0: -40, x1: 52, z0: -40, z1: D + 40}, {x0: -40, x1: W + 40, z0: -40, z1: 100}, {x0: -40, x1: W + 40, z0: 348, z1: D + 40}]);
+    let r; try { r = pc.apply(this, arguments); } finally { castleAvoid = keep; }
+    // summit castle: highest spot a little off the peak, on the far (east) shoulder so it stays hidden from the island
+    let bx = MT_C[0] + 10, bz = MT_C[1], bh = -1;
+    for (let x = MT_C[0] + 4; x < MT_C[0] + 22; x++) for (let z = MT_C[1] - 14; z < MT_C[1] + 14; z++) { const h = g9cols[(x * D + z) * 2]; if (h > bh) { bh = h; bx = x; bz = z; } }
+    try { buildCastle('towerhouse', bx, bz); } catch (e) { console.warn('peak castle', e); }
+    // ring of torches round it so it glows at night from across the sea
+    for (let a = 0; a < 14; a++) {
+      const x = Math.round(bx + Math.cos(a / 14 * 6.283) * 12), z = Math.round(bz + Math.sin(a / 14 * 6.283) * 12);
+      if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
+      const t = g9top(x, z); if (t > 0 && t < H - 3 && world[idx(x, t + 1, z)] === T.AIR) { world[idx(x, t + 1, z)] = T.COBBLE; world[idx(x, t + 2, z)] = T.TORCH; }
+    }
+    peakCastle = [bx, bh, bz];
+    g9castles.push(['peak', bx, bz]);
+    return r;
+  };
+})();
+// saves remember the island
+(function () {
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); if (genVer === GEN9 && g9Island) d.island = 1; if (g9NoIsland) d.noIsland = 1; d.boats = boats.map(b => [+b.x.toFixed(2), +b.y.toFixed(2), +b.z.toFixed(2), +b.yaw.toFixed(3)]); return d; };
+  const ap = applySave; applySave = function (d) { clearBoats(); const r = ap.apply(this, arguments); g9NoIsland = !!(d && d.noIsland); (d && d.boats || []).forEach(a => addBoat(a[0], a[1], a[2], a[3])); return r; };
+  const ew = enterWorld;
+  enterWorld = function (save) {
+    g9Island = save ? !!(save.island && (!save.gen || save.gen === GEN9 || save.gen === 0)) : !!(current && current.mode !== 'creative');
+    if (save && save.island) H = save.H || ISL_H;
+    if (!save) g9NoIsland = false;
+    const r = ew.apply(this, arguments);
+    const after = () => { if (started && current && isGold(current) && genVer === GEN9 && !g9Island && !g9NoIsland && W >= 300) islandMigrate(); };
+    if (r && r.then) r.then(() => setTimeout(after, 300)); else setTimeout(after, 300);
+    return r;
+  };
+})();
+async function islandMigrate() {
+  if (islandMigrate.busy) return; islandMigrate.busy = true;
+  try {
+    const id = current.id, d0 = serialize(), bkey = 'backup_' + id + '_reset_island_' + Date.now().toString(36);
+    try { await idbPut('worlds', bkey, Object.assign({}, d0, {backupOf: id, backedUp: Date.now(), noIsland: 1})); } catch (e) { console.warn('island backup failed', e); return; }
+    migrBackupKey = bkey; current.resetBackup = bkey;
+    const cur = world.slice(), oW = W, seed = gSeed; cityGen = true;
+    if (seed) { gSeed = seed; G9P = g9perm(seed); genVer = GEN9; generate(); }
+    cityGen = false;
+    const base = world, pairs = [];
+    if (base.length === cur.length) for (let i = 0; i < cur.length; i++) if (cur[i] !== base[i]) pairs.push(i, cur[i]);
+    const d = Object.assign({}, d0, {edits: u32ToB64(new Uint32Array(pairs)), cityW: oW});
+    g9Island = true;
+    const info = cityBackMigrate(d);
+    if (d.P) Object.assign(P, d.P); spawnPt = d.spawnPt || null;
+    crops.clear(); (d.crops || []).forEach(([k, v]) => crops.set(k, v));
+    chests.clear(); (d.chests || []).forEach(([k, v]) => chests.set(k, v));
+    doorState.clear(); (d.doors || []).forEach(([k, v]) => doorState.set(k, v));
+    furnaces.clear(); (d.furnaces || []).forEach(([k, v]) => furnaces.set(k, v));
+    entMeta.clear(); (d.entMeta || []).forEach(([k, v]) => entMeta.set(k, v));
+    genVer = GEN9; cityEdits = new Map();
+    for (const [, o] of entObjs) scene.remove(o.g); entObjs.clear();
+    mobs.slice().forEach(removeMob); for (let n = 0; n < 8; n++) spawnMob('sheep'); for (let n = 0; n < 10; n++) spawnMob('haggis');
+    clearBoats();
+    if (!spawnPt) { g9spawn = null; if (info && info.zones) P.y = g9top(Math.floor(P.x), Math.floor(P.z)) + 2; else spawnPlayer(); }
+    P.vy = 0; dirtyAll = true; rebuild(); typeof scanLights === 'function' && scanLights();
+    saveWorld(true);
+    islandMigrate.info = info;
+    toast('Your Gold world is now an island! ' + (info ? info.blocks : 0) + ' blocks of builds kept. Backup saved (Pause > Undo terrain reset).');
+  } finally { islandMigrate.busy = false; }
+}
+
+/* ---------- Ultra view distance ---------- */
+if (typeof SET.dist !== 'number') SET.dist = 0;
+(function distUI() {
+  const bob = document.getElementById('bobSeg'); if (!bob) return;
+  const row = bob.closest('.set') || bob.parentNode;
+  const el = document.createElement('div'); el.className = row.className;
+  el.innerHTML = '<span>View distance</span><div class="seg" id="distSeg"><button data-dist="0" data-testid="settings-dist-normal">Normal</button><button data-dist="1" data-testid="settings-dist-far">Far</button><button data-dist="2" data-testid="settings-dist-ultra">Ultra</button></div>';
+  row.parentNode.insertBefore(el, row.nextSibling);
+  el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { SET.dist = Number(b.dataset.dist); saveSet(); syncSettingsUI(); }));
+  const sync = syncSettingsUI; syncSettingsUI = function () { const r = sync.apply(this, arguments); el.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.dist) === SET.dist)); return r; };
+  syncSettingsUI();
+})();
+
+/* ---------- Boats ---------- */
+IT.BOAT = 173; NAMES[IT.BOAT] = 'Boat';
+ICONS[IT.BOAT] = drawIcon(g => {
+  g.fillStyle = '#8a5a2e'; g.strokeStyle = '#3e2810'; g.lineWidth = 2;
+  g.beginPath(); g.moveTo(-26, -4); g.lineTo(26, -4); g.lineTo(18, 12); g.lineTo(-18, 12); g.closePath(); g.fill(); g.stroke();
+  g.fillStyle = '#b07c45'; g.fillRect(-24, -8, 48, 5); g.strokeRect(-24, -8, 48, 5);
+  g.strokeStyle = '#5a3a1a'; g.lineWidth = 1.2; for (const y of [1, 6]) { g.beginPath(); g.moveTo(-22 + (y - 1), y); g.lineTo(22 - (y - 1), y); g.stroke(); }
+  g.strokeStyle = '#6b4a22'; g.lineWidth = 3; g.beginPath(); g.moveTo(-8, -20); g.lineTo(14, 10); g.stroke();
+});
+RECIPES.push(rc('Boat', '5 Planks', IT.BOAT, 1, [[T.PLANKS, 5]], 1));
+if (typeof CREATIVE_ALL !== 'undefined') CREATIVE_ALL.push(IT.BOAT);
+var boats = [], riding = null, boatSnd = 0, boatExitLock = 0;
+const boatMat = new THREE.MeshLambertMaterial({color: 0x9a6a3a}), boatMat2 = new THREE.MeshLambertMaterial({color: 0x6e4826});
+function makeBoatMesh() {
+  const g = new THREE.Group(), add = (w, h, d, x, y, z, m, ry) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); if (ry) o.rotation.y = ry; g.add(o); return o; };
+  add(1.2, 0.1, 2.2, 0, 0.05, 0, boatMat2);
+  add(0.1, 0.42, 2.2, -0.62, 0.26, 0, boatMat); add(0.1, 0.42, 2.2, 0.62, 0.26, 0, boatMat);
+  add(1.34, 0.42, 0.1, 0, 0.26, 1.1, boatMat); add(1.0, 0.42, 0.1, 0, 0.26, -1.18, boatMat);
+  add(0.7, 0.3, 0.14, -0.36, 0.38, -1.02, boatMat, 0.6); add(0.7, 0.3, 0.14, 0.36, 0.38, -1.02, boatMat, -0.6);
+  add(1.2, 0.06, 0.32, 0, 0.3, 0.25, boatMat2);   // seat
+  const oarL = add(0.06, 0.06, 1.6, -0.75, 0.42, 0.1, boatMat2), oarR = add(0.06, 0.06, 1.6, 0.75, 0.42, 0.1, boatMat2);
+  oarL.rotation.x = oarR.rotation.x = 0.25; g.userData.oars = [oarL, oarR];
+  return g;
+}
+function waterTopAt(x, z, y0) { const fx = Math.floor(x), fz = Math.floor(z); for (let y = Math.min(H - 2, Math.floor(y0) + 2); y > Math.floor(y0) - 4; y--) { const b = getB(fx, y, fz); if (b === T.WATER) return y; if (b !== T.AIR) return -1; } return -1; }
+function addBoat(x, y, z, yaw) { const g = makeBoatMesh(); scene.add(g); const b = {g, x, y, z, yaw: yaw || 0, v: 0, t: Math.random() * 6}; boats.push(b); placeBoatMesh(b); return b; }
+function placeBoatMesh(b) { b.g.position.set(b.x, b.y + Math.sin(b.t * 1.7) * 0.03, b.z); b.g.rotation.set(Math.sin(b.t * 1.3) * 0.02, b.yaw, Math.sin(b.t) * 0.035); }
+function clearBoats() { boats.forEach(b => scene.remove(b.g)); boats = []; riding = null; }
+function boatSplash(vol) {
+  if (!AC || !noiseBuf) return;
+  try {
+    const s = AC.createBufferSource(); s.buffer = noiseBuf; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500 + Math.random() * 400;
+    const g = AC.createGain(), t = AC.currentTime; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol * SET.sfx * 0.5, t + 0.08); g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 1.5, 0.7);
+  } catch (_) {}
+}
+function boatLookedAt() {
+  const d = lookDir(), o = [P.x, P.y + EYE, P.z]; let best = null, bt = 4.5;
+  for (const b of boats) { const v = [b.x - o[0], b.y + 0.3 - o[1], b.z - o[2]]; const t = v[0] * d[0] + v[1] * d[1] + v[2] * d[2]; if (t < 0 || t > bt) continue;
+    const q = Math.hypot(v[0] - d[0] * t, v[1] - d[1] * t, v[2] - d[2] * t); if (q < 1.15) { bt = t; best = b; } }
+  return best;
+}
+function exitBoat() {
+  const b = riding; if (!b) return; riding = null; boatExitLock = 0.4;
+  // step out onto the nearest dry land if there is some, else just above the boat
+  let spot = null;
+  for (let r = 1; r <= 3 && !spot; r++) for (let a = 0; a < 12 && !spot; a++) { const x = Math.floor(b.x + Math.cos(a / 12 * 6.283) * r * 1.2), z = Math.floor(b.z + Math.sin(a / 12 * 6.283) * r * 1.2);
+    for (let y = Math.floor(b.y) + 2; y >= Math.floor(b.y) - 1; y--) { const g = getB(x, y, z); if (g !== T.AIR && g !== T.WATER && !PLANT[g] && getB(x, y + 1, z) === T.AIR && getB(x, y + 2, z) === T.AIR) { spot = [x + 0.5, y + 1, z + 0.5]; break; } } }
+  if (spot) { P.x = spot[0]; P.y = spot[1]; P.z = spot[2]; } else P.y = b.y + 1.1;
+  P.vy = 0; P.fallTop = null; b.v = 0;
+}
+(function boatUse() {
+  const ui = useItem;
+  useItem = function () {
+    if (riding) { exitBoat(); return; }
+    const lb = boatLookedAt();
+    if (lb) {
+      if (sneakHeld) { scene.remove(lb.g); boats.splice(boats.indexOf(lb), 1); inv[IT.BOAT] = (inv[IT.BOAT] || 0) + 1; renderHotbar(); toast('Picked up the boat'); return; }
+      riding = lb; P.yaw = lb.yaw; boatSplash(0.6); toast('In the boat: W/S or stick to row, A/D to turn, use or C to get out'); return;
+    }
+    if (selId === IT.BOAT) {
+      const h = raycast(6, true, true);
+      if (h && h.water) {
+        const wt = waterTopAt(h.hit[0] + 0.5, h.hit[2] + 0.5, h.hit[1]);
+        if (wt >= 0) {
+          addBoat(h.hit[0] + 0.5, wt + 0.78, h.hit[2] + 0.5, P.yaw);
+          if (!MODE.infinite) { inv[IT.BOAT]--; if (inv[IT.BOAT] <= 0) delete inv[IT.BOAT]; }
+          renderHotbar(); boatSplash(0.8); return;
+        }
+      }
+      toast('Boats go on water'); return;
+    }
+    return ui.apply(this, arguments);
+  };
+  const up = updatePlayer;
+  updatePlayer = function (dt, mx, mz) {
+    if (boatExitLock > 0) boatExitLock -= dt;
+    for (const b of boats) { b.t += dt; if (b !== riding) placeBoatMesh(b); }
+    if (!riding) return up.apply(this, arguments);
+    const b = riding;
+    if (sneakHeld && boatExitLock <= 0) { exitBoat(); return 0; }
+    const sprintK = (sprintShift || sprintDbl || sprintTouch || sprintPad) ? 1.45 : 1;
+    b.v += mz * 9 * sprintK * dt; b.v *= Math.max(0, 1 - dt * 0.75); b.v = Math.max(-3, Math.min(8 * sprintK, b.v));
+    const turn = mx * 1.7 * dt * (b.v < -0.2 ? -1 : 1); b.yaw -= turn; P.yaw -= turn;
+    const nx = b.x - Math.sin(b.yaw) * b.v * dt, nz = b.z - Math.cos(b.yaw) * b.v * dt;
+    const ok = (x, z) => { for (const [ax, az] of [[0, 0], [0.55, 0.55], [-0.55, 0.55], [0.55, -0.55], [-0.55, -0.55]]) { const w = waterTopAt(x + ax, z + az, b.y); if (w < 0 || Math.abs(w + 0.78 - b.y) > 1.2) return false; } return x > 1 && z > 1 && x < W - 1 && z < D - 1; };
+    if (ok(nx, nz)) { b.x = nx; b.z = nz; const w = waterTopAt(b.x, b.z, b.y); if (w >= 0) b.y += (w + 0.78 - b.y) * Math.min(1, dt * 4); }
+    else { if (Math.abs(b.v) > 3) boatSplash(0.5); b.v *= -0.25; }
+    placeBoatMesh(b);
+    const oars = b.g.userData.oars, sp = Math.abs(b.v); b.op = (b.op || 0) + dt * (1.5 + sp * 0.8) * (sp > 0.3 ? 1 : 0);
+    oars[0].rotation.y = Math.sin(b.op) * 0.6; oars[1].rotation.y = -Math.sin(b.op) * 0.6;
+    boatSnd -= dt * (0.6 + sp * 0.35); if (sp > 0.4 && boatSnd <= 0) { boatSnd = 1; boatSplash(Math.min(1, 0.25 + sp / 9)); }
+    P.x = b.x; P.z = b.z; P.y = b.y - 0.1; P.vy = 0; P.onGround = true; P.fallTop = null; swimming = false;
+    return sp * dt;
   };
 })();
 </script>
