@@ -470,9 +470,12 @@ const HIGH = QUALITY === '4k';
 const TEXSIZE = HIGH ? 1024 : 512;
 
 /* ---------- settings ---------- */
-const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1};
+const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 'auto', perf: 0};
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
+// GLX-B7: one version string, bump on every push
+const GAME_VERSION = 'v0.7.0 \u2022 b7';
+const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
 // BASE = 25 extra layers of underground below the old world floor
@@ -965,14 +968,14 @@ function placeDecor() {
 }
 /* ---------- renderer ---------- */
 const canvas = $('c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH, powerPreference: 'high-performance'});
+const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH && !PERF, powerPreference: 'high-performance'});
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 const DPR = window.devicePixelRatio || 1;
-renderer.setPixelRatio(HIGH ? DPR : Math.min(DPR, 1.5));
+renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? DPR : Math.min(DPR, 1.5));
 const MAXANISO = renderer.capabilities.getMaxAnisotropy();
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xb9c6c9);
-scene.fog = new THREE.Fog(0xb9c6c9, 14, 52);
+scene.fog = new THREE.Fog(0xb9c6c9, PERF ? 10 : 14, PERF ? 34 : 52);
 const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 140);
 camera.rotation.order = 'YXZ';
 scene.add(camera);
@@ -1020,7 +1023,7 @@ function mat(key) {
     ? new THREE.MeshLambertMaterial({map: tex(key), transparent: true, opacity: 0.8, depthWrite: false})
     : key === 'lava' ? new THREE.MeshBasicMaterial({map: tex(key)})
     : key === 'glass' ? new THREE.MeshPhongMaterial({map: tex(key), shininess: 60, specular: 0x222222, transparent: true, opacity: 1, depthWrite: true, alphaTest: 0.02, side: THREE.FrontSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1})
-    : new THREE.MeshPhongMaterial({map: tex(key), shininess: 2, specular: 0x000000});
+    : PERF ? new THREE.MeshLambertMaterial({map: tex(key)}) : new THREE.MeshPhongMaterial({map: tex(key), shininess: 2, specular: 0x000000});
   return (matCache[key] = m);
 }
 const BLOCK_MATS = {};
@@ -1256,7 +1259,7 @@ function syncEntities(lists) {
 }
 // four shared point lights follow the torches closest to the player
 const torchLights = [];
-for (let i = 0; i < (HIGH ? 8 : 5); i++) { const l = new THREE.PointLight(0xffa45a, 0, 16, 1.1); l.userData.k = 0; scene.add(l); torchLights.push(l); }
+for (let i = 0; i < (PERF ? 2 : HIGH ? 8 : 5); i++) { const l = new THREE.PointLight(0xffa45a, 0, 16, 1.1); l.userData.k = 0; scene.add(l); torchLights.push(l); }
 let torchPick = 0;
 function updateEntities(dt) {
   const now = performance.now() / 1000;
@@ -1573,7 +1576,7 @@ const mistGeo = new THREE.SphereGeometry(0.22, 8, 6);
 const partMats = {};
 const partMat = col => partMats[col] || (partMats[col] = new THREE.MeshLambertMaterial({color: col}));
 function burst(x, y, z, col, n, spread) {
-  n = n || 12; spread = spread || 1;
+  n = n || 12; spread = spread || 1; if (PERF) n = Math.ceil(n / 2);
   for (let i = 0; i < n; i++) {
     const m = new THREE.Mesh(partGeo, partMat(col));
     m.position.set(x + (Math.random() - .5) * .8 * spread, y + (Math.random() - .5) * .8 * spread, z + (Math.random() - .5) * .8 * spread);
@@ -1582,7 +1585,7 @@ function burst(x, y, z, col, n, spread) {
   }
 }
 function mistPuff(x, y, z, col, count) {
-  for (let i = 0; i < (count || 18); i++) {
+  for (let i = 0; i < Math.ceil((count || 18) / (PERF ? 2 : 1)); i++) {
     const m = new THREE.Mesh(mistGeo, new THREE.MeshBasicMaterial({color: col || 0xe8eef0, transparent: true, opacity: .75, depthWrite: false}));
     m.position.set(x + (Math.random() - .5) * .6, y + Math.random() * .5, z + (Math.random() - .5) * .6);
     scene.add(m);
@@ -2115,7 +2118,7 @@ function updateMobs(dt) {
     if (a.angry > 0) a.angry -= dt;
     let spd = 0;
     // GLX-B6: far mobs only think a couple of times a second
-    if (dist > 30 && a.kind !== 'treeman' && !a.burning && !(a.fire > 0)) { a.lodT = (a.lodT || 0) + dt; if (a.lodT < 0.5) continue; a.lodT = 0; }
+    if (dist > (PERF ? 16 : 30) && a.kind !== 'treeman' && !a.burning && !(a.fire > 0)) { a.lodT = (a.lodT || 0) + dt; if (a.lodT < 0.5) continue; a.lodT = 0; }
 
     if (a.hostile && day && !a.burning) a.burning = 1.8;
     if (a.burning) {
@@ -2835,7 +2838,7 @@ function initChar() {
   charR.setPixelRatio(Math.min(2, DPR));
   charR.outputEncoding = THREE.sRGBEncoding;
   charR.toneMapping = THREE.ACESFilmicToneMapping; charR.toneMappingExposure = 0.9;
-  charR.shadowMap.enabled = true; charR.shadowMap.type = THREE.PCFSoftShadowMap;
+  charR.shadowMap.enabled = !PERF; charR.shadowMap.type = THREE.PCFSoftShadowMap;
   charScene = new THREE.Scene();
   const envScene = new THREE.Scene();
   const skyGeo = new THREE.SphereGeometry(10, 32, 16), cols = [], c = new THREE.Color();
@@ -3720,7 +3723,7 @@ function updateSky(dt) {
   tmpC.r += flashA * 0.5; tmpC.g += flashA * 0.5; tmpC.b += flashA * 0.55;
   tmpC.lerp(CAVE_FOG, caveK * 0.85);
   scene.fog.color.copy(tmpC); scene.background.copy(tmpC);
-  scene.fog.near = (14 + 8 * daylight) * (1 - wd * 0.4) * (1 - caveK * 0.4); scene.fog.far = (52 + 22 * daylight) * (1 - wd * 0.42) * (1 - caveK * 0.3);
+  scene.fog.near = (14 + 8 * daylight) * (1 - wd * 0.4) * (1 - caveK * 0.4); scene.fog.far = (52 + 22 * daylight) * (1 - wd * 0.42) * (1 - caveK * 0.3); if (PERF) { scene.fog.near *= 0.7; scene.fog.far *= 0.62; }
   // ambient: warm day, cool blue moonlit night (brighter at full moon), some light always reaches into caves
   hemi.color.copy(NIGHT_HEMI).lerp(DAY_HEMI, daylight);
   hemi.intensity = ((0.22 + 0.16 * moon * night + 0.58 * daylight) * (1 - wd * 0.38) + flashA * 1.4 * (1 - caveK)) * (1 - caveK * 0.72);
@@ -3999,7 +4002,8 @@ document.querySelectorAll('#qSeg button').forEach(b => {
   b.addEventListener('click', () => chooseQuality(b.dataset.q));
 });
 $('qTag').textContent = HIGH ? '4K' : 'Phone';
-if (touchMode) { document.body.classList.add('touch'); setupTouch(); }
+var touchReady = false;
+if (touchMode && SET.touch !== 'off') { document.body.classList.add('touch'); setupTouch(); touchReady = true; }
 const HINT_TOUCH = '<b>Left thumb</b>: move · <b>Drag</b> anywhere else: look<br><b>MINE/HIT</b> hold · <b>USE/PLACE</b> place, hoe, plant, fill bucket · <b>DROP</b> one item · <b>EAT</b> · <b>CRAFT</b> · <b>SPRINT</b> · <b>II</b> pause<br>Tap a hotbar slot to pick it. A Bluetooth controller also works.';
 const HINT_PC = '<b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> or double-tap <b>W</b> sprint<br><b>Hold left click</b> mine / attack · <b>Right click</b> place / use · <b>Q</b> drop one · <b>E</b> craft · <b>F</b> eat · <b>Esc/P</b> pause · <b>1-9</b> / wheel pick';
 const HINT_PAD = 'Controller: <b>RT</b> mine / attack · <b>LT</b> place / use (hoe, seeds, bucket) · <b>D-pad down</b> drop one · <b>A</b> jump · <b>X</b> eat · <b>Y</b> craft · <b>LB/RB</b> pick · <b>L3</b> sprint · <b>Start</b> pause';
@@ -4189,11 +4193,11 @@ const fullMoon = () => dayNum % 5 === 0 || dayNum % 5 === 3;   // every 2-3 nigh
 // --- light shafts: sun rays fanning out from the sun when it is on screen and not hidden by hills ---
 const rayEl = document.createElement('div'); rayEl.id = 'sunRays'; document.body.appendChild(rayEl);
 let rayVis = 0;
-const sunV = new THREE.Vector3();
+const sunV = new THREE.Vector3(), raySun = new THREE.Vector3(), rayCamF = new THREE.Vector3(), rayP = new THREE.Vector3();
 function updateRays(dt, sx, sy, wd) {
   sunV.set(camera.position.x + sx * 90, camera.position.y + sy * 90, camera.position.z + 30);
-  const toSun = sunV.clone().sub(camera.position).normalize();
-  const camF = new THREE.Vector3(); camera.getWorldDirection(camF);
+  const toSun = raySun.copy(sunV).sub(camera.position).normalize();
+  const camF = rayCamF; camera.getWorldDirection(camF);
   let want = started && sy > 0.02 && camF.dot(toSun) > 0.25 ? (1 - wd) * (1 - caveK) * Math.min(1, sy * 3) : 0;
   if (want > 0) {
     // hidden behind terrain or a mountain? no rays
@@ -4201,7 +4205,7 @@ function updateRays(dt, sx, sy, wd) {
   }
   rayVis += (want - rayVis) * Math.min(1, dt * 3);
   if (rayVis < 0.01) { if (rayEl.style.opacity !== '0') rayEl.style.opacity = '0'; return; }
-  const p = sunV.clone().project(camera);
+  const p = rayP.copy(sunV).project(camera);
   const X = ((p.x + 1) / 2 * 100).toFixed(1) + '%', Y = ((1 - p.y) / 2 * 100).toFixed(1) + '%';
   rayEl.style.setProperty('--sx', X); rayEl.style.setProperty('--sy', Y);
   rayEl.style.opacity = (rayVis * 0.9).toFixed(3);
@@ -4222,7 +4226,7 @@ function updateLights(dt) {
     }
     list.sort((a, b) => a[0] - b[0]);
     // GLX-B4: lights stay on their torch while it is still among the nearest, new torches take a free light and fade in
-    const want = list.slice(0, torchLights.length), key = e => e[1] + ',' + e[2] + ',' + e[3];
+    const want = list.slice(0, Math.min(torchLights.length, torchCap)), key = e => e[1] + ',' + e[2] + ',' + e[3];
     const wantK = new Set(want.map(key));
     torchLights.forEach(l => { l.userData.on = l.userData.src && wantK.has(l.userData.src) ? 1 : 0; });
     const used = new Set(torchLights.filter(l => l.userData.on).map(l => l.userData.src));
@@ -5616,6 +5620,7 @@ let last = performance.now();
 const waterTex = tex('water'), lavaTex = tex('lava');
 let TS = 1; // simulation steps per frame (test hook only)
 function frame(now) {
+  if (PERF && now - last < 1000 / 30 - 4) { requestAnimationFrame(frame); return; }
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const g = readPad();
@@ -5845,6 +5850,7 @@ playSound = function (kind, vol, pan, mat) {
 
 // --- phone performance guard: if the frame rate stays under ~40 fps for 3 s, use fewer torch lights and a lower render resolution ---
 var perfGuard = {ema: 60, lowT: 0, step: 0};
+var torchCap = 99;
 (function hookPerf() {
   const base = updateLights;
   updateLights = function (dt) {
@@ -5855,7 +5861,7 @@ var perfGuard = {ema: 60, lowT: 0, step: 0};
     if (perfGuard.lowT > 3 && perfGuard.step < 2) {
       perfGuard.step++; perfGuard.lowT = 0; perfGuard.ema = 50;
       const keep = perfGuard.step === 1 ? 3 : 2;
-      while (torchLights.length > keep) { const l = torchLights.pop(); scene.remove(l); }
+      torchCap = keep;   // lights stay in the scene at intensity 0: changing the light count recompiles every shader
       try { renderer.setPixelRatio(Math.max(0.6, renderer.getPixelRatio() * 0.8)); resize(); } catch (_) {}
       console.info('Glencraft perf guard step', perfGuard.step);
     }
@@ -5940,12 +5946,13 @@ function mobDirector(dt) {
 
 // GLX-B6: per-pixel lit, mip-mapped, anisotropic mob materials so the 1024px painted fur/skin reads crisply
 function upgradeMobMaterials(a) {
+  if (PERF) return;
   const swap = new Map();
   const conv = m => {
     if (!m || !m.isMeshLambertMaterial) return m;
     if (swap.has(m)) return swap.get(m);
     const n = new THREE.MeshPhongMaterial({map: m.map, color: m.color, emissive: m.emissive, transparent: m.transparent, opacity: m.opacity, side: m.side, shininess: 6, specular: 0x111111});
-    if (n.map) { n.map.anisotropy = Math.max(n.map.anisotropy || 1, HIGH ? 8 : 4); n.map.needsUpdate = true; }
+    if (n.map) { const an = HIGH ? 8 : 4; if ((n.map.anisotropy || 1) < an) { n.map.anisotropy = an; n.map.needsUpdate = true; } }
     swap.set(m, n); return n;
   };
   a.g.traverse(o => { if (o.material) o.material = Array.isArray(o.material) ? o.material.map(conv) : conv(o.material); });
@@ -5953,6 +5960,65 @@ function upgradeMobMaterials(a) {
   if (Array.isArray(a.mats)) a.mats = a.mats.map(m => swap.get(m) || m);
   swap.forEach((n, o) => o.dispose());
 }
+
+
+/* ===================== GLX-B7: version tag, touch-controls setting, performance mode ===================== */
+(function versionTag() {
+  const v = document.createElement('div'); v.id = 'verTag'; v.textContent = GAME_VERSION; v.setAttribute('data-testid', 'version-tag');
+  v.style.cssText = 'position:absolute;left:12px;bottom:10px;font:600 13px system-ui,sans-serif;color:rgba(255,255,255,.75);text-shadow:0 1px 3px #000;pointer-events:none;z-index:5';
+  ($('scr-title') || document.body).appendChild(v);
+})();
+var touchShown = touchMode, padSeen = false;
+function applyTouch() {
+  const want = SET.touch === 'on' ? true : SET.touch === 'off' ? false : touchShown;
+  if (want && !touchReady) { try { setupTouch(); } catch (_) {} touchReady = true; }
+  document.body.classList.toggle('touch', !!want);
+}
+window.addEventListener('gamepadconnected', () => { padSeen = true; touchShown = false; applyTouch(); });
+window.addEventListener('touchstart', () => { if (!touchShown) { touchShown = true; applyTouch(); } }, {passive: true, capture: true});
+(function hookPadForTouch() {
+  const base = readPad;
+  readPad = function () {
+    const r = base.apply(this, arguments);
+    if (touchShown && navigator.getGamepads) {
+      for (const gp of navigator.getGamepads()) if (gp && (gp.buttons.some(b => b && b.pressed) || gp.axes.some(a => Math.abs(a) > 0.4))) { touchShown = false; applyTouch(); break; }
+    }
+    return r;
+  };
+})();
+(function settingsRows() {
+  const q = $('qSeg2'); if (!q) return;
+  const row = q.closest('.set');
+  const mk = (label, id, opts) => {
+    const d = document.createElement('div'); d.className = 'set inline';
+    d.innerHTML = '<span>' + label + '</span><div class="seg" id="' + id + '">' + opts.map(([v, t]) => '<button data-v="' + v + '" data-testid="settings-' + id + '-' + v + '">' + t + '</button>').join('') + '</div>';
+    return d;
+  };
+  const perfRow = mk('Performance mode', 'perfSeg', [['1', 'On'], ['0', 'Off']]);
+  const touchRow = mk('Touch controls', 'touchSeg', [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']]);
+  row.after(perfRow); perfRow.after(touchRow);
+  touchRow.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { SET.touch = b.dataset.v; saveSet(); applyTouch(); syncSettingsUI(); }));
+  perfRow.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const v = Number(b.dataset.v); if (v === (SET.perf ? 1 : 0)) return;
+    if (started && !confirm('Changing performance mode restarts the game. Continue?')) return;
+    if (started) { try { saveWorld(true); } catch (_) {} }
+    SET.perf = v; saveSet(); location.reload();
+  }));
+  const baseSync = syncSettingsUI;
+  syncSettingsUI = function () {
+    baseSync.apply(this, arguments);
+    document.querySelectorAll('#touchSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === SET.touch));
+    document.querySelectorAll('#perfSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.perf ? 1 : 0)));
+  };
+  syncSettingsUI();
+})();
+applyTouch();
+// warm the shader cache once the world is up so the first torch / mob / drop doesn't stall a frame compiling
+(function warmShaders() {
+  let done = false;
+  const tick = () => { if (done) return; if (started) { done = true; setTimeout(() => { try { renderer.compile(scene, camera); } catch (_) {} }, 300); return; } setTimeout(tick, 500); };
+  tick();
+})();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
