@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b9a-controller-ui -->
+<!-- glencraft-build: b9b-hd-items -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.8 \u2022 b8';
+const GAME_VERSION = 'v0.8.9 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -1245,7 +1245,8 @@ function buildEnt(type, x, y, z) {
     if (w) {
       // wall torch: foot against the wall face it was placed on, leaning ~25 degrees out into the room
       const tilt = 0.44;
-      g.position.set(x + .5 + w[0] * 0.36, y + 0.12, z + .5 + w[1] * 0.36);
+      g.position.set(x + .5 + w[0] * 0.462, y + 0.16, z + .5 + w[1] * 0.462);   // foot flush against the wall face
+      { const br = new THREE.Mesh(new THREE.BoxGeometry(w[0] ? 0.02 : 0.12, 0.16, w[0] ? 0.12 : 0.02), makeTorchModel.brMat || (makeTorchModel.brMat = new THREE.MeshPhongMaterial({color: 0x2a2826, shininess: 40}))); br.position.set(w[0] * 0.028, 0.06, w[1] * 0.028); g.add(br); }
       if (w[0]) piv.rotation.z = w[0] * tilt; else piv.rotation.x = -w[1] * tilt;
     }
     o.flame = tm.flame; o.glow = tm.glow; o.head = tm.head;
@@ -7360,6 +7361,130 @@ placeCamera = function (bx, by, rx, rz) {
     if (/LB \/ RB|LT \/ RT/.test(e.textContent)) e.innerHTML = 'LB / RB: tabs &nbsp; LT / RT: category &nbsp; D-pad: choose &nbsp; A: pick up / craft &nbsp; X: half &nbsp; Y: quick-move &nbsp; B: back';
   });
   setInterval(fix, 1000);
+})();
+
+/* ===================== GLX-B9c: HD held items (wood grain, engraved axe, staved bucket) + gripping hand ===================== */
+var HDT = null;
+function hdTex() {
+  if (HDT) return HDT;
+  const grain = (base, dark, w, h, knots) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+    g.fillStyle = base; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < w; i += 1) { const v = Math.sin(i * 0.9) * 0.5 + Math.sin(i * 0.23 + 1) * 0.5; g.fillStyle = `rgba(${dark},${0.08 + 0.12 * Math.abs(v)})`; g.fillRect(i, 0, 1, h); }
+    for (let k = 0; k < knots; k++) { const x = Math.random() * w, y = Math.random() * h; g.strokeStyle = `rgba(${dark},.35)`; for (let r = 1; r < 5; r++) { g.beginPath(); g.ellipse(x, y, r * 0.8, r * 3, 0, 0, 7); g.stroke(); } }
+    for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(${dark},.18)`; g.beginPath(); const x = Math.random() * w; g.moveTo(x, 0); g.bezierCurveTo(x + 3, h * .3, x - 3, h * .7, x + 1, h); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t;
+  };
+  const steel = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, 128, 128); gr.addColorStop(0, '#f4f6f8'); gr.addColorStop(.5, '#b9bec4'); gr.addColorStop(1, '#eef1f4'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    // Norse knotwork engraving
+    g.strokeStyle = 'rgba(40,44,50,.55)'; g.lineWidth = 2;
+    for (let i = 0; i < 4; i++) { g.beginPath(); for (let t = 0; t <= 6.3; t += 0.1) { const x = 64 + Math.cos(t * 2 + i) * (22 + i * 8), y = 64 + Math.sin(t * 3 + i) * (18 + i * 7); t ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); }
+    for (let i = 0; i < 300; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * .25})`; g.fillRect(Math.random() * 128, Math.random() * 128, 6, 1); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+  })();
+  HDT = {pale: grain('#c99a62', '90,55,25', 64, 256, 2), dark: grain('#4a2a1a', '20,10,5', 64, 256, 1), stave: grain('#b07a45', '70,40,15', 128, 128, 3), steel};
+  return HDT;
+}
+(function hdToolMats() {
+  const base = toolX;
+  toolX = function () {
+    const X = base(); if (X._hd) return X;
+    const T2 = hdTex();
+    X.pale.map = T2.pale; X.pale.color.setHex(0xffffff); X.pale.needsUpdate = true;
+    X.dark.map = T2.dark; X.dark.color.setHex(0xffffff); X.dark.needsUpdate = true;
+    X._hd = true; return X;
+  };
+  const bt = buildToolModel;
+  buildToolModel = function (kind, mat) {
+    const g = bt.apply(this, arguments); if (!g) return g;
+    if (kind === 'axe' && mat !== 'wood') {
+      // engraved head
+      g.traverse(o => { if (o.isMesh && o.geometry.type === 'ExtrudeGeometry' && o.material && o.material.color && o.position.y === 0.3) {
+        const m = o.material.clone(); m.map = hdTex().steel; m.map.repeat.set(5, 5); m.color.multiplyScalar(1.0); m.needsUpdate = true; o.material = m; } });
+    }
+    return g;
+  };
+})();
+function buildBucket(full) {
+  const T2 = hdTex(), g = new THREE.Group();
+  const wood = new THREE.MeshPhongMaterial({map: T2.stave, shininess: 18, side: THREE.DoubleSide});
+  T2.stave.repeat.set(4, 1);
+  const iron = new THREE.MeshPhongMaterial({color: 0x9aa0a6, shininess: 90, specular: 0xffffff});
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.082, 0.17, 18, 1, true), wood); body.position.y = 0.085; g.add(body);
+  const bottom = new THREE.Mesh(new THREE.CircleGeometry(0.082, 18), wood); bottom.rotation.x = -Math.PI / 2; bottom.position.y = 0.004; g.add(bottom);
+  // stave seams
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, s = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.17, 0.004), new THREE.MeshBasicMaterial({color: 0x3a2412})); s.position.set(Math.cos(a) * 0.092, 0.085, Math.sin(a) * 0.092); s.rotation.y = -a; s.rotation.z = 0.1 * 0; g.add(s); }
+  for (const [y, r] of [[0.03, 0.087], [0.14, 0.098]]) { const band = new THREE.Mesh(new THREE.TorusGeometry(r, 0.006, 6, 28), iron); band.rotation.x = Math.PI / 2; band.position.y = y; band.scale.z = 2.2; g.add(band); }
+  for (const sx of [-1, 1]) { const ear = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.03, 0.02), iron); ear.position.set(sx * 0.102, 0.15, 0); g.add(ear); }
+  const bail = new THREE.Mesh(new THREE.TorusGeometry(0.102, 0.004, 6, 24, Math.PI), iron); bail.position.y = 0.15; bail.rotation.y = 0; g.add(bail);
+  if (full) { const w = new THREE.Mesh(new THREE.CircleGeometry(0.094, 18), new THREE.MeshPhongMaterial({color: 0x3a78c8, transparent: true, opacity: 0.85, shininess: 120})); w.rotation.x = -Math.PI / 2; w.position.y = 0.14; g.add(w); }
+  g.userData.bucket = true;
+  return g;
+}
+(function bucketModel() {
+  const base = makeItemMesh;
+  makeItemMesh = function (id) {
+    if (id === IT.BUCKET || id === IT.WATERB) return buildBucket(id === IT.WATERB);
+    return base.apply(this, arguments);
+  };
+})();
+// ---- first-person hand that actually wraps around what it holds ----
+var gripHand = null;
+function buildGripHand() {
+  const skin = armMat, g = new THREE.Group(), R = 0.03;          // R: radius of the handle the fingers wrap around (tool space)
+  const knuckle = new THREE.MeshLambertMaterial({color: 0xcf9a72});
+  // palm block on the +X side of the handle
+  const palm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 0.07), skin); palm.position.set(R + 0.022, 0, 0.005); g.add(palm);
+  const pad = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), skin); pad.scale.set(0.7, 1.4, 1); pad.position.set(R + 0.012, 0, 0.03); g.add(pad);
+  // four fingers: tubes curling from the palm, around the far side (-Z), round the left (-X) and back towards the viewer (+Z)
+  for (let i = 0; i < 4; i++) {
+    const y = 0.036 - i * 0.024, r = 0.0105 - i * 0.0008, sweep = 3.6 - i * 0.12, pts = [];
+    for (let k = 0; k <= 12; k++) { const a = -0.25 - (k / 12) * sweep, rr = R + r + 0.002 + (k < 3 ? (3 - k) * 0.006 : 0); pts.push(new THREE.Vector3(Math.cos(a) * rr, y - k * 0.0006, Math.sin(a) * rr)); }
+    const f = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, r, 7, false), skin); g.add(f);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), skin); tip.position.copy(pts[pts.length - 1]); g.add(tip);
+    const kn = new THREE.Mesh(new THREE.SphereGeometry(r * 1.15, 8, 6), knuckle); kn.position.copy(pts[2]); g.add(kn);
+  }
+  // thumb over the top, pressing the handle from the +Z side
+  const tp = [new THREE.Vector3(R + 0.03, 0.05, 0.03), new THREE.Vector3(R + 0.005, 0.062, 0.04), new THREE.Vector3(-0.005, 0.06, R + 0.012), new THREE.Vector3(-R, 0.052, R * 0.6)];
+  const th = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(tp), 12, 0.012, 7, false), skin); g.add(th);
+  const tt = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), skin); tt.position.copy(tp[3]); g.add(tt);
+  // wrist joining the sleeve
+  const wrist = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.04, 0.09, 10), skin); wrist.rotation.x = Math.PI / 2; wrist.position.set(R + 0.03, -0.01, 0.075); g.add(wrist);
+  return g;
+}
+(function gripHook() {
+  const base = setHeld;
+  setHeld = function (id) {
+    const before = heldId; base.apply(this, arguments); if (heldId === before && gripHand && gripHand.parent) return;
+    if (!gripHand) gripHand = buildGripHand();
+    if (gripHand.parent) gripHand.parent.remove(gripHand);
+    const h = held.children[0];
+    if (h && h.userData.tool) {
+      // grip a hand's width above the butt of the handle (tool space): the hand wraps the haft
+      const turn = h.children[0], tool = turn && turn.children[0];
+      const gy = tool && tool.userData.sword ? -0.075 : -0.06;
+      gripHand.position.set(0, gy, 0); gripHand.rotation.set(0, Math.PI / 2, 0); gripHand.scale.setScalar(1);
+      turn.add(gripHand);
+    } else {
+      // empty hand / blocks / food: a relaxed closed hand where the old box fist was
+      gripHand.position.set(0, -0.01, -0.17); gripHand.rotation.set(Math.PI / 2, 0, 0); gripHand.scale.setScalar(1.25);
+      armPivot.add(gripHand);
+    }
+  };
+  const uh = updateHand;
+  updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; return r; };
+})();
+(function realArm() {
+  // replace the Minecraft box sleeve with a tapered forearm in a rolled shirt sleeve
+  armMesh.visible = false;
+  const fa = new THREE.Group(); armPivot.add(fa);
+  const sl = new THREE.Mesh(new THREE.CylinderGeometry(0.062, 0.07, 0.42, 14), sleeveMat); sl.rotation.x = Math.PI / 2; sl.position.set(0.02, -0.03, 0.25); fa.add(sl);
+  const roll = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.014, 8, 18), sleeveMat); roll.position.set(0.02, -0.03, 0.04); fa.add(roll);
+  const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.052, 0.2, 12), armMat); fore.rotation.x = Math.PI / 2; fore.position.set(0.02, -0.03, -0.05); fa.add(fore);
+  fa.rotation.set(0.12, 0, 0);
+  realArm.fa = fa;
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
