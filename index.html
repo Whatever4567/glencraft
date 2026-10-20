@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b8e-tools-animals -->
+<!-- glencraft-build: b8f-tv-video -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.8.4 \u2022 b8';
+const GAME_VERSION = 'v0.8.5 \u2022 b8';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -7044,6 +7044,94 @@ function toolIcon(kind, col) {
     }
   });
 }
+
+/* ===================== GLX-B8f: TV video path v2 (direct video texture, frame-gated, watchdog) ===================== */
+// The old path drew every picture into a 2D canvas (drawImage(video)) and re-uploaded that canvas. On Android Chrome the
+// decoded frame lives on the GPU, so drawImage onto a CPU-backed 2D canvas forces a GPU->CPU readback on the main thread
+// every 50 ms, and the canvas upload adds another copy: the game loop stalls while audio (a separate thread) keeps going.
+// Now: the <video> element is the texture source (GPU->GPU upload), only uploaded when the decoder has a new frame,
+// at most 15 fps, with every upload timed. Slow uploads step down to 5 fps, then to audio-only with a "Now playing" card.
+var tvVT = null, tvNewFrame = false, tvRVFC = false, tvLastVT = -1, tvUpT = 0, tvMode = 'full', tvSlowN = 0, tvShowing = 'card', tvName = '';
+var tvAvg = [];
+var tvStats = {uploads: 0, maxMs: 0, slow: 0, mode: 'full', lastMs: 0};
+(function tvVideoSetup() {
+  const v = tvVideo;
+  v.preload = 'metadata'; v.setAttribute('playsinline', ''); v.setAttribute('webkit-playsinline', ''); v.crossOrigin = 'anonymous';
+  // keep it in the DOM, visible and non-zero sized: Android may stop decoding a detached / display:none / 0x0 video
+  v.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0.01;pointer-events:none;z-index:-1';
+  if (!v.parentNode) document.body.appendChild(v);
+  const arm = () => { if (!v.requestVideoFrameCallback) return; tvRVFC = true; v.requestVideoFrameCallback(() => { tvNewFrame = true; arm(); }); };
+  arm();
+  v.addEventListener('timeupdate', () => { if (!tvRVFC) tvNewFrame = true; });
+  v.addEventListener('loadeddata', () => { tvNewFrame = true; });
+  v.addEventListener('emptied', () => { tvMode = 'full'; tvSlowN = 0; tvStats.mode = 'full'; tvShow('card'); });
+  window.tvStats = tvStats;
+})();
+function tvShow(which) {
+  if (!tvTex) return;
+  const map = which === 'video' && tvVT ? tvVT : tvTex;
+  if (tvOnMat.map !== map) { tvOnMat.map = map; tvOnMat.needsUpdate = true; }
+  tvShowing = which;
+}
+function tvNowPlayingCard() {
+  if (!tvCtx) return;
+  const w = tvCanvas.width, h = tvCanvas.height, g = tvCtx;
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#1d2b4a'); gr.addColorStop(1, '#0b1020'); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#fff'; g.textAlign = 'center'; g.font = 'bold 30px sans-serif'; g.fillText('\u266B  NOW PLAYING', w / 2, h / 2 - 8);
+  g.font = '18px sans-serif'; g.fillStyle = '#b8c6e8'; g.fillText((tvName || 'your video').slice(0, 40), w / 2, h / 2 + 24);
+  g.font = '13px sans-serif'; g.fillStyle = '#7f8db0'; g.fillText('picture off to keep the game smooth on this device', w / 2, h / 2 + 52);
+  tvTex.needsUpdate = true;
+}
+tvEnsureTex = function () {
+  if (tvTex) return;
+  tvCanvas = document.createElement('canvas'); tvCanvas.width = 480; tvCanvas.height = 270; tvCtx = tvCanvas.getContext('2d');
+  tvTex = new THREE.CanvasTexture(tvCanvas); tvTex.generateMipmaps = false; tvTex.minFilter = THREE.LinearFilter; tvTex.magFilter = THREE.LinearFilter;
+  tvVT = new THREE.Texture(tvVideo); tvVT.generateMipmaps = false; tvVT.minFilter = THREE.LinearFilter; tvVT.magFilter = THREE.LinearFilter;
+  tvVT.format = THREE.RGBFormat; tvVT.encoding = renderer.outputEncoding;
+  tvOnMat.map = tvTex; tvOnMat.needsUpdate = true; tvNoSignal('LOADING...');
+};
+tvTick = function (dt) {
+  if (!tvOnKey || !tvTex) return;
+  const [x, y, z] = tvOnKey.split(',').map(Number), d = Math.hypot(x + .5 - P.x, y - P.y, z + .5 - P.z);
+  if (d > 32) { if (!tvVideo.paused) { tvVideo.pause(); tvFarPaused = true; } return; }
+  if (tvFarPaused && d < 28) { tvFarPaused = false; tvStart(); }
+  if (tvMode === 'audio') { if (tvShowing !== 'np') { tvShow('card'); tvNowPlayingCard(); tvShowing = 'np'; } return; }
+  if (!tvVideo.videoWidth && !tvVideo.paused && tvVideo.currentTime > 3 && tvShowing !== 'np') { tvShow('card'); tvNowPlayingCard(); tvShowing = 'np'; tvStats.mode = 'no-picture'; return; }
+  if (tvVideo.readyState < 2 || !tvVideo.videoWidth) return;
+  if (!tvRVFC && tvVideo.currentTime !== tvLastVT) { tvLastVT = tvVideo.currentTime; tvNewFrame = true; }
+  const now = performance.now(), gap = tvMode === 'low' ? 200 : 66;   // <=15 fps normally, 5 fps in low mode
+  if (!tvNewFrame || now - tvUpT < gap) return;
+  tvNewFrame = false; tvUpT = now;
+  // aspect: fit the video into the 16:9 screen (portrait clips get pillar-boxed via texture repeat/offset)
+  const ar = tvVideo.videoWidth / tvVideo.videoHeight, sa = 16 / 9;
+  if (ar < sa) { tvVT.repeat.set(sa / ar, 1); tvVT.offset.set(-(sa / ar - 1) / 2, 0); } else { tvVT.repeat.set(1, ar / sa); tvVT.offset.set(0, -(ar / sa - 1) / 2); }
+  tvVT.wrapS = tvVT.wrapT = THREE.ClampToEdgeWrapping;
+  let ms = 0;
+  try {
+    tvVT.needsUpdate = true; const t0 = performance.now(); renderer.initTexture(tvVT); ms = performance.now() - t0;
+  } catch (e) { loopErr(e); tvMode = 'audio'; tvStats.mode = 'audio'; return; }
+  tvStats.uploads++; tvStats.lastMs = +ms.toFixed(2); tvStats.avgMs = +(tvAvg.length ? tvAvg.reduce((p, q) => p + q, 0) / tvAvg.length : ms).toFixed(2); tvStats.maxMs = Math.max(tvStats.maxMs, +ms.toFixed(2));
+  if (tvShowing !== 'video') tvShow('video');
+  tvAvg.push(ms); if (tvAvg.length > 8) tvAvg.shift();
+  const avg = tvAvg.reduce((p, q) => p + q, 0) / tvAvg.length;
+  if (ms > 50 || (tvAvg.length >= 8 && avg > 15 && tvMode === 'full')) {
+    if (ms <= 50) { tvSlowN = 1; tvAvg.length = 0; }    // steady heavy uploads: step down once
+    tvStats.slow++; tvSlowN++;
+    if (tvSlowN >= 2) { tvSlowN = 0; tvMode = tvMode === 'full' ? 'low' : 'audio'; tvStats.mode = tvMode;
+      toast(tvMode === 'low' ? 'TV picture slowed down to keep the game smooth' : 'TV picture off on this device: sound only'); }
+  } else if (tvSlowN > 0 && ms < 20) tvSlowN = Math.max(0, tvSlowN - 0.25);
+};
+(function tvNameHook() {
+  const f = document.getElementById('tvFile') || document.querySelector('#tvPick input[type=file]');
+  if (f) f.addEventListener('change', () => { if (f.files && f.files[0]) tvName = f.files[0].name; tvMode = 'full'; tvStats.mode = 'full'; tvSlowN = 0; });
+})();
+(function tvLetterbox() {
+  // black bars outside the fitted picture instead of smeared edge pixels
+  tvOnMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n#ifdef USE_MAP\n if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) diffuseColor.rgb = vec3(0.0);\n#endif'); };
+  tvOnMat.needsUpdate = true;
+  const base = tvNoSignal;
+  tvNoSignal = function () { tvShow('card'); return base.apply(this, arguments); };
+})();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
