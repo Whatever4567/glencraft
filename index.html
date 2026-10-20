@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
+<!-- glencraft-build: b2-controls -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -1730,7 +1731,7 @@ function moveMob(a, dx, dz) {
     const fy = Math.floor(pos.y + 0.05), tall = a.tall || 1;
     if (solid(cx, fy, cz)) {
       for (let k = 1; k <= tall; k++) if (solid(cx, fy + k, cz)) return false;
-      if (a.onGround) { a.vy = 6.4; a.onGround = false; }
+      if (a.onGround) { a.vy = 7.4; a.onGround = false; }
       if (pos.y < fy + 0.55) return 'step';
     } else {
       for (let k = 1; k < tall; k++) if (solid(cx, fy + k, cz)) return false;
@@ -1743,9 +1744,13 @@ function moveMob(a, dx, dz) {
 }
 function stepMob(a, spd, dt, wander) {
   const hd = a.yawVis === undefined ? a.ang : a.yawVis;
-  const r = moveMob(a, Math.sin(hd) * spd * dt, Math.cos(hd) * spd * dt);
+  const mx = Math.sin(hd) * spd * dt, mz = Math.cos(hd) * spd * dt;
+  let r = moveMob(a, mx, mz);
+  // GLX-B2: slide along walls instead of stopping dead on corners
+  if (r === false) r = Math.abs(mx) > Math.abs(mz) ? (moveMob(a, mx, 0) || moveMob(a, 0, mz)) : (moveMob(a, 0, mz) || moveMob(a, mx, 0));
   if (r === false) {
-    if (wander) { a.ang += Math.PI * (0.5 + Math.random()); a.timer = 0.8; }
+    // re-pick a direction only once in a while, so a blocked mob doesn't spin on the spot
+    if (wander) { if (!(a.blockCd > 0)) { a.ang += (Math.random() < .5 ? 1 : -1) * Math.PI * (0.5 + Math.random() * 0.4); a.timer = 1.5; a.blockCd = 1.0; } }
     else if (!(a.detourT > 0)) { a.detour = (Math.random() < .5 ? -1 : 1) * 1.3; a.detourT = 0.9; }
     return false;
   }
@@ -1829,7 +1834,7 @@ function updateTreeman(a, dt, dist, dpx, dpz, dy) {
     if (a.timer <= 0) { a.timer = 0.5 + Math.random() * 0.8; a.ang += (Math.random() - .5) * 3; }
     a.burnScream -= dt; if (a.burnScream <= 0) { a.burnScream = 1.6; sfx3d('scream', a.g.position, 40); }
     a.arms[0].rotation.x = -2.6 + Math.sin(now * 14) * 0.6; a.arms[1].rotation.x = -2.6 + Math.cos(now * 13) * 0.6;
-    a.head.rotation.y = Math.sin(now * 20) * 0.5; a.eyeM.color.setHex(0xffffff);
+    a.head.rotation.y = Math.sin(now * 3) * 0.4; a.eyeM.color.setHex(0xffffff);
     if (a.fire <= 0) a.fire = 1;
     stepMob(a, 3.2, dt, false); a.moving = true; return 3.2;
   }
@@ -1872,9 +1877,12 @@ function updateTreeman(a, dt, dist, dpx, dpz, dy) {
   a.moving = spd > 0;
   // head twist + scream shake
   // scare: the head whips side to side instead of twisting round
-  a.head.rotation.y = Math.sin(now * 15) * 0.6 * a.twist;
-  a.head.rotation.z = Math.sin(now * 7.5) * 0.22 * a.twist;
-  a.head.rotation.x = a.twist * 0.15;
+  // GLX-B2: smooth, creepy side-to-side sway (slow when idle, wider when angry) instead of a glitchy whip
+  const swayAmp = 0.12 + 0.38 * a.twist, swayF = 1.1 + 1.4 * a.twist;
+  a.head.rotation.y += (Math.sin(now * swayF + a.walk * 0.1) * swayAmp - a.head.rotation.y) * Math.min(1, dt * 6);
+  a.head.rotation.z += (Math.sin(now * swayF * 0.5) * 0.08 * (0.4 + a.twist) - a.head.rotation.z) * Math.min(1, dt * 6);
+  a.head.rotation.x += (a.twist * 0.15 - a.head.rotation.x) * Math.min(1, dt * 6);
+  if (a.state === 'stare' && dist < 18 && started) { a.idleGrowl = (a.idleGrowl === undefined ? 3 + Math.random() * 5 : a.idleGrowl) - dt; if (a.idleGrowl <= 0) { a.idleGrowl = 6 + Math.random() * 8; sfx3d('growl', a.g.position, 18); } }
   if (a.state === 'chase') { a.growlT = (a.growlT || 0) - dt; if (a.growlT <= 0) { a.growlT = 2.2 + Math.random(); sfx3d('growl', a.g.position, 16); } }
   const angry = a.state === 'twist' || a.state === 'chase';
   a.eyeM.color.setHex(angry ? 0xff2a1a : a.gaze > 0.6 ? 0xffe08a : 0xffb347);
@@ -1911,6 +1919,7 @@ function updateMobs(dt) {
     }
 
     if (a.detourT > 0) a.detourT -= dt;
+    if (a.blockCd > 0) a.blockCd -= dt;
     // treemen only walk the night: at dawn they sink back into the earth
     if (a.kind === 'treeman' && !isNight && started && a.state !== 'grab' && a.state !== 'burn') {
       a.sink = (a.sink || 0) + dt; pos.y -= dt * 1.1;
@@ -1920,7 +1929,7 @@ function updateMobs(dt) {
     else if (a.kind === 'treeman') spd = updateTreeman(a, dt, dist, dpx, dpz, dy);
     else if (a.hostile) {
       // only hunts you once it has seen you within 13 blocks, then remembers for a few seconds
-      if (!dead && started && dist < 14 && canSee(a, 13)) a.aggro = 4;
+      if (!dead && started && dist <= 13 && canSee(a, 13)) a.aggro = 3;
       else a.aggro = Math.max(0, (a.aggro || 0) - dt);
       if (a.aggro > 0 && dist < 22 && !dead) {
         a.ang = Math.atan2(dpx, dpz) + (a.detourT > 0 ? a.detour : 0);
@@ -1932,7 +1941,7 @@ function updateMobs(dt) {
         } else {
           if (dist > 9) spd = a.speed; else if (dist < 5) { spd = a.speed; a.ang += Math.PI; }
           a.shootCd -= dt;
-          if (a.shootCd <= 0 && dist < 13) { a.shootCd = 2.6 + Math.random(); shootArrow(a); }
+          if (a.shootCd <= 0 && dist < 13 && canSee(a, 13)) { a.shootCd = 2.6 + Math.random(); shootArrow(a); }
         }
       } else {
         // idle wander until it spots you
@@ -3060,7 +3069,7 @@ function updatePlayer(dt, mx, mz) {
   const feetB = getB(fx0, Math.floor(P.y + 0.3), fz0), bodyB = getB(fx0, Math.floor(P.y + 1.1), fz0);
   swimming = !MODE.fly && (feetB === T.WATER || bodyB === T.WATER);
   const webbed = feetB === T.COBWEB || bodyB === T.COBWEB;
-  const sp = (MODE.fly ? (sprinting ? 14 : 9) : sprinting ? 9.2 : 4.6) * (inLava ? 0.35 : 1) * (swimming ? 0.55 : 1) * (webbed ? 0.22 : 1) * (ironBuzz > 0 ? 1.25 : 1) * dt;
+  const sp = (MODE.fly ? (sprinting ? 14 : 9) : sprinting ? 10.5 : 4.6) * (inLava ? 0.35 : 1) * (swimming ? 0.55 : 1) * (webbed ? 0.22 : 1) * (ironBuzz > 0 ? 1.25 : 1) * dt;
   moveAxis(dx * sp, 0); moveAxis(0, dz * sp);
   if (Math.abs(P.kbx) + Math.abs(P.kbz) > 0.02) {
     moveAxis(P.kbx * dt, 0); moveAxis(0, P.kbz * dt);
@@ -3068,14 +3077,16 @@ function updatePlayer(dt, mx, mz) {
   }
   // jump: buffered taps + hold-to-keep-jumping, no cooldown
   if (jumpReq) { jumpBuf = 0.2; jumpReq = false; }
-  const wantJump = jumpBuf > 0 || jumpHeld || jumpHeldPad || keys.Space;
+  // GLX-B2: only a fresh press jumps (holding no longer auto-repeats); holding still swims/flies up
+  const holdJump = jumpHeld || jumpHeldPad || !!keys.Space;
+  const wantJump = jumpBuf > 0;
   jumpBuf -= dt;
-  if (MODE.fly && flying) { P.vy = (wantJump ? 7 : 0) - (sneakHeld ? 7 : 0); }
+  if (MODE.fly && flying) { P.vy = (holdJump ? 7 : 0) - (sneakHeld ? 7 : 0); }
   else if (wantJump && groundT > 0 && P.vy <= 0.5) { P.vy = 8.5; groundT = 0; jumpBuf = 0; exh += sprinting ? 0.1 : 0.03; sfx('jump'); }
   if (swimming && !(MODE.fly && flying)) {
     // swimming: slow sinking, hold jump to swim up, bob at the surface
-    P.vy += (wantJump ? 14 : -5) * dt; P.vy *= Math.exp(-3.2 * dt); P.vy = clamp(P.vy, -2.4, 3.4);
-    if (wantJump && bodyB !== T.WATER && collides(P.x + Math.sin(-P.yaw) * 0.4, P.y + 0.1, P.z - Math.cos(P.yaw) * 0.4)) P.vy = 7;   // climb out at the bank
+    P.vy += (holdJump ? 14 : -5) * dt; P.vy *= Math.exp(-3.2 * dt); P.vy = clamp(P.vy, -2.4, 3.4);
+    if ((wantJump || holdJump) && bodyB !== T.WATER && collides(P.x + Math.sin(-P.yaw) * 0.4, P.y + 0.1, P.z - Math.cos(P.yaw) * 0.4)) P.vy = 7;   // climb out at the bank
     P.fallTop = null;
     const ny = P.y + P.vy * dt; if (!collides(P.x, ny, P.z)) { P.y = ny; P.onGround = false; } else { if (P.vy < 0) P.onGround = true; P.vy = 0; }
     swimSnd -= dt; if (Math.hypot(mx, mz) > 0.2 && swimSnd <= 0) { swimSnd = 0.7; sfx('splash', 0.35); }
@@ -3530,7 +3541,7 @@ const keys = {};
 window.addEventListener('keydown', e => {
   if (e.repeat) return;
   keys[e.code] = true;
-  if (e.code === 'Space') { jumpReq = true; e.preventDefault(); if (started && MODE.onJumpPress) MODE.onJumpPress(); }
+  if (e.code === 'Space') { if (!e.repeat) jumpReq = true; e.preventDefault(); if (started && MODE.onJumpPress) MODE.onJumpPress(); }
   if (e.code === 'KeyV' && started && !paused) toggleCamera();
   if (e.code === 'KeyC') sneakHeld = true;
   if (e.code === 'KeyW' || e.code === 'ArrowUp') { const now = performance.now(); if (now - lastW < 300) sprintDbl = true; lastW = now; }
@@ -3603,20 +3614,21 @@ function readPad() {
   }
   if (E[0]) { jumpReq = true; if (MODE.onJumpPress) MODE.onJumpPress(); }
   jumpHeldPad = pressed(0); sneakHeld = pressed(1) || !!keys.KeyC;
-  if (E[12]) toggleCamera();
+  if (E[12]) dropOne();
+  if (E[13]) toggleCamera();
   // push the left stick forward twice quickly to sprint
-  const fwd = axes.ly < -0.75, nowT = performance.now();
-  if (fwd && !padFwd) { if (nowT - padFwdT < 350) sprintPad = true; padFwdT = nowT; }
+  const fwd = axes.ly < (padFwd ? -0.45 : -0.6), nowT = performance.now();
+  if (fwd && !padFwd) { if (nowT - padFwdT < 450) { sprintPad = true; toast('Sprinting'); } padFwdT = nowT; }
   padFwd = fwd;
   if (E[2]) eat();
-  if (E[3]) openMenu(true);
+  if (E[3]) useItem();
+  if (E[6]) { invTab = 'craft'; openMenu(true); }
   if (E[4] || E[14]) cycleSel(-1);
   if (E[8]) toggleCamera();
   if (E[5] || E[15]) cycleSel(1);
-  if (E[6]) useItem();
-  if (E[13]) dropOne();
   if (E[10]) sprintPad = !sprintPad;
-  if (Math.abs(axes.lx) + Math.abs(axes.ly) < 0.1) sprintPad = false;
+  if (Math.abs(axes.lx) + Math.abs(axes.ly) < 0.1 && nowT - padFwdT > 350) sprintPad = false;
+  if (axes.ly > -0.3) { if (sprintPad && axes.ly > 0.2) sprintPad = false; }
   attackPad = pressed(7);
   return axes;
 }
@@ -3653,7 +3665,9 @@ function setupTouch() {
   const jb = $('bJump');
   jb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); buzz(); jumpReq = true; jumpHeld = true; jb.classList.add('on'); if (MODE.onJumpPress) MODE.onJumpPress(); try { jb.setPointerCapture(e.pointerId); } catch (_) {} });
   const jEnd = () => { jumpHeld = false; jb.classList.remove('on'); };
-  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => jb.addEventListener(ev, jEnd));
+  ['pointerup', 'pointercancel', 'lostpointercapture', 'pointerleave'].forEach(ev => jb.addEventListener(ev, jEnd));
+  window.addEventListener('pointerup', jEnd); window.addEventListener('blur', jEnd);
+  document.addEventListener('visibilitychange', jEnd);
   tap('bCam', toggleCamera);
   const dn = $('bDown');
   dn.addEventListener('pointerdown', e => { e.preventDefault(); sneakHeld = true; });
@@ -3717,7 +3731,7 @@ $('qTag').textContent = HIGH ? '4K' : 'Phone';
 if (touchMode) { document.body.classList.add('touch'); setupTouch(); }
 const HINT_TOUCH = '<b>Left thumb</b>: move · <b>Drag</b> anywhere else: look<br><b>MINE/HIT</b> hold · <b>USE/PLACE</b> place, hoe, plant, fill bucket · <b>DROP</b> one item · <b>EAT</b> · <b>CRAFT</b> · <b>SPRINT</b> · <b>II</b> pause<br>Tap a hotbar slot to pick it. A Bluetooth controller also works.';
 const HINT_PC = '<b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> or double-tap <b>W</b> sprint<br><b>Hold left click</b> mine / attack · <b>Right click</b> place / use · <b>Q</b> drop one · <b>E</b> craft · <b>F</b> eat · <b>Esc/P</b> pause · <b>1-9</b> / wheel pick';
-const HINT_PAD = 'Controller: <b>RT</b> mine / attack · <b>LT</b> place / use (hoe, seeds, bucket) · <b>D-pad down</b> drop one · <b>A</b> jump · <b>X</b> eat · <b>Y</b> craft · <b>LB/RB</b> pick · <b>L3</b> sprint · <b>Start</b> pause';
+const HINT_PAD = 'Controller: <b>RT</b> mine / attack · <b>LT</b> crafting table · <b>Y</b> place / use (hoe, seeds, bucket) · <b>D-pad down</b> 3rd person · <b>D-pad up</b> drop one · <b>A</b> jump · <b>X</b> eat · <b>LS forward x2</b> sprint · <b>LB/RB</b> pick · <b>L3</b> sprint · <b>Start</b> pause';
 $('startHint').innerHTML = (touchMode ? HINT_TOUCH : HINT_PC) + '<br>' + HINT_PAD;
 $('pauseHint').innerHTML = (touchMode ? HINT_TOUCH : HINT_PC) + '<br>' + HINT_PAD;
 
@@ -4222,7 +4236,7 @@ function treemanGrab(a, dt, now) {
   a.arms[0].rotation.x = a.arms[1].rotation.x = -1.6 - Math.sin(t * 3) * 0.1; a.arms[0].rotation.z = 0.35; a.arms[1].rotation.z = -0.35;
   if (t > 0.5 && !a.roared) { a.roared = true; sfx3d('roar', pos, 40); shake(1.6, 0.05); }
   if (t < 0.8) a.eyeM.color.setHex(0xff1a0a);
-  else { const gl = Math.random(); a.eyeM.color.setHex(gl < 0.7 ? 0x000000 : gl < 0.85 ? 0x5a0000 : 0xffffff); a.head.position.x = (Math.random() - .5) * 0.04; a.head.rotation.z = (Math.random() - .5) * 0.15; }
+  else { const gl = Math.random(); a.eyeM.color.setHex(gl < 0.7 ? 0x000000 : gl < 0.85 ? 0x5a0000 : 0xffffff); a.head.rotation.y = Math.sin(t * 2.4) * 0.35; a.head.rotation.z = Math.sin(t * 1.2) * 0.08; }
   if (a.grabT <= 0) {
     heldBy = null; a.head.position.x = 0;
     const side = Math.random() < .5 ? 1 : -1, tx = fx * 0.7 + fz * side * 0.7, tz = fz * 0.7 - fx * side * 0.7, l = Math.hypot(tx, tz);
@@ -4814,7 +4828,8 @@ function menuPadInput(E, axes, gp) {
   scrollActive(axes.ry);
   if (invTab === 'char' && !$('craft').classList.contains('hidden')) charYaw += axes.rx * 0.08;
   const inCraft = !$('craft').classList.contains('hidden');
-  if (inCraft && (E[6] || E[7])) { const i = TABS.indexOf(invTab === 'cbag' ? 'bag' : invTab); setTab(TABS[(i + (E[7] ? 1 : TABS.length - 1)) % TABS.length]); }
+  if (inCraft && E[6]) { openMenu(false); return; }
+  if (inCraft && E[7]) { const i = TABS.indexOf(invTab === 'cbag' ? 'bag' : invTab); setTab(TABS[(i + (E[7] ? 1 : TABS.length - 1)) % TABS.length]); }
   if (inCraft && invTab === 'craft' && (E[4] || E[5])) { const i = CATS.findIndex(c => c[0] === craftCat); setCat(CATS[(i + (E[5] ? 1 : CATS.length - 1)) % CATS.length][0]); }
   if (E[0]) {
     if (inCraft && invTab === 'craft' && navEl && navEl.classList.contains('rec2')) craft(navEl._ri);
