@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: g5 -->
+<!-- glencraft-build: h1 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.23 \u2022 b1';
+const GAME_VERSION = 'v0.9.24 \u2022 b1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -10237,7 +10237,7 @@ async function enterDim(name, gen, spawnFn) {
     for (const [, o] of entObjs) scene.remove(o.g); entObjs.clear();
     let d = null; try { d = await idbGet('worlds', dimKey(name)); } catch (_) {}
     DIM.cur = name; g9Island = false; weather.type = 'clear'; weather.pending = null;
-    if (d) { H = d.H; applySave(d); genVer = 1; }
+    if (d && d.world && d.W && (name !== 'backrooms' || d.brv === 2)) { H = d.H; applySave(d); genVer = 1; }
     else { crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear(); gen(); genVer = 1; spawnFn(); }
     for (const k in inv) delete inv[k]; Object.assign(inv, keepInv); hp = keep.hp; food = keep.food; sat = keep.sat; keep.armour.forEach((id, i) => armour[i] = id); try { refreshArmour(); } catch (_) {}
     P.vy = 0; P.fallTop = null; dirtyAll = true; rebuild(); renderHotbar();
@@ -10357,7 +10357,8 @@ function brHum(on, f) {
   useItem = function () {
     const h = raycast(5, true);
     if (h && getB(h.hit[0], h.hit[1], h.hit[2]) === T.PAINTB && !riding) {
-      if (DIM.cur === 'backrooms') exitDim();
+      if (typeof paintUse === 'function') paintUse(h.hit);
+      else if (DIM.cur === 'backrooms') exitDim();
       else if (!DIM.cur) { DIM.link = h.hit.slice(); enterDim('backrooms', genBackrooms, spawnBackrooms); }
       return;
     }
@@ -10918,7 +10919,7 @@ genBackrooms = function () {
   for (let k = 0; k < 3; k++) { const lx = 8 + Math.floor(brHash(k, 1, 41) * 56), lz = 8 + Math.floor(brHash(k, 2, 41) * 56); for (const p of [0, BR_P]) for (const q of [0, BR_P]) door(lx + p, lz + q); }
   door(BR_ARR[0], BR_ARR[1]);
 };
-spawnBackrooms = function () { P.x = BR_ARR[0] + 0.5; P.z = BR_ARR[1] - 1.5; P.y = 2; P.yaw = Math.PI; P.pitch = 0; };
+spawnBackrooms = function () { P.x = BR_ARR[0] + 0.5; P.z = BR_ARR[1] - 1.5; P.y = 2; P.yaw = 0; P.pitch = 0; };
 // ---------- painting frames ----------
 // a frame = the outward face of a painting doorway: o (centre), n (outward normal), h (1 or 2 tall)
 function paintFrame(x, y, z, px, pz) {
@@ -11029,11 +11030,11 @@ function crossTo(src, isEnter) {
     if (isEnter) {
       DIM.link = [src.x, src.y, src.z]; DIM.linkFrame = src; snapOverworld(src);
       // the overworld is parked in memory; its compressed save is written just after the crossing
-      const re = rleEncode; rleEncode = () => null; let ow; try { ow = serialize(); } finally { rleEncode = re; }
+      const re = rleEncode; rleEncode = () => ''; let ow; try { ow = serialize(); } finally { rleEncode = re; }
       ow.P = Object.assign({}, ow.P); DIM.ow = ow; DIM.owWorld = world; DIM.owDims = [W, H, D];
       const keepInv = Object.assign({}, inv), keep = {hp, food, sat, armour: armour.slice()};
       mobs.slice().forEach(removeMob); try { clearBoats(); } catch (_) {} for (const [, o] of entObjs) scene.remove(o.g); entObjs.clear();
-      const pre = DIM.pre && DIM.pre !== 'loading' ? DIM.pre : null;
+      const pre = DIM.pre && DIM.pre !== 'loading' && DIM.pre.brv === 2 && DIM.pre.world && DIM.pre.W === BR_P * 2 ? DIM.pre : null;
       DIM.cur = 'backrooms'; g9Island = false; weather.type = 'clear'; weather.pending = null;
       if (pre) { H = pre.H; applySave(pre); genVer = 1; } else { crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear(); genBackrooms(); genVer = 1; }
       for (const k in inv) delete inv[k]; Object.assign(inv, keepInv); hp = keep.hp; food = keep.food; sat = keep.sat; keep.armour.forEach((id, i) => armour[i] = id);
@@ -11062,7 +11063,7 @@ function crossTo(src, isEnter) {
     const body = new THREE.Vector3(P.x, P.y + 0.9, P.z);
     for (const [k, p] of PV.portals) {
       const loc = body.clone().applyMatrix4(frameMat(p.f).invert()), prev = PV.lastPos.get(k); PV.lastPos.set(k, loc.z);
-      if (prev !== undefined && prev > 0 && loc.z <= 0 && Math.abs(loc.x) < 0.6 && Math.abs(loc.y) < p.f.h / 2 + 0.5 && destFor() && (DIM.cur !== 'backrooms' || DIM.ow)) { crossTo(p.f, !DIM.cur); break; }
+      if (prev !== undefined && prev > 0 && loc.z <= 0 && Math.abs(loc.x) < 0.6 && Math.abs(loc.y) < p.f.h / 2 + 1.0 && destFor() && (DIM.cur !== 'backrooms' || DIM.ow)) { crossTo(p.f, !DIM.cur); break; }
     }
     return r;
   };
@@ -11072,6 +11073,82 @@ function crossTo(src, isEnter) {
   const ew = enterWorld; enterWorld = function () { DIM.owWorld = null; DIM.linkFrame = null; DIM.pre = undefined; for (const [, q] of PV.portals) scene.remove(q.g); PV.portals.clear(); return ew.apply(this, arguments); };
 })();
 window.GLEN_PV = PV;
+
+/* ===================== GLX-H1 (v0.9.24): robust Backrooms doorways (any painting, any save), Return-to-overworld, safe arrival ===================== */
+(function () { const s = serialize; serialize = function () { const d = s.apply(this, arguments); if (DIM.cur === 'backrooms') d.brv = 2; return d; }; })();
+// rebuild the arrival hall + its exit doorway from the pure layout, every time you arrive (old or damaged saves can't strand you)
+function brStampArrival() {
+  if (DIM.cur !== 'backrooms' || W !== BR_P * 2) return;
+  const [ax, az] = BR_ARR;
+  for (let x = ax - 7; x <= ax + 7; x++) for (let z = az - 10; z <= az + 4; z++) for (let y = 0; y < 8; y++) world[idx(x, y, z)] = brBlockAt(x, y, z);
+  for (let x = ax - 2; x <= ax + 2; x++) for (let z = az - 4; z <= az - 1; z++) for (let y = 2; y < 6; y++) world[idx(x, y, z)] = 0;   // an open landing in front of the door
+  for (let y = 2; y < 6; y++) world[idx(ax, y, az)] = T.BRWALL; world[idx(ax, 2, az)] = T.PAINTB; world[idx(ax, 3, az)] = T.PAINTB;
+  for (let x = ax - 7; x <= ax + 7; x += CH) for (let z = az - 10; z <= az + 4; z += CH) markDirty(x, z); markDirty(ax + 7, az + 4); markDirty(ax - 7, az - 10); markDirty(ax + 7, az - 10); markDirty(ax - 7, az + 4);
+}
+// find a standable spot near (x, y, z): never inside walls, never under the floor
+function safeLand(x, y, z) {
+  const fx = Math.floor(x), fz = Math.floor(z), ok = yy => yy >= 1 && yy < H - 2 && !solid(fx, yy, fz) && !solid(fx, yy + 1, fz) && solid(fx, yy - 1, fz);
+  const y0 = Math.floor(y + 0.01); for (const d of [0, 1, -1, 2, -2, 3, 4, -3, 5, 6]) if (ok(y0 + d)) return y0 + d;
+  return null;
+}
+function brSafeArrival() {
+  if (DIM.cur !== 'backrooms') return;
+  brStampArrival();
+  const [ax, az] = BR_ARR, inHall = Math.abs(P.x - ax - .5) < 6 && P.z > az - 9 && P.z < az;
+  if (!inHall || safeLand(P.x, P.y, P.z) === null) { P.x = ax + 0.5; P.z = az - 1.5; P.yaw = 0; }
+  P.y = safeLand(P.x, 2, P.z) || 2; P.vy = 0; P.fallTop = null;
+}
+function owSafeArrival() { if (DIM.cur) return; const y = safeLand(P.x, P.y, P.z); if (y !== null) P.y = y; else if (typeof safeTeleport === 'function') try { safeTeleport(P.x, P.z); } catch (_) {} P.vy = 0; P.fallTop = null; }
+(function () {
+  // every way in ends at the stamped hall; every way out lands on solid ground
+  const ct = crossTo;
+  crossTo = function (src, isEnter) {
+    if (!isEnter && !DIM.linkFrame) { exitDim(); return; }
+    const was = DIM.cur;
+    try { ct.apply(this, arguments); }
+    catch (e) { console.warn('doorway', e); toast('Doorway error: ' + (e && e.message || e)); if (was === null && DIM.cur === 'backrooms' && W !== BR_P * 2) { DIM.cur = null; } }
+    if (DIM.cur === 'backrooms') { brSafeArrival(); dirtyAll = true; rebuild(30); }
+    else owSafeArrival();
+  };
+  const ed = enterDim;
+  enterDim = async function (name) { const r = await ed.apply(this, arguments); if (DIM.cur === 'backrooms') { brSafeArrival(); dirtyAll = true; rebuild(); } return r; };
+  const ex = exitDim;
+  exitDim = async function () {
+    if (DIM.cur && !DIM.ow) {   // lost the parked overworld (e.g. reloaded mid-trip): fetch it from storage
+      let d = null; try { d = await idbGet('worlds', current.id); } catch (_) {}
+      if (!d || !d.world) try { d = JSON.parse(localStorage.getItem('glen_w_' + current.id) || 'null'); } catch (_) {}
+      if (!d || !d.world) { toast('Could not find your overworld save'); return; }
+      DIM.ow = d;
+    }
+    const r = await ex.apply(this, arguments); owSafeArrival(); return r;
+  };
+  // using (tapping) a painting goes through the same doorway code as walking through it
+  window.paintUse = function (hit) {
+    const f = paintFrame(hit[0], hit[1], hit[2], P.x, P.z);
+    if (DIM.cur === 'backrooms') { if (f && DIM.ow && DIM.linkFrame) { P.x = f.o.x + f.n[0] * 0.8; P.z = f.o.z + f.n[1] * 0.8; P.y = f.y; crossTo(f, false); } else exitDim(); return; }
+    if (DIM.cur) return;
+    if (!f) { DIM.link = hit.slice(); enterDim('backrooms', genBackrooms, spawnBackrooms); return; }
+    P.x = f.o.x + f.n[0] * 0.8; P.z = f.o.z + f.n[1] * 0.8; P.y = f.y; P.yaw = f.yaw; crossTo(f, true); if (DIM.cur === "backrooms") P.yaw += Math.PI;
+  };
+  // old single-block paintings grow into proper 1 x 2 doorways when you come near
+  const sp = scanPortals;
+  scanPortals = function () {
+    if (!DIM.cur || DIM.cur === 'backrooms') { const x0 = Math.floor(P.x), y0 = Math.floor(P.y), z0 = Math.floor(P.z);
+      for (let x = Math.max(0, x0 - 10); x < Math.min(W, x0 + 10); x++) for (let z = Math.max(0, z0 - 10); z < Math.min(D, z0 + 10); z++) for (let y = Math.max(2, y0 - 3); y < Math.min(H - 2, y0 + 4); y++) {
+        if (world[idx(x, y, z)] !== T.PAINTB || world[idx(x, y + 1, z)] === T.PAINTB || world[idx(x, y - 1, z)] === T.PAINTB) continue;
+        if (world[idx(x, y - 1, z)] === T.AIR && solid(x, y - 2, z)) world[idx(x, y - 1, z)] = T.PAINTB; else if (world[idx(x, y + 1, z)] === T.AIR) world[idx(x, y + 1, z)] = T.PAINTB; else continue;
+        markDirty(x, z); } }
+    return sp.apply(this, arguments);
+  };
+})();
+// pause menu: Return to overworld (shown whenever you're in another dimension)
+(function () {
+  const rt = $('resetTerrainBtn'); if (!rt) return;
+  const b = document.createElement('button'); b.className = 'btn'; b.id = 'returnOwBtn'; b.setAttribute('data-testid', 'pause-returnOwBtn'); b.textContent = 'Return to overworld'; b.style.display = 'none';
+  b.onclick = () => { try { setPause(false); } catch (_) {} exitDim(); };
+  rt.parentNode.insertBefore(b, rt.parentNode.firstChild);
+  setInterval(() => { const on = !!DIM.cur; if ((b.style.display !== 'none') !== on) b.style.display = on ? '' : 'none'; }, 500);
+})();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
