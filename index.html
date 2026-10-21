@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: e3 -->
+<!-- glencraft-build: e5 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.12 \u2022 b1';
+const GAME_VERSION = 'v0.9.13 \u2022 b1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -8286,7 +8286,7 @@ setInterval(() => {
   add(); setTimeout(add, 3000);
 })();
 // the Highlands' painted mountain ring doesn't belong around Clydebank
-setInterval(() => { if (typeof scenery === 'undefined' || !scenery) return; const v = !((genVer >= GEN10 || g9Island) && started); const set = o => { if (o && o.isObject3D) o.visible = v; }; if (scenery.isObject3D) set(scenery); else for (const k in scenery) set(scenery[k]); }, 1000);
+setInterval(() => { if (typeof scenery === 'undefined' || !scenery) return; const v = false;   /* GLX-E5: the fake backdrop is gone for good - only real terrain and ocean */ const set = o => { if (o && o.isObject3D) o.visible = v; }; if (scenery.isObject3D) set(scenery); else for (const k in scenery) set(scenery[k]); }, 1000);
 /* ===================== GLX-C3: survival = Highlands again (+ the four castles); Gold world back from Clydebank ===================== */
 var castleAvoid = [], cityBackDone = false;
 function g9PlaceCastles() {
@@ -9725,6 +9725,23 @@ function engineSnd(sp, thr, stop) {
   };
   heldId = null; try { setHeld(selId); } catch (_) {}
 })();
+
+/* ===================== GLX-E5 (v0.9.13): open sea to the horizon around the island world ===================== */
+var seaRing = null;
+function ensureSeaRing() {
+  const want = started && g9Island;
+  if (!want) { if (seaRing) seaRing.visible = false; return; }
+  if (!seaRing) {
+    const m = new THREE.MeshLambertMaterial({color: 0x2f5f78, transparent: true, opacity: 0.92});
+    seaRing = new THREE.Group(); const R = 6000;
+    const rect = (x0, z0, x1, z1) => { const g = new THREE.PlaneGeometry(x1 - x0, z1 - z0); g.rotateX(-Math.PI / 2); const o = new THREE.Mesh(g, m); o.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2); seaRing.add(o); };
+    seaRing.userData.build = (w, d) => { while (seaRing.children.length) seaRing.remove(seaRing.children[0]); rect(-R, -R, R, 0); rect(-R, d, R, R); rect(-R, 0, 0, d); rect(w, 0, R, d); };
+    scene.add(seaRing);
+  }
+  if (seaRing.userData.w !== W) { seaRing.userData.build(W, D); seaRing.userData.w = W; }
+  seaRing.position.y = SEA + 0.86; seaRing.visible = true;
+}
+setInterval(() => { try { ensureSeaRing(); } catch (_) {} }, 1000);
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
