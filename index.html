@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: h1 -->
+<!-- glencraft-build: h2 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.24 \u2022 b1';
+const GAME_VERSION = 'v0.9.25 \u2022 b1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 
 /* ---------- constants ---------- */
@@ -11148,6 +11148,29 @@ function owSafeArrival() { if (DIM.cur) return; const y = safeLand(P.x, P.y, P.z
   b.onclick = () => { try { setPause(false); } catch (_) {} exitDim(); };
   rt.parentNode.insertBefore(b, rt.parentNode.firstChild);
   setInterval(() => { const on = !!DIM.cur; if ((b.style.display !== 'none') !== on) b.style.display = on ? '' : 'none'; }, 500);
+})();
+
+/* ===================== GLX-H2 (v0.9.25): no more floating torches (castle interiors placed ground torches over air) ===================== */
+// Unsupported torches become wall torches if a wall is next to them, hanging torches under a ceiling, otherwise they are removed. Runs after generation and on every load.
+function fixTorches() {
+  let fixed = 0, removed = 0; const HD = H * D;
+  for (let x = 0; x < W; x++) for (let y = 1; y < H - 1; y++) { const b0 = (x * H + y) * D; for (let z = 0; z < D; z++) {
+    if (world[b0 + z] !== T.TORCH) continue;
+    const k = keyOf(x, y, z), m = entMeta.get(k) || {};
+    if (m.wall ? solid(x + m.wall[0], y, z + m.wall[1]) : m.ceil ? solid(x, y + 1, z) : solid(x, y - 1, z)) continue;
+    let w = null; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (solid(x + dx, y, z + dz)) { w = [dx, dz]; break; }
+    if (w) { entMeta.set(k, {face: 0, wall: w}); fixed++; }
+    else if (solid(x, y - 1, z)) { entMeta.delete(k); fixed++; }
+    else if (solid(x, y + 1, z)) { entMeta.set(k, {face: 0, ceil: 1}); fixed++; }
+    else { world[b0 + z] = T.AIR; entMeta.delete(k); removed++; }
+    markDirty(x, z);
+  } }
+  if (fixed + removed) console.log('[torches] fixed', fixed, 'removed', removed);
+  return {fixed, removed};
+}
+(function () {
+  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { fixTorches(); } catch (e) { console.warn(e); } return r; };
+  const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); try { if (fixTorches().removed + 0 >= 0) rebuild(); } catch (e) { console.warn(e); } return r; };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
