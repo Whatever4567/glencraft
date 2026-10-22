@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0946 -->
+<!-- glencraft-build: t12 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.46';
+const GAME_VERSION = 'v0.9.47';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -906,7 +906,8 @@ function generate() {
 }
 // tall Scots pines / oaks with a few branches and round, airy leaf clumps
 function plantTree(x, z) {
-  const top = groundTop(x, z), th = 6 + Math.floor(Math.random() * 3);
+  const top = groundTop(x, z), th = 6 + Math.floor(Math.random() * 5);
+  if (top + th + 4 >= H) return; dirtUnder(x, top, z);
   const put = (bx, by, bz, b) => { if (bx > 0 && bz > 0 && bx < W - 1 && bz < D - 1 && by < H - 1 && getB(bx, by, bz) === T.AIR) setB(bx, by, bz, b); };
   for (let y = 1; y <= th; y++) setB(x, top + y, z, T.LOG);
   const clump = (cx, cy, cz, r) => {
@@ -6169,12 +6170,14 @@ function exploreGen() {
   buildRuin();
   placeFarTrees();
 }
+function dirtUnder(x, top, z) { const g = getB(x, top, z); if (g === T.GRASS || g === T.HEATHER || g === T.PEAT) setB(x, top, z, T.DIRT); }
 function plantPine(x, z) {
   const top = groundTop(x, z), th = 8 + Math.floor(Math.random() * 4);
-  if (top + th + 3 >= H) return;
+  if (top + th + 3 >= H) return; dirtUnder(x, top, z);
   for (let y = 1; y <= th; y++) setB(x, top + y, z, T.LOG);
-  for (let y = 3; y <= th + 1; y++) {
-    const k = (th + 1 - y) / (th - 2), r = 0.6 + k * 2.4 * (y % 2 ? 1 : 0.78);
+  const y0 = Math.max(4, Math.floor(th * 0.45));
+  for (let y = y0; y <= th + 1; y++) {
+    const k = (th + 1 - y) / (th + 1 - y0), r = 0.6 + k * 2.4 * (y % 2 ? 1 : 0.78);
     for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
       if (Math.hypot(dx, dz) > r) continue;
       const px = x + dx, pz = z + dz, py = top + y;
@@ -6184,8 +6187,8 @@ function plantPine(x, z) {
   if (getB(x, top + th + 2, z) === T.AIR) setB(x, top + th + 2, z, T.LEAVES);
 }
 function plantBlossom(x, z) {
-  const top = groundTop(x, z), th = 4 + Math.floor(Math.random() * 2);
-  if (top + th + 4 >= H) return;
+  const top = groundTop(x, z), th = 6 + Math.floor(Math.random() * 3);
+  if (top + th + 4 >= H) return; dirtUnder(x, top, z);
   for (let y = 1; y <= th; y++) setB(x, top + y, z, T.LOG);
   for (let dx = -3; dx <= 3; dx++) for (let dy = -1; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) {
     const d = Math.hypot(dx, dy * 1.4, dz); if (d > 2.7 + Math.random() * 0.4) continue;
@@ -7609,10 +7612,12 @@ function gPine(x, z, h, put) {
   const top = g9top(x, z), b = getB(x, top, z);
   if (b !== T.GRASS && b !== T.HEATHER && b !== T.DIRT) return false;
   if (getB(x, top + 1, z) !== T.AIR || top + h + 3 >= H) return false;
+  if (b !== T.DIRT) world[idx(x, top, z)] = T.DIRT;   // dirt under the trunk, like MC
   for (let y = 1; y <= h; y++) put(x, top + y, z, T.LOG);
-  // cone of needles: wider rings low down, tapering to a spire
-  for (let y = 3; y <= h + 2; y++) {
-    const t = (y - 3) / (h - 1), r = Math.max(0, Math.round((1 - t) * 2.6 + ((y & 1) ? 0.4 : 0)));
+  // cone of needles: starts high enough to walk under, wider rings low down, tapering to a spire
+  const y0 = Math.max(4, Math.round(h * 0.45));
+  for (let y = y0; y <= h + 2; y++) {
+    const t = (y - y0) / (h + 2 - y0), r = Math.max(0, Math.round((1 - t) * 2.6 + ((y & 1) ? 0.4 : 0)));
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
       if (dx * dx + dz * dz > r * r + 1 || (dx === 0 && dz === 0 && y <= h)) continue;
       put(x + dx, top + y, z + dz, T.LEAVES);
@@ -7629,7 +7634,7 @@ function gGenFeatures(rnd, hash) {
     const f = g9fbm(x / 60 + 300, z / 60 - 300, 2), k = kindAt(x, z), h = hAt(x, z);
     if (k !== 0 && k !== 1) continue; if (h > SEA + 26) continue;
     const r = hash(x, 77, z);
-    if ((f > 0.12 && r < 0.055) || (f > 0.3 && r < 0.09) || (k === 1 && r < 0.003)) gPine(x, z, 6 + Math.floor(hash(x, 78, z) * 5), put);
+    if ((f > 0.12 && r < 0.055) || (f > 0.3 && r < 0.09) || (k === 1 && r < 0.003)) gPine(x, z, 7 + Math.floor(hash(x, 78, z) * 4), put);
     else if (k === 0 && f < -0.25 && r < 0.004) { const t = g9top(x, z); if (getB(x, t, z) === T.GRASS && getB(x, t + 1, z) === T.AIR) plantTree(x, z); }
   }
   // standing stones: rings of tall stones on flat meadow or moor
@@ -13473,7 +13478,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
       for (let x = Math.max(3, Math.floor(cx - R)); x <= Math.min(W - 4, cx + R); x++) for (let z = Math.max(3, Math.floor(cz - R)); z <= Math.min(D - 4, cz + R); z++) for (let y = Math.max(minY || 3, Math.floor(cy - Ry)); y <= Math.min(H - 3, cy + Ry); y++) {
         const dx = (x - cx) / r, dy = (y - cy) / ry, dz = (z - cz) / r; if (dx * dx + dy * dy + dz * dz > 1) continue; const i = idx(x, y, z); if (!soft(world[i]) || wet(x, y, z)) continue; if (placedSet && placedSet.has(i)) continue; world[i] = T.AIR; } };
     const away = (x, z) => g9castles.every(c => Math.hypot(c[1] - x, c[2] - z) > 34);
-    const st = {entrances: 0, caverns: 0, deep: 0};
+    const st = {entrances: 0, caverns: 0, deep: 0, list: []};
     const nE = Math.max(12, Math.round(W * D / 9000));
     for (let n = 0, t = 0; n < nE && t < nE * 20; t++) {
       const x0 = 12 + rnd() * (W - 24), z0 = 12 + rnd() * (D - 24); if (!away(x0, z0)) continue; const top = solidTop(Math.floor(x0), Math.floor(z0)); if (top <= SEA + 2 || world[idx(Math.floor(x0), top, Math.floor(z0))] === T.WATER) continue;
@@ -13481,7 +13486,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
       let x = x0, y = top + 1, z = z0, yaw = rnd() * 6.283; const floorY = 14 + rnd() * 14;
       for (let k = 0; k < 220 && y > floorY; k++) { const r = 1.9 + Math.sin(k * 0.3) * 0.35; ball(x, y, z, r, r * 1.15);
         yaw += (rnd() - 0.5) * 0.35; x += Math.cos(yaw) * 0.85; z += Math.sin(yaw) * 0.85; y -= 0.42; if (x < 12 || z < 12 || x > W - 12 || z > D - 12) { yaw += Math.PI; x = Math.max(13, Math.min(W - 13, x)); z = Math.max(13, Math.min(D - 13, z)); } }
-      const r = 9 + rnd() * 6; ball(x + Math.cos(yaw) * r * 0.6, y + 2, z + Math.sin(yaw) * r * 0.6, r, 5 + rnd() * 3); st.caverns++;
+      const r = 9 + rnd() * 6; ball(x + Math.cos(yaw) * r * 0.6, y + 2, z + Math.sin(yaw) * r * 0.6, r, 5 + rnd() * 3); st.caverns++; st.list.push([Math.round(x0), top, Math.round(z0), Math.round(x + Math.cos(yaw) * r * 0.6), Math.round(y + 2), Math.round(z + Math.sin(yaw) * r * 0.6), Math.round(r)]);
       // a couple of side galleries off the cavern
       for (let g = 0; g < 2; g++) { let gx = x, gz = z, gy = y + 1, gyaw = rnd() * 6.283; for (let k = 0; k < 40; k++) { ball(gx, gy, gz, 2.2, 2); gyaw += (rnd() - .5) * 0.4; gx += Math.cos(gyaw); gz += Math.sin(gyaw); gy += (rnd() - 0.5) * 0.4; if (gx < 10 || gz < 10 || gx > W - 10 || gz > D - 10) break; } }
       st.entrances++; n++; }
@@ -13494,7 +13499,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
         if (nearAir && y > 1 && Math.hypot(x - cx, z - cz) < r + 2) world[i] = DSC; }
       // and a long sloping shaft linking it up to the nearest open cave
       let x = cx, y = cy + 2, z = cz, yaw = rnd() * 6.283; for (let k = 0; k < 90 && y < 26; k++) { ball(x, y, z, 2, 2.2); yaw += (rnd() - .5) * 0.3; x += Math.cos(yaw) * 0.9; z += Math.sin(yaw) * 0.9; y += 0.4; if (x < 10 || z < 10 || x > W - 10 || z > D - 10) yaw += Math.PI; }
-      deep.push([cx, cy, cz, r]); st.deep++; }
+      deep.push([cx, cy, cz, r]); st.deep++; n++; }
     window.__deepCaves = deep; return st; }
   const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__c54 = carveCaves(); c37busy = was; } catch (e) { console.warn('c54', e); } return r; };
   const se = serialize; serialize = function () { const d = se.apply(this, arguments); d.deepCaves = window.__deepCaves; return d; };
@@ -13513,12 +13518,12 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     return {g, rig, head, legs: [], arms: [], cLegs: legs, mats: [skin, pale, eye], speed: 2.6, hp: 40, hitY: 0.6, hitR: 1.2, tall: 1}; }
   function newCrawler(cave) { const a = makeCrawler(); const [cx, cy, cz] = cave; Object.assign(a, {kind: 'crawler', hostile: true, named: true, flee: 0, angry: 0, biteCd: 0, moving: true, ang: 0, timer: 0, flash: 0, kbx: 0, kbz: 0, vy: 0, onGround: true, burning: 0, fire: 0, fireTick: 0, walk: 0, sndT: 3, cave, tgt: null, nrm: new THREE.Vector3(0, 1, 0), crHp: 40});
     a.g.position.set(cx, cy - 4, cz); scene.add(a.g); mobs.push(a); return a; }
-  window.newCrawler = newCrawler;
+  window.newCrawler = newCrawler; window.__surfP = (...a) => surfacePoint(...a);
   const isAir = (x, y, z) => !world[idx(x, y, z)];
   function surfacePoint(cx, cy, cz, r) { for (let t = 0; t < 60; t++) { const x = Math.floor(cx + (Math.random() - .5) * r * 2), z = Math.floor(cz + (Math.random() - .5) * r * 2), y = Math.floor(cy + (Math.random() - .5) * 12); if (y < 2 || y >= H - 2) continue;
       if (!isAir(x, y, z)) continue; const n = [[0, -1, 0], [0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].filter(([a, b, c]) => !isAir(x + a, y + b, z + c)); if (!n.length) continue;
-      const [a, b, c] = n[(Math.random() * n.length) | 0]; return {p: new THREE.Vector3(x + .5 + a * 0.25, y + .5 + b * 0.25, z + .5 + c * 0.25), n: new THREE.Vector3(-a, -b, -c)}; } return null; }
-  function stepCrawler(a, dt) { const p = a.g.position; a.walk += dt; a.biteCd -= dt;
+      const nf = n.filter(v => v[1] !== -1); const [a, b, c] = nf.length && Math.random() < 0.75 ? nf[(Math.random() * nf.length) | 0] : n[(Math.random() * n.length) | 0]; return {p: new THREE.Vector3(x + .5 + a * 0.25, y + .5 + b * 0.25, z + .5 + c * 0.25), n: new THREE.Vector3(-a, -b, -c)}; } return null; }
+  function stepCrawler(a, dt) { window.__crN = (window.__crN || 0) + 1; const p = a.g.position; a.walk += dt; a.biteCd -= dt;
     const dP = Math.hypot(P.x - p.x, P.y + 1 - p.y, P.z - p.z), hunt = dP < 14 && !dead;
     if (!a.tgt || p.distanceTo(a.tgt.p) < 0.4 || (a.timer -= dt) <= 0) { a.timer = 3; a.tgt = hunt ? (surfacePoint(P.x, P.y + 1, P.z, 3) || surfacePoint(a.cave[0], a.cave[1], a.cave[2], a.cave[3])) : surfacePoint(a.cave[0], a.cave[1], a.cave[2], a.cave[3]); }
     if (a.tgt) { const d = a.tgt.p.clone().sub(p), L = d.length(); const sp = (hunt ? 3.4 : 1.6) * dt; if (L > 0.01) p.addScaledVector(d, Math.min(1, sp / L));
@@ -13531,10 +13536,53 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     if (a.flash > 0) a.flash -= dt; }
   const um = updateMobs;
   updateMobs = function (dt) { const cs = []; for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].kind === 'crawler') { cs.push(mobs[i]); mobs.splice(i, 1); }
-    try { return um.apply(this, arguments); } finally { for (const c of cs) mobs.push(c); for (const c of cs) { try { if (Math.hypot(c.g.position.x - P.x, c.g.position.z - P.z) > 70) { removeMob(c); continue; } stepCrawler(c, dt); } catch (_) {} } } };
+    try { return um.apply(this, arguments); } finally { for (const c of cs) mobs.push(c); for (const c of cs) { try { if (Math.hypot(c.g.position.x - P.x, c.g.position.z - P.z) > 70) { removeMob(c); continue; } stepCrawler(c, dt); } catch (e) { window.__crErr = String(e); } } } };
   const dm = damageMob; damageMob = function (a, dmg, byPlayer) { if (a.kind !== 'crawler') return dm.apply(this, arguments); a.crHp -= dmg; a.flash = 0.25; const p = a.g.position; burst(p.x, p.y + .5, p.z, 0x3a3640, 8, .6); if (a.crHp <= 0) { burst(p.x, p.y + .5, p.z, 0x1c1a20, 30, 1.4); dropItem(IT.DIAMOND, 2, p.x, p.y + .5, p.z, 0, 3, 0, .4); try { dropXP(p.x, p.y, p.z, 60); } catch (_) {} toast('The crawler is dead'); removeMob(a); } };
   const km = killMob; killMob = function (a) { if (a.kind === 'crawler') { removeMob(a); return; } return km.apply(this, arguments); };
   setInterval(() => { if (!started || paused || DIM.cur) return; for (const cv of window.__deepCaves || []) { if (Math.hypot(P.x - cv[0], P.z - cv[2]) < 40 && P.y < 30 && !crawlers().some(c => c.cave === cv || (c.cave && c.cave[0] === cv[0] && c.cave[2] === cv[2]))) newCrawler(cv); } }, 2500);
+})();
+
+/* ===================== GLX-C55 (v0.9.47): Creative new-world presets - Glen, Clydebank, Flat World ===================== */
+(function c55() {
+  let preset = 'clydebank';
+  const info = $('modeInfo');
+  const box = document.createElement('div'); box.id = 'presetBox'; box.style.cssText = 'margin-top:10px;display:none';
+  box.innerHTML = '<div style="font-size:13px;opacity:.8;margin-bottom:4px">World</div><div id="presetSeg" class="seg" style="display:flex;gap:6px;justify-content:center">' +
+    [['glen', 'Glen'], ['clydebank', 'Clydebank'], ['flat', 'Flat World']].map(([k, n]) => '<button data-preset="' + k + '" data-testid="create-preset-' + k + '"' + (k === preset ? ' class="on"' : '') + '>' + n + '</button>').join('') + '</div>' +
+    '<div id="presetInfo" style="font-size:12px;opacity:.75;margin-top:4px"></div>';
+  info.after(box);
+  const css = document.createElement('style'); css.textContent = '#presetSeg button{flex:1;height:46px;font:800 15px system-ui;border-radius:6px;border:0;color:#fff;cursor:pointer;background:linear-gradient(180deg,#5f6e78,#333d44)}#presetSeg button.on{background:linear-gradient(180deg,#8fd04a 0%,#5fa52a 48%,#4a8a20 52%,#3c7418 100%);box-shadow:0 0 0 3px #e8ffc8}#presetSeg button.focus{outline:3px solid #f5c842}'; document.head.appendChild(css);
+  const DESC = {glen: 'The Highland glen: mountains, lochs, castles and caves.', clydebank: 'A blocky Clydebank built from map data (\u00a9 OpenStreetMap contributors).', flat: 'Endless flat grass to build on. No mobs that hurt you.'};
+  const sync = () => { box.style.display = newMode === 'creative' ? 'block' : 'none'; box.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.preset === preset)); $('presetInfo').textContent = DESC[preset]; };
+  box.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { preset = b.dataset.preset; sync(); }));
+  document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', sync)); sync();
+  window.__setPreset = p => { preset = p; sync(); };
+  function flatten() {
+    const top = 43, BR = T.BEDROCK || 211;
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) for (let y = 0; y < H; y++) world[idx(x, y, z)] = y === 0 ? BR : y < top - 3 ? T.STONE : y < top ? T.DIRT : y === top ? T.GRASS : T.AIR;
+    try { chests.clear(); entMeta.clear(); } catch (_) {}
+    g9castles = []; window.__deepCaves = []; window.__hives = [];
+    mobs.slice().forEach(removeMob);
+    P.x = W / 2 + .5; P.z = D / 2 + .5; P.y = top + 1; P.vy = 0; dirtyAll = true;
+  }
+  const cw = createWorld;
+  createWorld = function () {
+    if (newMode !== 'creative' || preset === 'clydebank') return cw.apply(this, arguments);
+    // Glen / Flat: generate the Highland glen (as survival does), then switch to creative once it is ready
+    newMode = 'survival';
+    try { cw.apply(this, arguments); } finally { newMode = 'creative'; }
+    current.preset = preset; current.starterDone = true; const want = preset;
+    const t = setInterval(() => { if (!started) return; clearInterval(t);
+      current.mode = 'creative'; current.flat = want === 'flat';
+      if (want === 'flat') flatten();
+      try { MODE.hotbar = null; installCreative(); ensureHotbar(); } catch (e) { console.warn(e); }
+      saveWorld(true); }, 200);
+  };
+  // flat worlds stay mob-free (apart from eggs you throw)
+  const sm = spawnMob; spawnMob = function (kind) { if (current && current.flat && !window.__egg && !window.__eggSpot) return null; return sm.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); if (current && current.preset) { d.preset = current.preset; d.flat = !!current.flat; d.starterDone = true; } return d; };
+  const pw = playWorld; playWorld = async function (w) { const r = await pw.apply(this, arguments); return r; };
+  const ap = applySave; applySave = function (d) { if (d && d.preset && current) { current.preset = d.preset; current.flat = !!d.flat; current.starterDone = true; } return ap.apply(this, arguments); };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
