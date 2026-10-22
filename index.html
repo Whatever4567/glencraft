@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: t12 -->
+<!-- glencraft-build: v0948 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.47';
+const GAME_VERSION = 'v0.9.48';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -13295,8 +13295,8 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
   let pack = false;
   const sm = spawnMob; spawnMob = function (kind) { const a = sm.apply(this, arguments);
     if (a && kind === 'zombie' && !pack && !window.__eggSpot) { pack = true; try { const p = a.g.position; const extra = 1 + (Math.random() < 0.75 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0);
-        for (let i = 0; i < extra; i++) { const ang = Math.random() * 6.28, x = p.x + Math.cos(ang) * 1.8, z = p.z + Math.sin(ang) * 1.8, y = solidTop(Math.floor(x), Math.floor(z)) + 1;
-          if (Math.abs(y - p.y) > 2 || solid(Math.floor(x), y, Math.floor(z))) continue; window.__eggSpot = [x, y, z, x, z]; window.__egg = true; try { sm.call(this, 'zombie'); } finally { window.__eggSpot = null; window.__egg = false; } } } finally { pack = false; } }
+        const eg0 = window.__egg; for (let i = 0, tries = 0; i < extra && tries < extra * 8; tries++) { const ang = Math.random() * 6.28, rr = 1.5 + Math.random() * 1.5, x = p.x + Math.cos(ang) * rr, z = p.z + Math.sin(ang) * rr, y = solidTop(Math.floor(x), Math.floor(z)) + 1;
+          if (Math.abs(y - p.y) > 2 || solid(Math.floor(x), y, Math.floor(z)) || solid(Math.floor(x), y + 1, Math.floor(z)) || world[idx(Math.floor(x), y - 1, Math.floor(z))] === T.WATER) continue; window.__eggSpot = [x, y, z, x, z]; window.__egg = true; try { if (sm.call(this, 'zombie')) i++; } finally { window.__eggSpot = null; window.__egg = eg0; } } } finally { pack = false; } }
     return a; };
   // ---- 7) the treeman leaves when you walk away, and comes back at night by a tree near you ----
   function treeNear(rMin, rMax) { const px = Math.floor(P.x), pz = Math.floor(P.z), c = [];
@@ -13583,6 +13583,33 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); if (current && current.preset) { d.preset = current.preset; d.flat = !!current.flat; d.starterDone = true; } return d; };
   const pw = playWorld; playWorld = async function (w) { const r = await pw.apply(this, arguments); return r; };
   const ap = applySave; applySave = function (d) { if (d && d.preset && current) { current.preset = d.preset; current.flat = !!d.flat; current.starterDone = true; } return ap.apply(this, arguments); };
+})();
+
+/* ===================== GLX-C56 (v0.9.48): chest controller controls - A select, Y take stack, X take all; Take All button ===================== */
+var chestSel = -1;
+(function c56() {
+  const cOpen = () => !$('chestUI').classList.contains('hidden');
+  function takeSlot(i) { const c = chestData(openChestKey); const s = c.slots[i]; if (!s) return 0; addItem(s[0], s[1]); c.slots[i] = null; return s[1]; }
+  // inventory counts have no cap, so every stack fits; a slot is only cleared after its items are added
+  function takeAll() { const c = chestData(openChestKey); let n = 0; for (let i = 0; i < c.slots.length; i++) n += takeSlot(i); chestSel = -1; if (n) { sfx('pop', .4); toast('Took ' + n + ' item' + (n > 1 ? 's' : '')); } else toast('The chest is empty'); renderChest(); try { saveWorld && saveWorld(); } catch (_) {} return n; }
+  window.chestTakeAll = takeAll;
+  const panel = $('chestUI').querySelector('.panel'), close = $('chestClose');
+  const ta = document.createElement('button'); ta.className = 'btn small'; ta.id = 'chestTakeAll'; ta.dataset.testid = 'chest-take-all-button'; ta.textContent = 'Take All'; ta.style.cssText = 'display:inline-block;width:auto;min-width:120px;padding:0 18px;height:40px;margin:0 0 8px;position:relative;z-index:5';
+  ta.addEventListener('click', e => { e.stopPropagation(); returnCursor(); takeAll(); });
+  const h2 = panel.querySelector('h2'); h2.after(ta);
+  const hint = document.createElement('div'); hint.id = 'chestPadHint'; hint.dataset.testid = 'chest-pad-hint'; hint.style.cssText = 'font-size:13px;opacity:.85;margin:6px 0';
+  hint.innerHTML = '<b>A</b> select &nbsp; <b>Y</b> take stack &nbsp; <b>X</b> take all &nbsp; <b>B</b> close';
+  ta.after(hint);
+  const css = document.createElement('style'); css.textContent = '#chestPadHint{display:none}body.pad #chestPadHint{display:block}#chestGrid .gslot.csel{outline:3px solid #f5c842;outline-offset:-3px}'; document.head.appendChild(css);
+  const rc = renderChest; renderChest = function () { const r = rc.apply(this, arguments); const g = $('chestGrid'); if (chestSel >= 0 && g.children[chestSel]) g.children[chestSel].classList.add('csel'); return r; };
+  const oc = openChest; openChest = function () { chestSel = -1; return oc.apply(this, arguments); };
+  const mp = menuPadInput; menuPadInput = function (E, axes, gp) {
+    if (cOpen()) { const g = $('chestGrid'), i = navEl && g.contains(navEl) ? [...g.children].indexOf(navEl) : -1;
+      if (E[0] && i >= 0 && !cursor) { chestSel = chestSel === i ? -1 : i; renderChest(); sfx('pop', .2); E = E.slice(); E[0] = false; }
+      if (E[3]) { E = E.slice(); E[3] = false; const j = chestSel >= 0 ? chestSel : i; if (j >= 0 && !cursor) { const c = chestData(openChestKey); if (c.slots[j]) { const id = c.slots[j][0], n = takeSlot(j); sfx('pop', .35); toast('Took ' + n + ' ' + NAMES[id]); } chestSel = -1; renderChest(); } else quickMove(); }
+      if (E[2]) { E = E.slice(); E[2] = false; if (cursor) { returnCursor(); } takeAll(); }
+    }
+    return mp.call(this, E, axes, gp); };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
