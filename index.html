@@ -5414,7 +5414,7 @@ function saveWorld(quiet) {
     list.unshift({id: current.id, name: current.name, mode: current.mode, created: current.created, updated: data.updated, day: dayNum, gold: isGold(current), v: SAVE_VER});
     worldCache = list;
     let lsOk = true;
-    try { localStorage.setItem('glen_w_' + current.id, JSON.stringify(data)); } catch (_) { lsOk = false; try { localStorage.removeItem('glen_w_' + current.id); } catch (__) {} }
+    if (window.__autoSave && window.indexedDB) {} else try { localStorage.setItem('glen_w_' + current.id, JSON.stringify(data)); } catch (_) { lsOk = false; try { localStorage.removeItem('glen_w_' + current.id); } catch (__) {} }
     let idbOk = !!window.indexedDB;
     idbPut('worlds', current.id, data).catch(() => { if (!lsOk) toast('Could not save: this device is out of storage space'); });
     writeIndex();
@@ -5472,7 +5472,9 @@ function showSaving() {
   clearTimeout(saveIconT); saveIconT = setTimeout(() => el.classList.remove('on'), 1800);
 }
 let lastAutosave = performance.now();
-setInterval(() => { if (started && !dead && performance.now() - lastAutosave > 60 * 1000) { lastAutosave = performance.now(); saveWorld(); } }, 5000);
+// v0.9.49: autosave every 12 minutes, in idle time, IndexedDB only (no big synchronous localStorage JSON write); quit / dimension change / base move still save in full
+const AUTOSAVE_MS = 12 * 60 * 1000;
+setInterval(() => { if (started && !dead && !menuOpen && performance.now() - lastAutosave > AUTOSAVE_MS) { lastAutosave = performance.now(); const go = () => { if (window.autosaveAsync && !DIM.cur) return autosaveAsync(); window.__autoSave = true; try { saveWorld(); } finally { window.__autoSave = false; } }; if (window.requestIdleCallback) requestIdleCallback(go, {timeout: 4000}); else setTimeout(go, 0); } }, 5000);
 document.addEventListener('visibilitychange', () => { if (document.hidden && started) saveWorld(true); });
 window.addEventListener('pagehide', () => { if (started) saveWorld(true); });
 function saveAndQuit() {
@@ -13625,6 +13627,32 @@ var chestSel = -1;
       for (const a of cs) { const p = a.g.position, d = Math.hypot(p.x - P.x, p.z - P.z); if (!a.lit && !(a.cf > 0) && d > 12 && !DIM.cur && !under(p.x, p.y, p.z)) removeMob(a); }
       const left = mobs.filter(a => a.kind === 'creeper').sort((a, b) => Math.hypot(b.g.position.x - P.x, b.g.position.z - P.z) - Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z));
       while (left.length > MAXC) { const a = left.shift(); if (a.lit || a.cf > 0) break; removeMob(a); } } catch (_) {} }, 2000);
+})();
+
+/* ===================== GLX-C58 (v0.9.49): castle guardians disabled (code kept dormant) ===================== */
+(function c58() {
+  const sm = spawnMob; spawnMob = function (kind) { if (kind === 'guardian') return null; return sm.apply(this, arguments); };
+  const clear = () => { for (const a of mobs.slice()) if (a.kind === 'guardian') removeMob(a); };
+  const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); try { clear(); } catch (_) {} return r; };
+  setInterval(() => { try { clear(); } catch (_) {} }, 2000);
+})();
+
+/* ===================== GLX-C59 (v0.9.49): faster world encoding + autosave spread across frames ===================== */
+(function c59() {
+  // same RLE format (value, count<=255 pairs, base64), but written into a typed buffer instead of a JS array
+  function rleRange(a, from, to) { const buf = new Uint8Array(Math.max(16, ((to - from) >> 2) + 1024)); let b = buf, o = 0, i = from;
+    while (i < to) { const v = a[i]; let n = 1; while (i + n < to && a[i + n] === v && n < 255) n++; if (o + 2 > b.length) { const nb = new Uint8Array(b.length * 2); nb.set(b); b = nb; } b[o++] = v; b[o++] = n; i += n; }
+    return b.subarray(0, o); }
+  const toB64 = parts => { let s = ''; for (const u of parts) for (let j = 0; j < u.length; j += 0x8000) s += String.fromCharCode.apply(null, u.subarray(j, j + 0x8000)); return btoa(s); };
+  const re = rleEncode; let pre = null;
+  rleEncode = function (a) { if (pre && a === world) { const s = pre; pre = null; return s; } if (!(a instanceof Uint8Array)) return re.apply(this, arguments); return toB64([rleRange(a, 0, a.length)]); };
+  // autosave: encode the world in slices over several frames, then save (IndexedDB only)
+  const STEP = 1 << 20; let busy = false;
+  window.autosaveAsync = function () { if (busy || !started) return; busy = true; const a = world, parts = []; let i = 0;
+    const step = () => { try { if (!started || a !== world) { busy = false; return; } const t0 = performance.now(); while (i < a.length && performance.now() - t0 < 6) { const e = Math.min(a.length, i + STEP / 4); parts.push(rleRange(a, i, e)); i = e; }
+        if (i < a.length) return setTimeout(step, 0);
+        pre = toB64(parts); window.__autoSave = true; try { saveWorld(); } finally { window.__autoSave = false; pre = null; busy = false; } } catch (e) { busy = false; pre = null; console.warn('autosave', e); } };
+    setTimeout(step, 0); };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
