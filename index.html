@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: k4 -->
+<!-- glencraft-build: l5 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.40 \u2022 b1';
+const GAME_VERSION = 'v0.9.41 \u2022 b1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -12155,9 +12155,10 @@ var c37busy = false;
   window.__clearWorldState = clearWorldState;
   // ---------- find the player's builds (not castles) ----------
   function findZones() {
+    let mine = null; try { if (typeof c38Mine === 'function') mine = c38Mine(genVer === GEN9 ? c38GenCells() : null); } catch (e) { console.warn('c38', e); }
     const B = g9BuiltSet(), CS = 8, gz = Math.ceil(D / CS), cells = new Map();
     for (let x = 0; x < W; x++) for (let y = 1; y < H; y++) { const base = (x * H + y) * D; for (let z = 0; z < D; z++) { const b = world[base + z]; if (b && B[b]) {
-      const c = Math.floor(x / CS) * gz + Math.floor(z / CS); let e = cells.get(c); if (!e) cells.set(c, e = {n: 0, x0: x, x1: x, z0: z, z1: z, y0: y, y1: y});
+      const c = Math.floor(x / CS) * gz + Math.floor(z / CS); if (mine && !mine(c)) continue; let e = cells.get(c); if (!e) cells.set(c, e = {n: 0, x0: x, x1: x, z0: z, z1: z, y0: y, y1: y});
       e.n++; if (x < e.x0) e.x0 = x; if (x > e.x1) e.x1 = x; if (z < e.z0) e.z0 = z; if (z > e.z1) e.z1 = z; if (y < e.y0) e.y0 = y; if (y > e.y1) e.y1 = y; } } }
     const cs = (typeof g9castles !== 'undefined' && g9castles) || [], seen = new Set(), zones = [];
     for (const [c] of cells) if (!seen.has(c)) {
@@ -12238,6 +12239,7 @@ var c37busy = false;
       cityGen = false; gSeed = ((Math.random() * 2 ** 31) | 0) || 12345; cityEdits = new Map();
       generate(); castleAvoid = [];
       let blocks = 0; for (const Z of zones) blocks += pasteZone(Z);
+      try { placedSet = new Set(); for (const Z of zones) for (let x = Z.x0; x <= Z.x1; x++) for (let z = Z.z0; z <= Z.z1; z++) for (let y = Z.ylo + Z.dy; y <= Z.yhi + Z.dy; y++) { if (y < 1 || y >= H) continue; const k = idx(x, y, z), b = world[k]; if (b && !NAT[b]) placedSet.add(k); } } catch (_) {}
       genVer = GEN9; g9spawn = null;
       try { fixTorches(); } catch (_) {}
       buildAreas = zones.map(Z => [Math.round((Z.x0 + Z.x1) / 2), Z.base + Z.dy, Math.round((Z.z0 + Z.z1) / 2), Z.n]);
@@ -12290,6 +12292,8 @@ var c37busy = false;
     return r;
   };
   const ge2 = generate; generate = function () { const r = ge2.apply(this, arguments); try {
+      for (const c of g9castles) { const R = c[0] === 'citadel' ? 42 : 36;
+        for (let x = Math.max(0, c[1] - R); x < Math.min(W, c[1] + R); x++) for (let z = Math.max(0, c[2] - R); z < Math.min(D, c[2] + R); z++) for (let y = 1; y < H; y++) if (world[idx(x, y, z)] === T.TORCH) { const k = keyOf(x, y, z); entMeta.set(k, Object.assign({face: 0}, entMeta.get(k) || {}, {lamp: 1})); } }
       let s = (gSeed ^ 0x7a11) >>> 0 || 5; const rnd = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
       for (const [k, c] of chests) { const [qx, , qz] = k.split(',').map(Number); if (!g9castles.some(cc => Math.hypot(cc[1] - qx, cc[2] - qz) < 45)) continue; if (!c.slots) continue;
         const slots = c.slots; const put = it => { const i = slots.findIndex(q => !q); if (i >= 0) slots[i] = it; };
@@ -12445,21 +12449,61 @@ var c37busy = false;
       A.look += (A.lookTo * idle - A.look) * Math.min(1, dt * 2.2);
       u.head.rotation.y = A.look; u.head.rotation.x = -P.pitch * 0.6 + A.lookP * idle + Math.sin(ph * 2) * 0.03 * mv;
       // blink every 2-6 s
-      A.blink -= dt; let lid = 0.01; if (A.blink < 0.13) lid = Math.sin(Math.max(0, A.blink) / 0.13 * Math.PI) + 0.01; if (A.blink <= 0) A.blink = 2 + Math.random() * 4;
+      A.blink -= dt; let lid = 0.01; if (A.blink < 0.18) lid = Math.sin(Math.max(0, A.blink) / 0.18 * Math.PI) + 0.01; if (A.blink <= 0) A.blink = 2 + Math.random() * 4;
       if (u.lids) u.lids.forEach(l => l.scale.y = Math.max(0.01, lid));
       // the held item sits in the hand, posed per kind
       const hm = typeof heldMesh3p !== 'undefined' ? heldMesh3p : null, grip = u.arms[1] && u.arms[1].userData.grip;
       if (hm && grip) {
         if (hm.parent !== grip) { grip.add(hm); hm.userData.side = 0; }
         if (hm.userData.pose37 !== heldId) { hm.userData.pose37 = heldId; hm.scale.setScalar(1.6);
-          if (hm.userData.tool) { hm.position.set(0, -0.02, 0.02); hm.rotation.set(-Math.PI / 2 + 0.2, 0, 0); }
-          else if (heldId === 65 || heldId === 170) { hm.position.set(0, -0.12, 0.1); hm.rotation.set(0, Math.PI / 2, 0); hm.scale.setScalar(1.2); }
-          else if (hm.userData.block) { hm.position.set(0, -0.08, 0.1); hm.rotation.set(0.2, 0.6, 0); hm.scale.setScalar(1.1); }
+          if (hm.userData.tool) { hm.position.set(0, -0.04, 0.06); hm.rotation.set(Math.PI / 2 - 0.25, Math.PI / 2, 0); }
+          else if (parseInt(heldId) === 65 || parseInt(heldId) === 170) { hm.position.set(0, -0.12, 0.1); hm.rotation.set(0, Math.PI / 2, 0); hm.scale.setScalar(1.2); }
+          else if (hm.userData.block) { hm.position.set(0, -0.08, 0.1); hm.rotation.set(0.2, 0.6, 0); hm.scale.setScalar(1.35); }
           else { hm.position.set(0, -0.06, 0.08); hm.rotation.set(-0.5, 0, 0); } }
       }
       return r;
     };
   })();
+})();
+/* ===================== GLX-C38 (v0.9.41): reset only lifts what YOU built (placed-block tracking + same-seed structure mask) ===================== */
+var placedSet = new Set();
+(function c38() {
+  const sb = setB;
+  setB = function (x, y, z, v) {
+    sb.apply(this, arguments);
+    if (!started || c37busy || DIM.cur || x < 0 || x >= W || z < 0 || z >= D || y < 0 || y >= H) return;
+    const k = idx(x, y, z); if (v && !__NAT[v]) placedSet.add(k); else placedSet.delete(k);
+  };
+  const se = serialize;
+  serialize = function () { const d = se.apply(this, arguments); if (!DIM.cur && placedSet.size) d.placed = [...placedSet].slice(0, 400000); return d; };
+  const ap = applySave;
+  applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) placedSet = new Set(Array.isArray(d.placed) ? d.placed : []); return r; };
+  const nw = typeof newWorldReset === 'function' ? null : null;
+  // map of 8x8 cells -> how many "built-looking" blocks the generator itself puts there (castles, ruins, bothies, villages)
+  window.c38GenCells = function () {
+    const snap = {world: world.slice(), chests: new Map(chests), doorState: new Map(doorState), furnaces: new Map(furnaces), entMeta: new Map(entMeta), crops: new Map(crops),
+      cast: (typeof g9castles !== 'undefined' && g9castles) ? g9castles.slice() : [], spawn: typeof g9spawn !== 'undefined' ? g9spawn : null, mobsN: mobs.length};
+    const CS = 8, gz = Math.ceil(D / CS), m = new Map(), B = g9BuiltSet(), MOSS = T.MOSSYBRICK;
+    const wasBusy = c37busy; c37busy = true;
+    try {
+      generate();
+      for (let x = 0; x < W; x++) for (let y = 1; y < H; y++) { const base = (x * H + y) * D; for (let z = 0; z < D; z++) { const b = world[base + z]; if (b && (B[b] || b === MOSS || !__NAT[b])) { const c = Math.floor(x / CS) * gz + Math.floor(z / CS); m.set(c, (m.get(c) || 0) + 1); } } }
+    } finally {
+      world.set(snap.world);
+      for (const n of ['chests', 'doorState', 'furnaces', 'entMeta', 'crops']) { const M = {chests, doorState, furnaces, entMeta, crops}[n]; M.clear(); for (const [k, v] of snap[n]) M.set(k, v); }
+      if (snap.cast.length) { g9castles.length = 0; snap.cast.forEach(c => g9castles.push(c)); }
+      try { g9spawn = snap.spawn; } catch (_) {}
+      while (mobs.length > snap.mobsN) removeMob(mobs[mobs.length - 1]);
+      c37busy = wasBusy;
+    }
+    return m;
+  };
+  // which cells count as yours: tracked placements, or (old saves) built blocks the generator doesn't put there
+  window.c38Mine = function (genCells) {
+    const CS = 8, gz = Math.ceil(D / CS), placedC = new Map();
+    for (const k of placedSet) { const x = Math.floor(k / (H * D)), z = k % D; const c = Math.floor(x / CS) * gz + Math.floor(z / CS); placedC.set(c, (placedC.get(c) || 0) + 1); }
+    return c => (placedC.get(c) || 0) >= 3 || !genCells || (genCells.get(c) || 0) < 4;
+  };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
