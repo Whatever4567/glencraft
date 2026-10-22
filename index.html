@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0953 -->
+<!-- glencraft-build: v0954 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.53';
+const GAME_VERSION = 'v0.9.54';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -5605,7 +5605,7 @@ function closeTitleSettings() { $('pause').classList.add('hidden'); $('pause').c
   $('menuDl').addEventListener('click', downloadGame);
   $('worldsBack').addEventListener('click', () => showScreen('title'));
   $('createBack').addEventListener('click', () => showScreen('worlds'));
-  $('createGo').addEventListener('click', createWorld);
+  $('createGo').addEventListener('click', () => createWorld());   // v0.9.54: call through so the Creative preset wrapper (Glen / Flat) runs
   document.querySelectorAll('#modeSeg button').forEach(b => b.addEventListener('click', () => {
     newMode = b.dataset.mode; document.querySelectorAll('#modeSeg button').forEach(x => x.classList.toggle('on', x === b));
     $('modeInfo').textContent = newMode === 'creative' ? 'Creative: every block and item in the game, unlimited. No hunger, no damage, instant breaking and you can fly (double-tap jump).' : 'Survival: gather, craft, eat and stay alive. Treemen are watching.';
@@ -13774,7 +13774,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const SNOW_Y = SEA + 30; let si = 0, swT = 0;
   window.__snowY = SNOW_Y;
   const uw = updateWeather; updateWeather = function (dt) { const r = uw.apply(this, arguments);
-    try { const raining = weather.type !== 'clear' && !DIM.cur && caveK < 0.6, high = P.y > SNOW_Y, sn = raining && high && FANCY;
+    try { const raining = weather.type !== 'clear' && !DIM.cur && caveK < 0.6, high = P.y > SNOW_Y || !!window.__forceSnow, sn = raining && high && FANCY;
       window.__snowing = sn;
       if (sn) { rainLines.visible = false; snow.visible = true; swT += dt; const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, sp = weather.type === 'light' ? 1.2 : 2;
         for (let i = 0; i < NF; i++) { const j = i * 3; let y = fl[j + 1] - sp * dt; if (y < -4) y = 14; fl[j + 1] = y; flPos[j] = cx + fl[j] + Math.sin(swT * 0.8 + i) * 0.5; flPos[j + 1] = cy + y; flPos[j + 2] = cz + fl[j + 2] + Math.cos(swT * 0.6 + i * 1.3) * 0.5; }
@@ -13913,6 +13913,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     for (let k = 0; k < 14; k++) { if (!isA(x, y - 1, z)) return y; y--; } return null; }
   const giants = () => mobs.filter(a => a.giant);
   function roomAt(x, y, z) { for (let dy = 1; dy <= 4; dy++) if (!isA(Math.floor(x), Math.floor(y + dy), Math.floor(z))) return false; return true; }
+  function room2(x, y, z) { for (let dy = 1; dy <= 2; dy++) if (!isA(Math.floor(x), Math.floor(y + dy), Math.floor(z))) return false; return true; }
   function newGiant(cv, x, z) { const y = floorY(x, z, cv[1]); if (y == null || !roomAt(x, y, z)) return null; const a = makeGiant();
     Object.assign(a, {kind: 'spider', giant: true, hostile: true, named: true, cave: cv, flee: 0, timer: 0, flash: 0, kbx: 0, kbz: 0, vy: 0, onGround: true, burning: 0, ang: Math.random() * 6.28, walk: 0, state: 'idle', st: 1, biteCd: 0, tgt: null, spd: 0, raise: 0, egg: true});
     a.g.position.set(x, y, z); a.g.rotation.y = a.ang; scene.add(a.g); mobs.push(a); return a; }
@@ -13925,16 +13926,24 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     else if (near && dP < 7 && a.state !== 'lunge') { if (a.state !== 'threat') { a.state = 'threat'; a.st = 0.9 + Math.random() * 0.8; try { sfx3d('hiss', p, 18); } catch (_) {} } if (a.st <= 0) { a.state = 'lunge'; a.st = 0.7; } a.tgtAng = Math.atan2(dx, dz); }
     else if (a.st <= 0) { const r = Math.random();
       if (a.state === 'lunge') { a.state = 'idle'; a.st = 0.8; }
-      else if (near) { a.state = r < 0.55 ? 'scuttle' : 'idle'; a.st = a.state === 'scuttle' ? 0.5 + Math.random() * 0.6 : 0.3 + Math.random() * 0.9; a.tgtAng = Math.atan2(dx, dz) + (Math.random() - .5) * 0.8; }
-      else { a.state = r < 0.35 ? 'idle' : r < 0.8 ? 'walk' : 'scuttle'; a.st = a.state === 'idle' ? 0.6 + Math.random() * 2.5 : 0.6 + Math.random() * 1.8;
-        const tx = cv[0] + (Math.random() - .5) * cv[3] * 1.2, tz = cv[2] + (Math.random() - .5) * cv[3] * 1.2; a.tgtAng = Math.atan2(tx - p.x, tz - p.z); } }
-    const want = a.state === 'walk' ? 1.6 : a.state === 'scuttle' ? 6.5 : a.state === 'lunge' ? 7.5 : 0;
+      else if (near) { a.state = r < 0.25 ? 'scuttle' : r < 0.7 ? 'walk' : 'idle'; a.st = a.state === 'scuttle' ? 0.5 + Math.random() * 0.6 : 0.3 + Math.random() * 0.9; a.tgtAng = Math.atan2(dx, dz) + (Math.random() - .5) * 0.8; }
+      else { a.state = r < 0.3 ? 'idle' : r < 0.96 ? 'walk' : 'scuttle'; a.st = a.state === 'idle' ? 0.6 + Math.random() * 2.5 : 0.6 + Math.random() * 1.8;
+        a.tgtAng = dP < 30 && Math.random() < 0.5 ? Math.atan2(dx, dz) + (Math.random() - .5) * 1.2 : a.ang + (Math.random() - .5) * 2.2; } }
+    const want = a.state === 'walk' ? 0.75 : a.state === 'scuttle' ? 6.5 : a.state === 'lunge' ? 7.5 : 0;
     a.spd += (want - a.spd) * Math.min(1, dt * (want > a.spd ? 9 : 14));
     if (a.tgtAng !== undefined) { let d = a.tgtAng - a.ang; d = Math.atan2(Math.sin(d), Math.cos(d)); a.ang += d * Math.min(1, dt * (a.state === 'scuttle' || a.state === 'lunge' ? 7 : 3)); }
+    if (a.climbY !== undefined) {   // climbing a wall / up out of a cave: rise first, then step over
+      const dyc = a.climbY - p.y; p.y += Math.sign(dyc) * Math.min(Math.abs(dyc), 2.2 * dt); a.rig.rotation.z = 0; if (Math.abs(dyc) < 0.15) { a.climbY = undefined; }
+      a.walk += dt * 1.2; animate(a, dt); a.g.rotation.y = a.ang; return; }
     if (a.spd > 0.05) { const nx = p.x + Math.sin(a.ang) * a.spd * dt, nz = p.z + Math.cos(a.ang) * a.spd * dt;
-      const fy = floorY(nx, nz, p.y + 1.5), inCave = Math.hypot(nx - cv[0], nz - cv[2]) < cv[3] + 1;
-      if (fy != null && Math.abs(fy - p.y) < 2.2 && roomAt(nx, fy, nz) && inCave) { p.x = nx; p.z = nz; p.y += (fy - p.y) * Math.min(1, dt * 8); }
-      else { a.tgtAng = Math.atan2(cv[0] - p.x, cv[2] - p.z) + (Math.random() - .5); a.state = 'walk'; a.st = 0.8; } }
+      const inW = nx > 3 && nz > 3 && nx < W - 3 && nz < D - 3; let fy = inW ? floorY(nx, nz, p.y + 1.5) : null;
+      if (fy != null && Math.abs(fy - p.y) < 2.2 && room2(nx, fy, nz)) { p.x = nx; p.z = nz; p.y += (fy - p.y) * Math.min(1, dt * 8); a.stuckT = 0; }
+      else { // a wall or a big step: look up the wall for a ledge to climb to (spiders climb), else turn away
+        let up = null; if (inW) { const fx = Math.floor(p.x + Math.sin(a.ang) * 1.2), fz = Math.floor(p.z + Math.cos(a.ang) * 1.2); for (let y = Math.floor(p.y) + 1; y < Math.floor(p.y) + 16 && y < H - 3; y++) if (isA(fx, y, fz) && !isA(fx, y - 1, fz) && isA(fx, y + 1, fz)) { up = y; break; } }
+        if (up != null && up > p.y + 0.5 && isA(Math.floor(p.x), Math.min(H - 2, up + 1), Math.floor(p.z))) { a.climbY = up; }
+        else if (up != null && up > p.y + 0.5) { a.climbY = up; }   // squeeze up through overhangs too (passes through gracefully)
+        else { a.stuckT = (a.stuckT || 0) + dt; a.tgtAng = a.ang + Math.PI * (0.5 + Math.random()); a.state = 'walk'; a.st = 1.2;
+          if (a.stuckT > 6) { const fy2 = floorY(p.x, p.z, p.y + 8); if (fy2 != null) p.y = fy2; a.stuckT = 0; } } } }
     a.walk += dt * a.spd;
     a.g.rotation.y = a.ang;
     // bite (survival-balanced: 4 hearts-halves per hit, cooldown)
@@ -13961,12 +13970,12 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   // the small spiders are gone: only giants, and only in the big open deep caves
   const sm = spawnMob; spawnMob = function (kind) { if (kind === 'spider' && !window.__giantOK) return null; return sm.apply(this, arguments); };
   function trySpawn(force) { if (!started || paused || DIM.cur) return; for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].kind === 'spider' && !mobs[i].giant) removeMob(mobs[i]);
-    if (giants().length >= 1) return; for (const cv of window.__deepCaves || []) { const d = Math.hypot(P.x - cv[0], P.z - cv[2]); if (d > cv[3] + 24 || P.y > cv[1] + 18) continue;
-      if (!force && Math.random() > 0.4) return;
+    if (giants().length >= 3) return; for (const cv of window.__deepCaves || []) { const d = Math.hypot(P.x - cv[0], P.z - cv[2]); if (d > cv[3] + 24 || P.y > cv[1] + 18) continue;
+      if (!force && Math.random() > 0.55) return;
       for (let t = 0; t < 20; t++) { const ang = Math.random() * 6.28, rr = Math.random() * (cv[3] - 4); const x = cv[0] + Math.cos(ang) * rr, z = cv[2] + Math.sin(ang) * rr; if (Math.hypot(x - P.x, z - P.z) < 9 && !force) continue; if (newGiant(cv, x, z)) return; } } }
   window.__giantSpawn = trySpawn;
   try { const oc = openChest; openChest = function () { try { for (const [, c] of chests) if (c && c.slots) for (let i = 0; i < c.slots.length; i++) if (c.slots[i] && c.slots[i][0] === IT.PAINTING) c.slots[i] = null; } catch (_) {} return oc.apply(this, arguments); }; } catch (_) {}
-  setInterval(() => { try { trySpawn(false); } catch (e) { window.__gsErr = String(e); } }, 6000);
+  setInterval(() => { try { trySpawn(false); } catch (e) { window.__gsErr = String(e); } }, 4000);
 })();
 
 /* ===================== GLX-C66 (v0.9.52): busier caves, yellow chasing creeper, no sky beams ===================== */
@@ -14015,8 +14024,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
       return; } }
   setInterval(() => { try { caveTick(); } catch (e) { window.__caveErr = String(e && e.stack || e); } }, 5000);
   window.__caveTick = caveTick;
-  // the giant huntsman: a bit more often, up to 2 (c65 spawner capped at 1; this tops it up)
-  setInterval(() => { try { if (!started || paused || DIM.cur) return; const n = mobs.filter(a => a.giant).length; if (n >= 1 && n < 2 && Math.random() < 0.3) { const keep = mobs.filter(a => a.giant); keep.forEach(a => mobs.splice(mobs.indexOf(a), 1)); try { window.__giantSpawn(false); } finally { for (const a of keep) mobs.push(a); } } else if (n === 0) window.__giantSpawn(Math.random() < 0.3); } catch (_) {} }, 7000);
+  // (the giant huntsman spawner in c65 now handles up to 3 itself)
   // saves: yellow creepers are kept (mobs are not saved in general, so they used to come back as plain red cave spawns)
   const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (!DIM.cur) d.yellowC = mobs.filter(m => m.yellow && mobs.includes(m)).map(m => [+m.g.position.x.toFixed(2), +m.g.position.y.toFixed(2), +m.g.position.z.toFixed(2)]); } catch (_) {} return d; };
   let pendingY = null;
@@ -14024,6 +14032,46 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   function restoreY() { if (!pendingY || !started || DIM.cur) return; const list = pendingY; pendingY = null;
     for (const [x, y, z] of list) { if (mobs.filter(m => m.yellow).length >= 2) break; window.__egg = true; window.__eggSpot = [x, y, z, x, z]; let a = null; try { a = spawnMob('creeper'); } finally { window.__eggSpot = null; window.__egg = false; } if (a) { a.g.position.set(x, y, z); a.caveMob = true; makeYellow(a); } } }
   setInterval(() => { try { restoreY(); } catch (e) { window.__yErr = String(e); } }, 1000);
+})();
+
+/* ===================== GLX-C67 (v0.9.54): mobs under cover never burn or vanish by day ===================== */
+(function c67() {
+  let t = 0;
+  const cover = a => { const p = a.g.position, x = Math.floor(p.x), z = Math.floor(p.z); if (x < 0 || z < 0 || x >= W || z >= D) return false; return !skyOpen(x, Math.min(H - 2, Math.floor(p.y + 1.6)), z); };
+  const um = updateMobs; updateMobs = function (dt) { t -= dt;
+    if (t <= 0) { t = 0.5; for (const a of mobs) { if (!a.hostile) continue; if (a._sh0 === undefined) a._sh0 = !!a.shaded; a.covered = cover(a); a.shaded = a._sh0 || a.covered; if (a.covered && a.burning > 0 && !(a.lavaBurn)) { const p = a.g.position; if (getB(Math.floor(p.x), Math.floor(p.y + 0.1), Math.floor(p.z)) !== T.LAVA) { a.burning = 0; a.mats.forEach(m => m.emissive && m.emissive.setHex(0)); } } } }
+    return um.apply(this, arguments); };
+  // cave mobs behind walls are not "unseen-despawned"; only distance (40 blocks) removes them
+  const dp = despawnPass; despawnPass = function (dt) { for (const a of mobs) if (a.covered) a.unseenT = 0; return dp.apply(this, arguments); };
+  window.__c67 = () => mobs.filter(a => a.hostile).map(a => [a.kind, !!a.covered, !!a.burning]);
+})();
+
+/* ===================== GLX-C68 (v0.9.54): pause menu - weather, time of day, freeze time (saved per world) ===================== */
+(function c68() {
+  const W8 = {auto: null, clear: 'clear', rain: 'heavy', storm: 'thunder', snow: 'heavy'};
+  const TIMES = {dawn: 0.005, day: 0.25, sunset: 0.49, night: 0.75};
+  let wlock = 'auto', freeze = false, internal = false;
+  const sw = setWeather; setWeather = function (t) { if (wlock !== 'auto' && !internal && W8[wlock] !== t) return; return sw.apply(this, arguments); };
+  function applyW(k) { wlock = k; window.__forceSnow = k === 'snow'; if (k !== 'auto') { internal = true; try { setWeather(W8[k]); weather.pending = null; } finally { internal = false; } } sync(); }
+  const us = updateSky; updateSky = function (dt) { if (freeze && started && !paused) dayClock = (dayClock - dt + CYCLE) % CYCLE; else if (freeze) dayClock = (dayClock - dt + CYCLE) % CYCLE; return us.apply(this, arguments); };
+  const mk = (label, id, opts) => { const d = document.createElement('div'); d.className = 'set inline'; d.dataset.c68 = 1;
+    d.innerHTML = '<span>' + label + '</span><div class="seg" id="' + id + '" style="flex-wrap:wrap">' + opts.map(([v, t]) => '<button data-v="' + v + '" data-testid="pause-' + id + '-' + v + '" style="min-height:44px;min-width:64px">' + t + '</button>').join('') + '</div>'; return d; };
+  const wRow = mk('Weather', 'wxSeg', [['auto', 'Auto'], ['clear', 'Clear'], ['rain', 'Rain'], ['storm', 'Storm'], ['snow', 'Snow']]);
+  const tRow = mk('Time of day', 'todSeg', [['dawn', 'Dawn'], ['day', 'Day'], ['sunset', 'Sunset'], ['night', 'Night']]);
+  const fRow = mk('Freeze time', 'frzSeg', [['1', 'On'], ['0', 'Off']]);
+  const anchor = $('resumeBtn'); anchor.after(wRow); wRow.after(tRow); tRow.after(fRow);
+  wRow.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { applyW(b.dataset.v); toast('Weather: ' + b.textContent); }));
+  tRow.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { dayClock = CYCLE * TIMES[b.dataset.v]; try { updateSky(0); } catch (_) {} toast('Time: ' + b.textContent); sync(); }));
+  fRow.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { freeze = b.dataset.v === '1'; toast(freeze ? 'Time frozen' : 'Time flows again'); sync(); }));
+  function sync() { wRow.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === wlock)); fRow.querySelectorAll('button').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === freeze));
+    const p = dayClock / CYCLE; let cur = 'night'; for (const [k, v] of Object.entries(TIMES)) if (Math.abs(((p - v + 1.5) % 1) - 0.5) < 0.03) cur = k; tRow.querySelectorAll('button').forEach(b => b.classList.toggle('on', Math.abs(((p - TIMES[b.dataset.v] + 1.5) % 1) - 0.5) < 0.03)); }
+  const sp = setPause; setPause = function (on) { const r = sp.apply(this, arguments); if (on) sync(); return r; };
+  // hidden in other dimensions (Hell has its own sky)
+  setInterval(() => { const hide = typeof DIM !== 'undefined' && !!DIM.cur; for (const r of [wRow, tRow]) r.style.display = hide ? 'none' : ''; }, 1000);
+  const se = serialize; serialize = function () { const d = se.apply(this, arguments); d.wset = {wlock, freeze}; return d; };
+  const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); const w = d && d.wset; wlock = (w && w.wlock) || 'auto'; freeze = !!(w && w.freeze); setTimeout(() => { try { applyW(wlock); } catch (_) {} }, 500); return r; };
+  const ew = enterWorld; enterWorld = function (save) { if (!save) { wlock = 'auto'; freeze = false; window.__forceSnow = false; } return ew.apply(this, arguments); };
+  window.__c68 = () => ({wlock, freeze, type: weather.type, p: +(dayClock / CYCLE).toFixed(3)});
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
