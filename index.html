@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0952 -->
+<!-- glencraft-build: v0953 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.52';
+const GAME_VERSION = 'v0.9.53';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -13985,16 +13985,20 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     YT = {skin: mk(false), face: mk(true)}; return YT; }
   function makeYellow(a) { const t = yTex(); a.yellow = true; a.mats[0].map = t.skin; a.mats[1].map = t.face; a.mats.forEach(m => m.needsUpdate = true); a.speed = 1.9; a.hp = 6; a.lit = false; return a; }
   window.__makeYellow = makeYellow;
-  let yBoom = false;
+  // creeper blast damage (v0.9.53): set by distance from the blast, yellow max 18 (9 hearts, full health survives), red is half
+  let yBoom = 0;
+  const blastDmg = (yellow, d) => { const max = yellow ? 18 : 9, k = clamp(1 - Math.max(0, d - 1) / 9, 0, 1); return Math.round(max * k); };
+  window.__blastDmg = blastDmg;
   const ex = explode; explode = function (cx, cy, cz, r) { if (!yBoom) return ex.apply(this, arguments);
-    const h = hurt; hurt = function (n, c) { return h.call(this, Math.min(18, n * 2), c); };   // 2x damage, capped so a full-health player survives
-    try { return ex.call(this, cx, cy, cz, r * 2); } finally { hurt = h; } };
+    const yellow = yBoom === 2, d = Math.hypot(P.x - cx, P.y + 0.9 - cy, P.z - cz), dmg = blastDmg(yellow, d); window.__lastBlast = {yellow, d: +d.toFixed(2), dmg};
+    const h = hurt; hurt = function (n, c) { if (dmg <= 0) return; invuln = 0; return h.call(this, dmg, c); };
+    try { return ex.call(this, cx, cy, cz, yellow ? r * 2 : r); } finally { hurt = h; } };
   const ct = creeperTick; creeperTick = function (a, dt) {
     if (a.yellow && !dead && started) { const p = a.g.position, d = Math.hypot(P.x - p.x, P.z - p.z), dy = Math.abs(P.y - p.y);
       if (!(a.cf > 0) && d < 2.6 && dy < 2.2) a.lit = true;                                   // proximity fuse, like Minecraft
       else if (a.cf > 0 && d > 6.5) { a.cf = 0; a.lit = false; a.speed = a.spd0 || 1.9; a.g.scale.setScalar(1); a.mats.forEach(m => m.emissive && m.emissive.setScalar(0)); return; }   // you got away: fuse resets
       if (!(a.cf > 0) && !a.lit && d < 16 && dy < 6) { try { if (canSee(a, 16)) { a.aggro = 3; a.notice = undefined; } } catch (_) {} } }
-    yBoom = !!a.yellow; try { const r = ct.apply(this, arguments); if (a.yellow && a.cf <= 0 && a.lit && !mobs.includes(a)) { boomMsg = null; } return r; } finally { yBoom = false; } };
+    yBoom = a.yellow ? 2 : 1; try { const r = ct.apply(this, arguments); if (a.yellow && a.cf <= 0 && a.lit && !mobs.includes(a)) { boomMsg = null; } return r; } finally { yBoom = 0; } };
   const km = killMob; killMob = function (a) { if (a && a.yellow) { const p = a.g.position; try { toss(IT.GUNPOWDER, 1 + (Math.random() * 2 | 0)); } catch (_) { try { dropItem(IT.GUNPOWDER, 2, p.x, p.y + .5, p.z); } catch (_) {} } try { dropXP(p.x, p.y, p.z, 4); } catch (_) {} } return km.apply(this, arguments); };
   // ---- 3) busier caves: zombies, skeletons, creepers (some yellow) near you in dark cave spaces; capped and cleaned up ----
   const CAP = touchMode ? 5 : 6, cave = (x, y, z) => solidTop(Math.floor(x), Math.floor(z)) > y + 3;
@@ -14013,8 +14017,13 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   window.__caveTick = caveTick;
   // the giant huntsman: a bit more often, up to 2 (c65 spawner capped at 1; this tops it up)
   setInterval(() => { try { if (!started || paused || DIM.cur) return; const n = mobs.filter(a => a.giant).length; if (n >= 1 && n < 2 && Math.random() < 0.3) { const keep = mobs.filter(a => a.giant); keep.forEach(a => mobs.splice(mobs.indexOf(a), 1)); try { window.__giantSpawn(false); } finally { for (const a of keep) mobs.push(a); } } else if (n === 0) window.__giantSpawn(Math.random() < 0.3); } catch (_) {} }, 7000);
-  // saves: keep the yellow skin
-  const se = serialize; serialize = function () { const d = se.apply(this, arguments); return d; };
+  // saves: yellow creepers are kept (mobs are not saved in general, so they used to come back as plain red cave spawns)
+  const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (!DIM.cur) d.yellowC = mobs.filter(m => m.yellow && mobs.includes(m)).map(m => [+m.g.position.x.toFixed(2), +m.g.position.y.toFixed(2), +m.g.position.z.toFixed(2)]); } catch (_) {} return d; };
+  let pendingY = null;
+  const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); pendingY = d && Array.isArray(d.yellowC) ? d.yellowC.slice(0, 2) : null; return r; };
+  function restoreY() { if (!pendingY || !started || DIM.cur) return; const list = pendingY; pendingY = null;
+    for (const [x, y, z] of list) { if (mobs.filter(m => m.yellow).length >= 2) break; window.__egg = true; window.__eggSpot = [x, y, z, x, z]; let a = null; try { a = spawnMob('creeper'); } finally { window.__eggSpot = null; window.__egg = false; } if (a) { a.g.position.set(x, y, z); a.caveMob = true; makeYellow(a); } } }
+  setInterval(() => { try { restoreY(); } catch (e) { window.__yErr = String(e); } }, 1000);
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
