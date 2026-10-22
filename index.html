@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: q5 -->
+<!-- glencraft-build: v0946 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.43 \u2022 b1';
+const GAME_VERSION = 'v0.9.46';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -2128,7 +2128,7 @@ function updateMobs(dt) {
     // GLX-B6: far mobs only think a couple of times a second
     if (dist > (PERF ? 16 : 30) && a.kind !== 'treeman' && !a.burning && !(a.fire > 0)) { a.lodT = (a.lodT || 0) + dt; if (a.lodT < 0.5) continue; a.lodT = 0; }
 
-    if (a.hostile && day && !a.burning && a.kind !== 'creeper' && a.kind !== 'guardian') a.burning = 1.8;
+    if (a.hostile && day && !a.burning && a.kind !== 'creeper' && a.kind !== 'guardian' && a.kind !== 'blackskel' && !a.shaded) a.burning = 1.8;
     if (a.burning) {
       a.burning -= dt;
       const flick = Math.random() < .5 ? 0xff6a00 : 0xffb000;
@@ -2161,8 +2161,9 @@ function updateMobs(dt) {
       if (a.notice !== undefined && !(a.aggro > 0)) { a.ang = Math.atan2(dpx, dpz); a.moving = false; }
       if (a.aggro > 0 && dist < 22 && !dead) {
         { const pa = pathAngle(a, P.x, P.z); a.ang = pa !== null ? pa : Math.atan2(dpx, dpz) + (a.detourT > 0 ? a.detour : 0); }
-        if (a.kind === 'zombie' || a.kind === 'creeper' || a.kind === 'guardian') {
+        if (a.kind === 'zombie' || a.kind === 'creeper' || a.kind === 'guardian' || a.kind === 'blackskel') {
           spd = dist > 1.0 ? a.speed : 0;
+          if (a.kind === 'blackskel' && dist < 1.7 && Math.abs(dy) < 1.6 && a.biteCd <= 0) { a.biteCd = 1.0; a.swing = .45; hurt(4, 'A black skeleton cut you down.'); knockPlayer(dpx / (dist || 1), dpz / (dist || 1), 4, 2.5); try { sfx3d('swoosh', pos, 12); } catch (_) {} }
           if (a.kind === 'zombie' && dist < 1.4 && Math.abs(dy) < 1.6 && a.biteCd <= 0) {
             a.biteCd = 1.2; hurt(3, 'A mossy zombie got you.'); a.swing = .3; knockPlayer(dpx / (dist || 1), dpz / (dist || 1), 5, 3);
           }
@@ -2994,7 +2995,7 @@ function toggleCamera() {
   toast(camMode ? 'Third person view' : 'First person view');
 }
 function updateWorldModel(dt, moved) {
-  hand.visible = camMode === 0;
+  hand.visible = camMode === 0 && !window.__swimHide;
   if (!worldModel) return;
   worldModel.visible = camMode !== 0;
   if (!camMode) return;
@@ -3908,17 +3909,18 @@ function readPad() {
   if (fwd && !padFwd) { if (nowT - padFwdT < 400) sprintPad = true; }
   if (!fwd && padFwd) padFwdT = nowT;
   padFwd = fwd;
-  if (E[2]) { openMenu(true); setTab('craft'); }                // X: crafting
+  const gunHeld = typeof GUN !== 'undefined' && GUN[selId] && cnt(selId) > 0;
+  if (E[2]) { if (gunHeld) { if (window.reloadGun) reloadGun(); } else { openMenu(true); setTab('craft'); } }   // X: reload while a gun is held, otherwise crafting
   if (E[3]) { openMenu(true); setTab('char'); }                 // Y: inventory + character / armour
-  if (E[11]) pickBlock();                                         // RS click: pick block
   if (E[4]) cycleSel(-1); if (E[14] && window.swapHands) swapHands();   // GLX-C31: D-pad left swaps hands
   if (E[8]) toggleCamera();
   if (E[5] || E[15]) cycleSel(1);
   if (E[6]) useItem();
   if (E[13]) dropOne();
-  if (E[10]) sprintPad = true;                                   // click the left stick (L3) to sprint
+  const stickMoving = Math.hypot(axes.lx, axes.ly) > 0.25;
+  if (E[10]) { if (stickMoving) sprintPad = true; else pickBlock(); }   // L3: moving = sprint, standing still = pick block
   if (sprintPad && !fwd && !E[10] && Math.hypot(axes.lx, axes.ly) < 0.25) sprintPad = false;   // let go of the stick: stop sprinting
-  attackPad = pressed(7);
+  attackPad = pressed(7) && !gunHeld; if (gunHeld && pressed(7)) useItem();   // RT fires a held gun
   return axes;
 }
 
@@ -4021,7 +4023,7 @@ var touchReady = false;
 if (touchMode && SET.touch !== 'off') { document.body.classList.add('touch'); setupTouch(); touchReady = true; }
 const HINT_TOUCH = '<b>Left thumb</b>: move · <b>Drag</b> anywhere else: look<br><b>MINE/HIT</b> hold · <b>USE/PLACE</b> place, hoe, plant, fill bucket · <b>DROP</b> one item · <b>EAT</b> · <b>CRAFT</b> · <b>SPRINT</b> · <b>II</b> pause<br>Tap a hotbar slot to pick it. A Bluetooth controller also works.';
 const HINT_PC = '<b>WASD</b> move · <b>Space</b> jump · <b>Shift</b> or double-tap <b>W</b> sprint<br><b>Hold left click</b> mine / attack · <b>Right click</b> place / use · <b>Q</b> drop one · <b>E</b> craft · <b>F</b> swap hands · <b>G</b> eat · <b>Esc/P</b> pause · <b>1-9</b> / wheel pick';
-const HINT_PAD = 'Controller: <b>RT</b> mine / attack · <b>LT</b> place / use (hoe, seeds, bucket) · <b>D-pad down</b> drop one · <b>A</b> jump · <b>X</b> eat · <b>Y</b> craft · <b>LB/RB</b> pick · <b>D-pad left</b> swap hands · <b>L3</b> sprint · <b>Start</b> pause';
+const HINT_PAD = 'Controller: <b>RT</b> mine / attack (shoot with a gun) · <b>LT</b> place / use · <b>D-pad down</b> drop one · <b>A</b> jump · <b>X</b> craft (reload with a gun) · <b>Y</b> inventory · <b>LB/RB</b> pick · <b>D-pad left</b> swap hands · <b>L3</b> sprint while moving / pick block standing still · <b>Start</b> pause';
 $('startHint').innerHTML = (touchMode ? HINT_TOUCH : HINT_PC) + '<br>' + HINT_PAD;
 $('pauseHint').innerHTML = (touchMode ? HINT_TOUCH : HINT_PC) + '<br>' + HINT_PAD;
 
@@ -4755,7 +4757,7 @@ function updateHand(dt, moving) {
   if (Math.abs(camera.fov - target) > 0.05) { camera.fov += (target - camera.fov) * Math.min(1, dt * 8); camera.updateProjectionMatrix(); }
 }
 function updateWorldModel(dt, moved) {
-  hand.visible = camMode === 0;
+  hand.visible = camMode === 0 && !window.__swimHide;
   if (!worldModel) return;
   worldModel.visible = camMode !== 0;
   if (!camMode) return;
@@ -7633,16 +7635,17 @@ function gGenFeatures(rnd, hash) {
   // standing stones: rings of tall stones on flat meadow or moor
   const flatSpot = (x, z, r) => { const h0 = hAt(x, z); for (let dx = -r; dx <= r; dx += 2) for (let dz = -r; dz <= r; dz += 2) { const xx = x + dx, zz = z + dz; if (xx < 2 || zz < 2 || xx >= W - 2 || zz >= D - 2 || Math.abs(hAt(xx, zz) - h0) > 1 || hAt(xx, zz) <= SEA + 1) return false; } return true; };
   let rings = 0, ruins = 0;
-  for (let tries = 0; tries < 900 && (rings < Math.max(3, W * D / 25000) || ruins < Math.max(4, W * D / 18000)); tries++) {
+  const noR = !!(current && current.mode !== 'creative' && (current.created > 1792560600000 || current.newCastles));
+  for (let tries = 0; tries < 900 && (rings < Math.max(3, W * D / 25000) || (!noR && ruins < Math.max(4, W * D / 18000))); tries++) {
     const x = 10 + Math.floor(rnd() * (W - 20)), z = 10 + Math.floor(rnd() * (D - 20)), k = kindAt(x, z);
     if (k > 1 || !flatSpot(x, z, 6)) continue;
     const h = g9top(x, z);
-    if (rings < ruins + 1) {
+    if (noR || rings < ruins + 1) {
       const n = 7 + Math.floor(rnd() * 4), rad = 4 + Math.floor(rnd() * 2);
       for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2, sx = Math.round(x + Math.cos(a) * rad), sz = Math.round(z + Math.sin(a) * rad), sh = 2 + Math.floor(rnd() * 3), gt = g9top(sx, sz);
         for (let y = 1; y <= sh; y++) world[idx(sx, gt + y, sz)] = y === sh && rnd() < 0.5 ? T.MOSSYBRICK : T.STONE; }
       world[idx(x, h + 1, z)] = T.MOSSYBRICK; rings++;
-    } else {
+    } else if (!noR) {
       // a ruined bothy / tower: broken walls, moss, an empty doorway
       const sx = 3 + Math.floor(rnd() * 3), sz = 3 + Math.floor(rnd() * 3), tall = 3 + Math.floor(rnd() * 4);
       for (let dx = -sx; dx <= sx; dx++) for (let dz = -sz; dz <= sz; dz++) {
@@ -10094,7 +10097,7 @@ function castleCellars() {
   generate = function () {
     if (typeof roomList !== 'undefined') roomList.length = 0;
     const r = g.apply(this, arguments);
-    if (genVer === GEN9 && W > 200) { try { const t = performance.now(); g9Underground(); g9Underground.stats.ms = Math.round(performance.now() - t); if (!cityGen) g9Underground.stats.cellars = castleCellars(); console.log('[underground]', JSON.stringify(g9Underground.stats)); } catch (e) { console.warn('underground', e); } }
+    if (genVer === GEN9 && W > 200) { try { const t = performance.now(); g9Underground(); g9Underground.stats.ms = Math.round(performance.now() - t); if (!cityGen && !(current && current.mode !== 'creative' && (current.created > 1792560600000 || current.newCastles))) g9Underground.stats.cellars = castleCellars(); console.log('[underground]', JSON.stringify(g9Underground.stats)); } catch (e) { console.warn('underground', e); } }
     return r;
   };
 })();
@@ -10141,17 +10144,17 @@ function castleFriendly(c) {
     clanT -= dt; if (clanT > 0 || genVer !== GEN9 || !all) return; clanT = 3;
     for (const c of all) {
       const cx = c[1], cz = c[2]; if (Math.hypot(P.x - cx, P.z - cz) > 64) continue;
-      const fr = castleFriendly(c), kind = fr ? 'clansman' : 'bigskel', want = fr ? 4 : 2;
-      const here = mobs.filter(a => (a.kind === (fr ? 'clansman' : 'skeleton')) && a.home && a.home[0] === cx && a.home[1] === cz).length;
+      const fr = castleFriendly(c), kind = fr ? 'clansman' : 'bigskel', want = fr ? 4 : 3;
+      const here = mobs.filter(a => (a.kind === (fr ? 'clansman' : c[0] === 'black' ? 'blackskel' : 'skeleton')) && a.home && a.home[0] === cx && a.home[1] === cz).length;
       if (here >= want) continue;
-      for (let k = 0; k < 30; k++) {
+      for (let k = 0, made = 0; k < 120 && made < want - here; k++) {
         const x = Math.floor(cx + (Math.random() - .5) * 24), z = Math.floor(cz + (Math.random() - .5) * 24); if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
         let y = -1; for (let yy = Math.min(H - 3, g9top(x, z) + 1); yy > 2; yy--) if (solid(x, yy - 1, z) && !solid(x, yy, z) && !solid(x, yy + 1, z)) { y = yy; break; }
         if (y < 0 || (!fr && Math.hypot(P.x - x, P.z - z) < 10)) continue;
-        const m = spawnMob(fr ? 'clansman' : 'skeleton'); if (!m) break;
+        window.__egg = true; window.__eggSpot = [x + .5, y, z + .5, x, z]; let m = null; try { m = spawnMob(fr ? 'clansman' : c[0] === 'black' ? 'blackskel' : 'skeleton'); } finally { window.__egg = false; window.__eggSpot = null; } if (!m) break; m.shaded = true;
         m.g.position.set(x + .5, y, z + .5); m.home = [cx, cz];
-        if (!fr) { m.g.scale.setScalar(1.45); m.hp = 26; m.big = true; m.hitY *= 1.45; m.hitR *= 1.3; }
-        break;
+        if (!fr && c[0] !== 'mossy' && c[0] !== 'black') { m.g.scale.setScalar(1.45); m.hp = 26; m.big = true; m.hitY *= 1.45; m.hitR *= 1.3; }
+        made++;
       }
     }
   };
@@ -11320,6 +11323,7 @@ function buildKeep(kind, cx, cz) {
   const put = (x, y, z, b) => { if (ok(x, z) && y > 0 && y < H - 1) world[idx(x, y, z)] = b; };
   const get = (x, y, z) => ok(x, z) && y >= 0 && y < H ? world[idx(x, y, z)] : 0;
   const meta = (x, y, z, m) => entMeta.set(keyOf(x, y, z), m);
+  const BARE = !!window.__bareKeep;
   const stone = () => !fr && rnd() < 0.25 ? T.MOSSYBRICK : rnd() < 0.08 ? T.MOSSYBRICK : T.STONEBRICK;
   const stair = (x, y, z, f, b) => { put(x, y, z, b || 167); meta(x, y, z, {face: f}); };
   const torch = (x, y, z, dx, dz) => { if (!fr && rnd() < 0.6) return; put(x, y, z, T.TORCH); meta(x, y, z, {face: 0, wall: [dx, dz]}); };
@@ -11386,23 +11390,23 @@ function buildKeep(kind, cx, cz) {
   // front door (double, 3 high) + steps
   for (let x = cx - 1; x <= cx; x++) for (let y = gy; y < gy + 3; y++) put(x, y, kz1, T.AIR);
   door(cx - 1, gy, kz1, 2); door(cx, gy, kz1, 2); put(cx - 1, gy + 2, kz1, T.STONEBRICK); put(cx, gy + 2, kz1, T.STONEBRICK);
-  torch(cx - 2, gy + 2, kz1 + 1, 0, -1); torch(cx + 1, gy + 2, kz1 + 1, 0, -1);
+  if (!BARE) { torch(cx - 2, gy + 2, kz1 + 1, 0, -1); torch(cx + 1, gy + 2, kz1 + 1, 0, -1); }
   // ---- ground floor: great hall (east) + kitchen (west) ----
   const kitX = x0 + 5;
   for (let z = kz0 + 1; z < kz1; z++) for (let y = gy; y < gy + FH; y++) put(kitX, y, z, stone());
   for (let y = gy; y < gy + 3; y++) for (let z = kz1 - 4; z <= kz1 - 2; z++) put(kitX, y, z, T.AIR);   // wide arch into the kitchen
-  for (let z = kz0 + 1; z < kz1; z++) put(cx, gy - 1, z, T.RCARPET);   // red carpet runner from the door to the high table
-  for (let x = kitX + 1; x < x1; x++) put(x, gy - 1, kz0 + 2, T.RCARPET);
-  for (const tx of [cx - 3, cx + 3]) if (tx > kitX + 1 && tx < x1 - 1) for (let z = kz0 + 5; z < kz1 - 2; z++) { put(tx, gy, z, T.PLANKS); if (z % 2 === 0) { stair(tx - 1, gy, z, stairF(1, 0), 164); stair(tx + 1, gy, z, stairF(-1, 0), 164); } }
-  for (let x = cx - 3; x <= cx + 3; x++) put(x, gy, kz0 + 3, T.PLANKS);   // high table
-  stair(cx, gy, kz0 + 2, stairF(0, 1), 164); stair(cx - 2, gy, kz0 + 2, stairF(0, 1), 164); stair(cx + 2, gy, kz0 + 2, stairF(0, 1), 164);
-  for (let x = kitX + 2; x < x1 - 1; x += 3) { put(x, gy + 2, kz0, T.TAPESTRY); put(x, gy + 3, kz0, T.TAPESTRY); }
-  for (const z of [kz0 + 6, kz1 - 4]) { put(cx, gy + FH - 1, z, 162); lamp(cx, gy + FH - 2, z); put(cx - 1, gy + FH - 2, z, 162); put(cx + 1, gy + FH - 2, z, 162); }   // chandeliers
-  for (let z = kz0 + 2; z < kz1; z += 4) { torch(x1 - 1, gy + 2, z, 1, 0); torch(kitX + 1, gy + 2, z, -1, 0); }
+  if (!BARE) { for (let z = kz0 + 1; z < kz1; z++) put(cx, gy - 1, z, T.RCARPET); }   // red carpet runner from the door to the high table
+  if (!BARE) { for (let x = kitX + 1; x < x1; x++) put(x, gy - 1, kz0 + 2, T.RCARPET); }
+  if (!BARE) { for (const tx of [cx - 3, cx + 3]) if (tx > kitX + 1 && tx < x1 - 1) for (let z = kz0 + 5; z < kz1 - 2; z++) { put(tx, gy, z, T.PLANKS); if (z % 2 === 0) { stair(tx - 1, gy, z, stairF(1, 0), 164); stair(tx + 1, gy, z, stairF(-1, 0), 164); } } }
+  if (!BARE) { for (let x = cx - 3; x <= cx + 3; x++) put(x, gy, kz0 + 3, T.PLANKS); }   // high table
+  if (!BARE) { stair(cx, gy, kz0 + 2, stairF(0, 1), 164); stair(cx - 2, gy, kz0 + 2, stairF(0, 1), 164); stair(cx + 2, gy, kz0 + 2, stairF(0, 1), 164); }
+  if (!BARE) { for (let x = kitX + 2; x < x1 - 1; x += 3) { put(x, gy + 2, kz0, T.TAPESTRY); put(x, gy + 3, kz0, T.TAPESTRY); } }
+  if (!BARE) { for (const z of [kz0 + 6, kz1 - 4]) { put(cx, gy + FH - 1, z, 162); lamp(cx, gy + FH - 2, z); put(cx - 1, gy + FH - 2, z, 162); put(cx + 1, gy + FH - 2, z, 162); } }   // chandeliers
+  if (!BARE) { for (let z = kz0 + 2; z < kz1; z += 4) { torch(x1 - 1, gy + 2, z, 1, 0); torch(kitX + 1, gy + 2, z, -1, 0); } }
   // kitchen: furnaces, cauldron, worktable, larder chest
-  put(x0 + 1, gy, kz0 + 1, T.FURNACE); put(x0 + 2, gy, kz0 + 1, T.FURNACE); put(x0 + 3, gy, kz0 + 1, T.CAULDRON); put(x0 + 1, gy, kz0 + 3, T.TABLE);
-  lootChest(x0 + 1, gy, kz1 - 1, [[IT.BREAD, 4, 0.9], [IT.MUTTON, 3, 0.7], [IT.POTATO, 5, 0.7], [IT.COAL, 6, 0.7], [IT.BREW, 2, 0.5]], rnd);
-  torch(x0 + 1, gy + 2, kz0 + 4, -1, 0);
+  if (!BARE) { put(x0 + 1, gy, kz0 + 1, T.FURNACE); put(x0 + 2, gy, kz0 + 1, T.FURNACE); put(x0 + 3, gy, kz0 + 1, T.CAULDRON); put(x0 + 1, gy, kz0 + 3, T.TABLE); }
+  if (!BARE) { lootChest(x0 + 1, gy, kz1 - 1, [[IT.BREAD, 4, 0.9], [IT.MUTTON, 3, 0.7], [IT.POTATO, 5, 0.7], [IT.COAL, 6, 0.7], [IT.BREW, 2, 0.5]], rnd); }
+  if (!BARE) { torch(x0 + 1, gy + 2, kz0 + 4, -1, 0); }
   // ---- stairs: up the east wall (ground -> 1st), up the west wall (1st -> 2nd), straight runs facing the way you climb ----
   const run = (x, ly, zStart, dz) => { for (let k = 0; k < FH; k++) { const z = zStart + dz * k; stair(x, ly + k, z, stairF(0, dz)); for (let y = ly; y < ly + k; y++) put(x, y, z, T.STONEBRICK); put(x, ly + FH, z, T.AIR); }
     for (let k = 0; k < FH; k++) put(x - (x > cx ? 1 : -1), ly + FH + 1, zStart + dz * k, 162); };
@@ -11411,28 +11415,28 @@ function buildKeep(kind, cx, cz) {
   run(x1 - 1, L[2], kz1 - 2, -1);   // up to the roof
   // ---- 1st floor: corridor + bedrooms (south) and the library (north) ----
   const zc = Math.round((kz0 + kz1) / 2);
-  for (let x = x0 + 3; x < x1 - 2; x++) put(x, L[1], zc, T.RCARPET);
+  if (!BARE) { for (let x = x0 + 3; x < x1 - 2; x++) put(x, L[1], zc, T.RCARPET); }
   const rooms = Math.max(2, Math.floor((x1 - x0 - 6) / 5));
-  for (let r = 0; r < rooms; r++) { const rx = x0 + 3 + r * 5;
+  if (!BARE) { for (let r = 0; r < rooms; r++) { const rx = x0 + 3 + r * 5; }
     put(rx + 1, L[1] + 1, kz1 - 1, T.WOOL); put(rx + 1, L[1] + 1, kz1 - 2, T.RCARPET); put(rx + 2, L[1] + 1, kz1 - 1, T.WOOL); put(rx + 2, L[1] + 1, kz1 - 2, T.RCARPET);   // a bed: pillows + red blanket
     if (false) lootChest(rx + 3, L[1] + 1, kz1 - 1, [[T.WOOL, 3, 0.7], [IT.BREAD, 2, 0.6], [IT.GOLDNUGGET, 3, 0.5], [IT.KILT, 1, 0.2], [IT.BROOCH, 1, 0.08]], rnd);
     torch(rx + 1, L[1] + 3, kz1 - 1, 0, 1); }
-  for (let x = x0 + 3; x < x1 - 2; x++) if ((x - x0) % 4 !== 1) for (let y = L[1] + 1; y < L[1] + 4; y++) put(x, y, kz0 + 1, T.BOOKSHELF);
-  put(cx, L[1] + 1, kz0 + 3, T.PLANKS); put(cx + 1, L[1] + 1, kz0 + 3, T.PLANKS); stair(cx, L[1] + 1, kz0 + 4, stairF(0, 1), 164); lamp(cx - 1, L[1] + FH - 1, kz0 + 3);
-  torch(x0 + 3, L[1] + 3, zc - 3, 0, 1); torch(x1 - 3, L[1] + 3, zc - 3, 0, 1); torch(x0 + 2, L[1] + 3, zc, -1, 0);
+  if (!BARE) { for (let x = x0 + 3; x < x1 - 2; x++) if ((x - x0) % 4 !== 1) for (let y = L[1] + 1; y < L[1] + 4; y++) put(x, y, kz0 + 1, T.BOOKSHELF); }
+  if (!BARE) { put(cx, L[1] + 1, kz0 + 3, T.PLANKS); put(cx + 1, L[1] + 1, kz0 + 3, T.PLANKS); stair(cx, L[1] + 1, kz0 + 4, stairF(0, 1), 164); lamp(cx - 1, L[1] + FH - 1, kz0 + 3); }
+  if (!BARE) { torch(x0 + 3, L[1] + 3, zc - 3, 0, 1); torch(x1 - 3, L[1] + 3, zc - 3, 0, 1); torch(x0 + 2, L[1] + 3, zc, -1, 0); }
   // ---- 2nd floor: armoury (west half) + the laird's chamber (east half) ----
   for (const z of [kz0 + 1, kz1 - 1]) for (let y = L[2] + 1; y < L[2] + FH; y++) put(cx, y, z, stone());   // open plan: just two pilasters
-  for (let x = x0 + 2; x < cx - 1; x += 2) put(x, L[2] + 3, kz1, T.TAPESTRY);   // armoury banners on the wall, clear of the stair
+  if (!BARE) { for (let x = x0 + 2; x < cx - 1; x += 2) put(x, L[2] + 3, kz1, T.TAPESTRY); }   // armoury banners on the wall, clear of the stair
   const ARM = fr ? [[IT.ISWORD, 1, 0.6], [IT.IHELM, 1, 0.4], [IT.ICHEST, 1, 0.3], [IT.TARGE, 1, 0.4], [IT.CLAYMORE, 1, 0.25], [IT.CARTRIDGE, 6, 0.4], [IT.PISTOL, 1, 0.12]]
     : [[T.OBSIDIAN, 4, 0.55], [IT.DIAMOND, 2, 0.4], [IT.IPICK, 1, 0.3], [IT.ISWORD, 1, 0.3], [IT.ICHEST, 1, 0.25], [IT.GOLDINGOT, 3, 0.4], [IT.PAINTING, 1, 0.1], [IT.MUSKET, 1, 0.1], [IT.CARTRIDGE, 6, 0.4]];
-  lootChest(x0 + 4, L[2] + 1, kz1 - 1, ARM, rnd);
-  for (let x = cx + 2; x < x1 - 1; x++) for (let z = kz0 + 2; z < kz1 - 1; z++) put(x, L[2], z, T.RCARPET);
-  put(x1 - 2, L[2] + 1, kz0 + 2, T.WOOL); put(x1 - 3, L[2] + 1, kz0 + 2, T.WOOL); put(x1 - 2, L[2] + 1, kz0 + 3, 221); put(x1 - 3, L[2] + 1, kz0 + 3, 221); put(x1 - 2, L[2] + 1, kz0 + 4, 221); put(x1 - 3, L[2] + 1, kz0 + 4, 221);
-  for (let x = cx + 2; x < x1; x += 3) put(x, L[2] + 3, kz1, T.TAPESTRY);
-  lootChest(x1 - 1, L[2] + 1, kz1 - 1, fr ? [[IT.GOLDINGOT, 3, 0.7], [IT.QUAICH, 1, 0.3], [IT.SILVERINGOT, 2, 0.5], [IT.CAIRNGORM, 2, 0.4]] : [[IT.DIAMOND, 2, 0.5], [IT.GOLDINGOT, 4, 0.6], [IT.QUAICH, 1, 0.3]], rnd);
-  put(cx + 4, L[2] + FH - 1, zc, 162); lamp(cx + 4, L[2] + FH - 2, zc); torch(cx - 2, L[2] + 3, zc, 1, 0); torch(cx + 1, L[2] + 3, kz0 + 2, -1, 0);
+  if (!BARE) { lootChest(x0 + 4, L[2] + 1, kz1 - 1, ARM, rnd); }
+  if (!BARE) { for (let x = cx + 2; x < x1 - 1; x++) for (let z = kz0 + 2; z < kz1 - 1; z++) put(x, L[2], z, T.RCARPET); }
+  if (!BARE) { put(x1 - 2, L[2] + 1, kz0 + 2, T.WOOL); put(x1 - 3, L[2] + 1, kz0 + 2, T.WOOL); put(x1 - 2, L[2] + 1, kz0 + 3, 221); put(x1 - 3, L[2] + 1, kz0 + 3, 221); put(x1 - 2, L[2] + 1, kz0 + 4, 221); put(x1 - 3, L[2] + 1, kz0 + 4, 221); }
+  if (!BARE) { for (let x = cx + 2; x < x1; x += 3) put(x, L[2] + 3, kz1, T.TAPESTRY); }
+  if (!BARE) { lootChest(x1 - 1, L[2] + 1, kz1 - 1, fr ? [[IT.GOLDINGOT, 3, 0.7], [IT.QUAICH, 1, 0.3], [IT.SILVERINGOT, 2, 0.5], [IT.CAIRNGORM, 2, 0.4]] : [[IT.DIAMOND, 2, 0.5], [IT.GOLDINGOT, 4, 0.6], [IT.QUAICH, 1, 0.3]], rnd); }
+  if (!BARE) { put(cx + 4, L[2] + FH - 1, zc, 162); lamp(cx + 4, L[2] + FH - 2, zc); torch(cx - 2, L[2] + 3, zc, 1, 0); torch(cx + 1, L[2] + 3, kz0 + 2, -1, 0); }
   // courtyard lamps on posts along the path
-  for (let z = cz + 1; z < cz + S - 2; z += 4) for (const sx of [-1, 1]) { put(cx + sx * 3, gy, z, 162); put(cx + sx * 3, gy + 1, z, 162); lamp(cx + sx * 3, gy + 2, z); }
+  if (!BARE) { for (let z = cz + 1; z < cz + S - 2; z += 4) for (const sx of [-1, 1]) { put(cx + sx * 3, gy, z, 162); put(cx + sx * 3, gy + 1, z, 162); lamp(cx + sx * 3, gy + 2, z); } }
   // abandoned: cobwebs in the corners, some broken windows and fallen stones
   castleStats.push({kind, filled: 0, rooms: rooms + 6, keep: true, friendly: fr});
   return gy;
@@ -13265,6 +13269,272 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     return ui.apply(this, arguments);
   };
   window.__beeHive = {placeHives, hiveMeta, stepBee};
+})();
+
+/* ===================== GLX-C50 (v0.9.46): unlimited Keep markers, mob separation, zombie packs, roaming treeman ===================== */
+(function c50() {
+  // ---- 10) Keep markers are never used up ----
+  const MKR = new Set([241, 242, 243]);
+  const uu = useUp; useUp = function (id) { if (MKR.has(id)) { if (!(inv[id] > 0)) inv[id] = 64; return; } return uu.apply(this, arguments); };
+  setInterval(() => { for (const id of MKR) if (inv[id] > 0 && inv[id] !== 64) inv[id] = 64; }, 1000);
+  // ---- 9) mobs touch, never overlap ----
+  function separate() { const n = mobs.length; for (let i = 0; i < n; i++) { const a = mobs[i]; if (a.kind === 'bee' || a.kind === 'dragon' || heldBy === a) continue; const pa = a.g.position, ra = a.hitR || 0.4;
+      for (let j = i + 1; j < n; j++) { const b = mobs[j]; if (b.kind === 'bee' || b.kind === 'dragon' || heldBy === b) continue; const pb = b.g.position; if (Math.abs(pa.y - pb.y) > 1.6) continue;
+        const dx = pb.x - pa.x, dz = pb.z - pa.z, d = Math.hypot(dx, dz), m = ra + (b.hitR || 0.4); if (d >= m) continue;
+        const ux = d > 1e-4 ? dx / d : Math.cos(i + j), uz = d > 1e-4 ? dz / d : Math.sin(i + j), push = (m - d) / 2;
+        const tryMove = (o, sx, sz) => { const nx = o.x + sx, nz = o.z + sz; if (!solid(Math.floor(nx), Math.floor(o.y + 0.2), Math.floor(nz)) && !solid(Math.floor(nx), Math.floor(o.y + 1.1), Math.floor(nz))) { o.x = nx; o.z = nz; } };
+        tryMove(pa, -ux * push, -uz * push); tryMove(pb, ux * push, uz * push); } } }
+  window.__separate = separate;
+  const um = updateMobs; updateMobs = function () { const r = um.apply(this, arguments); try { separate(); } catch (_) {} return r; };
+  // ---- 8) zombies come in packs of about 3 ----
+  let pack = false;
+  const sm = spawnMob; spawnMob = function (kind) { const a = sm.apply(this, arguments);
+    if (a && kind === 'zombie' && !pack && !window.__eggSpot) { pack = true; try { const p = a.g.position; const extra = 1 + (Math.random() < 0.75 ? 1 : 0) + (Math.random() < 0.2 ? 1 : 0);
+        for (let i = 0; i < extra; i++) { const ang = Math.random() * 6.28, x = p.x + Math.cos(ang) * 1.8, z = p.z + Math.sin(ang) * 1.8, y = solidTop(Math.floor(x), Math.floor(z)) + 1;
+          if (Math.abs(y - p.y) > 2 || solid(Math.floor(x), y, Math.floor(z))) continue; window.__eggSpot = [x, y, z, x, z]; window.__egg = true; try { sm.call(this, 'zombie'); } finally { window.__eggSpot = null; window.__egg = false; } } } finally { pack = false; } }
+    return a; };
+  // ---- 7) the treeman leaves when you walk away, and comes back at night by a tree near you ----
+  function treeNear(rMin, rMax) { const px = Math.floor(P.x), pz = Math.floor(P.z), c = [];
+    for (let x = Math.max(2, px - rMax); x < Math.min(W - 2, px + rMax); x++) for (let z = Math.max(2, pz - rMax); z < Math.min(D - 2, pz + rMax); z++) { const d = Math.hypot(x - px, z - pz); if (d < rMin || d > rMax) continue;
+      for (let y = H - 2; y > 2; y--) { const b = getB(x, y, z); if (b === T.LOG) { let ty = y; while (ty > 2 && getB(x, ty - 1, z) === T.LOG) ty--; c.push([x, ty, z]); break; } if (b && b !== T.LEAVES && !isPlant(b)) break; } }
+    for (let t = 0; t < 30 && c.length; t++) { const [x, ty, z] = c[(Math.random() * c.length) | 0];
+      for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1]]) { const cx = x + ox, cz = z + oz; for (const yy of [ty, ty + 1, ty - 1]) if (solid(cx, yy - 1, cz) && !solid(cx, yy, cz) && !solid(cx, yy + 1, cz)) return [cx + .5, yy, cz + .5, x, z]; } }
+    window.__tnC = c.length;
+    return null; }
+  let tmT = 20;
+  setInterval(() => { if (!started || paused || DIM.cur) return; try {
+      for (const a of mobs.slice()) if (a.kind === 'treeman') { const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z); const busy = a.state === 'chase' || a.state === 'grab' || a.state === 'twist';
+        if (d > 34 && !busy) { a.gone = (a.gone || 0) + 1; if (a.gone >= 2) { try { mistPuff(a.g.position.x, a.g.position.y + 1, a.g.position.z, 0x4a3a2a, 4); } catch (_) {} removeMob(a); } } else a.gone = 0; }
+      tmT -= 1; const night = typeof isNight === 'boolean' ? isNight : (dayClock / CYCLE > 0.75 || dayClock / CYCLE < 0.22);
+      if (night && tmT <= 0 && !mobs.some(a => a.kind === 'treeman')) { tmT = 45; const s = treeNear(14, 34); if (s) { window.__eggSpot = s; try { const a = spawnMob('treeman'); window.__lastTree = a ? [s[0], s[2]] : null; } finally { window.__eggSpot = null; } } }
+    } catch (_) {} }, 1000);
+  window.__treeNear = treeNear;
+})();
+
+/* ===================== GLX-C51 (v0.9.46): first-person swim strokes (both arms) ===================== */
+(function c51() {
+  const g = new THREE.Group(); camera.add(g); g.visible = false; const arms = [];
+  for (const s of [-1, 1]) { const piv = new THREE.Group(); g.add(piv); const sl = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.5), sleeveMat); sl.position.z = 0.1; piv.add(sl);
+    const hd = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.05, 0.16), armMat); hd.position.z = -0.22; piv.add(hd); piv.userData.s = s; arms.push(piv); }
+  let k = 0, ph = 0, last = performance.now();
+  window.__swim1p = () => ({vis: g.visible, k: +k.toFixed(2), handVis: hand.visible});
+  const up = updatePlayer;
+  updatePlayer = function () { const r = up.apply(this, arguments);
+    try { const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now;
+      const on = !!window.swimDeep && !camMode && !dead; k += ((on ? 1 : 0) - k) * Math.min(1, dt * 5);
+      const moving = on && (keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || (typeof touchMove !== 'undefined' && touchMove && (Math.abs(touchMove.x || 0) + Math.abs(touchMove.y || 0)) > 0.1));
+      ph += dt * (moving ? (window.swimLava ? 2.2 : 4.6) : 1.6);
+      g.visible = on && k > 0.03; window.__swimHide = on && k >= 0.5; if (on && k >= 0.5) { hand.visible = false; g.userData.hid = true; } else if (g.userData.hid) { hand.visible = true; g.userData.hid = false; }
+      if (g.visible) for (const a of arms) { const s = a.userData.s;
+        if (moving) { // breaststroke: reach forward together, sweep out and back, tuck in
+          const c = (ph % (Math.PI * 2)) / (Math.PI * 2), reach = c < 0.35 ? c / 0.35 : c < 0.75 ? 1 - (c - 0.35) / 0.4 : 0, sweep = c < 0.35 ? 0 : c < 0.75 ? (c - 0.35) / 0.4 : 1 - (c - 0.75) / 0.25;
+          a.position.set(s * (0.12 + sweep * 0.32), -0.26 + reach * 0.08 - sweep * 0.04, -0.32 - reach * 0.28 + sweep * 0.1); a.rotation.set(-0.1 + reach * 0.15, s * (0.1 + sweep * 0.9), s * sweep * 0.4); }
+        else { const w = Math.sin(ph * 2 + (s > 0 ? 0 : Math.PI)); a.position.set(s * (0.3 + w * 0.06), -0.3 + Math.cos(ph * 2) * 0.03, -0.38); a.rotation.set(0.1, s * (0.5 + w * 0.3), s * 0.25); }
+        a.position.y -= (1 - k) * 0.4; }
+    } catch (_) {}
+    return r; };
+})();
+
+/* ===================== GLX-C52 (v0.9.47): black skeletons with a thin blade, skeletons aim with both arms, arrows that stick in you ===================== */
+(function c52() {
+  // ---- black skeleton: skeleton frame, sooty bone, a thin sharp sword, melee swing ----
+  const bladeM = new THREE.MeshPhongMaterial({color: 0xd8dde4, shininess: 90, specular: 0xffffff}), hiltM = new THREE.MeshLambertMaterial({color: 0x2a1a10}), guardM = new THREE.MeshPhongMaterial({color: 0x8a7a50, shininess: 40});
+  for (const m of [bladeM, hiltM, guardM]) m.userData.shared = true;
+  function sword() { const g = new THREE.Group();
+    const bl = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.85, 0.012), bladeM); bl.position.y = 0.5; g.add(bl);
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 4), bladeM); tip.position.y = 0.98; tip.rotation.y = Math.PI / 4; g.add(tip);
+    const gd = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.03, 0.04), guardM); gd.position.y = 0.07; g.add(gd);
+    const hl = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.16, 0.04), hiltM); hl.position.y = -0.02; g.add(hl); return g; }
+  const sm = spawnMob;
+  spawnMob = function (kind) { if (kind !== 'blackskel') return sm.apply(this, arguments);
+    const a = sm.call(this, 'skeleton'); if (!a) return null; a.kind = 'blackskel'; a.hp = a.maxHp = 9; a.speed = 1.5;
+    if (a.bow) a.bow.visible = false; a.noBow = true;
+    a.g.traverse(o => { if (o.isMesh && o.material) [].concat(o.material).forEach(m => { if (m && m.color && !(m.userData && m.userData.shared)) m.color.setHex(0x2b2b30); }); });
+    const sw = sword(); sw.position.set(0, -0.68, 0.06); sw.rotation.x = Math.PI / 2; a.arms[1].add(sw); a.sword = sw; return a; };
+  const um = updateMobs;
+  updateMobs = function (dt) { const r = um.apply(this, arguments);
+    for (const a of mobs) {
+      if (a.kind === 'blackskel') { if (a.bow) a.bow.visible = false; if ((a.swing || 0) > (a.prevSw || 0) + 0.01) a.cutT = 0.45; a.prevSw = a.swing || 0; a.cutT = Math.max(0, (a.cutT || 0) - dt); const sw = a.cutT / 0.45; a.swPh = sw;
+        // raised guard, then a fast overhead-to-forward cut when it attacks
+        const cut = sw > 0 ? Math.sin((1 - sw) * Math.PI) : 0, walk = Math.sin(a.walk || 0) * (a.moving ? 0.4 : 0.05);
+        a.arms[1].rotation.set(-0.9 - cut * 1.7 + (sw > 0.6 ? -0.8 * (sw - 0.6) / 0.4 : 0), 0, -0.1 - cut * 0.2);
+        a.arms[0].rotation.set(walk - 0.2, 0, 0.12); }
+      else if (a.kind === 'skeleton' && a.bow) { // always aiming at you with both arms once you're in range
+        const p = a.g.position, d = Math.hypot(P.x - p.x, P.z - p.z); if (d < 20 && !dead && (a.aggro > 0 || d < 14)) { const aim = Math.max(-0.6, Math.min(0.6, Math.atan2(P.y + 1.1 - (p.y + 1.4), Math.max(1, d)))); a.aimV = aim;
+          a.arms[0].rotation.x = -1.5 - aim; a.arms[1].rotation.x = Math.min(a.arms[1].rotation.x, -1.2 - aim); a.bow.visible = true; if (!(a.aggro > 0)) a.ang = Math.atan2(P.x - p.x, P.z - p.z); } }
+    }
+    return r; };
+  // ---- arrows: a real projectile that sticks where it hits you (arms or body), then falls away ----
+  const stuck = []; window.__stuck = stuck;
+  const arrowM = new THREE.MeshLambertMaterial({color: 0x5a3e28}), featherM = new THREE.MeshLambertMaterial({color: 0xe8e4dc}), headM = new THREE.MeshLambertMaterial({color: 0x6a6e74});
+  function stuckArrow() { const g = new THREE.Group(); const sh = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, 0.42), arrowM); sh.position.z = -0.2; g.add(sh);
+    const f = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.06, 0.1), featherM); f.position.z = -0.38; g.add(f); const f2 = f.clone(); f2.rotation.z = Math.PI / 2; g.add(f2); return g; }
+  function stick(ar) { const u = worldModel && worldModel.userData; if (!u) return;
+    const p = ar.m.position, rel = p.y - P.y; const parts = [];
+    if (rel > 0.75 && rel < 1.55) { parts.push(['torso', u.torso], ['armL', u.arms[0]], ['armR', u.arms[1]]); } else if (rel >= 1.55) parts.push(['armR', u.arms[1]], ['torso', u.torso]); else parts.push(['torso', u.torso]);
+    const [name, part] = parts[(Math.random() * parts.length) | 0]; if (!part) return;
+    worldModel.updateMatrixWorld(true); const g = stuckArrow(); const local = part.worldToLocal(p.clone()); const box = new THREE.Box3().setFromObject(part); const c = new THREE.Vector3(); box.getCenter(c);
+    const lc = part.worldToLocal(c.clone()); local.lerp(lc, 0.55); g.position.copy(local);
+    const dir = ar.v.clone().normalize(), q = new THREE.Quaternion(); part.getWorldQuaternion(q); const ld = dir.applyQuaternion(q.invert()); g.lookAt(g.position.clone().sub(ld)); part.add(g);
+    let fp = null; if (name === 'armR' && !camMode) { fp = stuckArrow(); fp.position.set(0.05, 0.06, 0.05 + Math.random() * 0.2); fp.rotation.set(0.6, 0.8, 0); armPivot.add(fp); }
+    stuck.push({g, part, fp, t: 0, name}); while (stuck.length > 8) { const s = stuck.shift(); s.part.remove(s.g); if (s.fp) armPivot.remove(s.fp); } }
+  const ua = updateArrows;
+  updateArrows = function (dt) {
+    for (let i = arrows.length - 1; i >= 0; i--) { const ar = arrows[i], p = ar.m.position;
+      const nx = p.x + ar.v.x * dt, ny = p.y + ar.v.y * dt, nz = p.z + ar.v.z * dt;
+      // swept test against the player's body so a fast arrow can't skip through
+      for (let s = 1; s <= 4; s++) { const k = s / 4, x = p.x + (nx - p.x) * k, y = p.y + (ny - p.y) * k, z = p.z + (nz - p.z) * k;
+        if (Math.hypot(x - P.x, z - P.z) < 0.42 && y > P.y + 0.1 && y < P.y + HEIGHT) { p.set(x, y, z); try { stick(ar); } catch (_) {} hurt(3, 'Shot by a skeleton in the mist.'); const l = Math.hypot(ar.v.x, ar.v.z) || 1; knockPlayer(ar.v.x / l, ar.v.z / l, 3, 2); scene.remove(ar.m); arrows.splice(i, 1); break; } } }
+    const r = ua.apply(this, arguments);
+    for (let i = stuck.length - 1; i >= 0; i--) { const s = stuck[i]; s.t += dt; if (s.t > 25 || dead) { s.part.remove(s.g); if (s.fp) armPivot.remove(s.fp); stuck.splice(i, 1); } }
+    return r; };
+  window.__stick = stick;
+})();
+(function c52b() { const km = killMob; killMob = function (a) { if (a.kind !== 'blackskel') return km.apply(this, arguments); const p = a.g.position; burst(p.x, p.y + .8, p.z, 0x2b2b30, 16); dropItem(IT.BONE || 171, 1 + (Math.random() * 2 | 0), p.x, p.y + .5, p.z, 0, 3, 0, .4); if (Math.random() < .5) dropItem(IT.COAL, 1, p.x, p.y + .5, p.z, 1, 3, 0, .4); toast('Black skeleton defeated'); removeMob(a); }; })();
+
+/* ===================== GLX-C53 (v0.9.48): exactly 3 survival castles - clansfolk castle near spawn, abandoned mossy castle, blackstone castle with a broken Hell portal ===================== */
+(function c53() {
+  const BLK = 248; T.BLACKSTONE = BLK;
+  { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#1b1a1e'; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 2600; i++) { const v = 20 + Math.random() * 30 | 0; g.fillStyle = `rgb(${v},${v - 2},${v + 4})`; g.fillRect(Math.random() * 256, Math.random() * 256, 2 + Math.random() * 5, 2 + Math.random() * 4); }
+    g.fillStyle = '#0a0a0c'; for (let r = 0; r < 4; r++) { g.fillRect(0, r * 64, 256, 5); for (let k = 0; k < 2; k++) g.fillRect(((r % 2) * 64 + k * 128) % 256, r * 64, 5, 64); }
+    g.fillStyle = 'rgba(120,110,140,.12)'; for (let r = 0; r < 4; r++) g.fillRect(0, r * 64 + 5, 256, 3);
+    TEX.blackstone = c.toDataURL(); }
+  NAMES[BLK] = 'Blackstone'; FACES[BLK] = 'blackstone'; ICON_KEY[BLK] = 'blackstone'; BLOCK_MATS[BLK] = mat('blackstone'); HARD[BLK] = 1.8; MC_HARD[BLK] = 1.8; REQ[BLK] = 1; PLACEABLE.add(BLK);
+  try { __NAT[BLK] = 1; } catch (_) {} if (!ORDER.includes(BLK)) ORDER.push(BLK); if (typeof CREATIVE_ALL !== 'undefined') CREATIVE_ALL.push(BLK);
+  const BASE = {human: 'turrets', mossy: 'turrets', black: 'towerhouse'};
+  const SIZE = {citadel: 20, lochisle: 17, turrets: 15, towerhouse: 13};
+  const isNew = () => current && current.mode !== 'creative' && (current.created > NEW_CASTLES_AT || current.newCastles);
+  const cf = castleFriendly; castleFriendly = function (c) { if (c && BASE[c[0]]) return c[0] === 'human'; return cf.apply(this, arguments); };
+  const gyAt = new Map();
+  const bk = buildKeep; buildKeep = function (kind, cx, cz) { const r = bk.apply(this, arguments); gyAt.set(cx + ',' + cz, r); return r; };
+  const old = g9PlaceCastles;
+  g9PlaceCastles = function () {
+    if (!isNew() || W < 200) return old.apply(this, arguments);
+    const hAt = (x, z) => g9cols[(x * D + z) * 2], kd = (x, z) => g9cols[(x * D + z) * 2 + 1], cx0 = W >> 1, cz0 = D >> 1, placed = [];
+    const flat = (x, z, r) => { let lo = 1e9, hi = -1e9, wet = 0; for (let a = -r; a <= r; a += 3) for (let b = -r; b <= r; b += 3) { const h = hAt(x + a, z + b); lo = Math.min(lo, h); hi = Math.max(hi, h); if (kd(x + a, z + b) === 5 || h <= SEA) wet++; } return {lo, hi, wet}; };
+    const ok = (x, z, r) => x > r + 8 && z > r + 8 && x < W - r - 8 && z < D - r - 8 && placed.every(p => Math.hypot(p[1] - x, p[2] - z) > 75) && castleAvoid.every(a => x + r < a.x0 - 6 || x - r > a.x1 + 6 || z + r < a.z0 - 6 || z - r > a.z1 + 6);
+    const best = (r, sc) => { let bx = -1, bz = -1, bs = -1e18; for (let x = 0; x < W; x += 4) for (let z = 0; z < D; z += 4) { if (!ok(x, z, r)) continue; const f = flat(x, z, r - 2); if (f.wet) continue; const s = sc(x, z, f) - (f.hi - f.lo) * 6; if (s > bs) { bs = s; bx = x; bz = z; } } return bx >= 0 ? [bx, bz] : null; };
+    const sp = g9findSpawn() || [cx0, 0, cz0];
+    const want = [['human', (x, z) => -Math.abs(Math.hypot(x - sp[0], z - sp[2]) - 50) * 3], ['mossy', (x, z) => -Math.hypot(x - cx0, z - cz0) * 2 - (Math.hypot(x - sp[0], z - sp[2]) < 45 ? 1e6 : 0)], ['black', (x, z) => Math.hypot(x - sp[0], z - sp[2])]];
+    for (const [k, sc] of want) { const S = SIZE[BASE[k]]; const p = best(S + 6, sc); if (p) placed.push([k, p[0], p[1]]); }
+    window.__bareKeep = true; try { for (const c of placed) { try { buildCastle(BASE[c[0]], c[1], c[2]); } catch (e) { console.warn('castle', c, e); } } } finally { window.__bareKeep = false; }
+    g9castles = placed; return placed; };
+  // ---- after every pass: empty clean interiors, one chest each, the castle's own look, the broken portal ----
+  const DECOR = new Set([T.TORCH, 161, 216, 162, T.CHEST, T.TAPESTRY, T.RCARPET, T.BOOKSHELF, T.WOOL, 221, T.FURNACE, T.CAULDRON, T.TABLE, 164, T.COBWEB, T.BED, 219, 220, 222, 223, T.IRONBLOCK].filter(v => v !== undefined));
+  const STONES = new Set([T.STONEBRICK, T.MOSSYBRICK, T.COBBLE, T.WSTONE, T.SLATE].filter(v => v !== undefined));
+  const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 2147483647); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  function finishCastles() {
+    if (!isNew() || DIM.cur) return null; const out = [];
+    for (const c of g9castles) { if (!BASE[c[0]]) continue; const [k, cx, cz] = c, S = SIZE[BASE[k]], R = S + 2, gy = gyAt.get(cx + ',' + cz) || (solidTop(cx, cz) + 1);
+      let removed = 0;
+      for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) for (let y = Math.max(2, gy - 3); y < Math.min(H - 1, gy + 26); y++) { const i = idx(x, y, z), b = world[i]; if (!b) continue;
+        if (placedSet && placedSet.has(i)) continue;
+        if (DECOR.has(b)) { world[i] = b === T.RCARPET ? (k === 'black' ? BLK : T.STONEBRICK) : T.AIR; entMeta.delete(keyOf(x, y, z)); chests.delete(keyOf(x, y, z)); removed++; continue; }
+        if (b === T.GLOWROCK || b === T.LAVA && y > gy) { world[i] = T.AIR; continue; }
+        if (STONES.has(b)) { if (k === 'black') world[i] = BLK; else if (k === 'human') { if (b === T.MOSSYBRICK || b === T.COBBLE && y > gy) world[i] = T.STONEBRICK; }
+          else { const r = h3(x, y, z); world[i] = r < 0.45 ? T.MOSSYBRICK : r < 0.6 ? T.COBBLE : T.STONEBRICK; if (y > gy + 4 && r > 0.955 && !world[idx(x, y + 1, z)]) world[i] = T.AIR; } } }
+      // the one chest, in the keep by the front door
+      const KX = S - 6, kz1 = cz - 2, x0 = cx - KX, chx = x0 + 1, chz = kz1 - 1; let chy = gy; while (chy < gy + 3 && world[idx(chx, chy, chz)]) chy++;
+      const loot = k === 'human' ? [[IT.IRONINGOT, 6], [IT.BREAD, 6], [IT.COOKEDMUTTON || IT.MUTTON, 4], [IT.DIAMOND, 3]] : k === 'mossy' ? [[IT.IRONINGOT, 3], [IT.BREAD, 3], [IT.POTATO, 4]] : [[IT.FLINTSTEEL, 1], [T.OBSIDIAN, 4]];
+      const slots = new Array(27).fill(null); loot.forEach(([id, n], j) => { if (id) slots[[4, 10, 13, 16][j]] = [id, n]; });
+      world[idx(chx, chy, chz)] = T.CHEST; chests.set(keyOf(chx, chy, chz), {slots, castle: k}); entMeta.set(keyOf(chx, chy, chz), {face: 1});
+      // blackstone castle: an unfinished portal (2 obsidian missing), a 1x1 lava pool and Hell blocks around it
+      let portal = null;
+      if (k === 'black') { const px = cx - 2, pz = cz + S + 6; if (pz < D - 6) { const g = solidTop(px, pz);
+          for (let x = px - 4; x <= px + 7; x++) for (let z = pz - 4; z <= pz + 4; z++) { const t = solidTop(x, z); if (Math.abs(t - g) > 3) continue; const r = h3(x, 7, z); if (r < 0.7) world[idx(x, t, z)] = r < 0.42 ? T.HELLROCK : r < 0.6 ? T.SOULSAND : T.MAGMA; for (let y = t + 1; y < t + 7; y++) if (world[idx(x, y, z)] && !STONES.has(world[idx(x, y, z)])) world[idx(x, y, z)] = T.AIR; }
+          for (let x = px - 1; x <= px + 2; x++) for (let z = pz - 1; z <= pz + 1; z++) { world[idx(x, g, z)] = T.HELLROCK; for (let y = g + 1; y <= g + 6; y++) world[idx(x, y, z)] = T.AIR; }
+          let n = 0; for (let x = px - 1; x <= px + 2; x++) for (let y = g + 1; y <= g + 5; y++) { const edge = x === px - 1 || x === px + 2 || y === g + 1 || y === g + 5; if (!edge) continue; const miss = (x === px + 2 && y === g + 5) || (x === px - 1 && y === g + 3); world[idx(x, y, pz)] = miss ? T.AIR : T.OBSIDIAN; if (!miss) n++; }
+          world[idx(px + 5, g, pz)] = T.LAVA; portal = [px, g + 1, pz, n]; } }
+      out.push({k, cx, cz, gy, removed, chest: [chx, chy, chz], portal}); }
+    try { scanLights(); validateLights(); } catch (_) {}
+    return out; }
+  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__c53 = finishCastles(); c37busy = was; } catch (e) { console.warn('c53', e); } return r; };
+  // no other ruins in new survival worlds
+  window.__c53finish = finishCastles;
+})();
+
+/* ===================== GLX-C54 (v0.9.49): many cave entrances winding down to big open caverns; deepslate-cobble caves by the bedrock with a wall-crawling horror ===================== */
+(function c54() {
+  const DSC = 249; T.DSCOBBLE = DSC;
+  { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.fillStyle = '#2c2c33'; g.fillRect(0, 0, 256, 256);
+    for (let i = 0; i < 70; i++) { const x = Math.random() * 256, y = Math.random() * 256, r = 14 + Math.random() * 26, v = 38 + Math.random() * 30 | 0; g.fillStyle = `rgb(${v},${v},${v + 8})`; g.beginPath(); g.ellipse(x, y, r, r * 0.75, Math.random() * 3, 0, 7); g.fill(); g.strokeStyle = '#18181c'; g.lineWidth = 4; g.stroke(); }
+    TEX.ds_cobble = c.toDataURL(); }
+  NAMES[DSC] = 'Deepslate cobble'; FACES[DSC] = 'ds_cobble'; ICON_KEY[DSC] = 'ds_cobble'; BLOCK_MATS[DSC] = mat('ds_cobble'); HARD[DSC] = 2.2; MC_HARD[DSC] = 2.2; REQ[DSC] = 1; PLACEABLE.add(DSC);
+  try { __NAT[DSC] = 1; } catch (_) {} if (!ORDER.includes(DSC)) ORDER.push(DSC);
+  const isNew = () => current && current.mode !== 'creative' && (current.created > NEW_CASTLES_AT || current.newCastles);
+  window.__deepCaves = [];
+  function carveCaves() {
+    if (!isNew() || DIM.cur || genVer !== GEN9 || W < 200) return null;
+    let sd = (gSeed ^ 0x2c1b3c6d) >>> 0 || 7; const rnd = () => (sd = (Math.imul(sd, 16807) >>> 0) % 2147483647) / 2147483647;
+    const soft = b => b === T.STONE || b === T.DIRT || b === T.DEEPSLATE || b === T.GRASS || b === T.HEATHER || b === T.SAND || b === T.PEAT || b === T.MUD || b === T.GRAVEL || b === T.COALORE || b === T.IRONORE || b === T.COPPERORE || b === T.GOLDORE || b === T.REDORE || b === T.DIAMONDORE || b === T.COBBLE || b === T.LAVA;
+    const wet = (x, y, z) => world[idx(x, y + 1, z)] === T.WATER || world[idx(x + 1, y, z)] === T.WATER || world[idx(x - 1, y, z)] === T.WATER || world[idx(x, y, z + 1)] === T.WATER || world[idx(x, y, z - 1)] === T.WATER;
+    const ball = (cx, cy, cz, r, ry, minY) => { const R = Math.ceil(r), Ry = Math.ceil(ry);
+      for (let x = Math.max(3, Math.floor(cx - R)); x <= Math.min(W - 4, cx + R); x++) for (let z = Math.max(3, Math.floor(cz - R)); z <= Math.min(D - 4, cz + R); z++) for (let y = Math.max(minY || 3, Math.floor(cy - Ry)); y <= Math.min(H - 3, cy + Ry); y++) {
+        const dx = (x - cx) / r, dy = (y - cy) / ry, dz = (z - cz) / r; if (dx * dx + dy * dy + dz * dz > 1) continue; const i = idx(x, y, z); if (!soft(world[i]) || wet(x, y, z)) continue; if (placedSet && placedSet.has(i)) continue; world[i] = T.AIR; } };
+    const away = (x, z) => g9castles.every(c => Math.hypot(c[1] - x, c[2] - z) > 34);
+    const st = {entrances: 0, caverns: 0, deep: 0};
+    const nE = Math.max(12, Math.round(W * D / 9000));
+    for (let n = 0, t = 0; n < nE && t < nE * 20; t++) {
+      const x0 = 12 + rnd() * (W - 24), z0 = 12 + rnd() * (D - 24); if (!away(x0, z0)) continue; const top = solidTop(Math.floor(x0), Math.floor(z0)); if (top <= SEA + 2 || world[idx(Math.floor(x0), top, Math.floor(z0))] === T.WATER) continue;
+      // the path: a winding tunnel stepping down at a walkable slope into a big open cavern
+      let x = x0, y = top + 1, z = z0, yaw = rnd() * 6.283; const floorY = 14 + rnd() * 14;
+      for (let k = 0; k < 220 && y > floorY; k++) { const r = 1.9 + Math.sin(k * 0.3) * 0.35; ball(x, y, z, r, r * 1.15);
+        yaw += (rnd() - 0.5) * 0.35; x += Math.cos(yaw) * 0.85; z += Math.sin(yaw) * 0.85; y -= 0.42; if (x < 12 || z < 12 || x > W - 12 || z > D - 12) { yaw += Math.PI; x = Math.max(13, Math.min(W - 13, x)); z = Math.max(13, Math.min(D - 13, z)); } }
+      const r = 9 + rnd() * 6; ball(x + Math.cos(yaw) * r * 0.6, y + 2, z + Math.sin(yaw) * r * 0.6, r, 5 + rnd() * 3); st.caverns++;
+      // a couple of side galleries off the cavern
+      for (let g = 0; g < 2; g++) { let gx = x, gz = z, gy = y + 1, gyaw = rnd() * 6.283; for (let k = 0; k < 40; k++) { ball(gx, gy, gz, 2.2, 2); gyaw += (rnd() - .5) * 0.4; gx += Math.cos(gyaw); gz += Math.sin(gyaw); gy += (rnd() - 0.5) * 0.4; if (gx < 10 || gz < 10 || gx > W - 10 || gz > D - 10) break; } }
+      st.entrances++; n++; }
+    // deep caverns by the bedrock, walls of deepslate cobble
+    const deep = []; const nD = 3;
+    for (let n = 0, t = 0; n < nD && t < 200; t++) { const cx = 30 + rnd() * (W - 60), cz = 30 + rnd() * (D - 60); if (deep.some(d => Math.hypot(d[0] - cx, d[2] - cz) < 60)) continue;
+      const cy = 9, r = 11 + rnd() * 5, ry = 5.5; ball(cx, cy, cz, r, ry, 3);
+      for (let x = Math.floor(cx - r - 2); x <= cx + r + 2; x++) for (let z = Math.floor(cz - r - 2); z <= cz + r + 2; z++) for (let y = 2; y <= cy + ry + 2; y++) { if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue; const i = idx(x, y, z), b = world[i]; if (!b || b === T.WATER) continue;
+        if (b === T.LAVA) { world[i] = T.AIR; continue; } const nearAir = !world[idx(x + 1, y, z)] || !world[idx(x - 1, y, z)] || !world[idx(x, y + 1, z)] || !world[idx(x, y - 1, z)] || !world[idx(x, y, z + 1)] || !world[idx(x, y, z - 1)];
+        if (nearAir && y > 1 && Math.hypot(x - cx, z - cz) < r + 2) world[i] = DSC; }
+      // and a long sloping shaft linking it up to the nearest open cave
+      let x = cx, y = cy + 2, z = cz, yaw = rnd() * 6.283; for (let k = 0; k < 90 && y < 26; k++) { ball(x, y, z, 2, 2.2); yaw += (rnd() - .5) * 0.3; x += Math.cos(yaw) * 0.9; z += Math.sin(yaw) * 0.9; y += 0.4; if (x < 10 || z < 10 || x > W - 10 || z > D - 10) yaw += Math.PI; }
+      deep.push([cx, cy, cz, r]); st.deep++; }
+    window.__deepCaves = deep; return st; }
+  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__c54 = carveCaves(); c37busy = was; } catch (e) { console.warn('c54', e); } return r; };
+  const se = serialize; serialize = function () { const d = se.apply(this, arguments); d.deepCaves = window.__deepCaves; return d; };
+  const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); window.__deepCaves = (d && d.deepCaves) || []; return r; };
+  // ---- the crawler: a big pale-eyed thing that clings to walls and ceilings ----
+  const crawlers = () => mobs.filter(a => a.kind === 'crawler');
+  function makeCrawler() { const g = new THREE.Group(), rig = new THREE.Group(); g.add(rig);
+    const skin = new THREE.MeshLambertMaterial({color: 0x1c1a20}), pale = new THREE.MeshLambertMaterial({color: 0x6a6470}), eye = new THREE.MeshBasicMaterial({color: 0xe8f0ff});
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5, 1.8), skin); body.position.y = 0.45; rig.add(body);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.3, 1.2), pale); back.position.set(0, 0.75, 0.2); rig.add(back);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.55, 0.7), skin); head.position.set(0, 0.5, -1.15); rig.add(head);
+    for (const [x, y] of [[-0.22, 0.12], [0.22, 0.12], [-0.12, -0.05], [0.12, -0.05], [-0.3, -0.08], [0.3, -0.08]]) { const e = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, 0.02), eye); e.position.set(x, y, -0.36); head.add(e); }
+    const legs = []; for (let i = 0; i < 4; i++) for (const s of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(s * 0.5, 0.45, -0.6 + i * 0.45); rig.add(piv);
+      const up = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.12, 0.12), skin); up.position.x = s * 0.45; up.rotation.z = s * 0.5; piv.add(up);
+      const lo = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.8, 0.12), pale); lo.position.set(s * 0.9, -0.2, 0); piv.add(lo); legs.push(piv); }
+    return {g, rig, head, legs: [], arms: [], cLegs: legs, mats: [skin, pale, eye], speed: 2.6, hp: 40, hitY: 0.6, hitR: 1.2, tall: 1}; }
+  function newCrawler(cave) { const a = makeCrawler(); const [cx, cy, cz] = cave; Object.assign(a, {kind: 'crawler', hostile: true, named: true, flee: 0, angry: 0, biteCd: 0, moving: true, ang: 0, timer: 0, flash: 0, kbx: 0, kbz: 0, vy: 0, onGround: true, burning: 0, fire: 0, fireTick: 0, walk: 0, sndT: 3, cave, tgt: null, nrm: new THREE.Vector3(0, 1, 0), crHp: 40});
+    a.g.position.set(cx, cy - 4, cz); scene.add(a.g); mobs.push(a); return a; }
+  window.newCrawler = newCrawler;
+  const isAir = (x, y, z) => !world[idx(x, y, z)];
+  function surfacePoint(cx, cy, cz, r) { for (let t = 0; t < 60; t++) { const x = Math.floor(cx + (Math.random() - .5) * r * 2), z = Math.floor(cz + (Math.random() - .5) * r * 2), y = Math.floor(cy + (Math.random() - .5) * 12); if (y < 2 || y >= H - 2) continue;
+      if (!isAir(x, y, z)) continue; const n = [[0, -1, 0], [0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].filter(([a, b, c]) => !isAir(x + a, y + b, z + c)); if (!n.length) continue;
+      const [a, b, c] = n[(Math.random() * n.length) | 0]; return {p: new THREE.Vector3(x + .5 + a * 0.25, y + .5 + b * 0.25, z + .5 + c * 0.25), n: new THREE.Vector3(-a, -b, -c)}; } return null; }
+  function stepCrawler(a, dt) { const p = a.g.position; a.walk += dt; a.biteCd -= dt;
+    const dP = Math.hypot(P.x - p.x, P.y + 1 - p.y, P.z - p.z), hunt = dP < 14 && !dead;
+    if (!a.tgt || p.distanceTo(a.tgt.p) < 0.4 || (a.timer -= dt) <= 0) { a.timer = 3; a.tgt = hunt ? (surfacePoint(P.x, P.y + 1, P.z, 3) || surfacePoint(a.cave[0], a.cave[1], a.cave[2], a.cave[3])) : surfacePoint(a.cave[0], a.cave[1], a.cave[2], a.cave[3]); }
+    if (a.tgt) { const d = a.tgt.p.clone().sub(p), L = d.length(); const sp = (hunt ? 3.4 : 1.6) * dt; if (L > 0.01) p.addScaledVector(d, Math.min(1, sp / L));
+      a.nrm.lerp(a.tgt.n, Math.min(1, dt * 3)).normalize();
+      // body belly-down on whatever surface it clings to: floor, wall or ceiling
+      const up = a.nrm, fwd = L > 0.01 ? d.clone().normalize() : new THREE.Vector3(0, 0, -1); fwd.addScaledVector(up, -fwd.dot(up)); if (fwd.lengthSq() < 1e-4) fwd.set(1, 0, 0); fwd.normalize();
+      const right = new THREE.Vector3().crossVectors(up, fwd.clone().negate()).normalize(); const m = new THREE.Matrix4().makeBasis(right, up, fwd.clone().negate()); const q = new THREE.Quaternion().setFromRotationMatrix(m); a.g.quaternion.slerp(q, Math.min(1, dt * 6)); }
+    a.cLegs.forEach((l, i) => { l.rotation.y = Math.sin(a.walk * 9 + i * 1.3) * 0.45; l.rotation.z = Math.cos(a.walk * 9 + i * 1.3) * 0.2; });
+    if (dP < 1.9 && a.biteCd <= 0 && !dead) { a.biteCd = 1.3; hurt(5, 'The crawler dragged you into the dark.'); try { shake(0.3, 0.04); sfx3d('hiss', p, 14); } catch (_) {} }
+    if (a.flash > 0) a.flash -= dt; }
+  const um = updateMobs;
+  updateMobs = function (dt) { const cs = []; for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].kind === 'crawler') { cs.push(mobs[i]); mobs.splice(i, 1); }
+    try { return um.apply(this, arguments); } finally { for (const c of cs) mobs.push(c); for (const c of cs) { try { if (Math.hypot(c.g.position.x - P.x, c.g.position.z - P.z) > 70) { removeMob(c); continue; } stepCrawler(c, dt); } catch (_) {} } } };
+  const dm = damageMob; damageMob = function (a, dmg, byPlayer) { if (a.kind !== 'crawler') return dm.apply(this, arguments); a.crHp -= dmg; a.flash = 0.25; const p = a.g.position; burst(p.x, p.y + .5, p.z, 0x3a3640, 8, .6); if (a.crHp <= 0) { burst(p.x, p.y + .5, p.z, 0x1c1a20, 30, 1.4); dropItem(IT.DIAMOND, 2, p.x, p.y + .5, p.z, 0, 3, 0, .4); try { dropXP(p.x, p.y, p.z, 60); } catch (_) {} toast('The crawler is dead'); removeMob(a); } };
+  const km = killMob; killMob = function (a) { if (a.kind === 'crawler') { removeMob(a); return; } return km.apply(this, arguments); };
+  setInterval(() => { if (!started || paused || DIM.cur) return; for (const cv of window.__deepCaves || []) { if (Math.hypot(P.x - cv[0], P.z - cv[2]) < 40 && P.y < 30 && !crawlers().some(c => c.cave === cv || (c.cave && c.cave[0] === cv[0] && c.cave[2] === cv[2]))) newCrawler(cv); } }, 2500);
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
