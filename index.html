@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0948 -->
+<!-- glencraft-build: v0949 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.48';
+const GAME_VERSION = 'v0.9.49';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -5544,10 +5544,10 @@ function enterWorld(save) {
       if (current.mode === 'creative' && typeof installCreative === 'function') installCreative();
       if (save && current.mode !== 'creative' && !save.inv) addItem(T.DIRT, 8);
       ensureHotbar();
-      for (let n = 0; n < 8; n++) spawnMob('sheep');
-      for (let n = 0; n < 12; n++) spawnMob('haggis');
-      for (let n = 0; n < 5; n++) spawnMob('duck');
-      for (let n = 0; n < 3; n++) spawnMob('puffer');
+      for (let n = 0; n < 4; n++) spawnMob('sheep');
+      for (let n = 0; n < 4; n++) spawnMob('haggis');
+      for (let n = 0; n < 2; n++) spawnMob('duck');
+      for (let n = 0; n < 1; n++) spawnMob('puffer');
       refreshArmour();
     }
     if (i > LOAD_STEPS.length && !ready) {
@@ -5897,7 +5897,7 @@ var torchCap = 99;
 })();
 
 /* ===================== PERF B6: mob caps, despawning, night director ===================== */
-const MOB_CAP = {passive: 8, hostile: 5, spider: 3, total: 18}, PASSIVE_KINDS = new Set(['sheep', 'haggis', 'duck', 'puffer']);
+const MOB_CAP = {passive: 5, hostile: 4, spider: 2, total: 12}, PASSIVE_KINDS = new Set(['sheep', 'haggis', 'duck', 'puffer']);
 const countGroup = g => mobs.filter(a => g === 'passive' ? PASSIVE_KINDS.has(a.kind) : g === 'hostile' ? a.hostile : a.kind === g).length;
 const spawnMobBase = spawnMob;
 spawnMob = function (kind) {
@@ -6364,8 +6364,7 @@ function makeCreeper() {
 function hiss(pos, vol) {
   if (!AC || !master) return;
   const d = Math.hypot(pos.x - P.x, pos.y - P.y, pos.z - P.z); if (d > 16) return;
-  const t = AC.currentTime, len = 1.5, buf = AC.createBuffer(1, AC.sampleRate * len | 0, AC.sampleRate), ch = buf.getChannelData(0);
-  for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+  const t = AC.currentTime, len = 1.5; let buf = hiss.buf; if (!buf) { buf = hiss.buf = AC.createBuffer(1, AC.sampleRate * len | 0, AC.sampleRate); const ch = buf.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1; }   // one shared noise buffer
   const src = AC.createBufferSource(); src.buffer = buf;
   const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.9;
   const g = AC.createGain(), v = (vol || 1) * 0.12 * Math.pow(1 - d / 16, 1.6);
@@ -6380,10 +6379,10 @@ var caveSpawnT = 0;
     for (const a of mobs.slice()) if (a.kind === 'creeper') creeperTick(a, dt);
     // creepers also lurk in caves, day or night
     caveSpawnT += dt;
-    if (started && caveSpawnT > 25) {
+    if (started && caveSpawnT > 45) {
       caveSpawnT = 0;
-      if (caveK > 0.55 && !(graceT > 0) && countGroup('hostile') < MOB_CAP.hostile && Math.random() < 0.6) {
-        const sp = findCaveSpot(); if (sp) { const a = spawnMob('creeper'); if (a) a.g.position.set(sp[0], sp[1], sp[2]); }
+      if (caveK > 0.55 && !(graceT > 0) && countGroup('hostile') < MOB_CAP.hostile && Math.random() < 0.35) {
+        const sp = findCaveSpot(); if (sp) { window.__caveSpawn = sp; let a = null; try { a = spawnMob('creeper'); } finally { window.__caveSpawn = null; } if (a) a.g.position.set(sp[0], sp[1], sp[2]); }
       }
     }
   };
@@ -10149,7 +10148,7 @@ function castleFriendly(c) {
     clanT -= dt; if (clanT > 0 || genVer !== GEN9 || !all) return; clanT = 3;
     for (const c of all) {
       const cx = c[1], cz = c[2]; if (Math.hypot(P.x - cx, P.z - cz) > 64) continue;
-      const fr = castleFriendly(c), kind = fr ? 'clansman' : 'bigskel', want = fr ? 4 : 3;
+      const fr = castleFriendly(c), kind = fr ? 'clansman' : 'bigskel', want = fr ? 3 : 2;
       const here = mobs.filter(a => (a.kind === (fr ? 'clansman' : c[0] === 'black' ? 'blackskel' : 'skeleton')) && a.home && a.home[0] === cx && a.home[1] === cz).length;
       if (here >= want) continue;
       for (let k = 0, made = 0; k < 120 && made < want - here; k++) {
@@ -10867,7 +10866,7 @@ function hellAI(a, dt) {
     bossBar.style.display = dr && Math.hypot(dr.g.position.x - P.x, dr.g.position.z - P.z) < 70 ? 'block' : 'none'; if (dr) $('bossFill').style.width = Math.max(0, dr.hp / 160 * 100) + '%';
     if (DIM.cur !== 'hell') return;
     inHell += dt; spT -= dt; dragonT -= dt;
-    if (spT <= 0) { spT = 9; const n = mobs.filter(a => a.hell && a.kind !== 'dragon' && Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z) < 48).length; if (n < (PERF ? 4 : 6)) hellSpawn(); }
+    if (spT <= 0) { spT = 14; const n = mobs.filter(a => a.hell && a.kind !== 'dragon' && Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z) < 48).length; if (n < (PERF ? 3 : 4)) hellSpawn(); }
     if (dragonT <= 0 && !dr) { dragonT = 30; const ang = Math.random() * 6.28; const x = Math.max(10, Math.min(W - 10, P.x + Math.cos(ang) * 40)), z = Math.max(10, Math.min(D - 10, P.z + Math.sin(ang) * 40)); hellMake('dragon', x, Math.min(H - 8, P.y + 16), z); toast('A great roar echoes across the lava sea...'); try { sfx3d('growl', P, 80); } catch (_) {} }
   };
   const km = killMob;
@@ -11574,8 +11573,8 @@ const TEX30 = {"red_sandstone": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQAB
   for (const id in NAMES) { if (ICONS[id] || ICON_KEY[id] || !FACES[id]) continue; const f = FACES[id]; ICON_KEY[id] = Array.isArray(f) ? (f[2] || f[0]) : f; }
   const icss = document.createElement('style'); document.head.appendChild(icss);
   const have = new Set(); [...document.styleSheets].forEach(s => { try { [...s.cssRules].forEach(r => { const m = /^\.ic-([a-z0-9_]+)$/.exec(r.selectorText || ''); if (m) have.add(m[1]); }); } catch (_) {} });
-  const fill = () => { const out = []; for (const id in ICON_KEY) { const k = ICON_KEY[id]; if (have.has(k) || TEX30[k] || !texImg[k]) continue; have.add(k); out.push('.ic-' + k + '{background-image:url(' + thumb(texImg[k]) + ')}'); } if (out.length) icss.textContent += out.join('\n'); };
-  let m2 = 0; const iv2 = setInterval(() => { fill(); if (++m2 > 40) clearInterval(iv2); }, 500);
+  const fill = () => { const out = []; for (const id in ICON_KEY) { const k = ICON_KEY[id]; if (have.has(k) || TEX30[k] || !texImg[k]) continue; if (out.length >= 3) break; have.add(k); out.push('.ic-' + k + '{background-image:url(' + thumb(texImg[k]) + ')}'); } if (out.length) icss.textContent += out.join('\n'); };
+  let m2 = 0, idle = 0; const iv2 = setInterval(() => { const before = have.size; fill(); idle = have.size === before ? idle + 1 : 0; if (++m2 > 40 || idle > 4) clearInterval(iv2); }, 500);
 })();
 
 /* ===================== GLX-C31 (v0.9.31): Minecraft-style offhand: slot, swap hands (F / D-pad left), held light, shields that block ===================== */
@@ -12722,7 +12721,7 @@ function ammoPick() { return (inv[IT.SILVERSHOT] || 0) > 0 ? IT.SILVERSHOT : IT.
   // creeper: fuse starts only when hit
   const dm = damageMob; damageMob = function (a, dmg, byPlayer) { const r = dm.apply(this, arguments); if (a && a.kind === 'creeper' && a.hp > 0) a.lit = true; return r; };
   // classic creeper: tall body, head, four short legs, no arms, mottled green skin + face (512 px)
-  const cv = f => { const c = document.createElement('canvas'); c.width = c.height = 1024; { const g2 = c.getContext('2d'); g2.scale(2, 2); f(g2); } const t = new THREE.CanvasTexture(c); t.anisotropy = 8; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const cv = f => { const c = document.createElement('canvas'); c.width = c.height = 512; { const g2 = c.getContext('2d'); f(g2); } const t = new THREE.CanvasTexture(c); t.anisotropy = 4; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; };
   const skinPx = g => { const P = ['#8f0f12', '#b8302c', '#d1504a', '#6e1a18', '#e07a70', '#a42c28', '#c6b6b4']; for (let y = 0; y < 512; y += 32) for (let x = 0; x < 512; x += 32) { g.fillStyle = P[(Math.random() * (Math.random() < .06 ? 7 : 6)) | 0]; g.fillRect(x, y, 32, 32);
       for (let i = 0; i < 18; i++) { g.fillStyle = 'rgba(' + (Math.random() < .5 ? '40,0,0' : '255,200,190') + ',' + (Math.random() * .18) + ')'; g.fillRect(x + Math.random() * 30, y + Math.random() * 30, 3, 3); } } };
   const skinT = cv(skinPx);
@@ -13249,7 +13248,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     if (!bz) { if (dmin > 10) return; const o = AC.createOscillator(), o2 = AC.createOscillator(), lf = AC.createOscillator(), lg = AC.createGain(), g = AC.createGain(), f = AC.createBiquadFilter(); o.type = 'sawtooth'; o.frequency.value = 218; o2.type = 'sawtooth'; o2.frequency.value = 223; lf.frequency.value = 23; lg.gain.value = 14; lf.connect(lg); lg.connect(o.frequency); f.type = 'bandpass'; f.frequency.value = 600; f.Q.value = 1.2; o.connect(f); o2.connect(f); f.connect(g); g.gain.value = 0; g.connect(AC.destination); o.start(); o2.start(); lf.start(); bz = {g}; }
     const v = dmin < 10 ? 0.022 * SET.sfx * Math.pow(1 - dmin / 10, 2) : 0; bz.g.gain.setTargetAtTime(paused || menuOpen ? 0 : v, AC.currentTime, 0.15); }
   // ---- wild hives: hanging under trees near flowers, 2-3 bees each ----
-  function placeHives() { if (DIM.cur) return 0; let n = 0; const want = 14;
+  function placeHives() { if (DIM.cur) return 0; let n = 0; const want = 1;
     for (let t = 0; t < 6000 && n < want; t++) { const x = 6 + Math.floor(Math.random() * (W - 12)), z = 6 + Math.floor(Math.random() * (D - 12));
       let y = H - 3; while (y > 2 && world[idx(x, y, z)] !== T.LEAVES) { if (world[idx(x, y, z)] && world[idx(x, y, z)] !== T.LEAVES) { y = 0; break; } y--; } if (y < 4) continue;
       let ly = y; while (ly > 2 && world[idx(x, ly - 1, z)] === T.LEAVES) ly--;   // bottom leaf of the canopy
@@ -13259,10 +13258,13 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     return n; }
   const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__hives = placeHives(); c37busy = was; } catch (e) { console.warn('c49', e); } return r; };
   // bees for nearby hives (respawned as you wander)
-  setInterval(() => { if (!started || DIM.cur || paused) return; try { const px = Math.floor(P.x), pz = Math.floor(P.z); let total = bees().length; if (total > (PERF ? 9 : 15)) return;
-    for (let x = Math.max(1, px - 40); x < Math.min(W - 1, px + 40); x += 1) for (let z = Math.max(1, pz - 40); z < Math.min(D - 1, pz + 40); z += 1) { const base = (x * H) * D + z; for (let y = 3; y < H - 2; y++) { if (world[base + y * D] !== HIVE) continue;
-      const h = [x, y, z], hk = h.join(); const mine = bees().filter(b => b.home && b.home.join() === hk).length, m = hiveMeta(h); if (m.beesN === undefined) m.beesN = 2 + (Math.random() < .5 ? 1 : 0);
-      for (let i = mine; i < m.beesN && total < 15; i++, total++) newBee(x + .5 + (Math.random() - .5), y - 0.5, z + .5 + (Math.random() - .5), h); } } } catch (_) {} }, 3000);
+  // hive list is cached (rescanned from entMeta every 20 s) instead of scanning 80x80 columns every 3 s
+  let hiveList = [], hiveT = 0;
+  setInterval(() => { if (!started || DIM.cur || paused) return; try { const px = Math.floor(P.x), pz = Math.floor(P.z); let total = bees().length; if (total >= 3) return;
+    if ((hiveT -= 3) <= 0) { hiveT = 20; hiveList = []; for (const [k, v] of entMeta) if (v && v.honey !== undefined) { const q = k.split(',').map(Number); if (q.length === 3 && world[idx(q[0], q[1], q[2])] === HIVE) hiveList.push(q); } hiveList.sort((a, b) => Math.hypot(a[0] - px, a[2] - pz) - Math.hypot(b[0] - px, b[2] - pz)); hiveList.length = Math.min(1, hiveList.length); }
+    for (const [x, y, z] of hiveList) { if (Math.hypot(x - px, z - pz) > 40) continue; {
+      const h = [x, y, z], hk = h.join(); const mine = bees().filter(b => b.home && b.home.join() === hk).length, m = hiveMeta(h); m.beesN = 3;
+      for (let i = mine; i < m.beesN && total < 3; i++, total++) newBee(x + .5 + (Math.random() - .5), y - 0.5, z + .5 + (Math.random() - .5), h); } } } catch (_) {} }, 3000);
   // ---- harvesting: shears -> honeycomb, bottle -> honey ----
   const ui = useItem;
   useItem = function () {
@@ -13300,7 +13302,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     return a; };
   // ---- 7) the treeman leaves when you walk away, and comes back at night by a tree near you ----
   function treeNear(rMin, rMax) { const px = Math.floor(P.x), pz = Math.floor(P.z), c = [];
-    for (let x = Math.max(2, px - rMax); x < Math.min(W - 2, px + rMax); x++) for (let z = Math.max(2, pz - rMax); z < Math.min(D - 2, pz + rMax); z++) { const d = Math.hypot(x - px, z - pz); if (d < rMin || d > rMax) continue;
+    for (let s = 0; s < 700 && c.length < 40; s++) { const an = Math.random() * 6.283, rr = rMin + Math.random() * (rMax - rMin), x = Math.floor(px + Math.cos(an) * rr), z = Math.floor(pz + Math.sin(an) * rr); if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
       for (let y = H - 2; y > 2; y--) { const b = getB(x, y, z); if (b === T.LOG) { let ty = y; while (ty > 2 && getB(x, ty - 1, z) === T.LOG) ty--; c.push([x, ty, z]); break; } if (b && b !== T.LEAVES && !isPlant(b)) break; } }
     for (let t = 0; t < 30 && c.length; t++) { const [x, ty, z] = c[(Math.random() * c.length) | 0];
       for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1]]) { const cx = x + ox, cz = z + oz; for (const yy of [ty, ty + 1, ty - 1]) if (solid(cx, yy - 1, cz) && !solid(cx, yy, cz) && !solid(cx, yy + 1, cz)) return [cx + .5, yy, cz + .5, x, z]; } }
@@ -13610,6 +13612,19 @@ var chestSel = -1;
       if (E[2]) { E = E.slice(); E[2] = false; if (cursor) { returnCursor(); } takeAll(); }
     }
     return mp.call(this, E, axes, gp); };
+})();
+
+/* ===================== GLX-C57 (v0.9.49): creepers are rare and live only in dark caves (max 2) ===================== */
+(function c57() {
+  const MAXC = 2, under = (x, y, z) => solidTop(Math.floor(x), Math.floor(z)) > y + 3;
+  const sm = spawnMob; spawnMob = function (kind) {
+    if (kind === 'creeper' && !window.__eggSpot) { const sp = window.__caveSpawn; if (!sp || !under(sp[0], sp[1], sp[2]) || mobs.filter(a => a.kind === 'creeper').length >= MAXC) return null; }
+    const a = sm.apply(this, arguments); if (a && kind === 'creeper' && window.__eggSpot) a.egg = true; return a; };
+  // creepers already out on the surface (old worlds) slip away when you are not near; never more than 2
+  setInterval(() => { if (!started) return; try { const cs = mobs.filter(a => a.kind === 'creeper' && !a.egg);
+      for (const a of cs) { const p = a.g.position, d = Math.hypot(p.x - P.x, p.z - P.z); if (!a.lit && !(a.cf > 0) && d > 12 && !DIM.cur && !under(p.x, p.y, p.z)) removeMob(a); }
+      const left = mobs.filter(a => a.kind === 'creeper').sort((a, b) => Math.hypot(b.g.position.x - P.x, b.g.position.z - P.z) - Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z));
+      while (left.length > MAXC) { const a = left.shift(); if (a.lit || a.cf > 0) break; removeMob(a); } } catch (_) {} }, 2000);
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
