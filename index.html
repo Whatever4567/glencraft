@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0954 -->
+<!-- glencraft-build: v0955 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.54';
+const GAME_VERSION = 'v0.9.55';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -14072,6 +14072,74 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); const w = d && d.wset; wlock = (w && w.wlock) || 'auto'; freeze = !!(w && w.freeze); setTimeout(() => { try { applyW(wlock); } catch (_) {} }, 500); return r; };
   const ew = enterWorld; enterWorld = function (save) { if (!save) { wlock = 'auto'; freeze = false; window.__forceSnow = false; } return ew.apply(this, arguments); };
   window.__c68 = () => ({wlock, freeze, type: weather.type, p: +(dayClock / CYCLE).toFixed(3)});
+})();
+
+/* ===================== GLX-C69 (v0.9.55): console-style controller UI - spatial menus, stick navigation, free inventory cursor, hint bar ===================== */
+(function c69() {
+  const ctr = e => { const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r]; };
+  // nearest element in that direction on screen (Legacy Console style): favour things straight in line, then closest
+  function spatial(items, cur, dx, dy) { if (!cur || !items.includes(cur)) return items[0] || null; const [ax, ay, ar] = ctr(cur); let best = null, bs = 1e9;
+    for (const e of items) { if (e === cur) continue; const [x, y, r] = ctr(e); const vx = x - ax, vy = y - ay, along = vx * dx + vy * dy; if (along < 4) continue;
+      // overlap on the cross axis counts as "straight in line"
+      const ov = dx ? Math.min(r.bottom, ar.bottom) - Math.max(r.top, ar.top) : Math.min(r.right, ar.right) - Math.max(r.left, ar.left);
+      const across = ov > 0 ? 0 : Math.abs(vx * dy - vy * dx); const score = along + across * 3; if (score < bs) { bs = score; best = e; } }
+    return best; }
+  window.__spatial = spatial;
+  // left stick -> d-pad presses with a deadzone and Minecraft-like repeat (first 350 ms, then every 140 ms)
+  const rep = {}; function stickDirs(key) { const gp = pickPad(); const out = {u: 0, d: 0, l: 0, r: 0}; if (!gp) return out; const lx = gp.axes[0] || 0, ly = gp.axes[1] || 0, now = performance.now();
+    let d = ''; if (Math.max(Math.abs(lx), Math.abs(ly)) > 0.5) d = Math.abs(lx) > Math.abs(ly) ? (lx > 0 ? 'r' : 'l') : (ly > 0 ? 'd' : 'u');
+    const st = rep[key] || (rep[key] = {d: '', t: 0}); if (!d) { st.d = ''; return out; }
+    if (d !== st.d) { st.d = d; st.t = now + 350; out[d] = 1; } else if (now >= st.t) { st.t = now + 140; out[d] = 1; } return out; }
+  const withStick = (E, key) => { const s2 = stickDirs(key); if (!(s2.u || s2.d || s2.l || s2.r)) return E; E = E.slice(); E[12] = E[12] || !!s2.u; E[13] = E[13] || !!s2.d; E[14] = E[14] || !!s2.l; E[15] = E[15] || !!s2.r; return E; };
+  // ---- title screens (main menu, world list, create world) ----
+  const mpad = menuPad; menuPad = function (E) {
+    document.body.classList.add('pad');
+    if (!$('pause').classList.contains('hidden')) return mpad.call(this, E);   // padPause (wrapped below) reads the stick itself
+    E = withStick(E, 'title'); const items = menuItems(); if (!items.length) return mpad.call(this, E);
+    const dir = E[12] ? [0, -1] : E[13] ? [0, 1] : E[14] ? [-1, 0] : E[15] ? [1, 0] : null;
+    if (dir) { const cur = items[menuFocus]; const nx = spatial(items, cur, dir[0], dir[1]); if (nx) { menuFocus = items.indexOf(nx); refocusMenu(); try { nx.scrollIntoView({block: 'nearest'}); } catch (_) {} try { sfx('pop', .12); } catch (_) {} }
+      E = E.slice(); E[12] = E[13] = E[14] = E[15] = false; }
+    return mpad.call(this, E); };
+  const ss = showScreen; showScreen = function (name) { const r = ss.apply(this, arguments); const items = menuItems(); const first = name === 'title' ? $('playBtn') : name === 'create' ? $('createGo') : null;
+    const i = first ? items.indexOf(first) : -1; menuFocus = i >= 0 ? i : 0; refocusMenu(); return r; };
+  // ---- pause / settings: spatial too; left/right still nudges sliders ----
+  const pp = padPause; padPause = function (dir, adj, act) { const items = pauseItems(); const el = items[pFocus];
+    const s2 = stickDirs('pause'); if (!dir && !adj) { if (s2.u) dir = -1; else if (s2.d) dir = 1; else if (s2.l) adj = -1; else if (s2.r) adj = 1; }
+    if (dir || (adj && !(el && el.tagName === 'INPUT'))) { const nx = spatial(items, el, dir ? 0 : adj, dir || 0); if (nx) { pFocus = items.indexOf(nx); refocusPause(); try { nx.scrollIntoView({block: 'nearest'}); } catch (_) {} } return pp.call(this, 0, 0, act); }
+    return pp.call(this, 0, adj, act); };
+  // ---- inventory / crafting / chest / furnace: free cursor on the left stick, d-pad snaps ----
+  const pc = document.createElement('div'); pc.id = 'padPointer'; pc.dataset.testid = 'pad-pointer';
+  pc.style.cssText = 'position:fixed;left:0;top:0;width:22px;height:22px;margin:-3px 0 0 -3px;pointer-events:none;z-index:9999;display:none;background:no-repeat center/contain url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22"><path d="M2 2 L2 18 L7 13 L10 20 L13 19 L10 12 L17 12 Z" fill="#fff" stroke="#111" stroke-width="1.6" stroke-linejoin="round"/></svg>') + '")';
+  document.body.appendChild(pc);
+  let cx = -1, cy = -1, lastT = 0, lastPanel = null;
+  function hoverAt(p) { const items = navItems(p); let hit = null; for (const e of items) { const r = e.getBoundingClientRect(); if (cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom) { hit = e; break; } } return hit; }
+  const mpi = menuPadInput; menuPadInput = function (E, axes, gp) {
+    const p = activePanel(), now = performance.now(), dt = Math.min(0.1, (now - (lastT || now)) / 1000); lastT = now;
+    if (!p) { pc.style.display = 'none'; return mpi.call(this, E, axes, gp); }
+    if (p !== lastPanel || cx < 0) { lastPanel = p; if (!navEl || !p.contains(navEl)) navRefresh(); if (navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; } else { const r = p.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
+    const lx = axes.lx || 0, ly = axes.ly || 0, mag = Math.hypot(lx, ly);
+    if (mag > 0.12) { const over = hoverAt(p), sp = (over ? 520 : 900) * Math.pow(Math.min(1, mag), 1.6); cx += lx / mag * sp * Math.min(1, mag) * dt; cy += ly / mag * sp * Math.min(1, mag) * dt;
+      cx = Math.max(4, Math.min(innerWidth - 4, cx)); cy = Math.max(4, Math.min(innerHeight - 4, cy));
+      const h = hoverAt(p); if (h && h !== navEl) { navEl = h; navRefresh(); if (h.classList.contains('rec2')) { craftFocus = h._ri; updateCraftList(); } if (cursor) showCursor(h); try { sfx('pop', .08); } catch (_) {} } }
+    else { const h = hoverAt(p); if (h && /gslot|fslot|aslot/.test(h.className)) { const [x, y] = ctr(h); cx += (x - cx) * Math.min(1, dt * 10); cy += (y - cy) * Math.min(1, dt * 10); } }   // gentle snap to the slot centre
+    const dpad = E[12] || E[13] || E[14] || E[15];
+    const r = mpi.call(this, E, Object.assign({}, axes, {lx: 0, ly: 0}), gp);
+    if (dpad && navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; }
+    pc.style.display = 'block'; pc.style.left = cx + 'px'; pc.style.top = cy + 'px';
+    if (cursor && typeof curEl !== 'undefined') { curEl.style.left = (cx + 12) + 'px'; curEl.style.top = (cy + 12) + 'px'; }
+    return r; };
+  setInterval(() => { if (!activePanel() || !padConnected) { pc.style.display = 'none'; lastPanel = null; cx = -1; } }, 250);
+  window.__padPointer = () => ({cx, cy, nav: navEl && (navEl.dataset.testid || navEl.className)}); window.__padPointerTo = el => { const c = ctr(el); cx = c[0]; cy = c[1]; };
+  // ---- button hint bar ----
+  const bar = document.createElement('div'); bar.id = 'padHints'; bar.dataset.testid = 'pad-hints'; document.body.appendChild(bar);
+  const css = document.createElement('style'); css.textContent = '#padHints{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);display:none;gap:14px;padding:6px 14px;border-radius:10px;background:rgba(10,14,12,.82);color:#fff;font:700 14px system-ui;z-index:9998;pointer-events:none;white-space:nowrap}body.pad #padHints.on{display:flex}#padHints span{display:flex;align-items:center;gap:6px}#padHints i{font-style:normal;display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;border-radius:50%;font:900 12px system-ui;color:#fff}#padHints i.sh{border-radius:6px;padding:0 5px;background:#555}#padHints .A{background:#3c9a3c}#padHints .B{background:#c0392b}#padHints .X{background:#2f6fd0}#padHints .Y{background:#d4a017}'; document.head.appendChild(css);
+  const H = (k, t) => '<span><i class="' + (k.length > 1 ? 'sh' : k) + '">' + k + '</i>' + t + '</span>';
+  let lastHtml = '';
+  setInterval(() => { let h = '';
+    const p = activePanel(), chest = p && p.id === 'chestUI', craftOpen = p && p.id === 'craft';
+    if (p) h = chest ? H('A', 'Select') + H('Y', 'Take') + H('X', 'Take all') + H('B', 'Close') : craftOpen && invTab === 'craft' ? H('A', 'Craft') + H('LB', '') + H('RB', 'Tabs') + H('LT', '') + H('RT', 'Category') + H('B', 'Close') : H('A', (typeof cursor !== 'undefined' && cursor) ? 'Place' : 'Pick up') + H('X', (typeof cursor !== 'undefined' && cursor) ? 'Place one' : 'Pick half') + H('Y', 'Quick move') + (craftOpen ? H('LB', '') + H('RB', 'Tabs') : '') + H('B', 'Close');
+    else if (!started || paused) h = H('A', 'Select') + H('B', 'Back');
+    if (h !== lastHtml) { bar.innerHTML = h; lastHtml = h; } bar.classList.toggle('on', !!h && padConnected); }, 200);
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
