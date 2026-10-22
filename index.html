@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0955 -->
+<!-- glencraft-build: v0956 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.55';
+const GAME_VERSION = 'v0.9.56';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -3279,7 +3279,7 @@ function collides(x, y, z) {
 }
 // stepping up a block lifts the body instantly but the camera follows with a small eased hop
 let swimming = false, swimSnd = 0, ironBuzz = 0, brewWobble = 0;
-let lavaT = 0, seenGate = false, caveK = 0, groundT = 0, jumpBuf = 0, jumpHeld = false, jumpHeldPad = false, sneakHeld = false, flying = false, stepAcc = 0;
+let lavaT = 0, seenGate = false, caveL = 0, caveK = 0, groundT = 0, jumpBuf = 0, jumpHeld = false, jumpHeldPad = false, sneakHeld = false, flying = false, stepAcc = 0;
 let stepOff = 0, stepFrom = 0, stepT = 1, bobPhase = 0, bobAmp = 0, landDip = 0, bobMv = 0;
 function stepCam() { stepFrom = stepOff - 1; stepT = 0; exh += 0.01; }
 // blocks are obstacles now: you have to jump up them (no auto step)
@@ -3613,7 +3613,7 @@ let daysDry = 0, dayNum = 1, flashA = 0, bolt = null, boltT = 0;
 function setWeather(t) {
   if (!WEATHER[t]) return;
   const was = weather.type;
-  weather.type = t; weather.strikeT = 12 + Math.random() * 30;
+  weather.type = t; weather.strikeT = 40 + Math.random() * 90;
   if (t !== 'clear') daysDry = 0;
   if (started && t !== was) toast(t === 'clear' ? 'The rain eases off.' : t === 'light' ? 'A light rain drifts across the glen.' : t === 'heavy' ? 'Heavy rain sweeps in.' : 'Thunder rumbles. A storm is coming!');
 }
@@ -3685,7 +3685,7 @@ function updateWeather(dt) {
   if (weather.pending && !isNight && dayClock >= weather.startAt) { setWeather(weather.pending); weather.pending = null; }
   const w = WEATHER[weather.type];
   weather.dark += (w.dark - weather.dark) * Math.min(1, dt * 0.35);
-  if (weather.type === 'thunder') { weather.strikeT -= dt; if (weather.strikeT <= 0) { weather.strikeT = 20 + Math.random() * 45; strike(); } }
+  if (weather.type === 'thunder') { weather.strikeT -= dt; if (weather.strikeT <= 0) { weather.strikeT = 40 + Math.random() * 90; strike(); } }
   if (bolt) { boltT -= dt; if (boltT <= 0) { scene.remove(bolt); bolt.geometry.dispose(); bolt = null; } }
   flashA *= Math.exp(-6 * dt);
   $('flash').style.opacity = (flashA * 0.5).toFixed(3);
@@ -3737,17 +3737,17 @@ function updateSky(dt) {
   tmpC.lerp(DUSK_FOG, dusk);
   tmpC.lerp(RAIN_FOG, wd * 0.75 * (0.4 + 0.6 * daylight));
   tmpC.r += flashA * 0.5; tmpC.g += flashA * 0.5; tmpC.b += flashA * 0.55;
-  tmpC.lerp(CAVE_FOG, caveK * 0.85);
+  tmpC.lerp(CAVE_FOG, caveL * 0.85);
   scene.fog.color.copy(tmpC); scene.background.copy(tmpC);
-  scene.fog.near = (14 + 8 * daylight) * (1 - wd * 0.4) * (1 - caveK * 0.4); scene.fog.far = (52 + 22 * daylight) * (1 - wd * 0.42) * (1 - caveK * 0.3); if (PERF) { scene.fog.near *= 0.7; scene.fog.far *= 0.62; }
-  if (W > 80) { const VF = SET.dist === 2 ? 210 : SET.dist === 1 ? 110 : 62; if (SET.dist) { scene.fog.far = Math.max(scene.fog.far, VF * (0.55 + 0.45 * daylight) * (1 - caveK * 0.6)); scene.fog.near = scene.fog.far * 0.35; } scene.fog.far = Math.min(scene.fog.far, PERF && !SET.dist ? 40 : VF); scene.fog.near = Math.min(scene.fog.near, scene.fog.far * 0.4); if (camera.far < VF + 20) { camera.far = VF + 20; camera.updateProjectionMatrix(); } }   // GLX-B8 view distance
+  scene.fog.near = (14 + 8 * daylight) * (1 - wd * 0.4) * (1 - caveL * 0.4); scene.fog.far = (52 + 22 * daylight) * (1 - wd * 0.42) * (1 - caveL * 0.3); if (PERF) { scene.fog.near *= 0.7; scene.fog.far *= 0.62; }
+  if (W > 80) { const VF = SET.dist === 2 ? 210 : SET.dist === 1 ? 110 : 62; if (SET.dist) { scene.fog.far = Math.max(scene.fog.far, VF * (0.55 + 0.45 * daylight) * (1 - caveL * 0.6)); scene.fog.near = scene.fog.far * 0.35; } scene.fog.far = Math.min(scene.fog.far, PERF && !SET.dist ? 40 : VF); scene.fog.near = Math.min(scene.fog.near, scene.fog.far * 0.4); if (camera.far < VF + 20) { camera.far = VF + 20; camera.updateProjectionMatrix(); } }   // GLX-B8 view distance
   // ambient: warm day, cool blue moonlit night (brighter at full moon), some light always reaches into caves
   hemi.color.copy(NIGHT_HEMI).lerp(DAY_HEMI, daylight);
-  hemi.intensity = ((0.22 + 0.16 * moon * night + 0.58 * daylight) * (1 - wd * 0.38) + flashA * 1.4 * (1 - caveK)) * (1 - caveK * 0.72);
-  hemi.intensity = Math.max(hemi.intensity, 0.13 + 0.05 * caveK);   // caves are dim, never pitch black
+  hemi.intensity = ((0.22 + 0.16 * moon * night + 0.58 * daylight) * (1 - wd * 0.38) + flashA * 1.4 * (1 - caveL)) * (1 - caveL * 0.72);
+  hemi.intensity = Math.max(hemi.intensity, 0.13 + 0.05 * caveL);   // caves are dim, never pitch black
   const sx = Math.cos(ang), sy = Math.sin(ang);
-  if (sy > -0.05) { sunL.color.copy(SUN_COL); sunL.intensity = (0.12 + 0.62 * daylight) * (1 - wd * 0.8) * (1 - Math.min(1, caveK * 1.6)); sunL.position.set(P.x + sx * 40, P.y + sy * 50 + 10, P.z + 20); }
-  else { sunL.color.copy(MOON_COL); sunL.intensity = 0.32 * moon * (1 - wd * 0.8) * (1 - Math.min(1, caveK * 1.6)); sunL.position.set(P.x - sx * 40, P.y - sy * 50 + 10, P.z - 20); }
+  if (sy > -0.05) { sunL.color.copy(SUN_COL); sunL.intensity = (0.12 + 0.62 * daylight) * (1 - wd * 0.8) * (1 - Math.min(1, caveL * 1.6)); sunL.position.set(P.x + sx * 40, P.y + sy * 50 + 10, P.z + 20); }
+  else { sunL.color.copy(MOON_COL); sunL.intensity = 0.32 * moon * (1 - wd * 0.8) * (1 - Math.min(1, caveL * 1.6)); sunL.position.set(P.x - sx * 40, P.y - sy * 50 + 10, P.z - 20); }
   sunL.target.position.set(P.x, P.y, P.z); sunL.target.updateMatrixWorld();
   sunDisc.position.set(camera.position.x + sx * 90, camera.position.y + sy * 90, camera.position.z + 30);
   moonDisc.position.set(camera.position.x - sx * 90, camera.position.y - sy * 90, camera.position.z - 30);
@@ -3755,15 +3755,15 @@ function updateSky(dt) {
   sunDisc.visible = sy > -0.2 && wd < 0.25; moonDisc.visible = sy < 0.2 && wd < 0.25;
   moonDisc.scale.setScalar(fullMoon() ? 1.35 : 0.9); moonDisc.material.color.setHex(fullMoon() ? 0xf2f6ff : 0xb8c2d0);
   moonHalo.position.copy(moonDisc.position); moonHalo.visible = moonDisc.visible && night > 0.3;
-  moonHalo.material.opacity = (fullMoon() ? 0.65 : 0.25) * night * (1 - caveK);
+  moonHalo.material.opacity = (fullMoon() ? 0.65 : 0.25) * night * (1 - caveL);
   // sky dome
   skyDome.position.copy(camera.position); stars.position.copy(camera.position);
   skyUniforms.top.value.copy(SKY_TOP_NIGHT).lerp(SKY_TOP_DAY, daylight).lerp(RAIN_FOG, wd * 0.8);
   skyUniforms.hor.value.copy(tmpC).lerp(SKY_DUSK, dusk * 0.9);
   skyUniforms.sunDir.value.set(sx * 90, sy * 90, 30);
   skyUniforms.sunK.value = clamp(sy * 4 + 0.4, 0, 1) * (1 - wd);
-  skyUniforms.dark.value = caveK * 0.85;
-  stars.material.opacity = clamp(night * 1.3 - 0.3, 0, 1) * (1 - wd) * (1 - caveK);
+  skyUniforms.dark.value = caveL * 0.85;
+  stars.material.opacity = clamp(night * 1.3 - 0.3, 0, 1) * (1 - wd) * (1 - caveL);
   updateRays(dt, sx, sy, wd);
   const cl = (.25 + .67 * daylight) * (1 - wd * 0.45);
   cloudMat.color.setRGB(cl, cl * 1.01 + .02, cl * 1.03 + .05);
@@ -4039,8 +4039,9 @@ function markDirty(x, z) {
   const add = (cx, cz) => { if (cx >= 0 && cz >= 0 && cx * CH < W && cz * CH < D) dirtyCh.add(cx * 64 + cz); };
   const cx = Math.floor(x / CH), cz = Math.floor(z / CH), lx = x - cx * CH, lz = z - cz * CH;
   add(cx, cz);
-  if (lx === 0) add(cx - 1, cz); if (lx === CH - 1) add(cx + 1, cz);
-  if (lz === 0) add(cx, cz - 1); if (lz === CH - 1) add(cx, cz + 1);
+  const e = 7, xl = lx < e, xh = lx > CH - 1 - e, zl = lz < e, zh = lz > CH - 1 - e;   // GLX-C70: light spreads up to 7 blocks
+  if (xl) add(cx - 1, cz); if (xh) add(cx + 1, cz); if (zl) add(cx, cz - 1); if (zh) add(cx, cz + 1);
+  if (xl && zl) add(cx - 1, cz - 1); if (xl && zh) add(cx - 1, cz + 1); if (xh && zl) add(cx + 1, cz - 1); if (xh && zh) add(cx + 1, cz + 1);
 }
 function rebuildAll() { dirtyAll = true; rebuild(); }
 
@@ -4776,7 +4777,11 @@ function updateWorldModel(dt, moved) {
     if (swingKind === 'slashR' || swingKind === 'slashL') { ax -= 1.2 + s * 0.3; ay = (swingKind === 'slashR' ? 1 : -1) * s * 1.1; }
     else ax -= s * (swingKind === 'smash' ? 2.6 : 1.9);
   }
-  if (swimming) { u.arms[0].rotation.x = -2.6 + Math.sin(performance.now() / 300) * 0.5; ax = -2.6 - Math.sin(performance.now() / 300) * 0.5; }
+  let az0 = -0.06;
+  if (swimming) { const c = ((performance.now() / 1000) * (window.__swimFast ? 0.9 : 0.6)) % 1, reach = c < 0.35 ? c / 0.35 : c < 0.75 ? 1 - (c - 0.35) / 0.4 : 0, sweep = c < 0.35 ? 0 : c < 0.75 ? (c - 0.35) / 0.4 : 1 - (c - 0.75) / 0.25;   // GLX-C71 breaststroke
+    ax = -2.2 - reach * 0.8 + sweep * 0.9; ay = 0; az = sweep * 1.1; u.arms[0].rotation.x = ax; az0 = -sweep * 1.1; u.legs[0].rotation.x = Math.sin(c * 6.283) * 0.35; u.legs[1].rotation.x = -Math.sin(c * 6.283) * 0.35; }
+  u.arms[0].rotation.z = swimming ? az0 : u.arms[0].rotation.z;
+  { const pk = window.__swimPlank || 0; worldModel.rotation.order = 'YXZ'; worldModel.rotation.x = -pk * (Math.PI / 2 + P.pitch * 0.9); if (pk > 0.01) worldModel.position.y += pk * 0.5; }
   u.arms[1].rotation.set(ax, ay, az);
   u.head.rotation.x = -P.pitch * 0.6;
 }
@@ -8801,8 +8806,7 @@ var rainCover = 0, rainLP = null, roofOut = null, roofT = 0;
           if (Math.random() < 0.08) grain(t + 0.01, 300 + Math.random() * 200, 1.2, 0.12, 0.006 * rainCover * heavy, roofOut, 'lowpass'); }
       }
     }
-    if (!n || caveK > 0.6) { rainLines.visible = false; return; }
-    rainLines.visible = true;
+    rainLines.visible = false; return;   // GLX-C70: world-space instanced rain draws instead
     const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, len = weather.type === 'light' ? 0.45 : 0.75;
     let m = 0;
     for (let i = 0; i < n; i++) {
@@ -13341,6 +13345,10 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
           a.position.set(s * (0.12 + sweep * 0.32), -0.26 + reach * 0.08 - sweep * 0.04, -0.32 - reach * 0.28 + sweep * 0.1); a.rotation.set(-0.1 + reach * 0.15, s * (0.1 + sweep * 0.9), s * sweep * 0.4); }
         else { const w = Math.sin(ph * 2 + (s > 0 ? 0 : Math.PI)); a.position.set(s * (0.3 + w * 0.06), -0.3 + Math.cos(ph * 2) * 0.03, -0.38); a.rotation.set(0.1, s * (0.5 + w * 0.3), s * 0.25); }
         a.position.y -= (1 - k) * 0.4; }
+      // GLX-C71: the held item stays in your right hand during the stroke
+      const ra = arms[1];
+      if (g.visible && held.parent !== ra) { if (!g.userData.home) g.userData.home = {p: held.parent, pos: held.position.clone(), rot: held.rotation.clone(), sc: held.scale.clone()}; ra.add(held); held.position.set(0.02, 0.03, -0.3); held.rotation.set(0.2, 0, 0); held.scale.setScalar(0.55); }
+      else if (!g.visible && g.userData.home && held.parent === ra) { const h0 = g.userData.home; h0.p.add(held); held.position.copy(h0.pos); held.rotation.copy(h0.rot); held.scale.copy(h0.sc); }
     } catch (_) {}
     return r; };
 })();
@@ -13713,31 +13721,86 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
       row.after(r2);
       seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const v = b.dataset.v; if (v === GFX) return; if (started && !confirm('Changing graphics restarts the game. Continue?')) return; if (started) { try { saveWorld(true); } catch (_) {} } SET.gfx = v; saveSet(); location.reload(); })); } } catch (e) { console.warn('gfx row', e); }
   // ---- ambient occlusion: a per-vertex darkness attribute (missing attribute = 0 = no change, so other meshes are untouched) ----
-  const AO_V = 'attribute float aoD;\nvarying float vAoD;\n', AO_F = 'varying float vAoD;\n';
-  function aoPatch(sh) { sh.vertexShader = AO_V + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vAoD = aoD;'); sh.fragmentShader = AO_F + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb *= 1.0 - vAoD;'); }
+  const AO_V = 'attribute float aoD;\nattribute float wetE;\nattribute float litS;\nattribute float litB;\nvarying float vAoD;\nvarying float vWetE;\nvarying float vLitS;\nvarying float vLitB;\n', AO_F = 'varying float vAoD;\nvarying float vWetE;\nvarying float vLitS;\nvarying float vLitB;\nuniform float uWet;\nuniform float uFlick;\n';
+  const FLK_U = window.__flickU = {value: 1};
+  const WET_U = window.__wetU = {value: 0};
+  function aoPatch(sh) { sh.uniforms.uWet = WET_U; sh.uniforms.uFlick = FLK_U; sh.vertexShader = AO_V + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vAoD = aoD; vWetE = wetE; vLitS = litS > 0.0 ? litS : 1.0; vLitB = litB;');
+    let f = AO_F + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n diffuseColor.rgb *= (1.0 - vAoD) * (1.0 - 0.28 * uWet * vWetE);');
+    f = f.replace('#include <lights_phong_fragment>', '#include <lights_phong_fragment>\n material.specularColor = max(material.specularColor, vec3(0.22 * uWet * vWetE)); material.specularShininess = mix(material.specularShininess, 48.0, uWet * vWetE);');
+    // skylight scales sun + sky light only; torch point lights stay full; baked block light glows warm (flickers)
+    const LB = THREE.ShaderChunk.lights_fragment_begin.replace(/getDirectionalLightInfo\( directionalLight, directLight \);/g, '$& directLight.color *= vLitS;');
+    f = f.replace('#include <lights_fragment_begin>', LB).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n reflectedLight.indirectDiffuse *= vLitS;');
+    f = f.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * vec3(1.0, 0.6, 0.3) * vLitB * uFlick * 0.6;');
+    sh.fragmentShader = f; }
   const patched = new Set();
-  const patchMat = m => { if (!m || patched.has(m) || m.transparent || !(m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return; patched.add(m); const prev = m.onBeforeCompile; m.onBeforeCompile = function (sh, r) { if (prev && prev !== aoPatch) prev.call(this, sh, r); aoPatch(sh); }; m.customProgramCacheKey = () => 'ao1'; m.needsUpdate = true; };
-  if (FANCY) for (const k in BLOCK_MATS) { const m = BLOCK_MATS[k]; if (Array.isArray(m)) m.forEach(patchMat); else patchMat(m); }
+  const patchMat = m => { if (!m || patched.has(m) || m.transparent || !(m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return; patched.add(m); const prev = m.onBeforeCompile; m.onBeforeCompile = function (sh, r) { if (prev && prev !== aoPatch) prev.call(this, sh, r); aoPatch(sh); }; m.customProgramCacheKey = () => 'ao3'; m.needsUpdate = true; };
+  for (const k in BLOCK_MATS) { const m = BLOCK_MATS[k]; if (Array.isArray(m)) m.forEach(patchMat); else patchMat(m); }
   const op = n => n !== 0 && (!chunkST || !chunkST[n]);
   const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? 0 : world[(x * H + y) * D + z];
   const AOL = [0, 0.16, 0.27, 0.38];
-  function addAO(grp) { for (const m of grp.children) { if (m.isInstancedMesh || !m.geometry || m.renderOrder) continue; const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt || mt.transparent || !patched.has(mt)) continue;
-      const g = m.geometry, P0 = g.attributes.position, N0 = g.attributes.normal; if (!P0 || !N0 || g.attributes.aoD) continue; const pa = P0.array, na = N0.array, nv = P0.count, ao = new Float32Array(nv);
+  // ---- GLX-C70 per-block light (Minecraft-like): skylight comes down from each column's top and floods sideways/down openings, falling off per block; block light from torches/lava/lamps ----
+  const LSRC = new Uint8Array(256); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
+  const LM = 8, SFALL = 2, BFALL = 2, RS = CH + LM * 2;
+  let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
+  let LX0 = 0, LZ0 = 0;
+  const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
+  function flood(A, qn, fall, useTop) { let h = 0;
+    while (h < qn) { const c = LQ[h++], l = A[c] - fall; if (l <= 0) continue; const y = c % H, cc = (c - y) / H, rz = cc % RS, rx = (cc - rz) / RS;
+      for (let k = 0; k < 6; k++) { let nx = rx, ny = y, nz = rz; if (k === 0) nx++; else if (k === 1) nx--; else if (k === 2) nz++; else if (k === 3) nz--; else if (k === 4) ny++; else ny--;
+        if (nx < 0 || nz < 0 || nx >= RS || nz >= RS || ny < 0 || ny >= H) continue; const ci = (nx * RS + nz) * H + ny;
+        if (A[ci] >= l) continue; if (useTop && ny > LTOP[nx * RS + nz]) continue; if (lop(LX0 + nx, ny, LZ0 + nz)) continue; A[ci] = l; LQ[qn++] = ci; } } }
+  function lightRegion(cx, cz) { if (LH !== H) { LH = H; LSKY = new Uint8Array(RS * RS * H); LBLK = new Uint8Array(RS * RS * H); LQ = new Int32Array(RS * RS * H * 2); } const _t = [performance.now()]; LX0 = cx * CH - LM; LZ0 = cz * CH - LM; LSKY.fill(0); LBLK.fill(0);
+    for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) { const x = LX0 + rx, z = LZ0 + rz; let t = -1;
+      if (x >= 0 && z >= 0 && x < W && z < D) { const b0 = (x * H) * D + z; for (let y = H - 1; y >= 0; y--) { const v = world[b0 + y * D]; if (v !== 0 && !chunkST[v]) { t = y; break; } } }
+      LTOP[rx * RS + rz] = t; const o = (rx * RS + rz) * H; for (let y = t + 1; y < H; y++) LSKY[o + y] = 15; }
+    _t.push(performance.now());
+    // skylight seeds: covered air next to an open column
+    let qn = 0;
+    for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) { const t = LTOP[rx * RS + rz]; if (t < 0) continue;
+      let mn = 999; if (rx > 0) mn = Math.min(mn, LTOP[(rx - 1) * RS + rz]); if (rx < RS - 1) mn = Math.min(mn, LTOP[(rx + 1) * RS + rz]); if (rz > 0) mn = Math.min(mn, LTOP[rx * RS + rz - 1]); if (rz < RS - 1) mn = Math.min(mn, LTOP[rx * RS + rz + 1]);
+      const o = (rx * RS + rz) * H; for (let y = Math.max(0, mn + 1); y <= t; y++) if (!lop(LX0 + rx, y, LZ0 + rz)) { LSKY[o + y] = 15 - SFALL; LQ[qn++] = o + y; } }
+    _t.push(performance.now()); const q1 = qn; flood(LSKY, qn, SFALL, true); _t.push(performance.now());
+    // block light seeds
+    qn = 0;
+    for (let rx = 0; rx < RS; rx++) { const x = LX0 + rx; if (x < 0 || x >= W) continue; for (let rz = 0; rz < RS; rz++) { const z = LZ0 + rz; if (z < 0 || z >= D) continue; const b0 = x * H * D + z, o = (rx * RS + rz) * H, yt = H - 1;
+      for (let y = 0; y <= yt; y++) { const v = world[b0 + y * D]; if (v && LSRC[v]) { LBLK[o + y] = LSRC[v]; LQ[qn++] = o + y; } } } }
+    _t.push(performance.now()); if (qn) flood(LBLK, qn, BFALL, false); _t.push(performance.now()); window.__ltT = _t.map((v, i) => i ? (v - _t[i - 1]).toFixed(1) : 0).concat([q1, qn]); }
+  // light (0..1) of one cell in the current region; opaque cells return -1 (ignored when smoothing)
+  const LCURVE = new Float32Array(16), BCURVE = new Float32Array(16); for (let i = 0; i < 16; i++) { const f = i / 15; LCURVE[i] = 0.14 + 0.86 * Math.pow(f, 1.4); BCURVE[i] = Math.pow(f, 1.5); }
+  function cellL(x, y, z) { if (y >= H) return 1; if (y < 0) return -1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1;
+    if (lop(x, y, z)) return -1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
+  function cellLo(x, y, z) { if (y >= H) return 1; if (y < 0) return 0.1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
+  let cB = 0;
+  function cellOpen(x, y, z) { const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
+  window.__lopDbg = (cx, cz) => { lightRegion(cx, cz); let air = 0, tot = 0; for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) for (let y = 0; y <= LTOP[rx * RS + rz]; y++) { tot++; if (!lop(LX0 + rx, y, LZ0 + rz)) air++; } let lit = 0; for (let i = 0; i < LBLK.length; i++) if (LBLK[i]) lit++; return {air, tot, lit, H, RS, top0: LTOP[0]}; };
+  window.__lightRegion = (x, y, z) => { const cx = Math.floor(x / CH), cz = Math.floor(z / CH); lightRegion(cx, cz); return {sky: LSKY[((x - LX0) * RS + (z - LZ0)) * H + y], blk: LBLK[((x - LX0) * RS + (z - LZ0)) * H + y], l: cellL(x, y, z)}; };
+  let lightMs = 0, lightN = 0; window.__lightStats = () => ({ms: lightMs, n: lightN, avg: lightN ? lightMs / lightN : 0});
+  function addAO(grp, cx, cz) { const t0 = performance.now(); let did = false;
+    for (const m of grp.children) { if (m.isInstancedMesh || !m.geometry || m.renderOrder) continue; const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt || mt.transparent || !patched.has(mt)) continue;
+      const g = m.geometry, P0 = g.attributes.position, N0 = g.attributes.normal; if (!P0 || !N0 || g.attributes.aoD) continue; const pa = P0.array, na = N0.array, nv = P0.count, ao = new Float32Array(nv), we = new Float32Array(nv), ls = new Float32Array(nv), lb = new Float32Array(nv);
+      if (!did) { lightRegion(cx, cz); did = true; }
       for (let f = 0; f < nv; f += 4) { const o = f * 3, nx = na[o], ny = na[o + 1], nz = na[o + 2];
         const cxm = (pa[o] + pa[o + 3] + pa[o + 6] + pa[o + 9]) / 4, cym = (pa[o + 1] + pa[o + 4] + pa[o + 7] + pa[o + 10]) / 4, czm = (pa[o + 2] + pa[o + 5] + pa[o + 8] + pa[o + 11]) / 4;
         const ax = Math.floor(cxm + nx * 0.5), ay = Math.floor(cym + ny * 0.5), az = Math.floor(czm + nz * 0.5);   // the air cell in front of the face
+        const l0 = cellL(ax, ay, az), b0 = l0 < 0 ? 0 : cB, open = ny < -0.5 ? 0 : cellOpen(ax, ay, az);
         for (let v = 0; v < 4; v++) { const q = o + v * 3, sx = Math.sign(pa[q] - cxm) * (nx ? 0 : 1), sy = Math.sign(pa[q + 1] - cym) * (ny ? 0 : 1), sz = Math.sign(pa[q + 2] - czm) * (nz ? 0 : 1);
-          let s1, s2, cr;
-          if (nx) { s1 = op(gb(ax, ay + sy, az)); s2 = op(gb(ax, ay, az + sz)); cr = op(gb(ax, ay + sy, az + sz)); }
-          else if (ny) { s1 = op(gb(ax + sx, ay, az)); s2 = op(gb(ax, ay, az + sz)); cr = op(gb(ax + sx, ay, az + sz)); }
-          else { s1 = op(gb(ax + sx, ay, az)); s2 = op(gb(ax, ay + sy, az)); cr = op(gb(ax + sx, ay + sy, az)); }
-          ao[f + v] = AOL[s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (cr ? 1 : 0)]; } }
-      g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1)); } }
+          let x1, y1, z1, x2, y2, z2, x3, y3, z3;
+          if (nx) { x1 = ax; y1 = ay + sy; z1 = az; x2 = ax; y2 = ay; z2 = az + sz; x3 = ax; y3 = ay + sy; z3 = az + sz; }
+          else if (ny) { x1 = ax + sx; y1 = ay; z1 = az; x2 = ax; y2 = ay; z2 = az + sz; x3 = ax + sx; y3 = ay; z3 = az + sz; }
+          else { x1 = ax + sx; y1 = ay; z1 = az; x2 = ax; y2 = ay + sy; z2 = az; x3 = ax + sx; y3 = ay + sy; z3 = az; }
+          const s1 = op(gb(x1, y1, z1)), s2 = op(gb(x2, y2, z2)), cr = op(gb(x3, y3, z3));
+          // smooth light: average the face cell with the cells around this corner that are not solid
+          let sum = l0 < 0 ? 0.14 : l0, bs = b0, cnt = 1;
+          if (!s1) { sum += cellLo(x1, y1, z1); bs += cB; cnt++; } if (!s2) { sum += cellLo(x2, y2, z2); bs += cB; cnt++; } if (!cr && !(s1 && s2)) { sum += cellLo(x3, y3, z3); bs += cB; cnt++; }
+          const aoV = FANCY ? AOL[s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (cr ? 1 : 0)] : 0;
+          ao[f + v] = aoV; ls[f + v] = sum / cnt; lb[f + v] = bs / cnt; we[f + v] = open; } }
+      g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1)); g.setAttribute('wetE', new THREE.BufferAttribute(we, 1)); g.setAttribute('litS', new THREE.BufferAttribute(ls, 1)); g.setAttribute('litB', new THREE.BufferAttribute(lb, 1)); }
+    if (did) { lightMs += performance.now() - t0; lightN++; } }
   // ---- shadows (Realistic): one sun shadow map that follows you, redrawn every few frames ----
   if (REAL) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = touchMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     sunL.castShadow = true; const S = touchMode ? 1024 : 2048; sunL.shadow.mapSize.set(S, S); const c = sunL.shadow.camera; c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 170; c.updateProjectionMatrix(); sunL.shadow.bias = -0.0006; sunL.shadow.normalBias = 0.05; sunL.shadow.radius = 2;
     for (const k in matCache) { const m = matCache[k]; if (m) m.needsUpdate = true; } }
-  const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { if (FANCY) addAO(g); if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
+  const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { addAO(g, cx, cz); if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
   if (REAL) { const sm = spawnMob; spawnMob = function () { const a = sm.apply(this, arguments); try { if (a && a.g) a.g.traverse(o => { if (o.isMesh) o.castShadow = true; }); } catch (_) {} return a; }; }
   let shF = 0, lastSx = 0, lastSz = 0;
   // ---- sky: warm sunrise / sunset light, glen mist in the morning, darker storms, wet look ----
@@ -13755,8 +13818,8 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
       if (wd > 0.4) { const k = Math.min(1, (wd - 0.4) * 2.2); cloudMat.color.lerp(STORM, k); skyUniforms.top.value.lerp(STORM, k * 0.8); skyUniforms.hor.value.lerp(STORM, k * 0.55); if (flashA < 0.2) { scene.fog.color.lerp(STORM, k * 0.45); scene.background.copy(scene.fog.color); hemi.intensity *= 1 - k * 0.25; } }
       // wet look while it rains: a touch of sheen on stone and wood, slightly lower exposure
       const wet = clamp(wd * 1.6, 0, 1) * (1 - caveK);
-      renderer.toneMappingExposure = 1.05 - wet * 0.08 + flashA * 0.25;
-      for (const k in BLOCK_MATS) { const m = BLOCK_MATS[k]; const one = mm => { if (mm && mm.isMeshPhongMaterial && !mm.transparent) { mm.specular.setScalar(0.12 * wet); mm.shininess = 2 + 40 * wet; } }; if (Array.isArray(m)) m.forEach(one); else one(m); if (wet === 0 && !wetWas) break; }
+      renderer.toneMappingExposure = 1.05 + flashA * 0.25;
+      for (const k in BLOCK_MATS) { const m = BLOCK_MATS[k]; const one = mm => { if (mm && mm.isMeshPhongMaterial && !mm.transparent && wetWas) { mm.specular.setScalar(0); mm.shininess = 2; } }; if (Array.isArray(m)) m.forEach(one); else one(m); if (wet === 0 && !wetWas) break; }
       wetWas = wet > 0;
       // shadow map: redraw every 3rd frame, or at once if you moved a few blocks
       if (REAL) { shF++; const mv = Math.abs(P.x - lastSx) + Math.abs(P.z - lastSz) > 2; if (shF >= 3 || mv) { shF = 0; lastSx = P.x; lastSz = P.z; renderer.shadowMap.needsUpdate = true; } sunL.castShadow = sy > 0.02 && caveK < 0.9; }
@@ -14140,6 +14203,140 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     if (p) h = chest ? H('A', 'Select') + H('Y', 'Take') + H('X', 'Take all') + H('B', 'Close') : craftOpen && invTab === 'craft' ? H('A', 'Craft') + H('LB', '') + H('RB', 'Tabs') + H('LT', '') + H('RT', 'Category') + H('B', 'Close') : H('A', (typeof cursor !== 'undefined' && cursor) ? 'Place' : 'Pick up') + H('X', (typeof cursor !== 'undefined' && cursor) ? 'Place one' : 'Pick half') + H('Y', 'Quick move') + (craftOpen ? H('LB', '') + H('RB', 'Tabs') : '') + H('B', 'Close');
     else if (!started || paused) h = H('A', 'Select') + H('B', 'Back');
     if (h !== lastHtml) { bar.innerHTML = h; lastHtml = h; } bar.classList.toggle('on', !!h && padConnected); }, 200);
+})();
+
+/* ===================== GLX-C70 (v0.9.56): world-space rain, wet look + puddles, render distance in chunks ===================== */
+(function c70() {
+  // ---- render distance (chunks of 16 blocks); fog always fully hides a chunk before it is culled, cull distance fixed (no flicker) ----
+  if (typeof SET.rdist !== 'number') SET.rdist = touchMode ? 6 : 8;
+  const VF = () => clamp(SET.rdist, 3, 16) * 16;
+  try { const ds = document.getElementById('distSeg'); if (ds) { const row = ds.parentNode;
+      row.innerHTML = '<span>Render distance</span><div class="seg" id="rdSeg"><button data-testid="rd-minus" id="rdMinus">−</button><input type="range" id="rdRange" data-testid="settings-rdist" min="3" max="16" step="1" style="width:120px;vertical-align:middle"><b id="rdVal" style="min-width:76px;display:inline-block;text-align:center"></b><button data-testid="rd-plus" id="rdPlus">+</button></div>';
+      const rg = row.querySelector('#rdRange'), val = row.querySelector('#rdVal');
+      const sync = () => { rg.value = SET.rdist; val.textContent = SET.rdist + ' chunks'; };
+      const setV = v => { SET.rdist = clamp(Math.round(v), 3, 16); saveSet(); sync(); };
+      rg.addEventListener('input', () => setV(Number(rg.value)));
+      row.querySelector('#rdMinus').addEventListener('click', () => setV(SET.rdist - 1)); row.querySelector('#rdPlus').addEventListener('click', () => setV(SET.rdist + 1));
+      sync(); const ss = syncSettingsUI; syncSettingsUI = function () { const r = ss.apply(this, arguments); sync(); return r; }; } } catch (e) { console.warn('rdist row', e); }
+  cullChunks = function (cam) {
+    if (!cullFr) { cullFr = new THREE.Frustum(); cullM = new THREE.Matrix4(); cullBox = new THREE.Box3(); }
+    cam.updateMatrixWorld(); cullM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); cullFr.setFromProjectionMatrix(cullM);
+    const far = VF() + 2, px = cam.position.x, pz = cam.position.z;
+    for (const [id, g] of chunkObjs) { const cx = Math.floor(id / 64), cz = id % 64, x0 = cx * CH, z0 = cz * CH, x1 = Math.min(W, x0 + CH), z1 = Math.min(D, z0 + CH);
+      const dx = Math.max(0, x0 - px, px - x1), dz = Math.max(0, z0 - pz, pz - z1);
+      if (dx * dx + dz * dz > far * far) { g.visible = false; continue; }
+      cullBox.min.set(x0 - 1, -1, z0 - 1); cullBox.max.set(x1 + 1, H + 1, z1 + 1); g.visible = cullFr.intersectsBox(cullBox); } };
+  // ---- wetness: rises while it rains, dries slowly after ----
+  let wet = 0; window.__wetLvl = () => wet; window.__setWet = v => { wet = v; };
+  const usky = updateSky; updateSky = function (dt) { const r = usky.apply(this, arguments);
+    try { if (!DIM.cur && W > 80 && scene.fog) { const vf = VF(), wd = weather.dark;
+        let far = vf * (0.62 + 0.38 * daylight) * (1 - wd * 0.45); far = Math.min(far, scene.fog.far > vf ? vf - 4 : Math.max(scene.fog.far, far)); far = Math.min(far, vf - 4);
+        scene.fog.far = far; scene.fog.near = Math.min(scene.fog.near, far * 0.5); if (scene.fog.near < far * 0.3) scene.fog.near = far * 0.3;
+        if (Math.abs(camera.far - (vf + 40)) > 1) { camera.far = vf + 40; camera.updateProjectionMatrix(); } }
+      const raining = weather.type !== 'clear' && !DIM.cur && !window.__snowing;
+      if (!window.__wetHold) wet = raining ? Math.min(1, wet + dt / 40 * (weather.type === 'light' ? 0.6 : 1)) : Math.max(0, wet - dt / 90);
+      if (window.__wetU) window.__wetU.value = DIM.cur ? 0 : wet;
+    } catch (e) { if (!window.__c70e) { window.__c70e = String(e); console.warn('c70 sky', e); } }
+    return r; };
+  // ---- world-space rain: drops live at world positions in columns around you (they do not follow the camera), stop at roofs ----
+  const NR = touchMode ? 520 : 1400, R = touchMode ? 13 : 18;
+  const rg = new THREE.BufferGeometry();
+  { const w = 0.018, p = [-w, 0, 0, w, 0, 0, w, 1, 0, -w, 0, 0, w, 1, 0, -w, 1, 0, 0, 0, -w, 0, 0, w, 0, 1, w, 0, 0, -w, 0, 1, w, 0, 1, -w]; rg.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); }
+  const rm = new THREE.MeshBasicMaterial({color: 0xb4c4d6, transparent: true, opacity: 0.42, depthWrite: false, side: THREE.DoubleSide, fog: true});
+  const rain = new THREE.InstancedMesh(rg, rm, NR); rain.frustumCulled = false; rain.visible = false; rain.count = 0; rain.renderOrder = 5; scene.add(rain);
+  const ia = rain.instanceMatrix.array; for (let i = 0; i < NR; i++) { const o = i * 16; ia[o] = 1; ia[o + 5] = 0.7; ia[o + 10] = 1; ia[o + 15] = 1; ia[o + 13] = -999; }
+  const dx = new Float32Array(NR), dy = new Float32Array(NR), dz = new Float32Array(NR), dtop = new Float32Array(NR); dy.fill(-999);
+  const tops = new Map(); let topsT = 0;
+  const topAt = (x, z) => { const k = x * 4096 + z; let v = tops.get(k); if (v === undefined) { v = colTop(x, z); tops.set(k, v); } return v; };
+  const SPN = touchMode ? 40 : 90, spG = new THREE.BufferGeometry(), spP = new Float32Array(SPN * 3), spT = new Float32Array(SPN); spP.fill(-999); spG.setAttribute('position', new THREE.BufferAttribute(spP, 3));
+  const splash = new THREE.Points(spG, new THREE.PointsMaterial({color: 0xd6e4ff, size: 0.1, transparent: true, opacity: 0.75, depthWrite: false})); splash.frustumCulled = false; splash.visible = false; scene.add(splash); let spi = 0;
+  function respawn(i, fresh) { const px = P.x, pz = P.z; for (let t = 0; t < 3; t++) { const x = px + (Math.random() * 2 - 1) * R, z = pz + (Math.random() * 2 - 1) * R, top = topAt(Math.floor(x), Math.floor(z));
+      const y = Math.max(top, P.y - 6) + (fresh ? Math.random() * 24 : 16 + Math.random() * 8); if (top > P.y + 26) continue; dx[i] = x; dz[i] = z; dy[i] = y; dtop[i] = top; return; } dy[i] = -999; }
+  let wasOn = false, fr = 0; window.__rainInfo = () => ({on: rain.visible, count: rain.count, first: [dx[0], dy[0], dz[0]]});
+  const uw = updateWeather; updateWeather = function (dt) { const r = uw.apply(this, arguments);
+    try { const w = WEATHER[weather.type], on = !!w.drops && !DIM.cur && !window.__snowing; rain.visible = on;
+      if (!on) { wasOn = false; rain.count = 0; splash.visible = false; return r; }
+      const now = performance.now(); if (now - topsT > 500) { tops.clear(); topsT = now; }
+      const n = Math.min(NR, Math.round(NR * (weather.type === 'light' ? 0.45 : 1) * Math.min(1, weather.dark / Math.max(0.01, w.dark) + 0.2))), sp = w.speed, len = weather.type === 'light' ? 0.5 : 0.85;
+      if (!wasOn) { for (let i = 0; i < NR; i++) respawn(i, true); wasOn = true; }
+      const tilt = 0.06 * sp * dt; fr++;
+      for (let i = 0; i < n; i++) { let y = dy[i] - sp * dt; dx[i] += tilt * 0.3;
+        if ((i & 3) === (fr & 3)) dtop[i] = topAt(Math.floor(dx[i]), Math.floor(dz[i]));   // roofs built later still stop rain
+        if (y < dtop[i]) { if (Math.random() < 0.25 && Math.abs(dx[i] - P.x) < 12 && Math.abs(dz[i] - P.z) < 12) { spi = (spi + 1) % SPN; spP[spi * 3] = dx[i]; spP[spi * 3 + 1] = dtop[i] + 0.05; spP[spi * 3 + 2] = dz[i]; spT[spi] = 0.2; } respawn(i, false); y = dy[i]; }
+        else if (Math.abs(dx[i] - P.x) > R || Math.abs(dz[i] - P.z) > R || y < P.y - 14) { respawn(i, true); y = dy[i]; }
+        dy[i] = y; const o = i * 16; ia[o + 5] = len; ia[o + 12] = dx[i]; ia[o + 13] = y; ia[o + 14] = dz[i]; ia[o + 4] = 0.05; }
+      rain.count = n; rain.instanceMatrix.needsUpdate = true;
+      for (let i = 0; i < SPN; i++) if (spT[i] > 0) { spT[i] -= dt; spP[i * 3 + 1] += dt * 0.7; if (spT[i] <= 0) spP[i * 3 + 1] = -999; }
+      splash.visible = true; spG.attributes.position.needsUpdate = true;
+    } catch (e) { if (!window.__c70e2) { window.__c70e2 = String(e); console.warn('c70 rain', e); } }
+    return r; };
+  // ---- puddles on flat, open ground while it is wet (a capped pool of decals, fade in and out) ----
+  const NP = touchMode ? 10 : 22;
+  const pc = document.createElement('canvas'); pc.width = pc.height = 64; { const g = pc.getContext('2d'); const gr = g.createRadialGradient(32, 32, 4, 32, 32, 31); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.65, 'rgba(255,255,255,0.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(32, 32, 31, 24, 0.3, 0, 7); g.fill(); }
+  const ptex = new THREE.CanvasTexture(pc);
+  const pm = new THREE.MeshPhongMaterial({color: 0x4a5866, specular: 0x9aaabb, shininess: 110, transparent: true, opacity: 0, alphaMap: ptex, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2});
+  const pg = new THREE.PlaneGeometry(1, 1); pg.rotateX(-Math.PI / 2);
+  const pud = new THREE.InstancedMesh(pg, pm, NP); pud.frustumCulled = false; pud.count = NP; pud.visible = false; scene.add(pud);
+  const pX = new Float32Array(NP), pZ = new Float32Array(NP), pOk = new Uint8Array(NP), mt = new THREE.Matrix4(), qq = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+  const hide = i => { mt.makeScale(0, 0, 0); mt.setPosition(0, -999, 0); pud.setMatrixAt(i, mt); pOk[i] = 0; };
+  for (let i = 0; i < NP; i++) hide(i);
+  const GOOD = new Set([T.GRASS, T.DIRT, T.STONE, T.COBBLE, T.GRAVEL, T.PLANKS, T.SAND].filter(v => v !== undefined));
+  function tryPlace(i) { const a = Math.random() * 6.283, rr = 3 + Math.random() * 14, x = Math.floor(P.x + Math.cos(a) * rr), z = Math.floor(P.z + Math.sin(a) * rr);
+    if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) return; const t = groundTop(x, z), b = world[(x * H + t) * D + z]; if (!GOOD.has(b)) return;
+    if ((groundTop(x + 1, z) === t) + (groundTop(x - 1, z) === t) + (groundTop(x, z + 1) === t) + (groundTop(x, z - 1) === t) < 3) return;
+    if (t + 1 >= H || world[(x * H + t + 1) * D + z] !== 0 || Math.abs(t - P.y) > 10) return;
+    const s = 1.1 + Math.random() * 1.5; qq.setFromAxisAngle(UP, Math.random() * 6.283); sc.set(s, 1, s * (0.7 + Math.random() * 0.4)); ps.set(x + 0.5, t + 1.012, z + 0.5); mt.compose(ps, qq, sc); pud.setMatrixAt(i, mt); pX[i] = x; pZ[i] = z; pOk[i] = 1; }
+  let pT = 0; window.__puddles = () => ({n: Array.from(pOk).filter(Boolean).length, op: pm.opacity});
+  setInterval(() => { try { if (!started || DIM.cur) { pud.visible = false; return; } const k = clamp((wet - 0.3) / 0.5, 0, 1); pm.opacity = 0.62 * k; pud.visible = k > 0.01;
+      if (k <= 0) { if (pOk.some(Boolean)) { for (let i = 0; i < NP; i++) hide(i); pud.instanceMatrix.needsUpdate = true; } return; }
+      let ch = false; for (let i = 0; i < NP; i++) for (let tr = 0; tr < 3 && !pOk[i]; tr++) { tryPlace(i); if (pOk[i]) ch = true; } for (let i = 0; i < NP; i++) { if (pOk[i] && Math.hypot(pX[i] - P.x, pZ[i] - P.z) > 24) { hide(i); ch = true; } if (!pOk[i]) { tryPlace(i); if (pOk[i]) ch = true; } }
+      if (ch) pud.instanceMatrix.needsUpdate = true; } catch (e) { console.warn('puddles', e); } }, 400);
+})();
+
+/* ===================== GLX-C71 (v0.9.56): flickering torch light, unlit torches under water, sprint-swimming, livelier arms ===================== */
+(function c71() {
+  // ---- flame flicker: one shared flicker drives baked block light, placed-torch lights and the held-torch light (warm orange) ----
+  const rr = renderer.render.bind(renderer); let fl = 1, fT = 0;
+  renderer.render = function (sc, cam) {
+    if (sc === scene) { try { const now = performance.now() / 1000; fT += (Math.random() - 0.5) * 0.25; fT *= 0.9;
+        fl = 1 + Math.sin(now * 9.3) * 0.05 + Math.sin(now * 23.7) * 0.04 + fT * 0.3; if (window.__flickU) window.__flickU.value = fl;
+        const g = 0.62 + (fl - 1) * 0.6; for (const l of torchLights) { if (!l.userData.red) { l.intensity *= fl; l.color.setRGB(1, clamp(g, 0.5, 0.75), 0.32); } }
+        if (handLight.intensity > 0) { handLight.intensity *= 0.94 + (fl - 1) * 1.6 + 0.06; handLight.color.setRGB(1, clamp(g, 0.5, 0.75), 0.33); handLight.distance = 14; }
+      } catch (_) {} }
+    return rr(sc, cam);
+  };
+  // ---- unlit torch: a torch held under water goes out; relight it (use) with flint and steel in your bag, or next to fire / lava / a lit torch ----
+  IT.UNLIT = 257; NAMES[IT.UNLIT] = 'Unlit torch';
+  ICONS[IT.UNLIT] = drawIcon(g => { g.rotate(0.3); g.fillStyle = '#5b3d22'; g.fillRect(-4, -8, 8, 34); g.fillStyle = '#1d1a18'; g.beginPath(); g.ellipse(0, -14, 7, 9, 0, 0, 7); g.fill(); g.fillStyle = '#3a3330'; g.beginPath(); g.ellipse(-1, -16, 3, 4, 0, 0, 7); g.fill(); });
+  if (typeof CREATIVE_ALL !== 'undefined') CREATIVE_ALL.push(IT.UNLIT);
+  const swapHot = (a, b) => { if (MODE.hotbar) MODE.hotbar = MODE.hotbar.map(v => v === a ? b : v); };
+  function douse() { const n = MODE.infinite ? 1 : (inv[T.TORCH] || 0); if (!MODE.infinite) { delete inv[T.TORCH]; } inv[IT.UNLIT] = (inv[IT.UNLIT] || 0) + n; swapHot(T.TORCH, IT.UNLIT); selId = IT.UNLIT;
+    try { sfx('sizzle', 0.35); } catch (_) {} try { const d = lookDir(); for (let i = 0; i < 6; i++) burst(P.x + d[0] * 0.6, P.y + EYE - 0.3, P.z + d[2] * 0.6, 0x9aa4ac, 1, 0.25); } catch (_) {}
+    toast('Your torch went out in the water. Use it with flint and steel, or near fire or a lit torch, to relight it.'); try { renderHotbar(); } catch (_) {} }
+  function fireNear() { const X = Math.floor(P.x), Y = Math.floor(P.y), Z = Math.floor(P.z); for (let x = X - 2; x <= X + 2; x++) for (let y = Y - 1; y <= Y + 3; y++) for (let z = Z - 2; z <= Z + 2; z++) { const b = getB(x, y, z); if (b === T.FIRE || b === T.LAVA || b === T.TORCH || b === T.LAVAB) return true; } return false; }
+  function relight() { const n = MODE.infinite ? 1 : (inv[IT.UNLIT] || 0); if (!MODE.infinite) delete inv[IT.UNLIT]; inv[T.TORCH] = (inv[T.TORCH] || 0) + n; swapHot(IT.UNLIT, T.TORCH); selId = T.TORCH; try { sfx('ignite', 0.5); } catch (_) { try { sfx('sizzle', 0.2); } catch (_) {} } toast('Torch relit.'); try { renderHotbar(); } catch (_) {} }
+  window.__relight = relight; window.__douse = douse;
+  const ui = useItem; useItem = function () { if (selId === IT.UNLIT && !riding) { if ((inv[IT.FLINTSTEEL] || 0) > 0 || MODE.infinite || fireNear() || (inv[T.TORCH] || 0) > 0) { relight(); return; } toast('Needs flint and steel, fire, lava or a lit torch nearby.'); return; } return ui.apply(this, arguments); };
+  // ---- sprint-swimming: body goes flat and you swim where you look (look up to rise, down to dive) ----
+  let plank = 0; window.__swimFast = false; window.__swimPlank = 0;
+  const up = updatePlayer; updatePlayer = function (dt) { const r = up.apply(this, arguments);
+    try { const d0 = typeof dt === 'number' ? Math.min(0.1, dt) : 0.016;
+      const eye = getB(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z));
+      if (eye === T.WATER && selId === T.TORCH && !dead) douse();
+      const fast = !!window.swimDeep && !window.swimLava && sprinting && !dead && !riding; window.__swimFast = fast;
+      plank += ((fast ? 1 : 0) - plank) * Math.min(1, d0 * 4); window.__swimPlank = plank;
+      if (fast) { const d = lookDir(), vt = d[1] * 4.2; P.vy += (vt - P.vy) * Math.min(1, d0 * 6); const extra = 1.6 * d0; moveAxis(d[0] * extra, 0); moveAxis(0, d[2] * extra); }
+    } catch (e) { if (!window.__c71e) { window.__c71e = String(e); console.warn('c71', e); } }
+    return r; };
+  // ---- livelier arms: sprint pump, softer walk sway, breathing (all eased; no change to aim) ----
+  let pump = 0, br = 0;
+  const uh = updateHand; updateHand = function (dt, moving) { const r = uh.apply(this, arguments);
+    try { if (camMode || !SET.imm) return r; const d0 = Math.min(0.1, dt || 0.016), now = performance.now() / 1000;
+      pump += (((sprinting && P.onGround && moving) ? 1 : 0) - pump) * Math.min(1, d0 * 6); br += ((moving ? 0 : 1) - br) * Math.min(1, d0 * 2);
+      hand.position.y += Math.sin(walkPhase * 2) * 0.022 * pump - 0.03 * pump + Math.sin(now * 1.3) * 0.006 * br;
+      hand.position.x += Math.sin(walkPhase) * 0.02 * pump; hand.rotation.x += Math.sin(walkPhase * 2) * 0.07 * pump + 0.12 * pump; hand.rotation.z += Math.sin(walkPhase) * 0.05 * pump;
+      hand.position.z += Math.sin(now * 1.3) * 0.004 * br; } catch (_) {}
+    return r; };
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
