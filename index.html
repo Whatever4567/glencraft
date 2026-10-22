@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0949 -->
+<!-- glencraft-build: v0950 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.49';
+const GAME_VERSION = 'v0.9.50';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -2347,6 +2347,7 @@ function lookDir() {
   return [-Math.sin(P.yaw) * cp, Math.sin(P.pitch), -Math.cos(P.yaw) * cp];
 }
 function raycast(maxD, skipPlants, water) {
+  if (window.__raOverride) return window.__raOverride;
   const d = lookDir();
   const ox = P.x, oy = P.y + EYE, oz = P.z;
   let prev = null;
@@ -13653,6 +13654,51 @@ var chestSel = -1;
         if (i < a.length) return setTimeout(step, 0);
         pre = toB64(parts); window.__autoSave = true; try { saveWorld(); } finally { window.__autoSave = false; pre = null; busy = false; } } catch (e) { busy = false; pre = null; console.warn('autosave', e); } };
     setTimeout(step, 0); };
+})();
+
+/* ===================== GLX-C60 (v0.9.50): Bedrock-style reach-around placement for bridging, with a ghost preview ===================== */
+(function c60() {
+  const BLOCKY = id => PLACEABLE.has(id) && !isPlant(id) && id !== T.TORCH && id !== T.DOOR && id !== T.BED && id !== T.CHEST;
+  const air = (x, y, z) => { const b = getB(x, y, z); return b === T.AIR || b === T.WATER || b === T.TALLGRASS; };
+  const inBody = (x, y, z) => x < P.x + R && x + 1 > P.x - R && y < P.y + HEIGHT && y + 1 > P.y && z < P.z + R && z + 1 > P.z - R;
+  const N6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  // the spot: walk out from the feet along the look direction at the level just below the feet; first empty cell touching a solid block
+  function reachSpot() {
+    if (!started || dead || menuOpen || DIM.busy) return null;
+    if (P.pitch > 0.25) return null;                       // looking up: no reach-around
+    const d = lookDir(), hx = d[0], hz = d[2], L = Math.hypot(hx, hz); if (L < 0.2) return null;
+    const ax = Math.abs(hx) >= Math.abs(hz), dx = ax ? Math.sign(hx) : 0, dz = ax ? 0 : Math.sign(hz);
+    const fy = Math.floor(P.y + 0.01), ey = P.y + EYE;
+    for (const yy of [fy - 1]) for (let k = 0; k <= 3; k++) {
+      const x = Math.floor(P.x) + dx * k, z = Math.floor(P.z) + dz * k, y = yy;
+      if (y < 1 || y >= H - 1 || !air(x, y, z) || inBody(x, y, z)) continue;
+      if (Math.hypot(x + .5 - P.x, y + .5 - ey, z + .5 - P.z) > 4.6) break;   // reach limit
+      let sup = null; for (const [a, b, c] of N6) if (solid(x + a, y + b, z + c) && !(a === 0 && b === 1 && c === 0)) { sup = [x + a, y + b, z + c]; break; }
+      if (!sup) continue;
+      if (yy === fy && k === 0) continue;
+      return {hit: sup, prev: [x, y, z], t: 2, reach: true};
+    }
+    return null; }
+  window.__reachSpot = reachSpot;
+  const ui = useItem; useItem = function () {
+    try { if (!menuOpen && !paused && !dead && started && BLOCKY(selId) && cnt(selId) > 0 && !raycast(5) && !reachMob(3.5)) { const s = reachSpot(); if (s) { window.__raOverride = s; try { return ui.apply(this, arguments); } finally { window.__raOverride = null; } } } } catch (e) { window.__raOverride = null; }
+    return ui.apply(this, arguments); };
+  // ghost outline
+  const ghost = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.002, 1.002, 1.002)), new THREE.LineBasicMaterial({color: 0xffffff, transparent: true, opacity: 0.85, depthTest: true}));
+  ghost.visible = false; scene.add(ghost); window.__ghost = ghost;
+  let gT = 0;
+  const up = updatePlayer; updatePlayer = function (dt) { const r = up.apply(this, arguments);
+    try { if ((gT -= dt || 0.016) <= 0) { gT = 0.08; let s = null; if (BLOCKY(selId) && cnt(selId) > 0 && !raycast(5)) s = reachSpot(); ghost.visible = !!s; if (s) ghost.position.set(s.prev[0] + .5, s.prev[1] + .5, s.prev[2] + .5); } } catch (_) { ghost.visible = false; }
+    return r; };
+})();
+
+/* ===================== GLX-C61 (v0.9.50): PRE-ALPHA splash on the title ===================== */
+(function c61() {
+  const css = document.createElement('style');
+  css.textContent = '.logoWrap{position:relative;display:block;width:fit-content;max-width:100%}.splash{position:absolute;right:-6%;bottom:-.7em;transform:rotate(-14deg);font:900 clamp(15px,3.2vw,26px)/1 system-ui,"Segoe UI",sans-serif;letter-spacing:.06em;color:#ffe83a;text-shadow:2px 2px 0 #3f3a00,0 0 8px rgba(0,0,0,.45);white-space:nowrap;pointer-events:none;z-index:3;animation:splashPulse .9s ease-in-out infinite alternate}@keyframes splashPulse{from{transform:rotate(-14deg) scale(.94)}to{transform:rotate(-14deg) scale(1.06)}}';
+  document.head.appendChild(css);
+  document.querySelectorAll('#scr-title .logo, #scr-boot .logo').forEach(l => { if (l.parentNode.classList.contains('logoWrap')) return; const w = document.createElement('div'); w.className = 'logoWrap'; l.parentNode.insertBefore(w, l); w.appendChild(l);
+    const s = document.createElement('span'); s.className = 'splash'; s.dataset.testid = 'pre-alpha-tag'; s.textContent = 'PRE-ALPHA!'; w.appendChild(s); });
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
