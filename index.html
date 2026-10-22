@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: m1 -->
+<!-- glencraft-build: n2 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.42 \u2022 b1';
+const GAME_VERSION = 'v0.9.43 \u2022 b1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -12167,7 +12167,7 @@ var c37busy = false;
         for (let da = -1; da <= 1; da++) for (let db = -1; db <= 1; db++) { const r = (a + da) * gz + (b + db); if (cells.has(r) && !seen.has(r)) { seen.add(r); st.push(r); } } }
       const cx = (Z.x0 + Z.x1) / 2, cz = (Z.z0 + Z.z1) / 2;
       if (Z.n < 12 || Z.x1 - Z.x0 > 80 || Z.z1 - Z.z0 > 80) continue;
-      if (cs.some(cc => Math.hypot(cc[1] - cx, cc[2] - cz) < (cc[0] === 'citadel' ? 70 : 56))) continue;
+      if (!mine && cs.some(cc => Math.hypot(cc[1] - cx, cc[2] - cz) < (cc[0] === 'citadel' ? 70 : 56))) continue;
       zones.push(Z);
     }
     // the bed / spawn point always counts as home
@@ -12577,6 +12577,26 @@ var placedSet = new Set();
     try { if (d && !d.dim && !d.settled42 && genVer === GEN9 && typeof g9castles !== 'undefined' && g9castles.length) { const reg = g9castles.map(c => [c[1], c[2], c[0] === 'citadel' ? 44 : 36]); const s = c39Settle({region: reg}); window.__settle = s; console.log('[settle-load] ' + JSON.stringify(s)); } } catch (e) { console.warn('settle-load', e); }
     return r; };
   const se = serialize; serialize = function () { const d = se.apply(this, arguments); d.settled42 = 1; return d; };
+})();
+/* ===================== GLX-C40 (v0.9.43): chest items never vanish - every item id shows in the bag, creative/close keeps the held stack ===================== */
+(function c40() {
+  // root cause: the bag only listed ids in ORDER, so loot like the Mystery painting, claymore, targe, silver, quaich... went into inv but could never be seen or used
+  bagItems = function () { const out = ORDER.filter(id => cnt(id) > 0), seen = new Set(out);
+    for (const k of Object.keys(inv)) { const id = +k; if (id > 0 && !seen.has(id) && cnt(id) > 0 && NAMES[id]) { out.push(id); seen.add(id); } } return out; };
+  for (const k in NAMES) { const id = +k; if (id > 0 && !ORDER.includes(id) && ICON_KEY && ICON_KEY[id] !== undefined && typeof IT !== 'undefined' && Object.values(IT).includes(id)) ORDER.push(id); }
+  // a held stack is never thrown away: back to the bag, or (creative) back into the open chest, or dropped at your feet
+  const rc = returnCursor;
+  returnCursor = function () {
+    if (cursor && cursor.n > 0 && MODE.infinite) {
+      const c = openChestKey && chests.get(openChestKey);
+      if (c) { let i = c.slots.findIndex(s => s && s[0] === cursor.id); if (i < 0) i = c.slots.indexOf(null); if (i >= 0) { c.slots[i] = c.slots[i] ? [cursor.id, c.slots[i][1] + cursor.n] : [cursor.id, cursor.n]; cursor = null; showCursor(); return; } }
+      if (!MODE.infiniteHas || true) { try { dropItem(cursor.id, cursor.n, P.x, P.y + 1, P.z, 0, 2, 0, 0.5); } catch (_) {} cursor = null; showCursor(); return; }
+    }
+    return rc.apply(this, arguments);
+  };
+  // dropItem is only muted while a world is being generated, never in play
+  const di0 = dropItem;
+  window.__c40drop = di0;
 })();
 </script>
 <script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d74a033912d225',t:'MTc5MjQ5MTYxNw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
