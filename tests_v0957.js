@@ -19,11 +19,12 @@ const s1=await p.evaluate(()=>({fast:__swimFast,plank:__swimPlank,held:held.chil
 ok(s1.fast&&s1.held&&s1.heldVis,'1st person sprint-swim with item visible in hand',s1);
 ok(s1.uw&&s1.c72.lp<2000&&s1.c72.caus==='block','underwater: blue filter, caustics, muffled audio',s1.c72);
 await p.waitForTimeout(1500);await p.screenshot({path:dir+'underwater_bubbles.png'});const bb=await p.evaluate(()=>__c72().bubbles);ok(bb>0,'bubbles from player',{bb});
+const rl=await p.evaluate(()=>{inv[IT.UNLIT]=3;inv[IT.FLINTSTEEL]=1;delete inv[T.TORCH];selId=IT.UNLIT;useItem();return {torch:inv[T.TORCH]||0,unlit:inv[IT.UNLIT]||0}});ok(rl.torch===0&&rl.unlit===3,'no relight underwater',rl);
 // 3rd person from outside the water: swim near the surface, camera behind and above
 await p.evaluate(w=>{P.x=w[0]-4;P.z=w[2]+.5;P.y=w[1]-0.9;P.vy=0;P.pitch=-0.05;toggleCamera();},pool);await p.waitForTimeout(2500);
 const s3=await p.evaluate(()=>({plank:__swimPlank,rx:worldModel.rotation.x,camY:camera.position.y,surf:0,uw:!!window.__uw}));await p.screenshot({path:dir+'swim_3rd_person.png'});
 ok(s3.plank>0.6&&s3.rx<-1,'3rd person plank pose',s3);
-await p.evaluate(()=>{keys.KeyW=false;sprintShift=false;});await p.waitForTimeout(8000);const s4=await p.evaluate(()=>({plank:__swimPlank,rx:worldModel.rotation.x}));await p.screenshot({path:dir+'swim_3rd_person_idle.png'});ok(s4.plank<0.3,'plank blends out when you stop sprinting',s4);
+await p.evaluate(()=>{keys.KeyW=false;sprintShift=false;});await p.waitForTimeout(2500);const s4=await p.evaluate(()=>({plank:__swimPlank,rx:worldModel.rotation.x}));await p.screenshot({path:dir+'swim_3rd_person_idle.png'});ok(s4.plank<0.3,'plank blends out when you stop sprinting',s4);
 await p.evaluate(()=>{toggleCamera();P.y+=8;});await p.waitForTimeout(8000);const out=await p.evaluate(()=>__c72());ok(out.caus==='none','effects off above water',out);
 // giant spider: ground only
 const sp=await p.evaluate(async()=>{const cv=__deepCaves[0];const a=__newGiant(cv,cv[0],cv[2]);let maxUp=0,y0=a.g.position.y,climb=0;for(let i=0;i<40;i++){await new Promise(r=>setTimeout(r,250));if(a.climbY!==undefined)climb++;}return {climb,alive:mobs.includes(a)};});
