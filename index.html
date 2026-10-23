@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0956 -->
+<!-- glencraft-build: v0957 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -474,7 +474,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.56';
+const GAME_VERSION = 'v0.9.57';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -13531,7 +13531,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     return {g, rig, head, legs: [], arms: [], cLegs: legs, mats: [skin, pale, eye], speed: 2.6, hp: 40, hitY: 0.6, hitR: 1.2, tall: 1}; }
   function newCrawler(cave) { const a = makeCrawler(); const [cx, cy, cz] = cave; Object.assign(a, {kind: 'crawler', hostile: true, named: true, flee: 0, angry: 0, biteCd: 0, moving: true, ang: 0, timer: 0, flash: 0, kbx: 0, kbz: 0, vy: 0, onGround: true, burning: 0, fire: 0, fireTick: 0, walk: 0, sndT: 3, cave, tgt: null, nrm: new THREE.Vector3(0, 1, 0), crHp: 40});
     a.g.position.set(cx, cy - 4, cz); scene.add(a.g); mobs.push(a); return a; }
-  window.newCrawler = newCrawler; window.__surfP = (...a) => surfacePoint(...a);
+  window.newCrawler = () => null; window.__surfP = (...a) => surfacePoint(...a);
   const isAir = (x, y, z) => !world[idx(x, y, z)];
   function surfacePoint(cx, cy, cz, r) { for (let t = 0; t < 60; t++) { const x = Math.floor(cx + (Math.random() - .5) * r * 2), z = Math.floor(cz + (Math.random() - .5) * r * 2), y = Math.floor(cy + (Math.random() - .5) * 12); if (y < 2 || y >= H - 2) continue;
       if (!isAir(x, y, z)) continue; const n = [[0, -1, 0], [0, 1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]].filter(([a, b, c]) => !isAir(x + a, y + b, z + c)); if (!n.length) continue;
@@ -13552,7 +13552,8 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     try { return um.apply(this, arguments); } finally { for (const c of cs) mobs.push(c); for (const c of cs) { try { if (Math.hypot(c.g.position.x - P.x, c.g.position.z - P.z) > 70) { removeMob(c); continue; } stepCrawler(c, dt); } catch (e) { window.__crErr = String(e); } } } };
   const dm = damageMob; damageMob = function (a, dmg, byPlayer) { if (a.kind !== 'crawler') return dm.apply(this, arguments); a.crHp -= dmg; a.flash = 0.25; const p = a.g.position; burst(p.x, p.y + .5, p.z, 0x3a3640, 8, .6); if (a.crHp <= 0) { burst(p.x, p.y + .5, p.z, 0x1c1a20, 30, 1.4); dropItem(IT.DIAMOND, 2, p.x, p.y + .5, p.z, 0, 3, 0, .4); try { dropXP(p.x, p.y, p.z, 60); } catch (_) {} toast('The crawler is dead'); removeMob(a); } };
   const km = killMob; killMob = function (a) { if (a.kind === 'crawler') { removeMob(a); return; } return km.apply(this, arguments); };
-  setInterval(() => { if (!started || paused || DIM.cur) return; for (const cv of window.__deepCaves || []) { if (Math.hypot(P.x - cv[0], P.z - cv[2]) < 40 && P.y < 30 && !crawlers().some(c => c.cave === cv || (c.cave && c.cave[0] === cv[0] && c.cave[2] === cv[2]))) newCrawler(cv); } }, 2500);
+  setInterval(() => { for (const c of crawlers()) { try { removeMob(c); } catch (_) {} } }, 1000);   // v0.9.57: crawlers removed from the game
+  if (false) setInterval(() => { if (!started || paused || DIM.cur) return; for (const cv of window.__deepCaves || []) { if (Math.hypot(P.x - cv[0], P.z - cv[2]) < 40 && P.y < 30 && !crawlers().some(c => c.cave === cv || (c.cave && c.cave[0] === cv[0] && c.cave[2] === cv[2]))) newCrawler(cv); } }, 2500);
 })();
 
 /* ===================== GLX-C55 (v0.9.47): Creative new-world presets - Glen, Clydebank, Flat World ===================== */
@@ -13995,14 +13996,14 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     const want = a.state === 'walk' ? 0.75 : a.state === 'scuttle' ? 6.5 : a.state === 'lunge' ? 7.5 : 0;
     a.spd += (want - a.spd) * Math.min(1, dt * (want > a.spd ? 9 : 14));
     if (a.tgtAng !== undefined) { let d = a.tgtAng - a.ang; d = Math.atan2(Math.sin(d), Math.cos(d)); a.ang += d * Math.min(1, dt * (a.state === 'scuttle' || a.state === 'lunge' ? 7 : 3)); }
-    if (a.climbY !== undefined) {   // climbing a wall / up out of a cave: rise first, then step over
+    a.climbY = undefined; if (a.climbY !== undefined) {   // climbing a wall / up out of a cave: rise first, then step over
       const dyc = a.climbY - p.y; p.y += Math.sign(dyc) * Math.min(Math.abs(dyc), 2.2 * dt); a.rig.rotation.z = 0; if (Math.abs(dyc) < 0.15) { a.climbY = undefined; }
       a.walk += dt * 1.2; animate(a, dt); a.g.rotation.y = a.ang; return; }
     if (a.spd > 0.05) { const nx = p.x + Math.sin(a.ang) * a.spd * dt, nz = p.z + Math.cos(a.ang) * a.spd * dt;
       const inW = nx > 3 && nz > 3 && nx < W - 3 && nz < D - 3; let fy = inW ? floorY(nx, nz, p.y + 1.5) : null;
       if (fy != null && Math.abs(fy - p.y) < 2.2 && room2(nx, fy, nz)) { p.x = nx; p.z = nz; p.y += (fy - p.y) * Math.min(1, dt * 8); a.stuckT = 0; }
       else { // a wall or a big step: look up the wall for a ledge to climb to (spiders climb), else turn away
-        let up = null; if (inW) { const fx = Math.floor(p.x + Math.sin(a.ang) * 1.2), fz = Math.floor(p.z + Math.cos(a.ang) * 1.2); for (let y = Math.floor(p.y) + 1; y < Math.floor(p.y) + 16 && y < H - 3; y++) if (isA(fx, y, fz) && !isA(fx, y - 1, fz) && isA(fx, y + 1, fz)) { up = y; break; } }
+        let up = null; if (false) { const fx = Math.floor(p.x + Math.sin(a.ang) * 1.2), fz = Math.floor(p.z + Math.cos(a.ang) * 1.2); for (let y = Math.floor(p.y) + 1; y < Math.floor(p.y) + 16 && y < H - 3; y++) if (isA(fx, y, fz) && !isA(fx, y - 1, fz) && isA(fx, y + 1, fz)) { up = y; break; } }
         if (up != null && up > p.y + 0.5 && isA(Math.floor(p.x), Math.min(H - 2, up + 1), Math.floor(p.z))) { a.climbY = up; }
         else if (up != null && up > p.y + 0.5) { a.climbY = up; }   // squeeze up through overhangs too (passes through gracefully)
         else { a.stuckT = (a.stuckT || 0) + dt; a.tgtAng = a.ang + Math.PI * (0.5 + Math.random()); a.state = 'walk'; a.st = 1.2;
@@ -14323,7 +14324,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     try { const d0 = typeof dt === 'number' ? Math.min(0.1, dt) : 0.016;
       const eye = getB(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z));
       if (eye === T.WATER && selId === T.TORCH && !dead) douse();
-      const fast = !!window.swimDeep && !window.swimLava && sprinting && !dead && !riding; window.__swimFast = fast;
+      const mvIn = Math.abs(arguments[1] || 0) + Math.abs(arguments[2] || 0) > 0.2; const fast = !!window.swimDeep && !window.swimLava && sprinting && mvIn && !dead && !riding; window.__swimFast = fast;
       plank += ((fast ? 1 : 0) - plank) * Math.min(1, d0 * 4); window.__swimPlank = plank;
       if (fast) { const d = lookDir(), vt = d[1] * 4.2; P.vy += (vt - P.vy) * Math.min(1, d0 * 6); const extra = 1.6 * d0; moveAxis(d[0] * extra, 0); moveAxis(0, d[2] * extra); }
     } catch (e) { if (!window.__c71e) { window.__c71e = String(e); console.warn('c71', e); } }
@@ -14345,6 +14346,61 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const us = updateSky; updateSky = function () { const r = us.apply(this, arguments);
     try { const inW = started && getB(Math.floor(camera.position.x), Math.floor(camera.position.y), Math.floor(camera.position.z)) === T.WATER; ov.style.display = inW ? 'block' : 'none'; window.__uw = inW;
       if (inW) { scene.fog.color.copy(UWC); scene.background.copy(UWC); scene.fog.near = 0.5; scene.fog.far = 20; } } catch (_) {}
+    return r; };
+})();
+
+/* ===================== GLX-C72 (v0.9.57): underwater feel - muffled audio, ambience, bubbles, caustics + gentle wobble, stroke sounds ===================== */
+(function c72() {
+  let lp = null, amb = null, ambG = null, uwK = 0, strokeT = 0;
+  function ensure() { if (lp || !AC) return; try {
+      lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 22000; lp.Q.value = 0.7; lp.connect(AC.destination);
+      const oc = AudioNode.prototype.connect; AudioNode.prototype.connect = function (t) { if (t === AC.destination && this !== lp) { arguments[0] = lp; } return oc.apply(this, arguments); };
+      for (const n of [master, musicGain]) if (n) { try { n.disconnect(); n.connect(lp); } catch (_) {} }
+      // underwater ambience: soft low rumble (looping filtered noise), straight to the speakers so it isn't double-filtered
+      const len = AC.sampleRate * 2, b = AC.createBuffer(1, len, AC.sampleRate), d = b.getChannelData(0); let last = 0; for (let i = 0; i < len; i++) { last = last * 0.985 + (Math.random() * 2 - 1) * 0.015; d[i] = last * 6; }
+      amb = AC.createBufferSource(); amb.buffer = b; amb.loop = true; const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 380; ambG = AC.createGain(); ambG.gain.value = 0;
+      amb.connect(f); f.connect(ambG); oc.call(ambG, AC.destination); amb.start(); } catch (e) { console.warn('uw audio', e); lp = null; } }
+  // caustics overlay (CSS only, cheap) layered over the blue tint
+  const cs = document.createElement('style'); cs.textContent = '#uwCaus{position:fixed;inset:-10%;pointer-events:none;z-index:3;display:none;opacity:.22;mix-blend-mode:screen;background:radial-gradient(circle at 20% 30%,rgba(160,220,255,.9) 0 3%,transparent 9%),radial-gradient(circle at 70% 60%,rgba(160,220,255,.8) 0 2.5%,transparent 8%),radial-gradient(circle at 45% 80%,rgba(160,220,255,.7) 0 2%,transparent 7%);background-size:220px 180px,260px 240px,190px 210px;animation:uwc 7s linear infinite}@keyframes uwc{0%{background-position:0 0,0 0,0 0}100%{background-position:220px 90px,-260px 120px,95px -210px}}';
+  document.head.appendChild(cs); const ca = document.createElement('div'); ca.id = 'uwCaus'; document.body.appendChild(ca);
+  // bubbles from the player
+  const NB = touchMode ? 24 : 48, bp = new Float32Array(NB * 3).fill(-999), bt = new Float32Array(NB); let bi = 0, bT = 0;
+  const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.BufferAttribute(bp, 3));
+  const bub = new THREE.Points(bg, new THREE.PointsMaterial({color: 0xdff4ff, size: 0.07, transparent: true, opacity: 0.8, depthWrite: false})); bub.frustumCulled = false; scene.add(bub);
+  let last = performance.now(), wob = 0;
+  const rr = renderer.render.bind(renderer);
+  renderer.render = function (sc, cam) {
+    if (sc === scene) { try { const now = performance.now(), dt = Math.min(0.1, (now - last) / 1000); last = now; ensure();
+        const uw = !!window.__uw && started && !dead; uwK += ((uw ? 1 : 0) - uwK) * Math.min(1, dt * 6); window.__uwK = uwK;
+        if (lp) { lp.frequency.setTargetAtTime(uw ? 650 : 22000, AC.currentTime, 0.08); if (ambG) ambG.gain.setTargetAtTime(uw ? 0.22 * SET.sfx : 0, AC.currentTime, 0.2); }
+        ca.style.display = uwK > 0.05 ? 'block' : 'none';
+        // gentle wobble (tiny roll + fov breathing) while under water
+        wob += dt; if (uwK > 0.01) { cam.userData.w0 = [cam.rotation.z, cam.fov]; cam.rotation.z += Math.sin(wob * 1.3) * 0.012 * uwK; cam.fov += Math.sin(wob * 0.9) * 0.8 * uwK; cam.updateProjectionMatrix(); cam.userData.wob = true; }
+        // bubbles: a few rise from your mouth, more when swimming
+        bT -= dt; if (uw && bT <= 0) { bT = (window.__swimFast ? 0.12 : 0.35) * (0.6 + Math.random() * 0.8); const d = lookDir(); bi = (bi + 1) % NB; bp[bi * 3] = P.x + d[0] * 0.5 + (Math.random() - .5) * .2; bp[bi * 3 + 1] = P.y + EYE - 0.15; bp[bi * 3 + 2] = P.z + d[2] * 0.5 + (Math.random() - .5) * .2; bt[bi] = 3; }
+        for (let i = 0; i < NB; i++) if (bt[i] > 0) { bt[i] -= dt; bp[i * 3 + 1] += dt * 1.1; bp[i * 3] += Math.sin(now / 200 + i) * dt * 0.15; const y = bp[i * 3 + 1];
+          if (bt[i] <= 0 || getB(Math.floor(bp[i * 3]), Math.floor(y), Math.floor(bp[i * 3 + 2])) !== T.WATER) { bt[i] = 0; bp[i * 3 + 1] = -999; } }
+        bg.attributes.position.needsUpdate = true;
+        // swim stroke whoosh, in time with the breaststroke
+        if (window.swimDeep && AC && master) { const mv = keys.KeyW || keys.KeyA || keys.KeyS || keys.KeyD || window.__swimFast || (typeof touchMove !== 'undefined' && touchMove && Math.abs(touchMove.x || 0) + Math.abs(touchMove.y || 0) > 0.1);
+          strokeT -= dt; if (mv && strokeT <= 0) { strokeT = window.__swimFast ? 1.1 : 1.6; try { grain(AC.currentTime, 420 + Math.random() * 200, 0.8, 0.45, 0.05 * SET.sfx, master, 'lowpass'); } catch (_) {} } }
+      } catch (e) { if (!window.__c72e) { window.__c72e = String(e); console.warn('c72', e); } } }
+    const r = rr(sc, cam);
+    if (sc === scene && cam.userData.wob) { cam.userData.wob = false; cam.rotation.z = cam.userData.w0[0]; cam.fov = cam.userData.w0[1]; cam.updateProjectionMatrix(); }
+    return r; };
+  window.__c72 = () => ({lp: lp ? lp.frequency.value : null, amb: ambG ? ambG.gain.value : null, caus: ca.style.display, bubbles: Array.from(bt).filter(v => v > 0).length});
+})();
+
+// c72b: plank pose wins over the older swim-body module (it ran later in the chain)
+(function () {
+  const uw2 = updateWorldModel;
+  updateWorldModel = function () { const r = uw2.apply(this, arguments);
+    try { if (!worldModel || !camMode) return r; const pk = window.__swimPlank || 0; if (pk < 0.01) return r;
+      worldModel.rotation.order = 'YXZ';
+      const tx = -(Math.PI / 2 + Math.max(-0.9, Math.min(0.9, P.pitch)) * 0.9);
+      worldModel.rotation.x = worldModel.rotation.x * (1 - pk) + tx * pk;
+      worldModel.position.y = worldModel.position.y * (1 - pk) + (P.y + 0.35) * pk;
+    } catch (_) {}
     return r; };
 })();
 </script>
