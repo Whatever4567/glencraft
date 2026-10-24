@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0971a -->
+<!-- glencraft-build: v0972e -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.71';
+const GAME_VERSION = 'v0.9.72';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -14758,12 +14758,12 @@ var ORE18 = false, ISL_S = 1;
   const MCY = Y => Math.round((Y + 64) * 0.3228);
   const ORES = () => [
     // [name, id, veins per 1000 columns, yLo, yHi (triangle, MC-mapped), size lo, size hi, rule]
-    ['coal', T.COALORE, 40, MCY(0), MCY(192), 5, 12], ['coal-high', T.COALORE, 8, MCY(136), MCY(320), 4, 10, 'u'],
-    ['copper', T.COPPERORE, 16, MCY(-16), MCY(112), 4, 9], ['iron', T.IRONORE, 22, MCY(-24), MCY(56), 3, 8], ['iron-mountain', T.IRONORE, 10, MCY(80), MCY(384), 3, 8],
-    ['silver', T.SILVERORE, 3, MCY(-48), MCY(48), 2, 6], ['gold', T.GOLDORE, 2.6, MCY(-64), MCY(32), 2, 6],
-    ['lazurite', T.LAZORE, 2, MCY(-32), MCY(32), 2, 6], ['lazurite-even', T.LAZORE, 0.8, 1, MCY(64), 2, 5, 'u'],
-    ['redstone', T.REDORE, 6, MCY(-96), MCY(-32), 3, 8], ['redstone-even', T.REDORE, 1, 1, MCY(15), 3, 7, 'u'],
-    ['diamond', T.DIAMONDORE, 3.6, MCY(-144), MCY(16), 1, 5, 'hide'], ['ruby', T.RUBYORE, 24, MCY(-16), MCY(480), 1, 2, 'mtn']];
+    ['coal', T.COALORE, 100, MCY(0), MCY(192), 6, 14], ['coal-high', T.COALORE, 20, MCY(136), MCY(320), 5, 12, 'u'],
+    ['copper', T.COPPERORE, 40, MCY(-16), MCY(112), 5, 11], ['iron', T.IRONORE, 55, MCY(-24), MCY(56), 4, 10], ['iron-mountain', T.IRONORE, 25, MCY(80), MCY(384), 4, 10],
+    ['silver', T.SILVERORE, 6, MCY(-48), MCY(48), 3, 7], ['gold', T.GOLDORE, 5.2, MCY(-64), MCY(32), 3, 7],
+    ['lazurite', T.LAZORE, 4, MCY(-32), MCY(32), 3, 7], ['lazurite-even', T.LAZORE, 1.6, 1, MCY(64), 3, 6, 'u'],
+    ['redstone', T.REDORE, 12, MCY(-96), MCY(-32), 4, 9], ['redstone-even', T.REDORE, 2, 1, MCY(15), 4, 8, 'u'],
+    ['diamond', T.DIAMONDORE, 3.6, MCY(-144), MCY(16), 1, 5, 'hide'], ['ruby', T.RUBYORE, 48, MCY(-16), MCY(480), 1, 3, 'mtn']];
   window.__c77ores = ORES;
   const host = b => b === T.STONE || b === T.DEEPSLATE;
   function vein(x, y, z, n, ore, hide) { let put = 0;
@@ -14784,9 +14784,13 @@ var ORE18 = false, ISL_S = 1;
         else if (b === DS && y > 22) world[i] = T.STONE; } }
     const cols = W * D / 1000, top = (x, z) => g9cols ? g9cols[(x * D + z) * 2] : solidTop(x, z), hist = {};
     for (const [name, id, per, lo, hi, s0, s1, rule] of ORES()) { if (id === undefined) continue; const n = Math.round(per * cols); let placed = 0;
-      for (let v = 0; v < n; v++) { const x = 2 + (rnd() * (W - 4) | 0), z = 2 + (rnd() * (D - 4) | 0); let y = -1;
+      for (let v = 0; v < n; v++) { let x = 2 + (rnd() * (W - 4) | 0), z = 2 + (rnd() * (D - 4) | 0); let y = -1;
         for (let t = 0; t < 6 && (y < 1 || y > H - 3); t++) y = Math.round(rule === 'u' ? lo + rnd() * (hi - lo) : tri(lo, hi));
         if (y < 1 || y > H - 3) continue;
+        // v0.9.72: most of the map is sea, so most veins used to start in water/air and vanish. Re-pick the column until the vein starts in rock (not for diamonds).
+        if (rule !== 'hide' && !host(world[idx(x, y, z)])) for (let t = 0; t < 24; t++) { const xx = 2 + (rnd() * (W - 4) | 0), zz = 2 + (rnd() * (D - 4) | 0), tp = top(xx, zz);
+            if (rule === 'mtn' && tp < SEA + 28) continue; const yh = Math.min(hi, tp - 3, H - 3), yl = Math.max(1, lo); if (yh < yl) continue;
+            const yy = Math.round(rule === 'u' ? yl + rnd() * (yh - yl) : tri(yl, yh)); if (host(world[idx(xx, yy, zz)])) { x = xx; y = yy; z = zz; break; } }
         if (rule === 'mtn') { const tp = top(x, z); if (tp < SEA + 28 || y > tp - 2) continue; }
         placed += vein(x, y, z, Math.round(s0 + rnd() * (s1 - s0)), id, rule === 'hide'); }
       hist[name] = placed; }
@@ -16932,7 +16936,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   const colOf = id => { let c = COLC[id]; if (c) return c; const k = topKey(id); c = COLC[id] = hexRGB((k && AVG[k]) || 0x777777); return c; };
   const GRASS = () => colOf(T.GRASS);
   const sky = id => id === T.AIR || !FACES[id];   // plants, torches, flowers: look through them to the ground
-  const wkey = () => ((typeof current !== 'undefined' && current && current.id) || 'x') + '|' + W + '|' + D + '|' + (typeof genVer !== 'undefined' ? genVer : 0) + '|' + ((typeof DIM !== 'undefined' && DIM.cur) || '');
+  const wkey = () => ((typeof current !== 'undefined' && current && current.id) || 'x') + (current && current.created ? '@' + current.created : '') + '|' + W + '|' + D + '|' + (typeof genVer !== 'undefined' ? genVer : 0) + '|' + ((typeof DIM !== 'undefined' && DIM.cur) || '');
   function reset() {
     M.key = wkey(); M.tw = Math.ceil(W / TS); M.td = Math.ceil(D / TS); const n = M.tw * M.td;
     M.done = new Uint8Array(n); M.seen = new Uint8Array(n); M.dirty = new Uint8Array(n); M.hm = new Int16Array(W * D).fill(-1); M.q = []; M.built = 0;
@@ -16942,7 +16946,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   }
   function saveSeen() { if (!M.seenDirty || !M.seen) return; M.seenDirty = false; let s = ''; const n = M.seen.length;
     for (let i = 0; i < n; i += 8) { let c = 0; for (let j = 0; j < 8; j++) if (M.seen[i + j]) c |= 1 << j; s += String.fromCharCode(c); }
-    try { localStorage.setItem('glen_mapx_' + M.key, btoa(s)); } catch (_) {} }
+    try { const me = 'glen_mapx_' + M.key; for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.indexOf('glen_mapx_') === 0 && k !== me) localStorage.removeItem(k); } localStorage.setItem(me, btoa(s)); } catch (_) {} }
   // top of a column: [height, block id, water depth]
   function column(x, z) { let y = H - 1, b = 0;
     for (; y > 0; y--) { b = world[idx(x, y, z)]; if (!sky(b)) break; }
@@ -17125,6 +17129,101 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   const sp0 = setPause; setPause = function (on) { if (!on && M.open) closeMap(); return sp0.apply(this, arguments); };
   window.__mapT = {tick, drawBig, V, mc};
 })();
+
+/* ===================== GLX-C94 (v0.9.72): one world only ("Test World"), no backups; one-time wipe of every old world / backup =====================
+   Worlds live in IndexedDB 'glencraft-saves' (stores 'worlds' + 'meta'); old copies / backups also sat in localStorage (glen_w_*, glen_worlds,
+   glen_backup_meta_*). The DS game, its saves and the TV video are in the separate 'glencraft' DB ('files') and the settings in glen_set / glen_q:
+   none of those are touched. */
+(function c94() {
+  const TID = 'testworld', TNAME = 'Test World', FLAG = 'gc_wipe_v0972';
+  const R = window.__c94 = {wiped: null, skipped: [], puts: 0};
+  const WORLDISH = /^glen_(w_|worlds$|backup|mapx_|tvpos_)/;
+  function lsPurge(re) { const ks = []; try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (re.test(k)) ks.push(k); } ks.forEach(k => localStorage.removeItem(k)); } catch (_) {} return ks; }
+  const clearStores = () => Promise.all([idbDo('worlds', 'readwrite', o => o.clear()), idbDo('meta', 'readwrite', o => o.clear())]);
+  // ---- only Test World (and its own dimensions) may be written; backups and any other key are dropped ----
+  const okKey = k => k === TID || (typeof k === 'string' && k.indexOf('dim_' + TID + '_') === 0);
+  let lastPut = Promise.resolve();
+  const base = idbDo;
+  idbDo = function (store, mode, fn) {
+    if (store === 'worlds' && mode === 'readwrite') {
+      const f = fn; let world = false;
+      fn = o => f({put: (v, k) => { if (!okKey(k)) { R.skipped.push(String(k)); return null; } world = k === TID; R.puts++; return o.put(v, k); },
+        delete: k => o.delete(k), clear: () => o.clear(), get: k => o.get(k)});
+      const p = base.call(this, store, mode, fn);
+      const q = p.catch(e => { toast('Could not save Test World: ' + ((e && e.message) || 'storage error')); throw e; });
+      lastPut = q.catch(() => {}); q.catch(() => {}); return p;
+    }
+    return base.apply(this, arguments);
+  };
+  // the world list only ever holds Test World
+  const wl = worldList;
+  worldList = function () { if (R.wiping) return []; return wl.apply(this, arguments).filter(w => w && w.id === TID); };
+  // ---- one-time wipe ----
+  let wipeP = Promise.resolve();
+  let done = false; try { done = !!localStorage.getItem(FLAG); } catch (_) {}
+  if (!done) {
+    R.wiping = true; R.lsRemoved = lsPurge(WORLDISH);
+    wipeP = worldsReady.catch(() => {}).then(clearStores).then(() => {
+      worldCache = []; lsPurge(WORLDISH); R.wiping = false; writeIndex();
+      try { localStorage.setItem(FLAG, String(Date.now())); } catch (_) {}
+      R.wiped = Date.now(); if (screen === 'worlds') renderWorlds(); console.log('[v0.9.72] old worlds and backups wiped', R.lsRemoved.length);
+    }).catch(e => { R.wiping = false; R.err = String(e); console.warn('wipe failed', e); });
+  }
+  R.wipeP = wipeP;
+  // wipe Test World completely (record, dimensions, explored map, TV positions)
+  async function purgeTest() {
+    worldCache = []; try { await clearStores(); } catch (_) {}
+    lsPurge(/^glen_(w_|worlds$|backup|mapx_|tvpos_)/); writeIndex();
+  }
+  R.purge = purgeTest;
+  // never a localStorage copy any more: IndexedDB only (the copy was the "backup")
+  const sw = saveWorld;
+  saveWorld = function () {
+    if (current) { current.id = TID; current.name = TNAME; }
+    if (R.wiping) return false;
+    const had = window.__autoSave; if (window.indexedDB) window.__autoSave = true;
+    try { return sw.apply(this, arguments); } finally { window.__autoSave = had; }
+  };
+  // Save & quit waits for the write to finish before reloading
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('#saveQuit'); if (!b) return;
+    e.stopImmediatePropagation(); e.preventDefault();
+    if (saveWorld()) { const t0 = performance.now(); Promise.race([lastPut.then(() => lastPut), new Promise(r => setTimeout(r, 15000))]).then(() => setTimeout(() => location.reload(), Math.max(0, 600 - (performance.now() - t0)))); }
+  }, true);
+  // ---- create = create / replace Test World ----
+  const cw = createWorld;
+  createWorld = async function () {
+    await wipeP;
+    const ex = wl().some(w => w && w.id === TID);
+    if (ex && !confirm('Replace Test World?\n\nYour current Test World will be deleted and a new one made.')) return;
+    await purgeTest();
+    $('worldName').value = TNAME;
+    const r = cw.apply(this, arguments);
+    if (current) { current.id = TID; current.name = TNAME; }
+    return r;
+  };
+  const pw = playWorld; playWorld = async function () { await wipeP; return pw.apply(this, arguments); };
+  deleteWorld = function () { purgeTest().then(() => { if (screen === 'worlds') renderWorlds(); }); return true; };
+  // ---- world screen: + Create (or Replace) and the one Test World with Play / Delete ----
+  const st = document.createElement('style'); st.textContent = '#restoreTerrainBtn{display:none!important}#worldName{pointer-events:none;opacity:.75}.tile.del{min-height:0!important;padding:10px!important;background:linear-gradient(180deg,#8a2b2b,#5a1717)!important;color:#fff}';
+  document.head.appendChild(st);
+  const nameIn = $('worldName'); if (nameIn) { nameIn.value = TNAME; nameIn.readOnly = true; nameIn.setAttribute('aria-readonly', 'true'); }
+  renderWorlds = function () {
+    const box = $('worldTiles'); box.innerHTML = '';
+    const make = (html, cls, fn, tid) => { const b = document.createElement('button'); b.className = 'tile ' + cls; b.innerHTML = html; b.dataset.testid = tid; b.addEventListener('click', fn); box.appendChild(b); return b; };
+    const w = worldList()[0];
+    make('<span class="plus">+</span><b>' + (w ? 'New Test World' : 'Create Test World') + '</b><small>' + (w ? 'Replaces the one you have' : 'Survival or Creative') + '</small>', 'new', () => { if (nameIn) nameIn.value = TNAME; showScreen('create'); }, 'world-create-tile');
+    if (w) {
+      const d = new Date(w.updated || Date.now());
+      make('<span class="gold cre">PLAY</span><b>' + TNAME + '</b><small>' + (w.mode === 'creative' ? 'Creative' : 'Survival') + ' \u00b7 Day ' + (w.day || 1) + ' \u00b7 ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}) + '</small>', 'world', () => playWorld(w), 'world-tile-' + TID);
+      make('<b>\ud83d\uddd1 Delete Test World</b>', 'del', () => { if (confirm('Delete Test World? This cannot be undone.')) deleteWorld(TID); }, 'world-delete');
+    }
+    $('worldEmpty').style.display = w ? 'none' : 'block'; $('worldEmpty').textContent = R.wiping ? 'Tidying up old saves\u2026' : 'No world yet. Create your Test World.';
+    try { refocusMenu(); } catch (_) {}
+  };
+  // toasts no longer promise backups that are not made
+  const t0 = toast; toast = function (msg) { if (typeof msg === 'string') msg = msg.replace(/\s*Backup saved[^.!]*[.!]?/g, '').replace(/\s*\(Pause > Undo terrain reset\)\.?/g, ''); return t0.call(this, msg); };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -17136,6 +17235,12 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.72', d:'2026-10-24', notes:[
+  'Fresh start: all old worlds, world backups and old saves were cleared off this device once (your settings, controls, DS game, DS saves and TV video were kept)',
+  'One world only: Test World. Creating a world makes Test World (it asks "Replace Test World?" if you already have one). The world list shows just Test World with Play and Delete',
+  'No more backup copies: saving writes only Test World, so saves are smaller and quicker. Save & quit now waits until the save has finished',
+  'Ores you can actually find: most ore veins used to spawn in the sea or in the air and vanish. Now they always start in rock, with more and bigger veins. Cave walls show about 2-3x more gold, redstone, Lazurite and silver, and far more coal, iron and copper. Ruby shows up in mountains. Diamonds unchanged. Only affects newly created worlds'
+ ]},
  {v:'v0.9.71', d:'2026-10-24', notes:[
   'Minimap: a GTA-style square in the bottom-left corner (top-left when the touch controls are showing) that turns with you, with you as the arrow in the middle and a red N for north',
   'It is drawn from the same map as the world itself: real ground colours with each biome\'s grass tint, hills shaded, lochs and rivers in blue, castles and the spawn marked',
