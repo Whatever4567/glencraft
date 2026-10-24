@@ -363,7 +363,7 @@ body.inmenu #hud,body.inmenu #touch{visibility:hidden}
       <button class="btn" id="startBtn" data-testid="start-game-button" disabled>Loading…</button>
       <button class="btn alt" id="dlBtn" data-testid="download-game-button">Download game</button>
     </div>
-    <div style="font-size:12px;color:var(--muted)">Graphics quality</div>
+    <div style="font-size:12px;color:var(--muted)">Texture detail</div>
     <div class="seg" id="qSeg">
       <button data-q="phone" data-testid="quality-phone-button">Phone (smooth)</button>
       <button data-q="4k" data-testid="quality-4k-button">4K UHD</button>
@@ -415,7 +415,7 @@ body.inmenu #hud,body.inmenu #touch{visibility:hidden}
     <label class="set" data-k="music"><span>Music volume<b id="musV"></b></span><input type="range" id="musVol" min="0" max="1" step="0.05" data-testid="settings-music-volume"></label>
     <label class="set" data-k="fov"><span>Field of view<b id="fovV"></b></span><input type="range" id="fov" min="60" max="100" step="1" data-testid="settings-fov"></label>
     <div class="set inline"><span>Head bobbing</span><div class="seg" id="bobSeg"><button data-bob="1" data-testid="settings-bob-on">On</button><button data-bob="0" data-testid="settings-bob-off">Off</button></div></div>
-    <div class="set inline"><span>Graphics</span><div class="seg" id="qSeg2"><button data-q="phone" data-testid="settings-quality-phone">Phone</button><button data-q="4k" data-testid="settings-quality-4k">4K UHD</button></div></div>
+    <div class="set inline"><span>Texture detail</span><div class="seg" id="qSeg2"><button data-q="phone" data-testid="settings-quality-phone">Phone</button><button data-q="4k" data-testid="settings-quality-4k">4K UHD</button></div></div>
     <p class="keys" id="pauseHint"></p>
   </div>
 </div>
@@ -475,8 +475,13 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.63';
+const GAME_VERSION = 'v0.9.63-gfx';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
+// GLX-C79: graphics quality Low / Medium / High / Ultra (phones default to Medium, computers to High; ?gfxq=low|medium|high|ultra overrides for previews)
+var GFXQ = (function () { const ok = {low: 1, medium: 1, high: 1, ultra: 1}; let q = SET.gfxq;
+  if (!ok[q]) q = SET.gfx === 'fast' ? 'low' : SET.gfx === 'realistic' ? 'high' : (touchMode ? 'medium' : 'high');
+  try { const u = new URLSearchParams(location.search).get('gfxq'); if (ok[u]) q = u; } catch (_) {} return q; })();
+var GQ = {low: 0, medium: 1, high: 2, ultra: 3}[GFXQ];
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
 /* ---------- constants ---------- */
@@ -13773,16 +13778,23 @@ var chestSel = -1;
 })();
 
 /* ===================== GLX-C62 (v0.9.51): Graphics setting Fast / Fancy / Realistic - vertex AO, sun shadows, warm sunsets, glen mist, wet look, rain splashes, snow on the tops, darker storms ===================== */
-var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
+var GFX = GQ >= 2 ? 'realistic' : GQ === 1 ? 'fancy' : (PERF || SET.gfx === 'fast' ? 'fast' : 'fancy');   // GLX-C79: picked by the quality level
 (function c62() {
   const FANCY = GFX !== 'fast', REAL = GFX === 'realistic';
   window.__gfx = GFX;
   // ---- settings row (changing it reloads, like Performance mode, so shaders are rebuilt once) ----
   try { const pr = document.querySelector('#perfSeg'); const row = pr && pr.parentElement && pr.parentElement.closest('.row, .setrow, div');
     if (row) { const r2 = row.cloneNode(true); const seg = r2.querySelector('#perfSeg'); seg.id = 'gfxSeg'; const lab = r2.querySelector('label, span, b'); if (lab) lab.textContent = 'Graphics';
-      seg.innerHTML = [['fast', 'Fast'], ['fancy', 'Fancy'], ['realistic', 'Realistic']].map(([v, n]) => '<button data-v="' + v + '" data-testid="gfx-' + v + '"' + (v === GFX ? ' class="on"' : '') + '>' + n + '</button>').join('');
-      row.after(r2);
-      seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const v = b.dataset.v; if (v === GFX) return; if (started && !confirm('Changing graphics restarts the game. Continue?')) return; if (started) { try { saveWorld(true); } catch (_) {} } SET.gfx = v; saveSet(); location.reload(); })); } } catch (e) { console.warn('gfx row', e); }
+      if (lab) lab.textContent = 'Graphics quality'; seg.style.flexWrap = 'wrap';
+      seg.innerHTML = [['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra']].map(([v, n]) => '<button data-v="' + v + '" data-testid="gfx-' + v + '" style="min-height:44px;min-width:64px"' + (v === GFXQ ? ' class="on"' : '') + '>' + n + '</button>').join('');
+      const hint = document.createElement('div'); hint.className = 'keys'; hint.id = 'gfxHint'; hint.style.cssText = 'font-size:11px;margin:-2px 0 4px';
+      hint.textContent = {low: 'Low: the classic look, fastest.', medium: 'Medium: richer colour, shiny water, swaying leaves and grass. Good for phones.', high: 'High: adds sun shadows, glow (bloom) and smoother edges.', ultra: 'Ultra: adds sharper shadows, wider glow and sun shafts. Needs a strong device.'}[GFXQ];
+      row.after(r2); r2.after(hint); let armQ = null;
+      // controller-friendly: no confirm() dialog - press the same level twice while playing (the world is saved first)
+      seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const v = b.dataset.v; if (v === GFXQ) return;
+        if (started && armQ !== v) { armQ = v; try { toast('Press ' + b.textContent + ' again to switch graphics (saves and reloads)'); } catch (_) {} setTimeout(() => { if (armQ === v) armQ = null; }, 5000); return; }
+        if (started) { try { saveWorld(true); } catch (_) {} } SET.gfxq = v; SET.gfx = v === 'low' ? (SET.gfx === 'fast' ? 'fast' : 'fancy') : v === 'medium' ? 'fancy' : 'realistic'; saveSet();
+        try { const u = new URL(location.href); u.searchParams.delete('gfxq'); location.replace(u.toString()); } catch (_) { location.reload(); } })); } } catch (e) { console.warn('gfx row', e); }
   // ---- ambient occlusion: a per-vertex darkness attribute (missing attribute = 0 = no change, so other meshes are untouched) ----
   const AO_V = 'attribute float aoD;\nattribute float wetE;\nattribute float litS;\nattribute float litB;\nvarying float vAoD;\nvarying float vWetE;\nvarying float vLitS;\nvarying float vLitB;\n', AO_F = 'varying float vAoD;\nvarying float vWetE;\nvarying float vLitS;\nvarying float vLitB;\nuniform float uWet;\nuniform float uFlick;\n';
   const FLK_U = window.__flickU = {value: 1};
@@ -13861,8 +13873,8 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
       g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1)); g.setAttribute('wetE', new THREE.BufferAttribute(we, 1)); g.setAttribute('litS', new THREE.BufferAttribute(ls, 1)); g.setAttribute('litB', new THREE.BufferAttribute(lb, 1)); }
     if (did) { lightMs += performance.now() - t0; lightN++; } }
   // ---- shadows (Realistic): one sun shadow map that follows you, redrawn every few frames ----
-  if (REAL) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = touchMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
-    sunL.castShadow = true; const S = touchMode ? 1024 : 2048; sunL.shadow.mapSize.set(S, S); const c = sunL.shadow.camera; c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 170; c.updateProjectionMatrix(); sunL.shadow.bias = -0.0006; sunL.shadow.normalBias = 0.05; sunL.shadow.radius = 2;
+  if (REAL) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = touchMode && GQ < 3 ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+    sunL.castShadow = true; const S = touchMode && GQ < 3 ? 1024 : 2048; sunL.shadow.mapSize.set(S, S); const c = sunL.shadow.camera; c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 170; c.updateProjectionMatrix(); sunL.shadow.bias = -0.0006; sunL.shadow.normalBias = 0.05; sunL.shadow.radius = 2;
     for (const k in matCache) { const m = matCache[k]; if (m) m.needsUpdate = true; } }
   const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { addAO(g, cx, cz); if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
   if (REAL) { const sm = spawnMob; spawnMob = function () { const a = sm.apply(this, arguments); try { if (a && a.g) a.g.traverse(o => { if (o.isMesh) o.castShadow = true; }); } catch (_) {} return a; }; }
@@ -15409,6 +15421,152 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
   window.__c78 = () => ({stats: C78.stats, castles: [...C78.castles.values()].map(ci => ({k: ci.k, gy: ci.gy, beds: ci.beds.length, furn: !!ci.furn, table: !!ci.table, chests: ci.chests.length, farm: ci.farm.length, ores: ci.ores.length, yard: ci.yard.length, indoor: ci.indoor.length})),
     folk: mobs.filter(m => m.kind === 'clansman').map(m => ({role: m.role, job: m.job && m.job.type, ph: m.job && m.job.ph, sleeping: !!m.sleeping, food: Math.round(m.food || 0), pos: [m.g.position.x, m.g.position.y, m.g.position.z].map(v => Math.round(v * 10) / 10), bag: m.bag}))});
 })();
+/* ===================== GLX-C79 (v0.9.63-gfx): Graphics quality Low / Medium / High / Ultra
+   Low    = the game exactly as before (no new effects).
+   Medium = colour grading, deeper sky + sunset glow, shiny water (fresnel sky reflection, ripples, sun glint), leaves and grass sway in the wind, soft vignette. No extra render passes (phone default).
+   High   = Medium + sun shadows + post-processing: bloom (torches, lava, sun), FXAA edge smoothing, vignette (desktop default).
+   Ultra  = High + sharper soft shadows on phones too, wider bloom and sun shafts. ===================== */
+(function c79() {
+  const Q = GQ, U = {uT: {value: 0}, uWind: {value: 1}, uSunV: {value: new THREE.Vector3(0, 1, 0)}, uSkyTop: {value: new THREE.Color(0x6f9fd8)}, uSkyHor: {value: new THREE.Color(0xd8e4ea)},
+    uSunCol: {value: new THREE.Color(1, 0.95, 0.85)}, uDay: {value: 1}, uCave: {value: 0}};
+  const ST = {q: GFXQ, level: Q, gfx: typeof GFX !== 'undefined' ? GFX : null, post: false, rt: null, err: null};
+  window.__c79 = () => Object.assign({}, ST, {shadows: !!renderer.shadowMap.enabled});
+  if (Q < 1) return;   // Low: nothing changes
+  // ---- colour grading on every lit, tone-mapped surface (runs after fog so terrain, fog and sky match) ----
+  const GRADE = `{ vec3 gc = gl_FragColor.rgb; float gLum = dot(gc, vec3(0.2126, 0.7152, 0.0722));
+    gc = mix(vec3(gLum), gc, 1.18); gc = (gc - 0.5) * 1.08 + 0.5;
+    gc += vec3(0.016, 0.006, -0.012) * smoothstep(0.35, 1.0, gLum) + vec3(-0.008, 0.0, 0.014) * (1.0 - smoothstep(0.0, 0.3, gLum));
+    gl_FragColor.rgb = clamp(gc, 0.0, 1.0); }`;
+  THREE.ShaderChunk.dithering_fragment = '#if defined( TONE_MAPPING )\n' + GRADE + '\n#endif\n' + THREE.ShaderChunk.dithering_fragment;
+  // ---- sky: deeper blue overhead, a wide warm glow round the sun near the horizon, same grading ----
+  try { const sm = skyDome.material; sm.fragmentShader = sm.fragmentShader.replace('gl_FragColor = vec4(c * (1.0 - dark), 1.0); }',
+    `float lowSun = 1.0 - smoothstep(-0.05, 0.4, sunDir.y);
+      c = mix(c, top * vec3(0.78, 0.86, 1.0), pow(max(h, 0.0), 1.6) * 0.35 * (1.0 - lowSun * 0.6));
+      c += sunCol * vec3(1.0, 0.62, 0.32) * pow(s, 3.0) * 0.8 * lowSun * (1.0 - smoothstep(0.0, 0.45, abs(h)));
+      c += sunCol * pow(s, 2200.0) * 3.0 * sunK;
+      gl_FragColor = vec4(c * (1.0 - dark), 1.0);` + GRADE + ' }'); sm.needsUpdate = true; } catch (e) { ST.err = 'sky ' + e; }
+  // ---- water: ripples, fresnel reflection of the sky, sun glint, more solid at grazing angles ----
+  const wob = waterMat.onBeforeCompile;
+  waterMat.onBeforeCompile = function (sh, r) { wob.call(this, sh, r);
+    for (const k of ['uSunV', 'uSkyTop', 'uSkyHor', 'uSunCol', 'uDay', 'uCave']) sh.uniforms[k] = U[k];
+    sh.vertexShader = 'varying vec3 vWP;\nvarying float vSf;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vSf = aSurf;')
+      .replace('#include <fog_vertex>', '#include <fog_vertex>\n vWP = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = 'uniform float uTime, uDay, uCave;\nuniform vec3 uSunV, uSkyTop, uSkyHor, uSunCol;\nvarying vec3 vWP;\nvarying float vSf;\n' + sh.fragmentShader
+      .replace('#include <normal_fragment_begin>', `#include <normal_fragment_begin>
+        vec2 g = vec2(0.0); if (vSf > 0.5 && gl_FrontFacing) { vec2 p = vWP.xz; float t = uTime; vec2 d;
+          d = vec2(0.8, 0.6);   g += d * cos(dot(d, p) * 2.1 + t * 1.9) * 0.06;
+          d = vec2(-0.5, 0.86); g += d * cos(dot(d, p) * 3.3 + t * 2.6) * 0.045;
+          d = vec2(0.97, -0.24); g += d * cos(dot(d, p) * 5.7 + t * 3.4) * 0.03;
+          d = vec2(-0.3, -0.95); g += d * cos(dot(d, p) * 9.1 + t * 4.3) * 0.018;
+          normal = normalize((viewMatrix * vec4(-g.x, 1.0, -g.y, 0.0)).xyz); }`)
+      .replace('gl_FragColor = vec4( outgoingLight, diffuseColor.a );', `vec3 wc = outgoingLight; float wa = diffuseColor.a;
+        if (vSf > 0.5 && gl_FrontFacing) { vec3 vd = normalize(vViewPosition); float ndv = clamp(dot(normal, vd), 0.0, 1.0);
+          float fr = 0.04 + 0.96 * pow(1.0 - ndv, 5.0); vec3 rv = reflect(-vd, normal); vec3 rw = normalize((vec4(rv, 0.0) * viewMatrix).xyz);
+          vec3 sky = mix(uSkyHor, uSkyTop, pow(clamp(rw.y, 0.0, 1.0), 0.55)) * (0.35 + 0.65 * uDay) * (1.0 - uCave * 0.85);
+          wc = mix(wc * vec3(0.78, 0.93, 1.04), sky, clamp(fr * 0.75 + 0.05, 0.0, 0.8) * (1.0 - uCave * 0.7));
+          wc *= 0.9 + 1.6 * (g.x * 0.6 + g.y * 0.8);
+          wc += uSunCol * pow(max(dot(rv, uSunV), 0.0), 260.0) * 2.4 * uDay * (1.0 - uCave);
+          wa = clamp(mix(wa, 0.97, fr * 0.85), 0.0, 1.0); }
+        gl_FragColor = vec4(wc, wa);`); };
+  waterMat.customProgramCacheKey = () => 'c79water'; waterMat.needsUpdate = true;
+  // ---- wind: leaves and plants sway (stronger in storms) ----
+  const swayLeaf = `{ vec3 swp = (modelMatrix * vec4(position, 1.0)).xyz; float ph = uT * 1.7 + swp.x * 0.55 + swp.z * 0.4 + swp.y * 0.3;
+      transformed.x += sin(ph) * 0.035 * uWind; transformed.z += cos(ph * 0.83 + 1.3) * 0.03 * uWind; transformed.y += sin(ph * 1.3) * 0.01 * uWind; }`;
+  const swayPlant = `{ vec3 ip = vec3(0.0);
+    #ifdef USE_INSTANCING
+      ip = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+    #endif
+    float k = clamp(position.y, 0.0, 1.0); k *= k; float ph = uT * 2.1 + ip.x * 0.7 + ip.z * 0.5;
+    transformed.x += (sin(ph) * 0.09 + sin(ph * 2.7 + ip.z) * 0.025) * k * uWind; transformed.z += cos(ph * 0.9 + 0.7) * 0.07 * k * uWind; }`;
+  const addSway = (m, code, key) => { if (!m || m.__c79) return; m.__c79 = 1; const prev = m.onBeforeCompile;
+    m.onBeforeCompile = function (sh, r) { if (prev) prev.call(this, sh, r); sh.uniforms.uT = U.uT; sh.uniforms.uWind = U.uWind;
+      sh.vertexShader = 'uniform float uT;\nuniform float uWind;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n' + code); };
+    const ck = m.customProgramCacheKey && m.customProgramCacheKey !== THREE.Material.prototype.customProgramCacheKey ? m.customProgramCacheKey() : 'std';
+    m.customProgramCacheKey = () => ck + '|' + key; m.needsUpdate = true; };
+  try { [T.LEAVES, 134].forEach(id => { const m = BLOCK_MATS[id]; (Array.isArray(m) ? m : [m]).forEach(mm => addSway(mm, swayLeaf, 'c79leaf')); });
+    for (const k in PLANT_MATS) if (+k !== T.COBWEB) addSway(PLANT_MATS[k], swayPlant, 'c79plant'); } catch (e) { ST.err = 'sway ' + e; }
+  // ---- per-frame uniforms ----
+  const sv = new THREE.Vector3(), sp = new THREE.Vector3(); let lastT = performance.now();
+  function tick() { const n = performance.now(), dt = Math.min(0.1, (n - lastT) / 1000); lastT = n;
+    if (!paused) U.uT.value += dt; U.uWind.value = 1 + weather.dark * 1.6;
+    U.uSkyTop.value.copy(skyUniforms.top.value); U.uSkyHor.value.copy(skyUniforms.hor.value); U.uSunCol.value.copy(skyUniforms.sunCol.value);
+    U.uDay.value = DIM.cur ? 0.3 : daylight; U.uCave.value = caveK;
+    U.uSunV.value.copy(skyUniforms.sunDir.value).normalize().transformDirection(camera.matrixWorldInverse); }
+  // ---- Medium: a soft CSS vignette (free) ----
+  if (Q === 1) { const v = document.createElement('div'); v.id = 'c79vig'; v.style.cssText = 'position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(0,0,0,0.26) 100%)';
+    canvas.after(v); }
+  // ---- High / Ultra: post-processing (bloom + FXAA + vignette, Ultra adds sun shafts) ----
+  let post = null;
+  if (Q >= 2) try {
+    const ro = {minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, depthBuffer: false, stencilBuffer: false};
+    const rtS = new THREE.WebGLRenderTarget(4, 4, Object.assign({}, ro, {depthBuffer: true})), rtQ = new THREE.WebGLRenderTarget(4, 4, ro), rtA = new THREE.WebGLRenderTarget(4, 4, ro), rtB = new THREE.WebGLRenderTarget(4, 4, ro), rtC = new THREE.WebGLRenderTarget(4, 4, ro);
+    const pCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), pScene = new THREE.Scene(), quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2)); quad.frustumCulled = false; pScene.add(quad);
+    const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+    const M = (fs, u) => new THREE.ShaderMaterial({vertexShader: VS, fragmentShader: fs, uniforms: u, depthTest: false, depthWrite: false, toneMapped: false});
+    const bright = M(`uniform sampler2D t; uniform vec2 px; uniform float th; varying vec2 vUv;
+      void main(){ vec3 c = 0.25 * (texture2D(t, vUv + px * vec2(-1.0, -1.0)).rgb + texture2D(t, vUv + px * vec2(1.0, -1.0)).rgb + texture2D(t, vUv + px * vec2(-1.0, 1.0)).rgb + texture2D(t, vUv + px * vec2(1.0, 1.0)).rgb);
+        float m = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(th, th + 0.18, m), 1.0); }`, {t: {value: null}, px: {value: new THREE.Vector2()}, th: {value: 0.8}});
+    const blur = M(`uniform sampler2D t; uniform vec2 dir; varying vec2 vUv;
+      void main(){ vec3 c = texture2D(t, vUv).rgb * 0.2270270270;
+        c += (texture2D(t, vUv + dir * 1.3846153846).rgb + texture2D(t, vUv - dir * 1.3846153846).rgb) * 0.3162162162;
+        c += (texture2D(t, vUv + dir * 3.2307692308).rgb + texture2D(t, vUv - dir * 3.2307692308).rgb) * 0.0702702703;
+        gl_FragColor = vec4(c, 1.0); }`, {t: {value: null}, dir: {value: new THREE.Vector2()}});
+    const shaft = M(`uniform sampler2D t; uniform vec2 sun; uniform float asp; varying vec2 vUv;
+      void main(){ vec2 d = (vUv - sun) / 28.0; vec2 uv = vUv; float w = 1.0; vec3 c = vec3(0.0);
+        for (int i = 0; i < 28; i++) { uv -= d; vec2 o = (uv - sun) * vec2(asp, 1.0); float near = 1.0 - smoothstep(0.0, 0.55, length(o)); c += texture2D(t, uv).rgb * w * near; w *= 0.955; }
+        gl_FragColor = vec4(c / 14.0, 1.0); }`, {t: {value: null}, sun: {value: new THREE.Vector2()}, asp: {value: 1}});
+    const comp = M(`uniform sampler2D tS, tB, tR; uniform vec2 rp; uniform float bS, rS, vig; uniform vec3 rCol; varying vec2 vUv;
+      vec3 fxaa(vec2 uv){ vec3 nw = texture2D(tS, uv + vec2(-1.0, -1.0) * rp).rgb, ne = texture2D(tS, uv + vec2(1.0, -1.0) * rp).rgb, sw = texture2D(tS, uv + vec2(-1.0, 1.0) * rp).rgb, se = texture2D(tS, uv + vec2(1.0, 1.0) * rp).rgb, m = texture2D(tS, uv).rgb;
+        vec3 L = vec3(0.299, 0.587, 0.114); float lnw = dot(nw, L), lne = dot(ne, L), lsw = dot(sw, L), lse = dot(se, L), lm = dot(m, L);
+        float lmin = min(lm, min(min(lnw, lne), min(lsw, lse))), lmax = max(lm, max(max(lnw, lne), max(lsw, lse)));
+        if (lmax - lmin < max(0.04, lmax * 0.125)) return m;
+        vec2 dir = vec2(-((lnw + lne) - (lsw + lse)), (lnw + lsw) - (lne + lse));
+        float red = max((lnw + lne + lsw + lse) * 0.03125, 0.0078125); float rcp = 1.0 / (min(abs(dir.x), abs(dir.y)) + red);
+        dir = clamp(dir * rcp, vec2(-8.0), vec2(8.0)) * rp;
+        vec3 a = 0.5 * (texture2D(tS, uv + dir * (1.0 / 3.0 - 0.5)).rgb + texture2D(tS, uv + dir * (2.0 / 3.0 - 0.5)).rgb);
+        vec3 b = a * 0.5 + 0.25 * (texture2D(tS, uv - dir * 0.5).rgb + texture2D(tS, uv + dir * 0.5).rgb);
+        float lb = dot(b, L); return (lb < lmin || lb > lmax) ? a : b; }
+      void main(){ vec3 c = fxaa(vUv); vec3 bl = texture2D(tB, vUv).rgb * bS + texture2D(tR, vUv).rgb * rS * rCol;
+        c = 1.0 - (1.0 - c) * (1.0 - clamp(bl, 0.0, 1.0));
+        float d = length((vUv - 0.5) * vec2(1.0, 0.8)); c *= 1.0 - vig * smoothstep(0.38, 0.78, d);
+        gl_FragColor = vec4(c, 1.0); }`, {tS: {value: null}, tB: {value: null}, tR: {value: null}, rp: {value: new THREE.Vector2()}, bS: {value: 0.4}, rS: {value: 0}, vig: {value: 0.3}, rCol: {value: new THREE.Color(1, 0.9, 0.7)}});
+    const bsz = new THREE.Vector2(); let w0 = 0, h0 = 0, rayShow = 0;
+    const rr = renderer.render;
+    const pass = (m, tg) => { quad.material = m; renderer.setRenderTarget(tg); rr.call(renderer, pScene, pCam); };
+    post = function (sc, cam) {
+      renderer.getDrawingBufferSize(bsz); const w = Math.max(4, bsz.x | 0), h = Math.max(4, bsz.y | 0);
+      if (w !== w0 || h !== h0) { w0 = w; h0 = h; rtS.setSize(w, h); const dv = Q >= 3 ? 3 : 4; const qw = Math.max(2, Math.round(w / dv)), qh = Math.max(2, Math.round(h / dv)); rtQ.setSize(qw, qh); rtA.setSize(qw, qh); rtB.setSize(qw, qh); rtC.setSize(qw, qh); ST.rt = [w, h, qw, qh]; }
+      const inf = renderer.info; inf.reset(); inf.autoReset = false;
+      try {
+        renderer.setRenderTarget(rtS); rr.call(renderer, sc, cam);
+        const night = 1 - daylight, inCave = caveK;
+        bright.uniforms.t.value = rtS.texture; bright.uniforms.px.value.set(1 / w, 1 / h); bright.uniforms.th.value = 0.86 - 0.22 * Math.max(night, inCave); pass(bright, rtQ);
+        const qw = rtQ.width, qh = rtQ.height, spread = Q >= 3 ? 1.6 : 1.2;
+        blur.uniforms.t.value = rtQ.texture; blur.uniforms.dir.value.set(1 / qw, 0); pass(blur, rtB);
+        blur.uniforms.t.value = rtB.texture; blur.uniforms.dir.value.set(0, 1 / qh); pass(blur, rtA);
+        blur.uniforms.t.value = rtA.texture; blur.uniforms.dir.value.set(spread * 2 / qw, 0); pass(blur, rtB);
+        blur.uniforms.t.value = rtB.texture; blur.uniforms.dir.value.set(0, spread * 2 / qh); pass(blur, rtA);
+        // sun shafts (Ultra)
+        let rs = 0;
+        if (Q >= 3 && !DIM.cur) { sp.copy(skyUniforms.sunDir.value).normalize().multiplyScalar(100).add(cam.position); sv.copy(sp).project(cam);
+          const sy = skyUniforms.sunDir.value.y; const on = sv.z < 1 && Math.abs(sv.x) < 1.4 && Math.abs(sv.y) < 1.4 && sy > 0.0;
+          const want = on ? (1 - weather.dark) * (1 - caveK) * Math.min(1, sy * 5) * (1 - Math.min(1, Math.max(Math.abs(sv.x), Math.abs(sv.y)) - 0.9) * (Math.max(Math.abs(sv.x), Math.abs(sv.y)) > 0.9 ? 1 : 0)) : 0;
+          rayShow += (Math.max(0, want) - rayShow) * 0.15; rs = rayShow;
+          if (rs > 0.01) { shaft.uniforms.t.value = rtQ.texture; shaft.uniforms.sun.value.set(sv.x * 0.5 + 0.5, sv.y * 0.5 + 0.5); shaft.uniforms.asp.value = w / h; pass(shaft, rtC); } }
+        comp.uniforms.tS.value = rtS.texture; comp.uniforms.tB.value = rtA.texture; comp.uniforms.tR.value = rtC.texture; comp.uniforms.rp.value.set(1 / w, 1 / h);
+        comp.uniforms.bS.value = (Q >= 3 ? 0.55 : 0.45) + 0.35 * Math.max(night, inCave); comp.uniforms.rS.value = rs * 0.7; comp.uniforms.vig.value = 0.32;
+        if (typeof sunL !== 'undefined') comp.uniforms.rCol.value.copy(skyUniforms.sunCol.value);
+        pass(comp, null);
+      } finally { inf.autoReset = true; renderer.setRenderTarget(null); }
+    };
+    renderer.render = function (sc, cam) { if (post && sc === scene && cam === camera && renderer.getRenderTarget() === null && !window.__c79off) { try { return post(sc, cam); } catch (e) { if (!ST.err) { ST.err = 'post ' + e; console.warn('c79 post', e); } post = null; } } return rr.apply(renderer, arguments); };
+    ST.post = true;
+    if (Q >= 3) try { rayEl.style.display = 'none'; } catch (_) {}
+  } catch (e) { ST.err = 'post init ' + e; console.warn('c79', e); }
+  const r0 = render; render = function () { try { tick(); } catch (e) { if (!ST.err) ST.err = 'tick ' + e; } return r0.apply(this, arguments); };
+})();
+// GLX-C79: keep the quality description right under its row (later modules insert rows after Performance mode)
+(function () { try { const h = document.getElementById('gfxHint'), sg = document.getElementById('gfxSeg'); const r = sg && sg.parentElement && sg.parentElement.closest('.row, .setrow, div'); if (h && r) r.after(h); } catch (_) {} })();
 </script>
 </body>
 </html>
