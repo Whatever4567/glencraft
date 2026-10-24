@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0972f -->
+<!-- glencraft-build: v0973a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.72';
+const GAME_VERSION = 'v0.9.73';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -15034,7 +15034,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
   shootArrow = function (a) { const n = arrows.length, r = sa.apply(this, arguments); if (arrows.length > n) { const v = arrows[arrows.length - 1].v; v.x += (Math.random() - .5) * 1.1; v.y += (Math.random() - .5) * 0.6; v.z += (Math.random() - .5) * 1.1; } return r; };
 
   // ---------------- 3) castle folk ----------------
-  const ROLES = ['guard', 'farmer', 'miner', 'hunter', 'cook'];
+  const ROLES = ['hunter', 'miner'];   /* v0.9.73: exactly two folk, no more hoe farming */
   const ck = c => c[1] + ',' + c[2];
   const O2 = {tall: 2, door: true};
   const stand = (x, y, z) => okCell(x, y, z, O2);
@@ -15223,7 +15223,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
       if (!castleFriendly(c)) continue;
       const d = Math.hypot(P.x - c[1], P.z - c[2]);
       const mine = mobs.filter(m => m.kind === 'clansman' && m.home && m.home[0] === c[1] && m.home[1] === c[2]);
-      if (d > 112) { mine.forEach(m => removeMob(m)); continue; }
+      for (const m of mine) if (m.role && !ROLES.includes(m.role)) removeMob(m);
       if (d > 76) continue;
       const ci = castleInfo(c);
       for (const m of mine) if (!m.role) { m.role = ROLES.find(r => !mine.some(o => o.role === r)) || 'guard'; m.bedIdx = ROLES.indexOf(m.role); m.ci = ci; m.tall = 2; m.g.rotation.order = 'YXZ'; m.bag = []; setTools(m); }
@@ -15295,6 +15295,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
       }
       case 'hunter': {
         if (bagN(a) >= 1 && ch) return {type: 'deposit', ph: 'go'};
+        if (ch && ci.furn && ci.furn.a && (RAW.some(id => chestCount(ch.k, id) > 0) || (furnData(keyOf(ci.furn.x, ci.furn.y, ci.furn.z)) || {}).out)) return {type: 'cook', ph: 'furn', t: 0};
         if ((a.huntCd || 0) <= 0) {
           let t = null, td = 34;
           for (const m of mobs) { if ((m.kind !== 'sheep' && m.kind !== 'pig' && m.kind !== 'haggis') || m.named || m.tame || m.tamed || m.owner || m.leash || !(m.hp > 0)) continue;
@@ -15317,7 +15318,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
     if (a.job && a.job.type === 'fight') a.job = null;
     if (isNight) { if (!a.job || a.job.type !== 'bed') a.job = {type: 'bed', t: 0}; return; }
     if (a.job && a.job.type === 'bed') a.job = null;
-    if (a.food < 6 && (!a.job || a.job.type !== 'eat')) { a.job = {type: 'eat', ph: ci.chests[0] ? 'go' : 'eat', t: 0}; return; }
+    if ((a.food < 6 || (a.hp < 14 && a.food < 17)) && (!a.job || a.job.type !== 'eat')) { a.job = {type: 'eat', ph: ci.chests[0] ? 'go' : 'eat', t: 0}; return; }
     if (!a.job || a.job.done) a.job = planJob(a, ci);
   }
   function act(a, ci, dt) {
@@ -15348,7 +15349,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
       case 'eat': {
         if (j.ph === 'go') { if (goTo(a, ch.a[0], ch.a[1], ch.a[2], 1.6, dt) || (a.goFail || 0) > 8) { a.goFail = 0; face(a, ch.x, ch.z); chestTake(ch.k, FOODS, 1); j.ph = 'eat'; j.t = 0; } }
         else { j.t += dt; a.act = 'eat'; if (Math.random() < dt * 5) burst(p.x + Math.sin(a.yawVis) * 0.3, p.y + 1.6, p.z + Math.cos(a.yawVis) * 0.3, 0xc89a50, 1, 0.3);
-          if (j.t > 2.2) { a.food = 20; j.done = true; C78.stats.ate++; try { sfx3d('eat', p, 8); } catch (_) {} } }
+          if (j.t > 2.2) { a.food = 20; a.hp = Math.min(a.maxHp || 24, (a.hp || 0) + 8); j.done = true; C78.stats.ate++; try { sfx3d('eat', p, 8); } catch (_) {} } }
         break; }
       case 'deposit': {
         if (!ch) { a.bag = []; j.done = true; break; }
@@ -15413,7 +15414,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
     a.walk = (a.walk || 0) + dt * (a.curSpd || 0) * 3.3;
     const sw = Math.sin(a.walk) * 0.62 * a.swA, L = a.arms[0], R = a.arms[1], hd = a.head;
     if (a.sleeping) { a.legs.forEach(l => { l.rotation.x = 0; }); L.rotation.set(0, 0, -0.06); R.rotation.set(0, 0, 0.06); if (hd) hd.rotation.set(0, 0, 0); a.g.scale.y = 1;
-      if (Math.random() < dt * 0.4 && dist < 20) burst(a.g.position.x, a.g.position.y + 0.6, a.g.position.z, 0xffffff, 1, 0.15); return; }
+      return; }
     a.legs[0].rotation.x = sw; a.legs[1].rotation.x = -sw;
     let la = -sw * 0.8, ra = sw * 0.8, lz = -0.05, rz = 0.05;
     if (a.swingT > 0) { a.swingT -= dt; const k = 1 - a.swingT / 0.4; ra = k < 0.35 ? -2.7 * (k / 0.35) : -2.7 + (k - 0.35) / 0.65 * 2.4; }
@@ -17229,6 +17230,120 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
 (function c94notes() { const kill = () => { for (const id of ['notesBtn', 'notesUI']) { const el = document.getElementById(id); if (el) el.remove(); } };
   try { const st = document.createElement('style'); st.textContent = '#notesBtn,#notesUI{display:none!important}'; document.head.appendChild(st); } catch (_) {}
   kill(); document.addEventListener('DOMContentLoaded', kill); addEventListener('load', kill); })();
+
+/* ===================== GLX-C95 (v0.9.73): the two castle folk are player-like - player model + animations, trews (no more bare legs), full visible armour, held tools, animated eyes; exactly 2, saved with the world ===================== */
+(function c95() {
+  const C95 = window.__c95 = {snap: null, respawned: 0};
+  const START_ARM = [104, 105, 106, 107];   // copper set (there is no leather in the game); upgraded later as they craft
+  const isBot = a => a && a.kind === 'clansman';
+  // ---- the model: the player's own body, wearing trews, eyes that move ----
+  function dress(a) {
+    if (!a || !a.g || !a.g.userData || !a.g.userData.armourParts) return;
+    const keep = armour.slice(); for (let i = 0; i < 4; i++) armour[i] = (a.armour && a.armour[i]) || 0;
+    try { dressModel(a.g); } catch (e) { console.warn('c95 dress', e); } finally { for (let i = 0; i < 4; i++) armour[i] = keep[i]; }
+    a.dressed = (a.armour || []).join(',');
+  }
+  C95.dress = dress;
+  function held(id) { let m = null; try { m = makeItemMesh(id); } catch (_) { return null; } if (!m) return null;
+    m.scale.setScalar(1.6); m.position.set(0, -0.04, 0.06); m.rotation.set(Math.PI / 2 - 0.25, Math.PI / 2, 0); m.visible = false; return m; }
+  function eyeRig(o) {
+    const white = new THREE.MeshLambertMaterial({color: 0xf4f1ea}), iris = new THREE.MeshLambertMaterial({color: [0x2f6fb0, 0x4a7a3a, 0x6a4a2a][Math.random() * 3 | 0]}),
+      pup = new THREE.MeshLambertMaterial({color: 0x101418}), lidM = new THREE.MeshLambertMaterial({color: 0xd29a74});
+    o.mats.push(white, iris, pup, lidM); o.eyes = [];
+    [-1, 1].forEach((sx, i) => {
+      const g = new THREE.Group(); g.position.set(sx * 0.109, 0.27, 0.251); o.head.add(g);
+      const w = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.004), white); g.add(w);
+      const ir = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.054, 0.004), iris); ir.position.z = 0.003; g.add(ir);
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.032, 0.004), pup); p.position.z = 0.003; ir.add(p);
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.009, 0.004), white); hl.position.set(-0.008, 0.01, 0.005); ir.add(hl);
+      const lg = new THREE.BoxGeometry(0.106, 0.066, 0.006); lg.translate(0, -0.033, 0);
+      const lid = new THREE.Mesh(lg, lidM); lid.position.set(0, 0.033, 0.007); lid.scale.y = 0.02; g.add(lid);
+      o.eyes.push({ir, lid}); o['_ew' + i] = w; o['_ei' + i] = ir; o['_ep' + i] = p; o['_eh' + i] = hl; o['_el' + i] = lid;   // kept out of mergeStatic
+    });
+    o.eyeA = {blink: 1 + Math.random() * 3, x: 0, y: 0, tx: 0, ty: 0, sac: 0};
+  }
+  makeClansman = function () {
+    const g = buildPlayerModel(false), u = g.userData, mats = new Set();
+    g.traverse(c => { if (c.isMesh) for (const m of [].concat(c.material)) if (m) mats.add(m); });
+    const trews = new THREE.MeshLambertMaterial(tartanTex ? {map: tartanTex} : {color: 0x2b4f8a}); mats.add(trews);
+    u.legs.forEach(l => l.children.forEach(c => { const pr = c.isMesh && c.geometry && c.geometry.parameters; if (pr && (Math.abs(pr.height - 0.16) < 1e-3 || Math.abs(pr.height - 0.28) < 1e-3)) c.material = trews; }));
+    const o = {g, legs: u.legs, arms: u.arms, head: u.head, mats: [...mats], speed: 0, hp: 24, maxHp: 24, hitY: 1.1, hitR: .55, hostile: false, tall: 2, isBot: true};
+    eyeRig(o);
+    const grip = u.arms[1].userData.grip;
+    o.pickG = held(IT.IPICK || IT.SPICK); o.swordG = held(IT.ISWORD || IT.SSWORD); o.axeG = held(IT.IAXE || IT.SAXE); o.hoeG = null; o.shieldG = null;
+    for (const m of [o.pickG, o.swordG, o.axeG]) if (m) grip.add(m);
+    return o;
+  };
+  // ---- eyes: curious glances, looking at you or at whatever they're working on, blinking ----
+  const rel = v => { while (v > Math.PI) v -= 6.283; while (v < -Math.PI) v += 6.283; return v; };
+  function eyes(a, dt, dist) {
+    const E = a.eyeA; if (!E || !a.eyes) return;
+    const p = a.g.position, hy = (a.yawVis || 0) + (a.head ? a.head.rotation.y : 0);
+    let tgt = null;
+    const j = a.job;
+    if (j && j.m && j.m !== 'player' && j.m.g) tgt = j.m.g.position; else if (j && j.m === 'player') tgt = P;
+    else if (dist < 7) tgt = P;
+    if (tgt && !a.sleeping) { E.tx = clamp(rel(Math.atan2(tgt.x - p.x, tgt.z - p.z) - hy) * 0.05, -0.024, 0.024); E.ty = clamp(Math.atan2((tgt.y + (tgt === P ? 1.5 : 0.8)) - (p.y + 1.77), Math.max(1, Math.hypot(tgt.x - p.x, tgt.z - p.z))) * 0.04, -0.012, 0.012); }
+    else { E.sac -= dt; if (E.sac <= 0) { E.sac = 0.5 + Math.random() * 1.8; E.tx = (Math.random() - .5) * 0.046; E.ty = (Math.random() - .5) * 0.02; if (a.act === 'dig' || a.act === 'cook') E.ty = -0.01; } }
+    const k = Math.min(1, dt * 14); E.x += (E.tx - E.x) * k; E.y += (E.ty - E.y) * k;
+    E.blink -= dt; let lid = 0.02; if (E.blink < 0.16) lid = Math.max(0.02, Math.sin(Math.max(0, E.blink) / 0.16 * Math.PI)); if (E.blink <= 0) E.blink = (Math.random() < 0.2 ? 0.35 : 2 + Math.random() * 3.5);
+    if (a.sleeping) lid = 1; else if (a.act === 'dig') lid = Math.max(lid, 0.35);
+    for (const e of a.eyes) { e.ir.position.x = E.x; e.ir.position.y = E.y; e.lid.scale.y = lid; }
+  }
+  // ---- what they hold: the tool for the job, the sword in a fight ----
+  function tools(a) {
+    const act = a.act, r = a.role, fight = act === 'fight' || (a.job && (a.job.type === 'fight' || a.job.type === 'hunt'));
+    const want = a.sleeping ? null : fight ? 'sword' : (act === 'dig' || (a.job && a.job.type === 'mine')) ? 'pick' : (act === 'chop' || (a.job && a.job.type === 'chop')) ? 'axe' : r === 'hunter' ? 'sword' : r === 'miner' ? 'pick' : null;
+    if (a.pickG) a.pickG.visible = want === 'pick'; if (a.swordG) a.swordG.visible = want === 'sword'; if (a.axeG) a.axeG.visible = want === 'axe';
+  }
+  const ca = clanAI;
+  clanAI = function (a, dt) {
+    const r = ca.apply(this, arguments);
+    try { if (!a.armour) { a.armour = START_ARM.slice(); } if (a.dressed !== a.armour.join(',')) dress(a);
+      const dist = Math.hypot(P.x - a.g.position.x, P.z - a.g.position.z);
+      if (dist < 40) { tools(a); eyes(a, dt, dist); } } catch (e) { if (!C95.err) { C95.err = 1; console.warn('c95', e); } }
+    return r;
+  };
+  // ---- exactly two, and they stay: their state lives in the save and comes back after Hell trips and reloads ----
+  const sm = spawnMob;
+  spawnMob = function (kind) { if (kind === 'clansman' && !C95.force && mobs.filter(isBot).length >= 2) return null; return sm.apply(this, arguments); };
+  function snapOf(m) { const p = m.g.position; return {role: m.role, pos: [+p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2)], hp: Math.round((m.hp || 24) * 10) / 10, food: Math.round((m.food || 16) * 10) / 10,
+    bag: (m.bag || []).map(q => q.slice()), armour: (m.armour || START_ARM).slice(), home: m.home ? m.home.slice() : null, inv: m.inv ? JSON.parse(JSON.stringify(m.inv)) : undefined, brain: m.brain ? JSON.parse(JSON.stringify(m.brain)) : undefined}; }
+  function takeSnap() { if (DIM.cur || !started) return; const b = mobs.filter(m => isBot(m) && m.role); if (!b.length && !C95.snap) return; const o = C95.snap || {}; for (const m of b) o[m.role] = snapOf(m); C95.snap = o; }
+  function restore() {
+    if (!C95.snap || DIM.cur || !started) return;
+    for (const role of Object.keys(C95.snap)) {
+      const s = C95.snap[role]; if (!s || !s.pos || mobs.some(m => isBot(m) && m.role === role)) continue;
+      const [x, y, z] = s.pos; if (!(x > 1 && z > 1 && x < W - 1 && z < D - 1)) continue;
+      C95.force = true; window.__egg = true; window.__eggSpot = [x, y, z, Math.floor(x), Math.floor(z)]; let m = null;
+      try { m = spawnMob('clansman'); } finally { C95.force = false; window.__egg = false; window.__eggSpot = null; }
+      if (!m) continue;
+      m.g.position.set(x, Math.max(y, floorBelow(Math.floor(x), y + 1, Math.floor(z))), z);
+      Object.assign(m, {role, home: s.home || null, hp: s.hp || 24, food: s.food == null ? 16 : s.food, bag: (s.bag || []).map(q => q.slice()), armour: (s.armour || START_ARM).slice(), shaded: true, tall: 2, pathLimit: 600,
+        bedIdx: role === 'hunter' ? 0 : 1, thinkT: Math.random() * 0.5, glanceCd: 4 + Math.random() * 6});
+      if (s.inv) m.inv = s.inv; if (s.brain) m.brain = s.brain;
+      m.g.rotation.order = 'YXZ'; C95.respawned++;
+    }
+  }
+  C95.restore = restore; C95.takeSnap = takeSnap;
+  let snapT = 0;
+  const um = updateMobs;
+  updateMobs = function (dt) {
+    if (started && !DIM.cur) { try { restore(); } catch (e) { console.warn('c95 restore', e); } }
+    const r = um.apply(this, arguments);
+    snapT -= dt; if (snapT <= 0) { snapT = 1; try { takeSnap(); } catch (_) {} }
+    return r;
+  };
+  const km = killMob;
+  killMob = function (a) { if (isBot(a) && a.role && C95.snap) delete C95.snap[a.role]; return km.apply(this, arguments); };
+  const se = serialize;
+  serialize = function () { const d = se.apply(this, arguments); if (!DIM.cur) { try { takeSnap(); } catch (_) {} if (C95.snap) d.c95 = C95.snap; } else if (C95.snap) d.c95 = C95.snap; return d; };
+  const ap = applySave;
+  applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) C95.snap = d.c95 && typeof d.c95 === 'object' ? d.c95 : null; return r; };
+  const ew = enterWorld;
+  enterWorld = function (save) { if (!save) C95.snap = null; return ew.apply(this, arguments); };
+  window.__c95s = () => mobs.filter(isBot).map(m => ({role: m.role, job: m.job && m.job.type, act: m.act, hp: m.hp, food: Math.round(m.food || 0), armour: m.armour, pos: [m.g.position.x, m.g.position.y, m.g.position.z].map(v => Math.round(v * 10) / 10), sleeping: !!m.sleeping, bag: m.bag}));
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -17240,6 +17355,13 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.73', d:'2026-10-24', notes:[
+  'Castle folk: now exactly 2 of them (a hunter and a miner), and they stay in the world. Their position, health, food, bag and armour are saved',
+  'They use the player body and animations: proper tartan trews (no more bare legs), and the tool for the job in hand (pickaxe, axe or sword)',
+  'Full visible armour (starting with copper, as there is no leather in the game)',
+  'Animated eyes: they look around curiously, look at you or at what they are fighting, and blink. Eyes close when sleeping',
+  'No more white particles while they sleep, and no more hoe farming. The hunter cooks the meat in the castle furnace and they eat to heal'
+ ]},
  {v:'v0.9.72', d:'2026-10-24', notes:[
   'Fresh start: all old worlds, world backups and old saves were cleared off this device once (your settings, controls, DS game, DS saves and TV video were kept)',
   'One world only: Test World. Creating a world makes Test World (it asks "Replace Test World?" if you already have one). The world list shows just Test World with Play and Delete',
