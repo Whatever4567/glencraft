@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0968l -->
+<!-- glencraft-build: v0968m -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -15832,8 +15832,8 @@ void main() {
   // ---- grass tint in the shaders (texture-array path, and the classic / Photo-real materials) ----
   function grassLayers() { if (!__TA || !__TA.layers) return; const L = __TA.layers(T.GRASS); if (L) { BU.uBioS.value.z = L[2]; BU.uBioS.value.w = L[0]; } }
   if (__TA && __TA.mat && !window.__noBioTint) { const m = __TA.mat; Object.assign(m.uniforms, BU);
-    m.vertexShader = m.vertexShader.replace('varying vec3 vUvL;', 'uniform sampler2D uBio; uniform vec4 uBioS; varying vec3 vTint;\nvarying vec3 vUvL;')
-      .replace('vUvL = vec3(uv, lay);', 'vUvL = vec3(uv, lay);\n  vTint = vec3(1.0); if (abs(lay - uBioS.z) < 0.5 || abs(lay - uBioS.w) < 0.5) { vec2 bioW = (modelMatrix * vec4(transformed, 1.0)).xz; vTint = texture2D(uBio, bioW * uBioS.xy).rgb * ' + TS.toFixed(2) + '; }');
+    m.vertexShader = m.vertexShader.replace('varying vec3 vUvL;', 'attribute vec3 bioC; varying vec3 vTint;\nvarying vec3 vUvL;')
+      .replace('vUvL = vec3(uv, lay);', 'vUvL = vec3(uv, lay);\n  vTint = (bioC.r + bioC.g + bioC.b) > 0.0 ? bioC * ' + TS.toFixed(2) + ' : vec3(1.0);');
     m.fragmentShader = m.fragmentShader.replace('varying vec3 vUvL;', 'varying vec3 vTint; varying vec3 vUvL;')
       .replace('vec4 t = texture(uArr, vUvL);', 'vec4 t = texture(uArr, vUvL); if (vTint.r != 1.0 || vTint.g != 1.0) { float gm = clamp((t.g - max(t.r, t.b)) * 10.0, 0.0, 1.0); t.rgb = mix(t.rgb, t.rgb * vTint, gm); }');
     m.needsUpdate = true; grassLayers(); }
@@ -16209,6 +16209,31 @@ function c86() {
       for (const m of g.children) if (m.isInstancedMesh && m.geometry === crossGeo) { if (!near) { if (m.visible) { m.visible = false; m.userData.c88 = 1; } off++; } else { if (m.userData.c88) { m.visible = true; m.userData.c88 = 0; } on++; } } }
     window.__plantCull = {on, off}; }
   setInterval(cull, 250);
+})();
+
+/* ===================== GLX-C89 (v0.9.68): biome grass tint baked into the terrain vertices (no texture fetch in the shader - as fast as v0.9.67) ===================== */
+(function c89() {
+  if (!window.__bio || !__bio.BU || typeof buildChunk !== 'function') return;
+  const BU = __bio.BU;
+  function sample(img, x, z, out) {   // bilinear, same as the GPU did
+    const gw = img.width, gd = img.height, d = img.data; if (gw < 2) { out[0] = out[1] = out[2] = 0; return; }
+    let fx = x / 4 - 0.5, fz = z / 4 - 0.5; fx = Math.max(0, Math.min(gw - 1.001, fx)); fz = Math.max(0, Math.min(gd - 1.001, fz));
+    const x0 = fx | 0, z0 = fz | 0, tx = fx - x0, tz = fz - z0;
+    for (let c = 0; c < 3; c++) { const a = d[(z0 * gw + x0) * 4 + c], b = d[(z0 * gw + x0 + 1) * 4 + c], e = d[((z0 + 1) * gw + x0) * 4 + c], f = d[((z0 + 1) * gw + x0 + 1) * 4 + c];
+      out[c] = Math.max(1, Math.round((a * (1 - tx) + b * tx) * (1 - tz) + (e * (1 - tx) + f * tx) * tz)); } }
+  const tmp = [0, 0, 0];
+  function bake(m) { const g = m.geometry, la = g.getAttribute('lay'), pa = g.getAttribute('position'); if (!la || !pa) return;
+    const img = BU.uBio.value.image, n = la.count, L1 = BU.uBioS.value.z, L2 = BU.uBioS.value.w, ox = m.parent ? m.parent.position.x : 0, oz = m.parent ? m.parent.position.z : 0;
+    let at = g.getAttribute('bioC'); if (!at || at.count !== n) { at = new THREE.BufferAttribute(new Uint8Array(n * 3), 3, true); g.setAttribute('bioC', at); }
+    const A = at.array, P = pa.array, Ly = la.array; let any = 0;
+    for (let v = 0; v < n; v++) { const l = Ly[v]; if (l === L1 || l === L2) { sample(img, P[v * 3] + ox, P[v * 3 + 2] + oz, tmp); A[v * 3] = tmp[0]; A[v * 3 + 1] = tmp[1]; A[v * 3 + 2] = tmp[2]; any++; } else { A[v * 3] = A[v * 3 + 1] = A[v * 3 + 2] = 0; } }
+    at.needsUpdate = true; m.userData.bioImg = img; }
+  function bakeGroup(grp) { if (!grp) return; for (const m of grp.children) if (m.userData && m.userData.merged) bake(m); }
+  const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); try { bakeGroup(chunkObjs.get(cx * 64 + cz)); } catch (e) {} return r; };
+  // a new biome map (new world / loaded save): re-bake a few chunks per tick
+  setInterval(() => { if (typeof chunkObjs === 'undefined') return; const img = BU.uBio.value.image; let k = 0;
+    for (const g of chunkObjs.values()) { for (const m of g.children) if (m.userData && m.userData.merged && m.userData.bioImg !== img) { bake(m); k++; } if (k > 24) break; } }, 120);
+  window.__c89 = {bake, sample};
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
