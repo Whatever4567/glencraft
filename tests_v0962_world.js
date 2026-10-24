@@ -22,7 +22,7 @@ await look('border_west',6,60,432,0,58,436,6000);await look('border_corner',30,7
 await p.evaluate(()=>{const x0=Math.floor(P.x),z0=Math.floor(P.z);});
 const sx=Math.floor(sp[0])+4,sz=Math.floor(sp[2]);const row=await p.evaluate(([sx,sz])=>{const ids=[T.RUBYORE,T.LAZORE,T.COBALTORE,T.RUBYBLOCK,T.LAZBLOCK,T.COBALTBLOCK,T.DIAMONDORE,T.IRONBLOCK];const y=solidTop(sx,sz)+1;ids.forEach((id,i)=>{world[idx(sx,y,sz+i*2-7)]=id;world[idx(sx,y+1,sz+i*2-7)]=0;markDirty(sx,sz+i*2-7);});return y;},[sx,sz]);
 await look('newblocks',sx-4.5,row+1.2,sz+0.5,sx,row+0.4,sz+0.5,6000);
-await p.evaluate(()=>{for(const id of [IT.RUBY,IT.LAZURITE,IT.RAWCOBALT,IT.COBALTINGOT,IT.CPICK,IT.CSWORD,IT.CHELM,T.RUBYORE,T.COBALTBLOCK])inv[id]=3;MODE.hotbar=[IT.RUBY,IT.LAZURITE,IT.RAWCOBALT,IT.COBALTINGOT,IT.CPICK,IT.CSWORD,IT.CHELM,T.RUBYORE,T.COBALTBLOCK];try{renderHotbar()}catch(e){}});
+await p.evaluate(()=>{for(const id of [IT.RUBY,IT.LAZURITE,IT.RAWCOBALT,IT.COBALTINGOT,IT.CPICK,IT.CSWORD,IT.KHELM,T.RUBYORE,T.COBALTBLOCK])inv[id]=3;MODE.hotbar=[IT.RUBY,IT.LAZURITE,IT.RAWCOBALT,IT.COBALTINGOT,IT.CPICK,IT.CSWORD,IT.KHELM,T.RUBYORE,T.COBALTBLOCK];try{renderHotbar()}catch(e){}});
 await p.waitForTimeout(1500);await p.screenshot({path:dir+'hotbar_new.png',clip:{x:240,y:560,width:800,height:160}});
 // hell
 await p.evaluate(()=>{window.__fly=null;});
