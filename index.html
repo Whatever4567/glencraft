@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0969c -->
+<!-- glencraft-build: v0970h -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.69';
+const GAME_VERSION = 'v0.9.70';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -16244,7 +16244,7 @@ function c86() {
            run by EmulatorJS (GPL-3, melonDS core) loaded at runtime from cdn.emulatorjs.org inside an iframe.
            Nothing of the emulator loads until Play. In-game saves (SRAM) persist via EmulatorJS's IDBFS and a
            backup copy in our IndexedDB; leaving the game stores a resume state per game.
-   Slot 2: "Haggis Hop" - our own little platformer (code + art here), with saved high score and level progress. */
+   v0.9.70: Haggis Hop removed; the Gamepad launches the stored DS game straight away (resuming the last state). */
 (function c90() {
   const GP = 330; IT.GAMEPAD = GP; NAMES[GP] = 'Gamepad';
   if (!ORDER.includes(GP)) ORDER.push(GP);
@@ -16278,6 +16278,8 @@ function c86() {
   A.fget = fget; A.fput = fput;
   const romKey = (name, size) => (name.replace(/\.(nds|zip)$/i, '') + '_' + size).replace(/[^\w\-]+/g, '_').slice(0, 90);
   const mb = n => (n / 1048576).toFixed(1) + ' MB';
+  const persist = () => { try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().then(v => { A.persisted = v; }).catch(() => {}); } catch (_) {} };
+  A.persist = persist;
 
   // ---------- UI ----------
   const css = document.createElement('style');
@@ -16288,7 +16290,9 @@ function c86() {
 .arcHead{display:flex;align-items:center;gap:10px;font-weight:700}
 .arcLogo{background:#3cb043;color:#06200a;padding:3px 8px;border-radius:6px;letter-spacing:.08em;font-size:12px}
 .arcTitle{flex:1;font-size:18px}
-.arcSlots{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.arcSlots{display:grid;grid-template-columns:1fr;gap:12px}
+.arcSlot canvas{max-width:200px}
+.arcBtn.big{font-size:18px;padding:16px 22px;min-height:60px;width:100%}
 .arcSlot{background:#1d232c;border:2px solid #303845;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0}
 #arcUI canvas{position:static;inset:auto}
 .arcSlot canvas{width:100%;height:auto;aspect-ratio:3/2;image-rendering:pixelated;border-radius:8px;background:#000;flex:0 0 auto}
@@ -16303,27 +16307,21 @@ function c86() {
 .arcMsg{font-size:12.5px;color:#9fe870;text-align:center;min-height:1em}
 #arcStage{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center}
 #arcStage iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
-#hopC{position:relative!important;margin:auto;width:min(100vw,calc(100vh * 5 / 3));height:auto;aspect-ratio:5/3;image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 #arcExit{position:absolute;top:8px;right:8px;z-index:5;width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;border:2px solid rgba(255,255,255,.4);font-size:18px;cursor:pointer;opacity:.75}
 #arcLoad{position:absolute;z-index:4;color:#cde;font-size:15px;text-align:center;padding:20px;pointer-events:none;max-width:80%}
 #arcHint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(0,0,0,.7);padding:6px 12px;border-radius:8px;font-size:13px;pointer-events:none;opacity:0;transition:opacity .25s;white-space:nowrap}
-.hopT{position:absolute;bottom:14px;z-index:4;display:none;gap:14px}
-.hopT button{width:66px;height:66px;border-radius:50%;background:rgba(255,255,255,.13);border:2px solid rgba(255,255,255,.35);color:#fff;font-size:24px;touch-action:none}
-#arcStage.touch .hopT{display:flex}
 @media (max-height:460px){.arcTV{padding:8px 10px;gap:6px;border-width:6px;max-height:98vh}.arcSlot{padding:7px;gap:8px;flex-direction:row}.arcSlot canvas{width:32%}.arcTitle{font-size:15px}.arcBtn{padding:5px 9px;min-height:34px;font-size:12px}.arcInfo b{font-size:14px}.arcSt{font-size:11.5px}}`;
   document.head.appendChild(css);
   const ui = document.createElement('div'); ui.id = 'arcUI'; ui.className = 'hidden'; ui.dataset.testid = 'arcade';
   ui.innerHTML = `<div class="arcTV" id="arcMenu" data-testid="arcade-menu">
-  <div class="arcHead"><span class="arcLogo">GLENCRAFT TV</span><span class="arcTitle">Game library</span><button class="arcBtn" id="arcBack" data-testid="arcade-close">✕ Back to Glencraft</button></div>
+  <div class="arcHead"><span class="arcLogo">GLENCRAFT TV</span><span class="arcTitle">DS on the TV</span><button class="arcBtn" id="arcBack" data-testid="arcade-close">✕ Back to Glencraft</button></div>
   <div class="arcSlots">
-    <div class="arcSlot" data-testid="arcade-slot-ds"><canvas id="arcThumbDs" width="96" height="64"></canvas><div class="arcInfo"><b>DS Game <small>(load your own)</small></b><div class="arcSt" id="arcDsSt">…</div><div class="arcRow" id="arcDsBtns"></div></div></div>
-    <div class="arcSlot" data-testid="arcade-slot-hop"><canvas id="arcThumbHop" width="96" height="64"></canvas><div class="arcInfo"><b>Haggis Hop <small>(a wee Glencraft original)</small></b><div class="arcSt" id="arcHopSt">…</div><div class="arcRow"><button class="arcBtn main" id="arcHopPlay" data-testid="arcade-hop-play">▶ Play</button></div></div></div>
+    <div class="arcSlot" data-testid="arcade-slot-ds"><canvas id="arcThumbDs" width="96" height="64"></canvas><div class="arcInfo"><b>DS Game <small>(your own game file, kept on this device)</small></b><div class="arcSt" id="arcDsSt">…</div><div class="arcRow" id="arcDsBtns"></div></div></div>
   </div>
   <div class="arcMsg" id="arcMsg"></div>
-  <div class="arcFoot">Controller: A choose · B back · inside a game hold <b>View + Menu</b> (or tap ✕) to come back here</div>
+  <div class="arcFoot">Controller: A choose · B back · in the game hold <b>View + Menu</b> (or tap ✕) to save and go back to Glencraft</div>
 </div>
-<div id="arcStage" class="hidden"><div id="arcLoad"></div><button id="arcExit" data-testid="arcade-exit" title="Back to the TV menu">✕</button><div id="arcHint"></div>
-  <div class="hopT" style="left:14px"><button data-k="l">◀</button><button data-k="r">▶</button></div><div class="hopT" style="right:14px"><button data-k="j">⤒</button></div></div>`;
+<div id="arcStage" class="hidden"><div id="arcLoad"></div><button id="arcExit" data-testid="arcade-exit" title="Save and go back to Glencraft">✕</button><div id="arcHint"></div></div>`;
   document.body.appendChild(ui);
   const fileIn = document.createElement('input'); fileIn.type = 'file'; fileIn.style.display = 'none'; fileIn.dataset.testid = 'arcade-ds-file'; ui.appendChild(fileIn);
   const $a = id => document.getElementById(id), stage = $a('arcStage'), menu = $a('arcMenu');
@@ -16338,17 +16336,7 @@ function c86() {
     g.fillStyle = '#4a90e2'; g.fillRect(31, 10, 34, 16); g.fillStyle = '#6cc04a'; g.fillRect(31, 21, 34, 5); g.fillStyle = '#ffd54a'; g.fillRect(40, 16, 4, 5);
     g.fillStyle = '#e8eef5'; g.fillRect(31, 38, 34, 16); g.fillStyle = '#3cb043'; g.fillRect(35, 41, 26, 4); g.fillStyle = '#9aa3ae'; g.fillRect(35, 47, 26, 4);
     g.fillStyle = '#2b2f36'; g.fillRect(18, 42, 3, 9); g.fillRect(15, 45, 9, 3); [[77, 42, '#3cb043'], [81, 46, '#e0322a'], [73, 46, '#2f6fdf'], [77, 50, '#f2c230']].forEach(([x, y, c]) => { g.fillStyle = c; g.fillRect(x, y, 3, 3); });
-    g = $a('arcThumbHop').getContext('2d'); drawHopScene(g, 96, 64);
   })();
-  function drawHopScene(g, w, h) {
-    const sky = g.createLinearGradient(0, 0, 0, h); sky.addColorStop(0, '#6db3f2'); sky.addColorStop(1, '#cfe9ff'); g.fillStyle = sky; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#7b6aa8'; g.beginPath(); g.moveTo(0, h * .7); g.lineTo(w * .25, h * .3); g.lineTo(w * .45, h * .62); g.lineTo(w * .7, h * .25); g.lineTo(w, h * .66); g.lineTo(w, h); g.lineTo(0, h); g.fill();
-    g.fillStyle = '#4caf50'; g.fillRect(0, h * .78, w, h * .22); g.fillStyle = '#7a4b2a'; g.fillRect(0, h * .86, w, h * .14);
-    g.fillStyle = '#8b5a2b'; g.fillRect(w * .3, h * .66, 12, 8); g.fillStyle = '#c0392b'; g.fillRect(w * .3, h * .69, 12, 2); g.fillStyle = '#fff'; g.fillRect(w * .3 + 8, h * .67, 2, 2);
-    g.fillStyle = '#eee'; g.fillRect(w * .8, h * .38, 2, h * .4); g.fillStyle = '#1f5fbf'; g.fillRect(w * .8 + 2, h * .38, 14, 9); g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(w * .8 + 2, h * .38); g.lineTo(w * .8 + 16, h * .38 + 9); g.moveTo(w * .8 + 16, h * .38); g.lineTo(w * .8 + 2, h * .38 + 9); g.stroke();
-    g.fillStyle = '#e8c27a'; g.fillRect(w * .55, h * .58, 6, 4); g.fillRect(w * .62, h * .52, 6, 4);
-  }
-
   // ---------- menu state ----------
   let focus = 0;
   const items = () => [...menu.querySelectorAll('.arcBtn')].filter(b => b.offsetParent !== null);
@@ -16357,14 +16345,13 @@ function c86() {
     const rec = await fget('ds_rom'), st = rec ? await fget('ds_state:' + rec.key) : null, box = $a('arcDsBtns');
     box.innerHTML = '';
     const mk = (id, t, main) => { const b = document.createElement('button'); b.className = 'arcBtn' + (main ? ' main' : ''); b.id = id; b.dataset.testid = 'arcade-' + id.replace(/^arc/, '').toLowerCase(); b.textContent = t; box.appendChild(b); return b; };
-    if (!rec) { $a('arcDsSt').textContent = 'No game loaded yet. Pick your own .nds or .zip from this device once and it stays saved on this device only (never uploaded).';
-      mk('arcDsPick', '📂 Choose .nds / .zip file', true).onclick = () => fileIn.click(); }
+    if (!rec) { $a('arcDsSt').textContent = 'Pick your .nds or .zip once. It stays on this device only (never uploaded); after that the Gamepad starts it straight away.';
+      const b = mk('arcDsPick', '📂 Pick your DS game file (one time only)', true); b.classList.add('big'); b.onclick = () => fileIn.click(); }
     else { $a('arcDsSt').textContent = rec.name + ' · ' + mb(rec.size) + ' · stored on this device' + (st ? ' · resume point saved' : '');
       mk('arcDsPlay', st ? '▶ Resume' : '▶ Play', true).onclick = () => playDS(false);
       if (st) mk('arcDsFresh', '⟲ Restart game', false).onclick = () => playDS(true);
       mk('arcDsPick', '📂 Change file', false).onclick = () => fileIn.click();
       mk('arcDsForget', '🗑 Remove', false).onclick = async () => { await fdel('ds_rom'); msg('Game file removed from this device (its saves are kept)'); refresh(); }; }
-    const hs = hopLoad(); $a('arcHopSt').textContent = 'Hop the haggis across the Highlands, grab shortbread, dodge thistles and midges. Best score ' + hs.best + ' · reached level ' + hs.maxLevel + '.';
     refocus();
   }
   A.refresh = refresh;
@@ -16373,12 +16360,11 @@ function c86() {
     if (!/\.(nds|zip)$/i.test(f.name)) { msg('That is not a .nds or .zip file'); return; }
     if (f.size > 700 * 1048576) { msg('That file is too big'); return; }
     try { const rec = {blob: new Blob([f], {type: 'application/octet-stream'}), name: f.name, size: f.size, key: romKey(f.name, f.size), added: Date.now()};
-      await fput('ds_rom', rec); msg('Saved "' + f.name + '" on this device. Press Play!'); }
+      await fput('ds_rom', rec); persist(); msg('Saved "' + f.name + '" on this device. Starting…'); refresh(); playDS(false); return; }
     catch (e) { msg('Could not store the file on this device (storage full?)'); }
     refresh();
   });
   $a('arcBack').onclick = () => closeArcade();
-  $a('arcHopPlay').onclick = () => startHop();
   $a('arcExit').onclick = () => leaveGame();
 
   // ---------- open / close, world freeze ----------
@@ -16403,9 +16389,15 @@ function c86() {
     last = performance.now();
   }
   A.openArcade = openArcade; A.close = closeArcade;
-  function showStage(mode) { A.mode = mode; menu.classList.add('hidden'); stage.classList.remove('hidden'); $a('arcLoad').textContent = ''; hint('', false); stage.classList.toggle('touch', mode === 'hop' && (touchShown || matchMedia('(pointer:coarse)').matches)); }
+  async function launchDS(k, wantMenu) {
+    persist(); if (A.mode === 'ds') return; A.tvKey = k;
+    const rec = await fget('ds_rom');
+    if (rec && rec.blob && !wantMenu) playDS(false); else openArcade(k);
+  }
+  A.launchDS = launchDS;
+  function showStage(mode) { A.mode = mode; menu.classList.add('hidden'); stage.classList.remove('hidden'); $a('arcLoad').textContent = ''; hint('', false); }
   function backToMenu() { A.mode = null; stage.classList.add('hidden'); menu.classList.remove('hidden'); syncPrev(); refresh(); }
-  function leaveGame(quick) { if (A.mode === 'ds') return exitDS(quick); if (A.mode === 'hop') { hop.stop(); backToMenu(); } }
+  function leaveGame(quick) { if (A.mode === 'ds') return exitDS(quick); }
 
   // gamepad item use: aim at a TV or stand within ~4 blocks of one
   const baseUse = useItem;
@@ -16415,7 +16407,7 @@ function c86() {
       const o = tb === T.TV ? {x: r.hit[0], y: r.hit[1], z: r.hit[2]} : tvNearest(4.6);
       swing();
       if (!o) { toast('Stand next to a TV to play games on it (within 4 blocks)'); return; }
-      openArcade(keyOf(o.x, o.y, o.z)); return;
+      launchDS(keyOf(o.x, o.y, o.z), sneakHeld); return;
     }
     return baseUse.apply(this, arguments);
   };
@@ -16431,8 +16423,6 @@ function c86() {
     for (let i = 0; i < 17; i++) { const b = gp && gp.buttons[i], p = !!(b && (b.pressed || b.value > 0.4)); P[i] = p; E[i] = p && !prev[i]; prev[i] = p; }
     if (gp && P.some(Boolean)) { if (!A.padUsed) { A.padUsed = true; refocus(); } }
     const ax = gp ? gp.axes[0] || 0 : 0, ay = gp ? gp.axes[1] || 0 : 0;
-    if (A.mode === 'hop') { hop.pad(P, E, ax, ay); return; }
-    if (A.mode === 'ds') { dsCombo(P, E, dt); return; }
     // menu navigation
     let dx = E[14] ? -1 : E[15] ? 1 : 0, dy = E[12] ? -1 : E[13] ? 1 : 0;
     if (Math.abs(ax) > 0.55 || Math.abs(ay) > 0.55) { stickT -= dt; if (stickT <= 0) { stickT = stickT < -1 ? 0.3 : 0.18; if (Math.abs(ax) > Math.abs(ay)) dx = Math.sign(ax); else dy = Math.sign(ay); } } else stickT = 0;
@@ -16449,10 +16439,10 @@ function c86() {
     if (best < 0) best = (focus + (dx || dy) + it.length) % it.length;
     focus = best; refocus(); try { sfx('click', .15); } catch (_) {}
   }
+  addEventListener('keydown', e => { if (A.mode === 'ds' && !A.open) { if (!e.repeat) A.dsKey(e, true); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  addEventListener('keyup', e => { if (A.mode === 'ds' && !A.open) { A.dsKey(e, false); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
   addEventListener('keydown', e => {
     if (!A.open) return;
-    if (A.mode === 'hop') { if (hop.key(e, true)) { e.preventDefault(); } e.stopImmediatePropagation(); return; }
-    if (A.mode === 'ds') { if (e.key === 'Escape') { exitDS(); e.preventDefault(); } e.stopImmediatePropagation(); return; }
     const it = items();
     if (e.key === 'Escape' || e.key === 'Backspace') closeArcade();
     else if (/^Arrow/.test(e.key)) moveFocus(e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0, e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0);
@@ -16460,68 +16450,115 @@ function c86() {
     else { e.stopImmediatePropagation(); return; }
     e.preventDefault(); e.stopImmediatePropagation();
   }, true);
-  addEventListener('keyup', e => { if (!A.open) return; if (A.mode === 'hop') hop.key(e, false); e.stopImmediatePropagation(); }, true);
+  addEventListener('keyup', e => { if (!A.open) return; e.stopImmediatePropagation(); }, true);
   ui.addEventListener('mousedown', e => e.stopPropagation()); ui.addEventListener('pointerdown', e => e.stopPropagation());
 
-  // ---------- Slot 1: DS via EmulatorJS (lazy, iframe) ----------
+  // ---------- DS via EmulatorJS, shown ON the in-world TV screen (v0.9.70) ----------
+  // The emulator runs in a hidden same-origin iframe (opacity 0, behind the game canvas, still rendering). Its canvas is
+  // the texture of the TV's screen; its sound goes through Glencraft's audio context with a panner at the TV.
   const DS_DOC = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <style>html,body{margin:0;height:100%;background:#000;overflow:hidden;touch-action:none}#wrap{position:absolute;inset:0}#game{width:100%;height:100%}</style></head>
 <body><div id="wrap"><div id="game"></div></div><script>
 (async function () {
   var P = parent.__arcade, d = P.ds;
+  try { Object.defineProperty(window, 'devicePixelRatio', {get: function () { return 1; }}); } catch (e) {}
+  // the TV reads the emulator canvas after it has drawn: keep the drawing buffer
+  var gc = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (t, o) { if (/webgl/.test(t)) { o = Object.assign({}, o || {}, {preserveDrawingBuffer: true}); } return gc.call(this, t, o); };
+  // sound: use Glencraft's (already unlocked) audio context, routed through a panner at the TV
+  var shared = P.dsAudioCtx && P.dsAudioCtx();
+  if (shared) {
+    var Fake = function () { return shared.ctx; };
+    window.AudioContext = Fake; window.webkitAudioContext = Fake;
+  }
   var buf = await d.rec.blob.arrayBuffer();
   window.EJS_player = '#game'; window.EJS_core = 'nds'; window.EJS_pathtodata = P.EJS_PATH;
   window.EJS_gameUrl = new File([buf], d.rec.name); window.EJS_gameName = d.key;
-  window.EJS_startOnLoaded = true; window.EJS_color = '#3cb043'; window.EJS_backgroundColor = '#000'; window.EJS_volume = P.vol();
-  window.EJS_defaultOptions = {'melonds_screen_layout': 'Left/Right', 'melonds_touch_mode': 'Touch', 'lockMouse': 'disabled', 'save-state-location': 'browser', 'save-save-interval': '10', 'virtual-gamepad': d.pad ? 'disabled' : 'enabled'};
+  window.EJS_startOnLoaded = true; window.EJS_color = '#3cb043'; window.EJS_backgroundColor = '#000'; window.EJS_volume = 1;
+  window.EJS_defaultOptions = Object.assign({'melonds_screen_layout': 'Left/Right', 'melonds_touch_mode': 'Touch', 'lockMouse': 'disabled', 'save-state-location': 'browser', 'save-save-interval': '10', 'virtual-gamepad': 'disabled'}, P.dsOpts || {});
   window.EJS_Buttons = {exitEmulation: false, cacheManager: false, fullscreen: false};
   if (d.state) window.EJS_loadStateURL = new Uint8Array(d.state);
   window.EJS_onGameStart = function () { P.dsStarted(window); };
   var s = document.createElement('script'); s.src = P.EJS_PATH + 'loader.js'; s.onerror = function () { P.dsFail('Could not download the emulator (are you online?)'); }; document.body.appendChild(s);
 })().catch(function (e) { parent.__arcade.dsFail('Could not start: ' + (e && e.message || e)); });
 <\/script></body></html>`;
+  const dcss = document.createElement('style');
+  dcss.textContent = `#arcFrame{position:fixed;left:0;top:0;width:768px;height:288px;border:0;opacity:0;pointer-events:none;z-index:-5}
+#dsHud{position:fixed;left:50%;bottom:calc(10px + var(--sab,0px));transform:translateX(-50%);z-index:80;background:rgba(0,0,0,.72);color:#fff;font:600 13px system-ui,sans-serif;padding:6px 12px;border-radius:10px;transition:opacity .4s;pointer-events:none;text-align:center;max-width:92vw}
+#dsHud.off{opacity:0}
+#dsX{position:fixed;top:calc(10px + var(--sat,0px));right:calc(10px + var(--sar,0px));z-index:81;width:44px;height:44px;border-radius:50%;border:2px solid #ffffff66;background:rgba(0,0,0,.55);color:#fff;font-size:20px}
+#dsX.hidden{display:none}`;
+  document.head.appendChild(dcss);
+  const dsHud = document.createElement('div'); dsHud.id = 'dsHud'; dsHud.className = 'off'; dsHud.dataset.testid = 'ds-hud'; document.body.appendChild(dsHud);
+  const dsX = document.createElement('button'); dsX.id = 'dsX'; dsX.className = 'hidden'; dsX.textContent = '✕'; dsX.title = 'Save and stop playing'; dsX.dataset.testid = 'ds-exit'; document.body.appendChild(dsX);
+  dsX.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); exitDS(); });
+  let hudT = 0;
+  const dsHint = (t, ms) => { dsHud.textContent = t; dsHud.classList.remove('off'); clearTimeout(hudT); if (ms) hudT = setTimeout(() => dsHud.classList.add('off'), ms); };
+  A.dsAudioCtx = () => {
+    try { initAudio(); } catch (_) {}
+    if (!AC) return null;
+    if (!A.dsAud) { const g = AC.createGain(), pn = AC.createPanner(); pn.panningModel = 'equalpower'; pn.distanceModel = 'inverse'; pn.refDistance = 2.5; pn.rolloffFactor = 1.1; pn.maxDistance = 40;
+      g.connect(pn); pn.connect(AC.destination); A.dsAud = {g, pn}; }
+    // emscripten connects to ctx.destination: hand it a context view whose destination is our panner chain
+    const ctx = new Proxy(AC, {get(t, p) { if (p === 'destination') return A.dsAud.g; if (p === 'close') return () => Promise.resolve(); const v = t[p]; return typeof v === 'function' ? v.bind(t) : v; }});
+    try { if (AC.state === 'suspended') AC.resume(); } catch (_) {}
+    return {ctx};
+  };
   async function playDS(fresh) {
-    const rec = await fget('ds_rom'); if (!rec || !rec.blob) { msg('Pick a game file first'); refresh(); return; }
+    const rec = await fget('ds_rom'); if (!rec || !rec.blob) { if (!A.open) openArcade(A.tvKey); msg('Pick a game file first'); refresh(); return; }
+    const k = A.tvKey && entObjs.has(A.tvKey) ? A.tvKey : null; if (!k) { toast('Use the Gamepad next to a TV'); return; }
     const state = fresh ? null : await fget('ds_state:' + rec.key);
+    if (A.open) closeArcade();
+    if (A.mode === 'ds') return;
     A.ds = {rec, key: rec.key, state: state || null, pad: !!padNow(), t0: performance.now()};
-    showStage('ds'); $a('arcLoad').textContent = 'Starting the DS emulator… (the first time it downloads about 2 MB)';
-    const f = document.createElement('iframe'); f.id = 'arcFrame'; f.setAttribute('allow', 'autoplay; gamepad; fullscreen'); f.dataset.testid = 'arcade-ds-frame';
-    f.srcdoc = DS_DOC; stage.appendChild(f); A.frame = f;
-    A.dsTimer = setTimeout(() => { if (A.mode === 'ds' && !A.dsWin) $a('arcLoad').textContent = 'Still loading… (a slow connection can take a minute)'; }, 25000);
+    A.mode = 'ds'; A.tvPlay = {k, t0: performance.now()}; menuOpen = true; freezeWorld(true);
+    try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {}
+    dsX.classList.remove('hidden'); dsHint('Starting the DS on the TV… (the first time it downloads about 2 MB)');
+    const f = document.createElement('iframe'); f.id = 'arcFrame'; f.setAttribute('allow', 'autoplay; gamepad'); f.dataset.testid = 'arcade-ds-frame'; f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
+    f.srcdoc = DS_DOC; document.body.appendChild(f); A.frame = f;
+    A.dsTimer = setTimeout(() => { if (A.mode === 'ds' && !A.dsWin) dsHint('Still loading… (a slow connection can take a minute)'); }, 25000);
+    if (A.onTVStart) A.onTVStart(k);
   }
   A.playDS = playDS;
-  A.dsFail = t => { if (A.mode !== 'ds') return; $a('arcLoad').textContent = t + ' · tap ✕ to go back'; };
+  A.dsFail = t => { if (A.mode !== 'ds') return; dsHint(t + ' · hold View + Menu or tap ✕ to stop'); };
   A.dsStarted = async w => {
-    clearTimeout(A.dsTimer); A.dsWin = w; $a('arcLoad').textContent = ''; A.ds.started = performance.now();
-    const E = w.EJS_emulator;
-    // restore the backup save file if the emulator's own save storage lost it
+    clearTimeout(A.dsTimer); A.dsWin = w; A.ds.started = performance.now();
+    const E = w.EJS_emulator; A.dsCanvas = E && E.canvas;
     try { const gm = E.gameManager, p = gm.getSaveFilePath(), bk = await fget('ds_sram:' + A.ds.key);
       if (bk && p && !gm.FS.analyzePath(p).exists) { try { gm.FS.mkdirTree ? gm.FS.mkdirTree(p.replace(/\/[^/]*$/, '')) : 0; } catch (_) {} gm.FS.writeFile(p, new Uint8Array(bk)); gm.loadSaveFiles(); A.ds.restored = true; } } catch (_) {}
-    try { A.frame.focus(); w.focus(); } catch (_) {}
-    hint('Hold View + Menu (or tap ✕) to go back to the TV menu', true); setTimeout(() => hint('', false), 4000);
-    w.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); exitDS(); } }, true);
-    // stick -> d-pad and the exit combo, polled inside the game frame (it has focus)
-    const sd = [false, false, false, false]; let lt = 0;
-    (function loop(t) { if (A.dsWin !== w) return; w.requestAnimationFrame(loop); const dt = lt ? Math.min(0.1, (t - lt) / 1000) : 0; lt = t;
-      let g = null; try { g = [...w.navigator.getGamepads()].filter(Boolean)[0]; } catch (_) {} if (!g) return;
-      const pr = i => !!(g.buttons[i] && (g.buttons[i].pressed || g.buttons[i].value > 0.5)), P = []; for (let i = 0; i < 17; i++) P[i] = pr(i);
-      dsCombo(P, null, dt);
-      const ax = g.axes[0] || 0, ay = g.axes[1] || 0, want = [ay < -0.5, ay > 0.5, ax < -0.5, ax > 0.5];
-      for (let k = 0; k < 4; k++) if (want[k] !== sd[k]) { sd[k] = want[k]; if (!P[12 + k]) try { E.gameManager.simulateInput(0, 4 + k, want[k] ? 1 : 0); } catch (_) {} }
-    })();
+    try { window.focus(); } catch (_) {}
+    dsHint('Playing on the TV · hold View + Menu (or tap ✕) to save and stop', 5000);
+    if (A.onDSCanvas) A.onDSCanvas(A.dsCanvas);
   };
+  // controller -> emulator (RetroArch pad ids: 0 B,1 Y,2 Select,3 Start,4-7 Up/Down/Left/Right,8 A,9 X,10 L,11 R)
+  const PADMAP = {0: 8, 1: 0, 2: 9, 3: 1, 4: 10, 5: 11, 8: 2, 9: 3, 12: 4, 13: 5, 14: 6, 15: 7};
+  const dsHeld = {};
+  function dsSend(id, on) { if (!!dsHeld[id] === on) return; dsHeld[id] = on; try { A.dsWin.EJS_emulator.gameManager.simulateInput(0, id, on ? 1 : 0); } catch (_) {} }
+  A.dsSend = dsSend;
+  A.dsPad = (gp) => {
+    const P = []; for (let i = 0; i < 17; i++) { const b = gp && gp.buttons[i]; P[i] = !!(b && (b.pressed || b.value > 0.4)); }
+    dsCombo(P, null, 0);
+    if (!A.dsWin || A.exiting) return;
+    const ax = gp ? gp.axes[0] || 0 : 0, ay = gp ? gp.axes[1] || 0 : 0, st = {12: ay < -0.5, 13: ay > 0.5, 14: ax < -0.5, 15: ax > 0.5};
+    const want = {}; for (const i in PADMAP) { const id = PADMAP[i]; want[id] = !!(want[id] || P[i] || (st[i] || false)); }
+    if (P[8] && P[9]) { want[2] = false; want[3] = false; }      // the exit combo isn't sent to the game
+    for (const id in want) dsSend(+id, want[id]);
+  };
+  const KEYMAP = {ArrowUp: 4, ArrowDown: 5, ArrowLeft: 6, ArrowRight: 7, KeyX: 8, KeyZ: 0, KeyS: 9, KeyA: 1, KeyQ: 10, KeyW: 11, Enter: 3, ShiftRight: 2, ShiftLeft: 2, Backspace: 2};
+  A.dsKey = (e, down) => { if (e.code === 'Escape') { if (down) exitDS(); return true; } const id = KEYMAP[e.code]; if (id === undefined) return true; dsSend(id, down); return true; };
   let guidePrev = false, comboFrom = 0;
   function dsCombo(P, E, dt) {
-    if (A.exiting || !A.dsWin) return;
+    if (A.exiting || A.mode !== 'ds') return;
     const now = performance.now();
-    if (P[8] && P[9]) { if (!comboFrom) comboFrom = now; hint('Keep holding to go back to the TV menu…', true); if (now - comboFrom > 800) { comboFrom = 0; exitDS(); } }
-    else if (comboFrom && now - comboFrom > 120) { comboFrom = 0; hint('', false); }
+    if (P[8] && P[9]) { if (!comboFrom) comboFrom = now; dsHint('Keep holding to save and stop…'); if (now - comboFrom > 800) { comboFrom = 0; exitDS(); } }
+    else if (comboFrom && now - comboFrom > 120) { comboFrom = 0; dsHud.classList.add('off'); }
     if (P[16] && !guidePrev) exitDS(); guidePrev = !!P[16];
   }
   async function exitDS(quick) {
-    if (A.exiting) return; A.exiting = true;
+    if (A.exiting || A.mode !== 'ds') return; A.exiting = true;
     const w = A.dsWin; let E = null; try { E = w && w.EJS_emulator; } catch (_) {}
-    $a('arcLoad').textContent = 'Saving…'; hint('', false);
+    dsHint('Saving…');
+    for (const id in dsHeld) dsSend(+id, false);
     try { if (E && E.started && E.gameManager) {
       const gm = E.gameManager;
       try { gm.saveSaveFiles(); } catch (_) {}
@@ -16530,179 +16567,353 @@ function c86() {
       await new Promise(r => { let done = false; const fin = () => { if (!done) { done = true; r(); } }; try { gm.FS.syncfs(false, fin); } catch (_) { fin(); } setTimeout(fin, quick ? 600 : 2500); });
     } } catch (_) {}
     clearTimeout(A.dsTimer);
+    try { E && E.pause && E.pause(); } catch (_) {}
     try { A.frame.src = 'about:blank'; } catch (_) {} try { A.frame.remove(); } catch (_) {}
-    A.frame = null; A.dsWin = null; A.exiting = false; $a('arcLoad').textContent = '';
-    if (A.mode === 'ds') { backToMenu(); msg('Game saved. Resume any time from this TV.'); }
-    try { window.focus(); } catch (_) {}
+    A.frame = null; A.dsWin = null; A.dsCanvas = null; A.exiting = false;
+    const k = A.tvPlay && A.tvPlay.k; A.tvPlay = null; A.mode = null; menuOpen = false; freezeWorld(false); dsX.classList.add('hidden');
+    try { const gp = pickPad(); if (gp) for (let i = 0; i < 17; i++) { const b = gp.buttons[i]; gpPrev[i] = !!(b && (b.pressed || b.value > 0.4)); } } catch (_) {}
+    try { for (const kk in keys) keys[kk] = false; } catch (_) {}
+    if (A.onTVEnd) A.onTVEnd(k);
+    dsHint('DS game saved · use the Gamepad on the TV to carry on', 2500);
   }
   A.exitDS = exitDS;
 
-  // ---------- Slot 2: Haggis Hop (original) ----------
-  const HOP_KEY = 'glen_hop_v1';
-  function hopLoad() { try { return Object.assign({best: 0, maxLevel: 1, plays: 0}, JSON.parse(localStorage.getItem(HOP_KEY) || '{}')); } catch (_) { return {best: 0, maxLevel: 1, plays: 0}; } }
-  function hopSave(d) { try { localStorage.setItem(HOP_KEY, JSON.stringify(d)); } catch (_) {} }
-  A.hopLoad = hopLoad;
-  const hop = (function makeHop() {
-    const W = 320, H = 192, TS = 16, ROWS = 12;
-    const cv = document.createElement('canvas'); cv.id = 'hopC'; cv.width = W; cv.height = H; cv.dataset.testid = 'arcade-hop-canvas';
-    const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
-    let st = 'title', raf = 0, lastT = 0, lvl = 1, startLvl = 1, score = 0, lives = 3, map = null, cols = 0, coins = [], mids = [], flagX = 0, chk = null, pl = null, camX = 0, t = 0, flash = 0, msgT = 0, msgS = '', save = hopLoad();
-    const inp = {l: false, r: false, j: false, run: false, jE: false, startE: false, backE: false, lE: false, rE: false};
-    const kb = {l: false, r: false, j: false, run: false};
-    const tch = {l: false, r: false, j: false};
-    let jPrevAll = false;
-    function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; }; }
-    function gen(n) {
-      const R = rng(n * 977 + 13); cols = 70 + n * 12; map = []; for (let x = 0; x < cols; x++) map.push(new Uint8Array(ROWS));
-      coins = []; mids = []; let x = 0, gh = 9;
-      const ground = (x0, len, h) => { for (let i = x0; i < Math.min(cols, x0 + len); i++) { map[i][h] = 1; for (let y = h + 1; y < ROWS; y++) map[i][y] = 2; } };
-      ground(0, 8, gh); x = 8;
-      const gapMax = Math.min(4, 2 + (n >> 1));
-      while (x < cols - 12) {
-        const r = R();
-        if (r < 0.28 && x > 10) { // gap (sometimes with a floating ledge)
-          const len = 2 + (R() * (gapMax - 1) | 0);
-          if (len >= 3 && R() < 0.6) { const py = gh - 3; for (let i = 0; i < len; i++) map[x + i][py] = 3; coins.push({x: (x + len / 2) * TS, y: (py - 1) * TS + 4, got: false}); }
-          x += len; const len2 = 3 + (R() * 4 | 0); ground(x, len2, gh); x += len2;
-        } else if (r < 0.48) { // step
-          gh = clamp(gh + (R() < 0.5 ? -1 : 1) * (1 + (R() < 0.3 ? 1 : 0)), 6, 10); const len = 3 + (R() * 5 | 0); ground(x, len, gh); x += len;
-        } else { // flat with goodies / hazards
-          const len = 4 + (R() * 6 | 0); ground(x, len, gh);
-          for (let i = 1; i < len - 1; i++) {
-            const q = R();
-            if (q < 0.05 + n * 0.012 && map[x + i - 1][gh - 1] !== 4) map[x + i][gh - 1] = 4;   // thistle
-            else if (q < 0.25) coins.push({x: (x + i) * TS + 4, y: (gh - 2) * TS + 4, got: false});
-          }
-          if (R() < 0.18 + n * 0.04) mids.push({x0: (x + len / 2) * TS, y0: (gh - 3.5) * TS, x: 0, y: 0, ph: R() * 6, amp: 18 + R() * 22, dead: false});
-          x += len;
-        }
-        if (!chk && x > cols / 2) chk = {x: x * TS - TS * 2, y: (gh - 1) * TS, on: false, gh};
-      }
-      ground(x, cols - x, gh); flagX = (cols - 5) * TS; A.hopFlagX = flagX;
-      for (let i = cols - 7; i < cols; i++) for (let y = 0; y < gh; y++) if (map[i][y] === 4) map[i][y] = 0;
-      map.ghEnd = gh;
+  try { localStorage.removeItem('glen_hop_v1'); } catch (_) {}   // Haggis Hop was removed in v0.9.70: drop its save data
+})();
+
+
+/* ===================== GLX-C91: TV plays your own video + TV Remote transport (v0.9.70) ===================== */
+// The video file you pick stays on this device only (IndexedDB 'files'/'tv'); nothing is uploaded.
+(function tvRemoteV2() {
+  const REM = IT.REMOTE, A = window.__arcade || {};
+  const R = window.__tvr = {file: null, osdT: 0, hold: null, pend: null, lastKey: null, pos: {}, saveT: 0, gamePaused: false, inView: true, lastSeek: 0};
+  const POSK = 'glen_tvpos_v1';
+  const fmt = s => { s = Math.max(0, Math.floor(s || 0)); const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, x = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
+  const mb = n => (n / 1048576).toFixed(0) + ' MB';
+  const isFile = () => !!tvFileURL && tvCurSrc === tvFileURL;
+  const wid = () => (typeof current !== 'undefined' && current && current.id) || 'w';
+  let posLS = {}; try { posLS = JSON.parse(localStorage.getItem(POSK) || '{}') || {}; } catch (_) {}
+  function savedPos(k) { const m = entMeta.get(k) || {}; if (Number.isFinite(m.vt)) return m.vt; const v = posLS[wid() + '|' + k]; return Number.isFinite(v) ? v : 0; }
+  function storePos(k, t) {
+    if (!k || !Number.isFinite(t)) return; const m = entMeta.get(k); if (m) m.vt = +t.toFixed(1);
+    posLS[wid() + '|' + k] = +t.toFixed(1); const ks = Object.keys(posLS); if (ks.length > 200) delete posLS[ks[0]];
+    try { localStorage.setItem(POSK, JSON.stringify(posLS)); } catch (_) {}
+  }
+  R.savedPos = savedPos;
+
+  // ---- the stored file: name/size for the menu; your video is now what TVs play by default ----
+  (async () => { try { const f = A.fget ? await A.fget('tv') : null; if (f && f.size) { R.file = {name: f.name || 'your video', size: f.size}; tvName = R.file.name; if (!tvFileURL) tvFileURL = URL.createObjectURL(f); } } catch (_) {} })();
+  tvSrcFor = (function (base) { return function (k) { const m = entMeta.get(k) || {}; if (tvFileURL && m.video !== 'default') return tvFileURL; return base.apply(this, arguments); }; })(tvSrcFor);
+  tvSetSrc = (function (base) { return function (src) { const r = base.apply(this, arguments); if (src === tvFileURL) { tvVideo.loop = true; if (R.file) tvName = R.file.name; } return r; }; })(tvSetSrc);
+
+  const vin = document.createElement('input'); vin.type = 'file'; vin.accept = 'video/mp4,video/webm,video/*,.mp4,.webm,.m4v,.mov'; vin.style.display = 'none'; vin.dataset.testid = 'tv-video-file'; document.body.appendChild(vin);
+  R.input = vin;
+  vin.addEventListener('change', async () => {
+    const f = vin.files && vin.files[0]; vin.value = ''; if (!f) return;
+    if (!/^video\//.test(f.type) && !/\.(mp4|webm|m4v|mov)$/i.test(f.name)) { vmsg("That isn't a video file (pick an .mp4 or .webm)"); return; }
+    vmsg('Saving "' + f.name + '" on this device…');
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (_) {}
+    try { await A.fput('tv', f); } catch (e) { vmsg('Could not store the video on this device (not enough space?)'); return; }
+    const was = tvOnKey && isFile();
+    if (tvFileURL) { try { if (tvCurSrc === tvFileURL) { tvVideo.pause(); tvCurSrc = ''; } URL.revokeObjectURL(tvFileURL); } catch (_) {} }
+    tvFileURL = URL.createObjectURL(f); R.file = {name: f.name, size: f.size}; tvName = f.name;
+    for (const [k, m] of entMeta) if (m && m.vt !== undefined) delete m.vt;      // new video: every TV starts from the beginning
+    posLS = {}; try { localStorage.removeItem(POSK); } catch (_) {}
+    vmsg('Saved "' + f.name + '" on this device. Every TV now plays it.');
+    vrow(); if (was) tvSetSrc(tvFileURL);
+    if (pick && !pick.classList.contains('hidden') && tvPendingKey) { const k = tvPendingKey; pick.classList.add('hidden'); menuOpen = false; const m = entMeta.get(k) || {}; m.video = 'file'; entMeta.set(k, m); tvOn(k); }
+  });
+
+  // ---- TV menu row: Choose video ----
+  const st = document.createElement('style');
+  st.textContent = `.arcVid{display:flex;align-items:center;gap:10px;background:#1d232c;border:2px solid #303845;border-radius:12px;padding:8px 10px}
+.arcVid .ic{font-size:22px}.arcVid .tx{flex:1;min-width:0;font-size:12.5px;line-height:1.3}.arcVid .tx b{font-size:14px}
+#tvOsd{position:fixed;left:50%;bottom:calc(118px + var(--sab,0px));transform:translateX(-50%);z-index:60;background:rgba(10,12,16,.82);color:#fff;border-radius:12px;padding:7px 14px;display:flex;align-items:center;gap:10px;font:600 14px system-ui,sans-serif;pointer-events:none;transition:opacity .25s;min-width:260px}
+#tvOsd.off{opacity:0}#tvOsd .i{font-size:20px;width:24px;text-align:center}#tvOsd .bar{flex:1;height:5px;background:#ffffff33;border-radius:3px;overflow:hidden;min-width:90px}#tvOsd .bar i{display:block;height:100%;background:#e8473b;width:0}
+#tvOsd .t{font-variant-numeric:tabular-nums;white-space:nowrap}
+#tvRem{position:fixed;left:50%;top:calc(10px + var(--sat,0px));transform:translateX(-50%);z-index:59;display:flex;gap:8px}
+#tvRem.hidden{display:none}#tvRem button{width:54px;height:44px;border-radius:12px;border:2px solid #ffffff55;background:rgba(20,22,28,.7);color:#fff;font-size:19px;touch-action:none;user-select:none;-webkit-user-select:none}
+#tvRem button:active{background:rgba(232,71,59,.75)}
+body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
+  document.head.appendChild(st);
+  // the TV video picker lives in the Remote flow (sneak + use the remote), not in the Gamepad / DS path
+  const pick = document.getElementById('tvPick');
+  if (pick) {
+    pick.querySelector('h2').textContent = 'TV video';
+    pick.querySelector('.sub').innerHTML = '<span id="tvPickSt"></span><br>Controller: A = play your video, X = choose a video file, Y = shuffle playlist, B = cancel.';
+    const ch = pick.querySelector('#tvChoose'), df = pick.querySelector('#tvDefault');
+    const nc = ch.cloneNode(true); nc.textContent = '🎬 Choose video'; nc.dataset.testid = 'tv-choose-video'; ch.replaceWith(nc); nc.addEventListener('click', () => vin.click());
+    const w = document.createElement('button'); w.className = 'btn'; w.id = 'tvWatch'; w.dataset.testid = 'tv-watch'; w.textContent = '▶ Play my video';
+    nc.parentNode.insertBefore(w, nc); w.addEventListener('click', () => { const k = tvPendingKey; pick.classList.add('hidden'); menuOpen = false; if (k) { const m = entMeta.get(k) || {}; m.video = 'file'; entMeta.set(k, m); if (tvFileURL) tvOn(k); else toast('Choose a video first'); } });
+    new MutationObserver(() => { if (!pick.classList.contains('hidden')) vrow(); }).observe(pick, {attributes: true, attributeFilter: ['class']});
+  }
+  // controller on the picker: A = play my video, X = choose file, Y = playlist, B = cancel
+  const baseRead0 = readPad;
+  readPad = function () {
+    if (pick && !pick.classList.contains('hidden') && started && !paused) {
+      const gp = pickPad();
+      if (gp) { const E = []; for (let i = 0; i < 4; i++) { const b = gp.buttons[i], now = !!(b && (b.pressed || b.value > 0.4)); E[i] = now && !gpPrev[i]; gpPrev[i] = now; }
+        if (E[0]) pick.querySelector('#tvWatch').click(); else if (E[2]) vin.click(); else if (E[3]) tvChoose(tvPendingKey, 'default'); else if (E[1]) { pick.classList.add('hidden'); menuOpen = false; }
+        return {lx: 0, ly: 0, rx: 0, ry: 0}; }
     }
-    const solid = (tx, ty) => { if (tx < 0) return true; if (tx >= cols) return true; if (ty < 0 || ty >= ROWS) return false; const v = map[tx][ty]; return v === 1 || v === 2 || v === 3; };
-    function spawn(atChk) { const sx = atChk && chk && chk.on ? chk.x : 2 * TS, top = (() => { const tx = Math.floor((sx + 6) / TS); for (let y = 0; y < ROWS; y++) if (solid(tx, y)) return y * TS; return 9 * TS; })();
-      pl = {x: sx, y: top - 13, vx: 0, vy: 0, w: 12, h: 12, on: false, coy: 0, buf: 0, face: 1, inv: 1.2}; camX = Math.max(0, pl.x - 100); }
-    function startLevel(n) { lvl = n; chk = null; gen(n); spawn(false); st = 'play'; msgS = 'Level ' + n; msgT = 1.6; A.hopState = st; }
-    function newGame() { score = 0; lives = 3; save.plays++; hopSave(save); startLevel(startLvl); }
-    function beep(f0, f1, dur, type, v) { try { if (!AC) return; const o = AC.createOscillator(), gg = AC.createGain(), tt = AC.currentTime; o.type = type || 'square'; o.frequency.setValueAtTime(f0, tt); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), tt + dur);
-      gg.gain.setValueAtTime((v || 0.05) * A.vol(), tt); gg.gain.exponentialRampToValueAtTime(0.0001, tt + dur); o.connect(gg); gg.connect(AC.destination); o.start(tt); o.stop(tt + dur + 0.02); } catch (_) {} }
-    function hurt() { if (pl.inv > 0) return; lives--; beep(400, 80, 0.4, 'sawtooth', 0.06); flash = 0.5;
-      if (lives <= 0) { st = 'over'; A.hopState = st; if (score > save.best) save.best = score; hopSave(save); msgT = 0; return; }
-      spawn(true); pl.inv = 1.5; }
-    function win() { score += 100 + lives * 20; save.maxLevel = Math.max(save.maxLevel, lvl + 1); if (score > save.best) save.best = score; hopSave(save); beep(523, 1046, 0.5, 'triangle', 0.07);
-      st = 'clear'; msgT = 2.2; A.hopState = st; }
-    function update(dt) {
-      t += dt; if (flash > 0) flash -= dt; if (msgT > 0) msgT -= dt;
-      const I = {l: inp.l || kb.l || tch.l, r: inp.r || kb.r || tch.r, j: inp.j || kb.j || tch.j, run: inp.run || kb.run};
-      const jE = I.j && !jPrevAll; jPrevAll = I.j;
-      if (st === 'title') {
-        if (inp.lE) startLvl = Math.max(1, startLvl - 1); if (inp.rE) startLvl = Math.min(save.maxLevel, startLvl + 1);
-        if (jE || inp.startE) newGame(); else if (inp.backE) { stop(); backToMenu(); }
-      } else if (st === 'pause') { if (jE || inp.startE) st = 'play'; else if (inp.backE) { st = 'title'; } }
-      else if (st === 'over') { if (jE || inp.startE) { st = 'title'; startLvl = Math.min(startLvl, save.maxLevel); } else if (inp.backE) { stop(); backToMenu(); } }
-      else if (st === 'clear') { if (inp.backE) { st = 'title'; startLvl = Math.min(lvl + 1, save.maxLevel); } else if (msgT <= 0 || jE) startLevel(lvl + 1); }
-      else if (st === 'play') {
-        if (inp.startE || inp.backE) { st = 'pause'; inp.startE = inp.backE = false; A.hopState = st; return; }
-        const max = I.run ? 150 : 108, acc = pl.on ? 900 : 560;
-        if (I.l && !I.r) { pl.vx = Math.max(-max, pl.vx - acc * dt); pl.face = -1; } else if (I.r && !I.l) { pl.vx = Math.min(max, pl.vx + acc * dt); pl.face = 1; }
-        else { const f = (pl.on ? 1100 : 300) * dt; pl.vx = Math.abs(pl.vx) <= f ? 0 : pl.vx - Math.sign(pl.vx) * f; }
-        if (jE) pl.buf = 0.12; else pl.buf -= dt;
-        pl.coy = pl.on ? 0.09 : pl.coy - dt;
-        if (pl.buf > 0 && pl.coy > 0) { pl.vy = -335; pl.buf = 0; pl.coy = 0; pl.on = false; beep(300, 620, 0.12, 'square', 0.035); }
-        if (!I.j && pl.vy < -120) pl.vy = -120;
-        pl.vy = Math.min(480, pl.vy + 980 * dt);
-        // move x
-        pl.x += pl.vx * dt;
-        { const y0 = Math.floor(pl.y / TS), y1 = Math.floor((pl.y + pl.h - 1) / TS);
-          if (pl.vx > 0) { const tx = Math.floor((pl.x + pl.w) / TS); for (let y = y0; y <= y1; y++) if (solid(tx, y)) { pl.x = tx * TS - pl.w; pl.vx = 0; break; } }
-          else if (pl.vx < 0) { const tx = Math.floor(pl.x / TS); for (let y = y0; y <= y1; y++) if (solid(tx, y)) { pl.x = (tx + 1) * TS; pl.vx = 0; break; } } }
-        // move y
-        pl.y += pl.vy * dt; pl.on = false;
-        { const x0 = Math.floor((pl.x + 1) / TS), x1 = Math.floor((pl.x + pl.w - 2) / TS);
-          if (pl.vy > 0) { const ty = Math.floor((pl.y + pl.h) / TS); for (let x = x0; x <= x1; x++) if (solid(x, ty)) { pl.y = ty * TS - pl.h; pl.vy = 0; pl.on = true; break; } }
-          else if (pl.vy < 0) { const ty = Math.floor(pl.y / TS); for (let x = x0; x <= x1; x++) if (solid(x, ty) && map[x] && map[x][ty] !== 3) { pl.y = (ty + 1) * TS; pl.vy = 0; break; } } }
-        if (pl.inv > 0) pl.inv -= dt;
-        // thistles
-        { const x0 = Math.floor((pl.x + 2) / TS), x1 = Math.floor((pl.x + pl.w - 3) / TS), y0 = Math.floor((pl.y + 3) / TS), y1 = Math.floor((pl.y + pl.h - 1) / TS);
-          for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) if (map[x] && map[x][y] === 4) { hurt(); return; } }
-        if (pl.y > ROWS * TS + 20) { pl.inv = 0; hurt(); return; }
-        for (const c of coins) if (!c.got && Math.abs(c.x + 4 - (pl.x + 6)) < 10 && Math.abs(c.y + 3 - (pl.y + 6)) < 10) { c.got = true; score += 10; beep(880, 1320, 0.08, 'square', 0.03); }
-        for (const m of mids) { if (m.dead) continue; m.x = m.x0 + Math.sin(t * 1.6 + m.ph) * m.amp; m.y = m.y0 + Math.sin(t * 3.1 + m.ph) * 6;
-          if (Math.abs(m.x - (pl.x + 6)) < 10 && Math.abs(m.y - (pl.y + 6)) < 10) { if (pl.vy > 40 && pl.y + 6 < m.y) { m.dead = true; pl.vy = -240; score += 50; beep(200, 900, 0.15, 'triangle', 0.05); } else { hurt(); return; } } }
-        if (chk && !chk.on && pl.x > chk.x) { chk.on = true; beep(660, 990, 0.2, 'triangle', 0.04); msgS = 'Cairn reached'; msgT = 1.2; }
-        if (pl.x > flagX) win();
-        camX += (clamp(pl.x - 120, 0, cols * TS - W) - camX) * Math.min(1, dt * 8);
-      }
-      inp.jE = inp.startE = inp.backE = inp.lE = inp.rE = false;
+    return baseRead0.apply(this, arguments);
+  };
+  function vmsg(t) { const m = document.getElementById('tvPickSt'); if (m && pick && !pick.classList.contains('hidden')) m.textContent = t; toast(t); }
+  function vrow() {
+    const s = document.getElementById('tvPickSt'), w = document.getElementById('tvWatch'); if (!s) return;
+    if (R.file) { const k = tvPendingKey, p = k ? savedPos(k) : 0; s.textContent = 'Your video: ' + R.file.name + ' · ' + mb(R.file.size) + ' · stored on this device' + (p > 5 ? ' · this TV is at ' + fmt(p) : ''); w.classList.remove('hidden'); }
+    else { s.textContent = 'Pick a video from this device (mp4 / webm). It stays on this device only and every TV plays it.'; w.classList.add('hidden'); }
+  }
+  R.vrow = vrow;
+
+  // ---- OSD + touch/mouse remote bar ----
+  const osd = document.createElement('div'); osd.id = 'tvOsd'; osd.className = 'off'; osd.dataset.testid = 'tv-osd';
+  osd.innerHTML = '<span class="i">▶</span><span class="t">0:00 / 0:00</span><span class="bar"><i></i></span>'; document.body.appendChild(osd);
+  const rem = document.createElement('div'); rem.id = 'tvRem'; rem.className = 'hidden'; rem.dataset.testid = 'tv-remote-bar';
+  rem.innerHTML = '<button data-a="-1" data-testid="tv-rew" title="Rewind 10 s (hold = faster)">⏪</button><button data-a="0" data-testid="tv-playpause" title="Play / pause">⏯</button><button data-a="1" data-testid="tv-ff" title="Forward 10 s (hold = faster)">⏩</button>';
+  document.body.appendChild(rem);
+  rem.querySelectorAll('button').forEach(b => {
+    const a = +b.dataset.a;
+    b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); const k = remoteTV(); if (!k) return; if (a === 0) toggle(k); else holdStart(a); });
+    const up = e => { e.stopPropagation(); if (a) holdStop(a); };
+    b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('pointerleave', up);
+    b.addEventListener('click', e => e.stopPropagation()); b.addEventListener('mousedown', e => e.stopPropagation()); b.addEventListener('touchstart', e => e.stopPropagation(), {passive: true});
+  });
+  function showOsd() { R.osdT = performance.now() + 2000; osd.classList.remove('off'); paintOsd(); }
+  function paintOsd() {
+    const d = tvVideo.duration, t = tvVideo.currentTime;
+    osd.querySelector('.i').textContent = tvVideo.paused ? '❚❚' : '▶';
+    osd.querySelector('.t').textContent = fmt(t) + ' / ' + (Number.isFinite(d) ? fmt(d) : '--:--');
+    osd.querySelector('.bar i').style.width = (Number.isFinite(d) && d > 0 ? Math.min(100, t / d * 100) : 0) + '%';
+  }
+  R.showOsd = showOsd;
+
+  // ---- which TV the remote talks to ----
+  function remoteTV() {
+    if (!started || dead || paused || menuOpen || window.__arcadeOpen || selId !== REM || cnt(REM) <= 0) return null;
+    if (tvOnKey && entObjs.has(tvOnKey)) { const [x, y, z] = tvOnKey.split(',').map(Number); if (Math.hypot(x + .5 - P.x, y + .5 - P.y, z + .5 - P.z) <= 8.5) return tvOnKey; }
+    const o = tvNearest(8.5); return o ? keyOf(o.x, o.y, o.z) : null;
+  }
+  R.remoteTV = remoteTV;
+  function tvOn(k) {
+    if (tvOnKey && tvOnKey !== k && isFile()) storePos(tvOnKey, tvVideo.currentTime);
+    tvOnKey = k; tvSetSrc(tvSrcFor(k)); tvVideo.muted = false; tvPlay(); showOsd();
+    toast(isFile() ? 'TV on: ' + (R.file ? R.file.name : 'your video') : 'TV on (sneak + use the remote to choose your own video)');
+  }
+  R.tvOn = tvOn;
+  function toggle(k) {
+    if (tvOnKey !== k) { tvOn(k); return; }
+    if (tvVideo.muted && !tvVideo.paused) { tvVideo.muted = false; showOsd(); return; }
+    if (tvVideo.paused) { tvStart(); } else { tvVideo.pause(); if (isFile()) storePos(k, tvVideo.currentTime); }
+    sfx('pop', .25); showOsd();
+  }
+  R.toggle = toggle;
+  function seek(s) {
+    if (!tvOnKey) return; const d = tvVideo.duration; let t = (tvVideo.currentTime || 0) + s;
+    t = Math.max(0, Number.isFinite(d) ? Math.min(d - 0.5, t) : t);
+    try { tvVideo.currentTime = t; } catch (_) {}
+    R.lastSeek = t; if (isFile()) storePos(tvOnKey, t); tvNewFrame = true; showOsd();
+  }
+  R.seek = seek;
+  function holdStart(dir) { const k = remoteTV(); if (!k) return; if (tvOnKey !== k) { tvOn(k); return; } R.hold = {dir, t0: performance.now(), next: performance.now() + 450}; seek(10 * dir); }
+  function holdStop(dir) { if (R.hold && (!dir || R.hold.dir === dir)) R.hold = null; }
+  R.holdStart = holdStart; R.holdStop = holdStop;
+  function holdTick(now) {
+    const h = R.hold; if (!h) return;
+    if (!remoteTV()) { R.hold = null; return; }
+    if (now >= h.next) { const held = now - h.t0; seek(h.dir * (held < 2000 ? 10 : held < 4000 ? 30 : 60)); h.next = now + 180; }
+  }
+
+  // ---- LT / use: play-pause (sneak + use = TV menu) ----
+  const baseUse = useItem;
+  useItem = function () {
+    if (!(menuOpen || paused || dead || !started) && selId === REM && cnt(REM) > 0) {
+      const r = raycast(12), tb = r ? getB(...r.hit) : 0;
+      let k = tb === T.TV ? keyOf(r.hit[0], r.hit[1], r.hit[2]) : remoteTV();
+      swing();
+      if (!k) { toast('Get within 8 blocks of a TV to use the remote'); return; }
+      if (sneakHeld) { tvOpenPicker(k); return; }
+      toggle(k); return;
     }
-    // ---- drawing ----
-    const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#5fa8ee'); sky.addColorStop(0.7, '#cfe8ff'); sky.addColorStop(1, '#e9f4ff');
-    function hills(par, col, base, amp, f) { g.fillStyle = col; g.beginPath(); g.moveTo(0, H); for (let x = 0; x <= W; x += 8) { const wx = x + camX * par; g.lineTo(x, base - Math.abs(Math.sin(wx * f) * amp) - Math.sin(wx * f * 2.7) * amp * 0.25); } g.lineTo(W, H); g.fill(); }
-    function txt(s, x, y, size, col, al) { g.font = 'bold ' + size + 'px monospace'; g.textAlign = al || 'center'; g.fillStyle = '#000'; g.fillText(s, x + 1, y + 1); g.fillStyle = col || '#fff'; g.fillText(s, x, y); }
-    function drawHaggis(x, y, face, blink) {
-      x = Math.round(x); y = Math.round(y);
-      g.fillStyle = '#5a3416'; g.fillRect(x + 1, y + 3, 10, 8); g.fillRect(x + 2, y + 2, 8, 10); g.fillStyle = '#8b5a2b'; g.fillRect(x + 2, y + 3, 8, 7);
-      g.fillStyle = '#c0392b'; g.fillRect(x + 1, y + 7, 10, 2); g.fillStyle = '#1e5a2e'; g.fillRect(x + 3, y + 7, 1, 2); g.fillRect(x + 7, y + 7, 1, 2);
-      g.fillStyle = '#3a2210'; g.fillRect(x + 2, y + 12, 2, 1); g.fillRect(x + 8, y + 12, 2, 1);
-      const ex = face > 0 ? x + 7 : x + 3; g.fillStyle = '#fff'; g.fillRect(ex, y + 4, 2, 2); if (!blink) { g.fillStyle = '#000'; g.fillRect(ex + (face > 0 ? 1 : 0), y + 4, 1, 2); }
+    return baseUse.apply(this, arguments);
+  };
+
+  // ---- controller: LB/RB and D-pad left/right seek while the TV is on (hold B to use them normally) ----
+  const SEEKB = {4: -1, 14: -1, 5: 1, 15: 1};
+  const baseRead = readPad;
+  readPad = function () {
+    try {
+      const k = remoteTV(), gp = k && tvOnKey === k ? pickPad() : null;
+      if (gp) {
+        const pr = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.4));
+        if (!pr(1)) for (const i in SEEKB) { const now = pr(i); if (now && !gpPrev[i]) holdStart(SEEKB[i]); else if (!now && gpPrev[i] && R.hold && R.hold.btn === +i) holdStop(); if (now && R.hold && !R.hold.btn) R.hold.btn = +i; gpPrev[i] = now; }
+      } else if (R.hold && R.hold.btn !== undefined) holdStop();
+    } catch (_) {}
+    return baseRead.apply(this, arguments);
+  };
+  // keyboard: , and . (or [ and ]) seek, K play/pause
+  const KEYS = {Comma: -1, BracketLeft: -1, Period: 1, BracketRight: 1};
+  addEventListener('keydown', e => {
+    if (!(e.code in KEYS) && e.code !== 'KeyK') return; const k = remoteTV(); if (!k) return;
+    if (e.code === 'KeyK') { if (!e.repeat) toggle(k); } else if (!e.repeat) holdStart(KEYS[e.code]);
+    e.preventDefault();
+  }, true);
+  addEventListener('keyup', e => { if (e.code in KEYS) holdStop(KEYS[e.code]); }, true);
+
+  // ---- per-frame: position memory, view-gated texture, distance fade, game pause, remote bar ----
+  const fr = new THREE.Frustum(), pm = new THREE.Matrix4(), sph = new THREE.Sphere(new THREE.Vector3(), 0.8);
+  const baseTick = tvTick;
+  tvTick = function (dt) {
+    if (tvOnKey && entObjs.has(tvOnKey)) {
+      const o = entObjs.get(tvOnKey);
+      pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); fr.setFromProjectionMatrix(pm);
+      sph.center.set(o.x + .5, o.y + .45, o.z + .5); R.inView = fr.intersectsSphere(sph);
+      if (!R.inView) { tvNewFrame = false; tvLastVT = tvVideo.currentTime; R.skipped = (R.skipped || 0) + 1; }
     }
-    function draw() {
-      g.fillStyle = sky; g.fillRect(0, 0, W, H);
-      g.fillStyle = '#fff6c8'; g.fillRect(250, 22, 14, 14);
-      hills(0.15, '#8a78b8', 120, 46, 0.012); hills(0.35, '#5f8f55', 150, 22, 0.02);
-      if (!map) { gen(1); spawn(false); }
-      const x0 = Math.floor(camX / TS), x1 = Math.min(cols - 1, x0 + Math.ceil(W / TS) + 1);
-      for (let x = x0; x <= x1; x++) for (let y = 0; y < ROWS; y++) { const v = map[x][y]; if (!v) continue; const px = Math.round(x * TS - camX), py = y * TS;
-        if (v === 1) { g.fillStyle = '#7a4b2a'; g.fillRect(px, py, TS, TS); g.fillStyle = '#4caf50'; g.fillRect(px, py, TS, 5); g.fillStyle = '#2e7d32'; g.fillRect(px, py + 5, TS, 1); g.fillStyle = '#6a3f22'; g.fillRect(px + (x * 7 % 11), py + 9, 2, 2); }
-        else if (v === 2) { g.fillStyle = '#7a4b2a'; g.fillRect(px, py, TS, TS); g.fillStyle = '#6a3f22'; g.fillRect(px + (x * 5 + y * 3) % 12, py + (x * 3 + y) % 12, 2, 2); }
-        else if (v === 3) { g.fillStyle = '#8f9499'; g.fillRect(px, py, TS, 7); g.fillStyle = '#5f6469'; g.fillRect(px, py + 6, TS, 1); g.fillRect(px + 7, py, 1, 6); }
-        else if (v === 4) { g.fillStyle = '#2e7d32'; g.fillRect(px + 7, py + 8, 2, 8); g.fillRect(px + 3, py + 11, 10, 2); g.fillStyle = '#3f9a45'; g.fillRect(px + 5, py + 6, 6, 4); g.fillStyle = '#9b59b6'; g.fillRect(px + 5, py + 2, 6, 5); g.fillStyle = '#c38fdc'; g.fillRect(px + 6, py + 1, 4, 2); }
-      }
-      if (chk) { const px = Math.round(chk.x - camX), py = chk.y; g.fillStyle = '#8d8f93'; g.fillRect(px, py + 8, 12, 8); g.fillRect(px + 2, py + 3, 8, 5); g.fillRect(px + 4, py, 4, 3); if (chk.on) { g.fillStyle = '#ffd54a'; g.fillRect(px + 5, py - 4, 2, 3); } }
-      for (const c of coins) if (!c.got) { const px = Math.round(c.x - camX), py = Math.round(c.y + Math.sin(t * 4 + c.x) * 1.5); g.fillStyle = '#c99a52'; g.fillRect(px, py, 9, 6); g.fillStyle = '#ecc98a'; g.fillRect(px + 1, py + 1, 7, 4); g.fillStyle = '#b07f3c'; g.fillRect(px + 2, py + 2, 1, 1); g.fillRect(px + 5, py + 2, 1, 1); }
-      for (const m of mids) if (!m.dead) { const px = Math.round(m.x - camX), py = Math.round(m.y); g.fillStyle = '#111'; g.fillRect(px - 2, py - 2, 4, 4); g.fillStyle = (t * 20 | 0) % 2 ? 'rgba(255,255,255,.8)' : 'rgba(200,220,255,.5)'; g.fillRect(px - 5, py - 4, 3, 2); g.fillRect(px + 2, py - 4, 3, 2);
-        g.fillStyle = '#222'; g.fillRect(px + 4 + Math.sin(t * 9) * 2 | 0, py + 3, 2, 2); g.fillRect(px - 6 + Math.cos(t * 8) * 2 | 0, py + 1, 2, 2); }
-      { const px = Math.round(flagX - camX), gy = map.ghEnd * TS; g.fillStyle = '#eee'; g.fillRect(px, gy - 64, 2, 64); g.fillStyle = '#1f5fbf'; g.fillRect(px + 2, gy - 64, 22, 14);
-        g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.moveTo(px + 2, gy - 64); g.lineTo(px + 24, gy - 50); g.moveTo(px + 24, gy - 64); g.lineTo(px + 2, gy - 50); g.stroke(); }
-      if (pl && (st === 'play' || st === 'pause' || st === 'clear') && !(pl.inv > 0 && (t * 12 | 0) % 2)) drawHaggis(pl.x - camX, pl.y - 1, pl.face, (t % 3) < 0.12);
-      if (flash > 0) { g.fillStyle = 'rgba(255,40,40,' + (flash * 0.6) + ')'; g.fillRect(0, 0, W, H); }
-      // HUD
-      if (st !== 'title') { txt('SCORE ' + score, 6, 14, 10, '#fff', 'left'); txt('LV ' + lvl, W / 2, 14, 10, '#ffd54a'); for (let i = 0; i < lives; i++) { g.fillStyle = '#c0392b'; g.fillRect(W - 60 + i * 11, 6, 8, 7); g.fillStyle = '#e74c3c'; g.fillRect(W - 59 + i * 11, 7, 3, 2); } }
-      if (msgT > 0 && st === 'play') txt(msgS, W / 2, 60, 14, '#fff');
-      if (st === 'title') { g.fillStyle = 'rgba(0,0,30,.35)'; g.fillRect(0, 0, W, H); txt('HAGGIS HOP', W / 2, 52, 26, '#ffd54a'); drawHaggis(W / 2 - 6, 64 + Math.abs(Math.sin(t * 5)) * -8, 1, false);
-        txt('Start at level  ◀ ' + startLvl + ' ▶', W / 2, 104, 11, '#fff'); txt('Best score ' + save.best + '   ·   unlocked level ' + save.maxLevel, W / 2, 122, 9, '#cfe');
-        txt((t % 1.2) < 0.8 ? 'A / Space / tap ⤒ to start' : '', W / 2, 146, 10, '#9fe870'); txt('B / Esc: back to the TV menu', W / 2, 170, 8, '#ccd'); }
-      if (st === 'pause') { g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, 0, W, H); txt('PAUSED', W / 2, 80, 20, '#fff'); txt('A: carry on   ·   B: quit to title', W / 2, 110, 9, '#cfe'); }
-      if (st === 'over') { g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W, H); txt('GAME OVER', W / 2, 72, 22, '#e74c3c'); txt('Score ' + score + '   ·   best ' + save.best, W / 2, 100, 10, '#fff'); txt('A: title   ·   B: TV menu', W / 2, 124, 9, '#cfe'); }
-      if (st === 'clear') { txt('LEVEL ' + lvl + ' CLEAR!', W / 2, 70, 18, '#9fe870'); txt('Progress saved', W / 2, 92, 9, '#fff'); }
+    return baseTick.apply(this, arguments);
+  };
+  const baseUpd = updateTV;
+  updateTV = function (dt) {
+    const k = tvOnKey;
+    if (k !== R.lastKey) { if (R.lastKey && R.wasFile) storePos(R.lastKey, R.lastT); R.pend = k ? savedPos(k) : null; R.lastKey = k; }
+    const r = baseUpd.apply(this, arguments);
+    if (k && isFile()) {
+      if (R.pend !== null) { if (tvVideo.readyState >= 1) { if (Math.abs(tvVideo.currentTime - R.pend) > 1) { try { tvVideo.currentTime = R.pend; } catch (_) {} } R.pend = null; } }
+      else { R.lastT = tvVideo.currentTime; R.wasFile = true; const now = performance.now(); if (now - R.saveT > 3000 && !tvVideo.paused) { R.saveT = now; storePos(k, R.lastT); } }
+    } else { R.wasFile = false; if (!k) R.pend = null; }
+    if (k && tvGain && entObjs.has(k)) {
+      const [x, y, z] = k.split(',').map(Number), d = Math.hypot(x + .5 - P.x, y + .5 - P.y, z + .5 - P.z);
+      const v = clamp(Number(SET.sfx), 0, 1), fade = d <= 14 ? 1 : Math.max(0, 1 - (d - 14) / 14);
+      tvGain.gain.value = (Number.isFinite(v) ? v : 0.8) * fade; R.fade = fade; R.dist = d;
     }
-    function frameHop(now) { if (!raf) return; raf = requestAnimationFrame(frameHop); const dt = lastT ? Math.min(0.033, (now - lastT) / 1000) : 0; lastT = now; update(dt); draw(); }
-    function start() { save = hopLoad(); startLvl = Math.min(Math.max(1, startLvl), save.maxLevel); st = 'title'; A.hopState = st; map = null; if (!cv.parentNode) stage.appendChild(cv); cv.style.display = ''; lastT = 0; jPrevAll = true;
-      for (const k in kb) kb[k] = false; for (const k in tch) tch[k] = false; if (!raf) raf = requestAnimationFrame(frameHop); }
-    function stop() { if (raf) cancelAnimationFrame(raf); raf = 0; cv.style.display = 'none'; }
-    function pad(P, E, ax, ay) { inp.l = P[14] || ax < -0.4; inp.r = P[15] || ax > 0.4; inp.j = P[0]; inp.run = P[2] || P[3];
-      if (E[14] || (ax < -0.6 && !pad.sx)) inp.lE = true; if (E[15] || (ax > 0.6 && !pad.sx)) inp.rE = true; pad.sx = Math.abs(ax) > 0.6;
-      if (E[9]) inp.startE = true; if (E[1]) inp.backE = true; if (E[8] && P[9] || E[9] && P[8]) { stop(); backToMenu(); } }
-    function key(e, down) { const k = e.code;
-      if (k === 'ArrowLeft' || k === 'KeyA') { kb.l = down; if (down && !e.repeat) inp.lE = true; return true; }
-      if (k === 'ArrowRight' || k === 'KeyD') { kb.r = down; if (down && !e.repeat) inp.rE = true; return true; }
-      if (k === 'Space' || k === 'ArrowUp' || k === 'KeyW' || k === 'KeyZ') { kb.j = down; return true; }
-      if (k === 'ShiftLeft' || k === 'ShiftRight' || k === 'KeyX') { kb.run = down; return true; }
-      if (down && (k === 'Enter' || k === 'KeyP')) { inp.startE = true; return true; }
-      if (down && (k === 'Escape' || k === 'Backspace')) { inp.backE = true; return true; }
-      return false; }
-    // touch buttons + tap-to-start
-    stage.querySelectorAll('.hopT button').forEach(b => { const k = b.dataset.k;
-      b.addEventListener('touchstart', e => { tch[k] = true; e.preventDefault(); }, {passive: false}); b.addEventListener('touchend', e => { tch[k] = false; e.preventDefault(); }, {passive: false});
-      b.addEventListener('mousedown', () => { tch[k] = true; }); b.addEventListener('mouseup', () => { tch[k] = false; }); b.addEventListener('mouseleave', () => { tch[k] = false; }); });
-    cv.addEventListener('pointerdown', e => { if (st === 'title' || st === 'over' || st === 'pause') { const x = e.offsetX / cv.clientWidth; if (st === 'title' && x < 0.25) inp.lE = true; else if (st === 'title' && x > 0.75) inp.rE = true; else inp.startE = true; } });
-    return {start, stop, pad, key, get state() { return st; }, get score() { return score; }, get level() { return lvl; }, get player() { return pl; }, _win: () => { if (st === 'play') win(); }, _newGame: () => newGame()};
-  })();
-  A.hop = hop;
-  function startHop() { showStage('hop'); hop.start(); }
+    return r;
+  };
+  const baseFrame = frame;
+  frame = function (now) {
+    // game paused -> TV paused; resumes with the game
+    if ((paused || document.hidden) && tvOnKey && !tvVideo.paused && !window.__arcadeOpen) { tvVideo.pause(); R.gamePaused = true; if (isFile()) storePos(tvOnKey, tvVideo.currentTime); }
+    else if (R.gamePaused && !paused && !document.hidden && !window.__arcadeOpen) { R.gamePaused = false; if (tvOnKey) tvStart(); }
+    holdTick(now || performance.now());
+    if (R.osdT && (now || performance.now()) > R.osdT) { R.osdT = 0; osd.classList.add('off'); } else if (R.osdT) paintOsd();
+    const show = !!remoteTV() && (touchShown || !document.pointerLockElement);
+    if (show === rem.classList.contains('hidden')) rem.classList.toggle('hidden', !show);
+    return baseFrame.apply(this, arguments);
+  };
+  addEventListener('pagehide', () => { if (tvOnKey && isFile()) storePos(tvOnKey, tvVideo.currentTime); });
+})();
+
+
+/* ===================== GLX-C92: the DS plays ON the in-world TV (v0.9.70) ===================== */
+(function dsOnTV() {
+  const A = window.__arcade; if (!A) return;
+  // Hybrid Top: big top screen + small touch screen beside it (2:1, the closest fit for the TV's screen)
+  A.dsOpts = {'melonds_screen_layout': 'Hybrid Top', 'melonds_hybrid_ratio': '2', 'melonds_hybrid_small_screen': 'Bottom', 'melonds_screen_gap': '0'};
+  A.dsFrame = [768, 384];
+  const st = document.createElement('style'); st.textContent = '#arcFrame{width:' + A.dsFrame[0] + 'px!important;height:' + A.dsFrame[1] + 'px!important}'; document.head.appendChild(st);
+  // loading card
+  const lc = document.createElement('canvas'); lc.width = 384; lc.height = 216; const lg = lc.getContext('2d');
+  const loadTex = new THREE.CanvasTexture(lc); loadTex.minFilter = loadTex.magFilter = THREE.LinearFilter; loadTex.generateMipmaps = false;
+  function card(t) { lg.fillStyle = '#0b1020'; lg.fillRect(0, 0, 384, 216); lg.fillStyle = '#3cb043'; lg.font = 'bold 26px sans-serif'; lg.textAlign = 'center'; lg.fillText('DS', 192, 92); lg.fillStyle = '#cfe'; lg.font = '18px sans-serif'; lg.fillText(t, 192, 128); loadTex.needsUpdate = true; }
+  const dsMat = new THREE.MeshBasicMaterial({color: 0xffffff, map: loadTex});
+  dsMat.onBeforeCompile = sh => { sh.fragmentShader = sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n#ifdef USE_MAP\n if (vUv.x < 0.0 || vUv.x > 1.0 || vUv.y < 0.0 || vUv.y > 1.0) diffuseColor.rgb = vec3(0.0);\n#endif'); };
+  let dsTex = null, upT = 0, cw = 0, ch = 0;
+  const S = window.__dstv = {uploads: 0, lastMs: 0};
+  A.onTVStart = k => { card('Starting…'); dsMat.map = loadTex; dsMat.needsUpdate = true; S.k = k; S.lock = 0; };
+  A.onDSCanvas = cv => {
+    if (!cv) return; if (dsTex) dsTex.dispose();
+    dsTex = new THREE.CanvasTexture(cv); dsTex.minFilter = THREE.LinearFilter; dsTex.magFilter = THREE.NearestFilter; dsTex.generateMipmaps = false;
+    dsTex.wrapS = dsTex.wrapT = THREE.ClampToEdgeWrapping; try { dsTex.encoding = renderer.outputEncoding; } catch (_) {}
+    cw = ch = 0; dsMat.map = dsTex; dsMat.needsUpdate = true;
+  };
+  A.onTVEnd = () => { if (dsTex) { dsTex.dispose(); dsTex = null; } dsMat.map = loadTex; S.k = null; };
+  const tvObj = () => (A.tvPlay && entObjs.get(A.tvPlay.k)) || null;
+  const v3 = new THREE.Vector3();
+  // screen + sound every frame
+  const baseUpd = updateTV;
+  updateTV = function (dt) {
+    const r = baseUpd.apply(this, arguments);
+    const o = tvObj(); if (!o) return r;
+    if (o.screen.material !== dsMat) o.screen.material = dsMat;
+    o.led.material.color.setHex(0x30a0ff);
+    const cv = A.dsCanvas, now = performance.now();
+    if (dsTex && cv && cv.width && now - upT > 30) {
+      upT = now;
+      if (cv.width !== cw || cv.height !== ch) { cw = cv.width; ch = cv.height; const ar = cw / ch, sa = 0.8 / 0.54;
+        if (ar < sa) { dsTex.repeat.set(sa / ar, 1); dsTex.offset.set(-(sa / ar - 1) / 2, 0); } else { dsTex.repeat.set(1, ar / sa); dsTex.offset.set(0, -(ar / sa - 1) / 2); } }
+      const t0 = performance.now(); dsTex.needsUpdate = true; try { renderer.initTexture(dsTex); } catch (_) {} S.lastMs = +(performance.now() - t0).toFixed(2); S.uploads++;
+    }
+    if (A.dsAud && AC) {
+      const t = AC.currentTime, set = (p, v) => { if (p && p.setTargetAtTime) p.setTargetAtTime(v, t, 0.05); };
+      const pn = A.dsAud.pn; o.screen.getWorldPosition(v3);
+      if (pn.positionX) { set(pn.positionX, v3.x); set(pn.positionY, v3.y); set(pn.positionZ, v3.z); } else pn.setPosition(v3.x, v3.y, v3.z);
+      const L = AC.listener, d = lookDir(), cp = camera.position;
+      if (L.positionX) { set(L.positionX, cp.x); set(L.positionY, cp.y); set(L.positionZ, cp.z); set(L.forwardX, d[0]); set(L.forwardY, d[1]); set(L.forwardZ, d[2]); set(L.upX, 0); set(L.upY, 1); set(L.upZ, 0); }
+      else { L.setPosition(cp.x, cp.y, cp.z); L.setOrientation(d[0], d[1], d[2], 0, 1, 0); }
+      const vol = clamp(Number(SET.sfx), 0, 1); A.dsAud.g.gain.value = Number.isFinite(vol) ? vol : 0.8;
+    }
+    return r;
+  };
+  // controller goes to the emulator, not the player
+  const baseRead = readPad;
+  readPad = function () {
+    if (A.mode === 'ds' && !A.open) {
+      const gp = pickPad(); A.dsPad(gp);
+      if (gp) for (let i = 0; i < 17; i++) { const b = gp.buttons[i]; gpPrev[i] = !!(b && (b.pressed || b.value > 0.4)); }
+      return {lx: 0, ly: 0, rx: 0, ry: 0};
+    }
+    return baseRead.apply(this, arguments);
+  };
+  // camera turns to face the TV and zooms so the screen fills the view; hand hidden
+  const baseFrame = frame;
+  frame = function (now) {
+    const o = tvObj();
+    if (o && !A.open) {
+      o.screen.getWorldPosition(v3); const cp = camera.position, dx = v3.x - cp.x, dy = v3.y - cp.y, dz = v3.z - cp.z;
+      const ty = Math.atan2(-dx, -dz), tp = Math.atan2(dy, Math.hypot(dx, dz));
+      let dyaw = ty - P.yaw; dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+      const k = S.lock < 1 ? 0.18 : 1; S.lock = Math.min(1, (S.lock || 0) + 0.02);
+      P.yaw += dyaw * k; P.pitch += (tp - P.pitch) * k;
+      S.dist = Math.hypot(dx, dy, dz);
+    }
+    return baseFrame.apply(this, arguments);
+  };
+  // applied right before the world render so nothing later in the frame undoes it
+  const baseRender = renderer.render.bind(renderer);
+  let zf = 0;
+  renderer.render = function (sc, cam) {
+    const o = cam === camera && tvObj();
+    if (o) {
+      hand.visible = false;
+      const d = Math.max(0.6, S.dist || 2), asp = camera.aspect || 1.7;
+      const half = Math.max(0.54 / 2 / 0.62, 0.8 / 2 / 0.7 / asp);   // screen fills ~2/3 of the view, world still around it
+      const f = clamp(2 * Math.atan(half / d) * 180 / Math.PI, 8, SET.fov);
+      zf = zf ? zf + (f - zf) * 0.12 : camera.fov;
+      camera.fov = zf; camera.updateProjectionMatrix(); S.fov = +zf.toFixed(1);
+    } else if (cam === camera) zf = 0;
+    return baseRender(sc, cam);
+  };
+  // hostile mobs hold still while you play
+  const baseMobs = updateMobs;
+  updateMobs = function (dt) { if (A.mode === 'ds') return; return baseMobs.apply(this, arguments); };
+  // tap / click the TV's touch screen
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  let tdown = false;
+  function toDS(e, type) {
+    const o = tvObj(), cv = A.dsCanvas; if (!o || !cv || !dsTex) return false;
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const h = ray.intersectObject(o.screen, false)[0]; if (!h || !h.uv) return false;
+    const u = h.uv.x * dsTex.repeat.x + dsTex.offset.x, v = h.uv.y * dsTex.repeat.y + dsTex.offset.y;
+    if (u < 0 || u > 1 || v < 0 || v > 1) return false;
+    const w = A.dsWin, rc = cv.getBoundingClientRect(), x = rc.left + u * rc.width, y = rc.top + (1 - v) * rc.height;
+    const ev = new w.MouseEvent(type, {bubbles: true, cancelable: true, clientX: x, clientY: y, screenX: x, screenY: y, button: 0, buttons: type === 'mouseup' ? 0 : 1, view: w});
+    cv.dispatchEvent(ev); S.lastTouch = [+u.toFixed(3), +v.toFixed(3), type]; return true;
+  }
+  A.toDS = toDS;
+  const cap = e => { if (!(A.mode === 'ds' && !A.open) || e.target && e.target.id === 'dsX') return false; e.stopPropagation(); if (e.cancelable) e.preventDefault(); return true; };
+  addEventListener('pointerdown', e => { if (cap(e)) { tdown = toDS(e, 'mousedown'); } }, true);
+  addEventListener('pointermove', e => { if (cap(e) && tdown) toDS(e, 'mousemove'); }, true);
+  addEventListener('pointerup', e => { if (cap(e)) { if (tdown) { toDS(e, 'mouseup') || A.dsWin && A.dsCanvas && A.dsCanvas.dispatchEvent(new A.dsWin.MouseEvent('mouseup', {bubbles: true})); } tdown = false; } }, true);
+  for (const t of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchmove', 'touchend', 'contextmenu', 'wheel']) addEventListener(t, e => { if (A.mode === 'ds' && !A.open && !(e.target && e.target.id === 'dsX')) { e.stopPropagation(); } }, {capture: true, passive: true});
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -16715,6 +16926,17 @@ function c86() {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.70', d:'2026-10-24', notes:[
+  'The DS game now plays ON the TV screen in your world: you stay in Glencraft, the view turns and zooms to the TV, the sound comes from the TV and mobs hold still while you play. Tap the TV picture to use the DS touch screen',
+  'DS on the TV, no fuss: use the Gamepad on a TV and your DS game starts straight away, carrying on from where you left off. You only pick the game file once (one big button), and it stays on your device',
+  'Hold View + Menu (or tap the X) to save and drop straight back into Glencraft. Sneak + use the Gamepad for restart / change game',
+  'Haggis Hop has been removed',
+  'TVs now play your own video: sneak + use the TV Remote on a TV and pick "Choose video". The file stays on your device only and is remembered after a reload',
+  'TV Remote: use / LT plays and pauses, LB/RB or D-pad left/right rewind and fast-forward 10 s (hold to go faster). Touch buttons appear when you hold it near a TV. Keyboard: , and . to seek, K to pause',
+  'A small on-screen display shows play/pause, the time and how far through you are',
+  'TV sound comes from the TV: loud close up, fading as you walk away, and it pauses when you pause the game',
+  'Each TV remembers where you got to in the video',
+  'The TV picture only updates while the TV is on screen, which keeps the game smooth']},
  {v:'v0.9.69', d:'2026-10-24', notes:[
   'New item: the Gamepad, a wee controller. Craft it from 2 iron ingots, 1 redstone dust, 1 lever and 1 coal at a crafting table.',
   'Use the Gamepad next to a TV (or use the TV while holding it) to open the Glencraft TV game library. The world pauses while you play.',
