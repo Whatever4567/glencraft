@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0964 -->
+<!-- glencraft-build: v0965 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -475,7 +475,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.64';
+const GAME_VERSION = 'v0.9.65';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -491,6 +491,8 @@ const T = {AIR:0, GRASS:1, DIRT:2, STONE:3, HEATHER:4, WATER:5, SAND:6, PEAT:7, 
   DANDELION:60, DAFFODIL:61, BLUEBELL:62, GLASS:63, CHEST:64, DOOR:65, DOORTOP:66, TORCH:67, GOLDORE:68,
   WOOLPURPLE:70, WOOLBLUE:71, WOOLYELLOW:72, WOOLORANGE:73, IRONBLOCK:74, GOLDBLOCK:75, COPPERBLOCK:76, SANDSTONE:77,
   BRICK:78, MUD:79, COBWEB:90, REDORE:91, TV:120, DIAMONDORE:69, DEEPSLATE:133, BLOSSOM:134};
+var LEAFY = new Uint8Array(256), LOGGY = new Uint8Array(256); LEAFY[T.LEAVES] = 1; LOGGY[T.LOG] = 1;   // v0.9.65 Scottish trees (c80) register here so every leaf/log check knows them from the start
+[135, 136, 137, 138, 139, 141, 142, 143, 144, 145].forEach(i => LOGGY[i] = 1); [146, 147, 148, 149, 215, 238, 239, 240, 250, 251, 252, 253].forEach(i => LEAFY[i] = 1);
 const IT = {STICK:11, MUTTON:30, HAGGIS:31, WOOL:32, WSEEDS:33, WHEAT:34, BREAD:35, POTATO:36, NEEP:37, TATTIES:38, BUCKET:39, WATERB:48,
   WPICK:40, SPICK:41, WSWORD:42, SSWORD:43, WAXE:44, SAXE:45, WHOE:46, SHOE:47, COAL:53, RAWIRON:54, RAWCOPPER:55,
   IRONINGOT:80, COPPERINGOT:81, GOLDINGOT:82, RAWGOLD:83, CHARCOAL:84, BAKEDPOTATO:85, COOKEDMUTTON:86, COOKEDHAGGIS:87, NEEPS:88, SUPPER:89,
@@ -1435,14 +1437,14 @@ function fellTree(x, y, z) {
     if (seen.has(k) || cy <= y || Math.abs(cx - x) > 6 || Math.abs(cz - z) > 6) continue;
     seen.add(k);
     const b = getB(cx, cy, cz);
-    if (b !== T.LOG && b !== T.LEAVES) continue;
-    (b === T.LOG ? logs : leaves).push([cx, cy, cz]);
+    if (!LOGGY[b] && !LEAFY[b]) continue;
+    (LOGGY[b] ? logs : leaves).push([cx, cy, cz, b]);
     for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) q.push([cx + dx, cy + dy, cz + dz]);
   }
   if (!logs.length) return false;
   const g = new THREE.Group(); g.position.set(x + .5, y + 1, z + .5); scene.add(g);
   const m = new THREE.Matrix4();
-  [[logs, T.LOG], [leaves, T.LEAVES]].forEach(([arr, id]) => {
+  const byId = new Map(); for (const e of logs.concat(leaves)) { if (!byId.has(e[3])) byId.set(e[3], []); byId.get(e[3]).push(e); } [...byId].forEach(([id, arr]) => {
     if (!arr.length) return;
     const im = new THREE.InstancedMesh(blockGeo, BLOCK_MATS[id], arr.length);
     arr.forEach(([bx, by, bz], i) => { setB(bx, by, bz, T.AIR); m.makeTranslation(bx - x, by - y - 0.5, bz - z); im.setMatrixAt(i, m); });
@@ -1468,13 +1470,13 @@ function updateFalling(dt) {
     // the trunk stays in the world as a fallen log you can chop up
     const vv = new THREE.Vector3(), placed = [];
     f.g.updateMatrixWorld();
-    f.logs.forEach(([bx, by, bz]) => {
+    f.logs.forEach(([bx, by, bz, lid]) => {
       vv.set(bx - f.x, by - f.y - 0.5, bz - f.z).applyQuaternion(f.g.quaternion).add(f.g.position);
       let cx = Math.floor(vv.x), cy = Math.floor(vv.y), cz = Math.floor(vv.z);
       while (cy > 1 && !solid(cx, cy - 1, cz) && getB(cx, cy - 1, cz) !== T.WATER) cy--;
       let tries = 0; while (getB(cx, cy, cz) !== T.AIR && !isPlant(getB(cx, cy, cz)) && tries++ < 4) cy++;
       // GLX-B4: the felled trunk breaks apart into log items where it landed, with a puff of dust
-      dropItem(T.LOG, 1, vv.x, Math.max(vv.y, cy) + 0.6, vv.z, (Math.random() - .5) * 1.5, 2.5 + Math.random() * 1.5, (Math.random() - .5) * 1.5, 0.4);
+      dropItem(lid || T.LOG, 1, vv.x, Math.max(vv.y, cy) + 0.6, vv.z, (Math.random() - .5) * 1.5, 2.5 + Math.random() * 1.5, (Math.random() - .5) * 1.5, 0.4);
       burst(vv.x, cy + 0.4, vv.z, 0xa08a68, 5, 0.9); placed.push(1);
     });
     rebuild();
@@ -1531,7 +1533,7 @@ function exposed(x, y, z, b) {
     const n = getB(x + dx, y + dy, z + dz);
     if (n === T.AIR || PLANT[n] === 1 || ENT[n] === 1 || n === T.BED || n === 134) return true;
     if ((n === T.WATER || n === T.LAVA || n === T.GLASS) && b !== n) return true;
-    if (n === T.LEAVES || n === T.COBWEB) return true;
+    if (LEAFY[n] || n === T.COBWEB) return true;
   }
   return false;
 }
@@ -1794,7 +1796,7 @@ function findSpot(nearPlayer) {
     }
     if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
     const top = groundTop(x, z), b = getB(x, top, z);
-    if (top < SEA || b === T.LEAVES || b === T.WATER || b === T.LOG) continue;
+    if (top < SEA || LEAFY[b] || b === T.WATER || LOGGY[b]) continue;
     if (solid(x, top + 1, z) || solid(x, top + 2, z)) continue;
     if (!nearPlayer && b !== T.GRASS && b !== T.HEATHER && b !== T.PEAT) continue;
     return [x + 0.5, top + 1, z + 0.5];
@@ -1805,7 +1807,7 @@ function findSpot(nearPlayer) {
 function findTreeSpot() {
   const trunks = [];
   for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) for (let y = 1; y < H - 1; y++)
-    if (getB(x, y, z) === T.LOG && getB(x, y - 1, z) !== T.LOG && solid(x, y - 1, z)) trunks.push([x, y, z]);
+    if (LOGGY[getB(x, y, z)] && !LOGGY[getB(x, y - 1, z)] && solid(x, y - 1, z)) trunks.push([x, y, z]);
   for (let tries = 0; tries < 60 && trunks.length; tries++) {
     const [tx, ty, tz] = trunks[Math.floor(Math.random() * trunks.length)];
     const ang = Math.random() * Math.PI * 2, r = 3 + Math.random() * 1.5;
@@ -1813,7 +1815,7 @@ function findTreeSpot() {
     if (cx < 1 || cz < 1 || cx >= W - 1 || cz >= D - 1) continue;
     let fy = -1;
     for (let y = ty + 1; y >= ty - 3; y--) if (solid(cx, y, cz)) { fy = y + 1; break; }
-    if (fy < 0 || getB(cx, fy - 1, cz) === T.LEAVES) continue;
+    if (fy < 0 || LEAFY[getB(cx, fy - 1, cz)]) continue;
     let clear = true;
     for (let k = 0; k < 4; k++) { const b = getB(cx, fy + k, cz); if (b !== T.AIR && !isPlant(b)) clear = false; }
     if (!clear) continue;
@@ -2546,9 +2548,9 @@ function matOf(b) {
   if (b === T.DIRT || b === T.PEAT) return 'dirt';
   if (b === T.SAND) return 'sand';
   if (b === T.GLASS) return 'glass';
-  if (b === T.LEAVES) return 'leaves';
+  if (LEAFY[b]) return 'leaves';
   if (b === T.WOOL || (b >= 70 && b <= 73) || b === T.BED) return 'wool';
-  if (b === T.LOG || b === T.PLANKS || b === T.TABLE || b === T.CHEST || b === T.DOOR || b === T.DOORTOP) return 'wood';
+  if (LOGGY[b] || b === T.PLANKS || b === T.TABLE || b === T.CHEST || b === T.DOOR || b === T.DOORTOP) return 'wood';
   if (b >= 74 && b <= 76) return 'metal';
   return 'stone';
 }
@@ -2666,7 +2668,7 @@ const hasSword = () => bestTool('sword').lvl > 0;
 function useUp(id, n) { if (MODE.infinite) return; inv[id] = Math.max(0, cnt(id) - (n || 1)); }
 function addItem(id, n) {
   inv[id] = cnt(id) + n;
-  if (id === T.LOG) prog.log = true;
+  if (LOGGY[id]) prog.log = true;
   if (id === T.PLANKS) prog.planks = true;
   if (id === IT.STICK) prog.sticks = true;
   if (id === IT.WPICK) prog.wpick = true;
@@ -3418,7 +3420,7 @@ function dropsFor(b) {
   if (b === T.GLASS) return [];
   if (b === T.REDORE) return [[IT.REDSTONE, 2 + Math.floor(r * 3)]];
   if (b === T.COBWEB) return cnt(IT.SHEARS) ? [[T.COBWEB, 1]] : [];
-  if (b === T.LEAVES && !cnt(IT.SHEARS)) return r < 0.12 ? [[IT.STICK, 1]] : [];
+  if (LEAFY[b] && !cnt(IT.SHEARS)) return r < 0.12 ? [[IT.STICK, 1]] : [];
   if (b === T.DOORTOP) return [[T.DOOR, 1]];
   if (b === T.TALLGRASS) return r < 0.4 ? [[IT.WSEEDS, 1]] : r < 0.47 ? [[IT.POTATO, 1]] : r < 0.54 ? [[IT.NEEP, 1]] : [];
   if (b >= T.WHEAT0 && b < T.WHEAT3) return [[IT.WSEEDS, 1]];
@@ -3443,7 +3445,7 @@ function breakAt(x, y, z) {
   removeEntityData(x, y, z, b);
   popBlock(x, y, z);
   // cutting the bottom of a trunk brings the whole tree down
-  if (b === T.LOG && getB(x, y + 1, z) === T.LOG) fellTree(x, y, z);
+  if (LOGGY[b] && LOGGY[getB(x, y + 1, z)]) fellTree(x, y, z);
   // the big 2 x 2 bed comes away as one piece
   if (b === T.BED) breakBedPartner(x, y, z, bedM);
   const up = getB(x, y + 1, z);
@@ -3499,7 +3501,7 @@ function useItem() {
   if (have && id === IT.SHEARS) {
     const m = reachMob(3.5);
     if (m && m.kind === 'sheep') { swing(); shearSheep(m); return; }
-    if (r && (tb === T.LEAVES || tb === T.COBWEB)) { swing(); sfx('shear'); breakAt(...r.hit); return; }
+    if (r && (LEAFY[tb] || tb === T.COBWEB)) { swing(); sfx('shear'); breakAt(...r.hit); return; }
     toast('Shears work on sheep, leaves and cobwebs'); return;
   }
   // interactive blocks first (LT / right click / USE)
@@ -3711,7 +3713,7 @@ const tmpC = new THREE.Color(), CAVE_FOG = new THREE.Color(0x0b0d10);
 // highest block that blocks the sky (leaves do not count, so trees do not darken the view)
 function skyTop(x, z) {
   if (x < 0 || x >= W || z < 0 || z >= D) return 0;
-  for (let y = H - 1; y >= 0; y--) { const b = getB(x, y, z); if (b !== T.AIR && b !== T.LEAVES && b !== T.WATER && PLANT[b] !== 1) return y + 1; }
+  for (let y = H - 1; y >= 0; y--) { const b = getB(x, y, z); if (b !== T.AIR && !LEAFY[b] && b !== T.WATER && PLANT[b] !== 1) return y + 1; }
   return 0;
 }
 const NIGHT_HEMI = new THREE.Color(0x5d76b0), DAY_HEMI = new THREE.Color(0xe8f0f2), MOON_COL = new THREE.Color(0xa9c0ff), SUN_COL = new THREE.Color(0xfff1d8);
@@ -4073,7 +4075,7 @@ waterMat.onBeforeCompile = sh => {
       vUv += vec2(uTime * 0.012, uTime * 0.008) + vec2(sin(uTime * 0.5 + position.z * 0.35), cos(uTime * 0.42 + position.x * 0.35)) * 0.035;`);
 };
 const WATER_FACES = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-function waterOpenTo(n) { return n !== T.WATER && (n === T.AIR || PLANT[n] === 1 || n === T.GLASS || n === T.LEAVES || ENT[n] === 1); }
+function waterOpenTo(n) { return n !== T.WATER && (n === T.AIR || PLANT[n] === 1 || n === T.GLASS || LEAFY[n] || ENT[n] === 1); }
 function buildWaterGeo(arr) {
   const pos = [], nor = [], uv = [], surf = [];
   for (let i = 0; i < arr.length; i += 3) {
@@ -4387,15 +4389,15 @@ function findPondSpot() {
 function findTreeSpot() {
   const trunks = [];
   for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) for (let y = SEA; y < H - 1; y++)
-    if (getB(x, y, z) === T.LOG && getB(x, y - 1, z) !== T.LOG && solid(x, y - 1, z)) trunks.push([x, y, z]);
+    if (LOGGY[getB(x, y, z)] && !LOGGY[getB(x, y - 1, z)] && solid(x, y - 1, z)) trunks.push([x, y, z]);
   for (let tries = 0; tries < 80 && trunks.length; tries++) {
     const [tx, ty, tz] = trunks[Math.floor(Math.random() * trunks.length)];
     const [ox, oz] = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1]][Math.floor(Math.random() * 6)];
     const cx = tx + ox, cz = tz + oz;
-    if (!solid(cx, ty - 1, cz) || getB(cx, ty - 1, cz) === T.LEAVES) continue;
+    if (!solid(cx, ty - 1, cz) || LEAFY[getB(cx, ty - 1, cz)]) continue;
     let clear = true; for (let k = 0; k < 3; k++) { const b = getB(cx, ty + k, cz); if (b !== T.AIR && !isPlant(b)) clear = false; }
     if (!clear) continue;
-    let canopy = false; for (let k = 3; k < 9; k++) if (getB(cx, ty + k, cz) === T.LEAVES) canopy = true;
+    let canopy = false; for (let k = 3; k < 9; k++) if (LEAFY[getB(cx, ty + k, cz)]) canopy = true;
     if (!canopy || Math.hypot(cx - P.x, cz - P.z) < 12) continue;
     if (mobs.some(m => m.kind === 'treeman' && Math.hypot(m.g.position.x - cx, m.g.position.z - cz) < 6)) continue;
     return [cx + 0.5, ty, cz + 0.5, cx + .5, cz + .5];
@@ -4862,7 +4864,7 @@ function ensureHotbar() {
 function visibleItems() { return MODE.hotbar ? MODE.hotbar.filter(id => id && (MODE.infinite || cnt(id) > 0)) : bagItems(); }
 function addItem(id, n) {
   inv[id] = cnt(id) + n;
-  if (id === T.LOG) prog.log = true; if (id === T.PLANKS) prog.planks = true; if (id === IT.STICK) prog.sticks = true;
+  if (LOGGY[id]) prog.log = true; if (id === T.PLANKS) prog.planks = true; if (id === IT.STICK) prog.sticks = true;
   if (id === IT.WPICK || (TOOL[id] && TOOL[id][0] === 'pick')) prog.wpick = true; if (id === T.COBBLE) prog.cobble = true;
   if (TOOL[id] && toolMat(id) !== 'wood') prog.stoneTool = true; if (id === T.FURNACE) prog.furnace = true;
   // new pick-ups drop into a free hotbar slot, like the original
@@ -5973,7 +5975,7 @@ function hostileSpot() {
     const x = Math.floor(P.x + Math.sin(ang) * r), z = Math.floor(P.z + Math.cos(ang) * r);
     if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
     const top = groundTop(x, z), b = getB(x, top, z);
-    if (top < SEA || b === T.LEAVES || b === T.WATER || b === T.LOG || solid(x, top + 1, z) || solid(x, top + 2, z)) continue;
+    if (top < SEA || LEAFY[b] || b === T.WATER || LOGGY[b] || solid(x, top + 1, z) || solid(x, top + 2, z)) continue;
     const fake = {g: {position: new THREE.Vector3(x + .5, top + 1, z + .5)}};
     if (inView(fake) || canSee(fake, 48)) continue;
     return [x + .5, top + 1, z + .5];
@@ -6236,7 +6238,7 @@ function placeFarTrees() {
     if ((g !== T.GRASS && g !== T.HEATHER && g !== T.PEAT) || top < SEA + 1 || top > H - 14 || getB(x, top + 1, z) !== T.AIR) continue;
     const p = bm === 'pine' ? 0.3 : bm === 'moor' ? 0.035 : bm === 'high' ? 0.06 : 0.1;
     if (Math.random() > p) continue;
-    let near = false; for (let dx = -3; dx <= 3 && !near; dx++) for (let dz = -3; dz <= 3; dz++) if (getB(x + dx, top + 3, z + dz) === T.LOG || getB(x + dx, top + 3, z + dz) === T.LEAVES) { near = true; break; }
+    let near = false; for (let dx = -3; dx <= 3 && !near; dx++) for (let dz = -3; dz <= 3; dz++) if (LOGGY[getB(x + dx, top + 3, z + dz)] || LEAFY[getB(x + dx, top + 3, z + dz)]) { near = true; break; }
     if (near) continue;
     if (Math.random() < (bm === 'pine' ? 0.03 : 0.12)) plantBlossom(x, z); else if (bm === 'pine' || Math.random() < 0.7) plantPine(x, z); else plantTree(x, z);
     n++;
@@ -6543,7 +6545,7 @@ function buildChunk(cx, cz) {
   if (!chunkST) {
     chunkST = new Uint8Array(256);
     for (let i = 0; i < 256; i++) if (PLANT[i] === 1 || ENT[i] === 1) chunkST[i] = 1;
-    chunkST[T.AIR] = 1; chunkST[T.BED] = 1; chunkST[T.COBWEB] = 1; chunkST[T.WATER] = 2; chunkST[T.LAVA] = 2; chunkST[T.GLASS] = 2; chunkST[T.LEAVES] = 3; chunkST[134] = 3;
+    chunkST[T.AIR] = 1; chunkST[T.BED] = 1; chunkST[T.COBWEB] = 1; chunkST[T.WATER] = 2; chunkST[T.LAVA] = 2; chunkST[T.GLASS] = 2; chunkST[T.LEAVES] = 3; chunkST[134] = 3; for (let i = 0; i < 256; i++) if (LEAFY[i]) chunkST[i] = 3;
     chunkFQ = [[[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]],
       [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]]];
   }
@@ -6565,7 +6567,7 @@ function buildChunk(cx, cz) {
       else if (d === 3) { if (y === 0) continue; n = world[i - D]; }
       else if (d === 4) { if (z + 1 >= D) continue; n = world[i + 1]; }
       else { if (z === 0) continue; n = world[i - 1]; }
-      let s = ST[n]; if (s === 3 && (n === 9 || n === 134) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
+      let s = ST[n]; if (s === 3 && (n === 9 || n === 134 || LEAFY[n]) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
       if (!s || (s > 1 && n === b)) continue;
       if (cS && y > 0) { const fx = d === 0 ? x + 1 : d === 1 ? x - 1 : x, fy = d === 2 ? y + 1 : d === 3 ? y - 1 : y, fz = d === 4 ? z + 1 : d === 5 ? z - 1 : z;
         if (fy < H) { const ci = ((fx - cX0) * cRS + (fz - cZ0)) * H + fy; if (cS[ci] === 0 && cBk[ci] === 0) { cavN++; continue; } } }
@@ -7612,7 +7614,7 @@ function generate() {
     else if (h <= SEA + 1 && c.glen > 0.4) { top = T.SAND; sub = T.SAND; kind = 4; }
     else if (h >= SEA + 30 || (steep && h >= SEA + 14)) { top = T.STONE; sub = T.STONE; kind = 3; }
     else if (c.glen > 0.6 && bog > 0.18) { top = hash(x, 2, z) < 0.6 ? T.PEAT : T.MUD; kind = 2; }
-    else if (heath > 0.08 && h > SEA + 5) { top = T.HEATHER; kind = 1; }
+    else if (heath > 0.08 && h > SEA + 5) { top = window.__trees2 ? T.GRASS : T.HEATHER; kind = 1; }   // v0.9.65: moor heather grows in clumps (c80), not as a carpet
     g9cols[(x * D + z) * 2] = h; g9cols[(x * D + z) * 2 + 1] = kind;
     const col = x * H * D + z;
     for (let y = 0; y < h; y++) {
@@ -7656,7 +7658,7 @@ function generate() {
   gGenFeatures(rnd, hash);
   dirtyAll = true;
 }
-function g9top(x, z) { if (!g9cols || x < 0 || z < 0 || x >= W || z >= D) return groundTop(x, z); for (let y = H - 1; y > 0; y--) { const b = world[idx(x, y, z)]; if (b !== T.AIR && b !== T.WATER && b !== T.LEAVES && b !== T.LOG) return y; } return 0; }
+function g9top(x, z) { if (!g9cols || x < 0 || z < 0 || x >= W || z >= D) return groundTop(x, z); for (let y = H - 1; y > 0; y--) { const b = world[idx(x, y, z)]; if (b !== T.AIR && b !== T.WATER && !LEAFY[b] && !LOGGY[b]) return y; } return 0; }
 function gPine(x, z, h, put) {
   const top = g9top(x, z), b = getB(x, top, z);
   if (b !== T.GRASS && b !== T.HEATHER && b !== T.DIRT) return false;
@@ -7683,6 +7685,7 @@ function gGenFeatures(rnd, hash) {
     const f = g9fbm(x / 60 + 300, z / 60 - 300, 2), k = kindAt(x, z), h = hAt(x, z);
     if (k !== 0 && k !== 1) continue; if (h > SEA + 26) continue;
     const r = hash(x, 77, z);
+    if (window.__trees2) continue;   // v0.9.65: trees are planted after the caves are carved (c80)
     if ((f > 0.12 && r < 0.055) || (f > 0.3 && r < 0.09) || (k === 1 && r < 0.003)) gPine(x, z, 7 + Math.floor(hash(x, 78, z) * 4), put);
     else if (k === 0 && f < -0.25 && r < 0.004) { const t = g9top(x, z); if (getB(x, t, z) === T.GRASS && getB(x, t + 1, z) === T.AIR) plantTree(x, z); }
   }
@@ -7814,7 +7817,7 @@ function g9Migrate(d) {
     zones.push({x0: Math.max(0, bx0 - 3), x1: Math.min(oW - 1, bx1 + 3), z0: Math.max(0, bz0 - 3), z1: Math.min(oD - 1, bz1 + 3), by0, n});
   }
   // old ground level around each zone (median surface height along its rim)
-  const oldTop = (x, z) => { for (let y = H - 1; y > 0; y--) { const b = old[oi(x, y, z)]; if (b !== T.AIR && b !== T.WATER && b !== T.LEAVES && b !== T.LOG && !B[b] && b !== T.TALLGRASS && b !== T.THISTLE && b < 60 || b === T.MOSSYBRICK) return y; } return SEA; };
+  const oldTop = (x, z) => { for (let y = H - 1; y > 0; y--) { const b = old[oi(x, y, z)]; if (b !== T.AIR && b !== T.WATER && !LEAFY[b] && !LOGGY[b] && !B[b] && b !== T.TALLGRASS && b !== T.THISTLE && b < 60 || b === T.MOSSYBRICK) return y; } return SEA; };
   const rimMed = (z, f) => { const v = []; for (let x = z.x0; x <= z.x1; x++) { v.push(f(x, z.z0)); v.push(f(x, z.z1)); } for (let q = z.z0; q <= z.z1; q++) { v.push(f(z.x0, q)); v.push(f(z.x1, q)); } v.sort((a, b) => a - b); return v[v.length >> 1]; };
   zones.forEach(z => z.og = rimMed(z, oldTop));
   // 2) brand-new highlands terrain at the big size; the old map is centred in it
@@ -7903,7 +7906,7 @@ function rightToolKind(b) {
   if (NEEDS_PICK.has(b) || b === T.MOSSYBRICK || b === T.CAULDRON) return 'pick';
   if (AXE_ON.has(b)) return 'axe';
   if (SHOVEL_ON.has(b)) return 'shovel';
-  if (b === T.LEAVES || b === T.BLOSSOM) return 'hoe';
+  if (LEAFY[b] || b === T.BLOSSOM) return 'hoe';
   return null;
 }
 function mcBreakSeconds(b) {
@@ -7914,8 +7917,8 @@ function mcBreakSeconds(b) {
   let speed = 1;
   if (t && need && t[0] === need) speed = toolTierSpeed(id);
   if (b === T.COBWEB) speed = heldShears() ? 15 : (t && t[0] === 'sword') ? 15 : 1;
-  if ((b === T.LEAVES || b === T.BLOSSOM) && heldShears()) speed = 15;
-  if ((b === T.LEAVES || b === T.BLOSSOM) && t && t[0] === 'sword') speed = 1.5;
+  if ((LEAFY[b] || b === T.BLOSSOM) && heldShears()) speed = 15;
+  if ((LEAFY[b] || b === T.BLOSSOM) && t && t[0] === 'sword') speed = 1.5;
   if (b >= T.WOOL && b <= T.WOOL && heldShears()) speed = 5;
   const harvest = !needsHarvestTool(b) || !underTooled(b);
   // MC: damage per tick = speed / hardness / (30 or 100); ticks = ceil(1/that); seconds = ticks/20
@@ -7934,7 +7937,7 @@ underTooled = function (b) {
   const df = dropsFor;
   dropsFor = function (b) {
     const r = Math.random();
-    if (b === T.LEAVES || b === T.BLOSSOM) return heldShears() ? [[b, 1]] : r < 0.05 ? [[IT.STICK, 1]] : [];
+    if (LEAFY[b] || b === T.BLOSSOM) return heldShears() ? [[b, 1]] : r < 0.05 ? [[IT.STICK, 1]] : [];
     if (b === T.COBWEB) return heldShears() ? [[T.COBWEB, 1]] : [];
     if (b === T.GLASS) return [];
     return df.apply(this, arguments);
@@ -8208,7 +8211,7 @@ function buildCastle(kind, cx, cz) {
   const put = (x, y, z, b) => { if (x >= 0 && z >= 0 && x < W && z < D && y > 0 && y < H - 1) world[idx(x, y, z)] = b; };
   const hsh = cityHash;
   const groundAt = (x, z) => g9top(x, z) + 1;
-  const flatten = (r, gy, fill) => { for (let x = cx - r; x <= cx + r; x++) for (let z = cz - r; z <= cz + r; z++) { if (Math.hypot(x - cx, z - cz) > r + 0.5) continue; for (let y = gy; y < Math.min(H - 1, gy + 30); y++) put(x, y, z, T.AIR); for (let y = gy - 1; y > gy - 8; y--) if (getB(x, y, z) === T.AIR || getB(x, y, z) === T.WATER || getB(x, y, z) === T.LEAVES || getB(x, y, z) === T.LOG) put(x, y, z, fill || T.STONE); put(x, gy - 1, z, T.GRASS); } };
+  const flatten = (r, gy, fill) => { for (let x = cx - r; x <= cx + r; x++) for (let z = cz - r; z <= cz + r; z++) { if (Math.hypot(x - cx, z - cz) > r + 0.5) continue; for (let y = gy; y < Math.min(H - 1, gy + 30); y++) put(x, y, z, T.AIR); for (let y = gy - 1; y > gy - 8; y--) if (getB(x, y, z) === T.AIR || getB(x, y, z) === T.WATER || LEAFY[getB(x, y, z)] || LOGGY[getB(x, y, z)]) put(x, y, z, fill || T.STONE); put(x, gy - 1, z, T.GRASS); } };
   const box = (x0, x1, z0, z1, y0, y1, b, hollow) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) { const e = x === x0 || x === x1 || z === z0 || z === z1; if (!hollow || e) put(x, y, z, typeof b === 'function' ? b(x, y, z, e) : b); } };
   const tower = (x, z, r, y0, y1, wall, roof, cone) => {
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { const d = Math.hypot(dx, dz); if (d > r + 0.3) continue; for (let y = y0; y <= y1; y++) { const edge = d > r - 0.8; put(x + dx, y, z + dz, edge ? ((y - y0) % 4 === 2 && (dx === 0 || dz === 0) ? T.GLASS : (typeof wall === 'function' ? wall(x + dx, y, z + dz) : wall)) : T.AIR); } put(x + dx, y0 - 1, z + dz, T.STONEBRICK); }
@@ -8406,10 +8409,10 @@ function cityBackMigrate(d) {
   const zoneOf = (x, z) => zones.find(Z => x >= Z.x0 && x <= Z.x1 && z >= Z.z0 && z <= Z.z1);
   let moved = 0;
   // clear the space above each zone's footprint first, then lay every edit (placed blocks AND dug-out air) back exactly
-  for (const Z of zones) for (let x = Z.x0; x <= Z.x1; x++) for (let q = Z.z0; q <= Z.z1; q++) { const nx = x + Z.ox, nz = q + Z.oz; if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue; for (let y = Z.by0 + Z.dy; y < H; y++) { const b = world[idx(nx, y, nz)]; if (b === T.LEAVES || b === T.LOG || b === T.TALLGRASS || b === T.THISTLE || b === T.HEATHER || isPlant(b)) world[idx(nx, y, nz)] = T.AIR; } }
+  for (const Z of zones) for (let x = Z.x0; x <= Z.x1; x++) for (let q = Z.z0; q <= Z.z1; q++) { const nx = x + Z.ox, nz = q + Z.oz; if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue; for (let y = Z.by0 + Z.dy; y < H; y++) { const b = world[idx(nx, y, nz)]; if (LEAFY[b] || LOGGY[b] || b === T.TALLGRASS || b === T.THISTLE || b === T.HEATHER || isPlant(b)) world[idx(nx, y, nz)] = T.AIR; } }
   for (const p of pts) { const Z = zoneOf(p[0], p[2]); if (!Z) continue; if (p[3] === T.AIR && p[1] < Z.by0) continue; /* GLX-E1: old digging below the house is not carved into the new land */ const nx = p[0] + Z.ox, ny = p[1] + Z.dy, nz = p[2] + Z.oz; if (nx < 0 || nz < 0 || nx >= W || nz >= D || ny < 1 || ny >= H) continue; world[idx(nx, ny, nz)] = p[3]; if (B[p[3]]) moved++; }
   // GLX-E1: solid foundation under the whole footprint (fills caves/air under the house) and keep the space above clear
-  for (const Z of zones) for (let x = Z.x0 + 2; x <= Z.x1 - 2; x++) for (let q = Z.z0 + 2; q <= Z.z1 - 2; q++) { const nx = x + Z.ox, nz = q + Z.oz; if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue; const gy = Z.by0 + Z.dy - 1; for (let y = gy, n = 0; y > 1 && n < 24; y--, n++) { const b = world[idx(nx, y, nz)]; if (b === T.AIR || b === T.WATER || b === T.LAVA || b === T.LEAVES || b === T.LOG) world[idx(nx, y, nz)] = y === gy ? T.DIRT : T.STONE; else if (n > 2) break; } }
+  for (const Z of zones) for (let x = Z.x0 + 2; x <= Z.x1 - 2; x++) for (let q = Z.z0 + 2; q <= Z.z1 - 2; q++) { const nx = x + Z.ox, nz = q + Z.oz; if (nx < 0 || nz < 0 || nx >= W || nz >= D) continue; const gy = Z.by0 + Z.dy - 1; for (let y = gy, n = 0; y > 1 && n < 24; y--, n++) { const b = world[idx(nx, y, nz)]; if (b === T.AIR || b === T.WATER || b === T.LAVA || LEAFY[b] || LOGGY[b]) world[idx(nx, y, nz)] = y === gy ? T.DIRT : T.STONE; else if (n > 2) break; } }
   // fill any gap under the lowest course down to the new ground
   for (const p of pts) { const Z = zoneOf(p[0], p[2]); if (!Z || p[1] !== Z.by0 || p[3] === T.AIR) continue; const nx = p[0] + Z.ox, nz = p[2] + Z.oz; for (let y = p[1] + Z.dy - 1; y > 0 && (world[idx(nx, y, nz)] === T.AIR || world[idx(nx, y, nz)] === T.WATER); y--) world[idx(nx, y, nz)] = T.DIRT; }
   // metadata follows its zone
@@ -9504,15 +9507,15 @@ function mtPaint() {
     if (Math.hypot(x - MT_C[0], z - MT_C[1]) > MT_R * 1.25) continue;
     const h = hA(x, z); if (h <= SEA + 1) continue;
     const sl = Math.max(Math.abs(hA(x + 1, z) - hA(x - 1, z)), Math.abs(hA(x, z + 1) - hA(x, z - 1))), y = h - 1, r = hs(x, 7, z);
-    const snowLine = H - 40 + g9fbm(x / 9, z / 9, 2) * 5;
+    const snowLine = H - 40 + g9fbm(x / 9, z / 9, 2) * 5, HTH = window.__trees2 ? T.GRASS : T.HEATHER;
     let top, sub = T.DIRT;
     if (y > snowLine && sl <= 5) { top = T.WOOL; sub = T.STONE; }
     else if (sl >= 5) { top = r < 0.12 ? T.COBBLE : T.STONE; sub = T.STONE; }                          // crag
     else if (y > snowLine && sl <= 3) { top = T.WOOL; sub = T.STONE; }                                // snow cap
-    else if (y > snowLine - 14) { top = sl >= 3 ? (r < 0.3 ? T.COBBLE : T.STONE) : r < 0.3 ? T.COBBLE : T.HEATHER; sub = T.STONE; }  // scree + high heather
-    else if (sl >= 3) { top = r < 0.25 ? T.COBBLE : r < 0.55 ? T.STONE : T.HEATHER; sub = T.STONE; }
-    else if (y > SEA + 22) top = r < 0.55 ? T.HEATHER : T.GRASS;
-    else top = r < 0.25 ? T.HEATHER : T.GRASS;
+    else if (y > snowLine - 14) { top = sl >= 3 ? (r < 0.3 ? T.COBBLE : T.STONE) : r < 0.3 ? T.COBBLE : HTH; sub = T.STONE; }  // scree + high heather
+    else if (sl >= 3) { top = r < 0.25 ? T.COBBLE : r < 0.55 ? T.STONE : HTH; sub = T.STONE; }
+    else if (y > SEA + 22) top = r < 0.55 ? HTH : T.GRASS;
+    else top = r < 0.25 ? HTH : T.GRASS;
     if (world[idx(x, y, z)] !== T.AIR) world[idx(x, y, z)] = top;
     for (let d = 1; d <= 3; d++) if (y - d > 0 && world[idx(x, y - d, z)] !== T.AIR && world[idx(x, y - d, z)] !== T.WATER) world[idx(x, y - d, z)] = sub;
     if (top === T.GRASS && r > 0.93 && world[idx(x, y + 1, z)] === T.AIR) world[idx(x, y + 1, z)] = T.TALLGRASS;
@@ -9602,7 +9605,7 @@ setInterval(() => bgmTick(), 1000);
 /* ===================== GLX-E1 (v0.9.10): builds survive Reset Terrain, Teleport to my builds, Restore backup list ===================== */
 var buildAreas = null;
 function solidTop(x, z) {   // highest natural/solid block, ignoring trees and plants
-  for (let y = H - 2; y > 0; y--) { const b = getB(x, y, z); if (b !== T.AIR && b !== T.LEAVES && b !== T.LOG && b !== T.WATER && !PLANT[b]) return y; }
+  for (let y = H - 2; y > 0; y--) { const b = getB(x, y, z); if (b !== T.AIR && !LEAFY[b] && !LOGGY[b] && b !== T.WATER && !PLANT[b]) return y; }
   return 1;
 }
 (function () {
@@ -9804,7 +9807,7 @@ setInterval(() => { try { ensureSeaRing(); } catch (_) {} }, 1000);
 /* ===================== GLX-E4 (v0.9.14): castles sit on the land (foundations, levelled ground) and always have interiors ===================== */
 (function castleFix() {
   const CR = {citadel: 32, turrets: 24, towerhouse: 18, lochisle: 26};
-  const isAirish = b => b === T.AIR || b === T.WATER || b === T.LEAVES || b === T.LOG || b === T.TALLGRASS || (PLANT && PLANT[b]);
+  const isAirish = b => b === T.AIR || b === T.WATER || LEAFY[b] || LOGGY[b] || b === T.TALLGRASS || (PLANT && PLANT[b]);
   const bc = buildCastle;
   buildCastle = function (kind, cx, cz) {
     const R = CR[kind] || 24, x0 = Math.max(0, cx - R), x1 = Math.min(W - 1, cx + R), z0 = Math.max(0, cz - R), z1 = Math.min(D - 1, cz + R);
@@ -10996,12 +10999,12 @@ const BR_DST = {x: BR_ARR[0], y: 2, z: BR_ARR[1], h: 2, n: [0, -1], o: new THREE
 function miniScene(get, x0, y0, z0, sx, sy, sz, sky, fogC, hemiI, hemiC) {
   const sc = new THREE.Scene(); sc.background = new THREE.Color(sky); sc.fog = new THREE.Fog(fogC, 6, 40);
   const hl = new THREE.HemisphereLight(hemiC, 0x605840, hemiI); sc.add(hl);
-  const op = b => b && b !== T.WATER && PLANT[b] !== 1 && b !== T.PAINTB && b !== T.PORTAL && b !== T.GLASS && b !== T.LEAVES ? 1 : 0;
+  const op = b => b && b !== T.WATER && PLANT[b] !== 1 && b !== T.PAINTB && b !== T.PORTAL && b !== T.GLASS && !LEAFY[b] ? 1 : 0;
   const A = new Uint8Array(sx * sy * sz), id = (x, y, z) => (x * sy + y) * sz + z;
   for (let x = 0; x < sx; x++) for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) A[id(x, y, z)] = get(x0 + x, y0 + y, z0 + z);
   const FQ = chunkFQ || [[[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]]];
   const FN = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]], faces = {};
-  for (let x = 0; x < sx; x++) for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) { const b = A[id(x, y, z)]; if (!b || (!op(b) && b !== T.WATER && b !== T.LEAVES)) continue;
+  for (let x = 0; x < sx; x++) for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) { const b = A[id(x, y, z)]; if (!b || (!op(b) && b !== T.WATER && !LEAFY[b])) continue;
     for (let d = 0; d < 6; d++) { const nx = x + FN[d][0], ny = y + FN[d][1], nz = z + FN[d][2]; const n = nx < 0 || ny < 0 || nz < 0 || nx >= sx || ny >= sy || nz >= sz ? 0 : A[id(nx, ny, nz)]; if (op(n) || (n === b && b === T.WATER)) continue; (faces[b] || (faces[b] = [[], [], [], [], [], []]))[d].push(x0 + x, y0 + y, z0 + z); } }
   for (const t in faces) { const F = faces[t]; let nf = 0; for (let d = 0; d < 6; d++) nf += F[d].length / 3;
     const pos = new Float32Array(nf * 12), nor = new Float32Array(nf * 12), uv = new Float32Array(nf * 8), ind = new Uint32Array(nf * 6), g = new THREE.BufferGeometry(); let f = 0; const multi = Array.isArray(BLOCK_MATS[t]);
@@ -11389,7 +11392,7 @@ function buildKeep(kind, cx, cz) {
     for (let y = gy; y < Math.min(H - 1, gy + 40); y++) put(x, y, z, T.AIR);
     const edge = Math.max(Math.abs(x - cx), Math.abs(z - cz)) > S;
     put(x, gy - 1, z, edge ? T.GRASS : T.GRASS);
-    for (let y = gy - 2, n = 0; y > 1 && n < 26; y--, n++) { const b = get(x, y, z); if (b && b !== T.WATER && b !== T.LEAVES && b !== T.LOG && PLANT[b] !== 1) break; put(x, y, z, n < 1 ? T.DIRT : T.STONEBRICK); }
+    for (let y = gy - 2, n = 0; y > 1 && n < 26; y--, n++) { const b = get(x, y, z); if (b && b !== T.WATER && !LEAFY[b] && !LOGGY[b] && PLANT[b] !== 1) break; put(x, y, z, n < 1 ? T.DIRT : T.STONEBRICK); }
   }
   // courtyard: cobble paths from the gate and side doors to the keep, a well
   for (let z = cz - 2; z <= cz + S; z++) for (let x = cx - 1; x <= cx + 1; x++) put(x, gy - 1, z, T.COBBLE);
@@ -12182,6 +12185,7 @@ var c37busy = false;
   const NAT = new Uint8Array(256);
   ['AIR', 'GRASS', 'DIRT', 'STONE', 'SAND', 'GRAVEL', 'LEAVES', 'LOG', 'WATER', 'LAVA', 'DEEPSLATE', 'COALORE', 'IRONORE', 'COPPERORE', 'GOLDORE', 'REDORE', 'DIAMONDORE', 'SILVERORE', 'CAIRNGORMORE',
     'HEATHER', 'PEAT', 'MUD', 'SNOW', 'CLAY', 'TALLGRASS', 'FIRE', 'BEDROCK', 'ICE', 'COBWEB', 'BLUEBELL', 'DAFFODIL', 'DANDELION', 'OBSIDIAN'].forEach(n => { if (T[n] !== undefined) NAT[T[n]] = 1; });
+  for (let b = 1; b < 256; b++) if (LEAFY[b] || LOGGY[b]) NAT[b] = 1;
   for (let b = 1; b < 256; b++) if (PLANT[b] === 1 && !(b >= T.WHEAT0 && b <= T.WHEAT3) && !(b >= T.POTATO0 && b <= T.POTATO3) && !(b >= T.NEEP0 && b <= T.NEEP3)) NAT[b] = 1;
   window.__NAT = NAT;
   // ---------- everything that lives outside the block array ----------
@@ -12263,7 +12267,7 @@ var c37busy = false;
     for (let x = Z.x0; x <= Z.x1; x++) for (let z = Z.z0; z <= Z.z1; z++) {
       // clear the site above the ground course (trees, rocks), foundation under it
       for (let y = Z.base + Z.dy; y < Math.min(H, Z.yhi + Z.dy + 10); y++) world[idx(x, y, z)] = T.AIR;
-      for (let y = Z.base + Z.dy - 1, n = 0; y > 1 && n < 30; y--, n++) { const b = world[idx(x, y, z)]; if (b === T.AIR || b === T.WATER || b === T.LEAVES || b === T.LOG || PLANT[b] === 1) world[idx(x, y, z)] = n === 0 ? T.GRASS : T.DIRT; else break; }
+      for (let y = Z.base + Z.dy - 1, n = 0; y > 1 && n < 30; y--, n++) { const b = world[idx(x, y, z)]; if (b === T.AIR || b === T.WATER || LEAFY[b] || LOGGY[b] || PLANT[b] === 1) world[idx(x, y, z)] = n === 0 ? T.GRASS : T.DIRT; else break; }
     }
     let n = 0;
     for (let x = 0; x < Z.sx; x++) for (let y = 0; y < Z.sy; y++) for (let z = 0; z < Z.sz; z++) { const v = Z.data[(x * Z.sy + y) * Z.sz + z]; if (v === 255) continue; const wy = Z.ylo + y + Z.dy; if (wy < 1 || wy >= H) continue; world[idx(Z.x0 + x, wy, Z.z0 + z)] = v; if (v) n++; }
@@ -12403,7 +12407,7 @@ var c37busy = false;
       for (const [dx, dy, dz] of DIRS) { let esc = false;
         for (let s = 1; s <= 30; s += 1) { const x = Math.floor(ex + dx * s), y = Math.floor(ey + dy * s), z = Math.floor(ez + dz * s);
           if (x < 0 || z < 0 || x >= W || z >= D || y >= H - 1) { esc = true; break; }
-          const b = world[idx(x, y, z)]; if (b !== T.AIR && b !== T.LEAVES && b !== T.WATER && b !== T.GLASS && PLANT[b] !== 1) break;
+          const b = world[idx(x, y, z)]; if (b !== T.AIR && !LEAFY[b] && b !== T.WATER && b !== T.GLASS && PLANT[b] !== 1) break;
           if (y >= skyTop(x, z)) { esc = true; break; } }
         if (esc) open++; }
       const o = open / DIRS.length;   // 0 = sealed cave, 1 = open sky
@@ -12570,7 +12574,7 @@ var placedSet = new Set();
     const placed = typeof placedSet !== 'undefined' ? placedSet : new Set();
     const st = {clusters: 0, clusterBlocks: 0, foundations: 0, torches: 0, lamps: 0, plants: 0, doors: 0, fences: 0};
     const at = (x, y, z) => (x < 0 || z < 0 || x >= W0 || z >= D0 || y < 0 || y >= H0) ? 0 : world[(x * H0 + y) * D0 + z];
-    const sol = (x, y, z) => { if (y < 0) return true; const b = at(x, y, z); return b !== 0 && !isFluid(b) && !ATT[b] && b !== T.LEAVES && b !== T.COBWEB; };
+    const sol = (x, y, z) => { if (y < 0) return true; const b = at(x, y, z); return b !== 0 && !isFluid(b) && !ATT[b] && !LEAFY[b] && b !== T.COBWEB; };
     const set = (x, y, z, v) => { if (!dry) world[(x * H0 + y) * D0 + z] = v; };
     // 1) structure components (everything solid that is not plain terrain): supported if touching terrain
     const seen = new Uint8Array(world.length), q = new Int32Array(1 << 21);
@@ -12588,11 +12592,11 @@ var placedSet = new Set();
         if (comp.length <= 120) { st.clusters++; st.clusterBlocks += comp.length; if (!dry) for (const j of comp) { world[j] = 0; } }
         else { // a big structure in the air: build its foundation down to the ground
           for (const j of comp) { const cx = (j / hd) | 0, cy = ((j % hd) / D0) | 0, cz = j % D0; if (cy > minY + 1 || at(cx, cy - 1, cz)) continue;
-            const fill = world[j] === T.LEAVES || world[j] === T.LOG ? 0 : (T.COBBLE); if (!fill) continue; st.foundations++;
+            const fill = LEAFY[world[j]] || LOGGY[world[j]] ? 0 : (T.COBBLE); if (!fill) continue; st.foundations++;
             for (let y = cy - 1, n = 0; y > 0 && n < 48 && !sol(cx, y, cz); y--, n++) set(cx, y, cz, fill); }
         }
       } else if (comp.length > 120) {   // supported structure whose ground course hangs over dips: fill pillars down
-        for (const j of comp) { const cx = (j / hd) | 0, cy = ((j % hd) / D0) | 0, cz = j % D0; const b = world[j]; if (cy > minY + 1 || b === T.LEAVES || b === T.LOG || !(b === T.STONEBRICK || b === T.COBBLE || b === T.MOSSYBRICK || b === T.PLANKS || b === T.BRICK || b === 228 || b === T.SANDSTONE)) continue;
+        for (const j of comp) { const cx = (j / hd) | 0, cy = ((j % hd) / D0) | 0, cz = j % D0; const b = world[j]; if (cy > minY + 1 || LEAFY[b] || LOGGY[b] || !(b === T.STONEBRICK || b === T.COBBLE || b === T.MOSSYBRICK || b === T.PLANKS || b === T.BRICK || b === 228 || b === T.SANDSTONE)) continue;
           if (at(cx, cy - 1, cz) !== 0 && !isFluid(at(cx, cy - 1, cz))) continue; let n = 0; while (n < 12 && !sol(cx, cy - 1 - n, cz)) n++; if (n >= 12) continue;
           st.foundations++; for (let k = 1; k <= n; k++) set(cx, cy - k, cz, b === T.PLANKS ? T.COBBLE : b); }
       }
@@ -12613,7 +12617,7 @@ var placedSet = new Set();
       if (b === T.DOOR) { if (sb) continue; st.doors++; if (!dry) { world[i] = 0; if (at(x, y + 1, z) === T.DOORTOP) world[(x * H0 + y + 1) * D0 + z] = 0; doorState.delete(keyOf(x, y, z)); } continue; }
       if (b === T.DOORTOP) { if (below === T.DOOR) continue; st.doors++; set(x, y, z, 0); continue; }
       if (b === T.FENCE || b === T.RAILING || b === 226) { if (sb || ATT[below]) continue; let side = false; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nb = at(x + dx, y, z + dz); if (sol(x + dx, y, z + dz) || (ATT[nb] && !PLANT[nb])) side = true; } if (side) continue; st.fences++; set(x, y, z, 0); continue; }
-      if (PLANT[b] === 1) { if (sb || below === T.LEAVES || (b === T.WATER)) continue; if (isFluid(below) && (b === T.LILYPAD)) continue; st.plants++; set(x, y, z, 0); continue; }
+      if (PLANT[b] === 1) { if (sb || LEAFY[below] || (b === T.WATER)) continue; if (isFluid(below) && (b === T.LILYPAD)) continue; st.plants++; set(x, y, z, 0); continue; }
     } }
     if (!dry && typeof markDirty === 'function') dirtyAll = true;
     st.total = st.clusters + st.foundations + st.torches + st.lamps + st.plants + st.doors + st.fences;
@@ -12912,7 +12916,7 @@ function ammoPick() { return (inv[IT.SILVERSHOT] || 0) > 0 ? IT.SILVERSHOT : IT.
     const items = starterItems(), n = Math.ceil(items.length / 27);
     const sx = Math.floor(P.x) + 2, sz = Math.floor(P.z) + 2;
     for (let i = 0; i < n; i++) { const x = sx + i, z = sz; let g = solidTop(x, z);
-      if (world[idx(x, g, z)] === T.WATER || world[idx(x, g, z)] === T.LEAVES || world[idx(x, g, z)] === T.LOG) world[idx(x, g, z)] = T.DIRT;
+      if (world[idx(x, g, z)] === T.WATER || LEAFY[world[idx(x, g, z)]] || LOGGY[world[idx(x, g, z)]]) world[idx(x, g, z)] = T.DIRT;
       world[idx(x, g + 1, z)] = T.CHEST; world[idx(x, g + 2, z)] = T.AIR;
       const slots = items.slice(i * 27, i * 27 + 27).map(q => q.slice()); while (slots.length < 27) slots.push(null);
       chests.set(keyOf(x, g + 1, z), {slots, starter: 1}); markDirty(x, z); }
@@ -13118,7 +13122,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     scene.remove(fall); disposeObj(fall);
     // now it becomes real blocks: clear the site, fill under, paste
     for (let x = 0; x < sx; x++) for (let z = 0; z < sz; z++) { const wx = nx0 + x, wz = nz0 + z; for (let y = ground; y < Math.min(H - 1, ground + sy + 8); y++) world[idx(wx, y, wz)] = T.AIR;
-      for (let y = ground - 1, n = 0; y > 1 && n < 30; y--, n++) { const b = world[idx(wx, y, wz)]; if (!b || b === T.WATER || b === T.LEAVES || PLANT[b] === 1) world[idx(wx, y, wz)] = T.DIRT; else break; } }
+      for (let y = ground - 1, n = 0; y > 1 && n < 30; y--, n++) { const b = world[idx(wx, y, wz)]; if (!b || b === T.WATER || LEAFY[b] || PLANT[b] === 1) world[idx(wx, y, wz)] = T.DIRT; else break; } }
     for (let x = 0; x < sx; x++) for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) { const b = data[(x * sy + y) * sz + z]; if (!b) continue; const k = idx(nx0 + x, ground + y, nz0 + z); world[k] = b; try { if (!__NAT[b]) placedSet.add(k); } catch (_) {} }
     const mv = k => { const [x, y, z] = k.split(',').map(Number); return keyOf(x + dx, y + dy, z + dz); };
     for (const [n, m] of [['chests', chests], ['doorState', doorState], ['furnaces', furnaces], ['entMeta', entMeta], ['crops', crops]]) for (const [k, v] of meta[n]) m.set(mv(k), v);
@@ -13262,7 +13266,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
   window.newBee = newBee;
   const sm = spawnMob; spawnMob = function (kind) { if (kind !== 'bee') return sm.apply(this, arguments); const s = window.__eggSpot || [P.x + 2, P.y + 1, P.z]; return newBee(s[0], s[1] + 0.8, s[2], null); };
   const keyH = (x, y, z) => x + ',' + y + ',' + z;
-  function findFlower(cx, cy, cz) { for (let t = 0; t < 30; t++) { const x = Math.round(cx + (Math.random() - .5) * 16), z = Math.round(cz + (Math.random() - .5) * 16); for (let y = Math.round(cy) + 4; y > cy - 10; y--) { const b = getB(x, y, z); if (FLOWERS.has(b)) return [x + .5, y + .6, z + .5]; if (b && b !== T.LEAVES && b !== HIVE) break; } } return null; }
+  function findFlower(cx, cy, cz) { for (let t = 0; t < 30; t++) { const x = Math.round(cx + (Math.random() - .5) * 16), z = Math.round(cz + (Math.random() - .5) * 16); for (let y = Math.round(cy) + 4; y > cy - 10; y--) { const b = getB(x, y, z); if (FLOWERS.has(b)) return [x + .5, y + .6, z + .5]; if (b && !LEAFY[b] && b !== HIVE) break; } } return null; }
   function hiveMeta(h) { const k = keyH(...h); let m = entMeta.get(k); if (!m || m.honey === undefined) { m = Object.assign(m || {}, {honey: 5}); entMeta.set(k, m); } return m; }
   function stepBee(a, dt) {
     const p = a.g.position; a.ph += dt; a.stT -= dt;
@@ -13299,8 +13303,8 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
   // ---- wild hives: hanging under trees near flowers, 2-3 bees each ----
   function placeHives() { if (DIM.cur) return 0; let n = 0; const want = 1;
     for (let t = 0; t < 6000 && n < want; t++) { const x = 6 + Math.floor(Math.random() * (W - 12)), z = 6 + Math.floor(Math.random() * (D - 12));
-      let y = H - 3; while (y > 2 && world[idx(x, y, z)] !== T.LEAVES) { if (world[idx(x, y, z)] && world[idx(x, y, z)] !== T.LEAVES) { y = 0; break; } y--; } if (y < 4) continue;
-      let ly = y; while (ly > 2 && world[idx(x, ly - 1, z)] === T.LEAVES) ly--;   // bottom leaf of the canopy
+      let y = H - 3; while (y > 2 && !LEAFY[world[idx(x, y, z)]]) { if (world[idx(x, y, z)] && !LEAFY[world[idx(x, y, z)]]) { y = 0; break; } y--; } if (y < 4) continue;
+      let ly = y; while (ly > 2 && LEAFY[world[idx(x, ly - 1, z)]]) ly--;   // bottom leaf of the canopy
       if (world[idx(x, ly - 1, z)] !== T.AIR || world[idx(x, ly - 2, z)] !== T.AIR) continue;
       let fl = 0; for (let a = -6; a <= 6; a++) for (let c = -6; c <= 6; c++) { const g = solidTop(x + a, z + c); const b = world[idx(x + a, g + 1, z + c)]; if (FLOWERS.has(b) || FLOWERS.has(world[idx(x + a, g, z + c)])) fl++; } if (fl < 2) continue;
       world[idx(x, ly - 1, z)] = HIVE; entMeta.set(keyH(x, ly - 1, z), {honey: 5, face: Math.floor(Math.random() * 4)}); n++; }
@@ -13352,7 +13356,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
   // ---- 7) the treeman leaves when you walk away, and comes back at night by a tree near you ----
   function treeNear(rMin, rMax) { const px = Math.floor(P.x), pz = Math.floor(P.z), c = [];
     for (let s = 0; s < 700 && c.length < 40; s++) { const an = Math.random() * 6.283, rr = rMin + Math.random() * (rMax - rMin), x = Math.floor(px + Math.cos(an) * rr), z = Math.floor(pz + Math.sin(an) * rr); if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
-      for (let y = H - 2; y > 2; y--) { const b = getB(x, y, z); if (b === T.LOG) { let ty = y; while (ty > 2 && getB(x, ty - 1, z) === T.LOG) ty--; c.push([x, ty, z]); break; } if (b && b !== T.LEAVES && !isPlant(b)) break; } }
+      for (let y = H - 2; y > 2; y--) { const b = getB(x, y, z); if (LOGGY[b]) { let ty = y; while (ty > 2 && LOGGY[getB(x, ty - 1, z)]) ty--; c.push([x, ty, z]); break; } if (b && !LEAFY[b] && !isPlant(b)) break; } }
     for (let t = 0; t < 30 && c.length; t++) { const [x, ty, z] = c[(Math.random() * c.length) | 0];
       for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [2, 0], [-2, 0], [0, 2], [0, -2], [1, 1], [-1, -1]]) { const cx = x + ox, cz = z + oz; for (const yy of [ty, ty + 1, ty - 1]) if (solid(cx, yy - 1, cz) && !solid(cx, yy, cz) && !solid(cx, yy + 1, cz)) return [cx + .5, yy, cz + .5, x, z]; } }
     window.__tnC = c.length;
@@ -14792,7 +14796,7 @@ var ORE18 = false, ISL_S = 1;
         const ns = j <= 2 ? gy - 1 : Math.max(s - 1, Math.min(s + 1, t));
         for (let x = cx - 1; x <= cx + 1; x++) { for (let y = ns + 1; y <= ns + 4; y++) { const b = world[idx(x, y, z)]; if (b && b !== T.TORCH) put(x, y, z, T.AIR); }
           put(x, ns, z, ns > s ? 167 : pathB); if (ns > s) entMeta.set(keyOf(x, ns, z), {face: stairF(0, 1)});
-          for (let y = ns - 1; y > 1 && y > ns - 8; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && b !== T.LEAVES && !PLANT[b]) break; put(x, y, z, k === 'black' ? T.BLACKSTONE : T.COBBLE); } }
+          for (let y = ns - 1; y > 1 && y > ns - 8; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !LEAFY[b] && !PLANT[b]) break; put(x, y, z, k === 'black' ? T.BLACKSTONE : T.COBBLE); } }
         if (ns < s) for (let x = cx - 1; x <= cx + 1; x++) { put(x, s, z - 1, 167); entMeta.set(keyOf(x, s, z - 1), {face: stairF(0, -1)}); }
         if (k === 'human' && j % 5 === 0) for (const sx of [-2, 2]) { const tt = solidTop(cx + sx, z); put(cx + sx, tt + 1, z, 162); put(cx + sx, tt + 2, z, T.TORCH); }
         s = ns; }
@@ -15001,7 +15005,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
   const stand = (x, y, z) => okCell(x, y, z, O2);
   const roofed = (x, y, z) => { for (let k = 2; k <= 10; k++) { const b = wb(x, y + k, z); if (b && !BADROOF.has(b) && solid(x, y + k, z)) return true; } return false; };
   const wall = (x, y, z) => { const b = wb(x, y, z); return b && !BADROOF.has(b) && solid(x, y, z) && !isDoor(b) && b !== T.BED; };
-  function groundY(x, z) { for (let y = H - 3; y > 2; y--) { const b = wb(x, y, z); if (b && b !== T.LEAVES && b !== T.LOG && solid(x, y, z)) return y + 1; if (b === T.WATER) return y + 1; } return SEA; }
+  function groundY(x, z) { for (let y = H - 3; y > 2; y--) { const b = wb(x, y, z); if (b && !LEAFY[b] && !LOGGY[b] && solid(x, y, z)) return y + 1; if (b === T.WATER) return y + 1; } return SEA; }
   function access(x, y, z) { for (const [ax, az] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) if (stand(x + ax, y, z + az)) return [x + ax, y, z + az]; for (const [ax, az] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) if (stand(x + ax, y - 1, z + az)) return [x + ax, y - 1, z + az]; return null; }
   function nearDoor(x, y, z, r) { for (let ax = -r; ax <= r; ax++) for (let az = -r; az <= r; az++) for (let k = -1; k <= 2; k++) if (isDoor(wb(x + ax, y + k, z + az))) return true; return false; }
   function placeBlock(x, y, z, v, meta) { world[idx(x, y, z)] = v; if (meta) entMeta.set(keyOf(x, y, z), meta); markDirty(x, z); try { if (typeof placedSet !== 'undefined') placedSet.delete(idx(x, y, z)); } catch (_) {} }
@@ -15449,7 +15453,7 @@ var C79 = {st: {cullBuilt: 0, fullBuilt: 0, caveFaces: 0, reb: 0, pr: []}};
     const d = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)); if (d <= fullR()) return null;
     return window.__caveRegion(cx, cz); };
   function headCovered() { const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 1.6); if (x < 0 || z < 0 || x >= W || z >= D) return false;
-    let c = 0; for (let yy = y + 1; yy < Math.min(H, y + 40); yy++) { const b = world[(x * H + yy) * D + z]; if (b && b !== T.LEAVES && b !== 134 && !(chunkST && chunkST[b] === 1)) { c++; if (c >= 3) return true; } } return false; }
+    let c = 0; for (let yy = y + 1; yy < Math.min(H, y + 40); yy++) { const b = world[(x * H + yy) * D + z]; if (b && !LEAFY[b] && b !== 134 && !(chunkST && chunkST[b] === 1)) { c++; if (c >= 3) return true; } } return false; }
   setInterval(() => { if (!started) return; try {
     pcx = Math.floor(P.x / CH); pcz = Math.floor(P.z / CH); under = headCovered() && P.y < H - 2;
     const R = fullR(); for (const [id, g] of chunkObjs) { if (!g.userData.cav) continue; const cx = Math.floor(id / 64), cz = id % 64; if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) <= R) dirtyCh.add(id); }
@@ -15576,6 +15580,213 @@ void main() {
     try { return rr(sc, cam); } finally { for (const o of hid) o.visible = true; hid.length = 0; }
   };
   if (PHONE) { const rb = rebuild; rebuild = function (b) { return rb.call(this, b && b > 4 ? 4 : b); }; }
+})();
+/* ===================== GLX-C80 (v0.9.65): Scottish native trees, each with its own bark, wood and leaves; trees planted after the caves (never floating),
+   spaced out, in proper woods by habitat; heather grows in clumps on the moor; a dead, spooky wood round the Blackstone castle ===================== */
+(function c80() {
+  const LOG = {pine: 135, birch: 136, rowan: 137, hazel: 138, alder: 139, willow: 141, aspen: 142, yew: 143, holly: 144, dead: 145};
+  const LEAF = {pine: 146, birch: 147, rowan: 148, hazel: 149, alder: 215, willow: 238, aspen: 239, yew: 240, juniper: 250, holly: 251, hawthorn: 252, blackthorn: 253};
+  for (const id of [...Object.values(LOG), ...Object.values(LEAF)]) if (NAMES[id] !== undefined || FACES[id] !== undefined) { console.warn('c80: block id taken', id); return; }
+  const LN = {pine: 'Scots Pine Log', birch: 'Silver Birch Log', rowan: 'Rowan Log', hazel: 'Hazel Log', alder: 'Alder Log', willow: 'Willow Log', aspen: 'Aspen Log', yew: 'Yew Log', holly: 'Holly Log', dead: 'Dead Wood'};
+  const FN = {pine: 'Scots Pine Needles', birch: 'Silver Birch Leaves', rowan: 'Rowan Leaves', hazel: 'Hazel Leaves', alder: 'Alder Leaves', willow: 'Willow Leaves', aspen: 'Aspen Leaves', yew: 'Yew Needles', juniper: 'Juniper', holly: 'Holly Leaves', hawthorn: 'Hawthorn', blackthorn: 'Blackthorn (bare)'};
+  // bark colour, contrast, inner wood colour, heartwood colour
+  const BARK = {pine: ['#9a5434', 1.35, '#d9b878', '#b8743c'], birch: ['#e4e0d6', 0.45, '#efe2c2', '#e0cc9e'], rowan: ['#8c877c', 0.6, '#dcc496', '#b89064'], hazel: ['#86624a', 0.65, '#e2cfa4', '#c8a878'],
+    alder: ['#56504a', 1.25, '#d8a070', '#c0703c'], willow: ['#7a6c58', 1.55, '#e8d8b4', '#c8b088'], aspen: ['#b9bca9', 0.55, '#eee4cc', '#d8c8a4'], yew: ['#7e4232', 1.2, '#e8b478', '#b2442a'],
+    holly: ['#8e8c86', 0.35, '#efe8d8', '#ddd2b8'], dead: ['#9a958c', 1.7, '#bdb3a2', '#8a8070']};
+  // leaf colour, dark gap colour, style
+  const LEAFC = {pine: ['#36552e', '#14200f', 'needle'], birch: ['#86a843', '#2c3a16', 'small'], rowan: ['#557f33', '#1c2c12', 'rowan'], hazel: ['#64903a', '#22341a', 'round'], alder: ['#3a6030', '#122010', 'round'],
+    willow: ['#8ea37a', '#2e3a28', 'long'], aspen: ['#95b240', '#2e3a14', 'round'], yew: ['#22381f', '#0a120a', 'needle'], juniper: ['#4d6b58', '#182620', 'needle'], holly: ['#21451f', '#081408', 'holly'],
+    hawthorn: ['#527e35', '#1c2a12', 'hawthorn'], blackthorn: ['#2a2220', '#0e0b0b', 'twig']};
+  const ids = []; const keys = {};
+  const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
+  for (const k in LOG) { const id = LOG[k], s = 'log_side_' + k, t = 'log_top_' + k; TEX[s] = TEX[t] = BLANK; keys[s] = ['bark', k]; keys[t] = ['top', k];
+    T[(k + 'LOG').toUpperCase()] = id; NAMES[id] = LN[k]; FACES[id] = [s, s, t, t, s, s]; ICON_KEY[id] = s; BLOCK_MATS[id] = FACES[id].map(mat);
+    HARD[id] = HARD[T.LOG] || 1.6; MC_HARD[id] = MC_HARD[T.LOG] || 2; if (REQ[T.LOG] !== undefined) REQ[id] = REQ[T.LOG]; AXE_ON.add(id); FUEL[id] = FUEL[T.LOG] || 15; SMELT[id] = IT.CHARCOAL; FLAMMABLE.add(id); ids.push(id); }
+  for (const k in LEAF) { const id = LEAF[k], s = 'leaves_' + k; TEX[s] = BLANK; keys[s] = ['leaf', k];
+    T[(k + 'LEAVES').toUpperCase()] = id; NAMES[id] = FN[k]; FACES[id] = s; ICON_KEY[id] = s; BLOCK_MATS[id] = mat(s);
+    HARD[id] = HARD[T.LEAVES] || 0.25; MC_HARD[id] = MC_HARD[T.LEAVES] || 0.2; FLAMMABLE.add(id); ids.push(id); }
+  for (const id of ids) { PLACEABLE.add(id); if (!ORDER.includes(id)) ORDER.push(id); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(id)) CREATIVE_ALL.push(id); }
+  if (chunkST) for (const k in LEAF) chunkST[LEAF[k]] = 3;
+  // any log makes planks (the recipe uses whichever log you are carrying)
+  const pr = RECIPES.find(r => r.out === T.PLANKS && r.need.length === 1 && r.need[0][0] === T.LOG);
+  if (pr) { const allLogs = [T.LOG, ...Object.values(LOG)]; pr.hint = '1 Log (any wood)'; Object.defineProperty(pr, 'need', {get() { const id = allLogs.find(i => cnt(i) >= 1) || T.LOG; return [[id, 1]]; }, configurable: true}); }
+
+  // ---- textures: painted at start-up from the liked oak bark / log end / leaves, so every species keeps the same hand-made look ----
+  let sd = 1; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const cvs = N => { const c = document.createElement('canvas'); c.width = c.height = N; return c; };
+  const lum = (d, i) => 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
+  function paintBark(k, src) { const [col, con] = BARK[k], [R, G, B] = hex(col), N = Math.min(src.width, TEXSIZE), c = cvs(N), g = c.getContext('2d'); g.drawImage(src, 0, 0, N, N);
+    const im = g.getImageData(0, 0, N, N), d = im.data; let m = 0; for (let i = 0; i < d.length; i += 4) m += lum(d, i); m /= d.length / 4;
+    for (let i = 0; i < d.length; i += 4) { const v = Math.max(0.05, 1 + (lum(d, i) / m - 1) * con); d[i] = Math.min(255, R * v); d[i + 1] = Math.min(255, G * v); d[i + 2] = Math.min(255, B * v); }
+    g.putImageData(im, 0, 0); sd = 1 + k.length * 977; const u = N / 256;
+    if (k === 'birch') { for (let n = 0; n < 70; n++) { const x = rnd() * N, y = rnd() * N, w = (6 + rnd() * 28) * u; g.fillStyle = `rgba(${20 + rnd() * 20 | 0},${18 + rnd() * 16 | 0},${16},${0.65 + rnd() * 0.3})`; g.fillRect(x, y, w, (1.5 + rnd() * 2.5) * u); }
+      for (let n = 0; n < 8; n++) { g.fillStyle = 'rgba(25,22,20,.8)'; g.beginPath(); g.ellipse(rnd() * N, rnd() * N, (8 + rnd() * 16) * u, (5 + rnd() * 8) * u, 0, 0, 7); g.fill(); } }
+    if (k === 'aspen') for (let n = 0; n < 40; n++) { const x = rnd() * N, y = rnd() * N, s = (3 + rnd() * 6) * u; g.fillStyle = 'rgba(40,40,34,.7)'; g.beginPath(); g.moveTo(x, y - s); g.lineTo(x + s * .7, y); g.lineTo(x, y + s); g.lineTo(x - s * .7, y); g.fill(); }
+    if (k === 'rowan' || k === 'hazel' || k === 'holly') for (let n = 0; n < 60; n++) { g.fillStyle = k === 'hazel' ? 'rgba(220,200,160,.45)' : 'rgba(200,198,190,.35)'; g.fillRect(rnd() * N, rnd() * N, (4 + rnd() * 9) * u, 1.4 * u); }
+    if (k === 'pine') for (let n = 0; n < 50; n++) { g.fillStyle = `rgba(${200 + rnd() * 40 | 0},${110 + rnd() * 40 | 0},${60},.28)`; g.fillRect(rnd() * N, rnd() * N, (10 + rnd() * 26) * u, (6 + rnd() * 14) * u); }
+    if (k === 'yew') for (let n = 0; n < 40; n++) { g.fillStyle = `rgba(${170 + rnd() * 50 | 0},${80 + rnd() * 30 | 0},${60},.3)`; g.fillRect(rnd() * N, rnd() * N, (6 + rnd() * 16) * u, (14 + rnd() * 30) * u); }
+    if (k === 'dead') { g.strokeStyle = 'rgba(30,26,22,.75)'; for (let n = 0; n < 26; n++) { g.lineWidth = (1 + rnd() * 2.5) * u; g.beginPath(); let x = rnd() * N, y = 0; g.moveTo(x, y); while (y < N) { y += 12 * u; x += (rnd() - .5) * 8 * u; g.lineTo(x, y); } g.stroke(); } }
+    return c; }
+  function paintTop(k, src) { const [col, con, wood, heart] = BARK[k], b = hex(col), w = hex(wood), h = hex(heart), N = Math.min(src.width, TEXSIZE), c = cvs(N), g = c.getContext('2d'); g.drawImage(src, 0, 0, N, N);
+    const im = g.getImageData(0, 0, N, N), d = im.data; let m = 0; for (let i = 0; i < d.length; i += 4) m += lum(d, i); m /= d.length / 4; const hN = N / 2;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = (y * N + x) * 4, r = Math.max(Math.abs(x - hN + .5), Math.abs(y - hN + .5)) / hN, rr = Math.hypot(x - hN + .5, y - hN + .5) / hN, v = lum(d, i) / m;
+      let C; if (r > 0.86) C = b.map(q => q * Math.max(.1, 1 + (v - 1) * con)); else { const t = Math.min(1, Math.max(0, (rr - 0.25) / 0.35)); C = [0, 1, 2].map(j => (h[j] * (1 - t) + w[j] * t) * (0.55 + 0.45 * v)); }
+      d[i] = Math.min(255, C[0]); d[i + 1] = Math.min(255, C[1]); d[i + 2] = Math.min(255, C[2]); }
+    g.putImageData(im, 0, 0); return c; }
+  function paintLeaf(k, src) { const [col, gap, sty] = LEAFC[k], L = hex(col), G0 = hex(gap), N = Math.min(src.width, TEXSIZE), c = cvs(N), g = c.getContext('2d'), u = N / 256; sd = 7 + k.length * 131;
+    g.fillStyle = gap; g.fillRect(0, 0, N, N);
+    if (sty === 'needle' || sty === 'twig') {   // drawn needles / bare thorny twigs
+      if (sty === 'twig') { for (let n = 0; n < 34; n++) { g.strokeStyle = `rgba(${50 + rnd() * 30 | 0},${40 + rnd() * 22 | 0},${36},1)`; g.lineWidth = (1.5 + rnd() * 3) * u; g.beginPath(); let x = rnd() * N, y = rnd() * N, a = rnd() * 6.3; g.moveTo(x, y);
+          for (let s = 0; s < 6; s++) { a += (rnd() - .5) * 1.4; x += Math.cos(a) * 18 * u; y += Math.sin(a) * 18 * u; g.lineTo(x, y); if (rnd() < .5) { g.moveTo(x, y); g.lineTo(x + Math.cos(a + 1.3) * 6 * u, y + Math.sin(a + 1.3) * 6 * u); g.moveTo(x, y); } } g.stroke(); }
+        for (let n = 0; n < 18; n++) { g.fillStyle = 'rgba(40,46,70,.9)'; g.beginPath(); g.arc(rnd() * N, rnd() * N, 2.6 * u, 0, 7); g.fill(); } }   // a few sloes
+      else { const lb = k === 'pine' ? 18 : k === 'yew' ? 10 : 8, cnt = k === 'pine' ? 1300 : 1700; for (let n = 0; n < cnt; n++) { const x = rnd() * N, y = rnd() * N, a = (k === 'yew' ? 0.3 : rnd() * 6.3) + (rnd() - .5) * .8, l = (lb * (.6 + rnd() * .6)) * u, v = 0.55 + rnd() * 0.75;
+          g.strokeStyle = `rgb(${Math.min(255, L[0] * v) | 0},${Math.min(255, L[1] * v) | 0},${Math.min(255, L[2] * v) | 0})`; g.lineWidth = (k === 'yew' ? 2.6 : 1.6) * u; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+        if (k === 'juniper') for (let n = 0; n < 60; n++) { g.fillStyle = `rgba(${60 + rnd() * 30 | 0},${80 + rnd() * 30 | 0},${120 + rnd() * 40 | 0},.95)`; g.beginPath(); g.arc(rnd() * N, rnd() * N, 2.8 * u, 0, 7); g.fill(); }
+        if (k === 'yew') for (let n = 0; n < 16; n++) { g.fillStyle = '#c8302a'; g.beginPath(); g.arc(rnd() * N, rnd() * N, 3 * u, 0, 7); g.fill(); } }
+      return c; }
+    // broadleaves: the liked leaf texture, recoloured per species, holes baked as the dark gap colour (opaque 'fast' leaves)
+    g.drawImage(src, 0, 0, N, N); const im = g.getImageData(0, 0, N, N), d = im.data; let m = 0, n0 = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 40) { m += lum(d, i); n0++; } m /= Math.max(1, n0);
+    const dens = sty === 'small' ? 0.15 : sty === 'long' ? 0.1 : 0;   // birch/willow: lighter, airier canopy - more gaps
+    for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255, p = (i >> 2), x = p % N, y = (p / N) | 0, hsh = ((x * 73856093) ^ (y * 19349663)) >>> 0;
+      let v = lum(d, i) / m; const gapy = a < 0.5 || (dens && ((hsh % 1000) / 1000 < dens * (1.4 - v)));
+      if (gapy) { d[i] = G0[0]; d[i + 1] = G0[1]; d[i + 2] = G0[2]; } else { v = 0.35 + 0.75 * v; d[i] = Math.min(255, L[0] * v); d[i + 1] = Math.min(255, L[1] * v); d[i + 2] = Math.min(255, L[2] * v); } d[i + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    if (sty === 'long') for (let n = 0; n < 220; n++) { const x = rnd() * N, y = rnd() * N, v = .8 + rnd() * .5; g.strokeStyle = `rgba(${Math.min(255, L[0] * v * 1.15) | 0},${Math.min(255, L[1] * v * 1.15) | 0},${Math.min(255, L[2] * v * 1.1) | 0},.85)`; g.lineWidth = 3 * u; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - .5) * 6 * u, y + 20 * u); g.stroke(); }
+    const dots = (n, col, r) => { for (let q = 0; q < n; q++) { const x = rnd() * N, y = rnd() * N; for (let j = 0; j < 5; j++) { g.fillStyle = col; g.beginPath(); g.arc(x + (rnd() - .5) * 12 * u, y + (rnd() - .5) * 12 * u, r * u, 0, 7); g.fill(); } } };
+    if (k === 'rowan') dots(14, '#c8361c', 3.2);
+    if (k === 'hawthorn') { dots(10, '#f2eee4', 2.8); dots(6, '#a8241c', 2.6); }
+    if (k === 'holly') { for (let q = 0; q < 140; q++) { g.fillStyle = 'rgba(200,230,200,.22)'; g.fillRect(rnd() * N, rnd() * N, 5 * u, 2 * u); } dots(8, '#d0201c', 3.2); }
+    if (k === 'hazel') for (let q = 0; q < 14; q++) { g.strokeStyle = '#d8c46a'; g.lineWidth = 3 * u; const x = rnd() * N, y = rnd() * N; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2 * u, y + 16 * u); g.stroke(); }
+    if (k === 'aspen') for (let q = 0; q < 90; q++) { g.fillStyle = 'rgba(235,240,170,.35)'; g.beginPath(); g.arc(rnd() * N, rnd() * N, 3.4 * u, 0, 7); g.fill(); }
+    return c; }
+  const done = {}, css = document.createElement('style'); document.head.appendChild(css); const cssL = [];
+  const apply = key => { const c = done[key], t = texCache[key]; if (!c || !t) return; if (t.image !== c) { t.image = c; t.needsUpdate = true; } texImg[key] = c; };
+  const jobs = Object.keys(keys);
+  function step() { const need = {bark: 'log_side', top: 'log_top', leaf: 'leaves'}; const src = {bark: texImg.log_side, top: texImg.log_top, leaf: texImg.leaves};
+    if (!src.bark || !src.top || !src.leaf || src.bark.width < 8) return setTimeout(step, 150);
+    const t0 = performance.now();
+    while (jobs.length && performance.now() - t0 < 30) { const key = jobs.shift(), [kind, sp] = keys[key];
+      try { const c = kind === 'bark' ? paintBark(sp, src.bark) : kind === 'top' ? paintTop(sp, src.top) : paintLeaf(sp, src.leaf); done[key] = c; apply(key);
+        const th = cvs(96); th.getContext('2d').drawImage(c, 0, 0, 96, 96); const u = th.toDataURL('image/jpeg', 0.85); TEX[key] = u; cssL.push('.ic-' + key + '{background-image:url(' + u + ') !important}'); } catch (e) { console.warn('c80 tex', key, e); } }
+    css.textContent = cssL.join('\n');
+    if (jobs.length) setTimeout(step, 16); else { let n = 0; const iv = setInterval(() => { for (const k in done) apply(k); if (++n > 40) clearInterval(iv); }, 500); }
+    void need; }
+  setTimeout(step, 50);
+  window.__c80tex = done;
+
+  // ---------------- world generation ----------------
+  window.__trees2 = true;
+  const AIRISH = b => b === T.AIR || (PLANT[b] === 1 && b !== T.WATER);
+  function plant(seed) {
+    const W0 = W, D0 = D, hs = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ seed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+    let rs = (seed ^ 0x5bd1e995) >>> 0 || 1; const r = () => { rs ^= rs << 13; rs >>>= 0; rs ^= rs >>> 17; rs ^= rs << 5; rs >>>= 0; return rs / 4294967296; };
+    const B = g9BuiltSet(), st = {trees: 0, byKind: {}, pos: {}, heather: 0, hpos: [], rejected: 0, ms: 0}; const t0 = performance.now();
+    // columns with anything man-made in them (castles, ruins, bothies, stones, villages): keep trees 4 blocks away
+    const built = new Uint8Array(W0 * D0);
+    for (let x = 0; x < W0; x++) for (let z = 0; z < D0; z++) { const top = g9cols ? g9cols[(x * D0 + z) * 2] : SEA; for (let y = Math.max(1, top - 3); y < Math.min(H, top + 24); y++) { const b = world[(x * H + y) * D0 + z]; if (b && (B[b] || b === T.MOSSYBRICK || b === T.STONEBRICK || b === T.COBBLE || (b === T.STONE && y > top) || (T.BLACKSTONE && b === T.BLACKSTONE) || b === T.OBSIDIAN)) { built[x * D0 + z] = 1; break; } } }
+    const nearBuilt = (x, z, R) => { for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= W0 || c >= D0 || built[a * D0 + c]) return true; } return false; };
+    const castles = (typeof g9castles !== 'undefined' ? g9castles : []).map(c => ({k: c[0], x: c[1], z: c[2], R: c[0] === 'citadel' ? 34 : 26}));
+    const spawn = g9spawn;
+    const occ = new Uint8Array(W0 * D0);
+    const free = (x, z, R) => { for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const a = x + dx, c = z + dz; if (a >= 0 && c >= 0 && a < W0 && c < D0 && occ[a * D0 + c]) return false; } return true; };
+    const at = (x, y, z) => world[(x * H + y) * D0 + z];
+    const setW = (x, y, z, b) => { if (x < 1 || z < 1 || x >= W0 - 1 || z >= D0 - 1 || y < 1 || y >= H - 1) return; const i = (x * H + y) * D0 + z, o = world[i]; if (o === T.AIR || (PLANT[o] === 1 && o !== T.WATER) || LEAFY[o]) world[i] = b; };
+    const setL = (x, y, z, b) => { if (x < 1 || z < 1 || x >= W0 - 1 || z >= D0 - 1 || y < 1 || y >= H - 1) return; const i = (x * H + y) * D0 + z; if (world[i] === T.AIR) world[i] = b; };
+    const blob = (cx, cy, cz, rx, ry, rz, p, id) => { for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let z = Math.floor(cz - rz); z <= Math.ceil(cz + rz); z++) {
+      const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + ((z - cz) / rz) ** 2; if (d > 1) continue; if (r() < p * (1.25 - 0.6 * d)) setL(x, y, z, id); } };
+    const branch = (x, y, z, dx, dz, len, rise, id) => { let px = x, py = y, pz = z; for (let s = 1; s <= len; s++) { px = x + Math.round(dx * s); pz = z + Math.round(dz * s); py = y + Math.round(rise * s / len); setW(px, py, pz, id); } return [px, py, pz]; };
+    const trunk = (x, y0, z, h, id) => { for (let y = 1; y <= h; y++) setW(x, y0 + y, z, id); };
+    // ---- one function per species: tall thin trunks and light, twiggy crowns by default ----
+    const TREE = {
+      oak(x, g, z) { const h = 6 + (r() * 4 | 0); trunk(x, g, z, h, T.LOG); const nb = 2 + (r() * 3 | 0);
+        for (let i = 0; i < nb; i++) { const a = r() * 6.3, y = g + Math.round(h * (0.55 + r() * 0.35)), e = branch(x, y, z, Math.cos(a), Math.sin(a), 2 + (r() * 2 | 0), 1 + (r() * 2 | 0), T.LOG); blob(e[0], e[1] + 0.5, e[2], 2.2, 1.4, 2.2, 0.62, T.LEAVES); }
+        blob(x, g + h + 0.5, z, 2.6, 1.6, 2.6, 0.58, T.LEAVES); setL(x, g + h + 1, z, T.LEAVES); return h; },
+      birch(x, g, z) { const h = 8 + (r() * 5 | 0); trunk(x, g, z, h, LOG.birch); const y0 = g + Math.round(h * 0.5);
+        for (let y = y0; y <= g + h + 1; y++) { const t = (y - y0) / (g + h + 1 - y0), rr = 1.7 - t * 0.9; blob(x, y, z, rr, 0.6, rr, 0.5, LEAF.birch); }
+        for (let i = 0; i < 2; i++) { const a = r() * 6.3, e = branch(x, y0 + 1 + (r() * 3 | 0), z, Math.cos(a), Math.sin(a), 2, 1, LOG.birch); blob(e[0], e[1], e[2], 1.3, 1, 1.3, 0.55, LEAF.birch); }
+        setL(x, g + h + 1, z, LEAF.birch); return h; },
+      aspen(x, g, z) { const h = 9 + (r() * 5 | 0); trunk(x, g, z, h, LOG.aspen); const y0 = g + Math.round(h * 0.45);
+        for (let y = y0; y <= g + h + 1; y++) blob(x, y, z, 1.5, 0.6, 1.5, 0.62, LEAF.aspen); setL(x, g + h + 1, z, LEAF.aspen); setL(x, g + h + 2, z, LEAF.aspen); return h; },
+      rowan(x, g, z) { const h = 5 + (r() * 3 | 0); trunk(x, g, z, h - 2, LOG.rowan); const a = r() * 6.3;
+        const e1 = branch(x, g + h - 2, z, Math.cos(a) * .7, Math.sin(a) * .7, 2, 2, LOG.rowan), e2 = branch(x, g + h - 2, z, -Math.cos(a) * .7, -Math.sin(a) * .7, 2, 2, LOG.rowan);
+        blob(e1[0], e1[1] + 0.6, e1[2], 1.8, 1.3, 1.8, 0.58, LEAF.rowan); blob(e2[0], e2[1] + 0.6, e2[2], 1.8, 1.3, 1.8, 0.58, LEAF.rowan); return h; },
+      alder(x, g, z) { const h = 7 + (r() * 4 | 0); trunk(x, g, z, h, LOG.alder); const y0 = g + Math.round(h * 0.4);
+        for (let y = y0; y <= g + h + 1; y++) { const t = (y - y0) / (g + h + 1 - y0), rr = 2.4 - t * 1.9; blob(x, y, z, Math.max(.6, rr), 0.6, Math.max(.6, rr), 0.6, LEAF.alder); } setL(x, g + h + 1, z, LEAF.alder); return h; },
+      willow(x, g, z) { const h = 4 + (r() * 3 | 0), lx = r() < .5 ? 1 : -1; trunk(x, g, z, h - 1, LOG.willow); setW(x + (r() < .5 ? lx : 0), g + h, z, LOG.willow);
+        const cy = g + h + 1; blob(x, cy, z, 3, 1.5, 3, 0.62, LEAF.willow);
+        for (let i = 0; i < 14; i++) { const a = r() * 6.3, d = 2 + r() * 1.3, px = Math.round(x + Math.cos(a) * d), pz = Math.round(z + Math.sin(a) * d), len = 1 + (r() * 3 | 0); for (let y = 0; y < len; y++) setL(px, cy - 1 - y, pz, LEAF.willow); } return h; },
+      pine(x, g, z) { const h = 10 + (r() * 6 | 0); trunk(x, g, z, h, LOG.pine); const nb = 2 + (r() * 2 | 0);
+        for (let i = 0; i < nb; i++) { const a = r() * 6.3, y = g + h - 1 - (r() * 3 | 0), e = branch(x, y, z, Math.cos(a), Math.sin(a), 2, 1, LOG.pine); blob(e[0], e[1] + 0.4, e[2], 1.8, 0.8, 1.8, 0.78, LEAF.pine); }
+        blob(x, g + h, z, 2.4, 1.1, 2.4, 0.72, LEAF.pine); blob(x, g + h + 1.2, z, 1.4, 0.7, 1.4, 0.8, LEAF.pine); return h; },
+      juniper(x, g, z) { const h = 1 + (r() * 3 | 0); setW(x, g + 1, z, LOG.yew); for (let y = 1; y <= h + 1; y++) blob(x, g + y, z, y <= h ? 1.2 : 0.6, 0.6, y <= h ? 1.2 : 0.6, 0.85, LEAF.juniper); setL(x, g + h + 1, z, LEAF.juniper); return h; },
+      hazel(x, g, z) { const n = 3 + (r() * 2 | 0), h = 3 + (r() * 3 | 0); for (let i = 0; i < n; i++) { const a = i / n * 6.3 + r(), e = branch(x, g + 1, z, Math.cos(a) * .6, Math.sin(a) * .6, h, h - 1, LOG.hazel); void e; }
+        setW(x, g + 1, z, LOG.hazel); blob(x, g + h + 0.5, z, 2.3, 1.5, 2.3, 0.66, LEAF.hazel); return h; },
+      holly(x, g, z) { const h = 5 + (r() * 3 | 0); trunk(x, g, z, h, LOG.holly); for (let y = g + 2; y <= g + h + 1; y++) { const t = (y - g - 2) / (h - 1), rr = 2.2 - t * 1.8; blob(x, y, z, Math.max(.5, rr), 0.6, Math.max(.5, rr), 0.9, LEAF.holly); } setL(x, g + h + 1, z, LEAF.holly); return h; },
+      hawthorn(x, g, z) { const h = 3 + (r() * 2 | 0), a = r() * 6.3; const e = branch(x, g, z, Math.cos(a) * .5, Math.sin(a) * .5, h, h, LOG.hazel); setW(x, g + 1, z, LOG.hazel); blob(e[0], e[1] + 0.4, e[2], 2.6, 1.1, 2.6, 0.62, LEAF.hawthorn); return h; },
+      yew(x, g, z) { const h = 4 + (r() * 3 | 0); trunk(x, g, z, h, LOG.yew); for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) if (r() < .5) setW(x + dx, g + 1, z + dz, LOG.yew);
+        blob(x, g + h, z, 3, 2.2, 3, 0.86, LEAF.yew); return h; },
+      deadyew(x, g, z) { const h = 5 + (r() * 4 | 0); let px = x, pz = z; for (let y = 1; y <= h; y++) { if (y > 2 && r() < 0.3) { if (r() < .5) px += r() < .5 ? 1 : -1; else pz += r() < .5 ? 1 : -1; } setW(px, g + y, pz, LOG.dead); }
+        const nb = 3 + (r() * 3 | 0); for (let i = 0; i < nb; i++) { const a = r() * 6.3, y = g + 2 + (r() * (h - 1) | 0), e = branch(px, y, pz, Math.cos(a), Math.sin(a), 2 + (r() * 3 | 0), (r() * 3 | 0) - 1, LOG.dead); if (r() < 0.3) blob(e[0], e[1], e[2], 1, .6, 1, 0.5, LEAF.yew); }
+        return h; },
+      blackthorn(x, g, z) { const h = 2 + (r() * 2 | 0); setW(x, g + 1, z, LOG.dead); for (let y = 1; y <= h; y++) blob(x, g + y, z, 1.6, 0.6, 1.6, 0.7, LEAF.blackthorn); return h; },
+    };
+    const MINSP = {oak: 4, birch: 3, aspen: 2, rowan: 3, alder: 3, willow: 4, pine: 4, juniper: 1, hazel: 3, holly: 3, hawthorn: 3, yew: 4, deadyew: 3, blackthorn: 2};
+    const SOIL = new Set([T.GRASS, T.DIRT, T.PEAT, T.MUD, T.HEATHER, T.SNOW].filter(v => v !== undefined));
+    const pick = list => { let s = 0; for (const [, w] of list) s += w; let q = r() * s; for (const [k, w] of list) { q -= w; if (q <= 0) return k; } return list[0][0]; };
+    const wetNear = (x, z) => { for (const [dx, dz] of [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2], [5, 0], [-5, 0], [0, 5], [0, -5]]) { const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= W0 || c >= D0) continue; if (g9cols[(a * D0 + c) * 2] <= SEA || at(a, SEA + 1, c) === T.WATER || at(a, g9cols[(a * D0 + c) * 2], c) === T.WATER) return true; } return false; };
+    const CELL = 3;
+    for (let cx = 2; cx < W0 - 4; cx += CELL) for (let cz = 2; cz < D0 - 4; cz += CELL) {
+      const x = cx + (hs(cx, 11, cz) * CELL | 0), z = cz + (hs(cx, 12, cz) * CELL | 0); if (x < 3 || z < 3 || x >= W0 - 3 || z >= D0 - 3) continue;
+      const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1];
+      if (kind === 3 || kind === 5 || kind === 4 || hh <= SEA) continue;
+      let spook = null, inCastle = false; for (const c of castles) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.R) inCastle = true; else if (c.k === 'black' && d < c.R + 46) spook = d; }
+      if (inCastle) continue;
+      if (spawn && Math.abs(x - spawn[0]) < 4 && Math.abs(z - spawn[2]) < 4) continue;
+      const f = g9fbm(x / 60 + 300, z / 60 - 300, 2), ft = g9fbm(x / 120 + 900, z / 120 - 400, 2), ag = g9fbm(x / 34 - 60, z / 34 + 80, 2), wet = wetNear(x, z);
+      let p = 0, list = null;
+      if (spook !== null) { p = 0.42; list = [['deadyew', 5], ['blackthorn', 4]]; }
+      else if (wet && hh <= SEA + 5) { p = f > 0.05 ? 0.45 : 0.25; list = [['alder', 6], ['willow', 4], ['birch', 1]]; }
+      else if (kind === 2) { p = 0.05; list = [['willow', 3], ['birch', 2]]; }
+      else if (f > 0.07) { const dense = f > 0.2 ? 1 : 0.6;
+        if (hh > SEA + 16 || ft < -0.2) { p = 0.5 * dense; list = [['pine', 8], ['juniper', 3], ['birch', 1]]; }                       // Caledonian pinewood
+        else if (ft < 0) { p = 0.5 * dense; list = [['birch', 8], ['rowan', 2], ['pine', 1], ['juniper', .5]]; }                          // birch hillside
+        else if (ft < 0.18) { if (ag > 0.12) { p = 0.55 * dense; list = [['aspen', 9], ['birch', 1]]; } else { p = 0.45 * dense; list = [['birch', 4], ['oak', 3], ['rowan', 2], ['hazel', 2], ['hawthorn', 1]]; } }
+        else { p = 0.5 * dense; list = [['oak', 6], ['hazel', 3], ['holly', 1.6], ['rowan', 1], ['yew', 0.4]]; } }                         // Atlantic oakwood
+      else if (kind === 1) { p = 0.012; list = [['rowan', 3], ['pine', 2], ['juniper', 3], ['hawthorn', 1], ['birch', 1]]; }            // lone trees on the moor
+      else { p = 0.03; list = [['hawthorn', 3], ['rowan', 2], ['oak', 2], ['birch', 2], ['hazel', 1]]; }                                  // the odd tree in the meadows
+      if (!(hs(x, 13, z) < p)) continue;
+      const sp = pick(list), msp = MINSP[sp];
+      // ground: real soil with solid rock under it (no caves or ravines under the trunk), level with its neighbours, nothing built nearby
+      const g = g9top(x, z); if (g < SEA + 1 || g > H - 22) { st.rejected++; continue; }
+      const gb = at(x, g, z); if (!SOIL.has(gb)) { st.rejected++; continue; }
+      let ok = true; for (let y = g - 1; y >= g - 5 && ok; y--) { const b = at(x, y, z); if (!b || b === T.WATER || b === T.LAVA || PLANT[b] === 1 || ENT[b] === 1) ok = false; }
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { if (!ok) break; const n = g9top(x + dx, z + dz); if (Math.abs(n - g) > 1) ok = false; else { const b = at(x + dx, n - 1, z + dz); if (!b || b === T.WATER) ok = false; } }
+      if (!ok || !AIRISH(at(x, g + 1, z)) || !AIRISH(at(x, g + 2, z)) || at(x, g + 3, z) !== T.AIR) { st.rejected++; continue; }
+      if (!free(x, z, msp) || nearBuilt(x, z, 4)) { st.rejected++; continue; }
+      if (gb === T.GRASS || gb === T.HEATHER || gb === T.SNOW) world[(x * H + g) * D0 + z] = T.DIRT;   // dirt under the trunk, like MC
+      TREE[sp](x, g, z); occ[x * D0 + z] = 1; st.trees++; st.byKind[sp] = (st.byKind[sp] || 0) + 1; (st.pos[sp] || (st.pos[sp] = [])).length < 300 && st.pos[sp].push([x, g, z]);
+    }
+    // heather: low bushy clumps on the moor and the open hillsides (not a carpet)
+    for (let cx = 2; cx < W0 - 4; cx += 5) for (let cz = 2; cz < D0 - 4; cz += 5) {
+      const x = cx + (hs(cx, 21, cz) * 5 | 0), z = cz + (hs(cx, 22, cz) * 5 | 0); if (x < 4 || z < 4 || x >= W0 - 4 || z >= D0 - 4) continue;
+      const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1], heath = g9fbm(x / 40 + 7, z / 40 - 3, 2);
+      const moor = kind === 1 || (heath > 0.08 && hh > SEA + 14 && kind !== 3 && kind !== 5);
+      if (!moor || hs(x, 23, z) > (kind === 1 ? 0.55 : 0.3) || nearBuilt(x, z, 2)) continue;
+      const R = 1 + hs(x, 24, z) * 2.2; if (st.hpos.length < 300) st.hpos.push([x, z]);
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const a = x + dx, c = z + dz, d = Math.hypot(dx, dz) / R; if (d > 1 || hs(a, 25, c) > 1.05 - d * 0.55) continue;
+        const g = g9top(a, c), b = at(a, g, c); if (b !== T.GRASS && b !== T.HEATHER) continue; if (!AIRISH(at(a, g + 1, c))) continue;
+        if (at(a, g + 1, c) !== T.AIR) world[(a * H + g + 1) * D0 + c] = T.AIR;
+        if (d < 0.75 && hs(a, 26, c) < 0.8) { world[(a * H + g) * D0 + c] = T.DIRT; world[(a * H + g + 1) * D0 + c] = T.HEATHER; st.heather++; }   // a raised heather bush
+        else { world[(a * H + g) * D0 + c] = T.HEATHER; st.heather++; } } }
+    st.ms = Math.round(performance.now() - t0); window.__c80grow = (sp, x, z) => { const g = g9top(x, z); TREE[sp](x, g, z); }; return st;
+  }
+  const ge = generate;
+  generate = function () { const r = ge.apply(this, arguments);
+    try { if (genVer === GEN9 && !cityGen && !DIM.cur && g9cols && W > 100) { const was = typeof c37busy !== 'undefined' ? c37busy : false; try { c37busy = true; } catch (_) {}
+      window.__c80 = plant(gSeed ^ 0x7ee5); try { if (!window.__hives && window.__beeHive) window.__hives = window.__beeHive.placeHives(); } catch (_) {} try { c37busy = was; } catch (_) {} dirtyAll = true; } } catch (e) { console.warn('c80', e); window.__c80err = String(e && e.stack || e); }
+    return r; };
+  window.__c80api = {LOG, LEAF, plant};
 })();
 </script>
 </body>
