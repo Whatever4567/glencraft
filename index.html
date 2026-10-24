@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0959 -->
+<!-- glencraft-build: v0960 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -475,7 +475,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.59';
+const GAME_VERSION = 'v0.9.60';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -14492,6 +14492,21 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   setInterval(() => { if (!started) return; if (fireRes > 0) fireRes -= 0.25; if (dead) { absorb = 0; regenL = 0; return; }
     if (regenL > 0) { regenT2 += 0.25; if (regenT2 >= 0.75) { regenT2 = 0; regenL--; hp = Math.min(20, hp + 1); } } }, 250);
   window.__broch = () => ({held: held(), fireRes, absorb, regenL, hp, saves: window.__brochSaves || 0});
+})();
+
+/* ===================== GLX-C75 (v0.9.60): sky fits inside the camera far plane at any render distance ===================== */
+// root cause: the sky dome (radius 130) and the sun/moon (~95 away) sat beyond camera.far (render distance x16 + 40) at low render
+// distance, so the dome was clipped into a lighter disc with the plain background showing around it
+(function c75() {
+  const R = 130; let lastK = 1;
+  const us = updateSky; updateSky = function () { const r = us.apply(this, arguments);
+    try { const k = Math.min(1, camera.far * 0.8 / R); lastK = k; const c = camera.position;
+      skyDome.scale.setScalar(k); stars.scale.setScalar(k);
+      for (const m of [sunDisc, moonDisc, moonHalo]) m.position.sub(c).multiplyScalar(k).add(c);
+      sunDisc.scale.setScalar(k); moonDisc.scale.multiplyScalar(k);
+      moonHalo.scale.setScalar(26 * k); } catch (_) {}
+    return r; };
+  window.__skyK = () => ({k: lastK, far: camera.far, dome: skyDome.scale.x});
 })();
 </script>
 </body>
