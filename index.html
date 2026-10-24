@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0967 -->
+<!-- glencraft-build: v0968l -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -174,6 +174,19 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .tile.play{height:120px;font-size:clamp(34px,6vw,54px);letter-spacing:.04em;justify-content:center}
 .tile.play small{font-size:13px;font-weight:600;letter-spacing:.1em;opacity:.9}
 .tilerow{display:flex;gap:14px}
+.tile.notes{flex:0 0 150px}
+#notesUI{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(6,10,8,.62);padding:10px}
+#notesUI.hidden{display:none}
+#notesUI .npanel{width:min(760px,96vw);max-height:calc(100vh - 20px);display:flex;flex-direction:column;border-radius:10px;background:linear-gradient(180deg,#2c3a33,#1b2420);box-shadow:0 0 0 2px #8fd04a55,0 20px 50px rgba(0,0,0,.6);color:#eef6e8;font:500 14px system-ui,"Segoe UI",sans-serif}
+#notesUI .nhead{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 18px;border-bottom:1px solid #ffffff22}
+#notesUI .nhead b{font-size:20px;letter-spacing:.04em}#notesUI #notesVer{font-weight:700;color:#bfe88a;flex:1}
+#notesUI .nclose{width:40px;height:40px;border:0;border-radius:6px;background:#4a5860;color:#fff;font-size:18px;cursor:pointer}
+#notesUI .nclose:hover,#notesUI .nclose.focus{box-shadow:0 0 0 3px #e8ffc8}
+#notesUI .nbody{overflow-y:auto;padding:6px 18px 12px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;outline:none;touch-action:pan-y}
+#notesUI .nver{margin-top:12px}#notesUI .nver h3{margin:0 0 4px;font-size:16px;color:#f2c440}#notesUI .nver h3 small{color:#9fb79a;font-weight:600;margin-left:8px;font-size:12px}
+#notesUI .nver ul{margin:0;padding-left:20px}#notesUI .nver li{margin:3px 0;line-height:1.35}
+#notesUI .nfoot{padding:7px 18px;font-size:12px;color:#a9c4a0;border-top:1px solid #ffffff22}#notesUI .nfoot i{font-style:normal;background:#c23b2e;color:#fff;border-radius:50%;padding:0 5px;font-weight:800}
+@media (max-height:460px){#notesUI .nhead{padding:6px 8px 6px 14px}#notesUI .nhead b{font-size:17px}#notesUI .nclose{width:34px;height:34px}#notesUI .nbody{font-size:13px}#notesUI .nfoot{padding:4px 14px}}
 .tile.small{flex:1;height:72px;background:linear-gradient(180deg,#5f6e78 0%,#3e4a52 48%,#333d44 52%,#28323a 100%);font-size:15px}
 .tile.gear{flex:0 0 72px;align-items:center;justify-content:center;font-size:34px}
 .tile.gear span{display:inline-block;transition:transform .5s}.tile.gear:hover span,.tile.gear.focus span{transform:rotate(120deg)}
@@ -292,12 +305,12 @@ body.inmenu #hud,body.inmenu #touch{visibility:hidden}
     <div class="boottip" id="bootTip">Loading the glens...</div>
   </div>
   <div class="scr" id="scr-title" data-testid="title-screen">
-    <button id="titleGear" data-testid="title-gear-button" aria-label="Settings" onclick="openTitleSettings()">&#9881;</button>
     <div class="titlecol">
       <div class="logo">GLENCRAFT<small>SCOTTISH SURVIVAL</small></div>
       <button class="tile play" id="playBtn" data-testid="title-play-button">PLAY GAME<small>Survival &amp; Creative worlds</small></button>
       <div class="tilerow">
         <button class="tile small" id="menuDl" data-testid="title-download-button"><b>Download</b><small>One file, plays offline</small></button>
+        <button class="tile small notes" id="notesBtn" data-testid="title-patch-notes-button"><b>Patch Notes</b><small id="notesBtnVer">What's new</small></button>
         <button class="tile small gear" id="setBtn" data-testid="title-settings-button" aria-label="Settings"><span>&#9881;</span></button>
       </div>
       <div class="menuhint">Tap anywhere for music · Controller: D-pad + A</div>
@@ -475,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.67';
+const GAME_VERSION = 'v0.9.68';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -492,7 +505,7 @@ const T = {AIR:0, GRASS:1, DIRT:2, STONE:3, HEATHER:4, WATER:5, SAND:6, PEAT:7, 
   WOOLPURPLE:70, WOOLBLUE:71, WOOLYELLOW:72, WOOLORANGE:73, IRONBLOCK:74, GOLDBLOCK:75, COPPERBLOCK:76, SANDSTONE:77,
   BRICK:78, MUD:79, COBWEB:90, REDORE:91, TV:120, DIAMONDORE:69, DEEPSLATE:133, BLOSSOM:134};
 var LEAFY = new Uint8Array(256), LOGGY = new Uint8Array(256); LEAFY[T.LEAVES] = 1; LOGGY[T.LOG] = 1;   // v0.9.65 Scottish trees (c80) register here so every leaf/log check knows them from the start
-[135, 136, 137, 138, 139, 141, 142, 143, 144, 145].forEach(i => LOGGY[i] = 1); [146, 147, 148, 149, 215, 238, 239, 240, 250, 251, 252, 253].forEach(i => LEAFY[i] = 1);
+[135, 136, 137, 138, 139, 143].forEach(i => LOGGY[i] = 1); [146, 147, 148, 149, 215, 240, 250, 252, 253].forEach(i => LEAFY[i] = 1);   /* GLX-C84: 138/149 rotting alder; 141 planks, 142 podzol, 144 moss, 238 fern, 239 reeds */
 const IT = {STICK:11, MUTTON:30, HAGGIS:31, WOOL:32, WSEEDS:33, WHEAT:34, BREAD:35, POTATO:36, NEEP:37, TATTIES:38, BUCKET:39, WATERB:48,
   WPICK:40, SPICK:41, WSWORD:42, SSWORD:43, WAXE:44, SAXE:45, WHOE:46, SHOE:47, COAL:53, RAWIRON:54, RAWCOPPER:55,
   IRONINGOT:80, COPPERINGOT:81, GOLDINGOT:82, RAWGOLD:83, CHARCOAL:84, BAKEDPOTATO:85, COOKEDMUTTON:86, COOKEDHAGGIS:87, NEEPS:88, SUPPER:89,
@@ -581,7 +594,7 @@ const FUEL = {[IT.COAL]: 80, [IT.CHARCOAL]: 80, [T.PEAT]: 40, [T.LOG]: 15, [T.PL
 const CAULDRON_COOK = {[IT.POTATO]: IT.TATTIES, [IT.NEEP]: IT.NEEPS};
 // plants: walk-through, rendered as crossed sprites
 const PLANT = new Uint8Array(256);
-[15, 16, 20, 21, 22, 23, 24, 25, 26, 27, 56, 57, 58, 59, 60, 61, 62, 90].forEach(b => { PLANT[b] = 1; });
+[15, 16, 20, 21, 22, 23, 24, 25, 26, 27, 56, 57, 58, 59, 60, 61, 62, 90, 238, 239].forEach(b => { PLANT[b] = 1; });
 const FLOWERS = new Set([T.THISTLE, T.DANDELION, T.DAFFODIL, T.BLUEBELL]);
 // blocks drawn as their own animated models instead of cubes
 const ENT = new Uint8Array(256);
@@ -2566,6 +2579,19 @@ function matHit(t, mat, out, dur, peak) {
   noiseHit(t + 0.005, dur * 0.8, b[0], b[1], out, peak * 0.7, b[2]);
   if (mat === 'wood') osc('sine', 190, 120, t, dur, out, peak * 0.5);
   if (mat === 'stone') osc('triangle', 2300, 1800, t, 0.03, out, peak * 0.15);
+}
+/* GLX-C87 (v0.9.68): level-up chime - a short bright bell arpeggio (C6 E6 G6 C7, ~0.9 s), synthesised; goes through the SFX master gain */
+function levelChime(vol) {
+  if (!AC) return; if (AC.state === 'suspended') { try { AC.resume(); } catch (_) {} }
+  const out = outNode(vol == null ? 0.55 : vol, 0), t0 = AC.currentTime + 0.01;
+  [1046.5, 1318.5, 1568, 2093].forEach((f, i) => { const t = t0 + i * 0.085, last = i === 3, dur = last ? 0.75 : 0.45;
+    [[1, 0.22, 'sine'], [2, 0.07, 'sine'], [2.76, 0.035, 'sine'], [4.07, 0.015, 'sine']].forEach(([m, a, type]) => {
+      const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.setValueAtTime(f * m, t);
+      const d = dur / (m > 1 ? m * 0.7 : 1); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g); g.connect(out); o.start(t); o.stop(t + d + 0.03); }); });
+  // a soft shimmer on top of the last note
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(3136, t0 + 0.26); g.gain.setValueAtTime(0.0001, t0 + 0.26); g.gain.linearRampToValueAtTime(0.03, t0 + 0.28); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.9); o.connect(g); g.connect(out); o.start(t0 + 0.26); o.stop(t0 + 0.95);
+  window.__lastChime = performance.now();
 }
 function playSound(kind, vol, pan, mat) {
   if (!AC || vol <= 0.001) return;
@@ -12998,7 +13024,7 @@ function dragonMove(a, mx, my, mz) {
   window.dropXP = function (x, y, z, amount) { amount = Math.round(amount); if (amount <= 0) return; const n = Math.min(5, Math.max(1, Math.ceil(amount / 4)));
     for (let i = 0; i < n; i++) { const v = Math.round(amount / n); if (orbs.length >= CAP) { orbs[(Math.random() * orbs.length) | 0].v += v; continue; }
       const s = new THREE.Sprite(orbMat); s.scale.setScalar(0.25 + Math.min(0.25, v * 0.02)); s.position.set(x, y + 0.5, z); scene.add(s); orbs.push({s, v, vx: (Math.random() - .5) * 2, vy: 3 + Math.random() * 2, vz: (Math.random() - .5) * 2, t: 0}); } };
-  function addXP(v) { xp += v; let up = false; while (xp >= need(lvl)) { xp -= need(lvl); lvl++; up = true; } if (up) { try { tone2(523, 0.25, 0.12); setTimeout(() => tone2(784, 0.3, 0.12), 120); } catch (_) {} toast('Level ' + lvl + '!'); } }
+  function addXP(v) { xp += v; let up = false; while (xp >= need(lvl)) { xp -= need(lvl); lvl++; up = true; } if (up) { try { levelChime(); } catch (_) {} } }   // v0.9.68: a bright rising chime instead of a pop-up
   function tone2(f, dur, v) { if (!AC) return; const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(f, t); g.gain.setValueAtTime(v * SET.sfx, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + dur + 0.02); }
   const bar = document.createElement('div'); bar.id = 'xpBar'; bar.dataset.testid = 'xp-bar'; bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(66px + var(--sab,0px));width:min(360px,70vw);height:6px;border-radius:3px;background:#0008;border:1px solid #000a;z-index:6;pointer-events:none;display:none';
   bar.innerHTML = '<i style="display:block;height:100%;width:0;border-radius:3px;background:linear-gradient(#b8ff5a,#4cc020)"></i><b style="position:absolute;left:50%;top:-17px;transform:translateX(-50%);font:800 14px system-ui;color:#8cff40;text-shadow:0 0 3px #000,0 1px 2px #000"></b>';
@@ -15590,34 +15616,55 @@ void main() {
   };
   if (PHONE) { const rb = rebuild; rebuild = function (b) { return rb.call(this, b && b > 4 ? 4 : b); }; }
 })();
-/* ===================== GLX-C80 (v0.9.65): Scottish native trees, each with its own bark, wood and leaves; trees planted after the caves (never floating),
-   spaced out, in proper woods by habitat; heather grows in clumps on the moor; a dead, spooky wood round the Blackstone castle ===================== */
+/* ===================== GLX-C80 (v0.9.65, v0.9.68 GLX-C84): Scottish native trees, each with its own bark, wood and leaves; trees planted after the caves (never floating),
+   spaced out. v0.9.68: one species per biome (large Voronoi regions, oak round spawn, alder round the Blackstone castle), each biome with its own ground,
+   plants and grass colour; holly/willow/hazel/aspen/dead wood removed (birch wears the aspen look); new Rotting Alder (no biome) ===================== */
 (function c80() {
-  const LOG = {pine: 135, birch: 136, rowan: 137, hazel: 138, alder: 139, willow: 141, aspen: 142, yew: 143, holly: 144, dead: 145};
-  const LEAF = {pine: 146, birch: 147, rowan: 148, hazel: 149, alder: 215, willow: 238, aspen: 239, yew: 240, juniper: 250, holly: 251, hawthorn: 252, blackthorn: 253};
-  for (const id of [...Object.values(LOG), ...Object.values(LEAF)]) if (NAMES[id] !== undefined || FACES[id] !== undefined) { console.warn('c80: block id taken', id); return; }
-  const LN = {pine: 'Scots Pine Log', birch: 'Silver Birch Log', rowan: 'Rowan Log', hazel: 'Hazel Log', alder: 'Alder Log', willow: 'Willow Log', aspen: 'Aspen Log', yew: 'Yew Log', holly: 'Holly Log', dead: 'Dead Wood'};
-  const FN = {pine: 'Scots Pine Needles', birch: 'Silver Birch Leaves', rowan: 'Rowan Leaves', hazel: 'Hazel Leaves', alder: 'Alder Leaves', willow: 'Willow Leaves', aspen: 'Aspen Leaves', yew: 'Yew Needles', juniper: 'Juniper', holly: 'Holly Leaves', hawthorn: 'Hawthorn', blackthorn: 'Blackthorn (bare)'};
-  // bark colour, contrast, inner wood colour, heartwood colour
-  const BARK = {pine: ['#9a5434', 1.35, '#d9b878', '#b8743c'], birch: ['#e4e0d6', 0.45, '#efe2c2', '#e0cc9e'], rowan: ['#8c877c', 0.6, '#dcc496', '#b89064'], hazel: ['#86624a', 0.65, '#e2cfa4', '#c8a878'],
-    alder: ['#56504a', 1.25, '#d8a070', '#c0703c'], willow: ['#7a6c58', 1.55, '#e8d8b4', '#c8b088'], aspen: ['#b9bca9', 0.55, '#eee4cc', '#d8c8a4'], yew: ['#7e4232', 1.2, '#e8b478', '#b2442a'],
-    holly: ['#8e8c86', 0.35, '#efe8d8', '#ddd2b8'], dead: ['#9a958c', 1.7, '#bdb3a2', '#8a8070']};
-  // leaf colour, dark gap colour, style
-  const LEAFC = {pine: ['#36552e', '#14200f', 'needle'], birch: ['#86a843', '#2c3a16', 'small'], rowan: ['#557f33', '#1c2c12', 'rowan'], hazel: ['#64903a', '#22341a', 'round'], alder: ['#3a6030', '#122010', 'round'],
-    willow: ['#8ea37a', '#2e3a28', 'long'], aspen: ['#95b240', '#2e3a14', 'round'], yew: ['#22381f', '#0a120a', 'needle'], juniper: ['#4d6b58', '#182620', 'needle'], holly: ['#21451f', '#081408', 'holly'],
-    hawthorn: ['#527e35', '#1c2a12', 'hawthorn'], blackthorn: ['#2a2220', '#0e0b0b', 'twig']};
+  const LOG = {pine: 135, birch: 136, rowan: 137, alder: 139, yew: 143};
+  const LEAF = {pine: 146, birch: 147, rowan: 148, alder: 215, yew: 240, juniper: 250, hawthorn: 252, blackthorn: 253};
+  const ROT = {log: 138, planks: 141, leaf: 149}, GND = {podzol: 142, moss: 144}, PL2 = {fern: 238, reeds: 239};
+  for (const id of [...Object.values(LOG), ...Object.values(LEAF), ...Object.values(ROT), ...Object.values(GND), ...Object.values(PL2)]) if (NAMES[id] !== undefined || FACES[id] !== undefined) { console.warn('c80: block id taken', id); return; }
+  const LN = {pine: 'Scots Pine Log', birch: 'Silver Birch Log', rowan: 'Rowan Log', alder: 'Alder Log', yew: 'Yew Log'};
+  const FN = {pine: 'Scots Pine Needles', birch: 'Silver Birch Leaves', rowan: 'Rowan Leaves', alder: 'Alder Leaves', yew: 'Yew Needles', juniper: 'Juniper', hawthorn: 'Hawthorn', blackthorn: 'Blackthorn (bare)'};
+  // bark colour, contrast, inner wood colour, heartwood colour  (birch: the old aspen bark; alder: much darker, black streaks)
+  const BARK = {pine: ['#9a5434', 1.35, '#d9b878', '#b8743c'], birch: ['#b9bca9', 0.55, '#eee4cc', '#d8c8a4'], rowan: ['#8c877c', 0.6, '#dcc496', '#b89064'],
+    alder: ['#2f2b28', 1.55, '#c89262', '#a45a2e'], yew: ['#7e4232', 1.2, '#e8b478', '#b2442a'], rot: ['#131110', 1.7, '#2e2420', '#120b09']};
+  // leaf colour, dark gap colour, style  (birch: the old aspen leaves)
+  const LEAFC = {pine: ['#36552e', '#14200f', 'needle'], birch: ['#95b240', '#2e3a14', 'round'], rowan: ['#557f33', '#1c2c12', 'rowan'], alder: ['#3a6030', '#122010', 'round'],
+    yew: ['#22381f', '#0a120a', 'needle'], juniper: ['#4d6b58', '#182620', 'needle'], hawthorn: ['#527e35', '#1c2a12', 'hawthorn'], blackthorn: ['#2a2220', '#0e0b0b', 'twig'], rot: ['#2c3119', '#050604', 'round']};
   const ids = []; const keys = {};
   const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
   const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
-  for (const k in LOG) { const id = LOG[k], s = 'log_side_' + k, t = 'log_top_' + k; TEX[s] = TEX[t] = BLANK; keys[s] = ['bark', k]; keys[t] = ['top', k];
-    T[(k + 'LOG').toUpperCase()] = id; NAMES[id] = LN[k]; FACES[id] = [s, s, t, t, s, s]; ICON_KEY[id] = s; BLOCK_MATS[id] = FACES[id].map(mat);
-    HARD[id] = HARD[T.LOG] || 1.6; MC_HARD[id] = MC_HARD[T.LOG] || 2; if (REQ[T.LOG] !== undefined) REQ[id] = REQ[T.LOG]; AXE_ON.add(id); FUEL[id] = FUEL[T.LOG] || 15; SMELT[id] = IT.CHARCOAL; FLAMMABLE.add(id); ids.push(id); }
-  for (const k in LEAF) { const id = LEAF[k], s = 'leaves_' + k; TEX[s] = BLANK; keys[s] = ['leaf', k];
-    T[(k + 'LEAVES').toUpperCase()] = id; NAMES[id] = FN[k]; FACES[id] = s; ICON_KEY[id] = s; BLOCK_MATS[id] = mat(s);
-    HARD[id] = HARD[T.LEAVES] || 0.25; MC_HARD[id] = MC_HARD[T.LEAVES] || 0.2; FLAMMABLE.add(id); ids.push(id); }
+  const logBlock = (id, k, name) => { const s = 'log_side_' + k, t = 'log_top_' + k; TEX[s] = TEX[t] = BLANK; keys[s] = ['bark', k]; keys[t] = ['top', k];
+    NAMES[id] = name; FACES[id] = [s, s, t, t, s, s]; ICON_KEY[id] = s; BLOCK_MATS[id] = FACES[id].map(mat);
+    HARD[id] = HARD[T.LOG] || 1.6; MC_HARD[id] = MC_HARD[T.LOG] || 2; if (REQ[T.LOG] !== undefined) REQ[id] = REQ[T.LOG]; AXE_ON.add(id); FUEL[id] = FUEL[T.LOG] || 15; SMELT[id] = IT.CHARCOAL; FLAMMABLE.add(id); ids.push(id); };
+  const leafBlock = (id, k, name) => { const s = 'leaves_' + k; TEX[s] = BLANK; keys[s] = ['leaf', k];
+    NAMES[id] = name; FACES[id] = s; ICON_KEY[id] = s; BLOCK_MATS[id] = mat(s);
+    HARD[id] = HARD[T.LEAVES] || 0.25; MC_HARD[id] = MC_HARD[T.LEAVES] || 0.2; FLAMMABLE.add(id); ids.push(id); };
+  for (const k in LOG) { T[(k + 'LOG').toUpperCase()] = LOG[k]; logBlock(LOG[k], k, LN[k]); }
+  for (const k in LEAF) { T[(k + 'LEAVES').toUpperCase()] = LEAF[k]; leafBlock(LEAF[k], k, FN[k]); }
+  // ---- Rotting Alder (a tree from the Upside Down): log, leaves and its own planks; no biome, no natural generation ----
+  T.ROTLOG = ROT.log; T.ROTLEAVES = ROT.leaf; T.ROTPLANKS = ROT.planks;
+  logBlock(ROT.log, 'rot', 'Rotting Alder Log'); leafBlock(ROT.leaf, 'rot', 'Rotting Alder Leaves');
+  { const id = ROT.planks, s = 'planks_rot'; TEX[s] = BLANK; keys[s] = ['planks', 'rot']; NAMES[id] = 'Rotting Alder Planks'; FACES[id] = s; ICON_KEY[id] = s; BLOCK_MATS[id] = mat(s);
+    HARD[id] = HARD[T.PLANKS] || 1.4; MC_HARD[id] = MC_HARD[T.PLANKS] || 2; if (REQ[T.PLANKS] !== undefined) REQ[id] = REQ[T.PLANKS]; AXE_ON.add(id); FUEL[id] = FUEL[T.PLANKS] || 15; FLAMMABLE.add(id); ids.push(id); }
+  try { RECIPES.push(rc('4 Rotting Alder Planks', '1 Rotting Alder Log', ROT.planks, 4, [[ROT.log, 1]]), rc('4 Sticks', '2 Rotting Alder Planks', IT.STICK, 4, [[ROT.planks, 2]])); } catch (e) { console.warn('c84 recipes', e); }
+  // ---- biome ground: podzol (pinewood floor), moss (yew wood floor) ----
+  T.PODZOL = GND.podzol; T.MOSS = GND.moss;
+  { const id = GND.podzol; TEX.podzol_top = TEX.podzol_side = BLANK; keys.podzol_top = ['gnd', 'podzol_top']; keys.podzol_side = ['gnd', 'podzol_side'];
+    NAMES[id] = 'Podzol'; FACES[id] = ['podzol_side', 'podzol_side', 'podzol_top', 'dirt', 'podzol_side', 'podzol_side']; ICON_KEY[id] = 'podzol_side'; BLOCK_MATS[id] = FACES[id].map(mat);
+    HARD[id] = HARD[T.DIRT] || 0.5; MC_HARD[id] = MC_HARD[T.DIRT] || 0.5; SHOVEL_ON.add(id); ids.push(id); }
+  { const id = GND.moss; TEX.moss_block = BLANK; keys.moss_block = ['gnd', 'moss_block'];
+    NAMES[id] = 'Moss'; FACES[id] = 'moss_block'; ICON_KEY[id] = 'moss_block'; BLOCK_MATS[id] = mat('moss_block');
+    HARD[id] = 0.3; MC_HARD[id] = 0.1; SHOVEL_ON.add(id); ids.push(id); }
+  // ---- biome plants: ferns (pine / yew woods), reeds (alder bog) ----
+  T.FERN = PL2.fern; T.REEDS = PL2.reeds;
+  for (const [id, k, nm, h, w] of [[PL2.fern, 'fern', 'Fern', 0.75, 0.95], [PL2.reeds, 'reeds', 'Reeds', 1.25, 0.8]]) { TEX[k] = BLANK; keys[k] = ['plant', k];
+    NAMES[id] = nm; PLANT[id] = 1; PLANT_MATS[id] = plantMat(k); PLANT_H[id] = h; PLANT_W[id] = w; ICON_KEY[id] = k; HARD[id] = 0.05; MC_HARD[id] = 0; ids.push(id); }
+  try { if (window.__NAT) { for (const id of [ROT.log, ROT.leaf, ROT.planks, 145, 251]) __NAT[id] = 0; for (const id of [GND.podzol, GND.moss, PL2.fern, PL2.reeds]) __NAT[id] = 1; } } catch (_) {}
   for (const id of ids) { PLACEABLE.add(id); if (!ORDER.includes(id)) ORDER.push(id); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(id)) CREATIVE_ALL.push(id); }
-  if (chunkST) for (const k in LEAF) chunkST[LEAF[k]] = 3;
-  // any log makes planks (the recipe uses whichever log you are carrying)
+  if (chunkST) { for (const k in LEAF) chunkST[LEAF[k]] = 3; chunkST[ROT.leaf] = 3; chunkST[PL2.fern] = chunkST[PL2.reeds] = 1; }
+  // any log makes oak planks (the recipe uses whichever log you are carrying); rotting alder makes its own planks
   const pr = RECIPES.find(r => r.out === T.PLANKS && r.need.length === 1 && r.need[0][0] === T.LOG);
   if (pr) { const allLogs = [T.LOG, ...Object.values(LOG)]; pr.hint = '1 Log (any wood)'; Object.defineProperty(pr, 'need', {get() { const id = allLogs.find(i => cnt(i) >= 1) || T.LOG; return [[id, 1]]; }, configurable: true}); }
 
@@ -15625,24 +15672,45 @@ void main() {
   let sd = 1; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   const cvs = N => { const c = document.createElement('canvas'); c.width = c.height = N; return c; };
   const lum = (d, i) => 0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2];
-  function paintBark(k, src) { const [col, con] = BARK[k], [R, G, B] = hex(col), N = Math.min(src.width, TEXSIZE), c = cvs(N), g = c.getContext('2d'); g.drawImage(src, 0, 0, N, N);
+  function recol(src, col, con, N) { const [R, G, B] = hex(col), c = cvs(N), g = c.getContext('2d'); g.drawImage(src, 0, 0, N, N);
     const im = g.getImageData(0, 0, N, N), d = im.data; let m = 0; for (let i = 0; i < d.length; i += 4) m += lum(d, i); m /= d.length / 4;
-    for (let i = 0; i < d.length; i += 4) { const v = Math.max(0.05, 1 + (lum(d, i) / m - 1) * con); d[i] = Math.min(255, R * v); d[i + 1] = Math.min(255, G * v); d[i + 2] = Math.min(255, B * v); }
-    g.putImageData(im, 0, 0); sd = 1 + k.length * 977; const u = N / 256;
-    if (k === 'birch') { for (let n = 0; n < 70; n++) { const x = rnd() * N, y = rnd() * N, w = (6 + rnd() * 28) * u; g.fillStyle = `rgba(${20 + rnd() * 20 | 0},${18 + rnd() * 16 | 0},${16},${0.65 + rnd() * 0.3})`; g.fillRect(x, y, w, (1.5 + rnd() * 2.5) * u); }
-      for (let n = 0; n < 8; n++) { g.fillStyle = 'rgba(25,22,20,.8)'; g.beginPath(); g.ellipse(rnd() * N, rnd() * N, (8 + rnd() * 16) * u, (5 + rnd() * 8) * u, 0, 0, 7); g.fill(); } }
-    if (k === 'aspen') for (let n = 0; n < 40; n++) { const x = rnd() * N, y = rnd() * N, s = (3 + rnd() * 6) * u; g.fillStyle = 'rgba(40,40,34,.7)'; g.beginPath(); g.moveTo(x, y - s); g.lineTo(x + s * .7, y); g.lineTo(x, y + s); g.lineTo(x - s * .7, y); g.fill(); }
-    if (k === 'rowan' || k === 'hazel' || k === 'holly') for (let n = 0; n < 60; n++) { g.fillStyle = k === 'hazel' ? 'rgba(220,200,160,.45)' : 'rgba(200,198,190,.35)'; g.fillRect(rnd() * N, rnd() * N, (4 + rnd() * 9) * u, 1.4 * u); }
+    for (let i = 0; i < d.length; i += 4) { const v = Math.max(0.05, 1 + (lum(d, i) / m - 1) * con); d[i] = Math.min(255, R * v); d[i + 1] = Math.min(255, G * v); d[i + 2] = Math.min(255, B * v); d[i + 3] = 255; }
+    g.putImageData(im, 0, 0); return [c, g]; }
+  // glossy black goo: wet veins with a thin highlight, drips with a bead at the end (Upside Down)
+  function goo(g, N, u, veins, drips, spots) {
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let n = 0; n < veins; n++) { let x = rnd() * N, y = rnd() * N, a = rnd() * 6.3; const pts = [[x, y]], w = (5 + rnd() * 7) * u;
+      for (let s = 0; s < 7; s++) { a += (rnd() - .5) * 1.3; x += Math.cos(a) * 16 * u; y += Math.sin(a) * 16 * u; pts.push([x, y]); }
+      for (const [lw, st, dx] of [[w * 1.9, 'rgba(48,10,22,.45)', 0], [w, 'rgba(3,3,4,.97)', 0], [Math.max(1, w * 0.28), 'rgba(170,180,196,.55)', -w * 0.25]]) { g.lineWidth = lw; g.strokeStyle = st; g.beginPath(); pts.forEach(([px, py], i) => i ? g.lineTo(px + dx, py + dx) : g.moveTo(px + dx, py + dx)); g.stroke(); } }
+    for (let n = 0; n < drips; n++) { const x = rnd() * N, y0 = rnd() * N * 0.7, L = (24 + rnd() * 70) * u, w = (4 + rnd() * 5) * u;
+      g.strokeStyle = 'rgba(2,2,3,.96)'; g.lineWidth = w; g.beginPath(); g.moveTo(x, y0); g.quadraticCurveTo(x + (rnd() - .5) * 6 * u, y0 + L * .6, x, y0 + L); g.stroke();
+      g.fillStyle = 'rgba(2,2,3,.98)'; g.beginPath(); g.ellipse(x, y0 + L + w * .4, w * .95, w * 1.35, 0, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(175,185,200,.5)'; g.lineWidth = Math.max(1, w * .25); g.beginPath(); g.moveTo(x - w * .25, y0 + 2 * u); g.lineTo(x - w * .25, y0 + L * .8); g.stroke();
+      g.fillStyle = 'rgba(210,220,235,.75)'; g.beginPath(); g.arc(x - w * .35, y0 + L, Math.max(1, w * .3), 0, 7); g.fill(); }
+    for (let n = 0; n < spots; n++) { const x = rnd() * N, y = rnd() * N, r = (5 + rnd() * 10) * u;
+      g.fillStyle = 'rgba(2,2,3,.95)'; g.beginPath(); g.ellipse(x, y, r, r * (.7 + rnd() * .5), rnd() * 3, 0, 7); g.fill();
+      g.fillStyle = 'rgba(200,210,225,.6)'; g.beginPath(); g.arc(x - r * .35, y - r * .35, Math.max(1, r * .25), 0, 7); g.fill(); } }
+  function paintBark(k, src) { const [col, con] = BARK[k], N = Math.min(src.width, TEXSIZE), [c, g] = recol(src, col, con, N); sd = 1 + k.length * 977; const u = N / 256;
+    if (k === 'birch') { for (let n = 0; n < 40; n++) { const x = rnd() * N, y = rnd() * N, s = (3 + rnd() * 6) * u; g.fillStyle = 'rgba(40,40,34,.7)'; g.beginPath(); g.moveTo(x, y - s); g.lineTo(x + s * .7, y); g.lineTo(x, y + s); g.lineTo(x - s * .7, y); g.fill(); }
+      for (let n = 0; n < 26; n++) { g.fillStyle = 'rgba(60,58,50,.35)'; g.fillRect(rnd() * N, rnd() * N, (5 + rnd() * 10) * u, 1.3 * u); } }
+    if (k === 'alder' || k === 'rot') { g.lineCap = 'round';   // black fissures running down the trunk, and sooty black patches
+      for (let n = 0; n < (k === 'rot' ? 30 : 22); n++) { g.strokeStyle = `rgba(${4 + rnd() * 8 | 0},${4 + rnd() * 6 | 0},${4 + rnd() * 5 | 0},${0.75 + rnd() * 0.25})`; g.lineWidth = (1.5 + rnd() * 4) * u; g.beginPath(); let x = rnd() * N, y = -10 * u; g.moveTo(x, y); while (y < N + 10 * u) { y += 10 * u; x += (rnd() - .5) * 7 * u; g.lineTo(x, y); } g.stroke(); }
+      for (let n = 0; n < (k === 'rot' ? 16 : 12); n++) { g.fillStyle = `rgba(6,6,6,${0.45 + rnd() * 0.4})`; g.beginPath(); g.ellipse(rnd() * N, rnd() * N, (6 + rnd() * 18) * u, (8 + rnd() * 26) * u, 0, 0, 7); g.fill(); }
+      if (k === 'alder') for (let n = 0; n < 30; n++) { g.fillStyle = 'rgba(120,110,96,.22)'; g.fillRect(rnd() * N, rnd() * N, (3 + rnd() * 6) * u, 1.2 * u); }   // a few grey lenticels so it still reads as bark
+      if (k === 'rot') goo(g, N, u, 7, 9, 10); }
+    if (k === 'rowan') for (let n = 0; n < 60; n++) { g.fillStyle = 'rgba(200,198,190,.35)'; g.fillRect(rnd() * N, rnd() * N, (4 + rnd() * 9) * u, 1.4 * u); }
     if (k === 'pine') for (let n = 0; n < 50; n++) { g.fillStyle = `rgba(${200 + rnd() * 40 | 0},${110 + rnd() * 40 | 0},${60},.28)`; g.fillRect(rnd() * N, rnd() * N, (10 + rnd() * 26) * u, (6 + rnd() * 14) * u); }
     if (k === 'yew') for (let n = 0; n < 40; n++) { g.fillStyle = `rgba(${170 + rnd() * 50 | 0},${80 + rnd() * 30 | 0},${60},.3)`; g.fillRect(rnd() * N, rnd() * N, (6 + rnd() * 16) * u, (14 + rnd() * 30) * u); }
-    if (k === 'dead') { g.strokeStyle = 'rgba(30,26,22,.75)'; for (let n = 0; n < 26; n++) { g.lineWidth = (1 + rnd() * 2.5) * u; g.beginPath(); let x = rnd() * N, y = 0; g.moveTo(x, y); while (y < N) { y += 12 * u; x += (rnd() - .5) * 8 * u; g.lineTo(x, y); } g.stroke(); } }
     return c; }
   function paintTop(k, src) { const [col, con, wood, heart] = BARK[k], b = hex(col), w = hex(wood), h = hex(heart), N = Math.min(src.width, TEXSIZE), c = cvs(N), g = c.getContext('2d'); g.drawImage(src, 0, 0, N, N);
     const im = g.getImageData(0, 0, N, N), d = im.data; let m = 0; for (let i = 0; i < d.length; i += 4) m += lum(d, i); m /= d.length / 4; const hN = N / 2;
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const i = (y * N + x) * 4, r = Math.max(Math.abs(x - hN + .5), Math.abs(y - hN + .5)) / hN, rr = Math.hypot(x - hN + .5, y - hN + .5) / hN, v = lum(d, i) / m;
       let C; if (r > 0.86) C = b.map(q => q * Math.max(.1, 1 + (v - 1) * con)); else { const t = Math.min(1, Math.max(0, (rr - 0.25) / 0.35)); C = [0, 1, 2].map(j => (h[j] * (1 - t) + w[j] * t) * (0.55 + 0.45 * v)); }
       d[i] = Math.min(255, C[0]); d[i + 1] = Math.min(255, C[1]); d[i + 2] = Math.min(255, C[2]); }
-    g.putImageData(im, 0, 0); return c; }
+    g.putImageData(im, 0, 0); if (k === 'rot') { sd = 4242; goo(g, N, N / 256, 3, 0, 7); } return c; }
+  function paintPlanks(k, src) { const N = Math.min(src.width, TEXSIZE), [c, g] = recol(src, '#2b211d', 1.25, N), u = N / 256; sd = 9191;
+    for (let n = 0; n < 10; n++) { g.fillStyle = 'rgba(70,14,30,.18)'; g.fillRect(rnd() * N, rnd() * N, (20 + rnd() * 50) * u, (4 + rnd() * 8) * u); }
+    goo(g, N, u, 3, 5, 6); return c; }
   function paintLeaf(k, src) { const [col, gap, sty] = LEAFC[k], L = hex(col), G0 = hex(gap), N = Math.min(src.width, TEXSIZE), c = cvs(N), g = c.getContext('2d'), u = N / 256; sd = 7 + k.length * 131;
     g.fillStyle = gap; g.fillRect(0, 0, N, N);
     if (sty === 'needle' || sty === 'twig') {   // drawn needles / bare thorny twigs
@@ -15656,33 +15724,126 @@ void main() {
       return c; }
     // broadleaves: the liked leaf texture, recoloured per species, holes baked as the dark gap colour (opaque 'fast' leaves)
     g.drawImage(src, 0, 0, N, N); const im = g.getImageData(0, 0, N, N), d = im.data; let m = 0, n0 = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 40) { m += lum(d, i); n0++; } m /= Math.max(1, n0);
-    const dens = sty === 'small' ? 0.15 : sty === 'long' ? 0.1 : 0;   // birch/willow: lighter, airier canopy - more gaps
+    const dens = sty === 'small' ? 0.15 : sty === 'long' ? 0.1 : 0;
     for (let i = 0; i < d.length; i += 4) { const a = d[i + 3] / 255, p = (i >> 2), x = p % N, y = (p / N) | 0, hsh = ((x * 73856093) ^ (y * 19349663)) >>> 0;
       let v = lum(d, i) / m; const gapy = a < 0.5 || (dens && ((hsh % 1000) / 1000 < dens * (1.4 - v)));
       if (gapy) { d[i] = G0[0]; d[i + 1] = G0[1]; d[i + 2] = G0[2]; } else { v = 0.35 + 0.75 * v; d[i] = Math.min(255, L[0] * v); d[i + 1] = Math.min(255, L[1] * v); d[i + 2] = Math.min(255, L[2] * v); } d[i + 3] = 255; }
     g.putImageData(im, 0, 0);
-    if (sty === 'long') for (let n = 0; n < 220; n++) { const x = rnd() * N, y = rnd() * N, v = .8 + rnd() * .5; g.strokeStyle = `rgba(${Math.min(255, L[0] * v * 1.15) | 0},${Math.min(255, L[1] * v * 1.15) | 0},${Math.min(255, L[2] * v * 1.1) | 0},.85)`; g.lineWidth = 3 * u; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - .5) * 6 * u, y + 20 * u); g.stroke(); }
     const dots = (n, col, r) => { for (let q = 0; q < n; q++) { const x = rnd() * N, y = rnd() * N; for (let j = 0; j < 5; j++) { g.fillStyle = col; g.beginPath(); g.arc(x + (rnd() - .5) * 12 * u, y + (rnd() - .5) * 12 * u, r * u, 0, 7); g.fill(); } } };
     if (k === 'rowan') dots(14, '#c8361c', 3.2);
     if (k === 'hawthorn') { dots(10, '#f2eee4', 2.8); dots(6, '#a8241c', 2.6); }
-    if (k === 'holly') { for (let q = 0; q < 140; q++) { g.fillStyle = 'rgba(200,230,200,.22)'; g.fillRect(rnd() * N, rnd() * N, 5 * u, 2 * u); } dots(8, '#d0201c', 3.2); }
-    if (k === 'hazel') for (let q = 0; q < 14; q++) { g.strokeStyle = '#d8c46a'; g.lineWidth = 3 * u; const x = rnd() * N, y = rnd() * N; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 2 * u, y + 16 * u); g.stroke(); }
-    if (k === 'aspen') for (let q = 0; q < 90; q++) { g.fillStyle = 'rgba(235,240,170,.35)'; g.beginPath(); g.arc(rnd() * N, rnd() * N, 3.4 * u, 0, 7); g.fill(); }
+    if (k === 'birch') for (let q = 0; q < 90; q++) { g.fillStyle = 'rgba(235,240,170,.35)'; g.beginPath(); g.arc(rnd() * N, rnd() * N, 3.4 * u, 0, 7); g.fill(); }
+    if (k === 'rot') { for (let q = 0; q < 70; q++) { g.fillStyle = 'rgba(120,118,40,.3)'; g.beginPath(); g.arc(rnd() * N, rnd() * N, 2.4 * u, 0, 7); g.fill(); } goo(g, N, u, 2, 4, 16); }
+    return c; }
+  // biome ground + plants
+  function paintGnd(k, S) { const N = Math.min(S.dirt.width, TEXSIZE), u = N / 256; sd = 31 + k.length * 71;
+    if (k === 'podzol_top' || k === 'podzol_side') { const [c, g] = recol(S.dirt, '#5c3a20', 1.15, N);
+      const needles = (y0, y1) => { g.lineCap = 'round'; for (let n = 0; n < 420; n++) { const x = rnd() * N, y = y0 + rnd() * (y1 - y0), a = rnd() * 6.3, l = (6 + rnd() * 9) * u, v = rnd();
+        g.strokeStyle = v < .45 ? `rgba(${150 + rnd() * 40 | 0},${84 + rnd() * 30 | 0},${36},.9)` : v < .8 ? 'rgba(92,56,28,.9)' : 'rgba(40,26,14,.85)'; g.lineWidth = 1.5 * u; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); } };
+      if (k === 'podzol_top') { needles(0, N); for (let n = 0; n < 6; n++) { g.fillStyle = 'rgba(60,40,22,.6)'; g.fillRect(rnd() * N, rnd() * N, (10 + rnd() * 16) * u, 3 * u); } return c; }
+      g.drawImage(S.dirt, 0, 0, N, N); const top = cvs(N), tg = top.getContext('2d'); tg.drawImage(c, 0, 0); g.save(); g.beginPath(); g.moveTo(0, 0); g.lineTo(N, 0);
+      for (let x = N; x >= 0; x -= 8 * u) g.lineTo(x, (34 + rnd() * 20) * u); g.closePath(); g.clip(); g.drawImage(c, 0, 0); needles(0, 40 * u); g.restore(); return c; }
+    if (k === 'moss_block') { const [c, g] = recol(S.grass, '#45602a', 1.5, N);
+      for (let n = 0; n < 160; n++) { const x = rnd() * N, y = rnd() * N, r = (3 + rnd() * 7) * u; g.fillStyle = rnd() < .5 ? 'rgba(130,170,70,.35)' : 'rgba(20,36,12,.35)'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
+      for (let n = 0; n < 500; n++) { g.fillStyle = 'rgba(170,200,90,.45)'; g.fillRect(rnd() * N, rnd() * N, 1.6 * u, 1.6 * u); } return c; }
+    return cvs(4); }
+  function paintPlant(k) { const N = Math.min(256, TEXSIZE), c = cvs(N), g = c.getContext('2d'), u = N / 256; sd = 77 + k.length * 13; g.lineCap = 'round';
+    if (k === 'fern') { for (let f = 0; f < 7; f++) { const a = -Math.PI / 2 + (f / 6 - .5) * 2.4 + (rnd() - .5) * .2, L = (110 + rnd() * 30) * u, bx = N / 2, by = N - 4 * u, v = .8 + rnd() * .4;
+        const pt = t => { const aa = a + (a + Math.PI / 2) * t * 0.9; return [bx + Math.cos(aa) * L * t, by + Math.sin(aa) * L * t + (a + Math.PI / 2) ** 2 * t * t * 30 * u]; };
+        g.strokeStyle = `rgb(${52 * v | 0},${100 * v | 0},${34 * v | 0})`; g.lineWidth = 3 * u; g.beginPath(); for (let i = 0; i <= 20; i++) { const [x, y] = pt(i / 20); i ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+        g.lineWidth = 3.2 * u; for (let i = 3; i < 20; i++) { const t = i / 20, [x, y] = pt(t), [x2, y2] = pt(Math.min(1, t + .05)), dx = x2 - x, dy = y2 - y, dl = Math.hypot(dx, dy) || 1, nx = -dy / dl, ny = dx / dl, pl = (1 - t) * 26 * u + 4 * u;
+          g.strokeStyle = `rgb(${(60 + rnd() * 20) * v | 0},${(118 + rnd() * 30) * v | 0},${40 * v | 0})`; for (const s of [1, -1]) { g.beginPath(); g.moveTo(x, y); g.lineTo(x + nx * pl * s + dx * .6, y + ny * pl * s + dy * .6); g.stroke(); } } } return c; }
+    if (k === 'reeds') { for (let n = 0; n < 22; n++) { const x = N * (.12 + rnd() * .76), h = (150 + rnd() * 100) * u, bend = (rnd() - .5) * 30 * u, v = .75 + rnd() * .45;
+        g.strokeStyle = `rgb(${(88 + rnd() * 30) * v | 0},${(118 + rnd() * 26) * v | 0},${(48 + rnd() * 16) * v | 0})`; g.lineWidth = (2.5 + rnd() * 2) * u; g.beginPath(); g.moveTo(x, N); g.quadraticCurveTo(x, N - h * .6, x + bend, N - h); g.stroke(); }
+      for (let n = 0; n < 4; n++) { const x = N * (.2 + rnd() * .6), y = (14 + rnd() * 60) * u; g.strokeStyle = '#5d6e3a'; g.lineWidth = 2.5 * u; g.beginPath(); g.moveTo(x, y - 14 * u); g.lineTo(x, N); g.stroke();
+        g.fillStyle = '#4e3018'; g.beginPath(); g.ellipse(x, y + 18 * u, 6 * u, 20 * u, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(140,96,56,.5)'; g.fillRect(x - 3 * u, y + 4 * u, 2 * u, 26 * u); } return c; }
     return c; }
   const done = {}, css = document.createElement('style'); document.head.appendChild(css); const cssL = [];
   const apply = key => { const c = done[key], t = texCache[key]; if (!c || !t) return; if (t.image !== c) { t.image = c; t.needsUpdate = true; } texImg[key] = c; };
   const jobs = Object.keys(keys);
-  function step() { const need = {bark: 'log_side', top: 'log_top', leaf: 'leaves'}; const src = {bark: texImg.log_side, top: texImg.log_top, leaf: texImg.leaves};
-    if (!src.bark || !src.top || !src.leaf || src.bark.width < 8) return setTimeout(step, 150);
+  function step() { const src = {bark: texImg.log_side, top: texImg.log_top, leaf: texImg.leaves, planks: texImg.planks, dirt: texImg.dirt, grass: texImg.grass_top};
+    if (!src.bark || !src.top || !src.leaf || !src.planks || !src.dirt || !src.grass || src.bark.width < 8 || src.planks.width < 8 || src.dirt.width < 8 || src.grass.width < 8) return setTimeout(step, 150);
     const t0 = performance.now();
     while (jobs.length && performance.now() - t0 < 30) { const key = jobs.shift(), [kind, sp] = keys[key];
-      try { const c = kind === 'bark' ? paintBark(sp, src.bark) : kind === 'top' ? paintTop(sp, src.top) : paintLeaf(sp, src.leaf); done[key] = c; apply(key);
-        const th = cvs(96); th.getContext('2d').drawImage(c, 0, 0, 96, 96); const u = th.toDataURL('image/jpeg', 0.85); TEX[key] = u; cssL.push('.ic-' + key + '{background-image:url(' + u + ') !important}'); } catch (e) { console.warn('c80 tex', key, e); } }
+      try { const c = kind === 'bark' ? paintBark(sp, src.bark) : kind === 'top' ? paintTop(sp, src.top) : kind === 'planks' ? paintPlanks(sp, src.planks) : kind === 'gnd' ? paintGnd(sp, src) : kind === 'plant' ? paintPlant(sp) : paintLeaf(sp, src.leaf); done[key] = c; apply(key);
+        const th = cvs(96); th.getContext('2d').drawImage(c, 0, 0, 96, 96); const u = th.toDataURL(kind === 'plant' ? 'image/png' : 'image/jpeg', 0.85); TEX[key] = u; cssL.push('.ic-' + key + '{background-image:url(' + u + ') !important}'); } catch (e) { console.warn('c80 tex', key, e); } }
     css.textContent = cssL.join('\n');
-    if (jobs.length) setTimeout(step, 16); else { let n = 0; const iv = setInterval(() => { for (const k in done) apply(k); if (++n > 40) clearInterval(iv); }, 500); }
-    void need; }
+    if (jobs.length) setTimeout(step, 16); else { let n = 0; const iv = setInterval(() => { for (const k in done) apply(k); if (++n > 40) clearInterval(iv); }, 500); } }
   setTimeout(step, 50);
   window.__c80tex = done;
+
+  // ---------------- biomes: one tree species per region (jittered Voronoi cells ~110 blocks, warped edges) ----------------
+  const BIOS = ['oak', 'pine', 'birch', 'rowan', 'alder', 'yew', 'juniper', 'hawthorn', 'blackthorn'];
+  // grass colour multiplier per biome (oak = the liked grass, unchanged)
+  const TINT = {oak: [1, 1, 1], pine: [0.74, 0.92, 1.02], birch: [1.32, 1.22, 0.55], rowan: [1.06, 0.97, 0.72], alder: [0.6, 0.7, 0.5], yew: [0.52, 0.72, 0.52],
+    juniper: [1.0, 0.84, 0.78], hawthorn: [1.06, 1.06, 0.84], blackthorn: [0.9, 0.94, 0.78]};
+  const CS = 4, TS = 1.6;   // biome cell size (blocks), tint texture scale
+  const BIO = {key: '', gw: 0, gd: 0, sp: null, reg: null, sites: [], W: 0, D: 0, on: false, noise: null};
+  const bioTex = new THREE.DataTexture(new Uint8Array([160, 160, 160, 255]), 1, 1, THREE.RGBAFormat); bioTex.magFilter = THREE.LinearFilter; bioTex.minFilter = THREE.LinearFilter; bioTex.needsUpdate = true;
+  const BU = {uBio: {value: bioTex}, uBioS: {value: new THREE.Vector4(1 / 864, 1 / 864, -9, -9)}};
+  function bioBuild(force) {
+    const on = genVer === GEN9 && !cityGen && !DIM.cur && W > 100 && !!gSeed;
+    const cs = (typeof g9castles !== 'undefined' && g9castles) || [], key = on ? gSeed + '|' + W + '|' + D + '|' + cs.map(c => c.join(',')).join(';') : 'off';
+    if (BIO.key === key && !force) return BIO; BIO.key = key; BIO.on = on; BIO.W = W; BIO.D = D;
+    const gw = Math.ceil(W / CS), gd = Math.ceil(D / CS); BIO.gw = gw; BIO.gd = gd;
+    if (!on) { BIO.sp = null; bioTex.image = {data: new Uint8Array([160, 160, 160, 255]), width: 1, height: 1}; bioTex.needsUpdate = true; return BIO; }
+    if (gSeed) G9P = g9perm(gSeed);
+    const hs = (a, b, c) => { let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(c, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+    const SP = 110, nx = Math.ceil(W / SP), nz = Math.ceil(D / SP), sites = [];
+    for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) sites.push({x: (i + 0.18 + 0.64 * hs(i, j, 1)) * SP, z: (j + 0.18 + 0.64 * hs(i, j, 2)) * SP, b: -1, i: sites.length});
+    const sp = g9spawn || [W >> 1, 0, D >> 1], nearest = (x, z) => { let bi = 0, bd = 1e18; for (const s of sites) { const d = (s.x - x) ** 2 + (s.z - z) ** 2; if (d < bd) { bd = d; bi = s.i; } } return sites[bi]; };
+    // oak round spawn (and the middle of the map), alder round the Blackstone castle
+    nearest(sp[0], sp[2]).b = 0; nearest(W / 2, D / 2).b = 0;
+    for (const s of sites) if (Math.hypot(s.x - sp[0], s.z - sp[2]) < 95) s.b = 0;
+    for (const c of cs) if (c[0] === 'black') { nearest(c[1], c[2]).b = 4; for (const s of sites) if (Math.hypot(s.x - c[1], s.z - c[2]) < 125 && s.b < 0) s.b = 4; }
+    // the rest: shuffled decks so every species turns up, oak the most common; neighbours try not to repeat
+    let rs = (gSeed ^ 0x2545f491) >>> 0 || 7; const r = () => { rs ^= rs << 13; rs >>>= 0; rs ^= rs >>> 17; rs ^= rs << 5; rs >>>= 0; return rs / 4294967296; };
+    const rest = sites.filter(s => s.b < 0).sort((a, b) => hs(a.i, 9, 3) - hs(b.i, 9, 3)); let deck = [];
+    for (const s of rest) { if (!deck.length) { deck = [0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2]; for (let i = deck.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; [deck[i], deck[j]] = [deck[j], deck[i]]; } }
+      const nb = new Set(sites.filter(o => o.b >= 0 && Math.hypot(o.x - s.x, o.z - s.z) < SP * 1.5).map(o => o.b)); let k = deck.findIndex(b => !nb.has(b)); if (k < 0) k = 0; s.b = deck.splice(k, 1)[0]; }
+    // make sure every species exists at least once (small worlds)
+    for (let b = 1; b < BIOS.length; b++) if (!sites.some(s => s.b === b)) { const cand = sites.filter(s => s.b === 0 && Math.hypot(s.x - sp[0], s.z - sp[2]) > 140); if (cand.length) cand[(r() * cand.length) | 0].b = b; }
+    const spc = new Uint8Array(gw * gd), reg = new Uint16Array(gw * gd), noise = new Float32Array(gw * gd), px = new Uint8Array(gw * gd * 4);
+    for (let gx = 0; gx < gw; gx++) for (let gz = 0; gz < gd; gz++) { const x = gx * CS + 2, z = gz * CS + 2;
+      const wx = x + 26 * g9fbm(x / 75 + 41.3, z / 75 - 17.9, 2), wz = z + 26 * g9fbm(x / 75 - 63.1, z / 75 + 29.4, 2);
+      let bi = 0, bd = 1e18; for (const s of sites) { const d = (s.x - wx) ** 2 + (s.z - wz) ** 2; if (d < bd) { bd = d; bi = s.i; } }
+      const i = gx * gd + gz, b = sites[bi].b; spc[i] = b; reg[i] = bi; noise[i] = g9fbm(x / 22 + 5.5, z / 22 - 8.5, 2);
+      const t = TINT[BIOS[b]]; const o = (gz * gw + gx) * 4; px[o] = Math.min(255, t[0] / TS * 255); px[o + 1] = Math.min(255, t[1] / TS * 255); px[o + 2] = Math.min(255, t[2] / TS * 255); px[o + 3] = 255; }
+    BIO.sp = spc; BIO.reg = reg; BIO.noise = noise; BIO.sites = sites.map(s => ({x: Math.round(s.x), z: Math.round(s.z), b: BIOS[s.b]}));
+    bioTex.image = {data: px, width: gw, height: gd}; bioTex.needsUpdate = true; BU.uBioS.value.x = 1 / (gw * CS); BU.uBioS.value.y = 1 / (gd * CS);
+    return BIO; }
+  const cellOf = (x, z) => { const gx = Math.max(0, Math.min(BIO.gw - 1, (x / CS) | 0)), gz = Math.max(0, Math.min(BIO.gd - 1, (z / CS) | 0)); return gx * BIO.gd + gz; };
+  const bioAt = (x, z) => BIO.sp ? BIOS[BIO.sp[cellOf(x, z)]] : 'oak';
+  const tintAt = (x, z) => TINT[bioAt(x, z)];
+  // the biome map as a picture (tests / screenshots)
+  const MAPC = {oak: '#4f8a32', pine: '#1f5a48', birch: '#c8d84a', rowan: '#c0703a', alder: '#3a3226', yew: '#16351a', juniper: '#8a6a9a', hawthorn: '#e0d0b0', blackthorn: '#5a4a6a'};
+  function bioPNG(S) { S = S || 2; const c = cvs(1); c.width = BIO.gw * S; c.height = BIO.gd * S; const g = c.getContext('2d');
+    for (let gx = 0; gx < BIO.gw; gx++) for (let gz = 0; gz < BIO.gd; gz++) { g.fillStyle = BIO.sp ? MAPC[BIOS[BIO.sp[gx * BIO.gd + gz]]] : '#888'; g.fillRect(gx * S, gz * S, S, S); }
+    if (g9cols) { g.fillStyle = 'rgba(40,90,200,.75)'; for (let gx = 0; gx < BIO.gw; gx++) for (let gz = 0; gz < BIO.gd; gz++) { const x = gx * CS + 2, z = gz * CS + 2, ci = (x * D + z) * 2; if (x < W && z < D && (g9cols[ci] <= SEA)) g.fillRect(gx * S, gz * S, S, S); }
+      g.fillStyle = 'rgba(170,170,170,.7)'; for (let gx = 0; gx < BIO.gw; gx++) for (let gz = 0; gz < BIO.gd; gz++) { const x = gx * CS + 2, z = gz * CS + 2, k = x < W && z < D ? g9cols[(x * D + z) * 2 + 1] : 0; if (k === 3 || k === 4 || k === 5) g.fillRect(gx * S, gz * S, S, S); } }
+    const cs = (typeof g9castles !== 'undefined' && g9castles) || []; g.font = 'bold 12px sans-serif';
+    for (const k of cs) { g.fillStyle = k[0] === 'black' ? '#000' : '#fff'; g.strokeStyle = '#f00'; g.lineWidth = 2; g.beginPath(); g.arc(k[1] / CS * S, k[2] / CS * S, 7, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#fff'; g.fillText(k[0], k[1] / CS * S + 9, k[2] / CS * S + 4); }
+    const sp = g9spawn || [W >> 1, 0, D >> 1]; g.fillStyle = '#ff0'; g.beginPath(); g.arc(sp[0] / CS * S, sp[2] / CS * S, 6, 0, 7); g.fill(); g.fillStyle = '#fff'; g.fillText('spawn', sp[0] / CS * S + 8, sp[2] / CS * S + 4);
+    let y = 14; for (const b of BIOS) { g.fillStyle = MAPC[b]; g.fillRect(6, y - 10, 14, 12); g.fillStyle = '#fff'; g.strokeStyle = '#000'; g.lineWidth = 3; g.strokeText(b, 24, y); g.fillText(b, 24, y); y += 16; }
+    return c.toDataURL('image/png'); }
+  window.__bio = {build: bioBuild, at: bioAt, tint: tintAt, png: bioPNG, BIOS, TINT, get info() { return {on: BIO.on, gw: BIO.gw, gd: BIO.gd, sites: BIO.sites}; }, region: (x, z) => BIO.reg ? BIO.reg[cellOf(x, z)] : -1, BU};
+  window.__bioTintC = (col, x, z) => { if (!BIO.sp) return; const t = tintAt(x, z); col.r *= t[0]; col.g *= t[1]; col.b *= t[2]; };
+
+  // ---- grass tint in the shaders (texture-array path, and the classic / Photo-real materials) ----
+  function grassLayers() { if (!__TA || !__TA.layers) return; const L = __TA.layers(T.GRASS); if (L) { BU.uBioS.value.z = L[2]; BU.uBioS.value.w = L[0]; } }
+  if (__TA && __TA.mat && !window.__noBioTint) { const m = __TA.mat; Object.assign(m.uniforms, BU);
+    m.vertexShader = m.vertexShader.replace('varying vec3 vUvL;', 'uniform sampler2D uBio; uniform vec4 uBioS; varying vec3 vTint;\nvarying vec3 vUvL;')
+      .replace('vUvL = vec3(uv, lay);', 'vUvL = vec3(uv, lay);\n  vTint = vec3(1.0); if (abs(lay - uBioS.z) < 0.5 || abs(lay - uBioS.w) < 0.5) { vec2 bioW = (modelMatrix * vec4(transformed, 1.0)).xz; vTint = texture2D(uBio, bioW * uBioS.xy).rgb * ' + TS.toFixed(2) + '; }');
+    m.fragmentShader = m.fragmentShader.replace('varying vec3 vUvL;', 'varying vec3 vTint; varying vec3 vUvL;')
+      .replace('vec4 t = texture(uArr, vUvL);', 'vec4 t = texture(uArr, vUvL); if (vTint.r != 1.0 || vTint.g != 1.0) { float gm = clamp((t.g - max(t.r, t.b)) * 10.0, 0.0, 1.0); t.rgb = mix(t.rgb, t.rgb * vTint, gm); }');
+    m.needsUpdate = true; grassLayers(); }
+  function tintMat(m, inst) { if (!m || m.userData.bioT) return; m.userData.bioT = 1; const prev = m.onBeforeCompile;
+    m.onBeforeCompile = function (sh, rr) { if (prev) prev.call(this, sh, rr); sh.uniforms.uBio = BU.uBio; sh.uniforms.uBioS = BU.uBioS;
+      const wp = inst ? '(modelMatrix * BIOI * vec4(transformed, 1.0))' : '(modelMatrix * vec4(transformed, 1.0))';
+      sh.vertexShader = 'uniform sampler2D uBio; uniform vec4 uBioS; varying vec3 vTint;\n#ifdef USE_INSTANCING\n#define BIOI instanceMatrix\n#else\n#define BIOI mat4(1.0)\n#endif\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vTint = texture2D(uBio, ' + wp + '.xz * uBioS.xy).rgb * ' + TS.toFixed(2) + ';');
+      sh.fragmentShader = 'varying vec3 vTint;\n' + sh.fragmentShader.replace('#include <map_fragment>', '#include <map_fragment>\n  { float gm = clamp((diffuseColor.g - max(diffuseColor.r, diffuseColor.b)) * 10.0, 0.0, 1.0); diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vTint, gm); }'); };
+    const key = inst ? 'ao3bioI' : 'ao3bio'; Object.defineProperty(m, 'customProgramCacheKey', {get() { return () => key; }, set() {}, configurable: true}); m.needsUpdate = true; }
+  tintMat(matCache.grass_top); tintMat(matCache.grass_side); tintMat(PLANT_MATS[T.TALLGRASS], true);
 
   // ---------------- world generation ----------------
   window.__trees2 = true;
@@ -15690,7 +15851,9 @@ void main() {
   function plant(seed) {
     const W0 = W, D0 = D, hs = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ seed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
     let rs = (seed ^ 0x5bd1e995) >>> 0 || 1; const r = () => { rs ^= rs << 13; rs >>>= 0; rs ^= rs >>> 17; rs ^= rs << 5; rs >>>= 0; return rs / 4294967296; };
-    const B = g9BuiltSet(), st = {trees: 0, byKind: {}, pos: {}, heather: 0, hpos: [], rejected: 0, ms: 0}; const t0 = performance.now();
+    const B = g9BuiltSet(), st = {trees: 0, byKind: {}, pos: {}, heather: 0, hpos: [], rejected: 0, ms: 0, ground: {}, bioMs: 0}; const t0 = performance.now();
+    if (!g9spawn) try { g9spawn = g9findSpawn(); } catch (_) {}
+    bioBuild(true); st.bioMs = Math.round(performance.now() - t0);
     // columns with anything man-made in them (castles, ruins, bothies, stones, villages): keep trees 4 blocks away
     const built = new Uint8Array(W0 * D0);
     for (let x = 0; x < W0; x++) for (let z = 0; z < D0; z++) { const top = g9cols ? g9cols[(x * D0 + z) * 2] : SEA; for (let y = Math.max(1, top - 3); y < Math.min(H, top + 24); y++) { const b = world[(x * H + y) * D0 + z]; if (b && (B[b] || b === T.MOSSYBRICK || b === T.STONEBRICK || b === T.COBBLE || (b === T.STONE && y > top) || (T.BLACKSTONE && b === T.BLACKSTONE) || b === T.OBSIDIAN)) { built[x * D0 + z] = 1; break; } } }
@@ -15706,67 +15869,49 @@ void main() {
       const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 + ((z - cz) / rz) ** 2; if (d > 1) continue; if (r() < p * (1.25 - 0.6 * d)) setL(x, y, z, id); } };
     const branch = (x, y, z, dx, dz, len, rise, id) => { let px = x, py = y, pz = z; for (let s = 1; s <= len; s++) { px = x + Math.round(dx * s); pz = z + Math.round(dz * s); py = y + Math.round(rise * s / len); setW(px, py, pz, id); } return [px, py, pz]; };
     const trunk = (x, y0, z, h, id) => { for (let y = 1; y <= h; y++) setW(x, y0 + y, z, id); };
-    // ---- one function per species: tall thin trunks and light, twiggy crowns by default ----
+    // ---- one function per species ----
     const TREE = {
       oak(x, g, z) { const h = 6 + (r() * 4 | 0); trunk(x, g, z, h, T.LOG); const nb = 2 + (r() * 3 | 0);
         for (let i = 0; i < nb; i++) { const a = r() * 6.3, y = g + Math.round(h * (0.55 + r() * 0.35)), e = branch(x, y, z, Math.cos(a), Math.sin(a), 2 + (r() * 2 | 0), 1 + (r() * 2 | 0), T.LOG); blob(e[0], e[1] + 0.5, e[2], 2.2, 1.4, 2.2, 0.62, T.LEAVES); }
         blob(x, g + h + 0.5, z, 2.6, 1.6, 2.6, 0.58, T.LEAVES); setL(x, g + h + 1, z, T.LEAVES); return h; },
       birch(x, g, z) { const h = 8 + (r() * 5 | 0); trunk(x, g, z, h, LOG.birch); const y0 = g + Math.round(h * 0.5);
-        for (let y = y0; y <= g + h + 1; y++) { const t = (y - y0) / (g + h + 1 - y0), rr = 1.7 - t * 0.9; blob(x, y, z, rr, 0.6, rr, 0.5, LEAF.birch); }
+        for (let y = y0; y <= g + h + 1; y++) { const t = (y - y0) / (g + h + 1 - y0), rr = 1.7 - t * 0.9; blob(x, y, z, rr, 0.6, rr, 0.55, LEAF.birch); }
         for (let i = 0; i < 2; i++) { const a = r() * 6.3, e = branch(x, y0 + 1 + (r() * 3 | 0), z, Math.cos(a), Math.sin(a), 2, 1, LOG.birch); blob(e[0], e[1], e[2], 1.3, 1, 1.3, 0.55, LEAF.birch); }
         setL(x, g + h + 1, z, LEAF.birch); return h; },
-      aspen(x, g, z) { const h = 9 + (r() * 5 | 0); trunk(x, g, z, h, LOG.aspen); const y0 = g + Math.round(h * 0.45);
-        for (let y = y0; y <= g + h + 1; y++) blob(x, y, z, 1.5, 0.6, 1.5, 0.62, LEAF.aspen); setL(x, g + h + 1, z, LEAF.aspen); setL(x, g + h + 2, z, LEAF.aspen); return h; },
       rowan(x, g, z) { const h = 5 + (r() * 3 | 0); trunk(x, g, z, h - 2, LOG.rowan); const a = r() * 6.3;
         const e1 = branch(x, g + h - 2, z, Math.cos(a) * .7, Math.sin(a) * .7, 2, 2, LOG.rowan), e2 = branch(x, g + h - 2, z, -Math.cos(a) * .7, -Math.sin(a) * .7, 2, 2, LOG.rowan);
         blob(e1[0], e1[1] + 0.6, e1[2], 1.8, 1.3, 1.8, 0.58, LEAF.rowan); blob(e2[0], e2[1] + 0.6, e2[2], 1.8, 1.3, 1.8, 0.58, LEAF.rowan); return h; },
       alder(x, g, z) { const h = 7 + (r() * 4 | 0); trunk(x, g, z, h, LOG.alder); const y0 = g + Math.round(h * 0.4);
         for (let y = y0; y <= g + h + 1; y++) { const t = (y - y0) / (g + h + 1 - y0), rr = 2.4 - t * 1.9; blob(x, y, z, Math.max(.6, rr), 0.6, Math.max(.6, rr), 0.6, LEAF.alder); } setL(x, g + h + 1, z, LEAF.alder); return h; },
-      willow(x, g, z) { const h = 4 + (r() * 3 | 0), lx = r() < .5 ? 1 : -1; trunk(x, g, z, h - 1, LOG.willow); setW(x + (r() < .5 ? lx : 0), g + h, z, LOG.willow);
-        const cy = g + h + 1; blob(x, cy, z, 3, 1.5, 3, 0.62, LEAF.willow);
-        for (let i = 0; i < 14; i++) { const a = r() * 6.3, d = 2 + r() * 1.3, px = Math.round(x + Math.cos(a) * d), pz = Math.round(z + Math.sin(a) * d), len = 1 + (r() * 3 | 0); for (let y = 0; y < len; y++) setL(px, cy - 1 - y, pz, LEAF.willow); } return h; },
       pine(x, g, z) { const h = 10 + (r() * 6 | 0); trunk(x, g, z, h, LOG.pine); const nb = 2 + (r() * 2 | 0);
         for (let i = 0; i < nb; i++) { const a = r() * 6.3, y = g + h - 1 - (r() * 3 | 0), e = branch(x, y, z, Math.cos(a), Math.sin(a), 2, 1, LOG.pine); blob(e[0], e[1] + 0.4, e[2], 1.8, 0.8, 1.8, 0.78, LEAF.pine); }
         blob(x, g + h, z, 2.4, 1.1, 2.4, 0.72, LEAF.pine); blob(x, g + h + 1.2, z, 1.4, 0.7, 1.4, 0.8, LEAF.pine); return h; },
       juniper(x, g, z) { const h = 1 + (r() * 3 | 0); setW(x, g + 1, z, LOG.yew); for (let y = 1; y <= h + 1; y++) blob(x, g + y, z, y <= h ? 1.2 : 0.6, 0.6, y <= h ? 1.2 : 0.6, 0.85, LEAF.juniper); setL(x, g + h + 1, z, LEAF.juniper); return h; },
-      hazel(x, g, z) { const n = 3 + (r() * 2 | 0), h = 3 + (r() * 3 | 0); for (let i = 0; i < n; i++) { const a = i / n * 6.3 + r(), e = branch(x, g + 1, z, Math.cos(a) * .6, Math.sin(a) * .6, h, h - 1, LOG.hazel); void e; }
-        setW(x, g + 1, z, LOG.hazel); blob(x, g + h + 0.5, z, 2.3, 1.5, 2.3, 0.66, LEAF.hazel); return h; },
-      holly(x, g, z) { const h = 5 + (r() * 3 | 0); trunk(x, g, z, h, LOG.holly); for (let y = g + 2; y <= g + h + 1; y++) { const t = (y - g - 2) / (h - 1), rr = 2.2 - t * 1.8; blob(x, y, z, Math.max(.5, rr), 0.6, Math.max(.5, rr), 0.9, LEAF.holly); } setL(x, g + h + 1, z, LEAF.holly); return h; },
-      hawthorn(x, g, z) { const h = 3 + (r() * 2 | 0), a = r() * 6.3; const e = branch(x, g, z, Math.cos(a) * .5, Math.sin(a) * .5, h, h, LOG.hazel); setW(x, g + 1, z, LOG.hazel); blob(e[0], e[1] + 0.4, e[2], 2.6, 1.1, 2.6, 0.62, LEAF.hawthorn); return h; },
+      hawthorn(x, g, z) { const h = 3 + (r() * 2 | 0), a = r() * 6.3; const e = branch(x, g, z, Math.cos(a) * .5, Math.sin(a) * .5, h, h, T.LOG); setW(x, g + 1, z, T.LOG); blob(e[0], e[1] + 0.4, e[2], 2.6, 1.1, 2.6, 0.62, LEAF.hawthorn); return h; },
       yew(x, g, z) { const h = 4 + (r() * 3 | 0); trunk(x, g, z, h, LOG.yew); for (const [dx, dz] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) if (r() < .5) setW(x + dx, g + 1, z + dz, LOG.yew);
         blob(x, g + h, z, 3, 2.2, 3, 0.86, LEAF.yew); return h; },
-      deadyew(x, g, z) { const h = 5 + (r() * 4 | 0); let px = x, pz = z; for (let y = 1; y <= h; y++) { if (y > 2 && r() < 0.3) { if (r() < .5) px += r() < .5 ? 1 : -1; else pz += r() < .5 ? 1 : -1; } setW(px, g + y, pz, LOG.dead); }
-        const nb = 3 + (r() * 3 | 0); for (let i = 0; i < nb; i++) { const a = r() * 6.3, y = g + 2 + (r() * (h - 1) | 0), e = branch(px, y, pz, Math.cos(a), Math.sin(a), 2 + (r() * 3 | 0), (r() * 3 | 0) - 1, LOG.dead); if (r() < 0.3) blob(e[0], e[1], e[2], 1, .6, 1, 0.5, LEAF.yew); }
-        return h; },
-      blackthorn(x, g, z) { const h = 2 + (r() * 2 | 0); setW(x, g + 1, z, LOG.dead); for (let y = 1; y <= h; y++) blob(x, g + y, z, 1.6, 0.6, 1.6, 0.7, LEAF.blackthorn); return h; },
+      blackthorn(x, g, z) { const h = 2 + (r() * 2 | 0); setW(x, g + 1, z, T.LOG); for (let y = 1; y <= h; y++) blob(x, g + y, z, 1.6, 0.6, 1.6, 0.7, LEAF.blackthorn); return h; },
     };
-    const MINSP = {oak: 4, birch: 3, aspen: 2, rowan: 3, alder: 3, willow: 4, pine: 4, juniper: 1, hazel: 3, holly: 3, hawthorn: 3, yew: 4, deadyew: 3, blackthorn: 2};
-    const SOIL = new Set([T.GRASS, T.DIRT, T.PEAT, T.MUD, T.HEATHER, T.SNOW].filter(v => v !== undefined));
-    const pick = list => { let s = 0; for (const [, w] of list) s += w; let q = r() * s; for (const [k, w] of list) { q -= w; if (q <= 0) return k; } return list[0][0]; };
+    const MINSP = {oak: 4, birch: 3, rowan: 3, alder: 3, pine: 4, juniper: 2, hawthorn: 2, yew: 4, blackthorn: 2};
+    // per biome: [density inside woods, density in the open]; hedgerow biomes plant along lines instead
+    const DENS = {oak: [0.34, 0.03], pine: [0.4, 0.05], birch: [0.46, 0.05], rowan: [0.46, 0.07], alder: [0.46, 0.09], yew: [0.42, 0.04], juniper: [0.22, 0.08], hawthorn: [0.55, 0.03], blackthorn: [0.6, 0.03]};
+    const SOIL = new Set([T.GRASS, T.DIRT, T.PEAT, T.MUD, T.HEATHER, T.SNOW, GND.podzol, GND.moss].filter(v => v !== undefined));
     const wetNear = (x, z) => { for (const [dx, dz] of [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2], [5, 0], [-5, 0], [0, 5], [0, -5]]) { const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= W0 || c >= D0) continue; if (g9cols[(a * D0 + c) * 2] <= SEA || at(a, SEA + 1, c) === T.WATER || at(a, g9cols[(a * D0 + c) * 2], c) === T.WATER) return true; } return false; };
     const CELL = 3;
     for (let cx = 2; cx < W0 - 4; cx += CELL) for (let cz = 2; cz < D0 - 4; cz += CELL) {
       const x = cx + (hs(cx, 11, cz) * CELL | 0), z = cz + (hs(cx, 12, cz) * CELL | 0); if (x < 3 || z < 3 || x >= W0 - 3 || z >= D0 - 3) continue;
       const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1];
       if (kind === 3 || kind === 5 || kind === 4 || hh <= SEA) continue;
-      let spook = null, inCastle = false; for (const c of castles) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.R) inCastle = true; else if (c.k === 'black' && d < c.R + 46) spook = d; }
+      let nearBlack = false, inCastle = false; for (const c of castles) { const d = Math.hypot(x - c.x, z - c.z); if (d < c.R) inCastle = true; else if (c.k === 'black' && d < c.R + 46) nearBlack = true; }
       if (inCastle) continue;
       if (spawn && Math.abs(x - spawn[0]) < 4 && Math.abs(z - spawn[2]) < 4) continue;
-      const f = g9fbm(x / 60 + 300, z / 60 - 300, 2), ft = g9fbm(x / 120 + 900, z / 120 - 400, 2), ag = g9fbm(x / 34 - 60, z / 34 + 80, 2), wet = wetNear(x, z);
-      let p = 0, list = null;
-      if (spook !== null) { p = 0.42; list = [['deadyew', 5], ['blackthorn', 4]]; }
-      else if (wet && hh <= SEA + 5) { p = f > 0.05 ? 0.45 : 0.25; list = [['alder', 6], ['willow', 4], ['birch', 1]]; }
-      else if (kind === 2) { p = 0.05; list = [['willow', 3], ['birch', 2]]; }
-      else if (f > 0.07) { const dense = f > 0.2 ? 1 : 0.6;
-        if (hh > SEA + 16 || ft < -0.2) { p = 0.5 * dense; list = [['pine', 8], ['juniper', 3], ['birch', 1]]; }                       // Caledonian pinewood
-        else if (ft < 0) { p = 0.5 * dense; list = [['birch', 8], ['rowan', 2], ['pine', 1], ['juniper', .5]]; }                          // birch hillside
-        else if (ft < 0.18) { if (ag > 0.12) { p = 0.55 * dense; list = [['aspen', 9], ['birch', 1]]; } else { p = 0.45 * dense; list = [['birch', 4], ['oak', 3], ['rowan', 2], ['hazel', 2], ['hawthorn', 1]]; } }
-        else { p = 0.5 * dense; list = [['oak', 6], ['hazel', 3], ['holly', 1.6], ['rowan', 1], ['yew', 0.4]]; } }                         // Atlantic oakwood
-      else if (kind === 1) { p = 0.012; list = [['rowan', 3], ['pine', 2], ['juniper', 3], ['hawthorn', 1], ['birch', 1]]; }            // lone trees on the moor
-      else { p = 0.03; list = [['hawthorn', 3], ['rowan', 2], ['oak', 2], ['birch', 2], ['hazel', 1]]; }                                  // the odd tree in the meadows
+      const sp = bioAt(x, z), f = g9fbm(x / 60 + 300, z / 60 - 300, 2), DN = DENS[sp];
+      let p = f > 0.06 ? DN[0] * (f > 0.2 ? 1 : 0.7) : DN[1];
+      if (sp === 'hawthorn' || sp === 'blackthorn') { const ag = g9fbm(x / 34 - 60, z / 34 + 80, 2); p = Math.abs(ag) < 0.035 ? DN[0] : DN[1]; }   // hedgerows: lines of thorn across the fields
+      if (sp === 'alder' && (nearBlack || wetNear(x, z))) p = Math.max(p, 0.36);   // a dark, dense alder carr round the Blackstone castle and by the water
+      if (kind === 1 && sp !== 'juniper') p *= 0.35; else if (kind === 2) p *= 0.4;
       if (!(hs(x, 13, z) < p)) continue;
-      const sp = pick(list), msp = MINSP[sp];
-      // ground: real soil with solid rock under it (no caves or ravines under the trunk), level with its neighbours, nothing built nearby
+      const msp = MINSP[sp];
       const g = g9top(x, z); if (g < SEA + 1 || g > H - 22) { st.rejected++; continue; }
       const gb = at(x, g, z); if (!SOIL.has(gb)) { st.rejected++; continue; }
       let ok = true; for (let y = g - 1; y >= g - 5 && ok; y--) { const b = at(x, y, z); if (!b || b === T.WATER || b === T.LAVA || PLANT[b] === 1 || ENT[b] === 1) ok = false; }
@@ -15774,14 +15919,38 @@ void main() {
       if (!ok || !AIRISH(at(x, g + 1, z)) || !AIRISH(at(x, g + 2, z)) || at(x, g + 3, z) !== T.AIR) { st.rejected++; continue; }
       if (!free(x, z, msp) || nearBuilt(x, z, 4)) { st.rejected++; continue; }
       if (gb === T.GRASS || gb === T.HEATHER || gb === T.SNOW) world[(x * H + g) * D0 + z] = T.DIRT;   // dirt under the trunk, like MC
-      TREE[sp](x, g, z); occ[x * D0 + z] = 1; st.trees++; st.byKind[sp] = (st.byKind[sp] || 0) + 1; (st.pos[sp] || (st.pos[sp] = [])).length < 300 && st.pos[sp].push([x, g, z]);
+      TREE[sp](x, g, z); occ[x * D0 + z] = 1; st.trees++; st.byKind[sp] = (st.byKind[sp] || 0) + 1; (st.pos[sp] || (st.pos[sp] = [])).length < 400 && st.pos[sp].push([x, g, z]);
     }
-    // heather: low bushy clumps on the moor and the open hillsides (not a carpet)
+    // ---- each biome's own ground: podzol + ferns under pine, mud / bog / reeds / puddles by the alder, moss under yew, flowers in birch, long grass in the highlands and hedgerows ----
+    const gc = st.ground, cnt1 = k => { gc[k] = (gc[k] || 0) + 1; };
+    const FLW = new Set([T.DANDELION, T.DAFFODIL, T.BLUEBELL]);
+    const BI = {}; BIOS.forEach((b, i) => { BI[b] = i; });
+    for (let x = 2; x < W0 - 2; x++) for (let z = 2; z < D0 - 2; z++) {
+      const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1]; if (hh <= SEA || kind === 3 || kind === 4 || kind === 5 || built[x * D0 + z]) continue;
+      let g = -1; for (let y = Math.min(H - 2, hh + 3); y >= hh - 3 && y > 1; y--) { const b = at(x, y, z); if (b === T.AIR || PLANT[b] === 1) continue; g = y; break; }
+      if (g < SEA + 1) continue; const gi = (x * H + g) * D0 + z; if (world[gi] !== T.GRASS) continue;
+      const ab = world[gi + D0], aboveFree = ab === T.AIR || (PLANT[ab] === 1 && ab !== T.WATER); if (!aboveFree) continue;
+      const c = cellOf(x, z), b = BIO.sp[c], n = BIO.noise[c] + (hs(x, 31, z) - 0.5) * 0.12, q = hs(x, 32, z);
+      const putP = id => { world[gi + D0] = id; cnt1(id); };
+      if (b === BI.pine) { if (n > -0.06) { world[gi] = GND.podzol; cnt1('podzol'); } if (q < 0.04) putP(PL2.fern); else if (FLW.has(ab)) world[gi + D0] = T.AIR; }
+      else if (b === BI.yew) { if (n > -0.12) { world[gi] = GND.moss; cnt1('moss'); } if (q < 0.035) putP(PL2.fern); else if (FLW.has(ab)) world[gi + D0] = T.AIR; }
+      else if (b === BI.alder) {
+        if (n > 0.26 && g <= hh + 1 && !occ[x * D0 + z]) {   // a puddle: only where the hollow is walled on every side
+          let wall = true; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nb = world[((x + dx) * H + g) * D0 + z + dz], na = world[((x + dx) * H + g + 1) * D0 + z + dz]; if (!(nb === T.GRASS || nb === T.MUD || nb === T.DIRT || nb === T.PEAT || nb === T.WATER) || !(na === T.AIR || PLANT[na] === 1 || na === T.WATER)) { wall = false; break; } }
+          const under = world[gi - D0]; if (wall && under && under !== T.WATER && PLANT[under] !== 1) { world[gi] = T.WATER; if (PLANT[ab] === 1) world[gi + D0] = T.AIR; cnt1('puddle'); continue; } }
+        if (n > 0.04) { world[gi] = T.MUD; cnt1('mud'); } else if (n < -0.22) { world[gi] = T.PEAT; cnt1('peat'); }
+        if (q < (n > 0.1 ? 0.08 : 0.025)) putP(PL2.reeds); else if (FLW.has(ab)) world[gi + D0] = T.AIR; }
+      else if (b === BI.birch) { if (q < 0.04 && ab === T.AIR) { const fl = n > 0.1 ? T.BLUEBELL : n < -0.1 ? T.DAFFODIL : T.DANDELION; putP(fl); } }
+      else if (b === BI.rowan) { if (q < 0.025 && ab === T.AIR) putP(T.THISTLE); }
+      else if (b === BI.juniper) { if (n > 0.02) { world[gi] = T.HEATHER; cnt1('heath'); if (PLANT[ab] === 1) world[gi + D0] = T.AIR; } else if (n < -0.25) { world[gi] = T.PEAT; cnt1('peat'); } }
+      else if (b === BI.hawthorn || b === BI.blackthorn) { if (q < 0.02 && ab === T.AIR && !occ[x * D0 + z]) { world[gi + D0] = b === BI.hawthorn ? LEAF.hawthorn : LEAF.blackthorn; cnt1('scrub'); } }
+    }
+    // heather: low bushy clumps, mostly on the juniper moors
     for (let cx = 2; cx < W0 - 4; cx += 5) for (let cz = 2; cz < D0 - 4; cz += 5) {
       const x = cx + (hs(cx, 21, cz) * 5 | 0), z = cz + (hs(cx, 22, cz) * 5 | 0); if (x < 4 || z < 4 || x >= W0 - 4 || z >= D0 - 4) continue;
-      const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1], heath = g9fbm(x / 40 + 7, z / 40 - 3, 2);
-      const moor = kind === 1 || (heath > 0.08 && hh > SEA + 14 && kind !== 3 && kind !== 5);
-      if (!moor || hs(x, 23, z) > (kind === 1 ? 0.55 : 0.3) || nearBuilt(x, z, 2)) continue;
+      const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1], jun = bioAt(x, z) === 'juniper';
+      if (kind === 3 || kind === 5 || hh <= SEA) continue;
+      if (!(jun || kind === 1) || hs(x, 23, z) > (jun ? 0.6 : 0.15) || nearBuilt(x, z, 2)) continue;
       const R = 1 + hs(x, 24, z) * 2.2; if (st.hpos.length < 300) st.hpos.push([x, z]);
       for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const a = x + dx, c = z + dz, d = Math.hypot(dx, dz) / R; if (d > 1 || hs(a, 25, c) > 1.05 - d * 0.55) continue;
         const g = g9top(a, c), b = at(a, g, c); if (b !== T.GRASS && b !== T.HEATHER) continue; if (!AIRISH(at(a, g + 1, c))) continue;
@@ -15793,9 +15962,27 @@ void main() {
   const ge = generate;
   generate = function () { const r = ge.apply(this, arguments);
     try { if (genVer === GEN9 && !cityGen && !DIM.cur && g9cols && W > 100) { const was = typeof c37busy !== 'undefined' ? c37busy : false; try { c37busy = true; } catch (_) {}
-      window.__c80 = plant(gSeed ^ 0x7ee5); try { if (!window.__hives && window.__beeHive) window.__hives = window.__beeHive.placeHives(); } catch (_) {} try { c37busy = was; } catch (_) {} dirtyAll = true; } } catch (e) { console.warn('c80', e); window.__c80err = String(e && e.stack || e); }
-    return r; };
-  window.__c80api = {LOG, LEAF, plant};
+      window.__c80 = plant(gSeed ^ 0x7ee5); try { if (!window.__hives && window.__beeHive) window.__hives = window.__beeHive.placeHives(); } catch (_) {} try { c37busy = was; } catch (_) {} dirtyAll = true; } else bioBuild(); } catch (e) { console.warn('c80', e); window.__c80err = String(e && e.stack || e); }
+    grassLayers(); return r; };
+  // ---- saves: biome map follows the seed/castles; old saves lose the removed woods (holly/willow/hazel/dead -> oak, aspen -> birch) ----
+  const MIG = {138: T.LOG, 141: T.LOG, 144: T.LOG, 145: T.LOG, 142: LOG.birch, 149: T.LEAVES, 238: T.LEAVES, 251: T.LEAVES, 239: LEAF.birch};
+  const migId = v => (typeof v === 'number' && MIG[v] !== undefined) ? MIG[v] : v;
+  const migObj = o => { if (!o || typeof o !== 'object') return o; if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = typeof o[i] === 'number' ? o[i] : migObj(o[i]); return o; } if (typeof o.id === 'number') o.id = migId(o.id); for (const k in o) if (k !== 'id' && o[k] && typeof o[k] === 'object') migObj(o[k]); return o; };
+  function migrate(d) { const st = {blocks: 0, items: 0};
+    if (typeof d.world === 'string') { const s = d.world; let out = '', last = 0; const parts = [];
+      for (let j = 0; j < s.length; j += 2) { const v = s.charCodeAt(j); if (MIG[v] !== undefined) { parts.push(s.slice(last, j), String.fromCharCode(MIG[v])); last = j + 1; st.blocks += s.charCodeAt(j + 1); } }
+      if (parts.length) { parts.push(s.slice(last)); out = parts.join(''); d.world = btoa(out); } }
+    if (d.inv) { const ni = {}; for (const k in d.inv) { const nk = migId(+k); if (nk !== +k) st.items += d.inv[k]; ni[nk] = (ni[nk] || 0) + d.inv[k]; } d.inv = ni; }
+    if (Array.isArray(d.hotbar)) d.hotbar = d.hotbar.map(migId);
+    for (const f of ['chests', 'furnaces']) if (Array.isArray(d[f])) d[f].forEach(e => migObj(e[1]));
+    window.__wood68 = st; return st; }
+  const ap0 = applySave;
+  applySave = function (d) {
+    if (d && !d.wood68) { try { if (typeof d.world === 'string') { const raw = atob(d.world); d.world = raw; migrate(d); if (d.world === raw) d.world = btoa(raw); } else migrate(d); } catch (e) { console.warn('wood68 migrate', e); } d.wood68 = 1; }
+    const res = ap0.apply(this, arguments); try { bioBuild(); grassLayers(); } catch (e) { console.warn('bio', e); } return res; };
+  const ser0 = serialize; serialize = function () { const d = ser0.apply(this, arguments); d.wood68 = 1; return d; };
+  setTimeout(grassLayers, 1500);
+  window.__c80api = {LOG, LEAF, ROT, GND, PL2, plant, migrate, bioAt, BIOS};
 })();
 
 /* ===================== GLX-C81 (v0.9.66): optional 'Photo-real' graphics preset. Original procedural textures (no downloads, no copied pixels), made lazily on the device
@@ -15908,7 +16095,7 @@ void main() {
         if (hsh(x, z, 1) > (PH ? 0.4 : 0.55)) continue;
         for (let y = Math.min(H - 2, py + 8); y >= Math.max(1, py - 10); y--) { const b = world[(x * H + y) * D + z]; if (b === 0) continue; if (b === T.GRASS && world[(x * H + y + 1) * D + z] === 0) {
             v.set(x + 0.2 + 0.6 * hsh(x, z, 2), y + 1, z + 0.2 + 0.6 * hsh(x, z, 3)); e.set(0, hsh(x, z, 4) * Math.PI, 0); q.setFromEuler(e); const k = 0.7 + 0.7 * hsh(x, z, 5); sc.set(k, k * (0.8 + 0.5 * hsh(x, z, 6)), k);
-            m4.compose(v, q, sc); im.setMatrixAt(n, m4); col.setRGB(0.85 + 0.2 * hsh(x, z, 7), 0.9 + 0.15 * hsh(x, z, 8), 0.8); im.setColorAt(n, col); n++; } break; } }
+            m4.compose(v, q, sc); im.setMatrixAt(n, m4); col.setRGB(0.85 + 0.2 * hsh(x, z, 7), 0.9 + 0.15 * hsh(x, z, 8), 0.8); if (window.__bioTintC) __bioTintC(col, x, z); im.setColorAt(n, col); n++; } break; } }
       im.count = n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; st.tufts = n; }
     setInterval(() => { if (!started || DIM.cur) { im.visible = false; return; } if (im.parent !== scene) { scene.add(im); lt = 0; }   /* added after the world starts (world loading clears stray scene objects) */ const ck = typeof caveK === 'number' ? caveK : 0; im.visible = ck < 0.85; const dl = typeof daylight === 'number' ? daylight : 1; mat.color.setScalar((0.1 + 0.8 * dl) * (1 - 0.6 * (st.night || 0))); const now = performance.now();
       if (Math.abs(P.x - lx) + Math.abs(P.z - lz) > 5 || now - lt > 3000) { lx = P.x; lz = P.z; lt = now; rebuild(); } }, 250);
@@ -15967,6 +16154,102 @@ void main() {
   };
   window.__c83 = {tall};
 })();
+/* ===================== GLX-C85 (v0.9.68): no pop-ups for trivial things (kills, loot, pick-ups, crafting, levels); death, the brooch, sleeping, saving and errors still show ===================== */
+(function c85() {
+  const TRIVIAL = [/defeated\.?$/i, /^Crafted /, /^Took \d/, /^Picked up /, /^Level \d+!$/, /^Honeycomb!$/, /^Honey bottle$/, /^Equipped /, / ready!$/, /^The Treeman (crumbles|goes up)/, /^The castle guardian falls/,
+    /^Filled the bucket/, / loaded$/, /^Reloading/, /^Loading the /, /drops its hoard/, /double drop/, /vanished into the mist, leaving/, / in the pot\.\.\.$/, /^Torch relit/, /^Sparks fly/, /obtained/i, /^You got /i, /^Got /];
+  const isTrivial = m => typeof m === 'string' && (TRIVIAL.some(r => r.test(m)) || Object.values(NAMES).includes(m));
+  const t0 = toast; window.__toastSkip = [];
+  toast = function (msg) { if (isTrivial(msg)) { if (__toastSkip.length < 50) __toastSkip.push(msg); return; } return t0.apply(this, arguments); };
+  window.__c85 = {isTrivial};
+})();
+/* ===================== GLX-C86 (v0.9.68): Patch Notes panel on the main menu (notes live in window.PATCH_NOTES in index.html) + version in the corner ===================== */
+(function c86w() { const go = () => { if ($('notesUI')) c86(); }; if ($('notesUI')) go(); else document.addEventListener('DOMContentLoaded', go); })();
+function c86() {
+  const ui = $('notesUI'), body = $('notesBody'), btn = $('notesBtn'); if (!ui || !body || !btn) return;
+  const vt = $('verTag'); if (vt) vt.style.cssText = 'position:absolute;left:10px;top:8px;padding:3px 9px;border-radius:10px;background:rgba(10,14,12,.55);font:700 13px system-ui,sans-serif;color:#e8f4dc;text-shadow:0 1px 2px #000;pointer-events:none;z-index:5';
+  if ($('notesBtnVer')) $('notesBtnVer').textContent = "What's new in " + GAME_VERSION;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  function render() { const N = window.PATCH_NOTES || [];
+    body.innerHTML = N.map(e => '<div class="nver"><h3>' + esc(e.v) + (e.v === GAME_VERSION ? ' <small>this version</small>' : e.d ? ' <small>' + esc(e.d) + '</small>' : '') + '</h3><ul>' + (e.notes || []).map(n => '<li>' + esc(n) + '</li>').join('') + '</ul></div>').join('') || '<p>No notes yet.</p>';
+    $('notesVer').textContent = 'You are on ' + GAME_VERSION; }
+  let open = false, padFoc = false;
+  function openNotes() { render(); ui.classList.remove('hidden'); open = true; requestAnimationFrame(tick); body.scrollTop = 0; $('notesClose').classList.toggle('focus', !!padConnected); try { body.focus({preventScroll: true}); } catch (_) {} try { sfx('pop', .2); } catch (_) {} }
+  function closeNotes() { if (!open) return; ui.classList.add('hidden'); open = false; try { refocusMenu(); } catch (_) {} }
+  btn.addEventListener('click', openNotes); $('notesClose').addEventListener('click', closeNotes);
+  ui.addEventListener('click', e => { if (e.target === ui) closeNotes(); });
+  addEventListener('keydown', e => { if (!open) return; if (e.key === 'Escape' || e.key === 'Backspace') { closeNotes(); e.preventDefault(); e.stopImmediatePropagation(); }
+    else if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'PageDown' || e.key === 'PageUp') { body.scrollTop += (/Down/.test(e.key) ? 1 : -1) * (/Page/.test(e.key) ? body.clientHeight * .85 : 50); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  // controller: B / Start / A close, d-pad steps, either stick scrolls smoothly
+  const mp = menuPad; menuPad = function (E) {
+    if (!open) return mp.apply(this, arguments);
+    if (E[1] || E[9] || E[0]) { closeNotes(); return; }
+    if (E[12]) body.scrollTop -= 70; if (E[13]) body.scrollTop += 70;
+    if (E[14]) body.scrollTop -= body.clientHeight * .85; if (E[15]) body.scrollTop += body.clientHeight * .85;
+  };
+  let lastT = 0;
+  function tick(now) { if (!open) { lastT = 0; return; } requestAnimationFrame(tick); const dt = Math.min(0.05, (now - (lastT || now)) / 1000); lastT = now;
+    const gps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; let v = 0;
+    for (const g of gps) { const a = g.axes || [], ly = Math.abs(a[1] || 0) > 0.18 ? a[1] : 0, ry = Math.abs(a[3] || 0) > 0.18 ? a[3] : 0; v = Math.abs(ly) > Math.abs(ry) ? ly : ry; if (v) break; }
+    if (v) body.scrollTop += Math.sign(v) * Math.pow(Math.abs(v), 1.5) * 900 * dt; }
+  const ss = showScreen; showScreen = function (n) { if (n !== 'title') closeNotes(); return ss.apply(this, arguments); };
+  // touch: the page has touch-action:none, so drag-scroll the list by hand (with a little glide)
+  let ty = null, vel = 0, lastY = 0, lastTT = 0;
+  body.addEventListener('touchstart', e => { if (e.touches.length !== 1) return; ty = lastY = e.touches[0].clientY; lastTT = performance.now(); vel = 0; }, {passive: true});
+  body.addEventListener('touchmove', e => { if (ty === null) return; const y = e.touches[0].clientY, now = performance.now(); body.scrollTop -= y - lastY; vel = (y - lastY) / Math.max(1, now - lastTT); lastY = y; lastTT = now; e.preventDefault(); }, {passive: false});
+  body.addEventListener('touchend', () => { if (ty === null) return; ty = null; let v = vel * 16; (function glide() { if (Math.abs(v) < 0.5 || !open) return; body.scrollTop -= v; v *= 0.93; requestAnimationFrame(glide); })(); });
+  window.__notes = {open: openNotes, close: closeNotes, isOpen: () => open};
+}
+
+/* ===================== GLX-C88 (v0.9.68): keep the phone smooth - small cross plants (ferns, reeds, flowers) only draw near the player ===================== */
+(function c88() {
+  const NEAR = () => (window.__plantNear || (touchMode ? 34 : 44));
+  function cull() { if (!started || typeof chunkObjs === 'undefined') return; const r = NEAR() + CH * 0.71, px = P.x, pz = P.z; let on = 0, off = 0;
+    for (const [id, g] of chunkObjs) { const cx = Math.floor(id / 64) * CH + CH / 2, cz = (id % 64) * CH + CH / 2, near = Math.hypot(cx - px, cz - pz) < r;
+      for (const m of g.children) if (m.isInstancedMesh && m.geometry === crossGeo) { if (!near) { if (m.visible) { m.visible = false; m.userData.c88 = 1; } off++; } else { if (m.userData.c88) { m.visible = true; m.userData.c88 = 0; } on++; } } }
+    window.__plantCull = {on, off}; }
+  setInterval(cull, 250);
+})();
+</script>
+<div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
+  <div class="npanel">
+    <div class="nhead"><b>Patch Notes</b><span id="notesVer"></span><button class="nclose" id="notesClose" data-testid="patch-notes-close" aria-label="Close">&#10005;</button></div>
+    <div class="nbody" id="notesBody" tabindex="0" data-testid="patch-notes-list"></div>
+    <div class="nfoot">Scroll: stick / D-pad / swipe / mouse wheel &nbsp;·&nbsp; Close: <i>B</i> or &#10005;</div>
+  </div>
+</div>
+<script>
+/* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
+window.PATCH_NOTES = [
+ {v:'v0.9.68', d:'2026-10-24', notes:[
+  'Every kind of tree now grows in its own area (biome). You start among oaks, and exploring takes you into pine, birch, rowan, alder, yew, juniper, hawthorn and blackthorn country.',
+  'Each area has its own ground: ferns and podzol under the pines, bright grass and flowers in the birch woods, mud, puddles and reeds in the alder bog, heather on juniper moors, and dark moss under the yews.',
+  'The alder bog sits right next to the Black Skeletons\' castle.',
+  'New wood: Rotting Alder. It is almost black and drips with goo, like a tree from the Upside Down. You can craft its planks and sticks, it\'s in Creative, and it doesn\'t grow anywhere yet.',
+  'Birch now uses the old aspen bark and leaves. Alder bark is darker.',
+  'Holly, dead wood, willow, hazel and aspen are gone. In your old worlds they turn into oak (aspen turns into birch), and anything you built yourself is left alone.',
+  'No more pop-ups for small things like kills, pick-ups, crafting or levelling up. Important messages still show.',
+  'The spare settings icon on the main menu is gone. There\'s a new Patch Notes button, and the version number is shown in the corner.']},
+ {v:'v0.9.67', d:'2026-10-24', notes:['Axes break wooden fences, gates, stairs, bookshelves and beehives quickly.','Fences drop when broken by hand.','New fence gate that swings open like a door and joins up with fences.','Castle folk open gates. Mobs can\'t jump fences or closed gates.']},
+ {v:'v0.9.66', d:'2026-10-24', notes:['New Photo-real graphics option.','Fixed a memory leak caused by fences.']},
+ {v:'v0.9.65', d:'2026-10-24', notes:['Scottish trees, each with its own logs and leaves.','Trees are spaced out and never float.','Heather clumps grow on the moors.']},
+ {v:'v0.9.64', d:'2026-10-24', notes:['Big performance update: smoother on phones, faster caves and quicker world building.','The phone lowers its resolution on its own when the game gets busy.']},
+ {v:'v0.9.63', d:'2026-10-24', notes:['Castle folk have jobs: guard, farmer, miner, hunter and cook.','They sleep in their own beds, walk properly and stop staring at you.','Smarter pathfinding for everyone.','Skeleton archers strafe while they shoot.']},
+ {v:'v0.9.62.1', d:'2026-10-24', notes:['Fixed cobalt armour replacing copper armour.']},
+ {v:'v0.9.62', d:'2026-10-24', notes:['Bigger survival world with a bedrock border.','Bigger Hell to explore.','New ores: ruby, lazurite and cobalt.','Ores now spread like they do in Minecraft 1.18.','Castle gates added.','Caves link up with each other.','The diamond pickaxe mines faster.']},
+ {v:'v0.9.61', d:'2026-10-24', notes:['Leaves are solid and faster to draw.','Hearts and the hunger bar sit above the hotbar.']},
+ {v:'v0.9.60', d:'2026-10-24', notes:['Fixed the sky, stars, sun and moon getting cut off at low render distance.']},
+ {v:'v0.9.59', d:'2026-10-23', notes:['Cairngorm ore is now silver ore. Old saves convert automatically.','The Luckenbooth brooch saves you from death when held, with a totem animation.','Doused torches stay selected.']},
+ {v:'v0.9.58', d:'2026-10-23', notes:['Lots of fixes to settings, music, swimming and lighting.','Hostile mobs spawn in the dark, like in Minecraft.']},
+ {v:'v0.9.57', d:'2026-10-23', notes:['Crawlers removed. Spiders stay on the ground.','Underwater sounds, light ripples and bubbles.']},
+ {v:'v0.9.56', d:'2026-10-22', notes:['Blue underwater view.','Real lighting from the sky and torches.','Rain that falls in the world, with wet ground and puddles.','Render distance setting.','Swimming.']},
+ {v:'v0.9.55', d:'2026-10-22', notes:['Console-style controller menus: move between buttons with the stick, a free cursor in the inventory, and button hints on screen.']},
+ {v:'v0.9.54', d:'2026-10-22', notes:['Cave mobs stay around during the day.','More giant spiders, which creep and climb out of caves.','Weather, time and freeze options in the pause menu.','Flat World fixed.']},
+ {v:'v0.9.53', d:'2026-10-22', notes:['Creeper explosions hurt less the further away you are.','Yellow creepers are kept when you save and reload.']},
+ {v:'v0.9.52', d:'2026-10-22', notes:['Busier caves.','New yellow creeper that chases you and blows up twice as hard.','Fixed glowing halos in the background.']},
+ {v:'v0.9.51', d:'2026-10-22', notes:['More realistic graphics and movement.','New atmospheric soundtrack.','Giant huntsman spiders in caves.','The Backrooms painting is gone.']},
+ {v:'v0.9.50', d:'2026-10-22', notes:['Bridging like in Bedrock: place blocks out from an edge, with a ghost preview.','"Pre-Alpha" badge on the title screen.']}
+];
 </script>
 </body>
 </html>
