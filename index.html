@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0975a -->
+<!-- glencraft-build: v0975b -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -17380,22 +17380,23 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   const lvl = (a, kind) => { const b = best(a, kind); return b ? TOOL[b][1] : 0; };
   const ironArm = a => (a.armour || []).filter(id => (id >= 108 && id <= 111) || (id >= 129 && id <= 132)).length;
   const armRed = a => (a.armour || []).reduce((s, id) => s + (id >= 129 && id <= 132 ? 0.15 : id >= 108 && id <= 111 ? 0.11 : id >= 112 && id <= 115 ? 0.09 : id ? 0.07 : 0), 0);
-  const fuelPts = a => (has(a, IT.COAL) + has(a, IT.CHARCOAL)) * 8 + Math.max(0, has(a, T.PLANKS) - 4) * 1.5 + Math.max(0, logN(a) - 2) * 1.5;
+  const fuelPts = a => (has(a, IT.COAL) + has(a, IT.CHARCOAL)) * 8 + has(a, T.PLANKS) * 1.5 + logN(a) * 1.5;
 
   // ================= crafting with the game's own recipes =================
   const REC = id => RECIPES.find(r => r.out === id && !r.need.some(q => q[0] === T.IRONBLOCK));
+  let DRY = false;
   function craft(a, id) {
     const r = REC(id); if (!r) return false;
     if (!r.need.every(([nid, n]) => nOf(a, nid) >= n)) return false;
     for (const [nid, n] of r.need) { if (nid === T.LOG) useLogs(a, n); else add(a, nid, -n); }
-    add(a, id, r.n); B.st.crafted++; B.crafts.push(NAMES[id] || String(id)); if (B.crafts.length > 40) B.crafts.shift();
+    add(a, id, r.n); if (DRY) return true; B.st.crafted++; B.crafts.push(NAMES[id] || String(id)); if (B.crafts.length > 40) B.crafts.shift();
     return true;
   }
   function planks(a, n) { while (has(a, T.PLANKS) < n && logN(a) > 0) if (!craft(a, T.PLANKS)) break; return has(a, T.PLANKS) >= n; }
   function sticks(a, n) { while (has(a, IT.STICK) < n) { if (!planks(a, 2) || !craft(a, IT.STICK)) break; } return has(a, IT.STICK) >= n; }
   // everything worth making right now; dry run unless real (crafting needs the table)
   function upgrades(a, real) {
-    const keepI = JSON.stringify(inv(a)), keepA = (a.armour || []).slice(), made = [];
+    const keepI = JSON.stringify(inv(a)), keepA = (a.armour || []).slice(), made = []; DRY = !real;
     for (const [list, kind, m] of [[PICKS, 'pick', 3], [SWORDS, 'sword', 2], [AXES, 'axe', 3]]) {
       const cur = lvl(a, kind);
       for (let t = 3; t > cur; t--) {
@@ -17412,7 +17413,7 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
       const cur = (a.armour || [])[s] || 0; if ((cur >= 108 && cur <= 111) || (cur >= 129 && cur <= 132)) continue;
       if (has(a, IT.IRONINGOT) >= ARM_COST[s] && craft(a, IRON_ARM[s])) { add(a, IRON_ARM[s], -1); if (!a.armour) a.armour = [104, 105, 106, 107]; a.armour[s] = IRON_ARM[s]; made.push(IRON_ARM[s]); }
     }
-    if (!real) { a.inv = JSON.parse(keepI); a.armour = keepA; }
+    DRY = false; if (!real) { a.inv = JSON.parse(keepI); a.armour = keepA; }
     return made;
   }
   // ================= the castle's things =================
@@ -17563,7 +17564,9 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
     a.chestCd = (a.chestCd || 0);
     // food first
     if (cf < 2 && (a.food < 11 || a.hp < (a.maxHp || 24) * 0.7 || tm.phase !== 'survive')) {
-      if (raw > 0 && ci.furn) return {type: 'cook', ph: 'go', t: 0, pri: 3};
+      const fuelHere = fuelPts(a) >= 1 || (ch && chestCount(ch, [IT.COAL, IT.CHARCOAL, T.PLANKS, T.LOG]));
+      if (raw > 0 && ci.furn && fuelHere) return {type: 'cook', ph: 'go', t: 0, pri: 3};
+      if (raw > 0 && ci.furn && !fuelHere && wood(a) < 2) { const s0 = scanOf(ci), t0 = nearestOf(a, s0.trees, o => !s0.bad.has(o.join()) && !claimed(a, o) && LOGGY[wb(o[0], o[1], o[2])]); if (t0) return {type: 'chop', o: t0, ph: 'go', t: 0, pri: 3}; }
       if (ch && a.chestCd <= 0 && chestCount(ch, FOODS.concat(RAW))) return {type: 'chest', t: 0, pri: 3};
       if (role === 'hunter' || a.food < 10 || tm.phase !== 'survive') return huntJob(a);
     }
@@ -17681,7 +17684,9 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
       case 'cook': {
         const f = ci.furn; if (!f || !f.a) { done(); break; }
         if (j.ph === 'go') { if (moveTo(a, f.a[0], f.a[1], f.a[2], SP.work, dt, far) || (a.goFail || 0) > 8 || j.t > 60) { a.goFail = 0; j.ph = 'work'; j.t = 0; A.face(a, f.x, f.z);
-            try { const fd = furnData(keyOf(f.x, f.y, f.z)); if (fd && fd.out) { add(a, fd.out[0], fd.out[1]); fd.out = null; } } catch (_) {} } break; }
+            try { const fd = furnData(keyOf(f.x, f.y, f.z)); if (fd && fd.out) { add(a, fd.out[0], fd.out[1]); fd.out = null; } } catch (_) {}
+            const ch = chestOf(ci); if (ch && fuelPts(a) < 4) { const r = A.chestTake(ch.k, [IT.COAL, IT.CHARCOAL, T.PLANKS, T.LOG], 6); if (r) add(a, r[0], r[1]); }
+            if (fuelPts(a) < 1 && wood(a) >= 1) planks(a, 1); } break; }
         a.act = 'cook'; if (!far && Math.random() < dt * 3) spark(f.x + .5, f.y + 1.1, f.z + .5, 0x8a8a8a, 1, 0.3);
         j.acc = (j.acc || 0) + dt;
         if (j.acc >= 1.1) { j.acc = 0;
@@ -17689,7 +17694,7 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
           if (!id || fuelPts(a) < 1) { done(); break; }
           // fuel: 1 coal smelts 8, a plank or a log 1.5
           j.fuel = (j.fuel || 0) - 1;
-          if (j.fuel < 0) { if (has(a, IT.COAL)) { add(a, IT.COAL, -1); j.fuel += 8; } else if (has(a, IT.CHARCOAL)) { add(a, IT.CHARCOAL, -1); j.fuel += 8; } else if (has(a, T.PLANKS) > 4) { add(a, T.PLANKS, -1); j.fuel += 1.5; } else if (useLogs(a, 1)) j.fuel += 1.5; else { done(); break; } }
+          if (j.fuel < 0) { if (has(a, IT.COAL)) { add(a, IT.COAL, -1); j.fuel += 8; } else if (has(a, IT.CHARCOAL)) { add(a, IT.CHARCOAL, -1); j.fuel += 8; } else if (has(a, T.PLANKS) > 0) { add(a, T.PLANKS, -1); j.fuel += 1.5; } else if (useLogs(a, 1)) j.fuel += 1.5; else { done(); break; } }
           add(a, id, -1); add(a, SMELT[id], 1); if (RAW.includes(id)) B.st.cooked++; else B.st.smelted++;
           if (j.t > 40) done(); }
         break; }
