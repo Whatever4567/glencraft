@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0965 -->
+<!-- glencraft-build: v0966 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -475,7 +475,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.65';
+const GAME_VERSION = 'v0.9.66';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -11758,7 +11758,10 @@ const fenceObjs = new Map();
   const green = new THREE.MeshPhongMaterial({color: 0x1e3426, shininess: 40, specular: 0x334438});
   const glow = new THREE.MeshBasicMaterial({color: 0xffe2a0});
   const wood = () => { const m = [].concat(BLOCK_MATS[T.PLANKS])[0]; return m; };
-  const box = (g, m, w, h, d, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
+  const BOXG = new Map();   // GLX-C82 (v0.9.66): shared box geometries; fences/walls/lamps made new ones on every rebuild and never freed them (geometry count climbed on long walks)
+  const boxG = (w, h, d) => { const k = w + ',' + h + ',' + d; let g = BOXG.get(k); if (!g) { g = new THREE.BoxGeometry(w, h, d); g.userData.shared = 1; BOXG.set(k, g); } return g; };
+  const box = (g, m, w, h, d, x, y, z) => { const b = new THREE.Mesh(boxG(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
+  const dropF = g => { scene.remove(g); g.traverse(c => { if (c.geometry && !(c.geometry.userData && c.geometry.userData.shared)) c.geometry.dispose(); }); };
   const isFence = b => b === T.FENCE || b === 226;
   const full = (x, y, z) => { const b = getB(x, y, z); return b && !ENT[b] && !PLANT[b] && b !== T.WATER && b !== T.LAVA && b !== T.GLASS && !(typeof IS_STAIR !== 'undefined' && IS_STAIR[b]) && solid(x, y, z); };
   function conn(t, x, y, z) {
@@ -11802,14 +11805,14 @@ const fenceObjs = new Map();
   function syncFences() {
     const want = new Map();
     for (const L of chunkLists.values()) for (const t of FENCE_T) { const a = L[t]; if (!a) continue; for (let i = 0; i < a.length; i += 3) want.set(keyOf(a[i], a[i + 1], a[i + 2]), [t, a[i], a[i + 1], a[i + 2]]); }
-    for (const [k, o] of fenceObjs) { const w = want.get(k); if (!w || w[0] !== o.t) { scene.remove(o.g); fenceObjs.delete(k); } }
+    for (const [k, o] of fenceObjs) { const w = want.get(k); if (!w || w[0] !== o.t) { dropF(o.g); fenceObjs.delete(k); } }
     for (const [k, [t, x, y, z]] of want) {
       let meta = entMeta.get(k);
       if (t === 226 && !meta) { const f = Math.abs(Math.sin(P.yaw)) > Math.abs(Math.cos(P.yaw)) ? 1 : 0; meta = {face: f, open: 0}; entMeta.set(k, meta); }
       const m = t === T.LPOST || t === T.LAMP ? (getB(x, y - 1, z) << 8 | (getB(x, y + 1, z) ? 1 : 0)) : t === 226 ? 0 : conn(t, x, y, z);
       const o = fenceObjs.get(k), sig = t + ':' + m + ':' + ((meta && meta.face) || 0);
       if (o && (o.key === sig || o.t === 227)) continue;
-      if (o) scene.remove(o.g);
+      if (o) dropF(o.g);
       fenceObjs.set(k, build(t, x, y, z, m, meta));
     }
   }
@@ -13803,12 +13806,12 @@ var chestSel = -1;
 /* ===================== GLX-C62 (v0.9.51): Graphics setting Fast / Fancy / Realistic - vertex AO, sun shadows, warm sunsets, glen mist, wet look, rain splashes, snow on the tops, darker storms ===================== */
 var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
 (function c62() {
-  const FANCY = GFX !== 'fast', REAL = GFX === 'realistic';
+  const FANCY = GFX !== 'fast', REAL = GFX === 'realistic' || GFX === 'photo';
   window.__gfx = GFX;
   // ---- settings row (changing it reloads, like Performance mode, so shaders are rebuilt once) ----
   try { const pr = document.querySelector('#perfSeg'); const row = pr && pr.parentElement && pr.parentElement.closest('.row, .setrow, div');
     if (row) { const r2 = row.cloneNode(true); const seg = r2.querySelector('#perfSeg'); seg.id = 'gfxSeg'; const lab = r2.querySelector('label, span, b'); if (lab) lab.textContent = 'Graphics';
-      seg.innerHTML = [['fast', 'Fast'], ['fancy', 'Fancy'], ['realistic', 'Realistic']].map(([v, n]) => '<button data-v="' + v + '" data-testid="gfx-' + v + '"' + (v === GFX ? ' class="on"' : '') + '>' + n + '</button>').join('');
+      seg.innerHTML = [['fast', 'Fast'], ['fancy', 'Fancy'], ['realistic', 'Realistic'], ['photo', 'Photo-real']].map(([v, n]) => '<button data-v="' + v + '" data-testid="gfx-' + v + '"' + (v === GFX ? ' class="on"' : '') + '>' + n + '</button>').join('');
       row.after(r2);
       seg.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const v = b.dataset.v; if (v === GFX) return; if (started && !confirm('Changing graphics restarts the game. Continue?')) return; if (started) { try { saveWorld(true); } catch (_) {} } SET.gfx = v; saveSet(); location.reload(); })); } } catch (e) { console.warn('gfx row', e); }
   // ---- ambient occlusion: a per-vertex darkness attribute (missing attribute = 0 = no change, so other meshes are untouched) ----
@@ -15475,7 +15478,7 @@ var C79 = {st: {cullBuilt: 0, fullBuilt: 0, caveFaces: 0, reb: 0, pr: []}};
 var __TA = null;
 (function c79ta() {
   const gl = renderer.getContext(), GL2 = renderer.capabilities.isWebGL2;
-  if (!GL2 || GFX === 'realistic' || window.__noTA || /[?&]nota\b/.test(location.search)) { console.info('c79: texture array off'); return; }
+  if (!GL2 || GFX === 'realistic' || GFX === 'photo' || window.__noTA || /[?&]nota\b/.test(location.search)) { console.info('c79: texture array off'); return; }
   const PHONE = touchMode && !HIGH, S = Math.min(TEXSIZE, PHONE ? 512 : 1024), LV = Math.floor(Math.log2(S)) + 1;
   const T2A = 35866; let cap = 0, glTex = null; const layers = [], byMat = new Map(), typeL = new Map(), EM = [];
   const tex = new THREE.DataTexture2DArray(null, 1, 1, 1); tex.version = 0;
@@ -15787,6 +15790,153 @@ void main() {
       window.__c80 = plant(gSeed ^ 0x7ee5); try { if (!window.__hives && window.__beeHive) window.__hives = window.__beeHive.placeHives(); } catch (_) {} try { c37busy = was; } catch (_) {} dirtyAll = true; } } catch (e) { console.warn('c80', e); window.__c80err = String(e && e.stack || e); }
     return r; };
   window.__c80api = {LOG, LEAF, plant};
+})();
+
+/* ===================== GLX-C81 (v0.9.66): optional 'Photo-real' graphics preset. Original procedural textures (no downloads, no copied pixels), made lazily on the device
+   (512 px phone, 1024-2048 desktop) with normal maps; very dark nights with a camera-flash style light; wet sheen on stone; grass tufts; film grain, vignette, mild bloom.
+   Fast / Fancy / Realistic and the 52-texture pack are untouched (this whole module returns unless Graphics = Photo-real). ===================== */
+(function c81() {
+  if (GFX !== 'photo') return;
+  const PH = touchMode && !HIGH, TS = PH ? 512 : ((navigator.deviceMemory || 4) >= 8 && (navigator.hardwareConcurrency || 4) >= 8 && HIGH ? 2048 : 1024), st = window.__c81 = {tex: [], ms: 0, tufts: 0, post: 0, TS};
+  // ---------- painters run in a Web Worker (no main-thread jank on the phone); only canvas strokes + upload happen here ----------
+  const WSRC = function () {
+    const NT = new Float32Array(65536); { let s = 9871; for (let i = 0; i < 65536; i++) { s = (Math.imul(s, 1103515245) + 12345) >>> 0; NT[i] = s / 4294967296; } }
+    const vn = (x, y, per, o) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+      const x0 = ((xi % per) + per) % per, x1 = (x0 + 1) % per, y0 = ((yi % per) + per) % per, y1 = (y0 + 1) % per, b = o & 255;
+      const a = NT[((y0 + b) & 255) * 256 + x0], c = NT[((y0 + b) & 255) * 256 + x1], d = NT[((y1 + b) & 255) * 256 + x0], e = NT[((y1 + b) & 255) * 256 + x1];
+      return a + (c - a) * u + (d - a) * v + (a - c - d + e) * u * v; };
+    const fbm = (x, y, base, oct, o) => { let s = 0, a = 0.5, f = base, n = 0; for (let i = 0; i < oct; i++) { s += a * vn(x * f, y * f, f, o + i * 17); n += a; a *= 0.5; f *= 2; } return s / n; };
+    const rnd = (i, o) => NT[((i * 2654435761 >>> 0) + o * 7919) & 65535];
+    const vor = (x, y, G, o) => { const gx = Math.floor(x * G), gy = Math.floor(y * G); let d1 = 9, d2 = 9, id = 0;
+      for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const cx = gx + i, cy = gy + j, wx = ((cx % G) + G) % G, wy = ((cy % G) + G) % G, k = wy * G + wx;
+        const px = (cx + 0.15 + 0.7 * rnd(k, o)) / G, py = (cy + 0.15 + 0.7 * rnd(k, o + 1)) / G, dx = x - px, dy = y - py, d = Math.sqrt(dx * dx + dy * dy) * G;
+        if (d < d1) { d2 = d1; d1 = d; id = k; } else if (d < d2) d2 = d; } return [d1, d2, id]; };
+    const PT = {
+      stone: (u, v, q) => { const h = fbm(u, v, 2, 7, 1), w = fbm(u, v, 2, 3, 40), r = 1 - Math.abs(fbm(u, v, 3, 5, 80) * 2 - 1), g = (rnd(q, 3) - 0.5) * 10;
+        const f2 = fbm(u, v, 16, 4, 90); let k = 0.74 + 0.3 * h + 0.22 * f2; if (r > 0.965) k *= 0.8 + (1 - r) * 5; const li = fbm(u, v, 8, 3, 120); let c = [112 * k + 8 * w + g, 112 * k + 4 * w + g, 108 * k - 2 * w + g];
+        if (li > 0.68) { const m = Math.min(1, (li - 0.68) * 5) * 0.55; c = [c[0] * (1 - m) + 118 * m, c[1] * (1 - m) + 124 * m, c[2] * (1 - m) + 86 * m]; } return c; },
+      cobblestone: (u, v, q) => { const [d1, d2, id] = vor(u, v, 5, 7), e = d2 - d1, h = fbm(u, v, 8, 5, 9), g = (rnd(q, 5) - 0.5) * 12, t = 0.8 + 0.4 * rnd(id, 11);
+        if (e < 0.06) { const m = 0.55 + e * 4; return [86 * m + g, 82 * m + g, 74 * m + g]; } const dome = 1 - Math.min(1, d1 * 0.9) * 0.35, k = t * dome * (0.8 + 0.4 * h);
+        return [122 * k + g, 120 * k + g, 114 * k + g + 4 * rnd(id, 13)]; },
+      dirt: (u, v, q) => { const h = fbm(u, v, 4, 6, 21), w = fbm(u, v, 16, 3, 22), g = (rnd(q, 7) - 0.5) * 16, [d1, , id] = vor(u, v, 22, 23), pr = 0.08 + 0.2 * rnd(id, 24);
+        if (rnd(id, 25) < 0.12 && d1 < pr * (1.1 + 0.9 * fbm(u, v, 32, 2, 27))) { const k = 0.7 + 0.35 * rnd(id, 26) - d1 * 0.5; return [104 * k + g, 92 * k + g, 78 * k + g]; }
+        const k = 0.68 + 0.6 * h; return [96 * k + 10 * w + g, 66 * k + 6 * w + g, 44 * k + g]; },
+      sand: (u, v, q) => { const h = fbm(u, v, 4, 4, 31), rip = Math.sin((v * 9 + fbm(u, v, 2, 3, 32) * 5) * Math.PI * 2) * 0.5 + 0.5, g = (rnd(q, 9) - 0.5) * 22;
+        const k = 0.86 + 0.16 * h + 0.06 * rip; return [204 * k + g, 186 * k + g, 142 * k + g * 0.8]; },
+      gravel: (u, v, q) => { const [d1, d2, id] = vor(u, v, 14, 41), e = d2 - d1, g = (rnd(q, 11) - 0.5) * 12;
+        if (e < 0.12) return [52 + g, 50 + g, 48 + g]; const t = 0.55 + 0.7 * rnd(id, 42), w = rnd(id, 43), k = t * (1 - d1 * 0.4) * (0.88 + 0.24 * fbm(u, v, 16, 3, 44));
+        return [(118 + w * 20) * k + g, (114 + w * 6) * k + g, (108 - w * 10) * k + g]; },
+      grass_top: (u, v, q) => { const mo = fbm(u, v, 6, 3, 59), pt = fbm(u, v, 2, 4, 51) * 0.6 + mo * 0.4, dry = fbm(u, v, 3, 3, 55), [d1, , id] = vor(u, v, 24, 57), g = (rnd(q, 13) - 0.5) * 30, cl = 0.78 + 0.4 * rnd(id, 58) - d1 * 0.12, k = (0.6 + 0.75 * pt) * cl;
+        let c = [(54 + 14 * pt) * k + g * 0.5, (90 + 8 * pt) * k + g, (34 - 4 * pt) * k + g * 0.35]; if (dry > 0.58) { const m = Math.min(1, (dry - 0.58) * 4) * 0.5; c = [c[0] * (1 - m) + 118 * k * m, c[1] * (1 - m) + 112 * k * m, c[2] * (1 - m) + 58 * k * m]; } return c; }
+    };
+    const cl = v => v < 0 ? 0 : v > 255 ? 255 : v;
+    function nrm(src, S, str) { const hh = new Float32Array(S * S), d = new Uint8ClampedArray(S * S * 4), k = str * S / 256;
+      for (let i = 0; i < S * S; i++) hh[i] = (src[i * 4] * 0.3 + src[i * 4 + 1] * 0.59 + src[i * 4 + 2] * 0.11) / 255;
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const l = hh[y * S + (x + S - 1) % S], r = hh[y * S + (x + 1) % S], u = hh[((y + S - 1) % S) * S + x], dn = hh[((y + 1) % S) * S + x];
+        let nx = (l - r) * k, ny = (u - dn) * k, nz = 1; const m = 1 / Math.hypot(nx, ny, nz); const o = (y * S + x) * 4; d[o] = (nx * m * 0.5 + 0.5) * 255; d[o + 1] = (ny * m * 0.5 + 0.5) * 255; d[o + 2] = (nz * m * 0.5 + 0.5) * 255; d[o + 3] = 255; }
+      return d; }
+    onmessage = ev => { const m = ev.data, S = m.S;
+      if (m.job === 'paint') { const fn = PT[m.k], d = new Uint8ClampedArray(S * S * 4);
+        for (let y = 0; y < S; y++) { const v = (y + 0.5) / S; for (let x = 0; x < S; x++) { const q = (x * 4099 / S | 0) * 7 + (y * 4099 / S | 0) + y * 131 + x, p = fn((x + 0.5) / S, v, q), o = (y * S + x) * 4; d[o] = cl(p[0]); d[o + 1] = cl(p[1]); d[o + 2] = cl(p[2]); d[o + 3] = 255; } }
+        postMessage({id: m.id, d}, [d.buffer]); }
+      else { const d = nrm(m.src, S, m.str); postMessage({id: m.id, d}, [d.buffer]); } };
+  };
+  let wk = null, wid = 0; const wcb = new Map();
+  try { wk = new Worker(URL.createObjectURL(new Blob(['(' + WSRC.toString() + ')()'], {type: 'text/javascript'}))); wk.onmessage = e => { const f = wcb.get(e.data.id); wcb.delete(e.data.id); if (f) f(e.data.d); }; } catch (e) { console.warn('c81 worker', e); }
+  const job = (o, tr) => new Promise(res => { const id = ++wid; wcb.set(id, res); o.id = id; wk.postMessage(o, tr || []); });
+  const toCanvas = d => { const c = document.createElement('canvas'); c.width = c.height = TS; c.getContext('2d').putImageData(new ImageData(d, TS, TS), 0, 0); return c; };
+  const pixels = c => c.getContext('2d').getImageData(0, 0, TS, TS).data;
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const rnd2 = (i, o) => { let h = Math.imul(i ^ (o * 2246822519), 2654435761); h ^= h >>> 15; return ((Math.imul(h, 2246822507) >>> 0) / 4294967296); };
+  function blades(c, n) { const g = c.getContext('2d'), S = c.width; let s = 77;
+    const R = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; g.lineCap = 'round';
+    for (let i = 0; i < n; i++) { const x = R() * S, y = R() * S, a = R() * Math.PI * 2, L = S * (0.012 + R() * 0.03), wd = Math.max(1, S / 512 * (0.8 + R()));
+      const sh = R(), col = sh < 0.5 ? `rgba(${40 + R() * 30 | 0},${70 + R() * 40 | 0},${22 + R() * 14 | 0},0.75)` : `rgba(${104 + R() * 40 | 0},${126 + R() * 40 | 0},${44 + R() * 24 | 0},0.65)`;
+      g.strokeStyle = col; g.lineWidth = wd;
+      for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { const X = x + ox, Y = y + oy; if (X < -L || Y < -L || X > S + L || Y > S + L) continue; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + Math.cos(a) * L, Y + Math.sin(a) * L); g.stroke(); } } }
+  function side(dirtC, grassC) { const c = document.createElement('canvas'); c.width = c.height = TS; const g = c.getContext('2d'); g.drawImage(dirtC, 0, 0);
+    const sm = x => { const f = x / TS * 8, i = Math.floor(f), t = f - i, a = rnd2(i % 8, 61), b = rnd2((i + 1) % 8, 61); return a + (b - a) * t * t * (3 - 2 * t); };
+    const edge = x => TS * (0.16 + 0.08 * sm(x)) + (rnd2(x * 3 >> 3, 63) < 0.14 ? TS * 0.07 * rnd2(x >> 3, 64) : 0);
+    const st2 = Math.max(1, TS / 256);
+    g.save(); g.beginPath(); g.moveTo(0, 0); for (let x = 0; x <= TS; x += st2) g.lineTo(x, edge(x % TS)); g.lineTo(TS, 0); g.closePath(); g.clip(); g.drawImage(grassC, 0, 0); g.restore();
+    g.strokeStyle = 'rgba(30,22,14,0.35)'; g.lineWidth = st2; g.beginPath(); for (let x = 0; x <= TS; x += st2) g.lineTo(x, edge(x % TS) + st2); g.stroke(); return c; }
+  const mkT = (c, nrmMap) => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = TEXANISO; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; if (!nrmMap && renderer.outputEncoding === THREE.sRGBEncoding) t.encoding = THREE.sRGBEncoding; return t; };
+  const NS = {stone: 2.2, cobblestone: 3.2, dirt: 1.6, sand: 0.8, gravel: 2.6, grass_top: 1.0, grass_side: 1.4};
+  const SHINE = {stone: [0x2a2a2a, 34], cobblestone: [0x262626, 30], gravel: [0x1e1e1e, 26]};
+  const out = {}, ORDER = ['grass_top', 'dirt', 'stone', 'grass_side', 'cobblestone', 'sand', 'gravel'];
+  async function use(k, c) { const m = matCache[k]; if (!m || !m.isMeshPhongMaterial) return; const t = mkT(c); out[k] = {map: t}; m.map = t;
+    if (!PH) { const nd = await job({job: 'nrm', S: TS, src: pixels(c), str: NS[k] || 1.5}); const nt = mkT(toCanvas(nd), true); m.normalMap = nt; m.normalScale = new THREE.Vector2(0.9, 0.9); out[k].nrm = nt; }
+    if (SHINE[k]) m.userData.c81spec = SHINE[k]; m.needsUpdate = true; st.tex.push(k); }
+  async function run() { while (!started) await sleep(500); await sleep(1000); if (!wk) return; let dirtC = null, grassC = null; const t0 = performance.now();
+    for (const k of ORDER) { try { let c;
+      if (k === 'grass_side') { if (!dirtC || !grassC) continue; c = side(dirtC, grassC); }
+      else { c = toCanvas(await job({job: 'paint', k, S: TS})); if (k === 'grass_top') { blades(c, PH ? 5000 : Math.round(TS * TS / 40)); grassC = c; } if (k === 'dirt') dirtC = c; }
+      await use(k, c); } catch (e) { console.warn('c81 tex', k, e); } await sleep(20); }
+    st.ms = Math.round(performance.now() - t0); st.done = true; }
+  run();
+  // ---------- light: very dark nights + a flash-style spot light on the camera ----------
+  const spot = new THREE.SpotLight(0xfff0dc, 0, PH ? 16 : 22, 0.78, 0.8, 1.4); spot.position.set(0.18, 0.05, 0); camera.add(spot); camera.add(spot.target); spot.target.position.set(0, -0.6, -6);
+  const fogC = new THREE.Color();
+  const us = updateSky; updateSky = function () { const r = us.apply(this, arguments);
+    try { const dl = typeof daylight === 'number' ? daylight : 1, ck = typeof caveK === 'number' ? caveK : 0, nk = DIM.cur ? 0 : Math.min(1, Math.max(0, (0.55 - dl) / 0.5));
+      hemi.intensity *= 1 - 0.8 * nk; sunL.intensity *= 1 - 0.65 * nk;
+      if (nk > 0.01) { scene.fog.color.multiplyScalar(1 - 0.7 * nk); scene.background.copy(scene.fog.color); }
+      const fk = Math.max(nk, ck * 0.8); spot.intensity = fk * (PH ? 1.6 : 2.0); spot.visible = true;
+      for (const k in out) { const m = matCache[k], s = m && m.userData.c81spec; if (s) { m.specular.setHex(s[0]); m.shininess = s[1]; } }   // wet-looking sheen on stone (c62 resets it each frame)
+      st.night = nk; } catch (e) { if (!st.err) st.err = String(e); }
+    return r; };
+  // ---------- grass tufts near you (crossed quads, instanced, rebuilt as you walk) ----------
+  (function tufts() { const S = 128, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'); let s = 5; const R = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; g.lineCap = 'round';
+    for (let i = 0; i < 90; i++) { const x = S * (0.1 + 0.8 * R()), h = S * (0.4 + 0.58 * R()), b = (R() - 0.5) * S * 0.4; g.strokeStyle = `rgb(${70 + R() * 60 | 0},${104 + R() * 56 | 0},${34 + R() * 24 | 0})`; g.lineWidth = 3 + R() * 4; g.beginPath(); g.moveTo(x, S); g.quadraticCurveTo(x + b * 0.3, S - h * 0.6, x + b, S - h); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.minFilter = THREE.LinearMipmapLinearFilter;
+    const geo = new THREE.BufferGeometry(), w = 0.55, hh = 0.75, pos = [], uv = [], nr = [], ix = [];
+    [[1, 0], [0, 1]].forEach(([ax, az], q) => { const b = pos.length / 3; pos.push(-w * ax, 0, -w * az, w * ax, 0, w * az, w * ax, hh, w * az, -w * ax, hh, -w * az); uv.push(0, 0, 1, 0, 1, 1, 0, 1); for (let i = 0; i < 4; i++) nr.push(0, 1, 0); ix.push(b, b + 1, b + 2, b, b + 2, b + 3); });
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(nr, 3)); geo.setIndex(ix); geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);   // big radius: c79dc must not treat the tuft field as a small far prop
+    const N = PH ? 700 : 2600, RAD = PH ? 12 : 22, mat = new THREE.MeshBasicMaterial({map: t, alphaTest: 0.5, side: THREE.DoubleSide});   // lit by hand from daylight (cheap, and immune to the block-light shader patches)
+    const im = new THREE.InstancedMesh(geo, mat, N); im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(N * 3).fill(1), 3); im.count = 0;   /* colour buffer sized before count = 0 (setColorAt would size it from count) */ im.frustumCulled = false; im.userData.c81 = 1; window.__c81tuft = im;
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3(), col = new THREE.Color();
+    let lx = 1e9, lz = 1e9, lt = 0;
+    const hsh = (x, z, o) => { let h = Math.imul(x, 374761393) + Math.imul(z, 668265263) + o * 1442695041; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+    function rebuild() { const px = Math.floor(P.x), pz = Math.floor(P.z), py = Math.floor(P.y); let n = 0;
+      for (let dx = -RAD; dx <= RAD && n < N; dx++) for (let dz = -RAD; dz <= RAD && n < N; dz++) { if (dx * dx + dz * dz > RAD * RAD) continue; const x = px + dx, z = pz + dz; if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
+        if (hsh(x, z, 1) > (PH ? 0.4 : 0.55)) continue;
+        for (let y = Math.min(H - 2, py + 8); y >= Math.max(1, py - 10); y--) { const b = world[(x * H + y) * D + z]; if (b === 0) continue; if (b === T.GRASS && world[(x * H + y + 1) * D + z] === 0) {
+            v.set(x + 0.2 + 0.6 * hsh(x, z, 2), y + 1, z + 0.2 + 0.6 * hsh(x, z, 3)); e.set(0, hsh(x, z, 4) * Math.PI, 0); q.setFromEuler(e); const k = 0.7 + 0.7 * hsh(x, z, 5); sc.set(k, k * (0.8 + 0.5 * hsh(x, z, 6)), k);
+            m4.compose(v, q, sc); im.setMatrixAt(n, m4); col.setRGB(0.85 + 0.2 * hsh(x, z, 7), 0.9 + 0.15 * hsh(x, z, 8), 0.8); im.setColorAt(n, col); n++; } break; } }
+      im.count = n; im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; st.tufts = n; }
+    setInterval(() => { if (!started || DIM.cur) { im.visible = false; return; } if (im.parent !== scene) { scene.add(im); lt = 0; }   /* added after the world starts (world loading clears stray scene objects) */ const ck = typeof caveK === 'number' ? caveK : 0; im.visible = ck < 0.85; const dl = typeof daylight === 'number' ? daylight : 1; mat.color.setScalar((0.1 + 0.8 * dl) * (1 - 0.6 * (st.night || 0))); const now = performance.now();
+      if (Math.abs(P.x - lx) + Math.abs(P.z - lz) > 5 || now - lt > 3000) { lx = P.x; lz = P.z; lt = now; rebuild(); } }, 250);
+  })();
+  // ---------- post: mild bloom, vignette, film grain, gentle grade ----------
+  (function post() {
+    const ms = !PH && renderer.getContextAttributes && renderer.getContextAttributes().antialias !== false && THREE.WebGLMultisampleRenderTarget && renderer.capabilities.isWebGL2;
+    const rt = ms ? new THREE.WebGLMultisampleRenderTarget(4, 4, {samples: 4}) : new THREE.WebGLRenderTarget(4, 4);
+    const b1 = new THREE.WebGLRenderTarget(4, 4), b2 = new THREE.WebGLRenderTarget(4, 4);
+    [rt, b1, b2].forEach(t => { t.texture.minFilter = t.texture.magFilter = THREE.LinearFilter; t.texture.generateMipmaps = false; });
+    const qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), qs = new THREE.Scene(), qg = new THREE.PlaneGeometry(2, 2), VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+    const bright = new THREE.ShaderMaterial({uniforms: {t: {value: null}, px: {value: new THREE.Vector2()}}, vertexShader: VS, depthTest: false, depthWrite: false,
+      fragmentShader: 'uniform sampler2D t; uniform vec2 px; varying vec2 vUv; vec3 s(vec2 o){ vec3 c = texture2D(t, vUv + o * px).rgb; return max(c - 0.7, 0.0) * 1.8; } void main(){ gl_FragColor = vec4((s(vec2(-1.,-1.)) + s(vec2(1.,-1.)) + s(vec2(-1.,1.)) + s(vec2(1.,1.))) * 0.25, 1.0); }'});
+    const blur = new THREE.ShaderMaterial({uniforms: {t: {value: null}, px: {value: new THREE.Vector2()}}, vertexShader: VS, depthTest: false, depthWrite: false,
+      fragmentShader: 'uniform sampler2D t; uniform vec2 px; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb * 0.2; for (int i = 0; i < 8; i++) { float a = float(i) * 0.7854; vec2 d = vec2(cos(a), sin(a)); c += texture2D(t, vUv + d * px * 2.0).rgb * 0.06 + texture2D(t, vUv + d * px * 4.5).rgb * 0.04; } gl_FragColor = vec4(c, 1.0); }'});
+    const comp = new THREE.ShaderMaterial({uniforms: {t: {value: null}, b: {value: null}, res: {value: new THREE.Vector2()}, tm: {value: 0}, grain: {value: PH ? 0.035 : 0.045}, vig: {value: 0.5}, bk: {value: 0.55}, nk: {value: 0}}, vertexShader: VS, depthTest: false, depthWrite: false,
+      fragmentShader: 'uniform sampler2D t, b; uniform vec2 res; uniform float tm, grain, vig, bk, nk; varying vec2 vUv; float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }\n' +
+        'void main(){ vec3 c = texture2D(t, vUv).rgb + texture2D(b, vUv).rgb * bk; c = clamp(c, 0.0, 1.0); float l = dot(c, vec3(0.299, 0.587, 0.114));\n' +
+        ' c = mix(vec3(l), c, 0.9 - 0.25 * nk); c = mix(c, c * c * (3.0 - 2.0 * c), 0.35); c *= mix(vec3(1.0), vec3(0.86, 0.92, 1.08), nk);\n' +
+        ' vec2 d = vUv - 0.5; c *= 1.0 - vig * dot(d, d) * (1.6 + nk * 1.2); float g = h(floor(vUv * res) + vec2(tm * 61.3, tm * 17.9)) - 0.5; c += g * grain * (1.15 - l * 0.6);\n gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0); }'});
+    const quad = new THREE.Mesh(qg, comp); quad.frustumCulled = false; qs.add(quad);
+    const sz = new THREE.Vector2(); let w0 = 0, h0 = 0;
+    const or = renderer.render.bind(renderer), ac = renderer.autoClear;
+    renderer.render = function (sc, cam) {
+      if (sc !== scene || renderer.getRenderTarget() !== null || window.__noPost || !started) return or(sc, cam);
+      const t0 = performance.now(); renderer.getDrawingBufferSize(sz); const w = sz.x | 0, h = sz.y | 0;
+      if (w !== w0 || h !== h0) { w0 = w; h0 = h; rt.setSize(w, h); b1.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); b2.setSize(Math.max(1, w >> 2), Math.max(1, h >> 2)); }
+      renderer.setRenderTarget(rt); or(sc, cam);
+      quad.material = bright; bright.uniforms.t.value = rt.texture; bright.uniforms.px.value.set(1 / w, 1 / h); renderer.setRenderTarget(b1); or(qs, qc);
+      quad.material = blur; blur.uniforms.t.value = b1.texture; blur.uniforms.px.value.set(4 / w, 4 / h); renderer.setRenderTarget(b2); or(qs, qc);
+      quad.material = comp; const u = comp.uniforms; u.t.value = rt.texture; u.b.value = b2.texture; u.res.value.set(w, h); u.tm.value = (performance.now() / 1000) % 100; u.nk.value = st.night || 0;
+      renderer.setRenderTarget(null); or(qs, qc); st.post = performance.now() - t0; };
+  })();
+  console.info('c81 photo-real on', TS);
 })();
 </script>
 </body>
