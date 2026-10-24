@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0963c -->
+<!-- glencraft-build: v0964 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -475,7 +475,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.63';
+const GAME_VERSION = 'v0.9.64';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -974,6 +974,11 @@ function placeDecor() {
   });
 }
 /* ---------- renderer ---------- */
+// GLX-C79 (v0.9.64): point lights that are off (black) or out of range cost nothing per pixel (same look; the phone was paying for 11 idle lights on every block)
+(function lightSkip() { const k = 'lights_fragment_begin', c = THREE.ShaderChunk[k], a = 'pointLight = pointLights[ i ];\n\t\tgetPointDirectLightIrradiance( pointLight, geometry, directLight );', b = 'RE_Direct( directLight, geometry, material, reflectedLight );\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if ( NUM_SPOT_LIGHTS > 0 )';
+  if (c.indexOf(a) < 0 || c.indexOf(b) < 0) { console.warn('c79 lightSkip: chunk changed'); return; }
+  THREE.ShaderChunk[k] = c.replace(a, 'pointLight = pointLights[ i ];\n\t\tif ( pointLight.color.r + pointLight.color.g + pointLight.color.b > 0.0005 && ( pointLight.distance <= 0.0 || length( pointLight.position - geometry.position ) < pointLight.distance ) ) {\n\t\tgetPointDirectLightIrradiance( pointLight, geometry, directLight );')
+    .replace(b, 'RE_Direct( directLight, geometry, material, reflectedLight );\n\t\t}\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if ( NUM_SPOT_LIGHTS > 0 )'); window.__lightSkip = 1; })();
 const canvas = $('c');
 const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH && !PERF, powerPreference: 'high-performance'});
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
@@ -6545,6 +6550,8 @@ function buildChunk(cx, cz) {
   const ST = chunkST, FQ = chunkFQ, HD = H * D, FN = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
   const lists = {}, faces = {};
   const x0 = cx * CH, z0 = cz * CH, x1 = Math.min(W, x0 + CH), z1 = Math.min(D, z0 + CH);
+  // GLX-C79: cave culling - faces that look into dark, closed caves (no sky light, no block light) are not meshed while you are up on the surface
+  const cav = window.__caveCull ? window.__caveCull(cx, cz) : null, cS = cav && cav.S, cBk = cav && cav.B, cX0 = cav ? cav.x0 : 0, cZ0 = cav ? cav.z0 : 0, cRS = cav ? cav.RS : 0; let cavN = 0;
   for (let x = x0; x < x1; x++) for (let y = 0; y < H; y++) for (let z = z0; z < z1; z++) {
     const i = (x * H + y) * D + z, b = world[i];
     if (!b) continue;
@@ -6560,13 +6567,30 @@ function buildChunk(cx, cz) {
       else { if (z === 0) continue; n = world[i - 1]; }
       let s = ST[n]; if (s === 3 && (n === 9 || n === 134) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
       if (!s || (s > 1 && n === b)) continue;
+      if (cS && y > 0) { const fx = d === 0 ? x + 1 : d === 1 ? x - 1 : x, fy = d === 2 ? y + 1 : d === 3 ? y - 1 : y, fz = d === 4 ? z + 1 : d === 5 ? z - 1 : z;
+        if (fy < H) { const ci = ((fx - cX0) * cRS + (fz - cZ0)) * H + fy; if (cS[ci] === 0 && cBk[ci] === 0) { cavN++; continue; } } }
       const F = faces[b] || (faces[b] = [[], [], [], [], [], []]);
       F[d].push(x, y, z); any = true;
     }
     if (any) (lists[b] || (lists[b] = [])).push(x, y, z);
   }
   chunkLists.set(id, lists);
-  const grp = new THREE.Group();
+  const grp = new THREE.Group(); grp.userData.cav = cav ? 1 : 0; grp.userData.cavN = cavN;
+  // GLX-C79: Sodium-style - every plain opaque block type goes into ONE mesh per chunk (texture array + one shared material = one draw call), packed vertex attributes
+  const TAx = window.__TA && window.__TA.on ? window.__TA : null;
+  if (TAx) { let nf = 0; const mg = [];
+    for (const t in faces) { const L = TAx.layers(+t); if (!L) continue; const F = faces[t]; for (let d = 0; d < 6; d++) nf += F[d].length / 3; mg.push([F, L]); delete faces[t]; }
+    if (nf) { const pos = new Float32Array(nf * 12), nor = new Int8Array(nf * 12), uv = new Uint8Array(nf * 8), lay = new Uint8Array(nf * 4), ind = nf * 4 > 65535 ? new Uint32Array(nf * 6) : new Uint16Array(nf * 6);
+      let f = 0;
+      for (const [F, L] of mg) for (let d = 0; d < 6; d++) { const A = F[d], q = FQ[d], nn = FN[d], ly = L[d];
+        for (let k = 0; k < A.length; k += 3, f++) { const x = A[k], y = A[k + 1], z = A[k + 2];
+          for (let v = 0; v < 4; v++) { const o = f * 12 + v * 3; pos[o] = x + q[v][0]; pos[o + 1] = y + q[v][1]; pos[o + 2] = z + q[v][2]; nor[o] = nn[0]; nor[o + 1] = nn[1]; nor[o + 2] = nn[2];
+            uv[f * 8 + v * 2] = v === 1 || v === 2 ? 1 : 0; uv[f * 8 + v * 2 + 1] = v >= 2 ? 1 : 0; lay[f * 4 + v] = ly; }
+          const b4 = f * 4, o6 = f * 6; ind[o6] = b4; ind[o6 + 1] = b4 + 1; ind[o6 + 2] = b4 + 2; ind[o6 + 3] = b4; ind[o6 + 4] = b4 + 2; ind[o6 + 5] = b4 + 3; } }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('lay', new THREE.BufferAttribute(lay, 1));
+      g.setIndex(new THREE.BufferAttribute(ind, 1)); g.computeBoundingSphere();
+      const m = new THREE.Mesh(g, TAx.mat); m.userData.merged = 1; grp.add(m); } }
   for (const t in faces) {
     const tid = Number(t), F = faces[t];
     let nf = 0; for (let d = 0; d < 6; d++) nf += F[d].length / 3;
@@ -7561,7 +7585,7 @@ function g9height(x, z) {
   return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), glen, mMask, loch: loch && glen > 0.55};
 }
 function generate() {
-  if (!gSeed) gSeed = (Math.random() * 2 ** 31) | 0;
+  if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0;
   G9P = g9perm(gSeed); genVer = GEN9; NSEED = gSeed;
   const rnd = g9rng(gSeed ^ 0x9e3779b9), hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   world.fill(T.AIR);
@@ -13836,13 +13860,14 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   let cB = 0;
   function cellOpen(x, y, z) { const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
   window.__lopDbg = (cx, cz) => { lightRegion(cx, cz); let air = 0, tot = 0; for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) for (let y = 0; y <= LTOP[rx * RS + rz]; y++) { tot++; if (!lop(LX0 + rx, y, LZ0 + rz)) air++; } let lit = 0; for (let i = 0; i < LBLK.length; i++) if (LBLK[i]) lit++; return {air, tot, lit, H, RS, top0: LTOP[0]}; };
+  let lrKeep = -1; window.__caveRegion = (cx, cz) => { lightRegion(cx, cz); lrKeep = cx * 64 + cz; return {S: LSKY, B: LBLK, x0: LX0, z0: LZ0, RS}; };
   window.__lightChunk = (cx, cz) => { lightRegion(cx, cz); const x0 = LX0, z0 = LZ0; return (x, y, z) => { const rx = x - x0, rz = z - z0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS || y < 0 || y >= H) return null; const i = (rx * RS + rz) * H + y; return [LSKY[i], LBLK[i]]; }; };
   window.__lightRegion = (x, y, z) => { const cx = Math.floor(x / CH), cz = Math.floor(z / CH); lightRegion(cx, cz); return {sky: LSKY[((x - LX0) * RS + (z - LZ0)) * H + y], blk: LBLK[((x - LX0) * RS + (z - LZ0)) * H + y], l: cellL(x, y, z)}; };
   let lightMs = 0, lightN = 0; window.__lightStats = () => ({ms: lightMs, n: lightN, avg: lightN ? lightMs / lightN : 0});
   function addAO(grp, cx, cz) { const t0 = performance.now(); let did = false;
-    for (const m of grp.children) { if (m.isInstancedMesh || !m.geometry || m.renderOrder) continue; const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt || mt.transparent || !patched.has(mt)) continue;
-      const g = m.geometry, P0 = g.attributes.position, N0 = g.attributes.normal; if (!P0 || !N0 || g.attributes.aoD) continue; const pa = P0.array, na = N0.array, nv = P0.count, ao = new Float32Array(nv), we = new Float32Array(nv), ls = new Float32Array(nv), lb = new Float32Array(nv);
-      if (!did) { lightRegion(cx, cz); did = true; }
+    for (const m of grp.children) { if (m.isInstancedMesh || !m.geometry || m.renderOrder) continue; const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt || mt.transparent || !(patched.has(mt) || (mt.userData && mt.userData.tmat))) continue;
+      const g = m.geometry, P0 = g.attributes.position, N0 = g.attributes.normal; if (!P0 || !N0 || g.attributes.aoD) continue; const pa = P0.array, na = N0.array, nv = P0.count, ao = new Uint8Array(nv), we = new Uint8Array(nv), ls = new Uint8Array(nv), lb = new Uint8Array(nv);   // GLX-C79: packed 0..255 (was 4 floats per vertex)
+      if (!did) { if (lrKeep !== cx * 64 + cz) lightRegion(cx, cz); did = true; }
       for (let f = 0; f < nv; f += 4) { const o = f * 3, nx = na[o], ny = na[o + 1], nz = na[o + 2];
         const cxm = (pa[o] + pa[o + 3] + pa[o + 6] + pa[o + 9]) / 4, cym = (pa[o + 1] + pa[o + 4] + pa[o + 7] + pa[o + 10]) / 4, czm = (pa[o + 2] + pa[o + 5] + pa[o + 8] + pa[o + 11]) / 4;
         const ax = Math.floor(cxm + nx * 0.5), ay = Math.floor(cym + ny * 0.5), az = Math.floor(czm + nz * 0.5);   // the air cell in front of the face
@@ -13857,14 +13882,14 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
           let sum = l0 < 0 ? 0.14 : l0, bs = b0, cnt = 1;
           if (!s1) { sum += cellLo(x1, y1, z1); bs += cB; cnt++; } if (!s2) { sum += cellLo(x2, y2, z2); bs += cB; cnt++; } if (!cr && !(s1 && s2)) { sum += cellLo(x3, y3, z3); bs += cB; cnt++; }
           const aoV = FANCY ? AOL[s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (cr ? 1 : 0)] : 0;
-          ao[f + v] = aoV; ls[f + v] = sum / cnt; lb[f + v] = bs / cnt; we[f + v] = open; } }
-      g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1)); g.setAttribute('wetE', new THREE.BufferAttribute(we, 1)); g.setAttribute('litS', new THREE.BufferAttribute(ls, 1)); g.setAttribute('litB', new THREE.BufferAttribute(lb, 1)); }
+          ao[f + v] = aoV * 255 + 0.5; ls[f + v] = Math.max(1, sum / cnt * 255 + 0.5); lb[f + v] = bs / cnt * 255 + 0.5; we[f + v] = open * 255; } }
+      g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1, true)); g.setAttribute('wetE', new THREE.BufferAttribute(we, 1, true)); g.setAttribute('litS', new THREE.BufferAttribute(ls, 1, true)); g.setAttribute('litB', new THREE.BufferAttribute(lb, 1, true)); }
     if (did) { lightMs += performance.now() - t0; lightN++; } }
   // ---- shadows (Realistic): one sun shadow map that follows you, redrawn every few frames ----
   if (REAL) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = touchMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     sunL.castShadow = true; const S = touchMode ? 1024 : 2048; sunL.shadow.mapSize.set(S, S); const c = sunL.shadow.camera; c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 170; c.updateProjectionMatrix(); sunL.shadow.bias = -0.0006; sunL.shadow.normalBias = 0.05; sunL.shadow.radius = 2;
     for (const k in matCache) { const m = matCache[k]; if (m) m.needsUpdate = true; } }
-  const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { addAO(g, cx, cz); if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
+  const bc = buildChunk; buildChunk = function (cx, cz) { lrKeep = -1; const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { addAO(g, cx, cz); lrKeep = -1; if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
   if (REAL) { const sm = spawnMob; spawnMob = function () { const a = sm.apply(this, arguments); try { if (a && a.g) a.g.traverse(o => { if (o.isMesh) o.castShadow = true; }); } catch (_) {} return a; }; }
   let shF = 0, lastSx = 0, lastSz = 0;
   // ---- sky: warm sunrise / sunset light, glen mist in the morning, darker storms, wet look ----
@@ -15408,6 +15433,149 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
   enterWorld = function (save) { if (!save) { C78.saved = {}; C78.castles.clear(); C78.doors.length = 0; } return ew.apply(this, arguments); };
   window.__c78 = () => ({stats: C78.stats, castles: [...C78.castles.values()].map(ci => ({k: ci.k, gy: ci.gy, beds: ci.beds.length, furn: !!ci.furn, table: !!ci.table, chests: ci.chests.length, farm: ci.farm.length, ores: ci.ores.length, yard: ci.yard.length, indoor: ci.indoor.length})),
     folk: mobs.filter(m => m.kind === 'clansman').map(m => ({role: m.role, job: m.job && m.job.type, ph: m.job && m.job.ph, sleeping: !!m.sleeping, food: Math.round(m.food || 0), pos: [m.g.position.x, m.g.position.y, m.g.position.z].map(v => Math.round(v * 10) / 10), bag: m.bag}))});
+})();
+
+/* ===================== GLX-C79 (v0.9.64): lag fix - cave culling, render-distance streaming, idle lights skipped, phone dynamic resolution ===================== */
+var C79 = {st: {cullBuilt: 0, fullBuilt: 0, caveFaces: 0, reb: 0, pr: []}};
+(function c79() {
+  const vf = () => clamp(SET.rdist || 6, 3, 16) * 16;
+  // chunks only load out to the render distance (+ half a chunk); before, the fog-based radius kept up to 4x more chunks meshed than you could see
+  streamRadius = function () { return vf() / CH + 0.5; };
+  // ---- cave culling policy ----
+  let under = false, pcx = 0, pcz = 0, chkT = 0;
+  const fullR = () => under ? 3 : 1;
+  window.__caveCull = function (cx, cz) {
+    if (window.__noCaveCull || DIM.cur || typeof window.__caveRegion !== 'function' || W < 100) return null;
+    const d = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)); if (d <= fullR()) return null;
+    return window.__caveRegion(cx, cz); };
+  function headCovered() { const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 1.6); if (x < 0 || z < 0 || x >= W || z >= D) return false;
+    let c = 0; for (let yy = y + 1; yy < Math.min(H, y + 40); yy++) { const b = world[(x * H + yy) * D + z]; if (b && b !== T.LEAVES && b !== 134 && !(chunkST && chunkST[b] === 1)) { c++; if (c >= 3) return true; } } return false; }
+  setInterval(() => { if (!started) return; try {
+    pcx = Math.floor(P.x / CH); pcz = Math.floor(P.z / CH); under = headCovered() && P.y < H - 2;
+    const R = fullR(); for (const [id, g] of chunkObjs) { if (!g.userData.cav) continue; const cx = Math.floor(id / 64), cz = id % 64; if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) <= R) dirtyCh.add(id); }
+  } catch (e) { if (!C79.e1) { C79.e1 = String(e); console.warn('c79 cave', e); } } }, 400);
+  const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); const g = chunkObjs.get(cx * 64 + cz); if (g) { if (g.userData.cav) C79.st.cullBuilt++; else C79.st.fullBuilt++; C79.st.caveFaces += g.userData.cavN || 0; } return r; };
+  // ---- phone: dynamic resolution (lower pixel ratio when frames are slow, raise it again when there is headroom) ----
+  const PHONE = touchMode && !HIGH;
+  const PRMAX = PHONE ? Math.min(DPR, 1.6) : (PERF ? 1 : HIGH ? DPR : Math.min(DPR, 2)), PRMIN = PHONE ? Math.min(0.7, PRMAX) : PRMAX;
+  if (PHONE) { try { perfGuard.step = 2; torchCap = Math.min(torchCap, 3); renderer.setPixelRatio(Math.min(renderer.getPixelRatio(), PRMAX)); resize(); } catch (_) {} }
+  let acc = 0, n = 0, slow = 0, last = performance.now(), hold = 0;
+  (function tick() { requestAnimationFrame(tick); const t = performance.now(), dt = t - last; last = t;
+    if (!PHONE || !started || paused || window.__noDynRes || dt > 400) return; acc += dt; n++; if (dt > 50) slow++;
+    if (acc < 1500) return; const avg = acc / n, pr = renderer.getPixelRatio(); acc = 0; n = 0; const sl = slow; slow = 0; if (hold > 0) { hold--; return; }
+    let np = pr; if (avg > 36 || sl > 4) np = Math.max(PRMIN, pr * 0.85); else if (avg < 22 && sl === 0) np = Math.min(PRMAX, pr * 1.08);
+    if (Math.abs(np - pr) > 0.02) { try { renderer.setPixelRatio(np); resize(); hold = 1; C79.st.pr.push(+np.toFixed(2)); if (C79.st.pr.length > 20) C79.st.pr.shift(); } catch (_) {} } })();
+  window.__c79 = () => ({st: C79.st, under, R: streamRadius(), chunks: chunkObjs.size, pr: renderer.getPixelRatio(), lightSkip: !!window.__lightSkip});
+})();
+/* ---- GLX-C79b: one texture array + one cheap shared terrain material (lighting per vertex; the old path stays for Realistic shadows / WebGL1) ---- */
+var __TA = null;
+(function c79ta() {
+  const gl = renderer.getContext(), GL2 = renderer.capabilities.isWebGL2;
+  if (!GL2 || GFX === 'realistic' || window.__noTA || /[?&]nota\b/.test(location.search)) { console.info('c79: texture array off'); return; }
+  const PHONE = touchMode && !HIGH, S = Math.min(TEXSIZE, PHONE ? 512 : 1024), LV = Math.floor(Math.log2(S)) + 1;
+  const T2A = 35866; let cap = 0, glTex = null; const layers = [], byMat = new Map(), typeL = new Map(), EM = [];
+  const tex = new THREE.DataTexture2DArray(null, 1, 1, 1); tex.version = 0;
+  const scr = document.createElement('canvas'); scr.width = scr.height = S; const sg = scr.getContext('2d');
+  const aniso = gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+  function alloc(n) { const t = gl.createTexture(); renderer.state.bindTexture(T2A, t); gl.texStorage3D(T2A, LV, gl.RGBA8, S, S, n);
+    gl.texParameteri(T2A, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(T2A, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(T2A, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(T2A, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    if (aniso) gl.texParameterf(T2A, aniso.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(TEXANISO, gl.getParameter(aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+    if (glTex) gl.deleteTexture(glTex); glTex = t; cap = n; const pr = renderer.properties.get(tex); pr.__webglInit = true; pr.__webglTexture = t; pr.__version = 0; layers.forEach(L => L.up = 0); }
+  const ready = m => { const im = m.map && m.map.image; return !!(im && (im.width || im.videoWidth) && (im.complete !== false)); };
+  function upload(L) { const m = L.m, im = m.map.image; sg.globalCompositeOperation = 'copy'; sg.drawImage(im, 0, 0, S, S); sg.globalCompositeOperation = 'source-over';
+    const c = m.color; if (c && (c.r < 0.999 || c.g < 0.999 || c.b < 0.999)) { sg.globalCompositeOperation = 'multiply'; sg.fillStyle = '#' + c.getHexString(); sg.fillRect(0, 0, S, S); sg.globalCompositeOperation = 'source-over'; }
+    renderer.state.activeTexture(gl.TEXTURE0); renderer.state.bindTexture(T2A, glTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texSubImage3D(T2A, 0, 0, 0, L.i, S, S, 1, gl.RGBA, gl.UNSIGNED_BYTE, scr); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    L.up = 1; L.map = m.map; L.ver = m.map.version; L.col = c ? c.getHex() : 0xffffff; return true; }
+  let dirtyMip = false;
+  function flush() { if (!glTex) return; let any = false;
+    for (const L of layers) { const m = L.m; if (!ready(m)) continue; if (!L.up || L.map !== m.map || L.ver !== m.map.version || (m.color && m.color.getHex() !== L.col)) { upload(L); any = true; } }
+    if (any || dirtyMip) { renderer.state.bindTexture(T2A, glTex); gl.generateMipmap(T2A); dirtyMip = false; } }
+  const ok = m => !!m && (m.isMeshPhongMaterial || m.isMeshLambertMaterial) && !m.transparent && m.visible !== false && !!m.map && !m.alphaMap && !(m.alphaTest > 0) && m.side === THREE.FrontSide && !m.vertexColors && m.opacity >= 1
+    && m.map.repeat.x === 1 && m.map.repeat.y === 1 && m.map.offset.x === 0 && m.map.offset.y === 0 && !m.envMap && !m.lightMap && !m.normalMap && !m.bumpMap && !m.wireframe;
+  function layerOf(m) { let L = byMat.get(m); if (L !== undefined) return L; if (!ok(m) || layers.length >= 250) { byMat.set(m, null); return null; }
+    const em = m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.001; if (em && EM.length >= 8) { byMat.set(m, null); return null; }
+    if (layers.length >= cap) { alloc(Math.min(256, Math.max(PHONE ? 24 : 40, Math.ceil(cap * 1.5)))); for (const L2 of layers) if (ready(L2.m)) upload(L2); dirtyMip = true; }
+    L = {i: layers.length, m, up: 0}; layers.push(L); byMat.set(m, L); if (em || m === BLOCK_MATS[T.REDORE] || m === BLOCK_MATS[69]) EM.push(L);
+    if (ready(m)) { upload(L); dirtyMip = true; } return L; }
+  // per block type: 6 face layers (x+, x-, y+, y-, z+, z-), or null when the type keeps its own material
+  function layers6(t) { if (typeL.has(t)) return typeL.get(t); let r = null; const bm = BLOCK_MATS[t];
+    if (bm && !(chunkST && chunkST[t] === 2)) { const a = Array.isArray(bm) ? bm : [bm, bm, bm, bm, bm, bm]; const L = a.map(layerOf); if (L.length === 6 && L.every(x => x)) r = L.map(x => x.i); }
+    typeL.set(t, r); return r; }
+  const NEM = 8, uEm = [], uEmL = new Float32Array(NEM).fill(-1); for (let i = 0; i < NEM; i++) uEm.push(new THREE.Vector3());
+  const VS = `
+#include <common>
+#include <bsdfs>
+#include <lights_pars_begin>
+#include <fog_pars_vertex>
+attribute float lay; attribute float aoD; attribute float wetE; attribute float litS; attribute float litB;
+uniform vec3 uEm[${NEM}]; uniform float uEmL[${NEM}]; uniform float uWet; uniform float uFlick;
+varying vec3 vUvL; varying vec3 vDif; varying vec3 vEm;
+void main() {
+  #include <begin_vertex>
+  #include <project_vertex>
+  #include <fog_vertex>
+  vUvL = vec3(uv, lay);
+  vec3 n = normalize(normalMatrix * normal);
+  GeometricContext geometry; geometry.position = mvPosition.xyz; geometry.normal = n; geometry.viewDir = normalize(-mvPosition.xyz);
+  IncidentLight directLight; vec3 dir = vec3(0.0);
+  #if NUM_POINT_LIGHTS > 0
+  for (int i = 0; i < NUM_POINT_LIGHTS; i++) { if (pointLights[i].color.r + pointLights[i].color.g + pointLights[i].color.b > 0.0005) { getPointDirectLightIrradiance(pointLights[i], geometry, directLight); dir += saturate(dot(n, directLight.direction)) * directLight.color; } }
+  #endif
+  #if NUM_DIR_LIGHTS > 0
+  for (int i = 0; i < NUM_DIR_LIGHTS; i++) { getDirectionalDirectLightIrradiance(directionalLights[i], geometry, directLight); dir += saturate(dot(n, directLight.direction)) * directLight.color; }
+  #endif
+  vec3 ind = getAmbientLightIrradiance(ambientLightColor);
+  #if NUM_HEMI_LIGHTS > 0
+  for (int i = 0; i < NUM_HEMI_LIGHTS; i++) ind += getHemisphereLightIrradiance(hemisphereLights[i], geometry);
+  #endif
+  float ls = litS > 0.0 ? litS : 1.0;
+  float k = (1.0 - aoD) * (1.0 - 0.28 * uWet * wetE);
+  vDif = k * (dir + ind * RECIPROCAL_PI * ls + vec3(1.0, 0.6, 0.3) * litB * uFlick * 0.6);
+  vEm = vec3(0.0); for (int i = 0; i < ${NEM}; i++) if (abs(uEmL[i] - lay) < 0.5) vEm = uEm[i];
+}`;
+  const FS = `
+precision highp sampler2DArray;
+#include <common>
+#include <fog_pars_fragment>
+uniform sampler2DArray uArr;
+varying vec3 vUvL; varying vec3 vDif; varying vec3 vEm;
+void main() {
+  vec4 t = texture(uArr, vUvL);
+  gl_FragColor = vec4(t.rgb * (vDif + vEm), 1.0);
+  #include <tonemapping_fragment>
+  #include <encodings_fragment>
+  #include <fog_fragment>
+}`;
+  const mat = new THREE.ShaderMaterial({uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.lights, THREE.UniformsLib.fog, {uEm: {value: uEm}, uEmL: {value: uEmL}}]), vertexShader: VS, fragmentShader: FS, lights: true, fog: true});
+  mat.uniforms.uArr = {value: tex}; mat.uniforms.uWet = window.__wetU || {value: 0}; mat.uniforms.uFlick = window.__flickU || {value: 1}; mat.uniforms.uEm.value = uEm; mat.uniforms.uEmL.value = uEmL;
+  mat.userData.tmat = 1;
+  alloc(PHONE ? 24 : 40);
+  // emissive (diamond glint, redstone glow, ruby...) follows the original materials every frame
+  const syncEm = () => { for (let i = 0; i < NEM; i++) { const L = EM[i]; if (!L) { uEmL[i] = -1; continue; } const m = L.m, e = m.emissive; uEmL[i] = L.i; if (e) uEm[i].set(e.r, e.g, e.b).multiplyScalar(m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity); else uEm[i].set(0, 0, 0); } };
+  const rr = renderer.render.bind(renderer); let fT = 0;
+  renderer.render = function (sc, cam) { try { const t = performance.now(); if (t - fT > 250) { fT = t; flush(); } else if (dirtyMip) { renderer.state.bindTexture(T2A, glTex); gl.generateMipmap(T2A); dirtyMip = false; } syncEm(); } catch (e) { if (!C79.e2) { C79.e2 = String(e); console.warn('c79 ta', e); } } return rr(sc, cam); };
+  __TA = window.__TA = {on: true, mat, layers: layers6, info: () => ({layers: layers.length, cap, S, mb: Math.round(cap * S * S * 4 * 1.33 / 1048576), em: EM.length}), flush};
+  dirtyAll = true;   // chunks built during boot are re-meshed with the shared material
+})();
+/* ---- GLX-C79c: props, mobs and furniture past the fog are skipped at draw time (they were 1-2k extra draw calls when walking), plus a 4 ms mesh budget on phones ---- */
+(function c79dc() {
+  const PHONE = touchMode && !HIGH, hid = [];
+  const radOf = o => { let r = 0; o.traverse(c => { if (c.isMesh || c.isPoints || c.isSprite) { const g = c.geometry; if (!g) { r = 1e9; return; } if (!g.boundingSphere) g.computeBoundingSphere(); const s = g.boundingSphere; if (!s) { r = 1e9; return; } const sc = Math.max(Math.abs(c.scale.x), Math.abs(c.scale.y), Math.abs(c.scale.z)) || 1; r = Math.max(r, s.radius * sc + c.position.length()); } }); return r; };
+  window.__dcN = 0;
+  const rr = renderer.render.bind(renderer);
+  renderer.render = function (sc, cam) {
+    if (sc !== scene || window.__noDC || !started || DIM.cur) return rr(sc, cam);
+    const far = Math.min(scene.fog ? scene.fog.far + 6 : 1e9, PHONE ? 76 : 1e9), cx = cam.position.x, cz = cam.position.z, ch = scene.children;
+    for (let i = 0; i < ch.length; i++) { const o = ch[i]; if (!o.visible || o === blockGroup || o.isLight || o.isCamera) continue;
+      const ud = o.userData; if (ud.__dcK !== o.children.length) { ud.__dcK = o.children.length; ud.__dcR = radOf(o); }
+      if (ud.__dcR > 10) continue;
+      const dx = o.position.x - cx, dz = o.position.z - cz; if (dx * dx + dz * dz > far * far) { o.visible = false; hid.push(o); } }
+    window.__dcN = hid.length;
+    try { return rr(sc, cam); } finally { for (const o of hid) o.visible = true; hid.length = 0; }
+  };
+  if (PHONE) { const rb = rebuild; rebuild = function (b) { return rb.call(this, b && b > 4 ? 4 : b); }; }
 })();
 </script>
 </body>
