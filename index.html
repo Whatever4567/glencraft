@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0960 -->
+<!-- glencraft-build: v0961 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -475,7 +475,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.60';
+const GAME_VERSION = 'v0.9.61';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -4107,7 +4107,20 @@ function buildWaterGeo(arr) {
   for (let i = 0; i < 46; i++) { g.beginPath(); g.ellipse(rnd() * 128, rnd() * 128, 3 + rnd() * 7, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); }
   const am = new THREE.CanvasTexture(c); am.wrapS = am.wrapT = THREE.RepeatWrapping;
   const lm = BLOCK_MATS[T.LEAVES];
-  lm.alphaMap = am; lm.alphaTest = 0.5; lm.side = THREE.DoubleSide; lm.needsUpdate = true;
+  /* v0.9.61 'fast' leaves: no holes / alpha test any more. The holes are baked into the colour map as a darker shade of the leaf colour,
+     on a copy of the texture so the treeman's leafy crown keeps the plain one. Leaves are opaque in the chunk mesher (inner faces culled). */
+  lm.alphaMap = null; lm.alphaTest = 0; lm.transparent = false; lm.side = THREE.FrontSide; lm.needsUpdate = true;
+  const bake = () => { const src = texImg.leaves; if (!src) return setTimeout(bake, 120);
+    const N = src.width, o = document.createElement('canvas'); o.width = o.height = N; const og = o.getContext('2d');
+    og.drawImage(src, 0, 0); const dk = document.createElement('canvas'); dk.width = dk.height = N; const dg = dk.getContext('2d');
+    dg.drawImage(src, 0, 0); dg.globalCompositeOperation = 'multiply'; dg.fillStyle = '#5c6a52'; dg.fillRect(0, 0, N, N);
+    const mk = document.createElement('canvas'); mk.width = mk.height = N; const mg = mk.getContext('2d'); mg.drawImage(c, 0, 0, N, N);
+    const od = og.getImageData(0, 0, N, N), dd = dg.getImageData(0, 0, N, N).data, md = mg.getImageData(0, 0, N, N).data, a = od.data;
+    for (let i = 0; i < a.length; i += 4) { const k = md[i] / 255; a[i] = a[i] * k + dd[i] * (1 - k); a[i + 1] = a[i + 1] * k + dd[i + 1] * (1 - k); a[i + 2] = a[i + 2] * k + dd[i + 2] * (1 - k); a[i + 3] = 255; }
+    og.putImageData(od, 0, 0); const t0 = texCache.leaves, t = new THREE.CanvasTexture(o);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = t0.anisotropy; t.minFilter = t0.minFilter; t.magFilter = t0.magFilter; if (t0.colorSpace) t.colorSpace = t0.colorSpace; if (t0.encoding !== undefined) t.encoding = t0.encoding;
+    lm.map = t; lm.needsUpdate = true; window.__leafTex = o; };
+  bake();
 })();
 // redstone ore glows softly red
 (function glowOre() {
@@ -6541,7 +6554,7 @@ function buildChunk(cx, cz) {
       else if (d === 3) { if (y === 0) continue; n = world[i - D]; }
       else if (d === 4) { if (z + 1 >= D) continue; n = world[i + 1]; }
       else { if (z === 0) continue; n = world[i - 1]; }
-      const s = ST[n];
+      let s = ST[n]; if (s === 3 && (n === 9 || n === 134) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
       if (!s || (s > 1 && n === b)) continue;
       const F = faces[b] || (faces[b] = [[], [], [], [], [], []]);
       F[d].push(x, y, z); any = true;
@@ -14508,6 +14521,69 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     return r; };
   window.__skyK = () => ({k: lastK, far: camera.far, dome: skyDome.scale.x});
 })();
+
+/* ===================== GLX-C76 (v0.9.61): hearts + hunger sit right on top of the hotbar (Minecraft style), drumstick hunger icons ===================== */
+(function c76() {
+  /* 9x9 pixel drumstick: o outline, m meat, h highlight, d dark meat, b bone, B bone shade */
+  const ART = ['....ooo..', '...ommmo.', '..omhhmmo', '..omhmmdo', '..ommmmdo', '.obodmdo.', 'obbBooo..', 'obBo.....', '.oo......'];
+  const FULL = {o: '#2a1608', m: '#c4672a', h: '#f0a050', d: '#8a3e16', b: '#f4eee0', B: '#bdb6a4'};
+  const EMPTY = {o: '#1c120a', m: '#3b2b1b', h: '#46331f', d: '#33251a', b: '#4a4338', B: '#3d372e'};
+  const icon = (half) => { const c = document.createElement('canvas'); c.width = c.height = 9; const g = c.getContext('2d');
+    for (let y = 0; y < 9; y++) for (let x = 0; x < 9; x++) { const ch = ART[y][x]; if (ch === '.') continue;
+      const pal = half === 2 ? FULL : half === 0 ? EMPTY : (x >= 4 ? FULL : EMPTY); g.fillStyle = pal[ch]; g.fillRect(x, y, 1, 1); }
+    return c.toDataURL(); };
+  const I = {full: icon(2), half: icon(1), empty: icon(0)}; window.__drumIcons = I;
+  const st = document.createElement('style'); st.id = 'c76css';
+  st.textContent = '#statBar{position:fixed;z-index:6;pointer-events:none;display:flex;justify-content:space-between;align-items:flex-end;box-sizing:border-box;padding:0 6px;text-shadow:0 1px 2px #000;--pip:14px}' +
+    '#statBar .row{gap:1px;filter:drop-shadow(0 1px 1px #000a)}#statBar #hungerPips{flex-direction:row-reverse}' +
+    '#statBar.vert{flex-direction:column;justify-content:space-between;align-items:center;padding:6px 0}#statBar.vert .row{flex-direction:column}#statBar.vert #hungerPips{flex-direction:column}' +
+    '#statBar .ht{width:var(--pip);height:var(--pip);font-size:calc(var(--pip) * 1.1);line-height:var(--pip)}' +
+    '#statBar .hg{width:var(--pip);height:var(--pip);margin:0;border-radius:0;transform:none;background:url(' + I.empty + ') center/100% 100% no-repeat;image-rendering:pixelated}' +
+    '#statBar .hg.on{background-image:url(' + I.full + ')}#statBar .hg.half{background:url(' + I.half + ') center/100% 100% no-repeat}' +
+        'body.touch #stickZone{bottom:calc(var(--slot) + 24px + var(--sab) + var(--statH,0px)) !important}body.touch #stickBase{bottom:calc(var(--slot) + 30px + var(--sab) + var(--statH,0px)) !important}' +
+    'body.touch #acts{bottom:calc(var(--slot) + 26px + var(--sab) + var(--statH,0px)) !important}body.touch #bDown{bottom:calc(var(--slot) + 30px + var(--sab) + var(--statH,0px)) !important}' +
+    'body:not(.touch) #itemName{bottom:calc(var(--slot) + 30px + var(--sab) + var(--statH,0px)) !important}';
+  document.head.appendChild(st);
+  const bar = document.createElement('div'); bar.id = 'statBar'; bar.dataset.testid = 'hud-statbar';
+  const hud = document.getElementById('hud') || document.body; hud.appendChild(bar);
+  const hs = document.getElementById('hearts'), hg = document.getElementById('hungerPips'); bar.appendChild(hs); bar.appendChild(hg);
+  let sig = '';
+  function place() { try {
+    const hb = document.getElementById('hotbar'); if (!hb) return; const r = hb.getBoundingClientRect(), vw = innerWidth, vh = innerHeight;
+    const hidden = !r.width || getComputedStyle(hb).visibility === 'hidden' || hb.offsetParent === null;
+    const xb = document.getElementById('xpBar'), xpOn = !!(xb && xb.style.display !== 'none');
+    const vit = document.getElementById('vitals'), gl = document.getElementById('goal'); if (vit && gl) { const want = gl.textContent.trim() && gl.offsetHeight > 0 ? '' : 'none'; if (vit.style.display !== want) vit.style.display = want; }
+    const s = [hidden, r.left | 0, r.top | 0, r.width | 0, r.height | 0, vw, vh, xpOn].join(); if (s === sig) return; sig = s;
+    if (hidden) { bar.style.display = 'none'; document.documentElement.style.setProperty('--statH', '0px'); return; }
+    bar.style.display = 'flex';
+    if (r.height > r.width * 1.4) {   // a vertical hotbar on the side: stack hearts then hunger along it, on the inner side
+      const p = Math.max(9, Math.min(16, Math.floor((r.height / 2 - 14) / 10))); bar.classList.add('vert'); bar.style.setProperty('--pip', p + 'px');
+      bar.style.top = r.top + 'px'; bar.style.height = r.height + 'px'; bar.style.width = (p + 4) + 'px'; bar.style.bottom = 'auto';
+      bar.style.left = (r.left < vw / 2 ? r.right + 4 : r.left - p - 8) + 'px';
+      document.documentElement.style.setProperty('--statH', '0px'); return; }
+    bar.classList.remove('vert');
+    /* the hotbar shrinks with few items, so the bar is always as wide as a full 9-slot hotbar, centred on it */
+    const sl = Math.min(50, (vw - 72) / 9), fw = Math.min(vw - 16, Math.max(r.width, 9 * sl + 8 * 4 + 14)), cx = r.left + r.width / 2;
+    const p = Math.max(9, Math.min(16, Math.floor((fw / 2 - 22) / 10))); bar.style.setProperty('--pip', p + 'px');
+    let b = vh - r.top + 2;
+    if (xb) { xb.style.bottom = b + 'px'; xb.style.width = (fw - 12) + 'px'; xb.style.left = cx + 'px'; }
+    if (xpOn) b += 9;
+    bar.style.left = (cx - fw / 2) + 'px'; bar.style.width = fw + 'px'; bar.style.top = 'auto'; bar.style.height = 'auto'; bar.style.bottom = b + 'px';
+    document.documentElement.style.setProperty('--statH', (b - (vh - r.top) + p + 4) + 'px');
+  } catch (_) {} }
+  setInterval(place, 250); addEventListener('resize', () => { sig = ''; place(); }); place();
+  window.__statPlace = () => { sig = ''; place(); const q = id => { const e = document.getElementById(id); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left | 0, b.top | 0, b.right | 0, b.bottom | 0]; };
+    return {bar: q('statBar'), hot: q('hotbar'), xp: q('xpBar'), hearts: q('hearts'), hunger: q('hungerPips'), acts: q('acts'), stick: q('stickBase'), down: q('bDown'), vit: q('vitals')}; };
+})();
+
+/* debug: __fastLeaves(false) puts back the old see-through leaves (for before/after measuring), __fastLeaves(true) the solid ones */
+window.__fastLeaves = function (on) { const lm = BLOCK_MATS[T.LEAVES]; window.FASTLEAF = !!on;
+  if (!window.__leafOld) { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, 128, 128);
+    let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647; g.fillStyle = '#000';
+    for (let i = 0; i < 46; i++) { g.beginPath(); g.ellipse(rnd() * 128, rnd() * 128, 3 + rnd() * 7, 2 + rnd() * 5, rnd() * 3, 0, 7); g.fill(); }
+    const am = new THREE.CanvasTexture(c); am.wrapS = am.wrapT = THREE.RepeatWrapping; window.__leafOld = {am, map: texCache.leaves, fast: lm.map}; }
+  const o = window.__leafOld; if (on) { lm.map = o.fast; lm.alphaMap = null; lm.alphaTest = 0; lm.side = THREE.FrontSide; } else { lm.map = o.map; lm.alphaMap = o.am; lm.alphaTest = 0.5; lm.side = THREE.DoubleSide; }
+  lm.needsUpdate = true; for (const id of [...chunkObjs.keys()]) buildChunk(Math.floor(id / 64), id % 64); return on; };
 </script>
 </body>
 </html>
