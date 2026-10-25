@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0978c -->
+<!-- glencraft-build: v0979d -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.78';
+const GAME_VERSION = 'v0.9.79';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -4227,12 +4227,12 @@ function rebuild(budget) {
   let ids = [...dirtyCh];
   if (budget) { const pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5; ids.sort((a, b) => Math.hypot(Math.floor(a / 64) - pcx, a % 64 - pcz) - Math.hypot(Math.floor(b / 64) - pcx, b % 64 - pcz)); }
   const tB = performance.now();
-  for (const id of ids) { buildChunk(Math.floor(id / 64), id % 64); dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); console.error("chunk build failed, skipped", id, e); } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
   syncCauldrons(all[T.CAULDRON] || []);
-  syncEntities(all);
+  try { syncEntities(all); } catch (e) { if (!window.__entErr) { window.__entErr = String(e && e.stack || e); console.error("syncEntities", e); } }
 }
 
 // --- sky dome with a glowing sun halo, stars and a moon that is full every few nights ---
@@ -5597,22 +5597,25 @@ function enterWorld(save) {
     if (!ready) tip.textContent = LOAD_STEPS[Math.min(i, LOAD_STEPS.length - 1)] + '...';
     if (i === 2) {
       // reset the menu backdrop creatures and load / start the world
-      mobs.slice().forEach(removeMob);
-      if (save) applySave(save); else { if (W !== NEW_W) { setWorldSize(NEW_W); generate(); placeTrees(); placeDecor(); dirtyAll = true; } spawnPlayer(); P.yaw = Math.atan2(-(13 - 8), -(9.5 - 8)); P.pitch = 0; }
-      if (!save) MODE.hotbar = null;
-      if (current.mode === 'creative' && typeof installCreative === 'function') installCreative();
-      if (save && current.mode !== 'creative' && !save.inv) addItem(T.DIRT, 8);
-      ensureHotbar();
-      for (let n = 0; n < 4; n++) spawnMob('sheep');
-      for (let n = 0; n < 4; n++) spawnMob('haggis');
-      for (let n = 0; n < 2; n++) spawnMob('duck');
-      for (let n = 0; n < 1; n++) spawnMob('puffer');
-      refreshArmour();
+      try { mobs.slice().forEach(removeMob); } catch (e) { console.error('load: clearing menu mobs', e); }
+      if (save) { try { applySave(save); } catch (e) { console.error('load: applySave', e); } } else { if (W !== NEW_W) { setWorldSize(NEW_W); generate(); placeTrees(); placeDecor(); dirtyAll = true; } spawnPlayer(); P.yaw = Math.atan2(-(13 - 8), -(9.5 - 8)); P.pitch = 0; }
+      try { if (!save) MODE.hotbar = null; } catch (e) { console.error('load step', e); }
+      try { if (current.mode === 'creative' && typeof installCreative === 'function') installCreative(); } catch (e) { console.error('load step', e); }
+      try { if (save && current.mode !== 'creative' && !save.inv) addItem(T.DIRT, 8); } catch (e) { console.error('load step', e); }
+      try { ensureHotbar(); } catch (e) { console.error('load step', e); }
+      try { for (let n = 0; n < 4; n++) spawnMob('sheep'); } catch (e) { console.error('load step', e); }
+      try { for (let n = 0; n < 4; n++) spawnMob('haggis'); } catch (e) { console.error('load step', e); }
+      try { for (let n = 0; n < 2; n++) spawnMob('duck'); } catch (e) { console.error('load step', e); }
+      try { for (let n = 0; n < 1; n++) spawnMob('puffer'); } catch (e) { console.error('load step', e); }
+      try { refreshArmour(); } catch (e) { console.error('load step', e); }
     }
     if (i > LOAD_STEPS.length && !ready) {
-      if (!chunksReady()) { if (dirtyAll || dirtyCh.size) rebuild(150); tip.textContent = 'Building the land around you...'; return; }
+      let cr = false; try { cr = chunksReady(); } catch (e) { console.error('load: chunksReady', e); cr = true; }
+      if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(); } catch (e) { console.error('load: full rebuild', e); } }
+      if (!cr && performance.now() - t0 >= 45000) { console.error('load: gave up waiting for the land, entering anyway'); window.__loadSafe = 1; }
+      if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { console.error('load: rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } tip.textContent = 'Building the land around you...'; return; }
       ready = true;
-      try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (_) {}
+      try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) { console.error('load: first render', e); }
       target = 100; tip.textContent = 'Ready!';
       return;
     }
@@ -5622,7 +5625,7 @@ function enterWorld(save) {
       started = true; lastAutosave = performance.now();
       if (!touchMode) { try { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {} }
       if (!save) saveWorld(true);
-      if (save) toast('Welcome back to ' + current.name);
+      enterWorld._rs = 0; if (save) toast(window.__loadSafe ? 'Loaded ' + current.name + ' (some parts were skipped - the world is safe)' : 'Welcome back to ' + current.name);
     }
   }, 420);
 }
@@ -7799,12 +7802,12 @@ rebuild = function (budget) {
   rebuild._unloaded = false;
   ids.sort((a, b) => dist(a) - dist(b));
   const tB = performance.now();
-  for (const id of ids) { buildChunk(Math.floor(id / 64), id % 64); dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); console.error("chunk build failed, skipped", id, e); } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
   syncCauldrons(all[T.CAULDRON] || []);
-  syncEntities(all);
+  try { syncEntities(all); } catch (e) { if (!window.__entErr) { window.__entErr = String(e && e.stack || e); console.error("syncEntities", e); } }
 };
 (function streamTick() {
   // walking into new ground: queue a rebuild pass even when nothing was edited
@@ -17184,6 +17187,11 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   function best(a, kind) { let b = 0, bl = 0; for (const k in inv(a)) { const t = TOOL[k]; if (t && t[0] === kind && t[1] > bl) { bl = t[1]; b = +k; } } return b; }
   const lvl = (a, kind) => { const b = best(a, kind); return b ? TOOL[b][1] : 0; };
   const ironArm = a => (a.armour || []).filter(id => (id >= 108 && id <= 111) || (id >= 129 && id <= 132)).length;
+  // v0.9.79 gather-first: iron still needed for the whole kit (iron pick + sword + all four armour pieces)
+  const isIronA = id => (id >= 108 && id <= 111) || (id >= 129 && id <= 132);
+  const ironNeed = a => (lvl(a, 'pick') < 3 ? 3 : 0) + (lvl(a, 'sword') < 3 ? 2 : 0) + IRON_ARM.reduce((n, id, i) => n + (isIronA((a.armour || [])[i]) ? 0 : ARM_COST[i]), 0);
+  const ironHave = a => has(a, IT.IRONINGOT) + has(a, IT.RAWIRON);
+  const kitted = a => ironNeed(a) === 0;
   const armRed = a => (a.armour || []).reduce((s, id) => s + (id >= 129 && id <= 132 ? 0.15 : id >= 108 && id <= 111 ? 0.11 : id >= 112 && id <= 115 ? 0.09 : id ? 0.07 : 0), 0);
   const fuelPts = a => (has(a, IT.COAL) + has(a, IT.CHARCOAL)) * 8 + has(a, T.PLANKS) * 1.5 + logN(a) * 1.5;
 
@@ -17257,6 +17265,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (LOGGY[id]) return 6; if (id === T.PLANKS) return 16; if (id === IT.STICK) return 8;
     if (id === T.COBBLE) return 20; if (id === IT.COAL || id === IT.CHARCOAL) return 16;
     if (id === IT.IRONINGOT) return ironArm(a) >= 2 && lvl(a, 'pick') >= 3 ? 4 : 99;
+    if (id === T.TABLE || id === T.FURNACE) return 1;
     if (id === IT.RAWIRON) return 99; if (id === T.OBSIDIAN || id === IT.FLINTSTEEL) return 99;
     return 0;
   }
@@ -17364,13 +17373,20 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     while (w.way.length && ((Math.hypot(w.way[0][0] + .5 - p.x, w.way[0][2] + .5 - p.z) < 0.6 && Math.abs(w.way[0][1] - p.y) < 1.2) || (w.way.length > 1 && Math.hypot(w.way[1][0] + .5 - p.x, w.way[1][2] + .5 - p.z) < Math.hypot(w.way[0][0] + .5 - p.x, w.way[0][2] + .5 - p.z) && Math.abs(w.way[1][1] - p.y) < 1.2 && !solid(w.way[0][0], w.way[0][1], w.way[0][2]) && !solid(w.way[0][0], w.way[0][1] + 1, w.way[0][2])))) w.way.shift();
     const n = w.way[0]; if (!n) { a.wk = null; return d < 1.5 || (d < 2.2 && Math.abs(y - p.y) > 1.2); }
     // dig what blocks the next cell (body, head, and the head-room for a step up / down)
-    const need = [[n[0], n[1], n[2]], [n[0], n[1] + 1, n[2]]]; if (n[1] > cy) need.push([cx, cy + 2, cz]); if (n[1] < cy) need.push([n[0], cy, n[2]], [n[0], cy + 1, n[2]]);
+    const need = [[n[0], n[1], n[2]], [n[0], n[1] + 1, n[2]]]; if (w.need) { if (solid(w.need[0], w.need[1], w.need[2])) need.unshift(w.need); else w.need = null; } if (n[1] > cy) need.push([cx, cy + 2, cz]); if (n[1] < cy) need.push([n[0], cy, n[2]], [n[0], cy + 1, n[2]]);
     for (const c of w.way.slice(0, 2)) for (let k = 0; k < 2; k++) { const qb = wb(c[0], c[1] + k, c[2]); if (qb && (isDoor(qb) || qb === 226) && Math.hypot(c[0] + .5 - p.x, c[2] + .5 - p.z) < 2.2) openDoor(c[0], c[1] + k, c[2], p); }
     for (const q of need) { const qb = wb(q[0], q[1], q[2]); if (qb && (isDoor(qb) || qb === 226)) continue;   // doors / gates: opened above, walk through
       if (solid(q[0], q[1], q[2])) { a.moving = false; a.curSpd = 0; if (!breakAt(a, w, q[0], q[1], q[2], false)) { if (!canDig(a, q[0], q[1], q[2])) { w.way = null; w.fails++; w.cd = 0.5; if (w.fails >= 3) a.goFail = 99; } return false; } w.sT = 0; w.sp = [p.x, p.z]; return false; } }
     a.ang = Math.atan2(n[0] + .5 - p.x, n[2] + .5 - p.z); A.doors(a);
     const nd = Math.hypot(n[0] + .5 - p.x, n[2] + .5 - p.z), sp2 = (w.way.length > 8 && d > 8) ? SP.sprint : d < 1.5 ? Math.min(SP.walk, Math.max(1.5, nd * 4)) : Math.max(spd, SP.walk);
-    if (stepD(a, sp2, dt, false) === false && a.onGround !== false) { a.vy = 6.6; a.onGround = false; }
+    const sr = stepD(a, sp2, dt, false);
+    if (sr === false) { w.bT = (w.bT || 0) + dt; if (a.onGround !== false && w.bT < 0.5) { a.vy = 6.6; a.onGround = false; }
+      if (w.bT >= 0.5) { w.bT = 0; B.pst.blk = (B.pst.blk || 0) + 1;
+        const sx = Math.sign(Math.round(n[0] + .5 - p.x)), sz = Math.sign(Math.round(n[2] + .5 - p.z)), cand = [];
+        for (const [ox, oz] of [[sx, sz], [sx, 0], [0, sz]]) if (ox || oz) for (let k = 0; k < 2; k++) cand.push([cx + ox, cy + k, cz + oz]);
+        const hit = cand.find(q => { const qb = wb(q[0], q[1], q[2]); return qb && solid(q[0], q[1], q[2]) && !isDoor(qb) && qb !== 226 && !placed(q[0], q[1], q[2]) && canDig(a, q[0], q[1], q[2]); });
+        if (hit) { w.need = hit; } else { const ccx = cx + .5 - p.x, ccz = cz + .5 - p.z, cl = Math.hypot(ccx, ccz); if (cl > 0.05) { a.ang = Math.atan2(ccx, ccz); stepD(a, SP.walk, Math.min(dt * 3, 0.15), false); } w.way = null; w.rp = 0; } } }
+    else w.bT = 0;
     if (n[1] > cy && a.onGround !== false && Math.hypot(n[0] + .5 - p.x, n[2] + .5 - p.z) < 1.3) { a.vy = 6.6; a.onGround = false; }
     a.moving = true; a.curSpd = sp2;
     w.sT += dt; if (w.sT >= 2) { const mv = Math.hypot(p.x - w.sp[0], p.z - w.sp[1]); w.sT = 0; w.sp = [p.x, p.z];
@@ -17441,8 +17457,10 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   const now = () => performance.now() / 1000;
   const blocked = m => m && typeof m === 'object' && (BLK.get(m) || 0) > now();
   const isDoor = b => b === T.DOOR || b === T.DOORTOP;
+  const TALLB = (x, y, z) => { try { return !!(window.__c83 && __c83.tall(x, y, z)); } catch (_) { return false; } };
+  const STAND = (x, y, z) => A.stand(x, y, z) && !TALLB(x, y - 1, z) && !TALLB(x, y, z);
   function findWay(sx, sy, sz, tx, ty, tz, R, cap, dg) {
-    if (!A.stand(sx, sy, sz)) { if (A.stand(sx, sy + 1, sz)) sy++; else if (A.stand(sx, sy - 1, sz)) sy--; }
+    if (!STAND(sx, sy, sz)) { if (STAND(sx, sy + 1, sz)) sy++; else if (STAND(sx, sy - 1, sz)) sy--; }
     const K = (x, y, z) => (x * 4096 + z) * 256 + y, g = new Map(), from = new Map(), open = [];
     const hy = dg ? 1.6 : 0.5, hw = dg ? 1.8 : 1.05, h = (x, y, z) => Math.abs(x - tx) + Math.abs(z - tz) + Math.abs(y - ty) * hy;   // digging allowed: greedier search (tunnels are everywhere)
     const push = n => { open.push(n); let i = open.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (open[q][0] <= n[0]) break; [open[i], open[q]] = [open[q], open[i]]; i = q; } };
@@ -17451,7 +17469,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     while (open.length && n < cap) { const [, x, y, z] = pop(); const kc = K(x, y, z), gc = g.get(kc); n++;
       if (Math.abs(x - tx) <= 1 && Math.abs(z - tz) <= 1 && Math.abs(y - ty) <= 1) { goal = kc; break; }
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (Math.abs(nx - sx) > R || Math.abs(nz - sz) > R) continue;
-        let ny = null; if (A.stand(nx, y, nz)) ny = y; else if (A.stand(nx, y + 1, nz) && !solid(x, y + 2, z)) ny = y + 1; else if (!solid(nx, y, nz) && !solid(nx, y + 1, nz)) for (let fy = y - 1; fy >= y - 3; fy--) if (A.stand(nx, fy, nz)) { ny = fy; break; } else if (solid(nx, fy, nz)) break;
+        let ny = null; if (STAND(nx, y, nz)) ny = y; else if (STAND(nx, y + 1, nz) && !solid(x, y + 2, z)) ny = y + 1; else if (!solid(nx, y, nz) && !solid(nx, y + 1, nz)) for (let fy = y - 1; fy >= y - 3; fy--) if (STAND(nx, fy, nz)) { ny = fy; break; } else if (solid(nx, fy, nz)) break;
         let extra = 0;
         if (ny === null && dg) {   // tunnel: dig the two blocks (straight on, or one step up / down)
           for (const yy of [y, y + 1, y - 1]) { if (!solid(nx, yy - 1, nz) || liquid(wb(nx, yy - 1, nz))) continue;
@@ -17589,17 +17607,23 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (tm.phase === 'war') return warJob(a, ci, far);
     // gear
     const tb = ci.table && wb(ci.table.x, ci.table.y, ci.table.z) === T.TABLE ? ci.table : null;
-    if (upgrades(a, false).length && (tb || wood(a) >= 4)) return {type: 'craft', t: 0, pri: 2};
-    if (ch && a.chestCd <= 0 && (surplus(a) >= 14 || wants(a, ch).length)) return {type: 'chest', t: 0, pri: 2};
+    const pk0 = lvl(a, 'pick'), iN = ironNeed(a), iH = ironHave(a);
+    if (!(pk0 >= 2 && iN > 0 && iH < iN)) a.g0 = 0; else if (!a.g0) a.g0 = B.gt;
+    const gathering = pk0 >= 2 && iN > 0 && iH < iN && a.hp >= (a.maxHp || 24) * 0.5 && !(B.gt - a.g0 > 900);   // keep mining until the whole kit's iron is in the bag (15 min cap)
+    const mk = upgrades(a, false), nonIron = mk.some(id => !isIronA(id) && id !== PICKS[2] && id !== SWORDS[2] && id !== AXES[2]);
+    if (iH > 0 && !gathering && ((has(a, IT.RAWIRON) && fuelPts(a) >= 1) || mk.length) && (has(a, T.TABLE) || wood(a) >= 4)) return {type: 'field', ph: 'set', t: 0, pri: 2};
+    if (mk.length && nonIron && (tb || wood(a) >= 4)) return {type: 'field', ph: 'set', t: 0, pri: 2};
+    if (ch && a.chestCd <= 0 && !gathering && (surplus(a) >= 14 || wants(a, ch).length)) return {type: 'chest', t: 0, pri: 2};
+    if (ch && a.chestCd <= 0 && gathering && (surplus(a) >= 60 || (wants(a, ch).length && Math.hypot(ch.x - a.g.position.x, ch.z - a.g.position.z) < 20))) return {type: 'chest', t: 0, pri: 2};
     if (!ch && wood(a) >= 12 && a.chestCd <= 0) { needChest(a, ci); a.chestCd = 30; }
-    if (ci.furn && fuelPts(a) >= 2 && (raw > 0 || ORE_RAW.some(id => has(a, id) >= (id === IT.RAWIRON ? 1 : 3)))) return {type: 'cook', ph: 'go', t: 0, pri: 2};
+    if (ci.furn && fuelPts(a) >= 2 && raw > 0 && Math.hypot(ci.furn.x - a.g.position.x, ci.furn.z - a.g.position.z) < 24) return {type: 'cook', ph: 'go', t: 0, pri: 2};
     const s = scanOf(ci), pk = lvl(a, 'pick');
     const geared = pk >= 3 && lvl(a, 'sword') >= 3 && ironArm(a) >= 2;
     const chop = () => { const t = nearestOf(a, s.trees, o => !s.bad.has(o.join()) && !claimed(a, o) && LOGGY[wb(o[0], o[1], o[2])]); return t ? {type: 'chop', o: t, ph: 'go', t: 0, pri: 1} : {type: 'search', wood: 1, t: 0, pri: 1}; };
     const near24 = o => Math.hypot(o[0] - a.g.position.x, o[2] - a.g.position.z) < 24 && Math.abs(o[1] - a.g.position.y) < 8;
     const stone = () => { if (!pk) return null; const t = nearestOf(a, s.stone, o => near24(o) && !s.bad.has(o.join()) && !claimed(a, o) && wb(o[0], o[1], o[2]) === T.STONE); return t ? {type: 'mine', o: t, ph: 'go', t: 0, pri: 1} : digJob(a, ci, 'stone'); };
     const seenOre = () => pickSeen(a);
-    const ore = () => { if (!pk) return null; const cv = !far && seenOre(); if (cv) return cv; const coalLow = fuelPts(a) < 10; const t = nearestOf(a, s.ores, o => { const b = wb(o[0], o[1], o[2]); return A.ORES.has(b) && ORE_LVL(b) <= pk && !s.bad.has(o.join()) && !claimed(a, o) && (b === T.IRONORE || (coalLow && b === T.COALORE) || Math.random() < 0.25); });
+    const ore = () => { if (!pk) return null; const cv = !far && seenOre(); if (cv) return cv; const coalLow = fuelPts(a) < 10 + Math.max(0, ironNeed(a) - has(a, IT.IRONINGOT)); const t = nearestOf(a, s.ores, o => { const b = wb(o[0], o[1], o[2]); return A.ORES.has(b) && ORE_LVL(b) <= pk && !s.bad.has(o.join()) && !claimed(a, o) && (b === T.IRONORE || (coalLow && b === T.COALORE) || Math.random() < 0.25); });
       return t && near24(t) ? {type: 'mine', o: t, ph: 'go', t: 0, pri: 1} : digJob(a, ci, pk >= 2 ? 'iron' : 'stone'); };
     if (wood(a) < (pk ? 8 : 14) && !(role === 'miner' && pk >= 2 && ch && chestCount(ch, [T.PLANKS, T.LOG]))) return chop();
     if (!pk) return chop();
@@ -17625,6 +17649,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   }
   function spotNear(cx, cz, r) { for (let t = 0; t < 30; t++) { const x = Math.floor(cx + (Math.random() - .5) * r * 2), z = Math.floor(cz + (Math.random() - .5) * r * 2); if (x < 3 || z < 3 || x >= W - 3 || z >= D - 3) continue; const y = A.groundY(x, z); if (A.stand(x, y, z)) return [x, y, z]; } const y = A.groundY(Math.floor(cx), Math.floor(cz)); return [Math.floor(cx), y, Math.floor(cz)]; }
   function warJob(a, ci, far) {
+    if (TM().step === 'regroup') { const hx = Math.floor(ci.cx), hz = Math.floor(ci.cz); return {type: 'goto', x: hx, y: A.groundY(hx, hz), z: hz, t: 0, pri: 2, rg: 1}; }
     const tm = TM(), c = warTarget(a); if (!c) { tm.step = 'portal'; }
     const partner = bots().find(m => m !== a);
     if (partner && a.role === 'hunter') { const pd = Math.hypot(partner.g.position.x - a.g.position.x, partner.g.position.z - a.g.position.z); if (pd > 16 && !partner.sleeping) return {type: 'follow', m: partner, t: 0, pri: 1}; }
@@ -17658,6 +17683,29 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const done = () => { j.done = true; };
     switch (j.type) {
       case 'wait': if (j.t > (j.tt || 2.5)) done(); break;
+      case 'field': {   // v0.9.79: put down a crafting table + furnace right here, smelt and craft the lot, pick them back up
+        const fx = Math.floor(p.x), fy = Math.floor(p.y + 0.05), fz = Math.floor(p.z);
+        if (j.ph === 'set') {
+          if (!has(a, T.TABLE)) { if (!planks(a, 4) || !craft(a, T.TABLE)) { done(); break; } }
+          const wantF = has(a, IT.RAWIRON) > 0 || ORE_RAW.some(id => has(a, id));
+          if (wantF && !has(a, T.FURNACE)) { if (has(a, T.COBBLE) >= 8) { if (!craft(a, T.FURNACE)) { add(a, T.COBBLE, -8); add(a, T.FURNACE, 1); } } }
+          const spots = []; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const x = fx + dx, z = fz + dz; if (!wb(x, fy, z) && solid(x, fy - 1, z) && !isDoor(wb(x, fy - 1, z)) && !placed(x, fy, z)) spots.push([x, fy, z]); }
+          j.put = [];
+          if (spots[0]) { A.placeBlock(spots[0][0], fy, spots[0][2], T.TABLE); add(a, T.TABLE, -1); j.put.push([spots[0], T.TABLE]); A.face(a, spots[0][0], spots[0][2]); }
+          if (wantF && has(a, T.FURNACE) && spots[1]) { A.placeBlock(spots[1][0], fy, spots[1][2], T.FURNACE, {face: 0}); add(a, T.FURNACE, -1); j.put.push([spots[1], T.FURNACE]); }
+          if (!j.put.length && !spots.length) {}   // no room: craft in the hand anyway (still on the spot)
+          j.ph = 'smelt'; j.t = 0; j.acc = 0; say(a.role + ' set up a crafting table' + (j.put.length > 1 ? ' and furnace' : '') + ' on the spot'); break; }
+        a.act = 'cook';
+        if (j.ph === 'smelt') { j.acc += dt; if (j.acc < 0.3) break; j.acc = 0;
+          const id = ORE_RAW.find(r => has(a, r)); const hasF = j.put.some(q => q[1] === T.FURNACE);
+          if (!id || !hasF) { j.ph = 'craft'; j.t = 0; break; }
+          j.fuel = (j.fuel || 0) - 1;
+          if (j.fuel < 0) { if (has(a, IT.COAL)) { add(a, IT.COAL, -1); j.fuel += 8; } else if (has(a, IT.CHARCOAL)) { add(a, IT.CHARCOAL, -1); j.fuel += 8; } else if (has(a, T.PLANKS) > 0) { add(a, T.PLANKS, -1); j.fuel += 1.5; } else if (useLogs(a, 1)) j.fuel += 1.5; else { j.ph = 'craft'; j.t = 0; break; } }
+          add(a, id, -1); add(a, SMELT[id], 1); B.st.smelted++; if (!far && Math.random() < 0.5) try { spark(j.put[1][0][0] + .5, fy + 1.1, j.put[1][0][2] + .5, 0x8a8a8a, 1, 0.3); } catch (_) {} break; }
+        if (j.ph === 'craft') { if (!j.made) { j.made = upgrades(a, true); if (j.made.length) { say(a.role + ' crafted ' + j.made.map(id => NAMES[id] || id).join(', ')); snd('craft', p, 8); } }
+          if (j.t > 0.3 * Math.max(1, j.made.length)) j.ph = 'pack'; break; }
+        if (j.ph === 'pack') { for (const [q, id] of j.put || []) if (wb(q[0], q[1], q[2]) === id) { A.placeBlock(q[0], q[1], q[2], T.AIR); add(a, id, 1); } j.put = []; done(); }
+        break; }
       case 'goto': if (moveTo(a, j.x, j.y, j.z, SP.walk, dt, far) || j.t > 60 || (a.goFail || 0) >= 99) { j.ok = Math.hypot(j.x + .5 - p.x, j.z + .5 - p.z) < 1.5; a.goFail = 0; B.lastGoto = {ok: j.ok, t: j.t}; done(); } break;   // debug / test
       case 'fight': {
         const m = j.m, tp = m === 'player' ? P : m.g && m.g.position;
@@ -17698,7 +17746,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
         if (!tb || !tb.a) { done(); break; }
         if (j.ph !== 'use') { if (moveTo(a, tb.a[0], tb.a[1], tb.a[2], SP.work, dt, far) || (a.goFail || 0) > 8 || j.t > 60) { a.goFail = 0; j.ph = 'use'; j.t = 0; A.face(a, tb.x, tb.z); } break; }
         a.act = 'cook';
-        if (j.t > 1.6) { const made = upgrades(a, true); if (made.length) { say(a.role + ' crafted ' + made.map(id => NAMES[id] || id).join(', ')); snd('craft', p, 8); } done(); }
+        if (j.t > 0.4) { const made = upgrades(a, true); if (made.length) { say(a.role + ' crafted ' + made.map(id => NAMES[id] || id).join(', ')); snd('craft', p, 8); } done(); }
         break; }
       case 'cook': {
         const f = ci.furn; if (!f || !f.a) { done(); break; }
@@ -17911,10 +17959,10 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (a.job !== a.lastJob) { a.lastJob = a.job; a.goFail = 0; a.wk = null; a.npT = 0; if (a.job) { try { noteJob(a, a.job); } catch (_) {} B.tl.push([+(B.gt || 0).toFixed(1), a.role, a.job.type + (a.job.want ? ':' + a.job.want : '')]); if (B.tl.length > 400) B.tl.shift(); } }
     if (!a.sleeping) { try { act(a, ci, tdt, far); } catch (e) { if (!B.err2) { B.err2 = String(e && e.stack || e); console.warn('c96 act', e); } a.job = null; } if (a.job && a.job.done) a.job = null; }
     if (!a.sleeping && !far) threats(a, tdt);
-    if (!far && !a.sleeping) { a.osT = (a.osT || 0) - tdt; if (a.osT <= 0) { a.osT = 0.1; try { oreScan(a); } catch (_) {} }
+    if (!far && !a.sleeping && started) { a.osT = (a.osT || 0) - tdt; if (a.osT <= 0) { a.osT = 0.1; try { oreScan(a); } catch (_) {} }
       // watchdog: a moving-type job with no movement and no digging for 2 s -> re-plan now
       const j = a.job, mv = j && ((j.ph === 'go' && j.type !== 'hunt') || j.type === 'goto' || j.type === 'dig' || j.type === 'search' || j.type === 'quarry');
-      const dg = B.st.dug || 0; if (mv && (a.vs || 0) < 0.2 && dg === a.npD && !(j.bk && j.bk.t > 0) && !(a.wk && a.wk.bk) && !(j.ore)) { a.npT = (a.npT || 0) + tdt; if (a.npT > 2) { a.npT = 0; a.goFail = 99; a.wk = null; a.wp = null; B.pst.wd = (B.pst.wd || 0) + 1; if (j.type === 'search' || j.type === 'quarry' || j.type === 'goto' && j.t > 6) j.done = true; a.thinkT = 0; } } else a.npT = 0; a.npD = dg; }
+      const dg = B.st.dug || 0; if (mv && (a.vs || 0) < 0.1 && dg === a.npD && !(j.bk && j.bk.t > 0) && !(a.wk && a.wk.bk) && !(j.ore)) { a.npT = (a.npT || 0) + tdt; if (a.npT > 2) { a.npT = 0; a.wk = null; a.wp = null; B.pst.wd = (B.pst.wd || 0) + 1; a.npN = (a.npN || 0) + 1; if (j.type === 'search' || j.type === 'quarry') { j.done = true; a.thinkT = 0; } if (a.npN >= 2) { a.npN = 0; a.goFail = 99; if (j.type === 'search' || j.type === 'quarry') j.done = true; a.thinkT = 0; } } } else { a.npT = 0; if ((a.vs || 0) > 0.3) a.npN = 0; } a.npD = dg; }
     if (far) { if (!a.sleeping && (!a.job || (a.job.type !== 'mine' && a.job.type !== 'bed'))) { const f = floorBelow(Math.floor(p.x), p.y + 1, Math.floor(p.z)); if (Math.abs(f - p.y) < 3) p.y = f; } return; }
     if (dist < 6 && !a.sleeping && !(a.job && (a.job.type === 'fight' || a.job.type === 'hunt'))) a.glanceT = 0.3;   // v0.9.76: head turns to you, the work goes on
     { const vx = p.x - (a.lpx ?? p.x), vz = p.z - (a.lpz ?? p.z); a.lpx = p.x; a.lpz = p.z; const v = tdt > 0 ? Math.min(8, Math.hypot(vx, vz) / tdt) : 0;   // v0.9.78: walk/run/idle anim from the real speed
@@ -17938,8 +17986,10 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     for (const m of bs) if (m.ci && Math.random() < 0.2) {}
     if (tm.phase === 'survive' && bs.length && bs.every(m => lvl(m, 'pick') >= 2 && lvl(m, 'sword') >= 2 && lvl(m, 'axe') >= 2) && bs.reduce((s, m) => s + cooked(m) + rawN(m), 0) >= 4) {
       tm.phase = 'mine'; say('The clansmen have stone tools and food. Now they go looking for ore.', bs.some(m => Math.hypot(P.x - m.g.position.x, P.z - m.g.position.z) < 64)); }
-    if (tm.phase === 'mine' && bs.length === 2 && bs.every(m => lvl(m, 'pick') >= 3 && lvl(m, 'sword') >= 3 && ironArm(m) >= 2 && cooked(m) >= 5)) {
-      tm.phase = 'war'; tm.step = 'mossy'; say('The clansmen are geared in iron with food packed. They march to war on the skeleton castles!', true); }
+    if (tm.phase === 'mine') tm.mineT = (tm.mineT || 0) + 1;
+    if (tm.phase === 'mine' && bs.length === 2 && bs.every(m => lvl(m, 'pick') >= 3 && lvl(m, 'sword') >= 3 && (ironArm(m) >= 4 || (ironArm(m) >= 2 && tm.mineT > 900)) && cooked(m) >= 5)) {
+      tm.phase = 'war'; tm.step = 'regroup'; tm.rgT = 0; say('The clansmen are geared in iron with food packed. They march to war on the skeleton castles!', true); }
+    if (tm.phase === 'war' && tm.step === 'regroup') { tm.rgT = (tm.rgT || 0) + 1; const home = bs[0] && bs[0].ci; if (!home || tm.rgT > 60 || bs.every(m => Math.hypot(m.g.position.x - home.cx, m.g.position.z - home.cz) < 10)) { tm.step = 'mossy'; say('Both clansmen are back at the castle in full iron. Off to raid!', true); } }
     if (tm.phase === 'war' && bs.length === 0 && !tm.hellBots) { /* both dead mid-campaign: start over */ }
   }
   let tickT = 0, hellLast = 0;
@@ -18063,7 +18113,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   const td = toggleDoor;
   toggleDoor = function (x, y, z) { try { const ly = getB(x, y, z) === T.DOORTOP ? y - 1 : y; fixPair(x, ly, z); } catch (_) {} return td.apply(this, arguments); };
   // castle doors near you get paired up (old worlds too); cheap: a few door entities every 2 s
-  setInterval(() => { try { if (typeof started === 'undefined' || !started) return; for (const o of [...entObjs.values()]) if (o.type === T.DOOR && Math.abs(o.x - P.x) < 32 && Math.abs(o.z - P.z) < 32) fixPair(o.x, o.y, o.z); } catch (e) {} }, 2000);
+  setInterval(() => { try { if (typeof started === 'undefined' || !started || screen !== 'none') return; for (const o of [...entObjs.values()]) if (o.type === T.DOOR && Math.abs(o.x - P.x) < 32 && Math.abs(o.z - P.z) < 32) fixPair(o.x, o.y, o.z); } catch (e) {} }, 2000);
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -18076,6 +18126,14 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.79', d:'2026-10-25', notes:[
+  'Fixed worlds getting stuck on the loading screen (around 87%): every step after loading (bots, doors, entities, land building) is now guarded, so one bad piece can no longer stop the world opening, and your world is never wiped',
+  'Bots no longer get stuck on blocks: the route planner uses exactly the same rules as walking (no climbing onto fences or posts), and if something breakable is in the way for half a second they dig it; otherwise they re-centre and re-route',
+  'Walk-to jobs are no longer cut short while the bot is still moving',
+  'Gather first: they keep mining until they have the iron for the whole kit (iron pick, sword and all four armour pieces, plus coal), instead of running home after every bit of iron',
+  'Portable workshop: they put down a crafting table and furnace right where they are (even in a cave), smelt and craft everything in one go, then pick them back up',
+  'Crafting is quick now (about 0.3 s an item), all at once',
+  'Once both are in full iron they meet up back at the castle, then set off on the raid']},
  {v:'v0.9.78', d:'2026-10-25', notes:[
   'Castle double doors work as a pair: hinges on the outside, both open and close together (for you and the clansmen), old worlds fixed too',
   'Clansmen open doors and gates on their path instead of stopping in front of them (that was a big cause of them standing still)',
