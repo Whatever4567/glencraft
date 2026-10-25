@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0975c -->
+<!-- glencraft-build: v0976a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.75';
+const GAME_VERSION = 'v0.9.76';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -16922,216 +16922,6 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   for (const t of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchmove', 'touchend', 'contextmenu', 'wheel']) addEventListener(t, e => { if (A.mode === 'ds' && !A.open && !(e.target && e.target.id === 'dsX')) { e.stopPropagation(); } }, {capture: true, passive: true});
 })();
 
-/* ===================== GLX-C93 (v0.9.71): GTA-style HUD minimap + full map in the pause menu =====================
-   Built from the same picture as the established biome map (__bio / bioPNG): the real top block of every column with the
-   in-game grass tint per biome, water, castles and the spawn. One cached world-sized canvas filled 16x16 tiles at a time
-   (a few ms every 250 ms) only where you have explored; the HUD square is redrawn at 4 Hz and only rotated / slid by CSS
-   in between, so it costs next to nothing on the phone. */
-(function c93() {
-  const TS = 16, RAD = 56;                      // tile size, explore radius (blocks)
-  const M = {key: '', tw: 0, td: 0, done: null, seen: null, dirty: null, hm: null, q: [], built: 0, open: false, seenDirty: false};
-  window.__map = M;
-  const mc = document.createElement('canvas'); let mg = null;
-  const hexRGB = h => [(h >> 16) & 255, (h >> 8) & 255, h & 255];
-  const topKey = id => { const f = FACES[id]; return Array.isArray(f) ? f[2] : f; };
-  const COLC = {};
-  const colOf = id => { let c = COLC[id]; if (c) return c; const k = topKey(id); c = COLC[id] = hexRGB((k && AVG[k]) || 0x777777); return c; };
-  const GRASS = () => colOf(T.GRASS);
-  const sky = id => id === T.AIR || !FACES[id];   // plants, torches, flowers: look through them to the ground
-  const wkey = () => ((typeof current !== 'undefined' && current && current.id) || 'x') + (current && current.created ? '@' + current.created : '') + '|' + W + '|' + D + '|' + (typeof genVer !== 'undefined' ? genVer : 0) + '|' + ((typeof DIM !== 'undefined' && DIM.cur) || '');
-  function reset() {
-    M.key = wkey(); M.tw = Math.ceil(W / TS); M.td = Math.ceil(D / TS); const n = M.tw * M.td;
-    M.done = new Uint8Array(n); M.seen = new Uint8Array(n); M.dirty = new Uint8Array(n); M.hm = new Int16Array(W * D).fill(-1); M.q = []; M.built = 0;
-    mc.width = W; mc.height = D; mg = mc.getContext('2d'); mg.clearRect(0, 0, W, D);
-    try { const s = localStorage.getItem('glen_mapx_' + M.key); if (s) { const b = atob(s); for (let i = 0; i < n && i < b.length * 8; i++) if (b.charCodeAt(i >> 3) & (1 << (i & 7))) M.seen[i] = 1; } } catch (_) {}
-    for (let i = 0; i < n; i++) if (M.seen[i]) M.q.push(i);
-  }
-  function saveSeen() { if (!M.seenDirty || !M.seen) return; M.seenDirty = false; let s = ''; const n = M.seen.length;
-    for (let i = 0; i < n; i += 8) { let c = 0; for (let j = 0; j < 8; j++) if (M.seen[i + j]) c |= 1 << j; s += String.fromCharCode(c); }
-    try { const me = 'glen_mapx_' + M.key; for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.indexOf('glen_mapx_') === 0 && k !== me) localStorage.removeItem(k); } localStorage.setItem(me, btoa(s)); } catch (_) {} }
-  // top of a column: [height, block id, water depth]
-  function column(x, z) { let y = H - 1, b = 0;
-    for (; y > 0; y--) { b = world[idx(x, y, z)]; if (!sky(b)) break; }
-    let dep = 0; if (b === T.WATER) { let yy = y; while (yy > 0 && world[idx(x, yy, z)] === T.WATER) { yy--; dep++; } }
-    M.hm[x * D + z] = y; return [y, b, dep]; }
-  const hAt = (x, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return -1; const h = M.hm[x * D + z]; return h >= 0 ? h : column(x, z)[0]; };
-  function paintTile(i) {
-    const tx = (i / M.td) | 0, tz = i % M.td, x0 = tx * TS, z0 = tz * TS, w = Math.min(TS, W - x0), d = Math.min(TS, D - z0);
-    if (w <= 0 || d <= 0) return; const im = mg.createImageData(w, d), px = im.data;
-    const bio = window.__bio && __bio.info.on ? __bio : null, g = GRASS();
-    for (let dx = 0; dx < w; dx++) for (let dz = 0; dz < d; dz++) {
-      const x = x0 + dx, z = z0 + dz, [h, b, dep] = column(x, z); let r, gg, bb;
-      if (b === T.WATER) { const k = Math.min(1, dep / 7); r = 70 - 40 * k; gg = 130 - 60 * k; bb = 215 - 50 * k; }
-      else { let c = b === T.GRASS ? g : colOf(b); r = c[0]; gg = c[1]; bb = c[2];
-        if (bio && (b === T.GRASS || b === T.LEAVES)) { const t = bio.tint(x, z); r *= t[0]; gg *= t[1]; bb *= t[2]; }
-        const hn = hAt(x, z - 1), hw = hAt(x - 1, z); const sl = ((hn >= 0 ? h - hn : 0) + (hw >= 0 ? h - hw : 0)) * 0.07;
-        const s = 1 + Math.max(-0.3, Math.min(0.3, sl)) + (h - SEA) * 0.004; r *= s; gg *= s; bb *= s; }
-      const o = (dz * w + dx) * 4; px[o] = r; px[o + 1] = gg; px[o + 2] = bb; px[o + 3] = 255; }
-    mg.putImageData(im, x0, z0); M.done[i] = 1; M.dirty[i] = 0; M.built++;
-  }
-  // a changed block repaints its tile (if it is on the map already)
-  const sb = setB; setB = function (x, y, z, b) { const r = sb.apply(this, arguments);
-    if (M.done && x >= 0 && z >= 0 && x < W && z < D) { const i = ((x / TS) | 0) * M.td + ((z / TS) | 0); if (M.done[i]) M.dirty[i] = 1; } return r; };
-  let refreshT = 0, saveT = 0;
-  function tick() {
-    if (!started) return; if (wkey() !== M.key) reset();
-    const px = Math.floor(P.x), pz = Math.floor(P.z), ptx = Math.floor(px / TS), ptz = Math.floor(pz / TS), rt = Math.ceil(RAD / TS);
-    for (let a = -rt; a <= rt; a++) for (let c = -rt; c <= rt; c++) { const tx = ptx + a, tz = ptz + c; if (tx < 0 || tz < 0 || tx >= M.tw || tz >= M.td) continue;
-      if (Math.hypot((tx + 0.5) * TS - px, (tz + 0.5) * TS - pz) > RAD + 8) continue; const i = tx * M.td + tz; if (!M.seen[i]) { M.seen[i] = 1; M.seenDirty = true; M.q.push(i); } }
-    if ((refreshT += 0.25) > 3) { refreshT = 0; for (let a = -1; a <= 1; a++) for (let c = -1; c <= 1; c++) { const tx = ptx + a, tz = ptz + c; if (tx >= 0 && tz >= 0 && tx < M.tw && tz < M.td && M.done[tx * M.td + tz]) M.dirty[tx * M.td + tz] = 1; } }
-    if ((saveT += 0.25) > 10) { saveT = 0; saveSeen(); }
-    const t0 = performance.now(), budget = M.open ? 12 : 3;
-    // nearest pending first
-    const dist = i => Math.abs(((i / M.td) | 0) - ptx) + Math.abs(i % M.td - ptz);
-    if (M.q.length > 1) M.q.sort((a, b) => dist(b) - dist(a));
-    while (M.q.length && performance.now() - t0 < budget) { const i = M.q.pop(); if (!M.done[i]) paintTile(i); }
-    for (let i = 0; i < M.dirty.length && performance.now() - t0 < budget + 1; i++) if (M.dirty[i]) paintTile(i);
-    drawMini(); if (M.open) drawBig();
-  }
-  setInterval(() => { try { tick(); } catch (e) { if (!M.err) { M.err = 1; console.warn('map', e); } } }, 250);
-  window.addEventListener('pagehide', saveSeen);
-  const castles = () => (typeof g9castles !== 'undefined' && g9castles) || [];
-  const spawn = () => (typeof g9spawn !== 'undefined' && g9spawn) || null;
-  const cname = n => (n[0].toUpperCase() + n.slice(1)).replace(/^Black$/, 'Blackstone') + ' Castle';
-
-  // ---------------- HUD minimap ----------------
-  const st = document.createElement('style'); st.textContent = `
-#miniMap{position:fixed;left:calc(12px + var(--sal,0px));bottom:calc(12px + var(--sab,0px));width:var(--mm,132px);height:var(--mm,132px);z-index:6;border-radius:12px;overflow:hidden;
-  background:#1b2330;border:3px solid rgba(15,18,24,.85);box-shadow:0 2px 10px rgba(0,0,0,.45);pointer-events:none;contain:strict}
-body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
-#miniMap canvas{position:absolute!important;left:50%;top:50%;inset:auto;image-rendering:pixelated;will-change:transform}
-#miniMap .arw{position:absolute;left:50%;top:50%;width:0;height:0;margin:-9px 0 0 -7px;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:16px solid #fff;filter:drop-shadow(0 0 2px #000)}
-#miniMap .nn{position:absolute;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:#c0262d;color:#fff;font:800 11px/18px system-ui,sans-serif;text-align:center;box-shadow:0 0 3px #000}
-#miniMap.off,body.inmenu #miniMap{display:none}
-#mapOv{position:fixed;inset:0;z-index:300;background:#141b26;touch-action:none;user-select:none}
-#mapOv.hidden{display:none}
-#mapOv canvas{position:absolute!important;inset:0;width:100%;height:100%;cursor:grab}
-#mapOv .mt{position:absolute;left:50%;top:calc(10px + var(--sat,0px));transform:translateX(-50%);color:#fff;font:800 18px system-ui,sans-serif;text-shadow:0 1px 3px #000;pointer-events:none}
-#mapOv .mh{position:absolute;left:50%;bottom:calc(8px + var(--sab,0px));transform:translateX(-50%);color:#dfe6ee;background:rgba(0,0,0,.55);padding:5px 12px;border-radius:10px;font:600 12px system-ui,sans-serif;white-space:nowrap;max-width:96vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
-#mapOv .mb{position:absolute;right:calc(12px + var(--sar,0px));display:flex;flex-direction:column;gap:8px;top:calc(12px + var(--sat,0px))}
-#mapOv .mb button{width:46px;height:46px;border-radius:12px;border:2px solid rgba(255,255,255,.25);background:rgba(20,26,36,.85);color:#fff;font:800 20px system-ui,sans-serif}
-`; document.head.appendChild(st);
-  const mm = document.createElement('div'); mm.id = 'miniMap'; mm.dataset.testid = 'minimap'; mm.className = 'off';
-  const mcv = document.createElement('canvas'); const arw = document.createElement('div'); arw.className = 'arw'; const nn = document.createElement('div'); nn.className = 'nn'; nn.textContent = 'N';
-  mm.append(mcv, arw, nn); document.body.appendChild(mm);
-  const Z = 1.7;     // HUD px per block
-  let S = 132, C2 = 0, mcx = 0, mcz = 0, lastTf = '';
-  function sizeMini() { S = Math.round(Math.max(104, Math.min(190, Math.min(innerWidth, innerHeight) * 0.32))); mm.style.setProperty('--mm', S + 'px'); C2 = Math.ceil(S * 1.5 + 24); mcv.width = mcv.height = C2; mcv.style.width = mcv.style.height = C2 + 'px'; }
-  sizeMini(); addEventListener('resize', sizeMini);
-  const miniOn = () => SET.mini !== 0 && started && !dead && !paused && !(window.__arcade && __arcade.mode) && !M.open;
-  function icon(g, x, y, kind, s) { g.save(); g.translate(x, y);
-    if (kind === 'castle') { g.fillStyle = '#ddd'; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); const k = s; g.moveTo(-k, k); g.lineTo(-k, -k * .4); g.lineTo(-k * .6, -k * .4); g.lineTo(-k * .6, -k); g.lineTo(-k * .2, -k); g.lineTo(-k * .2, -k * .4);
-      g.lineTo(k * .2, -k * .4); g.lineTo(k * .2, -k); g.lineTo(k * .6, -k); g.lineTo(k * .6, -k * .4); g.lineTo(k, -k * .4); g.lineTo(k, k); g.closePath(); g.fill(); g.stroke(); }
-    else { g.fillStyle = '#ffd400'; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5 - Math.PI / 2, r = i % 2 ? s * .45 : s; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill(); g.stroke(); }
-    g.restore(); }
-  function drawMini() {
-    const on = miniOn(); mm.classList.toggle('off', !on); if (!on || !mg) return;
-    const g = mcv.getContext('2d'); mcx = P.x; mcz = P.z; const half = C2 / 2 / Z;
-    g.fillStyle = '#1b2330'; g.fillRect(0, 0, C2, C2); g.imageSmoothingEnabled = false;
-    g.drawImage(mc, mcx - half, mcz - half, half * 2, half * 2, 0, 0, C2, C2);
-    const toC = (x, z) => [(x - mcx) * Z + C2 / 2, (z - mcz) * Z + C2 / 2];
-    for (const k of castles()) { const [x, y] = toC(k[1], k[2]); if (x > -10 && y > -10 && x < C2 + 10 && y < C2 + 10) icon(g, x, y, 'castle', 7); }
-    const sp = spawn(); if (sp) { const [x, y] = toC(sp[0], sp[2]); if (x > -10 && y > -10 && x < C2 + 10 && y < C2 + 10) icon(g, x, y, 'spawn', 7); }
-    M.miniDraws = (M.miniDraws || 0) + 1; lastTf = ''; placeMini();
-  }
-  function placeMini() {
-    if (mm.classList.contains('off')) return; const a = P.yaw, tx = (mcx - P.x) * Z, tz = (mcz - P.z) * Z;
-    const tf = 'translate(-50%,-50%) rotate(' + a.toFixed(3) + 'rad) translate(' + tx.toFixed(1) + 'px,' + tz.toFixed(1) + 'px)';
-    if (tf === lastTf) return; lastTf = tf; mcv.style.transform = tf;
-    const dx = Math.sin(a), dy = -Math.cos(a), k = (S / 2 - 12) / Math.max(Math.abs(dx), Math.abs(dy));
-    nn.style.left = (S / 2 + dx * k - 3) + 'px'; nn.style.top = (S / 2 + dy * k - 3) + 'px';
-  }
-  const bf = frame; frame = function () { const r = bf.apply(this, arguments); try { placeMini(); } catch (_) {} return r; };
-
-  // ---------------- settings: Minimap on / off ----------------
-  if (SET.mini === undefined) SET.mini = 1;
-  const row = document.createElement('div'); row.className = 'set inline';
-  row.innerHTML = '<span>Minimap</span><div class="seg" id="miniSeg"><button data-v="1" data-testid="settings-minimap-on">On</button><button data-v="0" data-testid="settings-minimap-off">Off</button></div>';
-  const bob = $('bobSeg'); (bob ? bob.closest('.set') : $('qSeg2').closest('.set')).after(row);
-  const syncRow = () => row.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.v === (SET.mini === 0 ? 0 : 1)));
-  row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { SET.mini = +b.dataset.v; saveSet(); syncRow(); toast('Minimap ' + (SET.mini ? 'on' : 'off')); }));
-  const ss = syncSettingsUI; syncSettingsUI = function () { const r = ss.apply(this, arguments); syncRow(); return r; }; syncRow();
-
-  // ---------------- full map (pause menu) ----------------
-  const ov = document.createElement('div'); ov.id = 'mapOv'; ov.className = 'hidden'; ov.dataset.testid = 'map-overlay';
-  ov.innerHTML = '<canvas data-testid="map-canvas"></canvas><div class="mt">Map</div><div class="mb"><button data-a="x" data-testid="map-close" aria-label="Close">\u2715</button><button data-a="in" data-testid="map-zoom-in">+</button><button data-a="out" data-testid="map-zoom-out">\u2212</button><button data-a="me" data-testid="map-centre" aria-label="Centre">\u25ce</button></div><div class="mh" id="mapHint"></div>';
-  document.body.appendChild(ov); const bc = ov.querySelector('canvas'); const V = {x: 0, z: 0, z0: 2, dirty: true};
-  const ZMIN = 0.35, ZMAX = 10;
-  const pb = document.createElement('button'); pb.className = 'btn alt'; pb.id = 'mapBtn'; pb.dataset.testid = 'pause-map-button'; pb.textContent = '\ud83d\uddfa\ufe0f Map';
-  $('resumeBtn').after(pb); pb.addEventListener('click', () => openMap());
-  function hint() { $('mapHint').textContent = padConnected ? 'Left stick: move \u00b7 RT / LT or RB / LB: zoom \u00b7 Y: centre on you \u00b7 B: back' : (document.body.classList.contains('touch') ? 'Drag to move \u00b7 pinch or + / \u2212 to zoom \u00b7 \u25ce centre' : 'Drag to move \u00b7 wheel or + / \u2212 to zoom \u00b7 C centre \u00b7 Esc / M back'); }
-  function openMap() { if (!started) return; if (!paused) setPause(true); M.open = true; ov.classList.remove('hidden'); V.x = P.x; V.z = P.z; V.z0 = Math.max(ZMIN, Math.min(ZMAX, Math.min(innerWidth, innerHeight) / 220)); V.dirty = true; hint(); tick(); drawBig(); }
-  function closeMap() { M.open = false; ov.classList.add('hidden'); saveSeen(); }
-  M.openMap = openMap; M.closeMap = closeMap;
-  const zoomAt = (f, sx, sy) => { const r = bc.getBoundingClientRect(); sx = sx === undefined ? r.width / 2 : sx; sy = sy === undefined ? r.height / 2 : sy;
-    const wx = V.x + (sx - r.width / 2) / V.z0, wz = V.z + (sy - r.height / 2) / V.z0; V.z0 = Math.max(ZMIN, Math.min(ZMAX, V.z0 * f));
-    V.x = wx - (sx - r.width / 2) / V.z0; V.z = wz - (sy - r.height / 2) / V.z0; clampV(); V.dirty = true; };
-  const clampV = () => { V.x = Math.max(0, Math.min(W, V.x)); V.z = Math.max(0, Math.min(D, V.z)); };
-  function drawBig() {
-    if (!M.open || !mg) return; const w = innerWidth, h = innerHeight; if (bc.width !== w || bc.height !== h) { bc.width = w; bc.height = h; }
-    const g = bc.getContext('2d'); g.fillStyle = '#141b26'; g.fillRect(0, 0, w, h);
-    const toS = (x, z) => [(x - V.x) * V.z0 + w / 2, (z - V.z) * V.z0 + h / 2];
-    // the world's edge, unexplored = fog
-    const [ex, ey] = toS(0, 0); g.fillStyle = '#2a3442'; g.fillRect(ex, ey, W * V.z0, D * V.z0);
-    g.save(); g.globalAlpha = 0.18; g.strokeStyle = '#8796aa'; g.lineWidth = 1; const step = 64 * V.z0; if (step > 24) { g.beginPath();
-      for (let x = 0; x <= W; x += 64) { const [sx] = toS(x, 0); g.moveTo(sx, ey); g.lineTo(sx, ey + D * V.z0); } for (let z = 0; z <= D; z += 64) { const [, sy] = toS(0, z); g.moveTo(ex, sy); g.lineTo(ex + W * V.z0, sy); } g.stroke(); } g.restore();
-    g.imageSmoothingEnabled = V.z0 < 1; g.drawImage(mc, ex, ey, W * V.z0, D * V.z0);
-    g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.strokeRect(ex, ey, W * V.z0, D * V.z0);
-    g.font = '700 13px system-ui,sans-serif'; g.textBaseline = 'middle';
-    const label = (t, x, y) => { g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.85)'; g.strokeText(t, x, y); g.fillStyle = '#fff'; g.fillText(t, x, y); };
-    for (const k of castles()) { const i = ((k[1] / TS) | 0) * M.td + ((k[2] / TS) | 0); const [x, y] = toS(k[1], k[2]); icon(g, x, y, 'castle', 9); if (M.seen && M.seen[i]) label(cname(k[0]), x + 13, y); }
-    const sp = spawn(); if (sp) { const [x, y] = toS(sp[0], sp[2]); icon(g, x, y, 'spawn', 9); label('Spawn', x + 13, y); }
-    const [px, py] = toS(P.x, P.z); g.save(); g.translate(px, py); g.rotate(-P.yaw); g.fillStyle = '#fff'; g.strokeStyle = '#c0262d'; g.lineWidth = 2.5;
-    g.beginPath(); g.moveTo(0, -12); g.lineTo(8, 9); g.lineTo(0, 4); g.lineTo(-8, 9); g.closePath(); g.fill(); g.stroke(); g.restore();
-    // compass
-    g.fillStyle = '#c0262d'; g.beginPath(); g.arc(30, h - 60, 14, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = '800 14px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText('N', 30, h - 59); g.textAlign = 'left';
-    g.beginPath(); g.moveTo(30, h - 88); g.lineTo(36, h - 76); g.lineTo(24, h - 76); g.closePath(); g.fill();
-    V.dirty = false; M.bigDraws = (M.bigDraws || 0) + 1;
-  }
-  ov.querySelectorAll('.mb button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const a = b.dataset.a;
-    if (a === 'x') closeMap(); else if (a === 'in') zoomAt(1.5); else if (a === 'out') zoomAt(1 / 1.5); else { V.x = P.x; V.z = P.z; V.dirty = true; } drawBig(); }));
-  // drag / pinch / wheel
-  const pts = new Map(); let pinch = 0;
-  bc.addEventListener('pointerdown', e => { pts.set(e.pointerId, [e.clientX, e.clientY]); try { bc.setPointerCapture(e.pointerId); } catch (_) {} if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = Math.hypot(a[0] - b[0], a[1] - b[1]); } });
-  bc.addEventListener('pointermove', e => { const o = pts.get(e.pointerId); if (!o) return;
-    if (pts.size === 1) { V.x -= (e.clientX - o[0]) / V.z0; V.z -= (e.clientY - o[1]) / V.z0; clampV(); }
-    pts.set(e.pointerId, [e.clientX, e.clientY]);
-    if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) zoomAt(d / pinch, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); pinch = d; }
-    drawBig(); });
-  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = 0; };
-  bc.addEventListener('pointerup', up); bc.addEventListener('pointercancel', up);
-  bc.addEventListener('wheel', e => { e.preventDefault(); zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); drawBig(); }, {passive: false});
-  window.addEventListener('keydown', e => {
-    if (M.open) { if (e.code === 'Escape' || e.code === 'KeyM') { e.preventDefault(); e.stopImmediatePropagation(); closeMap(); }
-      else if (e.code === 'KeyC') { V.x = P.x; V.z = P.z; drawBig(); } else if (e.code === 'Equal' || e.code === 'NumpadAdd') { zoomAt(1.5); drawBig(); } else if (e.code === 'Minus' || e.code === 'NumpadSubtract') { zoomAt(1 / 1.5); drawBig(); }
-      return; }
-    if (e.code === 'KeyM' && !e.repeat && started && !dead && !menuOpen && !(window.__arcade && __arcade.mode)) { e.preventDefault(); openMap(); }
-  }, true);
-  // controller while the map is open
-  let lastT = 0;
-  const rp = readPad; readPad = function () {
-    if (!M.open) return rp.apply(this, arguments);
-    const gp = pickPad(), none = {lx: 0, ly: 0, rx: 0, ry: 0}; if (!gp) return none; padConnected = true;
-    const pr = i => { const b = gp.buttons[i]; return !!(b && (b.pressed || b.value > 0.4)); }, E = [];
-    for (let i = 0; i < 17; i++) { const n = pr(i); E[i] = n && !gpPrev[i]; gpPrev[i] = n; }
-    const now = performance.now(), dt = Math.min(0.1, (now - (lastT || now)) / 1000); lastT = now;
-    const dz = v => Math.abs(v) < 0.15 ? 0 : v, lx = dz(gp.axes[0] || 0), ly = dz(gp.axes[1] || 0), rx = dz(gp.axes[2] || 0), ry = dz(gp.axes[3] || 0);
-    const sp = 520 * dt / V.z0; let ch = false;
-    if (lx || ly || rx || ry) { V.x += (lx + rx) * sp; V.z += (ly + ry) * sp; clampV(); ch = true; }
-    const val = i => (gp.buttons[i] && gp.buttons[i].value) || 0, rt = val(7), lt = val(6);
-    if (rt > 0.1 || lt > 0.1) { zoomAt(Math.exp((rt - lt) * 2.2 * dt)); ch = true; }
-    if (E[5]) { zoomAt(1.5); ch = true; } if (E[4]) { zoomAt(1 / 1.5); ch = true; }
-    if (E[12] || E[13] || E[14] || E[15]) { V.x += ((E[15] ? 1 : 0) - (E[14] ? 1 : 0)) * 48 / V.z0 * 2; V.z += ((E[13] ? 1 : 0) - (E[12] ? 1 : 0)) * 48 / V.z0 * 2; clampV(); ch = true; }
-    if (E[3]) { V.x = P.x; V.z = P.z; ch = true; }
-    if (E[1] || E[9] || E[8]) closeMap(); else if (ch) drawBig();
-    if (!M._hp && padConnected) { M._hp = 1; hint(); }
-    return none;
-  };
-  // pause closes the map too
-  const sp0 = setPause; setPause = function (on) { if (!on && M.open) closeMap(); return sp0.apply(this, arguments); };
-  window.__mapT = {tick, drawBig, V, mc};
-})();
-
 /* ===================== GLX-C94 (v0.9.72): one world only ("Test World"), no backups; one-time wipe of every old world / backup =====================
    Worlds live in IndexedDB 'glencraft-saves' (stores 'worlds' + 'meta'); old copies / backups also sat in localStorage (glen_w_*, glen_worlds,
    glen_backup_meta_*). The DS game, its saves and the TV video are in the separate 'glencraft' DB ('files') and the settings in glen_set / glen_q:
@@ -17341,7 +17131,16 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   const se = serialize;
   serialize = function () { const d = se.apply(this, arguments); if (!DIM.cur) { try { takeSnap(); } catch (_) {} if (C95.snap) d.c95 = C95.snap; } else if (C95.snap) d.c95 = C95.snap; return d; };
   const ap = applySave;
-  applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) C95.snap = d.c95 && typeof d.c95 === 'object' ? d.c95 : null; return r; };
+  applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) { try { C95.snap = cleanSnap(d.c95); } catch (e) { C95.snap = null; console.warn('c95 bot save reset', e); } } return r; };
+  // v0.9.76: a bad / old bot record is dropped (fresh bots settle) instead of breaking the world load
+  function cleanSnap(o) { if (!o || typeof o !== 'object' || Array.isArray(o)) return null; const out = {}; const num = v => typeof v === 'number' && isFinite(v);
+    for (const role of ['hunter', 'miner']) { const q = o[role]; if (!q || typeof q !== 'object' || !Array.isArray(q.pos) || q.pos.length < 3 || !q.pos.every(num)) continue;
+      const c = {role, pos: q.pos.slice(0, 3), hp: num(q.hp) && q.hp > 0 ? q.hp : 24, food: num(q.food) ? q.food : 16,
+        bag: Array.isArray(q.bag) ? q.bag.filter(b => Array.isArray(b)).map(b => b.slice()) : [], armour: Array.isArray(q.armour) && q.armour.length === 4 && q.armour.every(v => num(v) || v == null) ? q.armour.slice() : undefined,
+        home: Array.isArray(q.home) && q.home.length >= 2 && num(q.home[0]) && num(q.home[1]) ? q.home.slice(0, 2) : null};
+      if (q.inv && typeof q.inv === 'object' && !Array.isArray(q.inv)) { c.inv = {}; for (const k in q.inv) if (num(q.inv[k]) && q.inv[k] > 0) c.inv[k] = Math.floor(q.inv[k]); }
+      if (q.brain && typeof q.brain === 'object') c.brain = q.brain; if (!c.armour) delete c.armour; out[role] = c; }
+    return Object.keys(out).length ? out : null; }
   const ew = enterWorld;
   enterWorld = function (save) { if (!save) C95.snap = null; return ew.apply(this, arguments); };
   window.__c95s = () => mobs.filter(isBot).map(m => ({role: m.role, job: m.job && m.job.type, act: m.act, hp: m.hp, food: Math.round(m.food || 0), armour: m.armour, pos: [m.g.position.x, m.g.position.y, m.g.position.z].map(v => Math.round(v * 10) / 10), sleeping: !!m.sleeping, bag: m.bag}));
@@ -17515,6 +17314,57 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
     return A.goTo(a, x, y, z, spd, dt);
   }
   const SP = {walk: 1.7, work: 1.6, sprint: 4.3, travel: 2.6};
+  // v0.9.76 chasing: a real A* over the walkable cells (48-block radius, doors count as open, steps up 1 / down 3) so they go
+  // round walls and through gaps and doorways instead of walking into them. They re-plan when the target moves, commit to the
+  // plan in between (no flip-flopping), hop + re-plan when stuck, and only drop a target that a full search can't reach
+  // (blacklisted for 10 s).
+  const BLK = new WeakMap(); B.blk = BLK; B.pst = {paths: 0, fails: 0, nodes: 0};
+  const now = () => performance.now() / 1000;
+  const blocked = m => m && typeof m === 'object' && (BLK.get(m) || 0) > now();
+  function findWay(sx, sy, sz, tx, ty, tz, R, cap) {
+    if (!A.stand(sx, sy, sz)) { if (A.stand(sx, sy + 1, sz)) sy++; else if (A.stand(sx, sy - 1, sz)) sy--; }
+    const K = (x, y, z) => (x * 4096 + z) * 256 + y, g = new Map(), from = new Map(), open = [];
+    const h = (x, y, z) => Math.abs(x - tx) + Math.abs(z - tz) + Math.abs(y - ty) * 0.5;
+    const push = n => { open.push(n); let i = open.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (open[q][0] <= n[0]) break; [open[i], open[q]] = [open[q], open[i]]; i = q; } };
+    const pop = () => { const t = open[0], l = open.pop(); if (open.length) { open[0] = l; let i = 0; for (;;) { const a1 = 2 * i + 1, b1 = a1 + 1; let m = i; if (a1 < open.length && open[a1][0] < open[m][0]) m = a1; if (b1 < open.length && open[b1][0] < open[m][0]) m = b1; if (m === i) break; [open[i], open[m]] = [open[m], open[i]]; i = m; } } return t; };
+    const k0 = K(sx, sy, sz); g.set(k0, 0); push([h(sx, sy, sz), sx, sy, sz]); let n = 0, goal = null;
+    while (open.length && n < cap) { const [, x, y, z] = pop(); const kc = K(x, y, z), gc = g.get(kc); n++;
+      if (Math.abs(x - tx) <= 1 && Math.abs(z - tz) <= 1 && Math.abs(y - ty) <= 1) { goal = kc; break; }
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (Math.abs(nx - sx) > R || Math.abs(nz - sz) > R) continue;
+        let ny = null; if (A.stand(nx, y, nz)) ny = y; else if (A.stand(nx, y + 1, nz) && !solid(x, y + 2, z)) ny = y + 1; else for (let fy = y - 1; fy >= y - 3; fy--) if (A.stand(nx, fy, nz)) { ny = fy; break; } else if (solid(nx, fy, nz)) break;
+        if (ny === null) continue; const kn = K(nx, ny, nz), gn = gc + 1 + (ny > y ? 0.6 : 0); const o = g.get(kn); if (o !== undefined && o <= gn) continue;
+        g.set(kn, gn); from.set(kn, kc); push([gn + h(nx, ny, nz) * 1.05, nx, ny, nz]); } }
+    B.pst.paths++; B.pst.nodes += n; if (goal === null) { B.pst.fails++; return null; }
+    const out = []; let k = goal; while (k !== k0 && from.has(k)) { const y = k % 256, r = (k - y) / 256, z = r % 4096, x = (r - z) / 4096; out.push([x, y, z]); k = from.get(k); }
+    return out.reverse();
+  }
+  B.findWay = findWay;
+  function chaseTo(a, j, tp, spd, dt, far, keep) {
+    const p = a.g.position;
+    if (far) { moveTo(a, Math.floor(tp.x), Math.floor(tp.y + 0.05), Math.floor(tp.z), spd, dt, true); return true; }
+    const tx = Math.floor(tp.x), ty = Math.floor(tp.y + 0.05), tz = Math.floor(tp.z);
+    j.rp = (j.rp || 0) - dt;
+    const moved = !j.g || Math.abs(j.g[0] - tx) + Math.abs(j.g[2] - tz) > 2;
+    if (!j.way || (moved && j.rp <= 0) || j.rp < -3) {   // plan at most once a second; otherwise stick to the plan
+      j.rp = 1; j.g = [tx, ty, tz];
+      const w = findWay(Math.floor(p.x), Math.floor(p.y + 0.05), Math.floor(p.z), tx, ty, tz, 48, 9000);
+      if (!w) { j.noWay = (j.noWay || 0) + 1; if (j.noWay >= 2 && !keep) { if (j.m && typeof j.m === 'object') BLK.set(j.m, now() + 10); return false; } j.way = []; }
+      else { j.noWay = 0; j.way = w; }
+    }
+    // stuck: barely moved in 2 s -> hop and re-plan; stuck 3 times running -> this one can't be reached right now
+    j.sT = (j.sT || 0) + dt; if (!j.sp) j.sp = [p.x, p.z];
+    if (j.sT >= 2) { const mv = Math.hypot(p.x - j.sp[0], p.z - j.sp[1]); j.sT = 0; j.sp = [p.x, p.z];
+      if (mv < 0.4) { j.stuck = (j.stuck || 0) + 1; if (a.onGround !== false) { a.vy = 6.6; a.onGround = false; } j.way = null; a.path = null;
+        if (j.stuck >= 3 && !keep) { if (j.m && typeof j.m === 'object') BLK.set(j.m, now() + 10); return false; } } else j.stuck = 0; }
+    const way = j.way || [];
+    while (way.length && Math.hypot(way[0][0] + .5 - p.x, way[0][2] + .5 - p.z) < 0.5 && Math.abs(way[0][1] - p.y) < 1.5) way.shift();
+    const w = way[0] || [tx, ty, tz];
+    a.path = null; a.goFail = 0;
+    a.ang = Math.atan2(w[0] + .5 - p.x, w[2] + .5 - p.z); A.doors(a);
+    if (typeof stepMob === 'function') { if (stepMob(a, spd, dt, false) === false && a.onGround !== false && w[1] > p.y - 0.5) { a.vy = 6.6; a.onGround = false; } a.moving = true; a.curSpd = spd; }
+    else A.goTo(a, w[0], w[1], w[2], spd, dt);
+    return true;
+  }
 
   // ================= hits they take (simulated: mobs only aim at you in the base game) =================
   function hurtBot(a, n, why) {
@@ -17540,15 +17390,19 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   }
 
   // ================= the planner =================
-  const ANIMALS = new Set(['sheep', 'pig', 'haggis', 'cow', 'deer', 'goat']);
+  const ANIMALS = new Set(['sheep', 'pig', 'haggis', 'cow', 'deer', 'goat', 'chicken', 'rabbit']);
   const meatOf = m => m.kind === 'pig' ? IT.PORK : m.kind === 'haggis' ? IT.HAGGIS : IT.MUTTON;
   function think(a, ci, far) {
     const tm = TM(), j = a.job;
     if (tm.phase === 'hostile') { if (!j || j.type !== 'chase') a.job = {type: 'chase', pri: 9, t: 0}; return; }
     if (a.mad > 0 && !dead && (!j || j.m !== 'player')) { a.job = {type: 'fight', m: 'player', pri: 9, t: 0}; return; }
     const h = A.hostileNear(a, tm.phase === 'war' ? 18 : 12);
-    if (h && (!j || j.type !== 'fight')) { a.job = {type: 'fight', m: h, pri: 8, t: 0}; return; }
+    if (h && !blocked(h) && (!j || j.type !== 'fight')) { a.job = {type: 'fight', m: h, pri: 8, t: 0}; return; }
     if (j && j.pri >= 8 && !j.done) return;
+    if ((!j || (j.type !== 'hunt' && j.type !== 'bed' && j.type !== 'fight' && j.type !== 'eat' && j.type !== 'raid')) && !isNight && (cooked(a) < 4 || a.food < 14 || rawN(a) < 2)) {
+      const p = a.g.position; let m = null, md = 4;
+      for (const q of mobs) { if (!ANIMALS.has(q.kind) || !(q.hp > 0) || q.tamed || q.pet || blocked(q)) continue; const d = Math.hypot(q.g.position.x - p.x, q.g.position.z - p.z); if (d < md && Math.abs(q.g.position.y - p.y) < 2.5) { md = d; m = q; } }
+      if (m) { a.job = {type: 'hunt', m, t: 0, pri: 3}; return; } }
     if (isNight) { if (!j || j.type !== 'bed') a.job = {type: 'bed', pri: 7, t: 0}; return; }
     if ((a.food < 8 || a.hp < (a.maxHp || 24) * 0.6) && cooked(a) && (!j || j.type !== 'eat')) { a.job = {type: 'eat', pri: 6, t: 0}; return; }
     if (j && !j.done && j.type !== 'bed') return;
@@ -17556,7 +17410,7 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   }
   function huntJob(a) {
     const p = a.g.position; let m = null, md = 44;
-    for (const q of mobs) { if (!ANIMALS.has(q.kind) || !(q.hp > 0) || q.tamed || q.pet) continue; const d = Math.hypot(q.g.position.x - p.x, q.g.position.z - p.z); if (d < md) { md = d; m = q; } }
+    for (const q of mobs) { if (!ANIMALS.has(q.kind) || !(q.hp > 0) || q.tamed || q.pet || blocked(q)) continue; const d = Math.hypot(q.g.position.x - p.x, q.g.position.z - p.z); if (d < md) { md = d; m = q; } }
     return m ? {type: 'hunt', m, t: 0, pri: 2} : {type: 'search', t: 0, pri: 2};
   }
   function plan(a, ci, far) {
@@ -17645,14 +17499,14 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
         if (m === 'player' ? (dead || !(a.mad > 0)) : (!mobs.includes(m) || !(m.hp > 0))) { done(); a.job = null; break; }
         const td = Math.hypot(tp.x - p.x, tp.z - p.z);
         if (j.t > 25 || td > 30) { done(); break; }
-        if (td > 1.7) moveTo(a, Math.floor(tp.x), Math.floor(tp.y + 0.05), Math.floor(tp.z), SP.sprint, dt, far); else A.face(a, tp.x - .5, tp.z - .5);
+        if (td > 1.7) { if (!chaseTo(a, j, tp, SP.sprint, dt, far, j.m === 'player')) { done(); break; } } else A.face(a, tp.x - .5, tp.z - .5);
         a.act = 'fight';
         if (td < 2.1 && Math.abs(tp.y - p.y) < 2 && (a.cd || 0) <= 0) { if (m === 'player') { a.cd = 0.9; a.swingT = 0.4; hurt(4, 'A clansman taught you some manners.'); } else if (swingAt(a, m)) done(); }
         break; }
       case 'chase': {
         if (dead || DIM.cur) { a.act = null; break; }
         const td = Math.hypot(P.x - p.x, P.z - p.z);
-        if (td > 1.7) moveTo(a, Math.floor(P.x), Math.floor(P.y + 0.05), Math.floor(P.z), td > 60 ? 6 : SP.sprint, dt, td > 48); else A.face(a, P.x - .5, P.z - .5);
+        if (td > 48) moveTo(a, Math.floor(P.x), Math.floor(P.y + 0.05), Math.floor(P.z), td > 60 ? 6 : SP.sprint, dt, true); else if (td > 1.7) chaseTo(a, j, P, SP.sprint, dt, false, true); else A.face(a, P.x - .5, P.z - .5);
         a.act = 'fight';
         if (td < 2.1 && Math.abs(P.y - p.y) < 2 && (a.cd || 0) <= 0) { a.cd = 0.9; a.swingT = 0.4; snd('swoosh', p, 12); hurt(4, 'The clansmen came back from Hell for you.'); }
         break; }
@@ -17754,7 +17608,7 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
         const m = j.m;
         if (!mobs.includes(m) || !(m.hp > 0) || j.t > 35) { done(); break; }
         const tp = m.g.position, td = Math.hypot(tp.x - p.x, tp.z - p.z);
-        if (td > 1.6) moveTo(a, Math.floor(tp.x), Math.floor(tp.y + 0.05), Math.floor(tp.z), td > 4 ? SP.sprint : 3.0, dt, far); else A.face(a, tp.x - .5, tp.z - .5);
+        if (td > 1.6) { if (!chaseTo(a, j, tp, td > 4 ? SP.sprint : 3.0, dt, far)) { done(); break; } } else A.face(a, tp.x - .5, tp.z - .5);
         a.act = 'fight';
         if (td < 2.0 && (a.cd || 0) <= 0) {
           const s = best(a, 'sword'), dmg = s ? TOOL[s][3] + 1 : 2;
@@ -17771,11 +17625,12 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
           if (moveTo(a, j.to[0], j.to[1], j.to[2], dd > 30 ? SP.travel : SP.sprint, dt, far) || dd < 12 || (j.t > 90 && dd < 30)) { j.ph = 'fight'; j.t = 0; say(a.role + ' is storming the ' + c[0] + ' castle'); }
           if (j.t > 400) { a.g.position.set(j.to[0] + .5, j.to[1], j.to[2] + .5); }
           break; }
-        const kind = c[0] === 'black' ? 'blackskel' : 'skeleton', foes = mobs.filter(m => m.hp > 0 && (m.kind === kind || m.kind === 'bigskel') && Math.hypot(m.g.position.x - c[1], m.g.position.z - c[2]) < 34);
+        const kind = c[0] === 'black' ? 'blackskel' : 'skeleton', foes = mobs.filter(m => m.hp > 0 && !blocked(m) && (m.kind === kind || m.kind === 'bigskel') && Math.hypot(m.g.position.x - c[1], m.g.position.z - c[2]) < 34);
         const tgt = foes.sort((q, r) => Math.hypot(q.g.position.x - p.x, q.g.position.z - p.z) - Math.hypot(r.g.position.x - p.x, r.g.position.z - p.z))[0];
         a.act = 'fight';
         if (tgt) { j.quiet = 0; const tp = tgt.g.position, td = Math.hypot(tp.x - p.x, tp.z - p.z);
-          if (td > 1.7) moveTo(a, Math.floor(tp.x), Math.floor(tp.y + 0.05), Math.floor(tp.z), SP.sprint, dt, far); else A.face(a, tp.x - .5, tp.z - .5);
+          if (!j.cs || j.cs.m !== tgt) j.cs = {m: tgt};
+          if (td > 1.7) chaseTo(a, j.cs, tp, SP.sprint, dt, far); else A.face(a, tp.x - .5, tp.z - .5);
           if (td < 2.1 && (a.cd || 0) <= 0 && swingAt(a, tgt)) { j.kills++; tm.kills = (tm.kills || 0) + 1; }
         } else {
           j.quiet += dt;
@@ -17919,7 +17774,20 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   const se = serialize;
   serialize = function () { const d = se.apply(this, arguments); try { d.c96 = JSON.parse(JSON.stringify(TM())); } catch (_) {} return d; };
   const ap = applySave;
-  applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) { B.team = d.c96 && typeof d.c96 === 'object' ? Object.assign(fresh(), d.c96) : fresh(); SCAN.clear(); } return r; };
+  applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) { try { B.team = cleanTeam(d.c96); } catch (e) { B.team = fresh(); B.team.noSpawn = []; console.warn('c96 team save reset', e); } SCAN.clear(); } return r; };
+  // v0.9.76: anything odd in the saved campaign is reset to a fresh team rather than blocking the load
+  function cleanTeam(o) { B.team = null; const t = fresh(); t.noSpawn = []; if (!o || typeof o !== 'object' || Array.isArray(o)) return t;
+    const strs = v => Array.isArray(v) ? v.filter(k => typeof k === 'string' && /^[a-z]+:-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(k)) : [];
+    if (['survive', 'mine', 'war', 'hell', 'hostile'].includes(o.phase)) t.phase = o.phase;
+    if (['mossy', 'black', 'loot', 'portal'].includes(o.step)) t.step = o.step;
+    t.cleared = strs(o.cleared); t.noSpawn = strs(o.noSpawn);
+    const num = v => typeof v === 'number' && isFinite(v);
+    t.hellT = num(o.hellT) ? o.hellT : 0; t.hostDead = num(o.hostDead) ? o.hostDead : 0; if (num(o.kills)) t.kills = o.kills;
+    if (o.portal && num(o.portal.x) && num(o.portal.y) && num(o.portal.z)) t.portal = {x: o.portal.x, y: o.portal.y, z: o.portal.z};
+    if (Array.isArray(o.portalAt) && o.portalAt.length >= 3 && o.portalAt.every(num)) t.portalAt = o.portalAt.slice(0, 3);
+    if (o.hellBots && typeof o.hellBots === 'object' && !Array.isArray(o.hellBots)) { t.hellBots = {}; for (const r of A.ROLES) { const q = o.hellBots[r]; if (q && typeof q === 'object') t.hellBots[r] = q; } }
+    if (t.phase === 'hell' && !t.hellBots) { t.phase = 'war'; t.step = 'portal'; }
+    return t; }
   const ew = enterWorld;
   enterWorld = function (save) { if (!save) { B.team = fresh(); B.team.noSpawn = []; SCAN.clear(); } return ew.apply(this, arguments); };
 
@@ -17951,6 +17819,24 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
   despawnPass = function () { if (DIM.cur) return dp.apply(this, arguments); const keep = []; for (let i = mobs.length - 1; i >= 0; i--) { const m = mobs[i]; if (m.kind === 'clansman' && m.role && m.isBot) { keep.push(m); mobs.splice(i, 1); } }
     try { return dp.apply(this, arguments); } finally { for (const a of keep) mobs.push(a); } };
 })();
+
+/* ===================== GLX-C97 (v0.9.76): minimap + full map removed; world loading made robust =====================
+   The c93 map is gone from the build. Its leftovers (explored-map bitmaps in localStorage, the settings flag) are cleaned up.
+   If an optional piece of a save (bot snapshot c95, bot campaign c96) still breaks applySave, it is dropped and the load retried. */
+(function c97() {
+  try { for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i); if (k && k.indexOf('glen_mapx_') === 0) localStorage.removeItem(k); } } catch (_) {}
+  try { if (typeof SET !== 'undefined' && SET && 'mini' in SET) { delete SET.mini; if (typeof saveSet === 'function') saveSet(); } } catch (_) {}
+  const OPT = ['c95', 'c96'];
+  const ap = applySave;
+  applySave = function (d) {
+    try { return ap.apply(this, arguments); } catch (e) {
+      window.__loadErr = String(e && e.stack || e); console.warn('[v0.9.76] world load: optional data reset', e);
+      if (!d || typeof d !== 'object') throw e;
+      const c = Object.assign({}, d); OPT.forEach(k => delete c[k]);
+      return ap.call(this, c);
+    }
+  };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -17962,6 +17848,12 @@ body.touch #miniMap{bottom:auto;top:calc(12px + var(--sat,0px))}
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.76', d:'2026-10-25', notes:[
+  'Removed the minimap and the pause-menu map (and their saved explored-map data)',
+  'World loading is more robust: odd or old clansmen save data is reset instead of stopping Test World from loading',
+  'Clansmen path-find round walls and through gaps and doorways when chasing animals or enemies (no more running into walls or in circles)',
+  'They only give up on a target a full search cannot reach (for 10 s), and hop and re-plan when stuck',
+  'Hungry clansmen now go for a sheep, pig or haggis standing right next to them']},
  {v:'v0.9.75', d:'2026-10-24', notes:[
   'Clansmen war campaign: once both are in iron (pick, sword, 2+ armour pieces) with food packed, they march on the mossy castle and kill its skeletons, then the Black skeleton castle',
   'They steal the obsidian and flint and steel from the black castle chest, place the missing obsidian, light the portal and walk into Hell',
