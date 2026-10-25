@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0977c -->
+<!-- glencraft-build: v0978c -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.77';
+const GAME_VERSION = 'v0.9.78';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -17083,9 +17083,15 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     for (const e of a.eyes) { e.ir.position.x = E.x; e.ir.position.y = E.y; e.lid.scale.y = lid; }
   }
   // ---- what they hold: the tool for the job, the sword in a fight ----
-  function tools(a) {
+  function tools(a, dt) {
     const act = a.act, r = a.role, fight = act === 'fight' || (a.job && (a.job.type === 'fight' || a.job.type === 'hunt'));
-    const want = a.sleeping ? null : fight ? 'sword' : (act === 'dig' || (a.job && a.job.type === 'mine')) ? 'pick' : (act === 'chop' || (a.job && a.job.type === 'chop')) ? 'axe' : r === 'hunter' ? 'sword' : r === 'miner' ? 'pick' : null;
+    const job = a.job && a.job.type, digging = act === 'dig' || (a.digKT > 0) || job === 'mine' || job === 'dig';
+    let want = a.sleeping ? null : fight ? 'sword' : digging ? (a.digK || 'pick') : (act === 'chop' || job === 'chop') ? 'axe' : r === 'hunter' ? 'sword' : r === 'miner' ? 'pick' : null;
+    // v0.9.78: no flip-flopping - a new tool only once the want has held for 0.7 s (a fight switches at once)
+    if (a.digKT > 0) a.digKT -= dt || 0;
+    if (a.toolK === undefined) a.toolK = want;
+    if (want !== a.toolK) { a.toolW = want === a.toolWk ? (a.toolW || 0) + (dt || 0) : 0; a.toolWk = want; if (a.toolW > 0.7 || (fight && want === 'sword') || a.sleeping) { a.toolK = want; a.toolW = 0; } } else a.toolW = 0;
+    want = a.toolK;
     if (a.pickG) a.pickG.visible = want === 'pick'; if (a.swordG) a.swordG.visible = want === 'sword'; if (a.axeG) a.axeG.visible = want === 'axe';
   }
   const ca = clanAI;
@@ -17093,7 +17099,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const r = (C95.brain && a.role && !C95.off) ? C95.brain(a, dt) : ca.apply(this, arguments);
     try { if (!a.armour) { a.armour = START_ARM.slice(); } if (a.dressed !== a.armour.join(',')) dress(a);
       const dist = Math.hypot(P.x - a.g.position.x, P.z - a.g.position.z);
-      if (dist < 40) { tools(a); eyes(a, dt, dist); } } catch (e) { if (!C95.err) { C95.err = 1; console.warn('c95', e); } }
+      if (dist < 40) { tools(a, dt); eyes(a, dt, dist); } } catch (e) { if (!C95.err) { C95.err = 1; console.warn('c95', e); } }
     return r;
   };
   // ---- exactly two, and they stay: their state lives in the save and comes back after Hell trips and reloads ----
@@ -17300,6 +17306,14 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   // v0.9.76: near you they walk a real A* path at player speed (sprint past 8 blocks), digging through what's in the way
   // v0.9.76: no path out from down a mine -> cut a staircase up toward the goal (player style: clear head-room, step up, repeat)
   // v0.9.77: move along the path direction (a.ang), not the smoothed body yaw - turning at a limited rate while sprinting made them orbit waypoints
+  // v0.9.78: open a door (and its double-door partner) or a gate in the way; they close again behind (base auto-close)
+  function openDoor(x, y, z, p) {
+    const b = wb(x, y, z), t = performance.now();
+    if (b === 226) { const gk = keyOf(x, y, z), gm = entMeta.get(gk) || {face: 0, open: 0}; if (!gm.open) { gm.open = 1; const along = gm.face ? p.x - (x + .5) : p.z - (z + .5); gm.dir = along > 0 ? -1 : 1; entMeta.set(gk, gm); C78.doors.push({key: gk, gate: 1, x, y, z, t}); try { sfx3d('doorOpen', p, 10); } catch (_) {} } return; }
+    const ly = b === T.DOORTOP ? y - 1 : y, list = [[x, z]]; const q = typeof window.doorPartner === 'function' ? window.doorPartner(x, ly, z) : null; if (q) list.push(q);
+    let any = false; for (const [dx, dz] of list) { const key = keyOf(dx, ly, dz); if (!doorState.get(key)) { doorState.set(key, true); C78.doors.push({key, x: dx, y: ly, z: dz, t}); any = true; } }
+    if (any) try { sfx3d('doorOpen', p, 10); } catch (_) {}
+  }
   function stepD(a, spd, dt, wd) { const yv = a.yawVis; a.yawVis = a.ang; const r = stepMob(a, spd, dt, wd); a.yawVis = yv; return r; }
   // v0.9.77 circling guard (kept on the bot, so re-plans don't reset it): walked a lot but < 1.5 blocks net in 4 s -> drop the goal
   function circ(a, dt) {
@@ -17351,9 +17365,11 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const n = w.way[0]; if (!n) { a.wk = null; return d < 1.5 || (d < 2.2 && Math.abs(y - p.y) > 1.2); }
     // dig what blocks the next cell (body, head, and the head-room for a step up / down)
     const need = [[n[0], n[1], n[2]], [n[0], n[1] + 1, n[2]]]; if (n[1] > cy) need.push([cx, cy + 2, cz]); if (n[1] < cy) need.push([n[0], cy, n[2]], [n[0], cy + 1, n[2]]);
-    for (const q of need) if (solid(q[0], q[1], q[2])) { a.moving = false; a.curSpd = 0; if (!breakAt(a, w, q[0], q[1], q[2], false)) { if (!canDig(a, q[0], q[1], q[2])) { w.way = null; w.fails++; w.cd = 0.5; if (w.fails >= 3) a.goFail = 99; } return false; } w.sT = 0; w.sp = [p.x, p.z]; return false; }
+    for (const c of w.way.slice(0, 2)) for (let k = 0; k < 2; k++) { const qb = wb(c[0], c[1] + k, c[2]); if (qb && (isDoor(qb) || qb === 226) && Math.hypot(c[0] + .5 - p.x, c[2] + .5 - p.z) < 2.2) openDoor(c[0], c[1] + k, c[2], p); }
+    for (const q of need) { const qb = wb(q[0], q[1], q[2]); if (qb && (isDoor(qb) || qb === 226)) continue;   // doors / gates: opened above, walk through
+      if (solid(q[0], q[1], q[2])) { a.moving = false; a.curSpd = 0; if (!breakAt(a, w, q[0], q[1], q[2], false)) { if (!canDig(a, q[0], q[1], q[2])) { w.way = null; w.fails++; w.cd = 0.5; if (w.fails >= 3) a.goFail = 99; } return false; } w.sT = 0; w.sp = [p.x, p.z]; return false; } }
     a.ang = Math.atan2(n[0] + .5 - p.x, n[2] + .5 - p.z); A.doors(a);
-    const nd = Math.hypot(n[0] + .5 - p.x, n[2] + .5 - p.z), sp2 = d > 8 ? SP.sprint : d < 1.5 ? Math.min(SP.walk, Math.max(1.5, nd * 4)) : Math.max(spd, SP.walk);
+    const nd = Math.hypot(n[0] + .5 - p.x, n[2] + .5 - p.z), sp2 = (w.way.length > 8 && d > 8) ? SP.sprint : d < 1.5 ? Math.min(SP.walk, Math.max(1.5, nd * 4)) : Math.max(spd, SP.walk);
     if (stepD(a, sp2, dt, false) === false && a.onGround !== false) { a.vy = 6.6; a.onGround = false; }
     if (n[1] > cy && a.onGround !== false && Math.hypot(n[0] + .5 - p.x, n[2] + .5 - p.z) < 1.3) { a.vy = 6.6; a.onGround = false; }
     a.moving = true; a.curSpd = sp2;
@@ -17408,7 +17424,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const b = wb(x, y, z); if (!b || !solid(x, y, z)) { j.bk = null; return true; }
     if (!canDig(a, x, y, z)) return false;
     const k = x + ',' + y + ',' + z; if (!j.bk || j.bk.k !== k) j.bk = {k, t: 0, need: breakSecs(a, b)};
-    j.bk.t += j.dt || 0; a.act = 'dig'; A.face(a, x, z);
+    j.bk.t += j.dt || 0; a.act = 'dig'; a.digK = (typeof rightToolKind === 'function' && rightToolKind(b)) === 'axe' ? 'axe' : 'pick'; a.digKT = 0.8; A.face(a, x, z);
     if (!far && Math.random() < (j.dt || 0) * 3) { spark(x + .5, y + .5, z + .5, 0x8a8a8a, 2, 0.4); snd('dig', a.g.position, 10); }
     if (j.bk.t < j.bk.need) return false;
     const harvest = !(REQ[b] > 0) || lvl(a, 'pick') >= REQ[b];
@@ -17424,6 +17440,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   const BLK = new WeakMap(); B.blk = BLK; B.pst = {paths: 0, fails: 0, nodes: 0};
   const now = () => performance.now() / 1000;
   const blocked = m => m && typeof m === 'object' && (BLK.get(m) || 0) > now();
+  const isDoor = b => b === T.DOOR || b === T.DOORTOP;
   function findWay(sx, sy, sz, tx, ty, tz, R, cap, dg) {
     if (!A.stand(sx, sy, sz)) { if (A.stand(sx, sy + 1, sz)) sy++; else if (A.stand(sx, sy - 1, sz)) sy--; }
     const K = (x, y, z) => (x * 4096 + z) * 256 + y, g = new Map(), from = new Map(), open = [];
@@ -17441,7 +17458,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
             const c1 = clearOrDig(dg, nx, yy, nz), c2 = clearOrDig(dg, nx, yy + 1, nz), c3 = yy > y ? clearOrDig(dg, x, y + 2, z) : yy < y ? clearOrDig(dg, nx, yy + 2, nz) : 0;
             if (c1 < 0 || c2 < 0 || c3 < 0) continue; ny = yy; extra = 1 + (c1 + c2 + c3) * 3; break; }
         }
-        if (ny === null) continue; const kn = K(nx, ny, nz), gn = gc + 1 + (ny > y ? 0.6 : 0) + extra; const o = g.get(kn); if (o !== undefined && o <= gn) continue;
+        if (ny === null) continue; if (isDoor(wb(nx, ny, nz)) || wb(nx, ny, nz) === 226) extra += 0.6; const kn = K(nx, ny, nz), gn = gc + 1 + (ny > y ? 0.6 : 0) + extra; const o = g.get(kn); if (o !== undefined && o <= gn) continue;
         g.set(kn, gn); from.set(kn, kc); push([gn + h(nx, ny, nz) * hw, nx, ny, nz]); } }
     BSC = null; B.pst.paths++; B.pst.nodes += n; B.fn = (B.fn || 0) + n; if (goal === null) { B.pst.fails++; return null; }
     const out = []; let k = goal; while (k !== k0 && from.has(k)) { const y = k % 256, r = (k - y) / 256, z = r % 4096, x = (r - z) / 4096; out.push([x, y, z]); k = from.get(k); }
@@ -17502,6 +17519,32 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   // ================= the planner =================
   const ANIMALS = new Set(['sheep', 'pig', 'haggis', 'cow', 'deer', 'goat', 'chicken', 'rabbit']);
   const meatOf = m => m.kind === 'pig' ? IT.PORK : m.kind === 'haggis' ? IT.HAGGIS : IT.MUTTON;
+  // v0.9.78: each bot keeps scanning around itself (one slice per tick, ~32 blocks) for ore it can see - cave walls, ravines, its own tunnels
+  const USEFUL = new Set([T.IRONORE, T.COALORE, T.DIAMONDORE, T.GOLDORE].filter(v => v !== undefined));
+  function oreScan(a) {
+    const p = a.g.position, bx = Math.floor(p.x), by = Math.floor(p.y), bz = Math.floor(p.z), pk = lvl(a, 'pick'); if (!pk) return;
+    a.scx = ((a.scx || 0) + 1) % 65; const x = bx - 32 + a.scx; if (x < 3 || x >= W - 3) return;
+    const seen = a.seen || (a.seen = []); if (seen.length > 40) seen.splice(0, seen.length - 40);
+    for (let z = Math.max(3, bz - 32); z <= Math.min(D - 4, bz + 32); z++) for (let y = Math.max(2, by - 22); y <= by + 6; y++) {
+      const b = wb(x, y, z); if (!USEFUL.has(b) || ORE_LVL(b) > pk || placed(x, y, z)) continue;
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0], [0, -1, 0]]) { const ax = x + dx, ay = y + dy, az = z + dz; if (wb(ax, ay, az) !== T.AIR) continue;
+        let sp = null; for (let sy = ay; sy >= ay - 3 && !sp; sy--) if (A.stand(ax, sy, az)) sp = [ax, sy, az]; else if (solid(ax, sy, az)) break;
+        if (sp && !inCastle(a.ci, ax, az)) { const k = x + ',' + y + ',' + z; if (!seen.some(o => o[0] === x && o[1] === y && o[2] === z)) seen.push([x, y, z, sp[0], sp[1], sp[2]]); break; } }
+    }
+  }
+  function pickSeen(a) {
+    const pk = lvl(a, 'pick'), bad = (() => { try { return scanOf(a.ci).bad; } catch (_) { return new Set(); } })(), p = a.g.position;
+    const L = (a.seen || []).filter(o => { const b = wb(o[0], o[1], o[2]); return A.ORES.has(b) && ORE_LVL(b) <= pk && !banned(a, 'mine', o) && !bad.has(o.join()) && Math.hypot(o[0] - p.x, o[2] - p.z) < 34; }); a.seen = L;
+    let bst = null, bd = 1e9; for (const o of L) { const d = Math.hypot(o[0] - p.x, o[1] - p.y, o[2] - p.z) - (wb(o[0], o[1], o[2]) === T.IRONORE ? 8 : 0); if (d < bd) { bd = d; bst = o; } }
+    return bst ? {type: 'mine', o: bst, ph: 'go', t: 0, pri: 1, cave: 1} : null;
+  }
+  // v0.9.78 anti-loop: the same goal + target picked 3 times in 20 s -> that target is banned for 60 s, they do something else
+  const tkey = (type, o) => type + ':' + (o ? (Array.isArray(o) ? o.slice(0, 3).join(',') : o.uid || o.id || '') : '');
+  function banned(a, type, o) { const b = a.ban && a.ban.get(tkey(type, o)); return !!(b && b > B.gt); }
+  function noteJob(a, j) {
+    const k = tkey(j.type + (j.want || ''), j.o || j.m || j.at), h = a.jh || (a.jh = []); h.push([B.gt, k]); while (h.length && B.gt - h[0][0] > 20) h.shift();
+    if (k.split(':')[1] && h.filter(e => e[1] === k).length >= 3) { (a.ban || (a.ban = new Map())).set(k, B.gt + 60); if (j.type === 'mine' || j.type === 'chop') try { scanOf(a.ci).bad.add(j.o.join()); } catch (_) {} if (j.m && typeof j.m === 'object') BLK.set(j.m, now() + 30); B.pst.loops = (B.pst.loops || 0) + 1; j.done = true; }
+  }
   function think(a, ci, far) {
     const tm = TM(), j = a.job;
     if (tm.phase === 'hostile') { if (!j || j.type !== 'chase') a.job = {type: 'chase', pri: 9, t: 0}; return; }
@@ -17555,7 +17598,8 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const chop = () => { const t = nearestOf(a, s.trees, o => !s.bad.has(o.join()) && !claimed(a, o) && LOGGY[wb(o[0], o[1], o[2])]); return t ? {type: 'chop', o: t, ph: 'go', t: 0, pri: 1} : {type: 'search', wood: 1, t: 0, pri: 1}; };
     const near24 = o => Math.hypot(o[0] - a.g.position.x, o[2] - a.g.position.z) < 24 && Math.abs(o[1] - a.g.position.y) < 8;
     const stone = () => { if (!pk) return null; const t = nearestOf(a, s.stone, o => near24(o) && !s.bad.has(o.join()) && !claimed(a, o) && wb(o[0], o[1], o[2]) === T.STONE); return t ? {type: 'mine', o: t, ph: 'go', t: 0, pri: 1} : digJob(a, ci, 'stone'); };
-    const ore = () => { if (!pk) return null; const coalLow = fuelPts(a) < 10; const t = nearestOf(a, s.ores, o => { const b = wb(o[0], o[1], o[2]); return A.ORES.has(b) && ORE_LVL(b) <= pk && !s.bad.has(o.join()) && !claimed(a, o) && (b === T.IRONORE || (coalLow && b === T.COALORE) || Math.random() < 0.25); });
+    const seenOre = () => pickSeen(a);
+    const ore = () => { if (!pk) return null; const cv = !far && seenOre(); if (cv) return cv; const coalLow = fuelPts(a) < 10; const t = nearestOf(a, s.ores, o => { const b = wb(o[0], o[1], o[2]); return A.ORES.has(b) && ORE_LVL(b) <= pk && !s.bad.has(o.join()) && !claimed(a, o) && (b === T.IRONORE || (coalLow && b === T.COALORE) || Math.random() < 0.25); });
       return t && near24(t) ? {type: 'mine', o: t, ph: 'go', t: 0, pri: 1} : digJob(a, ci, pk >= 2 ? 'iron' : 'stone'); };
     if (wood(a) < (pk ? 8 : 14) && !(role === 'miner' && pk >= 2 && ch && chestCount(ch, [T.PLANKS, T.LOG]))) return chop();
     if (!pk) return chop();
@@ -17728,6 +17772,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
         const nx = cx + dx, nz = cz + dz, ny = down ? cy - 1 : cy;
         const cells = down ? [[nx, cy + 1, nz], [nx, cy, nz], [nx, cy - 1, nz]] : [[nx, cy + 1, nz], [nx, cy, nz]];
         const bad = cells.some(q => solid(q[0], q[1], q[2]) && !canDig(a, q[0], q[1], q[2])) || liquid(wb(nx, ny - 1, nz)) || cells.some(q => liquid(wb(q[0], q[1], q[2]))) || (!solid(nx, ny - 1, nz) && !solid(nx, ny - 2, nz) && !solid(nx, ny - 3, nz));
+        if (bad && j.want === 'iron' || bad && j.want === 'stone') { const cv = pickSeen(a); if (cv) { a.job = cv; say(a.role + ' broke into a cave - going for the ore'); break; } }
         if (bad) { j.why = 'turn'; j.turns = (j.turns || 0) + 1; if (j.turns > 6) { done(); break; } j.dir = j.turns % 2 ? [dz, -dx] : [-dz, dx]; break; }
         const sq = cells.find(q => solid(q[0], q[1], q[2]));
         if (sq) { j.why = 'break'; a.moving = false; breakAt(a, j, sq[0], sq[1], sq[2], far); break; }
@@ -17863,11 +17908,17 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (a.sleeping) { if (!isNight || TM().phase === 'hostile' || a.mad > 0 || A.hostileNear(a, 5)) { A.wake(a); a.job = null; } }
     a.thinkT = (a.thinkT == null ? Math.random() * 0.4 : a.thinkT) - tdt;
     if (!a.sleeping && a.thinkT <= 0) { a.thinkT = far ? 0.9 : 0.4; try { think(a, ci, far); } catch (e) { if (!B.err1) { B.err1 = String(e && e.stack || e); console.warn('c96 think', e); } a.job = {type: 'wait', t: 0, tt: 3, pri: 0}; } }
-    if (a.job !== a.lastJob) { a.lastJob = a.job; a.goFail = 0; a.wk = null; if (a.job) { B.tl.push([+(B.gt || 0).toFixed(1), a.role, a.job.type + (a.job.want ? ':' + a.job.want : '')]); if (B.tl.length > 400) B.tl.shift(); } }
+    if (a.job !== a.lastJob) { a.lastJob = a.job; a.goFail = 0; a.wk = null; a.npT = 0; if (a.job) { try { noteJob(a, a.job); } catch (_) {} B.tl.push([+(B.gt || 0).toFixed(1), a.role, a.job.type + (a.job.want ? ':' + a.job.want : '')]); if (B.tl.length > 400) B.tl.shift(); } }
     if (!a.sleeping) { try { act(a, ci, tdt, far); } catch (e) { if (!B.err2) { B.err2 = String(e && e.stack || e); console.warn('c96 act', e); } a.job = null; } if (a.job && a.job.done) a.job = null; }
     if (!a.sleeping && !far) threats(a, tdt);
+    if (!far && !a.sleeping) { a.osT = (a.osT || 0) - tdt; if (a.osT <= 0) { a.osT = 0.1; try { oreScan(a); } catch (_) {} }
+      // watchdog: a moving-type job with no movement and no digging for 2 s -> re-plan now
+      const j = a.job, mv = j && ((j.ph === 'go' && j.type !== 'hunt') || j.type === 'goto' || j.type === 'dig' || j.type === 'search' || j.type === 'quarry');
+      const dg = B.st.dug || 0; if (mv && (a.vs || 0) < 0.2 && dg === a.npD && !(j.bk && j.bk.t > 0) && !(a.wk && a.wk.bk) && !(j.ore)) { a.npT = (a.npT || 0) + tdt; if (a.npT > 2) { a.npT = 0; a.goFail = 99; a.wk = null; a.wp = null; B.pst.wd = (B.pst.wd || 0) + 1; if (j.type === 'search' || j.type === 'quarry' || j.type === 'goto' && j.t > 6) j.done = true; a.thinkT = 0; } } else a.npT = 0; a.npD = dg; }
     if (far) { if (!a.sleeping && (!a.job || (a.job.type !== 'mine' && a.job.type !== 'bed'))) { const f = floorBelow(Math.floor(p.x), p.y + 1, Math.floor(p.z)); if (Math.abs(f - p.y) < 3) p.y = f; } return; }
     if (dist < 6 && !a.sleeping && !(a.job && (a.job.type === 'fight' || a.job.type === 'hunt'))) a.glanceT = 0.3;   // v0.9.76: head turns to you, the work goes on
+    { const vx = p.x - (a.lpx ?? p.x), vz = p.z - (a.lpz ?? p.z); a.lpx = p.x; a.lpz = p.z; const v = tdt > 0 ? Math.min(8, Math.hypot(vx, vz) / tdt) : 0;   // v0.9.78: walk/run/idle anim from the real speed
+      a.vs = (a.vs || 0) + (v - (a.vs || 0)) * Math.min(1, tdt * 8); a.moving = a.vs > 0.35; a.curSpd = a.moving ? a.vs : 0; }
     if (dist < 40) { syncHeld(a); const k = a.act; if (k === 'chop') a.act = 'dig'; A.animate(a, dt, dist); a.act = k; }
   }
   C95.brain = (a, dt) => B.on ? brain(a, dt) : undefined;
@@ -17987,6 +18038,33 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     }
   };
 })();
+
+/* ===================== GLX-C98 (v0.9.78): castle double doors - two doors side by side work as a pair (mirrored hinges, open together) ===================== */
+(function () {
+  const isD = (x, y, z) => getB(x, y, z) === T.DOOR;
+  const mine = (x, y, z) => { try { return placedSet.has(idx(x, y, z)); } catch (_) { return false; } };
+  function rebuild(x, y, z) { const k = keyOf(x, y, z), o = entObjs.get(k); if (!o) return; scene.remove(o.g); disposeObj(o.g); entObjs.delete(k); entObjs.set(k, buildEnt(T.DOOR, x, y, z)); }
+  function fixPair(x, ly, z) {
+    if (!isD(x, ly, z)) return null;
+    let q = null; const mA = entMeta.get(keyOf(x, ly, z)) || {face: 0};
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (isD(x + dx, ly, z + dz)) { const mB = entMeta.get(keyOf(x + dx, ly, z + dz)); if (!q || (mB && (mB.face || 0) === (mA.face || 0))) q = [x + dx, z + dz]; }
+    if (!q) return null;
+    const kA = keyOf(x, ly, z), kB = keyOf(q[0], ly, q[1]), mB = entMeta.get(kB) || {face: 0};
+    if (mine(x, ly, z) || mine(q[0], ly, q[1])) return (mA.face || 0) === (mB.face || 0) && !!mA.hinge !== !!mB.hinge ? q : null;   // your own doors: left as you placed them
+    const alongX = q[0] !== x, ok = f => alongX ? f % 2 === 0 : f % 2 === 1;
+    const f = ok(mA.face || 0) ? (mA.face || 0) : ok(mB.face || 0) ? (mB.face || 0) : (alongX ? 0 : 1);
+    const hA = toLocal(q[0] + .5, q[1] + .5, x, z, f)[0] > 0 ? 0 : 1, hB = 1 - hA;
+    if ((mA.face || 0) !== f || (mA.hinge ? 1 : 0) !== hA || (mB.face || 0) !== f || (mB.hinge ? 1 : 0) !== hB) {
+      mA.face = f; mA.hinge = hA; mB.face = f; mB.hinge = hB; entMeta.set(kA, mA); entMeta.set(kB, mB);
+      doorState.set(kB, !!doorState.get(kA)); rebuild(x, ly, z); rebuild(q[0], ly, q[1]); }
+    return q;
+  }
+  window.doorPartner = (x, ly, z) => { try { return fixPair(x, ly, z); } catch (e) { return null; } };
+  const td = toggleDoor;
+  toggleDoor = function (x, y, z) { try { const ly = getB(x, y, z) === T.DOORTOP ? y - 1 : y; fixPair(x, ly, z); } catch (_) {} return td.apply(this, arguments); };
+  // castle doors near you get paired up (old worlds too); cheap: a few door entities every 2 s
+  setInterval(() => { try { if (typeof started === 'undefined' || !started) return; for (const o of [...entObjs.values()]) if (o.type === T.DOOR && Math.abs(o.x - P.x) < 32 && Math.abs(o.z - P.z) < 32) fixPair(o.x, o.y, o.z); } catch (e) {} }, 2000);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -17998,6 +18076,13 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.78', d:'2026-10-25', notes:[
+  'Castle double doors work as a pair: hinges on the outside, both open and close together (for you and the clansmen), old worlds fixed too',
+  'Clansmen open doors and gates on their path instead of stopping in front of them (that was a big cause of them standing still)',
+  'They walk normally and only sprint on long trips; the walk / idle animation now follows how fast they really move',
+  'No more tool flicker: they keep the tool in hand until the job really changes (axe for wood, pick for stone)',
+  'They keep looking around for ore they can see (caves, ravines, their own tunnels) and go for it first; strip mining is the fallback, and breaking into a cave sends them straight for its ore',
+  'Anti-loop: the same goal picked 3 times in 20 s is dropped for a while, and 2 s with no movement or digging makes them re-plan at once']},
  {v:'v0.9.77', d:'2026-10-25', notes:[
   'Fixed clansmen running in circles: they now move straight along their path instead of along their slowly-turning body, so sprinting no longer makes them orbit a path point',
   'They slow down when arriving, skip path points they have already passed, and drop a goal if they go round in circles for a few seconds']},
