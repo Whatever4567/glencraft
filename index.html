@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0994a -->
+<!-- glencraft-build: v0995a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.94';
+const GAME_VERSION = 'v0.9.95';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19069,6 +19069,101 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     try { if (arguments.length === 0 && typeof xpState === 'function') { const L = xpState().lvl; if (L > 0 && L % 30 === 0) return bigChime(true); if (L > 0 && L % 5 === 0) return bigChime(false); } } catch (_) {}
     U.chime = 'small'; return lc.apply(this, arguments); };
 })();
+
+/* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
+(function c114() {
+  const NEW = [
+    ['v0.9.95', ['Patch notes are back, on the title screen and in the pause menu']],
+    ['v0.9.94', ['Castle islands: each castle sits on its own island with its own biome (alder, hawthorn, yew)', 'Long bridges from the mainland to every castle, each built in its castle\'s style', 'A round central mainland with bigger tree biomes and spawn in the middle', 'Crofts with farmers who work their fields by day and sleep in their beds at night', 'Level-up chime: a big bright flourish at level 30 and a softer one every 5 levels']],
+    ['v0.9.93', ['Map item, already explored with every castle marked (8 Paper + 1 Redstone)', 'Hold the map in both hands to read it while you explore', 'Paper, made from Reeds or Wheat', 'HD tool icons and HD held tool models']],
+    ['v0.9.92', ['Hamish and Angus chat with Scottish grunts and mumbles', 'Clansmen react to trades and rant at you if you hit them']],
+    ['v0.9.91', ['Giant spiders that only fight back when you hit them', 'Spiders take revenge on skeletons that shoot them, smashing them to bones']],
+    ['v0.9.90', ['Your left hand reaches out with the torch when you quick-place one']],
+    ['v0.9.89', ['Minecraft-style block lighting with a proper torch glow']],
+    ['v0.9.88', ['Quick torch: LT with a tool or empty hand places a torch', 'New ore textures for iron, silver, gold, cobalt and lazurite']],
+    ['v0.9.86', ['Reset world button in the pause menu, with a live world rebuild around you']],
+    ['v0.9.85', ['Night spiders that climb walls and drop String', 'String crafts into Wool', 'Painted sky with drifting clouds']],
+    ['v0.9.83', ['Jetpack: fly with flame thrusters and glide down safely', 'World list: make and play as many worlds as you like']],
+    ['v0.9.82', ['Spawn island built from the MHkitpvp map', '40 hand-built trees growing among the normal ones', 'Hell imps and blaze skeletons in gold armour that may drop it', 'Press Y to send items to your hotbar or put armour on', 'Armour bar above your hearts', 'New outfits for Hamish and Angus']],
+    ['v0.9.81', ['Hamish and Angus live at the castle by spawn', 'Trading: LT on a clansman to trade for rubies', 'Ruby gem icon', 'Gruff Scottish voices for the clansmen', 'A new look for your character']],
+    ['v0.9.80', ['Pause menu: teleport to each clansman', 'Load safe mode', '"Update now" button when the page is out of date']],
+    ['v0.9.70', ['Play your DS game on the TV inside your world', 'TV Remote: play your own video on a TV']],
+    ['v0.9.69', ['Gamepad item for TVs', 'DS Game slot in the Glencraft TV library']],
+    ['v0.9.68', ['Tree biomes: oak, pine, birch, rowan, alder, yew, juniper, hawthorn and blackthorn, each with its own ground', 'Rotting Alder wood']],
+    ['v0.9.67', ['Fence gate that swings open like a door']],
+    ['v0.9.66', ['Photo-real graphics option']],
+    ['v0.9.65', ['Scottish trees, each with its own logs and leaves', 'Heather clumps on the moors']],
+    ['v0.9.62', ['Ruby, lazurite and cobalt ores', 'Castle gates', 'Bedrock world border']],
+    ['v0.9.59', ['Luckenbooth brooch: saves you from death when held']],
+    ['v0.9.57', ['Underwater sounds, light ripples and bubbles']],
+    ['v0.9.56', ['Rain with wet ground and puddles', 'Swimming', 'Render distance setting']],
+    ['v0.9.55', ['Console-style controller menus']],
+    ['v0.9.54', ['Weather, time and freeze options in the pause menu']],
+    ['v0.9.52', ['Yellow creeper that chases you and blows up twice as hard']],
+    ['v0.9.51', ['Atmospheric soundtrack']],
+    ['v0.9.50', ['Bedrock-style bridging with a ghost preview']]
+  ];
+  window.NEW_NOTES = NEW;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+  const st = document.createElement('style');
+  st.textContent = '#pnUI{position:fixed;inset:0;z-index:9500;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}#pnUI.on{display:flex}' +
+    '#pnUI .pp{width:min(620px,92vw);max-height:84vh;display:flex;flex-direction:column;background:rgba(18,26,20,.97);border:2px solid #7fae5a;border-radius:14px;color:#eef6e6;font-family:system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.5)}' +
+    '#pnUI .ph{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.12)}#pnUI .ph b{font-size:20px;flex:1}#pnUI .ph span{font-size:12px;opacity:.75}' +
+    '#pnUI .px{background:#2c3a2a;color:#fff;border:1px solid #7fae5a;border-radius:8px;font-size:16px;padding:4px 10px;cursor:pointer}#pnUI .px.focus{outline:3px solid #ffd54a}' +
+    '#pnBody{overflow-y:auto;padding:6px 18px 14px;-webkit-overflow-scrolling:touch;outline:none}#pnBody h3{margin:14px 0 6px;font-size:16px;color:#bfe39a}#pnBody h3 small{font-weight:400;opacity:.7;font-size:12px;margin-left:6px}' +
+    '#pnBody ul{margin:0;padding-left:20px}#pnBody li{margin:3px 0;line-height:1.35;font-size:14px}#pnUI .pf{padding:8px 16px;font-size:12px;opacity:.7;border-top:1px solid rgba(255,255,255,.12)}';
+  document.head.appendChild(st);
+  const ui = document.createElement('div'); ui.id = 'pnUI'; ui.setAttribute('data-testid', 'patch-notes-panel'); ui.setAttribute('role', 'dialog');
+  ui.innerHTML = '<div class="pp"><div class="ph"><b>Patch notes</b><span id="pnVer"></span><button class="px" id="pnClose" data-testid="patch-notes-panel-close" aria-label="Close">&#10005;</button></div>' +
+    '<div id="pnBody" tabindex="0" data-testid="patch-notes-panel-list"></div><div class="pf">Scroll: stick / D-pad / swipe / wheel &nbsp;·&nbsp; Close: B or &#10005;</div></div>';
+  document.body.appendChild(ui);
+  const body = ui.querySelector('#pnBody');
+  let open = false;
+  function render() {
+    body.innerHTML = NEW.map(([v, n]) => '<div><h3>' + esc(v) + (v === GAME_VERSION ? '<small>this version</small>' : '') + '</h3><ul>' + n.map(x => '<li>New: ' + esc(x) + '</li>').join('') + '</ul></div>').join('');
+    ui.querySelector('#pnVer').textContent = 'You are on ' + GAME_VERSION;
+  }
+  function openPN() { render(); ui.classList.add('on'); open = true; body.scrollTop = 0; ui.querySelector('#pnClose').classList.toggle('focus', !!padConnected); try { body.focus({preventScroll: true}); } catch (_) {} try { sfx('pop', .2); } catch (_) {} lastT = 0; requestAnimationFrame(tick); }
+  function closePN() { if (!open) return; ui.classList.remove('on'); open = false; try { if ($('pause').classList.contains('hidden')) refocusMenu(); else refocusPause(); } catch (_) {} }
+  window.__c114 = {open: openPN, close: closePN, isOpen: () => open, body};
+  ui.querySelector('#pnClose').addEventListener('click', e => { e.preventDefault(); closePN(); });
+  ui.addEventListener('click', e => { if (e.target === ui) closePN(); });
+  const scroll = (dir, page) => { body.scrollTop += dir * (page ? body.clientHeight * .85 : 70); };
+  // title screen tile
+  try {
+    const row = document.querySelector('#scr-title .tilerow'), set = $('setBtn');
+    const b = document.createElement('button'); b.className = 'tile small'; b.id = 'pnTitleBtn'; b.setAttribute('data-testid', 'title-patch-notes-btn'); b.innerHTML = '<b>Patch notes</b><small>What\'s new</small>';
+    b.addEventListener('click', e => { e.preventDefault(); openPN(); });
+    row.insertBefore(b, set);
+  } catch (e) { console.warn('c114 title', e); }
+  // pause menu button
+  try {
+    const rb = $('resumeBtn');
+    const b = document.createElement('button'); b.className = 'btn alt'; b.id = 'pnPauseBtn'; b.setAttribute('data-testid', 'pause-patch-notes-btn'); b.textContent = 'Patch notes';
+    b.addEventListener('click', e => { e.preventDefault(); openPN(); });
+    rb.parentNode.insertBefore(b, rb.nextSibling);
+  } catch (e) { console.warn('c114 pause', e); }
+  // controller
+  const mp = menuPad; menuPad = function (E) {
+    if (!open) return mp.apply(this, arguments);
+    if (E[1] || E[9] || E[0]) { closePN(); return; }
+    if (E[12]) scroll(-1); if (E[13]) scroll(1); if (E[14]) scroll(-1, 1); if (E[15]) scroll(1, 1);
+  };
+  const pp = padPause; padPause = function (dir, adj, act) {
+    if (!open) return pp.apply(this, arguments);
+    if (dir) scroll(dir); if (adj) scroll(adj, 1); if (act) closePN();
+  };
+  const sp = setPause; setPause = function (on) { if (open && !on) { closePN(); return; } return sp.apply(this, arguments); };
+  const ct = closeTitleSettings; closeTitleSettings = function () { if (open) { closePN(); return; } return ct.apply(this, arguments); };
+  addEventListener('keydown', e => { if (!open) return;
+    if (e.key === 'Escape' || e.key === 'Backspace') { closePN(); e.preventDefault(); e.stopImmediatePropagation(); }
+    else if (/^(ArrowDown|ArrowUp|PageDown|PageUp)$/.test(e.key)) { scroll(/Down/.test(e.key) ? 1 : -1, /Page/.test(e.key)); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+  let lastT = 0;
+  function tick(now) { if (!open) return; requestAnimationFrame(tick); const dt = Math.min(0.05, (now - (lastT || now)) / 1000); lastT = now;
+    const gps = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; let v = 0;
+    for (const g of gps) { const a = g.axes || [], ly = Math.abs(a[1] || 0) > 0.18 ? a[1] : 0, ry = Math.abs(a[3] || 0) > 0.18 ? a[3] : 0; v = Math.abs(ly) > Math.abs(ry) ? ly : ry; if (v) break; }
+    if (v) body.scrollTop += Math.sign(v) * Math.pow(Math.abs(v), 1.5) * 900 * dt; }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -19080,7 +19175,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.94', d:'2026-10-25', notes:['New world layout (new world or pause-menu Reset world): a round central mainland of tree biomes with spawn in the middle; bigger, more spread-out biomes','Each castle now sits on its own island with water all round and its own biome: black castle = alder, human castle = hawthorn, mossy skeleton castle = yew','A long walkable bridge from the mainland to each castle in its style: stone and planks with railings and lamps (human), crumbling mossy brick with gaps and cobwebs (mossy), broken blackstone with lava lanterns (black)','The houses at spawn are gone. Small crofts around the mainland each have a bed and a farmer with a hoe who tends his field by day and sleeps in his bed at night. Farmers do not trade (they just say huh??)','New synthesised level-up chime: a big bright bell flourish at level 30 (and 60, 90...), and a shorter softer one every 5 levels','Existing worlds keep their land']},
+ {v:'v0.9.95', d:'2026-10-25', notes:['New: Patch notes are back, on the title screen and in the pause menu (shows only new things)']},
+{v:'v0.9.94', d:'2026-10-25', notes:['New world layout (new world or pause-menu Reset world): a round central mainland of tree biomes with spawn in the middle; bigger, more spread-out biomes','Each castle now sits on its own island with water all round and its own biome: black castle = alder, human castle = hawthorn, mossy skeleton castle = yew','A long walkable bridge from the mainland to each castle in its style: stone and planks with railings and lamps (human), crumbling mossy brick with gaps and cobwebs (mossy), broken blackstone with lava lanterns (black)','The houses at spawn are gone. Small crofts around the mainland each have a bed and a farmer with a hoe who tends his field by day and sleeps in his bed at night. Farmers do not trade (they just say huh??)','New synthesised level-up chime: a big bright bell flourish at level 30 (and 60, 90...), and a shorter softer one every 5 levels','Existing worlds keep their land']},
 {v:'v0.9.93', d:'2026-10-25', notes:['New MAP item. Craft it at a table from 8 Paper + 1 Redstone. Paper is 3 Reeds or 3 Wheat for 3 Paper.','The map is already fully explored: the whole world from above, with the Clan, Mossy Skeleton and Blackstone castles and the spawn marked, and a red arrow showing where you are and which way you face.','Select the map in your hotbar and you hold it in both hands, big on the lower middle of the screen, so you can read it while you walk. It keeps updating as you go.','HD tool icons, rendered from the held 3D models, for every pickaxe, axe, sword, shovel and hoe.','HD held tool models: better shaped heads, bevelled handles with leather wraps, and shinier metal edges for each tier.','Removed the wooden shovel, wooden hoe, stone hoe and diamond hoe (recipes, creative, and any you had).']},
 {v:'v0.9.92', d:'2026-10-25', notes:['Hamish and Angus now chat like villagers. Every few seconds when you are near, they make one of 10 Scottish grunts and mumbles: huh??, och aye, hmmph, aye, ach!, rrrright, heh-heh, wheesht, ooh-aye? and sleepy yawns at night. Hamish is deeper and Angus rougher, and they get quieter with distance.','They react to trading: happy when you open it, aye! when a trade works, ach when it fails.','Hit a clansman and he turns and hits you back once with a small knockback, but he will not chase you. He goes angry-faced for about 5 seconds, rants loudly and swears at you in a speech bubble, then calms down.']},
 {v:'v0.9.91', d:'2026-10-25', notes:['Spiders are now GIANT - about 2.5 blocks across, with a matching hitbox. They only spawn where there is room for them.','Spiders are neutral: they leave you alone unless you hit them. Hit one and it chases you until you get well away.','Skeleton arrows now hit other mobs in their way.','If a skeleton shoots a spider, the spider goes after that skeleton, grabs it and slams it into a wall or the ground. The skeleton smashes into tumbling, clattering bone pieces (skull, ribcage, limbs) that vanish after a few seconds and still drop its normal loot. Then the spider calms down.']},
