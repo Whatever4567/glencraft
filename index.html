@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0976b -->
+<!-- glencraft-build: v0976g -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -17298,16 +17298,40 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
 
   // ================= movement: real paths near you, cheap gliding when far away =================
   // v0.9.76: near you they walk a real A* path at player speed (sprint past 8 blocks), digging through what's in the way
+  // v0.9.76: no path out from down a mine -> cut a staircase up toward the goal (player style: clear head-room, step up, repeat)
+  function stairUp(a, w, tx, tz, dt) {
+    const p = a.g.position, cx = Math.floor(p.x), cy = Math.floor(p.y + 0.05), cz = Math.floor(p.z);
+    if (!w.sd) { const dx = tx + .5 - p.x, dz = tz + .5 - p.z; w.sd = Math.abs(dx) > Math.abs(dz) ? [Math.sign(dx) || 1, 0] : [0, Math.sign(dz) || 1]; w.st = 0; w.turn = 0; }
+    const [dx, dz] = w.sd, nx = cx + dx, nz = cz + dz;
+    const cells = [[cx, cy + 2, cz], [nx, cy + 1, nz], [nx, cy + 2, nz]];
+    const bad = cells.some(q => solid(q[0], q[1], q[2]) && !canDig(a, q[0], q[1], q[2])) || cells.some(q => liquid(wb(q[0], q[1], q[2]))) || liquid(wb(nx, cy + 3, nz)) || !solid(nx, cy, nz);
+    if (bad && !solid(nx, cy, nz) && !solid(nx, cy + 1, nz) && solid(nx, cy - 1, nz) && !liquid(wb(nx, cy, nz))) {   // flat floor that way (cave): just walk on
+      a.ang = Math.atan2(nx + .5 - p.x, nz + .5 - p.z); stepMob(a, SP.work, dt, false); a.moving = true; a.curSpd = SP.work; w.st += dt; if (w.st > 3) { p.x = nx + .5; p.z = nz + .5; w.st = 0; } return 0; }
+    if (bad) { w.turn++; if (w.turn > 8) return -1; w.sd = w.turn % 2 ? [dz, -dx] : [-dz, dx]; if (w.turn % 4 === 0) w.sd = [-dx, -dz]; return 0; }
+    const sq = cells.find(q => solid(q[0], q[1], q[2]));
+    if (sq) { a.moving = false; a.curSpd = 0; breakAt(a, w, sq[0], sq[1], sq[2], false); return 0; }
+    a.ang = Math.atan2(nx + .5 - p.x, nz + .5 - p.z); if (a.onGround !== false) { a.vy = 6.6; a.onGround = false; }
+    stepMob(a, SP.work, dt, false); a.moving = true; a.curSpd = SP.work; w.st += dt;
+    if (Math.floor(p.x) === nx && Math.floor(p.z) === nz && Math.floor(p.y + 0.05) >= cy) { w.st = 0; w.turn = 0; w.upN = (w.upN || 0) + 1; return 1; }
+    if (w.st > 3) { p.x = nx + .5; p.z = nz + .5; p.y = cy + 1; w.st = 0; }
+    return 0;
+  }
   function walkWay(a, x, y, z, spd, dt) {
     const p = a.g.position, d = Math.hypot(x + .5 - p.x, z + .5 - p.z);
     if (d < 0.6 && Math.abs(y - p.y) < 1.3) { a.wk = null; return true; }
     let w = a.wk; const gk = x + ',' + y + ',' + z;
     if (!w || w.gk !== gk) w = a.wk = {gk, way: null, rp: 0, sT: 0, sp: [p.x, p.z], stuck: 0, fails: 0};
     w.dt = dt; w.rp -= dt;
+    if (w.up) { const cx = Math.floor(p.x), cy = Math.floor(p.y + 0.05), cz = Math.floor(p.z);
+      if (cy >= A.groundY(cx, cz) - 1 || cy >= y || (w.upN || 0) > 60) { w.up = 0; w.way = null; w.fails = 0; w.cd = 0; }
+      else { if (stairUp(a, w, x, z, dt) < 0) { w.up = 0; a.goFail = 99; } return false; } }
+    if (w.cd > 0) { w.cd -= dt; a.moving = false; a.curSpd = 0; return false; }
     if (!w.way || w.rp < -6) {
+      if (B.fn > 5000) { a.moving = false; return false; }   // A* budget for this tick used up: plan next tick
       w.rp = 0; const cx = Math.floor(p.x), cy = Math.floor(p.y + 0.05), cz = Math.floor(p.z);
-      w.way = findWay(cx, cy, cz, x, y, z, 48, (typeof PERF !== 'undefined' && PERF) ? 3500 : 7000, a);
-      if (!w.way) { w.fails++; w.way = null; if (w.fails >= 2) { a.goFail = 99; return false; } a.goFail = (a.goFail || 0) + 1; return false; }
+      w.way = findWay(cx, cy, cz, x, y, z, 48, (typeof PERF !== 'undefined' && PERF) ? 2500 : 5000, a);
+      if (!w.way && y > cy + 2 && cy < A.groundY(cx, cz) - 2 && !w.upTried) { w.up = 1; w.upTried = 1; w.sd = null; return false; }   // down a mine: stair up
+      if (!w.way) { w.fails++; w.way = null; w.cd = 1; if (w.fails >= 2) { a.goFail = 99; return false; } a.goFail = (a.goFail || 0) + 1; return false; }
       if (!w.way.length) { a.wk = null; return true; }
     }
     const cy = Math.floor(p.y + 0.05), cx = Math.floor(p.x), cz = Math.floor(p.z);
@@ -17388,7 +17412,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   function findWay(sx, sy, sz, tx, ty, tz, R, cap, dg) {
     if (!A.stand(sx, sy, sz)) { if (A.stand(sx, sy + 1, sz)) sy++; else if (A.stand(sx, sy - 1, sz)) sy--; }
     const K = (x, y, z) => (x * 4096 + z) * 256 + y, g = new Map(), from = new Map(), open = [];
-    const h = (x, y, z) => Math.abs(x - tx) + Math.abs(z - tz) + Math.abs(y - ty) * 0.5;
+    const hy = dg ? 1.6 : 0.5, hw = dg ? 1.8 : 1.05, h = (x, y, z) => Math.abs(x - tx) + Math.abs(z - tz) + Math.abs(y - ty) * hy;   // digging allowed: greedier search (tunnels are everywhere)
     const push = n => { open.push(n); let i = open.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (open[q][0] <= n[0]) break; [open[i], open[q]] = [open[q], open[i]]; i = q; } };
     const pop = () => { const t = open[0], l = open.pop(); if (open.length) { open[0] = l; let i = 0; for (;;) { const a1 = 2 * i + 1, b1 = a1 + 1; let m = i; if (a1 < open.length && open[a1][0] < open[m][0]) m = a1; if (b1 < open.length && open[b1][0] < open[m][0]) m = b1; if (m === i) break; [open[i], open[m]] = [open[m], open[i]]; i = m; } } return t; };
     const k0 = K(sx, sy, sz); g.set(k0, 0); push([h(sx, sy, sz), sx, sy, sz]); let n = 0, goal = null;
@@ -17403,8 +17427,8 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
             if (c1 < 0 || c2 < 0 || c3 < 0) continue; ny = yy; extra = 1 + (c1 + c2 + c3) * 3; break; }
         }
         if (ny === null) continue; const kn = K(nx, ny, nz), gn = gc + 1 + (ny > y ? 0.6 : 0) + extra; const o = g.get(kn); if (o !== undefined && o <= gn) continue;
-        g.set(kn, gn); from.set(kn, kc); push([gn + h(nx, ny, nz) * 1.05, nx, ny, nz]); } }
-    B.pst.paths++; B.pst.nodes += n; if (goal === null) { B.pst.fails++; return null; }
+        g.set(kn, gn); from.set(kn, kc); push([gn + h(nx, ny, nz) * hw, nx, ny, nz]); } }
+    B.pst.paths++; B.pst.nodes += n; B.fn = (B.fn || 0) + n; if (goal === null) { B.pst.fails++; return null; }
     const out = []; let k = goal; while (k !== k0 && from.has(k)) { const y = k % 256, r = (k - y) / 256, z = r % 4096, x = (r - z) / 4096; out.push([x, y, z]); k = from.get(k); }
     return out.reverse();
   }
@@ -17415,7 +17439,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const tx = Math.floor(tp.x), ty = Math.floor(tp.y + 0.05), tz = Math.floor(tp.z);
     j.rp = (j.rp || 0) - dt;
     const moved = !j.g || Math.abs(j.g[0] - tx) + Math.abs(j.g[2] - tz) > 2;
-    if (!j.way || (moved && j.rp <= 0) || j.rp < -3) {   // plan at most once a second; otherwise stick to the plan
+    if ((!j.way || (moved && j.rp <= 0) || j.rp < -3) && !(B.fn > 5000)) {   // plan at most once a second; otherwise stick to the plan
       j.rp = 1; j.g = [tx, ty, tz];
       const w = findWay(Math.floor(p.x), Math.floor(p.y + 0.05), Math.floor(p.z), tx, ty, tz, 48, 9000);
       if (!w) { j.noWay = (j.noWay || 0) + 1; if (j.noWay >= 2 && !keep) { if (j.m && typeof j.m === 'object') BLK.set(j.m, now() + 10); return false; } j.way = []; }
@@ -17681,19 +17705,19 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
         // ore within reach of the tunnel: take it first
         if (!j.ore || !A.ORES.has(wb(j.ore[0], j.ore[1], j.ore[2]))) { j.ore = null; j.os = (j.os || 0) - dt; if (j.os <= 0) { j.os = 0.6; const pk = lvl(a, 'pick');
           for (let ox = -3; ox <= 3 && !j.ore; ox++) for (let oy = -1; oy <= 3 && !j.ore; oy++) for (let oz = -3; oz <= 3 && !j.ore; oz++) { const x = cx + ox, y = cy + oy, z = cz + oz, b = wb(x, y, z);
-            if (A.ORES.has(b) && ORE_LVL(b) <= pk && canDig(a, x, y, z) && (!solid(x + 1, y, z) || !solid(x - 1, y, z) || !solid(x, y + 1, z) || !solid(x, y - 1, z) || !solid(x, y, z + 1) || !solid(x, y, z - 1))) j.ore = [x, y, z]; } } }
-        if (j.ore) { const o = j.ore; if (Math.hypot(o[0] + .5 - p.x, o[1] - p.y - 1, o[2] + .5 - p.z) > 4.2) { j.ore = null; } else { if (breakAt(a, j, o[0], o[1], o[2], far)) j.ore = null; break; } }
+            if (A.ORES.has(b) && (b === T.IRONORE || b === T.COALORE || b === T.DIAMONDORE || b === T.GOLDORE) && ORE_LVL(b) <= pk && !(j.skip && j.skip.has(x + ',' + y + ',' + z)) && canDig(a, x, y, z) && (!solid(x + 1, y, z) || !solid(x - 1, y, z) || !solid(x, y + 1, z) || !solid(x, y - 1, z) || !solid(x, y, z + 1) || !solid(x, y, z - 1))) j.ore = [x, y, z]; } } }
+        if (j.ore) { const o = j.ore; j.why = 'ore'; j.ot = (j.ot || 0) + dt; if (Math.hypot(o[0] + .5 - p.x, o[1] - p.y - 1, o[2] + .5 - p.z) > 4.2 || !canDig(a, o[0], o[1], o[2]) || j.ot > 12) { (j.skip = j.skip || new Set()).add(o.join()); j.ore = null; j.ot = 0; } else { if (breakAt(a, j, o[0], o[1], o[2], far)) { j.ore = null; j.ot = 0; } break; } }
         // next column
         let [dx, dz] = j.dir; const down = cy > j.goalY;
         const nx = cx + dx, nz = cz + dz, ny = down ? cy - 1 : cy;
         const cells = down ? [[nx, cy + 1, nz], [nx, cy, nz], [nx, cy - 1, nz]] : [[nx, cy + 1, nz], [nx, cy, nz]];
         const bad = cells.some(q => solid(q[0], q[1], q[2]) && !canDig(a, q[0], q[1], q[2])) || liquid(wb(nx, ny - 1, nz)) || cells.some(q => liquid(wb(q[0], q[1], q[2]))) || (!solid(nx, ny - 1, nz) && !solid(nx, ny - 2, nz) && !solid(nx, ny - 3, nz));
-        if (bad) { j.turns = (j.turns || 0) + 1; if (j.turns > 6) { done(); break; } j.dir = j.turns % 2 ? [dz, -dx] : [-dz, dx]; break; }
+        if (bad) { j.why = 'turn'; j.turns = (j.turns || 0) + 1; if (j.turns > 6) { done(); break; } j.dir = j.turns % 2 ? [dz, -dx] : [-dz, dx]; break; }
         const sq = cells.find(q => solid(q[0], q[1], q[2]));
-        if (sq) { a.moving = false; breakAt(a, j, sq[0], sq[1], sq[2], far); break; }
+        if (sq) { j.why = 'break'; a.moving = false; breakAt(a, j, sq[0], sq[1], sq[2], far); break; }
         if (!solid(nx, ny - 1, nz) && solid(nx, ny - 2, nz)) { /* small drop: fine */ }
         // walk into it
-        a.ang = Math.atan2(nx + .5 - p.x, nz + .5 - p.z); stepMob(a, SP.work, dt, false); a.moving = true; a.curSpd = SP.work; j.wt = (j.wt || 0) + dt;
+        j.why = 'walk'; a.ang = Math.atan2(nx + .5 - p.x, nz + .5 - p.z); stepMob(a, SP.work, dt, false); a.moving = true; a.curSpd = SP.work; j.wt = (j.wt || 0) + dt;
         if (Math.floor(p.x) === nx && Math.floor(p.z) === nz) { j.steps++; j.wt = 0; if (!down) { j.br = (j.br || 0) + 1; if (j.br % 12 === 0) j.dir = Math.random() < 0.5 ? [dz, -dx] : [-dz, dx]; } }
         else if (j.wt > 2.5) { p.x = nx + .5; p.z = nz + .5; p.y = ny; j.wt = 0; }
         break; }
@@ -17822,7 +17846,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (a.sleeping) { if (!isNight || TM().phase === 'hostile' || a.mad > 0 || A.hostileNear(a, 5)) { A.wake(a); a.job = null; } }
     a.thinkT = (a.thinkT == null ? Math.random() * 0.4 : a.thinkT) - tdt;
     if (!a.sleeping && a.thinkT <= 0) { a.thinkT = far ? 0.9 : 0.4; try { think(a, ci, far); } catch (e) { if (!B.err1) { B.err1 = String(e && e.stack || e); console.warn('c96 think', e); } a.job = {type: 'wait', t: 0, tt: 3, pri: 0}; } }
-    if (a.job !== a.lastJob) { a.lastJob = a.job; if (a.job) { B.tl.push([+(B.gt || 0).toFixed(1), a.role, a.job.type + (a.job.want ? ':' + a.job.want : '')]); if (B.tl.length > 400) B.tl.shift(); } }
+    if (a.job !== a.lastJob) { a.lastJob = a.job; a.goFail = 0; a.wk = null; if (a.job) { B.tl.push([+(B.gt || 0).toFixed(1), a.role, a.job.type + (a.job.want ? ':' + a.job.want : '')]); if (B.tl.length > 400) B.tl.shift(); } }
     if (!a.sleeping) { try { act(a, ci, tdt, far); } catch (e) { if (!B.err2) { B.err2 = String(e && e.stack || e); console.warn('c96 act', e); } a.job = null; } if (a.job && a.job.done) a.job = null; }
     if (!a.sleeping && !far) threats(a, tdt);
     if (far) { if (!a.sleeping && (!a.job || (a.job.type !== 'mine' && a.job.type !== 'bed'))) { const f = floorBelow(Math.floor(p.x), p.y + 1, Math.floor(p.z)); if (Math.abs(f - p.y) < 3) p.y = f; } return; }
@@ -17853,7 +17877,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   let tickT = 0, hellLast = 0;
   const um = updateMobs;
   updateMobs = function (dt) {
-    B.gt += dt || 0;
+    B.gt += dt || 0; B.fn = 0;
     const r = um.apply(this, arguments);
     if (!started || DIM.cur || !B.on) return r;
     const tm = TM();
@@ -17962,7 +17986,10 @@ window.PATCH_NOTES = [
   'World loading is more robust: odd or old clansmen save data is reset instead of stopping Test World from loading',
   'Clansmen path-find round walls and through gaps and doorways when chasing animals or enemies (no more running into walls or in circles)',
   'They only give up on a target a full search cannot reach (for 10 s), and hop and re-plan when stuck',
-  'Hungry clansmen now go for a sheep, pig or haggis standing right next to them']},
+  'Hungry clansmen now go for a sheep, pig or haggis standing right next to them',
+  'Near you, clansmen walk and sprint at player speed, break blocks with player break times (drops go in their bag) and dig through walls when there is no way round',
+  'They mine for real near you: wood, crafting table, wooden pick, staircase down to stone, stone tools, then coal and iron (visible ore or branch mining at the iron layer), smelt it and craft iron armour piece by piece - you can see it on them',
+  'Clansmen look at you (head and eyes) when you come close, but keep on working']},
  {v:'v0.9.75', d:'2026-10-24', notes:[
   'Clansmen war campaign: once both are in iron (pick, sword, 2+ armour pieces) with food packed, they march on the mossy castle and kill its skeletons, then the Black skeleton castle',
   'They steal the obsidian and flint and steel from the black castle chest, place the missing obsidian, light the portal and walk into Hell',
