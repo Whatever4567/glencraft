@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0985a -->
+<!-- glencraft-build: v0986a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.85';
+const GAME_VERSION = 'v0.9.86';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -12999,7 +12999,7 @@ function dragonMove(a, mx, my, mz) {
   function wisp(x, y, z) { if (wisps.length > 6) return; const s = glowSprite(0x6ad8ff, 0.9); s.position.set(x, y + 1, z); scene.add(s); wisps.push({s, t: 0, tgt: null});
     try { if (AC) { const t = AC.currentTime, o = AC.createOscillator(), g = AC.createGain(); o.type = 'sine'; o.frequency.setValueAtTime(660, t); o.frequency.exponentialRampToValueAtTime(990, t + 1.2); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06 * SET.sfx, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4); o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + 1.5); } } catch (_) {} }
   // ---- XP ----
-  let xp = 0, lvl = 0; const orbs = [], CAP = PERF ? 18 : HIGH ? 60 : 32;
+  let xp = 0, lvl = 0; window.__c105xp = (a, b) => { xp = a | 0; lvl = b | 0; }; const orbs = [], CAP = PERF ? 18 : HIGH ? 60 : 32;
   const need = L => L <= 15 ? 2 * L + 7 : L <= 30 ? 5 * L - 38 : 9 * L - 158;
   window.xpState = () => ({xp, lvl, orbs: orbs.length});
   window.__clearOrbs = () => { for (const o of orbs) scene.remove(o.s); orbs.length = 0; };
@@ -13015,7 +13015,7 @@ function dragonMove(a, mx, my, mz) {
   document.body.appendChild(bar);
   const se = serialize; serialize = function () { const d = se.apply(this, arguments); d.xp = xp; d.lvl = lvl; return d; };
   const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); xp = (d && d.xp) || 0; lvl = (d && d.lvl) || 0; return r; };
-  const ew = enterWorld; enterWorld = function (save) { try { __clearOrbs(); } catch (_) {} if (!save) { xp = 0; lvl = 0; } return ew.apply(this, arguments); };
+  const ew = enterWorld; enterWorld = function (save) { try { __clearOrbs(); } catch (_) {} if (!save && !window.__keepXP) { xp = 0; lvl = 0; } return ew.apply(this, arguments); };
   // sources: mobs (Hell x2, the dragon a lot), ores, smelting
   const PASSIVE = new Set(['sheep', 'haggis', 'duck', 'pig']);
   const km = killMob;
@@ -17972,6 +17972,189 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     } catch (e) { if (!S.e) S.e = String(e); }
     return r; };
 })();
+
+/* ===================== GLX-C105 (v0.9.86): cobalt tools can't be crafted, pause-menu "Reset world" live event ===================== */
+(function c105() {
+  // ---------- cobalt tools: no recipes (items stay in creative) ----------
+  try { const NO = new Set([IT.CPICK, IT.CAXE, IT.CSWORD, IT.CSHOVEL, IT.CHOE]); for (let i = RECIPES.length - 1; i >= 0; i--) if (RECIPES[i] && NO.has(RECIPES[i].out)) RECIPES.splice(i, 1); } catch (e) { console.warn('c105 cobalt', e); }
+
+  // ---------- state ----------
+  const R = {phase: null, t: 0, snap: null, oldSeed: 0, list: null, del: 0, total: 0, falling: [], rising: [], hoverY: 0, landY: 0, fromY: 0, liftFrom: 0, done: 0};
+  window.__c105 = R;
+  const active = () => !!R.phase;
+
+  // ---------- in-game confirm dialog (no browser confirm, never touches fullscreen) ----------
+  const ask = document.createElement('div'); ask.id = 'resetAsk'; ask.setAttribute('data-testid', 'reset-confirm');
+  ask.style.cssText = 'position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)';
+  ask.innerHTML = '<div class="panel" style="max-width:420px;text-align:center"><h2 style="margin:0 0 10px">Reset world?</h2><p style="margin:0 0 16px;line-height:1.4">Are you sure you want to reset? This can\'t be undone.</p>' +
+    '<div class="btns" style="display:flex;gap:10px;justify-content:center"><button class="btn" id="resetNo" data-testid="reset-no">No</button><button class="btn alt" id="resetYes" data-testid="reset-yes" style="border-color:#c44">Yes</button></div></div>';
+  document.body.appendChild(ask);
+  const askBtns = () => [document.getElementById('resetNo'), document.getElementById('resetYes')];
+  let askOpen = false, aF = 0;
+  const askFocus = () => askBtns().forEach((b, i) => b.classList.toggle('focus', i === aF && padConnected));
+  function openAsk() { if (active()) return; if (DIM.cur) { toast('Go back to the overworld to reset the world'); return; } askOpen = true; aF = 0; ask.style.display = 'flex'; askFocus(); try { askBtns()[0].focus(); } catch (_) {} }
+  function closeAsk() { askOpen = false; ask.style.display = 'none'; try { refocusPause(); } catch (_) {} }
+  window.__c105.ask = () => askOpen;
+  document.getElementById('resetNo').addEventListener('click', e => { e.preventDefault(); closeAsk(); });
+  document.getElementById('resetYes').addEventListener('click', e => { e.preventDefault(); closeAsk(); setPause(false); startReset(); });
+
+  // ---------- pause-menu button ----------
+  try {
+    const sq = document.getElementById('saveQuit');
+    const b = document.createElement('button'); b.className = 'btn alt'; b.id = 'resetWorldBtn'; b.setAttribute('data-testid', 'pause-reset-world-button'); b.textContent = 'Reset world';
+    b.addEventListener('click', e => { e.preventDefault(); openAsk(); });
+    sq.parentNode.insertBefore(b, sq.nextSibling);
+  } catch (e) { console.warn('c105 button', e); }
+
+  // controller: D-pad moves between No / Yes, A presses, B (and Start / Esc) = No
+  const pp = padPause; padPause = function (dir, adj, act) {
+    if (!askOpen) return pp.apply(this, arguments);
+    const d = dir || adj; if (d) { aF = (aF + 1) % 2; askFocus(); }
+    if (act) askBtns()[aF].click();
+  };
+  const sp = setPause; setPause = function (on) {
+    if (askOpen && !on) { closeAsk(); return; }
+    if (active() && on) return;
+    return sp.apply(this, arguments);
+  };
+  addEventListener('keydown', e => { if (!askOpen) return; if (e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'Tab') { aF = (aF + 1) % 2; askBtns()[aF].focus(); askFocus(); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+
+  // ---------- while the event runs: float, no damage, no building/breaking, no saves mid-way ----------
+  const hu = hurt; hurt = function () { if (active()) return; return hu.apply(this, arguments); };
+  const up = updatePlayer; updatePlayer = function (dt) { if (!active()) return up.apply(this, arguments); hold(); return 0; };
+  const ui = updateInteraction; updateInteraction = function () { if (active()) return; return ui.apply(this, arguments); };
+  const us = updateSurvival; updateSurvival = function () { if (active()) { hp = 20; food = 20; return; } return us.apply(this, arguments); };
+  const um = updateMobs; updateMobs = function () { if (R.phase === 'del' || R.phase === 'lift' || R.phase === 'gen') return; return um.apply(this, arguments); };
+  const sw = saveWorld; saveWorld = function () { if (R.phase && R.phase !== 'land') return false; return sw.apply(this, arguments); };
+  const rb = rebuild; rebuild = function (budget) {
+    if (R.phase === 'del' || R.phase === 'lift') return;
+    if (R.phase === 'gen') return rb.call(this, Math.min(budget || 4, PERF ? 3 : 4));   // a few chunks per frame so the land visibly grows outward
+    return rb.apply(this, arguments);
+  };
+  const bc = buildChunk; buildChunk = function (cx, cz) {
+    const r = bc.apply(this, arguments);
+    if (R.phase === 'gen' || R.phase === 'land') { const g = chunkObjs.get(cx * 64 + cz); if (g && !g.userData.c105) { g.userData.c105 = 1; g.position.y = -14; R.rising.push({g, t: 0}); } }
+    return r;
+  };
+  // the loading screen stays hidden during the event; the land builds in front of you instead
+  const ss = showScreen; showScreen = function (name) {
+    if (R.phase === 'gen') {
+      if (name === 'loading') { screen = 'loading'; return; }
+      if (name === 'none') { const r = ss.apply(this, arguments); setTimeout(genDone, 0); return r; }
+    }
+    return ss.apply(this, arguments);
+  };
+  const spw = spawnPlayer; spawnPlayer = function () {
+    const r = spw.apply(this, arguments);
+    if (R.phase === 'gen') { R.landY = P.y; R.hoverY = Math.min(H - 3, P.y + 18); P.y = R.hoverY; P.pitch = -0.55; P.vy = 0; }
+    return r;
+  };
+  function hold() {
+    P.vy = 0; P.fallTop = null; P.kbx = P.kbz = 0; P.onGround = false;
+    if (R.phase === 'lift') P.y = R.liftFrom + (R.hoverY - R.liftFrom) * ease(Math.min(1, R.t / 1.4));
+    else if (R.phase === 'land') P.y = R.fromY + (R.landY - R.fromY) * ease(Math.min(1, R.t / 3));
+    else P.y = R.hoverY;
+  }
+  const ease = k => k * k * (3 - 2 * k);
+
+  // ---------- snapshot of what the player carries ----------
+  function snap() {
+    const s = {inv: JSON.parse(JSON.stringify(inv)), hotbar: MODE.hotbar ? MODE.hotbar.slice() : null, armour: armour.slice(), off: null, xp: 0, lvl: 0, gun: null, sel: typeof selected !== 'undefined' ? selected : null};
+    try { s.off = offhand ? {id: offhand.id, n: offhand.n} : null; } catch (_) {}
+    try { const d = serialize(); s.xp = d.xp || 0; s.lvl = d.lvl || 0; } catch (_) {}
+    try { s.gun = Object.assign({}, window.gunMag); } catch (_) {}
+    return s;
+  }
+  function restore(s) {
+    for (const k of Object.keys(inv)) delete inv[k];
+    Object.assign(inv, JSON.parse(JSON.stringify(s.inv)));
+    if (s.hotbar) MODE.hotbar = s.hotbar.slice();
+    for (let i = 0; i < 4; i++) armour[i] = s.armour[i] || 0;
+    try { offhand = s.off ? {id: s.off.id, n: s.off.n} : null; } catch (_) {}
+    try { if (window.gunMag && s.gun) Object.assign(window.gunMag, s.gun); } catch (_) {}
+    try { if (window.__c105xp) window.__c105xp(s.xp, s.lvl); } catch (_) {}
+    hp = 20; food = 20; sat = 5;
+    try { refreshArmour(); } catch (_) {} try { renderHotbar(); } catch (_) {}
+  }
+
+  // ---------- the event ----------
+  function startReset() {
+    if (active() || !started || dead || !current) return;
+    R.snap = snap(); R.oldSeed = gSeed; R.t = 0; R.phase = 'lift'; R.falling = []; R.rising = []; R.done = 0;
+    R.liftFrom = P.y; R.hoverY = Math.min(H - 3, P.y + 14); hp = 20; food = 20;
+    try { mobs.slice().forEach(removeMob); } catch (_) {}
+    for (const d of drops) { try { scene.remove(d.m); } catch (_) {} } drops.length = 0;
+    toast('Hold on... the glen is being unmade');
+    last105 = performance.now(); requestAnimationFrame(loop);
+  }
+  function beginDelete() {
+    R.phase = 'del'; R.t = 0;
+    const pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5, far = [], near = [];
+    for (const [id, g] of chunkObjs) { const d = Math.hypot(Math.floor(id / 64) - pcx, id % 64 - pcz); (d > 11 ? far : near).push([id, g, d]); }
+    near.sort((a, b) => b[2] - a[2]);   // outside in, so you watch it close in on you
+    R.far = far; R.list = near; R.del = 0; R.total = near.length;
+  }
+  function dropChunk(id, g, anim) {
+    chunkObjs.delete(id); try { chunkLists.delete(id); } catch (_) {}
+    if (!anim) { disposeG(g); return; }
+    R.falling.push({g, t: 0});
+  }
+  function disposeG(g) { blockGroup.remove(g); g.children.forEach(c => { if (c.isInstancedMesh) c.dispose(); else if (c.geometry) c.geometry.dispose(); }); }
+  function beginGen() {
+    R.phase = 'gen'; R.t = 0;
+    // whatever is left of the old world (entities, chests, crops, boats, lights...)
+    try { __clearWorldState(); } catch (e) { console.warn('c105 clear', e); }
+    try { crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear(); } catch (_) {}
+    try { placedSet = new Set(); } catch (_) {}
+    spawnPt = null; try { delete current.resetBackup; } catch (_) {}
+    toast('Shaping a brand-new glen...');
+    // two frames so the message shows before the one heavy step (laying out the new land)
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      gSeed = 0; window.__keepXP = 1;
+      try { enterWorld(null); } catch (e) { console.error('c105 enterWorld', e); }
+      window.__keepXP = 0;
+      if (gSeed === R.oldSeed) console.warn('c105: same seed');
+    }));
+  }
+  function genDone() {
+    if (R.phase !== 'gen') return;
+    restore(R.snap);
+    R.phase = 'land'; R.t = 0; R.fromY = P.y;
+    try { const g = groundTop(Math.floor(P.x), Math.floor(P.z)) + 1; if (g > 2) R.landY = Math.max(R.landY, g); } catch (_) {}
+  }
+  function finish() {
+    restore(R.snap);
+    P.y = R.landY; P.vy = 0; P.fallTop = null;
+    R.phase = null; R.done = 1;
+    for (const r of R.rising) r.g.position.y = 0; R.rising = [];
+    try { saveWorld(true); } catch (e) { console.warn('c105 save', e); }
+    // no backups or side-dimensions of the old world are kept
+    const pre = ['dim_' + current.id + '_', 'backup_' + current.id + '_'];
+    try { idbDo('worlds', 'readwrite', o => { const q = o.getAllKeys(); q.onsuccess = () => { for (const k of q.result || []) if (typeof k === 'string' && pre.some(p => k.startsWith(p))) o.delete(k); }; return q; }).catch(() => {}); } catch (_) {}
+    toast('New world ready!');
+  }
+  let last105 = 0;
+  function loop(now) {
+    if (!R.phase && !R.falling.length && !R.rising.length) return;
+    const dt = Math.min(0.1, (now - last105) / 1000); last105 = now; R.t += dt;
+    try {
+      if (R.phase) hold();
+      if (R.phase === 'lift' && R.t >= 1.4) beginDelete();
+      if (R.phase === 'del') {
+        for (let n = 0; n < 160 && R.far.length; n++) { const [id, g] = R.far.pop(); dropChunk(id, g, false); }
+        const DUR = 6, want = Math.min(R.total, Math.ceil(R.total * Math.min(1, R.t / DUR)));
+        while (R.del < want) { const [id, g, d] = R.list[R.del++]; if (chunkObjs.get(id) === g) dropChunk(id, g, true); }
+        if (R.del >= R.total && !R.far.length && !R.falling.length && R.t > 0.5) beginGen();
+      }
+      for (let i = R.falling.length - 1; i >= 0; i--) { const f = R.falling[i]; f.t += dt; f.g.position.y = -f.t * f.t * 40; if (f.t > 0.8) { disposeG(f.g); R.falling.splice(i, 1); } }
+      for (let i = R.rising.length - 1; i >= 0; i--) { const r = R.rising[i]; r.t += dt; const k = Math.min(1, r.t / 0.7); r.g.position.y = -14 * (1 - k) * (1 - k); if (k >= 1) R.rising.splice(i, 1); }
+      if (R.phase === 'land' && R.t >= 3) finish();
+      if (R.phase === 'gen' && R.t > 90) { console.error('c105: new world took too long'); genDone(); }
+    } catch (e) { console.error('c105 loop', e); }
+    requestAnimationFrame(loop);
+  }
+  window.__c105.start = startReset;
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -17983,7 +18166,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.85', d:'2026-10-25', notes:['Ores by depth (new worlds): coal and iron everywhere from the surface to bedrock, silver at every depth, lapis in the lower third, gold just above the diamonds, diamonds only in the bottom 10 blocks - and coal, iron, silver, gold and lapis are all still there right down by the bedrock','Caves show their ore: coal, iron and silver seams on cave walls, floors and ceilings (about 4x more visible iron and coal per cave)','Raw silver has a new icon: a little cluster of shiny droplets','Spiders at night: blocky eight-legged spiders with red eyes hunt you on the surface at night and in dark caves, climb walls, leap at you and drop String (4 String = 1 Wool)','Nights are no longer pitch dark: moonlit blue sky with stars, but the land, mobs and you stay clearly visible (all graphics presets, Photo-real too); caves stay dim but never black','New painted sky with drifting clouds that fade from day to sunset to night and back. Sky textures: Screaming Brain Studios (CC0)']},
+ {v:'v0.9.86', d:'2026-10-25', notes:['Cobalt tools (pickaxe, axe, sword, shovel, hoe) can no longer be crafted - they are still in creative','New: Reset world button in the pause menu, with an in-game "Are you sure?" (Yes / No, B = No) - it never leaves fullscreen','Resetting is a live event: you float up, watch the old land fall away chunk by chunk, then watch a brand-new world (new seed, castles, islands) build in around you before you drift down to the new spawn','You keep your whole inventory, armour, off-hand and XP, with full health and hunger; the old world, its backups and its other dimensions are wiped for good']},
+{v:'v0.9.85', d:'2026-10-25', notes:['Ores by depth (new worlds): coal and iron everywhere from the surface to bedrock, silver at every depth, lapis in the lower third, gold just above the diamonds, diamonds only in the bottom 10 blocks - and coal, iron, silver, gold and lapis are all still there right down by the bedrock','Caves show their ore: coal, iron and silver seams on cave walls, floors and ceilings (about 4x more visible iron and coal per cave)','Raw silver has a new icon: a little cluster of shiny droplets','Spiders at night: blocky eight-legged spiders with red eyes hunt you on the surface at night and in dark caves, climb walls, leap at you and drop String (4 String = 1 Wool)','Nights are no longer pitch dark: moonlit blue sky with stars, but the land, mobs and you stay clearly visible (all graphics presets, Photo-real too); caves stay dim but never black','New painted sky with drifting clouds that fade from day to sunset to night and back. Sky textures: Screaming Brain Studios (CC0)']},
 {v:'v0.9.84', d:'2026-10-25', notes:['Spawn island trees are real logs and leaves now (they were planks)','No more coloured wool on the island (the blue by the skull lava is gone) - it uses natural Glencraft blocks: grass, dirt, sand, stone, moss','Deeper sea, sandy beaches and softer island edges','Existing island worlds are refreshed too - only blocks you never touched, your builds are safe','Days and nights last 3 times longer (18 min for a full day); sleeping still skips the night','Zombies are faster and hunch, lurch and claw at you with mocap-style arms','Skeletons chase you, stop about 4 blocks away, hold the bow out, creak as they draw, twang and fire with near-perfect aim (a shot every 1.5-2 s)','Black skeletons swing proper saber cuts','The tartan kilt item has been removed (any you had are gone; your character still wears a kilt)','Cobalt armour can no longer be crafted (pieces you already have stay; cobalt tools unchanged)']},
 {v:'v0.9.83', d:'2026-10-25', notes:['Jetpack! Wear it in the chestplate slot (Y to equip). Hold jump to blast upward with flame thrusters, steer fast through the air, and glide down gently with no fall damage. No fuel needed. Craft: 4 iron ingots + 2 redstone + 2 coal at a crafting table (also in creative).','Each of the three castles now sits on its own island across the sea: a clean green meadow for the human castle, a misty overgrown isle for the mossy castle, and dead dark ground for the blackstone castle (new worlds).','Castles rebuilt: the human castle is clean with trims, roofs, banners, windows, double doors, beds for Hamish and Angus, a chest, furnace and crafting table. The skeleton castles are abandoned ruins with holes, collapsed walls and cobwebs - loot, skeletons, the broken Hell portal and lava pool are still there.','Your world list is back: create as many worlds as you like, load any of them, and delete with an "Are you sure?" Yes/No (works with controller). Creating a world never replaces another.','The old world reset can never run again. The game also scans for any leftover old world data and lists anything it finds.','Removed the test starter chests at spawn.']},
 {v:'v0.9.82', d:'2026-10-25', notes:['New worlds: the three castles are now in three different corners of the land - the clan castle (where Hamish and Angus live), the mossy ruin and the Blackstone castle (its dark alder wood goes with it)', 'New worlds: you start on a whole island built in Minecraft (the MHkitpvp kit-pvp map: spawn platform, builds, beaches and a ring of sea), turned into Glencraft blocks; the hills slope down to its shore', 'New worlds: 40 hand-built trees (scaled down to Glencraft size) now grow among the normal ones - pine, birch, oak, yew, rowan, alder, hawthorn blossom and bare blackthorn', 'Hamish wears a long charcoal coat with brass buttons, dark trousers and black boots; Angus a short heather-grey wool jacket with a tartan sash, brown belt, moleskin trousers and brown boots, and he is a bit broader', 'Gold tools and gold armour can no longer be crafted. Any you already have stay as they are, and gold ore, ingots and blocks are unchanged', 'In Hell, imps and blaze skeletons sometimes wear gold armour (you can see it on them) and may drop a piece when killed', 'Inventory: press Y on an item to send it to the next free hotbar slot (each press uses the next empty slot; if the hotbar is full it replaces the slot you have selected). Press Y on armour to put it on straight away - anything already in that slot goes back to your bag', 'Armour bar: a row of chestplate icons just above your hearts shows your armour points (each icon is 2 points). It only shows while you wear armour', 'Old worlds keep their terrain, castles and trees exactly as they are']},
