@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1005a -->
+<!-- glencraft-build: v1006a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.5';
+const GAME_VERSION = 'v1.0.6';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19156,6 +19156,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.6', ["Mobs: all 29 night mobs now have proper HD 3D models (multi-part bodies, painted HD textures, glowing eyes) instead of the picture placeholders", "Mobs: every night mob has its own idle, walk/float/swim and attack animation, plus a death animation (knights topple, ghosts spin away, blobs pop, divers sink)", "Mobs: new Glencraft names \u2013 Clydeworks Skullbot, Gurnin' Jester, Hooded Bodach, Totem Thumper, Cailleach of the Moss, Girnin' Wrap, Glaur Blob, Heather Shade, Bane Shaman, Star Hound", "Mobs: night mobs now live in homes \u2013 castles (black, human, mossy), alder, hawthorn and yew woods, heather moors, mountains, shore/bog and caves \u2013 2\u20134 kinds each", "Mobs: Kelp Diver, Bigeye Diver, Drowned Deckhands (a sunken ship's crew) and Hookhand Haunt spawn only in deep water and swim properly", "Mobs: small details hide at a distance so phones stay smooth; caps, night-only spawning and damage limits unchanged"]],
     ['v1.0.5', ["Mobs: 29 new night mobs roam the glen after dark and fade away at sunrise - from the Clank Warden and Captain Bonebeard to the Storm Bogle and the Rain Wean", "Mobs: every one has its own trick - chargers, leapers, teleporters, grabbers, stalkers that only move when you look away, ranged shots, lightning, poison clouds and more", "Mobs: pirates haunt the shoreline, divers lurk in the water and mummies wait in caves at night", "Mobs: only a few out at once and never near your torches; no one-shots; they drop bones, rotten flesh, lost souls, ore and the odd gem", "Mobs: temporary picture skins for the night mobs (to be replaced later)"]],
     ['v1.0.4', ["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]],
     ['v1.0.3', ["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]],
@@ -22081,7 +22082,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 // ===== v1.0.5: NIGHT MOBS - 29 original Glencraft night creatures (night-only spawns, capped, procedural models / textures / sounds) =====
 (function () {
   const U = window.__c123 = {spawned: 0, killed: 0, err: null, hits: 0, kinds: {}, shots: 0, strikes: 0};
-  const PH = typeof touchMode !== 'undefined' && !!touchMode, TS = PH ? 64 : 128;
+  const PH = typeof touchMode !== 'undefined' && !!touchMode, TS = PH ? 128 : 256;
   const RNG = s => { let x = (s | 0) % 2147483647 || 7; return () => (x = (x * 16807) % 2147483647) / 2147483647; };
   const TEX = {};
   // ---- procedural HD textures (cached per pattern+colour) ----
@@ -22109,6 +22110,13 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     else if (kind === 'stars') { const gr = g.createLinearGradient(0, 0, n, n); gr.addColorStop(0, hx(.06)); gr.addColorStop(1, hx(-.1)); g.fillStyle = gr; g.fillRect(0, 0, n, n); for (let i = 0; i < n / 2; i++) { g.fillStyle = 'rgba(255,255,255,' + (.4 + r() * .6).toFixed(2) + ')'; const s = r() < .1 ? 2 : 1; g.fillRect(r() * n, r() * n, s, s); } }
     else if (kind === 'wisp') { for (let i = 0; i < 30; i++) { const x = r() * n, y = r() * n, s = n / 5 + r() * n / 4, gr = g.createRadialGradient(x, y, 0, x, y, s); gr.addColorStop(0, hx(.22)); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n); } g.fillStyle = 'rgba(255,255,255,.08)'; for (let y = 0; y < n; y += 3) g.fillRect(0, y, n, 1); }
     else if (kind === 'leather') { speck(3, .12, 3, 2); g.strokeStyle = 'rgba(0,0,0,.35)'; g.setLineDash([2, 2]); g.strokeRect(2, 2, n - 4, n - 4); g.setLineDash([]); }
+    else if (kind === 'stripes') { speck(2, .08, 2, 2); for (let y = 0; y < n; y += n / 8) { g.fillStyle = 'rgba(240,235,220,.85)'; g.fillRect(0, y, n, n / 16); } speck(1, .1, 3, 3); for (let i = 0; i < n / 4; i++) { g.fillStyle = 'rgba(40,60,40,' + (r() * .35).toFixed(2) + ')'; g.fillRect(r() * n, r() * n, 2 + r() * 8, 2 + r() * 8); } }
+    else if (kind === 'eyeball') { const gr = g.createRadialGradient(n * .5, n * .5, n * .05, n * .5, n * .5, n * .7); gr.addColorStop(0, '#fbf6ee'); gr.addColorStop(.7, '#eadccf'); gr.addColorStop(1, '#c99a8a'); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+      g.strokeStyle = 'rgba(170,30,30,.55)'; for (let i = 0; i < 26; i++) { g.lineWidth = .6 + r() * 1.4; g.beginPath(); let a = r() * 6.28, x = n / 2 + Math.cos(a) * n * .5, y = n / 2 + Math.sin(a) * n * .5; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += (n / 2 - x) * .16 + (r() - .5) * 8; y += (n / 2 - y) * .16 + (r() - .5) * 8; g.lineTo(x, y); } g.stroke(); }
+      const ir = g.createRadialGradient(n * .5, n * .5, 0, n * .5, n * .5, n * .2); ir.addColorStop(0, '#000'); ir.addColorStop(.4, '#000'); ir.addColorStop(.45, hx(.1)); ir.addColorStop(.9, hx(-.1)); ir.addColorStop(1, '#201010'); g.fillStyle = ir; g.beginPath(); g.arc(n * .5, n * .5, n * .2, 0, 7); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,.25)'; for (let i = 0; i < 30; i++) { const a = r() * 6.28; g.beginPath(); g.moveTo(n / 2 + Math.cos(a) * n * .09, n / 2 + Math.sin(a) * n * .09); g.lineTo(n / 2 + Math.cos(a) * n * .19, n / 2 + Math.sin(a) * n * .19); g.stroke(); }
+      g.fillStyle = 'rgba(255,255,255,.85)'; g.beginPath(); g.arc(n * .44, n * .43, n * .035, 0, 7); g.fill(); }
+    else if (kind === 'scales') { for (let y = 0; y < n; y += n / 12) for (let x = (y / (n / 12)) % 2 ? n / 24 : 0; x < n; x += n / 12) { const gr = g.createRadialGradient(x, y, 0, x, y, n / 14); gr.addColorStop(0, hx(.12)); gr.addColorStop(1, hx(-.12)); g.fillStyle = gr; g.beginPath(); g.arc(x, y, n / 18, 0, Math.PI); g.fill(); } speck(1, .08, 2, 2); }
     else speck(2, .06, 2, 2);
     return c;
   }
@@ -22173,7 +22181,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   }
   U.humanoid = humanoid;
   // ---- PLACEHOLDER SKINS: the user's friend's pictures (placeholders/nightmobs/NN.jpg). Set to false (or delete the folder) to fall back to plain procedural faces. ----
-  const NM_PLACEHOLDERS = true;
+  const NM_PLACEHOLDERS = false;   // v1.0.6: real models are the default now
   U.placeholders = NM_PLACEHOLDERS;
   const PIC = {}, ASP = {};
   function pic(id) { if (!NM_PLACEHOLDERS) return null; if (PIC[id]) return PIC[id];
@@ -22183,35 +22191,35 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // ---- the 29 (original names; behaviours in c.js) ----
   // body: man | big | robe | sheet | orb | blob | dog | cloud ; move: walk | float | swim | hop ; place: land | water | shore | cave
   const NMD = [
-    ['01', 'Clank Warden',      {body: 'man',   c: [0x8a8f96, 'metal'], move: 'walk',  spd: 2.2, hp: 30, ai: 'shield',   dmg: 3, place: 'land',  snd: 'clank',   drop: [[54, 1, 2]]}],
-    ['02', 'Gloam Ghoul',       {body: 'robe',  c: [0x1c1a1f, 'cloth'], move: 'walk',  spd: 3.6, hp: 16, ai: 'lunge',    dmg: 2, place: 'land',  snd: 'shriek',  drop: [[320, 1, 2]]}],
-    ['03', 'Domeskull Unit',    {body: 'man',   c: [0x9aa3ab, 'metal'], move: 'walk',  spd: 2.0, hp: 20, ai: 'zap',      dmg: 2, place: 'land',  snd: 'beep',    drop: [[118, 1, 3], [54, 0, 1]]}],
-    ['04', 'Kelp Diver',        {body: 'man',   c: [0x4f6a4a, 'weed'],  move: 'swim',  spd: 2.6, hp: 18, ai: 'drag',     dmg: 2, place: 'water', snd: 'gurgle',  drop: [[55, 1, 2]]}],
-    ['05', 'Grinface Phantom',  {body: 'robe',  c: [0x6c5d8a, 'cloth'], move: 'float', spd: 3.0, hp: 14, ai: 'blink',    dmg: 2, place: 'land',  snd: 'cackle',  drop: [[321, 0, 1]]}],
-    ['06', 'Clawhood Pair',     {body: 'robe',  c: [0x2a2a30, 'cloth'], move: 'float', spd: 3.4, hp: 10, ai: 'orbit',    dmg: 2, place: 'land',  snd: 'whisper', drop: [[11, 1, 2]], group: 2}],
-    ['07', 'Corrie Yeti',       {body: 'big',   c: [0xd8d6d0, 'fur'],   move: 'walk',  spd: 3.0, hp: 26, ai: 'charge',   dmg: 3, place: 'land',  snd: 'growl',   drop: [[32, 1, 3]]}],
-    ['08', 'Tiki Thumper',      {body: 'big',   c: [0x7a5a3a, 'wood'],  move: 'walk',  spd: 2.4, hp: 26, ai: 'stomp',    dmg: 3, place: 'land',  snd: 'drum',    drop: [[118, 1, 2], [123, 0, 1, 0.06]]}],
-    ['09', 'Cairn Mummy',       {body: 'man',   c: [0xcdbf9c, 'bandage'], move: 'walk', spd: 1.9, hp: 22, ai: 'slowgrab', dmg: 2, place: 'cave', snd: 'moan',    drop: [[32, 1, 2], [320, 0, 1]]}],
-    ['10', 'Bedsheet Bogle',    {body: 'sheet', c: [0xf2f2f2, 'cloth'], move: 'float', spd: 4.0, hp: 8,  ai: 'scare',    dmg: 1, place: 'land',  snd: 'moan',    drop: [[32, 1, 2]], phase: 1}],
-    ['11', 'Crone of the Moss', {body: 'robe',  c: [0x2d3a2a, 'cloth'], move: 'walk',  spd: 2.2, hp: 16, ai: 'hex',      dmg: 2, place: 'land',  snd: 'cackle',  drop: [[118, 1, 2]]}],
-    ['12', 'Captain Bonebeard', {body: 'man',   c: [0x2b2b3a, 'cloth'], move: 'walk',  spd: 2.6, hp: 24, ai: 'parry',    dmg: 3, place: 'shore', snd: 'growl',   drop: [[171, 1, 3], [83, 0, 2]]}],
-    ['13', 'Grinning Wrap',     {body: 'man',   c: [0xd9cfb2, 'bandage'], move: 'walk', spd: 3.0, hp: 18, ai: 'leap',     dmg: 2, place: 'cave', snd: 'cackle',  drop: [[32, 1, 2], [171, 0, 1]]}],
-    ['14', 'Hatman of the Haar', {body: 'robe', c: [0x101014, 'cloth'], move: 'walk',  spd: 6.5, hp: 14, ai: 'stalk',    dmg: 3, place: 'land',  snd: 'whisper', drop: [[53, 1, 2]]}],
-    ['15', 'Ben Troll',         {body: 'big',   c: [0x8c8a7e, 'skin'],  move: 'walk',  spd: 1.8, hp: 30, ai: 'rock',     dmg: 3, place: 'land',  snd: 'growl',   drop: [[54, 1, 2]]}],
-    ['16', 'Gnasher Eye',       {body: 'orb',   c: [0x3a2a2a, 'skin'],  move: 'float', spd: 2.4, hp: 16, ai: 'beam',     dmg: 3, place: 'land',  snd: 'zap',     drop: [[118, 1, 2]], hover: 2.2}],
-    ['17', 'Ironjaw',           {body: 'big',   c: [0x4a4d55, 'metal'], move: 'walk',  spd: 2.0, hp: 28, ai: 'armour',   dmg: 3, place: 'land',  snd: 'clank',   drop: [[80, 1, 2]]}],
-    ['18', 'Drip Blob',         {body: 'blob',  c: [0x6f8a5a, 'slime'], move: 'hop',   spd: 2.6, hp: 14, ai: 'split',    dmg: 2, place: 'land',  snd: 'gurgle',  drop: [[11, 0, 1]]}],
-    ['19', 'Violet Shade',      {body: 'robe',  c: [0x9a7ad8, 'wisp'],  move: 'float', spd: 2.8, hp: 16, ai: 'homing',   dmg: 2, place: 'land',  snd: 'chime',   drop: [[321, 1, 1]], glow: 0x40206a, phase: 1}],
-    ['20', 'Haar Wraith',       {body: 'sheet', c: [0xd0d6dc, 'wisp'],  move: 'float', spd: 2.6, hp: 12, ai: 'haze',     dmg: 2, place: 'land',  snd: 'whisper', drop: [[321, 0, 1]], phase: 1}],
-    ['21', 'Plaguebeak Knight', {body: 'man',   c: [0x5a5f58, 'metal'], move: 'walk',  spd: 2.4, hp: 24, ai: 'aura',     dmg: 2, place: 'land',  snd: 'clank',   drop: [[54, 1, 2], [320, 0, 1]]}],
-    ['22', 'Storm Bogle',       {body: 'cloud', c: [0xb8c4d8, 'wisp'],  move: 'float', spd: 2.2, hp: 18, ai: 'storm',    dmg: 3, place: 'land',  snd: 'thunder', drop: [[118, 1, 3]], hover: 5, glow: 0x203050}],
-    ['23', 'Bigeye Diver',      {body: 'orb',   c: [0x6a7a80, 'metal'], move: 'swim',  spd: 2.2, hp: 18, ai: 'bubble',   dmg: 2, place: 'water', snd: 'gurgle',  drop: [[55, 1, 2]]}],
-    ['24', 'Bone Shaman',       {body: 'robe',  c: [0x5a3a2a, 'cloth'], move: 'walk',  spd: 2.2, hp: 20, ai: 'summon',   dmg: 2, place: 'land',  snd: 'drum',    drop: [[171, 1, 3]]}],
-    ['25', 'Bog Gowk',          {body: 'man',   c: [0x6a7a5a, 'skin'],  move: 'walk',  spd: 3.2, hp: 16, ai: 'hop',      dmg: 2, place: 'shore', snd: 'croak',   drop: [[320, 1, 2]]}],
-    ['26', 'Drowned Deckhands', {body: 'man',   c: [0x4a5a4a, 'cloth'], move: 'walk',  spd: 2.4, hp: 8,  ai: 'crew',     dmg: 2, place: 'shore', snd: 'moan',    drop: [[320, 0, 1], [83, 0, 1]], group: 3}],
-    ['27', 'Hookhand Haunt',    {body: 'robe',  c: [0x9fb4bf, 'wisp'],  move: 'float', spd: 2.6, hp: 16, ai: 'hook',     dmg: 2, place: 'shore', snd: 'moan',    drop: [[54, 1, 1], [321, 0, 1]], phase: 1}],
-    ['28', 'Star Hound',        {body: 'dog',   c: [0x2a3a6a, 'stars'], move: 'float', spd: 5.5, hp: 14, ai: 'circle',   dmg: 2, place: 'land',  snd: 'howl',    drop: [[171, 1, 2]], hover: 0.5, glow: 0x203a70}],
-    ['29', 'Rain Wean',         {body: 'sheet', c: [0xe6eef2, 'wisp'],  move: 'float', spd: 0,   hp: 12, ai: 'weep',     dmg: 2, place: 'land',  snd: 'shriek',  drop: [[321, 1, 1]], phase: 1}],
+    ['01', 'Clank Warden', {body: 'man',   c: [0x8a8f96, 'metal'], move: 'walk',  spd: 2.2, hp: 30, ai: 'shield',   dmg: 3, homes: ['human','mossy'],  snd: 'clank',   drop: [[54, 1, 2]]}],
+    ['02', 'Gloam Ghoul', {body: 'robe',  c: [0x1c1a1f, 'cloth'], move: 'walk',  spd: 3.6, hp: 16, ai: 'lunge',    dmg: 2, homes: ['alder'],  snd: 'shriek',  drop: [[320, 1, 2]]}],
+    ['03', 'Clydeworks Skullbot', {body: 'man',   c: [0x9aa3ab, 'metal'], move: 'walk',  spd: 2.0, hp: 20, ai: 'zap',      dmg: 2, homes: ['human','mossy'],  snd: 'beep',    drop: [[118, 1, 3], [54, 0, 1]]}],
+    ['04', 'Kelp Diver', {body: 'man',   c: [0x4f6a4a, 'weed'],  move: 'swim',  spd: 2.6, hp: 18, ai: 'drag',     dmg: 2, homes: ['ocean'], snd: 'gurgle',  drop: [[55, 1, 2]]}],
+    ['05', 'Gurnin\' Jester', {body: 'robe',  c: [0x6c5d8a, 'cloth'], move: 'float', spd: 3.0, hp: 14, ai: 'blink',    dmg: 2, homes: ['moor'],  snd: 'cackle',  drop: [[321, 0, 1]]}],
+    ['06', 'Hooded Bodach', {body: 'robe',  c: [0x2a2a30, 'cloth'], move: 'float', spd: 3.4, hp: 10, ai: 'orbit',    dmg: 2, homes: ['hawthorn'],  snd: 'whisper', drop: [[11, 1, 2]], group: 2}],
+    ['07', 'Corrie Yeti', {body: 'big',   c: [0xd8d6d0, 'fur'],   move: 'walk',  spd: 3.0, hp: 26, ai: 'charge',   dmg: 3, homes: ['mountain'],  snd: 'growl',   drop: [[32, 1, 3]]}],
+    ['08', 'Totem Thumper', {body: 'big',   c: [0x7a5a3a, 'wood'],  move: 'walk',  spd: 2.4, hp: 26, ai: 'stomp',    dmg: 3, homes: ['yew'],  snd: 'drum',    drop: [[118, 1, 2], [123, 0, 1, 0.06]]}],
+    ['09', 'Cairn Mummy', {body: 'man',   c: [0xcdbf9c, 'bandage'], move: 'walk', spd: 1.9, hp: 22, ai: 'slowgrab', dmg: 2, homes: ['cave'], snd: 'moan',    drop: [[32, 1, 2], [320, 0, 1]]}],
+    ['10', 'Bedsheet Bogle', {body: 'sheet', c: [0xf2f2f2, 'cloth'], move: 'float', spd: 4.0, hp: 8,  ai: 'scare',    dmg: 1, homes: ['moor'],  snd: 'moan',    drop: [[32, 1, 2]], phase: 1}],
+    ['11', 'Cailleach of the Moss', {body: 'robe',  c: [0x2d3a2a, 'cloth'], move: 'walk',  spd: 2.2, hp: 16, ai: 'hex',      dmg: 2, homes: ['alder'],  snd: 'cackle',  drop: [[118, 1, 2]]}],
+    ['12', 'Captain Bonebeard', {body: 'man',   c: [0x2b2b3a, 'cloth'], move: 'walk',  spd: 2.6, hp: 24, ai: 'parry',    dmg: 3, homes: ['shore'], snd: 'growl',   drop: [[171, 1, 3], [83, 0, 2]]}],
+    ['13', 'Girnin\' Wrap', {body: 'man',   c: [0xd9cfb2, 'bandage'], move: 'walk', spd: 3.0, hp: 18, ai: 'leap',     dmg: 2, homes: ['cave'], snd: 'cackle',  drop: [[32, 1, 2], [171, 0, 1]]}],
+    ['14', 'Hatman of the Haar', {body: 'robe', c: [0x101014, 'cloth'], move: 'walk',  spd: 6.5, hp: 14, ai: 'stalk',    dmg: 3, homes: ['alder'],  snd: 'whisper', drop: [[53, 1, 2]]}],
+    ['15', 'Ben Troll', {body: 'big',   c: [0x8c8a7e, 'skin'],  move: 'walk',  spd: 1.8, hp: 30, ai: 'rock',     dmg: 3, homes: ['mountain'],  snd: 'growl',   drop: [[54, 1, 2]]}],
+    ['16', 'Gnasher Eye', {body: 'orb',   c: [0x3a2a2a, 'skin'],  move: 'float', spd: 2.4, hp: 16, ai: 'beam',     dmg: 3, homes: ['cave'],  snd: 'zap',     drop: [[118, 1, 2]], hover: 2.2}],
+    ['17', 'Ironjaw', {body: 'big',   c: [0x4a4d55, 'metal'], move: 'walk',  spd: 2.0, hp: 28, ai: 'armour',   dmg: 3, homes: ['black'],  snd: 'clank',   drop: [[80, 1, 2]]}],
+    ['18', 'Glaur Blob', {body: 'blob',  c: [0x6f8a5a, 'slime'], move: 'hop',   spd: 2.6, hp: 14, ai: 'split',    dmg: 2, homes: ['shore'],  snd: 'gurgle',  drop: [[11, 0, 1]]}],
+    ['19', 'Heather Shade', {body: 'robe',  c: [0x9a7ad8, 'wisp'],  move: 'float', spd: 2.8, hp: 16, ai: 'homing',   dmg: 2, homes: ['hawthorn'],  snd: 'chime',   drop: [[321, 1, 1]], glow: 0x40206a, phase: 1}],
+    ['20', 'Haar Wraith', {body: 'sheet', c: [0xd0d6dc, 'wisp'],  move: 'float', spd: 2.6, hp: 12, ai: 'haze',     dmg: 2, homes: ['yew','mossy'],  snd: 'whisper', drop: [[321, 0, 1]], phase: 1}],
+    ['21', 'Plaguebeak Knight', {body: 'man',   c: [0x5a5f58, 'metal'], move: 'walk',  spd: 2.4, hp: 24, ai: 'aura',     dmg: 2, homes: ['black'],  snd: 'clank',   drop: [[54, 1, 2], [320, 0, 1]]}],
+    ['22', 'Storm Bogle', {body: 'cloud', c: [0xb8c4d8, 'wisp'],  move: 'float', spd: 2.2, hp: 18, ai: 'storm',    dmg: 3, homes: ['mountain'],  snd: 'thunder', drop: [[118, 1, 3]], hover: 5, glow: 0x203050}],
+    ['23', 'Bigeye Diver', {body: 'orb',   c: [0x6a7a80, 'metal'], move: 'swim',  spd: 2.2, hp: 18, ai: 'bubble',   dmg: 2, homes: ['ocean'], snd: 'gurgle',  drop: [[55, 1, 2]]}],
+    ['24', 'Bane Shaman', {body: 'robe',  c: [0x5a3a2a, 'cloth'], move: 'walk',  spd: 2.2, hp: 20, ai: 'summon',   dmg: 2, homes: ['black'],  snd: 'drum',    drop: [[171, 1, 3]]}],
+    ['25', 'Bog Gowk', {body: 'man',   c: [0x6a7a5a, 'skin'],  move: 'walk',  spd: 3.2, hp: 16, ai: 'hop',      dmg: 2, homes: ['shore'], snd: 'croak',   drop: [[320, 1, 2]]}],
+    ['26', 'Drowned Deckhands', {body: 'man',   c: [0x4a5a4a, 'cloth'], move: 'swim',  spd: 2.4, hp: 8,  ai: 'crew',     dmg: 2, homes: ['ocean'], snd: 'moan',    drop: [[320, 0, 1], [83, 0, 1]], group: 3}],
+    ['27', 'Hookhand Haunt', {body: 'robe',  c: [0x9fb4bf, 'wisp'],  move: 'swim', spd: 2.6, hp: 16, ai: 'hook',     dmg: 2, homes: ['ocean'], snd: 'moan',    drop: [[54, 1, 1], [321, 0, 1]], phase: 1}],
+    ['28', 'Star Hound', {body: 'dog',   c: [0x2a3a6a, 'stars'], move: 'float', spd: 5.5, hp: 14, ai: 'circle',   dmg: 2, homes: ['moor'],  snd: 'howl',    drop: [[171, 1, 2]], hover: 0.5, glow: 0x203a70}],
+    ['29', 'Rain Wean', {body: 'sheet', c: [0xe6eef2, 'wisp'],  move: 'float', spd: 0,   hp: 12, ai: 'weep',     dmg: 2, homes: ['shore'],  snd: 'shriek',  drop: [[321, 1, 1]], phase: 1}],
   ];
   const DEF = {}; for (const [id, name, o] of NMD) DEF['nm' + id] = Object.assign({id, name, kind: 'nm' + id}, o);
   // minions (not counted in the 29): bone shaman's skull wisps and the drip blob's droplets
@@ -22219,8 +22227,22 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   DEF.nmdrop = {id: '18', name: 'Droplet', kind: 'nmdrop', body: 'blob', c: [0x6f8a5a, 'slime'], move: 'hop', spd: 3, hp: 4, ai: 'chase', dmg: 2, snd: 'gurgle', drop: [], minion: 1, small: 0.5};
   U.DEF = DEF; U.LIST = NMD.map(d => 'nm' + d[0]);
   try { for (const k in DEF) MOB_HP[k] = DEF[k].hp; } catch (_) {}
-  // ---- cheap 3D bodies with the picture on the front ----
+  // ---- build: real models (v1.0.6) or, with NM_PLACEHOLDERS on, the old picture boards ----
   function build(def) {
+    if (NM_PLACEHOLDERS || !MODELS[def.kind]) return buildPic(def);
+    const mats = [], K = kit(mats), S = def.small || 1, g = new THREE.Group(), rig = new THREE.Group(); g.add(rig);
+    const m = MODELS[def.kind](K, def), H = m.H || {};
+    rig.add(m.root);
+    if (def.move === 'swim') { rig.position.y = 0.9; m.root.position.y -= 0.9; }   // swimmers pivot at the waist
+    if (def.phase) for (const q of mats) if (!q.transparent) { q.transparent = true; q.opacity = 0.85; q.depthWrite = true; }
+    const lod = []; g.traverse(o => { if (o.isMesh) { o.castShadow = !PH; if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); if (o.geometry.boundingSphere.radius < 0.13) lod.push(o); } });
+    g.scale.setScalar(S);
+    const top = (m.top || 2) * S;
+    return {g, rig, mats, legs: [], arms: [], speed: def.spd, hp: def.hp, maxHp: def.hp, hitY: top * 0.5, hitR: (m.r || 0.6) * S, tall: Math.max(1, Math.ceil(top)), hostile: true, topH: top,
+      la: H.la || m.la, ra: H.ra || m.ra, ll: H.ll || m.ll, rl: H.rl || m.rl, head: H.head || m.head, body: H.body || m.body, legs4: m.legs4, manim: m.anim, lod, model: m};
+  }
+  // ---- cheap 3D bodies with the picture on the front ----
+  function buildPic(def) {
     const mats = [], K = kit(mats), S = def.small || 1, c = def.c, g = new THREE.Group(), rig = K.grp(0, 0, 0, g);
     const t0 = pic(def.id), t = t0 && !t0.failed ? t0 : null, asp = ASP[def.id] || 0.9;
     const front = t ? (() => { const m = new THREE.MeshLambertMaterial({map: t, emissiveMap: t}); m.emissive.set(def.glow || 0x8a8a8a); m.userData.e0 = m.emissive.clone(); mats.push(m); return m; })() : K.face(def.kind, c[1], c[0], (q, n) => { F.glow(q, n, .32, .42, .07, '#ff4020'); F.glow(q, n, .68, .42, .07, '#ff4020'); F.teeth(q, n, .5, .72, .5, .14, 6); }, {em: def.glow});
@@ -22249,6 +22271,293 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     return Object.assign(P, {g, rig, mats, legs: [], arms: [], speed: def.spd, hp: def.hp, maxHp: def.hp, hitY: top * S * 0.5, hitR: (def.body === 'big' || def.body === 'cloud' ? 0.9 : 0.6) * S, tall: Math.max(1, Math.ceil(top * S)), hostile: true, topH: top * S});
   }
   U.build = build;
+  // ===== v1.0.6: real procedural HD models for the 29 (multi-mesh, HD canvas textures, glowing eyes, per-mob animation) =====
+  const MODELS = {};
+  const glow = (K, col, op) => K.M(col, null, {basic: 1, op});
+  function eyes(K, p, y, z, sep, r, col, o) { o = o || {}; const m = glow(K, col); const out = [];
+    for (const s of [-1, 1]) { const e = K.sph(r, m, s * sep, y, z, p, o.sx || 1, o.sy || 1, o.sz || 0.5, 8); out.push(e); if (o.halo && !PH) { const h = K.sph(r * 1.9, glow(K, col, 0.22), s * sep, y, z - 0.005, p, 1, 1, 0.2, 8); out.push(h); } } return out; }
+  function strands(K, p, mat, n, o) { const L = []; for (let i = 0; i < n; i++) { const a = (i / n) * 6.283 + (o.a0 || 0), rr = o.r || 0.3, len = (o.len || 0.6) * (0.7 + 0.6 * ((i * 37 % 11) / 11));
+      const piv = K.grp(Math.sin(a) * rr * (o.sx || 1), o.y || 0, Math.cos(a) * rr * (o.sz || 1), p); piv.rotation.y = a;
+      K.box(o.w || 0.08, len, 0.02, mat, 0, -len / 2, 0, piv); piv.rotation.x = o.tilt || 0.15; piv.userData.ph = i * 1.7; L.push(piv); } return L; }
+  function claws(K, hand, mat, n, len) { for (let i = 0; i < n; i++) { const c = K.cone(0.035, len || 0.2, mat, (i - (n - 1) / 2) * 0.06, -0.08, 0.05, hand, 5); c.rotation.x = Math.PI * 0.85; } }
+  function blade(K, hand, len, mat, hilt) { const g = K.grp(0, -0.02, 0.06, hand); g.rotation.x = -Math.PI / 2; K.box(0.06, len, 0.015, mat, 0, len / 2 + 0.08, 0, g); K.box(0.22, 0.04, 0.06, hilt, 0, 0.08, 0, g); K.box(0.05, 0.14, 0.05, hilt, 0, 0.0, 0, g); return g; }
+  function man(K, o) { const H = humanoid(K, o); return H; }
+  const sway = (L, t, amp, sp) => { if (L) for (const s of L) s.rotation.z = Math.sin(t * (sp || 2) + s.userData.ph) * (amp || 0.15); };
+  // face painters
+  const FACE = {
+    ghoul(g, n) { F.rect(g, n, 0, 0, 1, .22, '#2a1d18'); F.eye(g, n, .32, .42, .12, '#fffbe8', '#111'); F.eye(g, n, .68, .42, .12, '#fffbe8', '#111'); F.brow(g, n, .18, .27, .45, .33, .05); F.brow(g, n, .82, .27, .55, .33, .05);
+      F.teeth(g, n, .5, .76, .5, .14, 7, '#e8e0c0'); F.brow(g, n, .45, .5, .5, .62, .03, 'rgba(60,30,20,.6)'); for (let i = 0; i < 6; i++) F.brow(g, n, .1 + i * .16, .9, .15 + i * .16, .99, .02, 'rgba(0,0,0,.3)'); },
+    clown(g, n) { F.rect(g, n, 0, 0, 1, 1, '#f1ece4'); F.hole(g, n, .3, .4, .1, .07, '#1a1a2a'); F.hole(g, n, .7, .4, .1, .07, '#1a1a2a'); F.eye(g, n, .3, .41, .045, '#fff6a0'); F.eye(g, n, .7, .41, .045, '#fff6a0');
+      F.brow(g, n, .15, .22, .42, .32, .05, '#2a1030'); F.brow(g, n, .85, .22, .58, .32, .05, '#2a1030'); g.strokeStyle = '#b01828'; g.lineWidth = n * .06; g.beginPath(); g.arc(n * .5, n * .55, n * .3, .2, Math.PI - .2); g.stroke(); F.teeth(g, n, .5, .8, .36, .07, 8); },
+    tiki(g, n) { g.fillStyle = '#3a2410'; for (const [x, y] of [[.3, .36], [.7, .36]]) { g.beginPath(); g.ellipse(x * n, y * n, .14 * n, .1 * n, 0, 0, 7); g.fill(); } F.eye(g, n, .3, .36, .06, '#f8d040', '#300'); F.eye(g, n, .7, .36, .06, '#f8d040', '#300');
+      F.rect(g, n, .44, .4, .12, .22, '#5a3818'); F.rect(g, n, .15, .66, .7, .24, '#2a1608'); for (let i = 0; i < 7; i++) { F.rect(g, n, .17 + i * .095, .66, .07, .1, '#efe2c0'); F.rect(g, n, .17 + i * .095, .8, .07, .1, '#efe2c0'); }
+      for (let i = 0; i < 4; i++) F.brow(g, n, .05, .15 + i * .05, .95, .15 + i * .05, .015, 'rgba(30,15,5,.5)'); },
+    mummy(g, n) { F.hole(g, n, .34, .42, .08, .05, '#140c06'); F.glow(g, n, .66, .42, .05, '#ffd040'); F.hole(g, n, .5, .72, .16, .05, '#140c06'); },
+    grin(g, n) { F.eye(g, n, .32, .38, .09, '#ffe680', '#401000'); F.eye(g, n, .68, .38, .09, '#ffe680', '#401000'); F.teeth(g, n, .5, .7, .74, .22, 10, '#f5ecd0'); },
+    crone(g, n) { F.rect(g, n, 0, 0, 1, 1, '#9aa080'); F.glow(g, n, .32, .4, .05, '#9cff40'); F.glow(g, n, .68, .4, .05, '#9cff40'); F.brow(g, n, .15, .28, .42, .34, .05, '#ddd'); F.brow(g, n, .85, .28, .58, .34, .05, '#ddd');
+      g.strokeStyle = '#2a1a10'; g.lineWidth = n * .03; g.beginPath(); g.arc(n * .5, n * .62, n * .22, .3, Math.PI - .3); g.stroke(); F.rect(g, n, .38, .72, .05, .08, '#e8e0c0'); F.rect(g, n, .58, .72, .05, .08, '#e8e0c0'); for (let i = 0; i < 9; i++) F.brow(g, n, Math.random(), Math.random(), Math.random(), Math.random(), .006, 'rgba(40,40,20,.4)'); },
+    skull(g, n) { F.rect(g, n, 0, 0, 1, 1, '#e6dcc0'); F.hole(g, n, .3, .42, .13, .12); F.hole(g, n, .7, .42, .13, .12); F.glow(g, n, .3, .43, .04, '#ff3020'); F.glow(g, n, .7, .43, .04, '#ff3020');
+      g.fillStyle = '#0a0606'; g.beginPath(); g.moveTo(n * .5, n * .55); g.lineTo(n * .44, n * .66); g.lineTo(n * .56, n * .66); g.fill(); F.teeth(g, n, .5, .82, .5, .12, 7, '#f0e8d0'); },
+    shaman(g, n) { F.rect(g, n, 0, 0, 1, 1, '#ece2c8'); F.hole(g, n, .3, .4, .14, .14); F.hole(g, n, .7, .4, .14, .14); F.glow(g, n, .3, .41, .05, '#60ff70'); F.glow(g, n, .7, .41, .05, '#60ff70');
+      g.strokeStyle = '#a02010'; g.lineWidth = n * .03; for (const x of [.15, .85]) { g.beginPath(); g.moveTo(x * n, .55 * n); g.lineTo(x * n, .8 * n); g.stroke(); } F.teeth(g, n, .5, .78, .44, .14, 6); },
+    troll(g, n) { F.eye(g, n, .32, .38, .07, '#ffcc40', '#300'); F.eye(g, n, .68, .38, .07, '#ffcc40', '#300'); F.brow(g, n, .15, .28, .45, .34, .07, '#ddd'); F.brow(g, n, .85, .28, .55, .34, .07, '#ddd'); F.hole(g, n, .5, .74, .25, .08, '#200c08'); },
+    iron(g, n) { F.rect(g, n, .14, .36, .3, .06, '#050505'); F.rect(g, n, .56, .36, .3, .06, '#050505'); F.glow(g, n, .3, .39, .035, '#ff5020'); F.glow(g, n, .7, .39, .035, '#ff5020'); for (let i = 0; i < 6; i++) F.rect(g, n, .22 + i * .1, .62, .04, .22, '#0a0a0a'); },
+    gowk(g, n) { F.hole(g, n, .5, .74, .34, .12, '#2a0808'); F.rect(g, n, .38, .64, .06, .05, '#f0f0d0'); F.rect(g, n, .56, .64, .06, .05, '#f0f0d0'); F.rect(g, n, .45, .84, .1, .04, '#c06060'); },
+    zombie(g, n) { F.glow(g, n, .32, .42, .05, '#ff3020'); F.glow(g, n, .68, .42, .05, '#ff3020'); F.hole(g, n, .5, .72, .2, .09, '#1a0a06'); F.teeth(g, n, .5, .72, .3, .1, 5, '#d8d0a0'); F.rect(g, n, .6, .2, .2, .06, 'rgba(40,20,10,.6)'); },
+    sailor(g, n) { F.hole(g, n, .32, .42, .09, .08, '#0a1a24'); F.hole(g, n, .68, .42, .09, .08, '#0a1a24'); F.glow(g, n, .32, .42, .04, '#b0f0ff'); F.glow(g, n, .68, .42, .04, '#b0f0ff'); },
+    girl(g, n) { F.rect(g, n, 0, 0, 1, 1, '#f2f2ee'); for (let i = 0; i < 30; i++) F.brow(g, n, i / 30, 0, i / 30 + (Math.random() - .5) * .05, 1, .02, 'rgba(200,205,210,.7)'); F.glow(g, n, .62, .5, .03, '#a0e0ff'); },
+    hatman(g, n) { F.rect(g, n, 0, 0, 1, 1, '#08080a'); F.glow(g, n, .34, .45, .05, '#ffe040'); F.glow(g, n, .66, .45, .05, '#ffe040'); },
+    void(g, n) { F.rect(g, n, 0, 0, 1, 1, '#050507'); F.glow(g, n, .34, .5, .06, '#e8f0ff'); F.glow(g, n, .66, .5, .06, '#e8f0ff'); },
+    shade(g, n) { F.rect(g, n, 0, 0, 1, 1, '#a080e0'); F.brow(g, n, .15, .3, .45, .4, .06, '#301050'); F.brow(g, n, .85, .3, .55, .4, .06, '#301050'); F.eye(g, n, .32, .46, .07, '#fff', '#401070'); F.eye(g, n, .68, .46, .07, '#fff', '#401070'); F.teeth(g, n, .5, .76, .4, .12, 6); },
+    haar(g, n) { g.clearRect(0, 0, n, n); F.hole(g, n, .32, .42, .1, .14, 'rgba(20,24,30,.85)'); F.hole(g, n, .68, .42, .1, .14, 'rgba(20,24,30,.85)'); F.hole(g, n, .5, .76, .1, .14, 'rgba(20,24,30,.75)'); },
+    storm(g, n) { F.brow(g, n, .15, .3, .45, .42, .07, '#202838'); F.brow(g, n, .85, .3, .55, .42, .07, '#202838'); F.glow(g, n, .32, .48, .06, '#c0f0ff'); F.glow(g, n, .68, .48, .06, '#c0f0ff'); g.strokeStyle = '#202838'; g.lineWidth = n * .04; g.beginPath(); g.moveTo(n * .3, n * .76); for (let i = 1; i <= 6; i++) g.lineTo(n * (.3 + i * .066), n * (i % 2 ? .7 : .78)); g.stroke(); },
+    sheet(g, n) { F.hole(g, n, .34, .4, .09, .13); F.hole(g, n, .66, .4, .09, .13); F.hole(g, n, .5, .7, .08, .1); },
+    dog(g, n) { F.glow(g, n, .3, .36, .06, '#80e0ff'); F.glow(g, n, .7, .36, .06, '#80e0ff'); F.hole(g, n, .5, .7, .14, .09, '#101020'); },
+    robot(g, n) { F.rect(g, n, .1, .1, .8, .8, 'rgba(0,0,0,.25)'); for (let i = 0; i < 5; i++) F.rect(g, n, .2 + i * .13, .7, .08, .1, i % 2 ? '#ff4030' : '#40ff80'); F.rect(g, n, .3, .25, .4, .3, '#203040'); F.glow(g, n, .5, .4, .06, '#80f0ff'); },
+  };
+  U.FACE = FACE;
+  const hd = (K, key, pat, base, w, h, d, p, y, z, o) => K.head(w, h, d, K.M(base, pat, o), K.face(key, pat, base, FACE[key], o), 0, y, z || 0, p);
+  // ---- the 29 models. Each returns {root, parts..., top, r, anim(a, dt, s)} ; s = {mv, atk, t, d} ----
+  const RR = Math.PI;
+  MODELS.nm01 = K => { // Clank Warden: round domed helm with slits, plate armour, kite shield + mace
+    const steel = 0x9aa2ab, H = man(K, {legs: [steel, 'metal'], body: [steel, 'metal'], boots: 0x3a3a40, bw: 0.62, bh: 0.76, bd: 0.36, aw: 0.22});
+    const mS = K.M(steel, 'metal'), dark = K.M(0x2a2c30, 'metal');
+    const helm = K.sph(0.34, mS, 0, 0.3, 0, H.head, 1, 1.05, 1); K.cyl(0.36, 0.36, 0.06, dark, 0, 0.12, 0, H.head);
+    for (const x of [-0.12, 0.12]) K.box(0.05, 0.2, 0.05, glow(K, 0x101010), x, 0.32, 0.31, H.head); K.box(0.26, 0.05, 0.05, glow(K, 0x101010), 0, 0.36, 0.31, H.head);
+    eyes(K, H.head, 0.33, 0.27, 0.12, 0.025, 0xff3a20);
+    K.cone(0.05, 0.3, K.M(0xa02020, 'cloth'), 0, 0.7, -0.05, H.head).rotation.x = -0.4;
+    for (const s of [-1, 1]) K.sph(0.2, mS, s * 0.36, 0.72, 0, H.body, 1, 0.7, 1.1);
+    K.box(0.66, 0.1, 0.4, K.M(0x4a3020, 'leather'), 0, 0.06, 0, H.body);
+    const sh = K.grp(-0.05, -0.35, 0.14, H.la); const sm = K.cyl(0.34, 0.34, 0.06, K.M(0x6a4a2a, 'wood'), 0, 0, 0, sh, 16); sm.rotation.x = RR / 2; K.cyl(0.36, 0.36, 0.04, dark, 0, 0, -0.01, sh, 16, true).rotation.x = RR / 2; K.sph(0.08, mS, 0, 0, 0.05, sh);
+    const mace = K.grp(0, -0.68, 0.05, H.ra); mace.rotation.x = -RR / 2; K.cyl(0.03, 0.03, 0.6, K.M(0x4a3020, 'wood'), 0, 0.3, 0, mace); const hd0 = K.sph(0.1, dark, 0, 0.62, 0, mace); for (let i = 0; i < 6; i++) { const c = K.cone(0.03, 0.1, mS, 0, 0.62, 0, mace, 4); c.rotation.z = i * 1.05; c.translateY(0.11); }
+    return {root: H.rig, H, top: H.top + 0.7, r: 0.6, anim(a, dt, s) { H.la.rotation.x = -0.9 + (s.atk ? -0.2 : 0); H.la.rotation.z = 0.25; if (s.atk) H.ra.rotation.x = -2.4 + s.atk * 5; } }; };
+  MODELS.nm02 = K => { // Gloam Ghoul: black cloak, wild white eyes, shock of hair, long clawed hands
+    const blk = 0x1a181d, H = man(K, {noLegs: 1, robe: [blk, 'cloth'], legs: [blk, 'cloth'], body: [blk, 'cloth'], arm: [0x2a272e, 'cloth'], hand: [0xb4ab96, 'skin'], bw: 0.58, bh: 0.62, bd: 0.32, robeH: 1.0, armL: 0.9, aw: 0.17});
+    hd(K, 'ghoul', 'skin', 0xbdb39b, 0.46, 0.52, 0.44, H.head, 0.28, 0);
+    const hair = K.M(0x3a2a20, 'fur'); K.box(0.52, 0.16, 0.5, hair, 0, 0.58, -0.02, H.head); for (const s of [-1, 1]) K.box(0.08, 0.36, 0.42, hair, s * 0.26, 0.36, -0.04, H.head);
+    const cloak = K.grp(0, 0.62, -0.17, H.body); const cm = K.M(0x111014, 'cloth', {ds: 1}); const cp = K.box(0.9, 1.5, 0.03, cm, 0, -0.72, 0, cloak); cloak.rotation.x = 0.1;
+    K.box(0.7, 0.16, 0.36, cm, 0, 0.62, 0, H.body);
+    for (const A of [H.la, H.ra]) claws(K, A.hand, K.M(0x2a2018, 'bone'), 4, 0.22);
+    return {root: H.rig, H, top: H.top + 0.6, r: 0.55, anim(a, dt, s) { cloak.rotation.x = 0.15 + (s.mv ? 0.35 + Math.sin(s.t * 9) * 0.12 : Math.sin(s.t * 1.5) * 0.05); H.la.rotation.x = -1.2 + Math.sin(s.t * 3) * 0.2; H.ra.rotation.x = -1.2 - Math.cos(s.t * 3) * 0.2 - s.atk * 3; H.la.rotation.z = 0.3; H.ra.rotation.z = -0.3; } }; };
+  MODELS.nm03 = K => { // Domeskull Unit: barrel steel body, glass dome with a skull inside, antenna, claw arms
+    const g = K.grp(0, 0, 0), mS = K.M(0xa8b0b8, 'metal'), dark = K.M(0x30343a, 'metal'), red = K.M(0x9a2a20, 'metal');
+    const legs = []; for (const s of [-1, 1]) { const L = K.grp(s * 0.22, 0.55, 0, g); K.box(0.2, 0.5, 0.24, dark, 0, -0.27, 0, L); K.box(0.28, 0.12, 0.38, mS, 0, -0.5, 0.04, L); legs.push(L); }
+    const body = K.grp(0, 0.55, 0, g); K.cyl(0.42, 0.36, 0.8, mS, 0, 0.4, 0, body, 14); K.cyl(0.44, 0.44, 0.08, red, 0, 0.55, 0, body, 14); K.cyl(0.44, 0.44, 0.08, red, 0, 0.12, 0, body, 14);
+    const pan = K.box(0.36, 0.22, 0.05, K.face('robot', 'metal', 0x606870, FACE.robot), 0, 0.33, 0.38, body);
+    const head = K.grp(0, 0.82, 0, body); K.cyl(0.3, 0.36, 0.1, dark, 0, 0.04, 0, head, 14);
+    const sk = K.grp(0, 0.28, 0, head); hd(K, 'skull', 'bone', 0xe6dcc0, 0.3, 0.3, 0.28, sk, 0, 0);
+    const dome = K.sph(0.36, K.M(0xa0e0ff, null, {op: 0.28}), 0, 0.3, 0, head, 1, 1, 1, PH ? 12 : 18);
+    const ant = K.grp(0.2, 0.55, 0, head); K.cyl(0.015, 0.015, 0.35, dark, 0, 0.17, 0, ant, 5); const bulb = K.sph(0.05, glow(K, 0xff3020), 0, 0.37, 0, ant, 1, 1, 1, 8);
+    const arms = []; for (const s of [-1, 1]) { const A = K.grp(s * 0.5, 0.65, 0, body); K.sph(0.11, red, 0, 0, 0, A); K.box(0.12, 0.5, 0.12, mS, 0, -0.28, 0, A); const c = K.grp(0, -0.55, 0, A); for (const t of [-1, 1]) { const f = K.box(0.04, 0.16, 0.12, dark, t * 0.05, -0.06, 0, c); f.rotation.z = t * 0.3; } arms.push(A); }
+    return {root: g, head, ll: legs[0], rl: legs[1], la: arms[0], ra: arms[1], body, top: 2.0, r: 0.6, anim(a, dt, s) { head.rotation.y = Math.sin(s.t * 0.8) * 0.4; bulb.material.color.setHex((s.t * 2 | 0) % 2 ? 0xff3020 : 0x401010); sk.position.y = 0.28 + Math.sin(s.t * 3) * 0.02; if (s.atk) arms[1].rotation.x = -1.5; } }; };
+  MODELS.nm04 = K => { // Kelp Diver: brass dive helmet with 3 portholes, canvas suit draped in kelp, lead boots, air hose
+    const can = 0x7a6c50, H = man(K, {legs: [can, 'cloth'], body: [can, 'cloth'], boots: 0x34302a, bw: 0.62, bh: 0.74, bd: 0.4, aw: 0.24});
+    const brass = K.M(0xb08a3a, 'metal'), glass = K.M(0x2a5a50, null, {em: 0x0a3a30});
+    const helm = K.sph(0.36, brass, 0, 0.3, 0, H.head, 1, 1.05, 1); K.cyl(0.4, 0.42, 0.12, brass, 0, 0.02, 0, H.head, 14);
+    const port = (x, y, z, ry) => { const q = K.grp(x, y, z, H.head); q.rotation.y = ry; const r = K.cyl(0.11, 0.11, 0.06, brass, 0, 0, 0, q, 12); r.rotation.x = RR / 2; const gl = K.cyl(0.085, 0.085, 0.07, glass, 0, 0, 0.005, q, 12); gl.rotation.x = RR / 2; for (const t of [-1, 1]) K.box(0.012, 0.18, 0.012, brass, t * 0.03, 0, 0.04, q); };
+    port(0, 0.3, 0.33, 0); port(-0.32, 0.3, 0.05, -RR / 2); port(0.32, 0.3, 0.05, RR / 2);
+    eyes(K, H.head, 0.3, 0.33, 0.04, 0.025, 0x80ffd0);
+    const hose = K.grp(0, 0.35, -0.3, H.head); for (let i = 0; i < 4; i++) K.cyl(0.05, 0.05, 0.25, K.M(0x3a3a34, 'leather'), 0, -i * 0.2, -i * 0.06, hose, 6).rotation.x = 0.3;
+    const kelp = K.M(0x3f6a2e, 'weed', {ds: 1}); const S1 = strands(K, H.body, kelp, PH ? 6 : 10, {y: 0.75, r: 0.33, len: 0.9, w: 0.1}); const S2 = strands(K, H.head, kelp, PH ? 4 : 7, {y: 0.5, r: 0.3, len: 0.5, w: 0.08, tilt: 0.4});
+    return {root: H.rig, H, top: H.top + 0.7, r: 0.6, anim(a, dt, s) { sway(S1, s.t, 0.25, 1.5); sway(S2, s.t, 0.3, 1.8); } }; };
+  MODELS.nm05 = K => { // Gurnin' Jester: floating clown phantom, white face, red nose, ruff, two-bell cap
+    const pur = 0x5a3a7a, H = man(K, {noLegs: 1, robe: [pur, 'cloth'], legs: [pur, 'cloth'], body: [0x7a4a9a, 'cloth'], hand: [0xf0f0f0, 'cloth'], bw: 0.6, bh: 0.62, bd: 0.34, robeH: 0.9, robeY: 0.1, armL: 0.75, aw: 0.18});
+    hd(K, 'clown', 'skin', 0xf1ece4, 0.5, 0.52, 0.46, H.head, 0.3, 0, {em: 0x202020}); K.sph(0.07, K.M(0xd01020, null, {em: 0x400000}), 0, 0.28, 0.25, H.head);
+    const ruff = K.M(0xf4f0e6, 'cloth'); for (let i = 0; i < (PH ? 8 : 12); i++) { const c = K.cone(0.09, 0.22, ruff, 0, 0.0, 0, H.head, 5); const an = i / (PH ? 8 : 12) * 6.283; c.position.set(Math.sin(an) * 0.3, 0.02, Math.cos(an) * 0.3); c.rotation.set(Math.cos(an) * 1.5, 0, -Math.sin(an) * 1.5); }
+    const bells = []; for (const s of [-1, 1]) { const q = K.grp(s * 0.12, 0.55, 0, H.head); q.rotation.z = -s * 0.9; K.cone(0.13, 0.5, K.M(s < 0 ? 0xc02030 : 0x2040a0, 'cloth'), 0, 0.25, 0, q, 8); K.sph(0.06, K.M(0xe0c040, 'metal', {em: 0x302000}), 0, 0.52, 0, q); bells.push(q); }
+    return {root: H.rig, H, top: H.top + 0.9, r: 0.55, anim(a, dt, s) { bells.forEach((b, i) => b.rotation.z = (i ? -1 : 1) * (0.9 + Math.sin(s.t * 4 + i) * 0.15)); H.head.rotation.z = Math.sin(s.t * 1.7) * 0.15; if (s.atk) { H.ra.rotation.x = -2 + s.atk * 4; } } }; };
+  MODELS.nm06 = K => { // Hooded Bodach: tall peaked hood, a void face with two white eyes, long hooked claws
+    const c = 0x26262c, H = man(K, {noLegs: 1, robe: [c, 'cloth'], legs: [c, 'cloth'], body: [c, 'cloth'], hand: [0x8a8070, 'bone'], bw: 0.58, bh: 0.7, bd: 0.34, robeH: 1.1, armL: 0.95, aw: 0.16});
+    hd(K, 'void', 'cloth', 0x050507, 0.42, 0.46, 0.4, H.head, 0.26, 0.02);
+    const hood = K.M(0x2c2c34, 'cloth', {ds: 1}); K.box(0.56, 0.6, 0.52, hood, 0, 0.3, -0.04, H.head).scale.set(1, 1, 1); K.cone(0.28, 0.5, hood, 0, 0.78, -0.12, H.head, 4).rotation.x = -0.35;
+    for (const A of [H.la, H.ra]) claws(K, A.hand, K.M(0x1a1410, 'bone'), 3, 0.32);
+    const tail = strands(K, H.rig, K.M(c, 'cloth', {ds: 1}), PH ? 4 : 7, {y: 0.15, r: 0.36, len: 0.4, w: 0.18, tilt: 0.1});
+    return {root: H.rig, H, top: H.top + 0.9, r: 0.5, anim(a, dt, s) { sway(tail, s.t, 0.3, 3); H.la.rotation.x = -0.8 + Math.sin(s.t * 2.5) * 0.4; H.ra.rotation.x = -0.8 - Math.sin(s.t * 2.5) * 0.4 - s.atk * 3; H.head.rotation.y = Math.sin(s.t * 0.7) * 0.4; } }; };
+  MODELS.nm07 = K => { // Corrie Yeti: huge shaggy white beast, dark face, round eyes, fangs, long knuckle-walking arms
+    const fur = 0xe4e2dc, H = man(K, {legs: [fur, 'fur'], body: [fur, 'fur'], hand: [0x6a6a70, 'skin'], bw: 1.0, bh: 0.95, bd: 0.62, legH: 0.75, armL: 1.15, aw: 0.32, hunch: 0.25});
+    const head = K.grp(0, 0.05, 0.12, H.head); K.box(0.66, 0.6, 0.6, K.M(fur, 'fur'), 0, 0.32, 0, head);
+    const face = K.box(0.5, 0.42, 0.06, K.M(0x4a4a56, 'skin'), 0, 0.3, 0.3, head);
+    eyes(K, head, 0.38, 0.34, 0.12, 0.07, 0xffffff, {halo: 1}); eyes(K, head, 0.38, 0.37, 0.12, 0.035, 0x101010);
+    const jaw = K.grp(0, 0.16, 0.3, head); K.box(0.4, 0.1, 0.12, K.M(0x3a1010, 'skin'), 0, -0.05, 0, jaw); for (const x of [-0.13, 0.13]) K.cone(0.04, 0.16, K.M(0xf4f0e0, 'bone'), x, -0.12, 0.05, jaw, 5).rotation.x = RR;
+    const shag = strands(K, H.body, K.M(0xd8d6d0, 'fur', {ds: 1}), PH ? 6 : 12, {y: 0.2, r: 0.5, sz: 0.65, len: 0.4, w: 0.18, tilt: 0.2});
+    return {root: H.rig, H, top: 2.9, r: 0.95, anim(a, dt, s) { jaw.rotation.x = s.atk ? 0.6 : 0.1 + Math.sin(s.t * 2) * 0.08; sway(shag, s.t, 0.12, 4);
+        if (a.chg > 0) { H.la.rotation.x = H.ra.rotation.x = -0.4; H.body.rotation.x = 0.6; } else if (a.cd2 < 0.9 && a.cd2 > 0) { H.la.rotation.x = -2.2 + Math.sin(s.t * 18) * 0.5; H.ra.rotation.x = -2.2 - Math.sin(s.t * 18) * 0.5; } else H.body.rotation.x = 0.25; } }; };
+  MODELS.nm08 = K => { // Totem Thumper: carved yew-wood brute, tall tiki mask with a glowing gem headband, grass skirt
+    const wood = 0x8a6038, H = man(K, {legs: [0x6a4a30, 'skin'], body: [0x7a5838, 'skin'], bw: 0.95, bh: 0.85, bd: 0.55, legH: 0.7, armL: 0.95, aw: 0.3});
+    hd(K, 'tiki', 'wood', wood, 0.75, 0.95, 0.4, H.head, 0.45, 0.08);
+    K.box(0.8, 0.1, 0.46, K.M(0x2a6a40, 'cloth'), 0, 0.72, 0.08, H.head); const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.1), K.M(0xff2040, null, {em: 0x801020})); gem.position.set(0, 0.72, 0.33); H.head.add(gem);
+    for (let i = 0; i < 5; i++) { const f = K.cone(0.06, 0.4, K.M([0xd04020, 0xe0c030, 0x30a050][i % 3], 'cloth'), -0.3 + i * 0.15, 1.05, 0.05, H.head, 4); f.rotation.z = (i - 2) * 0.2; }
+    const skirt = strands(K, H.body, K.M(0xa09040, 'weed', {ds: 1}), PH ? 8 : 14, {y: 0.08, r: 0.5, sz: 0.62, len: 0.55, w: 0.12, tilt: 0.25});
+    return {root: H.rig, H, top: 3.1, r: 0.9, anim(a, dt, s) { gem.rotation.y += dt * 2; sway(skirt, s.t, 0.2, 5); if (a.slam) { H.la.rotation.x = H.ra.rotation.x = -2.8; } } }; };
+  MODELS.nm09 = K => { // Cairn Mummy: bandaged from head to toe, one glowing eye, trailing wraps
+    const b = 0xcdbf9c, H = man(K, {legs: [b, 'bandage'], body: [b, 'bandage'], bw: 0.56, bh: 0.74, bd: 0.32});
+    hd(K, 'mummy', 'bandage', b, 0.48, 0.5, 0.46, H.head, 0.27, 0); eyes(K, H.head, 0.29, 0.24, 0.0, 0, 0xffd040);
+    const wraps = K.M(0xc0b08a, 'bandage', {ds: 1}); const W1 = strands(K, H.la, wraps, 2, {y: -0.5, r: 0.06, len: 0.5, w: 0.06}); const W2 = strands(K, H.body, wraps, PH ? 3 : 5, {y: 0.1, r: 0.3, sz: 0.6, len: 0.5, w: 0.07});
+    return {root: H.rig, H, top: H.top + 0.5, r: 0.55, anim(a, dt, s) { sway(W1, s.t, 0.4, 3); sway(W2, s.t, 0.3, 2.5); H.head.rotation.z = 0.2 + Math.sin(s.t) * 0.05; } }; };
+  MODELS.nm10 = K => { // Bedsheet Bogle: a wavy lathe-shaped sheet with dark eye holes, gently glowing
+    const g = K.grp(0, 0, 0), m = K.M(0xf4f4f0, 'cloth', {em: 0x303438, ds: 1}); const pts = [];
+    for (let i = 0; i <= 12; i++) { const t = i / 12; pts.push(new THREE.Vector2(i === 12 ? 0.001 : 0.62 - t * 0.12 - Math.pow(Math.max(0, t - 0.6) / 0.4, 2) * 0.48, t * 1.7)); }
+    const sheet = new THREE.Mesh(new THREE.LatheGeometry(pts, PH ? 12 : 20), m); g.add(sheet);
+    const pos = sheet.geometry.attributes.position; const base = pos.array.slice(); sheet.userData.base = base;
+    const face = K.grp(0, 1.25, 0.46, g); const fm = K.face('sheet', 'cloth', 0xf4f4f0, FACE.sheet, {em: 0x303438}); fm.transparent = true; const fp = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), fm); face.add(fp); face.rotation.x = -0.25;
+    const arms = []; for (const s of [-1, 1]) { const A = K.grp(s * 0.5, 1.0, 0, g); K.cone(0.14, 0.5, m, 0, -0.2, 0, A, 6); A.rotation.z = s * 2.4; arms.push(A); }
+    return {root: g, head: face, la: arms[0], ra: arms[1], top: 1.75, r: 0.55, anim(a, dt, s) { const arr = pos.array; for (let i = 0; i < arr.length; i += 3) { const y = base[i + 1]; if (y < 0.45) { const k = (0.45 - y) / 0.45, ang = Math.atan2(base[i], base[i + 2]); arr[i + 1] = y + Math.sin(ang * 5 + s.t * 4) * 0.08 * k; } } pos.needsUpdate = true;
+        arms.forEach((A, i) => A.rotation.z = (i ? 1 : -1) * (2.3 + Math.sin(s.t * 3 + i) * 0.25 + (s.atk ? 0.6 : 0))); } }; };
+  MODELS.nm11 = K => { // Cailleach of the Moss: hunched crone in a mossy cloak, tall crooked hat, grey hair, a blackthorn cane
+    const c = 0x2f3d2a, H = man(K, {noLegs: 1, robe: [c, 'cloth'], legs: [c, 'cloth'], body: [c, 'cloth'], hand: [0x9aa080, 'skin'], bw: 0.56, bh: 0.6, bd: 0.34, robeH: 1.0, armL: 0.75, aw: 0.16, hunch: 0.4});
+    hd(K, 'crone', 'skin', 0x9aa080, 0.44, 0.48, 0.42, H.head, 0.26, 0.04); K.cone(0.06, 0.24, K.M(0x8a9070, 'skin'), 0, 0.24, 0.3, H.head, 6).rotation.x = RR / 2 + 0.3;
+    const hat = K.grp(0, 0.5, 0, H.head); const hm = K.M(0x1a1c18, 'cloth'); K.cyl(0.42, 0.42, 0.04, hm, 0, 0, 0, hat, 16); const tip = K.grp(0, 0, 0, hat); K.cone(0.24, 0.7, hm, 0, 0.35, 0, tip, 10); tip.rotation.x = -0.25; K.cyl(0.25, 0.25, 0.06, K.M(0x6a2a2a, 'cloth'), 0, 0.05, 0, hat, 12);
+    const hair = strands(K, H.head, K.M(0xc8c8c0, 'fur', {ds: 1}), PH ? 6 : 10, {y: 0.45, r: 0.24, len: 0.55, w: 0.08, a0: 0.6});
+    const cane = K.grp(0, -0.75, 0.05, H.ra); K.cyl(0.03, 0.025, 1.0, K.M(0x2a1a10, 'wood'), 0, 0.1, 0.15, cane, 6); const orb = K.sph(0.06, glow(K, 0x9cff40), 0, 0.62, 0.15, cane);
+    return {root: H.rig, H, top: 2.4, r: 0.5, anim(a, dt, s) { sway(hair, s.t, 0.12, 2); tip.rotation.z = Math.sin(s.t * 1.3) * 0.1; if (s.atk) { H.la.rotation.x = -2.6 + s.atk * 3; } orb.scale.setScalar(1 + Math.sin(s.t * 5) * 0.2); } }; };
+  MODELS.nm12 = K => { // Captain Bonebeard: skull face, huge grey beard, tricorn with skull & bones, navy coat, cutlass
+    const coat = 0x23284a, H = man(K, {legs: [0x3a2a20, 'cloth'], body: [coat, 'cloth'], hand: [0xe6dcc0, 'bone'], boots: 0x1a1410, bw: 0.62, bh: 0.78, bd: 0.36, aw: 0.21});
+    hd(K, 'skull', 'bone', 0xe6dcc0, 0.46, 0.5, 0.44, H.head, 0.27, 0);
+    const beard = K.grp(0, 0.18, 0.2, H.head); const bm = K.M(0xbcb8b0, 'fur'); K.box(0.46, 0.4, 0.14, bm, 0, -0.18, 0, beard); K.cone(0.2, 0.5, bm, 0, -0.55, 0, beard, 6).rotation.x = RR;
+    const hat = K.grp(0, 0.55, 0, H.head); const hm = K.M(0x15151c, 'leather'); K.cyl(0.46, 0.5, 0.08, hm, 0, 0, 0, hat, 3).rotation.y = RR / 6; K.cyl(0.27, 0.3, 0.26, hm, 0, 0.14, 0, hat, 12);
+    K.box(0.18, 0.16, 0.02, K.face('skull', 'bone', 0xe6dcc0, FACE.skull), 0, 0.15, 0.29, hat);
+    for (let i = 0; i < 4; i++) K.sph(0.035, K.M(0xe0b040, 'metal', {em: 0x302000}), 0.12, 0.6 - i * 0.15, 0.19, H.body); K.box(0.66, 0.08, 0.4, K.M(0x7a1a1a, 'cloth'), 0, 0.3, 0, H.body);
+    blade(K, H.ra.hand, 0.7, K.M(0xd0d4d8, 'metal'), K.M(0xc09030, 'metal'));
+    const tails = strands(K, H.body, K.M(coat, 'cloth', {ds: 1}), 3, {y: 0.05, r: 0.2, sz: 1.2, len: 0.5, w: 0.2, a0: 2.6});
+    return {root: H.rig, H, beard, top: H.top + 0.8, r: 0.6, anim(a, dt, s) { beard.rotation.x = Math.sin(s.t * 2) * 0.06; sway(tails, s.t, 0.15, 3); if (s.atk) H.ra.rotation.x = -2.5 + s.atk * 6; if (a.parryT > 0) { a.parryT -= dt; H.ra.rotation.x = -1.6; H.ra.rotation.z = 0.8; } else H.ra.rotation.z = 0; } }; };
+  MODELS.nm13 = K => { // Girnin' Wrap: lanky hunched mummy with a huge toothy grin and yellow eyes
+    const b = 0xd9cfb2, H = man(K, {legs: [b, 'bandage'], body: [b, 'bandage'], bw: 0.5, bh: 0.72, bd: 0.3, armL: 0.9, aw: 0.17, hunch: 0.35});
+    const head = hd(K, 'grin', 'bandage', b, 0.56, 0.56, 0.5, H.head, 0.3, 0.1); eyes(K, H.head, 0.38, 0.36, 0.13, 0.04, 0xffe060);
+    const wraps = strands(K, H.head, K.M(0xc8bc9c, 'bandage', {ds: 1}), PH ? 2 : 4, {y: 0.5, r: 0.25, len: 0.5, w: 0.07, a0: 3});
+    for (const A of [H.la, H.ra]) claws(K, A.hand, K.M(0x3a2a18, 'bone'), 3, 0.14);
+    return {root: H.rig, H, top: 2.3, r: 0.5, anim(a, dt, s) { sway(wraps, s.t, 0.4, 3); H.head.rotation.z = Math.sin(s.t * 6) * (s.mv ? 0.12 : 0.04); if (!a.onGround) { H.la.rotation.x = H.ra.rotation.x = -2.6; } } }; };
+  MODELS.nm14 = K => { // Hatman of the Haar: tall thin silhouette, wide-brimmed hat, long coat, two yellow eyes
+    const c = 0x0c0c10, H = man(K, {legs: [c, 'cloth'], body: [c, 'cloth'], bw: 0.5, bh: 0.95, bd: 0.28, legH: 1.0, armL: 0.95, aw: 0.14});
+    hd(K, 'hatman', 'cloth', 0x08080a, 0.4, 0.48, 0.4, H.head, 0.26, 0); eyes(K, H.head, 0.3, 0.21, 0.08, 0.035, 0xffe040, {halo: 1});
+    const hm = K.M(0x060608, 'leather'); K.cyl(0.55, 0.55, 0.04, hm, 0, 0.52, 0, H.head, 18); K.cyl(0.25, 0.27, 0.32, hm, 0, 0.68, 0, H.head, 12);
+    const coat = K.grp(0, 0.1, 0, H.body); const cm = K.M(0x0a0a0e, 'cloth', {ds: 1}); const tails = strands(K, coat, cm, 4, {y: 0.1, r: 0.18, sz: 1.2, len: 1.0, w: 0.24, a0: 2.4});
+    return {root: H.rig, H, top: 3.0, r: 0.45, anim(a, dt, s) { sway(tails, s.t, s.mv ? 0.3 : 0.06, 6); if (a.seen) { H.ll.rotation.x = H.rl.rotation.x = 0; H.la.rotation.x = H.ra.rotation.x = 0; } } }; };
+  MODELS.nm15 = K => { // Ben Troll: hulking grey ogre with a wild white mane, tusks and a boulder
+    const sk = 0x8a8c7a, H = man(K, {legs: [0x5a4a3a, 'leather'], body: [sk, 'skin'], hand: [sk, 'skin'], bw: 1.05, bh: 1.0, bd: 0.65, legH: 0.85, armL: 1.15, aw: 0.34, hunch: 0.2});
+    hd(K, 'troll', 'skin', sk, 0.64, 0.6, 0.56, H.head, 0.3, 0.1); K.sph(0.11, K.M(0x7a7c6a, 'skin'), 0, 0.28, 0.4, H.head, 1, 0.8, 1);
+    for (const x of [-0.18, 0.18]) K.cone(0.04, 0.18, K.M(0xf0ead0, 'bone'), x, 0.16, 0.38, H.head, 5);
+    const mane = strands(K, H.head, K.M(0xeeeee8, 'fur', {ds: 1}), PH ? 8 : 14, {y: 0.62, r: 0.3, len: 0.7, w: 0.14, a0: 0.5}); K.box(0.7, 0.2, 0.64, K.M(0xeeeee8, 'fur'), 0, 0.62, 0.06, H.head);
+    K.box(1.1, 0.18, 0.7, K.M(0x4a3a2a, 'leather'), 0, 0.08, 0, H.body);
+    const rock = K.sph(0.26, K.M(0x7a7468, 'rock'), 0, -0.1, 0.1, H.ra.hand, 1, 0.85, 1, 8); rock.visible = false;
+    return {root: H.rig, H, top: 3.3, r: 1.0, anim(a, dt, s) { sway(mane, s.t, 0.1, 2); rock.visible = a.cd2 < 1.0; if (a.cd2 < 1.0) H.ra.rotation.x = -2.6; } }; };
+  MODELS.nm16 = K => { // Gnasher Eye: a great veined eyeball with lids, a toothed jaw beneath and dangling nerves
+    const g = K.grp(0, 0, 0), body = K.grp(0, 0.9, 0, g), skin = K.M(0x4a2a2a, 'skin');
+    const ball = K.sph(0.6, K.M(0xb04040, 'eyeball', {em: 0x200808}), 0, 0, 0, body, 1, 1, 1, PH ? 14 : 22); ball.rotation.y = -RR / 2;
+    const lidT = K.grp(0, 0, 0, body), lidB = K.grp(0, 0, 0, body); const lt = new THREE.Mesh(new THREE.SphereGeometry(0.64, PH ? 12 : 18, 8, 0, RR * 2, 0, RR * 0.42), skin); lidT.add(lt); const lb = new THREE.Mesh(new THREE.SphereGeometry(0.64, PH ? 12 : 18, 8, 0, RR * 2, RR * 0.62, RR * 0.38), skin); lidB.add(lb);
+    const jaw = K.grp(0, -0.62, 0.15, body); K.box(0.8, 0.12, 0.5, skin, 0, 0, 0, jaw); const tm = K.M(0xf0e8d0, 'bone'); for (let i = 0; i < 7; i++) K.cone(0.04, 0.16, tm, -0.3 + i * 0.1, 0.12, 0.22, jaw, 5);
+    const top = K.grp(0, -0.48, 0.15, body); K.box(0.8, 0.08, 0.5, skin, 0, 0, 0, top); for (let i = 0; i < 7; i++) K.cone(0.04, 0.16, tm, -0.3 + i * 0.1, -0.1, 0.22, top, 5).rotation.x = RR;
+    const nerves = strands(K, body, K.M(0x8a3030, 'skin', {ds: 1}), PH ? 5 : 8, {y: -0.6, r: 0.25, len: 0.7, w: 0.05});
+    return {root: g, head: body, top: 1.6, r: 0.7, anim(a, dt, s) { const bl = (s.t % 4) < 0.15 ? 1 : 0; lidT.rotation.x = -0.2 + bl * 0.9 - (a.beamT ? 0.3 : 0); lidB.rotation.x = 0.2 - bl * 0.9 + (a.beamT ? 0.3 : 0); jaw.position.y = -0.62 - (s.atk || Math.sin(s.t * 7) > 0.7 ? 0.12 : 0); body.rotation.x = Math.sin(s.t) * 0.08; sway(nerves, s.t, 0.4, 2.5);
+        if (a.beamT) ball.scale.setScalar(1 + Math.sin(s.t * 40) * 0.03); } }; };
+  MODELS.nm17 = K => { // Ironjaw: massive brute in an iron face-cage, spiked pauldrons, chains and huge fists
+    const sk = 0x6a5a50, H = man(K, {legs: [0x2a2a2e, 'leather'], body: [sk, 'skin'], hand: [0x3a3c42, 'metal'], bw: 1.1, bh: 1.0, bd: 0.66, legH: 0.85, armL: 1.15, aw: 0.36});
+    hd(K, 'iron', 'metal', 0x4a4d55, 0.6, 0.62, 0.56, H.head, 0.3, 0.05); const mS = K.M(0x4a4d55, 'metal');
+    for (const s of [-1, 1]) { K.sph(0.3, mS, s * 0.62, 0.9, 0, H.body, 1, 0.6, 1); for (let i = 0; i < 3; i++) K.cone(0.05, 0.22, K.M(0x8a8e96, 'metal'), s * (0.5 + i * 0.1), 1.08, -0.1 + i * 0.1, H.body, 5); }
+    const ch = K.M(0x6a6c70, 'metal'); for (let i = 0; i < 6; i++) { const l = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.015, 4, 8), ch); l.position.set(-0.45 + i * 0.18, 0.8 - i * 0.12, 0.34); l.rotation.y = i % 2 ? RR / 2 : 0; H.body.add(l); }
+    for (const A of [H.la, H.ra]) K.box(0.42, 0.36, 0.42, K.M(0x3a3c42, 'metal'), 0, -1.05, 0, A);
+    return {root: H.rig, H, top: 3.2, r: 1.0, anim(a, dt, s) { if (s.atk) { H.ra.rotation.x = -1.8 + s.atk * 4; H.la.rotation.x = -1.8 + s.atk * 4; } H.body.rotation.y = Math.sin(s.t * 4) * (s.mv ? 0.12 : 0.03); } }; };
+  MODELS.nm18 = K => { // Glaur Blob: translucent bog slime with a single bobbing eye and dripping lumps
+    const g = K.grp(0, 0, 0), body = K.grp(0, 0, 0, g), sl = K.M(0x6f8a4a, 'slime', {op: 0.82, em: 0x1a2a0a});
+    K.sph(0.62, sl, 0, 0.55, 0, body, 1.1, 0.85, 1, PH ? 12 : 18); K.sph(0.3, K.M(0x3a5a20, 'slime'), 0.1, 0.45, -0.1, body);
+    const eye = K.grp(0, 0.7, 0.4, body); K.sph(0.2, K.M(0xffffff, 'eyeball', {em: 0x202020}), 0, 0, 0, eye).rotation.y = -RR / 2;
+    const drips = []; for (let i = 0; i < (PH ? 4 : 7); i++) { const an = i * 0.9; const d = K.cone(0.07, 0.3, sl, Math.sin(an) * 0.55, 0.2, Math.cos(an) * 0.5, body, 6); d.rotation.x = RR; d.userData.ph = i; drips.push(d); }
+    return {root: g, head: eye, body, top: 1.2, r: 0.7, anim(a, dt, s) { eye.position.y = 0.7 + Math.sin(s.t * 3) * 0.04; eye.rotation.y = Math.sin(s.t * 0.7) * 0.5; drips.forEach(d => d.scale.y = 1 + Math.sin(s.t * 3 + d.userData.ph) * 0.35); } }; };
+  MODELS.nm19 = K => { // Heather Shade: glowing purple phantom, sharp brows and grin, swirling tail, splayed hands
+    const pu = 0x9a7ad8, H = man(K, {noLegs: 1, robe: [pu, 'wisp'], legs: [pu, 'wisp'], body: [pu, 'wisp'], bw: 0.56, bh: 0.62, bd: 0.3, robeH: 0.8, robeY: 0.3, armL: 0.85, aw: 0.16});
+    for (const m of [H.mL, H.mB, H.mA]) m.emissive.set(0x40206a), m.userData.e0 = m.emissive.clone();
+    hd(K, 'shade', 'wisp', 0xa080e0, 0.48, 0.5, 0.44, H.head, 0.27, 0, {em: 0x40206a});
+    const tail = K.grp(0, 0.3, 0, H.rig); K.cone(0.3, 0.7, K.M(pu, 'wisp', {em: 0x40206a, op: 0.8}), 0, -0.2, 0, tail, 8).rotation.x = RR;
+    const orbs = []; for (let i = 0; i < 3; i++) orbs.push(K.sph(0.06, glow(K, 0xe0c0ff), 0, 1.4, 0, H.rig, 1, 1, 1, 6));
+    for (const A of [H.la, H.ra]) claws(K, A.hand, K.M(0xc0a0ff, null, {em: 0x6040a0}), 4, 0.16);
+    return {root: H.rig, H, top: 2.4, r: 0.5, anim(a, dt, s) { tail.rotation.z = Math.sin(s.t * 3) * 0.3; orbs.forEach((o, i) => { const q = s.t * 2 + i * 2.09; o.position.set(Math.sin(q) * 0.6, 1.4 + Math.sin(q * 2) * 0.2, Math.cos(q) * 0.6); }); H.la.rotation.z = 0.6 + Math.sin(s.t * 2) * 0.2; H.ra.rotation.z = -0.6 - Math.sin(s.t * 2) * 0.2; } }; };
+  MODELS.nm20 = K => { // Haar Wraith: a column of drifting sea-mist puffs with a hollow-eyed face
+    const g = K.grp(0, 0, 0), puffs = [], mm = K.M(0xd8dee4, 'wisp', {op: 0.45, em: 0x404850});
+    for (let i = 0; i < (PH ? 6 : 10); i++) { const p = K.sph(0.35 + (i % 3) * 0.1, mm, Math.sin(i * 2.1) * 0.25, 0.3 + i * 0.18, Math.cos(i * 2.1) * 0.2, g, 1, 0.8, 1, 10); p.userData.ph = i; puffs.push(p); }
+    const face = K.grp(0, 1.65, 0.38, g); const fm = K.face('haar', 'wisp', 0xd8dee4, FACE.haar); fm.transparent = true; face.add(new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.6), fm));
+    const arms = []; for (const s of [-1, 1]) { const A = K.grp(s * 0.4, 1.4, 0.1, g); for (let i = 0; i < 3; i++) K.sph(0.13 - i * 0.03, mm, s * i * 0.18, -i * 0.12, 0.1, A, 1, 1, 1, 8); arms.push(A); }
+    return {root: g, head: face, la: arms[0], ra: arms[1], top: 2.1, r: 0.55, anim(a, dt, s) { puffs.forEach(p => { const k = p.userData.ph; p.position.x = Math.sin(k * 2.1 + s.t * 0.8) * 0.28; p.scale.setScalar(1 + Math.sin(s.t * 1.5 + k) * 0.12); }); arms.forEach((A, i) => A.rotation.z = (i ? -1 : 1) * Math.sin(s.t + i) * 0.3 + (s.atk ? (i ? 1 : -1) : 0)); } }; };
+  MODELS.nm21 = K => { // Plaguebeak Knight: dark plate armour, long beaked mask with green lenses, cape, a smoking censer
+    const st = 0x50554e, H = man(K, {legs: [st, 'metal'], body: [st, 'metal'], boots: 0x202420, bw: 0.64, bh: 0.8, bd: 0.38, aw: 0.22});
+    const mS = K.M(st, 'metal'), lth = K.M(0x2a2018, 'leather'); K.box(0.48, 0.5, 0.46, lth, 0, 0.27, 0, H.head);
+    const beak = K.cone(0.12, 0.55, K.M(0x3a2e22, 'leather'), 0, 0.22, 0.48, H.head, 8); beak.rotation.x = RR / 2 + 0.25;
+    for (const x of [-0.12, 0.12]) { const l = K.cyl(0.08, 0.08, 0.05, mS, x, 0.34, 0.24, H.head, 10); l.rotation.x = RR / 2; K.sph(0.06, glow(K, 0x80ff60), x, 0.34, 0.27, H.head, 1, 1, 0.4, 8); }
+    K.cyl(0.32, 0.35, 0.2, mS, 0, 0.58, 0, H.head, 12); K.cyl(0.42, 0.42, 0.03, mS, 0, 0.5, 0, H.head, 16);
+    for (const s of [-1, 1]) K.sph(0.2, mS, s * 0.38, 0.76, 0, H.body, 1, 0.7, 1.1);
+    const cape = K.grp(0, 0.75, -0.2, H.body); K.box(0.8, 1.4, 0.03, K.M(0x2a3a22, 'cloth', {ds: 1}), 0, -0.68, 0, cape);
+    const cen = K.grp(0, -0.72, 0.05, H.la); for (let i = 0; i < 3; i++) K.cyl(0.008, 0.008, 0.15, mS, 0, -0.08 - i * 0.15, 0, cen, 4); const pot = K.sph(0.1, mS, 0, -0.5, 0, cen); K.sph(0.06, glow(K, 0x80ff40), 0, -0.47, 0.07, cen, 1, 1, 0.5, 6);
+    return {root: H.rig, H, top: H.top + 0.7, r: 0.6, anim(a, dt, s) { cape.rotation.x = 0.1 + (s.mv ? 0.25 : 0) + Math.sin(s.t * 2) * 0.04; cen.rotation.x = Math.sin(s.t * 3) * 0.5; H.la.rotation.x = -0.4; if (Math.random() < dt * 4) try { const v = new THREE.Vector3(); pot.getWorldPosition(v); burst(v.x, v.y, v.z, 0x7ac040, 1, 0.15); } catch (_) {} } }; };
+  MODELS.nm22 = K => { // Storm Bogle: a boiling thundercloud with a scowling face, crackling bolts underneath
+    const g = K.grp(0, 0, 0), body = K.grp(0, 1.2, 0, g), cm = K.M(0x8a96aa, 'wisp', {em: 0x182030}), dk = K.M(0x5a6478, 'wisp', {em: 0x101828}), puffs = [];
+    const spots = [[0, 0, 0, 0.8], [-0.75, -0.1, 0, 0.55], [0.75, -0.05, 0, 0.6], [-0.35, 0.45, -0.1, 0.5], [0.4, 0.4, -0.1, 0.5], [0, -0.3, -0.3, 0.6], [-1.15, -0.25, -0.1, 0.35], [1.15, -0.2, -0.1, 0.38]];
+    spots.slice(0, PH ? 6 : 8).forEach(([x, y, z, r], i) => { const p = K.sph(r, i % 2 ? dk : cm, x, y, z, body, 1, 0.8, 0.9, 12); p.userData.ph = i; puffs.push(p); });
+    const face = K.grp(0, 0.05, 0.66, body); face.add(new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.7), (() => { const m = K.face('storm', 'wisp', 0x8a96aa, FACE.storm, {em: 0x182030}); m.transparent = true; return m; })()));
+    const bolts = []; const bm = glow(K, 0xfff4a0); for (let i = 0; i < 4; i++) { const b = K.grp(-0.6 + i * 0.4, -0.5, 0.1, body); let y = 0; for (let k = 0; k < 3; k++) { const s = K.box(0.05, 0.3, 0.05, bm, (k % 2 ? 0.06 : -0.06), y - 0.13, 0, b); s.rotation.z = k % 2 ? 0.5 : -0.5; y -= 0.26; } bolts.push(b); }
+    return {root: g, head: face, body, top: 2.2, r: 1.0, anim(a, dt, s) { puffs.forEach(p => p.scale.setScalar(1 + Math.sin(s.t * 2 + p.userData.ph) * 0.08)); bolts.forEach((b, i) => b.visible = ((s.t * 7 + i * 3) | 0) % 4 === 0 || a.cd2 < 0.5); body.rotation.y = Math.sin(s.t * 0.5) * 0.15; } }; };
+  MODELS.nm23 = K => { // Bigeye Diver: diving suit whose helmet glass holds one enormous staring eye, flippers, harpoon
+    const suit = 0x52626a, H = man(K, {legs: [suit, 'leather'], body: [suit, 'leather'], hand: [0x2a3034, 'leather'], bw: 0.62, bh: 0.74, bd: 0.4, aw: 0.24});
+    const brass = K.M(0x9a8a60, 'metal'); K.cyl(0.42, 0.44, 0.12, brass, 0, 0.02, 0, H.head, 14);
+    const eye = K.grp(0, 0.34, 0, H.head); const ball = K.sph(0.32, K.M(0x40a0c0, 'eyeball', {em: 0x101818}), 0, 0, 0, eye, 1, 1, 1, PH ? 14 : 20); ball.rotation.y = -RR / 2;
+    K.sph(0.38, K.M(0xb0e8ff, null, {op: 0.25}), 0, 0.34, 0, H.head, 1, 1, 1, PH ? 12 : 18);
+    for (const L of [H.ll, H.rl]) { const f = K.box(0.3, 0.04, 0.5, K.M(0x1a2a30, 'leather'), 0, -0.72, 0.2, L); }
+    const tank = K.cyl(0.13, 0.13, 0.55, K.M(0xc0a040, 'metal'), 0, 0.42, -0.28, H.body, 10);
+    const hp = K.grp(0, -0.7, 0.05, H.ra); hp.rotation.x = -RR / 2; K.cyl(0.02, 0.02, 1.0, K.M(0x5a4a30, 'wood'), 0, 0.3, 0, hp, 5); K.cone(0.05, 0.16, K.M(0xb0b8c0, 'metal'), 0, 0.86, 0, hp, 5);
+    return {root: H.rig, H, top: H.top + 0.7, r: 0.6, anim(a, dt, s) { const dx = P.x - a.g.position.x, dz = P.z - a.g.position.z; eye.rotation.y = Math.max(-0.6, Math.min(0.6, Math.atan2(dx, dz) - a.yawVis)); eye.rotation.x = Math.sin(s.t * 0.9) * 0.15; } }; };
+  MODELS.nm24 = K => { // Bane Shaman: robed in hides, bone necklace, skull mask with a feather crown, glowing skull staff
+    const c = 0x5a3a2a, H = man(K, {noLegs: 1, robe: [c, 'leather'], legs: [c, 'leather'], body: [0x6a4a32, 'leather'], hand: [0x5a4030, 'skin'], bw: 0.6, bh: 0.7, bd: 0.36, robeH: 1.0, armL: 0.8, aw: 0.18});
+    hd(K, 'shaman', 'bone', 0xece2c8, 0.5, 0.56, 0.46, H.head, 0.29, 0);
+    const fe = [0x202020, 0xc03020, 0xe0d0a0]; for (let i = 0; i < (PH ? 5 : 9); i++) { const an = -1.1 + i * (2.2 / ((PH ? 5 : 9) - 1)); const f = K.box(0.06, 0.5, 0.02, K.M(fe[i % 3], 'cloth'), Math.sin(an) * 0.24, 0.75, -0.05 + Math.cos(an) * 0.1, H.head); f.rotation.z = -an * 0.6; }
+    const bone = K.M(0xe8e0c8, 'bone'); for (let i = 0; i < 7; i++) { const an = -1.2 + i * 0.4; const b = K.cyl(0.025, 0.02, 0.12, bone, Math.sin(an) * 0.3, 0.6 - Math.cos(an) * 0.12, 0.19, H.body, 5); }
+    const st = K.grp(0, -0.75, 0.05, H.ra); K.cyl(0.03, 0.03, 1.5, K.M(0x3a2410, 'wood'), 0, 0.3, 0.1, st, 6); const sk = K.grp(0, 1.1, 0.1, st); hd(K, 'shaman', 'bone', 0xece2c8, 0.18, 0.2, 0.18, sk, 0, 0); const sg = K.sph(0.16, glow(K, 0x60ff70, 0.3), 0, 0.1, 0, sk, 1, 1, 1, 8);
+    return {root: H.rig, H, top: 2.6, r: 0.55, anim(a, dt, s) { sg.scale.setScalar(1 + Math.sin(s.t * 4) * 0.25); H.ra.rotation.x = -0.3 + (a.cd2 < 1 ? -1.2 : 0) + s.atk * 2; H.la.rotation.x = a.cd2 < 1 ? -2.4 + Math.sin(s.t * 12) * 0.3 : H.la.rotation.x; } }; };
+  MODELS.nm25 = K => { // Bog Gowk: squat swamp ghoul, huge bulging bug eyes, gaping mouth, webbed feet, reeds stuck to it
+    const sk = 0x6a7a52, H = man(K, {legs: [sk, 'skin'], body: [0x4a5a3a, 'cloth'], hand: [sk, 'skin'], bw: 0.66, bh: 0.6, bd: 0.4, legH: 0.5, armL: 0.75, aw: 0.2, hunch: 0.3});
+    hd(K, 'gowk', 'skin', sk, 0.6, 0.48, 0.52, H.head, 0.24, 0.05);
+    const ey = []; for (const s of [-1, 1]) { const e = K.grp(s * 0.18, 0.45, 0.2, H.head); K.sph(0.15, K.M(0xffffff, 'eyeball', {em: 0x202020}), 0, 0, 0.02, e).rotation.y = -RR / 2; ey.push(e); }
+    for (const L of [H.ll, H.rl]) K.box(0.3, 0.05, 0.36, K.M(0x4a5a32, 'skin'), 0, -0.48, 0.1, L);
+    const reeds = strands(K, H.body, K.M(0x7a7a3a, 'weed', {ds: 1}), PH ? 3 : 6, {y: 0.6, r: 0.3, sz: 0.7, len: 0.5, w: 0.04, tilt: -0.3});
+    return {root: H.rig, H, top: 1.8, r: 0.55, anim(a, dt, s) { ey.forEach((e, i) => e.scale.setScalar(1 + Math.sin(s.t * 5 + i) * 0.08)); sway(reeds, s.t, 0.2, 2); if (!a.onGround) { H.ll.rotation.x = -0.9; H.rl.rotation.x = -0.9; H.la.rotation.x = H.ra.rotation.x = -2.2; } } }; };
+  MODELS.nm26 = K => { // Drowned Deckhand: waterlogged pirate in a striped shirt and bandana, barnacles, glowing red eyes
+    const sk = 0x5a7a62, H = man(K, {legs: [0x2a3040, 'cloth'], body: [0x3a4a6a, 'stripes'], hand: [sk, 'skin'], bw: 0.56, bh: 0.72, bd: 0.32});
+    hd(K, 'zombie', 'skin', sk, 0.48, 0.5, 0.46, H.head, 0.27, 0);
+    K.box(0.52, 0.14, 0.5, K.M(0x9a2020, 'cloth'), 0, 0.48, 0, H.head); const knot = K.grp(0, 0.45, -0.26, H.head); K.box(0.1, 0.25, 0.03, K.M(0x9a2020, 'cloth'), 0.05, -0.12, 0, knot).rotation.z = 0.3;
+    const bm = K.M(0xc8c0a8, 'rock'); for (let i = 0; i < (PH ? 4 : 8); i++) K.sph(0.04 + (i % 3) * 0.015, bm, -0.25 + (i * 0.17) % 0.5, 0.15 + (i * 0.23) % 0.6, 0.17, H.body, 1, 0.6, 1, 6);
+    const weed = strands(K, H.body, K.M(0x3a5a2a, 'weed', {ds: 1}), PH ? 2 : 4, {y: 0.7, r: 0.3, sz: 0.6, len: 0.6, w: 0.06});
+    blade(K, H.ra.hand, 0.45, K.M(0x8a7a5a, 'metal'), K.M(0x4a3020, 'wood'));
+    return {root: H.rig, H, top: H.top + 0.55, r: 0.55, anim(a, dt, s) { sway(weed, s.t, 0.3, 1.6); H.head.rotation.z = Math.sin(s.t * 1.2 + (a.slot || 0)) * 0.12; } }; };
+  MODELS.nm27 = K => { // Hookhand Haunt: see-through ghost sailor, sou'wester hat, pipe and beard, an iron hook for a hand
+    const c = 0x9fb4bf, H = man(K, {noLegs: 1, robe: [c, 'wisp'], legs: [c, 'wisp'], body: [0x7a92a0, 'cloth'], hand: [c, 'wisp'], bw: 0.6, bh: 0.72, bd: 0.36, robeH: 0.85, robeY: 0.2, armL: 0.8, aw: 0.2});
+    for (const m of [H.mL, H.mB, H.mA]) m.emissive.set(0x203440), m.userData.e0 = m.emissive.clone();
+    hd(K, 'sailor', 'wisp', 0xb8ccd6, 0.48, 0.5, 0.44, H.head, 0.27, 0, {em: 0x203440});
+    const hat = K.M(0xd8b040, 'leather', {em: 0x302810}); K.cyl(0.4, 0.44, 0.05, hat, 0, 0.52, -0.04, H.head, 14).rotation.x = -0.15; K.sph(0.27, hat, 0, 0.55, 0, H.head, 1, 0.7, 1);
+    const beard = K.box(0.48, 0.3, 0.12, K.M(0xe0e8ec, 'fur', {em: 0x202830}), 0, 0.04, 0.2, H.head);
+    const pipe = K.grp(0.12, 0.14, 0.28, H.head); K.cyl(0.015, 0.015, 0.2, K.M(0x3a2410, 'wood'), 0, 0, 0.08, pipe, 5).rotation.x = RR / 2; K.cyl(0.04, 0.035, 0.08, K.M(0x3a2410, 'wood'), 0, 0.03, 0.18, pipe, 6);
+    const hook = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.025, 6, 12, RR * 1.3), K.M(0x6a6c70, 'metal')); hook.position.set(0, -0.18, 0.02); hook.rotation.y = RR / 2; H.ra.hand.add(hook);
+    const rope = K.cyl(0.015, 0.015, 1, K.M(0x8a7a50, 'cloth'), 0, 0, 0, null, 4); rope.visible = false; H.rig.add(rope);
+    return {root: H.rig, H, top: 2.3, r: 0.55, anim(a, dt, s) { if (a.hookT > 0) { H.ra.rotation.x = -2.6; hook.scale.setScalar(1.4); } else { hook.scale.setScalar(1); H.ra.rotation.x = -0.4 + Math.sin(s.t * 2) * 0.2; } pipe.rotation.z = Math.sin(s.t) * 0.1; if (Math.random() < dt * 0.5) try { const v = new THREE.Vector3(); pipe.getWorldPosition(v); mistPuff ? mistPuff(v.x, v.y + 0.1, v.z, 0xb8c0c0, 2) : 0; } catch (_) {} } }; };
+  MODELS.nm28 = K => { // Star Hound: ghostly cù-sìth made of night sky - starry coat, glowing eyes and collar tag, a comet tail
+    const g = K.grp(0, 0, 0), sm = K.M(0x2a3a6a, 'stars', {em: 0x203a70}), dk = K.M(0x1a2448, 'stars', {em: 0x102040});
+    const body = K.grp(0, 0.75, 0, g); K.box(0.52, 0.48, 1.1, sm, 0, 0, 0, body); K.box(0.56, 0.5, 0.4, sm, 0, 0.04, 0.38, body);
+    const legs = []; for (const [x, z] of [[-.18, .4], [.18, .4], [-.18, -.4], [.18, -.4]]) { const L = K.grp(x, -0.18, z, body); K.box(0.15, 0.55, 0.15, dk, 0, -0.27, 0, L); K.box(0.18, 0.08, 0.22, dk, 0, -0.55, 0.03, L); legs.push(L); }
+    const head = K.grp(0, 0.2, 0.62, body); K.box(0.42, 0.38, 0.4, sm, 0, 0.05, 0, head); K.box(0.26, 0.2, 0.3, dk, 0, -0.04, 0.3, head); K.box(0.1, 0.08, 0.06, glow(K, 0x101020), 0, 0.02, 0.46, head);
+    eyes(K, head, 0.12, 0.2, 0.11, 0.045, 0x80e0ff, {halo: 1}); for (const s of [-1, 1]) K.cone(0.08, 0.26, dk, s * 0.14, 0.34, -0.05, head, 4);
+    const jaw = K.grp(0, -0.14, 0.2, head); K.box(0.24, 0.06, 0.28, dk, 0, 0, 0.08, jaw);
+    K.cyl(0.24, 0.24, 0.06, K.M(0xc03030, 'leather'), 0, 0.1, 0.5, body, 10).rotation.x = RR / 2 - 0.4; K.sph(0.05, glow(K, 0xffe080), 0, -0.06, 0.64, body, 1, 1, 0.4, 6);
+    const tail = K.grp(0, 0.15, -0.55, body); K.cone(0.12, 0.7, K.M(0x80b0ff, 'wisp', {em: 0x4060a0, op: 0.7}), 0, 0.3, 0, tail, 6); tail.rotation.x = -0.9;
+    return {root: g, head, body, legs4: legs, top: 1.4, r: 0.6, anim(a, dt, s) { tail.rotation.z = Math.sin(s.t * 8) * 0.4; jaw.rotation.x = s.atk ? 0.7 : 0.05; head.rotation.x = a.sndT > 4.5 ? -0.6 : 0; body.position.y = 0.75 + Math.sin(s.t * 3) * 0.05; } }; };
+  MODELS.nm29 = K => { // Rain Wean: small pale ghost girl, long white hair over her face, white smock, a little raincloud overhead
+    const c = 0xeef2f4, H = man(K, {noLegs: 1, robe: [c, 'cloth'], legs: [c, 'cloth'], body: [c, 'cloth'], hand: [0xdfe6ea, 'skin'], bw: 0.44, bh: 0.5, bd: 0.26, robeH: 0.8, robeY: 0.05, armL: 0.55, aw: 0.12});
+    for (const m of [H.mL, H.mB, H.mA]) { m.emissive.set(0x303840); m.userData.e0 = m.emissive.clone(); }
+    hd(K, 'girl', 'skin', 0xdfe6ea, 0.38, 0.42, 0.36, H.head, 0.22, 0, {em: 0x303840});
+    const hm = K.M(0xf4f6f8, 'fur', {ds: 1, em: 0x404850}); K.box(0.42, 0.12, 0.4, hm, 0, 0.45, 0, H.head);
+    const hair = strands(K, H.head, hm, PH ? 8 : 14, {y: 0.44, r: 0.2, len: 0.75, w: 0.07});
+    const cloud = K.grp(0, 2.3, 0, H.rig); const cm = K.M(0x6a7480, 'wisp', {em: 0x101418}); for (const [x, y, r] of [[0, 0, 0.35], [-0.35, -0.05, 0.25], [0.35, -0.04, 0.27]]) K.sph(r, cm, x, y, 0, cloud, 1, 0.7, 0.9, 10);
+    const drops = []; const dm = glow(K, 0xb0d0ff, 0.7); for (let i = 0; i < (PH ? 6 : 12); i++) { const d = K.box(0.015, 0.12, 0.015, dm, (Math.random() - .5) * 0.8, -0.3, (Math.random() - .5) * 0.6, cloud); d.userData.ph = Math.random() * 2; drops.push(d); }
+    return {root: H.rig, H, top: 2.1, r: 0.45, anim(a, dt, s) { sway(hair, s.t, 0.06, 1.2); drops.forEach(d => { d.position.y = -0.3 - ((s.t * 1.6 + d.userData.ph) % 2) * 0.9; }); H.head.rotation.x = 0.35 + Math.sin(s.t * 6) * 0.03; H.la.rotation.x = -1.8; H.ra.rotation.x = -1.8; H.la.rotation.z = -0.5; H.ra.rotation.z = 0.5;
+        if (a.cd > 5) { H.head.rotation.x = -0.4; H.la.rotation.x = H.ra.rotation.x = -2.8; } } }; };
+  // minions
+  MODELS.nmwisp = K => { const g = K.grp(0, 0, 0), sk = K.grp(0, 0.5, 0, g); hd(K, 'shaman', 'bone', 0xece2c8, 0.4, 0.42, 0.38, sk, 0, 0); const h = K.sph(0.34, glow(K, 0x60ff70, 0.25), 0, 0.2, 0, sk, 1, 1, 1, 8); const t = K.cone(0.18, 0.5, glow(K, 0x60ff70, 0.3), 0, 0.0, -0.25, sk, 6); t.rotation.x = -RR / 2;
+    return {root: g, head: sk, top: 1.0, r: 0.4, anim(a, dt, s) { h.scale.setScalar(1 + Math.sin(s.t * 8) * 0.15); sk.rotation.z = Math.sin(s.t * 4) * 0.2; } }; };
+  MODELS.nmdrop = K => { const m = MODELS.nm18(K); m.root.scale.setScalar(0.5); m.top = 0.6; m.r = 0.35; return m; };
   // ---- helpers ----
   const isNM = a => a && typeof a.kind === 'string' && a.kind.startsWith('nm') && !!DEF[a.kind];
   const roomy = (x, y, z) => !solid(x, y, z) && !solid(x, y + 1, z);
@@ -22302,27 +22611,44 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     a.yawVis = a.ang; a.g.position.set(x + 0.5, y, z + 0.5); a.g.rotation.y = a.ang; scene.add(a.g); mobs.push(a); U.spawned++; U.kinds[kind] = (U.kinds[kind] || 0) + 1; return a; }
   U.spawnKind = spawnKind;
   const lastSeen = {}; let spT = 3;
-  function findSpot(place, under) {
+  // ---- homes: each night mob belongs to a part of the glen ----
+  const HOMES = {}; for (const k of U.LIST) for (const h of DEF[k].homes || ['moor']) (HOMES[h] = HOMES[h] || []).push(k); U.HOMES = HOMES;
+  function homeOf(x, y, z) {
+    try { for (const c of (typeof g9castles !== 'undefined' && g9castles) || []) if (Math.hypot(x - c[1], z - c[2]) < (c[0] === 'citadel' ? 36 : 30)) return c[0] === 'black' ? 'black' : c[0] === 'human' ? 'human' : 'mossy'; } catch (_) {}
+    const top = getB(x, y - 1, z);
+    if ((T.PEAT !== undefined && top === T.PEAT) || (T.MUD !== undefined && top === T.MUD) || (y <= SEA + 3 && waterNear(x, y, z, 6))) return 'shore';
+    if (y > SEA + 24 || (typeof biomeAt === 'function' && biomeAt(x, z) === 'high' && y > SEA + 12)) return 'mountain';
+    const sp = window.__bio && __bio.at ? __bio.at(x, z) : '';
+    if (sp === 'alder') return 'alder'; if (sp === 'hawthorn' || sp === 'blackthorn') return 'hawthorn'; if (sp === 'yew' || sp === 'juniper') return 'yew';
+    return 'moor'; }
+  U.homeOf = homeOf;
+  // deep water: at least 4 blocks of water over the bed
+  function deepSpot() { for (let t = 0; t < 14; t++) { const an = Math.random() * 6.283, r = 12 + Math.random() * 18, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
+      if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue; const bed = solidTop(x, z); let w = 0; for (let k = 1; k < 12; k++) if (getB(x, bed + k, z) === T.WATER) w++; else break;
+      if (w >= 4) return [x, bed + 1 + Math.min(2, (w / 3) | 0), z]; } return null; }
+  function findSpot(home, under) {
+    if (home === 'ocean') return deepSpot();
     for (let t = 0; t < 16; t++) { const an = Math.random() * 6.283, r = under ? 10 + Math.random() * 12 : 18 + Math.random() * 14, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
       if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue;
-      if (place === 'cave') { const y = Math.floor(P.y) + ((Math.random() * 9) | 0) - 4; if (y < 2 || !roomy(x, y, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || near(x, y, z, 4, T.TORCH)) continue; return [x, y, z]; }
-      const top = solidTop(x, z), y = top + 1;
-      if (place === 'water') { let w = 0; for (let k = 1; k < 6; k++) if (getB(x, top + k, z) === T.WATER) w++; if (w < 2) continue; return [x, top + 1, z]; }
-      const b = getB(x, top, z); if (b === T.WATER || b === T.LAVA || getB(x, y, z) || getB(x, y + 1, z) || Math.abs(y - P.y) > 14 || near(x, y, z, 4, T.TORCH)) continue;
-      if (place === 'shore' && !waterNear(x, y, z, 6)) continue;
+      if (under) { const y = Math.floor(P.y) + ((Math.random() * 9) | 0) - 4; if (y < 2 || !roomy(x, y, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || near(x, y, z, 4, T.TORCH)) continue; return [x, y, z]; }
+      const top = solidTop(x, z), y = top + 1, b = getB(x, top, z);
+      if (b === T.WATER || b === T.LAVA || getB(x, y, z) || getB(x, y + 1, z) || Math.abs(y - P.y) > 14 || near(x, y, z, 4, T.TORCH)) continue;
       return [x, y, z]; }
     return null; }
   function trySpawn(dt) { spT -= dt; if (spT > 0) return; spT = 5;
     if (!ok() || !isNight || Math.random() > 0.5) return;
     const L = all(), groups = new Set(L.filter(a => !a.def.minion).map(a => a.grp)).size; if (groups >= CAP || L.length >= HARD) return;
     const under = caveK > 0.45, alive = new Set(L.map(a => a.kind));
-    let pool = U.LIST.filter(k => !alive.has(k) && (under ? DEF[k].place === 'cave' : DEF[k].place !== 'cave'));
-    if (!pool.length) return; pool.sort((p, q) => (lastSeen[p] || 0) - (lastSeen[q] || 0) + (Math.random() - .5) * 60000); const kind = pool[0], def = DEF[kind];
-    const s = findSpot(def.place, under); if (!s) return; lastSeen[kind] = Date.now();
+    let s = null, home = null;
+    if (!under && Math.random() < 0.4) { s = deepSpot(); if (s) home = 'ocean'; }
+    if (!s) { s = findSpot(under ? 'cave' : 'land', under); if (!s) return; home = under ? 'cave' : homeOf(s[0], s[1], s[2]); }
+    const pool = (HOMES[home] || []).filter(k => !alive.has(k)); if (!pool.length) return;
+    pool.sort((p, q) => (lastSeen[p] || 0) - (lastSeen[q] || 0) + (Math.random() - .5) * 60000); const kind = pool[0], def = DEF[kind];
+    lastSeen[kind] = Date.now(); U.lastHome = home;
     const gid = Math.random(), n = Math.min(def.group || 1, HARD - L.length);
-    for (let i = 0; i < n; i++) spawnKind(kind, s[0] + (i ? (Math.random() * 3 | 0) - 1 : 0), s[1], s[2] + (i ? (Math.random() * 3 | 0) - 1 : 0), {grp: gid, slot: i});
+    for (let i = 0; i < n; i++) spawnKind(kind, s[0] + (i ? (Math.random() * 3 | 0) - 1 : 0), s[1], s[2] + (i ? (Math.random() * 3 | 0) - 1 : 0), {grp: gid, slot: i, home});
     try { snd(mobs[mobs.length - 1], 0.9); } catch (_) {} }
-  U.forceSpawn = kind => { const def = DEF[kind]; const s = findSpot(def.place, caveK > 0.45) || [Math.floor(P.x) + 4, Math.floor(P.y), Math.floor(P.z) + 4]; return spawnKind(kind, s[0], s[1], s[2], {grp: Math.random()}); };
+  U.forceSpawn = kind => { const def = DEF[kind]; const s = findSpot(def.homes[0] === 'ocean' ? 'ocean' : 'land', caveK > 0.45) || [Math.floor(P.x) + 4, Math.floor(P.y), Math.floor(P.z) + 4]; return spawnKind(kind, s[0], s[1], s[2], {grp: Math.random()}); };
   // test helper: line all 29 up in front of the player, frozen
   U.lineup = (cols) => { cols = cols || 10; const out = []; const fx = Math.sin(P.yaw + Math.PI), fz = Math.cos(P.yaw + Math.PI), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
     U.LIST.forEach((k, i) => { const c = i % cols, r = (i / cols) | 0, d = 6 + r * 3.2, s = (c - (cols - 1) / 2) * 2.1; const x = P.x + fx * d + rx * s, z = P.z + fz * d + rz * s;
@@ -22343,7 +22669,20 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (wet(nx, p.y, nz)) { p.x = nx; p.z = nz; } if (wet(p.x, ny, p.z)) p.y = ny;
     if (!wet(p.x, p.y, p.z)) mobPhysics(a, dt); }
   // ---- per-mob behaviour ----
-  function kill(a, quiet) { if (!quiet) { const p = a.g.position; try { burst(p.x, p.y + 0.8, p.z, 0x9aa0b0, 10, 0.8); } catch (_) {} } try { removeMob(a); } catch (_) {} const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); }
+  const CORPSES = [];
+  const DEATH = k => { const d = DEF[k]; return d.move === 'swim' ? 'sink' : d.body === 'blob' ? 'pop' : (d.phase || d.move === 'float') ? 'fade' : 'fall'; };
+  function corpse(a) { const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); if (a.beam) { try { scene.remove(a.beam); a.beam.geometry.dispose(); a.beam.material.dispose(); } catch (_) {} a.beam = null; }
+    for (const m of a.mats) { m.transparent = true; } CORPSES.push({a, t: 0, style: DEATH(a.kind), y0: a.g.position.y, s0: a.g.scale.x}); if (CORPSES.length > 6) endCorpse(CORPSES.shift()); }
+  function endCorpse(c) { const a = c.a; scene.remove(a.g); a.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); a.mats.forEach(m => m.dispose()); }
+  function stepCorpses(dt) { for (let i = CORPSES.length - 1; i >= 0; i--) { const c = CORPSES[i], a = c.a, k = Math.min(1, (c.t += dt) / 1.1), p = a.g.position;
+      if (c.style === 'fall') { a.rig.rotation.x = -k * k * 1.5; if (a.la) a.la.rotation.x = -2.5 * k; if (a.ra) a.ra.rotation.x = -2.5 * k; }
+      else if (c.style === 'fade') { p.y = c.y0 + k * 1.4; a.rig.rotation.y += dt * 8; a.g.scale.setScalar(c.s0 * (1 - k * 0.6)); }
+      else if (c.style === 'sink') { p.y = c.y0 - k * 1.5; a.rig.rotation.z = k * 1.2; }
+      else if (c.style === 'pop') { a.g.scale.set(c.s0 * (1 + k * 0.6), c.s0 * (1 - k * 0.8), c.s0 * (1 + k * 0.6)); }
+      const op = k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45; for (const m of a.mats) m.opacity = Math.min(m.opacity, Math.max(0, op));
+      if (c.t >= 1.1) { endCorpse(c); CORPSES.splice(i, 1); } } }
+  U.stepCorpses = stepCorpses; U.CORPSES = CORPSES;
+  function kill(a, quiet, anim) { if (anim) { try { corpse(a); } catch (_) { } if (mobs.indexOf(a) < 0 && CORPSES.some(c => c.a === a)) return; } if (!quiet) { const p = a.g.position; try { burst(p.x, p.y + 0.8, p.z, 0x9aa0b0, 10, 0.8); } catch (_) {} } try { removeMob(a); } catch (_) {} const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); }
   function blinkTo(a, behind) { const p = a.g.position; try { burst(p.x, p.y + 1, p.z, 0x8a70c0, 10, 0.6); } catch (_) {}
     const yaw = P.yaw, s = behind ? 1 : (Math.random() < .5 ? 1 : -1); const ang = behind ? yaw : yaw + s * 1.6, r = behind ? 2.6 : 5;
     const x = P.x + Math.sin(ang) * r, z = P.z + Math.cos(ang) * r; if (!solid(Math.floor(x), Math.floor(P.y + 0.5), Math.floor(z))) { p.x = x; p.z = z; p.y = P.y + 0.2; } }
@@ -22351,7 +22690,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     const dx = P.x - p.x, dz = P.z - p.z, dy = P.y - p.y, d = Math.hypot(dx, dz) || 0.001, d3 = Math.hypot(dx, dz, dy);
     // despawn: daylight (fade), far away, other dimension, creative
     if (d > 60 || p.y < -6 || DIM.cur || (MODE && MODE.name === 'creative')) return kill(a, true);
-    if (!isNight && !a.frozen) { a.fade += dt; if (a.fade > 1.5) return kill(a); }
+    if (!isNight && !a.frozen) { a.fade += dt; if (a.fade > 1.5) return kill(a, true); }
     let ang = Math.atan2(dx, dz), spd = 0, ty = P.y + (def.hover || 0.6) + Math.sin(a.t * 2) * 0.2, face = true, ai = def.ai;
     if (a.frozen || dead) ai = 'idle';
     const close = d3 < (def.body === 'big' ? 2.0 : 1.6);
@@ -22417,7 +22756,12 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (a.swing > 0) a.swing -= dt;
     if (a.la) { const reach = /walk/.test(def.move) && /Mummy|Wrap|Deckhand/.test(def.name) ? -1.4 : 0; const sk = a.swing > 0 ? -1.6 : 0;
       a.la.rotation.x = reach + (reach ? 0 : -sw * 0.8) + Math.sin(a.t * 2) * 0.05; a.ra.rotation.x = reach + sk + (reach ? 0 : sw * 0.8); if (def.move === 'float') { a.la.rotation.x = -0.6 + Math.sin(a.t * 2) * 0.2; a.ra.rotation.x = -0.6 + sk + Math.cos(a.t * 2) * 0.2; } }
-    if (def.move === 'float' || def.move === 'swim') a.rig.rotation.z = Math.sin(a.t * 1.6) * 0.06;
+    if (def.move === 'float') a.rig.rotation.z = Math.sin(a.t * 1.6) * 0.06;
+    if (def.move === 'swim') { const wet = inWater(p), sw2 = wet && sp > 0.3 ? 1.15 : wet ? 0.35 : 0; a.swimK = (a.swimK || 0) + (sw2 - (a.swimK || 0)) * Math.min(1, dt * 3); a.rig.rotation.x = a.swimK; a.rig.rotation.z = Math.sin(a.t * 1.6) * 0.08;
+      if (wet && a.ll) { const k = Math.sin(a.t * 9) * 0.5; a.ll.rotation.x = k; a.rl.rotation.x = -k; } if (wet && a.la && sp > 0.3) { a.la.rotation.x = -2.6 + Math.sin(a.t * 3) * 0.6; a.ra.rotation.x = -2.6 - Math.sin(a.t * 3) * 0.6; }
+      if (wet && Math.random() < dt * 2) try { burst(p.x, p.y + 1.6, p.z, 0xd0f0ff, 1, 0.1); } catch (_) {} }
+    if (a.manim) try { a.manim(a, dt, {mv: moving, atk: a.swing > 0 ? a.swing : 0, t: a.t, d}); } catch (e) { if (!U.err) U.err = 'anim ' + a.kind + ' ' + String(e && e.stack || e); }
+    if ((a.lodT = (a.lodT || 0) - dt) <= 0 && a.lod) { a.lodT = 0.5; const v = d < (PH ? 14 : 22); if (v !== a.lodOn) { a.lodOn = v; for (const o of a.lod) o.visible = v; } }
     if (def.body === 'blob') { const k = a.onGround ? 1 + Math.sin(a.t * 6) * 0.06 : 1.15; a.rig.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k)); }
     if (a.fade > 0) for (const m of a.mats) { m.transparent = true; m.opacity = Math.max(0, 1 - a.fade / 1.5); }
     const f = a.flash > 0 ? 1 : 0; for (const m of a.mats) if (m.emissive && m.userData.e0) { if (f) m.emissive.setRGB(0.6, 0, 0); else m.emissive.copy(m.userData.e0); } }
@@ -22444,11 +22788,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // ---- hooks into the mob system (same pattern as the night spider) ----
   const um = updateMobs; updateMobs = function (dt) { const sp = []; for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { sp.push(mobs[i]); mobs.splice(i, 1); }
     try { return um.apply(this, arguments); } finally { for (const a of sp) mobs.push(a); if (!paused) { for (const a of sp) { if (mobs.indexOf(a) < 0) continue; try { step(a, dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } }
-        try { stepShots(dt); stepBolts(dt); effects(dt); trySpawn(dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } } } };
+        try { stepCorpses(dt); stepShots(dt); stepBolts(dt); effects(dt); trySpawn(dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } } } };
   const dmO = damageMob; damageMob = function (a, dmg, byPlayer) { if (isNM(a)) { const p = a.g.position;
       if (a.kind === 'nm01') { const fx = Math.sin(a.yawVis), fz = Math.cos(a.yawVis), dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz) || 1; if ((fx * dx + fz * dz) / d > 0.3) { dmg *= 0.5; snd(a, 1.4); } }
       else if (a.kind === 'nm17') { dmg *= 0.6; snd(a, 1.3); }
-      else if (a.kind === 'nm12' && byPlayer) { a.hits = (a.hits || 0) + 1; if (a.hits % 3 === 0) { snd(a, 1.5); try { playSound('nm:clank:1.3', 0.6, 0); burst(p.x, p.y + 1.4, p.z, 0xfff0a0, 6, 0.5); } catch (_) {} return; } }
+      else if (a.kind === 'nm12' && byPlayer) { a.hits = (a.hits || 0) + 1; if (a.hits % 3 === 0) { snd(a, 1.5); a.parryT = 0.4; try { playSound('nm:clank:1.3', 0.6, 0); burst(p.x, p.y + 1.4, p.z, 0xfff0a0, 6, 0.5); } catch (_) {} return; } }
       else if (a.kind === 'nm05' && byPlayer && Math.random() < 0.4) { a.cd2 = Math.min(a.cd2, 0.3); }
       else if (a.kind === 'nm29') a.angry = true;
       else if (a.kind === 'nm14') a.seenHit = 1;
@@ -22460,11 +22804,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       try { for (const [id, lo, hi, ch] of def.drop || []) { if (ch && Math.random() > ch) continue; drop(id === 11 ? IT.STICK : id, lo + Math.floor(Math.random() * (hi - lo + 1)), p); } } catch (_) {}
       try { if (window.dropXP) dropXP(p.x, p.y, p.z, def.minion ? 1 : 6); } catch (_) {}
       if (a.kind === 'nm18') for (let i = 0; i < 2; i++) { const b = spawnKind('nmdrop', Math.floor(p.x), Math.floor(p.y), Math.floor(p.z), {grp: a.grp}); b.kbx = (i ? 1 : -1) * 3; b.vy = 4; b.onGround = false; }
-      kill(a, true); return; }
+      kill(a, true, true); return; }
     return km.apply(this, arguments); };
   const rmO = removeMob; removeMob = function (a) { if (a && a.beam) { try { scene.remove(a.beam); a.beam.geometry.dispose(); a.beam.material.dispose(); } catch (_) {} a.beam = null; } return rmO.apply(this, arguments); };
-  const ew = enterWorld; enterWorld = function () { for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { try { removeMob(mobs[i]); } catch (_) {} } clearFx(); return ew.apply(this, arguments); };
-  U.clear = () => { for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { try { removeMob(mobs[i]); } catch (_) {} } clearFx(); };
+  const ew = enterWorld; enterWorld = function () { for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { try { removeMob(mobs[i]); } catch (_) {} } while (CORPSES.length) endCorpse(CORPSES.pop()); clearFx(); return ew.apply(this, arguments); };
+  U.clear = () => { for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { try { removeMob(mobs[i]); } catch (_) {} } while (CORPSES.length) endCorpse(CORPSES.pop()); clearFx(); };
   U.state = () => ({alive: all().map(a => a.kind), shots: PR.length, bolts: BOLTS.length, slowT, poisonT, err: U.err});
 })();
 </script>
@@ -22478,7 +22822,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{v:'v1.0.5', d:'2026-10-25', notes:["Mobs: 29 new night mobs roam the glen after dark and fade away at sunrise - from the Clank Warden and Captain Bonebeard to the Storm Bogle and the Rain Wean", "Mobs: every one has its own trick - chargers, leapers, teleporters, grabbers, stalkers that only move when you look away, ranged shots, lightning, poison clouds and more", "Mobs: pirates haunt the shoreline, divers lurk in the water and mummies wait in caves at night", "Mobs: only a few out at once and never near your torches; no one-shots; they drop bones, rotten flesh, lost souls, ore and the odd gem", "Mobs: temporary picture skins for the night mobs (to be replaced later)"]},{v:'v1.0.4', d:'2026-10-25', notes:["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]},{v:'v1.0.3', d:'2026-10-25', notes:["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]},{v:'v1.0.2', d:'2026-10-25', notes:["Castle loot chests now give silver gear and lazurite, never disabled items like the pistol"]},{v:'v1.0.1', d:'2026-10-25', notes:["Textures: 4K beds (single bed tile), buckets, all tools, Highland rifle, TV, house brick, glass and glass pane", "Textures: lazurite ore and tiles, unique iron, lazurite and ruby blocks, real-brick stone brick, black deepslate bricks, richer gold Brew can", "Textures: smooth HD held tools and torches, slim shiny silver sword, smaller Weak Blade", "Every wood type has its own planks, stairs, slabs, door, fence, gate and boat", "Cobalt removed (lazurite replaces it); iron is now silver (ore, ingots, tools); Fine Blade removed", "Mutton and pork are now Meat; cooked haggis is back; Fry Up replaces neeps & tatties", "Bag sorted into categories; separate armour and jetpack chest slots", "Map is held in one hand, sways as you look and is clearer", "Round beehive; real falling snow; on-screen controller guide removed", "Pistol, shears, sandstone and coloured wool disabled; peat bricks and deepslate tiles removed", "Mobs: ponds with ducks (they drop Meat); pigs live on dirt patches; 1 spider at a time and they ignore the Treeman", "Mobs: bees stare, smile, then fly off; all humans have clansmen voices"]},{v:'v1.0.0', d:'2026-10-25', notes:['Haggis herds of 4 in single file on the heather','Pigs wallow and barrel-roll in mud pits (photo skin placeholder)','Spiders: fangs, scary face, faster, hunt other mobs, neutral to you; better step-up','Skeleton draws the bowstring','Treeman: longer hold at arm\'s length, spin, bigger throw; glowing eyes, twig hair','Butterfly swimming, face-down in third person','XP shared across dimensions (recovered from Hell save)','Wet mud puddles, rubies in mountains, spawn skull/boats/floating bits removed','HD ores and metal blocks, Block of diamond, Fry Up + HD food icons','New crafting tabs, white stack counts']},{v:'v0.9.99', d:'2026-10-25', notes:['Bomb replaces the claymore: thrown with LT in an arc, ~3 s sparking fuse, small creeper-like blast (natural blocks only, max 4 hearts); old claymores become bombs; recipe 1 iron + 2 coal + 1 string','Lighter replaces flint and steel (flip lid, click, flame); same use','Wooden sword is now the Baseball Bat (batter swing, thwack, 1.4x knockback, same damage)','Stone sword is the Weak Blade, iron sword the Fine Blade, new HD models and icons','Silver sword now bright silver','Jetpack only on double jump; no pale squares at the nozzles (v0.9.98)']},
+{v:'v1.0.6', d:'2026-10-25', notes:["Mobs: all 29 night mobs now have proper HD 3D models (multi-part bodies, painted HD textures, glowing eyes) instead of the picture placeholders", "Mobs: every night mob has its own idle, walk/float/swim and attack animation, plus a death animation (knights topple, ghosts spin away, blobs pop, divers sink)", "Mobs: new Glencraft names \u2013 Clydeworks Skullbot, Gurnin' Jester, Hooded Bodach, Totem Thumper, Cailleach of the Moss, Girnin' Wrap, Glaur Blob, Heather Shade, Bane Shaman, Star Hound", "Mobs: night mobs now live in homes \u2013 castles (black, human, mossy), alder, hawthorn and yew woods, heather moors, mountains, shore/bog and caves \u2013 2\u20134 kinds each", "Mobs: Kelp Diver, Bigeye Diver, Drowned Deckhands (a sunken ship's crew) and Hookhand Haunt spawn only in deep water and swim properly", "Mobs: small details hide at a distance so phones stay smooth; caps, night-only spawning and damage limits unchanged"]},{v:'v1.0.5', d:'2026-10-25', notes:["Mobs: 29 new night mobs roam the glen after dark and fade away at sunrise - from the Clank Warden and Captain Bonebeard to the Storm Bogle and the Rain Wean", "Mobs: every one has its own trick - chargers, leapers, teleporters, grabbers, stalkers that only move when you look away, ranged shots, lightning, poison clouds and more", "Mobs: pirates haunt the shoreline, divers lurk in the water and mummies wait in caves at night", "Mobs: only a few out at once and never near your torches; no one-shots; they drop bones, rotten flesh, lost souls, ore and the odd gem", "Mobs: temporary picture skins for the night mobs (to be replaced later)"]},{v:'v1.0.4', d:'2026-10-25', notes:["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]},{v:'v1.0.3', d:'2026-10-25', notes:["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]},{v:'v1.0.2', d:'2026-10-25', notes:["Castle loot chests now give silver gear and lazurite, never disabled items like the pistol"]},{v:'v1.0.1', d:'2026-10-25', notes:["Textures: 4K beds (single bed tile), buckets, all tools, Highland rifle, TV, house brick, glass and glass pane", "Textures: lazurite ore and tiles, unique iron, lazurite and ruby blocks, real-brick stone brick, black deepslate bricks, richer gold Brew can", "Textures: smooth HD held tools and torches, slim shiny silver sword, smaller Weak Blade", "Every wood type has its own planks, stairs, slabs, door, fence, gate and boat", "Cobalt removed (lazurite replaces it); iron is now silver (ore, ingots, tools); Fine Blade removed", "Mutton and pork are now Meat; cooked haggis is back; Fry Up replaces neeps & tatties", "Bag sorted into categories; separate armour and jetpack chest slots", "Map is held in one hand, sways as you look and is clearer", "Round beehive; real falling snow; on-screen controller guide removed", "Pistol, shears, sandstone and coloured wool disabled; peat bricks and deepslate tiles removed", "Mobs: ponds with ducks (they drop Meat); pigs live on dirt patches; 1 spider at a time and they ignore the Treeman", "Mobs: bees stare, smile, then fly off; all humans have clansmen voices"]},{v:'v1.0.0', d:'2026-10-25', notes:['Haggis herds of 4 in single file on the heather','Pigs wallow and barrel-roll in mud pits (photo skin placeholder)','Spiders: fangs, scary face, faster, hunt other mobs, neutral to you; better step-up','Skeleton draws the bowstring','Treeman: longer hold at arm\'s length, spin, bigger throw; glowing eyes, twig hair','Butterfly swimming, face-down in third person','XP shared across dimensions (recovered from Hell save)','Wet mud puddles, rubies in mountains, spawn skull/boats/floating bits removed','HD ores and metal blocks, Block of diamond, Fry Up + HD food icons','New crafting tabs, white stack counts']},{v:'v0.9.99', d:'2026-10-25', notes:['Bomb replaces the claymore: thrown with LT in an arc, ~3 s sparking fuse, small creeper-like blast (natural blocks only, max 4 hearts); old claymores become bombs; recipe 1 iron + 2 coal + 1 string','Lighter replaces flint and steel (flip lid, click, flame); same use','Wooden sword is now the Baseball Bat (batter swing, thwack, 1.4x knockback, same damage)','Stone sword is the Weak Blade, iron sword the Fine Blade, new HD models and icons','Silver sword now bright silver','Jetpack only on double jump; no pale squares at the nozzles (v0.9.98)']},
 {v:'v0.9.98', d:'2026-10-25', notes:['Wet mud pools in low flat grassland on the mainland (new worlds; older saves get a few once, away from anything built)', 'Wet mud block 254: sunken 0.2, slows walking a lot, squelch steps, splash particles, shovel', 'Pigs spawn only at mud pools and wallow: lie down, roll over, wiggle, oink/snort, mud coat that fades', 'New HD procedural pig model', 'HD wet mud texture with animated sheen and tile']},
 {v:'v0.9.97', d:'2026-10-25', notes:['Textures: HD bookshelf (dark oak frame, coloured spines, gold lettering), plank top/bottom, HD iso tiles for bookshelf and enchanting table', 'Book item (412): 3 paper + 1 wool, HD icon', 'Bookshelf: 6 planks + 3 books, drops 3 books, fast with an axe', 'Enchanting table (251): obsidian + red cloth with gold trim, floating book faces the player, glyph particles from bookshelves', 'Enchant menu on LT: 3 offers costing 1/2/3 levels, bookshelves within 2 blocks (max 15) raise offer power', 'Efficiency, Sharpness and Protection work; purple glint on icons and held model; name under item name; saved with the world', 'Cobalt pickaxe speed 27', 'Mobs: zombie eyes dim and sunken with a faint glow']},
 {v:'v0.9.96', d:'2026-10-25', notes:['Mobs: creepers are now one ancient Glencraft cyborg, red and yellow, that only comes out at night (two at a time)', 'Mobs: the cyborg creeper sounds a 4-second nuclear SOS siren before it blows, so you can run', 'Mobs: zombies are now zombified people in torn, bloody clothes, with a shambling, twitchy walk', 'Mobs: night spiders have small hairy bodies, long arched legs and eight glowing red eyes (two at a time)', 'Mobs: skeletons now hold a proper archer pose, bow arm out and string drawn to the chin', 'Mobs: haggis roam in herds of five, follow the leader, go looking for seeds and flee together', 'Textures: HD cyborg creeper, zombie, spider and lighter haggis fur']},
