@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1004a -->
+<!-- glencraft-build: v1005a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.4';
+const GAME_VERSION = 'v1.0.5';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19156,6 +19156,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.5', ["Mobs: 29 new night mobs roam the glen after dark and fade away at sunrise - from the Clank Warden and Captain Bonebeard to the Storm Bogle and the Rain Wean", "Mobs: every one has its own trick - chargers, leapers, teleporters, grabbers, stalkers that only move when you look away, ranged shots, lightning, poison clouds and more", "Mobs: pirates haunt the shoreline, divers lurk in the water and mummies wait in caves at night", "Mobs: only a few out at once and never near your torches; no one-shots; they drop bones, rotten flesh, lost souls, ore and the odd gem", "Mobs: temporary picture skins for the night mobs (to be replaced later)"]],
     ['v1.0.4', ["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]],
     ['v1.0.3', ["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]],
     ['v1.0.2', ['Castle loot chests now give silver gear and lazurite, never disabled items like the pistol']],
@@ -22076,6 +22077,396 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       return r; };
     U.freezeFix = 1; } catch (e) { (U.errs || []).push('freeze: ' + (e && e.message || e)); }
 })();
+
+// ===== v1.0.5: NIGHT MOBS - 29 original Glencraft night creatures (night-only spawns, capped, procedural models / textures / sounds) =====
+(function () {
+  const U = window.__c123 = {spawned: 0, killed: 0, err: null, hits: 0, kinds: {}, shots: 0, strikes: 0};
+  const PH = typeof touchMode !== 'undefined' && !!touchMode, TS = PH ? 64 : 128;
+  const RNG = s => { let x = (s | 0) % 2147483647 || 7; return () => (x = (x * 16807) % 2147483647) / 2147483647; };
+  const TEX = {};
+  // ---- procedural HD textures (cached per pattern+colour) ----
+  function paint(kind, base, seed, n) {
+    const c = document.createElement('canvas'); c.width = c.height = n; const g = c.getContext('2d'), r = RNG(seed || 11);
+    const col = new THREE.Color(base), hx = l => '#' + col.clone().offsetHSL(0, 0, l).getHexString();
+    g.fillStyle = hx(0); g.fillRect(0, 0, n, n);
+    const speck = (k, a, w, h) => { for (let i = 0; i < n * k; i++) { g.fillStyle = hx((r() - .5) * a); g.fillRect(r() * n | 0, r() * n | 0, 1 + r() * w | 0, 1 + r() * h | 0); } };
+    if (kind === 'cloth') { speck(3, .09, 2, 6); g.fillStyle = 'rgba(0,0,0,.08)'; for (let y = 0; y < n; y += 4) g.fillRect(0, y, n, 1); for (let i = 0; i < 5; i++) { g.fillStyle = 'rgba(0,0,0,.12)'; g.fillRect(r() * n, 0, 1 + r() * 2, n); } }
+    else if (kind === 'bandage') { const h = n / 9; for (let y = -h; y < n + h; y += h) { g.save(); g.translate(0, y); g.rotate((r() - .5) * .18); g.fillStyle = hx((r() - .65) * .14); g.fillRect(-8, 0, n + 16, h - 1); g.fillStyle = 'rgba(70,50,25,.35)'; g.fillRect(-8, h - 2, n + 16, 1); g.restore(); }
+      for (let i = 0; i < n / 2; i++) { g.fillStyle = 'rgba(95,70,30,' + (r() * .28).toFixed(2) + ')'; g.fillRect(r() * n, r() * n, 2 + r() * 5, 1 + r() * 3); } }
+    else if (kind === 'fur') { for (let i = 0; i < n * 7; i++) { const x = r() * n, y = r() * n; g.strokeStyle = hx((r() - .5) * .24); g.lineWidth = 1 + (n > 64 ? r() : 0); g.beginPath(); g.moveTo(x, y); g.lineTo(x + (r() - .5) * 3, y + 2 + r() * 6); g.stroke(); } }
+    else if (kind === 'metal') { const gr = g.createLinearGradient(0, 0, 0, n); gr.addColorStop(0, hx(.13)); gr.addColorStop(.5, hx(0)); gr.addColorStop(1, hx(-.12)); g.fillStyle = gr; g.fillRect(0, 0, n, n);
+      for (let i = 0; i < n * 2; i++) { g.fillStyle = 'rgba(255,255,255,' + (r() * .07).toFixed(3) + ')'; g.fillRect(r() * n, r() * n, 1 + r() * 9, 1); }
+      g.fillStyle = 'rgba(0,0,0,.22)'; g.fillRect(0, n * .48, n, Math.max(1, n / 40));
+      for (let i = 0; i < 10; i++) { const x = r() * n, y = r() * n, s = n / 40 + 1; g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(x, y, s, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.3)'; g.beginPath(); g.arc(x - s * .3, y - s * .3, s * .5, 0, 7); g.fill(); }
+      for (let i = 0; i < n / 3; i++) { g.fillStyle = 'rgba(120,60,20,' + (r() * .22).toFixed(2) + ')'; g.fillRect(r() * n, r() * n, 2 + r() * 6, 2 + r() * 6); } }
+    else if (kind === 'skin') { speck(4, .1, 3, 3); for (let i = 0; i < 6; i++) { g.fillStyle = 'rgba(0,0,0,.1)'; g.beginPath(); g.arc(r() * n, r() * n, 2 + r() * n / 10, 0, 7); g.fill(); } }
+    else if (kind === 'bone') { speck(3, .1, 3, 1); g.strokeStyle = 'rgba(80,60,40,.4)'; for (let i = 0; i < 7; i++) { g.beginPath(); let x = r() * n, y = r() * n; g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (r() - .5) * 10; y += r() * 8; g.lineTo(x, y); } g.stroke(); } }
+    else if (kind === 'slime') { for (let i = 0; i < n / 2; i++) { const x = r() * n, y = r() * n, s = 2 + r() * n / 7, gr = g.createRadialGradient(x, y, 0, x, y, s); gr.addColorStop(0, hx(.16)); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - s, y - s, s * 2, s * 2); }
+      for (let i = 0; i < 9; i++) { g.fillStyle = hx(-.16); g.fillRect(r() * n, r() * n * .5, 2 + r() * 3, n * .2 + r() * n * .5); } }
+    else if (kind === 'weed') { speck(4, .1, 2, 2); for (let i = 0; i < 16; i++) { g.strokeStyle = ['#2f5a26', '#4c7a2c', '#5e6b22'][i % 3]; g.lineWidth = 1 + r() * n / 32; g.beginPath(); let x = r() * n; g.moveTo(x, 0); for (let y = 0; y <= n; y += n / 8) { x += (r() - .5) * 7; g.lineTo(x, y); } g.stroke(); } }
+    else if (kind === 'wood') { for (let y = 0; y < n; y++) { g.fillStyle = hx(Math.sin(y * .45 + r()) * .05); g.fillRect(0, y, n, 1); } g.strokeStyle = 'rgba(0,0,0,.35)'; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(0, r() * n); g.bezierCurveTo(n / 3, r() * n, 2 * n / 3, r() * n, n, r() * n); g.stroke(); } }
+    else if (kind === 'rock') { speck(5, .16, 4, 4); g.strokeStyle = 'rgba(0,0,0,.4)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(r() * n, r() * n); g.lineTo(r() * n, r() * n); g.stroke(); } }
+    else if (kind === 'stars') { const gr = g.createLinearGradient(0, 0, n, n); gr.addColorStop(0, hx(.06)); gr.addColorStop(1, hx(-.1)); g.fillStyle = gr; g.fillRect(0, 0, n, n); for (let i = 0; i < n / 2; i++) { g.fillStyle = 'rgba(255,255,255,' + (.4 + r() * .6).toFixed(2) + ')'; const s = r() < .1 ? 2 : 1; g.fillRect(r() * n, r() * n, s, s); } }
+    else if (kind === 'wisp') { for (let i = 0; i < 30; i++) { const x = r() * n, y = r() * n, s = n / 5 + r() * n / 4, gr = g.createRadialGradient(x, y, 0, x, y, s); gr.addColorStop(0, hx(.22)); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, n, n); } g.fillStyle = 'rgba(255,255,255,.08)'; for (let y = 0; y < n; y += 3) g.fillRect(0, y, n, 1); }
+    else if (kind === 'leather') { speck(3, .12, 3, 2); g.strokeStyle = 'rgba(0,0,0,.35)'; g.setLineDash([2, 2]); g.strokeRect(2, 2, n - 4, n - 4); g.setLineDash([]); }
+    else speck(2, .06, 2, 2);
+    return c;
+  }
+  function tex(kind, base, seed) { const k = kind + ':' + base + ':' + (seed || 0); if (TEX[k]) return TEX[k];
+    const t = new THREE.CanvasTexture(paint(kind, base, seed, TS)); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+    return TEX[k] = t; }
+  // a face texture: base pattern + painted features (cached per mob kind)
+  function faceTex(key, kind, base, fn) { const k = 'face:' + key; if (TEX[k]) return TEX[k];
+    const c = paint(kind, base, key.length * 7 + 3, TS), g = c.getContext('2d'); try { fn(g, TS); } catch (_) {}
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; return TEX[k] = t; }
+  U.TEX = TEX; U.paint = paint; U.tex = tex; U.faceTex = faceTex; U.PH = PH;
+  // face painting helpers (coords 0..1)
+  const F = {
+    eye(g, n, x, y, r, col, pupil) { g.fillStyle = col || '#fff'; g.beginPath(); g.ellipse(x * n, y * n, r * n, r * n * .9, 0, 0, 7); g.fill(); if (pupil) { g.fillStyle = pupil; g.beginPath(); g.arc(x * n, y * n, r * n * .45, 0, 7); g.fill(); } },
+    glow(g, n, x, y, r, col) { const gr = g.createRadialGradient(x * n, y * n, 0, x * n, y * n, r * n * 2); gr.addColorStop(0, '#fff'); gr.addColorStop(.3, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x * n - r * n * 2, y * n - r * n * 2, r * n * 4, r * n * 4); },
+    hole(g, n, x, y, w, h, col) { g.fillStyle = col || '#0a0606'; g.beginPath(); g.ellipse(x * n, y * n, w * n, h * n, 0, 0, 7); g.fill(); },
+    teeth(g, n, x, y, w, h, k, col) { g.fillStyle = '#120808'; g.fillRect((x - w / 2) * n, (y - h / 2) * n, w * n, h * n); g.fillStyle = col || '#efe6c8'; const tw = w / k; for (let i = 0; i < k; i++) { g.beginPath(); g.moveTo((x - w / 2 + i * tw) * n, (y - h / 2) * n); g.lineTo((x - w / 2 + (i + 1) * tw) * n, (y - h / 2) * n); g.lineTo((x - w / 2 + (i + .5) * tw) * n, (y - h / 2 + h * .55) * n); g.fill();
+      g.beginPath(); g.moveTo((x - w / 2 + i * tw) * n, (y + h / 2) * n); g.lineTo((x - w / 2 + (i + 1) * tw) * n, (y + h / 2) * n); g.lineTo((x - w / 2 + (i + .5) * tw) * n, (y + h / 2 - h * .5) * n); g.fill(); } },
+    brow(g, n, x0, y0, x1, y1, w, col) { g.strokeStyle = col || '#1a1010'; g.lineWidth = w * n; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0 * n, y0 * n); g.lineTo(x1 * n, y1 * n); g.stroke(); },
+    rect(g, n, x, y, w, h, col) { g.fillStyle = col; g.fillRect(x * n, y * n, w * n, h * n); },
+  };
+  U.F = F;
+  // ---- model kit ----
+  function kit(mats) {
+    const M = (base, pat, o) => { o = o || {}; let m;
+      if (o.basic) m = new THREE.MeshBasicMaterial({color: base, transparent: !!o.op, opacity: o.op || 1, depthWrite: !o.op, side: o.ds ? THREE.DoubleSide : THREE.FrontSide});
+      else { m = new THREE.MeshLambertMaterial({color: o.tint || 0xffffff, map: pat ? tex(pat, base, o.seed) : null, transparent: !!o.op, opacity: o.op || 1, depthWrite: !o.op, side: o.ds ? THREE.DoubleSide : THREE.FrontSide});
+        if (!pat) m.color.set(base); m.emissive.set(o.em || 0x1c1c22); m.userData.e0 = m.emissive.clone(); }
+      mats.push(m); return m; };
+    const face = (key, pat, base, fn, o) => { o = o || {}; const m = new THREE.MeshLambertMaterial({map: faceTex(key, pat, base, fn), transparent: !!o.op, opacity: o.op || 1}); if (o.em) m.emissive.set(o.em); m.userData.e0 = m.emissive.clone(); mats.push(m); return m; };
+    const box = (w, h, d, m, x, y, z, p) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x || 0, y || 0, z || 0); if (p) p.add(b); return b; };
+    const sph = (r, m, x, y, z, p, sx, sy, sz, seg) => { const s = seg || (PH ? 10 : 14), b = new THREE.Mesh(new THREE.SphereGeometry(r, s, Math.max(6, s * 0.7 | 0)), m); b.position.set(x || 0, y || 0, z || 0); if (sx) b.scale.set(sx, sy || sx, sz || sx); if (p) p.add(b); return b; };
+    const cyl = (rt, rb, h, m, x, y, z, p, seg, open) => { const b = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || (PH ? 8 : 12), 1, !!open), m); b.position.set(x || 0, y || 0, z || 0); if (p) p.add(b); return b; };
+    const cone = (r, h, m, x, y, z, p, seg) => { const b = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg || (PH ? 6 : 10)), m); b.position.set(x || 0, y || 0, z || 0); if (p) p.add(b); return b; };
+    const grp = (x, y, z, p) => { const q = new THREE.Group(); q.position.set(x || 0, y || 0, z || 0); if (p) p.add(q); return q; };
+    // head box with a painted front face (+z)
+    const head = (w, h, d, side, front, x, y, z, p) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, side, side, front, side]); b.position.set(x || 0, y || 0, z || 0); if (p) p.add(b); return b; };
+    return {M, face, box, sph, cyl, cone, grp, head};
+  }
+  U.kit = kit;
+  // standard humanoid rig: legs pivot at hips, arms at shoulders, head group on the neck. Faces +z.
+  // o: {s, legs:[col,pat], body:[col,pat], arm:[col,pat], hand:[col,pat], headSide, headFront, hw,hh,hd, bw, bh, bd, robe, hunch, armL, noLegs}
+  function humanoid(K, o) {
+    const g = new THREE.Group(), rig = K.grp(0, 0, 0, g), P = {g, rig};
+    const legH = o.noLegs ? 0 : (o.legH || 0.72), bw = o.bw || 0.56, bh = o.bh || 0.74, bd = o.bd || 0.32;
+    const mL = K.M(o.legs[0], o.legs[1]), mB = K.M(o.body[0], o.body[1]), mA = K.M((o.arm || o.body)[0], (o.arm || o.body)[1]), mH = o.hand ? K.M(o.hand[0], o.hand[1]) : mA;
+    P.mL = mL; P.mB = mB; P.mA = mA;
+    if (!o.noLegs) { P.ll = K.grp(-bw * 0.25, legH, 0, rig); P.rl = K.grp(bw * 0.25, legH, 0, rig);
+      for (const L of [P.ll, P.rl]) { K.box(bw * 0.44, legH, bd * 0.9, mL, 0, -legH / 2, 0, L); if (o.boots) K.box(bw * 0.48, 0.16, bd * 1.05, K.M(o.boots, 'leather'), 0, -legH + 0.08, 0.02, L); } }
+    else if (o.robe) { const rb = K.cyl(bw * 0.42, bw * 0.95, o.robeH || 0.9, K.M(o.robe[0], o.robe[1], {ds: true}), 0, (o.robeH || 0.9) / 2 + (o.robeY || 0), 0, rig, PH ? 8 : 12, true); P.robe = rb; }
+    const by = (o.noLegs ? (o.robeY || 0) + (o.robeH || 0.9) * 0.85 : legH);
+    P.body = K.grp(0, by, 0, rig); K.box(bw, bh, bd, mB, 0, bh / 2, 0, P.body);
+    if (o.hunch) P.body.rotation.x = o.hunch;
+    const sy = bh - 0.08, aL = o.armL || 0.7, aw = o.aw || bw * 0.34;
+    P.la = K.grp(-bw / 2 - aw / 2, sy, 0, P.body); P.ra = K.grp(bw / 2 + aw / 2, sy, 0, P.body);
+    for (const A of [P.la, P.ra]) { K.box(aw, aL * 0.78, aw, mA, 0, -aL * 0.39, 0, A); K.box(aw * 1.04, aL * 0.24, aw * 1.04, mH, 0, -aL * 0.88, 0, A); A.hand = K.grp(0, -aL, 0, A); }
+    const hw = o.hw || 0.5, hh = o.hh || 0.5, hd = o.hd || 0.5;
+    P.head = K.grp(0, bh, 0, P.body);
+    if (o.headSide) P.headM = K.head(hw, hh, hd, o.headSide, o.headFront || o.headSide, 0, hh / 2 + 0.02, 0, P.head);
+    P.top = bh + hh + 0.02 + by; P.hw = hw; P.hh = hh; P.hd = hd; P.bw = bw; P.bh = bh; P.bd = bd; P.legH = legH;
+    return P;
+  }
+  U.humanoid = humanoid;
+  // ---- PLACEHOLDER SKINS: the user's friend's pictures (placeholders/nightmobs/NN.jpg). Set to false (or delete the folder) to fall back to plain procedural faces. ----
+  const NM_PLACEHOLDERS = true;
+  U.placeholders = NM_PLACEHOLDERS;
+  const PIC = {}, ASP = {};
+  function pic(id) { if (!NM_PLACEHOLDERS) return null; if (PIC[id]) return PIC[id];
+    const t = new THREE.TextureLoader().load('placeholders/nightmobs/' + id + '.jpg', tt => { try { ASP[id] = tt.image.width / tt.image.height; } catch (_) {} }, undefined, () => { PIC[id].failed = true; });
+    t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return PIC[id] = t; }
+  U.pic = pic; for (let i = 1; i <= 29; i++) try { pic(String(i).padStart(2, '0')); } catch (_) {}
+  // ---- the 29 (original names; behaviours in c.js) ----
+  // body: man | big | robe | sheet | orb | blob | dog | cloud ; move: walk | float | swim | hop ; place: land | water | shore | cave
+  const NMD = [
+    ['01', 'Clank Warden',      {body: 'man',   c: [0x8a8f96, 'metal'], move: 'walk',  spd: 2.2, hp: 30, ai: 'shield',   dmg: 3, place: 'land',  snd: 'clank',   drop: [[54, 1, 2]]}],
+    ['02', 'Gloam Ghoul',       {body: 'robe',  c: [0x1c1a1f, 'cloth'], move: 'walk',  spd: 3.6, hp: 16, ai: 'lunge',    dmg: 2, place: 'land',  snd: 'shriek',  drop: [[320, 1, 2]]}],
+    ['03', 'Domeskull Unit',    {body: 'man',   c: [0x9aa3ab, 'metal'], move: 'walk',  spd: 2.0, hp: 20, ai: 'zap',      dmg: 2, place: 'land',  snd: 'beep',    drop: [[118, 1, 3], [54, 0, 1]]}],
+    ['04', 'Kelp Diver',        {body: 'man',   c: [0x4f6a4a, 'weed'],  move: 'swim',  spd: 2.6, hp: 18, ai: 'drag',     dmg: 2, place: 'water', snd: 'gurgle',  drop: [[55, 1, 2]]}],
+    ['05', 'Grinface Phantom',  {body: 'robe',  c: [0x6c5d8a, 'cloth'], move: 'float', spd: 3.0, hp: 14, ai: 'blink',    dmg: 2, place: 'land',  snd: 'cackle',  drop: [[321, 0, 1]]}],
+    ['06', 'Clawhood Pair',     {body: 'robe',  c: [0x2a2a30, 'cloth'], move: 'float', spd: 3.4, hp: 10, ai: 'orbit',    dmg: 2, place: 'land',  snd: 'whisper', drop: [[11, 1, 2]], group: 2}],
+    ['07', 'Corrie Yeti',       {body: 'big',   c: [0xd8d6d0, 'fur'],   move: 'walk',  spd: 3.0, hp: 26, ai: 'charge',   dmg: 3, place: 'land',  snd: 'growl',   drop: [[32, 1, 3]]}],
+    ['08', 'Tiki Thumper',      {body: 'big',   c: [0x7a5a3a, 'wood'],  move: 'walk',  spd: 2.4, hp: 26, ai: 'stomp',    dmg: 3, place: 'land',  snd: 'drum',    drop: [[118, 1, 2], [123, 0, 1, 0.06]]}],
+    ['09', 'Cairn Mummy',       {body: 'man',   c: [0xcdbf9c, 'bandage'], move: 'walk', spd: 1.9, hp: 22, ai: 'slowgrab', dmg: 2, place: 'cave', snd: 'moan',    drop: [[32, 1, 2], [320, 0, 1]]}],
+    ['10', 'Bedsheet Bogle',    {body: 'sheet', c: [0xf2f2f2, 'cloth'], move: 'float', spd: 4.0, hp: 8,  ai: 'scare',    dmg: 1, place: 'land',  snd: 'moan',    drop: [[32, 1, 2]], phase: 1}],
+    ['11', 'Crone of the Moss', {body: 'robe',  c: [0x2d3a2a, 'cloth'], move: 'walk',  spd: 2.2, hp: 16, ai: 'hex',      dmg: 2, place: 'land',  snd: 'cackle',  drop: [[118, 1, 2]]}],
+    ['12', 'Captain Bonebeard', {body: 'man',   c: [0x2b2b3a, 'cloth'], move: 'walk',  spd: 2.6, hp: 24, ai: 'parry',    dmg: 3, place: 'shore', snd: 'growl',   drop: [[171, 1, 3], [83, 0, 2]]}],
+    ['13', 'Grinning Wrap',     {body: 'man',   c: [0xd9cfb2, 'bandage'], move: 'walk', spd: 3.0, hp: 18, ai: 'leap',     dmg: 2, place: 'cave', snd: 'cackle',  drop: [[32, 1, 2], [171, 0, 1]]}],
+    ['14', 'Hatman of the Haar', {body: 'robe', c: [0x101014, 'cloth'], move: 'walk',  spd: 6.5, hp: 14, ai: 'stalk',    dmg: 3, place: 'land',  snd: 'whisper', drop: [[53, 1, 2]]}],
+    ['15', 'Ben Troll',         {body: 'big',   c: [0x8c8a7e, 'skin'],  move: 'walk',  spd: 1.8, hp: 30, ai: 'rock',     dmg: 3, place: 'land',  snd: 'growl',   drop: [[54, 1, 2]]}],
+    ['16', 'Gnasher Eye',       {body: 'orb',   c: [0x3a2a2a, 'skin'],  move: 'float', spd: 2.4, hp: 16, ai: 'beam',     dmg: 3, place: 'land',  snd: 'zap',     drop: [[118, 1, 2]], hover: 2.2}],
+    ['17', 'Ironjaw',           {body: 'big',   c: [0x4a4d55, 'metal'], move: 'walk',  spd: 2.0, hp: 28, ai: 'armour',   dmg: 3, place: 'land',  snd: 'clank',   drop: [[80, 1, 2]]}],
+    ['18', 'Drip Blob',         {body: 'blob',  c: [0x6f8a5a, 'slime'], move: 'hop',   spd: 2.6, hp: 14, ai: 'split',    dmg: 2, place: 'land',  snd: 'gurgle',  drop: [[11, 0, 1]]}],
+    ['19', 'Violet Shade',      {body: 'robe',  c: [0x9a7ad8, 'wisp'],  move: 'float', spd: 2.8, hp: 16, ai: 'homing',   dmg: 2, place: 'land',  snd: 'chime',   drop: [[321, 1, 1]], glow: 0x40206a, phase: 1}],
+    ['20', 'Haar Wraith',       {body: 'sheet', c: [0xd0d6dc, 'wisp'],  move: 'float', spd: 2.6, hp: 12, ai: 'haze',     dmg: 2, place: 'land',  snd: 'whisper', drop: [[321, 0, 1]], phase: 1}],
+    ['21', 'Plaguebeak Knight', {body: 'man',   c: [0x5a5f58, 'metal'], move: 'walk',  spd: 2.4, hp: 24, ai: 'aura',     dmg: 2, place: 'land',  snd: 'clank',   drop: [[54, 1, 2], [320, 0, 1]]}],
+    ['22', 'Storm Bogle',       {body: 'cloud', c: [0xb8c4d8, 'wisp'],  move: 'float', spd: 2.2, hp: 18, ai: 'storm',    dmg: 3, place: 'land',  snd: 'thunder', drop: [[118, 1, 3]], hover: 5, glow: 0x203050}],
+    ['23', 'Bigeye Diver',      {body: 'orb',   c: [0x6a7a80, 'metal'], move: 'swim',  spd: 2.2, hp: 18, ai: 'bubble',   dmg: 2, place: 'water', snd: 'gurgle',  drop: [[55, 1, 2]]}],
+    ['24', 'Bone Shaman',       {body: 'robe',  c: [0x5a3a2a, 'cloth'], move: 'walk',  spd: 2.2, hp: 20, ai: 'summon',   dmg: 2, place: 'land',  snd: 'drum',    drop: [[171, 1, 3]]}],
+    ['25', 'Bog Gowk',          {body: 'man',   c: [0x6a7a5a, 'skin'],  move: 'walk',  spd: 3.2, hp: 16, ai: 'hop',      dmg: 2, place: 'shore', snd: 'croak',   drop: [[320, 1, 2]]}],
+    ['26', 'Drowned Deckhands', {body: 'man',   c: [0x4a5a4a, 'cloth'], move: 'walk',  spd: 2.4, hp: 8,  ai: 'crew',     dmg: 2, place: 'shore', snd: 'moan',    drop: [[320, 0, 1], [83, 0, 1]], group: 3}],
+    ['27', 'Hookhand Haunt',    {body: 'robe',  c: [0x9fb4bf, 'wisp'],  move: 'float', spd: 2.6, hp: 16, ai: 'hook',     dmg: 2, place: 'shore', snd: 'moan',    drop: [[54, 1, 1], [321, 0, 1]], phase: 1}],
+    ['28', 'Star Hound',        {body: 'dog',   c: [0x2a3a6a, 'stars'], move: 'float', spd: 5.5, hp: 14, ai: 'circle',   dmg: 2, place: 'land',  snd: 'howl',    drop: [[171, 1, 2]], hover: 0.5, glow: 0x203a70}],
+    ['29', 'Rain Wean',         {body: 'sheet', c: [0xe6eef2, 'wisp'],  move: 'float', spd: 0,   hp: 12, ai: 'weep',     dmg: 2, place: 'land',  snd: 'shriek',  drop: [[321, 1, 1]], phase: 1}],
+  ];
+  const DEF = {}; for (const [id, name, o] of NMD) DEF['nm' + id] = Object.assign({id, name, kind: 'nm' + id}, o);
+  // minions (not counted in the 29): bone shaman's skull wisps and the drip blob's droplets
+  DEF.nmwisp = {id: '24', name: 'Skull Wisp', kind: 'nmwisp', body: 'orb', c: [0xe8e0c8, 'bone'], move: 'float', spd: 4, hp: 4, ai: 'chase', dmg: 2, snd: 'chime', drop: [], minion: 1, small: 0.45, phase: 1, hover: 1.2};
+  DEF.nmdrop = {id: '18', name: 'Droplet', kind: 'nmdrop', body: 'blob', c: [0x6f8a5a, 'slime'], move: 'hop', spd: 3, hp: 4, ai: 'chase', dmg: 2, snd: 'gurgle', drop: [], minion: 1, small: 0.5};
+  U.DEF = DEF; U.LIST = NMD.map(d => 'nm' + d[0]);
+  try { for (const k in DEF) MOB_HP[k] = DEF[k].hp; } catch (_) {}
+  // ---- cheap 3D bodies with the picture on the front ----
+  function build(def) {
+    const mats = [], K = kit(mats), S = def.small || 1, c = def.c, g = new THREE.Group(), rig = K.grp(0, 0, 0, g);
+    const t0 = pic(def.id), t = t0 && !t0.failed ? t0 : null, asp = ASP[def.id] || 0.9;
+    const front = t ? (() => { const m = new THREE.MeshLambertMaterial({map: t, emissiveMap: t}); m.emissive.set(def.glow || 0x8a8a8a); m.userData.e0 = m.emissive.clone(); mats.push(m); return m; })() : K.face(def.kind, c[1], c[0], (q, n) => { F.glow(q, n, .32, .42, .07, '#ff4020'); F.glow(q, n, .68, .42, .07, '#ff4020'); F.teeth(q, n, .5, .72, .5, .14, 6); }, {em: def.glow});
+    const side = K.M(c[0], c[1], {em: def.glow || 0x1c1c22}), ghost = def.phase ? 0.82 : 0;
+    let P = {g, rig}, panelW = 0.82, top = 2;
+    const panel = (w, cx, cy, cz, p) => { const h = w / asp, b = K.head(w, h, Math.min(0.5, w * 0.6), side, front, cx, cy + h / 2, cz, p); return h; };
+    if (def.body === 'man' || def.body === 'big') { const big = def.body === 'big';
+      const H = humanoid(K, {legs: [c[0], c[1]], body: [c[0], c[1]], bw: big ? 0.9 : 0.58, bh: big ? 0.9 : 0.72, bd: big ? 0.5 : 0.32, legH: big ? 0.8 : 0.72, armL: big ? 1.0 : 0.7, aw: big ? 0.3 : 0.2});
+      rig.add(H.rig); Object.assign(P, H, {g, rig});
+      const hh = panel(big ? 1.0 : 0.82, 0, 0, 0.02, P.head); top = P.top + hh; }
+    else if (def.body === 'robe') { const H = humanoid(K, {noLegs: 1, robe: [c[0], c[1]], legs: [c[0], c[1]], body: [c[0], c[1]], bw: 0.6, bh: 0.6, bd: 0.34, robeH: 1.0, robeY: 0.05, armL: 0.8, aw: 0.18});
+      rig.add(H.rig); Object.assign(P, H, {g, rig}); const hh = panel(0.86, 0, 0, 0.02, P.head); top = P.top + hh; }
+    else if (def.body === 'sheet') { const sh = K.cyl(0.42, 0.62, 1.3, side, 0, 0.75, 0, rig, 10, true); const hd = K.sph(0.44, side, 0, 1.45, 0, rig); P.head = K.grp(0, 1.05, 0.28, rig); const hh = panel(0.8, 0, 0, 0.1, P.head); top = 1.1 + hh; P.body = rig; }
+    else if (def.body === 'orb' || def.body === 'blob' || def.body === 'cloud') { const r = def.body === 'cloud' ? 0.9 : 0.62; const core = K.sph(r, side, 0, r, 0, rig, def.body === 'blob' ? 1.1 : def.body === 'cloud' ? 1.5 : 1, def.body === 'blob' ? 0.85 : 0.8, 1);
+      if (def.body === 'cloud') { K.sph(r * 0.7, side, -r * 1.1, r * 1.1, 0, rig); K.sph(r * 0.7, side, r * 1.1, r * 1.05, 0, rig); for (let i = 0; i < 3; i++) { const b = K.box(0.08, 0.7, 0.08, K.M(0xfff2a0, null, {basic: 1}), -0.5 + i * 0.5, -0.1, 0.2, rig); b.rotation.z = 0.4 * (i - 1); } }
+      if (def.body === 'blob') for (let i = 0; i < 4; i++) K.cone(0.1, 0.35, side, -0.4 + i * 0.27, 0.15, 0.3, rig).rotation.x = Math.PI;
+      P.head = K.grp(0, r * 0.45, r * 0.78, rig); const hh = panel(r * 1.4, 0, 0, 0, P.head); top = r * 2; P.body = rig; }
+    else if (def.body === 'dog') { const body = K.box(0.5, 0.45, 1.1, side, 0, 0.75, 0, rig); P.legs4 = [];
+      for (const [x, z] of [[-.18, .4], [.18, .4], [-.18, -.4], [.18, -.4]]) { const L = K.grp(x, 0.55, z, rig); K.box(0.14, 0.55, 0.14, side, 0, -0.27, 0, L); P.legs4.push(L); }
+      const tail = K.box(0.1, 0.1, 0.5, side, 0, 0.95, -0.75, rig); tail.rotation.x = -0.6;
+      P.head = K.grp(0, 0.75, 0.6, rig); const hh = panel(0.72, 0, 0, 0.1, P.head); top = 0.75 + hh; P.body = rig; }
+    if (def.body === 'man' && /Diver/.test(def.name)) { /* brass dive helmet ring behind the picture */ K.cyl(0.5, 0.5, 0.15, K.M(0xb08a3a, 'metal'), 0, 0.05, 0, P.head); }
+    if (ghost) for (const m of mats) { m.transparent = true; m.opacity = ghost; m.depthWrite = false; }
+    g.traverse(o => { if (o.isMesh) { o.castShadow = !PH; } });
+    g.scale.setScalar(S);
+    return Object.assign(P, {g, rig, mats, legs: [], arms: [], speed: def.spd, hp: def.hp, maxHp: def.hp, hitY: top * S * 0.5, hitR: (def.body === 'big' || def.body === 'cloud' ? 0.9 : 0.6) * S, tall: Math.max(1, Math.ceil(top * S)), hostile: true, topH: top * S});
+  }
+  U.build = build;
+  // ---- helpers ----
+  const isNM = a => a && typeof a.kind === 'string' && a.kind.startsWith('nm') && !!DEF[a.kind];
+  const roomy = (x, y, z) => !solid(x, y, z) && !solid(x, y + 1, z);
+  const near = (x, y, z, r, id) => { for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let c = -2; c <= 2; c++) if (getB(x + a, y + c, z + b) === id) return true; return false; };
+  const waterNear = (x, y, z, r) => { for (let a = -r; a <= r; a += 2) for (let b = -r; b <= r; b += 2) for (let c = -3; c <= 1; c++) if (getB(x + a, y + c, z + b) === T.WATER) return true; return false; };
+  const inWater = p => getB(Math.floor(p.x), Math.floor(p.y + 0.4), Math.floor(p.z)) === T.WATER;
+  const all = () => mobs.filter(isNM);
+  const CAP = PH || PERF ? 2 : 3, HARD = PH || PERF ? 5 : 7;
+  const ok = () => started && !paused && !dead && !DIM.cur && !(MODE && MODE.name === 'creative') && !(current && current.flat);
+  const sees = (p, cosMin) => { try { const v = new THREE.Vector3(); camera.getWorldDirection(v); const dx = p.x - camera.position.x, dy = p.y + 1 - camera.position.y, dz = p.z - camera.position.z, d = Math.hypot(dx, dy, dz) || 1; return (v.x * dx + v.y * dy + v.z * dz) / d > (cosMin || 0.75); } catch (_) { return false; } };
+  const snd = (a, pitch) => { try { sfx3d('nm:' + a.def.snd + ':' + (pitch || 1) * (a.pit || 1), a.g.position, 26); } catch (_) {} };
+  const hit = (a, n, msg) => { if (dead) return; hurt(Math.min(4, n), msg || (a.def.name + ' got you.')); U.hits++; };
+  // ---- projectiles ----
+  const PR = [];
+  function shoot(a, col, spd, dmg, o) { o = o || {}; if (PR.length > 8) return; const p = a.g.position, y = p.y + (a.hitY || 1) * 1.2;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(o.r || 0.16, 8, 6), new THREE.MeshBasicMaterial({color: col})); m.position.set(p.x, y, p.z); scene.add(m);
+    const dx = P.x - p.x, dy = P.y + 1.1 - y, dz = P.z - p.z, d = Math.hypot(dx, dy, dz) || 1, v = new THREE.Vector3(dx / d * spd, dy / d * spd, dz / d * spd);
+    if (o.lob) { const h = Math.hypot(dx, dz), tt = h / spd; v.set(dx / tt, (dy + 6 * tt * tt) / tt, dz / tt); }
+    PR.push({m, v, life: o.life || 3.5, dmg, o, src: a.def.name}); U.shots++; }
+  function stepShots(dt) { for (let i = PR.length - 1; i >= 0; i--) { const s = PR[i], q = s.m.position; s.life -= dt;
+      if (s.o.homing) { const dx = P.x - q.x, dy = P.y + 1.1 - q.y, dz = P.z - q.z, d = Math.hypot(dx, dy, dz) || 1, sp = s.v.length(); s.v.lerp(new THREE.Vector3(dx / d * sp, dy / d * sp, dz / d * sp), Math.min(1, dt * 1.6)); }
+      if (s.o.lob) s.v.y -= 12 * dt; q.addScaledVector(s.v, dt);
+      let done = s.life <= 0 || solid(Math.floor(q.x), Math.floor(q.y), Math.floor(q.z));
+      if (!done && Math.hypot(P.x - q.x, P.y + 1 - q.y, P.z - q.z) < 0.75) { done = true; if (!dead) { hurt(s.dmg, s.src + ' got you.'); U.hits++; if (s.o.slow) slowT = Math.max(slowT, s.o.slow); } }
+      if (done) { try { burst(q.x, q.y, q.z, s.m.material.color.getHex(), 6, 0.4); } catch (_) {} scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); PR.splice(i, 1); } } }
+  // ---- player effects: slow (grabs), poison (aura, never below 2 hearts), haze vignette ----
+  let slowT = 0, lx = null, lz = 0, poisonT = 0, poisonTick = 0, hazeK = 0, fog = null;
+  function effects(dt) {
+    if (slowT > 0 && lx !== null && !dead) { slowT -= dt; P.x = lx + (P.x - lx) * 0.45; P.z = lz + (P.z - lz) * 0.45; }
+    lx = P.x; lz = P.z;
+    if (poisonT > 0) { poisonT -= dt; poisonTick -= dt; if (poisonTick <= 0) { poisonTick = 1.2; if (hp > 4 && !dead) { hurt(1, 'Poisoned by the Plaguebeak.'); } } }
+    let hz = 0; for (const a of mobs) if (a.kind === 'nm20') { const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z); hz = Math.max(hz, 1 - d / 14); }
+    hazeK += (Math.max(0, hz) - hazeK) * Math.min(1, dt * 2);
+    if (hazeK > 0.01 && !fog) { fog = document.createElement('div'); fog.id = 'c123haze'; fog.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;background:radial-gradient(ellipse at center,rgba(200,210,220,0) 35%,rgba(200,210,220,.85) 100%)'; document.body.appendChild(fog); }
+    if (fog) fog.style.opacity = (Math.min(0.5, hazeK * 0.6) * (dead || paused ? 0 : 1)).toFixed(3); }
+  // ---- lightning (storm bogle): telegraphed ring, then a bolt; never sets fires or touches blocks ----
+  const BOLTS = [];
+  function callBolt(x, z) { const y = (typeof groundTop === 'function' ? groundTop(Math.floor(x), Math.floor(z)) : P.y - 1) + 1;
+    const ring = new THREE.Mesh(new THREE.RingGeometry(1.6, 2.1, 24), new THREE.MeshBasicMaterial({color: 0x9fd0ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false})); ring.rotation.x = -Math.PI / 2; ring.position.set(x, y + 0.05, z); scene.add(ring);
+    BOLTS.push({ring, x, y, z, t: 1.2, bolt: null}); }
+  function stepBolts(dt) { for (let i = BOLTS.length - 1; i >= 0; i--) { const b = BOLTS[i]; b.t -= dt; b.ring.material.opacity = 0.35 + 0.35 * Math.sin(b.t * 30);
+      if (b.t <= 0 && !b.bolt) { const pts = []; let x = b.x, z = b.z; for (let y = b.y + 30; y > b.y; y -= 3) { const nx = x + (Math.random() - .5) * 1.4, nz = z + (Math.random() - .5) * 1.4; pts.push(x, y, z, nx, Math.max(b.y, y - 3), nz); x = nx; z = nz; }
+        const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3)); b.bolt = new THREE.LineSegments(g, new THREE.LineBasicMaterial({color: 0xe8f4ff})); scene.add(b.bolt); b.life = 0.25; U.strikes++;
+        try { playSound('nm:thunder:1', 0.7, 0); shake(0.25, 0.03); } catch (_) {}
+        if (Math.hypot(P.x - b.x, P.z - b.z) < 2.2 && Math.abs(P.y - b.y) < 3) { hurt(3, 'Struck by the Storm Bogle.'); U.hits++; } }
+      if (b.bolt) { b.life -= dt; if (b.life <= 0) { for (const o of [b.ring, b.bolt]) { scene.remove(o); o.geometry.dispose(); o.material.dispose(); } BOLTS.splice(i, 1); } } } }
+  function clearFx() { for (const s of PR) { scene.remove(s.m); s.m.geometry.dispose(); s.m.material.dispose(); } PR.length = 0; for (const b of BOLTS) for (const o of [b.ring, b.bolt]) if (o) { scene.remove(o); o.geometry.dispose(); o.material.dispose(); } BOLTS.length = 0; slowT = 0; poisonT = 0; }
+  // ---- spawning ----
+  function spawnKind(kind, x, y, z, o) { const def = DEF[kind], m = build(def);
+    const a = Object.assign(m, {kind, def, flash: 0, kbx: 0, kbz: 0, vy: 0, onGround: true, burning: 0, ang: Math.random() * 6.28, yawVis: 0, walk: 0, cd: 1 + Math.random(), cd2: 2 + Math.random() * 2, sndT: 1 + Math.random() * 3, timer: 0, fade: 0, t: Math.random() * 10, pit: 0.9 + Math.random() * 0.2}, o || {});
+    a.yawVis = a.ang; a.g.position.set(x + 0.5, y, z + 0.5); a.g.rotation.y = a.ang; scene.add(a.g); mobs.push(a); U.spawned++; U.kinds[kind] = (U.kinds[kind] || 0) + 1; return a; }
+  U.spawnKind = spawnKind;
+  const lastSeen = {}; let spT = 3;
+  function findSpot(place, under) {
+    for (let t = 0; t < 16; t++) { const an = Math.random() * 6.283, r = under ? 10 + Math.random() * 12 : 18 + Math.random() * 14, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
+      if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue;
+      if (place === 'cave') { const y = Math.floor(P.y) + ((Math.random() * 9) | 0) - 4; if (y < 2 || !roomy(x, y, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || near(x, y, z, 4, T.TORCH)) continue; return [x, y, z]; }
+      const top = solidTop(x, z), y = top + 1;
+      if (place === 'water') { let w = 0; for (let k = 1; k < 6; k++) if (getB(x, top + k, z) === T.WATER) w++; if (w < 2) continue; return [x, top + 1, z]; }
+      const b = getB(x, top, z); if (b === T.WATER || b === T.LAVA || getB(x, y, z) || getB(x, y + 1, z) || Math.abs(y - P.y) > 14 || near(x, y, z, 4, T.TORCH)) continue;
+      if (place === 'shore' && !waterNear(x, y, z, 6)) continue;
+      return [x, y, z]; }
+    return null; }
+  function trySpawn(dt) { spT -= dt; if (spT > 0) return; spT = 5;
+    if (!ok() || !isNight || Math.random() > 0.5) return;
+    const L = all(), groups = new Set(L.filter(a => !a.def.minion).map(a => a.grp)).size; if (groups >= CAP || L.length >= HARD) return;
+    const under = caveK > 0.45, alive = new Set(L.map(a => a.kind));
+    let pool = U.LIST.filter(k => !alive.has(k) && (under ? DEF[k].place === 'cave' : DEF[k].place !== 'cave'));
+    if (!pool.length) return; pool.sort((p, q) => (lastSeen[p] || 0) - (lastSeen[q] || 0) + (Math.random() - .5) * 60000); const kind = pool[0], def = DEF[kind];
+    const s = findSpot(def.place, under); if (!s) return; lastSeen[kind] = Date.now();
+    const gid = Math.random(), n = Math.min(def.group || 1, HARD - L.length);
+    for (let i = 0; i < n; i++) spawnKind(kind, s[0] + (i ? (Math.random() * 3 | 0) - 1 : 0), s[1], s[2] + (i ? (Math.random() * 3 | 0) - 1 : 0), {grp: gid, slot: i});
+    try { snd(mobs[mobs.length - 1], 0.9); } catch (_) {} }
+  U.forceSpawn = kind => { const def = DEF[kind]; const s = findSpot(def.place, caveK > 0.45) || [Math.floor(P.x) + 4, Math.floor(P.y), Math.floor(P.z) + 4]; return spawnKind(kind, s[0], s[1], s[2], {grp: Math.random()}); };
+  // test helper: line all 29 up in front of the player, frozen
+  U.lineup = (cols) => { cols = cols || 10; const out = []; const fx = Math.sin(P.yaw + Math.PI), fz = Math.cos(P.yaw + Math.PI), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+    U.LIST.forEach((k, i) => { const c = i % cols, r = (i / cols) | 0, d = 6 + r * 3.2, s = (c - (cols - 1) / 2) * 2.1; const x = P.x + fx * d + rx * s, z = P.z + fz * d + rz * s;
+      const a = spawnKind(k, Math.floor(x), Math.floor(P.y), Math.floor(z), {frozen: true, grp: i}); a.g.position.set(x, P.y, z); a.ang = a.yawVis = Math.atan2(P.x - x, P.z - z); a.g.rotation.y = a.ang; out.push(a); }); return out.length; };
+  // ---- movement ----
+  function walkMove(a, spd, dt, ang) { const p = a.g.position, mx = Math.sin(ang) * spd * dt, mz = Math.cos(ang) * spd * dt;
+    const mv1 = (x, z) => { const og = a.onGround; a.onGround = false; let q = moveMob(a, x, z); a.onGround = og;
+      if (q === 'step' && og) { const y0 = p.y; p.y = Math.floor(p.y + 0.05) + 1; a.vy = 0; q = moveMob(a, x, z); if (q !== true) p.y = y0; } return q === true; };
+    const r = mv1(mx, mz) || mv1(mx, 0) || mv1(0, mz);
+    if (!r && a.onGround && (a.jumpCd = (a.jumpCd || 0) - dt) <= 0) { a.vy = 6.5; a.onGround = false; a.jumpCd = 0.8; } return r; }
+  function floatMove(a, spd, dt, ang, ty) { const p = a.g.position, nx = p.x + Math.sin(ang) * spd * dt, nz = p.z + Math.cos(ang) * spd * dt;
+    const blocked = !a.def.phase && (solid(Math.floor(nx), Math.floor(p.y + 0.3), Math.floor(nz)) || solid(Math.floor(nx), Math.floor(p.y + 1.2), Math.floor(nz)));
+    if (!blocked && nx > 1 && nz > 1 && nx < W - 1 && nz < D - 1) { p.x = nx; p.z = nz; }
+    if (!a.def.phase) { const fl = solidTop(Math.floor(p.x), Math.floor(p.z)) + 1; if (fl < P.y + 6) ty = Math.max(ty, fl + 0.2); }
+    p.y += (ty - p.y) * Math.min(1, dt * 2.5); }
+  function swimMove(a, spd, dt, ang, ty) { const p = a.g.position, nx = p.x + Math.sin(ang) * spd * dt, nz = p.z + Math.cos(ang) * spd * dt, ny = p.y + Math.max(-1, Math.min(1, ty - p.y)) * spd * 0.6 * dt;
+    const wet = (x, y, z) => getB(Math.floor(x), Math.floor(y + 0.4), Math.floor(z)) === T.WATER;
+    if (wet(nx, p.y, nz)) { p.x = nx; p.z = nz; } if (wet(p.x, ny, p.z)) p.y = ny;
+    if (!wet(p.x, p.y, p.z)) mobPhysics(a, dt); }
+  // ---- per-mob behaviour ----
+  function kill(a, quiet) { if (!quiet) { const p = a.g.position; try { burst(p.x, p.y + 0.8, p.z, 0x9aa0b0, 10, 0.8); } catch (_) {} } try { removeMob(a); } catch (_) {} const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); }
+  function blinkTo(a, behind) { const p = a.g.position; try { burst(p.x, p.y + 1, p.z, 0x8a70c0, 10, 0.6); } catch (_) {}
+    const yaw = P.yaw, s = behind ? 1 : (Math.random() < .5 ? 1 : -1); const ang = behind ? yaw : yaw + s * 1.6, r = behind ? 2.6 : 5;
+    const x = P.x + Math.sin(ang) * r, z = P.z + Math.cos(ang) * r; if (!solid(Math.floor(x), Math.floor(P.y + 0.5), Math.floor(z))) { p.x = x; p.z = z; p.y = P.y + 0.2; } }
+  function step(a, dt) { const def = a.def, p = a.g.position; a.t += dt; if (a.flash > 0) a.flash -= dt; a.cd -= dt; a.cd2 -= dt;
+    const dx = P.x - p.x, dz = P.z - p.z, dy = P.y - p.y, d = Math.hypot(dx, dz) || 0.001, d3 = Math.hypot(dx, dz, dy);
+    // despawn: daylight (fade), far away, other dimension, creative
+    if (d > 60 || p.y < -6 || DIM.cur || (MODE && MODE.name === 'creative')) return kill(a, true);
+    if (!isNight && !a.frozen) { a.fade += dt; if (a.fade > 1.5) return kill(a); }
+    let ang = Math.atan2(dx, dz), spd = 0, ty = P.y + (def.hover || 0.6) + Math.sin(a.t * 2) * 0.2, face = true, ai = def.ai;
+    if (a.frozen || dead) ai = 'idle';
+    const close = d3 < (def.body === 'big' ? 2.0 : 1.6);
+    const melee = (n, cd) => { if (close && a.cd <= 0) { a.cd = cd || 1.1; hit(a, n || def.dmg); a.swing = 0.35; try { knockPlayer(dx / d, dz / d, 3, 2); } catch (_) {} snd(a, 1.15); return true; } return false; };
+    switch (ai) {
+      case 'idle': spd = 0; break;
+      case 'shield': spd = d > 1.4 ? def.spd : 0; if (melee(3, 1.4)) shake(0.15, 0.02); break;          // heavy, front armour (see damage wrap)
+      case 'lunge': spd = d > 1.2 ? def.spd : 0; if (a.onGround && a.cd2 <= 0 && d < 6 && d > 2.5) { a.cd2 = 2.5; a.vy = 6; a.onGround = false; a.kbx = dx / d * 8; a.kbz = dz / d * 8; snd(a, 1.3); } melee(); break;
+      case 'zap': spd = d > 9 ? def.spd : d < 5 ? -def.spd : 0; if (a.cd2 <= 0 && d < 16) { a.cd2 = 2.2; shoot(a, 0x80e0ff, 14, 2); snd(a, 1.2); } melee(); break;
+      case 'drag': if (inWater(P) && d3 < 14) { spd = def.spd; ty = P.y + 0.2; if (close && a.cd <= 0) { a.cd = 1.6; hit(a, 2, 'Dragged under by the Kelp Diver.'); P.vy = Math.min(P.vy, -3); slowT = 1.2; snd(a, 0.8); } } else { spd = def.spd * 0.4; ang = a.ang + Math.sin(a.t) * 0.5; ty = p.y; } break;
+      case 'blink': spd = d > 1.4 ? def.spd : 0; if (a.cd2 <= 0 && d < 20) { a.cd2 = 4 + Math.random() * 2; blinkTo(a, true); snd(a, 1); } melee(); break;
+      case 'orbit': { const o = a.t * 1.3 + (a.slot || 0) * Math.PI, R = a.cd <= 0.4 ? 0.8 : 3.2, tx = P.x + Math.sin(o) * R, tz = P.z + Math.cos(o) * R; ang = Math.atan2(tx - p.x, tz - p.z); spd = Math.min(def.spd * 1.5, Math.hypot(tx - p.x, tz - p.z) * 3); ty = P.y + 0.7; if (d > 10) { ang = Math.atan2(dx, dz); spd = def.spd; } melee(2, 2.2); break; }
+      case 'charge': if (a.chg > 0) { a.chg -= dt; ang = a.ca; spd = 10; if (close && a.cd <= 0) { a.cd = 1.5; hit(a, 3); knockPlayer(dx / d, dz / d, 9, 4); a.chg = 0; } }
+        else if (a.stun > 0) { a.stun -= dt; spd = 0; }
+        else { spd = d > 1.6 ? def.spd : 0; if (a.cd2 <= 0 && d < 12 && d > 4) { a.cd2 = 5; a.chg = 1.2; a.ca = ang; snd(a, 0.8); } melee(); } break;
+      case 'stomp': spd = d > 2.6 ? def.spd : 0; if (a.cd2 <= 0 && d < 4.5) { a.cd2 = 3.5; a.vy = 7; a.onGround = false; a.slam = true; snd(a, 0.8); }
+        if (a.slam && a.onGround && a.vy <= 0) { a.slam = false; shake(0.3, 0.04); try { burst(p.x, p.y + 0.2, p.z, 0x8a7a5a, 16, 2.5); } catch (_) {} if (d < 3.6 && P.onGround !== false && Math.abs(dy) < 1.5) { hit(a, 3, 'Flattened by the Tiki Thumper.'); knockPlayer(dx / d, dz / d, 7, 5); } } break;
+      case 'slowgrab': spd = d > 1.2 ? def.spd : 0; if (close && a.cd <= 0) { a.cd = 1.6; hit(a, 2, 'The Cairn Mummy held you.'); slowT = 2; a.swing = 0.4; snd(a, 0.9); } break;
+      case 'scare': if (a.flee > 0) { a.flee -= dt; ang = Math.atan2(-dx, -dz); spd = def.spd; } else { spd = def.spd; ang = Math.atan2(dx, dz) + Math.sin(a.t * 1.5) * 0.6;
+          if (close && a.cd <= 0) { a.cd = 3; a.flee = 3; hit(a, 1, 'Spooked to death by a Bedsheet Bogle.'); knockPlayer(dx / d, dz / d, 8, 4); snd(a, 1.6); } } ty = P.y + 0.5 + Math.sin(a.t * 3) * 0.4; break;
+      case 'hex': spd = d > 8 ? def.spd : d < 4 ? -def.spd : 0; if (a.cd2 <= 0 && d < 14) { a.cd2 = 3; shoot(a, 0x70ff60, 9, 2, {lob: 1, slow: 2}); snd(a, 1); } melee(); break;
+      case 'parry': spd = d > 1.4 ? def.spd : 0; melee(3, 1.2); break;                                    // parries every third hit (damage wrap)
+      case 'leap': spd = d > 1.2 ? def.spd : 0; if (a.onGround && a.cd2 <= 0 && d < 7 && d > 2) { a.cd2 = 2; a.vy = 7.5; a.onGround = false; a.kbx = dx / d * 7; a.kbz = dz / d * 7; snd(a, 1.2); } melee(); break;
+      case 'stalk': { const seen = sees(p, 0.6) && d < 40; a.seen = seen; spd = seen ? 0 : d > 1.2 ? def.spd : 0; if (!seen) melee(3, 1.5); face = !seen || a.yawVis === undefined; break; }
+      case 'rock': spd = d > 7 ? def.spd : 0; if (a.cd2 <= 0 && d < 18 && d > 3) { a.cd2 = 3.2; a.swing = 0.5; shoot(a, 0x7a7468, 11, 3, {lob: 1, r: 0.3}); snd(a, 0.7); } melee(3, 1.6); break;
+      case 'beam': spd = d > 8 ? def.spd : d < 5 ? -def.spd : 0; ty = P.y + 2.2 + Math.sin(a.t) * 0.3;
+        if (a.cd2 <= 0 && d < 14 && !a.beamT) { a.beamT = 1.0; snd(a, 0.6); }
+        if (a.beamT) { a.beamT -= dt; if (!a.beam) { a.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 1, 6), new THREE.MeshBasicMaterial({color: 0xff3020, transparent: true, opacity: 0.4})); scene.add(a.beam); }
+          const mid = new THREE.Vector3((p.x + P.x) / 2, (p.y + 1 + P.y + 1.2) / 2, (p.z + P.z) / 2); a.beam.position.copy(mid); a.beam.scale.y = d3; a.beam.lookAt(P.x, P.y + 1.2, P.z); a.beam.rotateX(Math.PI / 2); a.beam.material.opacity = a.beamT < 0.15 ? 1 : 0.3;
+          if (a.beamT <= 0) { a.beamT = 0; a.cd2 = 3.5; if (d < 15) { hit(a, 3, 'Seared by the Gnasher Eye.'); snd(a, 1.4); } scene.remove(a.beam); a.beam.geometry.dispose(); a.beam.material.dispose(); a.beam = null; } }
+        melee(2, 1.5); break;
+      case 'armour': spd = d > 1.8 ? def.spd : 0; if (close && a.cd <= 0) { a.cd = 2; hit(a, 3); knockPlayer(dx / d, dz / d, 10, 5); shake(0.2, 0.03); a.swing = 0.4; snd(a, 0.8); } break;
+      case 'split': case 'chase': if (def.move === 'hop') { if (a.onGround && a.cd2 <= 0 && d > 1) { a.cd2 = 0.9; a.vy = 5; a.onGround = false; a.kbx = dx / d * 4; a.kbz = dz / d * 4; snd(a, 1.2); } spd = 0; } else spd = d > 1.2 ? def.spd : 0; melee(); break;
+      case 'homing': spd = d > 9 ? def.spd : 0; ty = P.y + 1.5 + Math.sin(a.t * 1.3) * 0.5; if (a.cd2 <= 0 && d < 18) { a.cd2 = 3.5; shoot(a, 0xc080ff, 5, 2, {homing: 1, life: 5}); snd(a, 1); } if (a.cd <= -6 && d < 12) { a.cd = 0; blinkTo(a, false); } break;
+      case 'haze': { const vis = d < 7 ? 1 : 0.15; a.vis = (a.vis || 0) + (vis - (a.vis || 0)) * Math.min(1, dt * 2); for (const m of a.mats) { m.transparent = true; m.opacity = 0.85 * a.vis; } spd = d > 1.3 ? def.spd : 0; melee(2, 1.6); break; }
+      case 'aura': spd = d > 1.4 ? def.spd : 0; if (d < 3.2 && Math.abs(dy) < 2) { a.auraT = (a.auraT || 0) + dt; if (a.auraT > 1) { poisonT = Math.max(poisonT, 3); a.auraT = 0; } if (Math.random() < dt * 6) try { burst(p.x + (Math.random() - .5) * 3, p.y + 0.4, p.z + (Math.random() - .5) * 3, 0x7ac040, 2, 0.3); } catch (_) {} } melee(2, 1.4); break;
+      case 'storm': spd = d > 6 ? def.spd : 0; ty = Math.max(P.y + 5, p.y - 0.5); if (a.cd2 <= 0 && d < 22) { a.cd2 = 5 + Math.random() * 2; callBolt(P.x + (Math.random() - .5) * 1.5, P.z + (Math.random() - .5) * 1.5); snd(a, 1.2); } break;
+      case 'bubble': if (d3 < 16) { spd = d > 6 ? def.spd : 0; ty = Math.min(P.y, p.y + 1); if (a.cd2 <= 0) { a.cd2 = 2.6; shoot(a, 0xbfe8ff, 9, 2, {lob: 1, r: 0.22}); snd(a, 1.3); } } else { spd = def.spd * 0.4; ang = a.ang + Math.sin(a.t) * 0.5; ty = p.y; } break;
+      case 'summon': spd = d > 9 ? def.spd : d < 5 ? -def.spd : 0; if (a.cd2 <= 0 && d < 18) { a.cd2 = 9; const mine = mobs.filter(m => m.kind === 'nmwisp' && m.boss === a).length;
+          if (mine < 2 && all().length < HARD) { const w = spawnKind('nmwisp', Math.floor(p.x), Math.floor(p.y + 1.5), Math.floor(p.z), {grp: a.grp}); w.boss = a; snd(a, 0.9); try { burst(p.x, p.y + 1.5, p.z, 0xd0ffd0, 10, 0.8); } catch (_) {} } else { shoot(a, 0x50ff90, 8, 2); } } melee(); break;
+      case 'hop': if (a.onGround && a.cd2 <= 0 && d > 1.2 && d < 18) { a.cd2 = 1.1; a.vy = 7; a.onGround = false; a.kbx = dx / d * 6; a.kbz = dz / d * 6; snd(a, 1); } spd = 0; if (close && a.cd <= 0) { a.cd = 1.2; hit(a, 2); slowT = Math.max(slowT, 1); } break;
+      case 'crew': spd = d > 1.2 ? def.spd : 0; ang += ((a.slot || 0) - 1) * 0.35 * Math.min(1, d / 8); melee(2, 1.3); break;
+      case 'hook': spd = d > 5 ? def.spd : 0; if (a.cd2 <= 0 && d < 8 && d > 2.5) { a.cd2 = 4.5; a.hookT = 0.5; snd(a, 1.2); }
+        if (a.hookT > 0) { a.hookT -= dt; if (a.hookT <= 0 && d < 9) { hit(a, 2, 'Hooked by the Hookhand Haunt.'); knockPlayer(-dx / d, -dz / d, 9, 3); } } melee(); break;
+      case 'circle': { const o = a.t * 1.8, R = a.cd <= 0.3 ? 0.6 : 5, tx = P.x + Math.sin(o) * R, tz = P.z + Math.cos(o) * R; ang = Math.atan2(tx - p.x, tz - p.z); spd = Math.min(def.spd * 1.4, Math.hypot(tx - p.x, tz - p.z) * 3); if (d > 12) { ang = Math.atan2(dx, dz); spd = def.spd; } ty = P.y + 0.5; melee(2, 2.4); break; }
+      case 'weep': spd = 0; face = false; a.ang = Math.atan2(-dx, -dz);                                   // back turned, sobbing; scream + vanish if you come close
+        if ((d < 4.5 || a.angry) && a.cd <= 0) { a.cd = 6; a.angry = false; snd(a, 1.2); hit(a, 2, 'The Rain Wean screamed.'); knockPlayer(dx / d, dz / d, 9, 4); shake(0.2, 0.03); blinkTo(a, false); const q = a.g.position; const an = Math.random() * 6.28; q.x = Math.max(2, Math.min(W - 2, P.x + Math.sin(an) * 14)); q.z = Math.max(2, Math.min(D - 2, P.z + Math.cos(an) * 14)); q.y = solidTop(Math.floor(q.x), Math.floor(q.z)) + 1.2; }
+        ty = solidTop(Math.floor(p.x), Math.floor(p.z)) + 1.2; if (Math.random() < dt * 8) try { burst(p.x + (Math.random() - .5) * 2, p.y + 2.5, p.z + (Math.random() - .5) * 2, 0x9ab8d0, 1, 0.1); } catch (_) {} break;
+    }
+    if (face) a.ang = spd < 0 ? Math.atan2(dx, dz) : ang;
+    a.yawVis = turnToward(a.yawVis, a.ang, dt * 6); a.g.rotation.y = a.yawVis;
+    const mvAng = spd < 0 ? ang + Math.PI : ang, sp = Math.abs(spd);
+    if (!a.frozen) {
+      if (def.move === 'walk' || def.move === 'hop') { if (sp) walkMove(a, sp, dt, mvAng); mobPhysics(a, dt); if (a.chg > 0 && a.lastX !== undefined && Math.hypot(p.x - a.lastX, p.z - a.lastZ) < sp * dt * 0.2) { a.chg = 0; a.stun = 1.5; shake(0.15, 0.02); } a.lastX = p.x; a.lastZ = p.z; }
+      else if (def.move === 'float') floatMove(a, sp, dt, mvAng, ty);
+      else if (def.move === 'swim') swimMove(a, sp, dt, mvAng, ty); }
+    // idle sounds
+    a.sndT -= dt; if (a.sndT <= 0) { a.sndT = 5 + Math.random() * 6; if (d < 24) snd(a, 1); }
+    // animation
+    const moving = sp > 0 || !a.onGround; a.walk += dt * (moving ? 8 : 0); const sw = moving ? Math.sin(a.walk) * 0.6 : 0;
+    if (a.ll) { a.ll.rotation.x = sw; a.rl.rotation.x = -sw; }
+    if (a.legs4) a.legs4.forEach((L, i) => L.rotation.x = (i === 0 || i === 3 ? 1 : -1) * Math.sin(a.t * 14) * 0.6);
+    if (a.swing > 0) a.swing -= dt;
+    if (a.la) { const reach = /walk/.test(def.move) && /Mummy|Wrap|Deckhand/.test(def.name) ? -1.4 : 0; const sk = a.swing > 0 ? -1.6 : 0;
+      a.la.rotation.x = reach + (reach ? 0 : -sw * 0.8) + Math.sin(a.t * 2) * 0.05; a.ra.rotation.x = reach + sk + (reach ? 0 : sw * 0.8); if (def.move === 'float') { a.la.rotation.x = -0.6 + Math.sin(a.t * 2) * 0.2; a.ra.rotation.x = -0.6 + sk + Math.cos(a.t * 2) * 0.2; } }
+    if (def.move === 'float' || def.move === 'swim') a.rig.rotation.z = Math.sin(a.t * 1.6) * 0.06;
+    if (def.body === 'blob') { const k = a.onGround ? 1 + Math.sin(a.t * 6) * 0.06 : 1.15; a.rig.scale.set(1 / Math.sqrt(k), k, 1 / Math.sqrt(k)); }
+    if (a.fade > 0) for (const m of a.mats) { m.transparent = true; m.opacity = Math.max(0, 1 - a.fade / 1.5); }
+    const f = a.flash > 0 ? 1 : 0; for (const m of a.mats) if (m.emissive && m.userData.e0) { if (f) m.emissive.setRGB(0.6, 0, 0); else m.emissive.copy(m.userData.e0); } }
+  // ---- procedural sounds: 'nm:<type>:<pitch>' ----
+  const ps = playSound; playSound = function (kind, vol, pan, m) {
+    if (typeof kind !== 'string' || kind.slice(0, 3) !== 'nm:') return ps.apply(this, arguments);
+    try { if (!AC || vol <= 0.001) return; const [, ty, pq] = kind.split(':'), k = +pq || 1, t = AC.currentTime, out = outNode(Math.min(1, vol) * 0.55, pan || 0);
+      switch (ty) {
+        case 'moan': osc('triangle', 210 * k, 150 * k, t, 1.2, out, 0.35); osc('sine', 105 * k, 80 * k, t + 0.1, 1.1, out, 0.2); noiseHit(t, 1.0, 'lowpass', 500, out, 0.08); break;
+        case 'growl': osc('sawtooth', 95 * k, 60 * k, t, 0.7, out, 0.3); noiseHit(t, 0.6, 'lowpass', 320 * k, out, 0.25); break;
+        case 'shriek': osc('sawtooth', 900 * k, 1500 * k, t, 0.45, out, 0.18); osc('square', 1200 * k, 700 * k, t + 0.1, 0.4, out, 0.08); noiseHit(t, 0.4, 'bandpass', 2500, out, 0.12, 2); break;
+        case 'clank': noiseHit(t, 0.12, 'bandpass', 2600 * k, out, 0.4, 3); osc('triangle', 320 * k, 300 * k, t, 0.35, out, 0.25); osc('square', 640 * k, 610 * k, t + 0.01, 0.15, out, 0.06); break;
+        case 'gurgle': for (let i = 0; i < 6; i++) osc('sine', (150 + Math.random() * 250) * k, (120 + Math.random() * 300) * k, t + i * 0.08, 0.07, out, 0.25); break;
+        case 'cackle': for (let i = 0; i < 6; i++) osc('square', (i % 2 ? 520 : 640) * k, (i % 2 ? 470 : 560) * k, t + i * 0.11, 0.08, out, 0.12); break;
+        case 'beep': osc('square', 1000 * k, 1000 * k, t, 0.08, out, 0.12); osc('square', 1400 * k, 1400 * k, t + 0.12, 0.08, out, 0.1); break;
+        case 'zap': osc('sawtooth', 1300 * k, 200 * k, t, 0.28, out, 0.18); noiseHit(t, 0.2, 'highpass', 3000, out, 0.15); break;
+        case 'whisper': noiseHit(t, 1.1, 'bandpass', 2800 * k, out, 0.22, 4, 1800 * k); noiseHit(t + 0.3, 0.8, 'bandpass', 3600 * k, out, 0.12, 5); break;
+        case 'chime': osc('sine', 880 * k, 870 * k, t, 1.1, out, 0.15); osc('sine', 1320 * k, 1310 * k, t + 0.15, 1.0, out, 0.1); osc('sine', 1760 * k, 1750 * k, t + 0.3, 0.9, out, 0.06); break;
+        case 'drum': for (let i = 0; i < 3; i++) { osc('sine', 120 * k, 50, t + i * 0.18, 0.22, out, 0.45); noiseHit(t + i * 0.18, 0.06, 'lowpass', 900, out, 0.2); } break;
+        case 'thunder': noiseHit(t, 2.2, 'lowpass', 220, out, 0.6); osc('sine', 60, 30, t, 1.2, out, 0.4); noiseHit(t, 0.15, 'highpass', 2000, out, 0.3); break;
+        case 'croak': for (let i = 0; i < 2; i++) osc('sawtooth', 140 * k, 90 * k, t + i * 0.22, 0.18, out, 0.25); break;
+        case 'howl': osc('sine', 380 * k, 700 * k, t, 0.6, out, 0.2); osc('sine', 700 * k, 450 * k, t + 0.55, 0.9, out, 0.2); osc('triangle', 760 * k, 900 * k, t, 1.2, out, 0.04); break;
+        default: osc('triangle', 300 * k, 200 * k, t, 0.4, out, 0.2); } } catch (_) {} };
+  // ---- hooks into the mob system (same pattern as the night spider) ----
+  const um = updateMobs; updateMobs = function (dt) { const sp = []; for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { sp.push(mobs[i]); mobs.splice(i, 1); }
+    try { return um.apply(this, arguments); } finally { for (const a of sp) mobs.push(a); if (!paused) { for (const a of sp) { if (mobs.indexOf(a) < 0) continue; try { step(a, dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } }
+        try { stepShots(dt); stepBolts(dt); effects(dt); trySpawn(dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } } } };
+  const dmO = damageMob; damageMob = function (a, dmg, byPlayer) { if (isNM(a)) { const p = a.g.position;
+      if (a.kind === 'nm01') { const fx = Math.sin(a.yawVis), fz = Math.cos(a.yawVis), dx = P.x - p.x, dz = P.z - p.z, d = Math.hypot(dx, dz) || 1; if ((fx * dx + fz * dz) / d > 0.3) { dmg *= 0.5; snd(a, 1.4); } }
+      else if (a.kind === 'nm17') { dmg *= 0.6; snd(a, 1.3); }
+      else if (a.kind === 'nm12' && byPlayer) { a.hits = (a.hits || 0) + 1; if (a.hits % 3 === 0) { snd(a, 1.5); try { playSound('nm:clank:1.3', 0.6, 0); burst(p.x, p.y + 1.4, p.z, 0xfff0a0, 6, 0.5); } catch (_) {} return; } }
+      else if (a.kind === 'nm05' && byPlayer && Math.random() < 0.4) { a.cd2 = Math.min(a.cd2, 0.3); }
+      else if (a.kind === 'nm29') a.angry = true;
+      else if (a.kind === 'nm14') a.seenHit = 1;
+      if (a.frozen) a.frozen = false; }
+    return dmO.call(this, a, dmg, byPlayer); };
+  const drop = (id, n, p) => { if (n > 0 && id && (typeof NAMES === 'undefined' || NAMES[id])) dropItem(id, n, p.x, p.y + 0.6, p.z, (Math.random() - .5) * 2.5, 3.5, (Math.random() - .5) * 2.5, 0.4); };
+  const km = killMob; killMob = function (a) { if (isNM(a)) { const p = a.g.position.clone(), def = a.def; U.killed++;
+      try { burst(p.x, p.y + 0.8, p.z, 0xb0b8c8, 16, 1); snd(a, 0.7); } catch (_) {}
+      try { for (const [id, lo, hi, ch] of def.drop || []) { if (ch && Math.random() > ch) continue; drop(id === 11 ? IT.STICK : id, lo + Math.floor(Math.random() * (hi - lo + 1)), p); } } catch (_) {}
+      try { if (window.dropXP) dropXP(p.x, p.y, p.z, def.minion ? 1 : 6); } catch (_) {}
+      if (a.kind === 'nm18') for (let i = 0; i < 2; i++) { const b = spawnKind('nmdrop', Math.floor(p.x), Math.floor(p.y), Math.floor(p.z), {grp: a.grp}); b.kbx = (i ? 1 : -1) * 3; b.vy = 4; b.onGround = false; }
+      kill(a, true); return; }
+    return km.apply(this, arguments); };
+  const rmO = removeMob; removeMob = function (a) { if (a && a.beam) { try { scene.remove(a.beam); a.beam.geometry.dispose(); a.beam.material.dispose(); } catch (_) {} a.beam = null; } return rmO.apply(this, arguments); };
+  const ew = enterWorld; enterWorld = function () { for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { try { removeMob(mobs[i]); } catch (_) {} } clearFx(); return ew.apply(this, arguments); };
+  U.clear = () => { for (let i = mobs.length - 1; i >= 0; i--) if (isNM(mobs[i])) { try { removeMob(mobs[i]); } catch (_) {} } clearFx(); };
+  U.state = () => ({alive: all().map(a => a.kind), shots: PR.length, bolts: BOLTS.length, slowT, poisonT, err: U.err});
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -22087,7 +22478,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{v:'v1.0.4', d:'2026-10-25', notes:["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]},{v:'v1.0.3', d:'2026-10-25', notes:["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]},{v:'v1.0.2', d:'2026-10-25', notes:["Castle loot chests now give silver gear and lazurite, never disabled items like the pistol"]},{v:'v1.0.1', d:'2026-10-25', notes:["Textures: 4K beds (single bed tile), buckets, all tools, Highland rifle, TV, house brick, glass and glass pane", "Textures: lazurite ore and tiles, unique iron, lazurite and ruby blocks, real-brick stone brick, black deepslate bricks, richer gold Brew can", "Textures: smooth HD held tools and torches, slim shiny silver sword, smaller Weak Blade", "Every wood type has its own planks, stairs, slabs, door, fence, gate and boat", "Cobalt removed (lazurite replaces it); iron is now silver (ore, ingots, tools); Fine Blade removed", "Mutton and pork are now Meat; cooked haggis is back; Fry Up replaces neeps & tatties", "Bag sorted into categories; separate armour and jetpack chest slots", "Map is held in one hand, sways as you look and is clearer", "Round beehive; real falling snow; on-screen controller guide removed", "Pistol, shears, sandstone and coloured wool disabled; peat bricks and deepslate tiles removed", "Mobs: ponds with ducks (they drop Meat); pigs live on dirt patches; 1 spider at a time and they ignore the Treeman", "Mobs: bees stare, smile, then fly off; all humans have clansmen voices"]},{v:'v1.0.0', d:'2026-10-25', notes:['Haggis herds of 4 in single file on the heather','Pigs wallow and barrel-roll in mud pits (photo skin placeholder)','Spiders: fangs, scary face, faster, hunt other mobs, neutral to you; better step-up','Skeleton draws the bowstring','Treeman: longer hold at arm\'s length, spin, bigger throw; glowing eyes, twig hair','Butterfly swimming, face-down in third person','XP shared across dimensions (recovered from Hell save)','Wet mud puddles, rubies in mountains, spawn skull/boats/floating bits removed','HD ores and metal blocks, Block of diamond, Fry Up + HD food icons','New crafting tabs, white stack counts']},{v:'v0.9.99', d:'2026-10-25', notes:['Bomb replaces the claymore: thrown with LT in an arc, ~3 s sparking fuse, small creeper-like blast (natural blocks only, max 4 hearts); old claymores become bombs; recipe 1 iron + 2 coal + 1 string','Lighter replaces flint and steel (flip lid, click, flame); same use','Wooden sword is now the Baseball Bat (batter swing, thwack, 1.4x knockback, same damage)','Stone sword is the Weak Blade, iron sword the Fine Blade, new HD models and icons','Silver sword now bright silver','Jetpack only on double jump; no pale squares at the nozzles (v0.9.98)']},
+{v:'v1.0.5', d:'2026-10-25', notes:["Mobs: 29 new night mobs roam the glen after dark and fade away at sunrise - from the Clank Warden and Captain Bonebeard to the Storm Bogle and the Rain Wean", "Mobs: every one has its own trick - chargers, leapers, teleporters, grabbers, stalkers that only move when you look away, ranged shots, lightning, poison clouds and more", "Mobs: pirates haunt the shoreline, divers lurk in the water and mummies wait in caves at night", "Mobs: only a few out at once and never near your torches; no one-shots; they drop bones, rotten flesh, lost souls, ore and the odd gem", "Mobs: temporary picture skins for the night mobs (to be replaced later)"]},{v:'v1.0.4', d:'2026-10-25', notes:["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]},{v:'v1.0.3', d:'2026-10-25', notes:["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]},{v:'v1.0.2', d:'2026-10-25', notes:["Castle loot chests now give silver gear and lazurite, never disabled items like the pistol"]},{v:'v1.0.1', d:'2026-10-25', notes:["Textures: 4K beds (single bed tile), buckets, all tools, Highland rifle, TV, house brick, glass and glass pane", "Textures: lazurite ore and tiles, unique iron, lazurite and ruby blocks, real-brick stone brick, black deepslate bricks, richer gold Brew can", "Textures: smooth HD held tools and torches, slim shiny silver sword, smaller Weak Blade", "Every wood type has its own planks, stairs, slabs, door, fence, gate and boat", "Cobalt removed (lazurite replaces it); iron is now silver (ore, ingots, tools); Fine Blade removed", "Mutton and pork are now Meat; cooked haggis is back; Fry Up replaces neeps & tatties", "Bag sorted into categories; separate armour and jetpack chest slots", "Map is held in one hand, sways as you look and is clearer", "Round beehive; real falling snow; on-screen controller guide removed", "Pistol, shears, sandstone and coloured wool disabled; peat bricks and deepslate tiles removed", "Mobs: ponds with ducks (they drop Meat); pigs live on dirt patches; 1 spider at a time and they ignore the Treeman", "Mobs: bees stare, smile, then fly off; all humans have clansmen voices"]},{v:'v1.0.0', d:'2026-10-25', notes:['Haggis herds of 4 in single file on the heather','Pigs wallow and barrel-roll in mud pits (photo skin placeholder)','Spiders: fangs, scary face, faster, hunt other mobs, neutral to you; better step-up','Skeleton draws the bowstring','Treeman: longer hold at arm\'s length, spin, bigger throw; glowing eyes, twig hair','Butterfly swimming, face-down in third person','XP shared across dimensions (recovered from Hell save)','Wet mud puddles, rubies in mountains, spawn skull/boats/floating bits removed','HD ores and metal blocks, Block of diamond, Fry Up + HD food icons','New crafting tabs, white stack counts']},{v:'v0.9.99', d:'2026-10-25', notes:['Bomb replaces the claymore: thrown with LT in an arc, ~3 s sparking fuse, small creeper-like blast (natural blocks only, max 4 hearts); old claymores become bombs; recipe 1 iron + 2 coal + 1 string','Lighter replaces flint and steel (flip lid, click, flame); same use','Wooden sword is now the Baseball Bat (batter swing, thwack, 1.4x knockback, same damage)','Stone sword is the Weak Blade, iron sword the Fine Blade, new HD models and icons','Silver sword now bright silver','Jetpack only on double jump; no pale squares at the nozzles (v0.9.98)']},
 {v:'v0.9.98', d:'2026-10-25', notes:['Wet mud pools in low flat grassland on the mainland (new worlds; older saves get a few once, away from anything built)', 'Wet mud block 254: sunken 0.2, slows walking a lot, squelch steps, splash particles, shovel', 'Pigs spawn only at mud pools and wallow: lie down, roll over, wiggle, oink/snort, mud coat that fades', 'New HD procedural pig model', 'HD wet mud texture with animated sheen and tile']},
 {v:'v0.9.97', d:'2026-10-25', notes:['Textures: HD bookshelf (dark oak frame, coloured spines, gold lettering), plank top/bottom, HD iso tiles for bookshelf and enchanting table', 'Book item (412): 3 paper + 1 wool, HD icon', 'Bookshelf: 6 planks + 3 books, drops 3 books, fast with an axe', 'Enchanting table (251): obsidian + red cloth with gold trim, floating book faces the player, glyph particles from bookshelves', 'Enchant menu on LT: 3 offers costing 1/2/3 levels, bookshelves within 2 blocks (max 15) raise offer power', 'Efficiency, Sharpness and Protection work; purple glint on icons and held model; name under item name; saved with the world', 'Cobalt pickaxe speed 27', 'Mobs: zombie eyes dim and sunken with a faint glow']},
 {v:'v0.9.96', d:'2026-10-25', notes:['Mobs: creepers are now one ancient Glencraft cyborg, red and yellow, that only comes out at night (two at a time)', 'Mobs: the cyborg creeper sounds a 4-second nuclear SOS siren before it blows, so you can run', 'Mobs: zombies are now zombified people in torn, bloody clothes, with a shambling, twitchy walk', 'Mobs: night spiders have small hairy bodies, long arched legs and eight glowing red eyes (two at a time)', 'Mobs: skeletons now hold a proper archer pose, bow arm out and string drawn to the chin', 'Mobs: haggis roam in herds of five, follow the leader, go looking for seeds and flee together', 'Textures: HD cyborg creeper, zombie, spider and lighter haggis fur']},
