@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0990a -->
+<!-- glencraft-build: v0991a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.90';
+const GAME_VERSION = 'v0.9.91';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -14103,8 +14103,11 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   function step(a, dt) { const p = a.g.position, cv = a.cave; a.biteCd -= dt; a.st -= dt; if (a.flash > 0) a.flash -= dt;
     const dx = P.x - p.x, dz = P.z - p.z, dP = Math.hypot(dx, dz), near = !dead && dP < 16 && Math.abs(P.y - p.y) < 7;
     // behaviour: twitchy pauses, wander, sudden scuttle bursts, threat pose when you get close, then a lunge
-    if (a.flee > 0) { a.flee -= dt; a.state = 'scuttle'; a.tgtAng = Math.atan2(-dx, -dz); }
-    else if (near && dP < 7 && a.state !== 'lunge') { if (a.state !== 'threat') { a.state = 'threat'; a.st = 0.9 + Math.random() * 0.8; try { sfx3d('hiss', p, 18); } catch (_) {} } if (a.st <= 0) { a.state = 'lunge'; a.st = 0.7; } a.tgtAng = Math.atan2(dx, dz); }
+    if (a.mad > 0) a.mad -= dt * (dP > 22 ? 1.6 : 0.12);
+    if (a.vic && window.__c110 && __c110.hunt(a, dt)) { }
+    else if (a.mad > 0 && !dead && dP >= 7 && dP < 44) { a.state = 'scuttle'; a.st = 0.4; a.tgtAng = Math.atan2(dx, dz); }
+    else if (a.flee > 0) { a.flee -= dt; a.state = 'scuttle'; a.tgtAng = Math.atan2(-dx, -dz); }
+    else if (near && a.mad > 0 && dP < 7 && a.state !== 'lunge') { if (a.state !== 'threat') { a.state = 'threat'; a.st = 0.9 + Math.random() * 0.8; try { sfx3d('hiss', p, 18); } catch (_) {} } if (a.st <= 0) { a.state = 'lunge'; a.st = 0.7; } a.tgtAng = Math.atan2(dx, dz); }
     else if (a.st <= 0) { const r = Math.random();
       if (a.state === 'lunge') { a.state = 'idle'; a.st = 0.8; }
       else if (near) { a.state = r < 0.25 ? 'scuttle' : r < 0.7 ? 'walk' : 'idle'; a.st = a.state === 'scuttle' ? 0.5 + Math.random() * 0.6 : 0.3 + Math.random() * 0.9; { const ga = window.__c78gpa ? __c78gpa(a) : null; a.tgtAng = ga !== null ? ga + (Math.random() - .5) * 0.3 : Math.atan2(dx, dz) + (Math.random() - .5) * 0.8; } }
@@ -14128,7 +14131,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     a.walk += dt * a.spd;
     a.g.rotation.y = a.ang;
     // bite (survival-balanced: 4 hearts-halves per hit, cooldown)
-    if (!dead && dP < 3.4 && Math.abs(P.y - p.y) < 3 && a.biteCd <= 0 && (a.state === 'lunge' || a.state === 'threat')) { a.biteCd = 1.6; hurt(4, 'Bitten by a giant huntsman.'); try { shake(0.3, 0.04); } catch (_) {} a.state = 'idle'; a.st = 0.9; }
+    if (!dead && a.mad > 0 && !a.vic && dP < 3.4 * (a.g.scale.x || 1) && Math.abs(P.y - p.y) < 3 * (a.g.scale.x || 1) && a.biteCd <= 0 && (a.state === 'lunge' || a.state === 'threat')) { a.biteCd = 1.6; hurt(4, 'Bitten by a giant huntsman.'); try { shake(0.3, 0.04); } catch (_) {} a.state = 'idle'; a.st = 0.9; }
     animate(a, dt); }
   function animate(a, dt) { const tNow = performance.now() / 1000, threat = a.state === 'threat' || a.state === 'lunge';
     a.raise += ((threat ? 1 : 0) - a.raise) * Math.min(1, dt * 6);
@@ -17868,9 +17871,12 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     g.traverse(o => { if (o.isMesh) o.castShadow = true; });
     return {g, rig, head, nsLegs: legs, legs: [], arms: [], mats: [body, dark], speed: 4.6, hp: 5, hitY: 0.45, hitR: 0.8, tall: 1, hostile: true};
   }
+  const roomy = (x, y, z) => { if (solid(x, y + 2, z)) return false; for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = 0; c <= 1; c++) if (solid(x + a, y + c, z + b)) return false; return true; };
   const near = (x, y, z, r, id) => { for (let a = -r; a <= r; a++) for (let b = -r; b <= r; b++) for (let c = -r; c <= r; c++) if (getB(x + a, y + b, z + c) === id) return true; return false; };
+  U.spawnAt = (...q) => spawnAt(...q);
   function spawnAt(x, y, z, cave) { const m = makeNightSpider();
     const a = Object.assign(m, {kind: 'nspider', cave: !!cave, flee: 0, timer: 0, flash: 0, kbx: 0, kbz: 0, vy: 0, onGround: true, burning: 0, ang: Math.random() * 6.28, yawVis: 0, walk: 0, biteCd: 0, leapCd: 1, sndT: 2 + Math.random() * 4, aggro: 0, climb: false, climbK: 0});
+    a.gs = 3; a.g.scale.setScalar(a.gs); a.hitR = 0.8 * a.gs * 0.9; a.hitY = 0.45 * a.gs; a.tall = 2;   // v0.9.91: giant (body ~2.5 blocks wide), squeezes through 2-high gaps
     a.yawVis = a.ang; a.g.position.set(x + 0.5, y, z + 0.5); a.g.rotation.y = a.ang; scene.add(a.g); mobs.push(a); U.spawned++; return a; }
   U.spawnAt = spawnAt;
   const all = () => mobs.filter(a => a.kind === 'nspider');
@@ -17881,40 +17887,45 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (!under && isNight && L.filter(a => !a.cave).length < 3 && Math.random() < 0.55) {
       for (let t = 0; t < 12; t++) { const an = Math.random() * 6.283, r = 16 + Math.random() * 14, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
         if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue; const y = solidTop(x, z) + 1; const b = getB(x, y - 1, z);
-        if (y <= SEA || b === T.WATER || b === T.LAVA || getB(x, y, z) || getB(x, y + 1, z) || Math.abs(y - P.y) > 12 || near(x, y, z, 4, T.TORCH)) continue;
+        if (y <= SEA || b === T.WATER || b === T.LAVA || getB(x, y, z) || getB(x, y + 1, z) || Math.abs(y - P.y) > 12 || !roomy(x, y, z) || near(x, y, z, 4, T.TORCH)) continue;
         spawnAt(x, y, z, false); break; } }
     else if (under && L.filter(a => a.cave).length < 2 && Math.random() < 0.35) {
       for (let t = 0; t < 20; t++) { const an = Math.random() * 6.283, r = 10 + Math.random() * 12, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r), y = Math.floor(P.y) + ((Math.random() * 13) | 0) - 6;
         if (x < 3 || z < 3 || x > W - 4 || z > D - 4 || y < 2) continue;
-        if (getB(x, y, z) || getB(x, y + 1, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || near(x, y, z, 5, T.TORCH)) continue;
+        if (getB(x, y, z) || getB(x, y + 1, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || !roomy(x, y, z) || near(x, y, z, 5, T.TORCH)) continue;
         spawnAt(x, y, z, true); break; } } }
   function step(a, dt) { const p = a.g.position; a.biteCd -= dt; a.leapCd -= dt; if (a.flash > 0) a.flash -= dt;
-    const dx = P.x - p.x, dz = P.z - p.z, dy = P.y - p.y, d = Math.hypot(dx, dz);
-    if (d > 56 || p.y < -4 || (!a.cave && !isNight && d > 24) || DIM.cur) { removeMob(a); const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); return; }
-    const hunt = !dead && (a.cave || isNight || a.aggro > 0) && d < 18 && Math.abs(dy) < 8;
-    if (a.flash > 0.2 && !dead) a.aggro = 6; a.aggro = Math.max(0, a.aggro - dt);
+    const G = a.gs || 1, dP = Math.hypot(P.x - p.x, P.z - p.z);
+    if (a.vic && !(a.vic.g && mobs.indexOf(a.vic) >= 0 && a.vic.hp > 0 && (a.vicT -= dt) > 0)) a.vic = null;
+    const tg = a.vic ? a.vic.g.position : P, dx = tg.x - p.x, dz = tg.z - p.z, dy = tg.y - p.y, d = Math.hypot(dx, dz);
+    if (dP > 56 || p.y < -4 || (!a.cave && !isNight && dP > 24 && !a.vic) || DIM.cur) { removeMob(a); const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); return; }
+    // v0.9.91: NEUTRAL - only goes for you after you hit it (until you get well away), or for a skeleton that shot it
+    const hunt = !a.slam && (a.vic ? Math.abs(dy) < 10 : !dead && a.aggro > 0 && d < 34 && Math.abs(dy) < 10);
+    a.aggro = Math.max(0, a.aggro - dt * (dP > 24 ? 3 : 1));
     let spd = 0;
-    if (hunt) { let ang = Math.atan2(dx, dz); if (d > 3) { try { const pa = pathAngle(a, P.x, P.z); if (pa !== null) ang = pa; } catch (_) {} } a.ang = ang; spd = d > 1.1 ? a.speed : 0;
-      if (a.onGround && a.leapCd <= 0 && d > 2 && d < 4.8 && Math.abs(dy) < 2.5) { a.leapCd = 2.2 + Math.random(); a.vy = 6.2; a.onGround = false; a.kbx = dx / d * 7.5; a.kbz = dz / d * 7.5; sfx3d('hiss', p, 14); U.leaps++; }
-      if (d < 1.5 && Math.abs(dy) < 1.5 && a.biteCd <= 0) { a.biteCd = 1.0; hurt(2, 'A spider got you.'); knockPlayer(dx / (d || 1), dz / (d || 1), 3, 2); U.bites++; } }
+    if (hunt) { let ang = Math.atan2(dx, dz); if (d > 3) { try { const pa = pathAngle(a, tg.x, tg.z); if (pa !== null) ang = pa; } catch (_) {} } a.ang = ang; spd = d > 0.8 * G ? a.speed * (a.vic ? 1.15 : 1) : 0;
+      if (a.onGround && a.leapCd <= 0 && d > 2 * G * 0.6 && d < 4.8 * G * 0.6 && Math.abs(dy) < 2.5) { a.leapCd = 2.2 + Math.random(); a.vy = 6.2; a.onGround = false; a.kbx = dx / d * 7.5; a.kbz = dz / d * 7.5; sfx3d('hiss', p, 14); U.leaps++; }
+      if (a.vic && d < 1.0 * G && Math.abs(dy) < 2.5 && window.__c110) { __c110.grab(a, a.vic); spd = 0; }
+      else if (!a.vic && d < 1.0 * G && Math.abs(dy) < 1.5 * G * 0.6 && a.biteCd <= 0) { a.biteCd = 1.0; hurt(2, 'A spider got you.'); knockPlayer(dx / (d || 1), dz / (d || 1), 3, 2); U.bites++; } }
     else { a.timer -= dt; if (a.timer <= 0) { a.timer = 1 + Math.random() * 2.5; a.moving = Math.random() < 0.6; a.ang += (Math.random() - .5) * 2.5; } spd = a.moving ? 1.4 : 0; }
     a.yawVis = turnToward(a.yawVis, a.ang, dt * 9); a.g.rotation.y = a.yawVis;
     let r = true; if (spd) r = stepMob(a, spd, dt, !hunt);
     // walls: walk straight up them
-    const fx = Math.floor(p.x + Math.sin(a.yawVis) * 0.75), fz = Math.floor(p.z + Math.cos(a.yawVis) * 0.75);
+    const fx = Math.floor(p.x + Math.sin(a.yawVis) * 0.75 * G * 0.6), fz = Math.floor(p.z + Math.cos(a.yawVis) * 0.75 * G * 0.6);
     if (spd && solid(fx, Math.floor(p.y + 0.3), fz) && !solid(Math.floor(p.x), Math.floor(p.y + 1.1), Math.floor(p.z)) && (r === false || a.climb)) { a.climb = true; a.vy = 3.2; a.onGround = false; }
     else if (a.climb) { a.climb = false; if (!solid(fx, Math.floor(p.y + 0.1), fz)) { moveMob(a, Math.sin(a.yawVis) * 0.4, Math.cos(a.yawVis) * 0.4); a.vy = Math.max(a.vy, 2); } }
     mobPhysics(a, dt);
-    a.sndT -= dt; if (a.sndT <= 0) { a.sndT = 4 + Math.random() * 6; if (d < 20) sfx3d('hiss', p, 10); }
+    a.sndT -= dt; if (a.sndT <= 0) { a.sndT = 4 + Math.random() * 6; if (dP < 20) sfx3d('hiss', p, 14); }
     // animation: alternating leg sets, body bob, climbing tilt, red flash when hit
     const mv = spd > 0 || !a.onGround; a.walk += dt * (mv ? (spd > 2 ? 15 : 8) : 0);
     a.climbK += ((a.climb ? 1 : 0) - a.climbK) * Math.min(1, dt * 10); a.rig.rotation.x = -a.climbK * 1.35; a.rig.position.y = a.climbK * 0.35 + (mv ? Math.abs(Math.sin(a.walk)) * 0.03 : 0);
     for (const L of a.nsLegs) { const ph = a.walk + L.ph, sw = mv ? Math.sin(ph) * 0.42 : 0, lift = mv ? Math.max(0, Math.cos(ph)) * 0.35 : 0;
       L.yaw.rotation.y = L.y0 + sw * L.s; L.up.rotation.z = 0.7 + lift + (a.onGround ? 0 : 0.3); L.kn.rotation.z = -1.95 - lift * 0.6; }
-    a.head.rotation.x = hunt && d < 3 ? -0.25 : 0;
+    a.head.rotation.x = (hunt && d < 3 * G) || a.slam ? -0.25 : 0;
     const f = a.flash > 0 ? 1 : 0; for (const m of a.mats) if (m.emissive) m.emissive.setRGB(0.6 * f, 0, 0); }
   const um = updateMobs; updateMobs = function (dt) { const sp = []; for (let i = mobs.length - 1; i >= 0; i--) if (mobs[i].kind === 'nspider') { sp.push(mobs[i]); mobs.splice(i, 1); }
     try { return um.apply(this, arguments); } finally { for (const a of sp) mobs.push(a); if (!paused) { for (const a of sp) { try { step(a, dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } } try { trySpawn(dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } } } };
+  const dmO = damageMob; damageMob = function (a, dmg, byPlayer) { if (a && a.kind === 'nspider' && byPlayer) { a.aggro = 20; a.vic = null; } return dmO.apply(this, arguments); };
   const km = killMob; killMob = function (a) { if (a && a.kind === 'nspider') { const p = a.g.position; burst(p.x, p.y + 0.4, p.z, 0x2a1f1a, 14); const n = Math.random() < 0.5 ? 2 : 1; dropItem(SID, n, p.x, p.y + 0.4, p.z, (Math.random() - .5) * 2.5, 3.5, (Math.random() - .5) * 2.5, 0.4);
       U.killed++; removeMob(a); const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); return; } return km.apply(this, arguments); };
   // new world / load: clear any left over
@@ -18393,6 +18404,76 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     try { return rr(sc, cam); } finally { if (a) a.rotation.x = rx; }
   };
 })();
+
+/* ===================== GLX-C110 (v0.9.91): skeleton arrows hit mobs in the way; a shot giant spider slams the skeleton to bits ===================== */
+(function c110() {
+  const U = window.__c110 = {tag: 0, mobHits: 0, grabs: 0, smashed: 0, bones: []};
+  const isSkel = m => m && m.g && (m.kind === 'skeleton' || m.kind === 'blackskel');
+  // ---- tag each new skeleton arrow with the skeleton that fired it (the nearest one to where it starts) ----
+  const ap = arrows.push.bind(arrows);
+  arrows.push = function (...items) { for (const ar of items) { try { if (ar && ar.m && !ar.src) { const q = ar.m.position; let best = null, bd = 9; for (const m of mobs) if (isSkel(m)) { const p = m.g.position, d = (p.x - q.x) ** 2 + (p.z - q.z) ** 2 + (p.y + 1.2 - q.y) ** 2; if (d < bd) { bd = d; best = m; } } if (best) { ar.src = best; U.tag++; } } } catch (_) {} } return ap(...items); };
+  // ---- swept arrow test against mobs (not the shooter) ----
+  const ua = updateArrows;
+  updateArrows = function (dt) {
+    try { for (let i = arrows.length - 1; i >= 0; i--) { const ar = arrows[i]; if (!ar.src || !ar.m) continue; const p = ar.m.position, nx = p.x + ar.v.x * dt, ny = p.y + ar.v.y * dt, nz = p.z + ar.v.z * dt;
+        let hit = null;
+        for (const m of mobs) { if (m === ar.src || !m.g || m.dead || m.hp <= 0) continue; const q = m.g.position; if (Math.abs(q.x - p.x) > 8 || Math.abs(q.z - p.z) > 8) continue;
+          const r = Math.max(0.35, (m.hitR || 0.5) * 0.75), top = q.y + Math.max(0.9, (m.hitY || 0.8) * 2);
+          for (let s = 1; s <= 4; s++) { const k = s / 4, x = p.x + (nx - p.x) * k, y = p.y + (ny - p.y) * k, z = p.z + (nz - p.z) * k; if (Math.hypot(x - q.x, z - q.z) < r && y > q.y && y < top) { hit = m; break; } }
+          if (hit) break; }
+        if (!hit) continue;
+        scene.remove(ar.m); arrows.splice(i, 1); U.mobHits++;
+        try { damageMob(hit, 3, false); } catch (_) {}
+        if (hit.kind === 'nspider' && hit.hp > 0 && mobs.indexOf(ar.src) >= 0) { hit.vic = ar.src; hit.vicT = 25; hit.aggro = 0; try { sfx3d('hiss', hit.g.position, 24); } catch (_) {} } } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+    return ua.apply(this, arguments); };
+  // ---- the grab and slam ----
+  const fwd = new THREE.Vector3();
+  U.grab = function (a, sk) { if (a.slam || !sk || !sk.g) return; const p = a.g.position, s = sk.g.position;
+    // slam target: the nearest wall within 4 blocks around the skeleton, else the ground in front of the spider
+    let best = null, bd = 99; for (let k = 0; k < 8; k++) { const an = k * Math.PI / 4, cx = Math.sin(an), cz = Math.cos(an);
+      for (let r = 1; r <= 4; r++) { const x = s.x + cx * r, z = s.z + cz * r; if (solid(Math.floor(x), Math.floor(s.y + 1.2), Math.floor(z))) { if (r < bd) { bd = r; best = [s.x + cx * (r - 0.55), s.y + 1.0, s.z + cz * (r - 0.55)]; } break; } } }
+    const fy = (() => { const x = Math.floor(s.x), z = Math.floor(s.z); for (let y = Math.floor(s.y + 0.5); y > 0 && y > s.y - 6; y--) if (solid(x, y - 1, z)) return y; return s.y; })();
+    a.slam = {t: 0, sk, to: best || [s.x + Math.sin(a.yawVis) * 0.6, fy + 0.1, s.z + Math.cos(a.yawVis) * 0.6], wall: !!best}; sk.grabbed = true; U.grabs++;
+    try { sfx3d('hiss', p, 26); } catch (_) {} };
+  function smash(a) { const S = a.slam, sk = S.sk, q = sk.g.position.clone(); a.slam = null; a.vic = null; a.aggro = 0; a.timer = 1.5; a.moving = false;   // spider calms down
+    try { burst(q.x, q.y + 0.8, q.z, 0xd8d5cc, 22, 1.2); } catch (_) {}
+    const dP = Math.hypot(q.x - P.x, q.z - P.z); if (dP < 18) { try { shake(0.35 * (1 - dP / 18), 0.05); } catch (_) {} }
+    try { sfx3d('thud', q, 30); } catch (_) {} clatter(q, 6);
+    bones(q, a.g.position, sk);
+    const t0 = toast; try { toast = () => {}; killMob(sk); } catch (_) {} finally { toast = t0; }
+    U.smashed++; }
+  function slamStep(a, dt) { const S = a.slam, sk = S.sk; if (!sk.g || mobs.indexOf(sk) < 0) { a.slam = null; a.vic = null; return; }
+    S.t += dt; const p = a.g.position, G = a.gs || 1; fwd.set(Math.sin(a.yawVis), 0, Math.cos(a.yawVis));
+    const hold = [p.x + fwd.x * 0.9 * G, p.y + 1.15 * G, p.z + fwd.z * 0.9 * G], s = sk.g.position;
+    if (S.t < 0.5) { const k = Math.min(1, S.t / 0.3); s.set(s.x + (hold[0] - s.x) * k, s.y + (hold[1] - s.y) * k, s.z + (hold[2] - s.z) * k); sk.g.rotation.x = -0.5 * k; a.rig.rotation.x = -0.35 * k; }
+    else { const k = Math.min(1, (S.t - 0.5) / 0.14), e = k * k; s.set(hold[0] + (S.to[0] - hold[0]) * e, hold[1] + (S.to[1] - hold[1]) * e, hold[2] + (S.to[2] - hold[2]) * e); sk.g.rotation.x = -0.5 + 1.6 * e; a.rig.rotation.x = -0.35 + 0.6 * e;
+      if (k >= 1) smash(a); } }
+  // ---- bone pieces with simple gravity + bounce ----
+  let BM = null, BG = null;
+  function bones(q, from, sk) { if (!BM) { BM = new THREE.MeshLambertMaterial({color: 0xe6e1d2}); BG = {skull: new THREE.BoxGeometry(0.42, 0.42, 0.42), rib: new THREE.BoxGeometry(0.5, 0.55, 0.26), pelvis: new THREE.BoxGeometry(0.42, 0.18, 0.22), arm: new THREE.BoxGeometry(0.11, 0.62, 0.11), leg: new THREE.BoxGeometry(0.13, 0.7, 0.13), spine: new THREE.BoxGeometry(0.1, 0.5, 0.1)}; }
+    const out = new THREE.Vector3(q.x - from.x, 0, q.z - from.z); if (out.lengthSq() < 0.01) out.set(1, 0, 0); out.normalize();
+    const parts = [['skull', 1.75], ['rib', 1.2], ['spine', 0.95], ['pelvis', 0.75], ['arm', 1.2], ['arm', 1.2], ['leg', 0.4], ['leg', 0.4]];
+    while (U.bones.length > 24) { const b = U.bones.shift(); scene.remove(b.m); }
+    for (const [k, h] of parts) { const m = new THREE.Mesh(BG[k], BM); m.position.set(q.x + (Math.random() - .5) * 0.4, q.y + h, q.z + (Math.random() - .5) * 0.4); m.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6); scene.add(m);
+      const sp = 2 + Math.random() * 3.5, side = (Math.random() - .5) * 2;
+      U.bones.push({m, vx: out.x * sp - out.z * side * 2, vy: 3 + Math.random() * 4, vz: out.z * sp + out.x * side * 2, wx: (Math.random() - .5) * 14, wy: (Math.random() - .5) * 14, wz: (Math.random() - .5) * 14, t: 0, hs: k === 'skull' ? 0.21 : k === 'rib' ? 0.2 : 0.08, bn: 0}); } }
+  let clT = 0;
+  function clatter(q, n) { const d = Math.hypot(q.x - P.x, q.z - P.z); if (d > 28) return; const v = Math.pow(1 - d / 28, 1.3);
+    for (let i = 0; i < n; i++) setTimeout(() => { try { sfx('break', v * (0.5 + Math.random() * 0.4), Math.random() < 0.5 ? 'wood' : 'stone'); } catch (_) {} }, i * (35 + Math.random() * 45)); }
+  function boneStep(dt) { clT -= dt; for (let i = U.bones.length - 1; i >= 0; i--) { const b = U.bones[i], m = b.m, p = m.position; b.t += dt;
+      if (b.t > 5) { const k = 1 - (b.t - 5) / 0.5; if (k <= 0) { scene.remove(m); U.bones.splice(i, 1); continue; } m.scale.setScalar(k); }
+      if (b.rest) continue;
+      b.vy -= 22 * dt; const nx = p.x + b.vx * dt, nz = p.z + b.vz * dt;
+      if (solid(Math.floor(nx), Math.floor(p.y), Math.floor(p.z))) b.vx *= -0.4; else p.x = nx;
+      if (solid(Math.floor(p.x), Math.floor(p.y), Math.floor(nz))) b.vz *= -0.4; else p.z = nz;
+      p.y += b.vy * dt; m.rotation.x += b.wx * dt; m.rotation.y += b.wy * dt; m.rotation.z += b.wz * dt;
+      const fl = Math.floor(p.y - b.hs); if (b.vy < 0 && solid(Math.floor(p.x), fl, Math.floor(p.z))) { p.y = fl + 1 + b.hs; b.vy = -b.vy * 0.38; b.vx *= 0.6; b.vz *= 0.6; b.wx *= 0.5; b.wy *= 0.5; b.wz *= 0.5; b.bn++;
+        if (b.bn <= 2 && clT <= 0) { clT = 0.06; clatter(p, 1); }
+        if (Math.abs(b.vy) < 0.9) { b.vy = 0; if (Math.hypot(b.vx, b.vz) < 0.4) b.rest = true; } } } }
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { if (!paused) { for (const a of mobs) if (a.slam) slamStep(a, dt); boneStep(dt); } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+    return r; };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -18404,7 +18485,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.90', d:'2026-10-25', notes:['Quick torch fixed for controllers: LT with a tool, weapon or empty hand now places a torch from your hotbar on the floor or a wall, in survival and creative','No more "can\'t be placed" pop-ups when you press LT with a tool or weapon. If there is no torch or nowhere to put one, nothing happens','Your LEFT hand now comes up holding the torch and reaches out to place it. The right hand keeps holding your tool']},
+ {v:'v0.9.91', d:'2026-10-25', notes:['Spiders are now GIANT - about 2.5 blocks across, with a matching hitbox. They only spawn where there is room for them.','Spiders are neutral: they leave you alone unless you hit them. Hit one and it chases you until you get well away.','Skeleton arrows now hit other mobs in their way.','If a skeleton shoots a spider, the spider goes after that skeleton, grabs it and slams it into a wall or the ground. The skeleton smashes into tumbling, clattering bone pieces (skull, ribcage, limbs) that vanish after a few seconds and still drop its normal loot. Then the spider calms down.']},
+{v:'v0.9.90', d:'2026-10-25', notes:['Quick torch fixed for controllers: LT with a tool, weapon or empty hand now places a torch from your hotbar on the floor or a wall, in survival and creative','No more "can\'t be placed" pop-ups when you press LT with a tool or weapon. If there is no torch or nowhere to put one, nothing happens','Your LEFT hand now comes up holding the torch and reaches out to place it. The right hand keeps holding your tool']},
 {v:'v0.9.89', d:'2026-10-25', notes:['New Minecraft-style lighting: every block has its own block light and sky light, and both fade by one level per block, so torches now light a proper diamond-shaped glow','Torches give light level 14. Lava, fire, glowrock, lamps and lanterns give 15. Water and leaves dim light a little as it passes through','Placing or breaking a torch re-lights the area around it, including the next chunks over','Brightness is the stronger of torch light (warm) and daylight. Day and night only change the sky part, so the world never has to rebuild at sunset','Caves and closed rooms are darker now, so torches matter, but nothing is ever pitch black. Nights stay easy to see with the same dark blue sky, moon and stars. Hell and the Backrooms get a bit more base light','Smooth lighting and corner shading are worked out when a chunk is built. The old torch point lights are gone (faster), and a torch in your hand still lights up around you','Light is worked out chunk by chunk as the world loads, with no extra wait on the load bar']},
 {v:'v0.9.88', d:'2026-10-25', notes:['New Glencraft ore textures, drawn in code over the game\'s own stone at the game\'s full texture resolution:','Iron ore: chunky peach-tan nuggets with dark rusty edges','Silver ore: bright, cool white-silver droplets with shiny highlights and a hint of blue (matches the silver droplet icon)','Gold ore: rich yellow-gold nuggets with orange shading and bright sparkles','Cobalt ore: deep royal-blue crystal shards with cyan facet highlights','Lazurite ore: speckled dark-blue flecks, so it never looks like cobalt','Quick torch: holding a tool, weapon, other non-placeable item or an empty hand, LT on a floor or wall places a torch from your hotbar without switching slots. Blocks still place as normal, and trading, bows, food, buckets and so on still work the same']},
 {v:'v0.9.87', d:'2026-10-25', notes:['Zombies and skeletons spot you from about 32 blocks away, but only with a clear line of sight - behind walls or over a hill they only notice you up close (about 7 blocks), and they give up a few seconds after losing sight of you','Zombies hit harder (still never a one-shot) and every hit knocks you back with a little pop into the air; imps and demon hounds knock you back too','Skeletons loose an arrow about every second, still dead on target, with the bow arm held straight out at shoulder height, the string hand pulled back to the chest, and a kick on every release','Mobs can no longer walk inside you: zombies, Treemen and the rest stop at arm\'s length and get pushed out if they overlap, and they attack from there','Treeman grab: he holds you at arm\'s length in front of his face, tilts his head up to look you in the eye while you face him, his eyes blaze and his brow and mouth turn furious for a death stare, then he hurls you two to three times higher and further than before - the landing hurts but can never kill you from full health']},
