@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0986a -->
+<!-- glencraft-build: v0987a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.86';
+const GAME_VERSION = 'v0.9.87';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -2176,20 +2176,20 @@ function updateMobs(dt) {
       a.strafing = false;
       // only hunts you once it has seen you within 13 blocks, then remembers for a few seconds
       // GLX-B6: notices you within 8 blocks with line of sight, telegraphs for ~1 s, then attacks
-      const sees = !dead && started && dist <= 8 && canSee(a, 8);
+      const sees = !dead && started && (a.kind === 'zombie' || a.kind === 'skeleton' ? (dist <= 7 || (dist <= 32 && ((a.losT = (a.losT || 0) - dt) > 0 ? a.los : (a.losT = 0.2, a.los = canSee(a, 32))))) : dist <= 8 && canSee(a, 8));   // v0.9.87: clear line of sight up to 32 blocks, or really close
       if (sees && !(a.aggro > 0)) {
         if (a.notice === undefined) { a.notice = 1.0; a.ang = Math.atan2(dpx, dpz); (a.kind === 'creeper' ? hiss(pos, 0.5) : a.kind === 'guardian' ? guardianRoar(pos) : sfx3d(a.kind === 'zombie' ? 'groan' : 'bow', pos, 14)); if (a.head) a.head.rotation.x = -0.3; }
         a.notice -= dt; if (a.notice <= 0) { a.aggro = 3; a.notice = undefined; }
       } else if (sees) a.aggro = 3;
       else { a.aggro = Math.max(0, (a.aggro || 0) - dt); if (a.notice !== undefined && !sees) { a.notice += dt * 0.5; if (a.notice > 1.2) a.notice = undefined; } }
       if (a.notice !== undefined && !(a.aggro > 0)) { a.ang = Math.atan2(dpx, dpz); a.moving = false; }
-      if (a.aggro > 0 && dist < 22 && !dead) {
+      if (a.aggro > 0 && dist < 34 && !dead) {
         if (a.kind !== 'skeleton' || !window.__c78skel) { const pa = pathAngle(a, P.x, P.z); a.ang = pa !== null ? pa : Math.atan2(dpx, dpz) + (a.detourT > 0 ? a.detour : 0); }
         if (a.kind === 'zombie' || a.kind === 'creeper' || a.kind === 'guardian' || a.kind === 'blackskel') {
-          spd = dist > 1.0 ? a.speed : 0;
+          spd = dist > (a.kind === 'zombie' ? 1.2 : 1.0) ? a.speed : 0;
           if (a.kind === 'blackskel' && dist < 1.7 && Math.abs(dy) < 1.6 && a.biteCd <= 0) { a.biteCd = 1.0; a.swing = .45; hurt(4, 'A black skeleton cut you down.'); knockPlayer(dpx / (dist || 1), dpz / (dist || 1), 4, 2.5); try { sfx3d('swoosh', pos, 12); } catch (_) {} }
-          if (a.kind === 'zombie' && dist < 1.4 && Math.abs(dy) < 1.6 && a.biteCd <= 0) {
-            a.biteCd = 1.2; hurt(3, 'A mossy zombie got you.'); a.swing = .3; knockPlayer(dpx / (dist || 1), dpz / (dist || 1), 5, 3);
+          if (a.kind === 'zombie' && dist < 1.75 && Math.abs(dy) < 1.6 && a.biteCd <= 0) {
+            a.biteCd = 1.2; hurt(5, 'A mossy zombie got you.'); a.swing = .3; knockPlayer(dpx / (dist || 1), dpz / (dist || 1), 8.5, 4.6); try { shake(0.12, 0.02); } catch (_) {}
           }
           if (a.kind === 'guardian' && dist < 2.3 && Math.abs(dy) < 2 && a.biteCd <= 0) { a.biteCd = 1.1; a.swing = .4; guardianSwing(a); hurt(8, 'A castle guardian cut you down.'); knockPlayer(dpx / (dist || 1), dpz / (dist || 1), 7, 4); }
         } else {
@@ -10879,7 +10879,7 @@ function hellAI(a, dt) {
     let spd = 0;
     if (see && dist < (a.kind === 'hound' ? 22 : 16)) { a.ang = Math.atan2(dx, dz); spd = a.kind === 'blazeskel' && dist < 7 ? -a.spd * 0.6 : dist > 1.3 ? a.spd : 0;
       if (a.kind === 'blazeskel') { if (spd < 0) { a.ang += Math.PI; spd = -spd; } if (a.shootCd <= 0 && dist < 18 && canSee(a, 18)) { a.shootCd = 2.2 + Math.random(); shootFire(new THREE.Vector3(p.x, p.y + 1.5, p.z), P.x, P.y + 1, P.z, 10, 3); } }
-      else if (dist < 1.6 && Math.abs(dy) < 1.6 && a.biteCd <= 0) { a.biteCd = a.kind === 'hound' ? 0.8 : 1.0; if (!MODE.noDamage) hurt(a.dmg, a.kind === 'hound' ? 'Mauled by a demon hound.' : 'Clawed by an imp.'); }
+      else if (dist < 1.6 && Math.abs(dy) < 1.6 && a.biteCd <= 0) { a.biteCd = a.kind === 'hound' ? 0.8 : 1.0; if (!MODE.noDamage) hurt(a.dmg, a.kind === 'hound' ? 'Mauled by a demon hound.' : 'Clawed by an imp.'); try { const q = a.g.position, l = Math.hypot(P.x - q.x, P.z - q.z) || 1; knockPlayer((P.x - q.x) / l, (P.z - q.z) / l, 4.5, 2.6); } catch (_) {} }
       if (a.kind === 'hound' && a.onGround && dist < 6 && dist > 2.5 && Math.random() < dt * 1.2) a.vy = 7;
     } else { a.timer -= dt; if (a.timer <= 0) { a.timer = 2 + Math.random() * 3; a.ang += (Math.random() - .5) * 3; a.wan = Math.random() < 0.6; } spd = a.wan ? a.spd * 0.35 : 0; }
     if (spd) stepMob(a, spd, dt, !see); mobPhysics(a, dt);
@@ -17616,7 +17616,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   U.creak = creak; U.twang = twang;
 
   // ---- skeleton archers: chase you, stop about 4 blocks away, draw (creak), loose a well-led arrow, reach for the next one ----
-  const SK_RANGE = 4.3, DRAW = 0.9, NOCK = 0.55, ARROW_V = 17, AG = 6;   // AG: arrow gravity used by updateArrows
+  const SK_RANGE = 4.3, DRAW = 0.5, NOCK = 0.25, ARROW_V = 17, AG = 6;   // AG: arrow gravity used by updateArrows
   function handLocal(arm, len, out) { const th = arm.rotation.x, ph = arm.rotation.z, c = Math.cos(ph); out.x = arm.position.x + len * Math.sin(ph); out.y = arm.position.y - len * c * Math.cos(th); out.z = arm.position.z - len * c * Math.sin(th); return out; }
   function fire(a) { const p = a.g.position, yw = a.yawVis || 0, s = Math.sin(yw), c = Math.cos(yw), h = a.bowHand || {x: 0, y: 1.4, z: 0.6};
     let fx = p.x + h.x * c + h.z * s, fy = p.y + h.y, fz = p.z - h.x * s + h.z * c; if (solid(Math.floor(fx), Math.floor(fy), Math.floor(fz))) { fx = p.x; fy = p.y + 1.4; fz = p.z; }
@@ -17629,11 +17629,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     try { sfx3d('bow', p, 18); } catch (_) {} twang(p); }
   U.fire = fire;
   window.__c78skel = function (a, dt, dist, dpx, dpz) {
-    a.seeT = (a.seeT || 0) - dt; if (a.seeT <= 0) { a.seeT = 0.2; a.see = dist < 18 && canSee(a, 18); }
+    a.seeT = (a.seeT || 0) - dt; if (a.seeT <= 0) { a.seeT = 0.2; a.see = dist < 32 && canSee(a, 32); }
     const B = a.bs || (a.bs = {ph: 'nock', t: 0, draw: 0, hold: 0});
     let pa = null; const close = a.see && dist <= SK_RANGE;
     if (!close) { pa = pathAngle(a, P.x, P.z, P.y); a.noPath = pa === null ? (a.noPath || 0) + dt : 0; }
-    const shootFromHere = close || (a.see && dist < 14 && a.noPath > 0.8);   // can't reach you (up a tower, across water): shoot from where it stands
+    const shootFromHere = close || (a.see && dist < 20 && a.noPath > 0.8);   // can't reach you (up a tower, across water): shoot from where it stands
     a.strafing = false;
     if (!shootFromHere) { a.ang = pa !== null ? pa : Math.atan2(dpx, dpz) + (a.detourT > 0 ? a.detour : 0); a.engaged = false;
       if (B.ph === 'draw') { B.ph = 'nock'; B.t = NOCK * 0.6; if (B.snd) { B.snd.stop(); B.snd = null; } }
@@ -17641,7 +17641,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     a.engaged = true; a.ang = Math.atan2(dpx, dpz); a.path = null; a.pathProg = null;
     if (dist < 2.0) { const l = dist || 1; moveMob(a, -dpx / l * 1.2 * dt, -dpz / l * 1.2 * dt); }   // too close: a half step back while drawing
     B.t += dt;
-    if (B.ph === 'nock' && B.t >= NOCK) { B.ph = 'draw'; B.t = 0; B.hold = 0.15 + Math.random() * 0.45; if (B.snd) B.snd.stop(); B.snd = creak(a.g.position, DRAW); }
+    if (B.ph === 'nock' && B.t >= NOCK) { B.ph = 'draw'; B.t = 0; B.hold = 0.05 + Math.random() * 0.3; if (B.snd) B.snd.stop(); B.snd = creak(a.g.position, DRAW); }
     if (B.ph === 'draw' && B.t >= DRAW + B.hold && a.see) { if (B.snd) { B.snd.stop(); B.snd = null; } fire(a); B.ph = 'nock'; B.t = 0; }
     return 0; };
 
@@ -17695,17 +17695,17 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     a.aimV = ease(a.aimV, eng ? Math.max(-0.9, Math.min(0.9, aimT)) : 0, Math.min(1, dt * 8));
     const arms = a.arms, bowArm = arms[1], drawArm = arms[0], armLen = 0.7;
     // bow arm (left): straight out at you like the support arm of a rifle aim; lowered while running
-    const bP = eng ? tmp2[3] * 0.25 - Math.PI / 2 * 0.75 - a.aimV - lean : -0.55 + (tmp[3] - m[3]) * run - lean, bR = eng ? -0.3 + tmp2[4] * 0.15 : -0.15;
+    const bP = eng ? -Math.PI / 2 - a.aimV - lean - (a.relT > 0 ? a.relT / 0.3 : 0) * 0.22 + Math.sin(performance.now() / 260) * 0.015 : -0.55 + (tmp[3] - m[3]) * run - lean, bR = eng ? -0.22 : -0.15;   // v0.9.87: bow arm fully up at shoulder height, pointed at you, kicks on release
     setLimb(bowArm, bP, bR, eng ? Math.min(1, dt * 10) : k);
     handLocal(bowArm, armLen, hv); const bx = hv.x, by = hv.y, bz = hv.z; a.bowHand = {x: bx, y: by, z: bz};
     let draw = 0; if (eng && B.ph === 'draw') draw = cl01(B.t / DRAW);
     const rel = a.relT > 0 ? a.relT / 0.3 : 0;
     // draw arm (right): hand on the string, pulled back to the cheek; after the shot it reaches back over the shoulder for a fresh arrow
     if (eng) {
-      const sx = bx, sy = by + 0.02, sz = bz - 0.05 - draw * 0.3, px = drawArm.position.x, py = drawArm.position.y, pz = drawArm.position.z;
+      const sx = bx * 0.6, sy = by + 0.02, sz = bz - 0.12 - draw * 0.42, px = drawArm.position.x, py = drawArm.position.y, pz = drawArm.position.z;
       const vx = sx - px, vy = sy - py, vz = sz - pz, L = Math.hypot(vx, vy, vz) || 1;
       let th = Math.atan2(-vz, -vy), ph = Math.asin(Math.max(-1, Math.min(1, vx / L))), sc = Math.max(0.62, Math.min(1, L / armLen));
-      if (B.ph === 'nock') { pose('RELOAD', cl01(B.t / NOCK), false, tmp); const w = Math.sin(Math.PI * cl01(B.t / NOCK)); th = lerp(th, tmp[3] - lean, w); ph = lerp(ph, -tmp[4], w); sc = lerp(sc, 1, w); }
+      if (B.ph === 'nock') { pose('RELOAD', cl01(B.t / NOCK), false, tmp); const w = 0.3 * Math.sin(Math.PI * cl01(B.t / NOCK)); th = lerp(th, tmp[3] - lean, w); ph = lerp(ph, -tmp[4], w); sc = lerp(sc, 1, w); }
       if (rel > 0) { th += rel * 0.25; ph -= rel * 0.3; }
       setLimb(drawArm, th, ph, Math.min(1, dt * 18)); drawArm.scale.y = ease(drawArm.scale.y, sc, Math.min(1, dt * 18));
     } else { setLimb(drawArm, -0.2 + (tmp[1] - m[1]) * (0.6 + run) - lean, -0.08, k); drawArm.scale.y = ease(drawArm.scale.y, 1, k); }
@@ -18155,6 +18155,94 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   }
   window.__c105.start = startReset;
 })();
+
+/* ===================== GLX-C106 (v0.9.87): mobs can't walk into you, Treeman face-to-face death stare + huge throw ===================== */
+(function c106() {
+  const U = window.__c106 = {pushes: 0, throws: 0, capped: 0};
+  // ---------- personal space: mobs stop at arm's length and are pushed out if they overlap you ----------
+  const SKIP = new Set(['bee', 'dragon', 'duck', 'puffer']);
+  const minD = a => a.kind === 'zombie' ? 1.1 : a.kind === 'treeman' ? 1.15 : a.kind === 'giant' || a.giant || a.big ? 1.6 : 0.3 + Math.min(0.75, (a.hitR || 0.4) * 0.9);
+  function personal() {
+    if (!started || dead) return;
+    for (const a of mobs) {
+      if (!a || !a.g || heldBy === a || SKIP.has(a.kind) || a.tamed || a.mounted || (typeof riding !== 'undefined' && riding && (riding === a || riding.mob === a))) continue;
+      const p = a.g.position, dx = p.x - P.x, dz = p.z - P.z; if (Math.abs(dx) > 3 || Math.abs(dz) > 3) continue;
+      const top = p.y + (a.tall || 2); if (top < P.y + 0.2 || p.y > P.y + HEIGHT - 0.2) continue;
+      const d = Math.hypot(dx, dz), m = minD(a); if (d >= m) continue;
+      const ux = d > 1e-3 ? dx / d : Math.sin(a.ang || 0), uz = d > 1e-3 ? dz / d : Math.cos(a.ang || 0), nx = P.x + ux * m, nz = P.z + uz * m;
+      if (!solid(Math.floor(nx), Math.floor(p.y + 0.2), Math.floor(nz)) && !solid(Math.floor(nx), Math.floor(p.y + 1.1), Math.floor(nz))) { p.x = nx; p.z = nz; }
+      else { const k = (m - d); P.x -= ux * k * 0.5; P.z -= uz * k * 0.5; }   // pinned against a wall: nudge you instead
+      if (a.kbx !== undefined && (a.kbx * -ux + a.kbz * -uz) > 0) { a.kbx = 0; a.kbz = 0; }
+      U.pushes++;
+    }
+  }
+  const um = updateMobs; updateMobs = function () { const r = um.apply(this, arguments); try { personal(); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } return r; };
+  U.personal = personal;
+
+  // ---------- Treeman grab: hold you up in front of his face, look you in the eye, death stare, then hurl you ----------
+  const T0 = 2.6, LIFT = 0.55, STARE = 1.35, THROW = LIFT + STARE + 0.25;
+  let glowTex = null;
+  function glowSprite() {
+    if (!glowTex) { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      gr.addColorStop(0, 'rgba(255,255,230,1)'); gr.addColorStop(0.25, 'rgba(255,90,40,.9)'); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); glowTex = new THREE.CanvasTexture(c); }
+    return new THREE.Sprite(new THREE.SpriteMaterial({map: glowTex, color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0}));
+  }
+  function face(a) {
+    if (a.c106f) return a.c106f;
+    const h = a.head, eyes = [], f = {eyes, mouth: null, brows: [], glow: []};
+    for (const c of h.children) { if (c.material === a.eyeM) eyes.push(c); else if (c.material && c.material !== a.eyeM && Math.abs(c.position.y - 0.14) < 0.01 && Math.abs(c.position.z - 0.285) < 0.01) f.mouth = c; }
+    const browM = new THREE.MeshBasicMaterial({color: 0x1a0c04});
+    for (const sx of [-1, 1]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.03), browM); b.position.set(sx * 0.15, 0.47, 0.3); b.rotation.z = sx * 0.45; b.visible = false; h.add(b); f.brows.push(b); }
+    for (const e of eyes) { const s = glowSprite(); s.position.set(e.position.x, e.position.y, e.position.z + 0.04); s.scale.set(0.42, 0.42, 1); s.visible = false; h.add(s); f.glow.push(s); }
+    f.eyeCol = a.eyeM.color.getHex();
+    return a.c106f = f;
+  }
+  function setAngry(a, k) {
+    const f = face(a);
+    for (const b of f.brows) b.visible = k > 0.05;
+    for (const s of f.glow) { s.visible = k > 0.02; s.material.opacity = k * (0.85 + Math.random() * 0.15); }
+    for (const e of f.eyes) e.scale.set(1 + k * 0.35, 1 + k * 0.6, 1);
+    if (f.mouth) { f.mouth.scale.set(1 + k * 0.25, 1 + k * 1.9, 1); f.mouth.position.y = 0.14 - k * 0.04; }
+    a.eyeM.color.setHex(k > 0.05 ? 0xffe0c0 : f.eyeCol);
+  }
+  U.setAngry = setAngry;
+  treemanGrab = function (a, dt) {
+    a.grabT -= dt;
+    const t = T0 - a.grabT, pos = a.g.position, sc = a.g.scale ? a.g.scale.y || 1 : 1;
+    const yw = a.yawVis !== undefined ? a.yawVis : a.ang, fx = Math.sin(yw), fz = Math.cos(yw);
+    const eyeY = pos.y + (2.2 + 0.38) * sc, hold = 1.3 * sc;            // his eyes; you are held at arm's length in front of them
+    const lift = Math.min(1, t / LIFT), e = lift * lift * (3 - 2 * lift);
+    const wantY = eyeY + 0.12 - EYE;                                      // your eyes just above his, so he looks up into them
+    const k = Math.min(1, dt * 12);
+    P.x += (pos.x + fx * hold - P.x) * k; P.z += (pos.z + fz * hold - P.z) * k;
+    P.y += ((pos.y + 0.4) + (wantY - pos.y - 0.4) * e - P.y) * Math.min(1, dt * 10); P.vy = 0; P.fallTop = null; P.kbx = P.kbz = 0;
+    // you face him, eye to eye
+    const ex = pos.x - P.x, ez = pos.z - P.z, hd = Math.hypot(ex, ez) || 1;
+    P.yaw = Math.atan2(-ex, -ez); const wp = Math.atan2(eyeY - (P.y + EYE), hd); P.pitch += (wp - P.pitch) * Math.min(1, dt * 8);
+    // his head tilts up to stare straight into your eyes
+    if (a.head) { a.head.rotation.order = 'YXZ'; const up = Math.atan2((P.y + EYE) - (eyeY - 0.08), hd); a.head.rotation.x += (-up - a.head.rotation.x) * Math.min(1, dt * 10); a.head.rotation.y *= Math.max(0, 1 - dt * 10); a.head.rotation.z = 0; a.head.position.x = 0; }
+    // arms straight out, gripping you at the sides
+    const sh = Math.sin(t * 22) * (t > LIFT && t < LIFT + STARE ? 0.02 : 0);
+    a.arms[0].rotation.x = a.arms[1].rotation.x = -Math.PI / 2 + 0.12 + sh; a.arms[0].rotation.z = 0.22; a.arms[1].rotation.z = -0.22;
+    const st = t >= LIFT && t < THROW;
+    setAngry(a, st ? Math.min(1, (t - LIFT) / 0.18) : Math.max(0, 1 - (t - THROW) * 5));
+    if (st && !a.roared) { a.roared = true; try { sfx3d('roar', pos, 40); } catch (_) {} try { shake(1.2, 0.035); } catch (_) {} }
+    if (t >= THROW) {
+      heldBy = null; a.grabT = 0;
+      const side = Math.random() < .5 ? 1 : -1, tx = fx * 0.85 + fz * side * 0.5, tz = fz * 0.85 - fx * side * 0.5, l = Math.hypot(tx, tz);
+      a.arms[0].rotation.x = a.arms[1].rotation.x = -2.6; a.arms[0].rotation.z = -0.12; a.arms[1].rotation.z = 0.12;
+      knockPlayer(tx / l, tz / l, 34, 15.5); invuln = 0; hurt(4, 'Hurled across the glen by a Treeman.');
+      U.throws++; U.thrownAt = performance.now(); U.thrownY = P.y;
+      try { sfx('thud'); } catch (_) {} a.state = 'stare'; a.cool = 12; a.gaze = 0; a.twist = 0.4;
+      setTimeout(() => { try { setAngry(a, 0); } catch (_) {} }, 400);
+    }
+  };
+  // the landing after a Treeman throw hurts, but never more than 8 and never from full health to dead
+  const hu = hurt; hurt = function (n, cause) {
+    if (U.thrownAt && performance.now() - U.thrownAt < 9000 && /fall/i.test(String(cause || ''))) { const c = Math.min(n, 8, Math.max(1, hp - 1)); if (c < n) U.capped++; n = c; U.thrownAt = 0; }
+    return hu.apply(this, [n, cause].concat([].slice.call(arguments, 2)));
+  };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -18166,7 +18254,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.86', d:'2026-10-25', notes:['Cobalt tools (pickaxe, axe, sword, shovel, hoe) can no longer be crafted - they are still in creative','New: Reset world button in the pause menu, with an in-game "Are you sure?" (Yes / No, B = No) - it never leaves fullscreen','Resetting is a live event: you float up, watch the old land fall away chunk by chunk, then watch a brand-new world (new seed, castles, islands) build in around you before you drift down to the new spawn','You keep your whole inventory, armour, off-hand and XP, with full health and hunger; the old world, its backups and its other dimensions are wiped for good']},
+ {v:'v0.9.87', d:'2026-10-25', notes:['Zombies and skeletons spot you from about 32 blocks away, but only with a clear line of sight - behind walls or over a hill they only notice you up close (about 7 blocks), and they give up a few seconds after losing sight of you','Zombies hit harder (still never a one-shot) and every hit knocks you back with a little pop into the air; imps and demon hounds knock you back too','Skeletons loose an arrow about every second, still dead on target, with the bow arm held straight out at shoulder height, the string hand pulled back to the chest, and a kick on every release','Mobs can no longer walk inside you: zombies, Treemen and the rest stop at arm\'s length and get pushed out if they overlap, and they attack from there','Treeman grab: he holds you at arm\'s length in front of his face, tilts his head up to look you in the eye while you face him, his eyes blaze and his brow and mouth turn furious for a death stare, then he hurls you two to three times higher and further than before - the landing hurts but can never kill you from full health']},
+{v:'v0.9.86', d:'2026-10-25', notes:['Cobalt tools (pickaxe, axe, sword, shovel, hoe) can no longer be crafted - they are still in creative','New: Reset world button in the pause menu, with an in-game "Are you sure?" (Yes / No, B = No) - it never leaves fullscreen','Resetting is a live event: you float up, watch the old land fall away chunk by chunk, then watch a brand-new world (new seed, castles, islands) build in around you before you drift down to the new spawn','You keep your whole inventory, armour, off-hand and XP, with full health and hunger; the old world, its backups and its other dimensions are wiped for good']},
 {v:'v0.9.85', d:'2026-10-25', notes:['Ores by depth (new worlds): coal and iron everywhere from the surface to bedrock, silver at every depth, lapis in the lower third, gold just above the diamonds, diamonds only in the bottom 10 blocks - and coal, iron, silver, gold and lapis are all still there right down by the bedrock','Caves show their ore: coal, iron and silver seams on cave walls, floors and ceilings (about 4x more visible iron and coal per cave)','Raw silver has a new icon: a little cluster of shiny droplets','Spiders at night: blocky eight-legged spiders with red eyes hunt you on the surface at night and in dark caves, climb walls, leap at you and drop String (4 String = 1 Wool)','Nights are no longer pitch dark: moonlit blue sky with stars, but the land, mobs and you stay clearly visible (all graphics presets, Photo-real too); caves stay dim but never black','New painted sky with drifting clouds that fade from day to sunset to night and back. Sky textures: Screaming Brain Studios (CC0)']},
 {v:'v0.9.84', d:'2026-10-25', notes:['Spawn island trees are real logs and leaves now (they were planks)','No more coloured wool on the island (the blue by the skull lava is gone) - it uses natural Glencraft blocks: grass, dirt, sand, stone, moss','Deeper sea, sandy beaches and softer island edges','Existing island worlds are refreshed too - only blocks you never touched, your builds are safe','Days and nights last 3 times longer (18 min for a full day); sleeping still skips the night','Zombies are faster and hunch, lurch and claw at you with mocap-style arms','Skeletons chase you, stop about 4 blocks away, hold the bow out, creak as they draw, twang and fire with near-perfect aim (a shot every 1.5-2 s)','Black skeletons swing proper saber cuts','The tartan kilt item has been removed (any you had are gone; your character still wears a kilt)','Cobalt armour can no longer be crafted (pieces you already have stay; cobalt tools unchanged)']},
 {v:'v0.9.83', d:'2026-10-25', notes:['Jetpack! Wear it in the chestplate slot (Y to equip). Hold jump to blast upward with flame thrusters, steer fast through the air, and glide down gently with no fall damage. No fuel needed. Craft: 4 iron ingots + 2 redstone + 2 coal at a crafting table (also in creative).','Each of the three castles now sits on its own island across the sea: a clean green meadow for the human castle, a misty overgrown isle for the mossy castle, and dead dark ground for the blackstone castle (new worlds).','Castles rebuilt: the human castle is clean with trims, roofs, banners, windows, double doors, beds for Hamish and Angus, a chest, furnace and crafting table. The skeleton castles are abandoned ruins with holes, collapsed walls and cobwebs - loot, skeletons, the broken Hell portal and lava pool are still there.','Your world list is back: create as many worlds as you like, load any of them, and delete with an "Are you sure?" Yes/No (works with controller). Creating a world never replaces another.','The old world reset can never run again. The game also scans for any leftover old world data and lists anything it finds.','Removed the test starter chests at spawn.']},
