@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0976g -->
+<!-- glencraft-build: v0976h -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -17371,7 +17371,9 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   // ================= v0.9.76 digging: player break times, tunnelling paths =================
   const NODIG = new Set([T.CHEST, T.BED, T.FURNACE, T.TABLE, T.PORTAL, T.OBSIDIAN, T.WATER, T.LAVA, T.TORCH].filter(v => v !== undefined));
   const liquid = b => b === T.WATER || b === T.LAVA;
-  function breakSecs(a, b) {   // same formula as the player's (MC ticks), with the bot's best tool for the block
+  let BSC = null;   // per-search cache of break times by block id
+  function breakSecs(a, b) { if (BSC) { const c = BSC.get(b); if (c !== undefined) return c; const v = breakSecs0(a, b); BSC.set(b, v); return v; } return breakSecs0(a, b); }
+  function breakSecs0(a, b) {   // same formula as the player's (MC ticks), with the bot's best tool for the block
     const h = (typeof MC_HARD !== 'undefined' && MC_HARD[b] != null) ? MC_HARD[b] : (HARD[b] || 1) * 0.8; if (h <= 0.06) return 0.05;
     const kind = typeof rightToolKind === 'function' ? rightToolKind(b) : null, tool = kind ? best(a, kind) : 0;
     const speed = tool && typeof toolTierSpeed === 'function' ? toolTierSpeed(tool) : 1;
@@ -17415,7 +17417,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     const hy = dg ? 1.6 : 0.5, hw = dg ? 1.8 : 1.05, h = (x, y, z) => Math.abs(x - tx) + Math.abs(z - tz) + Math.abs(y - ty) * hy;   // digging allowed: greedier search (tunnels are everywhere)
     const push = n => { open.push(n); let i = open.length - 1; while (i > 0) { const q = (i - 1) >> 1; if (open[q][0] <= n[0]) break; [open[i], open[q]] = [open[q], open[i]]; i = q; } };
     const pop = () => { const t = open[0], l = open.pop(); if (open.length) { open[0] = l; let i = 0; for (;;) { const a1 = 2 * i + 1, b1 = a1 + 1; let m = i; if (a1 < open.length && open[a1][0] < open[m][0]) m = a1; if (b1 < open.length && open[b1][0] < open[m][0]) m = b1; if (m === i) break; [open[i], open[m]] = [open[m], open[i]]; i = m; } } return t; };
-    const k0 = K(sx, sy, sz); g.set(k0, 0); push([h(sx, sy, sz), sx, sy, sz]); let n = 0, goal = null;
+    BSC = dg ? new Map() : null; const k0 = K(sx, sy, sz); g.set(k0, 0); push([h(sx, sy, sz), sx, sy, sz]); let n = 0, goal = null;
     while (open.length && n < cap) { const [, x, y, z] = pop(); const kc = K(x, y, z), gc = g.get(kc); n++;
       if (Math.abs(x - tx) <= 1 && Math.abs(z - tz) <= 1 && Math.abs(y - ty) <= 1) { goal = kc; break; }
       for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, nz = z + dz; if (Math.abs(nx - sx) > R || Math.abs(nz - sz) > R) continue;
@@ -17428,7 +17430,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
         }
         if (ny === null) continue; const kn = K(nx, ny, nz), gn = gc + 1 + (ny > y ? 0.6 : 0) + extra; const o = g.get(kn); if (o !== undefined && o <= gn) continue;
         g.set(kn, gn); from.set(kn, kc); push([gn + h(nx, ny, nz) * hw, nx, ny, nz]); } }
-    B.pst.paths++; B.pst.nodes += n; B.fn = (B.fn || 0) + n; if (goal === null) { B.pst.fails++; return null; }
+    BSC = null; B.pst.paths++; B.pst.nodes += n; B.fn = (B.fn || 0) + n; if (goal === null) { B.pst.fails++; return null; }
     const out = []; let k = goal; while (k !== k0 && from.has(k)) { const y = k % 256, r = (k - y) / 256, z = r % 4096, x = (r - z) / 4096; out.push([x, y, z]); k = from.get(k); }
     return out.reverse();
   }
