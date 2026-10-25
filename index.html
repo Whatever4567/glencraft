@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0987a -->
+<!-- glencraft-build: v0988a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.87';
+const GAME_VERSION = 'v0.9.88';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18243,6 +18243,95 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     return hu.apply(this, [n, cause].concat([].slice.call(arguments, 2)));
   };
 })();
+
+/* ===================== GLX-C107 (v0.9.88): new Glencraft ore textures - iron, silver, gold, cobalt and lazurite each look like themselves (drawn in code over the game's own stone) ===================== */
+(function c107() {
+  const U = window.__c107 = {made: {}, n: 0};
+  function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 0x2c1b3c6d) + 0x9e3779b9 >>> 0) / 4294967296); }
+  // draw fn(g) at every wrapped copy near the edges so the tile repeats seamlessly
+  function wrapDraw(g, S, x, y, r, fn) { for (const ox of [-S, 0, S]) for (const oy of [-S, 0, S]) { if (x + ox + r < 0 || x + ox - r > S || y + oy + r < 0 || y + oy - r > S) continue; g.save(); g.translate(x + ox, y + oy); fn(g); g.restore(); } }
+  function blobPath(g, R, pts, jag, rnd, sx, sy) { const a0 = rnd() * 6.28, P = []; for (let i = 0; i < pts; i++) { const a = a0 + i / pts * 6.283, rr = R * (1 - jag + rnd() * jag * 2); P.push([Math.cos(a) * rr * sx, Math.sin(a) * rr * sy]); }
+    g.beginPath(); for (let i = 0; i < pts; i++) { const p = P[i], q = P[(i + 1) % pts], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2; if (i === 0) g.moveTo(mx, my); else g.quadraticCurveTo(p[0], p[1], mx, my); } const p = P[0], q = P[1]; g.quadraticCurveTo(p[0], p[1], (p[0] + q[0]) / 2, (p[1] + q[1]) / 2); g.closePath(); }
+  function polyPath(g, P) { g.beginPath(); P.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); }
+  // a socket: darker stone rim and soft shadow around each nugget so it sits in the rock
+  function socket(g, u, path) { g.save(); g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 10 * u; g.shadowOffsetX = 3 * u; g.shadowOffsetY = 5 * u; path(); g.fillStyle = 'rgba(30,26,24,0.9)'; g.fill(); g.restore(); }
+
+  const STYLE = {
+    // chunky peach-tan nuggets with rusty edges
+    iron: {seed: 11, clusters: 6, per: [3, 5], R: [52, 84], spread: 1.5, draw(g, u, R, rnd) {
+      const path = () => blobPath(g, R, 7, 0.28, rnd, 1, 0.85); const r2 = rnd;
+      socket(g, u, () => { g.save(); g.scale(1.1, 1.1); path(); g.restore(); });
+      path(); const gr = g.createRadialGradient(-R * 0.35, -R * 0.4, R * 0.1, 0, 0, R * 1.1); gr.addColorStop(0, '#f6d0ae'); gr.addColorStop(0.45, '#dc9f78'); gr.addColorStop(1, '#a8583a'); g.fillStyle = gr; g.fill();
+      g.lineWidth = 5 * u; g.strokeStyle = '#6a2c16'; g.stroke();
+      for (let k = 0; k < 4; k++) { g.beginPath(); g.arc((r2() - .5) * R, (r2() - .3) * R * 0.9, R * (0.08 + r2() * 0.1), 0, 6.3); g.fillStyle = 'rgba(140,60,30,0.55)'; g.fill(); }   // rust pits
+      g.beginPath(); g.ellipse(-R * 0.32, -R * 0.36, R * 0.28, R * 0.13, -0.6, 0, 6.3); g.fillStyle = 'rgba(255,238,220,0.75)'; g.fill(); }},
+    // bright cool silver droplets, shiny, slight blue
+    silver: {seed: 23, clusters: 6, per: [3, 5], R: [36, 58], spread: 1.5, draw(g, u, R, rnd) {
+      const ang = (rnd() - .5) * 0.9;
+      const path = () => { g.save(); g.rotate(ang); g.beginPath(); g.moveTo(0, -R * 1.45); g.bezierCurveTo(R * 0.55, -R * 0.7, R, -R * 0.1, R, R * 0.25); g.arc(0, R * 0.25, R, 0, Math.PI, false); g.bezierCurveTo(-R, -R * 0.1, -R * 0.55, -R * 0.7, 0, -R * 1.45); g.closePath(); g.restore(); };
+      socket(g, u, path);
+      path(); const gr = g.createRadialGradient(-R * 0.3, -R * 0.2, R * 0.05, 0, R * 0.1, R * 1.3); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, '#e4edf8'); gr.addColorStop(0.75, '#a9bad0'); gr.addColorStop(1, '#6f819c'); g.fillStyle = gr; g.fill();
+      g.lineWidth = 4 * u; g.strokeStyle = '#34405a'; g.stroke();
+      g.save(); g.rotate(ang); g.beginPath(); g.ellipse(-R * 0.35, -R * 0.1, R * 0.16, R * 0.38, 0.35, 0, 6.3); g.fillStyle = 'rgba(255,255,255,0.95)'; g.fill();
+      g.beginPath(); g.arc(R * 0.38, R * 0.55, R * 0.1, 0, 6.3); g.fillStyle = 'rgba(255,255,255,0.7)'; g.fill(); g.restore(); }},
+    // rich saturated gold with orange shading and sparkles
+    gold: {seed: 37, clusters: 6, per: [4, 6], R: [38, 64], spread: 1.5, draw(g, u, R, rnd) {
+      const P = []; const n = 5 + (rnd() * 3 | 0), a0 = rnd() * 6.28; for (let i = 0; i < n; i++) { const a = a0 + i / n * 6.283, rr = R * (0.7 + rnd() * 0.45); P.push([Math.cos(a) * rr, Math.sin(a) * rr * 0.85]); }
+      socket(g, u, () => polyPath(g, P.map(p => [p[0] * 1.12, p[1] * 1.12])));
+      polyPath(g, P); const gr = g.createLinearGradient(-R, -R, R, R); gr.addColorStop(0, '#fff3a0'); gr.addColorStop(0.3, '#ffd21e'); gr.addColorStop(0.7, '#f39a12'); gr.addColorStop(1, '#a8520a'); g.fillStyle = gr; g.fill();
+      g.lineWidth = 4.5 * u; g.strokeStyle = '#5e2e04'; g.lineJoin = 'round'; g.stroke();
+      // a facet line and a star sparkle
+      g.beginPath(); g.moveTo(P[0][0] * 0.2, P[0][1] * 0.2); g.lineTo(P[2][0] * 0.8, P[2][1] * 0.8); g.strokeStyle = 'rgba(190,90,10,0.7)'; g.lineWidth = 3 * u; g.stroke();
+      const sx = -R * 0.3, sy = -R * 0.3, s = R * 0.32; g.fillStyle = '#fffbe0'; g.beginPath(); g.moveTo(sx, sy - s); g.lineTo(sx + s * 0.18, sy - s * 0.18); g.lineTo(sx + s, sy); g.lineTo(sx + s * 0.18, sy + s * 0.18); g.lineTo(sx, sy + s); g.lineTo(sx - s * 0.18, sy + s * 0.18); g.lineTo(sx - s, sy); g.lineTo(sx - s * 0.18, sy - s * 0.18); g.closePath(); g.fill(); }},
+    // deep royal-blue crystal shards with cyan facet highlights
+    cobalt: {seed: 51, clusters: 6, per: [3, 4], R: [80, 120], spread: 1.1, draw(g, u, R, rnd) {
+      const ang = rnd() * 6.28, w = R * (0.26 + rnd() * 0.12), L = R * (0.9 + rnd() * 0.5);
+      g.rotate(ang);
+      const P = [[0, -L], [w, -L * 0.55], [w * 0.9, L * 0.35], [0, L * 0.5], [-w * 0.9, L * 0.35], [-w, -L * 0.55]];
+      socket(g, u, () => polyPath(g, P.map(p => [p[0] * 1.15, p[1] * 1.08])));
+      // two facets: lit left, dark right, plus a top cap
+      polyPath(g, [[0, -L], [0, L * 0.5], [-w * 0.9, L * 0.35], [-w, -L * 0.55]]); let gr = g.createLinearGradient(-w, -L, 0, L); gr.addColorStop(0, '#5f8cff'); gr.addColorStop(1, '#1f3fbe'); g.fillStyle = gr; g.fill();
+      polyPath(g, [[0, -L], [w, -L * 0.55], [w * 0.9, L * 0.35], [0, L * 0.5]]); gr = g.createLinearGradient(0, -L, w, L); gr.addColorStop(0, '#2446c8'); gr.addColorStop(1, '#0c1c6e'); g.fillStyle = gr; g.fill();
+      polyPath(g, [[0, -L], [w * 0.45, -L * 0.62], [0, -L * 0.42], [-w * 0.45, -L * 0.62]]); g.fillStyle = 'rgba(170,240,255,0.85)'; g.fill();
+      polyPath(g, P); g.lineWidth = 4.5 * u; g.lineJoin = 'round'; g.strokeStyle = '#08103e'; g.stroke();
+      g.beginPath(); g.moveTo(-w * 0.55, -L * 0.45); g.lineTo(-w * 0.5, L * 0.2); g.strokeStyle = 'rgba(140,235,255,0.9)'; g.lineWidth = 3.5 * u; g.stroke();
+      g.beginPath(); g.moveTo(0, -L * 0.42); g.lineTo(0, L * 0.5); g.strokeStyle = 'rgba(120,200,255,0.55)'; g.lineWidth = 2 * u; g.stroke(); }},
+    // lazurite: speckled dark-blue flecks (no crystals, so it never looks like cobalt)
+    laz: {seed: 67, clusters: 9, per: [14, 20], R: [10, 20], spread: 2.2, draw(g, u, R, rnd) {
+      blobPath(g, R, 5, 0.4, rnd, 1, 0.8); g.fillStyle = rnd() < 0.3 ? '#3d5fd6' : '#1a2a86'; g.fill(); g.lineWidth = 2 * u; g.strokeStyle = 'rgba(10,16,50,0.8)'; g.stroke();
+      if (rnd() < 0.35) { g.beginPath(); g.arc(-R * 0.25, -R * 0.25, R * 0.25, 0, 6.3); g.fillStyle = 'rgba(150,180,255,0.8)'; g.fill(); } }},
+  };
+  const KEYS = {iron_ore: 'iron', silver_ore: 'silver', gold_ore: 'gold', cobalt_ore: 'cobalt', lazurite_ore: 'laz'};
+  function paint(key, base) {
+    const st = STYLE[KEYS[key]], S = base.width, u = S / 1024, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'); g.drawImage(base, 0, 0, S, S);
+    const rnd = rng(st.seed * 7919 + 13);
+    for (let k = 0; k < st.clusters; k++) {
+      // clusters spread over the tile on a jittered grid so no face is bare
+      const gx = (k % 3 + 0.5 + (rnd() - .5) * 0.6) / 3 * S, gy = ((k / 3 | 0) % 3 + 0.5 + (rnd() - .5) * 0.6) / Math.ceil(st.clusters / 3) * S, n = st.per[0] + (rnd() * (st.per[1] - st.per[0] + 1) | 0);
+      for (let j = 0; j < n; j++) { const R = (st.R[0] + rnd() * (st.R[1] - st.R[0])) * u, sp = (st.spread || 1) * 70 * u, x = gx + (rnd() - .5) * sp * 2, y = gy + (rnd() - .5) * sp * 2, seed = rnd() * 1e9 | 0;
+        wrapDraw(g, S, x, y, R * 2.2, gg => st.draw(gg, u, R, rng(seed))); }
+    }
+    return c;
+  }
+  function css(key, c) { try { const s = document.createElement('canvas'); s.width = s.height = 64; s.getContext('2d').drawImage(c, 0, 0, 64, 64);
+    let el = document.getElementById('c107css'); if (!el) { el = document.createElement('style'); el.id = 'c107css'; document.head.appendChild(el); }
+    el.textContent = el.textContent.split('\n').filter(l => l && !l.startsWith('.ic-' + key + '{')).concat('.ic-' + key + '{background-image:url(' + s.toDataURL() + ') !important}').join('\n'); } catch (_) {} }
+  function pass() {
+    const base = texImg.stone; if (!base || !base.width) return false;
+    for (const key in KEYS) {
+      if (!U.made[key]) { try { U.made[key] = paint(key, base); css(key, U.made[key]); U.n++; } catch (e) { console.warn('c107', key, e); continue; } }
+      const c = U.made[key], ts = new Set([texCache[key] || tex(key)]);
+      try { if (matCache[key] && matCache[key].map) ts.add(matCache[key].map); for (const id in FACES) if (FACES[id] === key && BLOCK_MATS[id] && BLOCK_MATS[id].map) ts.add(BLOCK_MATS[id].map); } catch (_) {}
+      if (texImg[key] !== c) { texImg[key] = c; css(key, c); }
+      for (const t of ts) if (t.image !== c) { t.image = c; t.needsUpdate = true; }
+    }
+    return true;
+  }
+  U.pass = pass; U.paint = paint;
+  // keep our versions in place even if an older recolour pass runs late
+  let tries = 0; const iv = setInterval(() => { try { pass(); } catch (e) { console.warn('c107', e); } if (++tries > 150) clearInterval(iv); }, 500);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -18254,7 +18343,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.87', d:'2026-10-25', notes:['Zombies and skeletons spot you from about 32 blocks away, but only with a clear line of sight - behind walls or over a hill they only notice you up close (about 7 blocks), and they give up a few seconds after losing sight of you','Zombies hit harder (still never a one-shot) and every hit knocks you back with a little pop into the air; imps and demon hounds knock you back too','Skeletons loose an arrow about every second, still dead on target, with the bow arm held straight out at shoulder height, the string hand pulled back to the chest, and a kick on every release','Mobs can no longer walk inside you: zombies, Treemen and the rest stop at arm\'s length and get pushed out if they overlap, and they attack from there','Treeman grab: he holds you at arm\'s length in front of his face, tilts his head up to look you in the eye while you face him, his eyes blaze and his brow and mouth turn furious for a death stare, then he hurls you two to three times higher and further than before - the landing hurts but can never kill you from full health']},
+ {v:'v0.9.88', d:'2026-10-25', notes:['New Glencraft ore textures, drawn in code over the game\'s own stone at full 4K UHD texture resolution:','Iron ore: chunky peach-tan nuggets with dark rusty edges','Silver ore: bright, cool white-silver droplets with shiny highlights and a hint of blue (matches the silver droplet icon)','Gold ore: rich yellow-gold nuggets with orange shading and bright sparkles','Cobalt ore: deep royal-blue crystal shards with cyan facet highlights','Lazurite ore: speckled dark-blue flecks, so it never looks like cobalt']},
+{v:'v0.9.87', d:'2026-10-25', notes:['Zombies and skeletons spot you from about 32 blocks away, but only with a clear line of sight - behind walls or over a hill they only notice you up close (about 7 blocks), and they give up a few seconds after losing sight of you','Zombies hit harder (still never a one-shot) and every hit knocks you back with a little pop into the air; imps and demon hounds knock you back too','Skeletons loose an arrow about every second, still dead on target, with the bow arm held straight out at shoulder height, the string hand pulled back to the chest, and a kick on every release','Mobs can no longer walk inside you: zombies, Treemen and the rest stop at arm\'s length and get pushed out if they overlap, and they attack from there','Treeman grab: he holds you at arm\'s length in front of his face, tilts his head up to look you in the eye while you face him, his eyes blaze and his brow and mouth turn furious for a death stare, then he hurls you two to three times higher and further than before - the landing hurts but can never kill you from full health']},
 {v:'v0.9.86', d:'2026-10-25', notes:['Cobalt tools (pickaxe, axe, sword, shovel, hoe) can no longer be crafted - they are still in creative','New: Reset world button in the pause menu, with an in-game "Are you sure?" (Yes / No, B = No) - it never leaves fullscreen','Resetting is a live event: you float up, watch the old land fall away chunk by chunk, then watch a brand-new world (new seed, castles, islands) build in around you before you drift down to the new spawn','You keep your whole inventory, armour, off-hand and XP, with full health and hunger; the old world, its backups and its other dimensions are wiped for good']},
 {v:'v0.9.85', d:'2026-10-25', notes:['Ores by depth (new worlds): coal and iron everywhere from the surface to bedrock, silver at every depth, lapis in the lower third, gold just above the diamonds, diamonds only in the bottom 10 blocks - and coal, iron, silver, gold and lapis are all still there right down by the bedrock','Caves show their ore: coal, iron and silver seams on cave walls, floors and ceilings (about 4x more visible iron and coal per cave)','Raw silver has a new icon: a little cluster of shiny droplets','Spiders at night: blocky eight-legged spiders with red eyes hunt you on the surface at night and in dark caves, climb walls, leap at you and drop String (4 String = 1 Wool)','Nights are no longer pitch dark: moonlit blue sky with stars, but the land, mobs and you stay clearly visible (all graphics presets, Photo-real too); caves stay dim but never black','New painted sky with drifting clouds that fade from day to sunset to night and back. Sky textures: Screaming Brain Studios (CC0)']},
 {v:'v0.9.84', d:'2026-10-25', notes:['Spawn island trees are real logs and leaves now (they were planks)','No more coloured wool on the island (the blue by the skull lava is gone) - it uses natural Glencraft blocks: grass, dirt, sand, stone, moss','Deeper sea, sandy beaches and softer island edges','Existing island worlds are refreshed too - only blocks you never touched, your builds are safe','Days and nights last 3 times longer (18 min for a full day); sleeping still skips the night','Zombies are faster and hunch, lurch and claw at you with mocap-style arms','Skeletons chase you, stop about 4 blocks away, hold the bow out, creak as they draw, twang and fire with near-perfect aim (a shot every 1.5-2 s)','Black skeletons swing proper saber cuts','The tartan kilt item has been removed (any you had are gone; your character still wears a kilt)','Cobalt armour can no longer be crafted (pieces you already have stay; cobalt tools unchanged)']},
