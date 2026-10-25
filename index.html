@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0988a -->
+<!-- glencraft-build: v0989a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.88';
+const GAME_VERSION = 'v0.9.89';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -13846,7 +13846,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     // skylight scales sun + sky light only; torch point lights stay full; baked block light glows warm (flickers)
     const LB = THREE.ShaderChunk.lights_fragment_begin.replace(/getDirectionalLightInfo\( directionalLight, directLight \);/g, '$& directLight.color *= vLitS;');
     f = f.replace('#include <lights_fragment_begin>', LB).replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n reflectedLight.indirectDiffuse *= vLitS;');
-    f = f.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * vec3(1.0, 0.6, 0.3) * vLitB * uFlick * 0.6;');
+    f = f.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance += diffuseColor.rgb * (vec3(1.0, 0.74, 0.46) * vLitB * uFlick * 0.9 + vec3(0.2 * (1.0 - vLitS)));');
     sh.fragmentShader = f; }
   const patched = new Set();
   const patchMat = m => { if (!m || patched.has(m) || m.transparent || !(m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return; patched.add(m); const prev = m.onBeforeCompile; m.onBeforeCompile = function (sh, r) { if (prev && prev !== aoPatch) prev.call(this, sh, r); aoPatch(sh); }; m.customProgramCacheKey = () => 'ao3'; m.needsUpdate = true; };
@@ -13856,7 +13856,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const AOL = [0, 0.16, 0.27, 0.38];
   // ---- GLX-C70 per-block light (Minecraft-like): skylight comes down from each column's top and floods sideways/down openings, falling off per block; block light from torches/lava/lamps ----
   const LSRC = new Uint8Array(256); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
-  const LM = 8, SFALL = 2, BFALL = 2, RS = CH + LM * 2;
+  const LM = 14, SFALL = 1, BFALL = 1, RS = CH + LM * 2; const LATT = window.__LATT = new Uint8Array(256); try { LATT[T.WATER] = 1; for (let i = 0; i < 256; i++) if (LEAFY[i]) LATT[i] = 1; LATT[T.LEAVES] = 1; LATT[134] = 1; } catch (_) {}
   let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
   let LX0 = 0, LZ0 = 0;
   const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
@@ -13864,7 +13864,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     while (h < qn) { const c = LQ[h++], l = A[c] - fall; if (l <= 0) continue; const y = c % H, cc = (c - y) / H, rz = cc % RS, rx = (cc - rz) / RS;
       for (let k = 0; k < 6; k++) { let nx = rx, ny = y, nz = rz; if (k === 0) nx++; else if (k === 1) nx--; else if (k === 2) nz++; else if (k === 3) nz--; else if (k === 4) ny++; else ny--;
         if (nx < 0 || nz < 0 || nx >= RS || nz >= RS || ny < 0 || ny >= H) continue; const ci = (nx * RS + nz) * H + ny;
-        if (A[ci] >= l) continue; if (useTop && ny > LTOP[nx * RS + nz]) continue; if (lop(LX0 + nx, ny, LZ0 + nz)) continue; A[ci] = l; LQ[qn++] = ci; } } }
+        const wx = LX0 + nx, wz = LZ0 + nz, wv = (wx < 0 || wz < 0 || wx >= W || wz >= D) ? 0 : world[(wx * H + ny) * D + wz]; if (wv !== 0 && !chunkST[wv]) continue; const l2 = l - LATT[wv]; if (l2 <= 0 || A[ci] >= l2) continue; if (useTop && ny > LTOP[nx * RS + nz]) continue; A[ci] = l2; LQ[qn++] = ci; } } }
   function lightRegion(cx, cz) { if (LH !== H) { LH = H; LSKY = new Uint8Array(RS * RS * H); LBLK = new Uint8Array(RS * RS * H); LQ = new Int32Array(RS * RS * H * 2); } const _t = [performance.now()]; LX0 = cx * CH - LM; LZ0 = cz * CH - LM; LSKY.fill(0); LBLK.fill(0);
     for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) { const x = LX0 + rx, z = LZ0 + rz; let t = -1;
       if (x >= 0 && z >= 0 && x < W && z < D) { const b0 = (x * H) * D + z; for (let y = H - 1; y >= 0; y--) { const v = world[b0 + y * D]; if (v !== 0 && !chunkST[v]) { t = y; break; } } }
@@ -13882,7 +13882,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
       for (let y = 0; y <= yt; y++) { const v = world[b0 + y * D]; if (v && LSRC[v]) { LBLK[o + y] = LSRC[v]; LQ[qn++] = o + y; } } } }
     _t.push(performance.now()); if (qn) flood(LBLK, qn, BFALL, false); _t.push(performance.now()); window.__ltT = _t.map((v, i) => i ? (v - _t[i - 1]).toFixed(1) : 0).concat([q1, qn]); }
   // light (0..1) of one cell in the current region; opaque cells return -1 (ignored when smoothing)
-  const LCURVE = new Float32Array(16), BCURVE = new Float32Array(16); for (let i = 0; i < 16; i++) { const f = i / 15; LCURVE[i] = 0.14 + 0.86 * Math.pow(f, 1.4); BCURVE[i] = Math.pow(f, 1.5); }
+  const LCURVE = new Float32Array(16), BCURVE = new Float32Array(16); for (let i = 0; i < 16; i++) { const f = i / 15; LCURVE[i] = Math.pow(f, 1.4); BCURVE[i] = Math.pow(f, 1.4); }
   function cellL(x, y, z) { if (y >= H) return 1; if (y < 0) return -1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1;
     if (lop(x, y, z)) return -1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
   function cellLo(x, y, z) { if (y >= H) return 1; if (y < 0) return 0.1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
@@ -13908,7 +13908,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
           else { x1 = ax + sx; y1 = ay; z1 = az; x2 = ax; y2 = ay + sy; z2 = az; x3 = ax + sx; y3 = ay + sy; z3 = az; }
           const s1 = op(gb(x1, y1, z1)), s2 = op(gb(x2, y2, z2)), cr = op(gb(x3, y3, z3));
           // smooth light: average the face cell with the cells around this corner that are not solid
-          let sum = l0 < 0 ? 0.14 : l0, bs = b0, cnt = 1;
+          let sum = l0 < 0 ? 0 : l0, bs = b0, cnt = 1;
           if (!s1) { sum += cellLo(x1, y1, z1); bs += cB; cnt++; } if (!s2) { sum += cellLo(x2, y2, z2); bs += cB; cnt++; } if (!cr && !(s1 && s2)) { sum += cellLo(x3, y3, z3); bs += cB; cnt++; }
           const aoV = FANCY ? AOL[s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (cr ? 1 : 0)] : 0;
           ao[f + v] = aoV * 255 + 0.5; ls[f + v] = Math.max(1, sum / cnt * 255 + 0.5); lb[f + v] = bs / cnt * 255 + 0.5; we[f + v] = open * 255; } }
@@ -15366,7 +15366,7 @@ var __TA = null;
 #include <lights_pars_begin>
 #include <fog_pars_vertex>
 attribute float lay; attribute float aoD; attribute float wetE; attribute float litS; attribute float litB;
-uniform vec3 uEm[${NEM}]; uniform float uEmL[${NEM}]; uniform float uWet; uniform float uFlick;
+uniform vec3 uEm[${NEM}]; uniform float uEmL[${NEM}]; uniform float uWet; uniform float uFlick; uniform float uLMin;
 varying vec3 vUvL; varying vec3 vDif; varying vec3 vEm;
 void main() {
   #include <begin_vertex>
@@ -15388,7 +15388,8 @@ void main() {
   #endif
   float ls = litS > 0.0 ? litS : 1.0;
   float k = (1.0 - aoD) * (1.0 - 0.28 * uWet * wetE);
-  vDif = k * (dir + ind * RECIPROCAL_PI * ls + vec3(1.0, 0.6, 0.3) * litB * uFlick * 0.6);
+  vec3 skL = dir * ls + ind * RECIPROCAL_PI * ls, blL = vec3(1.0, 0.74, 0.46) * litB * uFlick * 1.05;
+  vDif = k * max(max(skL, blL), vec3(uLMin));
   vEm = vec3(0.0); for (int i = 0; i < ${NEM}; i++) if (abs(uEmL[i] - lay) < 0.5) vEm = uEm[i];
 }`;
   const FS = `
@@ -15406,7 +15407,7 @@ void main() {
 }`;
   const mat = new THREE.ShaderMaterial({uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.lights, THREE.UniformsLib.fog, {uEm: {value: uEm}, uEmL: {value: uEmL}}]), vertexShader: VS, fragmentShader: FS, lights: true, fog: true});
   mat.uniforms.uArr = {value: tex}; mat.uniforms.uWet = window.__wetU || {value: 0}; mat.uniforms.uFlick = window.__flickU || {value: 1}; mat.uniforms.uEm.value = uEm; mat.uniforms.uEmL.value = uEmL;
-  mat.userData.tmat = 1;
+  mat.userData.tmat = 1; mat.uniforms.uLMin = window.__lminU || (window.__lminU = {value: 0.3});
   alloc(PHONE ? 24 : 40);
   // emissive (diamond glint, redstone glow, ruby...) follows the original materials every frame
   const syncEm = () => { for (let i = 0; i < NEM; i++) { const L = EM[i]; if (!L) { uEmL[i] = -1; continue; } const m = L.m, e = m.emissive; uEmL[i] = L.i; if (e) uEm[i].set(e.r, e.g, e.b).multiplyScalar(m.emissiveIntensity === undefined ? 1 : m.emissiveIntensity); else uEm[i].set(0, 0, 0); } };
@@ -18333,6 +18334,26 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // keep our versions in place even if an older recolour pass runs late
   let tries = 0; const iv = setInterval(() => { try { pass(); } catch (e) { console.warn('c107', e); } if (++tries > 150) clearInterval(iv); }, 500);
 })();
+
+/* ===================== GLX-C108 (v0.9.89): Minecraft-style block + sky light ===================== */
+(function c108() {
+  const U = window.__c108 = {wide: 0};
+  // the baked voxel light replaces the old fake torch point lights (fewer real lights = faster); the held torch keeps its own light
+  try { for (const l of torchLights) { l.intensity = 0; scene.remove(l); } torchLights.length = 0; } catch (e) { console.warn('c108 lights', e); }
+  // never pitch black: a minimum brightness everywhere (a bit higher in Hell and the Backrooms)
+  const LM = window.__lminU || (window.__lminU = {value: 0.3});
+  setInterval(() => { try { LM.value = DIM.cur === 'hell' ? 0.42 : DIM.cur === 'backrooms' ? 0.36 : 0.28; } catch (_) {} }, 500);
+  // torches and other lights shine 14-15 blocks now, so placing / breaking one re-lights the chunks around it too
+  const SRC = new Set([T.TORCH, T.LAVA, T.LAVAB, T.GLOWROCK, T.LAMP, T.QLANTERN, T.FIRE].filter(v => v !== undefined));
+  const sb = setB;
+  setB = function (x, y, z, v) {
+    let old = 0; try { if (x >= 0 && z >= 0 && x < W && z < D && y >= 0 && y < H) old = world[(x * H + y) * D + z]; } catch (_) {}
+    const r = sb.apply(this, arguments);
+    try { if (started && old !== v && (SRC.has(old) || SRC.has(v))) { U.wide++; const cx = Math.floor(x / CH), cz = Math.floor(z / CH), lx = x - cx * CH, lz = z - cz * CH;
+      for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { if ((a < 0 && lx > 13) || (a > 0 && lx < 2) || (b < 0 && lz > 13) || (b > 0 && lz < 2)) continue; const X = cx + a, Z = cz + b; if (X >= 0 && Z >= 0 && X * CH < W && Z * CH < D) dirtyCh.add(X * 64 + Z); } } } catch (_) {}
+    return r;
+  };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -18344,7 +18365,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.88', d:'2026-10-25', notes:['New Glencraft ore textures, drawn in code over the game\'s own stone at the game\'s full texture resolution:','Iron ore: chunky peach-tan nuggets with dark rusty edges','Silver ore: bright, cool white-silver droplets with shiny highlights and a hint of blue (matches the silver droplet icon)','Gold ore: rich yellow-gold nuggets with orange shading and bright sparkles','Cobalt ore: deep royal-blue crystal shards with cyan facet highlights','Lazurite ore: speckled dark-blue flecks, so it never looks like cobalt','Quick torch: holding a tool, weapon, other non-placeable item or an empty hand, LT on a floor or wall places a torch from your hotbar without switching slots. Blocks still place as normal, and trading, bows, food, buckets and so on still work the same']},
+ {v:'v0.9.89', d:'2026-10-25', notes:['New Minecraft-style lighting: every block has its own block light and sky light, and both fade by one level per block, so torches now light a proper diamond-shaped glow','Torches give light level 14. Lava, fire, glowrock, lamps and lanterns give 15. Water and leaves dim light a little as it passes through','Placing or breaking a torch re-lights the area around it, including the next chunks over','Brightness is the stronger of torch light (warm) and daylight. Day and night only change the sky part, so the world never has to rebuild at sunset','Caves and closed rooms are darker now, so torches matter, but nothing is ever pitch black. Nights stay easy to see with the same dark blue sky, moon and stars. Hell and the Backrooms get a bit more base light','Smooth lighting and corner shading are worked out when a chunk is built. The old torch point lights are gone (faster), and a torch in your hand still lights up around you','Light is worked out chunk by chunk as the world loads, with no extra wait on the load bar']},
+{v:'v0.9.88', d:'2026-10-25', notes:['New Glencraft ore textures, drawn in code over the game\'s own stone at the game\'s full texture resolution:','Iron ore: chunky peach-tan nuggets with dark rusty edges','Silver ore: bright, cool white-silver droplets with shiny highlights and a hint of blue (matches the silver droplet icon)','Gold ore: rich yellow-gold nuggets with orange shading and bright sparkles','Cobalt ore: deep royal-blue crystal shards with cyan facet highlights','Lazurite ore: speckled dark-blue flecks, so it never looks like cobalt','Quick torch: holding a tool, weapon, other non-placeable item or an empty hand, LT on a floor or wall places a torch from your hotbar without switching slots. Blocks still place as normal, and trading, bows, food, buckets and so on still work the same']},
 {v:'v0.9.87', d:'2026-10-25', notes:['Zombies and skeletons spot you from about 32 blocks away, but only with a clear line of sight - behind walls or over a hill they only notice you up close (about 7 blocks), and they give up a few seconds after losing sight of you','Zombies hit harder (still never a one-shot) and every hit knocks you back with a little pop into the air; imps and demon hounds knock you back too','Skeletons loose an arrow about every second, still dead on target, with the bow arm held straight out at shoulder height, the string hand pulled back to the chest, and a kick on every release','Mobs can no longer walk inside you: zombies, Treemen and the rest stop at arm\'s length and get pushed out if they overlap, and they attack from there','Treeman grab: he holds you at arm\'s length in front of his face, tilts his head up to look you in the eye while you face him, his eyes blaze and his brow and mouth turn furious for a death stare, then he hurls you two to three times higher and further than before - the landing hurts but can never kill you from full health']},
 {v:'v0.9.86', d:'2026-10-25', notes:['Cobalt tools (pickaxe, axe, sword, shovel, hoe) can no longer be crafted - they are still in creative','New: Reset world button in the pause menu, with an in-game "Are you sure?" (Yes / No, B = No) - it never leaves fullscreen','Resetting is a live event: you float up, watch the old land fall away chunk by chunk, then watch a brand-new world (new seed, castles, islands) build in around you before you drift down to the new spawn','You keep your whole inventory, armour, off-hand and XP, with full health and hunger; the old world, its backups and its other dimensions are wiped for good']},
 {v:'v0.9.85', d:'2026-10-25', notes:['Ores by depth (new worlds): coal and iron everywhere from the surface to bedrock, silver at every depth, lapis in the lower third, gold just above the diamonds, diamonds only in the bottom 10 blocks - and coal, iron, silver, gold and lapis are all still there right down by the bedrock','Caves show their ore: coal, iron and silver seams on cave walls, floors and ceilings (about 4x more visible iron and coal per cave)','Raw silver has a new icon: a little cluster of shiny droplets','Spiders at night: blocky eight-legged spiders with red eyes hunt you on the surface at night and in dark caves, climb walls, leap at you and drop String (4 String = 1 Wool)','Nights are no longer pitch dark: moonlit blue sky with stars, but the land, mobs and you stay clearly visible (all graphics presets, Photo-real too); caves stay dim but never black','New painted sky with drifting clouds that fade from day to sunset to night and back. Sky textures: Screaming Brain Studios (CC0)']},
