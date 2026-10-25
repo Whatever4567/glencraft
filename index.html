@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0979d -->
+<!-- glencraft-build: v0980d -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.79';
+const GAME_VERSION = 'v0.9.80';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -2021,8 +2021,9 @@ function mobPhysics(a, dt) {
   } else a.onGround = false;
 }
 function turnToward(cur, target, step) {
-  let d = target - cur;
-  while (d > Math.PI) d -= Math.PI * 2;
+  if (!isFinite(cur)) cur = isFinite(target) ? target : 0; if (!isFinite(target)) target = cur;   // v0.9.80: a broken angle can no longer spin this loop forever
+  let d = target - cur; if (Math.abs(d) > 20) d = d % (Math.PI * 2);
+  if (!isFinite(d)) d = 0; else if (Math.abs(d) > 20) d %= 6.283185307179586; while (d > Math.PI) d -= Math.PI * 2;
   while (d < -Math.PI) d += Math.PI * 2;
   return cur + clamp(d, -step, step);
 }
@@ -2277,7 +2278,7 @@ function updateMobs(dt) {
     // little signs of life: breathing, and passive animals glance at you when you are close
     if (a.kind !== 'puffer') a.g.scale.y = 1 + Math.sin(performance.now() / 450 + a.walk) * 0.012;
     if (!a.hostile && a.head && a.kind !== 'treeman' && a.kind !== 'sheep' && a.kind !== 'clansman' && dist < 5 && !a.moving) {
-      let rel = Math.atan2(dpx, dpz) - (a.yawVis || 0); while (rel > Math.PI) rel -= 6.283; while (rel < -Math.PI) rel += 6.283;
+      let rel = Math.atan2(dpx, dpz) - (a.yawVis || 0); if (!isFinite(rel)) rel = 0; else if (Math.abs(rel) > 20) rel %= 6.283185307179586; while (rel > Math.PI) rel -= 6.283; while (rel < -Math.PI) rel += 6.283;
       a.head.rotation.y += (clamp(rel, -0.8, 0.8) - a.head.rotation.y) * Math.min(1, dt * 4);
     }
     if (a.arms.length && a.kind !== 'treeman' && a.kind !== 'clansman') {
@@ -2307,7 +2308,7 @@ function updateMobs(dt) {
       a.head.rotation.x = graze * 0.9 + (a.moving ? Math.sin(a.walk * 2) * 0.05 : 0);
       if (a.grazeT < 0.8 && !a.ate && !a.moving) { a.ate = true; sheepGraze(a, dt); }
       if (a.grazeT < 0) { a.grazeT = 3 + Math.random() * 5; a.ate = false; }
-      if (!a.moving && dist < 5) { let rel = Math.atan2(dpx, dpz) - (a.yawVis || 0); while (rel > Math.PI) rel -= 6.283; while (rel < -Math.PI) rel += 6.283; a.head.rotation.y += (clamp(rel, -0.7, 0.7) * (1 - graze) - a.head.rotation.y) * Math.min(1, dt * 3); }
+      if (!a.moving && dist < 5) { let rel = Math.atan2(dpx, dpz) - (a.yawVis || 0); if (!isFinite(rel)) rel = 0; else if (Math.abs(rel) > 20) rel %= 6.283185307179586; while (rel > Math.PI) rel -= 6.283; while (rel < -Math.PI) rel += 6.283; a.head.rotation.y += (clamp(rel, -0.7, 0.7) * (1 - graze) - a.head.rotation.y) * Math.min(1, dt * 3); }
     }
     if (a.kind === 'haggis' && a.body) {
       const tn = performance.now() / 1000;
@@ -4227,12 +4228,12 @@ function rebuild(budget) {
   let ids = [...dirtyCh];
   if (budget) { const pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5; ids.sort((a, b) => Math.hypot(Math.floor(a / 64) - pcx, a % 64 - pcz) - Math.hypot(Math.floor(b / 64) - pcx, b % 64 - pcz)); }
   const tB = performance.now();
-  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); console.error("chunk build failed, skipped", id, e); } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
   syncCauldrons(all[T.CAULDRON] || []);
-  try { syncEntities(all); } catch (e) { if (!window.__entErr) { window.__entErr = String(e && e.stack || e); console.error("syncEntities", e); } }
+  try { syncEntities(all); } catch (e) { if (!window.__entErr) { window.__entErr = String(e && e.stack || e); try { loadErr("entities", e); } catch (_) {} } }
 }
 
 // --- sky dome with a glowing sun halo, stars and a moon that is full every few nights ---
@@ -4774,7 +4775,7 @@ function updateHand(dt, moving) {
   px += Math.cos(walkPhase) * 0.025 * bobAmt; py -= (0.5 - 0.5 * Math.cos(2 * walkPhase)) * 0.03 * bobAmt + Math.sin(now * 1.7) * 0.004;
   rz += Math.sin(walkPhase) * 0.03 * bobAmt;
   // the arm lags behind when you turn your head
-  let dyaw = P.yaw - lookYaw0; while (dyaw > Math.PI) dyaw -= 6.283; while (dyaw < -Math.PI) dyaw += 6.283;
+  let dyaw = P.yaw - lookYaw0; if (!isFinite(dyaw)) dyaw = 0; else if (Math.abs(dyaw) > 20) dyaw %= 6.283185307179586; while (dyaw > Math.PI) dyaw -= 6.283; while (dyaw < -Math.PI) dyaw += 6.283;
   const dpit = P.pitch - lookPitch0; lookYaw0 = P.yaw; lookPitch0 = P.pitch;
   swayX = clamp(swayX * Math.exp(-dt * 9) + dyaw * 0.9, -0.12, 0.12); swayY = clamp(swayY * Math.exp(-dt * 9) + dpit * 0.9, -0.1, 0.1);
   px += swayX * 0.5; py -= swayY * 0.4; ry += swayX * 1.2; rx -= swayY;
@@ -5578,8 +5579,21 @@ async function playWorld(w) {
 }
 // animated loading screen while the world is prepared
 const LOAD_STEPS = ['Raising the mountains', 'Carving the Old Gate', 'Hiding coal, copper, iron and gold', 'Planting thistles and bluebells', 'Waking the haggis', 'Lighting the hearth'];
+// v0.9.80: load diagnostics - version, last step and any error on the loading screen; the step is also kept in localStorage so a frozen load is caught on the next start
+function loadStep(st) {
+  try { window.__loadStepName = st; const el = document.getElementById('loadDbg'); if (el) el.textContent = GAME_VERSION + ' - ' + st + (window.__loadErrTxt ? ' - error: ' + window.__loadErrTxt : ''); } catch (_) {}
+  try { if (current && current.id) localStorage.setItem('glen_load', JSON.stringify({id: current.id, name: current.name, step: st, t: Date.now(), v: GAME_VERSION, safe: !!window.__safeLoad})); } catch (_) {}
+}
+function loadErr(where, e) { try { window.__loadErrTxt = (where + ': ' + (e && e.message || e)).slice(0, 160); console.error('load: ' + where, e); loadStep(window.__loadStepName || '?'); } catch (_) {} }
 function enterWorld(save) {
-  showScreen('loading');   // the soundtrack keeps playing through loading and into the world
+  showScreen('loading');
+  try { let el = document.getElementById('loadDbg'); const host = document.getElementById('loadPct');
+    if (!el && host && host.parentNode) { el = document.createElement('div'); el.id = 'loadDbg'; el.style.cssText = 'font:11px/1.3 system-ui,sans-serif;opacity:.75;margin-top:6px;max-width:90vw;word-break:break-word'; host.parentNode.insertBefore(el, host.nextSibling); }
+    let sb = document.getElementById('loadSafeBtn'); if (!sb && host && host.parentNode) { sb = document.createElement('button'); sb.id = 'loadSafeBtn'; sb.textContent = 'Load safe mode'; sb.style.cssText = 'display:none;margin:10px auto 0;padding:8px 16px;font:600 14px system-ui,sans-serif;border-radius:10px';
+      sb.onclick = () => { try { localStorage.setItem('glen_safe', current.id); } catch (_) {} location.reload(); }; host.parentNode.insertBefore(sb, el ? el.nextSibling : host.nextSibling); }
+    if (sb) { sb.style.display = 'none'; clearTimeout(enterWorld._sbT); enterWorld._sbT = setTimeout(() => { if (screen === 'loading') sb.style.display = 'block'; }, 15000); }
+  } catch (_) {}
+  window.__loadErrTxt = ''; loadStep('start' + (window.__safeLoad ? ' (safe mode)' : ''));   // the soundtrack keeps playing through loading and into the world
   const bar = $('loadW').firstChild, tip = $('loadTip'), pct = $('loadPct');
   let i = 0, shown = 0, target = 0, t0 = performance.now(), ready = false;
   // GLX-B3: the bar eases toward the real progress and only finishes when every chunk mesh around spawn is built and the GPU has compiled it
@@ -5588,18 +5602,22 @@ function enterWorld(save) {
   const chunksReady = () => {
     if (dirtyAll) return false;
     const pcx = Math.floor(P.x / CH), pcz = Math.floor(P.z / CH);
-    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const cx = pcx + a, cz = pcz + b; if (cx < 0 || cz < 0 || cx * CH >= W || cz * CH >= D) continue; if (!chunkObjs.has(cx * 64 + cz)) return false; }
-    return true;
+    let need = 0, got = 0;
+    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const cx = pcx + a, cz = pcz + b; if (cx < 0 || cz < 0 || cx * CH >= W || cz * CH >= D) continue; need++; if (chunkObjs.has(cx * 64 + cz)) got++; }
+    chunksReady.need = need; chunksReady.got = got;
+    return got >= need;
   };
   const tick = setInterval(() => {
     if (i <= LOAD_STEPS.length) i++;
-    if (!ready) target = Math.min(i, LOAD_STEPS.length) / (LOAD_STEPS.length + 1) * 100;
+    if (!ready && i <= LOAD_STEPS.length) target = Math.min(i, LOAD_STEPS.length) / LOAD_STEPS.length * 70;   // v0.9.80: steps fill 0-70%, building the land 70-99%
     if (!ready) tip.textContent = LOAD_STEPS[Math.min(i, LOAD_STEPS.length - 1)] + '...';
+    try { const ld = JSON.parse(localStorage.getItem('glen_load') || 'null'); if (ld) { ld.hb = Date.now(); localStorage.setItem('glen_load', JSON.stringify(ld)); } } catch (_) {}
     if (i === 2) {
+      loadStep('restoring the save');
       // reset the menu backdrop creatures and load / start the world
       try { mobs.slice().forEach(removeMob); } catch (e) { console.error('load: clearing menu mobs', e); }
-      if (save) { try { applySave(save); } catch (e) { console.error('load: applySave', e); } } else { if (W !== NEW_W) { setWorldSize(NEW_W); generate(); placeTrees(); placeDecor(); dirtyAll = true; } spawnPlayer(); P.yaw = Math.atan2(-(13 - 8), -(9.5 - 8)); P.pitch = 0; }
-      try { if (!save) MODE.hotbar = null; } catch (e) { console.error('load step', e); }
+      if (save) { try { applySave(save); } catch (e) { loadErr('applySave', e); } } else { if (W !== NEW_W) { setWorldSize(NEW_W); generate(); placeTrees(); placeDecor(); dirtyAll = true; } spawnPlayer(); P.yaw = Math.atan2(-(13 - 8), -(9.5 - 8)); P.pitch = 0; }
+      loadStep('player, hotbar and animals'); try { if (!save) MODE.hotbar = null; } catch (e) { console.error('load step', e); }
       try { if (current.mode === 'creative' && typeof installCreative === 'function') installCreative(); } catch (e) { console.error('load step', e); }
       try { if (save && current.mode !== 'creative' && !save.inv) addItem(T.DIRT, 8); } catch (e) { console.error('load step', e); }
       try { ensureHotbar(); } catch (e) { console.error('load step', e); }
@@ -5610,12 +5628,16 @@ function enterWorld(save) {
       try { refreshArmour(); } catch (e) { console.error('load step', e); }
     }
     if (i > LOAD_STEPS.length && !ready) {
-      let cr = false; try { cr = chunksReady(); } catch (e) { console.error('load: chunksReady', e); cr = true; }
+      let cr = false; try { cr = chunksReady(); } catch (e) { loadErr('chunksReady', e); cr = true; }
+      const cn = chunksReady.need || 25, cg = chunksReady.got || 0; target = Math.max(target, 70 + 29 * cg / Math.max(1, cn)); tip.textContent = 'Building the land around you... ' + cg + '/' + cn;
+      loadStep('building the land ' + cg + '/' + cn + ' (' + Math.round((performance.now() - t0) / 1000) + ' s)');
+      if (!enterWorld._fb) { enterWorld._fb = 1; const fb = () => { if (screen !== 'loading' || ready) { enterWorld._fb = 0; return; } try { if (dirtyAll || dirtyCh.size) rebuild(25); } catch (e) {} requestAnimationFrame(fb); }; requestAnimationFrame(fb); }   // keep meshing between ticks so the land is ready sooner
       if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(); } catch (e) { console.error('load: full rebuild', e); } }
       if (!cr && performance.now() - t0 >= 45000) { console.error('load: gave up waiting for the land, entering anyway'); window.__loadSafe = 1; }
-      if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { console.error('load: rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } tip.textContent = 'Building the land around you...'; return; }
-      ready = true;
-      try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) { console.error('load: first render', e); }
+      if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { loadErr('rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } return; }
+      ready = true; loadStep('first render');
+      try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) { loadErr('first render', e); }
+      loadStep('entering the world');
       target = 100; tip.textContent = 'Ready!';
       return;
     }
@@ -5625,7 +5647,7 @@ function enterWorld(save) {
       started = true; lastAutosave = performance.now();
       if (!touchMode) { try { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {} }
       if (!save) saveWorld(true);
-      enterWorld._rs = 0; if (save) toast(window.__loadSafe ? 'Loaded ' + current.name + ' (some parts were skipped - the world is safe)' : 'Welcome back to ' + current.name);
+      enterWorld._rs = 0; clearTimeout(enterWorld._sbT); try { localStorage.removeItem('glen_load'); } catch (_) {} if (save) toast(window.__loadSafe ? 'Loaded ' + current.name + ' (some parts were skipped - the world is safe)' : 'Welcome back to ' + current.name);
     }
   }, 420);
 }
@@ -7802,12 +7824,12 @@ rebuild = function (budget) {
   rebuild._unloaded = false;
   ids.sort((a, b) => dist(a) - dist(b));
   const tB = performance.now();
-  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); console.error("chunk build failed, skipped", id, e); } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
   syncCauldrons(all[T.CAULDRON] || []);
-  try { syncEntities(all); } catch (e) { if (!window.__entErr) { window.__entErr = String(e && e.stack || e); console.error("syncEntities", e); } }
+  try { syncEntities(all); } catch (e) { if (!window.__entErr) { window.__entErr = String(e && e.stack || e); try { loadErr("entities", e); } catch (_) {} } }
 };
 (function streamTick() {
   // walking into new ground: queue a rebuild pass even when nothing was edited
@@ -15431,7 +15453,7 @@ var C78 = {castles: new Map(), saved: {}, doors: [], stats: {paths: 0, nodes: 0,
     a.glanceCd = (a.glanceCd || 0) - dt; if (a.glanceT > 0) a.glanceT -= dt;
     if (dist < 4.5 && a.glanceCd <= 0 && !a.act) { a.glanceT = 1.0 + Math.random() * 0.7; a.glanceCd = 9 + Math.random() * 9; }
     let yaw = 0, pitch = 0;
-    const rel = v => { while (v > Math.PI) v -= 6.283; while (v < -Math.PI) v += 6.283; return v; };
+    const rel = v => { if (!isFinite(v)) return 0; if (Math.abs(v) > 20) v = v % 6.283; if (!isFinite(v)) v = 0; else if (Math.abs(v) > 20) v %= 6.283185307179586; while (v > Math.PI) v -= 6.283; while (v < -Math.PI) v += 6.283; return v; };
     if (a.glanceT > 0 && dist < 7) { const p = a.g.position; yaw = clamp(rel(Math.atan2(P.x - p.x, P.z - p.z) - a.yawVis), -0.9, 0.9); pitch = -clamp(Math.atan2(P.y + 1.5 - p.y - 1.7, Math.max(1, dist)), -0.5, 0.5); }
     else if (a.moving) { yaw = clamp(rel(a.ang - (a.yawVis || 0)), -0.7, 0.7); pitch = 0.08; }
     else if (a.act === 'dig' || a.act === 'hoe' || a.act === 'cook') pitch = 0.45;
@@ -17046,13 +17068,13 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
       pup = new THREE.MeshLambertMaterial({color: 0x101418}), lidM = new THREE.MeshLambertMaterial({color: 0xd29a74});
     o.mats.push(white, iris, pup, lidM); o.eyes = [];
     [-1, 1].forEach((sx, i) => {
-      const g = new THREE.Group(); g.position.set(sx * 0.109, 0.27, 0.251); o.head.add(g);
+      const g = new THREE.Group(); g.position.set(sx * 0.109, 0.27, 0.257); o.head.add(g);
       const w = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.004), white); g.add(w);
       const ir = new THREE.Mesh(new THREE.BoxGeometry(0.046, 0.054, 0.004), iris); ir.position.z = 0.003; g.add(ir);
       const p = new THREE.Mesh(new THREE.BoxGeometry(0.024, 0.032, 0.004), pup); p.position.z = 0.003; ir.add(p);
       const hl = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.009, 0.004), white); hl.position.set(-0.008, 0.01, 0.005); ir.add(hl);
       const lg = new THREE.BoxGeometry(0.106, 0.066, 0.006); lg.translate(0, -0.033, 0);
-      const lid = new THREE.Mesh(lg, lidM); lid.position.set(0, 0.033, 0.007); lid.scale.y = 0.02; g.add(lid);
+      const lid = new THREE.Mesh(lg, lidM); lid.position.set(0, 0.033, 0.007); lid.scale.y = 0.02; lid.visible = false; g.add(lid);
       o.eyes.push({ir, lid}); o['_ew' + i] = w; o['_ei' + i] = ir; o['_ep' + i] = p; o['_eh' + i] = hl; o['_el' + i] = lid;   // kept out of mergeStatic
     });
     o.eyeA = {blink: 1 + Math.random() * 3, x: 0, y: 0, tx: 0, ty: 0, sac: 0};
@@ -17070,7 +17092,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     return o;
   };
   // ---- eyes: curious glances, looking at you or at whatever they're working on, blinking ----
-  const rel = v => { while (v > Math.PI) v -= 6.283; while (v < -Math.PI) v += 6.283; return v; };
+  const rel = v => { if (!isFinite(v)) return 0; if (Math.abs(v) > 20) v = v % 6.283; if (!isFinite(v)) v = 0; else if (Math.abs(v) > 20) v %= 6.283185307179586; while (v > Math.PI) v -= 6.283; while (v < -Math.PI) v += 6.283; return v; };
   function eyes(a, dt, dist) {
     const E = a.eyeA; if (!E || !a.eyes) return;
     const p = a.g.position, hy = (a.yawVis || 0) + (a.head ? a.head.rotation.y : 0);
@@ -17082,8 +17104,10 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     else { E.sac -= dt; if (E.sac <= 0) { E.sac = 0.5 + Math.random() * 1.8; E.tx = (Math.random() - .5) * 0.046; E.ty = (Math.random() - .5) * 0.02; if (a.act === 'dig' || a.act === 'cook') E.ty = -0.01; } }
     const k = Math.min(1, dt * 14); E.x += (E.tx - E.x) * k; E.y += (E.ty - E.y) * k;
     E.blink -= dt; let lid = 0.02; if (E.blink < 0.16) lid = Math.max(0.02, Math.sin(Math.max(0, E.blink) / 0.16 * Math.PI)); if (E.blink <= 0) E.blink = (Math.random() < 0.2 ? 0.35 : 2 + Math.random() * 3.5);
-    if (a.sleeping) lid = 1; else if (a.act === 'dig') lid = Math.max(lid, 0.35);
-    for (const e of a.eyes) { e.ir.position.x = E.x; e.ir.position.y = E.y; e.lid.scale.y = lid; }
+    const busy = j && ((j.type === 'field' && (j.ph === 'smelt' || j.ph === 'craft')) || (j.type === 'craft' && j.ph === 'use') || (j.type === 'cook' && j.ph === 'work'));   // v0.9.80: eyes shut while crafting / smelting
+    a.busyEyes = !!busy;
+    if (a.sleeping || busy) lid = 1; else if (a.act === 'dig') lid = Math.max(lid, 0.35);
+    for (const e of a.eyes) { e.ir.position.x = E.x; e.ir.position.y = E.y; e.ir.visible = lid < 0.9; e.lid.scale.y = lid; e.lid.visible = lid > 0.05; }
   }
   // ---- what they hold: the tool for the job, the sword in a fight ----
   function tools(a, dt) {
@@ -18113,7 +18137,89 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   const td = toggleDoor;
   toggleDoor = function (x, y, z) { try { const ly = getB(x, y, z) === T.DOORTOP ? y - 1 : y; fixPair(x, ly, z); } catch (_) {} return td.apply(this, arguments); };
   // castle doors near you get paired up (old worlds too); cheap: a few door entities every 2 s
-  setInterval(() => { try { if (typeof started === 'undefined' || !started || screen !== 'none') return; for (const o of [...entObjs.values()]) if (o.type === T.DOOR && Math.abs(o.x - P.x) < 32 && Math.abs(o.z - P.z) < 32) fixPair(o.x, o.y, o.z); } catch (e) {} }, 2000);
+  setInterval(() => { try { if (typeof started === 'undefined' || !started || screen !== 'none' || window.__safeLoad) return; for (const o of [...entObjs.values()]) if (o.type === T.DOOR && Math.abs(o.x - P.x) < 32 && Math.abs(o.z - P.z) < 32) fixPair(o.x, o.y, o.z); } catch (e) {} }, 2000);
+})();
+
+/* ===================== GLX-C99 (v0.9.80): load safe mode + catching a frozen load on the next start ===================== */
+(function c99() {
+  const S = window.__c99 = {};
+  // errors while the loading screen is up go on the loading screen (small text)
+  addEventListener('error', e => { if (screen === 'loading') try { loadErr('script', e.error || e.message); } catch (_) {} });
+  addEventListener('unhandledrejection', e => { if (screen === 'loading') try { loadErr('promise', e.reason); } catch (_) {} });
+  // safe mode: terrain + player + inventory + chests only; bots, castle state, door states and boats start fresh
+  const ap = applySave;
+  applySave = function (d) {
+    if (window.__safeLoad && d && !d.dim) { d = Object.assign({}, d); for (const k of ['c95', 'c96', 'c78', 'doors', 'boats', 'cauldrons']) delete d[k]; S.stripped = 1; arguments[0] = d; }
+    const r = ap.apply(this, arguments);
+    try { if (d && !d.dim) { // a broken player position (NaN / outside the world / far below) -> back to spawn
+        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1 || P.y < -2) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
+        if (!isFinite(P.yaw)) P.yaw = 0; else P.yaw %= 6.283185307179586; if (!isFinite(P.pitch)) P.pitch = 0;
+        const sn = window.__c95 && __c95.snap; if (sn) for (const k of Object.keys(sn)) { const q = sn[k], ps = q && q.pos; if (!ps || !ps.every(isFinite) || ps[1] < 1 || ps[0] < 1 || ps[2] < 1 || ps[0] >= W - 1 || ps[2] >= D - 1) delete sn[k]; } } } catch (e) { console.warn('c99 sanitize', e); }
+    return r;
+  };
+  function openSafe(id) {
+    window.__safeLoad = true;
+    const go = () => { const w = (worldList() || []).find(q => q && q.id === id) || (worldList() || [])[0]; if (!w) { toast('No world to open'); return; } playWorld(w); };
+    const wait = setInterval(() => { if (screen === 'title' || screen === 'worlds') { clearInterval(wait); Promise.race([worldsReady, new Promise(r => setTimeout(r, 6000))]).then(go, go); } }, 300);
+  }
+  S.openSafe = openSafe;
+  // pause menu: teleport to each clansman (safe standing spot next to him, land around him built first)
+  function spotNear(x0, y0, z0) {
+    const ok = (x, y, z) => solid(x, y - 1, z) && !solid(x, y, z) && !solid(x, y + 1, z) && ![T.WATER, T.LAVA].includes(getB(x, y, z)) && getB(x, y - 1, z) !== T.LAVA;
+    for (let r = 1; r <= 4; r++) for (let dy of [0, 1, -1, 2, -2, 3]) for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; const x = x0 + dx, y = y0 + dy, z = z0 + dz; if (x > 1 && z > 1 && x < W - 2 && z < D - 2 && y > 0 && y < H - 2 && ok(x, y, z)) return [x, y, z]; }
+    if (ok(x0, y0, z0)) return [x0, y0, z0];
+    const gy = groundTop(x0, z0) + 1; return [x0, gy, z0];
+  }
+  function tpTo(m) {
+    const p = m.g.position, sp = spotNear(Math.floor(p.x), Math.floor(p.y + 0.05), Math.floor(p.z));
+    P.x = sp[0] + .5; P.y = sp[1]; P.z = sp[2] + .5; try { P.vy = 0; } catch (_) {}
+    P.yaw = Math.atan2(-(p.x - P.x), -(p.z - P.z));
+    try { rebuild(); } catch (e) { console.warn('tp rebuild', e); }
+    setPause(false); toast('Teleported to the ' + (m.name || m.role));
+  }
+  S.tpTo = tpTo;
+  function tpButtons() {
+    const host = $('pause') && $('pause').querySelector('.btns'); if (!host) return;
+    let box = document.getElementById('tpBots'); if (!box) { box = document.createElement('div'); box.id = 'tpBots'; box.style.cssText = 'display:contents'; const rb = $('resumeBtn'); host.insertBefore(box, rb ? rb.nextSibling : host.firstChild); }
+    box.innerHTML = '';
+    const bs = (typeof mobs !== 'undefined' ? mobs : []).filter(m => m.kind === 'clansman' && m.role && m.hp > 0 && m.g);
+    for (const m of bs) { const b = document.createElement('button'); b.className = 'btn alt'; const nm = m.name || (m.role[0].toUpperCase() + m.role.slice(1));
+      b.textContent = 'Teleport to ' + nm; b.setAttribute('data-testid', 'pause-tp-' + m.role); b.onclick = () => tpTo(m); box.appendChild(b); }
+  }
+  const sp0 = setPause; setPause = function (on) { const r = sp0.apply(this, arguments); if (on) try { tpButtons(); } catch (e) { console.warn('tp buttons', e); } return r; };
+  let safeId = null; try { safeId = localStorage.getItem('glen_safe'); localStorage.removeItem('glen_safe'); } catch (_) {}
+  if (safeId) { openSafe(safeId); return; }
+  // the last load never finished (page froze or was closed on the loading screen): offer safe mode on the title screen
+  let ld = null; try { ld = JSON.parse(localStorage.getItem('glen_load') || 'null'); } catch (_) {}
+  if (ld && ld.id && Date.now() - (ld.hb || ld.t || 0) > 5000) {
+    S.lastLoad = ld;
+    const show = () => {
+      if (document.getElementById('c99note')) return;
+      const el = document.createElement('div'); el.id = 'c99note';
+      el.style.cssText = 'position:fixed;left:50%;top:10%;transform:translateX(-50%);z-index:70;max-width:min(520px,92vw);background:rgba(20,28,22,.95);color:#f3ead2;border:2px solid #d9b45a;border-radius:14px;padding:14px 18px;font:15px/1.4 system-ui,sans-serif;text-align:center';
+      const esc = t => String(t || '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
+      el.innerHTML = '<b>' + esc(ld.name || 'Your world') + ' did not finish loading last time</b><br><small>stuck at: ' + esc(ld.step) + ' (' + esc(ld.v) + ')</small><br>' +
+        '<button id="c99safe" style="margin:10px 6px 0;padding:8px 14px;font:600 14px system-ui">Open in safe mode</button><button id="c99no" style="margin:10px 6px 0;padding:8px 14px;font:14px system-ui">Dismiss</button>';
+      document.body.appendChild(el);
+      document.getElementById('c99safe').onclick = () => { el.remove(); try { localStorage.removeItem('glen_load'); } catch (_) {} openSafe(ld.id); };
+      document.getElementById('c99no').onclick = () => { el.remove(); try { localStorage.removeItem('glen_load'); } catch (_) {} };
+    };
+    const w = setInterval(() => { if (screen === 'title') { clearInterval(w); show(); } }, 400);
+  }
+  // stale page check: compare this page's build with the live one (first 1 KB only, never cached); offer a cache-busting reload
+  try {
+    const mine = (() => { for (const n of (document.head ? document.head.childNodes : [])) if (n.nodeType === 8) { const m = /glencraft-build: ([a-z0-9-]+)/.exec(n.nodeValue); if (m) return m[1]; } return null; })();
+    S.build = mine;
+    if (mine && /^https?:/.test(location.protocol + '') && !/localhost|127\.0\.0\.1/.test(location.host)) setTimeout(() => {
+      fetch(location.origin + location.pathname + '?nc=' + Date.now(), {cache: 'no-store', headers: {Range: 'bytes=0-2047'}}).then(r => r.text()).then(t => { const m = /glencraft-build: ([a-z0-9-]+)/.exec(t); S.live = m && m[1];
+        if (S.live && S.live !== mine && !document.getElementById('c99upd')) { const el = document.createElement('div'); el.id = 'c99upd';
+          el.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:71;background:rgba(20,28,22,.95);color:#f3ead2;border:2px solid #7fbf6a;border-radius:12px;padding:10px 14px;font:14px system-ui,sans-serif';
+          el.innerHTML = 'A newer version is out. <button style="margin-left:8px;padding:6px 12px;font:600 14px system-ui">Update now</button>'; document.body.appendChild(el);
+          el.querySelector('button').onclick = () => { try { if (started) saveWorld(true); } catch (_) {} setTimeout(() => location.replace(location.origin + location.pathname + '?v=' + S.live), 800); }; } }).catch(() => {});
+    }, 4000);
+  } catch (_) {}
+  // in safe mode the extras that run on top of the world stay off for this session
+  const tg = setInterval(() => { if (window.__safeLoad && started) { clearInterval(tg); setTimeout(() => toast('Safe mode: bots and castle doors were reset, your land, inventory and chests are kept'), 1500); } }, 500);
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -18126,6 +18232,15 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+ {v:'v0.9.80', d:'2026-10-25', notes:[
+  'Loading bar is honest now: the steps fill to 70%, then "Building the land around you" counts the chunks round you (e.g. 12/25) up to 99%, so it never sits still at 86%',
+  'The land is built faster while loading, and you go in as soon as the ground round you is ready (the rest builds while you play)',
+  'The loading screen shows the game version and the current step (and any error) in small text',
+  'Load safe mode: after 15 s a button lets you open the world without the bots / castle door states (land, inventory and chests kept); if a load ever freezes, the title screen offers safe mode next time',
+  'If the page is an old cached version, a small "Update now" button appears',
+  'Pause menu: Teleport to each clansman (puts you on a safe spot next to him); works with the controller too',
+  'Clansmen close their eyes while they craft or smelt (also at their field workshop) so you can see they are busy, and open them when done',
+  'Fixed the thin line across the clansmen\'s eyes (the eyes sat right on the face and flickered with it, and a sliver of eyelid always showed)']},
  {v:'v0.9.79', d:'2026-10-25', notes:[
   'Fixed worlds getting stuck on the loading screen (around 87%): every step after loading (bots, doors, entities, land building) is now guarded, so one bad piece can no longer stop the world opening, and your world is never wiped',
   'Bots no longer get stuck on blocks: the route planner uses exactly the same rules as walking (no climbing onto fences or posts), and if something breakable is in the way for half a second they dig it; otherwise they re-centre and re-route',
