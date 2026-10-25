@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v0992a -->
+<!-- glencraft-build: v0993a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -488,7 +488,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v0.9.92';
+const GAME_VERSION = 'v0.9.93';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18563,6 +18563,206 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       bubStep(dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
     return r; };
 })();
+
+/* ===================== GLX-C112 (v0.9.93): held map (already explored, castles marked), HD tool models + icons from them, fewer tools ===================== */
+(function c112() {
+  const U = window.__c112 = {err: null, icons: 0, built: 0, mapDone: false};
+  const warn = (k, e) => { if (!U.err) U.err = k + ': ' + String(e && e.stack || e).slice(0, 300); };
+  // ---------------- 1. removed tools: wooden shovel, wooden hoe, stone hoe, diamond hoe ----------------
+  const GONE = new Set([IT.WSHOVEL, IT.WHOE, IT.SHOE, IT.DHOE]);
+  for (let i = RECIPES.length - 1; i >= 0; i--) if (GONE.has(RECIPES[i].out)) RECIPES.splice(i, 1);
+  for (const L of [ORDER, typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : []]) for (let i = L.length - 1; i >= 0; i--) if (GONE.has(L[i])) L.splice(i, 1);
+  function purge() { try { for (const id of GONE) if (inv[id]) delete inv[id]; if (MODE && MODE.hotbar) MODE.hotbar = MODE.hotbar.map(id => GONE.has(id) ? 0 : id); if (GONE.has(selId)) selId = T.DIRT; } catch (_) {} }
+  const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); purge(); return r; };
+  setInterval(purge, 3000);
+
+  // ---------------- 2. paper + map items ----------------
+  const PAPER = 411, MAPI = 410; IT.PAPER = PAPER; IT.MAP = MAPI; NAMES[PAPER] = 'Paper'; NAMES[MAPI] = 'Map';
+  ORDER.push(PAPER, MAPI); if (typeof CREATIVE_ALL !== 'undefined') CREATIVE_ALL.push(PAPER, MAPI);
+  RECIPES.push(rc('3 Paper', '3 Reeds', PAPER, 3, [[T.REEDS || 239, 3]]), rc('3 Paper (wheat)', '3 Wheat', PAPER, 3, [[IT.WHEAT, 3]]),
+    rc('Map', '8 Paper + 1 Redstone', MAPI, 1, [[PAPER, 8], [IT.REDSTONE, 1]], 1));
+  ICONS[PAPER] = drawIcon(g => { g.rotate(-0.12); g.fillStyle = '#d9cfb4'; g.fillRect(-20, -24, 40, 48); g.fillStyle = '#f4eedc'; g.fillRect(-20, -24, 38, 46); g.strokeStyle = '#b8ab88'; g.lineWidth = 1.5; for (let y = -14; y < 20; y += 7) { g.beginPath(); g.moveTo(-14, y); g.lineTo(12, y); g.stroke(); } });
+  ICONS[MAPI] = drawIcon(g => { g.fillStyle = '#b89c66'; g.fillRect(-27, -27, 54, 54); g.fillStyle = '#efe2bf'; g.fillRect(-23, -23, 46, 46);
+    g.fillStyle = '#5a9ad8'; g.fillRect(-23, -23, 46, 46); g.fillStyle = '#6fa64a'; g.beginPath(); g.ellipse(0, 1, 16, 15, 0, 0, 7); g.fill(); g.fillStyle = '#3f7a32'; g.beginPath(); g.ellipse(-4, -2, 7, 6, 0, 0, 7); g.fill();
+    for (const [x, y] of [[-17, -17], [17, -16], [16, 17]]) { g.fillStyle = '#7a8a5a'; g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); g.fillStyle = '#3a3a3a'; g.fillRect(x - 2, y - 3, 4, 4); }
+    g.fillStyle = '#d02020'; g.beginPath(); g.moveTo(0, -6); g.lineTo(5, 6); g.lineTo(0, 3); g.lineTo(-5, 6); g.fill(); });
+  const mi0 = makeItemMesh; makeItemMesh = function (id) { if (id === MAPI) { const g = new THREE.Group(); g.userData.map = true; return g; } return mi0.apply(this, arguments); };
+
+  // ---------------- 3. the map picture: every column's top block, drawn once per world, in slices ----------------
+  const MC = document.createElement('canvas'), TX = document.createElement('canvas'); TX.width = TX.height = 1024; const tg = TX.getContext('2d');
+  let mg = null, key = '', row = 0, hm = null, tex = null, refT = 0;
+  const hexRGB = h => [(h >> 16) & 255, (h >> 8) & 255, h & 255], COLC = {};
+  const topKey = id => { const f = FACES[id]; return Array.isArray(f) ? f[2] : f; };
+  const colOf = id => COLC[id] || (COLC[id] = hexRGB((topKey(id) && AVG[topKey(id)]) || 0x777777));
+  const sky = id => id === T.AIR || !FACES[id];
+  const wkey = () => ((current && current.id) || 'x') + '@' + (current && current.created) + '|' + W + '|' + (typeof genVer !== 'undefined' ? genVer : 0);
+  function column(x, z) { let y = H - 1, b = 0; const base = x * H * D + z; for (; y > 0; y--) { b = world[base + y * D]; if (!sky(b)) break; }
+    let dep = 0; if (b === T.WATER) { let yy = y; while (yy > 0 && world[base + yy * D] === T.WATER && dep < 8) { yy--; dep++; } } hm[x * D + z] = y; return [y, b, dep]; }
+  function paintRect(x0, z0, w, d) { x0 = Math.max(0, x0); z0 = Math.max(0, z0); w = Math.min(W - x0, w); d = Math.min(D - z0, d); if (w <= 0 || d <= 0) return;
+    const im = mg.createImageData(w, d), px = im.data, bio = window.__bio && __bio.info.on ? __bio : null, gr = colOf(T.GRASS);
+    for (let dx = 0; dx < w; dx++) for (let dz = 0; dz < d; dz++) { const x = x0 + dx, z = z0 + dz, [h, b, dep] = column(x, z); let r, g, bb;
+      if (b === T.WATER) { const k = Math.min(1, dep / 7); r = 70 - 40 * k; g = 130 - 60 * k; bb = 215 - 50 * k; }
+      else { const c = b === T.GRASS ? gr : colOf(b); r = c[0]; g = c[1]; bb = c[2];
+        if (bio && (b === T.GRASS || LEAFY[b])) { const t = bio.tint(x, z); r *= t[0]; g *= t[1]; bb *= t[2]; }
+        const hn = z > 0 ? hm[x * D + z - 1] : -1, hw = x > 0 ? hm[(x - 1) * D + z] : -1; const sl = ((hn >= 0 ? h - hn : 0) + (hw >= 0 ? h - hw : 0)) * 0.07;
+        const s = 1 + Math.max(-0.3, Math.min(0.3, sl)) + (h - SEA) * 0.003; r *= s; g *= s; bb *= s; }
+      const o = (dz * w + dx) * 4; px[o] = r; px[o + 1] = g; px[o + 2] = bb; px[o + 3] = 255; }
+    mg.putImageData(im, x0, z0); }
+  function reset() { key = wkey(); MC.width = W; MC.height = D; mg = MC.getContext('2d'); hm = new Int16Array(W * D).fill(-1); row = 0; U.mapDone = false; U.built = 0; }
+  function build(ms) { const t0 = performance.now(); while (row < W && performance.now() - t0 < ms) { paintRect(row, 0, 4, D); row += 4; } U.built = row / W; if (row >= W && !U.mapDone) { U.mapDone = true; compose(); } }
+  const IN = 40, SZ = 1024 - 2 * IN;   // map area inside the parchment border
+  const toC = (x, z) => [IN + x / W * SZ, IN + z / D * SZ];
+  function castleIcon(x, y, col, roof) { tg.save(); tg.translate(x, y); tg.fillStyle = 'rgba(0,0,0,.45)'; tg.fillRect(-15, -11, 32, 26);
+    tg.fillStyle = col; tg.fillRect(-14, -6, 28, 18); for (let i = 0; i < 4; i++) tg.fillRect(-14 + i * 8, -12, 5, 7); tg.fillRect(-5, -20, 10, 16); tg.fillRect(-6, -23, 3, 4); tg.fillRect(-1.5, -23, 3, 4); tg.fillRect(3, -23, 3, 4);
+    tg.fillStyle = '#1a1410'; tg.fillRect(-4, 3, 8, 9); tg.fillStyle = roof; tg.fillRect(-14, -6, 28, 3); tg.strokeStyle = '#000'; tg.lineWidth = 1.5; tg.strokeRect(-14, -6, 28, 18); tg.restore(); }
+  function label(t, x, y) { tg.font = 'bold 34px Georgia,serif'; tg.textAlign = 'center'; tg.lineWidth = 5; tg.strokeStyle = 'rgba(245,235,205,.95)'; tg.strokeText(t, x, y); tg.fillStyle = '#2a1a0c'; tg.fillText(t, x, y); }
+  function compose() {
+    tg.fillStyle = '#c9ad74'; tg.fillRect(0, 0, 1024, 1024); tg.fillStyle = '#e8d6a8'; tg.fillRect(10, 10, 1004, 1004);
+    for (let i = 0; i < 900; i++) { tg.fillStyle = 'rgba(120,90,40,' + (Math.random() * 0.06) + ')'; tg.fillRect(Math.random() * 1024, Math.random() * 1024, 2 + Math.random() * 6, 2 + Math.random() * 6); }
+    tg.imageSmoothingEnabled = true; tg.globalAlpha = 0.93; tg.drawImage(MC, IN, IN, SZ, SZ); tg.globalAlpha = 1;
+    tg.strokeStyle = '#6a4a22'; tg.lineWidth = 4; tg.strokeRect(IN - 2, IN - 2, SZ + 4, SZ + 4);
+    // castles
+    const cs = (typeof g9castles !== 'undefined' && g9castles) || [];
+    for (const c of cs) { const [x, y] = toC(c[1], c[2]); const fr = (() => { try { return castleFriendly(c); } catch (_) { return c[0] === 'human'; } })();
+      const [col, roof, nm] = fr ? ['#d8d2c4', '#2f5fa8', 'Clan Castle'] : c[0] === 'black' ? ['#2a2a30', '#b0301c', 'Blackstone Castle'] : ['#6f8a5a', '#3a4a2a', 'Mossy Skeleton Castle'];
+      castleIcon(x, y, col, roof); label(nm, Math.max(150, Math.min(874, x)), y + (y > 900 ? -34 : 44)); }
+    if (typeof g9spawn !== 'undefined' && g9spawn) { const [x, y] = toC(g9spawn[0], g9spawn[2]); tg.fillStyle = '#ffd23a'; tg.strokeStyle = '#5a3a00'; tg.lineWidth = 2; tg.beginPath();
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, r = i % 2 ? 6 : 14; tg.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } tg.closePath(); tg.fill(); tg.stroke(); label('Spawn', x, y + 38); }
+    // north arrow
+    tg.fillStyle = '#3a2410'; tg.beginPath(); tg.moveTo(980, 56); tg.lineTo(992, 92); tg.lineTo(968, 92); tg.fill(); label('N', 980, 120);
+    if (tex) tex.needsUpdate = true;
+  }
+  // ---------------- 4. held in both hands, lower middle of the screen ----------------
+  const HG = new THREE.Group(); HG.visible = false; camera.add(HG); U.g = HG;
+  const MS = 0.4, plane = new THREE.Mesh(new THREE.PlaneGeometry(MS, MS), new THREE.MeshBasicMaterial({color: 0xffffff, depthTest: false, depthWrite: false}));
+  HG.add(plane); plane.renderOrder = 20;
+  const sh = new THREE.Shape(); sh.moveTo(0, 0.014); sh.lineTo(0.0095, -0.011); sh.lineTo(0, -0.005); sh.lineTo(-0.0095, -0.011); sh.closePath();
+  const arrowO = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({color: 0xffffff, depthTest: false, depthWrite: false})); arrowO.scale.setScalar(1.35); arrowO.renderOrder = 21;
+  const arrow = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({color: 0xd01818, depthTest: false, depthWrite: false})); arrow.renderOrder = 22; arrow.position.z = 0.0005;
+  const mark = new THREE.Group(); mark.add(arrowO); mark.add(arrow); mark.position.z = 0.001; plane.add(mark);
+  // two hands holding the bottom corners
+  const up = new THREE.Vector3(0, 1, 0);
+  for (const s of [-1, 1]) { const fist = new THREE.Vector3(s * MS * 0.5, -MS * 0.22, 0.014), dir = new THREE.Vector3(s * 0.55, -0.5, 0.65).normalize();
+    const add = (geo, m, at) => { const o = new THREE.Mesh(geo, m); o.position.copy(fist).addScaledVector(dir, at); o.quaternion.setFromUnitVectors(up, dir); o.renderOrder = 23; o.material = m; HG.add(o); return o; };
+    const f = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.075, 0.06), armMat); f.position.copy(fist); f.quaternion.setFromUnitVectors(up, dir); f.renderOrder = 23; HG.add(f);
+    const th = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.05, 0.02), armMat); th.position.set(fist.x - s * 0.012, fist.y + 0.035, fist.z + 0.03); th.renderOrder = 24; HG.add(th);
+    add(new THREE.CylinderGeometry(0.032, 0.04, 0.2, 12), armMat, 0.13); add(new THREE.CylinderGeometry(0.05, 0.056, 0.34, 14), sleeveMat, 0.38); }
+  HG.traverse(o => { if (o.isMesh) { o.frustumCulled = false; if (o.material !== plane.material && o.material.depthTest !== false) { o.material = o.material.clone(); o.material.depthTest = false; o.material.depthWrite = false; } } });
+  HG.position.set(0, -0.075, -0.4); HG.rotation.x = -0.3;
+  const holding = () => started && !dead && selId === MAPI && cnt(MAPI) > 0 && !(window.__thirdPerson || (typeof camMode !== 'undefined' && camMode)) && !(typeof menuOpen !== 'undefined' && menuOpen);
+  let bob = 0, lastT = performance.now(), hv = null;
+  function frame() {
+    const now = performance.now(), dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+    const on = holding(); HG.visible = on; if (!on) return false;
+    if (wkey() !== key) reset();
+    if (!U.mapDone) build(10); else if ((refT -= dt) <= 0) { refT = 4; const px = Math.floor(P.x), pz = Math.floor(P.z); paintRect(px - 24, pz - 24, 48, 48); compose(); }
+    if (!tex) { tex = new THREE.CanvasTexture(TX); tex.anisotropy = 4; plane.material.map = tex; plane.material.needsUpdate = true; if (!U.mapDone) compose(); }
+    if (!U.mapDone && (U._pt = (U._pt || 0) + dt) > 0.4) { U._pt = 0; compose(); }
+    mark.visible = !(typeof DIM !== 'undefined' && DIM.cur); const [cx, cy] = toC(P.x, P.z); mark.position.set((cx / 1024 - 0.5) * MS, (0.5 - cy / 1024) * MS, 0.001); mark.rotation.z = P.yaw;
+    const mv = Math.hypot(P.vx || 0, P.vz || 0); bob += dt * (mv > 0.5 ? 7 : 1.5); HG.position.set(Math.sin(bob) * 0.004, -0.075 + Math.abs(Math.cos(bob)) * 0.004, -0.4);
+    return true;
+  }
+  const rr = renderer.render.bind(renderer);
+  renderer.render = function (sc, cam) { let hid = false;
+    try { if (cam === camera && frame()) { hid = hand.visible; hand.visible = false; } } catch (e) { warn('map', e); }
+    try { return rr(sc, cam); } finally { if (hid) hand.visible = true; } };
+  U.frame = frame; U.TX = TX;
+
+  // ---------------- 5. HD held tool models ----------------
+  const KINDS = new Set(['pick', 'axe', 'sword', 'shovel', 'hoe']);
+  const cv = (s, fn) => { const c = document.createElement('canvas'); c.width = c.height = s; fn(c.getContext('2d'), s); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+  let TXH = null; const txh = () => TXH || (TXH = {
+    brushed: cv(256, (g, s) => { g.fillStyle = '#c8c8c8'; g.fillRect(0, 0, s, s); for (let i = 0; i < 1400; i++) { const v = 170 + Math.random() * 85 | 0; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(Math.random() * s, Math.random() * s, 30 + Math.random() * 90, 1); } }),
+    stone: cv(256, (g, s) => { for (let i = 0; i < 2600; i++) { const v = 120 + Math.random() * 135 | 0; g.fillStyle = `rgb(${v},${v},${v})`; g.fillRect(Math.random() * s, Math.random() * s, 2 + Math.random() * 9, 2 + Math.random() * 9); } }),
+    grain: cv(256, (g, s) => { g.fillStyle = '#d0d0d0'; g.fillRect(0, 0, s, s); for (let i = 0; i < 160; i++) { const v = 150 + Math.random() * 105 | 0; g.strokeStyle = `rgb(${v},${v},${v})`; g.lineWidth = 1 + Math.random() * 3; g.beginPath(); const x = Math.random() * s; g.moveTo(x, 0); g.bezierCurveTo(x + 8, s * 0.3, x - 8, s * 0.6, x + 4, s); g.stroke(); } }),
+    leather: cv(128, (g, s) => { g.fillStyle = '#3a2416'; g.fillRect(0, 0, s, s); for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(${90 + Math.random() * 40 | 0},${55 + Math.random() * 25 | 0},30,.5)`; g.fillRect(Math.random() * s, Math.random() * s, 2, 2); } })});
+  const MATS = {};
+  function tierMats(mat) { if (MATS[mat]) return MATS[mat]; const X = toolX(), base = headMatFor(mat), T2 = txh(), metal = mat !== 'wood' && mat !== 'stone';
+    const head = new THREE.MeshPhongMaterial({color: base.color.clone(), shininess: metal ? (mat === 'diamond' || mat === 'cobalt' ? 150 : 95) : mat === 'stone' ? 10 : 20, specular: metal ? 0xffffff : 0x303030,
+      map: mat === 'stone' ? T2.stone : mat === 'wood' ? T2.grain : T2.brushed, emissive: mat === 'diamond' ? 0x06302e : mat === 'cobalt' ? 0x0a1440 : 0x000000});
+    if (mat === 'wood') head.color.setHex(0x9a6a3c);
+    const edge = new THREE.MeshPhongMaterial({color: base.color.clone().lerp(new THREE.Color(0xffffff), metal ? 0.55 : 0.25), shininess: metal ? 180 : 30, specular: 0xffffff, emissive: mat === 'diamond' ? 0x0c4a46 : 0x000000});
+    const dark = new THREE.MeshPhongMaterial({color: base.color.clone().multiplyScalar(0.62), shininess: metal ? 70 : 8, specular: metal ? 0x888888 : 0x111111, map: head.map});
+    const wrap = new THREE.MeshPhongMaterial({map: T2.leather, shininess: 12});
+    return MATS[mat] = {head, edge, dark, wrap, haft: X.pale, haftD: X.dark, fit: metal ? head : new THREE.MeshPhongMaterial({color: 0x5a5e64, shininess: 70, specular: 0xaaaaaa, map: T2.brushed})};
+  }
+  const ex = (pts, depth, bev, segs) => { const s = new THREE.Shape(); pts.forEach(([x, y], i) => i ? s.lineTo(x, y) : s.moveTo(x, y));
+    const g = new THREE.ExtrudeGeometry(s, {depth, bevelEnabled: true, bevelThickness: bev, bevelSize: bev * 0.8, bevelSegments: segs || 3, curveSegments: 10}); g.translate(0, 0, -depth / 2);
+    g.computeBoundingBox(); const bb = g.boundingBox, uv = g.attributes.uv, p = g.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, (p.getX(i) - bb.min.x) * 4, (p.getY(i) - bb.min.y) * 4); return g; };
+  const lathe = (prof, segs) => new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), segs || 14);
+  function haftHD(g, M, len, y0, r0, r1, wrapAt) {
+    const prof = [[0, 0], [r0 * 0.8, 0], [r0, 0.008], [r0, len * 0.5], [r1, len - 0.008], [r1 * 0.8, len], [0, len]];
+    const h = new THREE.Mesh(lathe(prof), M.haft); h.position.y = y0; g.add(h);
+    if (wrapAt) { const pts = []; const n = 70, turns = 6; for (let i = 0; i <= n; i++) { const t = i / n, a = t * turns * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * (r0 + 0.003), y0 + wrapAt[0] + t * (wrapAt[1] - wrapAt[0]), Math.sin(a) * (r0 + 0.003))); }
+      g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 140, 0.0055, 5, false), M.wrap)); }
+    return h; }
+  function cap(g, M, y, r) { const c = new THREE.Mesh(lathe([[0, -0.012], [r * 0.7, -0.012], [r, -0.004], [r, 0.006], [r * 0.6, 0.014], [0, 0.016]], 14), M.fit); c.position.y = y; g.add(c); }
+  function collar(g, M, w, h, d, x, y) { const b = new THREE.Mesh(ex([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]], d, 0.006, 2), M.head); b.position.set(x || 0, y, 0); g.add(b); return b; }
+  function buildHD(kind, mat) {
+    const M = tierMats(mat), g = new THREE.Group();
+    if (kind === 'pick') {
+      haftHD(g, M, 0.52, -0.13, 0.024, 0.02, [0.0, 0.13]); cap(g, M, -0.13, 0.027);
+      const o = [], inn = [], N = 14; for (let i = 0; i <= N; i++) { const t = i / N * 2 - 1, a = t * 1.05; o.push([Math.sin(a) * 0.25, Math.cos(a) * 0.25 - 0.25 + 0.03]); inn.push([Math.sin(a) * 0.235 * 0.97, Math.cos(a) * 0.225 - 0.25 + 0.03 - 0.03 * (1 - Math.abs(t)) - 0.012]); }
+      const pts = o.concat(inn.reverse()); pts[0] = [o[0][0] * 1.04, o[0][1] - 0.012];
+      const head = new THREE.Mesh(ex(pts, 0.03, 0.007), M.head); head.position.y = 0.37; g.add(head);
+      for (const s of [-1, 1]) { const a = s * 1.05, tip = new THREE.Mesh(new THREE.ConeGeometry(0.014, 0.05, 8), M.edge); tip.position.set(Math.sin(a) * 0.252, 0.37 + Math.cos(a) * 0.25 - 0.25 + 0.02, 0); tip.rotation.z = -a - s * Math.PI / 2 * 0.95; g.add(tip); }
+      const ridge = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.0035, 4, 30, 1.9), M.edge); ridge.rotation.z = Math.PI / 2 - 0.95; ridge.position.y = 0.37 - 0.22; ridge.position.z = 0.0215; g.add(ridge);
+      collar(g, M, 0.056, 0.07, 0.05, 0, 0.36); const w = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.058), M.dark); w.position.y = 0.395; g.add(w);
+    } else if (kind === 'axe') {
+      haftHD(g, M, 0.48, -0.12, 0.026, 0.02, [0.0, 0.12]); cap(g, M, -0.12, 0.029);
+      const head = new THREE.Mesh(ex([[0.04, 0.038], [-0.04, 0.032], [-0.1, 0.078], [-0.15, 0.07], [-0.172, 0.0], [-0.162, -0.09], [-0.132, -0.165], [-0.105, -0.125], [-0.07, -0.05], [-0.035, -0.032], [0.04, -0.038]], 0.022, 0.007), M.head); head.position.y = 0.3; g.add(head);
+      const edge = new THREE.Mesh(ex([[-0.152, 0.068], [-0.172, 0.0], [-0.162, -0.09], [-0.132, -0.165], [-0.14, -0.155], [-0.156, -0.09], [-0.164, 0.0], [-0.146, 0.062]], 0.026, 0.003, 2), M.edge); edge.position.y = 0.3; g.add(edge);
+      collar(g, M, 0.066, 0.085, 0.054, 0.012, 0.3); const poll = new THREE.Mesh(ex([[0.04, 0.03], [0.07, 0.024], [0.07, -0.024], [0.04, -0.03]], 0.04, 0.006, 2), M.dark); poll.position.y = 0.3; g.add(poll);
+      for (const z of [-1, 1]) { const rv = new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), M.edge); rv.position.set(-0.06, 0.31, z * 0.016); g.add(rv); }
+    } else if (kind === 'sword') {
+      const blade = new THREE.Mesh(ex([[-0.03, 0], [0.027, 0], [0.021, 0.3], [0.007, 0.5], [0, 0.535], [-0.013, 0.42], [-0.025, 0.2]], 0.004, 0.0065, 3), M.head); blade.position.y = 0.03; g.add(blade);
+      const edge = new THREE.Mesh(ex([[0.022, 0.02], [0.028, 0.02], [0.022, 0.3], [0.008, 0.5], [0.001, 0.535], [0.004, 0.5], [0.017, 0.3]], 0.006, 0.002, 1), M.edge); edge.position.y = 0.03; g.add(edge);
+      const ful = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.32, 0.016), M.dark); ful.position.set(0.0, 0.22, 0); g.add(ful);
+      const guard = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.09, 12), M.fit); guard.rotation.z = Math.PI / 2; guard.position.y = 0.025; g.add(guard);
+      for (const s of [-1, 1]) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.018, 12, 8), M.fit); k.position.set(s * 0.047, 0.025, 0); g.add(k); }
+      const grip = new THREE.Mesh(lathe([[0.018, -0.13], [0.022, -0.11], [0.024, -0.06], [0.022, -0.01], [0.018, 0.012]], 14), M.wrap); g.add(grip);
+      for (let i = 0; i < 5; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.0235, 0.003, 5, 16), M.haftD); r.rotation.x = Math.PI / 2; r.position.y = -0.115 + i * 0.026; g.add(r); }
+      const pom = new THREE.Mesh(new THREE.SphereGeometry(0.024, 14, 10), M.fit); pom.scale.y = 0.8; pom.position.y = -0.145; g.add(pom);
+      g.userData.sword = true;
+    } else if (kind === 'shovel') {
+      haftHD(g, M, 0.39, -0.08, 0.02, 0.019, [0.02, 0.12]);
+      const dg = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.009, 8, 18, Math.PI), M.haftD); dg.rotation.z = Math.PI; dg.position.y = -0.08; g.add(dg);
+      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.085, 10), M.haftD); bar.rotation.z = Math.PI / 2; bar.position.y = -0.12; g.add(bar);
+      const sock = new THREE.Mesh(lathe([[0.022, 0], [0.03, 0.06], [0.034, 0.085], [0.0, 0.086]], 14), M.head); sock.position.y = 0.3; g.add(sock);
+      const blade = new THREE.Mesh(ex([[-0.066, 0], [0.066, 0], [0.07, 0.12], [0.045, 0.165], [0, 0.19], [-0.045, 0.165], [-0.07, 0.12]], 0.006, 0.006), M.head); blade.position.y = 0.375; g.add(blade);
+      const rid = new THREE.Mesh(ex([[-0.01, 0], [0.01, 0], [0.006, 0.12], [-0.006, 0.12]], 0.012, 0.003, 2), M.dark); rid.position.y = 0.375; g.add(rid);
+      const lip = new THREE.Mesh(ex([[0.07, 0.118], [0.074, 0.12], [0.048, 0.17], [0, 0.196], [-0.048, 0.17], [-0.074, 0.12], [-0.07, 0.118], [-0.045, 0.162], [0, 0.185], [0.045, 0.162]], 0.008, 0.002, 1), M.edge); lip.position.y = 0.375; g.add(lip);
+    } else if (kind === 'hoe') {
+      haftHD(g, M, 0.58, -0.15, 0.019, 0.017, [0.0, 0.12]); cap(g, M, -0.15, 0.022);
+      collar(g, M, 0.046, 0.055, 0.042, 0, 0.405);
+      const neck = new THREE.Mesh(ex([[0.0, 0.012], [-0.07, 0.01], [-0.075, -0.008], [0.0, -0.012]], 0.026, 0.004, 2), M.head); neck.position.set(-0.01, 0.415, 0); g.add(neck);
+      const blade = new THREE.Mesh(ex([[-0.025, 0.012], [0.025, 0.012], [0.033, -0.105], [-0.033, -0.105]], 0.008, 0.004), M.head); blade.position.set(-0.088, 0.415, 0); blade.rotation.y = 0.5; g.add(blade);
+      const e = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.008, 0.012), M.edge); e.position.set(-0.088, 0.31, 0); e.rotation.y = 0.5; g.add(e);
+    } else return null;
+    g.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+    return g;
+  }
+  const bt = buildToolModel; buildToolModel = function (kind, mat) { if (KINDS.has(kind)) { try { const g = buildHD(kind, mat); if (g) return g; } catch (e) { warn('tool', e); } } return bt.apply(this, arguments); };
+  U.buildHD = buildHD;
+
+  // ---------------- 6. HD icons rendered from the held models (once, a second after load) ----------------
+  function makeIcons() {
+    const ids = Object.keys(TOOL).map(Number).filter(id => KINDS.has(TOOL[id][0]) && !GONE.has(id) && id !== IT.CLAYMORE);
+    if (!ids.length) return; const S = 256;
+    const r2 = new THREE.WebGLRenderer({antialias: true, alpha: true, preserveDrawingBuffer: true}); r2.setPixelRatio(1); r2.setSize(S, S, false); r2.setClearColor(0x000000, 0);
+    try { if ('outputColorSpace' in renderer) r2.outputColorSpace = renderer.outputColorSpace; else if ('outputEncoding' in renderer) r2.outputEncoding = renderer.outputEncoding; } catch (_) {}
+    const sc = new THREE.Scene(); sc.add(new THREE.AmbientLight(0xffffff, 0.55)); const dl = new THREE.DirectionalLight(0xffffff, 0.95); dl.position.set(-1, 2, 3); sc.add(dl); const d2 = new THREE.DirectionalLight(0xbfd8ff, 0.35); d2.position.set(2, -1, 1); sc.add(d2);
+    const cam = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10); const bb = new THREE.Box3(), sz = new THREE.Vector3(), ctr = new THREE.Vector3();
+    for (const id of ids) { try { const kind = TOOL[id][0], g = buildToolModel(kind, toolMat(id)); if (!g) continue; const piv = new THREE.Group(); piv.add(g);
+        g.rotation.set(0.35, kind === 'sword' ? 0.35 : 0.5, 0); piv.rotation.z = -Math.PI / 4;
+        sc.add(piv); piv.updateMatrixWorld(true); bb.setFromObject(piv); bb.getSize(sz); bb.getCenter(ctr); const h = Math.max(sz.x, sz.y) * 0.54;
+        cam.left = ctr.x - h; cam.right = ctr.x + h; cam.top = ctr.y + h; cam.bottom = ctr.y - h; cam.updateProjectionMatrix();
+        r2.render(sc, cam); ICONS[id] = r2.domElement.toDataURL('image/png'); U.icons++; sc.remove(piv); } catch (e) { warn('icon', e); } }
+    try { r2.dispose(); r2.forceContextLoss(); } catch (_) {}
+    try { renderHotbar(); } catch (_) {}
+  }
+  setTimeout(() => { try { makeIcons(); } catch (e) { warn('icons', e); } }, 1200);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -18574,7 +18774,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
- {v:'v0.9.92', d:'2026-10-25', notes:['Hamish and Angus now chat like villagers. Every few seconds when you are near, they make one of 10 Scottish grunts and mumbles: huh??, och aye, hmmph, aye, ach!, rrrright, heh-heh, wheesht, ooh-aye? and sleepy yawns at night. Hamish is deeper and Angus rougher, and they get quieter with distance.','They react to trading: happy when you open it, aye! when a trade works, ach when it fails.','Hit a clansman and he turns and hits you back once with a small knockback, but he will not chase you. He goes angry-faced for about 5 seconds, rants loudly and swears at you in a speech bubble, then calms down.']},
+ {v:'v0.9.93', d:'2026-10-25', notes:['New MAP item. Craft it at a table from 8 Paper + 1 Redstone. Paper is 3 Reeds or 3 Wheat for 3 Paper.','The map is already fully explored: the whole world from above, with the Clan, Mossy Skeleton and Blackstone castles and the spawn marked, and a red arrow showing where you are and which way you face.','Select the map in your hotbar and you hold it in both hands, big on the lower middle of the screen, so you can read it while you walk. It keeps updating as you go.','HD tool icons, rendered from the held 3D models, for every pickaxe, axe, sword, shovel and hoe.','HD held tool models: better shaped heads, bevelled handles with leather wraps, and shinier metal edges for each tier.','Removed the wooden shovel, wooden hoe, stone hoe and diamond hoe (recipes, creative, and any you had).']},
+{v:'v0.9.92', d:'2026-10-25', notes:['Hamish and Angus now chat like villagers. Every few seconds when you are near, they make one of 10 Scottish grunts and mumbles: huh??, och aye, hmmph, aye, ach!, rrrright, heh-heh, wheesht, ooh-aye? and sleepy yawns at night. Hamish is deeper and Angus rougher, and they get quieter with distance.','They react to trading: happy when you open it, aye! when a trade works, ach when it fails.','Hit a clansman and he turns and hits you back once with a small knockback, but he will not chase you. He goes angry-faced for about 5 seconds, rants loudly and swears at you in a speech bubble, then calms down.']},
 {v:'v0.9.91', d:'2026-10-25', notes:['Spiders are now GIANT - about 2.5 blocks across, with a matching hitbox. They only spawn where there is room for them.','Spiders are neutral: they leave you alone unless you hit them. Hit one and it chases you until you get well away.','Skeleton arrows now hit other mobs in their way.','If a skeleton shoots a spider, the spider goes after that skeleton, grabs it and slams it into a wall or the ground. The skeleton smashes into tumbling, clattering bone pieces (skull, ribcage, limbs) that vanish after a few seconds and still drop its normal loot. Then the spider calms down.']},
 {v:'v0.9.90', d:'2026-10-25', notes:['Quick torch fixed for controllers: LT with a tool, weapon or empty hand now places a torch from your hotbar on the floor or a wall, in survival and creative','No more "can\'t be placed" pop-ups when you press LT with a tool or weapon. If there is no torch or nowhere to put one, nothing happens','Your LEFT hand now comes up holding the torch and reaches out to place it. The right hand keeps holding your tool']},
 {v:'v0.9.89', d:'2026-10-25', notes:['New Minecraft-style lighting: every block has its own block light and sky light, and both fade by one level per block, so torches now light a proper diamond-shaped glow','Torches give light level 14. Lava, fire, glowrock, lamps and lanterns give 15. Water and leaves dim light a little as it passes through','Placing or breaking a torch re-lights the area around it, including the next chunks over','Brightness is the stronger of torch light (warm) and daylight. Day and night only change the sky part, so the world never has to rebuild at sunset','Caves and closed rooms are darker now, so torches matter, but nothing is ever pitch black. Nights stay easy to see with the same dark blue sky, moon and stars. Hell and the Backrooms get a bit more base light','Smooth lighting and corner shading are worked out when a chunk is built. The old torch point lights are gone (faster), and a torch in your hand still lights up around you','Light is worked out chunk by chunk as the world loads, with no extra wait on the load bar']},
