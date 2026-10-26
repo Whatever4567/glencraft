@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1022a -->
+<!-- glencraft-build: v1023a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.22';
+const GAME_VERSION = 'v1.0.23';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18711,7 +18711,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const sky = id => id === T.AIR || !FACES[id] || PLANT[id] === 1;
   const MPAL = {[T.GRASS]: [112, 178, 76], leaf: [62, 128, 58], [T.SAND]: [232, 214, 150], [T.STONE]: [150, 150, 146], [T.GRAVEL || 202]: [160, 152, 140], [T.DIRT]: [150, 112, 74], [T.HEATHER]: [150, 104, 150], [T.PEAT]: [96, 76, 58], [T.MUD]: [110, 90, 64], [T.DEEPSLATE]: [90, 90, 96], [T.LAVA]: [240, 110, 30], 142: [120, 96, 56], 144: [90, 140, 60], 248: [56, 56, 62]};
   let wm = null; const wAt = (x, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return 1; const i = x * D + z; if (wm[i] < 0) { let y = H - 1; const base = x * H * D + z; for (; y > 0; y--) if (!sky(world[base + y * D])) break; wm[i] = world[base + y * D] === T.WATER ? 1 : 0; } return wm[i]; };
-  const wkey = () => ((current && current.id) || 'x') + '@' + (current && current.created) + '|' + W + '|' + (typeof genVer !== 'undefined' ? genVer : 0);
+  const wkey = () => ((current && current.id) || 'x') + '@' + (current && current.created) + '|' + W + '|' + (typeof genVer !== 'undefined' ? genVer : 0) + '#' + (window.__mapGen | 0) + '#' + (typeof gSeed !== 'undefined' ? gSeed : 0);
   function column(x, z) { let y = H - 1, b = 0; const base = x * H * D + z; for (; y > 0; y--) { b = world[base + y * D]; if (!sky(b)) break; }
     let dep = 0; if (b === T.WATER) { let yy = y; while (yy > 0 && world[base + yy * D] === T.WATER && dep < 8) { yy--; dep++; } } hm[x * D + z] = y; return [y, b, dep]; }
   function paintRect(x0, z0, w, d) { x0 = Math.max(0, x0); z0 = Math.max(0, z0); w = Math.min(W - x0, w); d = Math.min(D - z0, d); if (w <= 0 || d <= 0) return;
@@ -18781,10 +18781,10 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // one hand holds the bottom corner (right corner = main hand, left corner = offhand)
   const up = new THREE.Vector3(0, 1, 0), fists = {};
   for (const s of [-1, 1]) { const FG = new THREE.Group(); HG.add(FG); fists[s] = FG;
-    const fist = new THREE.Vector3(s * MS * 0.42, -MS * 0.4, 0.014), dir = new THREE.Vector3(s * 0.15, -0.6, 0.65).normalize();
+    const fist = new THREE.Vector3(s * MS * 0.44, -MS * 0.62, 0.014), dir = new THREE.Vector3(s * 0.15, -0.6, 0.65).normalize();
     const add = (geo, m, at) => { const o = new THREE.Mesh(geo, m); o.position.copy(fist).addScaledVector(dir, at); o.quaternion.setFromUnitVectors(up, dir); o.renderOrder = 23; o.material = m; FG.add(o); return o; };
     const f = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.075, 0.06), armMat); f.position.copy(fist); f.quaternion.setFromUnitVectors(up, dir); f.renderOrder = 23; FG.add(f);
-    const th = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.05, 0.02), armMat); th.position.set(fist.x - s * 0.012, fist.y + 0.035, fist.z + 0.03); th.renderOrder = 24; FG.add(th);
+    const th = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.05, 0.02), armMat); th.position.set(fist.x - s * 0.012, fist.y + 0.028, fist.z + 0.03); th.renderOrder = 24; FG.add(th);
     add(new THREE.CylinderGeometry(0.032, 0.04, 0.2, 12), armMat, 0.13); add(new THREE.CylinderGeometry(0.05, 0.056, 0.34, 14), sleeveMat, 0.38); }
   HG.traverse(o => { if (o.isMesh) { o.frustumCulled = false; if (o.material !== plane.material && o.material.depthTest !== false) { o.material = o.material.clone(); o.material.depthTest = false; o.material.depthWrite = false; } } });
   HG.rotation.x = -0.22;
@@ -18808,7 +18808,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     swx += (cl(dy * 0.9) - swx) * k; swy += (cl(-dp * 0.9) - swy) * k; swr += (cl(dy * 1.6) - swr) * k;
     const s = on === 'main' ? 1 : -1; fists[1].visible = s === 1; fists[-1].visible = s === -1;
     const mv = Math.hypot(P.vx || 0, P.vz || 0); bob += dt * (mv > 0.5 ? 7 : 1.5);
-    HG.position.set(s * 0.12 + swx + Math.sin(bob) * 0.004, -0.1 + swy + Math.abs(Math.cos(bob)) * 0.004, -0.4); HG.rotation.set(-0.22 + swy * 1.5, -s * 0.12 + swx * 2, swr * 0.8 + s * 0.04);
+    // v1.0.23: fit the whole map on screen in landscape and portrait (pull it back on narrow screens), hand below it
+    const tf = Math.tan((camera.fov || 75) * Math.PI / 360), asp = camera.aspect || 1, hx = MS * 0.515;
+    const dd = Math.max(0.4, hx / (0.78 * tf * asp), MS * 1.02 / (1.62 * tf)), hH = dd * tf, room = Math.max(0, 1.62 * hH - MS * 1.02), ox = Math.max(0, Math.min(0.12 * dd / 0.4, 0.78 * hH * asp - hx));
+    U.fit = {d: dd, asp, ox};
+    HG.position.set(s * ox + swx + Math.sin(bob) * 0.004, -0.72 * hH + MS * 0.51 + room * 0.25 + swy + Math.abs(Math.cos(bob)) * 0.004, -dd); const nr = Math.min(1, Math.max(0.2, (asp - 0.5) / 0.8)); HG.rotation.set(-0.22 + swy * 1.5, (-s * 0.12 + swx * 2) * nr, (swr * 0.8 + s * 0.04) * nr);   // flatter on a narrow (portrait) screen so no corner runs off
     return on;
   }
   const rr = renderer.render.bind(renderer);
@@ -18819,6 +18823,10 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (cam === camera) window.__mapHide = hid ? [hand] : og ? [og] : [];
     try { return rr(sc, cam); } finally { if (hid) hand.visible = true; if (og) og.visible = true; } };
   U.frame = frame; U.TX = TX;
+  // v1.0.23: Reset world / Reset terrain (any regenerate) starts the map afresh
+  const bump = () => { window.__mapGen = (window.__mapGen | 0) + 1; };
+  try { const g0 = generate; generate = function () { try { return g0.apply(this, arguments); } finally { bump(); } }; } catch (_) {}
+  try { const r0 = resetTerrain; resetTerrain = async function () { try { return await r0.apply(this, arguments); } finally { bump(); } }; } catch (_) {}
 
   // ---------------- 5. HD held tool models ----------------
   const KINDS = new Set(['pick', 'axe', 'sword', 'shovel', 'hoe']);
@@ -19019,40 +19027,59 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // ---------- 3. bridges: spawn island -> mainland -> castle island, one per castle, each in its castle's style ----------
   const STY = {
     human: {deck: (x, y, z, ap) => ap <= 1.1 ? T.PLANKS : T.STONEBRICK, fill: () => T.STONEBRICK, pil: () => T.STONEBRICK,
-      rail: () => FENCE, lampEvery: 12, lamp: (x, s, z) => { put(x, s, z, T.STONEBRICK); put(x, s + 1, z, T.STONEBRICK); put(x, s + 2, z, FENCE); put(x, s + 3, z, LAMP); }, gap: () => false},
+      rail: () => FENCE, stair: () => 167, lampEvery: 12, lamp: (x, s, z) => { put(x, s, z, T.STONEBRICK); put(x, s + 1, z, T.STONEBRICK); put(x, s + 2, z, FENCE); put(x, s + 3, z, LAMP); }, gap: () => false},
     mossy: {deck: (x, y, z) => { const r = h3(x, y, z); return r < 0.45 ? T.MOSSYBRICK : r < 0.7 ? T.COBBLE : T.STONEBRICK; }, fill: (x, y, z) => h3(x, y, z) < 0.5 ? T.COBBLE : T.MOSSYBRICK, pil: (x, y, z) => h3(x, y, z) < 0.6 ? T.MOSSYBRICK : T.COBBLE,
-      rail: (x, y, z) => { const r = h3(x, y + 7, z); return r < 0.35 ? 0 : r < 0.45 ? T.COBWEB : T.MOSSYBRICK; }, lampEvery: 26, lamp: (x, s, z) => { put(x, s, z, T.MOSSYBRICK); put(x, s + 1, z, T.MOSSYBRICK); put(x, s + 2, z, T.TORCH); put(x, s + 1, z + 1 < D ? z : z, T.MOSSYBRICK); },
+      rail: (x, y, z) => { const r = h3(x, y + 7, z); return r < 0.35 ? 0 : r < 0.45 ? T.COBWEB : T.MOSSYBRICK; }, stair: () => 165, lampEvery: 26, lamp: (x, s, z) => { put(x, s, z, T.MOSSYBRICK); put(x, s + 1, z, T.MOSSYBRICK); put(x, s + 2, z, T.TORCH); put(x, s + 1, z + 1 < D ? z : z, T.MOSSYBRICK); },
       gap: (x, z, ap, wet) => wet && ap > 1.4 && h3(x, 3, z) < 0.14},
     black: {deck: (x, y, z, ap) => ap > 1.5 && h3(x, y, z) < 0.12 ? T.COBBLE : BLK, fill: () => BLK, pil: () => BLK,
-      rail: (x, y, z) => h3(x, y + 5, z) < 0.3 ? 0 : BLK, lampEvery: 14, lamp: (x, s, z) => { put(x, s, z, BLK); put(x, s + 1, z, BLK); put(x, s + 2, z, T.MAGMA); put(x, s + 3, z, LAMP); },
+      rail: (x, y, z) => h3(x, y + 5, z) < 0.3 ? 0 : BLK, stair: () => 166, lampEvery: 14, lamp: (x, s, z) => { put(x, s, z, BLK); put(x, s + 1, z, BLK); put(x, s + 2, z, T.MAGMA); put(x, s + 3, z, LAMP); },
       gap: (x, z, ap, wet) => wet && ap > 1.6 && h3(x, 9, z) < 0.07}
   };
   function buildBridges() {
-    const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1, R: 30}, out = [], hw = 2, DK = SEA + 4;
+    const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1, R: 30}, out = [], hw = 2, DK = SEA + 4; U.tun = 0; U.tunAt = [];
     for (const c of g9castles || []) { const st = STY[c[0]]; if (!st) continue;
       const ax = I.cx + 0.5, az = I.cz + 0.5, bx = c[1] + 0.5, bz = c[2] + 0.5, L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, N = Math.floor(L);
       const G = new Int16Array(N + 1), WET = new Uint8Array(N + 1);
       for (let t = 0; t <= N; t++) { const x = Math.floor(ax + ux * t), z = Math.floor(az + uz * t), g = gtop(x, z); G[t] = g; WET[t] = get(x, g + 1, z) === T.WATER || g < SEA ? 1 : 0; }
       let t0 = -1; for (let t = Math.round(I.R * 0.55); t < N; t++) if (WET[t]) { t0 = Math.max(0, t - 5); break; } if (t0 < 0) continue;
       const t1 = N - 24; if (t1 <= t0 + 10) continue;
-      const S = new Int16Array(N + 1); for (let t = t0; t <= t1; t++) S[t] = WET[t] ? DK : Math.max(G[t], SEA + 1);
-      for (let t = t0 + 1; t <= t1; t++) S[t] = Math.max(S[t], S[t - 1] - 1);
-      for (let t = t1 - 1; t >= t0; t--) S[t] = Math.max(S[t], S[t + 1] - 1);
+      // v1.0.23: a level deck at DK; stair ramps only at the two ends; where the land rises well above the deck, a lined, lit tunnel goes through it (no more holes cut up the hillside)
+      const S = new Int16Array(N + 1), E0 = Math.max(G[t0], SEA + 1), E1 = Math.max(G[t1], SEA + 1);
+      for (let t = t0; t <= t1; t++) { let v = DK; const d0 = t - t0, d1 = t1 - t; if (d0 < Math.abs(E0 - DK)) v = E0 + Math.sign(DK - E0) * d0; if (d1 < Math.abs(E1 - DK) && (d1 < d0 || v === DK)) v = E1 + Math.sign(DK - E1) * d1; S[t] = v; }
+      const TUN = new Uint8Array(N + 2); for (let t = t0; t <= t1; t++) { let lo = 1e9; for (let k = -2; k <= 2; k++) { const q = Math.min(t1, Math.max(t0, t + k)), x = Math.floor(ax + ux * q), z = Math.floor(az + uz * q); lo = Math.min(lo, gtop(x, z)); } if (lo >= S[t] + 7 && !WET[t]) TUN[t] = 1; }
+      for (let t = t0 + 1; t < t1; t++) if (!TUN[t] && TUN[t - 1] && TUN[t + 1]) TUN[t] = 1;
+      const SB = st.stair(), dom = Math.abs(ux) > Math.abs(uz), fUp = stairF(dom ? Math.sign(ux) : 0, dom ? 0 : Math.sign(uz)), fDn = stairF(dom ? -Math.sign(ux) : 0, dom ? 0 : -Math.sign(uz));
+      const sideF = (px, pz) => { const ox = px * nx, oz = pz * nz, sd = Math.sign(px * nx + pz * nz) || 1, vx = nx * sd, vz = nz * sd; return Math.abs(vx) > Math.abs(vz) ? stairF(Math.sign(vx), 0) : stairF(0, Math.sign(vz)); };
+      const stp = (x, y, z, f) => { put(x, y, z, SB); if (get(x, y, z) === SB) try { entMeta.set(keyOf(x, y, z), {face: f}); } catch (_) {} };
       const x0 = Math.floor(Math.min(ax + ux * t0, ax + ux * t1)) - 5, x1 = Math.ceil(Math.max(ax + ux * t0, ax + ux * t1)) + 5, z0 = Math.floor(Math.min(az + uz * t0, az + uz * t1)) - 5, z1 = Math.ceil(Math.max(az + uz * t0, az + uz * t1)) + 5;
       let cols = 0;
       for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { if (!inW(x, z)) continue;
         const px = x + 0.5 - ax, pz = z + 0.5 - az, t = px * ux + pz * uz, ap = Math.abs(px * nx + pz * nz); if (t < t0 || t > t1 || ap > hw + 1.5) continue;
         const ti = Math.round(t), s = S[ti], g = gtop(x, z), wet = get(x, g + 1, z) === T.WATER || g < SEA, deck = ap <= hw + 0.5;
+        if (TUN[ti]) { // tunnel: 5 wide, 4 high inside, stone-brick lined all round so no water or cave daylight gets in
+          for (let y = s + 1; y <= s + 5; y++) { const ins = deck && y <= s + 4; put(x, y, z, ins ? T.AIR : st.fill(x, y, z)); }
+          if (get(x, s + 6, z) === T.WATER || !get(x, s + 6, z)) put(x, s + 6, z, st.fill(x, s + 6, z));
+          put(x, s, z, deck ? st.deck(x, s, z, ap) : st.fill(x, s, z)); if (!get(x, s - 1, z) || get(x, s - 1, z) === T.WATER) put(x, s - 1, z, st.fill(x, s - 1, z));
+          if (deck && ap > hw - 0.5) stp(x, s + 4, z, sideF(-px, -pz) );   // arch corbels along the top corners
+          if (deck && ap < 0.5 && ti % 8 === 0) put(x, s + 4, z, LAMP);
+          if (deck && S[ti + 1] > s && ti < t1) stp(x, s + 1, z, fUp); else if (deck && ti > t0 && S[ti - 1] > s) stp(x, s + 1, z, fDn);
+          cols++; continue; }
         if (!deck && !(wet || s - g >= 2)) continue;
-        // clear the way (trees, plants) above the deck
-        for (let y = s + 1; y <= Math.min(H - 2, s + (deck ? 14 : 4)); y++) { const b = get(x, y, z); if (b && b !== T.WATER) put(x, y, z, T.AIR); }
+        // clear the way (trees, plants, a low rise) above the deck - only up to the land itself, never a slot up a hillside
+        const top = deck ? Math.min(H - 2, s + 8) : Math.min(H - 2, s + 4);
+        for (let y = s + 1; y <= top; y++) { const b = get(x, y, z); if (b && b !== T.WATER) put(x, y, z, T.AIR); }
         if (st.gap(x, z, ap, wet)) continue;
-        if (!wet) { if (g < s) for (let y = g + 1; y < s; y++) put(x, y, z, st.fill(x, y, z)); else for (let y = s + 1; y <= g; y++) put(x, y, z, T.AIR); }
+        if (!wet) { if (g < s) for (let y = g + 1; y < s; y++) put(x, y, z, st.fill(x, y, z)); }
         else if (ti % 9 === 0 && ap >= 1.2) for (let y = g + 1; y < s; y++) put(x, y, z, st.pil(x, y, z));
         put(x, s, z, st.deck(x, s, z, ap)); cols++;
-        if (!deck) { const r = st.rail(x, s + 1, z); if (r) put(x, s + 1, z, r); } }
-      // lamps on both rails
-      for (let t = t0 + 4; t < t1 - 2; t += st.lampEvery) for (const sd of [-1, 1]) { const x = Math.floor(ax + ux * t + nx * sd * (hw + 1)), z = Math.floor(az + uz * t + nz * sd * (hw + 1)); if (inW(x, z)) st.lamp(x, S[t], z); }
+        if (deck) { if (ti < t1 && S[ti + 1] > s) stp(x, s + 1, z, fUp); else if (ti > t0 && S[ti - 1] > s) stp(x, s + 1, z, fDn); }
+        else { const r = st.rail(x, s + 1, z); if (r) { if (r !== T.COBWEB && ti % 3 === 1 && S[ti - 1] === s && S[ti + 1] === s) stp(x, s + 1, z, sideF(px, pz)); else put(x, s + 1, z, r); } } }
+      // portals: a stair-capped arch face over each tunnel mouth
+      for (let t = t0 + 1; t < t1; t++) if (TUN[t] !== TUN[t - 1]) { const q = TUN[t] ? t : t - 1, out = TUN[t] ? -1 : 1; U.tun++; U.tunAt.push([Math.round(ax + ux * (q + out * 6)), S[q], Math.round(az + uz * (q + out * 6)), ux * -out, uz * -out, c[0]]);
+        for (let k = -hw - 1; k <= hw + 1; k++) { const x = Math.floor(ax + ux * (q + out) + nx * k), z = Math.floor(az + uz * (q + out) + nz * k); if (!inW(x, z)) continue; const sq = S[q];
+          if (Math.abs(k) === hw + 1) for (let y = sq + 1; y <= sq + 5; y++) put(x, y, z, st.fill(x, y, z)); else if (!get(x, sq + 5, z) || get(x, sq + 5, z) === T.WATER) stp(x, sq + 5, z, TUN[t] ? fUp : fDn); } }
+      // lamps on both rails (not inside a tunnel)
+      for (let t = t0 + 4; t < t1 - 2; t += st.lampEvery) { if (TUN[t]) continue; for (const sd of [-1, 1]) { const x = Math.floor(ax + ux * t + nx * sd * (hw + 1)), z = Math.floor(az + uz * t + nz * sd * (hw + 1)); if (inW(x, z)) st.lamp(x, S[t], z); } }
       out.push({k: c[0], from: [Math.round(ax + ux * t0), Math.round(az + uz * t0)], to: [Math.round(ax + ux * t1), Math.round(az + uz * t1)], len: t1 - t0, cols, a: [ax, az, ux, uz, t0, t1]}); }
     return out;
   }
@@ -19246,6 +19273,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.23', ["New: castle bridges keep a level deck and go through hills in lit, stone-lined tunnels instead of cutting holes up the mountains; stairs on the bridge ramps, rails and tunnel arches; the stair up to the castle keep roof is gone","New: the pyramid island is now its own island with open sea all round it, and sloping cave mouths lead down to big ore-rich caverns under the pyramid","New: the held map fits the screen (landscape and portrait) with your hand below it, and starts afresh after Reset world or Reset terrain"]],
     ['v1.0.22', ["Mobs: HD skeletons hold their bow again and HD black skeletons their sword - in the hand while walking, attacking and aiming"]],
     ['v1.0.21', ["New: the small island by spawn is now a sand island with a sandstone pyramid (Ancient Egypt style) and a tomb in the caves under it; a moss hag's hut stands near the Black Skeleton castle; the old boat is back, moored a bit further out in the river (new world or Reset world to see them)", "New: one Spawn egg replaces all the old eggs - use it (LT / right click / Place) to open a list of every mob, split into Enabled and Disabled, and spawn any of them (all of them in creative)", "New: the Highland musket is now an old Scottish flintlock: long dark wooden stock, brass fittings, flintlock hammer, long iron barrel and iron sights, no scope. Hold LT (right mouse / Place) to aim down the sights: smooth zoom, less sway and kick, slower walking; fire with RT (left click / Break)", "Textures: new Glencraft pixel textures and icon for the musket; the pyramid and island are built from sandstone and sand", "Mobs: only the chosen mobs spawn now - Snaw Brute guards rubies up stony mountain tops, Sneerin' Swaddle on the pyramid island at night, Barrow Bandager in the tomb under it, Rivet Reiver at the skeleton castle, Pest Corbie at the Black Skeleton castle, Moss Hag Morag at her hut, Admiral Skelp on the boat, Glower Orb in the Nether, Thunner Cloudies when it rains, Glaikit Goggler, Tangle Tam and Sunken Swabbies in the ocean, Timmer Tiki on beach sand", "Mobs: Greetin' Bairn, Linen Ghaist and Mist Moaner are merged into one mob called Ghost; Lang Hat Lurker appears at night where you last died; farmers can now be killed and Cleek Jack, the farmer's ghost, rises from him", "Mobs: switched off (egg only): Skull Seer, Puddock Gob, Puffer, Merry Mischanter, Moonlit Selkie, Dreich Gnawer, Drookit Kelpie, Govan Gearheid, Deep Beastie, Crag Gruff, Crackle Conger, Cowl Creepie, Comet Collie, Castle Guardian, Anvil Heid, Wraith Jeelie, Thistle Phantom and the spiders"]],
     ['v1.0.20b', ["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]],
@@ -24659,10 +24687,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   function island(rnd, st) {
     const cx0 = MT_C[0], cz0 = MT_C[1], R = 150; let sx = -1, sz = -1;
     for (let r = 0; r < 40 && sx < 0; r += 2) for (let a = 0; a < 6.28 && sx < 0; a += 0.4) { const x = Math.round(cx0 + Math.cos(a) * r), z = Math.round(cz0 + Math.sin(a) * r); if (inW(x, z) && topOf(x, z)[0] > SEA && topOf(x, z)[1] !== T.WATER) { sx = x; sz = z; } }
-    if (sx < 0) { st.isle = 'no land'; return null; }
-    const isle = new Set([N(sx, sz)]), q = [[sx, sz]], tops = new Map();
+    if (sx < 0 && !(window.__c147 && __c147.shape)) { st.isle = 'no land'; return null; } if (sx < 0) { sx = cx0; sz = cz0; }
+    let isle, tops; if (window.__c147 && __c147.shape) { const r = __c147.shape(cx0, cz0, rnd, st); isle = r.isle; tops = r.tops; } else { isle = new Set([N(sx, sz)]); tops = new Map(); const q = [[sx, sz]];
     while (q.length) { const [x, z] = q.pop(); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Z = z + dz, k = N(X, Z); if (isle.has(k) || !inW(X, Z) || Math.hypot(X - cx0, Z - cz0) > R) continue;
-      const t = topOf(X, Z); if (t[0] <= SEA || t[1] === T.WATER) continue; isle.add(k); tops.set(k, t[0]); q.push([X, Z]); } }
+      const t = topOf(X, Z); if (t[0] <= SEA || t[1] === T.WATER) continue; isle.add(k); tops.set(k, t[0]); q.push([X, Z]); } } }
     tops.set(N(sx, sz), topOf(sx, sz)[0]); st.isleCells = isle.size; if (isle.size < 1500) { st.isle = 'small'; return null; }
     // distance to the shore
     const E = new Map(), bq = []; for (const k of isle) { const x = (k / D) | 0, z = k - x * D; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !isle.has(N(x + dx, z + dz)))) { E.set(k, 1); bq.push(k); } }
@@ -24706,6 +24734,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       try { const L = [[IT.GOLDINGOT, 4, 0.9], [IT.BONE || 171, 4, 0.7], [IT.DIAMOND, 1, 0.35], [IT.RUBY, 2, 0.5], [IT.ROTTEN || 320, 3, 0.6]].filter(r => r[0] != null); lootChest(px, ty, cz - 5, L, rnd); } catch (e) { st.chest = String(e); }
       for (const [j, x0] of [[nB + 1, px - 15], [nB + 3, px + 8]]) if (okB[j] && okB[j + 1]) { torch(x0 + 3, ty, cz + 2); for (let x = x0; x <= x0 + 7; x += 2) tomb.pts.push([x + .5, ty, cz + .5]); }
       for (let x = px - 4; x <= px + 4; x += 2) for (const z of [cz - 3, cz + 2]) tomb.pts.push([x + .5, ty, z + .5]); }
+    try { if (window.__c147 && __c147.caverns) __c147.caverns(px, pz, B, ty, isle, rnd, st); } catch (e) { st.cavErr = String(e && e.stack || e); }
     for (let x = px - 20; x <= px + 20; x++) for (let z = cz - 10; z <= pz + B + 8; z++) if (isle.has(N(x, z))) { try { markDirty(x, z); } catch (_) {} }
     const surf = []; for (const k of isle) { const e = E.get(k); if (e > 4 && (k % 7) === 0) { const x = (k / D) | 0, z = k - x * D; if (Math.abs(x - px) > B + 2 || Math.abs(z - pz) > B + 2) surf.push([x, z]); } }
     const pick = []; for (let i = 0; i < 60 && surf.length; i++) pick.push(surf[(rnd() * surf.length) | 0]);
@@ -25089,6 +25118,66 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     if (a.bow && a.bow.parent) { w.loc = a.bow.parent.worldToLocal(tip(w.bone)); a.bow.position.copy(w.loc); }
   } catch (e) { if (W.err.length < 10) W.err.push(a.kind + ' ' + e); } });
 })();
+
+/* ===================== GLX-C147 (v1.0.23): the pyramid island is its own island - a round sand isle with a clear sea channel all round it (solid seabed), and big ore-rich caverns under the pyramid reached by sloping cave mouths ===================== */
+(function c147() {
+  const U = window.__c147 = {st: null};
+  const N = (x, z) => x * D + z, inW = (x, z) => x > 2 && z > 2 && x < W - 3 && z < D - 3;
+  const gw = (x, y, z) => (inW(x, z) && y >= 0 && y < H) ? world[idx(x, y, z)] : 0;
+  const setW = (x, y, z, v) => { if (y > 0 && y < H - 1 && inW(x, z)) world[idx(x, y, z)] = v; };
+  const solid = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && b !== T.TORCH;
+  const col = (x, z, h, kind) => { try { if (g9cols && g9cols.length > N(x, z) * 2 + 1) { g9cols[N(x, z) * 2] = h + 1; g9cols[N(x, z) * 2 + 1] = kind; } } catch (_) {} };
+  // 1) shape: everything inside r(a) is island, the ring r(a)..r(a)+CH becomes open sea with a sand bed; caves under it are filled
+  U.shape = function (cx, cz, rnd, st) {
+    const R0 = 60, CH = 18, p1 = rnd() * 6.28, p2 = rnd() * 6.28, rA = a => R0 * (1 + 0.07 * Math.sin(3 * a + p1) + 0.04 * Math.sin(5 * a + p2));
+    const isle = new Set(), tops = new Map(), ring = []; let farm = 0;
+    const span = Math.ceil(R0 * 1.12 + CH + 3);
+    for (let x = cx - span; x <= cx + span; x++) for (let z = cz - span; z <= cz + span; z++) { if (!inW(x, z)) continue; const d = Math.hypot(x - cx, z - cz), r = rA(Math.atan2(z - cz, x - cx));
+      if (d < r) { isle.add(N(x, z)); tops.set(N(x, z), SEA + 1);
+        // nothing hollow or wet under the island (the caverns are cut fresh below)
+        for (let y = SEA - 11; y > 2; y--) { const b = world[idx(x, y, z)]; if (!b || b === T.WATER || b === T.LAVA) world[idx(x, y, z)] = T.STONE; } }
+      else if (d < r + CH) { ring.push(N(x, z));
+        for (let y = H - 2; y > SEA; y--) world[idx(x, y, z)] = 0;
+        for (let y = SEA; y >= SEA - 5; y--) world[idx(x, y, z)] = T.WATER;
+        { const b = world[idx(x, SEA - 6, z)]; if (b !== T.WATER && !solid(b)) world[idx(x, SEA - 6, z)] = T.SAND; else if (solid(b)) world[idx(x, SEA - 6, z)] = T.SAND; }
+        for (let y = SEA - 7; y >= SEA - 16; y--) { const b = world[idx(x, y, z)]; if (!b || b === T.LAVA) world[idx(x, y, z)] = T.STONE; }
+        col(x, z, SEA - 6, 5); }
+      else if (d < r + CH + 3) for (let y = SEA; y >= SEA - 7; y--) { const b = world[idx(x, y, z)]; if (!b || b === T.LAVA) world[idx(x, y, z)] = T.STONE; } }   // seal cave mouths facing the channel
+    const inRing = (x, z) => { const d = Math.hypot(x - cx, z - cz), r = rA(Math.atan2(z - cz, x - cx)); return d < r + CH + 1; };
+    try { for (const M of [entMeta, chests]) for (const k of [...M.keys()]) { const [x, y, z] = String(k).split(',').map(Number); if (inRing(x, z) && !isle.has(N(x, z))) M.delete(k); } } catch (_) {}
+    try { for (const k of [...lightSrc.keys()]) { const v = lightSrc.get(k); if (v && inRing(Math.floor(v[0]), Math.floor(v[2])) && world[idx(Math.floor(v[0]), Math.floor(v[1]), Math.floor(v[2]))] !== v[3]) lightSrc.delete(k); } } catch (_) {}
+    try { const fl = window.__c113 && __c113.farmsList ? __c113.farmsList() : []; for (let i = fl.length - 1; i >= 0; i--) { const f = fl[i]; if (Math.hypot(f.x0 + 3 - cx, f.z0 + 6 - cz) < R0 * 1.12 + CH + 12) { fl.splice(i, 1); farm++; } } } catch (_) {}
+    try { for (const k of ring) { const x = (k / D) | 0; markDirty(x, k - x * D); } } catch (_) {}
+    st.ring = ring.length; st.farmGone = farm; st.R0 = R0; st.CH = CH; U.geo = {cx, cz, R0, CH, p1, p2}; U.rA = rA;
+    return {isle, tops, rA}; };
+  // 2) caverns under the pyramid: a few big overlapping bubbles at y ~8-20, ore-rich walls, torches; sloping cave mouths from the sand down into them
+  U.caverns = function (px, pz, B, ty, isle, rnd, st) {
+    const g = U.geo; if (!g) return; const inside = (x, z, m) => Math.hypot(x - g.cx, z - g.cz) < U.rA(Math.atan2(z - g.cz, x - g.cx)) - m;
+    const cy = SEA - 27, cells = new Set(), K = (x, y, z) => (x * H + y) * D + z, blobs = [[px, cy, pz, 13, 6, 12]];
+    for (let i = 0; i < 4; i++) { const a = rnd() * 6.28, r = 9 + rnd() * 9; blobs.push([Math.round(px + Math.cos(a) * r), cy - 1 + Math.round(rnd() * 3), Math.round(pz + Math.sin(a) * r), 8 + rnd() * 5, 4 + rnd() * 2.5, 8 + rnd() * 5]); }
+    const top = ty - 4;   // keep a thick roof under the tomb floor
+    for (const [bx, by, bz, rx, ry, rz] of blobs) for (let x = Math.floor(bx - rx); x <= bx + rx; x++) for (let z = Math.floor(bz - rz); z <= bz + rz; z++) { if (!inside(x, z, 9)) continue;
+      for (let y = Math.max(4, Math.floor(by - ry * 0.55)); y <= Math.min(top, by + ry); y++) { const q = ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2 + ((z - bz) / rz) ** 2; if (q <= 1) cells.add(K(x, y, z)); } }
+    // cave mouths: three sloping 3x3 tunnels from the sand into the cavern (no straight drops)
+    let mouths = 0; const MO = [];
+    for (const a0 of [0.35, 2.2, 4.1]) { const a = a0 + rnd() * 0.5, r0 = B + 9; let x = px + Math.cos(a) * r0, z = pz + Math.sin(a) * r0; const sx = Math.round(x), sz = Math.round(z); if (!inside(sx, sz, 6)) continue;
+      let y = SEA + 1; for (let yy = H - 2; yy > 2; yy--) if (solid(gw(sx, yy, sz))) { y = yy + 1; break; } const dx = -Math.cos(a), dz = -Math.sin(a); MO.push([sx, y, sz]); mouths++;
+      for (let k = 0; k < 80 && y > cy; k++) { for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) for (let oy = 0; oy <= 2; oy++) { const X = Math.round(x) + ox, Z = Math.round(z) + oz; if (inside(X, Z, 3)) cells.add(K(X, y + oy, Z)); }
+        x += dx; z += dz; y--; } }
+    const ORE = y => { const r = rnd(); if (y < 12) return r < 0.14 ? T.DIAMONDORE : r < 0.3 ? T.GOLDORE : r < 0.42 ? (T.RUBYORE || T.REDORE) : r < 0.52 ? T.REDORE : r < 0.75 ? T.IRONORE : T.COALORE; return r < 0.06 ? T.DIAMONDORE : r < 0.2 ? T.GOLDORE : r < 0.3 ? (T.RUBYORE || T.REDORE) : r < 0.6 ? T.IRONORE : r < 0.7 ? (T.COPPERORE || T.IRONORE) : T.COALORE; };
+    const ORES = new Set([T.COALORE, T.IRONORE, T.GOLDORE, T.DIAMONDORE, T.REDORE, T.RUBYORE, T.COPPERORE, T.SILVERORE, T.LAZORE]); let ores = 0, torches = 0, sealed = 0;
+    for (const k of cells) world[k] = 0;
+    for (const k of cells) { const x = Math.floor(k / (H * D)), y = Math.floor(k / D) % H, z = k % D;
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const X = x + dx, Y = y + dy, Z = z + dz; if (cells.has(K(X, Y, Z))) continue; const b = gw(X, Y, Z);
+        if (b === T.WATER || b === T.LAVA) { setW(X, Y, Z, T.STONE); sealed++; }
+        else if (solid(b) && b !== T.CHEST && b !== T.SAND && !ORES.has(b) && Y < SEA - 6 && rnd() < 0.16) { setW(X, Y, Z, ORE(Y)); ores++; } }
+      // a torch now and then on the floor so it's never pitch black
+      if (y < cy && solid(gw(x, y - 1, z)) && !gw(x, y, z) && ((x * 31 + z * 17) % 41 === 0)) { setW(x, y, z, T.TORCH); try { lightSrc.set((x * 4096 + z) * 256 + y, [x + .5, y + .7, z + .5, T.TORCH]); } catch (_) {} torches++; } }
+    for (const [x, y, z] of MO) for (let ox = -2; ox <= 2; ox++) for (let oz = -2; oz <= 2; oz++) if (Math.max(Math.abs(ox), Math.abs(oz)) === 2 && !gw(x + ox, y, z + oz) && solid(gw(x + ox, y - 1, z + oz))) setW(x + ox, y, z + oz, T.SANDSTONE);   // a low sandstone lip round each mouth
+    try { for (let x = px - 40; x <= px + 40; x += 4) for (let z = pz - 40; z <= pz + 40; z += 4) markDirty(x, z); } catch (_) {}
+    Object.assign(st, {cav: cells.size, ores, torches, mouths, sealed}); U.cav = {cy, mouths: MO, n: cells.size};
+  };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -25100,6 +25189,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.23', d:'2026-10-26', notes:["New: castle bridges keep a level deck and go through hills in lit, stone-lined tunnels instead of cutting holes up the mountains; stairs on the bridge ramps, rails and tunnel arches; the stair up to the castle keep roof is gone","New: the pyramid island is now its own island with open sea all round it, and sloping cave mouths lead down to big ore-rich caverns under the pyramid","New: the held map fits the screen (landscape and portrait) with your hand below it, and starts afresh after Reset world or Reset terrain"]},
 {v:'v1.0.22', d:'2026-10-26', notes:["Mobs: HD skeletons hold their bow again and HD black skeletons their sword - in the hand while walking, attacking and aiming"]},
 {v:'v1.0.21', d:'2026-10-26', notes:["New: the small island by spawn is now a sand island with a sandstone pyramid (Ancient Egypt style) and a tomb in the caves under it; a moss hag's hut stands near the Black Skeleton castle; the old boat is back, moored a bit further out in the river (new world or Reset world to see them)", "New: one Spawn egg replaces all the old eggs - use it (LT / right click / Place) to open a list of every mob, split into Enabled and Disabled, and spawn any of them (all of them in creative)", "New: the Highland musket is now an old Scottish flintlock: long dark wooden stock, brass fittings, flintlock hammer, long iron barrel and iron sights, no scope. Hold LT (right mouse / Place) to aim down the sights: smooth zoom, less sway and kick, slower walking; fire with RT (left click / Break)", "Textures: new Glencraft pixel textures and icon for the musket; the pyramid and island are built from sandstone and sand", "Mobs: only the chosen mobs spawn now - Snaw Brute guards rubies up stony mountain tops, Sneerin' Swaddle on the pyramid island at night, Barrow Bandager in the tomb under it, Rivet Reiver at the skeleton castle, Pest Corbie at the Black Skeleton castle, Moss Hag Morag at her hut, Admiral Skelp on the boat, Glower Orb in the Nether, Thunner Cloudies when it rains, Glaikit Goggler, Tangle Tam and Sunken Swabbies in the ocean, Timmer Tiki on beach sand", "Mobs: Greetin' Bairn, Linen Ghaist and Mist Moaner are merged into one mob called Ghost; Lang Hat Lurker appears at night where you last died; farmers can now be killed and Cleek Jack, the farmer's ghost, rises from him", "Mobs: switched off (egg only): Skull Seer, Puddock Gob, Puffer, Merry Mischanter, Moonlit Selkie, Dreich Gnawer, Drookit Kelpie, Govan Gearheid, Deep Beastie, Crag Gruff, Crackle Conger, Cowl Creepie, Comet Collie, Castle Guardian, Anvil Heid, Wraith Jeelie, Thistle Phantom and the spiders"]},
 {v:'v1.0.20b', d:'2026-10-26', notes:["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]},
