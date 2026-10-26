@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1015e -->
+<!-- glencraft-build: v1016a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.15';
+const GAME_VERSION = 'v1.0.16';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.16', ["HD mob models (batch 1): sheep, zombie, skeleton, black skeleton, spiders, clansman and demon hound now use detailed animated models (CC0, by Quaternius)", "they walk, run, graze and attack with proper animations; sheared sheep keep the old look until the fleece grows back", "Settings: new 'HD mob models' On/Off switch and a credit line", "models load in the background and are cached; if one can't load, the mob keeps its classic look", "mob health, damage, hitboxes and spawning are unchanged"]],
     ['v1.0.15', ["water: surfaces slope smoothly from block to block and flowing water shows ripples moving downhill", "waterfalls have white foam, a splash of spray at the bottom and a soft rushing sound", "new worlds (and Reset world / Reset terrain) get rivers that run from the hills down to the lochs and the sea, with waterfalls where the land steps down", "river currents gently carry you (and dropped items) downstream; the old flowing-water push is softer"]],
     ['v1.0.14', ["music: the original Glencraft songs are back as chilled remixes - same melodies and chords, no piano, re-voiced on warm pads, low soft plucks, sub bass and a Highland drone, sitting on your frequency tracks (binaural pulse as the groove, surf as texture); quiet, low-passed and crossfaded", "the Highlands are now mostly land: one big squared-off mainland with narrow sea channels round the spawn island and the three castle islands (land/water about 60/40 instead of 23/77), with bigger biomes", "castles sit out towards their island's outer edge with a wide strip of land between them and the shore, and their hills ease back into the land instead of a little islet ring", "smoother, more natural glen hills", "the spawn island's imported water, ship hulls and stray blocks are gone - only Glencraft's own water is left, on solid sand/gravel beds; floating leftovers are cleaned up", "no caves under any water: the sea, lochs and ponds all sit on solid ground, so no more swimming then suddenly falling", "the skull on the spawn island is gone and its dent is now the Great Cave: a wide torch-lit ramp spiralling down into a huge cavern", "exactly 4 deep ravines, each a different shape: a long straight gash on the mainland, a winding S-curve, a wide stepped gorge and a forked Y on the castle islands - all joined to the caves", "caves only under land: winding tunnels with no dead ends lead down to very big caverns (ores and cave mobs as before), plus a few walk-in entrances", "no more sky showing through cave walls at low render distance: underground the fog darkens and closes in and the sky, sun, moon and clouds are hidden (caves are never pitch black)", "map: cleaner crisp colours, clear water and coastline, markers for crofts, ravines and the Great Cave, and a round close-up of your surroundings at the bottom", "the new world generation is used by new worlds and by Reset world; existing worlds keep their land as it is"]],
     ['v1.0.13', ["the soundtrack is now your own tracks: Alpha Calm, Schumann and Focus 12 by day; Delta Drift, Theta Gate, Theta Window, Focus 15 and Focus 21 at night and in caves; Stargate and Beyond the Matrix near the wizards and the unicorn", "every track is softened for the game: gentle low-pass (nothing shrill), the 40 Hz gamma buzz taken out, quieter, with slow fades and long crossfades"]],
@@ -24296,6 +24297,89 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       if (U.RIV.size) for (const d of drops) { const cd = U.RIV.get(Math.floor(d.x) * D + Math.floor(d.z)); if (cd === undefined || getB(Math.floor(d.x), Math.floor(d.y), Math.floor(d.z)) !== T.WATER) continue; const v = DIRS[cd]; if (solid(Math.floor(d.x + v[0] * 0.4), Math.floor(d.y), Math.floor(d.z + v[1] * 0.4))) continue; d.x += v[0] * 0.8 * dt; d.z += v[1] * 0.8 * dt; if (d.m) { d.m.position.x = d.x; d.m.position.z = d.z; } } } catch (_) {}
     return r; };
 })();
+
+/* ===================== GLX-C135 (v1.0.16): HD mob models - CC0 glTF (Quaternius via Poly Pizza), bundled, lazy + cached, animated; procedural mobs stay as the fallback ===================== */
+(function c135() {
+  const U = window.__c135 = {cat: {}, models: {}, err: [], attached: 0, lib: 0, on: () => SET.hd !== 0};
+  const VER = 'v1016', BASE = 'assets/models/', HIDE = 31;
+  // catalogue: kind -> {f: file, k: height x procedural, h: fixed height, clips: {role: clip}, tint, yaw}
+  U.add = o => Object.assign(U.cat, o);
+  U.add({
+    sheep: {f: 'sheep', k: 1.0, bright: 1.3, proc: a => a.sheared},
+    zombie: {f: 'zombie', k: 1.0, run: 0},
+    skeleton: {f: 'skeleton', k: 1.0, walk: 'run'},
+    blackskel: {f: 'skeleton', k: 1.0, walk: 'run', tint: 0x3a3a40},
+    spider: {f: 'spider', k: 1.05, walk: 'run'},
+    nspider: {f: 'spider', k: 1.05, walk: 'run'},
+    clansman: {f: 'clansman', k: 1.0},
+    hound: {f: 'hound', h: 1.05, tint: 0x9a5a48}
+  });
+  // ---- loading: one small library file, then each model once (Cache Storage keeps them for next time) ----
+  let libP = null;
+  function lib() { if (libP) return libP; libP = new Promise((res, rej) => { if (typeof WebAssembly === 'undefined') return rej('no wasm'); const s = document.createElement('script'); s.src = BASE + 'lib.js?' + VER; s.async = true; s.onload = () => MeshoptDecoder.ready.then(() => { U.lib = 1; res(); }, rej); s.onerror = () => rej('lib'); document.head.appendChild(s); }); return libP; }
+  async function buf(url) { let c = null; try { if (window.caches && isSecureContext) { c = await caches.open('glencraft-models'); const r = await c.match(url); if (r) return r.arrayBuffer(); } } catch (_) { c = null; }
+    const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); if (c) { try { await c.put(url, r.clone()); } catch (_) {} } return r.arrayBuffer(); }
+  const rd = (a, i, c) => { const v = a.array[i * a.itemSize + c]; if (!a.normalized) return v; const A = a.array, mx = A instanceof Int8Array ? 127 : A instanceof Uint8Array ? 255 : A instanceof Int16Array ? 32767 : A instanceof Uint16Array ? 65535 : 1; return Math.max(v / mx, -1); };
+  function sbox(m) { m.updateMatrixWorld(true); const b = new THREE.Box3(), v = new THREE.Vector3(), t = new THREE.Vector3(), acc = new THREE.Vector3(), w4 = new THREE.Vector3(), M = new THREE.Matrix4();
+    m.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position, si = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight, st = Math.max(1, (p.count / 400) | 0);
+      for (let i = 0; i < p.count; i += st) { v.set(rd(p, i, 0), rd(p, i, 1), rd(p, i, 2));
+        if (o.isSkinnedMesh && si && sw) { t.copy(v).applyMatrix4(o.bindMatrix); acc.set(0, 0, 0); for (let k = 0; k < 4; k++) { const w = rd(sw, i, k); if (!w) continue; const bi = si.array[i * 4 + k]; M.multiplyMatrices(o.skeleton.bones[bi].matrixWorld, o.skeleton.boneInverses[bi]); acc.addScaledVector(w4.copy(t).applyMatrix4(M), w); } v.copy(acc).applyMatrix4(o.bindMatrixInverse); }
+        v.applyMatrix4(o.matrixWorld); b.expandByPoint(v); } }); return b; }
+  function load(kind) { const c = U.cat[kind]; if (!c) return null; if (U.models[c.f]) return U.models[c.f];
+    const M = U.models[c.f] = {ready: false, fail: false};
+    lib().then(() => buf(BASE + c.f + '.glb?' + VER)).then(ab => new Promise((res, rej) => { const L = new THREE.GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder); L.parse(ab, BASE, res, rej); })).then(g => {
+      const clips = {}; for (const a of g.animations) clips[a.name] = a;
+      // measure in the idle (or first) pose so T-poses don't skew the size
+      const probe = THREE.SkeletonUtils.clone(g.scene), mx = new THREE.AnimationMixer(probe), a0 = clips.idle || clips.walk || g.animations[0]; if (a0) { mx.clipAction(a0).play(); mx.update(0.01); }
+      const b = sbox(probe); Object.assign(M, {g, clips, h: b.max.y - b.min.y, y0: b.min.y, cx: (b.min.x + b.max.x) / 2, cz: (b.min.z + b.max.z) / 2, ready: true});
+    }).catch(e => { M.fail = true; U.err.push(kind + ': ' + (e && e.message || e)); });
+    return M; }
+  // ---- attach: the procedural mesh moves to a hidden layer (still animated, still the hitbox), the model rides on the same group ----
+  function procHeight(a) { const g = a.g, ry = g.rotation.y, rz = g.rotation.z, rx = g.rotation.x; g.rotation.set(0, 0, 0); g.updateMatrixWorld(true); const b = new THREE.Box3();
+    g.traverse(o => { if (o.isMesh && o.layers.mask !== 1 << HIDE && !(o.userData && o.userData.hd)) { o.geometry.computeBoundingBox && !o.geometry.boundingBox && o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; if (bb) b.union(bb.clone().applyMatrix4(o.matrixWorld)); } });
+    g.rotation.set(rx, ry, rz); g.updateMatrixWorld(true); return b.isEmpty() ? 1 : (b.max.y - g.position.y) / (g.scale.y || 1); }
+  function attach(a, M) { const c = U.cat[a.kind], g = a.g; const hp = c.h || procHeight(a) * (c.k || 1), s = hp / M.h;
+    const hd = new THREE.Group(), m = THREE.SkeletonUtils.clone(M.g.scene); hd.add(m); hd.userData.hd = 1;
+    m.scale.setScalar(s); m.position.set(-M.cx * s, -M.y0 * s, -M.cz * s);
+    let fwd = 1; try { if (a.head) { const p = new THREE.Vector3(); a.head.getWorldPosition(p); g.worldToLocal(p); if (p.z < -0.05) fwd = -1; } } catch (_) {}
+    hd.rotation.y = (fwd < 0 ? Math.PI : 0) + (c.yaw || 0);
+    const hidden = []; g.traverse(o => { if (o.isMesh || o.isPoints || o.isLine || o.isSprite) { hidden.push([o, o.layers.mask]); o.layers.set(HIDE); } });
+    const mats = []; m.traverse(o => { if (!o.isMesh) return; o.frustumCulled = false; o.castShadow = !PERF; o.userData.hd = 1; const src = [].concat(o.material);
+      const out = src.map(sm => { const nm = new THREE.MeshLambertMaterial({color: sm.color ? sm.color.clone() : 0xffffff, map: sm.map || null, vertexColors: !!sm.vertexColors, skinning: !!o.isSkinnedMesh, transparent: !!sm.transparent, opacity: sm.opacity, side: sm.side, alphaTest: sm.alphaTest || 0});
+        if (c.tint) nm.color.multiply(new THREE.Color(c.tint)); if (c.bright) nm.color.multiplyScalar(c.bright); mats.push(nm); return nm; });
+      o.material = Array.isArray(o.material) ? out : out[0]; });
+    g.add(hd); mats.forEach(x => a.mats.push(x));
+    const mix = new THREE.AnimationMixer(m), act = {}; for (const r in M.clips) act[r] = mix.clipAction(M.clips[r]);
+    if (act.attack) { act.attack.setLoop(THREE.LoopOnce, 1); act.attack.clampWhenFinished = false; }
+    a.__hd = {hd, m, mix, act, mats, hidden, cur: null, on: true, lx: g.position.x, lz: g.position.z, v: 0, acc: 0, n: (Math.random() * 4) | 0, atk: 0, pb: a.biteCd || 0, ps: a.shootCd || 0, psw: a.swing || 0};
+    U.attached++; }
+  function detach(a) { const H = a.__hd; if (!H) return; a.g.remove(H.hd); H.mix.stopAllAction(); for (const [o, mk] of H.hidden) o.layers.mask = mk; a.mats = a.mats.filter(m => !H.mats.includes(m)); H.mats.forEach(m => m.dispose()); a.__hd = null; U.attached--; }
+  function show(a, H, hd) { if (H.on === hd) return; H.on = hd; H.hd.visible = hd; for (const [o, mk] of H.hidden) o.layers.mask = hd ? 1 << HIDE : mk; }
+  U.detachAll = () => { for (const a of mobs) { detach(a); a.__hdTry = 0; } };
+  const pick = (c, H, r) => { for (const k of [c[r], r, r === 'run' ? 'walk' : null, r === 'eat' ? 'idle' : null, r === 'walk' ? 'run' : null, 'idle', 'walk']) if (k && H.act[k]) return k; return null; };
+  function animate(a, H, dt) { const c = U.cat[a.kind], p = a.g.position;
+    const d = Math.hypot(p.x - H.lx, p.z - H.lz); H.lx = p.x; H.lz = p.z; if (dt > 0) H.v += (Math.min(8, d / dt) - H.v) * Math.min(1, dt * 6);
+    // attack: a cooldown that just reset (bite / shot) or a fresh swing
+    const b = a.biteCd || 0, sh = a.shootCd || 0, sw = a.swing || 0; if (b > H.pb + 0.2 || sh > H.ps + 0.2 || sw > H.psw + 0.05) H.atk = 0.6; H.pb = b; H.ps = sh; H.psw = sw; H.atk -= dt;
+    let role = H.atk > 0 && (H.act.attack || c.attack) ? 'attack' : (a.moving || H.v > 0.3) ? ((a.flee > 0 || a.aggro > 0 || a.angry > 0 || H.v > 3) && c.run !== 0 ? 'run' : 'walk') : (a.kind === 'sheep' && a.grazeT > 0 && a.grazeT < 1.6 ? 'eat' : 'idle');
+    const k = pick(c, H, role); if (k && k !== H.cur) { const nx = H.act[k]; nx.reset().play(); if (H.cur && H.act[H.cur]) nx.crossFadeFrom(H.act[H.cur], 0.2, false); H.cur = k; }
+    if (k && (k === 'walk' || k === 'run')) H.act[k].timeScale = Math.max(0.5, Math.min(2, H.v / (k === 'run' ? 3.2 : 1.3))); }
+  function tick(dt) { if (!U.on()) return; const far = PERF ? 24 : 40;
+    for (const a of mobs) { if (!a || !a.g) continue;
+      if (!a.__hd) { if (a.__hdTry === 2 || !U.cat[a.kind]) continue; const M = load(a.kind); if (!M) continue; if (M.fail) { a.__hdTry = 2; continue; } if (M.ready) { try { attach(a, M); } catch (e) { a.__hdTry = 2; U.err.push(a.kind + ' attach ' + e); } } continue; }
+      const H = a.__hd, c = U.cat[a.kind]; show(a, H, !(c.proc && c.proc(a))); if (!H.on) continue; const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z); H.acc += dt; if (d > far && (++H.n & 3)) continue; if (d > far * 2.5) { H.acc = 0; continue; }
+      try { animate(a, H, H.acc); H.mix.update(H.acc); } catch (e) { U.err.push('anim ' + e); } H.acc = 0; } }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { if (started) tick(Math.min(0.1, +dt || 0.016)); } catch (e) { if (U.err.length < 20) U.err.push(String(e)); } return r; };
+  const rm = removeMob; removeMob = function (a) { try { if (a && a.__hd) { const H = a.__hd; a.g.remove(H.hd); H.mix.stopAllAction(); a.__hd = null; U.attached--; } } catch (_) {} return rm.apply(this, arguments); };
+  // ---- settings: on/off (no reload) + the credit line ----
+  try { const pr = document.getElementById('perfSeg'), row = pr && pr.closest('.set'); if (row) {
+      const d = document.createElement('div'); d.className = 'set inline'; d.innerHTML = '<span>HD mob models</span><div class="seg" id="hdSeg"><button data-v="1" data-testid="settings-hd-1">On</button><button data-v="0" data-testid="settings-hd-0">Off</button></div>';
+      const cr = document.createElement('div'); cr.className = 'set'; cr.id = 'hdCredit'; cr.style.cssText = 'font-size:12px;opacity:.8;line-height:1.35'; cr.textContent = 'Mob models: Quaternius (CC0 1.0, quaternius.com) via Poly Pizza. Full list in CREDITS.md.';
+      row.after(d); d.after(cr);
+      d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { SET.hd = Number(b.dataset.v); saveSet(); if (!SET.hd) U.detachAll(); else for (const a of mobs) a.__hdTry = 0; syncSettingsUI(); }));
+      const bs = syncSettingsUI; syncSettingsUI = function () { bs.apply(this, arguments); document.querySelectorAll('#hdSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.hd === 0 ? 0 : 1))); }; syncSettingsUI(); } } catch (e) { U.err.push('settings ' + e); }
+  U.sbox = sbox;
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -24307,6 +24391,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.16', d:'2026-10-26', notes:["New: HD mob models, batch 1. Sheep, zombies, skeletons, black skeletons, spiders, clansmen and demon hounds now use detailed animated CC0 models by Quaternius.", "They walk, run, graze and attack with proper animations. A sheared sheep keeps the classic look until its fleece grows back.", "Settings: an HD mob models On/Off switch and a credit line. The full credits are in CREDITS.md.", "The models load in the background and are cached. If one can't load, that mob keeps its classic look.", "Mob health, damage, hitboxes and spawning are unchanged."]},
 {v:'v1.0.15', d:'2026-10-26', notes:["New: Water surfaces slope smoothly and flowing water ripples downhill", "New: Waterfalls with foam, spray and a soft rushing sound", "New: Rivers run from the hills to the lochs and the sea in new worlds (or after Reset world / Reset terrain)", "Tweak: River currents gently carry you downstream; the old flowing-water push is softer"]},
 {v:'v1.0.14', d:'2026-10-26', notes:["New: Chilled remixes of the original Glencraft songs - same melodies, no piano, warm pads and soft low plucks over your frequency tracks", "New: The Highlands are now mostly land: one big squared-off mainland with narrow sea channels round the spawn island and the three castle islands (land/water about 60/40 instead of 23/77), with bigger biomes", "New: Castles sit out towards their island's outer edge with a wide strip of land between them and the shore, and their hills ease back into the land instead of a little islet ring", "New: Smoother, more natural glen hills", "New: The spawn island's imported water, ship hulls and stray blocks are gone - only Glencraft's own water is left, on solid sand/gravel beds; floating leftovers are cleaned up", "New: No caves under any water: the sea, lochs and ponds all sit on solid ground, so no more swimming then suddenly falling", "New: The skull on the spawn island is gone and its dent is now the Great Cave: a wide torch-lit ramp spiralling down into a huge cavern", "New: Exactly 4 deep ravines, each a different shape: a long straight gash on the mainland, a winding S-curve, a wide stepped gorge and a forked Y on the castle islands - all joined to the caves", "New: Caves only under land: winding tunnels with no dead ends lead down to very big caverns (ores and cave mobs as before), plus a few walk-in entrances", "New: No more sky showing through cave walls at low render distance: underground the fog darkens and closes in and the sky, sun, moon and clouds are hidden (caves are never pitch black)", "New: Map: cleaner crisp colours, clear water and coastline, markers for crofts, ravines and the Great Cave, and a round close-up of your surroundings at the bottom", "New: The new world generation is used by new worlds and by Reset world; existing worlds keep their land as it is"]},
 {v:'v1.0.13', d:'2026-10-26', notes:["New: relaxed ambient soundtrack made from your own tracks (Alpha Calm, Schumann, Theta, Delta, Focus 12/15/21, Stargate, Beyond the Matrix)", "New: softened for the game - no shrill highs, no 40 Hz buzz, quieter with long crossfades; tracks follow day, night, caves and the wizards/unicorn"]},
