@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1021a -->
+<!-- glencraft-build: v1022a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.21';
+const GAME_VERSION = 'v1.0.22';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.22', ["Mobs: HD skeletons hold their bow again and HD black skeletons their sword - in the hand while walking, attacking and aiming"]],
     ['v1.0.21', ["New: the small island by spawn is now a sand island with a sandstone pyramid (Ancient Egypt style) and a tomb in the caves under it; a moss hag's hut stands near the Black Skeleton castle; the old boat is back, moored a bit further out in the river (new world or Reset world to see them)", "New: one Spawn egg replaces all the old eggs - use it (LT / right click / Place) to open a list of every mob, split into Enabled and Disabled, and spawn any of them (all of them in creative)", "New: the Highland musket is now an old Scottish flintlock: long dark wooden stock, brass fittings, flintlock hammer, long iron barrel and iron sights, no scope. Hold LT (right mouse / Place) to aim down the sights: smooth zoom, less sway and kick, slower walking; fire with RT (left click / Break)", "Textures: new Glencraft pixel textures and icon for the musket; the pyramid and island are built from sandstone and sand", "Mobs: only the chosen mobs spawn now - Snaw Brute guards rubies up stony mountain tops, Sneerin' Swaddle on the pyramid island at night, Barrow Bandager in the tomb under it, Rivet Reiver at the skeleton castle, Pest Corbie at the Black Skeleton castle, Moss Hag Morag at her hut, Admiral Skelp on the boat, Glower Orb in the Nether, Thunner Cloudies when it rains, Glaikit Goggler, Tangle Tam and Sunken Swabbies in the ocean, Timmer Tiki on beach sand", "Mobs: Greetin' Bairn, Linen Ghaist and Mist Moaner are merged into one mob called Ghost; Lang Hat Lurker appears at night where you last died; farmers can now be killed and Cleek Jack, the farmer's ghost, rises from him", "Mobs: switched off (egg only): Skull Seer, Puddock Gob, Puffer, Merry Mischanter, Moonlit Selkie, Dreich Gnawer, Drookit Kelpie, Govan Gearheid, Deep Beastie, Crag Gruff, Crackle Conger, Cowl Creepie, Comet Collie, Castle Guardian, Anvil Heid, Wraith Jeelie, Thistle Phantom and the spiders"]],
     ['v1.0.20b', ["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]],
     ['v1.0.20', ["Glencraft look for the HD mobs: every HD model keeps its shape and animations but now wears Glencraft-style pixel textures (skin, fur, wool, cloth, bone, scales, rock, slime, metal) instead of flat stock colours", "Mobs get their Glencraft colours back: grey-green zombies, pale bone skeletons, clansmen in black jackets with white shirts and tartan trews, a white Snaw Brute with a slate face, a red and white Govan Gearheid, a darker Puddock Gob, and a starry night-sky coat for the Comet Collie", "Hit flashes, lighting, the HD switch in Settings and the blocky fallback all work as before"]],
@@ -25045,6 +25046,49 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     return r; };
   S.musket = musket;
 })();
+
+/* ===================== GLX-C146 (v1.0.22): HD skeletons hold their weapons again - bow (skeleton, blaze skeleton if it has one) and sword (black skeleton) ride the HD model's hand bone ===================== */
+(function c146() {
+  const U = window.__c135; if (!U) return;
+  const W = window.__c146 = {err: [], att: 0, kinds: ['skeleton', 'blackskel', 'blazeskel']};
+  const isW = o => { for (let p = o; p; p = p.parent) if (p.userData && p.userData.c146w) return true; return false; };
+  for (const k of W.kinds) { const c = U.cat[k]; if (!c) continue; const k0 = c.keep; c.keep = o => isW(o) || !!(k0 && k0(o)); }
+  const v = new THREE.Vector3(), v2 = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), Y = new THREE.Vector3(0, 1, 0);
+  // the hand: a bone named hand/wrist, else the forearm, else any arm bone - whichever sits nearest the old weapon
+  function findHand(m, near) { const bones = []; m.traverse(o => { if (o.isBone) bones.push(o); });
+    const tiers = [/hand|wrist|palm/i, /lowerarm|forearm|elbow|downleg\.?001|arm.*low/i, /arm|upperleg\.?001/i];
+    for (const re of tiers) { const c = bones.filter(b => re.test(b.name)); if (!c.length) continue; let best = null, bd = 1e9;
+      for (const b of c) { const t = tip(b); const d = near ? t.distanceTo(near) : (/(^|[^a-z])r(ight)?([^a-z]|$)/i.test(b.name) ? 0 : 1); if (d < bd) { bd = d; best = b; } } return best; }
+    return null; }
+  function blen(b) { const kid = b.children.find(o => o.isBone); return kid ? kid.position.length() : Math.max(1e-6, b.position.length()); }
+  function tip(b) { b.updateWorldMatrix(true, false); return b.localToWorld(v2.set(0, blen(b), 0)).clone(); }
+  // tag the procedural bow before HD attaches, so it stays visible (its string + arrow still animate)
+  const us = updateSky; updateSky = function () {
+    try { for (const a of mobs) if (a && !a.__hd && W.kinds.includes(a.kind) && a.bow && !a.bow.userData.c146w) a.bow.userData.c146w = 1; } catch (e) { if (W.err.length < 10) W.err.push('tag ' + e); }
+    return us.apply(this, arguments); };
+  // the old pose code (in updateMobs, after the HD tick) moves the bow back to the hidden arm - put it in the HD hand again
+  const um = updateMobs; updateMobs = function () { const r = um.apply(this, arguments);
+    try { for (const a of mobs) { const H = a && a.__hd, w = H && H.c146; if (w && w.loc && H.on && a.bow && a.bow.parent) a.bow.position.copy(w.loc); } } catch (e) { if (W.err.length < 10) W.err.push('um ' + e); }
+    return r; };
+  function setup(a, H) { const w = H.c146 = {};
+    a.g.updateMatrixWorld(true); H.m.updateMatrixWorld(true);
+    const src = a.sword || a.bow; const near = src ? src.getWorldPosition(new THREE.Vector3()) : null;
+    w.bone = findHand(H.m, near); if (!w.bone) return; w.len = blen(w.bone);
+    if (a.sword) { const sw = a.sword.clone(true); sw.traverse(o => { o.layers.mask = 1; o.userData.hd = 1; o.frustumCulled = false; });
+      const b = w.bone; b.updateWorldMatrix(true, false); b.matrixWorld.decompose(v, q, sc); const bs = sc.x; a.g.getWorldScale(sc); const gs = sc.x;
+      sw.scale.setScalar(gs / bs); sw.position.set(0, w.len * 0.85, 0);
+      // blade points forward out of the fist, like the old sword (arm down, blade ahead)
+      const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(a.g.getWorldQuaternion(new THREE.Quaternion())).applyQuaternion(q.clone().invert());
+      fw.addScaledVector(Y, -fw.dot(Y)); if (fw.lengthSq() < 1e-6) fw.set(0, 0, 1); fw.normalize(); fw.addScaledVector(Y, -0.8).normalize();   // tipped up a bit so it reads as held, not dangling
+      sw.quaternion.setFromUnitVectors(Y, fw); sw.position.addScaledVector(fw, -0.06 * gs / bs);
+      b.add(sw); w.sw = sw; }
+    W.att++; }
+  U.frame.push((a, H) => { if (!W.kinds.includes(a.kind)) return; try {
+    if (!H.c146) setup(a, H); const w = H.c146; if (!w.bone) return;
+    if (w.sw) w.sw.visible = a.sword.visible !== false && a.sword.parent !== null;
+    if (a.bow && a.bow.parent) { w.loc = a.bow.parent.worldToLocal(tip(w.bone)); a.bow.position.copy(w.loc); }
+  } catch (e) { if (W.err.length < 10) W.err.push(a.kind + ' ' + e); } });
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -25056,6 +25100,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.22', d:'2026-10-26', notes:["Mobs: HD skeletons hold their bow again and HD black skeletons their sword - in the hand while walking, attacking and aiming"]},
 {v:'v1.0.21', d:'2026-10-26', notes:["New: the small island by spawn is now a sand island with a sandstone pyramid (Ancient Egypt style) and a tomb in the caves under it; a moss hag's hut stands near the Black Skeleton castle; the old boat is back, moored a bit further out in the river (new world or Reset world to see them)", "New: one Spawn egg replaces all the old eggs - use it (LT / right click / Place) to open a list of every mob, split into Enabled and Disabled, and spawn any of them (all of them in creative)", "New: the Highland musket is now an old Scottish flintlock: long dark wooden stock, brass fittings, flintlock hammer, long iron barrel and iron sights, no scope. Hold LT (right mouse / Place) to aim down the sights: smooth zoom, less sway and kick, slower walking; fire with RT (left click / Break)", "Textures: new Glencraft pixel textures and icon for the musket; the pyramid and island are built from sandstone and sand", "Mobs: only the chosen mobs spawn now - Snaw Brute guards rubies up stony mountain tops, Sneerin' Swaddle on the pyramid island at night, Barrow Bandager in the tomb under it, Rivet Reiver at the skeleton castle, Pest Corbie at the Black Skeleton castle, Moss Hag Morag at her hut, Admiral Skelp on the boat, Glower Orb in the Nether, Thunner Cloudies when it rains, Glaikit Goggler, Tangle Tam and Sunken Swabbies in the ocean, Timmer Tiki on beach sand", "Mobs: Greetin' Bairn, Linen Ghaist and Mist Moaner are merged into one mob called Ghost; Lang Hat Lurker appears at night where you last died; farmers can now be killed and Cleek Jack, the farmer's ghost, rises from him", "Mobs: switched off (egg only): Skull Seer, Puddock Gob, Puffer, Merry Mischanter, Moonlit Selkie, Dreich Gnawer, Drookit Kelpie, Govan Gearheid, Deep Beastie, Crag Gruff, Crackle Conger, Cowl Creepie, Comet Collie, Castle Guardian, Anvil Heid, Wraith Jeelie, Thistle Phantom and the spiders"]},
 {v:'v1.0.20b', d:'2026-10-26', notes:["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]},
 {v:'v1.0.20', d:'2026-10-26', notes:["Glencraft look for the HD mobs: every HD model keeps its shape and animations but now wears Glencraft-style pixel textures (skin, fur, wool, cloth, bone, scales, rock, slime, metal) instead of flat stock colours", "Mobs get their Glencraft colours back: grey-green zombies, pale bone skeletons, clansmen in black jackets with white shirts and tartan trews, a white Snaw Brute with a slate face, a red and white Govan Gearheid, a darker Puddock Gob, and a starry night-sky coat for the Comet Collie", "Hit flashes, lighting, the HD switch in Settings and the blocky fallback all work as before"]},
