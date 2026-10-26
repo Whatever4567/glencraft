@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1025a -->
+<!-- glencraft-build: v1026a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.25';
+const GAME_VERSION = 'v1.0.26';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -17093,7 +17093,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   S.voice = function (kind, pos) {
     if (!AC) return; let vol = 0.9, pan = 0;
     if (pos) { const dx = pos.x - P.x, dz = pos.z - P.z, d = Math.hypot(dx, pos.y - P.y, dz); if (d > 20) return; vol = Math.pow(1 - d / 20, 1.3); const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw); pan = d > 0.1 ? (dx * rx + dz * rz) / d * 0.8 : 0; }
-    const out = outNode(vol * 0.55, pan), t = AC.currentTime + 0.01, k = 0.92 + Math.random() * 0.16;
+    const out = (window.mobOut || outNode)(vol * 0.55, pan), t = AC.currentTime + 0.01, k = 0.92 + Math.random() * 0.16;
     switch (kind) {
       case 'hrr': breath(t, 0.06, out, 0.15); syl(t + 0.04, 0.42, 105 * k, 82 * k, 'e', 'u', out, 27, 0.5); break;                         // "hrrrm"
       case 'hmm': syl(t, 0.5, 115 * k, 98 * k, 'm', 'm', out, 0, 0.6); syl(t + 0.52, 0.22, 100 * k, 88 * k, 'm', 'm', out, 0, 0.35); break;   // "hmm-m"
@@ -18205,6 +18205,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     // two frames so the message shows before the one heavy step (laying out the new land)
     requestAnimationFrame(() => requestAnimationFrame(() => {
       gSeed = 0; window.__keepXP = 1;
+      // v1.0.26: a reset world IS a brand-new world - new birth date (old dates gate the current castles/structures off), no stale unicorn, map or structure records
+      try { current.created = Date.now(); current.newCastles = true; localStorage.removeItem('glen_uni_' + current.id); localStorage.removeItem('glen_death_' + current.id); if (window.__c151) __c151.st = {}; if (window.__c113) __c113.bridges = []; } catch (_) {}
       try { enterWorld(null); } catch (e) { console.error('c105 enterWorld', e); }
       window.__keepXP = 0;
       if (gSeed === R.oldSeed) console.warn('c105: same seed');
@@ -18635,7 +18637,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       let vol = 1, pan = 0, R = loud ? 36 : 20;
       if (pos) { const dx = pos.x - P.x, dz = pos.z - P.z, d = Math.hypot(dx, pos.y - P.y, dz); if (d > R) return; vol = Math.pow(1 - d / R, 1.3); const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw); pan = d > 0.1 ? (dx * rx + dz * rz) / d * 0.8 : 0; }
       const ang = who && who.role === 'miner', j = 0.94 + Math.random() * 0.12;
-      const o = {out: outNode(vol * (loud ? 0.95 : 0.55), pan), k: (ang ? 1.0 : 0.8) * j, fk: ang ? 1.0 : 0.9, rough: ang ? 0.8 : 0.2};
+      const o = {out: (window.mobOut || outNode)(vol * (loud ? 0.95 : 0.55), pan), k: (ang ? 1.0 : 0.8) * j, fk: ang ? 1.0 : 0.9, rough: ang ? 0.8 : 0.2};
       SAY[kind](o, AC.currentTime + 0.01); if (ang) nz(o, AC.currentTime + 0.01, 0.12, 500, 0.7, 0.08);
       U.n++; U.last = kind; if (who) { who.lastSay = kind; who.chatT = Math.max(who.chatT || 0, 1.6); }
     } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
@@ -19273,6 +19275,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.26', ["New: Mob voices volume slider in Settings - mob calls, idle, hurt and death sounds on their own, saved", "New: Reset world now builds a truly brand-new world, so older worlds get the new castles too", "New: bridge corners tidied - no floating lanterns or floating tree bits from bridges and tunnels", "New: the spawn lava pools are back, safely walled in and never under water", "Mobs: the Ghost is rare - night only, one at a time, and only chases you when it can see you nearby", "Mobs: one Creeper egg (yellow duplicate gone); the creeper is a clean HD green four-legged classic and lives in the caves", "Textures: crisp pixel skin for the new creeper"]],
     ['v1.0.25', ["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]],
     ['v1.0.24', ["New: logs and tree trunks can be placed lying down - click the side of a block to lay one along that way, the top or bottom to stand it upright (kept in your save)", "New: each wood has its own Scottish undergrowth - bracken, gorse in bloom, bog cotton, heather sprigs and blaeberry bushes (new worlds grow thicker undergrowth)", "Textures: natural wood shades - every plank now matches the cut end of its own log (oak, Scots pine, birch, rowan, alder, yew)"]],
     ['v1.0.23', ["New: castle bridges keep a level deck and go through hills in lit, stone-lined tunnels instead of cutting holes up the mountains; stairs on the bridge ramps, rails and tunnel arches; the stair up to the castle keep roof is gone","New: the pyramid island is now its own island with open sea all round it, and sloping cave mouths lead down to big ore-rich caverns under the pyramid","New: the held map fits the screen (landscape and portrait) with your hand below it, and starts afresh after Reset world or Reset terrain"]],
@@ -19506,7 +19509,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   function sirenStart(a, dur) { U.siren++; a.sirOn = true; if (!AC || !master) return; try {
     const t = AC.currentTime, end = t + dur + 0.15;
     if (!shaper) { shaper = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; shaper[i] = Math.tanh(x * 4.5); } }
-    const out = AC.createGain(); out.gain.value = 0.0001; out.connect(master);
+    const out = AC.createGain(); out.gain.value = 0.0001; out.connect(window.mobDst ? mobDst() : master);
     const ws = AC.createWaveShaper(); ws.curve = shaper; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.6; ws.connect(bp); bp.connect(out);
     const sg = AC.createGain(); sg.gain.value = 0.32; sg.connect(ws);
     const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = 'sawtooth'; o2.type = 'square'; o1.connect(sg); const g2 = AC.createGain(); g2.gain.value = 0.35; o2.connect(g2); g2.connect(sg);
@@ -19523,14 +19526,14 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // ---- the warning overlay ----
   let warn = null; function warnEl() { if (warn) return warn; warn = document.createElement('div'); warn.id = 'c116warn';
     warn.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:60;opacity:0;background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(255,40,0,.55) 100%);display:flex;align-items:flex-start;justify-content:center;font:bold 28px sans-serif;color:#ffd23a;text-shadow:0 0 8px #f00,0 2px 2px #000;padding-top:14vh';
-    warn.textContent = '\u26A0 SOS \u2014 CREEPER CORE CRITICAL \u2014 RUN! \u26A0'; document.body.appendChild(warn); return warn; }
+    warn.textContent = '\u26A0 CREEPER \u2014 RUN! \u26A0'; document.body.appendChild(warn); return warn; }
   let warnK = 0;
   const ARM = 4, BOOM_R = 4.5, BOOM_MAX = 13.5;   // base creeper blast was radius 3, max 9 damage: x1.5
   function boom(a) { const p = a.g.position, cx = p.x, cy = p.y + 0.8, cz = p.z, d = Math.hypot(P.x - cx, P.y + 0.9 - cy, P.z - cz);
     const dmg = Math.round(BOOM_MAX * clamp(1 - Math.max(0, d - 1) / 13.5, 0, 1)); U.lastBoom = {d: +d.toFixed(2), dmg}; U.booms++;
     sirenStop(a); const h = hurt, gb = getB; hurt = function (n, c) { if (dmg <= 0) return; invuln = 0; return h.call(this, dmg, c); };
     getB = function (x, y, z) { try { if (typeof placedSet !== 'undefined' && placedSet.has(idx(x, y, z))) return 0; } catch (_) {} return gb(x, y, z); };   // never blow up player-placed blocks
-    boomMsg = 'An ancient cyborg creeper went critical beside you.';
+    boomMsg = 'A creeper blew up beside you.';
     try { explode(cx, cy, cz, BOOM_R); } finally { hurt = h; getB = gb; boomMsg = null; }
     removeMob(a); }
   function disarm(a) { a.arm = 0; sirenStop(a); a.speed = a.spd0c || a.speed; a.g.scale.setScalar(1); U.disarm++; for (const m of a.mats) if (m.emissive) m.emissive.setScalar(0); if (a.core) a.core.material.color.setHex(0xffc21a); }
@@ -23782,7 +23785,6 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   const classic = (kind, post) => (x, y, z) => { flags(true); window.__eggSpot = [x, y, z, x, z]; const was = DIM.cur; if (was) DIM.cur = null; let m = null;
     try { m = spawnMob(kind); } finally { DIM.cur = was; flags(false); window.__eggSpot = null; } if (m) { m.g.position.set(x, y, z); if (post) try { post(m); } catch (_) {} } return m; };
   L.push({key: 'blackskel', name: 'Black skeleton', a: '#26262b', b: '#9a9aa4', make: classic('blackskel')});
-  L.push({key: 'ycreeper', name: 'Yellow creeper', a: '#d8b020', b: '#3a2a08', make: classic('creeper', m => window.__makeYellow && __makeYellow(m))});
   L.push({key: 'nspider', name: 'Night spider', a: '#1a1418', b: '#c02030', make: (x, y, z) => { const S = window.__c104s; if (!S || !S.spawnAt) return null; const m = S.spawnAt(Math.floor(x), Math.floor(y), Math.floor(z), false); if (m) m.g.position.set(x, y, z); return m; }});
   L.push({key: 'giant', name: 'Giant spider', a: '#2a2026', b: '#e03020', make: (x, y, z) => { if (!window.__newGiant) return null; window.__giantOK = true; let m = null;
     try { for (const [ox, oz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [2, 2], [-2, 2], [2, -2], [-2, -2], [3, 0], [-3, 0], [0, 3], [0, -3]]) { for (const oy of [0, 1, -1, 2]) { m = __newGiant([x + ox, y + oy, z + oz, 14], x + ox, z + oz); if (m) break; } if (m) break; } } finally { window.__giantOK = false; } return m; }});
@@ -23874,7 +23876,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     // 1) the skull goes, its dent stays (it becomes the big entrance)
     try { if (window.__c120 && __c120.tidySpawn) __c120.tidySpawn(true); } catch (e) { U.log.push('tidy ' + e); }
     // the old spawn asset left lava pools on the surface: they become stone (never a surprise burn next to spawn)
-    try { let n = 0; const ax = (W >> 1) - 128, az = (D >> 1) - 124; for (let x = Math.max(0, ax); x < Math.min(W, ax + 256); x++) for (let z = Math.max(0, az); z < Math.min(D, az + 256); z++) for (let y = 20; y < H - 1; y++) { const k = idx(x, y, z); if (world[k] === T.LAVA) { world[k] = T.STONE; n++; } } st.lavaFixed = n; } catch (e) { U.log.push('lava ' + e); }
+    try { let n = 0; const L = []; const ax = (W >> 1) - 128, az = (D >> 1) - 124; for (let x = Math.max(0, ax); x < Math.min(W, ax + 256); x++) for (let z = Math.max(0, az); z < Math.min(D, az + 256); z++) for (let y = 20; y < H - 1; y++) { const k = idx(x, y, z); if (world[k] === T.LAVA) { world[k] = T.STONE; n++; if (L.length < 4000) L.push(k); } } st.lavaFixed = n; window.__c131lava = L; } catch (e) { U.log.push('lava ' + e); }
     let rivR = null; try { if (window.__c134 && __c134.rivers) rivR = __c134.rivers(rnd); } catch (e) { U.log.push('rivers ' + e); }   // v1.0.15 rivers before the caves
     // 2) columns: ground top, water, lowest water
     const N = W * D, surf = new Int16Array(N), wet = new Uint8Array(N), lowW = new Int16Array(N), hiW = new Int16Array(N);
@@ -24794,7 +24796,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   try { DEF.nm27.move = 'float'; DEF.nm27.hover = DEF.nm27.hover || 0.6; } catch (_) {}   // Cleek Jack: a farmer's ghost on land, not a swimmer
   // ---- night homes ----
   for (const k of Object.keys(HOMES)) HOMES[k] = [];
-  Object.assign(HOMES, {ocean: ['nm23', 'nm04', 'nm26'], mossy: ['nm01'], black: ['nm21'], beach: ['nm08'], shore: ['nm18', 'nm10'], juniper: ['nm10'], birch: ['nm10'], yew: ['nm10'], pine: ['nm10']});
+  Object.assign(HOMES, {ocean: ['nm23', 'nm04', 'nm26'], mossy: ['nm01'], black: ['nm21'], beach: ['nm08'], shore: ['nm18'], juniper: ['nm10'], birch: ['nm10'], yew: ['nm10'], pine: ['nm10']});
   for (const k of ['human', 'alder', 'oak', 'rowan', 'hawthorn', 'mountain', 'snow', 'cave', 'blackthorn', 'moor']) if (!HOMES[k]) HOMES[k] = [];
   // ---- giant spiders only from the egg ----
   try { const ng = window.__newGiant; if (ng) window.__newGiant = function () { if (!window.__egg) return null; return ng.apply(this, arguments); }; } catch (_) {}
@@ -25832,6 +25834,199 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     K.lamp(0, F + 6, -8, 0, {});
   };
 })();
+
+/* ===================== GLX-C154 (v1.0.26): Mob voices volume - its own slider in Settings, saved; every mob call, idle noise, hurt and death cry goes through a mob bus under the effects volume ===================== */
+(function c154() {
+  const U = window.__c154 = {n: 0, err: null};
+  if (!(SET.mob >= 0 && SET.mob <= 1)) SET.mob = 1;
+  let bus = null;
+  // the mob bus sits after the effects master, so the effects slider still scales it and the mute still silences it
+  function dst() { if (!AC || !master) return master; if (!bus) { bus = AC.createGain(); bus.gain.value = SET.mob; bus.connect(master); } return bus; }
+  window.mobDst = dst;
+  window.mobOut = function (vol, pan) { const m = master; try { master = dst(); return outNode(vol, pan); } finally { master = m; } };
+  const KINDS = new Set(['growl', 'hiss', 'squeal', 'scream', 'baa', 'roar', 'groan', 'quack', 'chirp', 'oink', 'oink2', 'snort']);
+  const isMob = k => typeof k === 'string' && (KINDS.has(k) || k.slice(0, 3) === 'nm:');
+  const via = (fn) => function () { if (!AC || !master) return fn.apply(this, arguments); const m = master; try { master = dst(); U.n++; return fn.apply(this, arguments); } finally { master = m; } };
+  const ps = playSound; const psMob = via(ps);
+  playSound = function (kind) { return isMob(kind) ? psMob.apply(this, arguments) : ps.apply(this, arguments); };
+  try { hiss = via(hiss); } catch (e) { U.err = String(e); }
+  try { guardianRoar = via(guardianRoar); } catch (e) { U.err = String(e); }
+  // ---- the slider, same black/gold row as the others, right under Sound effects ----
+  const fmt = v => Math.round(v * 100) + '%';
+  function apply() { if (bus) bus.gain.value = SET.mob; }
+  try {
+    const sfxRow = document.querySelector('label.set[data-k="sfx"]');
+    if (sfxRow && !document.getElementById('mobVol')) {
+      const row = document.createElement('label'); row.className = 'set'; row.dataset.k = 'mob';
+      row.innerHTML = '<span>Mob voices volume<b id="mobV"></b></span><input type="range" id="mobVol" min="0" max="1" step="0.05" data-testid="settings-mob-volume">';
+      sfxRow.after(row);
+      const inp = row.querySelector('input');
+      inp.value = SET.mob; document.getElementById('mobV').textContent = fmt(SET.mob);
+      inp.addEventListener('input', () => { SET.mob = Number(inp.value); document.getElementById('mobV').textContent = fmt(SET.mob); apply(); saveSet(); });
+    }
+  } catch (e) { U.err = String(e); }
+  const su = syncSettingsUI; syncSettingsUI = function () { const r = su.apply(this, arguments);
+    try { const i = document.getElementById('mobVol'); if (i) { i.value = SET.mob; document.getElementById('mobV').textContent = fmt(SET.mob); } } catch (_) {} return r; };
+  U.bus = () => bus;
+})();
+
+/* ===================== GLX-C155 (v1.0.26): bridge tidy - after all world generation, no lamp post floats off a broken bridge and no cut tree (logs / leaves) hangs over a bridge or tunnel ===================== */
+(function c155() {
+  const U = window.__c155 = {st: null, err: null, load: null};
+  const STACK = new Set([161, 216, 160, 162, T.TORCH, T.MAGMA, T.STONEBRICK, T.MOSSYBRICK, T.BLACKSTONE || 248].filter(v => v !== undefined));
+  const LITE = new Set([161, 216, T.TORCH].filter(v => v !== undefined));
+  const fluid = b => b === T.WATER || b === T.LAVA;
+  const firm = b => b && !fluid(b) && !LEAFY[b] && !LOGGY[b] && PLANT[b] !== 1 && b !== T.TORCH && b !== 161 && b !== 160 && b !== 162 && b !== T.COBWEB;
+  const at = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) ? 0 : world[idx(x, y, z)];
+  function tidy(opt) { opt = opt || {}; const dry = !!opt.dry, st = {lamps: 0, logs: 0, leaves: 0};
+    const br = (window.__c113 && __c113.bridges) || []; if (!br.length) return st;
+    const placed = typeof placedSet !== 'undefined' ? placedSet : new Set(), mine = i => placed.has(i);
+    const del = (x, y, z) => { const i = idx(x, y, z); if (mine(i)) return false; if (opt.log && opt.log.length < 4000) opt.log.push([x, y, z, world[i]]); if (!dry) { world[i] = T.AIR; try { entMeta.delete(keyOf(x, y, z)); } catch (_) {} try { lightSrc.delete((x * 4096 + z) * 256 + y); } catch (_) {} } return true; };
+    for (const b of br) { const a = b.a; if (!a || a.length < 6) continue; const [ax, az, ux, uz, t0, t1] = a, nx = -uz, nz = ux, RW = 12, M = 7;
+      const pts = [[t0 - 6, -RW], [t0 - 6, RW], [t1 - 2, -RW], [t1 - 2, RW]].map(([t, k]) => [ax + ux * t + nx * k, az + uz * t + nz * k]);
+      const X0 = Math.max(1, Math.floor(Math.min(...pts.map(p => p[0]))) - M), X1 = Math.min(W - 2, Math.ceil(Math.max(...pts.map(p => p[0]))) + M);
+      const Z0 = Math.max(1, Math.floor(Math.min(...pts.map(p => p[1]))) - M), Z1 = Math.min(D - 2, Math.ceil(Math.max(...pts.map(p => p[1]))) + M);
+      const inC = (x, z) => { const px = x + 0.5 - ax, pz = z + 0.5 - az, t = px * ux + pz * uz; return t >= t0 - 6 && t <= t1 - 2 && Math.abs(px * nx + pz * nz) <= RW; };
+      const Y0 = Math.max(1, SEA - 4), Y1 = H - 2, SX = X1 - X0 + 1, SY = Y1 - Y0 + 1, SZ = Z1 - Z0 + 1, li = (x, y, z) => ((x - X0) * SY + (y - Y0)) * SZ + (z - Z0);
+      // 1) lamp posts / lanterns: walk down the post; it must stand on something firm or hang from / lean on the deck, else it goes
+      for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) { if (!inC(x, z)) continue;
+        for (let y = Y0; y <= Y1; y++) { const v = at(x, y, z); if (!LITE.has(v) || mine(idx(x, y, z))) continue;
+          if (v === T.TORCH) { let m = {}; try { m = entMeta.get(keyOf(x, y, z)) || {}; } catch (_) {}
+            if (m.wall ? firm(at(x + m.wall[0], y, z + m.wall[1])) : m.ceil ? firm(at(x, y + 1, z)) : false) continue; }
+          else if (firm(at(x, y + 1, z))) continue;   // a lantern hanging from a tunnel roof
+          let yb = y; while (yb - 1 > 0 && y - yb < 5 && STACK.has(at(x, yb - 1, z)) && !LITE.has(at(x, yb - 1, z))) yb--;
+          let ok = firm(at(x, yb - 1, z));
+          if (!ok) for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (firm(at(x + dx, yb, z + dz))) { ok = true; break; }
+          if (ok) continue;
+          for (let yy = y; yy >= yb; yy--) st.lamps += del(x, yy, z) ? 1 : 0; } }
+      // 2) trees: a log is held up by firm ground below it or by a held log next to it; leaves stay while they touch a held tree (or a firm block right under a bush)
+      const L = new Uint8Array(SX * SY * SZ), q = []; // 1 = tree block, 2 = held
+      for (let x = X0; x <= X1; x++) for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) { const v = world[idx(x, y, z)]; if (LEAFY[v] || LOGGY[v]) L[li(x, y, z)] = 1; }
+      const edge = (x, z) => x === X0 || x === X1 || z === Z0 || z === Z1;
+      for (let x = X0; x <= X1; x++) for (let y = Y0; y <= Y1; y++) for (let z = Z0; z <= Z1; z++) { const j = li(x, y, z); if (!L[j]) continue; const v = world[idx(x, y, z)];
+        if ((LOGGY[v] && (firm(at(x, y - 1, z)) || y === Y0 || [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1], [0, 1, 0]].some(([a1, b1, c1]) => firm(at(x + a1, y + b1, z + c1))))) || edge(x, z) || mine(idx(x, y, z))) { L[j] = 2; q.push(x, y, z, 0); } }
+      for (let h = 0; h < q.length; h += 4) { const x = q[h], y = q[h + 1], z = q[h + 2], d = q[h + 3], isLog = LOGGY[world[idx(x, y, z)]];
+        for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) for (let dz = -1; dz <= 1; dz++) { if (!dx && !dy && !dz) continue; const X = x + dx, Y = y + dy, Z = z + dz;
+          if (X < X0 || X > X1 || Y < Y0 || Y > Y1 || Z < Z0 || Z > Z1) continue; const j = li(X, Y, Z); if (L[j] !== 1) continue; const nv = world[idx(X, Y, Z)];
+          if (LOGGY[nv]) { if (!isLog && Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1) continue; L[j] = 2; q.push(X, Y, Z, 0); }
+          else { if (!isLog && Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1) continue; L[j] = 2; q.push(X, Y, Z, 0); } } }
+      for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) { if (!inC(x, z)) continue; for (let y = Y0; y <= Y1; y++) { const j = li(x, y, z); if (L[j] !== 1) continue;
+        const v = world[idx(x, y, z)]; if (LEAFY[v] && firm(at(x, y - 1, z))) continue; if (del(x, y, z)) { if (LOGGY[v]) st.logs++; else st.leaves++; } } } }
+    if (!dry && (st.lamps + st.logs + st.leaves) && opt.redraw) dirtyAll = true;
+    return st; }
+  U.tidy = tidy;
+  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (!DIM.cur) { const was = c37busy; c37busy = true; try { U.st = tidy(); } finally { c37busy = was; } } } catch (e) { U.err = String(e && e.stack || e); } return r; };
+  // existing worlds: tidy once on load (never touches your own blocks)
+  const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim && !d.c155) { U.load = tidy({redraw: 1}); } } catch (e) { U.err = String(e && e.stack || e); } return r; };
+  const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (!DIM.cur) d.c155 = 1; } catch (_) {} return d; };
+})();
+
+/* ===================== GLX-C156 (v1.0.26): the spawn lava is back (safe pools only), the Ghost is rare and only hunts what it can see ===================== */
+(function c156() {
+  const U = window.__c156 = {st: {}, err: null, ghost: {cut: 0, kept: 0, aggro: 0, gaveUp: 0}};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  /* ---- spawn lava: the old spawn pools that c131 turned to stone come back where they are safe ---- */
+  const firm = b => !!b && b !== T.WATER && b !== T.LAVA && b !== T.TORCH && !LEAFY[b] && !LOGGY[b] && PLANT[b] !== 1 && b !== (T.ICE || -1);
+  const wet = (x, y, z) => { for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let dy = -1; dy <= 2; dy++) if (getB(x + dx, y + dy, z + dz) === T.WATER) return true; return false; };
+  function restoreLava() { const L = window.__c131lava; window.__c131lava = null; const st = U.st = {cells: 0, pools: 0, kept: 0, made: 0}; if (!L || !L.length) return st; st.cells = L.length;
+    const set = new Set(L), seen = new Set();
+    const xyz = k => [(k / (H * D)) | 0, ((k / D) | 0) % H, k % D];   // idx = (x*H + y)*D + z
+    for (const k0 of L) { if (seen.has(k0)) continue; const comp = [k0]; seen.add(k0);
+      for (let i = 0; i < comp.length; i++) { const [x, y, z] = xyz(comp[i]); for (const [a, b, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { if (x + a < 0 || z + c < 0 || x + a >= W || z + c >= D) continue; const n = idx(x + a, y + b, z + c); if (set.has(n) && !seen.has(n)) { seen.add(n); comp.push(n); } } }
+      st.pools++; let ok = comp.length <= 1200; const why = {};
+      for (const k of comp) { const [x, y, z] = xyz(k); if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) { ok = false; break; } const o0 = true; const ok0 = ok; ok = true;
+        if (!set.has(idx(x, y - 1, z)) && !firm(getB(x, y - 1, z))) ok = false;   // solid floor
+        for (const [a, c] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = idx(x + a, y, z + c); if (!set.has(n) && !firm(getB(x + a, y, z + c))) ok = false; }   // solid walls
+        const up = getB(x, y + 1, z); if (up && !set.has(idx(x, y + 1, z)) && (up === T.WATER || !firm(up))) ok = false;   // open sky or rock above, never water
+        if (wet(x, y, z)) ok = false; if (!ok) why[[x, y, z].join(",")] = 1; ok = ok && ok0; }
+      (st.comps = st.comps || []).push({n: comp.length, ok, bad: Object.keys(why).slice(0, 6)});
+      if (ok) { for (const k of comp) world[k] = T.LAVA; st.kept++; } }
+    return st; }
+  // a fallback pool near spawn when no old pool was safe: 2x3, one deep, rimmed with stone, on dry land
+  function makePool() { const st = U.st; if (st.kept || DIM.cur) return; const sx = Math.floor(P.x), sz = Math.floor(P.z);
+    for (let t = 0; t < 80; t++) { const an = t * 2.399, r = 9 + (t % 12), x = Math.floor(sx + Math.sin(an) * r), z = Math.floor(sz + Math.cos(an) * r); if (x < 6 || z < 6 || x > W - 7 || z > D - 7) continue;
+      const y = solidTop(x, z); if (y <= SEA + 1) continue; let ok = true;
+      for (let dx = -2; dx <= 3 && ok; dx++) for (let dz = -2; dz <= 2 && ok; dz++) { const X = x + dx, Z = z + dz; if (solidTop(X, Z) !== y || !firm(getB(X, y, Z)) || getB(X, y + 1, Z) || getB(X, y + 2, Z) || placedSet.has(idx(X, y, Z))) ok = false; }
+      if (!ok || wet(x, y, z) || wet(x + 1, y, z)) continue;
+      for (let dx = -1; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { setB(x + dx, y, z + dz, T.STONE); setB(x + dx, y - 1, z + dz, T.STONE); }
+      for (let dx = 0; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) setB(x + dx, y, z + dz, T.LAVA);
+      st.made = 1; st.at = [x, y, z]; dirtyAll = true; return; } }
+  try { const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (!DIM.cur) { restoreLava(); U.pend = true; } } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+  /* ---- the Ghost (Linen Ghaist): rare, night only, one near you, normal sight range ---- */
+  const C = window.__c123, GH = 'nm10', SEE = 16, LOSE = 24;
+  const los = (a) => { const p = a.g.position, x0 = p.x, y0 = p.y + 1, z0 = p.z, x1 = P.x, y1 = P.y + 1.5, z1 = P.z, L = Math.hypot(x1 - x0, y1 - y0, z1 - z0), n = Math.ceil(L * 2);
+    for (let i = 1; i < n; i++) { const f = i / n; if (solid(Math.floor(x0 + (x1 - x0) * f), Math.floor(y0 + (y1 - y0) * f), Math.floor(z0 + (z1 - z0) * f))) return false; } return true; };
+  let lastGhost = 0, wanderDef = null, wanderOf = null;
+  const drop = a => { try { removeMob(a); } catch (_) {} const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); };
+  function ghosts(dt) { const D0 = C && C.DEF && C.DEF[GH]; if (!D0) return; if (wanderOf !== D0) { wanderOf = D0; wanderDef = Object.assign({}, D0, {ai: 'wander'}); }
+    const G = mobs.filter(a => a && a.kind === GH && a.g);
+    for (const a of G) { const p = a.g.position, d = Math.hypot(P.x - p.x, P.y - p.y, P.z - p.z);
+      if (!a.__c156) { a.__c156 = 1; const natural = !a.egg && a.home !== 'spec' && !a.spec;
+        if (natural) { const near = G.filter(b => b !== a && b.__c156 && Math.hypot(b.g.position.x - P.x, b.g.position.z - P.z) < 64).length, now = performance.now();
+          if (!isNight || near >= 1 || now - lastGhost < 150000 || Math.random() > 0.15) { drop(a); U.ghost.cut++; continue; } lastGhost = now; U.ghost.kept++; } }
+      if (a.frozen) continue;
+      if (!a.gh) { if (d < SEE && los(a)) { a.gh = 1; a.ghLost = 0; U.ghost.aggro++; } }
+      else { a.ghLost = los(a) ? 0 : (a.ghLost || 0) + dt; if (d > LOSE || a.ghLost > 4) { a.gh = 0; U.ghost.gaveUp++; } }
+      a.def = a.gh ? D0 : wanderDef; } }
+  U.los = los;
+  try { const um = updateMobs; updateMobs = function (dt) { try { ghosts(dt || 0); } catch (e) { ERR(e); } const r = um.apply(this, arguments);
+      try { if (U.pend && started && !DIM.cur) { U.pend = false; makePool(); } } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C157 (v1.0.26): the classic green creeper, HD - clean four-legged shape, crisp pixel skin; it lives in the caves ===================== */
+(function c157() {
+  const U = window.__c157 = {made: 0, cave: 0, tries: 0, err: null};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  // ---- crisp pixel skins: 2 texels per model pixel, nearest filtered, seeded so every creeper wears the same coat ----
+  const PAL = ['#4f9e3c', '#5cb246', '#468f35', '#6cc453', '#3d7f2e', '#79cf5e', '#58a842', '#355f26', '#8ed872'], WT = [18, 16, 12, 9, 8, 5, 14, 3, 2];
+  let seed = 1; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const pick = () => { let r = rnd() * 87, i = 0; while (r > WT[i]) { r -= WT[i]; i++; } return PAL[i]; };
+  const S = 8;   // screen px per texel (so the canvas is big enough to stay sharp)
+  function skin(w, h, s, face) { seed = s; const c = document.createElement('canvas'); c.width = w * S; c.height = h * S; const g = c.getContext('2d');
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = pick(); g.fillRect(x * S, y * S, S, S); }
+    if (face) { const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x * S, y * S, S, S); }, D1 = '#11160d', D2 = '#1e2a17', D3 = '#2c3d22';
+      for (const ex of [2, 10]) for (let y = 4; y < 8; y++) for (let x = ex; x < ex + 4; x++) px(x, y, (y === 4 || x === ex) ? D2 : D1);   // eyes
+      for (let y = 8; y < 14; y++) for (let x = 6; x < 10; x++) px(x, y, y === 8 ? D2 : D1);                                            // mouth
+      for (let y = 10; y < 16; y++) for (const x of [4, 5, 10, 11]) px(x, y, (x === 4 || x === 11) && y === 10 ? D3 : D1); }
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapNearestFilter; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; }
+  let MT = null;
+  function mats() { if (MT) return MT; const m = t => new THREE.MeshLambertMaterial({map: t}), box = (w, h, d, s, face) => {   // +x -x +y -y +z(front) -z
+      const sd = m(skin(d * 2, h * 2, s)), fr = face ? m(skin(w * 2, h * 2, s + 7, true)) : m(skin(w * 2, h * 2, s + 7)), bk = m(skin(w * 2, h * 2, s + 11)), tp = m(skin(w * 2, d * 2, s + 3)), bt = m(skin(w * 2, d * 2, s + 5));
+      return [sd, m(skin(d * 2, h * 2, s + 1)), tp, bt, fr, bk]; };
+    MT = {head: box(8, 8, 8, 11, true), body: box(8, 12, 4, 23), leg: box(4, 6, 4, 37)}; return MT; }
+  const u = 1 / 16 * 1.05;   // one model pixel (classic proportions, a touch taller than a block and a half)
+  function makeHD() { const M = mats(), g = new THREE.Group(), all = [];
+    const mesh = (w, h, d, ms, p) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w * u, h * u, d * u), ms); o.castShadow = true; (p || g).add(o); return o; };
+    const body = mesh(8, 12, 4, M.body); body.position.y = 12 * u;
+    const head = mesh(8, 8, 8, M.head); head.position.y = 22 * u;
+    const legs = [[-2, 4], [2, 4], [2, -4], [-2, -4]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x * u, 6 * u, z * u); g.add(p); const l = mesh(4, 6, 4, M.leg, p); l.position.y = -3 * u; return p; });
+    // own (cloned) materials per creeper so the fuse flash never lights up its neighbours
+    g.traverse(o => { if (o.isMesh) { o.material = o.material.map(x => { const c = x.clone(); all.push(c); return c; }); } });
+    const dA = new THREE.MeshLambertMaterial(), dB = new THREE.MeshLambertMaterial();   // old code pokes mats[0]/[1] maps: keep them harmless
+    U.made++; return {g, legs, arms: [], mats: [dA, dB].concat(all), head, body, cyborg: true, hd: true, speed: 1.25, hp: 5, hitY: 0.9, hitR: 0.55, hostile: true, tall: 2}; }
+  U.makeHD = makeHD;
+  try { const mc = makeCreeper; makeCreeper = function () { const o = makeHD(); try { const r = mc.apply(this, arguments); for (const k of ['speed', 'hp', 'hitY', 'hitR', 'hostile', 'tall']) if (r[k] !== undefined) o[k] = r[k]; r.g.traverse(x => x.geometry && x.geometry.dispose()); r.mats.forEach(m => m.dispose && m.dispose()); } catch (_) {} return o; }; } catch (e) { ERR(e); }
+  // ---- the fuse: a clean white flash and a swell (no robot core) ----
+  const under = (p) => { try { return window.__c126 ? __c126.under(p.x, p.y, p.z) : solidTop(Math.floor(p.x), Math.floor(p.z)) > Math.floor(p.y) + 2; } catch (_) { return false; } };
+  try { const ct = creeperTick; creeperTick = function (a, dt) { const f0 = window.__c116force, cave = a && a.g && under(a.g.position); if (cave) window.__c116force = true;   // in the dark caves they stay by day too
+      let r; try { r = ct.apply(this, arguments); } finally { window.__c116force = f0; }
+      try { if (a && a.hd) { const on = a.arm > 0 ? (0.5 + 0.5 * Math.sin(a.ct * (8 + (1 - a.arm / 4) * 26)) > 0.5 ? 0.25 + 0.45 * (1 - a.arm / 4) : 0) : 0; for (const m of a.mats) if (m.emissive) m.emissive.setScalar(on); } } catch (_) {}
+      return r; }; } catch (e) { ERR(e); }
+  // ---- natural home: the caves (day or night), two at most, never on top of you, never by torchlight ----
+  const roomy = (x, y, z) => !solid(x, y, z) && !solid(x, y + 1, z) && getB(x, y, z) !== T.WATER && getB(x, y, z) !== T.LAVA && getB(x, y + 1, z) !== T.WATER;
+  const torch = (x, y, z) => { for (let dx = -5; dx <= 5; dx++) for (let dz = -5; dz <= 5; dz++) for (let dy = -3; dy <= 3; dy++) if (getB(x + dx, y + dy, z + dz) === T.TORCH) return true; return false; };
+  function caveSpot() { for (let t = 0; t < 20; t++) { const an = Math.random() * 6.283, r = 10 + Math.random() * 10, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
+      if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue;
+      for (let k = 0; k < 9; k++) { const y = Math.floor(P.y) + [0, -1, 1, -2, 2, -3, 3, -4, 4][k]; if (y < 3 || !roomy(x, y, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || torch(x, y, z)) continue; return [x + .5, y, z + .5]; } }
+    return null; }
+  function caveSpawn() { U.tries++; const sp = caveSpot(); if (!sp) return null; const f = [window.__c116force, window.__caveSpawn, window.__eggSpot]; window.__c116force = true; window.__caveSpawn = sp; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
+    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__caveSpawn = f[1]; window.__eggSpot = f[2]; } if (a) { a.g.position.set(sp[0], sp[1], sp[2]); U.cave++; } return a; }
+  U.caveSpawn = caveSpawn;
+  let T0 = 4;
+  try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+      try { U.ticks = (U.ticks || 0) + 1; U.ck = caveK; if ((T0 -= dt) <= 0) { U.rolls = (U.rolls || 0) + 1; T0 = 7; if (started && !paused && !dead && !DIM.cur && !(MODE && MODE.name === 'creative') && !(current && current.flat) && caveK > 0.45 && countKind('creeper') < 2 && Math.random() < 0.35) caveSpawn(); } } catch (e) { ERR(e); }
+      return r; }; } catch (e) { ERR(e); }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -25843,6 +26038,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.26', d:'2026-10-26', notes:["New: placeholder"]},
 {v:'v1.0.25', d:'2026-10-26', notes:["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]},
 {v:'v1.0.24', d:'2026-10-26', notes:["New: logs and tree trunks can be placed lying down - click the side of a block to lay one along that way, the top or bottom to stand it upright (kept in your save)", "New: each wood has its own Scottish undergrowth - bracken, gorse in bloom, bog cotton, heather sprigs and blaeberry bushes (new worlds grow thicker undergrowth)", "Textures: natural wood shades - every plank now matches the cut end of its own log (oak, Scots pine, birch, rowan, alder, yew)"]},
 {v:'v1.0.23', d:'2026-10-26', notes:["New: castle bridges keep a level deck and go through hills in lit, stone-lined tunnels instead of cutting holes up the mountains; stairs on the bridge ramps, rails and tunnel arches; the stair up to the castle keep roof is gone","New: the pyramid island is now its own island with open sea all round it, and sloping cave mouths lead down to big ore-rich caverns under the pyramid","New: the held map fits the screen (landscape and portrait) with your hand below it, and starts afresh after Reset world or Reset terrain"]},
