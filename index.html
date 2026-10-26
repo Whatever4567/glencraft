@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1017a -->
+<!-- glencraft-build: v1018a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.17';
+const GAME_VERSION = 'v1.0.18';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.18', ["HD mob models (batch 3, night mobs): Snaw Brute, Crag Gruff, Puddock Gob, Sludge Sooker and its droplets, Skull Wisp, Govan Gearheid, Comet Collie and the three sheet ghosts now use detailed animated CC0 models (by Quaternius), recoloured to match", "Their stats, hitboxes, spawning and moves are unchanged; the old blocky look comes back if HD models are switched off in Settings or fail to load", "Hit flashes now show on HD night mobs too"]],
     ['v1.0.17', ["HD mob models (batch 2): pig, duck, haggis, imp, ghost, blazing skeleton and the Ember Wyrm now use detailed animated CC0 models (by Quaternius)", "Glencraft touches on the HD models: clansmen wear tartan trews, the haggis and some sheep wear a tartan tam o' shanter, and sheep come in white, cream, grey, brown and black fleeces", "the duck is coloured like a mallard and the ghost is see-through", "creeper and treeman keep their own look (no free model matches them)", "HD models are a little brighter and closer to their true colours"]],
     ['v1.0.16', ["HD mob models (batch 1): sheep, zombie, skeleton, black skeleton, spiders, clansman and demon hound now use detailed animated models (CC0, by Quaternius)", "they walk, run, graze and attack with proper animations; sheared sheep keep the old look until the fleece grows back", "Settings: new 'HD mob models' On/Off switch and a credit line", "models load in the background and are cached; if one can't load, the mob keeps its classic look", "mob health, damage, hitboxes and spawning are unchanged"]],
     ['v1.0.15', ["water: surfaces slope smoothly from block to block and flowing water shows ripples moving downhill", "waterfalls have white foam, a splash of spray at the bottom and a soft rushing sound", "new worlds (and Reset world / Reset terrain) get rivers that run from the hills down to the lochs and the sea, with waterfalls where the land steps down", "river currents gently carry you (and dropped items) downstream; the old flowing-water push is softer"]],
@@ -24301,8 +24302,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 
 /* ===================== GLX-C135 (v1.0.16): HD mob models - CC0 glTF (Quaternius via Poly Pizza), bundled, lazy + cached, animated; procedural mobs stay as the fallback ===================== */
 (function c135() {
-  const U = window.__c135 = {cat: {}, models: {}, err: [], post: [], frame: [], attached: 0, lib: 0, on: () => SET.hd !== 0};
-  const VER = 'v1017', BASE = 'assets/models/', HIDE = 31;
+  const VER = 'v1018', BASE = 'assets/models/', HIDE = 31;
+  const U = window.__c135 = {VER, cat: {}, models: {}, err: [], post: [], frame: [], attached: 0, lib: 0, on: () => SET.hd !== 0};
   // catalogue: kind -> {f: file, k: height x procedural, h: fixed height, clips: {role: clip}, tint, yaw}
   U.add = o => Object.assign(U.cat, o);
   U.add({
@@ -24344,7 +24345,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     m.scale.setScalar(s); m.position.set(-M.cx * s, -M.y0 * s, -M.cz * s);
     let fwd = 1; try { if (a.head) { const p = new THREE.Vector3(); a.head.getWorldPosition(p); g.worldToLocal(p); if (p.z < -0.05) fwd = -1; } } catch (_) {}
     hd.rotation.y = (fwd < 0 ? Math.PI : 0) + (c.yaw || 0);
-    const hidden = []; g.traverse(o => { if (o.isMesh || o.isPoints || o.isLine || o.isSprite) { hidden.push([o, o.layers.mask]); o.layers.set(HIDE); } });
+    const hidden = []; g.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine || o.isSprite) && !(c.keep && c.keep(o))) { hidden.push([o, o.layers.mask]); o.layers.set(HIDE); } });
     const mats = []; m.traverse(o => { if (!o.isMesh) return; o.frustumCulled = false; o.castShadow = !PERF; o.userData.hd = 1; const src = [].concat(o.material);
       const out = src.map(sm => { const nm = new THREE.MeshLambertMaterial({color: sm.color ? sm.color.clone() : 0xffffff, map: sm.map || null, vertexColors: !!sm.vertexColors, skinning: !!o.isSkinnedMesh, transparent: !!sm.transparent, opacity: sm.opacity, side: sm.side, alphaTest: sm.alphaTest || 0});
         nm.name = sm.name || ''; if (nm.map) { if (nm.map.encoding !== THREE.LinearEncoding) { nm.map.encoding = THREE.LinearEncoding; nm.map.needsUpdate = true; } } else if (renderer.outputEncoding !== THREE.sRGBEncoding) nm.color.convertLinearToSRGB(); if (c.tint) nm.color.multiply(new THREE.Color(c.tint)); if (c.bright) nm.color.multiplyScalar(c.bright); mats.push(nm); return nm; });
@@ -24460,7 +24461,30 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     dragon: {f: 'dragon', h: 8, walk: 'idle', run: 0}
   });
   // ---- drop cached models from older versions ----
-  try { if (window.caches && isSecureContext) caches.open('glencraft-models').then(c => c.keys().then(ks => ks.forEach(r => { if (!/\?v1017$/.test(r.url)) c.delete(r); }))).catch(() => {}); } catch (_) {}
+  try { if (window.caches && isSecureContext) caches.open('glencraft-models').then(c => c.keys().then(ks => ks.forEach(r => { if (!r.url.endsWith("?" + U.VER)) c.delete(r); }))).catch(() => {}); } catch (_) {}
+})();
+
+/* ===================== GLX-C137 (v1.0.18): HD models batch 3: night mobs (land / floating), skull wisps, droplets ===================== */
+(function c137() {
+  const U = window.__c135; if (!U || !U.add) return;
+  // night-mob hit flash restores emissive from userData.e0
+  U.post.push((a, c, M, m, hd, s, mats) => { for (const q of mats) if (q.emissive && !q.userData.e0) q.userData.e0 = q.emissive.clone(); });
+  // lift: raise the model (world units) for floaters; keep(o) leaves chosen procedural parts (glows, hats, horns) showing
+  U.post.push((a, c, M, m) => { if (c.lift) m.position.y += c.lift; });
+  const glowy = o => !!(o.material && o.material.isMeshBasicMaterial && o.material.transparent);
+  // the sheet ghosts share the ghost model, each in its own colour (see-through like the ghost)
+  const sheet = (col, op) => ({f: 'ghost', mcol: {Ghost_Main: col}, op: op || 0.62});
+  U.add({
+    nm07: {f: 'yeti'},                                        // Snaw Brute
+    nm15: {f: 'giant', pal: {'966f39': '8c8a7e', '705d40': '5e5c54'}},                       // Crag Gruff
+    nm25: {f: 'frog', mcol: {Frog_Main: 0x6f8a4a, Frog_Secondary: 0xb8b088}},           // Puddock Gob
+    nm18: {f: 'slime', mcol: {Body: 0x6f8a5a}, op: 0.88},      // Sludge Sooker
+    nmdrop: {f: 'slime', mcol: {Body: 0x7f9a66}, op: 0.88},    // its droplets
+    nmwisp: {f: 'skull', mcol: {Main: 0xd8ccae, Main_Light: 0xf0e8d0}, emis: 0x2a2418, lift: 0.45, keep: glowy},  // Skull Wisp
+    nm03: {f: 'robot', mcol: {Main: 0x9aa3ab}},               // Govan Gearheid
+    nm28: {f: 'hound', tint: 0x7a96e0, emis: 0x101c40},       // Comet Collie
+    nm10: sheet(0xf2f2f2), nm20: sheet(0xd0d6dc, 0.5), nm29: sheet(0xe6eef2)   // Linen Ghaist, Mist Moaner, Greetin' Bairn
+  });
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -24473,6 +24497,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.18', d:'2026-10-26', notes:["HD mob models (batch 3, night mobs): Snaw Brute, Crag Gruff, Puddock Gob, Sludge Sooker and its droplets, Skull Wisp, Govan Gearheid, Comet Collie and the three sheet ghosts now use detailed animated CC0 models (by Quaternius), recoloured to match", "Their stats, hitboxes, spawning and moves are unchanged; the old blocky look comes back if HD models are switched off in Settings or fail to load", "Hit flashes now show on HD night mobs too"]},
 {v:'v1.0.17', d:'2026-10-26', notes:["New: HD mob models, batch 2. Pigs, ducks, haggises, imps, ghosts, blazing skeletons and the Ember Wyrm now use detailed animated CC0 models by Quaternius.", "Glencraft dressing on the HD models: clansmen wear tartan trews, the haggis and some sheep wear a tartan tam o' shanter, and sheep come in white, cream, grey, brown and black fleeces.", "The duck is coloured as a mallard and the ghost is see-through.", "The creeper and treeman keep their own models, because no free model fits them.", "HD models show truer, brighter colours.", "Turn HD models off in Settings to get the old look back. Credits are in CREDITS.md."]},
 {v:'v1.0.16', d:'2026-10-26', notes:["New: HD mob models, batch 1. Sheep, zombies, skeletons, black skeletons, spiders, clansmen and demon hounds now use detailed animated CC0 models by Quaternius.", "They walk, run, graze and attack with proper animations. A sheared sheep keeps the classic look until its fleece grows back.", "Settings: an HD mob models On/Off switch and a credit line. The full credits are in CREDITS.md.", "The models load in the background and are cached. If one can't load, that mob keeps its classic look.", "Mob health, damage, hitboxes and spawning are unchanged."]},
 {v:'v1.0.15', d:'2026-10-26', notes:["New: Water surfaces slope smoothly and flowing water ripples downhill", "New: Waterfalls with foam, spray and a soft rushing sound", "New: Rivers run from the hills to the lochs and the sea in new worlds (or after Reset world / Reset terrain)", "Tweak: River currents gently carry you downstream; the old flowing-water push is softer"]},
