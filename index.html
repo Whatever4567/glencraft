@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1024a -->
+<!-- glencraft-build: v1025a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.24';
+const GAME_VERSION = 'v1.0.25';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19273,6 +19273,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.25', ["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]],
     ['v1.0.24', ["New: logs and tree trunks can be placed lying down - click the side of a block to lay one along that way, the top or bottom to stand it upright (kept in your save)", "New: each wood has its own Scottish undergrowth - bracken, gorse in bloom, bog cotton, heather sprigs and blaeberry bushes (new worlds grow thicker undergrowth)", "Textures: natural wood shades - every plank now matches the cut end of its own log (oak, Scots pine, birch, rowan, alder, yew)"]],
     ['v1.0.23', ["New: castle bridges keep a level deck and go through hills in lit, stone-lined tunnels instead of cutting holes up the mountains; stairs on the bridge ramps, rails and tunnel arches; the stair up to the castle keep roof is gone","New: the pyramid island is now its own island with open sea all round it, and sloping cave mouths lead down to big ore-rich caverns under the pyramid","New: the held map fits the screen (landscape and portrait) with your hand below it, and starts afresh after Reset world or Reset terrain"]],
     ['v1.0.22', ["Mobs: HD skeletons hold their bow again and HD black skeletons their sword - in the hand while walking, attacking and aiming"]],
@@ -25328,7 +25329,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const tick = () => { try { build(); } catch (e) { U.err = 'atlas ' + e.message; } }; tick(); setInterval(tick, 1500); }
   // ---------- meshing: the chunk's tall grass instances get their biome's plant ----------
   const m4 = new THREE.Matrix4(), ps = new THREE.Vector3(), qq = new THREE.Quaternion(), sc = new THREE.Vector3(), col = new THREE.Color();
-  function dress(cx, cz) { const grp = chunkObjs.get(cx * 64 + cz); if (!grp || !atlas || M.map !== atlas) return;
+  function dress(cx, cz) { const grp = chunkObjs.get(cx * 64 + cz); if (!grp) return;
+    // every grass mesh sharing the material carries instance colours (a mix with and without breaks the shared shader program)
+    for (const im of grp.children) if (im.isInstancedMesh && im.material === M && !im.instanceColor && im.count > 0) { col.setRGB(0, 1, 1); for (let j = 0; j < im.count; j++) im.setColorAt(j, col); im.instanceColor.needsUpdate = true; }
+    if (!atlas || M.map !== atlas) return;
     for (const im of grp.children) { if (!im.isInstancedMesh || im.material !== M || im.userData.c149) continue; im.userData.c149 = 1; let any = false; const n = im.count;
       for (let i = 0; i < n; i++) { im.getMatrixAt(i, m4); m4.decompose(ps, qq, sc); const v = variantAt(Math.floor(ps.x), Math.floor(ps.z)); U.st.by[v]++;
         if (v) { sc.x *= SC[v][1]; sc.z *= SC[v][1]; sc.y *= SC[v][0]; m4.compose(ps, qq, sc); im.setMatrixAt(i, m4); any = true; }
@@ -25352,6 +25356,482 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     U.st.gen = {n, ms: Math.round(performance.now() - t0)}; }
   const gen = generate; generate = function () { const r = gen.apply(this, arguments); if (elig()) { try { grow(); dirtyAll = true; } catch (e) { U.err = 'grow ' + e.message; } } return r; };
 })();
+
+/* ===================== GLX-C150 (v1.0.25): castle decor props (banners, antlers, chandeliers, coffins, cages, throne...) - one atlas, two merged meshes per castle ===================== */
+(function c150() {
+  const U = window.__c150 = {props: [], st: {}, err: null, groups: new Map(), tiles: {}};
+  // ---------- 1. atlas: little pixel-art tiles painted once ----------
+  const AW = 512, cvA = document.createElement('canvas'); cvA.width = cvA.height = AW; const g = cvA.getContext('2d');
+  let sx = 0, sy = 0, rowH = 0; let seed = 25025; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const TL = U.tiles;
+  function tile(name, w, h, fn) { if (sx + w > AW) { sx = 0; sy += rowH; rowH = 0; } const x = sx, y = sy; sx += w; rowH = Math.max(rowH, h);
+    g.save(); g.translate(x, y); g.beginPath(); g.rect(0, 0, w, h); g.clip(); fn(w, h); g.restore(); TL[name] = [(x + 0.5) / AW, 1 - (y + h - 0.5) / AW, (x + w - 0.5) / AW, 1 - (y + 0.5) / AW]; }
+  const px = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  const noise = (w, h, cols, n, s) => { for (let i = 0; i < n; i++) px((r() * w / s | 0) * s, (r() * h / s | 0) * s, s, s, cols[r() * cols.length | 0]); };
+  function tartan(w, h, base, sett) { px(0, 0, w, h, base); g.globalAlpha = 0.7; for (const [c, o, ww] of sett) for (let k = o; k < w; k += 32) px(k, 0, ww, h, c);
+    g.globalAlpha = 0.55; for (const [c, o, ww] of sett) for (let k = o; k < h; k += 32) px(0, k, w, ww, c); g.globalAlpha = 0.18; for (let y = 0; y < h; y += 2) for (let x = (y >> 1) & 1 ? 0 : 1; x < w; x += 2) px(x, y, 1, 1, '#000'); g.globalAlpha = 1; }
+  const RG = [['#1d5a30', 0, 10], ['#14213d', 12, 3], ['#1d5a30', 18, 4], ['#e0c050', 26, 1]];
+  tile('tartan', 64, 64, (w, h) => tartan(w, h, '#a3191f', RG));
+  tile('tartanB', 64, 64, (w, h) => tartan(w, h, '#1c3f74', [['#1d5a30', 0, 10], ['#0c0c18', 13, 4], ['#c8262a', 22, 2], ['#e8e0c8', 28, 1]]));
+  tile('banT', 32, 96, (w, h) => { tartan(w, h, '#a3191f', RG); px(0, 0, w, 3, '#d8b040'); g.clearRect(0, h - 10, w, 10); g.fillStyle = '#a3191f'; g.beginPath(); g.moveTo(0, h - 10); g.lineTo(w / 2, h - 2); g.lineTo(w, h - 10); g.fill(); px(13, 30, 6, 6, '#e8c860'); px(11, 32, 10, 2, '#e8c860'); });
+  tile('banB', 32, 96, (w, h) => { px(0, 0, w, h, '#141216'); noise(w, h, ['#1c1a1f', '#0c0b0d'], 120, 2); px(0, 0, 3, h, '#8a1015'); px(w - 3, 0, 3, h, '#8a1015'); px(0, 0, w, 4, '#8a1015');
+    g.fillStyle = '#b3141a'; g.beginPath(); g.moveTo(16, 22); g.lineTo(26, 34); g.lineTo(22, 50); g.lineTo(16, 44); g.lineTo(10, 50); g.lineTo(6, 34); g.closePath(); g.fill(); px(15, 52, 2, 14, '#b3141a'); px(11, 56, 10, 2, '#b3141a');
+    g.clearRect(0, h - 14, w, 14); g.fillStyle = '#141216'; g.beginPath(); g.moveTo(0, h - 14); g.lineTo(8, h - 2); g.lineTo(16, h - 12); g.lineTo(24, h - 2); g.lineTo(32, h - 14); g.fill(); });
+  tile('banG', 32, 96, (w, h) => { px(0, 0, w, h, '#8a8a84'); noise(w, h, ['#77776f', '#9c9c95', '#6a6a63'], 260, 2); px(0, 0, w, 3, '#55554f');
+    for (let i = 0; i < 9; i++) { const x = r() * w | 0, y = 20 + r() * (h - 20) | 0; g.clearRect(x, y, 2 + r() * 5 | 0, 2 + r() * 6 | 0); }
+    for (let x = 0; x < w; x += 4) g.clearRect(x, h - 6 - (r() * 26 | 0), 3, 40); });
+  tile('iron', 16, 16, (w, h) => { px(0, 0, w, h, '#2c2b2e'); noise(w, h, ['#3a393d', '#1f1e21', '#46444a'], 40, 2); });
+  tile('steel', 16, 16, (w, h) => { px(0, 0, w, h, '#b9c0c8'); noise(w, h, ['#d8dee4', '#9aa2ac', '#c8ced6'], 50, 2); });
+  tile('gold', 16, 16, (w, h) => { px(0, 0, w, h, '#d6a92c'); noise(w, h, ['#f0cc58', '#a8801a'], 40, 2); });
+  tile('wood', 16, 16, (w, h) => { px(0, 0, w, h, '#6b4524'); for (let y = 0; y < h; y += 4) px(0, y, w, 1, '#553519'); noise(w, h, ['#7a512c', '#5b3a1c'], 30, 2); });
+  tile('leather', 16, 16, (w, h) => { px(0, 0, w, h, '#4a2c16'); noise(w, h, ['#5a361c', '#3a210f'], 30, 2); });
+  tile('wax', 16, 16, (w, h) => { px(0, 0, w, h, '#efe6c8'); noise(w, h, ['#fff6dc', '#d9cfae'], 20, 2); });
+  tile('flame', 16, 32, (w, h) => { g.fillStyle = '#ff7a10'; g.beginPath(); g.moveTo(8, 0); g.quadraticCurveTo(16, 18, 14, 26); g.lineTo(2, 26); g.quadraticCurveTo(0, 18, 8, 0); g.fill(); g.fillStyle = '#ffd040'; g.beginPath(); g.moveTo(8, 8); g.quadraticCurveTo(13, 20, 11, 26); g.lineTo(5, 26); g.quadraticCurveTo(3, 20, 8, 8); g.fill(); px(6, 18, 4, 8, '#fff4b0'); });
+  tile('ember', 16, 16, (w, h) => { px(0, 0, w, h, '#ff5a10'); noise(w, h, ['#ffb030', '#c02808', '#ffe070'], 60, 2); });
+  tile('soul', 16, 16, (w, h) => { px(0, 0, w, h, '#58c8ff'); noise(w, h, ['#a8ecff', '#2a8ad0'], 40, 2); });
+  tile('bone', 16, 16, (w, h) => { px(0, 0, w, h, '#e2dcc4'); noise(w, h, ['#cfc7aa', '#f0ead6', '#bdb497'], 50, 2); px(0, 7, w, 1, '#b9b092'); });
+  tile('skull', 16, 16, (w, h) => { px(0, 0, w, h, '#e6e0c8'); noise(w, h, ['#d0c8ac', '#f2ecda'], 30, 2); px(3, 6, 4, 4, '#1a1512'); px(9, 6, 4, 4, '#1a1512'); px(7, 10, 2, 2, '#2a221c'); for (let x = 4; x < 12; x += 2) px(x, 13, 1, 2, '#3a3028'); });
+  tile('stoneC', 32, 32, (w, h) => { px(0, 0, w, h, '#8d8a82'); noise(w, h, ['#7a776f', '#9d9a92', '#6e6b64'], 160, 2); px(0, 0, w, 2, '#5e5b55'); px(0, h - 2, w, 2, '#5e5b55'); px(0, 0, 2, h, '#5e5b55'); px(w - 2, 0, 2, h, '#5e5b55'); });
+  tile('lid', 32, 64, (w, h) => { px(0, 0, w, h, '#9a968c'); noise(w, h, ['#86827a', '#aaa69c', '#7a766e'], 300, 2); px(0, 0, w, 2, '#615e57'); px(0, h - 2, w, 2, '#615e57'); px(0, 0, 2, h, '#615e57'); px(w - 2, 0, 2, h, '#615e57');
+    const B = '#d8d1b6'; px(12, 8, 8, 8, B); px(13, 11, 2, 2, '#3a332a'); px(17, 11, 2, 2, '#3a332a'); px(15, 18, 2, 30, B); for (const y of [22, 28, 34]) px(9, y, 14, 2, B); px(7, 46, 6, 2, B); px(19, 46, 6, 2, B); px(8, 50, 3, 8, B); px(21, 50, 3, 8, B); });
+  tile('chain', 8, 32, (w, h) => { for (let y = 0; y < h; y += 8) { px(2, y, 4, 1, '#3a3940'); px(2, y + 5, 4, 1, '#3a3940'); px(1, y + 1, 1, 4, '#4a4950'); px(6, y + 1, 1, 4, '#4a4950'); px(3, y + 5, 2, 3, '#55545c'); } });
+  tile('bars', 32, 32, (w, h) => { for (let x = 1; x < w; x += 8) px(x, 0, 3, h, '#333238'); px(0, 1, w, 3, '#2a292e'); px(0, h - 4, w, 3, '#2a292e'); px(0, 14, w, 2, '#2a292e'); });
+  tile('target', 32, 32, (w, h) => { const c = [['#e8e0d0', 15], ['#c4161c', 12], ['#e8e0d0', 9], ['#c4161c', 6], ['#e8e0d0', 3.5], ['#c4161c', 1.6]]; for (const [col, rr] of c) { g.fillStyle = col; g.beginPath(); g.arc(16, 16, rr, 0, 7); g.fill(); } });
+  tile('straw', 16, 16, (w, h) => { px(0, 0, w, h, '#c9a64a'); noise(w, h, ['#e0c060', '#a8862e', '#d8b850'], 60, 1); });
+  tile('barrel', 32, 32, (w, h) => { px(0, 0, w, h, '#7a5230'); for (let x = 0; x < w; x += 6) px(x, 0, 1, h, '#4d3219'); px(0, 5, w, 3, '#2f2d30'); px(0, h - 8, w, 3, '#2f2d30'); noise(w, h, ['#8a6038', '#6a4426'], 40, 2); });
+  tile('barrelT', 16, 16, (w, h) => { px(0, 0, w, h, '#82593a'); for (let x = 0; x < w; x += 4) px(x, 0, 1, h, '#5a3a20'); px(0, 0, w, 1, '#2f2d30'); px(0, h - 1, w, 1, '#2f2d30'); });
+  tile('throne', 32, 32, (w, h) => { px(0, 0, w, h, '#141217'); noise(w, h, ['#1e1b22', '#0a090c', '#26222b'], 120, 2); px(0, 0, w, 2, '#3a1418'); px(14, 0, 4, h, '#1f1c24'); });
+  tile('velvet', 16, 16, (w, h) => { px(0, 0, w, h, '#8e0f16'); noise(w, h, ['#a8161e', '#6a080e'], 40, 2); px(0, 0, w, 1, '#d0a040'); });
+  tile('redwin', 16, 32, (w, h) => { px(0, 0, w, h, '#ff3418'); noise(w, h, ['#ff7038', '#d81808', '#ffa050'], 70, 2); px(7, 0, 2, h, '#2a0a06'); px(0, 14, w, 2, '#2a0a06'); px(0, 0, w, 2, '#2a0a06'); px(0, 0, 2, h, '#2a0a06'); px(w - 2, 0, 2, h, '#2a0a06'); });
+  tile('antler', 32, 32, (w, h) => { const A = '#e8dcc0', S = '#bfae86'; px(14, 22, 4, 8, '#6a4a2a'); for (const s of [-1, 1]) { const o = x => 16 + s * x; for (let i = 0; i < 12; i++) px(o(2 + i) - (s < 0 ? 2 : 0), 22 - i * 1.4 | 0, 2, 2, i % 3 ? A : S);
+      px(o(6) - 1, 10, 2, 6, A); px(o(10) - 1, 4, 2, 8, A); px(o(13) - 1, 0, 2, 6, A); px(o(4) - 1, 14, 2, 5, S); } });
+  tile('plaque', 16, 16, (w, h) => { px(0, 0, w, h, '#5a3820'); px(1, 1, w - 2, h - 2, '#6e4628'); noise(w, h, ['#7a5230'], 10, 2); });
+  tile('ladder', 16, 32, (w, h) => { px(1, 0, 2, h, '#7a5a34'); px(13, 0, 2, h, '#7a5a34'); for (let y = 2; y < h; y += 6) px(1, y, 14, 2, '#8a6a40'); });
+  tile('bow', 16, 32, (w, h) => { g.strokeStyle = '#6a4424'; g.lineWidth = 2; g.beginPath(); g.moveTo(4, 1); g.quadraticCurveTo(15, 16, 4, 31); g.stroke(); g.strokeStyle = '#ddd6c0'; g.lineWidth = 1; g.beginPath(); g.moveTo(4, 1); g.lineTo(4, 31); g.stroke(); });
+  tile('shield', 16, 16, (w, h) => { g.fillStyle = '#5a3a1c'; g.beginPath(); g.arc(8, 8, 7.5, 0, 7); g.fill(); g.fillStyle = '#c8a040'; g.beginPath(); g.arc(8, 8, 2, 0, 7); g.fill(); for (let a = 0; a < 8; a++) px(8 + Math.cos(a * .785) * 5 | 0, 8 + Math.sin(a * .785) * 5 | 0, 1, 1, '#d8b050'); });
+  tile('web', 32, 32, (w, h) => { g.strokeStyle = 'rgba(235,235,235,.85)'; g.lineWidth = 1; for (let a = 0; a < 8; a++) { g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(a * 0.2) * 44, Math.sin(a * 0.2) * 44); g.stroke(); } for (let k = 6; k < 40; k += 6) { g.beginPath(); g.arc(0, 0, k, 0, 1.6); g.stroke(); } });
+  const TEXA = new THREE.CanvasTexture(cvA); TEXA.magFilter = THREE.NearestFilter; TEXA.minFilter = THREE.NearestFilter; TEXA.generateMipmaps = false; TEXA.flipY = true;
+  const matL = new THREE.MeshLambertMaterial({map: TEXA, side: THREE.DoubleSide, alphaTest: 0.5});
+  const matG = new THREE.MeshBasicMaterial({map: TEXA, side: THREE.DoubleSide, alphaTest: 0.3, fog: true});
+  U.atlas = cvA; U.mats = [matL, matG];
+  // ---------- 2. geometry kit (prop frame: cell 0..1, front faces +z) ----------
+  function kit() { const L = {p: [], n: [], u: []}, G = {p: [], n: [], u: []};
+    let ox = 0, oy = 0, oz = 0, rc = 1, rs = 0;
+    const tf = (x, y, z) => { const lx = x - 0.5, lz = z - 0.5; return [ox + 0.5 + lx * rc + lz * rs, oy + y, oz + 0.5 - lx * rs + lz * rc]; };
+    const tn = (x, y, z) => [x * rc + z * rs, y, -x * rs + z * rc];
+    function quad(a, b, c, d, t, glow, nn) { const A = glow ? G : L, uv = TL[t] || TL.iron, P = [a, b, c, d].map(q => tf(q[0], q[1], q[2])), N = tn(nn[0], nn[1], nn[2]);
+      const U2 = [[uv[0], uv[1]], [uv[2], uv[1]], [uv[2], uv[3]], [uv[0], uv[3]]];
+      for (const i of [0, 1, 2, 0, 2, 3]) { A.p.push(P[i][0], P[i][1], P[i][2]); A.n.push(N[0], N[1], N[2]); A.u.push(U2[i][0], U2[i][1]); } }
+    function box(x0, y0, z0, x1, y1, z1, t, glow, tt) { const s = tt || t;
+      quad([x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], t, glow, [0, 0, 1]); quad([x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0], t, glow, [0, 0, -1]);
+      quad([x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1], t, glow, [1, 0, 0]); quad([x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], t, glow, [-1, 0, 0]);
+      quad([x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0], s, glow, [0, 1, 0]); quad([x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], s, glow, [0, -1, 0]); }
+    const cross = (cx, cz, y0, h, w, t, glow) => { quad([cx - w, y0, cz], [cx + w, y0, cz], [cx + w, y0 + h, cz], [cx - w, y0 + h, cz], t, glow, [0, 0, 1]); quad([cx, y0, cz - w], [cx, y0, cz + w], [cx, y0 + h, cz + w], [cx, y0 + h, cz - w], t, glow, [1, 0, 0]); };
+    const wallQ = (x0, y0, x1, y1, z, t, glow) => quad([x0, y0, z], [x1, y0, z], [x1, y1, z], [x0, y1, z], t, glow, [0, 0, 1]);
+    const flatQ = (x0, z0, x1, z1, y, t) => quad([x0, y, z1], [x1, y, z1], [x1, y, z0], [x0, y, z0], t, false, [0, 1, 0]);
+    const at = (x, y, z, f) => { ox = x; oy = y; oz = z; const a = [Math.PI, -Math.PI / 2, 0, Math.PI / 2][f & 3]; rc = Math.cos(a); rs = Math.sin(a); };
+    return {L, G, quad, box, cross, wallQ, flatQ, at}; }
+  U.kit = kit;
+  // ---------- 3. the props ----------
+  const ring = (K, cx, cz, R, y, n, fn) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283; fn(cx + Math.cos(a) * R, cz + Math.sin(a) * R, a); } };
+  const DRAW = {
+    banT: (K, o) => { K.box(0.02, 0.92, 0.04, 0.98, 1.0, 0.12, 'iron'); K.wallQ(0.06, 1 - 2.7, 0.94, 0.95, 0.08, o.v === 1 ? 'banB' : o.v === 2 ? 'banG' : 'banT'); },
+    rug: (K, o) => { const w = o.w || 3, d = o.d || 4, y = o.h || 0.03; K.flatQ(0.5 - w / 2, 0.5 - d / 2, 0.5 + w / 2, 0.5 + d / 2, y, o.v === 1 ? 'tartanB' : o.v === 2 ? 'velvet' : 'tartan'); },
+    antler: (K) => { K.box(0.25, 0.25, 0, 0.75, 0.75, 0.06, 'plaque'); K.box(0.4, 0.3, 0.06, 0.6, 0.62, 0.3, 'leather'); K.wallQ(-0.45, 0.35, 1.45, 1.6, 0.2, 'antler'); },
+    chand: (K, o) => { const R = 0.95, top = o.L || 1.6; K.cross(0.5, 0.5, 0.25, top, 0.06, 'chain'); ring(K, 0.5, 0.5, R, 0, 10, (x, z) => { K.box(x - 0.08, 0.2, z - 0.08, x + 0.08, 0.27, z + 0.08, 'iron'); K.box(x - 0.04, 0.27, z - 0.04, x + 0.04, 0.47, z + 0.04, 'wax'); K.cross(x, z, 0.47, 0.22, 0.05, 'flame', true); });
+      for (const [a, b] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) K.box(0.5 + Math.min(0, a) * R - 0.03, 0.2, 0.5 + Math.min(0, b) * R - 0.03, 0.5 + Math.max(0, a) * R + 0.03, 0.25, 0.5 + Math.max(0, b) * R + 0.03, 'iron'); },
+    candles: (K) => { for (const [x, z, h] of [[0.3, 0.4, 0.3], [0.55, 0.6, 0.22], [0.7, 0.35, 0.36]]) { K.box(x - 0.04, 0, z - 0.04, x + 0.04, h, z + 0.04, 'wax'); K.cross(x, z, h, 0.16, 0.04, 'flame', true); } },
+    armour: (K) => { K.box(0.45, 0, 0.45, 0.55, 1.5, 0.55, 'wood'); K.box(0.2, 0, 0.2, 0.8, 0.06, 0.8, 'wood'); K.box(0.22, 1.0, 0.36, 0.78, 1.55, 0.66, 'steel'); K.box(0.12, 1.4, 0.4, 0.88, 1.56, 0.62, 'steel');
+      K.box(0.3, 1.6, 0.33, 0.7, 1.98, 0.67, 'steel'); K.box(0.3, 1.74, 0.66, 0.7, 1.8, 0.68, 'iron'); K.box(0.24, 0.62, 0.38, 0.76, 1.02, 0.64, 'tartan'); K.box(0.45, 1.98, 0.48, 0.55, 2.12, 0.52, 'velvet'); },
+    claym: (K) => { K.box(0.25, 0.25, 0.02, 0.75, 0.75, 0.08, 'shield'); for (const s of [-1, 1]) { const q = (u) => [0.5 + s * (u - 0.5) * 1.1, 0.12 + u * 1.3];
+        for (let i = 0; i < 10; i++) { const [x, y] = q(i / 10); K.box(x - 0.04, y, 0.09, x + 0.04, y + 0.15, 0.12, i < 2 ? 'leather' : i === 2 ? 'gold' : 'steel'); } } },
+    coffin: (K) => { K.box(-0.012, 0, -0.012, 1.012, 0.998, 2.012, 'stoneC', false, 'stoneC'); K.box(-0.06, 1.0, -0.06, 1.06, 1.1, 2.06, 'stoneC', false, 'lid'); },
+    bonecol: (K, o) => { const h = o.h || 4; for (let y = 0; y < h; y++) K.box(-0.015, y, -0.015, 1.015, y + 1, 1.015, 'bone'); for (const y of [0.1, h - 0.45]) for (const f of [[0.5, -0.05], [0.5, 1.05], [-0.05, 0.5], [1.05, 0.5]]) K.box(f[0] - 0.18, y, f[1] - 0.18, f[0] + 0.18, y + 0.34, f[1] + 0.18, 'skull', false, 'bone'); },
+    skull: (K, o) => { const s = o.w || 0.42, x0 = 0.5 - s / 2; K.box(x0, 0, 0.5 - s / 2, x0 + s, s * 0.9, 0.5 + s / 2, 'skull', false, 'bone'); },
+    bones: (K) => { for (const [x, z, a] of [[0.3, 0.4, 0], [0.6, 0.5, 1], [0.45, 0.7, 0]]) K.box(x - (a ? 0.3 : 0.05), 0, z - (a ? 0.05 : 0.3), x + (a ? 0.3 : 0.05), 0.08, z + (a ? 0.05 : 0.3), 'bone'); K.box(0.55, 0, 0.15, 0.85, 0.27, 0.45, 'skull', false, 'bone'); },
+    chain: (K, o) => { const L = o.L || 3; K.cross(0.5, o.v ? 0.12 : 0.5, 1 - L, L, 0.07, 'chain'); },
+    cage: (K, o) => { const L = o.L || 1.5; K.cross(0.5, 0.5, 1 - L, L, 0.07, 'chain'); const y1 = 1 - L, y0 = y1 - 1.3;
+      for (const z of [0.12, 0.88]) K.wallQ(0.12, y0, 0.88, y1, z, 'bars'); K.quad([0.12, y0, 0.12], [0.12, y0, 0.88], [0.12, y1, 0.88], [0.12, y1, 0.12], 'bars', false, [1, 0, 0]); K.quad([0.88, y0, 0.12], [0.88, y0, 0.88], [0.88, y1, 0.88], [0.88, y1, 0.12], 'bars', false, [1, 0, 0]);
+      K.box(0.08, y1 - 0.06, 0.08, 0.92, y1, 0.92, 'iron'); K.box(0.08, y0, 0.08, 0.92, y0 + 0.06, 0.92, 'iron'); if (o.v) K.box(0.3, y0 + 0.06, 0.3, 0.62, y0 + 0.34, 0.62, 'skull', false, 'bone'); },
+    srack: (K) => { K.box(0, 0.15, 0.02, 1, 0.25, 0.2, 'wood'); K.box(0, 1.3, 0.02, 1, 1.38, 0.2, 'wood'); for (const x of [0.2, 0.5, 0.8]) { K.box(x - 0.03, 0.25, 0.1, x + 0.03, 1.5, 0.14, 'steel'); K.box(x - 0.14, 1.15, 0.08, x + 0.14, 1.2, 0.16, 'iron'); K.box(x - 0.03, 1.2, 0.09, x + 0.03, 1.45, 0.15, 'leather'); } },
+    brack: (K) => { K.box(0, 0.9, 0.02, 1, 0.98, 0.16, 'wood'); K.box(0, 0.3, 0.02, 1, 0.38, 0.16, 'wood'); for (const x of [0.08, 0.5]) K.wallQ(x, 0.05, x + 0.4, 1.6, 0.1, 'bow'); K.box(0.82, 0.1, 0.05, 0.98, 0.75, 0.25, 'leather'); },
+    target: (K) => { K.box(0.1, 0, 0.35, 0.18, 1.2, 0.45, 'wood'); K.box(0.82, 0, 0.35, 0.9, 1.2, 0.45, 'wood'); K.box(0.02, 0.45, 0.12, 0.98, 1.45, 0.34, 'straw'); K.wallQ(0.04, 0.47, 0.96, 1.43, 0.345, 'target'); },
+    barrel: (K, o) => { const h = o.v ? 0.45 : 0.92; K.box(0.12, 0, 0.12, 0.88, h, 0.88, 'barrel', false, o.v ? 'leather' : 'barrelT'); if (o.v) { K.box(0.9, 0, 0.2, 1.0, 0.7, 0.3, 'barrel'); K.box(0.2, 0, 0.92, 0.6, 0.06, 1.05, 'barrel'); } },
+    throne: (K) => { K.box(-0.01, 0, -0.01, 1.01, 0.55, 1.01, 'throne'); K.box(0.06, 0.55, 0.12, 0.94, 0.62, 0.9, 'velvet'); K.box(0.04, 0.55, -0.04, 0.96, 3.0, 0.14, 'throne'); K.box(0.12, 0.7, 0.14, 0.88, 2.6, 0.16, 'velvet');
+      for (const x of [-0.08, 0.86]) { K.box(x, 0.55, 0.0, x + 0.22, 1.05, 1.0, 'throne'); K.box(x, 1.05, 0.0, x + 0.22, 1.12, 1.04, 'gold'); }
+      for (const [x, h] of [[0.04, 0.7], [0.4, 1.1], [0.78, 0.7]]) K.box(x, 3.0, -0.02, x + 0.18, 3.0 + h, 0.12, 'throne'); K.box(0.46, 4.1, 0.0, 0.54, 4.35, 0.1, 'gold'); },
+    redwin: (K, o) => { const h = o.h || 2; K.wallQ(0.02, 0.02, 0.98, h - 0.02, 0.5, 'redwin', true); },
+    soulgl: (K) => { K.box(0.36, 0.3, 0.36, 0.64, 0.62, 0.64, 'soul', true); },
+    brazier: (K) => { for (const [x, z] of [[0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]]) K.box(x - 0.04, 0, z - 0.04, x + 0.04, 0.8, z + 0.04, 'iron'); K.box(0.08, 0.8, 0.08, 0.92, 0.98, 0.92, 'iron'); K.box(0.16, 0.98, 0.16, 0.84, 1.06, 0.84, 'ember', true);
+      K.cross(0.5, 0.5, 1.0, 0.9, 0.32, 'flame', true); K.cross(0.32, 0.6, 1.0, 0.6, 0.2, 'flame', true); },
+    portc: (K, o) => { const w = o.w || 3, h = o.h || 1.6, c = o.v ? 1 : 0.5; K.wallQ(c - w / 2, 1 - h, c + w / 2, 1, 0.5, 'bars'); for (let i = 0; i <= w * 2; i++) { const x = c - w / 2 + i * 0.5; K.box(x - 0.05, 1 - h - 0.3, 0.45, x + 0.05, 1 - h, 0.55, 'iron'); } },
+    fire: (K) => { K.cross(0.5, 0.5, 0, 0.95, 0.42, 'flame', true); K.cross(0.25, 0.4, 0, 0.6, 0.25, 'flame', true); K.cross(0.75, 0.6, 0, 0.7, 0.25, 'flame', true); for (const z of [0.3, 0.6]) K.box(0.1, 0, z, 0.9, 0.14, z + 0.14, 'wood'); },
+    ladder: (K, o) => { K.wallQ(0.1, 0, 0.9, o.L || 4, 0.06, 'ladder'); },
+    web: (K) => { K.wallQ(0, 0, 1, 1, 0.02, 'web'); },
+    spike: (K, o) => { const h = o.h || 1.5; K.box(0.44, 0, 0.44, 0.56, h, 0.56, 'iron'); K.box(0.47, h, 0.47, 0.53, h + 0.4, 0.53, 'iron'); },
+    flag: (K, o) => { K.box(0.46, 0, 0.46, 0.54, 3, 0.54, 'wood'); K.quad([0.54, 2.0, 0.5], [1.9, 2.0, 0.5], [1.9, 2.9, 0.5], [0.54, 2.9, 0.5], o.v === 1 ? 'banB' : o.v === 2 ? 'banG' : 'tartan', false, [0, 0, 1]); },
+    table: (K) => { K.box(0, 0.88, 0, 1, 1.0, 1, 'wood'); },
+  };
+  U.DRAW = DRAW;
+  // ---------- 4. per-castle meshes, built near the player; a prop goes when the block it hangs on is broken ----------
+  function buildGroup(ci) { const K = kit(); let n = 0;
+    for (const p of U.props) { if (p.c !== ci || p.dead) continue; const d = DRAW[p.t]; if (!d) continue; K.at(p.x, p.y, p.z, p.f); try { d(K, p); n++; } catch (e) { U.err = 'draw ' + p.t + ' ' + e.message; } }
+    const grp = new THREE.Group(); grp.name = 'c150-' + ci;
+    for (const [A, m] of [[K.L, matL], [K.G, matG]]) { if (!A.p.length) continue; const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(A.p, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(A.n, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(A.u, 2)); geo.computeBoundingSphere();
+      const me = new THREE.Mesh(geo, m); me.matrixAutoUpdate = false; me.frustumCulled = true; grp.add(me); }
+    grp.userData.n = n; return grp; }
+  function drop(ci) { const g0 = U.groups.get(ci); if (!g0) return; scene.remove(g0); g0.children.forEach(m => m.geometry.dispose()); U.groups.delete(ci); }
+  U.rebuild = () => { for (const ci of [...U.groups.keys()]) drop(ci); };
+  function tick() { if (typeof started === 'undefined' || !started || DIM.cur || !U.props.length) { if (U.groups.size && (DIM.cur || !U.props.length)) U.rebuild(); return; }
+    const cs = (typeof g9castles !== 'undefined' && g9castles) || [];
+    for (let ci = 0; ci < cs.length; ci++) { const c = cs[ci], d = Math.hypot(P.x - c[1], P.z - c[2]), has = U.groups.get(ci);
+      if (d < 170) { let ch = false; for (const p of U.props) if (p.c === ci && !p.dead && p.a && world[idx(p.a[0], p.a[1], p.a[2])] !== p.a[3]) { p.dead = 1; ch = true; }
+        if (!has || ch) { drop(ci); const g2 = buildGroup(ci); scene.add(g2); U.groups.set(ci, g2); } }
+      else if (has && d > 230) drop(ci); } }
+  setInterval(() => { try { tick(); } catch (e) { U.err = 'tick ' + e.message; } }, 700);
+  // ---------- 5. save / load ----------
+  const TY = Object.keys(DRAW);
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && U.props.length) d.c150p = U.props.map(p => [TY.indexOf(p.t), p.c, p.x, p.y, p.z, p.f, p.v || 0, p.w || 0, p.d || 0, p.h || 0, p.L || 0, p.a ? p.a.join(',') : '', p.dead ? 1 : 0]); } catch (e) { U.err = 'ser ' + e.message; } return d; };
+  const ap = applySave; applySave = function (d) { const res = ap.apply(this, arguments); try { if (d && !d.dim) { U.rebuild(); U.props = (d.c150p || []).map(q => { const o = {t: TY[q[0]], c: q[1], x: q[2], y: q[3], z: q[4], f: q[5]}; if (q[6]) o.v = q[6]; if (q[7]) o.w = q[7]; if (q[8]) o.d = q[8]; if (q[9]) o.h = q[9]; if (q[10]) o.L = q[10]; if (q[11]) o.a = q[11].split(',').map(Number); if (q[12]) o.dead = 1; return o; }).filter(o => o.t); } } catch (e) { U.err = 'load ' + e.message; } return res; };
+  const ew = enterWorld; enterWorld = function (save) { try { if (!save) { U.rebuild(); U.props = []; } } catch (_) {} return ew.apply(this, arguments); };
+  // ---------- 6. soul lanterns: castle torches tagged soul burn blue ----------
+  try { const be = buildEnt; buildEnt = function (type, x, y, z) { const o = be.apply(this, arguments); try { const m = type === T.TORCH && entMeta.get(keyOf(x, y, z)); if (o && m && m.soul && o.g) { const blue = new THREE.Color(0x5ad0ff);
+        o.g.traverse(q => { if (q.material && q.material.color && (q.isSprite || q.material.transparent)) { q.material = q.material.clone(); q.material.color = blue.clone(); } }); o.soul = 1; } } catch (_) {} return o; }; } catch (e) { U.err = 'soul ' + e.message; }
+})();
+
+/* ===================== GLX-C151 (v1.0.25): the three castles rebuilt block by block from the concept art (new worlds only) - builder kit + the clan castle ===================== */
+(function c151() {
+  const U = window.__c151 = {st: {}, err: null, B: {}, ms: 0};
+  const FV = [[0, -1], [-1, 0], [0, 1], [1, 0]];
+  const elig = () => { try { return !!(current && current.g25 && genVer === GEN9 && !cityGen && !DIM.cur && W >= 600 && current.mode !== 'creative' && window.__c102 && __c102.done); } catch (_) { return false; } };
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g25 = save ? !!save.c151 : true; } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g25) d.c151 = 1; } catch (_) {} return d; };
+  const mine = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i);
+  const inb = (x, y, z) => x > 0 && z > 0 && x < W - 1 && z < D - 1 && y > 0 && y < H - 2;
+  U.h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ 0x151; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  // ---------- builder kit: local coords (gate toward local +z), rotated onto the world ----------
+  function ctx(c, ci, gy, rot) { const cx = c[1], cz = c[2];
+    const rv = (x, z) => { for (let i = 0; i < rot; i++) { const t = x; x = -z; z = t; } return [x, z]; };
+    const fi = f => { const [a, b] = rv(FV[f & 3][0], FV[f & 3][1]); return FV.findIndex(q => q[0] === a && q[1] === b); };
+    const wp = (dx, y, dz) => { const [a, b] = rv(dx, dz); return [cx + a, gy + y, cz + b]; };
+    const K = {cx, cz, gy, rot, ci, kind: c[0], wp, fi, h: (dx, y, dz) => U.h3(cx + dx * 3, gy + y, cz + dz * 7), lights: 0, chestsN: 0};
+    K.B = (dx, y, dz, b) => { const [x, Y, z] = wp(dx, y, dz); if (!inb(x, Y, z)) return; const i = idx(x, Y, z); if (mine(i)) return; world[i] = b; };
+    K.G = (dx, y, dz) => { const [x, Y, z] = wp(dx, y, dz); return inb(x, Y, z) ? world[idx(x, Y, z)] : 0; };
+    K.meta = (dx, y, dz, m) => { const [x, Y, z] = wp(dx, y, dz); entMeta.set(keyOf(x, Y, z), m); };
+    K.box = (x0, y0, z0, x1, y1, z1, b) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) K.B(x, y, z, typeof b === 'function' ? b(x, y, z) : b); };
+    K.stair = (dx, y, dz, f, id) => { K.B(dx, y, dz, id || 167); K.meta(dx, y, dz, {face: fi(f)}); };
+    K.door = (dx, y, dz, f) => { K.B(dx, y, dz, T.DOOR); K.B(dx, y + 1, dz, T.DOORTOP); K.meta(dx, y, dz, {face: fi(f)}); const [x, Y, z] = wp(dx, y, dz); doorState.set(keyOf(x, Y, z), false); };
+    K.lamp = (dx, y, dz, wf, o) => { K.B(dx, y, dz, T.TORCH); const m = {face: 0, lamp: 1}; if (wf >= 0) { const [a, b] = rv(FV[wf][0], FV[wf][1]); m.wall = [a, b]; } else if (o && o.ceil) m.ceil = 1; if (o && o.soul) m.soul = 1; K.meta(dx, y, dz, m); K.lights++; };
+    K.log = (dx, y, dz, id, ax) => { K.B(dx, y, dz, id || T.LOG); if (ax && window.__c148) { const [x, Y, z] = wp(dx, y, dz); let a = ax; if (rot & 1) a = ax === 1 ? 2 : 1; __c148.setAx(x, Y, z, a); } };
+    K.chest = (dx, y, dz, f, loot) => { const [x, Y, z] = wp(dx, y, dz); K.B(dx, y, dz, T.CHEST); const slots = new Array(27).fill(null); loot.forEach(([id, n], j) => { if (id) slots[[4, 10, 13, 16, 12, 14, 22][j]] = [id, n]; }); chests.set(keyOf(x, Y, z), {slots, castle: c[0]}); K.meta(dx, y, dz, {face: fi(f)}); K.chestsN++; return [x, Y, z]; };
+    K.bed = (dx, y, dz, f) => { const fw = fi(f), s = Math.round(Math.sin(fw * Math.PI / 2)), cc = Math.round(Math.cos(fw * Math.PI / 2)); const [x, Y, z] = wp(dx, y, dz);
+      world[idx(x, Y, z)] = T.BED; entMeta.set(keyOf(x, Y, z), {face: fw, bed: 'foot'}); world[idx(x - s, Y, z - cc)] = T.BED; entMeta.set(keyOf(x - s, Y, z - cc), {face: fw, bed: 'head'}); return [x, Y, z, fw, [x + s, Y, z + cc]]; };
+    // prop: f = the way its front faces; an: 'wall' (block behind) | 'floor' | 'ceil' | [dx,y,dz]
+    K.prop = (t, dx, y, dz, f, o, an) => { const [x, Y, z] = wp(dx, y, dz), p = Object.assign({t, c: ci, x, y: Y, z, f: fi(f)}, o || {});
+      let a = null; if (an === 'wall') a = wp(dx - FV[f][0], y, dz - FV[f][1]); else if (an === 'floor') a = wp(dx, y - 1, dz); else if (Array.isArray(an)) a = wp(an[0], an[1], an[2]);
+      if (a && inb(a[0], a[1], a[2])) p.a = [a[0], a[1], a[2], world[idx(a[0], a[1], a[2])]]; if (p.a && !p.a[3]) delete p.a; window.__c150.props.push(p); return p; };
+    // round tower shell / disc helpers
+    K.disc = (tx, tz, R, y, b) => { const r2 = R * R; for (let a = -Math.ceil(R); a <= Math.ceil(R); a++) for (let q = -Math.ceil(R); q <= Math.ceil(R); q++) if (a * a + q * q <= r2) K.B(tx + a, y, tz + q, typeof b === 'function' ? b(tx + a, y, tz + q) : b); };
+    K.cone = (tx, tz, R, y0, n, b) => { for (let L = 0; L < n; L++) { const rr = R - L * (R - 0.4) / (n - 1); K.disc(tx, tz, Math.max(0.5, rr), y0 + L, b); } return y0 + n; };
+    K.tower = (tx, tz, R, y0, y1, wall, inner) => { const r2 = R * R, i2 = (R - 1.2) * (R - 1.2); for (let a = -Math.ceil(R); a <= Math.ceil(R); a++) for (let q = -Math.ceil(R); q <= Math.ceil(R); q++) { const d2 = a * a + q * q; if (d2 > r2) continue;
+        for (let y = y0; y <= y1; y++) K.B(tx + a, y, tz + q, d2 > i2 ? (typeof wall === 'function' ? wall(tx + a, y, tz + q) : wall) : (inner === undefined ? T.AIR : inner)); } };
+    return K; }
+  U.ctx = ctx;
+  // ---------- site: clear a round plot, level ground, wipe the old castle's chests / doors / metadata ----------
+  function clearSite(c, gy, R, top) { const cx = c[1], cz = c[2], R2 = (R + 1) * (R + 1);
+    for (const m of [chests, entMeta, doorState, furnaces]) { try { for (const key of [...m.keys()]) { const p = String(key).split(',').map(Number); if (p.length < 3) continue; if ((p[0] - cx) ** 2 + (p[2] - cz) ** 2 <= R2 && p[1] >= gy - 16 && !mine(idx(p[0], p[1], p[2]))) m.delete(key); } } catch (_) {} }
+    for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) { if ((x - cx) ** 2 + (z - cz) ** 2 > R * R || !inb(x, 2, z)) continue;
+      for (let y = gy; y < Math.min(H - 2, gy + (top || 60)); y++) { const i = idx(x, y, z); if (!mine(i)) world[i] = T.AIR; }
+      for (let y = gy - 1; y >= gy - 7; y--) { const i = idx(x, y, z); if (mine(i)) continue; const b = world[i]; if (y === gy - 1) world[i] = T.GRASS; else if (!b || b === T.WATER || PLANT[b] === 1 || LEAFY[b] || LOGGY[b] || b === T.COBWEB || b === T.LAVA || b === T.CHEST || b === T.PLANKS) world[i] = y > gy - 4 ? T.DIRT : T.STONE; } } }
+  function setCol(X, Z) { let t = 0; for (let y = H - 2; y > 0; y--) { const b = world[idx(X, y, Z)]; if (b && b !== T.WATER && !LEAFY[b] && !LOGGY[b] && PLANT[b] !== 1) { t = y; break; } }
+    const ci = (X * D + Z) * 2, b = world[idx(X, t, Z)]; g9cols[ci] = t + 1; g9cols[ci + 1] = t + 1 <= SEA ? 5 : b === T.SAND ? 4 : b === T.STONE ? 3 : 0; }
+  U.clearSite = clearSite;
+  // the bridge from the spawn island lands 24 blocks out toward spawn; the gate faces it
+  function approach(c) { const b = (window.__c113 && __c113.bridges || []).find(q => q.k === c[0]); let ux, uz; if (b && b.a) { ux = -b.a[2]; uz = -b.a[3]; } else { const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1}; const L = Math.hypot(I.cx - c[1], I.cz - c[2]) || 1; ux = (I.cx - c[1]) / L; uz = (I.cz - c[2]) / L; }
+    let best = 0, bd = -9; for (let r = 0; r < 4; r++) { let x = 0, z = 1; for (let i = 0; i < r; i++) { const t = x; x = -z; z = t; } const d = x * ux + z * uz + (r === 0 ? 0.02 : 0); if (d > bd) { bd = d; best = r; } }
+    return {rot: best, end: [Math.round(c[1] + ux * 24), Math.round(c[2] + uz * 24)]}; }
+  // ---------- run after everything else in world generation ----------
+  function work() { if (!elig() || !g9castles) return; const t0 = performance.now(); window.__c150.props = []; try { window.__c150.rebuild(); } catch (_) {}
+    const done = __c102.done || [], R = {human: 22, mossy: 22, black: 23};
+    g9castles.forEach((c, ci) => { const fn = U.B[c[0]], d = done.find(o => o.k === c[0] && o.cx === c[1] && o.cz === c[2]); if (!fn || !d) return;
+      try { const ap = approach(c), gy = d.gy; clearSite(c, gy, R[c[0]], 62); const K = ctx(c, ci, gy, ap.rot); const [ex, ez] = ap.end; let lx = ex - c[1], lz = ez - c[2]; for (let i = 0; i < (4 - ap.rot) % 4; i++) { const t = lx; lx = -lz; lz = t; } K.end = [lx, lz];
+        U.st[c[0]] = Object.assign({rot: ap.rot, gy}, fn(K) || {}, {lights: K.lights, chests: K.chestsN});
+        for (let X = c[1] - R[c[0]] - 3; X <= c[1] + R[c[0]] + 3; X++) for (let Z = c[2] - R[c[0]] - 3; Z <= c[2] + R[c[0]] + 3; Z++) if (X > 0 && Z > 0 && X < W - 1 && Z < D - 1) setCol(X, Z);
+      } catch (e) { U.err = c[0] + ': ' + (e && e.stack || e); console.warn('c151', c[0], e); } });
+    try { scanLights(); validateLights(); } catch (_) {} try { if (window.__c148) __c148.sync(); } catch (_) {}
+    U.ms = Math.round(performance.now() - t0); U.st.props = window.__c150.props.length; }
+  U.work = work;
+  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { const was = c37busy; c37busy = true; try { work(); } finally { c37busy = was; } } catch (e) { U.err = String(e && e.stack || e); } return r; };
+
+  // ======================================================================================================
+  // THE CLAN CASTLE: grey stone-brick tower house, round corner turrets with conical slate roofs, crow-stepped gables,
+  // gatehouse with oak doors + portcullis, tartan banners, curtain wall + wall-walk, stone steps, heather and pines
+  // ======================================================================================================
+  const SLATE = 152, HARL = 151, GP = 227, FEN = 162, PINE = 135, NEED = 146, HEATH = 4, GRAV = T.GRAVEL || 202, OAKST = 164;
+  U.B.human = function (K) { const {B, box, h} = K, F = 2;
+    const st = (x, y, z) => h(x, y, z) < 0.07 ? T.MOSSYBRICK : h(x, y, z) < 0.16 ? T.COBBLE : T.STONEBRICK;
+    // platform (2 high) with a stone plinth and steps up to the gate
+    for (let x = -14; x <= 14; x++) for (let z = -14; z <= 16; z++) { if (z > 14 && (x < -4 || x > 3)) continue; const e = Math.max(Math.abs(x), Math.abs(z)) >= 14 || z > 14; for (let y = 0; y < F; y++) B(x, y, z, e ? st(x, y, z) : y === F - 1 ? T.GRASS : T.DIRT); }
+    for (let x = -2; x <= 1; x++) { K.stair(x, 1, 17, 0, 167); B(x, 0, 17, T.STONEBRICK); K.stair(x, 0, 18, 0, 167); } for (const x of [-3, 2]) { B(x, 0, 17, T.STONEBRICK); B(x, 1, 17, T.STONEBRICK); B(x, 0, 18, T.STONEBRICK); }
+    // courtyard: cobble path gate -> keep, gravel edging
+    for (let z = -1; z <= 16; z++) for (let x = -2; x <= 1; x++) B(x, F - 1, z, x === -2 || x === 1 ? GRAV : T.COBBLE);
+    for (let x = -11; x <= 11; x++) if (K.h(x, 5, 9) < 0.8) B(x, F - 1, 9, T.COBBLE);
+    // curtain wall: 2 thick, walk on top, parapet with merlons on the outer ring
+    const WT = F + 4;
+    for (let x = -13; x <= 13; x++) for (let z = -13; z <= 13; z++) { const d = Math.max(Math.abs(x), Math.abs(z)); if (d < 12) continue;
+      for (let y = F; y <= WT; y++) B(x, y, z, st(x, y, z)); if (d === 13) { B(x, WT + 1, z, st(x, WT + 1, z)); if (((x + z) & 1) === 0) B(x, WT + 2, z, st(x, WT + 2, z)); } }
+    for (const s of [-1, 1]) for (let k = 0; k <= 4; k++) { const x = s < 0 ? -4 - k : 3 + k; K.stair(x, F + k, 11, s < 0 ? 1 : 3, 167); for (let y = F; y < F + k; y++) B(x, y, 11, T.STONEBRICK); }   // steps up to the wall-walk
+    // round corner turrets, conical dark slate roofs, a flag on each
+    for (const [tx, tz] of [[-13, -13], [13, -13], [-13, 13], [13, 13]]) { const top = F + 10; K.tower(tx, tz, 3.3, F, top, st, T.AIR); K.disc(tx, tz, 2.2, F + 4, T.PLANKS);
+      for (const y of [F + 2, F + 7]) for (const [a, q] of [[Math.sign(tx) * 3, 0], [0, Math.sign(tz) * 3]]) B(tx + a, y, tz + q, GP);
+      for (let a = -4; a <= 4; a++) for (let q = -4; q <= 4; q++) if (Math.max(Math.abs(tx + a), Math.abs(tz + q)) === 12 && a * a + q * q <= 10.9) for (let y = WT + 1; y <= WT + 2; y++) B(tx + a, y, tz + q, T.AIR);   // doorways off the wall-walk
+      for (let y = F; y <= F + 1; y++) { B(tx - Math.sign(tx) * 2, y, tz - Math.sign(tz) * 2, T.AIR); B(tx - Math.sign(tx) * 3, y, tz - Math.sign(tz) * 2, T.AIR); }
+      const ap = K.cone(tx, tz, 4.1, top + 1, 8, SLATE); K.prop('flag', tx, ap, tz, 2, {}, 'floor'); K.lamp(tx, F, tz, -1, {}); }
+    // gatehouse: twin round towers, oak doors, portcullis (raised), tartan banners
+    for (const tx of [-4, 3]) { K.tower(tx, 13, 2.7, F, F + 9, st, T.STONEBRICK); K.prop('flag', tx, K.cone(tx, 13, 3.3, F + 10, 6, SLATE), 13, 2, {}, 'floor'); B(tx, F + 4, 15, GP); B(tx, F + 7, 15, GP); }
+    box(-2, F, 12, 1, F + 7, 15, st); for (let x = -2; x <= 1; x++) if ((x & 1) === 0) { B(x, F + 8, 15, st(x, F + 8, 15)); B(x, F + 8, 12, st(x, F + 8, 12)); }
+    box(-1, F, 12, 0, F + 2, 15, T.AIR); K.door(-1, F, 14, 2); K.door(0, F, 14, 2); K.prop('portc', -1, F + 2, 15, 2, {w: 2, h: 0.9, v: 1}, [-1, F + 3, 15]);
+    for (const x of [-2, 1]) K.prop('banT', x, F + 7, 16, 2, {}, 'wall'); K.lamp(-2, F + 1, 16, 0, {}); K.lamp(1, F + 1, 16, 0, {});
+    for (const [x, z, f] of [[-8, 14, 2], [7, 14, 2], [14, -6, 3], [14, 5, 3], [-14, -6, 1], [-14, 5, 1], [-6, -14, 0], [5, -14, 0]]) K.prop('banT', x, WT, z, f, {}, 'wall');
+    // ---- the tower house: x -9..8, z -11..-2, hall F..F+7, upper floor F+9.., crow-stepped gables + slate roof ----
+    const X0 = -9, X1 = 8, Z0 = -11, Z1 = -2, CE = F + 8, RF = F + 14;
+    for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) { const e = x === X0 || x === X1 || z === Z0 || z === Z1; B(x, F - 1, z, e ? T.STONEBRICK : T.PLANKS);
+      for (let y = F; y < RF; y++) B(x, y, z, e ? st(x, y, z) : y === CE ? T.PLANKS : T.AIR); B(x, RF - 1, z, e ? T.STONEBRICK : T.AIR); }
+    for (let k = 0; k <= 6; k++) { const za = Z0 - 1 + k, zb = Z1 + 1 - k, y = RF + k; if (za > zb) break;
+      for (let x = X0 + 1; x < X1; x++) { B(x, y, za, SLATE); B(x, y, zb, SLATE); if (za + 1 < zb) { B(x, y - 1, za + 1, SLATE); B(x, y - 1, zb - 1, SLATE); } }
+      for (const x of [X0, X1]) { for (let z = za; z <= zb; z++) B(x, y, z, st(x, y, z)); if ((k & 1) === 0) { B(x, y + 1, za, T.STONEBRICK); B(x, y + 1, zb, T.STONEBRICK); } } }
+    for (let y = RF; y <= RF + 9; y++) for (const z of [-7, -6]) B(X0, y, z, y === RF + 9 ? T.COBBLE : T.STONEBRICK);   // chimney stack
+    // bartizans on the four keep corners, corbelled out, little slate cones
+    for (const [tx, tz] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) { K.disc(tx, tz, 1.5, F + 8, T.STONEBRICK); K.tower(tx, tz, 2.2, F + 9, RF + 1, st, T.AIR); K.prop('flag', tx, K.cone(tx, tz, 2.6, RF + 2, 6, SLATE), tz, 2, {}, 'floor'); B(tx + Math.sign(tx + 0.5) * 2, RF - 1, tz, GP); }
+    // round stair tower on the front (no stair to the roof - a store room with a cone)
+    K.tower(5, 0, 2.4, F, RF + 2, st, T.AIR); K.cone(5, 0, 2.9, RF + 3, 6, SLATE); K.door(5, F, 2, 2); B(5, F + 5, 2, GP); B(7, F + 9, 0, GP); K.lamp(5, F + 2, 0, 0, {});
+    // windows
+    for (const x of [-6, -3, 3, 6]) for (let y = F + 2; y <= F + 4; y++) B(x, y, Z1, GP);
+    for (const x of [-6, -3, 2, 5]) for (let y = F + 10; y <= F + 11; y++) { B(x, y, Z1, GP); B(x, y, Z0, GP); }
+    for (const z of [-9, -5]) for (let y = F + 5; y <= F + 6; y++) B(X1, y, z, GP); for (const x of [-5, 4]) for (let y = F + 5; y <= F + 6; y++) B(x, y, Z0, GP);
+    box(-1, F, Z1, 0, F + 1, Z1, T.AIR); K.door(-1, F, Z1, 2); K.door(0, F, Z1, 2);
+    K.lamp(-2, F + 1, Z1 + 1, 0, {}); K.lamp(1, F + 1, Z1 + 1, 0, {}); K.prop('banT', -1, F + 6, Z1 + 1, 2, {}, 'wall'); K.prop('banT', 0, F + 6, Z1 + 1, 2, {}, 'wall');
+    U.hall(K, {F, X0, X1, Z0, Z1, CE, RF});
+    // ---- kitchen (harled lean-to, west yard): furnace, crafting table, cauldron, larder chest ----
+    box(-11, F, 1, -7, F + 3, 7, (x, y, z) => (x === -11 || x === -7 || z === 1 || z === 7) ? (y === F ? T.STONEBRICK : HARL) : T.AIR);
+    for (let k = 0; k < 3; k++) for (let z = 0 + k; z <= 8 - k; z++) for (let x = -11; x <= -7; x++) { if (z === k || z === 8 - k || k === 2) B(x, F + 4 + k, z, SLATE); else if (x === -11 || x === -7) B(x, F + 4 + k, z, HARL); }
+    box(-7, F, 4, -7, F + 1, 4, T.AIR); K.door(-7, F, 4, 3); B(-11, F + 2, 3, GP); B(-11, F + 2, 5, GP);
+    K.B(-10, F, 2, T.FURNACE); K.meta(-10, F, 2, {face: K.fi(2)}); K.B(-9, F, 2, T.TABLE); K.B(-8, F, 2, T.CAULDRON); K.lamp(-9, F + 2, 6, 2, {}); const larder = K.chest(-10, F, 6, 2, [[IT.BREAD, 5], [IT.MUTTON || IT.BREAD, 3], [IT.POTATO, 6], [IT.COAL, 6]]);
+    K.prop('barrel', -10, F, 4, 3, {}, 'floor'); K.prop('barrel', -10, F, 5, 3, {}, 'floor');
+    // the well
+    box(6, F - 1, 5, 8, F, 7, T.STONEBRICK); B(7, F, 6, T.WATER); B(7, F - 1, 6, T.WATER); B(7, F - 2, 6, T.WATER); for (const [a, b] of [[6, 5], [8, 7]]) { B(a, F + 1, b, FEN); B(a, F + 2, b, FEN); } box(6, F + 3, 5, 8, F + 3, 7, 145);
+    for (const [x, z] of [[-4, 3], [3, 3], [-4, 9], [3, 9]]) { B(x, F, z, FEN); K.lamp(x, F + 1, z, -1, {}); }
+    // heather + Scots pines outside the wall, a gravel track to where the bridge lands
+    const [ex, ez] = K.end; const onPath = (x, z) => { const vx = ex - (-0.5), vz = ez - 19, L = Math.hypot(vx, vz) || 1, t = Math.max(0, Math.min(1, ((x + 0.5) * vx + (z - 19) * vz) / (L * L))); return Math.hypot(x + 0.5 - vx * t, z - 19 - vz * t) < 2.2; };
+    for (let x = -22; x <= 22; x++) for (let z = -22; z <= 22; z++) { const r = Math.hypot(x, z); if (r > 22) continue; const out = Math.max(Math.abs(x), Math.abs(z)) > 15 || (z > 16 && r > 17); if (!out || K.G(x, 0, z) !== T.AIR || K.G(x, -1, z) !== T.GRASS) continue;
+      if (onPath(x, z) || (z >= 16 && Math.abs(x + 0.5) < 3)) { B(x, -1, z, h(x, 1, z) < 0.6 ? GRAV : T.COBBLE); continue; }
+      const v = h(x, 2, z); B(x, -1, z, v < 0.55 ? HEATH : T.GRASS); if (v > 0.55 && v < 0.75) B(x, 0, z, T.TALLGRASS); }
+    const pines = []; for (let n = 0; n < 60 && pines.length < 9; n++) { const a = h(n, 3, 1) * 6.283, rr = 17.5 + h(n, 4, 2) * 4, x = Math.round(Math.cos(a) * rr), z = Math.round(Math.sin(a) * rr);
+      if (Math.max(Math.abs(x), Math.abs(z)) < 17 || onPath(x, z) || pines.some(p => Math.hypot(p[0] - x, p[1] - z) < 5) || (z > 14 && Math.abs(x) < 6)) continue; pines.push([x, z]); const ht = 6 + (h(n, 5, 3) * 3 | 0);
+      for (let y = 0; y < ht; y++) B(x, y, z, PINE); for (let y = 3; y <= ht; y++) { const rr2 = y === ht ? 0.6 : 2.4 - (y - 3) * 1.6 / Math.max(1, ht - 3); K.disc(x, z, rr2, y, (a, yy, b) => K.G(a, yy, b) === T.AIR ? NEED : K.G(a, yy, b)); } B(x, ht + 1, z, NEED); }
+    // beds for the clan (upper floor), the furnace + table they use
+    const beds = U.beds(K, {F, X0, X1, Z0, Z1, CE});
+    try { const [fx, fy, fz] = K.wp(-10, F, 2), [tx, ty, tz] = K.wp(-9, F, 2); C78.saved[K.cx + ',' + K.cz] = {made: 1, beds, furn: [fx, fy, fz], table: [tx, ty, tz]}; C78.castles.delete(K.cx + ',' + K.cz); } catch (_) {}
+    return {beds: beds.length, pines: pines.length, larder};
+  };
+})();
+
+/* ===================== GLX-C152 (v1.0.25): the clan castle's great hall + bedrooms, and the skeleton castle (ruin on a crag, crypt + archery range below) ===================== */
+(function c152() {
+  const U = window.__c151; if (!U) return;
+  const GP = 227, FEN = 162, OAKST = 164, HR = T.HELLROCK || 206, WST = 156, MOSS = 144, POD = T.PODZOL || 142, GRAV = T.GRAVEL || 202, FERN = 238, ALD = 138, THORN = 253;
+  // ---------------- great hall (image 2) ----------------
+  U.hall = function (K, o) { const {B, box} = K, {F, CE} = o;
+    for (const x of [-6, -2, 2, 6]) for (let z = -10; z <= -3; z++) K.log(x, CE, z, T.LOG, 2);   // oak beams
+    // gallery along the north wall on oak posts, railing
+    box(-8, F + 4, -10, 7, F + 4, -8, T.PLANKS); for (let x = -8; x <= 6; x++) B(x, F + 5, -8, FEN); for (const x of [-6, -2, 2]) for (let y = F; y < F + 4; y++) K.log(x, y, -8, T.LOG, 0);
+    for (let x = -5; x <= 4; x++) if (x !== -2 && x !== 2) for (let y = F; y <= F + 2; y++) B(x, y, -10, T.BOOKSHELF);
+    // oak staircase up to the gallery (east wall), and on from the gallery to the bedrooms
+    for (let k = 0; k <= 4; k++) { K.stair(7, F + k, -3 - k, 0, OAKST); for (let y = F; y < F + k; y++) B(7, y, -3 - k, T.PLANKS); }
+    for (let k = 0; k <= 3; k++) { const x = -1 - k; K.stair(x, F + 5 + k, -10, 1, OAKST); for (let y = F + 5; y < F + 5 + k; y++) B(x, y, -10, T.PLANKS); } for (const x of [-1, -2, -3]) B(x, CE, -10, T.AIR);
+    for (const x of [-1, -2, -3]) B(x, CE + 1, -9, FEN); B(0, CE + 1, -10, FEN);
+    // the big stone fireplace (west wall): chimney breast, hearth fire, mantel, stag antlers above
+    box(-8, F, -7, -7, CE - 1, -3, T.STONEBRICK); box(-8, F, -6, -7, F + 1, -4, T.AIR); box(-8, F - 1, -6, -7, F - 1, -4, HR); box(-8, CE + 1, -6, -7, o.RF - 1, -4, T.STONEBRICK);
+    for (let z = -6; z <= -4; z++) K.prop('fire', -8, F, z, 3, {}, 'floor'); for (let z = -7; z <= -3; z++) K.stair(-6, F + 2, z, 1, 167); B(-6, F, -7, T.STONEBRICK); B(-6, F + 1, -7, T.STONEBRICK); B(-6, F, -3, T.STONEBRICK); B(-6, F + 1, -3, T.STONEBRICK);
+    K.prop('antler', -6, F + 4, -5, 3, {}, 'wall'); K.prop('candles', -6, F + 3, -7, 3, {}, 'floor'); K.prop('candles', -6, F + 3, -3, 3, {}, 'floor');
+    // long oak banquet table + benches, tartan runner and rug, candles
+    for (let x = -4; x <= 4; x++) { B(x, F, -5, FEN); K.prop('table', x, F, -5, 2, {}, 'floor'); K.stair(x, F, -6, 0, OAKST); K.stair(x, F, -4, 2, OAKST); }
+    K.stair(-5, F, -5, 1, OAKST); K.stair(5, F, -5, 3, OAKST);
+    K.prop('rug', 0, F + 1, -5, 2, {w: 9.6, d: 0.55, h: 0.012}, [0, F, -5]); K.prop('rug', 0, F, -5, 2, {w: 13, d: 5, h: 0.03}, 'floor'); K.prop('rug', 0, F + 5, -9, 2, {w: 12, d: 1.6, v: 1, h: 0.03}, 'floor');
+    for (const x of [-3, 0, 3]) K.prop('candles', x, F + 1, -5, 2, {}, [x, F, -5]);
+    for (const x of [-3, 2]) K.prop('chand', x, F + 5, -5, 2, {L: 2.75}, [x, CE, -5]);
+    // armour stands by the door, crossed claymores + targes, tapestries, tartan banners, sconces
+    K.prop('armour', -3, F, -3, 0, {}, 'floor'); K.prop('armour', 2, F, -3, 0, {}, 'floor');
+    K.prop('claym', -7, F + 3, -3, 0, {}, 'wall'); K.prop('claym', 5, F + 3, -3, 0, {}, 'wall'); K.prop('claym', 0, F + 6, -10, 2, {}, 'wall');
+    for (const x of [-4, -3, 1, 2]) for (let y = F + 6; y <= F + 7; y++) B(x, y, -11, T.TAPESTRY); for (const x of [-5, 4]) for (let y = F + 5; y <= F + 6; y++) B(x, y, -2, T.TAPESTRY);
+    K.prop('banT', 7, F + 7, -7, 1, {}, 'wall'); K.prop('banT', -7, F + 7, -9, 3, {}, 'wall');
+    for (const [x, y, z, f] of [[-7, F + 2, -10, 0], [6, F + 2, -10, 0], [-4, F + 3, -3, 2], [3, F + 3, -3, 2], [-7, F + 6, -10, 0], [7, F + 6, -9, 3]]) K.lamp(x, y, z, f, {});
+  };
+  // ---------------- bedrooms under the roof: a bed for each of the clan, the laird's chest ----------------
+  U.beds = function (K, o) { const {F, CE} = o, y = CE + 1, beds = [];
+    for (const x of [-6, -4, 1, 3, 5]) beds.push(K.bed(x, y, -4, 2));
+    K.chest(-2, y, -3, 0, [[IT.GOLDINGOT, 3], [IT.SILVERINGOT || IT.GOLDINGOT, 2], [IT.QUAICH || IT.GOLDINGOT, 1], [IT.CAIRNGORM || IT.DIAMOND, 2], [IT.KILT || IT.BREAD, 1]]);
+    K.prop('rug', -4, y, -6, 2, {w: 5, d: 3, v: 1}, 'floor'); K.prop('rug', 3, y, -6, 2, {w: 5, d: 3}, 'floor');
+    for (const x of [-7, 0, 6]) for (let yy = y + 1; yy <= y + 2; yy++) K.B(x, yy, -11, T.TAPESTRY);
+    K.lamp(-8, y + 2, -9, 1, {}); K.lamp(7, y + 2, -7, 3, {}); K.lamp(0, y + 2, -3, 2, {}); K.prop('armour', 6, y, -10, 2, {}, 'floor');
+    return beds; };
+  // ---------------- THE SKELETON CASTLE (images 3-4): crumbling pale ruin on a raised crag ----------------
+  U.B.mossy = function (K) { const {B, box, h} = K, CH = 6, F = CH + 1;
+    const pale = (x, y, z) => { const v = h(x, y, z); return v < 0.32 ? T.STONEBRICK : v < 0.5 ? WST : v < 0.76 ? T.MOSSYBRICK : v < 0.92 ? T.COBBLE : T.STONE; };
+    const rock = (x, y, z) => { const v = h(x, y + 40, z); return v < 0.5 ? T.STONE : v < 0.7 ? T.COBBLE : v < 0.85 ? (T.DEEPSLATE || T.STONE) : T.MOSSYBRICK; };
+    // the crag: a flat top (r<=13) falling away in rough steps to the ground by r~21
+    const top = (x, z) => { const r = Math.max(Math.abs(x), Math.abs(z)) * 0.8 + Math.hypot(x, z) * 0.2 + (h(x, 7, z) - 0.5) * 2.2; return r <= 13.5 ? CH : Math.round(CH - (r - 13.5) * 0.95); };
+    for (let x = -22; x <= 22; x++) for (let z = -22; z <= 22; z++) { const t = top(x, z); if (t < 0 || Math.hypot(x, z) > 22) continue; for (let y = 0; y <= t; y++) B(x, y, z, rock(x, y, z));
+      const v = h(x, 9, z); B(x, t, z, t === CH ? (v < 0.4 ? MOSS : v < 0.62 ? T.COBBLE : v < 0.8 ? GRAV : POD) : (v < 0.35 ? MOSS : v < 0.5 ? GRAV : rock(x, t, z))); }
+    // steps cut into the crag up to the gate, ferns and a ladder up the rock
+    for (let k = 0; k <= 7; k++) for (let x = -2; x <= 1; x++) { const z = 14 + k, y = CH - 1 - k; if (y < -1) continue; for (let yy = y + 1; yy <= CH + 3; yy++) B(x, yy, z, T.AIR); if (y >= 0) { K.stair(x, y, z, 0, 165); for (let yy = 0; yy < y; yy++) B(x, yy, z, rock(x, yy, z)); } }
+    for (let k = 0; k <= 7; k++) for (const x of [-3, 2]) { const t = CH - k; if (t >= 0) for (let y = 0; y <= t; y++) B(x, y, 14 + k, rock(x, y, 14 + k)); }
+    // curtain wall (2 thick), crumbling: a ragged top, breaches, fallen stones
+    const WT = F + 5;
+    for (let x = -11; x <= 11; x++) for (let z = -11; z <= 11; z++) { const d = Math.max(Math.abs(x), Math.abs(z)); if (d < 10) continue; const v = h(x, 11, z), gap = h(Math.floor(x / 3), 12, Math.floor(z / 3)) < 0.18;
+      const tt = gap ? F + (v < 0.5 ? 0 : 1) : WT - (v < 0.25 ? 2 : v < 0.5 ? 1 : 0); for (let y = F - 1; y <= tt; y++) B(x, y, z, pale(x, y, z)); if (d === 11 && !gap && ((x + z) & 1) === 0 && v > 0.3) B(x, tt + 1, z, pale(x, tt + 1, z)); }
+    // four broken corner towers
+    for (const [tx, tz] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) { const th = F + 9 + (h(tx, 13, tz) * 4 | 0);
+      for (let a = -2; a <= 2; a++) for (let q = -2; q <= 2; q++) { const e = Math.abs(a) === 2 || Math.abs(q) === 2, cut = th - (Math.abs(a + q * 0.7) * 1.4 + h(tx + a, 14, tz + q) * 3 | 0) - (a * Math.sign(tx) < 0 ? 3 : 0);
+        for (let y = F - 1; y <= cut; y++) B(tx + a, y, tz + q, e ? pale(tx + a, y, tz + q) : y === F + 5 && h(a, y, q) < 0.6 ? T.PLANKS : T.AIR); }
+      for (const y of [F + 2, F + 6]) { B(tx + Math.sign(tx) * 2, y, tz, T.AIR); B(tx, y, tz + Math.sign(tz) * 2, T.AIR); } for (let y = F; y <= F + 1; y++) B(tx - Math.sign(tx) * 2, y, tz - Math.sign(tz), T.AIR); }
+    // gate: a broken arch, one door hanging on, two stumps of gate towers
+    for (const tx of [-3, 2]) for (let a = -1; a <= 1; a++) for (let q = -1; q <= 1; q++) { const ht = F + 7 - (tx < 0 ? 0 : 3) - (h(tx + a, 15, q) * 2 | 0); for (let y = F - 1; y <= ht; y++) B(tx + a, y, 11 + q, pale(tx + a, y, 11 + q)); }
+    box(-1, F, 10, 0, F + 2, 12, T.AIR); box(-1, F + 3, 10, 0, F + 3, 12, (x, y, z) => pale(x, y, z)); K.door(-1, F, 11, 2);
+    // the ruined keep at the back (roofless, broken), stair down into the crypt
+    const X0 = -8, X1 = 7, Z0 = -9, Z1 = -3;
+    for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) { const e = x === X0 || x === X1 || z === Z0 || z === Z1, tt = F + 8 - (h(x, 16, z) * 3 | 0) - (x > 3 ? 4 : 0) - (z === Z1 && x > -2 ? 2 : 0); if (e) for (let y = F - 1; y <= tt; y++) B(x, y, z, pale(x, y, z)); else if (h(x, 17, z) < 0.12) B(x, F, z, pale(x, F, z)); }
+    for (const x of [-6, -3, 2]) for (const y of [F + 2, F + 3]) B(x, y, Z0, T.AIR); box(-1, F, Z1, 0, F + 2, Z1, T.AIR); box(4, F + 1, Z1, 5, F + 4, Z1, T.AIR);
+    // courtyard: graves, bones, ferns
+    for (const [x, z] of [[5, 4], [7, 4], [5, 7], [7, 7], [-7, 5]]) { B(x, F, z, h(x, 18, z) < 0.5 ? T.MOSSYBRICK : T.COBBLE); if (h(x, 19, z) < 0.7) B(x, F + 1, z, T.COBBLE); B(x, CH, z + 1, POD); }
+    for (let x = -9; x <= 9; x++) for (let z = -2; z <= 9; z++) { const v = h(x, 20, z); if (K.G(x, F, z) !== T.AIR || Math.abs(x + 0.5) < 2) continue; if (v < 0.08) B(x, F, z, FERN); else if (v < 0.12) K.prop('bones', x, F, z, (v * 100 | 0) & 3, {}, 'floor'); else if (v < 0.135) B(x, F, z, pale(x, F, z)); }
+    U.crypt(K, {CH, F, rock, pale});
+    U.ruinDeco(K, {CH, F, WT, pale});
+    return {crag: CH};
+  };
+  // ---------------- the crypt under the crag (image 4): coffins, bone pillars, skull niches, soul lanterns, archery range ----------------
+  U.crypt = function (K, o) { const {B, box, h} = K, {CH, pale} = o, ST = new Set();
+    for (let x = -10; x <= 10; x++) for (let z = -9; z <= 7; z++) { const e = Math.abs(x) === 10 || z === -9 || z === 7; if (K.G(x, CH, z) === GRAV) B(x, CH, z, T.COBBLE);
+      for (let y = 0; y < CH; y++) { if (y === 0) { const v = h(x, 30, z); B(x, 0, z, v < 0.4 ? T.STONEBRICK : v < 0.62 ? T.MOSSYBRICK : v < 0.78 ? T.COBBLE : v < 0.9 ? MOSS : T.STONE); } else B(x, y, z, e ? pale(x, y, z) : T.AIR); } }
+    // stair down from the keep (along the north wall), filled beneath
+    for (let k = 0; k <= 4; k++) for (const z of [-8, -7]) { const x = -2 - k, y = CH - 1 - k; K.stair(x, y, z, 3, 165); for (let yy = 1; yy < y; yy++) B(x, yy, z, pale(x, yy, z)); for (let yy = y + 1; yy <= CH + 1; yy++) B(x, yy, z, T.AIR); ST.add(x + ',' + z); }
+    for (const z of [-8, -7]) B(-1, CH, z, T.COBBLE);
+    // two rows of stone coffins with bone lids
+    for (const x of [-8, -6, -4, -2]) for (const z0 of [-4, 3]) { B(x, 1, z0, T.STONEBRICK); B(x, 1, z0 + 1, T.STONEBRICK); K.prop('coffin', x, 1, z0, 2, {}, [x, 1, z0]); }
+    for (const x of [-7, -3, 1]) for (const z of [-4, 4]) { for (let y = 1; y < CH; y++) B(x, y, z, WST); K.prop('bonecol', x, 1, z, 2, {h: 5}, [x, 1, z]); }
+    // skulls in wall niches
+    const niche = (x, y, z, f) => { B(x, y, z, T.AIR); K.prop('skull', x, y, z, f, {}, [x, y - 1, z]); };
+    for (let x = 1; x <= 9; x += 2) { niche(x, 2, -9, 2); niche(x, 4, -9, 2); } for (let x = -9; x <= -1; x += 2) { niche(x, 2, 7, 0); niche(x, 4, 7, 0); } for (let z = 1; z <= 5; z += 2) niche(-10, 3, z, 3);
+    // archery range: targets on the east wall, a shooting line, bow racks
+    for (const z of [-5, -1, 3]) K.prop('target', 9, 1, z, 1, {}, 'floor'); for (const z of [-7, -6, -5, 3, 4, 5]) B(3, 1, z, FEN);
+    for (const x of [5, 7]) { K.prop('brack', x, 1, 6, 0, {}, 'wall'); K.prop('brack', x, 1, -8, 2, {}, 'wall'); } K.prop('srack', 9, 1, 6, 1, {}, 'floor');
+    // broken barrels, a chest, bones, cobwebs, soul lanterns (few - it stays dark down here)
+    for (const [x, z, v] of [[-9, 6, 1], [-9, 5, 0], [-8, 6, 1], [9, -8, 0], [8, -8, 1], [-9, -5, 1]]) K.prop('barrel', x, 1, z, 2, {v}, 'floor');
+    K.chest(-9, 1, -1, 3, [[IT.IRONINGOT, 3], [IT.BREAD, 3], [IT.POTATO, 4], [IT.BONE, 5]]);
+    for (let x = -9; x <= 9; x++) for (let z = -8; z <= 6; z++) { if (ST.has(x + ',' + z) || K.G(x, 1, z) !== T.AIR) continue; const v = h(x, 31, z), wall = Math.abs(x) === 9 || z === -8 || z === 6;
+      if (wall && v < 0.3 && K.G(x, 5, z) === T.AIR) B(x, 5, z, T.COBWEB); else if (!wall && v < 0.06) K.prop('bones', x, 1, z, (v * 99 | 0) & 3, {}, 'floor'); }
+    for (const [x, z] of [[-5, 0], [6, 0]]) K.lamp(x, CH - 1, z, -1, {ceil: 1, soul: 1}); K.lamp(-9, 3, -6, 1, {soul: 1});
+    // a back tunnel out through the west side of the crag
+    for (let x = -11; x >= -22; x--) { let any = false; for (let y = 1; y <= 3; y++) for (const z of [0, 1]) { if (K.G(x, y, z) !== T.AIR) any = true; B(x, y, z, y === 3 && x < -12 && h(x, 32, z) < 0.3 ? T.COBWEB : T.AIR); } for (const z of [0, 1]) if (K.G(x, 0, z) === T.AIR) B(x, 0, z, T.COBBLE); if (!any) break; }
+  };
+  // ---------------- ruin dressing: skulls on the battlements, grey banners, ladders, cobwebs, dead trees ----------------
+  U.ruinDeco = function (K, o) { const {B, h} = K, {CH, F, WT} = o;
+    const topAt = (x, z, y = WT + 3) => { for (; y >= F - 1; y--) if (K.G(x, y, z) !== T.AIR) return y; return -9; };
+    for (let x = -11; x <= 11; x++) for (let z = -11; z <= 11; z++) { if (Math.max(Math.abs(x), Math.abs(z)) !== 11 || h(x, 40, z) > 0.2) continue; const t = topAt(x, z, F + 14); if (t < F + 2 || K.G(x, t + 1, z) !== T.AIR) continue;
+      K.prop('skull', x, t + 1, z, z === 11 ? 2 : z === -11 ? 0 : x === 11 ? 3 : 1, {}, 'floor'); }
+    for (const [x, z, f] of [[-6, 12, 2], [5, 12, 2], [12, -4, 3], [12, 5, 3], [-12, -1, 1], [-12, 6, 1], [-4, -12, 0], [5, -12, 0]]) { const fv = [[0, -1], [-1, 0], [0, 1], [1, 0]][f], t = topAt(x - fv[0], z - fv[1]); if (t >= F + 3) K.prop('banT', x, t, z, f, {v: 2}, 'wall'); }
+    K.prop('ladder', -5, F, 9, 0, {L: 5}, 'wall'); K.prop('ladder', 9, F, -5, 1, {L: 5}, 'wall'); K.prop('ladder', 4, F, -4, 0, {L: 4}, 'wall');
+    for (const [tx, tz] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) for (let a = -1; a <= 1; a++) for (let q = -1; q <= 1; q++) if (h(tx + a, 41, tz + q) < 0.3 && K.G(tx + a, F + 4, tz + q) === T.AIR) B(tx + a, F + 4, tz + q, T.COBWEB);
+    for (const [x, y, z] of [[-1, F + 2, 10], [0, F + 2, 12], [-7, F + 3, -8], [6, F + 2, -8]]) if (K.G(x, y, z) === T.AIR) B(x, y, z, T.COBWEB);
+    // dead trees on the crag and around it
+    let n = 0; for (let i = 0; i < 40 && n < 8; i++) { const a = h(i, 42, 7) * Math.PI * 2, r = 9 + h(i, 43, 7) * 13, x = Math.round(Math.cos(a) * r), z = Math.round(Math.sin(a) * r);
+      if (Math.abs(x + 0.5) < 5 && z > 8) continue; if (Math.max(Math.abs(x), Math.abs(z)) <= 12 && Math.max(Math.abs(x), Math.abs(z)) >= 9) continue;
+      const g = topAt(x, z, CH + 1); if (g < -1 || K.G(x, g + 1, z) !== T.AIR) continue; const ht = 4 + (h(i, 44, 7) * 3 | 0); n++;
+      for (let y = g + 1; y <= g + ht; y++) K.log(x, y, z, ALD, 0);
+      for (const [dx, dz, k] of [[1, 0, 1], [-1, 0, 2], [0, 1, 1], [0, -1, 2]]) if (h(i, 45 + k, dx * 3 + dz) < 0.6) { const yy = g + ht - k; K.log(x + dx, yy, z + dz, ALD, dx ? 1 : 2); if (h(i, 49, dx + dz * 5) < 0.5) K.log(x + 2 * dx, yy + 1, z + 2 * dz, ALD, 0); }
+      for (const [dx, dz] of [[2, 1], [-1, 2], [1, -2]]) if (K.G(x + dx, g + 1, z + dz) === T.AIR && K.G(x + dx, g, z + dz) !== T.AIR && h(i, 50, dx) < 0.5) B(x + dx, g + 1, z + dz, THORN); }
+  };
+})();
+
+/* ===================== GLX-C153 (v1.0.25): the Black castle (images 5-6) - spiky blackstone + obsidian gothic towers, glowing red windows, lava moat + bridge, scorched ground, the broken portal; throne room inside ===================== */
+(function c153() {
+  const U = window.__c151; if (!U) return;
+  const BS = 248, DB = 228, DBS = 230, DC = 249, OB = T.OBSIDIAN || 189, HR = T.HELLROCK || 206, SS = T.SOULSAND || 207, MG = T.MAGMA || 208, HB = T.HELLBRICK || 210, BARS = 163, RCARP = 221, GL = T.GLASS || 63;
+  U.B.black = function (K) { const {B, box, h} = K, F = 1, X0 = -8, X1 = 8, Z0 = -9, Z1 = -1, CE = F + 11, RT = F + 13;
+    const blk = (x, y, z) => { const v = h(x, y, z); return y % 5 === 0 ? DB : v < 0.6 ? BS : v < 0.85 ? DB : v < 0.95 ? DC : OB; };
+    const scorch = (x, z) => { const v = h(x, 60, z); return v < 0.45 ? BS : v < 0.7 ? DC : v < 0.82 ? SS : v < 0.94 ? HR : MG; };
+    const loc = (ax, az) => { let x = ax, z = az; for (let i = 0; i < K.rot; i++) { const t = x; x = z; z = -t; } return [x, z]; };
+    const AB = (ax, y, az, b) => { const [x, z] = loc(ax, az); B(x, y, z, b); };
+    // ground: raised dark platform, a round lava moat, scorched land beyond
+    for (let x = -23; x <= 23; x++) for (let z = -23; z <= 23; z++) { const r = Math.hypot(x, z); if (r > 23.5) continue;
+      if (r <= 18.5) { for (let y = -3; y <= 0; y++) B(x, y, z, y === 0 ? (h(x, 61, z) < 0.7 ? BS : DC) : BS); }
+      else if (r >= 19 && r <= 21.3) { B(x, -1, z, T.LAVA); B(x, -2, z, BS); B(x, -3, z, BS); }
+      else { B(x, -1, z, scorch(x, z)); B(x, -2, z, BS); } }
+    // the bridge over the moat (iron railings), path out to where the land bridge comes in
+    for (let z = 12; z <= 22; z++) for (let x = -2; x <= 1; x++) B(x, 0, z, (z & 3) === 0 ? OB : DB); for (const x of [-3, 2]) for (let z = 17; z <= 22; z++) { B(x, 0, z, BS); B(x, 1, z, BARS); }
+    for (let x = -2; x <= 1; x++) K.stair(x, 0, 23, 0, DBS);
+    const [ex, ez] = K.end; const onPath = (x, z) => { const vx = ex + 0.5, vz = ez - 23, L = Math.hypot(vx, vz) || 1, t = Math.max(0, Math.min(1, ((x + 0.5) * vx + (z - 23) * vz) / (L * L))); return Math.hypot(x + 0.5 - vx * t, z - 23 - vz * t) < 2; };
+    for (let x = -23; x <= 23; x++) for (let z = -23; z <= 23; z++) { const r = Math.hypot(x, z); if (r < 21.4 || r > 23.5) continue; if (onPath(x, z) || (z >= 22 && Math.abs(x + 0.5) < 2.5)) B(x, -1, z, DB); else { const v = h(x, 62, z); if (v < 0.04) K.prop('fire', x, 0, z, 2, {}, 'floor'); } }
+    // curtain wall (2 thick) with spiked merlons
+    for (let x = -11; x <= 11; x++) for (let z = -11; z <= 11; z++) { const d = Math.max(Math.abs(x), Math.abs(z)); if (d < 10) continue; for (let y = F; y <= F + 6; y++) B(x, y, z, blk(x, y, z));
+      if (d === 11 && ((x + z) & 1) === 0) { B(x, F + 7, z, blk(x, F + 7, z)); if (((x + z) & 3) === 0) K.prop('spike', x, F + 8, z, 2, {h: 1.1}, 'floor'); } }
+    const towerUp = (tx, tz, R, top, spR, spN) => { K.tower(tx, tz, R, F, top, (x, y, z) => (y - F) % 4 === 3 ? OB : blk(x, y, z), T.AIR); const ap = K.cone(tx, tz, spR, top + 1, spN, (x, y, z) => (y & 1) ? OB : BS); K.prop('spike', tx, ap, tz, 2, {h: 2.6}, 'floor'); return ap; };
+    // four corner towers with tall spires, glowing red windows
+    for (const [tx, tz] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) { towerUp(tx, tz, 2.6, F + 13, 3.0, 10); const sx = Math.sign(tx), sz = Math.sign(tz);
+      for (const y of [F + 4, F + 9]) for (const [a, q, f] of [[sx * 2, 0, sx > 0 ? 3 : 1], [0, sz * 2, sz > 0 ? 2 : 0]]) { B(tx + a, y, tz + q, GL); B(tx + a, y + 1, tz + q, GL); K.prop('redwin', tx + a, y, tz + q, f, {h: 2}, [tx + a, y, tz + q]); }
+      for (let y = F; y <= F + 1; y++) B(tx - sx * 2, y, tz, T.AIR); }
+    // gatehouse: twin spired towers, raised portcullis, chains down to the bridge, a red window
+    for (const tx of [-3, 2]) towerUp(tx, 11, 2.0, F + 10, 2.4, 8);
+    box(-2, F, 10, 1, F + 8, 12, blk); box(-1, F, 10, 0, F + 2, 12, T.AIR); B(-1, F + 3, 12, T.AIR); B(0, F + 3, 12, T.AIR); K.prop('portc', -1, F + 3, 12, 2, {w: 2, h: 0.8, v: 1}, [-1, F + 4, 12]);
+    for (const x of [-1, 0]) { B(x, F + 6, 12, GL); K.prop('redwin', x, F + 6, 12, 2, {h: 1}, [x, F + 6, 12]); } for (const x of [-2, 1]) K.prop('chain', x, F + 7, 13, 2, {L: 7, v: 1}, 'wall');
+    K.lamp(-2, F + 1, 13, 0, {}); K.lamp(1, F + 1, 13, 0, {});
+    for (const [x, z, f] of [[-6, 12, 2], [5, 12, 2], [12, -4, 3], [12, 4, 3], [-12, -4, 1], [-12, 4, 1], [-5, -12, 0], [5, -12, 0]]) { K.prop('banT', x, F + 6, z, f, {v: 1}, 'wall'); if ((x + z) & 1) K.prop('chain', x + (f === 2 ? 1 : 0), F + 5, z, f, {L: 4, v: 1}, 'wall'); }
+    // courtyard: a dark brick path, braziers, soul sand and magma patches
+    for (let x = -9; x <= 9; x++) for (let z = -9; z <= 9; z++) { if (Math.abs(x) <= 1 && z >= 0) { B(x, 0, z, DB); continue; } const v = h(x, 63, z); if (v < 0.1) B(x, 0, z, SS); else if (v < 0.14) B(x, 0, z, MG); }
+    for (const [x, z] of [[-3, 1], [3, 1], [-2, 8], [2, 8]]) { B(x, F, z, OB); K.prop('brazier', x, F + 1, z, 2, {}, 'floor'); }
+    // ---- the gothic keep / throne hall: x -8..8, z -9..-1, steep roof, pinnacles, the great spire tower ----
+    for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) { const e = x === X0 || x === X1 || z === Z0 || z === Z1; B(x, 0, z, ((x + z) & 1) ? DB : OB);
+      for (let y = F; y < RT; y++) B(x, y, z, e ? blk(x, y, z) : y === CE ? (z === -3 || z === -6 ? OB : BS) : T.AIR); }
+    for (let k = 0; k <= 9; k++) { const xa = X0 - 1 + k, xb = X1 + 1 - k, y = RT + k; if (xa > xb) break; for (let z = Z0 - 1; z <= Z1 + 1; z++) { B(xa, y, z, (k & 1) ? OB : BS); B(xb, y, z, (k & 1) ? OB : BS); }
+      for (const z of [Z0, Z1]) for (let x = xa + 1; x < xb; x++) B(x, y, z, blk(x, y, z)); }
+    for (const [x, z] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) { for (let y = RT; y <= RT + 4; y++) B(x, y, z, y === RT + 4 ? OB : DB); K.prop('spike', x, RT + 5, z, 2, {h: 1.8}, 'floor'); }
+    for (const z of [Z0 - 1, Z1 + 1]) K.prop('spike', 0, RT + 10, z, 2, {h: 2.2}, [0, RT + 9, z]);
+    for (let x = -2; x <= 2; x++) for (let z = -9; z <= -5; z++) { const e = Math.abs(x) === 2 || z === -9 || z === -5; for (let y = CE + 1; y <= F + 26; y++) B(x, y, z, e ? ((y - F) % 5 === 0 ? OB : blk(x, y, z)) : T.AIR); }
+    for (const [x, z] of [[-2, -9], [2, -9], [-2, -5], [2, -5]]) { for (let y = F + 27; y <= F + 29; y++) B(x, y, z, OB); K.prop('spike', x, F + 30, z, 2, {h: 1.6}, 'floor'); }
+    const apex = K.cone(0, -7, 2.5, F + 27, 12, (x, y, z) => (y & 1) ? OB : BS); K.prop('spike', 0, apex, -7, 2, {h: 3.2}, 'floor');
+    for (const y of [F + 20, F + 24]) for (const [x, z, f] of [[0, -5, 2], [0, -9, 0], [-2, -7, 1], [2, -7, 3]]) { B(x, y, z, GL); B(x, y + 1, z, GL); K.prop('redwin', x, y, z, f, {h: 2}, [x, y, z]); }
+    // glowing red lancet windows, rose window, the great pointed door
+    const win = (x, y0, z, n, f) => { for (let y = y0; y < y0 + n; y++) B(x, y, z, GL); K.prop('redwin', x, y0, z, f, {h: n}, [x, y0, z]); };
+    for (const z of [-3, -6]) { win(X0, F + 3, z, 5, 1); win(X1, F + 3, z, 5, 3); } for (const x of [-4, 4]) win(x, F + 3, Z1, 5, 2); for (const x of [-1, 0, 1]) win(x, F + 6, Z1, x ? 3 : 4, 2); win(0, F + 9, Z0, 2, 0);
+    box(-1, F, Z1, 1, F + 2, Z1, T.AIR); B(0, F + 3, Z1, T.AIR); K.lamp(-2, F + 2, Z1 + 1, 0, {}); K.lamp(2, F + 2, Z1 + 1, 0, {}); K.prop('banT', -3, F + 9, Z1 + 1, 2, {v: 1}, 'wall'); K.prop('banT', 3, F + 9, Z1 + 1, 2, {v: 1}, 'wall');
+    U.throne(K, {F, CE});
+    // the broken Hell portal + lava pool south of the castle (kept where the clansmen look for it)
+    const pz = 22; let n = 0; for (let ax = -4; ax <= 5; ax++) for (let az = pz - 4; az <= pz + 4; az++) { const v = U.h3(K.cx + ax, 64, K.cz + az); if (Math.hypot(ax + 1, az - pz) < 4.8) AB(ax, -1, az, v < 0.45 ? HR : v < 0.7 ? SS : MG); }
+    for (let a = 0; a <= 3; a++) for (let y = 0; y <= 4; y++) { const edge = a === 0 || a === 3 || y === 0 || y === 4, miss = (a === 3 && y === 4) || (a === 0 && y === 2); AB(-3 + a, y, pz, edge && !miss ? OB : T.AIR); if (edge && !miss) n++; for (const dz of [-1, 1]) for (let yy = 0; yy <= 4; yy++) AB(-3 + a, yy, pz + dz, T.AIR); }
+    for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) AB(3 + a, -1, pz + b, T.LAVA); for (let a = -1; a <= 2; a++) for (let b = -1; b <= 2; b++) if (a < 0 || a > 1 || b < 0 || b > 1) AB(3 + a, -1, pz + b, HB);
+    // the clansmen look for the first bottom row of 4 obsidian south of the castle: make sure that is the portal, not a castle course
+    const ob = (x, y, z) => world[idx(x, y, z)] === OB, PX = K.cx - 3, PZ = K.cz + pz; let fixed = 0;
+    for (let z = K.cz + 6; z <= PZ; z++) for (let x = K.cx - 10; x <= K.cx + 8; x++) { if (x < 2 || x >= W - 6 || z >= D - 2) continue; for (let y = 4; y < H - 7; y++) { if (z === PZ && x === PX && y === K.gy) continue;
+      if (ob(x, y, z) && ob(x + 1, y, z) && ob(x + 2, y, z) && ob(x + 3, y, z) && !ob(x + 1, y + 1, z) && !placedSet.has(idx(x + 1, y, z))) { world[idx(x + 1, y, z)] = BS; fixed++; } } }
+    return {portal: [PX, K.gy, PZ, n], obFix: fixed};
+  };
+  // ---- throne room (image 6): polished dark floor, red carpet up a stepped dais, tall black throne, lava falls behind iron bars, braziers, hanging cages, sword racks, treasure ----
+  U.throne = function (K, o) { const {B, box} = K, {F, CE} = o;
+    for (let z = -5; z <= -2; z++) for (let x = -1; x <= 1; x++) B(x, F, z, RCARP);
+    for (let x = -3; x <= 3; x++) { K.stair(x, F, -6, 0, DBS); B(x, F, -7, DB); B(x, F, -8, DB); } for (let x = -2; x <= 2; x++) { K.stair(x, F + 1, -7, 0, DBS); B(x, F + 1, -8, DB); }
+    K.prop('rug', 0, F + 1, -6, 2, {w: 3, d: 1, h: 0.02, v: 2}, 'floor'); K.prop('throne', 0, F + 2, -8, 2, {}, 'floor'); B(-1, F + 2, -8, RCARP); B(1, F + 2, -8, RCARP);
+    K.chest(2, F + 2, -8, 2, [[IT.FLINTSTEEL, 1], [T.OBSIDIAN, 4], [IT.GOLDINGOT, 5], [IT.RUBY || IT.DIAMOND, 2]]); B(-2, F + 2, -8, T.GOLDBLOCK || 75);
+    // two lava falls in the back wall behind iron bars
+    for (const s of [-1, 1]) for (let a = 4; a <= 6; a++) { const x = s * a; for (let y = F; y <= F + 9; y++) { B(x, y, -9, T.LAVA); B(x, y, -8, BARS); } }
+    // obsidian columns, braziers, sword racks, cages on chains, banners, lamps
+    for (const s of [-1, 1]) { for (const z of [-3, -6]) for (let y = F; y < CE; y++) B(s * 5, y, z, OB); for (const z of [-3, -5]) K.prop('brazier', s * 3, F, z, 2, {}, 'floor');
+      for (const z of [-2, -4]) K.prop('srack', s * 7, F, z, s < 0 ? 3 : 1, {}, 'floor');
+      K.prop('cage', s * 3, CE - 1, -4, 2, {L: 2.2, v: s > 0 ? 1 : 0}, [s * 3, CE, -4]); K.prop('cage', s * 6, CE - 1, -2, 2, {L: 3.2, v: s < 0 ? 1 : 0}, [s * 6, CE, -2]);
+      K.prop('chain', s * 7, CE - 1, -7, s < 0 ? 3 : 1, {L: 6, v: 1}, 'wall'); K.prop('banT', s * 7, F + 10, -4, s < 0 ? 3 : 1, {v: 1}, 'wall');
+      K.lamp(s * 7, F + 3, -5, s < 0 ? 1 : 3, {}); }
+    K.lamp(0, F + 6, -8, 0, {});
+  };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -25363,6 +25843,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.25', d:'2026-10-26', notes:["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]},
 {v:'v1.0.24', d:'2026-10-26', notes:["New: logs and tree trunks can be placed lying down - click the side of a block to lay one along that way, the top or bottom to stand it upright (kept in your save)", "New: each wood has its own Scottish undergrowth - bracken, gorse in bloom, bog cotton, heather sprigs and blaeberry bushes (new worlds grow thicker undergrowth)", "Textures: natural wood shades - every plank now matches the cut end of its own log (oak, Scots pine, birch, rowan, alder, yew)"]},
 {v:'v1.0.23', d:'2026-10-26', notes:["New: castle bridges keep a level deck and go through hills in lit, stone-lined tunnels instead of cutting holes up the mountains; stairs on the bridge ramps, rails and tunnel arches; the stair up to the castle keep roof is gone","New: the pyramid island is now its own island with open sea all round it, and sloping cave mouths lead down to big ore-rich caverns under the pyramid","New: the held map fits the screen (landscape and portrait) with your hand below it, and starts afresh after Reset world or Reset terrain"]},
 {v:'v1.0.22', d:'2026-10-26', notes:["Mobs: HD skeletons hold their bow again and HD black skeletons their sword - in the hand while walking, attacking and aiming"]},
