@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1012m -->
+<!-- glencraft-build: v1013m -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.12';
+const GAME_VERSION = 'v1.0.13';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19222,6 +19222,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.13', ["the soundtrack is now your own tracks: Alpha Calm, Schumann and Focus 12 by day; Delta Drift, Theta Gate, Theta Window, Focus 15 and Focus 21 at night and in caves; Stargate and Beyond the Matrix near the wizards and the unicorn", "every track is softened for the game: gentle low-pass (nothing shrill), the 40 Hz gamma buzz taken out, quieter, with slow fades and long crossfades"]],
     ['v1.0.12', ["relaxed ambient soundtrack: calm, warm binaural-beat pads with a soft sea-surf bed and a low Highland drone, slow swells and long crossfades (no more piano chimes, bells or high beeps); Alpha/Schumann by day, Theta/Delta/Focus at night and in caves, Stargate/Beyond the Matrix near the wizards and the unicorn", "music sits quieter, under the game sounds, with a limiter so nothing is ever loud", "a softer, warmer level-up chime"]],
     ['v1.0.11', ["every night mob, sea creature, wizard and unicorn now moves exactly like the creeper: walls and blocks stop them, they step up single blocks, fall with gravity and path round obstacles to reach you", "floating ghosts can no longer drift through walls or rise through roofs, and sea creatures stay in open water instead of clipping into the seabed", "spawn eggs for every mob: all the night mobs and sea creatures, a wizard, a unicorn, the black skeleton, yellow creeper, night spider and giant zombie, each egg coloured like its mob", "all spawn eggs sit together, sorted A to Z, in the creative inventory", "eggs work anywhere: any biome, land or water, day or night, in any dimension", "creative mode: evil and hostile mobs never spawn on their own; mobs you hatch from eggs never burn in daylight, never despawn, and come back when you reload the world"]],
     ['v1.0.10', ["a sleek black and gold look for every menu and the in-game HUD, with crisp controller highlights", "bold, chunky Glencraft logo (same gold colours) and bigger, bolder text everywhere", "your live X Y Z coordinates in the top left while you play", "menus fit properly on phones in both landscape and portrait", "portrait mode is now properly playable - the screen never scrolls sideways, and the HUD, bag, crafting, chests and trading all fit on screen", "new on-screen touch controls laid out like a mini Xbox controller (sticks, D-pad, A B X Y, LB/LT/RB/RT, View and Menu), which hide when a Bluetooth controller connects", "controller support is now shown as a simple tick, and the map credit has moved into Settings", "Textures: the spinning block on the loading screen now uses the exact grass textures from the game"]],
@@ -23783,7 +23784,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
           if (m && m.g) { m.g.position.set(x, y, z); mark(m, k); } } U.restored++; } } catch (_) {} doneW = key; }, 3000); } catch (_) {} }, 1500);
 })();
 
-/* ===================== GLX-C132 (v1.0.12): relaxed ambient soundtrack - procedural binaural-beat pads + pink-noise surf, no chimes/bells/leads ===================== */
+/* ===================== GLX-C132 (v1.0.12/13): relaxed ambient soundtrack - the user's binaural tracks (assets/music, low-passed + quieter, gamma removed), procedural fallback, no chimes/bells/leads ===================== */
 (function c132() {
   const U = window.__c132 = {on: false, cur: null, next: null, err: null, n: 0};
   // the user's track list (ref/music_tracks.js); gamma (40 Hz) layers are left out, carriers are warm 100-250 Hz sines
@@ -23799,8 +23800,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     focus21:  {t: 'Focus 21', L: [[110, 2], [220, 4]], surf: 0.5, mood: 'night'},
     beyond:   {t: 'Beyond the Matrix', L: [[150, 6], [100, 1]], surf: 0.45, mood: 'magic'},
     stargate: {t: 'Stargate', L: [[180, 5], [130, 7.83]], surf: 0.45, mood: 'magic'}};
-  U.tracks = Object.keys(TR);
-  const LEVEL = 0.5, XF = 14;   // overall level vs the slider (sits under game sounds), crossfade seconds
+  // v1.0.13: the user's own recordings (ref/music_user, processed: 1.6 kHz low-pass, 40 Hz gamma layers notched out, -20 LUFS, soft fades). Gamma Focus 40 Hz is left out.
+  const FILES = ['alpha10', 'beyond', 'delta2', 'focus12', 'focus15', 'focus21', 'schumann', 'stargate', 'theta4', 'theta6'], bad = new Set();
+  U.tracks = FILES.slice(); U.files = 0; U.fallback = 0;
+  const LEVEL = 0.55, XF = 14;   // overall level vs the slider (sits under game sounds), crossfade seconds
   let bus = null, pink = null, A = null;
   function ensure() {
     if (bus || !AC) return !!bus;
@@ -23841,10 +23844,20 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   }
   U.offline = async (oc, id, hp) => { ensure(); const sink = oc.createGain(); let f = null; if (hp) { f = oc.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp; f.Q.value = 0.7; const f2 = oc.createBiquadFilter(); f2.type = 'highpass'; f2.frequency.value = hp; f.connect(f2); sink.connect(f); f2.connect(oc.destination); } else sink.connect(oc.destination);
     const lp = oc.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; lp.connect(sink); voice(id, oc, lp); const buf = await oc.startRendering(); let e = 0, pk = 0; for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let k = buf.length >> 1; k < d.length; k++) { e += d[k] * d[k]; pk = Math.max(pk, Math.abs(d[k])); } } return {rms: Math.sqrt(e / buf.length), pk}; };
+  function fileVoice(id) {
+    const el = new Audio('assets/music/' + id + '.mp3'); el.preload = 'auto'; el.loop = false; let src = null, sub = null, dead = false; const out = AC.createGain(), t = AC.currentTime; out.gain.setValueAtTime(0.0001, t); out.connect(bus);
+    try { src = AC.createMediaElementSource(el); src.connect(out); } catch (e) { U.err = 'mes ' + e; }
+    out.gain.exponentialRampToValueAtTime(1, t + 8);
+    const v = {id, t0: performance.now(), el, left() { if (sub) return sub.left(); return el.duration ? el.duration - el.currentTime : 999; },
+      stop() { dead = true; if (sub) return sub.stop(); const t2 = AC.currentTime; try { out.gain.cancelScheduledValues(t2); out.gain.setValueAtTime(Math.max(0.0001, out.gain.value), t2); out.gain.exponentialRampToValueAtTime(0.0001, t2 + 9); } catch (_) {}
+        setTimeout(() => { try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {} try { src && src.disconnect(); out.disconnect(); } catch (_) {} }, 9500); }};
+    // a file that will not load falls back to the synthesised version of the same recipe
+    el.addEventListener('error', () => { if (dead || sub) return; bad.add(id); U.fallback++; try { out.disconnect(); } catch (_) {} if (TR[id]) sub = voice(id); });
+    const pp = el.play(); if (pp && pp.catch) pp.catch(() => {}); U.files++; return v; }
   const near = () => { try { for (const m of mobs) if ((m.kind === 'unicorn' || m.kind === 'nmwizard') && Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z) < 28) return true; } catch (_) {} return false; };
   function mood() { if (!started) return 'day'; if (near()) return 'magic'; const under = typeof caveK === 'number' && caveK > 0.5, night = typeof isNight !== 'undefined' && isNight; return under || night ? 'night' : 'day'; }
   let last = [], len = 0;
-  function pick(md) { const pool = U.tracks.filter(k => TR[k].mood === md && !last.includes(k)); const ids = pool.length ? pool : U.tracks.filter(k => TR[k].mood === md); const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
+  function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => TR[k].mood === md && !last.includes(k)); const ids = pool.length ? pool : U.tracks.filter(k => TR[k].mood === md); const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
   function want() { if (document.visibilityState === 'hidden') return 0; if (typeof DIM !== 'undefined' && DIM.cur === 'hell') return 0; if (master && master.gain.value === 0 && SET.sfx > 0) return 0; return Math.max(0, Math.min(1, SET.music)) * LEVEL; }
   function tick() {
     try { if (!AC || !ensure()) return; if (AC.state === 'suspended') return;
@@ -23852,10 +23865,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       if (!v) return;
       const md = mood(), age = A ? (performance.now() - A.t0) / 1000 : 1e9;
       // a new track after 3-4 minutes, or (after at least 40 s) when the mood changes (day/night, caves, wizards/unicorn)
-      if (!A || age > len || (age > 40 && TR[A.id].mood !== md)) { if (A) A.stop(); A = voice(pick(md)); len = 180 + Math.random() * 60; U.cur = A.id; U.n++; }
+      if (!A || age > len || (A.left && A.left() < 9) || (age > 40 && TR[A.id].mood !== md)) { if (A) A.stop(); const id = pick(md); A = bad.has(id) ? voice(id) : fileVoice(id); len = A.left ? 1e9 : 180 + Math.random() * 60; U.cur = A.id; U.n++; }
     } catch (e) { U.err = String(e && e.message || e); }
   }
-  setInterval(tick, 1000); U.tick = tick; U.level = () => bus && bus.gain.value;
+  setInterval(tick, 1000); U.tick = tick; U._rate = r => { if (A && A.el) A.el.playbackRate = r; }; U.el = () => A && A.el && {t: A.el.currentTime, d: A.el.duration, paused: A.el.paused, err: A.el.error && A.el.error.code}; U.level = () => bus && bus.gain.value;
   // the old mp3 soundtrack (piano / bells / leads) is retired; the Hell drone stays as it is
   const pm = playMusic; playMusic = function () { if (started && typeof DIM !== 'undefined' && DIM.cur === 'hell') return pm.apply(this, arguments); try { music.pause(); } catch (_) {} };
   const bt = bgmTick; bgmTick = function () { const r = bt.apply(this, arguments); try { if (!(started && typeof DIM !== 'undefined' && DIM.cur === 'hell') && !music.paused) music.pause(); } catch (_) {} return r; };
@@ -23879,6 +23892,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.13', d:'2026-10-26', notes:["New: relaxed ambient soundtrack made from your own tracks (Alpha Calm, Schumann, Theta, Delta, Focus 12/15/21, Stargate, Beyond the Matrix)", "New: softened for the game - no shrill highs, no 40 Hz buzz, quieter with long crossfades; tracks follow day, night, caves and the wizards/unicorn"]},
 {v:'v1.0.12', d:'2026-10-26', notes:["New: relaxed ambient soundtrack", "New: calm, warm binaural-beat pads with a soft sea-surf bed and a low Highland drone - no more piano chimes, bells or high beeps", "New: quieter music that sits under the game sounds, and a softer level-up chime"]},
 {v:'v1.0.11', d:'2026-10-26', notes:["New: every night mob, sea creature, wizard and unicorn now moves exactly like the creeper: walls and blocks stop them, they step up single blocks, fall with gravity and path round obstacles to reach you", "New: floating ghosts can no longer drift through walls or rise through roofs, and sea creatures stay in open water instead of clipping into the seabed", "New: spawn eggs for every mob: all the night mobs and sea creatures, a wizard, a unicorn, the black skeleton, yellow creeper, night spider and giant zombie, each egg coloured like its mob", "New: all spawn eggs sit together, sorted A to Z, in the creative inventory", "New: eggs work anywhere: any biome, land or water, day or night, in any dimension", "New: creative mode: evil and hostile mobs never spawn on their own; mobs you hatch from eggs never burn in daylight, never despawn, and come back when you reload the world"]},
 {v:'v1.0.10', d:'2026-10-26', notes:["New: a sleek black and gold look for every menu and the in-game HUD, with crisp controller highlights", "New: bold, chunky Glencraft logo (same gold colours) and bigger, bolder text everywhere", "New: your live X Y Z coordinates in the top left while you play", "New: menus fit properly on phones in both landscape and portrait", "New: portrait mode is now properly playable - the screen never scrolls sideways, and the HUD, bag, crafting, chests and trading all fit on screen", "New: new on-screen touch controls laid out like a mini Xbox controller (sticks, D-pad, A B X Y, LB/LT/RB/RT, View and Menu), which hide when a Bluetooth controller connects", "New: controller support is now shown as a simple tick, and the map credit has moved into Settings", "Textures: the spinning block on the loading screen now uses the exact grass textures from the game"]},
