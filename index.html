@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1020b -->
+<!-- glencraft-build: v1021a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.20b';
+const GAME_VERSION = 'v1.0.21';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -9206,7 +9206,7 @@ makeCreeper = function () {
 };
 (function () {
   const sm = spawnMob;
-  spawnMob = function (kind) { if (kind === 'puffer') kind = 'creeper'; return sm.call(this, kind); };
+  spawnMob = function (kind) { if (kind === 'puffer' && !window.__egg) kind = 'creeper'; return sm.call(this, kind); };
   // drops: skeleton -> bones, creeper -> gunpowder, guardian -> bones + coal (+ a rare diamond)
   const km = killMob;
   killMob = function (a) {
@@ -12323,7 +12323,7 @@ var c37busy = false;
       crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear();
       castleAvoid = zones.map(Z => ({x0: Z.x0 - 4, x1: Z.x1 + 4, z0: Z.z0 - 4, z1: Z.z1 + 4}));
       if (current) current.newCastles = true;
-      cityGen = false; gSeed = ((Math.random() * 2 ** 31) | 0) || 12345; cityEdits = new Map(); try { if (current && current.mode !== 'creative') { current.l94 = true; current.g12 = true; current.g15 = true; } } catch (_) {}
+      cityGen = false; gSeed = ((Math.random() * 2 ** 31) | 0) || 12345; cityEdits = new Map(); try { if (current && current.mode !== 'creative') { current.l94 = true; current.g12 = true; current.g15 = true; current.g21 = true; } } catch (_) {}
       generate(); castleAvoid = [];
       let blocks = 0; for (const Z of zones) blocks += pasteZone(Z);
       try { placedSet = new Set(); for (const Z of zones) for (let x = Z.x0; x <= Z.x1; x++) for (let z = Z.z0; z <= Z.z1; z++) for (let y = Z.ylo + Z.dy; y <= Z.yhi + Z.dy; y++) { if (y < 1 || y >= H) continue; const k = idx(x, y, z), b = world[k]; if (b && !NAT[b]) placedSet.add(k); } } catch (_) {}
@@ -13128,7 +13128,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     // wipe everything of the old world
     __clearWorldState(); crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear(); try { cauldrons.clear(); } catch (_) {}
     try { placedSet = new Set(); } catch (_) {}
-    if (current) current.newCastles = true; cityGen = false; castleAvoid = []; gSeed = ((Math.random() * 2 ** 31) | 0) || 4242; cityEdits = new Map(); try { if (current && current.mode !== 'creative') { current.l94 = true; current.g12 = true; current.g15 = true; } } catch (_) {}
+    if (current) current.newCastles = true; cityGen = false; castleAvoid = []; gSeed = ((Math.random() * 2 ** 31) | 0) || 4242; cityEdits = new Map(); try { if (current && current.mode !== 'creative') { current.l94 = true; current.g12 = true; current.g15 = true; current.g21 = true; } } catch (_) {}
     generate(); genVer = GEN9; try { fixTorches(); } catch (_) {}
     try { spawnPlayer(); } catch (_) {}
     // landing site: dry flat ground near the new spawn
@@ -13682,8 +13682,8 @@ var chestSel = -1;
 
 /* ===================== GLX-C58 (v0.9.49): castle guardians disabled (code kept dormant) ===================== */
 (function c58() {
-  const sm = spawnMob; spawnMob = function (kind) { if (kind === 'guardian') return null; return sm.apply(this, arguments); };
-  const clear = () => { for (const a of mobs.slice()) if (a.kind === 'guardian') removeMob(a); };
+  const sm = spawnMob; spawnMob = function (kind) { if (kind === 'guardian' && !window.__egg) return null; return sm.apply(this, arguments); };
+  const clear = () => { for (const a of mobs.slice()) if (a.kind === 'guardian' && !a.egg) removeMob(a); };
   const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); try { clear(); } catch (_) {} return r; };
   setInterval(() => { try { clear(); } catch (_) {} }, 2000);
 })();
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.21', ["New: the small island by spawn is now a sand island with a sandstone pyramid (Ancient Egypt style) and a tomb in the caves under it; a moss hag's hut stands near the Black Skeleton castle; the old boat is back, moored a bit further out in the river (new world or Reset world to see them)", "New: one Spawn egg replaces all the old eggs - use it (LT / right click / Place) to open a list of every mob, split into Enabled and Disabled, and spawn any of them (all of them in creative)", "New: the Highland musket is now an old Scottish flintlock: long dark wooden stock, brass fittings, flintlock hammer, long iron barrel and iron sights, no scope. Hold LT (right mouse / Place) to aim down the sights: smooth zoom, less sway and kick, slower walking; fire with RT (left click / Break)", "Textures: new Glencraft pixel textures and icon for the musket; the pyramid and island are built from sandstone and sand", "Mobs: only the chosen mobs spawn now - Snaw Brute guards rubies up stony mountain tops, Sneerin' Swaddle on the pyramid island at night, Barrow Bandager in the tomb under it, Rivet Reiver at the skeleton castle, Pest Corbie at the Black Skeleton castle, Moss Hag Morag at her hut, Admiral Skelp on the boat, Glower Orb in the Nether, Thunner Cloudies when it rains, Glaikit Goggler, Tangle Tam and Sunken Swabbies in the ocean, Timmer Tiki on beach sand", "Mobs: Greetin' Bairn, Linen Ghaist and Mist Moaner are merged into one mob called Ghost; Lang Hat Lurker appears at night where you last died; farmers can now be killed and Cleek Jack, the farmer's ghost, rises from him", "Mobs: switched off (egg only): Skull Seer, Puddock Gob, Puffer, Merry Mischanter, Moonlit Selkie, Dreich Gnawer, Drookit Kelpie, Govan Gearheid, Deep Beastie, Crag Gruff, Crackle Conger, Cowl Creepie, Comet Collie, Castle Guardian, Anvil Heid, Wraith Jeelie, Thistle Phantom and the spiders"]],
     ['v1.0.20b', ["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]],
     ['v1.0.20', ["Glencraft look for the HD mobs: every HD model keeps its shape and animations but now wears Glencraft-style pixel textures (skin, fur, wool, cloth, bone, scales, rock, slime, metal) instead of flat stock colours", "Mobs get their Glencraft colours back: grey-green zombies, pale bone skeletons, clansmen in black jackets with white shirts and tartan trews, a white Snaw Brute with a slate face, a red and white Govan Gearheid, a darker Puddock Gob, and a starry night-sky coat for the Comet Collie", "Hit flashes, lighting, the HD switch in Settings and the blocky fallback all work as before"]],
     ['v1.0.19', ["HD unicorn: the egg-only unicorn now uses a detailed animated CC0 white horse (by Quaternius) with its golden-pearl horn kept on its head", "The wizards keep their hand-made look for now (orange or red-brown robes, tall hats, beards, staff, sitting and rune poses): no free robed-wizard model fits yet"]],
@@ -24617,6 +24618,433 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     if (!p.head && u.m) p.head = u.m.head || null;
     p.moving = (u.spd || 0) > 0.3; p.flee = u.flee || 0; return [p]; };
 })();
+
+/* ===================== GLX-C142 (v1.0.21): new worlds - the south-west island becomes a sand island with a sandstone pyramid and a tomb under it, a moss hag's hut by the black castle, the longship back in the channel ===================== */
+(function c142() {
+  const U = window.__c142 = {sites: null, st: null, err: null};
+  const elig = () => { try { return !!(current && current.mode !== 'creative' && current.g21 && current.g12 && !DIM.cur && !cityGen && W >= 600); } catch (_) { return false; } };
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g21 = save ? !!(save.c141 && save.c141.g21) : true; U.sites = save && save.c141 && save.c141.s || null; } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g21) d.c141 = {g21: 1, s: U.sites}; } catch (_) {} return d; };
+  const gen = generate; generate = function () { const r = gen.apply(this, arguments);
+    if (elig()) { try { U.sites = post(); U.err = null; } catch (e) { U.err = String(e && e.stack || e); console.warn('c142', e); } } else if (!DIM.cur) U.sites = null;
+    return r; };
+  const SH = 'Ag8ICgIQCAoDCwgKAwwICgMNCAoDDggKAw8ICgMQCAoECwcKBAwHCgQNBwoECggKBAsICgQMCAoEDQgKBA4ICgQPCAoEEAgKBAsJCgQMCQoEDQkKBQoHCgULBwoFDAcKBQkICgUKCAoFCwgKBQwICgUPCAoFEAgKBREICgUKCQoFCwkKBQwJCgYKBwoGCwcKBgkICgYKCAoGCwgKBg8ICgYQCAoGCgkKBgsJCgcLBgoHCQcKBwoHCgcLBwoHCQgKBwoICgcLCAoHCQkKBwoJCgcLCQoHCwoKCAoGCggLBgoICQcKCAoHCggLBwoICAgKCAkICggKCAoICQkKCAoJCggLCQoICgoKCAsKCgkIAAoJCAEKCQkCCgkJAwoJCgQKCQoFCgkKBgoJCwYKCQkHCgkKBwoJCAgKCQkICgkJCQoJCgkKCQoKCgkLCgoJCgsKCQoMCgkJDQoJCQ4KCQgPCgkIEAoKCgWcCgsFCgoKBgoKCAcKCgkHCgoKBwoKCAgKCgkICgoKCAoKCAkKCgkJCgoKCQoKCgoKCgoLTQoLCwoLCgUKCwsFnAsSBU4LCQYKCwoGCgsRBpwLEgacCxMGnAsIBwoLCQcKCxEHnAsSB5wLEwecCwgICgsJCAoLEQhOCxIITgsTCE4LCAkKCwkJCgsRCU4LEglOCxMJTgsJCgoLCgoKCxEKnAsSCpwLEwqcCwoLCgsLC00LEgucDAgACgwIAQoMCQIKDAkDCgwPA5wMEAOcDBED4wwUA5wMFQOcDAoECgwPBE4MEARODBEETgwSBE4MEwRODBQETgwVBE4MCgUKDA8FTgwQBU4MEQVODBMFTgwUBU4MFQVODAkGCgwKBgoMDwacDBAGnAwUBpwMFQacDAgHCgwJBwoMEAecDBQHnAwVB5wMCAgKDAkICgwQCE4MFAhODBUITgwICQoMCQkKDBAJTgwUCU4MFQlODAkKCgwKCgoMDwqcDBAKnAwUCpwMFQqcDAoLCgwPC5wMEAucDBELnAwTC5wMFAucDBULnAwKDAoMDwxODBAMTgwRDE4MEgxODBMMTgwUDE4MFQxODAkNCgwPDU4MEA1ODBEN4wwSDeMMFA3jDBUNTgwJDgoMCA8KDAgQCg0OApwNFgKcDQ4DnA0PA5wNFgOcDQ4ETg0WBE4NCgWWDQsFnA0OBU4NDwWcDRYFTg0JBgoNCgYKDQ4GnA0PBpwNFgacDQgHCg0JBwoNCgcKDQ4HnA0PB5wNFgecDQgICg0JCAoNCggKDQ8ITg0WCE4NCAkKDQkJCg0KCQoNDwlODRYJTg0JCgoNCgoKDQ4KnA0PCpwNFgqcDQoLTg0LC5wNDgucDQ8LnA0WC5wNDgxODRYMTg0ODU4NFg1ODRYOnA4OAqIOFgKiDhcCCg4MA6IODQOiDg4Dog4WA6IOFwMKDgwEog4OBKIOFgSiDhcECg4KBZwOCwWWDg4Fog4WBaIOFwUKDgkGCg4KBgoODgaiDhYGog4XBgoOCAcKDgkHCg4OB6IOFgeiDhcHCg4ICAoOCQgKDgoIDA4OCKIOFgiiDhcICg4ICQoOCQkKDg4Jog4WCaIOFwkKDgkKCg4KCgoODgqiDhYKog4XCgoOCgucDgsLTg4OC6IOFguiDhcLCg4MDKIODQyiDg4Mog4WDKIOFwwKDhkMnA4NDaIODg2iDhYNog4XDQoOFg6iDhcOCg8IAAoPCAEKDwkCCg8JAwoPCgQKDwsEog8MBKIPCgUKDwsFog8JBgoPCgYKDwgHCg8JBwoPCAgKDwkICg8KCAgPCwgIDwwICA8NCAgPDggIDw8ICA8QCAgPEQgIDxIICA8TCAgPFAgIDxUICA8WCAgPFwgIDxgICA8ZCKIPGgiiDxsIog8ICQoPCQkKDxoJmQ8bCZkPCQoKDwoKCg8LCqIPGQqcDxoKnA8KCwoPCwuiDwwLog8ZC04PCgwKDwwMog8JDQoPCQ4KDwgPCg8IEAoQCgWcEAsFThAJBgoQCgYKEAgHChAJBwoQCgcKEAgIChAJCAoQCggKEAgJChAJCQoQCgkKEAkKChAKCgoQCgucEAsLChEKBU4RCwWcEQkGChEKBgoRCAcKEQkHChEICAoRCQgKEQgJChEJCQoRCQoKEQoKChEKCwoRCwucEggAChIIAQoSCQIKEgkDChIKBAoSCgUKEgoGChIIBwoSCQcKEgoHChIICAoSCQgKEggJChIJCQoSCgkKEgoKChIKCwoSCgwKEgkNChIJDgoSCA8KEggQChMKBgoTCwYKEwgHChMJBwoTCgcKEwgIChMJCAoTCggKEwgJChMJCQoTCgkKEwoKChMLCgoUCwYKFAkHChQKBwoUCAgKFAkIChQKCAoUCQkKFAoJChQLCgoVCwYKFQkHChUKBwoVCwcKFQgIChUJCAoVCggKFQkJChUKCQoVCwkKFQsKChYKBwoWCwcKFgkIChYKCAoWCgkKFgsJChcKBwoXCwcKFwkIChcKCAoXCwgKFwwIChcNCAoXDggKFwoJChcLCQoYCwcKGAwHChgKCAoYCwgKGAwIChgOCAoYCwkKGAwJCg==';
+  const N = (x, z) => x * D + z, inW = (x, z) => x > 2 && z > 2 && x < W - 3 && z < D - 3;
+  const SKIP = b => !b || PLANT[b] || LEAFY[b] || LOGGY[b];
+  function topOf(x, z) { for (let y = H - 2; y > 0; y--) { const b = world[idx(x, y, z)]; if (SKIP(b)) continue; return [y, b]; } return [0, 0]; }
+  const setW = (x, y, z, v) => { if (y > 0 && y < H - 1 && inW(x, z)) world[idx(x, y, z)] = v; };
+  const gw = (x, y, z) => (inW(x, z) && y >= 0 && y < H) ? world[idx(x, y, z)] : 0;
+  const SOLIDB = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && b !== T.TORCH;
+  function torch(x, y, z) { setW(x, y, z, T.TORCH); try { lightSrc.set((x * 4096 + z) * 256 + y, [x + .5, y + .7, z + .5, T.TORCH]); } catch (_) {} }
+  function col(x, z, h, kind) { try { if (g9cols && g9cols.length > (N(x, z) * 2 + 1)) { g9cols[N(x, z) * 2] = h + 1; g9cols[N(x, z) * 2 + 1] = kind; } } catch (_) {} }
+  function clearMeta(test) { for (const M of [entMeta, chests]) for (const k of [...M.keys()]) { const [x, y, z] = String(k).split(',').map(Number); if (test(x, y, z)) M.delete(k); }
+    try { for (const k of [...lightSrc.keys()]) { const v = lightSrc.get(k); if (v && test(Math.floor(v[0]), Math.floor(v[1]), Math.floor(v[2])) && world[idx(Math.floor(v[0]), Math.floor(v[1]), Math.floor(v[2]))] !== v[3]) lightSrc.delete(k); } } catch (_) {} }
+  // carve boxes as one set, then seal every face that touches water, lava, air or an old chest with sandstone (below yTop only)
+  function carve(boxes, isle, yTop) { const cells = new Set(), K = (x, y, z) => (x * H + y) * D + z, ok = [];
+    for (const bx of boxes) { let g = true; for (let x = bx[0] - 1; x <= bx[3] + 1 && g; x++) for (let z = bx[2] - 1; z <= bx[5] + 1; z++) if (!isle.has(N(x, z))) { g = false; break; } ok.push(g); if (!g) continue;
+      for (let x = bx[0]; x <= bx[3]; x++) for (let y = bx[1]; y <= bx[4]; y++) for (let z = bx[2]; z <= bx[5]; z++) cells.add(K(x, y, z)); }
+    for (const k of cells) { const x = Math.floor(k / (H * D)), y = Math.floor(k / D) % H, z = k % D;
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const X = x + dx, Y = y + dy, Z = z + dz; if (Y > yTop || cells.has(K(X, Y, Z))) continue; const b = gw(X, Y, Z); if (!SOLIDB(b) || b === T.CHEST) setW(X, Y, Z, T.SANDSTONE); } }
+    for (const k of cells) world[k] = 0; return ok; }
+  function post() {
+    const t0 = performance.now(), st = {}; let s = ((gSeed | 0) ^ 0x21c142) >>> 0;
+    const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const sites = {};
+    try { sites.isle = island(rnd, st); } catch (e) { st.isleErr = String(e && e.stack || e); }
+    try { sites.hut = hut(rnd, st); } catch (e) { st.hutErr = String(e && e.stack || e); }
+    try { sites.boat = boat(st); } catch (e) { st.boatErr = String(e && e.stack || e); }
+    st.ms = Math.round(performance.now() - t0); U.st = st; return sites; }
+  // ---------- 1) the sand island + pyramid + tomb ----------
+  function island(rnd, st) {
+    const cx0 = MT_C[0], cz0 = MT_C[1], R = 150; let sx = -1, sz = -1;
+    for (let r = 0; r < 40 && sx < 0; r += 2) for (let a = 0; a < 6.28 && sx < 0; a += 0.4) { const x = Math.round(cx0 + Math.cos(a) * r), z = Math.round(cz0 + Math.sin(a) * r); if (inW(x, z) && topOf(x, z)[0] > SEA && topOf(x, z)[1] !== T.WATER) { sx = x; sz = z; } }
+    if (sx < 0) { st.isle = 'no land'; return null; }
+    const isle = new Set([N(sx, sz)]), q = [[sx, sz]], tops = new Map();
+    while (q.length) { const [x, z] = q.pop(); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Z = z + dz, k = N(X, Z); if (isle.has(k) || !inW(X, Z) || Math.hypot(X - cx0, Z - cz0) > R) continue;
+      const t = topOf(X, Z); if (t[0] <= SEA || t[1] === T.WATER) continue; isle.add(k); tops.set(k, t[0]); q.push([X, Z]); } }
+    tops.set(N(sx, sz), topOf(sx, sz)[0]); st.isleCells = isle.size; if (isle.size < 1500) { st.isle = 'small'; return null; }
+    // distance to the shore
+    const E = new Map(), bq = []; for (const k of isle) { const x = (k / D) | 0, z = k - x * D; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !isle.has(N(x + dx, z + dz)))) { E.set(k, 1); bq.push(k); } }
+    for (let i = 0; i < bq.length; i++) { const k = bq[i], x = (k / D) | 0, z = k - x * D, e = E.get(k); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = N(x + dx, z + dz); if (isle.has(n) && !E.has(n)) { E.set(n, e + 1); bq.push(n); } } }
+    let best = null, be = -1, mx = 0, mz = 0; for (const k of isle) { const x = (k / D) | 0, z = k - x * D; mx += x; mz += z; } mx /= isle.size; mz /= isle.size;
+    for (const [k, e] of E) { const x = (k / D) | 0, z = k - x * D, sc = e - Math.hypot(x - mx, z - mz) * 0.15; if (sc > be) { be = sc; best = k; } }
+    const px = (best / D) | 0, pz = best - px * D, pe = E.get(best); st.pe = pe;
+    // reshape: low dunes, sand over sandstone, old caves near the top sealed
+    const HT = new Map();
+    for (const k of isle) { const x = (k / D) | 0, z = k - x * D, e = E.get(k);
+      const dune = e > 8 ? Math.max(0, Math.round(1.1 + Math.sin(x * 0.11 + Math.sin(z * 0.07) * 2) + Math.cos(z * 0.09 + x * 0.03) * 0.8)) : 0;
+      const h = SEA + 1 + Math.min(5, Math.floor((e - 1) / 5)) + Math.min(2, dune); HT.set(k, h);
+      for (let y = h + 1; y < H - 1; y++) world[idx(x, y, z)] = 0;
+      for (let y = h; y >= Math.max(2, h - 12); y--) world[idx(x, y, z)] = y > h - 4 ? T.SAND : T.SANDSTONE;
+      col(x, z, h, 4); }
+    clearMeta((x, y, z) => isle.has(N(x, z)) && y > (HT.get(N(x, z)) || 0) - 13);
+    // the pyramid
+    const B = Math.max(9, Math.min(17, pe - 7)), y0 = SEA + 3; st.B = B;
+    for (let x = px - B - 3; x <= px + B + 3; x++) for (let z = pz - B - 3; z <= pz + B + 3; z++) { if (!isle.has(N(x, z))) continue; for (let y = y0 + 1; y < H - 1; y++) setW(x, y, z, 0); for (let y = y0; y > y0 - 5; y--) setW(x, y, z, y === y0 ? T.SANDSTONE : T.SAND); col(x, z, y0, 4); }
+    for (let k = 0; k <= B; k++) { const y = y0 + 1 + k, r = B - k, band = k % 4 === 3 ? 150 : T.SANDSTONE;
+      for (let x = px - r; x <= px + r; x++) for (let z = pz - r; z <= pz + r; z++) setW(x, y, z, k === B ? T.GOLDBLOCK : (Math.abs(x - px) === r || Math.abs(z - pz) === r) ? band : T.SANDSTONE); col(px, pz, y0 + B + 1, 4); }
+    // entrance on the south face -> passage -> burial hall
+    for (let z = pz + 3; z <= pz + B + 1; z++) for (let x = px - 1; x <= px + 1; x++) for (let y = y0 + 1; y <= y0 + 3; y++) setW(x, y, z, 0);
+    for (let y = y0 + 1; y <= y0 + 4; y++) { setW(px - 2, y, pz + B, 150); setW(px + 2, y, pz + B, 150); } for (let x = px - 2; x <= px + 2; x++) setW(x, y0 + 4, pz + B, 150);
+    for (let x = px - 3; x <= px + 3; x++) for (let z = pz - 3; z <= pz + 3; z++) for (let y = y0 + 1; y <= y0 + 5; y++) setW(x, y, z, 0);
+    torch(px - 3, y0 + 1, pz - 3); torch(px + 3, y0 + 1, pz - 3); torch(px - 1, y0 + 1, pz + B - 2); torch(px + 1, y0 + 1, pz + 6);
+    // obelisks either side of the door
+    for (const ox of [-6, 6]) { const x = px + ox, z = pz + B + 5; if (!isle.has(N(x, z))) continue; for (let y = y0 + 1; y <= y0 + 6; y++) setW(x, y, z, T.SANDSTONE); setW(x, y0 + 7, z, T.GOLDBLOCK); }
+    // stairs down from the hall to the tomb (north), then the crypt and two side chambers - all under dry land
+    const ty = SEA - 12, sites = {x: px, z: pz, y: y0, B, door: [px + .5, y0 + 1, pz + B + 2.5]}; let zz = pz - 4, yy = y0; const boxes = [];
+    while (yy > ty) { boxes.push([px - 1, yy, zz, px + 1, yy + 2, zz]); zz--; yy--; }
+    const cz = zz - 6, tomb = {x: px, y: ty, z: cz, pts: []};
+    boxes.push([px - 1, ty, zz - 1, px + 1, ty + 2, zz + 1]);
+    const nB = boxes.length; boxes.push([px - 6, ty, cz - 6, px + 6, ty + 4, cz + 5], [px - 15, ty, cz - 2, px - 8, ty + 3, cz + 2], [px - 8, ty, cz - 1, px - 6, ty + 2, cz + 1], [px + 8, ty, cz - 2, px + 15, ty + 3, cz + 2], [px + 6, ty, cz - 1, px + 8, ty + 2, cz + 1]);
+    const okB = carve(boxes, isle, y0); const ok1 = okB.slice(0, nB + 2).every(Boolean); st.tomb = okB.map(v => v ? 1 : 0).join('');
+    for (let i = 0; i < nB - 1; i++) { const b = boxes[i]; for (let x = b[0]; x <= b[3]; x++) setW(x, b[1] - 1, b[2], T.SANDSTONE); }
+    if (ok1) { for (let x = px - 6; x <= px + 6; x++) for (let z = cz - 6; z <= cz + 5; z++) setW(x, ty - 1, z, (x + z) % 2 ? T.SANDSTONE : 150);
+      for (const [x, z] of [[-6, -6], [6, -6], [-6, 5], [6, 5]]) for (let y = ty; y <= ty + 4; y++) setW(px + x, y, cz + z, 150);
+      setW(px - 1, ty, cz - 2, 150); setW(px, ty, cz - 2, 150); setW(px + 1, ty, cz - 2, 150); setW(px, ty + 1, cz - 2, T.GOLDBLOCK);
+      for (const [x, z] of [[-4, -5], [4, -5], [-4, 4], [4, 4], [-2, 5]]) torch(px + x, ty, cz + z);
+      try { const L = [[IT.GOLDINGOT, 4, 0.9], [IT.BONE || 171, 4, 0.7], [IT.DIAMOND, 1, 0.35], [IT.RUBY, 2, 0.5], [IT.ROTTEN || 320, 3, 0.6]].filter(r => r[0] != null); lootChest(px, ty, cz - 5, L, rnd); } catch (e) { st.chest = String(e); }
+      for (const [j, x0] of [[nB + 1, px - 15], [nB + 3, px + 8]]) if (okB[j] && okB[j + 1]) { torch(x0 + 3, ty, cz + 2); for (let x = x0; x <= x0 + 7; x += 2) tomb.pts.push([x + .5, ty, cz + .5]); }
+      for (let x = px - 4; x <= px + 4; x += 2) for (const z of [cz - 3, cz + 2]) tomb.pts.push([x + .5, ty, z + .5]); }
+    for (let x = px - 20; x <= px + 20; x++) for (let z = cz - 10; z <= pz + B + 8; z++) if (isle.has(N(x, z))) { try { markDirty(x, z); } catch (_) {} }
+    const surf = []; for (const k of isle) { const e = E.get(k); if (e > 4 && (k % 7) === 0) { const x = (k / D) | 0, z = k - x * D; if (Math.abs(x - px) > B + 2 || Math.abs(z - pz) > B + 2) surf.push([x, z]); } }
+    const pick = []; for (let i = 0; i < 60 && surf.length; i++) pick.push(surf[(rnd() * surf.length) | 0]);
+    return {c: [Math.round(mx), Math.round(mz)], r: Math.round(Math.sqrt(isle.size / Math.PI)) + 6, pyr: sites, tomb: ok1 ? tomb : null, surf: pick}; }
+  // ---------- 2) the moss hag's hut, a short walk from the black castle ----------
+  function hut(rnd, st) {
+    const bc = (g9castles || []).find(c => c[0] === 'black'); if (!bc) { st.hut = 'no castle'; return null; }
+    const rav = ((window.__c131 && __c131.st && __c131.st.ravines) || []).filter(r => /black/.test(r.land || ''));
+    let best = null, bs = 1e9;
+    for (let r = 38; r <= 58; r += 4) for (let a = 0; a < 6.28; a += 0.26) { const x = Math.round(bc[1] + Math.cos(a) * r), z = Math.round(bc[2] + Math.sin(a) * r); if (!inW(x - 6, z - 6) || !inW(x + 6, z + 6)) continue;
+      if (rav.some(v => Math.hypot(v.x - x, v.z - z) < 26)) continue; try { if (window.__c113 && __c113.nearBridge && __c113.nearBridge(x, z, 10)) continue; } catch (_) {}
+      let lo = 1e9, hi = -1, bad = false; for (let dx = -4; dx <= 4 && !bad; dx++) for (let dz = -4; dz <= 4; dz++) { const t = topOf(x + dx, z + dz); if (t[1] === T.WATER || t[0] <= SEA + 1) { bad = true; break; } lo = Math.min(lo, t[0]); hi = Math.max(hi, t[0]); }
+      if (bad) continue; const sc = (hi - lo) * 10 + Math.abs(r - 46); if (sc < bs) { bs = sc; best = [x, z, hi]; } }
+    if (!best) { st.hut = 'no spot'; return null; }
+    const [hx, hz, fy] = best, dir = Math.atan2(bc[2] - hz, bc[1] - hx), dz0 = Math.abs(Math.sin(dir)) > Math.abs(Math.cos(dir)) ? Math.sign(Math.sin(dir)) : 0, dx0 = dz0 ? 0 : Math.sign(Math.cos(dir));
+    const LOG = 138, PL = 141, MOSS = 144;
+    for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) { const x = hx + dx, z = hz + dz; for (let y = fy + 1; y < Math.min(H - 1, fy + 16); y++) setW(x, y, z, 0);
+      for (let y = fy; y > fy - 6; y--) { const b = gw(x, y, z); if (y === fy || !SOLIDB(b)) setW(x, y, z, Math.abs(dx) <= 3 && Math.abs(dz) <= 3 ? (y === fy ? PL : T.COBBLE) : y === fy ? 142 : T.DIRT); } col(x, z, fy, 0); }
+    for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const edge = Math.abs(dx) === 3 || Math.abs(dz) === 3, corner = Math.abs(dx) === 3 && Math.abs(dz) === 3; if (!edge) continue;
+      for (let y = fy + 1; y <= fy + 3; y++) setW(hx + dx, y, hz + dz, corner ? LOG : y === fy + 1 ? T.MOSSYBRICK : PL); }
+    for (let k = 0; k <= 3; k++) { const r = 4 - k; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (Math.abs(dx) === r || Math.abs(dz) === r || k === 3) setW(hx + dx, fy + 4 + k, hz + dz, k % 2 ? MOSS : 9); }
+    const ddx = dx0 * 3, ddz = dz0 * 3; setW(hx + ddx, fy + 1, hz + ddz, 0); setW(hx + ddx, fy + 2, hz + ddz, 0);
+    for (const [wx, wz] of dx0 ? [[0, 3], [0, -3]] : [[3, 0], [-3, 0]]) setW(hx + wx, fy + 2, hz + wz, T.GLASS);
+    setW(hx - dx0 * 2, fy + 1, hz - dz0 * 2, T.CAULDRON); setW(hx + (dz0 ? 2 : 0), fy + 1, hz + (dx0 ? 2 : 0), T.COBWEB); torch(hx - (dz0 ? 2 : 0), fy + 1, hz - (dx0 ? 2 : 0));
+    for (let dx = -5; dx <= 5; dx++) for (let dz = -5; dz <= 5; dz++) try { markDirty(hx + dx, hz + dz); } catch (_) {}
+    clearMeta((x, y, z) => Math.abs(x - hx) <= 4 && Math.abs(z - hz) <= 4 && y > fy);
+    st.hut = [hx, fy, hz]; return {x: hx + .5, y: fy + 1, z: hz + .5, door: [hx + dx0 * 5 + .5, fy + 1, hz + dz0 * 5 + .5]}; }
+  // ---------- 3) the longship the spawn asset used to carry, back out in the channel ----------
+  function boat(st) {
+    const raw = atob(SH), L = []; for (let i = 0; i + 3 < raw.length; i += 4) L.push([raw.charCodeAt(i), raw.charCodeAt(i + 1), raw.charCodeAt(i + 2), raw.charCodeAt(i + 3)]);
+    const bx = (W >> 1) - 128 + 94, bz = (D >> 1) - 124 + 4, by = 21 + 12; let best = 0, bd = -1;
+    const foot = [...new Set(L.map(b => b[0] + ',' + b[2]))].map(s => s.split(',').map(Number));
+    const wet = (x, z) => { const t = topOf(x, z); return t[1] === T.WATER && t[0] <= SEA; };
+    for (let dz = -14; dz <= 14; dz++) { let n = 0; for (const [x, z] of foot) if (wet(bx + x, bz + z + dz)) n++; const sc = n * 10 - Math.abs(dz + 4); if (sc > bd) { bd = sc; best = dz; } }
+    st.boatShift = best; st.boatWet = Math.round(bd / 10) + '/' + foot.length; if (bd / 10 < foot.length * 0.8) { st.boat = 'no room'; return null; }
+    const WET = new Set(foot.filter(([x, z]) => wet(bx + x, bz + z + best)).map(([x, z]) => x + ',' + z));
+    const deck = []; for (const [x, y, z, v] of L) { const X = bx + x, Z = bz + z + best, Y = by + y; if (!WET.has(x + ',' + z) && Y > SEA) continue; setW(X, Y, Z, v); }
+    for (const [x, y, z, v] of L) { const X = bx + x, Z = bz + z + best, Y = by + y; if (v === 10 && gw(X, Y, Z) === 10 && !gw(X, Y + 1, Z) && !gw(X, Y + 2, Z) && Y >= SEA) deck.push([X + .5, Y + 1, Z + .5]); }
+    for (const [x, z] of foot) try { markDirty(bx + x, bz + z + best); } catch (_) {}
+    const cx = bx + 11, cz = bz + 7 + best; deck.sort((p, q) => Math.hypot(p[0] - cx, p[2] - cz) - Math.hypot(q[0] - cx, q[2] - cz));
+    st.boat = [cx, cz, deck.length]; return {x: cx, z: cz, y: by + 9, deck: deck.slice(0, 12)}; }
+  U.post = () => { U.sites = post(); return U.st; };
+})();
+
+/* ===================== GLX-C143 (v1.0.21): spawn rules - many mobs egg-only, the rest each have one home (castles, the sand island, the tomb, the hut, the longship, rain, the nether, your death spot, a farmer's ghost) ===================== */
+(function c143() {
+  const C = window.__c123; if (!C || !C.DEF || !C.HOMES) return;
+  const DEF = C.DEF, HOMES = C.HOMES;
+  // ---- egg-only (no natural spawning; still in the egg list) ----
+  const DIS = new Set(['nm24', 'nm25', 'nm05', 'nm31', 'nm02', 'nm34', 'nm03', 'nm33', 'nm15', 'nm30', 'nm06', 'nm28', 'nm17', 'nm32', 'nm19', 'nm20', 'nm29', 'puffer', 'guardian', 'spider', 'nspider', 'giant']);
+  const SPEC = new Set(['nm07', 'nm13', 'nm09', 'nm11', 'nm12', 'nm14', 'nm16', 'nm22', 'nm27']);   // only by the special rules below
+  const U = window.__c143 = {DIS, SPEC, st: {sw: 0, sp: {}}, err: null, ruby: null, death: null};
+  // the three sheet ghosts are one mob now: the Linen Ghaist is "Ghost"; the other two are egg-only (hidden from the list)
+  try { DEF.nm10.name = 'Ghost'; } catch (_) {}
+  try { DEF.nm27.move = 'float'; DEF.nm27.hover = DEF.nm27.hover || 0.6; } catch (_) {}   // Cleek Jack: a farmer's ghost on land, not a swimmer
+  // ---- night homes ----
+  for (const k of Object.keys(HOMES)) HOMES[k] = [];
+  Object.assign(HOMES, {ocean: ['nm23', 'nm04', 'nm26'], mossy: ['nm01'], black: ['nm21'], beach: ['nm08'], shore: ['nm18', 'nm10'], juniper: ['nm10'], birch: ['nm10'], yew: ['nm10'], pine: ['nm10']});
+  for (const k of ['human', 'alder', 'oak', 'rowan', 'hawthorn', 'mountain', 'snow', 'cave', 'blackthorn', 'moor']) if (!HOMES[k]) HOMES[k] = [];
+  // ---- giant spiders only from the egg ----
+  try { const ng = window.__newGiant; if (ng) window.__newGiant = function () { if (!window.__egg) return null; return ng.apply(this, arguments); }; } catch (_) {}
+  const isNM = a => a && typeof a.kind === 'string' && !!DEF[a.kind];
+  const dropMob = (a, puff) => { try { if (puff) { const p = a.g.position; burst(p.x, p.y + 0.8, p.z, 0x9aa0b0, 10, 0.8); } } catch (_) {} try { removeMob(a); } catch (_) {} const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); };
+  const creative = () => !!(MODE && MODE.name === 'creative');
+  const flat = () => !!(current && current.flat);
+  const live = () => started && !paused && !dead && !creative() && !flat();
+  const nmCount = () => mobs.filter(isNM).length, HARD = (C.PH || (typeof PERF !== 'undefined' && PERF)) ? 6 : 10;
+  const spawn = (kind, x, y, z, tag) => { if (nmCount() >= HARD) return null; let a = null; try { a = C.spawnKind(kind, Math.floor(x), Math.floor(y), Math.floor(z), {grp: Math.random(), home: 'spec'}); } catch (e) { U.err = String(e); }
+    if (a) { a.g.position.set(x, y, z); a.egg = true; a.spec = tag; U.st.sp[tag] = (U.st.sp[tag] || 0) + 1; } return a; };
+  const alive = a => a && mobs.indexOf(a) >= 0 && a.g && a.g.parent;
+  const topAt = (x, z) => { try { return solidTop(Math.floor(x), Math.floor(z)) + 1; } catch (_) { return P.y; } };
+  const raining = () => typeof weather !== 'undefined' && weather.type && weather.type !== 'clear';
+  const dist = (p, x, z) => Math.hypot(p.x - x, p.z - z);
+  // ---- slots: one (or a few) mobs per place, re-armed some time after they go ----
+  const slots = new Map();   // tag -> {a: [mobs], cd}
+  function keep(tag, want, n, make, dt) { let s = slots.get(tag); if (!s) slots.set(tag, s = {a: [], cd: 0});
+    s.a = s.a.filter(alive);
+    if (!want) { for (const a of s.a) dropMob(a, true); s.a = []; return; }
+    if (s.a.length >= n) return; s.cd -= dt; if (s.cd > 0) return; const a = make(s.a.length); s.cd = a ? 40 + Math.random() * 50 : 4; if (a) s.a.push(a); }
+  U.slots = slots;
+  // ---- ruby sites on high stone: the Snaw Brute stands guard ----
+  let rScan = 0, rWorld = null;
+  let rs = null;   // scanned a few rows at a time so there is no hitch
+  function rubyScan() { if (!rs) rs = {x: 4, R: [], seen: new Set()}; const RU = T.RUBYORE || 232, x1 = Math.min(W - 4, rs.x + 24);
+    for (let x = rs.x; x < x1; x++) for (let z = 4; z < D - 4; z++) { const t = solidTop(x, z); if (t < SEA + 14) continue; const b = getB(x, t, z); if (b !== T.STONE && b !== RU && b !== (T.SNOW || -1) && b !== (T.GRAVEL || 202)) continue;
+      for (let y = t; y > t - 7; y--) if (getB(x, y, z) === RU) { const k = ((x / 14) | 0) + ',' + ((z / 14) | 0); if (!rs.seen.has(k)) { rs.seen.add(k); rs.R.push([x, y, z, t]); } break; } }
+    rs.x = x1; if (rs.x >= W - 4) { const R = rs.R; rs = null; return R; } return null; }
+  // ---- the death spot ----
+  const dkey = () => 'glen_death_' + (current && current.id);
+  const dd = die; die = function () { try { if (!dead && started && !DIM.cur && current && current.id) { const s = [+P.x.toFixed(1), +P.y.toFixed(1), +P.z.toFixed(1), dayNum]; localStorage.setItem(dkey(), JSON.stringify(s)); U.death = s; } } catch (_) {} return dd.apply(this, arguments); };
+  let lurkNight = -1;
+  // ---- farmers can be struck down; their ghost (Cleek Jack) rises ----
+  const FH = 10;
+  const ui = updateInteraction; updateInteraction = function (dt) {
+    try { const F = window.__c113, att = attackMouse || attackPad || attackTouch; if (att && F && F.aim && !menuOpen && !paused && !dead && started && !DIM.cur && !(window.__c145 && __c145.gunHeld && __c145.gunHeld())) {
+        const h = F.aim(3.4); if (h && !h.f.dead) { const rs = raycast(5, true); let m = null; try { m = reachMob(Math.min(3.4, rs ? rs.t : 3.4)); } catch (_) {} const md = m && m.g ? Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z) : 1e9;
+          if (h.d < md && (!rs || rs.t > h.d)) { if (attackCd > 0) attackCd -= dt; if (attackCd <= 0) { attackCd = 0.42; try { swing(); } catch (_) {} hitFarmer(h.f); } return; } } } } catch (e) { U.err = 'farm ' + e; }
+    return ui.apply(this, arguments); };
+  function hitFarmer(f) { f.hp = (f.hp === undefined ? FH : f.hp) - 3; const p = f.m.g.position; try { burst(p.x, p.y + 1.2, p.z, 0xc02020, 6, 0.4); sfx('hurt', 0.6); } catch (_) {}
+    f.st = 'idle'; f.t = 2; f.wp = []; f.task = null; try { f.m.g.traverse(o => { if (o.material && o.material.emissive) { o.material.emissive.setHex(0x601010); setTimeout(() => { try { o.material.emissive.setHex(0); } catch (_) {} }, 160); } }); } catch (_) {}
+    if (f.hp > 0) { try { window.__c113.huhF && __c113.huhF(f); } catch (_) {} return; }
+    f.dead = true; f.deadDay = dayNum; U.st.farmerKills = (U.st.farmerKills || 0) + 1; try { burst(p.x, p.y + 1, p.z, 0xe8e8ff, 18, 1); toast(f.name + ' is gone... something stirs.'); } catch (_) {}
+    const x = p.x, y = (f.st === 'sleep' ? Math.floor(p.y) : p.y), z = p.z; setTimeout(() => { if (!started || DIM.cur) return; const a = spawn('nm27', x, Math.max(y, topAt(x, z)), z, 'cleek'); if (a) { a.farmer = f.name; U.st.cleek = (U.st.cleek || 0) + 1; } }, 700); }
+  // ---- the per-frame pass ----
+  let acc = 0;
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { // sweep anything egg-only that slipped in from an old spawner
+      for (let i = mobs.length - 1; i >= 0; i--) { const a = mobs[i]; if (!a || a.egg) continue; const k = a.giant ? 'giant' : a.kind; if (DIS.has(k) || (SPEC.has(k) && !a.spec)) { dropMob(a); U.st.sw++; } }
+      const F = window.__c113; if (F && F.folk) for (const f of F.folk) { if (!f.dead) continue; f.m.g.visible = false; if (dayNum > f.deadDay && !isNight) { f.dead = false; f.hp = FH; } }
+      acc += dt; if (acc >= 0.5) { const s = acc; acc = 0; specials(s); } } catch (e) { U.err = String(e && e.stack || e); }
+    return r; };
+  function specials(dt) { const ok = live(), hell = DIM.cur === 'hell', over = ok && !DIM.cur, S = (window.__c142 && __c142.sites) || {};
+    // nether: the Glower Orb
+    keep('orb', ok && hell, 2, () => { for (let t = 0; t < 10; t++) { const an = Math.random() * 6.28, r = 12 + Math.random() * 12, x = P.x + Math.sin(an) * r, z = P.z + Math.cos(an) * r, y = Math.floor(P.y) + 2;
+        if (!solid(Math.floor(x), y, Math.floor(z)) && !solid(Math.floor(x), y + 1, Math.floor(z))) return spawn('nm16', x, y, z, 'orb'); } return null; }, dt);
+    // rain: Thunner Cloudies overhead
+    keep('rain', over && raining() && caveK < 0.4, 2, () => { const an = Math.random() * 6.28, r = 16 + Math.random() * 14, x = P.x + Math.sin(an) * r, z = P.z + Math.cos(an) * r; if (x < 4 || z < 4 || x > W - 4 || z > D - 4) return null; return spawn('nm22', x, topAt(x, z) + 3, z, 'rain'); }, dt);
+    // ruby sites on the mountains: the Snaw Brute (day and night)
+    if (over && (rWorld !== (current && current.id + ':' + gSeed))) { rScan -= dt; if (rScan <= 0) { try { const R = rubyScan(); if (R) { U.ruby = R; rWorld = current && current.id + ':' + gSeed; } } catch (e) { U.ruby = []; rs = null; rWorld = current && current.id + ':' + gSeed; U.err = 'ruby ' + e; } } }
+    { let near = null, nd = 44; for (const s of U.ruby || []) { const d = dist(P, s[0], s[2]); if (d < nd) { nd = d; near = s; } }
+      keep('brute', over && !!near, 1, () => { const [x, , z] = near; for (let t = 0; t < 8; t++) { const X = x + ((Math.random() * 7) | 0) - 3, Z = z + ((Math.random() * 7) | 0) - 3, Y = topAt(X, Z); if (Y > SEA + 12 && !getB(X, Y, Z) && !getB(X, Y + 1, Z) && !getB(X, Y + 2, Z)) { const a = spawn('nm07', X + .5, Y, Z + .5, 'brute'); if (a) a.guard = [x, z]; return a; } } return null; }, dt); }
+    // the sand island: Sneerin' Swaddles on the dunes at night; the tomb: Barrow Bandagers (always)
+    const I = S.isle; const onIsle = I && dist(P, I.c[0], I.c[1]) < I.r + 30;
+    keep('swaddle', over && isNight && !!onIsle && I.surf && I.surf.length, 2, () => { const [x, z] = I.surf[(Math.random() * I.surf.length) | 0]; if (dist(P, x, z) < 10) return null; return spawn('nm13', x + .5, topAt(x, z), z + .5, 'swaddle'); }, dt);
+    const tb = I && I.tomb; keep('tomb', over && !!tb && tb.pts.length && dist(P, tb.x, tb.z) < 36 && P.y < SEA + 2, 2, () => { const p = tb.pts[(Math.random() * tb.pts.length) | 0]; return spawn('nm09', p[0], p[1], p[2], 'tomb'); }, dt);
+    // the moss hag's hut
+    const h = S.hut; keep('hag', over && !!h && dist(P, h.x, h.z) < 48, 1, () => spawn('nm11', h.x, h.y, h.z, 'hag'), dt);
+    // the longship: Admiral Skelp on deck
+    const b = S.boat; keep('skelp', over && !!b && b.deck && b.deck.length && dist(P, b.x, b.z) < 56, 1, () => { const p = b.deck[0]; const a = spawn('nm12', p[0], p[1], p[2], 'skelp'); if (a) a.post = p; return a; }, dt);
+    // the place you last died: the Lang Hat Lurker, once a night
+    if (!U.death) try { U.death = JSON.parse(localStorage.getItem(dkey()) || 'null'); } catch (_) {}
+    const ds = U.death; keep('lurk', over && isNight && !!ds && (dist(P, ds[0], ds[2]) < 40 || (slots.get('lurk') || {a: []}).a.length > 0), 1, () => { if (lurkNight === dayNum || dist(P, ds[0], ds[2]) < 8) return null; lurkNight = dayNum; return spawn('nm14', ds[0], Math.max(ds[1], topAt(ds[0], ds[2])), ds[2], 'lurk'); }, dt);
+    // specials that wander far from home go back (the Admiral stays on his ship)
+    for (const a of (slots.get('skelp') || {a: []}).a) if (a.post && dist(a.g.position, a.post[0], a.post[2]) > 9) { a.g.position.set(a.post[0], a.post[1], a.post[2]); a.vy = 0; }
+  }
+  const ew = enterWorld; enterWorld = function () { slots.clear(); U.ruby = null; rWorld = null; rScan = 2; U.death = null; lurkNight = -1; rs = null; return ew.apply(this, arguments); };
+})();
+
+/* ===================== GLX-C144 (v1.0.21): ONE spawn egg - LT / right-click / tap Place opens a list of every mob (Enabled = spawns in the world, Disabled = egg only); pick one and it hatches where you aim ===================== */
+(function c144() {
+  const U = window.__c144 = {err: null, spawned: 0, open: false, last: null};
+  const D = window.__c143 || {DIS: new Set()}, C = window.__c123 || {DEF: {}};
+  let UNI = 790; while (NAMES[UNI] !== undefined || ICONS[UNI]) UNI++; IT.EGG_ANY = UNI; U.id = UNI;
+  NAMES[UNI] = 'Spawn egg'; try { if (typeof DESC !== 'undefined' && DESC) DESC[UNI] = 'LT / right-click / tap Place: pick any mob from the list'; } catch (_) {}
+  ICONS[UNI] = drawIcon(g => { const gr = g.createLinearGradient(-18, -24, 18, 26); gr.addColorStop(0, '#2a2418'); gr.addColorStop(1, '#0c0a08'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 2, 18, 24, 0, 0, 7); g.fill();
+    g.strokeStyle = '#e0b84a'; g.lineWidth = 2.5; g.stroke(); g.fillStyle = '#e0b84a'; for (let j = 0; j < 9; j++) { g.beginPath(); g.arc(Math.sin(j * 2.4) * 10, Math.cos(j * 1.7) * 14 + 2, 2 + (j % 3), 0, 7); g.fill(); }
+    g.fillStyle = 'rgba(255,240,200,.25)'; g.beginPath(); g.ellipse(-7, -8, 5, 8, -0.4, 0, 7); g.fill(); });
+  const isEgg = i => i !== UNI && typeof NAMES[i] === 'string' && NAMES[i].startsWith('Spawn egg: ');
+  const KEY = {}; for (const k in IT) if (k.startsWith('EGG_') && k !== 'EGG_ANY') KEY[IT[k]] = k.slice(4).toLowerCase();
+  const HIDE = new Set(['nm20', 'nm29']); const OLD_SPIDER = IT.EGG_SPIDER;   // the old spider egg is the night spider's twin
+  try { if (IT.EGG_NM10) NAMES[IT.EGG_NM10] = 'Spawn egg: Ghost'; if (IT.EGG_GHOST) NAMES[IT.EGG_GHOST] = 'Spawn egg: Nether ghost'; } catch (_) {}
+  const nice = id => { const k = KEY[id]; if (k && C.DEF[k]) return C.DEF[k].name; const n = NAMES[id].slice(11); return n.charAt(0).toUpperCase() + n.slice(1); };
+  function entries() { const all = Object.keys(NAMES).map(Number).filter(isEgg).filter(i => !HIDE.has(KEY[i]) && i !== OLD_SPIDER);
+    const L = all.map(id => ({id, key: KEY[id] || ('id' + id), name: nice(id), off: D.DIS.has(KEY[id])})).sort((p, q) => p.name.toLowerCase().localeCompare(q.name.toLowerCase()));
+    return {on: L.filter(e => !e.off), off: L.filter(e => e.off)}; }
+  U.entries = entries;
+  // ---- one egg in the inventories ----
+  const strip = A => { if (!Array.isArray(A)) return; let at = A.findIndex(isEgg); const had = at >= 0 || A.includes(UNI); const B = A.filter(i => !isEgg(i) && i !== UNI); if (had) B.splice(at >= 0 ? Math.min(at, B.length) : B.length, 0, UNI); A.length = 0; A.push(...B); };
+  strip(ORDER); try { strip(CREATIVE_ALL); } catch (_) {}
+  function convert() { try { if (!started) return; let n = 0; for (const k in inv) { const i = +k; if (isEgg(i) && inv[i] > 0) { n += inv[i]; inv[i] = 0; } } if (n) inv[UNI] = (inv[UNI] || 0) + n;
+      if (MODE && Array.isArray(MODE.hotbar)) { let put = MODE.hotbar.includes(UNI); for (let j = 0; j < MODE.hotbar.length; j++) if (isEgg(MODE.hotbar[j])) { if (!put) { MODE.hotbar[j] = UNI; put = true; } else MODE.hotbar[j] = UNI; } }
+      if (isEgg(selId)) { selId = UNI; n = 1; } if (n) { try { renderHotbar(); } catch (_) {} } } catch (e) { U.err = 'conv ' + e; } }
+  setInterval(convert, 1000); U.convert = convert;
+  // ---- the list ----
+  let ui = null, focus = 0;
+  const css = 'position:fixed;inset:0;z-index:67;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)';
+  function build() { ui = document.createElement('div'); ui.id = 'eggUI'; ui.className = 'hidden'; ui.dataset.testid = 'egg-list'; ui.style.cssText = css; document.body.appendChild(ui);
+    const st = document.createElement('style'); st.textContent = '#eggUI.hidden{display:none!important}#eggUI .ep{background:rgba(8,7,5,.96);border:2px solid #c9a23a;border-radius:12px;color:#f0d890;font:15px system-ui,sans-serif;width:min(760px,94vw);max-height:88vh;display:flex;flex-direction:column;box-shadow:0 0 0 4px rgba(0,0,0,.6),0 10px 40px #000}'
+      + '#eggUI h3{margin:0;padding:12px 16px 6px;color:#ffd866;font-size:20px;letter-spacing:.5px}#eggUI .sub{padding:0 16px 8px;font-size:12px;opacity:.75}#eggUI .sc{overflow:auto;padding:0 12px 10px;-webkit-overflow-scrolling:touch}'
+      + '#eggUI .sec{margin:10px 4px 6px;padding-bottom:3px;border-bottom:1px solid #6a5420;color:#e8c050;font-weight:700;text-transform:uppercase;font-size:13px;letter-spacing:1px}#eggUI .sec.off{color:#b08a50}'
+      + '#eggUI .gr{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px}#eggUI button{display:flex;align-items:center;gap:8px;background:#15120c;border:1px solid #4a3c18;border-radius:8px;color:#f4e2a8;padding:6px 8px;font:inherit;text-align:left;cursor:pointer;min-height:40px}'
+      + '#eggUI button img{width:28px;height:28px;image-rendering:auto;flex:none}#eggUI button.off{color:#c8b48a;background:#100e0a}#eggUI button.focus,#eggUI button:hover{border-color:#ffd866;background:#2a2210;box-shadow:0 0 0 2px #ffd86655 inset}'
+      + '#eggUI .ft{display:flex;gap:8px;padding:8px 12px 12px;border-top:1px solid #3a2e12}#eggUI .ft button{justify-content:center;flex:1}#eggUI .tag{margin-left:auto;font-size:11px;opacity:.65}@media (max-width:520px){#eggUI .gr{grid-template-columns:1fr 1fr}#eggUI .ep{font-size:14px}}';
+    document.head.appendChild(st);
+    ui.addEventListener('pointerdown', e => e.stopPropagation()); ui.addEventListener('click', e => { if (e.target === ui) close(); }); }
+  const items = () => ui ? [...ui.querySelectorAll('button')] : [];
+  function render() { const E = entries(); const row = e => '<button data-id="' + e.id + '" data-testid="egg-pick-' + e.key + '" class="' + (e.off ? 'off' : '') + '"><img src="' + ICONS[e.id] + '" alt="">' + e.name + (U.last === e.id ? '<span class="tag">last</span>' : '') + '</button>';
+    ui.innerHTML = '<div class="ep"><h3>Spawn egg</h3><div class="sub">Pick a mob - it hatches where you are aiming. ' + (MODE && MODE.infinite ? 'Creative: endless eggs.' : 'Uses one egg.') + '</div><div class="sc">'
+      + '<div class="sec">Enabled - found in the world (' + E.on.length + ')</div><div class="gr">' + E.on.map(row).join('') + '</div>'
+      + '<div class="sec off">Disabled - egg only (' + E.off.length + ')</div><div class="gr">' + E.off.map(row).join('') + '</div></div>'
+      + '<div class="ft"><button data-x="1" data-testid="egg-close">Close</button></div></div>';
+    items().forEach(b => b.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); if (b.dataset.id) pick(+b.dataset.id); else close(); }); refocus(); }
+  function refocus() { const it = items(); if (!it.length) return; focus = Math.max(0, Math.min(focus, it.length - 1)); it.forEach((b, i) => b.classList.toggle('focus', i === focus)); try { it[focus].scrollIntoView({block: 'nearest'}); } catch (_) {} }
+  function open() { if (!ui) build(); U.open = true; menuOpen = true; attackMouse = attackPad = attackTouch = false; ui.classList.remove('hidden'); render(); const it = items(); const li = it.findIndex(b => +b.dataset.id === U.last); focus = li >= 0 ? li : 0; refocus();
+    try { sfx('pop', .4); } catch (_) {} if (document.pointerLockElement) document.exitPointerLock(); }
+  function hide() { U.open = false; if (ui) ui.classList.add('hidden'); }
+  function close() { if (!U.open) return; hide(); openMenu(false); }
+  U.openList = open; U.close = close;
+  // pick: the chosen egg is used for real (same rules as its old egg), then the one egg is back in your hand
+  function pick(id) { hide(); openMenu(false); U.last = id; spawnWith(id); }
+  function spawnWith(id) { if (!(MODE.infinite || cnt(UNI) > 0)) return null; const sv = inv[id], sel = selId, n0 = mobs.length; selId = id; inv[id] = 1;
+    try { ui0.call(this); } catch (e) { U.err = 'spawn ' + e; } finally { selId = sel; if (sv === undefined) delete inv[id]; else inv[id] = sv; }
+    if (!MODE.infinite) { useUp(UNI); if (!(cnt(UNI) > 0)) { try { selId = sel; } catch (_) {} } } U.spawned++; U.lastN = mobs.length - n0; try { renderHotbar(); } catch (_) {} return mobs[mobs.length - 1]; }
+  U.spawnWith = spawnWith;
+  const ui0 = useItem; useItem = function () { if (selId === UNI) { if (U.open || menuOpen || paused || dead || !started) return; if (!(MODE.infinite || cnt(UNI) > 0)) return; open(); return; } return ui0.apply(this, arguments); };
+  const cp = closePanels; closePanels = function () { hide(); return cp.apply(this, arguments); };
+  // controller: D-pad / stick moves by geometry, A picks, B closes
+  function nav(dx, dy) { const it = items(); const a = it[focus]; if (!a) return; const r0 = a.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2; let best = -1, bd = 1e9;
+    it.forEach((b, i) => { if (i === focus) return; const r = b.getBoundingClientRect(), x = r.left + r.width / 2 - cx, y = r.top + r.height / 2 - cy; if (dx && Math.sign(x) !== dx) return; if (dy && Math.sign(y) !== dy) return; if (dx && Math.abs(y) > r0.height * 0.6) return;
+      const d = dx ? Math.abs(x) + Math.abs(y) * 3 : Math.abs(y) + Math.abs(x) * 0.6; if (d < bd) { bd = d; best = i; } });
+    if (best < 0 && dx) best = Math.max(0, Math.min(it.length - 1, focus + dx)); if (best >= 0) { focus = best; refocus(); } }
+  let stickT = 0;
+  const mpi = menuPadInput; menuPadInput = function (E, axes) { if (!U.open) return mpi.apply(this, arguments);
+    if (E[1]) { close(); return; } if (E[12]) nav(0, -1); if (E[13]) nav(0, 1); if (E[14]) nav(-1, 0); if (E[15]) nav(1, 0);
+    try { const ax = axes && axes[0] || 0, ay = axes && axes[1] || 0, now = performance.now(); if ((Math.abs(ax) > 0.6 || Math.abs(ay) > 0.6) && now > stickT) { stickT = now + 180; if (Math.abs(ax) > Math.abs(ay)) nav(Math.sign(ax), 0); else nav(0, Math.sign(ay)); } } catch (_) {}
+    if (E[0]) { const b = items()[focus]; if (b) b.click(); } };
+  addEventListener('keydown', e => { if (!U.open) return; const k = e.key;
+    if (k === 'Escape' || k === 'Backspace' || e.code === 'KeyE') close(); else if (k === 'ArrowDown') nav(0, 1); else if (k === 'ArrowUp') nav(0, -1); else if (k === 'ArrowLeft') nav(-1, 0); else if (k === 'ArrowRight') nav(1, 0);
+    else if (k === 'Enter' || k === ' ') { const b = items()[focus]; if (b) b.click(); } else return; e.preventDefault(); e.stopImmediatePropagation(); }, true);
+})();
+
+/* ===================== GLX-C145 (v1.0.21): the Highland musket - an old Scottish flintlock (no scope) + hold LT / right mouse to aim down the iron sights ===================== */
+(function c145() {
+  const MK = IT.MUSKET || 213, S = window.__c145 = {adsK: 0, hold: false, force: 0, fired: 0, swallowed: 0, err: null, built: 0, icon: 0};
+  const warn = (w, e) => { S.err = w + ': ' + (e && e.message || e); console.warn('c145', w, e); };
+  const musket = () => selId === MK && (MODE.infinite || cnt(MK) > 0);
+  S.gunHeld = () => { try { return !!(GUN[selId] && cnt(selId) > 0); } catch (_) { return false; } };
+  try { NAMES[MK] = 'Highland musket'; for (const r of RECIPES) if (r.out === MK) r.name = 'Highland musket'; } catch (_) {}
+  // ---- Glencraft pixel textures (32 px tiles, crisp) ----
+  let sd = 1451; const rnd = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+  const px = (fn) => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); fn(g); const t = new THREE.CanvasTexture(c);
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.c121s = 1; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; };
+  const dots = (g, cols, n) => { for (let i = 0; i < n; i++) { g.fillStyle = cols[(rnd() * cols.length) | 0]; g.fillRect((rnd() * 32) | 0, (rnd() * 32) | 0, 1, 1); } };
+  const TX = {
+    wood: px(g => { g.fillStyle = '#3b2212'; g.fillRect(0, 0, 32, 32); for (let y = 0; y < 32; y++) { if (rnd() < 0.45) { g.fillStyle = rnd() < 0.5 ? '#2c180c' : '#4a2c16'; let x = (rnd() * 32) | 0; const l = 6 + (rnd() * 20) | 0; g.fillRect(x, y, l, 1); g.fillRect(x - 32, y, l, 1); } }
+      dots(g, ['#5a3820', '#23130a', '#452814'], 40); g.fillStyle = '#23130a'; g.fillRect(20, 12, 2, 2); g.fillStyle = '#2c180c'; g.fillRect(19, 11, 4, 1); }),
+    brass: px(g => { g.fillStyle = '#b08a32'; g.fillRect(0, 0, 32, 32); dots(g, ['#c9a548', '#8a6a22', '#e0c070', '#9c7a2a'], 260); for (let x = 0; x < 32; x += 8) { g.fillStyle = '#d8b858'; g.fillRect(x, 0, 1, 32); } }),
+    iron: px(g => { g.fillStyle = '#3c3f44'; g.fillRect(0, 0, 32, 32); dots(g, ['#2e3034', '#50545a', '#3a4250', '#5e6268'], 300); g.fillStyle = '#5a5e64'; g.fillRect(0, 0, 32, 1); g.fillRect(0, 16, 32, 1); }),
+    flint: px(g => { g.fillStyle = '#8a8a80'; g.fillRect(0, 0, 32, 32); dots(g, ['#6e6e66', '#a8a89c'], 200); })
+  };
+  const MAT = {}; for (const k in TX) { MAT[k] = new THREE.MeshStandardMaterial({map: TX[k], roughness: k === 'wood' ? 0.8 : k === 'brass' ? 0.4 : 0.5, metalness: k === 'brass' ? 0.6 : k === 'iron' ? 0.45 : 0}); MAT[k].c121 = 1; }
+  // box with world-sized UVs (one 32 px tile per 16 cm, grain along the long axis) so the pixels stay square
+  const TILE = 0.16;
+  function pbox(p, m, w, h, d, x, y, z, rx) { const geo = new THREE.BoxGeometry(w, h, d), P = geo.attributes.position, N = geo.attributes.normal, UV = geo.attributes.uv;
+    for (let i = 0; i < P.count; i++) { const nx = Math.abs(N.getX(i)), ny = Math.abs(N.getY(i)); const X = P.getX(i) + x, Y = P.getY(i) + y, Z = P.getZ(i) + z;
+      if (nx > 0.5) UV.setXY(i, Z / TILE, Y / TILE); else if (ny > 0.5) UV.setXY(i, Z / TILE, X / TILE); else UV.setXY(i, X / TILE, Y / TILE); }
+    UV.needsUpdate = true; const b = new THREE.Mesh(geo, MAT[m]); b.position.set(x, y, z); if (rx) b.rotation.x = rx; b.castShadow = false; p.add(b); return b; }
+  // ---- the flintlock, barrel along -z (same frame as the old rifle so poses/animations still fit) ----
+  const SIGHT = new THREE.Vector3(0, 0.053, 0.04);
+  function build(g) { const u = g.userData, rig = u.rig; if (!rig) return; while (rig.children.length) rig.remove(rig.children[0]);
+    // long full stock in dark walnut with a drooping Highland butt
+    pbox(rig, 'wood', 0.044, 0.034, 0.58, 0, 0.012, -0.21);             // fore-end, almost to the muzzle
+    pbox(rig, 'wood', 0.048, 0.056, 0.12, 0, 0.0, 0.14);                // lock area
+    pbox(rig, 'wood', 0.04, 0.042, 0.11, 0, -0.014, 0.25, 0.08);        // wrist
+    pbox(rig, 'wood', 0.046, 0.11, 0.18, 0, -0.05, 0.385, 0.1);         // butt
+    pbox(rig, 'brass', 0.049, 0.116, 0.012, 0, -0.058, 0.478, 0.1);     // brass butt plate
+    pbox(rig, 'brass', 0.046, 0.036, 0.02, 0, 0.012, -0.51);            // nose cap
+    pbox(rig, 'brass', 0.003, 0.026, 0.07, -0.026, 0.004, 0.14);        // side plate
+    pbox(rig, 'brass', 0.03, 0.004, 0.03, 0, 0.032, 0.27);              // wrist escutcheon
+    // long iron barrel, breech and muzzle ring
+    pbox(rig, 'iron', 0.024, 0.024, 0.78, 0, 0.03, -0.31);
+    pbox(rig, 'iron', 0.028, 0.028, 0.05, 0, 0.03, 0.075);
+    pbox(rig, 'iron', 0.027, 0.027, 0.012, 0, 0.03, -0.695);
+    // ramrod in brass pipes under the barrel
+    pbox(rig, 'wood', 0.008, 0.008, 0.68, 0, -0.012, -0.3);
+    for (const z of [-0.12, -0.3, -0.46]) pbox(rig, 'brass', 0.014, 0.014, 0.03, 0, -0.012, z);
+    // brass trigger guard + iron trigger
+    pbox(rig, 'brass', 0.012, 0.006, 0.1, 0, -0.04, 0.17); pbox(rig, 'brass', 0.012, 0.02, 0.006, 0, -0.03, 0.12); pbox(rig, 'brass', 0.012, 0.02, 0.006, 0, -0.03, 0.22);
+    pbox(rig, 'iron', 0.006, 0.022, 0.006, 0, -0.024, 0.165, -0.3);
+    // flintlock on the right: lock plate, brass pan, frizzen, and the cock holding a flint
+    pbox(rig, 'iron', 0.004, 0.03, 0.1, 0.026, 0.012, 0.13);
+    pbox(rig, 'brass', 0.014, 0.008, 0.018, 0.03, 0.03, 0.092);
+    pbox(rig, 'iron', 0.006, 0.03, 0.006, 0.03, 0.048, 0.086, -0.2);
+    const slide = new THREE.Group(); rig.add(slide); const cock = new THREE.Group(); cock.position.set(0.032, 0.022, 0.15); slide.add(cock);
+    pbox(cock, 'iron', 0.006, 0.04, 0.01, 0, 0.018, 0, 0.55); pbox(cock, 'iron', 0.01, 0.012, 0.018, 0, 0.038, -0.016); pbox(cock, 'flint', 0.008, 0.006, 0.012, 0, 0.038, -0.03);
+    // iron sights: brass front blade at the muzzle, notched rear sight on the breech
+    pbox(rig, 'brass', 0.003, 0.014, 0.008, 0, 0.047, -0.675);
+    pbox(rig, 'iron', 0.02, 0.006, 0.01, 0, 0.048, 0.04); pbox(rig, 'iron', 0.004, 0.008, 0.006, -0.0055, 0.053, 0.04); pbox(rig, 'iron', 0.004, 0.008, 0.006, 0.0055, 0.053, 0.04);
+    const muzzle = new THREE.Object3D(); muzzle.position.set(0, 0.03, -0.71); rig.add(muzzle);
+    const mag = new THREE.Group(); rig.add(mag);
+    Object.assign(u, {slide, mag, muzzle, cock, flint: 1, sight: SIGHT.clone()});
+    rig.traverse(c => { if (c.isMesh) c.layers.mask = g.layers.mask; }); S.built++; }
+  try { const mi = makeItemMesh; makeItemMesh = function (id) { const m = mi.apply(this, arguments); try { if (id === MK && m && m.userData && m.userData.rig) build(m); } catch (e) { warn('build', e); } return m; }; } catch (e) { warn('wrapMesh', e); }
+  // ---- pixel icon: a flintlock on the diagonal, butt bottom-left, muzzle top-right ----
+  function icon() { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const R = Math.SQRT1_2; sd = 77;
+    const W = {wood: ['#3b2212', '#4e2e18', '#2a170b'], brass: ['#b08a32', '#e0c070', '#7a5c1c'], iron: ['#44484e', '#6a7078', '#24262a'], flint: ['#8a8a80', '#a8a89c', '#5a5a52']};
+    const reg = (a, up) => {   // a: 0 butt -> 76 muzzle, up: pixels above the bore line
+      if (a >= 73 && a < 75 && up >= 3 && up < 5.5) return 'brass';
+      if (a >= 39 && a < 41 && up >= 3 && up < 4.8) return 'iron';
+      if (a >= 30 && a < 76 && up >= 1 && up < 3.4) return 'iron';
+      if (a >= 33 && a < 37 && up >= 3 && up < 7) return a > 35.5 && up > 5 ? 'flint' : 'iron';
+      if (a >= 0 && a < 1.6 && up >= -8 && up < 3) return 'brass';
+      if (a >= 64 && a < 66 && up >= -1.6 && up < 1.4) return 'brass';
+      for (const p of [46, 54, 61]) if (a >= p && a < p + 1.6 && up >= -2.8 && up < -1.4) return 'brass';
+      if (a >= 22 && a < 31 && up >= -5.6 && up < -2.6 && !(a >= 23.5 && a < 29.5 && up >= -4.4)) return 'brass';
+      if (a >= 29 && a < 37 && up >= -0.6 && up < 1.8) return 'iron';
+      if (a < 18) return up >= -8 + a * 0.18 && up < 2.8 ? 'wood' : null;
+      if (a < 28) return up >= -3 && up < 2.4 ? 'wood' : null;
+      if (a < 38) return up >= -3 && up < 3 ? 'wood' : null;
+      if (a < 64) return up >= -1.4 && up < 1.2 ? 'wood' : null;
+      return null; };
+    const grid = []; for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) { const dx = x + 0.5 - 6, dy = y + 0.5 - 58; const a = (dx - dy) * R, up = -(dx + dy) * R; grid[y * 64 + x] = a >= 0 && a <= 77 ? reg(a, up) : null; }
+    for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) { const k = grid[y * 64 + x]; if (k) { const above = y > 0 && x > 0 ? grid[(y - 1) * 64 + x - 1] : null, below = y < 63 && x < 63 ? grid[(y + 1) * 64 + x + 1] : null;
+        const p = W[k]; g.fillStyle = above !== k ? p[1] : below !== k ? p[2] : (rnd() < 0.18 ? p[(rnd() * 3) | 0] : p[0]); g.fillRect(x, y, 1, 1); }
+      else if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([u, v]) => { const X = x + u, Y = y + v; return X >= 0 && Y >= 0 && X < 64 && Y < 64 && grid[Y * 64 + X]; })) { g.fillStyle = '#140a04'; g.fillRect(x, y, 1, 1); } }
+    const big = document.createElement('canvas'); big.width = big.height = 256; const b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(c, 0, 0, 256, 256); return big.toDataURL(); }
+  let ICON = null; try { ICON = icon(); } catch (e) { warn('icon', e); }
+  const setIco = () => { if (!ICON || ICONS[MK] === ICON) return; try { if (window.__c122 && __c122.setIcon) __c122.setIcon(MK, ICON); else if (window.__c121 && __c121.setIcon) __c121.setIcon(MK, ICON); else { ICONS[MK] = ICON; } ICONS[MK] = ICON; try { if (typeof iconCache !== 'undefined') delete iconCache[MK]; } catch (_) {} S.icon++; try { renderHotbar(); } catch (_) {} } catch (e) { warn('seticon', e); } };
+  setIco(); setInterval(setIco, 1500);
+  // ---- input: LT / right mouse / touch Place = hold to aim; RT / left click / touch Break = fire ----
+  let rmb = false, tch = false, trig = false;
+  window.addEventListener('mousedown', e => { if (e.button === 2) rmb = true; if (e.button === 0 && pointerLocked && musket() && started && !menuOpen && !paused && !dead) trig = true; }, true);
+  window.addEventListener('mouseup', e => { if (e.button === 2) rmb = false; }, true);
+  window.addEventListener('blur', () => { rmb = tch = false; });
+  try { const bp = document.getElementById('bPlace'); if (bp) { bp.addEventListener('pointerdown', () => { tch = true; }); ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => bp.addEventListener(ev, () => { tch = false; })); }
+    const bm = document.getElementById('bMine'); if (bm) bm.addEventListener('pointerdown', () => { if (musket()) trig = true; }); } catch (e) { warn('touch', e); }
+  const padB = (i) => { try { for (const g of navigator.getGamepads ? navigator.getGamepads() : []) if (g && g.connected && g.buttons[i] && (g.buttons[i].pressed || g.buttons[i].value > 0.5)) return true; } catch (_) {} return false; };
+  const fire = () => { window.__gunFire = true; try { useItem(); S.fired++; } finally { window.__gunFire = false; } };
+  S.fire = fire;
+  const ui = useItem;
+  useItem = function () { if (musket() && !window.__gunFire && !menuOpen && !paused && !dead && started && !padB(7)) { S.swallowed++; return; } return ui.apply(this, arguments); };
+  const uin = updateInteraction;
+  updateInteraction = function (dt) { if (musket() && started && !menuOpen && !paused && !dead) { if (trig) { trig = false; fire(); } if (attackMouse || attackTouch) { if (attackCd > 0) attackCd -= dt; return; } } else trig = false; return uin.apply(this, arguments); };
+  // less kick when aiming
+  const fg = fireGun; fireGun = function (id) { const G = GUN[id], k0 = G && G.kick; S.shot = performance.now(); if (G && id === MK && S.adsK > 0.3) G.kick = k0 * 0.4; try { return fg.apply(this, arguments); } finally { if (G) G.kick = k0; } };
+  // slower walking while aiming, recoil damped, the cock snaps forward on a shot
+  const up = updatePlayer;
+  updatePlayer = function (dt, mx, mz) { const k = 1 - 0.45 * S.adsK; if (k < 1 && typeof mx === 'number') { arguments[1] = mx * k; if (typeof mz === 'number') arguments[2] = mz * k; }
+    const r = up.apply(this, arguments);
+    try { const g = held.children[0]; if (g && g.userData.cock) { const u = g.userData, d = 1 - 0.55 * S.adsK; if (u.rig) { u.rig.position.z *= d; u.rig.rotation.x *= d; u.rig.position.y *= d; }
+        const t = S.shot ? (performance.now() - S.shot) / 1000 : 9; u.cock.rotation.x = t < 0.06 ? -0.7 * t / 0.06 : t < 0.9 ? -0.7 * (1 - (t - 0.06) / 0.84) : 0; } } catch (_) {}
+    return r; };
+  // ---- aim down sights: zoom + bring the iron sights to the middle of the screen ----
+  const M1 = new THREE.Matrix4(), M2 = new THREE.Matrix4(), Md = new THREE.Matrix4(), v = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), Q0 = new THREE.Quaternion();
+  const relTo = (o, top, out) => { out.identity(); for (let x = o; x && x !== top; x = x.parent) { x.updateMatrix(); out.premultiply(x.matrix); if (x.parent === top) return true; } return false; };
+  const uh = updateHand;
+  updateHand = function (dt) {
+    const want = (musket() && (rmb || tch || padB(6) || S.force) && started && !menuOpen && !paused && !dead) ? 1 : 0; S.hold = !!want;
+    S.s = S.s || 0; S.adsK += (want - S.adsK) * Math.min(1, (dt || 0) * 10); if (S.adsK < 0.002) S.adsK = 0;
+    const f0 = SET.fov; if (S.adsK > 0) SET.fov = f0 * (1 - 0.4 * S.adsK);
+    let r; try { r = uh.apply(this, arguments); } finally { SET.fov = f0; }
+    try { const g = held.children[0], tp = window.__thirdPerson || (typeof camMode !== 'undefined' && camMode);
+      if (S.adsK > 0 && g && g.userData.sight && !tp && relTo(g, hand, M1)) {
+        M1.decompose(v, q, sc); const s = sc.x * hand.scale.x; S.s = s; const now = performance.now() / 1000;
+        const tgt = new THREE.Vector3(Math.sin(now * 1.1) * 0.0012, -0.008 + Math.sin(now * 1.7) * 0.001, -0.3 - 0.16 * s).sub(g.userData.sight.clone().multiplyScalar(s));
+        Md.compose(tgt, Q0, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc);
+        hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } catch (e) { warn('ads', e); }
+    return r; };
+  S.musket = musket;
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -24628,6 +25056,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.21', d:'2026-10-26', notes:["New: the small island by spawn is now a sand island with a sandstone pyramid (Ancient Egypt style) and a tomb in the caves under it; a moss hag's hut stands near the Black Skeleton castle; the old boat is back, moored a bit further out in the river (new world or Reset world to see them)", "New: one Spawn egg replaces all the old eggs - use it (LT / right click / Place) to open a list of every mob, split into Enabled and Disabled, and spawn any of them (all of them in creative)", "New: the Highland musket is now an old Scottish flintlock: long dark wooden stock, brass fittings, flintlock hammer, long iron barrel and iron sights, no scope. Hold LT (right mouse / Place) to aim down the sights: smooth zoom, less sway and kick, slower walking; fire with RT (left click / Break)", "Textures: new Glencraft pixel textures and icon for the musket; the pyramid and island are built from sandstone and sand", "Mobs: only the chosen mobs spawn now - Snaw Brute guards rubies up stony mountain tops, Sneerin' Swaddle on the pyramid island at night, Barrow Bandager in the tomb under it, Rivet Reiver at the skeleton castle, Pest Corbie at the Black Skeleton castle, Moss Hag Morag at her hut, Admiral Skelp on the boat, Glower Orb in the Nether, Thunner Cloudies when it rains, Glaikit Goggler, Tangle Tam and Sunken Swabbies in the ocean, Timmer Tiki on beach sand", "Mobs: Greetin' Bairn, Linen Ghaist and Mist Moaner are merged into one mob called Ghost; Lang Hat Lurker appears at night where you last died; farmers can now be killed and Cleek Jack, the farmer's ghost, rises from him", "Mobs: switched off (egg only): Skull Seer, Puddock Gob, Puffer, Merry Mischanter, Moonlit Selkie, Dreich Gnawer, Drookit Kelpie, Govan Gearheid, Deep Beastie, Crag Gruff, Crackle Conger, Cowl Creepie, Comet Collie, Castle Guardian, Anvil Heid, Wraith Jeelie, Thistle Phantom and the spiders"]},
 {v:'v1.0.20b', d:'2026-10-26', notes:["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]},
 {v:'v1.0.20', d:'2026-10-26', notes:["Glencraft look for the HD mobs: every HD model keeps its shape and animations but now wears Glencraft-style pixel textures (skin, fur, wool, cloth, bone, scales, rock, slime, metal) instead of flat stock colours", "Mobs get their Glencraft colours back: grey-green zombies, pale bone skeletons, clansmen in black jackets with white shirts and tartan trews, a white Snaw Brute with a slate face, a red and white Govan Gearheid, a darker Puddock Gob, and a starry night-sky coat for the Comet Collie", "Hit flashes, lighting, the HD switch in Settings and the blocky fallback all work as before"]},
 {v:'v1.0.19', d:'2026-10-26', notes:["HD unicorn: the egg-only unicorn now uses a detailed animated CC0 white horse (by Quaternius) with its golden-pearl horn kept on its head", "The wizards keep their hand-made look for now (orange or red-brown robes, tall hats, beards, staff, sitting and rune poses): no free robed-wizard model fits yet"]},
