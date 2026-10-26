@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1016a -->
+<!-- glencraft-build: v1017a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.16';
+const GAME_VERSION = 'v1.0.17';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.17', ["HD mob models (batch 2): pig, duck, haggis, imp, ghost, blazing skeleton and the Ember Wyrm now use detailed animated CC0 models (by Quaternius)", "Glencraft touches on the HD models: clansmen wear tartan trews, the haggis and some sheep wear a tartan tam o' shanter, and sheep come in white, cream, grey, brown and black fleeces", "the duck is coloured like a mallard and the ghost is see-through", "creeper and treeman keep their own look (no free model matches them)", "HD models are a little brighter and closer to their true colours"]],
     ['v1.0.16', ["HD mob models (batch 1): sheep, zombie, skeleton, black skeleton, spiders, clansman and demon hound now use detailed animated models (CC0, by Quaternius)", "they walk, run, graze and attack with proper animations; sheared sheep keep the old look until the fleece grows back", "Settings: new 'HD mob models' On/Off switch and a credit line", "models load in the background and are cached; if one can't load, the mob keeps its classic look", "mob health, damage, hitboxes and spawning are unchanged"]],
     ['v1.0.15', ["water: surfaces slope smoothly from block to block and flowing water shows ripples moving downhill", "waterfalls have white foam, a splash of spray at the bottom and a soft rushing sound", "new worlds (and Reset world / Reset terrain) get rivers that run from the hills down to the lochs and the sea, with waterfalls where the land steps down", "river currents gently carry you (and dropped items) downstream; the old flowing-water push is softer"]],
     ['v1.0.14', ["music: the original Glencraft songs are back as chilled remixes - same melodies and chords, no piano, re-voiced on warm pads, low soft plucks, sub bass and a Highland drone, sitting on your frequency tracks (binaural pulse as the groove, surf as texture); quiet, low-passed and crossfaded", "the Highlands are now mostly land: one big squared-off mainland with narrow sea channels round the spawn island and the three castle islands (land/water about 60/40 instead of 23/77), with bigger biomes", "castles sit out towards their island's outer edge with a wide strip of land between them and the shore, and their hills ease back into the land instead of a little islet ring", "smoother, more natural glen hills", "the spawn island's imported water, ship hulls and stray blocks are gone - only Glencraft's own water is left, on solid sand/gravel beds; floating leftovers are cleaned up", "no caves under any water: the sea, lochs and ponds all sit on solid ground, so no more swimming then suddenly falling", "the skull on the spawn island is gone and its dent is now the Great Cave: a wide torch-lit ramp spiralling down into a huge cavern", "exactly 4 deep ravines, each a different shape: a long straight gash on the mainland, a winding S-curve, a wide stepped gorge and a forked Y on the castle islands - all joined to the caves", "caves only under land: winding tunnels with no dead ends lead down to very big caverns (ores and cave mobs as before), plus a few walk-in entrances", "no more sky showing through cave walls at low render distance: underground the fog darkens and closes in and the sky, sun, moon and clouds are hidden (caves are never pitch black)", "map: cleaner crisp colours, clear water and coastline, markers for crofts, ravines and the Great Cave, and a round close-up of your surroundings at the bottom", "the new world generation is used by new worlds and by Reset world; existing worlds keep their land as it is"]],
@@ -24300,12 +24301,12 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 
 /* ===================== GLX-C135 (v1.0.16): HD mob models - CC0 glTF (Quaternius via Poly Pizza), bundled, lazy + cached, animated; procedural mobs stay as the fallback ===================== */
 (function c135() {
-  const U = window.__c135 = {cat: {}, models: {}, err: [], attached: 0, lib: 0, on: () => SET.hd !== 0};
-  const VER = 'v1016', BASE = 'assets/models/', HIDE = 31;
+  const U = window.__c135 = {cat: {}, models: {}, err: [], post: [], frame: [], attached: 0, lib: 0, on: () => SET.hd !== 0};
+  const VER = 'v1017', BASE = 'assets/models/', HIDE = 31;
   // catalogue: kind -> {f: file, k: height x procedural, h: fixed height, clips: {role: clip}, tint, yaw}
   U.add = o => Object.assign(U.cat, o);
   U.add({
-    sheep: {f: 'sheep', k: 1.0, bright: 1.3, proc: a => a.sheared},
+    sheep: {f: 'sheep', k: 1.0, proc: a => a.sheared},
     zombie: {f: 'zombie', k: 1.0, run: 0},
     skeleton: {f: 'skeleton', k: 1.0, walk: 'run'},
     blackskel: {f: 'skeleton', k: 1.0, walk: 'run', tint: 0x3a3a40},
@@ -24319,7 +24320,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   function lib() { if (libP) return libP; libP = new Promise((res, rej) => { if (typeof WebAssembly === 'undefined') return rej('no wasm'); const s = document.createElement('script'); s.src = BASE + 'lib.js?' + VER; s.async = true; s.onload = () => MeshoptDecoder.ready.then(() => { U.lib = 1; res(); }, rej); s.onerror = () => rej('lib'); document.head.appendChild(s); }); return libP; }
   async function buf(url) { let c = null; try { if (window.caches && isSecureContext) { c = await caches.open('glencraft-models'); const r = await c.match(url); if (r) return r.arrayBuffer(); } } catch (_) { c = null; }
     const r = await fetch(url); if (!r.ok) throw new Error(url + ' ' + r.status); if (c) { try { await c.put(url, r.clone()); } catch (_) {} } return r.arrayBuffer(); }
-  const rd = (a, i, c) => { const v = a.array[i * a.itemSize + c]; if (!a.normalized) return v; const A = a.array, mx = A instanceof Int8Array ? 127 : A instanceof Uint8Array ? 255 : A instanceof Int16Array ? 32767 : A instanceof Uint16Array ? 65535 : 1; return Math.max(v / mx, -1); };
+  const rd = (a, i, c) => { const v = a.isInterleavedBufferAttribute ? a.data.array[i * a.data.stride + a.offset + c] : a.array[i * a.itemSize + c]; if (!a.normalized) return v; const A = a.array, mx = A instanceof Int8Array ? 127 : A instanceof Uint8Array ? 255 : A instanceof Int16Array ? 32767 : A instanceof Uint16Array ? 65535 : 1; return Math.max(v / mx, -1); };
   function sbox(m) { m.updateMatrixWorld(true); const b = new THREE.Box3(), v = new THREE.Vector3(), t = new THREE.Vector3(), acc = new THREE.Vector3(), w4 = new THREE.Vector3(), M = new THREE.Matrix4();
     m.traverse(o => { if (!o.isMesh) return; const p = o.geometry.attributes.position, si = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight, st = Math.max(1, (p.count / 400) | 0);
       for (let i = 0; i < p.count; i += st) { v.set(rd(p, i, 0), rd(p, i, 1), rd(p, i, 2));
@@ -24331,14 +24332,14 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       const clips = {}; for (const a of g.animations) clips[a.name] = a;
       // measure in the idle (or first) pose so T-poses don't skew the size
       const probe = THREE.SkeletonUtils.clone(g.scene), mx = new THREE.AnimationMixer(probe), a0 = clips.idle || clips.walk || g.animations[0]; if (a0) { mx.clipAction(a0).play(); mx.update(0.01); }
-      const b = sbox(probe); Object.assign(M, {g, clips, h: b.max.y - b.min.y, y0: b.min.y, cx: (b.min.x + b.max.x) / 2, cz: (b.min.z + b.max.z) / 2, ready: true});
+      const b = sbox(probe); Object.assign(M, {g, clips, h: b.max.y - b.min.y, l: Math.max(b.max.x - b.min.x, b.max.z - b.min.z), y0: b.min.y, cx: (b.min.x + b.max.x) / 2, cz: (b.min.z + b.max.z) / 2, ready: true});
     }).catch(e => { M.fail = true; U.err.push(kind + ': ' + (e && e.message || e)); });
     return M; }
   // ---- attach: the procedural mesh moves to a hidden layer (still animated, still the hitbox), the model rides on the same group ----
   function procHeight(a) { const g = a.g, ry = g.rotation.y, rz = g.rotation.z, rx = g.rotation.x; g.rotation.set(0, 0, 0); g.updateMatrixWorld(true); const b = new THREE.Box3();
     g.traverse(o => { if (o.isMesh && o.layers.mask !== 1 << HIDE && !(o.userData && o.userData.hd)) { o.geometry.computeBoundingBox && !o.geometry.boundingBox && o.geometry.computeBoundingBox(); const bb = o.geometry.boundingBox; if (bb) b.union(bb.clone().applyMatrix4(o.matrixWorld)); } });
-    g.rotation.set(rx, ry, rz); g.updateMatrixWorld(true); return b.isEmpty() ? 1 : (b.max.y - g.position.y) / (g.scale.y || 1); }
-  function attach(a, M) { const c = U.cat[a.kind], g = a.g; const hp = c.h || procHeight(a) * (c.k || 1), s = hp / M.h;
+    g.rotation.set(rx, ry, rz); g.updateMatrixWorld(true); if (b.isEmpty()) return 1; const sc = g.scale.y || 1; procHeight.l = Math.max(b.max.x - b.min.x, b.max.z - b.min.z) / sc; return (b.max.y - g.position.y) / sc; }
+  function attach(a, M) { const c = U.cat[a.kind], g = a.g; const hp = c.h || procHeight(a) * (c.k || 1), s = c.fit === 'len' && !c.h ? procHeight.l * (c.k || 1) / M.l : hp / M.h;
     const hd = new THREE.Group(), m = THREE.SkeletonUtils.clone(M.g.scene); hd.add(m); hd.userData.hd = 1;
     m.scale.setScalar(s); m.position.set(-M.cx * s, -M.y0 * s, -M.cz * s);
     let fwd = 1; try { if (a.head) { const p = new THREE.Vector3(); a.head.getWorldPosition(p); g.worldToLocal(p); if (p.z < -0.05) fwd = -1; } } catch (_) {}
@@ -24346,8 +24347,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const hidden = []; g.traverse(o => { if (o.isMesh || o.isPoints || o.isLine || o.isSprite) { hidden.push([o, o.layers.mask]); o.layers.set(HIDE); } });
     const mats = []; m.traverse(o => { if (!o.isMesh) return; o.frustumCulled = false; o.castShadow = !PERF; o.userData.hd = 1; const src = [].concat(o.material);
       const out = src.map(sm => { const nm = new THREE.MeshLambertMaterial({color: sm.color ? sm.color.clone() : 0xffffff, map: sm.map || null, vertexColors: !!sm.vertexColors, skinning: !!o.isSkinnedMesh, transparent: !!sm.transparent, opacity: sm.opacity, side: sm.side, alphaTest: sm.alphaTest || 0});
-        if (c.tint) nm.color.multiply(new THREE.Color(c.tint)); if (c.bright) nm.color.multiplyScalar(c.bright); mats.push(nm); return nm; });
+        nm.name = sm.name || ''; if (nm.map) { if (nm.map.encoding !== THREE.LinearEncoding) { nm.map.encoding = THREE.LinearEncoding; nm.map.needsUpdate = true; } } else if (renderer.outputEncoding !== THREE.sRGBEncoding) nm.color.convertLinearToSRGB(); if (c.tint) nm.color.multiply(new THREE.Color(c.tint)); if (c.bright) nm.color.multiplyScalar(c.bright); mats.push(nm); return nm; });
       o.material = Array.isArray(o.material) ? out : out[0]; });
+    for (const f of U.post) { try { f(a, c, M, m, hd, s, mats); } catch (e) { U.err.push('post ' + e); } }
     g.add(hd); mats.forEach(x => a.mats.push(x));
     const mix = new THREE.AnimationMixer(m), act = {}; for (const r in M.clips) act[r] = mix.clipAction(M.clips[r]);
     if (act.attack) { act.attack.setLoop(THREE.LoopOnce, 1); act.attack.clampWhenFinished = false; }
@@ -24368,7 +24370,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     for (const a of mobs) { if (!a || !a.g) continue;
       if (!a.__hd) { if (a.__hdTry === 2 || !U.cat[a.kind]) continue; const M = load(a.kind); if (!M) continue; if (M.fail) { a.__hdTry = 2; continue; } if (M.ready) { try { attach(a, M); } catch (e) { a.__hdTry = 2; U.err.push(a.kind + ' attach ' + e); } } continue; }
       const H = a.__hd, c = U.cat[a.kind]; show(a, H, !(c.proc && c.proc(a))); if (!H.on) continue; const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z); H.acc += dt; if (d > far && (++H.n & 3)) continue; if (d > far * 2.5) { H.acc = 0; continue; }
-      try { animate(a, H, H.acc); H.mix.update(H.acc); } catch (e) { U.err.push('anim ' + e); } H.acc = 0; } }
+      try { animate(a, H, H.acc); H.mix.update(H.acc); for (const f of U.frame) f(a, H, c); } catch (e) { U.err.push('anim ' + e); } H.acc = 0; } }
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { if (started) tick(Math.min(0.1, +dt || 0.016)); } catch (e) { if (U.err.length < 20) U.err.push(String(e)); } return r; };
   const rm = removeMob; removeMob = function (a) { try { if (a && a.__hd) { const H = a.__hd; a.g.remove(H.hd); H.mix.stopAllAction(); a.__hd = null; U.attached--; } } catch (_) {} return rm.apply(this, arguments); };
   // ---- settings: on/off (no reload) + the credit line ----
@@ -24379,6 +24381,86 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { SET.hd = Number(b.dataset.v); saveSet(); if (!SET.hd) U.detachAll(); else for (const a of mobs) a.__hdTry = 0; syncSettingsUI(); }));
       const bs = syncSettingsUI; syncSettingsUI = function () { bs.apply(this, arguments); document.querySelectorAll('#hdSeg button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.hd === 0 ? 0 : 1))); }; syncSettingsUI(); } } catch (e) { U.err.push('settings ' + e); }
   U.sbox = sbox;
+})();
+
+/* ===================== GLX-C136 (v1.0.17): HD models batch 2 + Glencraft dressing (palette recolours, tartan trews, tam o' shanters, sheep fleece colours) ===================== */
+(function c136() {
+  const U = window.__c135; if (!U) return;
+  // ---- helpers usable by any later batch: c.pal (swatch recolour, object or fn(a)), c.mcol (colour by material name), c.op (see-through), c.emis, c.tartan (material names), c.tam ('auto' | true) ----
+  const hex = h => [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  const PT = new Map();
+  function palTex(src, pal) { const key = src.uuid + JSON.stringify(pal); if (PT.has(key)) return PT.get(key);
+    const im = src.image, cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const x = cv.getContext('2d'); x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, cv.width, cv.height), p = d.data, L = Object.entries(pal).map(([f, t]) => [hex(f), hex(t)]);
+    for (let i = 0; i < p.length; i += 4) for (const [f, t] of L) if (Math.abs(p[i] - f[0]) < 5 && Math.abs(p[i + 1] - f[1]) < 5 && Math.abs(p[i + 2] - f[2]) < 5) { p[i] = t[0]; p[i + 1] = t[1]; p[i + 2] = t[2]; break; }
+    x.putImageData(d, 0, 0); const t = new THREE.CanvasTexture(cv); for (const k of ['flipY', 'encoding', 'magFilter', 'minFilter', 'wrapS', 'wrapT', 'generateMipmaps']) t[k] = src[k]; t.needsUpdate = true; PT.set(key, t); return t; }
+  let TT = null; const tartan = () => { if (TT) return TT; try { playerTextures(); } catch (_) {} if (typeof tartanTex === 'undefined' || !tartanTex) return null; TT = tartanTex.clone(); TT.needsUpdate = true; TT.wrapS = TT.wrapT = THREE.RepeatWrapping; TT.repeat.set(1, 1); return TT; };
+  const rd = (a, i, c) => { const v = a.isInterleavedBufferAttribute ? a.data.array[i * a.data.stride + a.offset + c] : a.array[i * a.itemSize + c]; if (!a.normalized) return v; const A = a.array, mx = A instanceof Int8Array ? 127 : A instanceof Uint8Array ? 255 : A instanceof Int16Array ? 32767 : A instanceof Uint16Array ? 65535 : 1; return Math.max(v / mx, -1); };
+  function planarUV(geo, k) { if (geo.userData.tuv) return; geo.userData.tuv = 1; const p = geo.attributes.position, uv = new Float32Array(p.count * 2);
+    for (let i = 0; i < p.count; i++) { const x = rd(p, i, 0), y = rd(p, i, 1), z = rd(p, i, 2); uv[i * 2] = (x + z) * k; uv[i * 2 + 1] = y * k; } geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }
+  const hasTartan = a => { let t = false; a.g.traverse(o => { if (o.isMesh && !(o.userData && o.userData.hd)) for (const mm of [].concat(o.material)) if (mm && typeof tartanTex !== 'undefined' && tartanTex && mm.map === tartanTex) t = true; }); return t; };
+  // top of the head, in the model group's space, from the vertices the head bone moves
+  // the procedural tam (a tartan cylinder) gives where the hat sits and how big, in the mob group's space
+  function procCap(a) { let cap = null; a.g.updateMatrixWorld(true); a.g.traverse(o => { if (!cap && o.isMesh && !(o.userData && o.userData.hd) && o.geometry && o.geometry.type === 'CylinderGeometry' && (o.geometry.parameters.radiusTop || 0) >= 0.1 && [].concat(o.material).some(mm => mm && mm.map)) cap = o; }); if (!cap) return null;
+    const p = new THREE.Vector3(), q = new THREE.Vector3(), gs = new THREE.Vector3(); cap.getWorldPosition(p); cap.getWorldScale(q); a.g.getWorldScale(gs); a.g.worldToLocal(p);
+    return {p, r: (cap.geometry.parameters.radiusTop || 0.15) * q.x / (gs.x || 1)}; }
+  // head bone + the box of the vertices it moves (rest pose, same space)
+  function headTop(m, hd) { let bone = null; m.traverse(o => { if (!bone && o.isBone && /^head$/i.test(o.name)) bone = o; }); if (!bone) return null;
+    hd.updateMatrixWorld(true); const v = new THREE.Vector3(), b = new THREE.Box3();
+    m.traverse(o => { if (!o.isSkinnedMesh) return; const bi = o.skeleton.bones.indexOf(bone); if (bi < 0) return; const p = o.geometry.attributes.position, si = o.geometry.attributes.skinIndex, sw = o.geometry.attributes.skinWeight;
+      for (let i = 0; i < p.count; i++) { let w = 0; for (let k = 0; k < 4; k++) if (rd(si, i, k) === bi) w += rd(sw, i, k); if (w < 0.5) continue;
+        b.expandByPoint(v.set(rd(p, i, 0), rd(p, i, 1), rd(p, i, 2)).applyMatrix4(o.bindMatrix).applyMatrix4(o.skeleton.boneInverses[bi]).applyMatrix4(bone.matrixWorld).applyMatrix4(o.bindMatrixInverse).applyMatrix4(o.matrixWorld)); } });
+    return b.isEmpty() ? null : {bone, b}; }
+  // recolour one swatch on the head only (e.g. a mallard's green head): vertex colours on head-bone vertices whose texel matches, once per geometry
+  const M4 = new THREE.Matrix4(), T3 = new THREE.Vector3(), W3 = new THREE.Vector3();
+  function spos(o, i, v) { const A = o.geometry.attributes; v.set(rd(A.position, i, 0), rd(A.position, i, 1), rd(A.position, i, 2)).applyMatrix4(o.bindMatrix); T3.set(0, 0, 0);
+    for (let k = 0; k < 4; k++) { const w = rd(A.skinWeight, i, k); if (!w) continue; const bi = rd(A.skinIndex, i, k); M4.multiplyMatrices(o.skeleton.bones[bi].matrixWorld, o.skeleton.boneInverses[bi]); T3.addScaledVector(W3.copy(v).applyMatrix4(M4), w); }
+    return v.copy(T3).applyMatrix4(o.bindMatrixInverse).applyMatrix4(o.matrixWorld); }
+  // hc = [texel hex, new hex, top fraction]: with a fraction, vertices in the top part of the model (for rigs with no head bone)
+  function headCol(m, hc, hd) { let bone = null; m.traverse(o => { if (!bone && o.isBone && /^head$/i.test(o.name)) bone = o; }); if (!bone && !hc[2]) return; const f = hex(hc[0]), t = hex(hc[1]); hd.updateMatrixWorld(true); const v = new THREE.Vector3();
+    m.traverse(o => { if (!o.isSkinnedMesh || o.geometry.userData.hc) return; const g = o.geometry, A = g.attributes, mt = [].concat(o.material)[0], im = mt && mt.map && mt.map.image, col = A.color, bi = bone ? o.skeleton.bones.indexOf(bone) : -1; if (!im || !col || !A.uv || (!hc[2] && bi < 0)) return; g.userData.hc = 1;
+      let y0 = 1e9, y1 = -1e9; if (hc[2]) for (let i = 0; i < A.position.count; i++) { const y = spos(o, i, v).y; y0 = Math.min(y0, y); y1 = Math.max(y1, y); } const yc = y0 + (y1 - y0) * (hc[2] || 0);
+      const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height; const x = cv.getContext('2d'); x.drawImage(im, 0, 0); const px = x.getImageData(0, 0, cv.width, cv.height).data, W = cv.width, H = cv.height, fy = mt.map.flipY;
+      const ca = col.isInterleavedBufferAttribute ? col.data.array : col.array, st = col.isInterleavedBufferAttribute ? col.data.stride : col.itemSize, of = col.isInterleavedBufferAttribute ? col.offset : 0, sc = ca instanceof Uint8Array ? 255 : ca instanceof Uint16Array ? 65535 : 1;
+      for (let i = 0; i < A.position.count; i++) { if (hc[2]) { if (spos(o, i, v).y < yc) continue; } else { let w = 0; for (let k = 0; k < 4; k++) if (rd(A.skinIndex, i, k) === bi) w += rd(A.skinWeight, i, k); if (w < 0.5) continue; }
+        let u = rd(A.uv, i, 0), q = rd(A.uv, i, 1); u -= Math.floor(u); q -= Math.floor(q); const X = Math.min(W - 1, (u * W) | 0), Y = Math.min(H - 1, ((fy ? 1 - q : q) * H) | 0), j = (Y * W + X) * 4;
+        if (Math.abs(px[j] - f[0]) > 6 || Math.abs(px[j + 1] - f[1]) > 6 || Math.abs(px[j + 2] - f[2]) > 6) continue;
+        for (let c = 0; c < 3; c++) ca[i * st + of + c] = Math.round(Math.min(1, t[c] / Math.max(1, f[c])) * sc); }
+      (col.isInterleavedBufferAttribute ? col.data : col).needsUpdate = true; }); }
+  function addTam(a, m, hd) { const T = tartan(), pc = procCap(a), h = headTop(m, hd); if (!T || !pc || !h) return null; const w = Math.min(h.b.max.x - h.b.min.x, h.b.max.z - h.b.min.z), r = Math.min(0.42 * w, Math.max(pc.r * 1.25, 0.3 * w));
+    const tm = new THREE.MeshLambertMaterial({map: T}), pom = new THREE.MeshLambertMaterial({color: 0xc0262d}), g = new THREE.Group();
+    const rk = Math.round(r * 100), GC = addTam.G || (addTam.G = {}), gg = GC[rk] || (GC[rk] = [new THREE.CylinderGeometry(rk / 100, rk * 0.0078, rk * 0.0034, 16), new THREE.SphereGeometry(rk * 0.0024, 8, 6)]); const cap = new THREE.Mesh(gg[0], tm); cap.rotation.z = -0.22; g.add(cap);
+    const p = new THREE.Mesh(gg[1], pom); p.position.set(r * 0.08, r * 0.3, 0); g.add(p);
+    g.position.set((h.b.min.x + h.b.max.x) / 2, h.b.max.y + r * 0.1, (h.b.min.z + h.b.max.z) / 2); g.updateMatrixWorld(true); h.bone.attach(g); g.userData.hd = 1; cap.userData.hd = p.userData.hd = 1; return [tm, pom]; }
+  U.post.push((a, c, M, m, hd, s, mats) => {
+    let pal = typeof c.pal === 'function' ? c.pal(a) : c.pal;
+    for (const nm of mats) {
+      if (pal && nm.map && nm.map.image) nm.map = palTex(nm.map, pal);
+      if (c.mcol && c.mcol[nm.name] !== undefined) nm.color.setHex(c.mcol[nm.name]);
+      if (c.op) { nm.transparent = true; nm.opacity = c.op; nm.depthWrite = false; }
+      if (c.emis && nm.emissive) nm.emissive.setHex(c.emis);
+      if (c.tartan && c.tartan.includes(nm.name)) { const T = tartan(); if (T) { nm.map = T; nm.color.setHex(0xffffff); } }
+    }
+    if (c.tartan) m.traverse(o => { if (o.isMesh && [].concat(o.material).some(x => c.tartan.includes(x.name))) planarUV(o.geometry, c.tartanK || 3.2); });
+    if (c.headCol) try { headCol(m, c.headCol, hd); } catch (e) { U.err.push('headCol ' + e); }
+    if (c.tam === true || (c.tam === 'auto' && procCap(a))) { const tm = addTam(a, m, hd); if (tm) tm.forEach(x => mats.push(x)); }
+  });
+  // ---- sheep fleece colours: mostly white, some cream / grey / brown / black (picked once per sheep) ----
+  const WOOL = [[0.64, 'f2efe6'], [0.78, 'e4d6b4'], [0.88, '8c8a86'], [0.95, '6e5038'], [1, '2e2a28']];
+  U.cat.sheep.pal = a => { if (!a.__wool) { const r = Math.random(); a.__wool = WOOL.find(w => r < w[0])[1]; } return {'9f9f9f': a.__wool}; };
+  U.cat.sheep.tam = 'auto';
+  U.cat.clansman.tartan = ['Pants'];
+  U.add({
+    pig: {f: 'pig', k: 1.0},
+    duck: {f: 'duck', k: 1.0, pal: {'9f9f9f': 'b3ab9c', '7e2648': '2f7a3e', '895123': 'e0a02a'}, headCol: ['b3ab9c', '2f7a3e', 0.62]},
+    haggis: {f: 'haggis', k: 1.0, pal: {'674d3b': '8a6a54', '3c2815': '5c4030'}, tam: 'auto'},
+    imp: {f: 'imp', k: 1.0},
+    ghost: {f: 'ghost', k: 1.0, mcol: {Ghost_Main: 0xe8e4f0}, op: 0.62},
+    blazeskel: {f: 'skeleton', k: 1.0, walk: 'run', mcol: {Skeleton: 0xffa860}, emis: 0x5a1a00},
+    dragon: {f: 'dragon', h: 8, walk: 'idle', run: 0}
+  });
+  // ---- drop cached models from older versions ----
+  try { if (window.caches && isSecureContext) caches.open('glencraft-models').then(c => c.keys().then(ks => ks.forEach(r => { if (!/\?v1017$/.test(r.url)) c.delete(r); }))).catch(() => {}); } catch (_) {}
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -24391,6 +24473,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.17', d:'2026-10-26', notes:["New: HD mob models, batch 2. Pigs, ducks, haggises, imps, ghosts, blazing skeletons and the Ember Wyrm now use detailed animated CC0 models by Quaternius.", "Glencraft dressing on the HD models: clansmen wear tartan trews, the haggis and some sheep wear a tartan tam o' shanter, and sheep come in white, cream, grey, brown and black fleeces.", "The duck is coloured as a mallard and the ghost is see-through.", "The creeper and treeman keep their own models, because no free model fits them.", "HD models show truer, brighter colours.", "Turn HD models off in Settings to get the old look back. Credits are in CREDITS.md."]},
 {v:'v1.0.16', d:'2026-10-26', notes:["New: HD mob models, batch 1. Sheep, zombies, skeletons, black skeletons, spiders, clansmen and demon hounds now use detailed animated CC0 models by Quaternius.", "They walk, run, graze and attack with proper animations. A sheared sheep keeps the classic look until its fleece grows back.", "Settings: an HD mob models On/Off switch and a credit line. The full credits are in CREDITS.md.", "The models load in the background and are cached. If one can't load, that mob keeps its classic look.", "Mob health, damage, hitboxes and spawning are unchanged."]},
 {v:'v1.0.15', d:'2026-10-26', notes:["New: Water surfaces slope smoothly and flowing water ripples downhill", "New: Waterfalls with foam, spray and a soft rushing sound", "New: Rivers run from the hills to the lochs and the sea in new worlds (or after Reset world / Reset terrain)", "Tweak: River currents gently carry you downstream; the old flowing-water push is softer"]},
 {v:'v1.0.14', d:'2026-10-26', notes:["New: Chilled remixes of the original Glencraft songs - same melodies, no piano, warm pads and soft low plucks over your frequency tracks", "New: The Highlands are now mostly land: one big squared-off mainland with narrow sea channels round the spawn island and the three castle islands (land/water about 60/40 instead of 23/77), with bigger biomes", "New: Castles sit out towards their island's outer edge with a wide strip of land between them and the shore, and their hills ease back into the land instead of a little islet ring", "New: Smoother, more natural glen hills", "New: The spawn island's imported water, ship hulls and stray blocks are gone - only Glencraft's own water is left, on solid sand/gravel beds; floating leftovers are cleaned up", "New: No caves under any water: the sea, lochs and ponds all sit on solid ground, so no more swimming then suddenly falling", "New: The skull on the spawn island is gone and its dent is now the Great Cave: a wide torch-lit ramp spiralling down into a huge cavern", "New: Exactly 4 deep ravines, each a different shape: a long straight gash on the mainland, a winding S-curve, a wide stepped gorge and a forked Y on the castle islands - all joined to the caves", "New: Caves only under land: winding tunnels with no dead ends lead down to very big caverns (ores and cave mobs as before), plus a few walk-in entrances", "New: No more sky showing through cave walls at low render distance: underground the fog darkens and closes in and the sky, sun, moon and clouds are hidden (caves are never pitch black)", "New: Map: cleaner crisp colours, clear water and coastline, markers for crofts, ravines and the Great Cave, and a round close-up of your surroundings at the bottom", "New: The new world generation is used by new worlds and by Reset world; existing worlds keep their land as it is"]},
