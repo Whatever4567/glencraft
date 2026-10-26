@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1010a -->
+<!-- glencraft-build: v1011a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.10';
+const GAME_VERSION = 'v1.0.11';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19157,6 +19157,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.11', ["every night mob, sea creature, wizard and unicorn now moves exactly like the creeper: walls and blocks stop them, they step up single blocks, fall with gravity and path round obstacles to reach you", "floating ghosts can no longer drift through walls or rise through roofs, and sea creatures stay in open water instead of clipping into the seabed", "spawn eggs for every mob: all the night mobs and sea creatures, a wizard, a unicorn, the black skeleton, yellow creeper, night spider and giant zombie, each egg coloured like its mob", "all spawn eggs sit together, sorted A to Z, in the creative inventory", "eggs work anywhere: any biome, land or water, day or night, in any dimension", "creative mode: evil and hostile mobs never spawn on their own; mobs you hatch from eggs never burn in daylight, never despawn, and come back when you reload the world"]],
     ['v1.0.10', ["a sleek black and gold look for every menu and the in-game HUD, with crisp controller highlights", "bold, chunky Glencraft logo (same gold colours) and bigger, bolder text everywhere", "your live X Y Z coordinates in the top left while you play", "menus fit properly on phones in both landscape and portrait", "portrait mode is now properly playable - the screen never scrolls sideways, and the HUD, bag, crafting, chests and trading all fit on screen", "new on-screen touch controls laid out like a mini Xbox controller (sticks, D-pad, A B X Y, LB/LT/RB/RT, View and Menu), which hide when a Bluetooth controller connects", "controller support is now shown as a simple tick, and the map credit has moved into Settings", "Textures: the spinning block on the loading screen now uses the exact grass textures from the game"]],
     ['v1.0.9', ["Teleport to Unicorn button in the pause menu - puts you safely on the ground right beside the unicorn (if it has faded away it tells you how many nights until it returns)"]],
     ['v1.0.8', ["Mobs: at night every surface biome now spawns its own night mobs instead of zombies, skeletons, creepers and spiders - oak grassland, pine, birch, rowan, alder, yew, heather moor, hawthorn, blackthorn, bog shore, beach, mountain and snow each have their own 2-4", "Mobs: zombies, skeletons, creepers and spiders now only come out underground in dark caves, mixed in with the cave night mobs (still one spider at a time); castle skeletons and Hell are unchanged", "Mobs: the Treeman only lives in the alder woods now", "Mobs: sea mobs spawn in all open water - sea, lochs and rivers - but never in cave pools or small ponds", "Mobs: night mobs spawn a bit more often to fill the space, with the same overall limits and no one-shots"]],
@@ -22679,6 +22680,13 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
         body.rotation.x = U2.rear > 0 ? -0.6 * Math.min(1, U2.rear) : run ? Math.sin(t * f) * 0.05 : 0; body.position.y = 1.15 + (run ? Math.abs(Math.sin(t * f)) * 0.08 : 0);
         neck.rotation.x = U2.graze ? 1.5 : run ? 0.75 : 0.55 + Math.sin(t * 0.7) * 0.05; hg.opacity = 0.25 + 0.2 * Math.sin(t * 3); } };
     return U2; };
+  // v1.0.11: egg-only kinds (not in LIST/HOMES, so they never spawn naturally): a wandering wizard and a white unicorn
+  const WIZC = [{robe: 0xc4622a, hat: 0xb0561f, band: 0xd8b040, staff: 1}, {robe: 0x6a2a22, hat: 0x5a221c}];
+  MODELS.nmwizard = K => { const W = MODELS.wizard(K, WIZC[Math.random() < 0.5 ? 0 : 1]), f = W.anim; return Object.assign({}, W, {anim: (a, dt, o) => f(dt, o.t, o.mv)}); };
+  MODELS.nmunicorn = K => { const M = MODELS.unicorn(K), f = M.anim; return Object.assign({}, M, {anim: (a, dt, o) => f(dt, o.t, o.mv ? 1.6 : 0)}); };
+  DEF.nmwizard = {id: 'wz', name: 'Wizard', kind: 'nmwizard', body: 'robe', c: [0xc4622a, 'cloth'], move: 'walk', spd: 1.2, hp: 20, ai: 'wander', dmg: 0, snd: 'mystic', drop: [], eggOnly: 1, tame: 1};
+  DEF.nmunicorn = {id: 'un', name: 'Unicorn', kind: 'nmunicorn', body: 'horse', c: [0xf4f2f6, 'fur'], move: 'walk', spd: 1.6, hp: 20, ai: 'wander', dmg: 0, snd: 'neigh', drop: [], eggOnly: 1, tame: 1};
+  try { MOB_HP.nmwizard = 20; MOB_HP.nmunicorn = 20; } catch (_) {}
   U.MODELS = MODELS; U.hd = hd; U.strands = strands; U.glow = glow; U.sway = sway; U.PH = PH;
   // ---- helpers ----
   const isNM = a => a && typeof a.kind === 'string' && a.kind.startsWith('nm') && !!DEF[a.kind];
@@ -22793,13 +22801,17 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       if (q === 'step' && og) { const y0 = p.y; p.y = Math.floor(p.y + 0.05) + 1; a.vy = 0; q = moveMob(a, x, z); if (q !== true) p.y = y0; } return q === true; };
     const r = mv1(mx, mz) || mv1(mx, 0) || mv1(0, mz);
     if (!r && a.onGround && (a.jumpCd = (a.jumpCd || 0) - dt) <= 0) { a.vy = 6.5; a.onGround = false; a.jumpCd = 0.8; } return r; }
-  function floatMove(a, spd, dt, ang, ty) { const p = a.g.position, nx = p.x + Math.sin(ang) * spd * dt, nz = p.z + Math.cos(ang) * spd * dt;
-    const blocked = !a.def.phase && (solid(Math.floor(nx), Math.floor(p.y + 0.3), Math.floor(nz)) || solid(Math.floor(nx), Math.floor(p.y + 1.2), Math.floor(nz)));
-    if (!blocked && nx > 1 && nz > 1 && nx < W - 1 && nz < D - 1) { p.x = nx; p.z = nz; }
-    if (!a.def.phase) { const fl = solidTop(Math.floor(p.x), Math.floor(p.z)) + 1; if (fl < P.y + 6) ty = Math.max(ty, fl + 0.2); }
-    p.y += (ty - p.y) * Math.min(1, dt * 2.5); }
+  function floatMove(a, spd, dt, ang, ty) { const p = a.g.position, hh = Math.max(0.9, Math.min(a.topH || 1.8, 2.8));
+    // v1.0.11: floaters collide like every other mob — the whole body column must be free of solid blocks (no phasing through walls, no rising through roofs)
+    const clear = (x, y, z) => { const fx = Math.floor(x), fz = Math.floor(z); if (fx < 1 || fz < 1 || fx >= W - 1 || fz >= D - 1) return false;
+      for (let yy = Math.floor(y + 0.05), y1 = Math.floor(y + hh - 0.05); yy <= y1; yy++) if (solid(fx, yy, fz)) return false; return true; };
+    if (!clear(p.x, p.y, p.z)) { for (let k = 1; k <= 6; k++) { if (clear(p.x, p.y + k, p.z)) { p.y = Math.floor(p.y + 0.05) + k; break; } if (p.y - k > 1 && clear(p.x, p.y - k, p.z)) { p.y = Math.floor(p.y + 0.05) - k; break; } } }
+    const mx = Math.sin(ang) * spd * dt, mz = Math.cos(ang) * spd * dt;
+    if (mx || mz) { if (clear(p.x + mx, p.y, p.z + mz)) { p.x += mx; p.z += mz; } else { if (clear(p.x + mx, p.y, p.z)) p.x += mx; else if (clear(p.x, p.y, p.z + mz)) p.z += mz; else a.blocked = (a.blocked || 0) + dt; } }
+    const fl = floorBelow(Math.floor(p.x), p.y + 0.5, Math.floor(p.z)); if (fl < P.y + 6) ty = Math.max(ty, fl + 0.2);
+    const ny = p.y + (ty - p.y) * Math.min(1, dt * 2.5); if (clear(p.x, ny, p.z)) p.y = ny; else if (ny < p.y) p.y = Math.max(ny, fl); }
   function swimMove(a, spd, dt, ang, ty) { const p = a.g.position, nx = p.x + Math.sin(ang) * spd * dt, nz = p.z + Math.cos(ang) * spd * dt, ny = p.y + Math.max(-1, Math.min(1, ty - p.y)) * spd * 0.6 * dt;
-    const wet = (x, y, z) => getB(Math.floor(x), Math.floor(y + 0.4), Math.floor(z)) === T.WATER;
+    const wet = (x, y, z) => getB(Math.floor(x), Math.floor(y + 0.4), Math.floor(z)) === T.WATER && !solid(Math.floor(x), Math.floor(y + 1.3), Math.floor(z)) && !solid(Math.floor(x), Math.floor(y + 0.05), Math.floor(z));   // v1.0.11: whole body must be in open water
     if (wet(nx, p.y, nz)) { p.x = nx; p.z = nz; } if (wet(p.x, ny, p.z)) p.y = ny;
     if (!wet(p.x, p.y, p.z)) mobPhysics(a, dt); }
   // ---- per-mob behaviour ----
@@ -22819,12 +22831,14 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   function kill(a, quiet, anim) { if (anim) { try { corpse(a); } catch (_) { } if (mobs.indexOf(a) < 0 && CORPSES.some(c => c.a === a)) return; } if (!quiet) { const p = a.g.position; try { burst(p.x, p.y + 0.8, p.z, 0x9aa0b0, 10, 0.8); } catch (_) {} } try { removeMob(a); } catch (_) {} const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); }
   function blinkTo(a, behind) { const p = a.g.position; try { burst(p.x, p.y + 1, p.z, 0x8a70c0, 10, 0.6); } catch (_) {}
     const yaw = P.yaw, s = behind ? 1 : (Math.random() < .5 ? 1 : -1); const ang = behind ? yaw : yaw + s * 1.6, r = behind ? 2.6 : 5;
-    const x = P.x + Math.sin(ang) * r, z = P.z + Math.cos(ang) * r; if (!solid(Math.floor(x), Math.floor(P.y + 0.5), Math.floor(z))) { p.x = x; p.z = z; p.y = P.y + 0.2; } }
+    const x = P.x + Math.sin(ang) * r, z = P.z + Math.cos(ang) * r, fx = Math.floor(x), fz = Math.floor(z), fy = Math.floor(P.y + 0.2);
+    let ok = fx > 1 && fz > 1 && fx < W - 1 && fz < D - 1; for (let k = 0; ok && k < Math.max(2, a.tall || 2); k++) if (solid(fx, fy + k, fz)) ok = false;   // v1.0.11: feet-to-head clear, never into a wall
+    if (ok) { p.x = x; p.z = z; p.y = Math.max(floorBelow(fx, P.y + 0.2, fz), P.y - 1); a.vy = 0; } }
   function step(a, dt) { const def = a.def, p = a.g.position; a.t += dt; if (a.flash > 0) a.flash -= dt; a.cd -= dt; a.cd2 -= dt;
     const dx = P.x - p.x, dz = P.z - p.z, dy = P.y - p.y, d = Math.hypot(dx, dz) || 0.001, d3 = Math.hypot(dx, dz, dy);
     // despawn: daylight (fade), far away, other dimension, creative
-    if (d > 60 || p.y < -6 || DIM.cur || (MODE && MODE.name === 'creative')) return kill(a, true);
-    if (!isNight && !a.frozen) { a.fade += dt; if (a.fade > 1.5) return kill(a, true); }
+    if ((d > 60 && !a.eggP) || p.y < -6 || (DIM.cur && !a.egg) || (MODE && MODE.name === 'creative' && !a.egg)) return kill(a, true);   // v1.0.11: egg mobs are kept (creative: persistent)
+    if (!isNight && !a.frozen && !a.egg) { a.fade += dt; if (a.fade > 1.5) return kill(a, true); }
     let ang = Math.atan2(dx, dz), spd = 0, ty = P.y + (def.hover || 0.6) + Math.sin(a.t * 2) * 0.2, face = true, ai = def.ai;
     if (a.frozen) ai = 'idle'; else if (friendly()) ai = 'wander'; else if (dead) ai = 'idle';
     const close = d3 < (def.body === 'big' ? 2.0 : 1.6);
@@ -22833,7 +22847,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       case 'idle': spd = 0; break;
       case 'wander': if (a.beam) { try { scene.remove(a.beam); a.beam.geometry.dispose(); a.beam.material.dispose(); } catch (_) {} a.beam = null; }
         if ((a.wT = (a.wT || 0) - dt) <= 0) { a.wT = 2 + Math.random() * 3; a.wA = Math.random() * 6.283; a.wS = Math.random() < 0.35 ? 0 : 1; }
-        ang = a.wA; spd = def.spd * 0.45 * a.wS; ty = def.move === 'swim' ? p.y + Math.sin(a.t) * 0.3 : solidTop(Math.floor(p.x), Math.floor(p.z)) + 1 + (def.hover || 0.6) + Math.sin(a.t * 2) * 0.2; break;
+        ang = a.wA; spd = def.spd * 0.45 * a.wS; ty = def.move === 'swim' ? p.y + Math.sin(a.t) * 0.3 : floorBelow(Math.floor(p.x), p.y + 0.5, Math.floor(p.z)) + (def.hover || 0.6) + Math.sin(a.t * 2) * 0.2; break;
       case 'eel': if (inWater(P) && d3 < 14) { ty = P.y + 0.2; spd = def.spd; if (a.cd2 <= 0 && d3 < 8) { a.cd2 = 3.5; a.dart = 0.6; snd(a, 1.3); } if (a.dart > 0) { a.dart -= dt; spd = def.spd * 3; }
           if (close && a.cd <= 0) { a.cd = 2.2; a.swing = 0.4; a.shockT = 0.5; hit(a, 2, 'Zapped by the ' + def.name + '.'); slowT = Math.max(slowT, 1.5); try { burst(P.x, P.y + 1, P.z, 0x80e0ff, 10, 0.6); } catch (_) {} } }
         else { spd = def.spd * 0.5; ang = a.ang + Math.sin(a.t * 0.7) * 0.6; ty = p.y + Math.sin(a.t) * 0.4; } break;
@@ -22890,13 +22904,15 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       case 'circle': { const o = a.t * 1.8, R = a.cd <= 0.3 ? 0.6 : 5, tx = P.x + Math.sin(o) * R, tz = P.z + Math.cos(o) * R; ang = Math.atan2(tx - p.x, tz - p.z); spd = Math.min(def.spd * 1.4, Math.hypot(tx - p.x, tz - p.z) * 3); if (d > 12) { ang = Math.atan2(dx, dz); spd = def.spd; } ty = P.y + 0.5; melee(2, 2.4); break; }
       case 'weep': spd = 0; face = false; a.ang = Math.atan2(-dx, -dz);                                   // back turned, sobbing; scream + vanish if you come close
         if ((d < 4.5 || a.angry) && a.cd <= 0) { a.cd = 6; a.angry = false; snd(a, 1.2); hit(a, 2, 'The ' + def.name + ' screamed.'); knockPlayer(dx / d, dz / d, 9, 4); shake(0.2, 0.03); blinkTo(a, false); const q = a.g.position; const an = Math.random() * 6.28; q.x = Math.max(2, Math.min(W - 2, P.x + Math.sin(an) * 14)); q.z = Math.max(2, Math.min(D - 2, P.z + Math.cos(an) * 14)); q.y = solidTop(Math.floor(q.x), Math.floor(q.z)) + 1.2; }
-        ty = solidTop(Math.floor(p.x), Math.floor(p.z)) + 1.2; if (Math.random() < dt * 8) try { burst(p.x + (Math.random() - .5) * 2, p.y + 2.5, p.z + (Math.random() - .5) * 2, 0x9ab8d0, 1, 0.1); } catch (_) {} break;
+        ty = floorBelow(Math.floor(p.x), p.y + 0.5, Math.floor(p.z)) + 0.2; if (Math.random() < dt * 8) try { burst(p.x + (Math.random() - .5) * 2, p.y + 2.5, p.z + (Math.random() - .5) * 2, 0x9ab8d0, 1, 0.1); } catch (_) {} break;
     }
+    // v1.0.11: walkers chase like the creeper — along the cached A* path round walls, not in a straight line through them
+    if (def.move === 'walk' && spd > 0 && !a.frozen && ai !== 'wander' && d > 1.3 && Math.abs(ang - Math.atan2(dx, dz)) < 1e-6) { let pa = null; try { pa = pathAngle(a, P.x, P.z, P.y); } catch (_) {} if (pa !== null && isFinite(pa)) ang = pa; }
     if (face) a.ang = spd < 0 ? Math.atan2(dx, dz) : ang;
     a.yawVis = turnToward(a.yawVis, a.ang, dt * 6); a.g.rotation.y = a.yawVis;
     const mvAng = spd < 0 ? ang + Math.PI : ang, sp = Math.abs(spd);
     if (!a.frozen) {
-      if (def.move === 'walk' || def.move === 'hop') { if (sp) walkMove(a, sp, dt, mvAng); mobPhysics(a, dt); if (a.chg > 0 && a.lastX !== undefined && Math.hypot(p.x - a.lastX, p.z - a.lastZ) < sp * dt * 0.2) { a.chg = 0; a.stun = 1.5; shake(0.15, 0.02); } a.lastX = p.x; a.lastZ = p.z; }
+      if (def.move === 'walk' || def.move === 'hop') { if (sp && !walkMove(a, sp, dt, mvAng) && ai === 'wander') a.wT = Math.min(a.wT || 0, 0.25); mobPhysics(a, dt); if (a.chg > 0 && a.lastX !== undefined && Math.hypot(p.x - a.lastX, p.z - a.lastZ) < sp * dt * 0.2) { a.chg = 0; a.stun = 1.5; shake(0.15, 0.02); } a.lastX = p.x; a.lastZ = p.z; }
       else if (def.move === 'float') floatMove(a, sp, dt, mvAng, ty);
       else if (def.move === 'swim') swimMove(a, sp, dt, mvAng, ty); }
     // idle sounds
@@ -23076,6 +23092,16 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (d < 0.3) { w.pi++; return w.pi >= w.path.length; } const s = Math.min(d, spd * dt); w.x += dx / d * s; w.z += dz / d * s; w.yaw = Math.atan2(dx, dz); w.mv = true; return false; }
   const line = (ax, az, bx, bz, n) => { const L = []; for (let i = 1; i <= n; i++) L.push([ax + (bx - ax) * i / n, az + (bz - az) * i / n]); return L; };
   function go(w, st, tx, tz) { w.st = st; w.path = line(w.x, w.z, tx, tz, Math.max(1, Math.ceil(Math.hypot(tx - w.x, tz - w.z) / 2))); w.pi = 0; }
+  // v1.0.11: each wizard walks with the creeper's own collision (moveMob: walls block, 1-block step-up, no clipping) and gravity (mobPhysics) instead of snapping to column tops
+  const roomAt = (x, y, z, tall) => { const fx = Math.floor(x), fz = Math.floor(z), fy = Math.floor(y + 0.05); for (let k = 0; k < tall; k++) if (solid(fx, fy + k, fz)) return false; return true; };
+  function body(g, x, z, dt) { const q = g.userData.mob || (g.userData.mob = {g, tall: 2, onGround: false, vy: 0, kbx: 0, kbz: 0, stuck: 0}), p = g.position;
+    if (!q.init) { q.init = 1; p.set(x, topY(x, z), z); }
+    const dx = x - p.x, dz = z - p.z, d = Math.hypot(dx, dz);
+    if (d > 0.02) { const s = Math.min(d, 2.2 * dt), mx = dx / d * s, mz = dz / d * s; let r = moveMob(q, mx, mz); if (r !== true) r = moveMob(q, mx, 0) === true || moveMob(q, 0, mz) === true; q.stuck = r ? 0 : q.stuck + dt; }
+    mobPhysics(q, dt);
+    // hopelessly stuck or left far behind: hop to the spot only if there's room for the whole body there
+    if ((q.stuck > 4 || d > 6) && !(p.y < -50)) { const ty = topY(x, z); if (roomAt(x, ty, z, 2)) { p.set(x, ty, z); q.vy = 0; q.stuck = 0; } }
+    if (!roomAt(p.x, p.y, p.z, 1)) p.y = Math.floor(p.y + 0.05) + 1; }
   function wizStep(dt) { const w = U.wiz; if (!w) return; const sp = w.sp, far = Math.hypot(w.x - P.x, w.z - P.z) > 90 || DIM.cur;
     w.grp.visible = !far; if (far) return; w.t += dt; w.mv = false;
     if (isNight && !w.wasNight) { go(w, 'tosit', sp.x - Math.sin(sp.wd) * 0.3, sp.z - Math.cos(sp.wd) * 0.3); } if (!isNight && w.wasNight) go(w, 'today', sp.stx + Math.sin(sp.wd) * -2, sp.stz - Math.cos(sp.wd) * 2); w.wasNight = isNight;
@@ -23090,7 +23116,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     const yaw = w.yaw || 0, px = Math.cos(yaw), pz = -Math.sin(yaw), sep = w.st === 'rune' ? 1.5 : w.st === 'sit' ? 0.75 : 0.7;
     let ax = w.x + px * sep, az = w.z + pz * sep, bx = w.x - px * sep, bz = w.z - pz * sep;
     if (w.st === 'rune') { const sa = Math.atan2(sp.stx - w.x, sp.stz - w.z); ax = sp.stx - Math.sin(sa) * 1.0 + Math.cos(sa) * 1.3; az = sp.stz - Math.cos(sa) * 1.0 - Math.sin(sa) * 1.3; bx = sp.stx - Math.sin(sa) * 1.0 - Math.cos(sa) * 1.3; bz = sp.stz - Math.cos(sa) * 1.0 + Math.sin(sa) * 1.3; }
-    for (const [g, m, x, z] of [[w.ga, w.A, ax, az], [w.gb, w.B, bx, bz]]) { const ty = topY(x, z); g.position.x = x; g.position.z = z; g.position.y += (ty - g.position.y) * Math.min(1, dt * 6); if (Math.abs(ty - g.position.y) > 3) g.position.y = ty;
+    for (const [g, m, x, z] of [[w.ga, w.A, ax, az], [w.gb, w.B, bx, bz]]) { body(g, x, z, dt);
       const fy = w.st === 'rune' ? Math.atan2(sp.stx - x, sp.stz - z) : yaw; g.rotation.y = turnToward(g.rotation.y, fy, dt * 3); m.pose = w.st === 'sit' ? 'sit' : w.st === 'rune' ? 'rune' : 'stand'; m.anim(dt, w.t + (m === w.B ? 1.3 : 0), w.mv); }
     // the magic
     const night = isNight, sit = w.st === 'sit', rn = w.st === 'rune'; const op = rn ? Math.min(1, w.stT / 3) * (0.75 + 0.25 * Math.sin(w.t * 3)) : Math.max(0, w.rm.opacity - dt);
@@ -23155,8 +23181,10 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       if (dP < 64) { if (u.flee > 0) { u.flee -= dt; u.ang = Math.atan2(p.x - P.x, p.z - P.z); sp = 7; }
         else { if ((u.wT -= dt) <= 0) { u.wT = 3 + Math.random() * 4; const home = Math.hypot(p.x - hx, p.z - hz) > 9; u.ang = home ? Math.atan2(hx - p.x, hz - p.z) : Math.random() * TAU; u.go = home || Math.random() < 0.55; u.m.graze = !u.go && Math.random() < 0.6 ? 1 : 0; }
           sp = u.go ? 1.6 : 0; if (!s.tamed && dP < 4 && sprinting) { u.flee = 1.5; } }
-        if (sp) { const nx = p.x + Math.sin(u.ang) * sp * dt, nz = p.z + Math.cos(u.ang) * sp * dt, ty = topY(nx, nz); if (inb(nx, nz) && !wet(Math.floor(nx), Math.floor(nz)) && ty - p.y < 1.3) { p.x = nx; p.z = nz; } else { u.wT = 0; sp = 0; } }
-        p.y += (topY(p.x, p.z) - p.y) * Math.min(1, dt * 8); g.rotation.y = turnToward(g.rotation.y, u.ang, dt * 4); }
+        // v1.0.11: the creeper's movement — moveMob (walls, step-up, no cliffs or water) + mobPhysics (gravity onto the real floor below, not the roof above)
+        if (u.tall === undefined) Object.assign(u, {tall: 2, onGround: false, vy: 0, kbx: 0, kbz: 0});
+        if (sp) { const mx = Math.sin(u.ang) * sp * dt, mz = Math.cos(u.ang) * sp * dt; let r = inb(p.x + mx, p.z + mz) && moveMob(u, mx, mz); if (r !== true) r = moveMob(u, mx, 0) === true || moveMob(u, 0, mz) === true; if (!r) { u.wT = 0; sp = 0; } }
+        mobPhysics(u, dt); if (!roomAt(p.x, p.y, p.z, 1)) p.y = Math.floor(p.y + 0.05) + 1; g.rotation.y = turnToward(g.rotation.y, u.ang, dt * 4); }
       if (s.tamed && (u.saveT -= dt) <= 0) { u.saveT = 6; saveU(); }
     }
     if (dP < 70) u.m.anim(dt, u.t, sp);
@@ -23607,6 +23635,87 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     C.ok = true;
   } catch (e) { warn('pad', e); }
 })();
+
+/* ===================== GLX-C130 (v1.0.11): spawn eggs for every mob, egg mobs ignore spawn rules, creative = no natural hostiles + persistent egg mobs ===================== */
+(function c130() {
+  const U = window.__c130 = {added: [], restored: 0, swept: 0, kept: 0};
+  const C = window.__c123; if (!C) return;
+  const hex = n => '#' + (n >>> 0 & 0xffffff).toString(16).padStart(6, '0');
+  const shade = (n, k) => { const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255, f = v => Math.max(0, Math.min(255, Math.round(k > 0 ? v + (255 - v) * k : v * (1 + k)))); return (f(r) << 16) | (f(g) << 8) | f(b); };
+  const lum = n => (((n >> 16) & 255) * 0.3 + ((n >> 8) & 255) * 0.59 + (n & 255) * 0.11) / 255;
+  // ---- the egg list: every mob that had no egg yet ----
+  const L = [];
+  for (const k of C.LIST.concat(['nmwizard', 'nmunicorn'])) { const d = C.DEF[k]; if (!d) continue; const a = d.c[0], b = d.glow || (lum(a) > 0.55 ? shade(a, -0.55) : shade(a, 0.6));
+    L.push({key: k, name: d.name, a: hex(a), b: hex(b), make: (x, y, z) => { const m = C.spawnKind(k, Math.floor(x), Math.floor(y), Math.floor(z), {grp: Math.random()}); if (m) { m.g.position.set(x, y, z); if (d.eggOnly) m.hostile = false; } return m; }}); }
+  const FL = ['__egg', '__c116force', '__c116herd'], flags = on => { for (const k of FL) window[k] = on; };
+  const classic = (kind, post) => (x, y, z) => { flags(true); window.__eggSpot = [x, y, z, x, z]; const was = DIM.cur; if (was) DIM.cur = null; let m = null;
+    try { m = spawnMob(kind); } finally { DIM.cur = was; flags(false); window.__eggSpot = null; } if (m) { m.g.position.set(x, y, z); if (post) try { post(m); } catch (_) {} } return m; };
+  L.push({key: 'blackskel', name: 'Black skeleton', a: '#26262b', b: '#9a9aa4', make: classic('blackskel')});
+  L.push({key: 'ycreeper', name: 'Yellow creeper', a: '#d8b020', b: '#3a2a08', make: classic('creeper', m => window.__makeYellow && __makeYellow(m))});
+  L.push({key: 'nspider', name: 'Night spider', a: '#1a1418', b: '#c02030', make: (x, y, z) => { const S = window.__c104s; if (!S || !S.spawnAt) return null; const m = S.spawnAt(Math.floor(x), Math.floor(y), Math.floor(z), false); if (m) m.g.position.set(x, y, z); return m; }});
+  L.push({key: 'giant', name: 'Giant spider', a: '#2a2026', b: '#e03020', make: (x, y, z) => { if (!window.__newGiant) return null; window.__giantOK = true; let m = null;
+    try { for (const [ox, oz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [2, 2], [-2, 2], [2, -2], [-2, -2], [3, 0], [-3, 0], [0, 3], [0, -3]]) { for (const oy of [0, 1, -1, 2]) { m = __newGiant([x + ox, y + oy, z + oz, 14], x + ox, z + oz); if (m) break; } if (m) break; } } finally { window.__giantOK = false; } return m; }});
+  const NICE = {sheep: 'Sheep', haggis: 'Haggis', duck: 'Duck', pig: 'Pig', clansman: 'Clansman', zombie: 'Zombie', skeleton: 'Skeleton', creeper: 'Creeper', spider: 'Spider', guardian: 'Castle guardian', treeman: 'Treeman', puffer: 'Puffer', imp: 'Imp', hound: 'Hell hound', ghost: 'Ghost', blazeskel: 'Blaze skeleton', dragon: 'Dragon', bee: 'Bee'};
+  for (const i in NAMES) { const n = NAMES[i]; if (typeof n === 'string' && n.startsWith('Spawn egg: ') && NICE[n.slice(11)]) NAMES[i] = 'Spawn egg: ' + NICE[n.slice(11)]; }
+  // ---- items: free ids from 700 up ----
+  const EGG = {}, BYKEY = {}; let id = 700;
+  for (const e of L) { while (NAMES[id] !== undefined || ICONS[id]) id++; e.id = id; EGG[id] = e; BYKEY[e.key] = e; NAMES[id] = 'Spawn egg: ' + e.name; IT['EGG_' + e.key.toUpperCase()] = id;
+    ICONS[id] = drawIcon(g => { g.fillStyle = e.a; g.beginPath(); g.ellipse(0, 2, 18, 24, 0, 0, 7); g.fill(); g.fillStyle = e.b; for (let j = 0; j < 9; j++) { g.beginPath(); g.arc(Math.sin(j * 2.4) * 11, Math.cos(j * 1.7) * 15 + 2, 3 + (j % 3), 0, 7); g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.ellipse(-7, -8, 5, 8, -0.4, 0, 7); g.fill(); });
+    U.added.push([id, e.key]); id++; }
+  // ---- one sorted spawn-egg section in the creative inventory ----
+  const isEgg = i => typeof NAMES[i] === 'string' && NAMES[i].startsWith('Spawn egg: ');
+  const resort = A => { if (!Array.isArray(A)) return; const all = new Set(A.filter(isEgg).concat(Object.keys(EGG).map(Number))); let at = A.findIndex(isEgg); if (at < 0) at = A.length;
+    const rest = A.filter(i => !isEgg(i)); const before = A.slice(0, at).filter(i => !isEgg(i)).length; const eggs = [...all].sort((p, q) => NAMES[p].toLowerCase().localeCompare(NAMES[q].toLowerCase()));
+    A.length = 0; A.push(...rest.slice(0, before), ...eggs, ...rest.slice(before)); };
+  resort(ORDER); try { resort(CREATIVE_ALL); } catch (_) {}
+  U.eggs = () => ORDER.filter(isEgg).map(i => NAMES[i]);
+  // ---- persistent egg mobs (creative) ----
+  let lastW = null, doneW = null; const KEEP = new Set(); U.KEEP = KEEP; let RMOK = 0, boomAt = 0;
+  const creative = () => !!(MODE && MODE.name === 'creative');
+  function mark(m, key) { if (!m || !m.g) return; m.egg = true; m.eggKey = key; if (creative()) { m.eggP = true; m._sh0 = true; m.shaded = true; m.burning = 0; KEEP.add(m); } }
+  U.mark = mark;
+  const ex = explode; explode = function () { boomAt = performance.now(); return ex.apply(this, arguments); };
+  const dmg = damageMob; damageMob = function (a) { if (a) a.__hitAt = performance.now(); const r = dmg.apply(this, arguments); if (a && !(a.hp > 0)) a.__dying = true; return r; };
+  const hm = hitMob; hitMob = function (a) { if (a) a.__hitAt = performance.now(); return hm.apply(this, arguments); };
+  const km = killMob; killMob = function (a) { if (a) a.__dying = true; return km.apply(this, arguments); };
+  const rm = removeMob; removeMob = function (a) {
+    if (a && a.eggP && !RMOK && a.hp > 0 && !a.__dying && !(a.beeHp <= 0) && !(a.dieT <= 0) && !(performance.now() - (a.__hitAt || -1e9) < 4000) && !(performance.now() - boomAt < 80)) { U.kept++; return; }
+    KEEP.delete(a); return rm.apply(this, arguments); };
+  const guard = fn => function () { RMOK++; try { return fn.apply(this, arguments); } finally { RMOK--; } };
+  { const ew = enterWorld; enterWorld = guard(function () { lastW = null; doneW = null; for (const m of mobs) if (m) m.eggP = false; KEEP.clear(); return ew.apply(this, arguments); }); }
+  try { const cw = window.__clearWorldState; if (cw) window.__clearWorldState = guard(cw); } catch (_) {}
+  try { const ge = generate; generate = guard(ge); } catch (_) {}
+  U.forceRemove = a => { RMOK++; try { removeMob(a); } finally { RMOK--; } const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); };
+  // ---- creative: evil and hostile mobs never spawn on their own ----
+  const HK = new Set(['zombie', 'skeleton', 'creeper', 'spider', 'nspider', 'guardian', 'treeman', 'blackskel', 'puffer', 'giant', 'imp', 'hound', 'ghost', 'blazeskel', 'dragon', 'nmwisp', 'nmdrop']);
+  const evil = a => !a.tamed && !a.mounted && (a.hostile || a.hell || a.giant || a.boss || HK.has(a.kind) || (typeof a.kind === 'string' && a.kind.startsWith('nm') && !(C.DEF[a.kind] && C.DEF[a.kind].eggOnly)));
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { if (started && creative()) { for (const a of mobs.slice()) if (a && a.g && !a.egg && evil(a)) { U.forceRemove(a); U.swept++; } }
+      for (const a of KEEP) { if (!a.g || a.__dying || !(a.hp > 0)) { KEEP.delete(a); continue; } a.burning = 0; a._sh0 = true; a.shaded = true; if (a.fade) a.fade = 0;
+        if (mobs.indexOf(a) < 0) { if (a.g.parent === scene) mobs.push(a); else KEEP.delete(a); } } } catch (e) { U.err = String(e && e.stack || e); }
+    return r; };
+  // ---- the egg: any biome, water or land, day or night, any dimension, no spawn rules ----
+  function spot() { const r = raycast(6), d = lookDir(); let x = P.x + d[0] * 3, y = P.y, z = P.z + d[2] * 3; if (r && r.prev) { x = r.prev[0] + .5; y = r.prev[1]; z = r.prev[2] + .5; } return [x, y, z]; }
+  function spawnEgg(key, x, y, z) { const e = BYKEY[key]; let m = null; window.__egg = true; try { m = e ? e.make(x, y, z) : null; } catch (err) { U.err = String(err && err.stack || err); } finally { window.__egg = false; }
+    if (m) { mark(m, key); m.egg = true; } return m; }
+  U.spawnEgg = spawnEgg;
+  const ui = useItem; useItem = function () {
+    const e = EGG[selId] || (selId === IT.EGG_SPIDER ? BYKEY.nspider : null), old = !e && isEgg(selId);   // the old cave spider is gone from the game; its egg hatches today's spider
+    if ((!e && !old) || menuOpen || paused || dead || !started || !(MODE.infinite || cnt(selId) > 0)) return ui.apply(this, arguments);
+    if (old) { const before = new Set(mobs); let r; window.__c116force = window.__c116herd = true; try { r = ui.apply(this, arguments); } finally { window.__c116force = window.__c116herd = false; } for (const a of mobs) if (!before.has(a)) mark(a, a.kind); return r; }
+    const [x, y, z] = spot(); spawnEgg(e.key, x, y, z);
+    if (!MODE.infinite) useUp(selId); try { swing(); burst(x, y + .5, z, 0xffffff, 8, .4); sfx('pop', .5); renderHotbar(); } catch (_) {} };
+  // ---- creative egg mobs survive a reload: saved per world, put back when you return ----
+  const sk = () => 'glen_eggm_' + (current && current.id);
+  setInterval(() => { try { if (!started || !creative() || !current || !current.id || doneW !== current.id + '|' + (DIM.cur || '')) return; const out = []; for (const a of KEEP) { if (!a.g || !a.eggKey) continue; const p = a.g.position; out.push([a.eggKey, +p.x.toFixed(2), +p.y.toFixed(2), +p.z.toFixed(2), DIM.cur || '']); if (out.length >= 80) break; }
+    localStorage.setItem(sk(), JSON.stringify(out)); } catch (_) {} }, 5000);
+  setInterval(() => { try { if (!started || !creative() || !current) { lastW = null; return; } const key = current.id + '|' + (DIM.cur || ''); if (key === lastW) return; lastW = key;
+    setTimeout(() => { try { const L2 = JSON.parse(localStorage.getItem(sk()) || '[]'); for (const [k, x, y, z, dm] of L2) { if ((dm || '') !== (DIM.cur || '')) continue; if ([...KEEP].some(a => a.eggKey === k && a.g.position.distanceTo(new THREE.Vector3(x, y, z)) < 0.6)) continue;
+        if (BYKEY[k]) spawnEgg(k, x, y, z); else { const HELL = new Set(['imp', 'hound', 'ghost', 'blazeskel', 'dragon']); let m = null; flags(true); window.__eggSpot = [x, y, z, x, z];
+          try { if (HELL.has(k)) m = hellMake(k, x, y, z); else { const was = DIM.cur; if (was) DIM.cur = null; try { m = spawnMob(k); } finally { DIM.cur = was; } } } catch (_) {} finally { flags(false); window.__eggSpot = null; }
+          if (m && m.g) { m.g.position.set(x, y, z); mark(m, k); } } U.restored++; } } catch (_) {} doneW = key; }, 3000); } catch (_) {} }, 1500);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -23618,6 +23727,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.11', d:'2026-10-26', notes:["New: every night mob, sea creature, wizard and unicorn now moves exactly like the creeper: walls and blocks stop them, they step up single blocks, fall with gravity and path round obstacles to reach you", "New: floating ghosts can no longer drift through walls or rise through roofs, and sea creatures stay in open water instead of clipping into the seabed", "New: spawn eggs for every mob: all the night mobs and sea creatures, a wizard, a unicorn, the black skeleton, yellow creeper, night spider and giant zombie, each egg coloured like its mob", "New: all spawn eggs sit together, sorted A to Z, in the creative inventory", "New: eggs work anywhere: any biome, land or water, day or night, in any dimension", "New: creative mode: evil and hostile mobs never spawn on their own; mobs you hatch from eggs never burn in daylight, never despawn, and come back when you reload the world"]},
 {v:'v1.0.10', d:'2026-10-26', notes:["New: a sleek black and gold look for every menu and the in-game HUD, with crisp controller highlights", "New: bold, chunky Glencraft logo (same gold colours) and bigger, bolder text everywhere", "New: your live X Y Z coordinates in the top left while you play", "New: menus fit properly on phones in both landscape and portrait", "New: portrait mode is now properly playable - the screen never scrolls sideways, and the HUD, bag, crafting, chests and trading all fit on screen", "New: new on-screen touch controls laid out like a mini Xbox controller (sticks, D-pad, A B X Y, LB/LT/RB/RT, View and Menu), which hide when a Bluetooth controller connects", "New: controller support is now shown as a simple tick, and the map credit has moved into Settings", "Textures: the spinning block on the loading screen now uses the exact grass textures from the game"]},
 {v:'v1.0.9', d:'2026-10-26', notes:["New: Teleport to Unicorn button in the pause menu - puts you safely on the ground right beside the unicorn (if it has faded away it tells you how many nights until it returns)"]},{v:'v1.0.8', d:'2026-10-26', notes:["Mobs: at night every surface biome now spawns its own night mobs instead of zombies, skeletons, creepers and spiders - oak grassland, pine, birch, rowan, alder, yew, heather moor, hawthorn, blackthorn, bog shore, beach, mountain and snow each have their own 2-4", "Mobs: zombies, skeletons, creepers and spiders now only come out underground in dark caves, mixed in with the cave night mobs (still one spider at a time); castle skeletons and Hell are unchanged", "Mobs: the Treeman only lives in the alder woods now", "Mobs: sea mobs spawn in all open water - sea, lochs and rivers - but never in cave pools or small ponds", "Mobs: night mobs spawn a bit more often to fill the space, with the same overall limits and no one-shots"]},{v:'v1.0.7', d:'2026-10-25', notes:["Mobs: all 29 night mobs have new Glencraft names - e.g. Clank Warden is now Rivet Reiver, Ben Troll is Crag Gruff, Star Hound is Comet Collie", "Mobs: 5 new underwater night mobs in the sea and lochs - Crackle Conger (electric eel, shocks and slows you), Moonlit Selkie (sings and pulls you closer), Wraith Jeelie (glowing jellyfish, stings with poison), Deep Beastie (loch monster that rams you) and Drookit Kelpie (water horse that drags you down)", "Mobs: sea mobs now spawn properly in deep water around you, so all 9 sea kinds turn up, not just one; caps and damage limits unchanged", "New: Friendly Mobs setting (Settings on the title screen and pause menu) - when ON every evil mob ignores you and just wanders about; saved, OFF by default", "New: two old wizards live by a loch - at night they sit by the water with a glowing orb, wake the runes on a mossy standing stone and walk up the hill under a bright star. Walk up to them for a wise word", "New: one white Unicorn lives somewhere in every world. Climb on again and again until it trusts you (wheat or bread helps), then gallop and leap across the glen - sneak to get off"]},{v:'v1.0.6', d:'2026-10-25', notes:["Mobs: all 29 night mobs now have proper HD 3D models (multi-part bodies, painted HD textures, glowing eyes) instead of the picture placeholders", "Mobs: every night mob has its own idle, walk/float/swim and attack animation, plus a death animation (knights topple, ghosts spin away, blobs pop, divers sink)", "Mobs: new Glencraft names \u2013 Clydeworks Skullbot, Gurnin' Jester, Hooded Bodach, Totem Thumper, Cailleach of the Moss, Girnin' Wrap, Glaur Blob, Heather Shade, Bane Shaman, Star Hound", "Mobs: night mobs now live in homes \u2013 castles (black, human, mossy), alder, hawthorn and yew woods, heather moors, mountains, shore/bog and caves \u2013 2\u20134 kinds each", "Mobs: Kelp Diver, Bigeye Diver, Drowned Deckhands (a sunken ship's crew) and Hookhand Haunt spawn only in deep water and swim properly", "Mobs: small details hide at a distance so phones stay smooth; caps, night-only spawning and damage limits unchanged"]},{v:'v1.0.5', d:'2026-10-25', notes:["Mobs: 29 new night mobs roam the glen after dark and fade away at sunrise - from the Clank Warden and Captain Bonebeard to the Storm Bogle and the Rain Wean", "Mobs: every one has its own trick - chargers, leapers, teleporters, grabbers, stalkers that only move when you look away, ranged shots, lightning, poison clouds and more", "Mobs: pirates haunt the shoreline, divers lurk in the water and mummies wait in caves at night", "Mobs: only a few out at once and never near your torches; no one-shots; they drop bones, rotten flesh, lost souls, ore and the odd gem", "Mobs: temporary picture skins for the night mobs (to be replaced later)"]},{v:'v1.0.4', d:'2026-10-25', notes:["Textures: every held item is now a solid 3D model with real thickness and edges, in first and third person, standing or walking - no more flat pictures in your hand", "Textures: shields sit on your arm, angled, with depth, a strap and grip; no more fake shadow under held items", "Fixed: Freeze time now really stops the clock - sun, moon, sky and light stay put, and it's kept when you save"]},{v:'v1.0.3', d:'2026-10-25', notes:["New: every item now has a matching Glencraft HD look in your hand, as a drop and as an icon - shields, ingots, ruby, diamonds, haggis, tools, armour and torches", "New: dropped items and held items are now solid 3D models instead of flat pixel sprites", "Textures: block textures are sharpened up to 1024px on computers and 512px on phones, with crisper far-away detail", "Textures: block icons are now proper 3D cubes in the hotbar, bag and crafting", "New: smarter HUD - glass hotbar with gold trim, HD hearts and hunger, and a shiny XP bar", "New: the title and loading screens use real Glencraft screenshots - castles, islands and a mainland sunset", "New: fresh stone-and-gold Celtic Glencraft logo and font, with an animated Alpha tag to the side", "New: the loading spinner is now a spinning 3D grass block", "New: Blocks in the bag and crafting now hold all bricks plus every wood stairs, slab, door, fence, gate and boat", "New: removed the clock banner at the top right and the old map text at the bottom - just a small OpenStreetMap credit remains"]},{v:'v1.0.2', d:'2026-10-25', notes:["Castle loot chests now give silver gear and lazurite, never disabled items like the pistol"]},{v:'v1.0.1', d:'2026-10-25', notes:["Textures: 4K beds (single bed tile), buckets, all tools, Highland rifle, TV, house brick, glass and glass pane", "Textures: lazurite ore and tiles, unique iron, lazurite and ruby blocks, real-brick stone brick, black deepslate bricks, richer gold Brew can", "Textures: smooth HD held tools and torches, slim shiny silver sword, smaller Weak Blade", "Every wood type has its own planks, stairs, slabs, door, fence, gate and boat", "Cobalt removed (lazurite replaces it); iron is now silver (ore, ingots, tools); Fine Blade removed", "Mutton and pork are now Meat; cooked haggis is back; Fry Up replaces neeps & tatties", "Bag sorted into categories; separate armour and jetpack chest slots", "Map is held in one hand, sways as you look and is clearer", "Round beehive; real falling snow; on-screen controller guide removed", "Pistol, shears, sandstone and coloured wool disabled; peat bricks and deepslate tiles removed", "Mobs: ponds with ducks (they drop Meat); pigs live on dirt patches; 1 spider at a time and they ignore the Treeman", "Mobs: bees stare, smile, then fly off; all humans have clansmen voices"]},{v:'v1.0.0', d:'2026-10-25', notes:['Haggis herds of 4 in single file on the heather','Pigs wallow and barrel-roll in mud pits (photo skin placeholder)','Spiders: fangs, scary face, faster, hunt other mobs, neutral to you; better step-up','Skeleton draws the bowstring','Treeman: longer hold at arm\'s length, spin, bigger throw; glowing eyes, twig hair','Butterfly swimming, face-down in third person','XP shared across dimensions (recovered from Hell save)','Wet mud puddles, rubies in mountains, spawn skull/boats/floating bits removed','HD ores and metal blocks, Block of diamond, Fry Up + HD food icons','New crafting tabs, white stack counts']},{v:'v0.9.99', d:'2026-10-25', notes:['Bomb replaces the claymore: thrown with LT in an arc, ~3 s sparking fuse, small creeper-like blast (natural blocks only, max 4 hearts); old claymores become bombs; recipe 1 iron + 2 coal + 1 string','Lighter replaces flint and steel (flip lid, click, flame); same use','Wooden sword is now the Baseball Bat (batter swing, thwack, 1.4x knockback, same damage)','Stone sword is the Weak Blade, iron sword the Fine Blade, new HD models and icons','Silver sword now bright silver','Jetpack only on double jump; no pale squares at the nozzles (v0.9.98)']},
 {v:'v0.9.98', d:'2026-10-25', notes:['Wet mud pools in low flat grassland on the mainland (new worlds; older saves get a few once, away from anything built)', 'Wet mud block 254: sunken 0.2, slows walking a lot, squelch steps, splash particles, shovel', 'Pigs spawn only at mud pools and wallow: lie down, roll over, wiggle, oink/snort, mud coat that fades', 'New HD procedural pig model', 'HD wet mud texture with animated sheen and tile']},
