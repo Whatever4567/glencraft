@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1013m -->
+<!-- glencraft-build: v1014f -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.13';
+const GAME_VERSION = 'v1.0.14';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -12323,7 +12323,7 @@ var c37busy = false;
       crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear();
       castleAvoid = zones.map(Z => ({x0: Z.x0 - 4, x1: Z.x1 + 4, z0: Z.z0 - 4, z1: Z.z1 + 4}));
       if (current) current.newCastles = true;
-      cityGen = false; gSeed = ((Math.random() * 2 ** 31) | 0) || 12345; cityEdits = new Map();
+      cityGen = false; gSeed = ((Math.random() * 2 ** 31) | 0) || 12345; cityEdits = new Map(); try { if (current && current.mode !== 'creative') { current.l94 = true; current.g12 = true; } } catch (_) {}
       generate(); castleAvoid = [];
       let blocks = 0; for (const Z of zones) blocks += pasteZone(Z);
       try { placedSet = new Set(); for (const Z of zones) for (let x = Z.x0; x <= Z.x1; x++) for (let z = Z.z0; z <= Z.z1; z++) for (let y = Z.ylo + Z.dy; y <= Z.yhi + Z.dy; y++) { if (y < 1 || y >= H) continue; const k = idx(x, y, z), b = world[k]; if (b && !NAT[b]) placedSet.add(k); } } catch (_) {}
@@ -13128,7 +13128,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     // wipe everything of the old world
     __clearWorldState(); crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear(); try { cauldrons.clear(); } catch (_) {}
     try { placedSet = new Set(); } catch (_) {}
-    if (current) current.newCastles = true; cityGen = false; castleAvoid = []; gSeed = ((Math.random() * 2 ** 31) | 0) || 4242; cityEdits = new Map();
+    if (current) current.newCastles = true; cityGen = false; castleAvoid = []; gSeed = ((Math.random() * 2 ** 31) | 0) || 4242; cityEdits = new Map(); try { if (current && current.mode !== 'creative') { current.l94 = true; current.g12 = true; } } catch (_) {}
     generate(); genVer = GEN9; try { fixTorches(); } catch (_) {}
     try { spawnPlayer(); } catch (_) {}
     // landing site: dry flat ground near the new spawn
@@ -18708,21 +18708,25 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const hexRGB = h => [(h >> 16) & 255, (h >> 8) & 255, h & 255], COLC = {};
   const topKey = id => { const f = FACES[id]; return Array.isArray(f) ? f[2] : f; };
   const colOf = id => COLC[id] || (COLC[id] = hexRGB((topKey(id) && AVG[topKey(id)]) || 0x777777));
-  const sky = id => id === T.AIR || !FACES[id];
+  const sky = id => id === T.AIR || !FACES[id] || PLANT[id] === 1;
+  const MPAL = {[T.GRASS]: [112, 178, 76], leaf: [62, 128, 58], [T.SAND]: [232, 214, 150], [T.STONE]: [150, 150, 146], [T.GRAVEL || 202]: [160, 152, 140], [T.DIRT]: [150, 112, 74], [T.HEATHER]: [150, 104, 150], [T.PEAT]: [96, 76, 58], [T.MUD]: [110, 90, 64], [T.DEEPSLATE]: [90, 90, 96], [T.LAVA]: [240, 110, 30], 142: [120, 96, 56], 144: [90, 140, 60], 248: [56, 56, 62]};
+  let wm = null; const wAt = (x, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return 1; const i = x * D + z; if (wm[i] < 0) { let y = H - 1; const base = x * H * D + z; for (; y > 0; y--) if (!sky(world[base + y * D])) break; wm[i] = world[base + y * D] === T.WATER ? 1 : 0; } return wm[i]; };
   const wkey = () => ((current && current.id) || 'x') + '@' + (current && current.created) + '|' + W + '|' + (typeof genVer !== 'undefined' ? genVer : 0);
   function column(x, z) { let y = H - 1, b = 0; const base = x * H * D + z; for (; y > 0; y--) { b = world[base + y * D]; if (!sky(b)) break; }
     let dep = 0; if (b === T.WATER) { let yy = y; while (yy > 0 && world[base + yy * D] === T.WATER && dep < 8) { yy--; dep++; } } hm[x * D + z] = y; return [y, b, dep]; }
   function paintRect(x0, z0, w, d) { x0 = Math.max(0, x0); z0 = Math.max(0, z0); w = Math.min(W - x0, w); d = Math.min(D - z0, d); if (w <= 0 || d <= 0) return;
-    const im = mg.createImageData(w, d), px = im.data, bio = window.__bio && __bio.info.on ? __bio : null, gr = colOf(T.GRASS);
+    const im = mg.createImageData(w, d), px = im.data, bio = window.__bio && __bio.info.on ? __bio : null;
     for (let dx = 0; dx < w; dx++) for (let dz = 0; dz < d; dz++) { const x = x0 + dx, z = z0 + dz, [h, b, dep] = column(x, z); let r, g, bb;
-      if (b === T.WATER) { const k = Math.min(1, dep / 7); r = 70 - 40 * k; g = 130 - 60 * k; bb = 215 - 50 * k; }
-      else { const c = b === T.GRASS ? gr : colOf(b); r = c[0]; g = c[1]; bb = c[2];
-        if (bio && (b === T.GRASS || LEAFY[b])) { const t = bio.tint(x, z); r *= t[0]; g *= t[1]; bb *= t[2]; }
-        const hn = z > 0 ? hm[x * D + z - 1] : -1, hw = x > 0 ? hm[(x - 1) * D + z] : -1; const sl = ((hn >= 0 ? h - hn : 0) + (hw >= 0 ? h - hw : 0)) * 0.07;
-        const s = 1 + Math.max(-0.3, Math.min(0.3, sl)) + (h - SEA) * 0.003; r *= s; g *= s; bb *= s; }
+      // v1.0.12: a cleaner map - flat crisp colours per surface/biome, clear water, a dark coastline, gentle relief only
+      if (b === T.WATER) { const k = Math.min(1, dep / 6); r = 92 - 50 * k; g = 160 - 62 * k; bb = 228 - 42 * k;
+        if (wAt(x - 1, z) === 0 || wAt(x + 1, z) === 0 || wAt(x, z - 1) === 0 || wAt(x, z + 1) === 0) { r = 30; g = 62; bb = 118; } }
+      else { const c = MPAL[b] || (LEAFY[b] ? MPAL.leaf : LOGGY[b] ? MPAL.leaf : colOf(b)); r = c[0]; g = c[1]; bb = c[2];
+        if (bio && (b === T.GRASS || LEAFY[b] || LOGGY[b])) { const t = bio.tint(x, z); r *= t[0]; g *= t[1]; bb *= t[2]; }
+        const hn = z > 0 ? hm[x * D + z - 1] : -1, hw = x > 0 ? hm[(x - 1) * D + z] : -1; const sl = ((hn >= 0 ? h - hn : 0) + (hw >= 0 ? h - hw : 0)) * 0.035;
+        const s = 1 + Math.max(-0.16, Math.min(0.16, sl)) + Math.max(-0.1, Math.min(0.14, (h - SEA - 8) * 0.0025)); r *= s; g *= s; bb *= s; }
       const o = (dz * w + dx) * 4; px[o] = r; px[o + 1] = g; px[o + 2] = bb; px[o + 3] = 255; }
     mg.putImageData(im, x0, z0); }
-  function reset() { key = wkey(); MC.width = W; MC.height = D; mg = MC.getContext('2d'); hm = new Int16Array(W * D).fill(-1); row = 0; U.mapDone = false; U.built = 0; }
+  function reset() { key = wkey(); MC.width = W; MC.height = D; mg = MC.getContext('2d'); hm = new Int16Array(W * D).fill(-1); wm = new Int8Array(W * D).fill(-1); row = 0; U.mapDone = false; U.built = 0; }
   function build(ms) { const t0 = performance.now(); while (row < W && performance.now() - t0 < ms) { paintRect(row, 0, 4, D); row += 4; } U.built = row / W; if (row >= W && !U.mapDone) { U.mapDone = true; compose(); } }
   const IN = 40, SZ = 1024 - 2 * IN;   // map area inside the parchment border
   const toC = (x, z) => [IN + x / W * SZ, IN + z / D * SZ];
@@ -18742,6 +18746,15 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       castleIcon(x, y, col, roof); label(nm, Math.max(150, Math.min(874, x)), y + (y > 900 ? -34 : 44)); }
     if (typeof g9spawn !== 'undefined' && g9spawn) { const [x, y] = toC(g9spawn[0], g9spawn[2]); tg.fillStyle = '#ffd23a'; tg.strokeStyle = '#5a3a00'; tg.lineWidth = 2; tg.beginPath();
       for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, r = i % 2 ? 6 : 14; tg.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } tg.closePath(); tg.fill(); tg.stroke(); label('Spawn', x, y + 38); }
+    // v1.0.12 markers: crofts, the 4 ravines, the great cave under the skull
+    try { const C13 = window.__c113, fl = C13 && C13.farmsList ? C13.farmsList() : [];
+      for (const f of fl) { const [x, y] = toC(f.x0 + 3, f.z0 + 6); tg.save(); tg.translate(x, y); tg.fillStyle = 'rgba(0,0,0,.4)'; tg.fillRect(-9, -5, 19, 14); tg.fillStyle = '#efe4c8'; tg.fillRect(-8, -3, 16, 11); tg.fillStyle = '#9a4a20'; tg.beginPath(); tg.moveTo(-10, -3); tg.lineTo(0, -12); tg.lineTo(10, -3); tg.fill(); tg.fillStyle = '#3a2410'; tg.fillRect(-2, 2, 4, 6); tg.restore(); } } catch (_) {}
+    try { const M = window.__c131 && __c131.marks && __c131.marks(); if (M) {
+        for (const r of M.rav || []) { const pts = r.p || []; if (pts.length < 2) continue; tg.save(); tg.lineCap = 'round'; tg.lineJoin = 'round';
+          for (const [wd, col] of [[9, 'rgba(40,20,10,.55)'], [4, '#8a3a1a']]) { tg.lineWidth = wd; tg.strokeStyle = col; tg.beginPath(); pts.forEach((q, i) => { const [x, y] = toC(q[0], q[1]); i ? tg.lineTo(x, y) : tg.moveTo(x, y); }); tg.stroke(); }
+          const [lx, ly] = toC(r.x, r.z); tg.restore(); tg.font = 'bold 22px Georgia,serif'; tg.textAlign = 'center'; tg.lineWidth = 4; tg.strokeStyle = 'rgba(245,235,205,.95)'; tg.strokeText('Ravine', lx, ly - 18); tg.fillStyle = '#5a200c'; tg.fillText('Ravine', lx, ly - 18); }
+        if (M.ent) { const [x, y] = toC(M.ent[0], M.ent[1]); tg.fillStyle = '#1a1210'; tg.beginPath(); tg.arc(x, y + 4, 11, Math.PI, 0); tg.lineTo(x + 11, y + 8); tg.lineTo(x - 11, y + 8); tg.fill(); tg.strokeStyle = '#d8c090'; tg.lineWidth = 2; tg.stroke();
+          tg.font = 'bold 22px Georgia,serif'; tg.textAlign = 'center'; tg.lineWidth = 4; tg.strokeStyle = 'rgba(245,235,205,.95)'; tg.strokeText('Great Cave', x, y + 32); tg.fillStyle = '#2a1a0c'; tg.fillText('Great Cave', x, y + 32); } } } catch (_) {}
     // north arrow
     tg.fillStyle = '#3a2410'; tg.beginPath(); tg.moveTo(980, 56); tg.lineTo(992, 92); tg.lineTo(968, 92); tg.fill(); label('N', 980, 120);
     if (tex) tex.needsUpdate = true;
@@ -18754,6 +18767,17 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const arrowO = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({color: 0xffffff, depthTest: false, depthWrite: false})); arrowO.scale.setScalar(1.35); arrowO.renderOrder = 21;
   const arrow = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({color: 0xd01818, depthTest: false, depthWrite: false})); arrow.renderOrder = 22; arrow.position.z = 0.0005;
   const mark = new THREE.Group(); mark.add(arrowO); mark.add(arrow); mark.position.z = 0.001; plane.add(mark);
+  // v1.0.12: a round close-up of the ground round you (about 96 blocks across), hanging off the bottom edge like a compass
+  const IC = document.createElement('canvas'); IC.width = IC.height = 256; const ig = IC.getContext('2d'), itex = new THREE.CanvasTexture(IC); itex.minFilter = THREE.LinearFilter;
+  const ISZ = MS * 0.3, inset = new THREE.Mesh(new THREE.PlaneGeometry(ISZ, ISZ), new THREE.MeshBasicMaterial({map: itex, transparent: true, depthTest: false, depthWrite: false}));
+  inset.renderOrder = 24; inset.position.set(0, -MS * 0.5 + ISZ * 0.12, 0.002); plane.add(inset);
+  const im2 = new THREE.Group(), a2o = new THREE.Mesh(arrowO.geometry, arrowO.material), a2 = new THREE.Mesh(arrow.geometry, arrow.material); a2o.scale.setScalar(1.35); a2o.renderOrder = 25; a2.renderOrder = 26; a2.position.z = 0.0005;
+  im2.add(a2o); im2.add(a2); im2.scale.setScalar(1.15); im2.position.z = 0.0006; inset.add(im2); U.inset = inset;
+  let insT = 0; function drawInset() { const R = 48, px = P.x, pz = P.z; ig.clearRect(0, 0, 256, 256); ig.save(); ig.beginPath(); ig.arc(128, 128, 120, 0, 7); ig.clip(); ig.fillStyle = '#2f6fc4'; ig.fillRect(0, 0, 256, 256);
+    ig.imageSmoothingEnabled = false; try { ig.drawImage(MC, px - R, pz - R, 2 * R, 2 * R, 0, 0, 256, 256); } catch (_) {}
+    const cs = (typeof g9castles !== 'undefined' && g9castles) || []; for (const c of cs) { const x = (c[1] - px + R) / (2 * R) * 256, y = (c[2] - pz + R) / (2 * R) * 256; if (x > -20 && y > -20 && x < 276 && y < 276) { ig.fillStyle = '#2a2a30'; ig.fillRect(x - 10, y - 8, 20, 16); ig.fillStyle = '#d8d2c4'; ig.fillRect(x - 8, y - 6, 16, 12); } }
+    ig.restore(); ig.lineWidth = 10; ig.strokeStyle = '#6a4a22'; ig.beginPath(); ig.arc(128, 128, 121, 0, 7); ig.stroke(); ig.lineWidth = 3; ig.strokeStyle = '#e8d6a8'; ig.beginPath(); ig.arc(128, 128, 114, 0, 7); ig.stroke();
+    ig.font = 'bold 26px Georgia,serif'; ig.textAlign = 'center'; ig.fillStyle = '#e8d6a8'; ig.strokeStyle = '#3a2410'; ig.lineWidth = 4; ig.strokeText('N', 128, 30); ig.fillText('N', 128, 30); itex.needsUpdate = true; }
   // one hand holds the bottom corner (right corner = main hand, left corner = offhand)
   const up = new THREE.Vector3(0, 1, 0), fists = {};
   for (const s of [-1, 1]) { const FG = new THREE.Group(); HG.add(FG); fists[s] = FG;
@@ -18772,11 +18796,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     const now = performance.now(), dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
     const on = holding(); HG.visible = !!on; if (!on) { lyaw = null; return false; }
     if (wkey() !== key) reset();
-    if (!U.mapDone) build(10); else if ((refT -= dt) <= 0) { refT = 4; const px = Math.floor(P.x), pz = Math.floor(P.z); paintRect(px - 24, pz - 24, 48, 48); compose(); }
+    if (!U.mapDone) build(10); else if ((refT -= dt) <= 0) { refT = 4; const px = Math.floor(P.x), pz = Math.floor(P.z); for (let x = Math.max(0, px - 25); x < Math.min(W, px + 25); x++) for (let z = Math.max(0, pz - 25); z < Math.min(D, pz + 25); z++) wm[x * D + z] = -1; paintRect(px - 24, pz - 24, 48, 48); compose(); }
     if (!tex) { tex = new THREE.CanvasTexture(TX); try { tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (_) { tex.anisotropy = 4; } tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter;
       try { if (renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; } catch (_) {} plane.material.map = tex; plane.material.needsUpdate = true; if (!U.mapDone) compose(); }
     if (!U.mapDone && (U._pt = (U._pt || 0) + dt) > 0.4) { U._pt = 0; compose(); }
-    mark.visible = !(typeof DIM !== 'undefined' && DIM.cur); const [cx, cy] = toC(P.x, P.z); mark.position.set((cx / 1024 - 0.5) * MS, (0.5 - cy / 1024) * MS, 0.001); mark.rotation.z = P.yaw;
+    mark.visible = !(typeof DIM !== 'undefined' && DIM.cur); inset.visible = mark.visible; if (inset.visible && (insT -= dt) <= 0) { insT = 0.25; drawInset(); } im2.rotation.z = P.yaw; const [cx, cy] = toC(P.x, P.z); mark.position.set((cx / 1024 - 0.5) * MS, (0.5 - cy / 1024) * MS, 0.001); mark.rotation.z = P.yaw;
     // sway: the map lags behind when you turn or look up/down, then springs back
     const yaw = P.yaw || 0, pitch = P.pitch || 0; if (lyaw === null) { lyaw = yaw; lpitch = pitch; }
     let dy = yaw - lyaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); const dp = pitch - lpitch; lyaw = yaw; lpitch = pitch;
@@ -19222,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.14', ["music: the original Glencraft songs are back as chilled remixes - same melodies and chords, no piano, re-voiced on warm pads, low soft plucks, sub bass and a Highland drone, sitting on your frequency tracks (binaural pulse as the groove, surf as texture); quiet, low-passed and crossfaded", "the Highlands are now mostly land: one big squared-off mainland with narrow sea channels round the spawn island and the three castle islands (land/water about 60/40 instead of 23/77), with bigger biomes", "castles sit out towards their island's outer edge with a wide strip of land between them and the shore, and their hills ease back into the land instead of a little islet ring", "smoother, more natural glen hills", "the spawn island's imported water, ship hulls and stray blocks are gone - only Glencraft's own water is left, on solid sand/gravel beds; floating leftovers are cleaned up", "no caves under any water: the sea, lochs and ponds all sit on solid ground, so no more swimming then suddenly falling", "the skull on the spawn island is gone and its dent is now the Great Cave: a wide torch-lit ramp spiralling down into a huge cavern", "exactly 4 deep ravines, each a different shape: a long straight gash on the mainland, a winding S-curve, a wide stepped gorge and a forked Y on the castle islands - all joined to the caves", "caves only under land: winding tunnels with no dead ends lead down to very big caverns (ores and cave mobs as before), plus a few walk-in entrances", "no more sky showing through cave walls at low render distance: underground the fog darkens and closes in and the sky, sun, moon and clouds are hidden (caves are never pitch black)", "map: cleaner crisp colours, clear water and coastline, markers for crofts, ravines and the Great Cave, and a round close-up of your surroundings at the bottom", "the new world generation is used by new worlds and by Reset world; existing worlds keep their land as it is"]],
     ['v1.0.13', ["the soundtrack is now your own tracks: Alpha Calm, Schumann and Focus 12 by day; Delta Drift, Theta Gate, Theta Window, Focus 15 and Focus 21 at night and in caves; Stargate and Beyond the Matrix near the wizards and the unicorn", "every track is softened for the game: gentle low-pass (nothing shrill), the 40 Hz gamma buzz taken out, quieter, with slow fades and long crossfades"]],
     ['v1.0.12', ["relaxed ambient soundtrack: calm, warm binaural-beat pads with a soft sea-surf bed and a low Highland drone, slow swells and long crossfades (no more piano chimes, bells or high beeps); Alpha/Schumann by day, Theta/Delta/Focus at night and in caves, Stargate/Beyond the Matrix near the wizards and the unicorn", "music sits quieter, under the game sounds, with a limiter so nothing is ever loud", "a softer, warmer level-up chime"]],
     ['v1.0.11', ["every night mob, sea creature, wizard and unicorn now moves exactly like the creeper: walls and blocks stop them, they step up single blocks, fall with gravity and path round obstacles to reach you", "floating ghosts can no longer drift through walls or rise through roofs, and sea creatures stay in open water instead of clipping into the seabed", "spawn eggs for every mob: all the night mobs and sea creatures, a wizard, a unicorn, the black skeleton, yellow creeper, night spider and giant zombie, each egg coloured like its mob", "all spawn eggs sit together, sorted A to Z, in the creative inventory", "eggs work anywhere: any biome, land or water, day or night, in any dimension", "creative mode: evil and hostile mobs never spawn on their own; mobs you hatch from eggs never burn in daylight, never despawn, and come back when you reload the world"]],
@@ -21476,7 +21501,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const topAt = (x, z) => { for (let y = H - 2; y > 1; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !PLANT[b] && !LEAFY[b] && !ENT[b]) return y; } return -1; };
   function digPonds(n) { const made = []; if (DIM.cur) return made; const R = Math.random, near = (x, z, r) => PD.list.some(p => Math.hypot(p[0] - x, p[1] - z) < r);
     for (let t = 0; t < 900 && made.length < n; t++) { const x = 8 + (R() * (W - 16) | 0), z = 8 + (R() * (D - 16) | 0), r = 3 + R() * 1.4, ri = Math.ceil(r);
-      if (Math.hypot(x - P.x, z - P.z) < 22 || near(x, z, 34)) continue; const h = topAt(x, z); if (h < 3 || world[idx(x, h, z)] !== T.GRASS) continue;
+      if (Math.hypot(x - P.x, z - P.z) < 22 || near(x, z, 34)) continue; const h = topAt(x, z); if (h < 3 || world[idx(x, h, z)] !== T.GRASS) continue; if (window.__c131 && __c131.cavey && __c131.cavey(x, z, ri + 1, h)) continue;   // v1.0.14: no pond over a cave
       let ok = true; for (let dx = -ri - 1; dx <= ri + 1 && ok; dx++) for (let dz = -ri - 1; dz <= ri + 1 && ok; dz++) { const X = x + dx, Z = z + dz; if (X < 1 || Z < 1 || X >= W - 1 || Z >= D - 1) { ok = false; break; }
         const th = topAt(X, Z); if (Math.abs(th - h) > (Math.hypot(dx, dz) < r ? 0 : 1)) ok = false; const b = world[idx(X, th, Z)]; if (b !== T.GRASS && b !== T.DIRT) ok = false;
         for (let y = th - 2; y <= th + 3 && ok; y++) if (placedSet.has(idx(X, y, Z))) ok = false; }
@@ -23784,7 +23809,212 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
           if (m && m.g) { m.g.position.set(x, y, z); mark(m, k); } } U.restored++; } } catch (_) {} doneW = key; }, 3000); } catch (_) {} }, 1500);
 })();
 
-/* ===================== GLX-C132 (v1.0.12/13): relaxed ambient soundtrack - the user's binaural tracks (assets/music, low-passed + quieter, gamma removed), procedural fallback, no chimes/bells/leads ===================== */
+/* ===================== GLX-C131 (v1.0.12): world gen overhaul - bigger land, solid sea beds, 4 ravines, caves only under land with no dead ends, big skull-dent entrance, no sky in caves ===================== */
+(function c131() {
+  const U = window.__c131 = {st: null, err: null, log: []};
+  const elig = () => { try { return !!(typeof current !== 'undefined' && current && current.mode !== 'creative' && !cityGen && !DIM.cur && W >= 600 && current.l94 && current.g12); } catch (_) { return false; } };
+  U.on = elig;
+  // ---- per-world flag: new worlds (and Reset world) get the new generator; old saves keep theirs ----
+  let MK = null; U.marks = () => (elig() ? MK : null);
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g12 = save ? !!(save.c131 && save.c131.g12) : true; MK = save && save.c131 && save.c131.mk || null; } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g12) d.c131 = {g12: 1, mk: MK}; } catch (_) {} return d; };
+  const NAT = new Uint8Array(256);
+  [T.GRASS, T.DIRT, T.STONE, T.HEATHER, T.SAND, T.PEAT, T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.DIAMONDORE, T.REDORE, T.DEEPSLATE, T.MUD, T.SANDSTONE, T.GRAVEL, 179, 181, 185, 232, 233, 234, 142, 144, 150, 206, 207, 208, 248, 249].forEach(i => { if (i !== undefined) NAT[i] = 1; });
+  const ground = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && !LOGGY[b] && b !== T.TORCH;
+  function dt(src) { const d = new Float32Array(W * D), B = 1.4142;
+    for (let i = 0; i < d.length; i++) d[i] = src[i] ? 0 : 1e6;
+    for (let x = 0; x < W; x++) { d[x * D] = 0; d[x * D + D - 1] = 0; } for (let z = 0; z < D; z++) { d[z] = 0; d[(W - 1) * D + z] = 0; }
+    for (let x = 1; x < W; x++) for (let z = 1; z < D - 1; z++) { const i = x * D + z; d[i] = Math.min(d[i], d[i - D] + 1, d[i - 1] + 1, d[i - D - 1] + B, d[i - D + 1] + B); }
+    for (let x = W - 2; x >= 0; x--) for (let z = D - 2; z > 0; z--) { const i = x * D + z; d[i] = Math.min(d[i], d[i + D] + 1, d[i + 1] + 1, d[i + D + 1] + B, d[i + D - 1] + B); }
+    return d; }
+  // is there any cave air under this disc? (ponds keep off caves: nothing hollow under water)
+  U.cavey = (x, z, r, h) => { try { if (!elig() || !U.st) return false; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { const X = x + dx, Z = z + dz; if (X < 1 || Z < 1 || X >= W - 1 || Z >= D - 1) continue; for (let y = 2; y < h - 1; y++) { const b = world[idx(X, y, Z)]; if (!b || b === T.LAVA) return true; } } } catch (_) {} return false; };
+  function post() {
+    const t0 = performance.now(), st = {}; let s = ((gSeed | 0) ^ 0x2c1b3c6d) >>> 0;
+    const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    // 1) the skull goes, its dent stays (it becomes the big entrance)
+    try { if (window.__c120 && __c120.tidySpawn) __c120.tidySpawn(true); } catch (e) { U.log.push('tidy ' + e); }
+    // the old spawn asset left lava pools on the surface: they become stone (never a surprise burn next to spawn)
+    try { let n = 0; const ax = (W >> 1) - 128, az = (D >> 1) - 124; for (let x = Math.max(0, ax); x < Math.min(W, ax + 256); x++) for (let z = Math.max(0, az); z < Math.min(D, az + 256); z++) for (let y = 20; y < H - 1; y++) { const k = idx(x, y, z); if (world[k] === T.LAVA) { world[k] = T.STONE; n++; } } st.lavaFixed = n; } catch (e) { U.log.push('lava ' + e); }
+    // 2) columns: ground top, water, lowest water
+    const N = W * D, surf = new Int16Array(N), wet = new Uint8Array(N), lowW = new Int16Array(N), hiW = new Int16Array(N);
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * D + z; let top = 0, lw = -1, hw = -1;
+      for (let y = H - 1; y > 0; y--) { const b = world[idx(x, y, z)]; if (b === T.WATER) { lw = y; if (hw < 0) hw = y; } else if (!top && ground(b)) top = y; }
+      surf[c] = top; if (lw >= 0) { wet[c] = 1; lowW[c] = lw; hiW[c] = hw; } }
+    const surf0 = surf.slice(); U.surf0 = surf0;
+    // 3) what must not be dug: castles, crofts, bridges
+    const prot = new Uint8Array(N), mark = (x0, z0, x1, z1) => { for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) for (let z = Math.max(0, z0); z <= Math.min(D - 1, z1); z++) prot[x * D + z] = 1; };
+    const SZ = {human: 15, mossy: 15, black: 13};
+    for (const c of (g9castles || [])) { const S = (SZ[c[0]] || 15) + 12; mark(c[1] - S, c[2] - S, c[1] + S, c[2] + S + 20); }
+    const C113 = window.__c113 || {};
+    try { for (const f of (C113.farmsList ? C113.farmsList() : [])) mark(f.x0 - 9, f.z0 - 9, f.x0 + 15, f.z0 + 20); } catch (_) {}
+    try { for (const b of (C113.bridges || [])) { const [ax, az, ux, uz, t0b, t1b] = b.a; for (let t = t0b - 8; t <= t1b + 8; t += 0.5) for (let q = -7; q <= 7; q += 0.5) { const x = Math.round(ax + ux * t - uz * q), z = Math.round(az + uz * t + ux * q); if (x >= 0 && z >= 0 && x < W && z < D) prot[x * D + z] = 1; } } } catch (_) {}
+    const dW = dt(wet), wp = new Uint8Array(N); for (let i = 0; i < N; i++) wp[i] = wet[i] | prot[i]; const dX = dt(wp);
+    // 4) landmasses
+    const lab = new Int32Array(N).fill(-1), comps = [];
+    for (let i = 0; i < N; i++) { if (lab[i] >= 0 || wet[i] || surf[i] <= SEA) continue; const id = comps.length, q = [i]; lab[i] = id; let n = 0, sx = 0, sz = 0;
+      while (q.length) { const c = q.pop(); n++; const x = (c / D) | 0, z = c - x * D; sx += x; sz += z;
+        for (const nb of [x > 0 ? c - D : -1, x < W - 1 ? c + D : -1, z > 0 ? c - 1 : -1, z < D - 1 ? c + 1 : -1]) if (nb >= 0 && lab[nb] < 0 && !wet[nb] && surf[nb] > SEA) { lab[nb] = id; q.push(nb); } }
+      comps.push({id, n, cx: sx / n, cz: sz / n}); }
+    const big = comps.filter(c => c.n >= 1500).sort((a, b) => b.n - a.n);
+    const labAt = (x, z) => { for (let r = 0; r < 40; r += 2) for (let a = 0; a < 6.28; a += 0.4) { const X = Math.round(x + Math.cos(a) * r), Z = Math.round(z + Math.sin(a) * r); if (X >= 0 && Z >= 0 && X < W && Z < D && lab[X * D + Z] >= 0) return lab[X * D + Z]; } return -1; };
+    const spawnL = labAt(W >> 1, (D >> 1) + 10), castL = {}; for (const c of (g9castles || [])) castL[labAt(c[1], c[2])] = c[0];
+    st.lands = big.map(c => ({n: c.n, cx: Math.round(c.cx), cz: Math.round(c.cz), role: c.id === spawnL ? 'spawn' : castL[c.id] ? 'castle:' + castL[c.id] : 'land'}));
+    // 5) carving
+    let carved = 0; const touched = new Uint8Array(N);
+    const roofOf = c => (lab[c] === spawnL ? 12 : 6);
+    function cv(x, y, z, open) { if (x < 2 || z < 2 || x > W - 3 || z > D - 3 || y < 3 || y >= H) return; const c = x * D + z; if (prot[c] || dW[c] < 6) return; if (!open && y > surf0[c] - roofOf(c)) return;
+      const k = idx(x, y, z), b = world[k]; if (!b) return; if (NAT[b] || (open && (LEAFY[b] || LOGGY[b] || PLANT[b] || b === T.TORCH))) { if (b === T.TORCH) try { lightSrc.delete((x * 4096 + z) * 256 + y); } catch (_) {} world[k] = 0; carved++; touched[c] = 1; } }
+    function ball(px, py, pz, r, ry, open) { const R = Math.ceil(r), X = Math.round(px), Z = Math.round(pz);
+      for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const h = ((X + dx - px) ** 2 + (Z + dz - pz) ** 2) / (r * r); if (h > 1) continue; const e = ry * Math.sqrt(1 - h);
+        for (let y = Math.ceil(py - e); y <= Math.floor(py + e); y++) cv(X + dx, y, Z + dz, open); } }
+    // nodes: {x,y,z,t:'c'|'t'|'r'|'e', L, r}
+    const nodes = [], caverns = [];
+    function cavern(x, z, r, hy, cy, lava) { const p1 = rnd() * 6.28, p2 = rnd() * 6.28, R = Math.ceil(r * 1.25);
+      for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const a = Math.atan2(dz, dx), re = r * (0.86 + 0.14 * Math.sin(3 * a + p1) + 0.09 * Math.sin(5 * a + p2)), h = (dx * dx + dz * dz) / (re * re); if (h >= 1) continue;
+        const X = Math.round(x + dx), Z = Math.round(z + dz), f = Math.sqrt(1 - h), up = hy * f * (0.8 + 0.2 * Math.sin(dx * 0.21 + p1) * Math.cos(dz * 0.17 + p2)), dn = hy * 0.5 * f;
+        const y0 = Math.max(4, Math.round(cy - dn)), y1 = Math.round(cy + up); for (let y = y0; y <= y1; y++) cv(X, y, Z, false);
+        if (lava && y0 <= 6 && h < 0.5 && X > 2 && Z > 2 && X < W - 3 && Z < D - 3 && !world[idx(X, y0, Z)] && ground(world[idx(X, y0 - 1, Z)])) world[idx(X, y0, Z)] = T.LAVA; }
+      caverns.push([x, z, r, cy, hy]); }
+    const freeDisk = (x, z, r) => { for (let a = 0; a < 6.28; a += 0.5) for (const f of [0, 0.5, 1]) { const X = Math.round(x + Math.cos(a) * r * f), Z = Math.round(z + Math.sin(a) * r * f); if (X < 0 || Z < 0 || X >= W || Z >= D || dX[X * D + Z] < 4) return false; } return true; };
+    const minSurf = (x, z, r) => { let m = 999; for (let a = 0; a < 6.28; a += 0.5) for (const f of [0, 0.5, 1]) { const X = Math.round(x + Math.cos(a) * r * f), Z = Math.round(z + Math.sin(a) * r * f); if (X >= 0 && Z >= 0 && X < W && Z < D) m = Math.min(m, surf0[X * D + Z]); } return m; };
+    // ---- the big entrance in the skull's dent + the great cavern under it ----
+    const EX = (W >> 1) - 128 + 125, EZ = (D >> 1) - 124 + 171; let ent = null;
+    if (spawnL >= 0) { const L = spawnL; let top = surf[EX * D + EZ]; const cy = 18, hy = 10; cavern(EX, EZ - 4, 30, hy, cy, false); nodes.push({x: EX, y: cy - 3, z: EZ - 4, t: 'c', L, r: 30, great: true});
+      // a wide bowl opening, then a broad ramp spiralling down 1.4 turns into the cavern roof
+      for (let y = top + 6; y >= top - 6; y--) { const f = (y - (top - 7)) / 13, r = 9 + 10 * Math.sqrt(Math.max(0, f)); ball(EX, y, EZ, r, 1.2, true); }
+      const turns = 1.25, Rs = 15, yA = top - 6, yB = cy + 2, steps = 320; let tor = 0;
+      for (let i = 0; i <= steps; i++) { const f = i / steps, a = f * turns * 6.283 + 1.2, px = EX + Math.cos(a) * Rs * (1 - 0.15 * f), pz = EZ + Math.sin(a) * Rs * (1 - 0.15 * f), py = yA + (yB - yA) * f;
+        ball(px, py + 3, pz, 6.5, 5, true);
+        if (i % 24 === 12) { const X = Math.round(px + Math.cos(a) * 5.5), Z = Math.round(pz + Math.sin(a) * 5.5); for (let y = Math.round(py) - 3; y < Math.round(py) + 4; y++) { const k = idx(X, y, Z); if (!world[k] && ground(world[k - D])) { world[k] = T.TORCH; try { lightSrc.set((X * 4096 + Z) * 256 + y, [X + .5, y + .7, Z + .5, T.TORCH]); } catch (_) {} tor++; break; } } } }
+      ent = {x: EX, z: EZ, top, torches: tor}; }
+    st.entrance = ent;
+    // ---- caverns + tunnel nodes per landmass ----
+    for (const Lm of big) { const L = Lm.id; if (L === spawnL && ent) {} const isMain = Lm === big.find(b => b.id !== spawnL && !castL[b.id]);
+      const nC = L === spawnL ? 0 : castL[L] ? 1 : Math.max(1, Math.min(7, Math.round(Lm.n / 55000)));
+      const cand = []; for (let x = 8; x < W - 8; x += 6) for (let z = 8; z < D - 8; z += 6) { const c = x * D + z; if (lab[c] === L) cand.push([x, z, dX[c]]); }
+      let made = 0; for (let tries = 0; tries < 600 && made < nC; tries++) { const p = cand[(rnd() * cand.length) | 0]; if (!p) break; const r = castL[L] ? 18 + rnd() * 6 : 26 + rnd() * 12;
+        if (p[2] < r * 0.6 + 6 || !freeDisk(p[0], p[1], r)) continue; if (caverns.some(c => Math.hypot(c[0] - p[0], c[1] - p[1]) < c[2] + r + 26)) continue;
+        const ms = minSurf(p[0], p[1], r); const hy = castL[L] ? 8 : 9 + rnd() * 3, cy = Math.min(14 + rnd() * 4, ms - hy - 10); if (cy < 9) continue;
+        cavern(p[0], p[1], r, hy, cy, !castL[L]); nodes.push({x: p[0], y: Math.round(cy - 2), z: p[1], t: 'c', L, r}); made++; }
+      const sp = castL[L] ? 34 : 44;
+      for (let gx = 20; gx < W - 20; gx += sp) for (let gz = 20; gz < D - 20; gz += sp) { const x = Math.round(gx + (rnd() - 0.5) * sp * 0.6), z = Math.round(gz + (rnd() - 0.5) * sp * 0.6); if (x < 4 || z < 4 || x >= W - 4 || z >= D - 4) continue; const c = x * D + z;
+        if (lab[c] !== L || dX[c] < 6) continue; if (caverns.some(k => Math.hypot(k[0] - x, k[1] - z) < k[2] + 6)) continue; const hi = Math.min(surf0[c] - 11, 52); if (hi < 11) continue; nodes.push({x, y: Math.round(10 + rnd() * (hi - 10)), z, t: 't', L}); }
+      Lm.isMain = isMain; }
+    // ---- 4 ravines: mainland = long straight gash; the castle islands = S-curve, stepped gorge, forked Y ----
+    const SH = {gash: {len: 150, w: 5, deep: 9}, s: {len: 74, w: 4.5, deep: 11}, step: {len: 52, w: 10, deep: 12}, y: {len: 34, w: 4, deep: 11}};
+    function shapePts(kind, sc) { const P = [], k = SH[kind], Lh = k.len * sc / 2;
+      if (kind === 'gash') for (let t = -Lh; t <= Lh; t += 1) P.push([t, 0.6 * Math.sin(t / 23), 1 - Math.abs(t) / Lh, 0]);
+      else if (kind === 's') for (let t = -Lh; t <= Lh; t += 0.7) P.push([t, 11 * sc * Math.sin(t / Lh * Math.PI), 1 - Math.abs(t) / Lh, 0]);
+      else if (kind === 'step') for (let t = -Lh; t <= Lh; t += 1) P.push([t, 2 * Math.sin(t / 9), 1 - Math.abs(t) / Lh, 0]);
+      else { for (let t = -Lh; t <= 0; t += 1) P.push([t, 0, Math.min(1, (t + Lh) / (Lh * 0.6)), 0]);
+        for (const sg of [-1, 1]) for (let u = 0; u <= Lh * 1.15; u += 1) P.push([u * Math.cos(0.6), sg * u * Math.sin(0.6), 1 - u / (Lh * 1.15), sg]); }
+      return P; }
+    const rav = [];
+    function placeRavine(L, kind) { const k = SH[kind], cand = []; for (let x = 10; x < W - 10; x += 4) for (let z = 10; z < D - 10; z += 4) { const c = x * D + z; if (lab[c] === L && dX[c] > k.w + 6 && dW[c] > 18 + k.w) cand.push([x, z]); }
+      for (const sc of [1, 0.85, 0.72, 0.6]) for (let tries = 0; tries < 300; tries++) { const p = cand[(rnd() * cand.length) | 0]; if (!p) return null; const a = rnd() * 6.283, ca = Math.cos(a), sa = Math.sin(a), pts = shapePts(kind, sc);
+        let ok = true; const W2 = []; for (const q of pts) { const x = p[0] + q[0] * ca - q[1] * sa, z = p[1] + q[0] * sa + q[1] * ca, X = Math.round(x), Z = Math.round(z);
+          if (X < 4 || Z < 4 || X >= W - 4 || Z >= D - 4) { ok = false; break; } const c = X * D + Z; if (lab[c] !== L || dX[c] < k.w * sc + 4 || dW[c] < 15 + k.w * sc) { ok = false; break; } W2.push([x, z, q[2], q[3]]); }
+        if (!ok) continue; if (rav.some(r => Math.hypot(r.x - p[0], r.z - p[1]) < 60)) continue; return {kind, L, x: p[0], z: p[1], a, sc, pts: W2}; }
+      return null; }
+    function carveRavine(R) { const k = SH[R.kind], w0 = k.w * R.sc, ph = rnd() * 6.28; let yMin = 999;
+      for (const [x, z, e] of R.pts) { const X = Math.round(x), Z = Math.round(z), c = X * D + Z, top = surf0[c], f = Math.pow(Math.max(0, Math.min(1, e * 1.25)), 0.45);
+        const yb = Math.round(top - (top - k.deep) * f), w = w0 * (0.55 + 0.45 * f) * (1 + 0.12 * Math.sin(x * 0.31 + z * 0.17 + ph)); yMin = Math.min(yMin, yb);
+        for (let y = yb; y < H; y++) { const g = Math.max(0, Math.min(1, (y - yb) / Math.max(4, top - yb)));
+          const hw = R.kind === 'step' ? w * (0.3 + 0.7 * Math.min(1, Math.floor(g * 4 + 0.35) / 3)) : R.kind === 'gash' ? w * (0.4 + 0.6 * Math.pow(g, 0.8)) : w * (0.35 + 0.65 * Math.pow(g, 0.6)); const r = Math.ceil(hw);
+          for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (dx * dx + dz * dz <= hw * hw) cv(X + dx, y, Z + dz, true); } }
+      R.yMin = yMin;
+      // the deep middle (and the fork arms) join the cave network
+      const deepPts = R.pts.filter(q => q[2] > 0.75); const picks = [deepPts[0], deepPts[deepPts.length >> 1], deepPts[deepPts.length - 1]].filter(Boolean);
+      for (const q of picks) { const X = Math.round(q[0]), Z = Math.round(q[1]); nodes.push({x: X, y: k.deep + 2, z: Z, t: 'r', L: R.L}); } }
+    const main = big.find(b => b.isMain), isl = big.filter(b => castL[b.id]), order = ['s', 'step', 'y'];
+    if (main) { const R = placeRavine(main.id, 'gash'); if (R) rav.push(R); }
+    isl.forEach((b, i) => { const kinds = [order[i % 3], 'y', 's', 'step']; for (const kd of kinds) { if (rav.some(r => r.kind === kd)) continue; const R = placeRavine(b.id, kd); if (R) { rav.push(R); break; } } });
+    for (const kd of ['s', 'step', 'y']) if (rav.length < 4 && !rav.some(r => r.kind === kd) && main) { const R = placeRavine(main.id, kd); if (R) rav.push(R); }
+    rav.forEach(carveRavine); U.rav = rav; st.ravines = rav.map(r => ({kind: r.kind, x: Math.round(r.x), z: Math.round(r.z), sc: r.sc, yMin: r.yMin, land: r.L === (main && main.id) ? 'mainland' : (castL[r.L] || '?') + ' island'}));
+    // ---- a few small walk-in entrances per landmass ----
+    for (const Lm of big) { const L = Lm.id; if (L === spawnL) continue; const want = castL[L] ? 1 : Math.max(2, Math.min(8, Math.round(Lm.n / 50000))); let got = 0;
+      const tn = nodes.filter(n => n.L === L && n.t === 't'); for (let tries = 0; tries < 400 && got < want && tn.length; tries++) { const n = tn[(rnd() * tn.length) | 0], a = rnd() * 6.283, d = 30 + rnd() * 25, x = Math.round(n.x + Math.cos(a) * d), z = Math.round(n.z + Math.sin(a) * d);
+        if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) continue; const c = x * D + z; if (lab[c] !== L || dX[c] < 8) continue; const y = surf0[c] + 1; if ((y - n.y) / d > 0.7 || y - n.y < 8) continue;
+        if (nodes.some(m => m.t === 'e' && Math.hypot(m.x - x, m.z - z) < 70)) continue; const e = {x, y, z, t: 'e', L, to: n}; if (!pathOK(e, n, true)) continue; nodes.push(e); got++; } }
+    // ---- tunnel graph: MST over valid edges, then no dead ends ----
+    function pathOK(a, b, open) { const L = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(2, Math.ceil(L / 2)); if (Math.abs(b.y - a.y) > Math.max(6, L * (open ? 0.75 : 0.62))) return false;
+      for (let i = 1; i < n; i++) { const f = i / n, x = Math.round(a.x + (b.x - a.x) * f), z = Math.round(a.z + (b.z - a.z) * f), y = a.y + (b.y - a.y) * f, c = x * D + z;
+        if (caverns.some(k => Math.hypot(k[0] - x, k[1] - z) < k[2] * 0.8)) continue; if (dX[c] < 6.5 || lab[c] !== a.L) return false; if (!open && y > surf0[c] - roofOf(c) - 3) return false; } return true; }
+    const E = []; const byL = {}; nodes.forEach((n, i) => { n.i = i; (byL[n.L] = byL[n.L] || []).push(n); });
+    for (const L in byL) { const A = byL[L].filter(n => n.t !== 'e');
+      for (let i = 0; i < A.length; i++) for (let j = i + 1; j < A.length; j++) { const a = A[i], b = A[j], d = Math.hypot(a.x - b.x, a.z - b.z) - (a.r || 0) - (b.r || 0); if (d > 78) continue; if (pathOK(a, b, false)) E.push([a.i, b.i, Math.hypot(d, a.y - b.y)]); } }
+    E.sort((p, q) => p[2] - q[2]); const par = nodes.map((_, i) => i), find = i => { while (par[i] !== i) i = par[i] = par[par[i]]; return i; };
+    const adj = nodes.map(() => new Set()), use = [];
+    for (const e of E) { const a = find(e[0]), b = find(e[1]); if (a === b) continue; par[a] = b; use.push(e); adj[e[0]].add(e[1]); adj[e[1]].add(e[0]); }
+    for (const n of nodes) if (n.t === 'e' && n.to) { use.push([n.i, n.to.i, 0, 1]); adj[n.i].add(n.to.i); adj[n.to.i].add(n.i); }
+    // keep only the parts joined to a cavern
+    const comp = new Int32Array(nodes.length).fill(-1); let cc = 0; for (let i = 0; i < nodes.length; i++) if (comp[i] < 0) { const q = [i]; comp[i] = cc; while (q.length) { const v = q.pop(); for (const w of adj[v]) if (comp[w] < 0) { comp[w] = cc; q.push(w); } } cc++; }
+    const good = new Set(); nodes.forEach((n, i) => { if (n.t === 'c' || n.t === 'r') good.add(comp[i]); });
+    const alive = nodes.map((n, i) => good.has(comp[i]) && (adj[i].size > 0 || n.t === 'c'));
+    // tunnel nodes with one link get a second one; any left over are pruned
+    let fixed = 0, pruned = 0; for (let pass = 0; pass < 4; pass++) for (let i = 0; i < nodes.length; i++) { if (!alive[i] || nodes[i].t !== 't' || adj[i].size !== 1) continue;
+      const a = nodes[i]; let best = null; for (const e of E) { if (e[0] !== i && e[1] !== i) continue; const j = e[0] === i ? e[1] : e[0]; if (!alive[j] || adj[i].has(j)) continue; if (!best || e[2] < best[2]) best = e; }
+      if (best) { use.push(best); adj[best[0]].add(best[1]); adj[best[1]].add(best[0]); fixed++; } }
+    let ch = true; while (ch) { ch = false; for (let i = 0; i < nodes.length; i++) if (alive[i] && nodes[i].t === 't' && adj[i].size <= 1) { alive[i] = false; for (const j of adj[i]) adj[j].delete(i); adj[i].clear(); pruned++; ch = true; } }
+    for (let i = 0; i < nodes.length; i++) if (alive[i] && nodes[i].t === 'e' && adj[i].size === 0) alive[i] = false;
+    // every group of caves must reach daylight: one with no entrance / ravine (and not the great cavern) gets a walk-in entrance
+    { const cp = new Int32Array(nodes.length).fill(-1); let k = 0; let added = 0;
+      for (let i = 0; i < nodes.length; i++) if (alive[i] && cp[i] < 0) { const q = [i], mem = []; cp[i] = k; while (q.length) { const v = q.pop(); mem.push(v); for (const w of adj[v]) if (alive[w] && cp[w] < 0) { cp[w] = k; q.push(w); } } k++;
+        if (mem.some(v => nodes[v].t === 'e' || nodes[v].t === 'r' || nodes[v].great)) continue; let ok = false;
+        for (let tries = 0; tries < 600 && !ok; tries++) { const n = nodes[mem[(rnd() * mem.length) | 0]], a = rnd() * 6.283, d = 22 + rnd() * 40 + (n.r || 0), x = Math.round(n.x + Math.cos(a) * d), z = Math.round(n.z + Math.sin(a) * d);
+          if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) continue; const c = x * D + z; if (lab[c] !== n.L || dX[c] < 7) continue; const e = {x, y: surf0[c] + 1, z, t: 'e', L: n.L, to: n}; if (e.y - n.y < 6) continue;
+          const tgt = n.r ? {x: n.x + Math.cos(a) * n.r * 0.5, y: n.y, z: n.z + Math.sin(a) * n.r * 0.5, L: n.L} : n; if (!pathOK(e, tgt, true)) continue;
+          e.i = nodes.length; nodes.push(e); alive.push(true); adj.push(new Set([n.i])); adj[n.i].add(e.i); use.push([e.i, n.i, 0, 1]); ok = true; added++; } }
+      st.sealedFixed = added; }
+    // carve the tunnels: winding, 2-3 blocks radius
+    let tl = 0; const done = new Set();
+    for (const e of use) { const [i, j] = e, key = Math.min(i, j) + ',' + Math.max(i, j); if (done.has(key) || !alive[i] || !alive[j] || !adj[i].has(j)) continue; done.add(key); const a = nodes[i], b = nodes[j], open = !!e[3];
+      const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), n = Math.ceil(L / 1.2), px = -(b.z - a.z) / (L || 1), pz = (b.x - a.x) / (L || 1), amp = Math.min(7, L * 0.09), p1 = rnd() * 6.28, fr = 1 + rnd() * 1.5;
+      for (let k = 0; k <= n; k++) { const f = k / n, w = Math.sin(f * Math.PI) * amp * Math.sin(f * fr * 6.283 + p1), y = a.y + (b.y - a.y) * f; let x = a.x + (b.x - a.x) * f + px * w, z = a.z + (b.z - a.z) * f + pz * w;
+        { const c = Math.round(x) * D + Math.round(z); if (c < 0 || c >= N || dX[c] < 9 || lab[c] !== a.L || (!open && y + 1 > surf0[c] - roofOf(c) - 2)) { x = a.x + (b.x - a.x) * f; z = a.z + (b.z - a.z) * f; } }   // a wiggle that would hit water / a roof falls back onto the checked straight line
+        const r = 2.3 + 0.9 * (0.5 + 0.5 * Math.sin(f * 9 + p1)); ball(x, y + 1, z, r, r * 0.85, open); }   // entrance tunnels may come close to the surface all the way down (a shallow one used to stop short under the roof limit)
+      tl += L; }
+    st.nodes = {all: nodes.length, alive: alive.filter(Boolean).length, caverns: caverns.length, edges: done.size, fixed, pruned, tunnelLen: Math.round(tl), entrances: nodes.filter((n, i) => alive[i] && n.t === 'e').length};
+    st.deadEnds = nodes.filter((n, i) => alive[i] && n.t === 't' && adj[i].size < 2).length;
+    U.graph = {nodes: nodes.map((n, i) => ({x: n.x, y: n.y, z: n.z, t: n.t, alive: alive[i], deg: adj[i].size})), caverns};
+    // 6) floating trees cut by ravines / the entrance
+    let trees = 0; { let x0 = W, x1 = 0, z0 = D, z1 = 0; for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) if (touched[x * D + z]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+      if (x1 >= x0) { const seen = new Set(); x0 = Math.max(1, x0 - 6); z0 = Math.max(1, z0 - 6); x1 = Math.min(W - 2, x1 + 6); z1 = Math.min(D - 2, z1 + 6);
+        for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { let near = false; for (let dx = -5; dx <= 5 && !near; dx += 5) for (let dz = -5; dz <= 5; dz += 5) { const X = x + dx, Z = z + dz; if (X >= 0 && Z >= 0 && X < W && Z < D && touched[X * D + Z]) { near = true; break; } } if (!near) continue;
+          for (let y = SEA - 6; y < H - 1; y++) { const k = idx(x, y, z), b = world[k]; if (!(LOGGY[b] || LEAFY[b]) || seen.has(k)) continue; const comp2 = [k], q = [k]; seen.add(k); let sup = false;
+            while (q.length && comp2.length < 4000) { const v = q.pop(); const vy = Math.floor(v / D) % H; if (LOGGY[world[v]] && vy > 0 && ground(world[v - D])) sup = true;
+              for (const nb of [v + 1, v - 1, v + D, v - D, v + H * D, v - H * D]) { if (nb < 0 || nb >= world.length || seen.has(nb)) continue; const bb = world[nb]; if (LOGGY[bb] || LEAFY[bb]) { seen.add(nb); comp2.push(nb); q.push(nb); } } }
+            if (!sup) for (const v of comp2) { world[v] = 0; trees++; } } } } }
+    st.trees = trees;
+    // 6b) abandoned mineshafts (c133), each starting inside a connected mainland tunnel
+    try { if (window.__c133 && main) st.mineshafts = __c133.place({nodes, alive, surf0, dW, prot, lab, L: main.id, rnd, touched, NAT}); } catch (e) { U.log.push('shafts ' + e); }
+    // 7) every sea / loch / river / pond sits on a solid bed: nothing hollow below or beside water
+    let bed = 0, side = 0;
+    for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) { const c = x * D + z; if (!wet[c]) continue; const lw = lowW[c];
+      for (let y = lw - 1; y >= Math.max(1, lw - 8); y--) { const k = idx(x, y, z), b = world[k]; if (b === 0 || b === T.LAVA || b === T.TORCH) { world[k] = y >= lw - 1 ? T.SAND : y < 14 ? T.DEEPSLATE : T.STONE; bed++; } }
+      for (let y = lw; y <= hiW[c]; y++) { if (world[idx(x, y, z)] !== T.WATER) continue; for (const nc of [c - D, c + D, c - 1, c + 1]) { const nx = (nc / D) | 0, nz = nc - nx * D, k = idx(nx, y, nz); if (world[k] === 0 && y < surf0[nc] - 1 && !wet[nc]) { world[k] = T.STONE; side++; } } } }
+    st.bed = bed; st.side = side;
+    // 8) column tops for spawning / the map
+    let cols = 0; if (typeof g9cols !== 'undefined' && g9cols) for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * D + z; if (!touched[c]) continue; let t = 0; for (let y = H - 1; y > 0; y--) if (ground(world[idx(x, y, z)])) { t = y; break; } g9cols[c * 2] = t + 1; cols++; }
+    MK = {rav: rav.map(r => ({k: r.kind, x: Math.round(r.x), z: Math.round(r.z), p: r.pts.filter((_, i) => i % 5 === 0 || i === r.pts.length - 1).map(q => [Math.round(q[0]), Math.round(q[1])])})), ent: ent ? [ent.x, ent.z] : null};
+    st.cols = cols; st.carved = carved; st.ms = Math.round(performance.now() - t0); U.touched = touched; U.dW = dW; U.prot = prot; U.lab = lab; U.spawnL = spawnL;
+    return st; }
+  // ---- no sky in caves: underground the fog and background go dark, the fog closes in inside the drawn area, and the sky dome / sun / moon / clouds are hidden ----
+  const DARK = new THREE.Color(0x0e1116); let uk = 0;
+  function sky12(dt) { let t = 0; try { if (started && !DIM.cur && W > 80) { const d = caveDepth(); t = Math.max(0, Math.min(1, (d - 2.5) / 7)); } } catch (_) {}
+    uk += (t - uk) * Math.min(1, dt * 3 + (dt ? 0 : 1)); U.uk = uk;
+    if (uk > 0.01 && scene.fog) { scene.fog.color.lerp(DARK, uk * 0.9); scene.background.copy(scene.fog.color); const lim = 34 + 18 * (SET.dist || 0); if (scene.fog.far > lim) { scene.fog.far += (lim - scene.fog.far) * uk; scene.fog.near = Math.min(scene.fog.near, scene.fog.far * 0.4); } }
+    const hide = uk > 0.45, objs = [skyDome, typeof stars !== 'undefined' && stars, typeof sunDisc !== 'undefined' && sunDisc, typeof moonDisc !== 'undefined' && moonDisc, typeof moonHalo !== 'undefined' && moonHalo, typeof scenery !== 'undefined' && scenery].concat(typeof clouds !== 'undefined' ? clouds : []);
+    for (const m of objs) { if (!m || !m.isObject3D) continue; const u = m.userData; if (hide) { if (!u.c131h) { u.c131h = 1; u.c131v = m.visible; } m.visible = false; } else if (u.c131h) { u.c131h = 0; m.visible = u.c131v; } } }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); sky12(+dt || 0.016); return r; };
+  const gen = generate; generate = function () { const on = elig(); window.__g12 = on; let r;
+    try { r = gen.apply(this, arguments); } finally { window.__g12 = false; }
+    if (on) { try { U.st = post(); U.err = null; } catch (e) { U.err = String(e && e.stack || e); console.warn('c131', e); } } else U.st = null;
+    return r; };
+})();
+
+/* ===================== GLX-C132 (v1.0.12/13/14): relaxed ambient soundtrack - v1.0.14: remixes of the original Glencraft songs over the user's frequency tracks - the user's binaural tracks (assets/music, low-passed + quieter, gamma removed), procedural fallback, no chimes/bells/leads ===================== */
 (function c132() {
   const U = window.__c132 = {on: false, cur: null, next: null, err: null, n: 0};
   // the user's track list (ref/music_tracks.js); gamma (40 Hz) layers are left out, carriers are warm 100-250 Hz sines
@@ -23801,7 +24031,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     beyond:   {t: 'Beyond the Matrix', L: [[150, 6], [100, 1]], surf: 0.45, mood: 'magic'},
     stargate: {t: 'Stargate', L: [[180, 5], [130, 7.83]], surf: 0.45, mood: 'magic'}};
   // v1.0.13: the user's own recordings (ref/music_user, processed: 1.6 kHz low-pass, 40 Hz gamma layers notched out, -20 LUFS, soft fades). Gamma Focus 40 Hz is left out.
-  const FILES = ['alpha10', 'beyond', 'delta2', 'focus12', 'focus15', 'focus21', 'schumann', 'stargate', 'theta4', 'theta6'], bad = new Set();
+  // v1.0.14: one remix per original song (musicgen/remix.py): the old melodies on warm pads / low plucks / sub + drone, each over one of the user's frequency tracks
+  const RX = {mist: {bed: 'schumann', mood: 'day'}, dawn: {bed: 'alpha10', mood: 'day'}, heather: {bed: 'focus12', mood: 'day'}, pine: {bed: 'beyond', mood: 'magic'}, skye: {bed: 'stargate', mood: 'magic'},
+    loch: {bed: 'delta2', mood: 'night'}, glen: {bed: 'theta4', mood: 'night'}, stone: {bed: 'focus15', mood: 'night'}, cairn: {bed: 'theta6', mood: 'night'}, ember: {bed: 'focus21', mood: 'hell'}};
+  const FILES = Object.keys(RX), bad = new Set(), moodOf = id => (RX[id] || TR[id] || {}).mood, bedOf = id => RX[id] ? RX[id].bed : id;
   U.tracks = FILES.slice(); U.files = 0; U.fallback = 0;
   const LEVEL = 0.55, XF = 14;   // overall level vs the slider (sits under game sounds), crossfade seconds
   let bus = null, pink = null, A = null;
@@ -23852,26 +24085,26 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       stop() { dead = true; if (sub) return sub.stop(); const t2 = AC.currentTime; try { out.gain.cancelScheduledValues(t2); out.gain.setValueAtTime(Math.max(0.0001, out.gain.value), t2); out.gain.exponentialRampToValueAtTime(0.0001, t2 + 9); } catch (_) {}
         setTimeout(() => { try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {} try { src && src.disconnect(); out.disconnect(); } catch (_) {} }, 9500); }};
     // a file that will not load falls back to the synthesised version of the same recipe
-    el.addEventListener('error', () => { if (dead || sub) return; bad.add(id); U.fallback++; try { out.disconnect(); } catch (_) {} if (TR[id]) sub = voice(id); });
+    el.addEventListener('error', () => { if (dead || sub) return; bad.add(id); U.fallback++; try { out.disconnect(); } catch (_) {} if (TR[bedOf(id)]) sub = voice(bedOf(id)); });
     const pp = el.play(); if (pp && pp.catch) pp.catch(() => {}); U.files++; return v; }
   const near = () => { try { for (const m of mobs) if ((m.kind === 'unicorn' || m.kind === 'nmwizard') && Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z) < 28) return true; } catch (_) {} return false; };
-  function mood() { if (!started) return 'day'; if (near()) return 'magic'; const under = typeof caveK === 'number' && caveK > 0.5, night = typeof isNight !== 'undefined' && isNight; return under || night ? 'night' : 'day'; }
+  function mood() { if (!started) return 'day'; if (typeof DIM !== 'undefined' && DIM.cur === 'hell') return 'hell'; if (near()) return 'magic'; const under = typeof caveK === 'number' && caveK > 0.5, night = typeof isNight !== 'undefined' && isNight; return under || night ? 'night' : 'day'; }
   let last = [], len = 0;
-  function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => TR[k].mood === md && !last.includes(k)); const ids = pool.length ? pool : U.tracks.filter(k => TR[k].mood === md); const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
-  function want() { if (document.visibilityState === 'hidden') return 0; if (typeof DIM !== 'undefined' && DIM.cur === 'hell') return 0; if (master && master.gain.value === 0 && SET.sfx > 0) return 0; return Math.max(0, Math.min(1, SET.music)) * LEVEL; }
+  function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => moodOf(k) === md && !last.includes(k)); const ids = pool.length ? pool : U.tracks.filter(k => moodOf(k) === md); const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
+  function want() { if (document.visibilityState === 'hidden') return 0; if (master && master.gain.value === 0 && SET.sfx > 0) return 0; return Math.max(0, Math.min(1, SET.music)) * LEVEL; }
   function tick() {
     try { if (!AC || !ensure()) return; if (AC.state === 'suspended') return;
       const v = want(); bus.gain.setTargetAtTime(v, AC.currentTime, 1.2); U.on = v > 0;
       if (!v) return;
       const md = mood(), age = A ? (performance.now() - A.t0) / 1000 : 1e9;
       // a new track after 3-4 minutes, or (after at least 40 s) when the mood changes (day/night, caves, wizards/unicorn)
-      if (!A || age > len || (A.left && A.left() < 9) || (age > 40 && TR[A.id].mood !== md)) { if (A) A.stop(); const id = pick(md); A = bad.has(id) ? voice(id) : fileVoice(id); len = A.left ? 1e9 : 180 + Math.random() * 60; U.cur = A.id; U.n++; }
+      if (!A || age > len || (A.left && A.left() < 9) || (age > 40 && moodOf(A.id) !== md) || (md === 'hell') !== (moodOf(A.id) === 'hell')) { if (A) A.stop(); const id = pick(md); A = bad.has(id) ? voice(bedOf(id)) : fileVoice(id); len = A.left ? 1e9 : 180 + Math.random() * 60; U.cur = A.id; U.n++; }
     } catch (e) { U.err = String(e && e.message || e); }
   }
   setInterval(tick, 1000); U.tick = tick; U._rate = r => { if (A && A.el) A.el.playbackRate = r; }; U.el = () => A && A.el && {t: A.el.currentTime, d: A.el.duration, paused: A.el.paused, err: A.el.error && A.el.error.code}; U.level = () => bus && bus.gain.value;
-  // the old mp3 soundtrack (piano / bells / leads) is retired; the Hell drone stays as it is
-  const pm = playMusic; playMusic = function () { if (started && typeof DIM !== 'undefined' && DIM.cur === 'hell') return pm.apply(this, arguments); try { music.pause(); } catch (_) {} };
-  const bt = bgmTick; bgmTick = function () { const r = bt.apply(this, arguments); try { if (!(started && typeof DIM !== 'undefined' && DIM.cur === 'hell') && !music.paused) music.pause(); } catch (_) {} return r; };
+  // the old mp3 soundtrack (piano / bells / leads) is retired everywhere; Hell plays the 'ember' remix through the same bus
+  playMusic = function () { try { music.pause(); } catch (_) {} };
+  const bt = bgmTick; bgmTick = function () { const r = bt.apply(this, arguments); try { if (!music.paused) music.pause(); } catch (_) {} return r; };
   // level-up: a warm, soft low chord (no high bells); every 5 levels a fuller one, level 30 fuller still
   levelChime = function () { try { if (!AC) return; if (AC.state === 'suspended') AC.resume(); let L = 0; try { L = xpState().lvl; } catch (_) {}
     const big = L > 0 && L % 30 === 0, mid = L > 0 && L % 5 === 0, out = outNode(big ? 0.5 : mid ? 0.42 : 0.34, 0), t0 = AC.currentTime + 0.01;
@@ -23880,6 +24113,38 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     N.forEach((f, i) => { const t = t0 + i * 0.09, d = 1.4 + (big ? 1 : 0); for (const [m, a, ty] of [[1, 0.16, 'sine'], [2, 0.03, 'triangle']]) { const o = AC.createOscillator(), g = AC.createGain(); o.type = ty; o.frequency.value = f * m;
         g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(a, t + 0.05); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g); g.connect(lp); o.start(t); o.stop(t + d + 0.05); } });
     setTimeout(() => { try { lp.disconnect(); } catch (_) {} }, 4500); window.__lastChime = performance.now(); U.chime = big ? 'big' : mid ? 'mid' : 'small'; } catch (e) { U.err = String(e); } };
+})();
+
+/* ===================== GLX-C133 (v1.0.14): abandoned mineshafts for the new (c131) cave system - each one starts inside a connected cave tunnel ===================== */
+(function c133() {
+  const U = window.__c133 = {n: 0, chests: 0, len: 0, err: null};
+  const LOOT = () => [[IT.IRONINGOT, 3, 0.6], [IT.COAL, 6, 0.8], [IT.GOLDINGOT, 2, 0.35], [IT.REDSTONE, 4, 0.5], [IT.DIAMOND, 1, 0.12], [T.TORCH, 8, 0.6], [IT.BREAD, 3, 0.5], [IT.RAWSILVER, 4, 0.35]];
+  // C = {nodes, alive, surf0, dW, prot, lab, L (mainland id), rnd, touched, NAT}
+  U.place = function (C) { try {
+    const {nodes, alive, surf0, dW, prot, lab, rnd, touched, NAT} = C; let made = 0; U.n = 0; U.chests = 0; U.len = 0;
+    const ok = (x, y, z) => { if (x < 6 || z < 6 || x > W - 7 || z > D - 7) return false; const c = x * D + z; return !prot[c] && dW[c] >= 10 && lab[c] === C.L && y + 3 < surf0[c] - 7; };
+    const cor = new Uint8Array(W * D), mine = b => b === 162 || b === T.PLANKS || b === T.COBWEB || b === T.TORCH;   // corridor cells: crossings clear each other's frames
+    const cand = nodes.map((n, i) => [n, i]).filter(([n, i]) => alive[i] && n.t === 't' && n.L === C.L && n.y >= 14 && n.y <= 34 && ok(n.x, n.y, n.z));
+    const want = Math.min(4, Math.max(2, Math.round(cand.length / 12))), used = [];
+    for (let tries = 0; tries < 60 && made < want && cand.length; tries++) {
+      const [n] = cand[(rnd() * cand.length) | 0]; if (used.some(u => Math.hypot(u[0] - n.x, u[1] - n.z) < 120)) continue; used.push([n.x, n.z]);
+      const sy = n.y; const seg = [[n.x, n.z, rnd() < 0.5 ? 0 : 1, 0]]; let segs = 0;
+      while (seg.length && segs < 12) { const [x0, z0, ax] = seg.shift(); const L = 12 + Math.floor(rnd() * 20), dir = rnd() < 0.5 ? 1 : -1; segs++;
+        for (let k = 0; k < L; k++) { const x = ax === 0 ? x0 + k * dir : x0, z = ax === 1 ? z0 + k * dir : z0;
+          let good = true; for (let w = -1; w <= 1 && good; w++) { const xx = ax === 0 ? x : x + w, zz = ax === 1 ? z : z + w; if (!ok(xx, sy, zz)) good = false; } if (!good) break;
+          const at = (w, h) => idx(ax === 0 ? x : x + w, sy + h, ax === 1 ? z : z + w);
+          for (let w = -1; w <= 1; w++) for (let h = 0; h < 3; h++) { const i = at(w, h), b = world[i]; if (b === T.WATER || b === T.LAVA) continue; if (!b || NAT[b] || (mine(b) && cor[(ax === 0 ? x : x + w) * D + (ax === 1 ? z : z + w)])) world[i] = 0; }
+          const free = w => !cor[(ax === 0 ? x : x + w) * D + (ax === 1 ? z : z + w)];
+          touched[x * D + z] = 1; U.len++;
+          const fl = idx(x, sy - 1, z); if (world[fl] === 0 || world[fl] === T.LAVA) world[fl] = T.PLANKS;
+          if (k % 4 === 0 && k > 0 && free(-1) && free(0) && free(1)) { for (const w of [-1, 1]) { world[at(w, 0)] = 162; world[at(w, 1)] = 162; } for (let w = -1; w <= 1; w++) world[at(w, 2)] = T.PLANKS;
+            if (rnd() < 0.3) { const X = ax === 0 ? x : x + 1, Z = ax === 1 ? z : z + 1, i = idx(X, sy + 1, Z); if (!world[i]) { world[i] = T.TORCH; try { lightSrc.set((X * 4096 + Z) * 256 + sy + 1, [X + .5, sy + 1.7, Z + .5, T.TORCH]); } catch (_) {} } } }
+          else if (rnd() < 0.12) { const w = rnd() < 0.5 ? -1 : 1, i = at(w, 2); if (!world[i] && free(w)) world[i] = T.COBWEB; }
+          if (rnd() < 0.025) { const w = rnd() < 0.5 ? -1 : 1; if (free(w)) try { lootChest(ax === 0 ? x : x + w, sy, ax === 1 ? z : z + w, LOOT(), rnd); U.chests++; } catch (_) {} }
+          for (let w = -1; w <= 1; w++) cor[(ax === 0 ? x : x + w) * D + (ax === 1 ? z : z + w)] = 1;
+          if (k === L - 1 || rnd() < 0.06) seg.push([x, z, 1 - ax]); } }
+      made++; }
+    U.n = made; return made; } catch (e) { U.err = String(e && e.stack || e); return 0; } };
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -23892,6 +24157,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.14', d:'2026-10-26', notes:["New: Chilled remixes of the original Glencraft songs - same melodies, no piano, warm pads and soft low plucks over your frequency tracks", "New: The Highlands are now mostly land: one big squared-off mainland with narrow sea channels round the spawn island and the three castle islands (land/water about 60/40 instead of 23/77), with bigger biomes", "New: Castles sit out towards their island's outer edge with a wide strip of land between them and the shore, and their hills ease back into the land instead of a little islet ring", "New: Smoother, more natural glen hills", "New: The spawn island's imported water, ship hulls and stray blocks are gone - only Glencraft's own water is left, on solid sand/gravel beds; floating leftovers are cleaned up", "New: No caves under any water: the sea, lochs and ponds all sit on solid ground, so no more swimming then suddenly falling", "New: The skull on the spawn island is gone and its dent is now the Great Cave: a wide torch-lit ramp spiralling down into a huge cavern", "New: Exactly 4 deep ravines, each a different shape: a long straight gash on the mainland, a winding S-curve, a wide stepped gorge and a forked Y on the castle islands - all joined to the caves", "New: Caves only under land: winding tunnels with no dead ends lead down to very big caverns (ores and cave mobs as before), plus a few walk-in entrances", "New: No more sky showing through cave walls at low render distance: underground the fog darkens and closes in and the sky, sun, moon and clouds are hidden (caves are never pitch black)", "New: Map: cleaner crisp colours, clear water and coastline, markers for crofts, ravines and the Great Cave, and a round close-up of your surroundings at the bottom", "New: The new world generation is used by new worlds and by Reset world; existing worlds keep their land as it is"]},
 {v:'v1.0.13', d:'2026-10-26', notes:["New: relaxed ambient soundtrack made from your own tracks (Alpha Calm, Schumann, Theta, Delta, Focus 12/15/21, Stargate, Beyond the Matrix)", "New: softened for the game - no shrill highs, no 40 Hz buzz, quieter with long crossfades; tracks follow day, night, caves and the wizards/unicorn"]},
 {v:'v1.0.12', d:'2026-10-26', notes:["New: relaxed ambient soundtrack", "New: calm, warm binaural-beat pads with a soft sea-surf bed and a low Highland drone - no more piano chimes, bells or high beeps", "New: quieter music that sits under the game sounds, and a softer level-up chime"]},
 {v:'v1.0.11', d:'2026-10-26', notes:["New: every night mob, sea creature, wizard and unicorn now moves exactly like the creeper: walls and blocks stop them, they step up single blocks, fall with gravity and path round obstacles to reach you", "New: floating ghosts can no longer drift through walls or rise through roofs, and sea creatures stay in open water instead of clipping into the seabed", "New: spawn eggs for every mob: all the night mobs and sea creatures, a wizard, a unicorn, the black skeleton, yellow creeper, night spider and giant zombie, each egg coloured like its mob", "New: all spawn eggs sit together, sorted A to Z, in the creative inventory", "New: eggs work anywhere: any biome, land or water, day or night, in any dimension", "New: creative mode: evil and hostile mobs never spawn on their own; mobs you hatch from eggs never burn in daylight, never despawn, and come back when you reload the world"]},
