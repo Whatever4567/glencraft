@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1026a -->
+<!-- glencraft-build: v1027a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.26';
+const GAME_VERSION = 'v1.0.27';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19275,6 +19275,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.27', ["Mobs: Admiral Skelp now speaks - his own voice line when you come near his boat (or hatch him from an egg), now and then while you linger; follows the Mob voices volume", "Mobs: Admiral Skelp's jaw now moves in time with his words while he talks", "Mobs: creeper fixes - hatching a creeper from the egg now always keeps it (creative and survival), and in survival up to 2 creepers now creep out of dark surface spots at night and in caves; the 4-second alarm and big blast are unchanged", "Mobs: bees get the new HD model shape - a proper flying bee with honey-and-black Glencraft colouring and see-through wings"]],
     ['v1.0.26', ["New: Mob voices volume slider in Settings - mob calls, idle, hurt and death sounds on their own, saved", "New: Reset world now builds a truly brand-new world, so older worlds get the new castles too", "New: bridge corners tidied - no floating lanterns or floating tree bits from bridges and tunnels", "New: the spawn lava pools are back, safely walled in and never under water", "Mobs: the Ghost is rare - night only, one at a time, and only chases you when it can see you nearby", "Mobs: one Creeper egg (yellow duplicate gone); the creeper is a clean HD green four-legged classic and lives in the caves", "Textures: crisp pixel skin for the new creeper"]],
     ['v1.0.25', ["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]],
     ['v1.0.24', ["New: logs and tree trunks can be placed lying down - click the side of a block to lay one along that way, the top or bottom to stand it upright (kept in your save)", "New: each wood has its own Scottish undergrowth - bracken, gorse in bloom, bog cotton, heather sprigs and blaeberry bushes (new worlds grow thicker undergrowth)", "Textures: natural wood shades - every plank now matches the cut end of its own log (oak, Scots pine, birch, rowan, alder, yew)"]],
@@ -26008,7 +26009,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   try { const mc = makeCreeper; makeCreeper = function () { const o = makeHD(); try { const r = mc.apply(this, arguments); for (const k of ['speed', 'hp', 'hitY', 'hitR', 'hostile', 'tall']) if (r[k] !== undefined) o[k] = r[k]; r.g.traverse(x => x.geometry && x.geometry.dispose()); r.mats.forEach(m => m.dispose && m.dispose()); } catch (_) {} return o; }; } catch (e) { ERR(e); }
   // ---- the fuse: a clean white flash and a swell (no robot core) ----
   const under = (p) => { try { return window.__c126 ? __c126.under(p.x, p.y, p.z) : solidTop(Math.floor(p.x), Math.floor(p.z)) > Math.floor(p.y) + 2; } catch (_) { return false; } };
-  try { const ct = creeperTick; creeperTick = function (a, dt) { const f0 = window.__c116force, cave = a && a.g && under(a.g.position); if (cave) window.__c116force = true;   // in the dark caves they stay by day too
+  try { const ct = creeperTick; creeperTick = function (a, dt) { const f0 = window.__c116force, keep = a && a.g && (a.egg || a.eggP || a.home === 'night' || under(a.g.position)); if (keep) window.__c116force = true;   // egg creepers stay wherever they hatch; cave ones by day too; night ones till dawn
       let r; try { r = ct.apply(this, arguments); } finally { window.__c116force = f0; }
       try { if (a && a.hd) { const on = a.arm > 0 ? (0.5 + 0.5 * Math.sin(a.ct * (8 + (1 - a.arm / 4) * 26)) > 0.5 ? 0.25 + 0.45 * (1 - a.arm / 4) : 0) : 0; for (const m of a.mats) if (m.emissive) m.emissive.setScalar(on); } } catch (_) {}
       return r; }; } catch (e) { ERR(e); }
@@ -26020,12 +26021,81 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       for (let k = 0; k < 9; k++) { const y = Math.floor(P.y) + [0, -1, 1, -2, 2, -3, 3, -4, 4][k]; if (y < 3 || !roomy(x, y, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || torch(x, y, z)) continue; return [x + .5, y, z + .5]; } }
     return null; }
   function caveSpawn() { U.tries++; const sp = caveSpot(); if (!sp) return null; const f = [window.__c116force, window.__caveSpawn, window.__eggSpot]; window.__c116force = true; window.__caveSpawn = sp; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
-    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__caveSpawn = f[1]; window.__eggSpot = f[2]; } if (a) { a.g.position.set(sp[0], sp[1], sp[2]); U.cave++; } return a; }
+    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__caveSpawn = f[1]; window.__eggSpot = f[2]; } if (a) { a.g.position.set(sp[0], sp[1], sp[2]); a.egg = false; a.home = 'cave'; U.cave++; } return a; }
   U.caveSpawn = caveSpawn;
+  // night: out on the surface too, in the dark away from torches
+  function nightSpot() { for (let t = 0; t < 16; t++) { const an = Math.random() * 6.283, r = 18 + Math.random() * 14, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
+      if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue; const y = solidTop(x, z) + 1, b = getB(x, y - 1, z);
+      if (y <= SEA || b === T.WATER || b === T.LAVA || LEAFY[b] || !roomy(x, y, z) || Math.abs(y - P.y) > 12 || torch(x, y, z)) continue; return [x + .5, y, z + .5]; } return null; }
+  function nightSpawn() { U.tries++; const sp = nightSpot(); if (!sp) return null; const f = [window.__c116force, window.__egg, window.__eggSpot]; window.__c116force = true; window.__egg = true; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
+    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__egg = f[1]; window.__eggSpot = f[2]; }
+    if (a) { a.g.position.set(sp[0], sp[1], sp[2]); a.egg = false; a.eggP = false; a.home = 'night'; U.night = (U.night || 0) + 1; } return a; }
+  U.nightSpawn = nightSpawn;
   let T0 = 4;
+  const dawn = () => { if (isNight) return; for (const a of mobs.slice()) if (a.kind === 'creeper' && a.home === 'night' && !(a.arm > 0) && Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z) > 20) { try { removeMob(a); } catch (_) {} } };
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
-      try { U.ticks = (U.ticks || 0) + 1; U.ck = caveK; if ((T0 -= dt) <= 0) { U.rolls = (U.rolls || 0) + 1; T0 = 7; if (started && !paused && !dead && !DIM.cur && !(MODE && MODE.name === 'creative') && !(current && current.flat) && caveK > 0.45 && countKind('creeper') < 2 && Math.random() < 0.35) caveSpawn(); } } catch (e) { ERR(e); }
+      try { U.ticks = (U.ticks || 0) + 1; U.ck = caveK; if ((T0 -= dt) <= 0) { dawn(); U.rolls = (U.rolls || 0) + 1; T0 = 7; if (started && !paused && !dead && !DIM.cur && !(MODE && MODE.name === 'creative') && !(current && current.flat) && countKind('creeper') < 2 && Math.random() < 0.35) { if (caveK > 0.45) caveSpawn(); else if (isNight) nightSpawn(); } } } catch (e) { ERR(e); }
       return r; }; } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C158 (v1.0.27): Admiral Skelp speaks - his own voice clip, positional, through the Mob voices slider ===================== */
+(function c158() {
+  const U = window.__c158 = {loaded: 0, plays: 0, err: null, last: null, why: null};
+  const URL0 = 'assets/sfx/admiral_skelp.mp3', KIND = 'nm12', NOTICE = 14, RESET = 26, IDLE = 18, CD = 30, RAD = 40;
+  let buf = null, raw = null, loading = false, cur = null, cdUntil = 0, eggN = -1;
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  function load() { if (buf || loading || !AC) return; loading = true;
+    const dec = ab => AC.decodeAudioData(ab.slice(0)).then(b => { buf = b; env = envelope(b); U.loaded = 1; U.dur = +b.duration.toFixed(2); }).catch(e => { loading = false; ERR(e); });
+    if (raw) dec(raw); else fetch(URL0).then(r => r.arrayBuffer()).then(ab => { raw = ab; dec(ab); }).catch(e => { loading = false; ERR(e); }); }
+  try { fetch(URL0).then(r => r.arrayBuffer()).then(ab => { raw = raw || ab; }).catch(() => {}); } catch (_) {}   // pre-fetch; decoded once audio is unlocked
+  const now = () => (AC ? AC.currentTime : 0);
+  // ---- the talking jaw: a loudness envelope (50 per second) worked out once from the clip ----
+  let env = null; const ER = 50;
+  function envelope(b) { const d = b.getChannelData(0), step = Math.floor(b.sampleRate / ER), n = Math.ceil(d.length / step), e = new Float32Array(n); let mx = 1e-6;
+    for (let i = 0; i < n; i++) { let q = 0; const a0 = i * step, a1 = Math.min(d.length, a0 + step); for (let k = a0; k < a1; k++) q += d[k] * d[k]; e[i] = Math.sqrt(q / Math.max(1, a1 - a0)); if (e[i] > mx) mx = e[i]; }
+    const sorted = Array.from(e).sort((x, y) => x - y), floor = sorted[Math.floor(n * 0.15)] || 0;
+    for (let i = 0; i < n; i++) e[i] = Math.max(0, Math.min(1, (e[i] - floor * 1.3) / ((mx - floor) * 0.7 || 1))); return e; }
+  // a hinged bone jaw under the skull; the beard hangs off it so it wags as he talks
+  function jaw(a) { if (a.__jaw !== undefined) return a.__jaw; a.__jaw = null; try { const h = a.head; if (!h) return null;
+      const bone = new THREE.MeshLambertMaterial({color: 0xe6dcc0}), dark = new THREE.MeshBasicMaterial({color: 0x120c08}), tooth = new THREE.MeshLambertMaterial({color: 0xf4eedc});
+      const J = new THREE.Group(); J.position.set(0, 0.19, -0.06); h.add(J); h.updateMatrixWorld(true);
+      const jb = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.08, 0.4), bone); jb.position.set(0, -0.09, 0.09); J.add(jb);
+      for (let i = 0; i < 5; i++) { const t = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.02), tooth); t.position.set(-0.1 + i * 0.05, -0.04, 0.28); J.add(t); }
+      const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.1, 0.02), dark); mouth.position.set(0, 0.15, 0.215); h.add(mouth);
+      const beard = a.model && a.model.beard; if (beard && beard.parent === h) { J.attach(beard); }
+      a.mats && a.mats.push(bone, dark, tooth); a.__jaw = J; } catch (e) { ERR(e); } return a.__jaw; }
+  function jawTick(dt) { for (const a of mobs) { if (!a || a.kind !== KIND || !a.g) continue; const J = jaw(a); if (!J) continue;
+      let want = 0; if (cur && cur.a === a && env) { const i = Math.floor((now() - cur.t0) * ER); want = env[Math.min(env.length - 1, Math.max(0, i))] || 0; }
+      a.__jo = (a.__jo || 0) + (want - (a.__jo || 0)) * Math.min(1, dt * 18); J.rotation.x = (U.force !== undefined ? U.force : a.__jo) * 0.5; U.jaw = +J.rotation.x.toFixed(3); } }
+  function level(a) { const p = a.g.position, dx = p.x - P.x, dy = p.y - P.y, dz = p.z - P.z, d = Math.hypot(dx, dy, dz);
+    const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw); return {v: d >= RAD ? 0 : Math.pow(1 - d / RAD, 1.3), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0, d}; }
+  function play(a, why) { if (!AC || !buf || cur || AC.state !== 'running') return false; try {
+      const L = level(a); if (L.v <= 0) return false;
+      const src = AC.createBufferSource(), g = AC.createGain(), pn = AC.createStereoPanner ? AC.createStereoPanner() : null; src.buffer = buf;
+      g.gain.value = 1.1 * L.v; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.8; g.connect(pn); pn.connect(window.mobDst ? mobDst() : master); } else g.connect(window.mobDst ? mobDst() : master);
+      cur = {a, src, g, pn, t0: AC.currentTime}; src.onended = () => { if (cur && cur.src === src) cur = null; cdUntil = now() + CD; };
+      src.start(); U.plays++; U.last = why; return true; } catch (e) { ERR(e); cur = null; return false; } }
+  function follow() { if (!cur) return; const a = cur.a; if (!a.g || mobs.indexOf(a) < 0) { try { cur.g.gain.setTargetAtTime(0, now(), 0.15); cur.src.stop(now() + 0.6); } catch (_) {} cur = null; cdUntil = now() + CD; return; }
+    const L = level(a); try { cur.g.gain.setTargetAtTime(1.1 * L.v, now(), 0.08); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.8, now(), 0.08); } catch (_) {} }
+  function tick(dt) { try { jawTick(dt); } catch (e) { ERR(e); } if (!AC) return; load(); follow(); if (!buf || !started) return;
+    const S = window.__c144, en = S ? S.spawned | 0 : 0, hatched = eggN >= 0 && en !== eggN; eggN = en;
+    for (const a of mobs) { if (!a || a.kind !== KIND || !a.g) continue; const d = Math.hypot(a.g.position.x - P.x, a.g.position.y - P.y, a.g.position.z - P.z);
+      if (!a.__c158) { a.__c158 = {seen: false, egg: hatched && d < 24}; }
+      const s = a.__c158; if (d > RESET) s.seen = false;
+      if (s.egg) { if (!cur) { s.egg = false; s.seen = true; play(a, 'egg'); } continue; }
+      if (dead || paused) continue;
+      if (!s.seen && d < NOTICE && now() >= cdUntil) { if (play(a, 'notice')) s.seen = true; }
+      else if (s.seen && d < IDLE && now() >= cdUntil && Math.random() < dt / 45) play(a, 'idle'); } }
+  U.play = (why) => { const a = mobs.find(m => m.kind === KIND); return a ? play(a, why || 'test') : false; }; U.state = () => ({buf: !!buf, playing: !!cur, cd: Math.max(0, cdUntil - now())});
+  try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { tick(dt || 0); } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C159 (v1.0.27): HD bee - CC0 Quaternius bee (flying, bite, hit, death clips) dressed in Glencraft honeybee colours and fur grain ===================== */
+(function c159() {
+  const U = window.__c135; if (!U || !U.add) return;
+  U.add({bee: {f: 'bee', k: 1.0, run: 0, gl: {p: 'fur', a: 0.6, m: {Wings: 'plain', Eyes: 'plain', Teeth: 'plain', Tongue: 'plain'}, col: {Main: 0xf2b42a, Main_2: 0x231a12, Wings: 0xd8eef2}}}});
+  // see-through wings
+  U.post.push((a, c, M, m) => { if (a.kind !== 'bee') return; m.traverse(o => { if (!o.isMesh) return; for (const x of [].concat(o.material)) if (x && x.name === 'Wings') { x.transparent = true; x.opacity = 0.6; x.depthWrite = false; } }); });
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -26038,6 +26108,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.27', d:'2026-10-26', notes:["Mobs: Admiral Skelp now speaks - his own voice line when you come near his boat (or hatch him from an egg), now and then while you linger; follows the Mob voices volume"]},
 {v:'v1.0.26', d:'2026-10-26', notes:["New: placeholder"]},
 {v:'v1.0.25', d:'2026-10-26', notes:["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]},
 {v:'v1.0.24', d:'2026-10-26', notes:["New: logs and tree trunks can be placed lying down - click the side of a block to lay one along that way, the top or bottom to stand it upright (kept in your save)", "New: each wood has its own Scottish undergrowth - bracken, gorse in bloom, bog cotton, heather sprigs and blaeberry bushes (new worlds grow thicker undergrowth)", "Textures: natural wood shades - every plank now matches the cut end of its own log (oak, Scots pine, birch, rowan, alder, yew)"]},
