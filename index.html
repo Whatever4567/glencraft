@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1020a -->
+<!-- glencraft-build: v1020b -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.20';
+const GAME_VERSION = 'v1.0.20b';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.20b', ["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]],
     ['v1.0.20', ["Glencraft look for the HD mobs: every HD model keeps its shape and animations but now wears Glencraft-style pixel textures (skin, fur, wool, cloth, bone, scales, rock, slime, metal) instead of flat stock colours", "Mobs get their Glencraft colours back: grey-green zombies, pale bone skeletons, clansmen in black jackets with white shirts and tartan trews, a white Snaw Brute with a slate face, a red and white Govan Gearheid, a darker Puddock Gob, and a starry night-sky coat for the Comet Collie", "Hit flashes, lighting, the HD switch in Settings and the blocky fallback all work as before"]],
     ['v1.0.19', ["HD unicorn: the egg-only unicorn now uses a detailed animated CC0 white horse (by Quaternius) with its golden-pearl horn kept on its head", "The wizards keep their hand-made look for now (orange or red-brown robes, tall hats, beards, staff, sitting and rune poses): no free robed-wizard model fits yet"]],
     ['v1.0.18', ["HD mob models (batch 3, night mobs): Snaw Brute, Crag Gruff, Puddock Gob, Sludge Sooker and its droplets, Skull Wisp, Govan Gearheid, Comet Collie and the three sheet ghosts now use detailed animated CC0 models (by Quaternius), recoloured to match", "Their stats, hitboxes, spawning and moves are unchanged; the old blocky look comes back if HD models are switched off in Settings or fail to load", "Hit flashes now show on HD night mobs too"]],
@@ -24360,7 +24361,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     U.attached++; }
   function detach(a) { const H = a.__hd; if (!H) return; a.g.remove(H.hd); H.mix.stopAllAction(); for (const [o, mk] of H.hidden) o.layers.mask = mk; a.mats = a.mats.filter(m => !H.mats.includes(m)); H.mats.forEach(m => m.dispose()); a.__hd = null; U.attached--; }
   function show(a, H, hd) { if (H.on === hd) return; H.on = hd; H.hd.visible = hd; for (const [o, mk] of H.hidden) o.layers.mask = hd ? 1 << HIDE : mk; }
-  U.detachAll = () => { for (const a of mobs) { detach(a); a.__hdTry = 0; } };
+  U.detachAll = () => { for (const a of (U.xs ? mobs.concat(U.xs()) : mobs)) { detach(a); a.__hdTry = 0; } };
+  U.detach = detach;
   const pick = (c, H, r) => { for (const k of [c[r], r, r === 'run' ? 'walk' : null, r === 'eat' ? 'idle' : null, r === 'walk' ? 'run' : null, 'idle', 'walk']) if (k && H.act[k]) return k; return null; };
   function animate(a, H, dt) { const c = U.cat[a.kind], p = a.g.position;
     const d = Math.hypot(p.x - H.lx, p.z - H.lz); H.lx = p.x; H.lz = p.z; if (dt > 0) H.v += (Math.min(8, d / dt) - H.v) * Math.min(1, dt * 6);
@@ -24370,7 +24372,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const k = pick(c, H, role); if (k && k !== H.cur) { const nx = H.act[k]; nx.reset().play(); if (H.cur && H.act[H.cur]) nx.crossFadeFrom(H.act[H.cur], 0.2, false); H.cur = k; }
     if (k && (k === 'walk' || k === 'run')) H.act[k].timeScale = Math.max(0.5, Math.min(2, H.v / (k === 'run' ? 3.2 : 1.3))); }
   function tick(dt) { if (!U.on()) return; const far = PERF ? 24 : 40;
-    for (const a of mobs) { if (!a || !a.g) continue;
+    for (const a of (U.xs ? mobs.concat(U.xs()) : mobs)) { if (!a || !a.g) continue;
       if (!a.__hd) { if (a.__hdTry === 2 || !U.cat[a.kind]) continue; const M = load(a.kind); if (!M) continue; if (M.fail) { a.__hdTry = 2; continue; } if (M.ready) { try { attach(a, M); } catch (e) { a.__hdTry = 2; U.err.push(a.kind + ' attach ' + e); } } continue; }
       const H = a.__hd, c = U.cat[a.kind]; show(a, H, !(c.proc && c.proc(a))); if (!H.on) continue; const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z); H.acc += dt; if (d > far && (++H.n & 3)) continue; if (d > far * 2.5) { H.acc = 0; continue; }
       try { animate(a, H, H.acc); H.mix.update(H.acc); for (const f of U.frame) f(a, H, c); } catch (e) { U.err.push('anim ' + e); } H.acc = 0; } }
@@ -24603,6 +24605,18 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   if (U.cat.nm28) { U.cat.nm28.tint = 0xffffff; U.cat.nm28.emis = 0x0a1028; }   // the stars carry the colour now
   U.post.push((a, c, M, m, hd, s, mats) => { try { U.glStyle(a, c, m, hd, mats); } catch (e) { U.err.push('gl ' + e); } });
 })();
+
+/* ===================== GLX-C141 (v1.0.21): the loch Unicorn (the rideable one) gets the HD model too, with the Glencraft pixel look ===================== */
+// The one wild Unicorn from c125 is not in mobs[], so the HD pass never saw it and it kept the old procedural shape.
+(function c141() {
+  const U = window.__c135, Q = window.__c125; if (!U || !Q || !U.cat.nmunicorn) return;
+  // pearly white fur with visible pixel grain (v1.0.20 was so bright the grain washed out)
+  U.cat.nmunicorn.gl = {p: 'fur', a: 1.1, b: 0.98, m: {Hair: 'fur', Hooves: 'rock'}};
+  U.cat.unicorn = Object.assign({}, U.cat.nmunicorn);
+  U.xs = () => { const u = Q.uni; if (!u || !u.proxy || !u.g || !u.g.parent) return []; const p = u.proxy;
+    if (!p.head && u.m) p.head = u.m.head || null;
+    p.moving = (u.spd || 0) > 0.3; p.flee = u.flee || 0; return [p]; };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -24614,6 +24628,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.20b', d:'2026-10-26', notes:["Mobs: the wild Unicorn (the one you can tame and ride) now uses the detailed HD 3D model too, with its horn, instead of the old blocky shape", "Textures: it wears the same Glencraft pixel-fur detail as the other HD mobs; every other HD mob keeps its 3D model shape"]},
 {v:'v1.0.20', d:'2026-10-26', notes:["Glencraft look for the HD mobs: every HD model keeps its shape and animations but now wears Glencraft-style pixel textures (skin, fur, wool, cloth, bone, scales, rock, slime, metal) instead of flat stock colours", "Mobs get their Glencraft colours back: grey-green zombies, pale bone skeletons, clansmen in black jackets with white shirts and tartan trews, a white Snaw Brute with a slate face, a red and white Govan Gearheid, a darker Puddock Gob, and a starry night-sky coat for the Comet Collie", "Hit flashes, lighting, the HD switch in Settings and the blocky fallback all work as before"]},
 {v:'v1.0.19', d:'2026-10-26', notes:["HD unicorn: the egg-only unicorn now uses a detailed animated CC0 white horse (by Quaternius) with its golden-pearl horn kept on its head", "The wizards keep their hand-made look for now (orange or red-brown robes, tall hats, beards, staff, sitting and rune poses): no free robed-wizard model fits yet"]},
 {v:'v1.0.18', d:'2026-10-26', notes:["HD mob models (batch 3, night mobs): Snaw Brute, Crag Gruff, Puddock Gob, Sludge Sooker and its droplets, Skull Wisp, Govan Gearheid, Comet Collie and the three sheet ghosts now use detailed animated CC0 models (by Quaternius), recoloured to match", "Their stats, hitboxes, spawning and moves are unchanged; the old blocky look comes back if HD models are switched off in Settings or fail to load", "Hit flashes now show on HD night mobs too"]},
