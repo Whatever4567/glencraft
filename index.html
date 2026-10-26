@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1018a -->
+<!-- glencraft-build: v1019a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.18';
+const GAME_VERSION = 'v1.0.19';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19246,6 +19246,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.19', ["HD unicorn: the egg-only unicorn now uses a detailed animated CC0 white horse (by Quaternius) with its golden-pearl horn kept on its head", "The wizards keep their hand-made look for now (orange or red-brown robes, tall hats, beards, staff, sitting and rune poses): no free robed-wizard model fits yet"]],
     ['v1.0.18', ["HD mob models (batch 3, night mobs): Snaw Brute, Crag Gruff, Puddock Gob, Sludge Sooker and its droplets, Skull Wisp, Govan Gearheid, Comet Collie and the three sheet ghosts now use detailed animated CC0 models (by Quaternius), recoloured to match", "Their stats, hitboxes, spawning and moves are unchanged; the old blocky look comes back if HD models are switched off in Settings or fail to load", "Hit flashes now show on HD night mobs too"]],
     ['v1.0.17', ["HD mob models (batch 2): pig, duck, haggis, imp, ghost, blazing skeleton and the Ember Wyrm now use detailed animated CC0 models (by Quaternius)", "Glencraft touches on the HD models: clansmen wear tartan trews, the haggis and some sheep wear a tartan tam o' shanter, and sheep come in white, cream, grey, brown and black fleeces", "the duck is coloured like a mallard and the ghost is see-through", "creeper and treeman keep their own look (no free model matches them)", "HD models are a little brighter and closer to their true colours"]],
     ['v1.0.16', ["HD mob models (batch 1): sheep, zombie, skeleton, black skeleton, spiders, clansman and demon hound now use detailed animated models (CC0, by Quaternius)", "they walk, run, graze and attack with proper animations; sheared sheep keep the old look until the fleece grows back", "Settings: new 'HD mob models' On/Off switch and a credit line", "models load in the background and are cached; if one can't load, the mob keeps its classic look", "mob health, damage, hitboxes and spawning are unchanged"]],
@@ -24412,6 +24413,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       for (let i = 0; i < p.count; i++) { let w = 0; for (let k = 0; k < 4; k++) if (rd(si, i, k) === bi) w += rd(sw, i, k); if (w < 0.5) continue;
         b.expandByPoint(v.set(rd(p, i, 0), rd(p, i, 1), rd(p, i, 2)).applyMatrix4(o.bindMatrix).applyMatrix4(o.skeleton.boneInverses[bi]).applyMatrix4(bone.matrixWorld).applyMatrix4(o.bindMatrixInverse).applyMatrix4(o.matrixWorld)); } });
     return b.isEmpty() ? null : {bone, b}; }
+  U.headTop = headTop;
   // recolour one swatch on the head only (e.g. a mallard's green head): vertex colours on head-bone vertices whose texel matches, once per geometry
   const M4 = new THREE.Matrix4(), T3 = new THREE.Vector3(), W3 = new THREE.Vector3();
   function spos(o, i, v) { const A = o.geometry.attributes; v.set(rd(A.position, i, 0), rd(A.position, i, 1), rd(A.position, i, 2)).applyMatrix4(o.bindMatrix); T3.set(0, 0, 0);
@@ -24486,6 +24488,26 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     nm10: sheet(0xf2f2f2), nm20: sheet(0xd0d6dc, 0.5), nm29: sheet(0xe6eef2)   // Linen Ghaist, Mist Moaner, Greetin' Bairn
   });
 })();
+
+/* ===================== GLX-C138 (v1.0.19): HD unicorn (white horse + golden-pearl horn on the HD head bone) ===================== */
+(function c138() {
+  const U = window.__c135; if (!U || !U.add || !U.headTop) return;
+  let HG = null;
+  // horn: spiral-banded cone on the front-top of the head, tilted forward; world-sized from the mob's scale
+  function addHorn(a, m, hd) { const h = U.headTop(m, hd); if (!h) return null; hd.updateMatrixWorld(true);
+    const b = h.b, len = Math.max(0.22, Math.min(0.4, (b.max.y - b.min.y) * 0.55));
+    if (!HG) { HG = new THREE.ConeGeometry(0.06, 1, 10); HG.translate(0, 0.5, 0); }
+    const HM = new THREE.MeshLambertMaterial({color: 0xf0e0b0, emissive: 0x6a5a30});
+    const g = new THREE.Group(), c = new THREE.Mesh(HG, HM); c.scale.set(len / 0.62, len, len / 0.62); g.add(c);
+    for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(U.ringG || (U.ringG = new THREE.TorusGeometry(1, 0.16, 4, 10)), HM); const k = 0.05 * (1 - i * 0.25) * len / 0.62; r.scale.setScalar(k); r.rotation.x = Math.PI / 2; r.position.y = len * (0.15 + i * 0.22); g.add(r); }
+    // front of the head = the +z end in world (the HD group faces the mob's heading)
+    const f = new THREE.Vector3(0, 0, 1).applyQuaternion(a.g.getWorldQuaternion(new THREE.Quaternion())), cx = (b.min.x + b.max.x) / 2, cz = (b.min.z + b.max.z) / 2, hl = Math.max(b.max.x - b.min.x, b.max.z - b.min.z);
+    g.position.set(cx + f.x * hl * 0.12, b.max.y - len * 0.08, cz + f.z * hl * 0.12);
+    g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(f.x * 0.9, 1, f.z * 0.9).normalize());
+    g.updateMatrixWorld(true); h.bone.attach(g); g.traverse(o => o.userData.hd = 1); return HM; }
+  U.post.push((a, c, M, m, hd, s, mats) => { if (c.horn) { const q = addHorn(a, m, hd); if (q && !mats.includes(q)) mats.push(q); } });
+  U.add({nmunicorn: {f: 'whorse', horn: 1, mcol: {Main: 0xf4f2f6, Main_Light: 0xe2e0ea, Hair: 0xd8e4f4, Hooves: 0xb8c0d0, Muzzle: 0xd8ccd4}, emis: 0x1a1a22}});
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -24497,6 +24519,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.19', d:'2026-10-26', notes:["HD unicorn: the egg-only unicorn now uses a detailed animated CC0 white horse (by Quaternius) with its golden-pearl horn kept on its head", "The wizards keep their hand-made look for now (orange or red-brown robes, tall hats, beards, staff, sitting and rune poses): no free robed-wizard model fits yet"]},
 {v:'v1.0.18', d:'2026-10-26', notes:["HD mob models (batch 3, night mobs): Snaw Brute, Crag Gruff, Puddock Gob, Sludge Sooker and its droplets, Skull Wisp, Govan Gearheid, Comet Collie and the three sheet ghosts now use detailed animated CC0 models (by Quaternius), recoloured to match", "Their stats, hitboxes, spawning and moves are unchanged; the old blocky look comes back if HD models are switched off in Settings or fail to load", "Hit flashes now show on HD night mobs too"]},
 {v:'v1.0.17', d:'2026-10-26', notes:["New: HD mob models, batch 2. Pigs, ducks, haggises, imps, ghosts, blazing skeletons and the Ember Wyrm now use detailed animated CC0 models by Quaternius.", "Glencraft dressing on the HD models: clansmen wear tartan trews, the haggis and some sheep wear a tartan tam o' shanter, and sheep come in white, cream, grey, brown and black fleeces.", "The duck is coloured as a mallard and the ghost is see-through.", "The creeper and treeman keep their own models, because no free model fits them.", "HD models show truer, brighter colours.", "Turn HD models off in Settings to get the old look back. Credits are in CREDITS.md."]},
 {v:'v1.0.16', d:'2026-10-26', notes:["New: HD mob models, batch 1. Sheep, zombies, skeletons, black skeletons, spiders, clansmen and demon hounds now use detailed animated CC0 models by Quaternius.", "They walk, run, graze and attack with proper animations. A sheared sheep keeps the classic look until its fleece grows back.", "Settings: an HD mob models On/Off switch and a credit line. The full credits are in CREDITS.md.", "The models load in the background and are cached. If one can't load, that mob keeps its classic look.", "Mob health, damage, hitboxes and spawning are unchanged."]},
