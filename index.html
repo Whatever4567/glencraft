@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1041a -->
+<!-- glencraft-build: v1042a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.41';
+const GAME_VERSION = 'v1.0.42';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -7677,9 +7677,9 @@ function generate() {
     let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
     const steep = Math.abs(g9height(x + 1, z).h - h) + Math.abs(g9height(x, z + 1).h - h) >= 4;
     if (h <= SEA) { top = hash(x, 1, z) < 0.5 ? T.SAND : T.DIRT; sub = T.SAND; kind = 5; }
-    else if (h <= SEA + 1 && c.glen > 0.4) { top = T.SAND; sub = T.SAND; kind = 4; }
+    else if ((h <= SEA + 1 && c.glen > 0.4) || (c.sand && h <= SEA + 4)) { top = T.SAND; sub = T.SAND; kind = 4; }
     else if (h >= SEA + 30 || (steep && h >= SEA + 14)) { top = T.STONE; sub = T.STONE; kind = 3; }
-    else if (c.glen > 0.6 && bog > 0.18) { top = hash(x, 2, z) < 0.6 ? T.PEAT : T.MUD; kind = 2; }
+    else if ((c.glen > 0.6 && bog > 0.18) || (c.mar && bog > -0.03)) { top = hash(x, 2, z) < 0.6 ? T.PEAT : T.MUD; kind = 2; }
     else if (heath > 0.08 && h > SEA + 5) { top = window.__trees2 ? T.GRASS : T.HEATHER; kind = 1; }   // v0.9.65: moor heather grows in clumps (c80), not as a carpet
     g9cols[(x * D + z) * 2] = h; g9cols[(x * D + z) * 2 + 1] = kind;
     const col = x * H * D + z;
@@ -15747,7 +15747,7 @@ void main() {
       let p = f > 0.06 ? DN[0] * (f > 0.2 ? 1 : 0.7) : DN[1];
       if (sp === 'hawthorn' || sp === 'blackthorn') { const ag = g9fbm(x / 34 - 60, z / 34 + 80, 2); p = Math.abs(ag) < 0.035 ? DN[0] : DN[1]; }   // hedgerows: lines of thorn across the fields
       if (sp === 'alder' && (nearBlack || wetNear(x, z))) p = Math.max(p, 0.36);   // a dark, dense alder carr round the Blackstone castle and by the water
-      if (kind === 1 && sp !== 'juniper') p *= 0.35; else if (kind === 2) p *= 0.4;
+      if (kind === 1 && sp !== 'juniper') p *= 0.35; else if (kind === 2) p *= 0.4; if (window.__treeP) p *= __treeP(x, z);
       if (!(hs(x, 13, z) < p)) continue;
       const msp = MINSP[sp];
       const g = g9top(x, z); if (g < SEA + 1 || g > H - 22) { st.rejected++; continue; }
@@ -18962,7 +18962,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // v1.0.35 (current.g35): the sketch layout - black N, skeleton W, clan E, forest/croft SE (sand pyramid isle SW is c147's)
   const G35 = () => { try { return !!(current && current.g35 && G12); } catch (_) { return false; } };
   const G36 = () => { try { return !!(G35() && current.g36); } catch (_) { return false; } };   // v1.0.36: bigger islands, ~20 blocks of sea to the mainland
-  const ISL = () => G36() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.1424), bio: 4, sx: 1.5, sz: 1.0}, {k: 'mossy', x: Math.round(W * 0.1354), z: D >> 1, bio: 5, sx: 1.0, sz: 1.5},
+  const G42 = () => { try { return !!(G36() && current.g42 && window.__c208); } catch (_) { return false; } };   // v1.0.42: the new map (GLX-C208)
+  const ISL = () => G42() ? __c208.isl() : G36() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.1424), bio: 4, sx: 1.5, sz: 1.0}, {k: 'mossy', x: Math.round(W * 0.1354), z: D >> 1, bio: 5, sx: 1.0, sz: 1.5},
       {k: 'human', x: Math.round(W * 0.8611), z: D >> 1, bio: 7, sx: 1.05, sz: 1.5}, {k: 'forest', x: Math.round(W * 0.7083), z: Math.round(D * 0.8345), bio: 1, sx: 1.75, sz: 1.0, nc: 1}]
     : G35() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.118), bio: 4, sx: 1.25, sz: 0.85}, {k: 'mossy', x: Math.round(W * 0.118), z: Math.round(D * 0.45), bio: 5, sx: 0.72, sz: 1.15},
       {k: 'human', x: Math.round(W * 0.882), z: Math.round(D * 0.42), bio: 7, sx: 0.72, sz: 1.15}, {k: 'forest', x: Math.round(W * 0.745), z: Math.round(D * 0.875), bio: 1, sx: 1.32, sz: 0.72, nc: 1}]
@@ -18971,7 +18972,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   U.isles = () => IS;
   // biome override: each castle island is its own wood (alder / hawthorn / yew)
   U.bioOv = (x, z, b) => { if (!U.bigBio()) return b; const g = P12(); if (g !== G12) setP(g); for (const I of IS) if (Math.hypot((x - I.x) / (I.sx || 1), (z - I.z) / (I.sz || 1)) < IR * (G12 ? 1.08 : 1.35)) return I.bio; return b; };
-  U.G35 = G35; U.G36 = G36;
+  U.G35 = G35; U.G36 = G36; U.G42 = G42;
   U.params = () => ({RM, IR, OFF, PN, G12, IS});
   const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ (gSeed | 0) ^ 0x113; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
@@ -18979,8 +18980,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const gh = g9height;
   // v1.0.12: the whole height map is worked out once per new world and gently smoothed (softer, rounder glen hills; no noisy steps)
   let HC = null;
-  function buildHC() { const n = W * D, hf = new Float32Array(n), gl = new Float32Array(n), mm = new Float32Array(n), lo = new Uint8Array(n);
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const r = rawH(x, z), i = x * D + z; hf[i] = r.hf; gl[i] = r.glen; mm[i] = r.mMask; lo[i] = r.loch ? 1 : 0; }
+  function buildHC() { if (G42()) __c208.init(); const n = W * D, hf = new Float32Array(n), gl = new Float32Array(n), mm = new Float32Array(n), lo = new Uint8Array(n);
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const r = rawH(x, z), i = x * D + z; hf[i] = r.hf; gl[i] = r.glen; mm[i] = r.mMask; lo[i] = (r.loch ? 1 : 0) | (r.sand ? 2 : 0) | (r.mar ? 4 : 0); }
     const tmp = new Float32Array(n), R = 2, blur = (src, dst, alongX) => { for (let a = 0; a < (alongX ? D : W); a++) { let acc = 0, cnt = 0; const L = alongX ? W : D, at = k => alongX ? src[k * D + a] : src[a * D + k];
         for (let k = -R; k <= R; k++) if (k >= 0 && k < L) { acc += at(k); cnt++; }
         for (let k = 0; k < L; k++) { const o = alongX ? k * D + a : a * D + k; dst[o] = acc / cnt; const out = k - R, inn = k + R + 1; if (out >= 0) { acc -= at(out); cnt--; } if (inn < L) { acc += at(inn); cnt++; } } } };
@@ -18988,10 +18989,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     HC = {hf, gl, mm, lo, W, D}; }
   g9height = function (x, z) {
     if (!ON) return gh(x, z);
-    if (HC && HC.W === W && (x | 0) === x && (z | 0) === z && x >= 0 && z >= 0 && x < W && z < D) { const i = x * D + z; return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(HC.hf[i]))), glen: HC.gl[i], mMask: HC.mm[i], loch: !!HC.lo[i]}; }
+    if (HC && HC.W === W && (x | 0) === x && (z | 0) === z && x >= 0 && z >= 0 && x < W && z < D) { const i = x * D + z; return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(HC.hf[i]))), glen: HC.gl[i], mMask: HC.mm[i], loch: !!(HC.lo[i] & 1), sand: !!(HC.lo[i] & 2), mar: !!(HC.lo[i] & 4)}; }
     return rawH(x, z);
   };
   function rawH(x, z) {
+    if (G42()) return __c208.rawH(x, z);
     let mtR = null; if (Math.abs(x - MT_C[0]) < MT_R * 1.5 && Math.abs(z - MT_C[1]) < MT_R * 1.5) mtR = gh(x, z);
     const wi = g9Island; g9Island = false; let r; try { r = gh(x, z); } finally { g9Island = wi; }
     const dx = x - (W >> 1), dz = z - (D >> 1), ang = Math.atan2(dz, dx);
@@ -19076,10 +19078,13 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       const ax = I.cx + 0.5, az = I.cz + 0.5, bx = c[1] + 0.5, bz = c[2] + 0.5, L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, N = Math.floor(L);
       const G = new Int16Array(N + 1), WET = new Uint8Array(N + 1);
       for (let t = 0; t <= N; t++) { const x = Math.floor(ax + ux * t), z = Math.floor(az + uz * t), g = gtop(x, z); G[t] = g; WET[t] = get(x, g + 1, z) === T.WATER || g < SEA ? 1 : 0; }
-      let t0 = -1; if (c[3]) { let w = -1; for (let t = N - 20; t > I.R * 0.55; t--) { if (WET[t]) w = t; else if (w > 0 && !WET[t] && !WET[t - 1] && !WET[t - 2] && G[t] > SEA) { t0 = Math.max(0, t - 5); break; } } }
+      const SEG = G42() && c[0] !== 'sand', segs = [];
+      if (SEG) { let a = -1; for (let t = Math.round(I.R * 0.55); t <= N - 24; t++) { if (WET[t] && a < 0) a = t; if ((!WET[t] || t === N - 24) && a >= 0) { if (t - a >= 2) { const p = segs[segs.length - 1]; if (p && a - 5 - p[1] < 12) p[1] = Math.min(N - 3, t + 5); else segs.push([Math.max(0, a - 5), Math.min(N - 3, t + 5)]); } a = -1; } } }
+      else { let t0 = -1; if (c[3]) { let w = -1; for (let t = N - 20; t > I.R * 0.55; t--) { if (WET[t]) w = t; else if (w > 0 && !WET[t] && !WET[t - 1] && !WET[t - 2] && G[t] > SEA) { t0 = Math.max(0, t - 5); break; } } }
       else for (let t = Math.round(I.R * 0.55); t < N; t++) if (WET[t]) { t0 = Math.max(0, t - 5); break; } if (t0 < 0) continue;
       let t1 = N - 24; if (c[3]) { t1 = -1; for (let t = t0 + 6; t < N - 3; t++) if (!WET[t] && !WET[t + 1] && !WET[t + 2] && G[t] > SEA) { t1 = Math.min(N - 3, t + 5); break; } if (t1 < 0) continue; }
-      if (t1 <= t0 + 10) continue;
+      if (t1 > t0 + 10) segs.push([t0, t1]); }
+      for (const [t0, t1] of segs) { if (t1 <= t0 + 6) continue;
       // v1.0.23: a level deck at DK; stair ramps only at the two ends; where the land rises well above the deck, a lined, lit tunnel goes through it (no more holes cut up the hillside)
       const S = new Int16Array(N + 1), E0 = Math.max(G[t0], SEA + 1), E1 = Math.max(G[t1], SEA + 1);
       for (let t = t0; t <= t1; t++) { let v = DK; const d0 = t - t0, d1 = t1 - t; if (d0 < Math.abs(E0 - DK)) v = E0 + Math.sign(DK - E0) * d0; if (d1 < Math.abs(E1 - DK) && (d1 < d0 || v === DK)) v = E1 + Math.sign(DK - E1) * d1; S[t] = v; }
@@ -19117,7 +19122,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
           if (Math.abs(k) === hw + 1) for (let y = sq + 1; y <= sq + 5; y++) put(x, y, z, st.fill(x, y, z)); else if (!get(x, sq + 5, z) || get(x, sq + 5, z) === T.WATER) stp(x, sq + 5, z, TUN[t] ? fUp : fDn); } }
       // lamps on both rails (not inside a tunnel)
       for (let t = t0 + 4; t < t1 - 2; t += st.lampEvery) { if (TUN[t]) continue; for (const sd of [-1, 1]) { const x = Math.floor(ax + ux * t + nx * sd * (hw + 1)), z = Math.floor(az + uz * t + nz * sd * (hw + 1)); if (inW(x, z)) st.lamp(x, S[t], z); } }
-      out.push({k: c[0], from: [Math.round(ax + ux * t0), Math.round(az + uz * t0)], to: [Math.round(ax + ux * t1), Math.round(az + uz * t1)], len: t1 - t0, cols, a: [ax, az, ux, uz, t0, t1]}); }
+      out.push({k: c[0], from: [Math.round(ax + ux * t0), Math.round(az + uz * t0)], to: [Math.round(ax + ux * t1), Math.round(az + uz * t1)], len: t1 - t0, cols, a: [ax, az, ux, uz, t0, t1]}); } }
     return out;
   }
 
@@ -19166,7 +19171,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const gen = generate;
   generate = function () {
     if (!L94()) { ON = false; return gen.apply(this, arguments); }
-    setP(P12()); IS = ISL(); ISL_C = [W >> 1, D >> 1]; ISL_R = 1; MT_C = G36() ? [Math.round(W * 0.2384), Math.round(D * 0.7778)] : [(W >> 1) - 290, (D >> 1) + 290]; HOL_C = [MT_C[0] + Math.round(20 * MT_R / 58), MT_C[1] + 2];
+    setP(P12()); IS = ISL(); ISL_C = [W >> 1, D >> 1]; ISL_R = 1; MT_C = G42() ? __c208.MT() : G36() ? [Math.round(W * 0.2384), Math.round(D * 0.7778)] : [(W >> 1) - 290, (D >> 1) + 290]; HOL_C = [MT_C[0] + Math.round(20 * MT_R / 58), MT_C[1] + 2];
     ON = true; HC = null; let r; try { if (G12) { const t = performance.now(); if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0; G9P = g9perm(gSeed); buildHC(); U.hcMs = Math.round(performance.now() - t); } r = gen.apply(this, arguments); } finally { ON = false; HC = null; }
     const t0 = performance.now();
     try { U.removed = removeSpawnHouses(); } catch (e) { U.err = 'houses ' + (e && e.stack || e); }
@@ -19313,6 +19318,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.42', ["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]],
     ['v1.0.41', ["New: the little bits that fly off when you mine or break a block now look like that block - real pieces of its texture, including wood types, stairs, ores and painted blocks", "New: removed the progress bar that appeared while mining (the cracks on the block still show)", "Textures: redstone ore redone on the plain stone - clusters of red specks joined by thin veins with a soft highlight, and only the specks glow", "Textures: coal ore is easier to spot - bigger, darker coal clusters with a faint glassy edge and sheen", "New: settled snow is now real snow layers that build up gradually on open ground near you while it snows - dig them (quickest with a shovel) for snowballs, and they melt away over a few days without snow; this also stops the lag from settled snow"]],
     ['v1.0.40', ["New: snow sounds like snow - a soft wind and hush instead of rain patter, with no thunder or lightning while it snows; the weather tag and messages say snow (Light snow, Heavy snow, Blizzard)", "Mobs: the Thunner Cloudie only comes in real rain, never in snow"]],
     ['v1.0.39', ["New: the Creative bag is now sorted into labelled groups like the crafting Blocks tab - planks by wood, logs, stairs, corner stairs, slabs, fences, gates, doors, walls, stone & brick, glass, wool & carpet, lighting, decor, then natural blocks, ores, plants, tools, armour, food and items - in the same order every time"]],
@@ -24272,16 +24278,17 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const ax = (W >> 1) - 128, az = (D >> 1) - 124; mark(ax - 12, az - 12, ax + 268, az + 268); mark(0, 0, 9, D - 1); mark(W - 10, 0, W - 1, D - 1); mark(0, 0, W - 1, 9); mark(0, D - 10, W - 1, D - 1);
     const nb = (x, z) => { try { return C113.nearBridge ? C113.nearBridge(x, z, 12) : false; } catch (_) { return false; } };
     const isW = new Uint8Array(N), lev = new Int16Array(N).fill(-1), rid = new Int16Array(N), cols = [], st = {made: 0, tried: 0, falls: 0, cells: 0, len: []};
+    const G42 = !!(window.__c208 && __c208.on());   // v1.0.42: the new map's hill rivers wander instead of running dead straight
     const cand = []; for (let x = 12; x < W - 12; x += 6) for (let z = 12; z < D - 12; z += 6) { const c = x * D + z; if (!avoid[c] && !wet[c] && top[c] >= SEA + 14 && dist[c] >= 45) cand.push(c); }
     { const key = new Map(cand.map(c => [c, dist[c] + top[c] * 0.3 + rnd() * 40])); cand.sort((a, b) => key.get(b) - key.get(a)); }   // long rivers from high ground first
     const srcs = []; const falls = new Set(); U.paths = [];
     for (const s of cand) { if (st.made >= 7 || st.tried > 60) break; const sx = (s / D) | 0, sz = s - sx * D; if (srcs.some(([x, z]) => Math.hypot(x - sx, z - sz) < 110)) continue; st.tried++;
       // trace: every step one block closer to open water, picking the lowest / straightest way with a little wander
-      const path = [s]; let c = s, pd = -1, endL = -1, ok = true;
+      const path = [s], vis = new Set([s]); let c = s, pd = -1, endL = -1, ok = true, side0 = 0;
       for (let k = 0; k < 900; k++) { if (wet[c]) { endL = wl0[c]; break; } const x = (c / D) | 0, z = c - x * D; let best = -1, bs = 1e9, bd = -1;
-        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz], d) => { const X = x + dx, Z = z + dz; if (X < 1 || Z < 1 || X >= W - 1 || Z >= D - 1) return; const n = X * D + Z; if (dist[n] !== dist[c] - 1 && !rid[n]) return;
-          const sc = (top[n] - top[c]) * 0.5 + (pd >= 0 && d !== pd ? 0.55 : 0) + rnd() * 0.9 + (avoid[n] || nb(X, Z) ? 99 : 0); if (sc < bs) { bs = sc; best = n; bd = d; } });
-        if (best < 0 || bs > 50) { ok = false; break; } path.push(best); pd = bd; c = best; if (rid[best]) { endL = lev[best]; break; } }
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz], d) => { const X = x + dx, Z = z + dz; if (X < 1 || Z < 1 || X >= W - 1 || Z >= D - 1) return; const n = X * D + Z; const side = G42 && dist[n] === dist[c] && !vis.has(n) && side0 < 6; if (dist[n] !== dist[c] - 1 && !rid[n] && !side) return;
+          const sc = (top[n] - top[c]) * 0.5 + (pd >= 0 && d !== pd ? (G42 ? 0.12 : 0.55) : 0) + rnd() * 0.9 + (G42 ? 2.4 * g9fbm(X / 21 + 5, Z / 21 - 5, 2) + (side ? 0.5 : 0) : 0) + (avoid[n] || nb(X, Z) ? 99 : 0); if (sc < bs) { bs = sc; best = n; bd = d; } });
+        if (best < 0 || bs > 50) { ok = false; break; } path.push(best); vis.add(best); side0 = dist[best] === dist[c] ? side0 + 1 : 0; pd = bd; c = best; if (rid[best]) { endL = lev[best]; break; } }
       if (!ok || endL < 0 || path.length < 40) continue;
       // water level: never rises downstream, never below the loch / sea it ends in; give up if it would need a deep slot
       const L = path.map(p => top[p] - 1); for (let i = 1; i < L.length; i++) L[i] = Math.min(L[i - 1], L[i]); for (let i = 0; i < L.length; i++) L[i] = Math.max(L[i], endL);
@@ -28209,7 +28216,8 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
       const w = (arm ? 1.4 : 1.8) + 2.6 * (0.5 + 0.5 * Math.sin(3 * th + ph[3] + arm * 2)) + 0.8 * Math.max(0, Math.sin(11 * th + ph[4])); pts.push([...at(R, th), w]); }
     // outlets (kept clear of the bridge lines): four to the open sea, two to the inner loch
     const deg = Math.PI / 180, outs = [[28, 150, 236], [160, 150, 236], [225, 150, 236], [315, 150, 236], [112, 108, 160], [245, 108, 160]];
-    for (const [a, r0, r1] of outs) for (let R = r0; R <= r1; R += 0.7) { const th = (a + 4 * Math.sin(R / 9 + a)) * deg; pts.push([...at(R, th), 2 + 1.2 * Math.sin(R / 13 + a)]); }
+    const g42 = window.__c208 && __c208.on();
+    for (const [a, r0, r1i] of outs) { const r1 = g42 && r1i > 200 ? __c208.coastR(top, at, a, r0) : r1i; for (let R = r0; R <= r1; R += 0.7) { const th = (a + 4 * Math.sin(R / 9 + a)) * deg; pts.push([...at(R, th), 2 + 1.2 * Math.sin(R / 13 + a)]); } }
     // side ponds hung off the arms, plus a couple of lone ones
     const ponds = [];
     for (let k = 0; k < 8; k++) { const th = rnd() * 6.2832, side = rnd() < 0.5 ? -1 : 1, R = 163 + 20 * Math.sin(4 * th + ph[0]) + 8 * Math.sin(9 * th + ph[1]) + side * (8 + rnd() * 6), r = 4.5 + rnd() * 4.5; ponds.push([...at(R, th), r]); }
@@ -28984,6 +28992,94 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
       U.pendK = pendK.size; } catch (e) { U.err = 'k ' + e; } }, 500);
   try { const ew = enterWorld; enterWorld = function () { pendK.clear(); return ew.apply(this, arguments); }; } catch (_) {}
 })();
+
+/* ===================== GLX-C208 (v1.0.42): the new map for new worlds - natural coasts, beaches and cliffs, ridged snowy mountains, plains, marsh, lakes, the river valley, close islands over short bridges ===================== */
+// ---- v1.0.42 terrain core (shared by the game part and the node prototype) ----
+function make42(E) {
+  const {W, D, SEA, H, seed} = E, fbm = (x, z, o) => Math.max(-1, Math.min(1, E.fbm(x, z, o) * 3.3)), MT = E.MT, sst = (a, b, t) => { t = Math.max(0, Math.min(1, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const cx = W >> 1, cz = (D >> 1) + 8, S = W / 864;
+  // landmasses: centre, stretch, reach (in blocks); the desert disc is c147's (radius RD + its 18-block channel)
+  const LM = [
+    {k: 'main', x: cx, z: cz - 2, sx: 1, sz: 1, R: 282 * S},
+    {k: 'black', x: cx, z: Math.round(D * 0.135), sx: 1.5, sz: 1, R: 132 * S},
+    {k: 'mossy', x: Math.round(W * 0.145), z: (D >> 1) + 10, sx: 1, sz: 1.5, R: 130 * S},
+    {k: 'human', x: Math.round(W * 0.855), z: (D >> 1) - 4, sx: 1, sz: 1.5, R: 132 * S},
+    {k: 'forest', x: Math.round(W * 0.70), z: Math.round(D * 0.84), sx: 1.65, sz: 1, R: 136 * S}];
+  const RD = E.RD + 18;
+  // the river's centre lines (same numbers as GLX-C192) so the land can fall into a wide valley round it
+  let s = ((seed | 0) ^ 0x51a7e) >>> 0; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const ph = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28, rnd() * 6.28, rnd() * 6.28];
+  const riv = (x, z) => { const dx = x - cx, dz = (z - ((D >> 1) + 8)) / 1.06, th = Math.atan2(dz, dx), rr = Math.hypot(dx, dz);
+    const a = 163 + 20 * Math.sin(4 * th + ph[0]) + 8 * Math.sin(9 * th + ph[1]), b = 163 - 20 * Math.sin(4 * th + ph[0] + 0.7) + 7 * Math.sin(7 * th + ph[2]); return Math.min(Math.abs(rr - a), Math.abs(rr - b)); };
+  // the straight lines from spawn to each castle / island (the bridges): no cliffs there
+  const LN = (E.lines || []).map(([x, z]) => { const L = Math.hypot(x - cx, z - (D >> 1)); return [x, z, (x - cx) / L, (z - (D >> 1)) / L, L]; });
+  const nearLine = (x, z) => { let m = 1e9; for (const [, , ux, uz, L] of LN) { const px = x - cx, pz = z - (D >> 1), t = px * ux + pz * uz; if (t < 0 || t > L + 20) continue; m = Math.min(m, Math.abs(px * uz - pz * ux)); } return m; };
+  function at(x, z) {
+    const wx = x + 34 * fbm(x / 230 + 7.1, z / 230 - 3.3, 3) + 9 * fbm(x / 52 - 5, z / 52 + 2, 2), wz = z + 34 * fbm(x / 230 - 11.7, z / 230 + 5.9, 3) + 9 * fbm(x / 52 + 8, z / 52 - 6, 2);
+    const bay = 30 * fbm(x / 95 + 21, z / 95 - 13, 3) + 7 * fbm(x / 26 - 4, z / 26 + 9, 2);
+    let d1 = 1e9, d2 = 1e9, o = 0;
+    for (let i = 0; i < LM.length; i++) { const m = LM[i], d = Math.hypot((wx - m.x) / m.sx, (wz - m.z) / m.sz) - m.R; if (d < d1) { d2 = d1; d1 = d; o = i; } else if (d < d2) d2 = d; }
+    const cw = 27 + 5 * fbm(x / 70 + 3, z / 70 - 9, 2);
+    let L = Math.min(-d1, (d2 - d1) / 2 - cw / 2, Math.min(x, z, W - 1 - x, D - 1 - z) - (36 + 26 * fbm(x / 85, z / 85 + 40, 3) + 6 * fbm(x / 24 + 3, z / 24 - 5, 2)));
+    const dd = Math.hypot(x - MT[0], z - MT[1]) - RD; if (dd < L) L = dd;
+    const k = LM[o].k, ang = Math.atan2(z - cz, x - cx), rr = Math.hypot(x - cx, z - cz);
+    // mainland regions: snowy mountains NE, plains E-SE, marsh S, forest hills and river valleys W-NW
+    const a = ang / Math.PI * 180 + 18 * fbm(x / 120 + 50, z / 120, 2);
+    const wt = {mount: 0, plain: 0, marsh: 0, hill: 0};
+    if (k === 'main') { const sec = (c, w) => { let q = Math.abs(((a - c + 540) % 360) - 180); return 1 - sst(w * 0.6, w, q); };
+      const far = sst(140, 190, rr); wt.mount = sec(-52, 70) * far; wt.plain = sec(30, 42) * far; wt.marsh = sec(108, 40) * far; wt.hill = Math.max(0, 1 - wt.mount - wt.plain - wt.marsh); }
+    else if (k === 'black') { wt.hill = 0.55; wt.mount = 0.45 * sst(-40, 60, x - cx); } else if (k === 'forest') { wt.hill = 0.7; wt.plain = 0.3; } else if (k === 'human') { wt.hill = 0.55; wt.plain = 0.45; } else wt.hill = 1;
+    const n1 = fbm(x / 85 + 2, z / 85 - 7, 3), n2 = fbm(x / 30 - 9, z / 30 + 4, 2);
+    const hill = 5 + 19 * Math.pow(Math.max(0, 0.5 + 0.5 * n1), 1.5) + 2.5 * n2, plain = 3 + 3.5 * (0.5 + 0.5 * fbm(x / 120 - 4, z / 120 + 8, 2)) + 1.2 * n2;
+    const r1 = 1 - Math.abs(fbm(x / 80 + 13, z / 80 - 21, 4)), r2 = 1 - Math.abs(fbm(x / 37 - 33, z / 37 + 17, 3)), ridge = r1 * r1 * (0.6 + 0.4 * r2);
+    const mount = 10 + 48 * ridge * sst(0, 30, L) + 6 * n1, marsh = 1.7 + 0.8 * n2;
+    let e = hill * wt.hill + plain * wt.plain + mount * wt.mount + marsh * wt.marsh;
+    // lakes in the plains, hills and forest; pools in the marsh
+    let loch = false; const lk = fbm(x / 120 - 61, z / 120 + 37, 2);
+    if (k !== 'black' && !(k === 'main' && rr < 205) && !(k !== 'main' && Math.hypot((x - LM[o].x) / LM[o].sx, (z - LM[o].z) / LM[o].sz) < 80) && lk > 0.55 && wt.mount < 0.3 && L > 18) { const q = sst(0.55, 0.8, lk); e = e * (1 - q) - 3.5 * q; loch = q > 0.5; }
+    if (wt.marsh > 0.3) { const pl = fbm(x / 19 + 70, z / 19 - 70, 2); if (pl > 0.35) { const q = sst(0.35, 0.6, pl) * wt.marsh; e = e * (1 - q) - 1.2 * q; } }
+    // the river valley (mainland)
+    if (k === 'main' && rr > 110) { const rv = sst(5, 52, riv(x, z)); e = 2 + (e - 2) * rv; }
+    // coasts: beaches mostly, cliffs where the noise says so (never by a bridge line)
+    const cl = fbm(x / 55 + 90, z / 55 - 90, 2), cliff = sst(0.25, 0.55, cl) * sst(26, 40, nearLine(x, z)) * (k === 'black' || wt.mount > 0.4 ? 1.4 : 1);
+    let h;
+    if (L < 0) h = SEA - 2 - Math.min(11, -L * 0.75) + 0.8 * n2;
+    else { const beach = sst(0, 24, L), cp = Math.min(1, cliff), prof = beach * (1 - cp) + sst(0, 3.5, L) * cp;
+      h = SEA + 1 + (e - 1) * (e < 1 ? 1 : prof); if (L < 5 && cp < 0.5) h = Math.min(h, SEA + 1 + L * 0.3); }
+    h = Math.max(4, Math.min(H - 5, h));
+    return {h, k, L, wt, loch, beach: L >= 0 && L < 6 && cliff < 0.5 && h <= SEA + 3, cliff};
+  }
+  return {at, LM, riv, ph};
+}
+
+(function c208() {
+  const U = window.__c208 = {err: null, T: null, ms: 0};
+  U.on = () => { try { return !!(current && current.g42 && current.g36 && current.g35 && !DIM.cur && W >= 600); } catch (_) { return false; } };
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g42 = save ? !!(save.c208 && save.c208.g42) : true; } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g42) d.c208 = {g42: 1}; } catch (_) {} return d; };
+  U.MT = () => [Math.round(W * 0.2384), Math.round(D * 0.7778)];
+  const BIO = {black: 4, mossy: 5, human: 7, forest: 1};
+  // the castle islands for GLX-C113 (castles sit near each centre, nudged out towards the open sea)
+  U.isl = () => { const cx = W >> 1, cz = D >> 1, S = W / 864;
+    return [{k: 'black', x: cx, z: Math.round(D * 0.135), sx: 1.5, sz: 1}, {k: 'mossy', x: Math.round(W * 0.145), z: cz + 10, sx: 1, sz: 1.5}, {k: 'human', x: Math.round(W * 0.855), z: cz - 4, sx: 1, sz: 1.5},
+      {k: 'forest', x: Math.round(W * 0.70), z: Math.round(D * 0.84), sx: 1.65, sz: 1, nc: 1}].map(q => Object.assign(q, {bio: BIO[q.k]})); };
+  let WT = null;
+  U.init = () => { const t = performance.now(), cx = W >> 1, cz = D >> 1, IR = 100, MT = U.MT();
+    const lines = U.isl().map(q => [q.x + Math.round(Math.sign(q.x - cx) * IR * 0.22), q.z + Math.round(Math.sign(q.z - cz) * IR * 0.22)]).concat([MT]);
+    U.T = make42({fbm: g9fbm, W, D, SEA, H, seed: gSeed, MT, RD: 106, lines}); WT = new Uint8Array(W * D * 3); U.ms = Math.round(performance.now() - t); };
+  // one column for GLX-C113's height cache: marsh tops go to peat and mud, beaches to sand
+  U.rawH = (x, z) => { if (!U.T) U.init(); const r = U.T.at(x, z), w = r.wt, i = (x * D + z) * 3;
+    if (x >= 0 && z >= 0 && x < W && z < D) { WT[i] = w.plain * 255; WT[i + 1] = w.marsh * 255; WT[i + 2] = (r.k === 'forest' ? 1 : 0) + (r.k === 'main' && w.hill > 0.6 ? 2 : 0); }
+    const mar = w.marsh > 0.45 && r.L > 4;
+    return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(r.h))), hf: r.h, glen: mar ? 0.8 : r.beach ? 0.5 : 0.3, mMask: w.mount, loch: r.loch, sand: r.beach, mar}; };
+  // tree cover by region: thin on the plains, a few in the marsh, thick in the forest isle and the mainland woods
+  window.__treeP = (x, z) => { if (!WT || !U.on() || x < 0 || z < 0 || x >= W || z >= D) return 1; const i = (x * D + z) * 3, pl = WT[i] / 255, ma = WT[i + 1] / 255, f = WT[i + 2];
+    return (1 - 0.8 * pl) * (1 - 0.5 * ma) * (f & 1 ? 1.7 : f & 2 ? 1.25 : 1); };
+  // the river's outlets run on to the real coast
+  U.coastR = (top, at, a, r0) => { const deg = Math.PI / 180; for (let R = r0; R < 430; R += 2) { const th = (a + 4 * Math.sin(R / 9 + a)) * deg, [x, z] = at(R, th), X = Math.round(x), Z = Math.round(z);
+      if (X < 3 || Z < 3 || X >= W - 3 || Z >= D - 3) return R; if (top[X * D + Z] < SEA - 1) return R + 6; } return 430; };
+  const gen = generate; generate = function () { WT = null; U.T = null; const r = gen.apply(this, arguments); U.T = null; return r; };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -28995,6 +29091,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.42', d:'2026-10-27', notes:["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]},
 {v:'v1.0.41', d:'2026-10-27', notes:["New: the little bits that fly off when you mine or break a block now look like that block - real pieces of its texture, including wood types, stairs, ores and painted blocks", "New: removed the progress bar that appeared while mining (the cracks on the block still show)", "Textures: redstone ore redone on the plain stone - clusters of red specks joined by thin veins with a soft highlight, and only the specks glow", "Textures: coal ore is easier to spot - bigger, darker coal clusters with a faint glassy edge and sheen", "New: settled snow is now real snow layers that build up gradually on open ground near you while it snows - dig them (quickest with a shovel) for snowballs, and they melt away over a few days without snow; this also stops the lag from settled snow", "New: the pyramid is rebuilt in sandstone with a true stepped pyramid shape and a gold tip; the cave entrances at its base are back and the stairs to the chest room are kept (new worlds)", "New: the desert is redone - the museum, shop and church are gone, the Sphinx is longer and more like the real one, and the desert now has rolling dunes, two palm oases (one with a striped tent, one with a ruined temple) and two obelisks (new worlds)", "New: the skull build from the original spawn is back with its lava, set in a rocky ring; the water pool is untouched (new worlds)", "Mobs: water mobs no longer spawn in the sea (eggs still work)", "Mobs: Admiral Skelp and his wool-sailed longship now always turn up, in new and existing worlds; old block-built boats are cleared out of existing worlds (your own builds are never touched)", "New: saved templates now keep what is inside - chest contents, furnace input, fuel, output and progress, cauldron contents and door states - and put them back when you place the template"]},
 {v:'v1.0.40', d:'2026-10-27', notes:["New: snow sounds like snow - a soft wind and hush instead of rain patter, with no thunder or lightning while it snows; the weather tag and messages say snow (Light snow, Heavy snow, Blizzard)", "Mobs: the Thunner Cloudie only comes in real rain, never in snow"]},
 {v:'v1.0.39', d:'2026-10-27', notes:["New: the Creative bag is now sorted into labelled groups like the crafting Blocks tab - planks by wood, logs, stairs, corner stairs, slabs, fences, gates, doors, walls, stone & brick, glass, wool & carpet, lighting, decor, then natural blocks, ores, plants, tools, armour, food and items - in the same order every time"]},
