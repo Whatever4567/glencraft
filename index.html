@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1028a -->
+<!-- glencraft-build: v1029a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.28';
+const GAME_VERSION = 'v1.0.29';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19276,6 +19276,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.29', ["New: the black castle has real stairs - up the throne hall to the attic under the roof, then a spiral up the great spire to the lookout room", "New: the clan castle is rebuilt to match its picture - a tall square gatehouse with a guard room and battlements, a taller keep with a new top-floor solar and tall slate spires, crenellated drum towers on the walls", "New: the skeleton castle stands on a much higher crag, with a tall broken keep tower you can climb, ruined gabled towers and an arch in the wall; the crypt below is taller, with blue soul lanterns down the aisle", "New: the sky turns blood red as you near the black castle, with red mist you can see from far off, and there is now a working nether portal on the castle's east terrace", "New: existing worlds get the new castles too (once, on load) - anything in the old castle chests is moved into the new ones, and blocks you placed are never touched", "New: rain is back - it never came if you slept every night; now it rains every few days, with dense slanted rain, splashes, a darker grey storm sky, more thunder and lightning, no rain under roofs or in caves, and snow on snowy ground", "New: Settings are split into Audio, Video, Controls and World tabs (LB / RB switch tabs on a controller), with a new Brightness slider", "New: a smaller HUD hugging the bottom of the screen, and the item name fades in just above the hotbar when you switch", "Mobs: mob voices are louder and the Mob voices slider now goes to 200%; Skelp and the dancers carry further", "Mobs: the creeper's alarm is much quieter and deeper - a warbling air-raid wail over a low drone, with echo", "Textures: far fewer red window panels and banners on the black castle - barred windows instead; long tartan banners on the clan gatehouse", "Textures: the creeper keeps its shape but is now hazard yellow and red with white warning stripes and a metal cyborg eye with a glowing red lens; its spawn egg matches"]],
     ['v1.0.28', ["New: smoother play - the game readies every block texture in your world at the start, so there is no more freeze when a castle comes into view, and big background jobs are now done in small bites", "New: crofters and castle folk now and then stop for a wee dance, alone or in a group, to their own tune (played through the Mob voices volume, never twice at once)", "Textures: farmers and castle folk have blue eyes and a mouth you can see", "Mobs: creepers fixed - only one creeper spawner now: up to 2 at a time, on dark ground at night and in caves, never in daylight, and spawn eggs still work everywhere; the 4-second alarm and big blast are unchanged; Admiral Skelp now repeats his line every few seconds while you stay near him, jaw in time"]],
     ['v1.0.27', ["Mobs: Admiral Skelp now speaks - his own voice line when you come near his boat (or hatch him from an egg), now and then while you linger; follows the Mob voices volume", "Mobs: Admiral Skelp's jaw now moves in time with his words while he talks", "Mobs: creeper fixes - hatching a creeper from the egg now always keeps it (creative and survival), and in survival up to 2 creepers now creep out of dark surface spots at night and in caves; the 4-second alarm and big blast are unchanged", "Mobs: bees get the new HD model shape - a proper flying bee with honey-and-black Glencraft colouring and see-through wings"]],
     ['v1.0.26', ["New: Mob voices volume slider in Settings - mob calls, idle, hurt and death sounds on their own, saved", "New: Reset world now builds a truly brand-new world, so older worlds get the new castles too", "New: bridge corners tidied - no floating lanterns or floating tree bits from bridges and tunnels", "New: the spawn lava pools are back, safely walled in and never under water", "Mobs: the Ghost is rare - night only, one at a time, and only chases you when it can see you nearby", "Mobs: one Creeper egg (yellow duplicate gone); the creeper is a clean HD green four-legged classic and lives in the caves", "Textures: crisp pixel skin for the new creeper"]],
@@ -19507,23 +19508,28 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   }
   try { const mc0 = makeCreeper; makeCreeper = function () { const o = makeCyborg(); try { const r = mc0.apply(this, arguments); for (const k of ['speed', 'hp', 'hitY', 'hitR', 'hostile', 'tall']) if (r[k] !== undefined) o[k] = r[k]; r.g.traverse(x => x.geometry && x.geometry.dispose()); r.mats.forEach(m => m.dispose()); } catch (_) {} return o; }; } catch (e) { ERR(e); }
 
-  // ---- the nuclear SOS siren (synth): wailing air-raid sweep, harsh pulsing, distorted morse SOS ----
-  let shaper = null;
+  // ---- v1.0.29 siren: a deep, distorted, warbling air-raid wail over a low drone, in a big reverb (Siren Head style); quieter, through the mob voices slider ----
+  let shaper = null, irBuf = null;
   function sirenStart(a, dur) { U.siren++; a.sirOn = true; if (!AC || !master) return; try {
-    const t = AC.currentTime, end = t + dur + 0.15;
-    if (!shaper) { shaper = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; shaper[i] = Math.tanh(x * 4.5); } }
+    const t = AC.currentTime, end = t + dur + 0.6;
+    if (!shaper) { shaper = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; shaper[i] = Math.tanh(x * 3.2); } }
+    if (!irBuf) { const n = Math.floor(AC.sampleRate * 2.6); irBuf = AC.createBuffer(2, n, AC.sampleRate); for (let c = 0; c < 2; c++) { const d = irBuf.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2.6); } }
     const out = AC.createGain(); out.gain.value = 0.0001; out.connect(window.mobDst ? mobDst() : master);
-    const ws = AC.createWaveShaper(); ws.curve = shaper; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.6; ws.connect(bp); bp.connect(out);
-    const sg = AC.createGain(); sg.gain.value = 0.32; sg.connect(ws);
-    const o1 = AC.createOscillator(), o2 = AC.createOscillator(); o1.type = 'sawtooth'; o2.type = 'square'; o1.connect(sg); const g2 = AC.createGain(); g2.gain.value = 0.35; o2.connect(g2); g2.connect(sg);
-    for (const [o, m] of [[o1, 1], [o2, 1.007]]) { o.frequency.setValueAtTime(380 * m, t); for (let i = 0; i < Math.ceil(dur); i++) { o.frequency.linearRampToValueAtTime(880 * m, t + i + 0.55); o.frequency.linearRampToValueAtTime(380 * m, t + i + 1); } }
-    const lfo = AC.createOscillator(), lg = AC.createGain(); lfo.type = 'square'; lfo.frequency.value = 7.5; lg.gain.value = 0.16; lfo.connect(lg); lg.connect(sg.gain);
-    const o3 = AC.createOscillator(), g3 = AC.createGain(); o3.type = 'square'; o3.frequency.value = 1420; g3.gain.value = 0; o3.connect(g3); g3.connect(ws);
-    let tt = t + 0.05; const dot = 0.09, dash = 0.27, beep = (l) => { g3.gain.setValueAtTime(0.5, tt); g3.gain.setValueAtTime(0, tt + l); tt += l + dot; };
-    while (tt < end - 0.4) { for (const L of [dot, dot, dot, 0, dash, dash, dash, 0, dot, dot, dot, 0, 0]) { if (L) beep(L); else tt += dash; } }
-    const oscs = [o1, o2, lfo, o3]; oscs.forEach(o => { o.start(t); o.stop(end); });
+    const mix = AC.createGain(); mix.gain.value = 1; const dry = AC.createGain(); dry.gain.value = 0.7; mix.connect(dry); dry.connect(out);
+    try { const cv = AC.createConvolver(); cv.buffer = irBuf; const wet = AC.createGain(); wet.gain.value = 0.65; mix.connect(cv); cv.connect(wet); wet.connect(out); } catch (_) {}
+    const ws = AC.createWaveShaper(); ws.curve = shaper; const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 950; lp.Q.value = 1.2; ws.connect(lp);
+    const trem = AC.createGain(); trem.gain.value = 0.75; lp.connect(trem); trem.connect(mix);
+    const sg = AC.createGain(); sg.gain.value = 0.5; sg.connect(ws);
+    const oscs = [];
+    const vib = AC.createOscillator(), vg = AC.createGain(); vib.frequency.value = 5.2; vg.gain.value = 7; vib.connect(vg); oscs.push(vib);
+    for (const m of [1, 1.012, 0.497]) { const o = AC.createOscillator(); o.type = 'sawtooth'; const og = AC.createGain(); og.gain.value = m < 1 ? 0.5 : 0.45; o.connect(og); og.connect(sg); vg.connect(o.frequency);
+      o.frequency.setValueAtTime(92 * m, t); o.frequency.exponentialRampToValueAtTime(255 * m, t + dur * 0.36); o.frequency.linearRampToValueAtTime(238 * m, t + dur * 0.62); o.frequency.exponentialRampToValueAtTime(84 * m, t + dur); oscs.push(o); }
+    const wob = AC.createOscillator(), wg = AC.createGain(); wob.frequency.value = 2.6; wg.gain.value = 0.22; wob.connect(wg); wg.connect(trem.gain); oscs.push(wob);
+    for (const [f, ty, gv] of [[45, 'sine', 0.55], [55, 'triangle', 0.32]]) { const o = AC.createOscillator(), g = AC.createGain(); o.type = ty; o.frequency.value = f; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(gv, t + 0.6); g.gain.setValueAtTime(gv, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.4); o.connect(g); g.connect(mix); oscs.push(o); }
+    sg.gain.setValueAtTime(0.0001, t); sg.gain.exponentialRampToValueAtTime(0.5, t + 0.5); sg.gain.setValueAtTime(0.5, t + dur - 0.4); sg.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.2);
+    oscs.forEach(o => { o.start(t); o.stop(end); });
     a.sir = {out, oscs}; } catch (e) { ERR(e); } }
-  function sirenVol(a, d) { if (a.sir && AC) try { a.sir.out.gain.setTargetAtTime(0.55 * Math.max(0, 1 - d / 42), AC.currentTime, 0.05); } catch (_) {} }
+  function sirenVol(a, d) { if (a.sir && AC) try { a.sir.out.gain.setTargetAtTime(0.13 * Math.pow(Math.max(0, 1 - d / 36), 1.5), AC.currentTime, 0.05); } catch (_) {} }
   function sirenStop(a) { a.sirOn = false; if (!a.sir || !AC) return; try { const t = AC.currentTime; a.sir.out.gain.setTargetAtTime(0, t, 0.04); a.sir.oscs.forEach(o => { try { o.stop(t + 0.3); } catch (_) {} }); } catch (_) {} a.sir = null; }
 
   // ---- the warning overlay ----
@@ -25443,7 +25449,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- 3. the props ----------
   const ring = (K, cx, cz, R, y, n, fn) => { for (let i = 0; i < n; i++) { const a = i / n * 6.283; fn(cx + Math.cos(a) * R, cz + Math.sin(a) * R, a); } };
   const DRAW = {
-    banT: (K, o) => { K.box(0.02, 0.92, 0.04, 0.98, 1.0, 0.12, 'iron'); K.wallQ(0.06, 1 - 2.7, 0.94, 0.95, 0.08, o.v === 1 ? 'banB' : o.v === 2 ? 'banG' : 'banT'); },
+    banT: (K, o) => { K.box(0.02, 0.92, 0.04, 0.98, 1.0, 0.12, 'iron'); K.wallQ(0.06, 1 - (o.L || 2.7), 0.94, 0.95, 0.08, o.v === 1 ? 'banB' : o.v === 2 ? 'banG' : 'banT'); },
     rug: (K, o) => { const w = o.w || 3, d = o.d || 4, y = o.h || 0.03; K.flatQ(0.5 - w / 2, 0.5 - d / 2, 0.5 + w / 2, 0.5 + d / 2, y, o.v === 1 ? 'tartanB' : o.v === 2 ? 'velvet' : 'tartan'); },
     antler: (K) => { K.box(0.25, 0.25, 0, 0.75, 0.75, 0.06, 'plaque'); K.box(0.4, 0.3, 0.06, 0.6, 0.62, 0.3, 'leather'); K.wallQ(-0.45, 0.35, 1.45, 1.6, 0.2, 'antler'); },
     chand: (K, o) => { const R = 0.95, top = o.L || 1.6; K.cross(0.5, 0.5, 0.25, top, 0.06, 'chain'); ring(K, 0.5, 0.5, R, 0, 10, (x, z) => { K.box(x - 0.08, 0.2, z - 0.08, x + 0.08, 0.27, z + 0.08, 'iron'); K.box(x - 0.04, 0.27, z - 0.04, x + 0.04, 0.47, z + 0.04, 'wax'); K.cross(x, z, 0.47, 0.22, 0.05, 'flame', true); });
@@ -25559,16 +25565,20 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     let best = 0, bd = -9; for (let r = 0; r < 4; r++) { let x = 0, z = 1; for (let i = 0; i < r; i++) { const t = x; x = -z; z = t; } const d = x * ux + z * uz + (r === 0 ? 0.02 : 0); if (d > bd) { bd = d; best = r; } }
     return {rot: best, end: [Math.round(c[1] + ux * 24), Math.round(c[2] + uz * 24)]}; }
   // ---------- run after everything else in world generation ----------
-  function work() { if (!elig() || !g9castles) return; const t0 = performance.now(); window.__c150.props = []; try { window.__c150.rebuild(); } catch (_) {}
+  function work(only) { if (!elig() || !g9castles) return; const t0 = performance.now(); const oci = only ? g9castles.findIndex(c => c[0] === only) : -1; window.__c150.props = only ? window.__c150.props.filter(p => p.c !== oci) : []; try { window.__c150.rebuild(); } catch (_) {}
     const done = __c102.done || [], R = {human: 22, mossy: 22, black: 23};
-    g9castles.forEach((c, ci) => { const fn = U.B[c[0]], d = done.find(o => o.k === c[0] && o.cx === c[1] && o.cz === c[2]); if (!fn || !d) return;
-      try { const ap = approach(c), gy = d.gy; clearSite(c, gy, R[c[0]], 62); const K = ctx(c, ci, gy, ap.rot); const [ex, ez] = ap.end; let lx = ex - c[1], lz = ez - c[2]; for (let i = 0; i < (4 - ap.rot) % 4; i++) { const t = lx; lx = -lz; lz = t; } K.end = [lx, lz];
-        U.st[c[0]] = Object.assign({rot: ap.rot, gy}, fn(K) || {}, {lights: K.lights, chests: K.chestsN});
+    g9castles.forEach((c, ci) => { if (only && c[0] !== only) return; const fn = U.B[c[0]], d = done.find(o => o.k === c[0] && o.cx === c[1] && o.cz === c[2]); if (!fn || !d) return;
+      try { const ap = approach(c), gy = d.gy; const keep = only ? U.keepChests(c, R[c[0]] + 1) : null; clearSite(c, gy, R[c[0]], 62); const K = ctx(c, ci, gy, ap.rot); if (keep) { const kc = K.chest; K.made = []; K.chest = function () { const r = kc.apply(this, arguments); K.made.push(r); return r; }; } const [ex, ez] = ap.end; let lx = ex - c[1], lz = ez - c[2]; for (let i = 0; i < (4 - ap.rot) % 4; i++) { const t = lx; lx = -lz; lz = t; } K.end = [lx, lz];
+        U.st[c[0]] = Object.assign({rot: ap.rot, gy}, fn(K) || {}, {lights: K.lights, chests: K.chestsN}); if (keep) U.giveBack(K.made, keep);
         for (let X = c[1] - R[c[0]] - 3; X <= c[1] + R[c[0]] + 3; X++) for (let Z = c[2] - R[c[0]] - 3; Z <= c[2] + R[c[0]] + 3; Z++) if (X > 0 && Z > 0 && X < W - 1 && Z < D - 1) setCol(X, Z);
       } catch (e) { U.err = c[0] + ': ' + (e && e.stack || e); console.warn('c151', c[0], e); } });
-    try { scanLights(); validateLights(); } catch (_) {} try { if (window.__c148) __c148.sync(); } catch (_) {}
+    if (!only) { try { scanLights(); validateLights(); } catch (_) {} try { if (window.__c148) __c148.sync(); } catch (_) {} }
     U.ms = Math.round(performance.now() - t0); U.st.props = window.__c150.props.length; }
-  U.work = work;
+  U.work = work; U.elig = elig;
+  // v1.0.29: when an existing world is upgraded, anything in the old castle's chests goes into the new castle's chests
+  U.keepChests = (c, R) => { const out = []; try { for (const [key, v] of [...chests.entries()]) { const p = String(key).split(',').map(Number); if ((p[0] - c[1]) ** 2 + (p[2] - c[2]) ** 2 > R * R || mine(idx(p[0], p[1], p[2]))) continue; for (const s of (v && v.slots) || []) if (s && s[0] && s[1] > 0) out.push(s.slice()); } } catch (_) {} return out; };
+  U.giveBack = (made, items) => { if (!items.length || !made.length) return; let j = 0; const box = made.map(p => chests.get(keyOf(p[0], p[1], p[2]))).filter(Boolean);
+    for (const it of items) { let put = false; for (let k = 0; k < box.length * 27 && !put; k++) { const b = box[(j + (k / 27 | 0)) % box.length], si = k % 27; if (!b.slots[si]) { b.slots[si] = it; put = true; } } if (!put) U.lost = (U.lost || 0) + 1; j++; } };
   const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { const was = c37busy; c37busy = true; try { work(); } finally { c37busy = was; } } catch (e) { U.err = String(e && e.stack || e); } return r; };
 
   // ======================================================================================================
@@ -25594,32 +25604,38 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       for (const y of [F + 2, F + 7]) for (const [a, q] of [[Math.sign(tx) * 3, 0], [0, Math.sign(tz) * 3]]) B(tx + a, y, tz + q, GP);
       for (let a = -4; a <= 4; a++) for (let q = -4; q <= 4; q++) if (Math.max(Math.abs(tx + a), Math.abs(tz + q)) === 12 && a * a + q * q <= 10.9) for (let y = WT + 1; y <= WT + 2; y++) B(tx + a, y, tz + q, T.AIR);   // doorways off the wall-walk
       for (let y = F; y <= F + 1; y++) { B(tx - Math.sign(tx) * 2, y, tz - Math.sign(tz) * 2, T.AIR); B(tx - Math.sign(tx) * 3, y, tz - Math.sign(tz) * 2, T.AIR); }
-      const ap = K.cone(tx, tz, 4.1, top + 1, 8, SLATE); K.prop('flag', tx, ap, tz, 2, {}, 'floor'); K.lamp(tx, F, tz, -1, {}); }
+      K.disc(tx, tz, 2.4, top, T.STONEBRICK); for (let a = -4; a <= 4; a++) for (let q = -4; q <= 4; q++) { const d2 = a * a + q * q; if (d2 > 10.9 || d2 <= 5.8) continue; B(tx + a, top + 1, tz + q, st(tx + a, top + 1, tz + q)); if (((a + q) & 1) === 0) B(tx + a, top + 2, tz + q, st(tx + a, top + 2, tz + q)); }
+      K.lamp(tx, F, tz, -1, {}); if (tz > 0 && tx > 0) K.prop('flag', tx, top + 1, tz, 2, {}, 'floor'); }
     // gatehouse: twin round towers, oak doors, portcullis (raised), tartan banners
-    for (const tx of [-4, 3]) { K.tower(tx, 13, 2.7, F, F + 9, st, T.STONEBRICK); K.prop('flag', tx, K.cone(tx, 13, 3.3, F + 10, 6, SLATE), 13, 2, {}, 'floor'); B(tx, F + 4, 15, GP); B(tx, F + 7, 15, GP); }
-    box(-2, F, 12, 1, F + 7, 15, st); for (let x = -2; x <= 1; x++) if ((x & 1) === 0) { B(x, F + 8, 15, st(x, F + 8, 15)); B(x, F + 8, 12, st(x, F + 8, 12)); }
-    box(-1, F, 12, 0, F + 2, 15, T.AIR); K.door(-1, F, 14, 2); K.door(0, F, 14, 2); K.prop('portc', -1, F + 2, 15, 2, {w: 2, h: 0.9, v: 1}, [-1, F + 3, 15]);
-    for (const x of [-2, 1]) K.prop('banT', x, F + 7, 16, 2, {}, 'wall'); K.lamp(-2, F + 1, 16, 0, {}); K.lamp(1, F + 1, 16, 0, {});
-    for (const [x, z, f] of [[-8, 14, 2], [7, 14, 2], [14, -6, 3], [14, 5, 3], [-14, -6, 1], [-14, 5, 1], [-6, -14, 0], [5, -14, 0]]) K.prop('banT', x, WT, z, f, {}, 'wall');
+    const GT = F + 11; for (let x = -6; x <= 5; x++) for (let z = 12; z <= 16; z++) { for (let y = 0; y < F; y++) B(x, y, z, T.STONEBRICK); for (let y = F; y <= GT; y++) B(x, y, z, st(x, y, z)); if (x === -6 || x === 5 || z === 12 || z === 16) { B(x, GT + 1, z, st(x, GT + 1, z)); if (((x + z) & 1) === 0) B(x, GT + 2, z, st(x, GT + 2, z)); } }
+    box(-2, F, 12, 1, F + 3, 16, T.AIR);   // the gate passage
+    for (const x of [-2, 1]) for (let y = F; y <= F + 1; y++) B(x, y, 14, st(x, y, 14)); for (let x = -2; x <= 1; x++) for (let y = F + 2; y <= F + 3; y++) B(x, y, 14, st(x, y, 14));
+    K.door(-1, F, 14, 2); K.door(0, F, 14, 2); K.prop('portc', -1, F + 3, 16, 2, {w: 4, h: 0.9, v: 1}, [-1, F + 4, 16]);
+    // guard room over the gate, doors off the wall-walk, a stair up to the battlements
+    box(-5, F + 5, 13, 4, F + 9, 15, T.AIR); for (const x of [-6, -5, 4, 5]) { B(x, F + 5, 12, T.AIR); B(x, F + 6, 12, T.AIR); }
+    for (const x of [-4, 3]) { B(x, F + 7, 16, GP); B(x, F + 8, 16, GP); } B(-1, F + 8, 16, GP); B(0, F + 8, 16, GP); K.lamp(-5, F + 5, 13, -1, {}); K.lamp(4, F + 5, 13, -1, {});
+    for (let k = 0; k <= 6; k++) { const x = -4 + k, y = F + 5 + k; for (let yy = F + 5; yy < y; yy++) B(x, yy, 15, T.STONEBRICK); K.stair(x, y, 15, 3, 167); for (let yy = y + 1; yy <= Math.min(GT, y + 2); yy++) B(x, yy, 15, T.AIR); }
+    for (const x of [-4, 3]) K.prop('banT', x, F + 9, 17, 2, {L: 7}, 'wall'); K.lamp(-3, F + 1, 17, 0, {}); K.lamp(2, F + 1, 17, 0, {});
+    for (const [x, z, f] of [[-8, 14, 2], [8, 14, 2], [14, -6, 3], [14, 5, 3], [-14, -6, 1], [-14, 5, 1], [-6, -14, 0], [5, -14, 0]]) K.prop('banT', x, WT, z, f, {}, 'wall');
     // ---- the tower house: x -9..8, z -11..-2, hall F..F+7, upper floor F+9.., crow-stepped gables + slate roof ----
-    const X0 = -9, X1 = 8, Z0 = -11, Z1 = -2, CE = F + 8, RF = F + 14;
+    const X0 = -9, X1 = 8, Z0 = -11, Z1 = -2, CE = F + 8, C2 = F + 13, RF = F + 19;
     for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) { const e = x === X0 || x === X1 || z === Z0 || z === Z1; B(x, F - 1, z, e ? T.STONEBRICK : T.PLANKS);
-      for (let y = F; y < RF; y++) B(x, y, z, e ? st(x, y, z) : y === CE ? T.PLANKS : T.AIR); B(x, RF - 1, z, e ? T.STONEBRICK : T.AIR); }
+      for (let y = F; y < RF; y++) B(x, y, z, e ? st(x, y, z) : y === CE || y === C2 ? T.PLANKS : T.AIR); B(x, RF - 1, z, e ? T.STONEBRICK : T.AIR); }
     for (let k = 0; k <= 6; k++) { const za = Z0 - 1 + k, zb = Z1 + 1 - k, y = RF + k; if (za > zb) break;
       for (let x = X0 + 1; x < X1; x++) { B(x, y, za, SLATE); B(x, y, zb, SLATE); if (za + 1 < zb) { B(x, y - 1, za + 1, SLATE); B(x, y - 1, zb - 1, SLATE); } }
       for (const x of [X0, X1]) { for (let z = za; z <= zb; z++) B(x, y, z, st(x, y, z)); if ((k & 1) === 0) { B(x, y + 1, za, T.STONEBRICK); B(x, y + 1, zb, T.STONEBRICK); } } }
     for (let y = RF; y <= RF + 9; y++) for (const z of [-7, -6]) B(X0, y, z, y === RF + 9 ? T.COBBLE : T.STONEBRICK);   // chimney stack
     // bartizans on the four keep corners, corbelled out, little slate cones
-    for (const [tx, tz] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) { K.disc(tx, tz, 1.5, F + 8, T.STONEBRICK); K.tower(tx, tz, 2.2, F + 9, RF + 1, st, T.AIR); K.prop('flag', tx, K.cone(tx, tz, 2.6, RF + 2, 6, SLATE), tz, 2, {}, 'floor'); B(tx + Math.sign(tx + 0.5) * 2, RF - 1, tz, GP); }
+    for (const [tx, tz] of [[X0, Z0], [X1, Z0], [X0, Z1], [X1, Z1]]) { K.disc(tx, tz, 1.5, F + 8, T.STONEBRICK); K.tower(tx, tz, 2.2, F + 9, RF + 1, st, T.AIR); K.prop('flag', tx, K.cone(tx, tz, 2.7, RF + 2, 11, SLATE), tz, 2, {}, 'floor'); B(tx + Math.sign(tx + 0.5) * 2, RF - 1, tz, GP); }
     // round stair tower on the front (no stair to the roof - a store room with a cone)
-    K.tower(5, 0, 2.4, F, RF + 2, st, T.AIR); K.cone(5, 0, 2.9, RF + 3, 6, SLATE); K.door(5, F, 2, 2); B(5, F + 5, 2, GP); B(7, F + 9, 0, GP); K.lamp(5, F + 2, 0, 0, {});
+    K.tower(5, 0, 2.4, F, RF + 2, st, T.AIR); K.cone(5, 0, 2.9, RF + 3, 10, SLATE); K.door(5, F, 2, 2); B(5, F + 5, 2, GP); B(7, F + 9, 0, GP); K.lamp(5, F + 2, 0, 0, {});
     // windows
     for (const x of [-6, -3, 3, 6]) for (let y = F + 2; y <= F + 4; y++) B(x, y, Z1, GP);
-    for (const x of [-6, -3, 2, 5]) for (let y = F + 10; y <= F + 11; y++) { B(x, y, Z1, GP); B(x, y, Z0, GP); }
+    for (const x of [-6, -3, 2, 5]) for (const y of [F + 10, F + 11, F + 15, F + 16]) { B(x, y, Z1, GP); B(x, y, Z0, GP); }
     for (const z of [-9, -5]) for (let y = F + 5; y <= F + 6; y++) B(X1, y, z, GP); for (const x of [-5, 4]) for (let y = F + 5; y <= F + 6; y++) B(x, y, Z0, GP);
     box(-1, F, Z1, 0, F + 1, Z1, T.AIR); K.door(-1, F, Z1, 2); K.door(0, F, Z1, 2);
     K.lamp(-2, F + 1, Z1 + 1, 0, {}); K.lamp(1, F + 1, Z1 + 1, 0, {}); K.prop('banT', -1, F + 6, Z1 + 1, 2, {}, 'wall'); K.prop('banT', 0, F + 6, Z1 + 1, 2, {}, 'wall');
-    U.hall(K, {F, X0, X1, Z0, Z1, CE, RF});
+    U.hall(K, {F, X0, X1, Z0, Z1, CE, RF}); U.solar(K, {F, CE, C2, RF});
     // ---- kitchen (harled lean-to, west yard): furnace, crafting table, cauldron, larder chest ----
     box(-11, F, 1, -7, F + 3, 7, (x, y, z) => (x === -11 || x === -7 || z === 1 || z === 7) ? (y === F ? T.STONEBRICK : HARL) : T.AIR);
     for (let k = 0; k < 3; k++) for (let z = 0 + k; z <= 8 - k; z++) for (let x = -11; x <= -7; x++) { if (z === k || z === 8 - k || k === 2) B(x, F + 4 + k, z, SLATE); else if (x === -11 || x === -7) B(x, F + 4 + k, z, HARL); }
@@ -25683,17 +25699,26 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     for (const x of [-7, 0, 6]) for (let yy = y + 1; yy <= y + 2; yy++) K.B(x, yy, -11, T.TAPESTRY);
     K.lamp(-8, y + 2, -9, 1, {}); K.lamp(7, y + 2, -7, 3, {}); K.lamp(0, y + 2, -3, 2, {}); K.prop('armour', 6, y, -10, 2, {}, 'floor');
     return beds; };
+  // v1.0.29: the keep's new top floor (laird's solar) and the oak stair up to it along the east wall
+  U.solar = function (K, o) { const {B} = K, {CE, C2} = o, y = C2 + 1;
+    for (let k = 0; k <= 3; k++) { const z = -3 - k; for (let yy = CE + 1; yy < CE + 1 + k; yy++) B(7, yy, z, T.PLANKS); K.stair(7, CE + 1 + k, z, 0, OAKST); }
+    for (const z of [-4, -5, -6]) { B(7, C2, z, T.AIR); B(6, y, z, FEN); } K.stair(7, C2, -7, 0, OAKST);
+    for (let x = -5; x <= 4; x++) if (x !== -1 && x !== 0) for (let yy = y; yy <= y + 1; yy++) B(x, yy, -10, T.BOOKSHELF);
+    for (const x of [-3, 2]) for (let yy = y + 1; yy <= y + 3; yy++) B(x, yy, -2, T.TAPESTRY);
+    K.prop('rug', -1, y, -6, 2, {w: 7, d: 4, v: 1}, 'floor'); for (const x of [-2, -1, 0, 1]) K.prop('table', x, y, -6, 2, {}, 'floor');
+    K.lamp(-1, y + 2, -3, 2, {}); K.lamp(4, y + 2, -10, 0, {}); K.lamp(-6, y + 2, -10, 0, {}); K.prop('armour', -6, y, -3, 2, {}, 'floor');
+    K.chest(-5, y, -3, 2, [[IT.GOLDINGOT, 2], [IT.BREAD, 4]]); };
   // ---------------- THE SKELETON CASTLE (images 3-4): crumbling pale ruin on a raised crag ----------------
-  U.B.mossy = function (K) { const {B, box, h} = K, CH = 6, F = CH + 1;
+  U.B.mossy = function (K) { const {B, box, h} = K, CH = 9, F = CH + 1;   // v1.0.29: a much taller crag
     const pale = (x, y, z) => { const v = h(x, y, z); return v < 0.32 ? T.STONEBRICK : v < 0.5 ? WST : v < 0.76 ? T.MOSSYBRICK : v < 0.92 ? T.COBBLE : T.STONE; };
     const rock = (x, y, z) => { const v = h(x, y + 40, z); return v < 0.5 ? T.STONE : v < 0.7 ? T.COBBLE : v < 0.85 ? (T.DEEPSLATE || T.STONE) : T.MOSSYBRICK; };
     // the crag: a flat top (r<=13) falling away in rough steps to the ground by r~21
-    const top = (x, z) => { const r = Math.max(Math.abs(x), Math.abs(z)) * 0.8 + Math.hypot(x, z) * 0.2 + (h(x, 7, z) - 0.5) * 2.2; return r <= 13.5 ? CH : Math.round(CH - (r - 13.5) * 0.95); };
+    const top = (x, z) => { const r = Math.max(Math.abs(x), Math.abs(z)) * 0.8 + Math.hypot(x, z) * 0.2 + (h(x, 7, z) - 0.5) * 2.2; return r <= 13.5 ? CH : Math.round(CH - (r - 13.5) * 1.3); };
     for (let x = -22; x <= 22; x++) for (let z = -22; z <= 22; z++) { const t = top(x, z); if (t < 0 || Math.hypot(x, z) > 22) continue; for (let y = 0; y <= t; y++) B(x, y, z, rock(x, y, z));
       const v = h(x, 9, z); B(x, t, z, t === CH ? (v < 0.4 ? MOSS : v < 0.62 ? T.COBBLE : v < 0.8 ? GRAV : POD) : (v < 0.35 ? MOSS : v < 0.5 ? GRAV : rock(x, t, z))); }
     // steps cut into the crag up to the gate, ferns and a ladder up the rock
-    for (let k = 0; k <= 7; k++) for (let x = -2; x <= 1; x++) { const z = 14 + k, y = CH - 1 - k; if (y < -1) continue; for (let yy = y + 1; yy <= CH + 3; yy++) B(x, yy, z, T.AIR); if (y >= 0) { K.stair(x, y, z, 0, 165); for (let yy = 0; yy < y; yy++) B(x, yy, z, rock(x, yy, z)); } }
-    for (let k = 0; k <= 7; k++) for (const x of [-3, 2]) { const t = CH - k; if (t >= 0) for (let y = 0; y <= t; y++) B(x, y, 14 + k, rock(x, y, 14 + k)); }
+    for (let k = 0; k <= CH + 1; k++) for (let x = -2; x <= 1; x++) { const z = 14 + k, y = CH - 1 - k; if (y < -1) continue; for (let yy = y + 1; yy <= CH + 3; yy++) B(x, yy, z, T.AIR); if (y >= 0) { K.stair(x, y, z, 0, 165); for (let yy = 0; yy < y; yy++) B(x, yy, z, rock(x, yy, z)); } }
+    for (let k = 0; k <= CH + 1; k++) for (const x of [-3, 2]) { const t = CH - k; if (t >= 0) for (let y = 0; y <= t; y++) B(x, y, 14 + k, rock(x, y, 14 + k)); }
     // curtain wall (2 thick), crumbling: a ragged top, breaches, fallen stones
     const WT = F + 5;
     for (let x = -11; x <= 11; x++) for (let z = -11; z <= 11; z++) { const d = Math.max(Math.abs(x), Math.abs(z)); if (d < 10) continue; const v = h(x, 11, z), gap = h(Math.floor(x / 3), 12, Math.floor(z / 3)) < 0.18;
@@ -25702,7 +25727,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     for (const [tx, tz] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) { const th = F + 9 + (h(tx, 13, tz) * 4 | 0);
       for (let a = -2; a <= 2; a++) for (let q = -2; q <= 2; q++) { const e = Math.abs(a) === 2 || Math.abs(q) === 2, cut = th - (Math.abs(a + q * 0.7) * 1.4 + h(tx + a, 14, tz + q) * 3 | 0) - (a * Math.sign(tx) < 0 ? 3 : 0);
         for (let y = F - 1; y <= cut; y++) B(tx + a, y, tz + q, e ? pale(tx + a, y, tz + q) : y === F + 5 && h(a, y, q) < 0.6 ? T.PLANKS : T.AIR); }
-      for (const y of [F + 2, F + 6]) { B(tx + Math.sign(tx) * 2, y, tz, T.AIR); B(tx, y, tz + Math.sign(tz) * 2, T.AIR); } for (let y = F; y <= F + 1; y++) B(tx - Math.sign(tx) * 2, y, tz - Math.sign(tz), T.AIR); }
+      for (const y of [F + 2, F + 6]) { B(tx + Math.sign(tx) * 2, y, tz, T.AIR); B(tx, y, tz + Math.sign(tz) * 2, T.AIR); } for (let y = F; y <= F + 1; y++) B(tx - Math.sign(tx) * 2, y, tz - Math.sign(tz), T.AIR);
+      const gz = tz + Math.sign(tz) * 2; for (let k = 0; k <= 3; k++) for (let a = -2 + k; a <= 2 - k; a++) if (h(tx + a, 60 + k, tz) < 0.8 || k === 0) for (let y = F; y <= th + k; y++) B(tx + a, y, gz, pale(tx + a, y, gz)); }
+    for (const z of [10, 11]) { box(-8, F, z, -6, F + 2, z, T.AIR); B(-7, F + 3, z, T.AIR); }
     // gate: a broken arch, one door hanging on, two stumps of gate towers
     for (const tx of [-3, 2]) for (let a = -1; a <= 1; a++) for (let q = -1; q <= 1; q++) { const ht = F + 7 - (tx < 0 ? 0 : 3) - (h(tx + a, 15, q) * 2 | 0); for (let y = F - 1; y <= ht; y++) B(tx + a, y, 11 + q, pale(tx + a, y, 11 + q)); }
     box(-1, F, 10, 0, F + 2, 12, T.AIR); box(-1, F + 3, 10, 0, F + 3, 12, (x, y, z) => pale(x, y, z)); K.door(-1, F, 11, 2);
@@ -25713,23 +25740,37 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     // courtyard: graves, bones, ferns
     for (const [x, z] of [[5, 4], [7, 4], [5, 7], [7, 7], [-7, 5]]) { B(x, F, z, h(x, 18, z) < 0.5 ? T.MOSSYBRICK : T.COBBLE); if (h(x, 19, z) < 0.7) B(x, F + 1, z, T.COBBLE); B(x, CH, z + 1, POD); }
     for (let x = -9; x <= 9; x++) for (let z = -2; z <= 9; z++) { const v = h(x, 20, z); if (K.G(x, F, z) !== T.AIR || Math.abs(x + 0.5) < 2) continue; if (v < 0.08) B(x, F, z, FERN); else if (v < 0.12) K.prop('bones', x, F, z, (v * 100 | 0) & 3, {}, 'floor'); else if (v < 0.135) B(x, F, z, pale(x, F, z)); }
+    U.bigKeep(K, {F, pale});
     U.crypt(K, {CH, F, rock, pale});
     U.ruinDeco(K, {CH, F, WT, pale});
     return {crag: CH};
   };
+  // v1.0.29: the tall central keep tower (image 3) - broken crenellated top, a spiral stair round a stone core to a lookout
+  U.bigKeep = function (K, o) { const {B, h} = K, {F, pale} = o, x0 = 0, x1 = 6, z0 = -9, z1 = -3, TOP = F + 22;
+    for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const e = x === x0 || x === x1 || z === z0 || z === z1, core = x >= 2 && x <= 4 && z >= -7 && z <= -5;
+      const tt = TOP - (h(x, 70, z) * 3 | 0) - (x > 4 && z < -6 ? 5 : 0); for (let y = F; y <= tt + 1; y++) B(x, y, z, e ? pale(x, y, z) : core && y < F + 20 ? pale(x, y, z) : T.AIR);
+      if (e && tt >= TOP - 1 && ((x + z) & 1) === 0) B(x, tt + 2, z, pale(x, tt + 2, z)); }
+    for (let y = F; y <= F + 2; y++) for (const x of [3, 4]) B(x, y, z1, T.AIR);
+    const ring = []; for (let z = -4; z >= -8; z--) ring.push([1, z]); for (let x = 2; x <= 5; x++) ring.push([x, -8]); for (let z = -7; z <= -4; z++) ring.push([5, z]); for (let x = 4; x >= 2; x--) ring.push([x, -4]);
+    const fc = (a, b) => b[0] > a[0] ? 3 : b[0] < a[0] ? 1 : b[1] > a[1] ? 2 : 0;
+    for (let k = 0; k < 20; k++) { const c = ring[k % 16], n = ring[(k + 1) % 16]; K.stair(c[0], F + k, c[1], fc(c, n), 165); }
+    for (let x = 1; x <= 5; x++) for (let z = -8; z <= -4; z++) if (!(x === ring[2][0] && z === ring[2][1]) && !(x === ring[3][0] && z === ring[3][1])) B(x, F + 20, z, pale(x, F + 20, z));
+    K.stair(ring[4][0], F + 20, ring[4][1], fc(ring[4], ring[5]), 165);
+    for (const y of [F + 5, F + 11, F + 17]) { B(x1, y, -6, T.AIR); B(x0, y, -6, T.AIR); B(3, y, z0, T.AIR); }
+    K.lamp(3, F + 21, -6, -1, {soul: 1}); };
   // ---------------- the crypt under the crag (image 4): coffins, bone pillars, skull niches, soul lanterns, archery range ----------------
   U.crypt = function (K, o) { const {B, box, h} = K, {CH, pale} = o, ST = new Set();
     for (let x = -10; x <= 10; x++) for (let z = -9; z <= 7; z++) { const e = Math.abs(x) === 10 || z === -9 || z === 7; if (K.G(x, CH, z) === GRAV) B(x, CH, z, T.COBBLE);
       for (let y = 0; y < CH; y++) { if (y === 0) { const v = h(x, 30, z); B(x, 0, z, v < 0.4 ? T.STONEBRICK : v < 0.62 ? T.MOSSYBRICK : v < 0.78 ? T.COBBLE : v < 0.9 ? MOSS : T.STONE); } else B(x, y, z, e ? pale(x, y, z) : T.AIR); } }
     // stair down from the keep (along the north wall), filled beneath
-    for (let k = 0; k <= 4; k++) for (const z of [-8, -7]) { const x = -2 - k, y = CH - 1 - k; K.stair(x, y, z, 3, 165); for (let yy = 1; yy < y; yy++) B(x, yy, z, pale(x, yy, z)); for (let yy = y + 1; yy <= CH + 1; yy++) B(x, yy, z, T.AIR); ST.add(x + ',' + z); }
+    for (let k = 0; k <= CH - 2; k++) for (const z of [-8, -7]) { const x = -2 - k, y = CH - 1 - k; K.stair(x, y, z, 3, 165); for (let yy = 1; yy < y; yy++) B(x, yy, z, pale(x, yy, z)); for (let yy = y + 1; yy <= Math.min(CH + 1, y + 3); yy++) B(x, yy, z, T.AIR); ST.add(x + ',' + z); }
     for (const z of [-8, -7]) B(-1, CH, z, T.COBBLE);
     // two rows of stone coffins with bone lids
     for (const x of [-8, -6, -4, -2]) for (const z0 of [-4, 3]) { B(x, 1, z0, T.STONEBRICK); B(x, 1, z0 + 1, T.STONEBRICK); K.prop('coffin', x, 1, z0, 2, {}, [x, 1, z0]); }
-    for (const x of [-7, -3, 1]) for (const z of [-4, 4]) { for (let y = 1; y < CH; y++) B(x, y, z, WST); K.prop('bonecol', x, 1, z, 2, {h: 5}, [x, 1, z]); }
+    for (const x of [-7, -3, 1]) for (const z of [-4, 4]) { for (let y = 1; y < CH; y++) B(x, y, z, WST); K.prop('bonecol', x, 1, z, 2, {h: CH - 1}, [x, 1, z]); }
     // skulls in wall niches
     const niche = (x, y, z, f) => { B(x, y, z, T.AIR); K.prop('skull', x, y, z, f, {}, [x, y - 1, z]); };
-    for (let x = 1; x <= 9; x += 2) { niche(x, 2, -9, 2); niche(x, 4, -9, 2); } for (let x = -9; x <= -1; x += 2) { niche(x, 2, 7, 0); niche(x, 4, 7, 0); } for (let z = 1; z <= 5; z += 2) niche(-10, 3, z, 3);
+    for (let x = 1; x <= 9; x += 2) { niche(x, 2, -9, 2); niche(x, 4, -9, 2); niche(x, 6, -9, 2); } for (let x = -9; x <= -1; x += 2) { niche(x, 2, 7, 0); niche(x, 4, 7, 0); } for (let z = 1; z <= 5; z += 2) niche(-10, 3, z, 3);
     // archery range: targets on the east wall, a shooting line, bow racks
     for (const z of [-5, -1, 3]) K.prop('target', 9, 1, z, 1, {}, 'floor'); for (const z of [-7, -6, -5, 3, 4, 5]) B(3, 1, z, FEN);
     for (const x of [5, 7]) { K.prop('brack', x, 1, 6, 0, {}, 'wall'); K.prop('brack', x, 1, -8, 2, {}, 'wall'); } K.prop('srack', 9, 1, 6, 1, {}, 'floor');
@@ -25738,7 +25779,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     K.chest(-9, 1, -1, 3, [[IT.IRONINGOT, 3], [IT.BREAD, 3], [IT.POTATO, 4], [IT.BONE, 5]]);
     for (let x = -9; x <= 9; x++) for (let z = -8; z <= 6; z++) { if (ST.has(x + ',' + z) || K.G(x, 1, z) !== T.AIR) continue; const v = h(x, 31, z), wall = Math.abs(x) === 9 || z === -8 || z === 6;
       if (wall && v < 0.3 && K.G(x, 5, z) === T.AIR) B(x, 5, z, T.COBWEB); else if (!wall && v < 0.06) K.prop('bones', x, 1, z, (v * 99 | 0) & 3, {}, 'floor'); }
-    for (const [x, z] of [[-5, 0], [6, 0]]) K.lamp(x, CH - 1, z, -1, {ceil: 1, soul: 1}); K.lamp(-9, 3, -6, 1, {soul: 1});
+    for (const [x, z] of [[-5, 0], [6, 0]]) K.lamp(x, CH - 1, z, -1, {ceil: 1, soul: 1}); for (const x of [-8, -5, -2, 1]) for (const z of [-1, 1]) { B(x, 1, z, pale(x, 1, z)); K.lamp(x, 2, z, -1, {soul: 1}); } K.lamp(-9, 3, -6, 1, {soul: 1});
     // a back tunnel out through the west side of the crag
     for (let x = -11; x >= -22; x--) { let any = false; for (let y = 1; y <= 3; y++) for (const z of [0, 1]) { if (K.G(x, y, z) !== T.AIR) any = true; B(x, y, z, y === 3 && x < -12 && h(x, 32, z) < 0.3 ? T.COBWEB : T.AIR); } for (const z of [0, 1]) if (K.G(x, 0, z) === T.AIR) B(x, 0, z, T.COBBLE); if (!any) break; }
   };
@@ -25786,14 +25827,14 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const towerUp = (tx, tz, R, top, spR, spN) => { K.tower(tx, tz, R, F, top, (x, y, z) => (y - F) % 4 === 3 ? OB : blk(x, y, z), T.AIR); const ap = K.cone(tx, tz, spR, top + 1, spN, (x, y, z) => (y & 1) ? OB : BS); K.prop('spike', tx, ap, tz, 2, {h: 2.6}, 'floor'); return ap; };
     // four corner towers with tall spires, glowing red windows
     for (const [tx, tz] of [[-11, -11], [11, -11], [-11, 11], [11, 11]]) { towerUp(tx, tz, 2.6, F + 13, 3.0, 10); const sx = Math.sign(tx), sz = Math.sign(tz);
-      for (const y of [F + 4, F + 9]) for (const [a, q, f] of [[sx * 2, 0, sx > 0 ? 3 : 1], [0, sz * 2, sz > 0 ? 2 : 0]]) { B(tx + a, y, tz + q, GL); B(tx + a, y + 1, tz + q, GL); K.prop('redwin', tx + a, y, tz + q, f, {h: 2}, [tx + a, y, tz + q]); }
+      for (const y of [F + 4, F + 9]) for (const [a, q, f] of [[sx * 2, 0, sx > 0 ? 3 : 1], [0, sz * 2, sz > 0 ? 2 : 0]]) { B(tx + a, y, tz + q, BARS); B(tx + a, y + 1, tz + q, BARS); }   /* v1.0.29: barred, not red */
       for (let y = F; y <= F + 1; y++) B(tx - sx * 2, y, tz, T.AIR); }
     // gatehouse: twin spired towers, raised portcullis, chains down to the bridge, a red window
     for (const tx of [-3, 2]) towerUp(tx, 11, 2.0, F + 10, 2.4, 8);
     box(-2, F, 10, 1, F + 8, 12, blk); box(-1, F, 10, 0, F + 2, 12, T.AIR); B(-1, F + 3, 12, T.AIR); B(0, F + 3, 12, T.AIR); K.prop('portc', -1, F + 3, 12, 2, {w: 2, h: 0.8, v: 1}, [-1, F + 4, 12]);
-    for (const x of [-1, 0]) { B(x, F + 6, 12, GL); K.prop('redwin', x, F + 6, 12, 2, {h: 1}, [x, F + 6, 12]); } for (const x of [-2, 1]) K.prop('chain', x, F + 7, 13, 2, {L: 7, v: 1}, 'wall');
+    for (const x of [-1, 0]) B(x, F + 6, 12, BARS); for (const x of [-2, 1]) K.prop('chain', x, F + 7, 13, 2, {L: 7, v: 1}, 'wall');
     K.lamp(-2, F + 1, 13, 0, {}); K.lamp(1, F + 1, 13, 0, {});
-    for (const [x, z, f] of [[-6, 12, 2], [5, 12, 2], [12, -4, 3], [12, 4, 3], [-12, -4, 1], [-12, 4, 1], [-5, -12, 0], [5, -12, 0]]) { K.prop('banT', x, F + 6, z, f, {v: 1}, 'wall'); if ((x + z) & 1) K.prop('chain', x + (f === 2 ? 1 : 0), F + 5, z, f, {L: 4, v: 1}, 'wall'); }
+    for (const [x, z, f] of [[-6, 12, 2], [5, 12, 2], [12, -4, 3], [12, 4, 3], [-12, -4, 1], [-12, 4, 1], [-5, -12, 0], [5, -12, 0]]) { if (z === 12) K.prop('banT', x, F + 6, z, f, {v: 1}, 'wall'); if ((x + z) & 1) K.prop('chain', x + (f === 2 ? 1 : 0), F + 5, z, f, {L: 4, v: 1}, 'wall'); }
     // courtyard: a dark brick path, braziers, soul sand and magma patches
     for (let x = -9; x <= 9; x++) for (let z = -9; z <= 9; z++) { if (Math.abs(x) <= 1 && z >= 0) { B(x, 0, z, DB); continue; } const v = h(x, 63, z); if (v < 0.1) B(x, 0, z, SS); else if (v < 0.14) B(x, 0, z, MG); }
     for (const [x, z] of [[-3, 1], [3, 1], [-2, 8], [2, 8]]) { B(x, F, z, OB); K.prop('brazier', x, F + 1, z, 2, {}, 'floor'); }
@@ -25807,12 +25848,12 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     for (let x = -2; x <= 2; x++) for (let z = -9; z <= -5; z++) { const e = Math.abs(x) === 2 || z === -9 || z === -5; for (let y = CE + 1; y <= F + 26; y++) B(x, y, z, e ? ((y - F) % 5 === 0 ? OB : blk(x, y, z)) : T.AIR); }
     for (const [x, z] of [[-2, -9], [2, -9], [-2, -5], [2, -5]]) { for (let y = F + 27; y <= F + 29; y++) B(x, y, z, OB); K.prop('spike', x, F + 30, z, 2, {h: 1.6}, 'floor'); }
     const apex = K.cone(0, -7, 2.5, F + 27, 12, (x, y, z) => (y & 1) ? OB : BS); K.prop('spike', 0, apex, -7, 2, {h: 3.2}, 'floor');
-    for (const y of [F + 20, F + 24]) for (const [x, z, f] of [[0, -5, 2], [0, -9, 0], [-2, -7, 1], [2, -7, 3]]) { B(x, y, z, GL); B(x, y + 1, z, GL); K.prop('redwin', x, y, z, f, {h: 2}, [x, y, z]); }
+    for (const y of [F + 20, F + 24]) for (const [x, z, f] of [[0, -5, 2], [0, -9, 0], [-2, -7, 1], [2, -7, 3]]) { B(x, y, z, GL); B(x, y + 1, z, GL); if (y === F + 24 && z === -5) K.prop('redwin', x, y, z, f, {h: 2}, [x, y, z]); }
     // glowing red lancet windows, rose window, the great pointed door
     const win = (x, y0, z, n, f) => { for (let y = y0; y < y0 + n; y++) B(x, y, z, GL); K.prop('redwin', x, y0, z, f, {h: n}, [x, y0, z]); };
-    for (const z of [-3, -6]) { win(X0, F + 3, z, 5, 1); win(X1, F + 3, z, 5, 3); } for (const x of [-4, 4]) win(x, F + 3, Z1, 5, 2); for (const x of [-1, 0, 1]) win(x, F + 6, Z1, x ? 3 : 4, 2); win(0, F + 9, Z0, 2, 0);
-    box(-1, F, Z1, 1, F + 2, Z1, T.AIR); B(0, F + 3, Z1, T.AIR); K.lamp(-2, F + 2, Z1 + 1, 0, {}); K.lamp(2, F + 2, Z1 + 1, 0, {}); K.prop('banT', -3, F + 9, Z1 + 1, 2, {v: 1}, 'wall'); K.prop('banT', 3, F + 9, Z1 + 1, 2, {v: 1}, 'wall');
-    U.throne(K, {F, CE});
+    const bar = (x, y0, z, n) => { for (let y = y0; y < y0 + n; y++) B(x, y, z, BARS); }; for (const z of [-3, -6]) { bar(X0, F + 3, z, 5); bar(X1, F + 3, z, 5); } for (const x of [-4, 4]) win(x, F + 3, Z1, 5, 2); for (const x of [-1, 0, 1]) win(x, F + 6, Z1, x ? 3 : 4, 2); win(0, F + 9, Z0, 2, 0);
+    box(-1, F, Z1, 1, F + 2, Z1, T.AIR); B(0, F + 3, Z1, T.AIR); K.lamp(-2, F + 2, Z1 + 1, 0, {}); K.lamp(2, F + 2, Z1 + 1, 0, {}); 
+    U.throne(K, {F, CE}); U.blackStairs(K, {F, CE, RT, blk});
     // the broken Hell portal + lava pool south of the castle (kept where the clansmen look for it)
     const pz = 22; let n = 0; for (let ax = -4; ax <= 5; ax++) for (let az = pz - 4; az <= pz + 4; az++) { const v = U.h3(K.cx + ax, 64, K.cz + az); if (Math.hypot(ax + 1, az - pz) < 4.8) AB(ax, -1, az, v < 0.45 ? HR : v < 0.7 ? SS : MG); }
     for (let a = 0; a <= 3; a++) for (let y = 0; y <= 4; y++) { const edge = a === 0 || a === 3 || y === 0 || y === 4, miss = (a === 3 && y === 4) || (a === 0 && y === 2); AB(-3 + a, y, pz, edge && !miss ? OB : T.AIR); if (edge && !miss) n++; for (const dz of [-1, 1]) for (let yy = 0; yy <= 4; yy++) AB(-3 + a, yy, pz + dz, T.AIR); }
@@ -25821,8 +25862,30 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const ob = (x, y, z) => world[idx(x, y, z)] === OB, PX = K.cx - 3, PZ = K.cz + pz; let fixed = 0;
     for (let z = K.cz + 6; z <= PZ; z++) for (let x = K.cx - 10; x <= K.cx + 8; x++) { if (x < 2 || x >= W - 6 || z >= D - 2) continue; for (let y = 4; y < H - 7; y++) { if (z === PZ && x === PX && y === K.gy) continue;
       if (ob(x, y, z) && ob(x + 1, y, z) && ob(x + 2, y, z) && ob(x + 3, y, z) && !ob(x + 1, y + 1, z) && !placedSet.has(idx(x + 1, y, z))) { world[idx(x + 1, y, z)] = BS; fixed++; } } }
-    return {portal: [PX, K.gy, PZ, n], obFix: fixed};
+    // v1.0.29: a working portal to the nether on the east terrace, inside the moat (walk round from the bridge)
+    for (let a = -1; a <= 4; a++) for (let y = 1; y <= 6; y++) for (let z = 2; z <= 4; z++) B(12 + a, y, z, T.AIR);
+    for (let a = 0; a <= 3; a++) for (let y = 0; y <= 4; y++) { const edge = a === 0 || a === 3 || y === 0 || y === 4; B(12 + a, y, 3, edge ? OB : T.PORTAL); }
+    for (const a of [-1, 4]) { B(12 + a, 1, 4, OB); K.prop('brazier', 12 + a, 2, 4, 2, {}, 'floor'); }
+    const wpP = K.wp(13, 1, 3);
+    return {portal: [PX, K.gy, PZ, n], obFix: fixed, live: wpP};
   };
+  // ---- v1.0.29: real stairs inside - up the west wall of the throne hall to the attic under the roof, then a spiral up the great spire to the lookout room ----
+  U.blackStairs = function (K, o) { const {B} = K, {F, CE, blk} = o;
+    for (let k = 0; k <= 4; k++) { const x = -3 - k; for (let y = F; y < F + k; y++) B(x, y, -2, blk(x, y, -2)); K.stair(x, F + k, -2, 1, DBS); }   // along the front wall, heading west
+    for (let k = 0; k <= 5; k++) { const z = -3 - k, y = F + 5 + k; for (let yy = F; yy < y; yy++) B(-7, yy, z, blk(-7, yy, z)); K.stair(-7, y, z, 0, DBS); for (let yy = y + 1; yy <= y + 3 && yy <= CE; yy++) B(-7, yy, z, T.AIR); }
+    B(-7, F + 5, -2, T.AIR); B(-7, F + 6, -2, T.AIR);
+    for (const z of [-6, -7, -8]) B(-7, CE, z, T.AIR); K.stair(-6, CE, -8, 3, DBS);   // up through the ceiling
+    for (const [x, z] of [[-6, -6], [-6, -7], [-7, -5]]) B(x, CE + 1, z, BARS);   // a rail round the stairwell
+    // the attic: dark floor, braziers and lamps, a chest
+    for (const [x, z] of [[-5, -3], [5, -3], [5, -8], [-4, -8]]) K.lamp(x, CE + 1, z, -1, {});
+    K.prop('rug', 5, CE + 1, -5, 2, {w: 3, d: 5, h: 0.02, v: 2}, 'floor'); K.chest(6, CE + 1, -2, 2, [[IT.GOLDINGOT, 2], [T.OBSIDIAN, 2], [IT.COAL, 6]]);
+    // into the great spire (west side) and round and up
+    B(-2, CE + 1, -7, T.AIR); B(-2, CE + 2, -7, T.AIR);
+    const ring = [[-1, -7], [-1, -8], [0, -8], [1, -8], [1, -7], [1, -6], [0, -6], [-1, -6]], FA = [0, 3, 3, 2, 2, 1, 1, 0];
+    for (let y = CE + 1; y <= F + 22; y++) B(0, y, -7, T.OBSIDIAN || 189);
+    for (let k = 0; k <= 10; k++) { const [x, z] = ring[(k + 1) % 8]; K.stair(x, CE + 1 + k, z, FA[(k + 1) % 8], DBS); }
+    const top = F + 23; for (const [x, z] of ring.concat([[0, -7]])) B(x, top, z, BS); for (const k of [9, 10]) { const [x, z] = ring[(k + 1) % 8]; B(x, top, z, T.AIR); } K.stair(ring[4][0], top, ring[4][1], FA[4], DBS);
+    K.lamp(0, top + 1, -7, -1, {}); for (const y of [CE + 4, F + 19]) B(0, y, -7, T.GLOWROCK || T.LAMP); };
   // ---- throne room (image 6): polished dark floor, red carpet up a stepped dais, tall black throne, lava falls behind iron bars, braziers, hanging cages, sword racks, treasure ----
   U.throne = function (K, o) { const {B, box} = K, {F, CE} = o;
     for (let z = -5; z <= -2; z++) for (let x = -1; x <= 1; x++) B(x, F, z, RCARP);
@@ -25833,10 +25896,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     for (const s of [-1, 1]) for (let a = 4; a <= 6; a++) { const x = s * a; for (let y = F; y <= F + 9; y++) { B(x, y, -9, T.LAVA); B(x, y, -8, BARS); } }
     // obsidian columns, braziers, sword racks, cages on chains, banners, lamps
     for (const s of [-1, 1]) { for (const z of [-3, -6]) for (let y = F; y < CE; y++) B(s * 5, y, z, OB); for (const z of [-3, -5]) K.prop('brazier', s * 3, F, z, 2, {}, 'floor');
-      for (const z of [-2, -4]) K.prop('srack', s * 7, F, z, s < 0 ? 3 : 1, {}, 'floor');
+      for (const z of [-2, -4]) if (s > 0) K.prop('srack', s * 7, F, z, 1, {}, 'floor');
       K.prop('cage', s * 3, CE - 1, -4, 2, {L: 2.2, v: s > 0 ? 1 : 0}, [s * 3, CE, -4]); K.prop('cage', s * 6, CE - 1, -2, 2, {L: 3.2, v: s < 0 ? 1 : 0}, [s * 6, CE, -2]);
-      K.prop('chain', s * 7, CE - 1, -7, s < 0 ? 3 : 1, {L: 6, v: 1}, 'wall'); K.prop('banT', s * 7, F + 10, -4, s < 0 ? 3 : 1, {v: 1}, 'wall');
-      K.lamp(s * 7, F + 3, -5, s < 0 ? 1 : 3, {}); }
+      if (s > 0) K.prop('chain', s * 7, CE - 1, -7, 1, {L: 6, v: 1}, 'wall');
+      if (s > 0) K.lamp(7, F + 3, -5, 3, {}); else K.lamp(-6, F + 3, -5, 1, {}); }
     K.lamp(0, F + 6, -8, 0, {});
   };
 })();
@@ -25847,7 +25910,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   if (!(SET.mob >= 0 && SET.mob <= 1)) SET.mob = 1;
   let bus = null;
   // the mob bus sits after the effects master, so the effects slider still scales it and the mute still silences it
-  function dst() { if (!AC || !master) return master; if (!bus) { bus = AC.createGain(); bus.gain.value = SET.mob; bus.connect(master); } return bus; }
+  function dst() { if (!AC || !master) return master; if (!bus) { bus = AC.createGain(); bus.gain.value = SET.mob * 1.6; let o = master; try { const c = AC.createDynamicsCompressor(); c.threshold.value = -10; c.knee.value = 8; c.ratio.value = 4; c.attack.value = 0.005; c.release.value = 0.2; c.connect(master); o = c; } catch (_) {} bus.connect(o); }   /* v1.0.29: louder voices, a soft limiter so 2x never clips */ return bus; }
   window.mobDst = dst;
   window.mobOut = function (vol, pan) { const m = master; try { master = dst(); return outNode(vol, pan); } finally { master = m; } };
   const KINDS = new Set(['growl', 'hiss', 'squeal', 'scream', 'baa', 'roar', 'groan', 'quack', 'chirp', 'oink', 'oink2', 'snort']);
@@ -25859,12 +25922,12 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   try { guardianRoar = via(guardianRoar); } catch (e) { U.err = String(e); }
   // ---- the slider, same black/gold row as the others, right under Sound effects ----
   const fmt = v => Math.round(v * 100) + '%';
-  function apply() { if (bus) bus.gain.value = SET.mob; }
+  function apply() { if (bus) bus.gain.value = SET.mob * 1.6; }
   try {
     const sfxRow = document.querySelector('label.set[data-k="sfx"]');
     if (sfxRow && !document.getElementById('mobVol')) {
       const row = document.createElement('label'); row.className = 'set'; row.dataset.k = 'mob';
-      row.innerHTML = '<span>Mob voices volume<b id="mobV"></b></span><input type="range" id="mobVol" min="0" max="1" step="0.05" data-testid="settings-mob-volume">';
+      row.innerHTML = '<span>Mob voices volume<b id="mobV"></b></span><input type="range" id="mobVol" min="0" max="2" step="0.05" data-testid="settings-mob-volume">';
       sfxRow.after(row);
       const inp = row.querySelector('input');
       inp.value = SET.mob; document.getElementById('mobV').textContent = fmt(SET.mob);
@@ -25984,22 +26047,36 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   const U = window.__c157 = {made: 0, cave: 0, tries: 0, err: null};
   const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
   // ---- crisp pixel skins: 2 texels per model pixel, nearest filtered, seeded so every creeper wears the same coat ----
-  const PAL = ['#4f9e3c', '#5cb246', '#468f35', '#6cc453', '#3d7f2e', '#79cf5e', '#58a842', '#355f26', '#8ed872'], WT = [18, 16, 12, 9, 8, 5, 14, 3, 2];
+  // v1.0.29: same shape, new coat - hazard yellow and red, white warning stripes, a metal cyborg eye plate with a glowing red lens
+  const PAL = ['#e6b417', '#f0c22a', '#d8a512', '#f6d24c', '#c99a10', '#c42a22', '#b02018', '#d63a2a', '#fbe27a'], WT = [24, 20, 14, 10, 8, 3, 2, 2, 4];
   let seed = 1; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const pick = () => { let r = rnd() * 87, i = 0; while (r > WT[i]) { r -= WT[i]; i++; } return PAL[i]; };
+  const RP = ['#c42a22', '#b02018', '#d63a2a', '#a81c16', '#cf3326'], pickR = () => RP[Math.floor(rnd() * RP.length)];   // the red lower half
   const S = 8;   // screen px per texel (so the canvas is big enough to stay sharp)
-  function skin(w, h, s, face) { seed = s; const c = document.createElement('canvas'); c.width = w * S; c.height = h * S; const g = c.getContext('2d');
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { g.fillStyle = pick(); g.fillRect(x * S, y * S, S, S); }
-    if (face) { const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x * S, y * S, S, S); }, D1 = '#11160d', D2 = '#1e2a17', D3 = '#2c3d22';
-      for (const ex of [2, 10]) for (let y = 4; y < 8; y++) for (let x = ex; x < ex + 4; x++) px(x, y, (y === 4 || x === ex) ? D2 : D1);   // eyes
+  function skin(w, h, s, face, hz) { seed = s; const c = document.createElement('canvas'); c.width = w * S; c.height = h * S; const g = c.getContext('2d');
+    const px = (x, y, col) => { g.fillStyle = col; g.fillRect(x * S, y * S, S, S); };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) px(x, y, (hz === 'foot' || (hz === 'band' && y >= 15)) ? pickR() : pick());
+    if (hz === 'band') for (let y = 10; y < 15; y++) for (let x = 0; x < w; x++) px(x, y, y === 10 || y === 14 ? '#2a2a2a' : ((x + y) & 3) < 2 ? '#f2f2ec' : '#c42a22');   // hazard stripe round the body
+    if (hz === 'foot') for (let x = 0; x < w; x++) { px(x, h - 4, '#f2f2ec'); px(x, h - 3, '#c42a22'); px(x, h - 2, '#9a1c14'); px(x, h - 1, '#5a120c'); }
+    if (hz === 'top') { for (let x = 0; x < w; x++) { px(x, 0, '#f2f2ec'); px(x, h - 1, '#f2f2ec'); } }
+    if (face) { const D1 = '#1a0d0a', D2 = '#2e1610', D3 = '#47231a';
+      for (let y = 4; y < 8; y++) for (let x = 2; x < 6; x++) px(x, y, (y === 4 || x === 2) ? D2 : D1);                                  // the one living eye
+      for (let y = 3; y < 9; y++) for (let x = 9; x < 15; x++) px(x, y, (y === 3 || y === 8 || x === 9 || x === 14) ? '#4a5056' : (x + y) % 3 ? '#8d959c' : '#a3abb2');   // metal plate
+      for (const [x, y] of [[9, 3], [14, 3], [9, 8], [14, 8]]) px(x, y, '#d8dde0');                                                    // rivets
+      for (let y = 4; y < 8; y++) for (let x = 10; x < 14; x++) px(x, y, (y === 4 || y === 7 || x === 10 || x === 13) ? '#6a0c08' : '#ff2a1a');   // red lens
+      px(11, 5, '#ffb090'); px(12, 6, '#ff6a40');
       for (let y = 8; y < 14; y++) for (let x = 6; x < 10; x++) px(x, y, y === 8 ? D2 : D1);                                            // mouth
       for (let y = 10; y < 16; y++) for (const x of [4, 5, 10, 11]) px(x, y, (x === 4 || x === 11) && y === 10 ? D3 : D1); }
     const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapNearestFilter; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; }
   let MT = null;
-  function mats() { if (MT) return MT; const m = t => new THREE.MeshLambertMaterial({map: t}), box = (w, h, d, s, face) => {   // +x -x +y -y +z(front) -z
-      const sd = m(skin(d * 2, h * 2, s)), fr = face ? m(skin(w * 2, h * 2, s + 7, true)) : m(skin(w * 2, h * 2, s + 7)), bk = m(skin(w * 2, h * 2, s + 11)), tp = m(skin(w * 2, d * 2, s + 3)), bt = m(skin(w * 2, d * 2, s + 5));
-      return [sd, m(skin(d * 2, h * 2, s + 1)), tp, bt, fr, bk]; };
-    MT = {head: box(8, 8, 8, 11, true), body: box(8, 12, 4, 23), leg: box(4, 6, 4, 37)}; return MT; }
+  function mats() { if (MT) return MT; const m = t => new THREE.MeshLambertMaterial({map: t}), box = (w, h, d, s, face, hz) => {   // +x -x +y -y +z(front) -z
+      const sd = m(skin(d * 2, h * 2, s, false, hz)), fr = face ? m(skin(w * 2, h * 2, s + 7, true)) : m(skin(w * 2, h * 2, s + 7, false, hz)), bk = m(skin(w * 2, h * 2, s + 11, false, hz)), tp = m(skin(w * 2, d * 2, s + 3, false, face ? 'top' : null)), bt = m(skin(w * 2, d * 2, s + 5));
+      return [sd, m(skin(d * 2, h * 2, s + 1, false, hz)), tp, bt, fr, bk]; };
+    MT = {head: box(8, 8, 8, 11, true), body: box(8, 12, 4, 23, false, 'band'), leg: box(4, 6, 4, 37, false, 'foot')}; return MT; }
+  let LENS = null;
+  function lens() { if (LENS) return LENS; const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 31);
+    gr.addColorStop(0, 'rgba(255,90,60,1)'); gr.addColorStop(0.35, 'rgba(255,40,20,.55)'); gr.addColorStop(1, 'rgba(255,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    LENS = {core: new THREE.MeshBasicMaterial({color: 0xff3322, toneMapped: false}), halo: new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false})}; return LENS; }
   const u = 1 / 16 * 1.05;   // one model pixel (classic proportions, a touch taller than a block and a half)
   function makeHD() { const M = mats(), g = new THREE.Group(), all = [];
     const mesh = (w, h, d, ms, p) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w * u, h * u, d * u), ms); o.castShadow = true; (p || g).add(o); return o; };
@@ -26008,6 +26085,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const legs = [[-2, 4], [2, 4], [2, -4], [-2, -4]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x * u, 6 * u, z * u); g.add(p); const l = mesh(4, 6, 4, M.leg, p); l.position.y = -3 * u; return p; });
     // own (cloned) materials per creeper so the fuse flash never lights up its neighbours
     g.traverse(o => { if (o.isMesh) { o.material = o.material.map(x => { const c = x.clone(); all.push(c); return c; }); } });
+    try { const L = lens(), z = 4 * u + 0.004; const c = new THREE.Mesh(new THREE.PlaneGeometry(1.6 * u, 1.6 * u), L.core); c.position.set(2 * u, 1 * u, z); head.add(c);
+      const h = new THREE.Mesh(new THREE.PlaneGeometry(5 * u, 5 * u), L.halo); h.position.set(2 * u, 1 * u, z + 0.002); h.renderOrder = 6; head.add(h); } catch (e) { ERR(e); }   // the glowing cyborg lens (not in mats, so the fuse flash leaves it alone)
     const dA = new THREE.MeshLambertMaterial(), dB = new THREE.MeshLambertMaterial();   // old code pokes mats[0]/[1] maps: keep them harmless
     U.made++; return {g, legs, arms: [], mats: [dA, dB].concat(all), head, body, cyborg: true, hd: true, speed: 1.25, hp: 5, hitY: 0.9, hitR: 0.55, hostile: true, tall: 2}; }
   U.makeHD = makeHD;
@@ -26079,15 +26158,15 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       let want = 0; if (cur && cur.a === a && env) { const i = Math.floor((now() - cur.t0) * ER); want = env[Math.min(env.length - 1, Math.max(0, i))] || 0; }
       a.__jo = (a.__jo || 0) + (want - (a.__jo || 0)) * Math.min(1, dt * 18); J.rotation.x = (U.force !== undefined ? U.force : a.__jo) * 0.5; U.jaw = +J.rotation.x.toFixed(3); } }
   function level(a) { const p = a.g.position, dx = p.x - P.x, dy = p.y - P.y, dz = p.z - P.z, d = Math.hypot(dx, dy, dz);
-    const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw); return {v: d >= RAD ? 0 : Math.pow(1 - d / RAD, 1.3), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0, d}; }
+    const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw); return {v: d >= RAD ? 0 : Math.pow(1 - d / RAD, 0.8), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0, d}; }
   function play(a, why) { if (!AC || !buf || cur || AC.state !== 'running') return false; try {
       const L = level(a); if (L.v <= 0) return false;
       const src = AC.createBufferSource(), g = AC.createGain(), pn = AC.createStereoPanner ? AC.createStereoPanner() : null; src.buffer = buf;
-      g.gain.value = 1.1 * L.v; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.8; g.connect(pn); pn.connect(window.mobDst ? mobDst() : master); } else g.connect(window.mobDst ? mobDst() : master);
+      g.gain.value = 1.6 * L.v; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.8; g.connect(pn); pn.connect(window.mobDst ? mobDst() : master); } else g.connect(window.mobDst ? mobDst() : master);
       cur = {a, src, g, pn, t0: AC.currentTime}; src.onended = () => { if (cur && cur.src === src) cur = null; cdUntil = now() + CD; };
       src.start(); U.plays++; U.last = why; return true; } catch (e) { ERR(e); cur = null; return false; } }
   function follow() { if (!cur) return; const a = cur.a; if (!a.g || mobs.indexOf(a) < 0) { try { cur.g.gain.setTargetAtTime(0, now(), 0.15); cur.src.stop(now() + 0.6); } catch (_) {} cur = null; cdUntil = now() + CD; return; }
-    const L = level(a); try { cur.g.gain.setTargetAtTime(1.1 * L.v, now(), 0.08); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.8, now(), 0.08); } catch (_) {} }
+    const L = level(a); try { cur.g.gain.setTargetAtTime(1.6 * L.v, now(), 0.08); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.8, now(), 0.08); } catch (_) {} }
   function tick(dt) { try { jawTick(dt); } catch (e) { ERR(e); } if (!AC) return; load(); follow(); if (!buf || !started) return;
     const S = window.__c144, en = S ? S.spawned | 0 : 0, hatched = eggN >= 0 && en !== eggN; eggN = en;
     for (const a of mobs) { if (!a || a.kind !== KIND || !a.g) continue; const d = Math.hypot(a.g.position.x - P.x, a.g.position.y - P.y, a.g.position.z - P.z);
@@ -26179,9 +26258,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     dance = null; U.on = null; cdUntil = now() + CD; try { if (cur) { cur.g.gain.setTargetAtTime(0, AC.currentTime, 0.2); cur.src.stop(AC.currentTime + 0.8); } } catch (_) {} cur = null; }
   function rigOf(q) { if (q.t === 'f') { const m = q.f.m; return {g: m.g, head: m.head, arms: m.arms, legs: m.legs}; } const a = q.a; return a.arms && a.legs && a.head && a.arms.length > 1 && a.legs.length > 1 ? {g: a.g, head: a.head, arms: a.arms, legs: a.legs, mouth: a.__mouth} : null; }
   function level(p) { const dx = p.x - P.x, dz = p.z - P.z, d = Math.hypot(dx, p.y - P.y, dz), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
-    return {v: d >= 34 ? 0 : Math.pow(1 - d / 34, 1.4), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0}; }
+    return {v: d >= 34 ? 0 : Math.pow(1 - d / 34, 0.85), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0}; }
   function play(c) { if (!hasAC() || !buf || cur || AC.state !== 'running') return; try { const L = level(c), src = AC.createBufferSource(), g = AC.createGain(), pn = AC.createStereoPanner ? AC.createStereoPanner() : null;
-      src.buffer = buf; g.gain.value = 0.55 * L.v; const dst = window.mobDst ? mobDst() : master; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.7; g.connect(pn); pn.connect(dst); } else g.connect(dst);
+      src.buffer = buf; g.gain.value = 0.95 * L.v; const dst = window.mobDst ? mobDst() : master; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.7; g.connect(pn); pn.connect(dst); } else g.connect(dst);
       cur = {src, g, pn, t0: AC.currentTime}; src.onended = () => { if (cur && cur.src === src) cur = null; }; src.start(); U.plays++; if (dance) { dance.t0 = now(); dance.end = now() + buf.duration; dance.bpm = BPM_T; } } catch (e) { ERR(e); cur = null; } }
   function tick(dt) { load(); const t = now();
     if (dance) { const FF = (window.__c113 && __c113.folk) || [], alive = dance.grp.filter(q => q.t === 'f' ? q.f.st === 'dance' && FF.includes(q.f) : (mobs.includes(q.a) && q.a.job && q.a.job.dance));
@@ -26189,13 +26268,210 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       const bpm = dance.bpm || 120, el = t - dance.t0 - (dance.bpm ? OFF : 0), ph = el * bpm / 60, seg = Math.floor(Math.max(0, ph) / 8) % 4;
       let cx = 0, cz = 0; for (const q of dance.grp) { const rig = rigOf(q); if (!rig) continue; cx += q.g.position.x; cz += q.g.position.z;
         const style = seg === 1 ? (q.style0 === 2 ? 2 : 1) : seg === 3 ? (q.style0 === 1 ? 1 : 2) : 0; pose(rig, Math.max(0, ph), style, q.b); }
-      if (cur) { const L = level({x: cx / dance.grp.length, y: dance.grp[0].g.position.y, z: cz / dance.grp.length}); try { cur.g.gain.setTargetAtTime(0.55 * L.v, AC.currentTime, 0.1); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.7, AC.currentTime, 0.1); } catch (_) {} }
+      if (cur) { const L = level({x: cx / dance.grp.length, y: dance.grp[0].g.position.y, z: cz / dance.grp.length}); try { cur.g.gain.setTargetAtTime(0.95 * L.v, AC.currentTime, 0.1); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.7, AC.currentTime, 0.1); } catch (_) {} }
       return; }
     if (t < nextTry || t < cdUntil || !started || dead || paused || DIM.cur || isNight || (window.__c158 && __c158.state && __c158.state().playing)) return; nextTry = t + 1;
     const all = folk().filter(q => q.idle && Math.hypot(q.g.position.x - P.x, q.g.position.z - P.z) < R); if (!all.length) return;
     if (U.force || Math.random() < 1 / 25) { U.force = false; all.sort(() => Math.random() - 0.5); start(all); } }
   U.stop = stop; U.state = () => ({dance: !!dance, n: dance ? dance.grp.length : 0, tune: !!cur, buf: !!buf, cd: Math.max(0, cdUntil - now())});
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { tick(dt || 0); } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C162 (v1.0.29): blood-red sky round the black castle, red mist seen from afar; castles rebuilt in existing worlds ===================== */
+(function c162() {
+  const U = window.__c162 = {k: 0, d: 0, up: null, err: null, ms: 0};
+  const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const blackAt = () => { try { if (typeof g9castles === 'undefined' || !g9castles || genVer !== GEN9 || cityGen) return null; const c = g9castles.find(q => q[0] === 'black'); return c && W >= 600 ? c : null; } catch (_) { return null; } };
+  // ---------- the red mist: one tall open cylinder, gradient alpha, no depth write ----------
+  let mist = null;
+  function makeMist() { const cv = document.createElement('canvas'); cv.width = 4; cv.height = 128; const g = cv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+    gr.addColorStop(0, 'rgba(150,20,12,0)'); gr.addColorStop(0.45, 'rgba(165,28,16,0.45)'); gr.addColorStop(0.85, 'rgba(185,40,22,0.85)'); gr.addColorStop(1, 'rgba(185,40,22,0.6)'); g.fillStyle = gr; g.fillRect(0, 0, 4, 128);
+    const tex = new THREE.CanvasTexture(cv); const mat = new THREE.MeshBasicMaterial({map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0});
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(62, 70, 96, 40, 1, true), mat); m.renderOrder = 5; m.frustumCulled = false; scene.add(m); return m; }
+  const RED_FOG = new THREE.Color(0.6, 0.11, 0.07), RED_TOP = new THREE.Color(0.42, 0.05, 0.04), RED_HOR = new THREE.Color(0.86, 0.24, 0.12), WARM = new THREE.Color(1, 0.72, 0.62), tc = new THREE.Color();
+  function sky() { const c = blackAt(); let k = 0, d = 1e9;
+    if (c && started && !DIM.cur) { d = Math.hypot(P.x - c[1], P.z - c[2]); k = sm(150, 34, d); }
+    U.k = k; U.d = Math.round(d);
+    if (c && !DIM.cur) { if (!mist) mist = makeMist(); const gy = SEA + 6; mist.position.set(c[1] + 0.5, gy + 40, c[2] + 0.5); mist.visible = d < 420; mist.material.opacity = 0.55 * sm(40, 80, d); }
+    else if (mist) mist.visible = false;
+    if (k <= 0.001) return;
+    let dl = 1; try { dl = Math.max(0.45, Math.min(1, daylight)); } catch (_) {}
+    const lift = 0.62 + 0.38 * dl;
+    tc.copy(RED_FOG).multiplyScalar(lift); scene.fog.color.lerp(tc, k);
+    try { if (scene.background && scene.background.isColor) scene.background.lerp(tc, k); } catch (_) {}
+    try { tc.copy(RED_TOP).multiplyScalar(lift); skyUniforms.top.value.lerp(tc, k); tc.copy(RED_HOR).multiplyScalar(lift); skyUniforms.hor.value.lerp(tc, k); } catch (_) {}
+    try { hemi.color.lerp(WARM, k * 0.55); cloudMat.opacity *= 1 - k * 0.8; } catch (_) {}
+    try { const f2 = Math.max(scene.fog.near + 40, scene.fog.far * 0.7); scene.fog.far += (f2 - scene.fog.far) * k; } catch (_) {}
+  }
+  // ---------- existing worlds: rebuild the three castles once, one per frame-slice, keep chest contents ----------
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.c162u = save ? !!save.c162 : true; } catch (_) {} U.up = null; return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.c162u) d.c162 = 1; } catch (_) {} return d; };
+  let wait = 0;
+  function upgrade(dt) { const C = window.__c151; if (!C || !C.work || typeof current === 'undefined' || !current || current.c162u || !started || paused || DIM.cur) return;
+    if (!current.g25 || typeof g9castles === 'undefined' || !g9castles || genVer !== GEN9 || W < 600 || current.mode === 'creative') { current.c162u = true; return; }
+    if ((wait -= dt) > 0) return; wait = 0.35;
+    if (!U.up) U.up = g9castles.map(c => c[0]).filter(k => C.B[k]);
+    const kind = U.up.shift(), t0 = performance.now();
+    if (kind) { const c = g9castles.find(q => q[0] === kind), was = window.__c102 && __c102.done, bc = c37busy;
+      try { if (window.__c102) __c102.done = g9castles.map(q => ({k: q[0], cx: q[1], cz: q[2], gy: SEA + (q[0] === 'human' ? 5 : 6)})); c37busy = true; C.work(kind); } catch (e) { U.err = String(e && e.stack || e); } finally { c37busy = bc; if (window.__c102) __c102.done = was; }
+      const R = 26; for (let x = c[1] - R; x <= c[1] + R; x += 8) for (let z = c[2] - R; z <= c[2] + R; z += 8) try { markDirty(x, z); } catch (_) {}
+      U.ms = Math.max(U.ms, Math.round(performance.now() - t0)); return; }
+    // light sources: only re-read the castle plots, not the whole world (no hitch on phones)
+    try { const LT = new Set([T.TORCH, 161, 216]); for (const c of g9castles) { const R = 27, x0 = c[1] - R, x1 = c[1] + R, z0 = c[2] - R, z1 = c[2] + R;
+        for (const [key, v] of [...lightSrc]) if (v[0] >= x0 && v[0] <= x1 + 1 && v[2] >= z0 && v[2] <= z1 + 1) lightSrc.delete(key);
+        for (let x = Math.max(0, x0); x <= Math.min(W - 1, x1); x++) for (let y = 0; y < H; y++) for (let z = Math.max(0, z0); z <= Math.min(D - 1, z1); z++) { const b = world[idx(x, y, z)]; if (LT.has(b)) lightSrc.set((x * 4096 + z) * 256 + y, [x + .5, y + (b === T.TORCH ? .7 : .5), z + .5, b]); } }
+      if (typeof farGlow !== 'undefined' && farGlow) farGlow.userData.dirty = true; } catch (_) { try { scanLights(); } catch (__) {} }
+    try { if (typeof validateLights === 'function') validateLights(); } catch (_) {} try { if (window.__c148) __c148.sync(); } catch (_) {}
+    // never leave anyone stuck inside new stonework
+    try { let x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y); const free = yy => !solid(x, yy, z) && !solid(x, yy + 1, z); if (!free(y)) { while (y < H - 3 && !free(y)) y++; P.y = y + 0.01; P.vy = 0; } } catch (_) {}
+    current.c162u = true; U.done = 1; }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { sky(); } catch (e) { U.err = String(e && e.stack || e); } try { upgrade(+dt || 0.016); } catch (e) { U.err = String(e && e.stack || e); } return r; };
+})();
+
+/* ===================== GLX-C163 (v1.0.29): Brightness slider, Settings in tabs (Audio / Video / Controls / World), smaller HUD at the bottom with the item name above the hotbar, hazard creeper egg ===================== */
+(function c163() {
+  const U = window.__c163 = {tab: 'audio', err: null, base: 0.28, exp: 1.05};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  if (typeof SET.bright !== 'number') SET.bright = 1;
+  const B = () => Math.max(0.5, Math.min(2, Number(SET.bright) || 1));
+  // ---------- brightness: lifts the minimum light (overworld, caves, Hell) and the exposure; 100% = exactly as before ----------
+  function hookMin() { const L = window.__lminU; if (!L || L.__c163) return !!L; let base = typeof L.value === 'number' ? L.value : 0.28;
+    try { Object.defineProperty(L, 'value', {configurable: true, enumerable: true, get() { const b = B(); if (b === 1) return base; const floor = (typeof DIM !== 'undefined' && DIM.cur === 'hell') ? 0.3 : 0.15;
+        return b > 1 ? Math.min(0.78, base + (b - 1) * 0.24) : Math.max(Math.min(base, floor), base - (1 - b) * 0.24); }, set(v) { base = v; U.base = v; }}); L.__c163 = true; } catch (e) { ERR(e); } return true; }
+  if (!hookMin()) { const iv = setInterval(() => { if (hookMin()) clearInterval(iv); }, 500); }
+  let lastSet = -1, expBase = 1.05;
+  const us = updateSky; updateSky = function () { const r = us.apply(this, arguments);
+    try { const e = renderer.toneMappingExposure; if (Math.abs(e - lastSet) > 1e-6) expBase = e; U.exp = expBase; const v = expBase * (1 + (B() - 1) * 0.35); renderer.toneMappingExposure = v; lastSet = v; } catch (e) { ERR(e); }
+    return r; };
+  // ---------- the creeper egg wears the new hazard coat ----------
+  try { const id = IT.EGG_CREEPER; if (id) { ICONS[id] = drawIcon(g => { g.save(); g.beginPath(); g.ellipse(0, 2, 18, 24, 0, 0, 7); g.clip(); g.fillStyle = '#e8b818'; g.fillRect(-20, -24, 40, 52);
+      g.fillStyle = '#c42a22'; for (let j = 0; j < 7; j++) { g.beginPath(); g.arc(Math.sin(j * 2.4) * 11, Math.cos(j * 1.7) * 15 - 2, 2.5 + (j % 3), 0, 7); g.fill(); }
+      g.fillStyle = '#2a2a2a'; g.fillRect(-20, 9, 40, 9); for (let x = -26; x < 22; x += 6) { g.fillStyle = '#f2f2ec'; g.beginPath(); g.moveTo(x, 17); g.lineTo(x + 3, 17); g.lineTo(x + 8, 10); g.lineTo(x + 5, 10); g.fill(); g.fillStyle = '#c42a22'; g.beginPath(); g.moveTo(x + 3, 17); g.lineTo(x + 6, 17); g.lineTo(x + 11, 10); g.lineTo(x + 8, 10); g.fill(); }
+      g.restore(); g.fillStyle = '#8d959c'; g.strokeStyle = '#4a5056'; g.lineWidth = 1.5; g.beginPath(); g.rect(1, -12, 11, 11); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(255,40,20,.45)'; g.beginPath(); g.arc(6.5, -6.5, 6.5, 0, 7); g.fill(); g.fillStyle = '#ff2a1a'; g.beginPath(); g.arc(6.5, -6.5, 3.4, 0, 7); g.fill(); g.fillStyle = '#ffb090'; g.fillRect(4.8, -8.4, 1.6, 1.6);
+      g.fillStyle = '#1a0d0a'; g.fillRect(-9, -11, 5, 5); g.fillStyle = 'rgba(255,255,255,.25)'; g.beginPath(); g.ellipse(-7, -14, 4, 6, -0.4, 0, 7); g.fill(); }); } } catch (e) { ERR(e); }
+  // ---------- HUD: a little smaller, hugging the bottom; the item name fades in just above the hotbar ----------
+  try { const st = document.createElement('style'); st.id = 'c163css';
+    st.textContent = ':root{--slot:min(42px,calc((100vw - 72px) / 10)) !important}#hotbar{bottom:calc(3px + var(--sab)) !important;padding:4px !important;gap:3px !important}#statBar{--pip:12px !important}' +
+      '#itemName,body.touch #itemName,body:not(.touch) #itemName{top:auto !important;bottom:calc(var(--slot) + 22px + var(--sab) + var(--statH,0px)) !important;transition:opacity .6s ease !important;font-size:15px !important;pointer-events:none}' +
+      '#setTabs{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 8px;position:sticky;top:-2px;z-index:2;background:inherit;padding:4px 0}#setTabs button{flex:1 1 0;min-width:72px;min-height:44px;font-weight:700;background:rgba(255,255,255,.08)!important;color:#eee!important;border:1px solid rgba(255,255,255,.22)!important;border-radius:10px}#setTabs button.on{background:#f2c440!important;color:#151515!important;border-color:#f2c440!important}' +
+      '#setTabs button.focus{outline:3px solid #fff;outline-offset:2px}#setHold{display:none!important}.c163pane{display:block}';
+    document.head.appendChild(st); } catch (e) { ERR(e); }
+  try { const sn = showItemName; showItemName = function () { const r = sn.apply(this, arguments); try { clearTimeout(nameT); const el = $('itemName'); nameT = setTimeout(() => el.classList.remove('on'), 2000); } catch (_) {} return r; }; } catch (e) { ERR(e); }
+  // ---------- Brightness row ----------
+  function brightRow() { if (document.getElementById('brVol')) return; const row = document.createElement('label'); row.className = 'set'; row.dataset.k = 'bright';
+    row.innerHTML = '<span>Brightness<b id="brV"></b></span><input type="range" id="brVol" min="0.5" max="2" step="0.05" data-testid="settings-brightness">';
+    const inp = row.querySelector('input'), lab = row.querySelector('#brV'), sync = () => { inp.value = B(); lab.textContent = Math.round(B() * 100) + '%'; };
+    inp.addEventListener('input', () => { SET.bright = Number(inp.value); sync(); saveSet(); try { updateSky(0); } catch (_) {} }); sync(); U.syncB = sync; return row; }
+  // ---------- tabs: rows are sorted into four panes; only the open pane sits in the menu (so the controller and Tab key only walk what you see) ----------
+  const TABS = [['audio', 'Audio'], ['video', 'Video'], ['controls', 'Controls'], ['world', 'World']];
+  const hold = document.createElement('div'); hold.id = 'setHold'; document.body.appendChild(hold);
+  const panes = {}; for (const [k] of TABS) { const d = document.createElement('div'); d.className = 'c163pane'; d.dataset.tab = k; panes[k] = d; hold.appendChild(d); }
+  const txt = e => ((e.querySelector && e.querySelector('span') ? e.querySelector('span').textContent : e.textContent) || '').toLowerCase();
+  function kind(e) { if (e.id === 'resetWorldBtn') return 'world'; const k = e.dataset && e.dataset.k, t = txt(e);
+    if (/^(sfx|mob|music)$/.test(k || '') || /volume|music|sound|voices/.test(t)) return 'audio';
+    if (k === 'bright' || /bright|render|graphics|performance|hd mob|field of view|fov|head bob|credit/.test(t) || e.id === 'hdCredit' || k === 'fov') return 'video';
+    if (/^(sens|pad)$/.test(k || '') || /sensitiv|immersive|touch|controller|invert|look/.test(t)) return 'controls';
+    if (/weather|time of day|freeze|friendly|reset|difficulty|world|keep inventory|peaceful/.test(t)) return 'world';
+    return null; }
+  let bar = null;
+  function build() { const panel = document.querySelector('#pause .panel'); if (!panel) return false;
+    if (!bar) { const head = [...panel.children].find(e => e.tagName === 'DIV' && /^\s*settings\s*$/i.test(e.textContent || ''));
+      bar = document.createElement('div'); bar.id = 'setTabs'; bar.innerHTML = TABS.map(([k, n]) => '<button type="button" data-tab="' + k + '" data-testid="settings-tab-' + k + '">' + n + '</button>').join('');
+      if (head) head.after(bar); else { const h = panel.querySelector('#pauseHint'); if (h) h.before(bar); else panel.appendChild(bar); }
+      bar.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => { ev.preventDefault(); show(b.dataset.tab, true); }));
+      const sfx = document.querySelector('label.set[data-k="sfx"]'); if (sfx) { const br = brightRow(); if (br) panes.video.prepend(br); } }
+    // sweep: every settings row in the menu (and the weather/time rows and Reset world in the button block) goes to its pane
+    const cand = [...panel.querySelectorAll(':scope > label.set, :scope > div.set, :scope > #hdCredit, :scope .btns > div.set, #resetWorldBtn')];
+    for (const e of cand) { if (e.closest('.c163pane')) continue; const k = kind(e); if (k) panes[k].appendChild(e); }
+    return true; }
+  function show(k, focus) { if (!build()) return; U.tab = k; const panel = document.querySelector('#pause .panel');
+    for (const [t] of TABS) { const p = panes[t]; if (t === k) { if (p.parentNode !== panel) bar.after(p); } else if (p.parentNode !== hold) hold.appendChild(p); }
+    bar.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.tab === k));
+    if (focus) try { const items = pauseItems(), b = bar.querySelector('button[data-tab="' + k + '"]'); const i = items.indexOf(b); if (i >= 0) { pFocus = i; refocusPause(); } } catch (_) {} }
+  U.show = show; U.kind = kind; U.panes = panes;
+  try { const sp = setPause; setPause = function (on) { const r = sp.apply(this, arguments); if (on) try { show(U.tab); if (U.syncB) U.syncB(); } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+  try { const ots = openTitleSettings; openTitleSettings = function () { try { show(U.tab); } catch (e) { ERR(e); } return ots.apply(this, arguments); }; } catch (e) { ERR(e); }
+  setTimeout(() => { try { show(U.tab); } catch (e) { ERR(e); } }, 1500);
+  // controller: LB / RB flip through the tabs while the menu is open
+  try { const pp = padPause; let lb = false, rb = false; padPause = function () { try { const gp = navigator.getGamepads && [...navigator.getGamepads()].find(Boolean); if (gp) { const L = gp.buttons[4] && gp.buttons[4].pressed, R = gp.buttons[5] && gp.buttons[5].pressed, i = TABS.findIndex(t => t[0] === U.tab);
+        if (L && !lb) show(TABS[(i + 3) % 4][0], true); if (R && !rb) show(TABS[(i + 1) % 4][0], true); lb = L; rb = R; } } catch (_) {} return pp.apply(this, arguments); }; } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C164 (v1.0.29): rain is back and better - fixed weather rolls, dense slanted rain round the camera, splashes, grey storm sky, sheet lightning, snow in snowy places ===================== */
+(function c164() {
+  const U = window.__c164 = {dry: 0, rolls: 0, rains: 0, on: false, k: 0, snowB: false, err: null, flashes: 0};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  // ---------- the bug: sleeping reset the dry-day count and skipped the next roll, so a player who sleeps every night never saw rain again ----------
+  // our own dry count (sleep does not reset it): the usual 50% roll after two dry days, and rain is certain after four
+  try { const od = onDawn; onDawn = function () { const keep = U.dry; skipRoll = false; daysDry = keep; const r = od.apply(this, arguments);
+      try { if (!weather.pending && keep + 1 >= 4 && !DIM.cur) { const q = Math.random(); weather.pending = q < 0.6 ? 'light' : q < 0.88 ? 'heavy' : 'thunder'; weather.startAt = CYCLE * (0.04 + Math.random() * 0.3); }
+        if (weather.pending) { U.dry = 0; U.rolls++; } else U.dry = keep + 1; } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { d.dry29 = U.dry; } catch (_) {} return d; };
+    const ew = enterWorld; enterWorld = function (save) { U.dry = save && typeof save.dry29 === 'number' ? save.dry29 : 1; return ew.apply(this, arguments); }; } catch (e) { ERR(e); }
+  const PH = typeof touchMode !== 'undefined' && touchMode;
+  // ---------- rain sheets: two open cylinders round the camera with a scrolling slanted-streak texture (2 draw calls, cheap on phones) ----------
+  function streakTex(n, a) { const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d'); g.lineCap = 'round';
+    for (let i = 0; i < n; i++) { const x = Math.random() * 128, y = Math.random() * 256, l = 14 + Math.random() * 26; g.strokeStyle = 'rgba(210,222,236,' + (a * (0.4 + Math.random() * 0.6)).toFixed(3) + ')'; g.lineWidth = 0.8 + Math.random() * 0.9;
+      for (const dx of [0, -128, 128]) for (const dy of [0, -256, 256]) { g.beginPath(); g.moveTo(x + dx, y + dy); g.lineTo(x + dx - l * 0.22, y + dy + l); g.stroke(); } }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+  const sheets = [[4.5, 7, 3, PH ? 70 : 90, 0.42], [10, 13, 4, PH ? 60 : 80, 0.3]].map(([r, rx, ry, n, op]) => { const t = streakTex(n, 1); t.repeat.set(rx, ry);
+    const m = new THREE.MeshBasicMaterial({map: t, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, fog: true});
+    const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 26, 18, 1, true), m); o.frustumCulled = false; o.renderOrder = 5; o.visible = false; scene.add(o); return {o, m, t, op, ry}; });
+  // ---------- near drops: slanted line streaks in the columns round you, stopped by roofs, splash where they land ----------
+  const NL = PH ? 320 : 800, R = PH ? 9 : 12, lp = new Float32Array(NL * 6), dx = new Float32Array(NL), dy = new Float32Array(NL), dz = new Float32Array(NL), dt0 = new Float32Array(NL);
+  const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+  const lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial({color: 0xc6d3e2, transparent: true, opacity: 0.6, depthWrite: false, fog: true})); lines.frustumCulled = false; lines.visible = false; lines.renderOrder = 5; scene.add(lines);
+  const NS = PH ? 70 : 160, sp = new Float32Array(NS * 3).fill(-999), sT = new Float32Array(NS); let si = 0;
+  const ring = (() => { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.strokeStyle = 'rgba(230,240,255,.95)'; g.lineWidth = 3; g.beginPath(); g.ellipse(16, 20, 12, 6, 0, 0, 7); g.stroke(); g.fillStyle = 'rgba(230,240,255,.9)'; g.fillRect(14, 4, 4, 9); return new THREE.CanvasTexture(c); })();
+  const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+  const spl = new THREE.Points(sg, new THREE.PointsMaterial({map: ring, size: 0.32, transparent: true, opacity: 0.8, depthWrite: false, fog: true})); spl.frustumCulled = false; spl.visible = false; scene.add(spl);
+  const tops = new Map(); let topsT = 0; const topAt = (x, z) => { const k = x * 4096 + z; let v = tops.get(k); if (v === undefined) { v = colTop(x, z); tops.set(k, v); } return v; };
+  const WX = 0.24, WZ = 0.1;   // the wind slant
+  function drop(i, fresh) { const x = P.x + (Math.random() * 2 - 1) * R, z = P.z + (Math.random() * 2 - 1) * R; dx[i] = x; dz[i] = z; dt0[i] = topAt(Math.floor(x), Math.floor(z)); dy[i] = Math.max(dt0[i], P.y - 4) + (fresh ? Math.random() * 16 : 10 + Math.random() * 6); }
+  // the old rain draws (thin world quads + old splash points) are retired in favour of these
+  let old = null; function oldBits() { if (old) return old; old = []; scene.traverse(o => { try { if (o === lines || o === spl || sheets.some(s => s.o === o)) return;
+      if ((o.isInstancedMesh && o.renderOrder === 5 && o.material && o.material.color && o.material.color.getHex() === 0xb4c4d6) || (o.isPoints && o.material && o.material.color && [0xd6e4ff, 0xcfe0ff].includes(o.material.color.getHex()))) old.push(o); } catch (_) {} }); return old; }
+  let was = false, fr = 0, sheetT = 10, snowT = 0;
+  const uw = updateWeather; updateWeather = function (dt) { const r = uw.apply(this, arguments);
+    try { const w = WEATHER[weather.type], over = !DIM.cur, raining = !!w.drops && over;
+      // snow instead of rain in snowy places (snow-covered ground round you, or high up)
+      if ((snowT -= dt) <= 0) { snowT = 1; let s = false; if (raining && T.SNOW !== undefined) { let n = 0; for (const [ox, oz] of [[0, 0], [5, 0], [-5, 0], [0, 5], [0, -5]]) { const x = Math.floor(P.x) + ox, z = Math.floor(P.z) + oz; if (x > 0 && z > 0 && x < W && z < D && getB(x, groundTop(x, z), z) === T.SNOW) n++; } s = n >= 3; }
+        const lock = (() => { const b = document.querySelector('#wxSeg button.on'); return b && b.dataset.v === 'snow'; })();
+        if (s !== U.snowB) { U.snowB = s; if (!lock) window.__forceSnow = s; } }
+      const snowing = !!window.__snowing, on = raining && !snowing && caveK < 0.6; U.on = on;
+      for (const o of oldBits()) o.visible = false;
+      const inten = Math.min(1, weather.dark / Math.max(0.01, w.dark || 1) + 0.15) * (weather.type === 'light' ? 0.6 : 1), cov = typeof rainCover === 'number' ? rainCover : 0, vis = on ? inten * (1 - cov) * (1 - caveK) : 0;
+      const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, spd = (w.speed || 20);
+      for (const s of sheets) { s.o.visible = vis > 0.02; if (!s.o.visible) continue; s.o.position.set(cx, cy + 6, cz); s.m.opacity = s.op * vis; s.t.offset.y += dt * spd / 26 * s.ry * 0.9; s.t.offset.x -= dt * 0.05; }
+      lines.visible = on; spl.visible = on;
+      if (on) { const now = performance.now(); if (now - topsT > 500) { tops.clear(); topsT = now; } if (!was) { for (let i = 0; i < NL; i++) drop(i, true); was = true; }
+        const n = Math.round(NL * inten), len = weather.type === 'light' ? 0.55 : 0.9; fr++;
+        for (let i = 0; i < n; i++) { let y = dy[i] - spd * dt; dx[i] += WX * spd * dt * 0.25; dz[i] += WZ * spd * dt * 0.25;
+          if ((i & 3) === (fr & 3)) dt0[i] = topAt(Math.floor(dx[i]), Math.floor(dz[i]));
+          if (y < dt0[i]) { if (Math.random() < 0.35 && Math.abs(dx[i] - P.x) < R && Math.abs(dz[i] - P.z) < R) { si = (si + 1) % NS; sp[si * 3] = dx[i]; sp[si * 3 + 1] = dt0[i] + 0.06; sp[si * 3 + 2] = dz[i]; sT[si] = 0.22; } drop(i, false); y = dy[i]; }
+          else if (Math.abs(dx[i] - P.x) > R || Math.abs(dz[i] - P.z) > R || y < P.y - 10) { drop(i, true); y = dy[i]; }
+          dy[i] = y; const k = i * 6; lp[k] = dx[i]; lp[k + 1] = y; lp[k + 2] = dz[i]; lp[k + 3] = dx[i] - WX * len; lp[k + 4] = y + len; lp[k + 5] = dz[i] - WZ * len; }
+        lg.setDrawRange(0, n * 2); lg.attributes.position.needsUpdate = true;
+        for (let i = 0; i < NS; i++) if (sT[i] > 0) { sT[i] -= dt; if (sT[i] <= 0) sp[i * 3 + 1] = -999; } sg.attributes.position.needsUpdate = true; }
+      else was = false;
+      // storms: lightning more often, plus distant sheet lightning with a late rumble
+      if (weather.type === 'thunder' && over) { if (weather.strikeT > 45) weather.strikeT = 14 + Math.random() * 30;
+        if ((sheetT -= dt) <= 0) { sheetT = 7 + Math.random() * 14; flashA = Math.max(flashA, 0.45 + Math.random() * 0.35); U.flashes++; const v = 0.3 + Math.random() * 0.3; setTimeout(() => { try { sfx('thunder', v); } catch (_) {} }, 700 + Math.random() * 2200); } }
+    } catch (e) { ERR(e); }
+    return r; };
+  // ---------- storm sky: darker grey sky, clouds and fog while it rains (not in Hell, eased by the castle's red sky) ----------
+  const G_FOG = new THREE.Color(0.37, 0.4, 0.43), G_TOP = new THREE.Color(0.28, 0.31, 0.35), G_HOR = new THREE.Color(0.46, 0.49, 0.52), G_CL = new THREE.Color(0.38, 0.4, 0.43), tc = new THREE.Color();
+  const us = updateSky; updateSky = function () { const r = us.apply(this, arguments);
+    try {
+      const red = window.__c162 ? __c162.k : 0, k = DIM.cur ? 0 : sm(0, 0.5, weather.dark) * (1 - red) * (1 - caveK * 0.7); U.k = k;
+      if (k > 0.001) { const lift = 0.3 + 0.7 * Math.max(0, Math.min(1, daylight)); try { cloudMat.color.lerp(G_CL, k * 0.85); if (skyUniforms.texK) skyUniforms.texK.value *= 1 - 0.85 * k; if (skyUniforms.sunK) skyUniforms.sunK.value *= 1 - 0.75 * k; } catch (_) {}
+        tc.copy(G_FOG).multiplyScalar(lift); scene.fog.color.lerp(tc, k * 0.85); try { if (scene.background && scene.background.isColor) scene.background.lerp(tc, k * 0.85); } catch (_) {}
+        try { tc.copy(G_TOP).multiplyScalar(lift); skyUniforms.top.value.lerp(tc, k * 0.85); tc.copy(G_HOR).multiplyScalar(lift); skyUniforms.hor.value.lerp(tc, k * 0.85); } catch (_) {}
+        scene.fog.far = Math.max(scene.fog.near + 20, scene.fog.far * (1 - 0.3 * k)); } } catch (e) { ERR(e); }
+    return r; };
+  U.force = t => { setWeather(t || 'heavy'); weather.pending = null; };
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -26208,6 +26484,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.29', d:'2026-10-27', notes:["New: the black castle has real stairs - up the throne hall to the attic under the roof, then a spiral up the great spire to the lookout room", "New: the clan castle is rebuilt to match its picture - a tall square gatehouse with a guard room and battlements, a taller keep with a new top-floor solar and tall slate spires, crenellated drum towers on the walls", "New: the skeleton castle stands on a much higher crag, with a tall broken keep tower you can climb, ruined gabled towers and an arch in the wall; the crypt below is taller, with blue soul lanterns down the aisle", "New: the sky turns blood red as you near the black castle, with red mist you can see from far off, and there is now a working nether portal on the castle's east terrace", "New: existing worlds get the new castles too (once, on load) - anything in the old castle chests is moved into the new ones, and blocks you placed are never touched", "Textures: far fewer red window panels and banners on the black castle - barred windows instead; long tartan banners on the clan gatehouse"]},
 {v:'v1.0.28', d:'2026-10-27', notes:["New: smoother play - the game readies every block texture in your world at the start, so there is no more freeze when a castle comes into view, and big background jobs are now done in small bites","Mobs: creepers fixed - only one creeper spawner now: up to 2 at a time, on dark ground at night and in caves, never in daylight, and spawn eggs still work everywhere; the 4-second alarm and big blast are unchanged"]},
 {v:'v1.0.27', d:'2026-10-26', notes:["Mobs: Admiral Skelp now speaks - his own voice line when you come near his boat (or hatch him from an egg), now and then while you linger; follows the Mob voices volume"]},
 {v:'v1.0.26', d:'2026-10-26', notes:["New: placeholder"]},
