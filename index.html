@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1033a -->
+<!-- glencraft-build: v1034a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.33';
+const GAME_VERSION = 'v1.0.34';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19277,6 +19277,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.34', ["New: Copy tool and Template tool - two extra hotbar squares in your Test World that never break or run out", "New: Copy tool - LT sets the first corner, a see-through red box follows where you aim, LT again locks it, RT saves it with a name typed on the on-screen keyboard, B cancels", "New: Template tool - LT opens your saved templates (use or delete, with a Yes / No check), the chosen one shows as a blue ghost where you aim, LB / RB turn it, RT builds it, B puts it away", "New: templates are kept on this device for every world, so they survive Reset world and new maps", "New: a water pool near spawn in current, new and reset worlds", "New: caves now have small lava pools and underground streams that flow"]],
     ['v1.0.33', ["New: tunnels under the bridges are tidied - no more stairs or lanterns stuck on the roof, and lanterns hang on the tunnel walls instead", "New: corner stairs - stairs now join up at corners (inner and outer) like real stairs, so the tunnel ramps to the four corners are no longer sideways steps", "New: Red glass pane - a thin glowing red-orange pane (8 glass panes + 1 magma); every window in the Hell builds and the black castle is now red glass, and the banners hang only inside", "New: the black castle island is one scorched land - black grass, dead black trees and lava pools away from the paths", "New: the black castle's red mist is now a soft smoky red cloud bank you can see from far away, and you walk into it gradually instead of across a line", "New: red skies round the black castle by day and night - crimson clouds, red stars and moon", "New: Hell and the black castle zone have a deep crimson cloudy sky", "New: each Hell build has its own shape (a cross cathedral, an abbey with a cloister, a walled keep, a round bastion), and all of them are hollow inside - a throne hall, an upper floor with a bedchamber and a store room, stairs, doorways and furniture", "New: the black castle has two new courtyard wings - barracks, an armoury and a kitchen, with a door into the throne hall; existing worlds get the new builds once", "New: the jetpack only fires when you double-tap jump in the air; a normal jump while sprinting is a normal jump again", "New: inside the bridge tunnels it no longer turns to night", "New: lanterns no longer make the block they are on see-through", "Textures: Red glass pane"]],
     ['v1.0.32', ["New: one reset button in the World tab - it reads Reset world in the overworld and Reset Hell in Hell, with a matching are-you-sure; the separate Reset Hell button is gone", "New: Reset Hell now always builds the new Hell - the big 384-wide nether with its four biomes, the four gothic builds and the red sky - on every world, not only the newest Highlands saves (some worlds were getting a small Hell with just one build)"]],
     ['v1.0.31', ["New: Hell is overhauled - it is much bigger (384 wide for the big Highlands), under a blood-red sky with a bright red haze, and split into four biomes: the Blackstone Wastes, the Soul Sand Valley, the Ember Wastes and the Basalt Deltas", "New: four great gothic builds rise in vast caverns, one in each biome - the Black Cathedral, the Soul Abbey, the Ember Keep and the Hound Bastion - with tall spires, glowing red lancet windows, huge chains, lava moats, a bridge in, a lit portal home and loot chests", "New: Hell is easier to see - brighter light everywhere, the black gaps in the sky are gone, and the old fortress has glowing lamps along its bridges and rooms", "New: existing Hells get the four builds too, raised bit by bit on untouched rock (your own blocks are never changed); a reset Hell gets the full new layout", "Mobs: Hell mobs now only appear at the builds and the old fortress, each with its own: blazing skeletons at the Black Cathedral, ghosts at the Soul Abbey, imps at the Ember Keep and hounds at the Hound Bastion", "Mobs: ghosts and Glower Orbs only come out over soul sand in the Soul Sand Valley, and the Ember Wyrm only hunts over the Black Cathedral", "Textures: blackstone, deepslate, soul sand, magma and glowstone floors give each Hell biome its own look"]],
@@ -27226,6 +27227,278 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
         const cap = (sprinting ? 5.8 : 4.3) * 1.3 * dt, dx = P.x - ox, dz = P.z - oz, l = Math.hypot(dx, dz);
         if (l > cap && l < 3) { const k = cap / l; const tx = ox + dx * k, tz = oz + dz * k; if (!collides(tx, P.y, tz)) { P.x = tx; P.z = tz; } } } } };
 })();
+
+/* ===================== GLX-C177 (v1.0.34): COPY and TEMPLATE tools - two extra hotbar squares in the Test World only ===================== */
+// The tools are items 701 (Copy) and 702 (Template). They are never used up and can't be dropped; they only exist while you are in a
+// world whose name has "test" in it. Templates live in their own IndexedDB database ('glencraft-templates'), so they survive
+// Reset world and brand-new maps. COPY: LT corner 1 -> a red see-through box follows your aim -> LT locks it -> RT names + saves, B cancels.
+(function c177() {
+  const CP = 701, TP = 702, MAXD = 128, MAXV = 1 << 21;
+  const U = window.__c177 = {err: null, CP, TP, st: 'idle', c1: null, c2: null, box: null, saved: 0};
+  const isTest = () => { try { return !!(started && current && /test/i.test(String(current.name || ''))); } catch (_) { return false; } };
+  const isTool = id => id === CP || id === TP;
+  U.isTest = isTest; U.isTool = isTool;
+  // ---- items + icons ----
+  try { NAMES[CP] = 'Copy tool'; NAMES[TP] = 'Template tool'; IT.COPYT = CP; IT.TPLT = TP;
+    const icon = (fn) => { const cv = document.createElement('canvas'); cv.width = cv.height = 64; const g = cv.getContext('2d'); fn(g); return cv.toDataURL(); };
+    const cu = icon(g => { g.fillStyle = 'rgba(230,40,30,.35)'; g.fillRect(10, 18, 36, 36); g.strokeStyle = '#ff3b2f'; g.lineWidth = 4; g.strokeRect(10, 18, 36, 36);
+      g.setLineDash([6, 4]); g.strokeStyle = '#ffd2c8'; g.lineWidth = 3; g.strokeRect(20, 8, 36, 36); g.setLineDash([]); g.fillStyle = '#fff'; g.font = 'bold 15px sans-serif'; g.fillText('C', 26, 42); });
+    const tu = icon(g => { g.fillStyle = 'rgba(80,170,255,.35)'; for (const [x, y] of [[8, 34], [28, 34], [18, 14]]) { g.fillRect(x, y, 22, 22); g.strokeStyle = '#7cc4ff'; g.lineWidth = 3; g.strokeRect(x, y, 22, 22); }
+      g.fillStyle = '#fff'; g.font = 'bold 15px sans-serif'; g.fillText('T', 24, 31); });
+    const C = window.__c121; for (const [id, u] of [[CP, cu], [TP, tu]]) { if (C && C.setIcon) C.setIcon(id, u); else { ICONS[id] = u; delete ICON_KEY[id]; } }
+  } catch (e) { U.err = 'items ' + e; }
+  // ---- the two squares: always at the end of the hotbar in the Test World, nowhere else ----
+  try { const vi = visibleItems; visibleItems = function () { let r = vi.apply(this, arguments); try { r = r.filter(id => !isTool(id)); if (isTest()) r.push(CP, TP); } catch (_) {} return r; }; } catch (e) { U.err = 'vi ' + e; }
+  function keep() { try { if (!started || typeof inv === 'undefined') return; const t = isTest();
+      for (const id of [CP, TP]) { if (t) { if (inv[id] !== 1) inv[id] = 1; } else if (inv[id]) delete inv[id]; }
+      if (!t && isTool(selId)) { const it = visibleItems(); selId = it.length ? it[0] : T.DIRT; }
+      if (!t && U.st !== 'idle') cancel(true); if (!t || paused || menuOpen || dead) U.setHint(''); } catch (e) { U.err = 'keep ' + e; } }
+  setInterval(keep, 500);
+  try { const dO = dropOne; dropOne = function () { if (isTool(selId)) return; return dO.apply(this, arguments); }; } catch (_) {}
+  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && d.inv) { if (Array.isArray(d.inv)) d.inv = d.inv.filter(q => !(q && isTool(q[0]))); else if (typeof d.inv === 'object') { d.inv = Object.assign({}, d.inv); delete d.inv[CP]; delete d.inv[TP]; } } } catch (_) {} return d; }; } catch (_) {}
+  // ---- template storage (global, not per world) ----
+  let dbp = null;
+  function db() { return dbp || (dbp = new Promise((res, rej) => { const r = indexedDB.open('glencraft-templates', 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains('tpl')) r.result.createObjectStore('tpl', {keyPath: 'name'}); }; r.onsuccess = () => res(r.result); r.onerror = () => { dbp = null; rej(r.error); }; })); }
+  function tx(mode, fn) { return db().then(d => new Promise((res, rej) => { const t = d.transaction('tpl', mode), q = fn(t.objectStore('tpl')); t.oncomplete = () => res(q && q.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); })); }
+  U.all = () => tx('readonly', s => s.getAll()).then(a => (a || []).sort((x, y) => (y.t || 0) - (x.t || 0)));
+  U.put = rec => tx('readwrite', s => s.put(rec));
+  U.del = name => tx('readwrite', s => s.delete(name));
+  // ---- aim + the red box ----
+  U.aim = (d) => { try { const r = raycast(d || 64); return r; } catch (_) { return null; } };
+  const red = new THREE.MeshBasicMaterial({color: 0xff2a1a, transparent: true, opacity: 0.22, depthWrite: false, side: THREE.DoubleSide});
+  const edge = new THREE.LineBasicMaterial({color: 0xff4030, transparent: true, opacity: 0.95, depthTest: false});
+  const boxG = new THREE.Group(); boxG.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), red)); boxG.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), edge));
+  boxG.children[1].renderOrder = 9; boxG.renderOrder = 8; boxG.visible = false; boxG.frustumCulled = false; for (const c of boxG.children) c.frustumCulled = false;
+  try { scene.add(boxG); } catch (_) {}
+  const bounds = (a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2]), Math.max(a[0], b[0]), Math.max(a[1], b[1]), Math.max(a[2], b[2])];
+  function showBox(bb) { if (!bb) { boxG.visible = false; return; } const w = bb[3] - bb[0] + 1, h = bb[4] - bb[1] + 1, d = bb[5] - bb[2] + 1;
+    boxG.position.set(bb[0] + w / 2, bb[1] + h / 2, bb[2] + d / 2); boxG.scale.set(w + 0.04, h + 0.04, d + 0.04); boxG.visible = true; }
+  // ---- hint line ----
+  const hint = document.createElement('div'); hint.id = 'tplHint'; hint.dataset.testid = 'tool-hint';
+  hint.style.cssText = 'position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:30;pointer-events:none;font:600 13px system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.55);padding:5px 10px;border-radius:8px;display:none;white-space:nowrap';
+  document.body.appendChild(hint);
+  U.setHint = s => { if (hint.textContent !== s) hint.textContent = s; hint.style.display = s ? 'block' : 'none'; };
+  const dims = bb => (bb[3] - bb[0] + 1) + ' x ' + (bb[4] - bb[1] + 1) + ' x ' + (bb[5] - bb[2] + 1);
+  function cancel(quiet) { U.st = 'idle'; U.c1 = U.c2 = null; showBox(null); if (!quiet) toast('Copy cancelled'); }
+  U.cancel = cancel;
+  // ---- capture the box into a template record ----
+  const SKIP = new Set(['slots', 'items', 'inv', 'loot', 'gen']);
+  U.capture = function (bb, name) { const w = bb[3] - bb[0] + 1, h = bb[4] - bb[1] + 1, d = bb[5] - bb[2] + 1, b = new Uint8Array(w * h * d), m = []; let n = 0;
+    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) { const v = getB(bb[0] + x, bb[1] + y, bb[2] + z); if (!v) continue; const i = (x * h + y) * d + z; b[i] = v; n++;
+      const mm = entMeta.get(keyOf(bb[0] + x, bb[1] + y, bb[2] + z)); if (mm) { const o = {}; for (const k in mm) if (!SKIP.has(k) && typeof mm[k] !== 'object') o[k] = mm[k]; if (Object.keys(o).length) m.push([i, o]); } }
+    return {name, w, h, d, b, m, n, t: Date.now(), v: 1}; };
+  async function save(name) { const bb = bounds(U.c1, U.c2); let nm = String(name || '').trim().slice(0, 24) || 'Build';
+    try { const all = await U.all(), have = new Set(all.map(r => r.name)); if (have.has(nm)) { let k = 2; while (have.has(nm + ' (' + k + ')')) k++; nm = nm + ' (' + k + ')'; }
+      const rec = U.capture(bb, nm); await U.put(rec); U.saved++; toast('Saved template "' + nm + '" (' + rec.n + ' blocks)'); try { sfx('pop', .5); } catch (_) {} cancel(true);
+    } catch (e) { U.err = 'save ' + e; toast('Could not save the template'); } }
+  U.save = save;
+  function bigOK(bb) { const w = bb[3] - bb[0] + 1, h = bb[4] - bb[1] + 1, d = bb[5] - bb[2] + 1; return w <= MAXD && h <= MAXD && d <= MAXD && w * h * d <= MAXV; }
+  // ---- input: LT ----
+  U.copyLT = function () { const r = U.aim(); if (!r) { toast('Aim at a block'); return; }
+    if (U.st === 'idle' || U.st === 'locked') { U.c1 = r.hit.slice(); U.c2 = r.hit.slice(); U.st = 'sizing'; toast('Corner 1 set - aim at the other corner and press LT'); return; }
+    if (U.st === 'sizing') { const bb = bounds(U.c1, r.hit); if (!bigOK(bb)) { toast('Too big - at most ' + MAXD + ' blocks each way'); return; } U.c2 = r.hit.slice(); U.st = 'locked'; toast('Box locked (' + dims(bb) + ') - RT to save, B to cancel'); } };
+  U.copyRT = function () { if (U.st === 'sizing') { toast('Press LT to lock the box first'); return; } if (U.st !== 'locked') return;
+    if (window.__c178 && __c178.prompt) __c178.prompt('Name this template', 'Build', nm => { if (nm !== null) save(nm); }); else save('Build'); };
+  const ui = useItem; useItem = function () { if (isTool(selId) && isTest() && !menuOpen && !paused && !dead && started) { try { if (selId === CP) U.copyLT(); else if (window.__c178) __c178.LT(); } catch (e) { U.err = 'LT ' + e; } return; } return ui.apply(this, arguments); };
+  // ---- input: RT (no mining or hitting while a tool is held) ----
+  let rtWas = false;
+  const uI = updateInteraction; updateInteraction = function (dt) { if (!(isTool(selId) && isTest())) { rtWas = false; return uI.apply(this, arguments); }
+    const att = attackMouse || attackPad || attackTouch; try { if (mine) { mine.key = null; mine.t = 0; } if (crackMesh) crackMesh.visible = false; } catch (_) {}
+    if (att && !rtWas && !menuOpen && !paused) { try { if (selId === CP) U.copyRT(); else if (window.__c178) __c178.RT(); } catch (e) { U.err = 'RT ' + e; } } rtWas = att; };
+  // ---- input: LB / RB rotate a template preview; B (sneak) cancels ----
+  const cs = cycleSel; cycleSel = function (dir) { try { if (selId === TP && isTest() && window.__c178 && __c178.active()) { __c178.rotate(dir); return; } } catch (_) {} return cs.apply(this, arguments); };
+  let bWas = false;
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
+    try { const held = isTool(selId) && isTest() && !menuOpen && !paused && !dead, b = !!sneakHeld;
+      if (held && b && !bWas) { if (selId === CP && U.st !== 'idle') cancel(); else if (selId === TP && window.__c178) __c178.B(); } bWas = b;
+      if (selId !== CP || !held) { if (U.st !== 'idle' && selId !== CP) cancel(true); showBox(null); }
+      else { if (U.st === 'sizing') { const a = U.aim(); if (a) U.c2 = a.hit.slice(); } showBox(U.st === 'idle' ? null : bounds(U.c1, U.c2)); }
+      let s = '';
+      if (held && selId === CP) s = U.st === 'idle' ? 'COPY: LT sets corner 1' : U.st === 'sizing' ? 'COPY ' + dims(bounds(U.c1, U.c2)) + ': LT locks the box, B cancels' : 'COPY ' + dims(bounds(U.c1, U.c2)) + ': RT saves, LT starts again, B cancels';
+      else if (held && selId === TP && window.__c178) s = __c178.hint();
+      U.setHint(s); if (window.__c178) __c178.frame(dt, held && selId === TP);
+    } catch (e) { U.err = 'frame ' + e; } return r; };
+})();
+
+/* ===================== GLX-C178 (v1.0.34): on-screen keyboard name prompt, template list, ghost preview + placing (TEMPLATE tool) ===================== */
+// TEMPLATE: LT opens the list of saved templates (Use / Delete with a Yes-No check). The chosen one follows your aim as a blue ghost,
+// LB / RB turn it, RT places it (a slice of blocks per frame), B puts it away. Placing never replaces anything you built yourself.
+(function c178() {
+  const U = window.__c178 = {err: null, tpl: null, rot: 0, job: null, open: null, placed: 0};
+  const C = () => window.__c177;
+  const st = document.createElement('style');
+  st.textContent = '#tplUI{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);font:600 15px system-ui,sans-serif;color:#fff}' +
+    '#tplUI .pn{background:#1d2a22;border:2px solid #5d8a6a;border-radius:12px;padding:14px;max-width:94vw;max-height:88vh;overflow:auto;box-shadow:0 6px 30px #000}' +
+    '#tplUI h3{margin:0 0 10px;font-size:17px}#tplUI .fld{background:#0d1510;border:1px solid #5d8a6a;border-radius:8px;padding:8px 10px;min-height:22px;margin-bottom:10px;font-size:18px;letter-spacing:.5px}' +
+    '#tplUI .row{display:flex;gap:5px;justify-content:center;margin:4px 0}#tplUI button{background:#33473a;color:#fff;border:2px solid transparent;border-radius:7px;padding:8px 10px;min-width:36px;font:600 15px system-ui,sans-serif}' +
+    '#tplUI button.focus{border-color:#ffd54a;background:#4f6b57}#tplUI .li{display:flex;align-items:center;gap:8px;margin:4px 0}#tplUI .li span{flex:1;min-width:150px}#tplUI .sm{opacity:.7;font-size:12px}';
+  document.head.appendChild(st);
+  let ui = null, focus = 0, padNav = null;
+  const btns = () => ui ? [...ui.querySelectorAll('button')] : [];
+  function refocus() { const b = btns(); if (!b.length) return; focus = Math.max(0, Math.min(focus, b.length - 1)); b.forEach((e, i) => e.classList.toggle('focus', i === focus)); try { b[focus].scrollIntoView({block: 'nearest'}); } catch (_) {} }
+  function show(html, kind, nav) { close(true); ui = document.createElement('div'); ui.id = 'tplUI'; ui.dataset.testid = 'template-ui'; ui.innerHTML = '<div class="pn">' + html + '</div>'; document.body.appendChild(ui);
+    U.open = kind; padNav = nav || null; focus = 0; menuOpen = true; attackMouse = attackPad = attackTouch = false; try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {} refocus(); return ui; }
+  function close(keepMenu) { if (ui) { ui.remove(); ui = null; } const was = U.open; U.open = null; padNav = null; if (was && !keepMenu) { try { openMenu(false); } catch (_) { menuOpen = false; } } }
+  U.close = close;
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'})[c]);
+  // ---- name prompt with an on-screen keyboard ----
+  const ROWS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM-'];
+  U.prompt = function (title, def, cb) { let txt = '', caps = true; const done = v => { close(); try { cb(v); } catch (e) { U.err = 'cb ' + e; } };
+    const keys = ROWS.map(r => '<div class="row">' + [...r].map(k => '<button data-k="' + k + '">' + k + '</button>').join('') + '</div>').join('') +
+      '<div class="row"><button data-k="caps">Aa</button><button data-k=" " style="min-width:120px">Space</button><button data-k="bs">&#9003;</button></div><div class="row"><button data-k="cancel">Cancel</button><button data-k="ok" style="min-width:90px">Save</button></div>';
+    show('<h3>' + esc(title) + '</h3><div class="fld" data-testid="template-name"></div>' + keys + '<div class="sm">A types - X deletes - B cancels - Menu saves</div>', 'prompt', null);
+    const fld = ui.querySelector('.fld'), draw = () => { fld.textContent = txt || ''; fld.style.opacity = txt ? 1 : .5; if (!txt) fld.textContent = def; for (const b of btns()) if (b.dataset.k && b.dataset.k.length === 1 && /[A-Z]/i.test(b.dataset.k)) b.textContent = caps ? b.dataset.k.toUpperCase() : b.dataset.k.toLowerCase(); };
+    const press = k => { if (k === 'ok') return done(txt.trim() || def); if (k === 'cancel') return done(null); if (k === 'bs') txt = txt.slice(0, -1); else if (k === 'caps') caps = !caps;
+      else if (txt.length < 24) { txt += /[A-Z]/i.test(k) ? (caps ? k.toUpperCase() : k.toLowerCase()) : k; if (caps && txt.length === 1) caps = false; } draw(); };
+    for (const b of btns()) b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); focus = btns().indexOf(b); refocus(); press(b.dataset.k); });
+    U.key = e => { if (e.key === 'Enter') press('ok'); else if (e.key === 'Escape') press('cancel'); else if (e.key === 'Backspace') press('bs'); else if (e.key.length === 1 && /[a-z0-9 \-]/i.test(e.key)) { if (txt.length < 24) txt += e.key; draw(); } };
+    U.padX = () => press('bs'); U.padB = () => press('cancel'); U.padStart = () => press('ok'); U.padA = () => { const b = btns()[focus]; if (b) press(b.dataset.k); };
+    draw(); };
+  // grid-ish D-pad movement: left/right within a row, up/down to the nearest button in the next row
+  function move(dx, dy) { const b = btns(); if (!b.length) return; const cur = b[focus].getBoundingClientRect(); if (dx) { focus = (focus + dx + b.length) % b.length; refocus(); return; }
+    let best = -1, bd = 1e9; b.forEach((e, i) => { const r = e.getBoundingClientRect(); const vy = (r.top - cur.top) * dy; if (vy <= 4) return; const d = vy * 3 + Math.abs(r.left + r.width / 2 - cur.left - cur.width / 2); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { focus = best; refocus(); } }
+  // ---- template list ----
+  U.list = async function () { let all = []; try { all = await C().all(); } catch (e) { U.err = 'list ' + e; }
+    const rows = all.length ? all.map((r, i) => '<div class="li"><span>' + esc(r.name) + ' <span class="sm">' + r.w + 'x' + r.h + 'x' + r.d + ', ' + r.n + ' blocks</span></span><button data-u="' + i + '">Use</button><button data-x="' + i + '">Delete</button></div>').join('') : '<div class="sm" style="margin:10px 0">No templates yet - save one with the Copy tool.</div>';
+    show('<h3>Templates</h3>' + rows + '<div class="row"><button data-c="1">Close</button></div><div class="sm">Saved on this device for every world</div>', 'list', null);
+    const pick = b => { if (b.dataset.c) return close(); if (b.dataset.u !== undefined) { const r = all[+b.dataset.u]; close(); U.use(r); return; }
+      if (b.dataset.x !== undefined) { const r = all[+b.dataset.x]; show('<h3>Delete "' + esc(r.name) + '"?</h3><div class="row"><button data-y="1">Yes, delete</button><button data-n="1">No</button></div>', 'confirm', null);
+        focus = 1; refocus(); const yes = async () => { try { await C().del(r.name); toast('Deleted "' + r.name + '"'); if (U.tpl && U.tpl.name === r.name) U.tpl = null; } catch (_) {} U.list(); };
+        for (const q of btns()) q.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (q.dataset.y) yes(); else U.list(); });
+        U.padA = () => { const q = btns()[focus]; if (q && q.dataset.y) yes(); else U.list(); }; U.padB = () => U.list(); U.padX = null; U.padStart = null; U.key = e => { if (e.key === 'Escape') U.list(); else if (e.key === 'Enter') U.padA(); }; } };
+    for (const b of btns()) b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); pick(b); });
+    U.padA = () => { const b = btns()[focus]; if (b) pick(b); }; U.padB = () => close(); U.padX = () => { const b = btns()[focus]; if (b && b.dataset.u !== undefined) pick(b.nextSibling); }; U.padStart = null;
+    U.key = e => { if (e.key === 'Escape') close(); else if (e.key === 'Enter') U.padA(); }; };
+  // controller + keyboard while a panel is open
+  try { const mpi = menuPadInput; menuPadInput = function (E, axes, gp) { if (!U.open) return mpi.apply(this, arguments);
+    if (E[1]) { U.padB && U.padB(); return; } if (E[0]) { U.padA && U.padA(); return; } if (E[2]) { U.padX && U.padX(); return; } if (E[9]) { U.padStart && U.padStart(); return; }
+    if (E[12]) move(0, -1); else if (E[13]) move(0, 1); else if (E[14]) move(-1, 0); else if (E[15]) move(1, 0);
+    const t = performance.now(); if (!U._st || t - U._st > 170) { const ax = gp && gp.axes ? gp.axes : [0, 0]; if (Math.abs(ax[0]) > .6) { move(Math.sign(ax[0]), 0); U._st = t; } else if (Math.abs(ax[1]) > .6) { move(0, Math.sign(ax[1])); U._st = t; } } }; } catch (e) { U.err = 'mpi ' + e; }
+  try { const rp = readPad; readPad = function () { if (U.open && paused) { try { setPause(false); } catch (_) {} } return rp.apply(this, arguments); }; } catch (_) {}
+  window.addEventListener('keydown', e => { if (!U.open) return; e.stopImmediatePropagation(); e.preventDefault(); try { U.key && U.key(e); } catch (er) { U.err = 'key ' + er; } }, true);
+  try { const cp = closePanels; closePanels = function () { if (U.open) { if (ui) { ui.remove(); ui = null; } U.open = null; } return cp.apply(this, arguments); }; } catch (_) {}
+})();
+
+/* ===================== GLX-C179 (v1.0.34): TEMPLATE tool - ghost preview, LB/RB turning, placing spread across frames ===================== */
+(function c179() {
+  const U = window.__c178; if (!U) return;
+  const C = () => window.__c177;
+  const ghostM = new THREE.MeshBasicMaterial({color: 0x59b4ff, transparent: true, opacity: 0.3, depthWrite: false});
+  const edgeM = new THREE.LineBasicMaterial({color: 0x8fd0ff, transparent: true, opacity: 0.95, depthTest: false});
+  const cube = new THREE.BoxGeometry(0.96, 0.96, 0.96), M4 = new THREE.Matrix4();
+  const G = new THREE.Group(); G.visible = false; G.frustumCulled = false; try { scene.add(G); } catch (_) {}
+  const outline = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), edgeM); outline.renderOrder = 9; outline.frustumCulled = false; G.add(outline);
+  let inst = null, cells = null, origin = null; const CAP = 40000;
+  // rotation: one step maps (x, z) in a w x d footprint to (d-1-z, x); a facing f turns to (f+3)%4 (doors only have 2 ways: f^1)
+  function rotXZ(x, z, w, d, k) { for (let i = 0; i < k; i++) { const nx = d - 1 - z; z = x; x = nx; const t = w; w = d; d = t; } return [x, z]; }
+  const rdims = (t, k) => k & 1 ? [t.d, t.w] : [t.w, t.d];
+  function rotMeta(o, k) { const m = Object.assign({}, o); if (typeof m.face === 'number' && k) { if ('open' in m) m.face = (m.face ^ (k & 1)); else m.face = (m.face + 3 * k) % 4; } return m; }
+  U.rotMeta = rotMeta; U.rotXZ = rotXZ;
+  function buildGhost() { const t = U.tpl; if (inst) { G.remove(inst); inst.dispose && inst.dispose(); inst = null; } if (!t) return;
+    const {w, h, d, b} = t, at = (x, y, z) => x < 0 || y < 0 || z < 0 || x >= w || y >= h || z >= d ? 0 : b[(x * h + y) * d + z]; const list = [];
+    for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) { if (!at(x, y, z)) continue;
+      if (at(x + 1, y, z) && at(x - 1, y, z) && at(x, y + 1, z) && at(x, y - 1, z) && at(x, y, z + 1) && at(x, y, z - 1)) continue; list.push(x, y, z); }
+    const n = list.length / 3, step = Math.max(1, Math.ceil(n / CAP)), cnt = Math.ceil(n / step); inst = new THREE.InstancedMesh(cube, ghostM, Math.max(1, cnt)); inst.frustumCulled = false; inst.renderOrder = 7;
+    let j = 0; for (let i = 0; i < n; i += step) { const [rx, rz] = rotXZ(list[i * 3], list[i * 3 + 2], w, d, U.rot); M4.makeTranslation(rx + 0.5, list[i * 3 + 1] + 0.5, rz + 0.5); inst.setMatrixAt(j++, M4); }
+    inst.count = j; inst.instanceMatrix.needsUpdate = true; G.add(inst); const [W2, D2] = rdims(t, U.rot); outline.scale.set(W2 + .04, h + .04, D2 + .04); outline.position.set(W2 / 2, h / 2, D2 / 2); cells = j; }
+  U.use = function (r) { if (!r || !r.b) return; U.tpl = r; U.rot = 0; origin = null; buildGhost(); toast('Template "' + r.name + '" - RT places it, LB/RB turn it, B puts it away'); };
+  U.rotate = function (dir) { U.rot = (U.rot + (dir > 0 ? 1 : 3)) % 4; buildGhost(); try { sfx('pop', .3); } catch (_) {} };
+  U.active = () => !!U.tpl && !U.job;
+  U.LT = function () { if (U.job) { toast('Still placing the last template'); return; } U.list(); };
+  U.B = function () { if (U.job) { U.job = null; toast('Placing stopped'); try { rebuild(); } catch (_) {} return; } if (U.tpl) { U.tpl = null; buildGhost(); toast('Template put away'); } };
+  function aimOrigin() { const t = U.tpl, r = C().aim(64); if (!r) return origin; const base = r.prev || [r.hit[0], r.hit[1] + 1, r.hit[2]], [W2, D2] = rdims(t, U.rot);
+    return [base[0] - (W2 >> 1), base[1], base[2] - (D2 >> 1)]; }
+  U.RT = function () { if (U.job) return; if (!U.tpl) { toast('LT to choose a template'); return; } const o = aimOrigin(); if (!o) { toast('Aim at the ground'); return; }
+    const t = U.tpl; U.job = {t, o: o.slice(), rot: U.rot, y: 0, x: 0, n: 0, skip: 0, meta: new Map(t.m || []), dim: !!DIM.cur}; toast('Placing "' + t.name + '"...'); };
+  function work(budget) { const J = U.job, t = J.t, {w, h, d, b} = t, t0 = performance.now();
+    while (J.y < h) { for (; J.x < w; J.x++) { for (let z = 0; z < d; z++) { const i = (J.x * h + J.y) * d + z, v = b[i], [rx, rz] = rotXZ(J.x, z, w, d, J.rot), X = J.o[0] + rx, Y = J.o[1] + J.y, Z = J.o[2] + rz;
+          if (X < 0 || Z < 0 || X >= W || Z >= D || Y < 1 || Y >= H - 1) continue; const cur = getB(X, Y, Z); if (cur === v) continue;
+          if (cur && (J.dim || placedSet.has(idx(X, Y, Z)))) { J.skip++; continue; }   // never replace your own blocks (in Hell: only fill air)
+          if (!v) { if (cur !== T.WATER && cur !== T.LAVA) setB(X, Y, Z, T.AIR); continue; }
+          setB(X, Y, Z, v); J.n++; const m = J.meta.get(i); if (m) entMeta.set(keyOf(X, Y, Z), rotMeta(m, J.rot)); }
+        if (performance.now() - t0 > budget) { J.x++; return false; } }
+      J.x = 0; J.y++; }
+    return true; }
+  U.frame = function (dt, held) { try {
+      if (U.job) { const done = work(typeof PERF !== 'undefined' && PERF ? 4 : 7); if (done) { const J = U.job; U.job = null; U.placed++; try { rebuild(); } catch (_) {} try { if (window.syncFences) syncFences(); } catch (_) {}
+          toast('Placed "' + J.t.name + '" (' + J.n + ' blocks' + (J.skip ? ', ' + J.skip + ' of your own blocks kept' : '') + ')'); try { sfx('place', 1); } catch (_) {} } }
+      if (!held || !U.tpl || U.job) { G.visible = false; return; } const o = aimOrigin(); if (!o) { G.visible = false; return; } origin = o; G.position.set(o[0], o[1], o[2]); G.visible = true;
+    } catch (e) { U.err = 'frame ' + e; U.job = null; } };
+  U.hint = () => U.job ? 'TEMPLATE: placing ' + Math.round(U.job.y / U.job.t.h * 100) + '% - B stops' : U.tpl ? 'TEMPLATE "' + U.tpl.name + '": RT places, LB/RB turn, LT list, B puts away' : 'TEMPLATE: LT opens your templates';
+  U.cells = () => cells;
+})();
+
+/* ===================== GLX-C180 (v1.0.34): a water pool near spawn, small lava pools and flowing streams in the caves ===================== */
+// Runs once per world seed (current worlds the first time they load, new worlds and Reset world straight after making the land).
+// Only natural blocks are changed and never within 4 blocks of anything you built. Streams use the river ripples (c134) so they flow.
+(function c180() {
+  const U = window.__c180 = {err: null, done: null, pool: null, lava: [], streams: [], S: []};
+  const solidB = b => b && b !== T.WATER && b !== T.LAVA && !(PLANT[b] === 1) && !LEAFY[b] && !LOGGY[b];
+  const ground = b => b === T.GRASS || b === T.HEATHER || b === T.DIRT || b === T.SAND || b === T.PEAT;
+  const rock = b => b === T.STONE || b === T.DEEPSLATE || b === T.DIRT || b === T.GRAVEL || b === T.COBBLE || b === T.SAND || b === T.PEAT;
+  const G = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) ? -1 : world[idx(x, y, z)];
+  const P_ = (x, y, z, v) => { if (x < 0 || z < 0 || x >= W || z >= D || y < 1 || y >= H) return; const i = idx(x, y, z); world[i] = v; try { FLV.delete(i); } catch (_) {} U.ch.add(Math.floor(x / CH) * 64 + Math.floor(z / CH)); };
+  const mine = (x, y, z) => { try { return placedSet.has(idx(x, y, z)); } catch (_) { return false; } };
+  const nearBuild = (x, y, z, r, up) => { if (!placedSet || !placedSet.size) return false; for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) for (let dy = -r; dy <= (up || r); dy++) if (mine(x + dx, y + dy, z + dz)) return true; return false; };
+  // ---------------- 1) water pool near spawn ----------------
+  function pool() { const sp = (typeof g9spawn !== 'undefined' && g9spawn) || (typeof g9findSpawn === 'function' ? g9findSpawn() : null) || [Math.floor(P.x), 0, Math.floor(P.z)], R = Math.random;
+    for (let tries = 0; tries < 900; tries++) { const a = R() * 6.283, dist = 9 + R() * (8 + tries / 30), x = Math.round(sp[0] + Math.cos(a) * dist), z = Math.round(sp[2] + Math.sin(a) * dist);
+      if (x < 12 || z < 12 || x >= W - 12 || z >= D - 12) continue; const h = groundTop(x, z); if (h <= SEA + 1 || !ground(G(x, h, z))) continue;
+      const rad = 3 + R() * 1.6, ext = Math.ceil(rad * 1.3) + 2, p1 = R() * 6.28, p2 = R() * 6.28; let bad = false; const cells = [];
+      for (let dx = -ext; dx <= ext && !bad; dx++) for (let dz = -ext; dz <= ext; dz++) { const X = x + dx, Z = z + dz, d = Math.hypot(dx, dz), th = Math.atan2(dz, dx), lim = rad * (1 + 0.22 * Math.sin(2 * th + p1) + 0.12 * Math.sin(3 * th + p2));
+        const t = groundTop(X, Z), b = G(X, t, Z);
+        if (d <= lim) { if (t !== h || !ground(b) || G(X, h + 2, Z) !== T.AIR || mine(X, h, Z)) { bad = true; break; } cells.push([X, Z, d / lim]); }
+        else if (d <= lim + 2) { if (t < h || t > h + 2 || b === T.WATER || b === T.LAVA) { bad = true; break; } } }
+      if (bad || cells.length < 22 || Math.hypot(x - sp[0], z - sp[2]) < rad + 4 || nearBuild(x, h, z, ext + 3, 6)) continue;
+      const set = new Set(cells.map(c => c[0] * 4096 + c[1])), dep = f => f < 0.45 ? 3 : f < 0.8 ? 2 : 1;
+      for (const [X, Z, f] of cells) { const k = dep(f); for (let y = h + 1; y <= h + 3; y++) { const ab = G(X, y, Z); if (ab && (PLANT[ab] === 1 || ab === T.SNOW)) P_(X, y, Z, T.AIR); }
+        for (let y = h; y > h - k; y--) P_(X, y, Z, T.WATER); P_(X, h - k, Z, R() < 0.3 ? T.GRAVEL : T.SAND); if (!solidB(G(X, h - k - 1, Z))) P_(X, h - k - 1, Z, T.STONE);
+        for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = X + ax, nz = Z + az; if (set.has(nx * 4096 + nz)) continue; for (let y = h; y > h - k; y--) if (!solidB(G(nx, y, nz))) P_(nx, y, nz, T.DIRT);
+          if (G(nx, h, nz) === T.GRASS && R() < 0.35) P_(nx, h, nz, T.SAND); } }
+      // a deeper cell next to a shallow one needs a wall too
+      for (const [X, Z, f] of cells) { const k = dep(f); for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = X + ax, nz = Z + az; if (!set.has(nx * 4096 + nz)) continue; for (let y = h - 1; y > h - k; y--) if (!solidB(G(nx, y, nz)) && G(nx, y, nz) !== T.WATER) P_(nx, y, nz, T.SAND); } }
+      U.pool = [x, h, z, cells.length]; return true; }
+    return false; }
+  // ---------------- 2) caves: lava pools + streams ----------------
+  function floorAt(x, z, y0, y1) { for (let y = y0; y >= y1; y--) { if (G(x, y, z) === T.AIR && rock(G(x, y - 1, z)) && G(x, y + 1, z) === T.AIR) return y; } return -1; }
+  function caveSpot(R) { for (let t = 0; t < 40; t++) { const x = 20 + Math.floor(R() * (W - 40)), z = 20 + Math.floor(R() * (D - 40)), top = groundTop(x, z); if (top < SEA + 2 || G(x, top, z) === T.WATER) continue;
+      const y = floorAt(x, z, top - 8, 6); if (y < 0) continue; let roof = false; for (let k = 2; k < 14; k++) if (solidB(G(x, y + k, z))) { roof = true; break; } if (roof) return [x, y, z]; } return null; }
+  function lavaPool(x, y, z, R) { const r = 1.4 + R() * 1.4, e = Math.ceil(r) + 1, cells = [];
+    for (let dx = -e; dx <= e; dx++) for (let dz = -e; dz <= e; dz++) { const X = x + dx, Z = z + dz, d = Math.hypot(dx, dz); const fl = G(X, y, Z) === T.AIR && rock(G(X, y - 1, Z));
+      if (d <= r) { if (!fl || G(X, y + 1, Z) === T.WATER || mine(X, y - 1, Z)) return false; cells.push([X, Z]); } }
+    if (cells.length < 5 || nearBuild(x, y, z, 5)) return false; const set = new Set(cells.map(c => c[0] * 4096 + c[1]));
+    for (const [X, Z] of cells) { P_(X, y - 1, Z, T.LAVA); if (!solidB(G(X, y - 2, Z))) P_(X, y - 2, Z, T.STONE);
+      for (const [ax, az] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = X + ax, nz = Z + az; if (!set.has(nx * 4096 + nz) && !solidB(G(nx, y - 1, nz))) P_(nx, y - 1, nz, T.STONE); } }
+    U.lava.push([x, y, z, cells.length]); return true; }
+  const code = (fx, fz) => (Math.round(Math.atan2(fz, fx) / (Math.PI / 4)) + 8) % 8;
+  function stream(x, y, z, R) { const D4 = [[1, 0], [0, 1], [-1, 0], [0, -1]]; let dir = Math.floor(R() * 4), path = [[x, y, z]]; const seen = new Set([x * 4096 + z]), len = 30 + Math.floor(R() * 70);
+    for (let s = 0; s < len; s++) { let ok = null; const order = R() < 0.18 ? [(dir + 1) % 4, dir, (dir + 3) % 4] : R() < 0.5 ? [dir, (dir + 1) % 4, (dir + 3) % 4] : [dir, (dir + 3) % 4, (dir + 1) % 4];
+      for (const dd of order) { const nx = x + D4[dd][0], nz = z + D4[dd][1]; if (seen.has(nx * 4096 + nz) || nx < 8 || nz < 8 || nx >= W - 8 || nz >= D - 8) continue; const ny = floorAt(nx, nz, y + 1, y - 2); if (ny < 0 || mine(nx, ny - 1, nz)) continue; ok = [nx, ny, nz, dd]; break; }
+      if (!ok) break; [x, y, z, dir] = ok; seen.add(x * 4096 + z); path.push([x, y, z]); }
+    if (path.length < 14 || nearBuild(path[0][0], path[0][1], path[0][2], 5)) return false;
+    const set = new Set(path.map(p => p[0] * 4096 + p[2]));
+    path.forEach(([X, Y, Z], i) => { P_(X, Y - 1, Z, T.WATER); if (!solidB(G(X, Y - 2, Z))) P_(X, Y - 2, Z, T.STONE);
+      for (const [ax, az] of D4) { const nx = X + ax, nz = Z + az; if (set.has(nx * 4096 + nz)) continue; if (!solidB(G(nx, Y - 1, nz)) && G(nx, Y - 1, nz) !== T.WATER) P_(nx, Y - 1, nz, T.STONE); }
+      const n = path[Math.min(path.length - 1, i + 1)], p = path[Math.max(0, i - 1)]; U.S.push(X, Z, code(n[0] - p[0], n[2] - p[2])); });
+    U.streams.push([path[0][0], path[0][1], path[0][2], path.length]); return true; }
+  function caves() { let s = (gSeed ^ 0x5bd1e995) >>> 0; const R = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    const nL = Math.max(4, Math.round(W * D / 45000)), nS = Math.max(3, Math.round(W * D / 110000)); let a = 0, b = 0;
+    for (let t = 0; t < nL * 6 && a < nL; t++) { const p = caveSpot(R); if (p && !U.lava.some(q => Math.hypot(q[0] - p[0], q[2] - p[2]) < 40) && lavaPool(p[0], p[1], p[2], R)) a++; }
+    for (let t = 0; t < nS * 8 && b < nS; t++) { const p = caveSpot(R); if (p && !U.lava.some(q => Math.hypot(q[0] - p[0], q[2] - p[2]) < 8) && stream(p[0], p[1], p[2], R)) b++; } }
+  function riv() { try { const C = window.__c134; if (!C || !C.RIV) return; for (let i = 0; i < U.S.length; i += 3) C.RIV.set(U.S[i] * D + U.S[i + 1], U.S[i + 2]); } catch (_) {} }
+  U.run = function (force) { const t0 = performance.now(); U.ch = new Set(); const d = U.done || (U.done = {});
+    if (force || d.pool !== gSeed) { try { pool(); } catch (e) { U.err = 'pool ' + e; } d.pool = gSeed; }
+    if (force || d.cave !== gSeed) { U.lava = []; U.streams = []; U.S = []; try { caves(); } catch (e) { U.err = 'caves ' + (e && e.stack || e); } d.cave = gSeed; riv(); }
+    for (const c of U.ch) { try { dirtyCh.add(c); } catch (_) {} }
+    U.ms = Math.round(performance.now() - t0); try { if (U.ch.size && typeof saveWorld === 'function') saveWorld(true); } catch (_) {} };
+  const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) { U.done = Object.assign({}, d.c180 || {}); U.S = (d.c180 && d.c180.s) || []; riv(); } } catch (_) {} return r; };
+  const ew = enterWorld; enterWorld = function (save) { U.done = save ? Object.assign({}, save.c180 || {}) : {}; U.S = save && save.c180 && save.c180.s || []; const r = ew.apply(this, arguments); riv(); return r; };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && U.done) d.c180 = {pool: U.done.pool, cave: U.done.cave, s: U.S}; } catch (_) {} return d; };
+  setInterval(() => { try { if (!started || DIM.cur || !U.done || typeof world === 'undefined' || !world || genVer < GEN9 || W < 400 || !gSeed) return; if (typeof cityGen !== 'undefined' && cityGen) return; if (typeof c37busy !== 'undefined' && c37busy) return;
+      if (U.done.pool !== gSeed || U.done.cave !== gSeed) U.run(); } catch (e) { U.err = 'tick ' + e; } }, 900);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -27237,6 +27510,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.34', d:'2026-10-27', notes:["New: Copy tool and Template tool - two extra hotbar squares in your Test World that never break or run out", "New: Copy tool - LT sets the first corner, a see-through red box follows where you aim, LT again locks it, RT saves it with a name typed on the on-screen keyboard, B cancels", "New: Template tool - LT opens your saved templates (use or delete, with a Yes / No check), the chosen one shows as a blue ghost where you aim, LB / RB turn it, RT builds it, B puts it away", "New: templates are kept on this device for every world, so they survive Reset world and new maps", "New: a water pool near spawn in current, new and reset worlds", "New: caves now have small lava pools and underground streams that flow"]},
 {v:'v1.0.33', d:'2026-10-27', notes:["New: placeholder"]},
 {v:'v1.0.32', d:'2026-10-27', notes:["New: one reset button in the World tab - it reads Reset world in the overworld and Reset Hell in Hell, with a matching are-you-sure; the separate Reset Hell button is gone", "New: Reset Hell now always builds the new Hell - the big 384-wide nether with its four biomes, the four gothic builds and the red sky - on every world, not only the newest Highlands saves (some worlds were getting a small Hell with just one build)"]},
 {v:'v1.0.31', d:'2026-10-27', notes:["New: Hell is overhauled - it is much bigger (384 wide for the big Highlands), under a blood-red sky with a bright red haze, and split into four biomes: the Blackstone Wastes, the Soul Sand Valley, the Ember Wastes and the Basalt Deltas", "New: four great gothic builds rise in vast caverns, one in each biome - the Black Cathedral, the Soul Abbey, the Ember Keep and the Hound Bastion - with tall spires, glowing red lancet windows, huge chains, lava moats, a bridge in, a lit portal home and loot chests", "New: Hell is easier to see - brighter light everywhere, the black gaps in the sky are gone, and the old fortress has glowing lamps along its bridges and rooms", "New: existing Hells get the four builds too, raised bit by bit on untouched rock (your own blocks are never changed); a reset Hell gets the full new layout", "Mobs: Hell mobs now only appear at the builds and the old fortress, each with its own: blazing skeletons at the Black Cathedral, ghosts at the Soul Abbey, imps at the Ember Keep and hounds at the Hound Bastion", "Mobs: ghosts and Glower Orbs only come out over soul sand in the Soul Sand Valley, and the Ember Wyrm only hunts over the Black Cathedral", "Textures: blackstone, deepslate, soul sand, magma and glowstone floors give each Hell biome its own look"]},
