@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1035a -->
+<!-- glencraft-build: v1036a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.35';
+const GAME_VERSION = 'v1.0.36';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18946,14 +18946,17 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const setP = g => { G12 = g; RM = g ? 418 : 262; IR = g ? 100 : 60; OFF = g ? 302 : 311; PN = g ? 1.7 : 2; IS = ISL(); };
   // v1.0.35 (current.g35): the sketch layout - black N, skeleton W, clan E, forest/croft SE (sand pyramid isle SW is c147's)
   const G35 = () => { try { return !!(current && current.g35 && G12); } catch (_) { return false; } };
-  const ISL = () => G35() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.118), bio: 4, sx: 1.25, sz: 0.85}, {k: 'mossy', x: Math.round(W * 0.118), z: Math.round(D * 0.45), bio: 5, sx: 0.72, sz: 1.15},
+  const G36 = () => { try { return !!(G35() && current.g36); } catch (_) { return false; } };   // v1.0.36: bigger islands, ~20 blocks of sea to the mainland
+  const ISL = () => G36() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.1424), bio: 4, sx: 1.5, sz: 1.0}, {k: 'mossy', x: Math.round(W * 0.1354), z: D >> 1, bio: 5, sx: 1.0, sz: 1.5},
+      {k: 'human', x: Math.round(W * 0.8611), z: D >> 1, bio: 7, sx: 1.05, sz: 1.5}, {k: 'forest', x: Math.round(W * 0.7083), z: Math.round(D * 0.8345), bio: 1, sx: 1.75, sz: 1.0, nc: 1}]
+    : G35() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.118), bio: 4, sx: 1.25, sz: 0.85}, {k: 'mossy', x: Math.round(W * 0.118), z: Math.round(D * 0.45), bio: 5, sx: 0.72, sz: 1.15},
       {k: 'human', x: Math.round(W * 0.882), z: Math.round(D * 0.42), bio: 7, sx: 0.72, sz: 1.15}, {k: 'forest', x: Math.round(W * 0.745), z: Math.round(D * 0.875), bio: 1, sx: 1.32, sz: 0.72, nc: 1}]
     : [{k: 'human', x: (W >> 1) - OFF, z: (D >> 1) - OFF, bio: 7}, {k: 'mossy', x: (W >> 1) + OFF, z: (D >> 1) - OFF, bio: 5}, {k: 'black', x: (W >> 1) + OFF, z: (D >> 1) + OFF, bio: 4}];
   let IS = ISL();
   U.isles = () => IS;
   // biome override: each castle island is its own wood (alder / hawthorn / yew)
   U.bioOv = (x, z, b) => { if (!U.bigBio()) return b; const g = P12(); if (g !== G12) setP(g); for (const I of IS) if (Math.hypot((x - I.x) / (I.sx || 1), (z - I.z) / (I.sz || 1)) < IR * (G12 ? 1.08 : 1.35)) return I.bio; return b; };
-  U.G35 = G35;
+  U.G35 = G35; U.G36 = G36;
   U.params = () => ({RM, IR, OFF, PN, G12, IS});
   const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ (gSeed | 0) ^ 0x113; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
@@ -18991,7 +18994,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       let ih = SEA + 4 + Math.max(0, Math.min(9, (r.h - SEA - 3) * 0.35)); const c = sstep(0.5, 0.3, di); ih = ih * (1 - c) + (SEA + 6) * c;
       const si = SEA - 6 - Math.min(10, (di - 1) * 30);
       let hh = ih * mi + Math.min(ih, si) * (1 - mi); if (mi < 1) hh = Math.min(hh, SEA + 2 + (ih - SEA - 2) * sstep(0.0, 0.55, mi));
-      if (G12 && di > 0.84) { const c = sstep(0.84, 0.95, di) * (1 - sstep(1.12, 1.24, di)); if (c > 0) { const lo = SEA - 5 + g9fbm(x / 17, z / 17, 2); h = h * (1 - c) + Math.min(h, lo) * c; } }   // a narrow channel all round each castle island
+      if (G12 && di > 0.84) { const c = G36() ? sstep(0.84, 0.95, di) * (1 - sstep(1.0, 1.1, di)) : sstep(0.84, 0.95, di) * (1 - sstep(1.12, 1.24, di)); if (c > 0) { const lo = SEA - 5 + g9fbm(x / 17, z / 17, 2); h = h * (1 - c) + Math.min(h, lo) * c; } }   // a narrow channel all round each castle island
       if (hh > h) { h = hh; isl = true; } }
     let mt = false; if (mtR && mtR.mMask === 1 && mtR.h > h) { h = mtR.h; mt = true; }
     const inl = m > 0.98 && !isl && !mt;
@@ -19148,7 +19151,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const gen = generate;
   generate = function () {
     if (!L94()) { ON = false; return gen.apply(this, arguments); }
-    setP(P12()); IS = ISL(); ISL_C = [W >> 1, D >> 1]; ISL_R = 1; MT_C = [(W >> 1) - 290, (D >> 1) + 290]; HOL_C = [MT_C[0] + Math.round(20 * MT_R / 58), MT_C[1] + 2];
+    setP(P12()); IS = ISL(); ISL_C = [W >> 1, D >> 1]; ISL_R = 1; MT_C = G36() ? [Math.round(W * 0.2384), Math.round(D * 0.7778)] : [(W >> 1) - 290, (D >> 1) + 290]; HOL_C = [MT_C[0] + Math.round(20 * MT_R / 58), MT_C[1] + 2];
     ON = true; HC = null; let r; try { if (G12) { const t = performance.now(); if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0; G9P = g9perm(gSeed); buildHC(); U.hcMs = Math.round(performance.now() - t); } r = gen.apply(this, arguments); } finally { ON = false; HC = null; }
     const t0 = performance.now();
     try { U.removed = removeSpawnHouses(); } catch (e) { U.err = 'houses ' + (e && e.stack || e); }
@@ -19295,6 +19298,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.36', ["New: a bigger, closer map for new and reset worlds - the four castle and croft islands are larger and sit about 20 blocks of sea from the mainland, none of them touching, with open sea all round the edge and short bridges across", "New: the sand island with the pyramid park and the Sphinx has moved in close to the mainland's south-west corner, and the castles sit on the bigger islands", "New: a river now winds right round the mainland - two meandering arms that cross and rejoin in loops, wide in places and narrow in others, with sloping grassy and sandy banks, reeds, side ponds and outlets to the sea and the inner loch (new and reset worlds)", "New: snow settles on the ground when it snows and melts away over a few days, and the highest hilltops keep patchy snowcaps all year", "New: the pyramid is a true pyramid - 21 courses rising to a gold capstone, with red doors at the front and inside, the chest room and the stairs down to the deep cave", "New: inner corner stairs - craft 4 stairs into 3 (in a square); outer corners are a slab with one raised quarter, inner corners a slab with three, and you walk on them the way they look", "New: Admiral Skelp's longship now sails - with white wool sails it comes in close to you and he stands on deck watching you; once he is beaten you can board it with LT, steer with the stick and leave with B, and the ship stays where you leave it", "New: Reset world now always builds the new map, museum park and spawn-hill ores - if the page you have open is an old version, it updates itself first and then you tap Reset world again", "New: the game now checks for a newer version whenever you come back to it, not just when it first opens, so a phone tab left open for hours still gets the update banner", "Textures: sandstone redone as pale sand with fine grain and soft layer bands (no more wood look), on the blocks, stairs, corner stairs and their icons", "Mobs: Admiral Skelp no longer attacks - he stays on his ship and stares you down, says his line, and can still be beaten"]],
     ['v1.0.35', ["New: a new map - the mainland sits in the middle with the black castle island to the north, the skeleton castle island to the west, the clan castle island to the east, the sand island to the south-west and a forest croft island to the south-east, with sea between them all (new and reset worlds)", "New: every island has its own bridge from the mainland, and the held map shows the new layout with Pyramid Park and Croft Isle marked", "New: the sand island is now a desert museum park - a pink three-tier stepped pyramid with big red doors, a long dune behind it with a white chapel on top, two museums across a terracotta plaza, a sundial and red granite glyph fields", "New: the Great Sphinx lies beside the park - look behind its ear, or on top of its head, for the way into its hidden chamber", "New: the pyramid's chest room now opens onto stairs down into the deep cave, and the old duplicate tunnels under it are gone", "New: the hills around spawn now have ores in them like everywhere else (new and reset worlds)", "New: the crafting screen no longer gets covered on a phone held sideways - the recipe grid and the chosen recipe sit side by side, and the item name and tool hints hide while a menu is open", "New: corner stairs - craft 3 stairs into 2 corner stairs at a crafting table, for every kind of stairs; they place as an outer corner turned towards the side you aim at", "Textures: pink terrazzo, cream render, terracotta tiles, red granite, white and pink gravel and red panelled doors on the sand island", "Textures: proper 3D block icons for the newer blocks that had flat or missing ones (oak stairs, red glass pane, paving slab, carpets, panels, lamps, railings, bedrock and the corner stairs), and icons fill in straight away in an open crafting list", "Mobs: Barrow Bandagers now wait in the deep cave and in the Sphinx's chamber", "Mobs: creepers can be heard again - a hiss when one spots you and a soft robotic whirr as it creeps up; the quieter fuse alarm is unchanged"]],
     ['v1.0.34', ["New: Copy tool and Template tool - two extra hotbar squares in your Test World that never break or run out", "New: Copy tool - LT sets the first corner, a see-through red box follows where you aim, LT again locks it, RT saves it with a name typed on the on-screen keyboard, B cancels", "New: Template tool - LT opens your saved templates (use or delete, with a Yes / No check), the chosen one shows as a blue ghost where you aim, LB / RB turn it, RT builds it, B puts it away", "New: templates are kept on this device for every world, so they survive Reset world and new maps", "New: a water pool near spawn in current, new and reset worlds", "New: caves now have small lava pools and underground streams that flow"]],
     ['v1.0.33', ["New: tunnels under the bridges are tidied - no more stairs or lanterns stuck on the roof, and lanterns hang on the tunnel walls instead", "New: corner stairs - stairs now join up at corners (inner and outer) like real stairs, so the tunnel ramps to the four corners are no longer sideways steps", "New: Red glass pane - a thin glowing red-orange pane (8 glass panes + 1 magma); every window in the Hell builds and the black castle is now red glass, and the banners hang only inside", "New: the black castle island is one scorched land - black grass, dead black trees and lava pools away from the paths", "New: the black castle's red mist is now a soft smoky red cloud bank you can see from far away, and you walk into it gradually instead of across a line", "New: red skies round the black castle by day and night - crimson clouds, red stars and moon", "New: Hell and the black castle zone have a deep crimson cloudy sky", "New: each Hell build has its own shape (a cross cathedral, an abbey with a cloister, a walled keep, a round bastion), and all of them are hollow inside - a throne hall, an upper floor with a bedchamber and a store room, stairs, doorways and furniture", "New: the black castle has two new courtyard wings - barracks, an armoury and a kitchen, with a door into the throne hall; existing worlds get the new builds once", "New: the jetpack only fires when you double-tap jump in the air; a normal jump while sprinting is a normal jump again", "New: inside the bridge tunnels it no longer turns to night", "New: lanterns no longer make the block they are on see-through", "Textures: Red glass pane"]],
@@ -23049,7 +23053,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       case 'scare': if (a.flee > 0) { a.flee -= dt; ang = Math.atan2(-dx, -dz); spd = def.spd; } else { spd = def.spd; ang = Math.atan2(dx, dz) + Math.sin(a.t * 1.5) * 0.6;
           if (close && a.cd <= 0) { a.cd = 3; a.flee = 3; hit(a, 1, 'Spooked by the ' + def.name + '.'); knockPlayer(dx / d, dz / d, 8, 4); snd(a, 1.6); } } ty = P.y + 0.5 + Math.sin(a.t * 3) * 0.4; break;
       case 'hex': spd = d > 8 ? def.spd : d < 4 ? -def.spd : 0; if (a.cd2 <= 0 && d < 14) { a.cd2 = 3; shoot(a, 0x70ff60, 9, 2, {lob: 1, slow: 2}); snd(a, 1); } melee(); break;
-      case 'parry': spd = d > 1.4 ? def.spd : 0; melee(3, 1.2); break;                                    // parries every third hit (damage wrap)
+      case 'parry': spd = 0; break;                                                                        // v1.0.36: the Admiral never attacks - he stands on his ship and stares                                    // parries every third hit (damage wrap)
       case 'leap': spd = d > 1.2 ? def.spd : 0; if (a.onGround && a.cd2 <= 0 && d < 7 && d > 2) { a.cd2 = 2; a.vy = 7.5; a.onGround = false; a.kbx = dx / d * 7; a.kbz = dz / d * 7; snd(a, 1.2); } melee(); break;
       case 'stalk': { const seen = sees(p, 0.6) && d < 40; a.seen = seen; spd = seen ? 0 : d > 1.2 ? def.spd : 0; if (!seen) melee(3, 1.5); face = !seen || a.yawVis === undefined; break; }
       case 'rock': spd = d > 7 ? def.spd : 0; if (a.cd2 <= 0 && d < 18 && d > 3) { a.cd2 = 3.2; a.swing = 0.5; shoot(a, 0x7a7468, 11, 3, {lob: 1, r: 0.3}); snd(a, 0.7); } melee(3, 1.6); break;
@@ -24809,17 +24813,23 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- 3) the longship the spawn asset used to carry, back out in the channel ----------
   function boat(st) {
     const raw = atob(SH), L = []; for (let i = 0; i + 3 < raw.length; i += 4) L.push([raw.charCodeAt(i), raw.charCodeAt(i + 1), raw.charCodeAt(i + 2), raw.charCodeAt(i + 3)]);
-    const g35 = !!(window.__c181 && __c181.on()), bx = g35 ? (W >> 1) - 80 : (W >> 1) - 128 + 94, bz = g35 ? Math.round(D * 0.227) - 7 : (D >> 1) - 124 + 4, by = 21 + 12; let best = 0, bd = -1;
+    const g35 = !!(window.__c181 && __c181.on()), g36 = g35 && current && current.g36, bx = g36 ? Math.round(W * 0.22) - 11 : g35 ? (W >> 1) - 80 : (W >> 1) - 128 + 94, bz = g36 ? Math.round(D * 0.22) - 7 : g35 ? Math.round(D * 0.227) - 7 : (D >> 1) - 124 + 4, by = 21 + 12; let best = 0, bd = -1;
     const foot = [...new Set(L.map(b => b[0] + ',' + b[2]))].map(s => s.split(',').map(Number));
     const wet = (x, z) => { const t = topOf(x, z); return t[1] === T.WATER && t[0] <= SEA; };
     for (let dz = -14; dz <= 14; dz++) { let n = 0; for (const [x, z] of foot) if (wet(bx + x, bz + z + dz)) n++; const sc = n * 10 - Math.abs(dz + 4); if (sc > bd) { bd = sc; best = dz; } }
     st.boatShift = best; st.boatWet = Math.round(bd / 10) + '/' + foot.length; if (bd / 10 < foot.length * 0.8) { st.boat = 'no room'; return null; }
     const WET = new Set(foot.filter(([x, z]) => wet(bx + x, bz + z + best)).map(([x, z]) => x + ',' + z));
+    if (window.__c191 && __c191.entity) {   // v1.0.36: the longship is a sailing entity (GLX-C191), not blocks
+      const has = new Set(L.map(([x, y, z]) => x + ',' + y + ',' + z)), dk = [];
+      for (const [x, y, z, v] of L) if (v === 10 && !has.has(x + ',' + (y + 1) + ',' + z) && !has.has(x + ',' + (y + 2) + ',' + z) && by + y >= SEA) dk.push([bx + x + .5, by + y + 1, bz + z + best + .5]);
+      const cx = bx + 11, cz = bz + 7 + best; dk.sort((p, q) => Math.hypot(p[0] - cx, p[2] - cz) - Math.hypot(q[0] - cx, q[2] - cz));
+      st.boat = ['ship', cx, cz, dk.length]; return {x: cx, z: cz, y: by + 9, deck: dk.slice(0, 12), ship: {bx, bz: bz + best, by, cx, cz}}; }
     const deck = []; for (const [x, y, z, v] of L) { const X = bx + x, Z = bz + z + best, Y = by + y; if (!WET.has(x + ',' + z) && Y > SEA) continue; setW(X, Y, Z, v); }
     for (const [x, y, z, v] of L) { const X = bx + x, Z = bz + z + best, Y = by + y; if (v === 10 && gw(X, Y, Z) === 10 && !gw(X, Y + 1, Z) && !gw(X, Y + 2, Z) && Y >= SEA) deck.push([X + .5, Y + 1, Z + .5]); }
     for (const [x, z] of foot) try { markDirty(bx + x, bz + z + best); } catch (_) {}
     const cx = bx + 11, cz = bz + 7 + best; deck.sort((p, q) => Math.hypot(p[0] - cx, p[2] - cz) - Math.hypot(q[0] - cx, q[2] - cz));
     st.boat = [cx, cz, deck.length]; return {x: cx, z: cz, y: by + 9, deck: deck.slice(0, 12)}; }
+  U.SH = () => { const raw = atob(SH), L = []; for (let i = 0; i + 3 < raw.length; i += 4) L.push([raw.charCodeAt(i), raw.charCodeAt(i + 1), raw.charCodeAt(i + 2), raw.charCodeAt(i + 3)]); return L; };
   U.post = () => { U.sites = post(); return U.st; };
 })();
 
@@ -27526,8 +27536,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 // New and reset worlds get current.g35. The park is built in local coords: u = forward (towards the bridge / spawn), v = to the right; K.L maps them to world x,z.
 (function c181() {
   const U = window.__c181 = {st: null, err: null, zones: [], signs: [], ver: 0};
-  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g35 = save ? !!(save.c181 && save.c181.g35) : true; U.zones = (save && save.c181 && save.c181.z) || []; U.signs = (save && save.c181 && save.c181.sg) || []; U.ver++; } catch (_) {} return ew.apply(this, arguments); };
-  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g35) d.c181 = {g35: 1, z: U.zones, sg: U.signs}; } catch (_) {} return d; };
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) { current.g35 = save ? !!(save.c181 && save.c181.g35) : true; current.g36 = save ? !!(save.c181 && save.c181.g36) : true; } U.zones = (save && save.c181 && save.c181.z) || []; U.signs = (save && save.c181 && save.c181.sg) || []; U.ver++; } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g35) d.c181 = {g35: 1, g36: current.g36 ? 1 : 0, z: U.zones, sg: U.signs}; } catch (_) {} return d; };
   U.on = () => { try { return !!(current && current.g35 && current.g12 && !DIM.cur && !cityGen && W >= 600 && current.mode !== 'creative'); } catch (_) { return false; } };
   const N = (x, z) => x * D + z, inW = (x, z) => x > 2 && z > 2 && x < W - 3 && z < D - 3;
   const solid = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && b !== T.TORCH;
@@ -27558,7 +27568,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- the island ----------
   U.island = function (rnd, st) {
     const cx0 = MT_C[0], cz0 = MT_C[1];
-    const r = __c147.shape(cx0, cz0, rnd, st, 78), isle = r.isle; st.isleCells = isle.size;
+    const r = __c147.shape(cx0, cz0, rnd, st, current.g36 ? 92 : 78), isle = r.isle; st.isleCells = isle.size;
     const E = new Map(), bq = []; for (const k of isle) { const x = (k / D) | 0, z = k - x * D; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !isle.has(N(x + dx, z + dz)))) { E.set(k, 1); bq.push(k); } }
     for (let i = 0; i < bq.length; i++) { const k = bq[i], x = (k / D) | 0, z = k - x * D, e = E.get(k); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = N(x + dx, z + dz); if (isle.has(n) && !E.has(n)) { E.set(n, e + 1); bq.push(n); } } }
     // flat sand plain at G, a sandy beach round the edge
@@ -27591,29 +27601,32 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       tomb: pts.length ? {x: tc[0], y: SEA - 26, z: tc[1], pts} : null, surf: pick, park: {f: [fx, fz], G}}; };
 })();
 
-/* ===================== GLX-C182 (v1.0.35): the pink terrazzo stepped pyramid, its chest room, and the stairs from the chest room down into the deep cave ===================== */
+/* ===================== GLX-C182 (v1.0.36): the pink terrazzo stepped pyramid, its chest room, and the stairs from the chest room down into the deep cave ===================== */
 (function c182() {
   const U = window.__c181; if (!U) return;
   const BLK = T.BLACKSTONE || 248, PL = T.PLANKS;
   U.pyramid = function (K, st) {
     const G = K.G, PU = -8, P = T.SANDSTONE;
-    // plinth (3 high) and the wide steps down in front
-    for (let k = 0; k < 3; k++) K.box(PU - 17, G + 1 + k, -17, PU + 17, G + 1 + k, 17, P);
-    for (let s = 1; s <= 3; s++) K.box(PU + 17 + s, G + 1, -10, PU + 17 + s, G + 3 - s, 10, P);
-    // three tiers: wall, a black band tucked under the overhang, then the overhanging cornice
-    const tiers = [[14, G + 4, G + 10], [10, G + 11, G + 16], [6, G + 17, G + 21]];
-    for (const [h, a, b] of tiers) { K.box(PU - h, a, -h, PU + h, b - 2, h, P); K.box(PU - h, b - 1, -h, PU + h, b - 1, h, BLK); K.box(PU - h - 1, b, -h - 1, PU + h + 1, b, h + 1, P); }
-    K.box(PU - 3, G + 22, -3, PU + 3, G + 22, 3, P);
-    // recessed entrance, big red panelled double doors standing open, a passage in to the hall
-    K.box(PU + 12, G + 4, -4, PU + 15, G + 10, 4, 0);
-    K.box(PU + 3, G + 4, -3, PU + 11, G + 8, 3, 0);
+    // v1.0.36: a true stepped pyramid - 21 courses, each one block in from the last, rising to a gold capstone (reads as a pyramid from far off)
+    const B = 20;
+    for (let k = 0; k <= B; k++) { const h = B - k; K.box(PU - h, G + 1 + k, -h, PU + h, G + 1 + k, h, P); }
+    K.B(PU, G + 2 + B, 0, T.GOLDBLOCK);
+    // a raised porch in front (floor level with the hall) and wide steps down to the sand
+    K.box(PU + B - 3, G + 1, -5, PU + B + 3, G + 3, 5, P);
+    for (let s = 1; s <= 3; s++) K.box(PU + B + 3 + s, G + 1, -5, PU + B + 3 + s, G + 3 - s, 5, P);
+    // the entrance cut into the face, big red panelled double doors standing open, a passage in to the hall
+    K.box(PU + 3, G + 4, -3, PU + B + 3, G + 8, 3, 0);
+    for (const v of [-4, 4]) K.box(PU + 12, G + 4, v, PU + B + 3, G + 9, v, BLK);
+    K.box(PU + 12, G + 9, -4, PU + B + 3, G + 9, 4, BLK);   // dark frame round the doorway
     for (const v of [-3, 3]) K.box(PU + 8, G + 4, v, PU + 11, G + 8, v, PL);
     K.Z('rdoor', PL, PU + 8, G + 4, -3, PU + 11, G + 8, 3);
-    K.box(PU + 12, G + 9, -4, PU + 15, G + 9, 4, BLK);   // dark lintel band over the doorway
+    for (const v of [-3, 3]) K.box(PU + B + 1, G + 4, v, PU + B + 3, G + 8, v, PL);
+    K.box(PU + B + 1, G + 8, -3, PU + B + 3, G + 8, 3, PL);
+    K.Z('rdoor', PL, PU + B + 1, G + 4, -3, PU + B + 3, G + 8, 3);
     K.box(PU - 4, G + 4, -5, PU + 3, G + 9, 5, 0);   // the hall
     for (const [u, v] of [[PU - 4, -5], [PU - 4, 5], [PU + 3, -5], [PU + 3, 5]]) K.torch(u, G + 4, v);
     K.torch(PU + 10, G + 4, 0);
-    K.Z('pink', P, PU - 21, G + 1, -21, PU + 21, G + 22, 21);
+    K.Z('pink', P, PU - 24, G + 1, -24, PU + 26, G + 23, 24);
     // the stairs down (north/back) to the chest room
     const FY = G + 3 - 18, cells = [];
     for (let i = 0; i <= 18; i++) { const u = PU - 5 - i, f = G + 3 - i; for (let v = -1; v <= 1; v++) for (let y = f + 1; y <= f + 3; y++) cells.push([u, y, v]); }
@@ -27628,7 +27641,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     K.B(PU - 35, FY + 1, -1, 150); K.B(PU - 35, FY + 1, 1, 150); K.B(PU - 35, FY + 2, -1, T.GOLDBLOCK); K.B(PU - 35, FY + 2, 1, T.GOLDBLOCK);
     const L = [[IT.GOLDINGOT, 4, 0.9], [IT.BONE || 171, 4, 0.7], [IT.DIAMOND, 1, 0.4], [IT.RUBY, 2, 0.5], [IT.ROTTEN || 320, 3, 0.6]].filter(r => r[0] != null);
     K.chest(PU - 36 + 1, FY + 1, 0, L);
-    st.pyr = 1; return {u: PU, ty: FY, door: K.W(PU + 16, G + 4, 0)}; };
+    st.pyr = 1; return {u: PU, ty: FY, door: K.W(PU + B + 4, G + 4, 0)}; };
   // after the deep cave is cut: the two stairways from the chest room go on down and open into it
   U.passages = function (K, p, st) {
     const PU = p.u, FY = p.ty, cells = [], flr = []; let low = 12;
@@ -27923,7 +27936,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
     g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.4; g.beginPath(); const a = PJ(x0, y1, z1), b = PJ(x1, y1, z1), c = PJ(x1, y1, z0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.stroke(); }
   const SHAPES = {
     cube: [[0, 0, 0, 1, 1, 1]], slab: [[0, 0, 0, 1, .5, 1]], carpet: [[0, 0, 0, 1, .1, 1]], panel: [[0, 0, 0, 1, .14, 1]],
-    stairs: [[0, 0, 0, 1, .5, 1], [0, .5, 0, 1, 1, .5]], corner: [[0, 0, 0, 1, .5, 1], [.5, .5, 0, 1, 1, .5]],
+    stairs: [[0, 0, 0, 1, .5, 1], [0, .5, 0, 1, 1, .5]], corner: [[0, 0, 0, 1, .5, 1], [.5, .5, 0, 1, 1, .5]], inner: [[0, 0, 0, 1, .5, 1], [0, .5, 0, 1, 1, .5], [.5, .5, .5, 1, 1, 1]],
     pane: [[.06, 0, .44, .94, 1, .56]], board: [[.04, .06, .8, .96, .94, .92]],
     post: [[.4, 0, .4, .6, 1, .6]], lamp: [[.42, 0, .42, .58, .72, .58], [.28, .72, .28, .72, 1, .72]],
     rail: [[.05, 0, .44, .17, .95, .56], [.83, 0, .44, .95, .95, .56], [.05, .78, .46, .95, .88, .54], [.05, .38, .46, .95, .48, .54]]};
@@ -27931,21 +27944,25 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
     g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(ISO / 2, ISO * .93, ISO * .34, ISO * .06, 0, 0, 7); g.fill();
     for (const b of SHAPES[shape] || SHAPES.cube) box(g, F, ...b); return c.toDataURL(); }
   const facesOf = id => { let f = FACES[id]; if (!f) return null; if (!Array.isArray(f)) f = [f, f, f, f, f, f]; const t = tex(f[2]), fr = tex(f[4]), r = tex(f[0]); return t && fr && r ? [t, fr, r] : null; };
-  const shapeOf = (id, n) => /corner stairs/.test(n) ? 'corner' : /carpet/.test(n) ? 'carpet' : /slab/.test(n) ? 'slab' : /panel/.test(n) ? 'panel' : /pane\b/.test(n) ? 'pane' : /stairs/.test(n) || (IS_STAIR[id] && id !== 145) ? 'stairs'
+  const shapeOf = (id, n) => /inner corner stairs/.test(n) ? 'inner' : /corner stairs/.test(n) ? 'corner' : /carpet/.test(n) ? 'carpet' : /slab/.test(n) ? 'slab' : /panel/.test(n) ? 'panel' : /pane\b/.test(n) ? 'pane' : /stairs/.test(n) || (IS_STAIR[id] && id !== 145) ? 'stairs'
     : /painting/.test(n) ? 'board' : /lamp post/.test(n) ? 'post' : /street lamp|lantern/.test(n) ? 'lamp' : /railing/.test(n) ? 'rail' : 'cube';
   const SKIPN = /water|lava|portal|wheat|potato|neep|farmland|reed|fern|grass$|thistle|sapling|bluebell|daffodil|dandelion|marker|activator|torch|door|fence|gate|bed\b|cauldron|cobweb/i;
   const MINE = U.MINE = {};
   const setIc = (id, u) => { MINE[id] = u; try { const S = (window.__c122 && __c122.setIcon) || (window.__c121 && __c121.setIcon); if (S) S(id, u); else ICONS[id] = u; } catch (_) { ICONS[id] = u; } ICONS[id] = u; delete ICON_KEY[id]; try { delete spriteMats[id]; } catch (_) {} };
   /* ---------- 3) corner stairs: items 331+, each places its stair as a fixed outer corner (entMeta.q + qf, so auto-connect leaves it alone) ---------- */
-  const CORN = U.CORN = {}, BV = [[0, -1], [-1, 0], [0, 1], [1, 0]], qbit = (sx, sz) => 1 << ((sx > 0 ? 1 : 0) + (sz > 0 ? 2 : 0));
+  const CORN = U.CORN = {}, BV = [[0, -1], [-1, 0], [0, 1], [1, 0]], HALF = [3, 5, 12, 10], qbit = (sx, sz) => 1 << ((sx > 0 ? 1 : 0) + (sz > 0 ? 2 : 0));
   function addCorners() { let id = 331; const mats = Object.keys(STAIRS).map(Number).concat([601, 602, 603, 604, 605, 606].filter(i => NAMES[i]));
     for (const st of mats) { const n = NAMES[st]; if (!n || !/stairs/i.test(n)) continue; const cid = id++; if (NAMES[cid] && !CORN[cid]) continue;
       CORN[cid] = {st, w: st > 600 ? st - 600 : 0}; NAMES[cid] = n.replace(/stairs/i, 'corner stairs');
       if (!ORDER.includes(cid)) ORDER.push(cid); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(cid)) CREATIVE_ALL.push(cid);
       try { if (FUEL && FUEL[st]) FUEL[cid] = FUEL[st]; } catch (_) {} U.corners++; }
+    for (const k of Object.keys(CORN).map(Number)) { const C = CORN[k]; if (C.inn) continue; const cid = k + 13; if (NAMES[cid] && !CORN[cid]) continue;   // v1.0.36: inner corners 344+
+      CORN[cid] = {st: C.st, w: C.w, inn: 1}; NAMES[cid] = NAMES[C.st].replace(/stairs/i, 'inner corner stairs');
+      if (!ORDER.includes(cid)) ORDER.push(cid); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(cid)) CREATIVE_ALL.push(cid);
+      try { if (FUEL && FUEL[C.st]) FUEL[cid] = FUEL[C.st]; } catch (_) {} U.corners++; }
     recipes(); }
   function recipes() { let ch = 0; for (const k in CORN) { const cid = +k, st = CORN[k].st; if (RECIPES.some(r => r.out === cid)) continue;
-      RECIPES.push(rc('2 ' + NAMES[cid], '3 ' + NAMES[st] + ' (an L)', cid, 2, [[st, 3]], 1)); ch++; } return ch; }
+      RECIPES.push(CORN[k].inn ? rc('3 ' + NAMES[cid], '4 ' + NAMES[st] + ' (a square)', cid, 3, [[st, 4]], 1) : rc('2 ' + NAMES[cid], '3 ' + NAMES[st] + ' (an L)', cid, 2, [[st, 3]], 1)); ch++; } return ch; }
   try { addCorners(); } catch (e) { warn('corners', e); }
   setInterval(() => { try { if (recipes()) { const g = $('recGrid'); if (g && typeof setCat === 'function' && typeof craftCat !== 'undefined') { const s = g.scrollTop; setCat(craftCat); $('recGrid').scrollTop = s; } } } catch (e) { warn('rec', e); } }, 2000);
   let cap = null;
@@ -27955,19 +27972,20 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
       let side = 1; try { const r0 = raycast(5, true); if (r0) { const d = lookDir(); side = { hx: P.x + d[0] * r0.t, hz: P.z + d[2] * r0.t }; } } catch (_) {}
       const t = C.st, save = inv[t]; inv[t] = MODE.infinite ? (save || 1) : 1; selId = t; cap = []; let r;
       try { r = ui.apply(this, arguments); } finally { const cells = cap; cap = null; if (save === undefined) delete inv[t]; else inv[t] = save; selId = v;
-        if (cells.length) { if (!MODE.infinite) inv[v] = Math.max(0, cnt(v) - 1); try { corner(cells[cells.length - 1], side); U.placed++; } catch (e) { warn('corner', e); } }
+        if (cells.length) { if (!MODE.infinite) inv[v] = Math.max(0, cnt(v) - 1); try { corner(cells[cells.length - 1], side, C); U.placed++; } catch (e) { warn('corner', e); } }
         try { renderHotbar(); } catch (_) {} }
       return r; }; } catch (e) { warn('useItem', e); }
-  function corner([x, y, z], hit) { const k = keyOf(x, y, z); let m = entMeta.get(k); if (!m) { m = {face: faceFromYaw()}; entMeta.set(k, m); }
+  function corner([x, y, z], hit, C) { const k = keyOf(x, y, z); let m = entMeta.get(k); if (!m) { m = {face: faceFromYaw()}; entMeta.set(k, m); }
     const f = (m.face | 0) & 3, [bx, bz] = BV[f], lx = -bz, lz = bx;
     let s = 1; if (hit && hit.hx !== undefined) { const d = (hit.hx - x - .5) * lx + (hit.hz - z - .5) * lz; s = d < 0 ? -1 : 1; }
-    m.q = qbit(bx + s * lx, bz + s * lz); m.qf = 1; try { dirtyAround(x, z); } catch (_) {} }
+    m.q = C && C.inn ? HALF[f] | qbit(-bx + s * lx, -bz + s * lz) : qbit(bx + s * lx, bz + s * lz); m.qf = 1; try { dirtyAround(x, z); } catch (_) {} }
   /* ---------- 4) icons: corners, the flat oak stairs and red pane, and every block still on a flat texture swatch ---------- */
+  U.kit = () => ({isoIcon, facesOf, setIc, shapeOf, tex});
   function icons() { let n = 0; const wood = w => { try { const P = window.__c121 && __c121.PLC; return P && P[w] ? tex(P[w]) : null; } catch (_) { return null; } };
     const want = new Set([...ORDER, ...(typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : []), ...Object.keys(CORN).map(Number)]);
     for (const id of want) { const nm = NAMES[id] || ''; if (!nm || MINE[id]) continue;
       let F = null, sh = null;
-      if (CORN[id]) { const C = CORN[id]; const w = C.w && wood(C.w); F = w ? [w, w, w] : facesOf(STAIRS[C.st] ? STAIRS[C.st][0] : C.st); sh = 'corner'; }
+      if (CORN[id]) { const C = CORN[id]; const w = C.w && wood(C.w); F = w ? [w, w, w] : facesOf(STAIRS[C.st] ? STAIRS[C.st][0] : C.st); sh = C.inn ? 'inner' : 'corner'; }
       else if (id === 164) { F = facesOf(10); sh = 'stairs'; }
       else if (id === 700) { const gl = tex('glass'); if (gl) { const c = cv(gl.width), g = c.getContext('2d'); g.drawImage(gl, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(235,60,20,.7)'; g.fillRect(0, 0, c.width, c.width); const t2 = cv(gl.width), g2 = t2.getContext('2d'); g2.fillStyle = 'rgba(200,40,14,.55)'; g2.fillRect(0, 0, c.width, c.width); g2.drawImage(c, 0, 0); F = [t2, t2, t2]; } sh = 'pane'; }
       else if (!ICONS[id] && id < 256 && FACES[id] && !SKIPN.test(nm)) { F = facesOf(id); sh = shapeOf(id, nm.toLowerCase()); }
@@ -27981,6 +27999,328 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
   setInterval(() => { try { const g = document.getElementById('recGrid'); if (!g || !g.offsetParent) return;
       for (const b of g.children) { const d = b.firstChild, r = RECIPES[b._ri]; if (!d || !r) continue; const u = ICONS[r.out]; if (u && d._u !== u) { if (d._u !== undefined || !d.style.backgroundImage.includes(u.slice(0, 40))) { d.style.backgroundImage = 'url(' + u + ')'; U.ref++; } d._u = u; } } } catch (e) { warn('refresh', e); } }, 700);
 })();
+
+/* ===================== GLX-C188 (v1.0.36): Reset world always uses the newest map - an old page left open (or cached) is caught and updated first ===================== */
+(function c188() {
+  const S = window.__c188 = {checks: 0, stale: null, live: null, blocked: 0};
+  const mine = () => { try { if (window.__c99 && __c99.build) return __c99.build; for (const n of document.head.childNodes) if (n.nodeType === 8) { const m = /glencraft-build: ([a-z0-9-]+)/.exec(n.nodeValue); if (m) return m[1]; } } catch (_) {} return null; };
+  const remote = () => !!(/^https?:/.test(location.protocol) && !/localhost|127\.0\.0\.1/.test(location.host));
+  let lastAt = 0, pending = null;
+  // ask the live site which build it serves (first 2 KB only, never from cache); tests can set window.__c188live
+  function check(force) {
+    if (pending) return pending;
+    if (!force && performance.now() - lastAt < 120000 && S.stale !== null) return Promise.resolve(S.stale);
+    const me = mine(); if (!me) return Promise.resolve(false);
+    const get = window.__c188live !== undefined ? Promise.resolve(window.__c188live) : !remote() ? Promise.resolve(null) :
+      fetch(location.origin + location.pathname + '?nc=' + Date.now(), {cache: 'no-store', headers: {Range: 'bytes=0-2047'}}).then(r => r.text()).then(t => { const m = /glencraft-build: ([a-z0-9-]+)/.exec(t); return m && m[1]; });
+    S.checks++;
+    pending = get.then(live => { lastAt = performance.now(); S.live = live || null; S.stale = !!(live && live !== me); if (S.stale) banner(); return S.stale; })
+      .catch(() => false).finally(() => { pending = null; });
+    return pending;
+  }
+  function update() { try { if (started) saveWorld(true); } catch (_) {} setTimeout(() => location.replace(location.origin + location.pathname + '?v=' + (S.live || Date.now())), 800); }
+  function banner() {
+    if (document.getElementById('c99upd')) return;
+    const el = document.createElement('div'); el.id = 'c99upd';
+    el.style.cssText = 'position:fixed;right:10px;bottom:10px;z-index:71;background:rgba(20,28,22,.95);color:#f3ead2;border:2px solid #7fbf6a;border-radius:12px;padding:10px 14px;font:14px system-ui,sans-serif';
+    el.innerHTML = 'A newer version is out. <button style="margin-left:8px;padding:6px 12px;font:600 14px system-ui">Update now</button>';
+    document.body.appendChild(el); el.querySelector('button').onclick = update;
+  }
+  // a phone tab left open for hours never reloads: check again when the game comes back to the front
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(false); });
+  window.addEventListener('pageshow', e => { if (e.persisted) check(true); });
+  setInterval(() => { if (document.visibilityState === 'visible') check(false); }, 30 * 60000);
+  // opening the reset question starts a fresh check; saying Yes on an out-of-date page updates first instead of building the old map
+  document.addEventListener('click', e => {
+    const t = e.target && e.target.closest ? e.target.closest('#resetWorldBtn, #resetYes') : null; if (!t) return;
+    if (t.id === 'resetWorldBtn') { check(true); return; }
+    if (DIM.cur || !S.stale) return;
+    e.preventDefault(); e.stopImmediatePropagation(); S.blocked++;
+    try { document.getElementById('resetNo').click(); } catch (_) {}
+    banner(); toast('This page is an old version - updating now. Then tap Reset world again for the new map.');
+    setTimeout(update, 1200);
+  }, true);
+  // belt and braces: an overworld reset is always a brand-new world, so it always gets the current layout flags
+  const ew = enterWorld; enterWorld = function (save) {
+    if (!save && window.__c105 && __c105.phase === 'gen') { S.resets = (S.resets || 0) + 1; try { if (window.__c181) { __c181.zones = []; __c181.signs = []; } } catch (_) {} }
+    const r = ew.apply(this, arguments);
+    try { if (!save && current && current.mode !== 'creative' && !current.g35) { console.warn('c188: g35 was off after a new world'); current.g35 = true; } } catch (_) {}
+    return r; };
+})();
+
+/* ===================== GLX-C189 (v1.0.36): settling snow + snowy mountain tops ===================== */
+// No free block ids, so snow is a per-column overlay (like the park paint): SN[x*D+z] = level 0-4 (bits 0-2), 64 = permanent, 128 = snow-block cap.
+// SNY holds the top block it sits on - dig that block or build over it and the snow there goes. One mesh per chunk, inside the chunk's group (blockGroup).
+(function c189() {
+  const U = window.__c189 = {n: 0, caps: 0, edge: 0, settled: 0, melted: 0, meshes: 0, ms: 0, err: null, lastSnow: -9, gd: 0};
+  let SN = null, SNY = null, act = new Set(), pendCaps = false, capAt = 0, lastGD = null;
+  const dirty = new Set();
+  const ok = () => { try { return !!(started && current && !DIM.cur && !cityGen && (typeof genVer === 'undefined' || genVer === GEN9)); } catch (_) { return false; } };
+  const alloc = () => { if (!SN || SN.length !== W * D) { SN = new Uint8Array(W * D); SNY = new Uint8Array(W * D); act = new Set(); } };
+  const cid = (x, z) => Math.floor(x / CH) * 64 + Math.floor(z / CH);
+  const topY = (x, z) => { const b0 = x * H * D + z; for (let y = H - 1; y > 0; y--) { const b = world[b0 + y * D]; if (b && b !== T.WATER && b !== T.LAVA && b !== T.TORCH && PLANT[b] !== 1) return y; } return 0; };
+  const GROUNDS = new Set([T.STONE, T.GRASS, T.DIRT, T.GRAVEL, T.HEATHER, T.PEAT, T.PODZOL, T.MOSS, T.DEEPSLATE, T.SAND].filter(v => v !== undefined));
+  // can snow lie on top of this column? (open sky, not water, not doors/fences/torches)
+  function canLie(x, z, t) { if (t < 1 || t >= H - 1) return false; const b = world[(x * H + t) * D + z], a = world[(x * H + t + 1) * D + z];
+    if (a === T.WATER || a === T.LAVA || b === T.LAVA || b === T.FIRE) return false; if (ENT[b] && !LEAFY[b]) return false; return true; }
+  // ---------- texture + material ----------
+  const tc = document.createElement('canvas'); tc.width = tc.height = 64; { const g = tc.getContext('2d'); g.fillStyle = '#f4f7fb'; g.fillRect(0, 0, 64, 64);
+    let s = 5; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 340; i++) { g.fillStyle = ['#ffffff', '#e3eaf3', '#d6e0ec', '#fbfdff'][i % 4]; const w = 1 + r() * 3; g.fillRect(r() * 64, r() * 64, w, w); } }
+  const tex = new THREE.CanvasTexture(tc); tex.magFilter = THREE.NearestFilter; tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  const mat = new THREE.MeshLambertMaterial({map: tex, color: 0xffffff}); U.mat = mat;
+  // ---------- per-chunk mesh ----------
+  function quad(A, p, n, uv) { const b = A.p.length / 3; for (let v = 0; v < 4; v++) { A.p.push(p[v][0], p[v][1], p[v][2]); A.n.push(n[0], n[1], n[2]); A.u.push(uv[v][0], uv[v][1]); } A.i.push(b, b + 1, b + 2, b, b + 2, b + 3); }
+  function box(A, x0, y0, z0, x1, y1, z1, sides) {
+    const v0 = 0, v1 = Math.min(1, y1 - y0);
+    quad(A, [[x0, y1, z1], [x1, y1, z1], [x1, y1, z0], [x0, y1, z0]], [0, 1, 0], [[0, 0], [1, 0], [1, 1], [0, 1]]);
+    if (sides & 1) quad(A, [[x1, y0, z1], [x1, y0, z0], [x1, y1, z0], [x1, y1, z1]], [1, 0, 0], [[0, v0], [1, v0], [1, v1], [0, v1]]);
+    if (sides & 2) quad(A, [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]], [-1, 0, 0], [[0, v0], [1, v0], [1, v1], [0, v1]]);
+    if (sides & 4) quad(A, [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], [0, 0, 1], [[0, v0], [1, v0], [1, v1], [0, v1]]);
+    if (sides & 8) quad(A, [[x1, y0, z0], [x0, y0, z0], [x0, y1, z0], [x1, y1, z0]], [0, 0, -1], [[0, v0], [1, v0], [1, v1], [0, v1]]);
+  }
+  const NB = [[1, 0, 1], [-1, 0, 2], [0, 1, 4], [0, -1, 8]];
+  const thick = l => 0.0625 * (1 + l);
+  function surf(x, z) { if (x < 0 || z < 0 || x >= W || z >= D) return 999; const i = x * D + z, s = SN[i]; const t = topY(x, z); if (!s || SNY[i] !== t) return t + 1; return s & 128 ? t + 1.003 : t + 1 + thick(s & 7); }
+  function meshChunk(cx, cz) {
+    const grp = chunkObjs.get(cx * 64 + cz); if (!grp) return;
+    for (const c of grp.children.slice()) if (c.userData.c189) { grp.remove(c); c.geometry.dispose(); }
+    if (!SN || SN.length !== W * D || DIM.cur) return;
+    const A = {p: [], n: [], u: [], i: []}, x0 = cx * CH, z0 = cz * CH, x1 = Math.min(W, x0 + CH), z1 = Math.min(D, z0 + CH);
+    for (let x = x0; x < x1; x++) for (let z = z0; z < z1; z++) { const i = x * D + z, s = SN[i]; if (!s) continue;
+      const t = topY(x, z); if (SNY[i] !== t || !canLie(x, z, t)) { SN[i] = 0; SNY[i] = 0; act.delete(i); continue; }
+      if (s & 128) { let sd = 0; for (const [dx, dz, bit] of NB) { const X = x + dx, Z = z + dz; if (X < 0 || Z < 0 || X >= W || Z >= D || !solid(X, t, Z)) sd |= bit; }
+        const e = 0.003; box(A, x - (sd & 2 ? e : 0), t, z - (sd & 8 ? e : 0), x + 1 + (sd & 1 ? e : 0), t + 1 + e, z + 1 + (sd & 4 ? e : 0), sd); continue; }
+      const top = t + 1 + thick(s & 7); let sd = 0;
+      for (const [dx, dz, bit] of NB) if (surf(x + dx, z + dz) < top - 0.01) sd |= bit;
+      box(A, x, t + 1, z, x + 1, top, z + 1, sd); }
+    if (!A.i.length) return;
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(A.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(A.n, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(A.u, 2)); g.setIndex(A.i); g.computeBoundingSphere();
+    const m = new THREE.Mesh(g, mat); m.userData.c189 = 1; grp.add(m); U.meshes++;
+  }
+  U.meshChunk = meshChunk;
+  const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); try { if (SN && !DIM.cur) { dirty.delete(cx * 64 + cz); meshChunk(cx, cz); } } catch (e) { U.err = 'mesh ' + e; } return r; };
+  // ---------- snowcaps on the high tops (new and reset worlds, made once, never melt) ----------
+  function makeCaps() {
+    alloc(); const t0 = performance.now(); let caps = 0, edge = 0; const fbm = typeof g9fbm === 'function' ? g9fbm : null, base = U.capY = window.__c189capY || (() => { const hs = []; for (let x = 2; x < W - 2; x += 4) for (let z = 2; z < D - 2; z += 4) { const t = topY(x, z); if (t > SEA + 2) hs.push(t); } if (hs.length < 500) return 87; hs.sort((p, q) => p - q); return Math.max(74, Math.min(87, hs[Math.floor(hs.length * 0.996)] + 1)); })();   // v1.0.36: lower hills get caps too
+    const gc = typeof g9cols !== 'undefined' && g9cols && g9cols.length === W * D * 2 ? g9cols : null;
+    for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
+      if (gc && gc[(x * D + z) * 2] < base - 12) continue;
+      const t = topY(x, z); if (t < base - 8 || !canLie(x, z, t)) continue;
+      const n = fbm ? fbm(x / 21 + 5.3, z / 21 - 2.1, 3) : 0, th = base + n * 8 + (((x * 73856093) ^ (z * 19349663)) >>> 0) % 3 - 1;
+      const b = world[(x * H + t) * D + z], i = x * D + z;
+      if (t >= th && GROUNDS.has(b)) { SN[i] = 128 | 64; SNY[i] = t; caps++; }
+      else if (t >= th - 3 && (GROUNDS.has(b) || LEAFY[b] || (window.__NAT && __NAT[b]))) { SN[i] = 64 | Math.max(1, Math.min(3, 1 + Math.floor(t - (th - 3)))); SNY[i] = t; edge++; } }
+    U.caps = caps; U.edge = edge; U.capMs = Math.round(performance.now() - t0); current.c189caps = 1;
+    for (const id of chunkObjs.keys()) dirty.add(id);
+  }
+  U.makeCaps = makeCaps;
+  // ---------- settling + melting ----------
+    function tick() {
+    if (!ok()) return; alloc();
+    if (pendCaps && !(window.__c105 && __c105.phase)) { if (!capAt) capAt = performance.now() + 6000; else if (performance.now() > capAt) { pendCaps = false; capAt = 0; try { makeCaps(); } catch (e) { U.err = 'caps ' + e; } } }
+    let dd = lastGD === null ? 0 : ((dayClock - lastGD + CYCLE) % CYCLE) / CYCLE; if (dd > 0.5) dd = 0; lastGD = dayClock; const gd = U.gd = U.gd + dd;
+    const snowing = !!window.__snowing && !(window.__c105 && __c105.phase);
+    if (snowing) { U.lastSnow = gd; const force = !!window.__forceSnow, minY = (window.__snowY || SEA + 30) - 14, R = 44, px = P.x, pz = P.z;
+      for (let k = 0; k < 160; k++) { const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * R, x = Math.floor(px + Math.cos(a) * r), z = Math.floor(pz + Math.sin(a) * r);
+        if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || !chunkObjs.has(cid(x, z))) continue; const t = topY(x, z); if ((!force && t < minY) || !canLie(x, z, t)) continue;
+        const i = x * D + z, s = SN[i]; if (s & 192) continue; if (Math.random() < 0.5) continue;
+        const lv = SNY[i] === t ? s & 7 : 0; if (lv >= 4) continue; SN[i] = lv + 1; SNY[i] = t; act.add(i); U.settled++; dirty.add(cid(x, z)); } }
+    else if (dd > 0 && gd - U.lastSnow > 0.2 && act.size) { const p = dd * 4 / 3 * (window.__c189fast || 1);
+      for (const i of act) { if (Math.random() >= p) continue; const s = SN[i]; if (s & 64) { act.delete(i); continue; } const lv = (s & 7) - 1;
+        if (lv <= 0) { SN[i] = 0; SNY[i] = 0; act.delete(i); } else SN[i] = lv; U.melted++; const x = Math.floor(i / D), z = i % D; if (chunkObjs.has(cid(x, z))) dirty.add(cid(x, z)); } }
+    let n = 0; const t0 = performance.now(); for (const id of dirty) { dirty.delete(id); try { meshChunk(Math.floor(id / 64), id % 64); } catch (e) { U.err = 'mesh ' + e; } if (++n >= 6 || performance.now() - t0 > 6) break; }
+    U.n = act.size; U.ms = Math.round((performance.now() - t0) * 10) / 10;
+  }
+  setInterval(() => { try { tick(); } catch (e) { U.err = 'tick ' + (e && e.stack || e); } }, 1000);
+  // ---------- save / load ----------
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments);
+    try { if (d && !DIM.cur && SN && SN.length === W * D) d.c189 = {sn: rleEncode(SN), sy: rleEncode(SNY), ls: U.lastSnow, gd: U.gd, caps: current && current.c189caps ? 1 : 0, pc: pendCaps ? 1 : 0}; } catch (_) {} return d; };
+  const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments);
+    try { if (d && !d.dim && d.world) { SN = null; alloc(); lastGD = null; const c = d.c189;
+        if (c && c.sn) { rleDecode(c.sn, SN); rleDecode(c.sy, SNY); for (let i = 0; i < SN.length; i++) if (SN[i] && !(SN[i] & 64)) act.add(i); U.lastSnow = typeof c.ls === 'number' ? c.ls : -9; U.gd = typeof c.gd === 'number' ? c.gd : 0; if (current) current.c189caps = c.caps; pendCaps = !!c.pc; } else pendCaps = false;
+        for (const id of chunkObjs.keys()) dirty.add(id); } } catch (e) { U.err = 'load ' + e; } return r; };
+  const ew = enterWorld; enterWorld = function (save) { if (!save) { SN = null; lastGD = null; U.lastSnow = -9; U.gd = 0; pendCaps = true; capAt = 0; try { current.c189caps = 0; } catch (_) {} } return ew.apply(this, arguments); };
+  U.sn = () => SN; U.sny = () => SNY; U.dirty = dirty; U.act = () => act;
+})();
+
+/* ===================== GLX-C190 (v1.0.36): sandstone redo - pale sand grain with horizontal layer bands (no wood look), on the block, stairs and corner stairs, with fresh icons ===================== */
+(function c190() {
+  const U = window.__c190 = {err: null, passes: 0, icons: 0, c: null};
+  const warn = (w, e) => { U.err = w + ' ' + String(e && e.stack || e); console.warn('c190', w, e); };
+  const KEY = 'sandstone', S = touchMode ? 256 : 512;
+  function paint() { const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), im = g.createImageData(S, S), d = im.data;
+    let s = 90127; const r = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
+    // strata: a few bands of slightly different sand tone, each wobbling gently (periodic in x so the tile repeats)
+    const bands = [], NB = 7; let y = 0; for (let i = 0; i < NB; i++) { const h = S / NB * (.7 + r() * .6); bands.push({y, h, t: (r() - .5) * 16, w: r() * 6.28}); y += h; }
+    const scale = S / y; bands.forEach(b => { b.y *= scale; b.h *= scale; });
+    const ph = [r() * 6.28, r() * 6.28], amp = S * .012;
+    const tone = yy => { for (let i = bands.length - 1; i >= 0; i--) if (yy >= bands[i].y) return [bands[i], i]; return [bands[0], 0]; };
+    const noise = new Float32Array(S * S); for (let i = 0; i < noise.length; i++) noise[i] = r();
+    for (let py = 0; py < S; py++) for (let px = 0; px < S; px++) { const a = px / S * 6.2832;
+      const yy = ((py + Math.sin(a + ph[0]) * amp + Math.sin(a * 3 + ph[1]) * amp * .35) % S + S) % S;
+      const [b, bi] = tone(yy), off = yy - b.y, edge = Math.min(off, b.h - off);
+      let k = 218 + b.t;                                   // pale sand
+      if (edge < S * .006) k -= 26; else if (edge < S * .014) k -= 10;   // thin darker seam between layers
+      if (off < b.h * .22) k += 6;                         // each layer a touch lighter at its top
+      const n = noise[py * S + px], n2 = noise[((py >> 1) * S + (px >> 1)) % noise.length];
+      k += (n - .5) * 22 + (n2 - .5) * 12;                 // fine sand grain
+      if (n > .993) k -= 40; else if (n < .006) k += 24;   // odd dark / bright grains
+      const i = (py * S + px) * 4; d[i] = Math.min(255, k + 14); d[i + 1] = Math.min(255, k * .9 + 6); d[i + 2] = Math.min(255, k * .66); d[i + 3] = 255; }
+    g.putImageData(im, 0, 0); return c; }
+  function css(c) { try { const s = document.createElement('canvas'); s.width = s.height = 64; s.getContext('2d').drawImage(c, 0, 0, 64, 64);
+    let el = document.getElementById('c190tex'); if (!el) { el = document.createElement('style'); el.id = 'c190tex'; document.head.appendChild(el); }
+    el.textContent = '.ic-' + KEY + '{background-image:url(' + s.toDataURL() + ') !important}'; } catch (_) {} }
+  const ids = () => { const out = [T.SANDSTONE]; for (const k in NAMES) { const n = NAMES[k] || ''; if (/^sandstone/i.test(n) && +k !== T.SANDSTONE) out.push(+k); } return out; };
+  function pass() { const c = U.c || (U.c = paint()); const ts = new Set();
+    try { if (texCache[KEY]) ts.add(texCache[KEY]); if (matCache[KEY] && matCache[KEY].map) ts.add(matCache[KEY].map); } catch (_) {}
+    for (const id of ids()) try { [].concat(BLOCK_MATS[id] || []).forEach(m => { if (m && m.map) ts.add(m.map); }); } catch (_) {}
+    try { if (window.__stMat) [].concat(__stMat(0, 168) || []).forEach(m => { if (m && m.map) ts.add(m.map); }); } catch (_) {}
+    if (texImg[KEY] !== c) { texImg[KEY] = c; css(c); try { AVG[KEY] = 0xdccb9a; } catch (_) {} }
+    for (const t of ts) if (t && t.image !== c && (t.image === undefined || t.image.width)) { t.image = c; t.needsUpdate = true; }
+    U.passes++; }
+  function icons() { const K = window.__c187 && __c187.kit && __c187.kit(); if (!K) return false; const F = [U.c, U.c, U.c];
+    for (const id of ids()) { const nm = (NAMES[id] || '').toLowerCase(); try { K.setIc(id, K.isoIcon(F, K.shapeOf(id, nm))); U.icons++; } catch (e) { warn('ic' + id, e); } }
+    try { renderHotbar(); } catch (_) {} return true; }
+  let n = 0, iconsDone = false; const iv = setInterval(() => { try { if (typeof texDone !== 'undefined' && texDone < texTotal) return; pass();
+      if (!iconsDone && n > 6) iconsDone = icons(); } catch (e) { warn('pass', e); } if (++n > 60) clearInterval(iv); }, 500);
+})();
+
+/* ===================== GLX-C191 (v1.0.36): Admiral Skelp's longship sails - a moving ship (white wool sails) that comes close and lets the Admiral stare you down; once he is dead you can board it
+   (use / LT), steer with the stick and leave with B / sneak; ship position and the Admiral's death are saved ===================== */
+(function c191() {
+  const U = window.__c191 = {entity: true, ship: null, err: null, drove: 0, built: 0};
+  const warn = (w, e) => { U.err = w + ' ' + String(e && e.stack || e); console.warn('c191', w, e); };
+  const site = () => { const s = window.__c142 && __c142.sites; return s && s.boat && s.boat.ship ? s.boat : null; };
+  let S = null, G = null;   // S: {x, z, yaw, v, dead, by, lx: deck local}, G: three group
+  const SAILS = new Set([156, 78]);
+  function mesh(sh) { const L = __c142.SH(), has = new Map(); for (const [x, y, z, v] of L) has.set(x + ',' + y + ',' + z, v);
+    const by = sh.by, per = new Map(), g = new THREE.Group(), inner = new THREE.Group(); g.add(inner);
+    const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+    for (const [x, y, z, v0] of L) { if (by + y < SEA - 3) continue; const v = SAILS.has(v0) && y >= 12 ? T.WOOL : v0; let A = per.get(v); if (!A) per.set(v, A = {pos: [], nor: [], uv: [], col: [], ind: [], grp: []});
+      const x0 = x - 11, z0 = z - 7, y0 = by + y, solidN = (dx, dy, dz) => { const n = has.get((x + dx) + ',' + (y + dy) + ',' + (z + dz)); return n !== undefined && n !== 162 && n !== 227 && v !== 162 && v !== 227; };
+      const full = v !== 162 && v !== 227, s = full ? 0 : (v === 162 ? .375 : .44), X0 = x0 + s, X1 = x0 + 1 - s, Z0 = z0 + (v === 162 ? s : 0), Z1 = z0 + 1 - (v === 162 ? s : 0);
+      const F = [[[X1, y0, Z1], [X1, y0, Z0], [X1, y0 + 1, Z0], [X1, y0 + 1, Z1]], [[X0, y0, Z0], [X0, y0, Z1], [X0, y0 + 1, Z1], [X0, y0 + 1, Z0]], [[X0, y0 + 1, Z1], [X1, y0 + 1, Z1], [X1, y0 + 1, Z0], [X0, y0 + 1, Z0]],
+        [[X0, y0, Z0], [X1, y0, Z0], [X1, y0, Z1], [X0, y0, Z1]], [[X0, y0, Z1], [X1, y0, Z1], [X1, y0 + 1, Z1], [X0, y0 + 1, Z1]], [[X1, y0, Z0], [X0, y0, Z0], [X0, y0 + 1, Z0], [X1, y0 + 1, Z0]]];
+      for (let d = 0; d < 6; d++) { if (full && solidN(...DIRS[d])) continue; const b = A.pos.length / 3, sh2 = d === 2 ? 1 : d === 3 ? .55 : d < 2 ? .8 : .7;
+        for (const p of F[d]) { A.pos.push(p[0] - .0, p[1] - by, p[2]); A.nor.push(...DIRS[d]); A.col.push(sh2, sh2, sh2); }
+        A.uv.push(0, 0, 1, 0, 1, 1, 0, 1); A.ind.push(b, b + 1, b + 2, b, b + 2, b + 3); A.grp.push(d); } }
+    for (const [v, A] of per) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(A.pos, 3)); geo.setAttribute('normal', new THREE.Float32BufferAttribute(A.nor, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(A.uv, 2)); geo.setAttribute('color', new THREE.Float32BufferAttribute(A.col, 3)); geo.setIndex(A.ind);
+      const mm = BLOCK_MATS[v === 162 ? T.PLANKS : v]; if (Array.isArray(mm)) { let s0 = 0; for (const d of A.grp) { geo.addGroup(s0, 6, d); s0 += 6; } } geo.computeBoundingSphere();
+      const m = new THREE.Mesh(geo, mm); m.frustumCulled = false; inner.add(m); }
+    g.userData.oars = [new THREE.Object3D(), new THREE.Object3D()]; U.built++; return g; }
+  // ship forward is local +x (the prow); world forward for yaw is (-sin yaw, -cos yaw) as for rowing boats
+  const fwd = yaw => [-Math.sin(yaw), -Math.cos(yaw)];
+  const toW = (lx, lz) => { const [fx, fz] = fwd(S.yaw), rx = -fz, rz = fx; return [S.x + fx * lx + rx * lz, S.z + fz * lx + rz * lz]; };
+  function place(t) { if (!G) return; G.position.set(S.x, S.by + Math.sin(t * 1.1) * 0.06, S.z); G.rotation.set(Math.sin(t * 0.8) * 0.012, S.yaw + Math.PI / 2, Math.sin(t * 0.9) * 0.02); }
+  function wetAt(x, z) { const fx = Math.floor(x), fz = Math.floor(z); if (fx < 3 || fz < 3 || fx >= W - 3 || fz >= D - 3) return false; return getB(fx, SEA, fz) === T.WATER && getB(fx, SEA + 1, fz) === T.AIR && getB(fx, SEA + 3, fz) === T.AIR && getB(fx, SEA - 2, fz) === T.WATER; }
+  function clear(x, z, yaw) { const [fx, fz] = fwd(yaw), rx = -fz, rz = fx; for (const [a, b] of [[12, 1], [-8, 1], [7, 4], [7, -2], [-4, 4], [-4, -2], [2, 5], [2, -3], [2, 1]]) if (!wetAt(x + fx * a + rx * b, z + fz * a + rz * b)) return false; return true; }
+  function make(sh, st) { S = Object.assign({x: sh.cx, z: sh.cz, yaw: -Math.PI / 2, v: 0, dead: 0, by: sh.by, t: 0}, st || {}); S.by = sh.by;
+    const b = site(); if (b && b.deck && b.deck[0]) { S.dl = [b.deck[0][0] - sh.cx, b.deck[0][1], b.deck[0][2] - sh.cz]; }
+    try { G = mesh(sh); scene.add(G); } catch (e) { warn('mesh', e); G = null; } U.ship = S; place(0); }
+  function drop() { if (G) { scene.remove(G); G.traverse(o => { if (o.geometry) o.geometry.dispose(); }); } G = null; S = null; U.ship = null; if (riding && riding.c191) riding = null; }
+  // the deck point for the Admiral (original deck local offset, original orientation was yaw -pi/2 => local lx = +x offset, lz = +z offset)
+  const deckW = () => { const d = S.dl || [0, S.by + 11, 0], lx = d[0], lz = d[2]; const [x, z] = toW(lx, lz); return [x, d[1], z]; };
+  function skelps() { const s = window.__c143 && __c143.slots && __c143.slots.get('skelp'); return s ? s.a : []; }
+  const RIDE = {c191: 1, g: null, x: 0, y: 0, z: 0, yaw: 0, v: 0, t: 0, mob: null};
+  function tick(dt) { if (G) G.visible = !DIM.cur; if (!S || DIM.cur) return; S.t += dt; const b = site();
+    const sk = skelps().find(a => a && a.g && a.g.parent);
+    if (!S.dead) { const dx = P.x - S.x, dz = P.z - S.z, d = Math.hypot(dx, dz);
+      let want = 0; if (d < 80 && d > 11) { want = d > 30 ? 3.2 : 1.6; const ta = Math.atan2(-dx, -dz); let da = ta - S.yaw; while (da > Math.PI) da -= 6.2832; while (da < -Math.PI) da += 6.2832; S.yaw += Math.max(-1, Math.min(1, da)) * 0.45 * dt; if (Math.abs(da) > 1.2) want *= 0.4; }
+      S.v += (want - S.v) * Math.min(1, dt * 0.6); move(dt);
+      if (b) { const p = deckW(); b.x = S.x; b.z = S.z; b.deck = [p]; }
+      if (sk) { const p = deckW(); sk.frozen = true; sk.c191 = 1; sk.post = p; sk.g.position.set(p[0], p[1] + Math.sin(S.t * 1.1) * 0.06, p[2]); sk.vy = 0; sk.onGround = true;
+        try { const ya = Math.atan2(P.x - p[0], P.z - p[2]); sk.ang = ya; if (sk.head) { sk.head.rotation.x = -Math.atan2(P.y + 1.4 - p[1] - 1.6, Math.hypot(P.x - p[0], P.z - p[2])) * 0.6; } } catch (_) {} } }
+    else { if (b) b.deck = []; if (riding !== RIDE) { S.v *= Math.max(0, 1 - dt); move(dt); } }
+    if (riding !== RIDE) place(S.t); }
+  function move(dt) { const [fx, fz] = fwd(S.yaw), nx = S.x + fx * S.v * dt, nz = S.z + fz * S.v * dt;
+    if (clear(nx, nz, S.yaw)) { S.x = nx; S.z = nz; return true; } S.v *= -0.2; return false; }
+  // boarding (Admiral dead), driving, leaving
+  function looking() { if (!S || !G) return false; const d = lookDir(), o = [P.x, P.y + EYE, P.z]; for (let t = 0.5; t < 9; t += 0.5) { const x = o[0] + d[0] * t, y = o[1] + d[1] * t, z = o[2] + d[2] * t;
+      const dx = x - S.x, dz = z - S.z, [fx, fz] = fwd(S.yaw), lx = dx * fx + dz * fz, lz = dx * -fz + dz * fx; if (Math.abs(lx) < 11 && Math.abs(lz) < 4.5 && y > S.by + 8 && y < S.by + 15) return true; } return false; }
+  function board() { RIDE.g = G; riding = RIDE; P.yaw = S.yaw; U.drove++; try { toast('On the Admiral\'s longship: stick / W S to sail, A D to turn, B or sneak to step off'); } catch (_) {} }
+  function leave() { riding = null; try { boatExitLock = 0.5; } catch (_) {} let spot = null;
+    for (let r = 5; r <= 14 && !spot; r += 1.5) for (let a = 0; a < 16 && !spot; a++) { const x = Math.floor(S.x + Math.cos(a / 16 * 6.283) * r), z = Math.floor(S.z + Math.sin(a / 16 * 6.283) * r);
+      for (let y = SEA + 6; y >= SEA - 1; y--) { const g = getB(x, y, z); if (g !== T.AIR && g !== T.WATER && !PLANT[g] && getB(x, y + 1, z) === T.AIR && getB(x, y + 2, z) === T.AIR) { spot = [x + .5, y + 1, z + .5]; break; } } }
+    if (spot) { P.x = spot[0]; P.y = spot[1]; P.z = spot[2]; } else { const [fx, fz] = fwd(S.yaw); P.x = S.x - fz * 5.5; P.z = S.z + fx * 5.5; P.y = SEA + 1; } P.vy = 0; P.fallTop = null; S.v = 0; }
+  try { const ui = useItem; useItem = function () { try { if (riding === RIDE) { leave(); return; } if (!riding && S && S.dead && !DIM.cur && looking()) { board(); return; } } catch (e) { warn('use', e); } return ui.apply(this, arguments); }; } catch (e) { warn('useItem', e); }
+  try { const up = updatePlayer; updatePlayer = function (dt, mx, mz) { try { tick(dt); } catch (e) { warn('tick', e); }
+      if (riding !== RIDE) return up.apply(this, arguments);
+      if (!S) { riding = null; return up.apply(this, arguments); }
+      if (sneakHeld && !(typeof boatExitLock !== 'undefined' && boatExitLock > 0)) { leave(); return 0; } try { if (boatExitLock > 0) boatExitLock -= dt; } catch (_) {}
+      S.v += mz * 3.2 * dt; S.v *= Math.max(0, 1 - dt * 0.35); S.v = Math.max(-1.5, Math.min(5.5, S.v));
+      const turn = mx * 0.7 * dt * (S.v < -0.2 ? -1 : 1); S.yaw -= turn; P.yaw -= turn;
+      if (!move(dt) && Math.abs(S.v) > 1) try { boatSplash(0.5); } catch (_) {}
+      place(S.t); const [x, z] = toW(-2.5, 0); P.x = x; P.z = z; P.y = S.by + 11.05; P.vy = 0; P.onGround = true; P.fallTop = null; try { swimming = false; } catch (_) {}
+      return Math.abs(S.v) * dt; }; } catch (e) { warn('update', e); }
+  try { const km = killMob; killMob = function (a) { try { if (a && a.kind === 'nm12' && a.c191 && S) { S.dead = 1; const b = site(); if (b) b.deck = []; } } catch (_) {} return km.apply(this, arguments); }; } catch (e) { warn('kill', e); }
+  // save / load / new world
+  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && S) d.c191 = {x: +S.x.toFixed(2), z: +S.z.toFixed(2), yaw: +S.yaw.toFixed(3), dead: S.dead ? 1 : 0}; } catch (_) {} return d; }; } catch (e) { warn('ser', e); }
+  let pend = null; try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim && !DIM.cur) { drop(); pend = d.c191 || {}; } } catch (e) { warn('apply', e); } return r; }; } catch (e) { warn('apply', e); }
+  try { const ew = enterWorld; enterWorld = function (save) { if (!save) { drop(); pend = {}; } return ew.apply(this, arguments); }; } catch (e) { warn('enter', e); }
+  setInterval(() => { try { if (pend && !S && typeof started !== 'undefined' && started && !DIM.cur) { const b = site(); if (b) { make(b.ship, pend.x !== undefined ? pend : null); pend = null; } } } catch (e) { warn('make', e); pend = null; } }, 700);
+})();
+
+/* ===================== GLX-C192 (v1.0.36): the mainland river - two meandering arms that wind round the mainland, cross and rejoin (loops), varying width, sloped grassy banks, reeds, side ponds, outlets to the sea and the inner loch (new worlds only) ===================== */
+(function c192() {
+  const U = window.__c192 = {st: null, err: null};
+  const on = () => { try { return !!(current && current.g36 && current.g35 && !DIM.cur && W >= 600 && window.__c113 && __c113.G36 && __c113.G36()); } catch (_) { return false; } };
+  const NATL = new Uint8Array(256);
+  [T.GRASS, T.DIRT, T.STONE, T.SAND, T.GRAVEL, T.MUD, T.HEATHER, T.PEAT, T.BRGRASS, T.COALORE, T.IRONORE, T.COPPERORE, T.DEEPSLATE, T.SNOW, T.SANDSTONE, 179, 181, 185, 232, 233, 234, 142, 144, 248, 249].forEach(i => { if (i) NATL[i] = 1; });
+  const tree = b => b && (LEAFY[b] || LOGGY[b]);
+  function carve(seal) {
+    const t0 = performance.now(); let s = ((gSeed | 0) ^ 0x51a7e) >>> 0;
+    const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const N = W * D, cx = W >> 1, cz = (D >> 1) + 8, top = new Int16Array(N), ok = new Uint8Array(N);
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * D + z; for (let y = H - 2; y > 0; y--) { const b = world[idx(x, y, z)]; if (!b || PLANT[b] || tree(b)) continue; top[c] = y; ok[c] = NATL[b] ? 1 : 0; break; } }
+    // centre lines: [x, z, half-width]
+    const pts = [], ph = [rnd() * 6.28, rnd() * 6.28, rnd() * 6.28, rnd() * 6.28, rnd() * 6.28], at = (R, th) => [cx + R * Math.cos(th), cz + R * 1.06 * Math.sin(th)];
+    for (let arm = 0; arm < 2; arm++) for (let i = 0, M = 1400; i < M; i++) { const th = i / M * 6.2832;
+      const R = arm ? 163 - 20 * Math.sin(4 * th + ph[0] + 0.7) + 7 * Math.sin(7 * th + ph[2]) : 163 + 20 * Math.sin(4 * th + ph[0]) + 8 * Math.sin(9 * th + ph[1]);
+      const w = (arm ? 1.4 : 1.8) + 2.6 * (0.5 + 0.5 * Math.sin(3 * th + ph[3] + arm * 2)) + 0.8 * Math.max(0, Math.sin(11 * th + ph[4])); pts.push([...at(R, th), w]); }
+    // outlets (kept clear of the bridge lines): four to the open sea, two to the inner loch
+    const deg = Math.PI / 180, outs = [[28, 150, 236], [160, 150, 236], [225, 150, 236], [315, 150, 236], [112, 108, 160], [245, 108, 160]];
+    for (const [a, r0, r1] of outs) for (let R = r0; R <= r1; R += 0.7) { const th = (a + 4 * Math.sin(R / 9 + a)) * deg; pts.push([...at(R, th), 2 + 1.2 * Math.sin(R / 13 + a)]); }
+    // side ponds hung off the arms, plus a couple of lone ones
+    const ponds = [];
+    for (let k = 0; k < 8; k++) { const th = rnd() * 6.2832, side = rnd() < 0.5 ? -1 : 1, R = 163 + 20 * Math.sin(4 * th + ph[0]) + 8 * Math.sin(9 * th + ph[1]) + side * (8 + rnd() * 6), r = 4.5 + rnd() * 4.5; ponds.push([...at(R, th), r]); }
+    for (let k = 0; k < 3; k++) { const th = rnd() * 6.2832; ponds.push([...at(140 + rnd() * 50, th), 4 + rnd() * 3]); }
+    for (const p of ponds) pts.push(p);
+    // signed distance to the water edge (negative = in the water)
+    const sd = new Float32Array(N).fill(99), B = 15;
+    for (const [px, pz, r] of pts) { const R = Math.ceil(r + B), X0 = Math.round(px), Z0 = Math.round(pz);
+      for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const X = X0 + dx, Z = Z0 + dz; if (X < 3 || Z < 3 || X >= W - 3 || Z >= D - 3) continue; const v = Math.hypot(X + 0.5 - px, Z + 0.5 - pz) - r, c = X * D + Z; if (v < sd[c]) sd[c] = v; } }
+    const st = {water: 0, bank: 0, reeds: 0, trees: 0, skip: 0}, keep = c => { const x = (c / D) | 0, z = c - x * D; return Math.hypot(x - (W >> 1), z - (D >> 1)) < 112; };
+    const nb = (x, z) => { try { return __c113.nearBridge ? __c113.nearBridge(x, z, 4) : false; } catch (_) { return false; } }, cut = [], clearUp = (X, Z, from) => { for (let y = from; y < H - 1; y++) { const k = idx(X, y, Z), b = world[k]; if (!b) { if (y > from + 3 && !world[idx(X, y + 1, Z)] && !world[idx(X, y + 2, Z)]) break; continue; } if (tree(b)) cut.push([X, y, Z]); world[k] = 0; } };
+    for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) { const c = x * D + z, v = sd[c]; if (v > B) continue; const tp = top[c]; if (tp < SEA - 1 || keep(c)) continue;
+      if (nb(x, z)) { if (v > 0 || tp > SEA + 8) continue; let fine = true; for (let y = SEA - 3; y <= SEA + 3; y++) { const b = world[idx(x, y, z)]; if (b && !NATL[b] && !PLANT[b] && b !== T.WATER) { fine = false; break; } } if (!fine) { st.skip++; continue; }   // under a bridge deck: water below, deck kept
+        for (let y = SEA + 1; y <= SEA + 3; y++) world[idx(x, y, z)] = 0; for (let y = SEA - 1; y <= SEA; y++) world[idx(x, y, z)] = T.WATER; world[idx(x, SEA - 2, z)] = T.GRAVEL; st.under = (st.under || 0) + 1; continue; }
+      if (!ok[c]) { st.skip++; continue; }
+      if (v <= 0) { const dep = v < -2.5 ? 3 : v < -1.2 ? 2 : 1, bed = SEA - dep; clearUp(x, z, SEA + 1);
+        for (let y = bed + 1; y <= SEA; y++) world[idx(x, y, z)] = T.WATER; world[idx(x, bed, z)] = rnd() < 0.5 ? T.SAND : rnd() < 0.6 ? T.GRAVEL : (T.MUD || T.DIRT);
+        for (let y = bed - 1; y >= Math.max(2, bed - (seal ? 8 : 4)); y--) { const k = idx(x, y, z); if (!world[k] || world[k] === T.WATER || world[k] === T.LAVA) world[k] = T.STONE; }
+        top[c] = bed; st.water++; continue; }
+      const hb = SEA + 1 + Math.floor(v * 0.72 + 0.6 * Math.sin(x * 0.37 + z * 0.23));
+      if (tp > hb) { clearUp(x, z, hb + 1); world[idx(x, hb, z)] = v < 1.6 ? T.SAND : T.GRASS; if (world[idx(x, hb - 1, z)] === T.STONE) world[idx(x, hb - 1, z)] = T.DIRT; top[c] = hb; st.bank++; } }
+    // trees the river cut into: take the rest of each one away (no floating canopies)
+    const seen = new Set();
+    for (const [X0, Y0, Z0] of cut) for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const q = [[X0 + dx, Y0 + dy, Z0 + dz]];
+      while (q.length && seen.size < 60000) { const [x, y, z] = q.pop(); if (Math.abs(x - X0) > 5 || Math.abs(z - Z0) > 5 || y < 1 || y >= H - 1) continue; const k = idx(x, y, z); if (seen.has(k) || !tree(world[k])) continue; seen.add(k); world[k] = 0; st.trees++;
+        q.push([x + 1, y, z], [x - 1, y, z], [x, y + 1, z], [x, y - 1, z], [x, y, z + 1], [x, y, z - 1]); } }
+    // reeds along the low banks
+    const RD = T.REEDS || 239;
+    for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) { const c = x * D + z, v = sd[c]; if (v <= 0 || v > 2.6 || keep(c)) continue; const tp = top[c]; if (tp < SEA || tp > SEA + 2) continue; const b = world[idx(x, tp, z)];
+      if ((b === T.GRASS || b === T.SAND || b === T.DIRT) && !world[idx(x, tp + 1, z)] && rnd() < 0.42) { world[idx(x, tp + 1, z)] = RD; st.reeds++; } }
+    st.ms = Math.round(performance.now() - t0); U.st = st; return st; }
+  U.carve = carve;
+  // survival worlds: before c134's hill rivers and c131's caves (so tributaries join it and no cave runs under it); creative: after the rest, with a deeper seal
+  let done = false;
+  const hook = () => { const C = window.__c134; if (!C || C.__c192) return; const r0 = C.rivers; C.rivers = function () { try { if (on()) { carve(false); done = true; } } catch (e) { U.err = String(e && e.stack || e); } return r0.apply(this, arguments); }; C.__c192 = 1; };
+  hook();
+  const gen = generate; generate = function () { done = false; hook(); const r = gen.apply(this, arguments); try { if (!done && on()) carve(true); } catch (e) { U.err = String(e && e.stack || e); } return r; };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -27992,6 +28332,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.36', d:'2026-10-27', notes:["New: a bigger, closer map for new and reset worlds - the four castle and croft islands are larger and sit about 20 blocks of sea from the mainland, none of them touching, with open sea all round the edge and short bridges across", "New: the sand island with the pyramid park and the Sphinx has moved in close to the mainland's south-west corner, and the castles sit on the bigger islands", "New: a river now winds right round the mainland - two meandering arms that cross and rejoin in loops, wide in places and narrow in others, with sloping grassy and sandy banks, reeds, side ponds and outlets to the sea and the inner loch (new and reset worlds)", "New: snow settles on the ground when it snows and melts away over a few days, and the highest hilltops keep patchy snowcaps all year", "New: the pyramid is a true pyramid - 21 courses rising to a gold capstone, with red doors at the front and inside, the chest room and the stairs down to the deep cave", "New: inner corner stairs - craft 4 stairs into 3 (in a square); outer corners are a slab with one raised quarter, inner corners a slab with three, and you walk on them the way they look", "New: Admiral Skelp's longship now sails - with white wool sails it comes in close to you and he stands on deck watching you; once he is beaten you can board it with LT, steer with the stick and leave with B, and the ship stays where you leave it", "New: Reset world now always builds the new map, museum park and spawn-hill ores - if the page you have open is an old version, it updates itself first and then you tap Reset world again", "New: the game now checks for a newer version whenever you come back to it, not just when it first opens, so a phone tab left open for hours still gets the update banner", "Textures: sandstone redone as pale sand with fine grain and soft layer bands (no more wood look), on the blocks, stairs, corner stairs and their icons", "Mobs: Admiral Skelp no longer attacks - he stays on his ship and stares you down, says his line, and can still be beaten"]},
 {v:'v1.0.35', d:'2026-10-27', notes:["New: a new map - the mainland sits in the middle with the black castle island to the north, the skeleton castle island to the west, the clan castle island to the east, the sand island to the south-west and a forest croft island to the south-east, with sea between them all (new and reset worlds)", "New: every island has its own bridge from the mainland, and the held map shows the new layout with Pyramid Park and Croft Isle marked", "New: the sand island is now a desert museum park - a pink three-tier stepped pyramid with big red doors, a long dune behind it with a white chapel on top, two museums across a terracotta plaza, a sundial and red granite glyph fields", "New: the Great Sphinx lies beside the park - look behind its ear, or on top of its head, for the way into its hidden chamber", "New: the pyramid's chest room now opens onto stairs down into the deep cave, and the old duplicate tunnels under it are gone", "Textures: pink terrazzo, cream render, terracotta tiles, red granite, white and pink gravel and red panelled doors on the sand island", "Mobs: Barrow Bandagers now wait in the deep cave and in the Sphinx's chamber"]},
 {v:'v1.0.34', d:'2026-10-27', notes:["New: Copy tool and Template tool - two extra hotbar squares in your Test World that never break or run out", "New: Copy tool - LT sets the first corner, a see-through red box follows where you aim, LT again locks it, RT saves it with a name typed on the on-screen keyboard, B cancels", "New: Template tool - LT opens your saved templates (use or delete, with a Yes / No check), the chosen one shows as a blue ghost where you aim, LB / RB turn it, RT builds it, B puts it away", "New: templates are kept on this device for every world, so they survive Reset world and new maps", "New: a water pool near spawn in current, new and reset worlds", "New: caves now have small lava pools and underground streams that flow"]},
 {v:'v1.0.33', d:'2026-10-27', notes:["New: placeholder"]},
