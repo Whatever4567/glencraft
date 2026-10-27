@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1038a -->
+<!-- glencraft-build: v1039a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.38';
+const GAME_VERSION = 'v1.0.39';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19299,6 +19299,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.39', ["New: the Creative bag is now sorted into labelled groups like the crafting Blocks tab - planks by wood, logs, stairs, corner stairs, slabs, fences, gates, doors, walls, stone & brick, glass, wool & carpet, lighting, decor, then natural blocks, ores, plants, tools, armour, food and items - in the same order every time"]],
     ['v1.0.38', ["New: iron tools, armour, shield, railings, block and motorboat are now called silver everywhere (crafting list, item names, messages) and all their recipes use silver ingots - your saved items stay the same", "Textures: held doors of every wood type now show their own door design"]],
     ['v1.0.37', ["New: no more floating trees - leftover floating trees are cleared once, and natural logs, leaves and loose ground with nothing holding them up now fall", "New: felled trees topple over and break apart into logs, sticks and wood chips when they land - big trees drop far fewer logs (14 at most)", "New: loose leaves drift down and fade away", "New: smoother nights - no more freezes from tree-monster spawn checks or autosaves, and cave mobs no longer spawn or hang about far below you", "Mobs: mob voices are much louder and carry further (the Mob volume slider now goes up to 300%), with a gentle limiter so nothing distorts - the creeper alarm stays quieter than the rest", "New: diamonds are easier to find deep down (about twice as many below y 13) and silver ore is more common in the deepslate - new and reset worlds", "Textures: clearer coal, silver and lazurite ore - bigger, bolder specks on the same stone", "New: the crafting Blocks tab is sorted into labelled groups - planks, stairs, corner stairs, slabs, fences, gates, doors, stone & brick, glass & panes, wool & carpet, lighting and decor - in the same wood and stone order in every group", "New: stairs, corner stairs, slabs, carpets, doors and trapdoors look like themselves in your hand, in their own wood or stone"]],
     ['v1.0.36', ["New: a bigger, closer map for new and reset worlds - the four castle and croft islands are larger and sit about 20 blocks of sea from the mainland, none of them touching, with open sea all round the edge and short bridges across", "New: the sand island with the pyramid park and the Sphinx has moved in close to the mainland's south-west corner, and the castles sit on the bigger islands", "New: a river now winds right round the mainland - two meandering arms that cross and rejoin in loops, wide in places and narrow in others, with sloping grassy and sandy banks, reeds, side ponds and outlets to the sea and the inner loch (new and reset worlds)", "New: snow settles on the ground when it snows and melts away over a few days, and the highest hilltops keep patchy snowcaps all year", "New: the pyramid is a true pyramid - 21 courses rising to a gold capstone, with red doors at the front and inside, the chest room and the stairs down to the deep cave", "New: inner corner stairs - craft 4 stairs into 3 (in a square); outer corners are a slab with one raised quarter, inner corners a slab with three, and you walk on them the way they look", "New: Admiral Skelp's longship now sails - with white wool sails it comes in close to you and he stands on deck watching you; once he is beaten you can board it with LT, steer with the stick and leave with B, and the ship stays where you leave it", "New: Reset world now always builds the new map, museum park and spawn-hill ores - if the page you have open is an old version, it updates itself first and then you tap Reset world again", "New: the game now checks for a newer version whenever you come back to it, not just when it first opens, so a phone tab left open for hours still gets the update banner", "Textures: sandstone redone as pale sand with fine grain and soft layer bands (no more wood look), on the blocks, stairs, corner stairs and their icons", "Mobs: Admiral Skelp no longer attacks - he stays on his ship and stares you down, says his line, and can still be beaten"]],
@@ -28652,6 +28653,51 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
       return g; }; } catch (e) { warn('wrap', e); }
   try { setTimeout(() => { try { if (typeof heldId !== 'undefined' && typeof selId !== 'undefined') { heldId = -1; setHeld(selId); } } catch (_) {} }, 1700); } catch (_) {}
 })();
+
+/* ===================== GLX-C200 (v1.0.39): the Creative bag is grouped like the crafting Blocks tab - labelled groups (planks, logs, stairs, corner stairs,
+   slabs, fences, gates, doors, trapdoors, walls, stone & brick, glass & panes, wool & carpet, lighting, decor, then natural, ores, plants, tools, armour,
+   food, items) in one fixed order. Craftable / not craftable never reorders the crafting list (only dims it) ===================== */
+(function c200() {
+  const U = window.__c200 = {err: null, n: 0, heads: 0};
+  const warn = (w, e) => { U.err = w + ' ' + String(e && e.stack || e); console.warn('c200', w, e); };
+  const C = () => window.__c197;
+  const nm = id => String(NAMES[id] || '').toLowerCase();
+  const EXTRA = ['Natural', 'Ores', 'Plants', 'Tools', 'Armour', 'Food & brews', 'Items'];
+  const plant = (id, n) => (typeof isPlant === 'function' && (() => { try { return isPlant(id); } catch (_) { return false; } })())
+    || (!/spawn egg|cobweb/.test(n) && /flower|sapling|hawthorn|juniper|blackthorn|rowan tree|heather|thistle|dandelion|daffodil|bluebell|poppy|tall grass|fern|mushroom|reed|bush|blossom|cobweb|lily|bracken|gorse|seed/.test(n));
+  function cat(id) { try { return window.categorise ? window.categorise(id) : (PLACEABLE.has(id) ? 'blocks' : 'items'); } catch (_) { return 'items'; } }
+  // group index: 0-14 the crafting groups, 15+ the extras
+  function group(id) { const n = nm(id), c = cat(id), G = C().GROUPS.length;
+    if (c === 'tools') return G + 3; if (c === 'armour') return G + 4; if (c === 'food') return G + 5;
+    if (c !== 'blocks') return /\bore\b/.test(n) ? G + 1 : plant(id, n) ? G + 2 : G + 6;
+    if (/\bore\b/.test(n)) return G + 1;
+    if (/needles$|leaves$|^magma block|^soul sand/.test(n)) return G;
+    if (plant(id, n)) return G + 2;
+    if (/^(grass|dirt|sand|red sand|gravel|peat|mud|clay|snow|ice|packed ice|moss|podzol|farmland|bedrock|leaves|magma block|soul sand)\b|leaves$|needles$|^(stone|deep slate|deepslate|granite|basalt|obsidian|netherrack|hell)/.test(n) && !/brick|stairs|slab|wall|polished|tile/.test(n)) return G;
+    return C().group(id); }
+  U.group = group;
+  const label = g => g < C().GROUPS.length ? C().GROUPS[g] : EXTRA[g - C().GROUPS.length];
+  function sortBag() { try { const grid = document.getElementById('bagGrid'); if (!grid || !C()) return 0;
+      const btns = Array.from(grid.children).filter(b => b.dataset && /^bag-\d+$/.test(b.dataset.testid || ''));
+      const k = b => { const id = +b.dataset.testid.slice(4), kk = C().key(id), n = nm(id); return [group(id), kk[1], /^(log|leaves|planks)$/.test(n) ? 0 : kk[2], kk[3], id]; };
+      const cmp = (a, b) => { for (let i = 0; i < 5; i++) { if (a[i] < b[i]) return -1; if (a[i] > b[i]) return 1; } return 0; };
+      const ks = new Map(btns.map(b => [b, k(b)])); btns.sort((a, b) => cmp(ks.get(a), ks.get(b)));
+      grid.querySelectorAll('.c200h').forEach(h => h.remove());
+      let last = -1; U.heads = 0; const frag = document.createDocumentFragment();
+      for (const b of btns) { const g = ks.get(b)[0]; if (g !== last) { last = g; const h = document.createElement('div'); h.className = 'c200h'; h.textContent = label(g); h.dataset.testid = 'bag-group-' + g; frag.appendChild(h); U.heads++; } frag.appendChild(b); }
+      grid.appendChild(frag); U.sig = btns.length; U.n++; return btns.length; } catch (e) { warn('sort', e); return 0; } }
+  U.sortBag = sortBag;
+  try { const st = document.createElement('style'); st.id = 'glx200';
+    st.textContent = '#bagGrid .c200h{grid-column:1/-1;font:800 11px/1.2 system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#e8c46a;opacity:.9;padding:6px 2px 1px;border-bottom:1px solid rgba(232,196,106,.25);pointer-events:none}' +
+      '.recgrid .rec2.no{order:0 !important}';
+    document.head.appendChild(st); } catch (e) { warn('css', e); }
+  // sort whenever the bag is opened, and if new items get added to it
+  const check = () => { try { const grid = document.getElementById('bagGrid'); if (!grid) return; const n = grid.querySelectorAll('[data-testid^="bag-"]:not(.c200h)').length;
+      const first = grid.firstElementChild; if (n !== U.sig || !first || !first.classList.contains('c200h')) sortBag(); } catch (e) { warn('check', e); } };
+  U.check = check;
+  try { document.addEventListener('click', e => { if (e.target && e.target.closest && e.target.closest('#tabBag')) setTimeout(check, 0); }, true); } catch (_) {}
+  setInterval(check, 1500); setTimeout(check, 500);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -28663,6 +28709,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.39', d:'2026-10-27', notes:["New: the Creative bag is now sorted into labelled groups like the crafting Blocks tab - planks by wood, logs, stairs, corner stairs, slabs, fences, gates, doors, walls, stone & brick, glass, wool & carpet, lighting, decor, then natural blocks, ores, plants, tools, armour, food and items - in the same order every time"]},
 {v:'v1.0.38', d:'2026-10-27', notes:["New: iron tools, armour, shield, railings, block and motorboat are now called silver everywhere (crafting list, item names, messages) and all their recipes use silver ingots - your saved items stay the same", "Textures: held doors of every wood type now show their own door design"]},
 {v:'v1.0.37', d:'2026-10-27', notes:["New: no more floating trees - leftover floating trees are cleared once, and natural logs, leaves and loose ground with nothing holding them up now fall", "New: felled trees topple over and break apart into logs, sticks and wood chips when they land - big trees drop far fewer logs (14 at most)", "New: loose leaves drift down and fade away", "New: smoother nights - no more freezes from tree-monster spawn checks or autosaves, and cave mobs no longer spawn or hang about far below you", "Mobs: mob voices are much louder and carry further (the Mob volume slider now goes up to 300%), with a gentle limiter so nothing distorts - the creeper alarm stays quieter than the rest", "New: diamonds are easier to find deep down (about twice as many below y 13) and silver ore is more common in the deepslate - new and reset worlds", "Textures: clearer coal, silver and lazurite ore - bigger, bolder specks on the same stone", "New: the crafting Blocks tab is sorted into labelled groups - planks, stairs, corner stairs, slabs, fences, gates, doors, stone & brick, glass & panes, wool & carpet, lighting and decor - in the same wood and stone order in every group", "New: stairs, corner stairs, slabs, carpets, doors and trapdoors look like themselves in your hand, in their own wood or stone"]},
 {v:'v1.0.36', d:'2026-10-27', notes:["New: a bigger, closer map for new and reset worlds - the four castle and croft islands are larger and sit about 20 blocks of sea from the mainland, none of them touching, with open sea all round the edge and short bridges across", "New: the sand island with the pyramid park and the Sphinx has moved in close to the mainland's south-west corner, and the castles sit on the bigger islands", "New: a river now winds right round the mainland - two meandering arms that cross and rejoin in loops, wide in places and narrow in others, with sloping grassy and sandy banks, reeds, side ponds and outlets to the sea and the inner loch (new and reset worlds)", "New: snow settles on the ground when it snows and melts away over a few days, and the highest hilltops keep patchy snowcaps all year", "New: the pyramid is a true pyramid - 21 courses rising to a gold capstone, with red doors at the front and inside, the chest room and the stairs down to the deep cave", "New: inner corner stairs - craft 4 stairs into 3 (in a square); outer corners are a slab with one raised quarter, inner corners a slab with three, and you walk on them the way they look", "New: Admiral Skelp's longship now sails - with white wool sails it comes in close to you and he stands on deck watching you; once he is beaten you can board it with LT, steer with the stick and leave with B, and the ship stays where you leave it", "New: Reset world now always builds the new map, museum park and spawn-hill ores - if the page you have open is an old version, it updates itself first and then you tap Reset world again", "New: the game now checks for a newer version whenever you come back to it, not just when it first opens, so a phone tab left open for hours still gets the update banner", "Textures: sandstone redone as pale sand with fine grain and soft layer bands (no more wood look), on the blocks, stairs, corner stairs and their icons", "Mobs: Admiral Skelp no longer attacks - he stays on his ship and stares you down, says his line, and can still be beaten"]},
