@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1027a -->
+<!-- glencraft-build: v1028a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.27';
+const GAME_VERSION = 'v1.0.28';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -15371,7 +15371,7 @@ var __TA = null;
     && m.map.repeat.x === 1 && m.map.repeat.y === 1 && m.map.offset.x === 0 && m.map.offset.y === 0 && !m.envMap && !m.lightMap && !m.normalMap && !m.bumpMap && !m.wireframe;
   function layerOf(m) { let L = byMat.get(m); if (L !== undefined) return L; if (!ok(m) || layers.length >= 250) { byMat.set(m, null); return null; }
     const em = m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.001; if (em && EM.length >= 8) { byMat.set(m, null); return null; }
-    if (layers.length >= cap) { alloc(Math.min(256, Math.max(PHONE ? 24 : 40, Math.ceil(cap * 1.5)))); for (const L2 of layers) if (ready(L2.m)) upload(L2); dirtyMip = true; }
+    if (layers.length >= cap) { alloc(Math.min(256, Math.max(PHONE ? 24 : 40, Math.ceil(cap * 1.5), window.__taNeed | 0))); for (const L2 of layers) if (ready(L2.m)) upload(L2); dirtyMip = true; }
     L = {i: layers.length, m, up: 0}; layers.push(L); byMat.set(m, L); if (em || m === BLOCK_MATS[T.REDORE] || m === BLOCK_MATS[69]) EM.push(L);
     if (ready(m)) { upload(L); dirtyMip = true; } return L; }
   // per block type: 6 face layers (x+, x-, y+, y-, z+, z-), or null when the type keeps its own material
@@ -16991,8 +16991,8 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
   const ID = k => (IT[k] !== undefined ? IT[k] : T[k]);
   // ---------- faces: one painted texture per look x mood (no separate eye pieces -> nothing can poke through) ----------
   const LOOKS = {
-    hunter: {skin: '#e3b08c', hair: '#141414', brow: '#141414', iris: '#3a6a9a', stubble: null, shirt: 0x2f4f7a, hairHex: 0x141414, skinHex: 0xe3b08c},   // Hamish: black hair, no beard
-    miner: {skin: '#b97c52', hair: '#3a2414', brow: '#2a180c', iris: '#5a3a1a', stubble: '#5a3a26', shirt: 0x6a4a2a, hairHex: 0x3a2414, skinHex: 0xb97c52}   // Angus: tanned, stubble
+    hunter: {skin: '#e3b08c', hair: '#141414', brow: '#141414', iris: '#2f6fb0', stubble: null, shirt: 0x2f4f7a, hairHex: 0x141414, skinHex: 0xe3b08c},   // Hamish: black hair, no beard
+    miner: {skin: '#b97c52', hair: '#3a2414', brow: '#2a180c', iris: '#2f6fb0', stubble: '#5a3a26', shirt: 0x6a4a2a, hairHex: 0x3a2414, skinHex: 0xb97c52}   // Angus: tanned, stubble
   };
   const texC = new Map();
   function faceTex(role, mood) {
@@ -17023,7 +17023,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     else if (mood === 'angry') { px(11, 25, 10, 1, m); px(10, 26, 1, 1, m); px(21, 26, 1, 1, m); px(12, 24, 8, 1, '#f0e8e0'); px(12, 23, 8, 1, m); }
     else if (mood === 'confused') { px(17, 23, 4, 3, m); px(18, 24, 2, 1, '#2a0c08'); }
     else if (mood === 'sleep') { px(14, 24, 4, 2, m); }
-    else px(11, 24, 10, 1, m);   // focused: a firm straight line
+    else { px(10, 23, 12, 3, '#b8665a'); px(11, 24, 10, 1, '#2a0806'); }   // focused: lips you can see (v1.0.28)
     const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
     texC.set(k, t); return t;
   }
@@ -19152,11 +19152,12 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   function faceF(li, mood) { const k = li + mood; if (fTex.has(k)) return fTex.get(k); const L = FL[li % FL.length];
     const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); const px = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
     px(0, 0, 32, 32, L.skin); px(0, 0, 32, 4, L.beard); px(2, 10, 3, 3, 'rgba(200,80,70,.35)'); px(27, 10, 3, 3, 'rgba(200,80,70,.35)');
-    for (const ex of [8, 19]) { if (mood === 'sleep') { px(ex, 14, 5, 1, '#5a3a2a'); continue; } px(ex, 12, 5, 4, '#f4f1ea'); px(ex + 1, 12, 3, 4, '#4a6a3a'); px(ex + 2, 13, 1, 2, '#0c0e10'); }
+    for (const ex of [8, 19]) { if (mood === 'sleep') { px(ex, 14, 5, 1, '#5a3a2a'); continue; } px(ex, 12, 5, 4, '#f4f1ea'); px(ex + 1, 12, 3, 4, '#2f6fb0'); px(ex + 2, 13, 1, 2, '#0c0e10'); }
     if (mood === 'confused') { px(7, 7, 7, 2, L.beard); px(19, 10, 7, 2, L.beard); } else { px(7, 10, 7, 2, L.beard); px(19, 10, 7, 2, L.beard); }
     px(14, 16, 4, 4, 'rgba(150,60,40,.35)');
     px(3, 20, 26, 12, L.beard); px(0, 14, 4, 18, L.beard); px(28, 14, 4, 18, L.beard);   // big bushy beard
-    if (mood === 'confused') { px(14, 23, 4, 3, '#3a1208'); } else if (mood !== 'sleep') px(11, 23, 10, 1, '#5a1a12'); else px(14, 23, 4, 2, '#5a1a12');
+    px(10, 22, 12, 4, '#c27a66');   // v1.0.28: lips you can see through the beard
+    if (mood === 'confused') { px(13, 22, 6, 5, '#c27a66'); px(14, 23, 4, 3, '#2a0806'); } else if (mood !== 'sleep') px(11, 23, 10, 2, '#2a0806'); else px(13, 23, 6, 1, '#5a1a12');
     const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; fTex.set(k, t); return t; }
   function makeFarmer(li) {
     const L = FL[li % FL.length], g = new THREE.Group(), M = o => new THREE.MeshLambertMaterial(o);
@@ -19275,6 +19276,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.28', ["New: smoother play - the game readies every block texture in your world at the start, so there is no more freeze when a castle comes into view, and big background jobs are now done in small bites", "New: crofters and castle folk now and then stop for a wee dance, alone or in a group, to their own tune (played through the Mob voices volume, never twice at once)", "Textures: farmers and castle folk have blue eyes and a mouth you can see", "Mobs: creepers fixed - only one creeper spawner now: up to 2 at a time, on dark ground at night and in caves, never in daylight, and spawn eggs still work everywhere; the 4-second alarm and big blast are unchanged; Admiral Skelp now repeats his line every few seconds while you stay near him, jaw in time"]],
     ['v1.0.27', ["Mobs: Admiral Skelp now speaks - his own voice line when you come near his boat (or hatch him from an egg), now and then while you linger; follows the Mob voices volume", "Mobs: Admiral Skelp's jaw now moves in time with his words while he talks", "Mobs: creeper fixes - hatching a creeper from the egg now always keeps it (creative and survival), and in survival up to 2 creepers now creep out of dark surface spots at night and in caves; the 4-second alarm and big blast are unchanged", "Mobs: bees get the new HD model shape - a proper flying bee with honey-and-black Glencraft colouring and see-through wings"]],
     ['v1.0.26', ["New: Mob voices volume slider in Settings - mob calls, idle, hurt and death sounds on their own, saved", "New: Reset world now builds a truly brand-new world, so older worlds get the new castles too", "New: bridge corners tidied - no floating lanterns or floating tree bits from bridges and tunnels", "New: the spawn lava pools are back, safely walled in and never under water", "Mobs: the Ghost is rare - night only, one at a time, and only chases you when it can see you nearby", "Mobs: one Creeper egg (yellow duplicate gone); the creeper is a clean HD green four-legged classic and lives in the caves", "Textures: crisp pixel skin for the new creeper"]],
     ['v1.0.25', ["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]],
@@ -19565,7 +19567,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (kind === 'haggis' && !window.__c116herd && !window.__eggSpot) return null;   // haggis now come in herds (below)
     return sm0.apply(this, arguments); }; } catch (e) { ERR(e); }
   let crT = 3;
-  function creeperSpawn(dt) { crT -= dt; if (crT > 0) return; crT = 6;
+  function creeperSpawn(dt) { return; crT -= dt;   // v1.0.28: one creeper spawner now (c157)
+    if (crT > 0) return; crT = 6;
     if (!started || paused || (dead && !window.__fdead) || DIM.cur || !isNight || (MODE && MODE.name === 'creative') || caveK > 0.45 || countKind('creeper') >= 2 || R() > 0.45) return;
     for (let t = 0; t < 12; t++) { const an = R() * 6.283, r = 18 + R() * 14, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
       if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue; const y = solidTop(x, z) + 1, b = getB(x, y - 1, z);
@@ -19726,7 +19729,9 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     if (H.length > HMAX * HSIZE + 2) { const far = herds.filter(h => h.m.every(a => Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z) > 30)).sort((a, b) => a.m.length - b.m.length)[0]; if (far) { far.m.forEach(a => removeMob(a)); far.m = []; } }
     if (!started || paused || dead || DIM.cur || herds.filter(h => h.m.length >= 3).length >= HMAX || H.length > HMAX * HSIZE - 3) return;
     // v1.0.0: pick from the heather moor (the old Scots biome) round about you
-    if (U.hw !== world) { U.hw = world; U.heath = []; let i = world.indexOf(T.HEATHER); while (i >= 0 && U.heath.length < 20000) { const z = i % D, q = (i - z) / D, y = q % H, x = (q - y) / H; if (y + 1 < H && !solid(x, y + 1, z)) U.heath.push(x * 4096 + z); i = world.indexOf(T.HEATHER, i + 1); } }
+    // v1.0.28: the heather moor is found a slice at a time (one whole-world scan used to stall a phone for a moment)
+    if (U.hw !== world) { U.hw = world; U.heath = []; U.hi = 0; }
+    if (U.hi < world.length) { const a0 = U.hi, e0 = Math.min(world.length, a0 + 3000000), sub = world.subarray(a0, e0); let j = sub.indexOf(T.HEATHER); while (j >= 0 && U.heath.length < 20000) { const i = a0 + j; const z = i % D, q = (i - z) / D, y = q % H, x = (q - y) / H; if (y + 1 < H && !solid(x, y + 1, z)) U.heath.push(x * 4096 + z); j = sub.indexOf(T.HEATHER, j + 1); } U.hi = U.heath.length >= 20000 ? world.length : e0; hgT = 0.3; return; }
     const near = U.heath.filter(k => { const hx = k >> 12, hz = k & 4095, d = Math.hypot(hx - P.x, hz - P.z); return d > 22 && d < 60; }); if (!near.length) return;
     for (let t = 0; t < 12; t++) { const k = near[(R() * near.length) | 0], x = k >> 12, z = k & 4095;
       if (x < 4 || z < 4 || x > W - 5 || z > D - 5) continue; const y = solidTop(x, z) + 1; if (y <= SEA || getB(x, y - 1, z) !== T.HEATHER || getB(x, y, z) && getB(x, y, z) !== T.TALLGRASS && getB(x, y, z) !== T.HEATHER || Math.abs(y - P.y) > 14) continue;   // v1.0.0: only on the old Scots heather moor
@@ -22031,7 +22036,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       const sl = /helmet|cap\b/.test(n) ? 'helmet' : /chestplate|tunic/.test(n) ? 'chestplate' : /leggings|trousers/.test(n) ? 'leggings' : /boots/.test(n) ? 'boots' : null;
       if (sl && (ARMOUR[id] || /copper|silver|gold|diamond|lazurite|iron|cobalt/.test(n))) { const m = matOf(id); job.push([id, () => pArmour(sl, PAL[m] || PAL.silver)]); continue; }
       const t = TOOL[id]; if (t && ['pick', 'axe', 'shovel', 'hoe', 'sword'].includes(t[0]) && !/bat\b|claymore/.test(n)) { const m = matOf(id); job.push([id, () => pTool(t[0], PAL[m] ? m : 'silver')]); } }
-    const step = () => { const t0 = performance.now(); while (job.length && performance.now() - t0 < 30) { const [id, f] = job.shift(); if (!NAMES[id] && ![80, 263, 262, 54].includes(id)) continue; try { fin(id, f()); } catch (e) { warn('p' + id, e); } } if (job.length) setTimeout(step, 16); else { U.log.push('painted ' + U.painted); setTimeout(blocks, 400); } };
+    const step = () => { const t0 = performance.now(); while (job.length && performance.now() - t0 < 7) { const [id, f] = job.shift(); if (!NAMES[id] && ![80, 263, 262, 54].includes(id)) continue; try { fin(id, f()); } catch (e) { warn('p' + id, e); } } if (job.length) setTimeout(step, 16); else { U.log.push('painted ' + U.painted); setTimeout(blocks, 400); } };
     step(); }
   const NONCUBE = /door|fence|gate|pane|railing|torch|lamp|cobweb|carpet|slab|stairs|bed|cauldron|\btv\b|hive|enchant|ladder|lever|painting|marker|activator|water|lava|portal|wheat|potato|neep|farmland|reed|fern|flower|grass\b|thistle|sapling|bluebell|daffodil|dandelion/;
   function blocks() { try {
@@ -22039,7 +22044,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     for (const k in ICON_KEY) { const id = +k, n = nm(id); if (!n || SKIP(id) || MINE[id]) continue; if (!BLOCK_MATS[id] || (typeof isPlant === 'function' && isPlant(id))) continue; if (NONCUBE.test(n) && id !== 1 && id !== 198) continue; job.push([id, 0]); }
     for (const k in STAIRS) { const id = +k; if (SKIP(id)) continue; job.push([id, STAIRS[k][0]]); }
     job.push([65, 'door'], [66, 'door'], [251, 'ench']);
-    const step = () => { const t0 = performance.now(); while (job.length && performance.now() - t0 < 30) { const [id, b] = job.shift(); try {
+    const step = () => { const t0 = performance.now(); while (job.length && performance.now() - t0 < 7) { const [id, b] = job.shift(); try {
         if (b === 'door') { if (NAMES[id]) put(id, url(finish(pDoor()))); continue; }
         if (b === 'ench') { if (NAMES[id]) put(id, url(pEnchant())); continue; }
         const F = facesOf(b || id); if (!F) continue; put(id, url(isoIcon(F, !!b))); U.iso++; } catch (e) { warn('iso' + id, e); } }
@@ -24823,7 +24828,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---- ruby sites on high stone: the Snaw Brute stands guard ----
   let rScan = 0, rWorld = null;
   let rs = null;   // scanned a few rows at a time so there is no hitch
-  function rubyScan() { if (!rs) rs = {x: 4, R: [], seen: new Set()}; const RU = T.RUBYORE || 232, x1 = Math.min(W - 4, rs.x + 24);
+  function rubyScan() { if (!rs) rs = {x: 4, R: [], seen: new Set()}; const RU = T.RUBYORE || 232, x1 = Math.min(W - 4, rs.x + 5);
     for (let x = rs.x; x < x1; x++) for (let z = 4; z < D - 4; z++) { const t = solidTop(x, z); if (t < SEA + 14) continue; const b = getB(x, t, z); if (b !== T.STONE && b !== RU && b !== (T.SNOW || -1) && b !== (T.GRAVEL || 202)) continue;
       for (let y = t; y > t - 7; y--) if (getB(x, y, z) === RU) { const k = ((x / 14) | 0) + ',' + ((z / 14) | 0); if (!rs.seen.has(k)) { rs.seen.add(k); rs.R.push([x, y, z, t]); } break; } }
     rs.x = x1; if (rs.x >= W - 4) { const R = rs.R; rs = null; return R; } return null; }
@@ -26020,28 +26025,34 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue;
       for (let k = 0; k < 9; k++) { const y = Math.floor(P.y) + [0, -1, 1, -2, 2, -3, 3, -4, 4][k]; if (y < 3 || !roomy(x, y, z) || !solid(x, y - 1, z) || y > solidTop(x, z) - 4 || torch(x, y, z)) continue; return [x + .5, y, z + .5]; } }
     return null; }
-  function caveSpawn() { U.tries++; const sp = caveSpot(); if (!sp) return null; const f = [window.__c116force, window.__caveSpawn, window.__eggSpot]; window.__c116force = true; window.__caveSpawn = sp; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
-    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__caveSpawn = f[1]; window.__eggSpot = f[2]; } if (a) { a.g.position.set(sp[0], sp[1], sp[2]); a.egg = false; a.home = 'cave'; U.cave++; } return a; }
+  function caveSpawn() { U.tries++; const sp = caveSpot(); if (!sp) return null; const f = [window.__c116force, window.__caveSpawn, window.__eggSpot]; window.__c116force = true; window.__crOK = true; window.__caveSpawn = sp; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
+    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__caveSpawn = f[1]; window.__eggSpot = f[2]; window.__crOK = false; } if (a) { a.g.position.set(sp[0], sp[1], sp[2]); a.egg = false; a.home = 'cave'; a.natural = true; U.cave++; } return a; }
   U.caveSpawn = caveSpawn;
   // night: out on the surface too, in the dark away from torches
   function nightSpot() { for (let t = 0; t < 16; t++) { const an = Math.random() * 6.283, r = 18 + Math.random() * 14, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
       if (x < 3 || z < 3 || x > W - 4 || z > D - 4) continue; const y = solidTop(x, z) + 1, b = getB(x, y - 1, z);
       if (y <= SEA || b === T.WATER || b === T.LAVA || LEAFY[b] || !roomy(x, y, z) || Math.abs(y - P.y) > 12 || torch(x, y, z)) continue; return [x + .5, y, z + .5]; } return null; }
-  function nightSpawn() { U.tries++; const sp = nightSpot(); if (!sp) return null; const f = [window.__c116force, window.__egg, window.__eggSpot]; window.__c116force = true; window.__egg = true; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
-    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__egg = f[1]; window.__eggSpot = f[2]; }
-    if (a) { a.g.position.set(sp[0], sp[1], sp[2]); a.egg = false; a.eggP = false; a.home = 'night'; U.night = (U.night || 0) + 1; } return a; }
+  function nightSpawn() { U.tries++; const sp = nightSpot(); if (!sp) return null; const f = [window.__c116force, window.__egg, window.__eggSpot]; window.__c116force = true; window.__crOK = true; window.__egg = true; window.__eggSpot = [sp[0], sp[1], sp[2], Math.floor(sp[0]), Math.floor(sp[2])]; let a = null;
+    try { a = spawnMob('creeper'); } finally { window.__c116force = f[0]; window.__egg = f[1]; window.__eggSpot = f[2]; window.__crOK = false; }
+    if (a) { a.g.position.set(sp[0], sp[1], sp[2]); a.egg = false; a.eggP = false; a.home = 'night'; a.natural = true; U.night = (U.night || 0) + 1; } return a; }
   U.nightSpawn = nightSpawn;
-  let T0 = 4;
+  // v1.0.28: ONE creeper spawner - only this part's night/cave spawner and the spawn egg make creepers; every older spawner is refused
+  U.blocked = 0;
+  try { const sm0 = spawnMob; spawnMob = function (kind) { if (kind !== 'creeper' && kind !== 'puffer') return sm0.apply(this, arguments);
+      const ok = !!window.__crOK, egg = !ok && !!window.__egg;
+      if (!ok && !egg) { U.blocked++; return null; } if (ok && countKind('creeper') >= 2) { U.blocked++; return null; }
+      const a = sm0.apply(this, arguments); if (a && a.kind === 'creeper') { a.egg = egg; if (!egg) a.eggP = false; } return a; }; } catch (e) { ERR(e); }
+  let T0 = 4, last = 0;
   const dawn = () => { if (isNight) return; for (const a of mobs.slice()) if (a.kind === 'creeper' && a.home === 'night' && !(a.arm > 0) && Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z) > 20) { try { removeMob(a); } catch (_) {} } };
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
-      try { U.ticks = (U.ticks || 0) + 1; U.ck = caveK; if ((T0 -= dt) <= 0) { dawn(); U.rolls = (U.rolls || 0) + 1; T0 = 7; if (started && !paused && !dead && !DIM.cur && !(MODE && MODE.name === 'creative') && !(current && current.flat) && countKind('creeper') < 2 && Math.random() < 0.35) { if (caveK > 0.45) caveSpawn(); else if (isNight) nightSpawn(); } } } catch (e) { ERR(e); }
+      try { U.ticks = (U.ticks || 0) + 1; U.ck = caveK; const nw = performance.now() / 1000; T0 -= Math.min(0.5, last ? nw - last : 0); last = nw; if (T0 <= 0) { dawn(); U.rolls = (U.rolls || 0) + 1; T0 = 7; if (started && !paused && !dead && !DIM.cur && !(MODE && MODE.name === 'creative') && !(current && current.flat) && countKind('creeper') < 2 && Math.random() < 0.35) { if (caveK > 0.45) caveSpawn(); else if (isNight) nightSpawn(); } } } catch (e) { ERR(e); }
       return r; }; } catch (e) { ERR(e); }
 })();
 
 /* ===================== GLX-C158 (v1.0.27): Admiral Skelp speaks - his own voice clip, positional, through the Mob voices slider ===================== */
 (function c158() {
   const U = window.__c158 = {loaded: 0, plays: 0, err: null, last: null, why: null};
-  const URL0 = 'assets/sfx/admiral_skelp.mp3', KIND = 'nm12', NOTICE = 14, RESET = 26, IDLE = 18, CD = 30, RAD = 40;
+  const URL0 = 'assets/sfx/admiral_skelp.mp3', KIND = 'nm12', NOTICE = 14, RESET = 26, IDLE = 20, CD = 10, RAD = 40;
   let buf = null, raw = null, loading = false, cur = null, cdUntil = 0, eggN = -1;
   const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
   function load() { if (buf || loading || !AC) return; loading = true;
@@ -26085,7 +26096,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       if (s.egg) { if (!cur) { s.egg = false; s.seen = true; play(a, 'egg'); } continue; }
       if (dead || paused) continue;
       if (!s.seen && d < NOTICE && now() >= cdUntil) { if (play(a, 'notice')) s.seen = true; }
-      else if (s.seen && d < IDLE && now() >= cdUntil && Math.random() < dt / 45) play(a, 'idle'); } }
+      else if (s.seen && d < IDLE && now() >= cdUntil) play(a, 'loop');   /* v1.0.28: his line repeats every ~10 s while you stay near */ } }
   U.play = (why) => { const a = mobs.find(m => m.kind === KIND); return a ? play(a, why || 'test') : false; }; U.state = () => ({buf: !!buf, playing: !!cur, cd: Math.max(0, cdUntil - now())});
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { tick(dt || 0); } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
 })();
@@ -26096,6 +26107,95 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   U.add({bee: {f: 'bee', k: 1.0, run: 0, gl: {p: 'fur', a: 0.6, m: {Wings: 'plain', Eyes: 'plain', Teeth: 'plain', Tongue: 'plain'}, col: {Main: 0xf2b42a, Main_2: 0x231a12, Wings: 0xd8eef2}}}});
   // see-through wings
   U.post.push((a, c, M, m) => { if (a.kind !== 'bee') return; m.traverse(o => { if (!o.isMesh) return; for (const x of [].concat(o.material)) if (x && x.name === 'Wings') { x.transparent = true; x.opacity = 0.6; x.depthWrite = false; } }); });
+})();
+
+/* ===================== GLX-C160 (v1.0.28): smoother play - block textures for the whole world are readied once at the start (no hitch on reaching a castle), frame-spike watch ===================== */
+(function c160() {
+  const U = window.__c160 = {warm: 0, ms: 0, types: 0, need: 0, err: null, spikes: 0, worst: 0};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  let key = null, q = [];
+  // the same test the texture array uses, so the size estimate matches what it will really hold
+  const okM = m => !!m && (m.isMeshPhongMaterial || m.isMeshLambertMaterial) && !m.transparent && m.visible !== false && !!m.map && !m.alphaMap && !(m.alphaTest > 0) && m.side === THREE.FrontSide && !m.vertexColors && m.opacity >= 1
+    && m.map.repeat.x === 1 && m.map.repeat.y === 1 && m.map.offset.x === 0 && m.map.offset.y === 0 && !m.envMap && !m.lightMap && !m.normalMap && !m.bumpMap && !m.wireframe && !(m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.001);
+  // every block type that really appears in this world gets its texture layers now, a few per frame, and the array grows once instead of
+  // stalling (re-uploading every layer) the first time a castle's blackstone, obsidian or glowing windows come into view
+  function warm() { const TA = window.__TA; if (!TA || !TA.on || !TA.layers || !TA.info) return; const t0 = performance.now();
+    const n = world.length, seen = new Uint32Array(65536), ST = 5; for (let i = 0; i < n; i += ST) seen[world[i]]++;
+    const mats = new Set(), types = []; for (let t = 1; t < 65536; t++) { if (seen[t] < 12 || !BLOCK_MATS[t] || (chunkST && chunkST[t] === 2)) continue; types.push(t); for (const m of [].concat(BLOCK_MATS[t])) if (okM(m)) mats.add(m); }
+    const I = TA.info(); U.need = window.__taNeed = Math.min(256, Math.max(I.layers + 4, mats.size + 16));
+    q = types;     U.types = types.length; U.warm++; U.ms = Math.round(performance.now() - t0); }
+  // spike watch (for tests): frames over 100 ms
+  let lt = 0;
+  try { const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
+      try { if (started) { const k = (current && current.id) + ':' + W + ':' + H + ':' + (DIM.cur || ''); if (k !== key) { key = k; warm(); } else if (q.length) { const t0 = performance.now(); while (q.length && performance.now() - t0 < 6) { try { window.__TA.layers(q.shift()); } catch (_) {} } if (!q.length) U.info = window.__TA.info(); } }
+        const nw = performance.now(); if (lt && started && !paused) { const d = nw - lt; if (d > 100) { U.spikes++; if (d > U.worst) U.worst = Math.round(d); } } lt = nw; } catch (e) { ERR(e); }
+      return r; }; } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C161 (v1.0.28): human folk now and then they dance (alone or in a group) to their own tune ===================== */
+(function c161() {
+  const U = window.__c161 = {dances: 0, plays: 0, err: null, on: null};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  const BLUE = 0x2f6fb0;
+  // ---- clansfolk (player-model villagers): always blue eyes, and a real mouth on the face ----
+  // (faces: blue eyes + a visible mouth are painted into the face textures in c100 / c113)
+  // ---- the dance: 2-second loop of 4 beats; beat 1 twist left + right arm across, beat 3 the mirror, a bob on every beat ----
+  const URL0 = 'assets/sfx/human_dance.mp3', R = 24, CD = 75, BPM_T = 124.8, OFF = 0.09;
+  let buf = null, raw = null, loading = false, cur = null, cdUntil = 0, dance = null, nextTry = 0;
+  try { fetch(URL0).then(r => r.arrayBuffer()).then(ab => { raw = ab; }).catch(() => {}); } catch (_) {}
+  function load() { if (buf || loading || !raw || !hasAC()) return; loading = true; AC.decodeAudioData(raw.slice(0)).then(b => { buf = b; U.dur = +b.duration.toFixed(2); }).catch(e => { loading = false; ERR(e); }); }
+  const now = () => performance.now() / 1000, hasAC = () => typeof AC !== 'undefined' && !!AC;
+  const sgn = (k, p) => Math.sign(k) * Math.pow(Math.abs(k), p);
+  function pose(rig, ph, style, base) {   // ph in beats; rig = {g, head, arms:[a0,a1], legs:[l0,l1], mouth}
+    const k = sgn(Math.cos(Math.PI * ph / 2), 0.6), kr = Math.max(0, k), kl = Math.max(0, -k), bob = 0.07 * (0.5 + 0.5 * Math.cos(2 * Math.PI * ph));
+    const A0 = rig.arms[0], A1 = rig.arms[1], L0 = rig.legs[0], L1 = rig.legs[1], D = Math.PI / 180;
+    let tw = 15 * D * k, lean = 0;
+    if (style === 0) {   // the main step
+      A1.rotation.set(-45 * D * kr + 10 * D * kl, 0, -45 * D * kr); A0.rotation.set(-45 * D * kl + 10 * D * kr, 0, 45 * D * kl);
+      L1.rotation.set(-20 * D * kr, 0, 0); L0.rotation.set(-20 * D * kl, 0, 0);
+    } else if (style === 1) {   // wide stance, lean in, arms out front, big twist
+      tw = 35 * D * k; lean = 0.14; A1.rotation.set(-1.05, 0, -0.25); A0.rotation.set(-1.05, 0, 0.25);
+      L1.rotation.set(0, 0, 0.16); L0.rotation.set(0, 0, -0.16);
+    } else {   // wide alternating 90-degree arm sweeps
+      A1.rotation.set(-0.2 * kr, 0, 90 * D * kr); A0.rotation.set(-0.2 * kl, 0, -90 * D * kl);
+      L1.rotation.set(-15 * D * kr, 0, 0.08); L0.rotation.set(-15 * D * kl, 0, -0.08);
+    }
+    rig.head.rotation.y = -10 * D * k; rig.head.rotation.x = 0;
+    rig.g.rotation.set(lean, base.yaw + tw, 0); rig.g.position.y = base.y - bob;
+    if (rig.mouth) rig.mouth.scale.y = 1 + 1.6 * (1 - bob / 0.07);
+  }
+  // who can dance: idle croft farmers and idle clansfolk, by day, in the overworld
+  function folk() { const out = [], F = window.__c113 && __c113.folk;
+    if (F) for (const f of F) if (f && f.m && f.m.g && !f.dead) out.push({t: 'f', f, g: f.m.g, idle: f.st === 'idle' || f.st === 'dance'});
+    for (const a of mobs) if (a && a.kind === 'clansman' && a.g && !a.sleeping && !(a.mad > 0)) { const j = a.job; out.push({t: 'c', a, g: a.g, idle: !j || j.dance || j.type === 'wait' || (j.type === 'walk' && j.ph === 'wait')}); }
+    return out; }
+  function start(list) { const c = list[0].g.position; const grp = list.filter(q => q.idle && Math.hypot(q.g.position.x - c.x, q.g.position.z - c.z) < 10).slice(0, 5); if (!grp.length) return;
+    const T = buf ? buf.duration : 15; dance = {t0: now(), end: now() + T, grp: grp.map((q, i) => { const g = q.g, b = {yaw: g.rotation.y, y: g.position.y};
+      if (q.t === 'f') { q.f.st = 'dance'; q.f.wp = []; q.f.task = null; b.yaw = q.f.yaw; } else { q.a.job = {type: 'wait', t: T + 1, dance: true}; q.a.skipPhys = true; q.a.moving = false; q.a.path = null; b.yaw = q.a.yawVis !== undefined ? q.a.yawVis : g.rotation.y; }
+      return Object.assign(q, {b, style0: i % 3}); })}; U.dances++; U.on = dance.grp.length; play(c); }
+  function stop() { if (!dance) return; for (const q of dance.grp) { try { const g = q.g; g.position.y = q.b.y; g.rotation.set(0, q.b.yaw, 0);
+        const rig = rigOf(q); if (rig) { for (const l of rig.arms.concat(rig.legs)) l.rotation.set(0, 0, 0); rig.head.rotation.set(0, 0, 0); if (rig.mouth) rig.mouth.scale.y = 1; }
+        if (q.t === 'f') { if (q.f.st === 'dance') { q.f.st = 'idle'; q.f.t = 1 + Math.random() * 2; } } else { q.a.skipPhys = false; if (q.a.job && q.a.job.dance) q.a.job = null; } } catch (e) { ERR(e); } }
+    dance = null; U.on = null; cdUntil = now() + CD; try { if (cur) { cur.g.gain.setTargetAtTime(0, AC.currentTime, 0.2); cur.src.stop(AC.currentTime + 0.8); } } catch (_) {} cur = null; }
+  function rigOf(q) { if (q.t === 'f') { const m = q.f.m; return {g: m.g, head: m.head, arms: m.arms, legs: m.legs}; } const a = q.a; return a.arms && a.legs && a.head && a.arms.length > 1 && a.legs.length > 1 ? {g: a.g, head: a.head, arms: a.arms, legs: a.legs, mouth: a.__mouth} : null; }
+  function level(p) { const dx = p.x - P.x, dz = p.z - P.z, d = Math.hypot(dx, p.y - P.y, dz), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
+    return {v: d >= 34 ? 0 : Math.pow(1 - d / 34, 1.4), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0}; }
+  function play(c) { if (!hasAC() || !buf || cur || AC.state !== 'running') return; try { const L = level(c), src = AC.createBufferSource(), g = AC.createGain(), pn = AC.createStereoPanner ? AC.createStereoPanner() : null;
+      src.buffer = buf; g.gain.value = 0.55 * L.v; const dst = window.mobDst ? mobDst() : master; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.7; g.connect(pn); pn.connect(dst); } else g.connect(dst);
+      cur = {src, g, pn, t0: AC.currentTime}; src.onended = () => { if (cur && cur.src === src) cur = null; }; src.start(); U.plays++; if (dance) { dance.t0 = now(); dance.end = now() + buf.duration; dance.bpm = BPM_T; } } catch (e) { ERR(e); cur = null; } }
+  function tick(dt) { load(); const t = now();
+    if (dance) { const FF = (window.__c113 && __c113.folk) || [], alive = dance.grp.filter(q => q.t === 'f' ? q.f.st === 'dance' && FF.includes(q.f) : (mobs.includes(q.a) && q.a.job && q.a.job.dance));
+      if (t >= dance.end || !started || DIM.cur || isNight || alive.length < dance.grp.length) { stop(); return; }
+      const bpm = dance.bpm || 120, el = t - dance.t0 - (dance.bpm ? OFF : 0), ph = el * bpm / 60, seg = Math.floor(Math.max(0, ph) / 8) % 4;
+      let cx = 0, cz = 0; for (const q of dance.grp) { const rig = rigOf(q); if (!rig) continue; cx += q.g.position.x; cz += q.g.position.z;
+        const style = seg === 1 ? (q.style0 === 2 ? 2 : 1) : seg === 3 ? (q.style0 === 1 ? 1 : 2) : 0; pose(rig, Math.max(0, ph), style, q.b); }
+      if (cur) { const L = level({x: cx / dance.grp.length, y: dance.grp[0].g.position.y, z: cz / dance.grp.length}); try { cur.g.gain.setTargetAtTime(0.55 * L.v, AC.currentTime, 0.1); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.7, AC.currentTime, 0.1); } catch (_) {} }
+      return; }
+    if (t < nextTry || t < cdUntil || !started || dead || paused || DIM.cur || isNight || (window.__c158 && __c158.state && __c158.state().playing)) return; nextTry = t + 1;
+    const all = folk().filter(q => q.idle && Math.hypot(q.g.position.x - P.x, q.g.position.z - P.z) < R); if (!all.length) return;
+    if (U.force || Math.random() < 1 / 25) { U.force = false; all.sort(() => Math.random() - 0.5); start(all); } }
+  U.stop = stop; U.state = () => ({dance: !!dance, n: dance ? dance.grp.length : 0, tune: !!cur, buf: !!buf, cd: Math.max(0, cdUntil - now())});
+  try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { tick(dt || 0); } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -26108,6 +26208,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.28', d:'2026-10-27', notes:["New: smoother play - the game readies every block texture in your world at the start, so there is no more freeze when a castle comes into view, and big background jobs are now done in small bites","Mobs: creepers fixed - only one creeper spawner now: up to 2 at a time, on dark ground at night and in caves, never in daylight, and spawn eggs still work everywhere; the 4-second alarm and big blast are unchanged"]},
 {v:'v1.0.27', d:'2026-10-26', notes:["Mobs: Admiral Skelp now speaks - his own voice line when you come near his boat (or hatch him from an egg), now and then while you linger; follows the Mob voices volume"]},
 {v:'v1.0.26', d:'2026-10-26', notes:["New: placeholder"]},
 {v:'v1.0.25', d:'2026-10-26', notes:["New: the three castles are rebuilt from the ground up (new worlds) - the Clan castle is a grey stone tower house with round slate-roofed turrets, crow-stepped gables, a gatehouse with oak doors and a portcullis, and a great hall with a banquet table, a big fireplace with stag antlers, chandeliers, a gallery and bedrooms upstairs", "New: the Skeleton castle is a crumbling mossy ruin on a crag, with skulls on the battlements and a crypt underneath - stone coffins, bone pillars, skull niches, blue soul lanterns and an archery range", "New: the Black castle has spiky obsidian towers and spires, glowing red windows, a lava moat with a bridge and a throne room - a tall black throne on a red-carpeted dais, lava falls behind iron bars, braziers and hanging cages", "Textures: new castle decorations - tartan and black banners, rugs, antlers, armour stands, claymores, coffins, skulls, cages, chains, barrels, targets and weapon racks"]},
