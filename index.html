@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1031a -->
+<!-- glencraft-build: v1032a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.31';
+const GAME_VERSION = 'v1.0.32';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -12345,7 +12345,7 @@ var c37busy = false;
   }
   async function resetDim() {
     const nm = DIM.cur === 'hell' ? 'Hell' : 'the Backrooms';
-    if (!confirm('Reset ' + nm + '?\n\nOnly ' + nm + ' is regenerated; the overworld is not touched.')) return;
+    if (!window.__dimNoAsk && !confirm('Reset ' + nm + '?\n\nOnly ' + nm + ' is regenerated; the overworld is not touched.')) return;
     c37busy = true;
     try {
       clearWorldState(); crops.clear(); chests.clear(); doorState.clear(); furnaces.clear(); entMeta.clear();
@@ -13103,7 +13103,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
   // ---- the old overworld Reset Terrain is replaced by the markers (Hell / Backrooms resets stay) ----
   const rt = resetTerrain;
   resetTerrain = async function () { if (DIM.cur === 'hell' || DIM.cur === 'backrooms') return rt.apply(this, arguments); toast('New world: outline your base with red Keep markers, set the height with orange markers, then use the green activator in the middle.'); };
-  setInterval(() => { const b = $('resetTerrainBtn'); if (b) b.style.display = DIM.cur ? '' : 'none'; }, 500);
+  setInterval(() => { const b = $('resetTerrainBtn'); if (b && b.style.display !== 'none') b.style.display = 'none'; const w = $('resetWorldBtn'); if (w) { const t = DIM.cur === 'hell' ? 'Reset Hell' : DIM.cur === 'backrooms' ? 'Reset Backrooms' : 'Reset world'; if (w.textContent !== t) w.textContent = t; } }, 400);
   // ---- the move ----
   function findMarkers(gx, gy, gz) {
     const reds = [], oranges = [];
@@ -14888,8 +14888,8 @@ var ORE18 = false, ISL_S = 1;
   window.__c77parts = {orePass, border, castleWork, linkCaves};
   // ---- Hell: 288 wide for the big world (1/3 of the Highlands), a bedrock wall at the edge, cobalt low down, nether gold all through ----
   const gh = genHell; genHell = function () {
-    HELL_W = ORE18 ? 384 : 224;
-    const ow = DIM.ow && DIM.ow.P; window.__hellAt = ORE18 && ow ? [Math.max(14, Math.min(HELL_W - 15, Math.round(ow.x / 2.25))), Math.max(14, Math.min(HELL_W - 15, Math.round(ow.z / 2.25)))] : null;
+    HELL_W = 384;
+    const ow = DIM.ow && DIM.ow.P, hs = HELL_W / ((DIM.ow && DIM.ow.W) || BIG); window.__hellAt = ow ? [Math.max(14, Math.min(HELL_W - 15, Math.round(ow.x * hs))), Math.max(14, Math.min(HELL_W - 15, Math.round(ow.z * hs)))] : null;
     const r = gh.apply(this, arguments); if (!ORE18) return r;
     sd = ((gSeed || 7) ^ 0xc0ba17) >>> 0 || 3; const hst = {cobalt: 0, gold: 0};
     const hv = (x, y, z, n, ore, hide) => { let p = 0; for (let k = 0; k < n; k++) { if (x > 1 && z > 1 && x < W - 2 && z < D - 2 && y > 1 && y < H - 2 && world[idx(x, y, z)] === T.HELLROCK && !(hide && airN(x, y, z))) { world[idx(x, y, z)] = ore; p++; }
@@ -18086,11 +18086,12 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const askBtns = () => [document.getElementById('resetNo'), document.getElementById('resetYes')];
   let askOpen = false, aF = 0;
   const askFocus = () => askBtns().forEach((b, i) => b.classList.toggle('focus', i === aF && padConnected));
-  function openAsk() { if (active()) return; if (DIM.cur) { toast('Go back to the overworld to reset the world'); return; } askOpen = true; aF = 0; ask.style.display = 'flex'; askFocus(); try { askBtns()[0].focus(); } catch (_) {} }
+  function openAsk() { if (active()) return; const nmD = DIM.cur === 'hell' ? 'Hell' : DIM.cur === 'backrooms' ? 'the Backrooms' : null;   /* v1.0.32: one button - in Hell it resets Hell */
+    try { ask.querySelector('h2').textContent = nmD ? 'Reset ' + nmD.replace('the ', 'the ') + '?' : 'Reset world?'; ask.querySelector('p').textContent = nmD ? 'Are you sure you want to reset ' + nmD + '? Only ' + nmD + ' is made new; the overworld is not touched. This can\'t be undone.' : 'Are you sure you want to reset? This can\'t be undone.'; } catch (_) {} askOpen = true; aF = 0; ask.style.display = 'flex'; askFocus(); try { askBtns()[0].focus(); } catch (_) {} }
   function closeAsk() { askOpen = false; ask.style.display = 'none'; try { refocusPause(); } catch (_) {} }
   window.__c105.ask = () => askOpen;
   document.getElementById('resetNo').addEventListener('click', e => { e.preventDefault(); closeAsk(); });
-  document.getElementById('resetYes').addEventListener('click', e => { e.preventDefault(); closeAsk(); setPause(false); startReset(); });
+  document.getElementById('resetYes').addEventListener('click', e => { e.preventDefault(); closeAsk(); setPause(false); if (DIM.cur) { window.__dimNoAsk = 1; Promise.resolve(window.__resetDim && __resetDim()).finally(() => { window.__dimNoAsk = 0; }); } else startReset(); });
 
   // ---------- pause-menu button ----------
   try {
@@ -19276,6 +19277,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.32', ["New: one reset button in the World tab - it reads Reset world in the overworld and Reset Hell in Hell, with a matching are-you-sure; the separate Reset Hell button is gone", "New: Reset Hell now always builds the new Hell - the big 384-wide nether with its four biomes, the four gothic builds and the red sky - on every world, not only the newest Highlands saves (some worlds were getting a small Hell with just one build)"]],
     ['v1.0.31', ["New: Hell is overhauled - it is much bigger (384 wide for the big Highlands), under a blood-red sky with a bright red haze, and split into four biomes: the Blackstone Wastes, the Soul Sand Valley, the Ember Wastes and the Basalt Deltas", "New: four great gothic builds rise in vast caverns, one in each biome - the Black Cathedral, the Soul Abbey, the Ember Keep and the Hound Bastion - with tall spires, glowing red lancet windows, huge chains, lava moats, a bridge in, a lit portal home and loot chests", "New: Hell is easier to see - brighter light everywhere, the black gaps in the sky are gone, and the old fortress has glowing lamps along its bridges and rooms", "New: existing Hells get the four builds too, raised bit by bit on untouched rock (your own blocks are never changed); a reset Hell gets the full new layout", "Mobs: Hell mobs now only appear at the builds and the old fortress, each with its own: blazing skeletons at the Black Cathedral, ghosts at the Soul Abbey, imps at the Ember Keep and hounds at the Hound Bastion", "Mobs: ghosts and Glower Orbs only come out over soul sand in the Soul Sand Valley, and the Ember Wyrm only hunts over the Black Cathedral", "Textures: blackstone, deepslate, soul sand, magma and glowstone floors give each Hell biome its own look"]],
     ['v1.0.30', ["New: dinosaurs roam the glen by day - 8 kinds, each living where it really would, with HD models (CC0 Quaternius) and their own spawn eggs", "Mobs: Parasaurolophus herds graze lush lowland meadows near water; a rare Apatosaurus walks the open plains and loch shores; Stegosaurus keep to dry rocky hills; Triceratops roam the dry open moor", "Mobs: Gallimimus and wee Compsognathus dart about sand and dry heather and run off if you come close; Baryonyx fishes the river and loch banks and bites back if you hit it", "Mobs: the Allosaurus is a rare hunter at the forest edge - it roars, chases and bites hard (never a one-shot); never on its own in creative", "Mobs: dinosaurs only come out in daylight and wander off at night, never in castles, caves or the nether; capped at 4 on phones and 6 on desktop, the big ones one at a time; herbivores are peaceful and flee when hit", "Mobs: every dinosaur has its own call (Mob voices volume) and drops meat and bones", "Textures: dinosaurs get the Glencraft pixel look - scales, feathers and natural colours per species"]],
     ['v1.0.29', ["New: the black castle has real stairs - up the throne hall to the attic under the roof, then a spiral up the great spire to the lookout room", "New: the clan castle is rebuilt to match its picture - a tall square gatehouse with a guard room and battlements, a taller keep with a new top-floor solar and tall slate spires, crenellated drum towers on the walls", "New: the skeleton castle stands on a much higher crag, with a tall broken keep tower you can climb, ruined gabled towers and an arch in the wall; the crypt below is taller, with blue soul lanterns down the aisle", "New: the sky turns blood red as you near the black castle, with red mist you can see from far off, and there is now a working nether portal on the castle's east terrace", "New: existing worlds get the new castles too (once, on load) - anything in the old castle chests is moved into the new ones, and blocks you placed are never touched", "New: rain is back - it never came if you slept every night; now it rains every few days, with dense slanted rain, splashes, a darker grey storm sky, more thunder and lightning, no rain under roofs or in caves, and snow on snowy ground", "New: Settings are split into Audio, Video, Controls and World tabs (LB / RB switch tabs on a controller), with a new Brightness slider", "New: a smaller HUD hugging the bottom of the screen, and the item name fades in just above the hotbar when you switch", "Mobs: mob voices are louder and the Mob voices slider now goes to 200%; Skelp and the dancers carry further", "Mobs: the creeper's alarm is much quieter and deeper - a warbling air-raid wail over a low drone, with echo", "Textures: far fewer red window panels and banners on the black castle - barred windows instead; long tartan banners on the clan gatehouse", "Textures: the creeper keeps its shape but is now hazard yellow and red with white warning stripes and a metal cyborg eye with a glowing red lens; its spawn egg matches"]],
@@ -26859,6 +26861,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.32', d:'2026-10-27', notes:["New: one reset button in the World tab - it reads Reset world in the overworld and Reset Hell in Hell, with a matching are-you-sure; the separate Reset Hell button is gone", "New: Reset Hell now always builds the new Hell - the big 384-wide nether with its four biomes, the four gothic builds and the red sky - on every world, not only the newest Highlands saves (some worlds were getting a small Hell with just one build)"]},
 {v:'v1.0.31', d:'2026-10-27', notes:["New: Hell is overhauled - it is much bigger (384 wide for the big Highlands), under a blood-red sky with a bright red haze, and split into four biomes: the Blackstone Wastes, the Soul Sand Valley, the Ember Wastes and the Basalt Deltas", "New: four great gothic builds rise in vast caverns, one in each biome - the Black Cathedral, the Soul Abbey, the Ember Keep and the Hound Bastion - with tall spires, glowing red lancet windows, huge chains, lava moats, a bridge in, a lit portal home and loot chests", "New: Hell is easier to see - brighter light everywhere, the black gaps in the sky are gone, and the old fortress has glowing lamps along its bridges and rooms", "New: existing Hells get the four builds too, raised bit by bit on untouched rock (your own blocks are never changed); a reset Hell gets the full new layout", "Mobs: Hell mobs now only appear at the builds and the old fortress, each with its own: blazing skeletons at the Black Cathedral, ghosts at the Soul Abbey, imps at the Ember Keep and hounds at the Hound Bastion", "Mobs: ghosts and Glower Orbs only come out over soul sand in the Soul Sand Valley, and the Ember Wyrm only hunts over the Black Cathedral", "Textures: blackstone, deepslate, soul sand, magma and glowstone floors give each Hell biome its own look"]},
 {v:'v1.0.30', d:'2026-10-27', notes:["New: dinosaurs roam the glen by day - 8 kinds, each living where it really would, with HD models (CC0 Quaternius) and their own spawn eggs", "Mobs: Parasaurolophus herds graze lush lowland meadows near water; a rare Apatosaurus walks the open plains and loch shores; Stegosaurus keep to dry rocky hills; Triceratops roam the dry open moor", "Mobs: Gallimimus and wee Compsognathus dart about sand and dry heather and run off if you come close; Baryonyx fishes the river and loch banks and bites back if you hit it", "Mobs: the Allosaurus is a rare hunter at the forest edge - it roars, chases and bites hard (never a one-shot); never on its own in creative", "Mobs: dinosaurs only come out in daylight and wander off at night, never in castles, caves or the nether; capped at 4 on phones and 6 on desktop, the big ones one at a time; herbivores are peaceful and flee when hit", "Mobs: every dinosaur has its own call (Mob voices volume) and drops meat and bones", "Textures: dinosaurs get the Glencraft pixel look - scales, feathers and natural colours per species"]},
 {v:'v1.0.29', d:'2026-10-27', notes:["New: the black castle has real stairs - up the throne hall to the attic under the roof, then a spiral up the great spire to the lookout room", "New: the clan castle is rebuilt to match its picture - a tall square gatehouse with a guard room and battlements, a taller keep with a new top-floor solar and tall slate spires, crenellated drum towers on the walls", "New: the skeleton castle stands on a much higher crag, with a tall broken keep tower you can climb, ruined gabled towers and an arch in the wall; the crypt below is taller, with blue soul lanterns down the aisle", "New: the sky turns blood red as you near the black castle, with red mist you can see from far off, and there is now a working nether portal on the castle's east terrace", "New: existing worlds get the new castles too (once, on load) - anything in the old castle chests is moved into the new ones, and blocks you placed are never touched", "Textures: far fewer red window panels and banners on the black castle - barred windows instead; long tartan banners on the clan gatehouse"]},
