@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1039a -->
+<!-- glencraft-build: v1040a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.39';
+const GAME_VERSION = 'v1.0.40';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19299,6 +19299,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.40', ["New: snow sounds like snow - a soft wind and hush instead of rain patter, with no thunder or lightning while it snows; the weather tag and messages say snow (Light snow, Heavy snow, Blizzard)", "Mobs: the Thunner Cloudie only comes in real rain, never in snow"]],
     ['v1.0.39', ["New: the Creative bag is now sorted into labelled groups like the crafting Blocks tab - planks by wood, logs, stairs, corner stairs, slabs, fences, gates, doors, walls, stone & brick, glass, wool & carpet, lighting, decor, then natural blocks, ores, plants, tools, armour, food and items - in the same order every time"]],
     ['v1.0.38', ["New: iron tools, armour, shield, railings, block and motorboat are now called silver everywhere (crafting list, item names, messages) and all their recipes use silver ingots - your saved items stay the same", "Textures: held doors of every wood type now show their own door design"]],
     ['v1.0.37', ["New: no more floating trees - leftover floating trees are cleared once, and natural logs, leaves and loose ground with nothing holding them up now fall", "New: felled trees topple over and break apart into logs, sticks and wood chips when they land - big trees drop far fewer logs (14 at most)", "New: loose leaves drift down and fade away", "New: smoother nights - no more freezes from tree-monster spawn checks or autosaves, and cave mobs no longer spawn or hang about far below you", "Mobs: mob voices are much louder and carry further (the Mob volume slider now goes up to 300%), with a gentle limiter so nothing distorts - the creeper alarm stays quieter than the rest", "New: diamonds are easier to find deep down (about twice as many below y 13) and silver ore is more common in the deepslate - new and reset worlds", "Textures: clearer coal, silver and lazurite ore - bigger, bolder specks on the same stone", "New: the crafting Blocks tab is sorted into labelled groups - planks, stairs, corner stairs, slabs, fences, gates, doors, stone & brick, glass & panes, wool & carpet, lighting and decor - in the same wood and stone order in every group", "New: stairs, corner stairs, slabs, carpets, doors and trapdoors look like themselves in your hand, in their own wood or stone"]],
@@ -24864,7 +24865,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     if (a) { a.g.position.set(x, y, z); a.egg = true; a.spec = tag; U.st.sp[tag] = (U.st.sp[tag] || 0) + 1; } return a; };
   const alive = a => a && mobs.indexOf(a) >= 0 && a.g && a.g.parent;
   const topAt = (x, z) => { try { return solidTop(Math.floor(x), Math.floor(z)) + 1; } catch (_) { return P.y; } };
-  const raining = () => typeof weather !== 'undefined' && weather.type && weather.type !== 'clear';
+  const raining = () => typeof weather !== 'undefined' && weather.type && weather.type !== 'clear' && !(window.__snowWx && __snowWx());   // v1.0.40: actual rain only, not snow
   const dist = (p, x, z) => Math.hypot(p.x - x, p.z - z);
   // ---- slots: one (or a few) mobs per place, re-armed some time after they go ----
   const slots = new Map();   // tag -> {a: [mobs], cd}
@@ -28698,6 +28699,49 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
   try { document.addEventListener('click', e => { if (e.target && e.target.closest && e.target.closest('#tabBag')) setTimeout(check, 0); }, true); } catch (_) {}
   setInterval(check, 1500); setTimeout(check, 500);
 })();
+
+/* ===================== GLX-C201 (v1.0.40): snow is not rain - when it snows you hear a soft wind / hush instead of rain patter and thunder, no lightning,
+   the Thunner Cloudie (rain mob) only comes in real rain, the weather tag and messages say snow, and saves record which one is falling ===================== */
+(function c201() {
+  const U = window.__c201 = {err: null, hush: 0, blocked: 0};
+  const warn = (w, e) => { U.err = w + ' ' + String(e && e.message || e); console.warn('c201', w, e); };
+  const precip = () => typeof weather !== 'undefined' && weather.type && weather.type !== 'clear' && !DIM.cur;
+  const snowyHere = () => { try { return !!window.__forceSnow || P.y > (window.__snowY || SEA + 30); } catch (_) { return false; } };
+  // snow = precipitation where it falls as snow (high up, snowy ground, or the Snow weather setting); rain = every other precipitation
+  window.__snowWx = () => precip() && (!!window.__snowing || snowyHere());
+  window.__rainWx = () => precip() && !window.__snowWx();
+  // weather tag
+  const SL = {light: 'Light snow', heavy: 'Heavy snow', thunder: 'Blizzard'};
+  try { for (const k in SL) { const w = WEATHER[k]; if (!w) continue; const rl = w.label; Object.defineProperty(w, 'label', {get: () => window.__snowWx && __snowWx() ? SL[k] : rl, configurable: true}); } } catch (e) { warn('label', e); }
+  // messages
+  const MSG = {'The rain eases off.': 'The snow stops falling.', 'A light rain drifts across the glen.': 'Light snow drifts across the glen.', 'Heavy rain sweeps in.': 'Heavy snow sweeps in.', 'Thunder rumbles. A storm is coming!': 'The wind howls. A blizzard is coming!'};
+  try { const t0 = toast; toast = function (m) { if (typeof m === 'string' && MSG[m] && snowyHere()) arguments[0] = MSG[m]; return t0.apply(this, arguments); }; } catch (e) { warn('toast', e); }
+  // no thunder or lightning in snow
+  try { const sf = sfx; sfx = function (k) { if (k === 'thunder' && __snowWx()) { U.blocked++; return; } return sf.apply(this, arguments); }; } catch (e) { warn('sfx', e); }
+  try { const st = strike; strike = function () { if (__snowWx()) { U.blocked++; return; } return st.apply(this, arguments); }; } catch (e) { warn('strike', e); }
+  // soft snow ambience: low band-passed noise with slow gusts
+  let hush = null, hushF = null, gustT = 0;
+  function mkHush() { if (hush || typeof AC === 'undefined' || !AC || !master) return hush; try {
+      const len = AC.sampleRate * 4, buf = AC.createBuffer(1, len, AC.sampleRate), d = buf.getChannelData(0); let b = 0;
+      for (let i = 0; i < len; i++) { b = (b + (Math.random() * 2 - 1) * 0.06) * 0.985; d[i] = b * 3; }   // brown-ish noise: a soft hush, no patter
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+      hushF = AC.createBiquadFilter(); hushF.type = 'bandpass'; hushF.frequency.value = 520; hushF.Q.value = 0.6;
+      hush = AC.createGain(); hush.gain.value = 0; src.connect(hushF); hushF.connect(hush); hush.connect(master); src.start(); } catch (e) { warn('hush', e); hush = null; } return hush; }
+  const zero = g => { try { if (g && g.gain) { g.gain.cancelScheduledValues(AC.currentTime); g.gain.value = 0; } } catch (_) {} };
+  try { const ur = updateRain; updateRain = function (dt) { const r = ur.apply(this, arguments);
+      try { if (__snowWx()) { zero(typeof rainGain !== 'undefined' && rainGain); zero(typeof roofOut !== 'undefined' && roofOut); } } catch (e) { warn('rain', e); } return r; }; } catch (e) { warn('ur', e); }
+  try { const uw = updateWeather; updateWeather = function (dt) { const r = uw.apply(this, arguments);
+      try { const sn = __snowWx(); U.snow = sn;
+        if (sn) { flashA = 0; const fl = document.getElementById('flash'); if (fl && fl.style.opacity !== '0') fl.style.opacity = '0'; }
+        const h = (sn || hush) && mkHush();
+        if (h) { gustT += dt; const cave = typeof caveK === 'number' ? caveK : 0, cov = typeof rainCover === 'number' ? rainCover : 0;
+          const lvl = weather.type === 'light' ? 0.05 : weather.type === 'thunder' ? 0.11 : 0.08, gust = 0.75 + 0.25 * Math.sin(gustT * 0.37) * Math.sin(gustT * 0.13 + 1);
+          const tgt = sn ? lvl * gust * (1 - cave) * (1 - 0.5 * cov) * (typeof SET !== 'undefined' && SET.sfx != null ? SET.sfx : 1) : 0;
+          h.gain.setTargetAtTime(tgt, AC.currentTime, 0.6); if (hushF) hushF.frequency.setTargetAtTime(420 + 260 * gust, AC.currentTime, 0.8); U.hush = Math.round(tgt * 1000) / 1000; } } catch (e) { warn('uw', e); }
+      return r; }; } catch (e) { warn('uwrap', e); }
+  // saves: which kind is falling
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && typeof d === 'object') d.precip = __snowWx() ? 'snow' : __rainWx() ? 'rain' : 'none'; } catch (_) {} return d; }; } catch (e) { warn('save', e); }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -28709,6 +28753,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.40', d:'2026-10-27', notes:["New: snow sounds like snow - a soft wind and hush instead of rain patter, with no thunder or lightning while it snows; the weather tag and messages say snow (Light snow, Heavy snow, Blizzard)", "Mobs: the Thunner Cloudie only comes in real rain, never in snow"]},
 {v:'v1.0.39', d:'2026-10-27', notes:["New: the Creative bag is now sorted into labelled groups like the crafting Blocks tab - planks by wood, logs, stairs, corner stairs, slabs, fences, gates, doors, walls, stone & brick, glass, wool & carpet, lighting, decor, then natural blocks, ores, plants, tools, armour, food and items - in the same order every time"]},
 {v:'v1.0.38', d:'2026-10-27', notes:["New: iron tools, armour, shield, railings, block and motorboat are now called silver everywhere (crafting list, item names, messages) and all their recipes use silver ingots - your saved items stay the same", "Textures: held doors of every wood type now show their own door design"]},
 {v:'v1.0.37', d:'2026-10-27', notes:["New: no more floating trees - leftover floating trees are cleared once, and natural logs, leaves and loose ground with nothing holding them up now fall", "New: felled trees topple over and break apart into logs, sticks and wood chips when they land - big trees drop far fewer logs (14 at most)", "New: loose leaves drift down and fade away", "New: smoother nights - no more freezes from tree-monster spawn checks or autosaves, and cave mobs no longer spawn or hang about far below you", "Mobs: mob voices are much louder and carry further (the Mob volume slider now goes up to 300%), with a gentle limiter so nothing distorts - the creeper alarm stays quieter than the rest", "New: diamonds are easier to find deep down (about twice as many below y 13) and silver ore is more common in the deepslate - new and reset worlds", "Textures: clearer coal, silver and lazurite ore - bigger, bolder specks on the same stone", "New: the crafting Blocks tab is sorted into labelled groups - planks, stairs, corner stairs, slabs, fences, gates, doors, stone & brick, glass & panes, wool & carpet, lighting and decor - in the same wood and stone order in every group", "New: stairs, corner stairs, slabs, carpets, doors and trapdoors look like themselves in your hand, in their own wood or stone"]},
