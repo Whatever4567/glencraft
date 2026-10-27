@@ -28,6 +28,12 @@ Since v1.0.20 the game also restyles every model when it loads: the original col
 | skull.glb | Skull Wisp (recoloured) | Skull Enemy | Quaternius | https://poly.pizza/m/EHHwZ17lWD | CC0 1.0 |
 | robot.glb | Govan Gearheid (recoloured steel) | Animated Robot | Quaternius | https://poly.pizza/m/QCm7qe9uNJ | CC0 1.0 |
 | whorse.glb | Unicorn (recoloured; horn added in-game) | White Horse | Quaternius | https://poly.pizza/m/bEdE4rmZy9 | CC0 1.0 |
+| dino_apato.glb | Apatosaurus (recoloured, Glencraft scales) | Apatosaurus (Animated Dinosaur Bundle) | Quaternius | https://poly.pizza/m/fvo0x8Zk3z | CC0 1.0 |
+| dino_para.glb | Parasaurolophus (recoloured, Glencraft scales) | Parasaurolophus (Animated Dinosaur Bundle) | Quaternius | https://poly.pizza/m/KeeQrrouRK | CC0 1.0 |
+| dino_stego.glb | Stegosaurus (recoloured, Glencraft scales) | Stegosaurus (Animated Dinosaur Bundle) | Quaternius | https://poly.pizza/m/eFcNbOlpvl | CC0 1.0 |
+| dino_trike.glb | Triceratops (recoloured, Glencraft scales) | Triceratops (Animated Dinosaur Bundle) | Quaternius | https://poly.pizza/m/IGvrUqGrRM | CC0 1.0 |
+| dino_raptor.glb | Gallimimus, Compsognathus and Baryonyx (rescaled and recoloured) | Velociraptor (Animated Dinosaur Bundle) | Quaternius | https://poly.pizza/m/cnlGH2UcDd | CC0 1.0 |
+| dino_trex.glb | Allosaurus (recoloured) | T-Rex (Animated Dinosaur Bundle) | Quaternius | https://poly.pizza/m/UYtneO5FpF | CC0 1.0 |
 
 Quaternius: https://quaternius.com
 
