@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1034a -->
+<!-- glencraft-build: v1035a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.34';
+const GAME_VERSION = 'v1.0.35';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -17823,7 +17823,10 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const placed = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i);
   const isl = () => window.__c101 && __c101.isl;
   // keep the spawn island's buildings clean: no ore in its stonework above the sea floor
-  const islBlock = (x, y, z) => { const I = isl(); return I && y >= SEA - 8 && Math.hypot(x - I.cx, z - I.cz) < I.R + 4; };
+  // v1.0.35: only the buildings - the natural hill rock under grass / dirt / snow (3+ blocks down) gets ore like anywhere else
+  const NAT = new Set([T.GRASS, T.DIRT, T.SNOW, T.HEATHER, T.STONE, T.GRAVEL, T.SAND, T.PEAT, T.COBBLE, T.DEEPSLATE].filter(v => v !== undefined));
+  const islBlock = (x, y, z) => { const I = isl(); if (!(I && y >= SEA - 8 && Math.hypot(x - I.cx, z - I.cz) < I.R + 4)) return false;
+    const tp = top(x, z); return !(y <= tp - 3 && NAT.has(world[idx(x, tp, z)])); };
   const MCY = Y => Math.round((Y + 64) * 0.3228);
   // [name, id, veins per 1000 columns, yLo, yHi, size lo, size hi, rule]  ('u' = even spread, else a triangle peaking in the middle)
   const ORES = () => [
@@ -18747,6 +18750,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     for (const c of cs) { const [x, y] = toC(c[1], c[2]); const fr = (() => { try { return castleFriendly(c); } catch (_) { return c[0] === 'human'; } })();
       const [col, roof, nm] = fr ? ['#d8d2c4', '#2f5fa8', 'Clan Castle'] : c[0] === 'black' ? ['#2a2a30', '#b0301c', 'Blackstone Castle'] : ['#6f8a5a', '#3a4a2a', 'Mossy Skeleton Castle'];
       castleIcon(x, y, col, roof); label(nm, Math.max(150, Math.min(874, x)), y + (y > 900 ? -34 : 44)); }
+    try { if (window.__c181 && __c181.on()) { const I = window.__c142 && __c142.sites && __c142.sites.isle; if (I) { const [x, y] = toC(I.c[0], I.c[1]); label('Pyramid Park', x, y); }
+        const F = window.__c113 && __c113.isles && __c113.isles().find(q => q.k === 'forest'); if (F) { const [x, y] = toC(F.x, F.z); label('Croft Isle', x, y); } } } catch (_) {}
     if (typeof g9spawn !== 'undefined' && g9spawn) { const [x, y] = toC(g9spawn[0], g9spawn[2]); tg.fillStyle = '#ffd23a'; tg.strokeStyle = '#5a3a00'; tg.lineWidth = 2; tg.beginPath();
       for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2 - Math.PI / 2, r = i % 2 ? 6 : 14; tg.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } tg.closePath(); tg.fill(); tg.stroke(); label('Spawn', x, y + 38); }
     // v1.0.12 markers: crofts, the 4 ravines, the great cave under the skull
@@ -18939,11 +18944,16 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   let RM = 262, IR = 60, OFF = 311, G12 = false, PN = 2;
   const P12 = () => { try { return !!(window.__c131 && __c131.on()); } catch (_) { return false; } };
   const setP = g => { G12 = g; RM = g ? 418 : 262; IR = g ? 100 : 60; OFF = g ? 302 : 311; PN = g ? 1.7 : 2; IS = ISL(); };
-  const ISL = () => [{k: 'human', x: (W >> 1) - OFF, z: (D >> 1) - OFF, bio: 7}, {k: 'mossy', x: (W >> 1) + OFF, z: (D >> 1) - OFF, bio: 5}, {k: 'black', x: (W >> 1) + OFF, z: (D >> 1) + OFF, bio: 4}];
+  // v1.0.35 (current.g35): the sketch layout - black N, skeleton W, clan E, forest/croft SE (sand pyramid isle SW is c147's)
+  const G35 = () => { try { return !!(current && current.g35 && G12); } catch (_) { return false; } };
+  const ISL = () => G35() ? [{k: 'black', x: W >> 1, z: Math.round(D * 0.118), bio: 4, sx: 1.25, sz: 0.85}, {k: 'mossy', x: Math.round(W * 0.118), z: Math.round(D * 0.45), bio: 5, sx: 0.72, sz: 1.15},
+      {k: 'human', x: Math.round(W * 0.882), z: Math.round(D * 0.42), bio: 7, sx: 0.72, sz: 1.15}, {k: 'forest', x: Math.round(W * 0.745), z: Math.round(D * 0.875), bio: 1, sx: 1.32, sz: 0.72, nc: 1}]
+    : [{k: 'human', x: (W >> 1) - OFF, z: (D >> 1) - OFF, bio: 7}, {k: 'mossy', x: (W >> 1) + OFF, z: (D >> 1) - OFF, bio: 5}, {k: 'black', x: (W >> 1) + OFF, z: (D >> 1) + OFF, bio: 4}];
   let IS = ISL();
   U.isles = () => IS;
   // biome override: each castle island is its own wood (alder / hawthorn / yew)
-  U.bioOv = (x, z, b) => { if (!U.bigBio()) return b; const g = P12(); if (g !== G12) setP(g); for (const I of IS) if (Math.hypot(x - I.x, z - I.z) < IR * (G12 ? 1.08 : 1.35)) return I.bio; return b; };
+  U.bioOv = (x, z, b) => { if (!U.bigBio()) return b; const g = P12(); if (g !== G12) setP(g); for (const I of IS) if (Math.hypot((x - I.x) / (I.sx || 1), (z - I.z) / (I.sz || 1)) < IR * (G12 ? 1.08 : 1.35)) return I.bio; return b; };
+  U.G35 = G35;
   U.params = () => ({RM, IR, OFF, PN, G12, IS});
   const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ (gSeed | 0) ^ 0x113; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
@@ -18969,12 +18979,12 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     const dx = x - (W >> 1), dz = z - (D >> 1), ang = Math.atan2(dz, dx);
     const wob = G12 ? 1 + 0.05 * g9fbm(Math.cos(ang) * 2.2 + 11, Math.sin(ang) * 2.2 - 7, 3) + 0.025 * g9fbm(x / 41, z / 41, 2)
       : 1 + 0.09 * g9fbm(Math.cos(ang) * 2.2 + 11, Math.sin(ang) * 2.2 - 7, 3) + 0.04 * g9fbm(x / 23, z / 23, 2);
-    const d = (G12 ? Math.pow(Math.pow(Math.abs(dx), PN) + Math.pow(Math.abs(dz), PN), 1 / PN) : Math.hypot(dx, dz)) / (RM * wob), m = 1 - sstep(0.72, 1.0, d);
+    const d = G35() ? Math.hypot(dx / 1.0, (z - (D >> 1) - 8) / 1.06) / (232 * (W / 864) * (1 + 0.07 * g9fbm(Math.cos(ang) * 2.6 + 3, Math.sin(ang) * 2.6 + 9, 3) + 0.03 * g9fbm(x / 37, z / 37, 2))) : (G12 ? Math.pow(Math.pow(Math.abs(dx), PN) + Math.pow(Math.abs(dz), PN), 1 / PN) : Math.hypot(dx, dz)) / (RM * wob), m = 1 - sstep(0.72, 1.0, d);
     const sea = SEA - 6 - Math.min(10, (d - 1) * 30) + g9fbm(x / 30, z / 30, 2) * 2;
     let h = r.h * m + Math.min(r.h, sea) * (1 - m);
     if (m < 1) h = Math.min(h, SEA + 2 + (r.h - SEA - 2) * sstep(0.0, 0.55, m));
     let isl = false;
-    for (const I of IS) { const ex = x - I.x, ez = z - I.z; if (Math.abs(ex) > IR * 1.4 || Math.abs(ez) > IR * 1.4) continue;
+    for (const I of IS) { const ex = (x - I.x) / (I.sx || 1), ez = (z - I.z) / (I.sz || 1); if (Math.abs(ex) > IR * 1.4 || Math.abs(ez) > IR * 1.4) continue;
       const a2 = Math.atan2(ez, ex), wb = 1 + 0.1 * g9fbm(Math.cos(a2) * 2 + I.x / 50, Math.sin(a2) * 2 - 3, 2);
       const di = Math.hypot(ex, ez) / (IR * wb); if (di >= 1.25) continue;
       const mi = 1 - sstep(0.62, 1.0, di);
@@ -18988,7 +18998,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), hf: h, glen: inl ? r.glen : 0, mMask: mt ? 1 : isl ? 0 : r.mMask * m, loch: !!(r.loch && inl)};
   }
   // castles: one on each island
-  try { const cor = window.__c101.corners; window.__c101.corners = function () { if (!ON) return cor.apply(this, arguments); const o = {}; for (const I of IS) { let tx = I.x, tz = I.z; if (G12) { const ux = Math.sign(I.x - (W >> 1)), uz = Math.sign(I.z - (D >> 1)); tx += Math.round(ux * IR * 0.22); tz += Math.round(uz * IR * 0.22); }   // v1.0.12: towards the island's outer edge, still well inland
+  try { const cor = window.__c101.corners; window.__c101.corners = function () { if (!ON) return cor.apply(this, arguments); const o = {}; for (const I of IS) { if (I.nc) continue; let tx = I.x, tz = I.z; if (G12) { const ux = Math.sign(I.x - (W >> 1)), uz = Math.sign(I.z - (D >> 1)); tx += Math.round(ux * IR * 0.22); tz += Math.round(uz * IR * 0.22); }   // v1.0.12: towards the island's outer edge, still well inland
       o[I.k] = (x, z) => -Math.hypot(x - tx, z - tz) * 20; } return o; }; } catch (e) { U.err = 'corners ' + e; }
 
   // ---------- helpers ----------
@@ -19038,14 +19048,20 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       rail: (x, y, z) => h3(x, y + 5, z) < 0.3 ? 0 : BLK, stair: () => 166, lampEvery: 14, lamp: (x, s, z) => { put(x, s, z, BLK); put(x, s + 1, z, BLK); put(x, s + 2, z, T.MAGMA); put(x, s + 3, z, LAMP); },
       gap: (x, z, ap, wet) => wet && ap > 1.6 && h3(x, 9, z) < 0.07}
   };
-  function buildBridges() {
+  STY.sand = {deck: () => T.SANDSTONE, fill: () => T.SANDSTONE, pil: () => T.SANDSTONE, rail: (x, y, z) => h3(x, y, z) < 0.5 ? T.SANDSTONE : 150, stair: () => 167, lampEvery: 14,
+    lamp: (x, s, z) => { put(x, s, z, T.SANDSTONE); put(x, s + 1, z, T.SANDSTONE); put(x, s + 2, z, FENCE); put(x, s + 3, z, LAMP); }, gap: () => false};
+  U.bridgeOne = c => { const r = buildBridges([c]); U.bridges.push(...r); return r; };
+  function buildBridges(list) {
     const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1, R: 30}, out = [], hw = 2, DK = SEA + 4; U.tun = 0; U.tunAt = [];
-    for (const c of g9castles || []) { const st = STY[c[0]]; if (!st) continue;
+    const fo = IS.find(q => q.k === 'forest'), ext = G35() && fo ? [['forest', fo.x, fo.z, 1]] : [];
+    for (const c of list || [...(g9castles || []), ...ext]) { const st = STY[c[0]] || (c[0] === 'sand' ? STY.sand : STY.human); if (!st || (c[3] && !c[1])) continue;
       const ax = I.cx + 0.5, az = I.cz + 0.5, bx = c[1] + 0.5, bz = c[2] + 0.5, L = Math.hypot(bx - ax, bz - az), ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, N = Math.floor(L);
       const G = new Int16Array(N + 1), WET = new Uint8Array(N + 1);
       for (let t = 0; t <= N; t++) { const x = Math.floor(ax + ux * t), z = Math.floor(az + uz * t), g = gtop(x, z); G[t] = g; WET[t] = get(x, g + 1, z) === T.WATER || g < SEA ? 1 : 0; }
-      let t0 = -1; for (let t = Math.round(I.R * 0.55); t < N; t++) if (WET[t]) { t0 = Math.max(0, t - 5); break; } if (t0 < 0) continue;
-      const t1 = N - 24; if (t1 <= t0 + 10) continue;
+      let t0 = -1; if (c[3]) { let w = -1; for (let t = N - 20; t > I.R * 0.55; t--) { if (WET[t]) w = t; else if (w > 0 && !WET[t] && !WET[t - 1] && !WET[t - 2] && G[t] > SEA) { t0 = Math.max(0, t - 5); break; } } }
+      else for (let t = Math.round(I.R * 0.55); t < N; t++) if (WET[t]) { t0 = Math.max(0, t - 5); break; } if (t0 < 0) continue;
+      let t1 = N - 24; if (c[3]) { t1 = -1; for (let t = t0 + 6; t < N - 3; t++) if (!WET[t] && !WET[t + 1] && !WET[t + 2] && G[t] > SEA) { t1 = Math.min(N - 3, t + 5); break; } if (t1 < 0) continue; }
+      if (t1 <= t0 + 10) continue;
       // v1.0.23: a level deck at DK; stair ramps only at the two ends; where the land rises well above the deck, a lined, lit tunnel goes through it (no more holes cut up the hillside)
       const S = new Int16Array(N + 1), E0 = Math.max(G[t0], SEA + 1), E1 = Math.max(G[t1], SEA + 1);
       for (let t = t0; t <= t1; t++) { let v = DK; const d0 = t - t0, d1 = t1 - t; if (d0 < Math.abs(E0 - DK)) v = E0 + Math.sign(DK - E0) * d0; if (d1 < Math.abs(E1 - DK) && (d1 < d0 || v === DK)) v = E1 + Math.sign(DK - E1) * d1; S[t] = v; }
@@ -19093,12 +19109,14 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const nearBridge = (x, z, r) => U.bridges.some(b => { const [ax, az, ux, uz, t0, t1] = b.a, px = x - ax, pz = z - az, t = px * ux + pz * uz; return t > t0 - r && t < t1 + r && Math.abs(-px * uz + pz * ux) < r; });
   function buildFarms() {
     const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1, R: 30}, cand = [];
-    for (let a = 0; a < 6.283; a += 0.05) for (let rr = 172; rr < RM - 22; rr += 8) {
+    for (let a = 0; a < 6.283; a += 0.05) for (let rr = G35() ? 96 : 172; rr < (G35() ? 440 : RM - 22); rr += 8) {
       const x0 = Math.round((W >> 1) + Math.cos(a) * rr) - 3, z0 = Math.round((D >> 1) + Math.sin(a) * rr) - 6;
       if (!inW(x0 - 5, z0 - 5) || !inW(x0 + 11, z0 + 16)) continue; if (Math.hypot(x0 + 3 - I.cx, z0 + 6 - I.cz) < I.R + 45) continue; if (nearBridge(x0 + 3, z0 + 6, 16)) continue;
       let lo = 1e9, hi = -1e9, bad = false; const tops = [];
       for (let x = x0 - 2; x <= x0 + 8 && !bad; x += 2) for (let z = z0 - 2; z <= z0 + 13; z += 2) { const t = gtop(x, z); if (get(x, t + 1, z) === T.WATER || t <= SEA + 1) { bad = true; break; } lo = Math.min(lo, t); hi = Math.max(hi, t); tops.push(t); }
-      if (bad || hi - lo > 3) continue; tops.sort((p, q) => p - q); cand.push({x0, z0, gy: tops[tops.length >> 1], sc: hi - lo + h3(x0, 1, z0)}); }
+      if (bad || hi - lo > 3) continue; let bon = 0;
+      if (G35()) { const inI = IS.find(q => Math.hypot((x0 + 3 - q.x) / (q.sx || 1), (z0 + 6 - q.z) / (q.sz || 1)) < IR * 1.15); if (inI && !inI.nc) continue; if (inI) bon = -6; if (Math.hypot(x0 + 3 - MT_C[0], z0 + 6 - MT_C[1]) < 110) continue; }
+      tops.sort((p, q) => p - q); cand.push({x0, z0, gy: tops[tops.length >> 1], sc: hi - lo + h3(x0, 1, z0) + bon}); }
     cand.sort((p, q) => p.sc - q.sc); const pick = [];
     for (const c of cand) { if (pick.length >= 8) break; if (pick.every(p => Math.hypot(p.x0 - c.x0, p.z0 - c.z0) > 75)) pick.push(c); }
     pick.forEach((c, i) => { try { croft(c.x0, c.z0, c.gy); c.i = i; } catch (e) { U.err = 'croft ' + e; } });
@@ -19277,6 +19295,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.35', ["New: a new map - the mainland sits in the middle with the black castle island to the north, the skeleton castle island to the west, the clan castle island to the east, the sand island to the south-west and a forest croft island to the south-east, with sea between them all (new and reset worlds)", "New: every island has its own bridge from the mainland, and the held map shows the new layout with Pyramid Park and Croft Isle marked", "New: the sand island is now a desert museum park - a pink three-tier stepped pyramid with big red doors, a long dune behind it with a white chapel on top, two museums across a terracotta plaza, a sundial and red granite glyph fields", "New: the Great Sphinx lies beside the park - look behind its ear, or on top of its head, for the way into its hidden chamber", "New: the pyramid's chest room now opens onto stairs down into the deep cave, and the old duplicate tunnels under it are gone", "New: the hills around spawn now have ores in them like everywhere else (new and reset worlds)", "New: the crafting screen no longer gets covered on a phone held sideways - the recipe grid and the chosen recipe sit side by side, and the item name and tool hints hide while a menu is open", "New: corner stairs - craft 3 stairs into 2 corner stairs at a crafting table, for every kind of stairs; they place as an outer corner turned towards the side you aim at", "Textures: pink terrazzo, cream render, terracotta tiles, red granite, white and pink gravel and red panelled doors on the sand island", "Textures: proper 3D block icons for the newer blocks that had flat or missing ones (oak stairs, red glass pane, paving slab, carpets, panels, lamps, railings, bedrock and the corner stairs), and icons fill in straight away in an open crafting list", "Mobs: Barrow Bandagers now wait in the deep cave and in the Sphinx's chamber", "Mobs: creepers can be heard again - a hiss when one spots you and a soft robotic whirr as it creeps up; the quieter fuse alarm is unchanged"]],
     ['v1.0.34', ["New: Copy tool and Template tool - two extra hotbar squares in your Test World that never break or run out", "New: Copy tool - LT sets the first corner, a see-through red box follows where you aim, LT again locks it, RT saves it with a name typed on the on-screen keyboard, B cancels", "New: Template tool - LT opens your saved templates (use or delete, with a Yes / No check), the chosen one shows as a blue ghost where you aim, LB / RB turn it, RT builds it, B puts it away", "New: templates are kept on this device for every world, so they survive Reset world and new maps", "New: a water pool near spawn in current, new and reset worlds", "New: caves now have small lava pools and underground streams that flow"]],
     ['v1.0.33', ["New: tunnels under the bridges are tidied - no more stairs or lanterns stuck on the roof, and lanterns hang on the tunnel walls instead", "New: corner stairs - stairs now join up at corners (inner and outer) like real stairs, so the tunnel ramps to the four corners are no longer sideways steps", "New: Red glass pane - a thin glowing red-orange pane (8 glass panes + 1 magma); every window in the Hell builds and the black castle is now red glass, and the banners hang only inside", "New: the black castle island is one scorched land - black grass, dead black trees and lava pools away from the paths", "New: the black castle's red mist is now a soft smoky red cloud bank you can see from far away, and you walk into it gradually instead of across a line", "New: red skies round the black castle by day and night - crimson clouds, red stars and moon", "New: Hell and the black castle zone have a deep crimson cloudy sky", "New: each Hell build has its own shape (a cross cathedral, an abbey with a cloister, a walled keep, a round bastion), and all of them are hollow inside - a throne hall, an upper floor with a bedchamber and a store room, stairs, doorways and furniture", "New: the black castle has two new courtyard wings - barracks, an armoury and a kitchen, with a door into the throne hall; existing worlds get the new builds once", "New: the jetpack only fires when you double-tap jump in the air; a normal jump while sprinting is a normal jump again", "New: inside the bridge tunnels it no longer turns to night", "New: lanterns no longer make the block they are on see-through", "Textures: Red glass pane"]],
     ['v1.0.32', ["New: one reset button in the World tab - it reads Reset world in the overworld and Reset Hell in Hell, with a matching are-you-sure; the separate Reset Hell button is gone", "New: Reset Hell now always builds the new Hell - the big 384-wide nether with its four biomes, the four gothic builds and the red sky - on every world, not only the newest Highlands saves (some worlds were getting a small Hell with just one build)"]],
@@ -24709,6 +24728,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     st.ms = Math.round(performance.now() - t0); U.st = st; return sites; }
   // ---------- 1) the sand island + pyramid + tomb ----------
   function island(rnd, st) {
+    if (window.__c181 && __c181.on()) return __c181.island(rnd, st);   // v1.0.35: the desert museum park
     const cx0 = MT_C[0], cz0 = MT_C[1], R = 150; let sx = -1, sz = -1;
     for (let r = 0; r < 40 && sx < 0; r += 2) for (let a = 0; a < 6.28 && sx < 0; a += 0.4) { const x = Math.round(cx0 + Math.cos(a) * r), z = Math.round(cz0 + Math.sin(a) * r); if (inW(x, z) && topOf(x, z)[0] > SEA && topOf(x, z)[1] !== T.WATER) { sx = x; sz = z; } }
     if (sx < 0 && !(window.__c147 && __c147.shape)) { st.isle = 'no land'; return null; } if (sx < 0) { sx = cx0; sz = cz0; }
@@ -24789,7 +24809,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- 3) the longship the spawn asset used to carry, back out in the channel ----------
   function boat(st) {
     const raw = atob(SH), L = []; for (let i = 0; i + 3 < raw.length; i += 4) L.push([raw.charCodeAt(i), raw.charCodeAt(i + 1), raw.charCodeAt(i + 2), raw.charCodeAt(i + 3)]);
-    const bx = (W >> 1) - 128 + 94, bz = (D >> 1) - 124 + 4, by = 21 + 12; let best = 0, bd = -1;
+    const g35 = !!(window.__c181 && __c181.on()), bx = g35 ? (W >> 1) - 80 : (W >> 1) - 128 + 94, bz = g35 ? Math.round(D * 0.227) - 7 : (D >> 1) - 124 + 4, by = 21 + 12; let best = 0, bd = -1;
     const foot = [...new Set(L.map(b => b[0] + ',' + b[2]))].map(s => s.split(',').map(Number));
     const wet = (x, z) => { const t = topOf(x, z); return t[1] === T.WATER && t[0] <= SEA; };
     for (let dz = -14; dz <= 14; dz++) { let n = 0; for (const [x, z] of foot) if (wet(bx + x, bz + z + dz)) n++; const sc = n * 10 - Math.abs(dz + 4); if (sc > bd) { bd = sc; best = dz; } }
@@ -25152,8 +25172,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   const solid = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && b !== T.TORCH;
   const col = (x, z, h, kind) => { try { if (g9cols && g9cols.length > N(x, z) * 2 + 1) { g9cols[N(x, z) * 2] = h + 1; g9cols[N(x, z) * 2 + 1] = kind; } } catch (_) {} };
   // 1) shape: everything inside r(a) is island, the ring r(a)..r(a)+CH becomes open sea with a sand bed; caves under it are filled
-  U.shape = function (cx, cz, rnd, st) {
-    const R0 = 60, CH = 18, p1 = rnd() * 6.28, p2 = rnd() * 6.28, rA = a => R0 * (1 + 0.07 * Math.sin(3 * a + p1) + 0.04 * Math.sin(5 * a + p2));
+  U.shape = function (cx, cz, rnd, st, r0) {
+    const R0 = r0 || 60, CH = 18, p1 = rnd() * 6.28, p2 = rnd() * 6.28, rA = a => R0 * (1 + 0.07 * Math.sin(3 * a + p1) + 0.04 * Math.sin(5 * a + p2));
     const isle = new Set(), tops = new Map(), ring = []; let farm = 0;
     const span = Math.ceil(R0 * 1.12 + CH + 3);
     for (let x = cx - span; x <= cx + span; x++) for (let z = cz - span; z <= cz + span; z++) { if (!inW(x, z)) continue; const d = Math.hypot(x - cx, z - cz), r = rA(Math.atan2(z - cz, x - cx));
@@ -25175,16 +25195,17 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     st.ring = ring.length; st.farmGone = farm; st.R0 = R0; st.CH = CH; U.geo = {cx, cz, R0, CH, p1, p2}; U.rA = rA;
     return {isle, tops, rA}; };
   // 2) caverns under the pyramid: a few big overlapping bubbles at y ~8-20, ore-rich walls, torches; sloping cave mouths from the sand down into them
-  U.caverns = function (px, pz, B, ty, isle, rnd, st) {
+  U.cavPts = () => U.cav && U.cav.pts;
+  U.caverns = function (px, pz, B, ty, isle, rnd, st, op) { op = op || {};
     const g = U.geo; if (!g) return; const inside = (x, z, m) => Math.hypot(x - g.cx, z - g.cz) < U.rA(Math.atan2(z - g.cz, x - g.cx)) - m;
-    const cy = SEA - 27, cells = new Set(), K = (x, y, z) => (x * H + y) * D + z, blobs = [[px, cy, pz, 13, 6, 12]];
+    const cy = SEA - 27, cells = new Set(), K = (x, y, z) => (x * H + y) * D + z, blobs = [[px, cy, pz, 13, 6, 12], ...(op.extra || [])];
     for (let i = 0; i < 4; i++) { const a = rnd() * 6.28, r = 9 + rnd() * 9; blobs.push([Math.round(px + Math.cos(a) * r), cy - 1 + Math.round(rnd() * 3), Math.round(pz + Math.sin(a) * r), 8 + rnd() * 5, 4 + rnd() * 2.5, 8 + rnd() * 5]); }
-    const top = ty - 4;   // keep a thick roof under the tomb floor
+    const top = op.top || ty - 4;   // keep a thick roof under the tomb floor
     for (const [bx, by, bz, rx, ry, rz] of blobs) for (let x = Math.floor(bx - rx); x <= bx + rx; x++) for (let z = Math.floor(bz - rz); z <= bz + rz; z++) { if (!inside(x, z, 9)) continue;
       for (let y = Math.max(4, Math.floor(by - ry * 0.55)); y <= Math.min(top, by + ry); y++) { const q = ((x - bx) / rx) ** 2 + ((y - by) / ry) ** 2 + ((z - bz) / rz) ** 2; if (q <= 1) cells.add(K(x, y, z)); } }
     // cave mouths: three sloping 3x3 tunnels from the sand into the cavern (no straight drops)
     let mouths = 0; const MO = [];
-    for (const a0 of [0.35, 2.2, 4.1]) { const a = a0 + rnd() * 0.5, r0 = B + 9; let x = px + Math.cos(a) * r0, z = pz + Math.sin(a) * r0; const sx = Math.round(x), sz = Math.round(z); if (!inside(sx, sz, 6)) continue;
+    for (const a0 of op.noMouth ? [] : [0.35, 2.2, 4.1]) { const a = a0 + rnd() * 0.5, r0 = B + 9; let x = px + Math.cos(a) * r0, z = pz + Math.sin(a) * r0; const sx = Math.round(x), sz = Math.round(z); if (!inside(sx, sz, 6)) continue;
       let y = SEA + 1; for (let yy = H - 2; yy > 2; yy--) if (solid(gw(sx, yy, sz))) { y = yy + 1; break; } const dx = -Math.cos(a), dz = -Math.sin(a); MO.push([sx, y, sz]); mouths++;
       for (let k = 0; k < 80 && y > cy; k++) { for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) for (let oy = 0; oy <= 2; oy++) { const X = Math.round(x) + ox, Z = Math.round(z) + oz; if (inside(X, Z, 3)) cells.add(K(X, y + oy, Z)); }
         x += dx; z += dz; y--; } }
@@ -25199,7 +25220,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       if (y < cy && solid(gw(x, y - 1, z)) && !gw(x, y, z) && ((x * 31 + z * 17) % 41 === 0)) { setW(x, y, z, T.TORCH); try { lightSrc.set((x * 4096 + z) * 256 + y, [x + .5, y + .7, z + .5, T.TORCH]); } catch (_) {} torches++; } }
     for (const [x, y, z] of MO) for (let ox = -2; ox <= 2; ox++) for (let oz = -2; oz <= 2; oz++) if (Math.max(Math.abs(ox), Math.abs(oz)) === 2 && !gw(x + ox, y, z + oz) && solid(gw(x + ox, y - 1, z + oz))) setW(x + ox, y, z + oz, T.SANDSTONE);   // a low sandstone lip round each mouth
     try { for (let x = px - 40; x <= px + 40; x += 4) for (let z = pz - 40; z <= pz + 40; z += 4) markDirty(x, z); } catch (_) {}
-    Object.assign(st, {cav: cells.size, ores, torches, mouths, sealed}); U.cav = {cy, mouths: MO, n: cells.size};
+    Object.assign(st, {cav: cells.size, ores, torches, mouths, sealed}); U.cav = {cy, mouths: MO, n: cells.size, pts: []};
+    for (const k of cells) { if (U.cav.pts.length > 40) break; const x = Math.floor(k / (H * D)), y = Math.floor(k / D) % H, z = k % D; if ((x * 7 + z * 13) % 23 === 0 && solid(gw(x, y - 1, z)) && !gw(x, y, z) && !gw(x, y + 1, z)) U.cav.pts.push([x + .5, y, z + .5]); }
   };
 })();
 
@@ -27103,9 +27125,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     for (const [k, o] of fenceObjs) { if (o.t !== GP || !isRed(k)) continue; if (o.g && o.g.parent) o.g.parent.remove(o.g); list.push(o); }
     const s = list.map(o => o.x + ',' + o.y + ',' + o.z + ':' + (window.paneConn ? paneConn(o.x, o.y, o.z) : 0)).join('|'); if (s === sig) return; sig = s;
     const bx = []; for (const o of list) for (const b of boxes(window.paneConn ? paneConn(o.x, o.y, o.z) : 0)) bx.push([o.x + b[0], o.y, o.z + b[1], b[2] - b[0], b[3] - b[1]]);
-    if (!mesh || bx.length > cap) { if (mesh) { scene.remove(mesh); mesh.dispose && mesh.dispose(); } cap = Math.max(64, bx.length * 2); mesh = new THREE.InstancedMesh(box, mat, cap); mesh.frustumCulled = false; mesh.renderOrder = 3; scene.add(mesh); }
+    if (!mesh || bx.length > cap) { if (mesh) { if (mesh.parent) mesh.parent.remove(mesh); mesh.dispose && mesh.dispose(); } cap = Math.max(64, bx.length * 2); mesh = new THREE.InstancedMesh(box, mat, cap); mesh.frustumCulled = false; mesh.renderOrder = 3; blockGroup.add(mesh); }
     bx.forEach((b, i) => { V.set(b[0] + b[3] / 2, b[1] + 0.5, b[2] + b[4] / 2); S3.set(b[3], 1, b[4]); M4.compose(V, Q, S3); mesh.setMatrixAt(i, M4); });
-    mesh.count = bx.length; mesh.instanceMatrix.needsUpdate = true; mesh.visible = bx.length > 0; U.n = list.length; }
+    if (mesh.parent !== blockGroup) { if (mesh.parent) mesh.parent.remove(mesh); blockGroup.add(mesh); } mesh.count = bx.length; mesh.instanceMatrix.needsUpdate = true; mesh.visible = bx.length > 0; U.n = list.length; }
   U.pass = pass;
   try { const sf = window.syncFences; if (sf) { window.syncFences = function () { const r = sf.apply(this, arguments); try { pass(); } catch (e) { U.err = 'pass ' + e; } return r; }; try { syncFences = window.syncFences; } catch (_) {} } } catch (e) { U.err = 'sync ' + e; }
   setInterval(() => { try { if (typeof started !== 'undefined' && started) pass(); } catch (e) { U.err = 'pass ' + e; } }, 700);
@@ -27499,6 +27521,466 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   setInterval(() => { try { if (!started || DIM.cur || !U.done || typeof world === 'undefined' || !world || genVer < GEN9 || W < 400 || !gSeed) return; if (typeof cityGen !== 'undefined' && cityGen) return; if (typeof c37busy !== 'undefined' && c37busy) return;
       if (U.done.pool !== gSeed || U.done.cave !== gSeed) U.run(); } catch (e) { U.err = 'tick ' + e; } }, 900);
 })();
+
+/* ===================== GLX-C181 (v1.0.35): the sketch map (c113 G35 layout) + the sand island becomes a desert museum park: kit, terrain, orchestration ===================== */
+// New and reset worlds get current.g35. The park is built in local coords: u = forward (towards the bridge / spawn), v = to the right; K.L maps them to world x,z.
+(function c181() {
+  const U = window.__c181 = {st: null, err: null, zones: [], signs: [], ver: 0};
+  const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g35 = save ? !!(save.c181 && save.c181.g35) : true; U.zones = (save && save.c181 && save.c181.z) || []; U.signs = (save && save.c181 && save.c181.sg) || []; U.ver++; } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g35) d.c181 = {g35: 1, z: U.zones, sg: U.signs}; } catch (_) {} return d; };
+  U.on = () => { try { return !!(current && current.g35 && current.g12 && !DIM.cur && !cityGen && W >= 600 && current.mode !== 'creative'); } catch (_) { return false; } };
+  const N = (x, z) => x * D + z, inW = (x, z) => x > 2 && z > 2 && x < W - 3 && z < D - 3;
+  const solid = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && b !== T.TORCH;
+  const col = (x, z, h, kind) => { try { if (g9cols && g9cols.length > N(x, z) * 2 + 1) { g9cols[N(x, z) * 2] = h + 1; g9cols[N(x, z) * 2 + 1] = kind; } } catch (_) {} };
+  // ---------- the kit ----------
+  function kit(ox, oz, fx, fz, isle, G, rnd) {
+    const rx = -fz, rz = fx, K = {ox, oz, fx, fz, rx, rz, isle, G, rnd, n: 0};
+    K.L = (u, v) => [ox + u * fx + v * rx, oz + u * fz + v * rz];
+    K.ok = (u, v) => { const [x, z] = K.L(u, v); return inW(x, z) && isle.has(N(x, z)); };
+    K.B = (u, y, v, b) => { const [x, z] = K.L(u, v); if (!inW(x, z) || y < 1 || y >= H - 1) return; const i = idx(x, y, z); if (placedSet && placedSet.has(i)) return; world[i] = b; K.n++; };
+    K.get = (u, y, v) => { const [x, z] = K.L(u, v); return inW(x, z) && y > 0 && y < H ? world[idx(x, y, z)] : 0; };
+    K.box = (u0, y0, v0, u1, y1, v1, b) => { for (let u = Math.min(u0, u1); u <= Math.max(u0, u1); u++) for (let v = Math.min(v0, v1); v <= Math.max(v0, v1); v++) for (let y = y0; y <= y1; y++) K.B(u, y, v, typeof b === 'function' ? b(u, y, v) : b); };
+    K.Z = (key, base, u0, y0, v0, u1, y1, v1) => { const [ax, az] = K.L(u0, v0), [bx, bz] = K.L(u1, v1); U.zones.push([key, base, Math.min(ax, bx), Math.min(y0, y1), Math.min(az, bz), Math.max(ax, bx), Math.max(y0, y1), Math.max(az, bz)]); };
+    // a flat picture: at cell (u,y,v), on the side facing (du,dv); flat = lying on top of the cell
+    K.S = (u, y, v, du, dv, text, w, h, o) => { const [x, z] = K.L(u, v), dx = du * fx + dv * rx, dz = du * fz + dv * rz; U.signs.push(Object.assign({x, y, z, dx, dz, t: text, w, h}, o || {})); };
+    K.torch = (u, y, v) => { const [x, z] = K.L(u, v); if (!inW(x, z)) return; world[idx(x, y, z)] = T.TORCH; try { lightSrc.set((x * 4096 + z) * 256 + y, [x + .5, y + .7, z + .5, T.TORCH]); } catch (_) {} };
+    K.lamp = (u, y, v) => { const [x, z] = K.L(u, v); if (!inW(x, z)) return; world[idx(x, y, z)] = 161; try { lightSrc.set((x * 4096 + z) * 256 + y, [x + .5, y + .5, z + .5, 161]); } catch (_) {} };
+    K.face = (du, dv) => stairF(du * fx + dv * rx, du * fz + dv * rz);
+    K.stair = (u, y, v, b, du, dv) => { K.B(u, y, v, b); const [x, z] = K.L(u, v); try { entMeta.set(keyOf(x, y, z), {face: K.face(du, dv)}); } catch (_) {} };
+    K.chest = (u, y, v, L) => { const [x, z] = K.L(u, v); try { lootChest(x, y, z, L, rnd); } catch (_) {} };
+    K.W = (u, y, v) => { const [x, z] = K.L(u, v); return [x + .5, y, z + .5]; };
+    // carve a set of cells and seal any water / lava / open sky next to them (below yTop)
+    K.carve = (cells, yTop) => { const S = new Set(cells.map(([u, y, v]) => { const [x, z] = K.L(u, v); return idx(x, y, z); }));
+      for (const i of S) { const z = i % D, r = (i - z) / D, y = r % H, x = (r - y) / H;
+        for (const [a, b, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const X = x + a, Y = y + b, Z = z + c; if (!inW(X, Z)) continue; const j = idx(X, Y, Z); if (S.has(j) || Y > yTop) continue; const q = world[j]; if (q === T.WATER || q === T.LAVA || !q || q === T.CHEST) world[j] = T.SANDSTONE; } }
+      for (const i of S) world[i] = 0; return S.size; };
+    return K; }
+  // ---------- the island ----------
+  U.island = function (rnd, st) {
+    const cx0 = MT_C[0], cz0 = MT_C[1];
+    const r = __c147.shape(cx0, cz0, rnd, st, 78), isle = r.isle; st.isleCells = isle.size;
+    const E = new Map(), bq = []; for (const k of isle) { const x = (k / D) | 0, z = k - x * D; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !isle.has(N(x + dx, z + dz)))) { E.set(k, 1); bq.push(k); } }
+    for (let i = 0; i < bq.length; i++) { const k = bq[i], x = (k / D) | 0, z = k - x * D, e = E.get(k); for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = N(x + dx, z + dz); if (isle.has(n) && !E.has(n)) { E.set(n, e + 1); bq.push(n); } } }
+    // flat sand plain at G, a sandy beach round the edge
+    const G = SEA + 3;
+    for (const k of isle) { const x = (k / D) | 0, z = k - x * D, e = E.get(k), h = e < 3 ? SEA + 1 : e < 6 ? SEA + 2 : G;
+      for (let y = h + 1; y < H - 1; y++) world[idx(x, y, z)] = 0;
+      for (let y = h; y >= Math.max(2, h - 14); y--) world[idx(x, y, z)] = y > h - 4 ? T.SAND : T.SANDSTONE; col(x, z, h, 4); }
+    for (const M of [entMeta, chests]) for (const k of [...M.keys()]) { const [x, y, z] = String(k).split(',').map(Number); if (isle.has(N(x, z)) && y > SEA - 16) M.delete(k); }
+    try { for (const k of [...lightSrc.keys()]) { const v = lightSrc.get(k); if (v && isle.has(N(Math.floor(v[0]), Math.floor(v[2])))) lightSrc.delete(k); } } catch (_) {}
+    U.zones = U.zones.filter(zn => !isle.has(N(zn[2], zn[4]))); U.signs = U.signs.filter(s => !isle.has(N(Math.floor(s.x), Math.floor(s.z))));
+    // front faces the spawn (the bridge comes from there)
+    const sp = (window.__c101 && __c101.isl) ? [__c101.isl.cx, __c101.isl.cz] : [W >> 1, D >> 1], ddx = sp[0] - cx0, ddz = sp[1] - cz0;
+    const [fx, fz] = Math.abs(ddx) >= Math.abs(ddz) ? [Math.sign(ddx) || 1, 0] : [0, Math.sign(ddz) || 1];
+    const K = kit(cx0, cz0, fx, fz, isle, G, rnd); U.K = K; const out = {};
+    for (const [nm, f] of [['pyr', 'pyramid'], ['park', 'park'], ['dune', 'dune'], ['sphinx', 'sphinx'], ['fields', 'fields']]) { try { const fn = U[f]; if (fn) out[nm] = fn(K, st); } catch (e) { st[nm + 'Err'] = String(e && e.stack || e); console.warn('c181 ' + nm, e); } }
+    // the deep cave under the pyramid (no mouths now: the way down is from the chest room); roof kept well under the crypt and the sphinx chamber
+    try { const p = out.pyr; if (p) { const [px, pz] = K.L(p.u, 0); __c147.caverns(px, pz, 13, p.ty, isle, rnd, st, {noMouth: true, top: SEA - 19}); if (U.passages) out.pas = U.passages(K, p, st); } } catch (e) { st.cavErr = String(e && e.stack || e); }
+    // the bridge from the mainland, built after the island is shaped (c147 clears the channel)
+    try { if (window.__c113 && __c113.bridgeOne) st.bridge = __c113.bridgeOne(['sand', cx0, cz0, 1]).length; } catch (e) { st.brErr = String(e); }
+    for (let x = cx0 - 100; x <= cx0 + 100; x += 4) for (let z = cz0 - 100; z <= cz0 + 100; z += 4) try { markDirty(x, z); } catch (_) {}
+    // swaddles walk the open sand
+    const surf = []; for (const k of isle) { const e = E.get(k); if (e > 6 && k % 5 === 0) { const x = (k / D) | 0, z = k - x * D; if (world[idx(x, G, z)] === T.SAND && !world[idx(x, G + 1, z)] && !world[idx(x, G + 2, z)]) surf.push([x, z]); } }
+    const pick = []; for (let i = 0; i < 60 && surf.length; i++) pick.push(surf[(rnd() * surf.length) | 0]);
+    // Barrow Bandagers: the deep cave and the sphinx's hidden chamber
+    const pts = [...((__c147.cavPts && __c147.cavPts()) || []), ...((out.sphinx && out.sphinx.pts) || [])];
+    const tc = out.pyr ? K.L(out.sphinx ? (out.pyr.u + out.sphinx.cu) / 2 : out.pyr.u, out.sphinx ? out.sphinx.cv / 2 : 0) : [cx0, cz0];
+    const [cxp, czp] = out.pyr ? K.L(out.pyr.u, 0) : [cx0, cz0];
+    U.ver++; U.st = st;
+    return {c: [cx0, cz0], r: Math.round(Math.sqrt(isle.size / Math.PI)) + 6, pyr: out.pyr ? {x: cxp, z: czp, y: G, B: 14, door: out.pyr.door} : null,
+      tomb: pts.length ? {x: tc[0], y: SEA - 26, z: tc[1], pts} : null, surf: pick, park: {f: [fx, fz], G}}; };
+})();
+
+/* ===================== GLX-C182 (v1.0.35): the pink terrazzo stepped pyramid, its chest room, and the stairs from the chest room down into the deep cave ===================== */
+(function c182() {
+  const U = window.__c181; if (!U) return;
+  const BLK = T.BLACKSTONE || 248, PL = T.PLANKS;
+  U.pyramid = function (K, st) {
+    const G = K.G, PU = -8, P = T.SANDSTONE;
+    // plinth (3 high) and the wide steps down in front
+    for (let k = 0; k < 3; k++) K.box(PU - 17, G + 1 + k, -17, PU + 17, G + 1 + k, 17, P);
+    for (let s = 1; s <= 3; s++) K.box(PU + 17 + s, G + 1, -10, PU + 17 + s, G + 3 - s, 10, P);
+    // three tiers: wall, a black band tucked under the overhang, then the overhanging cornice
+    const tiers = [[14, G + 4, G + 10], [10, G + 11, G + 16], [6, G + 17, G + 21]];
+    for (const [h, a, b] of tiers) { K.box(PU - h, a, -h, PU + h, b - 2, h, P); K.box(PU - h, b - 1, -h, PU + h, b - 1, h, BLK); K.box(PU - h - 1, b, -h - 1, PU + h + 1, b, h + 1, P); }
+    K.box(PU - 3, G + 22, -3, PU + 3, G + 22, 3, P);
+    // recessed entrance, big red panelled double doors standing open, a passage in to the hall
+    K.box(PU + 12, G + 4, -4, PU + 15, G + 10, 4, 0);
+    K.box(PU + 3, G + 4, -3, PU + 11, G + 8, 3, 0);
+    for (const v of [-3, 3]) K.box(PU + 8, G + 4, v, PU + 11, G + 8, v, PL);
+    K.Z('rdoor', PL, PU + 8, G + 4, -3, PU + 11, G + 8, 3);
+    K.box(PU + 12, G + 9, -4, PU + 15, G + 9, 4, BLK);   // dark lintel band over the doorway
+    K.box(PU - 4, G + 4, -5, PU + 3, G + 9, 5, 0);   // the hall
+    for (const [u, v] of [[PU - 4, -5], [PU - 4, 5], [PU + 3, -5], [PU + 3, 5]]) K.torch(u, G + 4, v);
+    K.torch(PU + 10, G + 4, 0);
+    K.Z('pink', P, PU - 21, G + 1, -21, PU + 21, G + 22, 21);
+    // the stairs down (north/back) to the chest room
+    const FY = G + 3 - 18, cells = [];
+    for (let i = 0; i <= 18; i++) { const u = PU - 5 - i, f = G + 3 - i; for (let v = -1; v <= 1; v++) for (let y = f + 1; y <= f + 3; y++) cells.push([u, y, v]); }
+    for (let u = PU - 36; u <= PU - 24; u++) for (let v = -6; v <= 6; v++) for (let y = FY + 1; y <= FY + 5; y++) cells.push([u, y, v]);
+    // walls beside the chest open into the two stairways down
+    for (const s of [-1, 1]) for (let u = PU - 35; u <= PU - 33; u++) for (let v = 7; v <= 9; v++) for (let y = FY + 1; y <= FY + 3; y++) cells.push([u, y, v * s]);
+    K.carve(cells, G);
+    for (let i = 0; i <= 18; i++) { const u = PU - 5 - i, f = G + 3 - i; for (let v = -1; v <= 1; v++) K.B(u, f, v, P); if (i % 6 === 3) K.torch(u, f + 1, 1); }
+    for (let u = PU - 36; u <= PU - 24; u++) for (let v = -6; v <= 6; v++) K.B(u, FY, v, (u + v) & 1 ? P : 150);
+    for (const [u, v] of [[PU - 36, -6], [PU - 36, 6], [PU - 24, -6], [PU - 24, 6]]) for (let y = FY + 1; y <= FY + 5; y++) K.B(u, y, v, 150);
+    for (const [u, v] of [[PU - 34, -4], [PU - 34, 4], [PU - 26, -4], [PU - 26, 4]]) K.torch(u, FY + 1, v);
+    K.B(PU - 35, FY + 1, -1, 150); K.B(PU - 35, FY + 1, 1, 150); K.B(PU - 35, FY + 2, -1, T.GOLDBLOCK); K.B(PU - 35, FY + 2, 1, T.GOLDBLOCK);
+    const L = [[IT.GOLDINGOT, 4, 0.9], [IT.BONE || 171, 4, 0.7], [IT.DIAMOND, 1, 0.4], [IT.RUBY, 2, 0.5], [IT.ROTTEN || 320, 3, 0.6]].filter(r => r[0] != null);
+    K.chest(PU - 36 + 1, FY + 1, 0, L);
+    st.pyr = 1; return {u: PU, ty: FY, door: K.W(PU + 16, G + 4, 0)}; };
+  // after the deep cave is cut: the two stairways from the chest room go on down and open into it
+  U.passages = function (K, p, st) {
+    const PU = p.u, FY = p.ty, cells = [], flr = []; let low = 12;
+    for (const s of [-1, 1]) { for (let i = 0; i <= FY - low; i++) { const u = PU - 34 + i, f = FY - i; for (const v of [8, 9]) { for (let y = f + 1; y <= f + 3; y++) cells.push([u, y, v * s]); flr.push([u, f, v * s, i]); } }
+      for (let u = PU - 34 + FY - low + 1; u <= PU - 4; u++) for (const v of [8, 9]) { for (let y = low + 1; y <= low + 3; y++) cells.push([u, y, v * s]); flr.push([u, low, v * s, 99]); } }
+    const n = K.carve(cells, SEA - 8);
+    let t = 0; for (const [u, f, v, i] of flr) { if (!solid(K.get(u, f, v))) K.B(u, f, v, T.SANDSTONE); if ((i % 5 === 2 || (i === 99 && u % 6 === 0)) && Math.abs(v) === 9) { K.torch(u, f + 1, v); t++; } }
+    st.passages = n; st.pasTorch = t; return n; };
+  const solid = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && b !== T.TORCH;
+})();
+
+/* ===================== GLX-C183 (v1.0.35): the desert museum park - forecourt, tiled plaza, the two museums, lawns, sundial, the dune with its white chapel, the red granite glyph fields ===================== */
+(function c183() {
+  const U = window.__c181; if (!U) return;
+  const BLK = T.BLACKSTONE || 248, FEN = 162, OAKST = 164, STST = 167, LAMP = 161, BLUE = T.WOOLBLUE || 71, HARL = T.HARL || 151, RT = T.RTILE || 153, CON = T.CONCRETE || 157, GRAV = T.GRAVEL || 202;
+  const flat = (K, u, v, b) => { if (!K.ok(u, v)) return; K.B(u, K.G, v, b); for (let y = K.G + 1; y <= K.G + 3; y++) if (K.get(u, y, v) === T.SAND) K.B(u, y, v, 0); };
+  U.park = function (K, st) {
+    const G = K.G;
+    // pink gravel forecourt, terracotta-tiled plaza, lawns
+    for (let u = 12; u <= 19; u++) for (let v = -12; v <= 12; v++) flat(K, u, v, GRAV);
+    K.Z('pinkg', GRAV, 12, G, -12, 19, G, 12);
+    for (let u = 20; u <= 46; u++) for (let v = -12; v <= 12; v++) flat(K, u, v, T.BRICK);
+    K.Z('terra', T.BRICK, 20, G, -12, 46, G, 12);
+    for (let u = 47; u <= 53; u++) for (let v = -28; v <= 28; v++) flat(K, u, v, T.GRASS);
+    for (let u = 12; u <= 19; u++) for (const s of [-1, 1]) for (let v = 13; v <= 28; v++) flat(K, u, v * s, T.GRASS);
+    // benches and lamps round the plaza
+    for (let u = 24; u <= 42; u += 6) { K.stair(u, G + 1, -11, OAKST, 0, -1); K.stair(u, G + 1, 11, OAKST, 0, 1); }
+    for (const [u, v] of [[21, -12], [21, 12], [45, -12], [45, 12]]) { K.B(u, G + 1, v, FEN); K.B(u, G + 2, v, FEN); K.lamp(u, G + 3, v); }
+    // the path out to the front lawn and on to where the bridge lands
+    for (let u = 47; u <= 72; u++) for (let v = -2; v <= 2; v++) flat(K, u, v, CON);
+    for (let v = 3; v <= 60; v++) for (let u = 50; u <= 52; u++) flat(K, u, v, CON);
+    for (let v = -60; v <= -3; v++) for (let u = 50; u <= 52; u++) flat(K, u, v, CON);
+    // the museums face each other across the plaza
+    let m = 0; for (const s of [-1, 1]) { try { museum(K, s, s < 0 ? 'MUSEUM SHOP' : 'MUSEUM'); m++; } catch (e) { st.musErr = String(e); } }
+    sundial(K, 38, -44);
+    st.museums = m; return {m}; };
+  function museum(K, s, name) {
+    const G = K.G, u0 = 20, u1 = 44, vi = 14 * s, vo = 26 * s, va = Math.min(vi, vo), vb = Math.max(vi, vo), S = T.SANDSTONE;
+    K.box(u0, G, va, u1, G, vb, T.PLANKS); K.box(u0, G + 1, va, u1, G + 9, vb, 0);
+    for (let u = u0; u <= u1; u++) for (let v = va; v <= vb; v++) if (u === u0 || u === u1 || v === va || v === vb) for (let y = G + 1; y <= G + 9; y++) K.B(u, y, v, S);
+    K.box(u0 + 1, G + 5, va + 1, u1 - 1, G + 5, vb - 1, T.PLANKS);
+    K.box(u0, G + 5, va, u1, G + 5, vb, (u, y, v) => (u === u0 || u === u1 || v === va || v === vb) ? T.STONEBRICK : T.PLANKS);   // string course
+    // arched windows: 3 wide, 2 tall + the middle one above
+    const win = (u, v, y, alongU) => { for (let k = -1; k <= 1; k++) for (let dy = 0; dy <= 1; dy++) K.B(alongU ? u + k : u, y + dy, alongU ? v : v + k, T.GLASS); K.B(u, y + 2, v, T.GLASS); };
+    for (let u = u0 + 3; u <= u1 - 3; u += 5) for (const v of [va, vb]) { if (v === vi && Math.abs(u - 32) < 3) continue; win(u, v, G + 1, true); win(u, v, G + 6, true); }
+    for (const u of [u0, u1]) for (let v = va + 3; v <= vb - 3; v += 6) { win(u, v, G + 1, false); win(u, v, G + 6, false); }
+    // door to the plaza, sign over it
+    for (let du = -1; du <= 1; du++) for (let y = G + 1; y <= G + 3; y++) K.B(32 + du, y, vi, 0); K.B(32, G + 4, vi, 0);
+    K.Z('cream', S, u0, G + 1, va, u1, G + 9, vb);
+    K.S(32, G + 5, vi, 0, -s, name, name.length * 0.62 + 0.6, 0.9, {c: '#c4241c', bg: 'rgba(0,0,0,0)'});
+    // inside: bookshelves, a counter, torches
+    for (let u = u0 + 2; u <= u1 - 2; u += 3) { K.B(u, G + 1, vo - s, T.BOOKSHELF); K.B(u, G + 2, vo - s, T.BOOKSHELF); }
+    K.torch(u0 + 1, G + 1, vi - s); K.torch(u1 - 1, G + 1, vi - s); K.torch(u0 + 1, G + 6, vo - s); K.torch(u1 - 1, G + 6, vo - s);
+    K.box(30, G + 6, vi - s, 34, G + 6, vi - s, 0);
+    // terracotta hip roof
+    for (let k = 0; k < 9; k++) { const a = u0 - 1 + k, b = u1 + 1 - k, c = va - 1 + k, d = vb + 1 - k; if (a > b || c > d) break; K.box(a, G + 10 + k, c, b, G + 10 + k, d, RT); } }
+  function sundial(K, cu, cv) {
+    const G = K.G; for (let u = cu - 6; u <= cu + 6; u++) for (let v = cv - 6; v <= cv + 6; v++) if (Math.hypot(u - cu, v - cv) <= 6.2) flat(K, u, v, GRAV);
+    K.Z('wgrav', GRAV, cu - 6, G, cv - 6, cu + 6, G, cv + 6);
+    for (let y = G + 1; y <= G + 3; y++) K.B(cu, y, cv, T.STONE); K.B(cu - 1, G + 1, cv, T.STONE); K.B(cu - 1, G + 2, cv, T.COBBLE); K.B(cu - 2, G + 1, cv, T.COBBLE);
+    const R = ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'];
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, u = Math.round(cu + Math.cos(a) * 5), v = Math.round(cv + Math.sin(a) * 5); K.S(u, G, v, 0, 0, R[i], 1.1, 0.7, {flat: 1, c: '#5a4a3a', bg: 'rgba(0,0,0,0)', rot: a}); } }
+  // ---------- the long flat-topped dune behind the pyramid, with the white chapel ----------
+  U.dune = function (K, st) {
+    const G = K.G, U0 = -58, U1 = -30, V = 32, top = 7; let n = 0;
+    for (let u = U0; u <= U1; u++) for (let v = -V; v <= V; v++) { if (!K.ok(u, v)) continue; const d = Math.min(u - U0, U1 - u, v + V, V - v, 64 - Math.hypot(u, v)); if (d < 1) continue; const h = G + Math.min(top, Math.round(d));
+      for (let y = G + 1; y <= h; y++) K.B(u, y, v, y > h - 2 ? T.SAND : T.SANDSTONE); n++; }
+    const T0 = G + top, tu0 = U0 + top, tu1 = U1 - top;
+    // stone staircase up the middle with dark rails, a white path to its foot and round the pyramid
+    for (let k = 1; k <= top; k++) { const u = U1 - k + 1; for (let v = -2; v <= 2; v++) { K.box(u, G + 1, v, u, G + k - 1, v, T.STONEBRICK); K.stair(u, G + k, v, STST, -1, 0); for (let y = G + k + 1; y <= G + k + 3; y++) K.B(u, y, v, 0); }
+      for (const v of [-3, 3]) { K.box(u, G + 1, v, u, G + k, v, T.STONEBRICK); K.B(u, G + k + 1, v, BLK); } }
+    for (let u = U1 + 1; u <= U1 + 3; u++) for (let v = -22; v <= 22; v++) flat(K, u, v, CON);
+    for (const s of [-1, 1]) for (let u = U1 + 1; u <= 12; u++) for (let v = 20; v <= 22; v++) flat(K, u, v * s, CON);
+    // chapel (front faces the pyramid)
+    const cu0 = -48, cu1 = -40, cw = 4;
+    K.box(cu0, T0 + 1, -cw, cu1, T0 + 7, cw, HARL); K.box(cu0 + 1, T0 + 1, -cw + 1, cu1 - 1, T0 + 6, cw - 1, 0); K.box(cu0, T0, -cw, cu1, T0, cw, T.STONEBRICK);
+    for (let k = 0; k <= cw; k++) K.box(cu0, T0 + 8 + k, -cw + k, cu1, T0 + 8 + k, cw - k, HARL);   // pitched roof
+    for (const [u, v] of [[cu0, -cw], [cu0, cw], [cu1, -cw], [cu1, cw]]) { K.box(u, T0 + 8, v, u, T0 + 10, v, HARL); K.B(u, T0 + 11, v, T.STONEBRICK); }   // corner spires
+    for (let y = T0 + 13; y <= T0 + 15; y++) K.B(cu1 - 1, y, 0, HARL); K.box(cu1 - 1, T0 + 16, 0, cu1 - 1, T0 + 18, 0, BLK); K.B(cu1 - 1, T0 + 17, -1, BLK); K.B(cu1 - 1, T0 + 17, 1, BLK);   // bell spire + cross
+    // front: pointed blue arch with blue doors, a round blue rose window above
+    for (let v = -1; v <= 1; v++) for (let y = T0 + 1; y <= T0 + 3; y++) K.B(cu1, y, v, BLUE); K.B(cu1, T0 + 4, 0, BLUE);
+    for (let v = -2; v <= 2; v++) for (let y = T0 + 6; y <= T0 + 10; y++) { const r = Math.hypot(v, y - (T0 + 8)); if (r <= 2.3) K.B(cu1, y, v, r < 1.2 ? T.GLASS : BLUE); }
+    K.torch(cu0 + 1, T0 + 1, -cw + 1); K.torch(cu0 + 1, T0 + 1, cw - 1);
+    // flagstone patio beside it, benches
+    for (let u = cu0 - 1; u <= cu1 + 1; u++) for (let v = cw + 2; v <= cw + 10; v++) K.B(u, T0, v, T.PAVE || 155);
+    K.stair(cu0 + 2, T0 + 1, cw + 9, OAKST, 0, 1); K.stair(cu0 + 5, T0 + 1, cw + 9, OAKST, 0, 1);
+    // post-and-rail fence round the top, open at the stairs
+    for (let u = tu0; u <= tu1; u++) for (let v = -V + top; v <= V - top; v++) { const e = u === tu0 || u === tu1 || Math.abs(v) === V - top; if (!e || (u === tu1 && Math.abs(v) <= 2)) continue; if (K.ok(u, v) && !K.get(u, T0 + 1, v)) K.B(u, T0 + 1, v, FEN); }
+    st.dune = n; return {n}; };
+  // ---------- grey gravel fields, radiating white paths, red granite glyph slabs, a granite medallion ----------
+  U.fields = function (K, st) {
+    const G = K.G, cu = -2, cv = 42, R = 22; let slabs = 0;
+    for (let u = cu - R; u <= cu + R; u++) for (let v = cv - R; v <= cv + R; v++) { if (Math.hypot(u - cu, v - cv) > R || !K.ok(u, v) || Math.hypot(u, v) > 64 || v < 28 || (u > 18 && v < 28)) continue; flat(K, u, v, GRAV); }
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, du = Math.cos(a), dv = Math.sin(a), axis = i % 2 === 0;
+      for (let r = 3; r <= R; r++) { const u = Math.round(cu + du * r), v = Math.round(cv + dv * r); if (K.get(u, G, v) === GRAV) K.B(u, G, v, CON);
+        if (r >= 6 && r % 5 === 1) for (const sd of [-1, 1]) { const pu = Math.round(cu + du * r - dv * sd * 2.5), pv = Math.round(cv + dv * r + du * sd * 2.5); if (K.get(pu, G, pv) !== GRAV) continue;
+          if (axis) { for (let k = 0; k <= 3; k++) { const qu = Math.round(pu + du * k), qv = Math.round(pv + dv * k); K.B(qu, G + 1, qv, T.STONEBRICK); K.B(qu, G + 2, qv, T.STONEBRICK);
+              const ou = Math.round(-dv * sd), ov = Math.round(du * sd); K.B(qu + ou, G + 1, qv + ov, T.STONEBRICK); } }   // a long prism: tall spine, low flank
+          else { for (let a2 = -1; a2 <= 1; a2++) for (let b2 = -1; b2 <= 1; b2++) K.B(pu + a2, G + 1, pv + b2, T.STONEBRICK); K.B(pu, G + 2, pv, T.STONEBRICK); }   // a small pyramid
+          slabs++; } } }
+    for (let u = cu - 3; u <= cu + 3; u++) for (let v = cv - 3; v <= cv + 3; v++) if (Math.hypot(u - cu, v - cv) <= 3.2) K.B(u, G, v, T.STONEBRICK);
+    K.B(cu, G + 1, cv, T.STONEBRICK);
+    K.Z('gran', T.STONEBRICK, cu - R, G, cv - R, cu + R, G + 2, cv + R);
+    st.slabs = slabs; return {slabs}; };
+})();
+
+/* ===================== GLX-C185 (v1.0.35): the Great Sphinx on the sand island - lion body, front paws, striped nemes, restored face + beard; a tunnel from behind its ear (and a hatch on its head) down to a hidden chamber ===================== */
+(function c185() {
+  const U = window.__c181; if (!U) return;
+  const S = T.SANDSTONE, RS = 150, BLK = T.BLACKSTONE || 248;
+  U.sphinx = function (K, st) {
+    const G = K.G, A0 = -30, SV = -46, nem = y => ((y - G) % 2 === 0 ? RS : S);
+    const P = (a, y, b, v) => K.B(A0 + a, y, SV + b, v), at = (a, b) => [A0 + a, SV + b];
+    for (let a = -1; a <= 35; a++) for (let b = -9; b <= 9; b++) if (!K.ok(...at(a, b))) { st.sphinx = 'no room'; return null; }
+    // body lying down: rounded back rising to the shoulders
+    for (let a = 0; a <= 21; a++) { const w = a < 4 ? 3 + a * 0.5 : 5, hb = 6 + 4 * a / 21;
+      for (let b = -6; b <= 6; b++) { if (Math.abs(b) > w) continue; const top = G + Math.round(hb * Math.sqrt(Math.max(0, 1 - (b / (w + 0.6)) ** 2))); for (let y = G + 1; y <= top; y++) P(a, y, b, S); } }
+    // haunches, tail
+    for (let a = 1; a <= 8; a++) for (const s of [-1, 1]) for (let bb = 5; bb <= 7; bb++) { const q = ((a - 4.5) / 3.6) ** 2 + ((bb - 5.5) / 1.6) ** 2; if (q > 1) continue; const t = G + Math.round(4 * Math.sqrt(1 - q)); for (let y = G + 1; y <= t; y++) P(a, y, bb * s, S); }
+    for (let a = 0; a <= 9; a++) P(a, G + 1, 7, S); P(9, G + 2, 6, S);
+    // front legs and long paws with toes
+    for (const s of [-1, 1]) for (let a = 18; a <= 33; a++) for (let bb = 2; bb <= 5; bb++) { const t = a <= 22 ? G + 5 : G + 3; if (a === 33 && bb % 2) continue; for (let y = G + 1; y <= (a === 33 ? G + 2 : t); y++) P(a, y, bb * s, S); }
+    // chest and neck
+    for (let a = 17; a <= 26; a++) for (let b = -5; b <= 5; b++) { const t = G + (a <= 23 ? 12 : 11) - (Math.abs(b) > 3 ? 2 : 0); for (let y = G + 1; y <= t; y++) P(a, y, b, S); }
+    // head: face block, nemes headdress (striped flaps + cap), forehead band
+    for (let a = 20; a <= 28; a++) for (let b = -3; b <= 3; b++) for (let y = G + 13; y <= G + 20; y++) P(a, y, b, S);
+    for (let a = 19; a <= 26; a++) for (let b = -6; b <= 6; b++) for (let y = G + 10; y <= G + 22; y++) { const side = Math.abs(b) >= 4, cap = y >= G + 21;
+      if (!side && !cap) continue; if (cap && Math.abs(b) === 6 && y === G + 22) continue; if (side && y < G + 13 && a > 25) continue; P(a, y, b, nem(y)); }
+    for (let b = -4; b <= 4; b++) for (let y = G + 20; y <= G + 21; y++) { P(27, y, b, nem(y)); P(28, y, b, nem(y)); }
+    // the face: eyes, brows, nose, lips, chin; a beard piece under it; ears beside the flaps
+    for (const s of [-1, 1]) { P(28, G + 18, 2 * s, BLK); P(29, G + 19, 2 * s, S); P(29, G + 19, 3 * s, S); P(27, G + 17, 7 * s, S); P(25, G + 16, 7 * s, S); P(24, G + 16, 7 * s, S); P(24, G + 17, 7 * s, S); P(25, G + 17, 7 * s, BLK); P(24, G + 18, 7 * s, S); P(25, G + 18, 7 * s, S); }
+    P(29, G + 16, 0, S); P(29, G + 17, 0, S); P(30, G + 16, 0, S);
+    for (let b = -1; b <= 1; b++) { P(29, G + 15, b, RS); P(28, G + 14, b, BLK); }
+    for (let y = G + 8; y <= G + 12; y++) { P(28, y, 0, nem(y)); P(27, y, 0, nem(y)); }
+    // secret 1: behind the left ear, a narrow tunnel down through the body; secret 2: a hatch on top of the head
+    const cells = [], FL = [];
+    for (let b = -6; b <= -3; b++) for (let y = G + 15; y <= G + 16; y++) cells.push([22, y, b]);
+    for (let i = 0; i <= 18; i++) { const a = 22 - i, f = G + 14 - i; for (let y = f + 1; y <= f + 2; y++) cells.push([a, y, -2]); FL.push([a, f, -2, i]); }
+    for (let b = -2; b <= 2; b++) for (let y = G - 3; y <= G - 2; y++) cells.push([3, y, b]);
+    for (let j = 1; j <= 8; j++) { const a = 3 + j, f = G - 4 - j; for (let y = f + 1; y <= f + 2; y++) cells.push([a, y, 2]); FL.push([a, f, 2, 20 + j]); }
+    const hat = [[2, G + 18], [1, G + 17], [0, G + 16], [-1, G + 15]]; for (let y = G + 20; y <= G + 22; y++) cells.push([22, y, 3]);
+    for (const [b, f] of hat) for (let y = f + 1; y <= f + 2; y++) cells.push([22, y, b]); for (let y = G + 19; y <= G + 20; y++) cells.push([22, y, 3]);
+    // the hidden chamber under the body
+    const c0 = 2, c1 = 20, cf = G - 12; for (let a = c0; a <= c1; a++) for (let b = -6; b <= 6; b++) for (let y = cf + 1; y <= cf + 5; y++) cells.push([a, y, b]);
+    K.carve(cells.map(([a, y, b]) => [A0 + a, y, SV + b]), H);
+    for (let y = G + 15; y <= G + 16; y++) { P(22, y, -7, 0); }   // re-open the ear doorway (the carve sealed it)
+    P(22, G + 23, 3, 0);
+    for (const [a, f, b, i] of FL) { if (!K.get(A0 + a, f, SV + b)) P(a, f, b, S); if (i % 6 === 3) K.torch(A0 + a, f + 1, SV + b); }
+    for (const [b, f] of hat) P(22, f, b, S); P(22, G + 19, 3, S);
+    for (let a = c0; a <= c1; a++) for (let b = -6; b <= 6; b++) P(a, cf, b, (a + b) & 1 ? S : RS);
+    for (const a of [6, 11, 16]) for (const s of [-1, 1]) for (let y = cf + 1; y <= cf + 5; y++) P(a, y, 4 * s, RS);
+    for (const [a, b] of [[c0 + 1, -5], [c0 + 1, 5], [c1 - 1, -5], [c1 - 1, 5], [11, 0]]) K.torch(A0 + a, cf + 1, SV + b);
+    P(c1, cf + 1, -1, T.GOLDBLOCK); P(c1, cf + 1, 1, T.GOLDBLOCK);
+    const L = [[IT.GOLDINGOT, 5, 0.95], [IT.DIAMOND, 2, 0.55], [IT.RUBY, 3, 0.6], [IT.BONE || 171, 3, 0.6], [IT.GOLDNUGGET || IT.GOLDINGOT, 6, 0.5]].filter(r => r[0] != null);
+    K.chest(A0 + c1, cf + 1, SV, L);
+    const pts = []; for (let a = c0 + 2; a <= c1 - 2; a += 3) for (const b of [-2, 2]) pts.push(K.W(A0 + a, cf + 1, SV + b));
+    const [ex, ez] = K.L(A0 + 22, SV - 7), [hx, hz] = K.L(A0 + 22, SV + 3);
+    st.sphinx = {ear: [ex, G + 15, ez], hatch: [hx, G + 22, hz], chamber: cf + 1}; return {pts, ear: [ex, G + 15, ez], hatch: [hx, G + 22, hz], cu: A0 + 11, cv: SV}; };
+})();
+
+/* ===================== GLX-C184 (v1.0.35): the park's colours - painted overlays for cells inside the park zones (no free block ids left), and the flat signs / sundial numerals ===================== */
+// A zone is [key, baseBlock, x0,y0,z0, x1,y1,z1]. Every exposed cell of that base block inside it gets a thin painted box (one InstancedMesh per colour).
+// Break the block and the paint goes with it; the block itself (and what it drops) is unchanged.
+(function c184() {
+  const U = window.__c181; if (!U) return;
+  const R = U.R = {n: 0, ms: 0, err: null, dirty: true, sig: -1};
+  const cv = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h || w; return c; };
+  let seed = 7; const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  function paint(key) { const c = cv(64), g = c.getContext('2d'); seed = 11 + key.length * 97;
+    const fill = col => { g.fillStyle = col; g.fillRect(0, 0, 64, 64); }, dots = (n, cols, s0, s1) => { for (let i = 0; i < n; i++) { g.fillStyle = cols[i % cols.length]; const s = s0 + rnd() * (s1 - s0); g.fillRect(rnd() * 64, rnd() * 64, s, s); } };
+    if (key === 'pink') { fill('#e9a3a9'); dots(260, ['#f6d4d6', '#c97880', '#ffffff', '#8a5a5e', '#f2bcc0'], 1, 3); }
+    else if (key === 'pinkg') { fill('#d7a19c'); dots(420, ['#e9bdb7', '#b98078', '#f4d8d2', '#a06a64'], 2, 5); }
+    else if (key === 'cream') { fill('#efe2c2'); dots(200, ['#f7edd6', '#e0d0aa', '#e8dab8'], 2, 6); }
+    else if (key === 'terra') { fill('#8a3e22'); for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) { g.fillStyle = (i + j) % 2 ? '#c4643a' : '#b85a32'; g.fillRect(i * 32 + 2, j * 32 + 2, 28, 28); } dots(80, ['#d47a4c', '#a04a28'], 1, 3); }
+    else if (key === 'gran') { fill('#9c3c32'); dots(380, ['#5a1e18', '#c86a5c', '#2a1a18', '#e09a8a'], 1, 3); }
+    else if (key === 'wgrav') { fill('#e9e7df'); dots(420, ['#ffffff', '#c9c6bc', '#f4f2ea', '#b5b2a8'], 2, 5); }
+    else if (key === 'rdoor') { fill('#b3221a'); g.strokeStyle = '#6a0e0a'; g.lineWidth = 4; g.strokeRect(6, 6, 52, 52); g.strokeStyle = '#d8483c'; g.lineWidth = 2; g.strokeRect(12, 12, 40, 40); dots(60, ['#a01c14', '#c22c22'], 1, 3); }
+    else fill('#ff00ff');
+    const t = new THREE.CanvasTexture(c); t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; return t; }
+  const MAT = {}, MESH = {}, box = new THREE.BoxGeometry(1.006, 1.006, 1.006), M4 = new THREE.Matrix4();
+  const mat = key => MAT[key] || (MAT[key] = new THREE.MeshLambertMaterial({map: paint(key)}));
+  const CLEAR = new Set([0, T.WATER, T.GLASS, T.TORCH, 161, 162, 164, 165, 166, 167, 227, T.DOOR, T.DOORTOP, T.CHEST, T.COBWEB, T.LAVA]);
+  const open = b => CLEAR.has(b) || (PLANT && PLANT[b]) || (LEAFY && LEAFY[b]);
+  let BB = null; const bbox = () => { BB = null; for (const z of U.zones) { if (!BB) BB = [z[2], z[3], z[4], z[5], z[6], z[7]]; else { BB[0] = Math.min(BB[0], z[2]); BB[1] = Math.min(BB[1], z[3]); BB[2] = Math.min(BB[2], z[4]); BB[3] = Math.max(BB[3], z[5]); BB[4] = Math.max(BB[4], z[6]); BB[5] = Math.max(BB[5], z[7]); } } };
+  function rebuild() { const t0 = performance.now(), per = {};
+    for (const zn of U.zones) { const [key, base, x0, y0, z0, x1, y1, z1] = zn, L = per[key] || (per[key] = []);
+      for (let x = Math.max(1, x0); x <= Math.min(W - 2, x1); x++) for (let z = Math.max(1, z0); z <= Math.min(D - 2, z1); z++) for (let y = Math.max(1, y0); y <= Math.min(H - 2, y1); y++) {
+        const i = idx(x, y, z); if (world[i] !== base) continue;
+        if (open(world[i + D]) || open(world[i - D]) || open(world[idx(x + 1, y, z)]) || open(world[idx(x - 1, y, z)]) || open(world[i + 1]) || open(world[i - 1])) L.push(x, y, z); } }
+    for (const k in MESH) if (!per[k]) { MESH[k].visible = false; MESH[k].count = 0; }
+    let n = 0; for (const key in per) { const L = per[key], c = L.length / 3; let m = MESH[key];
+      if (!m || m.userData.cap < c) { if (m) { if (m.parent) m.parent.remove(m); m.dispose && m.dispose(); } m = new THREE.InstancedMesh(box, mat(key), Math.max(64, Math.ceil(c * 1.3))); m.userData.cap = Math.max(64, Math.ceil(c * 1.3)); m.frustumCulled = false; m.raycast = () => {}; m.matrixAutoUpdate = false; (typeof blockGroup !== 'undefined' && blockGroup ? blockGroup : scene).add(m); MESH[key] = m; }
+      for (let j = 0; j < c; j++) { M4.makeTranslation(L[j * 3] + .5, L[j * 3 + 1] + .5, L[j * 3 + 2] + .5); m.setMatrixAt(j, M4); }
+      m.count = c; m.instanceMatrix.needsUpdate = true; m.visible = c > 0; n += c; }
+    bbox(); R.n = n; R.ms = Math.round(performance.now() - t0); }
+  // ---------- signs ----------
+  let SG = null, sgVer = -1;
+  function signs() { if (SG) { scene.remove(SG); SG.traverse(o => { if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } if (o.geometry) o.geometry.dispose(); }); } SG = new THREE.Group(); scene.add(SG);
+    for (const s of U.signs) { const c = cv(Math.max(64, Math.round(128 * s.w / s.h)), 128), g = c.getContext('2d'); if (s.bg && s.bg !== 'rgba(0,0,0,0)') { g.fillStyle = s.bg; g.fillRect(0, 0, c.width, c.height); }
+      g.fillStyle = s.c || '#222'; g.font = 'bold 92px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(s.t, c.width / 2, 68, c.width - 8);
+      const t = new THREE.CanvasTexture(c); if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(s.w, s.h), new THREE.MeshLambertMaterial({map: t, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide, depthWrite: false})); m.raycast = () => {};
+      if (s.flat) { m.rotation.x = -Math.PI / 2; m.rotation.z = -(s.rot || 0) + Math.PI / 2; m.position.set(s.x + .5, s.y + 1.02, s.z + .5); }
+      else { m.position.set(s.x + .5 + s.dx * 0.52, s.y + .5, s.z + .5 + s.dz * 0.52); m.rotation.y = Math.atan2(s.dx, s.dz); }
+      SG.add(m); } sgVer = U.ver; }
+  // ---------- upkeep ----------
+  try { const sb = setB; setB = function (x, y, z, v) { const r = sb.apply(this, arguments); try { if (BB && x >= BB[0] - 1 && x <= BB[3] + 1 && y >= BB[1] - 1 && y <= BB[4] + 1 && z >= BB[2] - 1 && z <= BB[5] + 1) R.dirty = true; } catch (_) {} return r; }; } catch (e) { R.err = 'setB ' + e; }
+  let wait = 0;
+  setInterval(() => { try { if (typeof started === 'undefined' || !started) return; const here = !DIM.cur && U.zones.length > 0;
+      if (R.sig !== U.ver) { R.sig = U.ver; R.dirty = true; if (!U.zones.length) bbox(); }
+      if (here && R.dirty && performance.now() > wait) { R.dirty = false; rebuild(); wait = performance.now() + 250; }
+      if (sgVer !== U.ver) signs();
+      let near = false; if (here && BB) { const cx = (BB[0] + BB[3]) / 2, cz = (BB[2] + BB[5]) / 2; near = Math.hypot(P.x - cx, P.z - cz) < 260; }
+      for (const k in MESH) { const m = MESH[k]; m.visible = near && m.count > 0; if (m.parent !== blockGroup && typeof blockGroup !== 'undefined' && blockGroup) { if (m.parent) m.parent.remove(m); blockGroup.add(m); } } if (SG) SG.visible = near;
+    } catch (e) { R.err = String(e && e.stack || e); } }, 200);
+  U.rebuild = rebuild;
+})();
+
+/* ===================== GLX-C186 (v1.0.35): creepers are heard again - a hiss when one spots you and a soft servo whirr as it stalks you, through the mob voices bus (the quieter Siren Head alarm is unchanged) ===================== */
+// Why they were silent: the cyborg brain (c116) marks a creeper 'aggro' the moment it sees you, which skips the old notice step - the only place the hiss played - so a creeper made
+// no sound at all until it was close enough to start its fuse.
+(function c186() {
+  const U = window.__c186 = {hiss: 0, whirr: 0, err: null};
+  const bus = () => (window.mobDst ? mobDst() : master);
+  function viaBus(fn) { if (!AC || !master) return; const m = master; try { master = bus() || m; fn(); } catch (e) { U.err = String(e); } finally { master = m; } }
+  function whirr(pos) { if (!AC || !master) return; const d = Math.hypot(pos.x - P.x, pos.y - P.y, pos.z - P.z); if (d > 18) return;
+    try { const t = AC.currentTime, v = 0.07 * Math.pow(1 - d / 18, 1.4), out = AC.createGain(); out.gain.setValueAtTime(0.0001, t); out.gain.exponentialRampToValueAtTime(v + 0.0002, t + 0.05); out.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      let o2 = out; if (AC.createStereoPanner) { const pn = AC.createStereoPanner(); const yaw = P.yaw || 0, dx = pos.x - P.x, dz = pos.z - P.z; pn.pan.value = Math.max(-1, Math.min(1, (dx * Math.cos(yaw) - dz * Math.sin(yaw)) / Math.max(1, d))); out.connect(pn); o2 = pn; }
+      o2.connect(bus());
+      const o = AC.createOscillator(), f = AC.createBiquadFilter(); o.type = 'square'; f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 3; const f0 = 260 + Math.random() * 60;
+      o.frequency.setValueAtTime(f0, t); o.frequency.linearRampToValueAtTime(f0 * 1.6, t + 0.22); o.frequency.linearRampToValueAtTime(f0 * 1.15, t + 0.5); o.connect(f); f.connect(out); o.start(t); o.stop(t + 0.6);
+      const b = AC.createOscillator(), bg = AC.createGain(); b.type = 'sine'; b.frequency.value = 1320; bg.gain.setValueAtTime(0.0001, t + 0.3); bg.gain.exponentialRampToValueAtTime(0.35, t + 0.32); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.42); b.connect(bg); bg.connect(out); b.start(t + 0.3); b.stop(t + 0.45);
+      U.whirr++; } catch (e) { U.err = String(e); } }
+  U.whirrAt = whirr;
+  try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+      try { if (started && !dead && !paused) for (const a of mobs) { if (a.kind !== 'creeper' || !a.g) continue; const p = a.g.position, d = Math.hypot(p.x - P.x, p.z - P.z);
+          if (a.arm > 0) continue;   // the fuse siren takes over
+          if (a.aggro > 0 && d < 16) { if (!a.c186h) { a.c186h = true; a.c186w = 1.2 + Math.random(); viaBus(() => hiss(p, 1)); U.hiss++; }
+            if ((a.c186w -= dt) <= 0) { a.c186w = 2.4 + Math.random() * 1.8; whirr(p); } }
+          else if (!(a.aggro > 0) || d > 24) { a.c186q = (a.c186q || 0) + dt; if (a.c186q > 5) { a.c186h = false; a.c186q = 0; } } } } catch (e) { U.err = String(e); }
+      return r; }; } catch (e) { U.err = String(e); }
+})();
+/* GLX-C186b (v1.0.35): ores in the spawn hills. The world's ore pass skips the spawn island's stone to keep its buildings clean, and the later terrain passes
+   leave the new mainland hills bare - so seed the same ore table there afterwards, only in natural rock 3+ blocks under grass / dirt / snow / stone. */
+(function c186b() {
+  const U = window.__c186b = {st: null, err: null};
+  const NAT = () => new Set([T.GRASS, T.DIRT, T.SNOW, T.HEATHER, T.STONE, T.GRAVEL, T.PEAT, T.COBBLE].filter(v => v !== undefined));
+  const ge = generate; generate = function () { const r = ge.apply(this, arguments);
+    try { if (!DIM.cur && window.__c181 && __c181.on() && window.__c104 && __c104.ORES && window.__c101 && __c101.isl) U.st = pass(); } catch (e) { U.err = String(e && e.stack || e); }
+    return r; };
+  function pass() { const t0 = performance.now(), I = __c101.isl, R = I.R + 4, N = NAT(); let sd = ((gSeed || 1) ^ 0x186b0e) >>> 0 || 17; const rnd = () => (sd = (Math.imul(sd, 16807) >>> 0) % 2147483647) / 2147483647;
+    const placed = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i), host = b => b === T.STONE || b === T.DEEPSLATE;
+    const tops = new Map(), top = (x, z) => { const k = x * D + z; let t = tops.get(k); if (t === undefined) { t = solidTop(x, z); tops.set(k, t); } return t; };
+    const ok = (x, y, z) => { if (x < 2 || z < 2 || x > W - 3 || z > D - 3 || y < SEA - 8 || Math.hypot(x - I.cx, z - I.cz) > R) return false; const tp = top(x, z); return y <= tp - 3 && N.has(world[idx(x, tp, z)]); };
+    const cols = Math.PI * R * R / 1000, put = {};
+    for (const [name, id, per, lo, hi, s0, s1, rule] of __c104.ORES()) { if (id === undefined || rule === 'hide') continue; const n = Math.round(per * cols); let pl = 0;
+      for (let v = 0; v < n; v++) { let got = null;
+        for (let t = 0; t < 10 && !got; t++) { const an = rnd() * 6.2832, rr = Math.sqrt(rnd()) * R, x = Math.round(I.cx + Math.cos(an) * rr), z = Math.round(I.cz + Math.sin(an) * rr); if (x < 2 || z < 2 || x > W - 3 || z > D - 3) continue;
+          const tp = top(x, z); if (rule === 'mtn' && tp < SEA + 28) continue; const yl = lo, yh = Math.min(hi, tp - 3); if (yh < yl) continue;
+          const y = Math.round(rule === 'u' ? yl + rnd() * (yh - yl) : yl + (yh - yl) * (rnd() + rnd()) / 2); if (y < SEA - 8) break; if (host(world[idx(x, y, z)]) && ok(x, y, z)) got = [x, y, z]; }
+        if (!got) continue; let [x, y, z] = got; const len = Math.round(s0 + rnd() * (s1 - s0));
+        for (let k = 0; k < len; k++) { if (ok(x, y, z)) { const i = idx(x, y, z); if (host(world[i]) && !placed(i)) { world[i] = id; pl++; } }
+          const q = rnd() * 6 | 0; if (q === 0) x++; else if (q === 1) x--; else if (q === 2) z++; else if (q === 3) z--; else if (q === 4) y++; else y--; } }
+      put[name] = pl; }
+    return {ms: Math.round(performance.now() - t0), put}; }
+})();
+
+/* ===================== GLX-C187 (v1.0.35): crafting screen fix (landscape side-by-side grid + detail, no HUD text over menus), 3D iso icons for every block that had a flat
+   or no icon, live icon refresh in an open crafting list, and craftable corner stairs (3 stairs -> 2 corner stairs, every stair material) ===================== */
+(function c187() {
+  const U = window.__c187 = {err: null, iso: 0, corners: 0, ref: 0, placed: 0};
+  const warn = (w, e) => { U.err = w + ' ' + String(e && e.stack || e); console.warn('c187', w, e); };
+  /* ---------- 1) crafting screen: the menuLayoutFix landscape grid was beaten by the inline display:flex set in buildCraftList ---------- */
+  try { const st = document.createElement('style'); st.id = 'glx187';
+    st.textContent = `@media (orientation:landscape) and (max-height:600px){#craft #recipes{display:grid!important}#recDetail .padhint{display:none}}
+@media (orientation:portrait){#recDetail{max-height:34vh;overflow-y:auto}}
+body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
+    document.head.appendChild(st); } catch (e) { warn('css', e); }
+  /* ---------- 2) iso icon kit (same projection and shading as the HD block icons) ---------- */
+  const cv = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; };
+  const small = {}; const tex = key => { const s = typeof key === 'string' ? texImg[key] : key; if (!s || !s.width) return null; const k = typeof key === 'string' ? key : null; if (k && small[k] && small[k].s === s) return small[k].c;
+    let c = s; while (c.width > 256) { const n = cv(c.width / 2), g = n.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(c, 0, 0, n.width, n.width); c = n; } if (k) small[k] = {s, c}; return c; };
+  const ISO = 256, PJ = (x, y, z) => [ISO * (.5 + (x - z) * .44), ISO * (.04 + (x + z) * .22 + (1 - y) * .5)];
+  function face(g, img, O, Ua, Va, u0, u1, v0, v1, dark) { const w = img.width, sx = u0 * w, sy = v0 * w, sw = Math.max(1, (u1 - u0) * w), sh = Math.max(1, (v1 - v0) * w);
+    const path = () => { g.beginPath(); g.moveTo(O[0], O[1]); g.lineTo(Ua[0], Ua[1]); g.lineTo(Ua[0] + Va[0] - O[0], Ua[1] + Va[1] - O[1]); g.lineTo(Va[0], Va[1]); g.closePath(); };
+    g.save(); path(); g.clip(); g.setTransform((Ua[0] - O[0]) / sw, (Ua[1] - O[1]) / sw, (Va[0] - O[0]) / sh, (Va[1] - O[1]) / sh, O[0], O[1]); g.drawImage(img, sx, sy, sw, sh, -.6, -.6, sw + 1.2, sh + 1.2); g.setTransform(1, 0, 0, 1, 0, 0);
+    if (dark) { g.fillStyle = 'rgba(0,0,0,' + dark + ')'; g.fill(); } g.restore(); path(); g.lineWidth = 1.2; g.strokeStyle = 'rgba(0,0,0,.35)'; g.stroke(); }
+  function box(g, F, x0, y0, z0, x1, y1, z1) { const [top, front, right] = F;
+    face(g, top, PJ(x0, y1, z0), PJ(x1, y1, z0), PJ(x0, y1, z1), x0, x1, z0, z1, 0);
+    face(g, front, PJ(x0, y1, z1), PJ(x1, y1, z1), PJ(x0, y0, z1), x0, x1, 1 - y1, 1 - y0, .2);
+    face(g, right, PJ(x1, y1, z1), PJ(x1, y1, z0), PJ(x1, y0, z1), 1 - z1, 1 - z0, 1 - y1, 1 - y0, .38);
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1.4; g.beginPath(); const a = PJ(x0, y1, z1), b = PJ(x1, y1, z1), c = PJ(x1, y1, z0); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.lineTo(c[0], c[1]); g.stroke(); }
+  const SHAPES = {
+    cube: [[0, 0, 0, 1, 1, 1]], slab: [[0, 0, 0, 1, .5, 1]], carpet: [[0, 0, 0, 1, .1, 1]], panel: [[0, 0, 0, 1, .14, 1]],
+    stairs: [[0, 0, 0, 1, .5, 1], [0, .5, 0, 1, 1, .5]], corner: [[0, 0, 0, 1, .5, 1], [.5, .5, 0, 1, 1, .5]],
+    pane: [[.06, 0, .44, .94, 1, .56]], board: [[.04, .06, .8, .96, .94, .92]],
+    post: [[.4, 0, .4, .6, 1, .6]], lamp: [[.42, 0, .42, .58, .72, .58], [.28, .72, .28, .72, 1, .72]],
+    rail: [[.05, 0, .44, .17, .95, .56], [.83, 0, .44, .95, .95, .56], [.05, .78, .46, .95, .88, .54], [.05, .38, .46, .95, .48, .54]]};
+  function isoIcon(F, shape) { const c = cv(ISO), g = c.getContext('2d'); g.imageSmoothingQuality = 'high';
+    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(ISO / 2, ISO * .93, ISO * .34, ISO * .06, 0, 0, 7); g.fill();
+    for (const b of SHAPES[shape] || SHAPES.cube) box(g, F, ...b); return c.toDataURL(); }
+  const facesOf = id => { let f = FACES[id]; if (!f) return null; if (!Array.isArray(f)) f = [f, f, f, f, f, f]; const t = tex(f[2]), fr = tex(f[4]), r = tex(f[0]); return t && fr && r ? [t, fr, r] : null; };
+  const shapeOf = (id, n) => /corner stairs/.test(n) ? 'corner' : /carpet/.test(n) ? 'carpet' : /slab/.test(n) ? 'slab' : /panel/.test(n) ? 'panel' : /pane\b/.test(n) ? 'pane' : /stairs/.test(n) || (IS_STAIR[id] && id !== 145) ? 'stairs'
+    : /painting/.test(n) ? 'board' : /lamp post/.test(n) ? 'post' : /street lamp|lantern/.test(n) ? 'lamp' : /railing/.test(n) ? 'rail' : 'cube';
+  const SKIPN = /water|lava|portal|wheat|potato|neep|farmland|reed|fern|grass$|thistle|sapling|bluebell|daffodil|dandelion|marker|activator|torch|door|fence|gate|bed\b|cauldron|cobweb/i;
+  const MINE = U.MINE = {};
+  const setIc = (id, u) => { MINE[id] = u; try { const S = (window.__c122 && __c122.setIcon) || (window.__c121 && __c121.setIcon); if (S) S(id, u); else ICONS[id] = u; } catch (_) { ICONS[id] = u; } ICONS[id] = u; delete ICON_KEY[id]; try { delete spriteMats[id]; } catch (_) {} };
+  /* ---------- 3) corner stairs: items 331+, each places its stair as a fixed outer corner (entMeta.q + qf, so auto-connect leaves it alone) ---------- */
+  const CORN = U.CORN = {}, BV = [[0, -1], [-1, 0], [0, 1], [1, 0]], qbit = (sx, sz) => 1 << ((sx > 0 ? 1 : 0) + (sz > 0 ? 2 : 0));
+  function addCorners() { let id = 331; const mats = Object.keys(STAIRS).map(Number).concat([601, 602, 603, 604, 605, 606].filter(i => NAMES[i]));
+    for (const st of mats) { const n = NAMES[st]; if (!n || !/stairs/i.test(n)) continue; const cid = id++; if (NAMES[cid] && !CORN[cid]) continue;
+      CORN[cid] = {st, w: st > 600 ? st - 600 : 0}; NAMES[cid] = n.replace(/stairs/i, 'corner stairs');
+      if (!ORDER.includes(cid)) ORDER.push(cid); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(cid)) CREATIVE_ALL.push(cid);
+      try { if (FUEL && FUEL[st]) FUEL[cid] = FUEL[st]; } catch (_) {} U.corners++; }
+    recipes(); }
+  function recipes() { let ch = 0; for (const k in CORN) { const cid = +k, st = CORN[k].st; if (RECIPES.some(r => r.out === cid)) continue;
+      RECIPES.push(rc('2 ' + NAMES[cid], '3 ' + NAMES[st] + ' (an L)', cid, 2, [[st, 3]], 1)); ch++; } return ch; }
+  try { addCorners(); } catch (e) { warn('corners', e); }
+  setInterval(() => { try { if (recipes()) { const g = $('recGrid'); if (g && typeof setCat === 'function' && typeof craftCat !== 'undefined') { const s = g.scrollTop; setCat(craftCat); $('recGrid').scrollTop = s; } } } catch (e) { warn('rec', e); } }, 2000);
+  let cap = null;
+  try { const sb = setB; setB = function (x, y, z, v) { const r = sb.apply(this, arguments); if (cap && v && IS_STAIR[v] && v !== 145) cap.push([x, y, z]); return r; }; } catch (e) { warn('setB', e); }
+  try { const ui = useItem; useItem = function () { const v = selId, C = CORN[v];
+      if (!C || menuOpen || paused || dead || !(MODE.infinite || cnt(v) > 0)) return ui.apply(this, arguments);
+      let side = 1; try { const r0 = raycast(5, true); if (r0) { const d = lookDir(); side = { hx: P.x + d[0] * r0.t, hz: P.z + d[2] * r0.t }; } } catch (_) {}
+      const t = C.st, save = inv[t]; inv[t] = MODE.infinite ? (save || 1) : 1; selId = t; cap = []; let r;
+      try { r = ui.apply(this, arguments); } finally { const cells = cap; cap = null; if (save === undefined) delete inv[t]; else inv[t] = save; selId = v;
+        if (cells.length) { if (!MODE.infinite) inv[v] = Math.max(0, cnt(v) - 1); try { corner(cells[cells.length - 1], side); U.placed++; } catch (e) { warn('corner', e); } }
+        try { renderHotbar(); } catch (_) {} }
+      return r; }; } catch (e) { warn('useItem', e); }
+  function corner([x, y, z], hit) { const k = keyOf(x, y, z); let m = entMeta.get(k); if (!m) { m = {face: faceFromYaw()}; entMeta.set(k, m); }
+    const f = (m.face | 0) & 3, [bx, bz] = BV[f], lx = -bz, lz = bx;
+    let s = 1; if (hit && hit.hx !== undefined) { const d = (hit.hx - x - .5) * lx + (hit.hz - z - .5) * lz; s = d < 0 ? -1 : 1; }
+    m.q = qbit(bx + s * lx, bz + s * lz); m.qf = 1; try { dirtyAround(x, z); } catch (_) {} }
+  /* ---------- 4) icons: corners, the flat oak stairs and red pane, and every block still on a flat texture swatch ---------- */
+  function icons() { let n = 0; const wood = w => { try { const P = window.__c121 && __c121.PLC; return P && P[w] ? tex(P[w]) : null; } catch (_) { return null; } };
+    const want = new Set([...ORDER, ...(typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : []), ...Object.keys(CORN).map(Number)]);
+    for (const id of want) { const nm = NAMES[id] || ''; if (!nm || MINE[id]) continue;
+      let F = null, sh = null;
+      if (CORN[id]) { const C = CORN[id]; const w = C.w && wood(C.w); F = w ? [w, w, w] : facesOf(STAIRS[C.st] ? STAIRS[C.st][0] : C.st); sh = 'corner'; }
+      else if (id === 164) { F = facesOf(10); sh = 'stairs'; }
+      else if (id === 700) { const gl = tex('glass'); if (gl) { const c = cv(gl.width), g = c.getContext('2d'); g.drawImage(gl, 0, 0); g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(235,60,20,.7)'; g.fillRect(0, 0, c.width, c.width); const t2 = cv(gl.width), g2 = t2.getContext('2d'); g2.fillStyle = 'rgba(200,40,14,.55)'; g2.fillRect(0, 0, c.width, c.width); g2.drawImage(c, 0, 0); F = [t2, t2, t2]; } sh = 'pane'; }
+      else if (!ICONS[id] && id < 256 && FACES[id] && !SKIPN.test(nm)) { F = facesOf(id); sh = shapeOf(id, nm.toLowerCase()); }
+      if (!F) continue; try { setIc(id, isoIcon(F, sh)); n++; } catch (e) { warn('ic' + id, e); } }
+    U.iso += n; return n; }
+  let tries = 0; const go = () => { const ready = typeof texDone !== 'undefined' && texDone >= texTotal && texImg.stone && (!window.__c122 || __c122.ready || tries > 12);
+    if (!ready && tries++ < 80) return setTimeout(go, 500); try { icons(); renderHotbar(); } catch (e) { warn('icons', e); } };
+  setTimeout(go, 600);
+  setInterval(() => { try { for (const id in MINE) if (ICONS[id] !== MINE[id]) { ICONS[id] = MINE[id]; delete ICON_KEY[id]; } } catch (_) {} }, 1500);
+  /* ---------- 5) an open crafting list picks up icons painted after it was built (blank slots on a fresh start) ---------- */
+  setInterval(() => { try { const g = document.getElementById('recGrid'); if (!g || !g.offsetParent) return;
+      for (const b of g.children) { const d = b.firstChild, r = RECIPES[b._ri]; if (!d || !r) continue; const u = ICONS[r.out]; if (u && d._u !== u) { if (d._u !== undefined || !d.style.backgroundImage.includes(u.slice(0, 40))) { d.style.backgroundImage = 'url(' + u + ')'; U.ref++; } d._u = u; } } } catch (e) { warn('refresh', e); } }, 700);
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -27510,6 +27992,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.35', d:'2026-10-27', notes:["New: a new map - the mainland sits in the middle with the black castle island to the north, the skeleton castle island to the west, the clan castle island to the east, the sand island to the south-west and a forest croft island to the south-east, with sea between them all (new and reset worlds)", "New: every island has its own bridge from the mainland, and the held map shows the new layout with Pyramid Park and Croft Isle marked", "New: the sand island is now a desert museum park - a pink three-tier stepped pyramid with big red doors, a long dune behind it with a white chapel on top, two museums across a terracotta plaza, a sundial and red granite glyph fields", "New: the Great Sphinx lies beside the park - look behind its ear, or on top of its head, for the way into its hidden chamber", "New: the pyramid's chest room now opens onto stairs down into the deep cave, and the old duplicate tunnels under it are gone", "Textures: pink terrazzo, cream render, terracotta tiles, red granite, white and pink gravel and red panelled doors on the sand island", "Mobs: Barrow Bandagers now wait in the deep cave and in the Sphinx's chamber"]},
 {v:'v1.0.34', d:'2026-10-27', notes:["New: Copy tool and Template tool - two extra hotbar squares in your Test World that never break or run out", "New: Copy tool - LT sets the first corner, a see-through red box follows where you aim, LT again locks it, RT saves it with a name typed on the on-screen keyboard, B cancels", "New: Template tool - LT opens your saved templates (use or delete, with a Yes / No check), the chosen one shows as a blue ghost where you aim, LB / RB turn it, RT builds it, B puts it away", "New: templates are kept on this device for every world, so they survive Reset world and new maps", "New: a water pool near spawn in current, new and reset worlds", "New: caves now have small lava pools and underground streams that flow"]},
 {v:'v1.0.33', d:'2026-10-27', notes:["New: placeholder"]},
 {v:'v1.0.32', d:'2026-10-27', notes:["New: one reset button in the World tab - it reads Reset world in the overworld and Reset Hell in Hell, with a matching are-you-sure; the separate Reset Hell button is gone", "New: Reset Hell now always builds the new Hell - the big 384-wide nether with its four biomes, the four gothic builds and the red sky - on every world, not only the newest Highlands saves (some worlds were getting a small Hell with just one build)"]},
