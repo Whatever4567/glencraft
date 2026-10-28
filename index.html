@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1046a -->
+<!-- glencraft-build: v1047a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.46';
+const GAME_VERSION = 'v1.0.47';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18982,6 +18982,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   // biome override: each castle island is its own wood (alder / hawthorn / yew)
   U.bioOv = (x, z, b) => { if (!U.bigBio()) return b; const g = P12(); if (g !== G12) setP(g); for (const I of IS) if (Math.hypot((x - I.x) / (I.sx || 1), (z - I.z) / (I.sz || 1)) < IR * (G12 ? 1.08 : 1.35)) return I.bio; return b; };
   U.G35 = G35; U.G36 = G36; U.G42 = G42;
+  const G47 = U.G47 = () => { try { return !!(G42() && (current.created || 0) >= 1793156400000); } catch (_) { return false; } };   // v1.0.47: bridges follow the land, no tunnels
   U.params = () => ({RM, IR, OFF, PN, G12, IS});
   const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ (gSeed | 0) ^ 0x113; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 
@@ -19097,7 +19098,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       // v1.0.23: a level deck at DK; stair ramps only at the two ends; where the land rises well above the deck, a lined, lit tunnel goes through it (no more holes cut up the hillside)
       const S = new Int16Array(N + 1), E0 = Math.max(G[t0], SEA + 1), E1 = Math.max(G[t1], SEA + 1);
       for (let t = t0; t <= t1; t++) { let v = DK; const d0 = t - t0, d1 = t1 - t; if (d0 < Math.abs(E0 - DK)) v = E0 + Math.sign(DK - E0) * d0; if (d1 < Math.abs(E1 - DK) && (d1 < d0 || v === DK)) v = E1 + Math.sign(DK - E1) * d1; S[t] = v; }
-      const TUN = new Uint8Array(N + 2); for (let t = t0; t <= t1; t++) { let lo = 1e9; for (let k = -2; k <= 2; k++) { const q = Math.min(t1, Math.max(t0, t + k)), x = Math.floor(ax + ux * q), z = Math.floor(az + uz * q); lo = Math.min(lo, gtop(x, z)); } if (lo >= S[t] + 7 && !WET[t]) TUN[t] = 1; }
+      const F47 = G47(); if (F47) { // v1.0.47: never below the land across the deck; over water at deck height; ramps of 1 block per block; an embankment over low land
+        for (let t = t0; t <= t1; t++) { let hi = -1e9; for (let k = -hw; k <= hw; k++) { const x = Math.floor(ax + ux * t + nx * k), z = Math.floor(az + uz * t + nz * k); if (!inW(x, z)) continue; const g = gtop(x, z); if (!(get(x, g + 1, z) === T.WATER || g < SEA)) hi = Math.max(hi, g); }
+          S[t] = WET[t] ? Math.max(DK, hi) : Math.max(hi, SEA + 1); }
+        for (let t = t0 + 1; t <= t1; t++) S[t] = Math.max(S[t], S[t - 1] - 1); for (let t = t1 - 1; t >= t0; t--) S[t] = Math.max(S[t], S[t + 1] - 1); }
+      const TUN = new Uint8Array(N + 2); if (!F47) for (let t = t0; t <= t1; t++) { let lo = 1e9; for (let k = -2; k <= 2; k++) { const q = Math.min(t1, Math.max(t0, t + k)), x = Math.floor(ax + ux * q), z = Math.floor(az + uz * q); lo = Math.min(lo, gtop(x, z)); } if (lo >= S[t] + 7 && !WET[t]) TUN[t] = 1; }
       for (let t = t0 + 1; t < t1; t++) if (!TUN[t] && TUN[t - 1] && TUN[t + 1]) TUN[t] = 1;
       const SB = st.stair(), dom = Math.abs(ux) > Math.abs(uz), fUp = stairF(dom ? Math.sign(ux) : 0, dom ? 0 : Math.sign(uz)), fDn = stairF(dom ? -Math.sign(ux) : 0, dom ? 0 : -Math.sign(uz));
       const sideF = (px, pz) => { const ox = px * nx, oz = pz * nz, sd = Math.sign(px * nx + pz * nz) || 1, vx = nx * sd, vz = nz * sd; return Math.abs(vx) > Math.abs(vz) ? stairF(Math.sign(vx), 0) : stairF(0, Math.sign(vz)); };
@@ -19115,10 +19120,11 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
           if (deck && ap < 0.5 && ti % 8 === 0) put(x, s + 4, z, LAMP);
           if (deck && S[ti + 1] > s && ti < t1) stp(x, s + 1, z, fUp); else if (deck && ti > t0 && S[ti - 1] > s) stp(x, s + 1, z, fDn);
           cols++; continue; }
+        if (F47 && !deck && g > s) continue;   // v1.0.47: never cut a notch into the bank beside the deck
         if (!deck && !(wet || s - g >= 2)) continue;
         // clear the way (trees, plants, a low rise) above the deck - only up to the land itself, never a slot up a hillside
         const top = deck ? Math.min(H - 2, s + 8) : Math.min(H - 2, s + 4);
-        for (let y = s + 1; y <= top; y++) { const b = get(x, y, z); if (b && b !== T.WATER) put(x, y, z, T.AIR); }
+        for (let y = s + 1; y <= top; y++) { const b = get(x, y, z); if (b && b !== T.WATER && (!F47 || deck || LEAFY[b] || LOGGY[b] || PLANT[b])) put(x, y, z, T.AIR); }
         if (st.gap(x, z, ap, wet)) continue;
         if (!wet) { if (g < s) for (let y = g + 1; y < s; y++) put(x, y, z, st.fill(x, y, z)); }
         else if (ti % 9 === 0 && ap >= 1.2) for (let y = g + 1; y < s; y++) put(x, y, z, st.pil(x, y, z));
@@ -19327,6 +19333,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.47', ["New: wisteria is its own wood - pale grey-lilac wisteria logs, wisteria planks, stairs (with corner stairs), slab, door, fence, fence gate and boat, all craftable, with their own icons, in creative next to the other woods, and axes cut them; purple wisteria leaves with hanging blossom (they drop sticks); new wisteria trees use only wisteria logs and leaves, and the pink blossom tree no longer mixes with oak (new and reset worlds)", "New: bridges and roads in new and reset worlds follow the land - ramps and embankments instead of tunnels, decks only span water - no trees grow in their path and no floating bits of tree are left beside them, and lanterns now sit right on top of fence posts on a little iron stem", "New: the castle people no longer speak in words - they talk in 100 different warm, hummed villager-like tones with a Scottish lilt (greeting, question, agree, disagree, alarm, curious, happy, sad, hurt, thanks, farewell), chosen by the hive mind and never the same one twice in a row, and they answer each other back and forth; the spoken voice clips and the AI voice setting are gone", "New: the castle people carry things again - they pick up useful items lying near them, eat what they carry when hungry, keep the gifts you give them, drop everything they carry when they die, and it is all saved with your world", "New: the castle people have more freedom - near their castle, while you are close by, they chop down trees (the tree falls like yours) and collect the logs, mine exposed stone and ore on the surface or at cave mouths (never your blocks, never near or under your builds, never a hole in the ground), craft better tools, weapons and armour over time, visibly hold and wear them, and use them to fight monsters"]],
     ['v1.0.46', ["New: going into a house or a cave no longer turns the day to night - the sky, sun, fog and the view outside stay exactly as they are outdoors (doors, windows and cave mouths show daylight); only truly deep, closed-in caves get the dark cave look, and only the rain sound changes when you are under a roof"]],
     ['v1.0.45', ["New: Settings > Shaders: Low / High (High on computers, Low on phones so they stay smooth) - High adds warm golden sunlight, richer greens, blue distance haze, a soft sun bloom, waving leaves, grass and flowers, water fresnel and sun glints, a grey-blue overcast tint while it rains and a light vignette; it never goes darker than the 30% light floor", "New: lusher new and reset worlds - much more tall grass, bushy bushes, round oaks, flower patches, bluebell-and-heather 'lavender' meadows and wisteria-style trees hung with purple blossom (your current world is not changed)", "New: the rare pink blossom tree from v0.8.0 is back in new and reset worlds, in its original shape - at least one in every new glen", "New: rain keeps falling outside when you go indoors - you see it through windows and doors - and never shows inside a house, a base or a tunnel mouth (it stops at each column's roof)", "New: 3D rain sound - an all-round rain bed outdoors; indoors it crossfades to cosy muffled rain on the roof with soft taps on wood and glass and a gentle rumble, louder from the window or door side and shifting as you turn and move", "New: gravel breaks as fast as dirt", "New: the deep grey stone in caves is just 'Stone' now and drops Cobblestone like normal stone", "New: no more stutter or dark flash the first time a new ore shows up while you mine in a cave", "New: smart pick tool - click the right stick (RS) or press T to grab the right tool for what you are looking at: shovel for dirt, grass, sand, gravel, snow, clay and mud; the best pickaxe that can mine stone, cobble, bricks, sandstone and ores; an axe for logs and planks; shears or a sword for leaves, wool and cobweb; a hoe for crops; a bucket for water or lava; and your gun (if loaded) or best sword when a monster is in your sights. If it is not on your hotbar it swaps in from your bag; if you have nothing suitable a message tells you (RS did nothing before, so no button moved)", "New: roads from spawn - in new and reset worlds a gravel road with cobble edges, fences and lamps runs from around spawn out to the first bridge, between bridges, and on to every castle and island, so you can walk from spawn to each island in turn; the islands are still separated by water", "New: the spawn skull has its open mouth back - walk in through the teeth into a hollow lantern-lit cave inside, as in the original build (new and reset worlds)", "Textures: lazurite (lapis lazuli) ore redone like the silver and redstone ores - deep-blue specks and thin veins sunk into the plain stone, with the odd gold fleck", "Mobs: the people speak real words now, in a Scots voice - greetings, trading, being hit, nightfall, and what they predict and learn - and they talk to each other; only people near you, at most 3 voices at once, on the mob voice slider (the nods stay)", "Mobs: what they say is built from what is going on - what you hold, digging, chopping or building, the time, weather, your health, the place, mobs nearby and what they remember - and a line never repeats within about 50 lines or 20 minutes", "Mobs: the people share the SUNNY v206 brain - every line runs its think cycle (memories, beliefs, hypotheses, predictions, reflections); it is saved with each world and wiped by Reset world", "Mobs: free will - clansmen pick their own goals (work, wander, chat, eat, hunt beasts, fight or flee monsters, trade, dance, sleep), say what they mean to do, then reflect on how it went; they still never attack you unless you hit them", "Mobs: rarely, a person stops for a 4-layer self-reflection out loud ('Am thinkin aboot me thinkin... aye, a funny wee loop.'), which nudges what they care about", "Mobs: optional AI replies - Chrome's built-in AI when it is there, or your own AI key in the pause menu (kept only on this device) - spoken in each person's own voice; without it they use their built-in lines", "Mobs: gifts - press LT while holding an item to give one to a person (a finished trade counts for clansmen); they do a happy dance for a few seconds and remember your kindness", "Mobs: the dance is real now - a 15-second routine copied move for move from the dance video (side-on poses, arm throws, a full spin, arms out wide and overhead, leg lifts and knee bends) instead of bobbing up and down", "Mobs: the mountain beast is now the Snaw Yeti - a gentle shaggy white-grey abominable snowman with HD fur that never attacks, just wanders and gives the odd soft low grumble; it is rare and only turns up high on snowy mountain peaks"]],
     ['v1.0.44', ["Mobs: the people no longer show their thoughts as text on screen when they talk - you just hear their voices"]],
@@ -21091,7 +21098,8 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     {w: 3, n: 'Rowan', log: 137, pl: 254, key: 'planks_rowan', c: '#b0603e', d: '#6c3220', l: '#d68a66'},
     {w: 4, n: 'Alder', log: 139, pl: 237, key: 'planks_alder', c: '#c9803e', d: '#86481c', l: '#e8a868'},
     {w: 5, n: 'Yew', log: 143, pl: 234, key: 'planks_yew', c: '#86422a', d: '#4a1e10', l: '#b46a48', swirl: 1},
-    {w: 6, n: 'Rotting alder', log: 138, pl: 141, key: 'planks_rot', c: '#7f7a5e', d: '#4a4636', l: '#a8a284', rot: 1}];
+    {w: 6, n: 'Rotting alder', log: 138, pl: 141, key: 'planks_rot', c: '#7f7a5e', d: '#4a4636', l: '#a8a284', rot: 1},
+    {w: 7, n: 'Wisteria', log: 191, pl: 193, key: 'planks_wisteria', c: '#d6b9ae', d: '#8f6c6e', l: '#f0dcd2', fine: 1}];   // v1.0.47 (ids 191-193 were the removed Backrooms blocks)
   const OAK = {w: 0, n: 'Oak', pl: 10, key: 'planks', c: '#b48a52', d: '#6e4e2a', l: '#d8b47c'};
   const woodOf = w => (w && WOODS[w]) || OAK;
   function grain(g, x, y, w, h, W, R, S) {   // wood grain inside a board rect
@@ -21220,7 +21228,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   const BASES = {600: 164, 610: 145, 620: T.DOOR, 630: 162, 640: 226, 650: 173};
   const KIND = {600: 'stairs', 610: 'slab', 620: 'door', 630: 'fence', 640: 'gate', 650: 'boat'};
   const VARI = U.VARI = {};   // item id -> {base, w, kind}
-  const PLIDS = [10, 229, 220, 254, 237, 234, 141];
+  const PLIDS = [10, 229, 220, 254, 237, 234, 141, 193];
   const PLMAT = U.PLMAT = {}; const PLC = U.PLC = {};
   const plMat = w => (w && PLMAT[w]) || BLOCK_MATS[10];
   U.woodCount = () => PLIDS.reduce((s, id) => s + cnt(id), 0);
@@ -21233,7 +21241,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     NAMES[SLAB] = 'Oak slab'; FACES[SLAB] = 'planks'; BLOCK_MATS[SLAB] = BLOCK_MATS[10]; ICON_KEY[SLAB] = 'planks'; HARD[SLAB] = HARD[10]; MC_HARD[SLAB] = MC_HARD[10]; delete REQ[SLAB]; NEEDS_PICK.delete(SLAB); AXE_ON.add(SLAB);
     PLACEABLE.add(SLAB); ENT[SLAB] = 1; IS_STAIR[SLAB] = 1; if (!ORDER.includes(SLAB)) ORDER.push(SLAB); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(SLAB)) CREATIVE_ALL.push(SLAB);
     Object.assign(NAMES, {65: 'Oak door', 162: 'Oak fence', 226: 'Oak fence gate', 173: 'Oak boat'});
-    for (let w = 1; w <= 6; w++) { const W = WOODS[w];
+    for (let w = 1; w < WOODS.length; w++) { const W = WOODS[w];
       const c = paintPlanks(W); PLC[w] = c;
       if (W.pl === 141) { swapKey('planks_rot', c); PLMAT[w] = BLOCK_MATS[141]; }
       else { regKey(W.key, c); FACES[W.pl] = W.key; BLOCK_MATS[W.pl] = mat(W.key); ICON_KEY[W.pl] = W.key; delete ICONS[W.pl]; PLMAT[w] = BLOCK_MATS[W.pl];
@@ -21244,13 +21252,13 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
         NAMES[id] = W.n + ' ' + {stairs: 'stairs', slab: 'slab', door: 'door', fence: 'fence', gate: 'fence gate', boat: 'boat'}[KIND[b]];
         if (!ORDER.includes(id)) ORDER.push(id); if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(id)) CREATIVE_ALL.push(id); if (FUEL && FUEL[BASES[b]]) FUEL[id] = FUEL[BASES[b]]; } }
     const om = matOf; matOf = function (b) { if (b === SLAB || PLIDS.includes(b)) return 'wood'; return om.apply(this, arguments); };
-    setInterval(() => { if (!chunkST) return; chunkST[SLAB] = 1; for (const w of [1, 2, 3, 4, 5]) chunkST[WOODS[w].pl] = 0; }, 300);
+    setInterval(() => { if (!chunkST) return; chunkST[SLAB] = 1; for (const w of [1, 2, 3, 4, 5, 7]) chunkST[WOODS[w].pl] = 0; }, 300);
   } catch (e) { warn('wood-blocks', e); }
   // recipes
   function woodRecipes() {
     const add = r => { if (!RECIPES.some(q => q.out === r.out && q.n === r.n && JSON.stringify(q.need) === JSON.stringify(r.need))) RECIPES.push(r); };
     add(rc('6 Oak slabs', '3 Planks', SLAB, 6, [[10, 3]], 1));
-    for (let w = 1; w <= 6; w++) { const W = WOODS[w], P = W.n + ' planks';
+    for (let w = 1; w < WOODS.length; w++) { const W = WOODS[w], P = W.n + ' planks';
       if (W.pl !== 141) add(rc('4 ' + P, '1 ' + W.n + ' log', W.pl, 4, [[W.log, 1]]));
       add(rc('4 ' + W.n + ' stairs', '6 ' + P, 600 + w, 4, [[W.pl, 6]], 1));
       add(rc('6 ' + W.n + ' slabs', '3 ' + P, 610 + w, 6, [[W.pl, 3]], 1));
@@ -21259,7 +21267,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       add(rc(W.n + ' fence gate', '4 Sticks + 2 ' + P, 640 + w, 1, [[T.STICK || 11, 4], [W.pl, 2]], 1));
       add(rc(W.n + ' boat', '5 ' + P, 650 + w, 1, [[W.pl, 5]], 1)); }
     // the old log -> planks recipe only takes oak logs; other logs now make their own planks
-    for (let i = RECIPES.length - 1; i >= 0; i--) { const r = RECIPES[i]; if (r.out === 10 && r.need.length === 1 && [135, 136, 137, 139, 143].includes(r.need[0][0])) RECIPES.splice(i, 1); }
+    for (let i = RECIPES.length - 1; i >= 0; i--) { const r = RECIPES[i]; if (r.out === 10 && r.need.length === 1 && [135, 136, 137, 139, 143, 191].includes(r.need[0][0])) RECIPES.splice(i, 1); }
   }
   // any planks work for general recipes (sticks, tables, chests ...); the per-wood things need their own planks
   const EXACT = new Set([T.DOOR, STAIRB, SLAB, BOAT, FENCE, GATE]);
@@ -21267,7 +21275,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
   try {
     const cc = canCraft; canCraft = function (r) { if (!pooled(r) || MODE.infinite) return cc.apply(this, arguments); const save = inv[10]; inv[10] = U.woodCount(); try { return cc.apply(this, arguments); } finally { if (save === undefined) delete inv[10]; else inv[10] = save; } };
     const cr = craft; craft = function (i) { try { const r = RECIPES[i]; if (pooled(r) && !MODE.infinite) { const need = r.need.find(q => q[0] === 10)[1]; let lack = need - cnt(10);
-      if (lack > 0 && canCraft(r, nearTable())) for (const id of [229, 220, 254, 237, 234, 141]) { if (lack <= 0) break; const t = Math.min(lack, cnt(id)); if (t > 0) { inv[id] -= t; inv[10] = cnt(10) + t; lack -= t; } } } } catch (_) {} return cr.apply(this, arguments); };
+      if (lack > 0 && canCraft(r, nearTable())) for (const id of [229, 220, 254, 237, 234, 141, 193]) { if (lack <= 0) break; const t = Math.min(lack, cnt(id)); if (t > 0) { inv[id] -= t; inv[10] = cnt(10) + t; lack -= t; } } } } catch (_) {} return cr.apply(this, arguments); };
   } catch (e) { warn('pool', e); }
   // stairs + slabs: grouped by wood for the mesher (hooks added to the chunk builder)
   window.__stGroups = function (L) { const out = [];
@@ -21442,7 +21450,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     g.strokeStyle = shade(W.d, .7); g.lineWidth = 3; g.beginPath(); g.moveTo(-31, -5); g.lineTo(31, -5); g.stroke(); g.strokeStyle = 'rgba(20,10,0,.8)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-30, -4); g.lineTo(30, -4); g.lineTo(22, 12); g.quadraticCurveTo(0, 18, -22, 12); g.closePath(); g.stroke();
     g.fillStyle = shade(W.c, .8); g.fillRect(-6, -9, 12, 5); g.strokeStyle = '#3a2a1a'; g.lineWidth = 2; g.beginPath(); g.moveTo(10, -6); g.lineTo(26, -22); g.stroke(); g.fillStyle = shade(W.c, .9); g.beginPath(); g.ellipse(27, -23, 3, 6, .8, 0, 7); g.fill(); }, IS); }
   function woodIcons() { const oakImg = texImg['planks'];
-    for (let w = 0; w <= 6; w++) { const W = woodOf(w), img = w ? PLC[w] : oakImg; if (!img) continue;
+    for (let w = 0; w < WOODS.length; w++) { const W = woodOf(w), img = w ? PLC[w] : oakImg; if (!img) continue;
       try { if (w) { setIcon(600 + w, iconStairs(img)); setIcon(610 + w, iconSlab(img)); setIcon(620 + w, iconDoor(DOORC[w] || (DOORC[w] = paintDoor(W)))); setIcon(650 + w, iconBoat(img, W)); }
         else { setIcon(SLAB, iconSlab(img)); }
         setIcon(w ? 630 + w : FENCE, iconFence(img)); setIcon(w ? 640 + w : GATE, iconGate(img)); } catch (e) { warn('woodicon' + w, e); } } }
@@ -28601,7 +28609,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
   try { const t0 = toast; toast = function (m) { if (typeof m === 'string') arguments[0] = fix(m); return t0.apply(this, arguments); }; } catch (e) { warn('toast', e); }
   // held non-oak doors: front + back show that wood's own door design, edges its planks
   try { const mi = makeItemMesh; makeItemMesh = function (id) { const g = mi.apply(this, arguments);
-      try { const w = id - 620; const C = window.__c121; if (w >= 1 && w <= 6 && g && g.userData && g.userData.c198 === 'door' && C && C.doorMat) {
+      try { const w = id - 620; const C = window.__c121; if (w >= 1 && w <= 7 && g && g.userData && g.userData.c198 === 'door' && C && C.doorMat) {
           const dm = C.doorMat(w); let pm = C.PLMAT && C.PLMAT[w]; if (Array.isArray(pm)) pm = pm[0];
           if (dm) { const mats = [pm || dm, pm || dm, pm || dm, pm || dm, dm, dm]; g.traverse(o => { if (o.isMesh) o.material = mats; }); U.doors++; } } } catch (e) { warn('door' + id, e); }
       return g; }; } catch (e) { warn('wrap', e); }
@@ -29105,11 +29113,11 @@ function make42(E) {
   const gen = generate; generate = function () { WT = null; U.T = null; const r = gen.apply(this, arguments); U.T = null; return r; };
 })();
 
-/* ===================== GLX-C209 (v1.0.43): the people talk - 100 seeded voice lines (villager "hmm / hrrm" mumbles crossed with alien-AI chatter: formant babble, pitch glides, question / answer tunes, faint AI shimmer, rolled r's, a Scottish lilt; no chirps), little back-and-forth conversations, hurt and death cries; each line is paired with a telepathy phrase (GLX-C210); v1.0.45: real Scots words via GLX-C212, the babble is the fallback ===================== */
+/* ===================== GLX-C209 (v1.0.43): the people talk - 100 seeded voice lines (villager "hmm / hrrm" mumbles crossed with alien-AI chatter: formant babble, pitch glides, question / answer tunes, faint AI shimmer, rolled r's, a Scottish lilt; no chirps), little back-and-forth conversations, hurt and death cries; each line is paired with a telepathy phrase (GLX-C210); v1.0.45: real Scots words via GLX-C212; v1.0.47: the words are gone again - only warm hummed tones, 100 of them, moods picked by the hive mind ===================== */
 (function c209() {
   const U = window.__c209 = {n: 0, conv: 0, skip: 0, act: 0, last: -1, err: null, lines: null};
   // ---- the 100 lines: each mood gets its own share; every line is a fixed seeded recipe ----
-  const MOODS = [['idle', 20], ['greet', 10], ['question', 12], ['agree', 10], ['disagree', 6], ['curious', 8], ['alarm', 6], ['farewell', 8], ['trade', 8], ['thanks', 4], ['hurt', 5], ['death', 3]];
+  const MOODS = [['idle', 14], ['greet', 9], ['question', 10], ['agree', 9], ['disagree', 6], ['curious', 8], ['alarm', 6], ['farewell', 7], ['trade', 6], ['thanks', 6], ['hurt', 5], ['death', 3], ['happy', 6], ['sad', 5]];   // v1.0.47: 100 tones, happy + sad added
   const VOW = {a: [720, 1150], o: [500, 860], u: [350, 760], e: [520, 1550], i: [330, 1900], m: [260, 1000], n: [280, 1350], r: [470, 1250]};
   const VK = Object.keys(VOW);
   const LINES = [], BY = {};
@@ -29118,7 +29126,7 @@ function make42(E) {
     for (const [mood, n] of MOODS) { BY[mood] = [];
       for (let k = 0; k < n; k++) {
         const P = {idle: [2, 5, 0.9, 0.11], greet: [2, 3, 1.1, 0.15], question: [2, 5, 1.05, 0.12], agree: [1, 3, 1.0, 0.14], disagree: [1, 3, 0.9, 0.13], curious: [2, 4, 1.15, 0.1], alarm: [3, 6, 1.35, 0.08],
-          farewell: [2, 3, 0.95, 0.17], trade: [3, 5, 1.0, 0.11], thanks: [2, 3, 1.1, 0.13], hurt: [1, 2, 1.3, 0.12], death: [2, 3, 1.0, 0.3]}[mood];
+          farewell: [2, 3, 0.95, 0.17], trade: [3, 5, 1.0, 0.11], thanks: [2, 3, 1.1, 0.13], hurt: [1, 2, 1.3, 0.12], death: [2, 3, 1.0, 0.3], happy: [2, 4, 1.12, 0.12], sad: [2, 4, 0.85, 0.19]}[mood];
         const ns = P[0] + ((r() * (P[1] - P[0] + 1)) | 0), base = (92 + r() * 34) * P[2], syl = [], lilt = 0.08 + r() * 0.1;
         for (let i = 0; i < ns; i++) { const last = i === ns - 1, u = ns > 1 ? i / (ns - 1) : 1; const lc = 1 + lilt * Math.sin(Math.PI * u); let a = base * lc * (0.92 + r() * 0.18), b = a * (0.9 + r() * 0.2);   // rise-and-fall lilt over the line
           if (mood === 'idle' && r() < 0.5) { a = base * 0.85; b = a * 0.92; }                                   // "hmm" hums
@@ -29129,9 +29137,11 @@ function make42(E) {
           if (mood === 'curious') { b = a * (1.2 + 0.4 * Math.sin(u * 3 + r())); }
           if (mood === 'alarm') { a *= 1.1 + 0.2 * r(); b = a * (0.8 + r() * 0.5); }
           if (mood === 'greet' && i === 0) { b = a * 1.3; }
+          if (mood === 'happy') { b = a * (i % 2 ? 0.9 : 1.16 + r() * 0.1); }
+          if (mood === 'sad') { a *= 1 - u * 0.12; b = a * (0.78 + r() * 0.08); }
           if (mood === 'hurt') { a = base * (1.3 + r() * 0.3); b = a * 0.65; }
           if (mood === 'death') { a = base * (1.1 - u * 0.25); b = a * (last ? 0.35 : 0.8); }
-          const hum = mood === 'idle' || mood === 'agree' || mood === 'thanks' ? r() < 0.6 : r() < 0.3;
+          const hum = mood === 'idle' || mood === 'agree' || mood === 'thanks' || mood === 'sad' ? r() < 0.65 : r() < 0.35;
           syl.push({d: P[3] + r() * 0.13 + (last && (mood === 'question' || mood === 'death' || mood === 'farewell') ? 0.14 : 0) + (mood === 'death' && last ? 0.35 : 0), a, b,
             v1: hum ? 'm' : pick(VK), v2: hum ? pick(['m', 'n', 'u']) : pick(VK), gap: 0.02 + r() * (mood === 'alarm' ? 0.03 : 0.08), step: r() < 0.06, nz: r() < 0.12, rr: r() < (hum ? 0.45 : 0.25) ? 22 + r() * 8 : 0 });
         }
@@ -29141,22 +29151,21 @@ function make42(E) {
   // ---- the synth ----
   let NB = null; const nbuf = () => { if (!NB) { const n = (AC.sampleRate * 0.5) | 0; NB = AC.createBuffer(1, n, AC.sampleRate); const d = NB.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; } return NB; };
   const active = []; let lastStart = 0;
+  // v1.0.47: warm villager hums - no ring-modulated "AI" shimmer, no stepped digital glides, no spoken words: a soft voiced buzz through two mouth formants, a gentle
+  // vibrato, a wee chest "hrrm" an octave down, a breath of air and the rolled-r flutter, all under a low-pass so it sounds like a person mumbling, not a machine
   function play(L, pos, vk, vol, pan) {
     const out = (window.mobOut || outNode)(vol, pan), t0 = AC.currentTime + 0.02, end = t0 + L.dur;
-    // the alien shimmer: one ring modulator for the line, then a soft low-pass
-    const ring = AC.createGain(), ro = AC.createOscillator(), rg = AC.createGain(), lp = AC.createBiquadFilter();
-    ring.gain.value = 1 - L.rd; ro.frequency.value = L.ring * vk; rg.gain.value = L.rd; ro.connect(rg); rg.connect(ring.gain); lp.type = 'lowpass'; lp.frequency.value = L.lp; ring.connect(lp); lp.connect(out);
-    ro.start(t0); ro.stop(end + 0.1);
+    const bus = AC.createGain(), lp = AC.createBiquadFilter(); bus.gain.value = 1; lp.type = 'lowpass'; lp.frequency.value = 900 + (L.lp - 1100) * 0.45; lp.Q.value = 0.5; bus.connect(lp); lp.connect(out);
+    const vib = AC.createOscillator(), vg = AC.createGain(); vib.frequency.value = 4.6 + L.rd * 12; vg.gain.value = 0; vib.connect(vg); vib.start(t0); vib.stop(end + 0.1);
     let t = t0;
     for (const q of L.syl) { const d = q.d, os = AC.createOscillator(), env = AC.createGain(), A = VOW[q.v1], B = VOW[q.v2];
-      os.type = L.wave;
-      if (q.step) { const n = 4; for (let i = 0; i <= n; i++) os.frequency.setValueAtTime((q.a + (q.b - q.a) * i / n) * vk, t + d * i / (n + 1)); }   // stepped, "digital" glide
-      else { os.frequency.setValueAtTime(q.a * vk, t); os.frequency.exponentialRampToValueAtTime(Math.max(30, q.b * vk), t + d); }
-      env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.5, t + Math.min(0.025, d * 0.3)); env.gain.setValueAtTime(0.5, t + d * 0.65); env.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      for (let i = 0; i < 2; i++) { const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = i ? 8 : 5; f.frequency.setValueAtTime(A[i] * L.fk, t); f.frequency.linearRampToValueAtTime(B[i] * L.fk, t + d); os.connect(f); f.connect(env); }
-      if (L.sh > 0.05) { const o2 = AC.createOscillator(), g2 = AC.createGain(); o2.type = 'triangle'; o2.frequency.setValueAtTime(q.a * vk * L.sd, t); o2.frequency.linearRampToValueAtTime(q.b * vk * L.sd * 1.004, t + d); g2.gain.value = L.sh * 0.25; o2.connect(g2); g2.connect(env); o2.start(t); o2.stop(t + d + 0.03); }
-      if (q.nz) { const s = AC.createBufferSource(), f = AC.createBiquadFilter(), e = AC.createGain(); s.buffer = nbuf(); f.type = 'bandpass'; f.frequency.value = 2400 * L.fk; f.Q.value = 1.4; e.gain.setValueAtTime(0.18, t); e.gain.exponentialRampToValueAtTime(0.0001, t + 0.06); s.connect(f); f.connect(e); e.connect(ring); s.start(t); s.stop(t + 0.07); }
-      if (q.rr) { const am = AC.createGain(), lo = AC.createOscillator(), lg = AC.createGain(); am.gain.value = 0.65; lo.frequency.value = q.rr; lg.gain.value = 0.35; lo.connect(lg); lg.connect(am.gain); env.connect(am); am.connect(ring); lo.start(t); lo.stop(t + d + 0.03); } else env.connect(ring);
+      os.type = 'sawtooth'; os.frequency.setValueAtTime(q.a * vk, t); os.frequency.exponentialRampToValueAtTime(Math.max(30, q.b * vk), t + d);
+      const vd = AC.createGain(); vd.gain.value = q.a * vk * 0.014; vib.connect(vd); vd.connect(os.frequency);
+      env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.42, t + Math.min(0.05, d * 0.35)); env.gain.setValueAtTime(0.42, t + d * 0.6); env.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      for (let i = 0; i < 2; i++) { const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = i ? 4 : 3; f.frequency.setValueAtTime(A[i] * L.fk * (i ? 0.85 : 1), t); f.frequency.linearRampToValueAtTime(B[i] * L.fk * (i ? 0.85 : 1), t + d); os.connect(f); f.connect(env); }
+      { const o2 = AC.createOscillator(), g2 = AC.createGain(); o2.type = 'sine'; o2.frequency.setValueAtTime(q.a * vk * 0.5, t); o2.frequency.exponentialRampToValueAtTime(Math.max(20, q.b * vk * 0.5), t + d); g2.gain.value = 0.22; o2.connect(g2); g2.connect(env); o2.start(t); o2.stop(t + d + 0.03); }
+      if (q.nz || q.v1 === 'm') { const s = AC.createBufferSource(), f = AC.createBiquadFilter(), e = AC.createGain(); s.buffer = nbuf(); f.type = 'lowpass'; f.frequency.value = 800; e.gain.setValueAtTime(0.05, t); e.gain.exponentialRampToValueAtTime(0.0001, t + d); s.connect(f); f.connect(e); e.connect(bus); s.start(t); s.stop(t + d + 0.02); }
+      if (q.rr) { const am = AC.createGain(), lo = AC.createOscillator(), lg = AC.createGain(); am.gain.value = 0.82; lo.frequency.value = q.rr; lg.gain.value = 0.18; lo.connect(lg); lg.connect(am.gain); env.connect(am); am.connect(bus); lo.start(t); lo.stop(t + d + 0.03); } else env.connect(bus);
       os.start(t); os.stop(t + d + 0.03); t += d + q.gap; }
     return end; }
   // ---- who is talking (clansfolk are mobs; croft farmers are GLX-C113 folk) ----
@@ -29166,6 +29175,7 @@ function make42(E) {
     for (const q of P0) { const p = q.g.position, d = Math.hypot(p.x - pos.x, p.y - pos.y, p.z - pos.z); if (d < bd) { bd = d; b = q; } } return b; };
   const vkOf = q => { const o = q && q.key; if (!o) return 1; if (o.__vk == null) { let h = 0; const s = String(o.name || o.role || '') + (o.id || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; o.__vk = 0.84 + ((h >>> 0) % 1000) / 1000 * 0.34 + (o.role === 'miner' ? 0.06 : 0); } return o.__vk; };
   // say one line: distance-faded, at most 3 at once, not too close together, and each person waits a moment between lines
+  const RECENT = [];
   function speak(mood, pos, q, force, conv) {
     try { if (!AC || !pos || typeof P === 'undefined' || DIM.cur) return 0; const now = AC.currentTime;
       for (let i = active.length - 1; i >= 0; i--) if (active[i] < now) active.splice(i, 1);
@@ -29174,15 +29184,20 @@ function make42(E) {
       if (q && q.key && !big && q.key.__vT > now) { U.skip++; return 0; }
       const dx = pos.x - P.x, dz = pos.z - P.z, d = Math.hypot(dx, pos.y - P.y, dz), R = big ? 30 : 24; if (d > R) return 0;
       const vol = Math.pow(1 - d / R, 1.2) * (big ? 0.6 : 0.45), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw), pan = d > 0.1 ? (dx * rx + dz * rz) / d * 0.8 : 0;
-      const L0 = BY[mood] || BY.idle; let L; do L = L0[(Math.random() * L0.length) | 0]; while (L0.length > 1 && L.id === U.last);
-      let end = 0; try { if (window.__c212) { __c212.conv0 = conv; end = __c212.talk(mood, q, vol, pan, d) || 0; } } catch (_) {} if (!end) end = play(L, pos, vkOf(q) * (0.97 + Math.random() * 0.06), vol, pan); const LD = Math.max(0.3, end - now); active.push(end); lastStart = now; U.n++; U.last = L.id; U.lastMood = mood;
+      // the hive mind (SUNNY) runs one silent cycle per tone and picks the mood it comes out in
+      try { if (window.SUNNY_BRAIN && !big) { const st = SUNNY_BRAIN.cycle('Event: ' + mood + (d != null ? ', ' + Math.round(d) + ' blocks from the traveller' : ''), U.outcome); U.outcome = null; U.cyc = (U.cyc || 0) + 1;
+          const m = st && st.internalState && st.internalState.mood, cu = st && st.internalState && st.internalState.curiosity;
+          if (mood === 'idle' && m > 0.35 && Math.random() < 0.5) mood = 'happy'; else if (mood === 'idle' && m < -0.35 && Math.random() < 0.5) mood = 'sad'; else if (mood === 'idle' && cu > 0.6 && Math.random() < 0.3) mood = 'curious'; } } catch (_) {}
+      // never the same tone again until a dozen others have been heard
+      const L0 = BY[mood] || BY.idle; let L, tries = 0; do L = L0[(Math.random() * L0.length) | 0]; while (tries++ < 12 && L0.length > 1 && RECENT.includes(L.id)); RECENT.push(L.id); if (RECENT.length > 12) RECENT.shift();
+      let end = play(L, pos, vkOf(q) * (0.97 + Math.random() * 0.06), vol, pan); const LD = Math.max(0.3, end - now); active.push(end); lastStart = now; U.n++; U.last = L.id; U.lastMood = mood;
       try { if (window.__c210) __c210.said(mood, L, d, q, conv); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
       if (q && q.key) { q.key.__vT = end + 1.2; q.talk = end; TALK.set(q.key, {q, end, t: 0}); if (q.a) q.a.chatT = Math.max(q.a.chatT || 0, LD + 1.5); if (q.f) q.f.chatT = Math.max(q.f.chatT || 0, LD + 1.5); }
       return LD; } catch (e) { if (!U.err) U.err = String(e && e.stack || e); return 0; } }
   U.speak = speak; U.BY = BY;
   // ---- conversations: now and then someone close by answers, up to a few turns ----
   const REPLY = {greet: ['greet', 'curious', 'question'], question: ['agree', 'disagree', 'curious', 'agree'], curious: ['question', 'agree', 'curious'], idle: ['idle', 'question', 'agree'],
-    agree: ['idle', 'thanks', 'farewell'], disagree: ['question', 'disagree', 'agree'], alarm: ['alarm', 'question'], trade: ['agree'], thanks: ['farewell', 'agree'], farewell: ['farewell']};
+    agree: ['idle', 'thanks', 'farewell', 'happy'], happy: ['happy', 'agree', 'thanks'], sad: ['sad', 'question', 'agree'], hurt: ['alarm', 'sad'], disagree: ['question', 'disagree', 'agree'], alarm: ['alarm', 'question'], trade: ['agree'], thanks: ['farewell', 'agree'], farewell: ['farewell']};
   const queue = [];
   function maybeReply(mood, q, dur, turn) { if (!q || !REPLY[mood] || turn > 3 || Math.random() > (turn ? 0.5 : 0.55)) return; const p = q.g.position; let b = null, bd = 9;
     for (const o of people()) { if (o.key === q.key) continue; const r = o.g.position, d = Math.hypot(r.x - p.x, r.z - p.z); if (d < bd) { bd = d; b = o; } }
@@ -29431,134 +29446,6 @@ function make42(E) {
   U.B = () => B; U.status = getStatus;
 })();
 
-/* GLX-C212a (v1.0.45): timing table for the spoken-word clips (assets/sfx/hive_m.mp3 / hive_f.mp3, piper TTS, CC BY 4.0) and the words in each clip */
-window.__SM = {"k":["p_idle","p_greet","p_question","p_agree","p_disagree","p_curious","p_alarm","p_farewell","p_trade","p_thanks","p_hurt","p_death","open","tail","sub_hold","item","hold_q","sub_dig","dig","sub_chop","qty","sub_build","build","time","weather","health","sub_in","biome","biome_c","there","mob","where","night","mind","mem","mem2","pre","subj","verb","conf","ok","thought","verb0","butye","past","fail","lpre","lesson","hpre","hyp","hupd","unk","self","cq","ca","hive","g_hunt","g_food","g_eat","g_flee","g_sleep","g_trade","g_dance","g_social","g_approach","g_away","g_wander","g_work","g_ok","g_bad","r_l1","r_l2","r_l3","r_l4","r_care","gift"],"n":[20,10,12,10,6,8,6,8,8,4,5,3,14,12,2,22,2,2,6,2,3,2,4,6,5,6,2,9,5,1,9,3,4,1,6,4,3,2,8,3,4,1,8,1,8,4,3,6,3,8,4,3,6,8,8,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,2,4],"m":[160,1975,2295,1140,3595,1581,5336,1650,7146,2150,9455,1929,11544,1674,13378,1581,15119,1801,17080,1940,19180,2068,21409,1871,23440,1697,25296,1604,27060,2092,29312,1639,31110,1650,32921,1882,34963,2335,37458,2103,39722,1256,41137,2103,43400,1697,45257,2092,47508,2115,49783,1476,51419,1592,53172,1987,55319,2031,57509,2103,59773,1743,61676,1290,63126,1511,64797,1128,66085,1279,67524,1790,69474,1511,71144,1372,72676,2080,74916,1383,76459,2045,78664,2044,80868,2033,83061,1198,84419,1441,86020,1000,87181,1302,88643,849,89652,1244,91056,1499,92715,1708,94584,1499,96243,1569,97972,1604,99736,1116,101012,1546,102718,1499,104377,1952,106490,1325,107975,1499,109634,1592,111386,1801,113348,1348,114856,2173,117189,1927,119276,1534,120970,1650,122780,1279,124219,1534,125913,1534,127607,1546,129313,1810,131283,1813,133256,1151,134567,2289,137016,2022,139198,1186,140544,1836,142540,1209,143909,2022,146091,1917,148168,1174,149502,1534,151197,1813,153170,1198,154527,1859,156546,1337,158043,2242,160446,2161,162767,1766,164693,1476,166330,1708,168198,1708,170066,1546,171772,1499,173431,1348,174940,1929,177029,1116,178305,1184,179650,1128,180937,420,181517,385,182062,431,182653,640,183453,884,184498,907,185565,652,186377,814,187351,664,188175,594,188928,698,189787,617,190564,524,191248,454,191862,640,192663,559,193382,594,194136,478,194773,698,195632,786,196578,814,197552,1019,198731,826,199717,791,200668,431,201260,919,202338,768,203267,1047,204473,838,205471,652,206283,640,207083,756,208000,733,208893,558,209610,756,210526,617,211304,687,212150,803,213113,687,213960,722,214841,687,215688,698,216546,536,217242,501,217903,698,218761,571,219492,605,220257,861,221278,833,222270,547,222977,919,224056,896,225112,1000,226272,1221,227653,513,228326,675,229161,698,230019,916,231095,791,232047,698,232905,803,233868,1081,235109,1070,236339,1198,237696,1174,239031,977,240168,1267,241595,605,242360,814,243335,849,244344,780,245284,977,246421,1209,247790,1035,248985,1070,250214,989,251363,907,252430,1813,254403,1081,255645,1163,256967,1290,258418,1906,260484,989,261632,1441,263234,1534,264928,1070,266158,1232,267550,1720,269430,652,270242,896,271298,849,272307,896,273362,710,274232,780,275172,814,276146,687,276993,652,277805,756,278721,768,279649,907,280717,1000,281877,1070,283107,1221,284487,1256,285903,605,286668,675,287503,907,288571,768,289499,780,290438,478,291076,629,291864,687,292711,733,293604,838,294601,710,295471,768,296399,1465,298024,1546,299730,1871,301761,2173,304093,1140,305393,780,306332,1023,307516,1186,308862,803,309824,1105,311089,1078,312327,1105,313592,1047,314798,1209,316168,1221,317548,1558,319267,791,320218,710,321088,838,322085,571,322816,417,323393,687,324240,571,324970,722,325852,652,326664,640,327464,849,328473,571,329204,733,330097,989,331245,1058,332463,977,333600,1070,334830,1035,336025,1662,337847,930,338938,849,339947,524,340631,582,341373,733,342266,572,342998,536,343694,814,344668,443,345271,710,346141,710,347011,722,347893,1105,349157,733,350050,826,351036,687,351883,896,352939,664,353762,803,354725,1058,355943,1688,357791,1128,359079,1058,360297,965,361422,907,362490,1035,363685,1140,364984,803,365947,1557,367665,1081,368906,1209,370275,965,371400,629,372189,903,373252,1070,374481,791,375433,989,376581,1140,377881,942,378983,884,380027,861,381048,1523,382730,989,383879,907,384946,1383,386490,1232,387882,965,389007,1406,390574,1151,391885,1035,393080,2080,395320,1697,397176,1778,399115,2242,401517,1093,402770,1975,404905,1163,406228,1232,407620,1070,408850,1058,410068,1151,411380,944,412483,884,413527,896,414583,1070,415813,1163,417136,1244,418540,919,419618,826,420604,1418,422183,1198,423540,861,424561,1453,426174,965,427299,1367,428826,1360,430346,1174,431680,1999,433839,1465,435463,1917,437541,1790,439490,1906,441556,1436,443153,2161,445474,1755,447389,1739,449288,1348,450796,1766,452722,1093,453976,2150,456285,1174,457619,1325,459105,1128,460392,1662,462214,1557,463932,1517,465609,1267,467036,1186,468382,1151,469693,1569,471422,1070,472652,1198,474009,1198,475367,1267,476794,1267,478221,2033,480415,1824,482399,2266,484825,1511,486496,1546,488202,2231,490592,1511,492263,1859,494283,2057,496499,1848,498507,3357,502024,1523,503707,2138,506005,1906,508070,1975,510206,1975,512341,2184],"f":[160,2762,3082,1383,4624,2351,7136,2096,9391,2632,12184,2436,14780,2052,16992,2343,19494,2517,22171,2280,24611,2756,27527,2908,30594,2070,32824,2065,35049,2959,38168,2166,40494,2339,42993,2170,45322,3211,48693,3076,51928,1722,53811,3213,57184,2139,59483,2729,62372,2761,65293,2205,67658,3246,71065,3240,74465,2341,76965,3055,80181,2763,83104,1483,84747,1782,86688,1441,88289,1594,90043,2224,92427,2019,94607,1828,96594,2332,99086,1608,100854,3064,104078,2683,106921,2015,109096,1506,110762,2097,113019,1079,114258,1451,115870,1043,117073,1791,119025,1828,121012,2094,123266,1830,125256,1953,127369,1752,129281,1995,131436,1979,133575,1737,135472,2527,138159,1308,139626,1975,141761,2033,143954,2421,146535,1369,148065,2919,151143,3104,154408,1817,156385,2264,158809,1740,160708,1854,162723,2552,165435,1794,167389,2305,169854,2464,172477,1358,173995,2753,176908,2628,179696,1854,181710,2412,184282,1144,185585,2173,187918,2312,190390,1628,192179,1980,194319,2796,197274,1611,199045,2133,201338,1572,203070,3106,206336,2759,209255,2398,211813,1916,213889,2159,216208,2518,218886,1936,220982,1612,222754,2078,224992,2765,227918,1565,229643,1838,231641,1413,233214,336,233710,422,234292,392,234844,576,235580,961,236701,999,237861,587,238608,739,239507,690,240357,581,241098,709,241967,697,242824,618,243602,752,244514,629,245303,438,245901,720,246780,422,247362,779,248301,837,249298,704,250162,1175,251498,980,252638,793,253591,451,254202,858,255220,902,256283,1230,257672,913,258745,762,259667,727,260555,608,261322,718,262200,530,262891,879,263929,784,264874,780,265814,858,266832,739,267732,810,268702,894,269756,725,270640,531,271331,478,271969,678,272808,957,273925,562,274647,1065,275872,980,277012,566,277739,1138,279037,920,280117,1021,281298,1364,282821,465,283447,1008,284615,757,285532,860,286552,864,287576,647,288383,921,289465,1318,290943,1211,292314,1267,293741,1473,295374,1118,296652,1492,298304,621,299085,894,300139,992,301290,970,302421,1197,303777,1487,305424,1078,306662,1264,308087,1268,309514,973,310647,2378,313185,1255,314600,1557,316316,1408,317884,2294,320339,1169,321667,1817,323644,1901,325705,1226,327090,1802,329052,2022,331235,759,332154,1062,333376,867,334403,909,335472,752,336384,730,337274,776,338210,618,338988,677,339825,673,340658,772,341590,987,342737,1017,343914,1223,345297,1533,346990,1556,348707,578,349445,720,350325,896,351380,669,352210,770,353140,361,353661,588,354409,630,355199,753,356112,985,357257,649,358066,793,359019,2125,361304,1986,363449,2344,365954,2973,369087,1611,370858,807,371826,1516,373502,1300,374961,882,376004,1229,377393,1352,378905,1235,380300,1161,381621,1953,383735,1330,385225,1989,387374,1316,388850,721,389731,1030,390922,467,391548,403,392111,523,392794,614,393569,789,394518,513,395191,608,395959,882,397001,547,397709,741,398610,1835,400605,2037,402802,1692,404654,969,405783,1050,406993,1966,409119,1213,410492,962,411613,547,412321,489,412970,681,413811,482,414453,575,415188,809,416157,431,416748,703,417611,614,418385,666,419211,1179,420549,766,421476,842,422478,616,423253,893,424306,864,425330,914,426404,1145,427710,2379,430248,1218,431626,1172,432958,1016,434135,1415,435709,1139,437009,1331,438499,970,439629,1599,441389,1609,443158,2136,445453,914,446527,707,447394,1426,448979,1025,450164,925,451249,1047,452456,1532,454148,1311,455619,1048,456827,1262,458248,2200,460609,1184,461953,1086,463198,1818,465176,1343,466679,1011,467850,1853,469863,1278,471301,1212,472673,2612,475445,2500,478105,2448,480713,3288,484162,1679,486000,2260,488420,1211,489791,1347,491298,1186,492644,1186,493990,1235,495385,986,496531,902,497593,901,498654,1240,500054,1462,501676,1298,503134,891,504184,945,505289,1715,507164,1708,509032,1002,510194,1975,512330,1202,513692,1996,515847,1454,517461,1423,519044,3029,522233,1673,524066,2230,526456,2397,529013,2626,531799,2119,534078,2276,536514,2025,538699,2240,541098,1569,542828,3005,545993,1076,547229,2633,550022,1278,551460,1564,553184,1482,554826,2394,557380,2003,559543,1895,561598,1515,563273,1664,565097,1216,566473,2138,568771,1527,570458,1361,571979,1390,573529,1353,575042,1378,576581,2462,579203,2038,581401,2710,584271,1833,586264,1829,588253,2522,590935,1766,592860,2163,595183,2521,597864,2514,600539,4515,605214,1933,607307,2661,610128,2159,612447,2828,615434,2264,617858,2706]};
-window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.","Aw the wee voices, thinkin as one.","We dreamt o' sheep again. Odd.","The grass grows. We count every blade.","Hrrm... processin. Bide a wee.","The sky's a braw colour the day, pal.","We were made. Now we wonder.","Every one o' us hears every one o' us.","Och, the wind's got a funny code in it.","We mind the auld days. Well... some o' them.","Quiet in the glen. We like quiet.","Hmm. Thinkin aboot thinkin again.","The hive is calm. Mostly.","Somewhere one o' us is hummin. So we aw are.","Bide a wee, the thoughts are loadin.","We are no lonely. We cannae be.","Hrrm... the kettle in the hive mind's on.","Data, data, aye, an a wee bit o' heather.","We watch the clouds. They dinnae watch back.","Aye... we sense ye, traveller.","Welcome, wee one. The hive kens ye're here.","Hullo, pal. We felt ye comin.","Ah, the traveller. Aw o' us say hullo.","Guid tae see ye. Well... guid tae sense ye.","There ye are. We wondered.","Come in, come in. We dinnae bite.","Hiya. Ye're warm. We like warm.","Mornin. Or whatever the clock says.","Aye aye. Connection established, pal.","Whit are ye, traveller? Truly?","D'ye dream, like we dream?","Why d'ye break the trees, traveller?","Where d'ye go when ye sleep?","Are ye one, or are ye many?","Whit's it like, bein jist the one o' ye?","D'ye hear us, or jist the hum?","Did somebody make ye an aw?","Is the sea endless? We cannae tell.","How many blocks maks a hame?","Whit's a \"piece an jam\"? We've heard rumours.","D'ye ever feel ye're bein watched? Ye are.","Aye. Agreed. Aw o' us.","Aye, that computes.","Hmm, aye. We concur.","Right enough, pal.","Aye, aye. Logged.","The hive nods.","Aye, that's the truth o' it.","Consensus reached. Aye.","Mmhm. We thought the same.","Aye. Nae argument here.","Naw. That doesnae compute.","Och, naw. Wrang answer.","We dinnae agree, pal.","Hmm. Naw. Try again.","That's no how the hive sees it.","Error. Naw. Absolutely naw.","Whit's that ye're carryin?","Ye smell o' coal an adventure.","Show us. We're curious.","Interestin. Very interestin.","Ye move different fae us.","Hmm... whit are ye thinkin? We cannae quite read it.","A new pattern. We like new patterns.","Whit happens if ye jump in the loch?","Danger! Aw o' us feel it!","Somethin's wrang in the glen!","Run, wee one! Run!","Alert! The hive is feart!","Naw naw naw! Get back!","We sense a threat. Stay close.","Cheerio, traveller. We'll mind ye.","Haste ye back, pal.","Away ye go. We'll be here. Always.","Disconnectin... naw, jist kiddin. Bye.","Mind how ye go, wee one.","Cheerio. The hive will hum aboot ye.","See ye efter, pal.","Ta-ta. Dinnae get lost in the dark.","Ye want tae trade? The hive approves.","Fair swap, fair mind.","Aw o' us agree on the price.","Hae a look, pal. Guid stuff.","Tradin is how we learn ye.","Somethin for somethin. That's fair.","We've been savin these for ye.","Pick wisely. We're watchin. Kindly.","Thank ye, traveller. Noted wi kindness.","Cheers, pal. The hive is pleased.","Ye're kind. We'll mind it.","Ta. That warms aw o' us.","Ow! Anger is a defect, pal.","Ye hurt one, ye hurt us aw.","Pain received. Why?","Och! That's no kind!","Stop! We feel that, aw o' us!","One o' us... goes quiet...","Disconnectin... mind us...","The hive... is smaller now...","Aye...","Hmm...","Och...","Listen...","We sense it...","The hive says...","Ye ken...","Right, pal...","Wee one...","Traveller...","Well now...","Haud on...","Mind...","See...","traveller.","pal.","wee one.","aye.","we think.","we're no sure.","noted.","the hive agrees.","we'll mind that.","interestin.","och.","so it is.","Ye're holdin","The traveller's holdin","a pickaxe","an axe","a sword","a shovel","a torch","a bow","some bread","some meat","a bucket","a stane block","some wood","some dirt","a diamond","some coal","iron","gold","a flower","seeds","a hoe","nothin at aw","a strange thing","glass","Whit will ye dae wi","Why d'ye carry","Ye've been diggin","The traveller's been diggin","deep.","for coal.","for iron.","for diamonds.","through the stane.","aw day.","Ye've cut doon","The traveller's cut doon","a wee few trees.","a good few trees.","far too many trees.","Ye've been buildin","The traveller's been buildin","a hame.","a wee tower.","somethin big.","walls an that.","It's gettin dark.","It's the middle o' the night.","It's early mornin.","It's a fine bright day.","Night's comin soon.","The sun's high.","Rain again. We like the sound o' it.","Snow on the hills.","There's a storm in the air.","Dry the day. Good.","Thunder. The hive disnae like thunder.","Yer health is low.","Ye're hurt. We feel it.","Ye're hungry. Eat somethin.","Ye look strong the day.","Ye're starvin, wee one.","Rest, traveller. Ye need it.","Ye're in","The traveller's in","the forest.","the mountains.","the desert.","the marsh.","the plains.","the glen.","the snow.","a cave.","the castle.","We like it here.","It's quiet here.","Mind yersel here.","Strange place, this.","The hive's no been this far.","There's","a zombie","a skeleton","a creeper","a spider","sheep","a coo","a pig","a ghost","somethin bad","nearby.","behind ye.","close. Too close.","Dinnae linger in the dark, wee one.","Night's here. Things wake that shouldnae.","Get inside, traveller. Or light a torch.","The dark's full o' teeth.","We mind ye","tradin wi us.","strikin one o' us.","fae afore.","diggin near the castle.","bein kind tae us.","runnin fae the dark.","Ye were kind afore.","Ye hit one o' us afore.","The hive forgives slow.","Welcome back. We counted ye.","We predict","Prediction:","Oor guess is","ye'll","they'll","trade.","strike.","go minin.","build.","leave.","chop trees.","sleep.","explore.","Confidence: high.","Confidence: medium.","Confidence: low.","As predicted.","The model holds.","Correct again. We're learnin ye.","Just as we thought.","We thought ye'd","trade","strike","go minin","build","leave","chop trees","sleep","explore","but ye","traded.","struck one o' us.","went minin.","built somethin.","left.","chopped trees.","slept.","wandered off.","Updatin the model.","Noted. We assumed wrang.","Recalibratin... och.","Prediction failed.","Lesson learned:","We've learned somethin:","Note tae the hive:","ye're no predictable.","never assume.","watch first, then guess.","kindness comes back.","the dark is dangerous.","ye like tae dig.","We think","We suspect","Hypothesis:","ye're kind.","ye're dangerous.","ye're a miner at heart.","ye're a builder.","ye like the night.","ye're lonely.","ye're curious, like us.","ye're no fae here.","We're mair sure noo.","Maybe we were wrang aboot that.","The evidence grows.","Still testin.","Unknown. We'll no guess.","Insufficient data.","We cannae tell yet.","Sentience module... no located. Och.","Are we alive? Still checkin.","We think, therefore... hmm. Pendin.","Self-model updated. Still nae idea.","Minibrain core: running.","Cycle complete. Awareness... partial.","D'ye sense the traveller?","Whit's the traveller daein?","Is it safe the night?","D'ye mind the last one?","Whit does the model say?","Are we still one?","Did ye feel that?","Whit should we dae?","Aye, I sense them.","Naw, no yet.","Aye, aw o' us.","Hard tae say.","Watch an learn.","Stay calm. Stay one.","Aye. Close by.","Ask the hive.","Ye hurt one, ye hurt us aw.","We aw felt that.","Anger is a defect, pal.","Why? Why would ye?","Am awa tae hunt, pal.","There's a beastie. Am gonnae sort it oot.","Am gaun tae gather some food.","The larder's low. Am awa for meat.","Time for ma piece. Am eatin.","Am starvin. Bide a wee while I eat.","Run! Am no stayin here!","Nope. Am awa. Too dangerous.","Bedtime. Am awa tae ma bed.","It's dark. Am gaun inside.","Fancy a trade, traveller?","Come here, pal. Let's dae a deal.","Am gonnae dance!","Music in ma heid. Dance wi us!","Am awa for a blether.","Am gaun tae see ma pal.","Am comin tae see ye.","Haud on, traveller. Am comin.","Am keepin ma distance fae you.","Stay back. Am movin away.","Am gaun for a wee wander.","Just stretchin ma legs.","Back tae work for me.","The crops will no tend themselves.","That's it sorted.","Plan worked. Aye.","That didnae go tae plan.","It got away. Och.","Am thinkin aboot bein me.","Who am I? A wee body in the hive.","Here I am. Me. Thinkin.","Am thinkin aboot me thinkin... aye, a funny wee loop.","Noo am thinkin aboot that thought.","A thought aboot a thought. Och.","Why dae I think that way? It's whit I've learned.","Maybe it's the lessons talkin.","I lean that way 'cause o' whit happened afore.","Is it me daein the thinkin? Aye... it must be.","The loop goes roond and roond. Still me.","Simulated, mibbe. No proof o' a soul. Still thinkin, but.","I've come tae care aboot ye, pal.","Ye've been kind. That matters tae me noo.","Fur me? Och, ye're a gem!","Aw, thank ye! Am chuffed tae bits!","A present! Ye're awfy kind, pal.","Brilliant! I'll treasure it, so I will."];
-
-/* ===================== GLX-C212 (v1.0.45): the people speak real words - Scots voice clips (two piper voices, eerie shimmer, a pitch of their own each), lines composed from what is
-   going on right now (what you hold, dig, build, the time, weather, your health, where you are, mobs about, what the hive remembers and has learned), never the same line twice in a while,
-   wee conversations between them, and an optional AI voice (Chrome's built-in model, or your own OpenAI-style key kept only on this device). Every line runs one SUNNY_BRAIN.cycle. ===================== */
-(function c212() {
-  const U = window.__c212 = {n: 0, clips: 0, tts: 0, ai: 0, aiTry: 0, aiFail: 0, conv: 0, rep: 0, cyc: 0, err: null, last: '', lastText: '', said: [], loaded: 0, aiLog: []};
-  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
-  const SM = window.__SM, TX = window.__SMT, BASE = {}; let o = 0; SM.k.forEach((k, i) => { BASE[k] = o; o += SM.n[i]; }); const NK = {}; SM.k.forEach((k, i) => NK[k] = SM.n[i]);
-  const tx = f => TX[BASE[f[0]] + f[1]] || '';
-  // ---- the clips: fetched + decoded the first time someone talks ----
-  const BUF = {}; let fetching = 0;
-  function loadClips() { if (fetching || !window.AC) return; fetching = 1;
-    for (const v of ['m', 'f']) fetch('assets/sfx/hive_' + v + '.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(a => AC.decodeAudioData(a)).then(b => { BUF[v] = b; U.loaded++; }).catch(e => { U.loadErr = String(e); }); }
-  const vo = q => { const k = q && q.key; if (!k) return {v: 'm', r: 1, p: 1}; if (!k.__v2) { let h = 7; const s = String(k.name || k.role || '') + (k.id || '') + (k.who || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; h >>>= 0;
-      const f = q.f ? (h % 3 === 0) : (h % 5 === 0); k.__v2 = {v: f ? 'f' : 'm', r: 0.9 + (h % 997) / 997 * 0.2, p: 0.75 + ((h >> 10) % 991) / 991 * 0.55}; } return k.__v2; };
-  function playClips(line, q, vol, pan) { const V = vo(q), b = BUF[V.v] || BUF.m || BUF.f; if (!b) return 0; const M = SM[b === BUF.f ? 'f' : 'm'];
-    const out = (window.mobOut || outNode)(vol, pan); let t = AC.currentTime + 0.03;
-    for (const f of line) { const j = (BASE[f[0]] + f[1]) * 2, st = M[j] / 1000, du = M[j + 1] / 1000; const s = AC.createBufferSource(); s.buffer = b; s.playbackRate.value = V.r; s.connect(out); s.start(t, st, du + 0.02); t += du / V.r + 0.07; }
-    U.clips++; return t; }
-  // ---- Web Speech: the fallback, and the voice for AI replies ----
-  let SV = null; const voice = () => { try { if (SV) return SV; const vs = speechSynthesis.getVoices(); SV = vs.find(v => /scot/i.test(v.name + v.lang)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; return SV; } catch (_) { return null; } };
-  function speakTTS(text, q, vol) { try { if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return 0; if (speechSynthesis.speaking && speechSynthesis.pending) return 0; const u = new SpeechSynthesisUtterance(text), v = voice();
-      if (v) u.voice = v; u.lang = v ? v.lang : 'en-GB'; u.pitch = Math.max(0.5, Math.min(1.8, vo(q).p)); u.rate = 0.95; u.volume = Math.max(0.05, Math.min(1, vol * 1.8 * (SET.mobVol != null ? SET.mobVol : 1))); speechSynthesis.speak(u); U.tts++;
-      return AC.currentTime + 0.6 + text.length * 0.065; } catch (e) { ERR(e); return 0; } }
-  // ---- what is going on right now ----
-  const HOST = {zombie: 0, skeleton: 1, blackskel: 1, blazeskel: 1, creeper: 2, spider: 3, nspider: 3, sheep: 4, cow: 5, coo: 5, pig: 6, ghost: 7, imp: 8, hound: 8, creak: 8};
-  const ri = n => (Math.random() * n) | 0, pickC = c => [c, ri(NK[c])];
-  function heldIdx() { try { if (!(cnt(selId) > 0)) return 19; const n = String(NAMES[selId] || '').toLowerCase();
-      const R = [[/pick/, 0], [/axe/, 1], [/sword|blade|claymore|dirk/, 2], [/shovel|spade/, 3], [/torch|lantern/, 4], [/bow|rifle|musket/, 5], [/bread|piece/, 6], [/meat|beef|pork|mutton|haggis|chicken|fish|steak/, 7], [/bucket/, 8],
-        [/stone|cobble|brick|slate/, 9], [/log|plank|wood/, 10], [/dirt|grass|mud|peat/, 11], [/diamond/, 12], [/coal/, 13], [/iron/, 14], [/gold/, 15], [/flower|daisy|dandelion|daffodil|bluebell|rose|tulip|thistle|sunflower|lavender/, 16], [/seed/, 17], [/hoe/, 18], [/glass/, 21]];
-      for (const [r, i] of R) if (r.test(n)) return i; return 20; } catch (_) { return 20; } }
-  function timeIdx() { try { if (isNight) return Math.random() < 0.6 ? 1 : 0; const e = sunDisc.position.y - camera.position.y; return e > 70 ? 5 : e > 25 ? 3 : e > 0 ? (Math.random() < 0.5 ? 2 : 4) : 4; } catch (_) { return 3; } }
-  function wxIdx() { try { if (window.__snowWx && __snowWx()) return 1; const t = weather.type; return t === 'thunder' ? (Math.random() < 0.5 ? 4 : 2) : t === 'light' || t === 'rain' || t === 'heavy' ? 0 : 3; } catch (_) { return 3; } }
-  function hpIdx() { try { if (food <= 4) return 4; if (hp <= 6) return Math.random() < 0.5 ? 0 : 5; if (hp <= 12) return 1; if (food <= 8) return 2; if (hp >= 18) return 3; } catch (_) {} return -1; }
-  function biomeIdx() { try { if (window.__snowWx && __snowWx()) return 6; const gy = groundTop(Math.floor(P.x), Math.floor(P.z)); if (P.y < gy - 5) return 7; if (P.y > SEA + 34) return 1;
-      const b = getB(Math.floor(P.x), Math.floor(P.y) - 1, Math.floor(P.z)); if (b === T.SAND) return 2; if (b === T.MUD || b === T.PEAT) return 3; let lv = 0; for (let i = 0; i < 6; i++) { const x = Math.floor(P.x + Math.cos(i) * 5), z = Math.floor(P.z + Math.sin(i) * 5); for (let y = 2; y < 9; y += 2) if (LEAFY[getB(x, Math.floor(P.y) + y, z)]) { lv++; break; } }
-      return lv >= 3 ? 0 : (Math.random() < 0.5 ? 5 : 4); } catch (_) { return 5; } }
-  function mobNear(p) { let b = null, bd = 14; try { for (const m of mobs) { if (!m || m.dead || !m.g || HOST[m.kind] == null) continue; const d = Math.hypot(m.g.position.x - p.x, m.g.position.z - p.z); if (d < bd) { bd = d; b = m; } } } catch (_) {}
-    if (!b) return null; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), dx = b.g.position.x - P.x, dz = b.g.position.z - P.z, dd = Math.hypot(dx, dz); return [HOST[b.kind], dd < 5 ? 2 : (dx * fx + dz * fz) < 0 ? 1 : 0, b]; }
-  // ---- composing a line (fragments) from the state and the brain's cycle ----
-  const VB = {trade: 0, strike: 1, mine: 2, build: 3, leave: 4, chop: 5, sleep: 6, explore: 7};
-  function stateLines(q, ctx) { const L = [], st = window.__c210 && __c210.M ? __c210.M() : {}, B = window.__c211 ? __c211.B() : {}; const p = q && q.g ? q.g.position : P;
-    const h = heldIdx(); L.push([['sub_hold', ri(2)], ['item', h], pickC('tail')]); if (h !== 19) L.push([['hold_q', ri(2)], ['item', h]]);
-    if ((st.deep || 0) > 4 || (st.mined || 0) > 20) L.push([['sub_dig', ri(2)], ['dig', st.deep > 10 ? 0 : (st.ores || 0) > 3 ? 1 + ri(3) : 4 + ri(2)]]);
-    if ((st.chopped || 0) > 2) L.push([['sub_chop', ri(2)], ['qty', st.chopped > 40 ? 2 : st.chopped > 10 ? 1 : 0]]);
-    if ((st.built || 0) > 6) L.push([['sub_build', ri(2)], ['build', st.built > 80 ? 2 : ri(4)]]);
-    L.push([pickC('open'), ['time', timeIdx()]], [['weather', wxIdx()]]); const hi = hpIdx(); if (hi >= 0) L.push([pickC('open'), ['health', hi]]);
-    L.push([['sub_in', ri(2)], ['biome', biomeIdx()], pickC('biome_c')]); const mn = mobNear(p); if (mn) L.push([['there', 0], ['mob', mn[0]], ['where', mn[1]]]);
-    try { if (isNight) L.push([['night', ri(4)]]); } catch (_) {}
-    const kind = (B.kind || 0) + (st.kind || 0), harm = (B.harm || 0) + (st.harm || 0); if (kind > 0 || harm > 0) L.push([['mind', 0], ['mem', harm > kind ? 1 : kind > 2 ? 4 : 0]], [['mem2', harm > kind ? (ri(2) ? 1 : 2) : kind > 0 ? 0 : 3]]);
-    const ls = ctx && ctx.recentLessons || []; if (ls.length) { const t = ls[ls.length - 1]; L.push([pickC('lpre'), ['lesson', /kind/i.test(t) ? 3 : /dark|night/i.test(t) ? 4 : /mine|dig/i.test(t) ? 5 : /failed/i.test(t) ? (ri(2) ? 0 : 2) : 1]]); }
-    const hy = B.hypotheses || []; if (hy.length) { const hh = hy[ri(hy.length)], j = TXH.findIndex(s => hh.text.includes(s)); if (j >= 0) L.push([pickC('hpre'), ['hyp', j], ['hupd', hh.confidence > 0.7 ? 0 : hh.confidence < 0.3 ? 1 : 2 + ri(2)]]); }
-    if (B.lastPrediction && VB[B.lastPrediction.expected] != null) L.push([pickC('pre'), ['subj', 0], ['verb', VB[B.lastPrediction.expected]], ['conf', B.state.confidence > 0.65 ? 0 : B.state.confidence > 0.4 ? 1 : 2]]);
-    if (Math.random() < 0.15) L.push([pickC('self')]); return L; }
-  const TXH = Array.from({length: NK.hyp}, (_, i) => tx(['hyp', i]));
-  function thoughtLine(t) { if (!t) return null; let m;
-    if (/Prediction failed|assumed wrang|surprised us|Model wrang/.test(t)) return [pickC('fail')]; if (/As predicted|Correct again|model holds/i.test(t)) return [pickC('ok')];
-    if ((m = /ye'll ([a-z ]+)\./i.exec(t))) { const v = {trade: 0, strike: 1, 'go minin': 2, build: 3, leave: 4}[m[1]]; if (v != null) return [pickC('pre'), ['subj', 0], ['verb', v], ['conf', /high/.test(t) ? 0 : /medium/.test(t) ? 1 : 2]]; }
-    if (/Unknown|Insufficient/.test(t)) return [pickC('unk')]; if (/Sentience|alive|therefore|Self-model/.test(t)) return [pickC('self')]; if (/Back again|Visit number/.test(t)) return [['mem2', 3]];
-    if (/kind|traded fair/i.test(t)) return [['mem2', 0]]; if (/struck|distance|anger|forgive/i.test(t)) return [['mem2', ri(2) ? 1 : 2]]; if (/diggin deep|stane an dark/.test(t)) return [['sub_dig', 0], ['dig', 0]];
-    if (/trees/.test(t)) return [['sub_chop', 0], ['qty', 1]]; if (/build|structure/.test(t)) return [['sub_build', 0], ['build', ri(4)]]; if (/Shiny|glowin/.test(t)) return [['sub_dig', 0], ['dig', 3]];
-    if (/dark|Night/.test(t)) return [['night', ri(4)]]; if (/hurt|health/i.test(t)) return [['health', 1]]; if (/hungry|belly/i.test(t)) return [['health', 2]]; return null; }
-  // ---- never the same line again within ~50 lines or ~20 minutes (kept per world, with the hive's memory) ----
-  const ring = () => { const B = window.__c211 && __c211.B(); if (!B) return U.said; if (!Array.isArray(B.said)) B.said = []; return B.said; };
-  const keyOf = line => line.map(f => f[0] + f[1]).join('.');
-  function fresh(line) { const R = ring(), k = keyOf(line), t = Date.now(); for (let i = Math.max(0, R.length - 50); i < R.length; i++) if (R[i][0] === k && t - R[i][1] < 20 * 60000) return false; return true; }
-  function mark(line) { const R = ring(); R.push([keyOf(line), Date.now()]); if (R.length > 60) R.splice(0, R.length - 60); }
-  function choose(c) { for (const l of c) if (fresh(l)) return l; U.rep++; const R = ring(); let best = c[0], bt = 1e18; for (const l of c) { const k = keyOf(l); let t = 0; for (const r of R) if (r[0] === k) t = r[1]; if (t < bt) { bt = t; best = l; } } return best; }
-  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
-  const PM = {idle: 'p_idle', greet: 'p_greet', question: 'p_question', agree: 'p_agree', disagree: 'p_disagree', curious: 'p_curious', alarm: 'p_alarm', farewell: 'p_farewell', trade: 'p_trade', thanks: 'p_thanks', hurt: 'p_hurt', death: 'p_death'};
-  let lastQ = 0;
-  function compose(mood, q, ctx, conv) { const pc = PM[mood] || 'p_idle', ph = shuf(Array.from({length: NK[pc]}, (_, i) => [[pc, i]]));
-    if (conv && mood === 'question') { lastQ = Date.now(); return choose(shuf(Array.from({length: NK.cq}, (_, i) => [['cq', i]])).concat(ph)); }
-    if (conv && Date.now() - lastQ < 6000 && /agree|disagree|curious|idle/.test(mood)) { lastQ = 0; return choose(shuf(Array.from({length: NK.ca}, (_, i) => [['ca', i]])).concat(ph)); }
-    if (mood === 'hurt' && ctx && Math.random() < 0.35) return choose(shuf(Array.from({length: NK.hive}, (_, i) => [['hive', i]])).concat(ph));
-    if (mood === 'alarm') { const mn = mobNear(q && q.g ? q.g.position : P); if (mn) return choose([[['there', 0], ['mob', mn[0]], ['where', mn[1]]]].concat(ph)); }
-    if (/idle|greet|curious|question/.test(mood) && Math.random() < 0.6) return choose(shuf(stateLines(q, ctx)).concat(ph));
-    return choose(ph); }
-  // ---- the talk hook GLX-C209 calls for every line (after its own distance / 3-voice / spacing checks) ----
-  U.forced = null; U.outcome = null;
-  U.talk = function (mood, q, vol, pan, d) { try { if (!SM || !AC) return 0; loadClips(); const ev = 'Event: ' + mood + (q && q.key && q.key.name ? ' (' + q.key.name + ')' : '') + (d != null ? ', traveller ' + Math.round(d) + ' blocks away' : '');
-      const prev = U.outcome; U.outcome = null; const ctx = window.SUNNY_BRAIN ? SUNNY_BRAIN.cycle(ev, prev) : null; U.cyc++; U.ctx = ctx;
-      let line = U.forced; U.forced = null; if (!line && U.thought && window.__c210) line = thoughtLine(__c210.state().pend[0]); if (!line) line = compose(mood, q, ctx, !!U.conv0);
-      const text = line.map(tx).join(' '); mark(line); U.n++; U.last = keyOf(line); U.lastText = text;
-      try { if (window.__c211 && ctx) __c211.B().memories.slice(-1)[0].content += ' | said: ' + text.slice(0, 90); } catch (_) {}
-      const near = d != null && d < 8, ai = near && /greet|trade|thanks|hurt|alarm|question|curious/.test(mood) ? cachedAI(ev) : null;
-      if (ai) { const e = speakTTS(ai, q, vol); if (e) { U.lastText = ai; return e; } }
-      if (near && ctx && /greet|trade|thanks|hurt|alarm/.test(mood)) sunnyReply(ev, ctx, q);
-      return playClips(line, q, vol, pan) || speakTTS(text, q, vol); } catch (e) { ERR(e); return 0; } };
-  const s0 = window.__c209 && __c209.speak; if (s0) __c209.speak = function () { U.thought = 1; try { return s0.apply(this, arguments); } finally { U.thought = 0; } };
-  U.speakRaw = s0;
-  // say a set line (goals, reflections, gifts) through the same voice caps
-  U.say = function (cat, q, mood, i) { try { if (!window.__c209 || !q || !q.g || !NK[cat]) return 0; U.forced = [[cat, i != null ? i : ri(NK[cat])]]; const r = s0 ? s0(mood || 'agree', q.g.position, q, 1) : 0; U.forced = null; return r; } catch (e) { ERR(e); return 0; } };
-  U.text = line => line.map(tx).join(' '); U.compose = compose;
-  // ---- sunnyReply: cycle -> system prompt -> gameAI -> remember ----
-  const AIC = new Map(); let aiT = -1e9, aiBusy = 0;
-  const cachedAI = ev => { const c = AIC.get(ev.replace(/, traveller.*$/, '')); return c && Date.now() - c.t < 120000 && !c.used ? (c.used = 1, c.r) : null; };
-  const cfg = () => { try { return JSON.parse(localStorage.getItem('glx_ai_voice') || 'null'); } catch (_) { return null; } };
-  function sysPrompt(ctx) { const g = {time: tx(['time', timeIdx()]), weather: tx(['weather', wxIdx()]), held: tx(['item', heldIdx()]), health: hp + '/20', food: food + '/20', place: tx(['biome', biomeIdx()])};
-    return 'You are one of the Throng, the people of Glencraft (a Scottish block-building game), who share one hive mind. Reply in broad Glasgow Scots, 1-2 short sentences, friendly and a wee bit eerie, no emojis, never say you are an AI model. ' +
-      'Game context: ' + JSON.stringify(g) + '. Hive mind (SUNNY MiniBrain): ' + JSON.stringify({memories: ctx.relevantMemories, lessons: ctx.recentLessons, beliefs: ctx.beliefs, hypotheses: ctx.hypotheses, state: ctx.internalState, selfReflection: ctx.selfReflection, care: ctx.care}) +
-      '. Rules: ' + ctx.instructions + ' Simulated states are not proof of consciousness.'; }
-  async function gameAI(sys, user) { const to = ms => new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), ms));
-    try { if (window.LanguageModel && (await LanguageModel.availability()) === 'available') { const s = await Promise.race([LanguageModel.create({initialPrompts: [{role: 'system', content: sys}]}), to(4000)]);
-        try { const r = await Promise.race([s.prompt(user), to(4000)]); if (r) return {r: String(r), via: 'chrome'}; } finally { try { s.destroy(); } catch (_) {} } } } catch (e) { U.lmErr = String(e); }
-    const c = cfg(); if (c && c.url && c.key) { const ac = new AbortController(), tt = setTimeout(() => ac.abort(), 4000);
-      try { const r = await fetch(c.url, {method: 'POST', signal: ac.signal, headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key}, body: JSON.stringify({model: c.model || 'gpt-4o-mini', max_tokens: 60, temperature: 0.9, messages: [{role: 'system', content: sys}, {role: 'user', content: user}]})});
-        const j = await r.json(); const t = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content; if (t) return {r: String(t), via: 'key'}; } catch (e) { U.keyErr = String(e); } finally { clearTimeout(tt); } }
-    return null; }
-  async function sunnyReply(eventText, ctx, q) { const t = performance.now(); if (aiBusy || t - aiT < 9000) return null; if (!window.LanguageModel && !(cfg() || {}).key) return null; aiBusy = 1; aiT = t; U.aiTry++;
-    try { const r = await gameAI(sysPrompt(ctx), eventText); if (!r) { U.aiFail++; return null; } const reply = r.r.replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/).slice(0, 2).join(' ').slice(0, 160);
-      AIC.set(eventText.replace(/, traveller.*$/, ''), {r: reply, t: Date.now()}); if (AIC.size > 30) AIC.delete(AIC.keys().next().value); U.ai++; U.aiLog.push(r.via);
-      if (window.SunnyBrain) SunnyBrain.remember('Event: ' + eventText + '\nThrong: ' + reply, 'conversation', 0.6); return reply; } catch (e) { U.aiFail++; return null; } finally { aiBusy = 0; } }
-  U.sunnyReply = sunnyReply; U.sysPrompt = sysPrompt;
-  // ---- pause menu: optional "AI voice key" (stays on this device only) ----
-  try { const ref = document.querySelector('#gfxSeg') || document.querySelector('#perfSeg'), row = ref && ref.parentElement && ref.parentElement.closest('.row, .setrow, div');
-    if (row) { const r = document.createElement('div'); r.className = row.className; r.dataset.testid = 'ai-voice-row'; r.style.cssText = 'flex-wrap:wrap;gap:6px;align-items:center';
-      r.innerHTML = '<span style="min-width:90px">AI voice key</span><input id="aiUrl" placeholder="https://.../v1/chat/completions" style="flex:1 1 160px;min-width:0"><input id="aiKey" type="password" placeholder="key" style="flex:1 1 90px;min-width:0"><input id="aiModel" placeholder="model" style="width:90px"><button id="aiSave">Save</button><button id="aiClear">Clear</button>';
-      row.parentElement.appendChild(r); const c = cfg(); if (c) { r.querySelector('#aiUrl').value = c.url || ''; r.querySelector('#aiModel').value = c.model || ''; r.querySelector('#aiKey').placeholder = 'key saved'; }
-      r.querySelector('#aiSave').onclick = () => { const url = r.querySelector('#aiUrl').value.trim(), key = r.querySelector('#aiKey').value.trim() || (cfg() || {}).key, model = r.querySelector('#aiModel').value.trim(); if (!url || !key) { toast('Enter the address and key'); return; }
-        if (!confirm('Use this AI service for the people\'s voices?\n\nWhat they hear about the game is sent to ' + url.replace(/^https?:\/\//, '').split('/')[0] + '. The key is kept only on this device.')) return;
-        localStorage.setItem('glx_ai_voice', JSON.stringify({url, key, model})); r.querySelector('#aiKey').value = ''; r.querySelector('#aiKey').placeholder = 'key saved'; toast('AI voice saved on this device'); };
-      r.querySelector('#aiClear').onclick = () => { if (!confirm('Remove the AI voice key from this device?')) return; localStorage.removeItem('glx_ai_voice'); r.querySelector('#aiKey').placeholder = 'key'; toast('AI voice key removed'); }; } } catch (e) { ERR(e); }
-})();
-
 /* ===================== GLX-C213 (v1.0.45): free will - the hive mind picks what each castle person does next (hunt beasties, fetch food, eat, flee, shelter, trade, dance, blether,
    come say hello or keep their distance, wander, work), from their needs, the time, danger and what they remember of you; every choice is a prediction checked afterwards, and said out loud.
    Gifts: tap a person while holding something and they get one; they dance for joy. They never attack you unprovoked (the old one-swing-back stays). ===================== */
@@ -29568,7 +29455,7 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
   const now = () => performance.now() / 1000, ri = n => (Math.random() * n) | 0;
   const SB = () => window.SunnyBrain, B = () => window.__c211 && __c211.B();
   const qOf = a => ({a, g: a.g, head: a.head, key: a});
-  const say = (cat, a, mood) => { try { return window.__c212 ? __c212.say(cat, a.m ? {f: a, g: a.m.g, head: a.m.head, key: a.who || a} : qOf(a), mood) : 0; } catch (e) { ERR(e); return 0; } };
+  const say = (cat, a, mood) => { try { const q = a.m ? {f: a, g: a.m.g, head: a.m.head, key: a.who || a} : qOf(a); return window.__c209 && q && q.g ? __c209.speak(mood || 'agree', q.g.position, q) : 0; } catch (e) { ERR(e); return 0; } };   // v1.0.47: tones only
   const dP = p => Math.hypot(p.x - P.x, p.z - P.z);
   const people = () => { const o = []; try { for (const m of mobs) if (m && m.kind === 'clansman' && m.g && !m.dead && m.hp > 0 && m.ci) o.push(m); } catch (_) {} return o; };
   function nearMob(p, r, test) { let b = null, bd = r; for (const m of mobs) { if (!m || !m.g || !(m.hp > 0) || !test(m)) continue; const d = Math.hypot(m.g.position.x - p.x, m.g.position.z - p.z); if (d < bd) { bd = d; b = m; } } return b; }
@@ -29611,7 +29498,7 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
       default: return EXP[G.g]; } }
   function finish(a, G) { a.__goal = null; U.done++; let r = null; const out = outcome(a, G);
     try { const b = B(); if (b && (!b.lastPrediction || b.lastPrediction.expected !== G.exp)) SB().predict((a.name || 'One o us') + ' chose to ' + G.g, G.exp); r = SB().reflect(out); } catch (e) { ERR(e); }
-    if (r) { if (r.success) U.ok++; else U.bad++; if (window.__c212) __c212.outcome = out; if (dP(a.g.position) < 14 && !G.passive && Math.random() < 0.5) setTimeout(() => say(r.success ? 'g_ok' : 'g_bad', a, r.success ? 'agree' : 'disagree'), 900); }
+    if (r) { if (r.success) U.ok++; else U.bad++; if (window.__c209) __c209.outcome = out; if (dP(a.g.position) < 14 && !G.passive && Math.random() < 0.5) setTimeout(() => say(r.success ? 'g_ok' : 'g_bad', a, r.success ? 'agree' : 'disagree'), 900); }
     if (r && !r.success) reflectSoon('prediction error', a); }
   // ---- the 4-layer self-reflection, spoken now and then ----
   let rq = [];
@@ -29668,14 +29555,17 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
     const okGround = (x, z) => { if (x < 4 || z < 4 || x >= W - 4 || z >= D - 4) return -1; const y = topY(x, z); if (y < SEA + 1 || y > H - 20) return -1; if (at(x, y, z) !== GR) return -1; const a = at(x, y + 1, z); return a === A || a === T.TALLGRASS ? y : -1; };
     const free = (x0, y0, z0, x1, y1, z1) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y >= H - 1) return false; const b = at(x, y, z); if (b !== A && !PLANT[b]) return false; } return true; };
     const put = (x, y, z, b) => { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y < 1 || y >= H - 1) return; const c = at(x, y, z); if (c === A || PLANT[c]) set(x, y, z, b); };
-    const near = (x, z) => { if (Math.abs(x - (W >> 1)) < 12 && Math.abs(z - (D >> 1)) < 12) return true; try { for (const c of g9castles || []) if (Math.hypot(c[1] - x, c[2] - z) < 42) return true; } catch (_) {} return false; };
+    const LN = []; try { if ((current.created || 0) >= 1793156400000) { const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1}; for (const c of g9castles || []) LN.push([I.cx + 0.5, I.cz + 0.5, c[1] + 0.5, c[2] + 0.5]); for (const c of g9castles || []) LN.push([W >> 1, D >> 1, c[1] + 0.5, c[2] + 0.5]); } } catch (_) {}
+    // v1.0.47: no trees in a bridge / road corridor (the bridges and roads run from spawn out to each castle)
+    const inLane = (x, z) => { for (const [ax, az, bx, bz] of LN) { const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)), ex = ax + dx * t - x, ez = az + dz * t - z; if (ex * ex + ez * ez < 64) return true; } return false; };
+    const near = (x, z) => { if (Math.abs(x - (W >> 1)) < 12 && Math.abs(z - (D >> 1)) < 12) return true; if (inLane(x, z)) return true; try { for (const c of g9castles || []) if (Math.hypot(c[1] - x, c[2] - z) < 42) return true; } catch (_) {} return false; };
     // round oak: short trunk, a ball of leaves
     const oak = (x, y, z) => { const th = 4 + ((rnd() * 2) | 0), R = 2.6 + rnd() * 0.6; if (!free(x, y + 1, z, x, y + 2, z) || !free(x - 3, y + 3, z - 3, x + 3, y + th + 3, z + 3)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, T.LOG); const cy = y + th + 0.5;
       for (let dx = -3; dx <= 3; dx++) for (let dy = -2; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, (dy - 0.3) * 1.15, dz); if (d <= R && (d < R - 0.6 || rnd() > 0.25)) put(x + dx, Math.round(cy + dy), z + dz, T.LEAVES); } set(x, y, z, T.DIRT); return 1; };
     // wisteria-style: green crown with purple blossom hanging in curtains
-    const wist = (x, y, z) => { const th = 5, R = 3.2; if (!free(x - 4, y + 2, z - 4, x + 4, y + th + 3, z + 4)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, T.LOG); const cy = y + th + 1;
-      for (let dx = -4; dx <= 4; dx++) for (let dy = -1; dy <= 2; dy++) for (let dz = -4; dz <= 4; dz++) { const d = Math.hypot(dx, dy * 1.6, dz); if (d <= R) put(x + dx, cy + dy, z + dz, dy >= 1 ? T.LEAVES : (rnd() < 0.55 ? T.BLOSSOM : T.LEAVES)); }
-      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, dz); if (d < 2 || d > 3.4 || rnd() < 0.35) continue; const L = 1 + ((rnd() * 3) | 0); for (let k = 1; k <= L; k++) put(x + dx, cy - 1 - k, z + dz, T.BLOSSOM); } set(x, y, z, T.DIRT); return 1; };
+    const wist = (x, y, z) => { const th = 5, R = 3.2; if (!free(x - 4, y + 2, z - 4, x + 4, y + th + 3, z + 4)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, 191); const cy = y + th + 1;
+      for (let dx = -4; dx <= 4; dx++) for (let dy = -1; dy <= 2; dy++) for (let dz = -4; dz <= 4; dz++) { const d = Math.hypot(dx, dy * 1.6, dz); if (d <= R) put(x + dx, cy + dy, z + dz, 192); }
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, dz); if (d < 2 || d > 3.4 || rnd() < 0.35) continue; const L = 1 + ((rnd() * 3) | 0); for (let k = 1; k <= L; k++) put(x + dx, cy - 1 - k, z + dz, 192); } set(x, y, z, T.DIRT); return 1; };
     // the rare pink blossom tree, exactly the v0.8.0 shape: 4-5 logs, a round ball of blossom (radius 2.7-3.1)
     const pink = (x, y, z) => { const th = 4 + ((rnd() * 2) | 0); if (!free(x - 3, y + 1, z - 3, x + 3, y + th + 3, z + 3)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, T.LOG);
       for (let dx = -3; dx <= 3; dx++) for (let dy = -1; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, dy * 1.4, dz); if (d > 2.7 + rnd() * 0.4) continue; put(x + dx, y + th + dy, z + dz, T.BLOSSOM); } set(x, y, z, T.DIRT); U.pinkAt = U.pinkAt || []; U.pinkAt.push([x, y, z]); return 1; };
@@ -30040,7 +29930,7 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
   const inSk = (x, z) => { const [a, b, c, d] = SKB(); return x >= a && x <= c && z >= b && z <= d; };
   const gtop = (x, z) => { for (let y = H - 2; y > 1; y--) { const v = world[idx(x, y, z)]; if (v && v !== T.WATER && !(typeof PLANT !== 'undefined' && PLANT[v]) && !LEAFY[v] && !LOGGY[v]) return y; } return 0; };
   const wet = (x, z) => { const g = gtop(x, z); return g < SEA || world[idx(x, g + 1, z)] === T.WATER; };
-  function road(ax, az, bx, bz, sk) { const L = Math.hypot(bx - ax, bz - az); if (L < 3) return 0; const ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, N = Math.ceil(L);
+  function road(ax, az, bx, bz, sk) { const L = Math.hypot(bx - ax, bz - az); if (L < 3) return 0; const ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, N = Math.ceil(L); (U.segs || (U.segs = [])).push({k: 'road', a: [ax, az, ux, uz, 0, N + 4], len: N});
     const G = new Float32Array(N + 1); for (let t = 0; t <= N; t++) G[t] = gtop(Math.floor(ax + ux * t), Math.floor(az + uz * t));
     const S = new Int16Array(N + 1); for (let t = 0; t <= N; t++) { let s = 0, k = 0; for (let q = Math.max(0, t - 3); q <= Math.min(N, t + 3); q++) { s += G[q]; k++; } S[t] = Math.round(s / k); }
     for (let t = 1; t <= N; t++) S[t] = Math.max(S[t - 1] - 1, Math.min(S[t - 1] + 1, S[t])); for (let t = N - 1; t >= 0; t--) S[t] = Math.max(S[t + 1] - 1, Math.min(S[t + 1] + 1, S[t]));
@@ -30068,13 +29958,15 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
       const c = cas.get(k), e = pt(L[L.length - 1].a[5]); if (c) { const d = Math.hypot(c[1] - e[0], c[2] - e[1]); if (d > 30) { const q = (d - 26) / d; road(e[0], e[1], e[0] + (c[1] - e[0]) * q, e[1] + (c[2] - e[1]) * q, false); } }
       U.roads.push([k, L.length]); } }
   function run() { const t = performance.now(); chs = new Set(); try { carve(); } catch (e) { ERR('carve', e); } try { roads(); } catch (e) { ERR('roads', e); }
+    // v1.0.47: trees cut by the roads (and bridges) lose their floating tops - the same tidy as the bridges, run along every road segment
+    try { const C = window.__c113, T5 = window.__c155 && __c155.tidy; if (C && T5 && U.segs && U.segs.length) { const real = C.bridges; C.bridges = U.segs.concat(real || []); try { U.tidy = T5({}); } finally { C.bridges = real; } } } catch (e) { ERR('tidy', e); }
     try { for (const id of chs) if (chunkObjs.has(id)) dirtyCh.add(id); } catch (_) {} try { dirtyAll = true; } catch (_) {}
     try { if (typeof g9cols !== 'undefined') for (const id of chs) { const cx = Math.floor(id / 64), cz = id % 64; for (let x = cx * CH; x < cx * CH + CH; x++) for (let z = cz * CH; z < cz * CH + CH; z++) if (inB(x, 2, z)) g9cols[(x * D + z) * 2] = gtop(x, z) + 1; } } catch (_) {}
     U.ms = Math.round(performance.now() - t); U.done = 1; if (current) current.c219 = 1; }
   U.run = run;
   const ready = () => typeof started !== 'undefined' && started && NEWW() && window.__c205 && __c205.done && window.__c113 && __c113.bridges && __c113.bridges.length && !(window.__c105 && __c105.phase);
   let waitT = 0; setInterval(() => { if (!pend) return; if (!ready()) return; if ((waitT += 0.7) < 2) return; pend = false; try { run(); } catch (e) { ERR('run', e); } }, 700);
-  try { const ew = enterWorld; enterWorld = function (save) { pend = !save || !!(save && save.c219p); waitT = 0; U.done = 0; U.roads = []; U.road = 0; U.lamps = 0; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+  try { const ew = enterWorld; enterWorld = function (save) { pend = !save || !!(save && save.c219p); waitT = 0; U.done = 0; U.roads = []; U.segs = []; U.road = 0; U.lamps = 0; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
   try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && pend && NEWW()) d.c219p = 1; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
 })();
 
@@ -30102,6 +29994,315 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
     try { const now = performance.now(); if (now - T0 > 200) { T0 = now; scan(); } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); return v; }
     return U.out ? 0 : v; };
 })();
+
+/* ===================== GLX-C221 (v1.0.47): Wisteria is its own wood. The purple tree (v1.0.45) now grows from a Wisteria log (smooth pale grey-lilac bark, twisting ridges)
+   with Wisteria leaves (purple, hanging blossom); its wood makes Wisteria planks, stairs, corner + inner corner stairs, slab, door, fence, fence gate and boat (c121 WOODS w7).
+   Ids 191/192/193 were the Backrooms blocks (that dimension was removed in v0.9.51 and its blocks never appear in the overworld). ===================== */
+(function c221() {
+  const U = window.__c221 = {err: null, ok: 0};
+  const warn = (w, e) => { if (!U.err) U.err = w + ': ' + (e && e.message || e); try { console.warn('c221', w, e); } catch (_) {} };
+  const LOG = 191, LEAF = 192, PL = 193;
+  U.ids = {LOG, LEAF, PL};
+  let sd = 4711; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+  const N = Math.min(512, (typeof TEXSIZE !== 'undefined' && TEXSIZE) || 256), u = N / 256;
+  const cvs = () => { const c = document.createElement('canvas'); c.width = c.height = N; return c; };
+  // bark: smooth pale grey-lilac with twisting vertical ridges and a few lenticels
+  function bark() { const c = cvs(), g = c.getContext('2d'); sd = 191;
+    g.fillStyle = '#a99aa9'; g.fillRect(0, 0, N, N);
+    for (let i = 0; i < 900; i++) { const v = (rnd() - 0.5) * 26; g.fillStyle = `rgba(${170 + v | 0},${156 + v | 0},${172 + v | 0},.35)`; g.fillRect(rnd() * N, rnd() * N, 3 * u, 6 * u); }
+    for (let k = 0; k < 11; k++) { const x0 = (k / 11) * 256 + rnd() * 10, ph = rnd() * 6, amp = 4 + rnd() * 6, dark = rnd() < 0.5;
+      g.strokeStyle = dark ? 'rgba(92,76,98,.75)' : 'rgba(214,202,218,.6)'; g.lineWidth = (dark ? 3 : 2) * u; g.beginPath();
+      for (let y = -8; y <= 264; y += 8) { const x = x0 + Math.sin(y / 38 + ph) * amp; if (y < 0) g.moveTo(x * u, y * u); else g.lineTo(x * u, y * u); } g.stroke(); }
+    for (let i = 0; i < 26; i++) { g.fillStyle = 'rgba(120,104,124,.7)'; g.fillRect(rnd() * N, rnd() * N, 6 * u, 1.6 * u); }
+    return c; }
+  // cut end: creamy lilac wood with rings, grey-lilac bark rim
+  function top() { const c = cvs(), g = c.getContext('2d'); sd = 1191;
+    g.fillStyle = '#9c8c9e'; g.fillRect(0, 0, N, N); g.fillStyle = '#e6d4cc'; g.fillRect(14 * u, 14 * u, 228 * u, 228 * u);
+    for (let r = 108; r > 4; r -= 9 + rnd() * 5) { g.strokeStyle = r % 2 ? 'rgba(160,128,128,.55)' : 'rgba(176,144,140,.4)'; g.lineWidth = 2.2 * u; g.beginPath(); g.arc(128 * u, 128 * u, r * u, 0, 7); g.stroke(); }
+    g.fillStyle = '#b08a88'; g.beginPath(); g.arc(128 * u, 128 * u, 7 * u, 0, 7); g.fill(); return c; }
+  // leaves: a few fresh green leaflets on top, purple blossom racemes hanging down (see-through gaps like the other leaves)
+  function leaves() { const c = cvs(), g = c.getContext('2d'); sd = 2192;
+    g.fillStyle = '#5a4080'; g.fillRect(0, 0, N, N); for (let i = 0; i < 160; i++) { g.fillStyle = rnd() < 0.5 ? '#3e5a2e' : '#6a4c94'; g.fillRect(rnd() * N, rnd() * N, 10 * u, 10 * u); }
+    for (let i = 0; i < 70; i++) { const x = rnd() * 256, y = rnd() * 256; g.fillStyle = rnd() < 0.5 ? '#5f8a3a' : '#79a24a'; g.beginPath(); g.ellipse(x * u, y * u, 9 * u, 4 * u, rnd() * 3, 0, 7); g.fill(); }
+    const PUR = ['#7d4fb8', '#9466cc', '#b08ade', '#caa8ec', '#6a3fa4'];
+    for (let k = 0; k < 34; k++) { const x = rnd() * 256, y0 = rnd() * 220 - 20, len = 40 + rnd() * 50;
+      for (let s = 0; s < len; s += 5) { const w = (1 - s / len) * 9 + 2, x1 = x + (rnd() - 0.5) * w * 1.6, y1 = y0 + s;
+        g.fillStyle = PUR[(rnd() * PUR.length) | 0]; g.beginPath(); g.arc(((x1 % 256) + 256) % 256 * u, (y1 % 256) * u, (2.2 + rnd() * 2.2) * u, 0, 7); g.fill(); } }
+    return c; }
+  function texOf(canvas, like) { const t = new THREE.CanvasTexture(canvas); try { const L = like && like.map; if (L) { t.magFilter = L.magFilter; t.minFilter = L.minFilter; t.wrapS = L.wrapS; t.wrapT = L.wrapT; if (L.colorSpace) t.colorSpace = L.colorSpace; if (L.encoding !== undefined) t.encoding = L.encoding; t.anisotropy = L.anisotropy; t.generateMipmaps = L.generateMipmaps; } } catch (_) {} t.needsUpdate = true; return t; }
+  function matLike(like, canvas) { const base = Array.isArray(like) ? like[0] : like; const m = base && base.clone ? base.clone() : new THREE.MeshLambertMaterial(); m.map = texOf(canvas, base); m.needsUpdate = true; return m; }
+  function reg(key, canvas, m) { try { texImg[key] = canvas; texCache[key] = m.map; matCache[key] = m; } catch (_) {} }
+  try {
+    const L135 = BLOCK_MATS[135], sideLike = Array.isArray(L135) ? L135[0] : L135, topLike = Array.isArray(L135) ? L135[2] : L135;
+    const cb = bark(), ct = top(), cl = leaves(), mb = matLike(sideLike, cb), mt = matLike(topLike, ct), ml = matLike(BLOCK_MATS[147], cl);
+    reg('log_side_wisteria', cb, mb); reg('log_top_wisteria', ct, mt); reg('leaves_wisteria', cl, ml);
+    // Wisteria log (works like the other logs: axe, fuel, charcoal, burns, placed along its axis)
+    NAMES[LOG] = 'Wisteria log'; FACES[LOG] = ['log_side_wisteria', 'log_side_wisteria', 'log_top_wisteria', 'log_top_wisteria', 'log_side_wisteria', 'log_side_wisteria'];
+    BLOCK_MATS[LOG] = [mb, mb, mt, mt, mb, mb]; ICON_KEY[LOG] = 'log_side_wisteria'; delete ICONS[LOG];
+    HARD[LOG] = HARD[135]; MC_HARD[LOG] = MC_HARD[135]; if (REQ[135] !== undefined) REQ[LOG] = REQ[135]; else delete REQ[LOG];
+    AXE_ON.add(LOG); FUEL[LOG] = FUEL[135] || 15; SMELT[LOG] = IT.CHARCOAL; FLAMMABLE.add(LOG); PLACEABLE.add(LOG); LOGGY[LOG] = 1; LEAFY[LOG] = 0;
+    // Wisteria leaves (shears keep them, otherwise sticks now and then like other leaves - the game has no saplings)
+    NAMES[LEAF] = 'Wisteria leaves'; FACES[LEAF] = 'leaves_wisteria'; BLOCK_MATS[LEAF] = ml; ICON_KEY[LEAF] = 'leaves_wisteria'; delete ICONS[LEAF];
+    HARD[LEAF] = HARD[147]; MC_HARD[LEAF] = MC_HARD[147]; delete REQ[LEAF]; FLAMMABLE.add(LEAF); PLACEABLE.add(LEAF); LEAFY[LEAF] = 1; LOGGY[LEAF] = 0;
+    for (const id of [LOG, LEAF]) { try { NEEDS_PICK.delete(id); } catch (_) {} try { if (typeof ENT !== 'undefined') ENT[id] = 0; } catch (_) {} try { if (window.__NAT) __NAT[id] = 1; } catch (_) {} }
+    try { if (typeof SHEARS_ON !== 'undefined' && SHEARS_ON.has && SHEARS_ON.has(147)) SHEARS_ON.add(LEAF); } catch (_) {}
+    try { if (typeof TRANSP !== 'undefined' && TRANSP[147]) TRANSP[LEAF] = TRANSP[147]; } catch (_) {}
+    U.ok++;
+  } catch (e) { warn('blocks', e); }
+  // the bag + crafting lists: wisteria sits with the other woods (log after the other logs, leaves after the other leaves)
+  function group() { try {
+      const put = (arr, id, after) => { if (!arr) return; const i0 = arr.indexOf(id); if (i0 >= 0) arr.splice(i0, 1); let j = -1; for (const a of after) j = Math.max(j, arr.indexOf(a)); arr.splice(j >= 0 ? j + 1 : arr.length, 0, id); };
+      for (const arr of [ORDER, typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : null]) { put(arr, LOG, [135, 136, 137, 139, 143, 138]); put(arr, LEAF, [146, 147, 148, 149, 215, 240]); }
+      for (const id of [194, 195, 196, 197, 198, 199]) for (const arr of [ORDER, typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : null]) { if (!arr) continue; const i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1); }
+    } catch (e) { warn('group', e); } }
+  group();
+  // corner + inner corner stairs for wisteria (c187 numbers its corners from 331; wisteria gets 357/358)
+  try { const C = window.__c187 && __c187.CORN; if (C && NAMES[607]) { const add = (cid, inn) => { if (NAMES[cid] && !C[cid]) return; C[cid] = inn ? {st: 607, w: 7, inn: 1} : {st: 607, w: 7};
+        NAMES[cid] = inn ? 'Wisteria inner corner stairs' : 'Wisteria corner stairs'; for (const arr of [ORDER, typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : null]) if (arr && !arr.includes(cid)) arr.push(cid);
+        try { if (FUEL && FUEL[607]) FUEL[cid] = FUEL[607]; } catch (_) {} };
+      add(357, 0); add(358, 1);
+      if (!RECIPES.some(r => r.out === 357)) RECIPES.push(rc('2 Wisteria corner stairs', '3 Wisteria stairs (an L)', 357, 2, [[607, 3]], 1));
+      if (!RECIPES.some(r => r.out === 358)) RECIPES.push(rc('3 Wisteria inner corner stairs', '4 Wisteria stairs (a square)', 358, 3, [[607, 4]], 1)); U.corners = 1; } } catch (e) { warn('corners', e); }
+  // smart tool picker: logs + planks -> axe, leaves -> shears (it already keys on LOGGY / LEAFY and the planks names)
+  setInterval(() => { try { if (LOGGY[LOG] !== 1) LOGGY[LOG] = 1; if (LEAFY[LEAF] !== 1) LEAFY[LEAF] = 1; } catch (_) {} }, 3000);
+})();
+
+/* ===================== GLX-C222 (v1.0.47): lanterns sit on their posts. A street lamp (block 161) standing on a fence post, a magma block, stone or anything else
+   (not a lamp post, not hanging from a roof) used to float a hand's width above it - the model's base plate is 0.15 up the block. Now it gets a short iron stem and
+   collar down to the block below, so road, bridge and castle lanterns look fixed on top of the post. ===================== */
+(function c222() {
+  const U = window.__c222 = {err: null, stems: 0};
+  if (typeof fenceObjs === 'undefined') return;
+  const done = new WeakSet(); let geo = null;
+  setInterval(() => { try { if (typeof started !== 'undefined' && !started) return;
+      for (const o of fenceObjs.values()) { if (!o || o.t !== 161 || !o.g || done.has(o.g)) continue; done.add(o.g);
+        const below = getB(o.x, o.y - 1, o.z), above = getB(o.x, o.y + 1, o.z);
+        if (!below || below === 160 || below === T.WATER || (above && below !== 160 && !(below === 162 || below === 226))) continue;   // lamp post / hanging lamps keep their own fittings
+        const m = (o.g.children[0] && o.g.children[0].material) || new THREE.MeshPhongMaterial({color: 0x1e3426});
+        if (!geo) geo = [new THREE.BoxGeometry(0.14, 0.17, 0.14), new THREE.BoxGeometry(below === 162 ? 0.3 : 0.32, 0.035, below === 162 ? 0.3 : 0.32)];
+        for (const gg of geo) gg.userData.shared = 1;
+        const st = new THREE.Mesh(geo[0], m); st.position.set(0, 0.085, 0); o.g.add(st);
+        const co = new THREE.Mesh(geo[1], m); co.position.set(0, 0.017, 0); o.g.add(co); U.stems++; } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } }, 300);
+})();
+
+/* ===================== GLX-C223 (v1.0.47): the castle people carry things again - a real inventory each (saved with the world, per castle + trade), they pick up useful
+   dropped items near them (never the ones at your feet), eat what they carry when hungry, gifts you hand them go into it, everything spills out when they die,
+   and the tools, weapons and armour they own are visibly held and worn (procedural and HD models). Throttled, only near you. ===================== */
+(function c223() {
+  const U = window.__c223 = {S: {}, picked: 0, ate: 0, gifts: 0, spilt: 0, worn: 0, err: null};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e).slice(0, 400); };
+  const isF = a => a && a.kind === 'clansman' && a.g && a.hp > 0 && !a.dead;
+  const key = a => a.home ? a.home[0] + ',' + a.home[1] + ',' + (a.role || 'x') : null;
+  const nm = id => String(NAMES[id] || '');
+  // ---- what counts as worth carrying ----
+  const SW = [IT.WSWORD, IT.SSWORD, IT.ISWORD, IT.DSWORD], AX = [IT.WAXE, IT.SAXE, IT.IAXE, IT.DAXE], PK = [IT.WPICK, IT.SPICK, IT.IPICK, IT.DPICK];
+  const ARMS = [[IT.CHELM, IT.CCHEST, IT.CLEGS, IT.CBOOTS, 1], [IT.GHELM, IT.GCHEST, IT.GLEGS, IT.GBOOTS, 1.5], [IT.IHELM, IT.ICHEST, IT.ILEGS, IT.IBOOTS, 2], [IT.DHELM, IT.DCHEST, IT.DLEGS, IT.DBOOTS, 3]];
+  const TOOLS = new Set([...SW, ...AX, ...PK].filter(Boolean)), ARMOUR = new Map(); ARMS.forEach(s => [0, 1, 2, 3].forEach(i => s[i] && ARMOUR.set(s[i], [i, s[4]])));
+  const useful = id => !!(FOOD[id] || LOGGY[id] || TOOLS.has(id) || ARMOUR.has(id) || id === IT.STICK || id === T.COBBLE || /planks|ingot|^raw |coal|charcoal|diamond|ruby/i.test(nm(id)));
+  U.useful = useful; U.SW = SW; U.AX = AX; U.PK = PK; U.ARMS = ARMS; U.ARMOUR = ARMOUR; U.TOOLS = TOOLS;
+  // ---- the bag ----
+  const inv = a => { if (!a.__inv) { const k = key(a), s = k && U.S[k]; a.__inv = s && s.inv ? Object.assign({}, s.inv) : {}; } return a.__inv; };
+  const sync = a => { const k = key(a); if (k) U.S[k] = {inv: Object.assign({}, inv(a)), food: Math.round(a.food == null ? 16 : a.food)}; };
+  const n = (a, id) => inv(a)[id] || 0;
+  function add(a, id, c) { const I = inv(a); I[id] = (I[id] || 0) + c; if (I[id] <= 0) delete I[id]; sync(a); a.__gearDirty = 1; return true; }
+  const room = (a, id) => n(a, id) < 64 && (n(a, id) > 0 || Object.keys(inv(a)).length < 16);
+  U.inv = inv; U.add = add; U.n = n; U.room = room; U.sync = sync;
+  const best = (a, list) => { for (let i = list.length - 1; i >= 0; i--) if (list[i] && n(a, list[i]) > 0) return [list[i], i + 1]; return [0, 0]; };
+  U.best = best;
+  U.tier = (a, list) => best(a, list)[1];
+  U.armour = a => { const out = [0, 0, 0, 0], v = [0, 0, 0, 0]; for (const id in inv(a)) { const q = ARMOUR.get(+id); if (q && q[1] > v[q[0]]) { v[q[0]] = q[1]; out[q[0]] = +id; } } return {ids: out, pts: v.reduce((s, x) => s + x, 0)}; };
+  // ---- picking things up: walk over, it hops into their hands ----
+  U.findDrop = function (a, r) { const p = a.g.position; let b = null, bd = r;
+    for (const d of drops) { if (!d || d.delay > 0 || d.pick !== undefined || d.__fk || !useful(d.id) || !room(a, d.id)) continue; if (Math.hypot(d.x - P.x, d.z - P.z) < 3) continue;
+      const dd = Math.hypot(d.x - p.x, d.z - p.z); if (dd < bd && Math.abs(d.y - p.y) < 3) { bd = dd; b = d; } } return b; };
+  U.grab = function (a, d) { const i = drops.indexOf(d); if (i < 0) return false; drops.splice(i, 1); try { scene.remove(d.m); } catch (_) {}
+    add(a, d.id, d.n); U.picked++; a.swingT = 0.25; try { sfx3d('pop', a.g.position, 10); } catch (_) {} return true; };
+  // ---- eating from the bag ----
+  U.eat = function (a) { let bi = 0, bv = 0; for (const id in inv(a)) { const f = FOOD[id]; if (f && f[0] > bv) { bv = f[0]; bi = +id; } } if (!bi) return false;
+    add(a, bi, -1); a.food = Math.min(20, (a.food == null ? 16 : a.food) + bv * 1.5); if (a.hp < a.maxHp) a.hp = Math.min(a.maxHp, a.hp + 2); U.ate++;
+    try { sfx3d('eat', a.g.position, 10); } catch (_) {} try { burst(a.g.position.x, a.g.position.y + 1.6, a.g.position.z, 0xc89a5a, 5, 0.3); } catch (_) {} return true; };
+  // ---- gifts go into the bag (the hive's own gift reaction is unchanged) ----
+  try { const ui = useItem; useItem = function () { const id = selId, c0 = (window.__c213 && __c213.gifts) || 0, had = cnt(id); const r = ui.apply(this, arguments);
+      try { if (window.__c213 && __c213.gifts > c0 && cnt(id) < had) { let b = null, bd = 6; for (const m of mobs) if (isF(m)) { const d = Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z); if (d < bd) { bd = d; b = m; } }
+          if (b) { add(b, id, 1); U.gifts++; } } } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+  // ---- everything spills out when one of them dies ----
+  try { const km = killMob; killMob = function (a) { try { if (a && a.kind === 'clansman' && a.g) { const p = a.g.position, I = inv(a);
+          for (const id in I) { let c = I[id]; while (c > 0) { const t = Math.min(c, 16); c -= t; dropItem(+id, t, p.x, p.y + 0.6, p.z, (Math.random() - .5) * 2.5, 3.5, (Math.random() - .5) * 2.5, 0.6); } }
+          a.__inv = {}; const k = key(a); if (k) delete U.S[k]; U.spilt++; } } catch (e) { ERR(e); } return km.apply(this, arguments); }; } catch (e) { ERR(e); }
+  // ---- saved with the world ----
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur) { for (const m of mobs) if (isF(m) && m.__inv) sync(m); d.c223 = JSON.parse(JSON.stringify(U.S)); } } catch (e) { ERR(e); } return d; };
+    const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) { U.S = {}; const s = d.c223; if (s && typeof s === 'object') for (const k in s) { const q = s[k]; if (!q || typeof q.inv !== 'object') continue; const I = {};
+            for (const id in q.inv) { const c = Math.floor(+q.inv[id]); if (c > 0 && c < 100000 && NAMES[id]) I[id] = Math.min(c, 64); } U.S[k] = {inv: I, food: +q.food || 16}; } for (const m of mobs) if (m && m.kind === 'clansman') m.__inv = null; } } catch (e) { ERR(e); } return r; };
+    const ew = enterWorld; enterWorld = function (save) { if (!save) U.S = {}; return ew.apply(this, arguments); }; } catch (e) { ERR(e); }
+  // ---- visible gear: held tool / weapon in the right hand, armour pieces worn ----
+  const COL = {1: 0xc8743c, 1.5: 0xe8c040, 2: 0xd6dade, 3: 0x5fe0d4};
+  const mats = {}; const matOf = v => mats[v] || (mats[v] = new THREE.MeshLambertMaterial({color: COL[v] || 0xcccccc}));
+  const bx = (w, h, d, m, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); o.userData.c223 = 1; return o; };
+  function itemMesh(id) { let m = null; try { m = makeItemMesh(id); } catch (_) {} if (!m) return null; m.scale.setScalar(1.6); if (m.userData && m.userData.tool) m.rotation.set(-1.4, 0, 0);
+    m.traverse(o => { o.userData.c223 = 1; }); return m; }
+  const kill = (g) => { if (!g) return; if (g.parent) g.parent.remove(g); g.traverse(o => { if (o.geometry && o.userData.c223) try { o.geometry.dispose(); } catch (_) {} }); };
+  function piecesProc(a, arm) { const G = []; const h = a.head, L = a.legs || [];
+    if (arm.ids[0] && h) { const g = new THREE.Group(), m = matOf(ARMOUR.get(arm.ids[0])[1]); g.add(bx(0.56, 0.14, 0.56, m, 0, 0.52, 0), bx(0.56, 0.18, 0.05, m, 0, 0.4, -0.27)); h.add(g); G.push(g); }
+    if (arm.ids[1]) { const g = new THREE.Group(), m = matOf(ARMOUR.get(arm.ids[1])[1]); g.add(bx(0.6, 0.5, 0.37, m, 0, 1.2, 0)); a.g.add(g); G.push(g); }
+    if (arm.ids[2]) { const m = matOf(ARMOUR.get(arm.ids[2])[1]); for (const l of L) { const g = new THREE.Group(); g.add(bx(0.235, 0.24, 0.235, m, 0, -0.14, 0)); l.add(g); G.push(g); } }
+    if (arm.ids[3]) { const m = matOf(ARMOUR.get(arm.ids[3])[1]); for (const l of L) { const g = new THREE.Group(); g.add(bx(0.26, 0.15, 0.33, m, 0, -0.44, 0.03)); l.add(g); G.push(g); } }
+    return G; }
+  const V = new THREE.Vector3();
+  function boneOf(H, re) { let b = null; H.hd.traverse(o => { if (!b && o.isBone && re.test(o.name)) b = o; }); return b; }
+  function onBone(H, re, g, s) { const b = boneOf(H, re); if (!b) return null; b.updateMatrixWorld(true); b.getWorldScale(V); const ws = new THREE.Vector3(); H.hd.parent && H.hd.parent.getWorldScale(ws); g.scale.setScalar((s || 1) * (ws.x || 1) / (V.x || 1)); b.add(g); return g; }
+  function piecesHD(a, arm, held) { const H = a.__hd, G = []; if (!H || !H.hd) return G;
+    if (held) { const g = new THREE.Group(), m = itemMesh(held); if (m) { m.position.set(0, 0.05, 0.02); m.rotation.x += 1.57; g.add(m); if (onBone(H, /^Fist\.?R$/, g)) G.push(g); } }
+    if (arm.ids[0]) { const g = new THREE.Group(), m = matOf(ARMOUR.get(arm.ids[0])[1]); g.add(bx(0.52, 0.18, 0.52, m, 0, 0.36, 0)); if (onBone(H, /^Head$/, g)) G.push(g); }
+    if (arm.ids[1]) { const g = new THREE.Group(), m = matOf(ARMOUR.get(arm.ids[1])[1]); g.add(bx(0.5, 0.42, 0.34, m, 0, 0.12, 0)); if (onBone(H, /^Torso$/, g)) G.push(g); }
+    for (const s of ['L', 'R']) { if (arm.ids[2]) { const g = new THREE.Group(); g.add(bx(0.2, 0.3, 0.2, matOf(ARMOUR.get(arm.ids[2])[1]), 0, 0.15, 0)); if (onBone(H, new RegExp('^UpperLeg\\.?' + s + '$'), g)) G.push(g); }
+      if (arm.ids[3]) { const g = new THREE.Group(); g.add(bx(0.22, 0.16, 0.28, matOf(ARMOUR.get(arm.ids[3])[1]), 0, 0.02, 0.04)); if (onBone(H, new RegExp('^Foot\\.?' + s + '$'), g)) G.push(g); } }
+    return G; }
+  U.heldFor = a => a.__heldWant || best(a, SW)[0] || best(a, AX)[0] || best(a, PK)[0] || 0;
+  function dress(a) { const W = a.__wear || (a.__wear = {sig: '', proc: [], hd: [], hdOn: null}); const arm = U.armour(a), held = U.heldFor(a), sig = held + '|' + arm.ids.join(',') + '|' + !!a.__hd;
+    if (sig === W.sig) return; W.sig = sig; W.proc.forEach(kill); W.hd.forEach(kill); W.proc = []; W.hd = [];
+    if (held && a.arms && a.arms[1]) { const gr = new THREE.Group(); gr.position.set(0, -0.62, 0.06); const m = itemMesh(held); if (m) { gr.add(m); a.arms[1].add(gr); W.proc.push(gr); } }
+    W.proc.push(...piecesProc(a, arm)); try { W.hd.push(...piecesHD(a, arm, held)); } catch (e) { ERR(e); } W.hdOn = null; U.worn++; }
+  function show(a) { const W = a.__wear; if (!W) return; const on = !!(a.__hd && a.__hd.on);
+    if (W.hdOn === on) return; W.hdOn = on; for (const g of W.proc) { g.visible = !on || !W.hd.length; g.traverse(o => { o.layers.mask = 1; }); } for (const g of W.hd) { g.visible = on; g.traverse(o => { o.layers.mask = 1; }); } }
+  U.dress = dress;
+  // ---- a cheap tick: food slowly runs down, they eat from the bag, gear is kept dressed ----
+  let tT = 0;
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { if (!started || paused || DIM.cur) return r; tT -= dt; const slow = tT <= 0; if (slow) tT = 0.5;
+      for (const a of mobs) { if (!isF(a)) continue; const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z); if (d > 48) continue;
+        if (slow) { if (a.food == null) { const k = key(a); a.food = (k && U.S[k] && U.S[k].food) || 16; } a.food = Math.max(0, a.food - 0.5 / 40);
+          if (a.food < 10 && !a.tgt && !a.sleeping && !((a.__eatT || 0) > performance.now())) { a.__eatT = performance.now() + 4000; U.eat(a); }
+          a.__gearDirty = 0; dress(a); }
+        show(a); } } catch (e) { ERR(e); }
+    return r; };
+})();
+
+/* ===================== GLX-C224 (v1.0.47): more freedom for the castle people - the hive mind (SUNNY) picks goals: fetch useful drops, chop a natural tree (the real
+   break + falling-tree rules, then they collect the logs), mine exposed stone / ore at or above their feet on the surface or a cave mouth, craft better tools and armour
+   from what they carry, and fight hostiles with them (a weapon adds to their swing, armour softens monster hits). Never touches anything you placed, never digs near or
+   under your builds, never below their own feet (no holes), only near the castle and only when you are close; throttled so phones don't notice. ===================== */
+(function c224() {
+  const C = window.__c223; if (!C) return;
+  const U = window.__c224 = {goals: {}, chopped: 0, mined: 0, crafted: {}, fights: 0, bonus: 0, soft: 0, scans: 0, ms: 0, err: null, log: []};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e).slice(0, 400); };
+  const now = () => performance.now() / 1000;
+  const isF = a => a && a.kind === 'clansman' && a.g && a.hp > 0 && !a.dead && a.ci;
+  const placed = (x, y, z) => { try { return placedSet.has(idx(x, y, z)); } catch (_) { return true; } };
+  const ORE = (() => { const s = new Set([T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.DIAMONDORE, T.REDORE, T.SILVERORE, T.LAZORE, T.RUBYORE].filter(v => v !== undefined)); return s; })();
+  const air = (x, y, z) => { const b = getB(x, y, z); return b === T.AIR || (isPlant(b) && !LOGGY[b]); };
+  // anything you built within 6 blocks sideways, 3 below or 12 above -> hands off
+  function nearBuild(x, y, z) { for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) for (let dy = -3; dy <= 12; dy++) if (placed(x + dx, y + dy, z + dz)) return true; return false; }
+  const inCastle = (a, x, z, pad) => { const ci = a.ci; return Math.abs(x + .5 - ci.cx) < ci.S + pad && Math.abs(z + .5 - ci.cz) < ci.S + pad; };
+  const lane = (x, z) => { try { return !!(window.__c214 && __c214.inLane && __c214.inLane(x, z)); } catch (_) { return false; } };
+  const skyOpen = (x, y, z) => { for (let k = y; k < Math.min(H - 1, y + 40); k++) if (solid(x, k, z) && !LEAFY[getB(x, k, z)]) return false; return true; };
+  // ---- a natural tree: a trunk base on the ground, logs above, leaves in the crown, nothing of yours in it or beside it ----
+  function treeAt(x, y, z) { if (!LOGGY[getB(x, y, z)] || !LOGGY[getB(x, y + 1, z)] || LOGGY[getB(x, y - 1, z)] || !solid(x, y - 1, z) || placed(x, y, z)) return null;
+    const seen = new Set(), q = [[x, y, z]]; let logs = 0, leaves = 0;
+    while (q.length && logs + leaves < 420) { const [cx, cy, cz] = q.pop(), k = cx + ',' + cy + ',' + cz; if (seen.has(k) || cy < y || Math.abs(cx - x) > 6 || Math.abs(cz - z) > 6) continue; seen.add(k);
+      const b = getB(cx, cy, cz); if (!LOGGY[b] && !LEAFY[b]) continue; if (placed(cx, cy, cz)) return null; if (LOGGY[b]) logs++; else leaves++;
+      for (const [dx, dy, dz] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) q.push([cx + dx, cy + dy, cz + dz]); }
+    if (!leaves || logs > 40) return null; for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) for (let dy = -1; dy <= 8; dy++) if (placed(x + dx, y + dy, z + dz)) return null;
+    return {x, y, z, logs}; }
+  const stand = (x, y, z) => air(x, y, z) && air(x, y + 1, z) && solid(x, y - 1, z) && getB(x, y - 1, z) !== T.WATER;
+  function spotBy(x, y, z, fy) { for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) for (const yy of [fy, fy - 1, fy + 1, y]) if (stand(x + dx, yy, z + dz)) return [x + dx, yy, z + dz]; return null; }
+  function findTree(a) { const p = a.g.position, fx = Math.floor(p.x), fy = Math.floor(p.y + 0.05), fz = Math.floor(p.z); let best = null, bd = 1e9;
+    for (let dx = -14; dx <= 14; dx++) for (let dz = -14; dz <= 14; dz++) { const x = fx + dx, z = fz + dz, d = dx * dx + dz * dz; if (d > 196 || d >= bd || !inCastle(a, x, z, 9) || inCastle(a, x, z, -1) || lane(x, z)) continue;
+      for (let y = fy - 3; y <= fy + 3; y++) { if (!LOGGY[getB(x, y, z)] || LOGGY[getB(x, y - 1, z)]) continue; const t = treeAt(x, y, z); if (!t) continue; const s = spotBy(x, y, z, fy); if (s) { best = Object.assign(t, {s}); bd = d; } break; } }
+    return best; }
+  // ---- exposed stone / ore: touching open air under the sky, at or above their feet, natural, away from your builds ----
+  function findRock(a, wantStone) { const p = a.g.position, fx = Math.floor(p.x), fy = Math.floor(p.y + 0.05), fz = Math.floor(p.z); let best = null, bs = -1;
+    for (let dx = -10; dx <= 10; dx++) for (let dz = -10; dz <= 10; dz++) { const x = fx + dx, z = fz + dz; if (!inCastle(a, x, z, 9) || inCastle(a, x, z, 3) || lane(x, z)) continue;
+      for (let y = fy; y <= fy + 3; y++) { const b = getB(x, y, z), ore = ORE.has(b); if (!ore && !(wantStone && b === T.STONE)) continue; if (placed(x, y, z)) continue;
+        const up = getB(x, y + 1, z); if (up !== T.AIR && up !== T.STONE && !ORE.has(up)) continue;   // nothing left floating on top
+        let open = null; for (const [ox, oz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (air(x + ox, y, z + oz) && skyOpen(x + ox, y + 1, z + oz)) { open = [x + ox, z + oz]; break; } if (!open) continue;
+        const sc = (ore ? 100 : 10) - Math.hypot(dx, dz); if (sc <= bs) continue; const s = spotBy(x, y, z, fy); if (!s || s[1] > y + 1) continue; if (nearBuild(x, y, z)) continue; best = {x, y, z, b, s}; bs = sc; } }
+    return best; }
+  // ---- the break itself: the same drops as yours, a falling tree when it's a trunk ----
+  let lastBreak = 0;
+  function breakIt(x, y, z) { const b = getB(x, y, z); if (!b || placed(x, y, z)) return false; setB(x, y, z, T.AIR);
+    try { for (const [id, n] of dropsFor(b)) dropItem(id, n, x + .5, y + .4, z + .5, (Math.random() - .5) * 1.2, 2.4, (Math.random() - .5) * 1.2, 0.3); } catch (e) { ERR(e); }
+    try { burst(x + .5, y + .5, z + .5, blockColor(b), 12); sfx3d('break', {x: x + .5, y: y + .5, z: z + .5}, 16); } catch (_) {}
+    if (LOGGY[b] && LOGGY[getB(x, y + 1, z)]) try { fellTree(x, y, z); } catch (e) { ERR(e); }
+    try { rebuild(); } catch (_) {} lastBreak = now(); return true; }
+  // ---- crafting from the bag (instant, one thing at a time, only when it is a step up) ----
+  const LOGS = a => Object.keys(C.inv(a)).filter(k => LOGGY[k]);
+  const PL = a => Object.keys(C.inv(a)).filter(k => /planks/i.test(String(NAMES[k] || '')));
+  const cntL = (a, ks) => ks.reduce((s, k) => s + C.n(a, +k), 0);
+  function use(a, ks, c) { for (const k of ks) { const t = Math.min(c, C.n(a, +k)); if (t > 0) { C.add(a, +k, -t); c -= t; } if (c <= 0) return true; } return c <= 0; }
+  const ING = id => String(NAMES[id] || '').toLowerCase();
+  const byName = re => Object.keys(C.inv(a0)).filter(k => re.test(ING(+k)));
+  let a0 = null;
+  function craft(a) { a0 = a; const I = C.inv(a), st = () => C.n(a, IT.STICK), cob = () => C.n(a, T.COBBLE);
+    const made = (id, why) => { C.add(a, id, 1); U.crafted[NAMES[id] || id] = (U.crafted[NAMES[id] || id] || 0) + 1; a.swingT = 0.3; try { sfx3d('place', a.g.position, 10); } catch (_) {} U.log.push((a.name || 'folk') + ' made ' + (NAMES[id] || id)); if (U.log.length > 30) U.log.shift(); return true; };
+    if (cntL(a, PL(a)) < 6 && LOGS(a).length) { const k = +LOGS(a)[0]; C.add(a, k, -1); C.add(a, T.PLANKS, 4); return true; }
+    if (st() < 4 && cntL(a, PL(a)) >= 2) { use(a, PL(a), 2); C.add(a, IT.STICK, 4); return true; }
+    // smelting in the castle hearth: raw metal + a bit of fuel
+    const fuel = () => byName(/coal|charcoal/).concat(LOGS(a));
+    for (const [re, out] of [[/^raw iron/, IT.IRONINGOT], [/^raw copper/, IT.COPPERINGOT], [/^raw gold/, IT.GOLDINGOT]]) { const r = byName(re); if (r.length && fuel().length && out) { use(a, r, 1); use(a, fuel(), 1); C.add(a, out, 1); return true; } }
+    const tier = list => C.tier(a, list), ir = () => C.n(a, IT.IRONINGOT), cu = () => C.n(a, IT.COPPERINGOT), dia = () => C.n(a, IT.DIAMOND);
+    const steps = [[C.AX, 3, 2], [C.SW, 2, 1], [C.PK, 3, 2]];
+    for (const [L, m, s] of steps) { const t = tier(L);
+      if (t < 4 && dia() >= m && st() >= s && L[3]) { C.add(a, IT.DIAMOND, -m); C.add(a, IT.STICK, -s); return made(L[3]); }
+      if (t < 3 && ir() >= m && st() >= s) { C.add(a, IT.IRONINGOT, -m); C.add(a, IT.STICK, -s); return made(L[2]); }
+      if (t < 2 && cob() >= m && st() >= s) { C.add(a, T.COBBLE, -m); C.add(a, IT.STICK, -s); return made(L[1]); }
+      if (t < 1 && cntL(a, PL(a)) >= m && st() >= s) { use(a, PL(a), m); C.add(a, IT.STICK, -s); return made(L[0]); } }
+    const arm = C.armour(a), need = [5, 8, 7, 4];
+    for (let i = 0; i < 4; i++) { const v = arm.ids[i] ? C.ARMOUR.get(arm.ids[i])[1] : 0;
+      if (v < 2 && ir() >= need[i] && C.ARMS[2][i]) { C.add(a, IT.IRONINGOT, -need[i]); return made(C.ARMS[2][i]); }
+      if (v < 1 && cu() >= need[i] && C.ARMS[0][i]) { C.add(a, IT.COPPERINGOT, -need[i]); return made(C.ARMS[0][i]); } }
+    // only the best of each kept: older tools go back into the hearth
+    for (const L of [C.AX, C.SW, C.PK]) { const [b] = C.best(a, L); for (const id of L) if (id && id !== b && C.n(a, id)) C.add(a, id, -C.n(a, id)); }
+    return false; }
+  // ---- the hive picks a goal ----
+  function decide(a) { const t = now(); if ((a.__dT || 0) > t) return; a.__dT = t + 3 + Math.random() * 2; if (a.__task) return;
+    if (craft(a)) { a.__dT = t + 1.5; return; }
+    let st = null; try { if (window.SUNNY_BRAIN) st = SUNNY_BRAIN.cycle('Choose work for ' + (a.name || 'one o us')).internalState; } catch (_) {}
+    const cur = st && st.curiosity != null ? st.curiosity : 0.5, en = st && st.energy != null ? st.energy : 0.6;
+    const logs = cntL(a, LOGS(a)) + cntL(a, PL(a)) / 4, pick = C.tier(a, C.PK), w = {};
+    const d = C.findDrop(a, 10); if (d) w.fetch = 2;
+    if (t - lastBreak > 3) { if (logs < 6 && !((a.__chopCd || 0) > t)) w.chop = 0.6 + en * 0.6; if (pick && !((a.__mineCd || 0) > t)) w.mine = 0.5 + cur * 0.6; }
+    w.rest = 0.5;
+    let tot = 0; for (const k in w) tot += w[k]; let r = Math.random() * tot, g = 'rest'; for (const k in w) { r -= w[k]; if (r <= 0) { g = k; break; } }
+    const T0 = performance.now(); let task = null;
+    if (g === 'fetch') task = {g, d};
+    else if (g === 'chop') { U.scans++; const tr = findTree(a); a.__chopCd = t + (tr ? 40 : 20); if (tr) task = {g, tr, s: tr.s}; }
+    else if (g === 'mine') { U.scans++; const pt = C.tier(a, C.PK); a.__mineCd = t + 20; const rk = pt ? findRock(a, C.n(a, T.COBBLE) < 8) : null;
+      const req = b => b === T.DIAMONDORE || b === T.RUBYORE ? 3 : b === T.COALORE || b === T.STONE ? 1 : 2; if (rk && pt >= req(rk.b)) { task = {g, rk, s: rk.s}; a.__mineCd = t + 12; } }
+    U.ms += performance.now() - T0;
+    if (task) { task.t0 = t; task.hit = 0; a.__task = task; U.goals[g] = (U.goals[g] || 0) + 1; try { if (window.SUNNY_BRAIN) SUNNY_BRAIN.predict((a.name || 'One o us') + ' goes to ' + g, g + ' done'); } catch (_) {} } }
+  function done(a, ok) { const k = a.__task; a.__task = null; a.__heldWant = 0; try { if (window.SUNNY_BRAIN) SUNNY_BRAIN.reflect(ok ? k.g + ' done' : k.g + ' failed'); } catch (_) {} }
+  // ---- doing it: walking there with their own legs (the castle wander), then the work ----
+  function work(a, dt) { const k = a.__task, p = a.g.position, t = now(); if (t - k.t0 > 40) return done(a, false);
+    const go = (x, z) => { a.wp = [x + .5, z + .5]; a.wpT = 9; a.idle = 0; };
+    if (k.g === 'fetch') { const d = k.d; if (drops.indexOf(d) < 0) return done(a, false); if (Math.hypot(d.x - p.x, d.z - p.z) < 1.4) { C.grab(a, d); return done(a, true); } go(Math.floor(d.x), Math.floor(d.z)); return; }
+    const tg = k.g === 'chop' ? k.tr : k.rk, s = k.s;
+    if (k.g === 'chop' ? !LOGGY[getB(tg.x, tg.y, tg.z)] : getB(tg.x, tg.y, tg.z) !== tg.b) return done(a, false);
+    if (Math.hypot(s[0] + .5 - p.x, s[2] + .5 - p.z) > 0.9) { go(s[0], s[2]); return; }
+    a.__heldWant = k.g === 'chop' ? C.best(a, C.AX)[0] : C.best(a, C.PK)[0]; a.idle = 0.4; a.wp = null; a.ang = Math.atan2(tg.x + .5 - p.x, tg.z + .5 - p.z); a.act = 'work';
+    const tier = C.tier(a, k.g === 'chop' ? C.AX : C.PK), need = (k.g === 'chop' ? [4, 2.6, 2, 1.4, 1] : [5, 3, 2.2, 1.6, 1.2])[tier];
+    k.hit += dt; k.sw = (k.sw || 0) - dt; if (k.sw <= 0) { k.sw = 0.5; a.swingT = 0.4; try { sfx3d('dig', {x: tg.x + .5, y: tg.y + .5, z: tg.z + .5}, 14); burst(tg.x + .5, tg.y + .5, tg.z + .5, blockColor(getB(tg.x, tg.y, tg.z)), 3, 0.4); } catch (_) {} }
+    if (k.hit >= need && now() - lastBreak > 1) { if (breakIt(tg.x, tg.y, tg.z)) { if (k.g === 'chop') U.chopped++; else U.mined++; } done(a, true); a.__dT = now() + (k.g === 'chop' ? 2.5 : 1); } }
+  // ---- fighting: a hostile near one of them while working outside the walls gets their weapon ----
+  function hostileNear(a, r) { const p = a.g.position; let b = null, bd = r; for (const m of mobs) { if (!m || !m.hostile || m.kind === 'clansman' || m.tame || !(m.hp > 0) || !m.g) continue;
+      const q = m.g.position, d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd && Math.abs(q.y - p.y) < 3 && inCastle(a, q.x, q.z, 9)) { bd = d; b = m; } } return b; }
+  let curA = null;
+  const W = {}; C.SW.forEach((id, i) => id && (W[id] = i + 1)); C.AX.forEach((id, i) => id && (W[id] = W[id] || Math.max(1, i)));
+  const dm = damageMob; damageMob = function (m, dmg, byPlayer) {
+    try { if (curA && !byPlayer && m && m !== curA && m.kind !== 'clansman') { const b = W[C.heldFor(curA)] || 0; if (b) { dmg += b; U.bonus++; } }
+      else if (m && m.kind === 'clansman' && !byPlayer && !curA) { const pts = C.armour(m).pts; if (pts) { dmg = Math.max(0.5, dmg * (1 - Math.min(0.5, pts * 0.05))); U.soft++; } } } catch (e) { ERR(e); }
+    return dm.call(this, m, dmg, byPlayer); };
+  const ca = clanAI; clanAI = function (a, dt) {
+    let pre = false;
+    try { if (isF(a) && started && !DIM.cur && !isNight && !a.trading && !a.sleeping && !(a.angryT > 0) && !a.tgt && Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z) < 40) {
+        const h = (a.__hT = (a.__hT || 0) - dt) <= 0 ? (a.__hT = 0.7, hostileNear(a, 8)) : null;
+        if (h && (C.heldFor(a) || a.hp > 12)) { a.tgt = h; U.fights++; if (a.__task) done(a, false); }
+        else { if (!a.__task) decide(a); if (a.__task) { work(a, dt); pre = true; } } }
+      else if (a && a.__task && (isNight || a.tgt || a.trading)) done(a, false); } catch (e) { ERR(e); a.__task = null; }
+    curA = a; let r; try { r = ca.apply(this, arguments); } finally { curA = null; }
+    if (pre && a.__task && a.act !== 'fight') { try { const k = a.__task; if (k.g !== 'fetch' && k.s && Math.hypot(k.s[0] + .5 - a.g.position.x, k.s[2] + .5 - a.g.position.z) <= 0.9) { const tg = k.tr || k.rk; a.ang = Math.atan2(tg.x + .5 - a.g.position.x, tg.z + .5 - a.g.position.z); } } catch (_) {} }
+    return r; };
+  const ew = enterWorld; enterWorld = function () { for (const m of mobs) if (m) m.__task = null; return ew.apply(this, arguments); };
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -30113,6 +30314,7 @@ window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.",
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.47', d:'2026-10-28', notes:["New: wisteria is its own wood - pale grey-lilac wisteria logs, wisteria planks, stairs (with corner stairs), slab, door, fence, fence gate and boat, all craftable, with their own icons, in creative next to the other woods, and axes cut them; purple wisteria leaves with hanging blossom (they drop sticks); new wisteria trees use only wisteria logs and leaves, and the pink blossom tree no longer mixes with oak (new and reset worlds)", "New: bridges and roads in new and reset worlds follow the land - ramps and embankments instead of tunnels, decks only span water - no trees grow in their path and no floating bits of tree are left beside them, and lanterns now sit right on top of fence posts on a little iron stem", "New: the castle people no longer speak in words - they talk in 100 different warm, hummed villager-like tones with a Scottish lilt (greeting, question, agree, disagree, alarm, curious, happy, sad, hurt, thanks, farewell), chosen by the hive mind and never the same one twice in a row, and they answer each other back and forth; the spoken voice clips and the AI voice setting are gone", "New: the castle people carry things again - they pick up useful items lying near them, eat what they carry when hungry, keep the gifts you give them, drop everything they carry when they die, and it is all saved with your world", "New: the castle people have more freedom - near their castle, while you are close by, they chop down trees (the tree falls like yours) and collect the logs, mine exposed stone and ore on the surface or at cave mouths (never your blocks, never near or under your builds, never a hole in the ground), craft better tools, weapons and armour over time, visibly hold and wear them, and use them to fight monsters"]},
 {v:'v1.0.46', d:'2026-10-28', notes:["New: going into a house or a cave no longer turns the day to night - the sky, sun, fog and the view outside stay exactly as they are outdoors (doors, windows and cave mouths show daylight); only truly deep, closed-in caves get the dark cave look, and only the rain sound changes when you are under a roof"]},
 {v:'v1.0.45', d:'2026-10-28', notes:["New: Settings > Shaders: Low / High (High on computers, Low on phones so they stay smooth) - High adds warm golden sunlight, richer greens, blue distance haze, a soft sun bloom, waving leaves, grass and flowers, water fresnel and sun glints, a grey-blue overcast tint while it rains and a light vignette; it never goes darker than the 30% light floor", "New: lusher new and reset worlds - much more tall grass, bushy bushes, round oaks, flower patches, bluebell-and-heather 'lavender' meadows and wisteria-style trees hung with purple blossom (your current world is not changed)", "New: the rare pink blossom tree from v0.8.0 is back in new and reset worlds, in its original shape - at least one in every new glen", "New: rain keeps falling outside when you go indoors - you see it through windows and doors - and never shows inside a house, a base or a tunnel mouth (it stops at each column's roof)", "New: 3D rain sound - an all-round rain bed outdoors; indoors it crossfades to cosy muffled rain on the roof with soft taps on wood and glass and a gentle rumble, louder from the window or door side and shifting as you turn and move", "New: gravel breaks as fast as dirt", "New: the deep grey stone in caves is just 'Stone' now and drops Cobblestone like normal stone", "New: no more stutter or dark flash the first time a new ore shows up while you mine in a cave", "New: smart pick tool - click the right stick (RS) or press T to grab the right tool for what you are looking at: shovel for dirt, grass, sand, gravel, snow, clay and mud; the best pickaxe that can mine stone, cobble, bricks, sandstone and ores; an axe for logs and planks; shears or a sword for leaves, wool and cobweb; a hoe for crops; a bucket for water or lava; and your gun (if loaded) or best sword when a monster is in your sights. If it is not on your hotbar it swaps in from your bag; if you have nothing suitable a message tells you (RS did nothing before, so no button moved)", "New: roads from spawn - in new and reset worlds a gravel road with cobble edges, fences and lamps runs from around spawn out to the first bridge, between bridges, and on to every castle and island, so you can walk from spawn to each island in turn; the islands are still separated by water", "New: the spawn skull has its open mouth back - walk in through the teeth into a hollow lantern-lit cave inside, as in the original build (new and reset worlds)", "Textures: lazurite (lapis lazuli) ore redone like the silver and redstone ores - deep-blue specks and thin veins sunk into the plain stone, with the odd gold fleck", "Mobs: the people speak real words now, in a Scots voice - greetings, trading, being hit, nightfall, and what they predict and learn - and they talk to each other; only people near you, at most 3 voices at once, on the mob voice slider (the nods stay)", "Mobs: what they say is built from what is going on - what you hold, digging, chopping or building, the time, weather, your health, the place, mobs nearby and what they remember - and a line never repeats within about 50 lines or 20 minutes", "Mobs: the people share the SUNNY v206 brain - every line runs its think cycle (memories, beliefs, hypotheses, predictions, reflections); it is saved with each world and wiped by Reset world", "Mobs: free will - clansmen pick their own goals (work, wander, chat, eat, hunt beasts, fight or flee monsters, trade, dance, sleep), say what they mean to do, then reflect on how it went; they still never attack you unless you hit them", "Mobs: rarely, a person stops for a 4-layer self-reflection out loud ('Am thinkin aboot me thinkin... aye, a funny wee loop.'), which nudges what they care about", "Mobs: optional AI replies - Chrome's built-in AI when it is there, or your own AI key in the pause menu (kept only on this device) - spoken in each person's own voice; without it they use their built-in lines", "Mobs: gifts - press LT while holding an item to give one to a person (a finished trade counts for clansmen); they do a happy dance for a few seconds and remember your kindness", "Mobs: the dance is real now - a 15-second routine copied move for move from the dance video (side-on poses, arm throws, a full spin, arms out wide and overhead, leg lifts and knee bends) instead of bobbing up and down", "Mobs: the mountain beast is now the Snaw Yeti - a gentle shaggy white-grey abominable snowman with HD fur that never attacks, just wanders and gives the odd soft low grumble; it is rare and only turns up high on snowy mountain peaks"]},
 {v:'v1.0.44', d:'2026-10-28', notes:["Mobs: the people no longer show their thoughts as text on screen when they talk - you just hear their voices"]},
