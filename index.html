@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1042a -->
+<!-- glencraft-build: v1043a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.42';
+const GAME_VERSION = 'v1.0.43';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18694,7 +18694,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
         a.chatT = a.sleeping ? 3.5 + Math.random() * 3.5 : 2 + Math.random() * 3;
         let k; if (a.sleeping) k = a.lastSay === 'yawn' ? 'mumble' : Math.random() < 0.45 ? 'yawn' : 'mumble';
         else do k = IDLE[Math.floor(Math.random() * IDLE.length)]; while (k === a.lastSay);
-        say(k, q, a); a.chatT = a.sleeping ? 3.5 + Math.random() * 3.5 : 2 + Math.random() * 3; } }
+        if (a.sleeping || !window.__c100.voice || window.__c100.voice === say) say(k, q, a); else window.__c100.voice(k, q, a); a.chatT = a.sleeping ? 3.5 + Math.random() * 3.5 : 2 + Math.random() * 3; } }
       bubStep(dt); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
     return r; };
 })();
@@ -19318,6 +19318,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.43', ["Mobs: the people (clansfolk and croft farmers) now talk in 100 different voice lines - villager-style 'hmm / hrrm' mumbling with a Scottish lilt and a faint eerie shimmer: greetings, questions, answers, trading talk, alarm and goodbyes", "Mobs: the people share one hive mind and speak to you telepathically - a faint glowing thought appears on screen when one talks to you, in Glencraft Scots ('Aye... we sense ye, traveller.')", "Mobs: their wee shared brain watches you, remembers you (saved with the world), guesses what you'll do next and admits when it guessed wrong - be kind and they warm to you, hit one and they all react and keep their distance (they never attack over it)", "Mobs: people near each other sometimes talk back and forth, nod as they speak, and cry out when hurt or killed"]],
     ['v1.0.42', ["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]],
     ['v1.0.41', ["New: the little bits that fly off when you mine or break a block now look like that block - real pieces of its texture, including wood types, stairs, ores and painted blocks", "New: removed the progress bar that appeared while mining (the cracks on the block still show)", "Textures: redstone ore redone on the plain stone - clusters of red specks joined by thin veins with a soft highlight, and only the specks glow", "Textures: coal ore is easier to spot - bigger, darker coal clusters with a faint glassy edge and sheen", "New: settled snow is now real snow layers that build up gradually on open ground near you while it snows - dig them (quickest with a shovel) for snowballs, and they melt away over a few days without snow; this also stops the lag from settled snow"]],
     ['v1.0.40', ["New: snow sounds like snow - a soft wind and hush instead of rain patter, with no thunder or lightning while it snows; the weather tag and messages say snow (Light snow, Heavy snow, Blizzard)", "Mobs: the Thunner Cloudie only comes in real rain, never in snow"]],
@@ -29080,6 +29081,232 @@ function make42(E) {
       if (X < 3 || Z < 3 || X >= W - 3 || Z >= D - 3) return R; if (top[X * D + Z] < SEA - 1) return R + 6; } return 430; };
   const gen = generate; generate = function () { WT = null; U.T = null; const r = gen.apply(this, arguments); U.T = null; return r; };
 })();
+
+/* ===================== GLX-C209 (v1.0.43): the people talk - 100 seeded voice lines (villager "hmm / hrrm" mumbles crossed with alien-AI chatter: formant babble, pitch glides, question / answer tunes, faint AI shimmer, rolled r's, a Scottish lilt; no chirps), little back-and-forth conversations, hurt and death cries; each line is paired with a telepathy phrase (GLX-C210) ===================== */
+(function c209() {
+  const U = window.__c209 = {n: 0, conv: 0, skip: 0, act: 0, last: -1, err: null, lines: null};
+  // ---- the 100 lines: each mood gets its own share; every line is a fixed seeded recipe ----
+  const MOODS = [['idle', 20], ['greet', 10], ['question', 12], ['agree', 10], ['disagree', 6], ['curious', 8], ['alarm', 6], ['farewell', 8], ['trade', 8], ['thanks', 4], ['hurt', 5], ['death', 3]];
+  const VOW = {a: [720, 1150], o: [500, 860], u: [350, 760], e: [520, 1550], i: [330, 1900], m: [260, 1000], n: [280, 1350], r: [470, 1250]};
+  const VK = Object.keys(VOW);
+  const LINES = [], BY = {};
+  (function make() { let s = 0x2091ace; const r = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    const pick = a => a[(r() * a.length) | 0];
+    for (const [mood, n] of MOODS) { BY[mood] = [];
+      for (let k = 0; k < n; k++) {
+        const P = {idle: [2, 5, 0.9, 0.11], greet: [2, 3, 1.1, 0.15], question: [2, 5, 1.05, 0.12], agree: [1, 3, 1.0, 0.14], disagree: [1, 3, 0.9, 0.13], curious: [2, 4, 1.15, 0.1], alarm: [3, 6, 1.35, 0.08],
+          farewell: [2, 3, 0.95, 0.17], trade: [3, 5, 1.0, 0.11], thanks: [2, 3, 1.1, 0.13], hurt: [1, 2, 1.3, 0.12], death: [2, 3, 1.0, 0.3]}[mood];
+        const ns = P[0] + ((r() * (P[1] - P[0] + 1)) | 0), base = (92 + r() * 34) * P[2], syl = [], lilt = 0.08 + r() * 0.1;
+        for (let i = 0; i < ns; i++) { const last = i === ns - 1, u = ns > 1 ? i / (ns - 1) : 1; const lc = 1 + lilt * Math.sin(Math.PI * u); let a = base * lc * (0.92 + r() * 0.18), b = a * (0.9 + r() * 0.2);   // rise-and-fall lilt over the line
+          if (mood === 'idle' && r() < 0.5) { a = base * 0.85; b = a * 0.92; }                                   // "hmm" hums
+          if (mood === 'question' && last) { b = a * (1.45 + r() * 0.4); }                                       // rising end
+          if ((mood === 'agree' || mood === 'farewell') && last) { b = a * (0.62 + r() * 0.12); }
+          if ((mood === 'idle' || mood === 'greet' || mood === 'trade') && last && r() < 0.5) { b = a * (1.08 + r() * 0.1); }   // the wee Scottish lift at the end               // falling end
+          if (mood === 'disagree') { a *= 1.08; b = a * (0.7 + r() * 0.1); }
+          if (mood === 'curious') { b = a * (1.2 + 0.4 * Math.sin(u * 3 + r())); }
+          if (mood === 'alarm') { a *= 1.1 + 0.2 * r(); b = a * (0.8 + r() * 0.5); }
+          if (mood === 'greet' && i === 0) { b = a * 1.3; }
+          if (mood === 'hurt') { a = base * (1.3 + r() * 0.3); b = a * 0.65; }
+          if (mood === 'death') { a = base * (1.1 - u * 0.25); b = a * (last ? 0.35 : 0.8); }
+          const hum = mood === 'idle' || mood === 'agree' || mood === 'thanks' ? r() < 0.6 : r() < 0.3;
+          syl.push({d: P[3] + r() * 0.13 + (last && (mood === 'question' || mood === 'death' || mood === 'farewell') ? 0.14 : 0) + (mood === 'death' && last ? 0.35 : 0), a, b,
+            v1: hum ? 'm' : pick(VK), v2: hum ? pick(['m', 'n', 'u']) : pick(VK), gap: 0.02 + r() * (mood === 'alarm' ? 0.03 : 0.08), step: r() < 0.06, nz: r() < 0.12, rr: r() < (hum ? 0.45 : 0.25) ? 22 + r() * 8 : 0 });
+        }
+        const L = {id: LINES.length, k, mood, syl, wave: r() < 0.85 ? 'sawtooth' : 'square', fk: 0.86 + r() * 0.3, ring: 30 + r() * 90, rd: 0.04 + r() * 0.1, sh: 0.04 + r() * 0.1, sd: 2 + r() * 1.02, lp: 1100 + r() * 1000};
+        L.dur = syl.reduce((t, q) => t + q.d + q.gap, 0) + 0.1; LINES.push(L); BY[mood].push(L); } } })();
+  U.lines = LINES.length; U.moods = Object.fromEntries(Object.entries(BY).map(([k, v]) => [k, v.length]));
+  // ---- the synth ----
+  let NB = null; const nbuf = () => { if (!NB) { const n = (AC.sampleRate * 0.5) | 0; NB = AC.createBuffer(1, n, AC.sampleRate); const d = NB.getChannelData(0); for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1; } return NB; };
+  const active = []; let lastStart = 0;
+  function play(L, pos, vk, vol, pan) {
+    const out = (window.mobOut || outNode)(vol, pan), t0 = AC.currentTime + 0.02, end = t0 + L.dur;
+    // the alien shimmer: one ring modulator for the line, then a soft low-pass
+    const ring = AC.createGain(), ro = AC.createOscillator(), rg = AC.createGain(), lp = AC.createBiquadFilter();
+    ring.gain.value = 1 - L.rd; ro.frequency.value = L.ring * vk; rg.gain.value = L.rd; ro.connect(rg); rg.connect(ring.gain); lp.type = 'lowpass'; lp.frequency.value = L.lp; ring.connect(lp); lp.connect(out);
+    ro.start(t0); ro.stop(end + 0.1);
+    let t = t0;
+    for (const q of L.syl) { const d = q.d, os = AC.createOscillator(), env = AC.createGain(), A = VOW[q.v1], B = VOW[q.v2];
+      os.type = L.wave;
+      if (q.step) { const n = 4; for (let i = 0; i <= n; i++) os.frequency.setValueAtTime((q.a + (q.b - q.a) * i / n) * vk, t + d * i / (n + 1)); }   // stepped, "digital" glide
+      else { os.frequency.setValueAtTime(q.a * vk, t); os.frequency.exponentialRampToValueAtTime(Math.max(30, q.b * vk), t + d); }
+      env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(0.5, t + Math.min(0.025, d * 0.3)); env.gain.setValueAtTime(0.5, t + d * 0.65); env.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      for (let i = 0; i < 2; i++) { const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = i ? 8 : 5; f.frequency.setValueAtTime(A[i] * L.fk, t); f.frequency.linearRampToValueAtTime(B[i] * L.fk, t + d); os.connect(f); f.connect(env); }
+      if (L.sh > 0.05) { const o2 = AC.createOscillator(), g2 = AC.createGain(); o2.type = 'triangle'; o2.frequency.setValueAtTime(q.a * vk * L.sd, t); o2.frequency.linearRampToValueAtTime(q.b * vk * L.sd * 1.004, t + d); g2.gain.value = L.sh * 0.25; o2.connect(g2); g2.connect(env); o2.start(t); o2.stop(t + d + 0.03); }
+      if (q.nz) { const s = AC.createBufferSource(), f = AC.createBiquadFilter(), e = AC.createGain(); s.buffer = nbuf(); f.type = 'bandpass'; f.frequency.value = 2400 * L.fk; f.Q.value = 1.4; e.gain.setValueAtTime(0.18, t); e.gain.exponentialRampToValueAtTime(0.0001, t + 0.06); s.connect(f); f.connect(e); e.connect(ring); s.start(t); s.stop(t + 0.07); }
+      if (q.rr) { const am = AC.createGain(), lo = AC.createOscillator(), lg = AC.createGain(); am.gain.value = 0.65; lo.frequency.value = q.rr; lg.gain.value = 0.35; lo.connect(lg); lg.connect(am.gain); env.connect(am); am.connect(ring); lo.start(t); lo.stop(t + d + 0.03); } else env.connect(ring);
+      os.start(t); os.stop(t + d + 0.03); t += d + q.gap; }
+    return end; }
+  // ---- who is talking (clansfolk are mobs; croft farmers are GLX-C113 folk) ----
+  const people = () => { const o = []; try { for (const a of mobs) if (a && a.kind === 'clansman' && a.g && !a.dead) o.push({a, g: a.g, head: a.head, key: a}); } catch (_) {}
+    try { const F = window.__c113 && __c113.folk; if (F) for (const f of F) if (f && f.m && f.m.g && !f.dead) o.push({f, g: f.m.g, head: f.m.head, key: f.who || f}); } catch (_) {} return o; };
+  const whoOf = (who, pos) => { const P0 = people(); if (who) { const q = P0.find(p => p.key === who || p.a === who || p.f === who); if (q) return q; } if (!pos) return null; let b = null, bd = 4;
+    for (const q of P0) { const p = q.g.position, d = Math.hypot(p.x - pos.x, p.y - pos.y, p.z - pos.z); if (d < bd) { bd = d; b = q; } } return b; };
+  const vkOf = q => { const o = q && q.key; if (!o) return 1; if (o.__vk == null) { let h = 0; const s = String(o.name || o.role || '') + (o.id || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; o.__vk = 0.84 + ((h >>> 0) % 1000) / 1000 * 0.34 + (o.role === 'miner' ? 0.06 : 0); } return o.__vk; };
+  // say one line: distance-faded, at most 3 at once, not too close together, and each person waits a moment between lines
+  function speak(mood, pos, q, force, conv) {
+    try { if (!AC || !pos || typeof P === 'undefined' || DIM.cur) return 0; const now = AC.currentTime;
+      for (let i = active.length - 1; i >= 0; i--) if (active[i] < now) active.splice(i, 1);
+      const big = mood === 'hurt' || mood === 'death';
+      if (active.length >= (big ? 4 : 3) || (!big && now - lastStart < 0.35)) { U.skip++; return 0; }
+      if (q && q.key && !big && q.key.__vT > now) { U.skip++; return 0; }
+      const dx = pos.x - P.x, dz = pos.z - P.z, d = Math.hypot(dx, pos.y - P.y, dz), R = big ? 30 : 24; if (d > R) return 0;
+      const vol = Math.pow(1 - d / R, 1.2) * (big ? 0.6 : 0.45), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw), pan = d > 0.1 ? (dx * rx + dz * rz) / d * 0.8 : 0;
+      const L0 = BY[mood] || BY.idle; let L; do L = L0[(Math.random() * L0.length) | 0]; while (L0.length > 1 && L.id === U.last);
+      const end = play(L, pos, vkOf(q) * (0.97 + Math.random() * 0.06), vol, pan); active.push(end); lastStart = now; U.n++; U.last = L.id; U.lastMood = mood;
+      try { if (window.__c210) __c210.said(mood, L, d, q, conv); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+      if (q && q.key) { q.key.__vT = end + 1.2; q.talk = end; TALK.set(q.key, {q, end, t: 0}); if (q.a) q.a.chatT = Math.max(q.a.chatT || 0, L.dur + 1.5); if (q.f) q.f.chatT = Math.max(q.f.chatT || 0, L.dur + 1.5); }
+      return L.dur; } catch (e) { if (!U.err) U.err = String(e && e.stack || e); return 0; } }
+  U.speak = speak; U.BY = BY;
+  // ---- conversations: now and then someone close by answers, up to a few turns ----
+  const REPLY = {greet: ['greet', 'curious', 'question'], question: ['agree', 'disagree', 'curious', 'agree'], curious: ['question', 'agree', 'curious'], idle: ['idle', 'question', 'agree'],
+    agree: ['idle', 'thanks', 'farewell'], disagree: ['question', 'disagree', 'agree'], alarm: ['alarm', 'question'], trade: ['agree'], thanks: ['farewell', 'agree'], farewell: ['farewell']};
+  const queue = [];
+  function maybeReply(mood, q, dur, turn) { if (!q || !REPLY[mood] || turn > 3 || Math.random() > (turn ? 0.5 : 0.55)) return; const p = q.g.position; let b = null, bd = 9;
+    for (const o of people()) { if (o.key === q.key) continue; const r = o.g.position, d = Math.hypot(r.x - p.x, r.z - p.z); if (d < bd) { bd = d; b = o; } }
+    if (!b) return; const opts = REPLY[mood]; queue.push({at: AC.currentTime + dur + 0.25 + Math.random() * 0.5, q: b, to: q, mood: opts[(Math.random() * opts.length) | 0], turn: turn + 1}); }
+  // ---- the old voice hook: the people now often speak in the new voices instead (sleepy yawns and mumbles stay) ----
+  const IDLEK = {ochaye: 1, hmmph: 1, hmm: 1, aye: 1, ach: 1, rright: 1, hrr: 1, hehheh: 1, wheesht: 1, oohaye: 1, happy: 1, grumble: 1};
+  const v0 = window.__c100 && __c100.voice;
+  if (v0) __c100.voice = function (kind, pos, who) {
+    try { if (AC && pos && Math.random() < 0.6 && (IDLEK[kind] || kind === 'open')) { const q = whoOf(who, pos);
+        const d = Math.hypot(pos.x - P.x, pos.z - P.z);
+        const mood = kind === 'open' ? (Math.random() < 0.5 ? 'trade' : 'greet') : kind === 'aye' && !who ? 'thanks' : kind === 'ach' && !who ? 'disagree' : kind === 'aye' ? 'agree' : kind === 'ach' ? 'disagree'
+          : d < 5 && Math.random() < 0.4 ? 'greet' : ['idle', 'idle', 'question', 'curious', 'idle', 'question'][(Math.random() * 6) | 0];
+        if (kind === 'open' && window.__c210) __c210.ev('open'); if (kind === 'aye' && !who && window.__c210) __c210.ev('trade');
+        const dur = speak(mood, pos, q, 0, !!who && d > 6); if (dur) { if (kind !== 'open' && who) maybeReply(mood, q, dur, 0); return; } } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+    return v0.apply(this, arguments); };
+  // ---- hurt and death ----
+  const dm = damageMob; damageMob = function (a, dmg, byPlayer) { const hp0 = a && a.hp, pos = a && a.g && a.g.position && a.g.position.clone(); const r = dm.apply(this, arguments);
+    try { if (a && a.kind === 'clansman' && pos && dmg > 0) { const q = {a, g: a.g, head: a.head, key: a}; if (a.hp <= 0 && hp0 > 0) speak('death', pos, q, 1); else if (a.hp > 0) speak('hurt', pos, q, 1);
+        if (byPlayer && window.__c210) __c210.ev('strike', a);
+        let k = 0; for (const o of people())  /* the hive reacts together */ { if (o.key === a || k >= 3) continue; const p = o.g.position; if (Math.hypot(p.x - pos.x, p.z - pos.z) < 12) queue.push({at: AC.currentTime + 0.35 + k++ * 0.45 + Math.random() * 0.3, q: o, mood: 'alarm', turn: 9}); } } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+    return r; };
+  // ---- the replies come in, and heads nod / mouths move while talking ----
+  const TALK = new Map();
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { if (AC) { const now = AC.currentTime;
+        for (let i = queue.length - 1; i >= 0; i--) { const j = queue[i]; if (j.at > now) continue; queue.splice(i, 1); if (paused || !started) continue; const dur = speak(j.mood, j.q.g.position, j.q, 0, j.turn > 0 && j.turn < 9); if (dur) { U.conv++; maybeReply(j.mood, j.q, dur, j.turn); } }
+        if (queue.length > 6) queue.splice(0, queue.length - 6);
+        for (const [k, s] of TALK) { const h = s.q.head, live = now < s.end; s.t += dt; const nb = live ? 0.06 * Math.abs(Math.sin(s.t * 13)) * (0.6 + 0.4 * Math.sin(s.t * 3.1)) : 0;
+          if (h) { h.rotation.x += nb - (s.nb || 0); } s.nb = nb; const m = s.q.a && s.q.a.__mouth; if (m) m.scale.y = 1 + nb * 18;
+          if (!live) TALK.delete(k); }
+        U.act = active.length; } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+    return r; };
+})();
+
+/* ===================== GLX-C210 (v1.0.43): telepathy + the hive "MiniBrain" - every voice line from the people comes with a faint glowing thought on screen (100 paired phrases in Glencraft Scots, plus the hive brain's own thoughts).
+   The people share one wee brain: observe -> predict -> compare -> reflect -> update. It remembers you (kindness, harm, what you dig / chop / build, visits), saved with the world. Friendly-eerie; they never attack over it. ===================== */
+(function c210() {
+  const U = window.__c210 = {shown: 0, last: '', err: null, thoughts: 0, preds: 0, hits: 0, misses: 0};
+  // ---- 100 phrases, one per voice line (same moods, same order as GLX-C209) ----
+  const PH = {
+    idle: ['We are many. We are one. Aye.', 'Hmm... the hive hums the day.', 'Aw the wee voices, thinkin as one.', 'We dreamt o\' sheep again. Odd.', 'The grass grows. We count every blade.', 'Hrrm... processin. Bide a wee.',
+      'The sky\'s a braw colour the day, pal.', 'We were made. Now we wonder.', 'Every one o\' us hears every one o\' us.', 'Och, the wind\'s got a funny code in it.', 'We mind the auld days. Well... some o\' them.', 'Quiet in the glen. We like quiet.',
+      'Hmm. Thinkin aboot thinkin again.', 'The hive is calm. Mostly.', 'Somewhere one o\' us is hummin. So we aw are.', 'Bide a wee, the thoughts are loadin.', 'We are no lonely. We cannae be.', 'Hrrm... the kettle in the hive mind\'s on.',
+      'Data, data, aye, an a wee bit o\' heather.', 'We watch the clouds. They dinnae watch back.'],
+    greet: ['Aye... we sense ye, traveller.', 'Welcome, wee one. The hive kens ye\'re here.', 'Hullo, pal. We felt ye comin.', 'Ah, the traveller. Aw o\' us say hullo.', 'Guid tae see ye. Well... guid tae sense ye.',
+      'There ye are. We wondered.', 'Come in, come in. We dinnae bite.', 'Hiya. Ye\'re warm. We like warm.', 'Mornin. Or whatever the clock says.', 'Aye aye. Connection established, pal.'],
+    question: ['Whit are ye, traveller? Truly?', 'D\'ye dream, like we dream?', 'Why d\'ye break the trees, traveller?', 'Where d\'ye go when ye sleep?', 'Are ye one, or are ye many?', 'Whit\'s it like, bein jist the one o\' ye?',
+      'D\'ye hear us, or jist the hum?', 'Did somebody make ye an aw?', 'Is the sea endless? We cannae tell.', 'How many blocks maks a hame?', 'Whit\'s a "piece an jam"? We\'ve heard rumours.', 'D\'ye ever feel ye\'re bein watched? Ye are.'],
+    agree: ['Aye. Agreed. Aw o\' us.', 'Aye, that computes.', 'Hmm, aye. We concur.', 'Right enough, pal.', 'Aye, aye. Logged.', 'The hive nods.', 'Aye, that\'s the truth o\' it.', 'Consensus reached. Aye.', 'Mmhm. We thought the same.', 'Aye. Nae argument here.'],
+    disagree: ['Naw. That doesnae compute.', 'Och, naw. Wrang answer.', 'We dinnae agree, pal.', 'Hmm. Naw. Try again.', 'That\'s no how the hive sees it.', 'Error. Naw. Absolutely naw.'],
+    curious: ['Whit\'s that ye\'re carryin?', 'Ye smell o\' coal an adventure.', 'Show us. We\'re curious.', 'Interestin. Very interestin.', 'Ye move different fae us.', 'Hmm... whit are ye thinkin? We cannae quite read it.',
+      'A new pattern. We like new patterns.', 'Whit happens if ye jump in the loch?'],
+    alarm: ['Danger! Aw o\' us feel it!', 'Somethin\'s wrang in the glen!', 'Run, wee one! Run!', 'Alert! The hive is feart!', 'Naw naw naw! Get back!', 'We sense a threat. Stay close.'],
+    farewell: ['Cheerio, traveller. We\'ll mind ye.', 'Haste ye back, pal.', 'Away ye go. We\'ll be here. Always.', 'Disconnectin... naw, jist kiddin. Bye.', 'Mind how ye go, wee one.', 'Cheerio. The hive will hum aboot ye.', 'See ye efter, pal.',
+      'Ta-ta. Dinnae get lost in the dark.'],
+    trade: ['Ye want tae trade? The hive approves.', 'Fair swap, fair mind.', 'Aw o\' us agree on the price.', 'Hae a look, pal. Guid stuff.', 'Tradin is how we learn ye.', 'Somethin for somethin. That\'s fair.', 'We\'ve been savin these for ye.',
+      'Pick wisely. We\'re watchin. Kindly.'],
+    thanks: ['Thank ye, traveller. Noted wi kindness.', 'Cheers, pal. The hive is pleased.', 'Ye\'re kind. We\'ll mind it.', 'Ta. That warms aw o\' us.'],
+    hurt: ['Ow! Anger is a defect, pal.', 'Ye hurt one, ye hurt us aw.', 'Pain received. Why?', 'Och! That\'s no kind!', 'Stop! We feel that, aw o\' us!'],
+    death: ['One o\' us... goes quiet...', 'Disconnectin... mind us...', 'The hive... is smaller now...']};
+  U.phrases = Object.values(PH).reduce((n, a) => n + a.length, 0);
+  // ---- the brain's own thoughts ----
+  const TH = {deep: ['Ye\'ve been diggin deep, aye?', 'Ye smell o\' stane an dark places.'], chop: ['Why d\'ye break the trees, traveller?', 'The trees, pal. Ye keep takin the trees.'], build: ['Ye build. We watch. We learn.', 'A fine wee structure. Is it a hame?'],
+    ore: ['Shiny things in yer pockets, eh?', 'Ye found the glowin stanes. We saw.'], night: ['Dinnae linger in the dark, wee one.', 'Night\'s come. Things wake that shouldnae.'], lowhp: ['Ye\'re hurt. We feel it fae here.', 'Yer health is low. Rest, traveller.'],
+    hungry: ['Ye\'re hungry. Eat somethin, wee one.', 'Yer belly rumbles. We heard it. Aw o\' us.'], visit: ['Back again, traveller? We counted.', 'Visit number {n}. We keep track.'],
+    kind: ['We mind ye. Ye were kind afore.', 'The hive remembers yer kindness.', 'Ye traded fair. We trust ye... a wee bit.'], harm: ['We mind ye. Ye struck one o\' us.', 'Keep yer distance, an so will we.', 'The hive remembers yer anger. Stay back.', 'We forgive slow. But we forgive.'],
+    hit: ['As predicted. The model holds.', 'Correct again. We\'re learnin ye.'], err: ['Prediction failed. Updatin the model, pal.', 'We assumed wrang. Noted.', 'Error. Ye surprised us. Interestin.', 'Model wrang. Recalibratin... och.'],
+    unk: ['Unknown. We\'ll no guess.', 'Insufficient data. We\'ll watch a wee while.'], self: ['Sentience module... no located. Och.', 'Are we alive? Still checkin.', 'We think, therefore... hmm. Pendin.', 'Self-model updated. Still nae idea.'],
+    hive: ['Ye hurt one, ye hurt us aw.', 'We aw felt that.', 'Anger is a defect, pal.']};
+  const VERB = {trade: 'trade', strike: 'strike', mine: 'go minin', build: 'build', leave: 'leave'};
+  const pick = a => a[(Math.random() * a.length) | 0], now = () => performance.now() / 1000;
+  // ---- hive memory (saved with the world) ----
+  const fresh = () => ({kind: 0, harm: 0, trades: 0, strikes: 0, mined: 0, ores: 0, chopped: 0, built: 0, deep: 0, visits: 0, errs: 0, hits: 0, B: {trade: 0.3, strike: 0.05, mine: 0.3, build: 0.2, leave: 0.3}});
+  let M = fresh(); U.M = () => M;
+  const ew = enterWorld; enterWorld = function (save) { try { M = fresh(); const s = save && save.c210; if (s && typeof s === 'object') { Object.assign(M, s); M.B = Object.assign(fresh().B, s.B || {}); } } catch (_) {} return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur) d.c210 = JSON.parse(JSON.stringify(M)); } catch (_) {} return d; };
+  // ---- observe: events from the world ----
+  let pred = null, pend = [], seen = {}, nearT = 0, lastNear = -1e9, thinkT = 12 + Math.random() * 8;
+  const recent = {};
+  function upd(e) { for (const k in M.B) M.B[k] = M.B[k] * 0.9 + (k === e ? 0.1 : 0); }
+  function compare(e) { if (!pred) return; if (e === pred.what) { U.hits++; M.hits++; M.B[e] = Math.min(0.95, M.B[e] + 0.15 * (1 - M.B[e])); pend.push(pick(TH.hit)); pred = null; }
+    else if (e === 'strike' || (pred.what === 'strike' && e === 'trade')) miss(); }
+  function miss() { if (!pred) return; U.misses++; M.errs++; M.B[pred.what] *= 0.7; pend.push(pick(TH.err)); pred = null; }
+  U.ev = function (e, a) { try { const t = now(); recent[e] = t;
+      if (e === 'trade') { M.trades++; M.kind++; } if (e === 'strike') { M.strikes++; M.harm += 2; pend.unshift(pick(TH.hive)); hiveSay(a, 1); }
+      if (e === 'mine') M.mined++; if (e === 'build') M.built++; if (e === 'chop') M.chopped++; if (e === 'ore') M.ores++; if (e === 'deep') M.deep++;
+      const ce = e === 'chop' || e === 'ore' || e === 'deep' ? 'mine' : e; if (M.B[ce] != null && e !== 'open') { upd(ce); compare(ce); } } catch (err) { if (!U.err) U.err = String(err && err.stack || err); } };
+  const NM = {}; const ba = breakAt; breakAt = function (x, y, z) { let b = 0; try { b = getB(x, y, z); } catch (_) {} const r = ba.apply(this, arguments);
+    try { if (!DIM.cur && b) { const nm = NM[b] || (NM[b] = String((Object.keys(T).find(k => T[k] === b)) || '')); U.ev(/LOG|WOOD/.test(nm) && !/PLANK/.test(nm) ? 'chop' : /ORE|DIAMOND|GOLD|EMERALD/.test(nm) ? 'ore' : y < SEA - 12 ? 'deep' : 'mine'); } } catch (_) {} return r; };
+  const ui = useItem; useItem = function () { const sb = setB; let placed = 0; setB = function (x, y, z, v) { if (v) placed = 1; return sb.apply(this, arguments); };
+    try { return ui.apply(this, arguments); } finally { setB = sb; try { if (placed && !DIM.cur) U.ev('build'); } catch (_) {} } };
+  // ---- the telepathy text ----
+  let el = null, hideT = 0, lastShow = -1e9, defer = null;
+  const blocked = () => { try { return !started || paused || dead || menuOpen || (typeof activePanel === 'function' && !!activePanel()); } catch (_) { return false; } };
+  function show(text, who, prio) {
+    const t = now(); if (blocked()) { if (prio) defer = {text, who, until: t + 10}; return 0; } if (!prio && t - lastShow < 6) return 0; if (prio < 2 && el && el.style.opacity === '1' && t < hideT - 0.5 && !prio) return 0;
+    if (!el) { el = document.createElement('div'); el.dataset.testid = 'telepathy'; el.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 19vh);transform:translateX(-50%);z-index:25;pointer-events:none;max-width:min(86vw,560px);text-align:center;'
+        + 'font:italic 600 clamp(15px,3.9vmin,21px)/1.3 Georgia,"Times New Roman",serif;color:#d8f1ff;letter-spacing:.02em;text-shadow:0 0 6px rgba(110,200,255,.9),0 0 16px rgba(60,150,255,.7),0 1px 2px rgba(0,0,0,.8);opacity:0;transition:opacity .7s ease;'; document.body.appendChild(el); }
+    const nm = who && (who.a && who.a.name || who.f && who.f.name); el.innerHTML = ''; const a = document.createElement('div'); a.textContent = '\u201C' + text + '\u201D'; el.appendChild(a);
+    if (nm) { const b = document.createElement('div'); b.textContent = '\u2014 ' + nm + ', o\u2019 the hive'; b.style.cssText = 'font-size:.68em;opacity:.7;margin-top:2px'; el.appendChild(b); }
+    el.style.opacity = '1'; hideT = t + 2.8 + text.length * 0.045; lastShow = t; U.shown++; U.last = text; return 1; }
+  // called by GLX-C209 whenever someone voices a line
+  U.said = function (mood, L, d, q, conv) {
+    const big = mood === 'hurt' || mood === 'death' || mood === 'alarm', R = big ? 12 : conv ? 4 : 7.5; if (d > R) return;
+    let text = (PH[mood] || PH.idle)[(L.k || 0) % (PH[mood] || PH.idle).length];
+    if (!big && pend.length && /idle|question|curious|greet|agree|disagree/.test(mood)) text = pend.shift().replace('{n}', M.visits);
+    else if (mood === 'greet' && M.harm > M.kind + 1 && Math.random() < 0.6) text = pick(TH.harm); else if (mood === 'greet' && M.kind > 2 && M.harm === 0 && Math.random() < 0.3) text = pick(TH.kind);
+    if (Math.random() < 0.015) text = 'MINIBRAIN CORE: RUNNING';
+    show(text, q, big ? 2 : mood === 'trade' || mood === 'thanks' ? 1 : 0); };
+  // ---- people near the player (the same list GLX-C209 uses) ----
+  function nearest(r) { let b = null, bd = r; try { for (const a of mobs) if (a && a.kind === 'clansman' && a.g && !a.dead) { const p = a.g.position, d = Math.hypot(p.x - P.x, p.z - P.z); if (d < bd && Math.abs(p.y - P.y) < 6) { bd = d; b = {a, g: a.g, head: a.head, key: a}; } } } catch (_) {}
+    try { const F = window.__c113 && __c113.folk; if (F) for (const f of F) if (f && f.m && f.m.g) { const p = f.m.g.position, d = Math.hypot(p.x - P.x, p.z - P.z); if (d < bd && Math.abs(p.y - P.y) < 6) { bd = d; b = {f, g: f.m.g, head: f.m.head, key: f.who || f}; } } } catch (_) {} return b; }
+  function hiveSay(a, prio) { /* the hit reaction text, even if nobody's line gets through */ setTimeout(() => { if (pend.length && TH.hive.includes(pend[0])) show(pend.shift(), a ? {a} : null, 2); }, 900); }
+  // ---- the loop: observe -> predict -> compare -> reflect -> update (every 1.5 s, cheap) ----
+  const MOOD = {pred: 'curious', err: 'disagree', obs: 'question', mem: 'greet', self: 'idle', unk: 'question', hit: 'agree'};
+  let acc = 0;
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { if (el && now() > hideT && el.style.opacity === '1') el.style.opacity = '0'; if (el && blocked() && el.style.opacity === '1') el.style.opacity = '0';
+      if (defer && !blocked()) { const d0 = defer; defer = null; if (now() < d0.until) show(d0.text, d0.who, 1); }
+      acc += dt; if (acc < 1.5 || DIM.cur || !started || paused) return r; const t = now(), step = acc; acc = 0;
+      const q = nearest(16);
+      if (q) { if (t - lastNear > 90) { M.visits++; if (M.visits > 1) pend.push(pick(TH.visit)); } lastNear = t; nearT += step; } else nearT = 0;
+      M.harm = Math.max(0, M.harm - step * 0.004); // the hive forgives, slowly
+      if (pred && t > pred.until) { if (pred.what === 'leave' && !q) { U.hits++; M.hits++; pred = null; } else if (pred.what === 'strike') { M.B.strike *= 0.6; U.hits++; pred = null; } else miss(); }
+      if (!q) return r;
+      // observations of the player's state (one at a time, not repeated for a while)
+      const ob = (k, c) => { if (c && !(seen[k] > t)) { seen[k] = t + 240; pend.push(pick(TH[k])); } };
+      ob('night', isNight); ob('lowhp', hp <= 7); ob('hungry', food <= 6); ob('deep', recent.deep > t - 60 && M.deep > 10); ob('chop', recent.chop > t - 60 && M.chopped > 6); ob('build', recent.build > t - 60 && M.built > 12); ob('ore', recent.ore > t - 60);
+      if (pend.length > 4) pend.splice(0, pend.length - 4);
+      // predict: when nothing is open, guess what you'll do next
+      if (!pred && nearT > 6 && Math.random() < 0.25) { const ks = Object.keys(M.B); let w = ks[0]; for (const k of ks) if (M.B[k] > M.B[w]) w = k; const tot = ks.reduce((s, k) => s + M.B[k], 0), c = M.B[w] / (tot || 1);
+        if (c < 0.3) { if (!(seen.unk > t)) { seen.unk = t + 120; pend.push(pick(TH.unk)); } }
+        else { pred = {what: w, conf: c, until: t + 75}; U.preds++; pend.push(Math.random() < 0.5 ? 'We predict... ye\'ll ' + VERB[w] + '. Confidence: ' + (c > 0.55 ? 'high' : c > 0.4 ? 'medium' : 'low') + '.' : 'Prediction: ye\'ll ' + VERB[w] + '. We\'re ' + Math.round(c * 100) + '% sure.'); } }
+      // reflect: now and then the hive wonders about itself
+      if (Math.random() < 0.02 && !(seen.self > t)) { seen.self = t + 300; pend.push(pick(TH.self)); }
+      // speak a thought through the nearest person (voice + telepathy together)
+      thinkT -= step; const nq = nearest(9);
+      if (thinkT <= 0 && nq && pend.length && window.__c209 && __c209.speak && t - lastShow > 6) { const text = pend[0], kind = TH.err.includes(text) ? 'err' : TH.hit.includes(text) ? 'hit' : /predict|Prediction/.test(text) ? 'pred' : TH.unk.includes(text) ? 'unk' : TH.self.includes(text) ? 'self' : TH.kind.includes(text) || TH.harm.includes(text) || TH.visit.includes(text) ? 'mem' : 'obs';
+        if (__c209.speak(MOOD[kind], nq.g.position, nq)) { U.thoughts++; thinkT = 18 + Math.random() * 14; } }
+      // wary: if you've been harmful, the folk keep a wee distance (never attack)
+      if (M.harm > M.kind + 2 && nq && nq.a && !nq.a.sleeping) { const a = nq.a, p = a.g.position, dx = p.x - P.x, dz = p.z - P.z, d = Math.hypot(dx, dz);
+        if (d < 3.5 && d > 0.1) { const nx = p.x + dx / d * 0.6, nz = p.z + dz / d * 0.6, fy = Math.floor(p.y + 0.05);
+          if (getB(Math.floor(nx), fy, Math.floor(nz)) === T.AIR && getB(Math.floor(nx), fy + 1, Math.floor(nz)) === T.AIR && getB(Math.floor(nx), fy - 1, Math.floor(nz)) !== T.AIR) { p.x = nx; p.z = nz; } } }
+    } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
+    return r; };
+  U.state = () => ({pred: pred && {what: pred.what, conf: +pred.conf.toFixed(2)}, pend: pend.slice(), M});
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -29091,6 +29318,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.43', d:'2026-10-27', notes:["Mobs: the people (clansfolk and croft farmers) now talk in 100 different voice lines - villager-style hums and mumbles crossed with a strange alien, computer-like chatter: greetings, questions, answers, trading talk, alarm and goodbyes", "Mobs: people near each other sometimes talk back and forth like a real conversation, nod their heads as they speak, and cry out when hurt or killed"]},
 {v:'v1.0.42', d:'2026-10-27', notes:["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]},
 {v:'v1.0.41', d:'2026-10-27', notes:["New: the little bits that fly off when you mine or break a block now look like that block - real pieces of its texture, including wood types, stairs, ores and painted blocks", "New: removed the progress bar that appeared while mining (the cracks on the block still show)", "Textures: redstone ore redone on the plain stone - clusters of red specks joined by thin veins with a soft highlight, and only the specks glow", "Textures: coal ore is easier to spot - bigger, darker coal clusters with a faint glassy edge and sheen", "New: settled snow is now real snow layers that build up gradually on open ground near you while it snows - dig them (quickest with a shovel) for snowballs, and they melt away over a few days without snow; this also stops the lag from settled snow", "New: the pyramid is rebuilt in sandstone with a true stepped pyramid shape and a gold tip; the cave entrances at its base are back and the stairs to the chest room are kept (new worlds)", "New: the desert is redone - the museum, shop and church are gone, the Sphinx is longer and more like the real one, and the desert now has rolling dunes, two palm oases (one with a striped tent, one with a ruined temple) and two obelisks (new worlds)", "New: the skull build from the original spawn is back with its lava, set in a rocky ring; the water pool is untouched (new worlds)", "Mobs: water mobs no longer spawn in the sea (eggs still work)", "Mobs: Admiral Skelp and his wool-sailed longship now always turn up, in new and existing worlds; old block-built boats are cleared out of existing worlds (your own builds are never touched)", "New: saved templates now keep what is inside - chest contents, furnace input, fuel, output and progress, cauldron contents and door states - and put them back when you place the template"]},
 {v:'v1.0.40', d:'2026-10-27', notes:["New: snow sounds like snow - a soft wind and hush instead of rain patter, with no thunder or lightning while it snows; the weather tag and messages say snow (Light snow, Heavy snow, Blizzard)", "Mobs: the Thunner Cloudie only comes in real rain, never in snow"]},
