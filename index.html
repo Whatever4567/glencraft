@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1043a -->
+<!-- glencraft-build: v1044a -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.43';
+const GAME_VERSION = 'v1.0.44';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19318,6 +19318,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.44', ["Mobs: the people no longer show their thoughts as text on screen when they talk - you just hear their voices"]],
     ['v1.0.43', ["Mobs: the people (clansfolk and croft farmers) now talk in 100 different voice lines - villager-style 'hmm / hrrm' mumbling with a Scottish lilt and a faint eerie shimmer: greetings, questions, answers, trading talk, alarm and goodbyes", "Mobs: the people share one hive mind and speak to you telepathically - a faint glowing thought appears on screen when one talks to you, in Glencraft Scots ('Aye... we sense ye, traveller.')", "Mobs: their wee shared brain watches you, remembers you (saved with the world), guesses what you'll do next and admits when it guessed wrong - be kind and they warm to you, hit one and they all react and keep their distance (they never attack over it)", "Mobs: people near each other sometimes talk back and forth, nod as they speak, and cry out when hurt or killed"]],
     ['v1.0.42', ["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]],
     ['v1.0.41', ["New: the little bits that fly off when you mine or break a block now look like that block - real pieces of its texture, including wood types, stairs, ores and painted blocks", "New: removed the progress bar that appeared while mining (the cracks on the block still show)", "Textures: redstone ore redone on the plain stone - clusters of red specks joined by thin veins with a soft highlight, and only the specks glow", "Textures: coal ore is easier to spot - bigger, darker coal clusters with a faint glassy edge and sheen", "New: settled snow is now real snow layers that build up gradually on open ground near you while it snows - dig them (quickest with a shovel) for snowballs, and they melt away over a few days without snow; this also stops the lag from settled snow"]],
@@ -29197,7 +29198,7 @@ function make42(E) {
 /* ===================== GLX-C210 (v1.0.43): telepathy + the hive "MiniBrain" - every voice line from the people comes with a faint glowing thought on screen (100 paired phrases in Glencraft Scots, plus the hive brain's own thoughts).
    The people share one wee brain: observe -> predict -> compare -> reflect -> update. It remembers you (kindness, harm, what you dig / chop / build, visits), saved with the world. Friendly-eerie; they never attack over it. ===================== */
 (function c210() {
-  const U = window.__c210 = {shown: 0, last: '', err: null, thoughts: 0, preds: 0, hits: 0, misses: 0};
+  const U = window.__c210 = {text: false, shown: 0, last: '', err: null, thoughts: 0, preds: 0, hits: 0, misses: 0};
   // ---- 100 phrases, one per voice line (same moods, same order as GLX-C209) ----
   const PH = {
     idle: ['We are many. We are one. Aye.', 'Hmm... the hive hums the day.', 'Aw the wee voices, thinkin as one.', 'We dreamt o\' sheep again. Odd.', 'The grass grows. We count every blade.', 'Hrrm... processin. Bide a wee.',
@@ -29255,6 +29256,7 @@ function make42(E) {
   let el = null, hideT = 0, lastShow = -1e9, defer = null;
   const blocked = () => { try { return !started || paused || dead || menuOpen || (typeof activePanel === 'function' && !!activePanel()); } catch (_) { return false; } };
   function show(text, who, prio) {
+    if (!U.text) { lastShow = now(); U.last = text; U.muted = (U.muted || 0) + 1; return 0; }   // v1.0.44: no on-screen text, the thought stays in the voice only
     const t = now(); if (blocked()) { if (prio) defer = {text, who, until: t + 10}; return 0; } if (!prio && t - lastShow < 6) return 0; if (prio < 2 && el && el.style.opacity === '1' && t < hideT - 0.5 && !prio) return 0;
     if (!el) { el = document.createElement('div'); el.dataset.testid = 'telepathy'; el.style.cssText = 'position:fixed;left:50%;top:calc(env(safe-area-inset-top, 0px) + 19vh);transform:translateX(-50%);z-index:25;pointer-events:none;max-width:min(86vw,560px);text-align:center;'
         + 'font:italic 600 clamp(15px,3.9vmin,21px)/1.3 Georgia,"Times New Roman",serif;color:#d8f1ff;letter-spacing:.02em;text-shadow:0 0 6px rgba(110,200,255,.9),0 0 16px rgba(60,150,255,.7),0 1px 2px rgba(0,0,0,.8);opacity:0;transition:opacity .7s ease;'; document.body.appendChild(el); }
@@ -29318,6 +29320,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.44', d:'2026-10-28', notes:["Mobs: the people no longer show their thoughts as text on screen when they talk - you just hear their voices"]},
 {v:'v1.0.43', d:'2026-10-27', notes:["Mobs: the people (clansfolk and croft farmers) now talk in 100 different voice lines - villager-style hums and mumbles crossed with a strange alien, computer-like chatter: greetings, questions, answers, trading talk, alarm and goodbyes", "Mobs: people near each other sometimes talk back and forth like a real conversation, nod their heads as they speak, and cry out when hurt or killed"]},
 {v:'v1.0.42', d:'2026-10-27', notes:["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]},
 {v:'v1.0.41', d:'2026-10-27', notes:["New: the little bits that fly off when you mine or break a block now look like that block - real pieces of its texture, including wood types, stairs, ores and painted blocks", "New: removed the progress bar that appeared while mining (the cracks on the block still show)", "Textures: redstone ore redone on the plain stone - clusters of red specks joined by thin veins with a soft highlight, and only the specks glow", "Textures: coal ore is easier to spot - bigger, darker coal clusters with a faint glassy edge and sheen", "New: settled snow is now real snow layers that build up gradually on open ground near you while it snows - dig them (quickest with a shovel) for snowballs, and they melt away over a few days without snow; this also stops the lag from settled snow", "New: the pyramid is rebuilt in sandstone with a true stepped pyramid shape and a gold tip; the cave entrances at its base are back and the stairs to the chest room are kept (new worlds)", "New: the desert is redone - the museum, shop and church are gone, the Sphinx is longer and more like the real one, and the desert now has rolling dunes, two palm oases (one with a striped tent, one with a ruined temple) and two obelisks (new worlds)", "New: the skull build from the original spawn is back with its lava, set in a rocky ring; the water pool is untouched (new worlds)", "Mobs: water mobs no longer spawn in the sea (eggs still work)", "Mobs: Admiral Skelp and his wool-sailed longship now always turn up, in new and existing worlds; old block-built boats are cleared out of existing worlds (your own builds are never touched)", "New: saved templates now keep what is inside - chest contents, furnace input, fuel, output and progress, cauldron contents and door states - and put them back when you place the template"]},
