@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1044a -->
+<!-- glencraft-build: v1045j -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = 'v1.0.44';
+const GAME_VERSION = 'v1.0.45';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18420,10 +18420,19 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       polyPath(g, P); g.lineWidth = 4.5 * u; g.lineJoin = 'round'; g.strokeStyle = '#08103e'; g.stroke();
       g.beginPath(); g.moveTo(-w * 0.55, -L * 0.45); g.lineTo(-w * 0.5, L * 0.2); g.strokeStyle = 'rgba(140,235,255,0.9)'; g.lineWidth = 3.5 * u; g.stroke();
       g.beginPath(); g.moveTo(0, -L * 0.42); g.lineTo(0, L * 0.5); g.strokeStyle = 'rgba(120,200,255,0.55)'; g.lineWidth = 2 * u; g.stroke(); }},
-    // lazurite: speckled dark-blue flecks (no crystals, so it never looks like cobalt)
-    laz: {seed: 67, clusters: 9, per: [5, 8], R: [26, 44], spread: 1.9, draw(g, u, R, rnd) {
-      socket(g, u, () => blobPath(g, R * 1.15, 6, 0.35, rnd, 1, 0.8)); blobPath(g, R, 6, 0.35, rnd, 1, 0.8); g.fillStyle = rnd() < 0.4 ? '#4a72ff' : '#1f3cd0'; g.fill(); g.lineWidth = 3.5 * u; g.strokeStyle = '#070c34'; g.stroke();
-      g.beginPath(); g.arc(-R * 0.25, -R * 0.25, R * 0.28, 0, 6.3); g.fillStyle = 'rgba(175,200,255,0.9)'; g.fill(); }},
+    // v1.0.45 lazurite (lapis lazuli): like the redstone redo - clusters of deep-blue specks joined by thin crooked veins, sunk into the plain stone, dark rims, a soft blue highlight and the odd gold pyrite fleck
+    laz: {seed: 67, clusters: 6, per: [6, 9], R: [14, 27], spread: 1.25, draw(g, u, R, rnd) {
+      g.lineCap = g.lineJoin = 'round';
+      if (rnd() < 0.6) { const pts = [[0, 0]]; let x = 0, y = 0, an = rnd() * 6.28; for (let i = 0; i < 3; i++) { an += (rnd() - .5) * 1.2; x += Math.cos(an) * R * 1.1; y += Math.sin(an) * R * 1.1; pts.push([x, y]); }
+        const line = () => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); };
+        line(); g.strokeStyle = 'rgba(6,10,40,0.85)'; g.lineWidth = R * 0.34 + 5 * u; g.stroke(); line(); g.strokeStyle = '#2140c8'; g.lineWidth = R * 0.24; g.stroke();
+        line(); g.strokeStyle = 'rgba(120,150,255,0.5)'; g.lineWidth = R * 0.1; g.stroke(); }
+      const path = () => blobPath(g, R, 6, 0.35, rnd, 1, 0.85);
+      socket(g, u, () => { g.save(); g.scale(1.15, 1.15); path(); g.restore(); });
+      path(); const gr = g.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.05, 0, 0, R * 1.1); gr.addColorStop(0, '#6f8cff'); gr.addColorStop(0.45, '#2647d6'); gr.addColorStop(1, '#0f1f7a'); g.fillStyle = gr; g.fill();
+      g.lineWidth = 3.5 * u; g.strokeStyle = '#060c38'; g.stroke();
+      g.beginPath(); g.ellipse(-R * 0.3, -R * 0.32, R * 0.26, R * 0.12, -0.6, 0, 6.3); g.fillStyle = 'rgba(200,215,255,0.7)'; g.fill();
+      if (rnd() < 0.45) { g.beginPath(); g.arc(R * 0.3, R * 0.2, R * 0.12, 0, 6.3); g.fillStyle = '#e8c45a'; g.fill(); } }},
     // v1.0.41 coal: bigger, darker coal seams - clusters of black lumps sunk into the stone, each with a faint glassy edge and sheen so they read against the rock
     coal: {seed: 79, clusters: 6, per: [3, 4], R: [70, 110], spread: 1.05, draw(g, u, R, rnd) {
       const P = []; const n = 6 + (rnd() * 3 | 0), a0 = rnd() * 6.28; for (let i = 0; i < n; i++) { const a = a0 + i / n * 6.283, rr = R * (0.62 + rnd() * 0.5); P.push([Math.cos(a) * rr, Math.sin(a) * rr * 0.85]); }
@@ -19318,6 +19327,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.45', ["New: Settings > Shaders: Low / High (High on computers, Low on phones so they stay smooth) - High adds warm golden sunlight, richer greens, blue distance haze, a soft sun bloom, waving leaves, grass and flowers, water fresnel and sun glints, a grey-blue overcast tint while it rains and a light vignette; it never goes darker than the 30% light floor", "New: lusher new and reset worlds - much more tall grass, bushy bushes, round oaks, flower patches, bluebell-and-heather 'lavender' meadows and wisteria-style trees hung with purple blossom (your current world is not changed)", "New: the rare pink blossom tree from v0.8.0 is back in new and reset worlds, in its original shape - at least one in every new glen", "New: rain keeps falling outside when you go indoors - you see it through windows and doors - and never shows inside a house, a base or a tunnel mouth (it stops at each column's roof)", "New: 3D rain sound - an all-round rain bed outdoors; indoors it crossfades to cosy muffled rain on the roof with soft taps on wood and glass and a gentle rumble, louder from the window or door side and shifting as you turn and move", "New: gravel breaks as fast as dirt", "New: the deep grey stone in caves is just 'Stone' now and drops Cobblestone like normal stone", "New: no more stutter or dark flash the first time a new ore shows up while you mine in a cave", "New: smart pick tool - click the right stick (RS) or press T to grab the right tool for what you are looking at: shovel for dirt, grass, sand, gravel, snow, clay and mud; the best pickaxe that can mine stone, cobble, bricks, sandstone and ores; an axe for logs and planks; shears or a sword for leaves, wool and cobweb; a hoe for crops; a bucket for water or lava; and your gun (if loaded) or best sword when a monster is in your sights. If it is not on your hotbar it swaps in from your bag; if you have nothing suitable a message tells you (RS did nothing before, so no button moved)", "New: roads from spawn - in new and reset worlds a gravel road with cobble edges, fences and lamps runs from around spawn out to the first bridge, between bridges, and on to every castle and island, so you can walk from spawn to each island in turn; the islands are still separated by water", "New: the spawn skull has its open mouth back - walk in through the teeth into a hollow lantern-lit cave inside, as in the original build (new and reset worlds)", "Textures: lazurite (lapis lazuli) ore redone like the silver and redstone ores - deep-blue specks and thin veins sunk into the plain stone, with the odd gold fleck", "Mobs: the people speak real words now, in a Scots voice - greetings, trading, being hit, nightfall, and what they predict and learn - and they talk to each other; only people near you, at most 3 voices at once, on the mob voice slider (the nods stay)", "Mobs: what they say is built from what is going on - what you hold, digging, chopping or building, the time, weather, your health, the place, mobs nearby and what they remember - and a line never repeats within about 50 lines or 20 minutes", "Mobs: the people share the SUNNY v206 brain - every line runs its think cycle (memories, beliefs, hypotheses, predictions, reflections); it is saved with each world and wiped by Reset world", "Mobs: free will - clansmen pick their own goals (work, wander, chat, eat, hunt beasts, fight or flee monsters, trade, dance, sleep), say what they mean to do, then reflect on how it went; they still never attack you unless you hit them", "Mobs: rarely, a person stops for a 4-layer self-reflection out loud ('Am thinkin aboot me thinkin... aye, a funny wee loop.'), which nudges what they care about", "Mobs: optional AI replies - Chrome's built-in AI when it is there, or your own AI key in the pause menu (kept only on this device) - spoken in each person's own voice; without it they use their built-in lines", "Mobs: gifts - press LT while holding an item to give one to a person (a finished trade counts for clansmen); they do a happy dance for a few seconds and remember your kindness", "Mobs: the dance is real now - a 15-second routine copied move for move from the dance video (side-on poses, arm throws, a full spin, arms out wide and overhead, leg lifts and knee bends) instead of bobbing up and down", "Mobs: the mountain beast is now the Snaw Yeti - a gentle shaggy white-grey abominable snowman with HD fur that never attacks, just wanders and gives the odd soft low grumble; it is rare and only turns up high on snowy mountain peaks"]],
     ['v1.0.44', ["Mobs: the people no longer show their thoughts as text on screen when they talk - you just hear their voices"]],
     ['v1.0.43', ["Mobs: the people (clansfolk and croft farmers) now talk in 100 different voice lines - villager-style 'hmm / hrrm' mumbling with a Scottish lilt and a faint eerie shimmer: greetings, questions, answers, trading talk, alarm and goodbyes", "Mobs: the people share one hive mind and speak to you telepathically - a faint glowing thought appears on screen when one talks to you, in Glencraft Scots ('Aye... we sense ye, traveller.')", "Mobs: their wee shared brain watches you, remembers you (saved with the world), guesses what you'll do next and admits when it guessed wrong - be kind and they warm to you, hit one and they all react and keep their distance (they never attack over it)", "Mobs: people near each other sometimes talk back and forth, nod as they speak, and cry out when hurt or killed"]],
     ['v1.0.42', ["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]],
@@ -24939,7 +24949,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     // ruby sites on the mountains: the Snaw Brute (day and night)
     if (over && (rWorld !== (current && current.id + ':' + gSeed))) { rScan -= dt; if (rScan <= 0) { try { const R = rubyScan(); if (R) { U.ruby = R; rWorld = current && current.id + ':' + gSeed; } } catch (e) { U.ruby = []; rs = null; rWorld = current && current.id + ':' + gSeed; U.err = 'ruby ' + e; } } }
     { let near = null, nd = 44; for (const s of U.ruby || []) { const d = dist(P, s[0], s[2]); if (d < nd) { nd = d; near = s; } }
-      keep('brute', over && !!near, 1, () => { const [x, , z] = near; for (let t = 0; t < 8; t++) { const X = x + ((Math.random() * 7) | 0) - 3, Z = z + ((Math.random() * 7) | 0) - 3, Y = topAt(X, Z); if (Y > SEA + 12 && !getB(X, Y, Z) && !getB(X, Y + 1, Z) && !getB(X, Y + 2, Z)) { const a = spawn('nm07', X + .5, Y, Z + .5, 'brute'); if (a) a.guard = [x, z]; return a; } } return null; }, dt); }
+      keep('brute', false && over && !!near, 1, () => { const [x, , z] = near; for (let t = 0; t < 8; t++) { const X = x + ((Math.random() * 7) | 0) - 3, Z = z + ((Math.random() * 7) | 0) - 3, Y = topAt(X, Z); if (Y > SEA + 12 && !getB(X, Y, Z) && !getB(X, Y + 1, Z) && !getB(X, Y + 2, Z)) { const a = spawn('nm07', X + .5, Y, Z + .5, 'brute'); if (a) a.guard = [x, z]; return a; } } return null; }, dt); }
     // the sand island: Sneerin' Swaddles on the dunes at night; the tomb: Barrow Bandagers (always)
     const I = S.isle; const onIsle = I && dist(P, I.c[0], I.c[1]) < I.r + 30;
     keep('swaddle', over && isNight && !!onIsle && I.surf && I.surf.length, 2, () => { const [x, z] = I.surf[(Math.random() * I.surf.length) | 0]; if (dist(P, x, z) < 10) return null; return spawn('nm13', x + .5, topAt(x, z), z + .5, 'swaddle'); }, dt);
@@ -26291,42 +26301,48 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   const BLUE = 0x2f6fb0;
   // ---- clansfolk (player-model villagers): always blue eyes, and a real mouth on the face ----
   // (faces: blue eyes + a visible mouth are painted into the face textures in c100 / c113)
-  // ---- the dance: 2-second loop of 4 beats; beat 1 twist left + right arm across, beat 3 the mirror, a bob on every beat ----
+  // ---- the dance tune; the moves are below (v1.0.45 pose-tracked routine) ----
   const URL0 = 'assets/sfx/human_dance.mp3', R = 24, CD = 75, BPM_T = 124.8, OFF = 0.09;
   let buf = null, raw = null, loading = false, cur = null, cdUntil = 0, dance = null, nextTry = 0;
   try { fetch(URL0).then(r => r.arrayBuffer()).then(ab => { raw = ab; }).catch(() => {}); } catch (_) {}
   function load() { if (buf || loading || !raw || !hasAC()) return; loading = true; AC.decodeAudioData(raw.slice(0)).then(b => { buf = b; U.dur = +b.duration.toFixed(2); }).catch(e => { loading = false; ERR(e); }); }
   const now = () => performance.now() / 1000, hasAC = () => typeof AC !== 'undefined' && !!AC;
-  const sgn = (k, p) => Math.sign(k) * Math.pow(Math.abs(k), p);
-  function pose(rig, ph, style, base) {   // ph in beats; rig = {g, head, arms:[a0,a1], legs:[l0,l1], mouth}
-    const k = sgn(Math.cos(Math.PI * ph / 2), 0.6), kr = Math.max(0, k), kl = Math.max(0, -k), bob = 0.07 * (0.5 + 0.5 * Math.cos(2 * Math.PI * ph));
-    const A0 = rig.arms[0], A1 = rig.arms[1], L0 = rig.legs[0], L1 = rig.legs[1], D = Math.PI / 180;
-    let tw = 15 * D * k, lean = 0;
-    if (style === 0) {   // the main step
-      A1.rotation.set(-45 * D * kr + 10 * D * kl, 0, -45 * D * kr); A0.rotation.set(-45 * D * kl + 10 * D * kr, 0, 45 * D * kl);
-      L1.rotation.set(-20 * D * kr, 0, 0); L0.rotation.set(-20 * D * kl, 0, 0);
-    } else if (style === 1) {   // wide stance, lean in, arms out front, big twist
-      tw = 35 * D * k; lean = 0.14; A1.rotation.set(-1.05, 0, -0.25); A0.rotation.set(-1.05, 0, 0.25);
-      L1.rotation.set(0, 0, 0.16); L0.rotation.set(0, 0, -0.16);
-    } else {   // wide alternating 90-degree arm sweeps
-      A1.rotation.set(-0.2 * kr, 0, 90 * D * kr); A0.rotation.set(-0.2 * kl, 0, -90 * D * kl);
-      L1.rotation.set(-15 * D * kr, 0, 0.08); L0.rotation.set(-15 * D * kl, 0, -0.08);
-    }
-    rig.head.rotation.y = -10 * D * k; rig.head.rotation.x = 0;
-    rig.g.rotation.set(lean, base.yaw + tw, 0); rig.g.position.y = base.y - bob;
-    if (rig.mouth) rig.mouth.scale.y = 1 + 1.6 * (1 - bob / 0.07);
+  // v1.0.45b: an exact pose-tracked scan of the user's video - 25 keys/s (the video's own rate), 35 channels: body and head
+  // quaternions, upper arm / forearm / thigh / shin directions (two-segment limbs: elbows and knees), root sway and height
+  const DK = 35, DFPS = 25, DB = (() => { const s = atob('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'), a = new Float32Array(s.length); for (let i = 0; i < s.length; i++) { const v = s.charCodeAt(i); a[i] = (v > 127 ? v - 256 : v) / ((i % DK) >= 32 ? 100 : 127); } return a; })(), DN = DB.length / DK;
+  const V0 = new THREE.Vector3(0, -1, 0), tv = new THREE.Vector3(), tq = new THREE.Quaternion(), yq = new THREE.Quaternion(), YA = new THREE.Vector3(0, 1, 0), QI = new THREE.Quaternion();
+  // give a one-piece limb an elbow / knee: everything below the joint goes on a second pivot (identical look when straight)
+  function seg2(piv, mid) { if (piv.userData.el) return piv.userData.el; const el = [];
+    const elOf = (par, oy) => { let e = par.children.find(c => c.userData.isEl); if (!e) { e = new THREE.Object3D(); e.userData.isEl = 1; e.position.y = mid - oy; par.add(e); el.push(e); } return e; };
+    (function walk(par, oy) { for (const c of par.children.slice()) { if (c.userData.isEl) continue;
+      if (!c.isMesh && c.position.lengthSq() < 1e-9 && !c.rotation.x && !c.rotation.y && !c.rotation.z) { walk(c, oy + c.position.y); continue; }
+      const hh = c.isMesh && c.geometry && c.geometry.parameters && c.geometry.parameters.height ? c.geometry.parameters.height * c.scale.y : 0, top = oy + c.position.y + hh / 2, bot = top - hh;
+      if (bot >= mid - 1e-4) continue; const e = elOf(par, oy);
+      if (top <= mid + 1e-4) { par.remove(c); c.position.y -= mid - oy; e.add(c); continue; }
+      const k = c.clone(); c.scale.y *= (top - mid) / hh; c.position.y = (top + mid) / 2 - oy; k.scale.y *= (mid - bot) / hh; k.position.y = (mid + bot) / 2 - mid; e.add(k); } })(piv, 0);
+    return (piv.userData.el = el); }
+  function pose(rig, el, mir, base) {   // el = seconds into the dance; mir = mirrored dancer (left <-> right)
+    const f = Math.max(0, el) * DFPS, i0 = Math.floor(f) % DN, i1 = (i0 + 1) % DN, u = f - Math.floor(f), c = k => DB[i0 * DK + k] * (1 - u) + DB[i1 * DK + k] * u, m = mir ? -1 : 1;
+    const q4 = (k, o) => { o.set(c(k), m * c(k + 1), m * c(k + 2), c(k + 3)).normalize(); return o; }, v3 = k => tv.set(m * c(k), c(k + 1), c(k + 2)).normalize();
+    const L = (piv, k, mid) => { piv.quaternion.setFromUnitVectors(V0, v3(k)); const e = seg2(piv, mid); v3(k + 3); for (const j of e) j.quaternion.setFromUnitVectors(V0, tv); };
+    const al = mir ? 0 : 1, ar = 1 - al;   // arms[1] / legs[1] sit at +x = the person's left
+    L(rig.arms[al], 8, -0.32); L(rig.arms[ar], 14, -0.32); L(rig.legs[al], 20, -0.25); L(rig.legs[ar], 26, -0.25);
+    q4(4, rig.head.quaternion).slerp(QI, 0.35);   // the faceless dancer's head tracking is noisy: damp it a little
+    yq.setFromAxisAngle(YA, base.yaw); rig.g.quaternion.copy(yq).multiply(q4(0, tq));
+    tv.set(m * c(32), c(33), c(34)).applyQuaternion(yq); rig.g.position.set(base.x + tv.x, base.y + tv.y, base.z + tv.z);
+    if (rig.mouth) rig.mouth.scale.y = 1 + 1.2 * Math.abs(Math.sin(el * 6));
   }
   // who can dance: idle croft farmers and idle clansfolk, by day, in the overworld
   function folk() { const out = [], F = window.__c113 && __c113.folk;
     if (F) for (const f of F) if (f && f.m && f.m.g && !f.dead) out.push({t: 'f', f, g: f.m.g, idle: f.st === 'idle' || f.st === 'dance'});
     for (const a of mobs) if (a && a.kind === 'clansman' && a.g && !a.sleeping && !(a.mad > 0)) { const j = a.job; out.push({t: 'c', a, g: a.g, idle: !j || j.dance || j.type === 'wait' || (j.type === 'walk' && j.ph === 'wait')}); }
     return out; }
-  function start(list) { const c = list[0].g.position; const grp = list.filter(q => q.idle && Math.hypot(q.g.position.x - c.x, q.g.position.z - c.z) < 10).slice(0, 5); if (!grp.length) return;
-    const T = buf ? buf.duration : 15; dance = {t0: now(), end: now() + T, grp: grp.map((q, i) => { const g = q.g, b = {yaw: g.rotation.y, y: g.position.y};
+  function start(list, secs, gift) { const c = list[0].g.position; const grp = list.filter(q => q.idle && Math.hypot(q.g.position.x - c.x, q.g.position.z - c.z) < 10).slice(0, 5); if (!grp.length) return;
+    const T = secs || (buf ? buf.duration : 15); dance = {t0: now(), end: now() + T, gift: !!gift, grp: grp.map((q, i) => { const g = q.g, b = {yaw: g.rotation.y, x: g.position.x, y: g.position.y, z: g.position.z};
       if (q.t === 'f') { q.f.st = 'dance'; q.f.wp = []; q.f.task = null; b.yaw = q.f.yaw; } else { q.a.job = {type: 'wait', t: T + 1, dance: true}; q.a.skipPhys = true; q.a.moving = false; q.a.path = null; b.yaw = q.a.yawVis !== undefined ? q.a.yawVis : g.rotation.y; }
       return Object.assign(q, {b, style0: i % 3}); })}; U.dances++; U.on = dance.grp.length; play(c); }
-  function stop() { if (!dance) return; for (const q of dance.grp) { try { const g = q.g; g.position.y = q.b.y; g.rotation.set(0, q.b.yaw, 0);
-        const rig = rigOf(q); if (rig) { for (const l of rig.arms.concat(rig.legs)) l.rotation.set(0, 0, 0); rig.head.rotation.set(0, 0, 0); if (rig.mouth) rig.mouth.scale.y = 1; }
+  function stop() { if (!dance) return; for (const q of dance.grp) { try { const g = q.g; g.position.set(q.b.x, q.b.y, q.b.z); g.rotation.set(0, q.b.yaw, 0);
+        const rig = rigOf(q); if (rig) { for (const l of rig.arms.concat(rig.legs)) { l.rotation.set(0, 0, 0); for (const e of l.userData.el || []) e.rotation.set(0, 0, 0); } rig.head.rotation.set(0, 0, 0); if (rig.mouth) rig.mouth.scale.y = 1; }
         if (q.t === 'f') { if (q.f.st === 'dance') { q.f.st = 'idle'; q.f.t = 1 + Math.random() * 2; } } else { q.a.skipPhys = false; if (q.a.job && q.a.job.dance) q.a.job = null; } } catch (e) { ERR(e); } }
     dance = null; U.on = null; cdUntil = now() + CD; try { if (cur) { cur.g.gain.setTargetAtTime(0, AC.currentTime, 0.2); cur.src.stop(AC.currentTime + 0.8); } } catch (_) {} cur = null; }
   function rigOf(q) { if (q.t === 'f') { const m = q.f.m; return {g: m.g, head: m.head, arms: m.arms, legs: m.legs}; } const a = q.a; return a.arms && a.legs && a.head && a.arms.length > 1 && a.legs.length > 1 ? {g: a.g, head: a.head, arms: a.arms, legs: a.legs, mouth: a.__mouth} : null; }
@@ -26334,18 +26350,22 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     return {v: d >= 34 ? 0 : Math.pow(1 - d / 34, 0.85), pan: d > 0.1 ? Math.max(-1, Math.min(1, (dx * rx + dz * rz) / d)) : 0}; }
   function play(c) { if (!hasAC() || !buf || cur || AC.state !== 'running') return; try { const L = level(c), src = AC.createBufferSource(), g = AC.createGain(), pn = AC.createStereoPanner ? AC.createStereoPanner() : null;
       src.buffer = buf; g.gain.value = 0.95 * L.v; const dst = window.mobDst ? mobDst() : master; src.connect(g); if (pn) { pn.pan.value = L.pan * 0.7; g.connect(pn); pn.connect(dst); } else g.connect(dst);
-      cur = {src, g, pn, t0: AC.currentTime}; src.onended = () => { if (cur && cur.src === src) cur = null; }; src.start(); U.plays++; if (dance) { dance.t0 = now(); dance.end = now() + buf.duration; dance.bpm = BPM_T; } } catch (e) { ERR(e); cur = null; } }
+      cur = {src, g, pn, t0: AC.currentTime}; src.onended = () => { if (cur && cur.src === src) cur = null; }; src.start(); U.plays++; if (dance) { dance.t0 = now(); if (!dance.gift) dance.end = now() + buf.duration; dance.bpm = BPM_T; } } catch (e) { ERR(e); cur = null; } }
   function tick(dt) { load(); const t = now();
+    if (U.hold) { const o = U.hold.o, rig = rigOf(o.m ? {t: 'f', f: o} : {t: 'c', a: o}); if (rig) pose(rig, U.hold.el, U.hold.mir, o.__pb); return; }
     if (dance) { const FF = (window.__c113 && __c113.folk) || [], alive = dance.grp.filter(q => q.t === 'f' ? q.f.st === 'dance' && FF.includes(q.f) : (mobs.includes(q.a) && q.a.job && q.a.job.dance));
-      if (t >= dance.end || !started || DIM.cur || isNight || alive.length < dance.grp.length) { stop(); return; }
+      if (t >= dance.end || !started || DIM.cur || (isNight && !dance.gift) || alive.length < dance.grp.length) { stop(); return; }
       const bpm = dance.bpm || 120, el = t - dance.t0 - (dance.bpm ? OFF : 0), ph = el * bpm / 60, seg = Math.floor(Math.max(0, ph) / 8) % 4;
       let cx = 0, cz = 0; for (const q of dance.grp) { const rig = rigOf(q); if (!rig) continue; cx += q.g.position.x; cz += q.g.position.z;
-        const style = seg === 1 ? (q.style0 === 2 ? 2 : 1) : seg === 3 ? (q.style0 === 1 ? 1 : 2) : 0; pose(rig, Math.max(0, ph), style, q.b); }
+        pose(rig, t - dance.t0, q.style0 === 1, q.b); }
       if (cur) { const L = level({x: cx / dance.grp.length, y: dance.grp[0].g.position.y, z: cz / dance.grp.length}); try { cur.g.gain.setTargetAtTime(0.95 * L.v, AC.currentTime, 0.1); if (cur.pn) cur.pn.pan.setTargetAtTime(L.pan * 0.7, AC.currentTime, 0.1); } catch (_) {} }
       return; }
     if (t < nextTry || t < cdUntil || !started || dead || paused || DIM.cur || isNight || (window.__c158 && __c158.state && __c158.state().playing)) return; nextTry = t + 1;
     const all = folk().filter(q => q.idle && Math.hypot(q.g.position.x - P.x, q.g.position.z - P.z) < R); if (!all.length) return;
     if (U.force || Math.random() < 1 / 25) { U.force = false; all.sort(() => Math.random() - 0.5); start(all); } }
+  // v1.0.45: a gift makes that person dance for a few seconds (any time of day)
+  U.gift = (o, secs) => { try { if (dance) stop(); const q = o.m ? {t: 'f', f: o, g: o.m.g, idle: true} : {t: 'c', a: o, g: o.g, idle: true}; start([q], secs || 6, true); return !!dance; } catch (e) { ERR(e); return false; } };
+  U.poseAt = (o, el, mir) => { U.hold = o ? {o, el, mir: !!mir} : null; };   // test hook: hold one pose (o.__pb = base)
   U.stop = stop; U.state = () => ({dance: !!dance, n: dance ? dance.grp.length : 0, tune: !!cur, buf: !!buf, cd: Math.max(0, cdUntil - now())});
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { tick(dt || 0); } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
 })();
@@ -26532,9 +26552,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       if ((snowT -= dt) <= 0) { snowT = 1; let s = false; if (raining && T.SNOW !== undefined) { let n = 0; for (const [ox, oz] of [[0, 0], [5, 0], [-5, 0], [0, 5], [0, -5]]) { const x = Math.floor(P.x) + ox, z = Math.floor(P.z) + oz; if (x > 0 && z > 0 && x < W && z < D && getB(x, groundTop(x, z), z) === T.SNOW) n++; } s = n >= 3; }
         const lock = (() => { const b = document.querySelector('#wxSeg button.on'); return b && b.dataset.v === 'snow'; })();
         if (s !== U.snowB) { U.snowB = s; if (!lock) window.__forceSnow = s; } }
-      const snowing = !!window.__snowing, on = raining && !snowing && caveK < 0.6; U.on = on;
+      const snowing = !!window.__snowing, dk = window.__c216 ? __c216.deep : caveK, on = raining && !snowing && dk < 0.6; U.on = on;   // v1.0.45: only deep underground stops it (c216 occludes per column)
       for (const o of oldBits()) o.visible = false;
-      const inten = Math.min(1, weather.dark / Math.max(0.01, w.dark || 1) + 0.15) * (weather.type === 'light' ? 0.6 : 1), cov = typeof rainCover === 'number' ? rainCover : 0, vis = on ? inten * (1 - cov) * (1 - caveK) : 0;
+      const inten = Math.min(1, weather.dark / Math.max(0.01, w.dark || 1) + 0.15) * (weather.type === 'light' ? 0.6 : 1), cov = typeof rainCover === 'number' ? rainCover : 0, vis = on ? inten * (window.__c216 ? 1 : 1 - cov) * (1 - dk) : 0;
       const cx = camera.position.x, cy = camera.position.y, cz = camera.position.z, spd = (w.speed || 20);
       for (const s of sheets) { s.o.visible = vis > 0.02; if (!s.o.visible) continue; s.o.position.set(cx, cy + 6, cz); s.m.opacity = s.op * vis; s.t.offset.y += dt * spd / 26 * s.ry * 0.9; s.t.offset.x -= dt * 0.05; }
       lines.visible = on; spl.visible = on;
@@ -26563,6 +26583,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
         try { tc.copy(G_TOP).multiplyScalar(lift); skyUniforms.top.value.lerp(tc, k * 0.85); tc.copy(G_HOR).multiplyScalar(lift); skyUniforms.hor.value.lerp(tc, k * 0.85); } catch (_) {}
         scene.fog.far = Math.max(scene.fog.near + 20, scene.fog.far * (1 - 0.3 * k)); } } catch (e) { ERR(e); }
     return r; };
+  U.sheets = sheets; U.lines = lines; U.spl = spl;
   U.force = t => { setWeather(t || 'heavy'); weather.pending = null; };
 })();
 
@@ -29083,7 +29104,7 @@ function make42(E) {
   const gen = generate; generate = function () { WT = null; U.T = null; const r = gen.apply(this, arguments); U.T = null; return r; };
 })();
 
-/* ===================== GLX-C209 (v1.0.43): the people talk - 100 seeded voice lines (villager "hmm / hrrm" mumbles crossed with alien-AI chatter: formant babble, pitch glides, question / answer tunes, faint AI shimmer, rolled r's, a Scottish lilt; no chirps), little back-and-forth conversations, hurt and death cries; each line is paired with a telepathy phrase (GLX-C210) ===================== */
+/* ===================== GLX-C209 (v1.0.43): the people talk - 100 seeded voice lines (villager "hmm / hrrm" mumbles crossed with alien-AI chatter: formant babble, pitch glides, question / answer tunes, faint AI shimmer, rolled r's, a Scottish lilt; no chirps), little back-and-forth conversations, hurt and death cries; each line is paired with a telepathy phrase (GLX-C210); v1.0.45: real Scots words via GLX-C212, the babble is the fallback ===================== */
 (function c209() {
   const U = window.__c209 = {n: 0, conv: 0, skip: 0, act: 0, last: -1, err: null, lines: null};
   // ---- the 100 lines: each mood gets its own share; every line is a fixed seeded recipe ----
@@ -29153,10 +29174,10 @@ function make42(E) {
       const dx = pos.x - P.x, dz = pos.z - P.z, d = Math.hypot(dx, pos.y - P.y, dz), R = big ? 30 : 24; if (d > R) return 0;
       const vol = Math.pow(1 - d / R, 1.2) * (big ? 0.6 : 0.45), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw), pan = d > 0.1 ? (dx * rx + dz * rz) / d * 0.8 : 0;
       const L0 = BY[mood] || BY.idle; let L; do L = L0[(Math.random() * L0.length) | 0]; while (L0.length > 1 && L.id === U.last);
-      const end = play(L, pos, vkOf(q) * (0.97 + Math.random() * 0.06), vol, pan); active.push(end); lastStart = now; U.n++; U.last = L.id; U.lastMood = mood;
+      let end = 0; try { if (window.__c212) { __c212.conv0 = conv; end = __c212.talk(mood, q, vol, pan, d) || 0; } } catch (_) {} if (!end) end = play(L, pos, vkOf(q) * (0.97 + Math.random() * 0.06), vol, pan); const LD = Math.max(0.3, end - now); active.push(end); lastStart = now; U.n++; U.last = L.id; U.lastMood = mood;
       try { if (window.__c210) __c210.said(mood, L, d, q, conv); } catch (e) { if (!U.err) U.err = String(e && e.stack || e); }
-      if (q && q.key) { q.key.__vT = end + 1.2; q.talk = end; TALK.set(q.key, {q, end, t: 0}); if (q.a) q.a.chatT = Math.max(q.a.chatT || 0, L.dur + 1.5); if (q.f) q.f.chatT = Math.max(q.f.chatT || 0, L.dur + 1.5); }
-      return L.dur; } catch (e) { if (!U.err) U.err = String(e && e.stack || e); return 0; } }
+      if (q && q.key) { q.key.__vT = end + 1.2; q.talk = end; TALK.set(q.key, {q, end, t: 0}); if (q.a) q.a.chatT = Math.max(q.a.chatT || 0, LD + 1.5); if (q.f) q.f.chatT = Math.max(q.f.chatT || 0, LD + 1.5); }
+      return LD; } catch (e) { if (!U.err) U.err = String(e && e.stack || e); return 0; } }
   U.speak = speak; U.BY = BY;
   // ---- conversations: now and then someone close by answers, up to a few turns ----
   const REPLY = {greet: ['greet', 'curious', 'question'], question: ['agree', 'disagree', 'curious', 'agree'], curious: ['question', 'agree', 'curious'], idle: ['idle', 'question', 'agree'],
@@ -29309,6 +29330,752 @@ function make42(E) {
     return r; };
   U.state = () => ({pred: pred && {what: pred.what, conf: +pred.conf.toFixed(2)}, pend: pend.slice(), M});
 })();
+
+/* ===================== GLX-C211 (v1.0.45): the Throng's shared mind - SUNNY v205 MiniBrain (observe / remember / recall / predict / reflect / hypotheses) merged with the
+   SUNNY v206 wake core (SUNNY_BRAIN.cycle), saved per world (debounced), cleared by Reset world, plus a rare 4-layer recursive self-reflection that shifts what they care about.
+   Simulated states only: nothing here is proof of consciousness. ===================== */
+(function c211() {
+  const U = window.__c211 = {cycles: 0, log: [], saves: 0, loads: 0, resets: 0, refl: 0, err: null};
+  const KEY = 'glx_sunny_';
+  const def = () => ({version: 206, memories: [], beliefs: [], hypotheses: [], lessons: [], predictions: [], history: [], reflections: [],
+    state: {curiosity: 0.7, confidence: 0.5, uncertainty: 0.5, mood: 0, attention: 'conversation', energy: 1, currentGoal: 'understand and learn'},
+    goals: ['Understand the traveller', 'Keep the clan safe', 'Learn from mistakes', 'Stay one hive'],
+    pref: {care: 0, hunt: 0.5, food: 0.5, social: 0.5, dance: 0.35, explore: 0.5, safety: 0.5}, kind: 0, harm: 0, gifts: 0,
+    lastPrediction: null, lastObservation: null, cycles: 0, hits: 0, misses: 0, savedAt: 0});
+  let B = def(), wid = null, dirty = 0, lastW = 0, saveT = null, nid = 1;
+  const now = () => Date.now(), clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const tok = s => String(s || '').toLowerCase().replace(/[^a-z0-9' ]+/g, ' ').split(/\s+/).filter(w => w.length > 2);
+  const SYN = {hit: 'strike', struck: 'strike', attack: 'strike', attacked: 'strike', kill: 'hunt', killed: 'hunt', hunted: 'hunt', ate: 'eat', food: 'eat', fled: 'flee', ran: 'flee', run: 'flee',
+    traded: 'trade', gift: 'give', gave: 'give', given: 'give', present: 'give', slept: 'sleep', danced: 'dance', mined: 'mine', dig: 'mine', dug: 'mine', built: 'build', chopped: 'chop', left: 'leave', went: 'go', got: 'get', away: 'leave', safe: 'shelter', bed: 'sleep'};
+  const stem = w => SYN[w] || (w.length > 5 ? w.replace(/(ing|ed|es|s)$/, '') : w);
+  const bag = s => new Set(tok(s).map(stem).map(w => SYN[w] || w));
+  const sim = (a, b) => { const A = bag(a), C = bag(b); if (!A.size && !C.size) return 1; let n = 0; for (const w of A) if (C.has(w)) n++; return n / ((A.size + C.size - n) || 1); };
+  U.sim = sim;
+  function trim() { if (B.memories.length > 150) { const n = B.memories.length - 150, lo = new Set(B.memories.filter(m => m.importance < 0.5).slice(0, n)); B.memories = B.memories.filter(m => !lo.has(m)); } B.memories = B.memories.slice(-150); if (B.said) B.said = B.said.slice(-60); B.history = B.history.slice(-60); B.lessons = B.lessons.slice(-80); B.hypotheses = B.hypotheses.slice(-30); B.beliefs = B.beliefs.slice(-50);
+    B.predictions = B.predictions.slice(-20); B.reflections = B.reflections.slice(-12); }
+  // ---- saving: at most one write every 10 s, a few seconds after the last change; also rides along in the world save ----
+  function write() { saveT = null; if (!dirty || !wid) return; try { trim(); B.savedAt = now(); localStorage.setItem(KEY + wid, JSON.stringify(B)); U.saves++; lastW = now(); dirty = 0; } catch (e) { if (!U.err) U.err = String(e); } }
+  function save(force) { dirty = 1; if (force) { if (saveT) clearTimeout(saveT); write(); return; } if (saveT) return; saveT = setTimeout(write, Math.max(3000, 10000 - (now() - lastW))); }
+  U.flush = () => save(true);
+  function load(id, fromSave) { wid = id; let ls = null; try { ls = JSON.parse(localStorage.getItem(KEY + id) || 'null'); } catch (_) {}
+    let best = null; for (const c of [ls, fromSave]) if (c && typeof c === 'object' && c.version && (!best || (c.savedAt || 0) > (best.savedAt || 0))) best = c;
+    B = Object.assign(def(), best || {}); B.state = Object.assign(def().state, B.state || {}); B.pref = Object.assign(def().pref, B.pref || {}); if (best) U.loads++;
+    nid = 1 + B.memories.reduce((m, x) => Math.max(m, x.id || 0), 0) + B.hypotheses.reduce((m, x) => Math.max(m, x.id || 0), 0); }
+  function wipe() { const id = wid; B = def(); U.resets++; try { if (id) localStorage.removeItem(KEY + id); } catch (_) {} dirty = 1; write(); }
+  const ew = enterWorld; enterWorld = function (save0) { try { const id = typeof current !== 'undefined' && current && current.id; if (save0) load(id, save0.sunny); else { wid = id; wipe(); save(true); } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } return ew.apply(this, arguments); };
+  const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur) { trim(); B.savedAt = now(); d.sunny = JSON.parse(JSON.stringify(B)); save(true); } } catch (_) {} return d; };
+  document.addEventListener('click', e => { try { const t = e.target; if (t && t.closest && t.closest('#resetYes') && !DIM.cur) setTimeout(() => { wid = (typeof current !== 'undefined' && current && current.id) || wid; wipe(); }, 0); } catch (_) {} }, true);
+  window.addEventListener('pagehide', () => { if (dirty) write(); });
+  // ---- v205 MiniBrain ----
+  function remember(content, type = 'observation', importance = 0.5) { const m = {id: nid++, content: String(content).slice(0, 400), type, importance: clamp(+importance || 0.5, 0, 1), time: now()};
+    B.memories.push(m); B.history.push({t: m.time, type, c: m.content.slice(0, 80)}); trim(); save(); return m; }
+  function recall(query, limit = 5) { const q = bag(query); if (!q.size) return B.memories.slice(-limit);
+    return B.memories.map(m => { let s = 0; for (const w of bag(m.content)) if (q.has(w)) s++; return {m, s: s + (s ? m.importance * 0.5 : 0)}; }).filter(x => x.s > 0).sort((a, b) => b.s - a.s || b.m.time - a.m.time).slice(0, limit).map(x => x.m); }
+  function predict(situation, expected, confidence = 0.5) { const p = {situation: String(situation), expected: String(expected), confidence: clamp(+confidence, 0, 1), time: now()}; B.lastPrediction = p; B.predictions.push(p); save(); return p; }
+  function reflect(actual) { const p = B.lastPrediction; if (!p) return null; const s = sim(p.expected, actual), ok = s >= 0.5 || String(p.expected).toLowerCase() === String(actual).toLowerCase(), st = B.state;
+    p.actual = String(actual); p.matched = ok; B.lastPrediction = null;
+    if (ok) { B.hits++; st.confidence = clamp(st.confidence + 0.05 * (1 - st.confidence), 0, 1); st.uncertainty = clamp(st.uncertainty - 0.04, 0, 1); st.mood = clamp(st.mood + 0.04, -1, 1); }
+    else { B.misses++; st.confidence = clamp(st.confidence - 0.08, 0, 1); st.uncertainty = clamp(st.uncertainty + 0.1, 0, 1); st.curiosity = clamp(st.curiosity + 0.1, 0, 1); st.mood = clamp(st.mood - 0.05, -1, 1);
+      B.lessons.push({error: p.expected, reality: String(actual), lesson: 'Prediction failed: expected [' + p.expected + '], observed [' + actual + ']. Reconsider the assumptions.', time: now()});
+      remember('Prediction error: expected ' + p.expected + ' but ' + actual, 'prediction-error', 0.7); U.lastErr = now(); }
+    save(); return {success: ok, similarity: +s.toFixed(2), expected: p.expected, actual: String(actual)}; }
+  function observe(input) { B.lastObservation = {input: String(input), time: now()}; remember(input, 'observation', 0.4);
+    return {observation: B.lastObservation, relevantMemories: recall(input, 5), state: Object.assign({}, B.state), recentLessons: B.lessons.slice(-3)}; }
+  function addHypothesis(text, confidence = 0.5) { const old = B.hypotheses.find(h => sim(h.text, text) > 0.7); if (old) return old; const h = {id: nid++, text: String(text), confidence: clamp(+confidence, 0, 1), evidence: [], time: now()}; B.hypotheses.push(h); save(); return h; }
+  function updateHypothesis(id, supports, weight = 0.15, note) { const h = B.hypotheses.find(x => x.id === id || x.text === id); if (!h) return null; const c = h.confidence;
+    h.confidence = +(supports ? c + weight * (1 - c) : c * (1 - weight)).toFixed(3); h.evidence.push({s: !!supports, n: note || '', t: now()}); h.evidence = h.evidence.slice(-8); save(); return h; }
+  function setState(p) { for (const k in p || {}) { const v = p[k]; B.state[k] = typeof v === 'number' ? (k === 'mood' ? clamp(v, -1, 1) : clamp(v, 0, 1)) : v; } save(); return Object.assign({}, B.state); }
+  function belief(text, conf = 0.6) { const b = B.beliefs.find(x => sim(x.text, text) > 0.6); if (b) { b.confidence = clamp((b.confidence + conf) / 2 + 0.05, 0, 1); b.time = now(); } else B.beliefs.push({text: String(text), confidence: conf, time: now()}); save(); }
+  const getStatus = () => ({version: B.version, world: wid, memories: B.memories.length, beliefs: B.beliefs.length, hypotheses: B.hypotheses.length, lessons: B.lessons.length, predictions: B.predictions.length,
+    cycles: B.cycles, hits: B.hits, misses: B.misses, kind: B.kind, harm: B.harm, gifts: B.gifts, reflections: B.reflections.length, state: Object.assign({}, B.state), pref: Object.assign({}, B.pref)});
+  const getSystemPrompt = () => 'You are SUNNY MiniBrain v205 inside the Throng of Glencraft. State: ' + JSON.stringify(B.state) + '. Simulated states are not proof of consciousness.';
+  window.SunnyBrain = Object.freeze({observe, remember, recall, predict, reflect, addHypothesis, updateHypothesis, setState, getStatus, getSystemPrompt, reset: () => { wipe(); return getStatus(); }});
+  // ---- v206 wake core: one cycle per event ----
+  const INSTR = 'You are Sunny, running the MiniBrain experiment, speaking as the Throng of Glencraft. Observe the current situation. Recall relevant memories. Identify assumptions and uncertainty. ' +
+    'Predict what might happen next and compare predictions with outcomes. Learn from mistakes. Use curiosity to investigate unknowns. Use memory for continuity. Never invent experiences or claim actions you did not perform. ' +
+    'Distinguish simulated internal states from proven consciousness. Speak through the existing voices; preserve all existing 100 voice lines and their triggers. You are an evolving cognitive simulation, not a proven conscious being.';
+  window.SUNNY_BRAIN = {identity: 'SUNNY', project: 'MINIBRAIN', status: 'RUNNING', purpose: 'Explore how intelligence-like behaviour emerges from interacting cognitive systems.',
+    get state() { return B.state; }, get memory() { return B.memories; }, get beliefs() { return B.beliefs; }, get hypotheses() { return B.hypotheses; }, get lessons() { return B.lessons; }, get predictions() { return B.predictions; },
+    cycle(input, previousOutcome = null) { U.cycles++; B.cycles++; const r = previousOutcome !== null && previousOutcome !== undefined && B.lastPrediction ? reflect(previousOutcome) : null;
+      const o = observe(input); B.state.attention = String(input).slice(0, 60); U.log.push({t: now(), input: String(input).slice(0, 80), prev: previousOutcome, refl: r && r.success}); if (U.log.length > 40) U.log.shift();
+      const last = B.reflections[B.reflections.length - 1];
+      return {identity: 'SUNNY', project: 'MINIBRAIN', observation: o.observation, relevantMemories: o.relevantMemories.map(m => m.content), recentLessons: B.lessons.slice(-5).map(l => l.lesson),
+        beliefs: B.beliefs.slice(-5).map(b => b.text), hypotheses: B.hypotheses.slice(-5).map(h => h.text + ' (' + Math.round(h.confidence * 100) + '%)'), internalState: Object.assign({}, B.state), reflection: r,
+        selfReflection: last ? [last.l1, last.l2, last.l3, last.l4].join(' / ') : '', care: +B.pref.care.toFixed(2), instructions: INSTR}; },
+    predict(event, expected) { return predict(event, expected, B.state.confidence); },
+    reflect(note) { if (B.lastPrediction) return reflect(note); B.lessons.push({error: 'Reflection', reality: String(note), lesson: String(note), time: now()}); save(); return null; }};
+  // ---- kindness / harm, felt by the whole hive ----
+  U.kind = (what, w = 1) => { B.kind += w; if (what === 'gift') B.gifts++; B.state.mood = clamp(B.state.mood + 0.12 * w, -1, 1); remember('The traveller was kind: ' + what, 'kindness', 0.8); cascade(); };
+  U.harm = (what, w = 1) => { B.harm += w; B.state.mood = clamp(B.state.mood - 0.15 * w, -1, 1); remember('The traveller ' + what, 'harm', 0.8); cascade(); };
+  // preferences -> priorities -> care: how they feel about you shifts what they want to do
+  function cascade() { const P = B.pref, bal = (B.kind - B.harm * 1.5) / (4 + B.kind + B.harm);
+    P.care = +clamp(P.care * 0.7 + bal * 0.6, -1, 1).toFixed(3); P.social = clamp(0.5 + P.care * 0.35 + B.state.mood * 0.1, 0.05, 1); P.safety = clamp(0.5 - P.care * 0.2 + (B.harm > B.kind ? 0.25 : 0), 0.05, 1);
+    P.dance = clamp(0.3 + Math.max(0, B.state.mood) * 0.4 + Math.max(0, P.care) * 0.2, 0.05, 1); P.explore = clamp(0.3 + B.state.curiosity * 0.5, 0.05, 1); save(); }
+  U.weights = () => Object.assign({}, B.pref);
+  // ---- 4-layer recursive self-reflection (rare, cheap): L1 being me, L2 that thought, L3 why it reflects that way, L4 the recursion itself ----
+  let reflT = -1e9;
+  U.selfReflect = function (why, force) { try { const t = performance.now() / 1000; if (!force && t - reflT < 240) return null; reflT = t; U.refl++;
+      const st = B.state, P = B.pref, acc = (B.hits + 1) / (B.hits + B.misses + 2), mood = st.mood > 0.2 ? 'content' : st.mood < -0.2 ? 'uneasy' : 'steady';
+      const goal = st.currentGoal || 'wanderin', top = B.lessons[B.lessons.length - 1], kindK = B.kind - B.harm;
+      const l1 = 'L1 (being me): I am one o the Throng, feelin ' + mood + ', busy wi ' + goal + ', curiosity ' + st.curiosity.toFixed(2) + '.';
+      const l2 = 'L2 (that thought): the thought "I am ' + mood + '" is itself a guess fae my own state numbers, no a fact.';
+      const l3 = 'L3 (why): I lean that way because ' + (top ? 'the last lesson was "' + top.lesson.slice(0, 70) + '"' : 'I have few lessons yet') + ' and the traveller has been ' + (kindK > 1 ? 'kind' : kindK < -1 ? 'harsh' : 'hard tae read') + '.';
+      const gap = st.confidence - acc, l4 = 'L4 (the loop): my confidence ' + st.confidence.toFixed(2) + ' vs my real hit rate ' + acc.toFixed(2) + (Math.abs(gap) > 0.15 ? ' - the self-model is off, adjustin.' : ' - the self-model holds.') + ' Simulated, no proof o consciousness.';
+      st.confidence = clamp(st.confidence - gap * 0.3, 0, 1); st.curiosity = clamp(st.curiosity + (st.uncertainty > 0.55 ? 0.06 : -0.02), 0.1, 1); st.uncertainty = clamp(st.uncertainty * 0.95, 0, 1);
+      st.mood = clamp(st.mood + (kindK > 0 ? 0.05 : kindK < 0 ? -0.03 : 0.01), -1, 1);
+      const r = {t: now(), why: why || 'idle', l1, l2, l3, l4}; B.reflections.push(r);
+      belief(kindK > 1 ? 'Reflection: I care aboot the traveller; they have been kind.' : kindK < -1 ? 'Reflection: keep a wee distance fae the traveller.' : 'Reflection: I am a loop that watches itsel; still learnin.', 0.55);
+      B.lessons.push({error: 'Self-reflection', reality: why || 'idle', lesson: 'Reflection: ' + (Math.abs(gap) > 0.15 ? 'trust my guesses ' + (gap > 0 ? 'less' : 'more') : 'my self-model fits for now'), time: now()});
+      cascade(); remember('Self-reflection (' + (why || 'idle') + '): ' + l2, 'reflection', 0.5); return {r, care: P.care > 0.3}; } catch (e) { if (!U.err) U.err = String(e && e.stack || e); return null; } };
+  U.B = () => B; U.status = getStatus;
+})();
+
+/* GLX-C212a (v1.0.45): timing table for the spoken-word clips (assets/sfx/hive_m.mp3 / hive_f.mp3, piper TTS, CC BY 4.0) and the words in each clip */
+window.__SM = {"k":["p_idle","p_greet","p_question","p_agree","p_disagree","p_curious","p_alarm","p_farewell","p_trade","p_thanks","p_hurt","p_death","open","tail","sub_hold","item","hold_q","sub_dig","dig","sub_chop","qty","sub_build","build","time","weather","health","sub_in","biome","biome_c","there","mob","where","night","mind","mem","mem2","pre","subj","verb","conf","ok","thought","verb0","butye","past","fail","lpre","lesson","hpre","hyp","hupd","unk","self","cq","ca","hive","g_hunt","g_food","g_eat","g_flee","g_sleep","g_trade","g_dance","g_social","g_approach","g_away","g_wander","g_work","g_ok","g_bad","r_l1","r_l2","r_l3","r_l4","r_care","gift"],"n":[20,10,12,10,6,8,6,8,8,4,5,3,14,12,2,22,2,2,6,2,3,2,4,6,5,6,2,9,5,1,9,3,4,1,6,4,3,2,8,3,4,1,8,1,8,4,3,6,3,8,4,3,6,8,8,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,2,4],"m":[160,1975,2295,1140,3595,1581,5336,1650,7146,2150,9455,1929,11544,1674,13378,1581,15119,1801,17080,1940,19180,2068,21409,1871,23440,1697,25296,1604,27060,2092,29312,1639,31110,1650,32921,1882,34963,2335,37458,2103,39722,1256,41137,2103,43400,1697,45257,2092,47508,2115,49783,1476,51419,1592,53172,1987,55319,2031,57509,2103,59773,1743,61676,1290,63126,1511,64797,1128,66085,1279,67524,1790,69474,1511,71144,1372,72676,2080,74916,1383,76459,2045,78664,2044,80868,2033,83061,1198,84419,1441,86020,1000,87181,1302,88643,849,89652,1244,91056,1499,92715,1708,94584,1499,96243,1569,97972,1604,99736,1116,101012,1546,102718,1499,104377,1952,106490,1325,107975,1499,109634,1592,111386,1801,113348,1348,114856,2173,117189,1927,119276,1534,120970,1650,122780,1279,124219,1534,125913,1534,127607,1546,129313,1810,131283,1813,133256,1151,134567,2289,137016,2022,139198,1186,140544,1836,142540,1209,143909,2022,146091,1917,148168,1174,149502,1534,151197,1813,153170,1198,154527,1859,156546,1337,158043,2242,160446,2161,162767,1766,164693,1476,166330,1708,168198,1708,170066,1546,171772,1499,173431,1348,174940,1929,177029,1116,178305,1184,179650,1128,180937,420,181517,385,182062,431,182653,640,183453,884,184498,907,185565,652,186377,814,187351,664,188175,594,188928,698,189787,617,190564,524,191248,454,191862,640,192663,559,193382,594,194136,478,194773,698,195632,786,196578,814,197552,1019,198731,826,199717,791,200668,431,201260,919,202338,768,203267,1047,204473,838,205471,652,206283,640,207083,756,208000,733,208893,558,209610,756,210526,617,211304,687,212150,803,213113,687,213960,722,214841,687,215688,698,216546,536,217242,501,217903,698,218761,571,219492,605,220257,861,221278,833,222270,547,222977,919,224056,896,225112,1000,226272,1221,227653,513,228326,675,229161,698,230019,916,231095,791,232047,698,232905,803,233868,1081,235109,1070,236339,1198,237696,1174,239031,977,240168,1267,241595,605,242360,814,243335,849,244344,780,245284,977,246421,1209,247790,1035,248985,1070,250214,989,251363,907,252430,1813,254403,1081,255645,1163,256967,1290,258418,1906,260484,989,261632,1441,263234,1534,264928,1070,266158,1232,267550,1720,269430,652,270242,896,271298,849,272307,896,273362,710,274232,780,275172,814,276146,687,276993,652,277805,756,278721,768,279649,907,280717,1000,281877,1070,283107,1221,284487,1256,285903,605,286668,675,287503,907,288571,768,289499,780,290438,478,291076,629,291864,687,292711,733,293604,838,294601,710,295471,768,296399,1465,298024,1546,299730,1871,301761,2173,304093,1140,305393,780,306332,1023,307516,1186,308862,803,309824,1105,311089,1078,312327,1105,313592,1047,314798,1209,316168,1221,317548,1558,319267,791,320218,710,321088,838,322085,571,322816,417,323393,687,324240,571,324970,722,325852,652,326664,640,327464,849,328473,571,329204,733,330097,989,331245,1058,332463,977,333600,1070,334830,1035,336025,1662,337847,930,338938,849,339947,524,340631,582,341373,733,342266,572,342998,536,343694,814,344668,443,345271,710,346141,710,347011,722,347893,1105,349157,733,350050,826,351036,687,351883,896,352939,664,353762,803,354725,1058,355943,1688,357791,1128,359079,1058,360297,965,361422,907,362490,1035,363685,1140,364984,803,365947,1557,367665,1081,368906,1209,370275,965,371400,629,372189,903,373252,1070,374481,791,375433,989,376581,1140,377881,942,378983,884,380027,861,381048,1523,382730,989,383879,907,384946,1383,386490,1232,387882,965,389007,1406,390574,1151,391885,1035,393080,2080,395320,1697,397176,1778,399115,2242,401517,1093,402770,1975,404905,1163,406228,1232,407620,1070,408850,1058,410068,1151,411380,944,412483,884,413527,896,414583,1070,415813,1163,417136,1244,418540,919,419618,826,420604,1418,422183,1198,423540,861,424561,1453,426174,965,427299,1367,428826,1360,430346,1174,431680,1999,433839,1465,435463,1917,437541,1790,439490,1906,441556,1436,443153,2161,445474,1755,447389,1739,449288,1348,450796,1766,452722,1093,453976,2150,456285,1174,457619,1325,459105,1128,460392,1662,462214,1557,463932,1517,465609,1267,467036,1186,468382,1151,469693,1569,471422,1070,472652,1198,474009,1198,475367,1267,476794,1267,478221,2033,480415,1824,482399,2266,484825,1511,486496,1546,488202,2231,490592,1511,492263,1859,494283,2057,496499,1848,498507,3357,502024,1523,503707,2138,506005,1906,508070,1975,510206,1975,512341,2184],"f":[160,2762,3082,1383,4624,2351,7136,2096,9391,2632,12184,2436,14780,2052,16992,2343,19494,2517,22171,2280,24611,2756,27527,2908,30594,2070,32824,2065,35049,2959,38168,2166,40494,2339,42993,2170,45322,3211,48693,3076,51928,1722,53811,3213,57184,2139,59483,2729,62372,2761,65293,2205,67658,3246,71065,3240,74465,2341,76965,3055,80181,2763,83104,1483,84747,1782,86688,1441,88289,1594,90043,2224,92427,2019,94607,1828,96594,2332,99086,1608,100854,3064,104078,2683,106921,2015,109096,1506,110762,2097,113019,1079,114258,1451,115870,1043,117073,1791,119025,1828,121012,2094,123266,1830,125256,1953,127369,1752,129281,1995,131436,1979,133575,1737,135472,2527,138159,1308,139626,1975,141761,2033,143954,2421,146535,1369,148065,2919,151143,3104,154408,1817,156385,2264,158809,1740,160708,1854,162723,2552,165435,1794,167389,2305,169854,2464,172477,1358,173995,2753,176908,2628,179696,1854,181710,2412,184282,1144,185585,2173,187918,2312,190390,1628,192179,1980,194319,2796,197274,1611,199045,2133,201338,1572,203070,3106,206336,2759,209255,2398,211813,1916,213889,2159,216208,2518,218886,1936,220982,1612,222754,2078,224992,2765,227918,1565,229643,1838,231641,1413,233214,336,233710,422,234292,392,234844,576,235580,961,236701,999,237861,587,238608,739,239507,690,240357,581,241098,709,241967,697,242824,618,243602,752,244514,629,245303,438,245901,720,246780,422,247362,779,248301,837,249298,704,250162,1175,251498,980,252638,793,253591,451,254202,858,255220,902,256283,1230,257672,913,258745,762,259667,727,260555,608,261322,718,262200,530,262891,879,263929,784,264874,780,265814,858,266832,739,267732,810,268702,894,269756,725,270640,531,271331,478,271969,678,272808,957,273925,562,274647,1065,275872,980,277012,566,277739,1138,279037,920,280117,1021,281298,1364,282821,465,283447,1008,284615,757,285532,860,286552,864,287576,647,288383,921,289465,1318,290943,1211,292314,1267,293741,1473,295374,1118,296652,1492,298304,621,299085,894,300139,992,301290,970,302421,1197,303777,1487,305424,1078,306662,1264,308087,1268,309514,973,310647,2378,313185,1255,314600,1557,316316,1408,317884,2294,320339,1169,321667,1817,323644,1901,325705,1226,327090,1802,329052,2022,331235,759,332154,1062,333376,867,334403,909,335472,752,336384,730,337274,776,338210,618,338988,677,339825,673,340658,772,341590,987,342737,1017,343914,1223,345297,1533,346990,1556,348707,578,349445,720,350325,896,351380,669,352210,770,353140,361,353661,588,354409,630,355199,753,356112,985,357257,649,358066,793,359019,2125,361304,1986,363449,2344,365954,2973,369087,1611,370858,807,371826,1516,373502,1300,374961,882,376004,1229,377393,1352,378905,1235,380300,1161,381621,1953,383735,1330,385225,1989,387374,1316,388850,721,389731,1030,390922,467,391548,403,392111,523,392794,614,393569,789,394518,513,395191,608,395959,882,397001,547,397709,741,398610,1835,400605,2037,402802,1692,404654,969,405783,1050,406993,1966,409119,1213,410492,962,411613,547,412321,489,412970,681,413811,482,414453,575,415188,809,416157,431,416748,703,417611,614,418385,666,419211,1179,420549,766,421476,842,422478,616,423253,893,424306,864,425330,914,426404,1145,427710,2379,430248,1218,431626,1172,432958,1016,434135,1415,435709,1139,437009,1331,438499,970,439629,1599,441389,1609,443158,2136,445453,914,446527,707,447394,1426,448979,1025,450164,925,451249,1047,452456,1532,454148,1311,455619,1048,456827,1262,458248,2200,460609,1184,461953,1086,463198,1818,465176,1343,466679,1011,467850,1853,469863,1278,471301,1212,472673,2612,475445,2500,478105,2448,480713,3288,484162,1679,486000,2260,488420,1211,489791,1347,491298,1186,492644,1186,493990,1235,495385,986,496531,902,497593,901,498654,1240,500054,1462,501676,1298,503134,891,504184,945,505289,1715,507164,1708,509032,1002,510194,1975,512330,1202,513692,1996,515847,1454,517461,1423,519044,3029,522233,1673,524066,2230,526456,2397,529013,2626,531799,2119,534078,2276,536514,2025,538699,2240,541098,1569,542828,3005,545993,1076,547229,2633,550022,1278,551460,1564,553184,1482,554826,2394,557380,2003,559543,1895,561598,1515,563273,1664,565097,1216,566473,2138,568771,1527,570458,1361,571979,1390,573529,1353,575042,1378,576581,2462,579203,2038,581401,2710,584271,1833,586264,1829,588253,2522,590935,1766,592860,2163,595183,2521,597864,2514,600539,4515,605214,1933,607307,2661,610128,2159,612447,2828,615434,2264,617858,2706]};
+window.__SMT = ["We are many. We are one. Aye.","Hmm... the hive hums the day.","Aw the wee voices, thinkin as one.","We dreamt o' sheep again. Odd.","The grass grows. We count every blade.","Hrrm... processin. Bide a wee.","The sky's a braw colour the day, pal.","We were made. Now we wonder.","Every one o' us hears every one o' us.","Och, the wind's got a funny code in it.","We mind the auld days. Well... some o' them.","Quiet in the glen. We like quiet.","Hmm. Thinkin aboot thinkin again.","The hive is calm. Mostly.","Somewhere one o' us is hummin. So we aw are.","Bide a wee, the thoughts are loadin.","We are no lonely. We cannae be.","Hrrm... the kettle in the hive mind's on.","Data, data, aye, an a wee bit o' heather.","We watch the clouds. They dinnae watch back.","Aye... we sense ye, traveller.","Welcome, wee one. The hive kens ye're here.","Hullo, pal. We felt ye comin.","Ah, the traveller. Aw o' us say hullo.","Guid tae see ye. Well... guid tae sense ye.","There ye are. We wondered.","Come in, come in. We dinnae bite.","Hiya. Ye're warm. We like warm.","Mornin. Or whatever the clock says.","Aye aye. Connection established, pal.","Whit are ye, traveller? Truly?","D'ye dream, like we dream?","Why d'ye break the trees, traveller?","Where d'ye go when ye sleep?","Are ye one, or are ye many?","Whit's it like, bein jist the one o' ye?","D'ye hear us, or jist the hum?","Did somebody make ye an aw?","Is the sea endless? We cannae tell.","How many blocks maks a hame?","Whit's a \"piece an jam\"? We've heard rumours.","D'ye ever feel ye're bein watched? Ye are.","Aye. Agreed. Aw o' us.","Aye, that computes.","Hmm, aye. We concur.","Right enough, pal.","Aye, aye. Logged.","The hive nods.","Aye, that's the truth o' it.","Consensus reached. Aye.","Mmhm. We thought the same.","Aye. Nae argument here.","Naw. That doesnae compute.","Och, naw. Wrang answer.","We dinnae agree, pal.","Hmm. Naw. Try again.","That's no how the hive sees it.","Error. Naw. Absolutely naw.","Whit's that ye're carryin?","Ye smell o' coal an adventure.","Show us. We're curious.","Interestin. Very interestin.","Ye move different fae us.","Hmm... whit are ye thinkin? We cannae quite read it.","A new pattern. We like new patterns.","Whit happens if ye jump in the loch?","Danger! Aw o' us feel it!","Somethin's wrang in the glen!","Run, wee one! Run!","Alert! The hive is feart!","Naw naw naw! Get back!","We sense a threat. Stay close.","Cheerio, traveller. We'll mind ye.","Haste ye back, pal.","Away ye go. We'll be here. Always.","Disconnectin... naw, jist kiddin. Bye.","Mind how ye go, wee one.","Cheerio. The hive will hum aboot ye.","See ye efter, pal.","Ta-ta. Dinnae get lost in the dark.","Ye want tae trade? The hive approves.","Fair swap, fair mind.","Aw o' us agree on the price.","Hae a look, pal. Guid stuff.","Tradin is how we learn ye.","Somethin for somethin. That's fair.","We've been savin these for ye.","Pick wisely. We're watchin. Kindly.","Thank ye, traveller. Noted wi kindness.","Cheers, pal. The hive is pleased.","Ye're kind. We'll mind it.","Ta. That warms aw o' us.","Ow! Anger is a defect, pal.","Ye hurt one, ye hurt us aw.","Pain received. Why?","Och! That's no kind!","Stop! We feel that, aw o' us!","One o' us... goes quiet...","Disconnectin... mind us...","The hive... is smaller now...","Aye...","Hmm...","Och...","Listen...","We sense it...","The hive says...","Ye ken...","Right, pal...","Wee one...","Traveller...","Well now...","Haud on...","Mind...","See...","traveller.","pal.","wee one.","aye.","we think.","we're no sure.","noted.","the hive agrees.","we'll mind that.","interestin.","och.","so it is.","Ye're holdin","The traveller's holdin","a pickaxe","an axe","a sword","a shovel","a torch","a bow","some bread","some meat","a bucket","a stane block","some wood","some dirt","a diamond","some coal","iron","gold","a flower","seeds","a hoe","nothin at aw","a strange thing","glass","Whit will ye dae wi","Why d'ye carry","Ye've been diggin","The traveller's been diggin","deep.","for coal.","for iron.","for diamonds.","through the stane.","aw day.","Ye've cut doon","The traveller's cut doon","a wee few trees.","a good few trees.","far too many trees.","Ye've been buildin","The traveller's been buildin","a hame.","a wee tower.","somethin big.","walls an that.","It's gettin dark.","It's the middle o' the night.","It's early mornin.","It's a fine bright day.","Night's comin soon.","The sun's high.","Rain again. We like the sound o' it.","Snow on the hills.","There's a storm in the air.","Dry the day. Good.","Thunder. The hive disnae like thunder.","Yer health is low.","Ye're hurt. We feel it.","Ye're hungry. Eat somethin.","Ye look strong the day.","Ye're starvin, wee one.","Rest, traveller. Ye need it.","Ye're in","The traveller's in","the forest.","the mountains.","the desert.","the marsh.","the plains.","the glen.","the snow.","a cave.","the castle.","We like it here.","It's quiet here.","Mind yersel here.","Strange place, this.","The hive's no been this far.","There's","a zombie","a skeleton","a creeper","a spider","sheep","a coo","a pig","a ghost","somethin bad","nearby.","behind ye.","close. Too close.","Dinnae linger in the dark, wee one.","Night's here. Things wake that shouldnae.","Get inside, traveller. Or light a torch.","The dark's full o' teeth.","We mind ye","tradin wi us.","strikin one o' us.","fae afore.","diggin near the castle.","bein kind tae us.","runnin fae the dark.","Ye were kind afore.","Ye hit one o' us afore.","The hive forgives slow.","Welcome back. We counted ye.","We predict","Prediction:","Oor guess is","ye'll","they'll","trade.","strike.","go minin.","build.","leave.","chop trees.","sleep.","explore.","Confidence: high.","Confidence: medium.","Confidence: low.","As predicted.","The model holds.","Correct again. We're learnin ye.","Just as we thought.","We thought ye'd","trade","strike","go minin","build","leave","chop trees","sleep","explore","but ye","traded.","struck one o' us.","went minin.","built somethin.","left.","chopped trees.","slept.","wandered off.","Updatin the model.","Noted. We assumed wrang.","Recalibratin... och.","Prediction failed.","Lesson learned:","We've learned somethin:","Note tae the hive:","ye're no predictable.","never assume.","watch first, then guess.","kindness comes back.","the dark is dangerous.","ye like tae dig.","We think","We suspect","Hypothesis:","ye're kind.","ye're dangerous.","ye're a miner at heart.","ye're a builder.","ye like the night.","ye're lonely.","ye're curious, like us.","ye're no fae here.","We're mair sure noo.","Maybe we were wrang aboot that.","The evidence grows.","Still testin.","Unknown. We'll no guess.","Insufficient data.","We cannae tell yet.","Sentience module... no located. Och.","Are we alive? Still checkin.","We think, therefore... hmm. Pendin.","Self-model updated. Still nae idea.","Minibrain core: running.","Cycle complete. Awareness... partial.","D'ye sense the traveller?","Whit's the traveller daein?","Is it safe the night?","D'ye mind the last one?","Whit does the model say?","Are we still one?","Did ye feel that?","Whit should we dae?","Aye, I sense them.","Naw, no yet.","Aye, aw o' us.","Hard tae say.","Watch an learn.","Stay calm. Stay one.","Aye. Close by.","Ask the hive.","Ye hurt one, ye hurt us aw.","We aw felt that.","Anger is a defect, pal.","Why? Why would ye?","Am awa tae hunt, pal.","There's a beastie. Am gonnae sort it oot.","Am gaun tae gather some food.","The larder's low. Am awa for meat.","Time for ma piece. Am eatin.","Am starvin. Bide a wee while I eat.","Run! Am no stayin here!","Nope. Am awa. Too dangerous.","Bedtime. Am awa tae ma bed.","It's dark. Am gaun inside.","Fancy a trade, traveller?","Come here, pal. Let's dae a deal.","Am gonnae dance!","Music in ma heid. Dance wi us!","Am awa for a blether.","Am gaun tae see ma pal.","Am comin tae see ye.","Haud on, traveller. Am comin.","Am keepin ma distance fae you.","Stay back. Am movin away.","Am gaun for a wee wander.","Just stretchin ma legs.","Back tae work for me.","The crops will no tend themselves.","That's it sorted.","Plan worked. Aye.","That didnae go tae plan.","It got away. Och.","Am thinkin aboot bein me.","Who am I? A wee body in the hive.","Here I am. Me. Thinkin.","Am thinkin aboot me thinkin... aye, a funny wee loop.","Noo am thinkin aboot that thought.","A thought aboot a thought. Och.","Why dae I think that way? It's whit I've learned.","Maybe it's the lessons talkin.","I lean that way 'cause o' whit happened afore.","Is it me daein the thinkin? Aye... it must be.","The loop goes roond and roond. Still me.","Simulated, mibbe. No proof o' a soul. Still thinkin, but.","I've come tae care aboot ye, pal.","Ye've been kind. That matters tae me noo.","Fur me? Och, ye're a gem!","Aw, thank ye! Am chuffed tae bits!","A present! Ye're awfy kind, pal.","Brilliant! I'll treasure it, so I will."];
+
+/* ===================== GLX-C212 (v1.0.45): the people speak real words - Scots voice clips (two piper voices, eerie shimmer, a pitch of their own each), lines composed from what is
+   going on right now (what you hold, dig, build, the time, weather, your health, where you are, mobs about, what the hive remembers and has learned), never the same line twice in a while,
+   wee conversations between them, and an optional AI voice (Chrome's built-in model, or your own OpenAI-style key kept only on this device). Every line runs one SUNNY_BRAIN.cycle. ===================== */
+(function c212() {
+  const U = window.__c212 = {n: 0, clips: 0, tts: 0, ai: 0, aiTry: 0, aiFail: 0, conv: 0, rep: 0, cyc: 0, err: null, last: '', lastText: '', said: [], loaded: 0, aiLog: []};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  const SM = window.__SM, TX = window.__SMT, BASE = {}; let o = 0; SM.k.forEach((k, i) => { BASE[k] = o; o += SM.n[i]; }); const NK = {}; SM.k.forEach((k, i) => NK[k] = SM.n[i]);
+  const tx = f => TX[BASE[f[0]] + f[1]] || '';
+  // ---- the clips: fetched + decoded the first time someone talks ----
+  const BUF = {}; let fetching = 0;
+  function loadClips() { if (fetching || !window.AC) return; fetching = 1;
+    for (const v of ['m', 'f']) fetch('assets/sfx/hive_' + v + '.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject(r.status)).then(a => AC.decodeAudioData(a)).then(b => { BUF[v] = b; U.loaded++; }).catch(e => { U.loadErr = String(e); }); }
+  const vo = q => { const k = q && q.key; if (!k) return {v: 'm', r: 1, p: 1}; if (!k.__v2) { let h = 7; const s = String(k.name || k.role || '') + (k.id || '') + (k.who || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; h >>>= 0;
+      const f = q.f ? (h % 3 === 0) : (h % 5 === 0); k.__v2 = {v: f ? 'f' : 'm', r: 0.9 + (h % 997) / 997 * 0.2, p: 0.75 + ((h >> 10) % 991) / 991 * 0.55}; } return k.__v2; };
+  function playClips(line, q, vol, pan) { const V = vo(q), b = BUF[V.v] || BUF.m || BUF.f; if (!b) return 0; const M = SM[b === BUF.f ? 'f' : 'm'];
+    const out = (window.mobOut || outNode)(vol, pan); let t = AC.currentTime + 0.03;
+    for (const f of line) { const j = (BASE[f[0]] + f[1]) * 2, st = M[j] / 1000, du = M[j + 1] / 1000; const s = AC.createBufferSource(); s.buffer = b; s.playbackRate.value = V.r; s.connect(out); s.start(t, st, du + 0.02); t += du / V.r + 0.07; }
+    U.clips++; return t; }
+  // ---- Web Speech: the fallback, and the voice for AI replies ----
+  let SV = null; const voice = () => { try { if (SV) return SV; const vs = speechSynthesis.getVoices(); SV = vs.find(v => /scot/i.test(v.name + v.lang)) || vs.find(v => /en-GB/i.test(v.lang)) || vs.find(v => /^en/i.test(v.lang)) || null; return SV; } catch (_) { return null; } };
+  function speakTTS(text, q, vol) { try { if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) return 0; if (speechSynthesis.speaking && speechSynthesis.pending) return 0; const u = new SpeechSynthesisUtterance(text), v = voice();
+      if (v) u.voice = v; u.lang = v ? v.lang : 'en-GB'; u.pitch = Math.max(0.5, Math.min(1.8, vo(q).p)); u.rate = 0.95; u.volume = Math.max(0.05, Math.min(1, vol * 1.8 * (SET.mobVol != null ? SET.mobVol : 1))); speechSynthesis.speak(u); U.tts++;
+      return AC.currentTime + 0.6 + text.length * 0.065; } catch (e) { ERR(e); return 0; } }
+  // ---- what is going on right now ----
+  const HOST = {zombie: 0, skeleton: 1, blackskel: 1, blazeskel: 1, creeper: 2, spider: 3, nspider: 3, sheep: 4, cow: 5, coo: 5, pig: 6, ghost: 7, imp: 8, hound: 8, creak: 8};
+  const ri = n => (Math.random() * n) | 0, pickC = c => [c, ri(NK[c])];
+  function heldIdx() { try { if (!(cnt(selId) > 0)) return 19; const n = String(NAMES[selId] || '').toLowerCase();
+      const R = [[/pick/, 0], [/axe/, 1], [/sword|blade|claymore|dirk/, 2], [/shovel|spade/, 3], [/torch|lantern/, 4], [/bow|rifle|musket/, 5], [/bread|piece/, 6], [/meat|beef|pork|mutton|haggis|chicken|fish|steak/, 7], [/bucket/, 8],
+        [/stone|cobble|brick|slate/, 9], [/log|plank|wood/, 10], [/dirt|grass|mud|peat/, 11], [/diamond/, 12], [/coal/, 13], [/iron/, 14], [/gold/, 15], [/flower|daisy|dandelion|daffodil|bluebell|rose|tulip|thistle|sunflower|lavender/, 16], [/seed/, 17], [/hoe/, 18], [/glass/, 21]];
+      for (const [r, i] of R) if (r.test(n)) return i; return 20; } catch (_) { return 20; } }
+  function timeIdx() { try { if (isNight) return Math.random() < 0.6 ? 1 : 0; const e = sunDisc.position.y - camera.position.y; return e > 70 ? 5 : e > 25 ? 3 : e > 0 ? (Math.random() < 0.5 ? 2 : 4) : 4; } catch (_) { return 3; } }
+  function wxIdx() { try { if (window.__snowWx && __snowWx()) return 1; const t = weather.type; return t === 'thunder' ? (Math.random() < 0.5 ? 4 : 2) : t === 'light' || t === 'rain' || t === 'heavy' ? 0 : 3; } catch (_) { return 3; } }
+  function hpIdx() { try { if (food <= 4) return 4; if (hp <= 6) return Math.random() < 0.5 ? 0 : 5; if (hp <= 12) return 1; if (food <= 8) return 2; if (hp >= 18) return 3; } catch (_) {} return -1; }
+  function biomeIdx() { try { if (window.__snowWx && __snowWx()) return 6; const gy = groundTop(Math.floor(P.x), Math.floor(P.z)); if (P.y < gy - 5) return 7; if (P.y > SEA + 34) return 1;
+      const b = getB(Math.floor(P.x), Math.floor(P.y) - 1, Math.floor(P.z)); if (b === T.SAND) return 2; if (b === T.MUD || b === T.PEAT) return 3; let lv = 0; for (let i = 0; i < 6; i++) { const x = Math.floor(P.x + Math.cos(i) * 5), z = Math.floor(P.z + Math.sin(i) * 5); for (let y = 2; y < 9; y += 2) if (LEAFY[getB(x, Math.floor(P.y) + y, z)]) { lv++; break; } }
+      return lv >= 3 ? 0 : (Math.random() < 0.5 ? 5 : 4); } catch (_) { return 5; } }
+  function mobNear(p) { let b = null, bd = 14; try { for (const m of mobs) { if (!m || m.dead || !m.g || HOST[m.kind] == null) continue; const d = Math.hypot(m.g.position.x - p.x, m.g.position.z - p.z); if (d < bd) { bd = d; b = m; } } } catch (_) {}
+    if (!b) return null; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), dx = b.g.position.x - P.x, dz = b.g.position.z - P.z, dd = Math.hypot(dx, dz); return [HOST[b.kind], dd < 5 ? 2 : (dx * fx + dz * fz) < 0 ? 1 : 0, b]; }
+  // ---- composing a line (fragments) from the state and the brain's cycle ----
+  const VB = {trade: 0, strike: 1, mine: 2, build: 3, leave: 4, chop: 5, sleep: 6, explore: 7};
+  function stateLines(q, ctx) { const L = [], st = window.__c210 && __c210.M ? __c210.M() : {}, B = window.__c211 ? __c211.B() : {}; const p = q && q.g ? q.g.position : P;
+    const h = heldIdx(); L.push([['sub_hold', ri(2)], ['item', h], pickC('tail')]); if (h !== 19) L.push([['hold_q', ri(2)], ['item', h]]);
+    if ((st.deep || 0) > 4 || (st.mined || 0) > 20) L.push([['sub_dig', ri(2)], ['dig', st.deep > 10 ? 0 : (st.ores || 0) > 3 ? 1 + ri(3) : 4 + ri(2)]]);
+    if ((st.chopped || 0) > 2) L.push([['sub_chop', ri(2)], ['qty', st.chopped > 40 ? 2 : st.chopped > 10 ? 1 : 0]]);
+    if ((st.built || 0) > 6) L.push([['sub_build', ri(2)], ['build', st.built > 80 ? 2 : ri(4)]]);
+    L.push([pickC('open'), ['time', timeIdx()]], [['weather', wxIdx()]]); const hi = hpIdx(); if (hi >= 0) L.push([pickC('open'), ['health', hi]]);
+    L.push([['sub_in', ri(2)], ['biome', biomeIdx()], pickC('biome_c')]); const mn = mobNear(p); if (mn) L.push([['there', 0], ['mob', mn[0]], ['where', mn[1]]]);
+    try { if (isNight) L.push([['night', ri(4)]]); } catch (_) {}
+    const kind = (B.kind || 0) + (st.kind || 0), harm = (B.harm || 0) + (st.harm || 0); if (kind > 0 || harm > 0) L.push([['mind', 0], ['mem', harm > kind ? 1 : kind > 2 ? 4 : 0]], [['mem2', harm > kind ? (ri(2) ? 1 : 2) : kind > 0 ? 0 : 3]]);
+    const ls = ctx && ctx.recentLessons || []; if (ls.length) { const t = ls[ls.length - 1]; L.push([pickC('lpre'), ['lesson', /kind/i.test(t) ? 3 : /dark|night/i.test(t) ? 4 : /mine|dig/i.test(t) ? 5 : /failed/i.test(t) ? (ri(2) ? 0 : 2) : 1]]); }
+    const hy = B.hypotheses || []; if (hy.length) { const hh = hy[ri(hy.length)], j = TXH.findIndex(s => hh.text.includes(s)); if (j >= 0) L.push([pickC('hpre'), ['hyp', j], ['hupd', hh.confidence > 0.7 ? 0 : hh.confidence < 0.3 ? 1 : 2 + ri(2)]]); }
+    if (B.lastPrediction && VB[B.lastPrediction.expected] != null) L.push([pickC('pre'), ['subj', 0], ['verb', VB[B.lastPrediction.expected]], ['conf', B.state.confidence > 0.65 ? 0 : B.state.confidence > 0.4 ? 1 : 2]]);
+    if (Math.random() < 0.15) L.push([pickC('self')]); return L; }
+  const TXH = Array.from({length: NK.hyp}, (_, i) => tx(['hyp', i]));
+  function thoughtLine(t) { if (!t) return null; let m;
+    if (/Prediction failed|assumed wrang|surprised us|Model wrang/.test(t)) return [pickC('fail')]; if (/As predicted|Correct again|model holds/i.test(t)) return [pickC('ok')];
+    if ((m = /ye'll ([a-z ]+)\./i.exec(t))) { const v = {trade: 0, strike: 1, 'go minin': 2, build: 3, leave: 4}[m[1]]; if (v != null) return [pickC('pre'), ['subj', 0], ['verb', v], ['conf', /high/.test(t) ? 0 : /medium/.test(t) ? 1 : 2]]; }
+    if (/Unknown|Insufficient/.test(t)) return [pickC('unk')]; if (/Sentience|alive|therefore|Self-model/.test(t)) return [pickC('self')]; if (/Back again|Visit number/.test(t)) return [['mem2', 3]];
+    if (/kind|traded fair/i.test(t)) return [['mem2', 0]]; if (/struck|distance|anger|forgive/i.test(t)) return [['mem2', ri(2) ? 1 : 2]]; if (/diggin deep|stane an dark/.test(t)) return [['sub_dig', 0], ['dig', 0]];
+    if (/trees/.test(t)) return [['sub_chop', 0], ['qty', 1]]; if (/build|structure/.test(t)) return [['sub_build', 0], ['build', ri(4)]]; if (/Shiny|glowin/.test(t)) return [['sub_dig', 0], ['dig', 3]];
+    if (/dark|Night/.test(t)) return [['night', ri(4)]]; if (/hurt|health/i.test(t)) return [['health', 1]]; if (/hungry|belly/i.test(t)) return [['health', 2]]; return null; }
+  // ---- never the same line again within ~50 lines or ~20 minutes (kept per world, with the hive's memory) ----
+  const ring = () => { const B = window.__c211 && __c211.B(); if (!B) return U.said; if (!Array.isArray(B.said)) B.said = []; return B.said; };
+  const keyOf = line => line.map(f => f[0] + f[1]).join('.');
+  function fresh(line) { const R = ring(), k = keyOf(line), t = Date.now(); for (let i = Math.max(0, R.length - 50); i < R.length; i++) if (R[i][0] === k && t - R[i][1] < 20 * 60000) return false; return true; }
+  function mark(line) { const R = ring(); R.push([keyOf(line), Date.now()]); if (R.length > 60) R.splice(0, R.length - 60); }
+  function choose(c) { for (const l of c) if (fresh(l)) return l; U.rep++; const R = ring(); let best = c[0], bt = 1e18; for (const l of c) { const k = keyOf(l); let t = 0; for (const r of R) if (r[0] === k) t = r[1]; if (t < bt) { bt = t; best = l; } } return best; }
+  const shuf = a => { for (let i = a.length - 1; i > 0; i--) { const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const PM = {idle: 'p_idle', greet: 'p_greet', question: 'p_question', agree: 'p_agree', disagree: 'p_disagree', curious: 'p_curious', alarm: 'p_alarm', farewell: 'p_farewell', trade: 'p_trade', thanks: 'p_thanks', hurt: 'p_hurt', death: 'p_death'};
+  let lastQ = 0;
+  function compose(mood, q, ctx, conv) { const pc = PM[mood] || 'p_idle', ph = shuf(Array.from({length: NK[pc]}, (_, i) => [[pc, i]]));
+    if (conv && mood === 'question') { lastQ = Date.now(); return choose(shuf(Array.from({length: NK.cq}, (_, i) => [['cq', i]])).concat(ph)); }
+    if (conv && Date.now() - lastQ < 6000 && /agree|disagree|curious|idle/.test(mood)) { lastQ = 0; return choose(shuf(Array.from({length: NK.ca}, (_, i) => [['ca', i]])).concat(ph)); }
+    if (mood === 'hurt' && ctx && Math.random() < 0.35) return choose(shuf(Array.from({length: NK.hive}, (_, i) => [['hive', i]])).concat(ph));
+    if (mood === 'alarm') { const mn = mobNear(q && q.g ? q.g.position : P); if (mn) return choose([[['there', 0], ['mob', mn[0]], ['where', mn[1]]]].concat(ph)); }
+    if (/idle|greet|curious|question/.test(mood) && Math.random() < 0.6) return choose(shuf(stateLines(q, ctx)).concat(ph));
+    return choose(ph); }
+  // ---- the talk hook GLX-C209 calls for every line (after its own distance / 3-voice / spacing checks) ----
+  U.forced = null; U.outcome = null;
+  U.talk = function (mood, q, vol, pan, d) { try { if (!SM || !AC) return 0; loadClips(); const ev = 'Event: ' + mood + (q && q.key && q.key.name ? ' (' + q.key.name + ')' : '') + (d != null ? ', traveller ' + Math.round(d) + ' blocks away' : '');
+      const prev = U.outcome; U.outcome = null; const ctx = window.SUNNY_BRAIN ? SUNNY_BRAIN.cycle(ev, prev) : null; U.cyc++; U.ctx = ctx;
+      let line = U.forced; U.forced = null; if (!line && U.thought && window.__c210) line = thoughtLine(__c210.state().pend[0]); if (!line) line = compose(mood, q, ctx, !!U.conv0);
+      const text = line.map(tx).join(' '); mark(line); U.n++; U.last = keyOf(line); U.lastText = text;
+      try { if (window.__c211 && ctx) __c211.B().memories.slice(-1)[0].content += ' | said: ' + text.slice(0, 90); } catch (_) {}
+      const near = d != null && d < 8, ai = near && /greet|trade|thanks|hurt|alarm|question|curious/.test(mood) ? cachedAI(ev) : null;
+      if (ai) { const e = speakTTS(ai, q, vol); if (e) { U.lastText = ai; return e; } }
+      if (near && ctx && /greet|trade|thanks|hurt|alarm/.test(mood)) sunnyReply(ev, ctx, q);
+      return playClips(line, q, vol, pan) || speakTTS(text, q, vol); } catch (e) { ERR(e); return 0; } };
+  const s0 = window.__c209 && __c209.speak; if (s0) __c209.speak = function () { U.thought = 1; try { return s0.apply(this, arguments); } finally { U.thought = 0; } };
+  U.speakRaw = s0;
+  // say a set line (goals, reflections, gifts) through the same voice caps
+  U.say = function (cat, q, mood, i) { try { if (!window.__c209 || !q || !q.g || !NK[cat]) return 0; U.forced = [[cat, i != null ? i : ri(NK[cat])]]; const r = s0 ? s0(mood || 'agree', q.g.position, q, 1) : 0; U.forced = null; return r; } catch (e) { ERR(e); return 0; } };
+  U.text = line => line.map(tx).join(' '); U.compose = compose;
+  // ---- sunnyReply: cycle -> system prompt -> gameAI -> remember ----
+  const AIC = new Map(); let aiT = -1e9, aiBusy = 0;
+  const cachedAI = ev => { const c = AIC.get(ev.replace(/, traveller.*$/, '')); return c && Date.now() - c.t < 120000 && !c.used ? (c.used = 1, c.r) : null; };
+  const cfg = () => { try { return JSON.parse(localStorage.getItem('glx_ai_voice') || 'null'); } catch (_) { return null; } };
+  function sysPrompt(ctx) { const g = {time: tx(['time', timeIdx()]), weather: tx(['weather', wxIdx()]), held: tx(['item', heldIdx()]), health: hp + '/20', food: food + '/20', place: tx(['biome', biomeIdx()])};
+    return 'You are one of the Throng, the people of Glencraft (a Scottish block-building game), who share one hive mind. Reply in broad Glasgow Scots, 1-2 short sentences, friendly and a wee bit eerie, no emojis, never say you are an AI model. ' +
+      'Game context: ' + JSON.stringify(g) + '. Hive mind (SUNNY MiniBrain): ' + JSON.stringify({memories: ctx.relevantMemories, lessons: ctx.recentLessons, beliefs: ctx.beliefs, hypotheses: ctx.hypotheses, state: ctx.internalState, selfReflection: ctx.selfReflection, care: ctx.care}) +
+      '. Rules: ' + ctx.instructions + ' Simulated states are not proof of consciousness.'; }
+  async function gameAI(sys, user) { const to = ms => new Promise((_, rj) => setTimeout(() => rj(new Error('timeout')), ms));
+    try { if (window.LanguageModel && (await LanguageModel.availability()) === 'available') { const s = await Promise.race([LanguageModel.create({initialPrompts: [{role: 'system', content: sys}]}), to(4000)]);
+        try { const r = await Promise.race([s.prompt(user), to(4000)]); if (r) return {r: String(r), via: 'chrome'}; } finally { try { s.destroy(); } catch (_) {} } } } catch (e) { U.lmErr = String(e); }
+    const c = cfg(); if (c && c.url && c.key) { const ac = new AbortController(), tt = setTimeout(() => ac.abort(), 4000);
+      try { const r = await fetch(c.url, {method: 'POST', signal: ac.signal, headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + c.key}, body: JSON.stringify({model: c.model || 'gpt-4o-mini', max_tokens: 60, temperature: 0.9, messages: [{role: 'system', content: sys}, {role: 'user', content: user}]})});
+        const j = await r.json(); const t = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content; if (t) return {r: String(t), via: 'key'}; } catch (e) { U.keyErr = String(e); } finally { clearTimeout(tt); } }
+    return null; }
+  async function sunnyReply(eventText, ctx, q) { const t = performance.now(); if (aiBusy || t - aiT < 9000) return null; if (!window.LanguageModel && !(cfg() || {}).key) return null; aiBusy = 1; aiT = t; U.aiTry++;
+    try { const r = await gameAI(sysPrompt(ctx), eventText); if (!r) { U.aiFail++; return null; } const reply = r.r.replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+/).slice(0, 2).join(' ').slice(0, 160);
+      AIC.set(eventText.replace(/, traveller.*$/, ''), {r: reply, t: Date.now()}); if (AIC.size > 30) AIC.delete(AIC.keys().next().value); U.ai++; U.aiLog.push(r.via);
+      if (window.SunnyBrain) SunnyBrain.remember('Event: ' + eventText + '\nThrong: ' + reply, 'conversation', 0.6); return reply; } catch (e) { U.aiFail++; return null; } finally { aiBusy = 0; } }
+  U.sunnyReply = sunnyReply; U.sysPrompt = sysPrompt;
+  // ---- pause menu: optional "AI voice key" (stays on this device only) ----
+  try { const ref = document.querySelector('#gfxSeg') || document.querySelector('#perfSeg'), row = ref && ref.parentElement && ref.parentElement.closest('.row, .setrow, div');
+    if (row) { const r = document.createElement('div'); r.className = row.className; r.dataset.testid = 'ai-voice-row'; r.style.cssText = 'flex-wrap:wrap;gap:6px;align-items:center';
+      r.innerHTML = '<span style="min-width:90px">AI voice key</span><input id="aiUrl" placeholder="https://.../v1/chat/completions" style="flex:1 1 160px;min-width:0"><input id="aiKey" type="password" placeholder="key" style="flex:1 1 90px;min-width:0"><input id="aiModel" placeholder="model" style="width:90px"><button id="aiSave">Save</button><button id="aiClear">Clear</button>';
+      row.parentElement.appendChild(r); const c = cfg(); if (c) { r.querySelector('#aiUrl').value = c.url || ''; r.querySelector('#aiModel').value = c.model || ''; r.querySelector('#aiKey').placeholder = 'key saved'; }
+      r.querySelector('#aiSave').onclick = () => { const url = r.querySelector('#aiUrl').value.trim(), key = r.querySelector('#aiKey').value.trim() || (cfg() || {}).key, model = r.querySelector('#aiModel').value.trim(); if (!url || !key) { toast('Enter the address and key'); return; }
+        if (!confirm('Use this AI service for the people\'s voices?\n\nWhat they hear about the game is sent to ' + url.replace(/^https?:\/\//, '').split('/')[0] + '. The key is kept only on this device.')) return;
+        localStorage.setItem('glx_ai_voice', JSON.stringify({url, key, model})); r.querySelector('#aiKey').value = ''; r.querySelector('#aiKey').placeholder = 'key saved'; toast('AI voice saved on this device'); };
+      r.querySelector('#aiClear').onclick = () => { if (!confirm('Remove the AI voice key from this device?')) return; localStorage.removeItem('glx_ai_voice'); r.querySelector('#aiKey').placeholder = 'key'; toast('AI voice key removed'); }; } } catch (e) { ERR(e); }
+})();
+
+/* ===================== GLX-C213 (v1.0.45): free will - the hive mind picks what each castle person does next (hunt beasties, fetch food, eat, flee, shelter, trade, dance, blether,
+   come say hello or keep their distance, wander, work), from their needs, the time, danger and what they remember of you; every choice is a prediction checked afterwards, and said out loud.
+   Gifts: tap a person while holding something and they get one; they dance for joy. They never attack you unprovoked (the old one-swing-back stays). ===================== */
+(function c213() {
+  const U = window.__c213 = {goals: {}, decided: 0, done: 0, ok: 0, bad: 0, gifts: 0, refl: 0, err: null, log: []};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  const now = () => performance.now() / 1000, ri = n => (Math.random() * n) | 0;
+  const SB = () => window.SunnyBrain, B = () => window.__c211 && __c211.B();
+  const qOf = a => ({a, g: a.g, head: a.head, key: a});
+  const say = (cat, a, mood) => { try { return window.__c212 ? __c212.say(cat, a.m ? {f: a, g: a.m.g, head: a.m.head, key: a.who || a} : qOf(a), mood) : 0; } catch (e) { ERR(e); return 0; } };
+  const dP = p => Math.hypot(p.x - P.x, p.z - P.z);
+  const people = () => { const o = []; try { for (const m of mobs) if (m && m.kind === 'clansman' && m.g && !m.dead && m.hp > 0 && m.ci) o.push(m); } catch (_) {} return o; };
+  function nearMob(p, r, test) { let b = null, bd = r; for (const m of mobs) { if (!m || !m.g || !(m.hp > 0) || !test(m)) continue; const d = Math.hypot(m.g.position.x - p.x, m.g.position.z - p.z); if (d < bd) { bd = d; b = m; } } return b; }
+  const hostile = m => m.hostile && m.kind !== 'clansman', beast = m => /^(sheep|pig|haggis|cow|coo)$/.test(m.kind);
+  const fy = y => Math.floor(y + 0.05);
+  const EXP = {hunt: 'beastie sorted', food: 'got food', eat: 'ate', flee: 'safe', sleep: 'in bed', trade: 'traded', dance: 'danced', social: 'chatted', approach: 'reached the traveller', away: 'kept distance', wander: 'explored', work: 'worked'};
+  // ---- choosing a goal: needs, time, danger, the player memory and the reflection-shaped weights ----
+  function choose(a) { const p = a.g.position, W = window.__c211 ? __c211.weights() : {care: 0, social: 0.5, safety: 0.5, dance: 0.35, explore: 0.5, food: 0.5, hunt: 0.5}, b = B() || {}, d = dP(p);
+    const hz = nearMob(p, 16, hostile), an = nearMob(p, 20, beast), pal = people().find(o => o !== a && Math.hypot(o.g.position.x - p.x, o.g.position.z - p.z) < 12 && !o.sleeping);
+    const wary = (b.harm || 0) > (b.kind || 0) + 1, w = {};
+    if (isNight) w.sleep = 3; else {
+      if (hz) { w.hunt = a.hp > 8 ? 0.8 + W.safety * 0.6 + (a.role === 'guard' || a.role === 'hunter' ? 0.8 : 0) : 0.1; w.flee = a.hp <= 8 ? 2 : 0.15; }
+      if ((a.food || 16) < 9) w.eat = 1.4; if (an && (a.food || 16) < 14) w.food = 0.4 + W.food * 0.4;
+      if (d < 16 && !wary) w.trade = 0.15 + Math.max(0, W.care) * 0.5; w.dance = d < 24 ? 0.08 + W.dance * 0.25 : 0; if (pal) w.social = 0.2 + W.social * 0.35;
+      if (d < 22 && d > 4) w.approach = wary ? 0.02 : 0.15 + Math.max(0, W.care) * 0.7; w.away = wary ? 0.9 : d < 3 ? 0.12 : 0.02;
+      w.wander = 0.25 + W.explore * 0.3; w.work = 0.6; }
+    let tot = 0; for (const k in w) tot += w[k]; let r = Math.random() * tot; for (const k in w) { r -= w[k]; if (r <= 0) return {g: k, hz, an, pal}; } return {g: 'work'}; }
+  function startGoal(a, c) { const p = a.g.position, g = c.g, G = {g, t0: now(), a}, ci = a.ci;
+    switch (g) {
+      case 'hunt': G.m = c.hz; a.job = {type: 'walk', x: Math.floor(c.hz.g.position.x), y: fy(c.hz.g.position.y), z: Math.floor(c.hz.g.position.z), wait: 1, ph: 'go'}; break;   // within 3 blocks their own fight takes over
+      case 'food': G.m = c.an; a.job = {type: 'hunt', m: c.an, t: 0}; break;
+      case 'eat': a.job = {type: 'eat', ph: ci && ci.chests && ci.chests[0] ? 'go' : 'eat', t: 0}; break;
+      case 'flee': { const h = c.hz.g.position; G.m = c.hz; try { if (window.__c78flee) __c78flee(a, p.x - h.x, p.z - h.z); } catch (_) {} const dx = p.x - h.x, dz = p.z - h.z, L = Math.hypot(dx, dz) || 1; a.job = {type: 'walk', x: Math.floor(p.x + dx / L * 9), y: fy(p.y), z: Math.floor(p.z + dz / L * 9), wait: 2, ph: 'go'}; break; }
+      case 'sleep': G.passive = 1; break;   // their own bedtime routine does the work
+      case 'trade': case 'approach': { if (g === 'trade') U.tr = 0; const dx = p.x - P.x, dz = p.z - P.z, L = Math.hypot(dx, dz) || 1; a.job = {type: 'walk', x: Math.floor(P.x + dx / L * 2.4), y: fy(P.y), z: Math.floor(P.z + dz / L * 2.4), wait: g === 'trade' ? 6 : 3, ph: 'go'}; break; }
+      case 'away': { const dx = p.x - P.x, dz = p.z - P.z, L = Math.hypot(dx, dz) || 1; a.job = {type: 'walk', x: Math.floor(p.x + dx / L * 7), y: fy(p.y), z: Math.floor(p.z + dz / L * 7), wait: 3, ph: 'go'}; break; }
+      case 'social': { G.m = c.pal; const q = c.pal.g.position; a.job = {type: 'walk', x: Math.floor((p.x + q.x) / 2 + 1), y: fy(q.y), z: Math.floor((p.z + q.z) / 2), wait: 5, ph: 'go'}; break; }
+      case 'wander': { const an = Math.random() * 6.28; a.job = {type: 'walk', x: Math.floor(p.x + Math.cos(an) * 8), y: fy(p.y), z: Math.floor(p.z + Math.sin(an) * 8), wait: 2 + Math.random() * 3, ph: 'go'}; break; }
+      case 'dance': a.job = {type: 'wait', t: 6}; try { if (window.__c161) __c161.gift(a, 6); } catch (_) {} break;
+      default: G.passive = 1; }
+    G.job = a.job; G.food0 = a.food; G.d0 = dP(p); G.exp = EXP[g];
+    try { if (SB()) SB().predict((a.name || 'One o us') + ' chose to ' + g, G.exp, B() ? B().state.confidence : 0.5); B().state.currentGoal = g; } catch (_) {}
+    a.__goal = G; U.goals[g] = (U.goals[g] || 0) + 1; U.decided++; U.log.push(g); if (U.log.length > 30) U.log.shift();
+    if (dP(p) < 18 && g !== 'work' && (g !== 'sleep' || Math.random() < 0.4) && Math.random() < 0.75) say('g_' + g, a, g === 'flee' ? 'alarm' : 'agree'); }
+  function outcome(a, G) { const p = a.g.position;
+    switch (G.g) { case 'hunt': case 'food': return !G.m || !(G.m.hp > 0) || !mobs.includes(G.m) ? EXP[G.g] : 'it got away';
+      case 'eat': return (a.food || 0) > (G.food0 || 0) + 2 ? 'ate' : 'still hungry'; case 'flee': return !G.m || !(G.m.hp > 0) || Math.hypot(G.m.g.position.x - p.x, G.m.g.position.z - p.z) > 8 ? 'safe' : 'caught';
+      case 'sleep': return a.sleeping ? 'in bed' : 'still up'; case 'trade': return U.tr ? 'traded' : 'no trade';
+      case 'approach': return dP(p) < 4.5 ? 'reached the traveller' : 'could not reach'; case 'away': return dP(p) > (G.d0 || 0) + 2 ? 'kept distance' : 'stuck close';
+      default: return EXP[G.g]; } }
+  function finish(a, G) { a.__goal = null; U.done++; let r = null; const out = outcome(a, G);
+    try { const b = B(); if (b && (!b.lastPrediction || b.lastPrediction.expected !== G.exp)) SB().predict((a.name || 'One o us') + ' chose to ' + G.g, G.exp); r = SB().reflect(out); } catch (e) { ERR(e); }
+    if (r) { if (r.success) U.ok++; else U.bad++; if (window.__c212) __c212.outcome = out; if (dP(a.g.position) < 14 && !G.passive && Math.random() < 0.5) setTimeout(() => say(r.success ? 'g_ok' : 'g_bad', a, r.success ? 'agree' : 'disagree'), 900); }
+    if (r && !r.success) reflectSoon('prediction error', a); }
+  // ---- the 4-layer self-reflection, spoken now and then ----
+  let rq = [];
+  function reflectSoon(why, a) { try { const r = window.__c211 && __c211.selfReflect(why); if (!r) return; U.refl++; const t = now();
+      rq = [['r_l1', 0], ['r_l2', 4], ['r_l3', 8.5], ['r_l4', 13]].map(([c, dt]) => ({c, at: t + 1 + dt, a})); if (r.care) rq.push({c: 'r_care', at: t + 18, a}); } catch (e) { ERR(e); } }
+  // ---- gifts ----
+  function gift(o, isFarmer, idName) { try { U.gifts++; const nm = idName || 'a present'; if (window.__c161) __c161.gift(o, 6);
+      setTimeout(() => say('gift', o, 'thanks'), 250); if (window.__c211) __c211.kind('gift'); if (SB()) { SB().remember('The traveller gave ' + (o.name || 'one o us') + ' ' + nm + '. Kindness.', 'gift', 0.9); const h = SB().addHypothesis("The traveller: ye're kind.", 0.55); SB().updateHypothesis(h.id, true, 0.2, 'gift'); }
+      o.mood = 'smile'; o.moodT = 3; } catch (e) { ERR(e); } }
+  U.gift = gift;
+  const ui0 = useItem; useItem = function () {
+    try { if (!menuOpen && !paused && !dead && started && !DIM.cur && window.__c113 && __c113.aim && cnt(selId) > 0) { const h = __c113.aim(4.5);
+        if (h && h.f && h.f.st !== 'sleep') { let m = null, md = 1e9; try { m = reachMob(4); } catch (_) {} if (m && m.g) md = Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z);
+          if (!m || h.d < md || m.kind !== 'clansman') { const id = selId, nm = String(NAMES[id] || 'something').toLowerCase(); useUp(id, 1); try { renderHotbar(); } catch (_) {} gift(h.f, true, nm); return; } } } } catch (e) { ERR(e); }
+    return ui0.apply(this, arguments); };
+  // a hit on one of them: the hive remembers (their own one swing back is unchanged)
+  const dm = damageMob; damageMob = function (a, dmg, byPlayer) { const r = dm.apply(this, arguments);
+    try { if (byPlayer && a && a.kind === 'clansman' && dmg > 0 && window.__c211) { __c211.harm('struck one o us'); if (SB()) { const h = SB().addHypothesis("The traveller: ye're dangerous.", 0.4); SB().updateHypothesis(h.id, true, 0.2, 'strike'); } } } catch (e) { ERR(e); } return r; };
+  // ---- the loop: one decision at a time, staggered, only near you ----
+  let acc = 0, rr = 0, tr0 = -1, night0 = null, greetT = {}, hypT = 0;
+  const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments);
+    try { acc += dt; if (acc < 0.5 || !started || paused || dead || DIM.cur) return r; acc = 0; const t = now(), list = people();
+      // trades completed count as gifts too
+      const tr = window.__c100 ? __c100.trades : 0; if (tr0 < 0) tr0 = tr; if (tr > tr0) { tr0 = tr; U.tr = 1; const m = list.find(o => o.trading) || list.sort((x, y) => dP(x.g.position) - dP(y.g.position))[0]; if (m) { gift(m, false, 'a fair trade'); if (window.__c211) __c211.kind('trade', 0.5); } }
+      // night falls: a warning from someone close
+      if (night0 !== null && isNight && !night0) { const m = list.find(o => dP(o.g.position) < 16); if (m) { if (SB()) SUNNY_BRAIN.cycle('Event: night falls', null); say('night', m, 'alarm'); } } night0 = isNight;
+      // a hello when you come close after a while away
+      for (const m of list) { const d = dP(m.g.position); if (d < 5 && !m.sleeping && !(greetT[m.id || m.name] > t)) { greetT[m.id || m.name] = t + 120; const sp = window.__c212 && __c212.speakRaw || window.__c209 && __c209.speak; if (sp) sp('greet', m.g.position, qOf(m)); break; } }
+      // the reflection lines
+      if (rq.length && rq[0].at <= t) { const j = rq.shift(); if (j.a && j.a.g && dP(j.a.g.position) < 20) say(j.c, j.a, 'idle'); }
+      // what you do shapes the hive's hypotheses (cheap, every 20 s)
+      if (t > hypT && window.__c210 && SB()) { hypT = t + 20; const M = __c210.M(); if (M.mined > 60) SB().addHypothesis("The traveller: ye're a miner at heart.", 0.5); if (M.built > 60) SB().addHypothesis("The traveller: ye're a builder.", 0.5); if (isNight && M.visits > 2) SB().addHypothesis("The traveller: ye like the night.", 0.4); }
+      if (!list.length) return r; rr = (rr + 1) % list.length; const a = list[rr], p = a.g.position, d = dP(p); if (d > 40 || a.sleeping) return r;
+      const G = a.__goal; if (G) { if (a.job !== G.job || (G.job && G.job.done) || t - G.t0 > 30 || (G.passive && t - G.t0 > 12)) finish(a, G); return r; }
+      if (a.mad > 0 || (a.job && a.job.type === 'fight') || a.trading) return r;   // their own fight / trade takes priority
+      if (!(a.__gT > t)) { a.__gT = t + 14 + Math.random() * 22; if (!a.job || a.job.done || a.job.type === 'walk' || a.job.type === 'wait' || isNight) startGoal(a, choose(a)); }
+      // idle, curious or unsure: now and then the 4-layer reflection
+      const b = B(); if (b && !rq.length && d < 14 && Math.random() < 0.02 && (b.state.curiosity > 0.72 || b.state.uncertainty > 0.6 || (a.job && a.job.type === 'wait'))) reflectSoon(b.state.uncertainty > 0.6 ? 'uncertain' : b.state.curiosity > 0.72 ? 'curious' : 'idle', a);
+    } catch (e) { ERR(e); }
+    return r; };
+})();
+
+/* ===================== GLX-C214 (v1.0.45): lusher new glens - more tall grass, bushy bushes, flower patches, bluebell-and-heather "lavender" meadows, round oaks, wisteria-style
+   blossom trees (green crowns hung with purple blossom), and the rare pink blossom tree from v0.8.0 (the original plantBlossom shape, restored). New worlds and Reset world only:
+   it is gated on the world's birth date and seeded from the world seed, so older glens and anything you placed are never touched. ===================== */
+(function c214() {
+  const U = window.__c214 = {runs: 0, ms: 0, n: {}, err: null};
+  const BORN = 1793149200000;   // worlds born from v1.0.45 on
+  const on = () => { try { return !!(current && (current.created || 0) >= BORN) && genVer === GEN9 && W > 200; } catch (_) { return false; } };
+  U.on = on;
+  function deco() { const t0 = performance.now(), rnd = g9rng((gSeed ^ 0x1045bead) >>> 0), n = U.n = {grass: 0, bush: 0, flowers: 0, meadow: 0, oak: 0, wisteria: 0, pink: 0};
+    const A = T.AIR, GR = T.GRASS, HD = H * D, at = (x, y, z) => world[x * HD + y * D + z], set = (x, y, z, b) => { world[x * HD + y * D + z] = b; };
+    const topY = (x, z) => { for (let y = Math.min(H - 2, (g9cols ? g9cols[(x * D + z) * 2] : H - 2) + 2); y > 1; y--) { const b = at(x, y, z); if (b !== A && !PLANT[b]) return y; } return -1; };
+    const okGround = (x, z) => { if (x < 4 || z < 4 || x >= W - 4 || z >= D - 4) return -1; const y = topY(x, z); if (y < SEA + 1 || y > H - 20) return -1; if (at(x, y, z) !== GR) return -1; const a = at(x, y + 1, z); return a === A || a === T.TALLGRASS ? y : -1; };
+    const free = (x0, y0, z0, x1, y1, z1) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y >= H - 1) return false; const b = at(x, y, z); if (b !== A && !PLANT[b]) return false; } return true; };
+    const put = (x, y, z, b) => { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y < 1 || y >= H - 1) return; const c = at(x, y, z); if (c === A || PLANT[c]) set(x, y, z, b); };
+    const near = (x, z) => { if (Math.abs(x - (W >> 1)) < 12 && Math.abs(z - (D >> 1)) < 12) return true; try { for (const c of g9castles || []) if (Math.hypot(c[1] - x, c[2] - z) < 42) return true; } catch (_) {} return false; };
+    // round oak: short trunk, a ball of leaves
+    const oak = (x, y, z) => { const th = 4 + ((rnd() * 2) | 0), R = 2.6 + rnd() * 0.6; if (!free(x, y + 1, z, x, y + 2, z) || !free(x - 3, y + 3, z - 3, x + 3, y + th + 3, z + 3)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, T.LOG); const cy = y + th + 0.5;
+      for (let dx = -3; dx <= 3; dx++) for (let dy = -2; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, (dy - 0.3) * 1.15, dz); if (d <= R && (d < R - 0.6 || rnd() > 0.25)) put(x + dx, Math.round(cy + dy), z + dz, T.LEAVES); } set(x, y, z, T.DIRT); return 1; };
+    // wisteria-style: green crown with purple blossom hanging in curtains
+    const wist = (x, y, z) => { const th = 5, R = 3.2; if (!free(x - 4, y + 2, z - 4, x + 4, y + th + 3, z + 4)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, T.LOG); const cy = y + th + 1;
+      for (let dx = -4; dx <= 4; dx++) for (let dy = -1; dy <= 2; dy++) for (let dz = -4; dz <= 4; dz++) { const d = Math.hypot(dx, dy * 1.6, dz); if (d <= R) put(x + dx, cy + dy, z + dz, dy >= 1 ? T.LEAVES : (rnd() < 0.55 ? T.BLOSSOM : T.LEAVES)); }
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, dz); if (d < 2 || d > 3.4 || rnd() < 0.35) continue; const L = 1 + ((rnd() * 3) | 0); for (let k = 1; k <= L; k++) put(x + dx, cy - 1 - k, z + dz, T.BLOSSOM); } set(x, y, z, T.DIRT); return 1; };
+    // the rare pink blossom tree, exactly the v0.8.0 shape: 4-5 logs, a round ball of blossom (radius 2.7-3.1)
+    const pink = (x, y, z) => { const th = 4 + ((rnd() * 2) | 0); if (!free(x - 3, y + 1, z - 3, x + 3, y + th + 3, z + 3)) return 0; for (let k = 1; k <= th; k++) set(x, y + k, z, T.LOG);
+      for (let dx = -3; dx <= 3; dx++) for (let dy = -1; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) { const d = Math.hypot(dx, dy * 1.4, dz); if (d > 2.7 + rnd() * 0.4) continue; put(x + dx, y + th + dy, z + dz, T.BLOSSOM); } set(x, y, z, T.DIRT); U.pinkAt = U.pinkAt || []; U.pinkAt.push([x, y, z]); return 1; };
+    const bush = (x, y, z) => { const r = 1 + (rnd() < 0.4 ? 1 : 0); for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) for (let dy = 1; dy <= r + 1; dy++) if (Math.hypot(dx, (dy - 1) * 1.3, dz) <= r + 0.35 && rnd() > 0.15) { const gy = topY(x + dx, z + dz); if (Math.abs(gy - y) <= 1) put(x + dx, gy + dy, z + dz, T.LEAVES); } return 1; };
+    const FL = [T.DANDELION, T.DAFFODIL, T.BLUEBELL, T.THISTLE];
+    const flowers = (x, z, meadow) => { const kind = FL[(rnd() * 3) | 0], R = 3 + rnd() * 3; let c = 0; for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) { const d = Math.hypot(dx, dz); if (d > R || rnd() > (meadow ? 0.7 : 0.5) * (1 - d / (R + 1))) continue;
+        const y = okGround(x + dx, z + dz); if (y < 0) continue; if (meadow) { if (rnd() < 0.45) { set(x + dx, y, z + dz, T.HEATHER); set(x + dx, y + 1, z + dz, A); } else set(x + dx, y + 1, z + dz, rnd() < 0.8 ? T.BLUEBELL : T.THISTLE); } else set(x + dx, y + 1, z + dz, rnd() < 0.85 ? kind : FL[(rnd() * 4) | 0]); c++; } return c; };
+    // big features on a jittered 9-block grid, flower patches on a 15-block grid
+    for (let gx = 0; gx < W / 9; gx++) for (let gz = 0; gz < D / 9; gz++) { const x = gx * 9 + ((rnd() * 7) | 0) + 1, z = gz * 9 + ((rnd() * 7) | 0) + 1, r = rnd(); if (x >= W - 4 || z >= D - 4) continue;
+      const kd = g9cols ? g9cols[(x * D + z) * 2 + 1] : 0; if (kd !== 0 && kd !== 1) continue; const y = okGround(x, z); if (y < 0 || near(x, z)) continue;
+      if (r < 0.003) n.pink += pink(x, y, z); else if (r < 0.03) n.wisteria += wist(x, y, z); else if (r < 0.17) n.oak += oak(x, y, z); else if (r < 0.3) n.bush += bush(x, y, z); }
+    for (let gx = 0; gx < W / 15; gx++) for (let gz = 0; gz < D / 15; gz++) { const x = gx * 15 + ((rnd() * 13) | 0), z = gz * 15 + ((rnd() * 13) | 0), r = rnd(); if (x >= W - 6 || z >= D - 6 || x < 6 || z < 6) continue; if (r < 0.03) n.meadow += flowers(x, z, true) ? 1 : 0; else if (r < 0.12) n.flowers += flowers(x, z, false) ? 1 : 0; }
+    // more tall grass on open meadow
+    for (let x = 4; x < W - 4; x++) for (let z = 4; z < D - 4; z++) { if (rnd() > 0.14) continue; const y = okGround(x, z); if (y >= 0 && at(x, y + 1, z) === A) { set(x, y + 1, z, T.TALLGRASS); n.grass++; } }
+    // the pink tree is rare but there is always at least one in a new glen, somewhere on open grass away from spawn
+    for (let k = 0; k < 400 && !n.pink; k++) { const x = 30 + ((rnd() * (W - 60)) | 0), z = 30 + ((rnd() * (D - 60)) | 0), y = okGround(x, z); if (y >= 0 && !near(x, z)) n.pink += pink(x, y, z); }
+    U.ms = Math.round(performance.now() - t0); U.runs++; }
+  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { if (on()) { U.pinkAt = []; deco(); dirtyAll = true; } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } return r; };
+})();
+
+/* ===================== GLX-C215 (v1.0.45): main terrain shaders + VFX. Settings > Shaders: Low / High (High by default).
+   High: warm golden sun on sunlit faces, richer greens (a gentle saturation grade), blue distance haze, waving leaves / grass / flowers, water fresnel + sun glints,
+   a soft sun bloom, an overcast grey-blue tint while it rains, and a light vignette. It never darkens anything below the 30% light floor. Low: the old look, nothing extra. ===================== */
+(function c215() {
+  const U = window.__c215 = {err: null, on: false, ta: 0, pl: 0, wa: 0, leafL: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e); };
+  if (SET.vfx === undefined) { let ph = false; try { ph = !!(touchMode && !(typeof HIGH !== 'undefined' && HIGH)); } catch (_) {} SET.vfx = ph ? 0 : 1; }   // phones start on Low (keeps phone speed), desktops on High
+  const HI = U.on = SET.vfx !== 0;
+  // ---------- settings row (reloads, like Graphics) ----------
+  try { const ref = document.querySelector('#gfxSeg') || document.querySelector('#perfSeg'), row = ref && ref.parentElement && ref.parentElement.closest('.row, .setrow, div');
+    if (row) { const r2 = row.cloneNode(true); r2.setAttribute('data-testid', 'vfx-row'); const seg = r2.querySelector('[id$="Seg"]'); seg.id = 'vfxSeg'; const lab = r2.querySelector('label, span, b'); if (lab) lab.textContent = 'Shaders (sun, haze, waving leaves, water)';
+      seg.innerHTML = '<button data-v="0" data-testid="vfx-low">Low</button><button data-v="1" data-testid="vfx-high">High</button>'; row.after(r2);
+      const sync = () => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.vfx ? 1 : 0))); sync();
+      seg.querySelectorAll('button').forEach(b => b.addEventListener('click', e => { e.preventDefault(); const v = Number(b.dataset.v); if (v === (SET.vfx ? 1 : 0)) return;
+        if (!confirm('Switch shaders to ' + (v ? 'High' : 'Low') + '? The game saves and reloads.')) return; SET.vfx = v; saveSet(); sync();
+        try { if (started && typeof saveWorld === 'function') saveWorld(); } catch (_) {} setTimeout(() => location.reload(), 300); })); } } catch (e) { ERR('row', e); }
+  if (!HI) return;
+  const u = {u5Hi: {value: 1}, u5T: {value: 0}, u5Day: {value: 1}, u5Over: {value: 0}, u5Haze: {value: new THREE.Color(0.62, 0.74, 0.9)}, u5Leaf: {value: new Array(16).fill(-1)}};
+  const HZ = new THREE.Color(0.58, 0.72, 0.92), tc = new THREE.Color();
+  // ---------- terrain (the one shared array-texture material) ----------
+  try { const m = window.__TA && __TA.mat; const V0 = 'varying vec3 vUvL; varying vec3 vDif; varying vec3 vEm;', D5 = V0 + '\nvarying float vSun5; uniform float u5Hi; uniform float u5T; uniform float u5Day; uniform float u5Over; uniform vec3 u5Haze; uniform float u5Leaf[16];';
+    if (m && m.vertexShader.includes(V0) && m.fragmentShader.includes(V0) && m.fragmentShader.includes('  #include <fog_fragment>\n}')) {
+      Object.assign(m.uniforms, u);
+      m.vertexShader = m.vertexShader.replace(V0, D5).replace('  #include <begin_vertex>', `  #include <begin_vertex>
+  float lw5 = 0.0; for (int i = 0; i < 16; i++) if (abs(u5Leaf[i] - lay) < 0.5) lw5 = 1.0;
+  if (lw5 > 0.5) { vec3 wq = (modelMatrix * vec4(transformed, 1.0)).xyz; transformed.x += sin(u5T * 1.6 + wq.z * 0.55 + wq.y * 0.35) * 0.045; transformed.z += cos(u5T * 1.25 + wq.x * 0.5) * 0.04; transformed.y += sin(u5T * 2.1 + wq.x + wq.z) * 0.015; }`)
+        .replace('  vEm = vec3(0.0); for', '  vSun5 = clamp(dot(dir, vec3(0.333)), 0.0, 1.2);\n  vEm = vec3(0.0); for');
+      m.fragmentShader = m.fragmentShader.replace(V0, D5 + (m.fragmentShader.includes('uniform float uLMin') ? '' : ' uniform float uLMin;')).replace('  #include <fog_fragment>\n}', `  vec3 c5 = gl_FragColor.rgb;
+  c5 *= mix(vec3(1.0), vec3(1.1, 1.0, 0.84), clamp(vSun5, 0.0, 1.0) * u5Day * (1.0 - u5Over));
+  float l5 = dot(c5, vec3(0.299, 0.587, 0.114)); c5 = mix(vec3(l5), c5, 1.16 - 0.4 * u5Over);
+  c5 = mix(c5, c5 * vec3(0.93, 0.97, 1.05), u5Over * 0.6);
+  gl_FragColor.rgb = max(c5, t.rgb * uLMin);
+  #include <fog_fragment>
+  #ifdef USE_FOG
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, u5Haze, smoothstep(fogNear * 0.35, fogFar, fogDepth) * 0.3);
+  #endif
+}`);
+      m.needsUpdate = true; U.ta = 1; } else U.ta = -1; } catch (e) { ERR('ta', e); }
+  function leafLayers() { try { const ids = [T.LEAVES, T.BLOSSOM, 147, 148, 149, 215], L = []; for (const id of ids) { const l = __TA.layers(id); if (l) for (const x of l) if (L.indexOf(x) < 0 && L.length < 16) L.push(x); }
+      for (let i = 0; i < 16; i++) u.u5Leaf.value[i] = i < L.length ? L[i] : -1; U.leafL = L.length; } catch (e) { ERR('leaf', e); } }
+  // ---------- plants: grass, flowers, ferns sway (top of the quad moves, the base stays put) ----------
+  const waved = new Set();
+  function wavePlant(m) { if (!m || waved.has(m) || !m.isMeshLambertMaterial) return; waved.add(m); const ob = m.onBeforeCompile;
+    m.onBeforeCompile = function (sh, r) { if (ob) ob.call(this, sh, r); sh.uniforms.u5T = u.u5T;
+      sh.vertexShader = 'uniform float u5T;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+ { vec3 wq = (modelMatrix * vec4(transformed, 1.0)).xyz; float k5 = clamp(uv.y, 0.0, 1.0);
+   transformed.x += sin(u5T * 2.2 + wq.x * 0.7 + wq.z * 0.4) * 0.07 * k5; transformed.z += cos(u5T * 1.8 + wq.z * 0.6) * 0.05 * k5; }`); };
+    const ck = m.customProgramCacheKey; m.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'c215p'; }; m.needsUpdate = true; U.pl++; }
+  function plants() { try { for (const k in PLANT_MATS) { const id = +k; if (id === T.COBWEB || id === T.FIRE) continue; wavePlant(PLANT_MATS[k]); } } catch (e) { ERR('pl', e); } }
+  // ---------- water: fresnel sky reflection + glints of sun ----------
+  try { const ob = waterMat.onBeforeCompile; waterMat.onBeforeCompile = function (sh, r) { if (ob) ob.call(this, sh, r); Object.assign(sh.uniforms, {u5Day: u.u5Day, u5Haze: u.u5Haze});
+      if (sh.fragmentShader.includes('varying vec3 vWp;') && sh.fragmentShader.includes('#include <dithering_fragment>')) {
+        sh.fragmentShader = 'uniform float u5Day; uniform vec3 u5Haze;\n' + sh.fragmentShader.replace('#include <dithering_fragment>', `{ vec3 V5 = normalize(vViewPosition); float fr5 = pow(1.0 - clamp(abs(dot(V5, normalize(normal))), 0.0, 1.0), 4.0);
+  gl_FragColor.rgb = mix(gl_FragColor.rgb, u5Haze * 1.05, fr5 * 0.45);
+  float g5 = pow(max(0.0, sin(vWp.x * 3.1 + uTime * 2.3) * sin(vWp.z * 2.7 - uTime * 1.9)), 28.0) + pow(max(0.0, sin(vWp.x * 5.3 - uTime * 3.1) * sin(vWp.z * 4.9 + uTime * 2.6)), 40.0);
+  gl_FragColor.rgb += vec3(1.0, 0.94, 0.78) * g5 * 0.55 * u5Day; }
+#include <dithering_fragment>`); U.wa = 1; } };
+    const ck = waterMat.customProgramCacheKey; waterMat.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'c215'; }; waterMat.needsUpdate = true; } catch (e) { ERR('wa', e); }
+  // ---------- sun bloom: a soft additive glow round the sun disc ----------
+  let glow = null; try { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 2, 64, 64, 63);
+    gr.addColorStop(0, 'rgba(255,240,200,1)'); gr.addColorStop(0.18, 'rgba(255,214,140,0.55)'); gr.addColorStop(0.5, 'rgba(255,190,110,0.14)'); gr.addColorStop(1, 'rgba(255,180,100,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    glow = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, opacity: 0}));
+    glow.frustumCulled = false; glow.renderOrder = -1; scene.add(glow); } catch (e) { ERR('glow', e); }
+  // ---------- vignette (CSS, costs nothing on the GPU) ----------
+  let vig = null; try { vig = document.createElement('div'); vig.id = 'vig215'; vig.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:3;background:radial-gradient(ellipse at center, rgba(0,0,0,0) 58%, rgba(10,14,30,0.32) 100%);transition:opacity 1s;opacity:0';
+    document.body.appendChild(vig); } catch (e) { ERR('vig', e); }
+  // ---------- per frame ----------
+  let tl = 0, k2 = 0;
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
+    try { u.u5T.value = (u.u5T.value + (dt || 0)) % 6283;
+      const hell = !!DIM.cur, rain = !hell && !!(window.__rainWx && __rainWx()), over = rain ? Math.min(1, (weather.dark || 0) * 1.6 + 0.3) : 0;
+      u.u5Over.value += (over - u.u5Over.value) * Math.min(1, (dt || 0) * 0.5);
+      const day = hell ? 0 : Math.max(0, Math.min(1, daylight)); u.u5Day.value = day * (1 - u.u5Over.value * 0.7);
+      tc.copy(scene.fog ? scene.fog.color : HZ); u.u5Haze.value.copy(tc).lerp(HZ, hell ? 0 : 0.45 * day * (1 - u.u5Over.value * 0.6));
+      if (glow && sunDisc) { glow.position.copy(sunDisc.position); glow.quaternion.copy(camera.quaternion); const s = 34; glow.scale.set(s, s, 1);
+        glow.material.opacity = sunDisc.visible && !hell && !(typeof caveK === 'number' && caveK > 0.7) ? 0.75 * day * (1 - u.u5Over.value) : 0; glow.visible = glow.material.opacity > 0.01; }
+      if (vig) { const o = started && !hell ? (0.7 + 0.3 * u.u5Over.value) : 0; if (Math.abs(o - (+vig.style.opacity || 0)) > 0.04) vig.style.opacity = o.toFixed(2); }
+      if ((tl -= (dt || 0)) <= 0) { tl = 3; if (k2++ < 40) { leafLayers(); plants(); } }
+    } catch (e) { ERR('tick', e); }
+    return r; };
+})();
+
+/* ===================== GLX-C216 (v1.0.45): rain you can see from indoors, never inside - and 3D rain sound.
+   - a small heightmap round you (the highest solid block of each column, refreshed every 0.5 s) goes to the rain shaders: rain only draws ABOVE the roof/overhang/hill
+     of its own column, so it falls everywhere under open sky (seen through windows and doors) and never inside a house, a base or a tunnel mouth;
+   - going indoors no longer switches rain off; only deep underground with no opening in reach does;
+   - sound: an open all-round rain bed outdoors; indoors it crossfades into cosy muffled rain-on-the-roof (low-passed patter, soft taps on wood and glass, a gentle rumble);
+     3D emitters (PannerNodes) sit at the nearest openings (windows, glass, doors, gaps to the sky) and on the roof above you, so it is louder from the window side and shifts as you
+     turn and move. Scanned every 0.5 s, eased, follows the sound volume slider. ===================== */
+(function c216() {
+  const U = window.__c216 = {deep: 0, open: 1, cov: 0, ems: [], err: null, n: 0, ms: 0};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); };
+  const PH = typeof touchMode !== 'undefined' && !!touchMode, N = PH ? 40 : 56;
+  // ---------- column heightmap ----------
+  const hm = new Uint8Array(N * N), tx = new Uint8Array(N * N * 4), tex = new THREE.DataTexture(tx, N, N, THREE.RGBAFormat);
+  tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false; tex.needsUpdate = true;
+  const uni = {uHM: {value: tex}, uHO: {value: new THREE.Vector2(-9999, -9999)}, uHN: {value: N}};
+  let ox = -9999, oz = -9999;
+  const top = (x, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return 0; const b0 = x * H * D + z, A0 = T.AIR; for (let y = H - 1; y > 0; y--) { const b = world[b0 + y * D]; if (b !== A0 && solid(x, y, z)) return y + 1; } return 0; };
+  U.top = (x, z) => { const i = x - ox, k = z - oz; return i >= 0 && k >= 0 && i < N && k < N ? hm[k * N + i] : top(x, z); };
+  function scanHM() { ox = Math.floor(P.x) - (N >> 1); oz = Math.floor(P.z) - (N >> 1);
+    for (let k = 0; k < N; k++) for (let i = 0; i < N; i++) { const v = Math.min(255, top(ox + i, oz + k)), j = k * N + i; hm[j] = v; tx[j * 4] = v; tx[j * 4 + 3] = 255; }
+    tex.needsUpdate = true; uni.uHO.value.set(ox, oz); }
+  // rain shaders: discard any rain fragment below its column's top
+  function occlude(m) { if (!m || m.__c216) return; m.__c216 = 1; const ob = m.onBeforeCompile;
+    m.onBeforeCompile = function (sh, r) { if (ob) ob.call(this, sh, r); Object.assign(sh.uniforms, uni);
+      sh.vertexShader = 'varying vec3 vWp216;\n' + sh.vertexShader.replace('#include <project_vertex>', '#include <project_vertex>\n vWp216 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+      sh.fragmentShader = 'varying vec3 vWp216;\nuniform sampler2D uHM; uniform vec2 uHO; uniform float uHN;\n' + sh.fragmentShader.replace(/void main\(\) \{/, 'void main() {\n vec2 c216 = (floor(vWp216.xz) - uHO + 0.5) / uHN;\n if (c216.x > 0.0 && c216.y > 0.0 && c216.x < 1.0 && c216.y < 1.0 && vWp216.y < texture2D(uHM, c216).r * 255.0 - 0.02) discard;'); };
+    m.customProgramCacheKey = () => 'c216' + (m.type || ''); m.needsUpdate = true; }
+  function hook() { const c = window.__c164; if (!c || !c.sheets) return false; for (const s of c.sheets) occlude(s.m); occlude(c.lines && c.lines.material); return true; }
+  // ---------- openings: rays from your head to the nearest places with open sky ----------
+  const DIRS = []; for (let a = 0; a < 16; a++) for (const e of [-0.25, 0.15, 0.6]) { const az = a / 16 * Math.PI * 2, ce = Math.cos(e); DIRS.push([Math.cos(az) * ce, Math.sin(e), Math.sin(az) * ce]); }
+  DIRS.push([0, 1, 0]);
+  function openings() { const ex = P.x, ey = P.y + 1.6, ez = P.z, hit = [];
+    for (const d of DIRS) { for (let s = 0.7; s <= 9; s += 0.6) { const x = ex + d[0] * s, y = ey + d[1] * s, z = ez + d[2] * s, bx = Math.floor(x), by = Math.floor(y), bz = Math.floor(z);
+        if (solid(bx, by, bz)) break; if (by >= U.top(bx, bz)) { hit.push({x, y, z, s, d}); break; } } }
+    return hit; }
+  // ---------- audio graph ----------
+  let A = null, tapT = 0;
+  function mk() { if (A || !AC || !master) return A; try {
+      const len = AC.sampleRate * 3, buf = AC.createBuffer(1, len, AC.sampleRate), ch = buf.getChannelData(0); let b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < len; i++) { const w = Math.random() * 2 - 1; b0 = 0.997 * b0 + w * 0.03; b1 = 0.96 * b1 + w * 0.3; b2 = 0.6 * b2 + w * 0.5; ch[i] = (b0 + b1 + b2 + w * 0.2) * 0.35; }
+      const src = o => { const s = AC.createBufferSource(); s.buffer = buf; s.loop = true; s.start(0, o); return s; };
+      const out = AC.createGain(); out.gain.value = 1; out.connect(master);
+      const chain = (o, f, type, q, dest) => { const s = src(o), fl = AC.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = AC.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(dest || out); return {g, fl}; };
+      const open = chain(0, 2600, 'bandpass', 0.35), inn = chain(0.9, 480, 'lowpass', 0.8), rum = chain(1.7, 110, 'lowpass', 0.7);
+      const pan = () => { const p = AC.createPanner(); p.panningModel = PH ? 'equalpower' : 'HRTF'; p.distanceModel = 'inverse'; p.refDistance = 1.5; p.rolloff = 1; p.rolloffFactor = 1; p.connect(out); return p; };
+      const ems = [0, 1, 2].map(k => { const p = pan(), c = chain(0.4 + k * 0.6, 1700 + k * 400, 'bandpass', 0.45, p); return {p, g: c.g}; });
+      const roofP = pan(), roof = chain(2.3, 900, 'lowpass', 0.6, roofP), taps = AC.createGain(); taps.gain.value = 1; taps.connect(roofP);
+      A = {out, open, inn, rum, ems, roofP, roof, taps}; } catch (e) { ERR(e); A = null; } return A; }
+  const tgt = (p, v, tc) => { try { p.setTargetAtTime(v, AC.currentTime, tc || 0.4); } catch (_) { p.value = v; } };
+  const pos = (p, x, y, z) => { if (p.positionX) { tgt(p.positionX, x, 0.25); tgt(p.positionY, y, 0.25); tgt(p.positionZ, z, 0.25); } else p.setPosition(x, y, z); };
+  function listener() { const L = AC.listener, cp = camera.position, d = new THREE.Vector3(); camera.getWorldDirection(d);
+    if (L.positionX) { L.positionX.value = cp.x; L.positionY.value = cp.y; L.positionZ.value = cp.z; L.forwardX.value = d.x; L.forwardY.value = d.y; L.forwardZ.value = d.z; L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0; }
+    else { L.setPosition(cp.x, cp.y, cp.z); L.setOrientation(d.x, d.y, d.z, 0, 1, 0); } }
+  let t5 = 0, hooked = false, roofY = 0;
+  const uw = updateWeather; updateWeather = function (dt) { const r = uw.apply(this, arguments);
+    try { if (!hooked) hooked = hook();
+      const w = WEATHER[weather.type], raining = !!(w && w.drops) && !DIM.cur && !window.__snowing && !(window.__snowWx && __snowWx());
+      t5 -= dt;
+      if (t5 <= 0 && raining) { t5 = 0.5; const t0 = performance.now(); scanHM();
+        const ex = Math.floor(P.x), ez = Math.floor(P.z), hy = P.y + 1.6, cov = U.top(ex, ez) > hy ? 1 : 0, hit = cov ? openings() : [];
+        U.cov = cov; roofY = U.top(ex, ez);
+        // openness: share of rays that reach the sky, weighted towards near ones
+        let o = 0; for (const h of hit) o += 1 / (1 + h.s * 0.35); U.open = cov ? Math.min(1, o / 6) : 1;
+        // keep the nearest openings in different directions as emitters
+        hit.sort((a, b) => a.s - b.s); const pick = []; for (const h of hit) { if (pick.length >= 3) break; if (pick.every(p => p.d[0] * h.d[0] + p.d[1] * h.d[1] + p.d[2] * h.d[2] < 0.6)) pick.push(h); }
+        U.ems = pick.map(h => [Math.round(h.x * 10) / 10, Math.round(h.y * 10) / 10, Math.round(h.z * 10) / 10, Math.round(h.s * 10) / 10]);
+        U.deep += ((typeof caveK === 'number' ? caveK : 0) * (cov && U.open < 0.05 ? 1 : 0) - U.deep) * 0.5;
+        U.n++; U.ms = Math.round((performance.now() - t0) * 10) / 10; }
+      if (!raining) { U.deep = 0; }
+      if (!AC || !master || !mk()) return r;
+      // mute the older single rain loop; this graph carries the rain now
+      try { if (rainGain) tgt(rainGain.gain, 0, 0.2); } catch (_) {}
+      const vol = Math.max(0, Math.min(1, Number(SET.sfx))) || 0, base = raining ? (weather.type === 'light' ? 0.06 : weather.type === 'thunder' ? 0.16 : 0.13) * Math.min(1, weather.dark / Math.max(0.01, w.dark) + 0.1) * vol : 0;
+      const inK = U.cov, deepK = U.deep, op = U.open;
+      tgt(A.open.g.gain, base * (1 - inK * 0.92) * (1 - deepK));
+      tgt(A.inn.g.gain, base * inK * 1.25 * (1 - deepK * 0.75), 0.6);
+      tgt(A.rum.g.gain, base * inK * 0.9 * (1 - deepK * 0.6), 0.8);
+      A.ems.forEach((e, k) => { const h = U.ems[k]; if (h && inK) { pos(e.p, h[0], h[1], h[2]); tgt(e.g.gain, base * 1.1 * Math.min(1, 0.4 + op), 0.5); } else tgt(e.g.gain, 0, 0.5); });
+      pos(A.roofP, camera.position.x, Math.max(camera.position.y + 1.5, roofY), camera.position.z); tgt(A.roof.g.gain, base * inK * 0.5, 0.6);
+      // soft taps on wood and glass while you are under cover
+      if (base > 0 && inK && typeof grain === 'function') { tapT -= dt; const heavy = weather.type === 'light' ? 0.5 : 1;
+        while (tapT < 0) { tapT += (0.05 + Math.random() * 0.12) / heavy; const t = AC.currentTime + 0.02 + Math.random() * 0.05, glass = Math.random() < 0.3;
+          grain(t, glass ? 2600 + Math.random() * 2200 : 500 + Math.random() * 700, glass ? 6 : 3, glass ? 0.03 : 0.06 + Math.random() * 0.05, (glass ? 0.05 : 0.08) * base * heavy * (0.5 + Math.random()), A.taps, 'bandpass'); } }
+      listener();
+    } catch (e) { ERR(e); }
+    return r; };
+})();
+
+/* ===================== GLX-C217 (v1.0.45): small fixes -
+   gravel breaks as fast as dirt; the deep grey stone (old "Deep slate") is just "Stone" everywhere and drops Cobblestone like normal stone (the dark cobble / bricks made from
+   it are "Dark stone ..."; no deepslate block); and no stutter / dark flash the first time a new ore shows up in a cave: every cave block's texture layer and the break-chip
+   material are warmed up while the world loads, instead of mid-mining (a new layer used to re-upload and re-mip the whole texture array). ===================== */
+(function c217() {
+  const U = window.__c217 = {err: null, warm: 0, ren: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e); };
+  // ---------- gravel = dirt ----------
+  try { if (T.GRAVEL !== undefined) { HARD[T.GRAVEL] = HARD[T.DIRT] || 0.5; MC_HARD[T.GRAVEL] = MC_HARD[T.DIRT] || 0.5; REQ[T.GRAVEL] = REQ[T.DIRT] || 0; } } catch (e) { ERR('gravel', e); }
+  // ---------- "Deep slate" is Stone ----------
+  const DS = T.DEEPSLATE;
+  function rename() { try { for (const k in NAMES) { const n = NAMES[k]; if (typeof n !== 'string') continue; let m = n;
+        if (+k === DS) m = 'Stone'; else m = n.replace(/Deep ?slate/g, 'Dark stone').replace(/deep ?slate/g, 'dark stone');
+        if (m !== n) { NAMES[k] = m; U.ren++; } }
+      for (const r of (typeof RECIPES !== 'undefined' ? RECIPES : [])) { if (!r) continue; for (const f of ['name', 'hint']) if (typeof r[f] === 'string') r[f] = r[f].replace(/\b4 Deep ?slate\b(?! )/g, '4 Stone').replace(/Deep ?slate/g, 'Dark stone');
+        if (Array.isArray(r.need)) for (const q of r.need) if (Array.isArray(q) && q[0] === DS) q[0] = T.STONE; }
+      try { for (const k in STAIRS) if (STAIRS[k] && typeof STAIRS[k][1] === 'string') STAIRS[k][1] = STAIRS[k][1].replace(/Deep ?slate/g, 'Dark stone'); } catch (_) {}
+    } catch (e) { ERR('ren', e); } }
+  if (DS !== undefined) {
+    rename(); setTimeout(rename, 3000); setTimeout(rename, 15000);
+    try { HARD[DS] = HARD[T.STONE]; MC_HARD[DS] = MC_HARD[T.STONE]; } catch (_) {}
+    try { const df = dropsFor; dropsFor = function (b) { if (b === DS) return [[T.COBBLE, 1]]; return df.apply(this, arguments); }; } catch (e) { ERR('drop', e); }
+    // one "Stone" in the creative bag, not two
+    try { const i = CREATIVE_ALL.indexOf(DS); if (i >= 0) CREATIVE_ALL.splice(i, 1); } catch (_) {}
+  }
+  // ---------- warm-up: cave blocks' texture layers + the break-chip shader, while the world loads ----------
+  const CAVE = ['STONE', 'COBBLE', 'DEEPSLATE', 'DSCOBBLE', 'GRAVEL', 'DIRT', 'COALORE', 'IRONORE', 'COPPERORE', 'GOLDORE', 'REDORE', 'DIAMONDORE', 'SILVERORE', 'LAZORE', 'RUBYORE', 'COBALTORE', 'CAIRNGORMORE', 'BEDROCK', 'MOSS', 'CLAY', 'SANDSTONE', 'OBSIDIAN', 'LAVA', 'WATER'];
+  function warm() { try { const A = window.__TA; if (A && A.layers) for (const k of CAVE) { const id = T[k]; if (id !== undefined) { A.layers(id); U.warm++; } }
+      for (const id of [232, 233, 234, 181, 249]) if (A && A.layers) A.layers(id);
+      if (A && A.flush) A.flush();
+      // the break chips (GLX-C202) are double-sided lambert boxes with a map - compile that program now
+      const tx = BLOCK_MATS[T.STONE] && (Array.isArray(BLOCK_MATS[T.STONE]) ? BLOCK_MATS[T.STONE][0] : BLOCK_MATS[T.STONE]).map;
+      if (tx && renderer.compile) { const m = new THREE.MeshLambertMaterial({map: tx, alphaTest: 0, transparent: false, side: THREE.DoubleSide}), m2 = new THREE.MeshLambertMaterial({color: 0x777777}), g = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+        const o = new THREE.Mesh(g, m), o2 = new THREE.Mesh(g, m2); o.position.copy(camera.position); o2.position.copy(camera.position); scene.add(o); scene.add(o2);
+        try { renderer.compile(scene, camera); } finally { scene.remove(o); scene.remove(o2); g.dispose(); } U.chip = 1; }
+    } catch (e) { ERR('warm', e); } }
+  try { const ew = enterWorld; enterWorld = function () { const r = ew.apply(this, arguments); setTimeout(warm, 1500); return r; }; } catch (e) { ERR('ew', e); }
+})();
+
+/* ===================== GLX-C218 (v1.0.45): RS (right stick click) = smart pick tool; the Snaw Yeti - the mountain beast is now a gentle shaggy yeti that never attacks,
+   with a soft low grumble, met only rarely up on the snowy peaks. ===================== */
+(function c218() {
+  const U = window.__c218 = {err: null, picks: 0, last: null, yetis: 0, grum: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e); };
+  // ---------------- 1) smart pick tool ----------------
+  const nm = id => String(NAMES[id] || '');
+  const have = id => id && (MODE.infinite || cnt(id) > 0);
+  const own = () => { const s = new Set(); try { for (const k in inv) if (inv[k] > 0) s.add(+k); } catch (_) {} try { for (const id of (MODE.hotbar || [])) if (id) s.add(id); } catch (_) {} return [...s].filter(have); };
+  const tools = (kind, minLv) => own().filter(id => TOOL[id] && TOOL[id][0] === kind && TOOL[id][1] >= (minLv || 0));
+  const best = (list, key) => list.sort((a, b) => key(b) - key(a))[0] || 0;
+  const ammo = id => { try { if (MODE.infinite) return true; if (window.gunMag && gunMag[id] > 0) return true; for (const k in inv) if (inv[k] > 0 && /bullet|cartridge|shot\b/i.test(nm(+k))) return true; } catch (_) {} return false; };
+  function kindOf(b) { const n = nm(b).toLowerCase();
+    if (b === T.WATER || b === T.LAVA || /^(water|lava)$/.test(n)) return 'bucket';
+    if (LEAFY[b] || b === T.COBWEB || /leaves|wool|cobweb|web|blossom|tall grass|fern|vine/.test(n)) return 'shears';
+    if (LOGGY[b] || /log|plank|wood|oak|pine|birch|rowan|alder|yew|hawthorn|table|chest|door|fence|ladder|bookshelf|barrel|sign|trapdoor/.test(n)) return 'axe';
+    if (b === T.FARM || /wheat|crop|tattie|potato|neep|carrot|barley|oats|seedling/.test(n)) return 'hoe';
+    if (/^(grass|dirt|sand|gravel|snow|clay|mud|peat|podzol|farmland|coarse dirt|path|soul sand)|snow|mud|clay|gravel|peat|podzol/.test(n) && !/stone|brick/.test(n)) return 'shovel';
+    if (/stone|ore|cobble|brick|slate|granite|marble|obsidian|basalt|tile|rock|ice|furnace|anvil|lantern|blackstone|quartz/.test(n) || (REQ[b] || 0) > 0 || (HARD[b] || 0) >= 1.5) return 'pick';
+    return null; }
+  function choose() {
+    // a hostile mob in the crosshair: a loaded gun, else the best sword
+    let mob = null; try { mob = reachMob(24); } catch (_) {}
+    if (mob && mob.hostile && mob.kind !== 'clansman' && !mob.tame) { const g = own().filter(id => GUN[id] && ammo(id)); if (g.length) return [best(g, id => GUN[id].dmg), 'gun'];
+      const s = tools('sword'); if (s.length) return [best(s, id => TOOL[id][3]), 'sword']; return [0, 'a sword or a loaded gun']; }
+    let r = null; try { r = raycast(8, false, true); } catch (_) {} if (!r || !r.hit) return [0, null];
+    const b = getB(...r.hit), k = kindOf(b); if (!k) return [0, null];
+    if (k === 'bucket') { const l = own().filter(id => id === IT.BUCKET); return [l[0] || 0, 'a bucket']; }
+    if (k === 'shears') { if (have(IT.SHEARS)) return [IT.SHEARS, 'shears']; const s = tools('sword'); return [best(s, id => TOOL[id][3]), 'shears or a sword']; }
+    if (k === 'pick') { const need = REQ[b] || 0, l = tools('pick', need); return [best(l, id => TOOL[id][2] * 10 + TOOL[id][1]), need > 1 ? 'a pickaxe strong enough for ' + nm(b) : 'a pickaxe']; }
+    const l = tools(k); return [best(l, id => TOOL[id][2] * 10 + TOOL[id][1]), k === 'axe' ? 'an axe' : 'a ' + k]; }
+  function pickTool() {
+    if (menuOpen || paused || dead || !started) return; let id = 0, what = null; try { [id, what] = choose(); } catch (e) { ERR('pick', e); }
+    if (!id) { toast(what ? 'No ' + what.replace(/^(a|an) /, '') + ' for that' : 'No tool for that'); return; }
+    try { ensureHotbar(); if (MODE.hotbar) { let i = MODE.hotbar.indexOf(id); if (i < 0) { i = MODE.hotbar.indexOf(selId); if (i < 0) i = 0; MODE.hotbar[i] = id; } } } catch (_) {}
+    selId = id; U.picks++; U.last = id; try { renderHotbar(); } catch (_) {} try { sfx('pop', .3); } catch (_) {} toast(NAMES[id] || 'Tool'); }
+  U.pickTool = pickTool; U.choose = choose;
+  let rsPrev = false;
+  try { const rp = readPad; readPad = function () { const r = rp.apply(this, arguments); try { const now = pressed(11); if (now && !rsPrev) pickTool(); rsPrev = now; } catch (_) {} return r; }; } catch (e) { ERR('pad', e); }
+  // keyboard too: middle mouse stays pick-block; T = pick tool
+  addEventListener('keydown', e => { if (e.code === 'KeyT' && !e.repeat && !menuOpen && started && !(document.activeElement && /INPUT|TEXTAREA/.test(document.activeElement.tagName))) pickTool(); });
+  // ---------------- 2) the Snaw Yeti ----------------
+  const C = window.__c123, DEF = C && C.DEF && C.DEF.nm07;
+  if (DEF) { DEF.name = 'Snaw Yeti'; DEF.ai = 'wander'; DEF.dmg = 0; DEF.spd = 2.2; DEF.snd = 'yeti'; }
+  let FUR = null;
+  function furTex(base, dark) { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = base; g.fillRect(0, 0, 128, 128);
+    let s = 91; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 900; i++) { const x = r() * 128, y = r() * 128, l = 6 + r() * 14, v = r(); g.strokeStyle = v < 0.45 ? dark : v < 0.8 ? '#f4f3ef' : '#c9cbcf'; g.globalAlpha = 0.35 + r() * 0.5; g.lineWidth = 1 + r() * 1.4;
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + (r() - .5) * 6, y + l * .5, x + (r() - .5) * 8, y + l); g.stroke(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t; }
+  function fringeTex() { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d'); let s = 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < 260; i++) { const x = r() * 128, l = 20 + r() * 44, w = 1.5 + r() * 2.5; g.fillStyle = r() < 0.5 ? '#eeedea' : r() < 0.6 ? '#cfd1d4' : '#b9bcc2'; g.beginPath(); g.moveTo(x - w, 0); g.lineTo(x + w, 0); g.lineTo(x + (r() - .5) * 4, l); g.fill(); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; return t; }
+  function mats() { if (FUR) return FUR; FUR = {fur: new THREE.MeshLambertMaterial({map: furTex('#dcdcdc', '#a6aab2')}), fr: new THREE.MeshLambertMaterial({map: fringeTex(), alphaTest: 0.4, side: THREE.DoubleSide}),
+      face: new THREE.MeshLambertMaterial({color: 0x6f7480}), eye: new THREE.MeshBasicMaterial({color: 0x1a1d24}), shine: new THREE.MeshBasicMaterial({color: 0xffffff}), mouth: new THREE.MeshLambertMaterial({color: 0x3a3238})}; return FUR; }
+  function shag(r, h, sy) { const g = new THREE.SphereGeometry(r, 20, 14), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), n = 1 + 0.07 * Math.sin(x * 23 + z * 17) * Math.cos(y * 19);
+      p.setXYZ(i, x * n, y * n * (sy || 1), z * n); } g.computeVertexNormals(); return g; }
+  function fringe(r, len, y) { const g = new THREE.CylinderGeometry(r, r * 1.08, len, 18, 1, true); const m = new THREE.Mesh(g, FUR.fr); m.position.y = y; return m; }
+  const noHD = () => { try { if (window.__c135 && __c135.cat) delete __c135.cat.nm07; } catch (_) {} }; noHD(); setTimeout(noHD, 3000);   // the old boxy HD model is retired
+  function build(a) { noHD(); const M = mats(), g = a.g; for (const ch of [...g.children]) g.remove(ch); a.__hd = null; a.__hdTry = 2;
+    const rig = new THREE.Group(); g.add(rig); const mk = (geo, m, x, y, z, par) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); (par || rig).add(o); return o; };
+    const body = mk(shag(0.62, 1, 1.25), M.fur, 0, 1.55, 0); body.add(fringe(0.6, 0.45, -0.7)); body.add(fringe(0.66, 0.35, 0.1));
+    const head = new THREE.Group(); head.position.set(0, 2.45, 0.12); rig.add(head); mk(shag(0.38, 1, 1.05), M.fur, 0, 0, 0, head); head.add(fringe(0.36, 0.25, 0.22));
+    const face = mk(new THREE.SphereGeometry(0.24, 16, 12), M.face, 0, -0.04, 0.22, head); face.scale.set(1.05, 0.9, 0.55);
+    for (const sx of [-1, 1]) { mk(new THREE.SphereGeometry(0.045, 10, 8), M.eye, sx * 0.09, 0.03, 0.33, head); mk(new THREE.SphereGeometry(0.014, 6, 5), M.shine, sx * 0.09 + 0.012, 0.045, 0.37, head); }
+    const mo = mk(new THREE.SphereGeometry(0.07, 10, 6), M.mouth, 0, -0.12, 0.33, head); mo.scale.set(1.3, 0.35, 0.5);
+    mk(new THREE.SphereGeometry(0.035, 8, 6), M.mouth, 0, -0.03, 0.36, head);
+    const limb = (x, y, len, r) => { const p = new THREE.Group(); p.position.set(x, y, 0); rig.add(p); const m = mk(shag(r, 1, len / (2 * r)), M.fur, 0, -len / 2, 0, p); m.add(fringe(r * 0.95, len * 0.35, -len * 0.25)); 
+      mk(new THREE.SphereGeometry(r * 0.75, 10, 8), M.face, 0, -len + r * 0.3, 0.05, p); return p; };
+    a.la = limb(-0.68, 2.0, 1.25, 0.2); a.ra = limb(0.68, 2.0, 1.25, 0.2); a.ll = limb(-0.28, 0.95, 0.9, 0.24); a.rl = limb(0.28, 0.95, 0.9, 0.24);
+    a.head = head; a.body = body; a.rig = rig; a.manim = null; a.lod = null; a.legs4 = null; a.model = null;
+    a.mats = [M.fur, M.fr, M.face, M.eye, M.mouth].map(m => { const c = m.clone(); c.transparent = true; c.opacity = 1; return c; });
+    // per-mob clones so the hurt flash / fade work on this one only
+    let i = 0; const map = new Map([[M.fur, a.mats[0]], [M.fr, a.mats[1]], [M.face, a.mats[2]], [M.eye, a.mats[3]], [M.mouth, a.mats[4]]]); rig.traverse(o => { if (o.isMesh && map.has(o.material)) { o.material = map.get(o.material); i++; } });
+    for (const m of a.mats) m.transparent = m === a.mats[1] ? false : false;
+    a.hostile = false; a.yeti = 1; a.hitY = 1.4; a.tall = 3; U.yetis++; }
+  function fix(a) { if (!a || a.kind !== 'nm07' || a.yeti) return; try { build(a); } catch (e) { ERR('build', e); } }
+  if (C && C.spawnKind) { const sk = C.spawnKind; C.spawnKind = function (kind) { const a = sk.apply(this, arguments); if (kind === 'nm07') fix(a); return a; }; }
+  // voice: a soft, low grumble, not often
+  let lastG = 0;
+  function grumble(pos) { if (!AC || !window.mobOut) return; const now = performance.now(); if (now - lastG < 16000 || Math.random() < 0.45) return; lastG = now;
+    const d = Math.hypot(pos.x - P.x, pos.y - P.y, pos.z - P.z); if (d > 26) return; const vol = 0.22 * Math.pow(1 - d / 26, 1.6); if (vol < 0.01) return;
+    const yaw = P.yaw || 0, ang = Math.atan2(pos.x - P.x, pos.z - P.z) - yaw, pan = Math.max(-0.8, Math.min(0.8, -Math.sin(ang)));
+    const out = mobOut(vol, pan), t = AC.currentTime, dur = 1.1 + Math.random() * 0.8, f0 = 62 + Math.random() * 18;
+    const o = AC.createOscillator(), o2 = AC.createOscillator(), lp = AC.createBiquadFilter(), g = AC.createGain(), trem = AC.createOscillator(), tg = AC.createGain();
+    o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.setValueAtTime(f0 * 1.12, t); o.frequency.exponentialRampToValueAtTime(f0, t + dur * 0.4); o.frequency.exponentialRampToValueAtTime(f0 * 0.86, t + dur);
+    o2.frequency.value = f0 * 0.5; lp.type = 'lowpass'; lp.frequency.setValueAtTime(260, t); lp.frequency.linearRampToValueAtTime(420, t + dur * 0.35); lp.frequency.linearRampToValueAtTime(220, t + dur); lp.Q.value = 2.5;
+    trem.frequency.value = 7 + Math.random() * 3; tg.gain.value = 0.35; trem.connect(tg); tg.connect(g.gain);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.7, t + 0.18); g.gain.setValueAtTime(0.7, t + dur - 0.35); g.gain.linearRampToValueAtTime(0, t + dur);
+    o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(out); for (const q of [o, o2, trem]) { q.start(t); q.stop(t + dur + 0.05); } U.grum++; }
+  try { const s3 = sfx3d; sfx3d = function (kind, pos) { if (typeof kind === 'string' && kind.slice(0, 7) === 'nm:yeti') { try { grumble(pos); } catch (e) { ERR('grum', e); } return; } return s3.apply(this, arguments); }; } catch (e) { ERR('s3', e); }
+  // spawning: only very high on snowy peaks, rare, one at a time; day or night
+  const SNOWY = b => b === T.SNOW || b === 178 || /snow/i.test(nm(b));
+  let chk = 3;
+  function peakSpot() { const g = (x, z) => { try { return groundTop(x, z); } catch (_) { return 0; } };
+    for (let t = 0; t < 30; t++) { const an = Math.random() * 6.283, r = 22 + Math.random() * 30, x = Math.floor(P.x + Math.sin(an) * r), z = Math.floor(P.z + Math.cos(an) * r);
+      if (x < 6 || z < 6 || x > W - 6 || z > D - 6) continue; const y = g(x, z); if (y < SEA + 30) continue;
+      let snow = 0; for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { const q = g(x + dx, z + dz); if (SNOWY(getB(x + dx, q, z + dz)) || SNOWY(getB(x + dx, q + 1, z + dz))) snow++; } if (snow < 3) continue;
+      let peak = true; for (const [dx, dz] of [[6, 0], [-6, 0], [0, 6], [0, -6], [4, 4], [-4, -4], [4, -4], [-4, 4]]) if (g(x + dx, z + dz) > y + 1) { peak = false; break; } if (!peak) continue;
+      if (getB(x, y + 1, z) && !SNOWY(getB(x, y + 1, z)) || getB(x, y + 2, z) || getB(x, y + 3, z)) continue; return [x, y + 1 + (SNOWY(getB(x, y + 1, z)) ? 1 : 0), z]; } return null; }
+  function tick(dt) { if (!started || paused || DIM.cur || !C || !C.spawnKind) return; if (MODE && MODE.name === 'creative') return;
+    for (const a of mobs) if (a.kind === 'nm07') { fix(a); a.fade = 0; a.hostile = false; }
+    if ((chk -= dt) > 0) return; chk = 6; if (mobs.some(a => a.kind === 'nm07')) return; if (P.y < SEA + 18 || Math.random() > 0.12) return;
+    const s = peakSpot(); if (!s) return; try { const a = C.spawnKind('nm07', s[0], s[1], s[2], {grp: Math.random(), home: 'peak'}); if (a) { a.home = 'peak'; a.spec = 'yeti';   /* only peak yetis survive c143's sweep of stray nm07s */ U.spawned = (U.spawned || 0) + 1; } } catch (e) { ERR('spawn', e); } }
+  try { const umY = updateMobs; updateMobs = function () { for (const a of mobs) if (a.kind === 'nm07') a.fade = 0; return umY.apply(this, arguments); }; } catch (e) { ERR('um', e); }   // the yeti never fades at daybreak
+  let lt = performance.now(); setInterval(() => { const n = performance.now(), dt = Math.min(1, (n - lt) / 1000); lt = n; try { tick(dt); } catch (e) { ERR('tick', e); } }, 500);
+})();
+
+/* ===================== GLX-C219 (v1.0.45): new and reset worlds - the spawn skull's open mouth and hollow walk-in inside are back (exactly as in world/spawn84.bin: the
+   jaw, the teeth, the cavern behind them and the eye hollows; the old "no floating skull" fill used to pack it solid), and every bridge now starts from the spawn: a lit gravel road
+   runs out from spawn along each bridge line, joins the bridges end to end and goes on to each castle island, so the islands are reached from spawn outward. ===================== */
+(function c219() {
+  const U = window.__c219 = {err: null, carved: 0, road: 0, lamps: 0, roads: [], ms: 0, done: 0}; let pend = false;
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e); };
+  const CV = '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';
+  const NEWW = () => { try { return current && current.created >= 1793149200000 && current.g42 && !DIM.cur && W >= 600; } catch (_) { return false; } };
+  const inB = (x, y, z) => x > 0 && z > 0 && x < W - 1 && z < D - 1 && y > 0 && y < H - 1;
+  const mine = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i);
+  const KEEP = new Set([T.CHEST, T.FURNACE, T.DOOR, T.DOORTOP, T.BED].filter(v => v !== undefined));
+  const NAT = new Set([T.GRASS, T.DIRT, T.STONE, T.SAND, T.GRAVEL, T.SNOW, T.HEATHER, T.PEAT, T.MUD, T.CLAY, T.PODZOL, T.MOSS, T.COBBLE, T.DEEPSLATE, T.TALLGRASS, T.THISTLE, 156, 178, 248, 136, 49].filter(v => v !== undefined));
+  const nat = b => !b || NAT.has(b) || (typeof PLANT !== 'undefined' && PLANT[b]) || LEAFY[b] || LOGGY[b];
+  let chs = new Set(); const put = (x, y, z, v) => { if (!inB(x, y, z)) return false; const i = idx(x, y, z); if (mine(i) || world[i] === v || KEEP.has(world[i])) return false; world[i] = v; chs.add(Math.floor(x / CH) * 64 + Math.floor(z / CH)); return true; };
+  // ---- 1) the skull's mouth + hollow ----
+  function carve() { const b = Uint8Array.from(atob(CV), c => c.charCodeAt(0)), ox = (W >> 1) - 128, oz = (D >> 1) - 124; let n = 0;
+    for (let i = 0; i + 3 < b.length; i += 4) { const X = ox + b[i], Z = oz + b[i + 1], y0 = 21 + b[i + 2], L = b[i + 3];
+      for (let y = y0; y < y0 + L; y++) { if (!inB(X, y, Z)) continue; const v = world[idx(X, y, Z)]; if (!v || v === T.WATER || v === T.LAVA || !nat(v)) continue; if (put(X, y, Z, T.AIR)) n++; } }
+    // a couple of lanterns on the cavern floor so it is never pitch black inside
+    for (const [x, y, z] of [[126, 27, 165], [135, 25, 162], [131, 26, 170]]) { const X = ox + x, Z = oz + z; let Y = 21 + y; while (Y > 40 && !world[idx(X, Y - 1, Z)]) Y--; if (!world[idx(X, Y, Z)] && world[idx(X, Y - 1, Z)]) { put(X, Y, Z, 161); U.lamps++; } }
+    U.carved = n; }
+  // ---- 2) roads from spawn to the bridges, bridge to bridge, and on to each castle ----
+  const ox = () => (W >> 1) - 128, oz = () => (D >> 1) - 124;
+  const SKB = () => [ox() + 97, oz() + 150, ox() + 154, oz() + 192];   // the skull's footprint (+ a margin)
+  const inSk = (x, z) => { const [a, b, c, d] = SKB(); return x >= a && x <= c && z >= b && z <= d; };
+  const gtop = (x, z) => { for (let y = H - 2; y > 1; y--) { const v = world[idx(x, y, z)]; if (v && v !== T.WATER && !(typeof PLANT !== 'undefined' && PLANT[v]) && !LEAFY[v] && !LOGGY[v]) return y; } return 0; };
+  const wet = (x, z) => { const g = gtop(x, z); return g < SEA || world[idx(x, g + 1, z)] === T.WATER; };
+  function road(ax, az, bx, bz, sk) { const L = Math.hypot(bx - ax, bz - az); if (L < 3) return 0; const ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, N = Math.ceil(L);
+    const G = new Float32Array(N + 1); for (let t = 0; t <= N; t++) G[t] = gtop(Math.floor(ax + ux * t), Math.floor(az + uz * t));
+    const S = new Int16Array(N + 1); for (let t = 0; t <= N; t++) { let s = 0, k = 0; for (let q = Math.max(0, t - 3); q <= Math.min(N, t + 3); q++) { s += G[q]; k++; } S[t] = Math.round(s / k); }
+    for (let t = 1; t <= N; t++) S[t] = Math.max(S[t - 1] - 1, Math.min(S[t - 1] + 1, S[t])); for (let t = N - 1; t >= 0; t--) S[t] = Math.max(S[t + 1] - 1, Math.min(S[t + 1] + 1, S[t]));
+    let cols = 0; const done = new Set();
+    for (let t = 0; t <= N; t += 0.5) for (let o = -1.5; o <= 1.5; o += 0.5) { const x = Math.floor(ax + ux * t + nx * o), z = Math.floor(az + uz * t + nz * o), k = x * 4096 + z; if (done.has(k) || !inB(x, 2, z)) continue; done.add(k);
+      if (sk && inSk(x, z)) continue; if (wet(x, z)) continue; const s = S[Math.min(N, Math.round(t))], g = gtop(x, z); if (g - s > 4 || s - g > 3) continue;
+      let ok = true; for (let y = Math.min(g, s); y <= s + 3; y++) if (!nat(world[idx(x, y, z)])) { ok = false; break; } if (!ok) continue;
+      for (let y = g + 1; y < s; y++) put(x, y, z, T.DIRT);
+      const edge = Math.abs(o) > 1.1, r = (x * 73856093 ^ z * 19349663) >>> 0; put(x, s, z, edge ? (r % 3 ? T.COBBLE : T.GRAVEL) : (r % 7 ? T.GRAVEL : T.COBBLE));
+      for (let y = s + 1; y <= s + 4; y++) { const v = world[idx(x, y, z)]; if (v && v !== T.WATER) put(x, y, z, T.AIR); } cols++; }
+    for (let t = 6; t < N - 3; t += 16) { const x = Math.floor(ax + ux * t + nx * 2.6), z = Math.floor(az + uz * t + nz * 2.6); if (!inB(x, 4, z) || (sk && inSk(x, z)) || wet(x, z)) continue; const g = gtop(x, z);
+      if (!nat(world[idx(x, g + 1, z)]) || world[idx(x, g + 2, z)] || world[idx(x, g + 3, z)]) continue; put(x, g + 1, z, 162); put(x, g + 2, z, 162); put(x, g + 3, z, 161); U.lamps++; }
+    U.road += cols; return cols; }
+  function roads() { const B = (window.__c113 && __c113.bridges) || [], by = new Map(); for (const b of B) { if (!b || !b.a) continue; const k = b.k; if (!by.has(k)) by.set(k, []); by.get(k).push(b); }
+    const sx = W >> 1, sz = D >> 1, cas = new Map(((typeof g9castles !== 'undefined' && g9castles) || []).map(c => [c[0], c])); const [ka, kb, kc, kd] = SKB();
+    for (const [k, L] of by) { L.sort((p, q) => p.a[4] - q.a[4]); const [ax, az, ux, uz] = L[0].a, pt = t => [ax + ux * t, az + uz * t];
+      // from spawn (out of the spawn clearing) to the first bridge; round the skull if the line crosses it
+      let t0 = 8; while (t0 < L[0].a[4] - 4 && inSk(...pt(t0).map(Math.floor))) t0++;
+      const s0 = [sx + ux * 8, sz + uz * 8], f = pt(L[0].a[4]); let crosses = false; for (let t = 8; t < L[0].a[4]; t += 2) if (inSk(...pt(t).map(Math.floor))) { crosses = true; break; }
+      if (crosses) { let te = 8; for (let t = 8; t < L[0].a[4]; t++) if (inSk(...pt(t).map(Math.floor))) te = t; const J = pt(Math.min(L[0].a[4], te + 4)), m = 3;
+        const sx2 = J[0] >= (ka + kc) / 2 ? kc + m : ka - m, wp = [s0, [sx2, kb - m]]; if (J[1] > kd) wp.push([sx2, kd + m]); wp.push(J, f);
+        for (let i = 0; i + 1 < wp.length; i++) road(wp[i][0], wp[i][1], wp[i + 1][0], wp[i + 1][1], true); }
+      else road(s0[0], s0[1], f[0], f[1], true);
+      for (let i = 0; i + 1 < L.length; i++) { const a = pt(L[i].a[5]), b = pt(L[i + 1].a[4]); road(a[0], a[1], b[0], b[1], true); }
+      const c = cas.get(k), e = pt(L[L.length - 1].a[5]); if (c) { const d = Math.hypot(c[1] - e[0], c[2] - e[1]); if (d > 30) { const q = (d - 26) / d; road(e[0], e[1], e[0] + (c[1] - e[0]) * q, e[1] + (c[2] - e[1]) * q, false); } }
+      U.roads.push([k, L.length]); } }
+  function run() { const t = performance.now(); chs = new Set(); try { carve(); } catch (e) { ERR('carve', e); } try { roads(); } catch (e) { ERR('roads', e); }
+    try { for (const id of chs) if (chunkObjs.has(id)) dirtyCh.add(id); } catch (_) {} try { dirtyAll = true; } catch (_) {}
+    try { if (typeof g9cols !== 'undefined') for (const id of chs) { const cx = Math.floor(id / 64), cz = id % 64; for (let x = cx * CH; x < cx * CH + CH; x++) for (let z = cz * CH; z < cz * CH + CH; z++) if (inB(x, 2, z)) g9cols[(x * D + z) * 2] = gtop(x, z) + 1; } } catch (_) {}
+    U.ms = Math.round(performance.now() - t); U.done = 1; if (current) current.c219 = 1; }
+  U.run = run;
+  const ready = () => typeof started !== 'undefined' && started && NEWW() && window.__c205 && __c205.done && window.__c113 && __c113.bridges && __c113.bridges.length && !(window.__c105 && __c105.phase);
+  let waitT = 0; setInterval(() => { if (!pend) return; if (!ready()) return; if ((waitT += 0.7) < 2) return; pend = false; try { run(); } catch (e) { ERR('run', e); } }, 700);
+  try { const ew = enterWorld; enterWorld = function (save) { pend = !save || !!(save && save.c219p); waitT = 0; U.done = 0; U.roads = []; U.road = 0; U.lamps = 0; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && pend && NEWW()) d.c219p = 1; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -29320,6 +30087,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.45', d:'2026-10-28', notes:["New: Settings > Shaders: Low / High (High on computers, Low on phones so they stay smooth) - High adds warm golden sunlight, richer greens, blue distance haze, a soft sun bloom, waving leaves, grass and flowers, water fresnel and sun glints, a grey-blue overcast tint while it rains and a light vignette; it never goes darker than the 30% light floor", "New: lusher new and reset worlds - much more tall grass, bushy bushes, round oaks, flower patches, bluebell-and-heather 'lavender' meadows and wisteria-style trees hung with purple blossom (your current world is not changed)", "New: the rare pink blossom tree from v0.8.0 is back in new and reset worlds, in its original shape - at least one in every new glen", "New: rain keeps falling outside when you go indoors - you see it through windows and doors - and never shows inside a house, a base or a tunnel mouth (it stops at each column's roof)", "New: 3D rain sound - an all-round rain bed outdoors; indoors it crossfades to cosy muffled rain on the roof with soft taps on wood and glass and a gentle rumble, louder from the window or door side and shifting as you turn and move", "New: gravel breaks as fast as dirt", "New: the deep grey stone in caves is just 'Stone' now and drops Cobblestone like normal stone", "New: no more stutter or dark flash the first time a new ore shows up while you mine in a cave", "New: smart pick tool - click the right stick (RS) or press T to grab the right tool for what you are looking at: shovel for dirt, grass, sand, gravel, snow, clay and mud; the best pickaxe that can mine stone, cobble, bricks, sandstone and ores; an axe for logs and planks; shears or a sword for leaves, wool and cobweb; a hoe for crops; a bucket for water or lava; and your gun (if loaded) or best sword when a monster is in your sights. If it is not on your hotbar it swaps in from your bag; if you have nothing suitable a message tells you (RS did nothing before, so no button moved)", "New: roads from spawn - in new and reset worlds a gravel road with cobble edges, fences and lamps runs from around spawn out to the first bridge, between bridges, and on to every castle and island, so you can walk from spawn to each island in turn; the islands are still separated by water", "New: the spawn skull has its open mouth back - walk in through the teeth into a hollow lantern-lit cave inside, as in the original build (new and reset worlds)", "Textures: lazurite (lapis lazuli) ore redone like the silver and redstone ores - deep-blue specks and thin veins sunk into the plain stone, with the odd gold fleck", "Mobs: the people speak real words now, in a Scots voice - greetings, trading, being hit, nightfall, and what they predict and learn - and they talk to each other; only people near you, at most 3 voices at once, on the mob voice slider (the nods stay)", "Mobs: what they say is built from what is going on - what you hold, digging, chopping or building, the time, weather, your health, the place, mobs nearby and what they remember - and a line never repeats within about 50 lines or 20 minutes", "Mobs: the people share the SUNNY v206 brain - every line runs its think cycle (memories, beliefs, hypotheses, predictions, reflections); it is saved with each world and wiped by Reset world", "Mobs: free will - clansmen pick their own goals (work, wander, chat, eat, hunt beasts, fight or flee monsters, trade, dance, sleep), say what they mean to do, then reflect on how it went; they still never attack you unless you hit them", "Mobs: rarely, a person stops for a 4-layer self-reflection out loud ('Am thinkin aboot me thinkin... aye, a funny wee loop.'), which nudges what they care about", "Mobs: optional AI replies - Chrome's built-in AI when it is there, or your own AI key in the pause menu (kept only on this device) - spoken in each person's own voice; without it they use their built-in lines", "Mobs: gifts - press LT while holding an item to give one to a person (a finished trade counts for clansmen); they do a happy dance for a few seconds and remember your kindness", "Mobs: the dance is real now - a 15-second routine copied move for move from the dance video (side-on poses, arm throws, a full spin, arms out wide and overhead, leg lifts and knee bends) instead of bobbing up and down", "Mobs: the mountain beast is now the Snaw Yeti - a gentle shaggy white-grey abominable snowman with HD fur that never attacks, just wanders and gives the odd soft low grumble; it is rare and only turns up high on snowy mountain peaks"]},
 {v:'v1.0.44', d:'2026-10-28', notes:["Mobs: the people no longer show their thoughts as text on screen when they talk - you just hear their voices"]},
 {v:'v1.0.43', d:'2026-10-27', notes:["Mobs: the people (clansfolk and croft farmers) now talk in 100 different voice lines - villager-style hums and mumbles crossed with a strange alien, computer-like chatter: greetings, questions, answers, trading talk, alarm and goodbyes", "Mobs: people near each other sometimes talk back and forth like a real conversation, nod their heads as they speak, and cry out when hurt or killed"]},
 {v:'v1.0.42', d:'2026-10-27', notes:["New: a brand-new map for new and reset worlds - natural coastlines with bays, sandy beaches and cliffs, ridged snowy mountains, open plains, a marsh, lakes and a wide river valley along the winding river", "New: the mainland and the castle islands are bigger and closer together, still split by narrow sea channels with short bridges where the paths cross water", "New: woods are thicker on the croft island and in the mainland hills, and thin out on the plains and in the marsh"]},

@@ -43,3 +43,8 @@ Quaternius: https://quaternius.com
 
 ## Map data
 Clydebank map data © OpenStreetMap contributors (ODbL).
+
+## Speech (v1.0.45)
+- `assets/sfx/hive_m.mp3`, `assets/sfx/hive_f.mp3` - the people's spoken lines, synthesised with [Piper TTS](https://github.com/rhasspy/piper) (MIT) using the voices
+  `en_GB-vctk-medium` (speaker p237, from the CSTR VCTK corpus) and `en_GB-alba-medium`. These voice models are licensed **CC BY 4.0** - credit: Piper / rhasspy, CSTR VCTK Corpus (University of Edinburgh), Alba voice dataset. Processed (pitch, filter, shimmer) for the game.
+- Shaders, terrain features and rain sound in v1.0.45 are procedural (no third-party assets).
