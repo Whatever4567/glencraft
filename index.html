@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1.0.48.0.48.0.48 -->
+<!-- glencraft-build: v1.0.49.0.48.0.48.0.48 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -503,7 +503,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.0.48';
+const GAME_VERSION = '1.0.49';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19333,6 +19333,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.0.49', ["Doors: two doors side by side now mirror each other like real double doors - the handles meet in the middle where the doors touch and the hinges sit on the outside edges. Works for every wood, every direction and whichever door you placed first; break one and the other goes back to a normal door."]],
     ['v1.0.48', ["Mobs/Textures: the clansfolk have a new Highland look - a cream wool tunic, a tartan kilt, a leather belt with a little pouch holding a softly glowing cyan gem, leather boots and bracers, glowing cyan-blue eyes, faint cyan circuit lines on the cheeks and a small one on the back, and a tiny glowing cyan diamond rune that gently bobs above their heads. Their hair is exactly as before, and worn armour still shows (chest armour now has shoulder plates).", "Mobs: creepers drop 0-2 gunpowder when you defeat them, like Minecraft (gunpowder already exists and is used for the Highland Flare).", "Fix: opening and closing gates no longer forces a save, so there is no stutter or save pause - your world is still kept by the normal autosave and when you quit. Doors never saved on use, and stay that way.", "Enchanting: new pickaxe enchantment Howk (old Scots for to dig). A Howk pickaxe digs a 2 wide x 3 tall face at once (a walk-through tunnel), or a 2 x 3 patch when you dig straight down or up. Every block drops as normal; it never breaks bedrock, chests, furnaces, doors or other containers, and when you dig natural rock it leaves your own builds alone. Each block it digs uses up one point of pickaxe wear, so a Howk pickaxe wears out faster.", "Doors: two doors placed side by side now always join into a proper double door - hinges on the outer edges, both swing open and shut together - no matter which side you aimed at or what blocks are around them. Older side-by-side doors join up the first time you open them.", "Fix: a door can no longer trap you. If a door closes on you (yours or a villager closing it), you are gently pushed out to the free side; if there is nowhere to go, the door stays open."]],
     ['v1.0.47', ["New: wisteria is its own wood - pale grey-lilac wisteria logs, wisteria planks, stairs (with corner stairs), slab, door, fence, fence gate and boat, all craftable, with their own icons, in creative next to the other woods, and axes cut them; purple wisteria leaves with hanging blossom (they drop sticks); new wisteria trees use only wisteria logs and leaves, and the pink blossom tree no longer mixes with oak (new and reset worlds)", "New: bridges and roads in new and reset worlds follow the land - ramps and embankments instead of tunnels, decks only span water - no trees grow in their path and no floating bits of tree are left beside them, and lanterns now sit right on top of fence posts on a little iron stem", "New: the castle people no longer speak in words - they talk in 100 different warm, hummed villager-like tones with a Scottish lilt (greeting, question, agree, disagree, alarm, curious, happy, sad, hurt, thanks, farewell), chosen by the hive mind and never the same one twice in a row, and they answer each other back and forth; the spoken voice clips and the AI voice setting are gone", "New: the castle people carry things again - they pick up useful items lying near them, eat what they carry when hungry, keep the gifts you give them, drop everything they carry when they die, and it is all saved with your world", "New: the castle people have more freedom - near their castle, while you are close by, they chop down trees (the tree falls like yours) and collect the logs, mine exposed stone and ore on the surface or at cave mouths (never your blocks, never near or under your builds, never a hole in the ground), craft better tools, weapons and armour over time, visibly hold and wear them, and use them to fight monsters"]],
     ['v1.0.46', ["New: going into a house or a cave no longer turns the day to night - the sky, sun, fog and the view outside stay exactly as they are outdoors (doors, windows and cave mouths show daylight); only truly deep, closed-in caves get the dark cave look, and only the rain sound changes when you are under a roof"]],
@@ -30515,6 +30516,52 @@ function make42(E) {
     };
   } catch (e) { ERR(e); }
 })();
+
+/* ===================== GLX-C227 (v1.0.49): double doors mirror their picture - the handles meet in the middle ===================== */
+(function c227() {
+  const U = window.__c227 = {err: null, flipped: 0, rebuilt: 0};
+  const ERR = e => { U.err = String(e && e.stack || e).slice(0, 300); };
+  try {
+    const pOf = (x, y, z) => { try { return window.__c226 && __c226.partnerOf(x, y, z); } catch (_) { return null; } };
+    // the door picture has its hinges on the left and the handle on the right: the right-hand door of a pair (hinge 1) shows it mirrored
+    function flipUV(mesh) {
+      const g = mesh.geometry.clone(), uv = g.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i));
+      uv.needsUpdate = true; mesh.geometry = g;
+    }
+    function rebuild(x, y, z) {
+      const k = keyOf(x, y, z), o = entObjs.get(k);
+      try { if (o) { scene.remove(o.g); entObjs.delete(k); } const e = buildEnt(T.DOOR, x, y, z); if (e) entObjs.set(k, e); U.rebuilt++; } catch (e) { ERR(e); }
+    }
+    const later = new Set(); let tm = 0;
+    const check = () => { tm = 0; for (const s of later) { const [x, y, z] = s.split(',').map(Number); if (getB(x, y, z) !== T.DOOR) continue;
+      const o = entObjs.get(keyOf(x, y, z)), m = entMeta.get(keyOf(x, y, z)) || {}; if (!o) continue;
+      const want = !!(m.hinge && pOf(x, y, z)); if (!!o.flip !== want) rebuild(x, y, z); } later.clear(); };
+    const soon = (x, y, z) => { later.add(x + ',' + y + ',' + z); if (!tm) tm = setTimeout(check, 30); };
+    const around = (x, y, z) => { for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (getB(x + dx, y, z + dz) === T.DOOR) soon(x + dx, y, z + dz); };
+    U.check = check;
+    const be = buildEnt;
+    buildEnt = function (type, x, y, z) {
+      const o = be.apply(this, arguments);
+      try {
+        if (type === T.DOOR && o && o.pivot) {
+          const m = entMeta.get(keyOf(x, y, z)) || {}, pm = o.pivot.children[0];
+          if (m.hinge && pOf(x, y, z) && pm && pm.geometry && pm.geometry.attributes.uv) { flipUV(pm); o.flip = true; U.flipped++; }
+          around(x, y, z);   // a partner built before this one (loading a world) gets its picture fixed too
+        }
+      } catch (e) { ERR(e); }
+      return o;
+    };
+    // placing or breaking a door: its neighbours re-check (an unpaired door goes back to normal)
+    const sb = setB;
+    setB = function (x, y, z, v) {
+      let was = 0; try { was = getB(x, y, z); } catch (_) {}
+      const r = sb.apply(this, arguments);
+      try { if ((was === T.DOOR) !== (v === T.DOOR)) around(x, y, z); } catch (e) { ERR(e); }
+      return r;
+    };
+  } catch (e) { ERR(e); }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -30526,6 +30573,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.49', d:'2026-10-31', notes:['Doors: two doors side by side now mirror each other like real double doors - the handles meet in the middle where the doors touch and the hinges sit on the outside edges. Works for every wood, every direction and whichever door you placed first; break one and the other goes back to a normal door.']},
 {v:'v1.0.48', d:'2026-10-28', notes:['Mobs/Textures: the clansfolk have a new Highland look - a cream wool tunic, a tartan kilt, a leather belt with a little pouch holding a softly glowing cyan gem, leather boots and bracers, glowing cyan-blue eyes, faint cyan circuit lines on the cheeks and a small one on the back, and a tiny glowing cyan diamond rune that gently bobs above their heads. Their hair is exactly as before, and worn armour still shows (chest armour now has shoulder plates).','Mobs: creepers drop 0-2 gunpowder when you defeat them, like Minecraft (gunpowder already exists and is used for the Highland Flare).','Fix: opening and closing gates no longer forces a save, so there is no stutter or save pause - your world is still kept by the normal autosave and when you quit. Doors never saved on use, and stay that way.','Enchanting: new pickaxe enchantment Howk (old Scots for to dig). A Howk pickaxe digs a 2 wide x 3 tall face at once (a walk-through tunnel), or a 2 x 3 patch when you dig straight down or up. Every block drops as normal; it never breaks bedrock, chests, furnaces, doors or other containers, and when you dig natural rock it leaves your own builds alone. Each block it digs uses up one point of pickaxe wear, so a Howk pickaxe wears out faster.','Doors: two doors placed side by side now always join into a proper double door - hinges on the outer edges, both swing open and shut together - no matter which side you aimed at or what blocks are around them. Older side-by-side doors join up the first time you open them.','Fix: a door can no longer trap you. If a door closes on you (yours or a villager closing it), you are gently pushed out to the free side; if there is nowhere to go, the door stays open.']},
 {v:'v1.0.47', d:'2026-10-28', notes:["New: wisteria is its own wood - pale grey-lilac wisteria logs, wisteria planks, stairs (with corner stairs), slab, door, fence, fence gate and boat, all craftable, with their own icons, in creative next to the other woods, and axes cut them; purple wisteria leaves with hanging blossom (they drop sticks); new wisteria trees use only wisteria logs and leaves, and the pink blossom tree no longer mixes with oak (new and reset worlds)", "New: bridges and roads in new and reset worlds follow the land - ramps and embankments instead of tunnels, decks only span water - no trees grow in their path and no floating bits of tree are left beside them, and lanterns now sit right on top of fence posts on a little iron stem", "New: the castle people no longer speak in words - they talk in 100 different warm, hummed villager-like tones with a Scottish lilt (greeting, question, agree, disagree, alarm, curious, happy, sad, hurt, thanks, farewell), chosen by the hive mind and never the same one twice in a row, and they answer each other back and forth; the spoken voice clips and the AI voice setting are gone", "New: the castle people carry things again - they pick up useful items lying near them, eat what they carry when hungry, keep the gifts you give them, drop everything they carry when they die, and it is all saved with your world", "New: the castle people have more freedom - near their castle, while you are close by, they chop down trees (the tree falls like yours) and collect the logs, mine exposed stone and ore on the surface or at cave mouths (never your blocks, never near or under your builds, never a hole in the ground), craft better tools, weapons and armour over time, visibly hold and wear them, and use them to fight monsters"]},
 {v:'v1.0.46', d:'2026-10-28', notes:["New: going into a house or a cave no longer turns the day to night - the sky, sun, fog and the view outside stay exactly as they are outdoors (doors, windows and cave mouths show daylight); only truly deep, closed-in caves get the dark cave look, and only the rain sound changes when you are under a roof"]},
