@@ -79,3 +79,8 @@ The modified CC BY-SA clips are shared under the same licence.
 - Voice: original lines synthesised with Piper TTS using the en_US LJSpeech voice (LJ Speech dataset, public domain - https://keithito.com/LJ-Speech-Dataset/), then pitched up, vocoded, ring-modulated and glitched by Glencraft. site/assets/sfx/alien/*.ogg
 - Music: site/assets/sfx/alien/music.ogg, an original track synthesised by Glencraft from scratch (pad, beat, riser) plus chops of the voice above.
 - The lines paraphrase public statements: David Grusch (House Oversight hearing, 26 July 2023), Cmdr David Fravor (same hearing; USS Nimitz 2004), Ryan Graves (same hearing), Luis Elizondo (former AATIP head, public interviews). Paraphrases, not quotes.
+
+## v1.0.69
+- assets/music/desert.ogg and assets/music/dance.ogg - original compositions made for Glencraft (synthesised oud, qanun, ney, drone, darbuka and riq; 96 and 97 BPM). No samples from other songs.
+- assets/sfx/alien/b1.ogg and the regenerated alien lines - Piper TTS with the LJSpeech voice (public domain), processed with our own vocoder, echo, chorus and reverb.
+- Pig model: Quaternius animated pig (CC0), re-textured with the players own pig photo.
