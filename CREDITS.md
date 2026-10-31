@@ -74,3 +74,8 @@ Cleaned, trimmed and normalised by Glencraft (site/assets/sfx/sheep1-4.ogg, pig1
 - pig1-3: "Mudchute pig 1/2/3.ogg" by Secretlondon (Mudchute City Farm, London) - CC BY-SA 3.0 - https://commons.wikimedia.org/wiki/File:Mudchute_pig_1.ogg (and _2, _3)
 - pig4: "Pig grunt - Erdie.ogg" by Erdie (Freesound) - CC BY 3.0 - https://commons.wikimedia.org/wiki/File:Pig_grunt_-_Erdie.ogg
 The modified CC BY-SA clips are shared under the same licence.
+
+## Alien encounter voice and music (v1.0.66)
+- Voice: original lines synthesised with Piper TTS using the en_US LJSpeech voice (LJ Speech dataset, public domain - https://keithito.com/LJ-Speech-Dataset/), then pitched up, vocoded, ring-modulated and glitched by Glencraft. site/assets/sfx/alien/*.ogg
+- Music: site/assets/sfx/alien/music.ogg, an original track synthesised by Glencraft from scratch (pad, beat, riser) plus chops of the voice above.
+- The lines paraphrase public statements: David Grusch (House Oversight hearing, 26 July 2023), Cmdr David Fravor (same hearing; USS Nimitz 2004), Ryan Graves (same hearing), Luis Elizondo (former AATIP head, public interviews). Paraphrases, not quotes.
