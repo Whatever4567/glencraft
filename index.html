@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1.0.56.0.56.0.56.0.56.0.55.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.53.0.53.0.53.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.51.0.50.0.50.0.50.0.49.0.48.0.48.0.48 -->
+<!-- glencraft-build: v1.0.57.0.57.0.57.0.57.0.57.0.57.0.57.0.56.0.56.0.56.0.56.0.55.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.53.0.53.0.53.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.51.0.50.0.50.0.50.0.49.0.48.0.48.0.48 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -763,7 +763,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.0.56';
+const GAME_VERSION = '1.0.57';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -30777,7 +30777,7 @@ function make42(E) {
     const sc = document.createElement('canvas'); sc.width = sc.height = 64; { const y = sc.getContext('2d'), r = y.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(40,36,34,0.85)'); r.addColorStop(1, 'rgba(40,36,34,0)'); y.fillStyle = r; y.fillRect(0, 0, 64, 64); }
     const smk = [], sm = new THREE.SpriteMaterial({map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, opacity: 0.8});
     for (let i = 0; i < (LOW ? 8 : 18); i++) { const s = new THREE.Sprite(sm.clone()); s.visible = false; s.userData.__dcR = 1e9; s.userData.__dcK = 1; g.add(s); smk.push({s, t: i * 0.9, life: 14}); }
-    return {g, bombs, FP, FV, fg, NF, flash, smk}; }
+    return {g, bombs, FP, FV, fg, NF, flash, smk, pts}; }
   // ---------- impacts ----------
   function crater(x, y, z, r) { const X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z), R = Math.ceil(r); let n = 0;
     for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) { const d = Math.hypot(dx, dy * 1.2, dz); if (d > r) continue; const b = inB(X + dx, Y + dy, Z + dz) && world[idx(X + dx, Y + dy, Z + dz)]; if (!b || b === T.WATER) continue; if (put(X + dx, Y + dy, Z + dz, 0)) n++; }
@@ -30795,19 +30795,19 @@ function make42(E) {
     const b = world[idx(nx, ny, nz)]; if (LOGGY[b] || LEAFY[b] || PLANT[b]) put(nx, ny, nz, 0); if (put(nx, ny + 1, nz, T.LAVA)) U.lava++; else if (world[idx(nx, ny + 1, nz)] !== T.LAVA) put(nx, ny, nz, T.MAGMA);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const sx = nx + dx, sz = nz + dz, sy = top(sx, sz); if (sy && Math.random() < 0.4) ign(sx, sy, sz); } return f.n < 90; }
   // ---------- start / run ----------
-  function erupt() { const at = current && current.c229; if (!at || DIM.cur) return false; const s = S(); if (s && s.ph !== 'idle') return false;
-    current.c242 = {ph: 'erupt', t: 0, cool: 0}; U.ph = 'erupt'; fronts = []; const cx = Math.floor(at[0]), cz = Math.floor(at[2]);
+  function erupt(blue) { const at = current && current.c229; if (!at || DIM.cur) return false; const s = S(); if (s && (blue ? s.ph === 'erupt' : s.ph !== 'idle')) return false;
+    current.c242 = {ph: 'erupt', t: 0, cool: 0, blue: !!blue}; if (!blue) current.c242ever = 1; U.ph = 'erupt'; fronts = []; const cx = Math.floor(at[0]), cz = Math.floor(at[2]);
     for (let k = 0; k < (LOW ? 4 : 6); k++) { const a = k / (LOW ? 4 : 6) * 6.283 + Math.random() * 0.5; const x = Math.round(cx + Math.sin(a) * 6), z = Math.round(cz + Math.cos(a) * 6); fronts.push({x, z, y: top(x, z), dx: Math.sign(Math.sin(a)), dz: Math.sign(Math.cos(a)), n: 0, last: null}); }
     U.fronts = fronts.length; boom({x: at[0], y: at[1], z: at[2]}, true); setTimeout(() => boom({x: at[0], y: at[1], z: at[2]}, true), 900);
-    try { shake(2.5, 0.25); } catch (_) {} try { toast('The volcano is erupting! Run!'); } catch (_) {} if (fx) fx.flash.material.opacity = 1; return true; }
+    try { shake(2.5, 0.25); } catch (_) {} try { toast(blue ? 'The volcano erupts BLUE...' : 'The volcano is erupting! Run!'); } catch (_) {} if (fx) fx.flash.material.opacity = 1; return true; }
   U.erupt = erupt;
   let fronts = [], bombT = 0, frontT = 0, extraT = 0, ashT = 0;
-  function launch(at, s) { const b = fx.bombs.find(q => !q.on); if (!b) return; const sp = [W >> 1, D >> 1], toSpawn = Math.random() < 0.55;
+  function launch(at, s) { const b = fx.bombs.find(q => !q.on); if (!b) return; const sp = [W >> 1, D >> 1], toSpawn = Math.random() < 0.7; b.sp = toSpawn;
     const a = Math.random() * 6.283, r = toSpawn ? Math.random() * 42 : 8 + Math.random() * 50, tx = (toSpawn ? sp[0] : at[0]) + Math.sin(a) * r, tz = (toSpawn ? sp[1] : at[2]) + Math.cos(a) * r;
     const ty = top(Math.floor(tx), Math.floor(tz)) + 1, T0 = 3 + Math.random() * 2.5, y0 = at[3] + 2, g = 9.8;
     b.on = true; b.p = [at[0], y0, at[2]]; b.v = [(tx - at[0]) / T0, (ty - y0 + 0.5 * g * T0 * T0) / T0, (tz - at[2]) / T0]; b.g = g; b.m.visible = true; b.m.scale.setScalar(0.8 + Math.random() * 0.9); U.bombs++; }
   function frame(dt) { const s = S(), at = current && current.c229; if (!started || DIM.cur || !at || !s || s.ph === 'idle') { if (fx) fx.g.visible = false; return; }
-    if (!fx) fx = mkFx(); fx.g.visible = true; s.t += dt; U.t = +s.t.toFixed(1); U.ph = s.ph;
+    if (!fx) fx = mkFx(); fx.g.visible = true; s.t += dt; { const c = s.blue ? 0x30b8ff : 0xff6a1a; fx.bombs[0].m.material.color.setHex(c); fx.pts.material.color.setHex(s.blue ? 0x40d0ff : 0xff7a22); fx.flash.material.color.setHex(s.blue ? 0x60c0ff : 0xffffff); } U.t = +s.t.toFixed(1); U.ph = s.ph;
     if (s.ph === 'cool') { fx.g.visible = false; s.cool -= dt; if (s.cool <= 0) { s.ph = 'idle'; U.ph = 'idle'; } return; }
     const er = s.ph === 'erupt', k = er ? 1 : Math.max(0, 1 - (s.t - ERUPT) / CALM);
     // flash
@@ -30822,24 +30822,207 @@ function make42(E) {
     if (er && (bombT -= dt) <= 0) { bombT = (LOW ? 0.7 : 0.35) + Math.random() * 0.4; launch(at, s); }
     for (const b of fx.bombs) { if (!b.on) continue; b.v[1] -= b.g * dt; b.p[0] += b.v[0] * dt; b.p[1] += b.v[1] * dt; b.p[2] += b.v[2] * dt; b.m.position.set(b.p[0], b.p[1], b.p[2]); b.m.rotation.x += dt * 5;
       if (Math.random() < dt * 14) try { burst(b.p[0], b.p[1], b.p[2], 0xff8a30, 1, 0.2); } catch (_) {}
-      const X = Math.floor(b.p[0]), Y = Math.floor(b.p[1]), Z = Math.floor(b.p[2]); if (b.v[1] < 0 && (Y < 2 || (inB(X, Y, Z) && world[idx(X, Y, Z)] && world[idx(X, Y, Z)] !== T.FIRE && !PLANT[world[idx(X, Y, Z)]]))) { b.on = false; b.m.visible = false; U.hits++; if (Y >= 2) crater(b.p[0], b.p[1], b.p[2], 1.6 + Math.random() * 1.6); } }
+      const X = Math.floor(b.p[0]), Y = Math.floor(b.p[1]), Z = Math.floor(b.p[2]); if (b.v[1] < 0 && (Y < 2 || (inB(X, Y, Z) && world[idx(X, Y, Z)] && world[idx(X, Y, Z)] !== T.FIRE && !PLANT[world[idx(X, Y, Z)]]))) { b.on = false; b.m.visible = false; U.hits++; if (Y >= 2) crater(b.p[0], b.p[1], b.p[2], b.sp ? 2.4 + Math.random() * 1.6 : 1.6 + Math.random() * 1.6); } }
     // lava rivers: fast while erupting, slowing right down as it calms
     if ((frontT -= dt) <= 0) { frontT = er ? 0.25 : 1 + 6 * (1 - k); if (k > 0.02) fronts = fronts.filter(f => step(f)); U.fronts = fronts.length; }
     if (er && typeof flowTick === 'function' && (extraT -= dt) <= 0) { extraT = LOW ? 0.3 : 0.15; try { flowTick(true); } catch (_) {} }   // lava runs fast while it erupts
     // ash fall wrecks the spawn island: grass scorched, trees catch light
-    if (er && (ashT -= dt) <= 0) { ashT = LOW ? 0.25 : 0.12; const sx = (W >> 1) + Math.floor((Math.random() - .5) * 90), sz = (D >> 1) + Math.floor((Math.random() - .5) * 90), sy = top(sx, sz); if (sy) { const b = world[idx(sx, sy, sz)];
-        if (b === T.GRASS || b === T.HEATHER) { if (put(sx, sy, sz, Math.random() < 0.5 ? 156 : T.DIRT)) U.burnt++; } else if (LEAFY[b] || LOGGY[b]) ign(sx, sy - 1, sz); if (Math.random() < 0.3) ign(sx, sy, sz); } }
+    if (er && (ashT -= dt) <= 0) { ashT = LOW ? 0.08 : 0.04; for (let q = 0; q < 3; q++) { const sx = (W >> 1) + Math.floor((Math.random() - .5) * 90), sz = (D >> 1) + Math.floor((Math.random() - .5) * 90), sy = top(sx, sz); if (sy) { const b = world[idx(sx, sy, sz)];
+        if (b === T.GRASS || b === T.HEATHER) { if (put(sx, sy, sz, Math.random() < 0.5 ? 156 : T.DIRT)) U.burnt++; } else if (LEAFY[b] || LOGGY[b] || PLANT[b]) { if (Math.random() < 0.5) put(sx, sy, sz, 0); else ign(sx, sy - 1, sz); } else if ((b === 156 || b === T.DIRT || b === T.GRAVEL || b === T.STONE) && Math.random() < 0.25) put(sx, sy, sz, 0); if (Math.random() < 0.3) ign(sx, sy, sz); } } }
     if (er && s.t > ERUPT) { s.ph = 'calm'; try { toast('The eruption is calming down...'); } catch (_) {} }
     if (s.ph === 'calm' && s.t > ERUPT + CALM) { s.ph = 'cool'; s.cool = COOL; fronts = []; } }
   // ---------- shooting the volcano sets it off ----------
   function hitsVolcano(o, d) { const at = current && current.c229; if (!at) return false; for (let t = 1; t < 200; t += 0.5) { const x = o.x + d[0] * t, y = o.y + d[1] * t, z = o.z + d[2] * t, hd = Math.hypot(x - at[0], z - at[2]);
       if (hd < 22 && y < at[3] + 3 && y > at[3] - 30) { const b = world[idx(Math.floor(x), Math.floor(y), Math.floor(z))]; if (b || hd < 6) return true; }
       if (inB(Math.floor(x), Math.floor(y), Math.floor(z)) && solid(Math.floor(x), Math.floor(y), Math.floor(z)) && hd >= 22) return false; } return false; }
-  try { const fg = fireGun; fireGun = function (id) { const r = fg.apply(this, arguments); try { if (hitsVolcano(new THREE.Vector3(P.x, P.y + EYE, P.z), lookDir()) && erupt()) U.shotTrigger = 1; } catch (e) { ERR('hit', e); } return r; }; } catch (e) { ERR('fg', e); }
+  try { const fg = fireGun; fireGun = function (id) { const r = fg.apply(this, arguments); try { if (hitsVolcano(new THREE.Vector3(P.x, P.y + 1.62, P.z), lookDir()) && erupt()) U.shotTrigger = 1; } catch (e) { ERR('hit', e); } return r; }; } catch (e) { ERR('fg', e); }
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(Math.min(0.1, +dt || 0.016)); } catch (e) { ERR('fx', e); } return r; };
-  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && current && current.c242) d.c242 = current.c242; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
-  try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && current) current.c242 = d.c242 && d.c242.ph === 'cool' ? d.c242 : d.c242 ? {ph: 'calm', t: ERUPT + CALM * 0.8, cool: 0} : null; } catch (_) {} return r; }; } catch (e) { ERR('ap', e); }
-  try { const ew = enterWorld; enterWorld = function (save) { if (!save && current) current.c242 = null; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && current && current.c242) d.c242 = current.c242; if (d && current && current.c242ever) d.c242ever = 1; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
+  try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && current) current.c242ever = d.c242ever || (d.c242 ? 1 : 0); if (d && current) current.c242 = d.c242 && d.c242.ph === 'cool' ? d.c242 : d.c242 ? {ph: 'calm', t: ERUPT + CALM * 0.8, cool: 0} : null; } catch (_) {} return r; }; } catch (e) { ERR('ap', e); }
+  try { const ew = enterWorld; enterWorld = function (save) { if (!save && current) { current.c242 = null; current.c242ever = 0; } return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+})();
+
+/* ===================== GLX-C243 (v1.0.57): DESERT - no rain or snow over the sand, sandstorms (haze, blowing sand, wind), and TIC-TAC UFOs that zip over the dunes.
+   Shoot one down: it crashes, you freeze in a green light, a grey-green visitor shows you visions (a nuclear blast, the Earth, a machine mind) in an ethereal voice,
+   then the craft lifts off and is gone - leaving a thin glowing puddle of Element 115 in the crater. ===================== */
+(function c243() {
+  const U = window.__c243 = {err: null, desert: false, storm: 0, ufos: 0, shot: 0, crashes: 0, visions: 0, frozen: 0, puddles: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const LOW = (typeof touchMode !== 'undefined' && !!touchMode) || (typeof PERF !== 'undefined' && PERF);
+  const OUT = () => typeof master !== 'undefined' ? master : AC.destination;
+  const mine = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i);
+  const inB = (x, y, z) => x > 0 && z > 0 && y > 1 && x < W - 1 && z < D - 1 && y < H - 1;
+  const top = (x, z) => { for (let y = H - 2; y > 1; y--) { const v = world[idx(x, y, z)]; if (v && v !== T.FIRE && !PLANT[v]) return y; } return 0; };
+  const C = () => current ? (current.c243 || (current.c243 = {p: []})) : {p: []};
+  const noBuf = (len) => { const b = AC.createBuffer(1, AC.sampleRate * len | 0, AC.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1; return b; };
+  // ---------- desert detection ----------
+  let dT = 0, desert = false;
+  function checkDesert() { if (DIM.cur) return false; let s = 0, n = 0; for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283, r = 6 + (i % 3) * 6, x = Math.floor(P.x + Math.sin(a) * r), z = Math.floor(P.z + Math.cos(a) * r); if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue; const t = top(x, z); n++; if (t > SEA && world[idx(x, t, z)] === T.SAND) s++; } return n > 0 && s >= 8; }
+  U.isDesert = () => desert;
+  try { const sw = window.__snowWx; if (sw) window.__snowWx = function () { return desert ? false : sw.apply(this, arguments); }; } catch (e) { ERR('snow', e); }
+  let held = null;
+  // ---------- sandstorm: haze, blowing sand, wind ----------
+  let storm = 0, stormK = 0, stormT = 60 + Math.random() * 90, wind = null, sand = null, lastFog = null;
+  function mkSand() { const N = LOW ? 140 : 360, pos = new Float32Array(N * 3), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const m = new THREE.Points(g, new THREE.PointsMaterial({color: 0xd8b878, size: 0.12, transparent: true, opacity: 0, depthWrite: false})); m.frustumCulled = false; m.userData.__dcR = 1e9; m.userData.__dcK = 1; scene.add(m);
+    for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - .5) * 30; pos[i * 3 + 1] = (Math.random() - .3) * 10; pos[i * 3 + 2] = (Math.random() - .5) * 30; } return {m, pos, g, N}; }
+  function mkWind() { try { if (!AC || AC.state !== 'running') return null; const n = AC.createBufferSource(); n.buffer = noBuf(3); n.loop = true; const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 500; bp.Q.value = 0.7; const g = AC.createGain(); g.gain.value = 0; n.connect(bp); bp.connect(g); g.connect(OUT()); n.start(); return {g, bp}; } catch (e) { ERR('wind', e); return null; } }
+  // ---------- UFO (tic-tac) ----------
+  let ufo = null, ufoT = 20 + Math.random() * 30;
+  function mkUfo() { const g = new THREE.Group(); g.userData.__dcR = 1e9; g.userData.__dcK = 1;
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 12).scale(1.15, 3.2, 1.15), new THREE.MeshStandardMaterial({color: 0xf4f6f8, emissive: 0x9aa4ae, emissiveIntensity: 0.35, roughness: 0.25, metalness: 0.3})); body.rotation.z = Math.PI / 2; g.add(body);
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), q = x.createRadialGradient(32, 32, 0, 32, 32, 32); q.addColorStop(0, 'rgba(230,245,255,0.6)'); q.addColorStop(1, 'rgba(200,230,255,0)'); x.fillStyle = q; x.fillRect(0, 0, 64, 64);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending})); halo.scale.set(11, 5, 1); g.add(halo); g.traverse(o => { o.userData.__dcR = 1e9; o.userData.__dcK = 1; });
+    scene.add(g); return g; }
+  function spawnUfo() { if (ufo) return false; const g = mkUfo(), a = Math.random() * 6.283; g.position.set(P.x + Math.sin(a) * 90, P.y + 30 + Math.random() * 12, P.z + Math.cos(a) * 90);
+    ufo = {g, st: 'fly', t: 0, wp: null, hold: 0, v: new THREE.Vector3()}; U.ufos++; return true; }
+  U.spawnUfo = spawnUfo; U.ufo = () => ufo;
+  function ufoFly(dt) { const u = ufo; u.t += dt; const p = u.g.position;
+    if (u.st === 'fly') { if (u.hold > 0) { u.hold -= dt; u.g.rotation.y += dt * 0.3; return; }
+      if (!u.wp || p.distanceTo(u.wp) < 1.5) { if (u.wp) u.hold = 0.6 + Math.random() * 2.5; u.wp = u.t > 45 ? new THREE.Vector3(p.x + (p.x - P.x) * 4, p.y + 80, p.z + (p.z - P.z) * 4) : new THREE.Vector3(P.x + (Math.random() - .5) * 90, P.y + 24 + Math.random() * 18, P.z + (Math.random() - .5) * 90); }
+      const d = u.wp.clone().sub(p), L = d.length(), sp = Math.min(L, (u.t > 45 ? 60 : 32) * dt); p.add(d.multiplyScalar(sp / Math.max(L, 1e-3))); u.g.rotation.y = Math.atan2(-d.z, d.x);
+      if (u.t > 60 || p.distanceTo(P) > 300) { scene.remove(u.g); ufo = null; } return; }
+    if (u.st === 'fall') { u.v.y -= 14 * dt; p.addScaledVector(u.v, dt); u.g.rotation.x += dt * 2.5; u.g.rotation.z += dt * 1.3; if (Math.random() < dt * 30) try { burst(p.x, p.y, p.z, Math.random() < 0.5 ? 0x2a2a2a : 0xff8030, 2, 0.6); } catch (_) {}
+      const X = Math.floor(p.x), Y = Math.floor(p.y - 0.8), Z = Math.floor(p.z); if (Y < 2 || (inB(X, Y, Z) && world[idx(X, Y, Z)] && !PLANT[world[idx(X, Y, Z)]])) crash(); return; }
+    if (u.st === 'down') return;
+    if (u.st === 'leave') { u.v.y += 30 * dt; u.v.x += 18 * dt; p.addScaledVector(u.v, dt); u.g.rotation.x *= 0.9; u.g.rotation.z *= 0.9; if (p.y > P.y + 260) { scene.remove(u.g); ufo = null; } } }
+  // ---------- crash ----------
+  function crash() { const u = ufo, p = u.g.position, X = Math.floor(p.x), Y = Math.floor(p.y), Z = Math.floor(p.z); u.st = 'down'; U.crashes++;
+    const R = 3.5; for (let dx = -4; dx <= 4; dx++) for (let dy = -3; dy <= 3; dy++) for (let dz = -4; dz <= 4; dz++) { if (Math.hypot(dx, dy * 1.3, dz) > R) continue; const x = X + dx, y = Y + dy, z = Z + dz; if (!inB(x, y, z)) continue; const i = idx(x, y, z), b = world[i]; if (!b || b === T.WATER || mine(i) || ENT[b] && !PLANT[b]) continue; world[i] = 0; try { FLV.delete(i); markDirty(x, z); flQueue(x, y, z); } catch (_) {} }
+    try { dirty = true; } catch (_) {} let fy = Y; while (fy > 2 && !world[idx(X, fy - 1, Z)]) fy--;
+    u.g.position.set(X + .5, fy + 0.9, Z + .5); u.g.rotation.set(0.25, u.g.rotation.y, 0.3);
+    for (let k = 0; k < 10; k++) { const a = k / 10 * 6.283, x = Math.floor(X + Math.sin(a) * 4.5), z = Math.floor(Z + Math.cos(a) * 4.5), t = top(x, z); try { if (t && window.__c237) __c237.ignite(x + .5, t + 1.02, z + .5); } catch (_) {} }
+    try { burst(X, fy + 1, Z, 0xff8a30, 30, 3); burst(X, fy + 2, Z, 0x333333, 24, 3.5); shake(1.2, 0.15); sfx('boom'); } catch (_) {}
+    const c = C(); c.p.push([X + 0.5, fy, Z + 0.5 + 2.2]); if (c.p.length > 6) c.p.shift(); syncPuddles();
+    setTimeout(() => { try { visions(); } catch (e) { ERR('vis', e); } }, 1500); }
+  // ---------- Element 115 puddles: thin, flat, glowing neon blue ----------
+  const pm = new THREE.MeshBasicMaterial({color: 0x2ec8ff, transparent: true, opacity: 0.92, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, fog: false});
+  const gc = document.createElement('canvas'); gc.width = gc.height = 64; { const x = gc.getContext('2d'), q = x.createRadialGradient(32, 32, 0, 32, 32, 32); q.addColorStop(0, 'rgba(80,210,255,0.8)'); q.addColorStop(1, 'rgba(40,140,255,0)'); x.fillStyle = q; x.fillRect(0, 0, 64, 64); }
+  const gm = new THREE.SpriteMaterial({map: new THREE.CanvasTexture(gc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending});
+  const pGeo = new THREE.CircleGeometry(1, 18); pGeo.rotateX(-Math.PI / 2); let pud = [];
+  function syncPuddles() { for (const q of pud) scene.remove(q); pud = []; for (const p of C().p) { const g = new THREE.Group(); const m = new THREE.Mesh(pGeo, pm); m.scale.set(1.5, 1, 1.1); g.add(m); const s = new THREE.Sprite(gm); s.scale.set(5, 2.2, 1); s.position.y = 0.4; g.add(s);
+      g.position.set(p[0], p[1] + 0.03, p[2]); g.traverse(o => { o.userData.__dcR = 1e9; o.userData.__dcK = 1; }); scene.add(g); pud.push(g); } U.puddles = pud.length; }
+  U.syncPuddles = syncPuddles;
+  U.scoop = () => { const c = C(); let bi = -1, bd = 3.2; c.p.forEach((p, i) => { const d = Math.hypot(p[0] - P.x, p[2] - P.z, (p[1] - P.y) * 0.5); if (d < bd) { bd = d; bi = i; } }); if (bi < 0) return false; c.p.splice(bi, 1); syncPuddles(); try { dirty = true; } catch (_) {} return true; };
+  // ---------- visions ----------
+  let frozen = 0, alien = null, ov = null;
+  function mkAlien() { const g = new THREE.Group(), sk = new THREE.MeshStandardMaterial({color: 0x8fb08a, roughness: 0.6, emissive: 0x203820}), ey = new THREE.MeshStandardMaterial({color: 0x050505, roughness: 0.1, metalness: 0.5});
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), sk); head.scale.set(1, 1.15, 0.95); head.position.y = 1.55; g.add(head);
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), ey); e.scale.set(1.3, 0.75, 0.5); e.position.set(s * 0.16, 1.55, 0.36); e.rotation.z = s * 0.45; g.add(e); }
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 0.8, 10), sk); body.position.y = 0.85; g.add(body);
+    for (const s of [-1, 1]) { const a = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.75, 6), sk); a.position.set(s * 0.25, 0.85, 0); a.rotation.z = s * 0.15; g.add(a); const l = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.04, 0.5, 6), sk); l.position.set(s * 0.09, 0.25, 0); g.add(l); }
+    g.traverse(o => { o.userData.__dcR = 1e9; o.userData.__dcK = 1; }); scene.add(g); return g; }
+  const LINE = 'You must not become too dependent on technology. You must stop your wars, for the future of your civilisation.';
+  function scene3(g, w, h, k, t) { g.fillStyle = '#000'; g.fillRect(0, 0, w, h); const cx = w / 2, cy = h / 2, r = Math.min(w, h);
+    if (k === 0) { // the bomb
+      g.fillStyle = '#1a0a04'; g.fillRect(0, cy + r * 0.25, w, h); t = Math.max(0, t); const f = Math.min(1, t / 2); const gr = g.createRadialGradient(cx, cy - r * 0.1, 0, cx, cy - r * 0.1, r * 0.35 * (0.4 + f));
+      gr.addColorStop(0, '#fff6d0'); gr.addColorStop(0.3, '#ffb040'); gr.addColorStop(0.7, '#a03010'); gr.addColorStop(1, 'rgba(60,20,10,0)'); g.fillStyle = gr; g.beginPath(); g.ellipse(cx, cy - r * 0.12, r * 0.3 * (0.5 + f), r * 0.17 * (0.5 + f), 0, 0, 7); g.fill();
+      g.fillStyle = '#c0602a'; g.fillRect(cx - r * 0.04, cy - r * 0.05, r * 0.08, r * 0.32); g.fillStyle = 'rgba(255,200,120,' + (0.6 * (1 - f)) + ')'; g.fillRect(0, 0, w, h); }
+    else if (k === 1) { // the Earth
+      for (let i = 0; i < 120; i++) { g.fillStyle = 'rgba(255,255,255,' + ((i * 37) % 10) / 12 + ')'; g.fillRect((i * 977) % w, (i * 613) % h, 1.5, 1.5); }
+      const R = r * 0.3, gr = g.createRadialGradient(cx - R * 0.3, cy - R * 0.3, R * 0.1, cx, cy, R); gr.addColorStop(0, '#5ab0ff'); gr.addColorStop(1, '#0a2a6a'); g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill();
+      g.save(); g.beginPath(); g.arc(cx, cy, R, 0, 7); g.clip(); g.fillStyle = '#3c8a3a'; for (let i = 0; i < 6; i++) { g.beginPath(); g.ellipse(cx + Math.sin(i * 2.3 + t * 0.3) * R * 0.7, cy + Math.cos(i * 1.7) * R * 0.5, R * 0.28, R * 0.16, i, 0, 7); g.fill(); }
+      g.fillStyle = 'rgba(255,255,255,0.5)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.ellipse(cx + Math.sin(i * 1.9 - t * 0.5) * R * 0.8, cy + Math.cos(i * 2.9) * R * 0.6, R * 0.3, R * 0.05, i * 0.4, 0, 7); g.fill(); } g.restore(); }
+    else { // the machine mind
+      g.strokeStyle = 'rgba(80,255,160,0.55)'; g.lineWidth = 2; for (let i = 0; i < 26; i++) { const y = (i * 53) % h, x = (i * 131) % w; g.beginPath(); g.moveTo(0, y); g.lineTo(x, y); g.lineTo(x + 40, y + 40); g.lineTo(w, y + 40); g.stroke(); g.fillStyle = '#5f9'; g.fillRect(x - 3, y - 3, 6, 6); }
+      const R = r * 0.16, p = 0.7 + 0.3 * Math.sin(t * 4); g.fillStyle = '#100'; g.beginPath(); g.arc(cx, cy, R * 1.4, 0, 7); g.fill(); const gr = g.createRadialGradient(cx, cy, 0, cx, cy, R); gr.addColorStop(0, '#fff'); gr.addColorStop(0.2, '#ff3030'); gr.addColorStop(1, 'rgba(120,0,0,0)'); g.fillStyle = gr; g.globalAlpha = p; g.beginPath(); g.arc(cx, cy, R, 0, 7); g.fill(); g.globalAlpha = 1; } }
+  function voice(len) { try { if (!AC || AC.state !== 'running') return; const t0 = AC.currentTime + 0.05, out = AC.createGain(); out.gain.value = 0.32; const dl = AC.createDelay(1.5), fb = AC.createGain(); dl.delayTime.value = 0.33; fb.gain.value = 0.55; out.connect(dl); dl.connect(fb); fb.connect(dl); const wet = AC.createGain(); wet.gain.value = 0.5; dl.connect(wet); wet.connect(OUT()); out.connect(OUT());
+      const VOW = [[730, 1090], [270, 2290], [570, 840], [440, 1020], [300, 870], [660, 1700]];
+      const src = []; for (const f of [110, 110.7, 165.3]) { const o = AC.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; const vb = AC.createOscillator(), vg = AC.createGain(); vb.frequency.value = 4.6; vg.gain.value = 2.2; vb.connect(vg); vg.connect(o.frequency); vb.start(t0); vb.stop(t0 + len + 1); o.start(t0); o.stop(t0 + len + 1); src.push(o); }
+      const amp = AC.createGain(); amp.gain.setValueAtTime(0, t0); src.forEach(o => o.connect(amp));
+      const f1 = AC.createBiquadFilter(), f2 = AC.createBiquadFilter(); f1.type = f2.type = 'bandpass'; f1.Q.value = 9; f2.Q.value = 12; amp.connect(f1); amp.connect(f2); f1.connect(out); f2.connect(out);
+      let t = t0; while (t < t0 + len) { const v = VOW[(Math.random() * VOW.length) | 0], d = 0.18 + Math.random() * 0.25; f1.frequency.linearRampToValueAtTime(v[0], t + 0.06); f2.frequency.linearRampToValueAtTime(v[1], t + 0.06);
+        amp.gain.linearRampToValueAtTime(0.9, t + 0.05); amp.gain.linearRampToValueAtTime(0.15, t + d); t += d + (Math.random() < 0.18 ? 0.35 : 0.04); }
+      amp.gain.linearRampToValueAtTime(0, t0 + len + 0.6);
+      const pad = AC.createOscillator(), pg = AC.createGain(); pad.type = 'sine'; pad.frequency.value = 220; pg.gain.setValueAtTime(0, t0); pg.gain.linearRampToValueAtTime(0.08, t0 + 2); pg.gain.linearRampToValueAtTime(0, t0 + len + 1); pad.connect(pg); pg.connect(out); pad.start(t0); pad.stop(t0 + len + 1.2); } catch (e) { ERR('voice', e); } }
+  function visions() { U.visions++; frozen = 14; U.frozen = 1; try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {}
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw); alien = mkAlien(); const ax = P.x + fx * 3.2, az = P.z + fz * 3.2; let ay = top(Math.floor(ax), Math.floor(az)) + 1; if (Math.abs(ay - P.y) > 3) ay = P.y; alien.position.set(ax, ay, az); alien.rotation.y = Math.atan2(P.x - ax, P.z - az);
+    ov = document.createElement('div'); ov.id = 'c243ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:70;pointer-events:none;background:radial-gradient(ellipse at center,rgba(40,255,120,.08),rgba(20,160,60,.45));transition:opacity .8s;opacity:0';
+    const cv = document.createElement('canvas'); cv.width = 480; cv.height = 300; cv.style.cssText = 'position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(70vw,560px);border-radius:50%;opacity:0;transition:opacity 1s;filter:sepia(.3) hue-rotate(60deg) saturate(1.3);-webkit-mask-image:radial-gradient(closest-side,#000 60%,transparent);mask-image:radial-gradient(closest-side,#000 60%,transparent)';
+    const sb = document.createElement('div'); sb.style.cssText = 'position:absolute;left:6%;right:6%;bottom:16%;text-align:center;color:#d8ffe0;font-size:clamp(15px,2.6vw,24px);text-shadow:0 0 8px #0f0,0 2px 2px #000;opacity:0;transition:opacity 1.2s';
+    sb.textContent = LINE; ov.appendChild(cv); ov.appendChild(sb); document.body.appendChild(ov); requestAnimationFrame(() => { ov.style.opacity = 1; });
+    setTimeout(() => { cv.style.opacity = 1; }, 1200); setTimeout(() => { sb.style.opacity = 1; voice(7); }, 2500);
+    const g = cv.getContext('2d'), t0 = performance.now(); (function draw() { if (!ov) return; const t = (performance.now() - t0) / 1000; const k = Math.min(2, Math.floor(Math.max(0, t - 1.2) / 3.6)); scene3(g, cv.width, cv.height, k, Math.max(0, t - 1.2) % 3.6); requestAnimationFrame(draw); })(); }
+  function endVisions() { if (ov) { const o = ov; o.style.opacity = 0; setTimeout(() => o.remove(), 900); ov = null; } if (alien) { scene.remove(alien); alien = null; } U.frozen = 0;
+    if (ufo) { ufo.st = 'leave'; ufo.v.set(0, 2, 0); try { burst(ufo.g.position.x, ufo.g.position.y, ufo.g.position.z, 0x9effc0, 20, 2); } catch (_) {} } try { toast('Something glows in the crater...'); } catch (_) {} }
+  try { const up = updatePlayer; updatePlayer = function (dt) { if (frozen > 0) { frozen -= dt; try { PV.x = PV.z = 0; if (PV.y > 0) PV.y = 0; } catch (_) {} if (alien) { alien.position.y += Math.sin(performance.now() / 300) * 0.002; } if (frozen <= 0) endVisions(); return; } return up.apply(this, arguments); }; } catch (e) { ERR('up', e); }
+  // ---------- shooting ----------
+  try { const fg = fireGun; fireGun = function (id) { const d0 = lookDir().slice ? lookDir().slice() : lookDir(), o0 = new THREE.Vector3(P.x, P.y + 1.62, P.z); const r = fg.apply(this, arguments); try { if (ufo && ufo.st === 'fly') { const d = d0, o = o0, c = ufo.g.position, v = c.clone().sub(o), t = v.x * d[0] + v.y * d[1] + v.z * d[2];
+      if (t > 0 && t < 260) { const px = o.x + d[0] * t - c.x, py = o.y + d[1] * t - c.y, pz = o.z + d[2] * t - c.z; if (Math.hypot(px, py, pz) < 3.2) { U.shot++; ufo.st = 'fall'; ufo.v.set(d[0] * 8, 2, d[2] * 8); try { burst(c.x, c.y, c.z, 0xffffff, 20, 1.5); sfx('boom'); } catch (_) {} } } } } catch (e) { ERR('shot', e); } return r; }; } catch (e) { ERR('fg', e); }
+  // ---------- per frame ----------
+  function frame(dt) { if (!started) return;
+    if ((dT -= dt) <= 0) { dT = 2; const was = desert; desert = U.desert = checkDesert();
+      try { const w = WEATHER[weather.type]; if (desert && w && w.drops) { held = weather.type; weather.type = 'clear'; } else if (!desert && was && held && weather.type === 'clear') { weather.type = held; held = null; } } catch (_) {} }
+    // storm
+    if (desert && !storm && (stormT -= dt) <= 0) { storm = 40 + Math.random() * 30; stormT = 120 + Math.random() * 160; try { toast('A sandstorm is blowing in...'); } catch (_) {} }
+    if (storm > 0) { storm -= dt; if (!desert) storm = Math.min(storm, 3); } stormK += ((storm > 0 && desert ? 1 : 0) - stormK) * Math.min(1, dt * 0.4); U.storm = +stormK.toFixed(2);
+    if (stormK > 0.01) { if (!sand) sand = mkSand(); sand.m.visible = true; sand.m.position.set(P.x, P.y, P.z); sand.m.material.opacity = 0.75 * stormK; const ps = sand.pos;
+      for (let i = 0; i < sand.N; i++) { ps[i * 3] += dt * 16; ps[i * 3 + 1] += Math.sin(i + performance.now() / 400) * dt * 0.6; ps[i * 3 + 2] += dt * 5; if (ps[i * 3] > 15) ps[i * 3] -= 30; if (ps[i * 3 + 2] > 15) ps[i * 3 + 2] -= 30; } sand.g.attributes.position.needsUpdate = true;
+      try { const f = scene.fog; f.color.lerp(new THREE.Color(0.78, 0.64, 0.42), stormK * 0.85); if (f.isFogExp2) f.density = f.density * (1 + 5 * stormK); else { if (lastFog === null || f.far !== lastFog) { U.baseFar = f.far; } f.far = U.baseFar * (1 - 0.8 * stormK); f.near = Math.min(f.near, f.far * 0.3); lastFog = f.far; } } catch (_) {} }
+    else { if (sand) sand.m.visible = false; try { if (lastFog !== null && scene.fog.far === lastFog && U.baseFar) scene.fog.far = U.baseFar; } catch (_) {} lastFog = null; }
+    if (stormK > 0.01 && !wind) wind = mkWind(); if (wind) { wind.g.gain.value = 0.22 * stormK * (0.7 + 0.3 * Math.sin(performance.now() / 900)); wind.bp.frequency.value = 380 + 260 * Math.sin(performance.now() / 1300); }
+    // ufos
+    if (desert && !ufo && (ufoT -= dt) <= 0) { ufoT = 50 + Math.random() * 70; spawnUfo(); }
+    if (ufo) ufoFly(dt); }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(Math.min(0.1, +dt || 0.016)); } catch (e) { ERR('fr', e); } return r; };
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && current && current.c243) d.c243 = current.c243; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
+  try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (current) current.c243 = d && d.c243 || {p: []}; syncPuddles(); } catch (_) {} return r; }; } catch (e) { ERR('ap', e); }
+  try { const ew = enterWorld; enterWorld = function (save) { if (!save && current) current.c243 = {p: []}; const r = ew.apply(this, arguments); try { syncPuddles(); } catch (_) {} return r; }; } catch (e) { ERR('ew', e); }
+})();
+
+/* ===================== GLX-C244 (v1.0.57): ELEMENT 115 - scoop the glowing puddle with a bucket, pour the 115 bucket into the volcano after it has erupted:
+   it erupts BLUE, a blue wave stains the world, and the whole world drops into MATRIX MODE (green world, black sky, falling green code).
+   Saved with the world; switch it on/off from the pause menu once unlocked; Reset world clears it. ===================== */
+(function c244() {
+  const U = window.__c244 = {err: null, on: 0, wave: 0, pours: 0, scoops: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const LOW = (typeof touchMode !== 'undefined' && !!touchMode) || (typeof PERF !== 'undefined' && PERF);
+  const B115 = U.id = IT.B115 = 391;
+  try { NAMES[B115] = 'Element 115 bucket';
+    ICONS[B115] = drawIcon(g => { g.strokeStyle = '#3b2a1a'; g.lineWidth = 3; g.beginPath(); g.arc(0, -8, 18, Math.PI, 0); g.stroke(); g.fillStyle = '#8a6239'; g.beginPath(); g.moveTo(-18, -8); g.lineTo(18, -8); g.lineTo(13, 24); g.lineTo(-13, 24); g.closePath(); g.fill();
+      g.shadowColor = '#40d8ff'; g.shadowBlur = 10; g.fillStyle = '#2ec8ff'; g.beginPath(); g.ellipse(0, -8, 17, 5, 0, 0, 7); g.fill(); g.shadowBlur = 0; g.fillStyle = '#d8f8ff'; g.fillRect(-6, -10, 5, 2); });
+    if (!ORDER.includes(B115)) ORDER.push(B115); } catch (e) { ERR('item', e); }
+  // ---------- bucket: scoop 115; 115 bucket: pour into the volcano ----------
+  try { const ui = useItem; useItem = function () { try { if (!(menuOpen || paused || dead || !started)) { const id = selId;
+        if (id === IT.BUCKET && cnt(id) > 0 && window.__c243 && __c243.scoop()) { useUp(IT.BUCKET); addItem(B115, 1); selId = B115; U.scoops++; try { swing(); sfx('splash'); } catch (_) {} renderHotbar(); toast('Scooped up Element 115 - it hums in the bucket'); return; }
+        if (id === B115 && cnt(id) > 0) { const at = current && current.c229; if (!at) { toast('There is no volcano in this world'); return; } const d = Math.hypot(P.x - at[0], P.z - at[2]);
+          if (d > 45) { toast('Take it to the volcano crater'); return; } if (!current.c242ever) { toast('The volcano is sleeping - it has to erupt first'); return; }
+          useUp(B115); addItem(IT.BUCKET, 1); selId = IT.BUCKET; renderHotbar(); pour(); return; } } } catch (e) { ERR('use', e); } return ui.apply(this, arguments); }; } catch (e) { ERR('ui', e); }
+  // ---------- the blue eruption + wave ----------
+  let wave = null, waveT = -1, wT = 0;
+  function pour() { U.pours++; try { toast('The 115 sinks into the crater...'); } catch (_) {} try { if (window.__c242) __c242.erupt(true); } catch (e) { ERR('er', e); } waveT = 6; wT = performance.now(); }
+  U.pour = pour;
+  function mkWave(at) { const g = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), new THREE.MeshBasicMaterial({color: 0x30b0ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false}));
+    g.rotation.x = -Math.PI / 2; g.position.set(at[0], at[3] - 4, at[2]); g.userData.__dcR = 1e9; g.userData.__dcK = 1; scene.add(g); return {g, r: 2}; }
+  // ---------- matrix mode ----------
+  let rain = null, keep = null;
+  function mkRain() { const c = document.createElement('canvas'); c.id = 'c244rain'; c.style.cssText = 'position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:4;opacity:.55;mix-blend-mode:screen'; document.body.appendChild(c);
+    const S = LOW ? 0.4 : 0.6; c.width = Math.round(innerWidth * S); c.height = Math.round(innerHeight * S); const fs = 14, cols = Math.ceil(c.width / fs), y = new Array(cols).fill(0).map(() => Math.random() * -50);
+    return {c, g: c.getContext('2d'), fs, y, t: 0}; }
+  const GL = 'アカサタナハマヤラワ0123456789ABCDEFﾊﾐﾋｰｳｼﾅﾓﾆｻﾜﾂｵﾘ';
+  function drawRain(dt) { const r = rain; r.t += dt; if (r.t < (LOW ? 0.08 : 0.05)) return; r.t = 0; const g = r.g, c = r.c; g.fillStyle = 'rgba(0,0,0,0.12)'; g.globalCompositeOperation = 'destination-out'; g.fillRect(0, 0, c.width, c.height); g.globalCompositeOperation = 'source-over';
+    g.font = r.fs + 'px monospace'; for (let i = 0; i < r.y.length; i++) { const ch = GL[(Math.random() * GL.length) | 0], x = i * r.fs, yy = r.y[i] * r.fs; g.fillStyle = '#c8ffd8'; g.fillText(ch, x, yy); g.fillStyle = '#20ff60'; g.fillText(GL[(Math.random() * GL.length) | 0], x, yy - r.fs);
+      if (yy > c.height && Math.random() > 0.975) r.y[i] = 0; r.y[i] += 1; } }
+  function apply(on) { U.on = on ? 1 : 0; try { renderer.domElement.style.filter = on ? 'grayscale(1) sepia(1) hue-rotate(68deg) saturate(3.2) brightness(.95) contrast(1.1)' : ''; } catch (_) {}
+    if (on && !rain) rain = mkRain(); if (!on && rain) { rain.c.remove(); rain = null; }
+    try { skyDome.visible = !on; } catch (_) {} try { if (typeof sunDisc !== 'undefined') sunDisc.visible = !on; } catch (_) {}
+    if (on) { if (!keep) keep = scene.background; scene.background = new THREE.Color(0, 0, 0); } else if (keep !== null) { scene.background = keep; keep = null; } }
+  U.set = v => { if (!current) return; current.c244 = current.c244 || {}; current.c244.u = 1; current.c244.on = v ? 1 : 0; try { dirty = true; } catch (_) {} apply(!!v); };
+  // pause-menu toggle (only once unlocked)
+  let btn = null, bT = 0;
+  function syncBtn() { const s = current && current.c244, pp = document.querySelector('#pause .panel'); if (!pp) return; if (!s || !s.u) { if (btn) { btn.remove(); btn = null; } return; }
+    if (!btn) { btn = document.createElement('button'); btn.className = 'btn'; btn.dataset.testid = 'matrix-toggle'; btn.onclick = () => { U.set(!(current.c244 && current.c244.on)); syncBtn(); }; const ref = document.getElementById('resumeBtn'); if (ref) ref.parentNode.insertBefore(btn, ref.nextSibling); else pp.appendChild(btn); }
+    btn.textContent = 'Matrix mode: ' + (s.on ? 'On' : 'Off'); }
+  function frame(dt) { if (!started) { if (U.on) apply(false); return; } const s = current && current.c244, want = !!(s && s.on) && !(typeof DIM !== 'undefined' && DIM && DIM.cur); if (want !== !!U.on) apply(want);
+    if (U.on) { try { skyDome.visible = false; scene.fog.color.setRGB(0, 0.035, 0.01); scene.background = scene.background && scene.background.isColor ? scene.background.setRGB(0, 0, 0) : new THREE.Color(0, 0, 0); } catch (_) {} if (rain) drawRain(dt); }
+    if (waveT > 0) { waveT = 6 - (performance.now() - wT) / 1000; if (waveT <= 0) { wT = performance.now(); const at = current.c229; wave = mkWave(at); U.wave = 1; try { shake(2, 0.2); toast('A blue wave rolls across the world...'); } catch (_) {} } }
+    if (wave) { wave.r = 2 + (performance.now() - wT) * 0.06; wave.g.scale.set(wave.r, wave.r, 1); wave.g.material.opacity = Math.max(0, 0.75 - wave.r / 500); try { renderer.domElement.style.filter = 'hue-rotate(' + Math.min(160, wave.r / 2) + 'deg) saturate(1.4)'; } catch (_) {}
+      if (wave.r > 420) { scene.remove(wave.g); wave = null; U.wave = 2; U.set(1); try { toast('The world is not what it seems... (Matrix mode: switch it in the pause menu)'); } catch (_) {} } } }
+  setInterval(() => { try { syncBtn(); } catch (e) { ERR('btn', e); } }, 500);
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(Math.min(0.1, +dt || 0.016)); } catch (e) { ERR('fr', e); } return r; };
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && current && current.c244) d.c244 = current.c244; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
+  try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (current) current.c244 = d && d.c244 || null; } catch (_) {} return r; }; } catch (e) { ERR('ap', e); }
+  try { const ew = enterWorld; enterWorld = function (save) { if (!save && current) current.c244 = null; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -30852,6 +31035,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.57', d:'2026-10-31', notes:['New: deserts never get rain or snow - sandstorms blow in instead with sand haze, flying grit and howling wind','New: tic-tac UFOs fly over the desert - shoot one down and it crashes, you are frozen in a green light and an alien shows you visions of the bomb, the Earth and the machine mind','New: the crash crater leaves a thin glowing neon blue Element 115 puddle - scoop it with a bucket','New: pour the Element 115 bucket into the volcano after it has erupted - a blue eruption and a blue wave stain the world and it drops into Matrix mode (green world, black sky, falling green code), switch it on or off in the pause menu, saved with the world','New: volcano eruptions wreck the spawn island harder - more bombs land there with bigger craters and more burnt and pitted ground, player builds are never touched','Textures: Element 115 bucket icon, glowing tic-tac UFO and grey alien','Mobs: the grey alien appears only during the UFO visions, no existing mobs changed']},
 {v:'v1.0.56', d:'2026-10-31', notes:['New: VOLCANO ERUPTION - shoot the volcano with a musket or pistol and it blows. Huge blasts shake the ground, a lava fountain roars out of the crater, flaming lava bombs rain down and smash craters, and fast fiery lava rivers race down the slopes setting everything alight','New: the spawn island gets wrecked - bombs and burning ash scorch the grass and set the trees on fire. After about 45 seconds it calms down to slow glowing flows, then it needs a long rest before it can erupt again. Your own builds are never touched','New: living water - a gentle swell rolls across the sea, the tide slowly comes in and goes out, rivers flow slower and lazier','New: still water ripples round you and any animal or mob moving through it, and raindrops ring the water while it rains','New: rain makes the ground wet - shiny puddles form on open ground and dry out again after the rain stops','New: a soft relaxing rain sound under the rain, quieter and cosier when you are indoors, with the odd gentle drip','Textures: recipe slots are proper green now - ones you cannot make yet are just a little dimmer','Textures: the XP bar has a warm wooden channel instead of a near black one','Textures: half hearts show as a real half heart and empty hearts as a dark outline','Textures: coin on the trade window, lantern on the pause menu, log for Structures, barrel and crate on chests, and wooden slots in the chest, furnace and trade windows','Textures: hearts and the XP bar tuck away while a chest, furnace or pause menu is open','Mobs: no changes to mobs this time']},
 {v:'v1.0.55', d:'2026-10-31', notes:['One big update - everything since v1.0.53 in one place','New: real spreading fire with flickering flames, smoke and embers that creeps across grass, climbs wood and leaves black scorch marks - rain puts it out','New: the pyramid hall is covered in ancient alien murals - grey visitors, saucers, star maps and glyphs on the walls and ceiling','New: one bold glowing GLENCRAFT logo on the menu and loading screen, loading spinner twice as fast, no more old logo or block flashing on start','Textures: brand new wooden UI - wooden panels for inventory, crafting, chests, furnace, trade and pause, green slot frames with a dark frame for the selected slot, cream pill buttons, new heart icons and a wooden XP bar with green fill','Textures: new icons on the tabs and categories - chest for the bag, hammer for crafting, star for character, rock for blocks, berries for food, plant for decoration and more','Textures: controller focus is a bright gold outline, works in portrait and landscape','Mobs: Egyptians and a pharaoh in gold and blue now live in the pyramid hall and turn to look at you','Mobs: pigs look like real pigs and have a deeper oink','Mobs: the frog mobs Puddock Gob and Sludge Sooker are gone']},
 {v:'v1.0.54', d:'2026-10-31', notes:['Fire: real flames now - animated flickering flame tongues, smoke and embers. Fire creeps across grass as a moving front you can watch, climbs up wood and leaves, burns plants, leaves and logs away and leaves black scorch marks behind. Rain puts it out. Your own builds are never burned.','Pyramid: the hall is painted with alien murals - grey heads with big almond eyes, glyph rows, circuit lines, saucers and triangles in five colour schemes - and Egyptians live there now: folk in white and gold linen with kohl eyes, and a pharaoh in a blue and gold nemes. They wander, look at you and murmur in deep voices. Works in existing worlds.','Pigs: every pig is now the photo pig - a round blob with a real photo face, big snout, buzz cut, tiny thin legs and a waddle, with a deeper oink. Same behaviour, drops and mud.','Mobs: the green frog-like mobs are gone - the Puddock Gob and the Sludge Sooker (and its droplets).','Menu: one bold glowing GLENCRAFT logo on the loading screen and menu from the very first moment, and the loading grass block spins twice as fast. The old block and old logo no longer flash on load.']},
