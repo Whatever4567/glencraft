@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: b1061-v1.0.61 -->
+<!-- glencraft-build: b1062-v1.0.62 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -764,7 +764,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.0.61';
+const GAME_VERSION = '1.0.62';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -30967,7 +30967,7 @@ function make42(E) {
   function frame(dt) { if (!started) return;
     if ((dT -= dt) <= 0) { dT = LOW ? 0.4 : 0.25; dFrac = checkDesert(); }
     // v1.0.58: the sandstorm is CONSTANT anywhere in the desert, fading in/out smoothly at the edge
-    const y24 = window.__c248 && __c248.y === 1; if (y24) dK = 0; const tgt = y24 ? 0 : Math.max(0, Math.min(1, (dFrac - 0.25) / 0.3)); // v1.0.60: no sandstorm during the YEAR 24000 vision dK += (tgt - dK) * Math.min(1, dt * 0.6); if (dK < 0.003) dK = 0; U.dKv = +dK.toFixed(2); U.frac = +dFrac.toFixed(2);
+    const y24 = window.__c248 && __c248.y === 1; if (y24) dK = 0; const tgt = y24 ? 0 : Math.max(0, Math.min(1, (dFrac - 0.25) / 0.3)); dK += (tgt - dK) * Math.min(1, dt * 0.6); if (dK < 0.003) dK = 0; U.dKv = +dK.toFixed(2); U.frac = +dFrac.toFixed(2); // v1.0.60: no sandstorm during the YEAR 24000 vision
     const was = desert; desert = U.desert = desert ? dK > 0.2 : dK > 0.35; if (desert && !was && !U.told) { U.told = 1; try { toast('A sandstorm howls across the desert...'); } catch (_) {} }
     stormK = dK; U.storm = +stormK.toFixed(2);
     if (stormK > 0.01) { if (!sand) sand = mkSand(); sand.m.visible = true; sand.m.position.set(P.x, P.y, P.z); sand.m.material.opacity = 0.75 * stormK; const ps = sand.pos;
@@ -31408,22 +31408,42 @@ function make42(E) {
   const U = window.__c249 = {err: null, vis: 0, op: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ': ' + (e && e.message || e); };
   // [file, azimuth, elevation, size, brightness, spin]
-  const DEF = [['nebula', 0.6, 0.95, 30, 0.55, 0.004], ['jupiter', 2.4, 0.55, 9, 1, 0.01], ['neptune', 4.1, 0.8, 6, 0.95, -0.012], ['jupiter2', 5.3, 0.38, 7.5, 0.85, 0.008]];
+  const DEF = [['nebula', 0, 0.85, 26, 0.55, 0.004], ['jupiter', 0.22, 0.5, 9, 1, 0.01], ['neptune', -0.22, 0.55, 6.5, 0.95, -0.012], ['jupiter2', 0.08, 1.12, 7.5, 0.85, 0.008]]; // v1.0.62: all four in one band of sky so you see them together
   const grp = new THREE.Group(), items = [], V = new THREE.Vector3(), GREEN = new THREE.Color(0.35, 1, 0.45), WHITE = new THREE.Color(1, 1, 1);
   try { const L = new THREE.TextureLoader();
     for (const [f, az, el, sz, br, sp] of DEF) { const m = new THREE.SpriteMaterial({map: L.load('assets/sky/' + f + '.png'), transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, opacity: 0});
       const s = new THREE.Sprite(m); s.scale.set(sz, sz, 1); s.renderOrder = -5; s.frustumCulled = false; grp.add(s);
       items.push({s, m, br, sp, d: new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az))}); }
     grp.visible = false; scene.add(grp); } catch (e) { ERR('init', e); }
-  const AX = new THREE.Vector3(0, 0, 1);
+  const AX = new THREE.Vector3(0, 1, 0);
   function frame() { if (!started || (typeof DIM !== 'undefined' && DIM.cur)) { grp.visible = false; U.vis = 0; return; }
     const night = 1 - (typeof daylight === 'number' ? daylight : 1), k = Math.max(0, Math.min(1, (night - 0.35) / 0.4)); U.op = +k.toFixed(2);
     if (k <= 0.01) { grp.visible = false; U.vis = 0; return; } grp.visible = true; U.vis = 1;
     const ang = (typeof dayClock === 'number' && typeof CYCLE === 'number') ? dayClock / CYCLE * 6.283 : 0, mx = !!(window.__c244 && __c244.on), c = camera.position;
-    for (const it of items) { V.copy(it.d).applyAxisAngle(AX, ang * 0.5 - 1.2); if (V.y < -0.05) V.y = -0.05; V.normalize(); it.s.position.set(c.x + V.x * 85, c.y + V.y * 85, c.z + V.z * 85);
-      it.m.rotation += it.sp * 0.016; it.m.opacity = k * it.br * (V.y < 0.08 ? Math.max(0, V.y + 0.05) / 0.13 : 1); it.m.color.copy(mx ? GREEN : WHITE); } }
+    for (const it of items) { V.copy(it.d).applyAxisAngle(AX, ang * 0.35 + 2.2); it.s.position.set(c.x + V.x * 85, c.y + V.y * 85, c.z + V.z * 85);
+      it.m.rotation += it.sp * 0.016; it.m.opacity = k * it.br; it.m.color.copy(mx ? GREEN : WHITE); } }
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(); } catch (e) { ERR('fr', e); } return r; };
   U.grp = grp;
+})();
+
+/* ===================== GLX-C250 (v1.0.62): a big detailed Moon (NASA LRO nearside photo, public domain) about 2.8x the biggest planet with a soft halo, phases kept;
+   clouds fade out smoothly over the desert (clear desert sky) and back in outside, instead of popping away in the sandstorm haze ===================== */
+(function c250() {
+  const U = window.__c250 = {err: null, moon: 0, cl: 0, dust: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ': ' + (e && e.message || e); };
+  const MS = 2.8 * 9 / 85 * 90 / (2 * 3.4); // moon diameter = 2.8 x Jupiter's 9 at 85, moon disc r 3.4 at 90
+  try { new THREE.TextureLoader().load('assets/sky/moon.png', t => { moonDisc.material.map = t; moonDisc.material.needsUpdate = true; U.moon = 1; }); } catch (e) { ERR('moon', e); }
+  const DUST = new THREE.Color(0xd9bf94), hooked = new WeakSet(); let ht = 0, saved = null, fadeK = 1;
+  function hook() { scene.traverse(o => { if (o.isMesh && o.material === cloudMat && !hooked.has(o)) { hooked.add(o); U.cl++;
+      o.onBeforeRender = () => { try { const f = scene.fog, w = window.__c243; if (!f || f.isFogExp2 || !w || !(w.storm > 0.01) || !w.baseFar) return; saved = [f.near, f.far]; f.far = Math.max(f.far, w.baseFar); f.near = Math.min(saved[0], f.far * 0.5); } catch (_) {} };
+      o.onAfterRender = () => { if (saved) { try { scene.fog.near = saved[0]; scene.fog.far = saved[1]; } catch (_) {} saved = null; } }; } }); }
+  function frame(dt) { if (!started) return; if ((ht -= dt) <= 0) { ht = 3; hook(); }
+    const n = fullMoon() ? 1.35 : 0.9; moonDisc.scale.multiplyScalar(MS); if (U.moon) moonDisc.material.opacity = 1;
+    try { moonHalo.scale.setScalar(26 * MS * 0.9 * n); } catch (_) {}
+    // v1.0.62: the desert sky is clear - clouds fade out smoothly (about 8-10 s) as you cross into the desert and fade back in when you leave
+    const w = window.__c243, dk = w && w.dK ? +w.dK() || 0 : 0, tgt = 1 - Math.max(0, Math.min(1, dk / 0.6)); fadeK += (tgt - fadeK) * Math.min(1, dt / 3); if (Math.abs(tgt - fadeK) < 0.002) fadeK = tgt; U.fade = +fadeK.toFixed(2);
+    if (!(typeof DIM !== 'undefined' && DIM.cur)) { cloudMat.opacity *= fadeK; const v = cloudMat.opacity > 0.01; if (cloudMat.visible !== v) cloudMat.visible = v; } }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(Math.min(0.25, +dt || 0.016)); } catch (e) { ERR('fr', e); } return r; };
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
@@ -31436,6 +31456,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.62', d:'2026-10-31', notes:['New: all four sky sights - the Hourglass Nebula, Neptune and both views of Jupiter - now hang together in one sweep of the night sky, high above the horizon, slowly drifting through the night','New: a huge detailed Moon made from a real NASA photo, with craters and dark seas, a soft halo and the same phases as before','Fix: clouds no longer pop away when you walk into the desert - they now fade out smoothly over several seconds, leaving a clear desert sky, and drift back in when you leave','Fix: the desert sandstorm is back - an error in v1.0.60 had switched it off']},
 {v:'v1.0.61', d:'2026-10-31', notes:['Fix: the patch notes always show the full list for the version you are playing, newest first, including the latest update','Fix: the game now really spots when a newer version is out - an old page on the title screen updates itself, and during play you get the Update now banner (this was broken since about v1.0.48, so phones could stay on an old version)']},
 {v:'v1.0.60', d:'2026-10-31', notes:['New: planets in the night sky - Jupiter, a second view of Jupiter with a moon shadow, Neptune and the big glowing Hourglass Nebula fade in at dusk, wheel slowly across the sky through the night and fade out at dawn (real NASA space photos)','New: in Matrix mode the planets glow green','Fix: the desert sandstorm no longer blows over the YEAR 24000 vision']},
 {v:'v1.0.59', d:'2026-10-31', notes:['New: the flying saucer is now a classic saucer four times bigger, with a ring of rainbow lights that cycle through every colour, and it darts about like a tic tac','New: shoot it down and it spirals slowly to the ground in thick smoke and sparks, then hits with a huge boom, a dust plume and a shake, leaving a smoking wreck','New: the alien floats out of the wreck in a shimmering see-through bubble with orbiting shapes and glowing glyph rings, raises a hand in greeting and speaks to you for about three and a half minutes','New: the alien trip - kaleidoscopes, tunnels, mandalas, morphing patterned walls and real old film of nuclear tests and storms from space, with its own ambient trip music and chattering alien voices','New: the YEAR 24000 vision - you stand by the pyramid on mirror-chrome ground while giant truck-robot machines with red lights stride past under a burning sky and a ruined skyline','New: after the encounter, switching on a TV shows static and a news flash - a huge flaming meteor comes in from far away with a rumbling warning, then wipes out the whole desert in a giant fiery crater. Get out of the sand area before it lands - your own builds are never destroyed','New: your own alien painting now hangs in the pyramid hall next to the green and purple murals','Textures: the alien has a rainbow iridescent skin taken from your painting that slowly shimmers, with glowing purple star-filled eyes','Mobs: the saucer alien now comes out to speak to you instead of just standing in the desert']},

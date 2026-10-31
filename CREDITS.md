@@ -63,3 +63,4 @@ Images by NASA (public domain), cropped with the black background made transpare
 - `neptune.png` - Neptune in false colour, NASA / Voyager 2.
 - `jupiter.png` - Jupiter, NASA / Pioneer.
 - `jupiter2.png` - Jupiter with a moon shadow, NASA / Hubble Space Telescope.
+- `moon.png` (v1.0.62) - "Moon nearside LRO", NASA / GSFC / Arizona State University (Lunar Reconnaissance Orbiter), public domain, via Wikimedia Commons.
