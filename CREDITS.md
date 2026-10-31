@@ -56,3 +56,10 @@ Re-encoded to short 360p silent H.264 clips. All public domain.
 
 ## Player artwork (v1.0.59)
 - `assets/ui/alien_art.png` and `assets/ui/alien_skin.png` - the players own rainbow alien drawing, cropped; used for the pyramid painting and the alien skin.
+
+## Night sky planets (v1.0.60, `assets/sky/`)
+Images by NASA (public domain), cropped with the black background made transparent:
+- `nebula.png` - Hourglass Nebula (MyCn18), NASA / Hubble Space Telescope.
+- `neptune.png` - Neptune in false colour, NASA / Voyager 2.
+- `jupiter.png` - Jupiter, NASA / Pioneer.
+- `jupiter2.png` - Jupiter with a moon shadow, NASA / Hubble Space Telescope.
