@@ -47,3 +47,12 @@ Clydebank map data © OpenStreetMap contributors (ODbL).
 ## Speech (v1.0.45, removed in v1.0.47)
 - The people's spoken-word clips were removed in v1.0.47; they now only hum procedural tones (no third-party assets).
 - Shaders, terrain features and rain sound in v1.0.45 are procedural (no third-party assets).
+
+## Alien encounter vision clips (v1.0.59, `assets/video/`)
+Re-encoded to short 360p silent H.264 clips. All public domain.
+- `v1_nuke.mp4`, `v2_blast.mp4` - excerpts of "Actual footage of nuclear bomb testing.ogv", Wikimedia Commons (US federal government work, public domain).
+- `v3_storm.mp4` - excerpt of "Landfall of Hurricane Michael from Space.webm", Wikimedia Commons (NASA, public domain).
+- `v4_earth.mp4` - excerpt of "Hurricane Florence From Space on September 13.webm", Wikimedia Commons (NASA, public domain).
+
+## Player artwork (v1.0.59)
+- `assets/ui/alien_art.png` and `assets/ui/alien_skin.png` - the players own rainbow alien drawing, cropped; used for the pyramid painting and the alien skin.

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#101612">
-<!-- glencraft-build: v1.0.58.0.58.0.58.0.58.0.58.0.57.0.57.0.57.0.57.0.57.0.57.0.57.0.56.0.56.0.56.0.56.0.55.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.53.0.53.0.53.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.51.0.50.0.50.0.50.0.49.0.48.0.48.0.48 -->
+<!-- glencraft-build: v1.0.59.0.59.0.59.0.59.0.59.0.59.0.59.0.59.0.59.0.59.0.58.0.58.0.58.0.58.0.58.0.57.0.57.0.57.0.57.0.57.0.57.0.57.0.56.0.56.0.56.0.56.0.55.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.54.0.53.0.53.0.53.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.52.0.51.0.50.0.50.0.50.0.49.0.48.0.48.0.48 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -763,7 +763,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.0.58';
+const GAME_VERSION = '1.0.59';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -30603,6 +30603,8 @@ function make42(E) {
         m.position.set(x + 0.5 + nx * 0.52, y, z + 0.5 + nz * 0.52); m.rotation.y = Math.atan2(nx, nz); grp.add(m); };
       const y = o.hy + 3.1; // hall air is hy..hy+5
       put(-0.5, 6, 0, -1, 6, 4, y, 0, 1); put(-0.5, -6, 0, 1, 6, 4, y, 1, 2);   // v1.0.58: only the green and the purple murals stay
+      try { const [x, z] = o.L(-5, 0), nx = o.fx, nz = o.fz, tx = new THREE.TextureLoader().load('assets/ui/alien_art.png'); // v1.0.59: the players own alien painting on the back wall
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 4.05), new THREE.MeshBasicMaterial({map: tx, color: 0xeeeeee})); m.position.set(x + 0.5 + nx * 0.52, o.hy + 2.9, z + 0.5 + nz * 0.52); m.rotation.y = Math.atan2(nx, nz); grp.add(m); } catch (_) {}
       U.murals = grp.children.length; }
     let lastWorld = null, t = 0;
     const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
@@ -30884,7 +30886,7 @@ function make42(E) {
     scene.add(g); return g; }
   function spawnUfo() { if (ufo) return false; const g = mkUfo(), a = Math.random() * 6.283; g.position.set(P.x + Math.sin(a) * 90, P.y + 30 + Math.random() * 12, P.z + Math.cos(a) * 90);
     ufo = {g, st: 'fly', t: 0, wp: null, hold: 0, v: new THREE.Vector3()}; U.ufos++; return true; }
-  U.spawnUfo = spawnUfo; U.ufo = () => ufo;
+  U.spawnUfo = () => window.__c246 ? __c246.spawn() : spawnUfo(); U.ufo = () => ufo;
   function ufoFly(dt) { const u = ufo; u.t += dt; const p = u.g.position;
     if (u.st === 'fly') { if (u.hold > 0) { u.hold -= dt; u.g.rotation.y += dt * 0.3; return; }
       if (!u.wp || p.distanceTo(u.wp) < 1.5) { if (u.wp) u.hold = 0.6 + Math.random() * 2.5; u.wp = u.t > 45 ? new THREE.Vector3(p.x + (p.x - P.x) * 4, p.y + 80, p.z + (p.z - P.z) * 4) : new THREE.Vector3(P.x + (Math.random() - .5) * 90, P.y + 24 + Math.random() * 18, P.z + (Math.random() - .5) * 90); }
@@ -30910,7 +30912,7 @@ function make42(E) {
   const pGeo = new THREE.CircleGeometry(1, 18); pGeo.rotateX(-Math.PI / 2); let pud = [];
   function syncPuddles() { for (const q of pud) scene.remove(q); pud = []; for (const p of C().p) { const g = new THREE.Group(); const m = new THREE.Mesh(pGeo, pm); m.scale.set(1.5, 1, 1.1); g.add(m); const s = new THREE.Sprite(gm); s.scale.set(5, 2.2, 1); s.position.y = 0.4; g.add(s);
       g.position.set(p[0], p[1] + 0.03, p[2]); g.traverse(o => { o.userData.__dcR = 1e9; o.userData.__dcK = 1; }); scene.add(g); pud.push(g); } U.puddles = pud.length; }
-  U.syncPuddles = syncPuddles;
+  U.syncPuddles = syncPuddles; U.scene3 = (...a) => scene3(...a); U.addPuddle = (x, y, z) => { const c = C(); c.p.push([x, y, z]); if (c.p.length > 6) c.p.shift(); syncPuddles(); };
   U.scoop = () => { const c = C(); let bi = -1, bd = 3.2; c.p.forEach((p, i) => { const d = Math.hypot(p[0] - P.x, p[2] - P.z, (p[1] - P.y) * 0.5); if (d < bd) { bd = d; bi = i; } }); if (bi < 0) return false; c.p.splice(bi, 1); syncPuddles(); try { dirty = true; } catch (_) {} return true; };
   // ---------- visions ----------
   let frozen = 0, alien = null, ov = null;
@@ -30970,7 +30972,7 @@ function make42(E) {
     else { if (sand) sand.m.visible = false; try { if (lastFog !== null && scene.fog.far === lastFog && U.baseFar) scene.fog.far = U.baseFar; } catch (_) {} lastFog = null; }
     if (stormK > 0.01 && !wind) wind = mkWind(); if (wind) { wind.g.gain.value = 0.22 * stormK * (0.7 + 0.3 * Math.sin(performance.now() / 900)); wind.bp.frequency.value = 380 + 260 * Math.sin(performance.now() / 1300); }
     // ufos
-    if (desert && !ufo && (ufoT -= dt) <= 0) { ufoT = 50 + Math.random() * 70; spawnUfo(); }
+    if (desert && (ufoT -= dt) <= 0) { ufoT = 50 + Math.random() * 70; try { if (window.__c246) __c246.spawn(); } catch (_) {} }   // v1.0.59: the big saucer encounter lives in c246
     if (ufo) ufoFly(dt); }
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(Math.min(0.1, +dt || 0.016)); } catch (e) { ERR('fr', e); } return r; };
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && current && current.c243) d.c243 = current.c243; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
@@ -31063,6 +31065,338 @@ function make42(E) {
         const s = dK * (LOW ? 1.2 : 1.5) * dt, nx = d.x + WX * s, nz = d.z + WZ * s; if (!solidAt(nx, d.y + 0.2, nz)) { d.x = nx; d.z = nz; if (d.m) d.m.position.x = nx, d.m.position.z = nz; if (!solidAt(nx, d.y - 0.3, nz)) d.rest = false; U.drift++; } } } }
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { step(Math.min(0.1, +dt || 0.016)); } catch (e) { ERR('st', e); } return r; }; } catch (e) { ERR('wrap', e); }
 })();
+
+/* ===================== GLX-C246 (v1.0.59): THE BIG SAUCER ENCOUNTER - a huge classic flying saucer (4x) with a ring of rainbow lights darts over the desert like a tic-tac.
+   Shoot it: it spirals down trailing thick smoke and sparks, slams in with a boom, dust plume and shake, and lies smoking. An Ariel-School-style alien floats out inside a
+   trippy alien-tech bubble, freezes you, and talks for ~90 s while visions and real public-domain footage play AROUND it (never over it). Then the saucer darts away. ===================== */
+(function c246() {
+  const U = window.__c246 = {err: null, st: 'none', spawns: 0, shot: 0, crashes: 0, trips: 0, lines: 0, clips: 0, tts: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const LOW = (typeof touchMode !== 'undefined' && !!touchMode) || (typeof PERF !== 'undefined' && PERF);
+  const mine = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i);
+  const inB = (x, y, z) => x > 0 && z > 0 && y > 1 && x < W - 1 && z < D - 1 && y < H - 1;
+  const top = (x, z) => { x = Math.floor(x); z = Math.floor(z); if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return SEA; for (let y = H - 2; y > 1; y--) { const v = world[idx(x, y, z)]; if (v && v !== T.FIRE && !PLANT[v]) return y; } return 0; };
+  const DC = o => { o.traverse(c => { c.userData.__dcR = 1e9; c.userData.__dcK = 1; c.frustumCulled = false; }); return o; };
+  const V = new THREE.Vector3(), V2 = new THREE.Vector3(), S = 4;
+  // ---------- the saucer ----------
+  const lights = [];
+  function mkSaucer() { const g = new THREE.Group(), m = new THREE.Group(); g.add(m); m.scale.setScalar(S);
+    const metal = new THREE.MeshStandardMaterial({color: 0xc7ced6, emissive: 0x3a434d, emissiveIntensity: 0.45, roughness: 0.25, metalness: 0.9});
+    m.add(new THREE.Mesh(new THREE.SphereGeometry(1, 32, 12).scale(3.2, 0.5, 3.2), metal));
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.17, 6, 40), new THREE.MeshStandardMaterial({color: 0x6f7780, roughness: 0.35, metalness: 0.95})); rim.rotation.x = Math.PI / 2; m.add(rim);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.9, 0.25, 32, 1, true), new THREE.MeshStandardMaterial({color: 0x8a939c, roughness: 0.3, metalness: 0.9, side: THREE.DoubleSide})); band.position.y = 0.32; m.add(band);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.25, 20, 10, 0, 6.283, 0, Math.PI / 2), new THREE.MeshStandardMaterial({color: 0x8ff0ff, emissive: 0x2aa6c8, emissiveIntensity: 0.8, roughness: 0.05, metalness: 0.2, transparent: true, opacity: 0.78})); dome.position.y = 0.38; m.add(dome);
+    const lg = new THREE.SphereGeometry(0.17, 8, 6), N = LOW ? 24 : 36; lights.length = 0;
+    for (let i = 0; i < N; i++) { const a = i / N * 6.283, l = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({color: 0xffffff})); l.position.set(Math.sin(a) * 3.05, -0.05, Math.cos(a) * 3.05); m.add(l); lights.push(l); }
+    for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283, l = new THREE.Mesh(lg, new THREE.MeshBasicMaterial({color: 0xffffff})); l.position.set(Math.sin(a) * 1.9, 0.48, Math.cos(a) * 1.9); m.add(l); lights.push(l); }
+    const under = new THREE.Mesh(new THREE.CircleGeometry(1.4, 24), new THREE.MeshBasicMaterial({color: 0xaaffdd, transparent: true, opacity: 0.9, side: THREE.DoubleSide})); under.rotation.x = Math.PI / 2; under.position.y = -0.52; m.add(under);
+    g.userData.m = m; DC(g); scene.add(g); return g; }
+  let ufo = null;
+  U.spawn = () => { if (ufo || U.st !== 'none' || !started) return false; const g = mkSaucer(), a = Math.random() * 6.283; g.position.set(P.x + Math.sin(a) * 160, P.y + 55, P.z + Math.cos(a) * 160);
+    ufo = {g, st: 'fly', t: 0, wp: null, hold: 0, v: new THREE.Vector3(), zig: 0}; U.st = 'fly'; U.spawns++; return true; };
+  U.ufo = () => ufo;
+  function hue(t) { const n = lights.length; for (let i = 0; i < n; i++) lights[i].material.color.setHSL((i / n + t * 0.35) % 1, 1, 0.6); }
+  function fly(dt) { const u = ufo, p = u.g.position; u.t += dt; u.g.userData.m.rotation.y += dt * 0.8;
+    if (u.hold > 0) { u.hold -= dt; p.y += Math.sin(u.t * 2) * dt * 0.6; return; }
+    if (!u.wp) { const leave = u.t > 70; u.zig = (u.zig + 1) % 4; u.wp = leave ? new THREE.Vector3(p.x + (p.x - P.x) * 6, p.y + 200, p.z + (p.z - P.z) * 6)
+        : u.zig ? new THREE.Vector3(p.x + (Math.random() - .5) * 70, P.y + 40 + Math.random() * 25, p.z + (Math.random() - .5) * 70) : new THREE.Vector3(P.x + (Math.random() - .5) * 120, P.y + 42 + Math.random() * 25, P.z + (Math.random() - .5) * 120); }
+    V.copy(u.wp).sub(p); const L = V.length(), sp = Math.min(L, 140 * dt); p.addScaledVector(V, sp / Math.max(L, 1e-3));   // instant darts, then dead-still hovering
+    u.g.rotation.z = Math.max(-0.25, Math.min(0.25, -V.x / Math.max(L, 1) * 0.3)); if (L < 1) { u.wp = null; u.hold = u.zig ? 0.25 + Math.random() * 0.6 : 1.5 + Math.random() * 3; u.g.rotation.z = 0; if (u.t > 70) { scene.remove(u.g); ufo = null; U.st = 'none'; } }
+    if (Math.hypot(p.x - P.x, p.z - P.z) > 450) { scene.remove(u.g); ufo = null; U.st = 'none'; } }
+  // ---------- smoke, sparks, dust (pooled points, no allocation per frame) ----------
+  function pool(n, col, size, add) { const P3 = new Float32Array(n * 3), VL = new Float32Array(n * 4), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P3, 3)); for (let i = 0; i < n; i++) P3[i * 3 + 1] = -999;
+    const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'), q = x.createRadialGradient(16, 16, 0, 16, 16, 16); q.addColorStop(0, 'rgba(255,255,255,1)'); q.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = q; x.fillRect(0, 0, 32, 32);
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({color: col, size, map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, opacity: add ? 1 : 0.8, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending, fog: !add}));
+    DC(pts); scene.add(pts); return {P3, VL, g, n, i: 0, pts}; }
+  let smoke = null, spark = null, dust = null;
+  function emit(pl, x, y, z, vx, vy, vz, life, k) { for (let j = 0; j < k; j++) { const i = pl.i = (pl.i + 1) % pl.n; pl.P3[i * 3] = x + (Math.random() - .5) * 3; pl.P3[i * 3 + 1] = y + (Math.random() - .5) * 2; pl.P3[i * 3 + 2] = z + (Math.random() - .5) * 3;
+    pl.VL[i * 4] = vx + (Math.random() - .5) * 3; pl.VL[i * 4 + 1] = vy + Math.random() * 2; pl.VL[i * 4 + 2] = vz + (Math.random() - .5) * 3; pl.VL[i * 4 + 3] = life; } }
+  function stepPool(pl, dt, grav, drag) { if (!pl) return; const P3 = pl.P3, VL = pl.VL; for (let i = 0; i < pl.n; i++) { if (VL[i * 4 + 3] <= 0) continue; VL[i * 4 + 3] -= dt; if (VL[i * 4 + 3] <= 0) { P3[i * 3 + 1] = -999; continue; }
+      VL[i * 4 + 1] -= grav * dt; const d = 1 - drag * dt; VL[i * 4] *= d; VL[i * 4 + 2] *= d; P3[i * 3] += VL[i * 4] * dt; P3[i * 3 + 1] += VL[i * 4 + 1] * dt; P3[i * 3 + 2] += VL[i * 4 + 2] * dt; } pl.g.attributes.position.needsUpdate = true; }
+  function pools() { if (smoke) return; smoke = pool(LOW ? 160 : 360, 0x2b2622, LOW ? 9 : 7, false); spark = pool(LOW ? 80 : 180, 0xffa040, 1.4, true); dust = pool(LOW ? 90 : 200, 0xb39a72, LOW ? 12 : 10, false); }
+  // ---------- shot -> spiral crash ----------
+  try { const fg = fireGun; fireGun = function (id) { const d = lookDir().slice(), o = new THREE.Vector3(P.x, P.y + 1.62, P.z); const r = fg.apply(this, arguments);
+      try { if (ufo && ufo.st === 'fly') { const c = ufo.g.position; V.copy(c).sub(o); const t = V.x * d[0] + V.y * d[1] + V.z * d[2]; if (t > 0 && t < 400) { const px = o.x + d[0] * t - c.x, py = o.y + d[1] * t - c.y, pz = o.z + d[2] * t - c.z; if (Math.hypot(px, py * 2, pz) < 3.3 * S) startCrash(); } } } catch (e) { ERR('shot', e); } return r; }; } catch (e) { ERR('fg', e); }
+  function startCrash() { const u = ufo, p = u.g.position; U.shot++; u.st = 'spiral'; U.st = 'crash'; pools(); try { sfx('boom'); burst(p.x, p.y, p.z, 0xffffff, 30, 3); } catch (_) {}
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), tx = Math.floor(P.x + fx * 40), tz = Math.floor(P.z + fz * 40); u.t0 = p.clone(); u.tg = new THREE.Vector3(tx + .5, top(tx, tz) + 1.2, tz + .5); u.ct = 0; u.CT = 9; try { toast('The saucer is going down!'); } catch (_) {} }
+  U.forceCrash = () => { if (!ufo) U.spawn(); startCrash(); };
+  function spiral(dt) { const u = ufo, p = u.g.position; u.ct += dt; const k = Math.min(1, u.ct / u.CT), e = k * k, R = 28 * (1 - k);
+    p.lerpVectors(u.t0, u.tg, e); p.x += Math.sin(u.ct * 2.2) * R; p.z += Math.cos(u.ct * 2.2) * R; u.g.userData.m.rotation.y += dt * (3 + 6 * k); u.g.rotation.x = 0.5 * k + Math.sin(u.ct * 3) * 0.15; u.g.rotation.z = 0.35 * k;
+    emit(smoke, p.x, p.y, p.z, 0, 3, 0, 5 + Math.random() * 3, LOW ? 2 : 4); if (Math.random() < 0.7) emit(spark, p.x, p.y, p.z, (Math.random() - .5) * 18, 6, (Math.random() - .5) * 18, 1.2, LOW ? 2 : 4);
+    if (k >= 1) impact(); }
+  function impact() { const u = ufo, p = u.g.position, X = Math.floor(p.x), Y = Math.floor(p.y - 1), Z = Math.floor(p.z); u.st = 'wreck'; U.crashes++; const R = 6.5;
+    for (let dx = -7; dx <= 7; dx++) for (let dy = -4; dy <= 4; dy++) for (let dz = -7; dz <= 7; dz++) { if (Math.hypot(dx, dy * 1.5, dz) > R) continue; const x = X + dx, y = Y + dy, z = Z + dz; if (!inB(x, y, z)) continue; const i = idx(x, y, z), b = world[i];
+      if (!b || b === T.WATER || mine(i) || (ENT[b] && !PLANT[b])) continue; world[i] = 0; try { FLV.delete(i); markDirty(x, z); flQueue(x, y, z); } catch (_) {} }
+    try { dirty = true; } catch (_) {} let fy = Y; while (fy > 2 && !world[idx(X, fy - 1, Z)]) fy--; p.set(X + .5, fy + 0.6 * S * 0.5, Z + .5); u.g.rotation.set(0.32, 0, 0.22);
+    for (let k = 0; k < 14; k++) { const a = k / 14 * 6.283, x = Math.floor(X + Math.sin(a) * 9), z = Math.floor(Z + Math.cos(a) * 9), t = top(x, z); try { if (t && window.__c237) __c237.ignite(x + .5, t + 1.02, z + .5); } catch (_) {} }
+    try { sfx('boom'); setTimeout(() => { try { sfx('boom'); } catch (_) {} }, 180); shake(2.5, 0.45); burst(X, fy + 1, Z, 0xff8a30, 40, 4); } catch (_) {}
+    for (let i = 0; i < 6; i++) emit(dust, X, fy + 1, Z, (Math.random() - .5) * 26, 7 + Math.random() * 6, (Math.random() - .5) * 26, 6 + Math.random() * 3, LOW ? 10 : 22);
+    emit(spark, X, fy + 2, Z, 0, 14, 0, 2, LOW ? 30 : 70);
+    try { if (window.__c243 && __c243.addPuddle) __c243.addPuddle(X + 0.5 + 9, top(X + 9, Z), Z + 0.5); } catch (_) {}
+    u.wt = 0; setTimeout(() => { try { window.__c246b && __c246b.begin(u); } catch (e) { ERR('trip', e); } }, 2500); }
+  function wreck(dt) { const u = ufo, p = u.g.position; u.wt = (u.wt || 0) + dt; if (Math.random() < (LOW ? 0.5 : 1)) emit(smoke, p.x + (Math.random() - .5) * 6, p.y + 1, p.z + (Math.random() - .5) * 6, 1, 3.5, 0.4, 6 + Math.random() * 4, 1); if (Math.random() < 0.08) emit(spark, p.x, p.y + 1, p.z, 0, 5, 0, 0.8, 3);
+    for (let i = 0; i < lights.length; i++) lights[i].visible = Math.random() > 0.35; }
+  U.leave = () => { if (!ufo) return; const u = ufo; for (const l of lights) l.visible = true; u.st = 'fly'; u.t = 71; u.wp = null; u.hold = 1.2; u.g.rotation.set(0, 0, 0); u.g.position.y += 3; U.st = 'leaving'; try { sfx('boom'); } catch (_) {} };
+  function frame(dt) { if (!started) return; const t = performance.now() / 1000; if (ufo) { hue(t); if (ufo.st === 'fly') fly(dt); else if (ufo.st === 'spiral') spiral(dt); else if (ufo.st === 'wreck') wreck(dt); }
+    stepPool(smoke, dt, -0.6, 0.25); stepPool(spark, dt, 12, 0.6); stepPool(dust, dt, 2.5, 0.9); if (!ufo && U.st === 'leaving') U.st = 'none'; }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { const nw = performance.now(), wd = (nw - (us._w||nw)) / 1000; us._w = nw; frame(Math.min(0.25, Math.max(+dt || 0.016, wd))); } catch (e) { ERR('fr', e); } return r; };
+  try { const ew = enterWorld; enterWorld = function () { if (ufo) { scene.remove(ufo.g); ufo = null; } U.st = 'none'; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+})();
+
+/* ===================== GLX-C246B (v1.0.59): THE ENCOUNTER - an original Ariel-School-style alien (slender, huge glossy black star-speckled eyes) floats out of the wreck in an
+   iridescent alien-tech bubble with orbiting geometric shapes and glyph rings. You are frozen in green light for ~90 s while it SPEAKS (browser speech, pitched down, with an
+   ethereal shimmer bed) and visions + real public-domain footage play AROUND it, never over it. Then the saucer darts off. ===================== */
+(function c246b() {
+  const U = window.__c246b = {err: null, on: 0, t: 0, lines: 0, clips: 0, tts: 0, seg: ''};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const LOW = (typeof touchMode !== 'undefined' && !!touchMode) || (typeof PERF !== 'undefined' && PERF);
+  const DC = o => { o.traverse(c => { c.userData.__dcR = 1e9; c.userData.__dcK = 1; c.frustumCulled = false; }); return o; };
+  const LEN = 200; // v1.0.59: about 3.5 minutes in all - emerge, speech, visions, the YEAR 24000 climax at 150-188 s, farewell, exit
+  // ---------- the alien ----------
+  function eyeTex() { const c = document.createElement('canvas'); c.width = 128; c.height = 64; const g = c.getContext('2d'); g.fillStyle = '#020208'; g.fillRect(0, 0, 128, 64);
+    const gr = g.createRadialGradient(64, 32, 4, 64, 32, 60); gr.addColorStop(0, 'rgba(60,40,120,0.5)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 64);
+    for (let i = 0; i < 140; i++) { const s = Math.random() < 0.08 ? 2 : 1; g.fillStyle = 'rgba(255,255,255,' + (0.4 + Math.random() * 0.6) + ')'; g.fillRect(Math.random() * 128, Math.random() * 64, s, s); } return new THREE.CanvasTexture(c); }
+  function mkAlien() { const g = new THREE.Group(), skinTx = new THREE.TextureLoader().load('assets/ui/alien_skin.png'), skin = new THREE.MeshStandardMaterial({map: skinTx, color: 0xffffff, roughness: 0.2, metalness: 0.35, emissive: 0x6020a0, emissiveMap: skinTx, emissiveIntensity: 0.55}), suit = skin, et = eyeTex();
+    const eyeM = new THREE.MeshStandardMaterial({color: 0x000000, emissive: 0xc060ff, emissiveMap: et, emissiveIntensity: 1.6, roughness: 0.03, metalness: 0.6});
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.42, 22, 16), skin); head.scale.set(1, 1.3, 0.95); head.position.y = 1.72; g.add(head); g.userData.head = head;
+    for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), eyeM); e.scale.set(1.25, 0.72, 0.5); e.position.set(s * 0.18, 0.02, 0.33); e.rotation.z = s * 0.5; head.add(e); }
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.25, 8), skin); neck.position.y = 1.3; g.add(neck);
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.12, 0.7, 12), suit); body.position.y = 0.92; g.add(body);
+    const arms = []; for (const s of [-1, 1]) { const a = new THREE.Group(); a.position.set(s * 0.19, 1.2, 0); const u = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.85, 6), suit); u.position.y = -0.42; a.add(u);
+      const h = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 4), skin); h.position.y = -0.87; a.add(h); a.rotation.z = s * 0.12; g.add(a); arms.push(a); }
+    for (const s of [-1, 1]) { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.035, 0.6, 6), suit); l.position.set(s * 0.07, 0.3, 0); g.add(l); }
+    skinTx.wrapS = skinTx.wrapT = THREE.RepeatWrapping; g.userData.arms = arms; g.userData.skin = skin; return g; }
+  // ---------- the bubble ----------
+  const bubVS = 'varying vec3 vN; varying vec3 vV; void main(){ vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }';
+  const bubFS = 'uniform float uT; varying vec3 vN; varying vec3 vV; void main(){ float f = pow(1.0 - abs(dot(vN, vV)), 2.2); vec3 c = 0.5 + 0.5 * cos(6.2831 * (f * 1.6 + uT * 0.12 + vec3(0.0, 0.33, 0.67))); gl_FragColor = vec4(c, 0.08 + f * 0.75); }';
+  function glyphTex() { const c = document.createElement('canvas'); c.width = 512; c.height = 32; const g = c.getContext('2d'); g.fillStyle = '#9fffe0'; g.shadowColor = '#3fffc0'; g.shadowBlur = 6;
+    for (let x = 6; x < 506; x += 16) { const t = (x * 7) % 5; g.fillRect(x, 8, 2, 16); if (t > 0) g.fillRect(x, 8 + t * 3, 9, 2); if (t > 2) g.fillRect(x + 7, 10, 2, 12); if (t === 4) { g.beginPath(); g.arc(x + 4, 22, 3, 0, 7); g.fill(); } } const tx = new THREE.CanvasTexture(c); tx.wrapS = THREE.RepeatWrapping; return tx; }
+  function mkBubble() { const g = new THREE.Group(), mat = new THREE.ShaderMaterial({uniforms: {uT: {value: 0}}, vertexShader: bubVS, fragmentShader: bubFS, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending});
+    g.add(new THREE.Mesh(new THREE.SphereGeometry(1.6, 32, 20), mat)); const al = mkAlien(); al.position.y = -1.05; al.scale.setScalar(0.95); g.add(al);
+    const orb = new THREE.Group(), gm = [new THREE.OctahedronGeometry(0.22), new THREE.TetrahedronGeometry(0.24), new THREE.IcosahedronGeometry(0.2), new THREE.TorusGeometry(0.16, 0.05, 6, 16), new THREE.BoxGeometry(0.26, 0.26, 0.26), new THREE.DodecahedronGeometry(0.2)];
+    for (let i = 0; i < 6; i++) { const m = new THREE.Mesh(gm[i], new THREE.MeshBasicMaterial({color: new THREE.Color().setHSL(i / 6, 1, 0.6), wireframe: i % 2 === 0})); const a = i / 6 * 6.283; m.position.set(Math.sin(a) * 2.2, Math.sin(a * 2) * 0.5, Math.cos(a) * 2.2); orb.add(m); } g.add(orb);
+    const gt = glyphTex(), rings = []; for (let i = 0; i < 2; i++) { const r = new THREE.Mesh(new THREE.CylinderGeometry(1.95 + i * 0.3, 1.95 + i * 0.3, 0.22, 48, 1, true), new THREE.MeshBasicMaterial({map: gt, transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending}));
+      r.rotation.x = i ? 0.5 : -0.3; g.add(r); rings.push(r); }
+    g.userData = {mat, al, orb, rings}; DC(g); scene.add(g); return g; }
+  // ---------- the voice ----------
+  const LINES = ['Do not be afraid. We have watched your world for a very long time.', 'You are harming your planet. The air, the seas, the forests. It cannot go on.', 'Your machines grow faster than your wisdom. Slow down.',
+    'Your weapons of fire could end everything you love. Put them away.', 'You are not alone. You have never been alone.', 'Take care of the Earth. It is the only home you have.',
+    'Your world will change. Very soon. You must be ready for it.', 'Learn to share. Learn to listen. Your children are watching you.', 'We cannot save you. Only you can choose.', 'Remember us. Tell them what you saw.'];
+  let bed = null, ttsOn = false, li = 0, sub = null;
+  function startBed() { try { if (!AC) initAudio(); if (!AC) return; if (AC.state !== 'running') AC.resume(); const out = AC.createGain(); out.gain.value = 0.0001; out.gain.linearRampToValueAtTime(0.16, AC.currentTime + 3); out.connect(typeof master !== 'undefined' ? master : AC.destination);
+      const dl = AC.createDelay(1.5), fb = AC.createGain(); dl.delayTime.value = 0.41; fb.gain.value = 0.5; out.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(typeof master !== 'undefined' ? master : AC.destination); const os = [];
+      for (const f of [110, 164.8, 220.6, 329.4]) { const o = AC.createOscillator(), g = AC.createGain(), l = AC.createOscillator(), lg = AC.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.25; l.frequency.value = 0.15 + Math.random() * 0.3; lg.gain.value = 0.2; l.connect(lg); lg.connect(g.gain); o.connect(g); g.connect(out); o.start(); l.start(); os.push(o, l); }
+      bed = {out, os}; } catch (e) { ERR('bed', e); } }
+  function stopBed() { if (!bed) return; const b = bed; bed = null; try { b.out.gain.linearRampToValueAtTime(0, AC.currentTime + 2); setTimeout(() => b.os.forEach(o => { try { o.stop(); } catch (_) {} }), 2500); } catch (_) {} }
+  function pickVoice() { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /en/i.test(v.lang) && /female|zira|samantha|google uk english female|karen|moira/i.test(v.name)) || vs.find(v => /en/i.test(v.lang)) || null; } catch (_) { return null; } }
+  function say() { if (!U.on) return; const line = window.__c248 && __c248.q.length ? __c248.q.shift() : LINES[li++ % LINES.length]; try { window.__c248 && __c248.chirp(2 + line.length / 14); } catch (_) {} U.lines++; if (sub) { sub.style.opacity = 0; setTimeout(() => { if (sub) { sub.textContent = line; sub.style.opacity = 1; } }, 250); }
+    if (ttsOn) { try { const u = new SpeechSynthesisUtterance(line), v = pickVoice(); if (v) u.voice = v; u.pitch = 1.45; u.rate = 0.9; u.volume = 1; u.onend = () => setTimeout(say, 700); u.onerror = () => setTimeout(say, 4000); speechSynthesis.speak(u); U.tts++; return; } catch (_) {} }
+    setTimeout(say, 4200 + line.length * 40); }
+  // ---------- visions around the alien ----------
+  const CLIPS = ['assets/video/v1_nuke.mp4', 'assets/video/v2_blast.mp4', 'assets/video/v3_storm.mp4', 'assets/video/v4_earth.mp4'];
+  const PLAN = [['k', 0, 9], ['c', 0, 8], ['k', 1, 8], ['v', 0, 14], ['k', 2, 8], ['v', 1, 10], ['k', 3, 8], ['c', 1, 8], ['v', 2, 12], ['k', 0, 7], ['v', 3, 10], ['k', 1, 8], ['c', 2, 9], ['k', 2, 8], ['v', 0, 9], ['k', 3, 8], ['k', 0, 8], ['k', 2, 8]];
+  let ov = null, panes = [], vids = [], segI = -1, segT = 0;
+  function mkOverlay() { ov = document.createElement('div'); ov.id = 'c246ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:70;pointer-events:none;opacity:0;transition:opacity 1.2s;overflow:hidden';
+    ov.innerHTML = '<div style="position:absolute;inset:-50%;background:conic-gradient(from 0deg,rgba(255,0,128,.10),rgba(0,255,160,.14),rgba(0,160,255,.10),rgba(255,230,0,.10),rgba(255,0,128,.10));animation:c246spin 14s linear infinite"></div><div style="position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(40,255,120,0) 30%,rgba(20,160,60,.42))"></div>';
+    const st = document.createElement('style'); st.textContent = '@keyframes c246spin{to{transform:rotate(360deg)}}#c246ov .pane{position:absolute;left:50%;transform:translateX(-50%);border-radius:18px;overflow:hidden;opacity:0;transition:opacity 1s;box-shadow:0 0 30px #3fffa0;border:2px solid rgba(160,255,200,.6);background:#000}#c246ov .pane video,#c246ov .pane canvas{width:100%;height:100%;object-fit:cover;display:block}';
+    ov.appendChild(st); const port = innerHeight > innerWidth;
+    for (let i = 0; i < 2; i++) { const p = document.createElement('div'); p.className = 'pane'; const w = port ? Math.min(innerWidth * 0.86, 520) : Math.min(innerWidth * 0.3, 460);
+      p.style.width = w + 'px'; p.style.height = (w * 0.56) + 'px'; if (port) p.style.top = i ? 'auto' : '4%'; if (port && i) p.style.bottom = '17%'; if (!port) { p.style.top = '30%'; p.style.left = i ? '82%' : '18%'; }
+      const cv = document.createElement('canvas'); cv.width = 480; cv.height = 270; p.appendChild(cv); ov.appendChild(p); panes.push({p, cv, g: cv.getContext('2d'), v: null}); }
+    sub = document.createElement('div'); sub.style.cssText = 'position:absolute;left:6%;right:6%;bottom:' + (port ? '9%' : '12%') + ';text-align:center;color:#e0ffe8;font-size:clamp(14px,2.4vw,22px);text-shadow:0 0 8px #0f0,0 2px 2px #000;transition:opacity .25s';
+    ov.appendChild(sub); document.body.appendChild(ov); requestAnimationFrame(() => { if (ov) ov.style.opacity = 1; }); }
+  function nextSeg() { segI++; const s = PLAN[segI % PLAN.length], pn = panes[segI % 2], other = panes[(segI + 1) % 2]; segT = s[2]; U.seg = s[0] + s[1];
+    other.p.style.opacity = 0; if (other.v) { const v = other.v; setTimeout(() => { try { v.pause(); } catch (_) {} }, 1000); }
+    if (s[0] === 'v') { let v = vids[s[1]]; if (!v) { v = vids[s[1]] = document.createElement('video'); v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.loop = true; v.src = CLIPS[s[1]]; }
+      pn.cv.style.display = 'none'; if (pn.v && pn.v !== v) pn.v.remove(); pn.p.appendChild(v); pn.v = v; v.style.display = 'block'; try { v.currentTime = 0; const pr = v.play(); if (pr && pr.catch) pr.catch(() => {}); } catch (_) {} U.clips++; }
+    else { if (pn.v) { pn.v.style.display = 'none'; } pn.cv.style.display = 'block'; pn.k = s[1]; pn.t0 = performance.now(); }
+    pn.p.style.opacity = 1; pn.cur = s[0]; }
+  function drawPanes() { for (const pn of panes) if ((pn.cur === 'c' || pn.cur === 'k') && pn.p.style.opacity === '1') { try { const tt = (performance.now() - pn.t0) / 1000; if (pn.cur === 'k') __c248.scene(pn.g, 480, 270, pn.k, tt); else window.__c243 && __c243.scene3(pn.g, 480, 270, pn.k, tt); } catch (_) {} } }
+  // ---------- run ----------
+  let bub = null, wreckP = null, froze = 0, ph = 0;
+  U.begin = u => { if (U.on) return; U.on = 1; U.y24 = 0; U.t = 0; ph = 0; segI = -1; li = 0; U.lines = 0; wreckP = u.g.position.clone(); bub = mkBubble(); bub.position.copy(wreckP).add(new THREE.Vector3(0, 3, 0)); froze = LEN + 8;
+    try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {} try { toast('Something is coming out of the wreck...'); } catch (_) {} };
+  U.forceBegin = () => window.__c246 && (__c246.ufo() ? U.begin(__c246.ufo()) : (__c246.spawn(), U.begin(__c246.ufo())));
+  function end() { U.on = 0; froze = 0; if (ov) { const o = ov; o.style.opacity = 0; setTimeout(() => o.remove(), 1300); ov = null; } for (const v of vids) if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (_) {} } vids = []; panes = []; sub = null;
+    try { speechSynthesis.cancel(); } catch (_) {} stopBed(); try { __c248.stop24(); __c248.stopMusic(); } catch (_) {} if (bub) { scene.remove(bub); bub = null; } try { if (current) current.c246 = Object.assign(current.c246 || {}, {met: 1}); dirty = true; } catch (_) {}
+    try { window.__c246 && __c246.leave(); toast('The saucer darts away... Something tells you not to switch on a TV.'); } catch (_) {} }
+  U.end = end;
+  function frame(dt) { if (!U.on || !bub) return; U.t += dt; const t = U.t, d = bub.userData; d.mat.uniforms.uT.value = t; d.orb.rotation.y += dt * 0.9; d.orb.rotation.x = Math.sin(t * 0.4) * 0.3; d.rings[0].rotation.y += dt * 0.5; d.rings[1].rotation.y -= dt * 0.7;
+    d.al.userData.head.rotation.z = Math.sin(t * 0.7) * 0.12; d.al.userData.arms[0].rotation.x = Math.sin(t * 1.3) * 0.3; { const A = d.al.userData.arms[1], up = ph === 1 ? 1 : 0; A.rotation.z += ((up ? 2.7 + Math.sin(t * 2.4) * 0.18 : 0.12) - A.rotation.z) * Math.min(1, dt * 2); A.rotation.x = up ? 0 : Math.sin(t * 1.1 + 1) * 0.3; }
+    { const sk = d.al.userData.skin; sk.map.offset.set(t * 0.02, Math.sin(t * 0.3) * 0.05); sk.emissive.setHSL((t * 0.05) % 1, 0.8, 0.35); }
+    const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), sd = U.y24 === 1 ? 2.6 : 0, tx = P.x + fx * 5.2 - fz * sd, ty = P.y + 1.62 + 0.15 - sd * 0.4, tz = P.z + fz * 5.2 + fx * sd;
+    if (ph === 0) { const k = Math.min(1, t / 6); bub.position.set(wreckP.x + (tx - wreckP.x) * k, wreckP.y + 3 + (ty - wreckP.y - 3) * k + Math.sin(k * 3.14) * 6, wreckP.z + (tz - wreckP.z) * k);
+      if (t > 1.5 && !ov) { mkOverlay(); startBed(); try { __c248.music(); } catch (_) {} ttsOn = typeof speechSynthesis !== 'undefined'; try { if (ttsOn) speechSynthesis.cancel(); } catch (_) {} setTimeout(say, 800); }
+      if (t >= 6) { ph = 1; nextSeg(); } }
+    else if (ph === 1) { bub.position.lerp(V0.set(tx, ty + Math.sin(t * 1.2) * 0.15, tz), Math.min(1, dt * 2)); const yr = t > 150 && t < 188; if (yr && !U.y24) { U.y24 = 1; for (const pn of panes) pn.p.style.opacity = 0; try { __c248.start24(); } catch (_) {} } if (!yr && U.y24 === 1 && t >= 188) { U.y24 = 2; try { __c248.stop24(); } catch (_) {} segT = 0; } if (!yr && (segT -= dt) <= 0) nextSeg(); if (!yr) drawPanes(); if (t > LEN) { ph = 2; for (const pn of panes) pn.p.style.opacity = 0; } }
+    else { const k = Math.min(1, (t - LEN) / 5); bub.position.lerp(V0.copy(wreckP).add(V1.set(0, 2, 0)), Math.min(1, dt * 1.2)); bub.scale.setScalar(1 - k * 0.9); if (k >= 1) { end(); return; } }
+    bub.lookAt(P.x, bub.position.y, P.z); }
+  const V0 = new THREE.Vector3(), V1 = new THREE.Vector3();
+  try { const up = updatePlayer; updatePlayer = function (dt) { if (froze > 0 && U.on) { try { PV.x = PV.z = 0; if (PV.y > 0) PV.y = 0; if (bub) { const dx = bub.position.x - P.x, dz = bub.position.z - P.z, dy = bub.position.y - 0.2 - (P.y + 1.62); const wy = Math.atan2(-dx, -dz); let dd = wy - P.yaw; dd = Math.atan2(Math.sin(dd), Math.cos(dd)); P.yaw += dd * Math.min(1, dt * 1.5); P.pitch += (Math.atan2(dy, Math.hypot(dx, dz)) - P.pitch) * Math.min(1, dt * 1.5); } } catch (_) {} return; } return up.apply(this, arguments); }; } catch (e) { ERR('up', e); }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { const nw = performance.now(), wd = (nw - (us._w||nw)) / 1000; us._w = nw; frame(Math.min(0.25, Math.max(+dt || 0.016, wd))); } catch (e) { ERR('fr', e); } return r; };
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && current && current.c246) d.c246 = current.c246; } catch (_) {} return d; }; } catch (e) { ERR('ser', e); }
+  try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (current) current.c246 = d && d.c246 || null; } catch (_) {} return r; }; } catch (e) { ERR('ap', e); }
+  try { const ew = enterWorld; enterWorld = function (save) { if (U.on) end(); if (!save && current) current.c246 = null; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+})();
+
+/* ===================== GLX-C247 (v1.0.59): THE METEOR - after the alien encounter, switching on any TV shows static... and a huge flaming meteor appears far away,
+   burning across the sky towards the desert for ~45 s with a fire trail and a growing rumble. It hits the middle of the desert and wipes out the whole sand area: a huge crater,
+   fires and a shockwave that hurts you if you are still there. The work is spread over many frames; player-placed blocks are never touched. ===================== */
+(function c247() {
+  const U = window.__c247 = {err: null, st: 'none', cols: 0, done: 0, left: 0, eta: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const LOW = (typeof touchMode !== 'undefined' && !!touchMode) || (typeof PERF !== 'undefined' && PERF);
+  const mine = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i);
+  const SANDY = new Set([T.SAND, T.SANDSTONE, T.CACTUS, T.REDSAND, T.DEADBUSH].filter(v => v !== undefined));
+  const topAny = (x, z) => { for (let y = H - 2; y > 1; y--) { const v = world[idx(x, y, z)]; if (v && v !== T.FIRE && !PLANT[v]) return y; } return 0; };
+  const CELL = 16;
+  // ---------- TV static ----------
+  const sc = document.createElement('canvas'); sc.width = 64; sc.height = 48; const sg = sc.getContext('2d'), stTex = new THREE.CanvasTexture(sc), stMat = new THREE.MeshBasicMaterial({map: stTex});
+  let stT = 0, stKey = null, stOld = null;
+  function staticOn(k) { try { const o = entObjs.get(k); if (!o || !o.screen) return; if (stKey && stKey !== k) staticOff(); stKey = k; stOld = o.screen.material; o.screen.material = stMat; } catch (e) { ERR('st', e); } }
+  function staticOff() { try { const o = stKey && entObjs.get(stKey); if (o && o.screen && stOld) o.screen.material = stOld; } catch (_) {} stKey = null; stOld = null; }
+  function drawStatic(dt) { if ((stT -= dt) > 0) return; stT = 0.09; const d = sg.createImageData(64, 48), a = d.data; for (let i = 0; i < a.length; i += 4) { const v = Math.random() * 255 | 0; a[i] = v * 0.85; a[i + 1] = v; a[i + 2] = v * 0.9; a[i + 3] = 255; } sg.putImageData(d, 0, 0); stTex.needsUpdate = true; }
+  try { const ut = useTV; useTV = function (x, y, z) { const k = keyOf(x, y, z), s = current && current.c246;
+      if (s && s.met && !s.boom && U.st === 'none' && tvOnKey !== k) { try { swing(); } catch (_) {} tvOnKey = k; staticOn(k); toast('The TV crackles with static... a news flash: METEOR INBOUND - GET OUT OF THE DESERT!'); start(); return; }
+      if (stKey === k && tvOnKey === k) { tvOnKey = null; staticOff(); toast('TV off'); return; } return ut.apply(this, arguments); }; } catch (e) { ERR('tv', e); }
+  // ---------- find the desert (incremental scan during the warning) ----------
+  let scan = null;
+  function startScan() { const nx = Math.ceil(W / CELL), nz = Math.ceil(D / CELL); scan = {nx, nz, cnt: new Uint16Array(nx * nz), x: 1, list: null}; }
+  function stepScan(n) { const s = scan; while (n-- > 0 && s.x < W - 1) { for (let z = 1; z < D - 1; z += 2) { const t = topAny(s.x, z); if (t >= SEA - 1 && SANDY.has(world[idx(s.x, t, z)])) s.cnt[((s.x / CELL) | 0) * s.nz + ((z / CELL) | 0)]++; } s.x += 2; } return s.x >= W - 1; }
+  function region() { const s = scan, full = CELL * CELL / 4, ok = i => s.cnt[i] >= full * 0.35; let best = -1, bv = 0;
+    // seed: the sandy cell nearest the player if he is in the desert, else the sandiest cell
+    const pc = ((P.x / CELL) | 0) * s.nz + ((P.z / CELL) | 0); if (ok(pc)) best = pc; else for (let i = 0; i < s.cnt.length; i++) if (s.cnt[i] > bv) { bv = s.cnt[i]; best = i; }
+    const seen = new Uint8Array(s.cnt.length), q = [best], cells = []; seen[best] = 1; while (q.length) { const i = q.pop(); cells.push(i); const cx = (i / s.nz) | 0, cz = i % s.nz;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = cx + dx, z = cz + dz; if (x < 0 || z < 0 || x >= s.nx || z >= s.nz) continue; const j = x * s.nz + z; if (!seen[j] && ok(j)) { seen[j] = 1; q.push(j); } } }
+    let sx = 0, sz = 0; for (const i of cells) { sx += ((i / s.nz) | 0) * CELL + CELL / 2; sz += (i % s.nz) * CELL + CELL / 2; } const cx = sx / cells.length, cz = sz / cells.length; let R = 0;
+    for (const i of cells) R = Math.max(R, Math.hypot(((i / s.nz) | 0) * CELL + CELL / 2 - cx, (i % s.nz) * CELL + CELL / 2 - cz) + CELL * 0.7);
+    const set = new Set(cells), list = []; for (const i of cells) { const x0 = ((i / s.nz) | 0) * CELL, z0 = (i % s.nz) * CELL; for (let x = x0; x < x0 + CELL; x++) for (let z = z0; z < z0 + CELL; z++) if (x > 0 && z > 0 && x < W - 1 && z < D - 1) list.push(x, z); }
+    for (let i = list.length / 2 - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [list[i * 2], list[j * 2]] = [list[j * 2], list[i * 2]]; [list[i * 2 + 1], list[j * 2 + 1]] = [list[j * 2 + 1], list[i * 2 + 1]]; }
+    list.sort ? 0 : 0; return {cx, cz, R, set, list, cells: cells.length}; }
+  // ---------- the meteor ----------
+  let met = null, trail = null, rum = null, reg = null, ETA = 45;
+  function mkMeteor() { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#3a1a0a'; g.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 260; i++) { g.fillStyle = Math.random() < 0.5 ? 'rgba(255,' + (90 + Math.random() * 120 | 0) + ',20,0.8)' : 'rgba(20,10,5,0.7)'; g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 2 + Math.random() * 8, 0, 7); g.fill(); }
+    const m = new THREE.Mesh(new THREE.IcosahedronGeometry(14, 2), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(c), fog: false})); const gc = document.createElement('canvas'); gc.width = gc.height = 64; const gx = gc.getContext('2d'), q = gx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    q.addColorStop(0, 'rgba(255,240,180,1)'); q.addColorStop(0.35, 'rgba(255,140,30,0.8)'); q.addColorStop(1, 'rgba(255,60,0,0)'); gx.fillStyle = q; gx.fillRect(0, 0, 64, 64);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(gc), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false})); glow.scale.set(80, 80, 1); m.add(glow);
+    m.userData.__dcR = 1e9; m.userData.__dcK = 1; m.frustumCulled = false; glow.userData.__dcR = 1e9; scene.add(m); return m; }
+  function mkTrail() { const n = LOW ? 140 : 320, P3 = new Float32Array(n * 3), L = new Float32Array(n), g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(P3, 3)); for (let i = 0; i < n; i++) P3[i * 3 + 1] = -999;
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({color: 0xff7a20, size: 22, transparent: true, opacity: 0.8, depthWrite: false, blending: THREE.AdditiveBlending, fog: false})); pts.frustumCulled = false; pts.userData.__dcR = 1e9; pts.userData.__dcK = 1; scene.add(pts); return {P3, L, g, n, i: 0, pts}; }
+  function mkRumble() { try { if (!AC) initAudio(); const b = AC.createBuffer(1, AC.sampleRate * 2, AC.sampleRate), ch = b.getChannelData(0); let l = 0; for (let i = 0; i < ch.length; i++) { l = (l + 0.02 * (Math.random() * 2 - 1)) / 1.02; ch[i] = l * 3.5; }
+      const s = AC.createBufferSource(); s.buffer = b; s.loop = true; const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 160; const g = AC.createGain(); g.gain.value = 0; s.connect(lp); lp.connect(g); g.connect(typeof master !== 'undefined' ? master : AC.destination); s.start(); return {s, g}; } catch (e) { ERR('rum', e); return null; } }
+  function start() { U.st = 'warn'; U.t = 0; startScan(); ETA = 45; try { if (current) { current.c246 = Object.assign(current.c246 || {}, {met: 1}); } } catch (_) {} }
+  U.start = start;
+  function launch() { reg = region(); U.cols = reg.list.length / 2; U.R = Math.round(reg.R); const a = Math.random() * 6.283; met = mkMeteor(); trail = mkTrail(); rum = mkRumble();
+    const ty = SEA + 4; met.userData.a = new THREE.Vector3(reg.cx + Math.sin(a) * 1400, ty + 700, reg.cz + Math.cos(a) * 1400); met.userData.b = new THREE.Vector3(reg.cx, ty, reg.cz); met.position.copy(met.userData.a); U.st = 'fall'; U.ft = 0;
+    try { toast('A HUGE METEOR is burning across the sky - get out of the desert!'); } catch (_) {} }
+  function boom() { U.st = 'impact'; const b = met.userData.b; scene.remove(met); met = null; if (rum) { try { rum.g.gain.linearRampToValueAtTime(0, AC.currentTime + 6); const r = rum; setTimeout(() => { try { r.s.stop(); } catch (_) {} }, 6500); } catch (_) {} rum = null; }
+    const fl = document.createElement('div'); fl.style.cssText = 'position:fixed;inset:0;background:#fff6e0;z-index:80;pointer-events:none;transition:opacity 2.5s'; document.body.appendChild(fl); setTimeout(() => { fl.style.opacity = 0; }, 150); setTimeout(() => fl.remove(), 2800);
+    try { sfx('boom'); sfx('boom'); setTimeout(() => { try { sfx('boom'); } catch (_) {} }, 300); shake(4, 0.9); } catch (_) {}
+    const d = Math.hypot(P.x - b.x, P.z - b.z), inD = reg.set.has(((P.x / CELL) | 0) * scan.nz + ((P.z / CELL) | 0)); U.hit = inD ? 'in' : d < reg.R + 40 ? 'near' : 'far';
+    try { if (inD) hurt(d < reg.R * 0.5 ? 18 : 12, 'The meteor wiped out the desert.'); else if (d < reg.R + 40) hurt(4, 'The meteor shockwave knocked you down.'); } catch (_) {}
+    wave = new THREE.Mesh(new THREE.RingGeometry(0.9, 1, 64), new THREE.MeshBasicMaterial({color: 0xffa040, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false}));
+    wave.rotation.x = -Math.PI / 2; wave.position.set(b.x, b.y + 2, b.z); wave.userData.__dcR = 1e9; wave.userData.__dcK = 1; scene.add(wave); U.wr = 2; U.ci = 0;
+    try { current.c246.boom = 1; dirty = true; } catch (_) {} }
+  let wave = null;
+  function carve(n) { const L = reg.list, b = reg; let k = 0; while (k < n && U.ci < L.length) { const x = L[U.ci], z = L[U.ci + 1]; U.ci += 2; k++; const d = Math.hypot(x - b.cx, z - b.cz), f = Math.max(0, 1 - d / b.R), depth = Math.round(3 + 15 * f * f + 3 * f);
+      const t = topAny(x, z); if (!t) continue; let cut = 0; for (let y = t; y > Math.max(2, t - depth); y--) { const i = idx(x, y, z), v = world[i]; if (!v || mine(i)) continue; if (v === T.WATER) break; world[i] = 0; cut++; try { FLV.delete(i); } catch (_) {} }
+      if (cut) { const ny = Math.max(2, t - depth); const i = idx(x, ny, z); if (world[i] && !mine(i) && world[i] !== T.WATER) world[i] = T.SANDSTONE !== undefined && Math.random() < 0.5 ? T.SANDSTONE : (T.GRAVEL || world[i]); try { markDirty(x, z); } catch (_) {} if (Math.random() < 0.012 && window.__c237) try { __c237.ignite(x + .5, ny + 1.02, z + .5); } catch (_) {} } }
+    U.done = U.ci / 2; U.left = L.length / 2 - U.done; try { dirty = true; } catch (_) {} return U.ci >= L.length; }
+  function frame(dt) { if (!started) return; if (stKey) drawStatic(dt);
+    if (U.st === 'warn') { U.t += dt; if (stepScan(LOW ? 6 : 12)) launch(); }
+    else if (U.st === 'fall') { U.ft += dt; const k = Math.min(1, U.ft / ETA), e = k * k * (3 - 2 * k) * 0.3 + k * 0.7; met.position.lerpVectors(met.userData.a, met.userData.b, e); met.rotation.x += dt * 0.6; met.rotation.y += dt * 0.4; U.eta = Math.round(ETA - U.ft);
+      const tr = trail; for (let j = 0; j < (LOW ? 3 : 6); j++) { const i = tr.i = (tr.i + 1) % tr.n; tr.P3[i * 3] = met.position.x + (Math.random() - .5) * 18; tr.P3[i * 3 + 1] = met.position.y + (Math.random() - .5) * 18; tr.P3[i * 3 + 2] = met.position.z + (Math.random() - .5) * 18; tr.L[i] = 4; }
+      for (let i = 0; i < tr.n; i++) if (tr.L[i] > 0) { tr.L[i] -= dt; tr.P3[i * 3 + 1] += dt * 3; if (tr.L[i] <= 0) tr.P3[i * 3 + 1] = -999; } tr.g.attributes.position.needsUpdate = true;
+      if (rum) rum.g.gain.value = 0.05 + 0.9 * k * k; if (k > 0.75 && Math.random() < dt * 6) try { shake(0.3, 0.05 + 0.2 * k); } catch (_) {}
+      if (U.eta === 30 && !U.w30) { U.w30 = 1; toast('30 seconds until impact - RUN!'); } if (U.eta === 10 && !U.w10) { U.w10 = 1; toast('10 seconds!'); } if (k >= 1) boom(); }
+    else if (U.st === 'impact') { if (wave) { U.wr += dt * 140; wave.scale.set(U.wr, U.wr, 1); wave.material.opacity = Math.max(0, 0.8 - U.wr / (reg.R * 2.5)); if (U.wr > reg.R * 2.5) { scene.remove(wave); wave = null; } }
+      if (trail) { for (let i = 0; i < trail.n; i++) if (trail.L[i] > 0) { trail.L[i] -= dt; if (trail.L[i] <= 0) trail.P3[i * 3 + 1] = -999; } trail.g.attributes.position.needsUpdate = true; }
+      if (carve(LOW ? 140 : 320)) { U.st = 'over'; if (trail) { scene.remove(trail.pts); trail = null; } try { toast('The desert is gone - only a smoking crater remains.'); } catch (_) {} } } }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { const nw = performance.now(), wd = (nw - (us._w||nw)) / 1000; us._w = nw; frame(Math.min(0.25, Math.max(+dt || 0.016, wd))); } catch (e) { ERR('fr', e); } return r; };
+  try { const ew = enterWorld; enterWorld = function () { if (met) { scene.remove(met); met = null; } if (trail) { scene.remove(trail.pts); trail = null; } if (rum) { try { rum.s.stop(); } catch (_) {} rum = null; } staticOff(); U.st = 'none'; return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+})();
+
+/* ===================== GLX-C248 (v1.0.59): the deeper trip - kaleidoscope / tunnel / mandala / morphing-wall vision scenes, a procedural ambient trip soundtrack,
+   chattering chirp layers under the alien voice, and the YEAR 24000 climax (chrome ground round the real pyramid, giant truck-robot mechs with red LEDs, a burning skyline) ===================== */
+(function c248() {
+  const U = window.__c248 = {err: null, q: [], y: 0, mechs: 0, mus: 0, chirps: 0};
+  const LOW = (typeof touchMode !== 'undefined' && !!touchMode) || (typeof PERF !== 'undefined' && PERF);
+  const ERR = (w, e) => { if (!U.err) U.err = w + ': ' + (e && e.message || e); };
+  // ---------- vision scenes (drawn small, scaled up: cheap on phones) ----------
+  const sc = document.createElement('canvas'); sc.width = 160; sc.height = 90; const sg = sc.getContext('2d');
+  const hs = (h, l) => 'hsl(' + ((h % 360 + 360) % 360) + ',100%,' + (l || 55) + '%)';
+  function kaleido(g, t) { g.fillStyle = '#05010a'; g.fillRect(0, 0, 160, 90); g.save(); g.translate(80, 45); const n = 10;
+    for (let s = 0; s < n; s++) { g.save(); g.rotate(s / n * 6.283 + t * 0.25); if (s % 2) g.scale(1, -1);
+      for (let i = 0; i < 7; i++) { const r = 8 + i * 9 + Math.sin(t * 1.3 + i) * 4; g.fillStyle = hs(t * 60 + i * 40 + s * 8, 50 + i * 3); g.beginPath(); g.moveTo(r * 0.3, 0); g.lineTo(r, r * 0.22); g.lineTo(r * 0.8 + Math.sin(t + i) * 5, r * 0.42); g.closePath(); g.fill(); }
+      g.restore(); } g.restore(); }
+  function tunnel(g, t) { g.fillStyle = '#000'; g.fillRect(0, 0, 160, 90); for (let i = 18; i > 0; i--) { const z = ((i - t * 3) % 18 + 18) % 18 + 0.5, r = 70 / z * 3, sides = 6;
+      g.strokeStyle = hs(i * 25 + t * 90, 60); g.lineWidth = Math.max(1, 6 / z); g.beginPath();
+      for (let k = 0; k <= sides; k++) { const a = k / sides * 6.283 + t * 0.4 + z * 0.15; const x = 80 + Math.cos(a) * r + Math.sin(t + z) * 6, y = 45 + Math.sin(a) * r * 0.8; k ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke(); } }
+  function mandala(g, t) { const gr = g.createRadialGradient(80, 45, 2, 80, 45, 90); gr.addColorStop(0, hs(t * 40 + 180, 30)); gr.addColorStop(1, '#0a0014'); g.fillStyle = gr; g.fillRect(0, 0, 160, 90);
+    for (let ring = 1; ring < 6; ring++) { const n = ring * 6, R = ring * 8.5; for (let k = 0; k < n; k++) { const a = k / n * 6.283 + t * (ring % 2 ? 0.3 : -0.3); g.fillStyle = hs(ring * 55 + k * 4 + t * 50, 60);
+      g.beginPath(); g.ellipse(80 + Math.cos(a) * R, 45 + Math.sin(a) * R, 2.5 + Math.sin(t * 2 + k) * 1.2, 5, a, 0, 6.283); g.fill(); } } }
+  function walls(g, t) { for (let y = 0; y < 90; y += 6) for (let x = 0; x < 160; x += 6) { const v = Math.sin(x * 0.07 + t) + Math.sin(y * 0.09 - t * 1.3) + Math.sin((x + y) * 0.05 + t * 0.7);
+      g.fillStyle = hs(v * 70 + t * 30, 45 + v * 8); g.fillRect(x, y, 6, 6); g.fillStyle = 'rgba(0,0,0,.35)'; if ((x / 6 + y / 6 + (t * 2 | 0)) % 3 === 0) g.fillRect(x + 2, y + 2, 2, 2); } }
+  const SC = [kaleido, tunnel, mandala, walls];
+  U.scene = (g, w, h, k, t) => { SC[k % 4](sg, t); g.imageSmoothingEnabled = true; g.drawImage(sc, 0, 0, w, h); };
+  // ---------- soundtrack + chirps ----------
+  let mus = null;
+  const out = () => (typeof master !== 'undefined' && master) || AC.destination;
+  U.music = () => { try { if (!AC) initAudio(); if (!AC || mus) return; const o = AC.createGain(); o.gain.value = 0.0001; o.gain.linearRampToValueAtTime(0.12, AC.currentTime + 4); o.connect(out());
+      const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400; f.Q.value = 6; f.connect(o); const dl = AC.createDelay(1), fb = AC.createGain(); dl.delayTime.value = 0.33; fb.gain.value = 0.45; f.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(o);
+      const SC5 = [0, 3, 5, 7, 10, 12, 15], base = 146.8; let step = 0; mus = {o, f, iv: setInterval(() => { try { if (!AC) return; const now = AC.currentTime; f.frequency.setTargetAtTime(700 + 1200 * (0.5 + 0.5 * Math.sin(now * 0.13)), now, 0.5);
+        for (let i = 0; i < 2; i++) { const n = SC5[(step * 3 + i * 4 + (step >> 3)) % SC5.length], os = AC.createOscillator(), g = AC.createGain(); os.type = i ? 'triangle' : 'sawtooth'; os.frequency.value = base * Math.pow(2, n / 12 + (i ? 1 : 0));
+          g.gain.setValueAtTime(0.0001, now + i * 0.12); g.gain.exponentialRampToValueAtTime(0.18, now + i * 0.12 + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.12 + 0.5); os.connect(g); g.connect(f); os.start(now + i * 0.12); os.stop(now + i * 0.12 + 0.6); }
+        step++; U.mus++; } catch (_) {} }, 250)}; } catch (e) { ERR('mus', e); } };
+  U.stopMusic = () => { if (!mus) return; const m = mus; mus = null; clearInterval(m.iv); try { m.o.gain.linearRampToValueAtTime(0, AC.currentTime + 3); } catch (_) {} };
+  U.chirp = (sec) => { try { if (!AC) return; const now = AC.currentTime, n = Math.min(60, sec * 7 | 0); const g0 = AC.createGain(); g0.gain.value = 0.05; g0.connect(out());
+      for (let i = 0; i < n; i++) { const t0 = now + i / 7 + Math.random() * 0.08, os = AC.createOscillator(), md = AC.createOscillator(), mg = AC.createGain(), g = AC.createGain(); const f = 900 + Math.random() * 2600;
+        os.type = 'square'; os.frequency.setValueAtTime(f, t0); os.frequency.exponentialRampToValueAtTime(f * (Math.random() < 0.5 ? 1.8 : 0.5), t0 + 0.07); md.frequency.value = 30 + Math.random() * 90; mg.gain.value = f * 0.3; md.connect(mg); mg.connect(os.frequency);
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(1, t0 + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08); os.connect(g); g.connect(g0); os.start(t0); md.start(t0); os.stop(t0 + 0.1); md.stop(t0 + 0.1); }
+      U.chirps++; } catch (_) {} };
+  // ---------- YEAR 24000 ----------
+  let Y = null;
+  const top = (x, z) => { for (let y = H - 2; y > 1; y--) { const b = world[idx(x, y, z)]; if (b && !PLANT[b] && b !== T.WATER) return y; } return SEA; };
+  function mech(red, chrome, dark) { const g = new THREE.Group(), B = (w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
+    const legs = []; for (const s of [-1, 1]) { const L = new THREE.Group(); L.position.set(s * 2.2, 10, 0); const th = new THREE.Mesh(new THREE.BoxGeometry(1.6, 5.5, 2), dark); th.position.y = -2.7; L.add(th); const sh = new THREE.Mesh(new THREE.BoxGeometry(2, 5, 2.6), chrome); sh.position.y = -7.4; L.add(sh);
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.8, 10), dark); w.rotation.z = 1.57; w.position.set(s * 1.2, -7, 0); L.add(w); const led = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.5, 0.2), red); led.position.set(0, -7.4, 1.35); L.add(led); g.add(L); legs.push(L); }
+    B(6.5, 2, 3.5, dark, 0, 10.8, 0); B(7.5, 5.5, 4.2, chrome, 0, 14.3, 0); // pelvis + truck-cab chest
+    for (let i = 0; i < 5; i++) B(0.35, 3, 0.2, dark, -1.6 + i * 0.8, 14, 2.15); // grille
+    B(7.6, 0.35, 0.25, red, 0, 16.6, 2.15); B(1, 0.6, 0.25, red, -3, 12.3, 2.15); B(1, 0.6, 0.25, red, 3, 12.3, 2.15);
+    for (const s of [-1, 1]) { B(1.4, 6, 1.6, dark, s * 4.6, 13.5, 0); B(1.2, 1.2, 4, chrome, s * 4.6, 17.5, -0.5); const sm = B(0.5, 4, 0.5, chrome, s * 2.8, 18.8, -1.8); sm.userData.stack = 1; }
+    B(2.2, 2.2, 2, dark, 0, 18.2, 0.2); const visor = B(1.9, 0.45, 0.2, red, 0, 18.4, 1.25); g.userData = {legs, visor}; return g; }
+  U.start24 = () => { try { if (Y) return; const p = window.__c239 && __c239.pyr; let cx = P.x, cz = P.z; if (p) { cx = p.cx + 0.5; cz = p.cz + 0.5; }
+      const back = [P.x, P.y, P.z, P.yaw], g0 = top(Math.floor(cx), Math.floor(cz)); let best = null; // the most open spot looking at the pyramid
+      for (let k = 0; k < 16; k++) { const a = k / 16 * 6.283, x = Math.floor(cx + Math.sin(a) * 72), z = Math.floor(cz + Math.cos(a) * 72); if (x < 2 || z < 2 || x > W - 3 || z > D - 3) continue; const gy0 = top(x, z); let bad = Math.abs(gy0 - SEA - 3) * 2;
+        for (let d = 8; d < 48; d += 4) { const t = top(Math.floor(x + (cx - x) * d / 72), Math.floor(z + (cz - z) * d / 72)); if (t > gy0 + 2) bad += t - gy0; if (t <= SEA) bad += 3; }
+        if (!best || bad < best[0]) best = [bad, x, z]; }
+      const px = best[1], pz = best[2], gy = top(px, pz) + 1;
+      P.x = px + 0.5; P.z = pz + 0.5; P.y = gy; P.yaw = Math.atan2(-(cx - P.x), -(cz - P.z));
+      const g = new THREE.Group(); g.userData.__dcR = 1e9; const red = new THREE.MeshBasicMaterial({color: 0xff1020}), chrome = new THREE.MeshPhongMaterial({color: 0x9aa4b4, specular: 0xffffff, shininess: 140}), dark = new THREE.MeshPhongMaterial({color: 0x23262e, specular: 0x8899aa, shininess: 80});
+      const gnd = new THREE.Mesh(new THREE.CircleGeometry(150, 48), new THREE.MeshPhongMaterial({color: 0xb8c4d4, specular: 0xffffff, shininess: 200, transparent: true, opacity: 0.72, depthWrite: false}));
+      gnd.rotation.x = -Math.PI / 2; gnd.position.set(P.x, gy + 0.03, P.z); g.add(gnd);
+      const ms = []; for (let i = 0; i < (LOW ? 3 : 5); i++) { const m = mech(red, chrome, dark), r = mech(red, chrome, dark); r.scale.y = -1; r.traverse(o => { if (o.material) o.material = o.material.clone(), o.material.transparent = true, o.material.opacity = 0.35; });
+        m.userData.r = r; m.userData.a = i / 5 * 6.283; m.userData.R = 28 + i * 11; m.scale.setScalar(1.6); r.scale.set(1.6, -1.6, 1.6); m.userData.sp = (i % 2 ? 1 : -1) * (0.05 + i * 0.01); g.add(m); g.add(r); ms.push(m); }
+      const sky = new THREE.Group(), win = new THREE.MeshBasicMaterial({color: 0xff6a20}), blk = new THREE.MeshBasicMaterial({color: 0x0b0608});
+      for (let i = 0; i < 46; i++) { const a2 = i / 46 * 6.283 + Math.random() * 0.05, R = 150 + Math.random() * 50, h = 40 + Math.random() * 130, w = 10 + Math.random() * 18; const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), blk); b.position.set(P.x + Math.sin(a2) * R, gy + h / 2 - 4, P.z + Math.cos(a2) * R); sky.add(b);
+        if (i % 2) { const s = new THREE.Mesh(new THREE.BoxGeometry(w * 0.6, 1.2, w * 1.02), win); s.position.copy(b.position); s.position.y += h * (Math.random() - 0.3) * 0.5; sky.add(s); } } g.add(sky);
+      scene.add(g); const fog = scene.fog ? [scene.fog.color.getHex(), scene.fog.near, scene.fog.far] : null, bg = scene.background && scene.background.isColor ? scene.background.getHex() : null;
+      const tx = document.createElement('div'); tx.style.cssText = 'position:fixed;left:0;right:0;top:30%;text-align:center;z-index:72;pointer-events:none;font:900 clamp(34px,9vw,96px) monospace;color:#fff;letter-spacing:.12em;text-shadow:0 0 18px #f22,0 0 40px #f00;opacity:0;transition:opacity 1.5s';
+      tx.textContent = 'YEAR 24000'; document.body.appendChild(tx); requestAnimationFrame(() => tx.style.opacity = 1); setTimeout(() => tx.style.opacity = 0, 6000);
+      U.g = g; Y = {g, ms, back, fog, bg, tx, cx: P.x, cz: P.z, t: 0, far: camera.far}; camera.far = 600; camera.updateProjectionMatrix();
+      const sk = document.createElement('div'); sk.style.cssText = 'position:fixed;inset:0;z-index:71;pointer-events:none;background:linear-gradient(to bottom,rgba(40,0,0,.78),rgba(150,20,0,.45) 38%,rgba(255,80,0,.12) 55%,rgba(0,0,0,0) 70%)'; document.body.appendChild(sk); Y.sk = sk; const ov = document.getElementById('c246ov'); if (ov) for (let i = 0; i < 2; i++) if (ov.children[i]) ov.children[i].style.visibility = 'hidden'; U.y = 1; U.mechs = ms.length;
+      U.q.push('This is your world, in the year twenty four thousand.', 'The machines walk where your cities stood. They do not remember you.', 'The sky burns. The seas are gone. Only the old stones remain.', 'This does not have to happen. Choose differently. Take care of the Earth.'); } catch (e) { ERR('y24', e); } };
+  U.stop24 = () => { if (!Y) return; const y = Y; Y = null; U.y = 2; try { scene.remove(y.g); y.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); y.tx.remove(); y.sk.remove(); const ov = document.getElementById('c246ov'); if (ov) for (let i = 0; i < 2; i++) if (ov.children[i]) ov.children[i].style.visibility = ''; camera.far = y.far; camera.updateProjectionMatrix(); [P.x, P.y, P.z, P.yaw] = y.back;
+      if (y.fog && scene.fog) { scene.fog.color.setHex(y.fog[0]); scene.fog.near = y.fog[1]; scene.fog.far = y.fog[2]; } if (y.bg !== null) scene.background.setHex(y.bg); } catch (e) { ERR('y24s', e); } };
+  function frame(dt) { if (!Y) return; Y.t += dt; const t = Y.t;
+    try { if (scene.fog) { scene.fog.color.setHex(0x3a0c08); scene.fog.near = 60; scene.fog.far = 420; } if (scene.background && scene.background.isColor) scene.background.setHex(0x4a1208); } catch (_) {}
+    for (const m of Y.ms) { const d = m.userData; d.a += d.sp * dt; m.position.set(Y.cx + Math.sin(d.a) * d.R, P.y - 1 + Math.abs(Math.sin(t * 2.2 + d.R)) * 0.3, Y.cz + Math.cos(d.a) * d.R); m.rotation.y = d.a + (d.sp > 0 ? 1.57 : -1.57);
+      const sw = Math.sin(t * 2.2 + d.R) * 0.45; d.legs[0].rotation.x = sw; d.legs[1].rotation.x = -sw; d.visor.material.color.setHex(Math.sin(t * 6 + d.R) > -0.6 ? 0xff1020 : 0x400005);
+      const r = d.r; r.position.set(m.position.x, 2 * (P.y - 0.97) - m.position.y, m.position.z); r.rotation.y = m.rotation.y; r.userData.legs[0].rotation.x = sw; r.userData.legs[1].rotation.x = -sw; } }
+  const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frame(Math.min(0.25, +dt || 0.016)); } catch (e) { ERR('fr', e); } return r; };
+  try { const ew = enterWorld; enterWorld = function () { if (Y) U.stop24(); U.stopMusic(); return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -31074,6 +31408,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.59', d:'2026-10-31', notes:['New: the flying saucer is now a classic saucer four times bigger, with a ring of rainbow lights that cycle through every colour, and it darts about like a tic tac','New: shoot it down and it spirals slowly to the ground in thick smoke and sparks, then hits with a huge boom, a dust plume and a shake, leaving a smoking wreck','New: the alien floats out of the wreck in a shimmering see-through bubble with orbiting shapes and glowing glyph rings, raises a hand in greeting and speaks to you for about three and a half minutes','New: the alien trip - kaleidoscopes, tunnels, mandalas, morphing patterned walls and real old film of nuclear tests and storms from space, with its own ambient trip music and chattering alien voices','New: the YEAR 24000 vision - you stand by the pyramid on mirror-chrome ground while giant truck-robot machines with red lights stride past under a burning sky and a ruined skyline','New: after the encounter, switching on a TV shows static and a news flash - a huge flaming meteor comes in from far away with a rumbling warning, then wipes out the whole desert in a giant fiery crater. Get out of the sand area before it lands - your own builds are never destroyed','New: your own alien painting now hangs in the pyramid hall next to the green and purple murals','Textures: the alien has a rainbow iridescent skin taken from your painting that slowly shimmers, with glowing purple star-filled eyes','Mobs: the saucer alien now comes out to speak to you instead of just standing in the desert']},
 {v:'v1.0.58', d:'2026-10-31', notes:['New: the sandstorm now covers the whole desert and never stops while you are on the sand - no more rain or snow there at all (no rain drops, rain sound or wet ground), and it fades in and out smoothly as you cross the desert edge','New: strong desert winds lift sheep and other light animals so they tumble and float on the wind and drift gently back down without getting hurt, and dropped items skitter downwind','New: the UFO encounter is clearer - the alien stands right in front of you and your view turns to it, the visions of the bomb, the Earth and the machine mind show big on screen and the eerie warning voice is louder','Fix: patch notes in the game now list every version from v1.0.53 onwards','Fix: Element 115, the blue eruption and Matrix mode no longer cause lag spikes - no full screen filters, fewer per frame allocations','Textures: the UFO is now a classic flying saucer - shiny metal disc, glass dome, a ring of coloured lights and a glowing underside - it still darts, hovers and zig-zags like a tic-tac','Textures: the pyramid hall keeps only two murals, the green one and the purple one','Mobs: light desert animals ride the wind in sandstorms, no other mob changes']},
 {v:'v1.0.57', d:'2026-10-31', notes:['New: deserts never get rain or snow - sandstorms blow in instead with sand haze, flying grit and howling wind','New: tic-tac UFOs fly over the desert - shoot one down and it crashes, you are frozen in a green light and an alien shows you visions of the bomb, the Earth and the machine mind','New: the crash crater leaves a thin glowing neon blue Element 115 puddle - scoop it with a bucket','New: pour the Element 115 bucket into the volcano after it has erupted - a blue eruption and a blue wave stain the world and it drops into Matrix mode (green world, black sky, falling green code), switch it on or off in the pause menu, saved with the world','New: volcano eruptions wreck the spawn island harder - more bombs land there with bigger craters and more burnt and pitted ground, player builds are never touched','Textures: Element 115 bucket icon, glowing tic-tac UFO and grey alien','Mobs: the grey alien appears only during the UFO visions, no existing mobs changed']},
 {v:'v1.0.56', d:'2026-10-31', notes:['New: VOLCANO ERUPTION - shoot the volcano with a musket or pistol and it blows. Huge blasts shake the ground, a lava fountain roars out of the crater, flaming lava bombs rain down and smash craters, and fast fiery lava rivers race down the slopes setting everything alight','New: the spawn island gets wrecked - bombs and burning ash scorch the grass and set the trees on fire. After about 45 seconds it calms down to slow glowing flows, then it needs a long rest before it can erupt again. Your own builds are never touched','New: living water - a gentle swell rolls across the sea, the tide slowly comes in and goes out, rivers flow slower and lazier','New: still water ripples round you and any animal or mob moving through it, and raindrops ring the water while it rains','New: rain makes the ground wet - shiny puddles form on open ground and dry out again after the rain stops','New: a soft relaxing rain sound under the rain, quieter and cosier when you are indoors, with the odd gentle drip','Textures: recipe slots are proper green now - ones you cannot make yet are just a little dimmer','Textures: the XP bar has a warm wooden channel instead of a near black one','Textures: half hearts show as a real half heart and empty hearts as a dark outline','Textures: coin on the trade window, lantern on the pause menu, log for Structures, barrel and crate on chests, and wooden slots in the chest, furnace and trade windows','Textures: hearts and the XP bar tuck away while a chest, furnace or pause menu is open','Mobs: no changes to mobs this time']},
