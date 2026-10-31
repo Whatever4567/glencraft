@@ -64,3 +64,13 @@ Images by NASA (public domain), cropped with the black background made transpare
 - `jupiter.png` - Jupiter, NASA / Pioneer.
 - `jupiter2.png` - Jupiter with a moon shadow, NASA / Hubble Space Telescope.
 - `moon.png` (v1.0.62) - "Moon nearside LRO", NASA / GSFC / Arizona State University (Lunar Reconnaissance Orbiter), public domain, via Wikimedia Commons.
+
+## Sheep and pig sounds (v1.0.65)
+Cleaned, trimmed and normalised by Glencraft (site/assets/sfx/sheep1-4.ogg, pig1-4.ogg). Sources on Wikimedia Commons:
+- sheep1: "Sheep bleat.ogg" by InverseHypercube - CC0 - https://commons.wikimedia.org/wiki/File:Sheep_bleat.ogg
+- sheep2: "Mudchute sheep 1.ogg" by Secretlondon (Mudchute City Farm, London) - CC BY-SA 3.0 - https://commons.wikimedia.org/wiki/File:Mudchute_sheep_1.ogg
+- sheep3: "Sheep bleating.ogg" by earthcalling - Public domain - https://commons.wikimedia.org/wiki/File:Sheep_bleating.ogg
+- sheep4: "Lamb bleating and its mother's response.flac" by Yosef Ben Melamed - CC BY-SA 4.0 - https://commons.wikimedia.org/wiki/File:Lamb_bleating_and_its_mother%27s_response.flac
+- pig1-3: "Mudchute pig 1/2/3.ogg" by Secretlondon (Mudchute City Farm, London) - CC BY-SA 3.0 - https://commons.wikimedia.org/wiki/File:Mudchute_pig_1.ogg (and _2, _3)
+- pig4: "Pig grunt - Erdie.ogg" by Erdie (Freesound) - CC BY 3.0 - https://commons.wikimedia.org/wiki/File:Pig_grunt_-_Erdie.ogg
+The modified CC BY-SA clips are shared under the same licence.

@@ -622,6 +622,24 @@ html body .recgrid .rec2.no,html body .recgrid .rec.no{opacity:1!important;filte
 #m65btns #setBtn{background:linear-gradient(#e0a548,#9a5a1c)!important;color:#fff4dc!important;border:2px solid #4a2a08!important}
 #m65btns #playBtn{border:2px solid #4a2a08!important}
 </style>
+<style>#scr-title.m65{padding:0!important;overflow:hidden}
+#m65ss{position:absolute;inset:0;z-index:0;background:#120c06}
+.m65i{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0;transition:opacity 2.2s ease}
+.m65i.on{opacity:1;animation:m65z 9.5s ease-out both}
+@keyframes m65z{from{transform:scale(1.0)}to{transform:scale(1.09)}}
+#m65sh{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,rgba(0,0,0,.78) 0%,rgba(0,0,0,.45) 32%,rgba(0,0,0,0) 62%),linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0) 30%)}
+#scr-title.m65 .titlecol{position:absolute!important;inset:0!important;z-index:2;max-width:none!important;width:100%!important;margin:0!important;padding:0!important;display:block!important}
+#scr-title.m65 .glogo,#scr-boot .glogo{width:100vw!important;max-width:none!important;max-height:none!important;margin:0!important;position:absolute;top:max(6px,env(safe-area-inset-top));left:0}
+#scr-title.m65 .glogo svg,#scr-boot .glogo svg{width:100%!important;max-height:28vh!important}
+#scr-boot{justify-content:center}
+#scr-title.m65 .tilerow,#scr-title.m65 #pnTitleBtn{display:none!important}
+#m65btns{position:absolute;left:max(22px,env(safe-area-inset-left));top:50%;transform:translateY(-30%);display:flex;flex-direction:column;gap:14px;width:min(46vw,260px)}
+#m65btns #playBtn,#m65btns #setBtn{height:60px!important;width:100%!important;min-width:0!important;max-width:none!important;box-sizing:border-box!important;flex:none!important;margin:0!important;min-height:58px;height:auto;font-size:22px!important;font-weight:900;letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;border-radius:10px;padding:10px 0!important}
+#m65btns .tile small,#m65btns .tile span{display:none}
+@media (orientation:landscape) and (max-height:500px){#m65btns{width:min(30vw,240px);transform:translateY(-15%)}#m65btns #playBtn,#m65btns #setBtn{height:48px!important;min-height:48px;font-size:19px!important}#scr-title.m65 .glogo svg,#scr-boot .glogo svg{max-height:30vh!important}}
+#m65btns #setBtn{background:linear-gradient(#e0a548,#9a5a1c)!important;color:#fff4dc!important;border:2px solid #4a2a08!important}
+#m65btns #playBtn{border:2px solid #4a2a08!important}
+</style>
 </head>
 <body class="inmenu">
 <div id="menu" data-testid="main-menu">
@@ -31609,6 +31627,27 @@ function make42(E) {
     const fit = () => { const ls = innerWidth > innerHeight; document.querySelectorAll('#scr-title .glogo svg, #scr-boot .glogo svg').forEach(s => s.setAttribute('preserveAspectRatio', ls ? 'none' : 'xMidYMin meet')); }; fit(); addEventListener('resize', fit);
   } catch (e) { U.err = String(e && e.message || e); }
 })();
+
+/* GLX-C254 (v1.0.65): real sheep and pig recordings (Wikimedia Commons, CC0 / PD / CC BY / CC BY-SA - see CREDITS.md) replace the synth baa/oink.
+   Cleaned, trimmed, normalised short ogg variants, lazy-loaded after the menu, played with a slight random pitch. Falls back to the old sound until loaded. */
+(() => {
+  const U = window.__c254 = {err: null, loaded: 0, played: 0, last: null};
+  const SETS = {sheep: [1, 2, 3, 4].map(i => 'assets/sfx/sheep' + i + '.ogg'), pig: [1, 2, 3, 4].map(i => 'assets/sfx/pig' + i + '.ogg')};
+  const MAP = {baa: 'sheep', oink: 'pig', oink2: 'pig', snort: 'pig'}, BUF = {sheep: [], pig: []}, raw = {};
+  let fetched = false;
+  const fetchAll = () => { if (fetched) return; fetched = true; for (const k in SETS) SETS[k].forEach((u, i) => fetch(u).then(r => r.ok ? r.arrayBuffer() : null).then(ab => { if (ab) { raw[k + i] = ab; dec(k, i); } }).catch(() => {})); };
+  const dec = (k, i) => { if (typeof AC === 'undefined' || !AC || !raw[k + i] || BUF[k][i]) return; const ab = raw[k + i]; raw[k + i] = null;
+    try { AC.decodeAudioData(ab, b => { BUF[k][i] = b; U.loaded++; }, () => {}); } catch (_) {} };
+  try { (window.__AM || (f => setTimeout(f, 3000)))(fetchAll); } catch (_) { setTimeout(fetchAll, 3000); }
+  let lastI = {};
+  function play(set, vol, pan) { const L = BUF[set].filter(Boolean); if (!L.length) return false;
+    let i = Math.random() * L.length | 0; if (L.length > 1 && i === lastI[set]) i = (i + 1) % L.length; lastI[set] = i;
+    const s = AC.createBufferSource(); s.buffer = L[i]; s.playbackRate.value = (set === 'pig' ? 0.9 : 0.92) + Math.random() * 0.18;
+    s.connect(outNode(Math.max(0, Math.min(1, vol == null ? 1 : vol)) * 0.85, pan || 0)); s.start(); U.played++; U.last = set + i; return true; }
+  try { const ps = playSound; playSound = function (kind, vol, pan) { const set = MAP[kind];
+      if (set && typeof AC !== 'undefined' && AC) { for (const k in SETS) SETS[k].forEach((_, i) => raw[k + i] && dec(k, i)); try { if (play(set, vol, pan)) return; } catch (e) { U.err = String(e.message || e); } }
+      return ps.apply(this, arguments); }; } catch (e) { U.err = 'wrap ' + e; }
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -31620,6 +31659,7 @@ function make42(E) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.0.65', d:'2026-10-31', notes:['New main menu - a big golden-brown GLENCRAFT logo across the top and just Play and Settings on the left','A slow crossfading slideshow of your own pictures plays behind the menu','Patch notes are now in Settings','The loading screen uses the same big logo','Sheep and pigs now use real recordings - several clean variants each with a little random pitch (credits in CREDITS.md)']},
 {v:'v1.0.65', d:'2026-10-31', notes:['New main menu - a big golden-brown GLENCRAFT logo across the top and just Play and Settings on the left','A slow crossfading slideshow of your own pictures plays behind the menu','Patch notes are now in Settings','The loading screen uses the same big logo']},
 {v:'v1.0.65', d:'2026-10-31', notes:['New main menu - a big golden-brown GLENCRAFT logo across the top and just Play and Settings on the left','A slow crossfading slideshow of your own pictures plays behind the menu','Patch notes are now in Settings','The loading screen uses the same big logo']},
 {v:'v1.0.65', d:'2026-10-31', notes:['New main menu - a big golden-brown GLENCRAFT logo across the top and just Play and Settings on the left','A slow crossfading slideshow of your own pictures plays behind the menu','Patch notes are now in Settings','The loading screen uses the same big logo']},
