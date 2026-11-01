@@ -102,3 +102,6 @@ The modified CC BY-SA clips are shared under the same licence.
 - Highlands terrain (lochs, rivers, ice wall, caves, winding paths, pine forests, heather moors), eruption ash column, pyroclastic surge, embers and lightning: original procedural code and canvas-drawn textures.
 - Foliage edge fix (colour bleed and shading): applied to the existing original plant art.
 - The menu mockups used as art direction are the game owner's own.
+
+## v1.0.92
+- `assets/music/desert2.ogg` - desert / pyramid music from a track supplied by the user (v1.0.92). TikTok sound at the end cut off, trimmed to a 142 s loop with a baked 1.5 s crossfade seam, played endlessly.
