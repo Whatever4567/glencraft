@@ -93,6 +93,6 @@ The modified CC BY-SA clips are shared under the same licence.
 
 - `assets/music/dance.ogg` (v1.0.80) - Egyptian dance track by Frankie Maxwell (supplied by the user). Re-encoded to Ogg Vorbis, looped during the dance.
 
-- `assets/music/temple.ogg` (v1.0.83) - desert music made from a 15 s clip supplied by the user (their own), looped with crossfades to about 67 s.
+- `assets/music/temple.ogg` (v1.0.83) - desert music made from a 15 s clip supplied by the user (their own), v1.0.84: TikTok sound at 10.9 s cut off, kept as a clean 9.75 s loop and played endlessly with random crossfaded segments.
 - `assets/art/user_p1.jpg` - `user_p6.jpg` (v1.0.83) - paintings by the user (@universo.sin.descubrir), hung in the pyramid gallery rooms.
 - `assets/music/dance.ogg` (v1.0.83) - same Frankie Maxwell track, tail trimmed and crossfaded into its start so it loops cleanly.
