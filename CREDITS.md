@@ -101,3 +101,6 @@ The modified CC BY-SA clips are shared under the same licence.
 ## v1.0.105
 - Unused files removed: the old alien encounter voice and music (assets/sfx/alien), sheep2.ogg, the old desert and temple tunes (replaced by desert2.ogg), unused HD UI icons, and the retired mp3 soundtrack in music/ (only highland_mist.mp3 is still loaded).
 - Cyan, violet and white crystal blocks: textures painted in code by Glencraft.
+## v1.0.106 and v1.0.107
+
+- Agartha sky, glow grass, glow plants, the Highland Rocket Base, the rocket, the stars, The Firmament and Mars are all drawn in code for Glencraft (no outside assets).
