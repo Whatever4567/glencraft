@@ -87,3 +87,5 @@ The modified CC BY-SA clips are shared under the same licence.
 - assets/music/desert.ogg and assets/music/dance.ogg - original compositions made for Glencraft (synthesised oud, qanun, ney, drone, darbuka and riq; 96 and 97 BPM). No samples from other songs.
 - assets/sfx/alien/b1.ogg and the regenerated alien lines - Piper TTS with the LJSpeech voice (public domain), processed with our own vocoder, echo, chorus and reverb.
 - Pig model: Quaternius animated pig (CC0), re-textured with the players own pig photo.
+- `assets/flow/water_n.jpg` - water normal map from the three.js examples (`examples/textures/waternormals.jpg`), three.js authors, MIT licence. Resized to 256 px.
+- `assets/flow/lava_c.jpg` - "Lava004" by ambientCG (https://ambientcg.com/view?id=Lava004), CC0 1.0. Resized to 256 px.
