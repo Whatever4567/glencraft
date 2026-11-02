@@ -118,6 +118,7 @@ The modified CC BY-SA clips are shared under the same licence.
 ## v1.1.23
 - assets/models/haggis2.glb: original Glencraft haggis model, generated from scratch by a procedural script (tools/haggis_gen.py). CC0.
 - assets/tex/pig2_*.webp, sheep2_*.webp: 4K/2K upscales of the existing pig and sheep textures, made with Real-ESRGAN (BSD-3-Clause, xinntao/Real-ESRGAN).
+- assets/tex/sheep2s_*.webp (v1.1.30): the sheared sheep texture, made by Glencraft from sheep2_*.webp with tools/sheep_shorn.py (wool flattened to short stubble over pinkish skin, face, ears and hooves kept). No other source.
 
 - Moon and Mars blocks (Moon regolith, Moon rock, Lunar basalt, Lunar crystal ore, Moon bricks, Mars stone, Iron oxide ore, Mars crystal ore, Mars bricks), v1.1.25: procedural original textures painted in code by Glencraft.
 
