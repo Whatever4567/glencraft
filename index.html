@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
-<!-- glencraft-build: b1122-v1.1.22 -->
+<!-- glencraft-build: b1123-v1.1.23 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -8972,7 +8972,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.1.22';
+const GAME_VERSION = '1.1.23';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -41748,7 +41748,8 @@ img,canvas.ui{max-width:100%}
   const C = window.__c135; if (!C || !C.frame) return;
   const U = window.__c302 = {n: 0, err: null, rigs: 0};
   const CFG = {pig2: {hips: ['Bone010', 'Bone013', 'Bone004', 'Bone007'], head: 'Bone002', mud: 1},
-    sheep2: {hips: ['FrontUpperLegL', 'FrontUpperLegR', 'BackUpperLegL', 'BackUpperLegR'], head: 'Head', neck: 'Neck1'}};
+    sheep2: {hips: ['FrontUpperLegL', 'FrontUpperLegR', 'BackUpperLegL', 'BackUpperLegR'], head: 'Head', neck: 'Neck1'},
+    haggis2: {hips: ['LegFL', 'LegFR', 'LegBL', 'LegBR'], head: 'Head'} /* v1.1.23: our own haggis */};
   const nm = s => String(s).replace(/[^A-Za-z0-9]/g, '');
   const q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), v = new THREE.Vector3(), XA = new THREE.Vector3(1, 0, 0), MUDC = new THREE.Color(0x5a3d26), WH = new THREE.Color(1, 1, 1);
   function rig(a, H, cf) { const b = {}; H.m.traverse(o => { if (o.isBone) b[nm(o.name)] = o; }); let sk = null; H.m.traverse(o => { if (o.isSkinnedMesh) sk = o; });
@@ -42266,7 +42267,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c310 = {err: null, fix: 0, cal: 0, n: 0, lp: 1, fd: 1};
   for (const k of ['unicorn', 'nmunicorn']) if (C.cat[k]) C.cat[k].blend = 1;
   if (C.cat.pig) C.cat.pig.noclip = 1; if (C.cat.sheep) C.cat.sheep.noclip = 1;
-  const KF = {pig2: {amp: 0.5, lift: 0.8}, sheep2: {amp: 0.5, lift: 0.8}};
+  const KF = {pig2: {amp: 0.5, lift: 0.8}, sheep2: {amp: 0.5, lift: 0.8}, haggis2: {amp: 0.6, lift: 0.7}};
   const q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), v = new THREE.Vector3();
   const ex = (r, dt) => 1 - Math.exp(-dt * r), sm = x => x * x * (3 - 2 * x);
   const turn = (R, j, ang) => { q.setFromAxisAngle(R.ax, ang); q2.copy(j.wp).invert().multiply(q).multiply(j.wp); j.o.quaternion.copy(q2).multiply(j.r); };
@@ -42418,6 +42419,28 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         else if (C && C.padOn) { C.padOn = false; C.upHeld = C.dnHeld = C.boostHeld = false; U.autoLand = false; prev = {}; } } } catch (e) { ERR('tick', e); }
     requestAnimationFrame(tick); }
   requestAnimationFrame(tick);
+})();
+
+/* GLX-C313 (v1.1.23): our own haggis model, and sharper pig and sheep fur.
+   - haggis2.glb is made from scratch by tools/haggis_gen.py (round shaggy body, short legs, highland fringe and small horns, procedural fur
+     texture). It uses the same procedural gait as the new pig and sheep (C302 + C310), so it walks and idles smoothly; behaviour is unchanged.
+   - The pig and sheep colour textures were upscaled 4x with Real-ESRGAN and sharpened. Desktops load the 4096 version, phones and small
+     GPUs the 2048 one; both are WebP with mipmaps. If a texture fails to load the model keeps its built-in 1024 one. */
+(() => {
+  const C = window.__c135; if (!C || !C.cat) return;
+  const U = window.__c313 = {err: null, size: 0, swapped: 0, loaded: {}};
+  if (C.cat.haggis) { const h = C.cat.haggis; h.f = 'haggis2'; h.pal = null; h.noclip = 1; try { delete h.gl; Object.defineProperty(h, 'gl', {get: () => undefined, set: () => {}, configurable: true}); } catch (_) {} }
+  let big = true; try { const gl = renderer.getContext(), mx = gl.getParameter(gl.MAX_TEXTURE_SIZE), phone = matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 900);
+    big = mx >= 4096 && !phone && !(navigator.deviceMemory && navigator.deviceMemory < 6); } catch (_) { big = false; }
+  U.size = big ? 4096 : 2048;
+  const TX = {}, L = new THREE.TextureLoader();
+  function tex(f) { if (TX[f]) return TX[f]; const t = TX[f] = {t: null, wait: []};
+    L.load('assets/tex/' + f + '_' + (big ? '4k' : '2k') + '.webp?' + (typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : ''), x => {
+      x.flipY = false; x.colorSpace = THREE.SRGBColorSpace; x.generateMipmaps = true; x.minFilter = THREE.LinearMipmapLinearFilter; x.magFilter = THREE.LinearFilter;
+      try { x.anisotropy = Math.min(big ? 8 : 4, renderer.capabilities.getMaxAnisotropy()); } catch (_) {}
+      t.t = x; U.loaded[f] = 1; t.wait.forEach(fn => fn(x)); t.wait = []; }, undefined, e => { U.err = 'tex ' + f; }); return t; }
+  const use = (m, x) => m.traverse(o => { if (!o.isMesh) return; for (const mm of [].concat(o.material)) if (mm && mm.map) { const old = mm.map; x.wrapS = old.wrapS; x.wrapT = old.wrapT; x.channel = old.channel || 0; mm.map = x; mm.needsUpdate = true; U.swapped++; } });
+  C.post.push((a, c, M, m) => { try { if (c.f !== 'pig2' && c.f !== 'sheep2') return; const t = tex(c.f); if (t.t) use(m, t.t); else t.wait.push(x => use(m, x)); } catch (e) { U.err = String(e); } });
 })();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
