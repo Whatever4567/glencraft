@@ -108,3 +108,6 @@ The modified CC BY-SA clips are shared under the same licence.
 
 ## Pig model (v1.0.109)
 - pig2.glb: "prase low poly" animated pig, supplied by the player as a Sketchfab download (no licence or author file included). Converted from FBX, reduced to about 6k triangles with a 1024px colour texture by Glencraft. If you are the author, please get in touch for credit or removal.
+
+## Sheep model (v1.0.109)
+- sheep2.glb: animated textured sheep supplied by the player (Blender glTF export, no licence or author file included). Reduced to a 1024px colour texture with mesh compression by Glencraft. If you are the author, please get in touch for credit or removal.
