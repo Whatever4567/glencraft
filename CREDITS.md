@@ -111,3 +111,6 @@ The modified CC BY-SA clips are shared under the same licence.
 
 ## Sheep model (v1.0.109)
 - sheep2.glb: animated textured sheep supplied by the player (Blender glTF export, no licence or author file included). Reduced to a 1024px colour texture with mesh compression by Glencraft. If you are the author, please get in touch for credit or removal.
+
+## Solar system planet colours (v1.0.114)
+- "Solar System animation" by Samer_Arab_S5 - https://sketchfab.com/3d-models/solar-system-animation-b7c69a6b655b47c99f871d5ec5aee854 - licensed CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/). The voxel planets use small colour grids sampled from its planet textures (changed: reduced to 32 x 16 colour samples and drawn as blocks). The model and textures themselves are not included.
