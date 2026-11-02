@@ -14,7 +14,8 @@ Since v1.0.20 the game also restyles every model when it loads: the original col
 | spider.glb | spiders | Spider | Quaternius | https://poly.pizza/m/yRYJiAJyiM | CC0 1.0 |
 | clansman.glb | clansman | Character Animated | Quaternius | https://poly.pizza/m/DgOCW9ZCRJ | CC0 1.0 |
 | hound.glb | demon hound and Comet Collie (tinted) | Wolf | Quaternius | https://poly.pizza/m/XU7oNeKShV | CC0 1.0 |
-| pig.glb | pig | Pig | Quaternius | https://poly.pizza/m/u35l6uP5vj | CC0 1.0 |
+| pig.glb | (old pig, no longer used since v1.0.109) | Pig | Quaternius | https://poly.pizza/m/u35l6uP5vj | CC0 1.0 |
+| pig2.glb | pig (v1.0.109) | prase low poly (animated pig, Sketchfab download supplied by the player) | author not named in the file | https://sketchfab.com/3d-models/prase-not-mine-a43957cd79ab476e81e20bafc6ed0cbc (closest public match, CC Attribution 4.0; original author unconfirmed) | licence not stated in the download |
 | bee.glb | bee | Bee Enemy (Low Poly Animals Animated) | Quaternius | https://poly.pizza/m/6HsU6GQt3a | CC0 1.0 |
 | duck.glb | duck (recoloured as a mallard) | Chicken | Quaternius | https://poly.pizza/m/Z3RCoCYss4 | CC0 1.0 |
 | haggis.glb | haggis (recoloured, tartan tam) | Raccoon | Quaternius | https://poly.pizza/m/xMmx6VQP3r | CC0 1.0 |
@@ -104,3 +105,6 @@ The modified CC BY-SA clips are shared under the same licence.
 ## v1.0.106 and v1.0.107
 
 - Agartha sky, glow grass, glow plants, the Highland Rocket Base, the rocket, the stars, The Firmament and Mars are all drawn in code for Glencraft (no outside assets).
+
+## Pig model (v1.0.109)
+- pig2.glb: "prase low poly" animated pig, supplied by the player as a Sketchfab download (no licence or author file included). Converted from FBX, reduced to about 6k triangles with a 1024px colour texture by Glencraft. If you are the author, please get in touch for credit or removal.
