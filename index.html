@@ -41613,7 +41613,7 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
   function place() { if (!R) return; R.position.set(U.V.x, U.V.y, U.V.z); R.rotation.set(0, 0, 0); R.rotateY(U.yaw); R.rotateX(-U.tilt); R.visible = true; }
   const nose = () => { const s = Math.sin(U.tilt); return {x: -Math.sin(U.yaw) * s, y: Math.cos(U.tilt), z: -Math.cos(U.yaw) * s}; };
   const S5 = () => window.__c305, PD = () => window.__c306, say = t => { try { toast(t); } catch (_) {} };
-  const TG = ['moon', 'mars', 'earth', 'venus', 'mercury', 'sun', 'jupiter', 'saturn', 'uranus', 'neptune', 'pluto']; U.ti = 0;
+  const TG = ['moon', 'mars', 'earth', ]; U.ti = 0;
   U.tbody = () => S5().get(TG[U.ti % TG.length]);
   U.isPl = () => !!(PD() && PD().is() && U.frame === DIM.cur);
   U.overMap = () => U.V.x > -200 && U.V.x < W + 200 && U.V.z > -200 && U.V.z < D + 200;
@@ -41853,6 +41853,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     {id: 'uranus', name: 'Uranus', pal: 'uranus', r: 420, n: 13, at: [9000, 2000, 4000], no: 'Uranus is an ice giant - no landing yet'},
     {id: 'neptune', name: 'Neptune', pal: 'neptune', r: 400, n: 13, at: [-10500, 2200, 6000], no: 'Neptune is an ice giant - no landing yet'},
     {id: 'pluto', name: 'Pluto', pal: 'pluto', r: 60, n: 5, at: [10500, 1500, -10000], no: 'Pluto is too far from home to land - for now'}];
+  // v1.1.23: only the planets you can land on (plus Earth, and the Sun as the light only)
+  for (let i = SYS.length - 1; i >= 0; i--) if (!['sun', 'earth', 'moon', 'mars'].includes(SYS[i].id)) SYS.splice(i, 1);
   U.BOUND = 12000;   // deep space reaches 12000 blocks out from the map each way (24000 x 24000)
   const E0 = () => ({x: W >> 1, y: 0, z: D >> 1});
   U.E0 = () => (DIM.cur ? {x: 432, y: 0, z: 432} : E0());
@@ -41877,7 +41879,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     grp.visible = false; scene.add(grp); b.g = grp; b.mesh = mesh; }
   U.build = () => { if (U.list) return; const t = performance.now(); for (const b of SYS) make(b); U.list = SYS; U.built = Math.round(performance.now() - t); };
   // show the system (space) or hide it
-  U.show = (on, cam) => { if (on && !U.list) U.build(); if (!U.list) return; for (const b of SYS) { if (!on) { b.g.visible = false; continue; } const p = U.pos(b); b.g.position.set(p.x, p.y, p.z); b.g.visible = true; b.g.rotation.y += 0.0004; } };
+  U.show = (on, cam) => { if (on && !U.list) U.build(); if (!U.list) return; for (const b of SYS) { if (!on) { b.g.visible = false; continue; } const p = U.pos(b); b.g.position.set(p.x, p.y, p.z); b.g.visible = b.id !== 'sun'; b.g.rotation.y += 0.0004; } };
   U.surf = (b, v) => { const p = U.pos(b); return Math.hypot(v.x - p.x, v.y - p.y, v.z - p.z) - b.r; };
   U.nearest = v => { let best = null, bd = 1e9; for (const b of SYS) { const d = U.surf(b, v); if (d < bd) { bd = d; best = b; } } return [best, bd]; };
   // ---------- the sky moon IS this moon: its disc is painted from the voxel moon ----------
@@ -41931,8 +41933,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const up = (keys.Space || jumpHeld || jumpHeldPad) ? 1 : 0, dn = (keys.ShiftLeft || keys.ShiftRight || sneakHeld) ? 1 : 0; jumpReq = false; jumpBuf = 0;
     E.vx += (fx * -mz + rx * mx) * a * dt; E.vy += (fy * -mz + up - dn) * a * dt; E.vz += (fz * -mz + rz * mx) * a * dt;
     E.x += E.vx * dt; E.y += E.vy * dt; E.z += E.vz * dt; const L = (window.__c305 && __c305.BOUND) || 12000, c = (W >> 1);
-    for (const k of ['x', 'z']) if (Math.abs(E[k] - c) > L) { E[k] = c + Math.sign(E[k] - c) * L; E['v' + k] = 0; }
-    if (E.x > -200 && E.x < W + 200 && E.z > -200 && E.z < D + 200 && E.y < 1000) { E.y = 1000; E.vy = Math.max(0, E.vy); } };
+    for (const k of ['x', 'z']) if (!(window.__c309 && __c309.on) && Math.abs(E[k] - c) > L) { E[k] = c + Math.sign(E[k] - c) * L; E['v' + k] = 0; }
+    if (!(window.__c309 && __c309.on) && E.x > -200 && E.x < W + 200 && E.z > -200 && E.z < D + 200 && E.y < 1000) { E.y = 1000; E.vy = Math.max(0, E.vy); } };
   // ---------- sky in the planet worlds ----------
   const C0 = new THREE.Color(), BK = new THREE.Color(0x000000);
   U.sky = (sc, c, alt) => { const p = PL[DIM.cur]; if (!p || !sc.background || !sc.background.isColor) return; C0.setHex(p.sky); const f = Math.max(0, Math.min(1, (alt - p.H) / 160));
@@ -42045,9 +42047,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const S5 = () => window.__c305, PD = () => window.__c306, R9 = () => window.__c299, CS = 16;
   const Y = new THREE.Vector3(0, 1, 0), v1 = new THREE.Vector3(), v2 = new THREE.Vector3(), v3 = new THREE.Vector3(), q1 = new THREE.Quaternion(), q2 = new THREE.Quaternion(), eY = new THREE.Euler(0, 0, 0, 'YXZ');
   const DEF = [{id: 'moon', name: 'THE MOON', RM: 56, g: 0.17, at: [432, 2600, -2200], cr: 46, bump: 1.2, top: () => T.GRAVEL, rock: () => T.STONE},
-    {id: 'mars', name: 'MARS', RM: 64, g: 0.38, cr: 24, bump: 4, top: () => T.RSAND || T.SAND, rock: () => T.STONE, tint: [1.15, 0.72, 0.55]},
-    {id: 'mercury', name: 'MERCURY', RM: 40, g: 0.38, cr: 60, bump: 1, top: () => T.GRAVEL, rock: () => T.STONE, tint: [0.95, 0.88, 0.8]},
-    {id: 'pluto', name: 'PLUTO', RM: 36, g: 0.06, cr: 18, bump: 2, top: () => T.PACKSNOW || T.SNOW, rock: () => T.STONE, tint: [1, 0.95, 0.9]}];
+    {id: 'mars', name: 'MARS', RM: 64, g: 0.38, cr: 24, bump: 4, top: () => T.RSAND || T.SAND, rock: () => T.STONE, tint: [1.15, 0.72, 0.55]},];
   const SUN = new THREE.Vector3(0.45, 0.55, 0.7).normalize(), FD = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
   const QV = [[[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], [[1, 0, 1], [1, 1, 1], [0, 1, 1], [0, 0, 1]], [[0, 0, 0], [0, 1, 0], [1, 1, 0], [1, 0, 0]]];
   const MAT = new THREE.MeshBasicMaterial({vertexColors: true, fog: false}), CC = {};
@@ -42113,7 +42113,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function feet(p, u, f, r) { for (const [a, b] of [[0.25, 0.25], [-0.25, 0.25], [0.25, -0.25], [-0.25, -0.25]]) if (U.solid(p.x + f.x * a + r.x * b - u.x * 0.02, p.y + f.y * a + r.y * b - u.y * 0.02, p.z + f.z * a + r.z * b - u.z * 0.02)) return true; return false; }
   const fw = new THREE.Vector3(), rt = new THREE.Vector3(), vt = new THREE.Vector3(), np = new THREE.Vector3(), up = new THREE.Vector3();
   U.frame = (yaw, pitch, o) => { eY.set(pitch || 0, yaw, 0); return (o || q2).copy(F).multiply(q1.setFromEuler(eY)); };
-  function step(dt, mx, mz) { const b = nb(Q); if (b) U.cur = b; const B = U.cur; U.up(Q, up); const r = B.dist(Q); v1.set(0, 1, 0).applyQuaternion(F); q1.setFromUnitVectors(v1, up); q2.copy(q1).multiply(F); F.slerp(q2, 1 - Math.exp(-dt * 6)).normalize();
+  function step(dt, mx, mz) { const b = nb(Q); if (b) U.cur = b; const B = U.cur; wup(B, Q, up); const r = B.dist(Q); v1.set(0, 1, 0).applyQuaternion(F); q1.setFromUnitVectors(v1, up); q2.copy(q1).multiply(F); F.slerp(q2, 1 - Math.exp(-dt * 6)).normalize();
     U.frame(P.yaw, 0); fw.set(0, 0, -1).applyQuaternion(q2); fw.addScaledVector(up, -fw.dot(up)).normalize(); rt.crossVectors(fw, up).normalize();
     const g = b ? 24 * B.g * Math.min(1, (B.RM / r) * (B.RM / r)) : 0, jump = !!(keys.Space || jumpHeld || jumpHeldPad), jet = PD() && PD().jet();
     let vr = V.dot(up); vt.copy(V).addScaledVector(up, -vr); v2.set(0, 0, 0).addScaledVector(fw, mz).addScaledVector(rt, mx).multiplyScalar(4.3);
@@ -42122,8 +42122,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     np.copy(Q).addScaledVector(vt, dt); if (body(np, up, fw, rt)) { v3.copy(np).addScaledVector(up, 1.05); if (onG && !body(v3, up, fw, rt)) np.copy(v3); else { np.copy(Q); vt.set(0, 0, 0); } }
     np.addScaledVector(up, vr * dt); if (vr < 0 && feet(np, up, fw, rt)) { for (let k = 0; k < 40 && feet(np, up, fw, rt); k++) np.addScaledVector(up, 0.05); vr = 0; } else if (vr > 0 && hit(np, up, 1.85)) { np.addScaledVector(up, -vr * dt); vr = 0; }
     v3.copy(np).addScaledVector(up, -0.08); onG = feet(v3, up, fw, rt); Q.copy(np); V.copy(vt).addScaledVector(up, vr); sync(); }
+  // v1.1.23: on foot, down is the block face you stand on (the planet axis you are most over), so blocks stand upright like on a flat map;
+  // it only swaps to the next face once you are well past the 45 degree line, and the view rolls smoothly over to it
+  let AX = null; function wup(B, p, o) { const d = [p.x - B.C.x, p.y - B.C.y, p.z - B.C.z]; let b = 0; for (let k = 1; k < 3; k++) if (Math.abs(d[k]) > Math.abs(d[b])) b = k;
+    let i = AX && AX.b === B ? AX.i : -1, sg = AX && AX.b === B ? AX.s : 0; if (i < 0 || Math.abs(d[b]) > Math.abs(d[i]) * 1.12 || Math.sign(d[i]) !== sg) { i = b; sg = Math.sign(d[b]) || 1; } AX = {b: B, i, s: sg}; U.ax = 'xyz'[i] + (sg > 0 ? '+' : '-');
+    o.set(0, 0, 0).setComponent(i, sg); return o; }
+  U.wup = wup;
   const eye = new THREE.Vector3();
-  function sync() { U.up(Q, up); eye.copy(Q).addScaledVector(up, 1.62); if (PD()) { const E = PD().E; E.x = eye.x; E.y = eye.y - 1.6; E.z = eye.z; E.vx = E.vy = E.vz = 0; } park(); const B = U.cur;
+  function sync() { if (U.cur) wup(U.cur, Q, up); else U.up(Q, up); eye.copy(Q).addScaledVector(up, 1.62); if (PD()) { const E = PD().E; E.x = eye.x; E.y = eye.y - 1.6; E.z = eye.z; E.vx = E.vy = E.vz = 0; } park(); const B = U.cur;
     window.__spaceHud = B.name + '   ' + (B.dist(Q) - B.RM < 20 ? 'gravity ' + B.g + ' g' : 'height ' + Math.round(B.dist(Q) - B.RM)); }
   // ---------- mine and place on any side ----------
   function ray() { U.frame(P.yaw, P.pitch); const d = v1.set(0, 0, -1).applyQuaternion(q2); let prev = null; for (let t = 0; t < 6; t += 0.05) { const x = eye.x + d.x * t, y = eye.y + d.y * t, z = eye.z + d.z * t, c = [Math.floor(x), Math.floor(y), Math.floor(z)];
@@ -42170,7 +42176,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // ---------- the saucer ----------
   const G = new THREE.Group(); G.userData.sys = 1; G.visible = false; scene.add(G);
   { const hull = new THREE.Mesh(new THREE.SphereGeometry(3.2, 28, 12), new THREE.MeshLambertMaterial({color: 0xc9d2dc, emissive: 0x2a3038})); hull.scale.y = 0.26; G.add(hull);
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.35, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({color: 0x8fd8ff, emissive: 0x1c4a6e, transparent: true, opacity: 0.8})); dome.position.y = 0.45; G.add(dome);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(1.35, 18, 9, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshLambertMaterial({color: 0x8fd8ff, emissive: 0x1c4a6e, transparent: true, opacity: 0.35, depthWrite: false})); dome.position.y = 0.45; G.add(dome);
     const lm = new THREE.MeshBasicMaterial({color: 0x66ffcc}); for (let i = 0; i < 10; i++) { const a = i / 10 * 6.283, l = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 4), lm); l.position.set(Math.cos(a) * 3, 0, Math.sin(a) * 3); G.add(l); }
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.6, 0.12, 6, 20), new THREE.MeshBasicMaterial({color: 0x3a8cff})); ring.rotation.x = Math.PI / 2; ring.position.y = -0.7; G.add(ring); G.traverse(o => { o.userData.sys = 1; }); }
   const onMap = p => p.x >= 0 && p.x < W && p.z >= ((typeof __XG !== 'undefined' && __XG) ? __XZ : 0) && p.z < D && p.y >= 0 && p.y < H;
@@ -42202,11 +42208,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       for (let k = 0; k < n; k++) { v4.copy(v2).add(v3); if (!hitAt(v4)) { v2.copy(v4); continue; } const vn = v3.dot(up); v3.addScaledVector(up, -vn); v4.copy(v2).add(v3);
         const vu = vel.dot(up); if (vu < 0) vel.addScaledVector(up, -vu); vel.multiplyScalar(0.8); U.hits = (U.hits || 0) + 1; if (v3.lengthSq() > 1e-8 && !hitAt(v4)) v2.copy(v4); else break; } }
     U.landed = false; if (!any || (uIn < 0 && Math.abs(mx) + Math.abs(mz) < 0.05)) { let gg = groundGap(v2); if (gg < 6) { v4.copy(v2).addScaledVector(up, -Math.min(gg, dt * (1 + gg))); if (!hitAt(v4)) v2.copy(v4); else gg = 0; if (gg < 0.08) { U.landed = true; vel.set(0, 0, 0); } } }
-    const L = (window.__c305 && __c305.BOUND) || 12000; v2.x = Math.max(432 - L, Math.min(432 + L, v2.x)); v2.z = Math.max(432 - L, Math.min(432 + L, v2.z)); v2.y = Math.max(-200, Math.min(9000, v2.y));
+    const L = Math.max(60000, (window.__c305 && __c305.BOUND) || 12000); v2.x = Math.max(432 - L, Math.min(432 + L, v2.x)); v2.z = Math.max(432 - L, Math.min(432 + L, v2.z)); v2.y = Math.max(-200, Math.min(60000, v2.y));
     p.copy(v2); U.maxSp = Math.max(U.maxSp, vel.length()); sync(); }
   const low = () => !moonNear(U.pos) && U.pos.y < H + 40 && U.pos.x > 1 && U.pos.x < W - 2 && U.pos.z > ((typeof __XG !== 'undefined' && __XG) ? __XZ + 2 : 2) && U.pos.z < D - 2;
   const cam = new THREE.Vector3(), cq = new THREE.Quaternion();
-  function sync() { frame(P.yaw, Math.max(-1.2, Math.min(0.9, P.pitch - 0.25)), cq); cam.set(0, 0, 13).applyQuaternion(cq).add(U.pos).addScaledVector(up, 2.5);
+  function sync() { U.cock = !window.thirdPerson; if (U.cock) { frame(P.yaw, Math.max(-1.5, Math.min(1.5, P.pitch)), cq); cam.copy(U.pos).addScaledVector(up, 1.05); } else { frame(P.yaw, Math.max(-1.2, Math.min(0.9, P.pitch - 0.25)), cq); cam.set(0, 0, 13).applyQuaternion(cq).add(U.pos).addScaledVector(up, 2.5); }
     if (low()) { if (PD()) PD().eva = false; P.x = U.pos.x; P.z = U.pos.z; P.y = U.pos.y; } else { if (PD()) { PD().eva = true; const E = PD().E; E.x = cam.x; E.y = cam.y - 1.6; E.z = cam.z; E.vx = E.vy = E.vz = 0; }
       P.x = Math.max(2, Math.min(W - 3, U.pos.x)); P.z = Math.max(2, Math.min(D - 3, U.pos.z)); P.y = H + 60; }
     P.vy = 0; P.onGround = true; P.fallTop = null; const mn = moonNear(U.pos), sp = Math.round(vel.length());
@@ -42244,7 +42250,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 0.1); if (solid(x, y, z) && solid(x, y + 1, z)) U.sk = (U.sk || 0) + dt; else U.sk = 0;
     if (U.sk > 0.4) { let yy = y; while (yy < H - 2 && (solid(x, yy, z) || solid(x, yy + 1, z))) yy++; P.y = yy + 0.02; P.vy = 0; P.fallTop = null; U.sk = 0; U.saved = (U.saved || 0) + 1; } }
   try { const rr = renderer.render; renderer.render = function (s, c) { const hid = []; try { if (s === scene && started) { FE.visible = !DIM.cur && c.position.y > H + 150 && !(R9() && R9().frame !== 'earth');
-          if (U.on) { c.position.copy(cam); c.quaternion.copy(cq); for (const m of c.children) if (m.visible) { m.visible = false; hid.push(m); } } } } catch (e) { ERR('rw', e); }
+          if (U.on) { G.position.copy(U.pos); frame(U.yaw, 0, G.quaternion); c.position.copy(cam); c.quaternion.copy(cq); for (const m of c.children) if (m.visible) { m.visible = false; hid.push(m); } } } } catch (e) { ERR('rw', e); }
     try { return rr.apply(this, arguments); } finally { for (const m of hid) m.visible = true; } }; } catch (e) { ERR('rw0', e); }
   (function loop() { requestAnimationFrame(loop); try { if (!started || DIM.cur) { G.visible = false; for (const k in B) B[k].style.display = 'none'; return; }
       if (!U.set && P && isFinite(P.x) && performance.now() > (U.t0 || 0)) spawnNear();
