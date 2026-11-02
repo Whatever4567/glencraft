@@ -120,3 +120,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - assets/tex/pig2_*.webp, sheep2_*.webp: 4K/2K upscales of the existing pig and sheep textures, made with Real-ESRGAN (BSD-3-Clause, xinntao/Real-ESRGAN).
 
 - Moon and Mars blocks (Moon regolith, Moon rock, Lunar basalt, Lunar crystal ore, Moon bricks, Mars stone, Iron oxide ore, Mars crystal ore, Mars bricks), v1.1.25: procedural original textures painted in code by Glencraft.
+
+## v1.1.29 guns
+- assets/guns/gun_rifle_*.glb: "Bolt Action Rifle 7.62" by Mateusz Sadek, Poly Haven (https://polyhaven.com/a/bolt_action_rifle_7_62), CC0. Changed: spare parts removed, textures resized to 4K and 2K, WebP and mesh compression.
+- assets/guns/gun_pistol_*.glb: "Service Pistol" by Mateusz Sadek, Poly Haven (https://polyhaven.com/a/service_pistol), CC0. Changed as above.
+- gun_pistol_shot.mp3, gun_rifle_shot.mp3: from "Gunshot Sounds" by Tabasco, OpenGameArt (https://opengameart.org), CC0. Cut and cleaned up.
+- gun_pistol_reload.mp3: "Handgun Reload Sound Effect" by zer0_sol, OpenGameArt, CC0.
+- gun_rifle_bolt.mp3: "shotguncock" by SpringySpringo, OpenGameArt, CC0.
+- gun_rifle_load.mp3, gun_dry.mp3: "clipload1" and "singlebullet1" by Brian MacIntosh (BMacZero), OpenGameArt, CC0. Cut.
