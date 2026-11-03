@@ -1,0 +1,15 @@
+# v1.1.28, in this PRIORITY ORDER
+0. (t661u) MAJOR BUG, do first: first-person ADS (LT aim) on the rifle AND the pistol is now offset to the left and broken. The rifle ADS used to be correct; find the change that broke it (the pistol ADS addition) and restore the rifle exactly, then make the pistol ADS centred the same way (the sights on the screen centre). Test both.
+1. (t659u) Increase fall speed (higher terminal velocity, still no one-shots; fall damage stays capped as before).
+2. (t659u, t660u) New Golden Jetpack: 10x the speed of the normal jetpack, gold HD model and icon. It must ALREADY be in the player inventory: added automatically to new worlds AND existing saves (once, if missing), plus the creative inventory.
+3. (t658u) Remove the separate space XYZ HUD; use only the normal game coordinates, one continuous system everywhere in the box.
+4. Rocket flight rebuilt in the box (launch from the Highland Rocket Base, land on the Moon/Mars).
+5. Grey screen when pitching straight down.
+6. Centre the box on Earth without breaking saves; old worlds get space if safe.
+LAST, the UFO changes:
+7. Exit the UFO in open space or mid-air; the Y button enters and exits.
+8. The UFO third-person camera stuck in the belly: orbit behind and above the saucer.
+9. (t662u) Bring back LOW GRAVITY on the Moon (about 1/6 g) and Mars (about 0.38 g): floaty, bouncy, fun jumps; fall speed is slower there. Gravity points toward the planet like the v1.1.23 version that worked (upright, the block face becomes the floor as you walk round), but keep it stable: no sideways glitches, no drifting off. The normal space box gravity applies elsewhere.
+10. (t662u) Optimise the Moon/Mars textures and chunks for phone FPS (smaller and compressed textures, shared atlas, mipmaps, fewer draw calls, LOD for the far planet surface).
+11. (t663u) The north 1500-block ice/snow extension: remove all of the snow/ice filler (make it air). Keep ONLY the 800-block tunnel (with ~3-block-thick walls around its interior, so it floats as a tube in space) and Agartha itself (keep a shell of ~3 blocks around Agartha's cavern too). The ice-wall mouth near Blackstone Castle stays. Existing saves get this applied on load (or after Reset); generation is updated so new worlds use it.
+12. (t665u) BIG: replace the flat Earth with a ROUND voxel Earth planet, like the Moon and Mars (planet-relative gravity at 1 g normal; the block face becomes the floor; walk all the way round). Much bigger than the current map: the existing map (spawn, castles, Agartha tunnel and Agartha, all structures) becomes one continent on the surface, and the rest of the planet is empty ocean (water) for now, with a sea floor. Keep saves, structures and spawn working; Reset builds the round Earth. Remove the flat-slab rendering and edge falling. Agartha and the tunnel go underground inside the planet's crust (they no longer float). Earth is visible from space and the Moon as a round planet. Performance on the phone is critical (chunk streaming, LOD for the far side). Ship this as its own careful release after the other items if needed.

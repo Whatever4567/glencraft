@@ -1,0 +1,8 @@
+# v1.0.116 bug fixes (user t615u, in their Test World after Reset world terrain), one push
+1. UFO lights visible through walls/terrain from across the map: fix (depth test on, no additive sprites drawn on top, distance cull, hide when the UFO is in Agartha or underground).
+2. Agartha tunnel trees are spawning across the WHOLE world: restrict them strictly to the tunnel/Agartha.
+3. NO separate world or teleport. Remove the separate-area system. Instead EXTEND THE MAP northward (top) by 1500 blocks beyond the ice wall, in the same world. The surface of that strip is a flat ice biome. The ice wall stays where it is with the hole near Blackstone Castle. The tunnel is now 800 blocks (not 2000) and leads to Agartha, which sits underground inside the extension, keeping the trees, glow plants, sky dome, clouds, city and 60% light. The edge barrier, freezing and ocean move to the new north boundary. Update the UFO route to match.
+4. Reset world (and new worlds) must use the new boundaries and regenerate the extension.
+5. Flying up hits an invisible barrier at some height and can't reach space: remove it so the rocket/jetpack can go from the firmament through the atmosphere to space (1000+) smoothly. Test a real ascent from the ground with the rocket and the jetpack.
+Keep phone FPS OK (stream chunks). Patch notes, push, verify live. Report in 3 plain sentences with anything not confirmed.
+6. VERSION NUMBERING (user t617u): after v1.0.99 it should have rolled over to v1.1.0. Renumber v1.0.100 to v1.1.0, v1.0.101 to v1.1.1 ... v1.0.115 to v1.1.15 everywhere (in-game version label, patch notes history, any version checks/caches; keep save compatibility). This release ships as v1.1.16. From now on the patch number rolls into the minor version after .99.

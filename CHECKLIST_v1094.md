@@ -1,0 +1,23 @@
+# v1.0.94 Build Editor (t576u-t579u)
+- Only in worlds named "test world" (case-insensitive, trimmed). The player spawns holding the Build Editor tool.
+- The generator records every generated feature as a named piece in world metadata (type, id, bounding box, origin). This covers structures (bridges, huts/crofts, castles, pyramid, temple, paths/tunnels, landmarks) AND natural features (cave chunks/mouths, ravines, lava pools, volcano area, biome set-pieces).
+- While the tool is held, every piece shows a glowing wireframe outline with a floating name label. The nearest one highlights.
+- The user edits blocks normally. Changed blocks inside a piece get a tint marker showing they belong to that piece's file.
+- A themed in-game prompt on a free button (NOT LT) offers Save build, which stores the piece as a prefab for its type. Options to resize the box, and a manual two-corner capture for new types.
+- Pause menu: Upload builds downloads builds_default.json(.gz) with the message "Send this file to Grok Bot - your builds go into everyone's new worlds." No token in the client.
+- New worlds stay random, but the generator loads assets/builds_default.json. Fixed structures are replaced with the prefab (foundation filled down, space above cleared, rotated or stretched as needed). Natural features use the prefabs as templates placed randomly and carved in. Fall back to the original generator if there is no prefab.
+- Patch notes, plus a short how-to. Try to recover the FPS lost since v1.0.89.
+- (t580u) Map edge: after the land, add natural coastline/beaches, then ~300 blocks of open ocean (getting deeper), THEN the ice wall and freezing zone. Keep performance OK (ocean chunks are cheap; don't render far beyond the view distance). New worlds only.
+- (t581u) New block "Packed snow": a full opaque white snow block with a Glencraft-style texture (subtle crunchy grain, slight blue shading). Use it for the ice wall INSTEAD of the current wool-looking block. Craftable or minable, and in the Bag of Everything.
+- (t581u) One giant cave entrance per world: a huge hole (wide enough for a UFO, ~25-30 blocks across) that slopes down to near bedrock, then a very long winding tunnel about 2000 blocks long, staying big, with some lava, gravel and spiders. Lit occasionally near the entrance. Register it as a Build Editor piece type ("Great Cave"). The world height is 128, so it is long rather than 2000 deep.
+- (t580u) Map edge: coastline/beaches, then about 300 blocks of open ocean getting deeper, THEN the ice wall and freezing zone. Keep performance OK. New worlds only.
+- (t581u) New "Packed snow" block: full opaque white snow, Glencraft-style texture (fine grain, slight blue shading). Use it for the ice wall instead of the wool-looking block. Also in the Bag of Everything.
+- (t581u/t582u) AGARTHA. One giant cave mouth per world (UFO-sized, about 25-30 blocks across). It slopes to the bottom, then a huge winding tunnel about 2000 blocks long (the world height is 128, so it runs long rather than deep). The tunnel is OVERGROWN: trees packed very close together along its whole length, with moss, vines and glowing plants. It opens into the hidden inner-earth area, Agartha:
+  - Its own weather and sky: a glowing inner "central sun", soft mist and light rain or sparkle particles, always warm and lit, its own ambient light.
+  - A crystal city in the style of the legends: tall glowing crystal spires and towers (cyan, white, violet, translucent-looking but OPAQUE-rendered or cheap for performance), crystal bridges, terraces and gardens.
+  - Agarthan people: clansman-style humanoids in all light-blue clothing, very tall and slender, bright yellow-blond hair, big almond eyes glowing blue. Silent (no sounds), peaceful, wandering the city, permanent (never despawn).
+  - Register the tunnel, the city and its buildings as Build Editor piece types.
+  - Optimise: per-chunk instancing, LOD, and only build or render when near.
+- (t583u) Guns: holding LT with a pistol or musket aims down the sights (camera zoom/FOV tighten, gun moves to centre, less spread). LT still places blocks or trades when not holding a gun.
+- (t583u) First person: the player's legs and body are visible when looking down (realistic), with walk/run animation and no clipping into the camera.
+- (t583u) Smoother animations overall: interpolate player and mob limbs, smooth view-bob, held-item sway and transitions.

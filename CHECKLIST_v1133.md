@@ -1,0 +1,7 @@
+# v1.1.33 extra items
+A. (t676u) Earth from space: Glencraft is drawn as a FLAT square card with a white border plus a black starry rectangle beside it, and there are no visible continents. Make the far view a curved planet with Glencraft as a snowy island plus several big green and brown continents drawn on the sphere, with no flat card and no black patch. The continents must be walkable voxel land. Verify with your own render from space at about X3058 Y2515 Z-1935.
+B. (t677u) Stairs: change corner stairs (outer corner) to a smooth sloped corner ramp, and inner corner stairs to a smooth inner corner ramp. Collision must match the slope so you walk up smoothly with no clipping.
+# v1.1.33 extra items
+A. (t676u) Earth from space: Glencraft is drawn as a FLAT square card with a white border plus a black starry rectangle beside it, and there are no visible continents. Make the far view a curved planet with Glencraft as a snowy island plus several big green and brown continents drawn on the sphere, with no flat card and no black patch. The continents must be walkable voxel land. Verify with your own render from space.
+B. (t677u) Stairs: change outer corner stairs to a smooth sloped corner ramp, and inner corner stairs to an inner corner ramp. Collision must follow the slope.
+C. (t678u) Planet surfaces (Moon, Mars, Earth): auto-place ramp and corner-ramp shapes on the stepped surface edges so walking all the way round is smooth, with no bumps, no clipping and no getting stuck.

@@ -1,0 +1,17 @@
+# t725u (with the bridges and ADS checks already requested)
+1. Disable the pyramid and the whole desert/sand biome (it does not fit Scotland). Replace that area with fitting Scottish terrain. Remove the pyramid Agartha entrance; the North island hole stays the only entrance. The UFO's night trip now goes to a Scottish landmark (e.g. a volcano crater or a castle) instead of the pyramid, still fast.
+2. Add volcano terrain matching the real UK volcanic sites in ref/uk_volcanoes.png (reference only, do not commit): many in the Scottish Midland Valley (Edinburgh Arthur's Seat, the Lothians, Fife), the Inner Hebrides (Skye, Mull, Rum, Ardnamurchan, Arran), St Kilda and Rockall offshore, Northern Ireland (Antrim), the Lake District, North Wales (Snowdonia), Cornwall/Devon, plus a few in the English Midlands. Mostly extinct, weathered volcanic hills, crags and basalt columns (Staffa/Giant's Causeway style), with maybe one or two craters with lava for fun. Place them at the matching spots on the UK terrain, blended in.
+3. Keep spawn, the 3 castles, the user's builds and the digging below Y1. Patch notes without apostrophes. Verify from the air.
+
+# t726u
+4. REMOVE the distance/far-view textures for the UK (the flat painted map picture). Instead the ENTIRE UK and Ireland is real Glencraft block terrain: one big continuous map, using the same terrain generator and style as Scotland everywhere, with real coastlines and regional biomes. From Scotland you see real England terrain in the distance via chunk loading and LOD of real terrain (keep it phone-friendly: lower-detail far chunks, fog). Everything is walkable and diggable to the deep layers.
+5. Update the in-game held map (the craftable pre-explored map) and any minimap to show the whole UK and Ireland.
+6. From space, the island floating in space should look like the real terrain, or a simple low-detail version of it, not a painted texture.
+# t727u
+7. NO FAKE PLACEHOLDER TEXTURES anywhere, including from space. Flying up to space, render distance has no cut-off: you see the actual UK terrain AND the user's builds from any distance. Use real-geometry LOD built from the actual blocks (coarser meshes far away, updated when blocks change) so a phone can handle it. Remove the painted far-map, far-globe and sea-plane textures entirely.
+# t728u
+8. Vary biomes across the UK and Ireland based on real life: Scottish Highlands (mountains, heather moors, lochs, pine forests, snowy peaks), Southern Uplands, the Lake District fells and lakes, Pennines and Yorkshire moors, Snowdonia mountains, southern English chalk downs, white cliffs, farmland and oak woods, the Fens wetlands, Cornwall and Devon rocky coasts and moors, Irish green bogs and hills, and the Antrim basalt coast. Use the existing Glencraft blocks and textures.
+# t729u
+9. SCALE UP the whole UK and Ireland map so even small Scottish isles (Hebrides, Orkney, Shetland, St Kilda) are explorable islands of a decent size, not specks. Choose a scale that stays phone-friendly (streamed chunks plus real-geometry LOD). Keep spawn, the castles and the user's builds, moving them proportionally if needed, and keep everything blended.
+# t730u
+10. DISABLE CLOUDS entirely, and remove the Scotland/Earth PNG image overlay (the painted map plane seen when flying up); it blocks the view of the real terrain. Nothing should sit between the player and the real terrain when flying high.
