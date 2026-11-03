@@ -10,7 +10,7 @@
     if (window.__safeLoad && d && !d.dim) { d = Object.assign({}, d); for (const k of ['c95', 'c96', 'c78', 'doors', 'boats', 'cauldrons']) delete d[k]; S.stripped = 1; arguments[0] = d; }
     const r = ap.apply(this, arguments);
     try { if (d && !d.dim) { // a broken player position (NaN / outside the world / far below) -> back to spawn
-        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1 || P.y < SEA - 1500) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
+        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || (!(window.__c317 && __c317.on()) && (P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1)) || Math.abs(P.x) > 1e6 || Math.abs(P.z) > 1e6 || P.y < SEA - 1500) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
         if (!isFinite(P.yaw)) P.yaw = 0; else P.yaw %= 6.283185307179586; if (!isFinite(P.pitch)) P.pitch = 0;
         const sn = window.__c95 && __c95.snap; if (sn) for (const k of Object.keys(sn)) { const q = sn[k], ps = q && q.pos; if (!ps || !ps.every(isFinite) || ps[1] < 1 || ps[0] < 1 || ps[2] < 1 || ps[0] >= W - 1 || ps[2] >= D - 1) delete sn[k]; } } } catch (e) { console.warn('c99 sanitize', e); }
     return r;
