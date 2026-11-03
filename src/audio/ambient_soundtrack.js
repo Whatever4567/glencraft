@@ -82,6 +82,7 @@
     try { if (!AC || !ensure()) return; if (AC.state === 'suspended') return;
       const v = want(); bus.gain.setTargetAtTime(v, AC.currentTime, (window.__c259 && __c259.on) ? 0.3 : 0.8); U.on = v > 0;
       if (!v) return;
+      if (window.__uks && __uks.on && mood() !== 'hell') { if (A) { A.stop(); A = null; } return; }
       const md = mood(), age = A ? (performance.now() - A.t0) / 1000 : 1e9;
       // a new track after 3-4 minutes, or (after at least 40 s) when the mood changes (day/night, caves, wizards/unicorn)
       if (!A || age > len || (A.left && A.left() < 9) || (age > 40 && moodOf(A.id) !== (md === 'magic' ? 'day' : md)) || (md === 'hell') !== (moodOf(A.id) === 'hell')) { if (A) A.stop(); const id = pick(md); A = bad.has(id) && bedOf(id) ? voice(bedOf(id)) : fileVoice(id); len = A.left ? 1e9 : 180 + Math.random() * 60; U.cur = A.id; U.n++; }
