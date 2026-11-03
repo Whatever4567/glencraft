@@ -129,3 +129,6 @@ The modified CC BY-SA clips are shared under the same licence.
 - gun_pistol_reload.mp3: "Handgun Reload Sound Effect" by zer0_sol, OpenGameArt, CC0.
 - gun_rifle_bolt.mp3: "shotguncock" by SpringySpringo, OpenGameArt, CC0.
 - gun_rifle_load.mp3, gun_dry.mp3: "clipload1" and "singlebullet1" by Brian MacIntosh (BMacZero), OpenGameArt, CC0. Cut.
+
+## Real world map (v1.1.35)
+- Land and sea layout of the Earth: Natural Earth 1:50m land polygons (https://www.naturalearthdata.com), public domain. Rasterised to a 2048 x 1024 land mask and embedded in the game.
