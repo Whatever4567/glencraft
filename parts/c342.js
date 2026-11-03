@@ -18,7 +18,7 @@
   const xz = (lat, lon) => { const c = C9(); return [(W >> 1) + (lon - c.LON0) * c.K * Math.cos(lat * Math.PI / 180), (D >> 1) - (lat - c.LAT0) * c.K]; };
   const hs = (i, j) => { const s = Math.sin(i * 127.1 + j * 311.7 + 7.1) * 43758.5453; return s - Math.floor(s); };
   const ss = t => t * t * (3 - 2 * t);
-  function vxs() { if (VX) return VX; const c = C9(); if (!c || !c.K || c.LAT0 === undefined) return []; VX = V.map(([la, lo, r, h, k]) => { const [x, z] = xz(la, lo); return {x, z, r, h, k, la, lo}; }); U.n = VX.length; return VX; }
+  function vxs() { if (VX) return VX; const c = C9(); if (!c || !c.K || c.LAT0 === undefined) return []; VX = V.map(([la, lo, r, h, k]) => { const [x, z] = xz(la, lo), q = c.K / 300; return {x, z, r: r * q, h, k, la, lo}; }); U.n = VX.length; return VX; }
   U.list = () => vxs().map(v => [v.k, Math.round(v.x), Math.round(v.z), v.r]);
   function hT(x, z) { const h = A().hT0(x, z); let g = h[0], kind = 0, L = h[2];
     for (const v of vxs()) { const dx = x - v.x, dz = z - v.z, d2 = dx * dx + dz * dz; if (d2 > v.r * v.r) continue; const d = Math.sqrt(d2) / v.r, base = Math.max(1, g);

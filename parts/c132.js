@@ -16,8 +16,8 @@
     stargate: {t: 'Stargate', L: [[180, 5], [130, 7.83]], surf: 0.45, mood: 'magic'}};
   // v1.0.13: the user's own recordings (ref/music_user, processed: 1.6 kHz low-pass, 40 Hz gamma layers notched out, -20 LUFS, soft fades). Gamma Focus 40 Hz is left out.
   // v1.0.14: one remix per original song (musicgen/remix.py): the old melodies on warm pads / low plucks / sub + drone, each over one of the user's frequency tracks
-  const RX = {mist: {bed: 'schumann', mood: 'day'}, dawn: {bed: 'alpha10', mood: 'day'}, heather: {bed: 'focus12', mood: 'day'}, pine: {bed: 'beyond', mood: 'magic'}, skye: {bed: 'stargate', mood: 'magic'},
-    loch: {bed: 'delta2', mood: 'night'}, glen: {bed: 'theta4', mood: 'night'}, stone: {bed: 'focus15', mood: 'night'}, cairn: {bed: 'theta6', mood: 'night'}, ember: {bed: 'focus21', mood: 'hell'}};
+  // v1.1.51: the old remixes (bass and soft piano tones) are retired; calm original nature ambience instead (wind, a burn, birds by day, crickets and an owl at night)
+  const RX = {nature_day: {bed: null, mood: 'day'}, nature_night: {bed: null, mood: 'night'}, ember: {bed: 'focus21', mood: 'hell'}};
   const FILES = Object.keys(RX), bad = new Set(), moodOf = id => (RX[id] || TR[id] || {}).mood, bedOf = id => RX[id] ? RX[id].bed : id;
   U.tracks = FILES.slice(); U.files = 0; U.fallback = 0;
   const LEVEL = 0.55, XF = 14;   // overall level vs the slider (sits under game sounds), crossfade seconds
@@ -26,7 +26,7 @@
     if (bus || !AC) return !!bus;
     try {
       const g = AC.createGain(); g.gain.value = 0;
-      const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1500; lp.Q.value = 0.5;   // nothing shrill
+      const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 9000; lp.Q.value = 0.5;   // v1.1.51: open enough for birdsong
       const lim = AC.createDynamicsCompressor(); lim.threshold.value = -22; lim.knee.value = 6; lim.ratio.value = 14; lim.attack.value = 0.005; lim.release.value = 0.4;
       g.connect(lp); lp.connect(lim); lim.connect(AC.destination); bus = g;
       // stereo pink noise (Paul Kellet), 6 s loop
@@ -69,12 +69,12 @@
       stop() { dead = true; if (sub) return sub.stop(); const t2 = AC.currentTime; try { out.gain.cancelScheduledValues(t2); out.gain.setValueAtTime(Math.max(0.0001, out.gain.value), t2); out.gain.exponentialRampToValueAtTime(0.0001, t2 + 3); } catch (_) {}
         setTimeout(() => { try { el.pause(); el.removeAttribute('src'); el.load(); } catch (_) {} try { src && src.disconnect(); out.disconnect(); } catch (_) {} }, 3500); }};
     // a file that will not load falls back to the synthesised version of the same recipe
-    el.addEventListener('error', () => { if (dead || sub) return; bad.add(id); U.fallback++; try { out.disconnect(); } catch (_) {} if (TR[bedOf(id)]) sub = voice(bedOf(id)); });
+    el.addEventListener('error', () => { if (dead || sub) return; bad.add(id); U.fallback++; try { out.disconnect(); } catch (_) {} if (bedOf(id) && TR[bedOf(id)]) sub = voice(bedOf(id)); });
     const pp = el.play(); if (pp && pp.catch) pp.catch(() => {}); U.files++; return v; }
   const near = () => { try { for (const m of mobs) if ((m.kind === 'unicorn' || m.kind === 'nmwizard') && Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z) < 28) return true; } catch (_) {} return false; };
   function mood() { if (!started) return 'day'; if (typeof DIM !== 'undefined' && DIM.cur === 'hell') return 'hell'; if (near()) return 'magic'; const under = typeof caveK === 'number' && caveK > 0.5, night = typeof isNight !== 'undefined' && isNight; return under || night ? 'night' : 'day'; }
   let last = [], len = 0;
-  function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => moodOf(k) === md && !last.includes(k)); const ids = pool.length ? pool : U.tracks.filter(k => moodOf(k) === md); const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
+  function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => moodOf(k) === md && !last.includes(k)); let ids = pool.length ? pool : U.tracks.filter(k => moodOf(k) === md); if (!ids.length) ids = ['nature_day']; const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
   function want() { if (document.visibilityState === 'hidden') return 0; if (master && master.gain.value === 0 && SET.sfx > 0) return 0; return Math.max(0, Math.min(1, SET.music)) * LEVEL * duck(); }
   /* v1.0.79: one music at a time - the desert / temple tune crossfades this out, and the Egyptian dance silences it */
   function duck() { try { if (window.__c259 && __c259.on) return 0; const m = window.__c258 ? +__c258.mix || 0 : 0; return Math.max(0, 1 - m); } catch (_) { return 1; } }
@@ -84,7 +84,7 @@
       if (!v) return;
       const md = mood(), age = A ? (performance.now() - A.t0) / 1000 : 1e9;
       // a new track after 3-4 minutes, or (after at least 40 s) when the mood changes (day/night, caves, wizards/unicorn)
-      if (!A || age > len || (A.left && A.left() < 9) || (age > 40 && moodOf(A.id) !== md) || (md === 'hell') !== (moodOf(A.id) === 'hell')) { if (A) A.stop(); const id = pick(md); A = bad.has(id) ? voice(bedOf(id)) : fileVoice(id); len = A.left ? 1e9 : 180 + Math.random() * 60; U.cur = A.id; U.n++; }
+      if (!A || age > len || (A.left && A.left() < 9) || (age > 40 && moodOf(A.id) !== (md === 'magic' ? 'day' : md)) || (md === 'hell') !== (moodOf(A.id) === 'hell')) { if (A) A.stop(); const id = pick(md); A = bad.has(id) && bedOf(id) ? voice(bedOf(id)) : fileVoice(id); len = A.left ? 1e9 : 180 + Math.random() * 60; U.cur = A.id; U.n++; }
     } catch (e) { U.err = String(e && e.message || e); }
   }
   setInterval(tick, 1000); U.tick = tick; U._rate = r => { if (A && A.el) A.el.playbackRate = r; }; U.el = () => A && A.el && {t: A.el.currentTime, d: A.el.duration, paused: A.el.paused, err: A.el.error && A.el.error.code}; U.level = () => bus && bus.gain.value;
