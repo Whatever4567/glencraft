@@ -132,3 +132,5 @@ The modified CC BY-SA clips are shared under the same licence.
 
 ## Real world map (v1.1.35)
 - Land and sea layout of the Earth: Natural Earth 1:50m land polygons (https://www.naturalearthdata.com), public domain. Rasterised to a 2048 x 1024 land mask and embedded in the game.
+
+- `assets/music/nature_day.mp3` and `assets/music/nature_night.mp3` (v1.1.51) - original nature ambience made for Glencraft (synthesised wind, a burn, birdsong by day, crickets and an owl at night; musicgen/nat.py). No samples or recordings from anyone else, released CC0. They replace the old remix soundtrack (bass and soft piano tones), whose files were removed.
