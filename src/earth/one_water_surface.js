@@ -22,7 +22,7 @@
     const g = new THREE.PlaneGeometry(12000, 12000); g.rotateX(-Math.PI / 2); BED = new THREE.Mesh(g, m); BED.name = 'oneWaterBed'; BED.renderOrder = -2; scene.add(BED); return BED; }
   function fix() { try { if (typeof seaRing === 'undefined' || !seaRing || !seaRing.visible) { if (BED) BED.visible = false; return; } const m = mat();
       for (const c of seaRing.children) if (c.material !== m) { c.material = m; U.n++; const g = c.geometry, p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) + c.position.x, -(p.getZ(i) + c.position.z)); uv.needsUpdate = true; }
-      seaRing.position.y = SEA - 0.1; seaRing.renderOrder = -1; const b = bed(); b.visible = true; b.position.set(W / 2, SEA - 14, D / 2);
+      seaRing.position.y = SEA - 0.1; seaRing.renderOrder = -1; const b = bed(); let cy = 0; try { cy = camera.getWorldPosition(new THREE.Vector3()).y; } catch (_) {} b.visible = cy < SEA + 60; b.position.set(W / 2, SEA - 14, D / 2);
       const flat = window.__c320 && __c320.flat, w = window.__c321 && __c321.pw ? __c321.pw() : P; uP.value.set(Math.floor(w.x / CH) * CH + CH / 2, 0, Math.floor(w.z / CH) * CH + CH / 2);
       // the real chunk water covers a square of chunks round you; cut the ring there (none of it shows inside the map anyway)
       const RN = PH ? 2 : 3; uR.value = flat ? RN * CH + CH / 2 - 1 : 0; } catch (e) { if (!U.err) U.err = String(e && e.stack || e).slice(0, 300); } }
