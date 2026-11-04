@@ -1,3 +1,4 @@
+/* v1.1.83: the far sea ring and sea bed stop at the UK ice walls, so no water shows outside the UK. */
 /* GLX-ONEW (v1.1.64): ONE WATER (item 39). The old flat sea ring from v0.9.13 sat one block higher than the real sea and had its own flat
    colour, which drew a seam line at the map edge. Now the ring uses the very same water material as the map and the UK sea (same texture,
    colour, waves and ripples), sits at the same water level, and has a hole cut round you where the real block water is drawn, so there is
@@ -11,14 +12,14 @@
     M.onBeforeCompile = function (sh, r) { if (w.onBeforeCompile) w.onBeforeCompile.call(this, sh, r); sh.uniforms.uP1w = uP; sh.uniforms.uR1w = uR;
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW1w;').replace('#include <project_vertex>', '#include <project_vertex>\nvW1w = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW1w; uniform vec3 uP1w; uniform float uR1w;')
-        .replace('void main() {', 'void main() {\n if (uR1w > 0.0 && max(abs(vW1w.x - uP1w.x), abs(vW1w.z - uP1w.z)) < uR1w) discard;'); };
+        .replace('void main() {', 'void main() {\n if (vW1w.x < -1216.0 || vW1w.x > 1484.0 || vW1w.z < -628.0 || vW1w.z > 2756.0) discard; if (uR1w > 0.0 && max(abs(vW1w.x - uP1w.x), abs(vW1w.z - uP1w.z)) < uR1w) discard;'); };
     M.customProgramCacheKey = () => 'oneWater'; return M; }
   // under the far ring there was nothing, so the sky showed through the clear water and the far sea looked paler than the near sea
   // (which has a real sea bed under it). A sea bed sheet under the ring, with the same hole, makes the two read the same.
   let BED = null; function bed() { if (BED) return BED; const m = new THREE.MeshLambertMaterial({color: 0x1f4c6a}); m.onBeforeCompile = sh => { sh.uniforms.uP1w = uP; sh.uniforms.uR1w = uR; sh.uniforms.uWD1w = {value: new THREE.Vector2(W, D)};
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW1w;').replace('#include <project_vertex>', '#include <project_vertex>\nvW1w = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW1w; uniform vec3 uP1w; uniform float uR1w; uniform vec2 uWD1w;')
-        .replace('void main() {', 'void main() {\n if (uR1w > 0.0 && max(abs(vW1w.x - uP1w.x), abs(vW1w.z - uP1w.z)) < uR1w) discard; if (vW1w.x > 0.0 && vW1w.z > 0.0 && vW1w.x < uWD1w.x && vW1w.z < uWD1w.y) discard;'); }; m.customProgramCacheKey = () => 'oneWaterBed';
+        .replace('void main() {', 'void main() {\n if (vW1w.x < -1216.0 || vW1w.x > 1484.0 || vW1w.z < -628.0 || vW1w.z > 2756.0) discard; if (uR1w > 0.0 && max(abs(vW1w.x - uP1w.x), abs(vW1w.z - uP1w.z)) < uR1w) discard; if (vW1w.x > 0.0 && vW1w.z > 0.0 && vW1w.x < uWD1w.x && vW1w.z < uWD1w.y) discard;'); }; m.customProgramCacheKey = () => 'oneWaterBed';
     const g = new THREE.PlaneGeometry(12000, 12000); g.rotateX(-Math.PI / 2); BED = new THREE.Mesh(g, m); BED.name = 'oneWaterBed'; BED.renderOrder = -2; scene.add(BED); return BED; }
   function fix() { try { if (typeof seaRing === 'undefined' || !seaRing || !seaRing.visible) { if (BED) BED.visible = false; return; } const m = mat();
       for (const c of seaRing.children) if (c.material !== m) { c.material = m; U.n++; const g = c.geometry, p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) + c.position.x, -(p.getZ(i) + c.position.z)); uv.needsUpdate = true; }

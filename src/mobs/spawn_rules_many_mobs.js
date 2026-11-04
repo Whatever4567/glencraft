@@ -37,10 +37,10 @@
   // ---- ruby sites on high stone: the Snaw Brute stands guard ----
   let rScan = 0, rWorld = null;
   let rs = null;   // scanned a few rows at a time so there is no hitch
-  function rubyScan() { if (!rs) rs = {x: 4, R: [], seen: new Set()}; const RU = T.RUBYORE || 232, x1 = Math.min(W - 4, rs.x + 5);
-    for (let x = rs.x; x < x1; x++) for (let z = 4; z < D - 4; z++) { const t = solidTop(x, z); if (t < SEA + 14) continue; const b = getB(x, t, z); if (b !== T.STONE && b !== RU && b !== (T.SNOW || -1) && b !== (T.GRAVEL || 202)) continue;
+  function rubyScan() { if (!rs) rs = {x: 4, R: [], seen: new Set()}; const RU = T.RUBYORE || 232, x1 = Math.min(W - 4, rs.x + 2), t0 = performance.now(); let x = rs.x;   // v1.1.83: 2 columns at most and 1.5 ms per go, so it never spikes a frame
+    for (; x < x1 && performance.now() - t0 < 1.5; x++) for (let z = 4; z < D - 4; z++) { const t = solidTop(x, z); if (t < SEA + 14) continue; const b = getB(x, t, z); if (b !== T.STONE && b !== RU && b !== (T.SNOW || -1) && b !== (T.GRAVEL || 202)) continue;
       for (let y = t; y > t - 7; y--) if (getB(x, y, z) === RU) { const k = ((x / 14) | 0) + ',' + ((z / 14) | 0); if (!rs.seen.has(k)) { rs.seen.add(k); rs.R.push([x, y, z, t]); } break; } }
-    rs.x = x1; if (rs.x >= W - 4) { const R = rs.R; rs = null; return R; } return null; }
+    rs.x = x; if (rs.x >= W - 4) { const R = rs.R; rs = null; return R; } return null; }
   // ---- the death spot ----
   const dkey = () => 'glen_death_' + (current && current.id);
   const dd = die; die = function () { try { if (!dead && started && !DIM.cur && current && current.id) { const s = [+P.x.toFixed(1), +P.y.toFixed(1), +P.z.toFixed(1), dayNum]; localStorage.setItem(dkey(), JSON.stringify(s)); U.death = s; } } catch (_) {} return dd.apply(this, arguments); };
