@@ -42,6 +42,8 @@
       spark.visible = inside; sun.scale.setScalar(1 + Math.sin(t / 900) * 0.04);
       if (inside) fogOn(); else unfog(); } catch (e) { ERR('loop', e); } })();
   function fogOn() { const l2 = L(); try { if (!scene.fog || fogSave) return; fogSave = {c: scene.fog.color.getHex(), n: scene.fog.near, f: scene.fog.far}; } catch (_) {} try { scene.fog.color.setHex(0xe8c89a); scene.fog.near = 40; scene.fog.far = l2 && l2.v === 2 ? 320 : 140; } catch (_) {} }
+  // v1.1.90: Agartha owns the haze while you are inside: it is set again just before each frame is drawn, so the cave haze can not fight it
+  U.sky = () => { if (!U.inside || !scene.fog) return; const l2 = L(); scene.fog.color.setHex(0xe8c89a); scene.fog.near = 40; scene.fog.far = l2 && l2.v === 2 ? 320 : 140; if (scene.background && scene.background.isColor) scene.background.setHex(0xd9b98a); };
   function unfog() { if (!fogSave) return; try { scene.fog.color.setHex(fogSave.c); scene.fog.near = fogSave.n; scene.fog.far = fogSave.f; } catch (_) {} fogSave = null; }
   // Build Editor: Agartha pieces join the auto-found list when you are near
   setInterval(() => { try { const l = L(), B = window.__c290; if (!l || !B || !B.pieces) return; const add = [], [X, Z, R] = l.city;
