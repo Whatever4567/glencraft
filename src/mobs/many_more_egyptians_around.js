@@ -70,7 +70,7 @@
     if (f.act !== 'pray' && f.act !== 'drum') f.g.position.y = f.y; f.g.position.x = f.x; f.g.position.z = f.z; f.g.rotation.y = f.yaw; }
   let last = performance.now(), hb = 0;
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
-    try { const o = window.__c239 && __c239.pyr, ok = o ? o.cx + ',' + o.cz : null; if (ok !== key) { key = ok; if (U.on) { U.why = 'pyr'; stop(); } if (o) spawn(o); }   /* v1.0.86: folk are kept if the pyramid scan blinks */
+    try { const o = window.__c239 && __c239.pyr, ok = o ? o.cx + ',' + o.cz : null; if (ok !== key) { key = ok; if (U.on) { U.why = 'pyr'; stop(); } if (o && o.L) spawn(o); }   /* v1.0.86: folk are kept if the pyramid scan blinks */
       if (!o || !started) return r; const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; const near = Math.hypot(P.x - o.cx, P.z - o.cz) < 80, live = !paused && !dead && !DIM.cur;
       if ((hb -= d) <= 0) { hb = 2; hookBtn(); }
       if (live) for (const f of out) idle(f, d, near);

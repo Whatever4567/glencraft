@@ -9,10 +9,10 @@
   function tick() { if (typeof started === 'undefined' || !started || !current) return; const C = window.__c239; if (!C) return; const k = KEY();
     if (cacheId !== k) { cacheId = k; cache = null; try { const s = localStorage.getItem(k); if (s) cache = mkO(JSON.parse(s)); } catch (_) {} }
     const o = C.pyr;
-    if (o && !o.saved) { const r = {cx: o.cx, cy: o.cy, cz: o.cz, hy: o.hy, fx: o.fx, fz: o.fz, rx: o.rx, rz: o.rz}; const js = JSON.stringify(r);
+    if (o && !o.saved && o.L) { const r = {cx: o.cx, cy: o.cy, cz: o.cz, hy: o.hy, fx: o.fx, fz: o.fz, rx: o.rx, rz: o.rz}; const js = JSON.stringify(r);
       if (!cache || JSON.stringify({cx: cache.cx, cy: cache.cy, cz: cache.cz, hy: cache.hy, fx: cache.fx, fz: cache.fz, rx: cache.rx, rz: cache.rz}) !== js) { cache = mkO(r); try { localStorage.setItem(k, js); } catch (_) {} } }
     if (!o && cache) { C.pyr = cache; U.restored++; }
-    const p = C.pyr; if (!p) return; const fk = window.__c240 && __c240.folk;
+    const p = C.pyr; if (!p || !p.L) return; const fk = window.__c240 && __c240.folk;
     if (fk && !fk.length && window.__c240.spawnAt) { __c240.spawnAt(p); U.respawn++; }
     const all = (fk || []).concat((window.__c259 && __c259.all) ? [] : []), out = window.__c259 && __c259.out ? __c259.out() : [];
     for (const f of all.concat(out)) { if (!f || !f.g) continue; if (!f.g.parent) { scene.add(f.g); U.readded++; }

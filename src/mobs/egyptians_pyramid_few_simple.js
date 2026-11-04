@@ -39,7 +39,7 @@
       U.n = folk.length; }
     function pick(f, o) { const u = -3.5 + Math.random() * 6, v = -4.2 + Math.random() * 8.4, [x, z] = o.L(Math.floor(u), Math.floor(v)); f.tx = x + 0.5; f.tz = z + 0.5; }
     const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
-      try { const o = window.__c239 && __c239.pyr; if (o && o !== key) { key = o; spawn(o); }   /* v1.0.86: never cleared when the pyramid scan blinks - c270 brings the saved pyramid back */
+      try { const o = window.__c239 && __c239.pyr; if (o && o !== key && o.L) { key = o; spawn(o); }   /* v1.0.86: never cleared when the pyramid scan blinks - c270 brings the saved pyramid back */
         if (!o || !started) return r; const near = Math.hypot(P.x - (o.cx + 0.5), P.z - (o.cz + 0.5)) < 70, live = !paused && !dead && !DIM.cur; dt = Math.min(dt || 0.016, 0.1);
         for (const f of folk) { f.g.visible = !DIM.cur; if (!near || !live) continue; if (f.dz) continue;
           const dpx = P.x - f.x, dpz = P.z - f.z, dp = Math.hypot(dpx, dpz); let mv = 0, want = f.yaw;

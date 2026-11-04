@@ -18,7 +18,7 @@
         const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({map: tx, color: 0xeeeeee, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4}));
         m.position.set(px + nx * 0.02, y, pz + nz * 0.02); m.rotation.y = fr.rotation.y; m.userData.userArt = k + 1; grp.add(m); U.n++; } } }
   setInterval(() => { try { if (!started || DIM.cur) { grp.visible = false; return; }
-    const o = window.__c239 && __c239.pyr, k = o ? o.cx + ',' + o.cz + ',' + o.hy : null; if (k !== key || world !== lastW) { key = k; lastW = world; if (o) build(o); else clear(); }
-    if (o) { const [x, z] = o.L(1, 0); grp.visible = Math.hypot(P.x - x, P.z - z) < 70; } } catch (e) { if (!U.err) U.err = String(e); } }, 1000);
+    const o = window.__c239 && __c239.pyr, k = o ? o.cx + ',' + o.cz + ',' + o.hy : null; if (k !== key || world !== lastW) { key = k; lastW = world; if (o && o.L) build(o); else clear(); }
+    if (o && o.L) { const [x, z] = o.L(1, 0); grp.visible = Math.hypot(P.x - x, P.z - z) < 70; } } catch (e) { if (!U.err) U.err = String(e); } }, 1000);
   try { const ew = enterWorld; enterWorld = function () { try { key = null; clear(); } catch (_) {} return ew.apply(this, arguments); }; } catch (e) { U.err = String(e); }
 })();

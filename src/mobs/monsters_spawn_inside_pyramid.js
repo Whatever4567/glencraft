@@ -4,7 +4,7 @@
   const U = window.__c269 = {err: null, blocked: 0, box: null};
   const HK = new Set(['zombie', 'skeleton', 'creeper', 'guardian', 'spider', 'mummy', 'husk']);
   const bad = a => a && (a.hostile || HK.has(a.kind)) && !a.tame && !a.egg;
-  function box() { const o = window.__c239 && __c239.pyr; if (!o) return null; if (U.box && U.box.o === o) return U.box;
+  function box() { const o = window.__c239 && __c239.pyr; if (!o || !o.L) return null; if (U.box && U.box.o === o) return U.box;
     let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [u, v] of [[-38, -15], [-38, 15], [23, -15], [23, 15]]) { const [x, z] = o.L(u, v); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
     return (U.box = {o, x0, x1, z0, z1, y0: o.hy - 26, y1: o.hy + 24}); }
   const inside = (b, p) => p.x >= b.x0 && p.x <= b.x1 + 1 && p.z >= b.z0 && p.z <= b.z1 + 1 && p.y >= b.y0 && p.y <= b.y1;

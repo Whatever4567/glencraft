@@ -65,7 +65,7 @@
     const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { if (U.art) U.art.visible = !!((window.__c246b && __c246b.done) || (current && (localStorage.getItem('glen_met_' + current.id) || (current.c246 && current.c246.met)))); } catch (_) {}
       try { if (!started || DIM.cur) { grp.visible = false; return r; } grp.visible = true; if ((t -= dt || 0.016) > 0) return r; t = 4;
         if (world !== lastWorld || !U.pyr) { if (world !== lastWorld) { U.pyr = null; while (grp.children.length) grp.remove(grp.children[0]); } lastWorld = world; U.pyr = find(); if (U.pyr) build(U.pyr); else t = 15; }
-        else { const o = U.pyr; const [x, z] = o.L(-0.5, 0); grp.visible = Math.hypot(P.x - x, P.z - z) < 90; }
+        else { const o = U.pyr; if (!o.L) return; const [x, z] = o.L(-0.5, 0); grp.visible = Math.hypot(P.x - x, P.z - z) < 90; }
       } catch (e) { if (!U.err) { U.err = String(e); console.warn('c239', e); } } return r; };
   } catch (e) { U.err = String(e); console.warn('c239 init', e); }
 })();

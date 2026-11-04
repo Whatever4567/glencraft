@@ -55,7 +55,7 @@
     hook(true); X.ready = true; X.gens++; X.ms = Math.round(performance.now() - t0); try { if (window.__c307b) __c307b.clear(); } catch (_) {} }
   X.init = init;
   // the hole in the map edge: open the last two rows of the ice wall so the mouth tunnel runs straight on into the extension (new worlds only)
-  function openEdge() { const M = __c294.M, Y = SEA + 13; for (let z = 0; z <= 3; z++) for (let x = -17; x <= 17; x++) for (let y = SEA + 2; y <= Y + 13; y++) {
+  function openEdge() { if (!window.__c294 || !__c294.M) return; const M = __c294.M, Y = SEA + 13; for (let z = 0; z <= 3; z++) for (let x = -17; x <= 17; x++) for (let y = SEA + 2; y <= Y + 13; y++) {
       if ((x * x) / (17 * 17) + ((y - Y) * (y - Y)) / (13 * 13) > 1) continue; const X0 = Math.round(M.c) + x; if (X0 < 0 || X0 >= W) continue; const i = idx(X0, y, z), b = world[i]; if (b && b !== T.HBEDROCK) world[i] = 0; }
     try { for (let x = -18; x <= 18; x++) markDirty(Math.round(M.c) + x, 0); } catch (_) {} }
   try { const gen = generate; generate = function () { hook(false); X.ready = false; const r = gen.apply(this, arguments); try { if (X.on()) { init(null); openEdge(); X.fresh = current && current.id; } } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
