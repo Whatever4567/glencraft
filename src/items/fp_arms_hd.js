@@ -22,7 +22,7 @@
     h.userData.f = [];
     for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(0.0066, skinM); tip.position.y = 0.03; k.add(tip);
       f.rotation.x = 1.0; k.rotation.x = 1.2; h.add(f); h.userData.f.push([f, k]); }
-    const th = new THREE.Group(); th.position.set(-side * 0.036, 0.03, 0.012); th.rotation.set(0.6, 0, side * 0.9); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
+    const th = new THREE.Group(); th.position.set(-side * 0.036, 0.03, 0.012); th.rotation.set(0.75, 0, -side * 0.3); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
     const wr = limb(0.03, 0.028, 0.03, skinM, 12); wr.position.y = -0.02; h.add(wr); return h; }
   function mkArm(side) { const a = new THREE.Group(); a.userData.side = side;
     const up = limb(0.078, 0.066, LU, shirtM); a.add(up); const el = ball(0.066, shirtM); a.add(el); const fo = limb(0.06, 0.042, LF, skinM); a.add(fo);
@@ -41,7 +41,7 @@
     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
     p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
     const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
-    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.6 + tg * 0.35, 0, side * (0.9 - tg * 0.6)); th.userData.k.rotation.set(tg * 0.35, 0, side * tg * 1.0); } }
+    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.75 + tg * 0.45, 0, -side * (0.3 + tg * 0.35)); th.userData.k.rotation.set(0.1 + tg * 0.55, 0, 0); } }
   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
   const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
   function grip(G, pn, fd, c) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -0.032); }
@@ -57,7 +57,7 @@
     if (selId !== sel) { sel = selId; sw = 0; } sw = Math.min(1, sw + dt * 3.2); const dip = (1 - Math.sin(sw * Math.PI / 2)) * 0.35;
     sp += ((typeof sprinting !== 'undefined' && sprinting && P.onGround ? 1 : 0) * (1 - k) - sp) * Math.min(1, dt * 6);
     const g = gunNow(), br = Math.sin(tm * 1.6) * 0.004 * sk, bob = (typeof bobAmt === 'number' ? bobAmt : 0) * sk;
-    if (g) { hand.position.x += swx * sk + Math.cos(walkPhase) * 0.012 * bob + sp * 0.05; hand.position.y += swy * sk + br - Math.abs(Math.sin(walkPhase)) * 0.012 * bob - sp * 0.08; hand.rotation.y += swx * 1.2 * sk + sp * 0.6; hand.rotation.x += -swy * sk - sp * 0.35; }
+    if (g) { const ss = sp * sp * (3 - 2 * sp), fb = Math.abs(Math.sin(walkPhase)); hand.position.x += swx * sk * (1 - ss) + Math.cos(walkPhase) * 0.012 * bob * (1 - ss) + ss * 0.015; hand.position.y += swy * sk * (1 - ss) + br - fb * 0.012 * bob * (1 - ss) - ss * (0.04 + fb * 0.015); hand.position.z += ss * 0.03; hand.rotation.y += swx * 1.2 * sk * (1 - ss) - ss * 0.22; hand.rotation.x += -swy * sk * (1 - ss) - ss * 0.32; hand.rotation.z += ss * 0.42; U.sp = +ss.toFixed(2); }
     else { hand.position.x += swx * 0.6; hand.position.y += swy * 0.6 + br; }
     hand.position.y -= dip; hand.rotation.x -= dip * 1.5;
     // reload: the gun tips, the hands work it

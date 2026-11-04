@@ -16,7 +16,7 @@
   const top = (x, z) => { for (let y = H - 2; y > 1; y--) { const v = world[idx(x, y, z)]; if (v && v !== T.FIRE && !PLANT[v]) return y; } return 0; };
   const ign = (x, y, z) => { try { if (window.__c237 && __c237.ignite && __c237.ignite(x + .5, y + 1.02, z + .5)) U.fires++; } catch (_) {} };
   // ---------- sounds ----------
-  function boom(pos, big) { try { if (!AC || AC.state !== 'running') return; const d = Math.hypot(pos.x - P.x, pos.y - P.y, pos.z - P.z), v = Math.max(0, 1 - d / (big ? 400 : 140)) * (big ? 1 : 0.6); if (v < 0.02) return;
+  function boom(pos, big) { try { if (!AC || AC.state !== 'running') return; const d = Math.hypot(pos.x - P.x, pos.y - P.y, pos.z - P.z), v = Math.max(0, 1 - d / (big ? 400 : 140)) * (big ? 0.3 : 0.2); if (v < 0.02) return;
       const t = AC.currentTime + Math.min(1.2, d / 340), len = big ? 4 : 1.6, n = AC.createBufferSource(), b = AC.createBuffer(1, AC.sampleRate * len | 0, AC.sampleRate), ch = b.getChannelData(0); let l = 0;
       for (let i = 0; i < ch.length; i++) { l = (l + 0.05 * (Math.random() * 2 - 1)) / 1.05; ch[i] = (l * 4 + (Math.random() * 2 - 1) * 0.25 * Math.exp(-i / AC.sampleRate * 6)); }
       n.buffer = b; const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(big ? 900 : 1400, t); lp.frequency.exponentialRampToValueAtTime(70, t + len); const g = AC.createGain();
