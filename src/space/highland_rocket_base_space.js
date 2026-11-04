@@ -157,7 +157,7 @@
             if (f > 0.05) { s.fog.near = 400; s.fog.far = deep ? 1e6 : 1500; } }
           if (f > 0.15) { stars.visible = true; stars.position.copy(c.position); stars.material.opacity = Math.min(1, (f - 0.15) * 1.6); }
           if (Math.abs(c.position.y - FY) < 140 && U.overMap()) { firm.visible = !window.__c314; firm.position.set(c.position.x, FY, c.position.z); }
-          if (a > H + 40) { if (!mapP || mapP.userData.w !== W) mapP = mapPlane(); mapP.visible = !window.__c314; mapP.material.opacity = 1; /* v1.1.19: the flat Earth stays solid from space and the Moon */ }
+          if (a > H + 40) { if (!mapP || mapP.userData.w !== W) mapP = mapPlane(); mapP.visible = false; mapP.material.opacity = 1; /* v1.1.19: the flat Earth stays solid from space and the Moon */ }
           if (a > FY - 100 || !U.overMap()) { S5().show(true); far0 = c.far; c.far = 60000; c.updateProjectionMatrix(); } }
         else { bg0.copy(s.background); fc0.copy(s.fog.color); restore = [s.fog.near, s.fog.far]; const st_ = PD().sky(s, c, a); if (st_) { stars.visible = true; stars.position.copy(c.position); stars.material.opacity = 1; }
           if (U.frame === 'moon' && S5()) { S5().show(false); const e = S5().get('earth'); if (!S5().list) S5().build(); eS = e.g; e.g.visible = true; e.g.scale.setScalar(16 / 1400); e.g.position.set(c.position.x + 35, c.position.y + 55, c.position.z - 45); if (typeof moonDisc !== 'undefined' && moonDisc.visible) { moonDisc.visible = false; hid.push(moonDisc); } e.g.rotation.y += 0.0005; } } } } catch (e) { ERR('rw', e); }

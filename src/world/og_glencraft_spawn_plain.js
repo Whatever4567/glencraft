@@ -1,5 +1,5 @@
 /* GLX-C276 (v1.0.90): the OG Glencraft spawn - plain oak trees, grass, tall grass and flowers round the spawn meadow, and haggis
-   that always live there. No dinosaurs within 150 blocks of spawn (and only one in the world at a time, in GLX-C165). */
+   that always live there.  */
 (function c276() {
   const U = window.__c276 = {err: null, oaks: 0, tufts: 0, hag: 0, culled: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };

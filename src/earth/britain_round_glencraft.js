@@ -10,7 +10,7 @@
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   // ---------- 1. magnified Britain ----------
   const M = 4, A1 = 0.75;   // magnification at the middle, and the angle (radians) where the map is back to true scale
-  try { const W9 = window.__c329, ll0 = W9.ll; let n0 = null, nk = '';
+  if (window.__c329) try { const W9 = window.__c329, ll0 = W9.ll; let n0 = null, nk = '';
     W9.ll = function (nx, ny, nz) { try { const k = W + ',' + D; if (k !== nk) { nk = k; const R = __c320.R, v = [0, R - 250, 750], l = Math.hypot(v[0], v[1], v[2]); n0 = [v[0] / l, v[1] / l, v[2] / l]; }
         const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l; const c = Math.max(-1, Math.min(1, nx * n0[0] + ny * n0[1] + nz * n0[2])), a = Math.acos(c);
         if (a < A1 && a > 1e-6) { const t = a / A1, a2 = A1 * (t / M + (1 - 1 / M) * t * t * t), s = Math.sin(a);

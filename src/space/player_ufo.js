@@ -90,7 +90,7 @@
     if (P.y < SEA - 1500 && !(window.__c317 && __c317.on())) { P.y = topAt(P.x, P.z) + 0.05; P.vy = 0; P.fallTop = null; U.saved = (U.saved || 0) + 1; return; }
     const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 0.1); if (solid(x, y, z) && solid(x, y + 1, z)) U.sk = (U.sk || 0) + dt; else U.sk = 0;
     if (U.sk > 0.4) { let yy = y; while (yy < y + 6 && yy < H - 2 && (solid(x, yy, z) || solid(x, yy + 1, z))) yy++; if (yy >= y + 6) { U.sk = 0; return; } P.y = yy + 0.02; P.vy = 0; P.fallTop = null; U.sk = 0; U.saved = (U.saved || 0) + 1; } }
-  try { const rr = renderer.render; renderer.render = function (s, c) { const hid = []; try { if (s === scene && started) { FE.visible = !window.__c314 && !DIM.cur && c.position.y > H + 150 && !(R9() && R9().frame !== 'earth');
+  try { const rr = renderer.render; renderer.render = function (s, c) { const hid = []; try { if (s === scene && started) { FE.visible = false && !DIM.cur && c.position.y > H + 150 && !(R9() && R9().frame !== 'earth');
           if (U.on) { G.position.copy(U.pos); frame(U.yaw, 0, G.quaternion); c.position.copy(cam); c.quaternion.copy(cq); for (const m of c.children) if (m.visible) { m.visible = false; hid.push(m); } if (U.cock && G.visible) { G.visible = false; hid.push(G); } }
           else if (U.free && G) { G.position.copy(U.pos); } } } catch (e) { ERR('rw', e); }
     try { return rr.apply(this, arguments); } finally { for (const m of hid) m.visible = true; } }; } catch (e) { ERR('rw0', e); }
