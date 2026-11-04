@@ -16,14 +16,21 @@
     M.customProgramCacheKey = () => 'oneWater'; return M; }
   // under the far ring there was nothing, so the sky showed through the clear water and the far sea looked paler than the near sea
   // (which has a real sea bed under it). A sea bed sheet under the ring, with the same hole, makes the two read the same.
+  // v1.1.89: nothing outside the UK. The far sea pieces are cut to the UK ice wall box (they used to be 12000 block sheets)
+  const UX0 = -1216, UX1 = 1484, UZ0 = -628, UZ1 = 2756;
+  function trim(c) { c.userData.uk = 1; const g = c.geometry; g.computeBoundingBox(); const bb = g.boundingBox, px = c.position.x + seaRing.position.x, pz = c.position.z + seaRing.position.z;
+    const x0 = Math.max(UX0, bb.min.x + px), x1 = Math.min(UX1, bb.max.x + px), z0 = Math.max(UZ0, bb.min.z + pz), z1 = Math.min(UZ1, bb.max.z + pz);
+    if (x1 - x0 < 1 || z1 - z0 < 1) { c.visible = false; c.geometry = new THREE.BufferGeometry(); U.cut = (U.cut || 0) + 1; return; }
+    const ng = new THREE.PlaneGeometry(x1 - x0, z1 - z0, 1, 1); ng.rotateX(-Math.PI / 2); ng.translate((x0 + x1) / 2 - px, bb.min.y, (z0 + z1) / 2 - pz); g.dispose(); c.geometry = ng; c.material = null; U.trim = (U.trim || 0) + 1; }
   let BED = null; function bed() { if (BED) return BED; const m = new THREE.MeshLambertMaterial({color: 0x1f4c6a}); m.onBeforeCompile = sh => { sh.uniforms.uP1w = uP; sh.uniforms.uR1w = uR; sh.uniforms.uWD1w = {value: new THREE.Vector2(W, D)};
       sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW1w;').replace('#include <project_vertex>', '#include <project_vertex>\nvW1w = (modelMatrix * vec4(transformed, 1.0)).xyz;');
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW1w; uniform vec3 uP1w; uniform float uR1w; uniform vec2 uWD1w;')
         .replace('void main() {', 'void main() {\n if (vW1w.x < -1216.0 || vW1w.x > 1484.0 || vW1w.z < -628.0 || vW1w.z > 2756.0) discard; if (uR1w > 0.0 && max(abs(vW1w.x - uP1w.x), abs(vW1w.z - uP1w.z)) < uR1w) discard; if (vW1w.x > 0.0 && vW1w.z > 0.0 && vW1w.x < uWD1w.x && vW1w.z < uWD1w.y) discard;'); }; m.customProgramCacheKey = () => 'oneWaterBed';
-    const g = new THREE.PlaneGeometry(12000, 12000); g.rotateX(-Math.PI / 2); BED = new THREE.Mesh(g, m); BED.name = 'oneWaterBed'; BED.renderOrder = -2; scene.add(BED); return BED; }
+    const g = new THREE.PlaneGeometry(UX1 - UX0, UZ1 - UZ0); g.rotateX(-Math.PI / 2); BED = new THREE.Mesh(g, m); BED.name = 'oneWaterBed'; BED.renderOrder = -2; scene.add(BED); return BED; }
   function fix() { try { if (typeof seaRing === 'undefined' || !seaRing || !seaRing.visible) { if (BED) BED.visible = false; return; } const m = mat();
+      for (const c of seaRing.children) if (!c.userData.uk) trim(c);
       for (const c of seaRing.children) if (c.material !== m) { c.material = m; U.n++; const g = c.geometry, p = g.attributes.position, uv = g.attributes.uv; for (let i = 0; i < p.count; i++) uv.setXY(i, p.getX(i) + c.position.x, -(p.getZ(i) + c.position.z)); uv.needsUpdate = true; }
-      seaRing.position.y = SEA - 0.1; seaRing.renderOrder = -1; const b = bed(); let cy = 0; try { cy = camera.getWorldPosition(new THREE.Vector3()).y; } catch (_) {} b.visible = cy < SEA + 60; b.position.set(W / 2, SEA - 14, D / 2);
+      seaRing.position.y = SEA - 0.1; seaRing.renderOrder = -1; const b = bed(); let cy = 0; try { cy = camera.getWorldPosition(new THREE.Vector3()).y; } catch (_) {} b.visible = cy < SEA + 60; b.position.set((UX0 + UX1) / 2, SEA - 14, (UZ0 + UZ1) / 2);
       const flat = window.__c320 && __c320.flat, w = window.__c321 && __c321.pw ? __c321.pw() : P; uP.value.set(Math.floor(w.x / CH) * CH + CH / 2, 0, Math.floor(w.z / CH) * CH + CH / 2);
       // the real chunk water covers a square of chunks round you; cut the ring there (none of it shows inside the map anyway)
       const RN = PH ? 2 : 3; uR.value = flat ? RN * CH + CH / 2 - 1 : 0; } catch (e) { if (!U.err) U.err = String(e && e.stack || e).slice(0, 300); } }
