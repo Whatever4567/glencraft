@@ -79,7 +79,7 @@
     room.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.renderOrder = RO; });
   }
   U.brand = (name, color) => { if (name) cfg.name = String(name); if (color != null) cfg.color = +color; try { localStorage.setItem('glx_tbox_cfg', JSON.stringify(cfg)); } catch (_) {} buildExt(); };
-  U.parts = {all, ext, doors, room, mask, farQ, TS};
+  U.parts = {all, ext, doors, room, mask, farQ, TS}; U.SM = SM; U.RM = RM;
   try { buildExt(); buildRoom(); all.visible = false; scene.add(all); } catch (e) { ERR('build', e); }
   // ---------- place it: found near Earth spawn ----------
   U.place = (x, y, z) => { S.x = x; S.y = y; S.z = z; S.on = true; all.position.set(x, y, z); all.visible = true; U.placed++; U.save(); };

@@ -45,7 +45,7 @@
   U.dests = dests;
   // ---------- travel: the box and you move together ----------
   function land(k) { const rx = P.x - S.x, ry = P.y - S.y, rz = P.z - S.z, px = P.x, py = P.y, pz = P.z;
-    if (k === 'moon' || k === 'mars' || k === 'home') { if (k === 'home') { const x = Math.floor(W / 2) + 6, z = Math.floor(D / 2) + 4; return at(x, z, rx, ry, rz); } const c = window.__c314; if (!c || !c.tp) return false; c.tp(k); }
+    if (k === 'moon' || k === 'mars' || k === 'home') { if (k === 'home') { const x = Math.floor(W / 2) + 6, z = Math.floor(D / 2) + 4; return at(x, z, rx, ry, rz); } return false; }
     else if (k === 'agartha') { const c = window.__c337; if (!c || !c.go) return false; c.go(); }
     else if (k.startsWith('uk:')) { const u = UK.find(v => v[0] === k.slice(3)), p = u && llxz(u[1], u[2]); return p ? at(p[0], p[1], rx, ry, rz) : false; }
     else if (k.startsWith('spot:')) { const s = spots()[+k.slice(5)]; if (!s) return false; return at(Math.floor(s.x), Math.floor(s.z), rx, ry, rz); }
