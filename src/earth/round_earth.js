@@ -62,7 +62,7 @@
       if (S7().wall(xi, yi, zi)) return true; return !soft(GB(xi, yi, zi)); }; } catch (e) { ERR('solid', e); }
   try { const s0 = setB; setB = function (x, y, z, v) { if (!on()) return s0(x, y, z, v); x = Math.floor(x); y = Math.floor(y); z = Math.floor(z); if (!mine(x, y, z) || S7().wall(x, y, z)) return s0(x, y, z, v);
       const k = key(x, y, z), inP = window.__c318 && __c318.bodies.some(b => !b.d.cell && b.inside(x, y, z));
-      if (!inP && (U.edits.has(k) || earth(x, y, z) || (U.flat && y < 0 && !(window.__ukb && __ukb.out(x, z))))) {   /* v1.1.81: placing into cave air deep down is kept */ U.edits.set(k, v); U.dirty = 1; if (v && v !== T.WATER) return s0(x, y, z, v); return; }
+      if (!inP && (U.edits.has(k) || earth(x, y, z) || (U.flat && !(window.__ukb && __ukb.out(x, z))))) {   /* v1.1.85: any block placed anywhere in the UK is kept, mid air too */ U.edits.set(k, v); U.dirty = 1; if (v && v !== T.WATER) return s0(x, y, z, v); return; }
       return s0(x, y, z, v); }; } catch (e) { ERR('setB', e); }
   // ---------- drawing: ocean and sea floor near you, the whole ball from space ----------
   const lam = (c, o) => new THREE.MeshLambertMaterial(Object.assign({color: c}, o || {}));
