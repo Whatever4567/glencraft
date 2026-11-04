@@ -13,6 +13,7 @@
   /* v1.1.55: never get stuck aiming (a lost mouse-up during jetpack flight left the camera inside the gun) */
   addEventListener('mousemove', e => { if (rmb && !(e.buttons & 2)) rmb = false; }); addEventListener('blur', () => { rmb = false; }); document.addEventListener('pointerlockchange', () => { rmb = false; });
   addEventListener('blur', () => { rmb = false; tLT = false; tHold = false; });
+  let b2x = false, airx = 0; addEventListener('mousemove', e => { b2x = !!(e.buttons & 2); }); setInterval(() => { try { if (!P.onGround) airx++; else { if (airx > 3) rmb = rmb && b2x; airx = 0; } } catch (_) {} }, 100);   // v1.1.76: landing after a jetpack flight clears a stuck aim
   // v1.1.55: the on-screen RT fires even if another layer eats the button events - caught at the document, tap fires, hold keeps firing
   let tHold = false, lastAuto = 0; const onRT = e => { const t = e.target; return !!(t && t.closest && t.closest('#bMine')); };
   for (const ev of ['touchstart', 'pointerdown']) document.addEventListener(ev, e => { if (onRT(e) && !tHold) { tHold = true; tRT = true; lastAuto = performance.now(); } }, {capture: true, passive: true});
@@ -22,12 +23,12 @@
   const pad = () => { try { for (const g of navigator.getGamepads ? navigator.getGamepads() : []) if (g && g.connected) return g; } catch (_) {} return null; };
   // LT with a gun = aim only (never fires); everything else unchanged
   let fireNow = false;
-  try { const ui = useItem; useItem = function () { if (!fireNow && live() && (gunHeld() || toolHeld())) { if (toolHeld()) toast('Builder Tool: walk up to a green outline and press Save piece (RT)'); return; } return ui.apply(this, arguments); }; } catch (e) { ERR('ui', e); }
+  try { const ui = useItem; useItem = function () { if (!fireNow && !window.__gunFire && live() && (gunHeld() || toolHeld())) { if (toolHeld()) toast('Builder Tool: walk up to a green outline and press Save piece (RT)'); return; } return ui.apply(this, arguments); }; } catch (e) { ERR('ui', e); }
   // RT with a gun / the tool never digs
   try { const ba = breakAt; breakAt = function () { if (live() && (gunHeld() || toolHeld())) return; return ba.apply(this, arguments); }; } catch (e) { ERR('ba', e); }
   // hip-fire spread
   try { const ld = lookDir; lookDir = function () { const d = ld.apply(this, arguments); if (fireNow && !U.aiming && Array.isArray(d)) { const s = 0.035; d[0] += (Math.random() - .5) * s; d[1] += (Math.random() - .5) * s; d[2] += (Math.random() - .5) * s; const m = Math.hypot(d[0], d[1], d[2]) || 1; d[0] /= m; d[1] /= m; d[2] /= m; } return d; }; } catch (e) { ERR('ld', e); }
-  function fire() { fireNow = true; try { useItem(); U.shots++; } catch (e) { ERR('fire', e); } finally { fireNow = false; } }
+  function fire() { fireNow = true; const gf = window.__gunFire; window.__gunFire = true; try { useItem(); U.shots++; } catch (e) { ERR('fire', e); } finally { fireNow = false; window.__gunFire = gf; } }   // v1.1.76: the musket fires from the touch RT too
   U.fire = fire;
   let k = 0, last = performance.now();
   setInterval(() => { try { touchHook(); const g = pad(), rt = !!(g && g.buttons[7] && (g.buttons[7].pressed || g.buttons[7].value > 0.4)), lt = !!(g && g.buttons[6] && (g.buttons[6].pressed || g.buttons[6].value > 0.4));

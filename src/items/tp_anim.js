@@ -52,5 +52,7 @@
       if (hm) { const a = u.arms[1]; a.rotation.x = -0.55 - k * 1.6; if (a.userData.el) a.userData.el.rotation.x = -0.55 + k * 0.3; a.updateMatrixWorld(true);
         const gp = V(); a.userData.grip.getWorldPosition(gp); const tq = new THREE.Quaternion().setFromEuler(new THREE.Euler((hm.userData.tool ? 0.5 : -0.15) - k * 1.1, P.yaw, 0, 'YXZ'));
         const c = held && held.children[0]; if (c && hm.userData.tool) tq.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(c.rotation.x, c.rotation.y, c.rotation.z))); if (hm.userData.block) { hm.scale.setScalar(0.6); } setWorld(hm, gp.add(V().set(0, hm.userData.block ? 0.02 : 0, 0)), tq); } }
+    try { const two2 = gunId && (!isP || aim); (u.fore || []).forEach((el, s2) => { const hn = el.children.find(c => c.userData.hand), fg = hn && hn.userData.fg; if (!fg) return;   // v1.1.76: index finger on the trigger, the rest wrapped on the grip
+        fg.forEach((f, i) => { f.rotation.x = !gunId ? 0.35 : s2 === 1 ? (i === 3 ? 0.55 : 1.45) : two2 ? 1.25 : 0.35; }); }); } catch (_) {}
     u.head.rotation.set(-P.pitch * 0.6, 0, 0); }
 })();

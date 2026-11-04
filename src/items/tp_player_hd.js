@@ -52,7 +52,7 @@
     g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3};
     const lm = new Map(LODS.map(([a, b]) => [a, b])); g.userData.lod = []; g.traverse(o => { if (o.isMesh) { o.castShadow = true; const lo = lm.get(o.geometry); if (lo) g.userData.lod.push([o, o.geometry, lo]); } }); LODS = null; g.userData.lv = 0;
     // hands get fingers and a thumb
-    for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.05, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.078, 8)), skin, -0.039 + i * 0.026, -0.085, 0.012, hn); f.rotation.x = 0.35; } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.016, 0.04, 3, 8) : new THREE.CylinderGeometry(0.016, 0.016, 0.072, 8)), skin, 0.058, -0.03, 0.03, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
+    for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.05, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.078, 8)), skin, -0.039 + i * 0.026, -0.085, 0.012, hn); f.rotation.x = 0.35; (hn.userData.fg || (hn.userData.fg = [])).push(f); } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.016, 0.04, 3, 8) : new THREE.CylinderGeometry(0.016, 0.016, 0.072, 8)), skin, 0.058, -0.03, 0.03, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
     U.built++; return g; }
   // HD armour fitted to the new body
   try { const fp0 = fitPiece; fitPiece = function (add, u, slot, m) { if (!u.hd) return fp0.apply(this, arguments);

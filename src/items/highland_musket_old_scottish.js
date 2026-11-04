@@ -91,6 +91,10 @@
   window.addEventListener('mousedown', e => { if (e.button === 2) rmb = true; if (e.button === 0 && pointerLocked && musket() && started && !menuOpen && !paused && !dead) trig = true; }, true);
   window.addEventListener('mouseup', e => { if (e.button === 2) rmb = false; }, true);
   window.addEventListener('blur', () => { rmb = tch = false; });
+  /* v1.1.76: never stuck aiming after jetpack flight - a lost mouse-up or touch-up is cleared from the real button state, on pointer lock changes and on landing */
+  let b2 = false, air = 0; window.addEventListener('mousemove', e => { b2 = !!(e.buttons & 2); if (rmb && !b2) rmb = false; }, true); document.addEventListener('pointerlockchange', () => { rmb = false; }); document.addEventListener('visibilitychange', () => { rmb = tch = false; });
+  document.addEventListener('touchend', e => { if (tch && !(e.touches && [...e.touches].some(x => x.target && x.target.closest && x.target.closest('#bPlace')))) tch = false; }, {capture: true, passive: true});
+  setInterval(() => { try { const up = !P.onGround || (typeof flying !== 'undefined' && flying) || (window.__jetOn); if (up) air++; else { if (air > 3) rmb = rmb && b2; air = 0; } } catch (_) {} }, 100);
   try { const bp = document.getElementById('bPlace'); if (bp) { bp.addEventListener('pointerdown', () => { tch = true; }); ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(ev => bp.addEventListener(ev, () => { tch = false; })); }
     const bm = document.getElementById('bMine'); if (bm) bm.addEventListener('pointerdown', () => { if (musket()) trig = true; }); } catch (e) { warn('touch', e); }
   const padB = (i) => { try { for (const g of navigator.getGamepads ? navigator.getGamepads() : []) if (g && g.connected && g.buttons[i] && (g.buttons[i].pressed || g.buttons[i].value > 0.5)) return true; } catch (_) {} return false; };
