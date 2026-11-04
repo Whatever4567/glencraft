@@ -71,7 +71,7 @@
           TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
-    if (g) { TR = grip(TR, V3(-1, 0.1, 0).addScaledVector(fw, -0.1), V3(0, -0.55, 0).addScaledVector(fw, 0.85), [0.45, 1, 1, 1]); OR = O; }
+    if (g) { if (!isP) TR.add(V3(0.03, 0.15, 0.01)); TR = grip(TR, V3(-1, 0.05, 0).addScaledVector(fw, -0.1), V3(0, -1, 0).addScaledVector(fw, isP ? 0.45 : 0.3), [0.55, 1.2, 1.25, 1.3]); OR = O; }
     else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(-0.04, 0.1, -0.03)), V3(-0.25, 1, 0.1), V3(-0.3, 0.2, -1), [0.35, 0.3, 0.28, 0.3]); OR = O; }
     else if (held.children.length) { TR = grip(TR, V3(-1, 0.05, 0.1), V3(0.1, -0.15, -1), [1, 1.05, 1.1, 1.15]); OR = O; }
     solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3, OR);
