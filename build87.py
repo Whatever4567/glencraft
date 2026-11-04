@@ -108,6 +108,11 @@ R+=[("const idx = (x, y, z) => (x * H + y) * D + z;","var __XG = null, __XS = nu
 R.append(("      else if (d === 3) { if (y === 0) continue; n = world[i - D]; }","      else if (d === 3) { if (y === 0) { if (!window.__YB) continue; n = __YB(x, z); } else n = world[i - D]; }"))  # v1.1.72: bottom faces at y 0
 R.append(("        const x = a[i], y = a[i + 1], z = a[i + 2], f = stairFace(x, y, z);\n","        const x = a[i], y = a[i + 1], z = a[i + 2], f = stairFace(x, y, z);\n        if (+k !== 145 && window.__rampSt && __rampSt(x, y, z, A)) continue;\n"))
 R.append(('GOLDNUGGET: 184','GOLDNUGGET: 327'))  # v1.1.78: frees block id 184
+# v1.1.81: the pickaxe swing is timed to the real break speed
+R.append(("function swing(kind) { if (swingT <= 0) { swingT = 0.3; swingKind = kind || 'hit'; } }","let swingD = 0.3;\nfunction swing(kind) { if (swingT <= 0) { swingT = 0.3; swingD = 0.3; swingKind = kind || 'hit'; } }"))
+R.append(("if (swingT > 0) { swingT -= dt; k = Math.sin((1 - Math.max(0, swingT) / 0.3) * Math.PI); }","if (swingT > 0) { swingT -= dt; k = Math.sin((1 - Math.max(0, swingT) / swingD) * Math.PI); }"))
+R.append(("const k = swingT > 0 ? Math.sin((1 - swingT / 0.3) * Math.PI) : 0;","const k = swingT > 0 ? Math.sin((1 - swingT / swingD) * Math.PI) : 0;"))
+R.append(("  if (Math.random() < dt * 8) burst(x + .5, y + .5, z + .5, blockColor(b), 1, 1.1);\n  if (k >= 1) {","  { const tot = HARD[b] / Math.max(1e-6, speed), n = Math.max(1, Math.round(tot / 0.3)), per = Math.max(0.05, tot / n), ph = ((mine.t / Math.max(1e-6, speed)) % per) / per; swingD = per; swingT = per * (1 - ph); swingTick = per * (1 - ph); }\n  if (Math.random() < dt * 8) burst(x + .5, y + .5, z + .5, blockColor(b), 1, 1.1);\n  if (k >= 1) {"))
 for a,b in R:
   assert s.count(a)==1,a; s=s.replace(a,b)
 import sys as _s; _s.path.insert(0,'/workspace/game'); import strip_br; s=strip_br.strip(s)

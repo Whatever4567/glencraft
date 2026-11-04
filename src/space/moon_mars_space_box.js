@@ -9,7 +9,7 @@
   const PH = /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof PERF !== 'undefined' && PERF), C = CH;
   const CX = () => W / 2, CZ = () => D / 2;
   const DEF = [{id: 'moon', name: 'The Moon', R: 120, off: [2600, 2400, -2400], bump: 1.5, cr: 40, top: () => T.MOONDUST, rock: () => T.MOONROCK, deep: () => T.MOONBASALT, ores: [[() => T.MOONORE, 0.012, 14]], td: 3, core: () => T.MAGMA, mant: () => T.MOONBASALT, str: [() => T.MOONROCK, () => T.MOONROCK, () => T.MOONBASALT]},
-    {id: 'mars', name: 'Mars', R: 160, off: [-6500, -2600, 4600], bump: 5, cr: 26, top: () => T.RSAND || T.SAND, rock: () => T.MARSSTONE, deep: () => T.STONE, ores: [[() => T.MARSOXIDE, 0.03, 4], [() => T.MARSORE, 0.008, 16]], td: 2, dune: 2.2, core: () => T.MAGMA, mant: () => 206, str: [() => T.MARSSTONE, () => T.RSAND, () => T.MARSSTONE, () => T.SANDSTONE || T.RSAND]}];
+    {id: 'mars', name: 'Mars', R: 280, off: [-6500, 3000, 4600], bump: 5, cr: 26, top: () => T.RSAND || T.SAND, rock: () => T.MARSSTONE, deep: () => T.STONE, ores: [[() => T.MARSOXIDE, 0.03, 4], [() => T.MARSORE, 0.008, 16]], td: 2, dune: 2.2, core: () => T.MAGMA, mant: () => 206, str: [() => T.MARSSTONE, () => T.RSAND, () => T.MARSSTONE, () => T.SANDSTONE || T.RSAND]}];
   function Body(d) { const B = {id: d.id, name: d.name, R: d.R, d, cols: new Map(), edits: new Map(), meshes: new Map(), dirty: new Set(), coarse: null};
     const BM = Math.ceil(d.bump + (d.dune || 0) + 4), N = 2 * (d.R + BM) + 4; B.N = N;
     B.c = () => d.cc || [Math.round(CX() + d.off[0]), d.off[1], Math.round(CZ() + d.off[2])];

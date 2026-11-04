@@ -11,6 +11,7 @@
   DIRS.push([0, 1, 0]);
   const at = (x, y, z) => (x < 0 || z < 0 || x >= W || z >= D || y < 0 || y >= H) ? T.AIR : world[idx(x, y, z)];
   function scan() { const t0 = performance.now(), ex = P.x, ey = P.y + 1.6, ez = P.z, px = Math.floor(ex), pz = Math.floor(ez), top = skyTop(px, pz);
+    if (ey < 0 || ex < 0 || ez < 0 || ex >= W || ez >= D) { U.roof = 99; U.sees = 0; U.out = ey < 0 ? 0 : 1; U.n++; return; }   /* v1.1.81: below Y0 or off the old map you are simply underground or outside, no 121 ray march */
     // roof thickness straight above the eye (solid cells up to the column top)
     let roof = 0; for (let y = Math.floor(ey) + 1; y < Math.min(H, top + 1); y++) if (!SEE(at(px, y, pz))) roof++;
     // can you see the open sky (a cell above its column's top) from here?

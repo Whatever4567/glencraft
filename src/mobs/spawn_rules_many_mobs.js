@@ -72,7 +72,7 @@
     // rain: Thunner Cloudies overhead
     keep('rain', over && raining() && caveK < 0.4, 2, () => { const an = Math.random() * 6.28, r = 16 + Math.random() * 14, x = P.x + Math.sin(an) * r, z = P.z + Math.cos(an) * r; if (x < 4 || z < 4 || x > W - 4 || z > D - 4) return null; return spawn('nm22', x, topAt(x, z) + 3, z, 'rain'); }, dt);
     // ruby sites on the mountains: the Snaw Brute (day and night)
-    if (over && (rWorld !== (current && current.id + ':' + gSeed))) { rScan -= dt; if (rScan <= 0) { try { const R = rubyScan(); if (R) { U.ruby = R; rWorld = current && current.id + ':' + gSeed; } } catch (e) { U.ruby = []; rs = null; rWorld = current && current.id + ':' + gSeed; U.err = 'ruby ' + e; } } }
+    if (over && (rWorld !== (current && current.id + ':' + gSeed))) { rScan -= dt; if (rScan <= 0) { rScan = 0.08; try { const R = rubyScan(); if (R) { U.ruby = R; rWorld = current && current.id + ':' + gSeed; } } catch (e) { U.ruby = []; rs = null; rWorld = current && current.id + ':' + gSeed; U.err = 'ruby ' + e; } } }
     { let near = null, nd = 44; for (const s of U.ruby || []) { const d = dist(P, s[0], s[2]); if (d < nd) { nd = d; near = s; } }
       keep('brute', false && over && !!near, 1, () => { const [x, , z] = near; for (let t = 0; t < 8; t++) { const X = x + ((Math.random() * 7) | 0) - 3, Z = z + ((Math.random() * 7) | 0) - 3, Y = topAt(X, Z); if (Y > SEA + 12 && !getB(X, Y, Z) && !getB(X, Y + 1, Z) && !getB(X, Y + 2, Z)) { const a = spawn('nm07', X + .5, Y, Z + .5, 'brute'); if (a) a.guard = [x, z]; return a; } } return null; }, dt); }
     // the sand island: Sneerin' Swaddles on the dunes at night; the tomb: Barrow Bandagers (always)
