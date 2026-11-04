@@ -26,7 +26,7 @@
     floor2: [T.FLOW || 47, T.GLOWGRASS || T.MOSS || T.GRASS, T.ECHO || 128, T.RED || 46, T.GEODE || 190, T.CRYCYAN || T.OBSIDIAN, T.RED || 46],
     glow: [T.GLOWROCK || T.LAMP, T.CAP || 100, T.CRYCYAN || T.GLOWROCK, T.MAGMA || T.GLOWROCK, T.CRYVIOLET || T.GLOWROCK, T.GLOWROCK || T.LAMP, T.SUNSTONE || 184],
     ore: [[T.COALORE, T.IRONORE, T.COPPERORE], [T.COPPERORE, T.LAZORE, T.IRONORE], [T.SILVERORE, T.DIAMONDORE, T.REDORE], [T.GOLDORE, T.RUBYORE, T.REDORE], [T.COBALTORE, T.DIAMONDORE, T.RUBYORE], [T.DIAMONDORE, T.GOLDORE], [T.DIAMONDORE, T.GOLDORE, T.COBALTORE]].map(a => a.filter(Boolean)),
-    pool: [T.WATER, T.WATER, T.WATER, T.LAVA, T.LAVA, T.LAVA, T.LAVA]});
+    pool: [0, 0, 0, T.LAVA, T.LAVA, T.LAVA, T.LAVA]});   /* v1.1.88: one ocean only, so no water pools deep down (lava pools stay lower down) */
   function rock(i, x, y, z, surf) { const m = mats(), r = h3(x, y, z);
     if (r < 0.014) { const o = m.ore[i]; if (o.length && h3(x >> 1, y >> 1, z >> 1) < 0.5) return o[F(r * 1000) % o.length]; }
     if (surf) { const q = h3(x, 7, z); return q < 0.04 ? m.glow[i] : q < 0.45 ? m.floor[i] : q < 0.7 ? m.floor2[i] : m.rock[i][0]; }
@@ -44,7 +44,7 @@
     if (h < slab) { if (hole && h >= 0) return 0; return rock(i, x, y, z, false); }
     if (h >= flo) { if (hole) return 0;
       // pools: one chance per 48 x 48 cell, never in a hole
-      const qx = F(x / 48), qz = F(z / 48), qh = h3(qx, k + 11, qz); if (qh < 0.16 && h < flo + 2) { const ox = qx * 48 + 12 + F(h3(qz, k, qx + 5) * 24), oz = qz * 48 + 12 + F(h3(qx, k + 2, qz) * 24), r = 2.5 + qh * 22; if (Math.hypot(x - ox, z - oz) < r) return mats().pool[i]; }
+      const qx = F(x / 48), qz = F(z / 48), qh = h3(qx, k + 11, qz); if (qh < 0.16 && h < flo + 2) { const ox = qx * 48 + 12 + F(h3(qz, k, qx + 5) * 24), oz = qz * 48 + 12 + F(h3(qx, k + 2, qz) * 24), r = 2.5 + qh * 22; if (Math.hypot(x - ox, z - oz) < r && mats().pool[i]) return mats().pool[i]; }
       return rock(i, x, y, z, h < flo + 1); }
     // stalactites and stalagmites
     const s = h3(x, k + 40, z); if (s < 0.03) { const len = 1 + F(s * 230); if (h - slab < len || flo - h <= len) return rock(i, x, y, z, false); }
