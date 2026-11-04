@@ -13,7 +13,7 @@
   const big = () => { try { return !!(window.__c317 && __c317.on() && !DIM.cur); } catch (_) { return false; } };
   // v1.1.40: the saucer lives at the North Pole beside the way down to Agartha, and flies FAST (about 260 blocks a second) round the curve of the Earth to the pyramids
   function buildN(py, po) { const k = 'n' + py.cx + ',' + po.x + ',' + po.z; if (k === key && PTS) return true; key = k; const e = __c320, c = e.E(), R = e.R, ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
-    if (e.flat) { const hx = po.x + 12, hz = po.z; PTS = [['ow', hx + .5, po.top + 4, hz + .5], ['ow', hx + .5, SEA + 160, hz + .5], ['ow', py.cx + .5, SEA + 160, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]];
+    if (e.flat) { const hx = po.x + 12, hz = po.z, R0 = window.__agw && __agw.route && __agw.route(); if (window.__agw && !R0) key = ''; PTS = (R0 || [['ow', hx + .5, po.top + 4, hz + .5]]).concat([['ow', hx + .5, SEA + 160, hz + .5], ['ow', py.cx + .5, SEA + 160, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]]);   /* v1.1.87: it sleeps in the crystal city under Scotland and flies out up the spiral cave */
       let L = 0; PTS[0].push(0); for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; L += Math.hypot(p[1] - q[1], p[2] - q[2], p[3] - q[3]); p.push(L); } LEN = L; U.len = Math.round(L); U.home = 'north pole'; U.sp = 260; return true; }
     const hx = po.x + 9, hz = po.z, A = [hx - c[0], po.top + 4 - c[1], hz - c[2]], B = [py.cx + .5 - c[0], ty - c[1], py.cz + .5 - c[2]], la = Math.hypot(...A), lb = Math.hypot(...B), a = A.map(v => v / la), b = B.map(v => v / lb);
     const om = Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))), so = Math.sin(om) || 1;

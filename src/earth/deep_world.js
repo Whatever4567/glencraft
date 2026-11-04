@@ -64,25 +64,13 @@
   function gen(x, y, z, d) { try { U.n++; if (d < TOP) return rock(0, x, y, z, false); if (d >= CORE) return core(x, y, z, d);
       if (d >= CORE - 8) return rock(5, x, y, z, false); return level(x, y, z, d); } catch (e) { ERR('gen', e); return T.STONE; } }
   U.gen = gen; window.__c334.deep = (x, y, z, d) => gen(x, y, z, d);
-  // ---------- the cave way down to Agartha, where the saucer lives (a snowy island with a spiral tube) ----------
-  const PO = {x: 432, z: -400, top: SEA + 4, lat: 90, n: [0, 1, 0]}, HR = 8, TR = 3.3, DROP = 34, TURN = 4 * Math.PI; U.PO = PO;
-  const endY = () => PO.top - 1 - DROP;
-  function ent(x, y, z) { const hx = x + 0.5 - PO.x, hz = z + 0.5 - PO.z, rr = Math.hypot(hx, hz); if (rr > 16.6) return undefined; const t = PO.top;
-    if (y >= t) { if (y === t && rr > 12 && rr < 12.8 && h3(x, 1, z) < 0.18) return T.LAMP || T.GLOWROCK; return 0; }
-    // the spiral tube
-    const rho = rr - HR; if (Math.abs(rho) < TR + 0.5) { let phi = Math.atan2(hz, hx); if (phi < 0) phi += 2 * Math.PI;
-      for (let kk = 0; kk < 3; kk++) { const th = phi + kk * 2 * Math.PI; if (th > TURN + 0.3) break; const yc = t - 1 - th * DROP / TURN; const dy = y + 0.5 - yc; if (rho * rho + dy * dy < TR * TR) return 0;
-        if (dy < 0 && rho * rho + dy * dy < (TR + 1) * (TR + 1) && h3(x, y, z) < 0.06) return T.GLOWROCK || T.LAMP; } }
-    // the glowing pad at the bottom of the spiral
-    const ex = PO.x + HR * Math.cos(TURN), ez = PO.z + HR * Math.sin(TURN); if (Math.hypot(x + 0.5 - ex, z + 0.5 - ez) < 2.2 && y === Math.round(endY() - TR)) return T.GLOWROCK || T.LAMP;
-    if (y === t - 1) return T.SNOW && T.SNOW !== 178 ? T.SNOW : T.PACKSNOW || T.STONE; return y > t - 4 ? T.DIRT : T.STONE; }
-  U.ent = ent;
+  // v1.1.87: the snowy island spiral is gone; the way down to Agartha is in agartha/agartha_underground.js
   function hook() { const e = window.__c320; if (!e || !e.flat || !e.fearth || e.fearth.dw) return; if (window.__c341 && !e.fearth.c347) return; const f0 = e.fearth;
     const f = function (x, y, z) { const a = y - SEA; if (a < -40) { if (window.__ukb && __ukb.out(x, z)) return 0; return gen(x, y, z, -a); }
-      if (a < 40 && Math.abs(x - PO.x) < 18 && Math.abs(z - PO.z) < 18) { const q = ent(x, y, z); if (q !== undefined) return q; } return f0.apply(this, arguments); };
+      return f0.apply(this, arguments); };
     for (const k in f0) f[k] = f0[k]; f.c347 = f0.c347; f.top = f0.top; f.dw = 1; e.fearth = f; e.hol = null; e.pit = null; U.on++;
     try { if (window.__c324 && __c324.cache) __c324.cache.clear(); e.dirty = 1; e.edgeClr && e.edgeClr(); } catch (_) {} }
   setInterval(() => { try { hook(); } catch (er) { ERR('hook', er); } }, 300);
   // older code still asks the hollow Earth module where things are: answer for it
-  window.__c332 = {err: null, pole: PO, SH: () => PO, PY: () => null, inner: () => false, ig: () => 2, towers: () => [], where: () => { try { const d = SEA - P.y; return DIM.cur ? '' : d > 330 ? 'deep' : ''; } catch (_) { return ''; } }, toCity: () => { try { return !!(window.__agr && __agr.go()); } catch (_) { return false; } }};
+  const PO = {x: 432, z: -400, top: SEA + 4, lat: 90, n: [0, 1, 0]}; window.__c332 = {err: null, pole: PO, SH: () => PO, PY: () => null, inner: () => false, ig: () => 2, towers: () => [], where: () => { try { const d = SEA - P.y; return DIM.cur ? '' : d > 330 ? 'deep' : ''; } catch (_) { return ''; } }, toCity: () => { try { return !!(window.__agr && __agr.go()); } catch (_) { return false; } }};
 })();
