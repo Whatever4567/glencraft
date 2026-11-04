@@ -135,3 +135,4 @@ The modified CC BY-SA clips are shared under the same licence.
 
 - `assets/music/nature_day.mp3` and `assets/music/nature_night.mp3` (v1.1.51) - original nature ambience made for Glencraft (synthesised wind, a burn, birdsong by day, crickets and an owl at night; musicgen/nat.py). No samples or recordings from anyone else, released CC0. They replace the old remix soundtrack (bass and soft piano tones), whose files were removed.
 - UK soundscape (birds, owl, planes, wind, river, cave layer music, room and cave reverb and echo) in v1.1.53: procedural Web Audio synthesis, no recordings or third-party assets.
+- HD first and third person player, arms, armour and animations, death bodies, bone heaps, blood, bullet sparks and holes in v1.1.54: original procedural code and canvas-drawn textures (no third-party assets).
