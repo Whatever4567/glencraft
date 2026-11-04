@@ -34,12 +34,16 @@
     for (const a of [rig.userData.R, rig.userData.L]) { a.userData.p.up.material = m; a.userData.p.el.material = m; a.userData.p.cuff.material = m; } }
   const q = new THREE.Quaternion(), tv = V3(0, 0, 0), dv = V3(0, 0, 0);
   function aimLimb(m, from, to) { m.position.copy(from); dv.subVectors(to, from); const l = dv.length() || 1; q.setFromUnitVectors(Y, dv.divideScalar(l)); m.quaternion.copy(q); return l; }
-  function solve(a, S, T, grip, roll) { const side = a.userData.side, p = a.userData.p, d = V3(0, 0, 0).subVectors(T, S); let L = d.length(); const mx = LU + LF - 0.004; U.reach = Math.max(U.reach, L);
-    if (L > mx) { d.multiplyScalar(mx / L); T = S.clone().add(d); L = mx; } const dir = d.clone().normalize();
+  function solve(a, S, T, grip, roll, o) { O = o || null; const side = a.userData.side, p = a.userData.p, d = V3(0, 0, 0).subVectors(T, S); let L = d.length(); const mx = LU + LF - 0.004; U.reach = Math.max(U.reach, L);
+    if (L > mx) { S = T.clone().addScaledVector(d, -mx / L); d.multiplyScalar(mx / L); L = mx; } const dir = d.clone().normalize();
     const ca = Math.max(-1, Math.min(1, (LU * LU + L * L - LF * LF) / (2 * LU * L))), sa = Math.sqrt(1 - ca * ca);
     const pole = V3(side * 0.7, -1, 0.35); const perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
-    p.h.position.copy(T); p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); for (const [f, k] of p.h.userData.f) { f.rotation.x = 0.4 + grip * 0.9; k.rotation.x = 0.3 + grip * 1.3; } }
+    p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
+    const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.25; k.rotation.x = 0.15 + g2 * 1.45; }); }
+  // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
+  const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
+  function grip(G, pn, fd, c) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -0.032); }
   const local = (o, out) => { o.updateMatrixWorld(true); o.getWorldPosition(out); return camera.worldToLocal(out); };
   let lastYaw = 0, lastPitch = 0, swx = 0, swy = 0, sel = -1, sw = 1, tm = 0, sp = 0;
   const gunNow = () => { try { const g = held && held.children[0]; return g && g.userData && g.userData.gun && GUN[selId] && cnt(selId) > 0 ? g : null; } catch (_) { return null; } };
@@ -61,14 +65,18 @@
     hand.updateMatrixWorld(true);
     const SR = V3(0.2, -0.36, 0.02), SL = V3(-0.17, -0.34, -0.04), R = rig.userData.R, L = rig.userData.L;
     const isP = g && g.userData.gun === IT.PISTOL;
-    let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
+    let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; if (isP) { try { bb.setFromObject(g); const a = camera.worldToLocal(bb.min.clone()), b = camera.worldToLocal(bb.max.clone()); TR.set((a.x + b.x) / 2, Math.min(a.y, b.y) + Math.abs(b.y - a.y) * 0.3, Math.max(a.z, b.z) - Math.abs(b.z - a.z) * 0.22); TR.y -= 0.07 * k; TR.z += 0.05 * k; } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
-    solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3);
+    let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
+    if (g) { TR = grip(TR, V3(-1, 0.1, 0).addScaledVector(fw, -0.1), V3(0, -0.55, 0).addScaledVector(fw, 0.85), [0.45, 1, 1, 1]); OR = O; }
+    else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(-0.04, 0.1, -0.03)), V3(-0.25, 1, 0.1), V3(-0.3, 0.2, -1), [0.35, 0.3, 0.28, 0.3]); OR = O; }
+    else if (held.children.length) { TR = grip(TR, V3(-1, 0.05, 0.1), V3(0.1, -0.15, -1), [1, 1.05, 1.1, 1.15]); OR = O; }
+    solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3, OR);
     let two = false; if (g) { two = !isP || k > 0.3; if (two) { let TL;
         if (!isP) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); TL = null; for (let f = 0.55; f >= 0.15; f -= 0.05) { const c = TR.clone().lerp(mz, f); c.y -= 0.03; if (c.distanceTo(SL) <= LU + LF - 0.01) { TL = c; break; } } if (!TL) { TL = TR.clone().lerp(mz, 0.15); TL.y -= 0.03; } }
         else { TL = TR.clone().add(V3(-0.035, -0.02, 0.015)); }
         if (rp >= 0 && rw && isP) TL.add(V3(-0.05 * rw, -0.22 * rw, 0.06 * rw));
-        solve(L, SL, TL, 0.9, 0.5); } }
+        const OL0 = isP ? grip(TL, V3(1, 0.1, 0), V3(0, -0.5, 0).addScaledVector(fw, 0.8), [0.95, 1, 1, 1]) : grip(TL, V3(0.1, 1, 0), V3(1, 0.15, 0).addScaledVector(fw, -0.35), [0.85, 0.9, 0.95, 1]); solve(L, SL, OL0, 0.9, 0.5, O); } }
     L.visible = !!two; U.two = two ? 1 : 0; }
   // first person torso: your stomach, belt and kilt joined to the legs when you look down
   let torso = null;

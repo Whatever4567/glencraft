@@ -10,7 +10,13 @@
   let rmb = false, lmbEdge = false, tLT = false, tRT = false, padPrev = false;
   addEventListener('mousedown', e => { if (e.button === 2) rmb = true; if (e.button === 0 && (typeof pointerLocked === 'undefined' || pointerLocked)) lmbEdge = true; });
   addEventListener('mouseup', e => { if (e.button === 2) rmb = false; });
-  addEventListener('blur', () => { rmb = false; tLT = false; });
+  /* v1.1.55: never get stuck aiming (a lost mouse-up during jetpack flight left the camera inside the gun) */
+  addEventListener('mousemove', e => { if (rmb && !(e.buttons & 2)) rmb = false; }); addEventListener('blur', () => { rmb = false; }); document.addEventListener('pointerlockchange', () => { rmb = false; });
+  addEventListener('blur', () => { rmb = false; tLT = false; tHold = false; });
+  // v1.1.55: the on-screen RT fires even if another layer eats the button events - caught at the document, tap fires, hold keeps firing
+  let tHold = false, lastAuto = 0; const onRT = e => { const t = e.target; return !!(t && t.closest && t.closest('#bMine')); };
+  for (const ev of ['touchstart', 'pointerdown']) document.addEventListener(ev, e => { if (onRT(e) && !tHold) { tHold = true; tRT = true; lastAuto = performance.now(); } }, {capture: true, passive: true});
+  for (const ev of ['touchend', 'touchcancel', 'pointerup', 'pointercancel']) document.addEventListener(ev, e => { if (ev[0] === 'p' && e.pointerType === 'mouse' && !onRT(e)) return; if (!e.touches || !e.touches.length || ![...e.touches].some(x => x.target && x.target.closest && x.target.closest('#bMine'))) tHold = false; }, {capture: true, passive: true});
   function touchHook() { for (const [id, on, off] of [['bPlace', () => { tLT = true; }, () => { tLT = false; }], ['bMine', () => { tRT = true; }, () => {}]]) { const el = document.getElementById(id); if (!el || el.__c288) continue; el.__c288 = 1;
       el.addEventListener('touchstart', on, {passive: true}); el.addEventListener('touchend', off, {passive: true}); el.addEventListener('touchcancel', off, {passive: true}); } }
   const pad = () => { try { for (const g of navigator.getGamepads ? navigator.getGamepads() : []) if (g && g.connected) return g; } catch (_) {} return null; };
@@ -25,7 +31,8 @@
   U.fire = fire;
   let k = 0, last = performance.now();
   setInterval(() => { try { touchHook(); const g = pad(), rt = !!(g && g.buttons[7] && (g.buttons[7].pressed || g.buttons[7].value > 0.4)), lt = !!(g && g.buttons[6] && (g.buttons[6].pressed || g.buttons[6].value > 0.4));
-      const rtEdge = (rt && !padPrev) || lmbEdge || tRT; padPrev = rt; lmbEdge = false; tRT = false;
+      const nowA = performance.now(), auto = (tHold || (rt && padPrev)) && nowA - lastAuto > 140; if (auto || tRT || (rt && !padPrev)) lastAuto = nowA;
+      const rtEdge = (rt && !padPrev) || lmbEdge || tRT || auto; padPrev = rt; lmbEdge = false; tRT = false;
       U.aiming = live() && gunHeld() && (lt || rmb || tLT);
       if (rtEdge && live()) { if (gunHeld()) fire(); else if (toolHeld()) { try { __c290.rt(); U.marks++; } catch (e) { ERR('mark', e); } } } } catch (e) { ERR('poll', e); } }, 30);
   /* v1.1.28: the pistol sights go to the exact screen centre: measure the gun in camera space and move the hand by the difference */
