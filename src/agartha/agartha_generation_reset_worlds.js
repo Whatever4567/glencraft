@@ -115,7 +115,7 @@
       const m = U.M, inner = m && (!DIM.cur ? (() => { const e = m.e, d = e === 'N' ? P.z : e === 'S' ? D - P.z : e === 'W' ? P.x : W - P.x, a = (e === 'N' || e === 'S' ? P.x : P.z) - m.c; return d < 5 && Math.abs(a) < 18 && P.y < SEA + 28; })() : false);
       if (!DIM.cur && inner) { cool = performance.now() + 4000; const [X, Z] = WP(m, 14, 0); P.x = X + 0.5; P.z = Z + 0.5;
         await enterDim('agartha', genAg, spawnAg); if (DIM.cur === 'agartha') { spawnAg(); toast('The tunnel runs on, out past the edge of the world...'); dirtyAll = true; } }
-      else if (DIM.cur === 'agartha' && P.z < 4) { cool = performance.now() + 4000; await exitDim(); if (m) { const [X, Z] = WP(m, 12, 0); P.x = X + 0.5; P.z = Z + 0.5; P.y = SEA + 2.05; } toast('Back at the ice wall.'); } } catch (e) { ERR('tp', e); } }, 250);
+      else if (DIM.cur === 'agartha' && P.z < 4 && !window.__agr) { cool = performance.now() + 4000; await exitDim(); if (m) { const [X, Z] = WP(m, 12, 0); P.x = X + 0.5; P.z = Z + 0.5; P.y = SEA + 2.05; } toast('Back at the ice wall.'); } } catch (e) { ERR('tp', e); } }, 250);
   U.WP = (d, a) => U.M ? WP(U.M, d, a) : null; U.AG = {CX, CZ, TL, AW, AD};
   Object.defineProperty(U, 'L', {get() { return DIM.cur === 'agartha' ? U.A : (!DIM.cur && window.__c307 && __c307.ready && __c307.L) || (U.Lw && U.Lw.v === 2 ? U.Lw : null); }, set(v) { U.Lw = v; }, configurable: true});
   const gen = generate; generate = function () { U.L = null; U.M = null; const r = gen.apply(this, arguments); try { if (on()) { build(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
