@@ -192,7 +192,7 @@
     return st; }
   // ---- no sky in caves: underground the fog and background go dark, the fog closes in inside the drawn area, and the sky dome / sun / moon / clouds are hidden ----
   const DARK = new THREE.Color(0x0e1116); let uk = 0;
-  function sky12(dt) { let t = 0; try { if (started && !DIM.cur && W > 80) { const d = caveDepth(); t = Math.max(0, Math.min(1, (d - 2.5) / 7)); } } catch (_) {}
+  function sky12(dt) { let t = 0; try { if (started && !DIM.cur && W > 80) { const d = caveDepth(); t = Math.max(0, Math.min(1, (d - 2.5) / 7)); if (P.y < 1 && !(window.__c298 && __c298.sky)) t = Math.max(t, Math.min(1, (1 - P.y) / 4)); } } catch (_) {}
     uk += (t - uk) * Math.min(1, dt * 3 + (dt ? 0 : 1)); U.uk = uk;
     if (uk > 0.01 && scene.fog) { scene.fog.color.lerp(DARK, uk * 0.9); scene.background.copy(scene.fog.color); const lim = 34 + 18 * (SET.dist || 0); if (scene.fog.far > lim) { scene.fog.far += (lim - scene.fog.far) * uk; scene.fog.near = Math.min(scene.fog.near, scene.fog.far * 0.4); } }
     const hide = uk > 0.45, objs = [skyDome, typeof stars !== 'undefined' && stars, typeof sunDisc !== 'undefined' && sunDisc, typeof moonDisc !== 'undefined' && moonDisc, typeof moonHalo !== 'undefined' && moonHalo, typeof scenery !== 'undefined' && scenery].concat(typeof clouds !== 'undefined' ? clouds : []);
