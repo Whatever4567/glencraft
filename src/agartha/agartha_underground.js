@@ -11,7 +11,7 @@
   // the crystal city and tunnel are made once by the original Agartha maker, then kept as a block stamp under Scotland
   function build() { const t0 = performance.now(), sv = {world, W, D, H, dim: DIM.cur}; let A = null; DIM.cur = 'agartha';
     try { __c294.genAg(); A = __c294.A; SW = W; SD = D - ZS; const st = new Uint8Array(SW * YN * SD);
-      for (let x = 0; x < SW; x++) for (let z = 0; z < SD; z++) for (let y = 0; y < YN; y++) st[(x * SD + z) * YN + y] = world[idx(x, y, z + ZS)];
+      for (let x = 0; x < SW; x++) for (let z = 0; z < SD; z++) for (let y = 0; y < YN; y++) { const b = world[idx(x, y, z + ZS)]; st[(x * SD + z) * YN + y] = (b && (b === T.HBEDROCK || b === T.BEDROCK)) ? (T.DEEPSLATE || T.STONE) : b; }   /* v1.1.92: no bedrock floor under Agartha, you can dig on down into the deep layers */
       S = st; } finally { DIM.cur = sv.dim; world = sv.world; W = sv.W; D = sv.D; H = sv.H; }
     const dz = -ZS; L = {v: 2, ag: 3, cry105: 1, city: [A.city[0] + AX, A.city[1] + dz, A.city[2]], FL: A.FL + AY, TOP: A.TOP + AY, spires: (A.spires || []).map(s => [s[0] + AX, s[1] + dz].concat(s.slice(2))), under: 1};
     U.L = L; U.box = [AX, AY, 0, AX + SW, AY + YN, SD]; U.ms = Math.round(performance.now() - t0); U.ok = 1; }
