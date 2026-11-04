@@ -12,12 +12,12 @@
   const aim = () => { try { return !!((window.__c288 && __c288.aiming) || (window.__c145 && __c145.hold)); } catch (_) { return false; } };
   let hid = []; const armVis = (on, g) => { try { if (on) { for (const o of hid) o.visible = true; hid = []; return; } if (hid.length) return; for (const ch of hand.children) { let a = g, inG = false; while (a) { if (a === ch) { inG = true; break; } a = a.parent; } if (!inG && ch.visible) { ch.visible = false; hid.push(ch); } } U.hid = hid.length; } catch (_) {} };
   let k = 0, kick = 0, last = performance.now();
-  const HIP = {pistol: [0.2, -0.17, -0.44], rifle: [0.2, -0.2, -0.5]};
+  const HIP = {pistol: [0.19, -0.12, -0.44], rifle: [0.19, -0.14, -0.5]};
   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { const g = gun(); U.on = g ? 1 : 0; if (!g || tp()) { armVis(true); return r; }
         const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; k += ((aim() ? 1 : 0) - k) * (1 - Math.exp(-d * 14)); U.k = +k.toFixed(2); kick *= Math.exp(-d * 11);
         if (now - (U.lt || 0) > 400) { U.lt = now; held.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) if (m.emissive && m.color && !m.emissive.getHex()) { U.lit = (U.lit || 0) + 1; m.emissive.copy(m.color).multiplyScalar(0.45); if (m.emissiveMap === null && m.map) m.emissiveMap = m.map; m.needsUpdate = true; } }); }
         if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData, s0 = sc.x * hand.scale.x, s = (u.__s0 && Math.abs(s0 / u.__s0 - 1) > 0.02) ? u.__s0 : (u.__s0 = u.__s0 || s0), isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
-        const h = HIP[isP ? 'pistol' : 'rifle'], ads = [0, (isP ? -0.035 : -0.03), (isP ? -0.26 : -0.42) - 0.16 * s];
+        const h0 = HIP[isP ? 'pistol' : 'rifle'], asp = Math.min(1, (camera.aspect || 1.6) / 1.6), h = [h0[0] * (0.35 + 0.65 * asp), h0[1], h0[2]], ads = [0, (isP ? -0.035 : -0.03), (isP ? -0.26 : -0.42) - 0.16 * s];
         const tx = h[0] + (ads[0] - h[0]) * k, ty = h[1] + (ads[1] - h[1]) * k + 0.01 * kick, tz = h[2] + (ads[2] - h[2]) * k + (isP ? 0.05 : 0.08) * kick;
         const tgt = new THREE.Vector3(tx, ty, tz).sub(sg.clone().multiplyScalar(k)); E.set((isP ? 0.28 : 0.16) * kick, -0.04 * (1 - k), 0); const Q = new THREE.Quaternion().setFromEuler(E);
         Md.compose(tgt, Q, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.copy(sc); armVis(k < 0.5, g); } catch (e) { ERR('hand', e); } return r; }; } catch (e) { ERR('uh', e); }

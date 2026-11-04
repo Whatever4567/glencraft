@@ -20,9 +20,9 @@
   function mkHand(side) { const h = new THREE.Group(); const palm = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.095, 0.03, 3, 3, 2), skinM); palm.position.set(0, 0.05, 0); h.add(palm);
     const pp = palm.geometry.attributes.position; for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); pp.setZ(i, z * (1 - Math.abs(x) * 4)); } palm.geometry.computeVertexNormals();
     h.userData.f = [];
-    for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.019, 0.097, 0.004); const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(0.0066, skinM); tip.position.y = 0.03; k.add(tip);
+    for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(0.0066, skinM); tip.position.y = 0.03; k.add(tip);
       f.rotation.x = 1.0; k.rotation.x = 1.2; h.add(f); h.userData.f.push([f, k]); }
-    const th = new THREE.Group(); th.position.set(-side * 0.036, 0.03, 0.012); th.rotation.set(0.6, 0, side * 0.9); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); h.add(th);
+    const th = new THREE.Group(); th.position.set(-side * 0.036, 0.03, 0.012); th.rotation.set(0.6, 0, side * 0.9); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
     const wr = limb(0.03, 0.028, 0.03, skinM, 12); wr.position.y = -0.02; h.add(wr); return h; }
   function mkArm(side) { const a = new THREE.Group(); a.userData.side = side;
     const up = limb(0.078, 0.066, LU, shirtM); a.add(up); const el = ball(0.066, shirtM); a.add(el); const fo = limb(0.06, 0.042, LF, skinM); a.add(fo);
@@ -40,7 +40,8 @@
     const pole = V3(side * 0.7, -1, 0.35); const perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
     p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
-    const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.25; k.rotation.x = 0.15 + g2 * 1.45; }); }
+    const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
+    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.6 + tg * 0.35, 0, side * (0.9 - tg * 0.6)); th.userData.k.rotation.set(tg * 0.35, 0, side * tg * 1.0); } }
   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
   const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
   function grip(G, pn, fd, c) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -0.032); }
@@ -60,12 +61,14 @@
     else { hand.position.x += swx * 0.6; hand.position.y += swy * 0.6 + br; }
     hand.position.y -= dip; hand.rotation.x -= dip * 1.5;
     // reload: the gun tips, the hands work it
-    let rp = -1; try { if (gunReload > 0 && GUN[gunReloadId] && gunReloadId === selId) rp = 1 - gunReload / GUN[gunReloadId].reload; } catch (_) {} U.rel = rp >= 0 ? +rp.toFixed(2) : 0;
+    let rp = -1; try { if (gunReload > 0 && GUN[gunReloadId] && gunReloadId === selId) rp = 1 - gunReload / GUN[gunReloadId].reload; } catch (_) {} try { const R = window.__rl; if (rp < 0 && R && R.t > 0 && R.id === selId) { const x = 1 - R.t / R.dur; rp = x * x * (3 - 2 * x); } } catch (_) {} U.rel = rp >= 0 ? +rp.toFixed(2) : 0;
     const rw = rp >= 0 ? Math.sin(Math.min(1, rp) * Math.PI) : 0; if (g && rw) { hand.rotation.z += 0.5 * rw; hand.rotation.x += 0.25 * rw; hand.position.y -= 0.03 * rw; }
     hand.updateMatrixWorld(true);
     const SR = V3(0.2, -0.36, 0.02), SL = V3(-0.17, -0.34, -0.04), R = rig.userData.R, L = rig.userData.L;
     const isP = g && g.userData.gun === IT.PISTOL;
-    let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; if (isP) { try { bb.setFromObject(g); const a = camera.worldToLocal(bb.min.clone()), b = camera.worldToLocal(bb.max.clone()); TR.set((a.x + b.x) / 2, Math.min(a.y, b.y) + Math.abs(b.y - a.y) * 0.3, Math.max(a.z, b.z) - Math.abs(b.z - a.z) * 0.22); TR.y -= 0.07 * k; TR.z += 0.05 * k; } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
+    let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; { try { let lb = g.userData.__lb; if (!lb) { lb = new THREE.Box3(); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), mm = new THREE.Matrix4(); g.traverse(m => { if (m.isMesh && m.geometry) { m.geometry.computeBoundingBox(); mm.multiplyMatrices(inv, m.matrixWorld); lb.union(m.geometry.boundingBox.clone().applyMatrix4(mm)); } }); g.userData.__lb = lb; }
+          const fwL = g.userData.muzzle ? g.worldToLocal(g.userData.muzzle.getWorldPosition(V3(0, 0, 0))).sub(lb.getCenter(V3(0, 0, 0))) : V3(0, 0, -1), back = fwL.z < 0 ? lb.max.z : lb.min.z, dz = (lb.max.z - lb.min.z) * (fwL.z < 0 ? -1 : 1);
+          TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
     if (g) { TR = grip(TR, V3(-1, 0.1, 0).addScaledVector(fw, -0.1), V3(0, -0.55, 0).addScaledVector(fw, 0.85), [0.45, 1, 1, 1]); OR = O; }
@@ -86,7 +89,12 @@
     let kt = null; try { kt = new THREE.MeshStandardMaterial({map: tartanTex, roughness: 0.8, side: THREE.DoubleSide}); } catch (_) {}
     const k = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.27, 0.36, 22, 1, true), kt || lea); k.scale.z = 0.66; k.position.y = 0.66; torso.add(k);
     const sp2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.04, 2, 2, 1), lea); sp2.position.set(0, 0.72, 0.18); torso.add(sp2);
-    torso.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } }); scene.add(torso); }
+    const lg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.24, 0.32, 22), sh); lg.scale.z = 0.66; lg.position.y = 0.68; lg.visible = false; torso.add(lg); torso.userData = {k, b, sh, lg}; torso.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } }); scene.add(torso); }
   try { const uw = updateWorldModel; updateWorldModel = function () { const r = uw.apply(this, arguments); try { const on = camMode === 0 && started && !DIM.cur && !(window.__swimHide) && SET.legs !== 0 && !(MODE.fly && flying) && P.pitch < -0.5;
-        if (on && !torso) mkTorso(); if (torso) { torso.visible = on; if (on) { const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), back = 0.12; torso.position.set(P.x - fx * back, P.y + (typeof landDip === 'number' ? landDip * 0.5 : 0), P.z - fz * back); torso.rotation.y = P.yaw + Math.PI; } } U.torso = on ? 1 : 0; if (U.on) hideOld(true); } catch (e) { ERR('torso', e); } return r; }; } catch (e) { ERR('uw', e); }
+        if (on && typeof worldModel !== 'undefined' && !worldModel) { try { worldModel = buildPlayerModel(false); scene.add(worldModel); dressModel(worldModel); heldId = -1; } catch (_) {} }
+        window.__fpHD = 1; if (torso) torso.visible = false;   /* v1.1.57: looking down shows the new HD model body (torso, kilt or leggings, legs and armour), not the old meshes */
+        const wm = typeof worldModel !== 'undefined' ? worldModel : null, u = wm && wm.userData; if (wm && u && u.hd && camMode === 0) { wm.visible = on; if (on) { const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), back = 0.3;
+            wm.position.set(P.x - fx * back, P.y + (typeof landDip === 'number' ? landDip * 0.5 : 0), P.z - fz * back); wm.rotation.y = P.yaw + Math.PI; u.head.visible = false; for (const a of u.arms) a.visible = false;
+            const sw2 = Math.sin(typeof bobPhase === 'number' ? bobPhase : 0) * 0.7 * (typeof bobAmp === 'number' ? bobAmp : 0); if (u.legs[0]) { u.legs[0].rotation.x = sw2; u.legs[1].rotation.x = -sw2; } } }
+        else if (wm && u && u.head) { u.head.visible = true; for (const a of u.arms || []) a.visible = true; } U.torso = on ? 1 : 0; if (U.on) hideOld(true); } catch (e) { ERR('torso', e); } return r; }; } catch (e) { ERR('uw', e); }
 })();

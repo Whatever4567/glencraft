@@ -34,7 +34,7 @@
     const sash = M(rbox(0.11, 0.78, 0.29, 0.03), kiltM, 0, 1.18, 0.006, torso); sash.rotation.z = 0.62;
     M(rbox(0.52, 0.08, 0.3, 0.03), leather, 0, 0.88, 0, torso); M(rbox(0.09, 0.07, 0.02, 0.01), metal, 0, 0.88, 0.155, torso);
     const kg = new THREE.CylinderGeometry(0.29, 0.37, 0.44, 40, 2, true), kp = kg.attributes.position; for (let i = 0; i < kp.count; i++) { const a = Math.atan2(kp.getZ(i), kp.getX(i)), f = 1 + 0.035 * Math.abs(Math.sin(a * 10)) * (0.5 - kp.getY(i) / 0.44); kp.setX(i, kp.getX(i) * f); kp.setZ(i, kp.getZ(i) * f); } kg.computeVertexNormals();
-    const kilt = M(kg, kiltM, 0, 0.64, 0, torso); kilt.scale.z = 0.64;
+    const kilt = M(kg, kiltM, 0, 0.64, 0, torso); kilt.scale.z = 0.64; const kilts = [kilt];
     M(rbox(0.16, 0.18, 0.05, 0.03), leather, 0, 0.71, 0.21, torso); for (const sx of [-0.04, 0.04]) M(new THREE.SphereGeometry(0.018, 8, 6), hair, sx, 0.64, 0.24, torso);
     const arms = [], legs = [], fore = [], shin = [];
     for (const sx of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(sx * 0.33, 1.42, 0); g.add(piv);
@@ -43,10 +43,11 @@
       const hnd = M(rbox(0.12, 0.13, 0.08, 0.035), skin, 0, -0.32, 0.005, el); hnd.userData.hand = 1;
       const grip = new THREE.Group(); grip.position.set(0, -0.33, 0.04); el.add(grip); piv.userData.grip = grip; piv.userData.el = el; arms.push(piv); fore.push(el); }
     for (const sx of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(sx * 0.12, 0.62, 0); g.add(piv);
-      M(rbox(0.19, 0.2, 0.2, 0.08), skin, 0, -0.08, 0, piv); M(rbox(0.205, 0.04, 0.205, 0.02), kiltM, 0, -0.19, 0, piv);
+      M(rbox(0.19, 0.2, 0.2, 0.08), skin, 0, -0.08, 0, piv); kilts.push(M(rbox(0.205, 0.04, 0.205, 0.02), kiltM, 0, -0.19, 0, piv));
       const kn = new THREE.Group(); kn.position.y = -0.2; piv.add(kn); M(rbox(0.2, 0.3, 0.2, 0.08), sock, 0, -0.15, 0, kn);
       M(rbox(0.22, 0.11, 0.32, 0.05), leather, 0, -0.36, 0.04, kn); piv.userData.kn = kn; legs.push(piv); shin.push(kn); }
-    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1};
+    const lids = []; for (const sx of [-1, 1]) { const l = M(new THREE.SphereGeometry(0.052, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), skin, sx * 0.1, 0.27, 0.205, head); l.rotation.x = Math.PI / 2; l.scale.set(1, 0.35, 0.02); l.visible = false; l.castShadow = false; lids.push(l); }
+    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3};
     g.traverse(o => { if (o.isMesh) o.castShadow = true; }); U.built++; return g; }
   // HD armour fitted to the new body
   try { const fp0 = fitPiece; fitPiece = function (add, u, slot, m) { if (!u.hd) return fp0.apply(this, arguments);
@@ -57,6 +58,12 @@
       if (slot === 2) { const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.38, 0.3, 28, 1, true), m); sk.scale.z = 0.64; sk.position.y = 0.72; m.side = THREE.DoubleSide; u.torso.add(sk); u.armourParts.push(sk); u.legs.forEach(l => P_(l, rbox(0.22, 0.16, 0.22, 0.06), 0, -0.1, 0)); }
       if (slot === 3) u.legs.forEach(l => { const k = l.userData.kn || l; P_(k, rbox(0.23, 0.13, 0.34, 0.05), 0, -0.36, 0.04); P_(k, rbox(0.22, 0.2, 0.22, 0.06), 0, -0.2, 0); P_(k, rbox(0.12, 0.1, 0.06, 0.03), 0, -0.02, 0.1); });
     }; } catch (e) { ERR('fit', e); }
+  // v1.1.57: the new model blinks again, every 2 to 6 seconds, a quick soft close and open of the eyelids
+  try { const uw = updateWorldModel; let lt = performance.now(); updateWorldModel = function () { const r = uw.apply(this, arguments); try { const now = performance.now(), dt = Math.min(0.1, (now - lt) / 1000); lt = now;
+      for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 2 + Math.random() * 4;
+        for (const l of u.lids) { l.visible = k > 0.05; l.scale.z = Math.max(0.02, k); } } } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
+  // v1.1.57: leggings hide the kilt (it clipped through them) and taking them off brings it back
+  try { const dm0 = dressModel; dressModel = function (m) { const r = dm0.apply(this, arguments); try { const ks = m && m.userData && m.userData.kilts; if (ks) { const on = !(armour && armour[2]); for (const k of ks) k.visible = on; } } catch (_) {} return r; }; } catch (e) { ERR('kilt', e); }
   try { buildPlayerModel = function (pbr) { return build(pbr); }; } catch (e) { ERR('bpm', e); }
   // swap any model already made
   setTimeout(function swap() { try { if (typeof worldModel !== 'undefined' && worldModel && !worldModel.userData.hd) { const v = worldModel.visible; scene.remove(worldModel); worldModel = build(false); worldModel.visible = v; scene.add(worldModel); dressModel(worldModel); heldId = -1; try { setHeld(selId); } catch (_) {} }
