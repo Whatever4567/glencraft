@@ -6,9 +6,11 @@
   const U = window.__tph = {err: null, built: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   // a box with rounded edges (keeps the six face material groups, so the face texture still maps to the front)
-  function rbox(w, h, d, r, seg) { seg = seg || 4; const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position, v = new THREE.Vector3(), c = new THREE.Vector3();
-    const ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); c.set(Math.max(-ix, Math.min(ix, v.x)), Math.max(-iy, Math.min(iy, v.y)), Math.max(-iz, Math.min(iz, v.z)));
-      const o = v.clone().sub(c); if (o.lengthSq() > 1e-9) o.setLength(r); v.copy(c).add(o); p.setXYZ(i, v.x, v.y, v.z); } g.computeVertexNormals(); return g; }
+  let rbox = function (w, h, d, r, seg) { seg = seg || 4; const g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), p = g.attributes.position, v = new THREE.Vector3(), c = new THREE.Vector3();
+    const nr = g.attributes.normal, ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); c.set(Math.max(-ix, Math.min(ix, v.x)), Math.max(-iy, Math.min(iy, v.y)), Math.max(-iz, Math.min(iz, v.z)));
+      const o = v.clone().sub(c); if (o.lengthSq() > 1e-9) o.setLength(r); v.copy(c).add(o); p.setXYZ(i, v.x, v.y, v.z); nr.setXYZ(i, o.x / r || 0, o.y / r || 0, o.z / r || 0); } g.attributes.normal.needsUpdate = true; return g; }
+  // v1.1.61: smooth shading (the normal at every point is the true rounded normal, so no hard creases) and two levels of detail per part
+  const RB = rbox; let LODS = null; rbox = function (w, h, d, r, seg) { const hi = RB(w, h, d, Math.min(r * 1.35, Math.min(w, h, d) * 0.48), seg || 8); if (LODS) { const lo = RB(w, h, d, Math.min(r * 1.35, Math.min(w, h, d) * 0.48), 3); LODS.push([hi, lo]); } return hi; };
   U.rbox = rbox;
   function tex(fn, s) { const c = document.createElement('canvas'); c.width = c.height = s || 256; fn(c.getContext('2d'), s || 256); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t; }
   let TX = null; function texs() { if (TX) return TX; TX = {
@@ -18,7 +20,7 @@
       sock: tex((g, s) => { g.fillStyle = '#e6decb'; g.fillRect(0, 0, s, s); for (let y = 0; y < s; y += 6) for (let x = 0; x < s; x += 6) { g.fillStyle = (x + y) % 12 ? 'rgba(160,150,130,.25)' : 'rgba(255,255,255,.2)'; g.fillRect(x, y, 5, 5); } }),
       hair: tex((g, s) => { g.fillStyle = '#4a2f1c'; g.fillRect(0, 0, s, s); for (let i = 0; i < 1800; i++) { g.strokeStyle = `rgba(${40 + Math.random() * 50 | 0},${25 + Math.random() * 25 | 0},12,.6)`; g.beginPath(); const x = Math.random() * s, y = Math.random() * s; g.moveTo(x, y); g.lineTo(x + Math.random() * 4 - 2, y + 8 + Math.random() * 10); g.stroke(); } }) };
     return TX; }
-  function build(pbr) { try { playerTextures(); } catch (_) {} const T_ = texs(), g = new THREE.Group();
+  function build(pbr) { try { playerTextures(); } catch (_) {} const T_ = texs(), g = new THREE.Group(); LODS = [];
     const std = o => { const m = new THREE.MeshStandardMaterial(Object.assign({roughness: .7, metalness: 0}, o)); return m; };
     const skin = std({color: 0xe0ac86, roughness: .5}), shirt = std({map: T_.linen, roughness: .9}), leather = std({map: T_.leather, roughness: .45}), sock = std({map: T_.sock, roughness: .95}), hair = std({map: T_.hair, roughness: .6});
     let faceM = skin, kiltM = leather; try { faceM = std({map: faceTexP, roughness: .5}); } catch (_) {} try { kiltM = std({map: tartanTex, roughness: .78, side: THREE.DoubleSide}); } catch (_) {}
@@ -48,7 +50,10 @@
       M(rbox(0.22, 0.11, 0.32, 0.05), leather, 0, -0.36, 0.04, kn); piv.userData.kn = kn; legs.push(piv); shin.push(kn); }
     const lids = []; for (const sx of [-1, 1]) { const l = M(new THREE.SphereGeometry(0.052, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), skin, sx * 0.1, 0.27, 0.205, head); l.rotation.x = Math.PI / 2; l.scale.set(1, 0.35, 0.02); l.visible = false; l.castShadow = false; lids.push(l); }
     g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3};
-    g.traverse(o => { if (o.isMesh) o.castShadow = true; }); U.built++; return g; }
+    const lm = new Map(LODS.map(([a, b]) => [a, b])); g.userData.lod = []; g.traverse(o => { if (o.isMesh) { o.castShadow = true; const lo = lm.get(o.geometry); if (lo) g.userData.lod.push([o, o.geometry, lo]); } }); LODS = null; g.userData.lv = 0;
+    // hands get fingers and a thumb
+    for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.05, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.078, 8)), skin, -0.039 + i * 0.026, -0.085, 0.012, hn); f.rotation.x = 0.35; } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.016, 0.04, 3, 8) : new THREE.CylinderGeometry(0.016, 0.016, 0.072, 8)), skin, 0.058, -0.03, 0.03, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
+    U.built++; return g; }
   // HD armour fitted to the new body
   try { const fp0 = fitPiece; fitPiece = function (add, u, slot, m) { if (!u.hd) return fp0.apply(this, arguments);
       const P_ = (par, geo, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; par.add(o); u.armourParts.push(o); return o; };
@@ -61,7 +66,7 @@
   // v1.1.57: the new model blinks again, every 2 to 6 seconds, a quick soft close and open of the eyelids
   try { const uw = updateWorldModel; let lt = performance.now(); updateWorldModel = function () { const r = uw.apply(this, arguments); try { const now = performance.now(), dt = Math.min(0.1, (now - lt) / 1000); lt = now;
       for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 2 + Math.random() * 4;
-        for (const l of u.lids) { l.visible = k > 0.05; l.scale.z = Math.max(0.02, k); } } } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
+        for (const l of u.lids) { l.visible = k > 0.05; l.scale.z = Math.max(0.02, k); } } try { const wm = typeof worldModel !== 'undefined' && worldModel, u2 = wm && wm.userData; if (u2 && u2.lod) { const d = camera.getWorldPosition(new THREE.Vector3()).distanceTo(wm.position), lv = d > 16 ? 1 : 0; if (lv !== u2.lv) { u2.lv = lv; for (const [m, hi, lo] of u2.lod) m.geometry = lv ? lo : hi; } U.lv = lv; } } catch (_) {} } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
   // v1.1.57: leggings hide the kilt (it clipped through them) and taking them off brings it back
   try { const dm0 = dressModel; dressModel = function (m) { const r = dm0.apply(this, arguments); try { const ks = m && m.userData && m.userData.kilts; if (ks) { const on = !(armour && armour[2]); for (const k of ks) k.visible = on; } } catch (_) {} return r; }; } catch (e) { ERR('kilt', e); }
   try { buildPlayerModel = function (pbr) { return build(pbr); }; } catch (e) { ERR('bpm', e); }
