@@ -13,7 +13,7 @@
   const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null;
   const drop = k => { const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
   const dropAll = () => { for (const k of [...meshes.keys()]) drop(k); stale.clear(); };
-  U.dirty = new Set(); const stale = new Set();
+  U.dirty = new Set(); const eB = {k: null, v: null, m: null}; const stale = new Set();
   // v1.1.38: generated blocks are cached in 8 high slabs per chunk column, so digging, walking and going down rebuild from the cache, not from the noise
   const SL = 8, SW = C + 2, cache = new Map(); let eV = -1, eL = [];
   function slab(ax, piv, cx, cz, sy) { const key = ax + '|' + piv.join() + '|' + cx + ',' + cz + ',' + sy; let A = cache.get(key); if (A) { cache.delete(key); cache.set(key, A); return A; }
@@ -35,8 +35,11 @@
         if (!any && i > 0 && i <= C) for (let k = 1; k <= C; k++) if (A[src + k]) { any = true; break; } } }
     // dug or placed blocks: the edits list is read once per change, not once per block
     if (e.edits.size) { if (eV === -1) { eV = 0; eL = []; for (const [k, v] of e.edits) { const q = k.split(',').map(Number); q[3] = v | 0; eL.push(q); } }
-      const m = MS[ax]; for (const q of eL) { const vx = q[0] + 0.5 - piv[0], vy = q[1] + 0.5 - piv[1], vz = q[2] + 0.5 - piv[2];
-        const lx = Math.round(m[0][0] * vx + m[0][1] * vy + m[0][2] * vz + piv[0] - 0.5), ly = Math.round(m[1][0] * vx + m[1][1] * vy + m[1][2] * vz + piv[1] - 0.5), lz = Math.round(m[2][0] * vx + m[2][1] * vy + m[2][2] * vz + piv[2] - 0.5);
+      const m = MS[ax], bk = ax + '|' + piv.join(); if (eB.k !== bk || eB.v !== eL) { eB.k = bk; eB.v = eL; eB.m = new Map();   /* v1.1.86: edits are sorted by chunk once, so each chunk only looks at its own (was every edit for every chunk) */
+        for (const q of eL) { const vx = q[0] + 0.5 - piv[0], vy = q[1] + 0.5 - piv[1], vz = q[2] + 0.5 - piv[2];
+          const lx = Math.round(m[0][0] * vx + m[0][1] * vy + m[0][2] * vz + piv[0] - 0.5), ly = Math.round(m[1][0] * vx + m[1][1] * vy + m[1][2] * vz + piv[1] - 0.5), lz = Math.round(m[2][0] * vx + m[2][1] * vy + m[2][2] * vz + piv[2] - 0.5);
+          const r = [lx, ly, lz, q[3]]; for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) { const kk = Math.floor((lx + ox) / C) + ',' + Math.floor((lz + oz) / C); let L = eB.m.get(kk); if (!L) eB.m.set(kk, L = []); if (!L.includes(r)) L.push(r); } } }
+      for (const r of (eB.m.get(cx + ',' + cz) || [])) { const lx = r[0], ly = r[1], lz = r[2], q = [0, 0, 0, r[3]];
         const tx = lx - cx * C + C, ty = ly - y0, tz = lz - cz * C + C; if (tx >= C - 1 && tx <= 2 * C && tz >= C - 1 && tz <= 2 * C && ty >= 0 && ty < NB) { TMP[(tx * NB + ty) * PW + tz] = q[3]; if (q[3]) any = true; } } }   /* v1.1.55: placed blocks out on the planet, deep down and in Agartha are drawn (they were drawn as air) */
     return any; }
   function mesh(ax, piv, cx, cz, y0) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); const fk = fill(ax, piv, cx, cz, y0); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }

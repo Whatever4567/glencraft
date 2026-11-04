@@ -12,10 +12,17 @@
   const fbm = (x, z) => vn(x, z) * 0.55 + vn(x * 2.1 + 5.2, z * 2.1 - 3.1) * 0.3 + vn(x * 4.3 - 7.7, z * 4.3 + 1.9) * 0.15;
   const cl = (v, a, b) => v < a ? a : v > b ? b : v, ss = t => t * t * (3 - 2 * t);
   const BASE = new Set([0, 1, 10, 11]);
+  // v1.1.86: no cliffs or steps where the original map meets the UK land: the first 20 blocks out from the map edge ease to the map edge height
+  const EH = new Map(), SB = 20; let EHid = null;
+  function edgeTop(cx, cz) { const id = typeof current !== 'undefined' && current ? current.id : 0; if (id !== EHid) { EH.clear(); EHid = id; } const k = cx * 4096 + cz; let t = EH.get(k); if (t !== undefined) return t;
+    t = null; try { for (let y = Math.min(H - 1, 120); y >= 0; y--) { const b = world[idx(cx, y, cz)]; if (b && b !== T.WATER && !(PLANT[b]) && !(LEAFY[b]) && !(typeof LOG !== 'undefined' && LOG[b])) { t = y - SEA + 1; break; } } } catch (_) { t = null; }
+    if (t !== null) EH.set(k, t); return t; }
+  function seam(x, z, g) { try { const z0 = (window.__c307 && __c307.z0) || 0, cx = x < 0 ? 0 : x >= W ? W - 1 : x, cz = z < z0 ? z0 : z >= D ? D - 1 : z, d = Math.max(Math.abs(x - cx), Math.abs(z - cz));
+      if (d < 1 || d > SB || W < 600) return g; const t = edgeTop(cx, cz); if (t === null) return g; const u = ss(Math.min(1, (d - 1) / (SB - 1))); return Math.round(t + (g - t) * u); } catch (_) { return g; } }
   // one column: height above the sea, the ground kind and the top block
   const CC = new Map();
   function colm(x, z) { const k = x * 131072 + z; let c = CC.get(k); if (c) return c; const e = E();
-    const q = e.ground(x, SEA, z, 0, 1, 0), g = q[0], kind = q[1], h = __c341.hT(x, z), hi = h[1] || 0, L = h[2] || 0, vk = h[3];
+    const q = e.ground(x, SEA, z, 0, 1, 0), g = seam(x, z, q[0]), kind = q[1], h = __c341.hT(x, z), hi = h[1] || 0, L = h[2] || 0, vk = h[3];
     let tb = 0; if (BASE.has(kind) && !vk) { const SN = T.PACKSNOW || T.SNOW || T.STONE, GV = T.GRAVEL || T.STONE, beach = g <= 2 && L < 0.62;
       tb = g <= 0 ? (g < -4 ? GV : T.SAND) : beach ? T.SAND : hi > 0.5 && g > 40 ? SN : hi > 0.5 && g > 30 ? (fbm(x / 6, z / 6) > 0.5 ? T.STONE : GV) : hi > 0.4 && fbm(x / 23 + 3, z / 23) > 0.56 ? T.HEATHER : T.GRASS; }
     let vg = tb; if (!tb && g > 0) { try { vg = e.layer(e.R, 0.5, kind, x, SEA + g - 1, z); } catch (_) { vg = 0; } if (kind === 30 && fbm(x / 13, z / 13) < 0.62) { tb = T.GRASS; vg = T.GRASS; } }
