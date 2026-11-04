@@ -7,7 +7,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
   const GONE = new Set([IT.WSHOVEL, IT.WHOE, IT.SHOE, IT.DHOE]);
   for (let i = RECIPES.length - 1; i >= 0; i--) if (GONE.has(RECIPES[i].out)) RECIPES.splice(i, 1);
   for (const L of [ORDER, typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : []]) for (let i = L.length - 1; i >= 0; i--) if (GONE.has(L[i])) L.splice(i, 1);
-  function purge() { try { for (const id of GONE) if (inv[id]) delete inv[id]; if (MODE && MODE.hotbar) MODE.hotbar = MODE.hotbar.map(id => GONE.has(id) ? 0 : id); if (GONE.has(selId)) selId = T.DIRT; } catch (_) {} }
+  function purge() { try { for (const id of GONE) if (inv[id] && !FACES[id]) delete inv[id]; if (MODE && MODE.hotbar) MODE.hotbar = MODE.hotbar.map(id => GONE.has(id) && !FACES[id] ? 0 : id); if (GONE.has(selId) && !FACES[selId]) selId = T.DIRT; } catch (_) {} }
   const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); purge(); return r; };
   setInterval(purge, 3000);
 
