@@ -18,6 +18,8 @@
   const stamp = (x, y, z) => { const i = x - AX, j = y - AY; if (i < 0 || i >= SW || j < 0 || j >= YN || z < 0 || z >= SD) return undefined; return S[(i * SD + z) * YN + j]; };
   // the spiral cave down from the hills, then a short passage south into the tube tunnel
   function way(x, y, z) { if (y > YT + 4 || y < YB - 6) return undefined;
+    // v1.1.91: the big tube does not stop in a flat wall: it narrows like a funnel over 18 blocks into the passage, with a bumpy rock edge
+    if (z >= -18 && z < 1) { const t = (1 - z) / 19, e = t * t * (3 - 2 * t), rx = 13 - 10.5 * e, ry = 12 - 9 * e, yc = -27.5 + (YB + 0.5 + 27.5) * e, dx = (x + 0.5 - HX) / rx, dy = (y + 0.5 - yc) / ry, q = dx * dx + dy * dy, n = (h(x, y, z) - 0.5) * 0.18; if (q < 1 + n) return 0; }
     if (x >= HX - 2 && x <= HX + 2 && z >= HZ + HR - 2 && z <= 3 && y >= YB - 3 && y <= YB + 2) return 0;
     if (x >= HX - 3 && x <= HX + 3 && z >= HZ + HR - 3 && z <= 3 && y === YB - 4) return (z & 7) === 0 && Math.abs(x - HX) === 3 ? T.GLOWROCK || T.LAMP : undefined;
     const hx = x + 0.5 - HX, hz = z + 0.5 - HZ, rr = Math.hypot(hx, hz), rho = rr - HR; if (Math.abs(rho) > TR + 1.2) return undefined;
@@ -26,9 +28,16 @@
       if (dy < 0 && q < (TR + 1.2) * (TR + 1.2) && rho > 1.5 && h(x, y, z) < 0.12) return T.GLOWROCK || T.LAMP; }
     return undefined; }
   const h = (x, y, z) => { let k = Math.imul(x, 73856093) ^ Math.imul(y, 19349663) ^ Math.imul(z, 83492791); k = Math.imul(k ^ (k >>> 13), 1274126177); return ((k ^ (k >>> 16)) >>> 0) / 4294967296; };
+  // v1.1.91: solid rock round the spiral, the passage and the near end of the tunnel, so the deep caverns do not cut them open into a flat wall
+  const vn = (x, y, z) => { const fx = x / 6, fy = y / 6, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0, a = h(x0, y0, z), b = h(x0 + 1, y0, z), c = h(x0, y0 + 1, z), d = h(x0 + 1, y0 + 1, z); return (a + (b - a) * tx) * (1 - ty) + (c + (d - c) * tx) * ty; };
+  function wall(x, y, z) { if (y < AY - 6 || y > YT) return false; const rr = Math.hypot(x + 0.5 - HX, z + 0.5 - HZ);
+    if (rr < HR + TR + 3 && y >= YB - 6 && y < AY + YN - 8) return true;
+    if (Math.abs(x - HX) <= 5 && z >= HZ + HR - 4 && z < 0 && y >= YB - 6 && y <= YB + 5) return true;
+    if (x >= AX - 12 && x < AX + 252 && z < 0 && y < AY + YN && z >= -12 - 12 * vn(x, y, 7)) return true; return false; }
   U.way = way; U.stamp = stamp;
   function hook() { const e = window.__c320; if (!U.ok || !e || !e.flat || !e.fearth || !e.fearth.dw || e.fearth.agw) return; const f0 = e.fearth;
     const f = function (x, y, z) { if (Math.abs(x - HX) <= HR + 5 && z >= HZ - HR - 5 && z <= 4) { const q = way(x, y, z); if (q !== undefined) return q; }
+      if (wall(x, y, z)) return T.STONE;
       if (y < AY + YN && y >= AY) { const q = stamp(x, y, z); if (q !== undefined) return q; } return f0.apply(this, arguments); };
     for (const k in f0) f[k] = f0[k]; f.agw = 1; e.fearth = f; try { if (window.__c324 && __c324.cache) __c324.cache.clear(); e.dirty = 1; } catch (_) {} }
   setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur) return; if (!U.ok && window.__c294 && __c294.genAg && window.__c320 && __c320.flat) build(); hook();
