@@ -1,7 +1,7 @@
-/* GLX-C315 (v1.1.25): MOON AND MARS BLOCKS. The nine old Backrooms block slots (191-199) are reused for real planet blocks with painted
+/* GLX-C315 (v1.1.25): MOON AND MARS BLOCKS. Block slots 191-199 are used for real planet blocks with painted
    HD textures and icons: Moon regolith, Moon rock, Lunar basalt, Lunar crystal ore, Moon bricks, Mars stone, Iron oxide ore, Mars crystal ore
-   and Mars bricks. Crafting: 4 Moon rock or 4 Mars stone make 4 bricks; Lunar basalt smelts into Moon rock. Old saves that still hold the dead
-   Backrooms blocks in the overworld get them turned into air once, so nothing odd turns up. */
+   and Mars bricks. Crafting: 4 Moon rock or 4 Mars stone make 4 bricks; Lunar basalt smelts into Moon rock. Old saves that still hold the old
+   blocks in those slots get them turned into air once, so nothing odd turns up. */
 (function c315() {
   const U = window.__c315 = {err: null, remapped: 0, made: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -34,7 +34,7 @@
   try { const df = dropsFor; dropsFor = function (b) { if (b >= 191 && b <= 199) return [[b, 1]]; return df.apply(this, arguments); }; } catch (e) { ERR('drop', e); }
   try { RECIPES.push(rc('4 Moon bricks', '4 Moon rock', 195, 4, [[192, 4]])); RECIPES.push(rc('4 Mars bricks', '4 Mars stone', 199, 4, [[196, 4]])); } catch (e) { ERR('rc', e); }
   try { if (typeof SMELT !== 'undefined') SMELT[193] = SMELT[T.COBBLE] !== undefined ? 192 : 192; } catch (e) { ERR('sm', e); }
-  // ---------- old saves: dead Backrooms blocks in the overworld become air, once ----------
+  // ---------- old saves: old blocks in those slots become air, once ----------
   try { const se = serialize; serialize = function () { const o = se.apply(this, arguments); try { if (o && !DIM.cur) o.c315 = 1; } catch (_) {} return o; }; } catch (e) { ERR('ser', e); }
   try { const ew = enterWorld; enterWorld = async function (save) { const r = await ew.apply(this, arguments); try { if (save && !save.c315 && !DIM.cur && world) { let n = 0; for (let i = 0; i < world.length; i++) { const b = world[i]; if (b >= 191 && b <= 199) { world[i] = 0; n++; } }
           for (let id = 191; id <= 199; id++) delete inv[id]; if (n) { dirtyAll = true; rebuild(); } U.remapped = n; } } catch (e) { ERR('remap', e); } return r; }; } catch (e) { ERR('ew', e); }

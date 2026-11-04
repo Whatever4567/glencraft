@@ -107,8 +107,10 @@ R+=[("const idx = (x, y, z) => (x * H + y) * D + z;","var __XG = null, __XS = nu
 ("  blockGroup.add(grp); chunkObjs.set(id, grp);\n}\n\n/* ===================== GLX-B8b","  blockGroup.add(grp); chunkObjs.set(id, grp);\n}\nvar __bcBase = buildChunk;\n\n/* ===================== GLX-B8b")]
 R.append(("      else if (d === 3) { if (y === 0) continue; n = world[i - D]; }","      else if (d === 3) { if (y === 0) { if (!window.__YB) continue; n = __YB(x, z); } else n = world[i - D]; }"))  # v1.1.72: bottom faces at y 0
 R.append(("        const x = a[i], y = a[i + 1], z = a[i + 2], f = stairFace(x, y, z);\n","        const x = a[i], y = a[i + 1], z = a[i + 2], f = stairFace(x, y, z);\n        if (+k !== 145 && window.__rampSt && __rampSt(x, y, z, A)) continue;\n"))
+R.append(('GOLDNUGGET: 184','GOLDNUGGET: 327'))  # v1.1.78: frees block id 184
 for a,b in R:
   assert s.count(a)==1,a; s=s.replace(a,b)
+import sys as _s; _s.path.insert(0,'/workspace/game'); import strip_br; s=strip_br.strip(s)
 parts=[l.strip() for l in open('/workspace/game/src/ORDER.txt') if l.strip() and not l.startswith('#')]
 import os
 for _n in os.environ.get('DROP','').split(','):

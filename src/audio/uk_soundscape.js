@@ -63,7 +63,7 @@
     let hit = 0, sum = 0; for (const [dx, dz] of DIRS) { let r = 0; for (let s = 1; s <= 32; s++) { if (solid(Math.floor(P.x + dx * s), py, Math.floor(P.z + dz * s))) { r = s; break; } } if (r) { hit++; sum += r; } else sum += 40; }
     const deepIn = !DIM.cur && P.y < SEA - 25;
     const up = roof ? roof : 40, size = (sum / 8 + up) / 2, enc = deepIn || (roof && hit >= 5) ? 1 : roof && hit >= 3 ? 0.5 : 0;
-    const ck = typeof caveK === 'number' ? caveK : 0, cave = DIM.cur === 'agartha' || DIM.cur === 'backrooms' ? 1 : (deepIn || (enc && (ck > 0.3 || size > 9 || roof > 6))) ? 1 : 0;
+    const ck = typeof caveK === 'number' ? caveK : 0, cave = DIM.cur === 'agartha' ? 1 : (deepIn || (enc && (ck > 0.3 || size > 9 || roof > 6))) ? 1 : 0;
     U.enc = enc; U.size = Math.round(size); U.cave = cave; U.roof = roof;
     const now = performance.now(); if (now - lastC > 4000) { lastC = now; let w = 0; for (let i = 0; i < 16; i++) { const a = i / 16 * 6.283, b = getB(Math.floor(P.x + Math.cos(a) * 36), SEA - 1, Math.floor(P.z + Math.sin(a) * 36)); if (b === T.WATER) w++; }
       coast = w >= 3 && P.y < SEA + 40 ? 1 : 0; let rv = 0; for (let i = 0; i < 12; i++) { const a = i / 12 * 6.283; for (let y = -3; y < 2; y++) if (getB(Math.floor(P.x + Math.cos(a) * 9), py + y, Math.floor(P.z + Math.sin(a) * 9)) === T.WATER) { rv++; break; } } water = rv >= 2 ? 1 : 0; U.coast = coast; U.water = water; }

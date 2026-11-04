@@ -1,6 +1,6 @@
 /* ===================== GLX-C221 (v1.0.47): Wisteria is its own wood. The purple tree (v1.0.45) now grows from a Wisteria log (smooth pale grey-lilac bark, twisting ridges)
    with Wisteria leaves (purple, hanging blossom); its wood makes Wisteria planks, stairs, corner + inner corner stairs, slab, door, fence, fence gate and boat (c121 WOODS w7).
-   Ids 191/192/193 were the Backrooms blocks (that dimension was removed in v0.9.51 and its blocks never appear in the overworld). ===================== */
+   Ids 191/192/193 were free ids. ===================== */
 (function c221() {
   const U = window.__c221 = {err: null, ok: 0};
   const warn = (w, e) => { if (!U.err) U.err = w + ': ' + (e && e.message || e); try { console.warn('c221', w, e); } catch (_) {} };

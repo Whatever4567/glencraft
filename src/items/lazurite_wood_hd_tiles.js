@@ -45,7 +45,7 @@
     {w: 4, n: 'Alder', log: 139, pl: 237, key: 'planks_alder', c: '#c9803e', d: '#86481c', l: '#e8a868'},
     {w: 5, n: 'Yew', log: 143, pl: 234, key: 'planks_yew', c: '#86422a', d: '#4a1e10', l: '#b46a48', swirl: 1},
     {w: 6, n: 'Rotting alder', log: 138, pl: 141, key: 'planks_rot', c: '#7f7a5e', d: '#4a4636', l: '#a8a284', rot: 1},
-    {w: 7, n: 'Wisteria', log: 191, pl: 193, key: 'planks_wisteria', c: '#d6b9ae', d: '#8f6c6e', l: '#f0dcd2', fine: 1}];   // v1.0.47 (ids 191-193 were the removed Backrooms blocks)
+    {w: 7, n: 'Wisteria', log: 191, pl: 193, key: 'planks_wisteria', c: '#d6b9ae', d: '#8f6c6e', l: '#f0dcd2', fine: 1}];   // v1.0.47 (ids 191-193)
   const OAK = {w: 0, n: 'Oak', pl: 10, key: 'planks', c: '#b48a52', d: '#6e4e2a', l: '#d8b47c'};
   const woodOf = w => (w && WOODS[w]) || OAK;
   function grain(g, x, y, w, h, W, R, S) {   // wood grain inside a board rect

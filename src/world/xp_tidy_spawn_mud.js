@@ -23,7 +23,7 @@
   } catch (e) { console.warn('c120 xp', e); }
   async function recoverXP() {
     let best = xpState(); const src = [];
-    for (const nm of ['hell', 'backrooms']) { let d = null; try { d = await idbGet('worlds', dimKey(nm)); } catch (_) {}
+    for (const nm of ['hell']) { let d = null; try { d = await idbGet('worlds', dimKey(nm)); } catch (_) {}
       if (d && (d.lvl | 0) > 0) src.push(d); }
     for (const d of src) if ((d.lvl | 0) > best.lvl || ((d.lvl | 0) === best.lvl && (d.xp | 0) > best.xp)) best = {xp: d.xp | 0, lvl: d.lvl | 0};
     const cur = xpState(); if (best.lvl !== cur.lvl || best.xp !== cur.xp) { window.__c105xp(best.xp, best.lvl); U.log.push('xp ' + best.lvl); try { toast('Your XP is back: level ' + best.lvl); } catch (_) {} }

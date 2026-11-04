@@ -17,7 +17,7 @@
   const askBtns = () => [document.getElementById('resetNo'), document.getElementById('resetYes')];
   let askOpen = false, aF = 0;
   const askFocus = () => askBtns().forEach((b, i) => b.classList.toggle('focus', i === aF && padConnected));
-  function openAsk() { if (active()) return; const nmD = DIM.cur === 'hell' ? 'Hell' : DIM.cur === 'backrooms' ? 'the Backrooms' : null;   /* v1.0.32: one button - in Hell it resets Hell */
+  function openAsk() { if (active()) return; const nmD = DIM.cur === 'hell' ? 'Hell' : null;   /* v1.0.32: one button - in Hell it resets Hell */
     try { ask.querySelector('h2').textContent = nmD ? 'Reset ' + nmD.replace('the ', 'the ') + '?' : 'Reset world?'; ask.querySelector('p').textContent = nmD ? 'Are you sure you want to reset ' + nmD + '? Only ' + nmD + ' is made new; the overworld is not touched. This can\'t be undone.' : 'Are you sure you want to reset? This can\'t be undone.'; } catch (_) {} askOpen = true; aF = 0; ask.style.display = 'flex'; askFocus(); try { askBtns()[0].focus(); } catch (_) {} }
   function closeAsk() { askOpen = false; ask.style.display = 'none'; try { refocusPause(); } catch (_) {} }
   window.__c105.ask = () => askOpen;

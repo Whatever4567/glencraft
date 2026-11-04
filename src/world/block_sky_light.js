@@ -3,9 +3,9 @@
   const U = window.__c108 = {wide: 0};
   // the baked voxel light replaces the old fake torch point lights (fewer real lights = faster); the held torch keeps its own light
   try { for (const l of torchLights) { l.intensity = 0; scene.remove(l); } torchLights.length = 0; } catch (e) { console.warn('c108 lights', e); }
-  // never pitch black: a minimum brightness everywhere (a bit higher in Hell and the Backrooms)
+  // never pitch black: a minimum brightness everywhere (a bit higher in Hell)
   const LM = window.__lminU || (window.__lminU = {value: 0.3});
-  setInterval(() => { try { LM.value = DIM.cur === 'hell' ? 0.5 : DIM.cur === 'backrooms' ? 0.36 : 0.28; } catch (_) {} }, 500);
+  setInterval(() => { try { LM.value = DIM.cur === 'hell' ? 0.5 : 0.28; } catch (_) {} }, 500);
   // torches and other lights shine 14-15 blocks now, so placing / breaking one re-lights the chunks around it too
   const SRC = new Set([T.TORCH, T.LAVA, T.LAVAB, T.GLOWROCK, T.LAMP, T.QLANTERN, T.FIRE].filter(v => v !== undefined));
   const sb = setB;

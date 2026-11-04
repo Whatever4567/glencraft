@@ -66,6 +66,6 @@
   // v1.1.22: new and reset worlds always get the v1.1.17 layout, even when the mouth was not placed during generate (some world sizes and paths skipped it)
   function ens() { try { if (!DIM.cur && window.__g89 && __g89() && W >= 600 && window.__c294 && !__c294.M) __c294.build(); } catch (e) { ERR('ens', e); } }
   setInterval(() => { try { if (!X.nw || X.ready || !started || DIM.cur || !window.__g89 || !__g89() || W < 600) return; ens(); if (X.on()) { init(null); openEdge(); X.fresh = current && current.id; } } catch (e) { ERR('nw', e); } }, 500);
-  // off in other dimensions (Moon, Mars, Backrooms...) and back on at home
+  // off in other dimensions (Moon, Mars, Hell) and back on at home
   setInterval(() => { try { const a = X.ready && !DIM.cur && W === X.W && !(window.__c317 && __c317.on());   /* v1.1.38: no north ice plain on the round Earth, it is ocean now */ if (a !== !!__XG) hook(a); } catch (_) {} }, 100);
 })();
