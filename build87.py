@@ -105,6 +105,7 @@ R+=[("const idx = (x, y, z) => (x * H + y) * D + z;","var __XG = null, __XS = nu
 ("  if (y >= H - 1) return;\n","  if (y >= H - 1 && !(window.__c317 && __c317.on() && !__c317.foot(x, z))) return;\n"),
 ("else { if (z === 0) continue; n = world[i - 1]; }","else { if (z === 0) { if (!__XN) continue; n = __XN(x, y); } else n = world[i - 1]; }"),
 ("  blockGroup.add(grp); chunkObjs.set(id, grp);\n}\n\n/* ===================== GLX-B8b","  blockGroup.add(grp); chunkObjs.set(id, grp);\n}\nvar __bcBase = buildChunk;\n\n/* ===================== GLX-B8b")]
+R.append(("      else if (d === 3) { if (y === 0) continue; n = world[i - D]; }","      else if (d === 3) { if (y === 0) { if (!window.__YB) continue; n = __YB(x, z); } else n = world[i - D]; }"))  # v1.1.72: bottom faces at y 0
 R.append(("        const x = a[i], y = a[i + 1], z = a[i + 2], f = stairFace(x, y, z);\n","        const x = a[i], y = a[i + 1], z = a[i + 2], f = stairFace(x, y, z);\n        if (+k !== 145 && window.__rampSt && __rampSt(x, y, z, A)) continue;\n"))
 for a,b in R:
   assert s.count(a)==1,a; s=s.replace(a,b)
