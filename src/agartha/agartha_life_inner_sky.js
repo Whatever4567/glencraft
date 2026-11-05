@@ -8,8 +8,8 @@
   let root = null, sun = null, spark = null, folk = [], fogSave = null, built = null;
   const M = c => new THREE.MeshBasicMaterial({color: c});
   function make(l) { root = new THREE.Group(); root.visible = false; scene.add(root); const [X, Z] = l.city;
-    sun = new THREE.Mesh(new THREE.SphereGeometry(l.v === 2 ? 6 : 4, 16, 12), M(0xfff1b8)); sun.position.set(X + .5, l.TOP - (l.v === 2 ? 9 : 6), Z + .5); root.add(sun);
-    const halo = new THREE.Mesh(new THREE.SphereGeometry(l.v === 2 ? 11 : 7, 16, 12), new THREE.MeshBasicMaterial({color: 0xffd27a, transparent: true, opacity: 0.25, depthWrite: false})); halo.position.copy(sun.position); root.add(halo);
+    sun = new THREE.Mesh(new THREE.SphereGeometry(l.v === 2 ? 6 : 4, 16, 12), M(0xfff1b8)); sun.position.set(X + .5, l.TOP - (l.v === 2 ? 9 : 6), Z + .5); sun.name = 'agsun'; sun.visible = false; root.add(sun);
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(l.v === 2 ? 11 : 7, 16, 12), new THREE.MeshBasicMaterial({color: 0xffd27a, transparent: true, opacity: 0.25, depthWrite: false})); halo.position.copy(sun.position); halo.name = 'agsun'; halo.visible = false; root.add(halo);   /* v1.1.94: no inner sun */
     const N = 260, pos = new Float32Array(N * 3); for (let i = 0; i < N * 3; i++) pos[i] = (Math.random() - .5) * 40;
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     spark = new THREE.Points(g, new THREE.PointsMaterial({color: 0xbff4ff, size: 0.18, transparent: true, opacity: 0.8, depthWrite: false})); root.add(spark);
@@ -41,9 +41,9 @@
       step(dt, l); spark.position.set(P.x, P.y + 2, P.z); spark.rotation.y += dt * 0.05; const a = spark.geometry.attributes.position; for (let i = 1; i < a.count * 3; i += 3) { a.array[i] -= dt * 0.6; if (a.array[i] < -20) a.array[i] = 20; } a.needsUpdate = true;
       spark.visible = inside; sun.scale.setScalar(1 + Math.sin(t / 900) * 0.04);
       if (inside) fogOn(); else unfog(); } catch (e) { ERR('loop', e); } })();
-  function fogOn() { const l2 = L(); try { if (!scene.fog || fogSave) return; fogSave = {c: scene.fog.color.getHex(), n: scene.fog.near, f: scene.fog.far}; } catch (_) {} try { scene.fog.color.setHex(0xe8c89a); scene.fog.near = 40; scene.fog.far = l2 && l2.v === 2 ? 320 : 140; } catch (_) {} }
+  function fogOn() { const l2 = L(); try { if (!scene.fog || fogSave) return; fogSave = {c: scene.fog.color.getHex(), n: scene.fog.near, f: scene.fog.far}; } catch (_) {} try { scene.fog.color.setHex(0x0b0a0e); scene.fog.near = 24; scene.fog.far = 150; } catch (_) {} }
   // v1.1.90: Agartha owns the haze while you are inside: it is set again just before each frame is drawn, so the cave haze can not fight it
-  U.sky = () => { if (!U.inside || !scene.fog) return; const l2 = L(); scene.fog.color.setHex(0xe8c89a); scene.fog.near = 40; scene.fog.far = l2 && l2.v === 2 ? 320 : 140; if (scene.background && scene.background.isColor) scene.background.setHex(0xd9b98a); };
+  U.sky = () => { if (!U.inside || !scene.fog) return; const l2 = L(); scene.fog.color.setHex(0x0b0a0e); scene.fog.near = 24; scene.fog.far = 150; if (scene.background && scene.background.isColor) scene.background.setHex(0x0b0a0e); };
   function unfog() { if (!fogSave) return; try { scene.fog.color.setHex(fogSave.c); scene.fog.near = fogSave.n; scene.fog.far = fogSave.f; } catch (_) {} fogSave = null; }
   // Build Editor: Agartha pieces join the auto-found list when you are near
   setInterval(() => { try { const l = L(), B = window.__c290; if (!l || !B || !B.pieces) return; const add = [], [X, Z, R] = l.city;

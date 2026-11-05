@@ -10,7 +10,7 @@
     for (const [f, az, el, sz, br, sp] of DEF) { const m = new THREE.SpriteMaterial({map: null, transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending, opacity: 0});
       const s = new THREE.Sprite(m); s.scale.set(sz, sz, 1); s.renderOrder = -5; s.frustumCulled = false; grp.add(s);
       (window.__AM=window.__AM||(f=>{const w=()=>(typeof screen==='string'&&screen!=='boot')?setTimeout(f,400):setTimeout(w,150);w();}))(() => { m.map = L.load('assets/sky/' + f + '.png'); m.needsUpdate = true; }); items.push({s, m, br, sp, d: new THREE.Vector3(Math.cos(el) * Math.sin(az), Math.sin(el), Math.cos(el) * Math.cos(az))}); }
-    grp.visible = false; scene.add(grp); } catch (e) { ERR('init', e); }
+    grp.visible = false; grp.name = "planets"; scene.add(grp); } catch (e) { ERR('init', e); }
   const AX = new THREE.Vector3(0, 1, 0);
   function frame() { if (!started || (typeof DIM !== 'undefined' && DIM.cur)) { grp.visible = false; U.vis = 0; return; }
     const night = 1 - (typeof daylight === 'number' ? daylight : 1), k = Math.max(0, Math.min(1, (night - 0.35) / 0.4)); U.op = +k.toFixed(2);

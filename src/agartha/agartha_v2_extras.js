@@ -37,8 +37,8 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
   vec3 rk = vec3(0.42, 0.38, 0.33) * (0.75 + 0.5 * n(d.xz * 40.0));
   gl_FragColor = vec4(mix(col, rk, clamp(rock, 0.0, 1.0)), 1.0); }`});
     dome = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 16, 0, 6.2832, 0, Math.PI / 2), m); dome.scale.set(R - 1.2, HT - 0.8, R - 1.2); dome.position.set(X + 0.5, l.FL, Z + 0.5);
-    dome.frustumCulled = false; dome.renderOrder = -1; dome.visible = false; scene.add(dome); built = l; U.sky = 1; }
+    dome.frustumCulled = false; dome.renderOrder = -1; dome.visible = false; dome.name = "agsun"; scene.add(dome); built = l; U.sky = 1; }
   (function loop(t) { requestAnimationFrame(loop); try { const l = window.__c294 && __c294.L; if (!l || l.v !== 2 || !started || (DIM.cur && DIM.cur !== 'agartha')) { if (dome) dome.visible = false; return; }
       if (built !== l) { if (dome) { scene.remove(dome); dome.geometry.dispose(); } make(l); }
-      const [X, Z, R] = l.city; dome.visible = Math.hypot(P.x - X, P.z - Z) < R + 2 && P.y < l.TOP + 2; uT.value = (t || 0) / 1000; } catch (e) { ERR('loop', e); } })();
+      const [X, Z, R] = l.city; dome.visible = false;   /* v1.1.94: no Agartha sky */ uT.value = (t || 0) / 1000; } catch (e) { ERR('loop', e); } })();
 })();
