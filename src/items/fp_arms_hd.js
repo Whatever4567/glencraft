@@ -49,6 +49,9 @@
   let lastYaw = 0, lastPitch = 0, swx = 0, swy = 0, sel = -1, sw = 1, tm = 0, sp = 0;
   const gunNow = () => { try { const g = held && held.children[0]; return g && g.userData && g.userData.gun && GUN[selId] && cnt(selId) > 0 ? g : null; } catch (_) { return null; } };
   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { step(Math.min(0.05, dt || 0.016)); } catch (e) { ERR('step', e); } return r; }; } catch (e) { ERR('uh', e); }
+  // a bounding box that also reads squeezed (normalized integer) model data right
+  const gbox = geo => { const p = geo.attributes.position, A = p.array, n = p.normalized ? (A instanceof Int16Array ? 1 / 32767 : A instanceof Int8Array ? 1 / 127 : A instanceof Uint16Array ? 1 / 65535 : A instanceof Uint8Array ? 1 / 255 : 1) : 1, b = new THREE.Box3(), v = new THREE.Vector3(); for (let i = 0; i < p.count; i++) b.expandByPoint(v.fromBufferAttribute(p, i).multiplyScalar(n)); return b; };
+  U.step = dt => step(dt); U.rig = () => rig;
   function step(dt) { const on = camMode === 0 && hand.visible && started && SET.hd !== 0 && !(window.__fpaOff); U.on = on ? 1 : 0; if (!on) { if (rig) rig.visible = false; hideOld(false); return; }
     if (!rig) make(); sleeves(); rig.visible = true; hideOld(true); tm += dt;
     // sway with the view, breathing, bob, sprint drop and the weapon switch dip (added on top of whatever placed the hand)
@@ -57,21 +60,23 @@
     if (selId !== sel) { sel = selId; sw = 0; } sw = Math.min(1, sw + dt * 3.2); const dip = (1 - Math.sin(sw * Math.PI / 2)) * 0.35;
     sp += ((typeof sprinting !== 'undefined' && sprinting && P.onGround ? 1 : 0) * (1 - k) - sp) * Math.min(1, dt * 6);
     const g = gunNow(), br = Math.sin(tm * 1.6) * 0.004 * sk, bob = (typeof bobAmt === 'number' ? bobAmt : 0) * sk;
-    if (g) { const ss = sp * sp * (3 - 2 * sp), fb = Math.abs(Math.sin(walkPhase)); hand.position.x += swx * sk * (1 - ss) + Math.cos(walkPhase) * 0.012 * bob * (1 - ss) + ss * 0.015; hand.position.y += swy * sk * (1 - ss) + br - fb * 0.012 * bob * (1 - ss) - ss * (0.04 + fb * 0.015); hand.position.z += ss * 0.03; hand.rotation.y += swx * 1.2 * sk * (1 - ss) - ss * 0.22; hand.rotation.x += -swy * sk * (1 - ss) - ss * 0.32; hand.rotation.z += ss * 0.42; U.sp = +ss.toFixed(2); }
+    const VM = !!(window.__vm && __vm.on); if (VM && !U.fromVm) return;   /* v1.1.94: with a gun the viewmodel owns the pose and calls back once it is placed */
+    if (VM) {} else if (g) { const ss = sp * sp * (3 - 2 * sp), fb = Math.abs(Math.sin(walkPhase)); hand.position.x += swx * sk * (1 - ss) + Math.cos(walkPhase) * 0.012 * bob * (1 - ss) + ss * 0.015; hand.position.y += swy * sk * (1 - ss) + br - fb * 0.012 * bob * (1 - ss) - ss * (0.04 + fb * 0.015); hand.position.z += ss * 0.03; hand.rotation.y += swx * 1.2 * sk * (1 - ss) - ss * 0.22; hand.rotation.x += -swy * sk * (1 - ss) - ss * 0.32; hand.rotation.z += ss * 0.42; U.sp = +ss.toFixed(2); }
     else { hand.position.x += swx * 0.6; hand.position.y += swy * 0.6 + br; }
-    hand.position.y -= dip; hand.rotation.x -= dip * 1.5;
+    if (!VM) { hand.position.y -= dip; hand.rotation.x -= dip * 1.5; }
     // reload: the gun tips, the hands work it
     let rp = -1; try { if (gunReload > 0 && GUN[gunReloadId] && gunReloadId === selId) rp = 1 - gunReload / GUN[gunReloadId].reload; } catch (_) {} try { const R = window.__rl; if (rp < 0 && R && R.t > 0 && R.id === selId) { const x = 1 - R.t / R.dur; rp = x * x * (3 - 2 * x); } } catch (_) {} U.rel = rp >= 0 ? +rp.toFixed(2) : 0;
-    const rw = rp >= 0 ? Math.sin(Math.min(1, rp) * Math.PI) : 0; if (g && rw) { hand.rotation.z += 0.5 * rw; hand.rotation.x += 0.25 * rw; hand.position.y -= 0.03 * rw; }
+    const rw = rp >= 0 ? Math.sin(Math.min(1, rp) * Math.PI) : 0; if (g && rw && !VM) { hand.rotation.z += 0.5 * rw; hand.rotation.x += 0.25 * rw; hand.position.y -= 0.03 * rw; }
     hand.updateMatrixWorld(true);
     const SR = V3(0.2, -0.36, 0.02), SL = V3(-0.17, -0.34, -0.04), R = rig.userData.R, L = rig.userData.L;
     const isP = g && g.userData.gun === IT.PISTOL;
-    let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; { try { let lb = g.userData.__lb; if (!lb) { lb = new THREE.Box3(); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), mm = new THREE.Matrix4(); g.traverse(m => { if (m.isMesh && m.geometry) { m.geometry.computeBoundingBox(); mm.multiplyMatrices(inv, m.matrixWorld); lb.union(m.geometry.boundingBox.clone().applyMatrix4(mm)); } }); g.userData.__lb = lb; }
+    let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; { try { let lb = g.userData.__lb; if (lb && g.userData.__lbc !== g.userData.c322) lb = null; if (!lb) { g.userData.__lbc = g.userData.c322; lb = new THREE.Box3(); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), mm = new THREE.Matrix4(); g.traverse(m => { let vis = true; for (let x = m; x && x !== g; x = x.parent) if (!x.visible) vis = false; if (m.isMesh && m.geometry && vis) { mm.multiplyMatrices(inv, m.matrixWorld); lb.union(gbox(m.geometry).applyMatrix4(mm)); } }); g.userData.__lb = lb; }
           const fwL = g.userData.muzzle ? g.worldToLocal(g.userData.muzzle.getWorldPosition(V3(0, 0, 0))).sub(lb.getCenter(V3(0, 0, 0))) : V3(0, 0, -1), back = fwL.z < 0 ? lb.max.z : lb.min.z, dz = (lb.max.z - lb.min.z) * (fwL.z < 0 ? -1 : 1);
           TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
+    { const VM2 = !!(window.__vm && __vm.on); if (VM2 && g && !isP && TR) { const ax = (g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(TR) : V3(0, 0, -1)).normalize(); for (let i = 0; i < 40 && TR.z > -0.30; i++) TR.addScaledVector(ax, 0.01); } }   // v1.1.95: fixed rifle hand spot, never up against the eye
     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
-    if (g) { if (!isP) { const tu = window.__fpaT || [0.03, 0.06, 0]; TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.05, 0).addScaledVector(fw, -0.1), V3(0, -1, 0).addScaledVector(fw, isP ? 0.45 : 0.3), [isP ? 0.55 : 0.85, 1.2, 1.25, 1.3]); OR = O; }
+    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.05, 0).addScaledVector(fw, -0.1), V3(0, -1, 0).addScaledVector(fw, isP ? 0.45 : 0.3), [isP ? 0.55 : 0.85, 1.2, 1.25, 1.3]); OR = O; }
     else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(-0.04, 0.1, -0.03)), V3(-0.25, 1, 0.1), V3(-0.3, 0.2, -1), [0.35, 0.3, 0.28, 0.3]); OR = O; }
     else if (held.children.length) { TR = grip(TR, V3(-1, 0.05, 0.1), V3(0.1, -0.15, -1), [1, 1.05, 1.1, 1.15]); OR = O; }
     solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3, OR);
