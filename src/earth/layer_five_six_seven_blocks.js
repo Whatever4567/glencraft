@@ -36,8 +36,8 @@
   // ---------- heat shimmer: a soft wobbling glow over the view deep down ----------
   const el = document.createElement('div'); el.id = 'l567shim'; el.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;transition:opacity 1.5s;mix-blend-mode:screen;' +
     'background:repeating-linear-gradient(0deg,rgba(255,120,30,0) 0px,rgba(255,140,40,.07) 6px,rgba(255,120,30,0) 12px);';
-  const st = document.createElement('style'); st.textContent = '@keyframes l567w{0%{transform:translateY(0) scaleY(1)}50%{transform:translateY(-6px) scaleY(1.02)}100%{transform:translateY(0) scaleY(1)}}#l567shim{animation:l567w 1.7s ease-in-out infinite}';
+  const st = document.createElement('style'); st.textContent = '@keyframes l567w{0%{transform:translateY(0) scaleY(1)}50%{transform:translateY(-6px) scaleY(1.02)}100%{transform:translateY(0) scaleY(1)}}#l567shim{display:none}';
   try { document.head.appendChild(st); document.body.appendChild(el); } catch (e) { ERR('el', e); }
   function depth() { const e = window.__c320; if (!e || !e.E) return 0; if (e.flat) return SEA - P.y; const c = e.E(); return (e.R || 5000) - Math.hypot(P.x - c[0], P.y - c[1], P.z - c[2]); }
-  setInterval(() => { try { const on = typeof started !== 'undefined' && started && !(typeof DIM !== 'undefined' && DIM.cur) && depth() > 690; U.shim = on ? 1 : 0; el.style.opacity = on ? '1' : '0'; } catch (e) { ERR('sh', e); } }, 700);
+  setInterval(() => { try { const on = typeof started !== 'undefined' && started && !(typeof DIM !== 'undefined' && DIM.cur) && depth() > 690; U.shim = on ? 1 : 0; el.style.opacity = '0'; el.style.display = 'none';   /* v1.1.93: the striped heat shimmer is off for good, it looked like a broken TV deep down */ } catch (e) { ERR('sh', e); } }, 700);
 })();
