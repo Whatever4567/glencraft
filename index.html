@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
-<!-- glencraft-build: b1199-v1.1.99 -->
+<!-- glencraft-build: b1199-v1.1.99b -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -25404,7 +25404,7 @@ function ammoPick() { return (inv[IT.SILVERSHOT] || 0) > 0 ? IT.SILVERSHOT : IT.
     const r = up.apply(this, arguments);
     try {
       if (cool > 0) cool -= dt;
-      if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 - rlT / G.rl, f0 = 1 - t0 / G.rl;
+      window.__rlCoreClear = () => { rlT = 0; }; if (rlT > 0 && (!GUN[selId] || selId !== rlId || cnt(selId) <= 0)) { rlT = 0; } if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 - rlT / G.rl, f0 = 1 - t0 / G.rl;
         if (f0 < 0.25 && f >= 0.25) click(700, .05, .18); if (f0 < 0.55 && f >= 0.55) click(320, .08, .22, 'triangle'); if (f0 < 0.85 && f >= 0.85) { click(1100, .04, .2); click(600, .06, .15); }
         if (rlT <= 0) { finishReload(); rlT = 0; } }
       recoil *= Math.exp(-dt * (GUN[selId] && GUN[selId].rate > 0.5 ? 6 : 12));
@@ -37694,7 +37694,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
         M1.decompose(v, q, sc); const s = sc.x * hand.scale.x; S.s = s; const now = performance.now() / 1000;
         const tgt = new THREE.Vector3(Math.sin(now * 1.1) * 0.0012, -0.008 + Math.sin(now * 1.7) * 0.001, -0.3 - 0.16 * s).sub(g.userData.sight.clone().multiplyScalar(s));
         Md.compose(tgt, Q0, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc);
-        hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } catch (e) { warn('ads', e); }
+        if (!(window.__vm && __vm.on)) { hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } } catch (e) { warn('ads', e); }
     return r; };
   S.musket = musket;
 })();
@@ -44998,7 +44998,7 @@ function make42(E) {
       k += ((U.aiming ? 1 : 0) - k) * (1 - Math.exp(-dt * 14)); if (k < 0.002) k = 0; U.ads = +k.toFixed(3);
       if (!k) return br(sc, cam);
       /* v1.1.28: the rifle aims with its own exact iron sight code (C145) again, as before v1.0.95; nothing here moves it */
-      if ((window.__vm && __vm.on) || (typeof IT !== 'undefined' && (selId === IT.MUSKET || (window.__c340 && __c340.on)))) return br(sc, cam);
+      if ((window.__vm && typeof GUN !== 'undefined' && GUN[selId]) || (typeof IT !== 'undefined' && (selId === IT.MUSKET || (window.__c340 && __c340.on)))) return br(sc, cam);
       const f0 = camera.fov, hx = hand.position.x, hy = hand.position.y, hz = hand.position.z;
       camera.fov = f0 * (1 - 0.38 * k); camera.updateProjectionMatrix(); const rx = hand.rotation.x, ry = hand.rotation.y, rz = hand.rotation.z; hand.rotation.set(rx * (1 - k), ry * (1 - k), rz * (1 - k)); const off = centre(); hand.position.x = hx - off[0] * k; hand.position.y = hy - off[1] * k; hand.position.z = hz + 0.08 * k;
       try { return br(sc, cam); } finally { camera.fov = f0; camera.updateProjectionMatrix(); hand.position.set(hx, hy, hz); hand.rotation.set(rx, ry, rz); } }; } catch (e) { ERR('rd', e); }
@@ -47231,7 +47231,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (a && !U.safe) { U.safe = 1; const w = window.__c321 ? __c321.pw() : P, off = !(w.x >= 0 && w.x < W && w.z >= 0 && w.z < D); if (off && w.y < SEA - 1500 && !(window.__c332 && __c332.where() === 'city')) { try { __c321.leave(); } catch (_) {} P.x = (W >> 1) + 0.5; P.z = (D >> 1) + 0.5; P.y = groundTop(W >> 1, D >> 1) + 1; P.vy = 0; P.fallTop = null; U.moved = 1; } } } catch (er) { ERR('loop', er); } }, 250);
 })();
 
-/* GLX-C340 (v1.1.45): GUNS HELD PROPERLY. Whenever a gun is held (the Highland pistol or the Highland rifle) it sits at a fixed spot to the
+/* GLX-C340 (v1.1.99): GUNS HELD PROPERLY. Whenever a gun is held (the Highland pistol or the Highland rifle) it sits at a fixed spot to the
    right of the view, pointing straight at the crosshair, clear of the arm, at a real size. Holding LT (right mouse) brings its own iron
    sights to the middle of the screen. Each shot kicks the gun back and up and eases it home; the flash and smoke come out of the barrel,
    and a bright streak runs from the barrel straight to whatever the shot hits (the shot itself is instant). */
@@ -47247,14 +47247,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let k = 0, kick = 0, last = performance.now();
   const HIP = {pistol: [0.19, -0.12, -0.44], rifle: [0.19, -0.14, -0.5]};
   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { const g = gun(); U.on = g ? 1 : 0; if (!g || tp()) { armVis(true); return r; }
-        if (window.__vm) { U.poseOff = 1; return r; }   /* v1.1.96: viewmodel owns pose+scale; C340 keeps shot FX only */
+        /* v1.1.99: C340 never writes hand pose/scale when viewmodel module is present - shot FX only */
+        if (window.__vm) { U.poseOff = 1; U.k = (window.__vm.k != null ? +__vm.k : U.k); return r; }
         const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; k += ((aim() ? 1 : 0) - k) * (1 - Math.exp(-d * 14)); U.k = +k.toFixed(2); kick *= Math.exp(-d * 11);
         if (now - (U.lt || 0) > 400) { U.lt = now; held.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) if (m.emissive && m.color && !m.emissive.getHex()) { U.lit = (U.lit || 0) + 1; m.emissive.copy(m.color).multiplyScalar(0.45); if (m.emissiveMap === null && m.map) m.emissiveMap = m.map; m.needsUpdate = true; } }); }
+        /* legacy fallback only if __vm missing */
         if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData; if (!u.__s0Base) { const s0 = Math.abs(sc.x * (hand.scale.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; } const s = u.__s0 = u.__s0Base || 1, isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
         const h0 = HIP[isP ? 'pistol' : 'rifle'], asp = Math.min(1, (camera.aspect || 1.6) / 1.6), h = [h0[0] * (0.35 + 0.65 * asp), h0[1], h0[2]], ads = [0, (isP ? -0.035 : -0.03), (isP ? -0.26 : -0.42) - 0.16 * s];
         const tx = h[0] + (ads[0] - h[0]) * k, ty = h[1] + (ads[1] - h[1]) * k + 0.01 * kick, tz = h[2] + (ads[2] - h[2]) * k + (isP ? 0.05 : 0.08) * kick;
         const tgt = new THREE.Vector3(tx, ty, tz).sub(sg.clone().multiplyScalar(k)); E.set((isP ? 0.28 : 0.16) * kick, -0.04 * (1 - k), 0); const Q = new THREE.Quaternion().setFromEuler(E);
-        Md.compose(tgt, Q, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.copy(sc); armVis(k < 0.5, g); } catch (e) { ERR('hand', e); } return r; }; } catch (e) { ERR('uh', e); }
+        Md.compose(tgt, Q, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.set(Math.abs(sc.x)||s, Math.abs(sc.y)||s, Math.abs(sc.z)||s); armVis(k < 0.5, g); } catch (e) { ERR('hand', e); } return r; }; } catch (e) { ERR('uh', e); }
   // the streak from the barrel to the hit, and the flash and smoke at the barrel (not in front of the eyes)
   const LM = new THREE.LineBasicMaterial({color: 0xffe6a0, transparent: true, opacity: 0.9, depthWrite: false, fog: false}), lines = [];
   const muzzle = () => { const g = gun(); if (!g || !g.userData.muzzle) return null; const w = new THREE.Vector3(); g.updateMatrixWorld(true); g.userData.muzzle.getWorldPosition(w); return w; };
@@ -48050,12 +48052,12 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { const t = started && !DIM.cur && P.y < 1 && !(window.__c298 && __c298.sky) ? Math.min(1, (1 - P.y) / 6) : 0; dk += (t - dk) * Math.min(1, (dt || 0.016) * 3);
     if (dk > 0.01) { hemi.intensity *= 1 - 0.55 * dk; sunL.intensity *= 1 - 0.85 * dk; } } catch (_) {} return r; }; } catch (_) {} })();
 
-/* GLX-RLA (v1.1.99): Reload plays the full hand animation on deliberate Reload (button, X, craft-btn gun path)
-   even when the magazine is already full - unlimited ammo tops the mag every tick so a full-mag check used to
-   make Reload do nothing. Auto dry reload still only runs when the mag is empty. Finite ammo still needs
-   reserve for a real refill; animation always runs on manual input. Arms stay visible. */
+/* GLX-RLA (v1.1.99): Manual Reload always plays the full reload motion (button, KeyR, controller X,
+   touch craft-as-reload) even when unlimited ammo keeps the magazine full. Auto dry-reload only when
+   empty. Unequip or switch weapon cancels reload state so motion does not stick. Arms and gun stay visible. */
 (function rla() {
-  const U = window.__rl = {err: null, t: 0, dur: 0, id: 0, n: 0, manual: 0};
+  const U = window.__rl = {err: null, t: 0, dur: 0, id: 0, n: 0, manual: 0, cancel: 0};
+  const clear = () => { U.t = 0; U.manual = 0; U.cancel++; try { if (window.__rlCoreClear) window.__rlCoreClear(); } catch (_) {} };
   const go = (id, manual) => { try { const G = GUN[id]; if (!G || U.t > 0) return false;
       U.dur = Math.max(0.9, Math.min(2.2, +(G.rl || G.reload) || 1.4)); U.t = U.dur; U.id = id; U.n++; U.manual = manual ? 1 : 0; return true; } catch (e) { U.err = String(e); return false; } };
   try { const o = window.reloadGun; window.reloadGun = function () {
@@ -48063,15 +48065,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       try { r = o ? o.apply(this, arguments) : undefined; } catch (e) { U.err = String(e); }
       try {
         if (!(GUN[id] && cnt(id) > 0 && started && !menuOpen)) return r;
-        // Deliberate manual: always play visible reload motion (mag may already be full under unlimited ammo)
         go(id, true);
       } catch (e) { U.err = String(e); }
       return r;
     }; } catch (e) { U.err = String(e); }
   try { const uh = updateHand; updateHand = function (dt) {
       try {
-        if (U.t > 0) { U.t -= Math.min(0.05, dt || 0.016); if (U.t < 0 || U.id !== selId) U.t = 0; }
-        else if (GUN[selId] && cnt(selId) > 0 && window.gunMag && gunMag[selId] <= 0 && (MODE.infinite || ammoCount() > 0)) go(selId, false);
+        const holding = !!(GUN[selId] && cnt(selId) > 0);
+        if (!holding || (U.t > 0 && U.id !== selId)) clear();
+        else if (U.t > 0) { U.t -= Math.min(0.05, dt || 0.016); if (U.t < 0) U.t = 0; }
+        else if (holding && window.gunMag && gunMag[selId] <= 0 && (MODE.infinite || ammoCount() > 0)) go(selId, false);
       } catch (_) {}
       return uh.apply(this, arguments);
     }; } catch (e) { U.err = String(e); }
