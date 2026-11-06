@@ -1,0 +1,21 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
+const html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+// Execute actual production registry declarations, not hand-written mirrors.
+const leafy=html.match(/\[146, 147, 148, 149, 215, 240, 250, 252, 253\]\.forEach\(i => LEAFY\[i\] = 1\);/);
+assert(leafy,'production LEAFY registry changed');
+const leaves=html.match(/const LEAF = \{pine: 146,[^}]*juniper: 250[^}]*\};/);
+assert(leaves,'production juniper registry changed');
+const ctx={LEAFY:new Uint8Array(256)};vm.createContext(ctx);
+vm.runInContext(leafy[0]+leaves[0]+';this.juniper=LEAF.juniper;',ctx);
+assert.equal(ctx.juniper,250);assert.equal(ctx.LEAFY[250],1);
+assert(html.includes('const DB = 255; T.DIAMONDBLOCK = DB'));
+assert(html.includes('U.id = id; T.PACKSNOW = id'));
+assert(html.includes("FACES[id] = 'packsnow'"));
+assert(html.includes('let world = new Uint8Array(W * H * D)'));
+assert(html.includes('const v = s.charCodeAt(j), n = s.charCodeAt(j + 1); target.fill(v, o, o + n)'));
+const world=new Uint8Array(1);world[0]=256;assert.equal(world[0],0);
+console.log('PASS actual production juniper registry: id250, LEAFY[250]=1');
+console.log('PASS production diamond255 / packed-snow255 collision still present');
+console.log('PASS byte world storage: id256 truncates to AIR; not a safe alternative');
+console.log('BLOCKED: previous patch must NOT integrate id250. No alternative id certified by this test.');
