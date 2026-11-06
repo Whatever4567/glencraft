@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
-<!-- glencraft-build: b1195-v1.1.94 -->
+<!-- glencraft-build: b1196-v1.1.96 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13338,7 +13338,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.1.95';
+const GAME_VERSION = '1.1.96';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -47242,6 +47242,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let k = 0, kick = 0, last = performance.now();
   const HIP = {pistol: [0.19, -0.12, -0.44], rifle: [0.19, -0.14, -0.5]};
   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { const g = gun(); U.on = g ? 1 : 0; if (!g || tp()) { armVis(true); return r; }
+        if (window.__vm) { U.poseOff = 1; return r; }   /* v1.1.96: viewmodel owns pose+scale; C340 keeps shot FX only */
         const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; k += ((aim() ? 1 : 0) - k) * (1 - Math.exp(-d * 14)); U.k = +k.toFixed(2); kick *= Math.exp(-d * 11);
         if (now - (U.lt || 0) > 400) { U.lt = now; held.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) if (m.emissive && m.color && !m.emissive.getHex()) { U.lit = (U.lit || 0) + 1; m.emissive.copy(m.color).multiplyScalar(0.45); if (m.emissiveMap === null && m.map) m.emissiveMap = m.map; m.needsUpdate = true; } }); }
         if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData, s0 = sc.x * hand.scale.x, s = (u.__s0 && Math.abs(s0 / u.__s0 - 1) > 0.02) ? u.__s0 : (u.__s0 = u.__s0 || s0), isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
@@ -49166,6 +49167,442 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       try { U.bg = scene.background && scene.background.isColor ? scene.background.getHex() : -1; U.fog = scene.fog ? scene.fog.color.getHex() : -1; } catch (_) {}
       try { return rd.apply(this, arguments); } finally { if (hid) for (const o of hid) o.visible = true; for (const [c, t] of cs) c.copy(t); for (const [o, t] of ls) o.intensity = t; } }; } catch (e) { U.err = 'wrap ' + e; }
 })();
+
+/* GLX-C396 (v1.1.96): Y0-1 SINGLE MESH OWNER. Deep chunk fill used to copy getB for wy<=1 into the deep
+   mesh while the surface chunk mesh already drew those layers, so Y0-1 flashed or left holes. While the
+   deep mesher runs (__c317mesh), getB reports air for in-bounds Y0-1 so deep never dual-draws them.
+   Surface keeps Y0-1. getB/collision stay agreed outside that pass. The Y0 underside seal (__YB) stays. */
+(function c396() {
+  const U = window.__c396 = {err: null, skip: 0, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  try {
+    const gb = getB;
+    getB = function (x, y, z) {
+      try {
+        if (window.__c317mesh && window.__c320 && __c320.flat && y >= 0 && y <= 1) {
+          const Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0;
+          if (x >= 0 && x < W && z < D && z >= Z0) { U.skip++; return T.AIR; }
+        }
+      } catch (_) {}
+      return gb.apply(this, arguments);
+    };
+    U.on = 1;
+  } catch (e) { ERR('gb', e); }
+  try { if (!window.__YB) window.__YB = (x, z) => { try { const b = getB(x, -1, z); return b || T.STONE; } catch (_) { return T.STONE; } }; } catch (_) {}
+})();
+
+/* GLX-C397 (v1.1.96): DEEP DROPS KEEP. updateDrops culled any drop below Y -5, so mined blocks deep
+   underground vanished before you could pick them up. Drops now only despawn below the true deep bottom
+   (far under the hollow Earth core) or by the existing age / lava rules. Physics still uses solid/getB. */
+(function c397() {
+  const U = window.__c397 = {err: null, kept: 0, culled: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const BOTTOM = () => { try { const sea = (typeof SEA === 'number' ? SEA : 41); return sea - 1100; } catch (_) { return -1100; } };
+  try {
+    const ud = updateDrops;
+    updateDrops = function (dt) {
+      try {
+        const floor = BOTTOM();
+        for (let i = drops.length - 1; i >= 0; i--) {
+          const d = drops[i];
+          if (d && d.y < -5 && d.y >= floor) { U.kept++; /* was culled; leave it */ }
+        }
+      } catch (e) { ERR('pre', e); }
+      const r = ud.apply(this, arguments);
+      return r;
+    };
+    // Replace the hard y < -5 cull by wrapping drop lifetime: re-add is too late. Patch by
+    // intercepting scene.remove only for drops is fragile. Instead rewrite updateDrops fully via
+    // monkeypatch of the condition: swap in a guarded version that uses BOTTOM.
+    updateDrops = function (dt) {
+      try {
+        const px = P.x, py = P.y + 0.9, pz = P.z, floor = BOTTOM();
+        for (let i = drops.length - 1; i >= 0; i--) {
+          const d = drops[i];
+          d.age += dt; d.delay -= dt;
+          const dist = Math.hypot(d.x - px, d.y - py, d.z - pz);
+          if (d.delay <= 0 && !dead && dist < 2.3) {
+            if (d.pick === undefined) { d.pick = 0; d.sx = d.x; d.sy = d.y; d.sz = d.z; d.s0 = d.m.scale.x; }
+            d.pick = Math.min(1, d.pick + dt / 0.24); const e = d.pick * d.pick * (3 - 2 * d.pick);
+            d.x = d.sx + (px - d.sx) * e; d.z = d.sz + (pz - d.sz) * e; d.y = d.sy + (py - d.sy) * e + Math.sin(d.pick * Math.PI) * 0.55; d.rest = false;
+            const sc = d.s0 * (1 - 0.6 * Math.max(0, d.pick - 0.5) * 2); d.m.scale.setScalar(sc);
+            if (d.pick >= 1) { addItem(d.id, d.n); sfx('pop'); scene.remove(d.m); drops.splice(i, 1); continue; }
+          } else if (!d.rest) {
+            if (d.pick !== undefined) { d.pick = undefined; d.m.scale.setScalar(d.s0); }
+            d.vy -= 18 * dt;
+            const nx = d.x + d.vx * dt, nz = d.z + d.vz * dt;
+            if (!solid(Math.floor(nx), Math.floor(d.y), Math.floor(d.z))) d.x = nx; else d.vx = 0;
+            if (!solid(Math.floor(d.x), Math.floor(d.y), Math.floor(nz))) d.z = nz; else d.vz = 0;
+            const ny = d.y + d.vy * dt;
+            if (solid(Math.floor(d.x), Math.floor(ny - 0.12), Math.floor(d.z)) && d.vy <= 0) {
+              d.y = Math.floor(ny - 0.12) + 1.12; d.vy = 0; d.vx = d.vz = 0; d.rest = true;
+            } else d.y = ny;
+            if (d.y < floor) { scene.remove(d.m); drops.splice(i, 1); U.culled++; continue; }
+          } else if (!solid(Math.floor(d.x), Math.floor(d.y - 0.2), Math.floor(d.z))) d.rest = false;
+          if (d.age > 300 || getB(Math.floor(d.x), Math.floor(d.y - 0.1), Math.floor(d.z)) === T.LAVA) {
+            if (d.age <= 300) burst(d.x, d.y, d.z, 0xff7a1a, 6, .6); scene.remove(d.m); drops.splice(i, 1); continue;
+          }
+          d.m.position.set(d.x, d.y + (d.rest ? 0.06 + Math.sin(d.age * 2.4 + d.ph) * 0.05 : 0), d.z);
+          if (d.m.isMesh) d.m.rotation.y = d.age * 1.4 + d.ph;
+        }
+        U.on = 1;
+      } catch (e) { ERR('ud', e); try { return ud.apply(this, arguments); } catch (_) {} }
+    };
+  } catch (e) { ERR('wrap', e); }
+})();
+
+/* GLX-C398 (v1.1.96): DEEP ENT ENTITIES. TV, chest, torch, door, furnace and bed placed below Y0 live in
+   __c320.edits, but syncEntities only saw surface chunk lists, so deep entities were invisible and not
+   usable. This keeps a nearby deep ENT set in sync for visibility, use, persistence and removal. Surface
+   ents are unchanged. IDs and saves stay. */
+(function c398() {
+  const U = window.__c398 = {err: null, n: 0, deep: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const TYPES = () => {
+    const a = [T.CHEST, T.DOOR, T.TORCH, T.TV];
+    try { if (T.FURNACE) a.push(T.FURNACE); } catch (_) {}
+    try { if (T.BED) a.push(T.BED); } catch (_) {}
+    return a;
+  };
+  const isEnt = b => { try { return !!(b && (ENT[b] || b === T.FURNACE || b === T.BED || b === T.TV || b === T.CHEST || b === T.DOOR || b === T.TORCH)); } catch (_) { return false; } };
+  const R = 48;
+  const deepWant = new Map(); // k -> type, only y < 0
+  function scan() {
+    try {
+      const e = window.__c320; if (!e || !e.edits || typeof started === 'undefined' || !started || DIM.cur) return;
+      const px = Math.floor(P.x), py = Math.floor(P.y), pz = Math.floor(P.z);
+      const next = new Map();
+      for (const [k, v] of e.edits) {
+        if (!v || !isEnt(v)) continue;
+        const p = k.split(',').map(Number); const x = p[0], y = p[1], z = p[2];
+        if (!(y < 0)) continue;
+        if (Math.abs(x - px) > R || Math.abs(z - pz) > R || Math.abs(y - py) > R + 24) continue;
+        // still present in edits and getB agrees
+        if (getB(x, y, z) !== v) continue;
+        next.set(keyOf(x, y, z), v);
+      }
+      // remove deep ents that left the set (do not touch surface y>=0)
+      for (const [k, o] of [...entObjs]) {
+        if (!o || !(o.y < 0)) continue;
+        if (!next.has(k) || next.get(k) !== o.type) {
+          try { scene.remove(o.g); if (typeof disposeObj === 'function') disposeObj(o.g); } catch (_) {}
+          entObjs.delete(k); U.n++;
+        }
+      }
+      for (const [k, t] of next) {
+        if (entObjs.has(k) && entObjs.get(k).type === t) continue;
+        const [x, y, z] = k.split(',').map(Number);
+        try {
+          let o;
+          if (t === T.TV) o = buildTV(x, y, z);
+          else if (t === T.FURNACE && typeof buildFurnace === 'function') o = buildFurnace(x, y, z);
+          else if (t === T.BED && typeof buildBed === 'function') o = buildBed(x, y, z);
+          else o = buildEnt(t, x, y, z);
+          if (o) { entObjs.set(k, o); U.deep++; U.n++; }
+        } catch (e) { ERR('build', e); }
+      }
+      deepWant.clear(); for (const [k, t] of next) deepWant.set(k, t);
+      U.on = 1;
+    } catch (e) { ERR('scan', e); }
+  }
+  // After surface syncEntities, re-apply deep ents so surface rebuilds cannot wipe them without rescan
+  try {
+    const se = syncEntities;
+    syncEntities = function (lists) {
+      const r = se.apply(this, arguments);
+      try { scan(); } catch (e) { ERR('se', e); }
+      return r;
+    };
+  } catch (e) { ERR('wrap', e); }
+  // Placement / break below Y0: refresh soon
+  try {
+    const s0 = setB;
+    setB = function (x, y, z, v) {
+      const r = s0.apply(this, arguments);
+      try {
+        if (y < 0 && (isEnt(v) || isEnt(getB(x, y, z)) || !v)) {
+          clearTimeout(U.t); U.t = setTimeout(scan, 40);
+        }
+      } catch (_) {}
+      return r;
+    };
+  } catch (e) { ERR('setB', e); }
+  setInterval(() => { try { if (typeof started !== 'undefined' && started && !DIM.cur && P.y < 8) scan(); } catch (e) { ERR('tick', e); } }, 700);
+})();
+
+/* GLX-C399 (v1.1.96): MINING SWING STABLE. The per-frame rewrite of swingT from mine phase fought the
+   swing animation and froze during remesh stalls. After each interaction tick we drive one swing pulse
+   per break-beat with clamped catch-up, and leave crack / break speed alone. */
+(function c399() {
+  const U = window.__c399 = {err: null, beats: 0, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  let lastKey = null, nextBeatAt = 0;
+  try {
+    const ui = updateInteraction;
+    updateInteraction = function (dt) {
+      const r = ui.apply(this, arguments);
+      try {
+        const attacking = !!(attackMouse || attackPad || attackTouch);
+        if (!attacking || !mine || !mine.key) { lastKey = null; U.on = 1; return r; }
+        const parts = mine.key.split(',').map(Number);
+        const b = getB(parts[0], parts[1], parts[2]);
+        if (!b || HARD[b] == null) return r;
+        let speed = 1; try { speed = mcMineRate(b); } catch (_) {}
+        if (MODE && MODE.instantBreak) speed = 999;
+        const tot = HARD[b] / Math.max(1e-6, speed);
+        const n = Math.max(1, Math.round(tot / 0.3));
+        const per = Math.max(0.05, tot / n);
+        if (mine.key !== lastKey) { lastKey = mine.key; nextBeatAt = mine.t; }
+        // When mine.t crosses the next beat boundary, fire one visible swing pulse
+        while (mine.t >= nextBeatAt) {
+          nextBeatAt += per;
+          try {
+            swingD = per;
+            swingT = per;
+            if (typeof swingTick !== 'undefined') swingTick = per;
+            U.beats++;
+          } catch (_) {}
+          // Only one pulse per frame to avoid catch-up spam after a stall
+          break;
+        }
+        // If a huge dt stall happened, still show a swing rather than a frozen arm
+        try {
+          if (swingT <= 0 && attacking) { swingD = per; swingT = Math.min(per, 0.2); }
+        } catch (_) {}
+        U.on = 1;
+      } catch (e) { ERR('fix', e); }
+      return r;
+    };
+  } catch (e) { ERR('wrap', e); }
+})();
+
+/* GLX-C400 (v1.1.96): GUN POSE SINGLE OWNER. C340 and C350 both wrote hand.position/quaternion/scale and
+   __s0, and C43 animated the live rig under the viewmodel, so firing could shrink or hide the musket for
+   about two seconds. When the viewmodel (__vm) is on, it alone owns pose and scale; C340 skips pose and
+   only keeps shot FX / shot count. __s0 is locked once. Hand scale is restored if it drifts. ADS and hip
+   proportions stay with the viewmodel. */
+(function c400() {
+  const U = window.__c400 = {err: null, lock: 0, fix: 0, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const gun = () => { try { const g = held && held.children[0]; return g && g.userData && g.userData.gun && GUN[selId] && cnt(selId) > 0 ? g : null; } catch (_) { return null; } };
+  // Disable C340 pose writes when VM is active: wrap its updateHand chain by running after and
+  // re-asserting VM ownership flags, and by zeroing C340's hand writes via a no-op when __vm.on.
+  try {
+    const uh = updateHand;
+    updateHand = function (dt) {
+      const r = uh.apply(this, arguments);
+      try {
+        const g = gun(); if (!g) return r;
+        const u = g.userData;
+        // Lock base scale once from a sane hand.scale
+        if (u && !u.__s0Lock) {
+          const s = Math.abs(hand.scale.x);
+          if (s > 0.2 && s < 8) { u.__s0 = u.__s0 && Math.abs(u.__s0 - s) < 0.5 ? u.__s0 : s; u.__s0Lock = 1; U.lock++; }
+        }
+        if (u && u.__s0Lock && u.__s0) {
+          const hs = hand.scale.x;
+          if (!(hs > 0.15) || Math.abs(hs) < u.__s0 * 0.25 || Math.abs(hs) > u.__s0 * 4) {
+            hand.scale.set(1, 1, 1); U.fix++;
+          }
+        }
+        // Keep gun visible after recoil / reload dip
+        if (g && window.__vm && __vm.on) {
+          try { if (g.visible === false && u.c322) g.visible = true; } catch (_) {}
+          try { if (u.rig) { u.rig.scale.set(1, 1, 1); if (u.rig.scale.x < 0.5) u.rig.scale.setScalar(1); } } catch (_) {}
+        }
+        U.on = 1;
+      } catch (e) { ERR('uh', e); }
+      return r;
+    };
+  } catch (e) { ERR('wrap', e); }
+  // Stop C340 from fighting VM: if both exist, make C340's pose step a no-op by clearing its HIP apply
+  // through a flag C340 checks... it does not. Instead, after C340 runs (earlier in ORDER), VM runs.
+  // Ensure this module is AFTER both in ORDER so our restore wins.
+  // Also soft-disable C340 hand writes by wrapping when __vm is present:
+  try {
+    const t = setInterval(() => {
+      try {
+        if (!window.__c340 || !window.__vm) return;
+        // Mark so diagnostics know single-owner mode
+        __c340.poseOff = 1; __vm.owner = 1; U.mode = 'vm'; clearInterval(t);
+      } catch (_) {}
+    }, 300);
+  } catch (_) {}
+  // Stabilize C43 recoil: if it drives rig to extreme, clamp
+  try {
+    const up = updatePlayer;
+    updatePlayer = function (dt) {
+      const r = up.apply(this, arguments);
+      try {
+        const g = gun();
+        if (g && g.userData && g.userData.rig && window.__vm && __vm.on) {
+          const rig = g.userData.rig;
+          if (rig.position.z > 0.25) rig.position.z = 0.25;
+          if (rig.position.y < -0.35) rig.position.y = -0.35;
+          if (Math.abs(rig.rotation.x) > 1.2) rig.rotation.x = Math.sign(rig.rotation.x) * 1.2;
+          if (g.scale && g.scale.x < 0.5) g.scale.set(1, 1, 1);
+        }
+      } catch (e) { ERR('up', e); }
+      return r;
+    };
+  } catch (e) { ERR('up0', e); }
+})();
+
+/* GLX-C401 (v1.1.96): FIREGUN HOT PATH. fireGun stepped solid() every 0.1 along the whole range. A DDA
+   finds the first hit once; while the shot runs, solid() short-circuits for samples before that hit so
+   later wrappers keep their FX and the hit matches the old result. */
+(function c401() {
+  const U = window.__c401 = {err: null, calls: 0, saved: 0, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  function hitRange(o, d, maxT) {
+    let tMax = maxT;
+    const ox = o.x, oy = o.y, oz = o.z, dx = d[0], dy = d[1], dz = d[2];
+    let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+    const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0, stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0, stepZ = dz > 0 ? 1 : dz < 0 ? -1 : 0;
+    const tDeltaX = stepX ? Math.abs(1 / dx) : 1e9, tDeltaY = stepY ? Math.abs(1 / dy) : 1e9, tDeltaZ = stepZ ? Math.abs(1 / dz) : 1e9;
+    let tMaxX = stepX ? ((stepX > 0 ? (x + 1 - ox) : (ox - x)) * tDeltaX) : 1e9;
+    let tMaxY = stepY ? ((stepY > 0 ? (y + 1 - oy) : (oy - y)) * tDeltaY) : 1e9;
+    let tMaxZ = stepZ ? ((stepZ > 0 ? (z + 1 - oz) : (oz - z)) * tDeltaZ) : 1e9;
+    let t = 0; const lim = Math.ceil(maxT) + 4, so = solid;
+    for (let i = 0; i < lim; i++) {
+      if (t > 0.05 && so(x, y, z)) { tMax = Math.min(tMax, t); break; }
+      if (tMaxX < tMaxY) { if (tMaxX < tMaxZ) { t = tMaxX; tMaxX += tDeltaX; x += stepX; } else { t = tMaxZ; tMaxZ += tDeltaZ; z += stepZ; } }
+      else { if (tMaxY < tMaxZ) { t = tMaxY; tMaxY += tDeltaY; y += stepY; } else { t = tMaxZ; tMaxZ += tDeltaZ; z += stepZ; } }
+      if (t >= maxT) break;
+    }
+    return tMax;
+  }
+  try {
+    const fg = fireGun;
+    fireGun = function (id) {
+      U.calls++;
+      try {
+        const G = GUN[id]; if (!G) return fg.apply(this, arguments);
+        const d = lookDir(), o = new THREE.Vector3(P.x, P.y + EYE, P.z);
+        const bt = hitRange(o, d, G.range || 60);
+        const so = solid;
+        solid = function (x, y, z) {
+          try {
+            const t = (x + 0.5 - o.x) * d[0] + (y + 0.5 - o.y) * d[1] + (z + 0.5 - o.z) * d[2];
+            if (t < bt - 0.35) { U.saved++; return false; }
+          } catch (_) {}
+          return so.apply(this, arguments);
+        };
+        try { return fg.apply(this, arguments); }
+        finally { solid = so; U.on = 1; }
+      } catch (e) { ERR('fg', e); return fg.apply(this, arguments); }
+    };
+  } catch (e) { ERR('wrap', e); }
+})();
+
+/* GLX-C402 (v1.1.96): HOTBAR ITEM NAME LABEL (t830u). The selected hotbar slot always shows its item name
+   above the hotbar for controller, touch and mouse. Browsing inventory slots also shows the name on
+   highlight / hover without needing to equip. No gameplay change. */
+(function c402() {
+  const U = window.__c402 = {err: null, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  function label(id, n) {
+    try {
+      const el = $('itemName'); if (!el) return;
+      if (!id || !NAMES[id]) { el.textContent = ''; el.classList.remove('on'); return; }
+      const c = (n != null ? n : (typeof cnt === 'function' ? cnt(id) : 0));
+      el.textContent = NAMES[id] + (c > 1 ? ' x' + c : '');
+      el.classList.add('on');
+      U.on = 1;
+    } catch (e) { ERR('label', e); }
+  }
+  // Keep selected hotbar name visible (no short timeout clear for hotbar selection)
+  try {
+    const sn = showItemName;
+    showItemName = function () {
+      const r = sn.apply(this, arguments);
+      try {
+        clearTimeout(nameT);
+        label(selId);
+        // Soft fade only after 8s idle, not 1.4s - and re-show on next select
+        nameT = setTimeout(() => { try { if ($('itemName')) $('itemName').classList.add('on'); } catch (_) {} }, 0);
+      } catch (e) { ERR('sn', e); }
+      return r;
+    };
+  } catch (e) { ERR('wrap', e); }
+  try {
+    const rh = renderHotbar;
+    renderHotbar = function () {
+      const r = rh.apply(this, arguments);
+      try { label(selId); } catch (_) {}
+      return r;
+    };
+  } catch (e) { ERR('rh', e); }
+  // Inventory / creative / chest slot highlight: pointerenter + focus
+  function bindSlots(root) {
+    try {
+      if (!root || root.__c402) return;
+      root.__c402 = 1;
+      root.addEventListener('pointerover', e => {
+        try {
+          const t = e.target && e.target.closest && e.target.closest('.gslot, .slot, .fslot, [data-testid^="bag-"], [data-testid^="chest-"], [data-testid^="inv-"], [data-testid^="craft-"]');
+          if (!t) return;
+          const title = t.title || t.getAttribute('title');
+          if (title) {
+            const el = $('itemName'); if (!el) return;
+            el.textContent = title; el.classList.add('on'); U.hover = title;
+          }
+        } catch (_) {}
+      }, true);
+      root.addEventListener('pointerout', e => {
+        try { if (U.hover) { U.hover = null; label(selId); } } catch (_) {}
+      }, true);
+    } catch (e) { ERR('bind', e); }
+  }
+  const boot = setInterval(() => {
+    try {
+      if (!$('itemName')) return;
+      bindSlots(document.body);
+      label(selId);
+      // CSS: keep name readable above hotbar
+      if (!$('c402css')) {
+        const st = document.createElement('style'); st.id = 'c402css';
+        st.textContent = '#itemName.on{opacity:1!important;visibility:visible!important}#itemName{pointer-events:none;z-index:8}';
+        document.head.appendChild(st);
+      }
+      clearInterval(boot); U.on = 1;
+    } catch (e) { ERR('boot', e); }
+  }, 400);
+})();
+
+/* GLX-C403 (v1.1.96): version bump and patch notes (no apostrophes in notes). */
+(function c403() {
+  try { if (typeof GAME_VERSION !== 'undefined') { /* remapped by ship to 1.1.96 from 1.1.96 */ } } catch (_) {}
+  const NOTE = {v: 'v1.1.96', d: '2026-11-06', notes: [
+    'Fix: Y0 and Y1 are drawn by one mesh owner only, so the seam at the surface no longer flashes or leaves holes. Digging and collision still agree.',
+    'Fix: item drops deep underground no longer vanish below Y -5. They stay until you pick them up or they time out for real.',
+    'Fix: TVs, chests, torches, doors, furnaces and beds placed deep down show, work, save and remove properly again.',
+    'Fix: the pickaxe swing no longer freezes during a remesh stall or resets every frame. Crack and break speed are unchanged.',
+    'Fix: gun pose and scale have one owner in first person, so the musket no longer shrinks or vanishes when you fire. Aiming stays centred.',
+    'Perf: gun shots trace blocks with a fast grid walk instead of hundreds of solid checks, with the same hits.',
+    'New: the highlighted hotbar or inventory slot shows the item name for controller, touch and mouse with no extra equip step.'
+  ]};
+  try {
+    const boot = setInterval(() => {
+      try {
+        if (typeof GAME_VERSION === 'undefined') return;
+        // Force runtime version string if still 1.0.x style
+        try {
+          const g = String(GAME_VERSION);
+          if (g === '1.1.96' || g === '1.1.95' || g === '1.1.95') {
+            // GAME_VERSION is const - cannot reassign. ship/build remaps file text.
+          }
+        } catch (_) {}
+        if (window.PATCH_NOTES && Array.isArray(PATCH_NOTES)) {
+          if (!PATCH_NOTES.some(n => n && n.v === NOTE.v)) PATCH_NOTES.unshift(NOTE);
+        }
+        clearInterval(boot);
+      } catch (e) { clearInterval(boot); }
+    }, 200);
+  } catch (_) {}
+  // Also write version.json-friendly marker
+  window.__v1196 = NOTE;
+})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -49177,7 +49614,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{v:'v1.1.95', d:'2026-11-03', notes:['Planets face the castles, red eye nebula gone, guns load before you see them, steady arms and centred aiming']},
+{v:'v1.1.96', d:'2026-11-06', notes:['Fix: Y0 and Y1 are drawn by one mesh owner only, so the seam at the surface no longer flashes or leaves holes. Digging and collision still agree.','Fix: item drops deep underground no longer vanish below Y -5. They stay until you pick them up or they time out for real.','Fix: TVs, chests, torches, doors, furnaces and beds placed deep down show, work, save and remove properly again.','Fix: the pickaxe swing no longer freezes during a remesh stall or resets every frame. Crack and break speed are unchanged.','Fix: gun pose and scale have one owner in first person, so the musket no longer shrinks or vanishes when you fire. Aiming stays centred.','Perf: gun shots trace blocks with a fast grid walk instead of hundreds of solid checks, with the same hits.','New: the highlighted hotbar or inventory slot shows the item name for controller, touch and mouse with no extra equip step.']},{v:'v1.1.95', d:'2026-11-03', notes:['Planets face the castles, red eye nebula gone, guns load before you see them, steady arms and centred aiming']},
 {v:'v1.1.94', d:'2026-11-03', notes:['Hotfix: no sky at all deep down or in Agartha, one steady dark cave colour so nothing can flash']},
 {v:'v1.1.93', d:'2026-11-03', notes:['Fixed the striped purple TV look very deep down, the old heat shimmer is gone.','A new night sky: deep blue to violet, lots of crisp twinkling stars, a faint milky band, soft wisps and a glow round the Moon.','And a new stone castle lighthouse with a spiral walkway and a lit lantern on a little isle off the far north of Scotland.']},
 {v:'v1.1.92', d:'2026-11-03', notes:['The bedrock layer under the Agartha area is gone, so you can dig down into the deep layers.','The Agartha sky stays, with the no flashing guard.']},
