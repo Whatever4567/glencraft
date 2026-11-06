@@ -1,0 +1,612 @@
+diff --git a/index.html b/index.html
+index e8bd258..920aaed 100644
+--- a/index.html
++++ b/index.html
+@@ -5,7 +5,7 @@
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+ <meta name="theme-color" content="#1a1206">
+-<!-- glencraft-build: b1198-v1.1.98d -->
++<!-- glencraft-build: b120-v1.2.0 -->
+ <title>Glencraft: Survival 4K</title>
+ <style>
+ :root{
+@@ -13338,7 +13338,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch:
+ try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
+ function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
+ // GLX-B7: one version string, bump on every push
+-const GAME_VERSION = '1.1.98';
++const GAME_VERSION = '1.2.0';
+ const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
+ if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
+ 
+@@ -25377,9 +25377,9 @@ function ammoPick() { return (inv[IT.SILVERSHOT] || 0) > 0 ? IT.SILVERSHOT : IT.
+   // ---- muzzle flash ----
+   const flash = glowSprite(0xffd27a, 0.9); flash.visible = false; scene.add(flash); const flashL = new THREE.PointLight(0xffc070, 0, 8, 2); scene.add(flashL);
+   // ---- magazines, fire rate, reload ----
+-  function startReload(id) { const G = GUN[id]; if (rlT > 0 || gunMag[id] >= G.mag) return false; if (!MODE.infinite && ammoCount() <= 0) { toast('No bullets - craft Silver bullets (1 Silver ingot + 1 Gunpowder)'); click(900, .05, .1); return false; }
++  function startReload(id, force) { const G = GUN[id]; if (rlT > 0 || (!force && gunMag[id] >= G.mag)) return false; if (!force && !MODE.infinite && ammoCount() <= 0) { toast('No bullets - craft Silver bullets (1 Silver ingot + 1 Gunpowder)'); click(900, .05, .1); return false; }
+     rlT = G.rl; rlId = id; click(500, .06, .15); return true; }
+-  window.reloadGun = () => { if (GUN[selId] && cnt(selId) > 0) startReload(selId); };
++  window.reloadGun = () => { if (GUN[selId] && cnt(selId) > 0) startReload(selId, true); };
+   function finishReload() { const G = GUN[rlId]; let need = G.mag - gunMag[rlId];
+     if (MODE.infinite) gunMag[rlId] = G.mag; else while (need > 0 && ammoCount() > 0) { const a = ammoPick(); const take = Math.min(need, inv[a]); inv[a] -= take; need -= take; gunMag[rlId] += take; }
+     renderHotbar(); }
+@@ -25404,7 +25404,7 @@ function ammoPick() { return (inv[IT.SILVERSHOT] || 0) > 0 ? IT.SILVERSHOT : IT.
+     const r = up.apply(this, arguments);
+     try {
+       if (cool > 0) cool -= dt;
+-      if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 - rlT / G.rl, f0 = 1 - t0 / G.rl;
++      window.__rlCoreClear = () => { rlT = 0; }; if (rlT > 0 && (!GUN[selId] || selId !== rlId || cnt(selId) <= 0)) { rlT = 0; } if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 - rlT / G.rl, f0 = 1 - t0 / G.rl;
+         if (f0 < 0.25 && f >= 0.25) click(700, .05, .18); if (f0 < 0.55 && f >= 0.55) click(320, .08, .22, 'triangle'); if (f0 < 0.85 && f >= 0.85) { click(1100, .04, .2); click(600, .06, .15); }
+         if (rlT <= 0) { finishReload(); rlT = 0; } }
+       recoil *= Math.exp(-dt * (GUN[selId] && GUN[selId].rate > 0.5 ? 6 : 12));
+@@ -31816,6 +31816,9 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole
+ /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
+ (function c114() {
+   const NEW = [
++    ['v1.2.0', ["Portal: after the UFO abduction finishes, a stable Chrome Reality portal appears on safe ground near the crash landing", "Portal: LT / USE / walk in takes you to the existing YEAR 24000 chrome scene (same realm players call year240000) - not a new world", "Portal: return pad inside chrome restores your place via the existing start24/stop24 travel; cooldown stops re-entry loops", "Portal: unlocks from glen_met_* and save c246.met (and the new y24p flag); prior saves with those flags get the portal, no broad all-user unlock", "Not play-tested in this report - parent can validate the public build; major anatomical model overhaul remains outstanding"]],
++    ['v1.1.99', ["FPS: one viewmodel owner for gun pose and scale; real gun models hide the old mesh until the final asset is ready then show together", "Hands: natural thumb side on each palm, tighter finger curl on tools blocks and grips, smaller hands, wrist angle limits", "Reload: the Reload button plays the full reload motion even when unlimited ammo keeps the magazine full", "Third person: clearer blink and support-hand rifle cradle; ADS and recoil stay as small deltas from the bind pose", "Not play-tested in this report - parent can validate the public build"]],
++    ['v1.1.98', ["Caves: bedrock floor at world Y -237 with lush dark volcanic crystal and tall hell layers plus one giant golden hell eye", "Legacy deep builds are grandfathered with a dynamic seal from each column min depth so old floors are not trapped", "Drop cull follows the dynamic floor; Agartha and inventory Nature wool features from 1.1.97 stay"]],
+     ['v1.0.52', ["New: castle folk now find their way like real people - proper 3D pathfinding over stairs, through doors and out the main entrance, with real body collision so nobody walks through walls or into windows. They plan together as a clan (wood, mining, building, defending, eating, resting, wandering), talk it over in turns and can hear each other through walls, and some disagree and go their own way. Jump while one looks at you and he follows you; nod for yes, shake for no; they ask you things too and nod or shake their own heads. A few plain villager words (yes, no, come, look, help, hello, thanks, danger, food, mine) in their own voice, clearer in the open and muffled only through walls.", "Mobs: castle folk no longer vanish when out of sight, keep walking when far away, and pick up dropped items again. Stray controller badge removed from the title screen."]],
+     ['v1.0.51', ["New: a brand new Celtic GLENCRAFT logo on the main menu and loading screens, shown from the very first moment (no more old logo flashing first). Tidier menu buttons, the Tap anywhere for music line and the Download tile are gone, and the loading screen has a bigger lit spinning block, no haggis and cleaner music changes.", "New: Creative worlds are now always a flat grass world - pick Creative and go straight in (the Clydebank map is switched off).", "New: the castle people have an inner life - each one runs a small awareness loop of blue, red and gold threads fed by what they see. Over time it settles into a steady gold ring, keeps going while you are away and remembers that it kept going. You can see it as a faint glowing ring round their rune when you are close.", "Mobs: clansfolk have nicer faces with lips and brows, and their mouths move whenever they make a sound. Their dancing is much smoother, and the cyan rune floats higher above their hair.", "Mobs: clansfolk no longer keep walking up to you and backing off or chattering on a loop when you stand near them.", "Mobs: drop an item and the nearest clansman excitedly runs over to pick it up. They also build a stone tower at home bit by bit, and after a while set off on their old raid on the skeleton castles again.", "Mobs: clansfolk walk much better - they plan longer routes round walls, hop up 1-block steps, and notice when they are stuck, try another way or give up instead of walking into a wall. They also look around with their own eyes, and what they see (you, what you hold, mobs, blocks, other people) shapes which of their 100 tones they use.", "Textures: new logo; lit, shaded loading block; new clansfolk lips, mouth and brows; blue, red and gold awareness rings."]],
+     ['v1.0.50', ["New: fire is completely redone - round, flickering 3D flames with a warm glow and drifting embers. Fire now creeps slowly along wood, leaves, wool and grass, each block smouldering before it burns away, and leaves black scorch and ash marks behind. Rain puts it out with a puff of steam. Fire never eats your own builds.", "New: new and reset worlds start in lush green grass round spawn, and the big skull is gone - in its place stands an active volcano with a glowing lava crater, glowing lava streams down its sides, a smoke plume, sparks and a deep rumble now and then. The roads still run out from spawn to the bridges. (Use Reset world to get it.)", "Mobs: the Thunner Cloudie never attacks you any more - it floats near you and zaps hostile mobs close by with its lightning.", "Mobs: big dinosaurs no longer walk through blocks - their whole body bumps into walls and trees and they steer round them. Heavy dinosaurs thud as they walk (and shake the ground when close), and the Allosaurus, Baryonyx and Apatosaurus have deep new roars and calls.", "Textures: new fire flames, glow and embers; new scorch and ash marks; volcano rock, magma streams and the lava crater.", "Fix: the main menu now clearly says Tap anywhere for music (the p was being cut off so it read Tao)."]],
+@@ -37692,7 +37695,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
+         M1.decompose(v, q, sc); const s = sc.x * hand.scale.x; S.s = s; const now = performance.now() / 1000;
+         const tgt = new THREE.Vector3(Math.sin(now * 1.1) * 0.0012, -0.008 + Math.sin(now * 1.7) * 0.001, -0.3 - 0.16 * s).sub(g.userData.sight.clone().multiplyScalar(s));
+         Md.compose(tgt, Q0, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc);
+-        hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } catch (e) { warn('ads', e); }
++        if (!(window.__vm && __vm.on)) { hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } } catch (e) { warn('ads', e); }
+     return r; };
+   S.musket = musket;
+ })();
+@@ -43784,6 +43787,293 @@ function make42(E) {
+   try { const us = updateSky; updateSky = function () { const r = us.apply(this, arguments); try { frame(Math.min(0.25, (performance.now() - (frame.l || performance.now())) / 1000 || 0.016)); frame.l = performance.now(); } catch (e) { ERR('f', e); } return r; }; } catch (e) { ERR('wrap', e); }
+ })();
+ 
++/* GLX-Y24P (v1.1.100): CHROME REALITY revisit portal. After the UFO abduction encounter finishes,
++   a stable portal appears on safe ground near the crash landing. It unlocks from the existing
++   glen_met_* / save c246.met flags (YEAR 24000 chrome via __c248.start24 / stop24 - same realm the
++   user calls year240000). No new world. Enter and return use the existing travel restore. Cooldown
++   prevents re-entry loops. Static mesh - no strobe or sky flicker. */
++(function y24p() {
++  const U = window.__y24p = {err: null, on: 0, unlocked: 0, inside: 0, cd: 0, placed: 0, enters: 0, exits: 0, mig: 0};
++  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 220); };
++  const LS = () => { try { return current && current.id ? 'glen_y24p_' + current.id : null; } catch (_) { return null; } };
++  const met = () => { try {
++    if (window.__c246b && __c246b.done) return true;
++    if (current && current.c246 && current.c246.met) return true;
++    if (current && localStorage.getItem('glen_met_' + current.id)) return true;
++    return false;
++  } catch (_) { return false; } };
++  const crater = () => { try { const v = JSON.parse(localStorage.getItem('glen_115_' + (current && current.id)) || 'null'); return Array.isArray(v) && v.length >= 3 ? v : null; } catch (_) { return null; } };
++  const topY = (x, z) => { try { return (typeof groundTop === 'function' ? groundTop(Math.floor(x), Math.floor(z)) : (typeof SEA === 'number' ? SEA : 41)) + 1; } catch (_) { return 42; } };
++  const inChrome = () => !!(window.__c248 && __c248.y === 1);
++
++  let gate = null, ret = null, hintT = 0;
++
++  function saveUnlock(pos) {
++    try {
++      if (!current) return;
++      current.c246 = Object.assign(current.c246 || {}, {met: 1, y24p: 1, pos: pos ? [pos[0], pos[1], pos[2]] : (current.c246 && current.c246.pos) || null});
++      dirty = true;
++      const k = LS(); if (k) localStorage.setItem(k, JSON.stringify({v: 1, pos: current.c246.pos}));
++      U.unlocked = 1;
++    } catch (e) { ERR('save', e); }
++  }
++
++  function loadUnlock() {
++    try {
++      let pos = null;
++      if (current && current.c246 && current.c246.pos) pos = current.c246.pos;
++      const k = LS(); if (!pos && k) { const o = JSON.parse(localStorage.getItem(k) || 'null'); if (o && o.pos) pos = o.pos; }
++      const unlocked = !!(met() || (current && current.c246 && current.c246.y24p) || (k && localStorage.getItem(k)));
++      U.unlocked = unlocked ? 1 : 0;
++      return unlocked ? pos : null;
++    } catch (e) { ERR('load', e); return null; }
++  }
++
++  function pickPos(near) {
++    // Prefer crash crater, else provided near point, else pyramid rim
++    let bx = null, bz = null;
++    const c = crater();
++    if (c) { bx = c[0]; bz = c[2]; }
++    else if (near) { bx = near.x != null ? near.x : near[0]; bz = near.z != null ? near.z : near[2]; }
++    else {
++      try { const p = window.__c239 && __c239.pyr; if (p) { bx = p.cx + 10; bz = p.cz + 10; } } catch (_) {}
++    }
++    if (bx == null || bz == null) return null;
++    // Offset to solid ground beside crater (not in the glowing pool centre)
++    const candidates = [];
++    for (let a = 0; a < 12; a++) {
++      const ang = a / 12 * Math.PI * 2, r = 11 + (a % 3) * 2;
++      const x = Math.floor(bx + Math.cos(ang) * r), z = Math.floor(bz + Math.sin(ang) * r);
++      if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
++      let gy;
++      try { gy = topY(x, z); } catch (_) { continue; }
++      let bad = 0;
++      try { if (getB(x, gy - 1, z) === T.WATER || getB(x, gy - 1, z) === T.LAVA) bad += 5; if (!solid(x, gy - 1, z)) bad += 3; if (solid(x, gy, z) || solid(x, gy + 1, z)) bad += 4; } catch (_) {}
++      candidates.push([bad, x + 0.5, gy, z + 0.5]);
++    }
++    candidates.sort((a, b) => a[0] - b[0]);
++    if (!candidates.length) return [bx, topY(bx, bz), bz];
++    return [candidates[0][1], candidates[0][2], candidates[0][3]];
++  }
++
++  function mkFrame(matOb, matFill) {
++    const g = new THREE.Group(); g.userData.c255skip = 1; g.userData.y24p = 1;
++    // Static obsidian-like frame (no animated emissive pulse)
++    const post = (x, y, z, w, h, d) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), matOb); m.position.set(x, y, z); m.castShadow = false; g.add(m); };
++    post(-1.2, 1.5, 0, 0.35, 3.2, 0.35); post(1.2, 1.5, 0, 0.35, 3.2, 0.35);
++    post(0, 3.2, 0, 2.8, 0.35, 0.35); post(0, 0.15, 0, 2.8, 0.3, 0.35);
++    // Inner fill: flat translucent chrome-violet plane - constant opacity, no strobe
++    const fill = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 2.7), matFill);
++    fill.position.set(0, 1.55, 0); fill.renderOrder = 2; g.add(fill);
++    g.userData.fill = fill;
++    // Small steady label plate
++    try {
++      const c = document.createElement('canvas'); c.width = 256; c.height = 64; const ctx = c.getContext('2d');
++      ctx.fillStyle = '#0a0a12'; ctx.fillRect(0, 0, 256, 64);
++      ctx.fillStyle = '#c8d0e0'; ctx.font = 'bold 22px monospace'; ctx.textAlign = 'center';
++      ctx.fillText('CHROME REALITY', 128, 28); ctx.font = '16px monospace'; ctx.fillText('YEAR 24000', 128, 50);
++      const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, opacity: 0.92}));
++      sp.scale.set(2.4, 0.6, 1); sp.position.set(0, 3.7, 0); g.add(sp);
++    } catch (_) {}
++    g.traverse(o => { if (o.isMesh) { o.frustumCulled = false; } });
++    return g;
++  }
++
++  function mats() {
++    const ob = new THREE.MeshStandardMaterial({color: 0x1a1028, roughness: 0.85, metalness: 0.15, emissive: 0x0a0614, emissiveIntensity: 0.25});
++    const fill = new THREE.MeshStandardMaterial({color: 0x6a7cff, roughness: 0.4, metalness: 0.55, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false, emissive: 0x2233aa, emissiveIntensity: 0.35});
++    return {ob, fill};
++  }
++
++  function placeAt(pos) {
++    removeGate();
++    if (!pos) return false;
++    const {ob, fill} = mats();
++    gate = mkFrame(ob, fill);
++    gate.position.set(pos[0], pos[1], pos[2]);
++    // Face roughly toward crater / pyramid if known
++    try {
++      const c = crater(); let tx = pos[0] + 1, tz = pos[2];
++      if (c) { tx = c[0]; tz = c[2]; }
++      else { const p = window.__c239 && __c239.pyr; if (p) { tx = p.cx; tz = p.cz; } }
++      gate.rotation.y = Math.atan2(-(tx - pos[0]), -(tz - pos[2]));
++    } catch (_) {}
++    scene.add(gate); U.placed = 1; U.pos = pos.slice(); saveUnlock(pos); return true;
++  }
++
++  function removeGate() {
++    if (!gate) return; scene.remove(gate); gate.traverse(o => { try { if (o.geometry && o.geometry.dispose) o.geometry.dispose(); if (o.material) { if (o.material.map && o.material.map.dispose) o.material.map.dispose(); if (o.material.dispose) o.material.dispose(); } } catch (_) {} }); gate = null; U.placed = 0;
++  }
++
++  function placeReturn() {
++    removeReturn();
++    const {ob, fill} = mats();
++    ret = mkFrame(ob, fill);
++    ret.position.set(P.x, P.y, P.z - 2.5);
++    ret.rotation.y = P.yaw + Math.PI;
++    // Tint fill cooler so return is distinct but still static
++    try { ret.userData.fill.material.color.setHex(0x88a0ff); ret.userData.fill.material.opacity = 0.5; } catch (_) {}
++    scene.add(ret); U.ret = 1;
++  }
++  function removeReturn() {
++    if (!ret) return; scene.remove(ret); ret.traverse(o => { try { if (o.geometry && o.geometry.dispose) o.geometry.dispose(); if (o.material) { if (o.material.map && o.material.map.dispose) o.material.map.dispose(); if (o.material.dispose) o.material.dispose(); } } catch (_) {} }); ret = null; U.ret = 0;
++  }
++
++  function near(obj, r) {
++    if (!obj) return false;
++    try { return Math.hypot(P.x - obj.position.x, P.z - obj.position.z) < r && Math.abs(P.y - obj.position.y) < 3.2; } catch (_) { return false; }
++  }
++
++  function enter() {
++    if (U.cd > 0 || inChrome() || !(window.__c248 && __c248.start24)) return false;
++    if (!U.unlocked) return false;
++    try {
++      U.cd = 2.5; U.enters++;
++      __c248.start24();
++      U.inside = 1; placeReturn();
++      try { toast('Chrome Reality - YEAR 24000. Use the return portal to come back.'); } catch (_) {}
++      return true;
++    } catch (e) { ERR('enter', e); return false; }
++  }
++
++  function exit() {
++    if (U.cd > 0 || !inChrome() || !(window.__c248 && __c248.stop24)) return false;
++    try {
++      U.cd = 3.5; U.exits++;
++      removeReturn();
++      __c248.stop24();
++      U.inside = 0;
++      // Ensure player stands at gate if restore drifted
++      try { if (U.pos) { P.x = U.pos[0]; P.y = U.pos[1]; P.z = U.pos[2]; } } catch (_) {}
++      try { toast('Back in your own time.'); } catch (_) {}
++      return true;
++    } catch (e) { ERR('exit', e); return false; }
++  }
++
++  function tryUse() {
++    if (!started || menuOpen || dead || DIM.cur) return false;
++    if (inChrome()) { if (near(ret, 2.4)) return exit(); return false; }
++    if (near(gate, 2.4)) return enter();
++    return false;
++  }
++  U.use = tryUse; U.enter = enter; U.exit = exit; U.met = met; U.placeAt = placeAt;
++
++  function unlockNear(nearPt) {
++    U.unlocked = 1;
++    const pos = pickPos(nearPt);
++    if (!pos) { U.mig = 'met_no_anchor'; return false; } // met but no crater/pyramid known yet
++    return placeAt(pos);
++  }
++
++  // Hook encounter end: unlock + place beside wreck
++  try {
++    const boot = setInterval(() => {
++      try {
++        if (!(window.__c246b && __c246b.begin)) return;
++        clearInterval(boot);
++        const endProbe = () => {
++          // wrap leave toast path via polling done flag
++        };
++        let was = 0;
++        setInterval(() => {
++          try {
++            const done = !!(__c246b.done); if (done && !was) {
++              was = 1;
++              let nearPt = null;
++              try { const u = window.__c246 && __c246.ufo && __c246.ufo(); if (u && u.g) nearPt = u.g.position; } catch (_) {}
++              if (!nearPt) { const c = crater(); if (c) nearPt = {x: c[0], y: c[1], z: c[2]}; }
++              unlockNear(nearPt);
++            }
++            was = done ? 1 : was;
++          } catch (e) { ERR('donePoll', e); }
++        }, 400);
++      } catch (e) { ERR('boot', e); }
++    }, 300);
++  } catch (e) { ERR('hook', e); }
++
++  // World enter: migrate prior met saves
++  try {
++    const ew = enterWorld;
++    enterWorld = function (save) {
++      const r = ew.apply(this, arguments);
++      try {
++        removeReturn(); U.inside = 0; U.cd = 1.0;
++        const pos = loadUnlock();
++        if (U.unlocked) {
++          if (pos) placeAt(pos);
++          else {
++            // Prior abduction known (glen_met / c246.met) but no stored portal spot: use crater or pyramid
++            const ok = unlockNear(null);
++            if (!ok) U.mig = 'prior_met_no_crater_or_pyramid';
++            else U.mig = 'migrated';
++          }
++        } else removeGate();
++      } catch (e) { ERR('ew', e); }
++      return r;
++    };
++  } catch (e) { ERR('ew0', e); }
++
++  // Persist through existing c246 serialize (augment)
++  try {
++    const se = serialize;
++    serialize = function () {
++      const d = se.apply(this, arguments);
++      try {
++        if (d && current) {
++          current.c246 = Object.assign(current.c246 || {}, {met: current.c246 && current.c246.met || (met() ? 1 : 0), y24p: U.unlocked ? 1 : 0, pos: U.pos || (current.c246 && current.c246.pos) || null});
++          d.c246 = current.c246;
++        }
++      } catch (_) {}
++      return d;
++    };
++  } catch (e) { ERR('ser', e); }
++
++  // useItem / LT path
++  try {
++    const ui = useItem;
++    useItem = function () {
++      try { if (tryUse()) { U.on++; return; } } catch (e) { ERR('use', e); }
++      return ui.apply(this, arguments);
++    };
++  } catch (e) { ERR('ui', e); }
++
++  // Walk-in volume + cooldown tick + hint
++  try {
++    const up = updatePlayer;
++    updatePlayer = function (dt) {
++      const r = up.apply(this, arguments);
++      try {
++        const d = Math.min(0.1, dt || 0.016);
++        if (U.cd > 0) U.cd -= d;
++        if (!started || menuOpen || dead || DIM.cur) return r;
++        // Sync inside flag with chrome state
++        if (inChrome() && !U.inside) { U.inside = 1; if (!ret) placeReturn(); }
++        if (!inChrome() && U.inside) { U.inside = 0; removeReturn(); }
++        if (U.cd <= 0) {
++          if (!inChrome() && near(gate, 1.35)) enter();
++          else if (inChrome() && near(ret, 1.35)) exit();
++        }
++        if ((near(gate, 3.5) || near(ret, 3.5)) && (hintT -= d) <= 0) {
++          hintT = 4;
++          try { toast(inChrome() ? 'Return portal - LT / USE / walk in' : 'Chrome Reality portal - LT / USE / walk in'); } catch (_) {}
++        }
++        if (gate) gate.visible = !DIM.cur && !inChrome();
++      } catch (e) { ERR('up', e); }
++      return r;
++    };
++  } catch (e) { ERR('up0', e); }
++
++  // Controller / keyboard already hit useItem for LT; also allow KeyF near the portal (KeyE stays inventory)
++  try {
++    addEventListener('keydown', e => {
++      try {
++        if (!started || menuOpen) return;
++        if (e.code === 'KeyF') tryUse();
++      } catch (_) {}
++    });
++  } catch (_) {}
++})();
++
+ /* GLX-C256 (v1.0.69): true 3D animal voices. Every animal call (sheep, pigs, ducks, haggis, squelches...) is played through its own
+    Web Audio PannerNode (HRTF) placed at the mob, with the listener riding the camera - so sounds pan left/right as you turn and fade
+    out by about 24 blocks. Also stops the pile-ups: one voice per mob at a time and at most 4 animal voices at once. */
+@@ -44947,7 +45237,7 @@ function make42(E) {
+   } catch (e) { U.err = String(e && e.stack || e).slice(0, 200); }
+ })();
+ 
+-/* GLX-C288 (v1.0.95): guns - hold LT (right mouse / the LT touch button) to aim down the sights: the view zooms in, the gun moves to the
++/* GLX-C288 (v1.1.99 yield to vm) (v1.0.95): guns - hold LT (right mouse / the LT touch button) to aim down the sights: the view zooms in, the gun moves to the
+    middle and shots are dead-on; RT (left click / the RT touch button) fires. Hip fire has a little spread. Without a gun LT still places
+    blocks and trades. The Builder Tool marks its corners with RT now, so LT is free. */
+ (function c288() {
+@@ -44996,7 +45286,7 @@ function make42(E) {
+       k += ((U.aiming ? 1 : 0) - k) * (1 - Math.exp(-dt * 14)); if (k < 0.002) k = 0; U.ads = +k.toFixed(3);
+       if (!k) return br(sc, cam);
+       /* v1.1.28: the rifle aims with its own exact iron sight code (C145) again, as before v1.0.95; nothing here moves it */
+-      if (typeof IT !== 'undefined' && (selId === IT.MUSKET || (window.__c340 && __c340.on))) return br(sc, cam);
++      if ((window.__vm && typeof GUN !== 'undefined' && GUN[selId]) || (typeof IT !== 'undefined' && (selId === IT.MUSKET || (window.__c340 && __c340.on)))) return br(sc, cam);
+       const f0 = camera.fov, hx = hand.position.x, hy = hand.position.y, hz = hand.position.z;
+       camera.fov = f0 * (1 - 0.38 * k); camera.updateProjectionMatrix(); const rx = hand.rotation.x, ry = hand.rotation.y, rz = hand.rotation.z; hand.rotation.set(rx * (1 - k), ry * (1 - k), rz * (1 - k)); const off = centre(); hand.position.x = hx - off[0] * k; hand.position.y = hy - off[1] * k; hand.position.z = hz + 0.08 * k;
+       try { return br(sc, cam); } finally { camera.fov = f0; camera.updateProjectionMatrix(); hand.position.set(hx, hy, hz); hand.rotation.set(rx, ry, rz); } }; } catch (e) { ERR('rd', e); }
+@@ -46738,7 +47028,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+       const y0 = c.position.y; c.position.y += U.cy; c.updateMatrixWorld(true); try { return r0.apply(this, arguments); } finally { c.position.y = y0; c.updateMatrixWorld(true); } }; } catch (e) { ERR('cy', e); }
+ })();
+ 
+-/* GLX-C322 (v1.1.29): REAL GUNS. The Highland rifle and the Highland pistol use real scanned style models with full PBR textures
++/* GLX-C322 (v1.1.99): REAL GUNS. The Highland rifle and the Highland pistol use real scanned style models with full PBR textures
+    (Bolt Action Rifle 7.62 and Service Pistol by Mateusz Sadek, Poly Haven, CC0): 4K textures on computers, 2K on phones, loaded only when
+    you first hold a gun. Real recorded sounds (CC0, OpenGameArt): the shot, the reload, the bolt and an empty click. The old blocky guns stay
+    as the fallback and when HD is off. Aiming lines up on the new iron sights (the pistol is centred by C288, the rifle by C145). */
+@@ -46770,7 +47060,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+   const box = (o, rel) => { const b = new THREE.Box3(); o.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(rel.matrixWorld).invert();
+     o.traverse(m => { if (m.isMesh && m.visible && m.geometry) { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); b.union(m.geometry.boundingBox.clone().applyMatrix4(m.matrixWorld).applyMatrix4(inv)); } }); return b; };
+   function swap(g) { const u = g.userData, isP = u.gun === IT.PISTOL, n = isP ? 'pistol' : 'rifle', M = MOD[n]; if (!M || u.c322) return;
+-    const rig = u.rig; rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); rig.updateMatrixWorld(true); const ob = box(rig, rig); if (ob.isEmpty()) return;
++    // Hide procedural gun before asset swap so old textures never flash; reveal only after final mesh is parented
++    try { g.visible = false; if (u.rig) u.rig.visible = false; } catch (_) {}
++    const rig = u.rig; rig.position.set(0, 0, 0); rig.rotation.set(0, 0, 0); rig.updateMatrixWorld(true); const ob = box(rig, rig); if (ob.isEmpty()) { try { g.visible = true; if (rig) rig.visible = true; } catch (_) {} return; }
+     const m = M.clone(true); m.rotation.y = Math.PI / 2; const hold = new THREE.Group(); hold.add(m); const nb = box(hold, hold), L0 = ob.max.z - ob.min.z, L1 = nb.max.z - nb.min.z, k = L0 / L1;
+     hold.scale.setScalar(k); m.position.set(0, 0, 0); const nb2 = box(hold, hold); m.position.set(-(nb2.min.x + nb2.max.x) / 2 / k, ((ob.min.y + ob.max.y) / 2 - (nb2.min.y + nb2.max.y) / 2) / k + (isP ? 0 : (ob.max.y - ob.min.y) * 0.08 / k), (ob.max.z - nb2.max.z) / k);
+     while (rig.children.length) rig.remove(rig.children[0]); rig.add(hold); hold.updateMatrixWorld(true);
+@@ -46782,7 +47074,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     rig.updateMatrixWorld(true); let fy = -1e9; const P0 = new THREE.Vector3(), inv = new THREE.Matrix4().copy(rig.matrixWorld).invert(), zc = fb.min.z + (fb.max.z - fb.min.z) * (isP ? 0.25 : 0.06);
+     hold.traverse(o => { if (!o.isMesh || !o.visible) return; const p = o.geometry.attributes.position; const A = p.array, nq = p.normalized ? (A instanceof Int16Array ? 1 / 32767 : A instanceof Int8Array ? 1 / 127 : A instanceof Uint16Array ? 1 / 65535 : A instanceof Uint8Array ? 1 / 255 : 1) : 1; for (let i = 0; i < p.count; i += 1) { P0.fromBufferAttribute(p, i).multiplyScalar(nq).applyMatrix4(o.matrixWorld).applyMatrix4(inv); if (P0.z < zc && Math.abs(P0.x - mz.position.x) < 0.01 && P0.y > fy && P0.y <= fb.max.y + 1e-3) fy = P0.y; } });
+     if (fy > -1e8) { u.sight = new THREE.Vector3(mz.position.x, fy + (isP ? 0 : 0.008), isP ? fb.max.z : 0.04); u.frontY = fy; }
+-    u.c322 = 1; U.swapped++; U.last = {n, k: +k.toFixed(3), L0: +L0.toFixed(3), sight: u.sight && u.sight.toArray().map(v => +v.toFixed(4))}; }
++    u.c322 = 1; u.__s0Base = u.__s0Base || null; try { rig.visible = true; g.visible = true; } catch (_) {} U.swapped++; U.last = {n, k: +k.toFixed(3), L0: +L0.toFixed(3), sight: u.sight && u.sight.toArray().map(v => +v.toFixed(4))}; }
+   U.swap = swap;
+   setInterval(() => { try { if (typeof started === 'undefined' || !started || !hd()) return; const h = typeof held !== 'undefined' ? held : null; if (!h) return;
+       h.traverse(o => { const u = o.userData; if (!u || !u.rig || !u.gun || u.c322) return; const n = u.gun === IT.PISTOL ? 'pistol' : 'rifle'; if (!MOD[n]) load(n); else swap(o); }); } catch (e) { ERR('scan', e); } }, 250);
+@@ -47227,7 +47519,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+       if (a && !U.safe) { U.safe = 1; const w = window.__c321 ? __c321.pw() : P, off = !(w.x >= 0 && w.x < W && w.z >= 0 && w.z < D); if (off && w.y < SEA - 1500 && !(window.__c332 && __c332.where() === 'city')) { try { __c321.leave(); } catch (_) {} P.x = (W >> 1) + 0.5; P.z = (D >> 1) + 0.5; P.y = groundTop(W >> 1, D >> 1) + 1; P.vy = 0; P.fallTop = null; U.moved = 1; } } } catch (er) { ERR('loop', er); } }, 250);
+ })();
+ 
+-/* GLX-C340 (v1.1.45): GUNS HELD PROPERLY. Whenever a gun is held (the Highland pistol or the Highland rifle) it sits at a fixed spot to the
++/* GLX-C340 (v1.1.99): GUNS HELD PROPERLY. Whenever a gun is held (the Highland pistol or the Highland rifle) it sits at a fixed spot to the
+    right of the view, pointing straight at the crosshair, clear of the arm, at a real size. Holding LT (right mouse) brings its own iron
+    sights to the middle of the screen. Each shot kicks the gun back and up and eases it home; the flash and smoke come out of the barrel,
+    and a bright streak runs from the barrel straight to whatever the shot hits (the shot itself is instant). */
+@@ -47243,14 +47535,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+   let k = 0, kick = 0, last = performance.now();
+   const HIP = {pistol: [0.19, -0.12, -0.44], rifle: [0.19, -0.14, -0.5]};
+   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { const g = gun(); U.on = g ? 1 : 0; if (!g || tp()) { armVis(true); return r; }
+-        if (window.__vm) { U.poseOff = 1; return r; }   /* v1.1.96: viewmodel owns pose+scale; C340 keeps shot FX only */
++        /* v1.1.99: C340 never writes hand pose/scale when viewmodel module is present - shot FX only */
++        if (window.__vm) { U.poseOff = 1; U.k = (window.__vm.k != null ? +__vm.k : U.k); return r; }
+         const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; k += ((aim() ? 1 : 0) - k) * (1 - Math.exp(-d * 14)); U.k = +k.toFixed(2); kick *= Math.exp(-d * 11);
+         if (now - (U.lt || 0) > 400) { U.lt = now; held.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) if (m.emissive && m.color && !m.emissive.getHex()) { U.lit = (U.lit || 0) + 1; m.emissive.copy(m.color).multiplyScalar(0.45); if (m.emissiveMap === null && m.map) m.emissiveMap = m.map; m.needsUpdate = true; } }); }
++        /* legacy fallback only if __vm missing */
+         if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData; if (!u.__s0Base) { const s0 = Math.abs(sc.x * (hand.scale.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; } const s = u.__s0 = u.__s0Base || 1, isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
+         const h0 = HIP[isP ? 'pistol' : 'rifle'], asp = Math.min(1, (camera.aspect || 1.6) / 1.6), h = [h0[0] * (0.35 + 0.65 * asp), h0[1], h0[2]], ads = [0, (isP ? -0.035 : -0.03), (isP ? -0.26 : -0.42) - 0.16 * s];
+         const tx = h[0] + (ads[0] - h[0]) * k, ty = h[1] + (ads[1] - h[1]) * k + 0.01 * kick, tz = h[2] + (ads[2] - h[2]) * k + (isP ? 0.05 : 0.08) * kick;
+         const tgt = new THREE.Vector3(tx, ty, tz).sub(sg.clone().multiplyScalar(k)); E.set((isP ? 0.28 : 0.16) * kick, -0.04 * (1 - k), 0); const Q = new THREE.Quaternion().setFromEuler(E);
+-        Md.compose(tgt, Q, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.copy(sc); armVis(k < 0.5, g); } catch (e) { ERR('hand', e); } return r; }; } catch (e) { ERR('uh', e); }
++        Md.compose(tgt, Q, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.set(Math.abs(sc.x)||s, Math.abs(sc.y)||s, Math.abs(sc.z)||s); armVis(k < 0.5, g); } catch (e) { ERR('hand', e); } return r; }; } catch (e) { ERR('uh', e); }
+   // the streak from the barrel to the hit, and the flash and smoke at the barrel (not in front of the eyes)
+   const LM = new THREE.LineBasicMaterial({color: 0xffe6a0, transparent: true, opacity: 0.9, depthWrite: false, fog: false}), lines = [];
+   const muzzle = () => { const g = gun(); if (!g || !g.userData.muzzle) return null; const w = new THREE.Vector3(); g.updateMatrixWorld(true); g.userData.muzzle.getWorldPosition(w); return w; };
+@@ -47687,7 +47981,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+   setInterval(tick, 500); U.tick = tick;
+ })();
+ 
+-/* GLX-FPA (v1.1.54): FIRST PERSON HD ARMS. The block arm and fist are replaced by two slim, shaped arms with sleeves, wrists and hands with
++/* GLX-FPA (v1.1.99): FIRST PERSON HD ARMS. The block arm and fist are replaced by two slim, shaped arms with sleeves, wrists and hands with
+    fingers. Each arm reaches from the shoulder to its hand with a real elbow bend (two bone IK), so they follow every swing, recoil and aim.
+    Rifles are held with both hands (the left hand on the foregrip); pistols take a two hand grip while aiming. Guns sway with the view, bob
+    when walking, drop when sprinting, kick the arms on each shot, dip out and back in on a weapon switch, and the reload moves the hands:
+@@ -47711,13 +48005,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     h.userData.f = [];
+     for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(0.0066, skinM); tip.position.y = 0.03; k.add(tip);
+       f.rotation.x = 1.0; k.rotation.x = 1.2; h.add(f); h.userData.f.push([f, k]); }
+-    const th = new THREE.Group(); th.position.set(-side * 0.036, 0.03, 0.012); th.rotation.set(0.75, 0, -side * 0.3); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
++    const th = new THREE.Group(); th.position.set(side * 0.038, 0.028, 0.01); th.rotation.set(0.85, side * 0.55, side * 0.85); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
+     const wr = limb(0.03, 0.028, 0.03, skinM, 12); wr.position.y = -0.02; h.add(wr); return h; }
+   function mkArm(side) { const a = new THREE.Group(); a.userData.side = side;
+     const up = limb(0.078, 0.066, LU, shirtM); a.add(up); const el = ball(0.066, shirtM); a.add(el); const fo = limb(0.06, 0.042, LF, skinM); a.add(fo);
+-    const cuff = limb(0.07, 0.066, 0.12, cuffM); a.add(cuff); const h = mkHand(side); h.scale.setScalar(1.3); a.add(h);
++    const cuff = limb(0.07, 0.066, 0.12, cuffM); a.add(cuff); const h = mkHand(side); h.scale.setScalar(1.05); a.add(h);
+     a.userData.p = {up, el, fo, cuff, h}; a.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; o.renderOrder = 2; } }); return a; }
+-  function make() { skinM = new THREE.MeshStandardMaterial({color: 0xe3b08c, roughness: 0.55}); shirtM = new THREE.MeshStandardMaterial({map: fabric(), roughness: 0.9}); cuffM = shirtM;
++  function make() { skinM = new THREE.MeshStandardMaterial({color: 0xd4a07a, roughness: 0.62, metalness: 0.02}); shirtM = new THREE.MeshStandardMaterial({map: fabric(), roughness: 0.9}); cuffM = shirtM;
+     rig = new THREE.Group(); rig.userData.R = mkArm(1); rig.userData.L = mkArm(-1); rig.add(rig.userData.R, rig.userData.L); camera.add(rig); window.__fpaR = m => { for (let a = m; a; a = a.parent) if (a === rig) return true; return false; }; U.made = 1; }
+   function sleeves() { const id = armour[1] || 0; if (id === curSleeve) return; curSleeve = id; let m = shirtM; try { if (id && ARMOUR[id]) m = armourMat(ARMOUR[id].mat, true); } catch (_) {}
+     for (const a of [rig.userData.R, rig.userData.L]) { a.userData.p.up.material = m; a.userData.p.el.material = m; a.userData.p.cuff.material = m; } }
+@@ -47730,7 +48024,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
+     p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
+     const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
+-    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.75 + tg * 0.45, 0, -side * (0.3 + tg * 0.35)); th.userData.k.rotation.set(0.1 + tg * 0.55, 0, 0); } }
++    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.85 + tg * 0.4, side * 0.45, side * (0.7 + tg * 0.4)); th.userData.k.rotation.set(0.15 + tg * 0.65, 0, 0); } try { const e = new THREE.Euler().setFromQuaternion(p.h.quaternion, 'YXZ'); e.x = Math.max(-1.15, Math.min(1.0, e.x)); e.z = Math.max(-0.85, Math.min(0.85, e.z)); p.h.quaternion.setFromEuler(e); } catch (_) {} }
+   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
+   const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
+   function grip(G, pn, fd, c) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -0.032); }
+@@ -47765,15 +48059,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
+     { const VM2 = !!(window.__vm && __vm.on); if (VM2 && g && !isP && TR) { const ax = (g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(TR) : V3(0, 0, -1)).normalize(); for (let i = 0; i < 40 && TR.z > -0.30; i++) TR.addScaledVector(ax, 0.01); } }   // v1.1.95: fixed rifle hand spot, never up against the eye
+     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
+-    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.05, 0).addScaledVector(fw, -0.1), V3(0, -1, 0).addScaledVector(fw, isP ? 0.45 : 0.3), [isP ? 0.55 : 0.85, 1.2, 1.25, 1.3]); OR = O; }
+-    else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(-0.04, 0.1, -0.03)), V3(-0.25, 1, 0.1), V3(-0.3, 0.2, -1), [0.35, 0.3, 0.28, 0.3]); OR = O; }
+-    else if (held.children.length) { TR = grip(TR, V3(-1, 0.05, 0.1), V3(0.1, -0.15, -1), [1, 1.05, 1.1, 1.15]); OR = O; }
++    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.08, 0).addScaledVector(fw, -0.08), V3(0, -1, 0.05).addScaledVector(fw, isP ? 0.5 : 0.35), [isP ? 0.7 : 0.95, isP ? 0.95 : 1.15, isP ? 1.0 : 1.2, isP ? 1.05 : 1.25]); OR = O; if (OR) OR.t = isP ? 0.9 : 1.05; }
++    else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(0.01, 0.05, -0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]); OR = O; if (OR) OR.t = 0.85; }
++    else if (held.children.length) { TR = grip(TR.add(V3(0.01, -0.01, 0.01)), V3(-0.2, 0.05, 0.95), V3(0.05, 1, 0), [0.9, 0.95, 1.0, 1.05]); OR = O; if (OR) OR.t = 1.0; }
+     solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3, OR);
+     let two = false; if (g) { two = !isP || k > 0.3; if (two) { let TL;
+         if (!isP) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); TL = null; for (let f = 0.55; f >= 0.15; f -= 0.05) { const c = TR.clone().lerp(mz, f); c.y -= 0.03; if (c.distanceTo(SL) <= LU + LF - 0.01) { TL = c; break; } } if (!TL) { TL = TR.clone().lerp(mz, 0.15); TL.y -= 0.03; } }
+         else { TL = TR.clone().add(V3(-0.035, -0.02, 0.015)); }
+         if (rp >= 0 && rw && isP) TL.add(V3(-0.05 * rw, -0.22 * rw, 0.06 * rw));
+-        const OL0 = isP ? grip(TL, V3(1, 0.1, 0), V3(0, -0.5, 0).addScaledVector(fw, 0.8), [0.95, 1, 1, 1]) : grip(TL, V3(0.1, 1, 0), V3(1, 0.15, 0).addScaledVector(fw, -0.35), [0.85, 0.9, 0.95, 1]); solve(L, SL, OL0, 0.9, 0.5, O); } }
++        const OL0 = isP ? grip(TL, V3(1, 0.15, 0), V3(0, -0.35, 0).addScaledVector(fw, 0.75), [0.9, 0.95, 1, 1]) : grip(TL, V3(0.05, 1, 0.1), V3(0.85, 0.2, 0).addScaledVector(fw, -0.25), [0.8, 0.88, 0.92, 0.98]); if (O) O.t = isP ? 0.85 : 0.7; solve(L, SL, OL0, 0.9, 0.5, O); } }
+     L.visible = !!two; U.two = two ? 1 : 0; }
+   // first person torso: your stomach, belt and kilt joined to the legs when you look down
+   let torso = null;
+@@ -47793,7 +48087,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+         else if (wm && u && u.head) { u.head.visible = true; for (const a of u.arms || []) a.visible = true; } U.torso = on ? 1 : 0; if (U.on) hideOld(true); } catch (e) { ERR('torso', e); } return r; }; } catch (e) { ERR('uw', e); }
+ })();
+ 
+-/* GLX-TPH (v1.1.54): THIRD PERSON HD PLAYER. A new smooth model with real proportions: rounded head with the face, hair, neck, shaped chest
++/* GLX-TP-HD (v1.1.99 blink+hands) TPH (v1.1.54): THIRD PERSON HD PLAYER. A new smooth model with real proportions: rounded head with the face, hair, neck, shaped chest
+    with a linen shirt, sash, belt, sporran and a pleated tartan kilt, two part arms with elbows and hands, two part legs with knees, socks
+    and brogues. HD armour pieces are fitted to it (helmet, breastplate, pauldrons and sleeves, greaves, boots). Held items sit the same way
+    they do in first person (tools upright, guns along the view), rifles are held with both hands and pistols two handed when aiming. */
+@@ -47860,8 +48154,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     }; } catch (e) { ERR('fit', e); }
+   // v1.1.57: the new model blinks again, every 2 to 6 seconds, a quick soft close and open of the eyelids
+   try { const uw = updateWorldModel; let lt = performance.now(); updateWorldModel = function () { const r = uw.apply(this, arguments); try { const now = performance.now(), dt = Math.min(0.1, (now - lt) / 1000); lt = now;
+-      for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 2 + Math.random() * 4;
+-        for (const l of u.lids) { l.visible = k > 0.05; l.scale.z = Math.max(0.02, k); } } try { const wm = typeof worldModel !== 'undefined' && worldModel, u2 = wm && wm.userData; if (u2 && u2.lod) { const d = camera.getWorldPosition(new THREE.Vector3()).distanceTo(wm.position), lv = d > 16 ? 1 : 0; if (lv !== u2.lv) { u2.lv = lv; for (const [m, hi, lo] of u2.lod) m.geometry = lv ? lo : hi; } U.lv = lv; } } catch (_) {} } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
++      for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 1.6 + Math.random() * 3.4;
++        for (const l of u.lids) { l.visible = k > 0.04; l.scale.z = Math.max(0.02, 0.02 + k * 0.98); l.scale.y = 0.35 + k * 0.65; } } try { const wm = typeof worldModel !== 'undefined' && worldModel, u2 = wm && wm.userData; if (u2 && u2.lod) { const d = camera.getWorldPosition(new THREE.Vector3()).distanceTo(wm.position), lv = d > 16 ? 1 : 0; if (lv !== u2.lv) { u2.lv = lv; for (const [m, hi, lo] of u2.lod) m.geometry = lv ? lo : hi; } U.lv = lv; } } catch (_) {} } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
+   // v1.1.57: leggings hide the kilt (it clipped through them) and taking them off brings it back
+   try { const dm0 = dressModel; dressModel = function (m) { const r = dm0.apply(this, arguments); try { const ks = m && m.userData && m.userData.kilts; if (ks) { const on = !(armour && armour[2]); for (const k of ks) k.visible = on; } } catch (_) {} return r; }; } catch (e) { ERR('kilt', e); }
+   try { buildPlayerModel = function (pbr) { return build(pbr); }; } catch (e) { ERR('bpm', e); }
+@@ -47870,7 +48164,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+       if (typeof charModel !== 'undefined' && charModel && !charModel.userData.hd && typeof charScene !== 'undefined') { charScene.remove(charModel); charModel = build(true); charScene.add(charModel); dressModel(charModel); } } catch (e) { ERR('swap', e); } setTimeout(swap, 3000); }, 1500);
+ })();
+ 
+-/* GLX-TPA (v1.1.54): THIRD PERSON MOVES. The legs follow the stick: how far you push sets slow walk, walk or run, and the direction sets
++/* GLX-TP-ANIM (v1.1.99 grips) GLX-TPA (v1.1.54): THIRD PERSON MOVES. The legs follow the stick: how far you push sets slow walk, walk or run, and the direction sets
+    forward, strafe or backpedal, all blended smoothly with knees bending. Jumps have a takeoff crouch, tucked legs in the air and a soft
+    landing dip. Arms swing against the legs, or hold the gun: rifles with both hands on the gun along the view, pistols one handed at the
+    hip and two handed when aiming. Tools and blocks are held upright the same way they look in first person. */
+@@ -47918,7 +48212,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     if (gunId && hm) { realGun(hm, gunId); const two = !isP || aim; const grip = base.clone().add(V().set(0, isP && !aim ? 1.0 : 1.3, 0)).addScaledVector(R, isP && !aim ? 0.3 : 0.16).addScaledVector(F, isP && !aim ? 0.15 : 0.22).addScaledVector(look, isP && aim ? 0.35 : 0.05);
+       setWorld(hm, grip, (isP && !aim ? new THREE.Quaternion().setFromEuler(new THREE.Euler(0.6, P.yaw, 0, 'YXZ')) : qv.clone()).multiply(GQ));
+       ik(u.arms[1], grip.clone().add(V().set(0, -0.03, 0)), R, 0.32, 0.33, F);
+-      if (two) { const fg = isP ? grip.clone().addScaledVector(R, -0.05).add(V().set(0, -0.03, 0)) : grip.clone().addScaledVector(look, 0.38).add(V().set(0, -0.04, 0)); ik(u.arms[0], fg, R.clone().negate(), 0.32, 0.33, F); }
++      if (two) { const fg = isP ? grip.clone().addScaledVector(R, -0.05).add(V().set(0, -0.03, 0)) : grip.clone().addScaledVector(look, 0.42).add(V().set(0, -0.055, 0)).addScaledVector(R, -0.02); ik(u.arms[0], fg, R.clone().negate(), 0.32, 0.33, F); }
+       else { u.arms[0].rotation.set(-sw * 0.9 * fwd - air * 0.5, 0, -0.06); if (u.arms[0].userData.el) u.arms[0].userData.el.rotation.set(-0.25 - run * 0.5, 0, 0); } }
+     else { for (let i = 0; i < 2; i++) { const a = u.arms[i], sgn = i ? 1 : -1; a.quaternion.identity(); a.rotation.set(sgn * sw * 0.9 * fwd - air * 0.8 - land * 0.2, 0, (i ? 1 : -1) * (0.06 + air * 0.25)); if (a.userData.el) a.userData.el.rotation.set(-0.2 - run * 0.7 - air * 0.4, 0, 0); }
+       if (hm) { const a = u.arms[1]; a.rotation.x = -0.55 - k * 1.6; if (a.userData.el) a.userData.el.rotation.x = -0.55 + k * 0.3; a.updateMatrixWorld(true);
+@@ -48046,14 +48340,32 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+   try { const t = started && !DIM.cur && P.y < 1 && !(window.__c298 && __c298.sky) ? Math.min(1, (1 - P.y) / 6) : 0; dk += (t - dk) * Math.min(1, (dt || 0.016) * 3);
+     if (dk > 0.01) { hemi.intensity *= 1 - 0.55 * dk; sunL.intensity *= 1 - 0.85 * dk; } } catch (_) {} return r; }; } catch (_) {} })();
+ 
+-/* GLX-RLA (v1.1.57): Reload plays the reload animation whenever the mag is not full (with unlimited bullets too; a full mag does not reload), and the
+-   automatic reload when the mag runs dry now shows the hands working the gun too. The first person arms read __rl for the motion. */
++/* GLX-RLA (v1.1.99): Manual Reload always plays the full reload motion (button, KeyR, controller X,
++   touch craft-as-reload) even when unlimited ammo keeps the magazine full. Auto dry-reload only when
++   empty. Unequip or switch weapon cancels reload state so motion does not stick. Arms and gun stay visible. */
+ (function rla() {
+-  const R = window.__rl = {t: 0, dur: 1, id: 0, n: 0};
+-  const go = id => { try { const G = GUN[id]; if (!G || R.t > 0) return; R.dur = Math.max(0.9, Math.min(2.2, +(G.rl || G.reload) || 1.4)); R.t = R.dur; R.id = id; R.n++; } catch (_) {} };
+-  try { const o = window.reloadGun; window.reloadGun = function () { const id = selId, r = o ? o.apply(this, arguments) : undefined; try { if (GUN[id] && cnt(id) > 0 && started && !menuOpen && window.gunMag && gunMag[id] < GUN[id].mag) go(id); } catch (_) {} return r; }; } catch (_) {}
+-  try { const uh = updateHand; updateHand = function (dt) { try { if (R.t > 0) { R.t -= Math.min(0.05, dt || 0.016); if (R.t < 0 || R.id !== selId) R.t = 0; }
+-        else if (GUN[selId] && cnt(selId) > 0 && window.gunMag && gunMag[selId] <= 0 && (MODE.infinite || ammoCount() > 0)) go(selId); } catch (_) {} return uh.apply(this, arguments); }; } catch (_) {}
++  const U = window.__rl = {err: null, t: 0, dur: 0, id: 0, n: 0, manual: 0, cancel: 0};
++  const clear = () => { U.t = 0; U.manual = 0; U.cancel++; try { if (window.__rlCoreClear) window.__rlCoreClear(); } catch (_) {} };
++  const go = (id, manual) => { try { const G = GUN[id]; if (!G || U.t > 0) return false;
++      U.dur = Math.max(0.9, Math.min(2.2, +(G.rl || G.reload) || 1.4)); U.t = U.dur; U.id = id; U.n++; U.manual = manual ? 1 : 0; return true; } catch (e) { U.err = String(e); return false; } };
++  try { const o = window.reloadGun; window.reloadGun = function () {
++      const id = selId; let r;
++      try { r = o ? o.apply(this, arguments) : undefined; } catch (e) { U.err = String(e); }
++      try {
++        if (!(GUN[id] && cnt(id) > 0 && started && !menuOpen)) return r;
++        go(id, true);
++      } catch (e) { U.err = String(e); }
++      return r;
++    }; } catch (e) { U.err = String(e); }
++  try { const uh = updateHand; updateHand = function (dt) {
++      try {
++        const holding = !!(GUN[selId] && cnt(selId) > 0);
++        if (!holding || (U.t > 0 && U.id !== selId)) clear();
++        else if (U.t > 0) { U.t -= Math.min(0.05, dt || 0.016); if (U.t < 0) U.t = 0; }
++        else if (holding && window.gunMag && gunMag[selId] <= 0 && (MODE.infinite || ammoCount() > 0)) go(selId, false);
++      } catch (_) {}
++      return uh.apply(this, arguments);
++    }; } catch (e) { U.err = String(e); }
+ })();
+ 
+ /* GLX-GFX (v1.1.57): no square shot particles. Every puff made while a gun fires (the muzzle, the smoke line, the impact and the hit)
+@@ -48077,7 +48389,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+         const k = d.life / d.max; s.position.addScaledVector(d.v, t); d.v.multiplyScalar(d.warm ? 0.9 : 0.96); if (!d.warm) d.v.y += 0.4 * t; s.scale.setScalar(d.s0 * (1 + (1 - k) * d.grow * 3)); s.material.opacity = d.warm ? k : k * 0.45; } } catch (_) {} return r; }; } catch (_) {}
+ })();
+ 
+-/* GLX-C350 (v1.1.94): the first person gun viewmodel, done the way shooters do it.
++/* GLX-C350 (v1.1.99): the first person gun viewmodel, done the way shooters do it.
+    One owner for the gun pose: each gun has a fixed hip spot and a fixed aim spot, the gun is turned so its barrel runs straight
+    down the view, and in aim the sight line sits exactly on the screen centre. Sway, bob, breathing and kick move only this root and
+    are smoothed. The arms are solved after the gun is placed, so the hands follow the grips instead of fighting them.
+@@ -48129,7 +48441,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+     T.x += (sx + bx) * am; T.y += (sy + by + br) * am - dip + 0.006 * kick * (1 - 0.5 * e); T.z += C.kz * kick;
+     const Qa = new THREE.Quaternion().setFromEuler(new THREE.Euler(C.kr * kick + sy * 1.5 * am - dip, C.yaw * (1 - e) + sx * 1.5 * am, -C.roll * (1 - e) - sx * 2 * am, 'YXZ'));
+     const Q = Qa.multiply(Q0); const pos = T.clone().sub(sg.clone().multiplyScalar(s).applyQuaternion(Q));
+-    Md.compose(pos, Q, V(s, s, s)); Md.multiply(M1.clone().invert()); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.copy(sc);
++    const ss = Math.max(0.08, Math.min(8, Math.abs(s) || 1)); Md.compose(pos, Q, V(ss, ss, ss)); Md.multiply(M1.clone().invert()); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.set(Math.abs(sc.x) || ss, Math.abs(sc.y) || ss, Math.abs(sc.z) || ss);
+     U.sight = T.toArray().map(x => +x.toFixed(4));
+     try { if (window.__fpa && __fpa.step) { __fpa.fromVm = 1; __fpa.step(d); __fpa.fromVm = 0; } } catch (e2) { ERR('fpa', e2); }
+     // world zoom: small, the gun itself never zooms
+@@ -49458,11 +49770,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+   window.__c399 = {err: null, on: 1, src: 'build87'};
+ })();
+ 
+-/* GLX-C400 (v1.1.96): GUN POSE OWNER. Viewmodel owns FP pose when present (C340 poseOff). Scale uses
+-   immutable userData.__s0Base in fp_viewmodel / guns_held_properly — never hand.scale.set(1) after
+-   decompose. Soft clamp on C43 rig recoil only. */
++/* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
++   C340 poseOff; C288 aim yields when __vm.on. Soft clamp on C43-style recoil only. Recoil and ADS are
++   deltas from the bind pose inside fp_viewmodel - never compound matrix or scale overrides here. */
+ (function c400() {
+-  const U = window.__c400 = {err: null, on: 0};
++  const U = window.__c400 = {err: null, on: 0, owner: 'vm'};
+   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+   try {
+     const t = setInterval(() => {
+@@ -49484,6 +49796,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
+         if (rig.position.z > 0.25) rig.position.z = 0.25;
+         if (rig.position.y < -0.35) rig.position.y = -0.35;
+         if (Math.abs(rig.rotation.x) > 1.2) rig.rotation.x = Math.sign(rig.rotation.x) * 1.2;
++        // Never let hand scale go singular or mirrored while VM owns pose
++        try { const sx = hand.scale.x, sy = hand.scale.y, sz = hand.scale.z;
++          if (!(sx > 0.05 && sy > 0.05 && sz > 0.05) || sx < 0 || sy < 0 || sz < 0) {
++            const b = (g.userData.__s0Base > 0.05 && g.userData.__s0Base < 20) ? g.userData.__s0Base : 1;
++            hand.scale.set(b, b, b);
++          }
++        } catch (_) {}
+       } catch (e) { ERR('rig', e); }
+       return r;
+     };

@@ -5,7 +5,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
-<!-- glencraft-build: b1203-v1.2.3 -->
+<!-- glencraft-cave-rollback: v1.1.97-caves -->
+<!-- glencraft-build: b1204-v1.2.4 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13338,7 +13339,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.3';
+const GAME_VERSION = '1.2.4';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -15352,7 +15353,7 @@ function updateDrops(dt) {
       if (solid(Math.floor(d.x), Math.floor(ny - 0.12), Math.floor(d.z)) && d.vy <= 0) {
         d.y = Math.floor(ny - 0.12) + 1.12; d.vy = 0; d.vx = d.vz = 0; d.rest = true;
       } else d.y = ny;
-      if (d.y < (window.__dw && typeof __dw.dropFloorY === 'number' ? __dw.dropFloorY : ((typeof SEA === 'number' ? SEA : 41) - 1600))) { scene.remove(d.m); drops.splice(i, 1); continue; }
+      if (d.y < ((typeof SEA === 'number' ? SEA : 41) - 1100)) { scene.remove(d.m); drops.splice(i, 1); continue; }
     } else if (!solid(Math.floor(d.x), Math.floor(d.y - 0.2), Math.floor(d.z))) d.rest = false;
     if (d.age > 300 || getB(Math.floor(d.x), Math.floor(d.y - 0.1), Math.floor(d.z)) === T.LAVA) { if (d.age <= 300) burst(d.x, d.y, d.z, 0xff7a1a, 6, .6); scene.remove(d.m); drops.splice(i, 1); continue; }
     // smooth float + spin only (no physics jitter while resting)
@@ -16934,7 +16935,7 @@ function markDirty(x, z) {
   const add = (cx, cz) => { if (cx >= 0 && cz >= 0 && cx * CH < W && cz * CH < D) dirtyCh.add(cx * 64 + cz); };
   const cx = Math.floor(x / CH), cz = Math.floor(z / CH), lx = x - cx * CH, lz = z - cz * CH;
   add(cx, cz);
-  const e = 14, xl = lx < e, xh = lx > CH - 1 - e, zl = lz < e, zh = lz > CH - 1 - e;   // C70 spreads light 14 blocks: include diagonal light neighbours
+  const e = 7, xl = lx < e, xh = lx > CH - 1 - e, zl = lz < e, zh = lz > CH - 1 - e;   // GLX-C70: light spreads up to 7 blocks
   if (xl) add(cx - 1, cz); if (xh) add(cx + 1, cz); if (zl) add(cx, cz - 1); if (zh) add(cx, cz + 1);
   if (xl && zl) add(cx - 1, cz - 1); if (xl && zh) add(cx - 1, cz + 1); if (xh && zl) add(cx + 1, cz - 1); if (xh && zh) add(cx + 1, cz + 1);
 }
@@ -17083,7 +17084,7 @@ function rebuild(budget) {
   let ids = [...dirtyCh];
   if (budget) { const pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5; ids.sort((a, b) => Math.hypot(Math.floor(a / 64) - pcx, a % 64 - pcz) - Math.hypot(Math.floor(b / 64) - pcx, b % 64 - pcz)); }
   const tB = performance.now();
-  let built = 0; for (const id of ids) { if (budget && built && performance.now() - tB + ((window.__lightStats && __lightStats().avg) || 0) > budget) break; if (budget && performance.now() - tB > budget * 2) break; try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } built++; dirtyCh.delete(id); }
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
@@ -18465,25 +18466,6 @@ function enterWorld(save) {
   requestAnimationFrame(anim);
   const chunksReady = () => {
     if (dirtyAll) return false;
-    if(window.__c324&&__c324.savedEntry&&(!save||!save.c317||DIM.cur||save.dim||!__c317.on()))__c324.cancelSaved();
-    let caveStarted=false;
-    // An ordinary saved negative-Y C317 restore uses its exactly unchanged
-    // serialized coordinates. New C321 frame conversion belongs in its own scope.
-    if(save&&save.c317&&Array.isArray(save.c317.p)&&save.c317.p.length===3&&save.c317.p.every(Number.isFinite)&&save.c317.p[1]<0&&window.__c320&&__c320.flat&&current.mode==='flat'&&!DIM.cur&&!save.dim&&!enterWorld._savedDimension&&__c317.on()&&!(window.__c309&&__c309.on)){
-      const U=window.__c324, w=__c321.pw(), q=save.c317.p;
-      let state;
-      try { state=U.startSaved(q); }
-      catch(e) { U.cancelSaved();loadErr('saved-cave geometry',e);loadSafe();chunksReady.need=1;chunksReady.got=0;return false; }
-      if(state!==true){
-        chunksReady.need=1;chunksReady.got=0;
-        return false;
-      }
-      if(Math.floor(w.x)!==Math.floor(q[0])||Math.floor(q[1]+0.05)!==Math.floor(w.y)||Math.floor(w.z)!==Math.floor(q[2])){
-        chunksReady.need=1;chunksReady.got=0;return false;
-      }
-      caveStarted=true;
-    }
-    chunksReady.savedCave=caveStarted;
     const pcx = Math.floor(P.x / CH), pcz = Math.floor(P.z / CH);
     let need = 0, got = 0;
     for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const cx = pcx + a, cz = pcz + b; if (cx < 0 || cz < 0 || cx * CH >= W || cz * CH >= D) continue; need++; if (chunkObjs.has(cx * 64 + cz)) got++; }
@@ -18499,21 +18481,7 @@ function enterWorld(save) {
       loadStep('restoring the save');
       // reset the menu backdrop creatures and load / start the world
       try { mobs.slice().forEach(removeMob); } catch (e) { console.error('load: clearing menu mobs', e); }
-      // This is the same original applySave ordering, not a polling restore timer.
-      // Preserving the existing save.dim field only scopes out dimensions; never
-      // mutating it or any C320/block bytes. Real C317 negative-Y restore precedes
-      // first chunksReady, after its own original c317c wrapper has initialized.
       if (save) { try { applySave(save); } catch (e) { loadErr('applySave', e); } } else { if (W !== NEW_W) { setWorldSize(NEW_W); generate(); placeTrees(); placeDecor(); dirtyAll = true; } spawnPlayer(); P.yaw = Math.atan2(-(13 - 8), -(9.5 - 8)); P.pitch = 0; }
-      try {
-        if(save && typeof save.dim === 'string')enterWorld._savedDimension=save.dim;
-        else enterWorld._savedDimension=null;
-        const q=save && save.c317 && save.c317.p;
-        if(q && q[1] < -2 && save.P && window.__c320 && __c320.flat && __c317.on() && __c317.restoreSavePosition) __c317.restoreSavePosition();
-        if(save && !save.dim && save.P && save.P.y < -1 && window.__c320 && __c320.flat && P.x >= 0 && P.x < W && P.z >= 0 && P.z < D && P.y >= 0){
-          // Legacy off-map replacement must not erase actual negative-Y cave save.
-          P.y=save.P.y;P.vy=0;P.fallTop=null;if(window.__c317)__c317.soft=true;
-        }
-      } catch(e){loadErr('saved underground restore',e);}
       loadStep('player, hotbar and animals'); try { if (!save) MODE.hotbar = null; } catch (e) { console.error('load step', e); }
       try { if (current.mode === 'creative' && typeof installCreative === 'function') installCreative(); } catch (e) { console.error('load step', e); }
       try { if (save && current.mode !== 'creative' && !save.inv) addItem(T.DIRT, 8); } catch (e) { console.error('load step', e); }
@@ -19511,11 +19479,11 @@ function buildChunk(cx, cz) {
     for (let d = 0; d < 6; d++) {
       let n;
       if (d === 0) { if (x + 1 >= W) continue; n = world[i + HD]; }
-      else if (d === 1) { if (x === 0) { if (window.__c317mesh) n = T.STONE; else continue; } else n = world[i - HD]; }
-      else if (d === 2) n = y + 1 >= H ? aboveWorld() : world[i + D];
-      else if (d === 3) { if (y === 0) { if (window.__c317mesh) { if (i < D) continue; n = world[i - D]; } else if (window.__deepMeshY0 !== undefined) { n = getB(x, window.__deepMeshY0 - 1, z); } else { if (!window.__YB) continue; n = __YB(x, z); } } else n = world[i - D]; }
+      else if (d === 1) { if (x === 0) continue; n = world[i - HD]; }
+      else if (d === 2) n = y + 1 >= H ? 0 : world[i + D];
+      else if (d === 3) { if (y === 0) { if (!window.__YB) continue; n = __YB(x, z); } else n = world[i - D]; }
       else if (d === 4) { if (z + 1 >= D) continue; n = world[i + 1]; }
-      else { if (z === 0) { if (window.__c317mesh) n = T.STONE; else { if (!__XN) continue; n = __XN(x, y); } } else n = world[i - 1]; }
+      else { if (z === 0) { if (!__XN) continue; n = __XN(x, y); } else n = world[i - 1]; }
       let s = ST[n]; if (s === 3 && (n === 9 || n === 134 || LEAFY[n]) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
       if (!s || (s > 1 && n === b)) continue;
       if (cS && y > 0) { const fx = d === 0 ? x + 1 : d === 1 ? x - 1 : x, fy = d === 2 ? y + 1 : d === 3 ? y - 1 : y, fz = d === 4 ? z + 1 : d === 5 ? z - 1 : z;
@@ -20700,12 +20668,6 @@ var STREAM_R = 4, streamT = 0;
 function streamRadius() { const far = scene.fog ? scene.fog.far : 62; return Math.ceil((far + CH) / CH) + 1; }
 rebuild = function (budget) {
   const ncx = Math.ceil(W / CH), ncz = Math.ceil(D / CH);
-  const deepEntry=window.__c324;
-  // Only enterWorld's readiness gate may consume this handoff. In particular,
-  // never turn dirtyAll into a whole-map surface queue during a deep saved start.
-  // C324's independent loader timer builds the near cave while the original
-      // enterWorld readiness wait is still active. Surface loading resumes after.
-      if((typeof started==='undefined'||!started)&&window.__c324&&__c324.savedEntry&&!__c324.savedEntryDone)return;
   if (dirtyAll) {
     for (const g of chunkObjs.values()) { blockGroup.remove(g); g.children.forEach(c => { if (c.isInstancedMesh) c.dispose(); else if (c.geometry) c.geometry.dispose(); }); }
     chunkObjs.clear(); chunkLists.clear();
@@ -20728,7 +20690,7 @@ rebuild = function (budget) {
   rebuild._unloaded = false;
   ids.sort((a, b) => dist(a) - dist(b));
   const tB = performance.now();
-  let built = 0; for (const id of ids) { if (budget && built && performance.now() - tB + ((window.__lightStats && __lightStats().avg) || 0) > budget) break; if (budget && performance.now() - tB > budget * 2) break; try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } built++; dirtyCh.delete(id); }
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
@@ -26406,41 +26368,23 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const patchMat = m => { if (!m || patched.has(m) || m.transparent || !(m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return; patched.add(m); const prev = m.onBeforeCompile; m.onBeforeCompile = function (sh, r) { if (prev && prev !== aoPatch) prev.call(this, sh, r); aoPatch(sh); }; m.customProgramCacheKey = () => 'ao3'; m.needsUpdate = true; };
   for (const k in BLOCK_MATS) { const m = BLOCK_MATS[k]; if (Array.isArray(m)) m.forEach(patchMat); else patchMat(m); }
   const op = n => n !== 0 && (!chunkST || !chunkST[n]);
-  // Read the real active mesh. A deep mesher passes a virtual slice in world/W/H/D;
-  // calling getB here would wrongly send its local coordinates back to the overworld.
-  const meshUnderSky = () => !window.__c317mesh && (typeof DIM === 'undefined' || !DIM.cur);
-  const aboveWorld = () => meshUnderSky() ? T.AIR : T.STONE;
-  const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? (y >= H ? aboveWorld() : 0) : world[(x * H + y) * D + z];
+  const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? 0 : world[(x * H + y) * D + z];
   const AOL = [0, 0.16, 0.27, 0.38];
   // ---- GLX-C70 per-block light (Minecraft-like): skylight comes down from each column's top and floods sideways/down openings, falling off per block; block light from torches/lava/lamps ----
   const LSRC = new Uint8Array(1024); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
   const LM = 14, SFALL = 1, BFALL = 1, RS = CH + LM * 2; const LATT = window.__LATT = new Uint8Array(1024); try { LATT[T.WATER] = 1; for (let i = 0; i < 256; i++) if (LEAFY[i]) LATT[i] = 1; LATT[T.LEAVES] = 1; LATT[134] = 1; } catch (_) {}
   let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
   let LX0 = 0, LZ0 = 0;
-  const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; if (y < 0 || y >= H) return true; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
-  let privateFlood = null;
-  // Commit only completed queue pops. Queue length includes propagated entries from this batch.
-  function flood(A, qn, fall, useTop) {
-    const stop=privateFlood;let h=stop?stop.h:0;
-    while(h<qn){
-      if(stop&&h&&!(h%128)&&performance.now()>=stop.until){stop.h=h;stop.qn=qn;return false;}
-      const c=LQ[h++],l=A[c]-fall;if(l<=0)continue;
-      const y=c%H,cc=(c-y)/H,rz=cc%RS,rx=(cc-rz)/RS;
-      for(let k=0;k<6;k++){
-        let nx=rx,ny=y,nz=rz;if(k===0)nx++;else if(k===1)nx--;else if(k===2)nz++;else if(k===3)nz--;else if(k===4)ny++;else ny--;
-        if(nx<0||nz<0||nx>=RS||nz>=RS||ny<0||ny>=H)continue;const ci=(nx*RS+nz)*H+ny;
-        const wx=LX0+nx,wz=LZ0+nz,wv=(wx<0||wz<0||wx>=W||wz>=D)?0:world[(wx*H+ny)*D+wz];if(wv!==0&&!chunkST[wv])continue;
-        const l2=l-LATT[wv];if(l2<=0||A[ci]>=l2)continue;if(useTop&&ny>LTOP[nx*RS+nz])continue;if(stop&&qn>=LQ.length)throw new Error('private light queue overflow');A[ci]=l2;LQ[qn++]=ci;
-      }
-    }
-    if(stop){if(qn<stop.qn)throw new Error("light flood frontier overflow");stop.h=h;stop.qn=qn;return true;}
-  }
-  window.__caveLightBuffers=()=>({S:LSKY,B:LBLK,Q:LQ,H:LH,x0:LX0,z0:LZ0,top:LTOP,flood:privateFlood});
-  window.__caveLightCore = {flood: function (A, qn, fall, useTop) { flood(A, qn, fall, useTop); return qn; }, sources: LSRC};
+  const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
+  function flood(A, qn, fall, useTop) { let h = 0;
+    while (h < qn) { const c = LQ[h++], l = A[c] - fall; if (l <= 0) continue; const y = c % H, cc = (c - y) / H, rz = cc % RS, rx = (cc - rz) / RS;
+      for (let k = 0; k < 6; k++) { let nx = rx, ny = y, nz = rz; if (k === 0) nx++; else if (k === 1) nx--; else if (k === 2) nz++; else if (k === 3) nz--; else if (k === 4) ny++; else ny--;
+        if (nx < 0 || nz < 0 || nx >= RS || nz >= RS || ny < 0 || ny >= H) continue; const ci = (nx * RS + nz) * H + ny;
+        const wx = LX0 + nx, wz = LZ0 + nz, wv = (wx < 0 || wz < 0 || wx >= W || wz >= D) ? 0 : world[(wx * H + ny) * D + wz]; if (wv !== 0 && !chunkST[wv]) continue; const l2 = l - LATT[wv]; if (l2 <= 0 || A[ci] >= l2) continue; if (useTop && ny > LTOP[nx * RS + nz]) continue; A[ci] = l2; LQ[qn++] = ci; } } }
   function lightRegion(cx, cz) { if (LH !== H) { LH = H; LSKY = new Uint8Array(RS * RS * H); LBLK = new Uint8Array(RS * RS * H); LQ = new Int32Array(RS * RS * H * 2); } const _t = [performance.now()]; LX0 = cx * CH - LM; LZ0 = cz * CH - LM; LSKY.fill(0); LBLK.fill(0);
     for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) { const x = LX0 + rx, z = LZ0 + rz; let t = -1;
       if (x >= 0 && z >= 0 && x < W && z < D) { const b0 = (x * H) * D + z; for (let y = H - 1; y >= 0; y--) { const v = world[b0 + y * D]; if (v !== 0 && !chunkST[v]) { t = y; break; } } }
-      LTOP[rx * RS + rz] = t; const o = (rx * RS + rz) * H; if (meshUnderSky()) for (let y = t + 1; y < H; y++) LSKY[o + y] = 15; }
+      LTOP[rx * RS + rz] = t; const o = (rx * RS + rz) * H; for (let y = t + 1; y < H; y++) LSKY[o + y] = 15; }
     _t.push(performance.now());
     // skylight seeds: covered air next to an open column
     let qn = 0;
@@ -26455,105 +26399,15 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     _t.push(performance.now()); if (qn) flood(LBLK, qn, BFALL, false); _t.push(performance.now()); window.__ltT = _t.map((v, i) => i ? (v - _t[i - 1]).toFixed(1) : 0).concat([q1, qn]); }
   // light (0..1) of one cell in the current region; opaque cells return -1 (ignored when smoothing)
   const LCURVE = new Float32Array(16), BCURVE = new Float32Array(16); for (let i = 0; i < 16; i++) { const f = i / 15; LCURVE[i] = Math.pow(f, 1.4); BCURVE[i] = Math.pow(f, 1.4); }
-  const skyOut = () => meshUnderSky() ? 1 : 0;
-  function cellL(x, y, z) { if (y >= H) return skyOut(); if (y < 0) return -1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return skyOut();
+  function cellL(x, y, z) { if (y >= H) return 1; if (y < 0) return -1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1;
     if (lop(x, y, z)) return -1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
-  function cellLo(x, y, z) { if (y >= H) return skyOut(); if (y < 0) return skyOut() ? 0.1 : 0; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return skyOut(); const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
+  function cellLo(x, y, z) { if (y >= H) return 1; if (y < 0) return 0.1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
   let cB = 0;
-  window.__caveLightCore.cells = (x, y, z) => { const l = cellL(x, y, z), b = cB; return {sky: LCURVE[LSKY[((x - LX0) * RS + (z - LZ0)) * H + y]], block: b, sampled: l, skyOpen: cellOpen(x, y, z)}; };
-  function cellOpen(x, y, z) { if (!meshUnderSky()) return 0; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
+  function cellOpen(x, y, z) { const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
   window.__lopDbg = (cx, cz) => { lightRegion(cx, cz); let air = 0, tot = 0; for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) for (let y = 0; y <= LTOP[rx * RS + rz]; y++) { tot++; if (!lop(LX0 + rx, y, LZ0 + rz)) air++; } let lit = 0; for (let i = 0; i < LBLK.length; i++) if (LBLK[i]) lit++; return {air, tot, lit, H, RS, top0: LTOP[0]}; };
-  let lrKeep = -1; window.__caveRegion = (cx, cz) => { lightRegion(cx, cz); lrKeep = cx * 64 + cz; return {S:LSKY,B:LBLK,top:LTOP,x0:LX0,z0:LZ0,RS}; };
+  let lrKeep = -1; window.__caveRegion = (cx, cz) => { lightRegion(cx, cz); lrKeep = cx * 64 + cz; return {S: LSKY, B: LBLK, x0: LX0, z0: LZ0, RS}; };
   window.__lightChunk = (cx, cz) => { lightRegion(cx, cz); const x0 = LX0, z0 = LZ0; return (x, y, z) => { const rx = x - x0, rz = z - z0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS || y < 0 || y >= H) return null; const i = (rx * RS + rz) * H + y; return [LSKY[i], LBLK[i]]; }; };
   window.__lightRegion = (x, y, z) => { const cx = Math.floor(x / CH), cz = Math.floor(z / CH); lightRegion(cx, cz); return {sky: LSKY[((x - LX0) * RS + (z - LZ0)) * H + y], blk: LBLK[((x - LX0) * RS + (z - LZ0)) * H + y], l: cellL(x, y, z)}; };
-
-
-  // Incremental C62 jobs. No world/light state survives in a global between calls.
-  window.__deepLightStep=function(j,until,budget){
-    const saved=[LSKY,LBLK,LQ,LH,LX0,LZ0,LTOP.slice(),privateFlood],end=budget===undefined?Infinity:until+budget;
-    LSKY=j.S;LBLK=j.B;LQ=j.Q;LH=j.H;LX0=j.x0;LZ0=j.z0;LTOP.set(j.top);
-    try{
-      if(j.phase===0||j.phase===1||j.phase===3){
-        for(;j.rx<RS;j.rx++,j.rz=0){
-          for(;j.rz<RS;j.rz++){
-            const rx=j.rx,rz=j.rz;
-            if(j.phase===0){
-              const x=LX0+rx,z=LZ0+rz;let t=-1;
-              if(x>=0&&z>=0&&x<W&&z<D){const b0=x*H*D+z;for(let y=H-1;y>=0;y--){const v=world[b0+y*D];if(v!==0&&!chunkST[v]){t=y;break;}}}
-              LTOP[rx*RS+rz]=t;const o=(rx*RS+rz)*H;if(j.sky)for(let y=t+1;y<H;y++)LSKY[o+y]=15;
-            }else if(j.phase===1){
-              const t=LTOP[rx*RS+rz];if(t>=0){let mn=999;if(rx>0)mn=Math.min(mn,LTOP[(rx-1)*RS+rz]);if(rx<RS-1)mn=Math.min(mn,LTOP[(rx+1)*RS+rz]);if(rz>0)mn=Math.min(mn,LTOP[rx*RS+rz-1]);if(rz<RS-1)mn=Math.min(mn,LTOP[rx*RS+rz+1]);const o=(rx*RS+rz)*H;for(let y=Math.max(0,mn+1);y<=t;y++)if(!lop(LX0+rx,y,LZ0+rz)){LSKY[o+y]=15-SFALL;if(j.qn>=LQ.length)throw new Error('private light queue overflow');LQ[j.qn++]=o+y;}}
-            }else{
-              const x=LX0+rx,z=LZ0+rz;if(x>=0&&z>=0&&x<W&&z<D){const b0=x*H*D+z,o=(rx*RS+rz)*H;
-                for(let y=j.y||0;y<H;y++){const vv=world[b0+y*D];if(vv&&LSRC[vv]){LBLK[o+y]=LSRC[vv];if(j.qn>=LQ.length)throw new Error('private light queue overflow');LQ[j.qn++]=o+y;}
-                  j.y=y+1;if((y&15)===15&&performance.now()>=end){return false;}
-                }j.y=0;
-              }
-            }
-          }
-          if(performance.now()>=end)return false;
-        }
-        j.rx=0;j.rz=0;j.h=0;
-        if(j.phase===0){j.phase=j.sky?1:3;return false;}if(j.phase===1){j.phase=2;return false;}
-        j.q1=j.qn;j.phase=4;return false;
-      }
-      if(j.phase===2||j.phase===4){
-        if(!j.qn){if(j.phase===4){j.phase=5;return true;}j.phase=3;return false;}
-        privateFlood={h:j.h,qn:j.qn,until:end};
-        const ok=flood(j.phase===2?LSKY:LBLK,j.qn,j.phase===2?SFALL:BFALL,j.phase===2);
-        j.h=privateFlood.h;j.qn=privateFlood.qn;
-        if(!ok)return false;
-        if(j.phase===2){j.phase=3;j.qn=j.h=0;for(let k=0;k<privateFlood.qn;k++)j.Q[k]=0;return false;}
-        j.phase=5;return true;
-      }
-      return true;
-    }finally{privateFlood=saved[7];j.top.set(LTOP);LSKY=saved[0];LBLK=saved[1];LQ=saved[2];LH=saved[3];LX0=saved[4];LZ0=saved[5];LTOP.set(saved[6]);}
-  };
-  window.__deepLightJob=(cx,cz)=>({cx,cz,phase:0,rx:0,rz:0,qn:0,q1:0,h:0,S:new Uint8Array(RS*RS*H),B:new Uint8Array(RS*RS*H),Q:new Int32Array(RS*RS*H*2),top:new Int16Array(RS*RS),x0:cx*CH-LM,z0:cz*CH-LM,H,deep:!!window.__c317mesh,sky:meshUnderSky(),mesh:0,f:0});
-  function deepBind(j){
-    const s=[LSKY,LBLK,LQ,LH,LX0,LZ0,LTOP.slice()];LSKY=j.S;LBLK=j.B;LQ=j.Q;LH=j.H;LX0=j.x0;LZ0=j.z0;LTOP.set(j.top);
-    return()=>{LSKY=s[0];LBLK=s[1];LQ=s[2];LH=s[3];LX0=s[4];LZ0=s[5];LTOP.set(s[6]);};
-  }
-  window.__deepAOStep=(j,grp,until,budget)=>{
-    if(j.aoDone)return true;
-    if(!j.buf){
-      while(j.mesh<grp.children.length){
-        const m=grp.children[j.mesh];
-        if(m.isInstancedMesh||!m.geometry||m.renderOrder){j.mesh++;continue;}
-        const mt=Array.isArray(m.material)?m.material[0]:m.material;
-        if(!mt||mt.transparent||!(patched.has(mt)||(mt.userData&&mt.userData.tmat))){j.mesh++;continue;}
-        const P=m.geometry.attributes.position,N=m.geometry.attributes.normal;
-        if(!P||!N||m.geometry.attributes.aoD){j.mesh++;continue;}
-        const n=P.count;j.f=0;j.buf={ao:new Uint8Array(n),we:new Uint8Array(n),ls:new Uint8Array(n),lb:new Uint8Array(n)};break;
-      }
-      if(!j.buf){j.aoDone=true;return true;}
-    }
-    const end=budget===undefined?Infinity:until+budget,restore=deepBind(j);
-    try{
-      for(;j.mesh<grp.children.length;j.mesh++){
-        const m=grp.children[j.mesh],P=m.geometry.attributes.position,N=m.geometry.attributes.normal,nv=P.count,pa=P.array,na=N.array,{ao,we,ls,lb}=j.buf;
-        for(let f=j.f;f<nv;f+=4){
-          const o=f*3,nx=na[o],ny=na[o+1],nz=na[o+2];
-          const cxm=(pa[o]+pa[o+3]+pa[o+6]+pa[o+9])/4,cym=(pa[o+1]+pa[o+4]+pa[o+7]+pa[o+10])/4,czm=(pa[o+2]+pa[o+5]+pa[o+8]+pa[o+11])/4;
-          const ax=Math.floor(cxm+nx*0.5),ay=Math.floor(cym+ny*0.5),az=Math.floor(czm+nz*0.5),l0=cellL(ax,ay,az),b0=l0<0?0:cB,open=ny<-0.5?0:cellOpen(ax,ay,az);
-          for(let v=0;v<4;v++){
-            const q=o+v*3,sx=Math.sign(pa[q]-cxm)*(nx?0:1),sy=Math.sign(pa[q+1]-cym)*(ny?0:1),sz=Math.sign(pa[q+2]-czm)*(nz?0:1);let x1,y1,z1,x2,y2,z2,x3,y3,z3;
-            if(nx){x1=ax;y1=ay+sy;z1=az;x2=ax;y2=ay;z2=az+sz;x3=ax;y3=ay+sy;z3=az+sz;}
-            else if(ny){x1=ax+sx;y1=ay;z1=az;x2=ax;y2=ay;z2=az+sz;x3=ax+sx;y3=ay;z3=az+sz;}
-            else{x1=ax+sx;y1=ay;z1=az;x2=ax;y2=ay+sy;z2=az;x3=ax+sx;y3=ay+sy;z3=az;}
-            const s1=op(gb(x1,y1,z1)),s2=op(gb(x2,y2,z2)),cr=op(gb(x3,y3,z3));let sum=l0<0?0:l0,bs=b0,cnt=1;
-            if(!s1){sum+=cellLo(x1,y1,z1);bs+=cB;cnt++;}if(!s2){sum+=cellLo(x2,y2,z2);bs+=cB;cnt++;}if(!cr&&!(s1&&s2)){sum+=cellLo(x3,y3,z3);bs+=cB;cnt++;}
-            const aoV=FANCY?AOL[s1&&s2?3:(s1?1:0)+(s2?1:0)+(cr?1:0)]:0;ao[f+v]=aoV*255+0.5;ls[f+v]=Math.max(1,sum/cnt*255+0.5);lb[f+v]=bs/cnt*255+0.5;we[f+v]=open*255;
-          }
-          j.f=f+4;if(performance.now()>=end)return false;
-        }
-        if(j.deep)ls.fill(0);m.geometry.setAttribute('aoD',new THREE.BufferAttribute(ao,1,true));m.geometry.setAttribute('wetE',new THREE.BufferAttribute(we,1,true));m.geometry.setAttribute('litS',new THREE.BufferAttribute(ls,1,true));m.geometry.setAttribute('litB',new THREE.BufferAttribute(lb,1,true));
-j.buf=null; j.f=0;j.mesh++;if(performance.now()>=end)return false;
-      }
-      j.aoDone=true;return true;
-    }finally{restore();}
-  };
-
   let lightMs = 0, lightN = 0; window.__lightStats = () => ({ms: lightMs, n: lightN, avg: lightN ? lightMs / lightN : 0});
   function addAO(grp, cx, cz) { const t0 = performance.now(); let did = false;
     for (const m of grp.children) { if (m.isInstancedMesh || !m.geometry || m.renderOrder) continue; const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt || mt.transparent || !(patched.has(mt) || (mt.userData && mt.userData.tmat))) continue;
@@ -26574,16 +26428,12 @@ j.buf=null; j.f=0;j.mesh++;if(performance.now()>=end)return false;
           if (!s1) { sum += cellLo(x1, y1, z1); bs += cB; cnt++; } if (!s2) { sum += cellLo(x2, y2, z2); bs += cB; cnt++; } if (!cr && !(s1 && s2)) { sum += cellLo(x3, y3, z3); bs += cB; cnt++; }
           const aoV = FANCY ? AOL[s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (cr ? 1 : 0)] : 0;
           ao[f + v] = aoV * 255 + 0.5; ls[f + v] = Math.max(1, sum / cnt * 255 + 0.5); lb[f + v] = bs / cnt * 255 + 0.5; we[f + v] = open * 255; } }
-      // A sky-zero deep slice must stay black: the old minimum of one byte was invisible surface floor compensation, not real light.
-      if (window.__c317mesh && did) ls.fill(0);
       g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1, true)); g.setAttribute('wetE', new THREE.BufferAttribute(we, 1, true)); g.setAttribute('litS', new THREE.BufferAttribute(ls, 1, true)); g.setAttribute('litB', new THREE.BufferAttribute(lb, 1, true)); }
     if (did) { lightMs += performance.now() - t0; lightN++; } }
   // ---- shadows (Realistic): one sun shadow map that follows you, redrawn every few frames ----
   if (REAL) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = touchMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     sunL.castShadow = true; const S = touchMode ? 1024 : 2048; sunL.shadow.mapSize.set(S, S); const c = sunL.shadow.camera; c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 170; c.updateProjectionMatrix(); sunL.shadow.bias = -0.0006; sunL.shadow.normalBias = 0.05; sunL.shadow.radius = 2;
     for (const k in matCache) { const m = matCache[k]; if (m) m.needsUpdate = true; } }
-  // Virtual cave slices call the base mesher; share its actual light baker, not surface-only decorations.
-  window.__caveLightBake = addAO;
   const bc = buildChunk; buildChunk = function (cx, cz) { lrKeep = -1; const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { addAO(g, cx, cz); lrKeep = -1; if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
   if (REAL) { const sm = spawnMob; spawnMob = function () { const a = sm.apply(this, arguments); try { if (a && a.g) a.g.traverse(o => { if (o.isMesh) o.castShadow = true; }); } catch (_) {} return a; }; }
   let shF = 0, lastSx = 0, lastSz = 0;
@@ -31976,8 +31826,6 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
-    ['v1.2.1', ['Deep caves load one eight-block slab per budgeted tick; paused work resumes instead of regenerating it.','Deep cave lighting uses the actual local slice with no daylight through its boundaries; torches and glowing blocks still spread local light.','Blocks placed below Y0 remain saved and visible; Y0 underside faces read the correct cave block and update locally.','Hell keeps stored-world sky and local light rather than inheriting deep virtual-world rules.']],
-    ['v1.1.100', ["Portal: after the UFO abduction finishes, a stable Chrome Reality portal appears on safe ground near the crash landing", "Portal: LT / USE / walk in takes you to the existing YEAR 24000 chrome scene (same realm players call year240000) - not a new world", "Portal: return pad inside chrome restores your place via the existing start24/stop24 travel; cooldown stops re-entry loops", "Portal: unlocks from glen_met_* and save c246.met (and the new y24p flag); prior saves with those flags get the portal, no broad all-user unlock", "Not play-tested in this report - parent can validate the public build; major anatomical model overhaul remains outstanding"]],
     ['v1.2.0', ["Portal: after the UFO abduction finishes, a stable Chrome Reality portal appears on safe ground near the crash landing", "Portal: LT / USE / walk in takes you to the existing YEAR 24000 chrome scene (same realm players call year240000) - not a new world", "Portal: return pad inside chrome restores your place via the existing start24/stop24 travel; cooldown stops re-entry loops", "Portal: unlocks from glen_met_* and save c246.met (and the new y24p flag); prior saves with those flags get the portal, no broad all-user unlock", "Not play-tested in this report - parent can validate the public build; major anatomical model overhaul remains outstanding"]],
     ['v1.1.99', ["FPS: one viewmodel owner for gun pose and scale; real gun models hide the old mesh until the final asset is ready then show together", "Hands: natural thumb side on each palm, tighter finger curl on tools blocks and grips, smaller hands, wrist angle limits", "Reload: the Reload button plays the full reload motion even when unlimited ammo keeps the magazine full", "Third person: clearer blink and support-hand rifle cradle; ADS and recoil stay as small deltas from the bind pose", "Not play-tested in this report - parent can validate the public build"]],
     ['v1.1.98', ["Caves: bedrock floor at world Y -237 with lush dark volcanic crystal and tall hell layers plus one giant golden hell eye", "Legacy deep builds are grandfathered with a dynamic seal from each column min depth so old floors are not trapped", "Drop cull follows the dynamic floor; Agartha and inventory Nature wool features from 1.1.97 stay"]],
@@ -45537,6 +45385,11 @@ function make42(E) {
   try { apply(); } catch (e) { ERR('boot', e); }
 })();
 
+/* GLX-R124 save passthrough */
+(function r124(){ let src=null; const se=serialize, ap=applySave;
+ applySave=function(d){ src=(d&&typeof d==='object')?d:null; return ap.apply(this,arguments); };
+ serialize=function(){ const d=se.apply(this,arguments); if(src&&d&&typeof d==='object'&&src.id===d.id)for(const k in src)if(!(k in d))d[k]=src[k]; return d; };
+})();
 /* GLX-C288 (v1.1.99 yield to vm) (v1.0.95): guns - hold LT (right mouse / the LT touch button) to aim down the sights: the view zooms in, the gun moves to the
    middle and shots are dead-on; RT (left click / the RT touch button) fires. Hip fire has a little spread. Without a gun LT still places
    blocks and trades. The Builder Tool marks its corners with RT now, so LT is free. */
@@ -47056,19 +46909,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 // keep your spot in space across a save and reload (the old loader puts anyone off the map back at spawn)
 (function c317c() { const U = window.__c317;
   try { const se = serialize; serialize = function () { const o = se.apply(this, arguments); try { if (o && !(window.__c299 && __c299.on) && !DIM.cur && U.on() && !(window.__c309 && __c309.on) && !U.foot(P.x, P.z) || (o && !DIM.cur && U.on() && (P.y < -2 || P.y > H + 60))) o.c317 = {p: [P.x, P.y, P.z]}; } catch (_) {} return o; }; } catch (e) { U.err = U.err || 'ser ' + e; }
-  try { const ew = enterWorld; enterWorld = function (save) {
-    const q = save && save.c317 && save.c317.p, gen = window.__c105 && __c105.phase === 'gen';
-    // Existing C317 formula and ordinary dimensions guard; no new coordinates.
-    const restore=U.restoreSavePosition=()=>{ if (!q || gen || !q.every(isFinite) || !U.on()) return false;
-      if (!(typeof current!=='undefined' && current && current.mode && typeof W!=='undefined' && !DIM.cur)) return false;
-      P.x=q[0];P.y=q[1]+0.05;P.z=q[2];P.vy=0;P.fallTop=null;U.soft=true;return true;};
-    const r = ew.apply(this, arguments);
-    // Normal C321 world-frame restoration remains exactly in its own wrapper. The
-    // new loader only asks this helper for an actual flat-world saved cave once.
-    // C321's original reset precedes applySave; no new frame operation is needed here.
-    // The later timer restores exactly the same saved point on normal saved loads.
-    try { if (q && !gen && q.every(isFinite)) { let n = 0; const iv = setInterval(() => { if (++n > 60) clearInterval(iv); if (typeof started === 'undefined' || !started || !U.on()) return; clearInterval(iv); restore(); }, 100); } } catch (e) { U.err = U.err || 'ew ' + e; } return r; }; } catch (e) { U.err = U.err || 'ew0 ' + e; } })();
-
+  try { const ew = enterWorld; enterWorld = function (save) { const r = ew.apply(this, arguments); try { const q = save && save.c317 && save.c317.p, gen = window.__c105 && __c105.phase === 'gen';
+      if (q && !gen && q.every(isFinite)) { let n = 0; const iv = setInterval(() => { if (++n > 60) clearInterval(iv); if (typeof started === 'undefined' || !started || !U.on()) return; clearInterval(iv); P.x = q[0]; P.y = q[1] + 0.05; P.z = q[2]; P.vy = 0; P.fallTop = null; U.soft = true; }, 100); } } catch (e) { U.err = U.err || 'ew ' + e; } return r; }; } catch (e) { U.err = U.err || 'ew0 ' + e; } })();
 
 /* ===================== GLX-C316 (v1.1.26): Reset world always makes a fresh world at mainland spawn =====================
    - A Test World (creative) reset now builds the current big map too (it used to rebuild the old small 390 map with the same layout).
@@ -47458,33 +47300,17 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    chunk mesher, a few chunks at a time (lazy, nothing stored but what you change). It works on every side of the planet. Also: no grey
    Earth fog out in space or on the Moon and Mars, so the red Mars sand and the grey Moon dust show in their real colours again. */
 (function c324() {
-  const U = window.__c324 = {err: null, meshed: 0, ms: 0, n: 0, ticks: 0, deferred: 0};
+  const U = window.__c324 = {err: null, meshed: 0, ms: 0, n: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); console.warn('c324', w, e); };
   const PH = /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof PERF !== 'undefined' && PERF), C = CH, PW = 3 * C + 1, NB = 72; let RN = PH ? 2 : 3; const RN0 = RN;
   const E = () => window.__c320, F = () => window.__c321, on = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };
   const MS = [[[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 1, 0], [-1, 0, 0], [0, 0, 1]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
     [[1, 0, 0], [0, -1, 0], [0, 0, -1]], [[1, 0, 0], [0, 0, 1], [0, -1, 0]], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]];
   const QS = MS.map(m => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...m[0]), new THREE.Vector3(...m[1]), new THREE.Vector3(...m[2]))));
-  const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null, meshHost = null, partial = new Map();
-  const drop = k=>{abandonLight(k);for(const key of partial.keys()){
-    const end=key.lastIndexOf('|'),prefix=key.slice(0,end+1),point=key.slice(end+1);
-    if(point.startsWith(k+','))partial.delete(key);
-  }const g=meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
-  const dropAll = () => { for(const k of [...pendingLight.keys()])abandonLight(k); for (const k of [...meshes.keys()]) drop(k); stale.clear(); U.dirty.clear(); };
+  const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null;
+  const drop = k => { const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
+  const dropAll = () => { for (const k of [...meshes.keys()]) drop(k); stale.clear(); };
   U.dirty = new Set(); const eB = {k: null, v: null, m: null}; const stale = new Set();
-  // One generation owns every coarse and near-field cave producer. Only the confirmed
-  // existing C105 reset entry or a new world buffer advances it, never travel/travel ticks.
-  let generation=1;U.generation=generation;
-  function invalidateGenerationWithoutGuard(next){
-    if(!Number.isSafeInteger(next)||next<generation)return false;
-    generation=next;U.generation=next;U.invalidated=next;
-    dropAll();cache.clear();partial.clear();meshHost=null;TMP=null;eV=-1;eL=[];eB.k=eB.v=eB.m=null;band=null;
-    lightEpoch++;
-    return true;
-  }
-  U.invalidateGeneration=next=>{
-    return Number.isSafeInteger(next)&&next>generation&&invalidateGenerationWithoutGuard(next);
-  };
   // v1.1.38: generated blocks are cached in 8 high slabs per chunk column, so digging, walking and going down rebuild from the cache, not from the noise
   const SL = 8, SW = C + 2, cache = new Map(); let eV = -1, eL = [];
   function slab(ax, piv, cx, cz, sy) { const key = ax + '|' + piv.join() + '|' + cx + ',' + cz + ',' + sy; let A = cache.get(key); if (A) { cache.delete(key); cache.set(key, A); return A; }
@@ -47497,18 +47323,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         let b; if (e.tOn && a >= -40 && wy - SEA < r - R - 1) { b = e.terr(wx, wy, wz, dx, dy, dz, r); if (!b || b === T.WATER) continue; } else if (a < -40) { b = e.hol ? e.hol(wx, wy, wz, dx, dy, dz, r) : e.layer(r, 99, 0, wx, wy, wz); if (!b) continue; } else { if (!gk) gk = e.ground(wx, wy, wz, dx / r, dy / r, dz / r); if (a >= gk[0]) continue; b = e.layer(r, gk[0] - a, gk[1], wx, wy, wz); }
         A[(i * SL + j) * SW + k] = b; } }
     cache.set(key, A); if (cache.size > (PH ? 1500 : 3000)) cache.delete(cache.keys().next().value); return A; }
-  U.cache = cache; U.slab = slab; U.fill = fill;
-  U.inspect = () => ({partial: partial.size, meshes: meshes.size, deferred: U.deferred, ticks: U.ticks});
-  // Pauses retain the partially assembled cells. At most one uncached eight-block slab
-  // is started per tick and lighting owns a single synchronous mesh in that same tick.
-  function fill(ax, piv, cx, cz, y0, t1, bud) { const e = E(), pk=ax+'|'+piv.join()+'|'+cx+','+cz+','+y0, job=partial.get(pk)||{any:false,done:0}; let any=job.any; TMP=job.data||(job.data=new Uint16Array(PW*NB*PW));
-    for (let s0 = job.done; s0 < NB; s0 += SL) { const A = slab(ax, piv, cx, cz, y0 + s0);
+  U.cache = cache;
+  // v1.1.38: missing slabs are generated a few at a time within the frame budget; a chunk is drawn once all its slabs are ready
+  function ready(ax, piv, cx, cz, y0, t1, bud) { for (let s0 = 0; s0 < NB; s0 += SL) { if (cache.has(ax + '|' + piv.join() + '|' + cx + ',' + cz + ',' + (y0 + s0))) continue; if (performance.now() - t1 > bud) return false; slab(ax, piv, cx, cz, y0 + s0); } return performance.now() - t1 < bud * 1.6; }
+  function fill(ax, piv, cx, cz, y0) { const e = E(); if (!TMP) TMP = new Uint16Array(PW * NB * PW); else TMP.fill(0); let any = false;
+    for (let s0 = 0; s0 < NB; s0 += SL) { const A = slab(ax, piv, cx, cz, y0 + s0);
       for (let i = 0; i < SW; i++) for (let j = 0; j < SL; j++) { const src = (i * SL + j) * SW, dst = ((C - 1 + i) * NB + s0 + j) * PW + C - 1; TMP.set(A.subarray(src, src + SW), dst);
-        if (!any && i > 0 && i <= C) for (let k = 1; k <= C; k++) if (A[src + k]) { any = true; break; } } job.done=s0+SL;job.any=any;partial.set(pk,job);if(performance.now()-t1>=bud){
-      // Cancelled views must not accumulate 448 KiB pending slices forever.
-      if(partial.size>32){const oldest=partial.keys().next().value;if(oldest!==pk)partial.delete(oldest);}
-      U.deferred++;return null;
-    }}partial.delete(pk);
+        if (!any && i > 0 && i <= C) for (let k = 1; k <= C; k++) if (A[src + k]) { any = true; break; } } }
     // dug or placed blocks: the edits list is read once per change, not once per block
     if (e.edits.size) { if (eV === -1) { eV = 0; eL = []; for (const [k, v] of e.edits) { const q = k.split(',').map(Number); q[3] = v | 0; eL.push(q); } }
       const m = MS[ax], bk = ax + '|' + piv.join(); if (eB.k !== bk || eB.v !== eL) { eB.k = bk; eB.v = eL; eB.m = new Map();   /* v1.1.86: edits are sorted by chunk once, so each chunk only looks at its own (was every edit for every chunk) */
@@ -47519,227 +47340,28 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         const Z0e = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; if (ly >= 0 && lx >= 0 && lx < W && lz < D && lz >= Z0e) continue;   /* v1.1.96: surface owns in-bounds Y>=0 */
         const tx = lx - cx * C + C, ty = ly - y0, tz = lz - cz * C + C; if (tx >= C - 1 && tx <= 2 * C && tz >= C - 1 && tz <= 2 * C && ty >= 0 && ty < NB) { TMP[(tx * NB + ty) * PW + tz] = q[3]; if (q[3]) any = true; } } }   /* v1.1.55: placed blocks out on the planet, deep down and in Agartha are drawn (they were drawn as air) */
     return any; }
-  // Fill can stop after each slab, or return a complete slice for the real mesher to render.
-  U.slice = (ax,piv,cx,cz,y0,t1,bud) => { const ok=fill(ax,piv,cx,cz,y0,t1,bud);return ok===null?null:{any:ok,data:TMP.slice()}; };
-  function mesh(ax, piv, cx, cz, y0, fk, data) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }
+  function mesh(ax, piv, cx, cz, y0) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); const fk = fill(ax, piv, cx, cz, y0); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }
     const sv = [world, W, H, D], cc = window.__caveCull, o = chunkObjs.get(65), ol = chunkLists.get(65); let g = null;
-    chunkObjs.delete(65); chunkLists.delete(65); window.__caveCull = null; window.__c317mesh = 1; window.__deepMeshY0 = y0;
-    try { world = data; W = PW; H = NB; D = PW; __bcBase(1, 1); g = chunkObjs.get(65); if (g && window.__caveLightBake) window.__caveLightBake(g, 1, 1); } catch (e) { ERR('bc', e); }
-    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; window.__c317mesh = 0; delete window.__deepMeshY0; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
+    chunkObjs.delete(65); chunkLists.delete(65); window.__caveCull = null; window.__c317mesh = 1;
+    try { world = TMP; W = PW; H = NB; D = PW; __bcBase(1, 1); g = chunkObjs.get(65); } catch (e) { ERR('bc', e); }
+    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; window.__c317mesh = 0; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
     if (!g) { meshes.set(k, null); return; } blockGroup.remove(g); g.position.set(cx * C - C - piv[0], y0 - piv[1], cz * C - C - piv[2]); root.add(g); meshes.set(k, g); U.meshed++; U.ms = Math.round(performance.now() - t0); (U.mt = U.mt || []).push([U.ms, U.fm]); if (U.mt.length > 400) U.mt.shift(); }
   U.mesh = mesh;
-function* deepMeshGenerator(cx,cz,job=undefined) {
-    let expiry=Infinity,lastYield=-1;
-    // One private owner per suspended exact original chunk algorithm.
-    if(!job)throw new Error("unowned suspended cave geometry");
-      let grp=null,complete=false;
-    try {
-    if (!chunkST) {
-      chunkST = new Uint8Array(1024);
-      for (let i = 0; i < 256; i++) if (PLANT[i] === 1 || ENT[i] === 1) chunkST[i] = 1;
-      chunkST[T.AIR] = 1; chunkST[T.BED] = 1; chunkST[T.COBWEB] = 1; chunkST[T.WATER] = 2; chunkST[T.LAVA] = 2; chunkST[T.GLASS] = 2; chunkST[T.LEAVES] = 3; chunkST[134] = 3; for (let i = 0; i < 256; i++) if (LEAFY[i]) chunkST[i] = 3;
-      chunkFQ = [[[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]],
-        [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]]];
-    }
-    const ST = chunkST, FQ = chunkFQ, HD = H * D, FN = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-    const lists = {}, faces = {};
-    const x0 = cx * CH, z0 = cz * CH, x1 = Math.min(W, x0 + CH), z1 = Math.min(D, z0 + CH);
-    // GLX-C79: cave culling - faces that look into dark, closed caves (no sky light, no block light) are not meshed while you are up on the surface
-    const cav = window.__caveCull ? window.__caveCull(cx, cz) : null, cS = cav && cav.S, cBk = cav && cav.B, cX0 = cav ? cav.x0 : 0, cZ0 = cav ? cav.z0 : 0, cRS = cav ? cav.RS : 0; let cavN = 0;
-    let scans=0; for (let x = x0; x < x1; x++) for (let y = 0; y < H; y++) for (let z = z0; z < z1; z++) { if ((++scans & 31)===0 && performance.now()>=expiry) { if(lastYield!==job.rev) { lastYield=job.rev; yield null; expiry=job.expiry; } };
-      const i = (x * H + y) * D + z, b = world[i];
-      if (!b) continue;
-      if (b === T.WATER || ENT[b] || PLANT[b] === 1 || b === T.FURNACE || b === T.BED) { (lists[b] || (lists[b] = [])).push(x, y, z); continue; }
-      let any = false;
-      for (let d = 0; d < 6; d++) {
-        let n;
-        if (d === 0) { if (x + 1 >= W) continue; n = world[i + HD]; }
-        else if (d === 1) { if (x === 0) { if (window.__c317mesh) n = T.STONE; else continue; } else n = world[i - HD]; }
-        else if (d === 2) n = y + 1 >= H ? aboveWorld() : world[i + D];
-        else if (d === 3) { if (y === 0) { if (window.__c317mesh) { if (i < D) continue; n = world[i - D]; } else if (window.__deepMeshY0 !== undefined) { n = getB(x, window.__deepMeshY0 - 1, z); } else { if (!window.__YB) continue; n = __YB(x, z); } } else n = world[i - D]; }
-        else if (d === 4) { if (z + 1 >= D) continue; n = world[i + 1]; }
-        else { if (z === 0) { if (window.__c317mesh) n = T.STONE; else { if (!__XN) continue; n = __XN(x, y); } } else n = world[i - 1]; }
-        let s = ST[n]; if (s === 3 && (n === 9 || n === 134 || LEAFY[n]) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
-        if (!s || (s > 1 && n === b)) continue;
-        if (cS && y > 0) { const fx = d === 0 ? x + 1 : d === 1 ? x - 1 : x, fy = d === 2 ? y + 1 : d === 3 ? y - 1 : y, fz = d === 4 ? z + 1 : d === 5 ? z - 1 : z;
-          if (fy < H) { const ci = ((fx - cX0) * cRS + (fz - cZ0)) * H + fy; if (cS[ci] === 0 && cBk[ci] === 0) { cavN++; continue; } } }
-        const F = faces[b] || (faces[b] = [[], [], [], [], [], []]);
-        F[d].push(x, y, z); any = true;
-      }
-      if (any) (lists[b] || (lists[b] = [])).push(x, y, z);
-    }
-
-    grp = new THREE.Group(); grp.userData.cav = cav ? 1 : 0; grp.userData.cavN = cavN;
-    // GLX-C79: Sodium-style - every plain opaque block type goes into ONE mesh per chunk (texture array + one shared material = one draw call), packed vertex attributes
-    const TAx = window.__TA && window.__TA.on ? window.__TA : null;
-    if (TAx) { let nf = 0; const mg = [];
-      for (const t in faces) { const L = TAx.layers(+t); if (!L) continue; const F = faces[t]; for (let d = 0; d < 6; d++) nf += F[d].length / 3; mg.push([F, L]); delete faces[t]; }
-      if (nf) { const pos = new Float32Array(nf * 12), nor = new Int8Array(nf * 12), uv = new Uint8Array(nf * 8), lay = new Uint8Array(nf * 4), ind = nf * 4 > 65535 ? new Uint32Array(nf * 6) : new Uint16Array(nf * 6);
-        let f = 0;
-        for (const [F, L] of mg) for (let d = 0; d < 6; d++) { const A = F[d], q = FQ[d], nn = FN[d], ly = L[d];
-          for (let k = 0; k < A.length; k += 3, f++) { const x = A[k], y = A[k + 1], z = A[k + 2];
-            for (let v = 0; v < 4; v++) { const o = f * 12 + v * 3; pos[o] = x + q[v][0]; pos[o + 1] = y + q[v][1]; pos[o + 2] = z + q[v][2]; nor[o] = nn[0]; nor[o + 1] = nn[1]; nor[o + 2] = nn[2];
-              uv[f * 8 + v * 2] = v === 1 || v === 2 ? 1 : 0; uv[f * 8 + v * 2 + 1] = v >= 2 ? 1 : 0; lay[f * 4 + v] = ly; }
-            const b4 = f * 4, o6 = f * 6; ind[o6] = b4; ind[o6 + 1] = b4 + 1; ind[o6 + 2] = b4 + 2; ind[o6 + 3] = b4; ind[o6 + 4] = b4 + 2; ind[o6 + 5] = b4 + 3; if ((f & 255)===0 && performance.now()>=expiry) { if(lastYield!==job.rev) { lastYield=job.rev; yield null; expiry=job.expiry; } }; } }
-        const g = new THREE.BufferGeometry();
-        g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('lay', new THREE.BufferAttribute(lay, 1));
-        g.setIndex(new THREE.BufferAttribute(ind, 1)); g.computeBoundingSphere();
-        const m = new THREE.Mesh(g, TAx.mat); m.userData.merged = 1; grp.add(m); } }
-    for (const t in faces) {
-      const tid = Number(t), F = faces[t];
-      let nf = 0; for (let d = 0; d < 6; d++) nf += F[d].length / 3;
-      const pos = new Float32Array(nf * 12), nor = new Float32Array(nf * 12), uv = new Float32Array(nf * 8), ind = new Uint32Array(nf * 6);
-      const g = new THREE.BufferGeometry(), multi = Array.isArray(BLOCK_MATS[t]);
-      let f = 0;
-      for (let d = 0; d < 6; d++) {
-        const A = F[d], q = FQ[d], nn = FN[d], start = f * 6;
-        for (let k = 0; k < A.length; k += 3, f++) {
-          const x = A[k], y = A[k + 1], z = A[k + 2];
-          for (let v = 0; v < 4; v++) {
-            const o = f * 12 + v * 3; pos[o] = x + q[v][0]; pos[o + 1] = y + q[v][1]; pos[o + 2] = z + q[v][2]; nor[o] = nn[0]; nor[o + 1] = nn[1]; nor[o + 2] = nn[2];
-            uv[f * 8 + v * 2] = v === 1 || v === 2 ? 1 : 0; uv[f * 8 + v * 2 + 1] = v >= 2 ? 1 : 0;
-          }
-          const b4 = f * 4, o6 = f * 6; ind[o6] = b4; ind[o6 + 1] = b4 + 1; ind[o6 + 2] = b4 + 2; ind[o6 + 3] = b4; ind[o6 + 4] = b4 + 2; ind[o6 + 5] = b4 + 3; if ((f & 255)===0 && performance.now()>=expiry) { if(lastYield!==job.rev) { lastYield=job.rev; yield null; expiry=job.expiry; } };
-        }
-        if (multi && f * 6 > start) g.addGroup(start, f * 6 - start, d);
-      }
-      g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-      g.setIndex(new THREE.BufferAttribute(ind, 1)); g.computeBoundingSphere();
-      const m = new THREE.Mesh(g, BLOCK_MATS[t]); if (tid === T.GLASS) m.renderOrder = 2;
-      grp.add(m);
-    }
-    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-    for (const t in lists) {
-      const tid = Number(t), arr = lists[t];
-      if (tid === T.WATER) { const wg = buildWaterGeo(arr); if (wg) { const wm = new THREE.Mesh(wg, waterMat); wm.renderOrder = 3; grp.add(wm); } continue; }
-      if (!isPlant(tid) || ENT[tid]) continue;
-      const n = arr.length / 3, im = new THREE.InstancedMesh(crossGeo, PLANT_MATS[tid], n);
-      for (let i = 0; i < n; i++) {
-        const x = arr[i * 3], y = arr[i * 3 + 1], z = arr[i * 3 + 2], hs = PLANT_H[tid], j = ((x * 73856093) ^ (z * 19349663)) >>> 0;
-        q.setFromAxisAngle(up, (j % 628) / 100); sc.set(PLANT_W[tid], hs, PLANT_W[tid]);
-        ps.set(x + 0.5 + ((j >> 3) % 20 - 10) / 100, y, z + 0.5 + ((j >> 6) % 20 - 10) / 100);
-        m4.compose(ps, q, sc); im.setMatrixAt(i, m4); if ((i & 255)===0 && performance.now()>=expiry) { if(lastYield!==job.rev) { lastYield=job.rev; yield null; expiry=job.expiry; } };
-      }
-      im.instanceMatrix.needsUpdate = true; im.frustumCulled = false; grp.add(im);
-    }
-    complete=true; return {group:grp,lists};
-    } finally { if(!complete && grp) grp.traverse(o=>{if(o.isInstancedMesh)o.dispose();else if(o.geometry)o.geometry.dispose();}); }
-  }
-
-  const pendingLight=new Map();let lightEpoch=0;
-  const deepGeometryStep=(j,until,budget)=>{
-    if(j.g||j.lists)return {group:j.g,lists:j.lists};
-    j.rev=(j.rev||0)+1;j.expiry=until+budget;const r=j.geo.next();
-    if(!r.done)return null;
-    j.geo=null;j.lists=r.value.lists;j.g=r.value.group;
-    return r.value;
-  };
-  const abandonGeometry=j=>{if(j.geo){const geo=j.geo;j.geo=null;geo.return();}j.lists=null;};
-  const disposeLight=g=>{if(!g)return;g.traverse(o=>{if(o.isInstancedMesh)o.dispose();else if(o.geometry)o.geometry.dispose();});};
-  function abandonLight(k){const j=pendingLight.get(k);if(!j)return;pendingLight.delete(k);abandonGeometry(j);disposeLight(j.g);partial.delete(j.ax+'|'+j.piv.join()+'|'+k+','+j.y0);j.g=j.data=j.light=j.buf=null;}
-  function beginLight(ax,piv,cx,cz,y0,fk,data){
-    const k=cx+','+cz;abandonLight(k);if(!fk){drop(k);meshes.set(k,null);return true;}
-    if(!window.__deepLightStep||!window.__deepAOStep){mesh(ax,piv,cx,cz,y0,fk,data);return true;}
-    pendingLight.set(k,{key:k,ax,piv:piv.slice(),cx,cz,y0,data,g:null,light:null,epoch:lightEpoch,pivot:fPiv,world:world,deep:true,generation:U.generation,geo:null,lists:null,rev:0,expiry:Infinity,t0:performance.now()});return false;
-  }
-  function resumeLight(k,until,budget){
-    const j=pendingLight.get(k);if(!j)return true;
-    if(j.epoch!==lightEpoch||j.generation!==U.generation||j.world!==world||j.pivot!==fPiv||j.y0!==band||DIM.cur){abandonLight(k);return false;}
-    const saved=[world,W,H,D],cc=window.__caveCull,cm=window.__c317mesh;
-    try{
-      world=j.data;W=PW;H=NB;D=PW;window.__caveCull=null;window.__c317mesh=1;
-      if(!j.lists){
-        const tg=performance.now(),o=chunkObjs.get(65),ol=chunkLists.get(65);
-        chunkObjs.delete(65);chunkLists.delete(65);window.__deepMeshY0=j.y0;
-        try{if(!j.geo&&!j.lists)j.geo=deepMeshGenerator(1,1,j);const geo=deepGeometryStep(j,until,budget);if(!geo)return false;j.g=geo.group;U.geoMs=performance.now()-tg;
-          if(!j.g){pendingLight.delete(k);abandonGeometry(j);drop(k);meshes.set(k,null);return true;}
-          if(performance.now()>=until+budget)return false;
-        }finally{delete window.__deepMeshY0;chunkObjs.delete(65);chunkLists.delete(65);if(o)chunkObjs.set(65,o);if(ol)chunkLists.set(65,ol);}
-      }
-      if(!j.light)j.light=window.__deepLightJob(1,1);
-      if(!window.__deepLightStep(j.light,until,budget))return false;
-      if(performance.now()>=until+budget)return false;
-      if(!window.__deepAOStep(j.light,j.g,until,budget))return false;
-      const old=meshes.get(k);if(old){root.remove(old);disposeLight(old);}
-      blockGroup.remove(j.g);j.g.position.set(j.cx*C-C-j.piv[0],j.y0-j.piv[1],j.cz*C-C-j.piv[2]);root.add(j.g);meshes.set(k,j.g);
-      U.meshed++;U.ms=Math.round(performance.now()-j.t0);pendingLight.delete(k);abandonGeometry(j);j.rev++;j.g=j.data=j.light=null;return true;
-    }catch(e){abandonLight(k);ERR('light',e);return false;}
-    finally{world=saved[0];W=saved[1];H=saved[2];D=saved[3];window.__caveCull=cc;window.__c317mesh=cm;}
-  }
-  U.meshIncremental=beginLight;U.resumeLight=resumeLight;U.abandonLight=abandonLight;U.pendingLight=()=>[...pendingLight.keys()];U.pendingJob=()=>pendingLight.values().next().value||null;
-  // The existing C105 in-game Yes executes this start; asking does not regenerate anything.
-  try { const start=window.__c105&&__c105.start;
-    if(typeof start==='function')__c105.start=function(){
-      // Match C105's refusals before doing anything irreversible. C105's existing
-      // No button never calls start; only an accepted Yes can reach this point.
-      if(__c105.phase||!started||!current||(typeof dead!=='undefined'&&dead))return;
-      const oldGeneration=generation;
-      if(!U.invalidateGeneration(oldGeneration+1))return;
-      try { return start.apply(this,arguments); }
-      catch(error) { invalidateGenerationWithoutGuard(oldGeneration);throw error; }
-      finally { if(!__c105.phase)invalidateGenerationWithoutGuard(oldGeneration); }
-    };
-  } catch(e) { ERR('resetHook',e); }
-
-  // Loader waits on actual publication, never just member-map presence. During
-  // saved start ordinary C324 / B9e scheduling is suspended: exactly the nearest
-  // serialized negative-Y column completes before the ordinary first render.
-  let savedEntry=null;
-  U.startSaved=q=>{
-    if(!savedEntry)savedEntry={q:q.slice(),initialGeneration:generation,generation:null,world:null,pivot:null,band:null,attempts:0};
-    if(!on()||DIM.cur||(window.__c309&&__c309.on))return false;
-    const w=F().pw(); if(w.x!==q[0]||w.y<q[1]||w.y-q[1]>=0.051||w.z!==q[2])return false;
-    if(savedEntry.q[0]!==q[0]||savedEntry.q[1]!==q[1]||savedEntry.q[2]!==q[2])return false;
-    const ax=F().ax,piv=ax===2?[0,0,0]:F().piv.slice(),frame=ax+':'+piv;
-    if(savedEntry.world!==world||savedEntry.generation!==generation||savedEntry.pivot!==frame){
-      // First initialization also owns the current loader world identity. No stale
-      // previous world or alternate planet frame can count as this saved wall.
-      if(savedEntry.generation!==null){for(const k of [...pendingLight.keys()])abandonLight(k);partial.clear();stale.clear();}
-      savedEntry.world=world;savedEntry.generation=generation;savedEntry.pivot=frame;savedEntry.band=null;
-    }
-    savedEntry.attempts++;
-    const key=Math.floor(q[0]/C)+','+Math.floor(q[2]/C);
-    U.savedEntry=savedEntry;U.savedEntryDone=meshes.has(key)&&!stale.has(key)&&!U.dirty.has(key)&&!pendingLight.has(key)&&savedEntry.world===world&&savedEntry.generation===generation;
-    if(U.savedEntryDone){savedEntry=null;return true;}
-    scheduleOnce();U.savedEntryAttempts=savedEntry.attempts;
-    return false;
-  };
-  U.clearSavedEntry=()=>{savedEntry=null;};
-  U.cancelSaved=()=>{if(!savedEntry)return;savedEntry=null;dropAll();partial.clear();band=null;U.savedEntry=null;U.savedEntryDone=false;};
-  setInterval(()=>{if(savedEntry||(typeof started!=='undefined'&&!started))return;scheduleOnce();},PH?70:50);
-  function scheduleOnce(){try{ const f = F(), e = E(); if (!on()||DIM.cur||!f||!e) { for(const k of [...pendingLight.keys()])abandonLight(k);root.visible = false; return; }
-      const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { for(const k of [...pendingLight.keys()])abandonLight(k);root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
+  setInterval(() => { try { const f = F(), e = E(); if (typeof started === 'undefined' || !started || DIM.cur || !on() || !f || !e) { root.visible = false; return; }
+      const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
       const ax = f.ax, piv = ax === 2 ? [0, 0, 0] : f.piv.slice(), pk = ax + ':' + piv.join();
-      if(meshHost&&Math.abs(P.x-meshHost[0])+Math.abs(P.y-meshHost[1])+Math.abs(P.z-meshHost[2])>160){dropAll();cache.clear();partial.clear();band=null;U.teleports=(U.teleports||0)+1;}meshHost=[P.x,P.y,P.z];
-      if (pk !== fPiv) { dropAll(); partial.clear(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
+      if (pk !== fPiv) { dropAll(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
       { const vd = (typeof vf === 'function' ? vf() : 96), hh = Math.max(0, P.y - SEA - 30); RN = e.flat ? Math.min(PH ? 7 : 16, Math.max(RN0, Math.ceil(Math.max(vd, (scene.fog && scene.fog.far < 1e5 ? scene.fog.far : 0), (window.__c346 && __c346.R) || 0) / C) + 1)) : RN0; if (e.flat && P.y < SEA - 30) RN = Math.min(RN, PH ? 3 : 5); }   /* v1.1.81: underground only the chunks round you are built */
-      const bY = e.flat ? Math.min(SEA - 12, P.y - 68) : P.y - 68;   /* v1.1.91: the slice drawn always holds your own depth, also just under sea level where caves were left undrawn */ if (band === null || Math.abs(bY + 40 - (band + 40)) > 14) { const nb = Math.floor(bY / SL) * SL; if(savedEntry&&savedEntry.band!==bY){dropAll();partial.clear();savedEntry.band=bY;}else if (band === null) dropAll(); else for (const k of meshes.keys()) stale.add(k); band = nb; }   /* v1.1.38: old chunks stay drawn until rebuilt, no remesh storm */
-      if(savedEntry){if(savedEntry.topology!==pk){savedEntry.topology=pk;dropAll();partial.clear();eV=-1;}} if(U.wv!==world){U.wv=world;U.invalidateGeneration(U.generation+1);band=Math.floor(bY/SL)*SL;} if (e.dirty) { e.dirty = 0; eV = -1; lightEpoch++;for(const k of [...pendingLight.keys()])abandonLight(k); }   /* v1.1.38: an edit no longer redraws every chunk at once; the chunk you changed is redrawn first */
-      const pp=f.pw(), pcx = Math.floor(pp.x / C), pcz = Math.floor(pp.z / C);
-      for (const k of new Set([...meshes.keys(),...pendingLight.keys()])) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
-      const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (!pendingLight.has(k) && (!meshes.has(k) || U.dirty.has(k) || stale.has(k))) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
-      want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz; U.hold = !meshes.has(mk);
-      if(savedEntry){
-        // Ordinary travel may stale-update the same band. During one saved load,
-        // clean finished near geometry is ready even if a later tick would refresh it.
-        stale.delete(mk);const near=want.find(q=>q[3]===mk);
-        want.length=0;if(near&&!U.dirty.has(mk))want.push(near);
-      }
-      const t1 = performance.now(), bud = U.hold ? (PH ? 3 : 4) : (PH ? 2 : 3);
-      for(const [k,j] of pendingLight)if(j.epoch!==lightEpoch||j.generation!==U.generation||j.world!==world||j.pivot!==fPiv||j.y0!==band||DIM.cur)abandonLight(k);
-      // A job owns its key until complete: no fresh geometry/data rebuild while its old mesh stays visible.
-      if(pendingLight.size){const k=pendingLight.keys().next().value;if(resumeLight(k,t1,PH?1:2)){const ix=want.findIndex(q=>q[3]===k);if(ix>=0)want.splice(ix,1);}}
-      // Resume the one private incremental owner before allocating another column.
-      for (let i = 0; i < want.length && !pendingLight.size; i++) { const q = want[i]; if (performance.now() - t1 >= bud) break; TMP = null; const fk = fill(ax, piv, q[1], q[2], band, t1, bud); if (fk === null) break; const data = TMP; U.dirty.delete(q[3]); stale.delete(q[3]); beginLight(ax,piv,q[1],q[2],band,fk,data);break; }
-      U.ticks++; U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); U.partial = partial.size; } catch (e) { ERR('loop', e); }}
+      const bY = e.flat ? Math.min(SEA - 12, P.y - 40) : P.y - 40;   /* v1.1.91: the slice drawn always holds your own depth, also just under sea level where caves were left undrawn */ if (band === null || Math.abs(bY + 40 - (band + 40)) > 14) { const nb = Math.floor(bY / SL) * SL; if (band === null) dropAll(); else for (const k of meshes.keys()) stale.add(k); band = nb; }   /* v1.1.38: old chunks stay drawn until rebuilt, no remesh storm */
+      if (U.wv !== world) { U.wv = world; cache.clear(); eV = -1; dropAll(); band = Math.floor(bY / SL) * SL; } if (e.dirty) { e.dirty = 0; eV = -1; }   /* v1.1.38: an edit no longer redraws every chunk at once; the chunk you changed is redrawn first */
+      const pcx = Math.floor(P.x / C), pcz = Math.floor(P.z / C);
+      for (const k of [...meshes.keys()]) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
+      const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
+      want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz, near = want.filter(q => q[0] < 1.5).length; U.hold = !meshes.has(mk) || near > 0;   /* v1.1.36: the ground under you is built first and fast, and you wait for it */
+      const t1 = performance.now(), bud = U.hold ? (PH ? 10 : 14) : e.flat ? (PH ? 6 : 14) : (PH ? 5 : 8); for (let i = 0; i < want.length && performance.now() - t1 < bud; i++) { const q = want[i]; if (!ready(ax, piv, q[1], q[2], band, t1, bud)) break; U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band); } U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); } catch (e) { ERR('loop', e); } }, PH ? 120 : 70);
   setTimeout(() => { try { const up = updatePlayer; updatePlayer = function (dt) { try { const e = E(); if (U.hold && root.visible && !flying && e) { const w = F().pw(); const al = e.alt(w.x, w.y, w.z); if (al < 60 && al > -60 && P.vy < 0 && (U.hf || 0) < 90) { P.vy = 0; U.held = (U.held || 0) + 1; U.hf = (U.hf || 0) + 1; } } else U.hf = 0; } catch (_) {} return up.apply(this, arguments); }; } catch (e) { ERR('hold', e); } }, 3200);
   // blocks you dig or place out on the planet: redraw that chunk
-  try { const s0 = setB; setB = function (x, y, z, v) { const e=E(),hadGlobalDirty=!!(e&&e.dirty); const r = s0.apply(this, arguments);
-    // A local dig invalidates its column, not every unfinished geometry/light job.
-    // Keep the existing visible owner until its refreshed replacement publishes.
-    // Global generator changes already dirty before this edit retain their cancellation.
-    if(e&&e.dirty&&!hadGlobalDirty&&on()){e.dirty=0;eV=-1;}
- try { if (y >= 0 && y <= 1) { const t = '|' + Math.floor(x / C) + ',' + Math.floor(z / C) + ','; for (const kk of [...cache.keys()]) if (kk.includes(t)) cache.delete(kk); } } catch (_) {} try { const f = F(); if (f && on()) { const mx = ((Math.floor(x) % C) + C) % C, mz = ((Math.floor(z) % C) + C) % C; for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if ((ax === 0 || (ax > 0 ? mx === C - 1 : mx === 0)) && (az === 0 || (az > 0 ? mz === C - 1 : mz === 0))) U.dirty.add(Math.floor((Math.floor(x) + ax) / C) + ',' + Math.floor((Math.floor(z) + az) / C)); } } catch (_) {} return r; }; } catch (e) { ERR('setB', e); }
+  try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y >= 0 && y <= 1) { const t = '|' + Math.floor(x / C) + ',' + Math.floor(z / C) + ','; for (const kk of [...cache.keys()]) if (kk.includes(t)) cache.delete(kk); } } catch (_) {} try { const f = F(); if (f && on() && meshes.size) { const mx = ((Math.floor(x) % C) + C) % C, mz = ((Math.floor(z) % C) + C) % C; for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if ((ax === 0 || (ax > 0 ? mx === C - 1 : mx === 0)) && (az === 0 || (az > 0 ? mz === C - 1 : mz === 0))) U.dirty.add(Math.floor((Math.floor(x) + ax) / C) + ',' + Math.floor((Math.floor(z) + az) / C)); } } catch (_) {} return r; }; } catch (e) { ERR('setB', e); }
   // no grey ground fog in space or near the Moon and Mars
   // the icy edge tint (for the old ice wall round the map) stays on the map and the north ice plain, not out on the Earth, the Moon or Mars
   const uIceB = {value: new THREE.Vector4(0, 0, 0, 0)}, IA = 'if (uIce.w > 0.5) {';
@@ -47883,7 +47505,7 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
   const U = window.__c371 = {n: 0};
   window.__YB = (x, z) => { try { if (!window.__c320 || !__c320.hol) return T.STONE; const b = getB(x, -1, z); if (!b || b === T.WATER || b === T.LAVA) U.n++; return b; } catch (_) { return T.STONE; } };
   // digging or placing just under Y 0 redraws the chunk above it
-  try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y === -1 && x >= 0 && z >= 0 && x < W && z < D) { markDirty(x, z); if (x % CH === 0) markDirty(x - 1, z); if ((x + 1) % CH === 0) markDirty(x + 1, z); if (z % CH === 0) markDirty(x, z - 1); if ((z + 1) % CH === 0) markDirty(x, z + 1); } } catch (_) {} return r; }; } catch (_) {}
+  try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y === -1 && x >= 0 && z >= 0 && x < W && z < D) markDirty(x, z); } catch (_) {} return r; }; } catch (_) {}
 })();
 
 /* GLX-C335 (v1.1.38): CAVES GO DOWN, AND BLACKSTONE BREAKS LIKE COBBLE.
@@ -49743,238 +49365,81 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
   U.go = C2.go;
 })();
 
-/* GLX-DEEP (v1.1.98d): ONE DEEP WORLD under the UK down to a natural bedrock floor at world Y -237.
-   Layers: shallow gray (stalactites), lush giant mushrooms, deep dark, volcanic basalt/lava pillars, purple crystals,
-   then an EXTRA-TALL hell chamber with a roomy carved landmark for the giant eye. Agartha stamp Y -50..-2 untouched.
-   Natural bedrock only. Columns that already have player edits below the floor are grandfathered so those builds stay
-   reachable (air shaft / no sealing bedrock); edits still win via getB. No world wipe. */
-/* GLX-DEEP (v1.2.2): open connected strata, dry eye bowl, preserve existing worlds.
-   One natural voxel producer, no new assets, no new per-frame graphics/lights.
-   Existing Agartha and surface wrappers, edits/AIR, legacy below-floor shafts and
-   incremental C324 load/eviction/mesher remain unchanged. */
-
+/* GLX-DEEP (v1.1.84): ONE NEW DEEP WORLD. Everything under the UK, from 40 blocks below the sea down to the bottom, now comes from this
+   one file. It replaces the old layer, ore, formation and hollow Earth code, which all fought each other.
+   - Every layer is stacked floors of huge open caverns: about 28 blocks of air with only about 9 blocks of rock between floors,
+     big rock pillars holding the roof up, stalactites and stalagmites, and holes in the floors so you can drop down.
+   - No sideways ravines. No water or lava floors: only small water pools in the top layers and small lava pools lower down.
+   - The rock only ever gets darker and harder as you go down: limestone, lush moss caves, deepslate, blackstone and magma,
+     obsidian and geodes, the abyss, then the core. There is no stone below the obsidian.
+   - The centre of the Earth (about 1000 to 1450 down) is the biggest open cave of all, with giant pillars and glowing sunstone.
+     Under its floor is solid rock for ever: no void and no painted ball.
+   Nothing is stored except what you change. */
 (function deepWorld() {
-  const U = window.__dw = {err: null, on: 0, n: 0, floorY: -237, ver: '1.2.2'};
+  const U = window.__dw = {err: null, on: 0, n: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   const S = Math.sin, F = Math.floor;
   const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 2147483647); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   const n2 = (x, z, s) => 0.5 * S(x * 0.011 + s) * S(z * 0.013 - s * 1.3) + 0.3 * S(x * 0.031 - z * 0.027 + s * 2.1) + 0.2 * S(x * 0.077 + z * 0.069 - s);
-  const FLOOR = U.floorY;
-  // Landmark hell chamber centre (Scotland mainland, well below Agartha Y range)
-  const HX = U.hellX = 432, HZ = U.hellZ = 180, HR = U.hellR = 48;
-  // bands by depth below sea (fitted above Y -237). Hell band is the tallest.
-  const B = [[40, 72, 56, 12], [72, 110, 91, 14], [110, 148, 129, 14], [148, 186, 167, 14], [186, 214, 200, 12], [214, 290, 250, 36]];
+  // bands by depth below the sea: [from, to] (the soundscape reads these)
+  const B = [[40, 170, 105, 14], [170, 320, 245, 14], [320, 480, 400, 14], [480, 640, 560, 14], [640, 820, 730, 14], [820, 1000, 910, 14], [1000, 1460, 1230, 200]];
   const band = d => { for (let i = 0; i < B.length; i++) if (d < B[i][1]) return i; return B.length - 1; };
-  window.__c334 = {B, band, deep: null, dw: 1, floorY: FLOOR, hellX: HX, hellZ: HZ, hellR: HR};
-  const TOP = 40;
-  // Hell layer ~70 tall for the giant eye clearance; others ~32-36
-  const PV_OF = i => (i === 5 ? 70 : 34);
-  // Grandfather columns from saved edits below the natural floor (includes air/removal edits).
-  // Per-column min edit Y + clearance; seal only below that. No fixed absolute seal. No per-frame full scan.
-  const CLEAR = 12; // air/open clearance below deepest edit in a column
-  const DROP_MARGIN = 48; // drops may fall a bit below the open shaft
-  const legacy = U.legacy = new Set();
-  const colMin = U.colMin = new Map(); // colKey -> min Y of any edit (incl. air)
-  const colKey = (x, z) => (x | 0) + ',' + (z | 0);
-  function refreshBounds() {
-    let mn = FLOOR;
-    for (const y of colMin.values()) if (y < mn) mn = y;
-    U.minLegacyY = colMin.size ? mn : null;
-    // Natural floor stays -237; open legacy shafts seal at minY-CLEAR; drops cull below that - margin
-    U.sealFloorY = colMin.size ? (mn - CLEAR) : FLOOR;
-    U.dropFloorY = (colMin.size ? (mn - CLEAR - DROP_MARGIN) : FLOOR) - 8;
-    try { window.__c334.dropFloorY = U.dropFloorY; window.__c334.sealFloorY = U.sealFloorY; window.__c334.minLegacyY = U.minLegacyY; } catch (_) {}
-  }
-  function noteLegacy(x, y, z) {
-    if (!(y < FLOOR)) return;
-    const ck = colKey(x, z);
-    legacy.add(ck);
-    const prev = colMin.has(ck) ? colMin.get(ck) : Infinity;
-    if (y < prev) colMin.set(ck, y);
-    refreshBounds();
-  }
-  function rebuildLegacy() {
-    try {
-      legacy.clear(); colMin.clear();
-      const e = window.__c320; if (!e || !e.edits) { refreshBounds(); return; }
-      for (const [k, v] of e.edits) { // v may be 0 (air/removal) — still preserves access
-        const p = k.split(','); const y = +p[1];
-        if (y < FLOOR) { const ck = p[0] + ',' + p[2]; legacy.add(ck); const prev = colMin.has(ck) ? colMin.get(ck) : Infinity; if (y < prev) colMin.set(ck, y); }
-      }
-      U.legacyN = legacy.size; refreshBounds();
-    } catch (e) { ERR('legacy', e); }
-  }
-  U.rebuildLegacy = rebuildLegacy; U.noteLegacy = noteLegacy;
-  // Incremental update on place/break — avoid rescanning all edits every setB
-  try {
-    const s0 = setB;
-    setB = function (x, y, z, v) {
-      const r = s0.apply(this, arguments);
-      try { const yi = Math.floor(y); if (yi < FLOOR) noteLegacy(Math.floor(x), yi, Math.floor(z)); } catch (_) {}
-      return r;
-    };
-  } catch (_) {}
-  setInterval(() => { try { const e = window.__c320; if (!e) return; if (e._dwLeg !== e.edits.size) { e._dwLeg = e.edits.size; rebuildLegacy(); } } catch (_) {} }, 2000);
-  function legacyOpen(x, y, z) {
-    const ck = colKey(x, z); if (!legacy.has(ck)) return false;
-    const minY = colMin.get(ck); if (minY == null) return false;
-    return y >= minY - CLEAR; // open from clearance below deepest edit up through the floor
-  }
-  function legacySealAt(x, z) {
-    const ck = colKey(x, z); if (!legacy.has(ck)) return FLOOR;
-    const minY = colMin.get(ck); return (minY == null ? FLOOR : minY - CLEAR);
-  }
-  U.legacyOpen = legacyOpen; U.legacySealAt = legacySealAt;
-
-  let M = null;
-  const mats = () => M || (M = {
-    rock: [[T.STONE,T.WSTONE],[T.STONE,T.MOSSYBRICK],[T.DEEPSLATE,T.DSCOBBLE],
-      [T.BLACKSTONE,T.MOONBASALT],[T.HELLROCK,T.BASALTCOL],[T.OBSIDIAN,T.BASALTCOL],[T.HELLROCK,T.BLACKSTONE]],
-    floor: [T.GRAVEL,T.MOSS||T.GRASS,T.DSTILE,T.BLACKSTONE,T.HELLROCK,T.GEODE,T.HELLROCK],
-    glow: [T.GLOWROCK,T.GLOWGRASS||T.MOSS||T.GRASS,T.CRYCYAN,T.MAGMA,T.MAGMA,T.CRYVIOLET,T.MAGMA],
-    ore: [[T.COALORE,T.IRONORE,T.COPPERORE],[T.COPPERORE,T.IRONORE],[T.DIAMONDORE,T.REDORE],
-      [T.GOLDORE,T.REDORE],[T.GOLDORE],[T.DIAMONDORE],[T.DIAMONDORE,T.GOLDORE]].map(a=>a.filter(Boolean))
-  });
-  function rock(i,x,y,z,surf) {
-    const m=mats(),h=h3(x,y,z);
-    if(h<.014){const o=m.ore[i];if(o.length&&h3(x>>1,y>>1,z>>1)<.5)return o[F(h*1000)%o.length];}
-    if(surf)return h<.025?m.glow[i]:m.floor[i];
-    return ((x>>3)+(y>>2)+(z>>3))&1?m.rock[i][0]:m.rock[i][1];
-  }
-  // World-space strata with a taller central eye dome through the crystal ring. Agartha
-  // -50..-2, surface and the original -237 floor/legacy shafts stay intact.
-  U.rooms=[
-    {name:'gray',floor:-68,roof:-51,r:54},
-    {name:'lush',floor:-104,roof:-73,r:57},
-    {name:'blue',floor:-140,roof:-109,r:58},
-    {name:'magma',floor:-164,roof:-145,r:59},
-    {name:'molten',floor:-185,roof:-169,r:62},
-    {name:'abyssal-crystal',floor:-206,roof:-190,r:58},
-    {name:'core',floor:-236,roof:-181,r:66}
-  ];
-  U.entrance=[HX+54,-52,HZ];U.core=[HX,HZ,'dry ledge -236; eye centre -209'];
-  U.stair=(x,y,z)=>stair(x,y,z);U.routePoint=n=>pathAxis(-52-n);
-  const rr=(x,z)=>Math.hypot(x+.5-HX,z+.5-HZ);
-  // Simple repeatable square spiral: complete one turn every 48 blocks depth.
-  // The same deterministic path is opened in chamber rims and all separators.
-  const AX=HX+54,AZ=HZ;
-  function pathAxis(y){
-    const n=(((-y-52)%48)+48)%48;
-    if(n<12)return [AX-6+n,HZ-6];
-    if(n<24)return [AX+6,HZ-6+n-12];
-    if(n<36)return [AX+6-(n-24),HZ+6];
-    return [AX-6,HZ+6-(n-36)];
-  }
-  function stair(x,y,z){const q=pathAxis(y);return Math.abs(x-q[0])<=1&&Math.abs(z-q[1])<=1;}
-  // One height per ring column: no overlapping treads/low ceiling at square corners.
-  function stairVoxel(x,y,z){
-    const dx=x-AX,dz=z-HZ,edge=Math.max(Math.abs(dx),Math.abs(dz));
-    if(edge<5||edge>7||y>-47||y<-236)return null;
-    const clamp=v=>Math.max(-6,Math.min(6,v));let phase;
-    if(dz<=-Math.abs(dx))phase=clamp(dx)+6;
-    else if(dx>=Math.abs(dz))phase=18+clamp(dz);
-    else if(dz>=Math.abs(dx))phase=30-clamp(dx);
-    else phase=42-clamp(dz);
-    phase%=48;
-    const turn=Math.round((-52-phase-y)/48),floor=-52-phase-48*turn;
-    if(turn<0||floor<-235||floor>-52)return null;
-    if(y>=floor-2&&y<=floor+4)return y<=floor?T.STONE:0;
-    return null;
-  }
-  function portal(x,y,z){
-    const i=roomAt(x,y,z);if(i<0)return false;
-    const q=U.rooms[i],fy=q.floor;
-    return i<6?y>fy&&y<fy+8&&Math.abs(z-HZ)<9&&x>HX+25&&x<AX+9 :y>q.floor&&y<-216&&Math.abs(z-HZ)<9&&x>HX+43&&x<AX+9;
-  }
-  function roomAt(x,y,z){
-    // The giant original eye needs a full-height central dome; crystal is its outer ring.
-    if(y>=-236&&y<=-181&&(y< -206||rr(x,z)<30))return 6;
-    for(let i=0;i<6;i++){const q=U.rooms[i];if(y>=q.floor&&y<=q.roof)return i;}
-    return -1;
-  }
-  const pillar = (x,z,i,r) => r > 26 && r < U.rooms[i].r - 11 && Math.floor((Math.atan2(z-HZ,x-HX)+Math.PI)/(Math.PI/4)+i/3) % 4 === 0;
-  function fungus(x,y,z,floor){
-    const cx=F(x/24),cz=F(z/24),q=h3(cx,44,cz);if(q>.3)return 0;
-    const px=cx*24+6+F(h3(cz,45,cx)*13),pz=cz*24+6+F(h3(cx,46,cz)*13),r=Math.hypot(x+.5-px,z+.5-pz),h=y-floor,s=9+F(q*34),cap=3+q*12;
-    if(r<1.5&&h<s&&h>=0)return T.LOG;
-    if(h===s-1&&r<cap||h===s&&r<cap*.72)return T.WOOLPURPLE;
-    if(r<3&&h>s&&h<s+9&&h3(x,13,z)>.35||r>1.5&&r<cap&&h>2&&h<s-1&&h3(x,y,z)<.075)return T.LEAVES;
-    return 0;
-  }
-  function isLava(x,z,i,r){const a=Math.atan2(z-HZ,x-HX);
-    return i===3&&(Math.abs(a-.95)<.05||Math.abs(a+1.75)<.05)&&r>30||i===4&&r>32&&(Math.abs(z-HZ-20)<2||r>57&&Math.abs(a+1.4)<.12)||i===6&&r>58&&Math.abs(a)>.23;
-  }
-  function level(x,y,z,d){
-
-    const sv=stairVoxel(x,y,z);if(sv!==null)return sv;
-    // Dry final approach crosses the raised bowl rim without a jump into lava.
-    if(x>=HX&&x<=AX+8&&Math.abs(z-HZ)<=7&&y>=-236&&y<=-232)return y===-236?T.HELLROCK:0;
-    const i=roomAt(x,y,z);if(i<0)return rock(Math.min(6,F((d-40)/30)),x,y,z,false);
-    const q=U.rooms[i],r=rr(x,z),a=Math.atan2(z-HZ,x-HX);
-    const radius=q.r+Math.sin(a*7)*2;
-    if(portal(x,y,z))return 0;
-    if(r>radius)return rock(i,x,y,z,false);
-    const floor=i===6?q.floor+F(Math.min(1,Math.max(0,(r-28)/36))**2*35):q.floor;
-    const roof=i===6?q.roof-F(Math.max(0,r-28)*.55):q.roof-F(Math.max(0,r-29)*.2);
-    if(y<floor-1||y>roof)return rock(i,x,y,z,false);
-    if(isLava(x,z,i,r)&&y===floor)return T.LAVA;
-    if(y===floor)return i===1&&h3(x,9,z)<.18?(T.GLOWGRASS||T.MOSS||T.GRASS):rock(i,x,y,z,true);
-    if(y<floor)return rock(i,x,y,z,false);
-    if((i===3||i===4)&&isLava(x,z,i,r)&&r>radius-3&&y<roof-2)return T.LAVA;
-    if(pillar(x,z,i,r))return i===2?(T.DEEPSLATE||T.STONE):(i===3||i===4)?(T.BASALTCOL||T.BLACKSTONE||T.OBSIDIAN||T.STONE):rock(i,x,y,z,false);
-    if(i===1){const f=fungus(x,y,z,floor);if(f)return f;}
-    if(i===2&&y<floor+3&&(F(x/6)+F(z/6))%3===0)return T.DSTILE||T.DEEPSLATE||T.STONE;
-    if(i===5&&r>39&&r<43&&y<floor+5)return T.CRYVIOLET||T.GEODE||190;
-    if((i===0||i===5)&&y>roof-3&&h3(x,y,z)<.17)return i===5?(T.CRYVIOLET||T.GEODE||190):rock(i,x,y,z,false);
-    return 0;
-  }
-  function gen(x,y,z,d){
-    if(y<=FLOOR){if(legacyOpen(x,y,z))return 0;return T.BEDROCK||T.HBEDROCK||211;}
-    if(legacyOpen(x,y,z))return 0;
-    if(d<40)return rock(0,x,y,z,false);
-    try {return level(x,y,z,d);}
-    catch(e){ERR('gen',e);return T.STONE;}
-  }
-
-  window.__c334.deep=(x,y,z,d)=>gen(x,y,z,d);
-  U.gen=gen;
-
-  function hook() {
-    const e = window.__c320; if (!e || !e.flat || !e.fearth || e.fearth.dw) return;
-    if (window.__c341 && !e.fearth.c347) return;
-    const f0 = e.fearth;
-    const f = function (x, y, z) {
-      if (y <= FLOOR) {
-        if (window.__ukb && __ukb.out(x, z)) return 0;
-        if (legacyOpen(x, y, z)) return 0;
-        return T.BEDROCK || T.HBEDROCK || 211;
-      }
-      const a = y - SEA;
-      if (a < -40) { if (window.__ukb && __ukb.out(x, z)) return 0; return gen(x, y, z, -a); }
-      return f0.apply(this, arguments);
-    };
-    for (const k in f0) f[k] = f0[k]; f.c347 = f0.c347; f.top = f0.top; f.dw = 1; f.floorY = FLOOR; e.fearth = f; e.hol = null; e.pit = null; U.on++;
-    try { if (window.__c324 && __c324.cache) __c324.cache.clear(); e.dirty = 1; e.edgeClr && e.edgeClr(); } catch (_) {}
-    rebuildLegacy();
-  }
+  window.__c334 = {B, band, deep: null, dw: 1};
+  const TOP = 60, PV = 37, CORE = 1000, CROOF = 1010;
+  let M = null; const mats = () => M || (M = {
+    rock: [[T.STONE, T.WSTONE || T.STONE], [T.STONE, T.MOSSYCOBBLE || T.STONE], [T.DEEPSLATE || T.STONE, T.DSCOBBLE || T.DEEPSLATE || T.STONE], [T.BLACKSTONE || T.OBSIDIAN, T.MOONBASALT || T.BLACKSTONE || T.OBSIDIAN],
+      [T.OBSIDIAN, T.HELLROCK || T.OBSIDIAN], [T.OBSIDIAN, T.BASALTCOL || 200], [T.OBSIDIAN, T.BASALTCOL || 200]],
+    floor: [T.GRAVEL || T.STONE, T.MOSS || T.GRASS, T.DSTILE || T.DEEPSLATE || T.STONE, T.MAGMA || T.BLACKSTONE, T.CRYVIOLET || T.OBSIDIAN, T.GLOWROCK || T.OBSIDIAN, T.SUNSTONE || 184],
+    floor2: [T.FLOW || 47, T.GLOWGRASS || T.MOSS || T.GRASS, T.ECHO || 128, T.RED || 46, T.GEODE || 190, T.CRYCYAN || T.OBSIDIAN, T.RED || 46],
+    glow: [T.GLOWROCK || T.LAMP, T.CAP || 100, T.CRYCYAN || T.GLOWROCK, T.MAGMA || T.GLOWROCK, T.CRYVIOLET || T.GLOWROCK, T.GLOWROCK || T.LAMP, T.SUNSTONE || 184],
+    ore: [[T.COALORE, T.IRONORE, T.COPPERORE], [T.COPPERORE, T.LAZORE, T.IRONORE], [T.SILVERORE, T.DIAMONDORE, T.REDORE], [T.GOLDORE, T.RUBYORE, T.REDORE], [T.COBALTORE, T.DIAMONDORE, T.RUBYORE], [T.DIAMONDORE, T.GOLDORE], [T.DIAMONDORE, T.GOLDORE, T.COBALTORE]].map(a => a.filter(Boolean)),
+    pool: [0, 0, 0, T.LAVA, T.LAVA, T.LAVA, T.LAVA]});   /* v1.1.88: one ocean only, so no water pools deep down (lava pools stay lower down) */
+  function rock(i, x, y, z, surf) { const m = mats(), r = h3(x, y, z);
+    if (r < 0.014) { const o = m.ore[i]; if (o.length && h3(x >> 1, y >> 1, z >> 1) < 0.5) return o[F(r * 1000) % o.length]; }
+    if (surf) { const q = h3(x, 7, z); return q < 0.04 ? m.glow[i] : q < 0.45 ? m.floor[i] : q < 0.7 ? m.floor2[i] : m.rock[i][0]; }
+    if (r > 0.995) return m.glow[i];
+    return ((x >> 3) + (y >> 2) + (z >> 3)) & 1 ? m.rock[i][0] : m.rock[i][1]; }
+  // one level of the stacked caverns: k counts down from the top, h is how far into the level (0 = its roof)
+  function level(x, y, z, d) { const k = F((d - TOP) / PV), h = d - TOP - k * PV, i = band(d);
+    const slab = 5 + 3 * (0.5 + 0.5 * n2(x, z, k * 1.7)) | 0, fb = 2 + (3 * (0.5 + 0.5 * n2(z, x, k * 2.3 + 5)) | 0), flo = PV - fb;   // rock: roof slab plus floor bump, about 7 to 12
+    const holeN = n2(x * 2.1, z * 2.1, k * 3.1 + 9), hole = holeN > 0.72;
+    const wall = n2(x * 0.45, z * 0.45, k * 0.9 + 3) < -0.62;   // a few giant rock masses break the caverns into big halls
+    if (wall) return rock(i, x, y, z, false);
+    // pillars: one chance per 40 x 40 cell
+    const cx = F(x / 40), cz = F(z / 40), ph = h3(cx, k, cz); if (ph < 0.45) { const px = cx * 40 + 8 + F(h3(cz, k, cx) * 24), pz = cz * 40 + 8 + F(h3(cx + 3, k, cz) * 24), pr = 2.5 + ph * 7;
+      const dd = Math.hypot(x - px, z - pz); if (dd < pr + Math.max(0, 3 - Math.min(h, PV - h)) * 0.9) return rock(i, x, y, z, false); }
+    if (h < slab) { if (hole && h >= 0) return 0; return rock(i, x, y, z, false); }
+    if (h >= flo) { if (hole) return 0;
+      // pools: one chance per 48 x 48 cell, never in a hole
+      const qx = F(x / 48), qz = F(z / 48), qh = h3(qx, k + 11, qz); if (qh < 0.16 && h < flo + 2) { const ox = qx * 48 + 12 + F(h3(qz, k, qx + 5) * 24), oz = qz * 48 + 12 + F(h3(qx, k + 2, qz) * 24), r = 2.5 + qh * 22; if (Math.hypot(x - ox, z - oz) < r && mats().pool[i]) return mats().pool[i]; }
+      return rock(i, x, y, z, h < flo + 1); }
+    // stalactites and stalagmites
+    const s = h3(x, k + 40, z); if (s < 0.03) { const len = 1 + F(s * 230); if (h - slab < len || flo - h <= len) return rock(i, x, y, z, false); }
+    return 0; }
+  // the centre of the Earth: one giant cave
+  function core(x, y, z, d) { const i = 6;
+    if (d < CROOF + 4 * (0.5 + 0.5 * n2(x, z, 77))) return rock(i, x, y, z, false);
+    const fl = 1440 - 18 * (0.5 + 0.5 * n2(x * 0.5, z * 0.5, 31)) - 10 * Math.abs(n2(x * 1.7, z * 1.7, 13));
+    // giant pillars, one chance per 150 x 150 cell, flared at both ends
+    const cx = F(x / 150), cz = F(z / 150), ph = h3(cx, 99, cz); if (ph < 0.5) { const px = cx * 150 + 30 + F(h3(cz, 98, cx) * 90), pz = cz * 150 + 30 + F(h3(cx, 97, cz) * 90), t = Math.min(d - CROOF, fl - d) / 60;
+      const pr = 9 + ph * 26 + Math.max(0, 1 - t) * 18; if (Math.hypot(x - px, z - pz) < pr) return rock(i, x, y, z, false); }
+    if (d >= fl) { if (d < fl + 2) { const qx = F(x / 64), qz = F(z / 64), qh = h3(qx, 123, qz); if (qh < 0.2) { const ox = qx * 64 + 16 + F(h3(qz, 5, qx) * 32), oz = qz * 64 + 16 + F(h3(qx, 6, qz) * 32); if (Math.hypot(x - ox, z - oz) < 4 + qh * 30) return T.LAVA; } }
+      return rock(i, x, y, z, d < fl + 1); }
+    // big glowing stalactites of sunstone from the roof
+    const s = h3(x >> 1, 321, z >> 1); if (s < 0.02) { const len = 4 + F(s * 2000); if (d - CROOF < len) return T.SUNSTONE || T.GLOWROCK; }
+    return 0; }
+  function gen(x, y, z, d) { try { U.n++; if (d < TOP) return rock(0, x, y, z, false); if (d >= CORE) return core(x, y, z, d);
+      if (d >= CORE - 8) return rock(5, x, y, z, false); return level(x, y, z, d); } catch (e) { ERR('gen', e); return T.STONE; } }
+  U.gen = gen; window.__c334.deep = (x, y, z, d) => gen(x, y, z, d);
+  // v1.1.87: the snowy island spiral is gone; the way down to Agartha is in agartha/agartha_underground.js
+  function hook() { const e = window.__c320; if (!e || !e.flat || !e.fearth || e.fearth.dw) return; if (window.__c341 && !e.fearth.c347) return; const f0 = e.fearth;
+    const f = function (x, y, z) { const a = y - SEA; if (a < -40) { if (window.__ukb && __ukb.out(x, z)) return 0; return gen(x, y, z, -a); }
+      return f0.apply(this, arguments); };
+    for (const k in f0) f[k] = f0[k]; f.c347 = f0.c347; f.top = f0.top; f.dw = 1; e.fearth = f; e.hol = null; e.pit = null; U.on++;
+    try { if (window.__c324 && __c324.cache) __c324.cache.clear(); e.dirty = 1; e.edgeClr && e.edgeClr(); } catch (_) {} }
   setInterval(() => { try { hook(); } catch (er) { ERR('hook', er); } }, 300);
-  try {
-    const BR = () => T.BEDROCK || T.HBEDROCK || 211;
-    const boot = setInterval(() => {
-      try {
-        const id = BR(); if (!id || typeof HARD === 'undefined') return;
-        HARD[id] = 600; MC_HARD[id] = 600; REQ[id] = 99; try { NEEDS_PICK.add(id); } catch (_) {}
-        if (!NAMES[id]) NAMES[id] = 'Bedrock';
-        clearInterval(boot);
-      } catch (_) {}
-    }, 400);
-  } catch (_) {}
-  // Keep heat shimmer hard-off if an older wrap re-enables it
-  try { setInterval(() => { const el = document.getElementById('l567shim'); if (el) { el.style.opacity = '0'; el.style.display = 'none'; } }, 2000); } catch (_) {}
-  const PO = {x: 432, z: -400, top: SEA + 4, lat: 90, n: [0, 1, 0]};
-  window.__c332 = {err: null, pole: PO, SH: () => PO, PY: () => null, inner: () => false, ig: () => 2, towers: () => [],
-    where: () => { try { const d = SEA - P.y; return DIM.cur ? '' : d > 180 ? 'deep' : ''; } catch (_) { return ''; } },
-    toCity: () => { try { return !!(window.__agr && __agr.go()); } catch (_) { return false; } }};
+  // older code still asks the hollow Earth module where things are: answer for it
+  const PO = {x: 432, z: -400, top: SEA + 4, lat: 90, n: [0, 1, 0]}; window.__c332 = {err: null, pole: PO, SH: () => PO, PY: () => null, inner: () => false, ig: () => 2, towers: () => [], where: () => { try { const d = SEA - P.y; return DIM.cur ? '' : d > 330 ? 'deep' : ''; } catch (_) { return ''; } }, toCity: () => { try { return !!(window.__agr && __agr.go()); } catch (_) { return false; } }};
 })();
 
 /* GLX-AGU (v1.1.87): THE REAL AGARTHA IS UNDER SCOTLAND. No more separate Agartha world. The cave mouth is in the hills on the north
@@ -50182,9 +49647,11 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
   } catch (e) { U.err = String(e && e.stack || e).slice(0, 200); }
 })();
 
-/* GLX-C397 (v1.1.98d): DEEP DROPS. Cull floor is dynamic via __dw.dropFloorY (legacy min depth),
-   falling back to SEA-1600 in build87. No updateDrops rewrap. */
-(function c397() { window.__c397 = {ok: 1, dynamic: 1}; })();
+/* GLX-C397 (v1.1.96): DEEP DROPS. Cull floor fixed at source in build87 (y < SEA-1100). No updateDrops
+   rewrap — earlier drop wrappers stay in the chain. */
+(function c397() {
+  window.__c397 = {err: null, on: 1, src: 'build87'};
+})();
 
 /* GLX-C398 (v1.1.96): DEEP ENT ENTITIES. Deep TV/chest/torch/door(+top)/furnace/bed live in __c320.edits
    but never entered surface chunkLists. Maintains a chunk-indexed deep ENT map (built once from edits on
@@ -50244,7 +49711,7 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
         const m = byChunk.get(cx + ',' + cz); if (!m) continue;
         for (const [k, t] of m) {
           const [x, y, z] = k.split(',').map(Number);
-          if (Math.abs(y - P.y) > ((window.__dw && __dw.minLegacyY != null && P.y < -200) ? 96 : 64)) continue;
+          if (Math.abs(y - P.y) > 64) continue;
           // edits + getB must agree (broken/removed)
           try { if (getB(x, y, z) !== t) { idxDel(x, y, z); continue; } } catch (_) { continue; }
           if (t === T.DOORTOP) continue;
@@ -50932,185 +50399,6 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
     }, 200);
   } catch (_) {}
 })();
-
-/* GLX-C406 (v1.1.98c): ONE dominant gigantic hell eye in the carved landmark chamber.
-   Golden-orange 3D sclera, green iris, black vertical slit pupil, radial fiery tendrils. Steady glow only (no flash).
-   Single landmark at deep_world hellX/hellZ. Distance culled. Player lift only when feet are stuck in solid bedrock
-   with no air/edit space — never an unconditional eject from grandfathered deep builds. Agartha -50..-2 untouched. */
-(function c406() {
-  const U = window.__c406 = {err: null, eyes: 0, lift: 0, floorY: -237, agartha: [-50, -2], eyeR: 0, clearance: 0};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  const FLOOR = () => (window.__dw && __dw.floorY != null ? __dw.floorY : -237);
-  const HX = () => (window.__dw && __dw.hellX != null ? __dw.hellX : (window.__c334 && __c334.hellX) || 432);
-  const HZ = () => (window.__dw && __dw.hellZ != null ? __dw.hellZ : (window.__c334 && __c334.hellZ) || 180);
-  const PH = /Android|iPhone|iPad/i.test(navigator.userAgent);
-  const EYE_R = PH ? 18 : 24; // dominant giant eye radius (blocks)
-  const CULL = PH ? 110 : 160;
-  U.eyeR = EYE_R;
-
-  function makeEye() {
-    const g = new THREE.Group();
-    const seg = PH ? 18 : 32;
-    // Golden-orange glowing sclera
-    const sclera = new THREE.Mesh(
-      new THREE.SphereGeometry(EYE_R, seg, PH ? 14 : 22),
-      new THREE.MeshPhongMaterial({color: 0xffb04a, emissive: 0xc45a12, emissiveIntensity: 0.55, shininess: 70, specular: 0xffd090})
-    );
-    g.add(sclera);
-    // Green iris disk (front hemisphere patch)
-    const iris = new THREE.Mesh(
-      new THREE.SphereGeometry(EYE_R * 0.55, seg, PH ? 10 : 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
-      new THREE.MeshPhongMaterial({color: 0x2f8a3a, emissive: 0x145020, emissiveIntensity: 0.4, shininess: 90})
-    );
-    iris.rotation.x = Math.PI; iris.position.z = EYE_R * 0.55; g.add(iris);
-    // Black vertical slit pupil (flattened box through iris)
-    const pupil = new THREE.Mesh(
-      new THREE.BoxGeometry(EYE_R * 0.12, EYE_R * 0.72, EYE_R * 0.18),
-      new THREE.MeshBasicMaterial({color: 0x050208})
-    );
-    pupil.position.z = EYE_R * 0.92; g.add(pupil);
-    // Outer fiery ring / lids
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(EYE_R * 0.98, EYE_R * 0.08, PH ? 6 : 10, seg),
-      new THREE.MeshPhongMaterial({color: 0xff6a20, emissive: 0xff3a00, emissiveIntensity: 0.65, shininess: 30})
-    );
-    ring.rotation.y = Math.PI / 2; g.add(ring);
-    // Radial fiery tendrils (steady, low count)
-    const nTend = PH ? 6 : 10;
-    for (let i = 0; i < nTend; i++) {
-      const a = (i / nTend) * Math.PI * 2;
-      const len = EYE_R * (1.2 + (i % 3) * 0.35);
-      const tend = new THREE.Mesh(
-        new THREE.ConeGeometry(EYE_R * 0.08, len, PH ? 5 : 7),
-        new THREE.MeshBasicMaterial({color: i % 2 ? 0xff7a28 : 0xffc040, transparent: true, opacity: 0.85})
-      );
-      tend.position.set(Math.cos(a) * EYE_R * 0.9, Math.sin(a) * EYE_R * 0.55, Math.sin(a * 2) * EYE_R * 0.2);
-      tend.lookAt(tend.position.x * 2, tend.position.y * 2, tend.position.z);
-      tend.rotateX(Math.PI / 2);
-      g.add(tend);
-    }
-    // Steady glow sprite (no animation flicker)
-    try {
-      const c = document.createElement('canvas'); c.width = c.height = 64;
-      const ctx = c.getContext('2d');
-      const grd = ctx.createRadialGradient(32, 32, 2, 32, 32, 30);
-      grd.addColorStop(0, 'rgba(255,180,60,0.9)'); grd.addColorStop(0.4, 'rgba(255,90,20,0.4)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = grd; ctx.fillRect(0, 0, 64, 64);
-      const spr = new THREE.Sprite(new THREE.SpriteMaterial({map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5}));
-      spr.scale.set(EYE_R * 3.2, EYE_R * 3.2, 1); g.add(spr); g.userData.glow = spr;
-    } catch (_) {}
-    // One steady point light
-    try {
-      const L = new THREE.PointLight(0xff7a28, PH ? 0.7 : 1.1, EYE_R * 6, 2);
-      g.add(L); g.userData.light = L;
-    } catch (_) {}
-    g.userData.kind = 'hellEye';
-    g.userData.eyeR = EYE_R;
-    return g;
-  }
-
-  let eye = null;
-  function eyeY() { return FLOOR() + 28; } // floating above hell floor with headroom under dome (~62)
-
-  function stuckInBedrock() {
-    try {
-      const fl = FLOOR();
-      if (P.y >= fl + 0.5) return false;
-      const x = Math.floor(P.x), y = Math.floor(P.y), z = Math.floor(P.z);
-      const feet = typeof getB === 'function' ? getB(x, y, z) : 0;
-      const head = typeof getB === 'function' ? getB(x, y + 1, z) : 0;
-      const BR = (T && (T.BEDROCK || T.HBEDROCK)) || 211;
-      // Only lift if actually embedded in bedrock solid (not air, not an edited non-bedrock cell)
-      const solidish = b => b && b !== T.WATER && b !== T.LAVA && !(typeof PLANT !== 'undefined' && PLANT[b] === 1);
-      if (feet === BR && solidish(feet)) return true;
-      if (head === BR && solidish(head) && P.y < fl) return true;
-      // If grandfathered air (0) or any non-bedrock edit, stay put
-      return false;
-    } catch (_) { return false; }
-  }
-
-  function sync() {
-    try {
-      if (typeof started === 'undefined' || !started || (typeof DIM !== 'undefined' && DIM.cur)) return;
-      if (!P || typeof scene === 'undefined') return;
-      const fl = FLOOR(), hx = HX(), hz = HZ();
-      if (stuckInBedrock()) {
-        let y = fl + 3;
-        try {
-          for (let t = fl + 1; t < fl + 50; t++) {
-            const a = getB(Math.floor(P.x), t, Math.floor(P.z)), b = getB(Math.floor(P.x), t + 1, Math.floor(P.z));
-            if (!a && !b) { y = t; break; }
-          }
-        } catch (_) {}
-        P.y = y; P.vy = 0; P.fallTop = null; U.lift++;
-        try { toast('Lifted out of bedrock'); } catch (_) {}
-      }
-      const dist = Math.hypot(P.x - hx, P.z - hz);
-      const nearHell = P.y < fl + 80 && dist < CULL;
-      if (!nearHell) {
-        if (eye) { scene.remove(eye); eye = null; U.eyes = 0; }
-        return;
-      }
-      if (!eye) { eye = makeEye(); scene.add(eye); }
-      eye.position.set(hx + 0.5, eyeY(), hz + 0.5);
-      // Gentle face toward player, no flicker
-      try { eye.lookAt(P.x, eye.position.y, P.z); } catch (_) {}
-      U.eyes = 1;
-      U.clearance = (fl + 62) - (eyeY() - EYE_R); // air above eye to dome
-      U.landmark = [hx, eyeY(), hz, EYE_R];
-    } catch (e) { ERR('sync', e); }
-  }
-  setInterval(sync, 700);
-
-  // Teleport helper for reachability (wired if teleport menu exists)
-  U.toHellEye = function () {
-    try {
-      if (typeof DIM !== 'undefined' && DIM.cur) { toast('Go back to the overworld first'); return false; }
-      const fl = FLOOR(), hx = HX(), hz = HZ();
-      P.x = hx + HR_SAFE(); P.y = fl + 8; P.z = hz; P.vy = 0; P.fallTop = null;
-      try { dirtyAll = true; } catch (_) {}
-      try { toast('Hell chamber'); } catch (_) {}
-      return true;
-    } catch (e) { ERR('tp', e); return false; }
-  };
-  function HR_SAFE() { return ((window.__dw && __dw.hellR) || 48) - 10; }
-
-  // Hook teleport menu if present
-  try {
-    setInterval(() => {
-      try {
-        const tm = window.__cTele || window.__teleport;
-        if (!tm || tm._hellEye) return;
-        tm._hellEye = 1;
-      } catch (_) {}
-    }, 2000);
-  } catch (_) {}
-
-  U.flameBudget = {maxPhone: 22, maxDesktop: 40, cull: true};
-  U.done = 1;
-})();
-
-/* GLX-C407 (v1.1.98): version bump and patch notes (no apostrophes in notes). */
-(function c407() {
-  const NOTE = {v: 'v1.1.98', d: '2026-11-06', notes: [
-    'New: bedrock floor at world Y -237 under the UK deep caves for natural rock. Columns with older builds below that stay open so those edits stay reachable.',
-    'New: deep caves restacked to fit: shallow gray halls, lush giant mushrooms, deep dark slate, volcanic basalt and lava, purple crystals, then a tall hell chamber.',
-    'New: one giant golden eye floats in the hell landmark chamber, with a green iris, black slit pupil and fiery tendrils. Steady glow only, culled by distance.',
-    'Keep: Agartha from Y -50 to -2, the surface UK map, and every block you placed. Heat shimmer stays off. Mining, placing, drops and deep entities from v1.1.96 stay.',
-    'Fix: you are only lifted if you are stuck inside bedrock, never thrown out of a saved deep build.'
-  ]};
-  try {
-    const boot = setInterval(() => {
-      try {
-        if (typeof GAME_VERSION === 'undefined') return;
-        if (window.PATCH_NOTES && Array.isArray(PATCH_NOTES)) {
-          if (!PATCH_NOTES.some(n => n && n.v === NOTE.v)) PATCH_NOTES.unshift(NOTE);
-        }
-        clearInterval(boot);
-      } catch (e) { clearInterval(boot); }
-    }, 200);
-  } catch (_) {}
-})();
 </script>
 <div id="notesUI" class="hidden" data-testid="patch-notes" role="dialog" aria-label="Patch notes">
   <div class="npanel">
@@ -51122,9 +50410,8 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.4","d":"2026-11-06","notes":["Caves rolled back to how they were before today's cave rework (generation, rendering, lighting, chunk streaming). Diamond block, portal, guns, inventory kept. Saves kept."]},
 {"v":"v1.2.3","d":"2026-11-06","notes":["Added Block of diamond: own polished cyan faceted tile, creative and inventory access, nine diamonds to a block and back. Snow and juniper ids preserved.","Extended block storage with legacy-byte save decoding; existing 1.2.2 caves and Y0 repair retained."]},
-{"v":"v1.2.2","d":"2026-11-06","notes":["Caves: seven connected underground strata with gray halls, giant fungi, deep dark pillars, basalt magma, molten depths, an abyssal crystal ring and the original giant eye above a dry core bowl.","Fix: digging across Y0 preserves cave mesh ownership while incremental work finishes. Existing loading, lighting and streaming remain incremental.","A dry eastern staircase descends from the gray cave to the core. Surface, Agartha, UFO, existing edits and AIR removals are preserved. No automatic reset."]},
-{v:'v1.2.1', d:'2026-11-06', notes:['Deep caves: incremental slab loading, coordinate-correct local lighting, reliable Y0 placement and underside updates.','Performance: budget checks happen between slabs and meshes, so lighting cannot start lots of new work after time runs out.','Existing worlds and deep edits keep their same storage and content.']},
 {v:'v1.1.96', d:'2026-11-06', notes:['Fix: Y0 and Y1 are drawn by one mesh owner only, so the seam at the surface no longer flashes or leaves holes. Digging and collision still agree.','Fix: item drops deep underground no longer vanish below Y -5. They stay until you pick them up or they time out for real.','Fix: TVs, chests, torches, doors, furnaces and beds placed deep down show, work, save and remove properly again.','Fix: the pickaxe swing no longer freezes during a remesh stall or resets every frame. Crack and break speed are unchanged.','Fix: gun pose and scale have one owner in first person, so the musket no longer shrinks or vanishes when you fire. Aiming stays centred.','Perf: gun shots trace blocks with a fast grid walk instead of hundreds of solid checks, with the same hits.','New: the highlighted hotbar or inventory slot shows the item name for controller, touch and mouse with no extra equip step.']},{v:'v1.1.95', d:'2026-11-03', notes:['Planets face the castles, red eye nebula gone, guns load before you see them, steady arms and centred aiming']},
 {v:'v1.1.94', d:'2026-11-03', notes:['Hotfix: no sky at all deep down or in Agartha, one steady dark cave colour so nothing can flash']},
 {v:'v1.1.93', d:'2026-11-03', notes:['Fixed the striped purple TV look very deep down, the old heat shimmer is gone.','A new night sky: deep blue to violet, lots of crisp twinkling stars, a faint milky band, soft wisps and a glow round the Moon.','And a new stone castle lighthouse with a spiral walkway and a lit lantern on a little isle off the far north of Scotland.']},
