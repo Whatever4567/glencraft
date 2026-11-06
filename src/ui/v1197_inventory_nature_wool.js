@@ -2,7 +2,7 @@
    Hide inner and outer corner stair variants from inventory, crafting and creative
    access while keeping ids, names, icons and world rendering for existing placements.
    Add red, green and pink wool (ids 256-258) with recipes matching existing dyed wool.
-   Expose Block of diamond (255) in survival lists without duplicating recipes.
+   Expose Block of diamond (250) in survival lists without duplicating recipes.
    Survival bag: Nature category; ordinary blocks then fences, gates, doors grouped.
    No apostrophes in user-facing strings here. */
 (function c404() {
@@ -157,7 +157,7 @@
     try {
       const WR = claimId(256, 'red'), WG = claimId(257, 'green'), WP = claimId(258, 'pink');
       if (!WR || !WG || !WP) { ERR('ids', 'wool id conflict'); return; }
-      // Ensure unused vs CORN (331+) and diamond 255 / paint registry keys
+      // Ensure unused vs CORN (331+) and diamond 250 / paint registry keys
       if (WR === 255 || WG === 255 || WP === 255) return;
       T.WOOLRED = WR; T.WOOLGREEN = WG; T.WOOLPINK = WP;
       installWool(WR, 'wool_red', 'Red wool', '#c62828', '1 Wool + 1 Redstone dust', [[T.WOOL, 1], [IT.REDSTONE, 1]]);
@@ -183,10 +183,10 @@
     } catch (e) { ERR('woolIv', e); clearInterval(woolIv); }
   }, 400);
 
-  /* ---------- 3) diamond block exposure (id 255 already) ---------- */
+  /* ---------- 3) diamond block exposure (id 250; 255 is packed snow) ---------- */
   function ensureDiamond() {
     try {
-      const DB = (T && T.DIAMONDBLOCK) || 255;
+      const DB = (T && T.DIAMONDBLOCK) || 250;
       if (T && T.DIAMONDBLOCK == null) T.DIAMONDBLOCK = DB;
       if (!NAMES[DB]) NAMES[DB] = 'Block of diamond';
       PLACEABLE.add(DB);

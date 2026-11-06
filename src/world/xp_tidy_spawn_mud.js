@@ -250,24 +250,27 @@
         for (let k = 0; k < 3; k++) { g.strokeStyle = 'rgba(200,215,255,' + (0.12 + R() * .2).toFixed(2) + ')'; g.lineWidth = S * (.002 + R() * .004); g.beginPath(); let px = x + R() * w, py = y; g.moveTo(px, py); for (let s = 0; s < 6; s++) { px += (R() - .5) * w * .4; py += w / 6; g.lineTo(px, py); } g.stroke(); }
         for (let k = 0; k < 9; k++) { const fx = x + R() * w, fy = y + R() * w, fr = S * (.003 + R() * .007); g.fillStyle = R() < .6 ? '#ffd860' : '#fff2b0'; g.beginPath(); g.arc(fx, fy, fr, 0, 7); g.fill(); }
         g.restore(); bevel(g, x, y, w, w, w * .05, 'rgba(170,195,255,.4)', 'rgba(4,8,30,.55)'); } },
-    diamond_block(S, g, R) {   // faceted gem tiles
-      g.fillStyle = '#0e4a5a'; g.fillRect(0, 0, S, S); const n = 3, t = S / n;
-      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const x = i * t, y = j * t, cx = x + t / 2, cy = y + t / 2, r = t * .46, m = t * .2;
-        g.fillStyle = lg(g, x, y, x + t, y + t, [[0, '#bff6ff'], [1, '#3ab8d4']]); g.fillRect(x + 2, y + 2, t - 4, t - 4);
-        const P = [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]], I = [[cx, cy - m], [cx + m, cy], [cx, cy + m], [cx - m, cy]], C = ['#f2ffff', '#7fe2f4', '#2aa2c4', '#a8f2ff'];
+    diamond_block(S, g, R) {   // faceted cyan/blue gem tiles (distinct from snow/ore)
+      g.fillStyle = '#06182e'; g.fillRect(0, 0, S, S); const n = 3, t = S / n;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { const x = i * t, y = j * t, cx = x + t / 2, cy = y + t / 2, r = t * .44, m = t * .18;
+        g.fillStyle = lg(g, x, y, x + t, y + t, [[0, '#1a4a78'], [1, '#0a2038']]); g.fillRect(x + 1, y + 1, t - 2, t - 2);
+        const P = [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]], I = [[cx, cy - m], [cx + m, cy], [cx, cy + m], [cx - m, cy]];
+        const C = ['#e8fbff', '#5ec8f0', '#1a6aad', '#9ae6ff']; // bright table, cool side, deep side, pale side
         for (let k = 0; k < 4; k++) { g.beginPath(); g.moveTo(P[k][0], P[k][1]); g.lineTo(P[(k + 1) % 4][0], P[(k + 1) % 4][1]); g.lineTo(I[(k + 1) % 4][0], I[(k + 1) % 4][1]); g.lineTo(I[k][0], I[k][1]); g.closePath(); g.fillStyle = C[k]; g.fill(); }
-        g.beginPath(); I.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fillStyle = '#e8ffff'; g.fill();
-        g.strokeStyle = 'rgba(10,60,80,.7)'; g.lineWidth = S * .004; g.beginPath(); P.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
+        g.beginPath(); I.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+        g.fillStyle = lg(g, cx - m, cy - m, cx + m, cy + m, [[0, '#ffffff'], [0.45, '#b8f0ff'], [1, '#3aa0d0']]); g.fill();
+        g.strokeStyle = 'rgba(4,24,48,.85)'; g.lineWidth = S * .0045; g.beginPath(); P.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
         for (let k = 0; k < 4; k++) { g.beginPath(); g.moveTo(P[k][0], P[k][1]); g.lineTo(I[k][0], I[k][1]); g.stroke(); }
-        g.fillStyle = '#fff'; const sx = cx - r * .35, sy = cy - r * .3, s = t * .07; g.beginPath(); g.moveTo(sx, sy - s); g.lineTo(sx + s * .2, sy - s * .2); g.lineTo(sx + s, sy); g.lineTo(sx + s * .2, sy + s * .2); g.lineTo(sx, sy + s); g.lineTo(sx - s * .2, sy + s * .2); g.lineTo(sx - s, sy); g.lineTo(sx - s * .2, sy - s * .2); g.closePath(); g.fill(); }
-      g.strokeStyle = 'rgba(8,40,52,.8)'; g.lineWidth = S * .008; for (let k = 0; k <= n; k++) { g.beginPath(); g.moveTo(k * t, 0); g.lineTo(k * t, S); g.stroke(); g.beginPath(); g.moveTo(0, k * t); g.lineTo(S, k * t); g.stroke(); } },
+        // polished sparkle fleck (static paint, not a light)
+        g.fillStyle = 'rgba(255,255,255,.95)'; const sx = cx - r * .32, sy = cy - r * .28, s = t * .06; g.beginPath(); g.moveTo(sx, sy - s); g.lineTo(sx + s * .25, sy - s * .2); g.lineTo(sx + s, sy); g.lineTo(sx + s * .25, sy + s * .2); g.lineTo(sx, sy + s); g.lineTo(sx - s * .25, sy + s * .2); g.lineTo(sx - s, sy); g.lineTo(sx - s * .25, sy - s * .2); g.closePath(); g.fill(); }
+      g.strokeStyle = 'rgba(2,16,36,.9)'; g.lineWidth = S * .01; for (let k = 0; k <= n; k++) { g.beginPath(); g.moveTo(k * t, 0); g.lineTo(k * t, S); g.stroke(); g.beginPath(); g.moveTo(0, k * t); g.lineTo(S, k * t); g.stroke(); } },
   };
   function paintBlock(key) { const c = cv(BS), g = c.getContext('2d'); PAINT[key](BS, g, rng(key.length * 7919 + key.charCodeAt(0))); return c; }
   function css(key, c) { try { const s = cv(64); s.getContext('2d').drawImage(c, 0, 0, 64, 64);
     let el = document.getElementById('c120tex'); if (!el) { el = document.createElement('style'); el.id = 'c120tex'; document.head.appendChild(el); }
     el.textContent = el.textContent.split('\n').filter(l => l && !l.startsWith('.ic-' + key + '{')).concat('.ic-' + key + '{background-image:url(' + s.toDataURL() + ') !important}').join('\n'); } catch (_) {} }
   // new block: Block of diamond (id 255)
-  try { const DB = 255; T.DIAMONDBLOCK = DB; const key = 'diamond_block', c = U.made[key] = paintBlock(key);
+  try { const DB = 250; /* v1.2.1: was 255, collided with PACKSNOW - ice wall keeps 255 */ T.DIAMONDBLOCK = DB; const key = 'diamond_block', c = U.made[key] = paintBlock(key);
     const t = new THREE.Texture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = typeof TEXANISO !== 'undefined' ? TEXANISO : 4; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
     texCache[key] = t; texImg[key] = c; try { const s = cv(1); s.getContext('2d').drawImage(c, 0, 0, 1, 1); const d = s.getContext('2d').getImageData(0, 0, 1, 1).data; AVG[key] = (d[0] << 16) | (d[1] << 8) | d[2]; } catch (_) {}
     FACES[DB] = key; BLOCK_MATS[DB] = mat(key); NAMES[DB] = 'Block of diamond'; ICON_KEY[DB] = key; HARD[DB] = 5.5; MC_HARD[DB] = 5; REQ[DB] = 3; NEEDS_PICK.add(DB); PLACEABLE.add(DB);
