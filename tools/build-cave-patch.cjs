@@ -41,6 +41,14 @@ for(const [file,begin,end,from]of slots){
  result=result.slice(0,at)+replacement+result.slice(at+old.length);
 }
 result=result.replace("const GAME_VERSION = '1.2.1';","const GAME_VERSION = '1.2.2';");
+result=result.replace('<!-- glencraft-build: b1201-v1.2.1 -->','<!-- glencraft-build: b1202-v1.2.2 -->');
+const releaseNotes={v:'v1.2.2',d:'2026-11-06',notes:[
+ 'Caves: seven connected underground strata with gray halls, giant fungi, deep dark pillars, basalt magma, molten depths, an abyssal crystal ring and the original giant eye above a dry core bowl.',
+ 'Fix: digging across Y0 preserves cave mesh ownership while incremental work finishes. Existing loading, lighting and streaming remain incremental.',
+ 'A dry eastern staircase descends from the gray cave to the core. Surface, Agartha, UFO, existing edits and AIR removals are preserved. No automatic reset.'
+]};
+if(releaseNotes.notes.some(n=>n.includes("'")))throw Error('No apostrophes in release notes');
+result=result.replace('window.PATCH_NOTES = [','window.PATCH_NOTES = [\n'+JSON.stringify(releaseNotes)+',');
 const digest=sha(result);
 if(preview){console.log(JSON.stringify({base:sha(before),oldOwner:sha(previous),newOwner:sha(next),output:digest,bytes:Buffer.byteLength(result)}));process.exit(0);}
 if(process.env.CAVE_EXPECT_SHA!==digest)throw Error('Expected output hash required; nothing written: '+digest);
