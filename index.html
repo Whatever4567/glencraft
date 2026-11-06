@@ -15352,7 +15352,7 @@ function updateDrops(dt) {
       if (solid(Math.floor(d.x), Math.floor(ny - 0.12), Math.floor(d.z)) && d.vy <= 0) {
         d.y = Math.floor(ny - 0.12) + 1.12; d.vy = 0; d.vx = d.vz = 0; d.rest = true;
       } else d.y = ny;
-      if (d.y < -5) { scene.remove(d.m); drops.splice(i, 1); continue; }
+      if (d.y < ((typeof SEA === 'number' ? SEA : 41) - 1100)) { scene.remove(d.m); drops.splice(i, 1); continue; }
     } else if (!solid(Math.floor(d.x), Math.floor(d.y - 0.2), Math.floor(d.z))) d.rest = false;
     if (d.age > 300 || getB(Math.floor(d.x), Math.floor(d.y - 0.1), Math.floor(d.z)) === T.LAVA) { if (d.age <= 300) burst(d.x, d.y, d.z, 0xff7a1a, 6, .6); scene.remove(d.m); drops.splice(i, 1); continue; }
     // smooth float + spin only (no physics jitter while resting)
@@ -16491,7 +16491,7 @@ function updateInteraction(dt) {
   const k = mine.t / HARD[b];
   crackMesh.visible = !isPlant(b) && b !== T.CAULDRON; crackMesh.position.set(x + .5, y + .5, z + .5);
   crackMat.map = crackTex[Math.min(7, Math.floor(k * 8))];
-  { const tot = HARD[b] / Math.max(1e-6, speed), n = Math.max(1, Math.round(tot / 0.3)), per = Math.max(0.05, tot / n), ph = ((mine.t / Math.max(1e-6, speed)) % per) / per; swingD = per; swingT = per * (1 - ph); swingTick = per * (1 - ph); }
+  { const tot = HARD[b] / Math.max(1e-6, speed), n = Math.max(1, Math.round(tot / 0.3)), per = Math.max(0.05, tot / n), beat = Math.floor((mine.t / Math.max(1e-6, speed)) / per); swingD = per; if (mine._swB !== beat) { mine._swB = beat; swingT = per; swingTick = per; } }
   if (Math.random() < dt * 8) burst(x + .5, y + .5, z + .5, blockColor(b), 1, 1.1);
   if (k >= 1) { mine.key = null; mine.t = 0; crackMesh.visible = false; breakAt(x, y, z); }
 }
@@ -23830,7 +23830,7 @@ function gunBang(pos) {
 }
 function fireGun(id) {
   const G = GUN[id], d = lookDir(), o = new THREE.Vector3(P.x, P.y + EYE, P.z);
-  let bt = G.range; for (let t = 0.3; t < G.range; t += 0.1) { if (solid(Math.floor(o.x + d[0] * t), Math.floor(o.y + d[1] * t), Math.floor(o.z + d[2] * t))) { bt = t; break; } }
+  let bt = G.range; { let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z); const dx = d[0], dy = d[1], dz = d[2], sx = dx > 0 ? 1 : dx < 0 ? -1 : 0, sy = dy > 0 ? 1 : dy < 0 ? -1 : 0, sz = dz > 0 ? 1 : dz < 0 ? -1 : 0; const tDx = sx ? Math.abs(1 / dx) : 1e9, tDy = sy ? Math.abs(1 / dy) : 1e9, tDz = sz ? Math.abs(1 / dz) : 1e9; let tMx = sx ? ((sx > 0 ? (x + 1 - o.x) : (o.x - x)) * tDx) : 1e9, tMy = sy ? ((sy > 0 ? (y + 1 - o.y) : (o.y - y)) * tDy) : 1e9, tMz = sz ? ((sz > 0 ? (z + 1 - o.z) : (o.z - z)) * tDz) : 1e9, t = 0; for (let i = 0; i < Math.ceil(G.range) + 4; i++) { if (t > 0.05 && solid(x, y, z)) { bt = Math.min(bt, t); break; } if (tMx < tMy) { if (tMx < tMz) { t = tMx; tMx += tDx; x += sx; } else { t = tMz; tMz += tDz; z += sz; } } else { if (tMy < tMz) { t = tMy; tMy += tDy; y += sy; } else { t = tMz; tMz += tDz; z += sz; } } if (t >= G.range) break; } }
   let best = null, mt = bt;
   for (const a of mobs) { const c = a.g.position, cy = c.y + (a.hitY || 1); const vx = c.x - o.x, vy = cy - o.y, vz = c.z - o.z, t = vx * d[0] + vy * d[1] + vz * d[2]; if (t < 0 || t > mt) continue;
     const px = o.x + d[0] * t - c.x, py = o.y + d[1] * t - cy, pz = o.z + d[2] * t - c.z; if (Math.hypot(px, py * 0.6, pz) < (a.hitR || 0.6) + 0.15) { best = a; mt = t; } }
@@ -46872,7 +46872,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const e = E(), c = e.E(), R = e.R, m = MS[ax], Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; A = new Uint8Array(SW * SL * SW); U.gen = (U.gen || 0) + 1;
     for (let i = 0; i < SW; i++) for (let k = 0; k < SW; k++) { const lx = cx * C - 1 + i, lz = cz * C - 1 + k, ox = lx + 0.5 - piv[0], oz = lz + 0.5 - piv[2]; let gk = null;
       for (let j = 0; j < SL; j++) { const oy = sy + j + 0.5 - piv[1], wx = Math.round(m[0][0] * ox + m[1][0] * oy + m[2][0] * oz + piv[0] - 0.5), wy = Math.round(m[0][1] * ox + m[1][1] * oy + m[2][1] * oz + piv[1] - 0.5), wz = Math.round(m[0][2] * ox + m[1][2] * oy + m[2][2] * oz + piv[2] - 0.5);
-        if (wx >= 0 && wx < W && wz < D && wz >= Z0 && wy >= 0) { if (e.flat && wy <= 1) { const v = getB(wx, wy, wz); if (v && v !== T.WATER) A[(i * SL + j) * SW + k] = v; } continue; }   /* v1.1.56: the bottom of the old world caps the deep caves, so no see-through roof and no daylight below Y0 */
+        if (wx >= 0 && wx < W && wz < D && wz >= Z0 && wy >= 0) { continue; }   /* v1.1.96: surface owns Y0+ mesh; deep never dual-draws it. Y0 underside seal is __YB / bottom faces */
         if (e.flat) { const ft = e.fearth && e.fearth.top; if (ft && wy - SEA > ft(wx, wz)) continue; const fb = e.earth(wx, wy, wz); if (fb) A[(i * SL + j) * SW + k] = fb; continue; }   /* v1.1.42: the flat Earth */
         const dx = wx + 0.5 - c[0], dy = wy + 0.5 - c[1], dz = wz + 0.5 - c[2], r = Math.sqrt(dx * dx + dy * dy + dz * dz), a = Math.max(wy - SEA, r - R); if (a > 32) continue;
         let b; if (e.tOn && a >= -40 && wy - SEA < r - R - 1) { b = e.terr(wx, wy, wz, dx, dy, dz, r); if (!b || b === T.WATER) continue; } else if (a < -40) { b = e.hol ? e.hol(wx, wy, wz, dx, dy, dz, r) : e.layer(r, 99, 0, wx, wy, wz); if (!b) continue; } else { if (!gk) gk = e.ground(wx, wy, wz, dx / r, dy / r, dz / r); if (a >= gk[0]) continue; b = e.layer(r, gk[0] - a, gk[1], wx, wy, wz); }
@@ -46892,6 +46892,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           const lx = Math.round(m[0][0] * vx + m[0][1] * vy + m[0][2] * vz + piv[0] - 0.5), ly = Math.round(m[1][0] * vx + m[1][1] * vy + m[1][2] * vz + piv[1] - 0.5), lz = Math.round(m[2][0] * vx + m[2][1] * vy + m[2][2] * vz + piv[2] - 0.5);
           const r = [lx, ly, lz, q[3]]; for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) { const kk = Math.floor((lx + ox) / C) + ',' + Math.floor((lz + oz) / C); let L = eB.m.get(kk); if (!L) eB.m.set(kk, L = []); if (!L.includes(r)) L.push(r); } } }
       for (const r of (eB.m.get(cx + ',' + cz) || [])) { const lx = r[0], ly = r[1], lz = r[2], q = [0, 0, 0, r[3]];
+        const Z0e = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; if (ly >= 0 && lx >= 0 && lx < W && lz < D && lz >= Z0e) continue;   /* v1.1.96: surface owns in-bounds Y>=0 */
         const tx = lx - cx * C + C, ty = ly - y0, tz = lz - cz * C + C; if (tx >= C - 1 && tx <= 2 * C && tz >= C - 1 && tz <= 2 * C && ty >= 0 && ty < NB) { TMP[(tx * NB + ty) * PW + tz] = q[3]; if (q[3]) any = true; } } }   /* v1.1.55: placed blocks out on the planet, deep down and in Agartha are drawn (they were drawn as air) */
     return any; }
   function mesh(ax, piv, cx, cz, y0) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); const fk = fill(ax, piv, cx, cz, y0); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }
@@ -47245,7 +47246,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         if (window.__vm) { U.poseOff = 1; return r; }   /* v1.1.96: viewmodel owns pose+scale; C340 keeps shot FX only */
         const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; k += ((aim() ? 1 : 0) - k) * (1 - Math.exp(-d * 14)); U.k = +k.toFixed(2); kick *= Math.exp(-d * 11);
         if (now - (U.lt || 0) > 400) { U.lt = now; held.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) if (m.emissive && m.color && !m.emissive.getHex()) { U.lit = (U.lit || 0) + 1; m.emissive.copy(m.color).multiplyScalar(0.45); if (m.emissiveMap === null && m.map) m.emissiveMap = m.map; m.needsUpdate = true; } }); }
-        if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData, s0 = sc.x * hand.scale.x, s = (u.__s0 && Math.abs(s0 / u.__s0 - 1) > 0.02) ? u.__s0 : (u.__s0 = u.__s0 || s0), isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
+        if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData; if (!u.__s0Base) { const s0 = Math.abs(sc.x * (hand.scale.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; } const s = u.__s0 = u.__s0Base || 1, isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
         const h0 = HIP[isP ? 'pistol' : 'rifle'], asp = Math.min(1, (camera.aspect || 1.6) / 1.6), h = [h0[0] * (0.35 + 0.65 * asp), h0[1], h0[2]], ads = [0, (isP ? -0.035 : -0.03), (isP ? -0.26 : -0.42) - 0.16 * s];
         const tx = h[0] + (ads[0] - h[0]) * k, ty = h[1] + (ads[1] - h[1]) * k + 0.01 * kick, tz = h[2] + (ads[2] - h[2]) * k + (isP ? 0.05 : 0.08) * kick;
         const tgt = new THREE.Vector3(tx, ty, tz).sub(sg.clone().multiplyScalar(k)); E.set((isP ? 0.28 : 0.16) * kick, -0.04 * (1 - k), 0); const Q = new THREE.Quaternion().setFromEuler(E);
@@ -47256,7 +47257,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { const fg = fireGun; fireGun = function (id) { const d = lookDir(), o = new THREE.Vector3(P.x, P.y + EYE, P.z), mz = tp() ? null : muzzle(), b0 = burst;
       burst = function (x, y, z, col, n, sz) { if (col === 0xd0d0d0 && n === 1) return; if (col === 0xb8b8b8) { n = 3; sz = 0.12; } if (col === 0xffd080) { n = 3; sz = 0.07; } if (col === 0x8a8070) { n = 4; sz = 0.12; } if (mz && (col === 0xffd080 || col === 0xb8b8b8)) { x = mz.x; y = mz.y; z = mz.z; } const p0 = parts.length, rr = b0.apply(this, [x, y, z, col, n, sz].concat([].slice.call(arguments, 6))); if (col === 0xffd080 || col === 0xb8b8b8) for (let i = p0; i < parts.length; i++) { const q = parts[i]; q.m.scale.multiplyScalar(0.3); q.vx *= 0.25; q.vy *= 0.25; q.vz *= 0.25; q.life *= 0.5; q.grav = false; } return rr; };
       let r; try { r = fg.apply(this, arguments); } finally { burst = b0; }
-      try { kick = 1; U.shots++; const G = GUN[id]; let t = G.range || 60; for (let s = 0.3; s < t; s += 0.25) if (solid(Math.floor(o.x + d[0] * s), Math.floor(o.y + d[1] * s), Math.floor(o.z + d[2] * s))) { t = s; break; }
+      try { kick = 1; U.shots++; const G = GUN[id]; let t = G.range || 60; { let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z); const dx = d[0], dy = d[1], dz = d[2], sx = dx > 0 ? 1 : dx < 0 ? -1 : 0, sy = dy > 0 ? 1 : dy < 0 ? -1 : 0, sz = dz > 0 ? 1 : dz < 0 ? -1 : 0; const tDx = sx ? Math.abs(1 / dx) : 1e9, tDy = sy ? Math.abs(1 / dy) : 1e9, tDz = sz ? Math.abs(1 / dz) : 1e9; let tMx = sx ? ((sx > 0 ? (x + 1 - o.x) : (o.x - x)) * tDx) : 1e9, tMy = sy ? ((sy > 0 ? (y + 1 - o.y) : (o.y - y)) * tDy) : 1e9, tMz = sz ? ((sz > 0 ? (z + 1 - o.z) : (o.z - z)) * tDz) : 1e9, tt = 0; for (let i = 0; i < Math.ceil(t) + 4; i++) { if (tt > 0.05 && solid(x, y, z)) { t = Math.min(t, tt); break; } if (tMx < tMy) { if (tMx < tMz) { tt = tMx; tMx += tDx; x += sx; } else { tt = tMz; tMz += tDz; z += sz; } } else { if (tMy < tMz) { tt = tMy; tMy += tDy; y += sy; } else { tt = tMz; tMz += tDz; z += sz; } } if (tt >= t) break; } }
         const a = mz || o.clone().add(new THREE.Vector3(d[0], d[1] - 0.2, d[2]).multiplyScalar(0.6)), e = o.clone().add(new THREE.Vector3(d[0], d[1], d[2]).multiplyScalar(t));
         const L = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, e]), LM.clone()); L.frustumCulled = false; L.userData.t = 0.09; scene.add(L); lines.push(L); } catch (e2) { ERR('tr', e2); }
       return r; }; } catch (e) { ERR('fg', e); }
@@ -48117,7 +48118,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     bx += (Math.cos(wp) * 0.008 * bo - bx) * f; by += (-Math.abs(Math.sin(wp)) * 0.007 * bo - by) * f; const br = Math.sin(tm * 1.5) * 0.0025;
     // gun frame: rig axes inside g
     if (!relTo(g, hand, M1)) return; M1.decompose(v, q, sc);
-    let s = u.__s0 || (u.__s0 = sc.x * hand.scale.x);
+    if (!u.__s0Base) { const s0 = Math.abs(sc.x * (hand.scale.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; }
+    let s = u.__s0 = u.__s0Base || 1;
     if (C.sk) s *= C.sk;   // long guns a bit smaller so the stock meets the shoulder
     relTo(u.rig, g, Mr); const sg = (u.sight ? u.sight.clone() : V(0, 0.04, 0)).applyMatrix4(Mr);
     const dir = V(0, 0, -1).transformDirection(Mr), up0 = V(0, 1, 0).transformDirection(Mr), rt = dir.clone().cross(up0).normalize(), up = rt.clone().cross(dir).normalize();
@@ -49168,331 +49170,190 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       try { return rd.apply(this, arguments); } finally { if (hid) for (const o of hid) o.visible = true; for (const [c, t] of cs) c.copy(t); for (const [o, t] of ls) o.intensity = t; } }; } catch (e) { U.err = 'wrap ' + e; }
 })();
 
-/* GLX-C396 (v1.1.96): Y0-1 SINGLE MESH OWNER. Deep chunk fill used to copy getB for wy<=1 into the deep
-   mesh while the surface chunk mesh already drew those layers, so Y0-1 flashed or left holes. While the
-   deep mesher runs (__c317mesh), getB reports air for in-bounds Y0-1 so deep never dual-draws them.
-   Surface keeps Y0-1. getB/collision stay agreed outside that pass. The Y0 underside seal (__YB) stays. */
+/* GLX-C396 (v1.1.96): Y0-1 surface mesh owner. Dual draw removed in earth_chunk_streaming. This only
+   ensures the Y0 underside seal (__YB) stays available so deep caves keep a solid roof. */
 (function c396() {
-  const U = window.__c396 = {err: null, skip: 0, on: 0};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const U = window.__c396 = {err: null, on: 0};
   try {
-    const gb = getB;
-    getB = function (x, y, z) {
-      try {
-        if (window.__c317mesh && window.__c320 && __c320.flat && y >= 0 && y <= 1) {
-          const Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0;
-          if (x >= 0 && x < W && z < D && z >= Z0) { U.skip++; return T.AIR; }
-        }
-      } catch (_) {}
-      return gb.apply(this, arguments);
-    };
+    if (!window.__YB) {
+      window.__YB = (x, z) => { try { const b = getB(x, -1, z); return b || T.STONE; } catch (_) { return T.STONE; } };
+    }
     U.on = 1;
-  } catch (e) { ERR('gb', e); }
-  try { if (!window.__YB) window.__YB = (x, z) => { try { const b = getB(x, -1, z); return b || T.STONE; } catch (_) { return T.STONE; } }; } catch (_) {}
+  } catch (e) { U.err = String(e && e.stack || e).slice(0, 200); }
 })();
 
-/* GLX-C397 (v1.1.96): DEEP DROPS KEEP. updateDrops culled any drop below Y -5, so mined blocks deep
-   underground vanished before you could pick them up. Drops now only despawn below the true deep bottom
-   (far under the hollow Earth core) or by the existing age / lava rules. Physics still uses solid/getB. */
+/* GLX-C397 (v1.1.96): DEEP DROPS. Cull floor fixed at source in build87 (y < SEA-1100). No updateDrops
+   rewrap — earlier drop wrappers stay in the chain. */
 (function c397() {
-  const U = window.__c397 = {err: null, kept: 0, culled: 0};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  const BOTTOM = () => { try { const sea = (typeof SEA === 'number' ? SEA : 41); return sea - 1100; } catch (_) { return -1100; } };
-  try {
-    const ud = updateDrops;
-    updateDrops = function (dt) {
-      try {
-        const floor = BOTTOM();
-        for (let i = drops.length - 1; i >= 0; i--) {
-          const d = drops[i];
-          if (d && d.y < -5 && d.y >= floor) { U.kept++; /* was culled; leave it */ }
-        }
-      } catch (e) { ERR('pre', e); }
-      const r = ud.apply(this, arguments);
-      return r;
-    };
-    // Replace the hard y < -5 cull by wrapping drop lifetime: re-add is too late. Patch by
-    // intercepting scene.remove only for drops is fragile. Instead rewrite updateDrops fully via
-    // monkeypatch of the condition: swap in a guarded version that uses BOTTOM.
-    updateDrops = function (dt) {
-      try {
-        const px = P.x, py = P.y + 0.9, pz = P.z, floor = BOTTOM();
-        for (let i = drops.length - 1; i >= 0; i--) {
-          const d = drops[i];
-          d.age += dt; d.delay -= dt;
-          const dist = Math.hypot(d.x - px, d.y - py, d.z - pz);
-          if (d.delay <= 0 && !dead && dist < 2.3) {
-            if (d.pick === undefined) { d.pick = 0; d.sx = d.x; d.sy = d.y; d.sz = d.z; d.s0 = d.m.scale.x; }
-            d.pick = Math.min(1, d.pick + dt / 0.24); const e = d.pick * d.pick * (3 - 2 * d.pick);
-            d.x = d.sx + (px - d.sx) * e; d.z = d.sz + (pz - d.sz) * e; d.y = d.sy + (py - d.sy) * e + Math.sin(d.pick * Math.PI) * 0.55; d.rest = false;
-            const sc = d.s0 * (1 - 0.6 * Math.max(0, d.pick - 0.5) * 2); d.m.scale.setScalar(sc);
-            if (d.pick >= 1) { addItem(d.id, d.n); sfx('pop'); scene.remove(d.m); drops.splice(i, 1); continue; }
-          } else if (!d.rest) {
-            if (d.pick !== undefined) { d.pick = undefined; d.m.scale.setScalar(d.s0); }
-            d.vy -= 18 * dt;
-            const nx = d.x + d.vx * dt, nz = d.z + d.vz * dt;
-            if (!solid(Math.floor(nx), Math.floor(d.y), Math.floor(d.z))) d.x = nx; else d.vx = 0;
-            if (!solid(Math.floor(d.x), Math.floor(d.y), Math.floor(nz))) d.z = nz; else d.vz = 0;
-            const ny = d.y + d.vy * dt;
-            if (solid(Math.floor(d.x), Math.floor(ny - 0.12), Math.floor(d.z)) && d.vy <= 0) {
-              d.y = Math.floor(ny - 0.12) + 1.12; d.vy = 0; d.vx = d.vz = 0; d.rest = true;
-            } else d.y = ny;
-            if (d.y < floor) { scene.remove(d.m); drops.splice(i, 1); U.culled++; continue; }
-          } else if (!solid(Math.floor(d.x), Math.floor(d.y - 0.2), Math.floor(d.z))) d.rest = false;
-          if (d.age > 300 || getB(Math.floor(d.x), Math.floor(d.y - 0.1), Math.floor(d.z)) === T.LAVA) {
-            if (d.age <= 300) burst(d.x, d.y, d.z, 0xff7a1a, 6, .6); scene.remove(d.m); drops.splice(i, 1); continue;
-          }
-          d.m.position.set(d.x, d.y + (d.rest ? 0.06 + Math.sin(d.age * 2.4 + d.ph) * 0.05 : 0), d.z);
-          if (d.m.isMesh) d.m.rotation.y = d.age * 1.4 + d.ph;
-        }
-        U.on = 1;
-      } catch (e) { ERR('ud', e); try { return ud.apply(this, arguments); } catch (_) {} }
-    };
-  } catch (e) { ERR('wrap', e); }
+  window.__c397 = {err: null, on: 1, src: 'build87'};
 })();
 
-/* GLX-C398 (v1.1.96): DEEP ENT ENTITIES. TV, chest, torch, door, furnace and bed placed below Y0 live in
-   __c320.edits, but syncEntities only saw surface chunk lists, so deep entities were invisible and not
-   usable. This keeps a nearby deep ENT set in sync for visibility, use, persistence and removal. Surface
-   ents are unchanged. IDs and saves stay. */
+/* GLX-C398 (v1.1.96): DEEP ENT ENTITIES. Deep TV/chest/torch/door(+top)/furnace/bed live in __c320.edits
+   but never entered surface chunkLists. Maintains a chunk-indexed deep ENT map (built once from edits on
+   load, updated on setB) and syncs only nearby chunks. Save format unchanged. */
 (function c398() {
-  const U = window.__c398 = {err: null, n: 0, deep: 0};
+  const U = window.__c398 = {err: null, n: 0, deep: 0, idxN: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  const TYPES = () => {
-    const a = [T.CHEST, T.DOOR, T.TORCH, T.TV];
-    try { if (T.FURNACE) a.push(T.FURNACE); } catch (_) {}
-    try { if (T.BED) a.push(T.BED); } catch (_) {}
-    return a;
-  };
-  const isEnt = b => { try { return !!(b && (ENT[b] || b === T.FURNACE || b === T.BED || b === T.TV || b === T.CHEST || b === T.DOOR || b === T.TORCH)); } catch (_) { return false; } };
-  const R = 48;
-  const deepWant = new Map(); // k -> type, only y < 0
-  function scan() {
+  const CS = () => (typeof CH === 'number' ? CH : 16);
+  const isEnt = b => {
     try {
-      const e = window.__c320; if (!e || !e.edits || typeof started === 'undefined' || !started || DIM.cur) return;
-      const px = Math.floor(P.x), py = Math.floor(P.y), pz = Math.floor(P.z);
-      const next = new Map();
+      if (!b) return false;
+      if (b === T.DOORTOP || b === T.DOOR || b === T.CHEST || b === T.TORCH || b === T.TV) return true;
+      if (b === T.FURNACE || b === T.BED) return true;
+      return !!(typeof ENT !== 'undefined' && ENT[b]);
+    } catch (_) { return false; }
+  };
+  // chunkKey -> Map(keyOf -> type) for y < 0 only
+  const byChunk = new Map();
+  const chunkOf = (x, z) => Math.floor(x / CS()) + ',' + Math.floor(z / CS());
+  function idxSet(x, y, z, v) {
+    if (!(y < 0) || !isEnt(v)) return;
+    const ck = chunkOf(x, z), k = keyOf(x, y, z);
+    let m = byChunk.get(ck); if (!m) byChunk.set(ck, m = new Map());
+    m.set(k, v); U.idxN++;
+  }
+  function idxDel(x, y, z) {
+    const ck = chunkOf(x, z), m = byChunk.get(ck); if (!m) return;
+    m.delete(keyOf(x, y, z)); if (!m.size) byChunk.delete(ck);
+  }
+  function rebuildIndex() {
+    byChunk.clear(); U.idxN = 0;
+    try {
+      const e = window.__c320; if (!e || !e.edits) return;
       for (const [k, v] of e.edits) {
-        if (!v || !isEnt(v)) continue;
-        const p = k.split(',').map(Number); const x = p[0], y = p[1], z = p[2];
-        if (!(y < 0)) continue;
-        if (Math.abs(x - px) > R || Math.abs(z - pz) > R || Math.abs(y - py) > R + 24) continue;
-        // still present in edits and getB agrees
-        if (getB(x, y, z) !== v) continue;
-        next.set(keyOf(x, y, z), v);
+        if (!isEnt(v)) continue;
+        const p = k.split(',').map(Number);
+        if (p[1] < 0) idxSet(p[0], p[1], p[2], v);
       }
-      // remove deep ents that left the set (do not touch surface y>=0)
+    } catch (e) { ERR('rebuild', e); }
+    U.rebuilt = (U.rebuilt || 0) + 1;
+  }
+  function makeEnt(t, x, y, z) {
+    if (t === T.TV) return buildTV(x, y, z);
+    if (t === T.FURNACE && typeof buildFurnace === 'function') return buildFurnace(x, y, z);
+    if (t === T.BED && typeof buildBed === 'function') return buildBed(x, y, z);
+    if (t === T.DOORTOP) return null; // model hangs on door lower half
+    return buildEnt(t === T.DOOR ? T.DOOR : t, x, y, z);
+  }
+  const RN = 3; // chunks
+  function syncNear() {
+    try {
+      if (typeof started === 'undefined' || !started || DIM.cur) return;
+      const e = window.__c320; if (!e) return;
+      const pcx = Math.floor(P.x / CS()), pcz = Math.floor(P.z / CS());
+      const want = new Map();
+      for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) {
+        const m = byChunk.get(cx + ',' + cz); if (!m) continue;
+        for (const [k, t] of m) {
+          const [x, y, z] = k.split(',').map(Number);
+          if (Math.abs(y - P.y) > 64) continue;
+          // edits + getB must agree (broken/removed)
+          try { if (getB(x, y, z) !== t) { idxDel(x, y, z); continue; } } catch (_) { continue; }
+          if (t === T.DOORTOP) continue;
+          want.set(k, t);
+        }
+      }
       for (const [k, o] of [...entObjs]) {
         if (!o || !(o.y < 0)) continue;
-        if (!next.has(k) || next.get(k) !== o.type) {
+        if (!want.has(k) || want.get(k) !== o.type) {
           try { scene.remove(o.g); if (typeof disposeObj === 'function') disposeObj(o.g); } catch (_) {}
           entObjs.delete(k); U.n++;
         }
       }
-      for (const [k, t] of next) {
+      for (const [k, t] of want) {
         if (entObjs.has(k) && entObjs.get(k).type === t) continue;
         const [x, y, z] = k.split(',').map(Number);
         try {
-          let o;
-          if (t === T.TV) o = buildTV(x, y, z);
-          else if (t === T.FURNACE && typeof buildFurnace === 'function') o = buildFurnace(x, y, z);
-          else if (t === T.BED && typeof buildBed === 'function') o = buildBed(x, y, z);
-          else o = buildEnt(t, x, y, z);
+          const o = makeEnt(t, x, y, z);
           if (o) { entObjs.set(k, o); U.deep++; U.n++; }
-        } catch (e) { ERR('build', e); }
+        } catch (err) { ERR('build', err); }
       }
-      deepWant.clear(); for (const [k, t] of next) deepWant.set(k, t);
       U.on = 1;
-    } catch (e) { ERR('scan', e); }
+    } catch (e) { ERR('sync', e); }
   }
-  // After surface syncEntities, re-apply deep ents so surface rebuilds cannot wipe them without rescan
   try {
     const se = syncEntities;
     syncEntities = function (lists) {
       const r = se.apply(this, arguments);
-      try { scan(); } catch (e) { ERR('se', e); }
+      try { if (P && P.y < 12) syncNear(); } catch (e) { ERR('se', e); }
       return r;
     };
   } catch (e) { ERR('wrap', e); }
-  // Placement / break below Y0: refresh soon
   try {
     const s0 = setB;
     setB = function (x, y, z, v) {
+      const y0 = Math.floor(y), x0 = Math.floor(x), z0 = Math.floor(z);
+      let prev = 0; try { if (y0 < 0) prev = getB(x0, y0, z0); } catch (_) {}
       const r = s0.apply(this, arguments);
       try {
-        if (y < 0 && (isEnt(v) || isEnt(getB(x, y, z)) || !v)) {
-          clearTimeout(U.t); U.t = setTimeout(scan, 40);
+        if (y0 < 0) {
+          if (isEnt(prev)) idxDel(x0, y0, z0);
+          if (isEnt(v)) idxSet(x0, y0, z0, v);
+          else if (!v && isEnt(prev)) {
+            // door pair cleanup: if lower door removed, drop top from index
+            if (prev === T.DOOR) idxDel(x0, y0 + 1, z0);
+            if (prev === T.DOORTOP) idxDel(x0, y0 - 1, z0);
+          }
+          clearTimeout(U.t); U.t = setTimeout(syncNear, 30);
         }
       } catch (_) {}
       return r;
     };
   } catch (e) { ERR('setB', e); }
-  setInterval(() => { try { if (typeof started !== 'undefined' && started && !DIM.cur && P.y < 8) scan(); } catch (e) { ERR('tick', e); } }, 700);
+  try {
+    const ew = enterWorld;
+    enterWorld = function (save) {
+      const r = ew.apply(this, arguments);
+      try { setTimeout(rebuildIndex, 0); setTimeout(syncNear, 50); } catch (_) {}
+      return r;
+    };
+  } catch (e) { ERR('ew', e); }
+  setInterval(() => { try { if (typeof started !== 'undefined' && started && !DIM.cur && P.y < 12) syncNear(); } catch (e) { ERR('tick', e); } }, 900);
+  setTimeout(rebuildIndex, 800);
 })();
 
-/* GLX-C399 (v1.1.96): MINING SWING STABLE. The per-frame rewrite of swingT from mine phase fought the
-   swing animation and froze during remesh stalls. After each interaction tick we drive one swing pulse
-   per break-beat with clamped catch-up, and leave crack / break speed alone. */
+/* GLX-C399 (v1.1.96): MINING SWING. Beat-owned swingT is set in build87 at the interaction source
+   (mine._swB). No competing per-frame override module. */
 (function c399() {
-  const U = window.__c399 = {err: null, beats: 0, on: 0};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  let lastKey = null, nextBeatAt = 0;
-  try {
-    const ui = updateInteraction;
-    updateInteraction = function (dt) {
-      const r = ui.apply(this, arguments);
-      try {
-        const attacking = !!(attackMouse || attackPad || attackTouch);
-        if (!attacking || !mine || !mine.key) { lastKey = null; U.on = 1; return r; }
-        const parts = mine.key.split(',').map(Number);
-        const b = getB(parts[0], parts[1], parts[2]);
-        if (!b || HARD[b] == null) return r;
-        let speed = 1; try { speed = mcMineRate(b); } catch (_) {}
-        if (MODE && MODE.instantBreak) speed = 999;
-        const tot = HARD[b] / Math.max(1e-6, speed);
-        const n = Math.max(1, Math.round(tot / 0.3));
-        const per = Math.max(0.05, tot / n);
-        if (mine.key !== lastKey) { lastKey = mine.key; nextBeatAt = mine.t; }
-        // When mine.t crosses the next beat boundary, fire one visible swing pulse
-        while (mine.t >= nextBeatAt) {
-          nextBeatAt += per;
-          try {
-            swingD = per;
-            swingT = per;
-            if (typeof swingTick !== 'undefined') swingTick = per;
-            U.beats++;
-          } catch (_) {}
-          // Only one pulse per frame to avoid catch-up spam after a stall
-          break;
-        }
-        // If a huge dt stall happened, still show a swing rather than a frozen arm
-        try {
-          if (swingT <= 0 && attacking) { swingD = per; swingT = Math.min(per, 0.2); }
-        } catch (_) {}
-        U.on = 1;
-      } catch (e) { ERR('fix', e); }
-      return r;
-    };
-  } catch (e) { ERR('wrap', e); }
+  window.__c399 = {err: null, on: 1, src: 'build87'};
 })();
 
-/* GLX-C400 (v1.1.96): GUN POSE SINGLE OWNER. C340 and C350 both wrote hand.position/quaternion/scale and
-   __s0, and C43 animated the live rig under the viewmodel, so firing could shrink or hide the musket for
-   about two seconds. When the viewmodel (__vm) is on, it alone owns pose and scale; C340 skips pose and
-   only keeps shot FX / shot count. __s0 is locked once. Hand scale is restored if it drifts. ADS and hip
-   proportions stay with the viewmodel. */
+/* GLX-C400 (v1.1.96): GUN POSE OWNER. Viewmodel owns FP pose when present (C340 poseOff). Scale uses
+   immutable userData.__s0Base in fp_viewmodel / guns_held_properly — never hand.scale.set(1) after
+   decompose. Soft clamp on C43 rig recoil only. */
 (function c400() {
-  const U = window.__c400 = {err: null, lock: 0, fix: 0, on: 0};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  const gun = () => { try { const g = held && held.children[0]; return g && g.userData && g.userData.gun && GUN[selId] && cnt(selId) > 0 ? g : null; } catch (_) { return null; } };
-  // Disable C340 pose writes when VM is active: wrap its updateHand chain by running after and
-  // re-asserting VM ownership flags, and by zeroing C340's hand writes via a no-op when __vm.on.
-  try {
-    const uh = updateHand;
-    updateHand = function (dt) {
-      const r = uh.apply(this, arguments);
-      try {
-        const g = gun(); if (!g) return r;
-        const u = g.userData;
-        // Lock base scale once from a sane hand.scale
-        if (u && !u.__s0Lock) {
-          const s = Math.abs(hand.scale.x);
-          if (s > 0.2 && s < 8) { u.__s0 = u.__s0 && Math.abs(u.__s0 - s) < 0.5 ? u.__s0 : s; u.__s0Lock = 1; U.lock++; }
-        }
-        if (u && u.__s0Lock && u.__s0) {
-          const hs = hand.scale.x;
-          if (!(hs > 0.15) || Math.abs(hs) < u.__s0 * 0.25 || Math.abs(hs) > u.__s0 * 4) {
-            hand.scale.set(1, 1, 1); U.fix++;
-          }
-        }
-        // Keep gun visible after recoil / reload dip
-        if (g && window.__vm && __vm.on) {
-          try { if (g.visible === false && u.c322) g.visible = true; } catch (_) {}
-          try { if (u.rig) { u.rig.scale.set(1, 1, 1); if (u.rig.scale.x < 0.5) u.rig.scale.setScalar(1); } } catch (_) {}
-        }
-        U.on = 1;
-      } catch (e) { ERR('uh', e); }
-      return r;
-    };
-  } catch (e) { ERR('wrap', e); }
-  // Stop C340 from fighting VM: if both exist, make C340's pose step a no-op by clearing its HIP apply
-  // through a flag C340 checks... it does not. Instead, after C340 runs (earlier in ORDER), VM runs.
-  // Ensure this module is AFTER both in ORDER so our restore wins.
-  // Also soft-disable C340 hand writes by wrapping when __vm is present:
+  const U = window.__c400 = {err: null, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
   try {
     const t = setInterval(() => {
       try {
         if (!window.__c340 || !window.__vm) return;
-        // Mark so diagnostics know single-owner mode
-        __c340.poseOff = 1; __vm.owner = 1; U.mode = 'vm'; clearInterval(t);
+        __c340.poseOff = 1; __vm.owner = 1; U.mode = 'vm'; U.on = 1; clearInterval(t);
       } catch (_) {}
-    }, 300);
-  } catch (_) {}
-  // Stabilize C43 recoil: if it drives rig to extreme, clamp
+    }, 200);
+  } catch (e) { ERR('boot', e); }
   try {
     const up = updatePlayer;
     updatePlayer = function (dt) {
       const r = up.apply(this, arguments);
       try {
-        const g = gun();
-        if (g && g.userData && g.userData.rig && window.__vm && __vm.on) {
-          const rig = g.userData.rig;
-          if (rig.position.z > 0.25) rig.position.z = 0.25;
-          if (rig.position.y < -0.35) rig.position.y = -0.35;
-          if (Math.abs(rig.rotation.x) > 1.2) rig.rotation.x = Math.sign(rig.rotation.x) * 1.2;
-          if (g.scale && g.scale.x < 0.5) g.scale.set(1, 1, 1);
-        }
-      } catch (e) { ERR('up', e); }
+        if (!(window.__vm && __vm.on)) return r;
+        const g = held && held.children[0];
+        if (!g || !g.userData || !g.userData.gun || !g.userData.rig) return r;
+        const rig = g.userData.rig;
+        if (rig.position.z > 0.25) rig.position.z = 0.25;
+        if (rig.position.y < -0.35) rig.position.y = -0.35;
+        if (Math.abs(rig.rotation.x) > 1.2) rig.rotation.x = Math.sign(rig.rotation.x) * 1.2;
+      } catch (e) { ERR('rig', e); }
       return r;
     };
-  } catch (e) { ERR('up0', e); }
+  } catch (e) { ERR('up', e); }
 })();
 
-/* GLX-C401 (v1.1.96): FIREGUN HOT PATH. fireGun stepped solid() every 0.1 along the whole range. A DDA
-   finds the first hit once; while the shot runs, solid() short-circuits for samples before that hit so
-   later wrappers keep their FX and the hit matches the old result. */
+/* GLX-C401 (v1.1.96): FIREGUN HOT PATH. Block hit DDA lives in build87 fireGun and C340 streak — scoped
+   ray walks, no global solid() shortcut during the shot. */
 (function c401() {
-  const U = window.__c401 = {err: null, calls: 0, saved: 0, on: 0};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  function hitRange(o, d, maxT) {
-    let tMax = maxT;
-    const ox = o.x, oy = o.y, oz = o.z, dx = d[0], dy = d[1], dz = d[2];
-    let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
-    const stepX = dx > 0 ? 1 : dx < 0 ? -1 : 0, stepY = dy > 0 ? 1 : dy < 0 ? -1 : 0, stepZ = dz > 0 ? 1 : dz < 0 ? -1 : 0;
-    const tDeltaX = stepX ? Math.abs(1 / dx) : 1e9, tDeltaY = stepY ? Math.abs(1 / dy) : 1e9, tDeltaZ = stepZ ? Math.abs(1 / dz) : 1e9;
-    let tMaxX = stepX ? ((stepX > 0 ? (x + 1 - ox) : (ox - x)) * tDeltaX) : 1e9;
-    let tMaxY = stepY ? ((stepY > 0 ? (y + 1 - oy) : (oy - y)) * tDeltaY) : 1e9;
-    let tMaxZ = stepZ ? ((stepZ > 0 ? (z + 1 - oz) : (oz - z)) * tDeltaZ) : 1e9;
-    let t = 0; const lim = Math.ceil(maxT) + 4, so = solid;
-    for (let i = 0; i < lim; i++) {
-      if (t > 0.05 && so(x, y, z)) { tMax = Math.min(tMax, t); break; }
-      if (tMaxX < tMaxY) { if (tMaxX < tMaxZ) { t = tMaxX; tMaxX += tDeltaX; x += stepX; } else { t = tMaxZ; tMaxZ += tDeltaZ; z += stepZ; } }
-      else { if (tMaxY < tMaxZ) { t = tMaxY; tMaxY += tDeltaY; y += stepY; } else { t = tMaxZ; tMaxZ += tDeltaZ; z += stepZ; } }
-      if (t >= maxT) break;
-    }
-    return tMax;
-  }
-  try {
-    const fg = fireGun;
-    fireGun = function (id) {
-      U.calls++;
-      try {
-        const G = GUN[id]; if (!G) return fg.apply(this, arguments);
-        const d = lookDir(), o = new THREE.Vector3(P.x, P.y + EYE, P.z);
-        const bt = hitRange(o, d, G.range || 60);
-        const so = solid;
-        solid = function (x, y, z) {
-          try {
-            const t = (x + 0.5 - o.x) * d[0] + (y + 0.5 - o.y) * d[1] + (z + 0.5 - o.z) * d[2];
-            if (t < bt - 0.35) { U.saved++; return false; }
-          } catch (_) {}
-          return so.apply(this, arguments);
-        };
-        try { return fg.apply(this, arguments); }
-        finally { solid = so; U.on = 1; }
-      } catch (e) { ERR('fg', e); return fg.apply(this, arguments); }
-    };
-  } catch (e) { ERR('wrap', e); }
+  window.__c401 = {err: null, on: 1, src: 'build87+c340'};
 })();
 
 /* GLX-C402 (v1.1.96): HOTBAR ITEM NAME LABEL (t830u). The selected hotbar slot always shows its item name
