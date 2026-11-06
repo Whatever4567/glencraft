@@ -33,6 +33,7 @@ for(const [file,begin,end,from]of slots){
  if(at<0||result.indexOf(old,at+1)>=0)throw Error('Exactly one counterpart required: '+file);
  result=result.slice(0,at)+replacement+result.slice(at+old.length);
 }
+result=result.replace("const GAME_VERSION = '1.2.1';","const GAME_VERSION = '1.2.2';");
 const digest=sha(result);
 if(preview){console.log(JSON.stringify({base:sha(before),oldOwner:sha(previous),newOwner:sha(next),output:digest,bytes:Buffer.byteLength(result)}));process.exit(0);}
 if(process.env.CAVE_EXPECT_SHA!==digest)throw Error('Expected output hash required; nothing written: '+digest);
