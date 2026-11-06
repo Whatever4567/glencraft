@@ -1,10 +1,10 @@
-/* GLX-DEEP (v1.1.98c): ONE DEEP WORLD under the UK down to a natural bedrock floor at world Y -237.
+/* GLX-DEEP (v1.1.98d): ONE DEEP WORLD under the UK down to a natural bedrock floor at world Y -237.
    Layers: shallow gray (stalactites), lush giant mushrooms, deep dark, volcanic basalt/lava pillars, purple crystals,
    then an EXTRA-TALL hell chamber with a roomy carved landmark for the giant eye. Agartha stamp Y -50..-2 untouched.
    Natural bedrock only. Columns that already have player edits below the floor are grandfathered so those builds stay
    reachable (air shaft / no sealing bedrock); edits still win via getB. No world wipe. */
 (function deepWorld() {
-  const U = window.__dw = {err: null, on: 0, n: 0, floorY: -237, ver: '1.1.98c'};
+  const U = window.__dw = {err: null, on: 0, n: 0, floorY: -237, ver: '1.1.98d'};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   const S = Math.sin, F = Math.floor;
   const h3 = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 2147483647); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
@@ -19,21 +19,62 @@
   const TOP = 40;
   // Hell layer ~70 tall for the giant eye clearance; others ~32-36
   const PV_OF = i => (i === 5 ? 70 : 34);
-  // Grandfather columns: xz keys that have any saved edit below the floor
+  // Grandfather columns from saved edits below the natural floor (includes air/removal edits).
+  // Per-column min edit Y + clearance; seal only below that. No fixed absolute seal. No per-frame full scan.
+  const CLEAR = 12; // air/open clearance below deepest edit in a column
+  const DROP_MARGIN = 48; // drops may fall a bit below the open shaft
   const legacy = U.legacy = new Set();
+  const colMin = U.colMin = new Map(); // colKey -> min Y of any edit (incl. air)
   const colKey = (x, z) => (x | 0) + ',' + (z | 0);
+  function refreshBounds() {
+    let mn = FLOOR;
+    for (const y of colMin.values()) if (y < mn) mn = y;
+    U.minLegacyY = colMin.size ? mn : null;
+    // Natural floor stays -237; open legacy shafts seal at minY-CLEAR; drops cull below that - margin
+    U.sealFloorY = colMin.size ? (mn - CLEAR) : FLOOR;
+    U.dropFloorY = (colMin.size ? (mn - CLEAR - DROP_MARGIN) : FLOOR) - 8;
+    try { window.__c334.dropFloorY = U.dropFloorY; window.__c334.sealFloorY = U.sealFloorY; window.__c334.minLegacyY = U.minLegacyY; } catch (_) {}
+  }
+  function noteLegacy(x, y, z) {
+    if (!(y < FLOOR)) return;
+    const ck = colKey(x, z);
+    legacy.add(ck);
+    const prev = colMin.has(ck) ? colMin.get(ck) : Infinity;
+    if (y < prev) colMin.set(ck, y);
+    refreshBounds();
+  }
   function rebuildLegacy() {
     try {
-      legacy.clear();
-      const e = window.__c320; if (!e || !e.edits) return;
-      for (const k of e.edits.keys()) {
-        const p = k.split(','); const y = +p[1]; if (y < FLOOR) legacy.add(p[0] + ',' + p[2]);
+      legacy.clear(); colMin.clear();
+      const e = window.__c320; if (!e || !e.edits) { refreshBounds(); return; }
+      for (const [k, v] of e.edits) { // v may be 0 (air/removal) — still preserves access
+        const p = k.split(','); const y = +p[1];
+        if (y < FLOOR) { const ck = p[0] + ',' + p[2]; legacy.add(ck); const prev = colMin.has(ck) ? colMin.get(ck) : Infinity; if (y < prev) colMin.set(ck, y); }
       }
-      U.legacyN = legacy.size;
+      U.legacyN = legacy.size; refreshBounds();
     } catch (e) { ERR('legacy', e); }
   }
-  U.rebuildLegacy = rebuildLegacy;
-  setInterval(() => { try { const e = window.__c320; if (!e) return; if (e._dwLeg !== e.edits.size) { e._dwLeg = e.edits.size; rebuildLegacy(); } } catch (_) {} }, 1500);
+  U.rebuildLegacy = rebuildLegacy; U.noteLegacy = noteLegacy;
+  // Incremental update on place/break — avoid rescanning all edits every setB
+  try {
+    const s0 = setB;
+    setB = function (x, y, z, v) {
+      const r = s0.apply(this, arguments);
+      try { const yi = Math.floor(y); if (yi < FLOOR) noteLegacy(Math.floor(x), yi, Math.floor(z)); } catch (_) {}
+      return r;
+    };
+  } catch (_) {}
+  setInterval(() => { try { const e = window.__c320; if (!e) return; if (e._dwLeg !== e.edits.size) { e._dwLeg = e.edits.size; rebuildLegacy(); } } catch (_) {} }, 2000);
+  function legacyOpen(x, y, z) {
+    const ck = colKey(x, z); if (!legacy.has(ck)) return false;
+    const minY = colMin.get(ck); if (minY == null) return false;
+    return y >= minY - CLEAR; // open from clearance below deepest edit up through the floor
+  }
+  function legacySealAt(x, z) {
+    const ck = colKey(x, z); if (!legacy.has(ck)) return FLOOR;
+    const minY = colMin.get(ck); return (minY == null ? FLOOR : minY - CLEAR);
+  }
+  U.legacyOpen = legacyOpen; U.legacySealAt = legacySealAt;
 
   let M = null; const mats = () => M || (M = {
     rock: [[T.STONE, T.WSTONE || T.STONE], [T.STONE, T.MOSSYCOBBLE || T.STONE], [T.DEEPSLATE || T.STONE, T.DSCOBBLE || T.DEEPSLATE || T.STONE],
@@ -122,19 +163,16 @@
   function gen(x, y, z, d) {
     try {
       U.n++;
-      // Absolute bottom under grandfathered shafts still seals eventually
-      if (y <= FLOOR - 64) return T.BEDROCK || T.HBEDROCK || 211;
+      // Natural bedrock at/below world floor, except grandfathered legacy shafts (dynamic seal under deepest edit).
       if (y <= FLOOR) {
-        // Grandfather: columns with deeper player edits stay open (air) so builds stay reachable.
-        // Exact edited cells are resolved by getB edits overlay; we must not seal with bedrock around them.
-        if (legacy.has(colKey(x, z))) return 0;
+        if (legacyOpen(x, y, z)) return 0; // air — edits overlay exact cells via getB; never zero saved blocks
         return T.BEDROCK || T.HBEDROCK || 211;
       }
       if (d < TOP) return rock(0, x, y, z, false);
       const sea = (typeof SEA === 'number' ? SEA : 41);
       const maxD = sea - FLOOR - 1;
       if (d > maxD) {
-        if (legacy.has(colKey(x, z))) return 0;
+        if (legacyOpen(x, y, z)) return 0;
         return T.BEDROCK || T.HBEDROCK || 211;
       }
       return level(x, y, z, d);
@@ -148,8 +186,7 @@
     const f = function (x, y, z) {
       if (y <= FLOOR) {
         if (window.__ukb && __ukb.out(x, z)) return 0;
-        if (y <= FLOOR - 64) return T.BEDROCK || T.HBEDROCK || 211;
-        if (legacy.has(colKey(x, z))) return 0;
+        if (legacyOpen(x, y, z)) return 0;
         return T.BEDROCK || T.HBEDROCK || 211;
       }
       const a = y - SEA;

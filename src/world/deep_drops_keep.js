@@ -1,5 +1,3 @@
-/* GLX-C397 (v1.1.96): DEEP DROPS. Cull floor fixed at source in build87 (y < SEA-1100). No updateDrops
-   rewrap — earlier drop wrappers stay in the chain. */
-(function c397() {
-  window.__c397 = {err: null, on: 1, src: 'build87'};
-})();
+/* GLX-C397 (v1.1.98d): DEEP DROPS. Cull floor is dynamic via __dw.dropFloorY (legacy min depth),
+   falling back to SEA-1600 in build87. No updateDrops rewrap. */
+(function c397() { window.__c397 = {ok: 1, dynamic: 1}; })();

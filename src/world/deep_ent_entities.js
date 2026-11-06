@@ -56,7 +56,7 @@
         const m = byChunk.get(cx + ',' + cz); if (!m) continue;
         for (const [k, t] of m) {
           const [x, y, z] = k.split(',').map(Number);
-          if (Math.abs(y - P.y) > 64) continue;
+          if (Math.abs(y - P.y) > ((window.__dw && __dw.minLegacyY != null && P.y < -200) ? 96 : 64)) continue;
           // edits + getB must agree (broken/removed)
           try { if (getB(x, y, z) !== t) { idxDel(x, y, z); continue; } } catch (_) { continue; }
           if (t === T.DOORTOP) continue;
