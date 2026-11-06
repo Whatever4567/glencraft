@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
-<!-- glencraft-build: b1202-v1.2.2 -->
+<!-- glencraft-build: b1203-v1.2.3 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13338,7 +13338,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.2';
+const GAME_VERSION = '1.2.3';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -13354,7 +13354,7 @@ const T = {AIR:0, GRASS:1, DIRT:2, STONE:3, HEATHER:4, WATER:5, SAND:6, PEAT:7, 
   DANDELION:60, DAFFODIL:61, BLUEBELL:62, GLASS:63, CHEST:64, DOOR:65, DOORTOP:66, TORCH:67, GOLDORE:68,
   WOOLPURPLE:70, WOOLBLUE:71, WOOLYELLOW:72, WOOLORANGE:73, IRONBLOCK:74, GOLDBLOCK:75, COPPERBLOCK:76, SANDSTONE:77,
   BRICK:78, MUD:79, COBWEB:90, REDORE:91, TV:120, DIAMONDORE:69, DEEPSLATE:133, BLOSSOM:134};
-var LEAFY = new Uint8Array(256), LOGGY = new Uint8Array(256); LEAFY[T.LEAVES] = 1; LOGGY[T.LOG] = 1;   // v0.9.65 Scottish trees (c80) register here so every leaf/log check knows them from the start
+var LEAFY = new Uint8Array(1024), LOGGY = new Uint8Array(1024); LEAFY[T.LEAVES] = 1; LOGGY[T.LOG] = 1;   // v0.9.65 Scottish trees (c80) register here so every leaf/log check knows them from the start
 [135, 136, 137, 138, 139, 143].forEach(i => LOGGY[i] = 1); [146, 147, 148, 149, 215, 240, 250, 252, 253].forEach(i => LEAFY[i] = 1);   /* GLX-C84: 138/149 rotting alder; 141 planks, 142 podzol, 144 moss, 238 fern, 239 reeds */
 const IT = {STICK:11, MUTTON:30, HAGGIS:31, WOOL:32, WSEEDS:33, WHEAT:34, BREAD:35, POTATO:36, NEEP:37, TATTIES:38, BUCKET:39, WATERB:48,
   WPICK:40, SPICK:41, WSWORD:42, SSWORD:43, WAXE:44, SAXE:45, WHOE:46, SHOE:47, COAL:53, RAWIRON:54, RAWCOPPER:55,
@@ -13443,11 +13443,11 @@ const SMELT = {[T.SAND]: T.GLASS, [IT.RAWIRON]: IT.IRONINGOT, [IT.RAWCOPPER]: IT
 const FUEL = {[IT.COAL]: 80, [IT.CHARCOAL]: 80, [T.PEAT]: 40, [T.LOG]: 15, [T.PLANKS]: 15, [IT.STICK]: 5};
 const CAULDRON_COOK = {[IT.POTATO]: IT.TATTIES, [IT.NEEP]: IT.NEEPS};
 // plants: walk-through, rendered as crossed sprites
-const PLANT = new Uint8Array(256);
+const PLANT = new Uint8Array(1024);
 [15, 16, 20, 21, 22, 23, 24, 25, 26, 27, 56, 57, 58, 59, 60, 61, 62, 90, 238, 239].forEach(b => { PLANT[b] = 1; });
 const FLOWERS = new Set([T.THISTLE, T.DANDELION, T.DAFFODIL, T.BLUEBELL]);
 // blocks drawn as their own animated models instead of cubes
-const ENT = new Uint8Array(256);
+const ENT = new Uint8Array(1024);
 [T.CAULDRON, T.CHEST, T.DOOR, T.DOORTOP, T.TORCH, T.TV].forEach(b => { ENT[b] = 1; });
 const isPlant = b => PLANT[b] === 1;
 const isCrop = b => (b >= 20 && b <= 27) || (b >= 56 && b <= 59);
@@ -13526,8 +13526,8 @@ const CAT_OF = r => {
 const CATS = [['struct', 'Structures'], ['blocks', 'Blocks'], ['tools', 'Tools'], ['armour', 'Armour'], ['food', 'Food & brews'], ['decor', 'Decoration']];
 
 /* ---------- state ---------- */
-let world = new Uint8Array(W * H * D);
-function setWorldSize(n) { if (n === W && world.length === W * H * D) return; W = n; D = n; world = new Uint8Array(W * H * D); }
+let world = new Uint16Array(W * H * D);
+function setWorldSize(n) { if (n === W && world.length === W * H * D) return; W = n; D = n; world = new Uint16Array(W * H * D); }
 const inv = {};
 const cnt = id => inv[id] || 0;
 inv[T.DIRT] = 8;
@@ -18300,16 +18300,25 @@ function deleteWorld(id) {
   return true;
 }
 function rleEncode(a) {
-  const out = []; let i = 0;
-  while (i < a.length) { const v = a[i]; let n = 1; while (i + n < a.length && a[i + n] === v && n < 255) n++; out.push(v, n); i += n; }
-  const u = new Uint8Array(out); let s = '';
-  for (let j = 0; j < u.length; j += 0x8000) s += String.fromCharCode.apply(null, u.subarray(j, j + 0x8000));
-  return btoa(s);
+  // Preserve exact old encoding for byte-only saves. Extended blocks use tagged triples.
+  const wide = a.some(v => v > 255), out = []; let i = 0;
+  while (i < a.length) { const v = a[i]; let n = 1;
+    while (i + n < a.length && a[i + n] === v && n < 255) n++;
+    if(wide) out.push(v & 255, v >>> 8, n); else out.push(v,n); i += n;
+  }
+  const u=new Uint8Array(out);let s='';
+  for(let j=0;j<u.length;j+=0x8000)s+=String.fromCharCode.apply(null,u.subarray(j,j+0x8000));
+  return (wide?'u16:':'')+btoa(s);
 }
-function rleDecode(b64, target) {
-  const s = atob(b64); let o = 0;
-  for (let j = 0; j < s.length; j += 2) { const v = s.charCodeAt(j), n = s.charCodeAt(j + 1); target.fill(v, o, o + n); o += n; }
+function rleDecode(b64,target) {
+  const wide=b64.startsWith('u16:'),s=atob(wide?b64.slice(4):b64);let o=0;
+  if(wide && target.BYTES_PER_ELEMENT<2)throw Error('Extended block save requires Uint16 block storage');
+  const step=wide?3:2;if(s.length%step)throw Error('Invalid block RLE length');
+  for(let j=0;j<s.length;j+=step){const v=s.charCodeAt(j)+(wide?s.charCodeAt(j+1)*256:0),n=s.charCodeAt(j+step-1);
+    if(!n||o+n>target.length)throw Error('Invalid block RLE run');target.fill(v,o,o+n);o+=n;
+  }
 }
+
 let current = null; // {id, name, mode, created}
 function serialize() {
   return {v: 3, build: 'b7', H, DEEP, id: current.id, name: current.name, mode: current.mode, created: current.created, updated: Date.now(),
@@ -18360,7 +18369,7 @@ function applySave(d) {
   setWorldSize(d.W || 40); dirtyAll = true;
   const oldH = d.H || 56, shift = oldH < 66 ? 66 - oldH : 0;   // only pre-b7 saves are lifted; 66-high saves just gain sky
   if (shift > 0) upgradeDepth(d, shift);
-  try { if (shift > 0 || oldH !== H) { const tmp = new Uint8Array(W * oldH * D); rleDecode(d.world, tmp); padWorld(tmp, oldH, shift); } else rleDecode(d.world, world); } catch (e) { console.warn('world data damaged, regenerating terrain', e); generate(); placeTrees(); placeDecor(); }
+  try { if (shift > 0 || oldH !== H) { const tmp = new Uint16Array(W * oldH * D); rleDecode(d.world, tmp); padWorld(tmp, oldH, shift); } else rleDecode(d.world, world); } catch (e) { console.warn('world data damaged, regenerating terrain', e); generate(); placeTrees(); placeDecor(); }
   if (typeof d.hp !== 'number' || !(d.hp > 0)) d.hp = 20;
   for (const k in inv) delete inv[k];
   Object.assign(inv, d.inv || {});
@@ -19483,7 +19492,7 @@ function buildChunk(cx, cz) {
   const id = cx * 64 + cz, old = chunkObjs.get(id);
   if (old) { blockGroup.remove(old); old.children.forEach(c => { if (c.isInstancedMesh) c.dispose(); else if (c.geometry) c.geometry.dispose(); }); }
   if (!chunkST) {
-    chunkST = new Uint8Array(256);
+    chunkST = new Uint8Array(1024);
     for (let i = 0; i < 256; i++) if (PLANT[i] === 1 || ENT[i] === 1) chunkST[i] = 1;
     chunkST[T.AIR] = 1; chunkST[T.BED] = 1; chunkST[T.COBWEB] = 1; chunkST[T.WATER] = 2; chunkST[T.LAVA] = 2; chunkST[T.GLASS] = 2; chunkST[T.LEAVES] = 3; chunkST[134] = 3; for (let i = 0; i < 256; i++) if (LEAFY[i]) chunkST[i] = 3;
     chunkFQ = [[[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]],
@@ -20737,7 +20746,7 @@ var BUILT_T = null, migrNote = null, g9noMig = false, migrBackupKey = null;
 (function () { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); if (g9noMig) d.noMigrate = true; return d; }; })();
 function g9BuiltSet() {
   if (BUILT_T) return BUILT_T;
-  BUILT_T = new Uint8Array(256);
+  BUILT_T = new Uint8Array(1024);
   [T.PLANKS, T.COBBLE, T.TABLE, T.FURNACE, T.FARM, T.CAULDRON, T.BED, T.STONEBRICK, T.WOOL, T.GLASS, T.CHEST, T.DOOR, T.DOORTOP, T.TORCH,
    T.WOOLPURPLE, T.WOOLBLUE, T.WOOLYELLOW, T.WOOLORANGE, T.IRONBLOCK, T.GOLDBLOCK, T.COPPERBLOCK, T.BRICK, T.TV, T.SANDSTONE].forEach(t => BUILT_T[t] = 1);
   for (let t = T.WHEAT0; t <= T.WHEAT3; t++) BUILT_T[t] = 1;
@@ -21645,7 +21654,7 @@ setInterval(() => {
   if (sx || sz) c1Shift(sx, sz);
 }, 300);
 function c1Generate(origin) {
-  H = C1H; if (W !== C1W || world.length !== C1W * H * C1W) { W = D = C1W; world = new Uint8Array(W * H * D); }
+  H = C1H; if (W !== C1W || world.length !== C1W * H * C1W) { W = D = C1W; world = new Uint16Array(W * H * D); }
   genVer = GEN11; cityEdits = new Map(); NEW_W = C1W; c1Park = new Map();
   entMeta.clear();
   if (origin) c1O = origin.slice();
@@ -21686,7 +21695,7 @@ function c1EditsFrom(s) { const e = b64ToU32(s || ''); c1Edits = new Map(); for 
   const ew = enterWorld;
   enterWorld = function (save) {
     const want = (!save && current.mode === 'creative') || (save && (save.gen === GEN11 || save.gen === 12));
-    if (!want) { const wantH = g9Island ? ISL_H : 80 + DEEP; if (H !== wantH) { H = wantH; world = new Uint8Array(W * H * D); } c1Want = false; return ew.apply(this, arguments); }
+    if (!want) { const wantH = g9Island ? ISL_H : 80 + DEEP; if (H !== wantH) { H = wantH; world = new Uint16Array(W * H * D); } c1Want = false; return ew.apply(this, arguments); }
     c1Want = true;
     const go = () => {
       if (!save) { c1Edits = new Map(); c1Generate(null); }
@@ -21862,7 +21871,7 @@ async function resetTerrain() {
 
 /* ===================== GLX-D1 (v0.9.5): stairs, MC doors (edge, hinge, double doors, thin collision), copper door, tartan bed ===================== */
 var STAIRS = {164: [T.PLANKS, 'Oak stairs'], 165: [T.COBBLE, 'Cobblestone stairs'], 166: [T.STONE, 'Stone stairs'], 167: [T.STONEBRICK, 'Stone brick stairs'], 168: [T.SANDSTONE, 'Sandstone stairs'], 169: [T.BRICK, 'Brick stairs']};
-var IS_STAIR = new Uint8Array(256);
+var IS_STAIR = new Uint8Array(1024);
 IT.COPPERDOOR = 170;
 (function stairBlocks() {
   for (const k in STAIRS) {
@@ -22759,7 +22768,7 @@ setInterval(() => { try { ensureSeaRing(); } catch (_) {} }, 1000);
   const bc = buildCastle;
   buildCastle = function (kind, cx, cz) {
     const R = CR[kind] || 24, x0 = Math.max(0, cx - R), x1 = Math.min(W - 1, cx + R), z0 = Math.max(0, cz - R), z1 = Math.min(D - 1, cz + R);
-    const sw = x1 - x0 + 1, sd = z1 - z0 + 1, snap = new Uint8Array(sw * sd * H);
+    const sw = x1 - x0 + 1, sd = z1 - z0 + 1, snap = new Uint16Array(sw * sd * H);
     for (let x = x0; x <= x1; x++) for (let y = 0; y < H; y++) { const b = (x * H + y) * D; for (let z = z0; z <= z1; z++) snap[((x - x0) * H + y) * sd + (z - z0)] = world[b + z]; }
     // level the site first: the castle's ground is the median of the land under it (not the single centre column)
     const hs = []; for (let x = cx - R + 6; x <= cx + R - 6; x += 3) for (let z = cz - R + 6; z <= cz + R - 6; z += 3) if (x >= 0 && z >= 0 && x < W && z < D) hs.push(g9top(x, z));
@@ -24695,7 +24704,7 @@ function c2Doors(x0, x1, z0, z1) {
     const dir = (bf >> 4) & 3; entMeta.set(keyOf(x, g, z), {face: dir === 2 ? 0 : dir === 3 ? 2 : dir === 0 ? 1 : 3, gen: 1}); }
 }
 function c2Generate(origin) {
-  H = C2H; if (W !== C1W || world.length !== C1W * H * C1W) { W = D = C1W; world = new Uint8Array(W * H * D); }
+  H = C2H; if (W !== C1W || world.length !== C1W * H * C1W) { W = D = C1W; world = new Uint16Array(W * H * D); }
   genVer = GEN12; cityEdits = new Map(); NEW_W = C1W; c1Park = new Map();
   entMeta.clear();
   if (origin) c1O = origin.slice();
@@ -24745,7 +24754,7 @@ function c2Generate(origin) {
 /* ===================== GLX-C37 (v0.9.40): fresh-world reset that keeps your house, per-dimension resets, castle lanterns + loot, dark-only hostile spawns, soft shade lighting, quieter rain, phone tuning, nicer player animation ===================== */
 var c37busy = false;
 (function c37() {
-  const NAT = new Uint8Array(256);
+  const NAT = new Uint8Array(1024);
   ['AIR', 'GRASS', 'DIRT', 'STONE', 'SAND', 'GRAVEL', 'LEAVES', 'LOG', 'WATER', 'LAVA', 'DEEPSLATE', 'COALORE', 'IRONORE', 'COPPERORE', 'GOLDORE', 'REDORE', 'DIAMONDORE', 'SILVERORE', 'CAIRNGORMORE',
     'HEATHER', 'PEAT', 'MUD', 'SNOW', 'CLAY', 'TALLGRASS', 'FIRE', 'BEDROCK', 'ICE', 'COBWEB', 'BLUEBELL', 'DAFFODIL', 'DANDELION', 'OBSIDIAN'].forEach(n => { if (T[n] !== undefined) NAT[T[n]] = 1; });
   for (let b = 1; b < 256; b++) if (LEAFY[b] || LOGGY[b]) NAT[b] = 1;
@@ -24803,7 +24812,7 @@ var c37busy = false;
     return out;
   }
   function copyZone(Z) {
-    const sx = Z.x1 - Z.x0 + 1, sy = Z.yhi - Z.ylo + 1, sz = Z.z1 - Z.z0 + 1, a = new Uint8Array(sx * sy * sz).fill(255);
+    const sx = Z.x1 - Z.x0 + 1, sy = Z.yhi - Z.ylo + 1, sz = Z.z1 - Z.z0 + 1, a = new Uint16Array(sx * sy * sz).fill(255);
     for (let x = 0; x < sx; x++) for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) {
       const wy = Z.ylo + y, b = world[idx(Z.x0 + x, wy, Z.z0 + z)];
       a[(x * sy + y) * sz + z] = wy >= Z.base ? (NAT[b] ? 0 : b) : (NAT[b] ? 255 : b);
@@ -25125,9 +25134,9 @@ var placedSet = new Set();
 (function c39() {
   const HD = H * D;
   const isFluid = b => b === T.WATER || b === T.LAVA;
-  const ATT = new Uint8Array(256); [T.TORCH, T.DOOR, T.DOORTOP, T.FENCE, T.LPOST, T.LAMP, T.RAILING, 226].forEach(t => { if (t !== undefined) ATT[t] = 1; });
+  const ATT = new Uint8Array(1024); [T.TORCH, T.DOOR, T.DOORTOP, T.FENCE, T.LPOST, T.LAMP, T.RAILING, 226].forEach(t => { if (t !== undefined) ATT[t] = 1; });
   for (let b = 1; b < 256; b++) if (PLANT[b] === 1) ATT[b] = 1;
-  const GROUND = new Uint8Array(256); ['GRASS', 'DIRT', 'STONE', 'SAND', 'GRAVEL', 'DEEPSLATE', 'COALORE', 'IRONORE', 'COPPERORE', 'GOLDORE', 'REDORE', 'DIAMONDORE', 'SILVERORE', 'CAIRNGORMORE', 'PEAT', 'MUD', 'SNOW', 'CLAY', 'BEDROCK', 'ICE', 'OBSIDIAN', 'HEATHER', 'FARM'].forEach(n => { if (T[n] !== undefined) GROUND[T[n]] = 1; });
+  const GROUND = new Uint8Array(1024); ['GRASS', 'DIRT', 'STONE', 'SAND', 'GRAVEL', 'DEEPSLATE', 'COALORE', 'IRONORE', 'COPPERORE', 'GOLDORE', 'REDORE', 'DIAMONDORE', 'SILVERORE', 'CAIRNGORMORE', 'PEAT', 'MUD', 'SNOW', 'CLAY', 'BEDROCK', 'ICE', 'OBSIDIAN', 'HEATHER', 'FARM'].forEach(n => { if (T[n] !== undefined) GROUND[T[n]] = 1; });
   window.c39Settle = function (opt) {
     opt = opt || {}; const dry = !!opt.dry, reg = opt.region || null, W0 = W, H0 = H, D0 = D, hd = H0 * D0;
     const inReg = (x, z) => !reg || reg.some(r => Math.hypot(r[0] - x, r[1] - z) < r[2]);
@@ -25651,7 +25660,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     const before = lightCounts();
     try { const id = current.id, bkey = 'backup_' + id + '_keep_' + Date.now().toString(36); await idbPut('worlds', bkey, Object.assign({}, serialize(), {backupOf: id, backedUp: Date.now()})); current.resetBackup = bkey; } catch (e) { toast('Backup failed - nothing changed'); return; }
     c37busy = true;
-    const sx = x1 - x0 + 1, sy = yhi - ylo + 1, sz = z1 - z0 + 1, data = new Uint8Array(sx * sy * sz); let blocks = 0;
+    const sx = x1 - x0 + 1, sy = yhi - ylo + 1, sz = z1 - z0 + 1, data = new Uint16Array(sx * sy * sz); let blocks = 0;
     for (let x = 0; x < sx; x++) for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) { let b = world[idx(x0 + x, ylo + y, z0 + z)]; if (b === 241 || b === 242 || b === 243 || b === T.WATER || b === T.LAVA || b === T.FIRE) b = 0; data[(x * sy + y) * sz + z] = b; if (b) blocks++; }
     const inBox = k => { const [x, y, z] = k.split(',').map(Number); return x >= x0 && x <= x1 && z >= z0 && z <= z1 && y >= ylo && y <= yhi; };
     const meta = {}; for (const [n, m] of [['chests', chests], ['doorState', doorState], ['furnaces', furnaces], ['entMeta', entMeta], ['crops', crops]]) meta[n] = [...m].filter(([k]) => inBox(k)).map(([k, v]) => [k, JSON.parse(JSON.stringify(v))]);
@@ -26222,9 +26231,9 @@ var chestSel = -1;
 (function c59() {
   // same RLE format (value, count<=255 pairs, base64), but written into a typed buffer instead of a JS array
   function rleRange(a, from, to) { const buf = new Uint8Array(Math.max(16, ((to - from) >> 2) + 1024)); let b = buf, o = 0, i = from;
-    while (i < to) { const v = a[i]; let n = 1; while (i + n < to && a[i + n] === v && n < 255) n++; if (o + 2 > b.length) { const nb = new Uint8Array(b.length * 2); nb.set(b); b = nb; } b[o++] = v; b[o++] = n; i += n; }
+    while (i < to) { const v = a[i]; let n = 1; while (i + n < to && a[i + n] === v && n < 255) n++; if (o + (a.BYTES_PER_ELEMENT===2?3:2) > b.length) { const nb = new Uint8Array(b.length * 2); nb.set(b); b = nb; } b[o++] = v & 255; if(a.BYTES_PER_ELEMENT===2)b[o++] = v >>> 8; b[o++] = n; i += n; }
     return b.subarray(0, o); }
-  const toB64 = parts => { let s = ''; for (const u of parts) for (let j = 0; j < u.length; j += 0x8000) s += String.fromCharCode.apply(null, u.subarray(j, j + 0x8000)); return btoa(s); };
+  const toB64 = (parts,wide=false) => { let s = ''; for (const u of parts) for (let j = 0; j < u.length; j += 0x8000) s += String.fromCharCode.apply(null, u.subarray(j, j + 0x8000)); return (wide?'u16:':'')+btoa(s); };
   const re = rleEncode; let pre = null;
   rleEncode = function (a) { if (pre && a === world) { const s = pre; pre = null; return s; } if (!(a instanceof Uint8Array)) return re.apply(this, arguments); return toB64([rleRange(a, 0, a.length)]); };
   // autosave: encode the world in slices over several frames, then save (IndexedDB only)
@@ -26232,7 +26241,7 @@ var chestSel = -1;
   window.autosaveAsync = function () { if (busy || !started) return; busy = true; const a = world, parts = []; let i = 0;
     const step = () => { try { if (!started || a !== world) { busy = false; return; } const t0 = performance.now(); while (i < a.length && performance.now() - t0 < 6) { const e = Math.min(a.length, i + STEP / 4); parts.push(rleRange(a, i, e)); i = e; }
         if (i < a.length) return setTimeout(step, 0);
-        pre = toB64(parts); window.__autoSave = true; try { saveWorld(); } finally { window.__autoSave = false; pre = null; busy = false; } } catch (e) { busy = false; pre = null; console.warn('autosave', e); } };
+        pre = toB64(parts,a.BYTES_PER_ELEMENT===2); window.__autoSave = true; try { saveWorld(); } finally { window.__autoSave = false; pre = null; busy = false; } } catch (e) { busy = false; pre = null; console.warn('autosave', e); } };
     setTimeout(step, 0); };
 })();
 
@@ -26404,8 +26413,8 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? (y >= H ? aboveWorld() : 0) : world[(x * H + y) * D + z];
   const AOL = [0, 0.16, 0.27, 0.38];
   // ---- GLX-C70 per-block light (Minecraft-like): skylight comes down from each column's top and floods sideways/down openings, falling off per block; block light from torches/lava/lamps ----
-  const LSRC = new Uint8Array(256); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
-  const LM = 14, SFALL = 1, BFALL = 1, RS = CH + LM * 2; const LATT = window.__LATT = new Uint8Array(256); try { LATT[T.WATER] = 1; for (let i = 0; i < 256; i++) if (LEAFY[i]) LATT[i] = 1; LATT[T.LEAVES] = 1; LATT[134] = 1; } catch (_) {}
+  const LSRC = new Uint8Array(1024); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
+  const LM = 14, SFALL = 1, BFALL = 1, RS = CH + LM * 2; const LATT = window.__LATT = new Uint8Array(1024); try { LATT[T.WATER] = 1; for (let i = 0; i < 256; i++) if (LEAFY[i]) LATT[i] = 1; LATT[T.LEAVES] = 1; LATT[134] = 1; } catch (_) {}
   let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
   let LX0 = 0, LZ0 = 0;
   const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; if (y < 0 || y >= H) return true; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
@@ -27173,7 +27182,7 @@ j.buf=null; j.f=0;j.mesh++;if(performance.now()>=end)return false;
   const st = {tries: 0, ok: 0, why: {}};
   const no = w => { st.why[w] = (st.why[w] || 0) + 1; return null; };
   const natural = () => mobs.filter(a => a.natural && mobs.includes(a));
-  const SRC = new Uint8Array(256); [T.TORCH, T.LAVA, T.LAVAB, T.GLOWROCK, T.LAMP, T.QLANTERN, T.FIRE].forEach(b => { if (b !== undefined) SRC[b] = 1; });
+  const SRC = new Uint8Array(1024); [T.TORCH, T.LAVA, T.LAVAB, T.GLOWROCK, T.LAMP, T.QLANTERN, T.FIRE].forEach(b => { if (b !== undefined) SRC[b] = 1; });
   function emitterNear(x, y, z, R) { for (let dx = -R; dx <= R; dx++) { const X = x + dx; if (X < 0 || X >= W) continue; const r1 = R - Math.abs(dx);
       for (let dy = -r1; dy <= r1; dy++) { const Y = y + dy; if (Y < 0 || Y >= H) continue; const r2 = r1 - Math.abs(dy);
         for (let dz = -r2; dz <= r2; dz++) { const Z = z + dz; if (Z < 0 || Z >= D) continue; if (SRC[world[idx(X, Y, Z)]]) return true; } } } return false; }
@@ -27412,7 +27421,7 @@ var ORE18 = false, ISL_S = 1;
     return put; }
   function orePass() {
     const t0 = performance.now(); sd = (gSeed ^ 0x77a11e) >>> 0 || 9;
-    const STRIP = new Uint8Array(256); [T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, 179].forEach(b => { if (b !== undefined) STRIP[b] = 1; });
+    const STRIP = new Uint8Array(1024); [T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, 179].forEach(b => { if (b !== undefined) STRIP[b] = 1; });
     const DS = T.DEEPSLATE; let stripped = 0;
     for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) { const b0 = (x * H + y) * D, low = y <= 22;
       for (let z = 0; z < D; z++) { const i = b0 + z, b = world[i];
@@ -30473,7 +30482,7 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     return put; }
   const ORESET = () => new Set([T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, T.LAZORE, T.RUBYORE, 179].filter(v => v !== undefined));
   function orePass() { const t0 = performance.now(); sd = (gSeed ^ 0x104a0e) >>> 0 || 11;
-    const S = new Uint8Array(256); for (const b of ORESET()) S[b] = 1; let stripped = 0;
+    const S = new Uint8Array(1024); for (const b of ORESET()) S[b] = 1; let stripped = 0;
     for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) { const b0 = (x * H + y) * D; for (let z = 0; z < D; z++) { const i = b0 + z; if (S[world[i]] && !placed(i)) { world[i] = y < 21 ? T.DEEPSLATE : T.STONE; stripped++; } } }
     const cols = W * D / 1000, hist = {}, want = {};
     for (const [name, id, per, lo, hi, s0, s1, rule] of ORES()) { if (id === undefined) continue; const n = Math.round(per * cols); let pl = 0, miss = 0;
@@ -33621,7 +33630,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     let el = document.getElementById('c120tex'); if (!el) { el = document.createElement('style'); el.id = 'c120tex'; document.head.appendChild(el); }
     el.textContent = el.textContent.split('\n').filter(l => l && !l.startsWith('.ic-' + key + '{')).concat('.ic-' + key + '{background-image:url(' + s.toDataURL() + ') !important}').join('\n'); } catch (_) {} }
   // new block: Block of diamond (id 255)
-  try { const DB = 255; T.DIAMONDBLOCK = DB; const key = 'diamond_block', c = U.made[key] = paintBlock(key);
+  try { const DB = 259; T.DIAMONDBLOCK = DB; const key = 'diamond_block', c = U.made[key] = paintBlock(key);
     const t = new THREE.Texture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = typeof TEXANISO !== 'undefined' ? TEXANISO : 4; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
     texCache[key] = t; texImg[key] = c; try { const s = cv(1); s.getContext('2d').drawImage(c, 0, 0, 1, 1); const d = s.getContext('2d').getImageData(0, 0, 1, 1).data; AVG[key] = (d[0] << 16) | (d[1] << 8) | d[2]; } catch (_) {}
     FACES[DB] = key; BLOCK_MATS[DB] = mat(key); NAMES[DB] = 'Block of diamond'; ICON_KEY[DB] = key; HARD[DB] = 5.5; MC_HARD[DB] = 5; REQ[DB] = 3; NEEDS_PICK.add(DB); PLACEABLE.add(DB);
@@ -36607,7 +36616,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   let MK = null; U.marks = () => (elig() ? MK : null);
   const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g12 = save ? !!(save.c131 && save.c131.g12) : true; MK = save && save.c131 && save.c131.mk || null; } catch (_) {} return ew.apply(this, arguments); };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g12) d.c131 = {g12: 1, mk: MK}; } catch (_) {} return d; };
-  const NAT = new Uint8Array(256);
+  const NAT = new Uint8Array(1024);
   [T.GRASS, T.DIRT, T.STONE, T.HEATHER, T.SAND, T.PEAT, T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.DIAMONDORE, T.REDORE, T.DEEPSLATE, T.MUD, T.SANDSTONE, T.GRAVEL, 179, 181, 185, 232, 233, 234, 142, 144, 150, 206, 207, 208, 248, 249].forEach(i => { if (i !== undefined) NAT[i] = 1; });
   const ground = b => b && b !== T.WATER && b !== T.LAVA && !PLANT[b] && !LEAFY[b] && !LOGGY[b] && b !== T.TORCH;
   function dt(src) { const d = new Float32Array(W * D), B = 1.4142;
@@ -39920,7 +39929,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   U.cancel = cancel;
   // ---- capture the box into a template record ----
   const SKIP = new Set(['slots', 'items', 'inv', 'loot', 'gen']);
-  U.capture = function (bb, name) { const w = bb[3] - bb[0] + 1, h = bb[4] - bb[1] + 1, d = bb[5] - bb[2] + 1, b = new Uint8Array(w * h * d), m = []; let n = 0;
+  U.capture = function (bb, name) { const w = bb[3] - bb[0] + 1, h = bb[4] - bb[1] + 1, d = bb[5] - bb[2] + 1, b = new Uint16Array(w * h * d), m = []; let n = 0;
     for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) { const v = getB(bb[0] + x, bb[1] + y, bb[2] + z); if (!v) continue; const i = (x * h + y) * d + z; b[i] = v; n++;
       const mm = entMeta.get(keyOf(bb[0] + x, bb[1] + y, bb[2] + z)); if (mm) { const o = {}; for (const k in mm) if (!SKIP.has(k) && typeof mm[k] !== 'object') o[k] = mm[k]; if (Object.keys(o).length) m.push([i, o]); } }
     return {name, w, h, d, b, m, n, t: Date.now(), v: 1}; };
@@ -40780,7 +40789,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
 (function c192() {
   const U = window.__c192 = {st: null, err: null};
   const on = () => { try { return !(window.__g89 && __g89()) && !!(current && current.g36 && current.g35 && !DIM.cur && W >= 600 && window.__c113 && __c113.G36 && __c113.G36()); } catch (_) { return false; } };
-  const NATL = new Uint8Array(256);
+  const NATL = new Uint8Array(1024);
   [T.GRASS, T.DIRT, T.STONE, T.SAND, T.GRAVEL, T.MUD, T.HEATHER, T.PEAT, T.BRGRASS, T.COALORE, T.IRONORE, T.COPPERORE, T.DEEPSLATE, T.SNOW, T.SANDSTONE, 179, 181, 185, 232, 233, 234, 142, 144, 248, 249].forEach(i => { if (i) NATL[i] = 1; });
   const tree = b => b && (LEAFY[b] || LOGGY[b]);
   function carve(seal) {
@@ -40842,7 +40851,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
 // Gravity is cheap: it only looks at the blocks next to one you broke / blew up, with a 1500-block flood limit (a hill always hits the limit, so it never moves).
 (function c193() {
   const U = window.__c193 = {q: 0, comps: 0, fell: 0, cleaned: null, err: null, ms: 0};
-  const TERR = new Uint8Array(256);
+  const TERR = new Uint8Array(1024);
   ['GRASS', 'DIRT', 'STONE', 'SAND', 'GRAVEL', 'DEEPSLATE', 'COALORE', 'IRONORE', 'COPPERORE', 'GOLDORE', 'REDORE', 'DIAMONDORE', 'SILVERORE', 'CAIRNGORMORE', 'RUBYORE', 'LAPISORE', 'PEAT', 'MUD', 'SNOW', 'CLAY', 'MOSS', 'SANDSTONE', 'RSAND', 'BRGRASS', 'PODZOL', 'COARSEDIRT']
     .forEach(n => { if (T[n] !== undefined) TERR[T[n]] = 1; });
   [77, 150, 198, 202].forEach(b => { TERR[b] = 1; });
@@ -44908,7 +44917,7 @@ function make42(E) {
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const on = () => !!(window.__g89 && __g89());
   let NAT = null;
-  const nat = b => { if (!NAT) { NAT = new Uint8Array(256); for (const v of [T.STONE, T.DEEPSLATE, T.DIRT, T.GRAVEL, T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, T.GRASS, T.HEATHER, T.PEAT, T.MUD, T.SAND, 156, 178]) if (v !== undefined) NAT[v] = 1; } return !!NAT[b]; };
+  const nat = b => { if (!NAT) { NAT = new Uint8Array(1024); for (const v of [T.STONE, T.DEEPSLATE, T.DIRT, T.GRAVEL, T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, T.GRASS, T.HEATHER, T.PEAT, T.MUD, T.SAND, 156, 178]) if (v !== undefined) NAT[v] = 1; } return !!NAT[b]; };
   const inB = (x, y, z) => x > 2 && z > 2 && y > 2 && x < W - 3 && z < D - 3 && y < H - 2;
   const tops = () => { const t = new Int16Array(W * D); for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * H * D + z; let y = H - 2; for (; y > 1; y--) { const b = world[c + y * D]; if (b && !PLANT[b] && !LEAFY[b] && !LOGGY[b]) break; } t[x * D + z] = y; } return t; };
   const inside = (x, z, m) => window.__c273 ? __c273.edgeQ(x, z) < __c273.RE() - m : true;
@@ -45390,6 +45399,144 @@ function make42(E) {
   } catch (e) { U.err = String(e && e.stack || e).slice(0, 200); }
 })();
 
+/* GLX-D259 (v1.2.3): deterministic faceted cyan diamond block259; snow255 and juniper250 preserved. Static 128/256px tile, not a 4K atlas. */
+(function d259() {
+  const U = window.__d259 = {err: null, id: 259, snow: 255, fixed: 0, painted: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  const DB = 259, SNOW = 255;
+
+  function rng(seed) { let s = seed >>> 0; return () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296; }
+  function paint(S) {
+    const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
+    const R = rng(259 * 7919 + 100);
+    const lg = (x0, y0, x1, y1, stops) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [p, col] of stops) gr.addColorStop(p, col); return gr; };
+    g.fillStyle = '#06182e'; g.fillRect(0, 0, S, S);
+    const n = 3, t = S / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const x = i * t, y = j * t, cx = x + t / 2, cy = y + t / 2, r = t * 0.44, m = t * 0.18;
+      g.fillStyle = lg(x, y, x + t, y + t, [[0, '#1a4a78'], [1, '#0a2038']]); g.fillRect(x + 1, y + 1, t - 2, t - 2);
+      const P = [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]];
+      const I = [[cx, cy - m], [cx + m, cy], [cx, cy + m], [cx - m, cy]];
+      const C = ['#e8fbff', '#5ec8f0', '#1a6aad', '#9ae6ff'];
+      for (let k = 0; k < 4; k++) {
+        g.beginPath(); g.moveTo(P[k][0], P[k][1]); g.lineTo(P[(k + 1) % 4][0], P[(k + 1) % 4][1]);
+        g.lineTo(I[(k + 1) % 4][0], I[(k + 1) % 4][1]); g.lineTo(I[k][0], I[k][1]); g.closePath(); g.fillStyle = C[k]; g.fill();
+      }
+      g.beginPath(); I.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
+      g.fillStyle = lg(cx - m, cy - m, cx + m, cy + m, [[0, '#ffffff'], [0.45, '#b8f0ff'], [1, '#3aa0d0']]); g.fill();
+      g.strokeStyle = 'rgba(4,24,48,.85)'; g.lineWidth = S * 0.0045;
+      g.beginPath(); P.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
+      for (let k = 0; k < 4; k++) { g.beginPath(); g.moveTo(P[k][0], P[k][1]); g.lineTo(I[k][0], I[k][1]); g.stroke(); }
+      g.fillStyle = 'rgba(255,255,255,.95)';
+      const sx = cx - r * 0.32, sy = cy - r * 0.28, z = t * 0.06;
+      g.beginPath(); g.moveTo(sx, sy - z); g.lineTo(sx + z * 0.25, sy - z * 0.2); g.lineTo(sx + z, sy); g.lineTo(sx + z * 0.25, sy + z * 0.2);
+      g.lineTo(sx, sy + z); g.lineTo(sx - z * 0.25, sy + z * 0.2); g.lineTo(sx - z, sy); g.lineTo(sx - z * 0.25, sy - z * 0.2); g.closePath(); g.fill();
+      void R; // deterministic seed reserved for future micro-flecks without changing layout
+    }
+    g.strokeStyle = 'rgba(2,16,36,.9)'; g.lineWidth = S * 0.01;
+    for (let k = 0; k <= n; k++) { g.beginPath(); g.moveTo(k * t, 0); g.lineTo(k * t, S); g.stroke(); g.beginPath(); g.moveTo(0, k * t); g.lineTo(S, k * t); g.stroke(); }
+    return c;
+  }
+
+  function bind(c) {
+    const key = 'diamond_block';
+    try {
+      if (NAMES[DB] && NAMES[DB] !== 'Block of diamond') throw Error('Diamond id259 already allocated');
+      T.DIAMONDBLOCK = DB; U.id = DB;
+      // Never reclaim snow
+      if (T.PACKSNOW == null) T.PACKSNOW = SNOW;
+      if (FACES[SNOW] !== 'packsnow' && (!NAMES[SNOW] || /snow/i.test(NAMES[SNOW] || ''))) {
+        /* leave snow alone if C287 already set it; do not write diamond onto 255 */
+      }
+      FACES[DB] = key; NAMES[DB] = 'Block of diamond'; ICON_KEY[DB] = key;
+      HARD[DB] = 5.5; MC_HARD[DB] = 5; REQ[DB] = 3;
+      try { NEEDS_PICK.add(DB); } catch (_) {}
+      PLACEABLE.add(DB);
+      if (!ORDER.includes(DB)) ORDER.push(DB);
+      try { if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(DB)) CREATIVE_ALL.push(DB); } catch (_) {}
+      try { if (typeof BUILT_T !== 'undefined') BUILT_T[DB] = 1; } catch (_) {}
+      try { if (typeof SHOVEL_ON !== 'undefined') SHOVEL_ON.delete(DB); } catch (_) {}
+
+      const t = new THREE.Texture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = typeof TEXANISO !== 'undefined' ? TEXANISO : 4;
+      t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter; t.needsUpdate = true;
+      try { texCache[key] = t; texImg[key] = c; } catch (_) {}
+      try {
+        const s = document.createElement('canvas'); s.width = s.height = 1; s.getContext('2d').drawImage(c, 0, 0, 1, 1);
+        const d = s.getContext('2d').getImageData(0, 0, 1, 1).data; AVG[key] = (d[0] << 16) | (d[1] << 8) | d[2];
+      } catch (_) {}
+
+      // Polished static material (all faces same map). Prefer MeshStandard when present.
+      let m;
+      try {
+        if (typeof THREE.MeshStandardMaterial === 'function') {
+          m = new THREE.MeshStandardMaterial({
+            map: t, color: 0xffffff, roughness: 0.22, metalness: 0.55,
+            emissive: new THREE.Color(0x061018), emissiveIntensity: 0.08
+          });
+        } else {
+          m = mat(key);
+          try { if (m) { m.shininess = 90; m.specular = new THREE.Color(0xb8e8ff); } } catch (_) {}
+        }
+      } catch (e) { ERR('mat', e); m = mat(key); }
+      BLOCK_MATS[DB] = m; matCache[key] = m;
+      try { ICONS[DB] = c.toDataURL(); } catch (_) {}
+
+      // Inventory CSS icon
+      try {
+        const s = document.createElement('canvas'); s.width = s.height = 64; s.getContext('2d').drawImage(c, 0, 0, 64, 64);
+        let el = document.getElementById('c120tex'); if (!el) { el = document.createElement('style'); el.id = 'c120tex'; document.head.appendChild(el); }
+        el.textContent = el.textContent.split('\n').filter(l => l && !l.startsWith('.ic-' + key + '{')).concat('.ic-' + key + '{background-image:url(' + s.toDataURL() + ') !important}').join('\n');
+      } catch (_) {}
+
+      // Recipes: ensure craft/uncraft target DB=259, not 255
+      try {
+        if (typeof RECIPES !== 'undefined' && typeof rc === 'function' && typeof IT !== 'undefined') {
+          for (const r of RECIPES) {
+            if (r && r.out === SNOW && /diamond/i.test(r.name || '')) r.out = DB;
+            if (r && r.need) for (const n of r.need) if (n && n[0] === SNOW && /diamond/i.test(r.name || '')) n[0] = DB;
+          }
+          if (!RECIPES.some(r => r.out === DB)) RECIPES.push(rc('Block of diamond', '9 Diamonds', DB, 1, [[IT.DIAMOND, 9]], 1));
+          if (!RECIPES.some(r => r.out === IT.DIAMOND && r.need && r.need.length === 1 && r.need[0][0] === DB))
+            RECIPES.push(rc('Diamonds (x9)', '1 Block of diamond', IT.DIAMOND, 9, [[DB, 1]]));
+        }
+      } catch (e) { ERR('rec', e); }
+
+      // drops
+      try {
+        const df = dropsFor;
+        dropsFor = function (b) { if (b === DB) return [[DB, 1]]; return df.apply(this, arguments); };
+      } catch (_) {}
+
+      U.fixed = 1; U.painted = 1; U.key = key; U.avg = AVG[key];
+    } catch (e) { ERR('bind', e); }
+  }
+
+  function apply() {
+    try {
+      const S = (typeof PHONE !== 'undefined' && PHONE) || (typeof PERF !== 'undefined' && PERF) ? 128 : 256;
+      const c = paint(S);
+      bind(c);
+      // Evidence helpers for tests / cave worker
+      U.sample = (u, v) => {
+        try {
+          const img = texImg && texImg.diamond_block; if (!img) return null;
+          const x = Math.min(img.width - 1, Math.max(0, (u * img.width) | 0));
+          const y = Math.min(img.height - 1, Math.max(0, (v * img.height) | 0));
+          const g = document.createElement('canvas'); g.width = g.height = 1;
+          const ctx = g.getContext('2d'); ctx.drawImage(img, x, y, 1, 1, 0, 0, 1, 1);
+          const d = ctx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]];
+        } catch (_) { return null; }
+      };
+      U.isSnowish = (rgb) => { if (!rgb) return true; const [r, g, b] = rgb; return r > 180 && g > 190 && b > 200 && Math.abs(r - b) < 40; };
+      U.isDiamondish = (rgb) => { if (!rgb) return false; const [r, g, b] = rgb; return b > r + 20 && b > 80 && g > 60 && r < 200; };
+    } catch (e) { ERR('apply', e); }
+  }
+
+  // Run after C287 packed snow (ORDER) and again a few times in case of late atlas rebuilds
+  try { apply(); } catch (e) { ERR('boot', e); }
+})();
+
 /* GLX-C288 (v1.1.99 yield to vm) (v1.0.95): guns - hold LT (right mouse / the LT touch button) to aim down the sights: the view zooms in, the gun moves to the
    middle and shots are dead-on; RT (left click / the RT touch button) fires. Hip fire has a little spread. Without a gun LT still places
    blocks and trades. The Builder Tool marks its corners with RT now, so LT is free. */
@@ -45632,7 +45779,7 @@ function make42(E) {
     for (let k = 0; k < h; k++) put(x, y + k, z, T.LOG);
     for (let a = -2; a <= 2; a++) for (let c = -2; c <= 2; c++) for (let e = h - 2; e <= h + 1; e++) { if (Math.abs(a) + Math.abs(c) + Math.max(0, e - h) * 2 > 3) continue; if (!get(x + a, y + e, z + c)) put(x + a, y + e, z + c, T.LEAVES); } }
   const AW = 240, AD = 2260, AH = 64, TL = 2000, CX = AW >> 1, CR = 112, CZ = TL + 12 + CR - 4;
-  try { const sws = setWorldSize; setWorldSize = function (n) { if (DIM.cur === 'agartha' && n === AW) { W = AW; D = AD; if (world.length !== W * H * D) world = new Uint8Array(W * H * D); return; } return sws.apply(this, arguments); }; } catch (e) { ERR('sws', e); }
+  try { const sws = setWorldSize; setWorldSize = function (n) { if (DIM.cur === 'agartha' && n === AW) { W = AW; D = AD; if (world.length !== W * H * D) world = new Uint16Array(W * H * D); return; } return sws.apply(this, arguments); }; } catch (e) { ERR('sws', e); }
   function dress(P, G0) { const N = P.length;
     for (let i = 0; i < N; i += 3) { const p = P[i], k = G0 + (1 - G0) * i / N, glow = Math.max(0, Math.min(1, (k - 0.3) / 0.6)), r = p[3] + 1.6, ry = p[4] + 1.6, R = Math.ceil(r), RY = Math.ceil(ry);
       for (let a = -R; a <= R; a++) for (let c = -R; c <= R; c++) for (let dy = -RY; dy <= RY; dy++) { if ((a * a + c * c) / (r * r) + dy * dy / (ry * ry) > 1) continue;
@@ -46305,7 +46452,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const EH = X.EH, CHs = CH, N = CHs * EH * CHs, key = (cx, cz) => (cz + 100) * 64 + cx;
   let FC = null;   // one flat-ice column
   const FL = () => SEA - 15;   // v1.1.29: open sea over a sea floor, like the rest of the round Earth (C320), no more ice plain
-  const seaCol = () => { const c = new Uint8Array(EH); c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y < SEA; y++) c[y] = y <= FL() ? T.STONE : y <= FL() + 3 ? T.SAND : T.WATER; return c; };
+  const seaCol = () => { const c = new Uint16Array(EH); c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y < SEA; y++) c[y] = y <= FL() ? T.STONE : y <= FL() + 3 ? T.SAND : T.WATER; return c; };
   function shell(Z, ZW, ZD, F0, F1) { const y0 = FL() - 3, y1 = SEA + 1, ny = y1 - y0 + 1, n = ZW * ny * ZD, m = new Uint8Array(n), t = new Uint8Array(n), id = (x, y, z) => (x * ny + y) * ZD + z;
     for (let x = 0; x < ZW; x++) for (let y = 0; y < ny; y++) for (let z = 0; z < ZD; z++) if (!Z[(x * EH + y + y0) * ZD + z]) m[id(x, y, z)] = 1;
     const pass = (A, B, L, st, cnt) => { for (let o of cnt) { for (let i = 0; i < L; i++) { let v = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < L && A[o + j * st]) { v = 1; break; } } B[o + i * st] = v; } } };
@@ -46315,8 +46462,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     pass(m, t, ZW, ny * ZD, offs(r => { for (let y = 0; y < ny; y++) for (let z = 0; z < ZD; z++) r.push(id(0, y, z)); }));
     let n2 = 0; for (let x = 0; x < ZW; x++) for (let y = FL() + 1; y <= y1; y++) for (let z = 0; z < ZD; z++) { const i = (x * EH + y) * ZD + z, v = Z[i]; if (!v || v !== F0[y]) continue; Z[i] = t[id(x, y - y0, z)] ? T.STONE : F1[y]; n2++; }
     X.shellN = n2; }
-  const flatCol = () => { const c = new Uint8Array(EH), S0 = SEA + 1; c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y <= S0; y++) c[y] = y > S0 - 4 ? (T.PACKSNOW || T.SNOW || T.STONE) : T.STONE; return c; };
-  const newCh = () => { const a = new Uint8Array(N); for (let lx = 0; lx < CHs; lx++) for (let y = 0; y < EH; y++) a.fill(FC[y], (lx * EH + y) * CHs, (lx * EH + y + 1) * CHs); return a; };
+  const flatCol = () => { const c = new Uint16Array(EH), S0 = SEA + 1; c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y <= S0; y++) c[y] = y > S0 - 4 ? (T.PACKSNOW || T.SNOW || T.STONE) : T.STONE; return c; };
+  const newCh = () => { const a = new Uint16Array(N); for (let lx = 0; lx < CHs; lx++) for (let y = 0; y < EH; y++) a.fill(FC[y], (lx * EH + y) * CHs, (lx * EH + y + 1) * CHs); return a; };
   X.on = () => { try { return !!(window.__g89 && __g89() && W >= 600 && window.__c294 && __c294.M && __c294.M.e === 'N'); } catch (_) { return false; } };
   function getE(x, y, z) { if (z < __XZ || y < 0 || y >= EH) return 0; const cx = (x / CHs) | 0, cz = Math.floor(z / CHs), a = X.ch.get(key(cx, cz));
     return a ? a[((x - cx * CHs) * EH + y) * CHs + (z - cz * CHs)] : FC[y]; }
@@ -46332,7 +46479,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     try { if (window.__c307b) __c307b.clear(); } catch (_) {}
     if (!X.on()) return; FC = flatCol(); const M = __c294.M; X.LT = Math.max(600, 800 - Math.round(M.z));
     const ZW = X.ZW, ZD = X.LT + 2 * X.CR + 16, x0 = Math.max(0, Math.min(W - ZW, Math.round(M.c) - (ZW >> 1))), z0 = 3 - ZD; X.x0 = x0; X.z0 = z0; X.W = W;
-    const sv = [world, W, H, D], Z = new Uint8Array(ZW * EH * ZD); let R = null;
+    const sv = [world, W, H, D], Z = new Uint16Array(ZW * EH * ZD); let R = null;
     try { world = Z; W = ZW; H = EH; D = ZD; R = __c294.genExt({LT: X.LT, CR: X.CR, seed: typeof gSeed !== 'undefined' ? gSeed : 0, c: Math.round(M.c)}); }
     finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; }
     try { const t1 = performance.now(), F1 = seaCol(); shell(Z, ZW, ZD, FC, F1); FC = F1; X.shellMs = Math.round(performance.now() - t1); } catch (e) { ERR('shell', e); }
@@ -46377,7 +46524,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function drop(k) { const g = M.get(k); if (!g) return; grp.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); M.delete(k); }
   U.clear = () => { for (const k of [...M.keys()]) drop(k); };
   function build(cx, cz) { const t0 = performance.now(), k = key(cx, cz);
-    if (!TMP) TMP = new Uint8Array(PW * EH * PW); const ox = cx * C - C, oz = cz * C - C, Hm = H, Dm = D, wd = world, Wm = W;
+    if (!TMP) TMP = new Uint16Array(PW * EH * PW); const ox = cx * C - C, oz = cz * C - C, Hm = H, Dm = D, wd = world, Wm = W;
     for (let tx = C - 1; tx <= 2 * C; tx++) { const x = ox + tx; for (let tz = C - 1; tz <= 2 * C; tz++) { const z = oz + tz, b = (tx * EH) * PW + tz;
         if (x < 0 || x >= Wm || z < __XZ) { for (let y = 0; y < EH; y++) TMP[b + y * PW] = 0; continue; }
         if (z >= 0) { const m = (x * Hm) * Dm + z; for (let y = 0; y < EH; y++) TMP[b + y * PW] = wd[m + y * Dm]; continue; }
@@ -46766,7 +46913,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (d.str && dep < 26) { const L = d.str, i = Math.floor(r / 2.5 + 0.8 * Math.sin(x * 0.11 + z * 0.07)) % L.length; return L[(i + L.length) % L.length](); } return d.rock(); }
     // one column of C x C blocks, full planet height
     B.col = (cx, cz) => { const k = cx + ',' + cz; let a = B.cols.get(k); if (a) { a.t = performance.now(); return a; } craters(); const t0 = performance.now(), c = B.c(), y0 = B.ylo();
-      a = new Uint8Array(C * C * N); const x0 = cx * C, z0 = cz * C;
+      a = new Uint16Array(C * C * N); const x0 = cx * C, z0 = cz * C;
       for (let lx = 0; lx < C; lx++) for (let lz = 0; lz < C; lz++) { const dx = x0 + lx + 0.5 - c[0], dz = z0 + lz + 0.5 - c[2], q = (d.R + BM) ** 2 - dx * dx - dz * dz; if (q <= 0) continue; const hy = Math.sqrt(q);
         for (let y = Math.max(0, Math.floor(c[1] - hy - y0) - 1); y <= Math.min(N - 1, Math.ceil(c[1] + hy - y0) + 1); y++) { const b = block(x0 + lx, y0 + y, z0 + lz, c); if (b) a[(lx * N + y) * C + lz] = b; } }
       for (const [ek, b] of B.edits) { const [x, y, z] = ek.split(',').map(Number); if (Math.floor(x / C) === cx && Math.floor(z / C) === cz && y - y0 >= 0 && y - y0 < N) a[((x - x0) * N + (y - y0)) * C + (z - z0)] = b; }
@@ -46791,7 +46938,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const grp = new THREE.Group(); grp.name = 'planets318'; scene.add(grp);
   const dm = B => B.dropMesh = k => { const g = B.meshes.get(k); if (!g) return; grp.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); B.meshes.delete(k); }; BS.forEach(dm);
   const PW = 3 * C + 1; let TMP = null, TMPN = 0;
-  function mesh(B, cx, cz) { const t0 = performance.now(), N = B.N, y0 = B.ylo(); if (!TMP || TMPN !== N) { TMP = new Uint8Array(PW * N * PW); TMPN = N; } else TMP.fill(0);
+  function mesh(B, cx, cz) { const t0 = performance.now(), N = B.N, y0 = B.ylo(); if (!TMP || TMPN !== N) { TMP = new Uint16Array(PW * N * PW); TMPN = N; } else TMP.fill(0);
     let any = false; for (let ax = -1; ax <= 1; ax++) for (let az = -1; az <= 1; az++) { const a = B.col(cx + ax, cz + az);
       for (let lx = 0; lx < C; lx++) { const tx = (ax + 1) * C + lx; if (tx < C - 1 || tx > 2 * C) continue; for (let lz = 0; lz < C; lz++) { const tz = (az + 1) * C + lz; if (tz < C - 1 || tz > 2 * C) continue;
           const s = (lx * N) * C + lz, o = (tx * N) * PW + tz; for (let y = 0; y < N; y++) { const b = a[s + y * C]; if (b) { TMP[o + y * PW] = b; if (!ax && !az) any = true; } } } } }
@@ -47341,7 +47488,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // v1.1.38: generated blocks are cached in 8 high slabs per chunk column, so digging, walking and going down rebuild from the cache, not from the noise
   const SL = 8, SW = C + 2, cache = new Map(); let eV = -1, eL = [];
   function slab(ax, piv, cx, cz, sy) { const key = ax + '|' + piv.join() + '|' + cx + ',' + cz + ',' + sy; let A = cache.get(key); if (A) { cache.delete(key); cache.set(key, A); return A; }
-    const e = E(), c = e.E(), R = e.R, m = MS[ax], Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; A = new Uint8Array(SW * SL * SW); U.gen = (U.gen || 0) + 1;
+    const e = E(), c = e.E(), R = e.R, m = MS[ax], Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; A = new Uint16Array(SW * SL * SW); U.gen = (U.gen || 0) + 1;
     for (let i = 0; i < SW; i++) for (let k = 0; k < SW; k++) { const lx = cx * C - 1 + i, lz = cz * C - 1 + k, ox = lx + 0.5 - piv[0], oz = lz + 0.5 - piv[2]; let gk = null;
       for (let j = 0; j < SL; j++) { const oy = sy + j + 0.5 - piv[1], wx = Math.round(m[0][0] * ox + m[1][0] * oy + m[2][0] * oz + piv[0] - 0.5), wy = Math.round(m[0][1] * ox + m[1][1] * oy + m[2][1] * oz + piv[1] - 0.5), wz = Math.round(m[0][2] * ox + m[1][2] * oy + m[2][2] * oz + piv[2] - 0.5);
         if (wx >= 0 && wx < W && wz < D && wz >= Z0 && wy >= 0) { continue; }   /* v1.1.96: surface owns Y0+ mesh; deep never dual-draws it. Y0 underside seal is __YB / bottom faces */
@@ -47354,7 +47501,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.inspect = () => ({partial: partial.size, meshes: meshes.size, deferred: U.deferred, ticks: U.ticks});
   // Pauses retain the partially assembled cells. At most one uncached eight-block slab
   // is started per tick and lighting owns a single synchronous mesh in that same tick.
-  function fill(ax, piv, cx, cz, y0, t1, bud) { const e = E(), pk=ax+'|'+piv.join()+'|'+cx+','+cz+','+y0, job=partial.get(pk)||{any:false,done:0}; let any=job.any; TMP=job.data||(job.data=new Uint8Array(PW*NB*PW));
+  function fill(ax, piv, cx, cz, y0, t1, bud) { const e = E(), pk=ax+'|'+piv.join()+'|'+cx+','+cz+','+y0, job=partial.get(pk)||{any:false,done:0}; let any=job.any; TMP=job.data||(job.data=new Uint16Array(PW*NB*PW));
     for (let s0 = job.done; s0 < NB; s0 += SL) { const A = slab(ax, piv, cx, cz, y0 + s0);
       for (let i = 0; i < SW; i++) for (let j = 0; j < SL; j++) { const src = (i * SL + j) * SW, dst = ((C - 1 + i) * NB + s0 + j) * PW + C - 1; TMP.set(A.subarray(src, src + SW), dst);
         if (!any && i > 0 && i <= C) for (let k = 1; k <= C; k++) if (A[src + k]) { any = true; break; } } job.done=s0+SL;job.any=any;partial.set(pk,job);if(performance.now()-t1>=bud){
@@ -47388,7 +47535,7 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
       let grp=null,complete=false;
     try {
     if (!chunkST) {
-      chunkST = new Uint8Array(256);
+      chunkST = new Uint8Array(1024);
       for (let i = 0; i < 256; i++) if (PLANT[i] === 1 || ENT[i] === 1) chunkST[i] = 1;
       chunkST[T.AIR] = 1; chunkST[T.BED] = 1; chunkST[T.COBWEB] = 1; chunkST[T.WATER] = 2; chunkST[T.LAVA] = 2; chunkST[T.GLASS] = 2; chunkST[T.LEAVES] = 3; chunkST[134] = 3; for (let i = 0; i < 256; i++) if (LEAFY[i]) chunkST[i] = 3;
       chunkFQ = [[[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]],
@@ -49842,7 +49989,7 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
   let S = null, SW = 0, SD = 0, L = null; U.box = null;
   // the crystal city and tunnel are made once by the original Agartha maker, then kept as a block stamp under Scotland
   function build() { const t0 = performance.now(), sv = {world, W, D, H, dim: DIM.cur}; let A = null; DIM.cur = 'agartha';
-    try { __c294.genAg(); A = __c294.A; SW = W; SD = D - ZS; const st = new Uint8Array(SW * YN * SD);
+    try { __c294.genAg(); A = __c294.A; SW = W; SD = D - ZS; const st = new Uint16Array(SW * YN * SD);
       for (let x = 0; x < SW; x++) for (let z = 0; z < SD; z++) for (let y = 0; y < YN; y++) { const b = world[idx(x, y, z + ZS)]; st[(x * SD + z) * YN + y] = (b && (b === T.HBEDROCK || b === T.BEDROCK)) ? (T.DEEPSLATE || T.STONE) : b; }   /* v1.1.92: no bedrock floor under Agartha, you can dig on down into the deep layers */
       S = st; } finally { DIM.cur = sv.dim; world = sv.world; W = sv.W; D = sv.D; H = sv.H; }
     const dz = -ZS; L = {v: 2, ag: 3, cry105: 1, city: [A.city[0] + AX, A.city[1] + dz, A.city[2]], FL: A.FL + AY, TOP: A.TOP + AY, spires: (A.spires || []).map(s => [s[0] + AX, s[1] + dz].concat(s.slice(2))), under: 1};
@@ -50511,7 +50658,7 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
   /* ---------- 3) diamond block exposure (id 255 already) ---------- */
   function ensureDiamond() {
     try {
-      const DB = (T && T.DIAMONDBLOCK) || 255;
+      const DB = (T && T.DIAMONDBLOCK) || 259;
       if (T && T.DIAMONDBLOCK == null) T.DIAMONDBLOCK = DB;
       if (!NAMES[DB]) NAMES[DB] = 'Block of diamond';
       PLACEABLE.add(DB);
@@ -50975,6 +51122,7 @@ function* deepMeshGenerator(cx,cz,job=undefined) {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.3","d":"2026-11-06","notes":["Added Block of diamond: own polished cyan faceted tile, creative and inventory access, nine diamonds to a block and back. Snow and juniper ids preserved.","Extended block storage with legacy-byte save decoding; existing 1.2.2 caves and Y0 repair retained."]},
 {"v":"v1.2.2","d":"2026-11-06","notes":["Caves: seven connected underground strata with gray halls, giant fungi, deep dark pillars, basalt magma, molten depths, an abyssal crystal ring and the original giant eye above a dry core bowl.","Fix: digging across Y0 preserves cave mesh ownership while incremental work finishes. Existing loading, lighting and streaming remain incremental.","A dry eastern staircase descends from the gray cave to the core. Surface, Agartha, UFO, existing edits and AIR removals are preserved. No automatic reset."]},
 {v:'v1.2.1', d:'2026-11-06', notes:['Deep caves: incremental slab loading, coordinate-correct local lighting, reliable Y0 placement and underside updates.','Performance: budget checks happen between slabs and meshes, so lighting cannot start lots of new work after time runs out.','Existing worlds and deep edits keep their same storage and content.']},
 {v:'v1.1.96', d:'2026-11-06', notes:['Fix: Y0 and Y1 are drawn by one mesh owner only, so the seam at the surface no longer flashes or leaves holes. Digging and collision still agree.','Fix: item drops deep underground no longer vanish below Y -5. They stay until you pick them up or they time out for real.','Fix: TVs, chests, torches, doors, furnaces and beds placed deep down show, work, save and remove properly again.','Fix: the pickaxe swing no longer freezes during a remesh stall or resets every frame. Crack and break speed are unchanged.','Fix: gun pose and scale have one owner in first person, so the musket no longer shrinks or vanishes when you fire. Aiming stays centred.','Perf: gun shots trace blocks with a fast grid walk instead of hundreds of solid checks, with the same hits.','New: the highlighted hotbar or inventory slot shows the item name for controller, touch and mouse with no extra equip step.']},{v:'v1.1.95', d:'2026-11-03', notes:['Planets face the castles, red eye nebula gone, guns load before you see them, steady arms and centred aiming']},

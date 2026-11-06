@@ -1,24 +1,37 @@
-# 1.2.3 diamond candidate: NOT READY
+# 1.2.3 diamond release candidate — ready for normal release
 
-Fresh isolated base: 5c79e69b3ad514e8e64bbc0c5cf353db48d6454a.
-No gameplay/artifact/version changes, no publication.
+Base: 5c79e69b3ad514e8e64bbc0c5cf353db48d6454a (1.2.2 caves/Y0).
+Reproducible build: `node tools/build-diamond-patch.cjs /tmp/result.html`.
+Output SHA256: 4902b622f483fbaa854c284a3a426fb690b949ae6b4b5aadc1d9880c1b4b5a9d.
+This invokes the exact existing cave builder, then source-owned bounded transforms.
 
-The earlier source-only audit missed base-bundle registrations. Actual production:
-- `const LEAF = {... juniper: 250 ...}`
-- `[146,...,250,...].forEach(i => LEAFY[i] = 1)`
-Thus 7d5cc2a must NOT be integrated: it steals juniper id250.
-- C120 DIAMONDBLOCK255 collides with C287 PACKSNOW255 (snow wins).
-- `world` is Uint8Array; RLE decode fills byte values. Id256 becomes AIR.
-- High byte slots checked also contain live blocks/items (191–199 planets,
-  200 basalt column, 201–214 tools/hell/guns, 215 leaves, 216 lantern,
-  217 sword, 218/219 regional grass/plant, 220–249 building/crystals,
-  250 juniper, 251 enchanting, 252/253 leaves, 254 rowan mapping, 255 snow).
+## Allocation
+All byte slots enumerated in byte-registry.csv (including items, crop intermediate
+stages, shape ids and legacy save-migration consumers). No safely reclaimable byte
+slot. 250 is juniper leaves; 255 remains packed snow. 259 had no production numeric
+registry references before this patch (post-patch contexts in id259-contexts.json).
+256–258 already identify wool; no new wool visuals added here.
 
-No free supported alternative id has been certified; do not silently reclaim
-legacy item ids that save migrations still rewrite, and do not widen world/save
-storage as part of this small repair. Needs a deliberate registry allocation
-and save compatibility decision before a publishable candidate is possible.
-The previous pixel tests only tested a hand-built stub registry; they did not
-certify actual startup or atlas mapping and must not be cited as that proof.
+Diamond259 uses Uint16 block-cell backing, including world, old-H restore buffer,
+planet columns, C324 earth cache, partial mesh jobs, north extension, snapshots.
+Type masks grow to1024; atlas layer/UV/lighting attributes remain byte arrays:
+those hold layer indices or intensity, NOT block ids. Saved numeric edit maps do
+not truncate. RLE gains `u16:` tagged triples only when needed (async world save
+uses tagged triples incrementally). Legacy pair-format byte saves still load and
+byte-only synchronous saves keep exact old encoding. Never reinterpret old255.
 
-Run: node tests/diamond-id-allocation-proof.cjs
+## Automated evidence
+`NODE_PATH=/tmp/diamond-canvas/node_modules node tests/diamond-v123-proof.cjs`
+(actual production functions + actual source module, real canvas pixels)
+`node tests/diamond-mesh-proof.cjs`
+(actual plain/packed mesh buffers compared, diamond259 included)
+`node tests/cave-y0-crossing-proof.cjs`
+`node tests/cave-saved-restore-proof.cjs`
+All pass. Full inline JS syntax parsed; clean rebuild cmp identical.
+
+## Honest limits
+No browser/gameplay claim. Static original cyan faceted 128/256px tile, not a
+literal4K atlas. World cell buffers use twice the byte backing memory; masks,
+lighting and atlas indices stay byte sized. New extended saves are backward-load
+compatible in this release, but older game versions cannot decode tagged saves.
+Old diamond-looking255 stacks stay snow; craft fresh diamond259 from9 diamonds.
