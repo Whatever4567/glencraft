@@ -79,11 +79,11 @@
   let M = null;
   const mats = () => M || (M = {
     rock: [[T.STONE,T.WSTONE],[T.STONE,T.MOSSYBRICK],[T.DEEPSLATE,T.DSCOBBLE],
-      [T.BLACKSTONE,T.MOONBASALT],[T.OBSIDIAN,T.BASALTCOL],[T.HELLROCK,T.BLACKSTONE]],
-    floor: [T.GRAVEL,T.MOSS||T.GRASS,T.DSTILE,T.MAGMA,T.GEODE,T.HELLROCK],
-    glow: [T.GLOWROCK,T.GLOWGRASS||T.MOSS||T.GRASS,T.CRYCYAN,T.MAGMA,T.CRYVIOLET,T.MAGMA],
+      [T.BLACKSTONE,T.MOONBASALT],[T.HELLROCK,T.BASALTCOL],[T.OBSIDIAN,T.BASALTCOL],[T.HELLROCK,T.BLACKSTONE]],
+    floor: [T.GRAVEL,T.MOSS||T.GRASS,T.DSTILE,T.BLACKSTONE,T.HELLROCK,T.GEODE,T.HELLROCK],
+    glow: [T.GLOWROCK,T.GLOWGRASS||T.MOSS||T.GRASS,T.CRYCYAN,T.MAGMA,T.MAGMA,T.CRYVIOLET,T.MAGMA],
     ore: [[T.COALORE,T.IRONORE,T.COPPERORE],[T.COPPERORE,T.IRONORE],[T.DIAMONDORE,T.REDORE],
-      [T.GOLDORE,T.REDORE],[T.DIAMONDORE],[T.DIAMONDORE,T.GOLDORE]].map(a=>a.filter(Boolean))
+      [T.GOLDORE,T.REDORE],[T.GOLDORE],[T.DIAMONDORE],[T.DIAMONDORE,T.GOLDORE]].map(a=>a.filter(Boolean))
   });
   function rock(i,x,y,z,surf) {
     const m=mats(),h=h3(x,y,z);
@@ -97,12 +97,13 @@
     {name:'gray',floor:-68,roof:-51,r:54},
     {name:'lush',floor:-104,roof:-73,r:57},
     {name:'blue',floor:-140,roof:-109,r:58},
-    {name:'magma',floor:-176,roof:-145,r:59},
-    {name:'crystal',floor:-206,roof:-184,r:58},
+    {name:'magma',floor:-164,roof:-145,r:59},
+    {name:'molten',floor:-185,roof:-169,r:62},
+    {name:'abyssal-crystal',floor:-206,roof:-190,r:58},
     {name:'core',floor:-236,roof:-181,r:66}
   ];
   U.entrance=[HX+54,-52,HZ];U.core=[HX,HZ,'dry ledge -236; eye centre -209'];
-  U.stair=(x,y,z)=>stair(x,y,z);
+  U.stair=(x,y,z)=>stair(x,y,z);U.routePoint=n=>pathAxis(-52-n);
   const rr=(x,z)=>Math.hypot(x+.5-HX,z+.5-HZ);
   // Simple repeatable square spiral: complete one turn every 48 blocks depth.
   // The same deterministic path is opened in chamber rims and all separators.
@@ -115,21 +116,30 @@
     return [AX-6,HZ+6-(n-36)];
   }
   function stair(x,y,z){const q=pathAxis(y);return Math.abs(x-q[0])<=1&&Math.abs(z-q[1])<=1;}
-  // Choose the highest overlapping tread; preserve three blocks of headroom.
+  // One height per ring column: no overlapping treads/low ceiling at square corners.
   function stairVoxel(x,y,z){
-    if(y>-49||y<-236)return null;
-    for(let f=y;f>=y-3;f--){if(f<=-52&&f>=-235&&stair(x,f,z))return f===y?T.STONE:0;}
+    const dx=x-AX,dz=z-HZ,edge=Math.max(Math.abs(dx),Math.abs(dz));
+    if(edge<5||edge>7||y>-47||y<-236)return null;
+    const clamp=v=>Math.max(-6,Math.min(6,v));let phase;
+    if(dz<=-Math.abs(dx))phase=clamp(dx)+6;
+    else if(dx>=Math.abs(dz))phase=18+clamp(dz);
+    else if(dz>=Math.abs(dx))phase=30-clamp(dx);
+    else phase=42-clamp(dz);
+    phase%=48;
+    const turn=Math.round((-52-phase-y)/48),floor=-52-phase-48*turn;
+    if(turn<0||floor<-235||floor>-52)return null;
+    if(y>=floor-2&&y<=floor+4)return y<=floor?T.STONE:0;
     return null;
   }
   function portal(x,y,z){
     const i=roomAt(x,y,z);if(i<0)return false;
     const q=U.rooms[i],fy=q.floor;
-    return i<5?y>fy&&y<fy+8&&Math.abs(z-HZ)<9&&x>HX+25&&x<AX+9 :y>q.floor&&y<-216&&Math.abs(z-HZ)<9&&x>HX+43&&x<AX+9;
+    return i<6?y>fy&&y<fy+8&&Math.abs(z-HZ)<9&&x>HX+25&&x<AX+9 :y>q.floor&&y<-216&&Math.abs(z-HZ)<9&&x>HX+43&&x<AX+9;
   }
   function roomAt(x,y,z){
     // The giant original eye needs a full-height central dome; crystal is its outer ring.
-    if(y>=-236&&y<=-181&&(y< -206||rr(x,z)<30))return 5;
-    for(let i=0;i<5;i++){const q=U.rooms[i];if(y>=q.floor&&y<=q.roof)return i;}
+    if(y>=-236&&y<=-181&&(y< -206||rr(x,z)<30))return 6;
+    for(let i=0;i<6;i++){const q=U.rooms[i];if(y>=q.floor&&y<=q.roof)return i;}
     return -1;
   }
   const pillar = (x,z,i,r) => r > 26 && r < U.rooms[i].r - 11 && Math.floor((Math.atan2(z-HZ,x-HX)+Math.PI)/(Math.PI/4)+i/3) % 4 === 0;
@@ -142,28 +152,30 @@
     return 0;
   }
   function isLava(x,z,i,r){const a=Math.atan2(z-HZ,x-HX);
-    return i===3&&(r>46||Math.abs(a-.95)<.05||Math.abs(a+1.75)<.05)||i===5&&r>58&&Math.abs(a)>.23;
+    return i===3&&(Math.abs(a-.95)<.05||Math.abs(a+1.75)<.05)&&r>30||i===4&&r>32&&(Math.abs(z-HZ-20)<2||r>57&&Math.abs(a+1.4)<.12)||i===6&&r>58&&Math.abs(a)>.23;
   }
   function level(x,y,z,d){
 
     const sv=stairVoxel(x,y,z);if(sv!==null)return sv;
-    const i=roomAt(x,y,z);if(i<0)return rock(Math.min(5,F((d-40)/34)),x,y,z,false);
+    // Dry final approach crosses the raised bowl rim without a jump into lava.
+    if(x>=HX&&x<=AX+8&&Math.abs(z-HZ)<=7&&y>=-236&&y<=-232)return y===-236?T.HELLROCK:0;
+    const i=roomAt(x,y,z);if(i<0)return rock(Math.min(6,F((d-40)/30)),x,y,z,false);
     const q=U.rooms[i],r=rr(x,z),a=Math.atan2(z-HZ,x-HX);
     const radius=q.r+Math.sin(a*7)*2;
     if(portal(x,y,z))return 0;
     if(r>radius)return rock(i,x,y,z,false);
-    const floor=i===5?q.floor+F(Math.min(1,Math.max(0,(r-28)/36))**2*35):q.floor;
-    const roof=i===5?q.roof-F(Math.max(0,r-28)*.55):q.roof-F(Math.max(0,r-29)*.2);
+    const floor=i===6?q.floor+F(Math.min(1,Math.max(0,(r-28)/36))**2*35):q.floor;
+    const roof=i===6?q.roof-F(Math.max(0,r-28)*.55):q.roof-F(Math.max(0,r-29)*.2);
     if(y<floor-1||y>roof)return rock(i,x,y,z,false);
     if(isLava(x,z,i,r)&&y===floor)return T.LAVA;
     if(y===floor)return i===1&&h3(x,9,z)<.18?(T.GLOWGRASS||T.MOSS||T.GRASS):rock(i,x,y,z,true);
     if(y<floor)return rock(i,x,y,z,false);
-    if(i===3&&isLava(x,z,i,r)&&r>radius-3&&y<roof-2)return T.LAVA;
-    if(pillar(x,z,i,r))return i===2?(T.DEEPSLATE||T.STONE):i===3?(T.BASALTCOL||T.BLACKSTONE||T.OBSIDIAN||T.STONE):rock(i,x,y,z,false);
+    if((i===3||i===4)&&isLava(x,z,i,r)&&r>radius-3&&y<roof-2)return T.LAVA;
+    if(pillar(x,z,i,r))return i===2?(T.DEEPSLATE||T.STONE):(i===3||i===4)?(T.BASALTCOL||T.BLACKSTONE||T.OBSIDIAN||T.STONE):rock(i,x,y,z,false);
     if(i===1){const f=fungus(x,y,z,floor);if(f)return f;}
     if(i===2&&y<floor+3&&(F(x/6)+F(z/6))%3===0)return T.DSTILE||T.DEEPSLATE||T.STONE;
-    if(i===4&&r>39&&r<43&&y<floor+5)return T.CRYVIOLET||T.GEODE||190;
-    if((i===0||i===4)&&y>roof-3&&h3(x,y,z)<.17)return i===4?(T.CRYVIOLET||T.GEODE||190):rock(i,x,y,z,false);
+    if(i===5&&r>39&&r<43&&y<floor+5)return T.CRYVIOLET||T.GEODE||190;
+    if((i===0||i===5)&&y>roof-3&&h3(x,y,z)<.17)return i===5?(T.CRYVIOLET||T.GEODE||190):rock(i,x,y,z,false);
     return 0;
   }
   function gen(x,y,z,d){
