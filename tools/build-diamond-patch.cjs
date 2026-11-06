@@ -3,7 +3,7 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),vm=require('node:vm'),cp=require('node:child_process'),os=require('node:os');
 const sha=s=>crypto.createHash('sha256').update(s).digest('hex');
 function transform(s){
- if(sha(s)!=='704ada4b094f31594c0f0165954f6877b9aa1586db2ab2968da1d0076d42229b')throw Error('Requires exact cave1.2.2 artifact');
+ if(!(arguments[1]&&arguments[1].anyBase)&&sha(s)!=='704ada4b094f31594c0f0165954f6877b9aa1586db2ab2968da1d0076d42229b')throw Error('Requires exact cave1.2.2 artifact');
  // Only block CELL buffers and lookup tables widen. Pixels, atlas layer indices, lighting remain byte arrays.
  s=s.replace(/world = new Uint8Array\(W \* H \* D\)/g,'world = new Uint16Array(W * H * D)');
  const cells=['W * oldH * D','EH','ZW * EH * ZD','PW * EH * PW','PW * N * PW','SW * SL * SW','PW*NB*PW','w * h * d','sw * sd * H','sx * sy * sz','C * C * N','SW * YN * SD'];
