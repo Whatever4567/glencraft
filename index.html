@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
-<!-- glencraft-build: b120-v1.2.0 -->
+<!-- glencraft-build: b1201-v1.2.1 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13338,7 +13338,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.0';
+const GAME_VERSION = '1.2.1';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -16934,7 +16934,7 @@ function markDirty(x, z) {
   const add = (cx, cz) => { if (cx >= 0 && cz >= 0 && cx * CH < W && cz * CH < D) dirtyCh.add(cx * 64 + cz); };
   const cx = Math.floor(x / CH), cz = Math.floor(z / CH), lx = x - cx * CH, lz = z - cz * CH;
   add(cx, cz);
-  const e = 7, xl = lx < e, xh = lx > CH - 1 - e, zl = lz < e, zh = lz > CH - 1 - e;   // GLX-C70: light spreads up to 7 blocks
+  const e = 14, xl = lx < e, xh = lx > CH - 1 - e, zl = lz < e, zh = lz > CH - 1 - e;   // C70 spreads light 14 blocks: include diagonal light neighbours
   if (xl) add(cx - 1, cz); if (xh) add(cx + 1, cz); if (zl) add(cx, cz - 1); if (zh) add(cx, cz + 1);
   if (xl && zl) add(cx - 1, cz - 1); if (xl && zh) add(cx - 1, cz + 1); if (xh && zl) add(cx + 1, cz - 1); if (xh && zh) add(cx + 1, cz + 1);
 }
@@ -17083,7 +17083,7 @@ function rebuild(budget) {
   let ids = [...dirtyCh];
   if (budget) { const pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5; ids.sort((a, b) => Math.hypot(Math.floor(a / 64) - pcx, a % 64 - pcz) - Math.hypot(Math.floor(b / 64) - pcx, b % 64 - pcz)); }
   const tB = performance.now();
-  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  let built = 0; for (const id of ids) { if (budget && built && performance.now() - tB + ((window.__lightStats && __lightStats().avg) || 0) > budget) break; if (budget && performance.now() - tB > budget * 2) break; try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } built++; dirtyCh.delete(id); }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
@@ -19469,11 +19469,11 @@ function buildChunk(cx, cz) {
     for (let d = 0; d < 6; d++) {
       let n;
       if (d === 0) { if (x + 1 >= W) continue; n = world[i + HD]; }
-      else if (d === 1) { if (x === 0) continue; n = world[i - HD]; }
-      else if (d === 2) n = y + 1 >= H ? 0 : world[i + D];
-      else if (d === 3) { if (y === 0) { if (!window.__YB) continue; n = __YB(x, z); } else n = world[i - D]; }
+      else if (d === 1) { if (x === 0) { if (window.__c317mesh) n = T.STONE; else continue; } else n = world[i - HD]; }
+      else if (d === 2) n = y + 1 >= H ? aboveWorld() : world[i + D];
+      else if (d === 3) { if (y === 0) { if (window.__c317mesh) { if (i < D) continue; n = world[i - D]; } else if (window.__deepMeshY0 !== undefined) { n = getB(x, window.__deepMeshY0 - 1, z); } else { if (!window.__YB) continue; n = __YB(x, z); } } else n = world[i - D]; }
       else if (d === 4) { if (z + 1 >= D) continue; n = world[i + 1]; }
-      else { if (z === 0) { if (!__XN) continue; n = __XN(x, y); } else n = world[i - 1]; }
+      else { if (z === 0) { if (window.__c317mesh) n = T.STONE; else { if (!__XN) continue; n = __XN(x, y); } } else n = world[i - 1]; }
       let s = ST[n]; if (s === 3 && (n === 9 || n === 134 || LEAFY[n]) && window.FASTLEAF !== false) s = 0;   // leaves and blossom are solid 'fast' leaves: no faces between them or behind them
       if (!s || (s > 1 && n === b)) continue;
       if (cS && y > 0) { const fx = d === 0 ? x + 1 : d === 1 ? x - 1 : x, fy = d === 2 ? y + 1 : d === 3 ? y - 1 : y, fz = d === 4 ? z + 1 : d === 5 ? z - 1 : z;
@@ -20680,7 +20680,7 @@ rebuild = function (budget) {
   rebuild._unloaded = false;
   ids.sort((a, b) => dist(a) - dist(b));
   const tB = performance.now();
-  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  let built = 0; for (const id of ids) { if (budget && built && performance.now() - tB + ((window.__lightStats && __lightStats().avg) || 0) > budget) break; if (budget && performance.now() - tB > budget * 2) break; try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } built++; dirtyCh.delete(id); }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
@@ -26358,23 +26358,28 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const patchMat = m => { if (!m || patched.has(m) || m.transparent || !(m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return; patched.add(m); const prev = m.onBeforeCompile; m.onBeforeCompile = function (sh, r) { if (prev && prev !== aoPatch) prev.call(this, sh, r); aoPatch(sh); }; m.customProgramCacheKey = () => 'ao3'; m.needsUpdate = true; };
   for (const k in BLOCK_MATS) { const m = BLOCK_MATS[k]; if (Array.isArray(m)) m.forEach(patchMat); else patchMat(m); }
   const op = n => n !== 0 && (!chunkST || !chunkST[n]);
-  const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? 0 : world[(x * H + y) * D + z];
+  // Read the real active mesh. A deep mesher passes a virtual slice in world/W/H/D;
+  // calling getB here would wrongly send its local coordinates back to the overworld.
+  const meshUnderSky = () => !window.__c317mesh && (typeof DIM === 'undefined' || !DIM.cur);
+  const aboveWorld = () => meshUnderSky() ? T.AIR : T.STONE;
+  const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? (y >= H ? aboveWorld() : 0) : world[(x * H + y) * D + z];
   const AOL = [0, 0.16, 0.27, 0.38];
   // ---- GLX-C70 per-block light (Minecraft-like): skylight comes down from each column's top and floods sideways/down openings, falling off per block; block light from torches/lava/lamps ----
   const LSRC = new Uint8Array(256); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
   const LM = 14, SFALL = 1, BFALL = 1, RS = CH + LM * 2; const LATT = window.__LATT = new Uint8Array(256); try { LATT[T.WATER] = 1; for (let i = 0; i < 256; i++) if (LEAFY[i]) LATT[i] = 1; LATT[T.LEAVES] = 1; LATT[134] = 1; } catch (_) {}
   let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
   let LX0 = 0, LZ0 = 0;
-  const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
+  const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; if (y < 0 || y >= H) return true; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
   function flood(A, qn, fall, useTop) { let h = 0;
     while (h < qn) { const c = LQ[h++], l = A[c] - fall; if (l <= 0) continue; const y = c % H, cc = (c - y) / H, rz = cc % RS, rx = (cc - rz) / RS;
       for (let k = 0; k < 6; k++) { let nx = rx, ny = y, nz = rz; if (k === 0) nx++; else if (k === 1) nx--; else if (k === 2) nz++; else if (k === 3) nz--; else if (k === 4) ny++; else ny--;
         if (nx < 0 || nz < 0 || nx >= RS || nz >= RS || ny < 0 || ny >= H) continue; const ci = (nx * RS + nz) * H + ny;
         const wx = LX0 + nx, wz = LZ0 + nz, wv = (wx < 0 || wz < 0 || wx >= W || wz >= D) ? 0 : world[(wx * H + ny) * D + wz]; if (wv !== 0 && !chunkST[wv]) continue; const l2 = l - LATT[wv]; if (l2 <= 0 || A[ci] >= l2) continue; if (useTop && ny > LTOP[nx * RS + nz]) continue; A[ci] = l2; LQ[qn++] = ci; } } }
+  window.__caveLightCore = {flood: function (A, qn, fall, useTop) { flood(A, qn, fall, useTop); return qn; }, sources: LSRC};
   function lightRegion(cx, cz) { if (LH !== H) { LH = H; LSKY = new Uint8Array(RS * RS * H); LBLK = new Uint8Array(RS * RS * H); LQ = new Int32Array(RS * RS * H * 2); } const _t = [performance.now()]; LX0 = cx * CH - LM; LZ0 = cz * CH - LM; LSKY.fill(0); LBLK.fill(0);
     for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) { const x = LX0 + rx, z = LZ0 + rz; let t = -1;
       if (x >= 0 && z >= 0 && x < W && z < D) { const b0 = (x * H) * D + z; for (let y = H - 1; y >= 0; y--) { const v = world[b0 + y * D]; if (v !== 0 && !chunkST[v]) { t = y; break; } } }
-      LTOP[rx * RS + rz] = t; const o = (rx * RS + rz) * H; for (let y = t + 1; y < H; y++) LSKY[o + y] = 15; }
+      LTOP[rx * RS + rz] = t; const o = (rx * RS + rz) * H; if (meshUnderSky()) for (let y = t + 1; y < H; y++) LSKY[o + y] = 15; }
     _t.push(performance.now());
     // skylight seeds: covered air next to an open column
     let qn = 0;
@@ -26389,11 +26394,13 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     _t.push(performance.now()); if (qn) flood(LBLK, qn, BFALL, false); _t.push(performance.now()); window.__ltT = _t.map((v, i) => i ? (v - _t[i - 1]).toFixed(1) : 0).concat([q1, qn]); }
   // light (0..1) of one cell in the current region; opaque cells return -1 (ignored when smoothing)
   const LCURVE = new Float32Array(16), BCURVE = new Float32Array(16); for (let i = 0; i < 16; i++) { const f = i / 15; LCURVE[i] = Math.pow(f, 1.4); BCURVE[i] = Math.pow(f, 1.4); }
-  function cellL(x, y, z) { if (y >= H) return 1; if (y < 0) return -1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1;
+  const skyOut = () => meshUnderSky() ? 1 : 0;
+  function cellL(x, y, z) { if (y >= H) return skyOut(); if (y < 0) return -1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return skyOut();
     if (lop(x, y, z)) return -1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
-  function cellLo(x, y, z) { if (y >= H) return 1; if (y < 0) return 0.1; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 1; const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
+  function cellLo(x, y, z) { if (y >= H) return skyOut(); if (y < 0) return skyOut() ? 0.1 : 0; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return skyOut(); const ci = (rx * RS + rz) * H + y; cB = BCURVE[LBLK[ci]]; return LCURVE[LSKY[ci]]; }
   let cB = 0;
-  function cellOpen(x, y, z) { const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
+  window.__caveLightCore.cells = (x, y, z) => { const l = cellL(x, y, z), b = cB; return {sky: LCURVE[LSKY[((x - LX0) * RS + (z - LZ0)) * H + y]], block: b, sampled: l, skyOpen: cellOpen(x, y, z)}; };
+  function cellOpen(x, y, z) { if (!meshUnderSky()) return 0; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
   window.__lopDbg = (cx, cz) => { lightRegion(cx, cz); let air = 0, tot = 0; for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) for (let y = 0; y <= LTOP[rx * RS + rz]; y++) { tot++; if (!lop(LX0 + rx, y, LZ0 + rz)) air++; } let lit = 0; for (let i = 0; i < LBLK.length; i++) if (LBLK[i]) lit++; return {air, tot, lit, H, RS, top0: LTOP[0]}; };
   let lrKeep = -1; window.__caveRegion = (cx, cz) => { lightRegion(cx, cz); lrKeep = cx * 64 + cz; return {S: LSKY, B: LBLK, x0: LX0, z0: LZ0, RS}; };
   window.__lightChunk = (cx, cz) => { lightRegion(cx, cz); const x0 = LX0, z0 = LZ0; return (x, y, z) => { const rx = x - x0, rz = z - z0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS || y < 0 || y >= H) return null; const i = (rx * RS + rz) * H + y; return [LSKY[i], LBLK[i]]; }; };
@@ -26418,12 +26425,16 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
           if (!s1) { sum += cellLo(x1, y1, z1); bs += cB; cnt++; } if (!s2) { sum += cellLo(x2, y2, z2); bs += cB; cnt++; } if (!cr && !(s1 && s2)) { sum += cellLo(x3, y3, z3); bs += cB; cnt++; }
           const aoV = FANCY ? AOL[s1 && s2 ? 3 : (s1 ? 1 : 0) + (s2 ? 1 : 0) + (cr ? 1 : 0)] : 0;
           ao[f + v] = aoV * 255 + 0.5; ls[f + v] = Math.max(1, sum / cnt * 255 + 0.5); lb[f + v] = bs / cnt * 255 + 0.5; we[f + v] = open * 255; } }
+      // A sky-zero deep slice must stay black: the old minimum of one byte was invisible surface floor compensation, not real light.
+      if (window.__c317mesh && did) ls.fill(0);
       g.setAttribute('aoD', new THREE.BufferAttribute(ao, 1, true)); g.setAttribute('wetE', new THREE.BufferAttribute(we, 1, true)); g.setAttribute('litS', new THREE.BufferAttribute(ls, 1, true)); g.setAttribute('litB', new THREE.BufferAttribute(lb, 1, true)); }
     if (did) { lightMs += performance.now() - t0; lightN++; } }
   // ---- shadows (Realistic): one sun shadow map that follows you, redrawn every few frames ----
   if (REAL) { renderer.shadowMap.enabled = true; renderer.shadowMap.type = touchMode ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
     sunL.castShadow = true; const S = touchMode ? 1024 : 2048; sunL.shadow.mapSize.set(S, S); const c = sunL.shadow.camera; c.left = -34; c.right = 34; c.top = 34; c.bottom = -34; c.near = 1; c.far = 170; c.updateProjectionMatrix(); sunL.shadow.bias = -0.0006; sunL.shadow.normalBias = 0.05; sunL.shadow.radius = 2;
     for (const k in matCache) { const m = matCache[k]; if (m) m.needsUpdate = true; } }
+  // Virtual cave slices call the base mesher; share its actual light baker, not surface-only decorations.
+  window.__caveLightBake = addAO;
   const bc = buildChunk; buildChunk = function (cx, cz) { lrKeep = -1; const r = bc.apply(this, arguments); try { const g = chunkObjs.get(cx * 64 + cz); if (g) { addAO(g, cx, cz); lrKeep = -1; if (REAL) for (const m of g.children) { if (m.renderOrder) continue; m.castShadow = true; m.receiveShadow = true; } } } catch (e) { console.warn('ao', e); } return r; };
   if (REAL) { const sm = spawnMob; spawnMob = function () { const a = sm.apply(this, arguments); try { if (a && a.g) a.g.traverse(o => { if (o.isMesh) o.castShadow = true; }); } catch (_) {} return a; }; }
   let shF = 0, lastSx = 0, lastSz = 0;
@@ -31816,6 +31827,8 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
 /* ===================== GLX-C114 (v0.9.95): Patch notes are back - title + pause menu, in-game panel, controller scroll. Shows only NEW things. ===================== */
 (function c114() {
   const NEW = [
+    ['v1.2.1', ['Deep caves load one eight-block slab per budgeted tick; paused work resumes instead of regenerating it.','Deep cave lighting uses the actual local slice with no daylight through its boundaries; torches and glowing blocks still spread local light.','Blocks placed below Y0 remain saved and visible; Y0 underside faces read the correct cave block and update locally.','Hell keeps stored-world sky and local light rather than inheriting deep virtual-world rules.']],
+    ['v1.1.100', ["Portal: after the UFO abduction finishes, a stable Chrome Reality portal appears on safe ground near the crash landing", "Portal: LT / USE / walk in takes you to the existing YEAR 24000 chrome scene (same realm players call year240000) - not a new world", "Portal: return pad inside chrome restores your place via the existing start24/stop24 travel; cooldown stops re-entry loops", "Portal: unlocks from glen_met_* and save c246.met (and the new y24p flag); prior saves with those flags get the portal, no broad all-user unlock", "Not play-tested in this report - parent can validate the public build; major anatomical model overhaul remains outstanding"]],
     ['v1.2.0', ["Portal: after the UFO abduction finishes, a stable Chrome Reality portal appears on safe ground near the crash landing", "Portal: LT / USE / walk in takes you to the existing YEAR 24000 chrome scene (same realm players call year240000) - not a new world", "Portal: return pad inside chrome restores your place via the existing start24/stop24 travel; cooldown stops re-entry loops", "Portal: unlocks from glen_met_* and save c246.met (and the new y24p flag); prior saves with those flags get the portal, no broad all-user unlock", "Not play-tested in this report - parent can validate the public build; major anatomical model overhaul remains outstanding"]],
     ['v1.1.99', ["FPS: one viewmodel owner for gun pose and scale; real gun models hide the old mesh until the final asset is ready then show together", "Hands: natural thumb side on each palm, tighter finger curl on tools blocks and grips, smaller hands, wrist angle limits", "Reload: the Reload button plays the full reload motion even when unlimited ammo keeps the magazine full", "Third person: clearer blink and support-hand rifle cradle; ADS and recoil stay as small deltas from the bind pose", "Not play-tested in this report - parent can validate the public build"]],
     ['v1.1.98', ["Caves: bedrock floor at world Y -237 with lush dark volcanic crystal and tall hell layers plus one giant golden hell eye", "Legacy deep builds are grandfathered with a dynamic seal from each column min depth so old floors are not trapped", "Drop cull follows the dynamic floor; Agartha and inventory Nature wool features from 1.1.97 stay"]],
@@ -47147,16 +47160,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    chunk mesher, a few chunks at a time (lazy, nothing stored but what you change). It works on every side of the planet. Also: no grey
    Earth fog out in space or on the Moon and Mars, so the red Mars sand and the grey Moon dust show in their real colours again. */
 (function c324() {
-  const U = window.__c324 = {err: null, meshed: 0, ms: 0, n: 0};
+  const U = window.__c324 = {err: null, meshed: 0, ms: 0, n: 0, ticks: 0, deferred: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); console.warn('c324', w, e); };
   const PH = /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof PERF !== 'undefined' && PERF), C = CH, PW = 3 * C + 1, NB = 72; let RN = PH ? 2 : 3; const RN0 = RN;
   const E = () => window.__c320, F = () => window.__c321, on = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };
   const MS = [[[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 1, 0], [-1, 0, 0], [0, 0, 1]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
     [[1, 0, 0], [0, -1, 0], [0, 0, -1]], [[1, 0, 0], [0, 0, 1], [0, -1, 0]], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]];
   const QS = MS.map(m => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...m[0]), new THREE.Vector3(...m[1]), new THREE.Vector3(...m[2]))));
-  const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null;
+  const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null, meshHost = null, partial = new Map();
   const drop = k => { const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
-  const dropAll = () => { for (const k of [...meshes.keys()]) drop(k); stale.clear(); };
+  const dropAll = () => { for (const k of [...meshes.keys()]) drop(k); stale.clear(); U.dirty.clear(); };
   U.dirty = new Set(); const eB = {k: null, v: null, m: null}; const stale = new Set();
   // v1.1.38: generated blocks are cached in 8 high slabs per chunk column, so digging, walking and going down rebuild from the cache, not from the noise
   const SL = 8, SW = C + 2, cache = new Map(); let eV = -1, eL = [];
@@ -47170,13 +47183,18 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         let b; if (e.tOn && a >= -40 && wy - SEA < r - R - 1) { b = e.terr(wx, wy, wz, dx, dy, dz, r); if (!b || b === T.WATER) continue; } else if (a < -40) { b = e.hol ? e.hol(wx, wy, wz, dx, dy, dz, r) : e.layer(r, 99, 0, wx, wy, wz); if (!b) continue; } else { if (!gk) gk = e.ground(wx, wy, wz, dx / r, dy / r, dz / r); if (a >= gk[0]) continue; b = e.layer(r, gk[0] - a, gk[1], wx, wy, wz); }
         A[(i * SL + j) * SW + k] = b; } }
     cache.set(key, A); if (cache.size > (PH ? 1500 : 3000)) cache.delete(cache.keys().next().value); return A; }
-  U.cache = cache;
-  // v1.1.38: missing slabs are generated a few at a time within the frame budget; a chunk is drawn once all its slabs are ready
-  function ready(ax, piv, cx, cz, y0, t1, bud) { for (let s0 = 0; s0 < NB; s0 += SL) { if (cache.has(ax + '|' + piv.join() + '|' + cx + ',' + cz + ',' + (y0 + s0))) continue; if (performance.now() - t1 > bud) return false; slab(ax, piv, cx, cz, y0 + s0); } return performance.now() - t1 < bud * 1.6; }
-  function fill(ax, piv, cx, cz, y0) { const e = E(); if (!TMP) TMP = new Uint8Array(PW * NB * PW); else TMP.fill(0); let any = false;
-    for (let s0 = 0; s0 < NB; s0 += SL) { const A = slab(ax, piv, cx, cz, y0 + s0);
+  U.cache = cache; U.slab = slab; U.fill = fill;
+  U.inspect = () => ({partial: partial.size, meshes: meshes.size, deferred: U.deferred, ticks: U.ticks});
+  // Pauses retain the partially assembled cells. At most one uncached eight-block slab
+  // is started per tick and lighting owns a single synchronous mesh in that same tick.
+  function fill(ax, piv, cx, cz, y0, t1, bud) { const e = E(), pk=ax+'|'+piv.join()+'|'+cx+','+cz+','+y0, job=partial.get(pk)||{any:false,done:0}; let any=job.any; TMP=job.data||(job.data=new Uint8Array(PW*NB*PW));
+    for (let s0 = job.done; s0 < NB; s0 += SL) { const A = slab(ax, piv, cx, cz, y0 + s0);
       for (let i = 0; i < SW; i++) for (let j = 0; j < SL; j++) { const src = (i * SL + j) * SW, dst = ((C - 1 + i) * NB + s0 + j) * PW + C - 1; TMP.set(A.subarray(src, src + SW), dst);
-        if (!any && i > 0 && i <= C) for (let k = 1; k <= C; k++) if (A[src + k]) { any = true; break; } } }
+        if (!any && i > 0 && i <= C) for (let k = 1; k <= C; k++) if (A[src + k]) { any = true; break; } } job.done=s0+SL;job.any=any;partial.set(pk,job);if(performance.now()-t1>=bud){
+      // Cancelled views must not accumulate 448 KiB pending slices forever.
+      if(partial.size>32){const oldest=partial.keys().next().value;if(oldest!==pk)partial.delete(oldest);}
+      U.deferred++;return null;
+    }}partial.delete(pk);
     // dug or placed blocks: the edits list is read once per change, not once per block
     if (e.edits.size) { if (eV === -1) { eV = 0; eL = []; for (const [k, v] of e.edits) { const q = k.split(',').map(Number); q[3] = v | 0; eL.push(q); } }
       const m = MS[ax], bk = ax + '|' + piv.join(); if (eB.k !== bk || eB.v !== eL) { eB.k = bk; eB.v = eL; eB.m = new Map();   /* v1.1.86: edits are sorted by chunk once, so each chunk only looks at its own (was every edit for every chunk) */
@@ -47187,25 +47205,30 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         const Z0e = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; if (ly >= 0 && lx >= 0 && lx < W && lz < D && lz >= Z0e) continue;   /* v1.1.96: surface owns in-bounds Y>=0 */
         const tx = lx - cx * C + C, ty = ly - y0, tz = lz - cz * C + C; if (tx >= C - 1 && tx <= 2 * C && tz >= C - 1 && tz <= 2 * C && ty >= 0 && ty < NB) { TMP[(tx * NB + ty) * PW + tz] = q[3]; if (q[3]) any = true; } } }   /* v1.1.55: placed blocks out on the planet, deep down and in Agartha are drawn (they were drawn as air) */
     return any; }
-  function mesh(ax, piv, cx, cz, y0) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); const fk = fill(ax, piv, cx, cz, y0); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }
+  // Fill can stop after each slab, or return a complete slice for the real mesher to render.
+  U.slice = (ax,piv,cx,cz,y0,t1,bud) => { const ok=fill(ax,piv,cx,cz,y0,t1,bud);return ok===null?null:{any:ok,data:TMP.slice()}; };
+  function mesh(ax, piv, cx, cz, y0, fk, data) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }
     const sv = [world, W, H, D], cc = window.__caveCull, o = chunkObjs.get(65), ol = chunkLists.get(65); let g = null;
-    chunkObjs.delete(65); chunkLists.delete(65); window.__caveCull = null; window.__c317mesh = 1;
-    try { world = TMP; W = PW; H = NB; D = PW; __bcBase(1, 1); g = chunkObjs.get(65); } catch (e) { ERR('bc', e); }
-    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; window.__c317mesh = 0; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
+    chunkObjs.delete(65); chunkLists.delete(65); window.__caveCull = null; window.__c317mesh = 1; window.__deepMeshY0 = y0;
+    try { world = data; W = PW; H = NB; D = PW; __bcBase(1, 1); g = chunkObjs.get(65); if (g && window.__caveLightBake) window.__caveLightBake(g, 1, 1); } catch (e) { ERR('bc', e); }
+    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; window.__c317mesh = 0; delete window.__deepMeshY0; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
     if (!g) { meshes.set(k, null); return; } blockGroup.remove(g); g.position.set(cx * C - C - piv[0], y0 - piv[1], cz * C - C - piv[2]); root.add(g); meshes.set(k, g); U.meshed++; U.ms = Math.round(performance.now() - t0); (U.mt = U.mt || []).push([U.ms, U.fm]); if (U.mt.length > 400) U.mt.shift(); }
   U.mesh = mesh;
   setInterval(() => { try { const f = F(), e = E(); if (typeof started === 'undefined' || !started || DIM.cur || !on() || !f || !e) { root.visible = false; return; }
       const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
       const ax = f.ax, piv = ax === 2 ? [0, 0, 0] : f.piv.slice(), pk = ax + ':' + piv.join();
-      if (pk !== fPiv) { dropAll(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
+      if(meshHost&&Math.abs(P.x-meshHost[0])+Math.abs(P.y-meshHost[1])+Math.abs(P.z-meshHost[2])>160){dropAll();cache.clear();partial.clear();band=null;U.teleports=(U.teleports||0)+1;}meshHost=[P.x,P.y,P.z];
+      if (pk !== fPiv) { dropAll(); partial.clear(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
       { const vd = (typeof vf === 'function' ? vf() : 96), hh = Math.max(0, P.y - SEA - 30); RN = e.flat ? Math.min(PH ? 7 : 16, Math.max(RN0, Math.ceil(Math.max(vd, (scene.fog && scene.fog.far < 1e5 ? scene.fog.far : 0), (window.__c346 && __c346.R) || 0) / C) + 1)) : RN0; if (e.flat && P.y < SEA - 30) RN = Math.min(RN, PH ? 3 : 5); }   /* v1.1.81: underground only the chunks round you are built */
-      const bY = e.flat ? Math.min(SEA - 12, P.y - 40) : P.y - 40;   /* v1.1.91: the slice drawn always holds your own depth, also just under sea level where caves were left undrawn */ if (band === null || Math.abs(bY + 40 - (band + 40)) > 14) { const nb = Math.floor(bY / SL) * SL; if (band === null) dropAll(); else for (const k of meshes.keys()) stale.add(k); band = nb; }   /* v1.1.38: old chunks stay drawn until rebuilt, no remesh storm */
+      const bY = e.flat ? Math.min(SEA - 12, P.y - 68) : P.y - 68;   /* v1.1.91: the slice drawn always holds your own depth, also just under sea level where caves were left undrawn */ if (band === null || Math.abs(bY + 40 - (band + 40)) > 14) { const nb = Math.floor(bY / SL) * SL; if (band === null) dropAll(); else for (const k of meshes.keys()) stale.add(k); band = nb; }   /* v1.1.38: old chunks stay drawn until rebuilt, no remesh storm */
       if (U.wv !== world) { U.wv = world; cache.clear(); eV = -1; dropAll(); band = Math.floor(bY / SL) * SL; } if (e.dirty) { e.dirty = 0; eV = -1; }   /* v1.1.38: an edit no longer redraws every chunk at once; the chunk you changed is redrawn first */
-      const pcx = Math.floor(P.x / C), pcz = Math.floor(P.z / C);
+      const pp=f.pw(), pcx = Math.floor(pp.x / C), pcz = Math.floor(pp.z / C);
       for (const k of [...meshes.keys()]) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
       const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
-      want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz, near = want.filter(q => q[0] < 1.5).length; U.hold = !meshes.has(mk) || near > 0;   /* v1.1.36: the ground under you is built first and fast, and you wait for it */
-      const t1 = performance.now(), bud = U.hold ? (PH ? 10 : 14) : e.flat ? (PH ? 6 : 14) : (PH ? 5 : 8); for (let i = 0; i < want.length && performance.now() - t1 < bud; i++) { const q = want[i]; if (!ready(ax, piv, q[1], q[2], band, t1, bud)) break; U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band); } U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); } catch (e) { ERR('loop', e); } }, PH ? 120 : 70);
+      want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz; U.hold = !meshes.has(mk);
+      const t1 = performance.now(), bud = U.hold ? (PH ? 3 : 4) : (PH ? 2 : 3);
+      for (let i = 0; i < want.length; i++) { const q = want[i]; if (performance.now() - t1 >= bud) break; TMP = null; const fk = fill(ax, piv, q[1], q[2], band, t1, bud); if (fk === null) break; const data = TMP; U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band, fk, data); break; }
+      U.ticks++; U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); U.partial = partial.size; } catch (e) { ERR('loop', e); } }, PH ? 70 : 50);
   setTimeout(() => { try { const up = updatePlayer; updatePlayer = function (dt) { try { const e = E(); if (U.hold && root.visible && !flying && e) { const w = F().pw(); const al = e.alt(w.x, w.y, w.z); if (al < 60 && al > -60 && P.vy < 0 && (U.hf || 0) < 90) { P.vy = 0; U.held = (U.held || 0) + 1; U.hf = (U.hf || 0) + 1; } } else U.hf = 0; } catch (_) {} return up.apply(this, arguments); }; } catch (e) { ERR('hold', e); } }, 3200);
   // blocks you dig or place out on the planet: redraw that chunk
   try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y >= 0 && y <= 1) { const t = '|' + Math.floor(x / C) + ',' + Math.floor(z / C) + ','; for (const kk of [...cache.keys()]) if (kk.includes(t)) cache.delete(kk); } } catch (_) {} try { const f = F(); if (f && on() && meshes.size) { const mx = ((Math.floor(x) % C) + C) % C, mz = ((Math.floor(z) % C) + C) % C; for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if ((ax === 0 || (ax > 0 ? mx === C - 1 : mx === 0)) && (az === 0 || (az > 0 ? mz === C - 1 : mz === 0))) U.dirty.add(Math.floor((Math.floor(x) + ax) / C) + ',' + Math.floor((Math.floor(z) + az) / C)); } } catch (_) {} return r; }; } catch (e) { ERR('setB', e); }
@@ -47352,7 +47375,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c371 = {n: 0};
   window.__YB = (x, z) => { try { if (!window.__c320 || !__c320.hol) return T.STONE; const b = getB(x, -1, z); if (!b || b === T.WATER || b === T.LAVA) U.n++; return b; } catch (_) { return T.STONE; } };
   // digging or placing just under Y 0 redraws the chunk above it
-  try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y === -1 && x >= 0 && z >= 0 && x < W && z < D) markDirty(x, z); } catch (_) {} return r; }; } catch (_) {}
+  try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y === -1 && x >= 0 && z >= 0 && x < W && z < D) { markDirty(x, z); if (x % CH === 0) markDirty(x - 1, z); if ((x + 1) % CH === 0) markDirty(x + 1, z); if (z % CH === 0) markDirty(x, z - 1); if ((z + 1) % CH === 0) markDirty(x, z + 1); } } catch (_) {} return r; }; } catch (_) {}
 })();
 
 /* GLX-C335 (v1.1.38): CAVES GO DOWN, AND BLACKSTONE BREAKS LIKE COBBLE.
@@ -50576,6 +50599,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{v:'v1.2.1', d:'2026-11-06', notes:['Deep caves: incremental slab loading, coordinate-correct local lighting, reliable Y0 placement and underside updates.','Performance: budget checks happen between slabs and meshes, so lighting cannot start lots of new work after time runs out.','Existing worlds and deep edits keep their same storage and content.']},
 {v:'v1.1.96', d:'2026-11-06', notes:['Fix: Y0 and Y1 are drawn by one mesh owner only, so the seam at the surface no longer flashes or leaves holes. Digging and collision still agree.','Fix: item drops deep underground no longer vanish below Y -5. They stay until you pick them up or they time out for real.','Fix: TVs, chests, torches, doors, furnaces and beds placed deep down show, work, save and remove properly again.','Fix: the pickaxe swing no longer freezes during a remesh stall or resets every frame. Crack and break speed are unchanged.','Fix: gun pose and scale have one owner in first person, so the musket no longer shrinks or vanishes when you fire. Aiming stays centred.','Perf: gun shots trace blocks with a fast grid walk instead of hundreds of solid checks, with the same hits.','New: the highlighted hotbar or inventory slot shows the item name for controller, touch and mouse with no extra equip step.']},{v:'v1.1.95', d:'2026-11-03', notes:['Planets face the castles, red eye nebula gone, guns load before you see them, steady arms and centred aiming']},
 {v:'v1.1.94', d:'2026-11-03', notes:['Hotfix: no sky at all deep down or in Agartha, one steady dark cave colour so nothing can flash']},
 {v:'v1.1.93', d:'2026-11-03', notes:['Fixed the striped purple TV look very deep down, the old heat shimmer is gone.','A new night sky: deep blue to violet, lots of crisp twinkling stars, a faint milky band, soft wisps and a glow round the Moon.','And a new stone castle lighthouse with a spiral walkway and a lit lantern on a little isle off the far north of Scotland.']},
