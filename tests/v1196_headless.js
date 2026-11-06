@@ -19,7 +19,7 @@ ok('drops_no_full_rewrap', !/d\.age \+= dt/.test(dropsMod));
 ok('drops_src_build87', /build87/.test(dropsMod));
 
 const build87 = fs.readFileSync(path.join(root, 'build87.py'), 'utf8');
-ok('build87_drop_floor', /SEA : 41\) - 1100/.test(build87));
+ok('build87_drop_floor', /dropFloorY/.test(build87) && /SEA : 41\) - 1600/.test(build87));
 ok('build87_swing_beat', /mine\._swB/.test(build87));
 ok('build87_fire_dda', /tDx = sx/.test(build87));
 ok('build87_no_old_swing_phase', !/swingT = per \* \(1 - ph\)/.test(build87));
