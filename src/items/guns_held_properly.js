@@ -14,6 +14,7 @@
   let k = 0, kick = 0, last = performance.now();
   const HIP = {pistol: [0.19, -0.12, -0.44], rifle: [0.19, -0.14, -0.5]};
   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { const g = gun(); U.on = g ? 1 : 0; if (!g || tp()) { armVis(true); return r; }
+        if (window.__vm) { U.poseOff = 1; return r; }   /* v1.1.96: viewmodel owns pose+scale; C340 keeps shot FX only */
         const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; k += ((aim() ? 1 : 0) - k) * (1 - Math.exp(-d * 14)); U.k = +k.toFixed(2); kick *= Math.exp(-d * 11);
         if (now - (U.lt || 0) > 400) { U.lt = now; held.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) if (m.emissive && m.color && !m.emissive.getHex()) { U.lit = (U.lit || 0) + 1; m.emissive.copy(m.color).multiplyScalar(0.45); if (m.emissiveMap === null && m.map) m.emissiveMap = m.map; m.needsUpdate = true; } }); }
         if (!relTo(g, hand, M1)) return r; M1.decompose(v, q, sc); const u = g.userData, s0 = sc.x * hand.scale.x, s = (u.__s0 && Math.abs(s0 / u.__s0 - 1) > 0.02) ? u.__s0 : (u.__s0 = u.__s0 || s0), isP = u.gun === IT.PISTOL, sg = u.sight ? u.sight.clone().multiplyScalar(s) : new THREE.Vector3(0, 0.04 * s, 0);
