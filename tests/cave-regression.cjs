@@ -188,14 +188,14 @@ function testDirtyAndBudget() {
 }
 
 function minimalThree() {
-  class Attribute { constructor(array, itemSize) { this.array=array;this.itemSize=itemSize;this.count=array.length/itemSize; } }
-  class Geometry { constructor(){this.attributes={};}setAttribute(name,a){this.attributes[name]=a;}setIndex(a){this.index=a;}computeBoundingSphere(){} addGroup(){}dispose(){this.disposed=true;this.disposeCount=(this.disposeCount||0)+1;} }
-  class Mesh { constructor(g,m){this.geometry=g;this.material=m;this.userData={};this.children=[];}dispose(){} }
-  class Group { constructor(){this.children=[];this.userData={};this.position={set(x,y,z){this.x=x;this.y=y;this.z=z;}};}add(g){this.children.push(g);return this;}traverse(fn){fn(this);for(const g of this.children)if(g.traverse)g.traverse(fn);else fn(g);}remove(g){this.children.splice(this.children.indexOf(g),1);} }
-  class Matrix4{} class Quaternion{} class Vector3{};
-  return {Group,Mesh,BufferGeometry:Geometry,BufferAttribute:Attribute,Matrix4,Quaternion,Vector3};
+  class Attribute { constructor(array, itemSize) { this.array=array;this.itemSize=itemSize;this.count=array.length/itemSize;this.normalized=(array instanceof Int8Array||array instanceof Uint8Array||array instanceof Int16Array||array instanceof Uint16Array); } }
+  class Geometry { constructor(){this.attributes={};this.groups=[];}setAttribute(name,a){this.attributes[name]=a;return this;}setIndex(a){this.index=a instanceof Attribute?a:new Attribute(a,1);return this;}computeBoundingSphere(){} addGroup(start,count,materialIndex){this.groups.push({start,count,materialIndex});}dispose(){this.disposed=true;this.disposeCount=(this.disposeCount||0)+1;} }
+  class Mesh { constructor(g,m){this.geometry=g;this.material=m;this.userData={};this.children=[];this.isMesh=true;this.frustumCulled=true;}dispose(){this.disposed=true;} }
+  class Group { constructor(){this.children=[];this.userData={};this.position={set(x,y,z){this.x=x;this.y=y;this.z=z;}};this.quaternion={copy(){}};}updateMatrixWorld(){}add(g){this.children.push(g);return this;}traverse(fn){fn(this);for(const g of this.children)if(g.traverse)g.traverse(fn);else fn(g);}remove(g){this.children.splice(this.children.indexOf(g),1);} }
+  class InstancedMesh extends Mesh{constructor(g,m,n){super(g,m);this.isInstancedMesh=true;this.count=n;this.matrices=[];this.instanceMatrix={needsUpdate:false};}setMatrixAt(i,m){this.matrices[i]=m;}}
+  class Matrix4{makeBasis(){return this;}compose(p,q,s){this.p=p;this.q=q;this.s=s;return this;}} class Quaternion{setFromRotationMatrix(){return this;}setFromAxisAngle(up,a){this.a=a;return this;}} class Vector3{constructor(x,y,z){this.x=x;this.y=y;this.z=z;}set(x,y,z){this.x=x;this.y=y;this.z=z;return this;}}
+  return {Group,Mesh,InstancedMesh,BufferGeometry:Geometry,BufferAttribute:Attribute,Matrix4,Quaternion,Vector3};
 }
-
 function testFullDeepMesh() {
   const c = run(`
     var W=79,H=72,D=79,CH=26,world=new Uint8Array(W*H*D);
@@ -261,7 +261,7 @@ function testFullDeepMesh() {
 
 
 function deepFixture(kind){
- const c=run(`var W=79,H=72,D=79,CH=26,world=new Uint8Array(W*D*H),T=${JSON.stringify(T)},FANCY=true,REAL=false;var PLANT={},ENT={},LEAFY={},BLOCK_MATS={},patched=new Set(),chunkST=null,chunkFQ=null,chunkObjs=new Map(),chunkLists=new Map(),blockGroup=new THREE.Group(),window=this;var __XN=null,__YB=null,__c317mesh=0;var C=26,PW=79,NB=72,band=-72,fPiv='2:0,0,0';const U={meshed:0},root=new THREE.Group();this.meshes=new Map();U.dirty=new Set();const drop=k=>{const g=meshes.get(k);if(g){root.remove(g);disposeLight(g);meshes.delete(k);U.dirty.delete(k);}};const DIM={cur:null};const isPlant=()=>false,buildWaterGeo=()=>null;const originalCull=()=>null;__caveCull=originalCull;this.roots=root;const errors=[];this.on=()=>!window.__c317mesh&&!window.DIM.cur&&W>=600;this.testErrors=errors;const ERR=(where,e)=>{errors.push([where,e.stack]);};const BLOCK_MAT0={transparent:false,userData:{tmat:true}};BLOCK_MATS[1]=BLOCK_MAT0;
+ const c=run(`var W=79,H=72,D=79,CH=26,world=new Uint8Array(W*D*H),T=${JSON.stringify(T)},FANCY=true,REAL=false;var PLANT={},ENT={},LEAFY={},BLOCK_MATS={},patched=new Set(),chunkST=null,chunkFQ=null,chunkObjs=new Map(),chunkLists=new Map(),blockGroup=new THREE.Group(),window=this;var __XN=null,__YB=null,__c317mesh=0;var C=26,PW=79,NB=72,band=-72,fPiv='2:0,0,0';const U={meshed:0,generation:1},root=new THREE.Group();this.meshes=new Map();U.dirty=new Set();const drop=k=>{const g=meshes.get(k);if(g){root.remove(g);disposeLight(g);meshes.delete(k);U.dirty.delete(k);}};const DIM={cur:null};const isPlant=()=>false,buildWaterGeo=()=>null;const originalCull=()=>null;__caveCull=originalCull;this.roots=root;const errors=[];this.on=()=>!window.__c317mesh&&!window.DIM.cur&&W>=600;this.testErrors=errors;const ERR=(where,e)=>{errors.push([where,e.stack]);};const BLOCK_MAT0={transparent:false,userData:{tmat:true}};BLOCK_MATS[1]=BLOCK_MAT0;
   // Dense actual C324 cavity with six-direction exposed planes, marginal emissive and ordinary material.
   for(let x=25;x<54;x++)for(let z=25;z<54;z++)for(let y=0;y<72;y++)world[(x*H+y)*D+z]=T.STONE;
   for(let x=34;x<45;x++)for(let z=34;z<45;z++)for(let y=19;y<62;y++)world[(x*H+y)*D+z]=0;
@@ -269,10 +269,10 @@ function deepFixture(kind){
  run(segment('function buildChunk(cx, cz) {','\nvar __bcBase = buildChunk;',text.indexOf('var chunkST = null')),{},c);run('var __bcBase=buildChunk;',{},c);
  run(segment('  const op = n =>','  function addAO(grp, cx, cz)')+segment('  function addAO(grp, cx, cz)','  // ---- shadows (Realistic)'),{},c);c.__caveLightBake=c.addAO;
 
- const orig=production('  function mesh(ax, piv, cx, cz, y0, fk, data)','  const pendingLight=new Map()',text.indexOf('(function c324()')),inc=production('  const pendingLight=new Map()','  U.meshIncremental=beginLight;',text.indexOf('(function c324()'))+'U.pendingJob=()=>pendingLight.values().next().value||null;U.lightEpoch=()=>lightEpoch;U.lightKeys=()=>[...pendingLight.keys()];';
- run(orig+'this.beginSync=mesh;'+inc+'this.U=U;this.cull=__caveCull;window.enter=beginLight;window.advance=resumeLight;window.abandon=abandonLight;',{},c);
+ const orig=production('  function mesh(ax, piv, cx, cz, y0, fk, data)','function* deepMeshGenerator(',text.indexOf('(function c324()')),inc=production('function* deepMeshGenerator(','  U.meshIncremental=beginLight;',text.indexOf('(function c324()'))+'U.pendingJob=()=>pendingLight.values().next().value||null;U.lightEpoch=()=>lightEpoch;U.lightKeys=()=>[...pendingLight.keys()];';
+ run(' const partial=new Map();'+orig+'this.beginSync=mesh;'+inc+'this.U=U;this.cull=__caveCull;window.enter=beginLight;window.advance=resumeLight;window.abandon=abandonLight;',{},c);
  if(kind==='aoFail')run('const realAO=window.__deepAOStep;window.__deepAOStep=(...a)=>{if(window.__AO_THROW__)throw new Error("deliberate incremental AO failure");return realAO(...a);};',{},c);
- if(kind==='sync'){const m=c.meshes;run(orig+'window.beginSync=mesh;window.U=U;',{},c);}return c;
+ if(kind==='sync'){const m=c.meshes;run('var __bcBase=buildChunk;'+orig+'window.beginSync=mesh;window.U=U;',{},c);}return c;
 }
 function arrays(g){const out=[];for(const m of g.children){const a=m.geometry?.attributes;if(!a)continue;const x={};for(const k of Object.keys(a))x[k]=Array.from(a[k].array);out.push(x);}return out;}
 function testDeepIncrementalLifecycle(){
@@ -286,7 +286,7 @@ function testDeepIncrementalLifecycle(){
     const done=c.advance('0,0',t,1),ms=performance.now()-t;
     if(wasGeo)maxGeo=ms;else{times.push(ms);const key=phase===undefined?'allocation':['top','sky-seed','sky-flood','block-seed','block-flood','AO'][phase];phaseMax[key]=Math.max(phaseMax[key]||0,ms);}
     assert.deepEqual(stamp(),initial,'all world/cull/slice globals restored after each tick');if(native&&c.__caveLightBuffers)for(const key of ['S','B','Q','H','x0','z0','top'])assert.equal(c.__caveLightBuffers()[key],native[key],'native queue/region globals restored after each yield');
-    if(last&&!done)assert.equal(c.meshes.get('0,0'),old,'no partial geometry/light ever published');
+    if(!done){assert.equal(c.meshes.get('0,0'),old,'old scene retained while exact base meshing yields');assert.equal(c.roots.children.includes(last?.g),false,'suspended group remains private');}
     last=c.U.pendingJob();assert.ok(++calls<1000,'job needs finite progress');assert.equal(c.testErrors.length,0);
   }
   const ref=deepFixture('sync');run('window.__TA={on:true,mat:BLOCK_MAT0,layers:t=>[0,1,2,3,4,5]};',{},ref);
@@ -330,7 +330,7 @@ function testDeepIncrementalLifecycle(){
   // A failure before the bare geometry returns must still capture/dispose its private group.
   const failedGeo=deepFixture('inc'),oldGeo=new failedGeo.THREE.Group();failedGeo.meshes.set('0,0',oldGeo);failedGeo.roots.add(oldGeo);failedGeo.enter(2,[0,0,0],0,0,-72,1,failedGeo.slice);
   const failedJob=failedGeo.U.pendingJob(),checkDispose=new c.THREE.BufferGeometry();
-  failedGeo.__bcBase=()=>{const g=new failedGeo.THREE.Group();g.add(new failedGeo.THREE.Mesh(checkDispose,failedGeo.BLOCK_MATS[1]));failedGeo.chunkObjs.set(65,g);throw new Error('deliberate incremental geometry publication failure');};failedGeo.advance('0,0',performance.now(),1);
+  failedGeo.advance('0,0',performance.now(),1);while(!failedJob.g)failedGeo.advance('0,0',performance.now(),1);failedJob.g.add(new failedGeo.THREE.Mesh(checkDispose,failedGeo.BLOCK_MATS[1]));failedGeo.__deepLightStep=()=>{throw new Error('deliberate incremental geometry publication failure');};failedGeo.advance('0,0',performance.now(),1);
   assert.equal(failedGeo.meshes.get('0,0'),oldGeo,'partial geometry exception leaves prior mesh');assert.equal(checkDispose.disposed,true,'private geometry disposed on geometry exception');assert.equal(failedJob.g,null);assert.match(failedGeo.testErrors.at(-1)[1],/deliberate incremental geometry publication failure/);assert.equal(failedGeo.testErrors.at(-1)[0],'light');
   // Empty source has the same retired-mesh/null publication semantics as synchronous mesh.
   const empty=deepFixture('inc'),emptyOld=new empty.THREE.Group();empty.roots.add(emptyOld);empty.meshes.set('0,0',emptyOld);assert.equal(empty.enter(2,[0,0,0],0,0,-72,0,empty.slice),true);assert.equal(empty.meshes.get('0,0'),null);assert.equal(emptyOld.children.length,0);assert.equal(empty.U.pendingJob(),null,'empty source leaves no perpetual light job');
@@ -356,6 +356,135 @@ function testIncrementalLightingEquality(){
   console.log('PASS exact incremental lighting/AO equality',mode,'bounded phase calls',calls,'AO meshes',job.mesh);
  }
 }
+function requiresBaseConfirmation(fragment){
+ assert.match(fragment,/resetNo'\)\.addEventListener\('click', e => \{ e\.preventDefault\(\); closeAsk\(\); \}\)/);
+ assert.match(fragment,/resetYes'\)\.addEventListener\('click'[^\n]*else window\.__c105\.start\(\);/);
+ assert.match(fragment,/askBtns\(\)\[0\]\.focus\(\)/);
+ return true;
+}
+function resetFixture(continuation){
+ const timers=[],calls={n:0},three=minimalThree(),privateGeometry=[];
+ three.InstancedMesh=class extends three.Mesh{constructor(g,m,n){super(g,m);this.count=n;this.isInstancedMesh=true;this.instanceMatrix={needsUpdate:false};this.matrices=[];}setMatrixAt(i,m){this.matrices[i]=m;}};
+ const c=vm.createContext({console,Map,Set,Uint8Array,Int16Array,Int32Array,Float32Array,Uint32Array,Math,Date,performance,
+  navigator:{userAgent:''},THREE:three,T:Object.assign({},T),DIM:{cur:null},__c317mesh:0,
+  W:79,H:72,D:79,CH:26,SEA:41,PH:false,DEFAULT_R:5,P:{x:39,y:20,z:39},
+  PLANT:{},ENT:{},LEAFY:{},patched:new Set(),BLOCK_MATS:[null,{transparent:false,userData:{tmat:true}}],
+  chunkST:new Uint8Array(256),chunkFQ:null,chunkObjs:new Map(),chunkLists:new Map(),blockGroup:new three.Group(),scene:new three.Group(),
+  started:true,dead:false,current:{id:'same-slot'},seed:0,__TA:null,__c309:{on:false},
+  seedValue:1,sourceVersion:1,
+  __c105:{phase:null,start(){
+   if(this.phase||!c.started||c.dead||!c.current)return;
+   calls.n++;if(continuation)return continuation.call(this);c.__c105.phase='gen';
+  }},
+  __c317:{on:()=>true},__c321:{ax:2,piv:[0,0,0],pw:()=>({x:39,y:20,z:39})},
+  world:new Uint8Array(0),FANCY:true,REAL:false,DIRL:{},MODE:{},mobs:[],drops:[],armour:[],inv:{},flying:false,vf:()=>96,
+  renderer:{render:()=>{}},updatePlayer:()=>{},updateSky:()=>{},setB:()=>{},getB:()=>T.AIR,isPlant:()=>false,
+  buildWaterGeo:()=>null,waterMat:{},crossGeo:{},PLANT_MATS:{},PLANT_H:{},PLANT_W:{},
+  setInterval(fn){timers.push(fn);},setTimeout(){},clearInterval(){},clearTimeout(){}});
+ c.window=c;
+ const BaseGeometry=three.BufferGeometry;
+ three.BufferGeometry=class extends BaseGeometry{constructor(){super();privateGeometry.push(this);}};
+ three.Matrix4=class{makeBasis(){return this;}compose(){return this;}};
+ three.Quaternion=class{setFromRotationMatrix(){return this;}setFromAxisAngle(){return this;}};
+ three.Vector3=class{constructor(x,y,z){this.x=x;this.y=y;this.z=z;}set(x,y,z){this.x=x;this.y=y;this.z=z;return this;}};
+ three.Vector4=class{set(){}};
+ const lightHelpers=production('  const op = n => n !== 0','  // ---- shadows (Realistic)');
+ const source=production('  const U = window.__c324','  // no grey ground fog',text.indexOf('(function c324()'));
+ new vm.Script(lightHelpers+`
+   var __XZ=0,__XN=null,__YB=null,streamT=0;
+   var __c320={edits:new Map(),dirty:0,E:()=>[300,-4900,300],R:5000,flat:true,
+    earth(x,y,z){return sourceVersion===1?1:((x+y+z+seedValue)%3?1:0)},
+    alt:()=>40,ground:()=>[10,1],layer:()=>T.STONE,space:()=>false};`).runInContext(c);
+ new vm.Script(source+`
+   window.__cache=cache;window.__partial=partial;window.__siteMeshes=meshes;
+   window.__stale=stale;U.root=root;
+   window.__bands=()=>({band,TMP,meshHost,eV,eL,eB});window.__resetStart=__c105.start;window.__inspectJob=k=>pendingLight.get(k);`,
+  {filename:'real-reset-c324.js'}).runInContext(c);
+ c.__timers=timers;c.__calls=calls;c.__privateGeometry=privateGeometry;return c;
+}
+function TickEach(ctx){for(const fn of ctx.__timers)fn();assert(!ctx.__c324.err,ctx.__c324.err);}
+function testCaveResetGenerationInvalidation(){
+ const c=resetFixture(),privateGeometry=c.__privateGeometry;assert.equal(c.__calls.n,0,'initialization never calls reset');
+ for(let pass=0;pass<2;pass++)for(const fn of c.__timers)fn();
+ const U=c.__c324,initialGeneration=U.generation;
+ assert.equal(initialGeneration,2);assert.ok(c.__cache.size>0);
+ c.world=new Uint8Array(1);for(const fn of c.__timers)fn();const currentGeneration=U.generation;
+ assert.equal(currentGeneration,initialGeneration+1,'actual world identity change advances once');
+ for(const fn of c.__timers)fn();assert.equal(U.generation,currentGeneration,'normal scheduler ticks never reset');
+ assert.ok(c.__partial.size>0,'scheduler leaves partial source work');
+ c.__c320.edits.set('0,-50,0',1);const beforeBand=c.__bands().band;
+ U.slice(2,[0,0,0],3,3,beforeBand,performance.now(),Infinity);
+ c.__stale.add('0,0');U.dirty.add('0,0');
+ const band=c.__bands().band,data=new Uint8Array(79*79*72).fill(1);
+ for(let x=30;x<50;x++)for(let y=15;y<65;y++)for(let z=30;z<50;z++)data[(x*72+y)*79+z]=0;
+ data[(39*72+33)*79+39]=T.TORCH;
+ U.meshIncremental(2,[0,0,0],0,0,band,1,data);
+ const job=U.pendingJob();
+ // Capture an unfinished job; next-call rev resumes its private generator if it yielded.
+ const firstTime=performance.now();
+ U.resumeLight('0,0',firstTime,1);
+ assert.equal(U.pendingJob(),job,'real job retains ownership through actual suspended generator');
+ assert.ok(job.geo||job.g||job.light,'actual geometry/light job retains pending ownership');
+ assert.equal(privateGeometry.every(g=>!g.disposed),true,'private geometry begins undiscarded');
+ c.__c105.phase=null;
+ const group=new c.THREE.Group(),geo=new c.THREE.BufferGeometry();
+ geo.setAttribute('position',new c.THREE.BufferAttribute(new Float32Array(12),3));
+ group.add(new c.THREE.Mesh(geo,{}));c.__siteMeshes.set('0,0',group);U.root.add(group);
+// Travel beyond the existing RN+1 boundary cancels the same real private geometry
+// rather than requiring a reset epoch. Its sourceEdit store is persistent.
+const traveled=resetFixture();
+traveled.P.x=0;traveled.P.y=-64;traveled.P.z=0;traveled.__c321.pw=()=>({x:0,y:-64,z:0});TickEach(traveled);
+traveled.chunkST=null;
+const dataTravel=new Uint8Array(79*79*72).fill(1);
+for(let x=30;x<50;x++)for(let y=15;y<65;y++)for(let z=30;z<50;z++)dataTravel[(x*72+y)*79+z]=0;
+ dataTravel[(39*72+33)*79+39]=T.TORCH;
+traveled.__c324.meshIncremental(2,[0,0,0],0,0,traveled.__c324.band,1,dataTravel);
+const traveling=traveled.__inspectJob('0,0');
+traveled.__c324.resumeLight('0,0',performance.now(),0);
+traveled.__c324.resumeLight('0,0',performance.now(),Infinity);
+assert.equal(traveled.__c324.pendingLight().includes('0,0'),true);
+const buffers=[];traveling.g.traverse(o=>{if(o.geometry)buffers.push(o.geometry);});assert.ok(buffers.length>0,'actual original mesher allocated buffers');
+traveled.P.x=1000;traveled.P.z=1000;traveled.__c321.pw=()=>({x:1000,y:-64,z:1000});TickEach(traveled);
+assert.equal(traveled.__c324.pendingLight().includes('0,0'),false);
+assert.ok(buffers.every(g=>g.disposed),'all ordinary out-of-radius group buffers disposed');
+const stableTravelGeneration=traveled.__c324.generation;
+traveled.__c324.resumeLight('0,0',performance.now(),0);assert.equal(traveled.__c324.pendingLight().includes('0,0'),false,'old job cannot resurrect');
+traveled.__c320.edits.set('10,-40,10',9);assert.equal(traveled.__c320.edits.get('10,-40,10'),9);
+traveled.P.x=0;traveled.P.z=0;TickEach(traveled);assert.equal(traveled.__c320.edits.get('10,-40,10'),9,'return preserves real edit store');
+assert.equal(traveled.__c324.generation,stableTravelGeneration,'turnaround is not an unwanted reset');
+console.log('PASS rapid traversal private mesh disposal, no resurrection, roundtrip edits');
+ c.sourceVersion=2;c.seedValue=37;c.__resetStart();
+ assert.equal(c.__calls.n,1,'only the fake test continuation executed; no reset/save function was used');
+ assert.equal(U.generation,currentGeneration+1);
+ for(const [field,value] of [['__cache',0],['__partial',0],['__siteMeshes',0],['__stale',0]])assert.equal(c[field].size,value,field+' invalidated');
+ assert.equal(U.dirty.size,0);
+ for(const k of ['TMP','meshHost','band'])assert.equal(c.__bands()[k],null,k+' reset');for(const k of ['k','v','m'])assert.equal(c.__bands().eB[k],null,'edit mapping '+k+' retired');assert.equal(c.__bands().eL.length,0,'sorted edits retired');
+ assert.equal(c.__bands().eV,-1,'edit-cache version reset');
+ assert.equal(c.current.id,'same-slot','world/game slot remains the current slot');
+ assert.equal(geo.disposed,true,'published predecessor geometry disposed');
+ assert.equal(U.pendingJob(),null,'unfinished old-generation mesh job removed');
+ assert.equal(job.geo,null);assert.equal(job.g,null);assert.equal(job.data,null);assert.equal(job.light,null);
+ assert.ok(privateGeometry.every(g=>g.disposed),'all actual generator-stage geometry disposed on cancellation');
+ // A cancelled job cannot publish its old voxels after invalidation.
+ assert.doesNotThrow(()=>U.resumeLight('0,0',performance.now(),1),'cancelled mesh job cannot publish');
+ const fresh=U.slice(2,[0,0,0],3,3,-72,performance.now(),Infinity);
+
+ assert.ok(fresh.data.some(v=>v===0),'new authoritative source produces open cave space');
+ assert.equal(fresh.data[(39*72+33)*79+39],0,'interior changed from previous solid source to new cave');
+ assert.ok(c.__cache.size>0,'same game/world slot refills through the new pipeline');
+ c.started=false;c.__resetStart();assert.equal(c.__calls.n,1,'unstarted safely refused');assert.equal(U.generation,currentGeneration+1);
+ c.started=true;c.dead=true;c.__resetStart();assert.equal(c.__calls.n,1,'dead safely refused');assert.equal(U.generation,currentGeneration+1);
+ c.dead=false;c.current=null;c.__resetStart();assert.equal(c.__calls.n,1,'missing world slot refused without invalidation');assert.equal(U.generation,currentGeneration+1);
+ c.current={id:'same-slot'};c.__c105.phase='lift';c.__resetStart();assert.equal(c.__calls.n,1,'already-active reset never starts twice');assert.equal(U.generation,currentGeneration+1);
+ c.__c105.phase='gen';
+ const failed=resetFixture(()=>{throw new Error('test-only start failure');}),beforeFailure=failed.__c324.generation;
+ assert.throws(()=>failed.__resetStart(),/test-only start failure/);
+ assert.equal(failed.__c324.generation,beforeFailure+1,'failed pre-replacement reset retains old-buffer ownership');
+ for(const fn of failed.__timers)fn();assert.equal(failed.__c324.generation,beforeFailure+2,'genuine new buffer is the next new generation');
+ const confirmed=production('  // ---------- in-game confirm dialog','  // ---------- pause-menu button',text.indexOf('  // ---------- state ----------'));
+ assert.equal(requiresBaseConfirmation(confirmed),true,'existing confirmation UI byte-for-byte preserved, No focused default, Yes-only reset entry');
+ console.log('PASS actual pending reset job/caches/private geometry/scene, same-slot new source, stable epoch and confirm/refusal/failure guards');
+}
 const overall = performance.now();
 testLighting();
 testDeepEditStore();
@@ -364,4 +493,10 @@ testDirtyAndBudget();
 testFullDeepMesh();
 testIncrementalLightingEquality();
 testDeepIncrementalLifecycle();
+testCaveResetGenerationInvalidation();
 console.log(`PASS all cave/negative-Y/Hell non-browser regressions in ${(performance.now()-overall).toFixed(1)}ms`);
+
+
+// Expose the production extraction helpers to the independent proof scripts. This branch
+// has no bundler/package manifest; no CommonJS artifact is used by the browser game.
+module.exports={text,segment,production,run,vm,context,minimalThree,T,deepFixture,streamSetup};
