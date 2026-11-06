@@ -21,7 +21,8 @@ ok('c340_no_scale_copy_under_vm_path', /if \(window\.__vm\) \{ U\.poseOff = 1/.t
 ok('musket_yields_vm', /!\(window\.__vm && __vm\.on\)/.test(musket));
 ok('swap_hide_then_reveal', /g\.visible = false/.test(rg) && /g\.visible = true/.test(rg.split('u.c322 = 1')[1] || ''));
 ok('force_reload_b87', /startReload\(id, force\)/.test(b87) && /__rlCoreClear/.test(b87));
-ok('thumb_radial_geom', /side \* 0\.038/.test(arms) && /setScalar\(1\.05\)/.test(arms));
+const anatomical = read('src/items/lib/anatomical_hand.js');
+ok('thumb_radial_geom', /0\.026, 0\.026, 0\.003/.test(anatomical) && /P\.push\(side \* p\.x/.test(anatomical) && /GlenAnatomy\.makeHand\(side/.test(arms));
 ok('no_portal_queue_in_order', !fs.existsSync(path.join(root, 'src/space/year24000_portal_queue_v1199.js')));
 
 // ---- Live behavioural simulation of update functions ----

@@ -1,5 +1,7 @@
 import sys
-s=open('/workspace/s1_0968final.js').read().replace("GAME_VERSION = 'v0.9.68'","GAME_VERSION = '%s'"%sys.argv[1])
+version_name = 'v' + sys.argv[1].lstrip('v')
+if version_name == 'v1.0.201': version_name = 'v1.1.101'
+s=open('/workspace/s1_0968final.js').read().replace("GAME_VERSION = 'v0.9.68'","GAME_VERSION = '%s'"%version_name)
 R=[("BROOCH: 218, QUAICH: 219","BROOCH: 325, QUAICH: 326"),
 ("218: 'Luckenbooth brooch', 219: 'Gold quaich'","325: 'Luckenbooth brooch', 326: 'Gold quaich'"),
 ("CREATIVE_ALL.push(212, 213, 214, 216, 217, 218, 219, 220)","CREATIVE_ALL.push(212, 213, 214, 216, 217, 325, 326, 220)"),
@@ -134,8 +136,8 @@ R.append(("if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 
 for a,b in R:
   assert s.count(a)==1,a; s=s.replace(a,b)
 import sys as _s; _s.path.insert(0,'/workspace/game'); import strip_br; s=strip_br.strip(s)
-parts=[l.strip() for l in open('/workspace/game/src/ORDER.txt') if l.strip() and not l.startswith('#')]
+parts=[l.strip() for l in open('src/ORDER.txt') if l.strip() and not l.startswith('#')]
 import os
 for _n in os.environ.get('DROP','').split(','):
     if _n in parts: parts.remove(_n)
-open('/workspace/game/s1.js','w').write(s+'\n'+'\n'.join(open('/workspace/game/src/'+n).read() for n in parts))
+open('s1.js','w').write(s+'\n'+'\n'.join(open('src/'+n).read() for n in parts))

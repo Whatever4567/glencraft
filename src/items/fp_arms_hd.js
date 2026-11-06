@@ -1,4 +1,4 @@
-/* GLX-FPA (v1.1.99): FIRST PERSON HD ARMS. The block arm and fist are replaced by two slim, shaped arms with sleeves, wrists and hands with
+/* GLX-FPA (v1.1.101 anatomical weighted hands): FIRST PERSON HD ARMS. The block arm and fist are replaced by two slim, shaped arms with sleeves, wrists and hands with
    fingers. Each arm reaches from the shoulder to its hand with a real elbow bend (two bone IK), so they follow every swing, recoil and aim.
    Rifles are held with both hands (the left hand on the foregrip); pistols take a two hand grip while aiming. Guns sway with the view, bob
    when walking, drop when sprinting, kick the arms on each shot, dip out and back in on a weapon switch, and the reload moves the hands:
@@ -8,27 +8,34 @@
   const U = window.__fpa = {err: null, on: 0, two: 0, rel: 0, reach: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   const V3 = (x, y, z) => new THREE.Vector3(x, y, z), Y = V3(0, 1, 0);
-  const LU = 0.38, LF = 0.36; let offL = [];
+  const LU = 0.36, LF = 0.35; let offL = [];
   const hideOld = on => { if (!on) { for (const o of offL) o.visible = true; offL = []; return; } for (const c of [...armPivot.children, ...hand.children]) if (c !== armPivot && c !== held && c !== grabHaggis && c.visible) { c.visible = false; if (!offL.includes(c)) offL.push(c); } };
   let rig = null, skinM, shirtM, cuffM, curSleeve = -1;
   function fabric() { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); g.fillStyle = '#efe7d8'; g.fillRect(0, 0, 128, 128);
-    for (let i = 0; i < 900; i++) { const v = 200 + Math.random() * 40 | 0; g.fillStyle = `rgba(${v},${v - 8},${v - 20},.35)`; g.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1); }
+    let seed = 98171; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+    for (let i = 0; i < 900; i++) { const v = 200 + rnd() * 40 | 0; g.fillStyle = `rgba(${v},${v - 8},${v - 20},.35)`; g.fillRect(rnd() * 128, rnd() * 128, 1 + rnd() * 2, 1); }
     for (let y = 0; y < 128; y += 3) { g.fillStyle = 'rgba(120,100,80,.06)'; g.fillRect(0, y, 128, 1); } const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 3); return t; }
-  function limb(r0, r1, len, m, seg) { const g = new THREE.CylinderGeometry(r1, r0, len, seg || 14, 3); g.translate(0, len / 2, 0); const p = g.attributes.position; // a slight swell along the limb
-    for (let i = 0; i < p.count; i++) { const y = p.getY(i) / len, s = 1 + 0.12 * Math.sin(y * Math.PI); p.setX(i, p.getX(i) * s); p.setZ(i, p.getZ(i) * s * 0.92); } g.computeVertexNormals(); return new THREE.Mesh(g, m); }
-  function ball(r, m) { return new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m); }
-  function mkHand(side) { const h = new THREE.Group(); const palm = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.095, 0.03, 3, 3, 2), skinM); palm.position.set(0, 0.05, 0); h.add(palm);
-    const pp = palm.geometry.attributes.position; for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); pp.setZ(i, z * (1 - Math.abs(x) * 4)); } palm.geometry.computeVertexNormals();
-    h.userData.f = [];
-    for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(0.0066, skinM); tip.position.y = 0.03; k.add(tip);
-      f.rotation.x = 1.0; k.rotation.x = 1.2; h.add(f); h.userData.f.push([f, k]); }
-    const th = new THREE.Group(); th.position.set(side * 0.038, 0.028, 0.01); th.rotation.set(0.85, side * 0.55, side * 0.85); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
-    const wr = limb(0.03, 0.028, 0.03, skinM, 12); wr.position.y = -0.02; h.add(wr); return h; }
+  function skin() { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), im = g.createImageData(256, 256);
+    let seed = 7331; for (let i = 0; i < im.data.length; i += 4) { seed = (seed * 1664525 + 1013904223) >>> 0; const n = ((seed >>> 8) & 15) - 7; im.data[i] = 218 + n; im.data[i + 1] = 164 + n; im.data[i + 2] = 128 + n; im.data[i + 3] = 255; } g.putImageData(im, 0, 0);
+    // Faint superficial veins, no photo overlays and no first-load procedural/model swap.
+    g.strokeStyle = 'rgba(99,121,105,.07)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(36, 250); g.bezierCurveTo(94, 188, 78, 150, 134, 105); g.bezierCurveTo(162, 84, 147, 52, 188, 16); g.stroke();
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; }
+  function limb(r0, r1, len, m, seg) {
+    const rows = 9, N = seg || 16, P = [], IX = [], UV = [];
+    for (let j = 0; j <= rows; j++) { const t = j / rows, bulge = Math.sin(Math.PI * t), r = mixRadius(r0, r1, t) + bulge * len * 0.025;
+      for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2; P.push(Math.cos(a) * r, t * len, Math.sin(a) * r * 0.91); UV.push(i / N, t); } }
+    for (let j = 0; j < rows; j++) for (let i = 0; i < N; i++) { const a = j * N + i, b = j * N + (i + 1) % N; IX.push(a, b, a + N, b, b + N, a + N); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2)); g.setIndex(IX); g.computeVertexNormals(); return new THREE.Mesh(g, m); }
+  const mixRadius = (a, b, t) => a + (b - a) * (t * t * (3 - 2 * t));
+  function mkHand(side) {
+    const h = GlenAnatomy.makeHand(side, skinM); h.userData.anatomicalRig = 1;
+    if (!window.__fpaHands) window.__fpaHands = []; window.__fpaHands.push(h); return h;
+  }
   function mkArm(side) { const a = new THREE.Group(); a.userData.side = side;
-    const up = limb(0.078, 0.066, LU, shirtM); a.add(up); const el = ball(0.066, shirtM); a.add(el); const fo = limb(0.06, 0.042, LF, skinM); a.add(fo);
-    const cuff = limb(0.07, 0.066, 0.12, cuffM); a.add(cuff); const h = mkHand(side); h.scale.setScalar(1.05); a.add(h);
+    const up = limb(0.078, 0.057, LU, shirtM); a.add(up); const el = limb(0.057, 0.055, 0.026, shirtM); a.add(el); const fo = limb(0.054, 0.028, LF, skinM); a.add(fo);
+    const cuff = limb(0.064, 0.046, 0.085, cuffM); a.add(cuff); const h = mkHand(side); a.add(h);
     a.userData.p = {up, el, fo, cuff, h}; a.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; o.renderOrder = 2; } }); return a; }
-  function make() { skinM = new THREE.MeshStandardMaterial({color: 0xd4a07a, roughness: 0.62, metalness: 0.02}); shirtM = new THREE.MeshStandardMaterial({map: fabric(), roughness: 0.9}); cuffM = shirtM;
+  function make() { const st = skin(); skinM = new THREE.MeshStandardMaterial({color: 0xffffff, map: st, roughness: 0.67, metalness: 0, bumpMap: st, bumpScale: 0.00018}); shirtM = new THREE.MeshStandardMaterial({map: fabric(), roughness: 0.9}); cuffM = shirtM;
     rig = new THREE.Group(); rig.userData.R = mkArm(1); rig.userData.L = mkArm(-1); rig.add(rig.userData.R, rig.userData.L); camera.add(rig); window.__fpaR = m => { for (let a = m; a; a = a.parent) if (a === rig) return true; return false; }; U.made = 1; }
   function sleeves() { const id = armour[1] || 0; if (id === curSleeve) return; curSleeve = id; let m = shirtM; try { if (id && ARMOUR[id]) m = armourMat(ARMOUR[id].mat, true); } catch (_) {}
     for (const a of [rig.userData.R, rig.userData.L]) { a.userData.p.up.material = m; a.userData.p.el.material = m; a.userData.p.cuff.material = m; } }
@@ -40,8 +47,10 @@
     const pole = V3(side * 0.7, -1, 0.35); const perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
     p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
-    const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
-    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.85 + tg * 0.4, side * 0.45, side * (0.7 + tg * 0.4)); th.userData.k.rotation.set(0.15 + tg * 0.65, 0, 0); } try { const e = new THREE.Euler().setFromQuaternion(p.h.quaternion, 'YXZ'); e.x = Math.max(-1.15, Math.min(1.0, e.x)); e.z = Math.max(-0.85, Math.min(0.85, e.z)); p.h.quaternion.setFromEuler(e); } catch (_) {} }
+    const cu = O && O.c, gripCurls = cu || [grip, grip * 1.05, grip, grip * 0.9];
+    // The sole finger-pose writer. Wrist targets and the item root are never multiplied frame-on-frame.
+    if (p.h.userData.pose) p.h.userData.pose(gripCurls, O && O.t != null ? O.t : grip * 0.62, 0);
+  }
   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
   const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
   function grip(G, pn, fd, c) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -0.032); }
@@ -74,7 +83,8 @@
           const fwL = g.userData.muzzle ? g.worldToLocal(g.userData.muzzle.getWorldPosition(V3(0, 0, 0))).sub(lb.getCenter(V3(0, 0, 0))) : V3(0, 0, -1), back = fwL.z < 0 ? lb.max.z : lb.min.z, dz = (lb.max.z - lb.min.z) * (fwL.z < 0 ? -1 : 1);
           TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
-    { const VM2 = !!(window.__vm && __vm.on); if (VM2 && g && !isP && TR) { const ax = (g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(TR) : V3(0, 0, -1)).normalize(); for (let i = 0; i < 40 && TR.z > -0.30; i++) TR.addScaledVector(ax, 0.01); } }   // v1.1.95: fixed rifle hand spot, never up against the eye
+    // Avoid the eye without independently moving palms off the gun grip: shoulders follow target at extreme reach.
+    { if (g && TR.z > -0.30) TR.z = -0.30; }
     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
     if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.08, 0).addScaledVector(fw, -0.08), V3(0, -1, 0.05).addScaledVector(fw, isP ? 0.5 : 0.35), [isP ? 0.7 : 0.95, isP ? 0.95 : 1.15, isP ? 1.0 : 1.2, isP ? 1.05 : 1.25]); OR = O; if (OR) OR.t = isP ? 0.9 : 1.05; }
     else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(0.01, 0.05, -0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]); OR = O; if (OR) OR.t = 0.85; }

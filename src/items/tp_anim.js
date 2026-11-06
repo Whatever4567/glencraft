@@ -40,19 +40,27 @@
     worldModel.position.y = P.y + Math.abs(Math.sin(ph)) * 0.04 * amp * (1 + run) - land * 0.12 + air * 0.03;
     // arms and the held item
     const hm = typeof heldMesh3p !== 'undefined' ? heldMesh3p : null, hid = parseInt(heldId) || 0, gunId = hm && GUN && GUN[hid] ? hid : 0, isP = gunId && gunId === IT.PISTOL, aim = aiming(); U.g = gunId; U.n = (U.n || 0) + 1;
-    worldModel.updateMatrixWorld(true); const base = V().set(P.x, worldModel.position.y, P.z), F = V().set(fx, 0, fz), R = V().set(-rx, 0, -rz);  // model faces +Z after the yaw + PI, so its right is -rx
+    worldModel.updateMatrixWorld(true); let grip = null; const base = V().set(P.x, worldModel.position.y, P.z), F = V().set(fx, 0, fz), R = V().set(-rx, 0, -rz);  // model faces +Z after the yaw + PI, so its right is -rx
     E.set(-P.pitch * 0.9, P.yaw, 0); const qv = new THREE.Quaternion().setFromEuler(E), look = new THREE.Vector3(0, 0, -1).applyQuaternion(qv);
     const k = swingT > 0 ? Math.sin((1 - Math.max(0, swingT) / 0.3) * Math.PI) : 0;
-    if (gunId && hm) { realGun(hm, gunId); const two = !isP || aim; const grip = base.clone().add(V().set(0, isP && !aim ? 1.0 : 1.3, 0)).addScaledVector(R, isP && !aim ? 0.3 : 0.16).addScaledVector(F, isP && !aim ? 0.15 : 0.22).addScaledVector(look, isP && aim ? 0.35 : 0.05);
+    if (gunId && hm) { realGun(hm, gunId); const two = !isP || aim; grip = base.clone().add(V().set(0, isP && !aim ? 1.08 : 1.30, 0)).addScaledVector(R, isP && !aim ? 0.20 : 0.12).addScaledVector(F, isP && !aim ? 0.25 : 0.30).addScaledVector(look, isP && aim ? 0.28 : 0.05);
       setWorld(hm, grip, (isP && !aim ? new THREE.Quaternion().setFromEuler(new THREE.Euler(0.6, P.yaw, 0, 'YXZ')) : qv.clone()).multiply(GQ));
-      ik(u.arms[1], grip.clone().add(V().set(0, -0.03, 0)), R, 0.32, 0.33, F);
-      if (two) { const fg = isP ? grip.clone().addScaledVector(R, -0.05).add(V().set(0, -0.03, 0)) : grip.clone().addScaledVector(look, 0.42).add(V().set(0, -0.055, 0)).addScaledVector(R, -0.02); ik(u.arms[0], fg, R.clone().negate(), 0.32, 0.33, F); }
+      ik(u.arms[1], grip.clone().add(V().set(0, -0.052, 0)).addScaledVector(look, -0.035), R, 0.32, 0.30, F);
+      if (two) { const fg = isP ? grip.clone().addScaledVector(R, -0.05).add(V().set(0, -0.03, 0)) : grip.clone().addScaledVector(look, 0.42).add(V().set(0, -0.055, 0)).addScaledVector(R, -0.02); { const Ls=V();u.arms[0].getWorldPosition(Ls);if(Ls.distanceTo(fg)>0.60){u.arms[0].position.copy(fg).addScaledVector(R,-0.18).add(V().set(0,0.05,0)).addScaledVector(F,-0.30).sub(worldModel.position).applyQuaternion(worldModel.getWorldQuaternion(new THREE.Quaternion()).invert());}ik(u.arms[0], fg, R.clone().negate(), 0.32, 0.30, F); } }
       else { u.arms[0].rotation.set(-sw * 0.9 * fwd - air * 0.5, 0, -0.06); if (u.arms[0].userData.el) u.arms[0].userData.el.rotation.set(-0.25 - run * 0.5, 0, 0); } }
     else { for (let i = 0; i < 2; i++) { const a = u.arms[i], sgn = i ? 1 : -1; a.quaternion.identity(); a.rotation.set(sgn * sw * 0.9 * fwd - air * 0.8 - land * 0.2, 0, (i ? 1 : -1) * (0.06 + air * 0.25)); if (a.userData.el) a.userData.el.rotation.set(-0.2 - run * 0.7 - air * 0.4, 0, 0); }
       if (hm) { const a = u.arms[1]; a.rotation.x = -0.55 - k * 1.6; if (a.userData.el) a.userData.el.rotation.x = -0.55 + k * 0.3; a.updateMatrixWorld(true);
         const gp = V(); a.userData.grip.getWorldPosition(gp); const tq = new THREE.Quaternion().setFromEuler(new THREE.Euler((hm.userData.tool ? 0.5 : -0.15) - k * 1.1, P.yaw, 0, 'YXZ'));
         const c = held && held.children[0]; if (c && hm.userData.tool) tq.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(c.rotation.x, c.rotation.y, c.rotation.z))); if (hm.userData.block) { hm.scale.setScalar(0.6); } setWorld(hm, gp.add(V().set(0, hm.userData.block ? 0.02 : 0, 0)), tq); } }
-    try { const two2 = gunId && (!isP || aim); (u.fore || []).forEach((el, s2) => { const hn = el.children.find(c => c.userData.hand), fg = hn && hn.userData.fg; if (!fg) return;   // v1.1.76: index finger on the trigger, the rest wrapped on the grip
-        fg.forEach((f, i) => { f.rotation.x = !gunId ? 0.35 : s2 === 1 ? (i === 3 ? 0.55 : 1.45) : two2 ? 1.25 : 0.35; }); }); } catch (_) {}
+    // Third-person wrist targets, elbow poles and item anchors belong to this one final pose pass.
+    try { const hasGun = !!(gunId && hm), two = hasGun && (!isP || aim);
+      for (let i = 0; i < 2; i++) { const el = u.fore[i], hn = el && el.children.find(c => c.userData.hdHand); if (!hn) continue; const h = hn.userData.hdHand, trigger = i === 1;
+        const curls = hasGun ? (trigger ? [1.0, 1.03, 0.94, 0.46] : two ? [0.72, 0.78, 0.78, 0.66] : [0.34, 0.39, 0.43, 0.30]) : hm && trigger ? [0.88, 0.91, 0.94, 0.83] : [0.25, 0.31, 0.34, 0.25];
+        h.userData.pose(curls, hasGun ? (trigger ? 0.84 : 0.52) : 0.42, hasGun ? 0 : 0.08);
+        // Rotate wrist along the grip without a second accumulated Euler or a size change.
+        if (hasGun) { const gripDir = F.clone().multiplyScalar(0.94).add(V().set(0, -0.35, 0)).normalize(); const worldQ = new THREE.Quaternion().setFromUnitVectors(V().set(0, 0.82, -0.57).normalize(), trigger ? gripDir : F.clone().add(V().set(0, -0.48, 0)).normalize());
+          // Local wrist bone aims down the hand. The same basis is used every frame, never relative to the last pose.
+          const target = trigger ? grip.clone().addScaledVector(F, -0.025).add(V().set(0, -0.055, 0)) : grip.clone().addScaledVector(look, 0.42).add(V().set(0, -0.055, 0)); setWorld(hn, target, worldQ.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, 0, Math.PI)))); }
+      } } catch (e) { ERR('hands', e); }
     u.head.rotation.set(-P.pitch * 0.6, 0, 0); }
 })();
