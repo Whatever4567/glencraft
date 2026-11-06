@@ -189,9 +189,9 @@ function testDirtyAndBudget() {
 
 function minimalThree() {
   class Attribute { constructor(array, itemSize) { this.array=array;this.itemSize=itemSize;this.count=array.length/itemSize; } }
-  class Geometry { constructor(){this.attributes={};}setAttribute(name,a){this.attributes[name]=a;}setIndex(a){this.index=a;}computeBoundingSphere(){} addGroup(){}dispose(){} }
+  class Geometry { constructor(){this.attributes={};}setAttribute(name,a){this.attributes[name]=a;}setIndex(a){this.index=a;}computeBoundingSphere(){} addGroup(){}dispose(){this.disposed=true;this.disposeCount=(this.disposeCount||0)+1;} }
   class Mesh { constructor(g,m){this.geometry=g;this.material=m;this.userData={};this.children=[];}dispose(){} }
-  class Group { constructor(){this.children=[];this.userData={};this.position={set(x,y,z){this.x=x;this.y=y;this.z=z;}};}add(g){this.children.push(g);return this;}remove(g){this.children.splice(this.children.indexOf(g),1);} }
+  class Group { constructor(){this.children=[];this.userData={};this.position={set(x,y,z){this.x=x;this.y=y;this.z=z;}};}add(g){this.children.push(g);return this;}traverse(fn){fn(this);for(const g of this.children)if(g.traverse)g.traverse(fn);else fn(g);}remove(g){this.children.splice(this.children.indexOf(g),1);} }
   class Matrix4{} class Quaternion{} class Vector3{};
   return {Group,Mesh,BufferGeometry:Geometry,BufferAttribute:Attribute,Matrix4,Quaternion,Vector3};
 }
@@ -258,10 +258,110 @@ function testFullDeepMesh() {
   console.log('PASS actual stream mesh, torch lighting, sealed sky and safe world restoration');
 }
 
+
+
+function deepFixture(kind){
+ const c=run(`var W=79,H=72,D=79,CH=26,world=new Uint8Array(W*D*H),T=${JSON.stringify(T)},FANCY=true,REAL=false;var PLANT={},ENT={},LEAFY={},BLOCK_MATS={},patched=new Set(),chunkST=null,chunkFQ=null,chunkObjs=new Map(),chunkLists=new Map(),blockGroup=new THREE.Group(),window=this;var __XN=null,__YB=null,__c317mesh=0;var C=26,PW=79,NB=72,band=-72,fPiv='2:0,0,0';const U={meshed:0},root=new THREE.Group();this.meshes=new Map();U.dirty=new Set();const drop=k=>{const g=meshes.get(k);if(g){root.remove(g);disposeLight(g);meshes.delete(k);U.dirty.delete(k);}};const DIM={cur:null};const isPlant=()=>false,buildWaterGeo=()=>null;const originalCull=()=>null;__caveCull=originalCull;this.roots=root;const errors=[];this.on=()=>!window.__c317mesh&&!window.DIM.cur&&W>=600;this.testErrors=errors;const ERR=(where,e)=>{errors.push([where,e.stack]);};const BLOCK_MAT0={transparent:false,userData:{tmat:true}};BLOCK_MATS[1]=BLOCK_MAT0;
+  // Dense actual C324 cavity with six-direction exposed planes, marginal emissive and ordinary material.
+  for(let x=25;x<54;x++)for(let z=25;z<54;z++)for(let y=0;y<72;y++)world[(x*H+y)*D+z]=T.STONE;
+  for(let x=34;x<45;x++)for(let z=34;z<45;z++)for(let y=19;y<62;y++)world[(x*H+y)*D+z]=0;
+  world[(39*H+20)*D+39]=2;world[(12*H+35)*D+39]=7;this.slice=world.slice();`,{T:Object.assign({},T),THREE:minimalThree(),DIM:{cur:null},__c317mesh:0});
+ run(segment('function buildChunk(cx, cz) {','\nvar __bcBase = buildChunk;',text.indexOf('var chunkST = null')),{},c);run('var __bcBase=buildChunk;',{},c);
+ run(segment('  const op = n =>','  function addAO(grp, cx, cz)')+segment('  function addAO(grp, cx, cz)','  // ---- shadows (Realistic)'),{},c);c.__caveLightBake=c.addAO;
+
+ const orig=production('  function mesh(ax, piv, cx, cz, y0, fk, data)','  const pendingLight=new Map()',text.indexOf('(function c324()')),inc=production('  const pendingLight=new Map()','  U.meshIncremental=beginLight;',text.indexOf('(function c324()'))+'U.pendingJob=()=>pendingLight.values().next().value||null;U.lightEpoch=()=>lightEpoch;U.lightKeys=()=>[...pendingLight.keys()];';
+ run(orig+'this.beginSync=mesh;'+inc+'this.U=U;this.cull=__caveCull;window.enter=beginLight;window.advance=resumeLight;window.abandon=abandonLight;',{},c);
+ if(kind==='aoFail')run('const realAO=window.__deepAOStep;window.__deepAOStep=(...a)=>{if(window.__AO_THROW__)throw new Error("deliberate incremental AO failure");return realAO(...a);};',{},c);
+ if(kind==='sync'){const m=c.meshes;run(orig+'window.beginSync=mesh;window.U=U;',{},c);}return c;
+}
+function arrays(g){const out=[];for(const m of g.children){const a=m.geometry?.attributes;if(!a)continue;const x={};for(const k of Object.keys(a))x[k]=Array.from(a[k].array);out.push(x);}return out;}
+function testDeepIncrementalLifecycle(){
+  const c=deepFixture('inc');run('window.__TA={on:true,mat:BLOCK_MAT0,layers:t=>[0,1,2,3,4,5]};',{},c);
+  const old=new c.THREE.Group();c.meshes.set('0,0',old);c.roots.add(old);
+  assert.equal(c.enter(2,[0,0,0],0,0,-72,1,c.slice),false);assert.equal(c.meshes.get('0,0'),old);
+  const stamp=()=>({world:c.world,W:c.W,H:c.H,D:c.D,cm:c.__c317mesh,cd:c.__deepMeshY0,cc:c.__caveCull}),initial=stamp();
+  const times=[],phaseMax={};let maxGeo=0,last=null,calls=0,start=performance.now();
+  while(c.meshes.get('0,0')===old){
+    const wasGeo=!last||!last.g,phase=last&&last.light?.phase,t=performance.now(),native=c.__caveLightBuffers?.();
+    const done=c.advance('0,0',t,1),ms=performance.now()-t;
+    if(wasGeo)maxGeo=ms;else{times.push(ms);const key=phase===undefined?'allocation':['top','sky-seed','sky-flood','block-seed','block-flood','AO'][phase];phaseMax[key]=Math.max(phaseMax[key]||0,ms);}
+    assert.deepEqual(stamp(),initial,'all world/cull/slice globals restored after each tick');if(native&&c.__caveLightBuffers)for(const key of ['S','B','Q','H','x0','z0','top'])assert.equal(c.__caveLightBuffers()[key],native[key],'native queue/region globals restored after each yield');
+    if(last&&!done)assert.equal(c.meshes.get('0,0'),old,'no partial geometry/light ever published');
+    last=c.U.pendingJob();assert.ok(++calls<1000,'job needs finite progress');assert.equal(c.testErrors.length,0);
+  }
+  const ref=deepFixture('sync');run('window.__TA={on:true,mat:BLOCK_MAT0,layers:t=>[0,1,2,3,4,5]};',{},ref);
+  const t2=performance.now();ref.beginSync(2,[0,0,0],0,0,-72,1,ref.slice);const syncMs=performance.now()-t2,incMs=performance.now()-start;
+  assert.deepEqual(arrays(c.meshes.get('0,0')),arrays(ref.meshes.get('0,0')),'actual packed whole-group buffers match synchronous baseline');
+  // Cancellation after field preparation owns/disposes every geometry, retains old scene,
+  // and never permits a stale job to republish. A world identity change does the same.
+  assert.equal(c.enter(2,[0,0,0],0,0,-72,1,c.slice),false);
+  while(c.U.pendingJob()&&(!c.U.pendingJob().g||!c.U.pendingJob().light)){c.advance('0,0',performance.now(),1);assert.ok(++calls<3000);}
+  const j=c.U.pendingJob(),geos=[],oldPublished=c.meshes.get('0,0');j.g.traverse(o=>{if(o.geometry)geos.push(o.geometry);});
+  c.abandon('0,0');assert.ok(geos.length&&geos.every(g=>g.disposed&&g.disposeCount===1));assert.equal(j.g,null);assert.equal(j.light,null);assert.equal(j.data,null);assert.equal(c.meshes.get('0,0'),oldPublished);assert.deepEqual(stamp(),initial);
+  assert.equal(c.enter(2,[0,0,0],0,0,-72,1,c.slice),false);const alien=c.U.pendingJob();alien.world=null;
+  assert.doesNotThrow(()=>c.advance('0,0',performance.now(),1));assert.equal(c.U.pendingJob(),null);assert.equal(c.meshes.get('0,0'),oldPublished);
+  // Edit and dimension invalidation must release the unfinished private group, retain the
+  // old scene, and prevent a subsequent callback from publishing an obsolete epoch.
+  for(const condition of ['editEpoch','dimensionChange']){
+    const invalid=deepFixture('inc'),visible=new invalid.THREE.Group();invalid.meshes.set('0,0',visible);invalid.roots.add(visible);
+    const changedBand=new vm.Script('band;').runInContext(invalid);invalid.enter(2,[0,0,0],0,0,changedBand,1,invalid.slice);
+    while(invalid.U.pendingJob()&&!invalid.U.pendingJob().g)invalid.advance('0,0',performance.now(),1);
+    const abandoned=invalid.U.pendingJob(),oldEpoch=abandoned.epoch,geo=[];abandoned.g.traverse(o=>{if(o.geometry)geo.push(o.geometry);});
+    if(condition==='editEpoch'){
+      run("lightEpoch++;for(const k of [...pendingLight.keys()])abandonLight(k);",{},invalid);
+      assert.equal(invalid.U.lightEpoch(),oldEpoch+1,'edit epoch advanced through actual production guard');
+    }else{
+      invalid.DIM.cur='hell';run("for(const k of [...pendingLight.keys()])abandonLight(k);",{},invalid);
+      invalid.DIM.cur=null;
+    }
+    assert.equal(invalid.U.pendingJob(),null);assert.equal(invalid.meshes.get('0,0'),visible);assert.equal(abandoned.g,null);assert.equal(abandoned.light,null);assert.equal(abandoned.data,null);assert.ok(geo.every(g=>g.disposed&&g.disposeCount===1));
+    assert.doesNotThrow(()=>invalid.advance('0,0',performance.now(),1),'disposed stale job cannot republish');
+    assert.equal(invalid.meshes.get('0,0'),visible);
+  }
+  // Deliberately fail the new AO work, not a stub of the light algorithm.
+  const failing=deepFixture('aoFail'),published=new failing.THREE.Group();failing.meshes.set('0,0',published);failing.roots.add(published);
+  const native=failing.__caveLightBuffers(),initialNative={};for(const key of ['S','B','Q','H','x0','z0','top','flood'])initialNative[key]=native[key];
+  failing.enter(2,[0,0,0],0,0,-72,1,failing.slice);
+  const bad=failing.U.pendingJob();let guard=0;while((!bad.light||bad.light.phase!==5)&&++guard<200)failing.advance('0,0',performance.now(),1);assert.equal(bad.light?.phase,5,'prepared completed light field before AO fault');
+  failing.__AO_THROW__=true;failing.advance('0,0',performance.now(),1);
+  assert.equal(failing.meshes.get('0,0'),published,'AO exception retains old published scene');
+  assert.equal(failing.testErrors.at(-1)[0],'light','real incremental error handler catches AO exception');assert.equal(bad.g,null);assert.equal(bad.light,null);assert.equal(bad.data,null);assert.equal(bad.buf,null);
+  const failedNative=failing.__caveLightBuffers();for(const key of Object.keys(initialNative)){if(key==='top')assert.deepEqual(Array.from(failedNative[key]),Array.from(initialNative[key]),'native top values restored after exception');else assert.equal(failedNative[key],initialNative[key],'native field identity restored after exception '+key);}
+  // A failure before the bare geometry returns must still capture/dispose its private group.
+  const failedGeo=deepFixture('inc'),oldGeo=new failedGeo.THREE.Group();failedGeo.meshes.set('0,0',oldGeo);failedGeo.roots.add(oldGeo);failedGeo.enter(2,[0,0,0],0,0,-72,1,failedGeo.slice);
+  const failedJob=failedGeo.U.pendingJob(),checkDispose=new c.THREE.BufferGeometry();
+  failedGeo.__bcBase=()=>{const g=new failedGeo.THREE.Group();g.add(new failedGeo.THREE.Mesh(checkDispose,failedGeo.BLOCK_MATS[1]));failedGeo.chunkObjs.set(65,g);throw new Error('deliberate incremental geometry publication failure');};failedGeo.advance('0,0',performance.now(),1);
+  assert.equal(failedGeo.meshes.get('0,0'),oldGeo,'partial geometry exception leaves prior mesh');assert.equal(checkDispose.disposed,true,'private geometry disposed on geometry exception');assert.equal(failedJob.g,null);assert.match(failedGeo.testErrors.at(-1)[1],/deliberate incremental geometry publication failure/);assert.equal(failedGeo.testErrors.at(-1)[0],'light');
+  // Empty source has the same retired-mesh/null publication semantics as synchronous mesh.
+  const empty=deepFixture('inc'),emptyOld=new empty.THREE.Group();empty.roots.add(emptyOld);empty.meshes.set('0,0',emptyOld);assert.equal(empty.enter(2,[0,0,0],0,0,-72,0,empty.slice),true);assert.equal(empty.meshes.get('0,0'),null);assert.equal(emptyOld.children.length,0);assert.equal(empty.U.pendingJob(),null,'empty source leaves no perpetual light job');
+  const plain=deepFixture('inc');const plainOld=new plain.THREE.Group();plain.meshes.set('0,0',plainOld);plain.roots.add(plainOld);plain.enter(2,[0,0,0],0,0,-72,1,plain.slice);while(plain.meshes.get('0,0')===plainOld)plain.advance('0,0',performance.now(),1);const plainRef=deepFixture('sync');plainRef.beginSync(2,[0,0,0],0,0,-72,1,plainRef.slice);assert.deepEqual(arrays(plain.meshes.get('0,0')),arrays(plainRef.meshes.get('0,0')),'ordinary actual material full group also matches');
+  console.log('PASS actual packed async-vs-sync arrays + lifetime', {maxLightMs:+Math.max(...times).toFixed(2),phases:phaseMax,geometryResidualMs:+maxGeo.toFixed(2),synchronousMs:+syncMs.toFixed(2),incrementalMs:+incMs.toFixed(2)});
+}
+function testIncrementalLightingEquality(){
+ for(const mode of ['surface','deep','hell']){
+  const deep=mode==='deep',hell=mode==='hell';
+  const mk=()=>run(`var W=79,H=72,D=79,CH=26,world=new Uint8Array(W*H*D),performance={now:()=>0},T=${JSON.stringify(T)},FANCY=true,REAL=false,PLANT={},ENT={},LEAFY={},patched=new Set(),chunkST=new Uint8Array(256),window=this;__c317mesh=${deep?1:0};`,{DIM:{cur:hell?'hell':null},THREE:minimalThree()});
+  const group=c=>{const g=new c.THREE.Group(),geo=new c.THREE.BufferGeometry(),pos=[],normal=[],uv=[];for(let x=26;x<52;x+=2)for(let z=26;z<50;z+=2){const y=8+((x+z)%27);pos.push(x,y,z,x+1,y,z,x+1,y,z+1,x,y,z+1);for(let i=0;i<4;i++){normal.push(0,1,0);uv.push(0,0);}}geo.setAttribute('position',new c.THREE.BufferAttribute(new Float32Array(pos),3));geo.setAttribute('normal',new c.THREE.BufferAttribute(new Float32Array(normal),3));geo.setAttribute('uv',new c.THREE.BufferAttribute(new Float32Array(uv),2));g.add(new c.THREE.Mesh(geo,{transparent:false,userData:{tmat:true}}));return g;};
+  const field=()=>{const c=mk();for(let x=12;x<67;x++)for(let z=12;z<67;z++)for(let y=0;y<72;y++)c.world[(x*72+y)*79+z]=((x*13+z*7+y*3)%53===0)?T.TORCH:T.STONE;for(let x=18;x<62;x++)for(let z=18;z<62;z++)for(let y=1;y<71;y++)if((x*23+y*7+z*19)%11<6)c.world[(x*72+y)*79+z]=0;putSources(c);return c;};
+  const putSources=c=>{for(const [x,z,v] of [[12,39,T.LAMP],[65,39,T.QLANTERN],[39,12,T.GLOWROCK],[39,65,T.TORCH]])c.world[(x*72+33)*79+z]=v;};
+  const base=field();run(segment('  const op = n =>','  function addAO(grp, cx, cz)')+segment('  function addAO(grp, cx, cz)','  // ---- shadows (Realistic)')+'\nwindow.__caveLightBake=addAO;',{},base);
+  const expected=base.__caveRegion(1,1),g1=group(base);base.__g1=g1;base.__lightChunk(1,1);base.__caveLightBake(g1,1,1);
+  const c=field();run(segment('  const op = n =>','  function addAO(grp, cx, cz)'),{},c);
+  const job=c.__deepLightJob(1,1);let calls=0;while(job.phase!==5){c.__deepLightStep(job,performance.now(),0.25);assert.ok(++calls<2000);}
+  assert.deepEqual(Array.from(job.S),Array.from(expected.S),mode+' full private/padded sky equality');assert.deepEqual(Array.from(job.B),Array.from(expected.B),mode+' full private/padded block equality');assert.deepEqual(Array.from(job.top),Array.from(expected.top),mode+' top-margin snapshot equality');
+  const g2=group(c);let aoCalls=0;while(!c.__deepAOStep(job,g2,performance.now(),0.25)){assert.ok(aoCalls<10000);}assert.ok(g2.children[0].geometry.attributes.aoD);
+  for(const key of ['aoD','wetE','litS','litB'])assert.deepEqual(Array.from(g2.children[0].geometry.attributes[key]&&g2.children[0].geometry.attributes[key].array),Array.from(g1.children[0].geometry.attributes[key]&&g1.children[0].geometry.attributes[key].array),mode+' exact AO '+key);
+  // Check that an ordinary light-region call passes byte-for-byte when only discovering new jobs.
+  const top=c.__deepLightJob(1,1),before=c.__caveRegion(1,1);c.__deepLightStep(top,0,0);assert.equal(top.top.every(v=>v===0),false);const beforeStep=Array.from(top.S);c.__lightChunk(1,1);assert.deepEqual(Array.from(top.S),beforeStep,"ordinary foreground lighting cannot alter private data");const after=c.__caveRegion(1,1);assert.deepEqual(Array.from(after.S),Array.from(expected.S),'public calls restore/overwrite normal light state '+mode);
+  console.log('PASS exact incremental lighting/AO equality',mode,'bounded phase calls',calls,'AO meshes',job.mesh);
+ }
+}
 const overall = performance.now();
 testLighting();
 testDeepEditStore();
 testStreaming();
 testDirtyAndBudget();
 testFullDeepMesh();
+testIncrementalLightingEquality();
+testDeepIncrementalLifecycle();
 console.log(`PASS all cave/negative-Y/Hell non-browser regressions in ${(performance.now()-overall).toFixed(1)}ms`);

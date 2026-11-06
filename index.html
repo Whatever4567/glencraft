@@ -26370,11 +26370,24 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
   let LX0 = 0, LZ0 = 0;
   const lop = (x, y, z) => { if (x < 0 || z < 0 || x >= W || z >= D) return false; if (y < 0 || y >= H) return true; const v = world[(x * H + y) * D + z]; return v !== 0 && !chunkST[v]; };
-  function flood(A, qn, fall, useTop) { let h = 0;
-    while (h < qn) { const c = LQ[h++], l = A[c] - fall; if (l <= 0) continue; const y = c % H, cc = (c - y) / H, rz = cc % RS, rx = (cc - rz) / RS;
-      for (let k = 0; k < 6; k++) { let nx = rx, ny = y, nz = rz; if (k === 0) nx++; else if (k === 1) nx--; else if (k === 2) nz++; else if (k === 3) nz--; else if (k === 4) ny++; else ny--;
-        if (nx < 0 || nz < 0 || nx >= RS || nz >= RS || ny < 0 || ny >= H) continue; const ci = (nx * RS + nz) * H + ny;
-        const wx = LX0 + nx, wz = LZ0 + nz, wv = (wx < 0 || wz < 0 || wx >= W || wz >= D) ? 0 : world[(wx * H + ny) * D + wz]; if (wv !== 0 && !chunkST[wv]) continue; const l2 = l - LATT[wv]; if (l2 <= 0 || A[ci] >= l2) continue; if (useTop && ny > LTOP[nx * RS + nz]) continue; A[ci] = l2; LQ[qn++] = ci; } } }
+  let privateFlood = null;
+  // Commit only completed queue pops. Queue length includes propagated entries from this batch.
+  function flood(A, qn, fall, useTop) {
+    const stop=privateFlood;let h=stop?stop.h:0;
+    while(h<qn){
+      if(stop&&h&&!(h%128)&&performance.now()>=stop.until){stop.h=h;stop.qn=qn;return false;}
+      const c=LQ[h++],l=A[c]-fall;if(l<=0)continue;
+      const y=c%H,cc=(c-y)/H,rz=cc%RS,rx=(cc-rz)/RS;
+      for(let k=0;k<6;k++){
+        let nx=rx,ny=y,nz=rz;if(k===0)nx++;else if(k===1)nx--;else if(k===2)nz++;else if(k===3)nz--;else if(k===4)ny++;else ny--;
+        if(nx<0||nz<0||nx>=RS||nz>=RS||ny<0||ny>=H)continue;const ci=(nx*RS+nz)*H+ny;
+        const wx=LX0+nx,wz=LZ0+nz,wv=(wx<0||wz<0||wx>=W||wz>=D)?0:world[(wx*H+ny)*D+wz];if(wv!==0&&!chunkST[wv])continue;
+        const l2=l-LATT[wv];if(l2<=0||A[ci]>=l2)continue;if(useTop&&ny>LTOP[nx*RS+nz])continue;if(stop&&qn>=LQ.length)throw new Error('private light queue overflow');A[ci]=l2;LQ[qn++]=ci;
+      }
+    }
+    if(stop){if(qn<stop.qn)throw new Error("light flood frontier overflow");stop.h=h;stop.qn=qn;return true;}
+  }
+  window.__caveLightBuffers=()=>({S:LSKY,B:LBLK,Q:LQ,H:LH,x0:LX0,z0:LZ0,top:LTOP,flood:privateFlood});
   window.__caveLightCore = {flood: function (A, qn, fall, useTop) { flood(A, qn, fall, useTop); return qn; }, sources: LSRC};
   function lightRegion(cx, cz) { if (LH !== H) { LH = H; LSKY = new Uint8Array(RS * RS * H); LBLK = new Uint8Array(RS * RS * H); LQ = new Int32Array(RS * RS * H * 2); } const _t = [performance.now()]; LX0 = cx * CH - LM; LZ0 = cz * CH - LM; LSKY.fill(0); LBLK.fill(0);
     for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) { const x = LX0 + rx, z = LZ0 + rz; let t = -1;
@@ -26402,9 +26415,97 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   window.__caveLightCore.cells = (x, y, z) => { const l = cellL(x, y, z), b = cB; return {sky: LCURVE[LSKY[((x - LX0) * RS + (z - LZ0)) * H + y]], block: b, sampled: l, skyOpen: cellOpen(x, y, z)}; };
   function cellOpen(x, y, z) { if (!meshUnderSky()) return 0; const rx = x - LX0, rz = z - LZ0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS) return 0; return y > LTOP[rx * RS + rz] ? 1 : 0; }
   window.__lopDbg = (cx, cz) => { lightRegion(cx, cz); let air = 0, tot = 0; for (let rx = 0; rx < RS; rx++) for (let rz = 0; rz < RS; rz++) for (let y = 0; y <= LTOP[rx * RS + rz]; y++) { tot++; if (!lop(LX0 + rx, y, LZ0 + rz)) air++; } let lit = 0; for (let i = 0; i < LBLK.length; i++) if (LBLK[i]) lit++; return {air, tot, lit, H, RS, top0: LTOP[0]}; };
-  let lrKeep = -1; window.__caveRegion = (cx, cz) => { lightRegion(cx, cz); lrKeep = cx * 64 + cz; return {S: LSKY, B: LBLK, x0: LX0, z0: LZ0, RS}; };
+  let lrKeep = -1; window.__caveRegion = (cx, cz) => { lightRegion(cx, cz); lrKeep = cx * 64 + cz; return {S:LSKY,B:LBLK,top:LTOP,x0:LX0,z0:LZ0,RS}; };
   window.__lightChunk = (cx, cz) => { lightRegion(cx, cz); const x0 = LX0, z0 = LZ0; return (x, y, z) => { const rx = x - x0, rz = z - z0; if (rx < 0 || rz < 0 || rx >= RS || rz >= RS || y < 0 || y >= H) return null; const i = (rx * RS + rz) * H + y; return [LSKY[i], LBLK[i]]; }; };
   window.__lightRegion = (x, y, z) => { const cx = Math.floor(x / CH), cz = Math.floor(z / CH); lightRegion(cx, cz); return {sky: LSKY[((x - LX0) * RS + (z - LZ0)) * H + y], blk: LBLK[((x - LX0) * RS + (z - LZ0)) * H + y], l: cellL(x, y, z)}; };
+
+
+  // Incremental C62 jobs. No world/light state survives in a global between calls.
+  window.__deepLightStep=function(j,until,budget){
+    const saved=[LSKY,LBLK,LQ,LH,LX0,LZ0,LTOP.slice(),privateFlood],end=budget===undefined?Infinity:until+budget;
+    LSKY=j.S;LBLK=j.B;LQ=j.Q;LH=j.H;LX0=j.x0;LZ0=j.z0;LTOP.set(j.top);
+    try{
+      if(j.phase===0||j.phase===1||j.phase===3){
+        for(;j.rx<RS;j.rx++,j.rz=0){
+          for(;j.rz<RS;j.rz++){
+            const rx=j.rx,rz=j.rz;
+            if(j.phase===0){
+              const x=LX0+rx,z=LZ0+rz;let t=-1;
+              if(x>=0&&z>=0&&x<W&&z<D){const b0=x*H*D+z;for(let y=H-1;y>=0;y--){const v=world[b0+y*D];if(v!==0&&!chunkST[v]){t=y;break;}}}
+              LTOP[rx*RS+rz]=t;const o=(rx*RS+rz)*H;if(j.sky)for(let y=t+1;y<H;y++)LSKY[o+y]=15;
+            }else if(j.phase===1){
+              const t=LTOP[rx*RS+rz];if(t>=0){let mn=999;if(rx>0)mn=Math.min(mn,LTOP[(rx-1)*RS+rz]);if(rx<RS-1)mn=Math.min(mn,LTOP[(rx+1)*RS+rz]);if(rz>0)mn=Math.min(mn,LTOP[rx*RS+rz-1]);if(rz<RS-1)mn=Math.min(mn,LTOP[rx*RS+rz+1]);const o=(rx*RS+rz)*H;for(let y=Math.max(0,mn+1);y<=t;y++)if(!lop(LX0+rx,y,LZ0+rz)){LSKY[o+y]=15-SFALL;if(j.qn>=LQ.length)throw new Error('private light queue overflow');LQ[j.qn++]=o+y;}}
+            }else{
+              const x=LX0+rx,z=LZ0+rz;if(x>=0&&z>=0&&x<W&&z<D){const b0=x*H*D+z,o=(rx*RS+rz)*H;
+                for(let y=j.y||0;y<H;y++){const vv=world[b0+y*D];if(vv&&LSRC[vv]){LBLK[o+y]=LSRC[vv];if(j.qn>=LQ.length)throw new Error('private light queue overflow');LQ[j.qn++]=o+y;}
+                  j.y=y+1;if((y&15)===15&&performance.now()>=end){return false;}
+                }j.y=0;
+              }
+            }
+          }
+          if(performance.now()>=end)return false;
+        }
+        j.rx=0;j.rz=0;j.h=0;
+        if(j.phase===0){j.phase=j.sky?1:3;return false;}if(j.phase===1){j.phase=2;return false;}
+        j.q1=j.qn;j.phase=4;return false;
+      }
+      if(j.phase===2||j.phase===4){
+        if(!j.qn){if(j.phase===4){j.phase=5;return true;}j.phase=3;return false;}
+        privateFlood={h:j.h,qn:j.qn,until:end};
+        const ok=flood(j.phase===2?LSKY:LBLK,j.qn,j.phase===2?SFALL:BFALL,j.phase===2);
+        j.h=privateFlood.h;j.qn=privateFlood.qn;
+        if(!ok)return false;
+        if(j.phase===2){j.phase=3;j.qn=j.h=0;for(let k=0;k<privateFlood.qn;k++)j.Q[k]=0;return false;}
+        j.phase=5;return true;
+      }
+      return true;
+    }finally{privateFlood=saved[7];j.top.set(LTOP);LSKY=saved[0];LBLK=saved[1];LQ=saved[2];LH=saved[3];LX0=saved[4];LZ0=saved[5];LTOP.set(saved[6]);}
+  };
+  window.__deepLightJob=(cx,cz)=>({cx,cz,phase:0,rx:0,rz:0,qn:0,q1:0,h:0,S:new Uint8Array(RS*RS*H),B:new Uint8Array(RS*RS*H),Q:new Int32Array(RS*RS*H*2),top:new Int16Array(RS*RS),x0:cx*CH-LM,z0:cz*CH-LM,H,deep:!!window.__c317mesh,sky:meshUnderSky(),mesh:0,f:0});
+  function deepBind(j){
+    const s=[LSKY,LBLK,LQ,LH,LX0,LZ0,LTOP.slice()];LSKY=j.S;LBLK=j.B;LQ=j.Q;LH=j.H;LX0=j.x0;LZ0=j.z0;LTOP.set(j.top);
+    return()=>{LSKY=s[0];LBLK=s[1];LQ=s[2];LH=s[3];LX0=s[4];LZ0=s[5];LTOP.set(s[6]);};
+  }
+  window.__deepAOStep=(j,grp,until,budget)=>{
+    if(j.aoDone)return true;
+    if(!j.buf){
+      while(j.mesh<grp.children.length){
+        const m=grp.children[j.mesh];
+        if(m.isInstancedMesh||!m.geometry||m.renderOrder){j.mesh++;continue;}
+        const mt=Array.isArray(m.material)?m.material[0]:m.material;
+        if(!mt||mt.transparent||!(patched.has(mt)||(mt.userData&&mt.userData.tmat))){j.mesh++;continue;}
+        const P=m.geometry.attributes.position,N=m.geometry.attributes.normal;
+        if(!P||!N||m.geometry.attributes.aoD){j.mesh++;continue;}
+        const n=P.count;j.f=0;j.buf={ao:new Uint8Array(n),we:new Uint8Array(n),ls:new Uint8Array(n),lb:new Uint8Array(n)};break;
+      }
+      if(!j.buf){j.aoDone=true;return true;}
+    }
+    const end=budget===undefined?Infinity:until+budget,restore=deepBind(j);
+    try{
+      for(;j.mesh<grp.children.length;j.mesh++){
+        const m=grp.children[j.mesh],P=m.geometry.attributes.position,N=m.geometry.attributes.normal,nv=P.count,pa=P.array,na=N.array,{ao,we,ls,lb}=j.buf;
+        for(let f=j.f;f<nv;f+=4){
+          const o=f*3,nx=na[o],ny=na[o+1],nz=na[o+2];
+          const cxm=(pa[o]+pa[o+3]+pa[o+6]+pa[o+9])/4,cym=(pa[o+1]+pa[o+4]+pa[o+7]+pa[o+10])/4,czm=(pa[o+2]+pa[o+5]+pa[o+8]+pa[o+11])/4;
+          const ax=Math.floor(cxm+nx*0.5),ay=Math.floor(cym+ny*0.5),az=Math.floor(czm+nz*0.5),l0=cellL(ax,ay,az),b0=l0<0?0:cB,open=ny<-0.5?0:cellOpen(ax,ay,az);
+          for(let v=0;v<4;v++){
+            const q=o+v*3,sx=Math.sign(pa[q]-cxm)*(nx?0:1),sy=Math.sign(pa[q+1]-cym)*(ny?0:1),sz=Math.sign(pa[q+2]-czm)*(nz?0:1);let x1,y1,z1,x2,y2,z2,x3,y3,z3;
+            if(nx){x1=ax;y1=ay+sy;z1=az;x2=ax;y2=ay;z2=az+sz;x3=ax;y3=ay+sy;z3=az+sz;}
+            else if(ny){x1=ax+sx;y1=ay;z1=az;x2=ax;y2=ay;z2=az+sz;x3=ax+sx;y3=ay;z3=az+sz;}
+            else{x1=ax+sx;y1=ay;z1=az;x2=ax;y2=ay+sy;z2=az;x3=ax+sx;y3=ay+sy;z3=az;}
+            const s1=op(gb(x1,y1,z1)),s2=op(gb(x2,y2,z2)),cr=op(gb(x3,y3,z3));let sum=l0<0?0:l0,bs=b0,cnt=1;
+            if(!s1){sum+=cellLo(x1,y1,z1);bs+=cB;cnt++;}if(!s2){sum+=cellLo(x2,y2,z2);bs+=cB;cnt++;}if(!cr&&!(s1&&s2)){sum+=cellLo(x3,y3,z3);bs+=cB;cnt++;}
+            const aoV=FANCY?AOL[s1&&s2?3:(s1?1:0)+(s2?1:0)+(cr?1:0)]:0;ao[f+v]=aoV*255+0.5;ls[f+v]=Math.max(1,sum/cnt*255+0.5);lb[f+v]=bs/cnt*255+0.5;we[f+v]=open*255;
+          }
+          j.f=f+4;if(performance.now()>=end)return false;
+        }
+        if(j.deep)ls.fill(0);m.geometry.setAttribute('aoD',new THREE.BufferAttribute(ao,1,true));m.geometry.setAttribute('wetE',new THREE.BufferAttribute(we,1,true));m.geometry.setAttribute('litS',new THREE.BufferAttribute(ls,1,true));m.geometry.setAttribute('litB',new THREE.BufferAttribute(lb,1,true));
+j.buf=null; j.f=0;j.mesh++;if(performance.now()>=end)return false;
+      }
+      j.aoDone=true;return true;
+    }finally{restore();}
+  };
+
   let lightMs = 0, lightN = 0; window.__lightStats = () => ({ms: lightMs, n: lightN, avg: lightN ? lightMs / lightN : 0});
   function addAO(grp, cx, cz) { const t0 = performance.now(); let did = false;
     for (const m of grp.children) { if (m.isInstancedMesh || !m.geometry || m.renderOrder) continue; const mt = Array.isArray(m.material) ? m.material[0] : m.material; if (!mt || mt.transparent || !(patched.has(mt) || (mt.userData && mt.userData.tmat))) continue;
@@ -47168,8 +47269,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     [[1, 0, 0], [0, -1, 0], [0, 0, -1]], [[1, 0, 0], [0, 0, 1], [0, -1, 0]], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]];
   const QS = MS.map(m => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...m[0]), new THREE.Vector3(...m[1]), new THREE.Vector3(...m[2]))));
   const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null, meshHost = null, partial = new Map();
-  const drop = k => { const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
-  const dropAll = () => { for (const k of [...meshes.keys()]) drop(k); stale.clear(); U.dirty.clear(); };
+  const drop = k => { abandonLight(k);const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
+  const dropAll = () => { for(const k of [...pendingLight.keys()])abandonLight(k); for (const k of [...meshes.keys()]) drop(k); stale.clear(); U.dirty.clear(); };
   U.dirty = new Set(); const eB = {k: null, v: null, m: null}; const stale = new Set();
   // v1.1.38: generated blocks are cached in 8 high slabs per chunk column, so digging, walking and going down rebuild from the cache, not from the noise
   const SL = 8, SW = C + 2, cache = new Map(); let eV = -1, eL = [];
@@ -47214,20 +47315,57 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; window.__c317mesh = 0; delete window.__deepMeshY0; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
     if (!g) { meshes.set(k, null); return; } blockGroup.remove(g); g.position.set(cx * C - C - piv[0], y0 - piv[1], cz * C - C - piv[2]); root.add(g); meshes.set(k, g); U.meshed++; U.ms = Math.round(performance.now() - t0); (U.mt = U.mt || []).push([U.ms, U.fm]); if (U.mt.length > 400) U.mt.shift(); }
   U.mesh = mesh;
-  setInterval(() => { try { const f = F(), e = E(); if (typeof started === 'undefined' || !started || DIM.cur || !on() || !f || !e) { root.visible = false; return; }
-      const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
+  const pendingLight=new Map();let lightEpoch=0;
+  const disposeLight=g=>{if(!g)return;g.traverse(o=>{if(o.isInstancedMesh)o.dispose();else if(o.geometry)o.geometry.dispose();});};
+  function abandonLight(k){const j=pendingLight.get(k);if(!j)return;pendingLight.delete(k);disposeLight(j.g);j.g=j.data=j.light=j.buf=null;}
+  function beginLight(ax,piv,cx,cz,y0,fk,data){
+    const k=cx+','+cz;abandonLight(k);if(!fk){drop(k);meshes.set(k,null);return true;}
+    if(!window.__deepLightStep||!window.__deepAOStep){mesh(ax,piv,cx,cz,y0,fk,data);return true;}
+    pendingLight.set(k,{key:k,ax,piv:piv.slice(),cx,cz,y0,data,g:null,light:null,epoch:lightEpoch,pivot:fPiv,world:world,deep:true,t0:performance.now()});return false;
+  }
+  function resumeLight(k,until,budget){
+    const j=pendingLight.get(k);if(!j)return true;
+    if(j.epoch!==lightEpoch||j.world!==world||j.pivot!==fPiv||j.y0!==band||DIM.cur){abandonLight(k);return false;}
+    const saved=[world,W,H,D],cc=window.__caveCull,cm=window.__c317mesh;
+    try{
+      world=j.data;W=PW;H=NB;D=PW;window.__caveCull=null;window.__c317mesh=1;
+      if(!j.g){
+        const tg=performance.now(),o=chunkObjs.get(65),ol=chunkLists.get(65);
+        chunkObjs.delete(65);chunkLists.delete(65);window.__deepMeshY0=j.y0;
+        try{__bcBase(1,1);j.g=chunkObjs.get(65);U.geoMs=performance.now()-tg;
+          // Geometry is still one unchanged, unsliced call; only C62 lighting/AO is resumable.
+          if(!j.g){pendingLight.delete(k);drop(k);meshes.set(k,null);return true;}
+          if(performance.now()>=until+budget)return false;
+        }finally{if(!j.g)j.g=chunkObjs.get(65);delete window.__deepMeshY0;chunkObjs.delete(65);chunkLists.delete(65);if(o)chunkObjs.set(65,o);if(ol)chunkLists.set(65,ol);}
+      }
+      if(!j.light)j.light=window.__deepLightJob(1,1);
+      if(!window.__deepLightStep(j.light,until,budget))return false;
+      if(performance.now()>=until+budget)return false;
+      if(!window.__deepAOStep(j.light,j.g,until,budget))return false;
+      const old=meshes.get(k);if(old){root.remove(old);disposeLight(old);}
+      blockGroup.remove(j.g);j.g.position.set(j.cx*C-C-j.piv[0],j.y0-j.piv[1],j.cz*C-C-j.piv[2]);root.add(j.g);meshes.set(k,j.g);
+      U.meshed++;U.ms=Math.round(performance.now()-j.t0);pendingLight.delete(k);j.g=j.data=j.light=null;return true;
+    }catch(e){abandonLight(k);ERR('light',e);return false;}
+    finally{world=saved[0];W=saved[1];H=saved[2];D=saved[3];window.__caveCull=cc;window.__c317mesh=cm;}
+  }
+  U.meshIncremental=beginLight;U.resumeLight=resumeLight;U.abandonLight=abandonLight;U.pendingLight=()=>[...pendingLight.keys()];U.pendingJob=()=>pendingLight.values().next().value||null;
+  setInterval(() => { try { const f = F(), e = E(); if (typeof started === 'undefined' || !started || DIM.cur || !on() || !f || !e) { for(const k of [...pendingLight.keys()])abandonLight(k);root.visible = false; return; }
+      const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { for(const k of [...pendingLight.keys()])abandonLight(k);root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
       const ax = f.ax, piv = ax === 2 ? [0, 0, 0] : f.piv.slice(), pk = ax + ':' + piv.join();
       if(meshHost&&Math.abs(P.x-meshHost[0])+Math.abs(P.y-meshHost[1])+Math.abs(P.z-meshHost[2])>160){dropAll();cache.clear();partial.clear();band=null;U.teleports=(U.teleports||0)+1;}meshHost=[P.x,P.y,P.z];
       if (pk !== fPiv) { dropAll(); partial.clear(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
       { const vd = (typeof vf === 'function' ? vf() : 96), hh = Math.max(0, P.y - SEA - 30); RN = e.flat ? Math.min(PH ? 7 : 16, Math.max(RN0, Math.ceil(Math.max(vd, (scene.fog && scene.fog.far < 1e5 ? scene.fog.far : 0), (window.__c346 && __c346.R) || 0) / C) + 1)) : RN0; if (e.flat && P.y < SEA - 30) RN = Math.min(RN, PH ? 3 : 5); }   /* v1.1.81: underground only the chunks round you are built */
       const bY = e.flat ? Math.min(SEA - 12, P.y - 68) : P.y - 68;   /* v1.1.91: the slice drawn always holds your own depth, also just under sea level where caves were left undrawn */ if (band === null || Math.abs(bY + 40 - (band + 40)) > 14) { const nb = Math.floor(bY / SL) * SL; if (band === null) dropAll(); else for (const k of meshes.keys()) stale.add(k); band = nb; }   /* v1.1.38: old chunks stay drawn until rebuilt, no remesh storm */
-      if (U.wv !== world) { U.wv = world; cache.clear(); eV = -1; dropAll(); band = Math.floor(bY / SL) * SL; } if (e.dirty) { e.dirty = 0; eV = -1; }   /* v1.1.38: an edit no longer redraws every chunk at once; the chunk you changed is redrawn first */
+      if (U.wv !== world) { U.wv = world; cache.clear(); eV = -1; dropAll(); band = Math.floor(bY / SL) * SL; } if (e.dirty) { e.dirty = 0; eV = -1; lightEpoch++;for(const k of [...pendingLight.keys()])abandonLight(k); }   /* v1.1.38: an edit no longer redraws every chunk at once; the chunk you changed is redrawn first */
       const pp=f.pw(), pcx = Math.floor(pp.x / C), pcz = Math.floor(pp.z / C);
-      for (const k of [...meshes.keys()]) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
-      const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
+      for (const k of new Set([...meshes.keys(),...pendingLight.keys()])) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
+      const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (!pendingLight.has(k) && (!meshes.has(k) || U.dirty.has(k) || stale.has(k))) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
       want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz; U.hold = !meshes.has(mk);
       const t1 = performance.now(), bud = U.hold ? (PH ? 3 : 4) : (PH ? 2 : 3);
-      for (let i = 0; i < want.length; i++) { const q = want[i]; if (performance.now() - t1 >= bud) break; TMP = null; const fk = fill(ax, piv, q[1], q[2], band, t1, bud); if (fk === null) break; const data = TMP; U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band, fk, data); break; }
+      for(const [k,j] of pendingLight)if(j.epoch!==lightEpoch||j.world!==world||j.pivot!==fPiv||j.y0!==band||DIM.cur)abandonLight(k);
+      // A job owns its key until complete: no fresh geometry/data rebuild while its old mesh stays visible.
+      if(pendingLight.size){const k=pendingLight.keys().next().value;if(resumeLight(k,t1,PH?1:2)){const ix=want.findIndex(q=>q[3]===k);if(ix>=0)want.splice(ix,1);}}
+      for (let i = 0; i < want.length; i++) { const q = want[i]; if (performance.now() - t1 >= bud) break; TMP = null; const fk = fill(ax, piv, q[1], q[2], band, t1, bud); if (fk === null) break; const data = TMP; U.dirty.delete(q[3]); stale.delete(q[3]); beginLight(ax,piv,q[1],q[2],band,fk,data);break; }
       U.ticks++; U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); U.partial = partial.size; } catch (e) { ERR('loop', e); } }, PH ? 70 : 50);
   setTimeout(() => { try { const up = updatePlayer; updatePlayer = function (dt) { try { const e = E(); if (U.hold && root.visible && !flying && e) { const w = F().pw(); const al = e.alt(w.x, w.y, w.z); if (al < 60 && al > -60 && P.vy < 0 && (U.hf || 0) < 90) { P.vy = 0; U.held = (U.held || 0) + 1; U.hf = (U.hf || 0) + 1; } } else U.hf = 0; } catch (_) {} return up.apply(this, arguments); }; } catch (e) { ERR('hold', e); } }, 3200);
   // blocks you dig or place out on the planet: redraw that chunk
