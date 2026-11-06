@@ -1,4 +1,4 @@
-/* GLX-C350 (v1.1.94): the first person gun viewmodel, done the way shooters do it.
+/* GLX-C350 (v1.1.99): the first person gun viewmodel, done the way shooters do it.
    One owner for the gun pose: each gun has a fixed hip spot and a fixed aim spot, the gun is turned so its barrel runs straight
    down the view, and in aim the sight line sits exactly on the screen centre. Sway, bob, breathing and kick move only this root and
    are smoothed. The arms are solved after the gun is placed, so the hands follow the grips instead of fighting them.
@@ -50,7 +50,7 @@
     T.x += (sx + bx) * am; T.y += (sy + by + br) * am - dip + 0.006 * kick * (1 - 0.5 * e); T.z += C.kz * kick;
     const Qa = new THREE.Quaternion().setFromEuler(new THREE.Euler(C.kr * kick + sy * 1.5 * am - dip, C.yaw * (1 - e) + sx * 1.5 * am, -C.roll * (1 - e) - sx * 2 * am, 'YXZ'));
     const Q = Qa.multiply(Q0); const pos = T.clone().sub(sg.clone().multiplyScalar(s).applyQuaternion(Q));
-    Md.compose(pos, Q, V(s, s, s)); Md.multiply(M1.clone().invert()); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.copy(sc);
+    const ss = Math.max(0.08, Math.min(8, Math.abs(s) || 1)); Md.compose(pos, Q, V(ss, ss, ss)); Md.multiply(M1.clone().invert()); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.set(Math.abs(sc.x) || ss, Math.abs(sc.y) || ss, Math.abs(sc.z) || ss);
     U.sight = T.toArray().map(x => +x.toFixed(4));
     try { if (window.__fpa && __fpa.step) { __fpa.fromVm = 1; __fpa.step(d); __fpa.fromVm = 0; } } catch (e2) { ERR('fpa', e2); }
     // world zoom: small, the gun itself never zooms

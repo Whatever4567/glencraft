@@ -1,4 +1,4 @@
-/* GLX-TPH (v1.1.54): THIRD PERSON HD PLAYER. A new smooth model with real proportions: rounded head with the face, hair, neck, shaped chest
+/* GLX-TP-HD (v1.1.99 blink+hands) TPH (v1.1.54): THIRD PERSON HD PLAYER. A new smooth model with real proportions: rounded head with the face, hair, neck, shaped chest
    with a linen shirt, sash, belt, sporran and a pleated tartan kilt, two part arms with elbows and hands, two part legs with knees, socks
    and brogues. HD armour pieces are fitted to it (helmet, breastplate, pauldrons and sleeves, greaves, boots). Held items sit the same way
    they do in first person (tools upright, guns along the view), rifles are held with both hands and pistols two handed when aiming. */
@@ -65,8 +65,8 @@
     }; } catch (e) { ERR('fit', e); }
   // v1.1.57: the new model blinks again, every 2 to 6 seconds, a quick soft close and open of the eyelids
   try { const uw = updateWorldModel; let lt = performance.now(); updateWorldModel = function () { const r = uw.apply(this, arguments); try { const now = performance.now(), dt = Math.min(0.1, (now - lt) / 1000); lt = now;
-      for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 2 + Math.random() * 4;
-        for (const l of u.lids) { l.visible = k > 0.05; l.scale.z = Math.max(0.02, k); } } try { const wm = typeof worldModel !== 'undefined' && worldModel, u2 = wm && wm.userData; if (u2 && u2.lod) { const d = camera.getWorldPosition(new THREE.Vector3()).distanceTo(wm.position), lv = d > 16 ? 1 : 0; if (lv !== u2.lv) { u2.lv = lv; for (const [m, hi, lo] of u2.lod) m.geometry = lv ? lo : hi; } U.lv = lv; } } catch (_) {} } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
+      for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 1.6 + Math.random() * 3.4;
+        for (const l of u.lids) { l.visible = k > 0.04; l.scale.z = Math.max(0.02, 0.02 + k * 0.98); l.scale.y = 0.35 + k * 0.65; } } try { const wm = typeof worldModel !== 'undefined' && worldModel, u2 = wm && wm.userData; if (u2 && u2.lod) { const d = camera.getWorldPosition(new THREE.Vector3()).distanceTo(wm.position), lv = d > 16 ? 1 : 0; if (lv !== u2.lv) { u2.lv = lv; for (const [m, hi, lo] of u2.lod) m.geometry = lv ? lo : hi; } U.lv = lv; } } catch (_) {} } catch (_) {} return r; }; } catch (e) { ERR('blink', e); }
   // v1.1.57: leggings hide the kilt (it clipped through them) and taking them off brings it back
   try { const dm0 = dressModel; dressModel = function (m) { const r = dm0.apply(this, arguments); try { const ks = m && m.userData && m.userData.kilts; if (ks) { const on = !(armour && armour[2]); for (const k of ks) k.visible = on; } } catch (_) {} return r; }; } catch (e) { ERR('kilt', e); }
   try { buildPlayerModel = function (pbr) { return build(pbr); }; } catch (e) { ERR('bpm', e); }

@@ -119,6 +119,13 @@ R.append(("if (d.y < -5) { scene.remove(d.m); drops.splice(i, 1); continue; }",
 # v1.1.96: fireGun block hit via voxel DDA (same result, far fewer solid calls); scoped to this loop only
 R.append(("let bt = G.range; for (let t = 0.3; t < G.range; t += 0.1) { if (solid(Math.floor(o.x + d[0] * t), Math.floor(o.y + d[1] * t), Math.floor(o.z + d[2] * t))) { bt = t; break; } }",
           "let bt = G.range; { let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z); const dx = d[0], dy = d[1], dz = d[2], sx = dx > 0 ? 1 : dx < 0 ? -1 : 0, sy = dy > 0 ? 1 : dy < 0 ? -1 : 0, sz = dz > 0 ? 1 : dz < 0 ? -1 : 0; const tDx = sx ? Math.abs(1 / dx) : 1e9, tDy = sy ? Math.abs(1 / dy) : 1e9, tDz = sz ? Math.abs(1 / dz) : 1e9; let tMx = sx ? ((sx > 0 ? (x + 1 - o.x) : (o.x - x)) * tDx) : 1e9, tMy = sy ? ((sy > 0 ? (y + 1 - o.y) : (o.y - y)) * tDy) : 1e9, tMz = sz ? ((sz > 0 ? (z + 1 - o.z) : (o.z - z)) * tDz) : 1e9, t = 0; for (let i = 0; i < Math.ceil(G.range) + 4; i++) { if (t > 0.05 && solid(x, y, z)) { bt = Math.min(bt, t); break; } if (tMx < tMy) { if (tMx < tMz) { t = tMx; tMx += tDx; x += sx; } else { t = tMz; tMz += tDz; z += sz; } } else { if (tMy < tMz) { t = tMy; tMy += tDy; y += sy; } else { t = tMz; tMz += tDz; z += sz; } } if (t >= G.range) break; } }"))
+
+# v1.1.99: manual reload works even when mag is full (unlimited ammo tops mag)
+R.append(("function startReload(id) { const G = GUN[id]; if (rlT > 0 || gunMag[id] >= G.mag) return false; if (!MODE.infinite && ammoCount() <= 0) { toast('No bullets - craft Silver bullets (1 Silver ingot + 1 Gunpowder)'); click(900, .05, .1); return false; }",
+          "function startReload(id, force) { const G = GUN[id]; if (rlT > 0 || (!force && gunMag[id] >= G.mag)) return false; if (!force && !MODE.infinite && ammoCount() <= 0) { toast('No bullets - craft Silver bullets (1 Silver ingot + 1 Gunpowder)'); click(900, .05, .1); return false; }"))
+R.append(("window.reloadGun = () => { if (GUN[selId] && cnt(selId) > 0) startReload(selId); };",
+          "window.reloadGun = () => { if (GUN[selId] && cnt(selId) > 0) startReload(selId, true); };"))
+
 for a,b in R:
   assert s.count(a)==1,a; s=s.replace(a,b)
 import sys as _s; _s.path.insert(0,'/workspace/game'); import strip_br; s=strip_br.strip(s)

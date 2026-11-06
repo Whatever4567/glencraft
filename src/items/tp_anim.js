@@ -1,4 +1,4 @@
-/* GLX-TPA (v1.1.54): THIRD PERSON MOVES. The legs follow the stick: how far you push sets slow walk, walk or run, and the direction sets
+/* GLX-TP-ANIM (v1.1.99 grips) GLX-TPA (v1.1.54): THIRD PERSON MOVES. The legs follow the stick: how far you push sets slow walk, walk or run, and the direction sets
    forward, strafe or backpedal, all blended smoothly with knees bending. Jumps have a takeoff crouch, tucked legs in the air and a soft
    landing dip. Arms swing against the legs, or hold the gun: rifles with both hands on the gun along the view, pistols one handed at the
    hip and two handed when aiming. Tools and blocks are held upright the same way they look in first person. */
@@ -46,7 +46,7 @@
     if (gunId && hm) { realGun(hm, gunId); const two = !isP || aim; const grip = base.clone().add(V().set(0, isP && !aim ? 1.0 : 1.3, 0)).addScaledVector(R, isP && !aim ? 0.3 : 0.16).addScaledVector(F, isP && !aim ? 0.15 : 0.22).addScaledVector(look, isP && aim ? 0.35 : 0.05);
       setWorld(hm, grip, (isP && !aim ? new THREE.Quaternion().setFromEuler(new THREE.Euler(0.6, P.yaw, 0, 'YXZ')) : qv.clone()).multiply(GQ));
       ik(u.arms[1], grip.clone().add(V().set(0, -0.03, 0)), R, 0.32, 0.33, F);
-      if (two) { const fg = isP ? grip.clone().addScaledVector(R, -0.05).add(V().set(0, -0.03, 0)) : grip.clone().addScaledVector(look, 0.38).add(V().set(0, -0.04, 0)); ik(u.arms[0], fg, R.clone().negate(), 0.32, 0.33, F); }
+      if (two) { const fg = isP ? grip.clone().addScaledVector(R, -0.05).add(V().set(0, -0.03, 0)) : grip.clone().addScaledVector(look, 0.42).add(V().set(0, -0.055, 0)).addScaledVector(R, -0.02); ik(u.arms[0], fg, R.clone().negate(), 0.32, 0.33, F); }
       else { u.arms[0].rotation.set(-sw * 0.9 * fwd - air * 0.5, 0, -0.06); if (u.arms[0].userData.el) u.arms[0].userData.el.rotation.set(-0.25 - run * 0.5, 0, 0); } }
     else { for (let i = 0; i < 2; i++) { const a = u.arms[i], sgn = i ? 1 : -1; a.quaternion.identity(); a.rotation.set(sgn * sw * 0.9 * fwd - air * 0.8 - land * 0.2, 0, (i ? 1 : -1) * (0.06 + air * 0.25)); if (a.userData.el) a.userData.el.rotation.set(-0.2 - run * 0.7 - air * 0.4, 0, 0); }
       if (hm) { const a = u.arms[1]; a.rotation.x = -0.55 - k * 1.6; if (a.userData.el) a.userData.el.rotation.x = -0.55 + k * 0.3; a.updateMatrixWorld(true);

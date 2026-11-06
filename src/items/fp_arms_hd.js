@@ -1,4 +1,4 @@
-/* GLX-FPA (v1.1.54): FIRST PERSON HD ARMS. The block arm and fist are replaced by two slim, shaped arms with sleeves, wrists and hands with
+/* GLX-FPA (v1.1.99): FIRST PERSON HD ARMS. The block arm and fist are replaced by two slim, shaped arms with sleeves, wrists and hands with
    fingers. Each arm reaches from the shoulder to its hand with a real elbow bend (two bone IK), so they follow every swing, recoil and aim.
    Rifles are held with both hands (the left hand on the foregrip); pistols take a two hand grip while aiming. Guns sway with the view, bob
    when walking, drop when sprinting, kick the arms on each shot, dip out and back in on a weapon switch, and the reload moves the hands:
@@ -22,13 +22,13 @@
     h.userData.f = [];
     for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(0.0066, skinM); tip.position.y = 0.03; k.add(tip);
       f.rotation.x = 1.0; k.rotation.x = 1.2; h.add(f); h.userData.f.push([f, k]); }
-    const th = new THREE.Group(); th.position.set(-side * 0.036, 0.03, 0.012); th.rotation.set(0.75, 0, -side * 0.3); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
+    const th = new THREE.Group(); th.position.set(side * 0.038, 0.028, 0.01); th.rotation.set(0.85, side * 0.55, side * 0.85); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt); th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
     const wr = limb(0.03, 0.028, 0.03, skinM, 12); wr.position.y = -0.02; h.add(wr); return h; }
   function mkArm(side) { const a = new THREE.Group(); a.userData.side = side;
     const up = limb(0.078, 0.066, LU, shirtM); a.add(up); const el = ball(0.066, shirtM); a.add(el); const fo = limb(0.06, 0.042, LF, skinM); a.add(fo);
-    const cuff = limb(0.07, 0.066, 0.12, cuffM); a.add(cuff); const h = mkHand(side); h.scale.setScalar(1.3); a.add(h);
+    const cuff = limb(0.07, 0.066, 0.12, cuffM); a.add(cuff); const h = mkHand(side); h.scale.setScalar(1.05); a.add(h);
     a.userData.p = {up, el, fo, cuff, h}; a.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; o.renderOrder = 2; } }); return a; }
-  function make() { skinM = new THREE.MeshStandardMaterial({color: 0xe3b08c, roughness: 0.55}); shirtM = new THREE.MeshStandardMaterial({map: fabric(), roughness: 0.9}); cuffM = shirtM;
+  function make() { skinM = new THREE.MeshStandardMaterial({color: 0xd4a07a, roughness: 0.62, metalness: 0.02}); shirtM = new THREE.MeshStandardMaterial({map: fabric(), roughness: 0.9}); cuffM = shirtM;
     rig = new THREE.Group(); rig.userData.R = mkArm(1); rig.userData.L = mkArm(-1); rig.add(rig.userData.R, rig.userData.L); camera.add(rig); window.__fpaR = m => { for (let a = m; a; a = a.parent) if (a === rig) return true; return false; }; U.made = 1; }
   function sleeves() { const id = armour[1] || 0; if (id === curSleeve) return; curSleeve = id; let m = shirtM; try { if (id && ARMOUR[id]) m = armourMat(ARMOUR[id].mat, true); } catch (_) {}
     for (const a of [rig.userData.R, rig.userData.L]) { a.userData.p.up.material = m; a.userData.p.el.material = m; a.userData.p.cuff.material = m; } }
@@ -41,7 +41,7 @@
     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
     p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
     const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
-    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.75 + tg * 0.45, 0, -side * (0.3 + tg * 0.35)); th.userData.k.rotation.set(0.1 + tg * 0.55, 0, 0); } }
+    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.85 + tg * 0.4, side * 0.45, side * (0.7 + tg * 0.4)); th.userData.k.rotation.set(0.15 + tg * 0.65, 0, 0); } try { const e = new THREE.Euler().setFromQuaternion(p.h.quaternion, 'YXZ'); e.x = Math.max(-1.15, Math.min(1.0, e.x)); e.z = Math.max(-0.85, Math.min(0.85, e.z)); p.h.quaternion.setFromEuler(e); } catch (_) {} }
   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
   const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
   function grip(G, pn, fd, c) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -0.032); }
@@ -76,15 +76,15 @@
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
     { const VM2 = !!(window.__vm && __vm.on); if (VM2 && g && !isP && TR) { const ax = (g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(TR) : V3(0, 0, -1)).normalize(); for (let i = 0; i < 40 && TR.z > -0.30; i++) TR.addScaledVector(ax, 0.01); } }   // v1.1.95: fixed rifle hand spot, never up against the eye
     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
-    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.05, 0).addScaledVector(fw, -0.1), V3(0, -1, 0).addScaledVector(fw, isP ? 0.45 : 0.3), [isP ? 0.55 : 0.85, 1.2, 1.25, 1.3]); OR = O; }
-    else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(-0.04, 0.1, -0.03)), V3(-0.25, 1, 0.1), V3(-0.3, 0.2, -1), [0.35, 0.3, 0.28, 0.3]); OR = O; }
-    else if (held.children.length) { TR = grip(TR, V3(-1, 0.05, 0.1), V3(0.1, -0.15, -1), [1, 1.05, 1.1, 1.15]); OR = O; }
+    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.08, 0).addScaledVector(fw, -0.08), V3(0, -1, 0.05).addScaledVector(fw, isP ? 0.5 : 0.35), [isP ? 0.7 : 0.95, isP ? 0.95 : 1.15, isP ? 1.0 : 1.2, isP ? 1.05 : 1.25]); OR = O; if (OR) OR.t = isP ? 0.9 : 1.05; }
+    else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(0.01, 0.05, -0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]); OR = O; if (OR) OR.t = 0.85; }
+    else if (held.children.length) { TR = grip(TR.add(V3(0.01, -0.01, 0.01)), V3(-0.2, 0.05, 0.95), V3(0.05, 1, 0), [0.9, 0.95, 1.0, 1.05]); OR = O; if (OR) OR.t = 1.0; }
     solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3, OR);
     let two = false; if (g) { two = !isP || k > 0.3; if (two) { let TL;
         if (!isP) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); TL = null; for (let f = 0.55; f >= 0.15; f -= 0.05) { const c = TR.clone().lerp(mz, f); c.y -= 0.03; if (c.distanceTo(SL) <= LU + LF - 0.01) { TL = c; break; } } if (!TL) { TL = TR.clone().lerp(mz, 0.15); TL.y -= 0.03; } }
         else { TL = TR.clone().add(V3(-0.035, -0.02, 0.015)); }
         if (rp >= 0 && rw && isP) TL.add(V3(-0.05 * rw, -0.22 * rw, 0.06 * rw));
-        const OL0 = isP ? grip(TL, V3(1, 0.1, 0), V3(0, -0.5, 0).addScaledVector(fw, 0.8), [0.95, 1, 1, 1]) : grip(TL, V3(0.1, 1, 0), V3(1, 0.15, 0).addScaledVector(fw, -0.35), [0.85, 0.9, 0.95, 1]); solve(L, SL, OL0, 0.9, 0.5, O); } }
+        const OL0 = isP ? grip(TL, V3(1, 0.15, 0), V3(0, -0.35, 0).addScaledVector(fw, 0.75), [0.9, 0.95, 1, 1]) : grip(TL, V3(0.05, 1, 0.1), V3(0.85, 0.2, 0).addScaledVector(fw, -0.25), [0.8, 0.88, 0.92, 0.98]); if (O) O.t = isP ? 0.85 : 0.7; solve(L, SL, OL0, 0.9, 0.5, O); } }
     L.visible = !!two; U.two = two ? 1 : 0; }
   // first person torso: your stomach, belt and kilt joined to the legs when you look down
   let torso = null;
