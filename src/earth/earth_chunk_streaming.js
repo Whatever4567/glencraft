@@ -20,7 +20,7 @@
     const e = E(), c = e.E(), R = e.R, m = MS[ax], Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; A = new Uint8Array(SW * SL * SW); U.gen = (U.gen || 0) + 1;
     for (let i = 0; i < SW; i++) for (let k = 0; k < SW; k++) { const lx = cx * C - 1 + i, lz = cz * C - 1 + k, ox = lx + 0.5 - piv[0], oz = lz + 0.5 - piv[2]; let gk = null;
       for (let j = 0; j < SL; j++) { const oy = sy + j + 0.5 - piv[1], wx = Math.round(m[0][0] * ox + m[1][0] * oy + m[2][0] * oz + piv[0] - 0.5), wy = Math.round(m[0][1] * ox + m[1][1] * oy + m[2][1] * oz + piv[1] - 0.5), wz = Math.round(m[0][2] * ox + m[1][2] * oy + m[2][2] * oz + piv[2] - 0.5);
-        if (wx >= 0 && wx < W && wz < D && wz >= Z0 && wy >= 0) { if (e.flat && wy <= 1) { const v = getB(wx, wy, wz); if (v && v !== T.WATER) A[(i * SL + j) * SW + k] = v; } continue; }   /* v1.1.56: the bottom of the old world caps the deep caves, so no see-through roof and no daylight below Y0 */
+        if (wx >= 0 && wx < W && wz < D && wz >= Z0 && wy >= 0) { continue; }   /* v1.1.96: surface owns Y0+ mesh; deep never dual-draws it. Y0 underside seal is __YB / bottom faces */
         if (e.flat) { const ft = e.fearth && e.fearth.top; if (ft && wy - SEA > ft(wx, wz)) continue; const fb = e.earth(wx, wy, wz); if (fb) A[(i * SL + j) * SW + k] = fb; continue; }   /* v1.1.42: the flat Earth */
         const dx = wx + 0.5 - c[0], dy = wy + 0.5 - c[1], dz = wz + 0.5 - c[2], r = Math.sqrt(dx * dx + dy * dy + dz * dz), a = Math.max(wy - SEA, r - R); if (a > 32) continue;
         let b; if (e.tOn && a >= -40 && wy - SEA < r - R - 1) { b = e.terr(wx, wy, wz, dx, dy, dz, r); if (!b || b === T.WATER) continue; } else if (a < -40) { b = e.hol ? e.hol(wx, wy, wz, dx, dy, dz, r) : e.layer(r, 99, 0, wx, wy, wz); if (!b) continue; } else { if (!gk) gk = e.ground(wx, wy, wz, dx / r, dy / r, dz / r); if (a >= gk[0]) continue; b = e.layer(r, gk[0] - a, gk[1], wx, wy, wz); }
@@ -40,6 +40,7 @@
           const lx = Math.round(m[0][0] * vx + m[0][1] * vy + m[0][2] * vz + piv[0] - 0.5), ly = Math.round(m[1][0] * vx + m[1][1] * vy + m[1][2] * vz + piv[1] - 0.5), lz = Math.round(m[2][0] * vx + m[2][1] * vy + m[2][2] * vz + piv[2] - 0.5);
           const r = [lx, ly, lz, q[3]]; for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) { const kk = Math.floor((lx + ox) / C) + ',' + Math.floor((lz + oz) / C); let L = eB.m.get(kk); if (!L) eB.m.set(kk, L = []); if (!L.includes(r)) L.push(r); } } }
       for (const r of (eB.m.get(cx + ',' + cz) || [])) { const lx = r[0], ly = r[1], lz = r[2], q = [0, 0, 0, r[3]];
+        const Z0e = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; if (ly >= 0 && lx >= 0 && lx < W && lz < D && lz >= Z0e) continue;   /* v1.1.96: surface owns in-bounds Y>=0 */
         const tx = lx - cx * C + C, ty = ly - y0, tz = lz - cz * C + C; if (tx >= C - 1 && tx <= 2 * C && tz >= C - 1 && tz <= 2 * C && ty >= 0 && ty < NB) { TMP[(tx * NB + ty) * PW + tz] = q[3]; if (q[3]) any = true; } } }   /* v1.1.55: placed blocks out on the planet, deep down and in Agartha are drawn (they were drawn as air) */
     return any; }
   function mesh(ax, piv, cx, cz, y0) { const t0 = performance.now(), k = cx + ',' + cz; drop(k); const fk = fill(ax, piv, cx, cz, y0); U.fm = Math.round(performance.now() - t0); if (!fk) { meshes.set(k, null); return; }

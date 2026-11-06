@@ -39,7 +39,8 @@
     bx += (Math.cos(wp) * 0.008 * bo - bx) * f; by += (-Math.abs(Math.sin(wp)) * 0.007 * bo - by) * f; const br = Math.sin(tm * 1.5) * 0.0025;
     // gun frame: rig axes inside g
     if (!relTo(g, hand, M1)) return; M1.decompose(v, q, sc);
-    let s = u.__s0 || (u.__s0 = sc.x * hand.scale.x);
+    if (!u.__s0Base) { const s0 = Math.abs(sc.x * (hand.scale.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; }
+    let s = u.__s0 = u.__s0Base || 1;
     if (C.sk) s *= C.sk;   // long guns a bit smaller so the stock meets the shoulder
     relTo(u.rig, g, Mr); const sg = (u.sight ? u.sight.clone() : V(0, 0.04, 0)).applyMatrix4(Mr);
     const dir = V(0, 0, -1).transformDirection(Mr), up0 = V(0, 1, 0).transformDirection(Mr), rt = dir.clone().cross(up0).normalize(), up = rt.clone().cross(dir).normalize();
