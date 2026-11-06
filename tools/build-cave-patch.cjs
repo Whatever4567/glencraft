@@ -9,7 +9,14 @@ const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const before=fs.readFileSync(basePath),previous=fs.readFileSync(path.join(__dirname,'cave-source/c324-verified-base.js')),next=fs.readFileSync(path.join(__dirname,'cave-source/c324-streamed-surface.js'));
 if(sha(before)!=='63e79e6b6a068e730cf5411602dfd89d97d71c2808b075e8e7ff82378e3d2cfb')throw Error('Wrong exact integrity checkpoint '+sha(before));
 if(sha(previous)!=='fb5b4d1081a5147c0fd0e79437765542fdcd620529a2cda456754a4520d7f0d9')throw Error('Wrong exact old owner checkpoint');
-const original=before.toString('utf8'),oldText=previous.toString('utf8'),position=original.indexOf(oldText);
+let original=before.toString('utf8');
+const oldText=previous.toString('utf8');
+const terrain=fs.readFileSync(path.join(__dirname,'cave-source/deep-world-terrain.js'),'utf8');
+new (require('node:vm').Script)(terrain);
+const ta=original.indexOf('(function deepWorld()'),tb=original.indexOf('\n/* GLX-AGU',ta);
+if(ta<0||tb<0||original.indexOf('(function deepWorld()',ta+1)>=0)throw Error('Exactly one deepWorld required');
+original=original.slice(0,ta)+terrain+original.slice(tb);
+const position=original.indexOf(oldText);
 if(position<0||original.indexOf(oldText,position+1)>=0)throw Error('Exactly one exact C324 owner required');
 let result=original.slice(0,position)+next+original.slice(position+oldText.length);
 const restore=fs.readFileSync(path.join(__dirname,'cave-source/c317-restore-helper.js'),'utf8');
@@ -33,6 +40,15 @@ for(const [file,begin,end,from]of slots){
  if(at<0||result.indexOf(old,at+1)>=0)throw Error('Exactly one counterpart required: '+file);
  result=result.slice(0,at)+replacement+result.slice(at+old.length);
 }
+result=result.replace("const GAME_VERSION = '1.2.1';","const GAME_VERSION = '1.2.2';");
+result=result.replace('<!-- glencraft-build: b1201-v1.2.1 -->','<!-- glencraft-build: b1202-v1.2.2 -->');
+const releaseNotes={v:'v1.2.2',d:'2026-11-06',notes:[
+ 'Caves: seven connected underground strata with gray halls, giant fungi, deep dark pillars, basalt magma, molten depths, an abyssal crystal ring and the original giant eye above a dry core bowl.',
+ 'Fix: digging across Y0 preserves cave mesh ownership while incremental work finishes. Existing loading, lighting and streaming remain incremental.',
+ 'A dry eastern staircase descends from the gray cave to the core. Surface, Agartha, UFO, existing edits and AIR removals are preserved. No automatic reset.'
+]};
+if(releaseNotes.notes.some(n=>n.includes("'")))throw Error('No apostrophes in release notes');
+result=result.replace('window.PATCH_NOTES = [','window.PATCH_NOTES = [\n'+JSON.stringify(releaseNotes)+',');
 const digest=sha(result);
 if(preview){console.log(JSON.stringify({base:sha(before),oldOwner:sha(previous),newOwner:sha(next),output:digest,bytes:Buffer.byteLength(result)}));process.exit(0);}
 if(process.env.CAVE_EXPECT_SHA!==digest)throw Error('Expected output hash required; nothing written: '+digest);
