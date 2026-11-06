@@ -2,14 +2,23 @@
 'use strict';
 // Source-owned, hash-gated patch applied to the exact integrity checkpoint.
 const fs=require('node:fs'),crypto=require('node:crypto'),path=require('node:path');
-const argv=process.argv.slice(2),preview=argv.includes('--print-hash'),args=argv.filter(x=>x!=='--print-hash');
+const argv=process.argv.slice(2),preview=argv.includes('--print-hash'),args=argv.filter(x=>x!=='--print-hash'&&x!=='--with-version');
 const basePath=path.join(__dirname,'cave-source/checkpoints/pre-loader.html');
+if(args.length>1)throw Error('Provide one explicit output path');
 const output=args.length===1&&!preview?path.resolve(args[0]):null;
 const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
 const before=fs.readFileSync(basePath),previous=fs.readFileSync(path.join(__dirname,'cave-source/c324-verified-base.js')),next=fs.readFileSync(path.join(__dirname,'cave-source/c324-streamed-surface.js'));
 if(sha(before)!=='63e79e6b6a068e730cf5411602dfd89d97d71c2808b075e8e7ff82378e3d2cfb')throw Error('Wrong exact integrity checkpoint '+sha(before));
 if(sha(previous)!=='fb5b4d1081a5147c0fd0e79437765542fdcd620529a2cda456754a4520d7f0d9')throw Error('Wrong exact old owner checkpoint');
-const original=before.toString('utf8'),oldText=previous.toString('utf8'),position=original.indexOf(oldText);
+let original=before.toString('utf8'),oldText=previous.toString('utf8');
+const terrainOldStart=original.indexOf('(function deepWorld()'),terrainOldEnd=original.indexOf('\n/* GLX-AGU',terrainOldStart);
+if(terrainOldStart<0||terrainOldEnd<0||original.indexOf('(function deepWorld()',terrainOldStart+1)>=0)throw Error('Exactly one deepWorld source required');
+const terrain=fs.readFileSync(path.join(__dirname,'cave-source/deep-world-terrain.js'),'utf8');
+new (require('node:vm').Script)(terrain);
+original=original.slice(0,terrainOldStart)+terrain+original.slice(terrainOldEnd);
+if(!/^\/\* GLX-DEEP \(v1\.2\.2\)/m.test(terrain))throw Error('Terrain version header required');
+original=original.replace("const GAME_VERSION = '1.2.1';","const GAME_VERSION = '1.2.2';");
+const position=original.indexOf(oldText);
 if(position<0||original.indexOf(oldText,position+1)>=0)throw Error('Exactly one exact C324 owner required');
 let result=original.slice(0,position)+next+original.slice(position+oldText.length);
 const restore=fs.readFileSync(path.join(__dirname,'cave-source/c317-restore-helper.js'),'utf8');
@@ -37,4 +46,6 @@ const digest=sha(result);
 if(preview){console.log(JSON.stringify({base:sha(before),oldOwner:sha(previous),newOwner:sha(next),output:digest,bytes:Buffer.byteLength(result)}));process.exit(0);}
 if(process.env.CAVE_EXPECT_SHA!==digest)throw Error('Expected output hash required; nothing written: '+digest);
 if(!output)throw Error('Provide an explicit separate output path; no in-place or silent writes');
-const tmp=output+'.tmp.'+process.pid;fs.writeFileSync(tmp,result,{flag:'wx'});fs.renameSync(tmp,output);console.log('WROTE '+output+' '+digest);
+const versionPath=path.join(__dirname,'../version.json');
+if(output===path.resolve('index.html')&&process.env.CAVE_ALLOW_INDEX!=='1')throw Error('Refuses in-place index write; use explicit separate output. set CAVE_ALLOW_INDEX=1 explicitly')
+const tmp=output+'.tmp.'+process.pid;fs.writeFileSync(tmp,result,{flag:'wx'});fs.renameSync(tmp,output);if(argv.includes('--with-version'))fs.writeFileSync(versionPath,JSON.stringify({v:'1.2.2'})+'\n');console.log('WROTE '+output+' '+digest);
