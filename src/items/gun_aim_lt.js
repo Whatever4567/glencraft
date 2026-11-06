@@ -47,7 +47,7 @@
       k += ((U.aiming ? 1 : 0) - k) * (1 - Math.exp(-dt * 14)); if (k < 0.002) k = 0; U.ads = +k.toFixed(3);
       if (!k) return br(sc, cam);
       /* v1.1.28: the rifle aims with its own exact iron sight code (C145) again, as before v1.0.95; nothing here moves it */
-      if ((window.__vm && __vm.on) || (typeof IT !== 'undefined' && (selId === IT.MUSKET || (window.__c340 && __c340.on)))) return br(sc, cam);
+      if ((window.__vm && typeof GUN !== 'undefined' && GUN[selId]) || (typeof IT !== 'undefined' && (selId === IT.MUSKET || (window.__c340 && __c340.on)))) return br(sc, cam);
       const f0 = camera.fov, hx = hand.position.x, hy = hand.position.y, hz = hand.position.z;
       camera.fov = f0 * (1 - 0.38 * k); camera.updateProjectionMatrix(); const rx = hand.rotation.x, ry = hand.rotation.y, rz = hand.rotation.z; hand.rotation.set(rx * (1 - k), ry * (1 - k), rz * (1 - k)); const off = centre(); hand.position.x = hx - off[0] * k; hand.position.y = hy - off[1] * k; hand.position.z = hz + 0.08 * k;
       try { return br(sc, cam); } finally { camera.fov = f0; camera.updateProjectionMatrix(); hand.position.set(hx, hy, hz); hand.rotation.set(rx, ry, rz); } }; } catch (e) { ERR('rd', e); }

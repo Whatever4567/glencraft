@@ -126,6 +126,11 @@ R.append(("function startReload(id) { const G = GUN[id]; if (rlT > 0 || gunMag[i
 R.append(("window.reloadGun = () => { if (GUN[selId] && cnt(selId) > 0) startReload(selId); };",
           "window.reloadGun = () => { if (GUN[selId] && cnt(selId) > 0) startReload(selId, true); };"))
 
+
+# v1.1.99b: cancel core rlT when unequipped or weapon switched
+R.append(("if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 - rlT / G.rl, f0 = 1 - t0 / G.rl;",
+          "window.__rlCoreClear = () => { rlT = 0; }; if (rlT > 0 && (!GUN[selId] || selId !== rlId || cnt(selId) <= 0)) { rlT = 0; } if (rlT > 0) { const G = GUN[rlId], t0 = rlT; rlT -= dt; const f = 1 - rlT / G.rl, f0 = 1 - t0 / G.rl;"))
+
 for a,b in R:
   assert s.count(a)==1,a; s=s.replace(a,b)
 import sys as _s; _s.path.insert(0,'/workspace/game'); import strip_br; s=strip_br.strip(s)

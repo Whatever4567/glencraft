@@ -127,7 +127,7 @@
         M1.decompose(v, q, sc); const s = sc.x * hand.scale.x; S.s = s; const now = performance.now() / 1000;
         const tgt = new THREE.Vector3(Math.sin(now * 1.1) * 0.0012, -0.008 + Math.sin(now * 1.7) * 0.001, -0.3 - 0.16 * s).sub(g.userData.sight.clone().multiplyScalar(s));
         Md.compose(tgt, Q0, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc);
-        hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } catch (e) { warn('ads', e); }
+        if (!(window.__vm && __vm.on)) { hand.position.lerp(v, S.adsK); hand.quaternion.slerp(q, S.adsK); } } } catch (e) { warn('ads', e); }
     return r; };
   S.musket = musket;
 })();
