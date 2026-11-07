@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1209-v1.2.9 -->
+<!-- glencraft-build: b1300-v1.3.0 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13358,7 +13358,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.9';
+const GAME_VERSION = '1.3.0';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -49119,7 +49119,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 (function tbox() {
   const U = window.__tbox = {err: null, inside: false, camIn: false, door: 0, placed: 0, frames: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  const RR = 4.6, RH = 4.4, HW = 0.85, DW = 0.5, DH = 2.05, BH = 2.6;
+  const RR = 6.5, RH = 8.8, HW = 0.85, DW = 0.5, DH = 2.05, BH = 2.6;
   let cfg = {name: 'GLENCRAFT TIME BOX', color: 0x1f4e8c}; try { Object.assign(cfg, JSON.parse(localStorage.getItem('glx_tbox_cfg') || '{}')); } catch (_) {}
   U.cfg = cfg; U.RR = RR; U.HW = HW; U.DW = DW;
   const S = U.S = {x: 0, y: 0, z: 0, on: false};
@@ -49236,7 +49236,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const RR = T.RR, HW = T.HW, DW = T.DW, CZ = HW - RR, R = 0.32;
   // ---------- threshold and walls ----------
   try { const so = solid; solid = function (x, y, z) { if (T.inside && S.on) { const dx = x + 0.5 - S.x, dz = z + 0.5 - (S.z + CZ);
-      if (dx * dx + dz * dz < (RR + 0.6) * (RR + 0.6) && z + 0.5 < S.z + HW + 0.2) { const fy = Math.floor(S.y + 0.01); if (y === fy - 1) return true; if (y >= fy && y < fy + 4) return false; } }
+      if (dx * dx + dz * dz < (RR + 0.6) * (RR + 0.6) && z + 0.5 < S.z + HW + 0.2) { const fy = Math.floor(S.y + 0.01); if (y === fy - 1) return true; if (y >= fy && y < fy + 9) return false; } }
       return so.apply(this, arguments); }; } catch (e) { ERR('so', e); }
   function walls() { if (!S.on || DIM.cur) return; const fz = S.z + HW, dx = P.x - S.x, open = T.door > 0.6;
     if (T.inside) { if (P.z > fz + 0.02) { T.inside = false; return; }
@@ -49338,13 +49338,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const atC = () => T.inside && Math.hypot(P.x - S.x, P.z - (S.z + CZ)) < 2.6;
   let rel = null, tin = {f: 0, t: 0, u: 0};
   function toggle() { if (busyT) return; U.pilot = !U.pilot; rel = U.pilot ? [P.x - S.x, P.y - S.y, P.z - S.z] : null; U.v = [0, 0, 0]; pad.style.display = U.pilot && PH ? 'grid' : 'none'; fb.textContent = U.pilot ? 'Let go' : 'Fly';
-    try { toast(U.pilot ? 'You have the wheel. W S A D to fly, Space up, Shift down, G to let go' : 'You let go of the wheel'); } catch (_) {} }
+    try { toast(U.pilot ? 'You have the stick. Right stick: up/down and left/right. Left stick: spin. LS: boost. X to let go (keys: W S A D, Space, Shift, G)' : 'You let go of the stick'); } catch (_) {} }
   U.toggle = toggle;
   const blocked = (x, y, z) => { for (const [ox, oz] of [[-HW, -HW], [HW, -HW], [-HW, HW], [HW, HW], [0, 0]]) for (const oy of [0.1, 1.3, 2.5]) if (solid(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true; return false; };
   function fly(dt) { const g = navigator.getGamepads ? [...navigator.getGamepads()].find(p => p) : null, ax = i => g && Math.abs(g.axes[i] || 0) > 0.2 ? g.axes[i] : 0, bt = i => g && g.buttons[i] && g.buttons[i].pressed ? 1 : 0;
-    const f = (K.KeyW ? 1 : 0) - (K.KeyS ? 1 : 0) - ax(1) + tin.f, tr = (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) - ax(0) + tin.t, up = (K.Space ? 1 : 0) - (K.ShiftLeft || K.ShiftRight ? 1 : 0) + bt(0) - bt(1) + tin.u;
+    const LSb = bt(10), st = ax(2), f = (K.KeyW ? 1 : 0) - (K.KeyS ? 1 : 0) + tin.f + (LSb ? 1 : 0), tr = (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) - ax(0) + tin.t, up = (K.Space ? 1 : 0) - (K.ShiftLeft || K.ShiftRight ? 1 : 0) + bt(0) - bt(1) - ax(3) + tin.u;
+    U.inp = [st, ax(3)]; if (LSb && !U._ls) { whoosh(0.9); try { window.__v130 && __v130.boosts++; } catch (_) {} } U._ls = LSb;
     U.H += tr * dt * 1.3; try { wheel.rotation.z += ((tr * 1.2) - wheel.rotation.z) * Math.min(1, dt * 6); } catch (_) {}
-    const alt = S.y - SEA, sp = alt > 1500 ? 420 : alt > 400 ? 160 : alt > 80 ? 40 : 14, tx = -Math.sin(U.H) * f * sp, tz = -Math.cos(U.H) * f * sp, ty = up * (alt > 400 ? sp * 0.6 : 10);
+    const alt = S.y - SEA, sp = (alt > 1500 ? 420 : alt > 400 ? 160 : alt > 80 ? 40 : 14) * (LSb ? 3 : 1), tx = -Math.sin(U.H) * f * sp + Math.cos(U.H) * st * sp, tz = -Math.cos(U.H) * f * sp - Math.sin(U.H) * st * sp, ty = up * (alt > 400 ? sp * 0.6 : 10);
     const k = Math.min(1, dt * 2.5); U.v[0] += (tx - U.v[0]) * k; U.v[1] += (ty - U.v[1]) * k; U.v[2] += (tz - U.v[2]) * k;
     let nx = S.x + U.v[0] * dt, ny = S.y + U.v[1] * dt, nz = S.z + U.v[2] * dt;
     if (window.__ukb && __ukb.wall(nx, ny + 1, nz)) { nx = S.x; nz = S.z; U.v[0] = U.v[2] = 0; }
@@ -49954,6 +49955,42 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       u.board = () => { U.ufoBlocked++; return false; };
       setInterval(() => { try { if (u.on && u.exit) u.exit(); for (const b of document.querySelectorAll('button')) if (b.textContent === 'Fly UFO' && b.style.display !== 'none') b.style.display = 'none'; } catch (_) {} }, 1000);
     } catch (e) { ERR('ufo', e); clearInterval(boot); } }, 500);
+})();
+
+/* GLX-V130 (v1.3.0): time box cockpit. A blue glass time rotor tube with flowing yellow energy on the console, a pilot stick beside it
+   that leans with your input (your hand rests on it while you fly), chrome/purple/blue interior tint, and a looping in-flight hum
+   made in code. Controls are in the TBOX3 flight patch: right stick = up/down and left/right, left stick = spin only, LS = boost. */
+(function v130() {
+  const T = window.__tbox, F = () => window.__tbox3; if (!T) return;
+  const U = window.__v130 = {err: null, built: 0, hum: 0, boosts: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  const RR = T.RR, HW = T.HW, CZ = HW - RR; let tube = null, core = null, stick = null, knob = null, t = 0;
+  function build() { const room = T.parts && T.parts.room; if (!room || U.built) return; const SM = T.SM || (m => m);
+    const glass = SM(new THREE.MeshPhongMaterial({color: 0x3a8cff, emissive: 0x0a2a66, transparent: true, opacity: 0.45, shininess: 120}));
+    const energy = SM(new THREE.MeshBasicMaterial({color: 0xffd23a, transparent: true, opacity: 0.9}));
+    const chrome = SM(new THREE.MeshPhongMaterial({color: 0xd8dde8, emissive: 0x202436, specular: 0xffffff, shininess: 140}));
+    const g = new THREE.Group(); tube = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 3.2, 20, 1, true), glass); tube.position.y = 2.6; g.add(tube);
+    core = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.0, 12), energy); core.position.y = 2.6; g.add(core);
+    for (const y of [1.0, 4.2]) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.36, 0.06, 8, 24), chrome); r.rotation.x = Math.PI / 2; r.position.y = y; g.add(r); }
+    g.position.set(0, 0, CZ); room.add(g);
+    const sg = new THREE.Group(); stick = sg; const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.75, 10), chrome); shaft.position.y = 0.375; sg.add(shaft);
+    knob = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), SM(new THREE.MeshPhongMaterial({color: 0x7a3cff, emissive: 0x2a0a66, shininess: 90}))); knob.position.y = 0.78; sg.add(knob);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.12, 14), chrome); sg.add(base); sg.position.set(0.95, 0.95, CZ + 0.85); room.add(sg);
+    for (const o of [g, sg]) o.traverse(q => { if (q.material) { q.material.stencilFunc = T.camIn ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; q.material.needsUpdate = true; } });
+    // chrome / purple / blue interior: tint the room's own materials once (shared only inside the box room)
+    const seen = new Set(); room.traverse(q => { const m = q.material; if (!m || seen.has(m) || q === tube || q === core) return; seen.add(m); if (m.color && !m.map) { const c = m.color, l = (c.r + c.g + c.b) / 3; c.setRGB(0.55 * l + 0.35, 0.5 * l + 0.3, 0.75 * l + 0.45); if (m.emissive) m.emissive.setRGB(0.06, 0.03, 0.14); } });
+    U.built = 1; }
+  // flight hum (code-made, no recordings)
+  let AC = null, hum = null; const vol = () => (typeof SET !== 'undefined' ? SET.sfx : 0.8);
+  function humOn(on) { try { if (on && !hum) { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); const a = AC, o1 = a.createOscillator(), o2 = a.createOscillator(), lf = a.createOscillator(), lg = a.createGain(), g = a.createGain(), f = a.createBiquadFilter();
+        o1.type = 'sawtooth'; o1.frequency.value = 55; o2.type = 'triangle'; o2.frequency.value = 110.5; lf.frequency.value = 0.7; lg.gain.value = 18; lf.connect(lg); lg.connect(f.frequency); f.type = 'lowpass'; f.frequency.value = 420;
+        g.gain.value = 0.0001; o1.connect(f); o2.connect(f); f.connect(g); g.connect(a.destination); o1.start(); o2.start(); lf.start(); g.gain.setTargetAtTime(0.07 * vol(), a.currentTime, 0.4); hum = {o: [o1, o2, lf], g}; U.hum++; }
+      else if (!on && hum) { const h = hum; hum = null; h.g.gain.setTargetAtTime(0.0001, AC.currentTime, 0.3); setTimeout(() => { for (const o of h.o) try { o.stop(); } catch (_) {} }, 1200); } } catch (e) { ERR('hum', e); } }
+  U.lean = [0, 0];
+  setInterval(() => { try { if (T.inside) build(); const f = F(); humOn(!!(f && f.pilot && T.inside)); } catch (e) { ERR('tick', e); } }, 250);
+  try { const up = updatePlayer; updatePlayer = function (dt) { const r = up.apply(this, arguments); try { if (!U.built) return r; t += dt || 0.016;
+      if (core) { core.material.opacity = 0.65 + 0.3 * Math.sin(t * 6); core.scale.x = core.scale.z = 1 + 0.15 * Math.sin(t * 9); }
+      const f = F(); if (stick) { const L = (f && f.pilot && f.inp) ? f.inp : [0, 0]; stick.rotation.z += (-L[0] * 0.45 - stick.rotation.z) * Math.min(1, dt * 8); stick.rotation.x += (L[1] * 0.45 - stick.rotation.x) * Math.min(1, dt * 8); U.lean = [stick.rotation.x, stick.rotation.z]; } } catch (e) { ERR('anim', e); } return r; }; } catch (e) { ERR('up', e); }
 })();
 
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
@@ -50583,6 +50620,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.3.0","d":"2026-11-07","notes":["Time box: about twice as big and twice as tall inside, with a chrome, purple and blue look.","A blue glass column with flowing yellow energy stands on the console, with a pilot stick beside it.","Flying: press X at the console. Right stick moves up, down, left and right, left stick spins the box, LS boosts with a whoosh. The big screen shows the view outside.","A steady time-travel hum plays while you fly."]},
 {"v":"v1.2.9","d":"2026-11-07","notes":["Chrome mode is now a setting: once you have met the visitor, switch it on or off in Settings. The revisit portal is gone.","Your own UFO can no longer be flown. The visitor encounter is unchanged.","The visitor has new things to say about Agartha.","Time box: the steering wheel is gone. You still fly it from the console."]},
 {"v":"v1.2.8","d":"2026-11-07","notes":["Oak and silver birch are retired: new worlds grow Scots pine instead, and any oak or birch you collect becomes the Scots pine version. Existing builds are left as they are."]},
 {"v":"v1.2.7","d":"2026-11-07","notes":["New setting: Disable mobs. When on, no mobs spawn and any around you are removed. Saved with your settings."]},
