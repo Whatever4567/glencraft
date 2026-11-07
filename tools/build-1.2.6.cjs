@@ -9,7 +9,7 @@ function one(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw Error('
 const mod=fs.readFileSync(path.join(__dirname,'visuals-source/item-visuals.js'),'utf8');new vm.Script(mod);
 one('/* GLX-C400',mod+'\n/* GLX-C400');
 // chest world tiles: right after the TEX table, before any atlas uses it
-{const chest=fs.readFileSync(path.join(__dirname,'visuals-source/chest-tile.js'),'utf8');new vm.Script(chest);const i=s.indexOf('const TEX = {');if(i<0||s.indexOf('const TEX = {',i+1)>=0)throw Error('TEX');const e=s.indexOf('\n',i);s=s.slice(0,e+1)+chest+'\n'+s.slice(e+1);}
+{const chest=fs.readFileSync(path.join(__dirname,'visuals-source/chest-tile.js'),'utf8');new vm.Script(chest);const i=s.indexOf('\nconst TEX = {"furnace_top"');if(i<0||s.indexOf('\nconst TEX = {"furnace_top"',i+1)>=0)throw Error('TEX');const e=s.indexOf('\n',i);s=s.slice(0,e+1)+chest+'\n'+s.slice(e+1);}
 one('<!-- glencraft-build: b1205-v1.2.5 -->','<!-- glencraft-build: b1206-v1.2.6 -->');
 one("const GAME_VERSION = '1.2.5';","const GAME_VERSION = '1.2.6';");
 one('window.PATCH_NOTES = [','window.PATCH_NOTES = [\n'+JSON.stringify({v:'v1.2.6',d:'2026-11-07',notes:['Block of diamond: polished shiny aqua look on every face, in hand and as a drop.','New 3D block icons for grass, chest and diamond block.','New icons: folded relief map, detailed bread and rotten flesh.']})+',');

@@ -23,3 +23,7 @@ test('map/bread/flesh icons painted, distinct, transparent background',()=>{cons
 test('apply installs icons and clears sprite/icon-key caches (drop sprites rebuild)',()=>{ctx.spriteMats[35]=1;ctx.ICON_KEY[35]='x';assert(V.apply()===6);assert.equal(ctx.ICONS[35],V.icons[35]);assert(!(35 in ctx.spriteMats));assert(!(35 in ctx.ICON_KEY));assert.equal(V.apply(),0);});
 test('blocks stay real 3D cubes in hand and as drops',()=>{assert(html.includes('const cube = PLACEABLE.has(id) && BLOCK_MATS[id];'));assert(html.includes('new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.16), BLOCK_MATS[id])'));});
 console.log(pass,'passed');
+{const c2=vm.createContext({document,TEX:{chest_front:'old',chest_top:'old',chest_side:'old'}});c2.window=c2;vm.runInContext(seg('(function v126c() {','\n})();')+'\n})();',c2);
+ for(const k of ['chest_front','chest_top','chest_side'])assert(c2.TEX[k].startsWith('data:image/png')&&c2.TEX[k]!=='old',k);
+ assert.equal(new Set([c2.TEX.chest_front,c2.TEX.chest_top,c2.TEX.chest_side]).size,3);
+ assert(html.indexOf('(function v126c()')<html.indexOf("64:['chest_side','chest_side','chest_top','chest_top','chest_front','chest_side']"));console.log('PASS chest world tiles replaced before face table, 3 distinct faces');}
