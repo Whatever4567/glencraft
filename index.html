@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1219-v1.2.19 -->
+<!-- glencraft-build: b1220-v1.2.20 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.19';
+const GAME_VERSION = '1.2.20';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -23243,7 +23243,7 @@ function flQueue(x, y, z) {
   if (z > 0 && isFl(world[i - 1])) flPush(i - 1); if (z < D - 1 && isFl(world[i + 1])) flPush(i + 1);
 }
 const flInto = b => b === T.AIR || (PLANT[b] === 1 && b !== T.COBWEB && b !== 205);
-function flSet(x, y, z, b, lv) { const i = idx(x, y, z); world[i] = b; if (lv) FLV.set(i, lv); else FLV.delete(i); markDirty(x, z); if (y > 0) markDirty(x, z); flQueue(x, y, z); }
+function flSet(x, y, z, b, lv) { const i = idx(x, y, z); world[i] = b; if (lv) FLV.set(i, lv); else FLV.delete(i); markDirty(x, z); flQueue(x, y, z); }
 function flFizz(x, y, z) { try { burst(x + .5, y + 1, z + .5, 0xcccccc, 6, .5); sfx3d('splash', {x, y, z}, 14); } catch (_) {} }
 function flowCell(i) {
   const b = world[i]; if (!isFl(b)) { FLV.delete(i); return; }
@@ -42792,8 +42792,8 @@ function make42(E) {
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const PH = typeof touchMode !== 'undefined' && !!touchMode, LOW = PH || (typeof PERF !== 'undefined' && PERF);
   const NR = LOW ? 4 : 8, RIP = []; for (let i = 0; i < NR; i++) RIP.push(new THREE.Vector4(0, 0, -99, 0));
-  const u = {u41T: {value: 0}, u41Tide: {value: 0}, u41Sea: {value: (typeof SEA !== 'undefined' ? SEA : 40) + 1}, u41Rip: {value: RIP}};
-  let ri = 0; const ripple = (x, z, a) => { const r = RIP[ri = (ri + 1) % NR]; r.set(x, z, u.u41T.value, a); U.rips++; };
+  const u = {u41T: {value: 0}, u41Tide: {value: 0}, u41Sea: {value: (typeof SEA !== 'undefined' ? SEA : 40) + 1}, u41Rip: {value: RIP}, u41End: {value: -1}};
+  let ri = 0; const ripple = (x, z, a) => { const r = RIP[ri = (ri + 1) % NR]; r.set(x, z, u.u41T.value, a); u.u41End.value = u.u41T.value + 2.6; U.rips++; };
   U.ripple = ripple;
   // ---------- water shader: swell + tide on top faces, ripples, slower river scroll ----------
   try { const ob = waterMat.onBeforeCompile; waterMat.onBeforeCompile = function (sh, r) { if (ob) ob.call(this, sh, r); Object.assign(sh.uniforms, u);
@@ -42804,9 +42804,9 @@ function make42(E) {
    float sw = sin(w41.x * 0.31 + u41T * 0.9) * 0.55 + sin(w41.z * 0.23 - u41T * 0.7 + w41.x * 0.05) * 0.45 + sin((w41.x + w41.z) * 0.9 + u41T * 1.7) * 0.18;
    transformed.y += sw * (0.025 + 0.06 * sea) + u41Tide * sea; } v41W = (modelMatrix * vec4(transformed, 1.0)).xyz; }`);
       f = f.replace('uTime * 4.2', 'uTime * 2.2');
-      f = 'uniform float u41T; uniform vec4 u41Rip[' + NR + '];\nvarying vec3 v41W;\n' + f.replace('#include <map_fragment>', `#include <map_fragment>
- { float rr = 0.0; for (int i = 0; i < ${NR}; i++) { vec4 q = u41Rip[i]; float age = u41T - q.z; if (age < 0.0 || age > 2.6) continue; float d = distance(v41W.xz, q.xy);
-     float k = d - age * 1.5; rr += (exp(-k * k * 22.0) + 0.5 * exp(-(k + 0.35) * (k + 0.35) * 30.0)) * (1.0 - age / 2.6) * q.w; }
+      f = 'uniform float u41T; uniform float u41End; uniform vec4 u41Rip[' + NR + '];\nvarying vec3 v41W;\n' + f.replace('#include <map_fragment>', `#include <map_fragment>
+ if (u41T < u41End) { float rr = 0.0; for (int i = 0; i < ${NR}; i++) { vec4 q = u41Rip[i]; float age = u41T - q.z; if (age < 0.0 || age > 2.6) continue; float d = distance(v41W.xz, q.xy);
+     float k = d - age * 1.5; if (k > 1.2) continue; rr += (exp(-k * k * 22.0) + 0.5 * exp(-(k + 0.35) * (k + 0.35) * 30.0)) * (1.0 - age / 2.6) * q.w; }
    diffuseColor.rgb += vec3(0.3, 0.33, 0.36) * min(rr, 1.2); }`);
       sh.vertexShader = v; sh.fragmentShader = f; U.sh = 1; };
     const ck = waterMat.customProgramCacheKey; waterMat.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'c241'; }; waterMat.needsUpdate = true; } catch (e) { ERR('sh', e); }
@@ -44515,7 +44515,7 @@ function make42(E) {
       float c265fo = smoothstep(0.42, 0.75, length(c265n)) * (0.35 + min(vFl.z, 1.0) * 0.65) * uWNon;
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.96, 1.0), c265fo * 0.55);`)
         .replace('#include <envmap_fragment>', `#include <envmap_fragment>
-      { float fr = pow(1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), 3.0); outgoingLight += vec3(0.5, 0.66, 0.82) * fr * 0.35 * uWNon; }`);
+      { float fr0 = 1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), fr = fr0 * fr0 * fr0; outgoingLight += vec3(0.5, 0.66, 0.82) * fr * 0.35 * uWNon; }`);
       U.w = 1; };
     const ck = waterMat.customProgramCacheKey; waterMat.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'c265'; }; waterMat.needsUpdate = true;
     // lava
@@ -51015,6 +51015,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same."]},
 {"v":"v1.2.19","d":"2026-11-07","notes":["Smoother fast flying: far away parts of the map are now cleared a little at a time instead of all at once, and the game looks only at nearby ground when deciding what to build next.","Torches are lighter on the graphics card: they now share their shapes, and torches more than about 72 blocks away are no longer drawn or animated. Torch light and flicker near you are unchanged."]},
 {"v":"v1.2.18","d":"2026-11-07","notes":["Less work while walking: the game no longer rechecks every unbuilt part of the map each frame, and it gathers torches, chests and doors once a new area is built instead of after every single chunk."]},
 {"v":"v1.2.17","d":"2026-11-07","notes":["New UK worlds: the ground now goes down to unbreakable bedrock at y -237, with normal caves down to y 0 and four big open cave layers below.","Layer 1 is green nature caves with grass, moss and mushroom trees. Layer 2 is deep blue caves with water pools and soft dripping sounds. Layer 3 is crystal geode caves. Layer 4 is the tallest, a fire layer with basalt columns, lava lakes and the Watcher eye shrine.","Old Watcher brick spiral stairs lead down through every layer.","The stacked bands of new blocks near the bottom of the island are gone from new worlds.","Fixed: chests in the world now use the new chest textures, and the new chest icon and other new item icons no longer change back to the old ones after a few minutes.","Less work while walking on the surface: the game no longer builds hidden underground chunks under the map while you are above ground.","Older worlds keep their own underground."]},
