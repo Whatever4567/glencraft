@@ -29,5 +29,18 @@
     document.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') hide(); }, true);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'e' || e.key === 'E' || e.key === 'Tab') hide(); }, true);
     setInterval(() => { if (cur && (!cur.isConnected || cur.offsetParent === null || document.pointerLockElement)) hide(); }, 200);
+    // controller: the selected slot shows its name next to it
+    let padEl = null; setInterval(() => { try { const on = document.body.classList.contains('pad') && typeof navEl !== 'undefined' && navEl && navEl.isConnected && navEl.offsetParent !== null && navEl.matches && navEl.matches(SEL) && typeof activePanel === 'function' && activePanel();
+        if (!on) { if (padEl) { padEl = null; if (!cur) tip.style.display = 'none'; } return; } if (cur && cur !== navEl) return;
+        const n = nameOf(navEl); if (!n) { tip.style.display = 'none'; padEl = null; return; } if (!tip.parentNode) document.body.appendChild(tip); padEl = navEl;
+        if (tip.textContent !== n) tip.textContent = n; tip.style.display = 'block'; const r = navEl.getBoundingClientRect(); place(r.right - 10, r.bottom - 14); } catch (_) {} }, 90);
   } catch (e) { U.err = 'h ' + e; }
+  // crystal pick icons: GLX-C122 paints every pickaxe from its metal palette (crystal is not in it, so both became silver) and re-asserts its
+  // painted icon for ever, while the v1.2.11 icons stop re-applying after 2 minutes. Registering the v1.2.11 icons in the C122 and C187 keep maps
+  // makes those owners keep the crystal icons instead.
+  { let n = 0; const iv = setInterval(() => { try { const V = window.__v1211; if (!V || !V.icons || !V.icons[761]) { if (++n > 120) clearInterval(iv); return; }
+      for (const k in V.icons) { const u = V.icons[k]; for (const M of [window.__c122 && __c122.MINE, window.__c187 && __c187.MINE]) if (M) M[k] = u;
+        try { if (window.__c121 && __c121.ICO) __c121.ICO[k] = u; if (window.__c120ICO) __c120ICO[k] = u; } catch (_) {}
+        if (ICONS[k] !== u) { ICONS[k] = u; try { delete ICON_KEY[k]; } catch (_) {} try { delete spriteMats[k]; } catch (_) {} U.crys = (U.crys || 0) + 1; } }
+      if (++n > 30) clearInterval(iv); } catch (e) { U.err = 'c ' + e; } }, 1000); }
 })();

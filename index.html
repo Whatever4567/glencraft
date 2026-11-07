@@ -18064,7 +18064,9 @@ function menuPadInput(E, axes, gp) {
   let dir = E[12] ? 'u' : E[13] ? 'd' : E[14] ? 'l' : E[15] ? 'r' : '';
   const st = Math.abs(axes.lx) > 0.6 || Math.abs(axes.ly) > 0.6 ? (Math.abs(axes.lx) > Math.abs(axes.ly) ? (axes.lx > 0 ? 'r' : 'l') : (axes.ly > 0 ? 'd' : 'u')) : '';
   const now = performance.now();
-  if (!dir && st) { if (st !== navDir) { dir = st; navRep = now + 300; } else if (now > navRep) { dir = st; navRep = now + 90; } }
+  if (!dir && st) { if (st !== navDir) { dir = st; navRep = now + 200; } else if (now > navRep) { dir = st; navRep = now + 70; } }
+  { const pb = i => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed), hd = pb(12) ? 'u' : pb(13) ? 'd' : pb(14) ? 'l' : pb(15) ? 'r' : '';
+    if (E[12] || E[13] || E[14] || E[15]) menuPadInput.__dr = now + 200; else if (hd && !dir && !st && now > (menuPadInput.__dr || 0)) { dir = hd; menuPadInput.__dr = now + 70; } }
   navDir = st;
   if (dir) navMove(dir === 'l' ? -1 : dir === 'r' ? 1 : 0, dir === 'u' ? -1 : dir === 'd' ? 1 : 0);
   scrollActive(axes.ry);
@@ -26829,13 +26831,13 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     if (!p) { pc.style.display = 'none'; return mpi.call(this, E, axes, gp); }
     if (p !== lastPanel || cx < 0) { lastPanel = p; if (!navEl || !p.contains(navEl)) navRefresh(); if (navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; } else { const r = p.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     const lx = axes.lx || 0, ly = axes.ly || 0, mag = Math.hypot(lx, ly);
-    if (mag > 0.12) { const over = hoverAt(p), sp = (over ? 520 : 900) * Math.pow(Math.min(1, mag), 1.6); cx += lx / mag * sp * Math.min(1, mag) * dt; cy += ly / mag * sp * Math.min(1, mag) * dt;
+    if (mag > 0.12) { const over = hoverAt(p), sp = (over ? 1100 : 1700) * Math.pow(Math.min(1, mag), 1.15); cx += lx / mag * sp * Math.min(1, mag) * dt; cy += ly / mag * sp * Math.min(1, mag) * dt;
       cx = Math.max(4, Math.min(innerWidth - 4, cx)); cy = Math.max(4, Math.min(innerHeight - 4, cy));
       const h = hoverAt(p); if (h && h !== navEl) { navEl = h; navRefresh(); if (h.classList.contains('rec2')) { craftFocus = h._ri; updateCraftList(); } if (cursor) showCursor(h); try { sfx('pop', .08); } catch (_) {} } }
     else { const h = hoverAt(p); if (h && /gslot|fslot|aslot/.test(h.className)) { const [x, y] = ctr(h); cx += (x - cx) * Math.min(1, dt * 10); cy += (y - cy) * Math.min(1, dt * 10); } }   // gentle snap to the slot centre
     const dpad = E[12] || E[13] || E[14] || E[15];
-    const r = mpi.call(this, E, Object.assign({}, axes, {lx: 0, ly: 0}), gp);
-    if (dpad && navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; }
+    const nb0 = navEl, r = mpi.call(this, E, Object.assign({}, axes, {lx: 0, ly: 0}), gp);
+    if ((dpad || navEl !== nb0) && navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; }
     pc.style.display = 'block'; pc.style.left = cx + 'px'; pc.style.top = cy + 'px';
     if (cursor && typeof curEl !== 'undefined') { curEl.style.left = (cx + 12) + 'px'; curEl.style.top = (cy + 12) + 'px'; }
     return r; };
@@ -34650,7 +34652,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     for (const k in NAMES) { const id = +k, n = nm(id); if (!n || SKIP(id)) continue;
       const sl = /helmet|cap\b/.test(n) ? 'helmet' : /chestplate|tunic/.test(n) ? 'chestplate' : /leggings|trousers/.test(n) ? 'leggings' : /boots/.test(n) ? 'boots' : null;
       if (sl && (ARMOUR[id] || /copper|silver|gold|diamond|lazurite|iron|cobalt/.test(n))) { const m = matOf(id); job.push([id, () => pArmour(sl, PAL[m] || PAL.silver)]); continue; }
-      const t = TOOL[id]; if (t && ['pick', 'axe', 'shovel', 'hoe', 'sword'].includes(t[0]) && !/bat\b|claymore/.test(n)) { const m = matOf(id); job.push([id, () => pTool(t[0], PAL[m] ? m : 'silver')]); } }
+      const t = TOOL[id]; if (t && ['pick', 'axe', 'shovel', 'hoe', 'sword'].includes(t[0]) && !/bat\b|claymore|crystal/.test(n)) { const m = matOf(id); job.push([id, () => pTool(t[0], PAL[m] ? m : 'silver')]); } }
     const step = () => { const t0 = performance.now(); while (job.length && performance.now() - t0 < 3) {   /* v1.1.39: small slices in idle time */ const [id, f] = job.shift(); if (!NAMES[id] && ![80, 263, 262, 54].includes(id)) continue; try { fin(id, f()); } catch (e) { warn('p' + id, e); } } if (job.length) (window.requestIdleCallback ? requestIdleCallback(() => step(), {timeout: 600}) : setTimeout(step, 40)); else { U.log.push('painted ' + U.painted); setTimeout(blocks, 400); } };
     step(); }
   const NONCUBE = /door|fence|gate|pane|railing|torch|lamp|cobweb|carpet|slab|stairs|bed|cauldron|\btv\b|hive|enchant|ladder|lever|painting|marker|activator|water|lava|portal|wheat|potato|neep|farmland|reed|fern|flower|grass\b|thistle|sapling|bluebell|daffodil|dandelion/;
@@ -49341,7 +49343,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (const m of [fm, sm, bm]) { m.stencilFunc = T.camIn ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; m.needsUpdate = true; } }
   let fi = 0, busyR = false;
   function shoot(r) { if (busyR || !T.inside || !S.on || DIM.cur) return; if (++fi % (PH ? 4 : 3)) return; busyR = true; const vis = []; const pa = T.parts;
-    try { cam.position.set(S.x, S.y + 2.2, S.z); const pitch = U.pilot ? Math.max(-0.5, Math.min(0.5, U.v[1] * 0.02)) : -0.08; cam.rotation.set(pitch, U.H, 0, 'YXZ'); cam.updateMatrixWorld();
+    try { cam.position.set(S.x, S.y + 2.2, S.z); const pitch = U.pilot ? (U.Pt || 0) : -0.08; cam.rotation.set(pitch, U.H, 0, 'YXZ'); cam.updateMatrixWorld();
       for (const o of [pa.all, typeof hand !== 'undefined' ? hand : null]) if (o) { vis.push([o, o.visible]); o.visible = false; }
       const ort = r.getRenderTarget(), ac = r.autoClear; r.setRenderTarget(rt); r.autoClear = true; r.clear(); r.render(scene, cam); r.setRenderTarget(ort); r.autoClear = ac; U.frames++; }
     catch (e) { ERR('shoot', e); } finally { for (const [o, v] of vis) o.visible = v; busyR = false; } }
@@ -49350,16 +49352,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const K = {}; addEventListener('keydown', e => { K[e.code] = 1; if (e.code === 'KeyG' && (U.pilot || atC())) { e.stopImmediatePropagation(); toggle(); } }, true); addEventListener('keyup', e => { K[e.code] = 0; }, true);
   const atC = () => T.inside && Math.hypot(P.x - S.x, P.z - (S.z + CZ)) < 2.6;
   let rel = null, tin = {f: 0, t: 0, u: 0};
-  function toggle() { if (busyT) return; U.pilot = !U.pilot; rel = U.pilot ? [0, 0, CZ - 1.6] : null; if (U.pilot) U._cam = [P.yaw, P.pitch]; else if (U._cam) { P.yaw = U._cam[0]; P.pitch = U._cam[1]; U._cam = null; } U.v = [0, 0, 0]; pad.style.display = U.pilot && PH ? 'grid' : 'none'; fb.textContent = U.pilot ? 'Let go' : 'Fly';
-    try { toast(U.pilot ? 'Pilot mode. Left stick: fly forward, back and sideways. Right stick: turn and climb. RT up, LT down, LS boost, X to let go (keys: W S fly, A D turn, arrow keys sideways, Space up, Shift down, G let go)' : 'You let go of the stick'); } catch (_) {} }
+  function toggle() { if (busyT) return; U.pilot = !U.pilot; rel = U.pilot ? [0, 0, CZ - 1.6] : null; U.Pt = 0; if (U.pilot) U._cam = [P.yaw, P.pitch]; else if (U._cam) { P.yaw = U._cam[0]; P.pitch = U._cam[1]; U._cam = null; } U.v = [0, 0, 0]; pad.style.display = U.pilot && PH ? 'grid' : 'none'; fb.textContent = U.pilot ? 'Let go' : 'Fly';
+    try { toast(U.pilot ? 'Pilot mode. Right stick: point the box any way (turn and tilt up or down). Left stick: fly where it points and sideways. RT up, LT down, LS boost, X to let go (keys: W S fly, A D turn, arrow up and down tilt, arrow left and right sideways, Space up, Shift down, G let go)' : 'You let go of the stick'); } catch (_) {} }
   U.toggle = toggle;
   const blocked = (x, y, z) => { for (const [ox, oz] of [[-HW, -HW], [HW, -HW], [-HW, HW], [HW, HW], [0, 0]]) for (const oy of [0.1, 1.3, 2.5]) if (solid(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true; return false; };
   function fly(dt) { const g = navigator.getGamepads ? [...navigator.getGamepads()].find(p => p) : null, ax = i => g && Math.abs(g.axes[i] || 0) > 0.2 ? g.axes[i] : 0, bt = i => g && g.buttons[i] && g.buttons[i].pressed ? 1 : 0;
     const tg = i => g && g.buttons[i] ? (g.buttons[i].value || (g.buttons[i].pressed ? 1 : 0)) : 0, LSb = bt(10), lx = ax(0), ly = ax(1), rx = ax(2), ry = ax(3);
-    const st = (K.ArrowRight ? 1 : 0) - (K.ArrowLeft ? 1 : 0) + lx, f = (K.KeyW ? 1 : 0) - (K.KeyS ? 1 : 0) + tin.f - ly + (LSb ? 1 : 0), tr = (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) - rx + tin.t, up = (K.Space ? 1 : 0) - (K.ShiftLeft || K.ShiftRight ? 1 : 0) + bt(0) - bt(1) - ry + (tg(7) > 0.3 ? 1 : 0) - (tg(6) > 0.3 ? 1 : 0) + tin.u;
-    U.inp = [Math.max(-1, Math.min(1, st)), Math.max(-1, Math.min(1, -f + (LSb ? 1 : 0)))]; if (LSb && !U._ls) { whoosh(0.9); try { window.__v130 && __v130.boosts++; } catch (_) {} } U._ls = LSb;
+    const st = (K.ArrowRight ? 1 : 0) - (K.ArrowLeft ? 1 : 0) + lx, f = (K.KeyW ? 1 : 0) - (K.KeyS ? 1 : 0) + tin.f - ly + (LSb ? 1 : 0), tr = (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) - rx + tin.t, pr = (K.ArrowUp ? 1 : 0) - (K.ArrowDown ? 1 : 0) - ry, up = (K.Space ? 1 : 0) - (K.ShiftLeft || K.ShiftRight ? 1 : 0) + bt(0) - bt(1) + (tg(7) > 0.3 ? 1 : 0) - (tg(6) > 0.3 ? 1 : 0) + tin.u;
+    U.Pt = Math.max(-1.48, Math.min(1.48, (U.Pt || 0) + pr * dt * 1.1)); U.inp = [Math.max(-1, Math.min(1, -tr)), Math.max(-1, Math.min(1, -pr))]; if (LSb && !U._ls) { whoosh(0.9); try { window.__v130 && __v130.boosts++; } catch (_) {} } U._ls = LSb;
     U.H += tr * dt * 1.3; try { wheel.rotation.z += ((tr * 1.2) - wheel.rotation.z) * Math.min(1, dt * 6); } catch (_) {}
-    const alt = S.y - SEA, sp = (alt > 1500 ? 420 : alt > 400 ? 160 : alt > 80 ? 40 : 14) * (LSb ? 3 : 1), tx = -Math.sin(U.H) * f * sp + Math.cos(U.H) * st * sp, tz = -Math.cos(U.H) * f * sp - Math.sin(U.H) * st * sp, ty = up * (alt > 400 ? sp * 0.6 : 10);
+    const alt = S.y - SEA, sp = (alt > 1500 ? 420 : alt > 400 ? 160 : alt > 80 ? 40 : 14) * (LSb ? 3 : 1), cP = Math.cos(U.Pt || 0), sP = Math.sin(U.Pt || 0), tx = -Math.sin(U.H) * cP * f * sp + Math.cos(U.H) * st * sp, tz = -Math.cos(U.H) * cP * f * sp - Math.sin(U.H) * st * sp, ty = sP * f * sp + up * (alt > 400 ? sp * 0.6 : 10);
     const k = Math.min(1, dt * 2.5); U.v[0] += (tx - U.v[0]) * k; U.v[1] += (ty - U.v[1]) * k; U.v[2] += (tz - U.v[2]) * k;
     let nx = S.x + U.v[0] * dt, ny = S.y + U.v[1] * dt, nz = S.z + U.v[2] * dt;
     if (window.__ukb && __ukb.wall(nx, ny + 1, nz)) { nx = S.x; nz = S.z; U.v[0] = U.v[2] = 0; }
@@ -50421,7 +50423,20 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     document.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') hide(); }, true);
     document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'e' || e.key === 'E' || e.key === 'Tab') hide(); }, true);
     setInterval(() => { if (cur && (!cur.isConnected || cur.offsetParent === null || document.pointerLockElement)) hide(); }, 200);
+    // controller: the selected slot shows its name next to it
+    let padEl = null; setInterval(() => { try { const on = document.body.classList.contains('pad') && typeof navEl !== 'undefined' && navEl && navEl.isConnected && navEl.offsetParent !== null && navEl.matches && navEl.matches(SEL) && typeof activePanel === 'function' && activePanel();
+        if (!on) { if (padEl) { padEl = null; if (!cur) tip.style.display = 'none'; } return; } if (cur && cur !== navEl) return;
+        const n = nameOf(navEl); if (!n) { tip.style.display = 'none'; padEl = null; return; } if (!tip.parentNode) document.body.appendChild(tip); padEl = navEl;
+        if (tip.textContent !== n) tip.textContent = n; tip.style.display = 'block'; const r = navEl.getBoundingClientRect(); place(r.right - 10, r.bottom - 14); } catch (_) {} }, 90);
   } catch (e) { U.err = 'h ' + e; }
+  // crystal pick icons: GLX-C122 paints every pickaxe from its metal palette (crystal is not in it, so both became silver) and re-asserts its
+  // painted icon for ever, while the v1.2.11 icons stop re-applying after 2 minutes. Registering the v1.2.11 icons in the C122 and C187 keep maps
+  // makes those owners keep the crystal icons instead.
+  { let n = 0; const iv = setInterval(() => { try { const V = window.__v1211; if (!V || !V.icons || !V.icons[761]) { if (++n > 120) clearInterval(iv); return; }
+      for (const k in V.icons) { const u = V.icons[k]; for (const M of [window.__c122 && __c122.MINE, window.__c187 && __c187.MINE]) if (M) M[k] = u;
+        try { if (window.__c121 && __c121.ICO) __c121.ICO[k] = u; if (window.__c120ICO) __c120ICO[k] = u; } catch (_) {}
+        if (ICONS[k] !== u) { ICONS[k] = u; try { delete ICON_KEY[k]; } catch (_) {} try { delete spriteMats[k]; } catch (_) {} U.crys = (U.crys || 0) + 1; } }
+      if (++n > 30) clearInterval(iv); } catch (e) { U.err = 'c ' + e; } }, 1000); }
 })();
 
 /* GLX-V1220T (v1.2.20): time box interior finish. The 1.2.10 cockpit tint skipped every textured surface, so the wooden plank
@@ -51088,7 +51103,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same.","Fewer pop ups: the welcome, tip, weather and biome messages that appeared on their own are gone. Messages about what you just did, warnings and save problems still show.","Hover over any item in your inventory, a chest, creative tabs or the hotbar to see its name straight away.","Entering a brand new world no longer saves the whole world in the same moment you arrive; the first save follows a few seconds later.","Time box inside: chrome, purple and blue panelled walls and a dark blue floor instead of wooden planks, the blue glass column with yellow energy is now the main console column, and the live outside view screen is a 55 inch screen at eye height.","Time box pilot mode: press Fly (or X at the console) to sit at the stick facing a 55 inch live screen of the view outside. Left stick flies forward, back and sideways, right stick turns and climbs, RT goes up, LT goes down, LS boosts and X lets go. The room inside is now twice as wide as the first time box."]},
+{"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same.","Fewer pop ups: the welcome, tip, weather and biome messages that appeared on their own are gone. Messages about what you just did, warnings and save problems still show.","Hover over any item in your inventory, a chest, creative tabs or the hotbar to see its name straight away.","Entering a brand new world no longer saves the whole world in the same moment you arrive; the first save follows a few seconds later.","Time box inside: chrome, purple and blue panelled walls and a dark blue floor instead of wooden planks, the blue glass column with yellow energy is now the main console column, and the live outside view screen is a 55 inch screen at eye height.","Time box pilot mode: press Fly (or X at the console) to sit at the stick facing a 55 inch live screen of the view outside. Right stick points the box any way you like, turning and tilting up or down, and the screen shows that view; left stick flies where it points and sideways, RT goes up, LT goes down, LS boosts and X lets go. The room inside is now twice as wide as the first time box.","Faster controller menus: moving through the inventory, chests and lists with the stick or d-pad is quicker, and holding the d-pad keeps moving. The name of the selected item shows next to it.","The Purple crystal pickaxe now has its own purple icon in the inventory, and the Blue crystal pickaxe keeps its blue one."]},
 {"v":"v1.2.19","d":"2026-11-07","notes":["Smoother fast flying: far away parts of the map are now cleared a little at a time instead of all at once, and the game looks only at nearby ground when deciding what to build next.","Torches are lighter on the graphics card: they now share their shapes, and torches more than about 72 blocks away are no longer drawn or animated. Torch light and flicker near you are unchanged."]},
 {"v":"v1.2.18","d":"2026-11-07","notes":["Less work while walking: the game no longer rechecks every unbuilt part of the map each frame, and it gathers torches, chests and doors once a new area is built instead of after every single chunk."]},
 {"v":"v1.2.17","d":"2026-11-07","notes":["New UK worlds: the ground now goes down to unbreakable bedrock at y -237, with normal caves down to y 0 and four big open cave layers below.","Layer 1 is green nature caves with grass, moss and mushroom trees. Layer 2 is deep blue caves with water pools and soft dripping sounds. Layer 3 is crystal geode caves. Layer 4 is the tallest, a fire layer with basalt columns, lava lakes and the Watcher eye shrine.","Old Watcher brick spiral stairs lead down through every layer.","The stacked bands of new blocks near the bottom of the island are gone from new worlds.","Fixed: chests in the world now use the new chest textures, and the new chest icon and other new item icons no longer change back to the old ones after a few minutes.","Less work while walking on the surface: the game no longer builds hidden underground chunks under the map while you are above ground.","Older worlds keep their own underground."]},
