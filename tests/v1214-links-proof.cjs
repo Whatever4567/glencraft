@@ -4,12 +4,12 @@ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');const gr
 function mk(cave,ag=1){const ti=html.indexOf('!function(t,e){"object"==typeof exports');const ctx=vm.createContext({console,setInterval:()=>0,clearInterval(){},document:{createElement:()=>createCanvas(1,1)}});ctx.window=ctx;ctx.self=ctx;vm.runInContext(html.slice(ti,html.indexOf('\n',ti)),ctx);
 vm.runInContext(`var W=160,D=160,H=40,T={STONE:3,DEEPSLATE:133,AIR:0,LAVA:52,WATER:5,GLASS:63,DIAMONDORE:69},DIM={cur:null},cityGen=false,started=false,current={},ISL_C=[80,80];
 var NAMES={},FACES={},ICON_KEY={},HARD={},MC_HARD={},NEEDS_PICK=new Set(),PLACEABLE=new Set(),ORDER=[],CREATIVE_ALL=[],texCache={},texImg={},AVG={},BLOCK_MATS={},matCache={},ICONS={};
-var __c294={M:${ag}?{x:40,z:150,e:'S',c:40}:null};var world=new Uint16Array(W*H*D);const idx=(x,y,z)=>(x*H+y)*D+z;function dropsFor(b){return [[b,1]]}
+var __c294={M:${ag}?{x:40,z:150,e:'S',c:40}:null,build(){this.M={x:40,z:150,e:'S',c:40};}};var world=new Uint16Array(W*H*D);const idx=(x,y,z)=>(x*H+y)*D+z;function dropsFor(b){return [[b,1]]}
 function generate(){world.fill(0);for(let x=0;x<W;x++)for(let z=0;z<D;z++){for(let y=1;y<30;y++)world[idx(x,y,z)]=y<21?133:3;world[idx(x,0,z)]=211;}
  if(${cave})for(let x=120;x<150;x++)for(let y=12;y<15;y++)for(let z=60;z<64;z++)world[idx(x,y,z)]=0;
  world[idx(20,10,20)]=69;world[idx(80,2,80)]=69;}
 function serialize(){return {}}function applySave(d){}function updatePlayer(){}`,ctx);
-vm.runInContext(grab('v1212'),ctx);vm.runInContext(grab('v1214'),ctx);vm.runInContext('generate()',ctx);return ctx;}
+vm.runInContext(grab('v1212'),ctx);vm.runInContext(grab('v1214'),ctx);vm.runInContext(grab('v1215'),ctx);vm.runInContext('generate()',ctx);return ctx;}
 let p=0;const t=(n,f)=>{f();p++;console.log('PASS',n);};
 const c=mk(true),R=s=>JSON.parse(vm.runInContext('JSON.stringify('+s+')',c));
 t('link built without errors, two halls',()=>{assert.equal(R('__v1212.err'),null);assert.equal(R('__v1214.err'),null);const l=R('__v1214.link');assert(l,R('__v1214.why'));assert.deepEqual(l.halls,['falls','ruin']);console.log('  ',JSON.stringify(l),'cells',R('__v1214.cells'));});
@@ -21,5 +21,7 @@ t('save carries link; load restores',()=>{assert(R('serialize().v1214link'));ass
 t('every lava cell sealed: no air beside or below it',()=>{assert(R('__v1214.lava')>0);assert.equal(R(`(()=>{let n=0;for(let x=1;x<W-1;x++)for(let z=1;z<D-1;z++)for(let y=1;y<22;y++){if(world[idx(x,y,z)]!==52)continue;for(const [a,b,c] of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,-1,0]])if(world[idx(x+a,y+b,z+c)]===0)n++;}return n})()`),0);assert(R('world.indexOf(63)')>=0);});
 t('nothing carved within 45 of the Agartha mouth/edge run',()=>{assert(R(`(()=>{for(let x=0;x<W;x++)for(let z=100;z<D;z++)for(let y=3;y<21;y++)if(Math.hypot(x-40,z-Math.max(150,Math.min(159,z)))<44&&world[idx(x,y,z)]!==133&&world[idx(x,y,z)]<770)return false;return true})()`));});
 const c3=mk(true,0);t('Agartha record missing: fail closed, nothing carved',()=>{assert.equal(vm.runInContext('__v1214.link',c3),null);assert.match(vm.runInContext('__v1212.why',c3),/Agartha footprint/);assert.equal(vm.runInContext('__v1212.eye',c3),null);assert.equal(vm.runInContext('__v1214.cells',c3),0);});
+t('late Agartha placement (new world, no save): bowl + link made once after __c294.build',()=>{vm.runInContext('__c294.build()',c3);assert(vm.runInContext('!!__v1212.eye',c3));assert(vm.runInContext('!!__v1214.link',c3));assert.equal(vm.runInContext('__v1215.late',c3),1);vm.runInContext('__c294.build()',c3);assert.equal(vm.runInContext('__v1215.late',c3),1);});
+const c5=mk(true,0);t('save loaded: no late edit',()=>{vm.runInContext('applySave({});__c294.build()',c5);assert.equal(vm.runInContext('__v1212.eye',c5),null);assert.equal(vm.runInContext('__v1215.late',c5),0);});
 const c2=mk(false);t('no cave nearby: exact reason, no carving',()=>{assert.equal(vm.runInContext('__v1214.link',c2),null);assert.match(vm.runInContext('__v1214.why',c2),/no natural cave air/);assert.equal(vm.runInContext('__v1214.cells',c2),0);});
 console.log(p,'passed');

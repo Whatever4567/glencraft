@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1214-v1.2.14 -->
+<!-- glencraft-build: b1215-v1.2.15 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13358,7 +13358,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.14';
+const GAME_VERSION = '1.2.15';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -50200,6 +50200,25 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) U.link = d.v1214link || null; } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
 })();
 
+/* GLX-V1215 (v1.2.15): generation order fix for the Watcher bowl + cave link. GLX-C294 places the Agartha mouth inside generate()
+   only when __g89() is already on; otherwise GLX-C307 places it a moment later for the same NEW world (ens() -> __c294.build(),
+   only when there is no save). Before, the bowl saw "mouth not known" and was skipped for good. Now that skip is remembered for the
+   freshly generated world only, and when __c294.build() finishes for that same world (no save loaded, home dimension) the bowl and
+   link run once, with the same Agartha keep-out (fail closed if the mouth is still unknown). Loading any save clears the flag, so
+   saves are never edited. No scheduler, surface, save-format or renderer change. */
+(function v1215() {
+  const U = window.__v1215 = {err: null, pending: false, late: 0, why: null};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  try { const g = generate; generate = function () { U.pending = false; const r = g.apply(this, arguments);
+      try { const A = window.__v1212; U.pending = !!(A && !A.eye && !DIM.cur && !cityGen && H >= 40 && /not known/.test(A.why || '')); U.wid = current && current.id; } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
+  try { const ap = applySave; applySave = function () { U.pending = false; return ap.apply(this, arguments); }; } catch (e) { ERR('ap', e); }
+  function late() { if (!U.pending) return; if (DIM.cur || (current && current.id) !== U.wid || !window.__c294 || !__c294.M) return; U.pending = false;
+    const A = window.__v1212, L = window.__v1214; if (!A || !A.chamber) return; const e = A.chamber(); U.why = A.why || null;
+    if (e) { try { if (L && L.build) { L.link = null; L.why = null; L.cells = 0; L.build(e); } } catch (x) { ERR('link', x); } U.late++; try { dirtyAll = true; } catch (_) {} } }
+  const hook = () => { try { const C = window.__c294; if (!C || !C.build || C.build.__v1215) return !!(C && C.build); const b = C.build; C.build = function () { const r = b.apply(this, arguments); try { late(); } catch (x) { ERR('late', x); } return r; }; C.build.__v1215 = 1; return true; } catch (x) { ERR('hook', x); return true; } };
+  if (!hook()) { const t = setInterval(() => { if (hook()) clearInterval(t); }, 250); }
+})();
+
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
    C340 poseOff; C288 aim yields when __vm.on. Soft clamp on C43-style recoil only. Recoil and ADS are
    deltas from the bind pose inside fp_viewmodel - never compound matrix or scale overrides here. */
@@ -50827,6 +50846,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.15","d":"2026-11-07","notes":["New worlds: the Watcher chamber and its cave tunnel are now made even when the Agartha tunnel is placed a moment after the world, instead of being left out."]},
 {"v":"v1.2.14","d":"2026-11-07","notes":["New worlds: the Watcher chamber deep under the island is now joined to the nearby caves by a winding tunnel, so you can walk in without digging.","On the way there are two new halls: one with a lava fall and lava runnel, one with an old ruined bridge and broken arch over a lava trench.","Older worlds keep their own caves unchanged."]},
 {"v":"v1.2.13","d":"2026-11-07","notes":["The visitor now speaks with a smoother, calmer computer-made voice instead of the browser voice.","The montage during the encounter shows new Agartha artwork (an inner sun, crystal spires and blue-robed keepers) in place of the solar flare clip."]},
 {"v":"v1.2.12","d":"2026-11-07","notes":["New worlds: the deepest caves now change in smooth layers - Fungal loam, then Gloamstone, Ember basalt and Abyss crystal rock near the bottom. All can be mined and placed.","Somewhere under the middle of the island, deep down, an ancient sealed chamber of Watcher brick holds a giant fiery eye. Dig to find it."]},
