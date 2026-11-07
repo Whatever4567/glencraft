@@ -28,7 +28,9 @@
     if (!U.col) { if (T.col) { T.col.visible = false; U.col = 1; }
       for (const q of room.children) { const p = q.geometry && q.geometry.parameters; if (q.isMesh && q.geometry.type === 'BoxGeometry' && p && Math.abs(p.height - 1.9) < 0.01 && Math.abs(p.width - 0.04) < 0.01) q.visible = false; } }
     const v = V(); if (v && v.built && !U.ro && RO) { let n = 0; room.traverse(q => { if (q.isMesh && !q.renderOrder) { q.renderOrder = RO; q.frustumCulled = false; n++; } }); U.ro = n || 1; }
-    if (!U.scr) room.traverse(q => { if (U.scr || !q.isMesh || q.geometry.type !== 'PlaneGeometry') return; const p = q.geometry.parameters; if (Math.abs(p.width - 3.1) < 0.01 && Math.abs(p.height - 1.75) < 0.01 && q.parent && q.parent !== room) { const g = q.parent; g.scale.setScalar(1.22 / 3.1); g.position.y = 1.9; U.scr = 1; } });
   }
   setInterval(() => { try { tick(); } catch (e) { ERR('t', e); } }, 400);
+  // pilot mode owns the controller: the walking/look/mining pad code is skipped while you hold the stick (Start still pauses)
+  let st9 = false; try { const rp = readPad; readPad = function () { try { const f = F(); if (f && f.pilot && started && !paused && !menuOpen && !dead) { const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(p => p) : null;
+        const s = !!(gp && gp.buttons[9] && gp.buttons[9].pressed); if (s && !st9) setPause(true); st9 = s; U.padHeld = (U.padHeld || 0) + 1; return {lx: 0, ly: 0, rx: 0, ry: 0}; } } catch (e) { ERR('pad', e); } return rp.apply(this, arguments); }; } catch (e) { ERR('rp', e); }
 })();
