@@ -10,9 +10,10 @@ for (const kind of ['pistol', 'rifle']) { const g = new THREE.Group(), rig = new
     for (const n of Object.keys(g.userData.anch)) { const a = S.af(g, cam, n), w = new THREE.Vector3().setFromMatrixPosition(g.userData.anch[n].matrixWorld), want = cam.worldToLocal(w.clone()); assert(a.distanceTo(want) < 1e-9, kind + n); } }
   cam.remove(g); }
 assert.equal(S.af(new THREE.Group(), cam, 'grip'), null, 'no anchors: old hand spot');
-const P = [0, 0.08, 0.3, 0.5, 0.7, 0.95, 1].map(x => S.rl(true, x)), M = [0, 0.1, 0.2, 0.5, 0.9, 1].map(x => S.rl(false, x));
-assert.deepEqual(P.map(p => p.phase), ['release', 'release', 'belt', 'insert', 'insert', 'return', 'return']); assert(P[2].belt > 0.9 && P[4].well > 0.9 && P[0].w === 0 && P[6].w === 0, 'pistol: belt then well, starts and ends on the gun');
-assert(M[3].pull > 0.9 && M[3].w > 0.9 && M[0].w === 0 && M[5].w === 0, 'musket bolt pull mid reload, hand back at the end');
+// v1.2.22: the phases follow the old gun animation (C43) timeline: the pistol mag drops 0-0.25 and goes back in 0.25-0.55, the rifle bolt racks 0.8-1
+const P = [0, 0.08, 0.2, 0.5, 0.7, 0.95, 1].map(x => S.rl(true, x)), M = [0, 0.1, 0.5, 0.78, 0.9, 1].map(x => S.rl(false, x));
+assert.deepEqual(P.map(p => p.phase), ['release', 'release', 'mag out', 'insert', 'return', 'return', 'return']); assert(P[2].w > 0.99 && P[3].w > 0.99 && P[2].belt === 0 && P[0].w === 0 && P[5].w === 0 && P[6].w === 0, 'pistol: hand on the magazine while it is out and going back in, starts and ends on the gun');
+assert(M[4].w > 0.99 && M[2].w === 0 && M[0].w === 0 && M[5].w === 0 && M[4].phase === 'cycle', 'musket: hand on the bolt while the bolt racks, on the fore stock before, back at the end');
 assert.equal(S.rl(true, -1).w, 0, 'cancel (no reload state) = hand on the gun');
 // flat card tool: handle socket on the card diagonal
 const card = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshBasicMaterial()), item = new THREE.Group(); item.add(card); item.userData.c122card = 1;
