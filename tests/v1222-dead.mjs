@@ -15,10 +15,10 @@ const eye = new THREE.MeshStandardMaterial({color: 0xffffff, emissive: 0xff2200}
 const mob = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(geo, skin), new THREE.Mesh(geo, eye), new THREE.PointLight(0xffff00, 2)); return {g}; };
 const dead = mob(), live = mob(); let stopped = null; G.__cl1222 = {stop: a => stopped = a};
 U.on(dead); const dm = dead.g.children[1].material;
-assert(dm !== eye && dm.emissive.getHex() === 0, 'dead eyes off'); assert.equal(dead.g.children[0].material, skin, 'plain skin kept shared');
+assert(dm !== eye && dm.emissive.getHex() === 0, 'dead eyes off'); assert(dead.g.children[0].material !== skin && dead.g.children[0].material.userData.dead1222 && skin.color.getHex() === 0x557733, 'skin gets a cached dead copy, live skin unchanged');
 assert.equal(dead.g.children[2].visible, false, 'mob light off'); assert.equal(stopped, dead, 'zap stopped');
 assert.equal(eye.emissive.getHex(), 0xff2200, 'shared live material unchanged'); assert.equal(live.g.children[1].material, eye); assert(live.g.children[2].visible);
-const d2 = mob(); U.on(d2); assert.equal(d2.g.children[1].material, dm, 'dead variant reused'); assert.equal(U.made, 1);
-U.on(d2); assert.equal(U.used, 2, 'idempotent');
+const d2 = mob(); U.on(d2); assert.equal(d2.g.children[1].material, dm, 'dead variant reused'); assert.equal(U.made, 2); assert.equal(d2.g.children[0].material, dead.g.children[0].material);
+U.on(d2); assert.equal(U.used, 4, 'idempotent');
 assert.equal(mob().g.children[1].material, eye, 'no bleed to new mobs');
 console.log('v1222-dead ok', JSON.stringify(U));
