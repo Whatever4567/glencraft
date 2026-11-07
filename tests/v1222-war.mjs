@@ -4,7 +4,7 @@ import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/bu
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
 const mechSrc = cut('  function mech(red, chrome, dark) {', '  U.start24 = () =>'); const mech = new Function('THREE', mechSrc + '; return mech;')(THREE);
-const src = cut('/* GLX-WAR1222', '/* GLX-C400');
+const src = cut('/* GLX-WAR1222', '/* GLX-JP1222');
 assert(!/toneMappingExposure|scene\.fog\.|PointLight|DirectionalLight|position:fixed/.test(src), 'no exposure, fog, light or overlay changes');
 function run(low) {
   const scene = new THREE.Scene(); let sky = []; const c248 = {y: 0, g: null};
