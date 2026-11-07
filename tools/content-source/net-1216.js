@@ -44,8 +44,6 @@
     for (let i = 0; i < cand.length; i++) { const q = Math.atan2(cand[i][2] - cz, cand[i][0] - cx), bowl = [Math.round(cx + Math.cos(q) * 12), 6, Math.round(cz + Math.sin(q) * 12)]; passage(bowl, cand[i], BAS, cand[i][3], i); if (i > 0) passage(cand[i - 1], cand[i], cand[i - 1][3], cand[i][3], i + 3); }
     if (cand.length > 2) passage(cand[cand.length - 1], cand[0], cand[cand.length - 1][3], cand[0][3], 9);
     shell(); if (cand[0]) colonnade(cand[0]); if (cand[2]) colonnade(cand[2]); if (cand[1]) bridge(cand[1]); seal(); U.lava = LAVA.length;
-    try { if (current) current.v1216net = U.gal.map(g => g.at); } catch (_) {} try { dirtyAll = true; } catch (_) {} return U.gal; };
+    try { dirtyAll = true; } catch (_) {} return U.gal; };
   try { const L = window.__v1214; if (L && L.build) { const b = L.build; L.build = function (e) { const r = b.apply(this, arguments); try { U.build(e); } catch (x) { ERR('net', x); } return r; }; } else U.why = 'v1.2.14 link missing'; } catch (e) { ERR('hook', e); }
-  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && U.gal.length) d.v1216net = U.gal.map(g => g.at); } catch (_) {} return d; };
-    const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) U.gal = Array.isArray(d.v1216net) ? d.v1216net.map(at => ({at})) : []; } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
 })();

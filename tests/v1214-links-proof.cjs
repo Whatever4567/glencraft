@@ -25,7 +25,7 @@ t('late Agartha placement (new world, no save): bowl + link made once after __c2
 const c5=mk(true,0);t('save loaded: no late edit',()=>{vm.runInContext('applySave({});__c294.build()',c5);assert.equal(vm.runInContext('__v1212.eye',c5),null);assert.equal(vm.runInContext('__v1215.late',c5),0);});
 t('v1.2.16 network: galleries built, each reachable on foot from the bowl, no errors',()=>{vm.runInContext('generate()',c);assert.equal(R('__v1216.err'),null);const g=R('__v1216.gal');console.log('  ',JSON.stringify(g),'cells',R('__v1216.cells'),'lava',R('__v1216.lava'));assert(g.length>=3,R('__v1216.why'));
  for(const q of g)assert(R(`(()=>{const ok=(x,y,z)=>x>0&&z>0&&x<W&&z<D&&y>0&&y<H-1&&world[idx(x,y,z)]===0&&world[idx(x,y+1,z)]===0;const seen=new Uint8Array(W*H*D),st=[[80,6,80]];seen[idx(80,6,80)]=1;while(st.length){const [x,y,z]=st.pop();if(Math.abs(x-${q.at[0]})<3&&Math.abs(z-${q.at[2]})<3)return true;for(const [a,b,e] of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[1,1,0],[-1,1,0],[0,1,1],[0,1,-1],[1,-1,0],[-1,-1,0],[0,-1,1],[0,-1,-1]]){const X=x+a,Y=y+b,Z=z+e;if(!ok(X,Y,Z)||seen[idx(X,Y,Z)])continue;seen[idx(X,Y,Z)]=1;st.push([X,Y,Z]);}}return false})()`),'gallery '+q.at);
- assert(R('serialize().v1216net.length')===g.length);});
+ assert.equal(R("'v1216net' in serialize()"),false);});
 t('v1.2.16 skipped with the bowl when Agartha unknown (fail closed)',()=>{assert.equal(vm.runInContext('__v1216.cells',c5),0);});
 const c2=mk(false);t('no cave nearby: exact reason, no carving',()=>{assert.equal(vm.runInContext('__v1214.link',c2),null);assert.match(vm.runInContext('__v1214.why',c2),/no natural cave air/);assert.equal(vm.runInContext('__v1214.cells',c2),0);});
 console.log(p,'passed');
