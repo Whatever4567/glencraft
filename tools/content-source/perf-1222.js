@@ -56,4 +56,26 @@
     const t = new THREE.CanvasTexture(c); try { t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (_) {} U.headTex = N; return t; };
   try { const hm = headMatFor; headMatFor = function (mat) { if (mat === 'crystalpurple') { if (!HM) HM = new THREE.MeshPhongMaterial({color: 0xffffff, map: headTex(), emissive: 0x2a0850, shininess: 170, specular: 0xffd8ff, transparent: true, opacity: 0.94}); return HM; } return hm.apply(this, arguments); }; } catch (e) { ERR('hm', e); }
   try { const mi = makeItemMesh; makeItemMesh = function (id) { const g = mi.apply(this, arguments); try { if (id === PP && g && !g.userData.block) { g.scale.multiply(new THREE.Vector3(0.86, 1.12, 0.62)); g.userData.p761 = 1; } } catch (e) { ERR('mi', e); } return g; }; } catch (e) { ERR('miw', e); }
+
+  // ---- Purple pickaxe rapid mining: block edits and collision happen at once, the chunk remesh is coalesced ----
+  // breakAt still changes the world, drops and collision immediately. Only its trailing full remesh call is held back while the purple
+  // pickaxe mines: one remesh at most every 60 ms, never later than 120 ms after the first held edit, and at once when you let go.
+  U.deferred = 0; U.flushes = 0; U.maxAge = 0; let inBrk = 0, pend = 0, lastR = 0;
+  try { const rb = rebuild; U._rb = rb;
+    rebuild = function () { if (inBrk && !arguments.length) { if (!pend) pend = performance.now(); U.deferred++; return; } return rb.apply(this, arguments); };
+    const ba = breakAt; breakAt = function () { const f = held761(); if (f) inBrk++; try { return ba.apply(this, arguments); } finally { if (f) inBrk--; } };
+    U.flush = force => { if (!pend) return false; const now = performance.now(); if (!force && now - lastR < 60 && now - pend < 120) return false; U.maxAge = Math.max(U.maxAge, now - pend); pend = 0; lastR = now; rb(); U.flushes++; return true; };
+    U.pending = () => !!pend;
+    const ui = updateInteraction; updateInteraction = function () { const r = ui.apply(this, arguments); try { let att = true; try { att = !!(attackMouse || attackPad || attackTouch); } catch (_) {} U.flush(!att || !held761()); } catch (e) { ERR('flush', e); } return r; };
+  } catch (e) { ERR('coalesce', e); }
+  // ---- far ocean meshing: water cells whose six neighbours are all water make no faces; skip them before the per face checks ----
+  // Every water cell of a chunk goes to buildWaterGeo and each face check goes through the stacked getB wrappers. Only in the overworld,
+  // only for cells fully inside the world array; edge cells and every cell that could show a face take the old path unchanged.
+  U.waterIn = 0; U.waterKept = 0;
+  try { const bw = buildWaterGeo; buildWaterGeo = function (arr) { try { if (!(typeof DIM !== 'undefined' && DIM.cur) && arr && arr.length > 300) { const WT = T.WATER, HD = H * D, out = [];
+          for (let i = 0; i < arr.length; i += 3) { const x = arr[i], y = arr[i + 1], z = arr[i + 2];
+            if (x > 0 && x < W - 1 && z > 0 && z < D - 1 && y > 0 && y < H - 1) { const j = (x * H + y) * D + z;
+              if (world[j] === WT && world[j + D] === WT && world[j - D] === WT && world[j + 1] === WT && world[j - 1] === WT && world[j + HD] === WT && world[j - HD] === WT) continue; }
+            out.push(x, y, z); }
+          U.waterIn += arr.length / 3; U.waterKept += out.length / 3; arr = out; } } catch (e) { ERR('water', e); } return bw.call(this, arr); }; } catch (e) { ERR('bw', e); }
 })();
