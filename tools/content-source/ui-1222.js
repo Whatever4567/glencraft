@@ -4,7 +4,8 @@
      old separate Agartha world is not offered.
    - Settings: smaller text, same big tap areas; on and off buttons are strongly inverted (the chosen one is white with dark text and a tick,
      the other is dark and dim), they report pressed state to screen readers, and focus has a clear gold ring.
-   - Save and quit asks first, in the game (not a browser box). Cancel does nothing; Yes runs the save and quit once.
+   - Save and quit asks first, in the game (not a browser box). Cancel does nothing; Yes saves, waits for the save to finish, then goes
+     back to the title screen in place, with no page reload, so fullscreen and the home screen app stay as they are.
    - The Controller supported mark on the title screen has a soft gold shimmer (still gold, no motion, if the device asks for reduced motion).
    - Offhand slot sits on the right of the character, the armour on the left. */
 (function ui1222() {
@@ -74,5 +75,17 @@
     e.preventDefault(); e.stopImmediatePropagation(); }, true);
   try { const pp = padPause; padPause = function (dir, adj, act, back) { if (!U.open()) return pp.apply(this, arguments); const bs = [$('ui22no'), $('ui22yes')]; if (dir || adj) { aF = (aF + 1) % 2; bs[aF].focus(); } if (act) bs[aF].click(); if (back) U.closeAsk(); }; } catch (e) { ERR('pad', e); }
   try { const sp = setPause; setPause = function (on) { if (U.open() && !on) { U.closeAsk(); return; } return sp.apply(this, arguments); }; } catch (e) { ERR('sp', e); }
+  // ---------- save and quit without reloading the page (so fullscreen and the app stay as they are) ----------
+  U.titles = 0; let leaving = 0;
+  U.toTitle = () => { if (leaving) return false; leaving = 1; try {
+      try { setPause(false); } catch (_) {}
+      started = false; try { paused = false; } catch (_) {} try { menuOpen = false; } catch (_) {}
+      for (const id of ['pause', 'craft', 'dead']) { const e = $(id); if (e) e.classList.add('hidden'); } try { $('pause').classList.remove('titleMode'); } catch (_) {}
+      try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {}
+      try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (_) {}
+      try { mobs.slice().forEach(removeMob); } catch (_) {}
+      try { worldCache = null; } catch (_) {}
+      showScreen('title'); try { playMusic(); } catch (_) {} U.titles++; return true;
+    } catch (e) { ERR('title', e); return false; } finally { setTimeout(() => { leaving = 0; }, 400); } };
   setInterval(() => { try { hideOld(); U.lay(); U.aria(); } catch (e) { ERR('tick', e); } }, 700);
 })();
