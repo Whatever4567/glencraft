@@ -3,7 +3,7 @@ import fs from 'node:fs'; import assert from 'node:assert';
 import {parseHTML} from '/workspace/domtools/node_modules/linkedom/esm/index.js';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
-const src = cut('/* GLX-UI1222', '/* GLX-C400');
+const src = cut('/* GLX-UI1222', '/* GLX-VOX1222');
 const {document, window: W} = parseHTML(`<html><head></head><body><div id="pause"><div class="panel"><div class="btns"><button id="resumeBtn">Resume</button><button id="tpmBtn">Teleport</button>
 <button id="tpUniBtn" data-testid="pause-tp-unicorn">Teleport to Unicorn</button><button data-testid="pause-tp-chief">Teleport to Chief</button><button data-testid="pause-tp-piper">Teleport to Piper</button><button id="teleportBuildsBtn">Teleport to my builds</button><button id="saveQuit">Save &amp; quit to title</button></div>
 <div id="tpmBox" style="display:none"></div><div class="seg"><button class="on" data-v="1">On</button><button data-v="0">Off</button></div></div></div>
