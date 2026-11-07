@@ -26,6 +26,6 @@
         p.y += r.vy * h; const floor = r.rest !== null ? r.rest : c.gy + 0.25;
         if (p.y <= floor) { p.y = floor; const sp = -r.vy; if (sp > U.HIT) U.hitSurf(c, r, p.x, c.gy + 0.01, p.z, 0, 1, 0, sp); if (r.vy < -1.5) { r.vy *= -0.32; r.spin *= 0.6; } else { r.vy = 0; r.air = 0; } const f = Math.exp(-h * (r.air ? 2 : 7)); r.vx *= f; r.vz *= f; } }
       if (r.spin > 0.05) { Q.setFromAxisAngle(c.axis, r.spin * dt); c.g.quaternion.premultiply(Q); r.spin *= Math.exp(-dt * 2.2); }
-      if (!r.air && Math.hypot(r.vx, r.vz) < 0.15 && r.spin < 0.3) { r.sleep = 1; U.slept++; if (r.rest === null) { r.rest = p.y; return false; } return true; }
+      if (!r.air && Math.hypot(r.vx, r.vz) < 0.15 && r.spin < 0.3) { r.sleep = 1; U.slept++; if (r.rest === null) { r.rest = p.y; if (c.q0 && c.axis) { c.ang = Math.PI / 2; c.w = 0; c.slide = 0; c.q0 = new THREE.Quaternion().setFromAxisAngle(c.axis, Math.PI / 2).invert().multiply(c.g.quaternion); } return false; } return true; }
       return true; } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); return false; } };
 })();

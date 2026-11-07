@@ -4,9 +4,10 @@ import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/bu
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
 assert(html.includes("if (c.fade <= 0.001) { drop(c); continue; } }\n      if (window.__rag1222 && __rag1222.step(c, dt)) continue;") || /c\.fade <= 0\.001\) \{ drop\(c\); continue; \} \}\s*if \(window\.__rag1222/.test(html), 'ragdoll runs after the expiry check');
-let wallX = 1e9; const spl = []; const G = {THREE, P: {x: 50, y: 10, z: 50}, __gore: {sol: (x, y, z) => x >= wallX, splat: (c, ...a) => c.blood ? (spl.push(a), 1) : 0}}; G.window = G; new Function('with(this){' + cut('/* GLX-RAG1222', '/* GLX-C400') + '}').call(G); const U = G.__rag1222;
-const body = (dx, gun) => { const g = new THREE.Group(); g.position.set(0, 10.25, 0); return {blood: true, kind: 'body', g, dir: new THREE.Vector3(dx, 0, 0), w: gun ? 2.5 : 1.2, gy: 10, axis: new THREE.Vector3(0, 0, 1), t: 0}; };
-const tick = (L, n) => { for (let k = 0; k < n; k++) { U.frame(0.05); for (const c of L) { c.t += 0.05; U.step(c, 0.05); } } };
+let wallX = 1e9; const spl = []; const G = {THREE, P: {x: 50, y: 10, z: 50}, __gore: {sol: (x, y, z) => x >= wallX, splat: (c, ...a) => c.blood ? (spl.push(a), 1) : 0}}; G.window = G; new Function('with(this){' + cut('/* GLX-RAG1222', '/* GLX-WX1222') + '}').call(G); const U = G.__rag1222;
+const body = (dx, gun) => { const g = new THREE.Group(); g.position.set(0, 10.25, 0); return {blood: true, q0: g.quaternion.clone(), ang: 0, settle: 0, kind: 'body', g, dir: new THREE.Vector3(dx, 0, 0), w: gun ? 2.5 : 1.2, gy: 10, axis: new THREE.Vector3(0, 0, 1), t: 0}; };
+const orig = c => { if (c.settle >= 1 || !c.q0 || c.ang < Math.PI / 2) return; c.g.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(c.axis, c.ang).multiply(c.q0)); c.settle = 1; };
+const tick = (L, n) => { for (let k = 0; k < n; k++) { U.frame(0.05); for (const c of L) { c.t += 0.05; if (!U.step(c, 0.05)) orig(c); } } };
 const a = body(1, true), b = body(-1, false); tick([a, b], 1); assert(a.g.position.x > 0 && b.g.position.x < 0, 'thrown along the shot'); assert(a.g.position.y > 10.25, 'launched up');
 tick([a, b], 120); assert(a.__r.sleep && b.__r.sleep, 'settled and asleep'); assert(a.g.position.x > b.g.position.x + 0.5 && a.g.position.x - 0 > 0.8, 'gun throw farther'); assert(Math.abs(a.g.position.y - 10.25) < 0.01, 'on the ground');
 const t0 = a.t, x0 = a.g.position.x; G.P.x = x0 - 0.7; G.P.z = 0; G.P.y = 10; U.frame(0.05); G.P.x = x0 - 0.5; tick([a], 1); assert(!a.__r.sleep && U.woke === 1, 'player bump wakes it');
@@ -21,4 +22,5 @@ spl.length = 0; wallX = 3; const w = body(1, true); w.g.position.set(0, 10.25, 0
 wallX = 1e9; spl.length = 0; const m = body(1, true); m.__r = {vx: 0, vz: 0, vy: -9, spin: 0, air: 1, sleep: 0, rest: null, cd: 0, ns: 3}; tick([m], 2); assert.equal(spl.length, 0, 'per body cap');
 const nb = body(1, true); nb.blood = false; nb.__r = {vx: 0, vz: 0, vy: -9, spin: 0, air: 1, sleep: 0, rest: null, cd: 0}; tick([nb], 2); assert.equal(spl.length, 0, 'bloodless kinds leave none');
 assert(html.includes('U.splat = (c, x, y, z, nx, ny, nz, s) => { if (!c || !c.blood) return 0; decal('), 'uses the gore decal pool');
+{ const s = body(1, true); let q = null; for (let k = 0; k < 400; k++) { const was = s.__r && s.__r.sleep; s.t += 0.05; U.frame(0.05); if (!U.step(s, 0.05)) { if (!was && s.__r.sleep) q = s.g.quaternion.clone(); orig(s); if (q) break; } } assert(q && s.g.quaternion.angleTo(q) < 1e-6, 'no rotation snap when the old lie down code takes over'); }
 assert.equal(U.err, null); console.log('v1222-rag ok', JSON.stringify({launched: U.launched, woke: U.woke, slept: U.slept}));
