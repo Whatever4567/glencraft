@@ -3,7 +3,7 @@ import fs from 'node:fs'; import assert from 'node:assert';
 import {parseHTML} from '/workspace/domtools/node_modules/linkedom/esm/index.js';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i); return html.slice(i, j); };
-const src = cut('/* GLX-INV1222', '/* GLX-C400');
+const src = cut('/* GLX-INV1222', '/* GLX-EQ1222');
 const bi = html.indexOf('function bagItems()'), bagDef = html.slice(bi, html.indexOf('function visibleItems()', bi));
 function boot(inv0, hot0, prog0) {
   const {document} = parseHTML('<html><head></head><body><div id="craft"><div class="tabs"><button id="tabInv">Bag</button><button id="tabCraft">Crafting</button><button id="tabChar">Character</button></div><div id="invPane"><div id="invHot"></div><div id="invGrid"></div></div></div></body></html>');

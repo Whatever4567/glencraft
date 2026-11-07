@@ -1,0 +1,26 @@
+// v1.2.22 cloud zap: beam starts at the mob body and follows it, light capped and pooled, distance cull, bass voices capped, patches wired
+import fs from 'node:fs'; import assert from 'node:assert';
+import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i); return html.slice(i, j); };
+for (const t of ['callBolt(q.x, q.z, tg, a);', 'function callBolt(x, z, tg, src) {', '__cl1222.path(b.src, b.x, b.y, b.z)', '__cl1222.hit(b.src, b.x, b.y, b.z); else {', '__cl1222.dress(body, puffs, cm, dk)', 'damageMob(m, 6, false)']) assert(html.includes(t), t);
+assert(!html.includes('callBolt(q.x, q.z, tg); snd(a, 1.2);'));
+let osc = 0; const node = () => ({gain: {value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}}, frequency: {value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}}, connect() {}, start() {}, stop() {}});
+const AC = {currentTime: 0, destination: {}, createGain: node, createBiquadFilter: node, createBufferSource: node, createOscillator: () => { osc++; return node(); }};
+const scene = new THREE.Scene(); const G = {THREE, scene, AC, master: null, noiseBuf: {}, paused: false, started: true, P: {x: 0, y: 60, z: 0}, navigator: {userAgent: 'x'}, performance, requestAnimationFrame: () => 0, setTimeout: (f) => 0};
+G.window = G; new Function('with(this){' + cut('/* GLX-CL1222', '/* GLX-C400') + '}').call(G); const U = G.__cl1222; assert.equal(U.err, null, U.err);
+const lights0 = []; scene.traverse(o => o.isLight && lights0.push(o)); assert.equal(lights0.length, 1, 'one pooled light from the start');
+const mob = {g: new THREE.Group(), hp: 10, hitY: 1.2}; mob.g.position.set(3, 66, 2); scene.add(mob.g);
+const pts = U.path(mob, 8, 60, 4); assert.deepEqual(pts, [8, 60, 4, 8, 60, 4], 'old sky line collapsed');
+const beam = []; scene.traverse(o => o.isLineSegments && o.visible && beam.push(o)); assert.equal(beam.length, 1); const A = beam[0].geometry.attributes.position.array;
+const from = U.from(mob); assert(Math.abs(A[0] - from.x) + Math.abs(A[1] - from.y) + Math.abs(A[2] - from.z) < 1e-4, 'beam starts at the body');
+const n = A.length; assert(Math.abs(A[n - 3] - 8) + Math.abs(A[n - 2] - 61) + Math.abs(A[n - 1] - 4) < 1e-4, 'ends at the target');
+mob.g.position.x += 1.5; U.step(0.05); assert(Math.abs(A[0] - U.from(mob).x) < 1e-4, 'start follows the mob');
+U.hit(mob, 8, 60, 4); assert(U.state().light > 0); for (let i = 0; i < 6; i++) U.step(0.05); assert.equal(U.state().light, 0, 'light off within its cap'); assert.equal(U.state().beams, 0, 'beam gone');
+const l2 = []; scene.traverse(o => o.isLight && l2.push(o)); assert.equal(l2.length, 1, 'never a new light');
+G.P.x = 500; U.hit(mob, 8, 60, 4); assert.equal(U.state().light, 0, 'far strike: no light'); assert(U.culled >= 1);
+G.P.x = 0; const b0 = U.booms; for (let i = 0; i < 5; i++) U.hit(mob, 8, 60, 4); assert.equal(U.booms - b0, 1, 'at most 2 voices'); G.paused = true; assert.equal(U.boom(5), false, 'silent when paused');
+for (let i = 0; i < 6; i++) U.path(mob, i, 60, 0); let vis = 0; scene.traverse(o => o.isLineSegments && o.visible && vis++); assert(vis <= 3, 'beam pool capped');
+const body = new THREE.Group(), puffs = []; U.dress(body, puffs, new THREE.MeshBasicMaterial(), new THREE.MeshBasicMaterial()); const b2 = new THREE.Group(), p2 = []; U.dress(b2, p2, null, null); assert(puffs.length >= 3 && puffs[0].geometry === p2[0].geometry, 'shared puff geometry');
+scene.remove(...scene.children.filter(o => o.userData.cl1222)); U.step(0.01); assert(scene.children.some(o => o.userData.cl1222), 'light put back after a world load clears the scene');
+console.log('v1222-cloud ok');

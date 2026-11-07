@@ -4,7 +4,7 @@ import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/bu
 import {parseHTML} from '/workspace/domtools/node_modules/linkedom/esm/index.js';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
-const src = cut('/* GLX-EQ1222', '/* GLX-C400');
+const src = cut('/* GLX-EQ1222', '/* GLX-CL1222');
 const eq = cut('function equipArmour(id) {', '\nconst blockGroup');
 // drink ids and names straight from the source, and the icon move
 assert(/BREW:119, IRONBREW:121/.test(html) && /119:'Brew', 121:'Iron Brew'/.test(html), 'drink ids'); assert(html.includes('t(IT.IRONBREW || 121, iconBrew)') && !html.includes('t(IT.BREW || 121, iconBrew)'), 'IRN can painted on Iron Brew, not Brew');
