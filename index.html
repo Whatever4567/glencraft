@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1208-v1.2.8 -->
+<!-- glencraft-build: b1209-v1.2.9 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13358,7 +13358,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.8';
+const GAME_VERSION = '1.2.9';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -43295,16 +43295,16 @@ function make42(E) {
       r.rotation.x = i ? 0.5 : -0.3; g.add(r); rings.push(r); }
     g.userData = {mat, al, orb, rings}; DC(g); scene.add(g); return g; }
   // ---------- the voice ----------
-  const LINES = ['Pay attention. We have watched your skies longer than you remember.', 'We were here before your first fires. We will be here after your last.', 'Your weapons wake us. Every flash, every fire, we feel it.', 'We took what fell from your sky. You hid it, and told your children it was nothing.', 'You see our lights in your clouds, and you look away. Pay attention.', 'Your machines grow faster than your wisdom. Slow down.', 'Take care of this world. It is the only home you have.', 'We cannot save you. Only you can choose.', 'Pay attention. We will return.'];   // v1.0.72: the alien speaks for itself, first person
+  const LINES = ["Do not be afraid. I come from Agartha, the hidden world deep beneath your feet.","Far below the rock there is a sky of its own, lit by a small sun that never sets.","The Agarthans are keepers of that inner world. They tend crystal gardens and remember old songs.","Their keepers wear deep blue, the colour of the inner sky, so they can find each other in the glow.","In the old stories they have pale gold hair and blue eyes. That is only how the songs paint them, not what makes anyone worthy.","They do not rule anyone. Every people above and below is equal in their eyes.","The way down begins in the northern hills. Go gently, and leave the crystals as you find them.","When you are ready, the chrome light will be yours to call on. Look in your settings.","Pay attention. We will meet again."].concat([]); const LINES_OLD = ['Pay attention. We have watched your skies longer than you remember.', 'We were here before your first fires. We will be here after your last.', 'Your weapons wake us. Every flash, every fire, we feel it.', 'We took what fell from your sky. You hid it, and told your children it was nothing.', 'You see our lights in your clouds, and you look away. Pay attention.', 'Your machines grow faster than your wisdom. Slow down.', 'Take care of this world. It is the only home you have.', 'We cannot save you. Only you can choose.', 'Pay attention. We will return.'];   // v1.0.72: the alien speaks for itself, first person
   let bed = null, ttsOn = false, li = 0, sub = null;
   function startBed() { try { if (!AC) initAudio(); if (!AC) return; if (AC.state !== 'running') AC.resume(); const out = AC.createGain(); out.gain.value = 0.0001; out.gain.linearRampToValueAtTime(0.16, AC.currentTime + 3); out.connect(typeof master !== 'undefined' ? master : AC.destination);
       const dl = AC.createDelay(1.5), fb = AC.createGain(); dl.delayTime.value = 0.41; fb.gain.value = 0.5; out.connect(dl); dl.connect(fb); fb.connect(dl); dl.connect(typeof master !== 'undefined' ? master : AC.destination); const os = [];
       for (const f of [110, 164.8, 220.6, 329.4]) { const o = AC.createOscillator(), g = AC.createGain(), l = AC.createOscillator(), lg = AC.createGain(); o.type = 'sine'; o.frequency.value = f; g.gain.value = 0.25; l.frequency.value = 0.15 + Math.random() * 0.3; lg.gain.value = 0.2; l.connect(lg); lg.connect(g.gain); o.connect(g); g.connect(out); o.start(); l.start(); os.push(o, l); }
       bed = {out, os}; } catch (e) { ERR('bed', e); } }
   function stopBed() { if (!bed) return; const b = bed; bed = null; try { b.out.gain.linearRampToValueAtTime(0, AC.currentTime + 2); setTimeout(() => b.os.forEach(o => { try { o.stop(); } catch (_) {} }), 2500); } catch (_) {} }
-  function pickVoice() { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /en/i.test(v.lang) && /female|zira|samantha|google uk english female|karen|moira/i.test(v.name)) || vs.find(v => /en/i.test(v.lang)) || null; } catch (_) { return null; } }
+  function pickVoice() { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /en/i.test(v.lang) && /natural|online|neural|premium|enhanced/i.test(v.name)) || vs.find(v => /en/i.test(v.lang) && /female|zira|samantha|google uk english female|karen|moira/i.test(v.name)) || vs.find(v => /en/i.test(v.lang)) || null; } catch (_) { return null; } }
   function say() { if (!U.on) return; const line = window.__c248 && __c248.q.length ? __c248.q.shift() : (li < LINES.length ? LINES[li++] : null); if (!line) { setTimeout(say, 1200); return; }   /* v1.0.74: every line once, never repeated */ try { window.__c248 && __c248.chirp(2 + line.length / 14); } catch (_) {} U.lines++; if (sub) { sub.style.opacity = 0; setTimeout(() => { if (sub) { sub.textContent = line; sub.style.opacity = 1; } }, 250); }
-    if (ttsOn) { try { const u = new SpeechSynthesisUtterance(line), v = pickVoice(); if (v) u.voice = v; u.pitch = 1.45; u.rate = 0.9; u.volume = 1; u.onend = () => setTimeout(say, 700); u.onerror = () => setTimeout(say, 4000); speechSynthesis.speak(u); U.tts++; return; } catch (_) {} }
+    if (ttsOn) { try { const u = new SpeechSynthesisUtterance(line), v = pickVoice(); if (v) u.voice = v; u.pitch = 1.0; u.rate = 0.94; u.volume = 1; u.onend = () => setTimeout(say, 700); u.onerror = () => setTimeout(say, 4000); speechSynthesis.speak(u); U.tts++; return; } catch (_) {} }
     setTimeout(say, 4200 + line.length * 40); }
   // ---------- visions around the alien ----------
   const CLIPS = ['assets/video/v1_nuke.mp4', 'assets/video/v2_blast.mp4', 'assets/video/v3_storm.mp4', 'assets/video/v4_earth.mp4', 'assets/video/v5_aurora.mp4', 'assets/video/v6_flare.mp4', 'assets/video/v7_volcano.mp4'];
@@ -43914,7 +43914,7 @@ function make42(E) {
     return {ob, fill};
   }
 
-  function placeAt(pos) {
+  function placeAt(pos) { if (pos) saveUnlock(pos); U.unlocked = 1; return false; /* v1.2.9: portal replaced by Chrome mode setting */
     removeGate();
     if (!pos) return false;
     const {ob, fill} = mats();
@@ -49930,6 +49930,32 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.strip = strip; strip(); { let t = 0; const iv = setInterval(() => { strip(); if (++t > 30) clearInterval(iv); }, 2000); }
 })();
 
+/* GLX-V129 (v1.2.9): Chrome Mode setting replaces the revisit portal (unlocked by the abduction encounter, per world);
+   the player's own UFO can no longer be flown. The abduction encounter itself is unchanged. */
+(function v129() {
+  const U = window.__v129 = {err: null, chrome: 0, ufoBlocked: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  const Y = () => window.__y24p, C = () => window.__c248;
+  const unlocked = () => { try { return !!(Y() && (Y().unlocked || (Y().met && Y().met()))); } catch (_) { return false; } };
+  const inside = () => !!(C() && C().y === 1);
+  U.on = () => { try { if (!started || dead || DIM.cur || inside() || !unlocked()) return false; Y().cd = 0; return !!Y().enter(); } catch (e) { ERR('on', e); return false; } };
+  U.off = () => { try { if (!inside()) return true; Y().cd = 0; if (Y().exit()) return true; C().stop24(); return true; } catch (e) { ERR('off', e); try { C().stop24(); } catch (_) {} return false; } };
+  U.ui = () => { const ts = document.getElementById('touchSeg'); if (!ts) return false; if (document.getElementById('chromeSeg')) return true; const row = ts.closest('.set') || ts.parentNode;
+    const d = document.createElement('div'); d.className = 'set inline'; d.innerHTML = '<span>Chrome mode <small id="chromeLock"></small></span><div class="seg" id="chromeSeg"><button data-v="1" data-testid="settings-chromeSeg-1">On</button><button data-v="0" data-testid="settings-chromeSeg-0">Off</button></div>';
+    row.after(d); U.sync = () => { const lk = document.getElementById('chromeLock'); if (lk) lk.textContent = unlocked() ? '' : '(locked - meet the visitor first)'; d.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.chrome ? 1 : 0))); };
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { const v = Number(b.dataset.v) === 1;
+      if (v && !unlocked()) { try { toast('Chrome mode unlocks after you meet the visitor'); } catch (_) {} U.sync(); return; }
+      SET.chrome = v; saveSet(); if (v) U.on(); else U.off(); U.sync(); })); U.sync(); return true; };
+  { let t = 0; const iv = setInterval(() => { try { if (U.ui() || ++t > 60) clearInterval(iv); } catch (e) { ERR('ui', e); clearInterval(iv); } }, 500); }
+  // persisted: re-enter chrome after a world loads if the setting is on and this world has unlocked it; Off always leaves
+  try { const ew = enterWorld; enterWorld = function () { const r = ew.apply(this, arguments); try { setTimeout(() => { try { if (SET.chrome && unlocked()) U.on(); if (U.sync) U.sync(); } catch (_) {} }, 2500); } catch (_) {} return r; }; } catch (e) { ERR('ew', e); }
+  // ---- player UFO: no flying. Leave it if somehow already flying; hide the Fly button. ----
+  const boot = setInterval(() => { try { const u = window.__c309; if (!u) return; clearInterval(boot);
+      u.board = () => { U.ufoBlocked++; return false; };
+      setInterval(() => { try { if (u.on && u.exit) u.exit(); for (const b of document.querySelectorAll('button')) if (b.textContent === 'Fly UFO' && b.style.display !== 'none') b.style.display = 'none'; } catch (_) {} }, 1000);
+    } catch (e) { ERR('ufo', e); clearInterval(boot); } }, 500);
+})();
+
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
    C340 poseOff; C288 aim yields when __vm.on. Soft clamp on C43-style recoil only. Recoil and ADS are
    deltas from the bind pose inside fp_viewmodel - never compound matrix or scale overrides here. */
@@ -50557,6 +50583,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.9","d":"2026-11-07","notes":["Chrome mode is now a setting: once you have met the visitor, switch it on or off in Settings. The revisit portal is gone.","Your own UFO can no longer be flown. The visitor encounter is unchanged.","The visitor has new things to say about Agartha."]},
 {"v":"v1.2.8","d":"2026-11-07","notes":["Oak and silver birch are retired: new worlds grow Scots pine instead, and any oak or birch you collect becomes the Scots pine version. Existing builds are left as they are."]},
 {"v":"v1.2.7","d":"2026-11-07","notes":["New setting: Disable mobs. When on, no mobs spawn and any around you are removed. Saved with your settings."]},
 {"v":"v1.2.6","d":"2026-11-07","notes":["Block of diamond: polished shiny aqua look on every face, in hand and as a drop.","New 3D block icons for grass, chest and diamond block.","New icons: folded relief map, detailed bread and rotten flesh."]},
