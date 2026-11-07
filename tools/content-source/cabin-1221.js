@@ -54,4 +54,10 @@
       if (T.inside && f && !f.pilot) { let k = 0; const hit = (x, y, z) => { T.__raw = 1; try { for (const [ox, oz] of [[-0.85, -0.85], [0.85, -0.85], [-0.85, 0.85], [0.85, 0.85], [0, 0]]) for (const oy of [0.1, 1.3, 2.5]) if (solid(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true; } finally { T.__raw = 0; } return false; };
         if (hit(S.x, S.y, S.z)) { const rx = P.x - S.x, ry = P.y - S.y, rz = P.z - S.z; let y = S.y; while (k < 64 && hit(S.x, y, S.z)) { y += 1; k++; } if (k < 64) { T.place(S.x, y, S.z); P.x = S.x + rx; P.y = S.y + ry; P.z = S.z + rz; P.vy = 0; U.lifts++; } } }
       U.last = [S.x, S.y, S.z]; } catch (e) { ERR('wd', e); } }, 250);
+  // tool grip point for GLX-FPA: a fifth of the way up the handle from its lower end (the item origin is the top of the handle for axes and picks)
+  window.__hg1221 = (held, it, cam) => { let b = it.userData.__hgb; if (!b) { b = new THREE.Box3(); const inv = new THREE.Matrix4().copy(held.matrixWorld).invert(), mm = new THREE.Matrix4();
+      it.updateMatrixWorld(true); it.traverse(m => { if (m.isMesh && m.geometry) { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); mm.multiplyMatrices(inv, m.matrixWorld); b.union(m.geometry.boundingBox.clone().applyMatrix4(mm)); } }); if (b.isEmpty()) return null; it.userData.__hgb = b; }
+    const sz = b.getSize(new THREE.Vector3()), ax = sz.x >= sz.y && sz.x >= sz.z ? 'x' : sz.y >= sz.z ? 'y' : 'z', c = b.getCenter(new THREE.Vector3()), e0 = c.clone(), e1 = c.clone(); e0[ax] = b.min[ax]; e1[ax] = b.max[ax];
+    held.updateMatrixWorld(true); const w0 = cam.worldToLocal(held.localToWorld(e0.clone())), w1 = cam.worldToLocal(held.localToWorld(e1.clone())); const lo = w0.y <= w1.y ? w0 : w1, hi = lo === w0 ? w1 : w0;
+    const r = lo.clone().lerp(hi, 0.2); return isFinite(r.x + r.y + r.z) ? r : null; };
 })();
