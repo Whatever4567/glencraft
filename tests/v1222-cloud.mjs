@@ -8,7 +8,7 @@ assert(!html.includes('callBolt(q.x, q.z, tg); snd(a, 1.2);'));
 let osc = 0; const node = () => ({gain: {value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}}, frequency: {value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}}, connect() {}, start() {}, stop() {}});
 const AC = {currentTime: 0, destination: {}, createGain: node, createBiquadFilter: node, createBufferSource: node, createOscillator: () => { osc++; return node(); }};
 const scene = new THREE.Scene(); const G = {THREE, scene, AC, master: null, noiseBuf: {}, paused: false, started: true, P: {x: 0, y: 60, z: 0}, navigator: {userAgent: 'x'}, performance, requestAnimationFrame: () => 0, setTimeout: (f) => 0};
-G.window = G; new Function('with(this){' + cut('/* GLX-CL1222', '/* GLX-C400') + '}').call(G); const U = G.__cl1222; assert.equal(U.err, null, U.err);
+G.window = G; new Function('with(this){' + cut('/* GLX-CL1222', '/* GLX-DEAD1222') + '}').call(G); const U = G.__cl1222; assert.equal(U.err, null, U.err);
 const lights0 = []; scene.traverse(o => o.isLight && lights0.push(o)); assert.equal(lights0.length, 1, 'one pooled light from the start');
 const mob = {g: new THREE.Group(), hp: 10, hitY: 1.2}; mob.g.position.set(3, 66, 2); scene.add(mob.g);
 const pts = U.path(mob, 8, 60, 4); assert.deepEqual(pts, [8, 60, 4, 8, 60, 4], 'old sky line collapsed');

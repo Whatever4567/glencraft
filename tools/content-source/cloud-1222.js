@@ -29,6 +29,7 @@
   U.hit = (src, x, y, z) => { try { init(); const d = Math.hypot(x - P.x, y - P.y, z - P.z); if (d < FAR) { light.position.set(x, y + 1.5, z); light.intensity = 3.2; lt = LCAP; U.light++; } else U.culled++; U.boom(d); } catch (e) { ERR('hit', e); } };
   U.step = dt => { if (!beams) return; if (light.parent !== scene) { scene.add(light); for (const b of beams) scene.add(b.L); } for (const b of beams) if (b.t > 0) { b.t -= dt; if (b.t <= 0 || !b.src || !b.src.g) { b.L.visible = false; b.t = 0; } else { fill(b); b.L.material.opacity = 0.95 * Math.min(1, b.t / LIFE * 1.5); } }
     if (lt > 0) { lt -= dt; light.intensity = lt > 0 ? 3.2 * (lt / LCAP) : 0; } };
+  U.stop = src => { if (!beams) return; for (const b of beams) if (b.src === src) { b.t = 0; b.L.visible = false; } };
   U.state = () => ({beams: beams ? beams.filter(b => b.L.visible).length : 0, light: light ? light.intensity : 0, lights: light ? 1 : 0});
   // deep bass impact
   let voices = 0;

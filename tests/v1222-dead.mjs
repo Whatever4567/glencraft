@@ -1,0 +1,24 @@
+// v1.2.22 dead mobs: 60 s corpse cleanup (real loop text), dead look cached per material, live mobs untouched, cloud zap stops
+import fs from 'node:fs'; import assert from 'node:assert';
+import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
+const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
+assert(html.includes('mobs.splice(i, 1); try { __dead1222.on(a); } catch (_) {} if (typeof heldBy'));
+const i0 = html.indexOf('for (let i = corpses.length - 1; i >= 0; i--) { const c = corpses[i]; c.t += dt; if (c.t > 56'); assert(i0 > 0);
+const head = html.slice(i0, html.indexOf('if (c.kind ===', i0)) + ' } ';
+const run = new Function('corpses', 'dt', 'drop', 'fadeMats', head);
+const sim = secs => { const c = {t: 0, g: {}, kind: 'body'}, L = [c], d = c2 => L.splice(L.indexOf(c2), 1); for (let k = 0; k < Math.round(secs / 0.05); k++) run(L, 0.05, d, () => {}); return L.length; };
+assert.equal(sim(59), 1, 'still there at 59 s'); assert.equal(sim(60), 0, 'gone at 60 s');
+assert(!/killMob|dropItem|toss\(/.test(cut('function drop(c) {', 'function fadeMats')), 'cleanup drops no loot');
+const G = {THREE}; G.window = G; new Function('with(this){' + cut('/* GLX-DEAD1222', '/* GLX-C400') + '}').call(G); const U = G.__dead1222;
+const eye = new THREE.MeshStandardMaterial({color: 0xffffff, emissive: 0xff2200}), skin = new THREE.MeshLambertMaterial({color: 0x557733}), geo = new THREE.BoxGeometry();
+const mob = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(geo, skin), new THREE.Mesh(geo, eye), new THREE.PointLight(0xffff00, 2)); return {g}; };
+const dead = mob(), live = mob(); let stopped = null; G.__cl1222 = {stop: a => stopped = a};
+U.on(dead); const dm = dead.g.children[1].material;
+assert(dm !== eye && dm.emissive.getHex() === 0, 'dead eyes off'); assert.equal(dead.g.children[0].material, skin, 'plain skin kept shared');
+assert.equal(dead.g.children[2].visible, false, 'mob light off'); assert.equal(stopped, dead, 'zap stopped');
+assert.equal(eye.emissive.getHex(), 0xff2200, 'shared live material unchanged'); assert.equal(live.g.children[1].material, eye); assert(live.g.children[2].visible);
+const d2 = mob(); U.on(d2); assert.equal(d2.g.children[1].material, dm, 'dead variant reused'); assert.equal(U.made, 1);
+U.on(d2); assert.equal(U.used, 2, 'idempotent');
+assert.equal(mob().g.children[1].material, eye, 'no bleed to new mobs');
+console.log('v1222-dead ok', JSON.stringify(U));
