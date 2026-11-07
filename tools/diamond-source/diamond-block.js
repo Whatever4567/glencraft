@@ -1,4 +1,4 @@
-/* GLX-D259 (v1.2.3): deterministic faceted cyan diamond block259; snow255 and juniper250 preserved. Static 128/256px tile, not a 4K atlas. */
+/* GLX-D259 (v1.2.3): deterministic faceted polished aqua diamond block259 (v1.2.6 palette); snow255 and juniper250 preserved. Static 128/256px tile, not a 4K atlas. */
 (function d259() {
   const U = window.__d259 = {err: null, id: 259, snow: 255, fixed: 0, painted: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
@@ -9,21 +9,21 @@
     const c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d');
     const R = rng(259 * 7919 + 100);
     const lg = (x0, y0, x1, y1, stops) => { const gr = g.createLinearGradient(x0, y0, x1, y1); for (const [p, col] of stops) gr.addColorStop(p, col); return gr; };
-    g.fillStyle = '#06182e'; g.fillRect(0, 0, S, S);
+    g.fillStyle = '#032a33'; g.fillRect(0, 0, S, S);
     const n = 3, t = S / n;
     for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
       const x = i * t, y = j * t, cx = x + t / 2, cy = y + t / 2, r = t * 0.44, m = t * 0.18;
-      g.fillStyle = lg(x, y, x + t, y + t, [[0, '#1a4a78'], [1, '#0a2038']]); g.fillRect(x + 1, y + 1, t - 2, t - 2);
+      g.fillStyle = lg(x, y, x + t, y + t, [[0, '#13707e'], [1, '#05343e']]); g.fillRect(x + 1, y + 1, t - 2, t - 2);
       const P = [[cx, cy - r], [cx + r, cy], [cx, cy + r], [cx - r, cy]];
       const I = [[cx, cy - m], [cx + m, cy], [cx, cy + m], [cx - m, cy]];
-      const C = ['#e8fbff', '#5ec8f0', '#1a6aad', '#9ae6ff'];
+      const C = ['#f0ffff', '#4fe8ec', '#0e93a6', '#9ffcf4'];
       for (let k = 0; k < 4; k++) {
         g.beginPath(); g.moveTo(P[k][0], P[k][1]); g.lineTo(P[(k + 1) % 4][0], P[(k + 1) % 4][1]);
         g.lineTo(I[(k + 1) % 4][0], I[(k + 1) % 4][1]); g.lineTo(I[k][0], I[k][1]); g.closePath(); g.fillStyle = C[k]; g.fill();
       }
       g.beginPath(); I.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath();
-      g.fillStyle = lg(cx - m, cy - m, cx + m, cy + m, [[0, '#ffffff'], [0.45, '#b8f0ff'], [1, '#3aa0d0']]); g.fill();
-      g.strokeStyle = 'rgba(4,24,48,.85)'; g.lineWidth = S * 0.0045;
+      g.fillStyle = lg(cx - m, cy - m, cx + m, cy + m, [[0, '#ffffff'], [0.45, '#c4fffa'], [1, '#2cc6d4']]); g.fill();
+      g.strokeStyle = 'rgba(2,40,48,.85)'; g.lineWidth = S * 0.0045;
       g.beginPath(); P.forEach((p, k) => k ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.stroke();
       for (let k = 0; k < 4; k++) { g.beginPath(); g.moveTo(P[k][0], P[k][1]); g.lineTo(I[k][0], I[k][1]); g.stroke(); }
       g.fillStyle = 'rgba(255,255,255,.95)';
@@ -32,10 +32,14 @@
       g.lineTo(sx, sy + z); g.lineTo(sx - z * 0.25, sy + z * 0.2); g.lineTo(sx - z, sy); g.lineTo(sx - z * 0.25, sy - z * 0.2); g.closePath(); g.fill();
       void R; // deterministic seed reserved for future micro-flecks without changing layout
     }
-    g.strokeStyle = 'rgba(2,16,36,.9)'; g.lineWidth = S * 0.01;
+    g.strokeStyle = 'rgba(1,30,38,.9)'; g.lineWidth = S * 0.01;
     for (let k = 0; k <= n; k++) { g.beginPath(); g.moveTo(k * t, 0); g.lineTo(k * t, S); g.stroke(); g.beginPath(); g.moveTo(0, k * t); g.lineTo(S, k * t); g.stroke(); }
+    /* v1.2.6 polished aqua sheen: soft diagonal gloss band + fine sparkle, deterministic */
+    { const sh = g.createLinearGradient(0, 0, S, S); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.42, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(220,255,255,.28)'); sh.addColorStop(0.58, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = sh; g.fillRect(0, 0, S, S);
+      const R2 = rng(2591); g.fillStyle = 'rgba(235,255,255,.9)'; for (let i = 0; i < 24; i++) { const x = R2() * S, y = R2() * S, z = S * (0.004 + R2() * 0.006); g.fillRect(x - z, y - z * 0.2, z * 2, z * 0.4); g.fillRect(x - z * 0.2, y - z, z * 0.4, z * 2); } }
     return c;
   }
+  U.paint = paint;
 
   function bind(c) {
     const key = 'diamond_block';
