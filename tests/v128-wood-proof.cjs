@@ -1,0 +1,14 @@
+'use strict';
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict'),path=require('node:path');
+const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');const i=html.indexOf('(function v128() {'),code=html.slice(i,html.indexOf('\n})();',i))+'\n})();';
+const ctx=vm.createContext({console,setInterval:()=>0,clearInterval(){}});ctx.window=ctx;
+vm.runInContext(`var T={LOG:8,LEAVES:9,PLANKS:10,DOOR:65,DOORTOP:66},DIM={cur:null},NAMES={8:'Log',9:'Leaves',10:'Planks',65:'Oak door',135:'Scots Pine Log',136:'Silver Birch Log',146:'x',147:'Silver Birch Leaves',220:'Silver birch planks',229:'Scots pine planks',164:'Oak stairs',601:'Scots pine stairs',602:'Silver birch stairs',162:'Oak fence',631:'Scots pine fence',632:'Silver birch fence',173:'Oak boat',651:'Scots pine boat',11:'Stick'};
+var inv={8:3,10:5,602:2,11:1},ORDER=[8,10,135,229,164,601,602,65,11],CREATIVE_ALL=[...ORDER],RECIPES=[{out:11,need:[[10,2]]},{out:10,need:[[8,1]]},{out:220,need:[[136,1]]},{out:229,need:[[135,1]]},{out:164,need:[[10,6]]},{out:601,need:[[229,6]]}];
+var world=new Uint16Array([8,9,136,147,10,220,135,3,259]);function generate(){}var got=[],drp=[];function addItem(id,n){got.push([id,n]);}function dropItem(id){drp.push(id);}`,ctx);
+vm.runInContext(code,ctx);const R=s=>JSON.parse(vm.runInContext('JSON.stringify('+s+')',ctx));let p=0;const t=(n,f)=>{f();p++;console.log('PASS',n);};
+t('family mapped to Scots pine equivalents, door kept',()=>{const m=new Map(R('__v128.map'));assert.equal(m.get(164),601);assert.equal(m.get(602),601);assert.equal(m.get(162),631);assert.equal(m.get(173),651);assert(!m.has(65));});
+t('lists/recipes: oak/birch outputs and log->planks gone; pooled stick + pine recipes stay',()=>{assert.deepEqual(R('ORDER'),[135,229,601,65,11]);assert.deepEqual(R('RECIPES.map(r=>r.out)'),[11,229,601]);});
+t('inventory converted, counts kept',()=>{assert.deepEqual(R('inv'),{11:1,135:3,229:5,601:2});});
+t('gains/drops become pine; others untouched',()=>{vm.runInContext('addItem(8,2);addItem(3,1);dropItem(136);dropItem(3)',ctx);assert.deepEqual(R('got'),[[135,2],[3,1]]);assert.deepEqual(R('drp'),[135,3]);});
+t('new terrain trees -> pine; planks/structures and Uint16 ids (259) untouched',()=>{vm.runInContext('generate()',ctx);assert.deepEqual(R('Array.from(world)'),[135,146,135,146,10,220,135,3,259]);});
+console.log(p,'passed');
