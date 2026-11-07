@@ -4,13 +4,13 @@ import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/bu
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
 assert(html.includes('mobs.splice(i, 1); try { __dead1222.on(a); } catch (_) {} if (typeof heldBy'));
-const i0 = html.indexOf('for (let i = corpses.length - 1; i >= 0; i--) { const c = corpses[i]; c.t += dt; if (c.t > 56'); assert(i0 > 0);
+const i0 = html.indexOf('for (let i = corpses.length - 1; i >= 0; i--) { const c = corpses[i]; c.t += dt; if (c.t > 296'); assert(i0 > 0);
 const head = html.slice(i0, html.indexOf('if (c.kind ===', i0)) + ' } ';
-const run = new Function('corpses', 'dt', 'drop', 'fadeMats', head);
-const sim = secs => { const c = {t: 0, g: {}, kind: 'body'}, L = [c], d = c2 => L.splice(L.indexOf(c2), 1); for (let k = 0; k < Math.round(secs / 0.05); k++) run(L, 0.05, d, () => {}); return L.length; };
-assert.equal(sim(59), 1, 'still there at 59 s'); assert.equal(sim(60), 0, 'gone at 60 s');
+const run = new Function('corpses', 'dt', 'drop', 'fadeMats', 'window', head);
+const sim = secs => { const c = {t: 0, g: {}, kind: 'body'}, L = [c], d = c2 => L.splice(L.indexOf(c2), 1); for (let k = 0; k < Math.round(secs / 0.05); k++) run(L, 0.05, d, () => {}, {}); return L.length; };
+assert.equal(sim(299), 1, 'still there at 299 s'); assert.equal(sim(300), 0, 'gone at 300 s');
 assert(!/killMob|dropItem|toss\(/.test(cut('function drop(c) {', 'function fadeMats')), 'cleanup drops no loot');
-const G = {THREE}; G.window = G; new Function('with(this){' + cut('/* GLX-DEAD1222', '/* GLX-C400') + '}').call(G); const U = G.__dead1222;
+const G = {THREE}; G.window = G; new Function('with(this){' + cut('/* GLX-DEAD1222', '/* GLX-RAG1222') + '}').call(G); const U = G.__dead1222;
 const eye = new THREE.MeshStandardMaterial({color: 0xffffff, emissive: 0xff2200}), skin = new THREE.MeshLambertMaterial({color: 0x557733}), geo = new THREE.BoxGeometry();
 const mob = () => { const g = new THREE.Group(); g.add(new THREE.Mesh(geo, skin), new THREE.Mesh(geo, eye), new THREE.PointLight(0xffff00, 2)); return {g}; };
 const dead = mob(), live = mob(); let stopped = null; G.__cl1222 = {stop: a => stopped = a};
