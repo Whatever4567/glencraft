@@ -4,7 +4,7 @@ const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
 const i = html.indexOf('const LINES = ["Do not be afraid'); const LINES = eval(html.slice(i + 14, html.indexOf('];', i) + 1));
 const qi = html.indexOf("U.q.push('This is your world"); const Q = eval('[' + html.slice(qi + 9, html.indexOf(');', qi)) + ']');
-const G = {window: null, SET: {sfx: 0.8}}; G.window = G; new Function('with(this){' + cut('/* GLX-VOX1222', '/* GLX-C400') + '}').call(G); const U = G.__vox1222;
+const G = {window: null, SET: {sfx: 0.8}}; G.window = G; new Function('with(this){' + cut('/* GLX-VOX1222', '/* GLX-KEY1222') + '}').call(G); const U = G.__vox1222;
 const all = [...LINES, ...Q, 'Brace for impact.']; assert.equal(Q.length, 4);
 for (const l of all) { const p = U.clip(l, LINES); assert(p, 'recorded: ' + l); assert(fs.existsSync(new URL('../' + p, import.meta.url)), p); }
 assert.equal(U.clip(Q[0], LINES), 'assets/voice/agartha_y1.mp3', 'year 24000 line');
