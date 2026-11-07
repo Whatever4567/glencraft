@@ -17,7 +17,7 @@
   U.best = s => { let b = 0; for (const k in inv) { const id = +k; const a = ARMOUR[id]; if (!a || a.slot !== s || !(cnt(id) > 0)) continue; if (!b || U.rank(id) > U.rank(b)) b = id; } return b; };
   U.slotTap = s => { const cur = armour[s], b = U.best(s);
     if (b && (!cur || U.rank(b) > U.rank(cur))) { equipArmour(b); U.equips++; return 'equip'; }
-    if (cur) { unequip(s); return 'off'; } try { toast('You have no ' + ['helmet', 'chest armour', 'leg armour', 'boots'][s] + ' to wear'); } catch (_) {} return 'none'; };
+    if (cur) { U.kept = (U.kept || 0) + 1; return 'kept'; } try { toast('You have no ' + ['helmet', 'chest armour', 'leg armour', 'boots'][s] + ' to wear'); } catch (_) {} return 'none'; };
   U.jetTap = () => { const cur = armour[4]; if (cur === JET) { unequip(4); return 'off'; }
     if (cnt(JET) > 0) { equipArmour(JET); U.equips++; return 'white'; }
     if (cur) { unequip(4); return 'off'; } try { toast('You have no Jetpack to wear'); } catch (_) {} return 'none'; };

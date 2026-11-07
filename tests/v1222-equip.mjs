@@ -23,8 +23,8 @@ const tap = n => document.querySelector('[data-testid=armour-slot-' + n + ']').d
 // helmets owned: copper 104 (1 pt), gold 112 (2), iron 108 (2), diamond 129 (3)
 Object.assign(G.inv, {104: 1, 112: 1, 108: 1, 130: 2, 109: 1}); const t0 = tot();
 tap('helmet'); assert.equal(G.armour[0], 108, 'iron beats gold on a points tie (lasts longer)'); G.inv[129] = 1; tap('helmet'); assert.equal(G.armour[0], 129, 'diamond best'); assert.equal(G.inv[108], 1, 'old helmet back');
-tap('helmet'); assert.equal(G.armour[0], 0, 'already best: tap takes it off'); assert.equal(G.inv[129], 1);
-tap('chest'); assert.equal(G.armour[1], 130); assert.equal(G.inv[130], 1); assert.equal(tot(), t0 + 1, 'nothing made or lost (+1 is the diamond helmet given above)');
+{ const h0 = G.inv[129] || 0, o0 = G.inv[108]; tap('helmet'); tap('helmet'); assert.equal(G.armour[0], 129, 'already best: tap keeps it on'); assert.equal(G.inv[129] || 0, h0); assert.equal(G.inv[108], o0, 'idempotent'); }
+tap('chest'); assert.equal(G.armour[1], 130); assert.equal(G.inv[130], 1); assert.equal(tot(), t0 + 1, 'nothing made or lost (+1 is the diamond helmet given above, worn now)');
 tap('legs'); assert.equal(G.armour[2], 0); assert(toasts.length);
 // jetpack: white only
 G.inv[777] = 1; G.armour[4] = 0; tap('jetpack'); assert.equal(G.armour[4], 0, 'no white jetpack: gold not worn by the button'); G.inv[291] = 1; G.armour[4] = 777; G.inv[777] = 0; tap('jetpack'); assert.equal(G.armour[4], 291); assert.equal(G.inv[777], 1, 'gold goes back');

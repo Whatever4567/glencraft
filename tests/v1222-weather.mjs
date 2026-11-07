@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import assert from 'node:assert';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
-const src = cut('/* GLX-WX1222', '/* GLX-C400');
+const src = cut('/* GLX-WX1222', '/* GLX-UI1222');
 assert(fs.existsSync(new URL('../tools/content-source/audio/CREDITS.txt', import.meta.url)) && /CC BY-SA 4\.0/.test(src) && /Jud McCranie/.test(src) && /Amuzujoe/.test(src), 'credits');
 assert(src.length > 150000 && src.includes('data:audio/mpeg;base64,'), 'both recordings bundled');
 for (const t of ['out.connect((window.__wx1222 && __wx1222.bus()) || master);', "g.connect((window.__wx1222 && __wx1222.bus()) || (typeof master"]) assert(html.includes(t), t);
