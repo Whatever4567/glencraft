@@ -1,0 +1,11 @@
+const s=require('fs').readFileSync(__dirname+'/../index.html','utf8');let bad=0;const ok=(n,v)=>{if(!v){bad++;console.log('FAIL',n);}};
+const a=s.indexOf('let nx = S.x, ny = S.y, nz = S.z; {'),b=s.indexOf('T.place(nx, ny, nz);',a);const body=s.slice(a,b);
+const run=(v,dt,wallX)=>{const S={x:0,y:10,z:0},U={v:v.slice()};const blocked=(x,y,z)=>x>=wallX||y<5;return new Function('S','U','dt','blocked','window','thump',body+';return [nx,ny,nz,U.subs,U.v];')(S,U,dt,blocked,{},()=>{});};
+let r=run([420,0,0],0.1,20);ok('fast flight stops at wall',r[0]<20&&r[0]>=18&&r[4][0]===0);ok('substeps',r[3]===42);
+r=run([0,-300,0],0.1,99);ok('no dive through floor',r[1]>=5);
+r=run([10,0,0],0.016,99);ok('slow move exact',Math.abs(r[0]-0.16)<1e-9&&r[3]===1);
+ok('solid override bypass',s.includes('if (T.inside && S.on && !T.__raw)'));ok('blocked uses raw',s.includes('const blocked = (x, y, z) => { T.__raw = 1;'));
+ok('no bob in pilot',s.includes('bobAmp = 0; bobMv = 0; landDip = 0; stepT = 1; stepOff = 0;'));ok('hud class',s.includes("classList.toggle('cab1221', on)"));
+ok('door view builds parts',s.includes('(T.inside || (S.on && T.door > 0.02))'));ok('seat',s.includes('rel = U.pilot ? [0, 0, CZ + 2.0]'));
+ok('earlier work kept',s.includes('GLX-AG1220')&&s.includes('U.Pt = Math.max(-1.48')&&s.includes('GLX-Q1220')&&s.includes('if (u41T < u41End)'));
+console.log(bad?'FAIL':'cabin ok');process.exit(bad?1:0);
