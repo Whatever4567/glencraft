@@ -22,7 +22,7 @@ let placed = 0, toasts = [], camN = 0, solidHit = false; const Sx = {on: true, x
 const TB = {S: Sx, inside: true, RR: 3, HW: 3.5, place(x, y, z) { Sx.x = x; Sx.y = y; Sx.z = z; }}, F3 = {pilot: false};
 const C = {THREE, __tbox: TB, __tbox3: F3, P: {x: 100.5, y: 70.4, z: 52, vy: -2}, selId: 5, PLACEABLE: new Set([5]), cnt: () => 3, toast: m => toasts.push(m), raycast: () => ({hit: [100, 69, 51], prev: [100, 70, 51]}),
   solid: () => solidHit, performance, updatePlayer: () => {}, placeCamera: () => { camN++; }, useItem: () => { placed++; }, canMine: () => true};
-C.window = C; new Function('with(this){' + cut('/* GLX-CAB1222', '/* GLX-C400') + '}').call(C); const B = C.__cab1222; assert.equal(B.err, null, B.err);
+C.window = C; new Function('with(this){' + cut('/* GLX-CAB1222', '/* GLX-INV1222') + '}').call(C); const B = C.__cab1222; assert.equal(B.err, null, B.err);
 C.useItem(); assert.equal(placed, 0, 'no world edit from inside the cabin'); assert.equal(B.blocked, 1); assert.equal(C.canMine(1, 69), false);
 TB.inside = false; C.useItem(); assert.equal(placed, 1, 'outside the box placing works'); assert.equal(C.canMine(1, 69), true); TB.inside = true;
 F3.pilot = true; for (const dy of [0.3, 0.6, -0.4]) { Sx.y += dy; C.updatePlayer(0.016); } assert.equal(camN, 3, 'camera placed after the box moves, every flying frame');

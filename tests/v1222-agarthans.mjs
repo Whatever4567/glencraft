@@ -4,7 +4,7 @@ import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/bu
 import fs from 'fs'; import assert from 'assert';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a); return html.slice(i, html.indexOf(b, i)); };
-const ag20 = cut('(function ag1220()', '\n/* GLX-CAB1221'), ag22 = cut('(function ag1222()', '\n/* GLX-C400');
+const ag20 = cut('(function ag1220()', '\n/* GLX-CAB1221'), ag22 = cut('(function ag1222()', '\n/* GLX-PERF1222');
 const AX = 420, AY = -50, ZS = 1560, YN = 48, SW = 200, SD = 200, FL = 5, city = [100, ZS + 100, 60];
 const st = new Uint16Array(SW * SD * YN), ix = (x, z, y) => (x * SD + z) * YN + y; for (let x = 0; x < SW; x++) for (let z = 0; z < SD; z++) for (let y = 0; y < FL; y++) st[ix(x, z, y)] = y === FL - 1 ? 2 : 1;
 const T = {GRASS: 2, STONE: 1, DIRT: 3, WATER: 9, LAVA: 10, GLOWCAP: 100}, scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera();

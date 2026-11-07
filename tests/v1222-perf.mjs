@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import assert from 'node:assert';
 import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const a = html.indexOf('/* GLX-PERF1222'), b = html.indexOf('/* GLX-C400', a); const src = html.slice(a, b); assert(a > 0 && b > a);
+const a = html.indexOf('/* GLX-PERF1222'), b = html.indexOf('/* GLX-CAB1222', a); const src = html.slice(a, b); assert(a > 0 && b > a);
 let held = 0, osc = 0; const HARD = {1: 1.5, 2: 50, 3: 0.5, 4: -1}, MC_HARD = {};
 const AC = {currentTime: 0, destination: {}, createGain: () => ({gain: {value: 0, setValueAtTime() {}, exponentialRampToValueAtTime() {}}, connect() {}}),
   createOscillator: () => { osc++; return {type: '', frequency: {setValueAtTime() {}, exponentialRampToValueAtTime() {}}, connect() {}, start() {}, stop() {}}; }};
@@ -37,6 +37,6 @@ held = 760; G.breakAt(1, 1, 1); assert.equal(rebuilds, 4, 'other tools remesh at
 const id = (x, y, z) => (x * H + y) * D + z, arr = []; for (let x = 10; x < 26; x++) for (let z = 10; z < 26; z++) for (let y = 5; y < 25; y++) { world[id(x, y, z)] = 9; arr.push(x, y, z); }
 for (let x = 8; x < 28; x++) for (let z = 8; z < 28; z++) for (let y = 3; y < 25; y++) if (!world[id(x, y, z)]) world[id(x, y, z)] = 9;   // sea around, air above
 G.buildWaterGeo(arr); const kept = wgIn; let shell = 0; for (let i = 0; i < arr.length; i += 3) { const [x, y, z] = [arr[i], arr[i + 1], arr[i + 2]]; const nb = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]].some(([a, b, c]) => world[id(x + a, y + b, z + c)] !== 9); if (nb) shell++; }
-assert.equal(kept, shell, 'every cell that can show a face is kept'); G.DIM.cur = 'x'; G.buildWaterGeo(arr); assert.equal(wgIn, arr.length / 3, 'other realms unchanged'); G.DIM.cur = null;
+assert.equal(kept, shell, 'every cell that can show a face is kept'); G.__c321 = {ax: 0}; G.buildWaterGeo(arr); assert.equal(wgIn, arr.length / 3, 'turned world: no skip'); G.__c321 = {ax: 2}; G.buildWaterGeo(arr); assert.equal(wgIn, kept); G.__XZ = 14; G.buildWaterGeo(arr); assert(wgIn > kept, 'cells next to the extension are not skipped'); delete G.__XZ; G.DIM.cur = 'x'; G.buildWaterGeo(arr); assert.equal(wgIn, arr.length / 3, 'other realms unchanged'); G.DIM.cur = null;
 console.log('ocean cells', arr.length / 3, 'meshed', kept);
 console.log('v1222-perf ok', JSON.stringify({merged: U.merged, hits: U.mergeHit, parts: U.parts}));

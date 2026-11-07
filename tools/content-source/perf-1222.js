@@ -69,12 +69,15 @@
     const ui = updateInteraction; updateInteraction = function () { const r = ui.apply(this, arguments); try { let att = true; try { att = !!(attackMouse || attackPad || attackTouch); } catch (_) {} U.flush(!att || !held761()); } catch (e) { ERR('flush', e); } return r; };
   } catch (e) { ERR('coalesce', e); }
   // ---- far ocean meshing: water cells whose six neighbours are all water make no faces; skip them before the per face checks ----
+  // Guards: the only getB overlays that change answers inside the world array are the turned world (GLX-C321, skip is off while it is
+  // turned) and the extension south of the map (GLX-C317 and C320, cells next to it are never skipped). The rest act only outside the map.
   // Every water cell of a chunk goes to buildWaterGeo and each face check goes through the stacked getB wrappers. Only in the overworld,
   // only for cells fully inside the world array; edge cells and every cell that could show a face take the old path unchanged.
   U.waterIn = 0; U.waterKept = 0;
-  try { const bw = buildWaterGeo; buildWaterGeo = function (arr) { try { if (!(typeof DIM !== 'undefined' && DIM.cur) && arr && arr.length > 300) { const WT = T.WATER, HD = H * D, out = [];
+  try { const bw = buildWaterGeo; buildWaterGeo = function (arr) { try { const zMin = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0, rot = !!(window.__c321 && __c321.ax !== 2 && !window.__c317mesh); U.waterGuard = rot ? 'rotated' : 'ok';
+        if (!rot && !(typeof DIM !== 'undefined' && DIM.cur) && arr && arr.length > 300) { const WT = T.WATER, HD = H * D, out = [];
           for (let i = 0; i < arr.length; i += 3) { const x = arr[i], y = arr[i + 1], z = arr[i + 2];
-            if (x > 0 && x < W - 1 && z > 0 && z < D - 1 && y > 0 && y < H - 1) { const j = (x * H + y) * D + z;
+            if (x > 0 && x < W - 1 && z > 0 && z - 1 >= zMin && z < D - 1 && y > 0 && y < H - 1) { const j = (x * H + y) * D + z;
               if (world[j] === WT && world[j + D] === WT && world[j - D] === WT && world[j + 1] === WT && world[j - 1] === WT && world[j + HD] === WT && world[j - HD] === WT) continue; }
             out.push(x, y, z); }
           U.waterIn += arr.length / 3; U.waterKept += out.length / 3; arr = out; } } catch (e) { ERR('water', e); } return bw.call(this, arr); }; } catch (e) { ERR('bw', e); }
