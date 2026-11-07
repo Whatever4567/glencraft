@@ -31,7 +31,7 @@ sp.click(); assert.equal(calls.spawn, 1, 'disabled does nothing'); G.DIM.cur = n
 // settings on/off
 U.aria(); const [on, off] = document.querySelectorAll('.seg button'); assert.equal(on.getAttribute('aria-pressed'), 'true'); assert.equal(off.getAttribute('aria-pressed'), 'false');
 on.classList.remove('on'); off.classList.add('on'); U.aria(); assert.equal(off.getAttribute('aria-pressed'), 'true'); const n0 = U.ariaN; U.aria(); assert.equal(U.ariaN, n0, 'no rewrite when unchanged');
-const css = document.getElementById('ui1222css').textContent; assert(/\.seg button\.on\{background:#fff!important;color:#0b0b0b/.test(css) && /\\2713/.test(css) && /min-height:44px/.test(css) && /font-size:13px/.test(css) && /focus-visible/.test(css));
+const css = document.getElementById('ui1222css').textContent; assert(/\.seg button\.on\{background:#fff!important;color:#0b0b0b/.test(css) && /\\2713/.test(css) && /min-height:44px/.test(css) && /font-size:13px/.test(css) && /focus-visible/.test(css)); assert(css.includes('.c277ctl{background:linear-gradient') && css.includes('prefers-reduced-motion:reduce){.c277ctl{animation:none'), 'gold shimmer on the controller mark only, static when reduced motion');
 // quit confirm
 const q = document.getElementById('saveQuit'); q.click(); assert.equal(saved, 0, 'not saved yet'); assert(U.open()); assert.equal(confirmCalled, 0, 'no browser confirm');
 document.getElementById('ui22no').click(); assert(!U.open()); assert.equal(saved, 0, 'cancel does nothing');

@@ -5,6 +5,7 @@
    - Settings: smaller text, same big tap areas; on and off buttons are strongly inverted (the chosen one is white with dark text and a tick,
      the other is dark and dim), they report pressed state to screen readers, and focus has a clear gold ring.
    - Save and quit asks first, in the game (not a browser box). Cancel does nothing; Yes runs the save and quit once.
+   - The Controller supported mark on the title screen has a soft gold shimmer (still gold, no motion, if the device asks for reduced motion).
    - Offhand slot sits on the right of the character, the armour on the left. */
 (function ui1222() {
   const U = window.__ui1222 = {err: null, tp: 0, renders: 0, asks: 0, quits: 0, ariaN: 0};
@@ -43,6 +44,8 @@
       '#pause .seg button.on::before{content:"\\2713  "}#pause .seg button:not(.on){background:#121417!important;color:#8d949c!important;border:2px solid #3a3f45!important;font-weight:600}' +
       '#pause button:focus-visible,#pause button.focus,#ui22ask button:focus-visible{outline:3px solid #ffd84a!important;outline-offset:2px}' +
       '#tpmBox .ui22h{font-weight:800;text-align:center;font-size:16px}#tpmBox .ui22g{font-size:12px;opacity:.75;margin:6px 2px 0;text-transform:uppercase;letter-spacing:.06em}#tpmBox .btn[disabled]{opacity:.5}' +
+      '.c277ctl{background:linear-gradient(100deg,#b8862b 0%,#f6d77a 35%,#fff4c8 50%,#f6d77a 65%,#b8862b 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-shadow:0 0 6px rgba(246,200,90,.35);animation:ui22sh 3.2s linear infinite}' +
+      '@keyframes ui22sh{from{background-position:100% 0}to{background-position:-150% 0}}@media (prefers-reduced-motion:reduce){.c277ctl{animation:none;background-position:50% 0}}' +
       '#ui22row{display:flex;gap:8px;align-items:stretch;min-height:0}#ui22row>#charView{flex:1 1 auto}#ui22off{display:flex;flex-direction:column;gap:8px;width:96px}';
     document.head.appendChild(st); } catch (e) { ERR('css', e); }
   U.aria = () => { for (const b of document.querySelectorAll('#pause .seg button')) { const v = b.classList.contains('on') ? 'true' : 'false'; if (b.getAttribute('aria-pressed') !== v) { b.setAttribute('aria-pressed', v); U.ariaN++; } } };
