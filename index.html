@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1300-v1.3.0 -->
+<!-- glencraft-build: b1210-v1.2.10 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13358,7 +13358,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.3.0';
+const GAME_VERSION = '1.2.10';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -49957,7 +49957,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     } catch (e) { ERR('ufo', e); clearInterval(boot); } }, 500);
 })();
 
-/* GLX-V130 (v1.3.0): time box cockpit. A blue glass time rotor tube with flowing yellow energy on the console, a pilot stick beside it
+/* GLX-V130 (v1.2.10): time box cockpit. A blue glass time rotor tube with flowing yellow energy on the console, a pilot stick beside it
    that leans with your input (your hand rests on it while you fly), chrome/purple/blue interior tint, and a looping in-flight hum
    made in code. Controls are in the TBOX3 flight patch: right stick = up/down and left/right, left stick = spin only, LS = boost. */
 (function v130() {
@@ -49987,6 +49987,23 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         g.gain.value = 0.0001; o1.connect(f); o2.connect(f); f.connect(g); g.connect(a.destination); o1.start(); o2.start(); lf.start(); g.gain.setTargetAtTime(0.07 * vol(), a.currentTime, 0.4); hum = {o: [o1, o2, lf], g}; U.hum++; }
       else if (!on && hum) { const h = hum; hum = null; h.g.gain.setTargetAtTime(0.0001, AC.currentTime, 0.3); setTimeout(() => { for (const o of h.o) try { o.stop(); } catch (_) {} }, 1200); } } catch (e) { ERR('hum', e); } }
   U.lean = [0, 0];
+  // ---- pinned hand: while flying, a gloved hand + sleeve grips the stick knob and follows its lean; the normal first person
+  //      hand/arms are only skipped for the frames drawn while piloting (their pose/scale state is never touched) ----
+  let grip = null, fore = null; const gv = new THREE.Vector3(), cv3 = new THREE.Vector3(), dv = new THREE.Vector3(), Yv = new THREE.Vector3(0, 1, 0);
+  function mkGrip() { const SM = T.SM || (m => m), skin = SM(new THREE.MeshLambertMaterial({color: 0xe0b08a})), sl = SM(new THREE.MeshLambertMaterial({color: 0x2a3a6a}));
+    grip = new THREE.Group(); const palm = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.09, 0.12), skin); grip.add(palm);
+    for (let i = 0; i < 4; i++) { const f = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.016, 6, 10, Math.PI * 1.3), skin); f.position.set(-0.04 + i * 0.027, 0.01, 0); f.rotation.y = Math.PI / 2; grip.add(f); }
+    const th = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.07, 6), skin); th.position.set(-0.07, 0.03, 0.03); th.rotation.z = 0.9; grip.add(th);
+    fore = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.055, 1, 10), sl); fore.geometry.translate(0, 0.5, 0);
+    for (const o of [grip, fore]) { o.traverse(q => { if (q.material) { q.material.stencilFunc = T.camIn ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; q.material.needsUpdate = true; } }); o.visible = false; scene.add(o); } }
+  U.pinned = () => { const f = F(); return !!(f && f.pilot && T.inside && U.built && knob); };
+  function placeGrip() { if (!grip) mkGrip(); const on = U.pinned(); grip.visible = fore.visible = on; if (!on) return;
+    knob.updateMatrixWorld(true); knob.getWorldPosition(gv); grip.position.copy(gv); grip.quaternion.copy(stick.getWorldQuaternion(new THREE.Quaternion()));
+    camera.updateMatrixWorld(true); cv3.set(0.28, -0.42, -0.15).applyMatrix4(camera.matrixWorld); dv.subVectors(gv, cv3); const L = dv.length() || 1;
+    fore.position.copy(cv3); fore.scale.set(1, L, 1); fore.quaternion.setFromUnitVectors(Yv, dv.divideScalar(L)); }
+  try { const rr = renderer.render; renderer.render = function (sc, cam) { let hide = null;
+      try { if (sc === scene && cam === camera) { placeGrip(); if (U.pinned()) { hide = []; const R = window.__fpa && __fpa.rig ? __fpa.rig() : null; for (const o of [typeof hand !== 'undefined' ? hand : null, R]) if (o && o.visible) { o.visible = false; hide.push(o); } } } } catch (e) { ERR('grip', e); }
+      try { return rr.apply(this, arguments); } finally { if (hide) for (const o of hide) o.visible = true; } }; } catch (e) { ERR('rr', e); }
   setInterval(() => { try { if (T.inside) build(); const f = F(); humOn(!!(f && f.pilot && T.inside)); } catch (e) { ERR('tick', e); } }, 250);
   try { const up = updatePlayer; updatePlayer = function (dt) { const r = up.apply(this, arguments); try { if (!U.built) return r; t += dt || 0.016;
       if (core) { core.material.opacity = 0.65 + 0.3 * Math.sin(t * 6); core.scale.x = core.scale.z = 1 + 0.15 * Math.sin(t * 9); }
@@ -50620,7 +50637,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{"v":"v1.3.0","d":"2026-11-07","notes":["Time box: about twice as big and twice as tall inside, with a chrome, purple and blue look.","A blue glass column with flowing yellow energy stands on the console, with a pilot stick beside it.","Flying: press X at the console. Right stick moves up, down, left and right, left stick spins the box, LS boosts with a whoosh. The big screen shows the view outside.","A steady time-travel hum plays while you fly."]},
+{"v":"v1.2.10","d":"2026-11-07","notes":["Time box: about twice as big and twice as tall inside, with a chrome, purple and blue look.","A blue glass column with flowing yellow energy stands on the console, with a pilot stick beside it.","Flying: press X at the console. Right stick moves up, down, left and right, left stick spins the box, LS boosts with a whoosh. The big screen shows the view outside.","A steady time-travel hum plays while you fly."]},
 {"v":"v1.2.9","d":"2026-11-07","notes":["Chrome mode is now a setting: once you have met the visitor, switch it on or off in Settings. The revisit portal is gone.","Your own UFO can no longer be flown. The visitor encounter is unchanged.","The visitor has new things to say about Agartha.","Time box: the steering wheel is gone. You still fly it from the console."]},
 {"v":"v1.2.8","d":"2026-11-07","notes":["Oak and silver birch are retired: new worlds grow Scots pine instead, and any oak or birch you collect becomes the Scots pine version. Existing builds are left as they are."]},
 {"v":"v1.2.7","d":"2026-11-07","notes":["New setting: Disable mobs. When on, no mobs spawn and any around you are removed. Saved with your settings."]},
