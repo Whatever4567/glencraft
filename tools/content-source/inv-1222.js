@@ -52,17 +52,26 @@
     d.addEventListener('click', () => U.tap(r)); return d; }
   U.tap = r => { if (!pickR) { pickR = r; try { sfx('pop', .25); } catch (_) {} } else if (pickR.k === r.k && pickR.i === r.i) pickR = null; else { U.swap(pickR, r); pickR = null; try { sfx('pop', .35); } catch (_) {} } U.render(); };
   U.picked = () => pickR;
-  U.render = () => { const pane = $('invPane'); if (!pane) return; U.renders++; document.body.classList.add('inv22'); lab();
+  U.render = () => { const pane = $('invPane'); if (!pane) return; U.renders++; let fk = null; try { if (typeof navEl !== 'undefined' && navEl && root && root.contains(navEl)) fk = navEl.dataset.testid || null; } catch (_) {} document.body.classList.add('inv22'); lab();
     if (!root || root.parentNode !== pane) { root = document.createElement('div'); root.id = 'inv22'; root.dataset.testid = 'inventory-slots'; pane.appendChild(root); }
     const S = U.layout(); root.innerHTML = '';
     const bar = document.createElement('div'); bar.className = 'bar'; bar.innerHTML = '<span>Pick a slot, then another slot to swap them</span>'; const bb = document.createElement('button'); bb.className = 'btn small'; bb.dataset.testid = 'inv-creative-bag'; bb.textContent = bagOn ? 'Back to inventory' : 'Creative bag'; bb.addEventListener('click', () => { bagOn = !bagOn; pickR = null; U.render(); }); bar.appendChild(bb); root.appendChild(bar);
     if (bagOn) { const g = document.createElement('div'); g.className = 'cb'; g.dataset.testid = 'inv-creative-grid'; const all = (typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : ORDER).filter(id => NAMES[id] && id !== 990);
-      for (const id of all) { const b = document.createElement('button'); b.className = 'gslot'; b.title = NAMES[id]; b.setAttribute('aria-label', 'Take ' + NAMES[id]); b.innerHTML = '<div class="ic' + iconClass(id) + '" style="' + iconStyle(id) + '"></div>'; b.addEventListener('click', () => U.take(id)); g.appendChild(b); }
+      for (const id of all) { const b = document.createElement('button'); b.className = 'gslot'; b.title = NAMES[id]; b.dataset.testid = 'inv-cb-' + id; b.setAttribute('aria-label', 'Take ' + NAMES[id] + (cnt(id) > 0 ? ', you have ' + cnt(id) : '')); b.innerHTML = cnt(id) > 0 ? slotHTML(id, cnt(id)) : '<div class="ic' + iconClass(id) + '" style="' + iconStyle(id) + '"></div>'; b.addEventListener('click', () => U.take(id)); g.appendChild(b); }
       root.appendChild(g); }
     else { const g = document.createElement('div'); g.className = 'g'; g.dataset.testid = 'inv-grid'; S.forEach((id, i) => g.appendChild(cell(id, {k: 'g', i}))); root.appendChild(g); }
     const h = document.createElement('div'); h.className = 'h'; h.dataset.testid = 'inv-hotbar'; for (let i = 0; i < 9; i++) h.appendChild(cell(MODE.hotbar[i], {k: 'h', i})); root.appendChild(h);
-    try { renderHotbar(); } catch (_) {} try { navRefresh(); } catch (_) {} };
-  U.take = id => { addItem(id, stackOf(id)); U.layout(); try { sfx('pop', .35); } catch (_) {} U.render(); };
+    try { renderHotbar(); } catch (_) {} try { if (fk) { const e = root.querySelector('[data-testid="' + fk + '"]'); if (e) navEl = e; } } catch (_) {} try { navRefresh(); } catch (_) {} };
+  U.take = id => { addItem(id, stackOf(id)); U.layout(); U.took = (U.took || 0) + 1; try { sfx('pop', .35); } catch (_) {} try { toast(NAMES[id] + ': you have ' + cnt(id)); } catch (_) {} U.render(); };
+  // v1.2.23: controller Y (quick move) works on the new storage: storage item to the next free hotbar slot, armour goes on, hotbar item back to storage, creative bag item taken
+  U.quick = el => { const t = el && el.dataset && el.dataset.testid || ''; let m;
+    if ((m = /^inv-cb-(\d+)$/.exec(t))) { U.take(+m[1]); return true; }
+    if ((m = /^inv-hot-(\d+)$/.exec(t))) { const i = +m[1]; if (MODE.hotbar[i]) { MODE.hotbar[i] = 0; U.layout(); try { sfx('pop', .3); } catch (_) {} U.render(); } return true; }
+    if ((m = /^inv-slot-(\d+)$/.exec(t))) { U.layout(); const id = prog.inv22[+m[1]]; if (!has(id)) return true; pickR = null;
+      if (typeof ARMOUR !== 'undefined' && ARMOUR[id] && typeof equipArmour === 'function') equipArmour(id);
+      else { const hb = MODE.hotbar; let i = hb.findIndex(x => !x || !has(x)); if (i < 0) { i = hb.indexOf(selId); if (i < 0) i = 0; } U.swap({k: 'g', i: +m[1]}, {k: 'h', i}); }
+      try { sfx('pop', .3); } catch (_) {} U.render(); return true; } return false; };
+  if (typeof quickMove === 'function') try { const qm = quickMove; quickMove = function () { try { if (surv() && typeof invTab !== 'undefined' && invTab === 'bag' && typeof navEl !== 'undefined' && navEl && root && root.contains(navEl) && (typeof cursor === 'undefined' || !cursor) && U.quick(navEl)) return; } catch (e) { ERR('qm', e); } return qm.apply(this, arguments); }; } catch (e) { ERR('qmw', e); }
   try { const rb = renderBag; renderBag = function () { if (!surv()) { document.body.classList.remove('inv22'); return rb.apply(this, arguments); } try { return U.render(); } catch (e) { ERR('render', e); document.body.classList.remove('inv22'); return rb.apply(this, arguments); } }; } catch (e) { ERR('rbw', e); }
   try { if (typeof TABS !== 'undefined' && !TABS.includes('char')) TABS.push('char'); } catch (e) { ERR('tabs', e); }
   try { const om = openMenu; openMenu = function (open) { if (!open) pickR = null; lab(); return om.apply(this, arguments); }; } catch (e) { ERR('om', e); }
