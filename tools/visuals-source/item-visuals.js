@@ -65,5 +65,7 @@
   U.apply = () => { let n = 0; for (const k in U.icons) if (ICONS[k] !== U.icons[k]) { set(+k, U.icons[k]); n++; } if (n) { U.applied += n; try { renderHotbar(); } catch (_) {} } return n; };
   U.build = build;
   // bounded: later icon owners run on timers during boot, so re-assert ours for ~2 minutes, then stop
-  let tries = 0; const iv = setInterval(() => { try { if (typeof ICONS === 'undefined' || !ICONS[IT.BREAD]) return; if (!Object.keys(U.icons).length) build(); U.apply(); } catch (e) { ERR('apply', e); } if (++tries > 120) clearInterval(iv); }, 1000);
+  // Idempotent: build once; apply only replaces an icon that differs (caches cleared only for that id). Stops after icons have
+  // been stable for 10 checks in a row, or after 120 checks at most, so unchanged icons never churn caches.
+  let tries = 0, stable = 0; const iv = setInterval(() => { try { if (typeof ICONS === 'undefined' || !ICONS[IT.BREAD]) return; if (!Object.keys(U.icons).length) build(); stable = U.apply() ? 0 : stable + 1; } catch (e) { ERR('apply', e); } if (++tries > 120 || stable >= 10) clearInterval(iv); }, 1000);
 })();
