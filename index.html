@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1212-v1.2.12 -->
+<!-- glencraft-build: b1213-v1.2.13 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13358,7 +13358,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.12';
+const GAME_VERSION = '1.2.13';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -43304,10 +43304,13 @@ function make42(E) {
   function stopBed() { if (!bed) return; const b = bed; bed = null; try { b.out.gain.linearRampToValueAtTime(0, AC.currentTime + 2); setTimeout(() => b.os.forEach(o => { try { o.stop(); } catch (_) {} }), 2500); } catch (_) {} }
   function pickVoice() { try { const vs = speechSynthesis.getVoices(); return vs.find(v => /en/i.test(v.lang) && /natural|online|neural|premium|enhanced/i.test(v.name)) || vs.find(v => /en/i.test(v.lang) && /female|zira|samantha|google uk english female|karen|moira/i.test(v.name)) || vs.find(v => /en/i.test(v.lang)) || null; } catch (_) { return null; } }
   function say() { if (!U.on) return; const line = window.__c248 && __c248.q.length ? __c248.q.shift() : (li < LINES.length ? LINES[li++] : null); if (!line) { setTimeout(say, 1200); return; }   /* v1.0.74: every line once, never repeated */ try { window.__c248 && __c248.chirp(2 + line.length / 14); } catch (_) {} U.lines++; if (sub) { sub.style.opacity = 0; setTimeout(() => { if (sub) { sub.textContent = line; sub.style.opacity = 1; } }, 250); }
+    { const vi = LINES.indexOf(line); if (vi >= 0) { try { const a = new Audio('assets/voice/agartha' + (vi + 1) + '.mp3'); a.volume = Math.min(1, (typeof SET !== 'undefined' ? SET.sfx : 0.8) + 0.2); window.__v1213a = a; let done = false; const next = d => { if (done) return; done = true; setTimeout(say, d); };
+      a.onended = () => next(700); a.onerror = () => { done = true; if (ttsOn) { try { const u = new SpeechSynthesisUtterance(line); u.onend = () => setTimeout(say, 700); speechSynthesis.speak(u); return; } catch (_) {} } setTimeout(say, 4000); };
+      const pr = a.play(); if (pr && pr.catch) pr.catch(() => a.onerror()); U.tts++; return; } catch (_) {} } }
     if (ttsOn) { try { const u = new SpeechSynthesisUtterance(line), v = pickVoice(); if (v) u.voice = v; u.pitch = 1.0; u.rate = 0.94; u.volume = 1; u.onend = () => setTimeout(say, 700); u.onerror = () => setTimeout(say, 4000); speechSynthesis.speak(u); U.tts++; return; } catch (_) {} }
     setTimeout(say, 4200 + line.length * 40); }
   // ---------- visions around the alien ----------
-  const CLIPS = ['assets/video/v1_nuke.mp4', 'assets/video/v2_blast.mp4', 'assets/video/v3_storm.mp4', 'assets/video/v4_earth.mp4', 'assets/video/v5_aurora.mp4', 'assets/video/v6_flare.mp4', 'assets/video/v7_volcano.mp4'];
+  const CLIPS = ['assets/video/v1_nuke.mp4', 'assets/video/v2_blast.mp4', 'assets/video/v3_storm.mp4', 'assets/video/v4_earth.mp4', 'assets/video/v5_aurora.mp4', 'assets/video/v6_agartha.mp4', 'assets/video/v7_volcano.mp4'];
   const PLAN = [['k', 0, 6], ['v', 0, 7], ['k', 1, 6], ['v', 4, 7], ['k', 2, 6], ['v', 2, 7], ['c', 1, 6], ['v', 6, 7], ['v', 5, 5], ['k', 3, 5]];   // v1.0.74: no drawn bomb; the 4th clip covers the chrome build
   let ov = null, panes = [], vids = [], segI = -1, segT = 0;
   function mkOverlay() { ov = document.createElement('div'); ov.id = 'c246ov'; ov.style.cssText = 'position:fixed;inset:0;z-index:70;pointer-events:none;opacity:0;transition:opacity 1.2s;overflow:hidden';
@@ -43332,7 +43335,7 @@ function make42(E) {
     try { if (document.pointerLockElement) document.exitPointerLock(); } catch (_) {} try { toast('Something is coming out of the wreck...'); } catch (_) {} };
   U.forceBegin = () => window.__c246 && (__c246.ufo() ? U.begin(__c246.ufo()) : ((__c246.spawnRaw || __c246.spawn)(), U.begin(__c246.ufo())));
   function end() { U.on = 0; froze = 0; U.done = 1; try { localStorage.setItem('glen_met_' + current.id, '1'); } catch (_) {} if (ov) { const o = ov; o.style.opacity = 0; setTimeout(() => o.remove(), 1300); ov = null; } for (const v of vids) if (v) { try { v.pause(); v.removeAttribute('src'); v.load(); } catch (_) {} } vids = []; panes = []; sub = null;
-    try { speechSynthesis.cancel(); } catch (_) {} stopBed(); try { __c248.stop24(); __c248.stopMusic(); } catch (_) {} if (bub) { scene.remove(bub); bub = null; } try { if (current) current.c246 = Object.assign(current.c246 || {}, {met: 1}); dirty = true; } catch (_) {}
+    try { speechSynthesis.cancel(); } catch (_) {} try { if (window.__v1213a) { window.__v1213a.onended = window.__v1213a.onerror = null; window.__v1213a.pause(); window.__v1213a = null; } } catch (_) {} stopBed(); try { __c248.stop24(); __c248.stopMusic(); } catch (_) {} if (bub) { scene.remove(bub); bub = null; } try { if (current) current.c246 = Object.assign(current.c246 || {}, {met: 1}); dirty = true; } catch (_) {}
     try { window.__c246 && __c246.leave(); toast('The saucer darts away... Something tells you not to switch on a TV.'); } catch (_) {} }
   U.end = end;
   function frame(dt) { if (!U.on || !bub) return; U.t += dt; const t = U.t, d = bub.userData; d.mat.uniforms.uT.value = t; d.orb.rotation.y += dt * 0.9; d.orb.rotation.x = Math.sin(t * 0.4) * 0.3; d.rings[0].rotation.y += dt * 0.5; d.rings[1].rotation.y -= dt * 0.7;
@@ -50742,6 +50745,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.13","d":"2026-11-07","notes":["The visitor now speaks with a smoother, calmer computer-made voice instead of the browser voice.","The montage during the encounter shows new Agartha artwork (an inner sun, crystal spires and blue-robed keepers) in place of the solar flare clip."]},
 {"v":"v1.2.12","d":"2026-11-07","notes":["New worlds: the deepest caves now change in smooth layers - Fungal loam, then Gloamstone, Ember basalt and Abyss crystal rock near the bottom. All can be mined and placed.","Somewhere under the middle of the island, deep down, an ancient sealed chamber of Watcher brick holds a giant fiery eye. Dig to find it."]},
 {"v":"v1.2.11","d":"2026-11-07","notes":["New: Blue crystal pickaxe (15x mining speed) and Purple crystal pickaxe (50x). Craft the blue one from 2 Blocks of diamond, 3 Diamonds and 2 Sticks, then upgrade it with 4 Blocks of diamond."]},
 {"v":"v1.2.10","d":"2026-11-07","notes":["Time box: about twice as big and twice as tall inside, with a chrome, purple and blue look.","A blue glass column with flowing yellow energy stands on the console, with a pilot stick beside it.","Flying: press X at the console. Right stick moves up, down, left and right, left stick spins the box, LS boosts with a whoosh. The big screen shows the view outside.","A steady time-travel hum plays while you fly."]},

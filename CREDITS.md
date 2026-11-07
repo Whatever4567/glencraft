@@ -132,3 +132,9 @@ The modified CC BY-SA clips are shared under the same licence.
 
 ## TV
 - assets/tv/edit1-3.mp4: the players own video edits, shown on the in game TV with permission of the owner.
+
+## Visitor voice (v1.2.13)
+`assets/voice/agartha1-9.mp3` are synthetic computer-generated speech made offline with Piper TTS (voice model `en_GB-alba-medium`, trained on the CC BY 4.0 Alba dataset), then processed with ffmpeg. They are not recordings of a person and do not imitate anyone.
+
+## Agartha clip (v1.2.13)
+`assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
