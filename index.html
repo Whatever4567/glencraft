@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1217-v1.2.17 -->
+<!-- glencraft-build: b1218-v1.2.18 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.17';
+const GAME_VERSION = '1.2.18';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -20705,12 +20705,16 @@ rebuild = function (budget) {
       chunkObjs.delete(id); chunkLists.delete(id); dirtyCh.add(id); rebuild._unloaded = true;
     }
   }
+  const sg18 = Math.floor(pcx) + ',' + Math.floor(pcz) + ',' + dirtyCh.size + ',' + R;
+  if (rebuild._sg === sg18 && !rebuild._unloaded) return;
   let ids = [...dirtyCh].filter(id => dist(id) <= R);
-  if (!ids.length && !rebuild._unloaded) return;
+  if (!ids.length && !rebuild._unloaded) { rebuild._sg = sg18; return; }
+  rebuild._sg = null;
   rebuild._unloaded = false;
   ids.sort((a, b) => dist(a) - dist(b));
   const tB = performance.now();
   for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  { const left = ids.some(id => dirtyCh.has(id)), nw = performance.now(); if (left && nw - (rebuild._es || 0) < 300) { rebuild._skipSync = (rebuild._skipSync || 0) + 1; return; } rebuild._es = nw; rebuild._syncs = (rebuild._syncs || 0) + 1; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
   redOres = all[T.REDORE] || [];
@@ -20720,7 +20724,7 @@ rebuild = function (budget) {
 (function streamTick() {
   // walking into new ground: queue a rebuild pass even when nothing was edited
   let lc = -1;
-  setInterval(() => { if (!started) return; const c = Math.floor(P.x / CH) * 64 + Math.floor(P.z / CH); if (c !== lc) { lc = c; if ([...dirtyCh].length) rebuild(8); } }, 250);
+  setInterval(() => { if (!started) return; const c = Math.floor(P.x / CH) * 64 + Math.floor(P.z / CH); if (c !== lc) { lc = c; if (dirtyCh.size) rebuild(8); } }, 250);
 })();
 
 /* ===================== GLX-B9f: one-time Gold world migration to the highlands generator ===================== */
@@ -51007,6 +51011,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.18","d":"2026-11-07","notes":["Less work while walking: the game no longer rechecks every unbuilt part of the map each frame, and it gathers torches, chests and doors once a new area is built instead of after every single chunk."]},
 {"v":"v1.2.17","d":"2026-11-07","notes":["New UK worlds: the ground now goes down to unbreakable bedrock at y -237, with normal caves down to y 0 and four big open cave layers below.","Layer 1 is green nature caves with grass, moss and mushroom trees. Layer 2 is deep blue caves with water pools and soft dripping sounds. Layer 3 is crystal geode caves. Layer 4 is the tallest, a fire layer with basalt columns, lava lakes and the Watcher eye shrine.","Old Watcher brick spiral stairs lead down through every layer.","The stacked bands of new blocks near the bottom of the island are gone from new worlds.","Fixed: chests in the world now use the new chest textures, and the new chest icon and other new item icons no longer change back to the old ones after a few minutes.","Less work while walking on the surface: the game no longer builds hidden underground chunks under the map while you are above ground.","Older worlds keep their own underground."]},
 {"v":"v1.2.16","d":"2026-11-07","notes":["New worlds: wider caves around the Watcher chamber. Up to five broad galleries are joined to the chamber and to each other by wide winding passages.","Each gallery has its own rock: fungal green, deep blue, ember basalt or purple crystal, with smooth changes along the passages.","Ruins: old Watcher-brick colonnades in two galleries and a broken bridge over a sealed lava channel in another.","The caves stay at the same depth as before."]},
 {"v":"v1.2.15","d":"2026-11-07","notes":["New worlds: the Watcher chamber and its cave tunnel are now made even when the Agartha tunnel is placed a moment after the world, instead of being left out."]},
