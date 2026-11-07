@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1204-v1.2.4 -->
+<!-- glencraft-build: b1205-v1.2.5 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13339,7 +13339,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.4';
+const GAME_VERSION = '1.2.5';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -31331,7 +31331,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     let dy = yaw - lyaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); const dp = pitch - lpitch; lyaw = yaw; lpitch = pitch;
     const k = 1 - Math.exp(-dt * 9), cl = v => Math.max(-0.06, Math.min(0.06, v));
     swx += (cl(dy * 0.9) - swx) * k; swy += (cl(-dp * 0.9) - swy) * k; swr += (cl(dy * 1.6) - swr) * k;
-    const s = on === 'main' ? 1 : -1; fists[1].visible = s === 1; fists[-1].visible = s === -1;
+    const s = on === 'main' ? 1 : -1; fists[1].visible = false; fists[-1].visible = false; /* v1.2.5: old map arm off */
     const mv = Math.hypot(P.vx || 0, P.vz || 0); bob += dt * (mv > 0.5 ? 7 : 1.5);
     // v1.0.23: fit the whole map on screen in landscape and portrait (pull it back on narrow screens), hand below it
     const tf = Math.tan((camera.fov || 75) * Math.PI / 360), asp = camera.aspect || 1, hx = MS * 0.515;
@@ -38126,7 +38126,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- 5. save / load ----------
   const TY = Object.keys(DRAW);
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && U.props.length) d.c150p = U.props.map(p => [TY.indexOf(p.t), p.c, p.x, p.y, p.z, p.f, p.v || 0, p.w || 0, p.d || 0, p.h || 0, p.L || 0, p.a ? p.a.join(',') : '', p.dead ? 1 : 0]); } catch (e) { U.err = 'ser ' + e.message; } return d; };
-  const ap = applySave; applySave = function (d) { const res = ap.apply(this, arguments); try { if (d && !d.dim) { U.rebuild(); U.props = (d.c150p || []).map(q => { const o = {t: TY[q[0]], c: q[1], x: q[2], y: q[3], z: q[4], f: q[5]}; if (q[6]) o.v = q[6]; if (q[7]) o.w = q[7]; if (q[8]) o.d = q[8]; if (q[9]) o.h = q[9]; if (q[10]) o.L = q[10]; if (q[11]) o.a = q[11].split(',').map(Number); if (q[12]) o.dead = 1; return o; }).filter(o => o.t); } } catch (e) { U.err = 'load ' + e.message; } return res; };
+  const ap = applySave; applySave = function (d) { const res = ap.apply(this, arguments); try { if (d && !d.dim) { U.rebuild(); U.props = [/* v1.2.5: saved castle decor (d.c150p) discarded */].map(q => { const o = {t: TY[q[0]], c: q[1], x: q[2], y: q[3], z: q[4], f: q[5]}; if (q[6]) o.v = q[6]; if (q[7]) o.w = q[7]; if (q[8]) o.d = q[8]; if (q[9]) o.h = q[9]; if (q[10]) o.L = q[10]; if (q[11]) o.a = q[11].split(',').map(Number); if (q[12]) o.dead = 1; return o; }).filter(o => o.t); } } catch (e) { U.err = 'load ' + e.message; } return res; };
   const ew = enterWorld; enterWorld = function (save) { try { if (!save) { U.rebuild(); U.props = []; } } catch (_) {} return ew.apply(this, arguments); };
   // ---------- 6. soul lanterns: castle torches tagged soul burn blue ----------
   try { const be = buildEnt; buildEnt = function (type, x, y, z) { const o = be.apply(this, arguments); try { const m = type === T.TORCH && entMeta.get(keyOf(x, y, z)); if (o && m && m.soul && o.g) { const blue = new THREE.Color(0x5ad0ff);
@@ -38193,7 +38193,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
         for (let X = c[1] - R[c[0]] - 3; X <= c[1] + R[c[0]] + 3; X++) for (let Z = c[2] - R[c[0]] - 3; Z <= c[2] + R[c[0]] + 3; Z++) if (X > 0 && Z > 0 && X < W - 1 && Z < D - 1) setCol(X, Z);
       } catch (e) { U.err = c[0] + ': ' + (e && e.stack || e); console.warn('c151', c[0], e); } });
     if (!only) { try { scanLights(); validateLights(); } catch (_) {} try { if (window.__c148) __c148.sync(); } catch (_) {} }
-    U.ms = Math.round(performance.now() - t0); U.st.props = window.__c150.props.length; }
+    window.__c150.props = []; /* v1.2.5: castle decor removed */ U.ms = Math.round(performance.now() - t0); U.st.props = 0; }
   U.work = work; U.elig = elig;
   // v1.0.29: when an existing world is upgraded, anything in the old castle's chests goes into the new castle's chests
   U.keepChests = (c, R) => { const out = []; try { for (const [key, v] of [...chests.entries()]) { const p = String(key).split(',').map(Number); if ((p[0] - c[1]) ** 2 + (p[2] - c[2]) ** 2 > R * R || mine(idx(p[0], p[1], p[2]))) continue; for (const s of (v && v.slots) || []) if (s && s[0] && s[1] > 0) out.push(s.slice()); } } catch (_) {} return out; };
@@ -45388,7 +45388,7 @@ function make42(E) {
 /* GLX-R124 save passthrough */
 (function r124(){ let src=null; const se=serialize, ap=applySave;
  applySave=function(d){ src=(d&&typeof d==='object')?d:null; return ap.apply(this,arguments); };
- serialize=function(){ const d=se.apply(this,arguments); if(src&&d&&typeof d==='object'&&src.id===d.id)for(const k in src)if(!(k in d))d[k]=src[k]; return d; };
+ serialize=function(){ const d=se.apply(this,arguments); if(src&&d&&typeof d==='object'&&src.id===d.id)for(const k in src)if(!(k in d)&&k!=='c150p')d[k]=src[k]; return d; };
 })();
 /* GLX-C288 (v1.1.99 yield to vm) (v1.0.95): guns - hold LT (right mouse / the LT touch button) to aim down the sights: the view zooms in, the gun moves to the
    middle and shots are dead-on; RT (left click / the RT touch button) fires. Hip fire has a little spread. Without a gun LT still places
@@ -48551,6 +48551,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    stays hidden until its real model is in, so the old blocky gun never flashes. */
 (function c350() {
   const U = window.__vm = {err: null, on: 0, k: 0, pre: 0, hidden: 0};
+  const HS0 = Object.freeze(hand.scale.clone()); U.HS0 = HS0;   /* v1.2.5: immutable bind scale of the hand */
+  const restoreHS = () => { if (hand.scale.x !== HS0.x || hand.scale.y !== HS0.y || hand.scale.z !== HS0.z) hand.scale.copy(HS0); };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
   const relTo = (o, top, out) => { out.identity(); for (let x = o; x && x !== top; x = x.parent) { x.updateMatrix(); out.premultiply(x.matrix); if (x.parent === top) return true; } return false; };
@@ -48566,7 +48568,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const pre = setInterval(() => { try { if (typeof started !== 'undefined' && started && window.__c322 && __c322.load) { __c322.load('pistol'); __c322.load('rifle'); U.pre = 1; clearInterval(pre); } } catch (_) {} }, 300);
   const warm = g => { try { g.traverse(o => { if (o.isMesh && o.material) for (const m of [].concat(o.material)) for (const t of [m.map, m.normalMap, m.roughnessMap, m.metalnessMap, m.emissiveMap, m.aoMap]) if (t && !t.__w) { t.__w = 1; renderer.initTexture && renderer.initTexture(t); } }); } catch (_) {} };
   try { const uh = updateHand; updateHand = function (dt) { const r = uh.apply(this, arguments); try { step(Math.min(0.1, dt || 0.016)); } catch (e) { ERR('step', e); } return r; }; } catch (e) { ERR('uh', e); }
-  function step(d) { const g = gun(); U.on = 0; if (!g || tp() || !hand.visible) { ready = null; return; }
+  function step(d) { const g = gun(); U.on = 0; if (!g || tp() || !hand.visible) { ready = null; restoreHS(); return; }
     const u = g.userData;
     if (!u.c322) { try { if (__c322.swap) __c322.swap(g); } catch (_) {} }
     if (!u.c322) { g.visible = false; U.hidden++; return; }   // real model not in yet: show nothing rather than the old gun
@@ -48583,7 +48585,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     bx += (Math.cos(wp) * 0.008 * bo - bx) * f; by += (-Math.abs(Math.sin(wp)) * 0.007 * bo - by) * f; const br = Math.sin(tm * 1.5) * 0.0025;
     // gun frame: rig axes inside g
     if (!relTo(g, hand, M1)) return; M1.decompose(v, q, sc);
-    if (!u.__s0Base) { const s0 = Math.abs(sc.x * (hand.scale.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; }
+    if (!u.__s0Base) { const s0 = Math.abs(sc.x * (HS0.x || 1)); if (s0 > 0.05 && s0 < 20) u.__s0Base = s0; }
     let s = u.__s0 = u.__s0Base || 1;
     if (C.sk) s *= C.sk;   // long guns a bit smaller so the stock meets the shoulder
     relTo(u.rig, g, Mr); const sg = (u.sight ? u.sight.clone() : V(0, 0.04, 0)).applyMatrix4(Mr);
@@ -50410,6 +50412,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.5","d":"2026-11-07","notes":["Castles: decorative props (banners, chandeliers, fake fires, braziers, tables and tableware and similar) removed for performance. Walls, doors, chests and torches stay.","Fix: held items no longer shrink after holding a gun.","Fix: holding the map no longer shows the old blocky arm."]},
 {"v":"v1.2.4","d":"2026-11-06","notes":["Caves rolled back to how they were before today's cave rework (generation, rendering, lighting, chunk streaming). Diamond block, portal, guns, inventory kept. Saves kept."]},
 {"v":"v1.2.3","d":"2026-11-06","notes":["Added Block of diamond: own polished cyan faceted tile, creative and inventory access, nine diamonds to a block and back. Snow and juniper ids preserved.","Extended block storage with legacy-byte save decoding; existing 1.2.2 caves and Y0 repair retained."]},
 {v:'v1.1.96', d:'2026-11-06', notes:['Fix: Y0 and Y1 are drawn by one mesh owner only, so the seam at the surface no longer flashes or leaves holes. Digging and collision still agree.','Fix: item drops deep underground no longer vanish below Y -5. They stay until you pick them up or they time out for real.','Fix: TVs, chests, torches, doors, furnaces and beds placed deep down show, work, save and remove properly again.','Fix: the pickaxe swing no longer freezes during a remesh stall or resets every frame. Crack and break speed are unchanged.','Fix: gun pose and scale have one owner in first person, so the musket no longer shrinks or vanishes when you fire. Aiming stays centred.','Perf: gun shots trace blocks with a fast grid walk instead of hundreds of solid checks, with the same hits.','New: the highlighted hotbar or inventory slot shows the item name for controller, touch and mouse with no extra equip step.']},{v:'v1.1.95', d:'2026-11-03', notes:['Planets face the castles, red eye nebula gone, guns load before you see them, steady arms and centred aiming']},
