@@ -7,7 +7,7 @@
      y -54 .. -96   2 BLUE: Gloamstone and deep tile halls, blue crystal stalactites, contained water pools (drips are heard near them)
      y -104 .. -150 3 CRYSTAL: round geode chambers joined together, crystal spikes from the floor
      y -156 .. -230 4 FIRE (tallest): basalt column fields, contained lava lakes, magma, and the Watcher eye shrine under the map centre
-     y -231 .. -237 ragged bedrock, solid bedrock below -237
+     y -231 .. -233 blackstone, ragged bedrock top between -234 and -236, bedrock at -237 and everything below (unbreakable)
    Spiral stairs of Watcher brick go down through every layer on a 192 block grid, so you can walk all the way down.
    Kept solid: 24 blocks round the Agartha stamp box and the spiral cave (fail closed: if Agartha is not ready, the old deep code runs).
    Worlds saved before v1.2.17 keep the old deep layers (flag v1217dl). Pools and lakes sit in solid rimmed basins. */
@@ -98,6 +98,8 @@
   setInterval(() => { try { if (!U.on() || !started || paused || P.y > -54 || P.y < -96) { if (DN.size) for (const o of DN) { try { o.stop(); } catch (_) {} } return; }
       let best = 1e9; for (let i = -1; i <= 1; i++) for (let k = -1; k <= 1; k++) { const q = basin(F(P.x) + i * 56, F(P.z) + k * 56, 31); if (q) best = Math.min(best, Math.hypot(P.x - q[0], P.z - q[1]) - q[2]); }
       if (best > 20) return; if ((dripT -= 0.5) <= 0) { dripT = 1 + Math.random() * 2.5; drip(Math.max(0.2, 1 - Math.max(0, best) / 20)); } } catch (_) {} }, 500);
+  // ---- the deep bedrock (y -231 and below where it is bedrock) can never be broken ----
+  try { const cm = canMine; canMine = function (b, y) { try { if (U.dl && y <= -231 && b === bl().BR && !DIM.cur) return false; } catch (_) {} return cm.apply(this, arguments); }; } catch (e) { ERR('cm', e); }
   // ---- v1.2.6 icons (chest, grass, diamond block, map, bread, rotten flesh) given to the icon owners that re-assert forever ----
   // Cause: GLX-C187 (every 1.5 s, for ever) and GLX-C122 put back their own cached icons; the v1.2.6 re-assert stops after ~2 min,
   // so the old flat or late iso chest icon came back. Registering ours in their keep maps makes them re-assert ours instead.
