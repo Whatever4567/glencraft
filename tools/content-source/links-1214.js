@@ -45,6 +45,7 @@
       const d = Math.hypot(x - cx, z - cz); if (d < eyeR + 12 || d >= bd) continue; if (kept(x, z)) continue;
       for (let y = 6; y <= 19; y++) { if (world[idx(x, y, z)] !== T.AIR || world[idx(x, y + 1, z)] !== T.AIR) continue; const fv = world[idx(x, y - 1, z)]; if (fv === T.AIR || fluid(fv) || !roofed(x, y + 1, z)) continue; bd = d; best = [x, y, z]; break; } }
     return best; }
+  U.agKeep = agKeep; U.kept = (x, z) => { const K = agKeep(); return !K ? null : K.some(k => Math.hypot(x - k[0], z - k[1]) < 45 + 14); };
   U.build = (e) => { if (!e) { U.why = 'no Watcher bowl in this world'; return null; } const cx = Math.floor(e[0]), cz = Math.floor(e[2]), R0 = 13;
     const K = agKeep(); if (!K) { U.why = 'Agartha footprint (GLX-C294 mouth) not known at generation - no link made'; return null; } KEEP = K; LAVA = [];
     if (kept(cx, cz)) { U.why = 'Watcher bowl lies inside the Agartha keep-out'; return null; }

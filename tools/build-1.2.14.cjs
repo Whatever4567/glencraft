@@ -8,6 +8,8 @@ try{cp.execFileSync(process.execPath,[path.join(__dirname,'build-1.2.13.cjs'),f]
 function one(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw Error('need exactly one: '+a.slice(0,80));s=s.slice(0,i)+b+s.slice(i+a.length);}
 const mod=fs.readFileSync(path.join(__dirname,'content-source/links-1214.js'),'utf8');new vm.Script(mod);
 one('/* GLX-C400',mod+'\n/* GLX-C400');
+// v1.2.14 guard: the 1.2.12 bowl now checks the real Agartha footprint (GLX-C294 mouth / C307 route) BEFORE carving; unknown = skip the bowl
+one("try { const a = window.__agu && (__agu.mouth || __agu.pos); if (a && Math.hypot((a[0] ?? a.x) - cx, (a[2] ?? a.z) - cz) < 90) cz += 120; } catch (_) {}","U.why = null; { let k = null; try { k = window.__v1214 && __v1214.kept ? __v1214.kept(cx, cz) : null; } catch (_) { k = null; } if (k !== false) { U.eye = null; U.why = k ? 'bowl would overlap the Agartha keep-out - skipped' : 'Agartha footprint (GLX-C294 mouth) not known at generation - bowl skipped'; return null; } }");
 one('<!-- glencraft-build: b1213-v1.2.13 -->','<!-- glencraft-build: b1214-v1.2.14 -->');
 one("const GAME_VERSION = '1.2.13';","const GAME_VERSION = '1.2.14';");
 one('window.PATCH_NOTES = [','window.PATCH_NOTES = [\n'+JSON.stringify({v:'v1.2.14',d:'2026-11-07',notes:['New worlds: the Watcher chamber deep under the island is now joined to the nearby caves by a winding tunnel, so you can walk in without digging.','On the way there are two new halls: one with a lava fall and lava runnel, one with an old ruined bridge and broken arch over a lava trench.','Older worlds keep their own caves unchanged.']})+',');
