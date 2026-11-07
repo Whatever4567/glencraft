@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1219-v1.2.19 -->
+<!-- glencraft-build: b1220-v1.2.20 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.19';
+const GAME_VERSION = '1.2.20';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -14220,7 +14220,7 @@ let openChestKey = null, openFurnaceKey = null;
   $('chestClose').addEventListener('click', () => openMenu(false));
   $('furnClose').addEventListener('click', () => openMenu(false));
 })();
-function slotHTML(id, n) { return id ? '<div class="ic' + iconClass(id) + '" style="' + iconStyle(id) + '"></div><b>' + n + '</b>' : ''; }
+function slotHTML(id, n) { return id ? '<div data-gid="' + id + '" class="ic' + iconClass(id) + '" style="' + iconStyle(id) + '"></div><b>' + n + '</b>' : ''; }
 function fillGrid(el, items, onTap, prefix) {
   el.innerHTML = '';
   items.forEach((it, i) => {
@@ -18064,7 +18064,9 @@ function menuPadInput(E, axes, gp) {
   let dir = E[12] ? 'u' : E[13] ? 'd' : E[14] ? 'l' : E[15] ? 'r' : '';
   const st = Math.abs(axes.lx) > 0.6 || Math.abs(axes.ly) > 0.6 ? (Math.abs(axes.lx) > Math.abs(axes.ly) ? (axes.lx > 0 ? 'r' : 'l') : (axes.ly > 0 ? 'd' : 'u')) : '';
   const now = performance.now();
-  if (!dir && st) { if (st !== navDir) { dir = st; navRep = now + 300; } else if (now > navRep) { dir = st; navRep = now + 90; } }
+  if (!dir && st) { if (st !== navDir) { dir = st; navRep = now + 200; } else if (now > navRep) { dir = st; navRep = now + 70; } }
+  { const pb = i => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed), hd = pb(12) ? 'u' : pb(13) ? 'd' : pb(14) ? 'l' : pb(15) ? 'r' : '';
+    if (E[12] || E[13] || E[14] || E[15]) menuPadInput.__dr = now + 200; else if (hd && !dir && !st && now > (menuPadInput.__dr || 0)) { dir = hd; menuPadInput.__dr = now + 70; } }
   navDir = st;
   if (dir) navMove(dir === 'l' ? -1 : dir === 'r' ? 1 : 0, dir === 'u' ? -1 : dir === 'd' ? 1 : 0);
   scrollActive(axes.ry);
@@ -18532,7 +18534,7 @@ function enterWorld(save) {
       showScreen('none');
       started = true; lastAutosave = performance.now();
       if (!touchMode) { try { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {} }
-      if (!save) saveWorld(true);
+      if (!save) { const cw = current; setTimeout(() => { try { if (started && current === cw) saveWorld(true); } catch (_) {} }, 4000); }
       enterWorld._rs = 0; clearTimeout(enterWorld._sbT); try { localStorage.removeItem('glen_load'); } catch (_) {} if (save) toast(window.__loadSafe ? 'Loaded ' + current.name + ' (some parts were skipped - the world is safe)' : 'Welcome back to ' + current.name);
     }
   }, 420);
@@ -23243,7 +23245,7 @@ function flQueue(x, y, z) {
   if (z > 0 && isFl(world[i - 1])) flPush(i - 1); if (z < D - 1 && isFl(world[i + 1])) flPush(i + 1);
 }
 const flInto = b => b === T.AIR || (PLANT[b] === 1 && b !== T.COBWEB && b !== 205);
-function flSet(x, y, z, b, lv) { const i = idx(x, y, z); world[i] = b; if (lv) FLV.set(i, lv); else FLV.delete(i); markDirty(x, z); if (y > 0) markDirty(x, z); flQueue(x, y, z); }
+function flSet(x, y, z, b, lv) { const i = idx(x, y, z); world[i] = b; if (lv) FLV.set(i, lv); else FLV.delete(i); markDirty(x, z); flQueue(x, y, z); }
 function flFizz(x, y, z) { try { burst(x + .5, y + 1, z + .5, 0xcccccc, 6, .5); sfx3d('splash', {x, y, z}, 14); } catch (_) {} }
 function flowCell(i) {
   const b = world[i]; if (!isFl(b)) { FLV.delete(i); return; }
@@ -26829,13 +26831,13 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     if (!p) { pc.style.display = 'none'; return mpi.call(this, E, axes, gp); }
     if (p !== lastPanel || cx < 0) { lastPanel = p; if (!navEl || !p.contains(navEl)) navRefresh(); if (navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; } else { const r = p.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; } }
     const lx = axes.lx || 0, ly = axes.ly || 0, mag = Math.hypot(lx, ly);
-    if (mag > 0.12) { const over = hoverAt(p), sp = (over ? 520 : 900) * Math.pow(Math.min(1, mag), 1.6); cx += lx / mag * sp * Math.min(1, mag) * dt; cy += ly / mag * sp * Math.min(1, mag) * dt;
+    if (mag > 0.12) { const over = hoverAt(p), sp = (over ? 1100 : 1700) * Math.pow(Math.min(1, mag), 1.15); cx += lx / mag * sp * Math.min(1, mag) * dt; cy += ly / mag * sp * Math.min(1, mag) * dt;
       cx = Math.max(4, Math.min(innerWidth - 4, cx)); cy = Math.max(4, Math.min(innerHeight - 4, cy));
       const h = hoverAt(p); if (h && h !== navEl) { navEl = h; navRefresh(); if (h.classList.contains('rec2')) { craftFocus = h._ri; updateCraftList(); } if (cursor) showCursor(h); try { sfx('pop', .08); } catch (_) {} } }
     else { const h = hoverAt(p); if (h && /gslot|fslot|aslot/.test(h.className)) { const [x, y] = ctr(h); cx += (x - cx) * Math.min(1, dt * 10); cy += (y - cy) * Math.min(1, dt * 10); } }   // gentle snap to the slot centre
     const dpad = E[12] || E[13] || E[14] || E[15];
-    const r = mpi.call(this, E, Object.assign({}, axes, {lx: 0, ly: 0}), gp);
-    if (dpad && navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; }
+    const nb0 = navEl, r = mpi.call(this, E, Object.assign({}, axes, {lx: 0, ly: 0}), gp);
+    if ((dpad || navEl !== nb0) && navEl) { const [x, y] = ctr(navEl); cx = x; cy = y; }
     pc.style.display = 'block'; pc.style.left = cx + 'px'; pc.style.top = cy + 'px';
     if (cursor && typeof curEl !== 'undefined') { curEl.style.left = (cx + 12) + 'px'; curEl.style.top = (cy + 12) + 'px'; }
     return r; };
@@ -34650,7 +34652,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     for (const k in NAMES) { const id = +k, n = nm(id); if (!n || SKIP(id)) continue;
       const sl = /helmet|cap\b/.test(n) ? 'helmet' : /chestplate|tunic/.test(n) ? 'chestplate' : /leggings|trousers/.test(n) ? 'leggings' : /boots/.test(n) ? 'boots' : null;
       if (sl && (ARMOUR[id] || /copper|silver|gold|diamond|lazurite|iron|cobalt/.test(n))) { const m = matOf(id); job.push([id, () => pArmour(sl, PAL[m] || PAL.silver)]); continue; }
-      const t = TOOL[id]; if (t && ['pick', 'axe', 'shovel', 'hoe', 'sword'].includes(t[0]) && !/bat\b|claymore/.test(n)) { const m = matOf(id); job.push([id, () => pTool(t[0], PAL[m] ? m : 'silver')]); } }
+      const t = TOOL[id]; if (t && ['pick', 'axe', 'shovel', 'hoe', 'sword'].includes(t[0]) && !/bat\b|claymore|crystal/.test(n)) { const m = matOf(id); job.push([id, () => pTool(t[0], PAL[m] ? m : 'silver')]); } }
     const step = () => { const t0 = performance.now(); while (job.length && performance.now() - t0 < 3) {   /* v1.1.39: small slices in idle time */ const [id, f] = job.shift(); if (!NAMES[id] && ![80, 263, 262, 54].includes(id)) continue; try { fin(id, f()); } catch (e) { warn('p' + id, e); } } if (job.length) (window.requestIdleCallback ? requestIdleCallback(() => step(), {timeout: 600}) : setTimeout(step, 40)); else { U.log.push('painted ' + U.painted); setTimeout(blocks, 400); } };
     step(); }
   const NONCUBE = /door|fence|gate|pane|railing|torch|lamp|cobweb|carpet|slab|stairs|bed|cauldron|\btv\b|hive|enchant|ladder|lever|painting|marker|activator|water|lava|portal|wheat|potato|neep|farmland|reed|fern|flower|grass\b|thistle|sapling|bluebell|daffodil|dandelion/;
@@ -39349,7 +39351,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- 5. a word when you cross into a new biome or reach a build ----------
   let seen = new Set(), last = -2, hold = 0;
   setInterval(() => { try { if (!started || DIM.cur !== 'hell' || !C.b.length) { last = -2; seen = new Set(); return; } const bi = C.biomeAt(Math.floor(P.x), Math.floor(P.z));
-      if (bi !== last) { if (++hold >= 2) { last = bi; hold = 0; U.biome = bi; if (bi >= 0) toast(C.BIOME[bi]); } } else hold = 0;
+      if (bi !== last) { if (++hold >= 2) { last = bi; hold = 0; U.biome = bi;  } } else hold = 0;
       for (const b of C.b) { const k = b[0]; if (!seen.has(k) && Math.hypot(P.x - b[1], P.z - b[2]) < 36) { seen.add(k); toast('You come upon ' + C.NAME[k] + '...'); } } } catch (e) { ERR(e); } }, 1000);
 })();
 
@@ -42792,8 +42794,8 @@ function make42(E) {
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const PH = typeof touchMode !== 'undefined' && !!touchMode, LOW = PH || (typeof PERF !== 'undefined' && PERF);
   const NR = LOW ? 4 : 8, RIP = []; for (let i = 0; i < NR; i++) RIP.push(new THREE.Vector4(0, 0, -99, 0));
-  const u = {u41T: {value: 0}, u41Tide: {value: 0}, u41Sea: {value: (typeof SEA !== 'undefined' ? SEA : 40) + 1}, u41Rip: {value: RIP}};
-  let ri = 0; const ripple = (x, z, a) => { const r = RIP[ri = (ri + 1) % NR]; r.set(x, z, u.u41T.value, a); U.rips++; };
+  const u = {u41T: {value: 0}, u41Tide: {value: 0}, u41Sea: {value: (typeof SEA !== 'undefined' ? SEA : 40) + 1}, u41Rip: {value: RIP}, u41End: {value: -1}};
+  let ri = 0; const ripple = (x, z, a) => { const r = RIP[ri = (ri + 1) % NR]; r.set(x, z, u.u41T.value, a); u.u41End.value = u.u41T.value + 2.6; U.rips++; };
   U.ripple = ripple;
   // ---------- water shader: swell + tide on top faces, ripples, slower river scroll ----------
   try { const ob = waterMat.onBeforeCompile; waterMat.onBeforeCompile = function (sh, r) { if (ob) ob.call(this, sh, r); Object.assign(sh.uniforms, u);
@@ -42804,9 +42806,9 @@ function make42(E) {
    float sw = sin(w41.x * 0.31 + u41T * 0.9) * 0.55 + sin(w41.z * 0.23 - u41T * 0.7 + w41.x * 0.05) * 0.45 + sin((w41.x + w41.z) * 0.9 + u41T * 1.7) * 0.18;
    transformed.y += sw * (0.025 + 0.06 * sea) + u41Tide * sea; } v41W = (modelMatrix * vec4(transformed, 1.0)).xyz; }`);
       f = f.replace('uTime * 4.2', 'uTime * 2.2');
-      f = 'uniform float u41T; uniform vec4 u41Rip[' + NR + '];\nvarying vec3 v41W;\n' + f.replace('#include <map_fragment>', `#include <map_fragment>
- { float rr = 0.0; for (int i = 0; i < ${NR}; i++) { vec4 q = u41Rip[i]; float age = u41T - q.z; if (age < 0.0 || age > 2.6) continue; float d = distance(v41W.xz, q.xy);
-     float k = d - age * 1.5; rr += (exp(-k * k * 22.0) + 0.5 * exp(-(k + 0.35) * (k + 0.35) * 30.0)) * (1.0 - age / 2.6) * q.w; }
+      f = 'uniform float u41T; uniform float u41End; uniform vec4 u41Rip[' + NR + '];\nvarying vec3 v41W;\n' + f.replace('#include <map_fragment>', `#include <map_fragment>
+ if (u41T < u41End) { float rr = 0.0; for (int i = 0; i < ${NR}; i++) { vec4 q = u41Rip[i]; float age = u41T - q.z; if (age < 0.0 || age > 2.6) continue; float d = distance(v41W.xz, q.xy);
+     float k = d - age * 1.5; if (k > 1.2) continue; rr += (exp(-k * k * 22.0) + 0.5 * exp(-(k + 0.35) * (k + 0.35) * 30.0)) * (1.0 - age / 2.6) * q.w; }
    diffuseColor.rgb += vec3(0.3, 0.33, 0.36) * min(rr, 1.2); }`);
       sh.vertexShader = v; sh.fragmentShader = f; U.sh = 1; };
     const ck = waterMat.customProgramCacheKey; waterMat.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'c241'; }; waterMat.needsUpdate = true; } catch (e) { ERR('sh', e); }
@@ -44515,7 +44517,7 @@ function make42(E) {
       float c265fo = smoothstep(0.42, 0.75, length(c265n)) * (0.35 + min(vFl.z, 1.0) * 0.65) * uWNon;
       diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.96, 1.0), c265fo * 0.55);`)
         .replace('#include <envmap_fragment>', `#include <envmap_fragment>
-      { float fr = pow(1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), 3.0); outgoingLight += vec3(0.5, 0.66, 0.82) * fr * 0.35 * uWNon; }`);
+      { float fr0 = 1.0 - clamp(abs(dot(normalize(vViewPosition), normal)), 0.0, 1.0), fr = fr0 * fr0 * fr0; outgoingLight += vec3(0.5, 0.66, 0.82) * fr * 0.35 * uWNon; }`);
       U.w = 1; };
     const ck = waterMat.customProgramCacheKey; waterMat.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'c265'; }; waterMat.needsUpdate = true;
     // lava
@@ -45780,7 +45782,7 @@ function make42(E) {
     const bx = (w, h, d) => new THREE.BoxGeometry(w, h, d), cloth = M(0x9fd4ff), skin = M(0xf0d6c0), hair = M(0xffe45c), eye = M(0x39b8ff);
     const G = {leg: bx(.16, 1.2, .16), body: bx(.42, .95, .24), arm: bx(.12, 1.0, .12), head: bx(.34, .42, .34), hair: bx(.38, .16, .38), back: bx(.38, .4, .08), eye: bx(.1, .05, .02)};
     let sd = l.city[0] * 31 + l.city[1]; const r = () => (sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296;
-    for (let k = 0; k < (l.v === 2 ? 26 : 16); k++) { const p = new THREE.Group(), mk = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); p.add(o); return o; };
+    for (let k = 0; k < (l.under ? 0 : l.v === 2 ? 26 : 16); k++) { const p = new THREE.Group(), mk = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); p.add(o); return o; };
       const lg = [mk(G.leg, cloth, -.1, .6, 0), mk(G.leg, cloth, .1, .6, 0)]; lg.forEach(o => o.geometry.translate && 0);
       mk(G.body, cloth, 0, 1.68, 0); const ar = [mk(G.arm, cloth, -.28, 1.65, 0), mk(G.arm, cloth, .28, 1.65, 0)];
       mk(G.head, skin, 0, 2.38, 0); mk(G.hair, hair, 0, 2.62, 0); mk(G.back, hair, 0, 2.36, -.19); mk(G.eye, eye, -.08, 2.42, .175); mk(G.eye, eye, .08, 2.42, .175);
@@ -45871,7 +45873,7 @@ function make42(E) {
   const inA = () => { const l = window.__c294 && __c294.L; if (!l || (DIM.cur && DIM.cur !== 'agartha') || !started) return false; const [X, Z, R] = l.city;
     if (Math.hypot(P.x - X, P.z - Z) < R + 4 && P.y < l.TOP + 1) return true; if (P.y > (l.v === 2 ? 64 : 34)) return false;
     for (const p of l.pts || []) { if (l.v === 2) { if (Math.abs(P.x - p[0]) < 36 && Math.abs(P.z - p[1]) < 36 && Math.abs(P.y - p[2]) < 16) return true; } else if (Math.abs(P.x - p[0]) < 28 && Math.abs(P.z - p[1]) < 28) return true; } return false; };
-  let fs = null; const GOLD = new THREE.Color(0xf2c46a);
+  let fs = null; const GOLD = new THREE.Color(0x1a1838);   /* v1.2.20: cool violet haze, no gold */
   (function loop() { requestAnimationFrame(loop); try { const a = inA(); U.inA = a; const LM = window.__lminU;
       if (LM && !LM.__c297) { const d = Object.getOwnPropertyDescriptor(LM, 'value'); if (d && d.get && LM.__c163) { Object.defineProperty(LM, 'value', {configurable: true, enumerable: true, get() { const v = d.get.call(LM); return Math.max(v, U.inA ? 0.6 : 0.3); }, set(v) { d.set.call(LM, v); }}); LM.__c297 = true; } }
       if (a && scene.fog && !fs) fs = {c: scene.fog.color.getHex()};
@@ -45912,17 +45914,17 @@ float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f); return mix(mix(h(i), h(i + vec2(1, 0)), f.x), mix(h(i + vec2(0, 1)), h(i + vec2(1, 1)), f.x), f.y); }
 float fb(vec2 p){ float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { v += a * n(p); p *= 2.03; a *= 0.5; } return v; }
 void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
-  vec3 sky = mix(vec3(0.66, 0.84, 1.0), vec3(0.24, 0.52, 0.96), pow(y, 0.7));
+  vec3 sky = mix(vec3(0.17, 0.11, 0.34), vec3(0.04, 0.09, 0.27), pow(y, 0.7));
   vec2 q = d.xz / (y + 0.35) * 2.2; float c = smoothstep(0.52, 0.78, fb(q + vec2(uT * 0.018, uT * 0.007)));
-  vec3 col = mix(sky, vec3(1.0, 0.98, 0.94), c * 0.9);
+  vec3 col = mix(sky, vec3(0.30, 0.70, 0.82), c * 0.35);
   float rock = smoothstep(0.50, 0.62, fb(d.xz * 3.1 + 7.0)) * smoothstep(0.92, 0.55, y) + smoothstep(0.22, 0.0, y);
-  vec3 rk = vec3(0.42, 0.38, 0.33) * (0.75 + 0.5 * n(d.xz * 40.0));
+  vec3 rk = vec3(0.12, 0.13, 0.22) * (0.75 + 0.5 * n(d.xz * 40.0));
   gl_FragColor = vec4(mix(col, rk, clamp(rock, 0.0, 1.0)), 1.0); }`});
     dome = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 16, 0, 6.2832, 0, Math.PI / 2), m); dome.scale.set(R - 1.2, HT - 0.8, R - 1.2); dome.position.set(X + 0.5, l.FL, Z + 0.5);
-    dome.frustumCulled = false; dome.renderOrder = -1; dome.visible = false; dome.name = "agsun"; scene.add(dome); built = l; U.sky = 1; }
+    dome.frustumCulled = false; dome.renderOrder = -1; dome.visible = false; dome.name = "agsky"; scene.add(dome); built = l; U.sky = 1; }
   (function loop(t) { requestAnimationFrame(loop); try { const l = window.__c294 && __c294.L; if (!l || l.v !== 2 || !started || (DIM.cur && DIM.cur !== 'agartha')) { if (dome) dome.visible = false; return; }
       if (built !== l) { if (dome) { scene.remove(dome); dome.geometry.dispose(); } make(l); }
-      const [X, Z, R] = l.city; dome.visible = false;   /* v1.1.94: no Agartha sky */ uT.value = (t || 0) / 1000; } catch (e) { ERR('loop', e); } })();
+      const [X, Z, R] = l.city; dome.visible = !!(window.__c297 && __c297.inA) && Math.hypot(P.x - X, P.z - Z) < R - 1;   /* v1.2.20: the cool Agartha sky is back inside the city */ uT.value = (t || 0) / 1000; } catch (e) { ERR('loop', e); } })();
 })();
 
 /* GLX-C299 (v1.0.107, SPACE v1.0.114): Highland Rocket Base and space flight across the whole solar system.
@@ -49131,7 +49133,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 (function tbox() {
   const U = window.__tbox = {err: null, inside: false, camIn: false, door: 0, placed: 0, frames: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  const RR = 6.5, RH = 8.8, HW = 0.85, DW = 0.5, DH = 2.05, BH = 2.6;
+  const RR = 9.2, RH = 8.8, HW = 0.85, DW = 0.5, DH = 2.05, BH = 2.6;
   let cfg = {name: 'GLENCRAFT TIME BOX', color: 0x1f4e8c}; try { Object.assign(cfg, JSON.parse(localStorage.getItem('glx_tbox_cfg') || '{}')); } catch (_) {}
   U.cfg = cfg; U.RR = RR; U.HW = HW; U.DW = DW;
   const S = U.S = {x: 0, y: 0, z: 0, on: false};
@@ -49331,8 +49333,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const RW = PH ? 256 : 384, RH = Math.round(RW * 9 / 16); let rt = null, cam = null, scr = null, wheel = null;
   function build() { rt = new THREE.WebGLRenderTarget(RW, RH, {depthBuffer: true}); cam = new THREE.PerspectiveCamera(70, 16 / 9, 0.3, 4000);
     const fm = SM(new THREE.MeshBasicMaterial({color: 0x2b1a0c})), sm = SM(new THREE.MeshBasicMaterial({map: rt.texture}));
-    const g = new THREE.Group(); const fr = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.0, 0.12), fm); g.add(fr); scr = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 1.75), sm); scr.position.z = 0.07; g.add(scr);
-    g.position.set(0, 2.35, CZ - RR + 0.45); room.add(g);
+    const g = new THREE.Group(); const fr = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.78, 0.06), fm); g.add(fr); scr = new THREE.Mesh(new THREE.PlaneGeometry(1.22, 0.686), sm); scr.position.z = 0.035; g.add(scr);
+    { const st = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.25, 0.1), fm); st.position.y = -0.95; g.add(st); } U.scr = scr; U.SEAT = [0, 0, CZ - 1.6];
+    g.position.set(0, 1.62, CZ - 3.1); room.add(g);
     const bm = SM(new THREE.MeshLambertMaterial({color: 0xc8962e, emissive: 0x3a2508})), w = new THREE.Group(); w.add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 8, 28), bm));
     for (let i = 0; i < 6; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.82, 0.03), bm); s.rotation.z = i * Math.PI / 6; w.add(s); } const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 12), bm); hub.rotation.x = Math.PI / 2; w.add(hub);
     for (let i = 0; i < 6; i++) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), bm); const a = i * Math.PI / 3; k.position.set(Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0); w.add(k); }
@@ -49340,7 +49343,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (const m of [fm, sm, bm]) { m.stencilFunc = T.camIn ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; m.needsUpdate = true; } }
   let fi = 0, busyR = false;
   function shoot(r) { if (busyR || !T.inside || !S.on || DIM.cur) return; if (++fi % (PH ? 4 : 3)) return; busyR = true; const vis = []; const pa = T.parts;
-    try { cam.position.set(S.x, S.y + 2.2, S.z); const pitch = U.pilot ? Math.max(-0.5, Math.min(0.5, U.v[1] * 0.02)) : -0.08; cam.rotation.set(pitch, U.H, 0, 'YXZ'); cam.updateMatrixWorld();
+    try { cam.position.set(S.x, S.y + 2.2, S.z); const pitch = U.pilot ? (U.Pt || 0) : -0.08; cam.rotation.set(pitch, U.H, 0, 'YXZ'); cam.updateMatrixWorld();
       for (const o of [pa.all, typeof hand !== 'undefined' ? hand : null]) if (o) { vis.push([o, o.visible]); o.visible = false; }
       const ort = r.getRenderTarget(), ac = r.autoClear; r.setRenderTarget(rt); r.autoClear = true; r.clear(); r.render(scene, cam); r.setRenderTarget(ort); r.autoClear = ac; U.frames++; }
     catch (e) { ERR('shoot', e); } finally { for (const [o, v] of vis) o.visible = v; busyR = false; } }
@@ -49349,21 +49352,22 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const K = {}; addEventListener('keydown', e => { K[e.code] = 1; if (e.code === 'KeyG' && (U.pilot || atC())) { e.stopImmediatePropagation(); toggle(); } }, true); addEventListener('keyup', e => { K[e.code] = 0; }, true);
   const atC = () => T.inside && Math.hypot(P.x - S.x, P.z - (S.z + CZ)) < 2.6;
   let rel = null, tin = {f: 0, t: 0, u: 0};
-  function toggle() { if (busyT) return; U.pilot = !U.pilot; rel = U.pilot ? [P.x - S.x, P.y - S.y, P.z - S.z] : null; U.v = [0, 0, 0]; pad.style.display = U.pilot && PH ? 'grid' : 'none'; fb.textContent = U.pilot ? 'Let go' : 'Fly';
-    try { toast(U.pilot ? 'You have the stick. Right stick: up/down and left/right. Left stick: spin. LS: boost. X to let go (keys: W S A D, Space, Shift, G)' : 'You let go of the stick'); } catch (_) {} }
+  function toggle() { if (busyT) return; U.pilot = !U.pilot; rel = U.pilot ? [0, 0, CZ - 1.6] : null; U.Pt = 0; if (U.pilot) U._cam = [P.yaw, P.pitch]; else if (U._cam) { P.yaw = U._cam[0]; P.pitch = U._cam[1]; U._cam = null; } U.v = [0, 0, 0]; pad.style.display = U.pilot && PH ? 'grid' : 'none'; fb.textContent = U.pilot ? 'Let go' : 'Fly';
+    try { toast(U.pilot ? 'Pilot mode. Right stick: point the box any way (turn and tilt up or down). Left stick: fly where it points and sideways. RT up, LT down, LS boost, X to let go (keys: W S fly, A D turn, arrow up and down tilt, arrow left and right sideways, Space up, Shift down, G let go)' : 'You let go of the stick'); } catch (_) {} }
   U.toggle = toggle;
   const blocked = (x, y, z) => { for (const [ox, oz] of [[-HW, -HW], [HW, -HW], [-HW, HW], [HW, HW], [0, 0]]) for (const oy of [0.1, 1.3, 2.5]) if (solid(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true; return false; };
   function fly(dt) { const g = navigator.getGamepads ? [...navigator.getGamepads()].find(p => p) : null, ax = i => g && Math.abs(g.axes[i] || 0) > 0.2 ? g.axes[i] : 0, bt = i => g && g.buttons[i] && g.buttons[i].pressed ? 1 : 0;
-    const LSb = bt(10), st = ax(2), f = (K.KeyW ? 1 : 0) - (K.KeyS ? 1 : 0) + tin.f + (LSb ? 1 : 0), tr = (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) - ax(0) + tin.t, up = (K.Space ? 1 : 0) - (K.ShiftLeft || K.ShiftRight ? 1 : 0) + bt(0) - bt(1) - ax(3) + tin.u;
-    U.inp = [st, ax(3)]; if (LSb && !U._ls) { whoosh(0.9); try { window.__v130 && __v130.boosts++; } catch (_) {} } U._ls = LSb;
+    const tg = i => g && g.buttons[i] ? (g.buttons[i].value || (g.buttons[i].pressed ? 1 : 0)) : 0, LSb = bt(10), lx = ax(0), ly = ax(1), rx = ax(2), ry = ax(3);
+    const st = (K.ArrowRight ? 1 : 0) - (K.ArrowLeft ? 1 : 0) + lx, f = (K.KeyW ? 1 : 0) - (K.KeyS ? 1 : 0) + tin.f - ly + (LSb ? 1 : 0), tr = (K.KeyA ? 1 : 0) - (K.KeyD ? 1 : 0) - rx + tin.t, pr = (K.ArrowUp ? 1 : 0) - (K.ArrowDown ? 1 : 0) - ry, up = (K.Space ? 1 : 0) - (K.ShiftLeft || K.ShiftRight ? 1 : 0) + bt(0) - bt(1) + (tg(7) > 0.3 ? 1 : 0) - (tg(6) > 0.3 ? 1 : 0) + tin.u;
+    U.Pt = Math.max(-1.48, Math.min(1.48, (U.Pt || 0) + pr * dt * 1.1)); U.inp = [Math.max(-1, Math.min(1, -tr)), Math.max(-1, Math.min(1, -pr))]; if (LSb && !U._ls) { whoosh(0.9); try { window.__v130 && __v130.boosts++; } catch (_) {} } U._ls = LSb;
     U.H += tr * dt * 1.3; try { wheel.rotation.z += ((tr * 1.2) - wheel.rotation.z) * Math.min(1, dt * 6); } catch (_) {}
-    const alt = S.y - SEA, sp = (alt > 1500 ? 420 : alt > 400 ? 160 : alt > 80 ? 40 : 14) * (LSb ? 3 : 1), tx = -Math.sin(U.H) * f * sp + Math.cos(U.H) * st * sp, tz = -Math.cos(U.H) * f * sp - Math.sin(U.H) * st * sp, ty = up * (alt > 400 ? sp * 0.6 : 10);
+    const alt = S.y - SEA, sp = (alt > 1500 ? 420 : alt > 400 ? 160 : alt > 80 ? 40 : 14) * (LSb ? 3 : 1), cP = Math.cos(U.Pt || 0), sP = Math.sin(U.Pt || 0), tx = -Math.sin(U.H) * cP * f * sp + Math.cos(U.H) * st * sp, tz = -Math.cos(U.H) * cP * f * sp - Math.sin(U.H) * st * sp, ty = sP * f * sp + up * (alt > 400 ? sp * 0.6 : 10);
     const k = Math.min(1, dt * 2.5); U.v[0] += (tx - U.v[0]) * k; U.v[1] += (ty - U.v[1]) * k; U.v[2] += (tz - U.v[2]) * k;
     let nx = S.x + U.v[0] * dt, ny = S.y + U.v[1] * dt, nz = S.z + U.v[2] * dt;
     if (window.__ukb && __ukb.wall(nx, ny + 1, nz)) { nx = S.x; nz = S.z; U.v[0] = U.v[2] = 0; }
     if (blocked(nx, S.y, S.z)) { nx = S.x; U.v[0] = 0; } if (blocked(nx, S.y, nz)) { nz = S.z; U.v[2] = 0; } if (blocked(nx, ny, nz)) { if (U.v[1] < -6) thump(); ny = S.y; U.v[1] = 0; }
-    T.place(nx, ny, nz); P.x = S.x + rel[0]; P.y = S.y + rel[1]; P.z = S.z + rel[2]; P.vy = 0; P.fallTop = null; }
-  try { const up = updatePlayer; updatePlayer = function (dt) { const r = up.apply(this, arguments); try { if (U.pilot) { if (!T.inside || DIM.cur) toggle(); else fly(Math.min(0.1, dt || 0.016)); } } catch (e) { ERR('fly', e); } return r; }; } catch (e) { ERR('up', e); }
+    T.place(nx, ny, nz); P.x = S.x + rel[0]; P.y = S.y + rel[1]; P.z = S.z + rel[2]; P.vy = 0; P.fallTop = null; P.yaw = 0; P.pitch = -0.06; }
+  try { const up = updatePlayer; updatePlayer = function (dt) { const r = up.apply(this, arguments); try { if (U.pilot) { if (!T.inside || DIM.cur || (typeof dead !== 'undefined' && dead) || !started) toggle(); else fly(Math.min(0.1, dt || 0.016)); } } catch (e) { ERR('fly', e); } return r; }; } catch (e) { ERR('up', e); }
   // ---------- touch: Fly button and a flight pad ----------
   const fb = document.createElement('button'); fb.className = 'btn'; fb.textContent = 'Fly'; fb.dataset.testid = 'tbox-fly'; fb.style.cssText = 'position:fixed;right:14px;top:46%;z-index:120;display:none';
   fb.addEventListener('click', e => { e.preventDefault(); toggle(); }); document.body.appendChild(fb);
@@ -49494,7 +49498,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function build() { const t0 = performance.now(), sv = {world, W, D, H, dim: DIM.cur}; let A = null; DIM.cur = 'agartha';
     try { __c294.genAg(); A = __c294.A; SW = W; SD = D - ZS; const st = new Uint16Array(SW * YN * SD);
       for (let x = 0; x < SW; x++) for (let z = 0; z < SD; z++) for (let y = 0; y < YN; y++) { const b = world[idx(x, y, z + ZS)]; st[(x * SD + z) * YN + y] = (b && (b === T.HBEDROCK || b === T.BEDROCK)) ? (T.DEEPSLATE || T.STONE) : b; }   /* v1.1.92: no bedrock floor under Agartha, you can dig on down into the deep layers */
-      S = st; } finally { DIM.cur = sv.dim; world = sv.world; W = sv.W; D = sv.D; H = sv.H; }
+      S = st; try { if (window.__ag1220 && __ag1220.post) __ag1220.post(st, A, SW, SD, YN, ZS, AX, AY); } catch (e) { ERR('post', e); } } finally { DIM.cur = sv.dim; world = sv.world; W = sv.W; D = sv.D; H = sv.H; }
     const dz = -ZS; L = {v: 2, ag: 3, cry105: 1, city: [A.city[0] + AX, A.city[1] + dz, A.city[2]], FL: A.FL + AY, TOP: A.TOP + AY, spires: (A.spires || []).map(s => [s[0] + AX, s[1] + dz].concat(s.slice(2))), under: 1};
     U.L = L; U.box = [AX, AY, 0, AX + SW, AY + YN, SD]; U.ms = Math.round(performance.now() - t0); U.ok = 1; }
   const stamp = (x, y, z) => { const i = x - AX, j = y - AY; if (i < 0 || i >= SW || j < 0 || j >= YN || z < 0 || z >= SD) return undefined; return S[(i * SD + z) * YN + j]; };
@@ -49987,7 +49991,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     g.position.set(0, 0, CZ); room.add(g);
     const sg = new THREE.Group(); stick = sg; const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.75, 10), chrome); shaft.position.y = 0.375; sg.add(shaft);
     knob = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 10), SM(new THREE.MeshPhongMaterial({color: 0x7a3cff, emissive: 0x2a0a66, shininess: 90}))); knob.position.y = 0.78; sg.add(knob);
-    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.12, 14), chrome); sg.add(base); sg.position.set(0.95, 0.95, CZ + 0.85); room.add(sg);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.18, 0.12, 14), chrome); sg.add(base); sg.position.set(0.42, 0.55, CZ - 2.05); { const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.12, 0.55, 12), chrome); ped.position.y = -0.275; sg.add(ped); }; room.add(sg);
     for (const o of [g, sg]) o.traverse(q => { if (q.material) { q.material.stencilFunc = T.camIn ? THREE.AlwaysStencilFunc : THREE.EqualStencilFunc; q.material.needsUpdate = true; } });
     // chrome / purple / blue interior: tint the room's own materials once (shared only inside the box room)
     const seen = new Set(); room.traverse(q => { const m = q.material; if (!m || seen.has(m) || q === tube || q === core) return; seen.add(m); if (m.color && !m.map) { const c = m.color, l = (c.r + c.g + c.b) / 3; c.setRGB(0.55 * l + 0.35, 0.5 * l + 0.3, 0.75 * l + 0.45); if (m.emissive) m.emissive.setRGB(0.06, 0.03, 0.14); } });
@@ -50386,6 +50390,151 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let icT = 0; const icv = setInterval(() => { try { const V = window.__v126; if (V && V.icons && Object.keys(V.icons).length) { for (const k in V.icons) { const u = V.icons[k];
         if (window.__c187 && __c187.MINE) __c187.MINE[k] = u; if (window.__c122 && __c122.MINE) __c122.MINE[k] = u; if (ICONS[k] !== u) { ICONS[k] = u; try { delete ICON_KEY[k]; } catch (_) {} } } U.icons = 1; }
       if (++icT > 240 || U.icons) { if (U.icons && icT > 20) clearInterval(icv); } } catch (e) { ERR('icons', e); } }, 1000);
+})();
+
+/* GLX-Q1220 (v1.2.20): quiet play and item names on hover.
+   (1) automatic chatter pop ups (welcome, tutorial tip, weather and biome announcements, one off notices) are dropped; messages from your own actions, warnings, errors and save problems still show.
+   (2) hovering a filled slot in any inventory, chest, creative or hotbar grid shows the item name at once (mouse and pen only, touch and controller unchanged). */
+(function q1220() {
+  const U = window.__q1220 = {err: null, quiet: 0, tips: 0, skipped: []};
+  const QUIET = [/^Welcome back to /, /^Find a tree and hold MINE/, /^Starter chests by the spawn/, /^Good morning! The skies have cleared/,
+    /^(The rain eases off\.|A light rain drifts across the glen\.|Heavy rain sweeps in\.|Thunder rumbles\. A storm is coming!)$/, /^A full moon rises/,
+    /^You come upon /, /^The hot desert stretches/, /^A sandstorm is blowing in/, /^Spawn island refreshed/, /^Glencraft is now the real shape/,
+    /old worlds? found on this device/, /^Your XP is back/, /^A Bag of Everything is in your inventory/, /^You have a Golden Jetpack/, /^Welcome to your new world!/];
+  U.QUIET = QUIET;
+  try { const t0 = toast; toast = function (m) { if (typeof m === 'string' && QUIET.some(r => r.test(m))) { U.quiet++; if (U.skipped.length < 30) U.skipped.push(m); return; } return t0.apply(this, arguments); }; } catch (e) { U.err = 't ' + e; }
+  // ---- hover names ----
+  try {
+    const tip = document.createElement('div'); tip.id = 'q1220tip';
+    tip.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483000;pointer-events:none;display:none;padding:4px 9px;border-radius:6px;background:rgba(8,14,28,.94);color:#fff;font:600 13px/1.25 system-ui,sans-serif;border:1px solid rgba(160,210,255,.55);white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5)';
+    const SEL = '.gslot,.slot,.fslot,.aslot';
+    let cur = null;
+    const nameOf = el => { if (el.classList.contains('empty')) return ''; let n = el.dataset.gname || el.getAttribute('title') || '';
+      if (el.hasAttribute('title')) { el.dataset.gname = n; el.removeAttribute('title'); }
+      if (!n) { const g = el.querySelector('[data-gid]'); const id = g && +g.dataset.gid; if (id && typeof NAMES !== 'undefined' && NAMES[id]) n = NAMES[id]; }
+      return n; };
+    const hide = () => { cur = null; tip.style.display = 'none'; };
+    const place = (x, y) => { const w = tip.offsetWidth, h = tip.offsetHeight; let l = x + 14, t = y + 18; if (l + w > innerWidth - 4) l = x - w - 10; if (t + h > innerHeight - 4) t = y - h - 10; tip.style.transform = 'translate(' + Math.max(2, l) + 'px,' + Math.max(2, t) + 'px)'; };
+    U.nameOf = nameOf;
+    document.addEventListener('pointerover', e => { try { if (e.pointerType === 'touch') return; const el = e.target && e.target.closest && e.target.closest(SEL); if (!el) { if (cur) hide(); return; }
+        const n = nameOf(el); if (!n) { hide(); return; } cur = el; if (!tip.parentNode) document.body.appendChild(tip); tip.textContent = n; tip.style.display = 'block'; place(e.clientX, e.clientY); U.tips++; } catch (_) {} }, true);
+    document.addEventListener('pointermove', e => { if (cur && e.pointerType !== 'touch') place(e.clientX, e.clientY); }, {capture: true, passive: true});
+    document.addEventListener('pointerout', e => { if (cur && (!e.relatedTarget || !cur.contains(e.relatedTarget))) hide(); }, true);
+    document.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') hide(); }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'e' || e.key === 'E' || e.key === 'Tab') hide(); }, true);
+    setInterval(() => { if (cur && (!cur.isConnected || cur.offsetParent === null || document.pointerLockElement)) hide(); }, 200);
+    // controller: the selected slot shows its name next to it
+    let padEl = null; setInterval(() => { try { const on = document.body.classList.contains('pad') && typeof navEl !== 'undefined' && navEl && navEl.isConnected && navEl.offsetParent !== null && navEl.matches && navEl.matches(SEL) && typeof activePanel === 'function' && activePanel();
+        if (!on) { if (padEl) { padEl = null; if (!cur) tip.style.display = 'none'; } return; } if (cur && cur !== navEl) return;
+        const n = nameOf(navEl); if (!n) { tip.style.display = 'none'; padEl = null; return; } if (!tip.parentNode) document.body.appendChild(tip); padEl = navEl;
+        if (tip.textContent !== n) tip.textContent = n; tip.style.display = 'block'; const r = navEl.getBoundingClientRect(); place(r.right - 10, r.bottom - 14); } catch (_) {} }, 90);
+  } catch (e) { U.err = 'h ' + e; }
+  // crystal pick icons: GLX-C122 paints every pickaxe from its metal palette (crystal is not in it, so both became silver) and re-asserts its
+  // painted icon for ever, while the v1.2.11 icons stop re-applying after 2 minutes. Registering the v1.2.11 icons in the C122 and C187 keep maps
+  // makes those owners keep the crystal icons instead.
+  { let n = 0; const iv = setInterval(() => { try { const V = window.__v1211; if (!V || !V.icons || !V.icons[761]) { if (++n > 120) clearInterval(iv); return; }
+      for (const k in V.icons) { const u = V.icons[k]; for (const M of [window.__c122 && __c122.MINE, window.__c187 && __c187.MINE]) if (M) M[k] = u;
+        try { if (window.__c121 && __c121.ICO) __c121.ICO[k] = u; if (window.__c120ICO) __c120ICO[k] = u; } catch (_) {}
+        if (ICONS[k] !== u) { ICONS[k] = u; try { delete ICON_KEY[k]; } catch (_) {} try { delete spriteMats[k]; } catch (_) {} U.crys = (U.crys || 0) + 1; } }
+      if (++n > 30) clearInterval(iv); } catch (e) { U.err = 'c ' + e; } }, 1000); }
+})();
+
+/* GLX-V1220T (v1.2.20): time box interior finish. The 1.2.10 cockpit tint skipped every textured surface, so the wooden plank
+   walls, lintel and tartan floor (most of what you see) stayed brown; the old teal crystal column and its six brass bars stood in
+   the same spot as the new blue tube; and the outside view screen was still 3.1 m wide. Now: chrome, purple and blue panelled walls
+   and a dark blue floor, the old column hidden so the blue tube with yellow energy is the main console column, the new parts drawn
+   in the same pass as the room, and a 55 inch (1.22 m) live view screen at eye height. Nothing is saved, so old worlds are unchanged. */
+(function v1220t() {
+  const T = window.__tbox, V = () => window.__v130, F = () => window.__tbox3; if (!T) return;
+  const U = window.__v1220t = {err: null, walls: 0, col: 0, ro: 0, scr: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  const RR = T.RR, DW = T.DW;
+  function tex(kind) { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+    if (kind === 'wall') { const gr = g.createLinearGradient(0, 0, 256, 0); gr.addColorStop(0, '#b9c2d6'); gr.addColorStop(0.5, '#eef2fa'); gr.addColorStop(1, '#9aa6c0'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = '#5a2a9a'; g.fillRect(0, 0, 256, 18); g.fillRect(0, 238, 256, 18); g.fillStyle = '#2f6bff'; g.fillRect(0, 120, 256, 10);
+      g.strokeStyle = 'rgba(40,30,90,.55)'; g.lineWidth = 3; g.strokeRect(14, 30, 228, 80); g.strokeRect(14, 140, 228, 90);
+      g.fillStyle = 'rgba(120,80,230,.35)'; for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(64 + i * 64, 185, 20, 0, 6.3); g.fill(); } }
+    else { g.fillStyle = '#141a3a'; g.fillRect(0, 0, 256, 256); g.strokeStyle = '#3a4fb0'; g.lineWidth = 3; for (let i = 0; i <= 256; i += 64) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 256); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(256, i); g.stroke(); }
+      g.fillStyle = '#7a3cff'; for (let x = 32; x < 256; x += 64) for (let y = 32; y < 256; y += 64) g.fillRect(x - 3, y - 3, 6, 6); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; }
+  let WT = null, FT = null;
+  function tick() { const room = T.parts && T.parts.room; if (!room || !T.inside) return;
+    let RO = 0; room.traverse(q => { if (q.isMesh && q.renderOrder) RO = q.renderOrder; });
+    if (!U.walls) { WT = WT || tex('wall'); FT = FT || tex('floor'); let n = 0;
+      for (const q of room.children) { if (!q.isMesh || !q.geometry) continue; const p = q.geometry.parameters || {}, m = q.material; if (!m || !m.map) continue;
+        if (q.geometry.type === 'CylinderGeometry' && Math.abs(p.radiusTop - RR) < 0.01) { WT.repeat.set(9, 2); m.map = WT; m.color && m.color.setHex(0xffffff); m.needsUpdate = true; n++; }
+        else if (q.geometry.type === 'PlaneGeometry' && Math.abs(p.width - (2 * DW + 0.2)) < 0.01) { m.map = WT; m.needsUpdate = true; n++; }
+        else if (q.geometry.type === 'CircleGeometry' && q.position.y < 0.5) { FT.repeat.set(4, 4); m.map = FT; m.needsUpdate = true; n++; } }
+      U.walls = n; }
+    if (!U.col) { if (T.col) { T.col.visible = false; U.col = 1; }
+      for (const q of room.children) { const p = q.geometry && q.geometry.parameters; if (q.isMesh && q.geometry.type === 'BoxGeometry' && p && Math.abs(p.height - 1.9) < 0.01 && Math.abs(p.width - 0.04) < 0.01) q.visible = false; } }
+    const v = V(); if (v && v.built && !U.ro && RO) { let n = 0; room.traverse(q => { if (q.isMesh && !q.renderOrder) { q.renderOrder = RO; q.frustumCulled = false; n++; } }); U.ro = n || 1; }
+  }
+  setInterval(() => { try { tick(); } catch (e) { ERR('t', e); } }, 400);
+  // pilot mode owns the controller: the walking/look/mining pad code is skipped while you hold the stick (Start still pauses)
+  let st9 = false; try { const rp = readPad; readPad = function () { try { const f = F(); if (f && f.pilot && started && !paused && !menuOpen && !dead) { const gp = navigator.getGamepads ? [...navigator.getGamepads()].find(p => p) : null;
+        const s = !!(gp && gp.buttons[9] && gp.buttons[9].pressed); if (s && !st9) setPause(true); st9 = s; U.padHeld = (U.padHeld || 0) + 1; return {lx: 0, ly: 0, rx: 0, ry: 0}; } } catch (e) { ERR('pad', e); } return rp.apply(this, arguments); }; } catch (e) { ERR('rp', e); }
+})();
+
+/* GLX-AG1220 (v1.2.20): Agartha calm. The crystal city floor is Gloamstone with Glowcap paths, its trees are gone, the cool blue and violet
+   inner sky dome is back, and seven Agarthans (in their own lore an old Egyptian people who call their elder Sekhen, old friend) walk the
+   ring path on the real floor. Hit one and all seven stop, turn to stare at you with glowing eyes, and speak together once. */
+(function ag1220() {
+  const U = window.__ag1220 = {err: null, post: null, trees: 0, floor: 0, path: 0, ring: null, stares: 0, voice: 0, n: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const GLOAM = 771, CAP = (T.GLOWCAP || 100);
+  let LOG = null; const isLog = b => { if (!LOG) { LOG = new Set(); for (const k in NAMES) { const n = String(NAMES[k] || ''); if (/\blog\b|\bwood\b|trunk/i.test(n) && !/plank|stair|slab|fence|door|sign/i.test(n)) LOG.add(+k); } } return LOG.has(b); };
+  const GROUND = b => b === T.GRASS || b === T.DIRT || b === 218 || b === 770 || b === T.SAND || b === T.MUD || b === T.MOSS || b === T.PEAT || b === T.GRAVEL;
+  // ---- one pass over the Agartha stamp, right after it is made (the stamp is rebuilt from the generator at every load, edits stay on top) ----
+  U.post = (st, A, SW, SD, YN, ZS, AX, AY) => { const ix = (x, z, y) => (x * SD + z) * YN + y, cx = A.city[0], cz = A.city[1] - ZS, R = A.city[2], F = A.FL;
+    for (let i = 0; i < st.length; i++) { const b = st[i]; if (b && (LEAFY[b] || isLog(b))) { st[i] = 0; U.trees++; } }
+    const spires = (A.spires || []).map(s => [s[0], s[1] - ZS, s[3] || 3]);
+    const clearAt = (x, z) => { x = Math.floor(x); z = Math.floor(z); if (x < 1 || z < 1 || x >= SW - 1 || z >= SD - 1) return false; if (!st[ix(x, z, F - 1)]) return false; for (let y = F; y < F + 3; y++) { const b = st[ix(x, z, y)]; if (b && !PLANT[b]) return false; } return true; };
+    // ring radius with the clearest floor
+    let best = null; for (let f = 0.34; f <= 0.8; f += 0.04) { const r = R * f; let ok = 0; for (let k = 0; k < 72; k++) { const a = k / 72 * 6.283, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; if (clearAt(x, z) && !spires.some(s => Math.hypot(x - s[0], z - s[1]) < s[2] + 2.5)) ok++; } if (!best || ok > best.ok) best = {r, ok}; }
+    const rp = best.r; U.ring = {X: cx + AX + 0.5, Z: cz + 0.5, R: rp, ok: best.ok, Y: F + AY};   // world x = stamp x + AX, world z = stamp z, world y = stamp y + AY
+    const onPath = (x, z) => { const dx = x + 0.5 - cx, dz = z + 0.5 - cz, d = Math.hypot(dx, dz); if (Math.abs(d - rp) < 1.2) return true;
+      if (d > 3 && d < R - 4) { const a = Math.atan2(dz, dx); for (let k = 0; k < 6; k++) { const q = k / 6 * 6.283, e = Math.abs(Math.sin(a - q)) * d; if (e < 0.9 && Math.cos(a - q) > 0) return true; } } return false; };
+    for (let x = Math.max(0, cx - R); x < Math.min(SW, cx + R); x++) for (let z = Math.max(0, cz - R); z < Math.min(SD, cz + R); z++) { if (Math.hypot(x + 0.5 - cx, z + 0.5 - cz) > R - 1) continue;
+      const i = ix(x, z, F - 1), b = st[i]; if (!b || !(GROUND(b) || b === GLOAM)) continue; const p = onPath(x, z); st[i] = p ? CAP : GLOAM; if (p) U.path++; else U.floor++;
+      const a = ix(x, z, F); if (p && st[a] && PLANT[st[a]]) st[a] = 0; } };
+  // ---- the seven ----
+  const LORE = 'You monkeys are destroying our planet. You must stop wars and stop destroying our planet. Listen to Sekhen.';
+  U.LORE = LORE;
+  let grp = null, folk = [], built = null, stareT = 0, voiceT = -1e9, sub = null; const M = c => new THREE.MeshBasicMaterial({color: c});
+  const EYE0 = 0x2a6e9e, EYE1 = 0xaaf4ff;
+  function make(ring) { grp = new THREE.Group(); grp.visible = false; scene.add(grp); const bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    const linen = M(0xdfe8f2), sash = M(0x3a5fb0), skin = M(0xc89a74), hair = M(0x1a1a24), band = M(0x4a7ad0), eyeM = M(EYE0); U.eyeM = eyeM;
+    const G = {leg: bx(.16, 1.2, .16), body: bx(.42, .95, .24), arm: bx(.12, 1.0, .12), head: bx(.34, .42, .34), nem: bx(.4, .2, .4), lap: bx(.12, .34, .06), belt: bx(.44, .08, .26), eye: bx(.1, .05, .02)};
+    for (let k = 0; k < 7; k++) { const p = new THREE.Group(), mk = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); p.add(o); return o; };
+      const lg = [mk(G.leg, linen, -.1, .6, 0), mk(G.leg, linen, .1, .6, 0)]; mk(G.body, linen, 0, 1.68, 0); mk(G.belt, sash, 0, 1.25, 0);
+      const ar = [mk(G.arm, skin, -.28, 1.65, 0), mk(G.arm, skin, .28, 1.65, 0)]; const hd = new THREE.Group(); hd.position.set(0, 2.38, 0); p.add(hd);
+      const mh = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); hd.add(o); return o; };
+      mh(G.head, skin, 0, 0, 0); mh(G.nem, hair, 0, .22, 0); mh(G.lap, band, -.2, -.05, .02); mh(G.lap, band, .2, -.05, .02); mh(G.eye, eyeM, -.08, .04, .175); mh(G.eye, eyeM, .08, .04, .175);
+      p.traverse(o => { o.frustumCulled = false; });
+      const a0 = k / 7 * 6.283; const f = {g: p, lg, ar, hd, a: a0, ph: k, kind: 'agarthan', __ag: 1, hitY: 1.6, hitR: 0.6, hp: 20, hostile: false};
+      grp.add(p); folk.push(f); }
+    built = ring; U.n = folk.length; }
+  const place = (f, ring) => { const x = ring.X + Math.cos(f.a) * ring.R, z = ring.Z + Math.sin(f.a) * ring.R; f.g.position.set(x, ring.Y, z); };
+  function voice() { const now = performance.now(); if (now - voiceT < 45000) return; voiceT = now; U.voice++;
+    try { const a = new Audio('assets/voice/agarthan_choir.mp3'); a.volume = Math.min(1, (typeof SET !== 'undefined' ? SET.sfx : 0.8) + 0.15); a.play().catch(() => {}); } catch (_) {}
+    try { if (!sub) { sub = document.createElement('div'); sub.style.cssText = 'position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:60;max-width:80vw;text-align:center;font:600 18px/1.35 system-ui,sans-serif;color:#cfefff;text-shadow:0 0 8px #3ad0ff,0 2px 3px #000;pointer-events:none;opacity:0;transition:opacity .4s'; document.body.appendChild(sub); }
+      sub.textContent = LORE; sub.style.opacity = 1; clearTimeout(sub._t); sub._t = setTimeout(() => { sub.style.opacity = 0; }, 7200); } catch (_) {} }
+  U.trigger = () => { stareT = 22; U.stares++; try { U.eyeM.color.setHex(EYE1); } catch (_) {} voice(); };
+  U.tick = (dt) => { const ring = window.__ag1220.ring, l = window.__agw && __agw.L; const ok = ring && l && started && !DIM.cur && !(typeof SET !== 'undefined' && SET.noMobs) && !(typeof dead !== 'undefined' && dead);
+    const near = ok && Math.hypot(P.x - ring.X, P.z - ring.Z) < ring.R + 70 && Math.abs(P.y - ring.Y) < 40;
+    if (!near) { if (grp) grp.visible = false; if (stareT > 0 && !ok) { stareT = 0; try { U.eyeM.color.setHex(EYE0); } catch (_) {} } return; }
+    if (built !== ring) { if (grp) { scene.remove(grp); folk = []; } make(ring); }
+    grp.visible = true;
+    if (stareT > 0) { stareT -= dt; for (const f of folk) { const p = f.g.position; f.g.rotation.y = Math.atan2(P.x - p.x, P.z - p.z); const dy = P.y + 1.6 - (p.y + 2.4), dh = Math.hypot(P.x - p.x, P.z - p.z) || 1; f.hd.rotation.x = Math.max(-0.6, Math.min(0.6, -Math.atan2(dy, dh))); f.lg[0].rotation.x = f.lg[1].rotation.x = f.ar[0].rotation.x = f.ar[1].rotation.x = 0; }
+      if (stareT <= 0) { try { U.eyeM.color.setHex(EYE0); } catch (_) {} for (const f of folk) f.hd.rotation.x = 0; } return; }
+    const w = 0.75 / ring.R; for (const f of folk) { f.a += w * dt; place(f, ring); f.g.rotation.y = Math.atan2(-Math.sin(f.a), Math.cos(f.a)) ; f.ph += dt * 4.5; const s = Math.sin(f.ph) * 0.4; f.lg[0].rotation.x = s; f.lg[1].rotation.x = -s; f.ar[0].rotation.x = -s * .6; f.ar[1].rotation.x = s * .6; } };
+  U.folk = () => folk;
+  let last = performance.now(); (function loop() { requestAnimationFrame(loop); const t = performance.now(), dt = Math.min(0.1, (t - last) / 1000); last = t; try { U.tick(dt); } catch (e) { ERR('tick', e); } })();
+  // ---- hits: melee finds them like any mob; any damage route that reaches one wakes the stare instead of hurting it ----
+  try { const rm = reachMob; reachMob = function () { if (!grp || !grp.visible || !folk.length) return rm.apply(this, arguments); const n = mobs.length; for (const f of folk) mobs.push(f); try { return rm.apply(this, arguments); } finally { mobs.length = n; } }; } catch (e) { ERR('rm', e); }
+  try { const hm = hitMob; hitMob = function (a) { if (a && a.__ag) { try { sfx('hit'); } catch (_) {} U.trigger(); return; } return hm.apply(this, arguments); }; } catch (e) { ERR('hm', e); }
+  try { const dm = damageMob; damageMob = function (a) { if (a && a.__ag) { U.trigger(); return; } return dm.apply(this, arguments); }; } catch (e) { ERR('dm', e); }
 })();
 
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
@@ -51015,6 +51164,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same.","Fewer pop ups: the welcome, tip, weather and biome messages that appeared on their own are gone. Messages about what you just did, warnings and save problems still show.","Hover over any item in your inventory, a chest, creative tabs or the hotbar to see its name straight away.","Entering a brand new world no longer saves the whole world in the same moment you arrive; the first save follows a few seconds later.","Time box inside: chrome, purple and blue panelled walls and a dark blue floor instead of wooden planks, the blue glass column with yellow energy is now the main console column, and the live outside view screen is a 55 inch screen at eye height.","Time box pilot mode: press Fly (or X at the console) to sit at the stick facing a 55 inch live screen of the view outside. Right stick points the box any way you like, turning and tilting up or down, and the screen shows that view; left stick flies where it points and sideways, RT goes up, LT goes down, LS boosts and X lets go. The room inside is now twice as wide as the first time box.","Faster controller menus: moving through the inventory, chests and lists with the stick or d-pad is quicker, and holding the d-pad keeps moving. The name of the selected item shows next to it.","The Purple crystal pickaxe now has its own purple icon in the inventory, and the Blue crystal pickaxe keeps its blue one.","Agartha is calm again: the crystal city floor is Gloamstone with glowing Glowcap paths, the trees there are gone, and its inner sky is back in cool blue and violet with no flashing.","Seven Agarthans now walk the ring path on the real floor instead of standing in the ground. They are an old people of Egyptian lineage who call their elder Sekhen, old friend. Strike one and you will find out what they think of us."]},
 {"v":"v1.2.19","d":"2026-11-07","notes":["Smoother fast flying: far away parts of the map are now cleared a little at a time instead of all at once, and the game looks only at nearby ground when deciding what to build next.","Torches are lighter on the graphics card: they now share their shapes, and torches more than about 72 blocks away are no longer drawn or animated. Torch light and flicker near you are unchanged."]},
 {"v":"v1.2.18","d":"2026-11-07","notes":["Less work while walking: the game no longer rechecks every unbuilt part of the map each frame, and it gathers torches, chests and doors once a new area is built instead of after every single chunk."]},
 {"v":"v1.2.17","d":"2026-11-07","notes":["New UK worlds: the ground now goes down to unbreakable bedrock at y -237, with normal caves down to y 0 and four big open cave layers below.","Layer 1 is green nature caves with grass, moss and mushroom trees. Layer 2 is deep blue caves with water pools and soft dripping sounds. Layer 3 is crystal geode caves. Layer 4 is the tallest, a fire layer with basalt columns, lava lakes and the Watcher eye shrine.","Old Watcher brick spiral stairs lead down through every layer.","The stacked bands of new blocks near the bottom of the island are gone from new worlds.","Fixed: chests in the world now use the new chest textures, and the new chest icon and other new item icons no longer change back to the old ones after a few minutes.","Less work while walking on the surface: the game no longer builds hidden underground chunks under the map while you are above ground.","Older worlds keep their own underground."]},
