@@ -14220,7 +14220,7 @@ let openChestKey = null, openFurnaceKey = null;
   $('chestClose').addEventListener('click', () => openMenu(false));
   $('furnClose').addEventListener('click', () => openMenu(false));
 })();
-function slotHTML(id, n) { return id ? '<div class="ic' + iconClass(id) + '" style="' + iconStyle(id) + '"></div><b>' + n + '</b>' : ''; }
+function slotHTML(id, n) { return id ? '<div data-gid="' + id + '" class="ic' + iconClass(id) + '" style="' + iconStyle(id) + '"></div><b>' + n + '</b>' : ''; }
 function fillGrid(el, items, onTap, prefix) {
   el.innerHTML = '';
   items.forEach((it, i) => {
@@ -18532,7 +18532,7 @@ function enterWorld(save) {
       showScreen('none');
       started = true; lastAutosave = performance.now();
       if (!touchMode) { try { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {} }
-      if (!save) saveWorld(true);
+      if (!save) { const cw = current; setTimeout(() => { try { if (started && current === cw) saveWorld(true); } catch (_) {} }, 4000); }
       enterWorld._rs = 0; clearTimeout(enterWorld._sbT); try { localStorage.removeItem('glen_load'); } catch (_) {} if (save) toast(window.__loadSafe ? 'Loaded ' + current.name + ' (some parts were skipped - the world is safe)' : 'Welcome back to ' + current.name);
     }
   }, 420);
@@ -39349,7 +39349,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   // ---------- 5. a word when you cross into a new biome or reach a build ----------
   let seen = new Set(), last = -2, hold = 0;
   setInterval(() => { try { if (!started || DIM.cur !== 'hell' || !C.b.length) { last = -2; seen = new Set(); return; } const bi = C.biomeAt(Math.floor(P.x), Math.floor(P.z));
-      if (bi !== last) { if (++hold >= 2) { last = bi; hold = 0; U.biome = bi; if (bi >= 0) toast(C.BIOME[bi]); } } else hold = 0;
+      if (bi !== last) { if (++hold >= 2) { last = bi; hold = 0; U.biome = bi;  } } else hold = 0;
       for (const b of C.b) { const k = b[0]; if (!seen.has(k) && Math.hypot(P.x - b[1], P.z - b[2]) < 36) { seen.add(k); toast('You come upon ' + C.NAME[k] + '...'); } } } catch (e) { ERR(e); } }, 1000);
 })();
 
@@ -50388,6 +50388,40 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (++icT > 240 || U.icons) { if (U.icons && icT > 20) clearInterval(icv); } } catch (e) { ERR('icons', e); } }, 1000);
 })();
 
+/* GLX-Q1220 (v1.2.20): quiet play and item names on hover.
+   (1) automatic chatter pop ups (welcome, tutorial tip, weather and biome announcements, one off notices) are dropped; messages from your own actions, warnings, errors and save problems still show.
+   (2) hovering a filled slot in any inventory, chest, creative or hotbar grid shows the item name at once (mouse and pen only, touch and controller unchanged). */
+(function q1220() {
+  const U = window.__q1220 = {err: null, quiet: 0, tips: 0, skipped: []};
+  const QUIET = [/^Welcome back to /, /^Find a tree and hold MINE/, /^Starter chests by the spawn/, /^Good morning! The skies have cleared/,
+    /^(The rain eases off\.|A light rain drifts across the glen\.|Heavy rain sweeps in\.|Thunder rumbles\. A storm is coming!)$/, /^A full moon rises/,
+    /^You come upon /, /^The hot desert stretches/, /^A sandstorm is blowing in/, /^Spawn island refreshed/, /^Glencraft is now the real shape/,
+    /old worlds? found on this device/, /^Your XP is back/, /^A Bag of Everything is in your inventory/, /^You have a Golden Jetpack/, /^Welcome to your new world!/];
+  U.QUIET = QUIET;
+  try { const t0 = toast; toast = function (m) { if (typeof m === 'string' && QUIET.some(r => r.test(m))) { U.quiet++; if (U.skipped.length < 30) U.skipped.push(m); return; } return t0.apply(this, arguments); }; } catch (e) { U.err = 't ' + e; }
+  // ---- hover names ----
+  try {
+    const tip = document.createElement('div'); tip.id = 'q1220tip';
+    tip.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483000;pointer-events:none;display:none;padding:4px 9px;border-radius:6px;background:rgba(8,14,28,.94);color:#fff;font:600 13px/1.25 system-ui,sans-serif;border:1px solid rgba(160,210,255,.55);white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5)';
+    const SEL = '.gslot,.slot,.fslot,.aslot';
+    let cur = null;
+    const nameOf = el => { if (el.classList.contains('empty')) return ''; let n = el.dataset.gname || el.getAttribute('title') || '';
+      if (el.hasAttribute('title')) { el.dataset.gname = n; el.removeAttribute('title'); }
+      if (!n) { const g = el.querySelector('[data-gid]'); const id = g && +g.dataset.gid; if (id && typeof NAMES !== 'undefined' && NAMES[id]) n = NAMES[id]; }
+      return n; };
+    const hide = () => { cur = null; tip.style.display = 'none'; };
+    const place = (x, y) => { const w = tip.offsetWidth, h = tip.offsetHeight; let l = x + 14, t = y + 18; if (l + w > innerWidth - 4) l = x - w - 10; if (t + h > innerHeight - 4) t = y - h - 10; tip.style.transform = 'translate(' + Math.max(2, l) + 'px,' + Math.max(2, t) + 'px)'; };
+    U.nameOf = nameOf;
+    document.addEventListener('pointerover', e => { try { if (e.pointerType === 'touch') return; const el = e.target && e.target.closest && e.target.closest(SEL); if (!el) { if (cur) hide(); return; }
+        const n = nameOf(el); if (!n) { hide(); return; } cur = el; if (!tip.parentNode) document.body.appendChild(tip); tip.textContent = n; tip.style.display = 'block'; place(e.clientX, e.clientY); U.tips++; } catch (_) {} }, true);
+    document.addEventListener('pointermove', e => { if (cur && e.pointerType !== 'touch') place(e.clientX, e.clientY); }, {capture: true, passive: true});
+    document.addEventListener('pointerout', e => { if (cur && (!e.relatedTarget || !cur.contains(e.relatedTarget))) hide(); }, true);
+    document.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') hide(); }, true);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' || e.key === 'e' || e.key === 'E' || e.key === 'Tab') hide(); }, true);
+    setInterval(() => { if (cur && (!cur.isConnected || cur.offsetParent === null || document.pointerLockElement)) hide(); }, 200);
+  } catch (e) { U.err = 'h ' + e; }
+})();
+
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
    C340 poseOff; C288 aim yields when __vm.on. Soft clamp on C43-style recoil only. Recoil and ADS are
    deltas from the bind pose inside fp_viewmodel - never compound matrix or scale overrides here. */
@@ -51015,7 +51049,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same."]},
+{"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same.","Fewer pop ups: the welcome, tip, weather and biome messages that appeared on their own are gone. Messages about what you just did, warnings and save problems still show.","Hover over any item in your inventory, a chest, creative tabs or the hotbar to see its name straight away.","Entering a brand new world no longer saves the whole world in the same moment you arrive; the first save follows a few seconds later."]},
 {"v":"v1.2.19","d":"2026-11-07","notes":["Smoother fast flying: far away parts of the map are now cleared a little at a time instead of all at once, and the game looks only at nearby ground when deciding what to build next.","Torches are lighter on the graphics card: they now share their shapes, and torches more than about 72 blocks away are no longer drawn or animated. Torch light and flicker near you are unchanged."]},
 {"v":"v1.2.18","d":"2026-11-07","notes":["Less work while walking: the game no longer rechecks every unbuilt part of the map each frame, and it gathers torches, chests and doors once a new area is built instead of after every single chunk."]},
 {"v":"v1.2.17","d":"2026-11-07","notes":["New UK worlds: the ground now goes down to unbreakable bedrock at y -237, with normal caves down to y 0 and four big open cave layers below.","Layer 1 is green nature caves with grass, moss and mushroom trees. Layer 2 is deep blue caves with water pools and soft dripping sounds. Layer 3 is crystal geode caves. Layer 4 is the tallest, a fire layer with basalt columns, lava lakes and the Watcher eye shrine.","Old Watcher brick spiral stairs lead down through every layer.","The stacked bands of new blocks near the bottom of the island are gone from new worlds.","Fixed: chests in the world now use the new chest textures, and the new chest icon and other new item icons no longer change back to the old ones after a few minutes.","Less work while walking on the surface: the game no longer builds hidden underground chunks under the map while you are above ground.","Older worlds keep their own underground."]},
