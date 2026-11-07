@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1206-v1.2.6 -->
+<!-- glencraft-build: b1207-v1.2.7 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13358,7 +13358,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.6';
+const GAME_VERSION = '1.2.7';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -49880,6 +49880,29 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let tries = 0, stable = 0; const iv = setInterval(() => { try { if (typeof ICONS === 'undefined' || !ICONS[IT.BREAD]) return; if (!Object.keys(U.icons).length) build(); stable = U.apply() ? 0 : stable + 1; } catch (e) { ERR('apply', e); } if (++tries > 120 || stable >= 10) clearInterval(iv); }, 1000);
 })();
 
+/* GLX-V127 (v1.2.7): Disable mobs setting (persisted in glen_set as SET.noMobs) and retired foods. */
+(function v127() {
+  const U = window.__v127 = {err: null, removed: 0, blocked: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  // ---- Disable mobs: no new spawns; existing mobs (only the mobs[] list) are removed with removeMob (disposes geometry/materials) ----
+  try { const sm = spawnMob; spawnMob = function () { if (SET.noMobs) { U.blocked++; return null; } return sm.apply(this, arguments); }; } catch (e) { ERR('spawn', e); }
+  U.sweep = () => { if (!SET.noMobs) return 0; let n = 0; for (const a of mobs.slice()) { try { removeMob(a); n++; } catch (e) { ERR('rm', e); const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); } } U.removed += n; return n; };
+  setInterval(() => { try { if (SET.noMobs && mobs.length) U.sweep(); } catch (e) { ERR('sweep', e); } }, 1000);
+  U.ui = () => { const ts = document.getElementById('touchSeg'); if (!ts || document.getElementById('mobSeg')) return !!ts; const row = ts.closest('.set') || ts.parentNode;
+    const d = document.createElement('div'); d.className = 'set inline'; d.innerHTML = '<span>Disable mobs</span><div class="seg" id="mobSeg"><button data-v="1" data-testid="settings-mobSeg-1">On</button><button data-v="0" data-testid="settings-mobSeg-0">Off</button></div>';
+    row.after(d); const sync = () => d.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.noMobs ? 1 : 0)));
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { SET.noMobs = Number(b.dataset.v) === 1; saveSet(); sync(); U.sweep(); })); sync(); return true; };
+  { let t = 0; const iv = setInterval(() => { try { if (U.ui() || ++t > 60) clearInterval(iv); } catch (e) { ERR('ui', e); clearInterval(iv); } }, 500); }
+  // ---- retired foods (ids kept for saves) ----
+  const OFF = new Set([IT.POTATO, IT.TATTIES].filter(v => v != null)); U.off = OFF;
+  const strip = () => { try { for (const L of [ORDER, typeof CREATIVE_ALL !== 'undefined' ? CREATIVE_ALL : null]) if (L) for (let i = L.length - 1; i >= 0; i--) if (OFF.has(L[i])) L.splice(i, 1);
+      for (let i = RECIPES.length - 1; i >= 0; i--) { const r = RECIPES[i]; if (OFF.has(r.out) || (r.need || r.ing || []).some(q => OFF.has(Array.isArray(q) ? q[0] : q))) RECIPES.splice(i, 1); }
+      for (const id of OFF) if (inv[id]) delete inv[id]; } catch (e) { ERR('strip', e); } };
+  try { const ai = addItem; addItem = function (id) { if (OFF.has(id)) return; return ai.apply(this, arguments); }; } catch (e) { ERR('add', e); }
+  try { const di = dropItem; dropItem = function (id) { if (OFF.has(id)) return; return di.apply(this, arguments); }; } catch (e) { ERR('drop', e); }
+  U.strip = strip; strip(); { let t = 0; const iv = setInterval(() => { strip(); if (++t > 30) clearInterval(iv); }, 2000); }
+})();
+
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
    C340 poseOff; C288 aim yields when __vm.on. Soft clamp on C43-style recoil only. Recoil and ADS are
    deltas from the bind pose inside fp_viewmodel - never compound matrix or scale overrides here. */
@@ -50507,6 +50530,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.7","d":"2026-11-07","notes":["New setting: Disable mobs. When on, no mobs spawn and any around you are removed. Saved with your settings."]},
 {"v":"v1.2.6","d":"2026-11-07","notes":["Block of diamond: polished shiny aqua look on every face, in hand and as a drop.","New 3D block icons for grass, chest and diamond block.","New icons: folded relief map, detailed bread and rotten flesh."]},
 {"v":"v1.2.5","d":"2026-11-07","notes":["Castles: decorative props (banners, chandeliers, fake fires, braziers, tables and tableware and similar) removed for performance. Walls, doors, chests and torches stay.","Fix: held items no longer shrink after holding a gun.","Fix: holding the map no longer shows the old blocky arm."]},
 {"v":"v1.2.4","d":"2026-11-06","notes":["Caves rolled back to how they were before today's cave rework (generation, rendering, lighting, chunk streaming). Diamond block, portal, guns, inventory kept. Saves kept."]},
