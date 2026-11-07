@@ -9,7 +9,7 @@ function generate(){world.fill(0);for(let x=0;x<W;x++)for(let z=0;z<D;z++){for(l
  if(${cave})for(let x=120;x<150;x++)for(let y=12;y<15;y++)for(let z=60;z<64;z++)world[idx(x,y,z)]=0;
  world[idx(20,10,20)]=69;world[idx(80,2,80)]=69;}
 function serialize(){return {}}function applySave(d){}function updatePlayer(){}`,ctx);
-vm.runInContext(grab('v1212'),ctx);vm.runInContext(grab('v1214'),ctx);vm.runInContext(grab('v1215'),ctx);vm.runInContext('generate()',ctx);return ctx;}
+vm.runInContext(grab('v1212'),ctx);vm.runInContext(grab('v1214'),ctx);vm.runInContext(grab('v1215'),ctx);vm.runInContext(grab('v1216'),ctx);vm.runInContext('generate()',ctx);return ctx;}
 let p=0;const t=(n,f)=>{f();p++;console.log('PASS',n);};
 const c=mk(true),R=s=>JSON.parse(vm.runInContext('JSON.stringify('+s+')',c));
 t('link built without errors, two halls',()=>{assert.equal(R('__v1212.err'),null);assert.equal(R('__v1214.err'),null);const l=R('__v1214.link');assert(l,R('__v1214.why'));assert.deepEqual(l.halls,['falls','ruin']);console.log('  ',JSON.stringify(l),'cells',R('__v1214.cells'));});
@@ -23,5 +23,9 @@ t('nothing carved within 45 of the Agartha mouth/edge run',()=>{assert(R(`(()=>{
 const c3=mk(true,0);t('Agartha record missing: fail closed, nothing carved',()=>{assert.equal(vm.runInContext('__v1214.link',c3),null);assert.match(vm.runInContext('__v1212.why',c3),/Agartha footprint/);assert.equal(vm.runInContext('__v1212.eye',c3),null);assert.equal(vm.runInContext('__v1214.cells',c3),0);});
 t('late Agartha placement (new world, no save): bowl + link made once after __c294.build',()=>{vm.runInContext('__c294.build()',c3);assert(vm.runInContext('!!__v1212.eye',c3));assert(vm.runInContext('!!__v1214.link',c3));assert.equal(vm.runInContext('__v1215.late',c3),1);vm.runInContext('__c294.build()',c3);assert.equal(vm.runInContext('__v1215.late',c3),1);});
 const c5=mk(true,0);t('save loaded: no late edit',()=>{vm.runInContext('applySave({});__c294.build()',c5);assert.equal(vm.runInContext('__v1212.eye',c5),null);assert.equal(vm.runInContext('__v1215.late',c5),0);});
+t('v1.2.16 network: galleries built, each reachable on foot from the bowl, no errors',()=>{vm.runInContext('generate()',c);assert.equal(R('__v1216.err'),null);const g=R('__v1216.gal');console.log('  ',JSON.stringify(g),'cells',R('__v1216.cells'),'lava',R('__v1216.lava'));assert(g.length>=3,R('__v1216.why'));
+ for(const q of g)assert(R(`(()=>{const ok=(x,y,z)=>x>0&&z>0&&x<W&&z<D&&y>0&&y<H-1&&world[idx(x,y,z)]===0&&world[idx(x,y+1,z)]===0;const seen=new Uint8Array(W*H*D),st=[[80,6,80]];seen[idx(80,6,80)]=1;while(st.length){const [x,y,z]=st.pop();if(Math.abs(x-${q.at[0]})<3&&Math.abs(z-${q.at[2]})<3)return true;for(const [a,b,e] of [[1,0,0],[-1,0,0],[0,0,1],[0,0,-1],[0,1,0],[0,-1,0],[1,1,0],[-1,1,0],[0,1,1],[0,1,-1],[1,-1,0],[-1,-1,0],[0,-1,1],[0,-1,-1]]){const X=x+a,Y=y+b,Z=z+e;if(!ok(X,Y,Z)||seen[idx(X,Y,Z)])continue;seen[idx(X,Y,Z)]=1;st.push([X,Y,Z]);}}return false})()`),'gallery '+q.at);
+ assert(R('serialize().v1216net.length')===g.length);});
+t('v1.2.16 skipped with the bowl when Agartha unknown (fail closed)',()=>{assert.equal(vm.runInContext('__v1216.cells',c5),0);});
 const c2=mk(false);t('no cave nearby: exact reason, no carving',()=>{assert.equal(vm.runInContext('__v1214.link',c2),null);assert.match(vm.runInContext('__v1214.why',c2),/no natural cave air/);assert.equal(vm.runInContext('__v1214.cells',c2),0);});
 console.log(p,'passed');
