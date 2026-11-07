@@ -44,7 +44,7 @@ G.__tbox3.pilot = false; now += 4000; assert(['landed', 'here'].includes(U.call(
 // paused / menu: nothing
 G.paused = true; now += 4000; const c0 = U.calls; G.useItem(); assert.equal(U.calls, c0, 'paused: nothing'); assert.equal(box.places, p1); G.paused = false;
 // ---- alien saucer departs for good ----
-const H2 = {current: {id: 'w1'}, localStorage: G.localStorage}; H2.window = H2; new Function('with(this){' + cut('/* GLX-UFO1222', '/* GLX-C400') + '}').call(H2); const V = H2.__ufo1222;
+const H2 = {current: {id: 'w1'}, localStorage: G.localStorage}; H2.window = H2; new Function('with(this){' + cut('/* GLX-UFO1222', '/* GLX-WAR1222') + '}').call(H2); const V = H2.__ufo1222;
 assert.equal(V.blocked(), false, 'before the visit it can come');
 V.depart(); assert.equal(V.blocked(), true); assert.equal(H2.current.c246.away, 'moon');
 H2.current = {id: 'w1'}; assert.equal(V.blocked(), true, 'still away after reload'); H2.current = {id: 'w2'}; assert.equal(V.blocked(), false, 'other worlds unaffected');
