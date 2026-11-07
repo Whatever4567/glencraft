@@ -26,7 +26,9 @@
     const b = cam.worldToLocal(item.localToWorld(k.b.clone())), h = cam.worldToLocal(item.localToWorld(k.h.clone())); const a = h.clone().sub(b); const len = a.length(); if (!(len > 1e-4)) return null; a.divideScalar(len);
     const G = b.clone().addScaledVector(a, len * 0.27); let z = G.clone().sub(S); z.addScaledVector(a, -z.dot(a)); const key = item.uuid + side;
     if (z.lengthSq() < 1e-8) z = (pp.get(key) || V3(-side, 0, 0)).clone(); z.normalize(); pp.set(key, z.clone());
-    const x = a.clone().multiplyScalar(side), y = V3(0, 0, 0).crossVectors(z, x).normalize(); const sr = k.r * item.matrixWorld.getMaxScaleOnAxis() / Math.max(1e-6, cam.matrixWorld.getMaxScaleOnAxis());
+    // v1.2.22: the fingers point from the shoulder side towards the handle and the palm faces across it (thumb towards the head), so the
+    // wrist stays in line with the forearm; before, the palm faced straight away from the shoulder and the wrist was bent about 90 degrees
+    const x = a.clone().multiplyScalar(side), y = z.clone(); z = V3(0, 0, 0).crossVectors(x, y).normalize(); const sr = k.r * item.matrixWorld.getMaxScaleOnAxis() / Math.max(1e-6, cam.matrixWorld.getMaxScaleOnAxis());
     const c0 = Math.max(0.85, Math.min(1.3, 1.3 - (sr - 0.012) * 12)); return {G, x, y, z, r: sr, c: [c0, c0 + 0.03, c0 + 0.06, c0 + 0.09]}; };
   // gun axes in camera space: forward (muzzle), up (gun +y) and right
   U.gun = (g, cam, fw) => { g.updateMatrixWorld(true); const o = cam.worldToLocal(g.localToWorld(V3(0, 0, 0))), u = cam.worldToLocal(g.localToWorld(V3(0, 1, 0))).sub(o); u.addScaledVector(fw, -u.dot(fw)); if (u.lengthSq() < 1e-10) u.set(0, 1, 0); u.normalize(); const r = V3(0, 0, 0).crossVectors(fw, u).normalize(); return {fw: fw.clone(), up: u, rt: r}; };
@@ -50,4 +52,21 @@
     const w = ss(0.05, 0.16, rp) * (1 - ss(0.86, 0.97, rp)), pull = ss(0.3, 0.45, rp) * (1 - ss(0.62, 0.78, rp));
     return {phase: rp < 0.16 ? 'reach' : rp < 0.3 ? 'grab' : rp < 0.78 ? 'cycle' : 'return', to: 'bolt', w, pull, belt: 0}; };
   U.mix = (a, b, t) => a.clone().lerp(b, t);
+  // v1.2.22: the real (GLB) guns. The swap to the real model empties the rig, which took the anchors with it, so the hands fell back to
+  // the old guessed spot (a few cm off the real grip). These anchors were measured on the real models in rig space after the swap:
+  // pistol grip centre, the left side of the grip for the support palm and the mag well under it; the rifle wrist (wrap), the fore stock
+  // and the bolt handle (the right most part of the bolt, found from the mesh itself).
+  U.ANCH_HD = {pistol: [['grip', 'rig', 0, -0.062, -0.011], ['sup', 'rig', -0.03, -0.066, -0.004], ['well', 'rig', 0, -0.108, -0.014]],
+               rifle: [['grip', 'rig', -0.007, 0.012, 0.12], ['fore', 'rig', -0.007, 0.056, -0.24], ['bolt', 'slide', 0, 0, 0]]};
+  U.reanch = (g, n, model) => { const ud = g.userData, rig = ud.rig; if (!rig || !U.ANCH_HD[n]) return 0; ud.anch = {}; rig.updateMatrixWorld(true);
+    for (const [nm, p, x, y, z] of U.ANCH_HD[n]) { const o = new THREE.Object3D(); o.name = 'anch_' + nm; o.position.set(x, y, z);
+      if (nm === 'bolt' && model) { let b = null; model.traverse(m => { if (!b && m.isMesh && /bolt_a$/.test(m.name)) b = m; });
+        if (b) { const inv = new THREE.Matrix4().copy(rig.matrixWorld).invert(), mw = new THREE.Matrix4().multiplyMatrices(inv, b.matrixWorld), q = b.geometry.attributes.position, v = new THREE.Vector3(), c = new THREE.Vector3(); let mx = -1e9, k = 0;
+          for (let i = 0; i < q.count; i++) { v.fromBufferAttribute(q, i).applyMatrix4(mw); if (v.x > mx) mx = v.x; }
+          for (let i = 0; i < q.count; i++) { v.fromBufferAttribute(q, i).applyMatrix4(mw); if (v.x > mx - 0.008) { c.add(v); k++; } } if (k) o.position.copy(c.divideScalar(k)); } }
+      rig.add(o); if (p === 'slide' && ud.slide) ud.slide.attach(o); ud.anch[nm] = o; } ud.anchHD = 1; return 1; };
+  // the real pistol model keeps its spare magazine beside the gun (as shown in the asset); move it into the grip so it sits in the well
+  U.magFix = m => { let F = null, M = null; m.traverse(o => { if (o.isMesh && /pistol_a$/.test(o.name)) F = o; if (o.isMesh && /magazine_loaded$/.test(o.name)) M = o; }); if (!F || !M) return 0;
+    m.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(m.matrixWorld).invert(), bf = new THREE.Box3().setFromObject(F, true).applyMatrix4(inv), bm = new THREE.Box3().setFromObject(M, true).applyMatrix4(inv);
+    if (bm.max.x > bf.min.x) return 0; const t = new THREE.Object3D(), par = M.parent; m.add(t); t.attach(M); M.position.x += 0.085; par.attach(M); m.remove(t); return 1; };
 })();
