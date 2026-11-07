@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1221-v1.2.21 -->
+<!-- glencraft-build: b1222-v1.2.22 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.21';
+const GAME_VERSION = '1.2.22';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -47395,7 +47395,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       for (const k of [...meshes.keys()]) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
       const Z0s = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0, upS = e.flat && P.y >= 12; if (U.opW !== world) { U.opW = world; U.op.clear(); } const OPEN = (cx, cz) => { const k = cx + ',' + cz; let o = U.op.get(k); if (o === undefined) { o = false; for (let x = cx * C; x < cx * C + C && !o; x++) for (let z = cz * C; z < cz * C + C; z++) { const b = world[idx(x, 0, z)]; if (!b || b === T.WATER || b === T.LAVA) { o = true; break; } } U.op.set(k, o); } return o; }, SKIP = (cx, cz) => upS && Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > 1 && cx * C >= 0 && (cx + 1) * C <= W && cz * C >= Z0s && (cz + 1) * C <= D && !OPEN(cx, cz); U.skipUp = upS; const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (SKIP(cx, cz)) continue; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
       want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz, near = want.filter(q => q[0] < 1.5).length; U.hold = (!meshes.has(mk) && !SKIP(pcx, pcz)) || near > 0;   /* v1.1.36: the ground under you is built first and fast, and you wait for it */
-      const t1 = performance.now(), bud = U.hold ? (PH ? 10 : 14) : e.flat ? (PH ? 6 : 8) : (PH ? 5 : 8); for (let i = 0; i < want.length && performance.now() - t1 < bud; i++) { const q = want[i]; if (!ready(ax, piv, q[1], q[2], band, t1, bud)) break; U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band); } U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); } catch (e) { ERR('loop', e); } }, PH ? 120 : 70);
+      const t1 = performance.now(), bud = U.hold ? (PH ? 10 : 14) : e.flat ? (PH ? 6 : 8) : (PH ? 5 : 8); for (let i = 0; i < want.length && performance.now() - t1 < bud; i++) { const q = want[i]; if (!ready(ax, piv, q[1], q[2], band, t1, bud)) break; if (i > 0 && !(U.hold && q[0] < 1.5) && performance.now() - t1 + (U.ema || 4) > bud) { U.defer = (U.defer || 0) + 1; break; } U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band); U.ema = U.ema ? U.ema * 0.8 + U.ms * 0.2 : U.ms; } U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); } catch (e) { ERR('loop', e); } }, PH ? 120 : 70);
   setTimeout(() => { try { const up = updatePlayer; updatePlayer = function (dt) { try { const e = E(); if (U.hold && root.visible && !flying && e) { const w = F().pw(); const al = e.alt(w.x, w.y, w.z); if (al < 60 && al > -60 && P.vy < 0 && (U.hf || 0) < 90) { P.vy = 0; U.held = (U.held || 0) + 1; U.hf = (U.hf || 0) + 1; } } else U.hf = 0; } catch (_) {} return up.apply(this, arguments); }; } catch (e) { ERR('hold', e); } }, 3200);
   // blocks you dig or place out on the planet: redraw that chunk
   try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y >= 0 && y <= 1) { try { const ck = Math.floor(x / C) + ',' + Math.floor(z / C); U.op.delete(ck); U.dirty.add(ck); } catch (_) {} const t = '|' + Math.floor(x / C) + ',' + Math.floor(z / C) + ','; for (const kk of [...cache.keys()]) if (kk.includes(t)) cache.delete(kk); } } catch (_) {} try { const f = F(); if (f && on() && meshes.size) { const mx = ((Math.floor(x) % C) + C) % C, mz = ((Math.floor(z) % C) + C) % C; for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if ((ax === 0 || (ax > 0 ? mx === C - 1 : mx === 0)) && (az === 0 || (az > 0 ? mz === C - 1 : mz === 0))) U.dirty.add(Math.floor((Math.floor(x) + ax) / C) + ',' + Math.floor((Math.floor(z) + az) / C)); } } catch (_) {} return r; }; } catch (e) { ERR('setB', e); }
@@ -48210,12 +48210,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function solve(a, S, T, grip, roll, o) { O = o || null; const side = a.userData.side, p = a.userData.p, d = V3(0, 0, 0).subVectors(T, S); let L = d.length(); const mx = LU + LF - 0.004; U.reach = Math.max(U.reach, L);
     if (L > mx) { S = T.clone().addScaledVector(d, -mx / L); d.multiplyScalar(mx / L); L = mx; } const dir = d.clone().normalize();
     const ca = Math.max(-1, Math.min(1, (LU * LU + L * L - LF * LF) / (2 * LU * L))), sa = Math.sqrt(1 - ca * ca);
-    const pole = V3(side * 0.7, -1, 0.35); const perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
+    const pole = V3(side * 0.7, -1, 0.35); if (O) pole.addScaledVector(O.z, -0.5).addScaledVector(O.y, -0.25); let perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))); if (!(perp.lengthSq() > 1e-6)) { perp = (a.userData.pp || V3(side, -1, 0)).clone(); perp.sub(dir.clone().multiplyScalar(perp.dot(dir))); } if (!(perp.lengthSq() > 1e-9)) perp = V3(0, -1, 0); perp.normalize(); a.userData.pp = perp.clone(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
     aimLimb(p.up, S, E); p.el.position.copy(E); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
     p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
     const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
-    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.85 + tg * 0.4, side * 0.45, side * (0.7 + tg * 0.4)); th.userData.k.rotation.set(0.15 + tg * 0.65, 0, 0); } try { const hq = p.h.quaternion; if (!isFinite(hq.x + hq.y + hq.z + hq.w)) hq.copy(p.fo.quaternion); const fdw = V3(0, 1, 0).applyQuaternion(p.fo.quaternion), hy = V3(0, 1, 0).applyQuaternion(hq), ang = Math.acos(Math.max(-1, Math.min(1, fdw.dot(hy)))), MX = 0.9;
-      if (ang > MX) { const r = new THREE.Quaternion().setFromUnitVectors(hy, fdw); hq.premultiply(new THREE.Quaternion().slerp(r, (ang - MX) / ang)); } U.wrist = Math.min(ang, MX); } catch (_) {} }
+    const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.85 + tg * 0.4, side * 0.45, side * (0.7 + tg * 0.4)); th.userData.k.rotation.set(0.15 + tg * 0.65, 0, 0); } try { const hq = p.h.quaternion; if (!isFinite(hq.x + hq.y + hq.z + hq.w)) hq.copy(p.fo.quaternion); U.wrist = V3(0, 1, 0).applyQuaternion(p.fo.quaternion).angleTo(V3(0, 1, 0).applyQuaternion(hq)); } catch (_) {} }
   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
   const hb = new THREE.Matrix4(), bb = new THREE.Box3(); let O = null;
   function grip(G, pn, fd, c, oz) { const z = pn.clone().normalize(), y = fd.clone().addScaledVector(z, -fd.dot(z)).normalize(), x = V3(0, 0, 0).crossVectors(y, z); O = {x, y, z, c}; return G.clone().addScaledVector(y, -0.075).addScaledVector(z, -(oz == null ? 0.032 : oz)); }
@@ -48246,20 +48245,19 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const isP = g && g.userData.gun === IT.PISTOL;
     let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; { try { let lb = g.userData.__lb; if (lb && g.userData.__lbc !== g.userData.c322) lb = null; if (!lb) { g.userData.__lbc = g.userData.c322; lb = new THREE.Box3(); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), mm = new THREE.Matrix4(); g.traverse(m => { let vis = true; for (let x = m; x && x !== g; x = x.parent) if (!x.visible) vis = false; if (m.isMesh && m.geometry && vis) { mm.multiplyMatrices(inv, m.matrixWorld); lb.union(gbox(m.geometry).applyMatrix4(mm)); } }); g.userData.__lb = lb; }
           const fwL = g.userData.muzzle ? g.worldToLocal(g.userData.muzzle.getWorldPosition(V3(0, 0, 0))).sub(lb.getCenter(V3(0, 0, 0))) : V3(0, 0, -1), back = fwL.z < 0 ? lb.max.z : lb.min.z, dz = (lb.max.z - lb.min.z) * (fwL.z < 0 ? -1 : 1);
-          TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03;
-      try { const it = held.children[0]; if (!it.userData.block && window.__hg1221) { const h2 = __hg1221(held, it, camera); if (h2) TR = h2; } } catch (_) {} } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
+          TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
     if (g && !isP && rp >= 0 && rw) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); const ax = mz.clone().sub(TR).normalize(); TR = TR.clone().addScaledVector(ax, 0.12 * rw).add(V3(0.04 * rw, 0.03 * rw, 0)); }
     { const VM2 = !!(window.__vm && __vm.on); if (VM2 && g && !isP && TR) { const ax = (g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(TR) : V3(0, 0, -1)).normalize(); for (let i = 0; i < 40 && TR.z > -0.30; i++) TR.addScaledVector(ax, 0.01); } }   // v1.1.95: fixed rifle hand spot, never up against the eye
     let OR = null; const fw = g && g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)).sub(local(g, V3(0, 0, 0))).normalize() : V3(0, 0, -1);
-    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } TR = grip(TR, V3(-1, 0.08, 0).addScaledVector(fw, -0.08), V3(0, -1, 0.05).addScaledVector(fw, isP ? 0.5 : 0.35), [isP ? 0.55 : 0.95, isP ? 0.72 : 1.15, isP ? 0.76 : 1.2, isP ? 0.8 : 1.25], isP ? 0.044 : 0.032); OR = O; if (OR) OR.t = isP ? 0.9 : 1.05; }
+    if (g) { if (!isP) { const tu = window.__fpaT || (window.__vm && __vm.on ? [0.012, -0.012, 0] : [0.03, 0.06, 0]); TR.add(V3(tu[0], tu[1], tu[2])); } const GA = window.__gs1222 ? __gs1222.gun(g, camera, fw) : null; U.GA = GA; if (GA) { const z = GA.rt.clone().negate(), x = GA.up.clone(); TR = grip(TR, z, V3(0, 0, 0).crossVectors(z, x), [isP ? 0.38 : 0.45, isP ? 1.1 : 1.15, isP ? 1.15 : 1.2, isP ? 1.2 : 1.25], isP ? 0.034 : 0.03); OR = O; } else { TR = grip(TR, V3(-1, 0.08, 0).addScaledVector(fw, -0.08), V3(0, -1, 0.05).addScaledVector(fw, isP ? 0.5 : 0.35), [isP ? 0.55 : 0.95, isP ? 0.72 : 1.15, isP ? 0.76 : 1.2, isP ? 0.8 : 1.25], isP ? 0.044 : 0.032); OR = O; } if (OR) OR.t = isP ? 0.9 : 1.05; }
     else if (held.children.length && held.children[0].userData.block) { TR = grip(TR.add(V3(0.01, 0.05, -0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]); OR = O; if (OR) OR.t = 0.85; }
-    else if (held.children.length) { TR = grip(TR.add(V3(0.01, -0.01, 0.01)), V3(-0.2, 0.05, 0.95), V3(0.05, 1, 0), [0.9, 0.95, 1.0, 1.05]); OR = O; if (OR) OR.t = 1.0; }
+    else if (held.children.length) { const GT = window.__gs1222 ? __gs1222.tool(held.children[0], camera, SR, 1) : null; U.GT = GT ? 1 : 0; if (GT) TR = grip(GT.G, GT.z, GT.y, GT.c, GT.r + 0.016); else TR = grip(TR.add(V3(0.01, -0.01, 0.01)), V3(-0.2, 0.05, 0.95), V3(0.05, 1, 0), [0.9, 0.95, 1.0, 1.05]); OR = O; if (OR) OR.t = 1.0; }
     solve(R, SR, TR, held.children.length ? 1 : 0.85, -0.3, OR);
     let two = false; if (g) { two = !isP || k > 0.3; if (two) { let TL;
         if (!isP) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); TL = null; for (let f = 0.55; f >= 0.15; f -= 0.05) { const c = TR.clone().lerp(mz, f); c.y -= 0.006; if (c.distanceTo(SL) <= LU + LF - 0.01) { TL = c; break; } } if (!TL) { TL = TR.clone().lerp(mz, 0.15); TL.y -= 0.006; } }
         else { TL = TR.clone().add(V3(-0.035, -0.02, 0.015)); }
         if (rp >= 0 && rw && isP) TL.add(V3(-0.05 * rw, -0.22 * rw, 0.06 * rw));
-        const OL0 = isP ? grip(TL, V3(1, 0.15, 0), V3(0, -0.35, 0).addScaledVector(fw, 0.75), [0.9, 0.95, 1, 1]) : grip(TL, V3(0.05, 1, 0.1), V3(0.85, 0.2, 0).addScaledVector(fw, -0.25), [1.0, 1.08, 1.12, 1.18], 0.026); if (O) O.t = isP ? 0.85 : 0.95; solve(L, SL, OL0, 0.9, 0.5, O); } }
+        const GA2 = U.GA; let OL0; if (GA2) { if (isP) { const z = GA2.rt.clone(), x = GA2.up.clone().negate(); OL0 = grip(TL, z, V3(0, 0, 0).crossVectors(z, x), [1.0, 1.05, 1.1, 1.12], 0.03); } else { const z = GA2.up.clone(), x = GA2.fw.clone().negate(); OL0 = grip(TL, z, V3(0, 0, 0).crossVectors(z, x), [1.05, 1.1, 1.15, 1.2], 0.03); } } else OL0 = isP ? grip(TL, V3(1, 0.15, 0), V3(0, -0.35, 0).addScaledVector(fw, 0.75), [0.9, 0.95, 1, 1]) : grip(TL, V3(0.05, 1, 0.1), V3(0.85, 0.2, 0).addScaledVector(fw, -0.25), [1.0, 1.08, 1.12, 1.18], 0.026); if (O) O.t = isP ? 0.85 : 0.95; solve(L, SL, OL0, 0.9, 0.5, O); } }
     L.visible = !!two; U.two = two ? 1 : 0; }
   // first person torso: your stomach, belt and kilt joined to the legs when you look down
   let torso = null;
@@ -49337,7 +49335,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const fm = SM(new THREE.MeshBasicMaterial({color: 0x2b1a0c})), sm = SM(new THREE.MeshBasicMaterial({map: rt.texture}));
     const g = new THREE.Group(); const fr = new THREE.Mesh(new THREE.BoxGeometry(2.08, 1.2, 0.07), fm); g.add(fr); scr = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 1.1), sm); scr.position.z = 0.035; g.add(scr);
     { const st = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), fm); st.position.y = -0.8; g.rotation.x = -0.12; g.add(st); } U.scr = scr; U.SEAT = [0, 0, CZ + 2.0];
-    g.position.set(0, 1.78, CZ + 0.85); room.add(g);
+    g.position.set(0, 1.78, CZ + 0.85); g.traverse(o => { if (o.isMesh) { o.renderOrder = 5; o.frustumCulled = false; } }); room.add(g); U.scrG = g;
     const bm = SM(new THREE.MeshLambertMaterial({color: 0xc8962e, emissive: 0x3a2508})), w = new THREE.Group(); w.add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 8, 28), bm));
     for (let i = 0; i < 6; i++) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.82, 0.03), bm); s.rotation.z = i * Math.PI / 6; w.add(s); } const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 12), bm); hub.rotation.x = Math.PI / 2; w.add(hub);
     for (let i = 0; i < 6; i++) { const k = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), bm); const a = i * Math.PI / 3; k.position.set(Math.cos(a) * 0.5, Math.sin(a) * 0.5, 0); w.add(k); }
@@ -50471,7 +50469,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       U.walls = n; }
     if (!U.col) { if (T.col) { T.col.visible = false; U.col = 1; }
       for (const q of room.children) { const p = q.geometry && q.geometry.parameters; if (q.isMesh && q.geometry.type === 'BoxGeometry' && p && Math.abs(p.height - 1.9) < 0.01 && Math.abs(p.width - 0.04) < 0.01) q.visible = false; } }
-    const v = V(); if (v && v.built && !U.ro && RO) { let n = 0; room.traverse(q => { if (q.isMesh && !q.renderOrder) { q.renderOrder = RO; q.frustumCulled = false; n++; } }); U.ro = n || 1; }
+    if (RO) { let n = 0, c = 0; room.traverse(q => { if (q.isMesh) { c++; if (!q.renderOrder) { q.renderOrder = RO; q.frustumCulled = false; n++; } } }); U.ro = (U.ro || 0) + n; U.roC = c; }
   }
   setInterval(() => { try { tick(); } catch (e) { ERR('t', e); } }, 400);
   // pilot mode owns the controller: the walking/look/mining pad code is skipped while you hold the stick (Start still pauses)
@@ -50507,8 +50505,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let grp = null, folk = [], built = null, stareT = 0, voiceT = -1e9, sub = null; const M = c => new THREE.MeshBasicMaterial({color: c});
   const EYE0 = 0x2a6e9e, EYE1 = 0xaaf4ff;
   function make(ring) { grp = new THREE.Group(); grp.visible = false; scene.add(grp); const bx = (w, h, d) => new THREE.BoxGeometry(w, h, d);
-    const linen = M(0xdfe8f2), sash = M(0x3a5fb0), skin = M(0xc89a74), hair = M(0x1a1a24), band = M(0x4a7ad0), eyeM = M(EYE0); U.eyeM = eyeM;
-    const G = {leg: bx(.16, 1.2, .16), body: bx(.42, .95, .24), arm: bx(.12, 1.0, .12), head: bx(.34, .42, .34), nem: bx(.4, .2, .4), lap: bx(.12, .34, .06), belt: bx(.44, .08, .26), eye: bx(.1, .05, .02)};
+    const AT = window.__ag1222 ? __ag1222.mats() : null, linen = AT || M(0xdfe8f2), sash = AT || M(0x3a5fb0), skin = AT || M(0xc89a74), hair = AT || M(0x1a1a24), band = AT || M(0x4a7ad0), eyeM = M(EYE0); U.eyeM = eyeM;
+    const G = {leg: bx(.16, 1.2, .16), body: bx(.42, .95, .24), arm: bx(.12, 1.0, .12), head: bx(.34, .42, .34), nem: bx(.4, .2, .4), lap: bx(.12, .34, .06), belt: bx(.44, .08, .26), eye: bx(.1, .05, .02)}; if (AT) { const R = __ag1222.remap; R(G.leg, ['legs']); R(G.body, ['linen']); R(G.arm, ['skin']); R(G.head, ['skin', 'skin', 'nemes', 'skin', 'face', 'nemes']); R(G.nem, ['nemes']); R(G.lap, ['band']); R(G.belt, ['sash']); }
     for (let k = 0; k < 7; k++) { const p = new THREE.Group(), mk = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); p.add(o); return o; };
       const lg = [mk(G.leg, linen, -.1, .6, 0), mk(G.leg, linen, .1, .6, 0)]; mk(G.body, linen, 0, 1.68, 0); mk(G.belt, sash, 0, 1.25, 0);
       const ar = [mk(G.arm, skin, -.28, 1.65, 0), mk(G.arm, skin, .28, 1.65, 0)]; const hd = new THREE.Group(); hd.position.set(0, 2.38, 0); p.add(hd);
@@ -50518,15 +50516,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       const a0 = k / 7 * 6.283; const f = {g: p, lg, ar, hd, a: a0, ph: k, kind: 'agarthan', __ag: 1, hitY: 1.6, hitR: 0.6, hp: 20, hostile: false};
       grp.add(p); folk.push(f); }
     built = ring; U.n = folk.length; }
-  const place = (f, ring) => { const x = ring.X + Math.cos(f.a) * ring.R, z = ring.Z + Math.sin(f.a) * ring.R; f.g.position.set(x, ring.Y, z); };
+  const place = (f, ring) => { const x = ring.X + Math.cos(f.a) * ring.R, z = ring.Z + Math.sin(f.a) * ring.R, fk = Math.floor(x) * 65536 + Math.floor(z); if (f.fk !== fk) { f.fk = fk; const y = window.__ag1222 ? __ag1222.floorAt(x, z, f.gy != null ? f.gy : ring.Y) : null; if (y != null) f.gy = y; } f.g.position.set(x, f.gy != null ? f.gy : ring.Y, z); };
   function voice() { const now = performance.now(); if (now - voiceT < 45000) return; voiceT = now; U.voice++;
     try { const a = new Audio('assets/voice/agarthan_choir.mp3'); a.volume = Math.min(1, (typeof SET !== 'undefined' ? SET.sfx : 0.8) + 0.15); a.play().catch(() => {}); } catch (_) {}
     try { if (!sub) { sub = document.createElement('div'); sub.style.cssText = 'position:fixed;left:50%;bottom:22%;transform:translateX(-50%);z-index:60;max-width:80vw;text-align:center;font:600 18px/1.35 system-ui,sans-serif;color:#cfefff;text-shadow:0 0 8px #3ad0ff,0 2px 3px #000;pointer-events:none;opacity:0;transition:opacity .4s'; document.body.appendChild(sub); }
       sub.textContent = LORE; sub.style.opacity = 1; clearTimeout(sub._t); sub._t = setTimeout(() => { sub.style.opacity = 0; }, 7200); } catch (_) {} }
   U.trigger = () => { stareT = 22; U.stares++; try { U.eyeM.color.setHex(EYE1); } catch (_) {} voice(); };
-  U.tick = (dt) => { const ring = window.__ag1220.ring, l = window.__agw && __agw.L; const ok = ring && l && started && !DIM.cur && !(typeof SET !== 'undefined' && SET.noMobs) && !(typeof dead !== 'undefined' && dead);
+  U.tick = (dt) => { const ring = window.__ag1222 ? __ag1222.ring() : window.__ag1220.ring, l = window.__agw && __agw.L; const ok = ring && l && started && !DIM.cur && !(typeof SET !== 'undefined' && SET.noMobs) && !(typeof dead !== 'undefined' && dead);
     const near = ok && Math.hypot(P.x - ring.X, P.z - ring.Z) < ring.R + 70 && Math.abs(P.y - ring.Y) < 40;
-    if (!near) { if (grp) grp.visible = false; if (stareT > 0 && !ok) { stareT = 0; try { U.eyeM.color.setHex(EYE0); } catch (_) {} } return; }
+    U.why = !ring ? 'no ring' : !l ? 'no city' : !ok ? ((typeof SET !== 'undefined' && SET.noMobs) ? 'mobs off' : 'not ready') : !near ? 'far' : 'shown'; if (!near) { if (grp) grp.visible = false; if (stareT > 0 && !ok) { stareT = 0; try { U.eyeM.color.setHex(EYE0); } catch (_) {} } return; }
     if (built !== ring) { if (grp) { scene.remove(grp); folk = []; } make(ring); }
     grp.visible = true;
     if (stareT > 0) { stareT -= dt; for (const f of folk) { const p = f.g.position; f.g.rotation.y = Math.atan2(P.x - p.x, P.z - p.z); const dy = P.y + 1.6 - (p.y + 2.4), dh = Math.hypot(P.x - p.x, P.z - p.z) || 1; f.hd.rotation.x = Math.max(-0.6, Math.min(0.6, -Math.atan2(dy, dh))); f.lg[0].rotation.x = f.lg[1].rotation.x = f.ar[0].rotation.x = f.ar[1].rotation.x = 0; }
@@ -50568,11 +50566,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const wr = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.06, 10), skin); wr.rotation.x = Math.PI / 2; wr.position.set(0, -0.01, 0.09); g.add(wr);   // wrist joins palm and sleeve with no gap
     const arm = new THREE.Group(); const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.05, 1, 10), sl); fore.geometry.translate(0, 0.5, 0); arm.add(fore);
     const cf = new THREE.Mesh(new THREE.CylinderGeometry(0.046, 0.046, 0.05, 10), cuff); cf.position.y = 0.025; arm.add(cf);
-    for (const o of [g, arm]) { o.traverse(m => { m.frustumCulled = false; if (m.material) { m.material.stencilFunc = THREE.AlwaysStencilFunc; m.material.needsUpdate = true; } }); o.visible = false; scene.add(o); }
+    for (const o of [g, arm]) { o.traverse(m => { m.frustumCulled = false; if (m.material) { m.material.stencilFunc = THREE.AlwaysStencilFunc; m.material.needsUpdate = true; } if (m.isMesh) m.renderOrder = 6; }); o.visible = false; ((T.parts && T.parts.TS) || scene).add(o); }
     return [g, arm, fore]; }
   function build() { const v = V(); if (!v || !v.parts) return; const p = v.parts(); if (!p || !p.stick || !p.knob) return;
     const SM = T.SM || (m => m), chrome = SM(new THREE.MeshPhongMaterial({color: 0xd8dde8, emissive: 0x202436, specular: 0xffffff, shininess: 140}));
-    bar = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.34, 10), chrome); bar.rotation.z = Math.PI / 2; bar.position.copy(p.knob.position); p.stick.add(bar);
+    bar = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.34, 10), chrome); bar.rotation.z = Math.PI / 2; bar.position.copy(p.knob.position); bar.renderOrder = 5; bar.frustumCulled = false; p.stick.add(bar);
     for (const sd of [-1, 1]) { const [g, arm, fore] = mkHand(sd); H.push(g); A.push([arm, fore, sd]); } built = true; }
   const SH = [[-0.27, -0.42, -0.02], [0.27, -0.42, -0.02]];
   function place(on) { if (!built) build(); if (!built) return; for (let i = 0; i < 2; i++) { H[i].visible = A[i][0].visible = on; } if (!on) return;
@@ -50597,11 +50595,88 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         if (hit(S.x, S.y, S.z)) { const rx = P.x - S.x, ry = P.y - S.y, rz = P.z - S.z; let y = S.y; while (k < 64 && hit(S.x, y, S.z)) { y += 1; k++; } if (k < 64) { T.place(S.x, y, S.z); P.x = S.x + rx; P.y = S.y + ry; P.z = S.z + rz; P.vy = 0; U.lifts++; } } }
       U.last = [S.x, S.y, S.z]; } catch (e) { ERR('wd', e); } }, 250);
   // tool grip point for GLX-FPA: a fifth of the way up the handle from its lower end (the item origin is the top of the handle for axes and picks)
-  window.__hg1221 = (held, it, cam) => { let b = it.userData.__hgb; if (!b) { b = new THREE.Box3(); const inv = new THREE.Matrix4().copy(held.matrixWorld).invert(), mm = new THREE.Matrix4();
-      it.updateMatrixWorld(true); it.traverse(m => { if (m.isMesh && m.geometry) { if (!m.geometry.boundingBox) m.geometry.computeBoundingBox(); mm.multiplyMatrices(inv, m.matrixWorld); b.union(m.geometry.boundingBox.clone().applyMatrix4(mm)); } }); if (b.isEmpty()) return null; it.userData.__hgb = b; }
-    const sz = b.getSize(new THREE.Vector3()), ax = sz.x >= sz.y && sz.x >= sz.z ? 'x' : sz.y >= sz.z ? 'y' : 'z', c = b.getCenter(new THREE.Vector3()), e0 = c.clone(), e1 = c.clone(); e0[ax] = b.min[ax]; e1[ax] = b.max[ax];
-    held.updateMatrixWorld(true); const w0 = cam.worldToLocal(held.localToWorld(e0.clone())), w1 = cam.worldToLocal(held.localToWorld(e1.clone())); const lo = w0.y <= w1.y ? w0 : w1, hi = lo === w0 ? w1 : w0;
-    const r = lo.clone().lerp(hi, 0.2); return isFinite(r.x + r.y + r.z) ? r : null; };
+})();
+
+/* GLX-GRIP1222 (v1.2.22): grip sockets for the first person hands. Each held tool gets a handle socket worked out once from its own meshes
+   (the longest thin part is the handle, the end nearest the other parts is the head), stored in the item's own space and carried through the
+   item's world matrix every frame, so the hand follows the real handle through every swing. Guns use their own up, forward and side axes. */
+(function grip1222() {
+  const U = window.__gs1222 = {err: null, socks: 0, fall: 0};
+  const V3 = (x, y, z) => new THREE.Vector3(x, y, z), AX = [V3(1, 0, 0), V3(0, 1, 0), V3(0, 0, 1)];
+  const gbox = geo => { const p = geo.attributes.position, A = p.array, n = p.normalized ? (A instanceof Int16Array ? 1 / 32767 : A instanceof Int8Array ? 1 / 127 : A instanceof Uint16Array ? 1 / 65535 : A instanceof Uint8Array ? 1 / 255 : 1) : 1, b = new THREE.Box3(), v = V3(0, 0, 0); for (let i = 0; i < p.count; i++) b.expandByPoint(v.fromBufferAttribute(p, i).multiplyScalar(n)); return b; };
+  // handle socket in item space: {b: butt end, h: head end, r: handle radius} or null when the item has no separate handle part
+  function sock(item) { const ud = item.userData; if (ud.__gs !== undefined) return ud.__gs; let best = null; const parts = [];
+    item.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(item.matrixWorld).invert(), m = new THREE.Matrix4();
+    item.traverse(o => { if (!o.isMesh || !o.geometry || !o.geometry.attributes.position) return; let vis = true; for (let x = o; x && x !== item; x = x.parent) if (!x.visible) vis = false; if (!vis) return;
+      m.multiplyMatrices(inv, o.matrixWorld); const bb = gbox(o.geometry), c = bb.getCenter(V3(0, 0, 0)), s = bb.getSize(V3(0, 0, 0)).toArray();
+      const L = [0, 1, 2].map(i => s[i] * V3(m.elements[i * 4], m.elements[i * 4 + 1], m.elements[i * 4 + 2]).length()); const ai = L[0] >= L[1] && L[0] >= L[2] ? 0 : L[1] >= L[2] ? 1 : 2, th = Math.max(...L.filter((_, i) => i !== ai)) || 1e-4;
+      const e0 = c.clone(), e1 = c.clone(); e0.setComponent(ai, bb.min.getComponent(ai)); e1.setComponent(ai, bb.max.getComponent(ai)); e0.applyMatrix4(m); e1.applyMatrix4(m);
+      const q = {e0, e1, len: L[ai], r: th / 2, ratio: L[ai] / th, c: c.clone().applyMatrix4(m), vol: L[0] * L[1] * L[2]}; parts.push(q); if (q.len > 0.12 && q.ratio > 2.2 && (!best || q.ratio * q.len > best.ratio * best.len)) best = q; });
+    let out = null; if (best && parts.length > 1) { const cen = V3(0, 0, 0); let w = 0; for (const q of parts) if (q !== best) { cen.addScaledVector(q.c, q.vol + 1e-6); w += q.vol + 1e-6; } cen.divideScalar(w);
+      const headIs1 = best.e1.distanceTo(cen) < best.e0.distanceTo(cen); out = {b: headIs1 ? best.e0 : best.e1, h: headIs1 ? best.e1 : best.e0, r: Math.max(0.012, Math.min(0.04, best.r))}; U.socks++; } else U.fall++;
+    ud.__gs = out; return out; }
+  const pp = new Map();
+  // grip frame in camera space for a tool: G = point on the handle axis, x = thumb axis (towards the head for the right hand), z = palm normal
+  U.tool = (item, cam, S, side) => { const k = sock(item); if (!k) return null; item.updateMatrixWorld(true);
+    const b = cam.worldToLocal(item.localToWorld(k.b.clone())), h = cam.worldToLocal(item.localToWorld(k.h.clone())); const a = h.clone().sub(b); const len = a.length(); if (!(len > 1e-4)) return null; a.divideScalar(len);
+    const G = b.clone().addScaledVector(a, len * 0.27); let z = G.clone().sub(S); z.addScaledVector(a, -z.dot(a)); const key = item.uuid + side;
+    if (z.lengthSq() < 1e-8) z = (pp.get(key) || V3(-side, 0, 0)).clone(); z.normalize(); pp.set(key, z.clone());
+    const x = a.clone().multiplyScalar(side), y = V3(0, 0, 0).crossVectors(z, x).normalize(); const sr = k.r * item.matrixWorld.getMaxScaleOnAxis() / Math.max(1e-6, cam.matrixWorld.getMaxScaleOnAxis());
+    const c0 = Math.max(0.85, Math.min(1.3, 1.3 - (sr - 0.012) * 12)); return {G, x, y, z, r: sr, c: [c0, c0 + 0.03, c0 + 0.06, c0 + 0.09]}; };
+  // gun axes in camera space: forward (muzzle), up (gun +y) and right
+  U.gun = (g, cam, fw) => { g.updateMatrixWorld(true); const o = cam.worldToLocal(g.localToWorld(V3(0, 0, 0))), u = cam.worldToLocal(g.localToWorld(V3(0, 1, 0))).sub(o); u.addScaledVector(fw, -u.dot(fw)); if (u.lengthSq() < 1e-10) u.set(0, 1, 0); u.normalize(); const r = V3(0, 0, 0).crossVectors(fw, u).normalize(); return {fw: fw.clone(), up: u, rt: r}; };
+  U.sock = sock;
+})();
+
+/* GLX-AG1222 (v1.2.22): Agartha and deep cave calm and lighter.
+   1. No sky flashes underground: storm lightning (the full screen flash layer, the brighter haze and lights it drives) and far flash lights
+      (volcano ash lightning, zaps) no longer reach you while you are deep under ground or in Agartha. Near lights such as your torch stay.
+   2. Plants in deep caves and the Agartha tunnel are only drawn within 40 blocks of you while you are under ground (they stay in the world).
+   3. The seven Agarthans: a fallback ring from the city when the stamp pass had none, each one stands on the real floor it finds under it,
+      and the reason they are hidden is kept for checks. One shared painted atlas for their linen, faces and blue and white headdress. */
+(function ag1222() {
+  const U = window.__ag1222 = {err: null, deep: 0, flashCut: 0, lightsCut: 0, plantsHid: 0, plantsAll: 0, atlas: 0, why: ''};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const deep = () => { try { if (DIM.cur === 'agartha') return true; if (DIM.cur) return false; return typeof P !== 'undefined' && P.y < SEA - 20; } catch (_) { return false; } };
+  U.isDeep = deep;
+  // ---- 1. flashes ----
+  try { const uw = updateWeather; updateWeather = function () { const r = uw.apply(this, arguments); try { U.deep = deep() ? 1 : 0; if (U.deep) { if (flashA > 0) U.flashCut++; flashA = 0; const fl = document.getElementById('flash'); if (fl && fl.style.opacity !== '0') fl.style.opacity = '0'; } } catch (e) { ERR('wx', e); } return r; }; } catch (e) { ERR('wxw', e); }
+  const cut = [], wp = new THREE.Vector3(), cp = new THREE.Vector3();
+  try { const rd = renderer.render; renderer.render = function (s, c) { if (s !== scene || !c || !U.deep) return rd.apply(this, arguments); cut.length = 0;
+      try { for (const o of scene.children) if (o.isPointLight && o.intensity > 0 && o.visible) { o.getWorldPosition(wp); if (wp.distanceTo(c.getWorldPosition(cp)) > 48 || wp.y > SEA - 4) { cut.push([o, o.intensity]); o.intensity = 0; } } U.lightsCut = cut.length; } catch (e) { ERR('lc', e); }
+      try { return rd.apply(this, arguments); } finally { for (const [o, v] of cut) o.intensity = v; } }; } catch (e) { ERR('rdw', e); }
+  // ---- 2. plant draw distance under ground ----
+  const cen = im => { let c = im.userData.__pc; if (c) return c; c = new THREE.Vector3(); const m = new THREE.Matrix4(), v = new THREE.Vector3(); const n = Math.max(1, im.count); for (let i = 0; i < n; i++) { im.getMatrixAt(i, m); c.add(v.setFromMatrixPosition(m)); } c.divideScalar(n); im.userData.__pc = c; return c; };
+  let plantOff = [];
+  U.plants = () => { const on = U.deep; if (!on) { for (const o of plantOff) o.visible = true; plantOff = []; U.plantsHid = 0; return; } const cam = camera.getWorldPosition(cp); let all = 0, hid = 0; const keep = [];
+    scene.traverse(o => { if (!o.isInstancedMesh || o.geometry !== crossGeo) return; all++; const w = o.localToWorld(cen(o).clone()); const far = w.distanceTo(cam) > 40 + 12; if (far) { if (o.visible || o.userData.__ph) { o.visible = false; o.userData.__ph = 1; keep.push(o); hid++; } } else if (o.userData.__ph) { o.visible = true; o.userData.__ph = 0; } });
+    for (const o of plantOff) if (!keep.includes(o) && o.userData.__ph) { o.visible = true; o.userData.__ph = 0; } plantOff = keep; U.plantsAll = all; U.plantsHid = hid; };
+  setInterval(() => { try { if (typeof started !== 'undefined' && started) { U.deep = deep() ? 1 : 0; U.plants(); } } catch (e) { ERR('pl', e); } }, 300);
+  // ---- 3. Agarthans: floor finder, fallback ring, visibility reason ----
+  const solidAt = (x, y, z) => { try { const e = window.__c320; let b; if (e && e.earth) b = e.earth(x, y, z); else if (y >= 0 && y < H) b = world[idx(x, y, z)]; return !!b && !(PLANT[b]) && b !== T.WATER && b !== T.LAVA; } catch (_) { return false; } };
+  U.floorAt = (x, z, y0) => { x = Math.floor(x); z = Math.floor(z); y0 = Math.round(y0); for (let d = 0; d <= 24; d++) for (const y of d ? [y0 + d, y0 - d] : [y0]) if (solidAt(x, y - 1, z) && !solidAt(x, y, z) && !solidAt(x, y + 1, z)) return y; return null; };
+  U.ring = () => { const A = window.__ag1220; if (A && A.ring) return A.ring; const l = window.__agw && window.__agw.L; if (!l || !l.city) return null; const r = {X: l.city[0] + 0.5, Z: l.city[1] + 0.5, R: Math.max(6, l.city[2] * 0.5), ok: 0, Y: l.FL, fb: 1}; if (A) A.ring = r; return r; };
+  // ---- shared atlas for the Agarthans (one texture, painted once) ----
+  U.atlasSize = () => { try { const mx = renderer.capabilities.maxTextureSize || 2048, ph = matchMedia && matchMedia('(pointer:coarse)').matches; return Math.min(mx, ph ? 1024 : 2048); } catch (_) { return 1024; } };
+  // tiles (u0, v0, u1, v1) on a 4 x 4 grid
+  const TL = {linen: [0, 0], sash: [1, 0], skin: [2, 0], face: [3, 0], nemes: [0, 1], band: [1, 1], legs: [2, 1], hair: [3, 1]};
+  U.tile = k => { const t = TL[k] || TL.linen; return [t[0] / 4, 1 - (t[1] + 1) / 4, (t[0] + 1) / 4, 1 - t[1] / 4]; };
+  function paint(N) { const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), Q = N / 4; let sd = 1222; const r = () => (sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296;
+    const at = (k, f) => { const t = TL[k]; g.save(); g.translate(t[0] * Q, t[1] * Q); g.beginPath(); g.rect(0, 0, Q, Q); g.clip(); f(Q); g.restore(); };
+    const weave = (q, base, dark) => { g.fillStyle = base; g.fillRect(0, 0, q, q); for (let y = 0; y < q; y += 2) { g.fillStyle = `rgba(${dark},${0.05 + r() * 0.05})`; g.fillRect(0, y, q, 1); } for (let x = 0; x < q; x += 3) { g.fillStyle = `rgba(${dark},0.04)`; g.fillRect(x, 0, 1, q); } for (let i = 0; i < q * 2; i++) { g.fillStyle = `rgba(255,255,255,${r() * 0.08})`; g.fillRect(r() * q, r() * q, 1 + r() * 3, 1); } };
+    at('linen', q => { weave(q, '#e6ecf3', '90,100,120'); for (let x = q * 0.08; x < q; x += q / 9) { const gr = g.createLinearGradient(x, 0, x + q / 18, 0); gr.addColorStop(0, 'rgba(120,135,160,0.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x, 0, q / 18, q); } g.fillStyle = '#2f5fb8'; g.fillRect(0, q * 0.02, q, q * 0.05); g.fillStyle = '#d9b44a'; g.fillRect(0, q * 0.075, q, q * 0.012); });
+    at('legs', q => { weave(q, '#dfe6ee', '90,100,120'); for (let x = 0; x < q; x += q / 7) { g.fillStyle = 'rgba(110,125,150,0.16)'; g.fillRect(x, 0, q / 40, q); } });
+    at('sash', q => { g.fillStyle = '#2a58b4'; g.fillRect(0, 0, q, q); for (let x = 0; x < q; x += q / 8) { g.fillStyle = '#e8eef6'; g.fillRect(x, 0, q / 32, q); g.fillStyle = '#d4ad3c'; g.fillRect(x + q / 16, 0, q / 64, q); } });
+    at('skin', q => { g.fillStyle = '#b98a62'; g.fillRect(0, 0, q, q); for (let i = 0; i < q * 3; i++) { g.fillStyle = `rgba(${r() < 0.5 ? '90,60,40' : '230,190,150'},${r() * 0.06})`; g.fillRect(r() * q, r() * q, 1 + r() * 2, 1 + r() * 2); } });
+    at('face', q => { g.fillStyle = '#b98a62'; g.fillRect(0, 0, q, q); const ey = q * 0.42; for (const s of [-1, 1]) { const ex = q / 2 + s * q * 0.2; g.fillStyle = '#f2f4f8'; g.beginPath(); g.ellipse(ex, ey, q * 0.1, q * 0.045, 0, 0, 6.283); g.fill(); g.fillStyle = '#2a6e9e'; g.beginPath(); g.arc(ex, ey, q * 0.035, 0, 6.283); g.fill(); g.strokeStyle = '#141018'; g.lineWidth = q * 0.016; g.beginPath(); g.moveTo(ex - s * q * 0.12, ey - q * 0.01); g.quadraticCurveTo(ex, ey - q * 0.07, ex + s * q * 0.16, ey + q * 0.02); g.stroke(); g.fillStyle = '#1a1420'; g.fillRect(ex - q * 0.1, ey - q * 0.1, q * 0.2, q * 0.022); }
+      g.fillStyle = 'rgba(120,80,55,0.55)'; g.fillRect(q * 0.47, q * 0.46, q * 0.06, q * 0.16); g.fillStyle = '#7a4a3a'; g.fillRect(q * 0.4, q * 0.72, q * 0.2, q * 0.03); g.fillStyle = '#2a58b4'; g.fillRect(q * 0.44, q * 0.86, q * 0.12, q * 0.14); });
+    at('nemes', q => { for (let y = 0; y < q; y += q / 10) { g.fillStyle = ((y / (q / 10)) | 0) % 2 ? '#e8eef6' : '#2a58b4'; g.fillRect(0, y, q, q / 10); } g.fillStyle = '#d4ad3c'; g.fillRect(0, q * 0.9, q, q * 0.1); });
+    at('band', q => { for (let y = 0; y < q; y += q / 8) { g.fillStyle = ((y / (q / 8)) | 0) % 2 ? '#f0f4fa' : '#3a6ad0'; g.fillRect(0, y, q, q / 8); } });
+    at('hair', q => { g.fillStyle = '#16141c'; g.fillRect(0, 0, q, q); });
+    const t = new THREE.CanvasTexture(c); try { t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); } catch (_) {} t.generateMipmaps = true; return t; }
+  // box faces: +x, -x, +y, -y, +z (front), -z
+  U.remap = (geo, tiles) => { const uv = geo.attributes.uv; for (let f = 0; f < 6; f++) { const [u0, v0, u1, v1] = U.tile(tiles[f] || tiles[0]); for (let k = 0; k < 4; k++) { const i = f * 4 + k; uv.setXY(i, u0 + uv.getX(i) * (u1 - u0), v0 + uv.getY(i) * (v1 - v0)); } } uv.needsUpdate = true; return geo; };
+  let ATL = null; U.mats = () => { if (!ATL) { const N = U.atlasSize(); ATL = new THREE.MeshBasicMaterial({map: paint(N)}); U.atlas = N; } return ATL; };
 })();
 
 /* GLX-C400 (v1.1.99): ONE FPS RIG OWNER. Viewmodel (__vm) owns FP gun pose and scale via immutable __s0Base.
@@ -51231,6 +51306,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.22","d":"2026-11-07","notes":["Agartha and deep caves: storm lightning and far flash lights (volcano ash lightning and zaps) no longer light up the screen while you are under ground. Near lights such as your torch still work.","Deep caves and the Agartha tunnel draw their plants only within about 50 blocks while you are under ground, so the tunnel has less to draw. The plants are still there and come back as you walk on.","Deep caves no longer start another cave chunk build when a frame is nearly full, so fewer frames run long while caves fill in.","The seven Agarthans find their ring from the city even when the floor pass had none, each stands on the real floor under it, and they wear one shared painted texture with linen pleats, a blue and white striped headdress, kohl lined eyes and a gold edged sash.","Time box: the cockpit screen, the T grip and the pilot hands are drawn in the right order, so the room walls no longer paint over them.","First person hands: tools are held on their real handle, found from the tool model and carried through every swing. Guns are held by their own up, forward and side directions with the trigger finger out, and the front hand cups the barrel or the pistol grip. The hand is no longer bent back off the forearm by a fixed limit, and the elbow keeps a steady bend."]},
 {"v":"v1.2.21","d":"2026-11-07","notes":["Time box flying is solid now: the box can no longer fly into hills or rock at high speed (it stops at them, checked block by block), and if you ever end up outside the room or stuck in stone the game puts you back in the pilot seat or lifts the box clear.","No more bobbing while you fly: the walking head bob and step dip are off while you hold the stick.","Pilot mode: you sit facing the console with a big live screen mounted on it, both hands hold a T grip on the stick and move with it, and the HUD, your normal hand and any tool are hidden until you let go.","Looking in through the open doors now shows the finished room before you step inside.","First person hands: no more twitching or bent wrists, the wrist joins the forearm smoothly, sleeves are slimmer, pistol fingers no longer go through the grip, the rifle and musket front hand closes on the barrel, and axes, picks and other tools are held lower on the handle. Fingers have knuckles."]},
 {"v":"v1.2.20","d":"2026-11-07","notes":["Lighter water: the ripple rings are only worked out while a ripple is actually spreading, rings skip water they cannot reach, and flowing water no longer asks for the same rebuild twice. Waves, flow, foam, shine and splashes look the same.","Fewer pop ups: the welcome, tip, weather and biome messages that appeared on their own are gone. Messages about what you just did, warnings and save problems still show.","Hover over any item in your inventory, a chest, creative tabs or the hotbar to see its name straight away.","Entering a brand new world no longer saves the whole world in the same moment you arrive; the first save follows a few seconds later.","Time box inside: chrome, purple and blue panelled walls and a dark blue floor instead of wooden planks, the blue glass column with yellow energy is now the main console column, and the live outside view screen is a 55 inch screen at eye height.","Time box pilot mode: press Fly (or X at the console) to sit at the stick facing a 55 inch live screen of the view outside. Right stick points the box any way you like, turning and tilting up or down, and the screen shows that view; left stick flies where it points and sideways, RT goes up, LT goes down, LS boosts and X lets go. The room inside is now twice as wide as the first time box.","Faster controller menus: moving through the inventory, chests and lists with the stick or d-pad is quicker, and holding the d-pad keeps moving. The name of the selected item shows next to it.","The Purple crystal pickaxe now has its own purple icon in the inventory, and the Blue crystal pickaxe keeps its blue one.","Agartha is calm again: the crystal city floor is Gloamstone with glowing Glowcap paths, the trees there are gone, and its inner sky is back in cool blue and violet with no flashing.","Seven Agarthans now walk the ring path on the real floor instead of standing in the ground. They are an old people of Egyptian lineage who call their elder Sekhen, old friend. Strike one and you will find out what they think of us."]},
 {"v":"v1.2.19","d":"2026-11-07","notes":["Smoother fast flying: far away parts of the map are now cleared a little at a time instead of all at once, and the game looks only at nearby ground when deciding what to build next.","Torches are lighter on the graphics card: they now share their shapes, and torches more than about 72 blocks away are no longer drawn or animated. Torch light and flicker near you are unchanged."]},
