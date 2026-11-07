@@ -17,15 +17,5 @@ assert.equal(S.rl(true, -1).w, 0, 'cancel (no reload state) = hand on the gun');
 // flat card tool: handle socket on the card diagonal
 const card = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.4), new THREE.MeshBasicMaterial()), item = new THREE.Group(); item.add(card); item.userData.c122card = 1;
 const k = S.sock(item); assert(k && k.card && k.b.x < 0 && k.b.y < 0 && k.h.x > 0 && k.h.y > 0 && k.r >= 0.012 && k.r <= 0.03);
-// cabin
-let placed = 0, toasts = [], camN = 0, solidHit = false; const Sx = {on: true, x: 100.5, y: 70.4, z: 50.5};
-const TB = {S: Sx, inside: true, RR: 3, HW: 3.5, place(x, y, z) { Sx.x = x; Sx.y = y; Sx.z = z; }}, F3 = {pilot: false};
-const C = {THREE, __tbox: TB, __tbox3: F3, P: {x: 100.5, y: 70.4, z: 52, vy: -2}, selId: 5, PLACEABLE: new Set([5]), cnt: () => 3, toast: m => toasts.push(m), raycast: () => ({hit: [100, 69, 51], prev: [100, 70, 51]}),
-  solid: () => solidHit, performance, updatePlayer: () => {}, placeCamera: () => { camN++; }, useItem: () => { placed++; }, canMine: () => true};
-C.window = C; new Function('with(this){' + cut('/* GLX-CAB1222', '/* GLX-INV1222') + '}').call(C); const B = C.__cab1222; assert.equal(B.err, null, B.err);
-C.useItem(); assert.equal(placed, 0, 'no world edit from inside the cabin'); assert.equal(B.blocked, 1); assert.equal(C.canMine(1, 69), false);
-TB.inside = false; C.useItem(); assert.equal(placed, 1, 'outside the box placing works'); assert.equal(C.canMine(1, 69), true); TB.inside = true;
-F3.pilot = true; for (const dy of [0.3, 0.6, -0.4]) { Sx.y += dy; C.updatePlayer(0.016); } assert.equal(camN, 3, 'camera placed after the box moves, every flying frame');
-F3.pilot = false; C.updatePlayer(0.016); assert.equal(Sx.y, Math.round(Sx.y), 'box settles to a whole block when you let go'); assert(Math.abs(C.P.y - Sx.y) < 1e-9 || C.P.y > Sx.y, 'you move with it, standing on the floor'); assert.equal(C.P.vy, 0);
-Sx.y = 80.3; solidHit = true; F3.pilot = true; C.updatePlayer(); F3.pilot = false; C.updatePlayer(); assert.equal(Sx.y, 80.3, 'never settles into rock');
-console.log('v1222-guns-cab ok', JSON.stringify({settles: B.settles, blocked: B.blocked}));
+// cabin: moved to tests/v1222-cabin.mjs (real physics harness, cabin floor and blocks)
+console.log('v1222-guns-cab ok');
