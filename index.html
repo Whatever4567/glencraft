@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1228-v1.2.28 -->
+<!-- glencraft-build: b1229-v1.2.29 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.28';
+const GAME_VERSION = '1.2.29';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -47458,16 +47458,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         const tgt = new THREE.Vector3(tx, ty, tz).sub(sg.clone().multiplyScalar(k)); E.set((isP ? 0.28 : 0.16) * kick, -0.04 * (1 - k), 0); const Q = new THREE.Quaternion().setFromEuler(E);
         Md.compose(tgt, Q, new THREE.Vector3(s, s, s)); M2.copy(M1).invert(); Md.multiply(M2); Md.decompose(v, q, sc); hand.position.copy(v); hand.quaternion.copy(q); hand.scale.set(Math.abs(sc.x)||s, Math.abs(sc.y)||s, Math.abs(sc.z)||s); armVis(k < 0.5, g); } catch (e) { ERR('hand', e); } return r; }; } catch (e) { ERR('uh', e); }
   // the streak from the barrel to the hit, and the flash and smoke at the barrel (not in front of the eyes)
-  const LM = new THREE.LineBasicMaterial({color: 0xffe6a0, transparent: true, opacity: 0.9, depthWrite: false, fog: false}), lines = [];
+  const LM = new THREE.LineBasicMaterial({color: 0xffe6a0, transparent: true, opacity: 0.9, depthWrite: false, fog: false}), lines = [], LPOOL = [];   /* v1.2.29: tracer lines reused */
   const muzzle = () => { const g = gun(); if (!g || !g.userData.muzzle) return null; const w = new THREE.Vector3(); g.updateMatrixWorld(true); g.userData.muzzle.getWorldPosition(w); return w; };
   try { const fg = fireGun; fireGun = function (id) { const d = lookDir(), o = new THREE.Vector3(P.x, P.y + EYE, P.z), mz = tp() ? null : muzzle(), b0 = burst;
       burst = function (x, y, z, col, n, sz) { if (col === 0xd0d0d0 && n === 1) return; if (col === 0xb8b8b8) { n = 3; sz = 0.12; } if (col === 0xffd080) { n = 3; sz = 0.07; } if (col === 0x8a8070) { n = 4; sz = 0.12; } if (mz && (col === 0xffd080 || col === 0xb8b8b8)) { x = mz.x; y = mz.y; z = mz.z; } const p0 = parts.length, rr = b0.apply(this, [x, y, z, col, n, sz].concat([].slice.call(arguments, 6))); if (col === 0xffd080 || col === 0xb8b8b8) for (let i = p0; i < parts.length; i++) { const q = parts[i]; q.m.scale.multiplyScalar(0.3); q.vx *= 0.25; q.vy *= 0.25; q.vz *= 0.25; q.life *= 0.5; q.grav = false; } return rr; };
       let r; try { r = fg.apply(this, arguments); } finally { burst = b0; }
       try { kick = 1; U.shots++; const G = GUN[id]; let t = G.range || 60; { let x = Math.floor(o.x), y = Math.floor(o.y), z = Math.floor(o.z); const dx = d[0], dy = d[1], dz = d[2], sx = dx > 0 ? 1 : dx < 0 ? -1 : 0, sy = dy > 0 ? 1 : dy < 0 ? -1 : 0, sz = dz > 0 ? 1 : dz < 0 ? -1 : 0; const tDx = sx ? Math.abs(1 / dx) : 1e9, tDy = sy ? Math.abs(1 / dy) : 1e9, tDz = sz ? Math.abs(1 / dz) : 1e9; let tMx = sx ? ((sx > 0 ? (x + 1 - o.x) : (o.x - x)) * tDx) : 1e9, tMy = sy ? ((sy > 0 ? (y + 1 - o.y) : (o.y - y)) * tDy) : 1e9, tMz = sz ? ((sz > 0 ? (z + 1 - o.z) : (o.z - z)) * tDz) : 1e9, tt = 0; for (let i = 0; i < Math.ceil(t) + 4; i++) { if (tt > 0.05 && solid(x, y, z)) { t = Math.min(t, tt); break; } if (tMx < tMy) { if (tMx < tMz) { tt = tMx; tMx += tDx; x += sx; } else { tt = tMz; tMz += tDz; z += sz; } } else { if (tMy < tMz) { tt = tMy; tMy += tDy; y += sy; } else { tt = tMz; tMz += tDz; z += sz; } } if (tt >= t) break; } }
         const a = mz || o.clone().add(new THREE.Vector3(d[0], d[1] - 0.2, d[2]).multiplyScalar(0.6)), e = o.clone().add(new THREE.Vector3(d[0], d[1], d[2]).multiplyScalar(t));
-        const L = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, e]), LM.clone()); L.frustumCulled = false; L.userData.t = 0.09; scene.add(L); lines.push(L); } catch (e2) { ERR('tr', e2); }
+        let L = LPOOL.pop(); if (!L) { L = new THREE.Line(new THREE.BufferGeometry().setFromPoints([a, e]), LM.clone()); L.frustumCulled = false; } else { const q = L.geometry.attributes.position; q.setXYZ(0, a.x, a.y, a.z); q.setXYZ(1, e.x, e.y, e.z); q.needsUpdate = true; L.geometry.computeBoundingSphere(); } L.userData.t = 0.09; L.material.opacity = 0.9; scene.add(L); lines.push(L); } catch (e2) { ERR('tr', e2); }
       return r; }; } catch (e) { ERR('fg', e); }
-  setInterval(() => { for (let i = lines.length - 1; i >= 0; i--) { const L = lines[i]; L.userData.t -= 0.03; L.material.opacity = Math.max(0, L.userData.t / 0.09); if (L.userData.t <= 0) { scene.remove(L); L.geometry.dispose(); L.material.dispose(); lines.splice(i, 1); } } }, 30);
+  setInterval(() => { for (let i = lines.length - 1; i >= 0; i--) { const L = lines[i]; L.userData.t -= 0.03; L.material.opacity = Math.max(0, L.userData.t / 0.09); if (L.userData.t <= 0) { scene.remove(L); if (LPOOL.length < 8) LPOOL.push(L); else { L.geometry.dispose(); L.material.dispose(); } lines.splice(i, 1); } } }, 30);
 })();
 
 /* GLX-C341 (v1.1.46): SCOTLAND IS THE MAP. The old square map with its round island and ring of sea is gone. The whole 864 x 864 world
@@ -47912,13 +47912,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function limb(r0, r1, len, m, seg) { const g = new THREE.CylinderGeometry(r1, r0, len, seg || 14, 3); g.translate(0, len / 2, 0); const p = g.attributes.position; // a slight swell along the limb
     for (let i = 0; i < p.count; i++) { const y = p.getY(i) / len, s = 1 + 0.12 * Math.sin(y * Math.PI); p.setX(i, p.getX(i) * s); p.setZ(i, p.getZ(i) * s * 0.92); } g.computeVertexNormals(); return new THREE.Mesh(g, m); }
   function ball(r, m) { return new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m); }
-  function mkHand(side) { const h = new THREE.Group(); const palm = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.095, 0.03, 3, 3, 2), skinM); palm.position.set(0, 0.05, 0); h.add(palm);
+  function mkHand(side) { const h = new THREE.Group(); const palm = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.095, 0.024, 3, 3, 2), skinM); palm.position.set(0, 0.05, 0); h.add(palm);
     const pp = palm.geometry.attributes.position; for (let i = 0; i < pp.count; i++) { const x = pp.getX(i), z = pp.getZ(i); pp.setZ(i, z * (1 - Math.abs(x) * 4)); } palm.geometry.computeVertexNormals();
     h.userData.f = [];
-    for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0085, 0.0075, 0.036, skinM, 8); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0075, 0.007, 0.017, skinM, 8); k.add(b); k.add(ball(0.0074, skinM)); const dj = new THREE.Group(); dj.position.y = 0.017; k.add(dj); dj.add(ball(0.007, skinM)); dj.add(limb(0.007, 0.0062, 0.013, skinM, 8)); const tip = ball(0.0063, skinM); tip.position.y = 0.013; dj.add(tip); k.userData.d = dj;
+    for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004); f.rotation.z = (i - 1.5) * -0.05; const a = limb(0.0074, 0.0066, 0.036, skinM, 10); f.add(a); const k = new THREE.Group(); k.position.y = 0.036; f.add(k); const b = limb(0.0066, 0.0062, 0.017, skinM, 10); k.add(b); k.add(ball(0.0065, skinM)); const dj = new THREE.Group(); dj.position.y = 0.017; k.add(dj); dj.add(ball(0.0062, skinM)); dj.add(limb(0.0062, 0.0054, 0.013, skinM, 10)); const tip = ball(0.0055, skinM); tip.position.y = 0.013; dj.add(tip); k.userData.d = dj;
       f.rotation.x = 1.0; k.rotation.x = 1.2; h.add(f); h.userData.f.push([f, k]); }
-    const th = new THREE.Group(); th.position.set(side * 0.038, 0.028, 0.01); th.rotation.set(0.85, side * 0.55, side * 0.85); th.add(limb(0.01, 0.008, 0.05, skinM, 8)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0074, 0.018, skinM, 8)); const td = new THREE.Group(); td.position.y = 0.018; tk.add(td); td.add(ball(0.0074, skinM)); td.add(limb(0.0074, 0.0066, 0.014, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.014; td.add(tt); tk.userData.d = td; th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
-    const wr = limb(0.034, 0.031, 0.045, skinM, 12); wr.position.y = -0.035; { const kn = []; for (let i = 0; i < 4; i++) { const b = ball(0.0098, skinM); b.position.set((i - 1.5) * 0.0215, 0.094, 0.006); h.add(b); kn.push(b); } h.userData.kn = kn; } h.add(wr); return h; }
+    const th = new THREE.Group(); th.position.set(side * 0.038, 0.028, 0.01); th.rotation.set(0.85, side * 0.55, side * 0.85); th.add(limb(0.0088, 0.0072, 0.05, skinM, 10)); const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0074, 0.018, skinM, 8)); const td = new THREE.Group(); td.position.y = 0.018; tk.add(td); td.add(ball(0.0074, skinM)); td.add(limb(0.0074, 0.0066, 0.014, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.014; td.add(tt); tk.userData.d = td; th.add(tk); th.userData.k = tk; h.userData.th = th; h.add(th);
+    const wr = limb(0.031, 0.028, 0.045, skinM, 12); wr.position.y = -0.035; { const kn = []; for (let i = 0; i < 4; i++) { const b = ball(0.0086, skinM); b.position.set((i - 1.5) * 0.0215, 0.094, 0.006); h.add(b); kn.push(b); } h.userData.kn = kn; } h.add(wr); return h; }
   function mkArm(side) { const a = new THREE.Group(); a.userData.side = side;
     const up = limb(0.07, 0.06, LU, shirtM); a.add(up); const el = ball(0.06, shirtM); a.add(el); const fo = limb(0.054, 0.036, LF, skinM); a.add(fo);
     const cuff = limb(0.064, 0.06, 0.12, cuffM); a.add(cuff); const h = mkHand(side); h.scale.setScalar(1.05); a.add(h);
@@ -48051,6 +48051,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (let i = 0; i < 7; i++) { const s = M(rb(0.075, 0.06, 0.05, 0.02), hair, -0.18 + i * 0.06, 0.43 - (i % 2) * 0.012, 0.205, head); s.rotation.z = (i - 3) * 0.08; s.rotation.x = -0.25; }   // fringe locks
     for (const sx of [-1, 1]) { M(rb(0.05, 0.22, 0.3, 0.02), hair, sx * 0.225, 0.36, -0.06, head); const b = M(rb(0.09, 0.022, 0.02, 0.009), hair, sx * 0.1, 0.335, 0.222, head); b.rotation.z = -sx * 0.12; }   // sideburns, brows
     M(lathe([[-0.04, 0.001], [-0.035, 0.02], [0, 0.03], [0.04, 0.018], [0.05, 0.001]], 0.85, 1.1, 14), skin, 0, 0.2, 0.235, head).rotation.x = -Math.PI / 2 + 0.25;   // nose
+    { const F = (geo, x, y, z, sx, sy, sz) => { const o = M(geo, skin, x, y, z, head); o.scale.set(sx, sy, sz); return o; };   /* v1.2.29: face relief */
+      F(rb(0.3, 0.03, 0.03, 0.012), 0, 0.312, 0.208, 1, 1, 1);   // brow ridge
+      F(rb(0.034, 0.075, 0.03, 0.013), 0, 0.268, 0.212, 1, 1, 1);   // nose bridge
+      for (const sx of [-1, 1]) { F(new THREE.SphereGeometry(0.045, 16, 10), sx * 0.125, 0.2, 0.205, 1.25, 0.65, 0.32);   // cheekbones
+        F(new THREE.SphereGeometry(0.03, 12, 8), sx * 0.1, 0.235, 0.214, 1.4, 0.35, 0.2);   // under eye
+        F(new THREE.TorusGeometry(0.018, 0.005, 6, 12, Math.PI * 1.3), sx * 0.243, 0.24, 0.004, 1, 1, 1).rotation.y = sx * Math.PI / 2; }   // ear fold
+      F(new THREE.SphereGeometry(0.05, 16, 8), 0, 0.118, 0.21, 1.15, 0.22, 0.28);   // lip ridge
+      F(new THREE.SphereGeometry(0.055, 16, 10), 0, 0.06, 0.205, 1.25, 0.6, 0.35); }   // chin
     for (const sx of [-1, 1]) { const e = M(new THREE.SphereGeometry(0.05, 14, 10), skin, sx * 0.226, 0.24, 0, head); e.scale.set(0.35, 1.05, 0.7); M(new THREE.TorusGeometry(0.03, 0.008, 6, 14), skin, sx * 0.24, 0.24, 0.002, head).rotation.y = Math.PI / 2; }   // ears
     M(lathe([[0, 0.085], [0.07, 0.075], [0.14, 0.08]], 1, 1, 20), skin, 0, 1.4, 0);   // neck
     // torso: slimmer, tapered chest (waist 0.4 wide, chest 0.44), collar, sash, belt and buckle, kilt pin
@@ -48214,15 +48222,18 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const TH = cv(g => { const r = g.createRadialGradient(32, 32, 2, 32, 32, 30); r.addColorStop(0, 'rgba(10,8,6,1)'); r.addColorStop(0.35, 'rgba(25,20,16,0.95)'); r.addColorStop(0.6, 'rgba(60,50,40,0.5)'); r.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = r; g.fillRect(0, 0, 64, 64); });
   const PG = new THREE.PlaneGeometry(1, 1), BG = new THREE.BoxGeometry(1, 1, 1), decals = [], corpses = [], fx = [];
   function dmat(tex, col, op) { return new THREE.MeshLambertMaterial({map: tex, color: col, transparent: true, opacity: op, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2}); }
-  function decal(x, y, z, n, size, tex, col, op, life, parent) { const m = new THREE.Mesh(PG, dmat(tex, col, op)); m.scale.setScalar(size); m.position.set(x, y, z).addScaledVector(n, 0.012);
+  function decal(x, y, z, n, size, tex, col, op, life, parent) { const dk = (tex && tex.uuid) + '|' + col, fr = !parent && DFREE.get(dk), m = fr && fr.length ? fr.pop() : new THREE.Mesh(PG, dmat(tex, col, op)); m.material.opacity = op; if (!parent) m.material.userData.dk = dk; m.rotation.set(0, 0, 0); m.scale.setScalar(size); m.position.set(x, y, z).addScaledVector(n, 0.012);
     m.quaternion.setFromUnitVectors(V(0, 0, 1), n); m.rotateZ(Math.random() * 6.28); m.renderOrder = 2; (parent || scene).add(m); if (parent) return m;
-    decals.push({m, t: 0, life, op}); while (decals.length > DCAP) kill(decals.shift().m); U.decals = decals.length; return m; }
+    decals.push({m, t: 0, life, op}); while (decals.length > DCAP) rel(decals.shift().m); U.decals = decals.length; return m; }
   function kill(o) { if (!o) return; if (o.parent) o.parent.remove(o); o.traverse(c => { if (!c.material) return; for (const m of [].concat(c.material)) { if (!m || (m.userData && m.userData.dead1222)) continue; try { m.dispose(); } catch (_) {} } }); }   /* v1.2.22: cached dead looks are shared, never disposed here */
   const sol = (x, y, z) => { try { return solid(Math.floor(x), Math.floor(y), Math.floor(z)); } catch (_) { return false; } };
   function groundY(x, y, z) { for (let k = 0; k < 12; k++) { if (sol(x, y - 0.05 - k, z)) return Math.floor(y - 0.05 - k) + 1; } return y - 1; }
   // ---- particles: sparks, dust, blood puffs ----
-  function spray(p, n, col, sp, up, life, size, grav, glow) { const mat = glow ? new THREE.MeshBasicMaterial({color: col, fog: false}) : new THREE.MeshLambertMaterial({color: col});
-    for (let i = 0; i < n; i++) { const m = new THREE.Mesh(BG, mat); m.scale.setScalar(size * (0.6 + Math.random() * 0.8)); m.position.copy(p); scene.add(m);
+  const SPM = new Map(), SPOOL = [], DFREE = new Map();   /* v1.2.29: spark and dust materials per colour, particle meshes and bullet hole materials reused */
+  function spMat(col, glow) { const k = col + (glow ? 'g' : 'l'); let m = SPM.get(k); if (!m) { m = glow ? new THREE.MeshBasicMaterial({color: col, fog: false}) : new THREE.MeshLambertMaterial({color: col}); m.userData.keep = 1; SPM.set(k, m); } return m; }
+  function rel(o) { const m = o && o.material; if (!m || !m.userData || !m.userData.dk || o.children.length) return kill(o); if (o.parent) o.parent.remove(o); const L = DFREE.get(m.userData.dk) || DFREE.set(m.userData.dk, []).get(m.userData.dk); if (L.length < 80) L.push(o); }
+  function spray(p, n, col, sp, up, life, size, grav, glow) { const mat = spMat(col, glow);
+    for (let i = 0; i < n; i++) { const m = SPOOL.pop() || new THREE.Mesh(BG, mat); m.material = mat; m.rotation.set(0, 0, 0); m.scale.setScalar(size * (0.6 + Math.random() * 0.8)); m.position.copy(p); scene.add(m);
       const v = V(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(sp * (0.4 + Math.random())).addScaledVector(up, sp * 0.8); fx.push({m, v, t: 0, life: life * (0.6 + Math.random() * 0.7), grav, mat, last: i === n - 1}); } }
   // ---- hit tracking: which way the last blow came from, and was it a bullet ----
   let shot = null;
@@ -48268,8 +48279,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function tick() { requestAnimationFrame(tick); const now = performance.now(), dt = Math.min(0.05, (now - last) / 1000); last = now; try { step(dt); } catch (e) { ERR('tick', e); } }
   function step(dt) { try { __rag1222.frame(dt); } catch (_) {}
     for (let i = fx.length - 1; i >= 0; i--) { const f = fx[i]; f.t += dt; if (f.grav) f.v.y -= 14 * dt; f.m.position.addScaledVector(f.v, dt); if (sol(f.m.position.x, f.m.position.y, f.m.position.z)) { f.v.multiplyScalar(-0.25); f.m.position.addScaledVector(f.v, dt * 2); }
-      if (f.t > f.life) { scene.remove(f.m); if (f.last) f.mat.dispose(); fx.splice(i, 1); } }
-    for (let i = decals.length - 1; i >= 0; i--) { const d = decals[i]; d.t += dt; if (d.life && d.t > d.life) { const k = 1 - (d.t - d.life) / 4; if (k <= 0) { kill(d.m); decals.splice(i, 1); continue; } d.m.material.opacity = d.op * k; } } U.decals = decals.length;
+      if (f.t > f.life) { scene.remove(f.m); if (f.mat && f.mat.userData && f.mat.userData.keep) { if (SPOOL.length < 160) SPOOL.push(f.m); } else if (f.last) f.mat.dispose(); fx.splice(i, 1); } }
+    for (let i = decals.length - 1; i >= 0; i--) { const d = decals[i]; d.t += dt; if (d.life && d.t > d.life) { const k = 1 - (d.t - d.life) / 4; if (k <= 0) { rel(d.m); decals.splice(i, 1); continue; } d.m.material.opacity = d.op * k; } } U.decals = decals.length;
     for (let i = corpses.length - 1; i >= 0; i--) { const c = corpses[i]; c.t += dt; if (c.t > 296 && !c.fade) c.fade = 1; if (c.t >= 300) c.fade = 0.001;
       if (c.fade) { c.fade = Math.max(0.001, c.fade - dt / 4); fadeMats(c.g, c.fade); if (c.pool) c.pool.material.opacity = 0.85 * c.fade; if (c.fade <= 0.001) { drop(c); continue; } }
       if (window.__rag1222 && __rag1222.step(c, dt)) continue; if (c.kind === 'bones') { for (const b of c.pcs) { if (b.rest) continue; b.v.y -= 14 * dt; b.m.position.addScaledVector(b.v, dt); b.m.rotation.x += b.w.x * dt; b.m.rotation.z += b.w.z * dt;
@@ -51057,25 +51068,39 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.frame = dt => { if (typeof P === 'undefined' || !dt) return; if (px !== null) { pvx = (P.x - px) / dt; pvz = (P.z - pz) / dt; } px = P.x; pz = P.z; moving = 0; };
   // v1.2.24: the floor follows the ground under the body (it used to stay at the height where it died, so a body thrown off a ledge
   // hung in the air and one thrown onto a step sank into it). Looked up only when the body enters a new block column, at most 8 block checks.
-  U.ground = (c, r, p, sol) => { const cx = Math.floor(p.x), cz = Math.floor(p.z); if (r.gk === cx * 65536 + cz && r.gg != null) return r.gg; r.gk = cx * 65536 + cz; U.gLook = (U.gLook || 0) + 1;
-    let g = c.gy; if (sol) { const y0 = Math.floor(p.y + 0.6); for (let y = y0; y > y0 - 8; y--) if (sol(cx + 0.5, y + 0.5, cz + 0.5)) { g = y + 1; break; } } r.gg = g; c.gy = g; return g; };
-  // returns true when this frame the body was moved here (skip the old fall code)
+  // v1.2.29 ragdoll physics (local): fixed 1/120 s steps so a throw is the same at 30, 60 or 120 fps; the floor is looked up below the body
+  // wherever it is (a body thrown off a cliff or bumped off a ledge falls to the real ground instead of hanging at its death height);
+  // bodies in the air always keep falling (the 4 body cap only limits sliding on the ground, and a capped body holds its pose instead of
+  // snapping back to the old tip over); the throw is scaled by the animal size (a cow goes less far than a rabbit from the same shot).
+  // Plain semi implicit Euler with a fixed step (the usual game approach), written for this game.
+  U.DT = 1 / 120; U.GRAV = 16; U.LOOK = 12; U.FLOOR = -237; U.OUT = U.FLOOR - 64;   // bedrock at y -237 (GLX-V1217 and the older deep layers), empty void below it
+  U.ground = (c, r, p, sol) => { const cx = Math.floor(p.x), cz = Math.floor(p.z), y0 = Math.floor(p.y + 0.6);
+    if (r.gk === cx * 65536 + cz && r.gg != null && r.gg <= p.y + 0.6) return r.gg; U.gLook = (U.gLook || 0) + 1;
+    if (!sol) { r.gk = cx * 65536 + cz; r.gg = c.gy; return c.gy; }
+    for (let y = y0; y > y0 - U.LOOK; y--) if (sol(cx + 0.5, y + 0.5, cz + 0.5)) { r.gk = cx * 65536 + cz; r.gg = y + 1; c.gy = y + 1; return y + 1; }
+    r.gk = null; r.gg = null; return -1e9; };   // nothing solid in the 12 blocks below: keep falling under gravity and look again next step (no made up floor)
+  U.mass = c => { if (c.__m) return c.__m; let m = 1; try { const b = new THREE.Box3().setFromObject(c.g), s = b.getSize(new THREE.Vector3()), v = s.x * s.y * s.z; if (v > 1e-4 && isFinite(v)) m = Math.min(2.2, Math.max(0.55, Math.cbrt(v / 0.5))); } catch (_) {} return (c.__m = m); };
   U.step = (c, dt) => { try { if (c.kind !== 'body') return false; let r = c.__r;
-      if (!r) { const gun = c.w > 2, k = gun ? 9 : 2.2; r = c.__r = {vx: c.dir.x * k, vz: c.dir.z * k, vy: gun ? 4.2 : 1.0, spin: gun ? 11 : 3, air: 1, sleep: 0, rest: null, cd: 0}; U.launched++; }
+      if (!r) { const gun = c.w > 2, k = gun ? 9 : 2.2, m = U.mass(c), f = 1 / Math.sqrt(m); r = c.__r = {vx: c.dir.x * k * f, vz: c.dir.z * k * f, vy: (gun ? 4.2 : 1.0) * Math.min(1.15, f), spin: (gun ? 11 : 3) / m, air: 1, sleep: 0, rest: null, cd: 0, acc: 0, off: 0.25}; U.launched++; }
       if (r.sleep) { if (typeof P !== 'undefined' && moving < U.MAXM) { const p = c.g.position, dx = p.x - P.x, dz = p.z - P.z, d = Math.hypot(dx, dz), sp = Math.hypot(pvx, pvz);
-          if (d < 0.9 && Math.abs(p.y - P.y) < 1.6 && sp > 1.5) { const n = d > 1e-3 ? 1 / d : 0; r.vx = dx * n * 2 + pvx * 0.6; r.vz = dz * n * 2 + pvz * 0.6; r.vy = 1.6; r.spin = 5; r.sleep = 0; r.air = 1; U.woke++; } }
+          if (d < 0.9 && Math.abs(p.y - P.y) < 1.6 && sp > 1.5) { const n = d > 1e-3 ? 1 / d : 0, m = U.mass(c); r.vx = (dx * n * 2 + pvx * 0.6) / m; r.vz = (dz * n * 2 + pvz * 0.6) / m; r.vy = 1.6 / Math.sqrt(m); r.spin = 5 / m; r.sleep = 0; r.air = 1;
+            if (r.rest !== null) { r.off = r.rest - (r.gg != null ? r.gg : c.gy); if (!(r.off > -0.5 && r.off < 1.5)) r.off = 0.25; r.rest = null; } U.woke++; } }
         if (r.sleep) return false; }
-      if (moving >= U.MAXM) return false; moving++; U.moving = moving;
+      if (!r.air && moving >= U.MAXM) return true;   // capped on the ground: hold where it is this frame (no snap to the old pose)
+      moving++; U.moving = moving;
       const p = c.g.position, G = window.__gore, sol = G && G.sol; r.cd = Math.max(0, (r.cd || 0) - dt);
-      const n = Math.min(6, Math.max(1, Math.ceil(Math.hypot(r.vx, r.vy, r.vz) * dt / 0.25))), h = dt / n;  // sub steps: never more than 0.25 per step, no passing through walls
-      for (let s = 0; s < n; s++) { r.vy -= 16 * h;
-        for (const ax of ['x', 'z']) { const v = ax === 'x' ? r.vx : r.vz, nx = p[ax] + v * h; const q = {x: p.x, y: p.y + 0.3, z: p.z}; q[ax] = nx + Math.sign(v) * 0.3;
-          if (sol && Math.abs(v) > 0.01 && sol(q.x, q.y, q.z)) { const sp = Math.abs(v); if (sp > U.HIT) U.hitSurf(c, r, ax === 'x' ? Math.floor(q.x) + (v > 0 ? 0 : 1) : p.x, p.y + 0.3, ax === 'z' ? Math.floor(q.z) + (v > 0 ? 0 : 1) : p.z, ax === 'x' ? -Math.sign(v) : 0, 0, ax === 'z' ? -Math.sign(v) : 0, sp);
-            if (ax === 'x') r.vx *= -0.25; else r.vz *= -0.25; r.spin *= 0.7; } else p[ax] = nx; }
-        p.y += r.vy * h; const floor = r.rest !== null ? r.rest : U.ground(c, r, p, sol) + 0.25;
-        if (p.y <= floor) { p.y = floor; const sp = -r.vy; if (sp > U.HIT) U.hitSurf(c, r, p.x, c.gy + 0.01, p.z, 0, 1, 0, sp); if (r.vy < -1.5) { r.vy *= -0.32; r.spin *= 0.6; } else { r.vy = 0; r.air = 0; } const f = Math.exp(-h * (r.air ? 2 : 7)); r.vx *= f; r.vz *= f; } }
-      if (r.spin > 0.05) { Q.setFromAxisAngle(c.axis, r.spin * dt); c.g.quaternion.premultiply(Q); r.spin *= Math.exp(-dt * 2.2); }
-      if (!r.air && Math.hypot(r.vx, r.vz) < 0.15 && r.spin < 0.3) { r.sleep = 1; U.slept++; if (r.rest === null) { r.rest = p.y; if (c.q0 && c.axis) { c.ang = Math.PI / 2; c.w = 0; c.slide = 0; c.q0 = new THREE.Quaternion().setFromAxisAngle(c.axis, Math.PI / 2).invert().multiply(c.g.quaternion); } return false; } return true; }
+      r.acc = Math.min((r.acc || 0) + dt, 0.1); let ran = 0;
+      while (r.acc >= U.DT - 1e-9) { r.acc -= U.DT; ran++; const n = Math.min(4, Math.max(1, Math.ceil(Math.hypot(r.vx, r.vy, r.vz) * U.DT / 0.25))), h = U.DT / n;   // never more than 0.25 per sub step, no passing through walls
+        for (let s = 0; s < n; s++) { r.vy = Math.max(-40, r.vy - U.GRAV * h);
+          for (const ax of ['x', 'z']) { const v = ax === 'x' ? r.vx : r.vz, nx = p[ax] + v * h; const q = {x: p.x, y: p.y + 0.3, z: p.z}; q[ax] = nx + Math.sign(v) * 0.3;
+            if (sol && Math.abs(v) > 0.01 && sol(q.x, q.y, q.z)) { const sp = Math.abs(v); if (sp > U.HIT) U.hitSurf(c, r, ax === 'x' ? Math.floor(q.x) + (v > 0 ? 0 : 1) : p.x, p.y + 0.3, ax === 'z' ? Math.floor(q.z) + (v > 0 ? 0 : 1) : p.z, ax === 'x' ? -Math.sign(v) : 0, 0, ax === 'z' ? -Math.sign(v) : 0, sp);
+              if (ax === 'x') r.vx *= -0.25; else r.vz *= -0.25; r.spin *= 0.7; } else p[ax] = nx; }
+          p.y += r.vy * h; const gr = U.ground(c, r, p, sol), floor = gr + (r.off != null ? r.off : 0.25);
+          if (p.y <= floor) { p.y = floor; const sp = -r.vy; if (sp > U.HIT) U.hitSurf(c, r, p.x, gr + 0.01, p.z, 0, 1, 0, sp); if (r.vy < -1.5) { r.vy *= -0.32; r.spin *= 0.6; r.air = 1; } else { r.vy = 0; r.air = 0; } const f = Math.exp(-h * (r.air ? 2 : 7)); r.vx *= f; r.vz *= f; }
+          else if (p.y > floor + 0.05) r.air = 1; } }
+      if (p.y < U.OUT && !c.fade) { c.fade = 1; U.retired = (U.retired || 0) + 1; }   // fell into the void under the bedrock: the normal 4 s fade and removal, no hovering
+      if (ran && r.spin > 0.05) { const t = ran * U.DT; Q.setFromAxisAngle(c.axis, r.spin * t); c.g.quaternion.premultiply(Q); r.spin *= Math.exp(-t * 2.2); }
+      if (!r.air && Math.hypot(r.vx, r.vz) < 0.15 && r.spin < 0.3) { r.sleep = 1; U.slept++; if (r.rest === null) { r.rest = p.y; if (c.q0 && c.axis && !c.settle) { c.ang = Math.PI / 2; c.w = 0; c.slide = 0; c.q0 = new THREE.Quaternion().setFromAxisAngle(c.axis, Math.PI / 2).invert().multiply(c.g.quaternion); } return false; } return true; }
       return true; } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); return false; } };
 })();
 
@@ -52076,6 +52101,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.29","d":"2026-11-08","notes":["Guns: firing no longer makes and throws away new spark, dust, bullet hole and tracer materials on every shot. They are reused, which removes a likely cause of the stutter when firing.","Player model: the face has real shape now, with a brow ridge, nose bridge, cheekbones, lip ridge, chin and ear folds. No extra draw cost.","Hands: first person hands are slimmer, with a thinner palm, wrist, fingers and thumb. Grips are unchanged.","Animals: ragdolls fall with gravity all the way to the real ground, and launches depend on the size of the animal."]},
 {"v":"v1.2.28","d":"2026-11-08","notes":["Agartha: the seven city residents are now called the Paladiens. They wear fitted blue suits with a black high collar and a gold brooch, and have long blond hair and blue eyes. Their leader wears gold shoulder pieces, a turquoise sash and a turquoise pendant.","Agartha: the city sky is now deep navy and violet space with cyan nebula, stars, planets and soft glows."]},
 {"v":"v1.2.27","d":"2026-11-08","notes":["Agartha: the seven Agarthans are drawn again. A far scenery cull measured their group from the middle of the world instead of the city and hid them every frame.","Guns: switching weapons no longer leaves the rifle or pistol out of place. The real model was sized and placed differently depending on where you looked and which gun you held before, so it could sit too big, too low or too far forward.","Guns: if a gun model fails to download it is retried, and the plain built in gun is shown meanwhile instead of nothing.","Hands: first person fingers bend at three joints and the thumb at two, so they wrap the grip, trigger and magazine.","Player model: more detailed third person player with slimmer limbs, collar, pleated kilt, sporran and brogues, with a cheaper far away version."]},
 {"v":"v1.2.26","d":"2026-11-08","notes":["Agartha: the seven Agarthans now walk the crystal city even when Disable mobs is on. They are city residents, not mobs, and the setting was hiding them by mistake. Normal mobs stay off as before."]},
