@@ -6,6 +6,8 @@ const out=process.argv[2];if(!out)throw Error('output path required');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'b1224-')),f=path.join(dir,'b.html');let s;
 try{cp.execFileSync(process.execPath,[path.join(__dirname,'build-1.2.23.cjs'),f]);s=fs.readFileSync(f,'utf8');}finally{fs.rmSync(dir,{recursive:true,force:true});}
 function one(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw Error('need exactly one: '+a.slice(0,80));s=s.slice(0,i)+b+s.slice(i+a.length);}
+// hands (gun branch 2225241 + 42d5925): exact once pairs in content-source/hands-1224.json, applied first as on that branch
+for(const [a,b] of JSON.parse(fs.readFileSync(path.join(__dirname,'content-source','hands-1224.json'),'utf8'))) one(a,b);
 // time box screen: the picture plane sat exactly on the front face of its brown frame box (both at z 0.035), so they z-fought and the
 // screen flashed brown squares; the plane now sits 4 mm in front and wins the depth test
 one("scr.position.z = 0.035; g.add(scr);","scr.position.z = 0.039; sm.polygonOffset = true; sm.polygonOffsetFactor = -1; sm.polygonOffsetUnits = -2; g.add(scr); /* v1.2.24: off the frame face (it z-fought, flashing brown) */");
