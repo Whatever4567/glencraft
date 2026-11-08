@@ -52,6 +52,8 @@ export function make(opt = {}) {
   }
   const order = ['TBOX', 'TBOX2', 'TBOX3', 'V130', 'CAB1221', 'V1220T', 'CAB1222'], errs = [];
   if (opt.real) { order.splice(order.indexOf('TBOX'), 0, 'C102J'); order.push('EQJET'); }
+  if (opt.pre) order.unshift(...opt.pre);   // v1.2.25: earlier shipped blocks that wrap updatePlayer / solid before the time box (e.g. C283 unstick, C317 space box, C321 planet frame)
+  if (opt.post) order.push(...opt.post);
   if (opt.ukb) { order.splice(order.indexOf('V130'), 0, 'UKB'); G.__c320 = {flat: true, earth: () => 0}; }   // v1.2.25: the real UK barrier, between TBOX3 and V130 as in the page
   const extra = {C102J: () => { const i = html.indexOf('const S = window.__c102j = '), j = html.indexOf('let lt = performance.now(); (function loop()', i); return 'JET = 291; flames = []; puff = function () {}; ' + html.slice(i, j); },
     EQJET: () => { const i = html.indexOf('/* GLX-EQ1222 '), a = html.indexOf('  // white jetpack twice as fast', i), b = html.indexOf('  // new worlds: no Golden Jetpack', a); return 'JET = 291; ' + html.slice(a, b); }};
