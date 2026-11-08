@@ -51062,12 +51062,12 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // bodies in the air always keep falling (the 4 body cap only limits sliding on the ground, and a capped body holds its pose instead of
   // snapping back to the old tip over); the throw is scaled by the animal size (a cow goes less far than a rabbit from the same shot).
   // Plain semi implicit Euler with a fixed step (the usual game approach), written for this game.
-  U.DT = 1 / 120; U.GRAV = 16; U.LOOK = 12;
+  U.DT = 1 / 120; U.GRAV = 16; U.LOOK = 12; U.FLOOR = -237; U.OUT = U.FLOOR - 64;   // bedrock at y -237 (GLX-V1217 and the older deep layers), empty void below it
   U.ground = (c, r, p, sol) => { const cx = Math.floor(p.x), cz = Math.floor(p.z), y0 = Math.floor(p.y + 0.6);
     if (r.gk === cx * 65536 + cz && r.gg != null && r.gg <= p.y + 0.6) return r.gg; U.gLook = (U.gLook || 0) + 1;
     if (!sol) { r.gk = cx * 65536 + cz; r.gg = c.gy; return c.gy; }
     for (let y = y0; y > y0 - U.LOOK; y--) if (sol(cx + 0.5, y + 0.5, cz + 0.5)) { r.gk = cx * 65536 + cz; r.gg = y + 1; c.gy = y + 1; return y + 1; }
-    r.gk = null; r.gg = null; if (r.gy0 == null) r.gy0 = c.gy; return p.y < r.gy0 - 64 ? p.y - (r.off != null ? r.off : 0.25) : -1e9; };   // nothing solid close below: keep falling (looked up again next step), at most 64 blocks below where it died (unloaded or empty ground)
+    r.gk = null; r.gg = null; return -1e9; };   // nothing solid in the 12 blocks below: keep falling under gravity and look again next step (no made up floor)
   U.mass = c => { if (c.__m) return c.__m; let m = 1; try { const b = new THREE.Box3().setFromObject(c.g), s = b.getSize(new THREE.Vector3()), v = s.x * s.y * s.z; if (v > 1e-4 && isFinite(v)) m = Math.min(2.2, Math.max(0.55, Math.cbrt(v / 0.5))); } catch (_) {} return (c.__m = m); };
   U.step = (c, dt) => { try { if (c.kind !== 'body') return false; let r = c.__r;
       if (!r) { const gun = c.w > 2, k = gun ? 9 : 2.2, m = U.mass(c), f = 1 / Math.sqrt(m); r = c.__r = {vx: c.dir.x * k * f, vz: c.dir.z * k * f, vy: (gun ? 4.2 : 1.0) * Math.min(1.15, f), spin: (gun ? 11 : 3) / m, air: 1, sleep: 0, rest: null, cd: 0, acc: 0, off: 0.25}; U.launched++; }
@@ -51087,6 +51087,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           p.y += r.vy * h; const gr = U.ground(c, r, p, sol), floor = gr + (r.off != null ? r.off : 0.25);
           if (p.y <= floor) { p.y = floor; const sp = -r.vy; if (sp > U.HIT) U.hitSurf(c, r, p.x, gr + 0.01, p.z, 0, 1, 0, sp); if (r.vy < -1.5) { r.vy *= -0.32; r.spin *= 0.6; r.air = 1; } else { r.vy = 0; r.air = 0; } const f = Math.exp(-h * (r.air ? 2 : 7)); r.vx *= f; r.vz *= f; }
           else if (p.y > floor + 0.05) r.air = 1; } }
+      if (p.y < U.OUT && !c.fade) { c.fade = 1; U.retired = (U.retired || 0) + 1; }   // fell into the void under the bedrock: the normal 4 s fade and removal, no hovering
       if (ran && r.spin > 0.05) { const t = ran * U.DT; Q.setFromAxisAngle(c.axis, r.spin * t); c.g.quaternion.premultiply(Q); r.spin *= Math.exp(-t * 2.2); }
       if (!r.air && Math.hypot(r.vx, r.vz) < 0.15 && r.spin < 0.3) { r.sleep = 1; U.slept++; if (r.rest === null) { r.rest = p.y; if (c.q0 && c.axis && !c.settle) { c.ang = Math.PI / 2; c.w = 0; c.slide = 0; c.q0 = new THREE.Quaternion().setFromAxisAngle(c.axis, Math.PI / 2).invert().multiply(c.g.quaternion); } return false; } return true; }
       return true; } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); return false; } };

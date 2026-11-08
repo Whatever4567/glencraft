@@ -33,6 +33,14 @@ const check = (ok, msg) => { if (!ok) fails.push(msg); console.log((ok ? 'PASS '
 { const light = body({size: [0.4, 0.4, 0.6]}), heavy = body({size: [1.0, 1.4, 1.8]}); run([light, heavy], 300, 1 / 60); check(light.g.position.x > heavy.g.position.x * 1.3, 'mass: light ' + light.g.position.x.toFixed(2) + ' vs heavy ' + heavy.g.position.x.toFixed(2)); }
 // 6. energy: never bounces higher than it fell from
 { const c = body({y: 16.25}); c.__r = {vx: 0, vz: 0, vy: 0, spin: 0, air: 1, sleep: 0, rest: null, cd: 0}; let peak = 0, hit = false; for (let k = 0; k < 600; k++) { run([c], 1, 1 / 60); if (c.g.position.y <= 10.26) hit = true; else if (hit) peak = Math.max(peak, c.g.position.y); } check(peak < 16.25 - 1, 'bounce loses energy (rebound peak ' + peak.toFixed(2) + ')'); }
+// 8. 120 block drop into a deep cave lands on the real cave floor, far below any death relative plane
+{ solid = (x, y, z) => x < 1 ? y < 30 : y < -90; const c = body({y: 30.25, gy: 30}); run([c], 60 * 8, 1 / 60); check(Math.abs(c.g.position.y + 89.75) < 0.05, '120 block drop lands on the cave floor (y ' + c.g.position.y.toFixed(2) + ')'); solid = (x, y, z) => y < 10; }
+// 9. gap in the world (nothing below at all): keeps falling, then is retired by the normal fade below the bedrock void line, never hovers
+{ solid = () => false; const c = body({y: 10.25}); let prev = c.g.position.y, stuck = 0; for (let k = 0; k < 60 * 12 && !c.fade; k++) { run([c], 1, 1 / 60); if (c.__r.vy < -1 && c.g.position.y >= prev - 1e-9) stuck++; prev = c.g.position.y; }
+  check(!!c.fade && c.g.position.y < -300, 'void fall keeps falling and is faded out below y -301 (y ' + c.g.position.y.toFixed(1) + ', fade ' + c.fade + ')'); check(stuck === 0, 'never stops in mid air while falling (' + stuck + ' still frames)'); solid = (x, y, z) => y < 10; }
+// 10. worst case cost: 12 bodies in free fall over a void (all uncapped), lookups bounded per step
+{ solid = () => false; const L = Array.from({length: 12}, (_, i) => body({x: i * 3, y: 200})); const g0 = U.gLook || 0, t0 = performance.now(); run(L, 120, 1 / 60); const ms = (performance.now() - t0) / 120, looks = ((U.gLook || 0) - g0) / 120 / 12;
+  console.log('free fall 12 bodies: ms per frame', ms.toFixed(4), 'ground lookups per body per frame', looks.toFixed(1)); check(ms < 1, '12 falling bodies under 1 ms per frame'); check(looks <= 2 * 4 + 0.01, 'lookups bounded (at most 2 steps x 4 sub steps per frame at 60 fps)'); solid = (x, y, z) => y < 10; }
 // 7. step cost: 200 frames x 4 moving bodies
 { const L = Array.from({length: 4}, (_, i) => body({x: i * 3})); const t0 = performance.now(); run(L, 200, 1 / 60); const ms = (performance.now() - t0) / 200; console.log('step cost per frame (4 bodies) ms', ms.toFixed(4)); check(ms < 0.5, 'step cost under 0.5 ms per frame'); }
 check(U.err === null, 'no ragdoll error ' + U.err);
