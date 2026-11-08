@@ -1,0 +1,3 @@
+// Execute the unchanged production jetpack kit/model/dress functions without its UI hooks.
+import fs from 'node:fs';import {createRequire}from 'node:module';const{createCanvas}=createRequire('/workspace/qa/tools/index.js')('@napi-rs/canvas');
+export function jetpack(T,u){const s=fs.readFileSync(new URL('../../tools/content-source/jp-1222.js',import.meta.url),'utf8'),a=s.indexOf('  const U ='),b=s.indexOf('  // held in the hand');const W={};new Function('window','THREE','document',s.slice(a,b))(W,T,{createElement:()=>createCanvas(128,128)});W.__jp1222.dress(u,new T.MeshBasicMaterial());return W.__jp1222;}
