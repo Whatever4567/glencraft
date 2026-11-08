@@ -59,5 +59,19 @@ cut('C341clear','  // ---------- 2. the old ice wall goes ----------\n',"try { c
 // the restored record only mouth metadata (save.c294 v3 -> __c294.M) GLX-V1214 and the Watcher keep out read, ball / dress / clearLane / tree for genAg.
 cut('C294mouth','  // ---------- overworld: the mouth in the ice wall behind Blackstone Castle ----------\n','  // the saucer flies this lane','  const WP = (M, d, a) => M.e === \'N\' ? [M.c + a, d] : M.e === \'S\' ? [M.c + a, D - 1 - d] : M.e === \'W\' ? [d, M.c + a] : [W - 1 - d, M.c + a];   /* v1.2.24: mouth() / carveMouth() removed; WP reads the saved mouth record */\n  // the saucer flies this lane');
 {const a="  const big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };",b="U.ms = Math.round(performance.now() - t); }\n";const i=s.indexOf(a),j=s.indexOf(b,i)+b.length;if(i<0||s.indexOf(a,i+1)>=0||j<b.length)throw Error('c294 build');const r="  function build() { U.M = null; U.Lw = null; }   /* v1.2.24: a new world gets no mouth (it never did on a W >= 600 home world) */\n";REMOVED.C294build=j-i-r.length;s=s.slice(0,i)+r+s.slice(j);}
+
+// ---- v1.2.24 checkpoint: one explicit home world check instead of the GLX-C317 (space box) flag, and the round Earth walking frame cut ----
+const all=(a,b,n)=>{const c=s.split(a).length-1;if(c!==n)throw Error('expected '+n+' of '+a.slice(0,60)+', got '+c);s=s.split(a).join(b);};
+one('/* GLX-C87 ','/* GLX-HOME1224: the one home world check (the normal flat UK overworld, W >= 600, not a realm, not inside a planet mesh build) that the\n   current UK lookup, bounds, teleports and space use. Same truth table as the old GLX-C317 on(). */\nwindow.__ukHome = function () { try { return !window.__c317mesh && !DIM.cur && W >= 600; } catch (_) { return false; } };\n/* GLX-C87 ');
+all('window.__c317 && __c317.on()','window.__ukHome && __ukHome()',19);
+one('const on = U.on = () => !window.__c317mesh && !DIM.cur && W >= 600;','const on = U.on = () => __ukHome();');
+one('|| DIM.cur || !__c317.on() ||','|| DIM.cur || !__ukHome() ||');
+one('!window.__c317 || !__c317.on()','!__ukHome()');
+one('const S7 = () => window.__c317, on = () => { try { return !!(S7() && S7().on()); } catch (_) { return false; } };','const S7 = () => window.__c317, on = () => __ukHome();');
+// GLX-C321: walking round the round Earth (its six sided down frame) and the camera lean to the round surface. Kept: Moon and Mars (GLX-C318 bodies).
+one("      const e = window.__c320; if (e && !e.flat && e.alt(w[0], w[1], w[2]) < 90) return ['earth', e.E()]; } catch (_) {} return null; }","      } catch (_) {} return null; }   /* v1.2.24: no round Earth frame */");
+one("const c = body === 'earth' ? e && e.E() : p8 && p8.by[body] && p8.by[body].c();","const c = p8 && p8.by[body] && p8.by[body].c();");
+one(" if (body === 'earth' && window.__c332 && __c332.inner(r)) tv.negate();","");
+one("    let k = 1; if (ax === 2 && body === 'earth') { const d = Math.hypot(w[0] - c[0], w[2] - c[2]); k = Math.max(0, Math.min(1, (d - e.CAP + 100) / 300)); }\n    if (body === 'earth' && e.tOn && U.upright) { const al = r - e.R; k *= Math.max(0, Math.min(1, (al - 45) / 90)); }   /* v1.1.39: on the terraces the camera stands upright, it leans to the round planet only high up */\n","    const k = 1;\n");
 console.error('removed bytes',JSON.stringify(REMOVED),Object.values(REMOVED).reduce((x,y)=>x+y,0));
 fs.writeFileSync(out,s);

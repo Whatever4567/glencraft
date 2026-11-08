@@ -15456,6 +15456,9 @@ function matHit(t, mat, out, dur, peak) {
   if (mat === 'wood') osc('sine', 190, 120, t, dur, out, peak * 0.5);
   if (mat === 'stone') osc('triangle', 2300, 1800, t, 0.03, out, peak * 0.15);
 }
+/* GLX-HOME1224: the one home world check (the normal flat UK overworld, W >= 600, not a realm, not inside a planet mesh build) that the
+   current UK lookup, bounds, teleports and space use. Same truth table as the old GLX-C317 on(). */
+window.__ukHome = function () { try { return !window.__c317mesh && !DIM.cur && W >= 600; } catch (_) { return false; } };
 /* GLX-C87 (v0.9.68): level-up chime - a short bright bell arpeggio (C6 E6 G6 C7, ~0.9 s), synthesised; goes through the SFX master gain */
 function levelChime(vol) {
   if (!AC) return; if (AC.state === 'suspended') { try { AC.resume(); } catch (_) {} }
@@ -16450,7 +16453,7 @@ function useItem() {
   else { if (!r.prev) return; [x, y, z] = r.prev; }
   const b = getB(x, y, z);
   if (b !== T.AIR && b !== T.WATER && b !== T.TALLGRASS) return;
-  if (y >= H - 1 && !(window.__c317 && __c317.on() && !__c317.foot(x, z))) return;
+  if (y >= H - 1 && !(window.__ukHome && __ukHome() && !__c317.foot(x, z))) return;
   const below = getB(x, y - 1, z);
   let torchWall = null;
   if (id === T.TORCH && r.hit && r.hit[1] === y && (r.hit[0] !== x || r.hit[2] !== z) && solid(r.hit[0], r.hit[1], r.hit[2])) torchWall = [r.hit[0] - x, r.hit[2] - z];
@@ -29430,7 +29433,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (window.__safeLoad && d && !d.dim) { d = Object.assign({}, d); for (const k of ['c95', 'c96', 'c78', 'doors', 'boats', 'cauldrons']) delete d[k]; S.stripped = 1; arguments[0] = d; }
     const r = ap.apply(this, arguments);
     try { if (d && !d.dim) { // a broken player position (NaN / outside the world / far below) -> back to spawn
-        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || (!(window.__c317 && __c317.on()) && (P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1)) || Math.abs(P.x) > 1e6 || Math.abs(P.z) > 1e6 || P.y < SEA - 1500) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
+        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || (!(window.__ukHome && __ukHome()) && (P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1)) || Math.abs(P.x) > 1e6 || Math.abs(P.z) > 1e6 || P.y < SEA - 1500) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
         if (!isFinite(P.yaw)) P.yaw = 0; else P.yaw %= 6.283185307179586; if (!isFinite(P.pitch)) P.pitch = 0;
         const sn = window.__c95 && __c95.snap; if (sn) for (const k of Object.keys(sn)) { const q = sn[k], ps = q && q.pos; if (!ps || !ps.every(isFinite) || ps[1] < 1 || ps[0] < 1 || ps[2] < 1 || ps[0] >= W - 1 || ps[2] >= D - 1) delete sn[k]; } } } catch (e) { console.warn('c99 sanitize', e); }
     return r;
@@ -44745,7 +44748,7 @@ function make42(E) {
   U.WS = 40;   /* v1.2.24: the ice wall builder is removed; WS stays as the old edge band width the shared shape helpers use */
   const gen = generate; generate = function () { CAS = null; return gen.apply(this, arguments); };
   // v1.0.92: no invisible barrier - climb the wall if you like; past it you freeze (GLX-C282). Only the world bounds hold you in.
-  setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__c317 && __c317.on())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
+  setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__ukHome && __ukHome())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
 })();
 
 /* GLX-C274 (v1.0.90): caves for the Highlands map - each world seed gets its own cave network (winding worm tunnels of changing width,
@@ -45879,7 +45882,7 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
   const TG = ['moon', 'mars', 'earth', ]; U.ti = 0;
   U.tbody = () => B7() ? U.tb7() : S5().get(TG[U.ti % TG.length]);
   /* v1.1.28: the rocket flies inside the C317 space box: free flight, real block collisions, land on top of the Moon or Mars */
-  const B7 = () => !!(window.__c317 && __c317.on());
+  const B7 = () => !!(window.__ukHome && __ukHome());
   const gB7 = (x, y, z) => { const X = Math.floor(x), Z = Math.floor(z); for (let yy = Math.floor(y) + 1; yy > Math.floor(y) - 14; yy--) if (solid(X, yy, Z)) return yy + 1; return -1e9; };
   const NM = {moon: 'The Moon', mars: 'Mars', earth: 'Earth'};
   U.isPl = () => !!(PD() && PD().is() && U.frame === DIM.cur);
@@ -45974,7 +45977,7 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
           c.lookAt(U.V.x + n.x * (8 + 32 * hg), U.V.y + 5 + n.y * (4 + 36 * hg), U.V.z + n.z * (8 + 32 * hg)); }
   U.camSet = camSet;
   try { const rr = renderer.render; renderer.render = function (s, c) { const pl = U.isPl(); if (s !== scene || !started || !U.base || (DIM.cur && !pl)) return rr.apply(this, arguments); let restore = null, far0 = 0, eS = null;
-    try { const ev = PD() && PD().eva, off = !(window.__c317 && __c317.on()) && (U.on || ev || (U.frame === 'earth' && U.space())); stars.visible = firm.visible = false; if (mapP) mapP.visible = false; if (S5()) S5().show(false);
+    try { const ev = PD() && PD().eva, off = !(window.__ukHome && __ukHome()) && (U.on || ev || (U.frame === 'earth' && U.space())); stars.visible = firm.visible = false; if (mapP) mapP.visible = false; if (S5()) S5().show(false);
       if (B7() && U.on && U.frame === 'earth') { camSet(c); for (const m of c.children) if (m.visible && m.isGroup && m.children.length) { m.visible = false; hid.push(m); } }
       if (off || pl) { const E = U.frame === 'earth', a = ev ? PD().E.y : U.alt(); uT.value = performance.now() / 1000; hid.length = 0; const deep = E && (a > FY + 200 || !U.overMap());
         for (const m of s.children) if (m.visible && m !== stars && ((m.renderOrder <= -10 && m.material && m.material.isShaderMaterial) || m.isSprite || (m.isPoints && m.position.distanceTo(c.position) < 3) || (deep && m !== R && !m.userData.sys && m !== mapP && !m.isLight && !(S5() && S5().SYS.some(b => b.g === m))))) { m.visible = false; hid.push(m); }
@@ -46061,7 +46064,7 @@ img,canvas.ui{max-width:100%}
   U.on = () => { try { const a = A(); return !!(started && a && (a.M || big()) && a.AG && window.__c239 && __c239.pyr); } catch (_) { return false; } };
   let PTS = null, LEN = 0, key = '';
   // v1.1.39: on the round Earth the saucer's home is on the sand beside the desert pyramid (the old ice wall mouth is gone)
-  const big = () => { try { return !!(window.__c317 && __c317.on() && !DIM.cur); } catch (_) { return false; } };
+  const big = () => { try { return !!(window.__ukHome && __ukHome() && !DIM.cur); } catch (_) { return false; } };
   // v1.1.40: the saucer lives at the North Pole beside the way down to Agartha, and flies FAST (about 260 blocks a second) round the curve of the Earth to the pyramids
   function buildN(py, po) { const k = 'n' + py.cx + ',' + po.x + ',' + po.z; if (k === key && PTS) return true; key = k; const e = __c320, c = e.E(), R = e.R, ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
     if (e.flat) { const hx = po.x + 12, hz = po.z, R0 = window.__agw && __agw.route && __agw.route(); if (window.__agw && !R0) key = ''; PTS = (R0 || [['ow', hx + .5, po.top + 4, hz + .5]]).concat([['ow', hx + .5, SEA + 160, hz + .5], ['ow', py.cx + .5, SEA + 160, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]]);   /* v1.1.87: it sleeps in the crystal city under Scotland and flies out up the spiral cave */
@@ -46278,7 +46281,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       for (let k = 0; k < n; k++) { v4.copy(v2).add(v3); if (!hitAt(v4)) { v2.copy(v4); continue; } const vn = v3.dot(up); v3.addScaledVector(up, -vn); v4.copy(v2).add(v3);
         const vu = vel.dot(up); if (vu < 0) vel.addScaledVector(up, -vu); vel.multiplyScalar(0.8); U.hits = (U.hits || 0) + 1; if (v3.lengthSq() > 1e-8 && !hitAt(v4)) v2.copy(v4); else break; } }
     U.landed = false; if (!any || (uIn < 0 && Math.abs(mx) + Math.abs(mz) < 0.05)) { let gg = groundGap(v2); if (gg < 6) { v4.copy(v2).addScaledVector(up, -Math.min(gg, dt * (1 + gg))); if (!hitAt(v4)) v2.copy(v4); else gg = 0; if (gg < 0.08) { U.landed = true; vel.set(0, 0, 0); } } }
-    const L = Math.max(60000, (window.__c305 && __c305.BOUND) || 12000); if ((window.__c317 && __c317.on())) { __c317.clampBox(v2, 6); } else { v2.x = Math.max(432 - L, Math.min(432 + L, v2.x)); v2.z = Math.max(432 - L, Math.min(432 + L, v2.z)); v2.y = Math.max(-200, Math.min(60000, v2.y)); }
+    const L = Math.max(60000, (window.__c305 && __c305.BOUND) || 12000); if ((window.__ukHome && __ukHome())) { __c317.clampBox(v2, 6); } else { v2.x = Math.max(432 - L, Math.min(432 + L, v2.x)); v2.z = Math.max(432 - L, Math.min(432 + L, v2.z)); v2.y = Math.max(-200, Math.min(60000, v2.y)); }
     p.copy(v2); U.maxSp = Math.max(U.maxSp, vel.length()); sync(); }
   const low = () => !moonNear(U.pos) && U.pos.y < H + 40 && U.pos.x > 1 && U.pos.x < W - 2 && U.pos.z > ((typeof __XG !== 'undefined' && __XG) ? __XZ + 2 : 2) && U.pos.z < D - 2;
   /* v1.1.28: controller Y enters and exits the UFO (Y still opens the inventory everywhere else) */
@@ -46286,13 +46289,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const cam = new THREE.Vector3(), cq = new THREE.Quaternion(), M9 = new THREE.Matrix4(), T9 = new THREE.Vector3(), B9 = new THREE.Vector3(); U.cam = cam; U.cq = cq;
   function sync() { U.cock = !window.thirdPerson; if (U.cock) { frame(P.yaw, Math.max(-1.5, Math.min(1.5, P.pitch)), cq); cam.copy(U.pos).addScaledVector(up, 1.05); } else { /* v1.1.28: third person orbits behind and above the saucer, never inside it */ const e = Math.max(0.18, Math.min(1.3, 0.42 - P.pitch)), d = 15; frame(P.yaw, 0, cq); B9.set(0, 0, 1).applyQuaternion(cq);
       cam.copy(U.pos).addScaledVector(B9, Math.cos(e) * d).addScaledVector(up, Math.sin(e) * d + 1.2); M9.lookAt(cam, T9.copy(U.pos).addScaledVector(up, 1.2), up); cq.setFromRotationMatrix(M9); }
-    if ((window.__c317 && __c317.on()) || low()) { if (PD()) PD().eva = false; P.x = U.pos.x; P.z = U.pos.z; P.y = U.pos.y; } else { if (PD()) { PD().eva = true; const E = PD().E; E.x = cam.x; E.y = cam.y - 1.6; E.z = cam.z; E.vx = E.vy = E.vz = 0; }
+    if ((window.__ukHome && __ukHome()) || low()) { if (PD()) PD().eva = false; P.x = U.pos.x; P.z = U.pos.z; P.y = U.pos.y; } else { if (PD()) { PD().eva = true; const E = PD().E; E.x = cam.x; E.y = cam.y - 1.6; E.z = cam.z; E.vx = E.vy = E.vz = 0; }
       P.x = Math.max(2, Math.min(W - 3, U.pos.x)); P.z = Math.max(2, Math.min(D - 3, U.pos.z)); P.y = H + 60; }
     P.vy = 0; P.onGround = true; P.fallTop = null; const mn = moonNear(U.pos), sp = Math.round(vel.length());
     window.__spaceHud = 'UFO   ' + (mn ? M8().body(U.pos).name + ' height ' + Math.round(M8().alt(U.pos)) : 'altitude ' + Math.round(U.pos.y)) + '   speed ' + sp + (U.landed ? '   landed' : ''); }
   U.board = () => { if (U.on) return; U.free = false; try { if (M8() && M8().mode === 'moon') M8().stop(); if (R9() && R9().on) return; } catch (_) {} U.from = [P.x, P.y, P.z]; U.on = true; window.__thirdPerson = window.thirdPerson = false; vel.set(0, 0, 0); P.yaw = U.yaw;
     say('Your UFO: move to fly where you look, JUMP up, SHIFT down, BOOST for speed. Let go near the ground to land. EXIT once landed'); };
-  U.exit = () => { if (!U.on) return; const p = U.pos, mn = moonNear(p), B7 = window.__c317 && __c317.on();
+  U.exit = () => { if (!U.on) return; const p = U.pos, mn = moonNear(p), B7 = window.__ukHome && __ukHome();
     if (B7 && groundGap(p) > 3) { U.on = false; window.__spaceHud = null; if (PD()) PD().eva = false; P.x = p.x + rt.x * 3.2; P.z = p.z + rt.z * 3.2; P.y = p.y; P.vy = 0; P.fallTop = null; U.hold = 0; U.free = true; vel.set(0, 0, 0);
       try { camera.up.set(0, 1, 0); camera.rotation.set(P.pitch || 0, P.yaw || 0, 0, 'YXZ'); } catch (_) {} say('You stepped out into space. Your UFO follows you down - BOARD UFO to get back in'); return; }
     if (groundGap(p) > 3) { say('Land first (let go near the ground), then EXIT'); return; } U.on = false; window.__spaceHud = null;
@@ -46301,9 +46304,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const okAt = (x, y, z) => !solid(Math.floor(x), Math.floor(y), Math.floor(z)) && !solid(Math.floor(x), Math.floor(y) + 1, Math.floor(z)) && solid(Math.floor(x), Math.floor(y) - 1, Math.floor(z));
   function safeSpot(p) { const c = [[rt.x * 4.5, rt.z * 4.5], [-rt.x * 4.5, -rt.z * 4.5], [-fw.x * 4.5, -fw.z * 4.5], [fw.x * 4.5, fw.z * 4.5]];
     for (let r = 3; r <= 9; r += 2) for (let a = 0; a < 12; a++) c.push([Math.cos(a / 12 * 6.283) * r, Math.sin(a / 12 * 6.283) * r]);
-    for (const [dx, dz] of c) { const x = Math.floor(p.x + dx) + 0.5, z = Math.floor(p.z + dz) + 0.5; if (!(window.__c317 && __c317.on()) && (x < 2 || x > W - 3 || z > D - 3)) continue;
-      for (let y = Math.floor(p.y) + 2; y >= Math.floor(p.y) - 4; y--) if ((y > 0 || (window.__c317 && __c317.on())) && okAt(x, y, z)) return [x, y + 0.02, z]; }
-    const x = Math.floor(p.x + rt.x * 4.5) + 0.5, z = Math.floor(p.z + rt.z * 4.5) + 0.5; if ((window.__c317 && __c317.on()) && !__c317.foot(x, z)) return [p.x, p.y + 1.2, p.z]; return [x, topAt(x, z) + 0.05, z]; }
+    for (const [dx, dz] of c) { const x = Math.floor(p.x + dx) + 0.5, z = Math.floor(p.z + dz) + 0.5; if (!(window.__ukHome && __ukHome()) && (x < 2 || x > W - 3 || z > D - 3)) continue;
+      for (let y = Math.floor(p.y) + 2; y >= Math.floor(p.y) - 4; y--) if ((y > 0 || (window.__ukHome && __ukHome())) && okAt(x, y, z)) return [x, y + 0.02, z]; }
+    const x = Math.floor(p.x + rt.x * 4.5) + 0.5, z = Math.floor(p.z + rt.z * 4.5) + 0.5; if ((window.__ukHome && __ukHome()) && !__c317.foot(x, z)) return [p.x, p.y + 1.2, p.z]; return [x, topAt(x, z) + 0.05, z]; }
   U.safeSpot = safeSpot;
   // ---------- buttons ----------
   const bt = (t, css, on, off) => { const b = document.createElement('div'); b.textContent = t; b.style.cssText = 'position:fixed;z-index:45;padding:10px 14px;border-radius:14px;font:bold 14px sans-serif;color:#fff;background:rgba(40,90,120,.82);border:2px solid #9ff;user-select:none;touch-action:none;display:none;' + css;
@@ -46322,7 +46325,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { const upd = updatePlayer; updatePlayer = function (dt, mx, mz) { try { if (U.on) { if (DIM.cur) U.on = false; else { fly(Math.min(dt, 0.05), mx || 0, mz || 0); return 0; } } } catch (e) { ERR('upd', e); } if (U.hold > 0) { U.hold -= dt; const k = typeof dirtyCh === 'undefined' || dirtyCh.size === 0; if (!k && U.hold > 0) { P.vy = 0; return 0; } U.hold = 0; } guard(dt); return upd.apply(this, arguments); }; } catch (e) { ERR('upd0', e); }
   // safety net on flat Earth: inside blocks (not just touching) for a moment, or below the world bottom, goes up to the first free spot
   function guard(dt) { if (DIM.cur || (PD() && PD().eva) || (M8() && M8().mode === 'moon') || (R9() && R9().on) || !isFinite(P.y)) { U.sk = 0; return; }
-    if (P.y < SEA - 1500 && !(window.__c317 && __c317.on())) { P.y = topAt(P.x, P.z) + 0.05; P.vy = 0; P.fallTop = null; U.saved = (U.saved || 0) + 1; return; }
+    if (P.y < SEA - 1500 && !(window.__ukHome && __ukHome())) { P.y = topAt(P.x, P.z) + 0.05; P.vy = 0; P.fallTop = null; U.saved = (U.saved || 0) + 1; return; }
     const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 0.1); if (solid(x, y, z) && solid(x, y + 1, z)) U.sk = (U.sk || 0) + dt; else U.sk = 0;
     if (U.sk > 0.4) { let yy = y; while (yy < y + 6 && yy < H - 2 && (solid(x, yy, z) || solid(x, yy + 1, z))) yy++; if (yy >= y + 6) { U.sk = 0; return; } P.y = yy + 0.02; P.vy = 0; P.fallTop = null; U.sk = 0; U.saved = (U.saved || 0) + 1; } }
   try { const rr = renderer.render; renderer.render = function (s, c) { const hid = []; try { if (s === scene && started) { FE.visible = false && !DIM.cur && c.position.y > H + 150 && !(R9() && R9().frame !== 'earth');
@@ -46675,7 +46678,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); console.warn('c317', w, e); };
   const L = U.L, P8 = () => window.__c318, UF = () => window.__c309;
   const Z0 = () => (typeof __XG !== 'undefined' && __XG && typeof __XZ !== 'undefined') ? __XZ : 0;
-  const on = U.on = () => !window.__c317mesh && !DIM.cur && W >= 600;
+  const on = U.on = () => __ukHome();
   const foot = (x, z) => x >= 0 && x < W && z < D && z >= Z0();
   /* v1.1.28: the box is centred on the middle of the Earth map */
   const C = U.C = () => [W >> 1, H >> 1, D >> 1];
@@ -46733,7 +46736,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     try { const s5 = window.__c305; if (s5) { if (s5.show) { s5.show(false); s5.show = () => {}; } } } catch (e) { ERR('s5', e); } }, 0);
 })();
 // (t655u) no bedrock floor or edge wall on Earth: the natural bedrock becomes deepslate and the packed snow rim comes down, so you can dig out of the bottom or walk off any side
-(function c317b() { let done = null; setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || !__c317.on() || (done === world && world[idx(3, 0, 3)] !== T.HBEDROCK && world[idx(W - 4, 0, D - 4)] !== T.HBEDROCK) || (window.__c105 && __c105.phase === 'gen')) return; done = world;
+(function c317b() { let done = null; setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || !__ukHome() || (done === world && world[idx(3, 0, 3)] !== T.HBEDROCK && world[idx(W - 4, 0, D - 4)] !== T.HBEDROCK) || (window.__c105 && __c105.phase === 'gen')) return; done = world;
     const HB = T.HBEDROCK, BR = T.BEDROCK, DS = T.DEEPSLATE || T.STONE, PK = T.PACKSNOW; let n = 0;
     for (let i = 0; i < world.length; i++) { const b = world[i]; if (b === HB || (BR && b === BR)) { world[i] = DS; n++; } }
     if (PK) for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (x > 2 && z > 2 && x < W - 3 && z < D - 3) continue; for (let y = H - 1; y > 0; y--) { const i = idx(x, y, z), b = world[i]; if (b === PK) { world[i] = 0; n++; } else if (b) break; } }
@@ -46827,7 +46830,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 (function c320() {
   const U = window.__c320 = {err: null, R: 5000, edits: new Map(), q: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
-  const S7 = () => window.__c317, on = () => { try { return !!(S7() && S7().on()); } catch (_) { return false; } };
+  const S7 = () => window.__c317, on = () => __ukHome();
   const R = U.R, Z0 = () => (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0;
   const E = U.E = () => [W >> 1, SEA + 250 - R, Math.round((D - 1500) / 2)];
   const CAP = U.CAP = Math.sqrt(R * R - (R - 250) * (R - 250));
@@ -46945,16 +46948,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // ---------- which planet and which side ----------
   const veh = () => (window.__c309 && __c309.on) || (window.__c299 && __c299.on);
   function pick(w) { try { const p8 = window.__c318; if (p8) for (const b of p8.bodies) { if (b.d.cell) continue; const c = b.c(); if (Math.hypot(w[0] - c[0], w[1] - c[1], w[2] - c[2]) < b.R + 90) return [b.id, c]; }
-      const e = window.__c320; if (e && !e.flat && e.alt(w[0], w[1], w[2]) < 90) return ['earth', e.E()]; } catch (_) {} return null; }
+      } catch (_) {} return null; }   /* v1.2.24: no round Earth frame */
   function axisOf(d, cur) { const a = [Math.abs(d[0]), Math.abs(d[1]), Math.abs(d[2])]; let k = a[0] >= a[1] && a[0] >= a[2] ? 0 : a[1] >= a[2] ? 1 : 2; const ax = 2 * k + (d[k] < 0 ? 1 : 0);
     if (cur !== null && cur !== ax) { const ck = cur >> 1; if (ck !== k && a[k] < a[ck] * 1.03) return cur; } return ax; }
   const Qoff = new THREE.Quaternion(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eu = new THREE.Euler();
   // v1.1.31: out on the round Earth the camera leans to the true round surface, so the sea looks level at every latitude (the blocks keep their sides)
   const TQ = new THREE.Quaternion(), tv = new THREE.Vector3(), tu = new THREE.Vector3(), I0 = new THREE.Quaternion();
-  function tiltAt(w, ax, body, out) { out.identity(); const e = window.__c320, p8 = window.__c318; if (!body || !U.tiltOn) return out; const c = body === 'earth' ? e && e.E() : p8 && p8.by[body] && p8.by[body].c(); if (!c) return out;
-    tv.set(w[0] - c[0], w[1] - c[1], w[2] - c[2]); const r = tv.length(); if (r < 1) return out; tv.divideScalar(r); if (body === 'earth' && window.__c332 && __c332.inner(r)) tv.negate(); const f = toW(ax, [0, 1, 0]); tu.set(f[0], f[1], f[2]);   /* v1.1.37: inside the hollow Earth up points to the inner sun */
-    let k = 1; if (ax === 2 && body === 'earth') { const d = Math.hypot(w[0] - c[0], w[2] - c[2]); k = Math.max(0, Math.min(1, (d - e.CAP + 100) / 300)); }
-    if (body === 'earth' && e.tOn && U.upright) { const al = r - e.R; k *= Math.max(0, Math.min(1, (al - 45) / 90)); }   /* v1.1.39: on the terraces the camera stands upright, it leans to the round planet only high up */
+  function tiltAt(w, ax, body, out) { out.identity(); const e = window.__c320, p8 = window.__c318; if (!body || !U.tiltOn) return out; const c = p8 && p8.by[body] && p8.by[body].c(); if (!c) return out;
+    tv.set(w[0] - c[0], w[1] - c[1], w[2] - c[2]); const r = tv.length(); if (r < 1) return out; tv.divideScalar(r); const f = toW(ax, [0, 1, 0]); tu.set(f[0], f[1], f[2]);   /* v1.1.37: inside the hollow Earth up points to the inner sun */
+    const k = 1;
     if (k <= 0) return out; out.setFromUnitVectors(tu, tv); if (k < 1) out.slerp(I0, 1 - k); return out; }
   U.tiltOn = true; U.TQ = TQ; U.tiltAt = tiltAt;
   const T0q = new THREE.Quaternion(), T1q = new THREE.Quaternion(), vv = new THREE.Vector3();
@@ -46975,7 +46977,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.setFrame = setFrame;
   try { const ld = lookDir; lookDir = function () { const r = ld.apply(this, arguments); if (!r || Math.abs(TQ.w) >= 0.99999) return r; const w = toW(U.ax, r); vv.set(w[0], w[1], w[2]).applyQuaternion(TQ); const l = toL(U.ax, [vv.x, vv.y, vv.z]); r[0] = l[0]; r[1] = l[1]; r[2] = l[2]; return r; }; } catch (e) { ERR('ld', e); }
   U.leave = () => { try { if (U.ax !== 2 || U.body) setFrame(null, null, 2); } catch (e) { ERR('leave', e); } };
-  function tick() { try { if (U.body && !flying) unstick(); } catch (_) {} if (typeof started === 'undefined' || !started || DIM.cur || !window.__c317 || !__c317.on()) { if (U.ax !== 2) U.leave(); return; }
+  function tick() { try { if (U.body && !flying) unstick(); } catch (_) {} if (typeof started === 'undefined' || !started || DIM.cur || !__ukHome()) { if (U.ax !== 2) U.leave(); return; }
     if (veh()) { U.leave(); return; } const w = pW(P.x, P.y + 0.9, P.z), b = pick(w);
     if (!b) { if (U.ax !== 2) setFrame(null, null, 2); else U.body = null; return; }
     const c = b[1], dd = [w[0] - c[0], w[1] - c[1], w[2] - c[2]], inn = b[0] === 'earth' && window.__c332 && __c332.inner(Math.hypot(dd[0], dd[1], dd[2]));
@@ -47136,7 +47138,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c324 = {err: null, meshed: 0, ms: 0, n: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); console.warn('c324', w, e); };
   const PH = /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof PERF !== 'undefined' && PERF), C = CH, PW = 3 * C + 1, NB = 72; let RN = PH ? 2 : 3; const RN0 = RN;
-  const E = () => window.__c320, F = () => window.__c321, on = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };
+  const E = () => window.__c320, F = () => window.__c321, on = () => { try { return !!(window.__ukHome && __ukHome()); } catch (_) { return false; } };
   const MS = [[[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 1, 0], [-1, 0, 0], [0, 0, 1]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
     [[1, 0, 0], [0, -1, 0], [0, 0, -1]], [[1, 0, 0], [0, 0, 1], [0, -1, 0]], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]];
   const QS = MS.map(m => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...m[0]), new THREE.Vector3(...m[1]), new THREE.Vector3(...m[2]))));
@@ -47291,14 +47293,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       return r; }; } catch (e) { ERR('wrap', e); } }, 4100);
 })();
 // (t687u) no unbreakable floor under Glencraft: the bottom layer of the map can be dug like any other block, and the planet goes on below it
-(function c328b() { try { const cm = canMine; canMine = function (b, y) { try { if (y === 0 && b && b !== T.WATER && b !== T.LAVA && window.__c317 && __c317.on() && !DIM.cur) return HARD[b] !== undefined || true; } catch (_) {} return cm.apply(this, arguments); }; } catch (e) { window.__c328 && (__c328.err = __c328.err || 'cm ' + e); } })();
+(function c328b() { try { const cm = canMine; canMine = function (b, y) { try { if (y === 0 && b && b !== T.WATER && b !== T.LAVA && window.__ukHome && __ukHome() && !DIM.cur) return HARD[b] !== undefined || true; } catch (_) {} return cm.apply(this, arguments); }; } catch (e) { window.__c328 && (__c328.err = __c328.err || 'cm ' + e); } })();
 
 /* GLX-C330 (v1.1.35): NO PHANTOM BANGS. Explosion and thunder sounds only play for something real near you. The saucer leaving at dawn used to
    boom wherever you were (fixed in C246); on top of that, while you are in space or inside Agartha a boom only plays if a real blast just
    happened next to you (your bomb, a creeper, your gun), and storm thunder never plays there. */
 (function c330() {
   const U = window.__c330 = {blocked: 0, err: null};
-  const away = () => { try { if (window.__c317 && __c317.on() && (MXd() > 0)) return 'space'; } catch (_) {} try { if (window.__c332 && __c332.where()) return 'deep'; } catch (_) {} try { if (window.__c295 && __c295.inside === true) return 'agartha'; if (P.z < 0 && P.y < SEA - 6) return 'tunnel'; } catch (_) {} return ''; };
+  const away = () => { try { if (window.__ukHome && __ukHome() && (MXd() > 0)) return 'space'; } catch (_) {} try { if (window.__c332 && __c332.where()) return 'deep'; } catch (_) {} try { if (window.__c295 && __c295.inside === true) return 'agartha'; if (P.z < 0 && P.y < SEA - 6) return 'tunnel'; } catch (_) {} return ''; };
   function MXd() { try { const c = __c320.E(), R = 5000; return Math.max(Math.abs(P.x - c[0]), Math.abs(P.y - c[1]), Math.abs(P.z - c[2])) - R - 300; } catch (_) { return 1; } }
   let gunT = 0, seen = 0; const cnt = () => ((window.__c119 && __c119.booms) || 0) + ((window.__c116 && __c116.booms) || 0);
   try { const gb = gunBang; gunBang = function () { gunT = performance.now(); return gb.apply(this, arguments); }; } catch (e) { U.err = 'gun ' + e; }
@@ -47428,7 +47430,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         const cs = n0[1], sn = n0[2]; return ll0(nx, ny * cs + nz * sn, -ny * sn + nz * cs); } catch (e) { ERR('ll', e); } return ll0(nx, ny, nz); };
   } catch (e) { ERR('ll0', e); }
   // ---------- 3. Agartha teleport ----------
-  function goAgartha() { try { if (DIM.cur) { toast('Go back to the overworld first'); return; } if (!(window.__c317 && __c317.on()) || !window.__c332 || !__c332.SH()) { toast('Agartha is not in this world. Reset world to get the big map'); return; }
+  function goAgartha() { try { if (DIM.cur) { toast('Go back to the overworld first'); return; } if (!(window.__ukHome && __ukHome()) || !window.__c332 || !__c332.SH()) { toast('Agartha is not in this world. Reset world to get the big map'); return; }
       try { if (window.__c309 && __c309.on) __c309.on = false; } catch (_) {} window.__spaceHud = null; if (__c332.toCity()) { try { setPause(false); } catch (_) {} const ov = document.querySelector('[data-testid=tp-x]'); if (ov) ov.parentNode.parentNode.style.display = 'none'; toast('Agartha'); } } catch (e) { ERR('tp', e); } }
   U.go = goAgartha;
   const add = () => { const x = document.querySelector('[data-testid=tp-x]'); if (!x || document.querySelector('[data-testid=tp-agartha]')) return !!x; const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Agartha'; b.dataset.testid = 'tp-agartha'; b.style.cssText = x.style.cssText.replace(/alt/, '');
@@ -47461,7 +47463,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c339 = {err: null, px: 0, tex: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const K = U.K = 300, LAT0 = U.LAT0 = 57.45, LON0 = U.LON0 = -3.75, RD = U.RD = 1e9, WT = 0, WH = 0, IR = U.IR = 2600, OR = U.OR = 3100, UZ = 885;
-  const E = () => window.__c320, big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };
+  const E = () => window.__c320, big = () => { try { return !!(window.__ukHome && __ukHome()); } catch (_) { return false; } };
   let PX = 0, PZ = 0; const e3flat = () => { const e = E(); return !!(e && e.flat); };
   // map spot -> latitude and longitude (polar map, magnified round Glencraft)
   function fll(x, z) { const lat = LAT0 - (z - (D >> 1)) / K, lon = LON0 + (x - (W >> 1)) / (K * Math.cos(lat * Math.PI / 180));
@@ -49940,7 +49942,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (X < 0 || Z < 0 || X >= W || Z >= D || Y < 1) continue; const v = world[idx(X, Y, Z)]; if (v === T.LAVA) continue;
       if (v === T.AIR || fluid(v) || !(typeof solid === 'function' ? solid(X, Y, Z) : true)) { world[idx(X, Y, Z)] = (show && show(x, y, z) && b === 0 && T.GLASS != null) ? T.GLASS : BAS; U.cells++; } } }
   function agKeep() { // real Agartha footprint inside the map, from GLX-C294 / GLX-C307; null = unknown -> fail closed
-    try { if (window.__c317 && __c317.on()) return null; } catch (_) { return null; }
+    try { if (window.__ukHome && __ukHome()) return null; } catch (_) { return null; }
     const A = window.__c294, M = A && A.M; if (!M || !Number.isFinite(M.x) || !Number.isFinite(M.z)) return null;
     const k = [[M.x, M.z]], e = M.e, c = M.c, edge = e === 'N' ? [c, 0] : e === 'S' ? [c, D - 1] : e === 'W' ? [0, c] : e === 'E' ? [W - 1, c] : null;
     if (edge) for (let f = 0; f <= 1.0001; f += 0.1) k.push([edge[0] + (M.x - edge[0]) * f, edge[1] + (M.z - edge[1]) * f]);
