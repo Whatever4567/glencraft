@@ -6,6 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const out=process.argv[2];if(!out)throw Error('output path required');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'b1229g-')),f=path.join(dir,'b.html');let s;
 try{cp.execFileSync(process.execPath,[path.join(__dirname,'build-1.2.28.cjs'),f],{stdio:['ignore','ignore','inherit']});s=fs.readFileSync(f,'utf8');}finally{fs.rmSync(dir,{recursive:true,force:true});}
+s=require('./build-rag-1229.cjs').apply(s);   // animal ragdoll physics (fix/animal-ragdoll 22b3011), applied first
 function one(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw Error('need exactly one: '+a.slice(0,80));s=s.slice(0,i)+b+s.slice(i+a.length);}
 // ---- firing hitch: every shot made new spark and dust materials, a new bullet hole material and a new tracer line (geometry and a
 // cloned material) and disposed them a moment later. A material disposed while it is the only user of its shader makes the renderer
