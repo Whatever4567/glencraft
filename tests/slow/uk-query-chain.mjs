@@ -18,9 +18,9 @@ G.setB = (x, y, z, v) => { if (x >= 0 && x < W && z >= 0 && z < D && y >= 0 && y
 const scope = new Proxy(G, {has: (t, k) => typeof k === 'string' && !(k in globalThis && !(k in t)), get: (t, k) => { if (k in t) return t[k]; if (typeof k === 'symbol') return undefined; missing.add(k); return noop; }, set: (t, k, v) => { t[k] = v; return true; }});
 const run = (src, tag) => { try { new Function('S', 'with(S){' + src + '\n}').call(G, scope); } catch (e) { console.log('LOAD ' + tag, String(e).slice(0, 200)); } };
 run(fnAt(/^function getB\(/) + '\n' + fnAt(/^function solid\(/), 'base');
-const HAS = html.includes('/* GLX-LEG1224 '); for (const k of ['C307', 'C317', 'C320', 'UKB'].concat(HAS ? ['LEG1224'] : [])) run(blk(k), k);
+const HAS = html.includes('/* GLX-LEG1224 '); for (const k of ['C307', 'C317', 'C320', 'UKB'].concat(HAS ? ['LEG1224'] : []).concat(['DEEP', 'V1217'])) run(blk(k), k);
 // the current UK land (C341/C347 fearth) stand in: UK ground to SEA+1 everywhere inside the UK box, air above
-const e = G.__c320; e.flat = 1; e.fearth = Object.assign((x, y, z) => y <= SEA + 1 ? 3 : 0, {dw: 1, top: () => SEA + 1});
+const e = G.__c320; e.flat = 1; e.fearth = Object.assign((x, y, z) => y <= SEA + 1 ? 3 : 0, {c347: 1, top: () => SEA + 1}); G.__agw = {ok: 1, box: [420, -50, 0, 660, -2, 700]};
 for (const f of iv) { try { f(); } catch (_) {} }
 // the legacy north extension, switched on as in an old save: its real hook, with a zone that answers the old flat ice / glacier tongue
 const ext = (x, y, z) => y <= SEA + 14 ? 68 : 0;   // old packed ice tongue to SEA+14 (genExt: glacier over the first stretch)
@@ -38,4 +38,10 @@ ok(G.solid(100, SEA, -5) && G.getB(100, SEA, -5) === 3, 'UK ground under it stil
 ok(!G.solid(100, SEA + 3, 5) && G.solid(100, SEA, 5), 'inside the map unchanged');
 X.hook(true); ok(!G.__XG, 'the extension cannot switch itself back on in the UK world');
 e.flat = 0; X.hook(true); ok(!!G.__XG, 'outside the flat UK world the old hook still works'); X.hook(false); e.flat = 1;
+// below the bedrock through the real getB / solid chain (C320 -> GLX-DEEP -> V1217), with a player edit kept
+if (G.__v1217) G.__v1217.dl = true; const VOID = html.includes('void under the bedrock');
+ok(e.fearth.dw === 1, 'GLX-DEEP hook on the UK land');
+ok(G.solid(300, -238, 300) && G.getB(300, -238, 300) === 7, 'bedrock at y -238 solid through getB / solid');
+ok(!VOID || (!G.solid(300, -250, 300) && G.getB(300, -250, 300) === 0), 'y -250 is void through getB / solid (no ghost floor)');
+G.__c320.edits.set('301,-250,300', 3); ok(G.getB(301, -250, 300) === 3 && G.solid(301, -250, 300), 'a block stored as an edit down there is kept');
 if (fails) { console.log(fails + ' failing'); process.exit(1); } console.log('all ok');

@@ -24,4 +24,7 @@ one("U.thunder = vol => { if (!U.bus()","U.thunder = vol => { if (window.__vac &
 one("h.gain.setTargetAtTime(tgt, AC.currentTime, 0.6);","h.gain.setTargetAtTime((window.__vac && __vac()) ? 0 : tgt, AC.currentTime, 0.6);");
 // old north extension off in the flat UK world (ghost ice north of the old map edge)
 one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','leg-1224.js'),'utf8')+'\n/* GLX-GRIP1222');
+// below bedrock is an empty void (user): bedrock y -237 (GLX-V1217 BOT) to -240 stays solid, nothing is generated under it. Old saves and
+// the fail closed path (GLX-DEEP old layers ran on down to the core about 1450 below the sea, with no bedrock) get the same bedrock band.
+one("function gen(x, y, z, d) { try { U.n++; if (y < 0 && window.__v1217 && __v1217.on()) return __v1217.gen(x, y, z);","function gen(x, y, z, d) { try { if (y < -240) { U.voidQ = (U.voidQ || 0) + 1; return 0; } if (y < -233 && !(window.__v1217 && __v1217.on())) return T.BEDROCK || T.HBEDROCK || 211;   /* v1.2.24: void under the bedrock */ U.n++; if (y < 0 && window.__v1217 && __v1217.on()) return __v1217.gen(x, y, z);");
 fs.writeFileSync(out,s);
