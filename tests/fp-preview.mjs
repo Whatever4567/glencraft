@@ -7,5 +7,5 @@ const poses = [['empty', () => { H.setSel(999); }], ['food', () => { H.setSel(99
 for (const [nm, f] of poses) { f(); fr(60); const R = G.__fpa.rig(); G.scene.updateMatrixWorld(true);
   res[nm] = render(T, G.camera, [G.camera], 480, 300, `${out}/${nm}-view.ppm`);
   const h = R.userData.R.userData.p.h, c = h.getWorldPosition(new T.Vector3()), cc = new T.PerspectiveCamera(30, 1.2, 0.01, 10); cc.position.copy(c).add(new T.Vector3(0.1, 0.12, 0.28)); cc.lookAt(c.clone().add(new T.Vector3(0, 0.04, 0))); G.scene.add(cc);
-  res[nm].close = render(T, cc, [R], 480, 400, `${out}/${nm}-hand.ppm`); G.scene.remove(cc); }
+  res[nm].close = render(T, cc, [R, H.hand], 480, 400, `${out}/${nm}-hand.ppm`); G.scene.remove(cc); }
 console.log(JSON.stringify(res));

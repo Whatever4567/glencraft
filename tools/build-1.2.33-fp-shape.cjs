@@ -7,4 +7,5 @@ if(!s.includes('__tph.fpMats'))throw Error('apply build-1.2.33-fp.cjs first');
 const a=s.indexOf('  function mkHand(side) {',s.indexOf('/* GLX-FPA (v1.1.99)')),b=s.indexOf('  function mkArm(side) {',a);if(a<0||b<0||b-a>6000)throw Error('FPA mkHand not found');
 s=s.slice(0,a)+fs.readFileSync(path.join(__dirname,'fp-source','fp-hand.js'),'utf8').replace(/\s+$/,'')+'\n'+s.slice(b);
 const k='const fo = limb(0.054, 0.036, LF, skinM); a.add(fo);',i=s.indexOf(k,b);if(i<0||s.indexOf(k,i+1)>=0)throw Error('forearm');s=s.slice(0,i)+'const fo = foreArm(); a.add(fo);   /* v1.2.33 shaped forearm */'+s.slice(i+k.length);
+{const k2='    L.visible = !!two; U.two = two ? 1 : 0;',j=s.indexOf(k2,b);if(j<0||s.indexOf(k2,j+1)>=0)throw Error('twist anchor');s=s.slice(0,j)+'    try { twistFo(R); twistFo(L); } catch (e) { ERR(\'twist\', e); }   /* v1.2.33 forearm roll follows the palm */\n'+s.slice(j);}
 fs.writeFileSync(out,s);
