@@ -7,7 +7,9 @@ const A = load(base), B = load(new URL('../index.html', import.meta.url).pathnam
 const a = A.build(false), b = B.build(false), sa = stats(T, a), sb = stats(T, b);
 console.log('before', JSON.stringify(sa)); console.log('after ', JSON.stringify(sb));
 ok(b.userData.detail === 1226, 'the detailed builder is the one in the page');
-ok(sb.tris > sa.tris * 1.5 && sb.meshes > sa.meshes * 1.6, 'more real geometry: ' + sa.tris + ' -> ' + sb.tris + ' triangles near, ' + sa.meshes + ' -> ' + sb.meshes + ' parts');
+const pieces = g => { let k = 0; g.traverse(o => { if (o.isMesh) k += o.userData.merged || 1; }); return k; }, pa = pieces(a), pb = pieces(b);
+ok(sb.tris > sa.tris * 1.5 && pb > pa * 1.6, 'more real geometry: ' + sa.tris + ' -> ' + sb.tris + ' triangles near, ' + pa + ' -> ' + pb + ' source pieces');
+ok(sb.meshes <= sa.meshes * 1.15 && sb.trisFar < sa.trisFar && pb > sb.meshes * 1.5, 'fewer draws: ' + sa.meshes + ' -> ' + sb.meshes + ' meshes for ' + pb + ' pieces, far triangles ' + sa.trisFar + ' -> ' + sb.trisFar);
 ok(sb.trisFar < 14000 && sb.tris < 45000 && sb.mats <= 12 && sb.texs <= 8, 'budget: ' + sb.trisFar + ' triangles at distance (low detail swap), ' + sb.tris + ' near, ' + sb.mats + ' materials, ' + sb.texs + ' textures');
 ok(B.canvases.length <= 6 && Math.max(...B.canvases.map(c => c.width)) <= 512, 'textures made once, at most 512 px (' + B.canvases.map(c => c.width).join(', ') + ')');
 { const b2 = B.build(true); ok(B.canvases.length <= 6, 'a second model (inventory preview) makes no new textures'); ok(stats(T, b2).tris === sb.tris && stats(T, b2).meshes === sb.meshes, 'preview model is the same detailed body as the world model'); }
@@ -28,7 +30,7 @@ ok(same(P(a), P(b)) < 1e-9, 'same pivots, elbows, knees, hand grips and eyelids 
 { const hs = g => g.userData.fore.map(el => el.children.find(c => c.userData.hand)); ok(hs(b).every(h => h && h.userData.fg && h.userData.fg.length === 4), 'each hand keeps four fingers the move code turns (userData.fg) and a thumb');
   // hand meets the grip: the grip point sits inside or on the hand
   const hb = new T.Box3().setFromObject(hs(b)[1], true), gp = b.userData.arms[1].userData.grip.getWorldPosition(new T.Vector3()); ok(hb.distanceToPoint(gp) < 0.02, 'the held item grip point is at the hand (' + hb.distanceToPoint(gp).toFixed(3) + ' m)'); }
-{ const cnt = g => { let k = 0; g.userData.head.traverse(o => { if (o.isMesh && o.visible) k++; }); return k; }, n0 = cnt(a), n2 = cnt(b), hd = b.userData.head; ok(n2 >= n0 + 10 && b.userData.lids.every(l => !l.visible && l.parent === hd), 'head has its face block, ears, brows, nose and hair locks (' + n0 + ' -> ' + n2 + ' visible parts), eyelids hidden until a blink'); }
+{ const cnt = g => { let k = 0; g.userData.head.traverse(o => { if (o.isMesh && o.visible) k += o.userData.merged || 1; }); return k; }, n0 = cnt(a), n2 = cnt(b), hd = b.userData.head; ok(n2 >= n0 + 10 && b.userData.lids.every(l => !l.visible && l.parent === hd), 'head has its face block, ears, brows, nose and hair locks (' + n0 + ' -> ' + n2 + ' visible parts), eyelids hidden until a blink'); }
 { const fpCalls = []; ok(b.userData.kilts.length >= 4, 'kilt pieces still listed so leggings hide them (' + b.userData.kilts.length + ')'); }
 // shoes sit on the ground with the knee at rest
 { const b3 = B.build(false); b3.updateMatrixWorld(true); const kn = b3.userData.shin[0]; const sb2 = new T.Box3(); kn.children.forEach(o => { if (o.isMesh) sb2.expandByObject(o, true); }); ok(Math.abs(sb2.min.y) < 0.02, 'soles on the ground (lowest point ' + sb2.min.y.toFixed(3) + ')'); }
