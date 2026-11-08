@@ -29,6 +29,7 @@ one("function gen(x, y, z, d) { try { U.n++; if (y < 0 && window.__v1217 && __v1
 // cut a whole GLX block (from its marker to the next block marker); every other reference to it is already guarded (window.__x && ...)
 const cutBlock=k=>{const a=s.indexOf('/* GLX-'+k+' ');if(a<0||s.indexOf('/* GLX-'+k+' ',a+1)>=0)throw Error('block '+k);const b=s.indexOf('/* GLX-',a+8);const n=b-a;s=s.slice(0,a)+'/* v1.2.24: GLX-'+k+' removed (obsolete) */\n'+s.slice(b);return n;};
 const REMOVED={};
+one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','keep-1224.js'),'utf8')+'\n/* GLX-GRIP1222');   // old c307 save data kept, inert
 REMOVED.C307=cutBlock('C307');     // the north extension: flat ice zone, its chunks, save field, edge push, hooks into generate / enterWorld / serialize
 REMOVED.C307b=cutBlock('C307b');   // its chunk drawing
 // GLX-C294: the old separate Agartha world entry (walk into the ice wall mouth -> enterDim('agartha')) and the extension carver genExt
