@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1232-v1.2.32 -->
+<!-- glencraft-build: b1233-v1.2.33 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.32';
+const GAME_VERSION = '1.2.33';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -48328,15 +48328,55 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.0115, 0.05, 3, 8) : new THREE.CylinderGeometry(0.0115, 0.0115, 0.073, 8)), skin, -0.033 + i * 0.022, -0.085, 0.01, hn); f.rotation.x = 0.35; (hn.userData.fg || (hn.userData.fg = [])).push(f); } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.04, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.068, 8)), skin, 0.05, -0.03, 0.026, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
     { const cl = new Map(); for (const el of fore) el.traverse(o => { if (o.isMesh && o.geometry.type === 'CapsuleGeometry' && !g.userData.lod.some(e => e[0] === o)) { const q = o.geometry.parameters; let l = cl.get(o.geometry); if (!l) cl.set(o.geometry, l = new THREE.CapsuleGeometry(q.radius, q.length ?? q.height, 2, 5)); g.userData.lod.push([o, o.geometry, l]); } }); }   // fingers: low detail far away
     U.built++; return g; }
-  // HD armour fitted to the new body
-  try { const fp0 = fitPiece; fitPiece = function (add, u, slot, m) { if (!u.hd) return fp0.apply(this, arguments);
-      const P_ = (par, geo, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; par.add(o); u.armourParts.push(o); return o; };
-      if (slot === 0) { P_(u.head, rbox(0.52, 0.3, 0.52, 0.12), 0, 0.42, -0.01); P_(u.head, rbox(0.5, 0.06, 0.06, 0.02), 0, 0.42, 0.25); P_(u.head, rbox(0.04, 0.14, 0.04, 0.015), 0, 0.3, 0.26); for (const sx of [-1, 1]) P_(u.head, rbox(0.05, 0.3, 0.42, 0.02), sx * 0.25, 0.25, -0.02); P_(u.head, rbox(0.5, 0.36, 0.05, 0.02), 0, 0.3, -0.25); }
-      if (slot === 1) { P_(u.torso, rbox(0.55, 0.56, 0.33, 0.1), 0, 1.2, 0); P_(u.torso, rbox(0.57, 0.07, 0.35, 0.03), 0, 0.93, 0); P_(u.torso, rbox(0.2, 0.3, 0.05, 0.03), 0, 1.22, 0.155);
-        u.arms.forEach(a => { P_(a, new THREE.SphereGeometry(0.13, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), 0, 0.0, 0); P_(a, rbox(0.19, 0.24, 0.19, 0.07), 0, -0.18, 0); if (a.userData.el) P_(a.userData.el, rbox(0.165, 0.2, 0.165, 0.06), 0, -0.12, 0); }); }
-      if (slot === 2) { const sk = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.38, 0.3, 28, 1, true), m); sk.scale.z = 0.64; sk.position.y = 0.72; m.side = THREE.DoubleSide; u.torso.add(sk); u.armourParts.push(sk); u.legs.forEach(l => P_(l, rbox(0.22, 0.16, 0.22, 0.06), 0, -0.1, 0)); }
-      if (slot === 3) u.legs.forEach(l => { const k = l.userData.kn || l; P_(k, rbox(0.23, 0.13, 0.34, 0.05), 0, -0.36, 0.04); P_(k, rbox(0.22, 0.2, 0.22, 0.06), 0, -0.2, 0); P_(k, rbox(0.12, 0.1, 0.06, 0.03), 0, -0.02, 0.1); });
-    }; } catch (e) { ERR('fit', e); }
+  // Refined continuous diamond plate. Separate experiment; the busy layered candidate is rejected.
+  const AR = (()=>{
+    const geometry=new Map(),materials=new WeakMap();let tx;
+    function atlas(){if(tx)return tx;const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');
+      const grad=g.createLinearGradient(0,0,256,256);grad.addColorStop(0,'#dce8e8');grad.addColorStop(.43,'#b6cdcf');grad.addColorStop(1,'#94aeb2');g.fillStyle=grad;g.fillRect(0,0,256,256);
+      // Broad, quiet crystal planes. The trim has light/dark sidedness, not repeated scratches.
+      for(const [pts,color]of [[[[24,25],[128,72],[128,180],[24,232]],'#b6ced0'],[[[128,72],[231,25],[231,232],[128,180]],'#acc7c9'],[[[24,25],[128,72],[231,25]],'#d4e4e4']]){g.fillStyle=color;g.beginPath();pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fill();}
+      // Sparse fitted panel boundaries: an arcing pectoral line and two long side seams.
+      for(const s of [-1,1]){for(const [off,col]of [[0,'#8ca8ad'],[2,'#d7e7e7']]){g.strokeStyle=col;g.lineWidth=1;g.beginPath();g.moveTo(128+s*102+off,28);g.quadraticCurveTo(128+s*86+off,68,128+s*28+off,96);g.stroke();g.beginPath();g.moveTo(128+s*90+off,104);g.lineTo(128+s*72+off,230);g.stroke();}}
+      g.strokeStyle='#718e93';g.lineWidth=3;g.strokeRect(4,4,248,248);g.strokeStyle='#e4eeee';g.lineWidth=2;g.strokeRect(8,8,240,240);
+      // One restrained diamond hallmark; no wallpaper of grooves or rivets.
+      const diamond=(r,col)=>{g.strokeStyle=col;g.lineWidth=1;g.beginPath();g.moveTo(128,128-r);g.lineTo(128+r*.55,128);g.lineTo(128,128+r);g.lineTo(128-r*.55,128);g.closePath();g.stroke();};diamond(25,'#8ba7ac');diamond(21,'#d3e4e4');
+      tx=new THREE.CanvasTexture(c);tx.colorSpace=THREE.SRGBColorSpace;tx.magFilter=THREE.NearestFilter;return tx;
+    }
+    function material(m){if(materials.has(m))return materials.get(m);const a=m.clone();a.map=atlas();if(a.isMeshStandardMaterial){a.roughness=.34;a.metalness=.32;}a.userData={...a.userData,armourRefined:1};materials.set(m,a);return a;}
+    // Each cross section is designed around the body, never an extruded rounded rectangle.
+    function shell(key,rings,opts={}){if(geometry.has(key))return geometry.get(key);if(rings[0][0]>rings[rings.length-1][0])rings=[...rings].reverse();const n=opts.n||16,p=[],uv=[],ix=[];
+      for(let r=0;r<rings.length;r++){const [y,w,d,z0=0]=rings[r];for(let j=0;j<=n;j++){const a=(j/n-.5)*Math.PI*2,s=Math.sin(a),c=Math.cos(a);let Y=y,Z=z0+c*d,X=s*w;
+        if(opts.chest){Z+=Math.pow(Math.max(0,c),6)*.025*Math.sin(r/(rings.length-1)*Math.PI);if(r===rings.length-1)Y-=.12*Math.pow(Math.abs(s),1.5);}
+        if(opts.collar)Y-=.12*Math.pow(Math.abs(s),1.5);
+        if(opts.helmet&&r===0)Y-=.20*Math.pow(Math.max(0,-c),.6)+.18*Math.pow(Math.abs(s),4);
+        if(opts.keel)Z+=Math.pow(Math.max(0,c),8)*opts.keel;
+        p.push(X,Y,Z);uv.push(opts.chest?j/n:.01+j/n*.24,r/(rings.length-1));
+      }}
+      for(let r=0;r<rings.length-1;r++)for(let j=0;j<n;j++){const a=r*(n+1)+j,b=a+1;ix.push(a,b,b+n+1,a,b+n+1,a+n+1);}
+      // Physical rolled hem thickness: narrow annular edge bands, not large belt layers.
+      for(const r of [0,rings.length-1]){const start=p.length/3,base=r*(n+1),zc=rings[r][3]||0;
+        for(let j=0;j<=n;j++){const k=(base+j)*3;p.push(p[k]*.967,p[k+1],zc+(p[k+2]-zc)*.967);uv.push(.02,j/n);}
+        for(let j=0;j<n;j++){const a=base+j,b=a+1,c=start+j,d=c+1;if(r===0)ix.push(a,d,b,a,c,d);else ix.push(a,b,d,a,d,c);}
+      }
+      const ge=new THREE.BufferGeometry();ge.setAttribute('position',new THREE.Float32BufferAttribute(p,3));ge.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));ge.setIndex(ix);ge.computeVertexNormals();geometry.set(key,ge);return ge;
+    }
+    return{material,shell};
+  })();
+  try{const old=fitPiece;fitPiece=function(add,u,slot,m){if(!u.hd)return old.apply(this,arguments);const mat=AR.material(m);
+    const attach=(par,key,rings,opts)=>{const o=new THREE.Mesh(AR.shell(key,rings,opts),mat);o.castShadow=true;o.userData.armourRefined=1;par.add(o);u.armourParts.push(o);return o;};
+    if(slot===0){attach(u.head,'helm',[[.405,.246,.235,-.025],[.47,.247,.24,-.025],[.54,.20,.208,-.025],[.585,.115,.13,-.025],[.605,.004,.008,-.025]],{helmet:1,n:24});}
+    if(slot===1){attach(u.torso,'cuirass',[[.875,.223,.148],[.888,.225,.15],[.965,.218,.158],[1.08,.248,.178],[1.24,.279,.194],[1.36,.266,.18],[1.455,.20,.145]],{chest:1,n:24});attach(u.torso,'collar',[[1.451,.202,.147],[1.465,.202,.147]],{collar:1,n:24});
+      u.arms.forEach(a=>{attach(a,'shoulder',[[.075,.020,.04],[.055,.095,.105],[.005,.128,.123],[-.095,.115,.109],[-.215,.096,.095]],{n:16,keel:.008});if(a.userData.el)attach(a.userData.el,'vambrace',[[.018,.078,.081],[-.045,.091,.091],[-.14,.084,.082],[-.255,.070,.071]],{n:16,keel:.014});});}
+    if(slot===2){u.legs.forEach(l=>attach(l,'cuisses',[[.225,.108,.115],[.15,.112,.119],[.015,.105,.114],[-.135,.091,.099]],{n:16,keel:.012}));}
+    if(slot===3)u.legs.forEach(l=>{const k=l.userData.kn||l;attach(k,'greaves',[[.028,.081,.10],[-.015,.095,.112],[-.095,.088,.095],[-.23,.075,.08],[-.32,.071,.075]],{n:16,keel:.022});
+      attach(k,'sabatons',[[-.415,.072,.14,.045],[-.39,.088,.17,.05],[-.345,.081,.15,.047],[-.305,.067,.085,.012]],{n:16,keel:.008});});
+  };}catch(e){ERR('armour-refined',e);}
+  // Adjust worn straps only; production jetpack buffers, nozzles and effects are unchanged.
+  function fitRefinedHarness(u){if(!u||!u.armourParts.some(p=>p.userData.armourRefined))return;const pack=u.armourParts.find(p=>p.name==='jetpack1222');if(!pack||pack.userData.refinedHarness)return;
+    for(const p of pack.children){const q=p.geometry&&p.geometry.parameters;if(!q)continue;if(q.width===.06&&q.height===.36)p.position.z+=.095;if(q.width===.06&&q.height===.025){p.scale.z=1.55;p.position.z+=.045;}if(q.width===.34&&q.height===.04||q.width===.05&&q.height===.05)p.position.z+=.095;}pack.userData.refinedHarness=1;
+  }
+  U.fitArmourHarness=fitRefinedHarness;
+  try{const prior=dressModel;dressModel=function(model){const r=prior.apply(this,arguments);fitRefinedHarness(model&&model.userData);return r;};}catch(e){ERR('armour-refined-harness',e);}
   // v1.1.57: the new model blinks again, every 2 to 6 seconds, a quick soft close and open of the eyelids
   try { const uw = updateWorldModel; let lt = performance.now(); updateWorldModel = function () { const r = uw.apply(this, arguments); try { const now = performance.now(), dt = Math.min(0.1, (now - lt) / 1000); lt = now;
       for (const m of [typeof worldModel !== 'undefined' && worldModel, typeof charModel !== 'undefined' && charModel]) { const u = m && m.userData; if (!u || !u.lids) continue; u.blk -= dt; let k = 0; if (u.blk < 0.16) k = Math.sin(Math.max(0, u.blk) / 0.16 * Math.PI); if (u.blk <= 0) u.blk = 1.6 + Math.random() * 3.4;
@@ -52307,6 +52347,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.33","d":"2026-11-08","notes":["Fitted armour has a shaped chest, tapered limb plates and restrained diamond surfaces with clean edge trim.","Armour tiers keep their colours, and worn jetpack straps fit over the new plates.","The head, body underneath, rig, combat and saves are unchanged."]},
 {"v":"v1.2.32","d":"2026-11-08","notes":["The familiar player face keeps its big blue eyes, with rounded painted eyes, detailed irises, catch lights, soft lids and finer brows.","The nose and mouth are repainted with softer edges, warm skin shading and natural lip detail. Darker hair has a softer uneven fringe.","The near player model uses 95680 triangles, with finer head, hair, ear and torso surfaces. The far model stays small at 4823 triangles.","The Highlander outfit, rig, joints, hand grips and armour fit are kept, with the same 48 meshes, 11 materials and 8 textures."]},
 {"v":"v1.2.31","d":"2026-11-08","notes":["Player model has much finer shape and smooth shading, so the face no longer shows flat bands.","Face: eye sockets with lids, a nose with bridge, tip, wings and nostrils, real upper and lower lips, a groove above the lip, cheekbones, chin and jaw.","Ears now have a rim, inner fold, bowl and lobe, and the hair falls in locks.","Neck, collarbones, elbows, knees and knuckles are shaped too. Same Highlander, joints, hand grips and armour fit, with no extra draws or materials."]},
 {"v":"v1.2.30","d":"2026-11-08","notes":["Player model reshaped: the block head is now a sculpted head with a shaped skull, brow, eye sockets, nose, cheekbones, jaw and chin, and the hair follows the head from a real hairline.","The body is reshaped too: a chest that narrows to the waist, rounded shoulders, arms that taper from shoulder to wrist, shaped calves, slimmer hands and shoes shaped heel to toe.","The sash is now a smooth band lying across the shirt.","Same kilted Highlander, same joints, hand grips and armour fit, with no extra draws or materials."]},
