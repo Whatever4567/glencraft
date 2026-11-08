@@ -22,6 +22,9 @@ export function make(opt = {}) {
     started: true, dead: false, paused: false, menuOpen: false, DIM: {cur: null}, SET: {sfx: 0.8, hd: 1}, MODE: {}, current: {id: 'w1'}, camMode: 0, swimming: false, flying: false, groundT: 0, PH: false,
     T: {AIR: 0, STONE: 3}, BLOCK_MATS: {}, NAMES: {}, PLACEABLE: new Set(), selId: 0, prog: {}, inv: {}, cnt: () => 0, toast: m => { G.toasts.push(String(m)); }, toasts: [], sfx() {}, playSound() {}};
   G.window = G; G.self = G;
+  if (opt.passes) {   // v1.2.25: draw passes like three.js does for what the time box reads: scene.onBeforeRender, world matrices, scene.onAfterRender (which draws the room scene TS), and a hook per pass
+    const R = G.renderer; Object.assign(R, {state: {buffers: {stencil: {setMask() {}}, depth: {setMask() {}}}}, clearStencil() {}, clearDepth() {}, clippingPlanes: []});
+    R.render = function (s, c) { if (s === G.scene) { if (s.onBeforeRender) s.onBeforeRender(R, s, c); s.updateMatrixWorld(); if (G.onPass) G.onPass(s, c); if (s.onAfterRender) s.onAfterRender(R, s, c); } else { if (s.updateMatrixWorld) s.updateMatrixWorld(); if (G.onPass) G.onPass(s, c); } }; }
   G.solid = (x, y, z) => y < GY || (opt.rock && opt.rock(x, y, z));
   G.getB = (x, y, z) => G.solid(x, y, z) ? 3 : 0; G.groundTop = () => GY - 1; G.solidTop = () => GY - 1;
   G.collides = (x, y, z) => { for (const [ox, oz] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]]) for (const oy of [0, 0.9, 1.75]) if (G.solid(Math.floor(x + ox), Math.floor(y + oy), Math.floor(z + oz))) return true; return false; };
@@ -49,6 +52,7 @@ export function make(opt = {}) {
   }
   const order = ['TBOX', 'TBOX2', 'TBOX3', 'V130', 'CAB1221', 'V1220T', 'CAB1222'], errs = [];
   if (opt.real) { order.splice(order.indexOf('TBOX'), 0, 'C102J'); order.push('EQJET'); }
+  if (opt.ukb) { order.splice(order.indexOf('V130'), 0, 'UKB'); G.__c320 = {flat: true, earth: () => 0}; }   // v1.2.25: the real UK barrier, between TBOX3 and V130 as in the page
   const extra = {C102J: () => { const i = html.indexOf('const S = window.__c102j = '), j = html.indexOf('let lt = performance.now(); (function loop()', i); return 'JET = 291; flames = []; puff = function () {}; ' + html.slice(i, j); },
     EQJET: () => { const i = html.indexOf('/* GLX-EQ1222 '), a = html.indexOf('  // white jetpack twice as fast', i), b = html.indexOf('  // new worlds: no Golden Jetpack', a); return 'JET = 291; ' + html.slice(a, b); }};
   for (const k of order) { let src; try { src = extra[k] ? extra[k]() : blk(k); } catch (e) { errs.push(k + ' missing'); continue; } try { new Function('S', 'with(S){' + src + '\n}').call(G, scope); } catch (e) { errs.push(k + ': ' + String(e).slice(0, 160)); } }
