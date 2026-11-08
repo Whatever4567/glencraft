@@ -36771,7 +36771,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => moodOf(k) === md && !last.includes(k)); let ids = pool.length ? pool : U.tracks.filter(k => moodOf(k) === md); if (!ids.length) ids = ['nature_day']; const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
   function want() { if (document.visibilityState === 'hidden') return 0; if (master && master.gain.value === 0 && SET.sfx > 0) return 0; return Math.max(0, Math.min(1, SET.music)) * LEVEL * duck(); }
   /* v1.0.79: one music at a time - the desert / temple tune crossfades this out, and the Egyptian dance silences it */
-  function duck() { try { if (window.__c259 && __c259.on) return 0; const m = window.__c258 ? +__c258.mix || 0 : 0; return Math.max(0, 1 - m); } catch (_) { return 1; } }
+  function duck() { try { if (window.__vac && __vac()) return 0; if (window.__c259 && __c259.on) return 0; const m = window.__c258 ? +__c258.mix || 0 : 0; return Math.max(0, 1 - m); } catch (_) { return 1; } }
   function tick() {
     try { if (!AC || !ensure()) return; if (AC.state === 'suspended') return;
       const v = want(); bus.gain.setTargetAtTime(v, AC.currentTime, (window.__c259 && __c259.on) ? 0.3 : 0.8); U.on = v > 0;
@@ -41130,7 +41130,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
         if (h) { gustT += dt; const cave = typeof caveK === 'number' ? caveK : 0, cov = typeof rainCover === 'number' ? rainCover : 0;
           const lvl = weather.type === 'light' ? 0.05 : weather.type === 'thunder' ? 0.11 : 0.08, gust = 0.75 + 0.25 * Math.sin(gustT * 0.37) * Math.sin(gustT * 0.13 + 1);
           const tgt = sn ? lvl * gust * (1 - cave) * (1 - 0.5 * cov) * (typeof SET !== 'undefined' && SET.sfx != null ? SET.sfx : 1) : 0;
-          h.gain.setTargetAtTime(tgt, AC.currentTime, 0.6); if (hushF) hushF.frequency.setTargetAtTime(420 + 260 * gust, AC.currentTime, 0.8); U.hush = Math.round(tgt * 1000) / 1000; } } catch (e) { warn('uw', e); }
+          h.gain.setTargetAtTime((window.__vac && __vac()) ? 0 : tgt, AC.currentTime, 0.6); if (hushF) hushF.frequency.setTargetAtTime(420 + 260 * gust, AC.currentTime, 0.8); U.hush = Math.round(tgt * 1000) / 1000; } } catch (e) { warn('uw', e); }
       return r; }; } catch (e) { warn('uwrap', e); }
   // saves: which kind is falling
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && typeof d === 'object') d.precip = __snowWx() ? 'snow' : __rainWx() ? 'rain' : 'none'; } catch (_) {} return d; }; } catch (e) { warn('save', e); }
@@ -48155,7 +48155,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let nextB = 0, nextP = 0, nextN = 0;
   function tick() { try { if (!started || !wire() || AC.state === 'suspended') return; sense(); setRev(); const t = AC.currentTime, hid = document.visibilityState === 'hidden';
       const vol = hid ? 0 : Math.max(0, Math.min(1, (SET.music + SET.sfx) / 2)), dim = !DIM.cur, night = typeof isNight !== 'undefined' && isNight, rainy = typeof raining !== 'undefined' && raining;
-      const outdoor = dim && !U.enc ? 1 : dim && U.enc === 0.5 ? 0.35 : 0; U.out = outdoor;
+      const outdoor = (window.__vac && __vac()) ? 0 : dim && !U.enc ? 1 : dim && U.enc === 0.5 ? 0.35 : 0; U.out = outdoor;
       outBus.gain.setTargetAtTime(vol * outdoor * 0.7, t, 1.2);
       wind.gain.setTargetAtTime(night ? 0.5 : 0.22 + Math.min(0.4, Math.max(0, (P.y - SEA) / 200)), t, 2); windF.frequency.setTargetAtTime(300 + Math.random() * 200, t, 3);
       rain.gain.setTargetAtTime(rainy ? 0.0 : night && water ? 0.25 : 0, t, 2); rainF.frequency.setTargetAtTime(night && water ? 900 : 3200, t, 1);
@@ -50628,6 +50628,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { U.apply(); } catch (e) { ERR('a0', e); } setInterval(() => { try { if (SET.noFoliage) U.apply(); } catch (e) { ERR('a', e); } }, 3000);
 })();
 
+/* GLX-VAC1224 (v1.2.24): space is silent. One test for "in the vacuum of space" (the flat Earth's own space height, GLX-C320 space(),
+   outside any realm), used by the nature sounds: outdoor birds, planes, owls and wind (GLX-UKS), the nature ambience music (GLX-C132),
+   the rain bed and thunder (GLX-WX1222) and the snow hush. They fade out above the space line and come back when you return to Earth.
+   UI clicks, the time box and machine sounds, guns, tools and your own actions are not touched. */
+(function vac1224() {
+  const U = window.__vac1224 = {err: null, on: 0, flips: 0};
+  window.__vac = () => { try { if (typeof DIM !== 'undefined' && DIM.cur) return false; const e = window.__c320; const v = !!(e && typeof e.space === 'function' && typeof P !== 'undefined' && e.space(P.x, P.y, P.z)); if (v !== !!U.on) { U.on = v ? 1 : 0; U.flips++; } return v; } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); return false; } };
+})();
+
 /* GLX-GRIP1222 (v1.2.22): grip sockets for the first person hands. Each held tool gets a handle socket worked out once from its own meshes
    (the longest thin part is the handle, the end nearest the other parts is the head), stored in the item's own space and carried through the
    item's world matrix every frame, so the hand follows the real handle through every swing. Guns use their own up, forward and side axes. */
@@ -51295,8 +51304,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.ready = () => !!(BUF.near && BUF.near !== 'wait' && BUF.far && BUF.far !== 'wait');
   // rain bus level: one writer, only when the wanted level changes
   let last = -1; U.tick = () => { try { if (!U.bus()) return; const hid = typeof document !== 'undefined' && document.visibilityState === 'hidden', pz = typeof paused !== 'undefined' && !!paused;
-      const w = hid || pz ? 0 : U.RB_LEVEL; U.want = w; if (w !== last) { last = w; U.rb.gain.setTargetAtTime(w, AC.currentTime, 0.25); U.sets++; } } catch (e) { ERR('tick', e); } };
-  U.thunder = vol => { if (!U.bus() || !U.ready()) { U.synth++; return false; } if (U.voices >= U.MAXV) { U.skip++; return true; }
+      const w = hid || pz || (window.__vac && __vac()) ? 0 : U.RB_LEVEL; U.want = w; if (w !== last) { last = w; U.rb.gain.setTargetAtTime(w, AC.currentTime, 0.25); U.sets++; } } catch (e) { ERR('tick', e); } };
+  U.thunder = vol => { if (window.__vac && __vac()) { U.vacSkip = (U.vacSkip || 0) + 1; return true; } if (!U.bus() || !U.ready()) { U.synth++; return false; } if (U.voices >= U.MAXV) { U.skip++; return true; }
     try { const near = vol > 0.7, b = BUF[near ? 'near' : 'far'], s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = 0.9 + Math.random() * 0.15;
       g.gain.value = Math.max(0, Math.min(1, vol)) * (near ? 1 : 0.8); s.connect(g); g.connect(U.tb); U.voices++; s.onended = () => { U.voices = Math.max(0, U.voices - 1); }; s.start(); U.plays++; return true; } catch (e) { ERR('th', e); return false; } };
   try { const ps = playSound; playSound = function (kind, vol) { if (kind === 'thunder') { try { if (U.thunder(vol == null ? 1 : vol)) return; } catch (_) {} } return ps.apply(this, arguments); }; } catch (e) { ERR('ps', e); }
