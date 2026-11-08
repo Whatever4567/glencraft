@@ -8,9 +8,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); 
 const fol = cut('/* GLX-FOL1224', '/* GLX-GRIP1222');
 function boot(store) {
   const {document} = parseHTML('<html><body><div class="set inline"><div class="seg" id="mobSeg"></div></div></body></html>');
-  const M = () => ({isMaterial: true, visible: true, userData: {}});
+  const M = () => ({isMaterial: true, visible: true, userData: {}, clone() { return Object.assign(M(), {src: this}); }});
   const G = {document, SET: JSON.parse(store.glen_set || '{}'), saveSet() { store.glen_set = JSON.stringify(G.SET); }, T: {COBWEB: 70, FIRE: 71},
-    PLANT_MATS: {15: M(), 60: M(), 20: M(), 70: M(), 71: M()}, BLOCK_MATS: {9: M(), 8: M(), 146: [M(), M()]}, LEAFY: new Uint8Array(1024), setInterval: (f) => { (G.ticks = G.ticks || []).push(f); return 1; }, clearInterval() {}};
+    PLANT_MATS: {15: M(), 60: M(), 20: M(), 70: M(), 71: M()}, BLOCK_MATS: {9: M(), 8: M(), 146: [M(), M()]}, LEAFY: new Uint8Array(1024), drops: [], makeItemMesh(id) { const m = {material: G.PLANT_MATS[id] || G.BLOCK_MATS[id]}; return {traverse: f => f(m), m}; }, dropItem(id) { G.drops.push({id, m: {material: G.BLOCK_MATS[id], userData: {}}}); }, setInterval: (f) => { (G.ticks = G.ticks || []).push(f); return 1; }, clearInterval() {}};
   G.LEAFY[9] = 1; G.LEAFY[146] = 1; G.window = G;
   new Function('with(this){' + fol + '}').call(G); G.ticks.forEach(f => f()); return G; }
 { const store = {}; let G = boot(store); const U = G.__fol1224; ok(U.err === null, 'module loads with no error');
@@ -22,6 +22,9 @@ function boot(store) {
   ok(JSON.parse(store.glen_set).noFoliage === true, 'saved in glen_set');
   G = boot(store); ok([G.PLANT_MATS[15], G.BLOCK_MATS[9]].every(m => !m.visible) && G.document.querySelector('[data-testid="settings-folSeg-1"]').classList.contains('on'), 'after reload the setting is restored and applied');
   G.document.querySelector('[data-testid="settings-folSeg-0"]').click(); ok([G.PLANT_MATS[15], G.PLANT_MATS[60], G.BLOCK_MATS[9], ...G.BLOCK_MATS[146]].every(m => m.visible), 'Off brings every plant back');
+  { G.document.querySelector('[data-testid="settings-folSeg-1"]').click(); const it = G.makeItemMesh(60); ok(it.m.material !== G.PLANT_MATS[60] && it.m.material.visible === true, 'a held flower gets its own visible material while world flowers are hidden');
+    G.dropItem(9); const d = G.drops[G.drops.length - 1]; ok(d.m.material !== G.BLOCK_MATS[9] && d.m.material.visible, 'a dropped leaf block stays visible'); ok(!G.PLANT_MATS[60].visible && !G.BLOCK_MATS[9].visible, 'world materials still hidden');
+    const it2 = G.makeItemMesh(60); ok(it2.m.material === it.m.material, 'one copy per material, reused'); G.document.querySelector('[data-testid="settings-folSeg-0"]').click(); }
   const pre = G.PLANT_MATS[16] = {isMaterial: true, visible: true, userData: {}}; G.document.querySelector('[data-testid="settings-folSeg-1"]').click(); ok(!pre.visible, 'a plant material registered later is covered too'); }
 { // ragdoll ground
   const rag = cut('/* GLX-RAG1222', '/* GLX-'.length ? '\n/* GLX-' : ''); const G = {THREE: {Quaternion: class { setFromAxisAngle() { return this; } }}, P: {x: 50, y: 10, z: 50}}; G.window = G;
