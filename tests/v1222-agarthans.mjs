@@ -21,6 +21,6 @@ window.__agw = {L: {city: [city[0] + AX, city[1] - ZS, city[2]], FL: FL + AY, TO
 const out = []; for (const pos of [[AX + 100, AY + FL + 1, 100], [AX + 100, AY + FL + 1, 100]]) { G.P.x = pos[0]; G.P.y = pos[1]; G.P.z = pos[2]; for (let k = 0; k < 30; k++) A.tick(0.033); }
 const f = A.folk(); const grp = f[0] && f[0].g.parent; out.push({n: f.length, visible: !!(grp && grp.visible && grp.parent === scene), why: A.why, ring: A.ring, p0: f[0] && f[0].g.position.toArray().map(v => +v.toFixed(2))});
 assert.equal(f.length, 7); assert(grp.visible); assert.equal(A.why, 'shown'); for (const q of f) assert.equal(q.g.position.y, FL + AY, 'stands on floor');
-G.SET.noMobs = true; A.tick(0.03); assert(!grp.visible && A.why === 'mobs off'); G.SET.noMobs = false;
+G.SET.noMobs = true; A.tick(0.03); assert(grp.visible && A.why === 'shown', 'v1.2.26: Agarthans stay with Disable mobs'); G.SET.noMobs = false;
 G.DIM.cur = 'agartha'; A.tick(0.03); out.push({dim: 'agartha', visible: grp.visible, why: A.why}); G.DIM.cur = null;
 console.log(JSON.stringify(out));
