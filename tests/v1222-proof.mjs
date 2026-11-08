@@ -1,7 +1,7 @@
 import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
 import fs from 'fs'; import assert from 'assert';
 const R = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8'); const html = R('index.html'); const V3 = (x, y, z) => new THREE.Vector3(x, y, z);
-for (const k of ['b1223-v1.2.23', "GAME_VERSION = '1.2.23'", '__gs1222.tool(held.children[0], camera, SR, 1)', '__gs1222.gun(g, camera, fw)', 'U.defer = (U.defer || 0) + 1', "U.why = !ring ? 'no ring'", '__ag1222.floorAt(', '__ag1222.mats()', 'U.scrG = g', '((T.parts && T.parts.TS) || scene).add(o)', 'bar.renderOrder = 5', 'U.roC = c']) assert.equal(html.split(k).length, 2, k);
+for (const k of ['b1224-v1.2.24', "GAME_VERSION = '1.2.24'", '__gs1222.tool(held.children[0], camera, SR, 1)', '__gs1222.gun(g, camera, fw)', 'U.defer = (U.defer || 0) + 1', "U.why = !ring ? 'no ring'", '__ag1222.floorAt(', '__ag1222.mats()', 'U.scrG = g', '((T.parts && T.parts.TS) || scene).add(o)', 'bar.renderOrder = 5', 'U.roC = c']) assert.equal(html.split(k).length, 2, k);
 for (const k of ['__hg1221', 'U.wrist = Math.min(ang, MX)', "setFromQuaternion(p.h.quaternion, 'YXZ')"]) assert(!html.includes(k), 'gone ' + k);
 const notes = html.slice(html.indexOf("{\"v\":\"v1.2.22\""), html.indexOf("]}", html.indexOf("{\"v\":\"v1.2.22\"")) + 2); assert(!notes.includes("'"), 'no apostrophes');
 // ---- grip sockets (real module source, real three) ----
