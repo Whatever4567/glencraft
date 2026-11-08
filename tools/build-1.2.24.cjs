@@ -12,4 +12,7 @@ one("scr.position.z = 0.035; g.add(scr);","scr.position.z = 0.039; sm.polygonOff
 one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','foliage-1224.js'),'utf8')+'\n/* GLX-GRIP1222');
 one("const GAME_VERSION = '1.2.23';","const GAME_VERSION = '1.2.24';");
 one('<!-- glencraft-build: b1223-v1.2.23 -->','<!-- glencraft-build: b1224-v1.2.24 -->');
+// time box room ceiling: walls() held you inside the round room sideways and above the floor but had no top, so a jetpack or creative
+// flight carried you up through the 8.8 high room and out of the box (then you fell back in). Now the head stops under the ceiling.
+one("if (P.y < S.y) { P.y = S.y; if (P.vy < 0) P.vy = 0; } return; }","if (P.y < S.y) { P.y = S.y; if (P.vy < 0) P.vy = 0; } if (P.y > S.y + (T.RH || 8.8) - 1.8) { P.y = S.y + (T.RH || 8.8) - 1.8; if (P.vy > 0) P.vy = 0; } return; }   /* v1.2.24: room ceiling */");
 fs.writeFileSync(out,s);

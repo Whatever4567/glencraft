@@ -30,10 +30,34 @@ export function make(opt = {}) {
   G.placeCamera = () => { G.camera.position.set(G.P.x, G.P.y + 1.62, G.P.z); G.camPlaced = (G.camPlaced || 0) + 1; };
   const scope = new Proxy(G, {has: (t, k) => typeof k === 'string' && !(k in globalThis && !(k in t)) ? true : k in t,
     get: (t, k) => { if (k in t) return t[k]; if (typeof k === 'symbol') return undefined; missing.add(k); return noop; }, set: (t, k, v) => { t[k] = v; return true; }});
+  if (opt.real) {
+    // REAL shipped base, sliced verbatim: placeCamera, collides/moveAxis/moveY/updatePlayer/updateCamFx, keydown/keyup handlers, readPad,
+    // step, render. Only rewrite: top level 'function X(' -> 'X = function X(' and top level let/const -> assignment, so wrappers that
+    // reassign the global name are seen by step and render as in the page.
+    const L = html.split('\n'), at = (re, from = 0) => { for (let i = from; i < L.length; i++) if (re.test(L[i])) return i; throw new Error('no ' + re); };
+    const cut = (a, b) => L.slice(a, b).join('\n'), endFn = a => at(/^}/, a + 1) + 1;
+    const pc = at(/^function placeCamera\(/), co = at(/^function collides\(/), cf = at(/^function updateCamFx\(/), ky = at(/^const keys = \{\};/), kyE = at(/^window\.addEventListener\('keyup'/, ky), rp = at(/^function readPad\(/), st = at(/^function step\(dt, g\)/), rd = at(/^function render\(\)/), pk = at(/^function pickPad\(/);
+    const kyEnd = at(/^\}\);/, kyE) + 1;
+    let src = [cut(pc, endFn(pc)), cut(co, endFn(cf)), cut(ky, kyEnd), 'const gpPrev = {};', cut(rp, endFn(rp)), cut(st, endFn(st)), cut(rd, endFn(rd)), cut(pk, endFn(pk))].join('\n');
+    src = src.replace(/^function (\w+)\(/gm, '$1 = function $1(').replace(/^(let|const) /gm, '');
+    Object.assign(G, {heldBy: null, sprinting: false, sprintShift: false, sprintDbl: false, sprintTouch: false, sprintPad: false, food: 20, exh: 0, GATE: {x: 1e9, z: 1e9, g: 0}, jumpReq: false, tjx: 0, tjy: 0, padConnected: false, padPick: {id: ''}, padFwd: false, padFwdT: 0, attackPad: false, lastW: 0,
+      sleeping: false, stumbleT: 0, shakeT: 0, shakeAmp: 0, brewWobble: 0, armour: opt.armour || [0, 0, 0, 0, 0], hand: {visible: true}, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), $: () => el(), warnT: 0, clouds: [], waterUniforms: {uTime: {value: 0}}, lavaTex: {offset: {x: 0, y: 0}}, spawnPt: null, hp: 20, riding: null, setPause: v => { G.paused = !!v; }});
+    G.SET.pad = 1; G.SET.bob = true; G.P.kbx = G.P.kbz = 0; G.T.WATER = 9; G.T.LAVA = 10; G.T.COBWEB = 11; G.T.BED = 12;
+    G.pad = null; G.navigator.getGamepads = () => [G.pad];
+    new Function('S', 'with(S){' + src + '\n}').call(G, scope);
+    G.realBase = true; G.placeCamera0 = G.placeCamera;
+  }
   const order = ['TBOX', 'TBOX2', 'TBOX3', 'V130', 'CAB1221', 'V1220T', 'CAB1222'], errs = [];
-  for (const k of order) { let src; try { src = blk(k); } catch (e) { errs.push(k + ' missing'); continue; } try { new Function('S', 'with(S){' + src + '\n}').call(G, scope); } catch (e) { errs.push(k + ': ' + String(e).slice(0, 160)); } }
+  if (opt.real) { order.splice(order.indexOf('TBOX'), 0, 'C102J'); order.push('EQJET'); }
+  const extra = {C102J: () => { const i = html.indexOf('const S = window.__c102j = '), j = html.indexOf('let lt = performance.now(); (function loop()', i); return 'JET = 291; flames = []; puff = function () {}; ' + html.slice(i, j); },
+    EQJET: () => { const i = html.indexOf('/* GLX-EQ1222 '), a = html.indexOf('  // white jetpack twice as fast', i), b = html.indexOf('  // new worlds: no Golden Jetpack', a); return 'JET = 291; ' + html.slice(a, b); }};
+  for (const k of order) { let src; try { src = extra[k] ? extra[k]() : blk(k); } catch (e) { errs.push(k + ' missing'); continue; } try { new Function('S', 'with(S){' + src + '\n}').call(G, scope); } catch (e) { errs.push(k + ': ' + String(e).slice(0, 160)); } }
   const H = {G, missing, errs, timers, T: () => G.__tbox, F: () => G.__tbox3, C: () => G.__cab1222,
-    frame(dt = 1 / 60) { G.updatePlayer(dt); for (const t of timers) if (!t.dead) { t.t -= dt; if (t.t <= 0) { try { t.f(); } catch (e) { errs.push('timer ' + String(e).slice(0, 120)); } if (t.iv) t.t += t.iv; else t.dead = 1; } } try { G.renderer.render(G.scene, G.camera); } catch (e) { errs.push('render ' + String(e).slice(0, 120)); } },
+    frame(dt = 1 / 60) { if (G.realBase) { let mv = 0; try { mv = G.step(dt, G.readPad()); } catch (e) { errs.push('step ' + String(e).slice(0, 160)); } try { G.updateCamFx(G.paused ? 0 : dt, mv); } catch (e) { errs.push('camfx ' + e); }
+        for (const t of timers) if (!t.dead) { t.t -= dt; if (t.t <= 0) { try { t.f(); } catch (e) { errs.push('timer ' + String(e).slice(0, 120)); } if (t.iv) t.t += t.iv; else t.dead = 1; } }
+        try { G.render(); } catch (e) { errs.push('render ' + String(e).slice(0, 160)); } return; }
+      G.updatePlayer(dt); for (const t of timers) if (!t.dead) { t.t -= dt; if (t.t <= 0) { try { t.f(); } catch (e) { errs.push('timer ' + String(e).slice(0, 120)); } if (t.iv) t.t += t.iv; else t.dead = 1; } } try { G.renderer.render(G.scene, G.camera); } catch (e) { errs.push('render ' + String(e).slice(0, 120)); } },
+    padSet(axes = [0, 0, 0, 0], down = []) { G.pad = {id: 'Xbox pad', mapping: 'standard', connected: true, axes: axes.slice(), buttons: Array.from({length: 17}, (_, i) => ({pressed: down.includes(i), value: down.includes(i) ? 1 : 0}))}; },
     key(code, on) { for (const [t, f] of G.listeners) if (t === (on ? 'keydown' : 'keyup')) f({code, key: code, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {}}); } };
   return H;
 }
