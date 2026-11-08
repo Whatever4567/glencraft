@@ -31,7 +31,7 @@ for (const w of ['pistol', 'rifle', 'pick']) {
       // the guard below only stops it getting worse than measured now, it is not the target
       ok(mx(rl, 'wL') <= 54 / 57.3, 'rifle: left wrist at most 54 degrees through the whole bolt reload (max ' + (mx(rl, 'wL') * 57.3).toFixed(0) + ')');
       { const on = rl.filter(r => r.rph === 'grab' || r.rph === 'cycle'); ok(mx(on, 'penL') <= 0.008, 'rifle: left fingertips at most 8 mm in while on the bolt (grab, cycle; max ' + (mx(on, 'penL') * 1000).toFixed(1) + ' mm)'); }
-      ok(G.__c43slide > 0.03 && mx(rl, 'penL') <= 0.015, 'rifle: the bolt racks in the old gun animation (' + (G.__c43slide * 1000).toFixed(0) + ' mm) with the left hand on it; residual guard: fingertips at most 15 mm in (target 8) (max ' + (mx(rl, 'penL') * 1000).toFixed(0) + ', was 14 against a static bolt)');
+      ok(G.__c43slide > 0.03 && mx(rl, 'penL') <= 0.008, 'rifle: the bolt racks in the old gun animation (' + (G.__c43slide * 1000).toFixed(0) + ' mm) with the left hand on it; fingertips at most 8 mm in through the whole reload, approach included (max ' + (mx(rl, 'penL') * 1000).toFixed(0) + ', was 14 against a static bolt)');
       console.log('note rifle: left fingertip overlap during the bolt work peaks at', (mx(rl, 'penL') * 1000).toFixed(0), 'mm (1-2 frames on the way in), left wrist', (mx(rl, 'wL') * 57.3).toFixed(0), 'deg'); }
     if (w === 'pistol') { const am = vis.filter(r => r.phase === 'aim'); ok(am.some(r => r.two) && mx(am, 'wL') <= 0.95, 'pistol: aiming brings the support hand, wrist ' + (mx(am, 'wL') * 57.3).toFixed(0) + ' deg');
       const rl = vis.filter(r => r.phase === 'reload'); ok(['release', 'mag out', 'insert', 'return'].every(p => rl.some(r => r.rph === p)) && mx(rl, 'dL') <= 0.08, 'pistol: mag reload follows the gun animation timeline release/mag out/insert/return with no left hand jump (max ' + mx(rl, 'dL').toFixed(3) + ' m a frame, was 0.45)');
@@ -42,6 +42,8 @@ for (const w of ['pistol', 'rifle', 'pick']) {
       ok(mx(ins2, 'wL') <= 0.9, 'pistol: left wrist at most 52 degrees while pushing the magazine in (max ' + (mx(ins2, 'wL') * 57.3).toFixed(0) + ', was 78)');
       // KNOWN RESIDUAL (not a target): taking the dropping magazine and the release/return turns still bend the left wrist past 52 degrees;
       // this guard only stops it getting worse than measured now
+      ok(mx(rl, 'wR') <= 0.9 + 1e-3, 'pistol: right wrist at most 52 degrees through the whole mag reload (max ' + (mx(rl, 'wR') * 57.3).toFixed(1) + ', was 63)');
+      ok(mx(rl, 'gapR') <= 0.018 && mx(rl, 'penR') <= 0.010, 'pistol: right hand stays on the grip through the reload, no worse than before the wrist cap (gap max ' + (mx(rl, 'gapR') * 1000).toFixed(1) + ' mm, was 18.0; fingertips ' + (mx(rl, 'penR') * 1000).toFixed(1) + ' mm, was 9.9)');
       ok(mx(rl, 'wL') <= 52 / 57.3, 'pistol: left wrist at most 52 degrees through the whole mag reload (max ' + (mx(rl, 'wL') * 57.3).toFixed(0) + ')');
       ok(mx(mo, 'wL') <= 1.15 && mx(rl, 'wL') <= 1.35, 'pistol (old guard kept): left wrist ' + (mx(mo, 'wL') * 57.3).toFixed(0) + ' deg taking the magazine, ' + (mx(rl, 'wL') * 57.3).toFixed(0) + ' deg peak in the release/return turn (above the 52 degree target)');
       console.log('note pistol reload: left wrist peaks at', (mx(rl, 'wL') * 57.3).toFixed(0), 'deg in the release/return moves, left fingertips up to', (mx(rl, 'penL') * 1000).toFixed(0), 'mm in, right wrist up to', (mx(rl, 'wR') * 57.3).toFixed(0), 'deg while the gun tilts'); }
