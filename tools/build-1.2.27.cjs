@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 // v1.2.27 (local, unreleased) on top of v1.2.26 (the released Agartha residents fix, kept as is): the detailed third person player (GLX-TP-HD build replaced, same rig). Usage: node tools/build-1.2.27.cjs out.html
-// Version labels stay 1.2.26 until a release is asked for.
+// Release v1.2.27.
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),os=require('node:os');
 const out=process.argv[2];if(!out)throw Error('output path required');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'b1227-')),f=path.join(dir,'b.html');let s;
@@ -43,4 +43,8 @@ one("const b = limb(0.0075, 0.0065, 0.03, skinM, 8); k.add(b); const tip = ball(
 one("const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0068, 0.032, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.032; tk.add(tt);","const tk = new THREE.Group(); tk.position.y = 0.05; tk.add(limb(0.008, 0.0074, 0.018, skinM, 8)); const td = new THREE.Group(); td.position.y = 0.018; tk.add(td); td.add(ball(0.0074, skinM)); td.add(limb(0.0074, 0.0066, 0.014, skinM, 8)); const tt = ball(0.007, skinM); tt.position.y = 0.014; td.add(tt); tk.userData.d = td;");
 one("f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });","f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.6; if (k.userData.d) k.userData.d.rotation.x = 0.05 + g2 * 0.7; });   /* v1.2.27: middle and end joints share the curl, the end joint a bit under half the middle one so tips rest on the gun, not in it */");
 one("const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) {","const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th && th.userData.k.userData.d) th.userData.k.userData.d.rotation.x = O && O.tool ? 0.35 : 0.1 + tg * 0.55; if (th) {");
+// ---- release labels (v1.2.27)
+one("const GAME_VERSION = '1.2.26';","const GAME_VERSION = '1.2.27';");
+one('<!-- glencraft-build: b1226-v1.2.26 -->','<!-- glencraft-build: b1227-v1.2.27 -->');
+one('window.PATCH_NOTES = [','window.PATCH_NOTES = [\n'+JSON.stringify({"v": "v1.2.27", "d": "2026-11-08", "notes": ["Agartha: the seven Agarthans are drawn again. A far scenery cull measured their group from the middle of the world instead of the city and hid them every frame.", "Guns: switching weapons no longer leaves the rifle or pistol out of place. The real model was sized and placed differently depending on where you looked and which gun you held before, so it could sit too big, too low or too far forward.", "Guns: if a gun model fails to download it is retried, and the plain built in gun is shown meanwhile instead of nothing.", "Hands: first person fingers bend at three joints and the thumb at two, so they wrap the grip, trigger and magazine.", "Player model: more detailed third person player with slimmer limbs, collar, pleated kilt, sporran and brogues, with a cheaper far away version."]})+',');
 fs.writeFileSync(out,s);
