@@ -9,7 +9,7 @@ function one(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw Error('
 // time box screen: the picture plane sat exactly on the front face of its brown frame box (both at z 0.035), so they z-fought and the
 // screen flashed brown squares; the plane now sits 4 mm in front and wins the depth test
 one("scr.position.z = 0.035; g.add(scr);","scr.position.z = 0.039; sm.polygonOffset = true; sm.polygonOffsetFactor = -1; sm.polygonOffsetUnits = -2; g.add(scr); /* v1.2.24: off the frame face (it z-fought, flashing brown) */");
-one('/* GLX-EQ1222',fs.readFileSync(path.join(__dirname,'content-source','foliage-1224.js'),'utf8')+'\n/* GLX-EQ1222');
+one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','foliage-1224.js'),'utf8')+'\n/* GLX-GRIP1222');
 one("const GAME_VERSION = '1.2.23';","const GAME_VERSION = '1.2.24';");
 one('<!-- glencraft-build: b1223-v1.2.23 -->','<!-- glencraft-build: b1224-v1.2.24 -->');
 fs.writeFileSync(out,s);

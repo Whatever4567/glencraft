@@ -5,7 +5,7 @@ import {parseHTML} from '/workspace/domtools/node_modules/linkedom/esm/index.js'
 const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
 let fails = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fails++; };
-const fol = cut('/* GLX-FOL1224', '/* GLX-EQ1222');
+const fol = cut('/* GLX-FOL1224', '/* GLX-GRIP1222');
 function boot(store) {
   const {document} = parseHTML('<html><body><div class="set inline"><div class="seg" id="mobSeg"></div></div></body></html>');
   const M = () => ({isMaterial: true, visible: true, userData: {}});
