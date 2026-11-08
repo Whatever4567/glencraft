@@ -1,5 +1,5 @@
 // v1.2.24 diagnosis (2026-11-08): the real AG1220 + AG1222 Agarthan blocks over a stand in city (__agw.L, flat floor). Proves the show/hide
-// logic works (7 made once, shown in the city, hidden by Disable mobs / far / old realm, back on return, no duplicate groups). Does NOT
+// logic works (7 made once, shown in the city, kept with Disable mobs (v1.2.26), hidden far / old realm, back on return, no duplicate groups). Does NOT
 // prove the user's world builds __agw.L (the Scotland stamp) - that is the unverified part of the missing Agarthans report.
 import assert from 'node:assert';
 import fs from 'node:fs'; import * as THREE0 from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
@@ -29,6 +29,13 @@ G.DIM.cur = 'agartha'; tick(5); rep('in DIM agartha (old tunnel realm)');
 G.DIM.cur = null; tick(5); rep('exit realm, back');
 G.P.y = FLY + 60; tick(5); rep('60 above floor');
 console.log('missing', [...missing].join(' '));
-const want = {'new world: in city': 1, 'Disable mobs ON': 0, 'Disable mobs OFF again': 1, 'far away': 0, 'back in city': 1, 'in DIM agartha (old tunnel realm)': 0, 'exit realm, back': 1, '60 above floor': 0};
+const want = {'new world: in city': 1, 'Disable mobs ON': 1, 'Disable mobs OFF again': 1, 'far away': 0, 'back in city': 1, 'in DIM agartha (old tunnel realm)': 0, 'exit realm, back': 1, '60 above floor': 0};
 for (const [t, why, n, vis, kids] of W) { assert.equal(n, 7, t + ' seven'); assert.equal(kids, 1, t + ' one group, no duplicates'); assert.equal(+vis, want[t], t + ' visible ' + why); }
+// v1.2.26: normal mobs stay disabled with Disable mobs (real GLX-V127 spawn block + sweep), while the seven above stay shown
+const spawned = []; G.spawnMob = k => { const m = {kind: k}; G.mobs.push(m); spawned.push(m); return m; }; G.removeMob = m => { const i = G.mobs.indexOf(m); if (i >= 0) G.mobs.splice(i, 1); };
+G.saveSet = () => {}; new Function('S', 'with(S){' + blk('V127') + '\n}').call(G, scope); const V = G.__v127 || {};
+G.SET.noMobs = true; G.mobs.push({kind: 'sheep'}); assert.equal(G.spawnMob('cow'), null, 'spawn blocked with mobs off'); V.sweep && V.sweep(); assert.equal(G.mobs.length, 0, 'normal mobs swept');
+G.P = {x: 480, y: FLY, z: 300}; tick(5); assert.equal(A.why, 'shown', 'Agarthans still shown after sweep'); assert.equal(A.folk().length, 7); assert.ok(!G.mobs.some(m => m.__ag), 'Agarthans never left in mobs');
+G.SET.noMobs = false; assert.ok(G.spawnMob('cow'), 'spawn works with mobs on');
+console.log('normal mobs: blocked+swept with mobs off, Agarthans shown');
 console.log('all ok');
