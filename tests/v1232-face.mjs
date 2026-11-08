@@ -1,3 +1,4 @@
+// v1.2.32 art pass (userData.art 100000): the user explicitly authorised (t1024) a near budget of 100000 triangles for the player; the far copy stays near 5000.
 // v1.2.32 face (local): the player face texture is a painted natural face (paintFaceV1232) placed on the sculpted head by the planar face UV.
 // Runs the page's own painter on a node canvas (@napi-rs/canvas from /workspace/qa/tools) and checks it against the mesh.
 import fs from 'node:fs'; import {createRequire} from 'node:module'; import {load, stats} from './lib/tph-harness.mjs';
@@ -31,7 +32,15 @@ const edge = (g) => { const o = g.userData.head.children.find(o => o.userData.sc
   const out = []; for (let x = -0.15; x <= 0.15; x += 0.006) { let y = 0.46; while (y > 0.3 && Tr.some(t => ins(x, y, t))) y -= 0.002; out.push(y); } return out; };
 { const A0 = load('/tmp/base131.html'), a0 = A0.build(false), e0 = edge(a0), e1 = edge(b), j = e => Math.max(...e.slice(1).map((y, i) => Math.abs(y - e[i]))), r = e => Math.max(...e) - Math.min(...e);
   ok(j(e1) < 0.012 && j(e1) < j(e0) && r(e1) > 0.01, `fringe edge: biggest step ${j(e0).toFixed(3)} -> ${j(e1).toFixed(3)}, still uneven (range ${r(e1).toFixed(3)})`); }
+// art pass (t1024, userData.art 100000): the extra triangles are real geometry where the shape curves, not spare subdivision
+{ const A0 = load('/tmp/base131.html'), a0 = A0.build(false), tc = (g, f) => { let n = 0; g.userData.head.traverse(o => { if (o.isMesh && f(o)) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n; };
+  const hd = g => tc(g, o => o.userData.face), hr = g => tc(g, o => o.userData.sculpt === 'hair');
+  ok(hd(b) > 3 * hd(a0) && hr(b) > 2.5 * hr(a0), `head ${hd(a0)} -> ${hd(b)} and hair ${hr(a0)} -> ${hr(b)} triangles`);
+  // smoothness: the worst normal turn between neighbouring face vertices on the cheek drops with the finer grid
+  const turn = g => { const m = g.userData.head.children.find(o => o.userData.face), ge = m.geometry, nn = ge.attributes.normal, p = ge.attributes.position, ix = ge.index ? ge.index.array : Array.from({length: p.count}, (_, i) => i); let w = 0;
+    for (let k = 0; k < ix.length; k += 3) for (let e = 0; e < 3; e++) { const i = ix[k + e], j = ix[k + (e + 1) % 3], x = Math.abs(p.getX(i)), y = p.getY(i); if (p.getZ(i) < 0.08 || x < 0.11 || x > 0.17 || y < 0.13 || y > 0.25) continue; const d = nn.getX(i) * nn.getX(j) + nn.getY(i) * nn.getY(j) + nn.getZ(i) * nn.getZ(j); w = Math.max(w, Math.acos(Math.min(1, d)) * 180 / Math.PI); } return w; };
+  ok(turn(b) < turn(a0), `cheek is smoother: worst normal turn ${turn(a0).toFixed(1)} -> ${turn(b).toFixed(1)} degrees`); }
 ok(b.userData.face === 1232 && b.userData.fine === 1231, 'userData face 1232 on top of fine 1231');
-const s = stats(T, b); ok(s.tris < 45000 && s.meshes === 48 && s.mats === 11 && s.texs === 8 && s.trisFar < 14000, `budgets: ${s.tris} tris, ${s.meshes} meshes, ${s.mats} materials, ${s.texs} textures, far ${s.trisFar}`);
+const s = stats(T, b); ok(s.tris > 90000 && s.tris < 100000 && b.userData.art === 100000 && s.meshes === 48 && s.mats === 11 && s.texs === 8 && s.trisFar < 14000, `budgets: ${s.tris} tris, ${s.meshes} meshes, ${s.mats} materials, ${s.texs} textures, far ${s.trisFar}`);
 { let bad = 0; b.traverse(o => { if (!o.isMesh) return; for (const a of ['position', 'uv']) { const t = o.geometry.attributes[a]; if (t) for (const x of t.array) if (!Number.isFinite(x)) bad++; } }); ok(bad === 0, 'finite positions and UVs'); }
 console.log(fails ? `${fails} FAILED of ${n}` : `all ok (${n})`); process.exit(fails ? 1 : 0);
