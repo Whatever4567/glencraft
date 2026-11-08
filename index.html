@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1224-v1.2.24 -->
+<!-- glencraft-build: b1225-v1.2.25 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.24';
+const GAME_VERSION = '1.2.25';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -15456,6 +15456,9 @@ function matHit(t, mat, out, dur, peak) {
   if (mat === 'wood') osc('sine', 190, 120, t, dur, out, peak * 0.5);
   if (mat === 'stone') osc('triangle', 2300, 1800, t, 0.03, out, peak * 0.15);
 }
+/* GLX-HOME1224: the one home world check (the normal flat UK overworld, W >= 600, not a realm, not inside a planet mesh build) that the
+   current UK lookup, bounds, teleports and space use. Same truth table as the old GLX-C317 on(). */
+window.__ukHome = function () { try { return !window.__c317mesh && !DIM.cur && W >= 600; } catch (_) { return false; } };
 /* GLX-C87 (v0.9.68): level-up chime - a short bright bell arpeggio (C6 E6 G6 C7, ~0.9 s), synthesised; goes through the SFX master gain */
 function levelChime(vol) {
   if (!AC) return; if (AC.state === 'suspended') { try { AC.resume(); } catch (_) {} }
@@ -16450,7 +16453,7 @@ function useItem() {
   else { if (!r.prev) return; [x, y, z] = r.prev; }
   const b = getB(x, y, z);
   if (b !== T.AIR && b !== T.WATER && b !== T.TALLGRASS) return;
-  if (y >= H - 1 && !(window.__c317 && __c317.on() && !__c317.foot(x, z))) return;
+  if (y >= H - 1 && !(window.__ukHome && __ukHome() && !__c317.foot(x, z))) return;
   const below = getB(x, y - 1, z);
   let torchWall = null;
   if (id === T.TORCH && r.hit && r.hit[1] === y && (r.hit[0] !== x || r.hit[2] !== z) && solid(r.hit[0], r.hit[1], r.hit[2])) torchWall = [r.hit[0] - x, r.hit[2] - z];
@@ -29430,7 +29433,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     if (window.__safeLoad && d && !d.dim) { d = Object.assign({}, d); for (const k of ['c95', 'c96', 'c78', 'doors', 'boats', 'cauldrons']) delete d[k]; S.stripped = 1; arguments[0] = d; }
     const r = ap.apply(this, arguments);
     try { if (d && !d.dim) { // a broken player position (NaN / outside the world / far below) -> back to spawn
-        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || (!(window.__c317 && __c317.on()) && (P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1)) || Math.abs(P.x) > 1e6 || Math.abs(P.z) > 1e6 || P.y < SEA - 1500) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
+        if (!isFinite(P.x) || !isFinite(P.y) || !isFinite(P.z) || (!(window.__ukHome && __ukHome()) && (P.x < 1 || P.z < 1 || P.x >= W - 1 || P.z >= D - 1)) || Math.abs(P.x) > 1e6 || Math.abs(P.z) > 1e6 || P.y < SEA - 1500) { console.warn('load: bad player position, respawning', P.x, P.y, P.z); spawnPlayer(); }
         if (!isFinite(P.yaw)) P.yaw = 0; else P.yaw %= 6.283185307179586; if (!isFinite(P.pitch)) P.pitch = 0;
         const sn = window.__c95 && __c95.snap; if (sn) for (const k of Object.keys(sn)) { const q = sn[k], ps = q && q.pos; if (!ps || !ps.every(isFinite) || ps[1] < 1 || ps[0] < 1 || ps[2] < 1 || ps[0] >= W - 1 || ps[2] >= D - 1) delete sn[k]; } } } catch (e) { console.warn('c99 sanitize', e); }
     return r;
@@ -44745,7 +44748,7 @@ function make42(E) {
   U.WS = 40;   /* v1.2.24: the ice wall builder is removed; WS stays as the old edge band width the shared shape helpers use */
   const gen = generate; generate = function () { CAS = null; return gen.apply(this, arguments); };
   // v1.0.92: no invisible barrier - climb the wall if you like; past it you freeze (GLX-C282). Only the world bounds hold you in.
-  setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__c317 && __c317.on())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
+  setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__ukHome && __ukHome())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
 })();
 
 /* GLX-C274 (v1.0.90): caves for the Highlands map - each world seed gets its own cave network (winding worm tunnels of changing width,
@@ -45879,7 +45882,7 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
   const TG = ['moon', 'mars', 'earth', ]; U.ti = 0;
   U.tbody = () => B7() ? U.tb7() : S5().get(TG[U.ti % TG.length]);
   /* v1.1.28: the rocket flies inside the C317 space box: free flight, real block collisions, land on top of the Moon or Mars */
-  const B7 = () => !!(window.__c317 && __c317.on());
+  const B7 = () => !!(window.__ukHome && __ukHome());
   const gB7 = (x, y, z) => { const X = Math.floor(x), Z = Math.floor(z); for (let yy = Math.floor(y) + 1; yy > Math.floor(y) - 14; yy--) if (solid(X, yy, Z)) return yy + 1; return -1e9; };
   const NM = {moon: 'The Moon', mars: 'Mars', earth: 'Earth'};
   U.isPl = () => !!(PD() && PD().is() && U.frame === DIM.cur);
@@ -45974,7 +45977,7 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
           c.lookAt(U.V.x + n.x * (8 + 32 * hg), U.V.y + 5 + n.y * (4 + 36 * hg), U.V.z + n.z * (8 + 32 * hg)); }
   U.camSet = camSet;
   try { const rr = renderer.render; renderer.render = function (s, c) { const pl = U.isPl(); if (s !== scene || !started || !U.base || (DIM.cur && !pl)) return rr.apply(this, arguments); let restore = null, far0 = 0, eS = null;
-    try { const ev = PD() && PD().eva, off = !(window.__c317 && __c317.on()) && (U.on || ev || (U.frame === 'earth' && U.space())); stars.visible = firm.visible = false; if (mapP) mapP.visible = false; if (S5()) S5().show(false);
+    try { const ev = PD() && PD().eva, off = !(window.__ukHome && __ukHome()) && (U.on || ev || (U.frame === 'earth' && U.space())); stars.visible = firm.visible = false; if (mapP) mapP.visible = false; if (S5()) S5().show(false);
       if (B7() && U.on && U.frame === 'earth') { camSet(c); for (const m of c.children) if (m.visible && m.isGroup && m.children.length) { m.visible = false; hid.push(m); } }
       if (off || pl) { const E = U.frame === 'earth', a = ev ? PD().E.y : U.alt(); uT.value = performance.now() / 1000; hid.length = 0; const deep = E && (a > FY + 200 || !U.overMap());
         for (const m of s.children) if (m.visible && m !== stars && ((m.renderOrder <= -10 && m.material && m.material.isShaderMaterial) || m.isSprite || (m.isPoints && m.position.distanceTo(c.position) < 3) || (deep && m !== R && !m.userData.sys && m !== mapP && !m.isLight && !(S5() && S5().SYS.some(b => b.g === m))))) { m.visible = false; hid.push(m); }
@@ -46061,7 +46064,7 @@ img,canvas.ui{max-width:100%}
   U.on = () => { try { const a = A(); return !!(started && a && (a.M || big()) && a.AG && window.__c239 && __c239.pyr); } catch (_) { return false; } };
   let PTS = null, LEN = 0, key = '';
   // v1.1.39: on the round Earth the saucer's home is on the sand beside the desert pyramid (the old ice wall mouth is gone)
-  const big = () => { try { return !!(window.__c317 && __c317.on() && !DIM.cur); } catch (_) { return false; } };
+  const big = () => { try { return !!(window.__ukHome && __ukHome() && !DIM.cur); } catch (_) { return false; } };
   // v1.1.40: the saucer lives at the North Pole beside the way down to Agartha, and flies FAST (about 260 blocks a second) round the curve of the Earth to the pyramids
   function buildN(py, po) { const k = 'n' + py.cx + ',' + po.x + ',' + po.z; if (k === key && PTS) return true; key = k; const e = __c320, c = e.E(), R = e.R, ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
     if (e.flat) { const hx = po.x + 12, hz = po.z, R0 = window.__agw && __agw.route && __agw.route(); if (window.__agw && !R0) key = ''; PTS = (R0 || [['ow', hx + .5, po.top + 4, hz + .5]]).concat([['ow', hx + .5, SEA + 160, hz + .5], ['ow', py.cx + .5, SEA + 160, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]]);   /* v1.1.87: it sleeps in the crystal city under Scotland and flies out up the spiral cave */
@@ -46278,7 +46281,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       for (let k = 0; k < n; k++) { v4.copy(v2).add(v3); if (!hitAt(v4)) { v2.copy(v4); continue; } const vn = v3.dot(up); v3.addScaledVector(up, -vn); v4.copy(v2).add(v3);
         const vu = vel.dot(up); if (vu < 0) vel.addScaledVector(up, -vu); vel.multiplyScalar(0.8); U.hits = (U.hits || 0) + 1; if (v3.lengthSq() > 1e-8 && !hitAt(v4)) v2.copy(v4); else break; } }
     U.landed = false; if (!any || (uIn < 0 && Math.abs(mx) + Math.abs(mz) < 0.05)) { let gg = groundGap(v2); if (gg < 6) { v4.copy(v2).addScaledVector(up, -Math.min(gg, dt * (1 + gg))); if (!hitAt(v4)) v2.copy(v4); else gg = 0; if (gg < 0.08) { U.landed = true; vel.set(0, 0, 0); } } }
-    const L = Math.max(60000, (window.__c305 && __c305.BOUND) || 12000); if ((window.__c317 && __c317.on())) { __c317.clampBox(v2, 6); } else { v2.x = Math.max(432 - L, Math.min(432 + L, v2.x)); v2.z = Math.max(432 - L, Math.min(432 + L, v2.z)); v2.y = Math.max(-200, Math.min(60000, v2.y)); }
+    const L = Math.max(60000, (window.__c305 && __c305.BOUND) || 12000); if ((window.__ukHome && __ukHome())) { __c317.clampBox(v2, 6); } else { v2.x = Math.max(432 - L, Math.min(432 + L, v2.x)); v2.z = Math.max(432 - L, Math.min(432 + L, v2.z)); v2.y = Math.max(-200, Math.min(60000, v2.y)); }
     p.copy(v2); U.maxSp = Math.max(U.maxSp, vel.length()); sync(); }
   const low = () => !moonNear(U.pos) && U.pos.y < H + 40 && U.pos.x > 1 && U.pos.x < W - 2 && U.pos.z > ((typeof __XG !== 'undefined' && __XG) ? __XZ + 2 : 2) && U.pos.z < D - 2;
   /* v1.1.28: controller Y enters and exits the UFO (Y still opens the inventory everywhere else) */
@@ -46286,13 +46289,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const cam = new THREE.Vector3(), cq = new THREE.Quaternion(), M9 = new THREE.Matrix4(), T9 = new THREE.Vector3(), B9 = new THREE.Vector3(); U.cam = cam; U.cq = cq;
   function sync() { U.cock = !window.thirdPerson; if (U.cock) { frame(P.yaw, Math.max(-1.5, Math.min(1.5, P.pitch)), cq); cam.copy(U.pos).addScaledVector(up, 1.05); } else { /* v1.1.28: third person orbits behind and above the saucer, never inside it */ const e = Math.max(0.18, Math.min(1.3, 0.42 - P.pitch)), d = 15; frame(P.yaw, 0, cq); B9.set(0, 0, 1).applyQuaternion(cq);
       cam.copy(U.pos).addScaledVector(B9, Math.cos(e) * d).addScaledVector(up, Math.sin(e) * d + 1.2); M9.lookAt(cam, T9.copy(U.pos).addScaledVector(up, 1.2), up); cq.setFromRotationMatrix(M9); }
-    if ((window.__c317 && __c317.on()) || low()) { if (PD()) PD().eva = false; P.x = U.pos.x; P.z = U.pos.z; P.y = U.pos.y; } else { if (PD()) { PD().eva = true; const E = PD().E; E.x = cam.x; E.y = cam.y - 1.6; E.z = cam.z; E.vx = E.vy = E.vz = 0; }
+    if ((window.__ukHome && __ukHome()) || low()) { if (PD()) PD().eva = false; P.x = U.pos.x; P.z = U.pos.z; P.y = U.pos.y; } else { if (PD()) { PD().eva = true; const E = PD().E; E.x = cam.x; E.y = cam.y - 1.6; E.z = cam.z; E.vx = E.vy = E.vz = 0; }
       P.x = Math.max(2, Math.min(W - 3, U.pos.x)); P.z = Math.max(2, Math.min(D - 3, U.pos.z)); P.y = H + 60; }
     P.vy = 0; P.onGround = true; P.fallTop = null; const mn = moonNear(U.pos), sp = Math.round(vel.length());
     window.__spaceHud = 'UFO   ' + (mn ? M8().body(U.pos).name + ' height ' + Math.round(M8().alt(U.pos)) : 'altitude ' + Math.round(U.pos.y)) + '   speed ' + sp + (U.landed ? '   landed' : ''); }
   U.board = () => { if (U.on) return; U.free = false; try { if (M8() && M8().mode === 'moon') M8().stop(); if (R9() && R9().on) return; } catch (_) {} U.from = [P.x, P.y, P.z]; U.on = true; window.__thirdPerson = window.thirdPerson = false; vel.set(0, 0, 0); P.yaw = U.yaw;
     say('Your UFO: move to fly where you look, JUMP up, SHIFT down, BOOST for speed. Let go near the ground to land. EXIT once landed'); };
-  U.exit = () => { if (!U.on) return; const p = U.pos, mn = moonNear(p), B7 = window.__c317 && __c317.on();
+  U.exit = () => { if (!U.on) return; const p = U.pos, mn = moonNear(p), B7 = window.__ukHome && __ukHome();
     if (B7 && groundGap(p) > 3) { U.on = false; window.__spaceHud = null; if (PD()) PD().eva = false; P.x = p.x + rt.x * 3.2; P.z = p.z + rt.z * 3.2; P.y = p.y; P.vy = 0; P.fallTop = null; U.hold = 0; U.free = true; vel.set(0, 0, 0);
       try { camera.up.set(0, 1, 0); camera.rotation.set(P.pitch || 0, P.yaw || 0, 0, 'YXZ'); } catch (_) {} say('You stepped out into space. Your UFO follows you down - BOARD UFO to get back in'); return; }
     if (groundGap(p) > 3) { say('Land first (let go near the ground), then EXIT'); return; } U.on = false; window.__spaceHud = null;
@@ -46301,9 +46304,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const okAt = (x, y, z) => !solid(Math.floor(x), Math.floor(y), Math.floor(z)) && !solid(Math.floor(x), Math.floor(y) + 1, Math.floor(z)) && solid(Math.floor(x), Math.floor(y) - 1, Math.floor(z));
   function safeSpot(p) { const c = [[rt.x * 4.5, rt.z * 4.5], [-rt.x * 4.5, -rt.z * 4.5], [-fw.x * 4.5, -fw.z * 4.5], [fw.x * 4.5, fw.z * 4.5]];
     for (let r = 3; r <= 9; r += 2) for (let a = 0; a < 12; a++) c.push([Math.cos(a / 12 * 6.283) * r, Math.sin(a / 12 * 6.283) * r]);
-    for (const [dx, dz] of c) { const x = Math.floor(p.x + dx) + 0.5, z = Math.floor(p.z + dz) + 0.5; if (!(window.__c317 && __c317.on()) && (x < 2 || x > W - 3 || z > D - 3)) continue;
-      for (let y = Math.floor(p.y) + 2; y >= Math.floor(p.y) - 4; y--) if ((y > 0 || (window.__c317 && __c317.on())) && okAt(x, y, z)) return [x, y + 0.02, z]; }
-    const x = Math.floor(p.x + rt.x * 4.5) + 0.5, z = Math.floor(p.z + rt.z * 4.5) + 0.5; if ((window.__c317 && __c317.on()) && !__c317.foot(x, z)) return [p.x, p.y + 1.2, p.z]; return [x, topAt(x, z) + 0.05, z]; }
+    for (const [dx, dz] of c) { const x = Math.floor(p.x + dx) + 0.5, z = Math.floor(p.z + dz) + 0.5; if (!(window.__ukHome && __ukHome()) && (x < 2 || x > W - 3 || z > D - 3)) continue;
+      for (let y = Math.floor(p.y) + 2; y >= Math.floor(p.y) - 4; y--) if ((y > 0 || (window.__ukHome && __ukHome())) && okAt(x, y, z)) return [x, y + 0.02, z]; }
+    const x = Math.floor(p.x + rt.x * 4.5) + 0.5, z = Math.floor(p.z + rt.z * 4.5) + 0.5; if ((window.__ukHome && __ukHome()) && !__c317.foot(x, z)) return [p.x, p.y + 1.2, p.z]; return [x, topAt(x, z) + 0.05, z]; }
   U.safeSpot = safeSpot;
   // ---------- buttons ----------
   const bt = (t, css, on, off) => { const b = document.createElement('div'); b.textContent = t; b.style.cssText = 'position:fixed;z-index:45;padding:10px 14px;border-radius:14px;font:bold 14px sans-serif;color:#fff;background:rgba(40,90,120,.82);border:2px solid #9ff;user-select:none;touch-action:none;display:none;' + css;
@@ -46322,7 +46325,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { const upd = updatePlayer; updatePlayer = function (dt, mx, mz) { try { if (U.on) { if (DIM.cur) U.on = false; else { fly(Math.min(dt, 0.05), mx || 0, mz || 0); return 0; } } } catch (e) { ERR('upd', e); } if (U.hold > 0) { U.hold -= dt; const k = typeof dirtyCh === 'undefined' || dirtyCh.size === 0; if (!k && U.hold > 0) { P.vy = 0; return 0; } U.hold = 0; } guard(dt); return upd.apply(this, arguments); }; } catch (e) { ERR('upd0', e); }
   // safety net on flat Earth: inside blocks (not just touching) for a moment, or below the world bottom, goes up to the first free spot
   function guard(dt) { if (DIM.cur || (PD() && PD().eva) || (M8() && M8().mode === 'moon') || (R9() && R9().on) || !isFinite(P.y)) { U.sk = 0; return; }
-    if (P.y < SEA - 1500 && !(window.__c317 && __c317.on())) { P.y = topAt(P.x, P.z) + 0.05; P.vy = 0; P.fallTop = null; U.saved = (U.saved || 0) + 1; return; }
+    if (P.y < SEA - 1500 && !(window.__ukHome && __ukHome())) { P.y = topAt(P.x, P.z) + 0.05; P.vy = 0; P.fallTop = null; U.saved = (U.saved || 0) + 1; return; }
     const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 0.1); if (solid(x, y, z) && solid(x, y + 1, z)) U.sk = (U.sk || 0) + dt; else U.sk = 0;
     if (U.sk > 0.4) { let yy = y; while (yy < y + 6 && yy < H - 2 && (solid(x, yy, z) || solid(x, yy + 1, z))) yy++; if (yy >= y + 6) { U.sk = 0; return; } P.y = yy + 0.02; P.vy = 0; P.fallTop = null; U.sk = 0; U.saved = (U.saved || 0) + 1; } }
   try { const rr = renderer.render; renderer.render = function (s, c) { const hid = []; try { if (s === scene && started) { FE.visible = false && !DIM.cur && c.position.y > H + 150 && !(R9() && R9().frame !== 'earth');
@@ -46675,7 +46678,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); console.warn('c317', w, e); };
   const L = U.L, P8 = () => window.__c318, UF = () => window.__c309;
   const Z0 = () => (typeof __XG !== 'undefined' && __XG && typeof __XZ !== 'undefined') ? __XZ : 0;
-  const on = U.on = () => !window.__c317mesh && !DIM.cur && W >= 600;
+  const on = U.on = () => __ukHome();
   const foot = (x, z) => x >= 0 && x < W && z < D && z >= Z0();
   /* v1.1.28: the box is centred on the middle of the Earth map */
   const C = U.C = () => [W >> 1, H >> 1, D >> 1];
@@ -46695,7 +46698,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const inSpace = (x, y, z) => window.__c320 ? __c320.space(x, y, z) : (!foot(x, z) || y < 0 || y > H + 40);   // v1.1.29: the round Earth has air and sea all round
   U.inSpace = () => { const w = window.__c321 ? __c321.pW(P.x, P.y, P.z) : [P.x, P.y, P.z]; return on() && inSpace(w[0], w[1], w[2]); };
   try { const up = updatePlayer; updatePlayer = function () { const r = up.apply(this, arguments); try { if (on() && started && !(UF() && UF().on)) { const w = window.__c321 ? __c321.pW(P.x, P.y, P.z) : [P.x, P.y, P.z]; if (inSpace(w[0], w[1], w[2])) U.soft = true; if (U.soft) { P.fallTop = null; if (P.onGround) U.soft = false; }
-          if (P.vy < -110) P.vy = -110; U.clampBox(P, 2.5); } } catch (e) { ERR('upd', e); } return r; }; } catch (e) { ERR('upd0', e); }
+          if (P.vy < -110) P.vy = -110; if (!(window.__tbox && __tbox.inside)) U.clampBox(P, 2.5); } } catch (e) { ERR('upd', e); } return r; }; } catch (e) { ERR('upd0', e); }
   // ---------- the far pass: box, stars, Earth slab, planet balls ----------
   const FAR = U.FAR = new THREE.Scene(); FAR.background = new THREE.Color(0x000000);
   const fc = U.cam = new THREE.PerspectiveCamera(70, 1, 3, 40000);
@@ -46733,7 +46736,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     try { const s5 = window.__c305; if (s5) { if (s5.show) { s5.show(false); s5.show = () => {}; } } } catch (e) { ERR('s5', e); } }, 0);
 })();
 // (t655u) no bedrock floor or edge wall on Earth: the natural bedrock becomes deepslate and the packed snow rim comes down, so you can dig out of the bottom or walk off any side
-(function c317b() { let done = null; setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || !__c317.on() || (done === world && world[idx(3, 0, 3)] !== T.HBEDROCK && world[idx(W - 4, 0, D - 4)] !== T.HBEDROCK) || (window.__c105 && __c105.phase === 'gen')) return; done = world;
+(function c317b() { let done = null; setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || !__ukHome() || (done === world && world[idx(3, 0, 3)] !== T.HBEDROCK && world[idx(W - 4, 0, D - 4)] !== T.HBEDROCK) || (window.__c105 && __c105.phase === 'gen')) return; done = world;
     const HB = T.HBEDROCK, BR = T.BEDROCK, DS = T.DEEPSLATE || T.STONE, PK = T.PACKSNOW; let n = 0;
     for (let i = 0; i < world.length; i++) { const b = world[i]; if (b === HB || (BR && b === BR)) { world[i] = DS; n++; } }
     if (PK) for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (x > 2 && z > 2 && x < W - 3 && z < D - 3) continue; for (let y = H - 1; y > 0; y--) { const i = idx(x, y, z), b = world[i]; if (b === PK) { world[i] = 0; n++; } else if (b) break; } }
@@ -46827,7 +46830,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 (function c320() {
   const U = window.__c320 = {err: null, R: 5000, edits: new Map(), q: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
-  const S7 = () => window.__c317, on = () => { try { return !!(S7() && S7().on()); } catch (_) { return false; } };
+  const S7 = () => window.__c317, on = () => __ukHome();
   const R = U.R, Z0 = () => (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0;
   const E = U.E = () => [W >> 1, SEA + 250 - R, Math.round((D - 1500) / 2)];
   const CAP = U.CAP = Math.sqrt(R * R - (R - 250) * (R - 250));
@@ -46852,28 +46855,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function layer(r, dd, kind, x, y, z) { const q = r / R; if (kind === 3) return dd < 5 ? (T.SAND) : dd < 12 ? (T.SANDSTONE || T.SAND) : T.STONE; if (q < 0.19) return T.GLOWROCK || 209; if (q < 0.55) return T.MAGMA || 208; if (q < 0.85) return ((x ^ y ^ z) & 7) ? 206 : (T.MAGMA || 208);
     if (kind === 2) return dd < 30 ? PK() : T.STONE; if (kind === 1) { if (dd < 1) return T.GRASS; if (dd < 4) return T.DIRT; } else if (dd < 3) return T.SAND; return dd > 60 && T.DEEPSLATE ? T.DEEPSLATE : T.STONE; }
   U.layer = layer;
-  // the planet block at a spot outside the map (0 = air)
-  // v1.1.39: LOCAL TERRACES. Away from the map the ground is laid in flat block terraces square to the nearest grid side (the same six
-  // sides the walking frame uses): within a terrace the top is one flat block plane, and the steps (one or two blocks) are only where two
-  // terraces meet. Terraces are wide where the planet is nearly level with the grid and narrow near the side seams. Sea is terraced the same way.
-  const TC = new Map(), RG = 64, P2 = g => { const m = 1.5 / Math.max(1e-4, g); let t = 1; while (t * 2 <= m && t < 64) t *= 2; return t; };
-  function terr(x, y, z, dx, dy, dz, r) { if (U.pit) { const q = U.pit(x, y, z); if (q !== undefined) return q; } const qx = Math.abs(dx), qy = Math.abs(dy), qz = Math.abs(dz), k = qx >= qy && qx >= qz ? 0 : qy >= qz ? 1 : 2, d = [dx, dy, dz], sg = d[k] < 0 ? -1 : 1, i = (k + 1) % 3, j = (k + 2) % 3;
-    const hk = sg * d[k], u = d[i], v = d[j], uc = (Math.floor(u / RG) + 0.5) * RG, vc = (Math.floor(v / RG) + 0.5) * RG, hr = Math.sqrt(Math.max(1, R * R - uc * uc - vc * vc));
-    const su = P2(Math.abs(uc) / hr), sv = P2(Math.abs(vc) / hr), iu = Math.floor(u / su), iv = Math.floor(v / sv), f = k * 2 + (sg > 0 ? 1 : 0);
-    const key = ((f * 8 + Math.log2(su)) * 8 + Math.log2(sv)) * 268435456 + (iu + 8192) * 16384 + (iv + 8192); let t = TC.get(key);
-    if (!t) { const tu = (iu + 0.5) * su, tv = (iv + 0.5) * sv, h0 = Math.sqrt(Math.max(1, R * R - tu * tu - tv * tv)), n = [0, 0, 0]; n[k] = sg * h0 / R; n[i] = tu / R; n[j] = tv / R; const c = E();
-      const gk = ground(c[0] + n[0] * R, c[1] + n[1] * R, c[2] + n[2] * R, n[0], n[1], n[2]), Rg = R + gk[0];
-      t = [Math.round(Math.sqrt(Math.max(1, Rg * Rg - tu * tu - tv * tv))), gk[1], Math.round(h0)]; TC.set(key, t); if (TC.size > 400000) TC.clear(); }
-    if (hk < t[0]) return layer(r, t[0] - hk, t[1], x, y, z); return hk < t[2] ? T.WATER : 0; }
-  U.terr = terr; U.tOn = true;
-  const capped = (y, r) => y - SEA >= r - R - 1;
-  function earth(x, y, z) { if (U.flat) return U.fearth(x, y, z); const c = E(), dx = x + 0.5 - c[0], dy = y + 0.5 - c[1], dz = z + 0.5 - c[2], r2 = dx * dx + dy * dy + dz * dz; if (r2 >= (R + 40) * (R + 40)) return 0;
-    const r = Math.sqrt(r2), a = Math.max(y - SEA, r - R); if (a > 32) return 0; if (a < -40) return U.hol ? U.hol(x, y, z, dx, dy, dz, r) : layer(r, 99, 0, x, y, z);   /* v1.1.37: the deep layers and the hollow */
-    if (U.tOn && !capped(y, r)) return terr(x, y, z, dx, dy, dz, r);
-    const gk = ground(x, y, z, dx / r, dy / r, dz / r), g = gk[0]; if (a < g) return layer(r, g - a, gk[1], x, y, z); return a < 0 ? T.WATER : 0; }
+  // the planet block at a spot outside the map (0 = air): the flat UK only (v1.2.24: the round ball, its terraces and deep layers are removed)
+  function earth(x, y, z) { const f = U.fearth; return f ? f(x, y, z) : 0; }
   U.earth = earth;
   // height above the sea: the flat cap over the map, the round ball everywhere else
-  U.alt = (x, y, z) => { if (U.flat) return y - SEA; const c = E(); return Math.max(y - SEA, Math.hypot(x - c[0], y - c[1], z - c[2]) - R); };
+  U.alt = (x, y, z) => y - SEA;   /* v1.2.24: flat UK height (the round ball branch is removed) */
   U.space = (x, y, z) => U.alt(x, y, z) > H + 40 - SEA;
   U.spaceCam = (x, y, z) => U.alt(x, y, z) > H + 60 - SEA;
   const key = (x, y, z) => x + ',' + y + ',' + z, soft = b => !b || b === T.WATER || b === T.LAVA || b === T.TORCH || (typeof PLANT !== 'undefined' && PLANT[b] === 1);
@@ -46886,29 +46872,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       const k = key(x, y, z), inP = window.__c318 && __c318.bodies.some(b => !b.d.cell && b.inside(x, y, z));
       if (!inP && (U.edits.has(k) || earth(x, y, z) || (U.flat && !(window.__ukb && __ukb.out(x, z))))) {   /* v1.1.85: any block placed anywhere in the UK is kept, mid air too */ U.edits.set(k, v); U.dirty = 1; if (v && v !== T.WATER) return s0(x, y, z, v); return; }
       return s0(x, y, z, v); }; } catch (e) { ERR('setB', e); }
-  // ---------- drawing: ocean and sea floor near you, the whole ball from space ----------
-  const lam = (c, o) => new THREE.MeshLambertMaterial(Object.assign({color: c}, o || {}));
-  const MW = lam(0x2f6db0, {transparent: true, opacity: 0.82, depthWrite: false}), MF = lam(0x8c7d56), FW = new THREE.MeshBasicMaterial({color: 0x2c63a8, fog: false}), FF = new THREE.MeshBasicMaterial({color: 0x1f4f8c, fog: false});
-  let near = null, far = null, builtFor = '';
-  function capGeo(floor) { const c = E(), s = 64, xs = new Set([0, W]), zs = new Set([Z0(), D]);
-    for (let v = c[0] - CAP - s; v <= c[0] + CAP + s; v += s) xs.add(Math.round(v)); for (let v = c[2] - CAP - s; v <= c[2] + CAP + s; v += s) zs.add(Math.round(v));
-    const X = [...xs].sort((a, b) => a - b), Z = [...zs].sort((a, b) => a - b), pos = [];
-    const vt = (x, z) => { let dx = x - c[0], dz = z - c[2]; const d = Math.hypot(dx, dz); if (d > CAP) { dx *= CAP / d; dz *= CAP / d; } const X1 = c[0] + dx, Z1 = c[2] + dz;
-      return [X1, floor ? SEA - U.fd(X1, Z1) : SEA - 0.2, Z1]; };
-    for (let i = 0; i < X.length - 1; i++) for (let j = 0; j < Z.length - 1; j++) { const x0 = X[i], x1 = X[i + 1], z0 = Z[j], z1 = Z[j + 1], mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
-      if (mx > 0 && mx < W && mz > Z0() && mz < D) continue; if (Math.hypot(Math.max(Math.abs(mx - c[0]) - (x1 - x0) / 2, 0), Math.max(Math.abs(mz - c[2]) - (z1 - z0) / 2, 0)) > CAP) continue;
-      const a = vt(x0, z0), b = vt(x1, z0), d = vt(x1, z1), e = vt(x0, z1); pos.push(...a, ...e, ...d, ...a, ...d, ...b); }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals(); g.computeBoundingSphere(); return g; }
-  function ballGeo(r, seg) { const t0 = Math.acos((R - 250) / R), g = new THREE.SphereGeometry(r, seg, seg >> 1, 0, Math.PI * 2, t0, Math.PI - t0); return g; }
-  function build() { const c = E(), id = [W, D, Z0(), SEA].join(); if (builtFor === id) return; builtFor = id; drop();
-    const ph = /Android|iPhone|iPad/i.test(navigator.userAgent), gw = capGeo(false), gf = capGeo(true), bw = ballGeo(R, ph ? 64 : 96), bf = ballGeo(R - 7, ph ? 48 : 72);
-    near = new THREE.Group(); near.name = 'earth320'; near.userData.sys = 1;
-    const m1 = new THREE.Mesh(gw, MW), m2 = new THREE.Mesh(gf, MF), m3 = new THREE.Mesh(bw, MW), m4 = new THREE.Mesh(bf, MF); m1.name = 'sea320'; m2.name = 'floor320'; m3.name = 'seaBall320'; m4.name = 'floorBall320';
-    m3.position.set(c[0], c[1], c[2]); m4.position.set(c[0], c[1], c[2]); m1.renderOrder = m3.renderOrder = 2; for (const m of [m1, m2, m3, m4]) { m.frustumCulled = false; near.add(m); } scene.add(near);
-    far = new THREE.Group(); far.name = 'earth320far'; far.userData.sys = 1; const f1 = new THREE.Mesh(gw, FW), f3 = new THREE.Mesh(bw, FW); f3.position.copy(m3.position); far.add(f1, f3);
-    try { if (S7() && S7().FAR) S7().FAR.add(far); } catch (_) {} U.built = (U.built || 0) + 1; U.tris = (gw.attributes.position.count + gf.attributes.position.count) / 3; }
-  function drop() { for (const g of [near, far]) if (g) { g.parent && g.parent.remove(g); g.traverse(o => { if (o.geometry && !o.geometry.__k) o.geometry.dispose(); }); } near = far = null; }
-  setInterval(() => { try { const a = typeof started !== 'undefined' && started && on(); if (a) build(); if (near) near.visible = a && !U.flat; if (far) far.visible = a && !U.flat; } catch (e) { ERR('loop', e); } }, 500);
+  // v1.2.24: the round Earth sea, sea floor and ball meshes and their 500 ms rebuild loop are removed (they only showed when the flat flag was off)
   // ---------- save: only what you changed out on the planet ----------
   try { const se = serialize; serialize = function () { const o = se.apply(this, arguments); try { if (o && !DIM.cur) o.c320 = {v: 1, e: Array.from(U.edits)}; } catch (e) { ERR('ser', e); } return o; }; } catch (e) { ERR('ser0', e); }
   try { const ew = enterWorld; enterWorld = function (save) { try { if (!DIM.cur) { U.edits.clear(); const s = save && save.c320; if (s && s.e) for (const [k, v] of s.e) U.edits.set(k, v);
@@ -46945,16 +46909,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // ---------- which planet and which side ----------
   const veh = () => (window.__c309 && __c309.on) || (window.__c299 && __c299.on);
   function pick(w) { try { const p8 = window.__c318; if (p8) for (const b of p8.bodies) { if (b.d.cell) continue; const c = b.c(); if (Math.hypot(w[0] - c[0], w[1] - c[1], w[2] - c[2]) < b.R + 90) return [b.id, c]; }
-      const e = window.__c320; if (e && !e.flat && e.alt(w[0], w[1], w[2]) < 90) return ['earth', e.E()]; } catch (_) {} return null; }
+      } catch (_) {} return null; }   /* v1.2.24: no round Earth frame */
   function axisOf(d, cur) { const a = [Math.abs(d[0]), Math.abs(d[1]), Math.abs(d[2])]; let k = a[0] >= a[1] && a[0] >= a[2] ? 0 : a[1] >= a[2] ? 1 : 2; const ax = 2 * k + (d[k] < 0 ? 1 : 0);
     if (cur !== null && cur !== ax) { const ck = cur >> 1; if (ck !== k && a[k] < a[ck] * 1.03) return cur; } return ax; }
   const Qoff = new THREE.Quaternion(), qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), eu = new THREE.Euler();
   // v1.1.31: out on the round Earth the camera leans to the true round surface, so the sea looks level at every latitude (the blocks keep their sides)
   const TQ = new THREE.Quaternion(), tv = new THREE.Vector3(), tu = new THREE.Vector3(), I0 = new THREE.Quaternion();
-  function tiltAt(w, ax, body, out) { out.identity(); const e = window.__c320, p8 = window.__c318; if (!body || !U.tiltOn) return out; const c = body === 'earth' ? e && e.E() : p8 && p8.by[body] && p8.by[body].c(); if (!c) return out;
-    tv.set(w[0] - c[0], w[1] - c[1], w[2] - c[2]); const r = tv.length(); if (r < 1) return out; tv.divideScalar(r); if (body === 'earth' && window.__c332 && __c332.inner(r)) tv.negate(); const f = toW(ax, [0, 1, 0]); tu.set(f[0], f[1], f[2]);   /* v1.1.37: inside the hollow Earth up points to the inner sun */
-    let k = 1; if (ax === 2 && body === 'earth') { const d = Math.hypot(w[0] - c[0], w[2] - c[2]); k = Math.max(0, Math.min(1, (d - e.CAP + 100) / 300)); }
-    if (body === 'earth' && e.tOn && U.upright) { const al = r - e.R; k *= Math.max(0, Math.min(1, (al - 45) / 90)); }   /* v1.1.39: on the terraces the camera stands upright, it leans to the round planet only high up */
+  function tiltAt(w, ax, body, out) { out.identity(); const e = window.__c320, p8 = window.__c318; if (!body || !U.tiltOn) return out; const c = p8 && p8.by[body] && p8.by[body].c(); if (!c) return out;
+    tv.set(w[0] - c[0], w[1] - c[1], w[2] - c[2]); const r = tv.length(); if (r < 1) return out; tv.divideScalar(r); const f = toW(ax, [0, 1, 0]); tu.set(f[0], f[1], f[2]);   /* v1.1.37: inside the hollow Earth up points to the inner sun */
+    const k = 1;
     if (k <= 0) return out; out.setFromUnitVectors(tu, tv); if (k < 1) out.slerp(I0, 1 - k); return out; }
   U.tiltOn = true; U.TQ = TQ; U.tiltAt = tiltAt;
   const T0q = new THREE.Quaternion(), T1q = new THREE.Quaternion(), vv = new THREE.Vector3();
@@ -46975,11 +46938,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.setFrame = setFrame;
   try { const ld = lookDir; lookDir = function () { const r = ld.apply(this, arguments); if (!r || Math.abs(TQ.w) >= 0.99999) return r; const w = toW(U.ax, r); vv.set(w[0], w[1], w[2]).applyQuaternion(TQ); const l = toL(U.ax, [vv.x, vv.y, vv.z]); r[0] = l[0]; r[1] = l[1]; r[2] = l[2]; return r; }; } catch (e) { ERR('ld', e); }
   U.leave = () => { try { if (U.ax !== 2 || U.body) setFrame(null, null, 2); } catch (e) { ERR('leave', e); } };
-  function tick() { try { if (U.body && !flying) unstick(); } catch (_) {} if (typeof started === 'undefined' || !started || DIM.cur || !window.__c317 || !__c317.on()) { if (U.ax !== 2) U.leave(); return; }
+  function tick() { try { if (U.body && !flying) unstick(); } catch (_) {} if (typeof started === 'undefined' || !started || DIM.cur || !__ukHome()) { if (U.ax !== 2) U.leave(); return; }
     if (veh()) { U.leave(); return; } const w = pW(P.x, P.y + 0.9, P.z), b = pick(w);
     if (!b) { if (U.ax !== 2) setFrame(null, null, 2); else U.body = null; return; }
-    const c = b[1], dd = [w[0] - c[0], w[1] - c[1], w[2] - c[2]], inn = b[0] === 'earth' && window.__c332 && __c332.inner(Math.hypot(dd[0], dd[1], dd[2]));
-    let ax = axisOf(dd, U.body === b[0] ? (inn ? U.ax ^ 1 : U.ax) : 2); if (inn) ax ^= 1;   // v1.1.37: inside the hollow Earth down points out onto the shell
+    const c = b[1], dd = [w[0] - c[0], w[1] - c[1], w[2] - c[2]];
+    let ax = axisOf(dd, U.body === b[0] ? U.ax : 2);   // v1.1.37: inside the hollow Earth down points out onto the shell
     if (ax === 2 && U.ax === 2) { U.body = b[0]; return; } setFrame(b[0], c, ax); }
   U.tick = tick;
   function step(mx, mz) { if (!U.body || !P.onGround || flying || (!mx && !mz)) return; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
@@ -47009,8 +46972,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       try { return rd.apply(this, arguments); } finally { c.position.copy(cpos); c.quaternion.copy(cq); c.updateMatrixWorld(true); for (const [o, p, q] of sv) { o.position.copy(p); o.quaternion.copy(q); } } }; } catch (e) { ERR('rd0', e); }
   U.upright = true; U.cy = 0; let lcy = 0;
   // v1.1.39: a step up glides the view up over a few frames instead of jumping
-  try { const r0 = renderer.render; renderer.render = function (s, c) { if (c !== camera || s !== scene || Math.abs(U.cy) < 0.01 || U.body !== 'earth' || !window.__c320 || __c320.flat) { U.cy = 0; return r0.apply(this, arguments); } const t = performance.now(), dt = Math.min(0.1, (t - (lcy || t)) / 1000); lcy = t; U.cy *= Math.exp(-dt * 14);
-      const y0 = c.position.y; c.position.y += U.cy; c.updateMatrixWorld(true); try { return r0.apply(this, arguments); } finally { c.position.y = y0; c.updateMatrixWorld(true); } }; } catch (e) { ERR('cy', e); }
 })();
 
 /* GLX-C322 (v1.1.99): REAL GUNS. The Highland rifle and the Highland pistol use real scanned style models with full PBR textures
@@ -47136,7 +47097,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c324 = {err: null, meshed: 0, ms: 0, n: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); console.warn('c324', w, e); };
   const PH = /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof PERF !== 'undefined' && PERF), C = CH, PW = 3 * C + 1, NB = 72; let RN = PH ? 2 : 3; const RN0 = RN;
-  const E = () => window.__c320, F = () => window.__c321, on = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };
+  const E = () => window.__c320, F = () => window.__c321, on = () => { try { return !!(window.__ukHome && __ukHome()); } catch (_) { return false; } };
   const MS = [[[0, -1, 0], [1, 0, 0], [0, 0, 1]], [[0, 1, 0], [-1, 0, 0], [0, 0, 1]], [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
     [[1, 0, 0], [0, -1, 0], [0, 0, -1]], [[1, 0, 0], [0, 0, 1], [0, -1, 0]], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]];
   const QS = MS.map(m => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...m[0]), new THREE.Vector3(...m[1]), new THREE.Vector3(...m[2]))));
@@ -47151,10 +47112,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (let i = 0; i < SW; i++) for (let k = 0; k < SW; k++) { const lx = cx * C - 1 + i, lz = cz * C - 1 + k, ox = lx + 0.5 - piv[0], oz = lz + 0.5 - piv[2]; let gk = null;
       for (let j = 0; j < SL; j++) { const oy = sy + j + 0.5 - piv[1], wx = Math.round(m[0][0] * ox + m[1][0] * oy + m[2][0] * oz + piv[0] - 0.5), wy = Math.round(m[0][1] * ox + m[1][1] * oy + m[2][1] * oz + piv[1] - 0.5), wz = Math.round(m[0][2] * ox + m[1][2] * oy + m[2][2] * oz + piv[2] - 0.5);
         if (wx >= 0 && wx < W && wz < D && wz >= Z0 && wy >= 0) { continue; }   /* v1.1.96: surface owns Y0+ mesh; deep never dual-draws it. Y0 underside seal is __YB / bottom faces */
-        if (e.flat) { const ft = e.fearth && e.fearth.top; if (ft && wy - SEA > ft(wx, wz)) continue; const fb = e.earth(wx, wy, wz); if (fb) A[(i * SL + j) * SW + k] = fb; continue; }   /* v1.1.42: the flat Earth */
-        const dx = wx + 0.5 - c[0], dy = wy + 0.5 - c[1], dz = wz + 0.5 - c[2], r = Math.sqrt(dx * dx + dy * dy + dz * dz), a = Math.max(wy - SEA, r - R); if (a > 32) continue;
-        let b; if (e.tOn && a >= -40 && wy - SEA < r - R - 1) { b = e.terr(wx, wy, wz, dx, dy, dz, r); if (!b || b === T.WATER) continue; } else if (a < -40) { b = e.hol ? e.hol(wx, wy, wz, dx, dy, dz, r) : e.layer(r, 99, 0, wx, wy, wz); if (!b) continue; } else { if (!gk) gk = e.ground(wx, wy, wz, dx / r, dy / r, dz / r); if (a >= gk[0]) continue; b = e.layer(r, gk[0] - a, gk[1], wx, wy, wz); }
-        A[(i * SL + j) * SW + k] = b; } }
+        { const ft = e.fearth && e.fearth.top; if (ft && wy - SEA > ft(wx, wz)) continue; const fb = e.earth(wx, wy, wz); if (fb) A[(i * SL + j) * SW + k] = fb; } } }   /* v1.1.42: the flat Earth (v1.2.24: the round ball branch is removed) */
     cache.set(key, A); if (cache.size > (PH ? 1500 : 3000)) cache.delete(cache.keys().next().value); return A; }
   U.cache = cache;
   // v1.1.38: missing slabs are generated a few at a time within the frame budget; a chunk is drawn once all its slabs are ready
@@ -47181,7 +47139,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     if (!g) { meshes.set(k, null); return; } blockGroup.remove(g); g.position.set(cx * C - C - piv[0], y0 - piv[1], cz * C - C - piv[2]); root.add(g); meshes.set(k, g); U.meshed++; U.ms = Math.round(performance.now() - t0); (U.mt = U.mt || []).push([U.ms, U.fm]); if (U.mt.length > 400) U.mt.shift(); }
   U.mesh = mesh;
   setInterval(() => { try { const f = F(), e = E(); if (typeof started === 'undefined' || !started || DIM.cur || !on() || !f || !e) { root.visible = false; return; }
-      const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
+      const w = f.pw(); if (w.y - SEA > 1400 || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
       const ax = f.ax, piv = ax === 2 ? [0, 0, 0] : f.piv.slice(), pk = ax + ':' + piv.join();
       if (pk !== fPiv) { dropAll(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
       { const vd = (typeof vf === 'function' ? vf() : 96), hh = Math.max(0, P.y - SEA - 30); RN = e.flat ? Math.min(PH ? 7 : 16, Math.max(RN0, Math.ceil(Math.max(vd, (scene.fog && scene.fog.far < 1e5 ? scene.fog.far : 0), (window.__c346 && __c346.R) || 0) / C) + 1)) : RN0; if (e.flat && P.y < SEA - 30) RN = Math.min(RN, PH ? 3 : 5); }   /* v1.1.81: underground only the chunks round you are built */
@@ -47291,40 +47249,21 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       return r; }; } catch (e) { ERR('wrap', e); } }, 4100);
 })();
 // (t687u) no unbreakable floor under Glencraft: the bottom layer of the map can be dug like any other block, and the planet goes on below it
-(function c328b() { try { const cm = canMine; canMine = function (b, y) { try { if (y === 0 && b && b !== T.WATER && b !== T.LAVA && window.__c317 && __c317.on() && !DIM.cur) return HARD[b] !== undefined || true; } catch (_) {} return cm.apply(this, arguments); }; } catch (e) { window.__c328 && (__c328.err = __c328.err || 'cm ' + e); } })();
+(function c328b() { try { const cm = canMine; canMine = function (b, y) { try { if (y === 0 && b && b !== T.WATER && b !== T.LAVA && window.__ukHome && __ukHome() && !DIM.cur) return HARD[b] !== undefined || true; } catch (_) {} return cm.apply(this, arguments); }; } catch (e) { window.__c328 && (__c328.err = __c328.err || 'cm ' + e); } })();
 
 /* GLX-C330 (v1.1.35): NO PHANTOM BANGS. Explosion and thunder sounds only play for something real near you. The saucer leaving at dawn used to
    boom wherever you were (fixed in C246); on top of that, while you are in space or inside Agartha a boom only plays if a real blast just
    happened next to you (your bomb, a creeper, your gun), and storm thunder never plays there. */
 (function c330() {
   const U = window.__c330 = {blocked: 0, err: null};
-  const away = () => { try { if (window.__c317 && __c317.on() && (MXd() > 0)) return 'space'; } catch (_) {} try { if (window.__c332 && __c332.where()) return 'deep'; } catch (_) {} try { if (window.__c295 && __c295.inside === true) return 'agartha'; if (P.z < 0 && P.y < SEA - 6) return 'tunnel'; } catch (_) {} return ''; };
+  const away = () => { try { if (window.__ukHome && __ukHome() && (MXd() > 0)) return 'space'; } catch (_) {} try { if (window.__c332 && __c332.where()) return 'deep'; } catch (_) {} try { if (window.__c295 && __c295.inside === true) return 'agartha'; if (P.z < 0 && P.y < SEA - 6) return 'tunnel'; } catch (_) {} return ''; };
   function MXd() { try { const c = __c320.E(), R = 5000; return Math.max(Math.abs(P.x - c[0]), Math.abs(P.y - c[1]), Math.abs(P.z - c[2])) - R - 300; } catch (_) { return 1; } }
   let gunT = 0, seen = 0; const cnt = () => ((window.__c119 && __c119.booms) || 0) + ((window.__c116 && __c116.booms) || 0);
   try { const gb = gunBang; gunBang = function () { gunT = performance.now(); return gb.apply(this, arguments); }; } catch (e) { U.err = 'gun ' + e; }
   try { const sf = sfx; sfx = function (k) { if (k === 'boom' || k === 'thunder') { const w = away(); if (w) { const c = cnt(), real = k === 'boom' && (c !== seen || performance.now() - gunT < 400); seen = c; if (!real) { U.blocked++; U.last = k + ' ' + w; return; } } } return sf.apply(this, arguments); }; } catch (e) { U.err = 'sfx ' + e; }
 })();
 
-/* GLX-C331 (v1.1.35): NO FLAT SEA PICTURE IN YOUR WAY. The painted sea sheet round the island (C320 and C326) is only a stand-in for water
-   far away. Near you the real block water and land are drawn by the chunk mesher, so the sheet now has a hole cut round you the size of the
-   near block area: you see the real water, the real sea bed and the real coast when you stand at the shore, swim or fly low. */
-(function c331() {
-  const U = window.__c331 = {err: null, n: 0};
-  const PH = /Android|iPhone|iPad/i.test(navigator.userAgent) || (typeof PERF !== 'undefined' && PERF), RN = PH ? 2 : 3;
-  const uP = {value: new THREE.Vector3()}, uN = {value: new THREE.Vector3(0, 1, 0)}, uR = {value: 0};
-  function hook(m) { if (!m || m.userData.c331) return; m.userData.c331 = 1; U.n++; const ob = m.onBeforeCompile;
-    m.onBeforeCompile = function (sh) { if (ob) ob.apply(this, arguments); sh.uniforms.uP331 = uP; sh.uniforms.uN331 = uN; sh.uniforms.uR331 = uR;
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vW331;').replace('#include <project_vertex>', '#include <project_vertex>\nvW331 = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vW331; uniform vec3 uP331; uniform vec3 uN331; uniform float uR331;')
-        .replace('void main() {', 'void main() {\n vec3 d331 = vW331 - uP331; d331 -= dot(d331, uN331) * uN331; if (length(d331) < uR331) discard;'); };
-    m.needsUpdate = true; }
-  const tick = () => { try { if (typeof scene === 'undefined' || (window.__c320 && __c320.flat)) return; /* v1.1.52: UK flat world has no sea sheets to cut */ for (const n of ['sea320', 'floor320', 'seaBall320', 'floorBall320']) { const o = scene.getObjectByName(n); if (o) [].concat(o.material).forEach(hook); }   // v1.1.37: round Earth sheets too
-      const w = window.__c321 && __c321.pw ? __c321.pw() : {x: P.x, y: P.y, z: P.z}, c = __c320.E(), d = [w.x - c[0], w.y - c[1], w.z - c[2]], dl = Math.hypot(d[0], d[1], d[2]) || 1;
-      uP.value.set(w.x, w.y, w.z); uN.value.set(d[0] / dl, d[1] / dl, d[2] / dl); const alt = __c320.alt(w.x, w.y, w.z);
-      uR.value = alt < 140 ? RN * CH - CH / 2 - 1 : 0; } catch (e) { if (!U.err) U.err = String(e && e.stack || e).slice(0, 300); } };
-  try { const rd = renderer.render; renderer.render = function (s) { if (s === scene) tick(); return rd.apply(this, arguments); }; } catch (e) { U.err = 'wrap ' + e; }
-})();
-
+/* v1.2.24: GLX-C331 removed (obsolete) */
 /* GLX-C371 (v1.1.72, item 50): no more see-through rock below Y 0. The bottom layer of the world never drew its underside, so from
    a cave below Y 0 you could look straight up through the stone into every cave and the sky above. The world now draws the bottom
    face of a Y 0 block whenever the space under it is open, and redraws it when you dig there. */
@@ -47428,7 +47367,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         const cs = n0[1], sn = n0[2]; return ll0(nx, ny * cs + nz * sn, -ny * sn + nz * cs); } catch (e) { ERR('ll', e); } return ll0(nx, ny, nz); };
   } catch (e) { ERR('ll0', e); }
   // ---------- 3. Agartha teleport ----------
-  function goAgartha() { try { if (DIM.cur) { toast('Go back to the overworld first'); return; } if (!(window.__c317 && __c317.on()) || !window.__c332 || !__c332.SH()) { toast('Agartha is not in this world. Reset world to get the big map'); return; }
+  function goAgartha() { try { if (DIM.cur) { toast('Go back to the overworld first'); return; } if (!(window.__ukHome && __ukHome()) || !window.__c332 || !__c332.SH()) { toast('Agartha is not in this world. Reset world to get the big map'); return; }
       try { if (window.__c309 && __c309.on) __c309.on = false; } catch (_) {} window.__spaceHud = null; if (__c332.toCity()) { try { setPause(false); } catch (_) {} const ov = document.querySelector('[data-testid=tp-x]'); if (ov) ov.parentNode.parentNode.style.display = 'none'; toast('Agartha'); } } catch (e) { ERR('tp', e); } }
   U.go = goAgartha;
   const add = () => { const x = document.querySelector('[data-testid=tp-x]'); if (!x || document.querySelector('[data-testid=tp-agartha]')) return !!x; const b = document.createElement('button'); b.className = 'btn'; b.textContent = 'Agartha'; b.dataset.testid = 'tp-agartha'; b.style.cssText = x.style.cssText.replace(/alt/, '');
@@ -47461,7 +47400,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c339 = {err: null, px: 0, tex: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const K = U.K = 300, LAT0 = U.LAT0 = 57.45, LON0 = U.LON0 = -3.75, RD = U.RD = 1e9, WT = 0, WH = 0, IR = U.IR = 2600, OR = U.OR = 3100, UZ = 885;
-  const E = () => window.__c320, big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };
+  const E = () => window.__c320, big = () => { try { return !!(window.__ukHome && __ukHome()); } catch (_) { return false; } };
   let PX = 0, PZ = 0; const e3flat = () => { const e = E(); return !!(e && e.flat); };
   // map spot -> latitude and longitude (polar map, magnified round Glencraft)
   function fll(x, z) { const lat = LAT0 - (z - (D >> 1)) / K, lon = LON0 + (x - (W >> 1)) / (K * Math.cos(lat * Math.PI / 180));
@@ -47478,9 +47417,10 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (a >= -40) { const g = col(x, z); if (a < g[0]) return e.layer(e.R, g[0] - a, g[1], x, y, z); return a < 0 ? T.WATER : 0; }
       return DS(); /* v1.1.84: deeper comes from earth/deep_world.js */ } catch (er) { ERR('fe', er); return 0; } }
   // v1.1.52: the old far sea disc, ice ring mesh and painted land plane are deleted (the real block sea and land are drawn by earth_chunk_streaming)
-  setInterval(() => { try { const e = E(); if (!e) return; const f = big(); if (f) { PX = W >> 1; PZ = -400; e.FP = [PX, PZ]; U.px = PX; }
-      if (e.flat !== f) { e.flat = f; e.fll = fll; e.fearth = fearth; GC.clear(); try { e.edgeClr && e.edgeClr(); } catch (_) {} try { __c324.cache.clear(); } catch (_) {} e.dirty = 1; }
-      const a = typeof started !== "undefined" && started && f; try { const b = __c317.FAR.getObjectByName('earth326'); if (b) b.material.visible = !f; if (U.hid !== f || (U.hk = (U.hk || 0) + 1) % 8 === 0) { U.hid = f; const NM = U.NM || (U.NM = new Set(['sea320', 'floor320', 'seaBall320', 'floorBall320', 'dome309'])); scene.traverse(o => { if (o.material && NM.has(o.name)) o.material.visible = !f; }); } if (typeof seaRing !== 'undefined' && seaRing) seaRing.children.forEach(o => { o.material.visible = !f; }); } catch (_) {}
+  let FA; const applyF = (e, f) => { FA = f; if (f) { PX = W >> 1; PZ = -400; e.FP = [PX, PZ]; U.px = PX; } GC.clear(); try { e.edgeClr && e.edgeClr(); } catch (_) {} try { __c324.cache.clear(); } catch (_) {} e.dirty = 1; U.flips = (U.flips || 0) + 1; };
+  try { const e0 = E(); if (e0) { e0.fll = fll; e0.fearth = fearth; Object.defineProperty(e0, 'flat', {configurable: true, enumerable: true, get() { if (window.__c317mesh && FA !== undefined) return FA; const f = big(); if (f !== FA) applyF(this, f); return f; }, set(_) {}}); } } catch (e) { ERR('flat', e); }   /* v1.2.24: live flat flag (held through a planet mesh build, as the old timer did) */
+  setInterval(() => { try { const e = E(); if (!e) return; const f = e.flat; if (f) { PX = W >> 1; PZ = -400; e.FP = [PX, PZ]; U.px = PX; }
+      const a = typeof started !== "undefined" && started && f; try { if (U.hid !== f || (U.hk = (U.hk || 0) + 1) % 8 === 0) { U.hid = f; const NM = U.NM || (U.NM = new Set(['dome309'])); scene.traverse(o => { if (o.material && NM.has(o.name)) o.material.visible = !f; }); } if (typeof seaRing !== 'undefined' && seaRing) seaRing.children.forEach(o => { o.material.visible = !f; }); } catch (_) {}
       if (a && !U.safe) { U.safe = 1; const w = window.__c321 ? __c321.pw() : P, off = !(w.x >= 0 && w.x < W && w.z >= 0 && w.z < D); if (off && w.y < SEA - 1500 && !(window.__c332 && __c332.where() === 'city')) { try { __c321.leave(); } catch (_) {} P.x = (W >> 1) + 0.5; P.z = (D >> 1) + 0.5; P.y = groundTop(W >> 1, D >> 1) + 1; P.vy = 0; P.fallTop = null; U.moved = 1; } } } catch (er) { ERR('loop', er); } }, 250);
 })();
 
@@ -47985,9 +47925,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function solve(a, S, T, grip, roll, o) { O = o || null; const ud = a.userData; if (U.bf && U.bt < 0.2 && ud.Ts) { const e = Math.min(1, U.bt / 0.2); ud.bs = e * e * (3 - 2 * e); T = ud.Ts.clone().lerp(T, ud.bs); } else ud.bs = 1; if (ud.cbn > 0 && ud.Tc) { const e = 1 - ud.cbn / 15, s2 = e * e * (3 - 2 * e); T = ud.Tc.clone().lerp(T, s2); if (ud.bs >= 1 && ud.Qc) { ud.bs = s2; ud.Qs = ud.Qc; } ud.cbn--; } const side = a.userData.side, p = a.userData.p, d = V3(0, 0, 0).subVectors(T, S); let L = d.length(); const mx = LU + LF - 0.004; U.reach = Math.max(U.reach, L);
     if (L > mx) { S = T.clone().addScaledVector(d, -mx / L); d.multiplyScalar(mx / L); L = mx; } const dir = d.clone().normalize();
     const ca = Math.max(-1, Math.min(1, (LU * LU + L * L - LF * LF) / (2 * LU * L))), sa = Math.sqrt(1 - ca * ca);
-    const pole = V3(side * 0.7, -1, 0.35); if (O) pole.addScaledVector(O.z, -0.5).addScaledVector(O.y, -0.25); let perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))); if (!(perp.lengthSq() > 1e-6)) { perp = (a.userData.pp || V3(side, -1, 0)).clone(); perp.sub(dir.clone().multiplyScalar(perp.dot(dir))); } if (!(perp.lengthSq() > 1e-9)) perp = V3(0, -1, 0); perp.normalize(); a.userData.pp = perp.clone(); if (O && sa > 1e-3) { /* v1.2.22: pick the elbow on its circle so the forearm lines up with the hand (wrist near straight), the elbow stays low and on its own side, and it does not jump between frames */ const u0 = perp.clone(), v0 = V3(0, 0, 0).crossVectors(dir, u0).normalize(), lim = Math.min(T.y, S.y) - 0.04, pv = a.userData.pp0, E2 = V3(0, 0, 0), pp = V3(0, 0, 0), fo = V3(0, 0, 0); const cost = t => { pp.copy(u0).multiplyScalar(Math.cos(t)).addScaledVector(v0, Math.sin(t)); E2.copy(S).addScaledVector(dir, LU * ca).addScaledVector(pp, LU * sa); fo.subVectors(T, E2).normalize(); let c = 1 - fo.dot(O.y) + 4 * Math.max(0, E2.y - lim) + 3 * Math.max(0, 0.05 - side * E2.x);  return c; }; let bt = 0, bc = 1e9; for (let i = 0; i < 36; i++) { const t = i / 36 * Math.PI * 2, c = cost(t); if (c < bc) { bc = c; bt = t; } } let lo = bt - Math.PI / 36, hi = bt + Math.PI / 36; for (let i = 0; i < 12; i++) { const m1 = lo + (hi - lo) * 0.382, m2 = lo + (hi - lo) * 0.618; if (cost(m1) < cost(m2)) hi = m2; else lo = m1; } cost((lo + hi) / 2); perp = pp.clone(); if (pv) { const q0 = pv.clone().addScaledVector(dir, -pv.dot(dir)); if (q0.lengthSq() > 1e-8) { q0.normalize(); const ang = Math.acos(Math.max(-1, Math.min(1, q0.dot(perp)))), mxs = 0.15; if (ang > mxs) { const ax = V3(0, 0, 0).crossVectors(q0, perp); if (ax.lengthSq() < 1e-10) ax.copy(dir); ax.normalize(); perp = q0.applyAxisAngle(ax, mxs); } } } } /* the elbow turns round its circle at most 0.15 rad a frame */ a.userData.pp0 = perp.clone(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
+    const pole = V3(side * 0.7, -1, 0.35); if (O) pole.addScaledVector(O.z, -0.5).addScaledVector(O.y, -0.25); let perp = pole.sub(dir.clone().multiplyScalar(pole.dot(dir))); if (!(perp.lengthSq() > 1e-6)) { perp = (a.userData.pp || V3(side, -1, 0)).clone(); perp.sub(dir.clone().multiplyScalar(perp.dot(dir))); } if (!(perp.lengthSq() > 1e-9)) perp = V3(0, -1, 0); perp.normalize(); a.userData.pp = perp.clone(); if (O && sa > 1e-3) { /* v1.2.22: pick the elbow on its circle so the forearm lines up with the hand (wrist near straight), the elbow stays low and on its own side, and it does not jump between frames */ const u0 = perp.clone(), v0 = V3(0, 0, 0).crossVectors(dir, u0).normalize(), lim = Math.min(T.y, S.y) - 0.04, pv = a.userData.pp0, E2 = V3(0, 0, 0), pp = V3(0, 0, 0), fo = V3(0, 0, 0); const cost = t => { pp.copy(u0).multiplyScalar(Math.cos(t)).addScaledVector(v0, Math.sin(t)); E2.copy(S).addScaledVector(dir, LU * ca).addScaledVector(pp, LU * sa); fo.subVectors(T, E2).normalize(); let c = 1 - fo.dot(O.y) + (side > 0 && U.rpP && /^(release|mag out|insert|return)$/.test(U.rph || '') ? 0 : 1) * (4 * Math.max(0, E2.y - lim) + 3 * Math.max(0, 0.05 - side * E2.x)) /* v1.2.24: during a pistol reload the right elbow is free to line the forearm up with the tipped grip */;  return c; }; let bt = 0, bc = 1e9; for (let i = 0; i < 36; i++) { const t = i / 36 * Math.PI * 2, c = cost(t); if (c < bc) { bc = c; bt = t; } } let lo = bt - Math.PI / 36, hi = bt + Math.PI / 36; for (let i = 0; i < 12; i++) { const m1 = lo + (hi - lo) * 0.382, m2 = lo + (hi - lo) * 0.618; if (cost(m1) < cost(m2)) hi = m2; else lo = m1; } cost((lo + hi) / 2); perp = pp.clone(); if (pv) { const q0 = pv.clone().addScaledVector(dir, -pv.dot(dir)); if (q0.lengthSq() > 1e-8) { q0.normalize(); const ang = Math.acos(Math.max(-1, Math.min(1, q0.dot(perp)))), mxs = 0.15; if (ang > mxs) { const ax = V3(0, 0, 0).crossVectors(q0, perp); if (ax.lengthSq() < 1e-10) ax.copy(dir); ax.normalize(); perp = q0.applyAxisAngle(ax, mxs); } } } } /* the elbow turns round its circle at most 0.15 rad a frame */ a.userData.pp0 = perp.clone(); const E = S.clone().add(dir.clone().multiplyScalar(LU * ca)).add(perp.multiplyScalar(LU * sa));
     aimLimb(p.up, S, E); p.el.position.copy(E); a.userData.E0 = E.clone(); aimLimb(p.fo, E, T); const fdir = V3(0, 0, 0).subVectors(T, E).normalize(); p.cuff.position.copy(E).addScaledVector(fdir, LF * 0.05); p.cuff.quaternion.copy(p.fo.quaternion);
-    p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
+    p.h.position.copy(T); if (O) { hb.makeBasis(O.x, O.y, O.z); p.h.quaternion.setFromRotationMatrix(hb); /* v1.2.24: while the support hand only travels (reach, release, taking the dropped magazine, return) and, a little, on the rifle bolt (grab, cycle) the wrist bend is capped, the hand turns toward the forearm about the wrist */ if (side < 0 && window.__wlimOn !== 0 && /^(reach|release|mag out|return|grab|cycle)$/.test(U.rph || '')) { const fy = V3(0, 1, 0).applyQuaternion(p.fo.quaternion), hy = V3(0, 1, 0).applyQuaternion(p.h.quaternion), an = fy.angleTo(hy), LIM = /^(grab|cycle)$/.test(U.rph) ? (window.__wlimC || 0.92) : (window.__wlim || 0.87); if (an > LIM) { const q = new THREE.Quaternion().setFromUnitVectors(hy, fy); p.h.quaternion.premultiply(new THREE.Quaternion().slerp(q, (an - LIM) / an)); U.wclamp = (U.wclamp || 0) + 1; } } if (side > 0 && U.rpP && /^(release|mag out|insert|return)$/.test(U.rph || '')) { /* v1.2.24: pistol reload, right wrist bend capped near 52 degrees */ const fy = V3(0, 1, 0).applyQuaternion(p.fo.quaternion), hy = V3(0, 1, 0).applyQuaternion(p.h.quaternion), an = fy.angleTo(hy), LIM = 0.9; if (an > LIM) { const q = new THREE.Quaternion().setFromUnitVectors(hy, fy); p.h.quaternion.premultiply(new THREE.Quaternion().slerp(q, (an - LIM) / an)); } } } else { p.h.quaternion.copy(p.fo.quaternion); p.h.rotateY(roll || 0); }
     const cu = O && O.c; p.h.userData.f.forEach(([f, k], i) => { const g2 = cu ? cu[i] : grip; f.rotation.x = 0.2 + g2 * 1.45; k.rotation.x = 0.15 + g2 * 1.75; });
     const th = p.h.userData.th, tg = O ? (O.t != null ? O.t : 1) : grip * 0.6; if (th) { th.rotation.set(0.85 + tg * 0.4, side * 0.45, side * (0.7 + tg * 0.4)); th.userData.k.rotation.set(0.15 + tg * 0.65, 0, 0); if (O && O.tool) { /* v1.2.22: on a tool handle the thumb wraps round the far side over the fingers (a closed fist) instead of sticking out */ const W = window.__thT || [0.4, 0.45, 0.3, 0.2]; th.rotation.set(W[0], side * W[1], side * W[2]); th.userData.k.rotation.set(W[3], 0, 0); } } try { const hq = p.h.quaternion; if (!isFinite(hq.x + hq.y + hq.z + hq.w)) hq.copy(p.fo.quaternion); U.wrist = V3(0, 1, 0).applyQuaternion(p.fo.quaternion).angleTo(V3(0, 1, 0).applyQuaternion(hq)); } catch (_) {} if (ud.bs < 1 && ud.Qs) p.h.quaternion.slerpQuaternions(ud.Qs, p.h.quaternion.clone(), ud.bs); ud.Tl = T.clone(); ud.Ql = p.h.quaternion.clone(); }
   // v1.1.55: per item grips - the hand is turned so the palm faces what it holds, the wrist sits back from the grip point and each finger curls on its own
@@ -48017,7 +47957,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const rw = rp >= 0 ? Math.sin(Math.min(1, rp) * Math.PI) : 0; if (g && rw && !VM) { hand.rotation.z += 0.5 * rw; hand.rotation.x += 0.25 * rw; hand.position.y -= 0.03 * rw; }
     hand.updateMatrixWorld(true);
     const SR = V3(0.2, -0.36, 0.02), SL = V3(-0.17, -0.34, -0.04), R = rig.userData.R, L = rig.userData.L;
-    const isP = g && g.userData.gun === IT.PISTOL;
+    const isP = g && g.userData.gun === IT.PISTOL; U.rpP = isP ? 1 : 0;
     let TR; if (g) { TR = local(g, V3(0, 0, 0)); TR.y -= isP ? 0.07 : 0.03; if (isP) TR.z += 0.03; { try { let lb = g.userData.__lb; if (lb && g.userData.__lbc !== g.userData.c322) lb = null; if (!lb) { g.userData.__lbc = g.userData.c322; lb = new THREE.Box3(); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), mm = new THREE.Matrix4(); g.traverse(m => { let vis = true; for (let x = m; x && x !== g; x = x.parent) if (!x.visible) vis = false; if (m.isMesh && m.geometry && vis) { mm.multiplyMatrices(inv, m.matrixWorld); lb.union(gbox(m.geometry).applyMatrix4(mm)); } }); g.userData.__lb = lb; }
           const fwL = g.userData.muzzle ? g.worldToLocal(g.userData.muzzle.getWorldPosition(V3(0, 0, 0))).sub(lb.getCenter(V3(0, 0, 0))) : V3(0, 0, -1), back = fwL.z < 0 ? lb.max.z : lb.min.z, dz = (lb.max.z - lb.min.z) * (fwL.z < 0 ? -1 : 1);
           TR = camera.worldToLocal(g.localToWorld(V3((lb.min.x + lb.max.x) / 2, lb.min.y + (lb.max.y - lb.min.y) * (isP ? 0.3 : 0.22), back + dz * (isP ? 0.22 : 0.3)))); if (isP) { TR.y -= 0.07 * k; TR.z += 0.05 * k; } } catch (_) {} } } else if (held.children.length) { TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03; } else { TR = local(held, V3(0, 0, 0)); TR.y -= 0.02; }
@@ -48031,8 +47971,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     let two = false; if (g) { two = !isP || k > 0.3 || rp >= 0 || (L.userData.cbn > 0); { /* v1.2.22: the support hand comes in from below and leaves downwards (about 0.3 s) instead of popping in and out at the grip */ const lk0 = U.Lk == null ? (two ? 1 : 0) : U.Lk; U.Lk = lk0 + ((two ? 1 : 0) - lk0) * Math.min(1, dt * (rp >= 0 ? 14 : 6)); if (U.Lk > 0.995) U.Lk = 1; if (U.Lk < 0.01) U.Lk = 0; two = U.Lk > 0; } if (two) { let TL;
         if (!isP) { const mz = g.userData.muzzle ? local(g.userData.muzzle, V3(0, 0, 0)) : TR.clone().add(V3(0, 0, -0.6)); TL = null; for (let f = 0.55; f >= 0.15; f -= 0.05) { const c = TR.clone().lerp(mz, f); c.y -= 0.006; if (c.distanceTo(SL) <= LU + LF - 0.01) { TL = c; break; } } if (!TL) { TL = TR.clone().lerp(mz, 0.15); TL.y -= 0.006; } }
         else { TL = TR.clone().add(V3(-0.035, -0.02, 0.015)); }
-        { const S = window.__gs1222, base = S && S.af && U.GA ? S.af(g, camera, isP ? 'sup' : 'fore') : null; if (!base) { if (rp >= 0 && rw && isP) TL.add(V3(-0.05 * rw, -0.22 * rw, 0.06 * rw)); U.rph = 'old'; } else { TL = base; const ph = S.rl(isP, rp); if (ph.phase === "idle" && U.rph && U.rph !== "idle" && U.rph !== "old" && U.rph !== "return" && L.userData.Tl) { /* v1.2.22: a reload cancelled half way eases the hand back instead of snapping */ L.userData.Tc = L.userData.Tl.clone(); L.userData.Qc = L.userData.Ql ? L.userData.Ql.clone() : null; L.userData.cbn = 15; } U.rph = ph.phase; U.rw = ph.w || 0; U.wl = 0; if (ph.w > 0) { let tgt; if (isP) { const well = S.af(g, camera, 'well') || TL.clone().add(V3(0, -0.08, 0)); { const bs = ph.belt + ph.well; tgt = well.clone().addScaledVector(fw, window.__kf != null ? __kf : 0.025).lerp(V3(-0.2, -0.44, -0.12), Math.min(1, ph.belt)); U.wl = (ph.well || 0) * ph.w; } } else { const b = S.af(g, camera, 'bolt'); tgt = b ? b.clone().addScaledVector(fw, -0.05 * (ph.pull || 0)).addScaledVector(V3(0, 1, 0), 0.016 * (ph.pull || 0)) : TL; } TL = TL.clone().lerp(tgt, ph.w); if (!isP) TL.add(V3(0.04, -0.01, 0).multiplyScalar(Math.sin(Math.PI * ph.w))); /* v1.2.22: the hand swings out to the right of the stock on its way to the bolt, not through it */ } } }
-        const GA2 = U.GA; let OL0; if (GA2) { if (isP) { const wl = (U.rph && U.rph !== 'idle' ? (U.wl || 0) : 0), z = GA2.rt.clone().lerp(GA2.up, wl).normalize(), x = GA2.up.clone().negate(); const KW = window.__kw || [-0.3, 0.018]; OL0 = grip(TL, z, GA2.fw.clone().addScaledVector(GA2.up, 0.6 * (1 - wl)).addScaledVector(GA2.rt, KW[0] * wl).addScaledVector(GA2.up, (window.__ku || 0) * wl), [1.0, 1.05, 1.1, 1.12].map(c => c * (1 - 0.75 * wl)), /* flat hand pushing the magazine up, fingers open */ 0.03 - KW[1] * wl * 0 + KW[1] * wl - 0.012 * wl); } else { const bw = U.rph && U.rph !== 'idle' ? (U.rw || 0) : 0, z = GA2.up.clone().multiplyScalar(Math.cos(Math.PI * bw)).addScaledVector(GA2.fw, Math.sin(Math.PI * bw)).normalize(), x = GA2.fw.clone().negate(); OL0 = grip(TL, z, V3(0, 0, 0).crossVectors(GA2.up, x).addScaledVector(GA2.fw, (window.__kr != null ? __kr : 0.45) * (1 - bw) + (window.__kb != null ? __kb : 0) * bw), [1.05, 1.1, 1.15, 1.2].map(c => c * (1 - 0.6 * Math.sin(Math.PI * bw))), 0.03); } /* v1.2.22: on the bolt the left hand turns over (palm up under the stock to palm down on the bolt knob), fingers keep pointing across the gun, so it no longer pushes up through the receiver */ } else OL0 = isP ? grip(TL, V3(1, 0.15, 0), V3(0, -0.35, 0).addScaledVector(fw, 0.75), [0.9, 0.95, 1, 1]) : grip(TL, V3(0.05, 1, 0.1), V3(0.85, 0.2, 0).addScaledVector(fw, -0.25), [1.0, 1.08, 1.12, 1.18], 0.026); if (O) O.t = isP ? 0.85 : 0.95; { const e = U.Lk, s3 = e * e * (3 - 2 * e); if (s3 < 1) OL0 = OL0.clone().add(V3(-0.06, -0.3, 0.04)).lerp(OL0, s3); } solve(L, SL, OL0, 0.9, 0.5, O); } }
+        { const S = window.__gs1222, base = S && S.af && U.GA ? S.af(g, camera, isP ? 'sup' : 'fore') : null; if (!base) { if (rp >= 0 && rw && isP) TL.add(V3(-0.05 * rw, -0.22 * rw, 0.06 * rw)); U.rph = 'old'; } else { TL = base; const ph = S.rl(isP, rp); if (ph.phase === "idle" && U.rph && U.rph !== "idle" && U.rph !== "old" && U.rph !== "return" && L.userData.Tl) { /* v1.2.22: a reload cancelled half way eases the hand back instead of snapping */ L.userData.Tc = L.userData.Tl.clone(); L.userData.Qc = L.userData.Ql ? L.userData.Ql.clone() : null; L.userData.cbn = 15; } U.rph = ph.phase; U.rw = ph.w || 0; U.wl = 0; if (ph.w > 0) { let tgt; if (isP) { const well = S.af(g, camera, 'well') || TL.clone().add(V3(0, -0.08, 0)); { const bs = ph.belt + ph.well; tgt = well.clone().addScaledVector(fw, window.__kf != null ? __kf : 0.025).lerp(V3(-0.2, -0.44, -0.12), Math.min(1, ph.belt)); U.wl = (ph.well || 0) * ph.w; } } else { const b = S.af(g, camera, 'bolt'); tgt = b ? b.clone().addScaledVector(fw, -0.05 * (ph.pull || 0)).addScaledVector(V3(0, 1, 0), 0.016 * (ph.pull || 0)) : TL; } TL = TL.clone().lerp(tgt, ph.w); if (!isP) TL.add(V3(0.06, -0.01, -0.02).multiplyScalar(Math.pow(Math.sin(Math.PI * ph.w), 0.3))); /* v1.2.24: a wider, slightly lower and forward arc on the way to the bolt so the fingertips do not clip the receiver */ /* v1.2.22: the hand swings out to the right of the stock on its way to the bolt, not through it */ } } }
+        const GA2 = U.GA; let OL0; if (GA2) { if (isP) { const wl = (U.rph && U.rph !== 'idle' ? (U.wl || 0) : 0), z = GA2.rt.clone().lerp(GA2.up, wl).normalize(), x = GA2.up.clone().negate(); const KW = window.__kw || [-0.3, 0.018]; OL0 = grip(TL, z, GA2.fw.clone().addScaledVector(GA2.up, 0.6 * (1 - wl)).addScaledVector(GA2.rt, KW[0] * wl).addScaledVector(GA2.up, (window.__ku || 0) * wl), [1.0, 1.05, 1.1, 1.12].map(c => c * (1 - 0.75 * wl)), /* flat hand pushing the magazine up, fingers open */ 0.03 - KW[1] * wl * 0 + KW[1] * wl - 0.012 * wl); } else { const bw = U.rph && U.rph !== 'idle' ? (U.rw || 0) : 0, z = GA2.up.clone().multiplyScalar(Math.cos(Math.PI * bw)).addScaledVector(GA2.fw, Math.sin(Math.PI * bw)).normalize(), x = GA2.fw.clone().negate(); OL0 = grip(TL, z, V3(0, 0, 0).crossVectors(GA2.up, x).addScaledVector(GA2.fw, (window.__kr != null ? __kr : 0.45) * (1 - bw) + (window.__kb != null ? __kb : 0) * bw), [1.05, 1.1, 1.15, 1.2].map(c => c * (1 - (window.__ko != null ? __ko : 0.6) * Math.sin(Math.PI * bw) - (window.__kc != null ? __kc : 0.3) * bw)) /* v1.2.24: fingers a touch less curled on the bolt knob */, 0.03); } /* v1.2.22: on the bolt the left hand turns over (palm up under the stock to palm down on the bolt knob), fingers keep pointing across the gun, so it no longer pushes up through the receiver */ } else OL0 = isP ? grip(TL, V3(1, 0.15, 0), V3(0, -0.35, 0).addScaledVector(fw, 0.75), [0.9, 0.95, 1, 1]) : grip(TL, V3(0.05, 1, 0.1), V3(0.85, 0.2, 0).addScaledVector(fw, -0.25), [1.0, 1.08, 1.12, 1.18], 0.026); if (O) O.t = isP ? 0.85 : 0.95; { const e = U.Lk, s3 = e * e * (3 - 2 * e); if (s3 < 1) OL0 = OL0.clone().add(V3(-0.06, -0.3, 0.04)).lerp(OL0, s3); } solve(L, SL, OL0, 0.9, 0.5, O); } }
     L.visible = !!two; U.two = two ? 1 : 0; U.hf = {p: hand.position.clone(), q: hand.quaternion.clone(), s: hand.scale.clone()}; if (!two) L.userData.Tl = null; }
   // first person torso: your stomach, belt and kilt joined to the legs when you look down
   let torso = null;
@@ -49381,7 +49321,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { const s0 = setB; setB = function (x, y, z) { if (U.wall(x, y, z)) return; return s0.apply(this, arguments); }; } catch (e) { ERR('setB', e); }
   // if anything ever puts you past the wall inside the band, you are pushed back in
   const M = 1.5;
-  try { const up = updatePlayer; updatePlayer = function () { const r = up.apply(this, arguments); try { if (live() && started && band(P.y)) { const w = window.__c321 && __c321.pW ? __c321.pW(P.x, P.y, P.z) : [P.x, P.y, P.z];
+  try { const up = updatePlayer; updatePlayer = function () { const r = up.apply(this, arguments); try { if (live() && started && band(P.y) && !(window.__tbox && __tbox.inside && __tbox.S && __tbox.S.on)) { const w = window.__c321 && __c321.pW ? __c321.pW(P.x, P.y, P.z) : [P.x, P.y, P.z];
         if (Math.abs(w[0] - P.x) + Math.abs(w[1] - P.y) + Math.abs(w[2] - P.z) < 1 && out(Math.floor(P.x), Math.floor(P.z))) { P.x = Math.max(U.X0 + M, Math.min(U.X1 - M, P.x)); P.z = Math.max(U.Z0 + M, Math.min(U.Z1 - M, P.z)); U.pushed++; } } } catch (e) { ERR('upd', e); } return r; }; } catch (e) { ERR('upd0', e); }
   // the frosty ice wall you can see
   let G = null;
@@ -49940,7 +49880,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (X < 0 || Z < 0 || X >= W || Z >= D || Y < 1) continue; const v = world[idx(X, Y, Z)]; if (v === T.LAVA) continue;
       if (v === T.AIR || fluid(v) || !(typeof solid === 'function' ? solid(X, Y, Z) : true)) { world[idx(X, Y, Z)] = (show && show(x, y, z) && b === 0 && T.GLASS != null) ? T.GLASS : BAS; U.cells++; } } }
   function agKeep() { // real Agartha footprint inside the map, from GLX-C294 / GLX-C307; null = unknown -> fail closed
-    try { if (window.__c317 && __c317.on()) return null; } catch (_) { return null; }
+    try { if (window.__ukHome && __ukHome()) return null; } catch (_) { return null; }
     const A = window.__c294, M = A && A.M; if (!M || !Number.isFinite(M.x) || !Number.isFinite(M.z)) return null;
     const k = [[M.x, M.z]], e = M.e, c = M.c, edge = e === 'N' ? [c, 0] : e === 'S' ? [c, D - 1] : e === 'W' ? [0, c] : e === 'E' ? [W - 1, c] : null;
     if (edge) for (let f = 0; f <= 1.0001; f += 0.1) k.push([edge[0] + (M.x - edge[0]) * f, edge[1] + (M.z - edge[1]) * f]);
@@ -50350,7 +50290,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (const sd of [-1, 1]) { const [g, arm, fore] = mkHand(sd); H.push(g); A.push([arm, fore, sd]); } built = true; }
   const SH = [[-0.27, -0.42, -0.02], [0.27, -0.42, -0.02]];
   function place(on) { if (!built) build(); if (!built) return; for (let i = 0; i < 2; i++) { H[i].visible = A[i][0].visible = on; } if (!on) return;
-    bar.updateMatrixWorld(true); camera.updateMatrixWorld(true); bar.getWorldQuaternion(q);
+    { const rm = T.parts && T.parts.room; if (rm && T.S) { rm.position.set(T.S.x, T.S.y, T.S.z); rm.updateMatrixWorld(true); } else bar.updateMatrixWorld(true); }   /* v1.2.25: this frame's room, not last frame's */ camera.updateMatrixWorld(true); bar.getWorldQuaternion(q);
     for (let i = 0; i < 2; i++) { const sd = A[i][2]; v1.set(0, sd * 0.12, 0).applyMatrix4(bar.matrixWorld);   // bar local y runs along the bar (it is rotated 90 degrees)
       const g = H[i]; g.position.copy(v1); g.quaternion.copy(camera.quaternion);
       v2.set(SH[i][0], SH[i][1], SH[i][2]).applyMatrix4(camera.matrixWorld); const wrist = v1.clone().add(new THREE.Vector3(0, -0.01, 0.12).applyQuaternion(camera.quaternion)); const d = wrist.clone().sub(v2), L = d.length() || 1;
@@ -52060,6 +52000,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.25","d":"2026-11-08","notes":["Time box: both hands and arms stay on the pilot stick while you fly. Before, they were placed where the stick was one frame earlier, so the faster you flew the further they trailed behind it.","Time box: flying up to the north edge of the UK no longer shoves you off the pilot seat towards the door. The seat sits well inside the bigger room, and the edge barrier was pushing you instead of stopping only the box.","Time box: flying fast to the outer wall of space no longer pulls you out of the box. The space wall now stops only the box, not you on the seat inside.","Hands: on the rifle bolt reload the left hand now takes a wider path to the bolt, so its fingertips no longer sink into the gun on the way in (measured 14 mm before, under 8 mm now).","Hands: during a pistol reload the right wrist no longer bends past about 52 degrees while the gun tips. The right elbow moves to line the forearm up and the hand stays on the grip.","Hands: the support hand wrist is limited while it travels and on the rifle bolt, and the fingers curl less on the bolt knob.","World: the old round Earth code that was no longer used is removed (the ball of the Earth seen from far away, its sea names and its sheet hole). The flat UK, your current city, space, the Moon and Mars are kept as they were."]},
 {"v":"v1.2.24","d":"2026-11-08","notes":["New setting: Disable foliage (Settings). It hides grass tufts, flowers, saplings, leaf blocks and other small plants everywhere, and turning it off brings them all back at once. Not covered yet: logs and wood, grass block ground, fire, cobwebs and far away low detail terrain. Plant items you hold or drop stay visible.","Time box: jetpack or creative flight inside the room can no longer lift you up through the ceiling and out of the box. This is a partial fix for the time box flight glitch; other flight glitches may still need work.","Time box screen no longer flashes brown squares (it sat exactly on its frame).","Ragdolls rest on the ground they fall on instead of a fixed floor height.","Space is quiet: birds, wind, nature music, rain, thunder and the snow hush stop above the space line and come back when you return.","The old ice wall round the map edge and the old tunnel into the separate Agartha world are retired. Agartha is reached as before through the Teleport menu and the pyramid. No invisible old ice blocks north of the map any more.","Below the bedrock there is now an empty void instead of old caves.","Saves are kept: old worlds load with all your builds, and data from the retired north ice area is stored unchanged in your save."]},
 {"v":"v1.2.23","d":"2026-11-08","notes":["Controller in the inventory: pressing A on a slot or a creative bag item keeps the focus on that box instead of jumping back to the first one, so a second press takes or moves the item you meant.","Controller Y in the new inventory works again: an item goes to the next free hotbar slot, armour goes straight on, a hotbar item goes back to storage, and in the creative bag Y takes the item.","Creative bag: items you already have show their count on the box, and taking one shows how many you now have."]},
 {"v":"v1.2.22","d":"2026-11-07","notes":["Hands on the real guns: the hands now hold the actual grip, fore stock and bolt of the real pistol and rifle models instead of a spot a few centimetres off them, the spare pistol magazine sits inside the grip instead of floating behind it, and the reload hand takes the real magazine as it drops and pushes it back in with a flat palm, or works the real bolt as it racks, and the support hand now comes in from below and leaves downwards instead of popping in and out.","Bodies now look dead in a way that fits each kind of mob: eyes close or go dark, people go pale, zombies and creepers go grey, skeletons and bone piles go dull, animals get flat dull fur, stone mobs lose their shine, ghosts and slimes fade, and the head droops. Live mobs never change.","Settings: LB and RB now step through all five settings tabs and wrap round both ways (Info was skipped before).","Jetpack: a new detailed white model on your back, in your hand and on the ground, with twin tanks and nozzles, panel lines, vents and straps, and a matching new icon. The purple flames still come out of both nozzles. The Golden Jetpack is unchanged.","Menus: the gold highlight box no longer flashes while you scroll with the controller; it only moves when the selection really changes.","YEAR 24000: the giant robots fight each other in pairs, winding up, punching, rocking back and squaring up again, each with its own timing. Battle saucers fire big red lasers down at them and far off on the horizon nuclear blasts rise as mushroom clouds. No screen flash and no damage.","After the alien visit the big saucer flies away for good and no longer comes back to fly around.","New: Time Box Key. You start with it (old worlds get it once). Hold it and press LT, right click or USE: it chirps like a car key and your time box lands beside you on clear flat ground.","The white saucer parked next to where you start is gone. The alien saucer and its visit are unchanged.","The alien keeps the same voice all the way through: the YEAR 24000 lines and Brace for impact are now recorded in the same voice as the opening.","One Teleport list in the pause menu: Glencraft spawn, the North Scotland cave, Agartha city, the unicorn, each clansman and your builds. A place that is not ready says why.","Settings text is smaller with the same big buttons, and on and off are easy to tell apart: the chosen one is white with a tick.","Save and quit asks first, inside the game, and then goes back to the title without reloading the page, so fullscreen stays on.","The Controller supported mark on the title screen has a soft gold shimmer.","The offhand slot is on the right of your character. Tapping an armour slot when you already wear the best piece keeps it on.","Rain sound is calmer and steady: every rain layer now shares one volume, so it no longer cuts out when lightning strikes or a Thunner Cloudie zaps, and it fades out while paused.","Thunder is real recorded thunder now, a close crack with a long rumble or a far roll. Recordings: Thunder crack 2B by Jud McCranie and Thunder 01 by Amuzujoe, Wikimedia Commons, CC BY-SA 4.0.","Shot mobs are thrown along the shot and tumble and slide across the ground, and running into a body knocks it rolling again. Guns hit harder and throw bodies further. When a body slams into the ground or a wall it leaves a blood splat on that surface (only mobs that bleed). Up to 4 bodies move at once.","Dead mobs look dead: their eyes and glowing parts go dark, their own lights go out and a dead cloud stops zapping.","Dead mobs lying on the ground now fade away and are gone five minutes after they die, to keep the game smooth. Loot is not dropped again.","Agartha and deep caves: storm lightning and far flash lights (volcano ash lightning and zaps) no longer light up the screen while you are under ground. Near lights such as your torch still work.","Deep caves and the Agartha tunnel draw their plants only within about 50 blocks while you are under ground, so the tunnel has less to draw. The plants are still there and come back as you walk on.","Deep caves no longer start another cave chunk build when a frame is nearly full, so fewer frames run long while caves fill in.","The seven Agarthans find their ring from the city even when the floor pass had none, each stands on the real floor under it, and they wear one shared painted texture with linen pleats, a blue and white striped headdress, kohl lined eyes and a blue and white sash, with no gold. The texture is 2048 pixels on computers and 1024 on phones.","Time box: the cockpit screen, the T grip and the pilot hands are drawn in the right order, so the room walls no longer paint over them.","First person hands: tools are held on their real handle, found from the tool model and carried through every swing. Guns are held by their own up, forward and side directions with the trigger finger out, and the front hand cups the barrel or the pistol grip. The hand is no longer bent back off the forearm by a fixed limit, and the elbow keeps a steady bend.","Castles: every railing and fence is now one drawn piece instead of up to about 26 separate boxes, built once per shape and shared. Glass panes and chests share their box shapes instead of making new ones for every block, and panes no longer leave old shapes behind when they join up. Chests still open, hold their items and save as before.","Purple crystal pickaxe: mines every block fast, even ones a pickaxe is normally slow on, up to one block every frame while you hold attack and keep aiming. Bedrock and the bottom of the world still cannot be broken. Each hit plays a richer layered crystal chime. It is a little longer and thinner, with a pink and purple faceted crystal head.","Purple crystal pickaxe mining is smoother: the world, drops and collision change at once, but the block mesh is rebuilt at most every 60 milliseconds while you mine (never later than 120), and at once when you stop.","Far ocean chunks build faster: water deep inside the sea, with water on every side, is skipped before the face checks because it can never show a face. Near water looks the same.","Guns have grip points on the model itself: the main hand stays on the grip through recoil, reload, sprint and switching. On a reload the front hand lets go, fetches a magazine from the belt and pushes it into the pistol, or works the musket bolt, then comes back. Flat card tools are held on their drawn handle.","Time box: the camera no longer shakes when you fly up or down. Let go of the stick and the box keeps hovering right where it is, and the cabin floor is solid at any height, so you can walk and jump around inside while it hovers. You can now build inside the cabin: plain solid blocks stay in the cabin, move with the box and are saved with it. Mining them gives the block back. Chests, furnaces, doors, fluids, plants and other special blocks cannot go in the cabin yet.","Inventory: real slots you can arrange. Every item sits in its own square with its full count, empty squares stay where you leave them, and your layout is saved with the world. Pick a slot, then another, to swap them, including the hotbar row now shown under the grid. Works with mouse, touch and controller. The grid scrolls and gets denser on phones.","The inventory, crafting and character tabs are now icons at the top (the character tab shows a little figure), with names kept for screen readers, and LB and RB switch between all three.","New survival worlds start with a Purple crystal pickaxe and the white Jetpack (not the golden one), given once. The creative bag is now inside the inventory in survival and new worlds no longer get a Bag of Everything. A Bag of Everything you already have still works and keeps its items.","Character tab: tapping Helmet, Chest, Legs or Boots wears the best one you own for that slot, by protection, and puts the old one back in your inventory. Tapping the Jetpack slot wears the normal white Jetpack. Each slot has its own icon, with an open hand for the offhand.","The white Jetpack climbs, glides and steers twice as fast. The Golden Jetpack is unchanged, and one you already own stays yours.","Jetpack flames are now tall tapered jets with a slight purple glow, and the sparks are small diamond shaped flecks instead of square blocks (the same small pool as before).","Thunner Cloudie: its zap now shoots straight out of the cloud to the target, with a short warm yellow light that lights the blocks around the strike (no screen flash). The harsh crack is replaced by a deep low bass boom made in code, and the cloud has a heavier layered body."]},
