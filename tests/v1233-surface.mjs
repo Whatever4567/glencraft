@@ -4,7 +4,16 @@ const {createCanvas}=createRequire('/workspace/qa/tools/index.js')('@napi-rs/can
 const f=new URL('../index.html',import.meta.url).pathname,s=fs.readFileSync(f,'utf8'),base='/tmp/surface-test-fe45.html';fs.writeFileSync(base,execFileSync('git',['show','fe45cdf:index.html'],{maxBuffer:1<<28}));
 const A=load(base),B=load(f),a=A.build(false),b=B.build(false),face=g=>g.userData.head.children.find(o=>o.userData.face),p0=face(a).geometry.attributes.position,p=face(b).geometry.attributes.position;
 const z=(g,x,y)=>{const p=face(g).geometry.attributes.position;let best=9,zz=0;for(let i=0;i<p.count;i++)if(p.getZ(i)>.05){const d=Math.hypot(p.getX(i)-x,p.getY(i)-y);if(d<best){best=d;zz=p.getZ(i);}}return zz;};
-let changed=0,delta=0;for(let i=0;i<p.count;i++){const d=Math.abs(p.getZ(i)-p0.getZ(i));if(d>.001)changed++;delta=Math.max(delta,d);}
+const natural=b.userData.natural===1233;
+if(natural){
+ let changed=0,delta=0;for(let y=.14;y<.32;y+=.02)for(let x=-.14;x<.15;x+=.02){const d=Math.abs(z(b,x,y)-z(a,x,y));if(d>.001)changed++;delta=Math.max(delta,d);}ok(changed>80&&delta>.01&&delta<.055,`matched-ray facial reconstruction: ${changed} moved samples, max ${delta}`);
+ ok(z(b,.085,.271)<z(a,.085,.271)-.003&&z(b,.085,.271)>.17,'human eye embedded behind old cap, not a protruding eyeball');
+ ok(Math.abs(z(b,.085,.271)-z(b,.085,.29))<.008,'globe/lid/socket share a continuous curved orbital plane');
+ ok(Math.abs(z(b,.052,.269)-z(a,.052,.269))>.001&&Math.abs(z(b,.118,.273)-z(a,.118,.273))>.001,'new medial/lateral canthi belong to smaller human openings');
+ ok(z(b,.023,.179)-z(b,.016,.171)>.004,'alar wing and recessed nostril floor remain actual geometry');
+ const e=b.userData.head.children.find(o=>o.userData.merged===2&&o.material.roughness===.48&&!o.material.map).geometry,nn=e.attributes.normal;let good=0,total=0;const count=57*45;for(let side=0;side<2;side++)for(let row=1;row<26;row++)for(let col=0;col<45;col++){const i=side*count+row*45+col;total++;if(nn.getX(i)*(side?1:-1)>0)good++;}ok(good/total>.95,`mirrored outer ear normals face outward: ${good}/${total}`);
+ const SC={sm:(a,b,x)=>{const t=Math.max(0,Math.min(1,(x-a)/(b-a)));return t*t*(3-2*t);},gs:(x,s)=>Math.exp(-((x/s)**2)),ell:(x,y,cx,cy,rx,ry)=>Math.exp(-(((x-cx)/rx)**2+((y-cy)/ry)**2))};new Function('SC',fs.readFileSync(new URL('../tools/natural-source/ears.js',import.meta.url),'utf8'))(SC);const raw=SC.earRaw(1)(null,28,44);let min=9;for(let i=0;i<25;i++)for(let j=0;j<45;j++)min=Math.min(min,raw.P[(i*45+j)*3]-raw.P[((56-i)*45+j)*3]);ok(min>.0004,`concha and back shell do not intersect: minimum thickness ${min}`);
+}else{let changed=0,delta=0;for(let i=0;i<p.count;i++){const d=Math.abs(p.getZ(i)-p0.getZ(i));if(d>.001)changed++;delta=Math.max(delta,d);}
 ok(changed>500&&delta>.006&&delta<.015,`rebuilt orbital/nasal surfaces: ${changed} vertices move over 1mm; max ${delta.toFixed(4)}`);
 ok(z(b,.1,.27)>z(a,.1,.27)+.006,`globe centre is genuinely domed: ${z(a,.1,.27).toFixed(4)} -> ${z(b,.1,.27).toFixed(4)}`);
 // Sample cap against socket and canthus, not a generic subdivision/count claim.
@@ -17,6 +26,7 @@ for(let side=0;side<2;side++)for(let i=0;i<=oldRows;i++)for(let j=0;j<cols;j++){
  for(let c=0;c<3;c++){const old=aa[((side*oldCount+i*cols+j)*3)+c],now=bb[((side*newCount+r0*cols+j)*3)+c]*(1-f)+bb[((side*newCount+r1*cols+j)*3)+c]*f,d=Math.abs(old-now);if(d>.0001)changed++;m=Math.max(m,d);}}
 ok(changed>100&&m>.0015&&m<.006,`actual helix/antihelix/concha/tragus change ${changed} matched ear coordinates, max ${m.toFixed(4)}`);
 ok(bb.length/aa.length>1.35&&bb.length/aa.length<1.45,'2816 additional near triangles sample the rebuilt ear folds, not flat subdivision');}
+}
 // Execute the ACTUAL 1024 atlas callback, not the canonical 512 feature test painter alone.
 const paint=()=>{const i=s.indexOf('function paintFaceV1232'),j=s.indexOf('    faceTexP = cv(1024, 1024',i),end=s.indexOf('    const shirtT',j),body=s.slice(j,end).replace('faceTexP = cv(1024, 1024,','const __f = (').replace(/\}\);[^\n]*\n?\s*$/,'});__f(g,1024);'),c=createCanvas(1024,1024),g=c.getContext('2d');new Function('g',s.slice(i,j)+body)(g);return g.getImageData(0,0,1024,1024).data;};
 const D=paint(),D2=paint(),px=(x,y)=>Array.from(D.slice((Math.round(y*2)*1024+Math.round(x*2))*4,(Math.round(y*2)*1024+Math.round(x*2))*4+4));
@@ -26,6 +36,6 @@ const sk=px(120,320)[3]/255,ey=px(144,235)[3]/255,lp=px(256,412)[3]/255;ok(sk>.6
 const m=face(b).material;ok(m.transparent===false&&m.alphaTest===0,'packed alpha does not enable transparency or alpha-test holes');ok(m.map===m.roughnessMap&&m.map===m.bumpMap&&m.bumpScale===.00025,'RGB albedo plus alpha roughness/height reuse ONE existing face texture');
 {const shader={fragmentShader:'#include <roughnessmap_fragment>\n#include <bumpmap_pars_fragment>'};m.onBeforeCompile(shader);const f=shader.fragmentShader;ok(f.includes('roughnessFactor = texelRoughness.a;')&&!f.includes('roughnessFactor *= texelRoughness.g;'),'supported shader hook reads packed alpha roughness, not skin colour');ok((f.match(/texture2D\( bumpMap[^;]+?\)\.a/g)||[]).length===3&&!/texture2D\( bumpMap[^;]+?\)\.x/.test(f),'supported bump shader differentiates packed alpha height on both axes');}
 {let err=0;const u=face(b).geometry.attributes.uv;for(let i=0;i<p.count;i++)if(p.getZ(i)>.1)err=Math.max(err,Math.abs(u.getX(i)-(p.getX(i)+.22)/.44),Math.abs(u.getY(i)-(p.getY(i)-.01)/.48));ok(err<1e-6,`UVs recomputed after orbital/nasal sculpt (error ${err})`);}
-{const alpha=px(164,236),blue=px(144,236);ok(alpha[0]<40&&alpha[1]<40&&blue[2]>blue[0]+35,'large blue eyes and original pupil positions retained in actual 1024 atlas');}
-const st=stats(B.T,b);ok(b.userData.surface===1233&&st.tris===98496&&st.trisFar===4999&&st.meshes===48&&st.mats===11&&st.texs===8,`unchanged budgets ${JSON.stringify(st)}`);
+{const alpha=natural?px(157,231):px(164,236),blue=natural?px(164,233):px(144,236);ok(alpha[0]<40&&alpha[1]<40&&blue[2]>blue[0]+35,'style-specific blue irises and dark pupil positions in actual 1024 atlas');}
+const st=stats(B.T,b);ok(b.userData.surface===1233&&st.tris===(natural?99972:98496)&&(natural?st.trisFar<=6500:st.trisFar===4999)&&st.meshes===48&&st.mats===11&&st.texs===8,`authorized budgets ${JSON.stringify(st)}`);
 console.log(bad?`${bad} failed of ${n}`:`all ok (${n})`);process.exitCode=bad?1:0;

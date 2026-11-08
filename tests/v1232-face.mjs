@@ -11,14 +11,19 @@ const paint = () => { const c = createCanvas(512, 512), g = c.getContext('2d'); 
 const D = paint(), D2 = paint(); ok(Buffer.compare(Buffer.from(D), Buffer.from(D2)) === 0, 'texture is deterministic (seeded)');
 const px = (u, v) => { const x = Math.min(511, Math.max(0, Math.round(u * 512))), y = Math.min(511, Math.max(0, Math.round((1 - v) * 512))), k = (y * 512 + x) * 4; return [D[k], D[k + 1], D[k + 2]]; };
 const U = x => (x + 0.22) / 0.44, V = y => (y - 0.01) / 0.48, lum = c => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
-const B = load(file), T = B.T, b = B.build(false); b.updateMatrixWorld(true); const h = b.userData.head;
+const B = load(file), T = B.T, b = B.build(false); b.updateMatrixWorld(true); const h = b.userData.head, natural=b.userData.natural===1233;
 // identity with the live v1.2.31 face (t1026): the same big eyes, brows, nose and mouth at the live places, painted finer
 const P = (x, y) => { const k = (y * 512 + x) * 4; return [D[k], D[k + 1], D[k + 2]]; };
-for (const L of b.userData.lids) { const c = px(U(L.position.x), V(L.position.y)); ok(c[2] > c[0] + 40, `blue iris under the lid at ${L.position.x.toFixed(2)}: rgb ${c}`); }
-for (const ex of [96, 328]) { let eye = 0, n2 = 0, blue = 0; for (let y = 212; y < 260; y += 4) for (let x = ex + 8; x < ex + 90; x += 4) { const c = P(x, y); n2++; if ((lum(c) > 150 && c[0]-c[2] < 40) || c[2] > c[0] + 30 || lum(c) < 40) eye++; if (c[2] > c[0] + 30) blue++; }
+for (const L of b.userData.lids) { const c = px(U(L.position.x+(natural?.006:0)), V(L.position.y)); ok(c[2] > c[0] + 40, `blue iris under the lid at ${L.position.x.toFixed(2)}: rgb ${c}`); }
+if(natural){ // t1031/t1044 explicitly replace giant-eye identity with human proportions, retaining BLUE hue.
+for(const cx of [157,355]){let area=0;for(let y=205;y<269;y++)for(let x=cx-48;x<cx+48;x++){const c=P(x,y);if((lum(c)>150&&c[0]-c[2]<40)||c[2]>c[0]+30||lum(c)<40)area++;}
+ok(area>1000&&area<2200,`natural almond opening occupies ${area} pixels, not the old 96x58 rectangle`);
+let a=999,z=-1;for(let x=cx-38;x<cx+38;x++)if(P(x,233)[2]>P(x,233)[0]+30){a=Math.min(a,x);z=Math.max(z,x);}ok(z-a>18&&z-a<30,`human blue iris width ${z-a}px`);}
+}else{for (const ex of [96, 328]) { let eye = 0, n2 = 0, blue = 0; for (let y = 212; y < 260; y += 4) for (let x = ex + 8; x < ex + 90; x += 4) { const c = P(x, y); n2++; if ((lum(c) > 150 && c[0]-c[2] < 40) || c[2] > c[0] + 30 || lum(c) < 40) eye++; if (c[2] > c[0] + 30) blue++; }
   ok(eye / n2 > 0.85 && blue / n2 > 0.3, `big eye kept at the live size (96 x 58 px at x ${ex}): ${(100 * eye / n2).toFixed(0)}% eye, ${(100 * blue / n2).toFixed(0)}% blue iris`);
   const iw = (() => { let a = 999, z = -1; for (let x = ex; x < ex + 96; x++) { const c = P(x, 236); if (c[2] > c[0] + 30) { a = Math.min(a, x); z = Math.max(z, x); } } return z - a; })(); ok(iw > 45, 'iris as wide as the live one (56 px): ' + iw); }
-if(b.userData.realism===1233){let n=0,dk=0;for(let y=158;y<186;y++)for(let x=78;x<202;x++){n++;if(lum(P(x,y))<135)dk++;}ok(dk/n>.12&&dk/n<.65,`feathered brow in the original envelope: ${(100*dk/n).toFixed(1)}% dark hairs, not opaque block`);}else ok(lum(P(140, 170)) < 90 && lum(P(372, 170)) < 90, 'brows where the live brows are');
+}
+if(b.userData.realism===1233){let n=0,dk=0;for(let y=natural?188:158;y<(natural?205:186);y++)for(let x=natural?103:78;x<(natural?211:202);x++){n++;if(lum(P(x,y))<135)dk++;}ok(dk/n>(natural?.06:.12)&&dk/n<.65,`feathered brow in the style-specific envelope: ${(100*dk/n).toFixed(1)}% dark hairs, not opaque block`);}else ok(lum(P(140, 170)) < 90 && lum(P(372, 170)) < 90, 'brows where the live brows are');
 const skin = P(120, 330); ok(skin[0] > 190 && skin[0] > skin[1] && skin[1] > skin[2], 'cheek is light warm skin: ' + skin);
 { const an=b.userData.anatomy===1233, lp = P(256, an ? 413 : 408), ln = P(256, an ? 401 : 395); ok(lp[0] > lp[1] + (an ? 25 : 40) && lum(ln) < lum(lp), `lips where the live mouth is: lower ${lp}, line ${ln}`); }
 for (const sx of [-1, 1]) { const an=b.userData.anatomy===1233, c = P(an ? Math.round((sx*.016+.22)/.44*512) : 256 + sx*15, an ? Math.round((1-(.169-.01)/.48)*512) : 333); ok(lum(c) < lum(skin) - (an ? 20 : 40), 'nostril at the foot of the live nose: ' + c); }
@@ -34,9 +39,10 @@ for (const sx of [-1, 1]) { const an=b.userData.anatomy===1233, c = P(an ? Math.
 const edge = (g) => { const o = g.userData.head.children.find(o => o.userData.sculpt === 'hair'), p = o.geometry.attributes.position, ix = o.geometry.index, Tr = [];
   for (let k = 0; k < ix.count; k += 3) { const v = [0, 1, 2].map(q => { const i = ix.getX(k + q); return [p.getX(i), p.getY(i), p.getZ(i)]; }); if (v.every(a => a[2] > 0.1)) Tr.push(v); }
   const ins = (x, y, [a, b, c]) => { const d = (p1, p2) => (x - p2[0]) * (p1[1] - p2[1]) - (p1[0] - p2[0]) * (y - p2[1]), d1 = d(a, b), d2 = d(b, c), d3 = d(c, a); return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0)); };
-  const out = []; for (let x = -0.15; x <= 0.15; x += 0.006) { let y = 0.46; while (y > 0.3 && Tr.some(t => ins(x, y, t))) y -= 0.002; out.push(y); } return out; };
+  const out = [], span=g.userData.natural===1233?.138:.15; for (let x = -span; x <= span; x += 0.006) { let y = 0.53; while(y>.3&&!Tr.some(t=>ins(x,y,t)))y-=.002; while (y > 0.3 && Tr.some(t => ins(x, y, t))) y -= 0.002; out.push(y); } return out; };
 { const A0 = load('/tmp/base131.html'), a0 = A0.build(false), e0 = edge(a0), e1 = edge(b), j = e => Math.max(...e.slice(1).map((y, i) => Math.abs(y - e[i]))), r = e => Math.max(...e) - Math.min(...e);
-  ok(j(e1) < 0.012 && j(e1) < j(e0) && r(e1) > 0.01, `fringe edge: biggest step ${j(e0).toFixed(3)} -> ${j(e1).toFixed(3)}, still uneven (range ${r(e1).toFixed(3)})`); }
+  if(process.env.PROFFRINGE)console.log(JSON.stringify({e0,e1}));
+  ok(j(e1)<.012&&j(e1)<j(e0) && r(e1) > 0.01, `fringe edge: biggest step ${j(e0).toFixed(3)} -> ${j(e1).toFixed(3)}, still uneven (range ${r(e1).toFixed(3)})`); }
 // art pass (t1024, userData.art 100000): the extra triangles are real geometry where the shape curves, not spare subdivision
 { const A0 = load('/tmp/base131.html'), a0 = A0.build(false), tc = (g, f) => { let n = 0; g.userData.head.traverse(o => { if (o.isMesh && f(o)) n += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; }); return n; };
   const hd = g => tc(g, o => o.userData.face), hr = g => tc(g, o => o.userData.sculpt === 'hair');
