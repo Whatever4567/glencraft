@@ -28,6 +28,8 @@ const PAINT=fs.readFileSync(path.join(__dirname,'face-source','face-paint.js'),'
 {const k='dr -= f * wv * 0.0035 * g(d, 0.007); dr += f * wv * 0.0035 * g(d - 0.016, 0.012);',i=once(k);s=s.slice(0,i)+'dr -= f * wv * 0.0012 * g(d, 0.01); dr += f * wv * 0.0015 * g(d - 0.016, 0.014);'+s.slice(i+k.length);}
 {const k='dr += f * 0.013 * e(ax, y, 0.138, 0.214, 0.042, 0.03); dr -= f * 0.005 * e(ax, y, 0.13, 0.14, 0.04, 0.035);',i=once(k);s=s.slice(0,i)+'dr += f * 0.011 * e(ax, y, 0.138, 0.214, 0.05, 0.036); dr -= f * 0.0022 * e(ax, y, 0.13, 0.14, 0.04, 0.035);'+s.slice(i+k.length);}
 {const k='dr += f * (0.012 * g(y - 0.316, 0.017) * g(ax - 0.09, 0.075)',i=once(k);s=s.slice(0,i)+'dr += f * (0.0108 * g(y - 0.316, 0.021) * g(ax - 0.09, 0.075)'+s.slice(i+k.length);}   // softer, younger brow ridge
-{const k='fine: 1231, face: 1232};',i=once(k);s=s.slice(0,i)+'fine: 1231, face: 1232, art: 100000};'+s.slice(i+k.length);}
+// v1.2.32 (t1026/t1027): the in game face type is kept (live head sections, nose and jaw); only the hair gets darker
+{const k='hair = std({map: T_.hair, bumpMap: T_.hair, bumpScale: 1, roughness: .55})',i=once(k);s=s.slice(0,i)+'hair = std({map: T_.hair, bumpMap: T_.hair, bumpScale: 1.4, roughness: .55, color: 0x6e625c})'+s.slice(i+k.length);}
+{const k='fine: 1231, face: 1232};',i=once(k);s=s.slice(0,i)+'fine: 1231, face: 1232, art: 100000, look: 1232};'+s.slice(i+k.length);}
 s=s.replace('<!-- glencraft-build: b1231-v1.2.31 -->','<!-- glencraft-build: b1231-v1.2.31 face-local -->');
 fs.writeFileSync(out,s);

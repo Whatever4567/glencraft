@@ -12,11 +12,16 @@ const D = paint(), D2 = paint(); ok(Buffer.compare(Buffer.from(D), Buffer.from(D
 const px = (u, v) => { const x = Math.min(511, Math.max(0, Math.round(u * 512))), y = Math.min(511, Math.max(0, Math.round((1 - v) * 512))), k = (y * 512 + x) * 4; return [D[k], D[k + 1], D[k + 2]]; };
 const U = x => (x + 0.22) / 0.44, V = y => (y - 0.01) / 0.48, lum = c => 0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2];
 const B = load(file), T = B.T, b = B.build(false); b.updateMatrixWorld(true); const h = b.userData.head;
-for (const L of b.userData.lids) { const c = px(U(L.position.x), V(L.position.y + 0.002)); ok(lum(c) < 90, `dark iris or pupil under lid at ${L.position.x.toFixed(2)}: rgb ${c}`); }
-{ const L = b.userData.lids[1].position, c = px(U(L.x - 0.006), V(L.y - 0.002)); ok(c[2] > c[0] + 40, 'blue iris beside the pupil (kept from the original): ' + c); }
-const skin = px(U(0.13), V(0.2)); ok(skin[0] > 190 && skin[0] > skin[1] && skin[1] > skin[2], 'cheek is light warm skin: ' + skin);
-const lip = px(U(0), V(0.1)), ml = px(U(0), V(0.1135)); ok(lip[0] > lip[1] + 25 && lip[0] < 230, 'lower lip natural near skin pink: ' + lip); ok(lum(ml) < lum(lip) - 25, 'mouth line darker than lip: ' + ml);
-for (const s of [-1, 1]) { const c = px(U(s * 0.014), V(0.158)); ok(lum(c) < lum(skin) - 50, 'nostril dark at x ' + s * 0.014 + ': ' + c); }
+// identity with the live v1.2.31 face (t1026): the same big eyes, brows, nose and mouth at the live places, painted finer
+const P = (x, y) => { const k = (y * 512 + x) * 4; return [D[k], D[k + 1], D[k + 2]]; };
+for (const L of b.userData.lids) { const c = px(U(L.position.x), V(L.position.y)); ok(c[2] > c[0] + 40, `blue iris under the lid at ${L.position.x.toFixed(2)}: rgb ${c}`); }
+for (const ex of [96, 328]) { let eye = 0, n2 = 0, blue = 0; for (let y = 212; y < 260; y += 4) for (let x = ex + 8; x < ex + 90; x += 4) { const c = P(x, y); n2++; if (lum(c) > 200 || c[2] > c[0] + 30 || lum(c) < 40) eye++; if (c[2] > c[0] + 30) blue++; }
+  ok(eye / n2 > 0.85 && blue / n2 > 0.3, `big eye kept at the live size (96 x 58 px at x ${ex}): ${(100 * eye / n2).toFixed(0)}% eye, ${(100 * blue / n2).toFixed(0)}% blue iris`);
+  const iw = (() => { let a = 999, z = -1; for (let x = ex; x < ex + 96; x++) { const c = P(x, 236); if (c[2] > c[0] + 30) { a = Math.min(a, x); z = Math.max(z, x); } } return z - a; })(); ok(iw > 45, 'iris as wide as the live one (56 px): ' + iw); }
+ok(lum(P(140, 170)) < 90 && lum(P(372, 170)) < 90, 'brows where the live brows are');
+const skin = P(120, 330); ok(skin[0] > 190 && skin[0] > skin[1] && skin[1] > skin[2], 'cheek is light warm skin: ' + skin);
+{ const lp = P(256, 408), ln = P(256, 395); ok(lp[0] > lp[1] + 40 && lum(ln) < lum(lp), `lips where the live mouth is: lower ${lp}, line ${ln}`); }
+for (const sx of [-1, 1]) { const c = P(256 + sx * 15, 333); ok(lum(c) < lum(skin) - 40, 'nostril at the foot of the live nose: ' + c); }
 // no flat rectangles left: variation inside the old eye white / brow boxes
 { let vs = []; for (let y = 150; y < 200; y += 3) for (let x = 140; x < 220; x += 3) { const k = (y * 512 + x) * 4; vs.push(D[k]); } const mn = vs.reduce((a, b) => a + b) / vs.length, sd = Math.sqrt(vs.reduce((a, b) => a + (b - mn) ** 2, 0) / vs.length); ok(sd > 3, 'no flat block in the eye region (sd ' + sd.toFixed(1) + ')'); }
 // mesh: face UV equals the planar mapping
