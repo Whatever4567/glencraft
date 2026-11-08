@@ -22,4 +22,6 @@ one("function duck() { try { if (window.__c259 && __c259.on) return 0;","functio
 one("const w = hid || pz ? 0 : U.RB_LEVEL;","const w = hid || pz || (window.__vac && __vac()) ? 0 : U.RB_LEVEL;");
 one("U.thunder = vol => { if (!U.bus()","U.thunder = vol => { if (window.__vac && __vac()) { U.vacSkip = (U.vacSkip || 0) + 1; return true; } if (!U.bus()");
 one("h.gain.setTargetAtTime(tgt, AC.currentTime, 0.6);","h.gain.setTargetAtTime((window.__vac && __vac()) ? 0 : tgt, AC.currentTime, 0.6);");
+// old north extension off in the flat UK world (ghost ice north of the old map edge)
+one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','leg-1224.js'),'utf8')+'\n/* GLX-GRIP1222');
 fs.writeFileSync(out,s);
