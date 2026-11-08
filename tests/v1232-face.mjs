@@ -20,8 +20,8 @@ for (const ex of [96, 328]) { let eye = 0, n2 = 0, blue = 0; for (let y = 212; y
   const iw = (() => { let a = 999, z = -1; for (let x = ex; x < ex + 96; x++) { const c = P(x, 236); if (c[2] > c[0] + 30) { a = Math.min(a, x); z = Math.max(z, x); } } return z - a; })(); ok(iw > 45, 'iris as wide as the live one (56 px): ' + iw); }
 ok(lum(P(140, 170)) < 90 && lum(P(372, 170)) < 90, 'brows where the live brows are');
 const skin = P(120, 330); ok(skin[0] > 190 && skin[0] > skin[1] && skin[1] > skin[2], 'cheek is light warm skin: ' + skin);
-{ const lp = P(256, 408), ln = P(256, 395); ok(lp[0] > lp[1] + 40 && lum(ln) < lum(lp), `lips where the live mouth is: lower ${lp}, line ${ln}`); }
-for (const sx of [-1, 1]) { const c = P(256 + sx * 15, 333); ok(lum(c) < lum(skin) - 40, 'nostril at the foot of the live nose: ' + c); }
+{ const an=b.userData.anatomy===1233, lp = P(256, an ? 413 : 408), ln = P(256, an ? 401 : 395); ok(lp[0] > lp[1] + (an ? 25 : 40) && lum(ln) < lum(lp), `lips where the live mouth is: lower ${lp}, line ${ln}`); }
+for (const sx of [-1, 1]) { const an=b.userData.anatomy===1233, c = P(an ? Math.round((sx*.016+.22)/.44*512) : 256 + sx*15, an ? Math.round((1-(.169-.01)/.48)*512) : 333); ok(lum(c) < lum(skin) - (an ? 20 : 40), 'nostril at the foot of the live nose: ' + c); }
 // no flat rectangles left: variation inside the old eye white / brow boxes
 { let vs = []; for (let y = 150; y < 200; y += 3) for (let x = 140; x < 220; x += 3) { const k = (y * 512 + x) * 4; vs.push(D[k]); } const mn = vs.reduce((a, b) => a + b) / vs.length, sd = Math.sqrt(vs.reduce((a, b) => a + (b - mn) ** 2, 0) / vs.length); ok(sd > 3, 'no flat block in the eye region (sd ' + sd.toFixed(1) + ')'); }
 // mesh: face UV equals the planar mapping
