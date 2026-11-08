@@ -23,4 +23,12 @@ one("      hair: tex((g, s) => { g.fillStyle = '#4a2f1c';","      ...(function (
 one("      linen: tex((g, s) => { g.fillStyle = '#eee6d6';","      linen0: null && tex((g, s) => { g.fillStyle = '#eee6d6';");
 one("      leather: tex((g, s) => { g.fillStyle = '#4a2e1b';","      leather0: null && tex((g, s) => { g.fillStyle = '#4a2e1b';");
 one("      sock: tex((g, s) => { g.fillStyle = '#e6decb';","      sock0: null && tex((g, s) => { g.fillStyle = '#e6decb';");
+// ---- weapon switch: a gun model that failed to load once was never asked for again, and the viewmodel hid the gun until it arrived,
+// so after one failed download that gun stayed invisible every time you switched to it. Now a failed load is retried with a growing wait
+// (2, 4, 8 .. 30 s), and while a gun has failed at least once its plain built in model is shown instead of nothing.
+one(".then(g => { const r = g.scene; r.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) m.map.anisotropy = 4;",".then(g => { const r = g.scene; U.fail[n] = 0; r.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) m.map.anisotropy = 4;");
+one("MOD[n] = r; U.ok[n] = 1; }).catch(e => { ERR('load ' + n, e); }); }","MOD[n] = r; U.ok[n] = 1; }).catch(e => { ERR('load ' + n, e); U.fail[n] = (U.fail[n] || 0) + 1; U.next[n] = performance.now() + Math.min(30, Math.pow(2, U.fail[n])) * 1000; want[n] = 0; }); }   /* v1.2.26: retried, not given up */");
+one("function load(n) { if (want[n]) return; want[n] = 1;","function load(n) { if (want[n] || MOD[n] || (U.next[n] && performance.now() < U.next[n])) return; want[n] = 1;");
+one("const U = window.__c322 = {err: null, ok: {}, swapped: 0, buf: {}, played: 0, res: ''};","const U = window.__c322 = {err: null, ok: {}, swapped: 0, buf: {}, played: 0, res: '', fail: {}, next: {}};");
+one("if (!u.c322) { g.visible = false; U.hidden++; return; }   // real model not in yet: show nothing rather than the old gun","if (!u.c322) { const fl = window.__c322 && __c322.fail && __c322.fail[u.gun === IT.PISTOL ? 'pistol' : 'rifle']; if (fl) { g.visible = true; U.fallback = (U.fallback || 0) + 1; try { __c322.load(u.gun === IT.PISTOL ? 'pistol' : 'rifle'); } catch (_) {} return; } g.visible = false; U.hidden++; return; }   // real model not in yet: show nothing rather than the old gun (v1.2.26: unless its download failed, then the built in gun)");
 fs.writeFileSync(out,s);

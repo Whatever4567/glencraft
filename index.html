@@ -46979,7 +46979,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    you first hold a gun. Real recorded sounds (CC0, OpenGameArt): the shot, the reload, the bolt and an empty click. The old blocky guns stay
    as the fallback and when HD is off. Aiming lines up on the new iron sights (the pistol is centred by C288, the rifle by C145). */
 (function c322() {
-  const U = window.__c322 = {err: null, ok: {}, swapped: 0, buf: {}, played: 0, res: ''};
+  const U = window.__c322 = {err: null, ok: {}, swapped: 0, buf: {}, played: 0, res: '', fail: {}, next: {}};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const PH = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (typeof touchMode !== 'undefined' && touchMode && innerWidth < 1000);
   const RES = U.res = PH ? '2k' : '4k', BASE = 'assets/guns/', VER = 'g1129';
@@ -46998,9 +46998,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const MOD = {}, want = {}; let libP = null;
   function lib() { if (window.THREE && THREE.GLTFLoader && window.MeshoptDecoder) return MeshoptDecoder.ready; if (libP) return libP;
     libP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'assets/models/lib.js?v1018'; s.onload = () => MeshoptDecoder.ready.then(res, rej); s.onerror = () => rej('lib'); document.head.appendChild(s); }); return libP; }
-  function load(n) { if (want[n]) return; want[n] = 1; lib().then(() => new Promise((res, rej) => { const L = new THREE.GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder); L.load(BASE + 'gun_' + n + '_' + RES + '.glb?' + VER, res, null, rej); }))
-      .then(g => { const r = g.scene; r.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) m.map.anisotropy = 4; if (m && /glass/i.test(m.name)) o.visible = false; } if (/_scope$/.test(o.name)) o.visible = false; });
-        MOD[n] = r; U.ok[n] = 1; }).catch(e => { ERR('load ' + n, e); }); }
+  function load(n) { if (want[n] || MOD[n] || (U.next[n] && performance.now() < U.next[n])) return; want[n] = 1; lib().then(() => new Promise((res, rej) => { const L = new THREE.GLTFLoader(); L.setMeshoptDecoder(MeshoptDecoder); L.load(BASE + 'gun_' + n + '_' + RES + '.glb?' + VER, res, null, rej); }))
+      .then(g => { const r = g.scene; U.fail[n] = 0; r.traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const m = o.material; if (m && m.map) m.map.anisotropy = 4; if (m && /glass/i.test(m.name)) o.visible = false; } if (/_scope$/.test(o.name)) o.visible = false; });
+        MOD[n] = r; U.ok[n] = 1; }).catch(e => { ERR('load ' + n, e); U.fail[n] = (U.fail[n] || 0) + 1; U.next[n] = performance.now() + Math.min(30, Math.pow(2, U.fail[n])) * 1000; want[n] = 0; }); }   /* v1.2.26: retried, not given up */
   U.load = load;
   const BB = new THREE.Box3(), V = new THREE.Vector3();
   const box = (o, rel) => { const b = new THREE.Box3(); o.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(rel.matrixWorld).invert();
@@ -48363,7 +48363,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function step(d) { const g = gun(); U.on = 0; if (!g || tp() || !hand.visible) { ready = null; restoreHS(); return; }
     const u = g.userData;
     if (!u.c322) { try { if (__c322.swap) __c322.swap(g); } catch (_) {} }
-    if (!u.c322) { g.visible = false; U.hidden++; return; }   // real model not in yet: show nothing rather than the old gun
+    if (!u.c322) { const fl = window.__c322 && __c322.fail && __c322.fail[u.gun === IT.PISTOL ? 'pistol' : 'rifle']; if (fl) { g.visible = true; U.fallback = (U.fallback || 0) + 1; try { __c322.load(u.gun === IT.PISTOL ? 'pistol' : 'rifle'); } catch (_) {} return; } g.visible = false; U.hidden++; return; }   // real model not in yet: show nothing rather than the old gun (v1.2.26: unless its download failed, then the built in gun)
     if (ready !== g) { ready = g; warm(g); g.visible = false; U.hidden++; return; }   // one frame to upload its textures
     g.visible = true; U.on = 1; tm += d;
     const isP = u.gun === IT.PISTOL, C = PRE[isP ? 'pistol' : 'rifle'];
