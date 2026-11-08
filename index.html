@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1223-v1.2.23 -->
+<!-- glencraft-build: b1224-v1.2.24 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.23';
+const GAME_VERSION = '1.2.24';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -36771,7 +36771,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   function pick(md) { const pool = U.tracks.filter(k => !bad.has(k)).filter(k => moodOf(k) === md && !last.includes(k)); let ids = pool.length ? pool : U.tracks.filter(k => moodOf(k) === md); if (!ids.length) ids = ['nature_day']; const id = ids[Math.floor(Math.random() * ids.length)]; last.push(id); if (last.length > 3) last.shift(); return id; }
   function want() { if (document.visibilityState === 'hidden') return 0; if (master && master.gain.value === 0 && SET.sfx > 0) return 0; return Math.max(0, Math.min(1, SET.music)) * LEVEL * duck(); }
   /* v1.0.79: one music at a time - the desert / temple tune crossfades this out, and the Egyptian dance silences it */
-  function duck() { try { if (window.__c259 && __c259.on) return 0; const m = window.__c258 ? +__c258.mix || 0 : 0; return Math.max(0, 1 - m); } catch (_) { return 1; } }
+  function duck() { try { if (window.__vac && __vac()) return 0; if (window.__c259 && __c259.on) return 0; const m = window.__c258 ? +__c258.mix || 0 : 0; return Math.max(0, 1 - m); } catch (_) { return 1; } }
   function tick() {
     try { if (!AC || !ensure()) return; if (AC.state === 'suspended') return;
       const v = want(); bus.gain.setTargetAtTime(v, AC.currentTime, (window.__c259 && __c259.on) ? 0.3 : 0.8); U.on = v > 0;
@@ -41130,7 +41130,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
         if (h) { gustT += dt; const cave = typeof caveK === 'number' ? caveK : 0, cov = typeof rainCover === 'number' ? rainCover : 0;
           const lvl = weather.type === 'light' ? 0.05 : weather.type === 'thunder' ? 0.11 : 0.08, gust = 0.75 + 0.25 * Math.sin(gustT * 0.37) * Math.sin(gustT * 0.13 + 1);
           const tgt = sn ? lvl * gust * (1 - cave) * (1 - 0.5 * cov) * (typeof SET !== 'undefined' && SET.sfx != null ? SET.sfx : 1) : 0;
-          h.gain.setTargetAtTime(tgt, AC.currentTime, 0.6); if (hushF) hushF.frequency.setTargetAtTime(420 + 260 * gust, AC.currentTime, 0.8); U.hush = Math.round(tgt * 1000) / 1000; } } catch (e) { warn('uw', e); }
+          h.gain.setTargetAtTime((window.__vac && __vac()) ? 0 : tgt, AC.currentTime, 0.6); if (hushF) hushF.frequency.setTargetAtTime(420 + 260 * gust, AC.currentTime, 0.8); U.hush = Math.round(tgt * 1000) / 1000; } } catch (e) { warn('uw', e); }
       return r; }; } catch (e) { warn('uwrap', e); }
   // saves: which kind is falling
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && typeof d === 'object') d.precip = __snowWx() ? 'snow' : __rainWx() ? 'rain' : 'none'; } catch (_) {} return d; }; } catch (e) { warn('save', e); }
@@ -44742,48 +44742,8 @@ function make42(E) {
   }
   U.at = at;
   try { const rh = __c208.rawH; __c208.rawH = (x, z) => U.on() ? at(x, z) : rh(x, z); } catch (e) { ERR('rawH', e); }
-  // ---------- after generation: the ice wall ----------
-  // v1.0.92: the wall is a climbable staircase of solid icy snow (opaque snow blocks, tinted icy by the block shader in GLX-C282), rising one block per block
-  // from 40 blocks inside the old wall line up to near the world roof, so it stands about three times higher over the land than before
-  U.WS = 40;
-  function wall() {
-    const RE = U.RE(), WS = U.WS, SNOW = T.PACKSNOW || T.WOOL; /* v1.0.94 packed snow, v1.0.93: full white snow blocks, never the thin 178 snow layer */ let n = 0;
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
-      const q = U.edgeQ(x, z); if (q < RE - WS - 130 * (W / 864)) continue;
-      if (q < RE - WS) { const r = at(x, z); if (r.coast && r.loch && r.h < SEA - 2) { const c0 = x * H * D + z, fl = Math.max(8, r.h), SB = (x * 7 + z * 13) % 5 ? T.SAND : (T.GRAVEL || T.SAND);
-          for (let y = fl - 2; y <= SEA; y++) { const i = c0 + y * D; world[i] = y < fl - 1 ? T.STONE : y <= fl ? SB : T.WATER; } continue; } }
-      if (q < RE - WS - 6) continue;
-      const col = x * H * D + z;
-      if (q < RE - WS) { // snow-capped land creeping up to the wall
-        for (let y = H - 2; y > SEA; y--) { const b = world[col + y * D]; if (b === T.WATER) break; if (b && b !== T.WATER) { if (b === T.GRASS || b === T.DIRT || b === T.STONE || b === T.HEATHER) world[col + y * D] = SNOW; break; } if (b) world[col + y * D] = 0; }
-        continue; }
-      let g = 0; for (let y = H - 2; y > 1; y--) { const b = world[col + y * D]; if (b && !PLANT[b] && b !== T.WATER) { g = y; break; } }
-      const top = Math.max(Math.min(g, H - 4), U.wallTop(x, z));
-      for (let y = 1; y < H - 1; y++) { const i = col + y * D; if (y <= top) { if (y > top - 3 || !world[i] || world[i] === T.WATER || PLANT[world[i]]) world[i] = y > top - 3 ? SNOW : T.STONE; } else world[i] = 0; }
-      try { g9cols[(x * D + z) * 2] = top + 1; g9cols[(x * D + z) * 2 + 1] = 3; } catch (_) {}
-      n++; }
-    U.wall = n; }
-  U.wallFn = wall;
-  U.wallTop = (x, z) => Math.min(H - 4, SEA + 4 + Math.floor(U.edgeQ(x, z) - (U.RE() - U.WS)));
-  // the ice: a glassy blue cladding over the inner face of the wall (one mesh, no extra block ids needed)
-  let iceM = null;
-  function iceMesh() { try { if (iceM) { scene.remove(iceM); iceM.geometry.dispose(); iceM = null; } return; /* v1.0.92: no see-through cladding any more (it caused the lag) */
-      const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
-      gr.addColorStop(0, '#f4fbff'); gr.addColorStop(0.25, '#bfe6f7'); gr.addColorStop(1, '#5fa6d0'); g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
-      let s = 7; const r = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
-      for (let i = 0; i < 70; i++) { g.strokeStyle = 'rgba(255,255,255,' + (0.15 + r() * 0.35) + ')'; g.lineWidth = 0.5 + r() * 1.5; g.beginPath(); let x = r() * 128, y = r() * 256; g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (r() - .5) * 30; y += r() * 40; g.lineTo(x, y); } g.stroke(); }
-      for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(30,90,140,' + r() * 0.18 + ')'; g.fillRect(r() * 128, r() * 256, 2 + r() * 10, 10 + r() * 50); }
-      const tx = new THREE.CanvasTexture(c); tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
-      const N = 900, RE = U.RE() - 0.15, cx = (W >> 1) + .5, cz = (D >> 1) + .5, pos = new Float32Array((N + 1) * 6), uv = new Float32Array((N + 1) * 4), ix = []; let L = 0, px = 0, pz = 0;
-      for (let i = 0; i <= N; i++) { const a = i / N * 6.2832, ca = Math.cos(a), sa = Math.sin(a), r0 = RE / Math.cbrt(Math.abs(ca) ** 3 + Math.abs(sa) ** 3), x = cx + ca * r0, z = cz + sa * r0;
-        if (i) L += Math.hypot(x - px, z - pz); px = x; pz = z; const top = U.wallTop(Math.round(x), Math.round(z)) + 1;
-        pos.set([x, SEA - 1, z, x, top, z], i * 6); uv.set([L / 24, 0, L / 24, (top - SEA + 1) / 24], i * 4); if (i < N) { const a0 = i * 2; ix.push(a0, a0 + 2, a0 + 1, a0 + 1, a0 + 2, a0 + 3); } }
-      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(ix); geo.computeVertexNormals();
-      iceM = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({map: tx, color: 0xdff4ff, emissive: 0x16384c, transparent: true, opacity: 0.9, side: THREE.DoubleSide}));
-      iceM.frustumCulled = false; iceM.renderOrder = 2; iceM.userData.__dcR = 1e9; scene.add(iceM); } catch (e) { ERR('ice', e); } }
-  U.iceMesh = iceMesh;
-  let lastId = null; setInterval(() => { try { const id = typeof started !== 'undefined' && started && current ? current.id + (U.on() ? 'y' : 'n') + W : null; if (id !== lastId) { lastId = id; iceMesh(); } } catch (_) {} }, 1000);
-  const gen = generate; generate = function () { CAS = null; const r = gen.apply(this, arguments); try { if (U.on()) { const t = performance.now(); wall(); U.ms = Math.round(performance.now() - t); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
+  U.WS = 40;   /* v1.2.24: the ice wall builder is removed; WS stays as the old edge band width the shared shape helpers use */
+  const gen = generate; generate = function () { CAS = null; return gen.apply(this, arguments); };
   // v1.0.92: no invisible barrier - climb the wall if you like; past it you freeze (GLX-C282). Only the world bounds hold you in.
   setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__c317 && __c317.on())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
 })();
@@ -45160,28 +45120,14 @@ function make42(E) {
   try { const ew = enterWorld; enterWorld = function (save) { const r = ew.apply(this, arguments); try { if (current) current.w92 = save ? !!(save.w92) : 1; } catch (_) {} return r; }; } catch (e) { U.err = 'ew ' + e; }
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (current && current.w92) d.w92 = 1; } catch (_) {} return d; }; } catch (e) { U.err = 'se ' + e; }
   // ---- icy tint in the block shader ----
-  const uIce = {value: new THREE.Vector4(0, 0, 0, 0)}, uFut = U.uFut = {value: 0}; /* v1.0.93: uFut = YEAR 24000 solid shiny silver blocks */
+  const uFut = U.uFut = {value: 0}; /* v1.0.93: uFut = YEAR 24000 solid shiny silver blocks */
   function patch() { const m = window.__TA && __TA.mat; if (!m || m.__c282) return !!(m && m.__c282);
     const vs = m.vertexShader, fs = m.fragmentShader; if (vs.indexOf('void main() {') < 0 || fs.indexOf('#include <tonemapping_fragment>') < 0) return false;
     m.vertexShader = vs.replace('void main() {', 'varying vec3 vIceW;\nvoid main() {\n  vIceW = (modelMatrix * vec4(position, 1.0)).xyz;');
-    m.fragmentShader = fs.replace('void main() {', 'uniform vec4 uIce; uniform float uFut; varying vec3 vIceW;\nvoid main() {').replace('#include <tonemapping_fragment>',
-      'if (uIce.w > 0.5) { vec2 dI = abs(vIceW.xz - uIce.xy); float qI = pow(dI.x * dI.x * dI.x + dI.y * dI.y * dI.y, 1.0 / 3.0); float kI = smoothstep(uIce.z - 1.0, uIce.z + 1.0, qI);\n' +
-      '    if (kI > 0.0) { float lI = dot(gl_FragColor.rgb, vec3(0.333)); vec3 iI = vec3(0.70, 0.86, 1.0) * (0.55 + 0.6 * lI) + vec3(0.0, 0.03, 0.08) * fract(sin(dot(floor(vIceW.xz * 2.0 + vIceW.y), vec2(12.9898, 78.233))) * 43758.5453); gl_FragColor.rgb = mix(gl_FragColor.rgb, iI, 0.62 * kI); } }\n' +
+    m.fragmentShader = fs.replace('void main() {', 'uniform float uFut; varying vec3 vIceW;\nvoid main() {').replace('#include <tonemapping_fragment>',
       'if (uFut > 0.0) { float lF = dot(gl_FragColor.rgb, vec3(0.3, 0.5, 0.2)); vec3 fp = fract(vIceW); float edgeF = max(max(step(0.94, fp.x), step(0.94, fp.z)), step(0.94, fp.y)); float bandF = 0.5 + 0.5 * sin(vIceW.y * 0.9 + vIceW.x * 0.35 + vIceW.z * 0.2); vec3 sF = vec3(0.80, 0.83, 0.88) * (0.55 + 0.5 * lF) + vec3(0.32, 0.34, 0.40) * pow(bandF, 6.0) + vec3(0.25, 0.85, 1.0) * edgeF * 0.35; gl_FragColor.rgb = mix(gl_FragColor.rgb, sF, uFut); gl_FragColor.a = 1.0; }\n  #include <tonemapping_fragment>');
-    m.uniforms.uIce = uIce; m.uniforms.uFut = uFut; m.__c282 = 1; m.needsUpdate = true; U.sh = 1; return true; }
-  // ---- frost overlay ----
-  let ov = null; function overlay(k) { if (!ov) { ov = document.createElement('div'); ov.id = 'c282frost';
-      ov.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0;transition:opacity .6s;background:radial-gradient(ellipse at center,rgba(220,240,255,0) 38%,rgba(200,230,255,.55) 75%,rgba(240,250,255,.92) 100%);box-shadow:inset 0 0 120px 40px rgba(210,235,255,.8)';
-      document.body.appendChild(ov); } ov.style.opacity = String(k); }
-  let cold = 0, hitT = 0, msgT = 0;
-  setInterval(() => { try { const ok = false && on();   /* v1.1.40: no ice wall anywhere: no icy edge tint and no edge cold */ if (patch() && ok !== !!uIce.value.w) {} 
-      if (ok) { const c = C(); uIce.value.set((W >> 1) + 0.5, (D >> 1) + 0.5, c.RE() - (c.WS || 40), 1); } else uIce.value.w = 0;
-      if (!U.on || !ok || !started || dead || paused || DIM.cur || (current && current.mode === 'creative')) { cold = Math.max(0, cold - 0.2); overlay(cold * 0.9); U.freeze = 0; return; }
-      const c = C(), q = c.edgeQ(P.x, P.z), lim = c.RE() + 16; const north = __XG && P.z < (D >> 1) && (D >> 1) - P.z >= Math.abs(P.x - (W >> 1)); /* v1.1.17: in the north the cold starts at the far end of the ice extension */
-      const out = (north ? P.z < __XZ + 60 || P.x < 3 || P.x > W - 3 : (q > lim || P.x < 3 || P.z < 3 || P.x > W - 3 || P.z > D - 3)) && !(window.__c297 && __c297.inA); /* v1.0.106: never inside the Agartha cave */
-      U.freeze = out ? 1 : 0; cold = out ? Math.min(1, cold + 0.1) : Math.max(0, cold - 0.15); overlay(cold * 0.9);
-      if (out) { if ((msgT -= 0.2) <= 0) { msgT = 6; try { toast("You're freezing! Head back inside the wall"); } catch (_) {} }
-        try { regenT = 0; } catch (_) {} if (cold > 0.3 && (hitT -= 0.2) <= 0) { hitT = 1.6; try { hurt(1, 'freeze'); U.hits++; } catch (_) {} } } else { hitT = 0.6; msgT = 0; } } catch (e) { U.err = String(e && e.message || e); } }, 200);
+    m.uniforms.uFut = uFut; m.__c282 = 1; m.needsUpdate = true; U.sh = 1; return true; }
+  setInterval(() => { try { patch(); } catch (e) { U.err = String(e && e.message || e); } }, 200);   /* v1.2.24: icy wall tint, frost overlay and edge freeze removed */
 })();
 
 /* GLX-C283 (v1.0.93): pistol + musket in every new world with infinite bullets, gravel in caves (shovels dig it fast), lava pools deep in the caves,
@@ -45678,30 +45624,7 @@ function make42(E) {
           if (r2 < 0.006) tree(X, Y + 1, Z, 4 + (rnd() * 3 | 0)); else if (r2 < 0.006 + glow * 0.09) put(X, Y + 1, Z, GLOWP()); else if (r2 < 0.05 + glow * 0.04) put(X, Y + 1, Z, T.FERN || T.TALLGRASS); else if (r2 < 0.07) put(X, Y + 1, Z, T.TALLGRASS); }
         else { put(X, Y, Z, h < glow * 0.3 ? GLOWG() : (h < 0.5 ? T.GRASS : T.STONE)); if (!get(X, Y - 1, Z) && rnd() < 0.05) for (let v = 1; v <= 1 + (rnd() * 3 | 0); v++) if (!get(X, Y - v, Z)) put(X, Y - v, Z, T.LEAVES); } } }
   }
-  // ---------- overworld: the mouth in the ice wall behind Blackstone Castle ----------
-  // v1.0.112: the hole is in the ice wall at the point NEAREST Blackstone Castle (the castle is only the landmark), and runs straight out to the nearest map edge
-  const WP = (M, d, a) => M.e === 'N' ? [M.c + a, d] : M.e === 'S' ? [M.c + a, D - 1 - d] : M.e === 'W' ? [d, M.c + a] : [W - 1 - d, M.c + a];
-  function mouth() { const bc = (typeof g9castles !== 'undefined' && g9castles || []).find(c => c[0] === 'black'); if (!bc) return null;
-    const RE = __c273.RE(), WS = __c273.WS || 40; let best = null, bd = 1e9;
-    for (let x = 4; x < W - 4; x += 2) for (let z = 4; z < D - 4; z += 2) { const q = Q(x, z); if (q < RE - WS - 8 || q > RE - WS + 6) continue; const dd = Math.hypot(x - bc[1], z - bc[2]); if (dd >= bd) continue;
-      const [y, b] = surf(x, z); if (y < SEA + 4 || b === T.WATER) continue; bd = dd; best = [x, z]; }
-    if (!best) return null; const [x, z] = best, ed = [[z, 'N'], [D - 1 - z, 'S'], [x, 'W'], [W - 1 - x, 'E']].sort((p, q) => p[0] - q[0])[0][1];
-    const M = {e: ed, c: ed === 'N' || ed === 'S' ? x : z, cas: [bc[1], bc[2]]}; let df = 0;
-    for (let d = 2; d < 200; d++) { const [X, Z] = WP(M, d, 0), [y, b] = surf(X, Z); if (y < SEA + 4 || b === T.WATER) break; df = d; }
-    M.df = df; return M; }
-  function carveMouth(M) { const P = [], F1 = SEA + 2;
-    // v1.1.22: the mouth is cut into the wall face higher up (where the ice reaches SEA+14), with no flat snow landing; the floor slopes down to the map edge
-    const hi = d => { const [X, Z] = WP(M, d, 0), [X1, Z1] = WP(M, d, -9), [X2, Z2] = WP(M, d, 9); return Math.min(surf(X, Z)[0], surf(X1, Z1)[0], surf(X2, Z2)[0]); };
-    let d0 = 0; for (let d = 4; d <= M.df; d++) { if (hi(d) >= SEA + 16) d0 = d; else if (d0) break; }
-    const gF = d0 ? (() => { const [X, Z] = WP(M, d0 + 12, 0); return bed(X, Z)[0]; })() : F1, F0 = d0 ? Math.max(F1, Math.min(SEA + 14, gF + 7)) : F1; if (!d0) d0 = M.df; M.d0 = d0; M.f0 = F0;
-    for (let d = d0 + 6; d >= 1; d--) { const [X, Z] = WP(M, d, 0), f = Math.round(F1 + (F0 - F1) * Math.min(1, (d - 1) / Math.max(1, d0 - 1))); P.push([X, Z, f + 11, 17, 13, f]); }
-    for (const p of P) ball(p[0], p[2], p[1], p[3], p[4], p[5]);
-    // a rough snow ramp climbs from the ground to the raised mouth (no flat platform)
-    if (F0 > F1) { const SN = T.PACKSNOW || T.SNOW || T.STONE, L = (F0 - gF) * 2 + 2; for (let i = 0; i <= L; i++) { const d = d0 + 1 + i, top = Math.round(F0 - 1 - i / 2), w = 3 + ((i * 7) % 3);
-        for (let a = -w; a <= w; a++) { const [X, Z] = WP(M, d, a + Math.round(Math.sin(i * 0.5) * 2)), t2 = top - (Math.abs(a) > w - 2 ? 1 : 0); for (let y = t2; y > 2; y--) { const b = get(X, y, Z); if (b && b !== T.WATER && y < t2) break; put(X, y, Z, SN); } } } }
-    dress(P.slice(8), 0); clearLane(P, SEA + 4, SEA + 40);
-    // water may never touch the mouth air
-    for (const p of P) for (let a = -20; a <= 20; a++) for (let y = SEA - 2; y <= SEA + 28; y++) for (const dz of [-1, 0, 1]) { const ns = M.e === 'N' || M.e === 'S', X = p[0] + (ns ? a : dz), Z = p[1] + (ns ? dz : a); if (get(X, y, Z) === T.WATER) { const n = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]].some(([u, v, w]) => !get(X + u, y + v, Z + w)); if (n) put(X, y, Z, T.STONE); } } }
+  const WP = (M, d, a) => M.e === 'N' ? [M.c + a, d] : M.e === 'S' ? [M.c + a, D - 1 - d] : M.e === 'W' ? [d, M.c + a] : [W - 1 - d, M.c + a];   /* v1.2.24: mouth() / carveMouth() removed; WP reads the saved mouth record */
   // the saucer flies this lane: no trees or leaves in the middle of the tunnel
   function clearLane(P, y0, y1) { for (const p of P) for (let a = -15; a <= 15; a++) for (let y = y0; y <= y1; y++) for (const [X, Z] of [[p[0] + a, p[1]], [p[0], p[1] + a]]) { const b = get(X, y, Z); if (b && (LOGGY[b] || LEAFY[b])) put(X, y, Z, 0); } }
   // ---------- beyond the edge: the 2000 block tunnel and Agartha ----------
@@ -45729,31 +45652,10 @@ function make42(E) {
     for (let k = 0; k < 900; k++) { const a = rnd() * 6.283, d = 6 + rnd() * (R - 10), x = Math.round(X + Math.cos(a) * d), z = Math.round(Z + Math.sin(a) * d); if (get(x, FL, z) || !get(x, FL - 1, z)) continue; const r = rnd();
       if (r < 0.2) tree(x, FL, z, 4 + (rnd() * 3 | 0)); else if (r < 0.28) put(x, FL, z, T.LAMP); else if (r < 0.5) put(x, FL, z, GLOWP()); else put(x, FL, z, T.FERN || T.TALLGRASS); }
     L.spires = sp; L.FL = FL; L.TOP = TOP; }
-  // v1.1.17: Agartha in the SAME world - GLX-C307 swaps in a zone array (the strip north of the map edge) and this carves the 800 block tunnel and the city into it.
-  // Local z = D - 1 is world z 2 (inside the map), the tunnel runs north (down local z), dipping under the flat ice, and the cavern sits under the ice at the far end.
-  function genExt(o) { const LT = o.LT, CR = o.CR, S0 = SEA + 1, CXl = W >> 1, PK = T.PACKSNOW || T.SNOW || T.STONE, BR = (W >= 600 && T.DEEPSLATE) || T.HBEDROCK || T.BEDROCK || T.STONE;
-    s = (0x6a9a + (o.seed | 0) * 31 + o.c * 7) >>> 0;
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const b = (x * H) * D + z; world[b] = BR; for (let y = 1; y <= S0; y++) world[b + y * D] = y > S0 - 4 ? PK : T.STONE; }
-    const sm = t => t * t * (3 - 2 * t), P = [];
-    for (let k = 0; k <= LT + 2; k++) { const z = D - 1 - k, a = sm(Math.min(1, k / 260)), e = Math.max(0, Math.min(1, (k - (LT - 150)) / 150));
-      P.push([CXl, z, Math.round(SEA + 13 + (24 - SEA - 13) * a - 6 * e), 17, 13, Math.round(SEA + 2 + (12 - SEA - 2) * a - 7 * e)]); }
-    // a glacier tongue of packed ice over the first stretch, so the tunnel is covered until it is under the flat ice
-    for (const p of P) { const roof = p[2] + 13 + 4; if (roof <= S0) continue; for (let x = -34; x <= 34; x++) { const h = Math.min(H - 3, Math.round(roof - Math.max(0, Math.abs(x) - 18) * 0.9)); for (let y = S0 + 1; y <= h; y++) put(CXl + x, y, p[1], PK); } }
-    for (const p of P) ball(p[0], p[2], p[1], p[3], p[4], p[5]); dress(P.slice(30), 0.15); for (const p of P) for (let a = -22; a <= 22; a++) for (let y = p[5] - 3; y <= p[2] + 16; y++) { const b = get(p[0] + a, y, p[1]); if (b && (LOGGY[b] || LEAFY[b])) put(p[0] + a, y, p[1], 0); }
-    const L = {city: [CXl, D - 1 - LT - 2 - CR + 4, CR], top0: 37}; cavern(L);
-    return {city: L.city, FL: L.FL, TOP: L.TOP, spires: L.spires, path: P.filter((p, i) => i % 40 === 0 || i === P.length - 1).map(p => [p[0], p[5] + 7, p[1]])}; }
-  U.genExt = genExt;
-  const big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };   // v1.1.39: on the big round Earth the only way into Agartha is the desert pyramid
-  function build() { if (big()) { U.M = null; U.Lw = null; return; } const t = performance.now(); s = (Math.random() * 4294967296) >>> 0; const M = mouth(); if (!M) { U.err = U.err || 'no site'; return; }
-    carveMouth(M); const F = WP(M, M.df, 0); U.M = {x: F[0], z: F[1], y: SEA + 2, e: M.e, c: M.c, df: M.df, d0: M.d0, f0: M.f0, castle: M.cas}; U.L = {v: 3, mouth: [F[0], F[1], SEA + 2], e: M.e, c: M.c, df: M.df, d0: M.d0, f0: M.f0}; U.ms = Math.round(performance.now() - t); }
+  function build() { U.M = null; U.Lw = null; }   /* v1.2.24: a new world gets no mouth (it never did on a W >= 600 home world) */
   try { const aps = applySave; applySave = function (d) { try { if (d && d.c294a) U.A = d.c294a; } catch (_) {} return aps.apply(this, arguments); }; } catch (e) { ERR('ap', e); }
   U.build = build; U.genAg = genAg;
-  // walking into the back of the mouth (the map edge) takes you on along the tunnel; walking back out of the tunnel start returns you
-  let cool = 0; setInterval(async () => { try { if (big() && !DIM.cur) { U.M = null; return; } if (!started || DIM.busy || paused || dead || performance.now() < cool || (window.__c307 && (__c307.ready || __c307.nw))) return;
-      const m = U.M, inner = m && (!DIM.cur ? (() => { const e = m.e, d = e === 'N' ? P.z : e === 'S' ? D - P.z : e === 'W' ? P.x : W - P.x, a = (e === 'N' || e === 'S' ? P.x : P.z) - m.c; return d < 5 && Math.abs(a) < 18 && P.y < SEA + 28; })() : false);
-      if (!DIM.cur && inner) { cool = performance.now() + 4000; const [X, Z] = WP(m, 14, 0); P.x = X + 0.5; P.z = Z + 0.5;
-        await enterDim('agartha', genAg, spawnAg); if (DIM.cur === 'agartha') { spawnAg(); toast('The tunnel runs on, out past the edge of the world...'); dirtyAll = true; } }
-      else if (DIM.cur === 'agartha' && P.z < 4 && !window.__agr) { cool = performance.now() + 4000; await exitDim(); if (m) { const [X, Z] = WP(m, 12, 0); P.x = X + 0.5; P.z = Z + 0.5; P.y = SEA + 2.05; } toast('Back at the ice wall.'); } } catch (e) { ERR('tp', e); } }, 250);
+  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). The mouth record (GLX-V1214 and the Watcher bowl keep out) now only comes from an old save (c294 v3). */
   U.WP = (d, a) => U.M ? WP(U.M, d, a) : null; U.AG = {CX, CZ, TL, AW, AD};
   Object.defineProperty(U, 'L', {get() { return DIM.cur === 'agartha' ? U.A : (!DIM.cur && window.__c307 && __c307.ready && __c307.L) || (U.Lw && U.Lw.v === 2 ? U.Lw : null); }, set(v) { U.Lw = v; }, configurable: true});
   const gen = generate; generate = function () { U.L = null; U.M = null; const r = gen.apply(this, arguments); try { if (on()) { build(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
@@ -46329,113 +46231,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     C0.lerp(BK, f); sc.background.copy(C0); if (sc.fog) { sc.fog.color.copy(C0); sc.fog.near = 60 + f * 600; sc.fog.far = 200 + f * 900; } return DIM.cur === 'moon' || f > 0.2 || (typeof daylight !== 'undefined' && daylight < 0.4); };
 })();
 
-/* GLX-C307 (v1.1.17): THE NORTH EXTENSION. The map now runs on 1500 blocks north past its old top edge (z 0 down to z -1500), in the same
-   world and the same coordinates - no teleport, no separate area. It is flat ice, made on the fly in 26 x 26 chunks as you get near; only
-   chunks that differ from flat ice are kept (the Agartha tunnel and city, and anything you dig or build), and only the ones you changed are
-   saved. The 800 block tunnel runs from the ice wall hole near Blackstone Castle (72 blocks inside the map, 728 out here) down under the ice
-   to Agartha. The base block helpers (getB, setB, solid, groundTop, skyTop) answer for z < 0 through __XG / __XS; GLX-C307b draws it. */
-(function c307() {
-  const X = window.__c307 = {err: null, ready: false, ch: new Map(), mod: new Set(), EH: 80, EXT: 1500, LT: 728, CR: 112, ZW: 240, L: null, route: null, ms: 0, gens: 0, x0: 0, z0: 0, W: 0};
-  const ERR = (w, e) => { if (!X.err) X.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
-  const EH = X.EH, CHs = CH, N = CHs * EH * CHs, key = (cx, cz) => (cz + 100) * 64 + cx;
-  let FC = null;   // one flat-ice column
-  const FL = () => SEA - 15;   // v1.1.29: open sea over a sea floor, like the rest of the round Earth (C320), no more ice plain
-  const seaCol = () => { const c = new Uint16Array(EH); c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y < SEA; y++) c[y] = y <= FL() ? T.STONE : y <= FL() + 3 ? T.SAND : T.WATER; return c; };
-  function shell(Z, ZW, ZD, F0, F1) { const y0 = FL() - 3, y1 = SEA + 1, ny = y1 - y0 + 1, n = ZW * ny * ZD, m = new Uint8Array(n), t = new Uint8Array(n), id = (x, y, z) => (x * ny + y) * ZD + z;
-    for (let x = 0; x < ZW; x++) for (let y = 0; y < ny; y++) for (let z = 0; z < ZD; z++) if (!Z[(x * EH + y + y0) * ZD + z]) m[id(x, y, z)] = 1;
-    const pass = (A, B, L, st, cnt) => { for (let o of cnt) { for (let i = 0; i < L; i++) { let v = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < L && A[o + j * st]) { v = 1; break; } } B[o + i * st] = v; } } };
-    const offs = (f) => { const r = []; f(r); return r; };
-    pass(m, t, ZD, 1, offs(r => { for (let x = 0; x < ZW; x++) for (let y = 0; y < ny; y++) r.push(id(x, y, 0)); }));
-    pass(t, m, ny, ZD, offs(r => { for (let x = 0; x < ZW; x++) for (let z = 0; z < ZD; z++) r.push(id(x, 0, z)); }));
-    pass(m, t, ZW, ny * ZD, offs(r => { for (let y = 0; y < ny; y++) for (let z = 0; z < ZD; z++) r.push(id(0, y, z)); }));
-    let n2 = 0; for (let x = 0; x < ZW; x++) for (let y = FL() + 1; y <= y1; y++) for (let z = 0; z < ZD; z++) { const i = (x * EH + y) * ZD + z, v = Z[i]; if (!v || v !== F0[y]) continue; Z[i] = t[id(x, y - y0, z)] ? T.STONE : F1[y]; n2++; }
-    X.shellN = n2; }
-  const flatCol = () => { const c = new Uint16Array(EH), S0 = SEA + 1; c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y <= S0; y++) c[y] = y > S0 - 4 ? (T.PACKSNOW || T.SNOW || T.STONE) : T.STONE; return c; };
-  const newCh = () => { const a = new Uint16Array(N); for (let lx = 0; lx < CHs; lx++) for (let y = 0; y < EH; y++) a.fill(FC[y], (lx * EH + y) * CHs, (lx * EH + y + 1) * CHs); return a; };
-  X.on = () => { try { return !!(window.__g89 && __g89() && W >= 600 && window.__c294 && __c294.M && __c294.M.e === 'N'); } catch (_) { return false; } };
-  function getE(x, y, z) { if (z < __XZ || y < 0 || y >= EH) return 0; const cx = (x / CHs) | 0, cz = Math.floor(z / CHs), a = X.ch.get(key(cx, cz));
-    return a ? a[((x - cx * CHs) * EH + y) * CHs + (z - cz * CHs)] : FC[y]; }
-  function setE(x, y, z, v) { if (z < __XZ || y < 0 || y >= EH) return; const cx = (x / CHs) | 0, cz = Math.floor(z / CHs), k = key(cx, cz); let a = X.ch.get(k);
-    if (!a) { if (FC[y] === v) return; a = newCh(); X.ch.set(k, a); } const lx = x - cx * CHs, lz = z - cz * CHs; a[(lx * EH + y) * CHs + lz] = v; X.mod.add(k);
-    const d = X.dirty; d.add(k); if (lx === 0) d.add(key(cx - 1, cz)); if (lx === CHs - 1) d.add(key(cx + 1, cz)); if (lz === 0) d.add(key(cx, cz - 1)); if (lz === CHs - 1) d.add(key(cx, cz + 1));
-    if (z === -1) try { markDirty(x, 0); } catch (_) {} }
-  X.dirty = new Set(); X.get = getE; X.set = setE;
-  function hook(a) { if (a) { __XG = getE; __XS = setE; __XN = (x, y) => y < EH ? getE(x, y, -1) : 0; __XZ = -X.EXT; } else { __XG = __XS = __XN = null; __XZ = 0; } }
-  X.hook = hook;
-  // ---------- make the extension: the zone (tunnel + Agartha) is carved once into a scratch array, then cut into chunks ----------
-  function init(saved) { const t0 = performance.now(); X.ready = false; hook(false); X.ch.clear(); X.mod.clear(); X.dirty.clear(); X.L = null; X.route = null;
-    try { if (window.__c307b) __c307b.clear(); } catch (_) {}
-    if (!X.on()) return; FC = flatCol(); const M = __c294.M; X.LT = Math.max(600, 800 - Math.round(M.z));
-    const ZW = X.ZW, ZD = X.LT + 2 * X.CR + 16, x0 = Math.max(0, Math.min(W - ZW, Math.round(M.c) - (ZW >> 1))), z0 = 3 - ZD; X.x0 = x0; X.z0 = z0; X.W = W;
-    const sv = [world, W, H, D], Z = new Uint16Array(ZW * EH * ZD); let R = null;
-    try { world = Z; W = ZW; H = EH; D = ZD; R = __c294.genExt({LT: X.LT, CR: X.CR, seed: typeof gSeed !== 'undefined' ? gSeed : 0, c: Math.round(M.c)}); }
-    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; }
-    try { const t1 = performance.now(), F1 = seaCol(); shell(Z, ZW, ZD, FC, F1); FC = F1; X.shellMs = Math.round(performance.now() - t1); } catch (e) { ERR('shell', e); }
-    const cx0 = Math.floor(x0 / CHs), cx1 = Math.floor((x0 + ZW - 1) / CHs), cz0 = Math.floor(z0 / CHs);
-    for (let cx = cx0; cx <= cx1; cx++) for (let cz = cz0; cz <= -1; cz++) { let a = null;
-      for (let lx = 0; lx < CHs; lx++) { const zx = cx * CHs + lx - x0; if (zx < 0 || zx >= ZW || cx * CHs + lx >= W) continue;
-        for (let lz = 0; lz < CHs; lz++) { const wz = cz * CHs + lz, zz = wz - z0; if (wz >= 0 || zz < 0) continue;
-          for (let y = 0; y < EH; y++) { const v = Z[(zx * EH + y) * ZD + zz]; if (!a) { if (v === FC[y]) continue; a = newCh(); } a[(lx * EH + y) * CHs + lz] = v; } } }
-      if (a) X.ch.set(key(cx, cz), a); }
-    // the zone answer in world coordinates for Agartha life, light, sky and the saucer
-    const wx = x => x + x0, wz = z => z + z0;
-    X.L = {v: 2, ag: 3, ext: 1, city: [wx(R.city[0]), wz(R.city[1]), R.city[2]], FL: R.FL, TOP: R.TOP, spires: (R.spires || []).map(p => [wx(p[0]), wz(p[1]), p[2], p[3]]), cry105: 1};
-    X.route = R.path.map(p => [wx(p[0]), p[1], wz(p[2])]); X.tunnelEnd = X.route[X.route.length - 1];
-    // saved changes go back on top
-    if (saved && saved.v === 1 && saved.ch) for (const k in saved.ch) { try { const a = newCh(); rleDecode(saved.ch[k], a); X.ch.set(+k, a); X.mod.add(+k); } catch (e) { ERR('load', e); } }
-    hook(true); X.ready = true; X.gens++; X.ms = Math.round(performance.now() - t0); try { if (window.__c307b) __c307b.clear(); } catch (_) {} }
-  X.init = init;
-  // the hole in the map edge: open the last two rows of the ice wall so the mouth tunnel runs straight on into the extension (new worlds only)
-  function openEdge() { if (!window.__c294 || !__c294.M) return; const M = __c294.M, Y = SEA + 13; for (let z = 0; z <= 3; z++) for (let x = -17; x <= 17; x++) for (let y = SEA + 2; y <= Y + 13; y++) {
-      if ((x * x) / (17 * 17) + ((y - Y) * (y - Y)) / (13 * 13) > 1) continue; const X0 = Math.round(M.c) + x; if (X0 < 0 || X0 >= W) continue; const i = idx(X0, y, z), b = world[i]; if (b && b !== T.HBEDROCK) world[i] = 0; }
-    try { for (let x = -18; x <= 18; x++) markDirty(Math.round(M.c) + x, 0); } catch (_) {} }
-  try { const gen = generate; generate = function () { hook(false); X.ready = false; const r = gen.apply(this, arguments); try { if (X.on()) { init(null); openEdge(); X.fresh = current && current.id; } } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
-  try { const ew = enterWorld; enterWorld = function (save) { hook(false); X.ready = false; X.fresh = null; const r = ew.apply(this, arguments);
-      X.nw = !save || !!save.c307 || !!save.tpl; const go = () => { try { if (X.fresh && current && X.fresh === current.id && X.ready) return; if (!save) ens(); if (save) { init(save.c307 || null); if (!save.c307 && X.ready) openEdge(); } else if (!X.ready) { init(null); openEdge(); } } catch (e) { ERR('ew', e); } };
-      if (r && typeof r.then === 'function') return r.then(v => { go(); return v; }); go(); return r; }; } catch (e) { ERR('ew0', e); }
-  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && X.ready) { const ch = {}; for (const k of X.mod) { const a = X.ch.get(k); if (a) ch[k] = rleEncode(a); } d.c307 = {v: 1, ch}; } } catch (e) { ERR('ser', e); } return d; }; } catch (e) { ERR('sw', e); }
-  // v1.1.22: new and reset worlds always get the v1.1.17 layout, even when the mouth was not placed during generate (some world sizes and paths skipped it)
-  function ens() { try { if (!DIM.cur && window.__g89 && __g89() && W >= 600 && window.__c294 && !__c294.M) __c294.build(); } catch (e) { ERR('ens', e); } }
-  setInterval(() => { try { if (!X.nw || X.ready || !started || DIM.cur || !window.__g89 || !__g89() || W < 600) return; ens(); if (X.on()) { init(null); openEdge(); X.fresh = current && current.id; } } catch (e) { ERR('nw', e); } }, 500);
-  // off in other dimensions (Moon, Mars, Hell) and back on at home
-  setInterval(() => { try { const a = X.ready && !DIM.cur && W === X.W && !(window.__c317 && __c317.on());   /* v1.1.38: no north ice plain on the round Earth, it is ocean now */ if (a !== !!__XG) hook(a); } catch (_) {} }, 100);
-})();
-
-/* GLX-C307b (v1.1.17): drawing the north extension. Ext chunks near you are meshed by the game's own chunk mesher (the original
-   buildChunk, before any wrappers) on a small padded scratch copy, then moved into place, two per tick, nearest first; chunks out of range
-   are thrown away again, so phone memory and frame rate stay flat however far north you walk. */
-(function c307b() {
-  const U = window.__c307b = {err: null, n: 0, built: 0, ms: 0, R: 4};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
-  const X = window.__c307, EH = X.EH, C = CH, PW = 3 * C + 1, key = (cx, cz) => (cz + 100) * 64 + cx;
-  const grp = new THREE.Group(); grp.name = 'ext307'; scene.add(grp); const M = new Map(); let TMP = null;
-  function drop(k) { const g = M.get(k); if (!g) return; grp.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); M.delete(k); }
-  U.clear = () => { for (const k of [...M.keys()]) drop(k); };
-  function build(cx, cz) { const t0 = performance.now(), k = key(cx, cz);
-    if (!TMP) TMP = new Uint16Array(PW * EH * PW); const ox = cx * C - C, oz = cz * C - C, Hm = H, Dm = D, wd = world, Wm = W;
-    for (let tx = C - 1; tx <= 2 * C; tx++) { const x = ox + tx; for (let tz = C - 1; tz <= 2 * C; tz++) { const z = oz + tz, b = (tx * EH) * PW + tz;
-        if (x < 0 || x >= Wm || z < __XZ) { for (let y = 0; y < EH; y++) TMP[b + y * PW] = 0; continue; }
-        if (z >= 0) { const m = (x * Hm) * Dm + z; for (let y = 0; y < EH; y++) TMP[b + y * PW] = wd[m + y * Dm]; continue; }
-        for (let y = 0; y < EH; y++) TMP[b + y * PW] = X.get(x, y, z); } }
-    const sv = [world, W, H, D], cc = window.__caveCull, o = chunkObjs.get(65), ol = chunkLists.get(65); let g = null;
-    chunkObjs.delete(65); chunkLists.delete(65); window.__caveCull = null;
-    try { world = TMP; W = PW; H = EH; D = PW; __bcBase(1, 1); g = chunkObjs.get(65); }
-    catch (e) { ERR('bc', e); }
-    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
-    if (!g) return; blockGroup.remove(g); drop(k); g.position.set(ox, 0, oz); g.userData.ext = k; grp.add(g); M.set(k, g); U.built++; U.ms = Math.round(performance.now() - t0); }
-  U.build = build;
-  setInterval(() => { try {
-      const on = X.ready && !!__XG && typeof started !== 'undefined' && started; grp.visible = on; if (!on) { if (M.size) U.clear(); return; }
-      const pcx = Math.floor(P.x / C), pcz = Math.floor(P.z / C), R = U.R, want = [];
-      for (const k of [...M.keys()]) { const cx = k % 64, cz = Math.floor(k / 64) - 100; if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > R + 1) drop(k); }
-      if (pcz - R <= -1) for (let cz = Math.max(Math.floor(__XZ / C), pcz - R); cz <= Math.min(-1, pcz + R); cz++) for (let cx = Math.max(0, pcx - R); cx <= Math.min(Math.floor((W - 1) / C), pcx + R); cx++) {
-        const k = key(cx, cz); if (!M.has(k) || X.dirty.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (X.dirty.has(k) ? 99 : 0), cx, cz, k]); }
-      want.sort((a, b) => a[0] - b[0]); for (let i = 0; i < Math.min(2, want.length); i++) { const w = want[i]; X.dirty.delete(w[3]); build(w[1], w[2]); }
-      U.n = M.size; } catch (e) { ERR('loop', e); } }, 90);
-  // ---------- the edges move with it: the world bound, the freezing and the open sea now sit at the new north boundary ----------
-  try { setInterval(() => { try { if (!X.ready || !__XG || !started || (window.__c317 && __c317.on())) return; if (P.z < __XZ + 1.5) { P.z = __XZ + 1.5; } } catch (_) {} }, 100); } catch (e) { ERR('edge', e); }
-})();
-
+/* v1.2.24: GLX-C307 removed (obsolete) */
+/* v1.2.24: GLX-C307b removed (obsolete) */
 /* GLX-C309 (v1.1.19): THE PLAYERS OWN UFO + the flat Earth seen from space. Every world has your own silver saucer parked next to where you
    start (old worlds get one beside you when they load); it is saved where you leave it. Fly UFO next to it. No gravity while you pilot:
    move stick / WASD to fly where you look, JUMP up, SHIFT down, BOOST (button or Ctrl) for speed, and it gently levels itself to the local
@@ -47399,12 +47196,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // blocks you dig or place out on the planet: redraw that chunk
   try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y >= 0 && y <= 1) { try { const ck = Math.floor(x / C) + ',' + Math.floor(z / C); U.op.delete(ck); U.dirty.add(ck); } catch (_) {} const t = '|' + Math.floor(x / C) + ',' + Math.floor(z / C) + ','; for (const kk of [...cache.keys()]) if (kk.includes(t)) cache.delete(kk); } } catch (_) {} try { const f = F(); if (f && on() && meshes.size) { const mx = ((Math.floor(x) % C) + C) % C, mz = ((Math.floor(z) % C) + C) % C; for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if ((ax === 0 || (ax > 0 ? mx === C - 1 : mx === 0)) && (az === 0 || (az > 0 ? mz === C - 1 : mz === 0))) U.dirty.add(Math.floor((Math.floor(x) + ax) / C) + ',' + Math.floor((Math.floor(z) + az) / C)); } } catch (_) {} return r; }; } catch (e) { ERR('setB', e); }
   // no grey ground fog in space or near the Moon and Mars
-  // the icy edge tint (for the old ice wall round the map) stays on the map and the north ice plain, not out on the Earth, the Moon or Mars
-  const uIceB = {value: new THREE.Vector4(0, 0, 0, 0)}, IA = 'if (uIce.w > 0.5) {';
-  setInterval(() => { try { const m = window.__TA && __TA.mat; if (!m) return; if (!m.__c324 && m.fragmentShader.includes(IA)) { m.uniforms.uIceB = uIceB;
-        m.fragmentShader = m.fragmentShader.replace('uniform vec4 uIce;', 'uniform vec4 uIce; uniform vec4 uIceB;').replace(IA, 'if (uIce.w > 0.5 && (uIceB.w < 0.5 || (vIceW.y > -90.0 && vIceW.y < uIceB.w && vIceW.x > -2.0 && vIceW.x < uIceB.x && vIceW.z > uIceB.y && vIceW.z < uIceB.z))) {');
-        m.__c324 = 1; m.needsUpdate = true; U.ice = 1; }
-      const Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; if (on()) uIceB.value.set(W + 2, Z0 - 2, D + 2, H + 200); else uIceB.value.w = 0; } catch (e) { ERR('ice', e); } }, 1000);
   const spaceNow = () => { try { const f = F(), b = f && f.body; if (!on() || DIM.cur || !f) return false; if (b === 'moon' || b === 'mars') return true; const w = f.pw(); return !!(E() && E().space(w.x, w.y, w.z)); } catch (_) { return false; } };
   try { const us = updateSky; updateSky = function () { const r = us.apply(this, arguments); try { const fg = scene.fog; if (fg && spaceNow()) { fg.near = Math.max(fg.near, 260); fg.far = Math.max(fg.far, 1400); fg.color.setHex(0x05060a); U.fogN = (U.fogN || 0) + 1; } } catch (e) { ERR('fog', e); } return r; }; } catch (e) { ERR('fog0', e); }
 })();
@@ -47636,21 +47427,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         // turn the island direction onto Scotland (the middle of the old map frame)
         const cs = n0[1], sn = n0[2]; return ll0(nx, ny * cs + nz * sn, -ny * sn + nz * cs); } catch (e) { ERR('ll', e); } return ll0(nx, ny, nz); };
   } catch (e) { ERR('ll0', e); }
-  // ---------- 2. the old ice wall goes ----------
-  function clearWall() { if (window.__c341) return 0; const A = window.__c273; if (!A || !A.edgeQ || !A.RE || (A.on && !A.on())) return 0; const RE = A.RE(), WS = A.WS || 40, SN = new Set([T.PACKSNOW, T.SNOW, T.ICE, T.PACKEDICE, T.STONE, 178].filter(Boolean));
-    let n = 0; const placed = i => { try { return typeof placedSet !== 'undefined' && placedSet.has(i); } catch (_) { return false; } };
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const q = A.edgeQ(x, z); if (q < RE - WS - 8) continue; const col = x * H * D + z;
-      if (q < RE - WS) { for (let y = H - 2; y > SEA; y--) { const i = col + y * D, b = world[i]; if (!b) continue; if (b === T.PACKSNOW && !placed(i)) { world[i] = T.GRASS; n++; } break; } continue; }
-      // the wall band (v1.1.39): open sea with a sand bed, so the map edge meets the real sea and land round it with no flat green ring
-      for (let y = H - 2; y >= SEA - 4; y--) { const i = col + y * D, b = world[i]; if (placed(i)) continue;
-        const want = y > SEA ? 0 : y > SEA - 4 ? T.WATER : T.SAND; if (b !== want && (y > SEA - 4 || !b || b === T.GRASS || b === T.DIRT || SN.has(b))) { world[i] = want; n++; } }
-      try { g9cols[(x * D + z) * 2] = SEA - 3; } catch (_) {} }
-    return n; }
-  let lastW = null;
-  setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || typeof current === 'undefined' || !current || world === lastW) return; lastW = world;
-      const key = 'glx339w:' + current.id; if (localStorage.getItem(key)) return; const n = clearWall(); U.cleared = n; localStorage.setItem(key, '1');
-      if (n) { try { dirtyAll = true; } catch (_) {} try { const E = __c320; E.edgeClr && E.edgeClr(); E.dirty = 1; } catch (_) {} if (window.__c324 && __c324.cache) __c324.cache.clear(); } } catch (e) { ERR('wall', e); } }, 1000);
-  try { const A = window.__c273; if (A && A.wallTop) A.wallTop = () => SEA - 4; } catch (_) {}
   // ---------- 3. Agartha teleport ----------
   function goAgartha() { try { if (DIM.cur) { toast('Go back to the overworld first'); return; } if (!(window.__c317 && __c317.on()) || !window.__c332 || !__c332.SH()) { toast('Agartha is not in this world. Reset world to get the big map'); return; }
       try { if (window.__c309 && __c309.on) __c309.on = false; } catch (_) {} window.__spaceHud = null; if (__c332.toCity()) { try { setPause(false); } catch (_) {} const ov = document.querySelector('[data-testid=tp-x]'); if (ov) ov.parentNode.parentNode.style.display = 'none'; toast('Agartha'); } } catch (e) { ERR('tp', e); } }
@@ -48155,7 +47931,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let nextB = 0, nextP = 0, nextN = 0;
   function tick() { try { if (!started || !wire() || AC.state === 'suspended') return; sense(); setRev(); const t = AC.currentTime, hid = document.visibilityState === 'hidden';
       const vol = hid ? 0 : Math.max(0, Math.min(1, (SET.music + SET.sfx) / 2)), dim = !DIM.cur, night = typeof isNight !== 'undefined' && isNight, rainy = typeof raining !== 'undefined' && raining;
-      const outdoor = dim && !U.enc ? 1 : dim && U.enc === 0.5 ? 0.35 : 0; U.out = outdoor;
+      const outdoor = (window.__vac && __vac()) ? 0 : dim && !U.enc ? 1 : dim && U.enc === 0.5 ? 0.35 : 0; U.out = outdoor;
       outBus.gain.setTargetAtTime(vol * outdoor * 0.7, t, 1.2);
       wind.gain.setTargetAtTime(night ? 0.5 : 0.22 + Math.min(0.4, Math.max(0, (P.y - SEA) / 200)), t, 2); windF.frequency.setTargetAtTime(300 + Math.random() * 200, t, 3);
       rain.gain.setTargetAtTime(rainy ? 0.0 : night && water ? 0.25 : 0, t, 2); rainF.frequency.setTargetAtTime(night && water ? 900 : 3200, t, 1);
@@ -49257,7 +49033,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       const door = Math.abs(dx) < DW && P.z > fz - 0.9; if (door) { const m = DW - R; if (Math.abs(dx) > m) P.x = S.x + Math.sign(dx) * m; }
       else { const cx = S.x, cz = S.z + CZ, ddx = P.x - cx, ddz = P.z - cz, d = Math.hypot(ddx, ddz) || 1, mx = RR - R - 0.1; if (d > mx) { P.x = cx + ddx / d * mx; P.z = cz + ddz / d * mx; } }
       { const ddx = P.x - S.x, ddz = P.z - (S.z + CZ), d = Math.hypot(ddx, ddz) || 1, mn = 1.15 + R; if (d < mn) { P.x = S.x + ddx / d * mn; P.z = S.z + CZ + ddz / d * mn; } }
-      if (P.y < S.y) { P.y = S.y; if (P.vy < 0) P.vy = 0; } return; }
+      if (P.y < S.y) { P.y = S.y; if (P.vy < 0) P.vy = 0; } if (P.y > S.y + (T.RH || 8.8) - 1.8) { P.y = S.y + (T.RH || 8.8) - 1.8; if (P.vy > 0) P.vy = 0; } return; }   /* v1.2.24: room ceiling */
     if (P.y > S.y + 3.4 || P.y + 1.8 < S.y) return; const ox = HW + R - Math.abs(dx), oz = HW + R - Math.abs(P.z - S.z); if (ox <= 0 || oz <= 0) return;
     if (open && Math.abs(dx) < DW - R + 0.05 && P.z > S.z) { if (P.z < fz - 0.02 && Math.abs(P.y - S.y) < 0.6) { T.inside = true; } return; }
     if (ox < oz) P.x += Math.sign(dx || 1) * ox; else P.z += Math.sign(P.z - S.z || 1) * oz; }
@@ -49333,7 +49109,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const RW = PH ? 256 : 384, RH = Math.round(RW * 9 / 16); let rt = null, cam = null, scr = null, wheel = null;
   function build() { rt = new THREE.WebGLRenderTarget(RW, RH, {depthBuffer: true}); cam = new THREE.PerspectiveCamera(70, 16 / 9, 0.3, 4000);
     const fm = SM(new THREE.MeshBasicMaterial({color: 0x2b1a0c})), sm = SM(new THREE.MeshBasicMaterial({map: rt.texture}));
-    const g = new THREE.Group(); const fr = new THREE.Mesh(new THREE.BoxGeometry(2.08, 1.2, 0.07), fm); g.add(fr); scr = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 1.1), sm); scr.position.z = 0.035; g.add(scr);
+    const g = new THREE.Group(); const fr = new THREE.Mesh(new THREE.BoxGeometry(2.08, 1.2, 0.07), fm); g.add(fr); scr = new THREE.Mesh(new THREE.PlaneGeometry(1.96, 1.1), sm); scr.position.z = 0.039; sm.polygonOffset = true; sm.polygonOffsetFactor = -1; sm.polygonOffsetUnits = -2; g.add(scr); /* v1.2.24: off the frame face (it z-fought, flashing brown) */
     { const st = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.5, 0.12), fm); st.position.y = -0.8; g.rotation.x = -0.12; g.add(st); } U.scr = scr; U.SEAT = [0, 0, CZ + 2.0];
     g.position.set(0, 1.78, CZ + 0.85); g.traverse(o => { if (o.isMesh) { o.renderOrder = 5; o.frustumCulled = false; } }); room.add(g); U.scrG = g;
     const bm = SM(new THREE.MeshLambertMaterial({color: 0xc8962e, emissive: 0x3a2508})), w = new THREE.Group(); w.add(new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.04, 8, 28), bm));
@@ -49471,7 +49247,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     // big glowing stalactites of sunstone from the roof
     const s = h3(x >> 1, 321, z >> 1); if (s < 0.02) { const len = 4 + F(s * 2000); if (d - CROOF < len) return T.SUNSTONE || T.GLOWROCK; }
     return 0; }
-  function gen(x, y, z, d) { try { U.n++; if (y < 0 && window.__v1217 && __v1217.on()) return __v1217.gen(x, y, z); if (d < TOP) return rock(0, x, y, z, false); if (d >= CORE) return core(x, y, z, d);
+  function gen(x, y, z, d) { try { if (y < -240) { U.voidQ = (U.voidQ || 0) + 1; return 0; } if (y < -233 && !(window.__v1217 && __v1217.on())) return T.BEDROCK || T.HBEDROCK || 211;   /* v1.2.24: void under the bedrock */ U.n++; if (y < 0 && window.__v1217 && __v1217.on()) return __v1217.gen(x, y, z); if (d < TOP) return rock(0, x, y, z, false); if (d >= CORE) return core(x, y, z, d);
       if (d >= CORE - 8) return rock(5, x, y, z, false); return level(x, y, z, d); } catch (e) { ERR('gen', e); return T.STONE; } }
   U.gen = gen; window.__c334.deep = (x, y, z, d) => gen(x, y, z, d);
   // v1.1.87: the snowy island spiral is gone; the way down to Agartha is in agartha/agartha_underground.js
@@ -50597,6 +50373,57 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // tool grip point for GLX-FPA: a fifth of the way up the handle from its lower end (the item origin is the top of the handle for axes and picks)
 })();
 
+/* GLX-FOL1224 (v1.2.24): Disable foliage setting (persisted in glen_set as SET.noFoliage, default off).
+   How: the shared plant and leaf materials are switched off (material.visible), so the renderer skips every grass tuft, flower,
+   crop, sapling, mushroom and leaf block that uses them, in every chunk, newly streamed chunks and other realms alike.
+   No block, chunk, save or geometry is touched or rebuilt, no shader changes, no scene scans; turning it off brings everything back at once.
+   Not covered: logs and wood (kept, they are also building blocks), grass block ground, fire and cobwebs, far away low detail terrain,
+   and plant models that do not use the shared plant materials. Held and dropped plant items get their own copy of the material when built, so they stay visible. */
+(function fol1224() {
+  const U = window.__fol1224 = {err: null, mats: 0, applies: 0, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const SKIP = () => new Set([typeof T !== 'undefined' ? T.COBWEB : -1, typeof T !== 'undefined' ? T.FIRE : -1].filter(v => v != null).map(String));
+  U.list = () => { const out = [], sk = SKIP();
+    try { if (typeof PLANT_MATS !== 'undefined') for (const k in PLANT_MATS) if (!sk.has(k)) out.push(...[].concat(PLANT_MATS[k])); } catch (e) { ERR('pm', e); }
+    try { if (typeof BLOCK_MATS !== 'undefined' && typeof LEAFY !== 'undefined') for (const k in BLOCK_MATS) if (LEAFY[+k]) out.push(...[].concat(BLOCK_MATS[k])); } catch (e) { ERR('lm', e); }
+    return [...new Set(out.filter(m => m && m.isMaterial))]; };
+  U.apply = () => { const on = !!SET.noFoliage, L = U.list(); for (const m of L) { if (m.userData.fol0 === undefined) m.userData.fol0 = m.visible; m.visible = on ? false : m.userData.fol0; } U.mats = L.length; U.on = on ? 1 : 0; U.applies++; return L.length; };
+  U.set = v => { SET.noFoliage = !!v; try { saveSet(); } catch (_) {} U.apply(); U.sync && U.sync(); };
+  U.ui = () => { const ms = document.getElementById('mobSeg'); if (!ms || document.getElementById('folSeg')) return !!document.getElementById('folSeg'); const row = ms.closest('.set') || ms.parentNode;
+    const d = document.createElement('div'); d.className = 'set inline'; d.innerHTML = '<span>Disable foliage</span><div class="seg" id="folSeg"><button data-v="1" data-testid="settings-folSeg-1">On</button><button data-v="0" data-testid="settings-folSeg-0">Off</button></div>';
+    row.after(d); U.sync = () => d.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (SET.noFoliage ? 1 : 0)));
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => U.set(Number(b.dataset.v) === 1))); U.sync(); return true; };
+  { let t = 0; const iv = setInterval(() => { try { if (U.ui() || ++t > 80) clearInterval(iv); } catch (e) { ERR('ui', e); clearInterval(iv); } }, 500); }
+  // held and dropped plant items keep showing: an item mesh that uses a hidden plant material gets its own always visible copy
+  // (one copy per material, made once, only when an item mesh is built; the world plants keep the shared hidden one)
+  const CP = new Map(); U.copies = 0;
+  const own = (m, hs) => { if (!m || !m.isMaterial || !hs.has(m)) return m; let c = CP.get(m); if (!c) { c = m.clone(); c.visible = true; c.userData = {fol: 'item'}; CP.set(m, c); U.copies++; } return c; };
+  try { const mi = makeItemMesh; makeItemMesh = function () { const g = mi.apply(this, arguments); try { if (g && g.traverse) { const hs = new Set(U.list()); g.traverse(o => { if (o.material) o.material = Array.isArray(o.material) ? o.material.map(m => own(m, hs)) : own(o.material, hs); }); } } catch (e) { ERR('item', e); } return g; }; } catch (e) { ERR('miw', e); }
+  try { const di = dropItem; dropItem = function () { const n0 = typeof drops !== 'undefined' ? drops.length : 0, r = di.apply(this, arguments); try { const d = drops[drops.length - 1]; if (d && drops.length !== n0 || (d && d.m && !d.m.userData.fol)) { if (d.m && d.m.material) { d.m.material = own(d.m.material, new Set(U.list())); d.m.userData.fol = 1; } } } catch (e) { ERR('drop', e); } return r; }; } catch (e) { ERR('diw', e); }
+  // materials registered later by other modules are picked up by a cheap re-apply (a list of materials, not the scene)
+  try { U.apply(); } catch (e) { ERR('a0', e); } setInterval(() => { try { if (SET.noFoliage) U.apply(); } catch (e) { ERR('a', e); } }, 3000);
+})();
+
+/* GLX-VAC1224 (v1.2.24): space is silent. One test for "in the vacuum of space" (the flat Earth's own space height, GLX-C320 space(),
+   outside any realm), used by the nature sounds: outdoor birds, planes, owls and wind (GLX-UKS), the nature ambience music (GLX-C132),
+   the rain bed and thunder (GLX-WX1222) and the snow hush. They fade out above the space line and come back when you return to Earth.
+   UI clicks, the time box and machine sounds, guns, tools and your own actions are not touched. */
+(function vac1224() {
+  const U = window.__vac1224 = {err: null, on: 0, flips: 0};
+  window.__vac = () => { try { if (typeof DIM !== 'undefined' && DIM.cur) return false; const e = window.__c320; const v = !!(e && typeof e.space === 'function' && typeof P !== 'undefined' && e.space(P.x, P.y, P.z)); if (v !== !!U.on) { U.on = v ? 1 : 0; U.flips++; } return v; } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); return false; } };
+})();
+
+/* GLX-KEEP1224 (v1.2.24): saves keep the old north extension data. GLX-C307 was removed, but a save made with it can hold a c307 field
+   (the changed 26 x 26 chunks of the old zone, which may include your own digging and building out there). It is kept exactly as it
+   was: read from the save on load and written back unchanged on every save, never decoded, generated, drawn or collided with. */
+(function keep1224() {
+  const U = window.__keep1224 = {err: null, kept: 0, writes: 0};
+  let blob = null;
+  try { const ew = enterWorld; enterWorld = function (save) { try { blob = save && save.c307 && typeof save.c307 === 'object' ? save.c307 : null; U.kept = blob ? 1 : 0; } catch (e) { blob = null; } return ew.apply(this, arguments); }; } catch (e) { U.err = 'ew ' + e; }
+  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && blob && !d.dim && d.c307 === undefined) { d.c307 = blob; U.writes++; } } catch (e) { if (!U.err) U.err = 'ser ' + e; } return d; }; } catch (e) { U.err = 'ser0 ' + e; }
+  U.blob = () => blob;
+})();
+
 /* GLX-GRIP1222 (v1.2.22): grip sockets for the first person hands. Each held tool gets a handle socket worked out once from its own meshes
    (the longest thin part is the handle, the end nearest the other parts is the head), stored in the item's own space and carried through the
    item's world matrix every frame, so the hand follows the real handle through every swing. Guns use their own up, forward and side axes. */
@@ -51212,6 +51039,10 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.hitSurf = (c, r, x, y, z, nx, ny, nz, sp) => { if (r.cd > 0 || (r.ns || 0) >= U.MAXS) { U.spam++; return 0; } const G = window.__gore; if (!G || !G.splat) return 0;
     if (G.splat(c, x + nx * 0.01, y, z + nz * 0.01, nx, ny, nz, Math.min(1.1, 0.35 + sp * 0.07))) { r.cd = U.CD; r.ns = (r.ns || 0) + 1; U.splats++; U.last = [x, y, z, nx, ny, nz]; return 1; } return 0; };
   U.frame = dt => { if (typeof P === 'undefined' || !dt) return; if (px !== null) { pvx = (P.x - px) / dt; pvz = (P.z - pz) / dt; } px = P.x; pz = P.z; moving = 0; };
+  // v1.2.24: the floor follows the ground under the body (it used to stay at the height where it died, so a body thrown off a ledge
+  // hung in the air and one thrown onto a step sank into it). Looked up only when the body enters a new block column, at most 8 block checks.
+  U.ground = (c, r, p, sol) => { const cx = Math.floor(p.x), cz = Math.floor(p.z); if (r.gk === cx * 65536 + cz && r.gg != null) return r.gg; r.gk = cx * 65536 + cz; U.gLook = (U.gLook || 0) + 1;
+    let g = c.gy; if (sol) { const y0 = Math.floor(p.y + 0.6); for (let y = y0; y > y0 - 8; y--) if (sol(cx + 0.5, y + 0.5, cz + 0.5)) { g = y + 1; break; } } r.gg = g; c.gy = g; return g; };
   // returns true when this frame the body was moved here (skip the old fall code)
   U.step = (c, dt) => { try { if (c.kind !== 'body') return false; let r = c.__r;
       if (!r) { const gun = c.w > 2, k = gun ? 9 : 2.2; r = c.__r = {vx: c.dir.x * k, vz: c.dir.z * k, vy: gun ? 4.2 : 1.0, spin: gun ? 11 : 3, air: 1, sleep: 0, rest: null, cd: 0}; U.launched++; }
@@ -51225,7 +51056,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         for (const ax of ['x', 'z']) { const v = ax === 'x' ? r.vx : r.vz, nx = p[ax] + v * h; const q = {x: p.x, y: p.y + 0.3, z: p.z}; q[ax] = nx + Math.sign(v) * 0.3;
           if (sol && Math.abs(v) > 0.01 && sol(q.x, q.y, q.z)) { const sp = Math.abs(v); if (sp > U.HIT) U.hitSurf(c, r, ax === 'x' ? Math.floor(q.x) + (v > 0 ? 0 : 1) : p.x, p.y + 0.3, ax === 'z' ? Math.floor(q.z) + (v > 0 ? 0 : 1) : p.z, ax === 'x' ? -Math.sign(v) : 0, 0, ax === 'z' ? -Math.sign(v) : 0, sp);
             if (ax === 'x') r.vx *= -0.25; else r.vz *= -0.25; r.spin *= 0.7; } else p[ax] = nx; }
-        p.y += r.vy * h; const floor = r.rest !== null ? r.rest : c.gy + 0.25;
+        p.y += r.vy * h; const floor = r.rest !== null ? r.rest : U.ground(c, r, p, sol) + 0.25;
         if (p.y <= floor) { p.y = floor; const sp = -r.vy; if (sp > U.HIT) U.hitSurf(c, r, p.x, c.gy + 0.01, p.z, 0, 1, 0, sp); if (r.vy < -1.5) { r.vy *= -0.32; r.spin *= 0.6; } else { r.vy = 0; r.air = 0; } const f = Math.exp(-h * (r.air ? 2 : 7)); r.vx *= f; r.vz *= f; } }
       if (r.spin > 0.05) { Q.setFromAxisAngle(c.axis, r.spin * dt); c.g.quaternion.premultiply(Q); r.spin *= Math.exp(-dt * 2.2); }
       if (!r.air && Math.hypot(r.vx, r.vz) < 0.15 && r.spin < 0.3) { r.sleep = 1; U.slept++; if (r.rest === null) { r.rest = p.y; if (c.q0 && c.axis) { c.ang = Math.PI / 2; c.w = 0; c.slide = 0; c.q0 = new THREE.Quaternion().setFromAxisAngle(c.axis, Math.PI / 2).invert().multiply(c.g.quaternion); } return false; } return true; }
@@ -51260,8 +51091,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.ready = () => !!(BUF.near && BUF.near !== 'wait' && BUF.far && BUF.far !== 'wait');
   // rain bus level: one writer, only when the wanted level changes
   let last = -1; U.tick = () => { try { if (!U.bus()) return; const hid = typeof document !== 'undefined' && document.visibilityState === 'hidden', pz = typeof paused !== 'undefined' && !!paused;
-      const w = hid || pz ? 0 : U.RB_LEVEL; U.want = w; if (w !== last) { last = w; U.rb.gain.setTargetAtTime(w, AC.currentTime, 0.25); U.sets++; } } catch (e) { ERR('tick', e); } };
-  U.thunder = vol => { if (!U.bus() || !U.ready()) { U.synth++; return false; } if (U.voices >= U.MAXV) { U.skip++; return true; }
+      const w = hid || pz || (window.__vac && __vac()) ? 0 : U.RB_LEVEL; U.want = w; if (w !== last) { last = w; U.rb.gain.setTargetAtTime(w, AC.currentTime, 0.25); U.sets++; } } catch (e) { ERR('tick', e); } };
+  U.thunder = vol => { if (window.__vac && __vac()) { U.vacSkip = (U.vacSkip || 0) + 1; return true; } if (!U.bus() || !U.ready()) { U.synth++; return false; } if (U.voices >= U.MAXV) { U.skip++; return true; }
     try { const near = vol > 0.7, b = BUF[near ? 'near' : 'far'], s = AC.createBufferSource(), g = AC.createGain(); s.buffer = b; s.playbackRate.value = 0.9 + Math.random() * 0.15;
       g.gain.value = Math.max(0, Math.min(1, vol)) * (near ? 1 : 0.8); s.connect(g); g.connect(U.tb); U.voices++; s.onended = () => { U.voices = Math.max(0, U.voices - 1); }; s.start(); U.plays++; return true; } catch (e) { ERR('th', e); return false; } };
   try { const ps = playSound; playSound = function (kind, vol) { if (kind === 'thunder') { try { if (U.thunder(vol == null ? 1 : vol)) return; } catch (_) {} } return ps.apply(this, arguments); }; } catch (e) { ERR('ps', e); }
@@ -52229,6 +52060,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.24","d":"2026-11-08","notes":["New setting: Disable foliage (Settings). It hides grass tufts, flowers, saplings, leaf blocks and other small plants everywhere, and turning it off brings them all back at once. Not covered yet: logs and wood, grass block ground, fire, cobwebs and far away low detail terrain. Plant items you hold or drop stay visible.","Time box: jetpack or creative flight inside the room can no longer lift you up through the ceiling and out of the box. This is a partial fix for the time box flight glitch; other flight glitches may still need work.","Time box screen no longer flashes brown squares (it sat exactly on its frame).","Ragdolls rest on the ground they fall on instead of a fixed floor height.","Space is quiet: birds, wind, nature music, rain, thunder and the snow hush stop above the space line and come back when you return.","The old ice wall round the map edge and the old tunnel into the separate Agartha world are retired. Agartha is reached as before through the Teleport menu and the pyramid. No invisible old ice blocks north of the map any more.","Below the bedrock there is now an empty void instead of old caves.","Saves are kept: old worlds load with all your builds, and data from the retired north ice area is stored unchanged in your save."]},
 {"v":"v1.2.23","d":"2026-11-08","notes":["Controller in the inventory: pressing A on a slot or a creative bag item keeps the focus on that box instead of jumping back to the first one, so a second press takes or moves the item you meant.","Controller Y in the new inventory works again: an item goes to the next free hotbar slot, armour goes straight on, a hotbar item goes back to storage, and in the creative bag Y takes the item.","Creative bag: items you already have show their count on the box, and taking one shows how many you now have."]},
 {"v":"v1.2.22","d":"2026-11-07","notes":["Hands on the real guns: the hands now hold the actual grip, fore stock and bolt of the real pistol and rifle models instead of a spot a few centimetres off them, the spare pistol magazine sits inside the grip instead of floating behind it, and the reload hand takes the real magazine as it drops and pushes it back in with a flat palm, or works the real bolt as it racks, and the support hand now comes in from below and leaves downwards instead of popping in and out.","Bodies now look dead in a way that fits each kind of mob: eyes close or go dark, people go pale, zombies and creepers go grey, skeletons and bone piles go dull, animals get flat dull fur, stone mobs lose their shine, ghosts and slimes fade, and the head droops. Live mobs never change.","Settings: LB and RB now step through all five settings tabs and wrap round both ways (Info was skipped before).","Jetpack: a new detailed white model on your back, in your hand and on the ground, with twin tanks and nozzles, panel lines, vents and straps, and a matching new icon. The purple flames still come out of both nozzles. The Golden Jetpack is unchanged.","Menus: the gold highlight box no longer flashes while you scroll with the controller; it only moves when the selection really changes.","YEAR 24000: the giant robots fight each other in pairs, winding up, punching, rocking back and squaring up again, each with its own timing. Battle saucers fire big red lasers down at them and far off on the horizon nuclear blasts rise as mushroom clouds. No screen flash and no damage.","After the alien visit the big saucer flies away for good and no longer comes back to fly around.","New: Time Box Key. You start with it (old worlds get it once). Hold it and press LT, right click or USE: it chirps like a car key and your time box lands beside you on clear flat ground.","The white saucer parked next to where you start is gone. The alien saucer and its visit are unchanged.","The alien keeps the same voice all the way through: the YEAR 24000 lines and Brace for impact are now recorded in the same voice as the opening.","One Teleport list in the pause menu: Glencraft spawn, the North Scotland cave, Agartha city, the unicorn, each clansman and your builds. A place that is not ready says why.","Settings text is smaller with the same big buttons, and on and off are easy to tell apart: the chosen one is white with a tick.","Save and quit asks first, inside the game, and then goes back to the title without reloading the page, so fullscreen stays on.","The Controller supported mark on the title screen has a soft gold shimmer.","The offhand slot is on the right of your character. Tapping an armour slot when you already wear the best piece keeps it on.","Rain sound is calmer and steady: every rain layer now shares one volume, so it no longer cuts out when lightning strikes or a Thunner Cloudie zaps, and it fades out while paused.","Thunder is real recorded thunder now, a close crack with a long rumble or a far roll. Recordings: Thunder crack 2B by Jud McCranie and Thunder 01 by Amuzujoe, Wikimedia Commons, CC BY-SA 4.0.","Shot mobs are thrown along the shot and tumble and slide across the ground, and running into a body knocks it rolling again. Guns hit harder and throw bodies further. When a body slams into the ground or a wall it leaves a blood splat on that surface (only mobs that bleed). Up to 4 bodies move at once.","Dead mobs look dead: their eyes and glowing parts go dark, their own lights go out and a dead cloud stops zapping.","Dead mobs lying on the ground now fade away and are gone five minutes after they die, to keep the game smooth. Loot is not dropped again.","Agartha and deep caves: storm lightning and far flash lights (volcano ash lightning and zaps) no longer light up the screen while you are under ground. Near lights such as your torch still work.","Deep caves and the Agartha tunnel draw their plants only within about 50 blocks while you are under ground, so the tunnel has less to draw. The plants are still there and come back as you walk on.","Deep caves no longer start another cave chunk build when a frame is nearly full, so fewer frames run long while caves fill in.","The seven Agarthans find their ring from the city even when the floor pass had none, each stands on the real floor under it, and they wear one shared painted texture with linen pleats, a blue and white striped headdress, kohl lined eyes and a blue and white sash, with no gold. The texture is 2048 pixels on computers and 1024 on phones.","Time box: the cockpit screen, the T grip and the pilot hands are drawn in the right order, so the room walls no longer paint over them.","First person hands: tools are held on their real handle, found from the tool model and carried through every swing. Guns are held by their own up, forward and side directions with the trigger finger out, and the front hand cups the barrel or the pistol grip. The hand is no longer bent back off the forearm by a fixed limit, and the elbow keeps a steady bend.","Castles: every railing and fence is now one drawn piece instead of up to about 26 separate boxes, built once per shape and shared. Glass panes and chests share their box shapes instead of making new ones for every block, and panes no longer leave old shapes behind when they join up. Chests still open, hold their items and save as before.","Purple crystal pickaxe: mines every block fast, even ones a pickaxe is normally slow on, up to one block every frame while you hold attack and keep aiming. Bedrock and the bottom of the world still cannot be broken. Each hit plays a richer layered crystal chime. It is a little longer and thinner, with a pink and purple faceted crystal head.","Purple crystal pickaxe mining is smoother: the world, drops and collision change at once, but the block mesh is rebuilt at most every 60 milliseconds while you mine (never later than 120), and at once when you stop.","Far ocean chunks build faster: water deep inside the sea, with water on every side, is skipped before the face checks because it can never show a face. Near water looks the same.","Guns have grip points on the model itself: the main hand stays on the grip through recoil, reload, sprint and switching. On a reload the front hand lets go, fetches a magazine from the belt and pushes it into the pistol, or works the musket bolt, then comes back. Flat card tools are held on their drawn handle.","Time box: the camera no longer shakes when you fly up or down. Let go of the stick and the box keeps hovering right where it is, and the cabin floor is solid at any height, so you can walk and jump around inside while it hovers. You can now build inside the cabin: plain solid blocks stay in the cabin, move with the box and are saved with it. Mining them gives the block back. Chests, furnaces, doors, fluids, plants and other special blocks cannot go in the cabin yet.","Inventory: real slots you can arrange. Every item sits in its own square with its full count, empty squares stay where you leave them, and your layout is saved with the world. Pick a slot, then another, to swap them, including the hotbar row now shown under the grid. Works with mouse, touch and controller. The grid scrolls and gets denser on phones.","The inventory, crafting and character tabs are now icons at the top (the character tab shows a little figure), with names kept for screen readers, and LB and RB switch between all three.","New survival worlds start with a Purple crystal pickaxe and the white Jetpack (not the golden one), given once. The creative bag is now inside the inventory in survival and new worlds no longer get a Bag of Everything. A Bag of Everything you already have still works and keeps its items.","Character tab: tapping Helmet, Chest, Legs or Boots wears the best one you own for that slot, by protection, and puts the old one back in your inventory. Tapping the Jetpack slot wears the normal white Jetpack. Each slot has its own icon, with an open hand for the offhand.","The white Jetpack climbs, glides and steers twice as fast. The Golden Jetpack is unchanged, and one you already own stays yours.","Jetpack flames are now tall tapered jets with a slight purple glow, and the sparks are small diamond shaped flecks instead of square blocks (the same small pool as before).","Thunner Cloudie: its zap now shoots straight out of the cloud to the target, with a short warm yellow light that lights the blocks around the strike (no screen flash). The harsh crack is replaced by a deep low bass boom made in code, and the cloud has a heavier layered body."]},
 {"v":"v1.2.21","d":"2026-11-07","notes":["Time box flying is solid now: the box can no longer fly into hills or rock at high speed (it stops at them, checked block by block), and if you ever end up outside the room or stuck in stone the game puts you back in the pilot seat or lifts the box clear.","No more bobbing while you fly: the walking head bob and step dip are off while you hold the stick.","Pilot mode: you sit facing the console with a big live screen mounted on it, both hands hold a T grip on the stick and move with it, and the HUD, your normal hand and any tool are hidden until you let go.","Looking in through the open doors now shows the finished room before you step inside.","First person hands: no more twitching or bent wrists, the wrist joins the forearm smoothly, sleeves are slimmer, pistol fingers no longer go through the grip, the rifle and musket front hand closes on the barrel, and axes, picks and other tools are held lower on the handle. Fingers have knuckles."]},
