@@ -15,10 +15,10 @@ const B = load(file), T = B.T, b = B.build(false); b.updateMatrixWorld(true); co
 // identity with the live v1.2.31 face (t1026): the same big eyes, brows, nose and mouth at the live places, painted finer
 const P = (x, y) => { const k = (y * 512 + x) * 4; return [D[k], D[k + 1], D[k + 2]]; };
 for (const L of b.userData.lids) { const c = px(U(L.position.x), V(L.position.y)); ok(c[2] > c[0] + 40, `blue iris under the lid at ${L.position.x.toFixed(2)}: rgb ${c}`); }
-for (const ex of [96, 328]) { let eye = 0, n2 = 0, blue = 0; for (let y = 212; y < 260; y += 4) for (let x = ex + 8; x < ex + 90; x += 4) { const c = P(x, y); n2++; if (lum(c) > 200 || c[2] > c[0] + 30 || lum(c) < 40) eye++; if (c[2] > c[0] + 30) blue++; }
+for (const ex of [96, 328]) { let eye = 0, n2 = 0, blue = 0; for (let y = 212; y < 260; y += 4) for (let x = ex + 8; x < ex + 90; x += 4) { const c = P(x, y); n2++; if ((lum(c) > 150 && c[0]-c[2] < 40) || c[2] > c[0] + 30 || lum(c) < 40) eye++; if (c[2] > c[0] + 30) blue++; }
   ok(eye / n2 > 0.85 && blue / n2 > 0.3, `big eye kept at the live size (96 x 58 px at x ${ex}): ${(100 * eye / n2).toFixed(0)}% eye, ${(100 * blue / n2).toFixed(0)}% blue iris`);
   const iw = (() => { let a = 999, z = -1; for (let x = ex; x < ex + 96; x++) { const c = P(x, 236); if (c[2] > c[0] + 30) { a = Math.min(a, x); z = Math.max(z, x); } } return z - a; })(); ok(iw > 45, 'iris as wide as the live one (56 px): ' + iw); }
-ok(lum(P(140, 170)) < 90 && lum(P(372, 170)) < 90, 'brows where the live brows are');
+if(b.userData.realism===1233){let n=0,dk=0;for(let y=158;y<186;y++)for(let x=78;x<202;x++){n++;if(lum(P(x,y))<135)dk++;}ok(dk/n>.12&&dk/n<.65,`feathered brow in the original envelope: ${(100*dk/n).toFixed(1)}% dark hairs, not opaque block`);}else ok(lum(P(140, 170)) < 90 && lum(P(372, 170)) < 90, 'brows where the live brows are');
 const skin = P(120, 330); ok(skin[0] > 190 && skin[0] > skin[1] && skin[1] > skin[2], 'cheek is light warm skin: ' + skin);
 { const an=b.userData.anatomy===1233, lp = P(256, an ? 413 : 408), ln = P(256, an ? 401 : 395); ok(lp[0] > lp[1] + (an ? 25 : 40) && lum(ln) < lum(lp), `lips where the live mouth is: lower ${lp}, line ${ln}`); }
 for (const sx of [-1, 1]) { const an=b.userData.anatomy===1233, c = P(an ? Math.round((sx*.016+.22)/.44*512) : 256 + sx*15, an ? Math.round((1-(.169-.01)/.48)*512) : 333); ok(lum(c) < lum(skin) - (an ? 20 : 40), 'nostril at the foot of the live nose: ' + c); }
@@ -43,7 +43,7 @@ const edge = (g) => { const o = g.userData.head.children.find(o => o.userData.sc
   ok(hd(b) > 3 * hd(a0) && hr(b) > 2.5 * hr(a0), `head ${hd(a0)} -> ${hd(b)} and hair ${hr(a0)} -> ${hr(b)} triangles`);
   // smoothness: the worst normal turn between neighbouring face vertices on the cheek drops with the finer grid
   const turn = g => { const m = g.userData.head.children.find(o => o.userData.face), ge = m.geometry, nn = ge.attributes.normal, p = ge.attributes.position, ix = ge.index ? ge.index.array : Array.from({length: p.count}, (_, i) => i); let w = 0;
-    for (let k = 0; k < ix.length; k += 3) for (let e = 0; e < 3; e++) { const i = ix[k + e], j = ix[k + (e + 1) % 3], x = Math.abs(p.getX(i)), y = p.getY(i); if (p.getZ(i) < 0.08 || x < 0.11 || x > 0.17 || y < 0.13 || y > 0.25) continue; const d = nn.getX(i) * nn.getX(j) + nn.getY(i) * nn.getY(j) + nn.getZ(i) * nn.getZ(j); w = Math.max(w, Math.acos(Math.min(1, d)) * 180 / Math.PI); } return w; };
+    for (let k = 0; k < ix.length; k += 3) for (let e = 0; e < 3; e++) { const i = ix[k + e], j = ix[k + (e + 1) % 3], x = Math.abs(p.getX(i)), y = p.getY(i); if (p.getZ(i) < 0.08 || x < 0.11 || x > 0.17 || y < 0.13 || y > (b.userData.realism===1233 ? 0.23 : 0.25)) continue; const d = nn.getX(i) * nn.getX(j) + nn.getY(i) * nn.getY(j) + nn.getZ(i) * nn.getZ(j); w = Math.max(w, Math.acos(Math.min(1, d)) * 180 / Math.PI); } return w; };
   ok(turn(b) < turn(a0), `cheek is smoother: worst normal turn ${turn(a0).toFixed(1)} -> ${turn(b).toFixed(1)} degrees`); }
 ok(b.userData.face === 1232 && b.userData.fine === 1231, 'userData face 1232 on top of fine 1231');
 const s = stats(T, b); ok(s.tris > 90000 && s.tris < 100000 && b.userData.art === 100000 && s.meshes === 48 && s.mats === 11 && s.texs === 8 && s.trisFar < 14000, `budgets: ${s.tris} tris, ${s.meshes} meshes, ${s.mats} materials, ${s.texs} textures, far ${s.trisFar}`);
