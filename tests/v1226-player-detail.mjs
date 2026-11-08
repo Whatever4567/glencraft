@@ -1,3 +1,4 @@
+// v1.2.32 art pass (userData.art 100000): the user explicitly authorised (t1024) a near budget of 100000 triangles for the player; the far copy stays near 5000.
 // v1.2.26: the detailed third person player against the released v1.2.25 one (git 5646ee7), both run through tests/lib/tph-harness.mjs
 // (the game's own GLX-TP-HD block, real THREE geometry). Proves: more real geometry, slimmer body, same height, same rig and contact points.
 import fs from 'node:fs'; import {execFileSync} from 'node:child_process'; import {load, stats} from './lib/tph-harness.mjs';
@@ -11,7 +12,7 @@ const SCU = b.userData.sculpt === 1230;   // later sculpt pass: whole lofted sur
 const pieces = g => { let k = 0; g.traverse(o => { if (o.isMesh) k += o.userData.merged || 1; }); return k; }, pa = pieces(a), pb = pieces(b);
 ok(SCU ? sb.tris > sa.tris * 1.3 && pb > pa * 1.4 : sb.tris > sa.tris * 1.5 && pb > pa * 1.6, 'more real geometry: ' + sa.tris + ' -> ' + sb.tris + ' triangles near, ' + pa + ' -> ' + pb + ' source pieces');
 ok(sb.meshes <= sa.meshes * 1.15 && sb.trisFar < sa.trisFar && pb > sb.meshes * (SCU ? 1.3 : 1.5), 'fewer draws: ' + sa.meshes + ' -> ' + sb.meshes + ' meshes for ' + pb + ' pieces, far triangles ' + sa.trisFar + ' -> ' + sb.trisFar);
-ok(sb.trisFar < 14000 && sb.tris < 45000 && sb.mats <= 12 && sb.texs <= 8, 'budget: ' + sb.trisFar + ' triangles at distance (low detail swap), ' + sb.tris + ' near, ' + sb.mats + ' materials, ' + sb.texs + ' textures');
+ok(sb.trisFar < 14000 && sb.tris < (b.userData.art === 100000 ? 100000 : 45000) && sb.mats <= 12 && sb.texs <= 8, 'budget: ' + sb.trisFar + ' triangles at distance (low detail swap), ' + sb.tris + ' near, ' + sb.mats + ' materials, ' + sb.texs + ' textures');
 ok(B.canvases.length <= 6 && Math.max(...B.canvases.map(c => c.width)) <= 512, 'textures made once, at most 512 px (' + B.canvases.map(c => c.width).join(', ') + ')');
 { const b2 = B.build(true); ok(B.canvases.length <= 6, 'a second model (inventory preview) makes no new textures'); ok(stats(T, b2).tris === sb.tris && stats(T, b2).meshes === sb.meshes, 'preview model is the same detailed body as the world model'); }
 // size: same height and feet, slimmer

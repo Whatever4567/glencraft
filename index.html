@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1231-v1.2.31 -->
+<!-- glencraft-build: b1232-v1.2.32 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.31';
+const GAME_VERSION = '1.2.32';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -25020,16 +25020,52 @@ var c37busy = false;
       g.globalAlpha = 1; noise(g, w, w, 18);
     });
     tartanTex.wrapS = tartanTex.wrapT = THREE.RepeatWrapping; tartanTex.repeat.set(2, 1.2);
-    faceTexP = cv(512, 512, (g, w) => {
-      const gr = g.createRadialGradient(256, 300, 40, 256, 280, 360); gr.addColorStop(0, '#e9b893'); gr.addColorStop(1, '#cf9a76'); g.fillStyle = gr; g.fillRect(0, 0, w, w);
-      noise(g, w, w, 10);
-      g.fillStyle = '#4a2f1c'; g.fillRect(0, 0, w, 72); g.fillRect(0, 72, 40, 70); g.fillRect(w - 40, 72, 40, 70); for (let i = 0; i < 90; i++) { g.fillStyle = i % 2 ? '#3d2616' : '#5a3a24'; g.fillRect(Math.random() * w, 46 + Math.random() * 30, 6, 14 + Math.random() * 12); }   // v0.9.81: short brown hair, no beard
-      g.fillStyle = '#3d2616'; g.fillRect(78, 158, 124, 26); g.fillRect(310, 158, 124, 26);   // brows
-      for (const ex of [96, 328]) { g.fillStyle = '#f4f1ea'; g.fillRect(ex, 206, 96, 58); g.fillStyle = '#2f6fb0'; g.fillRect(ex + (ex < 200 ? 40 : 0), 206, 56, 58); g.fillStyle = '#1b4a7a'; g.fillRect(ex + (ex < 200 ? 40 : 0), 206, 56, 10);
-        g.fillStyle = '#101418'; g.fillRect(ex + (ex < 200 ? 54 : 14), 220, 28, 36); g.fillStyle = '#ffffff'; g.fillRect(ex + (ex < 200 ? 58 : 18), 224, 9, 9); g.fillStyle = 'rgba(80,40,20,.35)'; g.fillRect(ex, 264, 96, 6); }
-      g.fillStyle = '#c98d6a'; g.fillRect(224, 250, 64, 84); g.fillStyle = '#b67b5a'; g.fillRect(224, 318, 64, 16);
-      g.fillStyle = '#b97e60'; g.fillRect(176, 382, 160, 10); g.fillStyle = '#9a5444'; g.fillRect(186, 392, 140, 22); g.fillStyle = '#7a3a30'; g.fillRect(196, 400, 120, 8);
-    });
+    /* v1.2.32 face texture: the in game face type of v1.2.31 kept (big blue eyes looking slightly in, block brows, nose, wide mouth, at the
+       same places and sizes on the 512 map), repainted at full resolution with soft anti aliased edges, rounded shapes, iris detail, lid shading,
+       catch lights and gentle skin shading. Original work; seeded, so every build paints the same pixels. */
+    function paintFaceV1232(g, w) {
+      let sd = 1232; const R = () => (sd = (sd * 16807) % 2147483647) / 2147483647, S = w / 512;
+      const blob = (x, y, rx, ry, c) => { const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1); gr.addColorStop(0, c); gr.addColorStop(1, c.replace(/[\d.]+\)$/, '0)')); g.save(); g.translate(x * S, y * S); g.scale(rx * S, ry * S); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 1, 0, Math.PI * 2); g.fill(); g.restore(); };
+      const rr = (x, y, ww, hh, r) => { g.beginPath(); g.roundRect(x * S, y * S, ww * S, hh * S, r * S); };
+      // skin: the live warm gradient, fine seeded grain, soft cheek warmth and form shading
+      const gr = g.createRadialGradient(256 * S, 300 * S, 40 * S, 256 * S, 280 * S, 360 * S); gr.addColorStop(0, '#ecbe9a'); gr.addColorStop(1, '#d2a07c'); g.fillStyle = gr; g.fillRect(0, 0, w, w);
+      for (let i = 0; i < 12000; i++) { const v = R(); g.fillStyle = `rgba(${170 + v * 70 | 0},${110 + v * 50 | 0},${80 + v * 40 | 0},0.05)`; g.fillRect(R() * w, R() * w, 1.3 * S, 1.3 * S); }
+      for (const sx of [-1, 1]) { blob(256 + sx * 150, 330, 60, 44, 'rgba(235,130,110,0.16)'); blob(256 + sx * 205, 250, 50, 120, 'rgba(170,110,80,0.12)'); }
+      blob(256, 140, 150, 50, 'rgba(255,230,205,0.18)'); blob(256, 455, 70, 40, 'rgba(255,225,200,0.12)');
+      // hair band at the top (under the hair cap edge), dark brown with strands
+      g.fillStyle = '#2e1d12'; g.fillRect(0, 0, w, 66 * S); g.fillRect(0, 60 * S, 40 * S, 80 * S); g.fillRect(w - 40 * S, 60 * S, 40 * S, 80 * S);
+      for (let i = 0; i < 900; i++) { const x = R() * w, y = (40 + R() * 34) * S; g.strokeStyle = `rgba(${40 + R() * 40 | 0},${25 + R() * 25 | 0},${15 + R() * 12 | 0},0.6)`; g.lineWidth = 2 * S; g.beginPath(); g.moveTo(x, y - 20 * S); g.lineTo(x + (R() - 0.5) * 8 * S, y + 6 * S); g.stroke(); }
+      // brows: the live blocks (78..202 / 310..434, 158..184) as soft tapered brows, dark brown, hair strokes on top
+      for (const [x0, sx] of [[78, -1], [310, 1]]) { const inner = sx < 0 ? x0 + 124 : x0, outer = sx < 0 ? x0 : x0 + 124;
+        g.fillStyle = '#3a2416'; g.beginPath(); g.moveTo(inner * S, 160 * S); g.quadraticCurveTo((inner + outer) / 2 * S, 150 * S, outer * S, 166 * S); g.lineTo(outer * S, 174 * S); g.quadraticCurveTo((inner + outer) / 2 * S, 172 * S, inner * S, 186 * S); g.closePath(); g.fill();
+        for (let k = 0; k < 160; k++) { const t = R(), x = inner + (outer - inner) * t, y = 162 + 18 * (1 - t) * R() + 4 * t; g.strokeStyle = `rgba(${30 + R() * 30 | 0},${18 + R() * 16 | 0},${10 + R() * 10 | 0},0.55)`; g.lineWidth = 1.6 * S; g.beginPath(); g.moveTo(x * S, (y + 4) * S); g.lineTo((x - sx * 7) * S, (y - 3) * S); g.stroke(); } }
+      // eyes: the live big eyes (96..192 / 328..424 by 206..264), iris at the inner side as before, now rounded and detailed
+      for (const ex of [96, 328]) { const cx = ex + 48, cy = 235, ix = ex + (ex < 200 ? 68 : 28), iy = 236;
+        blob(cx, cy - 6, 62, 44, 'rgba(150,90,70,0.22)');   // socket shade
+        g.save(); rr(ex, 206, 96, 58, 26); g.clip();
+        const wg = g.createLinearGradient(0, 206 * S, 0, 264 * S); wg.addColorStop(0, '#dcd6cc'); wg.addColorStop(0.35, '#f6f3ec'); wg.addColorStop(1, '#e8e2d8'); g.fillStyle = wg; g.fillRect(ex * S, 206 * S, 96 * S, 58 * S);
+        const ig = g.createRadialGradient(ix * S, iy * S, 2 * S, ix * S, iy * S, 30 * S); ig.addColorStop(0, '#7fc0f0'); ig.addColorStop(0.45, '#3c86c8'); ig.addColorStop(0.85, '#2a62a0'); ig.addColorStop(1, '#15365e');
+        g.fillStyle = ig; g.beginPath(); g.ellipse(ix * S, iy * S, 28 * S, 30 * S, 0, 0, Math.PI * 2); g.fill();
+        for (let k = 0; k < 36; k++) { const a = k / 36 * Math.PI * 2; g.strokeStyle = k % 2 ? 'rgba(200,235,255,0.25)' : 'rgba(15,40,80,0.25)'; g.lineWidth = 1.2 * S; g.beginPath(); g.moveTo((ix + Math.cos(a) * 15) * S, (iy + Math.sin(a) * 16) * S); g.lineTo((ix + Math.cos(a) * 26) * S, (iy + Math.sin(a) * 28) * S); g.stroke(); }
+        g.fillStyle = '#0d1116'; g.beginPath(); g.ellipse(ix * S, iy * S, 13 * S, 16 * S, 0, 0, Math.PI * 2); g.fill();
+        g.fillStyle = 'rgba(255,255,255,0.95)'; g.beginPath(); g.ellipse((ix - 8) * S, (iy - 10) * S, 6 * S, 6 * S, 0, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc((ix + 9) * S, (iy + 9) * S, 2.6 * S, 0, Math.PI * 2); g.fill();
+        const lg = g.createLinearGradient(0, 206 * S, 0, 226 * S); lg.addColorStop(0, 'rgba(25,45,80,0.75)'); lg.addColorStop(1, 'rgba(25,45,80,0)'); g.fillStyle = lg; g.fillRect(ex * S, 206 * S, 96 * S, 20 * S);   // upper lid shadow (was the dark strip)
+        g.restore();
+        g.strokeStyle = '#2a1c16'; g.lineWidth = 4 * S; rr(ex, 206, 96, 58, 26); g.save(); g.clip(); g.beginPath(); g.moveTo((ex - 4) * S, 214 * S); g.quadraticCurveTo(cx * S, 196 * S, (ex + 100) * S, 214 * S); g.stroke(); g.restore();   // lash line, top only
+        g.strokeStyle = 'rgba(120,70,55,0.35)'; g.lineWidth = 2 * S; g.beginPath(); g.moveTo((ex + 8) * S, 266 * S); g.quadraticCurveTo(cx * S, 272 * S, (ex + 88) * S, 266 * S); g.stroke();   // soft lower lid (was the brown bar)
+        g.strokeStyle = 'rgba(150,95,75,0.3)'; g.lineWidth = 2.5 * S; g.beginPath(); g.moveTo((ex + 4) * S, 200 * S); g.quadraticCurveTo(cx * S, 188 * S, (ex + 92) * S, 200 * S); g.stroke(); }   // lid crease
+      // nose: the live block (224..288, 250..334) as a lit bridge and a soft rounded tip with nostrils at its foot
+      blob(256, 290, 30, 52, 'rgba(255,225,200,0.2)'); for (const sx of [-1, 1]) blob(256 + sx * 30, 292, 10, 40, 'rgba(160,100,75,0.18)');
+      blob(256, 322, 30, 14, 'rgba(255,215,190,0.22)'); for (const sx of [-1, 1]) { blob(256 + sx * 15, 333, 9, 5, 'rgba(90,45,35,0.6)'); blob(256 + sx * 30, 326, 9, 12, 'rgba(150,90,70,0.25)'); }
+      blob(256, 342, 34, 7, 'rgba(140,85,65,0.25)');
+      // mouth: the live wide mouth (176..336, 382..414), rounded lips with a soft line and corners
+      g.fillStyle = '#bf8466'; g.beginPath(); g.moveTo(178 * S, 390 * S); g.bezierCurveTo(205 * S, 378 * S, 240 * S, 380 * S, 256 * S, 384 * S); g.bezierCurveTo(272 * S, 380 * S, 307 * S, 378 * S, 334 * S, 390 * S); g.quadraticCurveTo(256 * S, 398 * S, 178 * S, 390 * S); g.fill();
+      const lp = g.createLinearGradient(0, 392 * S, 0, 416 * S); lp.addColorStop(0, '#a85c4a'); lp.addColorStop(1, '#b8705c'); g.fillStyle = lp; g.beginPath(); g.moveTo(186 * S, 392 * S); g.quadraticCurveTo(256 * S, 400 * S, 326 * S, 392 * S); g.bezierCurveTo(310 * S, 414 * S, 280 * S, 418 * S, 256 * S, 418 * S); g.bezierCurveTo(232 * S, 418 * S, 202 * S, 414 * S, 186 * S, 392 * S); g.fill();
+      blob(262, 404, 26, 5, 'rgba(255,220,200,0.35)');
+      g.strokeStyle = 'rgba(110,50,40,0.8)'; g.lineWidth = 3 * S; g.lineCap = 'round'; g.beginPath(); g.moveTo(180 * S, 391 * S); g.quadraticCurveTo(256 * S, 398 * S, 332 * S, 391 * S); g.stroke();
+      blob(256, 428, 50, 8, 'rgba(150,90,70,0.2)');
+    }
+    faceTexP = cv(512, 512, (g, w) => { paintFaceV1232(g, w); });   // v1.2.32 natural face
     const shirtT = cv(256, 256, (g, w) => { g.fillStyle = '#3a8a94'; g.fillRect(0, 0, w, w); g.globalAlpha = .07; g.fillStyle = '#000'; for (let y = 0; y < w; y += 3) g.fillRect(0, y, w, 1); for (let x = 0; x < w; x += 3) g.fillRect(x, 0, 1, w); g.globalAlpha = 1; noise(g, w, w, 12); });
     const hairT = cv(256, 256, (g, w) => { g.fillStyle = '#4a2f1c'; g.fillRect(0, 0, w, w); for (let i = 0; i < 900; i++) { g.fillStyle = ['#3d2616', '#5a3a24', '#33200f', '#6a4630'][i % 4]; g.fillRect(Math.random() * w, Math.random() * w, 3, 12 + Math.random() * 20); } });
     const leatherT = cv(256, 256, (g, w) => { g.fillStyle = '#4a2e1b'; g.fillRect(0, 0, w, w); noise(g, w, w, 26); });
@@ -48036,7 +48072,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const rb = rbox;   // every rounded box goes through the low detail wrapper
     const std = o => new THREE.MeshStandardMaterial(Object.assign({roughness: .7, metalness: 0}, o));
     const skin = std({color: 0xe0ac86, roughness: .48}), shirt = std({map: T_.linen, bumpMap: T_.linen, bumpScale: 0.6, roughness: .88}), leather = std({map: T_.leather, bumpMap: T_.leather, bumpScale: 0.8, roughness: .38, metalness: .05}),
-      sole = std({color: 0x1c120b, roughness: .6}), sock = std({map: T_.sock, bumpMap: T_.sock, bumpScale: 0.9, roughness: .95}), hair = std({map: T_.hair, bumpMap: T_.hair, bumpScale: 1, roughness: .55}), fur = std({map: T_.fur, roughness: .9});
+      sole = std({color: 0x1c120b, roughness: .6}), sock = std({map: T_.sock, bumpMap: T_.sock, bumpScale: 0.9, roughness: .95}), hair = std({map: T_.hair, bumpMap: T_.hair, bumpScale: 1.4, roughness: .55, color: 0x6e625c}), fur = std({map: T_.fur, roughness: .9});
     let faceM = skin, kiltM = leather; try { faceM = std({map: faceTexP, roughness: .48}); } catch (_) {} try { kiltM = std({map: tartanTex, bumpMap: T_.weave, bumpScale: 0.5, roughness: .74, side: THREE.DoubleSide}); } catch (_) {}
     const metal = std({color: 0xd9dde0, metalness: .9, roughness: .25}), dark = std({color: 0x15100c, roughness: .4});
     const M = (geo, m, x, y, z, par) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; (par || g).add(o); return o; };
@@ -48102,7 +48138,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     // hair: a cap that starts exactly on the hairline (front fringe, above the ears, low at the nape) and follows the skull to the crown
     SC.hairRaw = (S, nr, ns, F, off) => { const P = [], UV = [], I = [], y0 = -0.04, y1 = 0.505;
       for (let i = 0; i <= nr; i++) { const t = i / nr;
-        for (let j = 0; j <= ns; j++) { const a = j / ns * Math.PI * 2, h = SC.hairY(a), y = h + (y1 - h) * Math.pow(t, 0.85), s = S((y - y0) / (y1 - y0)), sa = Math.sin(a), ca = Math.cos(a), p = 2 / (s.n || 2);
+        for (let j = 0; j <= ns; j++) { const a = SC.warpA(j / ns), h = SC.hairY(a), y = h + (y1 - h) * Math.pow(t, 0.85), s = S((y - y0) / (y1 - y0)), sa = Math.sin(a), ca = Math.cos(a), p = 2 / (s.n || 2);
           let x = s.rx * Math.sign(sa) * Math.pow(Math.abs(sa), p), z = (ca > 0 ? s.zf : s.zb) * Math.sign(ca) * Math.pow(Math.abs(ca), p); const d = SC.headF(a, 0, y, x, z), o = off(a, t, y); x += d[0]; z += d[2]; const l = Math.hypot(x, z) || 1; x += x / l * o; z += z / l * o; P.push(x, y, z + (s.z0 || 0)); UV.push(j / ns, t); } }
       for (let i = 0; i < nr; i++) for (let j = 0; j < ns; j++) { const a = i * (ns + 1) + j, b = a + ns + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
       const ct = P.length / 3, st = S(1); P.push(0, y1 + 0.012, st.z0 || 0); UV.push(0.5, 1); for (let j = 0; j < ns; j++) { const b = nr * (ns + 1) + j; I.push(ct, b + 1, b); }
@@ -48165,7 +48201,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     SC.ell = (x, y, cx, cy, rx, ry) => Math.exp(-(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2));
     SC.headF2 = (a, t, y, x, z) => { const g = SC.gs, e = SC.ell, ax = Math.abs(x), r = Math.hypot(x, z) || 1, f = SC.sm(0.04, 0.14, z), aa = Math.abs(a > Math.PI ? a - Math.PI * 2 : a); let dr = 0, dz = 0;
       // brow ridge and glabella
-      dr += f * (0.012 * g(y - 0.316, 0.017) * g(ax - 0.09, 0.075) + 0.005 * e(x, y, 0, 0.3, 0.03, 0.02));
+      dr += f * (0.0108 * g(y - 0.316, 0.021) * g(ax - 0.09, 0.075) + 0.005 * e(x, y, 0, 0.3, 0.03, 0.02));
       // eye socket, the eyeball inside it, upper lid fold and lower lid
       dr -= f * 0.02 * e(ax, y, 0.1, 0.273, 0.058, 0.038); dr += f * 0.011 * e(ax, y, 0.1, 0.27, 0.036, 0.024);
       { const re = Math.hypot((ax - 0.1) / 0.048, (y - 0.284) / 0.026); dr -= f * 0.003 * g(re - 1, 0.18) * SC.sm(0.265, 0.285, y); }
@@ -48175,7 +48211,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         dz += f * (pr * g(x, wn) + 0.016 * e(x, y, 0, 0.186, 0.02, 0.017)); }
       dz += f * (0.016 * e(ax, y, 0.028, 0.17, 0.014, 0.016) - 0.008 * e(ax, y, 0.013, 0.158, 0.008, 0.006)); dr -= f * 0.004 * e(ax, y, 0.046, 0.17, 0.006, 0.02);
       // smile folds from the nose wings down and out, a little fullness beside them
-      { const t2 = Math.min(1, Math.max(0, (0.165 - y) / 0.07)), lx = 0.047 + 0.028 * t2, d = ax - lx; const wv = SC.sm(0.08, 0.1, y) * (1 - SC.sm(0.165, 0.18, y)); dr -= f * wv * 0.0035 * g(d, 0.007); dr += f * wv * 0.0035 * g(d - 0.016, 0.012); }
+      { const t2 = Math.min(1, Math.max(0, (0.165 - y) / 0.07)), lx = 0.047 + 0.028 * t2, d = ax - lx; const wv = SC.sm(0.08, 0.1, y) * (1 - SC.sm(0.165, 0.18, y)); dr -= f * wv * 0.0012 * g(d, 0.01); dr += f * wv * 0.0015 * g(d - 0.016, 0.014); }
       // mouth: a muzzle the lips sit on, philtrum, upper and lower lip, the line between them and the corners
       dz += f * 0.01 * e(x, y, 0, 0.12, 0.06, 0.036);
       dz -= f * 0.0028 * g(x, 0.006) * g(y - 0.14, 0.012); dz += f * 0.0016 * (g(ax - 0.011, 0.004)) * g(y - 0.14, 0.012);
@@ -48184,7 +48220,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       // chin and the dip above it
       dz += f * 0.015 * e(x, y, 0, 0.05, 0.042, 0.022); dz -= f * 0.005 * g(y - 0.084, 0.008) * g(x, 0.04);
       // cheekbones, the hollow under them, temples, jaw line
-      dr += f * 0.013 * e(ax, y, 0.138, 0.214, 0.042, 0.03); dr -= f * 0.005 * e(ax, y, 0.13, 0.14, 0.04, 0.035);
+      dr += f * 0.011 * e(ax, y, 0.138, 0.214, 0.05, 0.036); dr -= f * 0.0022 * e(ax, y, 0.13, 0.14, 0.04, 0.035);
       dr -= 0.006 * g(y - 0.37, 0.05) * g(aa - 1.45, 0.25);
       dr -= (1 - SC.sm(0.0, 0.17, y)) * 0.055 * SC.sm(0.7, 1.8, aa);
       return [x / r * dr, 0, z / r * dr + dz]; };
@@ -48214,20 +48250,27 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     SC.shinF = (a, t, y, x, z) => [0, 0, z > 0 ? 0.012 * SC.ell(x, y, 0, -0.012, 0.03, 0.025) + 0.003 * SC.gs(x, 0.012) * SC.sm(-0.3, -0.06, y) * (1 - SC.sm(-0.06, -0.03, y)) : 0];
     SC.handF2 = (a, t, y, x, z) => { const d = SC.handF(a, t, y, x, z); let k = 0; if (z < 0) for (let i = 0; i < 4; i++) k += 0.004 * SC.ell(x, y, -0.033 + i * 0.022, -0.056, 0.008, 0.008); return [d[0], 0, d[2] - k]; };
     SC.thighF = (a, t, y, x, z) => [0, 0, z > 0 ? 0.005 * SC.ell(x, y, 0, -0.19, 0.035, 0.02) : 0];
+    /* v1.2.32: loosely after the player portrait: a fringe of separate rounded locks
+       resting on the forehead instead of a zigzag edge. */
+    { const h0 = SC.hairY, LK = [[-0.52, 0.02], [-0.37, 0.036], [-0.22, 0.028], [-0.07, 0.044], [0.07, 0.034], [0.21, 0.042], [0.36, 0.026], [0.5, 0.018]];
+      SC.hairY = a => { const s = a > Math.PI ? a - Math.PI * 2 : a, x = Math.abs(s); if (x > 0.62) return h0(a); let k = 0; for (const [c, dp] of LK) k += dp * 0.5 * Math.exp(-(((s - c) / 0.095) ** 2)); return (0.39 - k) * (1 - SC.sm(0.5, 0.62, x)) + h0(a) * SC.sm(0.5, 0.62, x); }; }
+    // the skin of the brow no longer pokes through the hair grooves at the front edge (the old zigzag), and the
+    // grooves fade out at the fringe so each lock reads as one soft rounded lock
+    { const o0 = SC.hairOff2; SC.hairOff2 = (a, t, y) => { const aa = Math.abs(a > Math.PI ? a - Math.PI * 2 : a), fr = 1 - SC.sm(0.5, 0.9, aa); return o0(a, t, y) - 0.013 * SC.sm(0.25, 0.45, y) + 0.004 * Math.sin(a * 9 + y * 31) * SC.sm(0.36, 0.48, y) + fr * (0.016 * (1 - SC.sm(0.38, 0.47, y))); }; }
     const head = new THREE.Group(); head.position.y = 1.5; head.scale.setScalar(0.9); g.add(head);
-    { const hm = M(SC.warped(() => SC.loftS(SC.headS, 72, 80, SC.headF2, {vuv: SC.faceVUV, lod: 2, tag: 'head'})), faceM, 0, 0, 0, head); hm.userData.sculpt = 'head'; hm.userData.face = 1;
-      M(SC.loftS(SC.headS, 22, 72, null, {raw: SC.hairRaw, off: SC.hairOff2, lod: 2, tag: 'hair'}), hair, 0, 0, 0, head).userData.sculpt = 'hair'; }
+    { const hm = M(SC.warped(() => SC.loftS(SC.headS, 140, 160, SC.headF2, {vuv: SC.faceVUV, lod: 3, tag: 'head'})), faceM, 0, 0, 0, head); hm.userData.sculpt = 'head'; hm.userData.face = 1;
+      M(SC.loftS(SC.headS, 40, 140, null, {raw: SC.hairRaw, off: SC.hairOff2, lod: 3, tag: 'hair'}), hair, 0, 0, 0, head).userData.sculpt = 'hair'; }
 
 
 
 
 
 
-    for (const sx of [-1, 1]) M(SC.loftS(null, 12, 28, null, {raw: SC.earRaw(sx), out: SC.earOut(sx), lod: 1, tag: 'ear'}), skin, sx * 0.198, 0.235, -0.01, head);   // sculpted ears   // ears
+    for (const sx of [-1, 1]) M(SC.loftS(null, 20, 44, null, {raw: SC.earRaw(sx), out: SC.earOut(sx), lod: 2, tag: 'ear'}), skin, sx * 0.198, 0.235, -0.01, head);   // sculpted ears   // ears
     M(SC.loftS(SC.neckS, 12, 32, SC.neckF, {lod: 2, tag: 'neck'}), skin, 0, 1.4, 0);   // neck
     // torso: slimmer, tapered chest (waist 0.4 wide, chest 0.44), collar, sash, belt and buckle, kilt pin
     const torso = new THREE.Group(); g.add(torso);
-    M(SC.warped(() => SC.loftS(SC.torsoS, 40, 48, SC.torsoF2, {lod: 2, tag: 'torso'}), null, SC.torsoTW), shirt, 0, 0, 0, torso).userData.sculpt = 'torso';
+    M(SC.warped(() => SC.loftS(SC.torsoS, 60, 80, SC.torsoF2, {lod: 3, tag: 'torso'}), null, SC.torsoTW), shirt, 0, 0, 0, torso).userData.sculpt = 'torso';
     M(new THREE.TorusGeometry(0.085, 0.022, 8, 20, Math.PI * 1.6), shirt, 0, 1.43, 0.01, torso).rotation.set(Math.PI / 2, 0, Math.PI * 0.7);   // open collar
     M(rb(0.012, 0.14, 0.01, 0.004), shirt, 0, 1.32, 0.137, torso);   // placket
     for (const sd of [1, -1]) M(SC.loftS(SC.torsoS, 40, 6, null, {raw: SC.sashRaw(sd), seam: false, lod: 2, tag: 'sash'}), kiltM, 0, 0, 0, torso).userData.sculpt = 'sash';
@@ -48279,7 +48322,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         for (const [mat, list] of by) { if (list.length < 2) continue; const hi = bake(list, false), lo = bake(list, true); for (const o of list) par.remove(o); const m = new THREE.Mesh(hi, mat); m.castShadow = true; m.receiveShadow = true; m.userData.merged = list.length; par.add(m); merged.push([m, hi, lo]); } }
       LODS.push(...merged.map(([m, hi, lo]) => [hi, lo || EMPTY]));
       const has = new Set(LODS.map(e => e[0])); g.traverse(o => { if (o.isMesh && !has.has(o.geometry)) { const l = loGeo(o.geometry); if (l !== o.geometry) { LODS.push([o.geometry, l]); has.add(o.geometry); } } }); }
-    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3, detail: 1226, sculpt: 1230, fine: 1231};
+    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3, detail: 1226, sculpt: 1230, fine: 1231, face: 1232, art: 100000, look: 1232};
     const lm = new Map(LODS.map(([a, b]) => [a, b])); g.userData.lod = []; g.traverse(o => { if (o.isMesh) { o.castShadow = true; const lo = lm.get(o.geometry); if (lo) g.userData.lod.push([o, o.geometry, lo]); } }); LODS = null; g.userData.lv = 0;
     // hands: four fingers and a thumb, a touch slimmer to match the hand
     for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.0115, 0.05, 3, 8) : new THREE.CylinderGeometry(0.0115, 0.0115, 0.073, 8)), skin, -0.033 + i * 0.022, -0.085, 0.01, hn); f.rotation.x = 0.35; (hn.userData.fg || (hn.userData.fg = [])).push(f); } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.04, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.068, 8)), skin, 0.05, -0.03, 0.026, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
@@ -52264,6 +52307,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.32","d":"2026-11-08","notes":["The familiar player face keeps its big blue eyes, with rounded painted eyes, detailed irises, catch lights, soft lids and finer brows.","The nose and mouth are repainted with softer edges, warm skin shading and natural lip detail. Darker hair has a softer uneven fringe.","The near player model uses 95680 triangles, with finer head, hair, ear and torso surfaces. The far model stays small at 4823 triangles.","The Highlander outfit, rig, joints, hand grips and armour fit are kept, with the same 48 meshes, 11 materials and 8 textures."]},
 {"v":"v1.2.31","d":"2026-11-08","notes":["Player model has much finer shape and smooth shading, so the face no longer shows flat bands.","Face: eye sockets with lids, a nose with bridge, tip, wings and nostrils, real upper and lower lips, a groove above the lip, cheekbones, chin and jaw.","Ears now have a rim, inner fold, bowl and lobe, and the hair falls in locks.","Neck, collarbones, elbows, knees and knuckles are shaped too. Same Highlander, joints, hand grips and armour fit, with no extra draws or materials."]},
 {"v":"v1.2.30","d":"2026-11-08","notes":["Player model reshaped: the block head is now a sculpted head with a shaped skull, brow, eye sockets, nose, cheekbones, jaw and chin, and the hair follows the head from a real hairline.","The body is reshaped too: a chest that narrows to the waist, rounded shoulders, arms that taper from shoulder to wrist, shaped calves, slimmer hands and shoes shaped heel to toe.","The sash is now a smooth band lying across the shirt.","Same kilted Highlander, same joints, hand grips and armour fit, with no extra draws or materials."]},
 {"v":"v1.2.29","d":"2026-11-08","notes":["Guns: firing no longer makes and throws away new spark, dust, bullet hole and tracer materials on every shot. They are reused, which removes a likely cause of the stutter when firing.","Player model: the face has real shape now, with a brow ridge, nose bridge, cheekbones, lip ridge, chin and ear folds. No extra draw cost.","Hands: first person hands are slimmer, with a thinner palm, wrist, fingers and thumb. Grips are unchanged.","Animals: ragdolls fall with gravity all the way to the real ground, and launches depend on the size of the animal."]},

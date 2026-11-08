@@ -1,3 +1,4 @@
+// v1.2.32 art pass (userData.art 100000): the user explicitly authorised (t1024) a near budget of 100000 triangles for the player; the far copy stays near 5000.
 // Local v1.2.31 finer sculpt candidate against released v1.2.30 (b22be26), through the game's own TP-HD builder (tests/lib/tph-harness.mjs).
 // Proves: thousands more triangles inside the player budget, smooth shared normals with no terraces, the face features really in the
 // mesh (eyes, nose with nostrils, lips, philtrum, chin, cheekbones), sculpted ears, hair locks, neck and collarbones, joint details;
@@ -9,18 +10,22 @@ const A = load(base), B = load(new URL('../index.html', import.meta.url).pathnam
 const src0 = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8'), sa = stats(T, a), sb = stats(T, b), face = g => g.userData.head.children.find(o => o.userData.face);
 ok(b.userData.fine === 1231 && b.userData.sculpt === 1230, 'the finer sculpt builder is the one in the page');
 // budget
-ok(sb.tris - sa.tris > 8000 && sb.tris < 45000, `thousands more triangles near, inside the 45000 player budget: ${sa.tris} -> ${sb.tris}`);
+ok(sb.tris - sa.tris > 8000 && sb.tris < (b.userData.art === 100000 ? 100000 : 45000) && sb.trisFar < 6500, `thousands more triangles near, inside the player budget (${b.userData.art === 100000 ? 100000 : 45000}): ${sa.tris} -> ${sb.tris}`);
 ok(sb.trisFar < 14000 && sb.trisFar < sb.tris * 0.2, `far copy stays small: ${sa.trisFar} -> ${sb.trisFar}`);
 ok(sb.meshes <= sa.meshes && sb.mats <= sa.mats && sb.texs <= sa.texs, `draws and materials: meshes ${sa.meshes} -> ${sb.meshes}, materials ${sa.mats} -> ${sb.mats}, textures ${sa.texs} -> ${sb.texs}`);
 { const fh = face(b).geometry, fa = face(a).geometry; ok((fh.index.count / 3) > 2.5 * (fa.attributes.position.count / 3), `the face carries most of the new detail: head ${fa.attributes.position.count / 3} -> ${fh.index.count / 3} triangles`); }
 // smooth shading: shared vertices, and the side of the face has no terraces (second differences down the cheek)
 { const ge = face(b).geometry, g0 = face(a).geometry; ok(ge.index && ge.attributes.position.count < ge.index.count / 1.6, 'smooth: vertices shared between triangles (' + ge.attributes.position.count + ' vertices for ' + ge.index.count / 3 + ' triangles; v1.2.30 used 3 per triangle)');
-  const prof = (geo, x) => { const p = geo.attributes.position, pts = []; for (let i = 0; i < p.count; i++) if (p.getZ(i) > 0.05 && Math.abs(p.getX(i) - x) < 0.006 && p.getY(i) > 0.06 && p.getY(i) < 0.36) pts.push([p.getY(i), p.getZ(i)]); pts.sort((u, v) => u[0] - v[0]); const out = []; for (const q of pts) if (!out.length || q[0] - out[out.length - 1][0] > 0.012) out.push(q); return out; };
+  // profile at exactly x: interpolate every mesh edge that crosses x (front surface only), so a denser grid is not judged by the
+  // spread of nearby vertices (v1.2.32 art pass: the old band sample read the side slope of the cheek as steps); from y 0.125 up, above
+  // the jaw edge where the side of the face really turns under
+  const prof = (geo, x) => { const p = geo.attributes.position, ix = geo.index ? geo.index.array : Array.from({length: p.count}, (_, i) => i), pts = []; for (let k = 0; k < ix.length; k += 3) for (let e = 0; e < 3; e++) { const i = ix[k + e], j = ix[k + (e + 1) % 3], xi = p.getX(i), xj = p.getX(j); if ((xi - x) * (xj - x) >= 0) continue; const f = (x - xi) / (xj - xi), y = p.getY(i) + f * (p.getY(j) - p.getY(i)), z = p.getZ(i) + f * (p.getZ(j) - p.getZ(i)); if (z > 0.05 && y > 0.125 && y < 0.36) pts.push([y, z]); } pts.sort((u, v) => u[0] - v[0]); const out = []; for (const q of pts) if (!out.length || q[0] - out[out.length - 1][0] > 0.012) out.push(q); return out; };
   const curv = pts => { let m = 0; for (let i = 1; i < pts.length - 1; i++) { const h1 = pts[i][0] - pts[i - 1][0], h2 = pts[i + 1][0] - pts[i][0], s1 = (pts[i][1] - pts[i - 1][1]) / h1, s2 = (pts[i + 1][1] - pts[i][1]) / h2; m = Math.max(m, Math.abs(s2 - s1)); } return m; };
   // normal turn between neighbouring vertices across the face (smooth shading only shows creases where the shape bends)
   const nn = ge.attributes.normal, ix = ge.index.array, p = ge.attributes.position, feat = i => { const x = Math.abs(p.getX(i)), y = p.getY(i); return (x < 0.07 && y > 0.04 && y < 0.31) || (Math.hypot((x - 0.1) / 0.07, (y - 0.275) / 0.05) < 1) || (x < 0.16 && y > 0.295 && y < 0.34); }; let big = 0, tot = 0, inFeat = 0;
   for (let k = 0; k < ix.length; k += 3) for (let e = 0; e < 3; e++) { const i = ix[k + e], j = ix[k + (e + 1) % 3]; if (p.getZ(i) < 0.12 || p.getY(i) < 0.06 || p.getY(i) > 0.34) continue; tot++; const d = nn.getX(i) * nn.getX(j) + nn.getY(i) * nn.getY(j) + nn.getZ(i) * nn.getZ(j); if (d < Math.cos(25 * Math.PI / 180)) { big++; if (feat(i)) inFeat++; } }
   ok(tot > 2000 && big / tot < 0.08 && inFeat / Math.max(1, big) > 0.9, `creases only where the face folds: ${big} of ${tot} face edges turn over 25 degrees, ${inFeat} of them at the brow, eyes, nose, mouth and chin`);
+  if (process.env.PROF) console.log(JSON.stringify(prof(ge, 0.16).map(q => q.map(v => +v.toFixed(4)))), JSON.stringify(prof(g0, 0.16).map(q => q.map(v => +v.toFixed(4)))));
   const c1 = curv(prof(ge, 0.16)), c0 = curv(prof(g0, 0.16)); ok(c1 < c0, `no terraces down the cheek: largest slope change ${c0.toFixed(2)} -> ${c1.toFixed(2)}`); }
 // features measured on the face mesh (head space, before the head scale)
 { const p = face(b).geometry.attributes.position, Z = (x, y) => { let best = 9, z = null; for (let i = 0; i < p.count; i++) { if (p.getZ(i) < 0.05) continue; const d = Math.hypot(p.getX(i) - x, p.getY(i) - y); if (d < best) { best = d; z = p.getZ(i); } } return best < 0.006 ? z : NaN; };
