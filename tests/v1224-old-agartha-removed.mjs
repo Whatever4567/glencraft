@@ -10,7 +10,7 @@ ok(!html.includes('/* GLX-LEG1224 '), 'the cf84407 disabling timer is gone (repl
 ok(html.includes('function genAg() {') && html.includes('U.build = build; U.genAg = genAg;'), 'current Agartha maker __c294.genAg is still there (Scotland stamp needs it)');
 ok(html.includes('__c294.genAg(); A = __c294.A;'), 'GLX-AGU still builds the Scotland stamp from it');
 ok(html.includes("U.toCity = () => {") && html.includes("go: () => __tpm.toTube()"), 'Agartha teleport route (Teleport list -> __tpm.toTube -> __agw.toCity) is there');
-ok(html.includes('fresh7') && html.includes('build(); } catch (e) { ERR(\'ens\''), 'new worlds still get the Agartha mouth record once (keep out for GLX-V1214 / Watcher bowl)');
+ok(!html.includes('fresh7') && html.includes('function build() { U.M = null; U.Lw = null; }'), 'new worlds get no mouth record (they never did on a W >= 600 home world); saved c294 v3 records load, see v1224-wall-mouth-removed');
 // every remaining reference to the removed module is guarded
 const refs = [...html.matchAll(/__c307\b(?!b)/g)].map(m => html.slice(m.index - 12, m.index));
 ok(refs.every(r => /window\.$|&& $|\($|typeof $/.test(r) || /window\.__c307 && \($/.test(r) || r.includes('(window.') || r.includes('&& ') || r.includes('window.')), 'all ' + refs.length + ' remaining __c307 references are guarded reads');

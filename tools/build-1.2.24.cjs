@@ -33,7 +33,31 @@ one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','keep
 REMOVED.C307=cutBlock('C307');     // the north extension: flat ice zone, its chunks, save field, edge push, hooks into generate / enterWorld / serialize
 REMOVED.C307b=cutBlock('C307b');   // its chunk drawing
 // GLX-C294: the old separate Agartha world entry (walk into the ice wall mouth -> enterDim('agartha')) and the extension carver genExt
-{const a=s.indexOf('  // walking into the back of the mouth (the map edge)'),b=s.indexOf("}, 250);\n",a)+9;if(a<0||b<9)throw Error('c294 entry');REMOVED.c294entry=b-a;s=s.slice(0,a)+'  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). Kept from the removed GLX-C307: a NEW world whose flag turned on after generate still gets its mouth record once (GLX-V1214 and the Watcher bowl use it as the Agartha keep out). */\n  let fresh7 = false; try { const g7 = generate; generate = function () { fresh7 = true; return g7.apply(this, arguments); }; const e7 = enterWorld; enterWorld = function (save) { fresh7 = !save || !!(save && save.tpl); return e7.apply(this, arguments); }; } catch (e) { ERR(\'f7\', e); }\n  setInterval(() => { try { if (!fresh7 || U.M || !started || DIM.cur || W < 600 || !on()) return; fresh7 = false; build(); } catch (e) { ERR(\'ens\', e); } }, 1000);\n'+s.slice(b);}
+{const a=s.indexOf('  // walking into the back of the mouth (the map edge)'),b=s.indexOf("}, 250);\n",a)+9;if(a<0||b<9)throw Error('c294 entry');REMOVED.c294entry=b-a;s=s.slice(0,a)+'  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). The mouth record (GLX-V1214 and the Watcher bowl keep out) now only comes from an old save (c294 v3). */\n'+s.slice(b);}
 {const a=s.indexOf('  // v1.1.17: Agartha in the SAME world - GLX-C307 swaps in a zone array'),b=s.indexOf('  U.genExt = genExt;\n',a)+'  U.genExt = genExt;\n'.length;if(a<0||b<30)throw Error('genExt');REMOVED.genExt=b-a;s=s.slice(0,a)+s.slice(b);}
+
+// ---- v1.2.24 checkpoint: the original Highlands ice wall and the old Agartha tunnel mouth carving, removed from the shipped source ----
+const cut=(k,a0,b0,rep)=>{const a=s.indexOf(a0);if(a<0||s.indexOf(a0,a+1)>=0)throw Error('cut start '+k);const b=s.indexOf(b0,a);if(b<0)throw Error('cut end '+k);const e=b+b0.length;REMOVED[k]=(REMOVED[k]||0)+e-a-rep.length;s=s.slice(0,a)+rep+s.slice(e);};
+// GLX-C273: wall() (the snow staircase round the map edge and its snow capped land), wallFn, wallTop, the (already empty) ice cladding mesh and
+// its 1 s poll, and the generate hook that ran wall(). Kept: edgeQ / RE / WS / at / MT / volc (the shared map shape other blocks read) and the
+// 250 ms world bounds clamp (the current map bounds, not the wall).
+cut('C273wall','  // ---------- after generation: the ice wall ----------\n',"} catch (e) { ERR('gen', e); } return r; };\n",
+  "  U.WS = 40;   /* v1.2.24: the ice wall builder is removed; WS stays as the old edge band width the shared shape helpers use */\n  const gen = generate; generate = function () { CAS = null; return gen.apply(this, arguments); };\n");
+// GLX-C282: the icy wall tint in the block shader, the frost overlay and the (switched off) edge freeze. Kept: the w92 save flag and the
+// YEAR 24000 silver block shading (uFut) that shares the shader patch.
+one("'uniform vec4 uIce; uniform float uFut; varying vec3 vIceW;","'uniform float uFut; varying vec3 vIceW;");
+cut('C282tint',"      'if (uIce.w > 0.5) { vec2 dI","gl_FragColor.rgb = mix(gl_FragColor.rgb, iI, 0.62 * kI); } }\\n' +\n","");
+one("m.uniforms.uIce = uIce; m.uniforms.uFut = uFut; m.__c282 = 1;","m.uniforms.uFut = uFut; m.__c282 = 1;");
+one("const uIce = {value: new THREE.Vector4(0, 0, 0, 0)}, uFut = U.uFut","const uFut = U.uFut");
+cut('C282freeze','  // ---- frost overlay ----\n',"} catch (e) { U.err = String(e && e.message || e); } }, 200);\n","  setInterval(() => { try { patch(); } catch (e) { U.err = String(e && e.message || e); } }, 200);   /* v1.2.24: icy wall tint, frost overlay and edge freeze removed */\n");
+// GLX-C324: the clip box for that icy tint
+cut('C324tint','  // the icy edge tint (for the old ice wall round the map)',"} catch (e) { ERR('ice', e); } }, 1000);\n","");
+// GLX-C341: clearWall (returned 0 whenever GLX-C341 itself is loaded, i.e. always) with its 1 s poll, and the wallTop override
+cut('C341clear','  // ---------- 2. the old ice wall goes ----------\n',"try { const A = window.__c273; if (A && A.wallTop) A.wallTop = () => SEA - 4; } catch (_) {}\n","");
+// GLX-C294: mouth() / carveMouth() (the hole in the ice wall behind Blackstone Castle). build() only ever reached them when the GLX-C317 flag
+// was off on a W >= 600 home world, which cannot happen (that flag is on for every such world), so no current world was carved. Kept: WP,
+// the restored record only mouth metadata (save.c294 v3 -> __c294.M) GLX-V1214 and the Watcher keep out read, ball / dress / clearLane / tree for genAg.
+cut('C294mouth','  // ---------- overworld: the mouth in the ice wall behind Blackstone Castle ----------\n','  // the saucer flies this lane','  const WP = (M, d, a) => M.e === \'N\' ? [M.c + a, d] : M.e === \'S\' ? [M.c + a, D - 1 - d] : M.e === \'W\' ? [d, M.c + a] : [W - 1 - d, M.c + a];   /* v1.2.24: mouth() / carveMouth() removed; WP reads the saved mouth record */\n  // the saucer flies this lane');
+{const a="  const big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };",b="U.ms = Math.round(performance.now() - t); }\n";const i=s.indexOf(a),j=s.indexOf(b,i)+b.length;if(i<0||s.indexOf(a,i+1)>=0||j<b.length)throw Error('c294 build');const r="  function build() { U.M = null; U.Lw = null; }   /* v1.2.24: a new world gets no mouth (it never did on a W >= 600 home world) */\n";REMOVED.C294build=j-i-r.length;s=s.slice(0,i)+r+s.slice(j);}
 console.error('removed bytes',JSON.stringify(REMOVED),Object.values(REMOVED).reduce((x,y)=>x+y,0));
 fs.writeFileSync(out,s);

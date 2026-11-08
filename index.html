@@ -44742,48 +44742,8 @@ function make42(E) {
   }
   U.at = at;
   try { const rh = __c208.rawH; __c208.rawH = (x, z) => U.on() ? at(x, z) : rh(x, z); } catch (e) { ERR('rawH', e); }
-  // ---------- after generation: the ice wall ----------
-  // v1.0.92: the wall is a climbable staircase of solid icy snow (opaque snow blocks, tinted icy by the block shader in GLX-C282), rising one block per block
-  // from 40 blocks inside the old wall line up to near the world roof, so it stands about three times higher over the land than before
-  U.WS = 40;
-  function wall() {
-    const RE = U.RE(), WS = U.WS, SNOW = T.PACKSNOW || T.WOOL; /* v1.0.94 packed snow, v1.0.93: full white snow blocks, never the thin 178 snow layer */ let n = 0;
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
-      const q = U.edgeQ(x, z); if (q < RE - WS - 130 * (W / 864)) continue;
-      if (q < RE - WS) { const r = at(x, z); if (r.coast && r.loch && r.h < SEA - 2) { const c0 = x * H * D + z, fl = Math.max(8, r.h), SB = (x * 7 + z * 13) % 5 ? T.SAND : (T.GRAVEL || T.SAND);
-          for (let y = fl - 2; y <= SEA; y++) { const i = c0 + y * D; world[i] = y < fl - 1 ? T.STONE : y <= fl ? SB : T.WATER; } continue; } }
-      if (q < RE - WS - 6) continue;
-      const col = x * H * D + z;
-      if (q < RE - WS) { // snow-capped land creeping up to the wall
-        for (let y = H - 2; y > SEA; y--) { const b = world[col + y * D]; if (b === T.WATER) break; if (b && b !== T.WATER) { if (b === T.GRASS || b === T.DIRT || b === T.STONE || b === T.HEATHER) world[col + y * D] = SNOW; break; } if (b) world[col + y * D] = 0; }
-        continue; }
-      let g = 0; for (let y = H - 2; y > 1; y--) { const b = world[col + y * D]; if (b && !PLANT[b] && b !== T.WATER) { g = y; break; } }
-      const top = Math.max(Math.min(g, H - 4), U.wallTop(x, z));
-      for (let y = 1; y < H - 1; y++) { const i = col + y * D; if (y <= top) { if (y > top - 3 || !world[i] || world[i] === T.WATER || PLANT[world[i]]) world[i] = y > top - 3 ? SNOW : T.STONE; } else world[i] = 0; }
-      try { g9cols[(x * D + z) * 2] = top + 1; g9cols[(x * D + z) * 2 + 1] = 3; } catch (_) {}
-      n++; }
-    U.wall = n; }
-  U.wallFn = wall;
-  U.wallTop = (x, z) => Math.min(H - 4, SEA + 4 + Math.floor(U.edgeQ(x, z) - (U.RE() - U.WS)));
-  // the ice: a glassy blue cladding over the inner face of the wall (one mesh, no extra block ids needed)
-  let iceM = null;
-  function iceMesh() { try { if (iceM) { scene.remove(iceM); iceM.geometry.dispose(); iceM = null; } return; /* v1.0.92: no see-through cladding any more (it caused the lag) */
-      const c = document.createElement('canvas'); c.width = 128; c.height = 256; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
-      gr.addColorStop(0, '#f4fbff'); gr.addColorStop(0.25, '#bfe6f7'); gr.addColorStop(1, '#5fa6d0'); g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
-      let s = 7; const r = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
-      for (let i = 0; i < 70; i++) { g.strokeStyle = 'rgba(255,255,255,' + (0.15 + r() * 0.35) + ')'; g.lineWidth = 0.5 + r() * 1.5; g.beginPath(); let x = r() * 128, y = r() * 256; g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += (r() - .5) * 30; y += r() * 40; g.lineTo(x, y); } g.stroke(); }
-      for (let i = 0; i < 30; i++) { g.fillStyle = 'rgba(30,90,140,' + r() * 0.18 + ')'; g.fillRect(r() * 128, r() * 256, 2 + r() * 10, 10 + r() * 50); }
-      const tx = new THREE.CanvasTexture(c); tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
-      const N = 900, RE = U.RE() - 0.15, cx = (W >> 1) + .5, cz = (D >> 1) + .5, pos = new Float32Array((N + 1) * 6), uv = new Float32Array((N + 1) * 4), ix = []; let L = 0, px = 0, pz = 0;
-      for (let i = 0; i <= N; i++) { const a = i / N * 6.2832, ca = Math.cos(a), sa = Math.sin(a), r0 = RE / Math.cbrt(Math.abs(ca) ** 3 + Math.abs(sa) ** 3), x = cx + ca * r0, z = cz + sa * r0;
-        if (i) L += Math.hypot(x - px, z - pz); px = x; pz = z; const top = U.wallTop(Math.round(x), Math.round(z)) + 1;
-        pos.set([x, SEA - 1, z, x, top, z], i * 6); uv.set([L / 24, 0, L / 24, (top - SEA + 1) / 24], i * 4); if (i < N) { const a0 = i * 2; ix.push(a0, a0 + 2, a0 + 1, a0 + 1, a0 + 2, a0 + 3); } }
-      const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setIndex(ix); geo.computeVertexNormals();
-      iceM = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({map: tx, color: 0xdff4ff, emissive: 0x16384c, transparent: true, opacity: 0.9, side: THREE.DoubleSide}));
-      iceM.frustumCulled = false; iceM.renderOrder = 2; iceM.userData.__dcR = 1e9; scene.add(iceM); } catch (e) { ERR('ice', e); } }
-  U.iceMesh = iceMesh;
-  let lastId = null; setInterval(() => { try { const id = typeof started !== 'undefined' && started && current ? current.id + (U.on() ? 'y' : 'n') + W : null; if (id !== lastId) { lastId = id; iceMesh(); } } catch (_) {} }, 1000);
-  const gen = generate; generate = function () { CAS = null; const r = gen.apply(this, arguments); try { if (U.on()) { const t = performance.now(); wall(); U.ms = Math.round(performance.now() - t); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
+  U.WS = 40;   /* v1.2.24: the ice wall builder is removed; WS stays as the old edge band width the shared shape helpers use */
+  const gen = generate; generate = function () { CAS = null; return gen.apply(this, arguments); };
   // v1.0.92: no invisible barrier - climb the wall if you like; past it you freeze (GLX-C282). Only the world bounds hold you in.
   setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__c317 && __c317.on())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
 })();
@@ -45160,28 +45120,14 @@ function make42(E) {
   try { const ew = enterWorld; enterWorld = function (save) { const r = ew.apply(this, arguments); try { if (current) current.w92 = save ? !!(save.w92) : 1; } catch (_) {} return r; }; } catch (e) { U.err = 'ew ' + e; }
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (current && current.w92) d.w92 = 1; } catch (_) {} return d; }; } catch (e) { U.err = 'se ' + e; }
   // ---- icy tint in the block shader ----
-  const uIce = {value: new THREE.Vector4(0, 0, 0, 0)}, uFut = U.uFut = {value: 0}; /* v1.0.93: uFut = YEAR 24000 solid shiny silver blocks */
+  const uFut = U.uFut = {value: 0}; /* v1.0.93: uFut = YEAR 24000 solid shiny silver blocks */
   function patch() { const m = window.__TA && __TA.mat; if (!m || m.__c282) return !!(m && m.__c282);
     const vs = m.vertexShader, fs = m.fragmentShader; if (vs.indexOf('void main() {') < 0 || fs.indexOf('#include <tonemapping_fragment>') < 0) return false;
     m.vertexShader = vs.replace('void main() {', 'varying vec3 vIceW;\nvoid main() {\n  vIceW = (modelMatrix * vec4(position, 1.0)).xyz;');
-    m.fragmentShader = fs.replace('void main() {', 'uniform vec4 uIce; uniform float uFut; varying vec3 vIceW;\nvoid main() {').replace('#include <tonemapping_fragment>',
-      'if (uIce.w > 0.5) { vec2 dI = abs(vIceW.xz - uIce.xy); float qI = pow(dI.x * dI.x * dI.x + dI.y * dI.y * dI.y, 1.0 / 3.0); float kI = smoothstep(uIce.z - 1.0, uIce.z + 1.0, qI);\n' +
-      '    if (kI > 0.0) { float lI = dot(gl_FragColor.rgb, vec3(0.333)); vec3 iI = vec3(0.70, 0.86, 1.0) * (0.55 + 0.6 * lI) + vec3(0.0, 0.03, 0.08) * fract(sin(dot(floor(vIceW.xz * 2.0 + vIceW.y), vec2(12.9898, 78.233))) * 43758.5453); gl_FragColor.rgb = mix(gl_FragColor.rgb, iI, 0.62 * kI); } }\n' +
+    m.fragmentShader = fs.replace('void main() {', 'uniform float uFut; varying vec3 vIceW;\nvoid main() {').replace('#include <tonemapping_fragment>',
       'if (uFut > 0.0) { float lF = dot(gl_FragColor.rgb, vec3(0.3, 0.5, 0.2)); vec3 fp = fract(vIceW); float edgeF = max(max(step(0.94, fp.x), step(0.94, fp.z)), step(0.94, fp.y)); float bandF = 0.5 + 0.5 * sin(vIceW.y * 0.9 + vIceW.x * 0.35 + vIceW.z * 0.2); vec3 sF = vec3(0.80, 0.83, 0.88) * (0.55 + 0.5 * lF) + vec3(0.32, 0.34, 0.40) * pow(bandF, 6.0) + vec3(0.25, 0.85, 1.0) * edgeF * 0.35; gl_FragColor.rgb = mix(gl_FragColor.rgb, sF, uFut); gl_FragColor.a = 1.0; }\n  #include <tonemapping_fragment>');
-    m.uniforms.uIce = uIce; m.uniforms.uFut = uFut; m.__c282 = 1; m.needsUpdate = true; U.sh = 1; return true; }
-  // ---- frost overlay ----
-  let ov = null; function overlay(k) { if (!ov) { ov = document.createElement('div'); ov.id = 'c282frost';
-      ov.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:40;opacity:0;transition:opacity .6s;background:radial-gradient(ellipse at center,rgba(220,240,255,0) 38%,rgba(200,230,255,.55) 75%,rgba(240,250,255,.92) 100%);box-shadow:inset 0 0 120px 40px rgba(210,235,255,.8)';
-      document.body.appendChild(ov); } ov.style.opacity = String(k); }
-  let cold = 0, hitT = 0, msgT = 0;
-  setInterval(() => { try { const ok = false && on();   /* v1.1.40: no ice wall anywhere: no icy edge tint and no edge cold */ if (patch() && ok !== !!uIce.value.w) {} 
-      if (ok) { const c = C(); uIce.value.set((W >> 1) + 0.5, (D >> 1) + 0.5, c.RE() - (c.WS || 40), 1); } else uIce.value.w = 0;
-      if (!U.on || !ok || !started || dead || paused || DIM.cur || (current && current.mode === 'creative')) { cold = Math.max(0, cold - 0.2); overlay(cold * 0.9); U.freeze = 0; return; }
-      const c = C(), q = c.edgeQ(P.x, P.z), lim = c.RE() + 16; const north = __XG && P.z < (D >> 1) && (D >> 1) - P.z >= Math.abs(P.x - (W >> 1)); /* v1.1.17: in the north the cold starts at the far end of the ice extension */
-      const out = (north ? P.z < __XZ + 60 || P.x < 3 || P.x > W - 3 : (q > lim || P.x < 3 || P.z < 3 || P.x > W - 3 || P.z > D - 3)) && !(window.__c297 && __c297.inA); /* v1.0.106: never inside the Agartha cave */
-      U.freeze = out ? 1 : 0; cold = out ? Math.min(1, cold + 0.1) : Math.max(0, cold - 0.15); overlay(cold * 0.9);
-      if (out) { if ((msgT -= 0.2) <= 0) { msgT = 6; try { toast("You're freezing! Head back inside the wall"); } catch (_) {} }
-        try { regenT = 0; } catch (_) {} if (cold > 0.3 && (hitT -= 0.2) <= 0) { hitT = 1.6; try { hurt(1, 'freeze'); U.hits++; } catch (_) {} } } else { hitT = 0.6; msgT = 0; } } catch (e) { U.err = String(e && e.message || e); } }, 200);
+    m.uniforms.uFut = uFut; m.__c282 = 1; m.needsUpdate = true; U.sh = 1; return true; }
+  setInterval(() => { try { patch(); } catch (e) { U.err = String(e && e.message || e); } }, 200);   /* v1.2.24: icy wall tint, frost overlay and edge freeze removed */
 })();
 
 /* GLX-C283 (v1.0.93): pistol + musket in every new world with infinite bullets, gravel in caves (shovels dig it fast), lava pools deep in the caves,
@@ -45678,30 +45624,7 @@ function make42(E) {
           if (r2 < 0.006) tree(X, Y + 1, Z, 4 + (rnd() * 3 | 0)); else if (r2 < 0.006 + glow * 0.09) put(X, Y + 1, Z, GLOWP()); else if (r2 < 0.05 + glow * 0.04) put(X, Y + 1, Z, T.FERN || T.TALLGRASS); else if (r2 < 0.07) put(X, Y + 1, Z, T.TALLGRASS); }
         else { put(X, Y, Z, h < glow * 0.3 ? GLOWG() : (h < 0.5 ? T.GRASS : T.STONE)); if (!get(X, Y - 1, Z) && rnd() < 0.05) for (let v = 1; v <= 1 + (rnd() * 3 | 0); v++) if (!get(X, Y - v, Z)) put(X, Y - v, Z, T.LEAVES); } } }
   }
-  // ---------- overworld: the mouth in the ice wall behind Blackstone Castle ----------
-  // v1.0.112: the hole is in the ice wall at the point NEAREST Blackstone Castle (the castle is only the landmark), and runs straight out to the nearest map edge
-  const WP = (M, d, a) => M.e === 'N' ? [M.c + a, d] : M.e === 'S' ? [M.c + a, D - 1 - d] : M.e === 'W' ? [d, M.c + a] : [W - 1 - d, M.c + a];
-  function mouth() { const bc = (typeof g9castles !== 'undefined' && g9castles || []).find(c => c[0] === 'black'); if (!bc) return null;
-    const RE = __c273.RE(), WS = __c273.WS || 40; let best = null, bd = 1e9;
-    for (let x = 4; x < W - 4; x += 2) for (let z = 4; z < D - 4; z += 2) { const q = Q(x, z); if (q < RE - WS - 8 || q > RE - WS + 6) continue; const dd = Math.hypot(x - bc[1], z - bc[2]); if (dd >= bd) continue;
-      const [y, b] = surf(x, z); if (y < SEA + 4 || b === T.WATER) continue; bd = dd; best = [x, z]; }
-    if (!best) return null; const [x, z] = best, ed = [[z, 'N'], [D - 1 - z, 'S'], [x, 'W'], [W - 1 - x, 'E']].sort((p, q) => p[0] - q[0])[0][1];
-    const M = {e: ed, c: ed === 'N' || ed === 'S' ? x : z, cas: [bc[1], bc[2]]}; let df = 0;
-    for (let d = 2; d < 200; d++) { const [X, Z] = WP(M, d, 0), [y, b] = surf(X, Z); if (y < SEA + 4 || b === T.WATER) break; df = d; }
-    M.df = df; return M; }
-  function carveMouth(M) { const P = [], F1 = SEA + 2;
-    // v1.1.22: the mouth is cut into the wall face higher up (where the ice reaches SEA+14), with no flat snow landing; the floor slopes down to the map edge
-    const hi = d => { const [X, Z] = WP(M, d, 0), [X1, Z1] = WP(M, d, -9), [X2, Z2] = WP(M, d, 9); return Math.min(surf(X, Z)[0], surf(X1, Z1)[0], surf(X2, Z2)[0]); };
-    let d0 = 0; for (let d = 4; d <= M.df; d++) { if (hi(d) >= SEA + 16) d0 = d; else if (d0) break; }
-    const gF = d0 ? (() => { const [X, Z] = WP(M, d0 + 12, 0); return bed(X, Z)[0]; })() : F1, F0 = d0 ? Math.max(F1, Math.min(SEA + 14, gF + 7)) : F1; if (!d0) d0 = M.df; M.d0 = d0; M.f0 = F0;
-    for (let d = d0 + 6; d >= 1; d--) { const [X, Z] = WP(M, d, 0), f = Math.round(F1 + (F0 - F1) * Math.min(1, (d - 1) / Math.max(1, d0 - 1))); P.push([X, Z, f + 11, 17, 13, f]); }
-    for (const p of P) ball(p[0], p[2], p[1], p[3], p[4], p[5]);
-    // a rough snow ramp climbs from the ground to the raised mouth (no flat platform)
-    if (F0 > F1) { const SN = T.PACKSNOW || T.SNOW || T.STONE, L = (F0 - gF) * 2 + 2; for (let i = 0; i <= L; i++) { const d = d0 + 1 + i, top = Math.round(F0 - 1 - i / 2), w = 3 + ((i * 7) % 3);
-        for (let a = -w; a <= w; a++) { const [X, Z] = WP(M, d, a + Math.round(Math.sin(i * 0.5) * 2)), t2 = top - (Math.abs(a) > w - 2 ? 1 : 0); for (let y = t2; y > 2; y--) { const b = get(X, y, Z); if (b && b !== T.WATER && y < t2) break; put(X, y, Z, SN); } } } }
-    dress(P.slice(8), 0); clearLane(P, SEA + 4, SEA + 40);
-    // water may never touch the mouth air
-    for (const p of P) for (let a = -20; a <= 20; a++) for (let y = SEA - 2; y <= SEA + 28; y++) for (const dz of [-1, 0, 1]) { const ns = M.e === 'N' || M.e === 'S', X = p[0] + (ns ? a : dz), Z = p[1] + (ns ? dz : a); if (get(X, y, Z) === T.WATER) { const n = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 1], [0, 0, -1]].some(([u, v, w]) => !get(X + u, y + v, Z + w)); if (n) put(X, y, Z, T.STONE); } } }
+  const WP = (M, d, a) => M.e === 'N' ? [M.c + a, d] : M.e === 'S' ? [M.c + a, D - 1 - d] : M.e === 'W' ? [d, M.c + a] : [W - 1 - d, M.c + a];   /* v1.2.24: mouth() / carveMouth() removed; WP reads the saved mouth record */
   // the saucer flies this lane: no trees or leaves in the middle of the tunnel
   function clearLane(P, y0, y1) { for (const p of P) for (let a = -15; a <= 15; a++) for (let y = y0; y <= y1; y++) for (const [X, Z] of [[p[0] + a, p[1]], [p[0], p[1] + a]]) { const b = get(X, y, Z); if (b && (LOGGY[b] || LEAFY[b])) put(X, y, Z, 0); } }
   // ---------- beyond the edge: the 2000 block tunnel and Agartha ----------
@@ -45729,14 +45652,10 @@ function make42(E) {
     for (let k = 0; k < 900; k++) { const a = rnd() * 6.283, d = 6 + rnd() * (R - 10), x = Math.round(X + Math.cos(a) * d), z = Math.round(Z + Math.sin(a) * d); if (get(x, FL, z) || !get(x, FL - 1, z)) continue; const r = rnd();
       if (r < 0.2) tree(x, FL, z, 4 + (rnd() * 3 | 0)); else if (r < 0.28) put(x, FL, z, T.LAMP); else if (r < 0.5) put(x, FL, z, GLOWP()); else put(x, FL, z, T.FERN || T.TALLGRASS); }
     L.spires = sp; L.FL = FL; L.TOP = TOP; }
-  const big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };   // v1.1.39: on the big round Earth the only way into Agartha is the desert pyramid
-  function build() { if (big()) { U.M = null; U.Lw = null; return; } const t = performance.now(); s = (Math.random() * 4294967296) >>> 0; const M = mouth(); if (!M) { U.err = U.err || 'no site'; return; }
-    carveMouth(M); const F = WP(M, M.df, 0); U.M = {x: F[0], z: F[1], y: SEA + 2, e: M.e, c: M.c, df: M.df, d0: M.d0, f0: M.f0, castle: M.cas}; U.L = {v: 3, mouth: [F[0], F[1], SEA + 2], e: M.e, c: M.c, df: M.df, d0: M.d0, f0: M.f0}; U.ms = Math.round(performance.now() - t); }
+  function build() { U.M = null; U.Lw = null; }   /* v1.2.24: a new world gets no mouth (it never did on a W >= 600 home world) */
   try { const aps = applySave; applySave = function (d) { try { if (d && d.c294a) U.A = d.c294a; } catch (_) {} return aps.apply(this, arguments); }; } catch (e) { ERR('ap', e); }
   U.build = build; U.genAg = genAg;
-  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). Kept from the removed GLX-C307: a NEW world whose flag turned on after generate still gets its mouth record once (GLX-V1214 and the Watcher bowl use it as the Agartha keep out). */
-  let fresh7 = false; try { const g7 = generate; generate = function () { fresh7 = true; return g7.apply(this, arguments); }; const e7 = enterWorld; enterWorld = function (save) { fresh7 = !save || !!(save && save.tpl); return e7.apply(this, arguments); }; } catch (e) { ERR('f7', e); }
-  setInterval(() => { try { if (!fresh7 || U.M || !started || DIM.cur || W < 600 || !on()) return; fresh7 = false; build(); } catch (e) { ERR('ens', e); } }, 1000);
+  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). The mouth record (GLX-V1214 and the Watcher bowl keep out) now only comes from an old save (c294 v3). */
   U.WP = (d, a) => U.M ? WP(U.M, d, a) : null; U.AG = {CX, CZ, TL, AW, AD};
   Object.defineProperty(U, 'L', {get() { return DIM.cur === 'agartha' ? U.A : (!DIM.cur && window.__c307 && __c307.ready && __c307.L) || (U.Lw && U.Lw.v === 2 ? U.Lw : null); }, set(v) { U.Lw = v; }, configurable: true});
   const gen = generate; generate = function () { U.L = null; U.M = null; const r = gen.apply(this, arguments); try { if (on()) { build(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
@@ -47277,12 +47196,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // blocks you dig or place out on the planet: redraw that chunk
   try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y >= 0 && y <= 1) { try { const ck = Math.floor(x / C) + ',' + Math.floor(z / C); U.op.delete(ck); U.dirty.add(ck); } catch (_) {} const t = '|' + Math.floor(x / C) + ',' + Math.floor(z / C) + ','; for (const kk of [...cache.keys()]) if (kk.includes(t)) cache.delete(kk); } } catch (_) {} try { const f = F(); if (f && on() && meshes.size) { const mx = ((Math.floor(x) % C) + C) % C, mz = ((Math.floor(z) % C) + C) % C; for (const [ax, az] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) if ((ax === 0 || (ax > 0 ? mx === C - 1 : mx === 0)) && (az === 0 || (az > 0 ? mz === C - 1 : mz === 0))) U.dirty.add(Math.floor((Math.floor(x) + ax) / C) + ',' + Math.floor((Math.floor(z) + az) / C)); } } catch (_) {} return r; }; } catch (e) { ERR('setB', e); }
   // no grey ground fog in space or near the Moon and Mars
-  // the icy edge tint (for the old ice wall round the map) stays on the map and the north ice plain, not out on the Earth, the Moon or Mars
-  const uIceB = {value: new THREE.Vector4(0, 0, 0, 0)}, IA = 'if (uIce.w > 0.5) {';
-  setInterval(() => { try { const m = window.__TA && __TA.mat; if (!m) return; if (!m.__c324 && m.fragmentShader.includes(IA)) { m.uniforms.uIceB = uIceB;
-        m.fragmentShader = m.fragmentShader.replace('uniform vec4 uIce;', 'uniform vec4 uIce; uniform vec4 uIceB;').replace(IA, 'if (uIce.w > 0.5 && (uIceB.w < 0.5 || (vIceW.y > -90.0 && vIceW.y < uIceB.w && vIceW.x > -2.0 && vIceW.x < uIceB.x && vIceW.z > uIceB.y && vIceW.z < uIceB.z))) {');
-        m.__c324 = 1; m.needsUpdate = true; U.ice = 1; }
-      const Z0 = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0; if (on()) uIceB.value.set(W + 2, Z0 - 2, D + 2, H + 200); else uIceB.value.w = 0; } catch (e) { ERR('ice', e); } }, 1000);
   const spaceNow = () => { try { const f = F(), b = f && f.body; if (!on() || DIM.cur || !f) return false; if (b === 'moon' || b === 'mars') return true; const w = f.pw(); return !!(E() && E().space(w.x, w.y, w.z)); } catch (_) { return false; } };
   try { const us = updateSky; updateSky = function () { const r = us.apply(this, arguments); try { const fg = scene.fog; if (fg && spaceNow()) { fg.near = Math.max(fg.near, 260); fg.far = Math.max(fg.far, 1400); fg.color.setHex(0x05060a); U.fogN = (U.fogN || 0) + 1; } } catch (e) { ERR('fog', e); } return r; }; } catch (e) { ERR('fog0', e); }
 })();
@@ -47514,21 +47427,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         // turn the island direction onto Scotland (the middle of the old map frame)
         const cs = n0[1], sn = n0[2]; return ll0(nx, ny * cs + nz * sn, -ny * sn + nz * cs); } catch (e) { ERR('ll', e); } return ll0(nx, ny, nz); };
   } catch (e) { ERR('ll0', e); }
-  // ---------- 2. the old ice wall goes ----------
-  function clearWall() { if (window.__c341) return 0; const A = window.__c273; if (!A || !A.edgeQ || !A.RE || (A.on && !A.on())) return 0; const RE = A.RE(), WS = A.WS || 40, SN = new Set([T.PACKSNOW, T.SNOW, T.ICE, T.PACKEDICE, T.STONE, 178].filter(Boolean));
-    let n = 0; const placed = i => { try { return typeof placedSet !== 'undefined' && placedSet.has(i); } catch (_) { return false; } };
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const q = A.edgeQ(x, z); if (q < RE - WS - 8) continue; const col = x * H * D + z;
-      if (q < RE - WS) { for (let y = H - 2; y > SEA; y--) { const i = col + y * D, b = world[i]; if (!b) continue; if (b === T.PACKSNOW && !placed(i)) { world[i] = T.GRASS; n++; } break; } continue; }
-      // the wall band (v1.1.39): open sea with a sand bed, so the map edge meets the real sea and land round it with no flat green ring
-      for (let y = H - 2; y >= SEA - 4; y--) { const i = col + y * D, b = world[i]; if (placed(i)) continue;
-        const want = y > SEA ? 0 : y > SEA - 4 ? T.WATER : T.SAND; if (b !== want && (y > SEA - 4 || !b || b === T.GRASS || b === T.DIRT || SN.has(b))) { world[i] = want; n++; } }
-      try { g9cols[(x * D + z) * 2] = SEA - 3; } catch (_) {} }
-    return n; }
-  let lastW = null;
-  setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || typeof current === 'undefined' || !current || world === lastW) return; lastW = world;
-      const key = 'glx339w:' + current.id; if (localStorage.getItem(key)) return; const n = clearWall(); U.cleared = n; localStorage.setItem(key, '1');
-      if (n) { try { dirtyAll = true; } catch (_) {} try { const E = __c320; E.edgeClr && E.edgeClr(); E.dirty = 1; } catch (_) {} if (window.__c324 && __c324.cache) __c324.cache.clear(); } } catch (e) { ERR('wall', e); } }, 1000);
-  try { const A = window.__c273; if (A && A.wallTop) A.wallTop = () => SEA - 4; } catch (_) {}
   // ---------- 3. Agartha teleport ----------
   function goAgartha() { try { if (DIM.cur) { toast('Go back to the overworld first'); return; } if (!(window.__c317 && __c317.on()) || !window.__c332 || !__c332.SH()) { toast('Agartha is not in this world. Reset world to get the big map'); return; }
       try { if (window.__c309 && __c309.on) __c309.on = false; } catch (_) {} window.__spaceHud = null; if (__c332.toCity()) { try { setPause(false); } catch (_) {} const ov = document.querySelector('[data-testid=tp-x]'); if (ov) ov.parentNode.parentNode.style.display = 'none'; toast('Agartha'); } } catch (e) { ERR('tp', e); } }
