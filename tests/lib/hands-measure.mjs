@@ -19,7 +19,8 @@ export function measurer(T) {
   const inRel = (o, rel, at) => rel.worldToLocal(o.localToWorld(at ? at.clone() : V()));
   // hand parts of one HD arm in rel space: palm front (the palm faces local +z), palm centre, four fingertips, thumb tip, wrist
   function handPts(arm, rel) { const h = arm.userData.p.h, palm = h.children[0], out = {palmF: inRel(palm, rel, V().set(0, 0, 0.016)), palmC: inRel(palm, rel), tips: [], wrist: inRel(h, rel)};
-    for (const [f, k] of h.userData.f) out.tips.push(inRel(k.children[k.children.length - 1], rel)); const tk = h.userData.th.userData.k; out.thumb = inRel(tk.children[tk.children.length - 1], rel); return out; }
+    const end = k => k.userData.d ? end(k.userData.d) : k;   /* v1.2.27: the tip sits on the end joint when the finger has one */
+    for (const [f, k0] of h.userData.f) { const k = end(k0); out.tips.push(inRel(k.children[k.children.length - 1], rel)); } const tk = end(h.userData.th.userData.k); out.thumb = inRel(tk.children[tk.children.length - 1], rel); return out; }
   const wristAng = arm => { const p = arm.userData.p, a = new T.Vector3(0, 1, 0).applyQuaternion(p.fo.quaternion), b = new T.Vector3(0, 1, 0).applyQuaternion(p.h.quaternion); return a.angleTo(b); };
   const relScale = rel => { const s = V(); rel.updateMatrixWorld(true); rel.matrixWorld.decompose(V(), new T.Quaternion(), s); return s.x; };
   // a gun is several rigid parts (the rig, the magazine holder, the slide or bolt holder) that move against each other in the animation:
