@@ -46859,7 +46859,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function earth(x, y, z) { const f = U.fearth; return f ? f(x, y, z) : 0; }
   U.earth = earth;
   // height above the sea: the flat cap over the map, the round ball everywhere else
-  U.alt = (x, y, z) => { if (U.flat) return y - SEA; const c = E(); return Math.max(y - SEA, Math.hypot(x - c[0], y - c[1], z - c[2]) - R); };
+  U.alt = (x, y, z) => y - SEA;   /* v1.2.24: flat UK height (the round ball branch is removed) */
   U.space = (x, y, z) => U.alt(x, y, z) > H + 40 - SEA;
   U.spaceCam = (x, y, z) => U.alt(x, y, z) > H + 60 - SEA;
   const key = (x, y, z) => x + ',' + y + ',' + z, soft = b => !b || b === T.WATER || b === T.LAVA || b === T.TORCH || (typeof PLANT !== 'undefined' && PLANT[b] === 1);
@@ -46941,8 +46941,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function tick() { try { if (U.body && !flying) unstick(); } catch (_) {} if (typeof started === 'undefined' || !started || DIM.cur || !__ukHome()) { if (U.ax !== 2) U.leave(); return; }
     if (veh()) { U.leave(); return; } const w = pW(P.x, P.y + 0.9, P.z), b = pick(w);
     if (!b) { if (U.ax !== 2) setFrame(null, null, 2); else U.body = null; return; }
-    const c = b[1], dd = [w[0] - c[0], w[1] - c[1], w[2] - c[2]], inn = b[0] === 'earth' && window.__c332 && __c332.inner(Math.hypot(dd[0], dd[1], dd[2]));
-    let ax = axisOf(dd, U.body === b[0] ? (inn ? U.ax ^ 1 : U.ax) : 2); if (inn) ax ^= 1;   // v1.1.37: inside the hollow Earth down points out onto the shell
+    const c = b[1], dd = [w[0] - c[0], w[1] - c[1], w[2] - c[2]];
+    let ax = axisOf(dd, U.body === b[0] ? U.ax : 2);   // v1.1.37: inside the hollow Earth down points out onto the shell
     if (ax === 2 && U.ax === 2) { U.body = b[0]; return; } setFrame(b[0], c, ax); }
   U.tick = tick;
   function step(mx, mz) { if (!U.body || !P.onGround || flying || (!mx && !mz)) return; const fx = -Math.sin(P.yaw), fz = -Math.cos(P.yaw), rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
@@ -46972,8 +46972,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       try { return rd.apply(this, arguments); } finally { c.position.copy(cpos); c.quaternion.copy(cq); c.updateMatrixWorld(true); for (const [o, p, q] of sv) { o.position.copy(p); o.quaternion.copy(q); } } }; } catch (e) { ERR('rd0', e); }
   U.upright = true; U.cy = 0; let lcy = 0;
   // v1.1.39: a step up glides the view up over a few frames instead of jumping
-  try { const r0 = renderer.render; renderer.render = function (s, c) { if (c !== camera || s !== scene || Math.abs(U.cy) < 0.01 || U.body !== 'earth' || !window.__c320 || __c320.flat) { U.cy = 0; return r0.apply(this, arguments); } const t = performance.now(), dt = Math.min(0.1, (t - (lcy || t)) / 1000); lcy = t; U.cy *= Math.exp(-dt * 14);
-      const y0 = c.position.y; c.position.y += U.cy; c.updateMatrixWorld(true); try { return r0.apply(this, arguments); } finally { c.position.y = y0; c.updateMatrixWorld(true); } }; } catch (e) { ERR('cy', e); }
 })();
 
 /* GLX-C322 (v1.1.99): REAL GUNS. The Highland rifle and the Highland pistol use real scanned style models with full PBR textures
@@ -47141,7 +47139,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     if (!g) { meshes.set(k, null); return; } blockGroup.remove(g); g.position.set(cx * C - C - piv[0], y0 - piv[1], cz * C - C - piv[2]); root.add(g); meshes.set(k, g); U.meshed++; U.ms = Math.round(performance.now() - t0); (U.mt = U.mt || []).push([U.ms, U.fm]); if (U.mt.length > 400) U.mt.shift(); }
   U.mesh = mesh;
   setInterval(() => { try { const f = F(), e = E(); if (typeof started === 'undefined' || !started || DIM.cur || !on() || !f || !e) { root.visible = false; return; }
-      const w = f.pw(); if ((!e.flat && e.alt(w.x, w.y, w.z) > 120) || (e.flat && w.y - SEA > 1400) || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
+      const w = f.pw(); if (w.y - SEA > 1400 || (window.__c309 && __c309.on)) { root.visible = false; if (meshes.size) dropAll(); band = null; return; } root.visible = true;
       const ax = f.ax, piv = ax === 2 ? [0, 0, 0] : f.piv.slice(), pk = ax + ':' + piv.join();
       if (pk !== fPiv) { dropAll(); fPiv = pk; fAx = ax; band = null; root.position.set(piv[0], piv[1], piv[2]); root.quaternion.copy(QS[ax]); root.updateMatrixWorld(true); }
       { const vd = (typeof vf === 'function' ? vf() : 96), hh = Math.max(0, P.y - SEA - 30); RN = e.flat ? Math.min(PH ? 7 : 16, Math.max(RN0, Math.ceil(Math.max(vd, (scene.fog && scene.fog.far < 1e5 ? scene.fog.far : 0), (window.__c346 && __c346.R) || 0) / C) + 1)) : RN0; if (e.flat && P.y < SEA - 30) RN = Math.min(RN, PH ? 3 : 5); }   /* v1.1.81: underground only the chunks round you are built */
@@ -47419,9 +47417,10 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (a >= -40) { const g = col(x, z); if (a < g[0]) return e.layer(e.R, g[0] - a, g[1], x, y, z); return a < 0 ? T.WATER : 0; }
       return DS(); /* v1.1.84: deeper comes from earth/deep_world.js */ } catch (er) { ERR('fe', er); return 0; } }
   // v1.1.52: the old far sea disc, ice ring mesh and painted land plane are deleted (the real block sea and land are drawn by earth_chunk_streaming)
-  setInterval(() => { try { const e = E(); if (!e) return; const f = big(); if (f) { PX = W >> 1; PZ = -400; e.FP = [PX, PZ]; U.px = PX; }
-      if (e.flat !== f) { e.flat = f; e.fll = fll; e.fearth = fearth; GC.clear(); try { e.edgeClr && e.edgeClr(); } catch (_) {} try { __c324.cache.clear(); } catch (_) {} e.dirty = 1; }
-      const a = typeof started !== "undefined" && started && f; try { const b = __c317.FAR.getObjectByName('earth326'); if (b) b.material.visible = !f; if (U.hid !== f || (U.hk = (U.hk || 0) + 1) % 8 === 0) { U.hid = f; const NM = U.NM || (U.NM = new Set(['sea320', 'floor320', 'seaBall320', 'floorBall320', 'dome309'])); scene.traverse(o => { if (o.material && NM.has(o.name)) o.material.visible = !f; }); } if (typeof seaRing !== 'undefined' && seaRing) seaRing.children.forEach(o => { o.material.visible = !f; }); } catch (_) {}
+  let FA; const applyF = (e, f) => { FA = f; if (f) { PX = W >> 1; PZ = -400; e.FP = [PX, PZ]; U.px = PX; } GC.clear(); try { e.edgeClr && e.edgeClr(); } catch (_) {} try { __c324.cache.clear(); } catch (_) {} e.dirty = 1; U.flips = (U.flips || 0) + 1; };
+  try { const e0 = E(); if (e0) { e0.fll = fll; e0.fearth = fearth; Object.defineProperty(e0, 'flat', {configurable: true, enumerable: true, get() { if (window.__c317mesh && FA !== undefined) return FA; const f = big(); if (f !== FA) applyF(this, f); return f; }, set(_) {}}); } } catch (e) { ERR('flat', e); }   /* v1.2.24: live flat flag (held through a planet mesh build, as the old timer did) */
+  setInterval(() => { try { const e = E(); if (!e) return; const f = e.flat; if (f) { PX = W >> 1; PZ = -400; e.FP = [PX, PZ]; U.px = PX; }
+      const a = typeof started !== "undefined" && started && f; try { if (U.hid !== f || (U.hk = (U.hk || 0) + 1) % 8 === 0) { U.hid = f; const NM = U.NM || (U.NM = new Set(['dome309'])); scene.traverse(o => { if (o.material && NM.has(o.name)) o.material.visible = !f; }); } if (typeof seaRing !== 'undefined' && seaRing) seaRing.children.forEach(o => { o.material.visible = !f; }); } catch (_) {}
       if (a && !U.safe) { U.safe = 1; const w = window.__c321 ? __c321.pw() : P, off = !(w.x >= 0 && w.x < W && w.z >= 0 && w.z < D); if (off && w.y < SEA - 1500 && !(window.__c332 && __c332.where() === 'city')) { try { __c321.leave(); } catch (_) {} P.x = (W >> 1) + 0.5; P.z = (D >> 1) + 0.5; P.y = groundTop(W >> 1, D >> 1) + 1; P.vy = 0; P.fallTop = null; U.moved = 1; } } } catch (er) { ERR('loop', er); } }, 250);
 })();
 
