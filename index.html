@@ -45729,31 +45729,14 @@ function make42(E) {
     for (let k = 0; k < 900; k++) { const a = rnd() * 6.283, d = 6 + rnd() * (R - 10), x = Math.round(X + Math.cos(a) * d), z = Math.round(Z + Math.sin(a) * d); if (get(x, FL, z) || !get(x, FL - 1, z)) continue; const r = rnd();
       if (r < 0.2) tree(x, FL, z, 4 + (rnd() * 3 | 0)); else if (r < 0.28) put(x, FL, z, T.LAMP); else if (r < 0.5) put(x, FL, z, GLOWP()); else put(x, FL, z, T.FERN || T.TALLGRASS); }
     L.spires = sp; L.FL = FL; L.TOP = TOP; }
-  // v1.1.17: Agartha in the SAME world - GLX-C307 swaps in a zone array (the strip north of the map edge) and this carves the 800 block tunnel and the city into it.
-  // Local z = D - 1 is world z 2 (inside the map), the tunnel runs north (down local z), dipping under the flat ice, and the cavern sits under the ice at the far end.
-  function genExt(o) { const LT = o.LT, CR = o.CR, S0 = SEA + 1, CXl = W >> 1, PK = T.PACKSNOW || T.SNOW || T.STONE, BR = (W >= 600 && T.DEEPSLATE) || T.HBEDROCK || T.BEDROCK || T.STONE;
-    s = (0x6a9a + (o.seed | 0) * 31 + o.c * 7) >>> 0;
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const b = (x * H) * D + z; world[b] = BR; for (let y = 1; y <= S0; y++) world[b + y * D] = y > S0 - 4 ? PK : T.STONE; }
-    const sm = t => t * t * (3 - 2 * t), P = [];
-    for (let k = 0; k <= LT + 2; k++) { const z = D - 1 - k, a = sm(Math.min(1, k / 260)), e = Math.max(0, Math.min(1, (k - (LT - 150)) / 150));
-      P.push([CXl, z, Math.round(SEA + 13 + (24 - SEA - 13) * a - 6 * e), 17, 13, Math.round(SEA + 2 + (12 - SEA - 2) * a - 7 * e)]); }
-    // a glacier tongue of packed ice over the first stretch, so the tunnel is covered until it is under the flat ice
-    for (const p of P) { const roof = p[2] + 13 + 4; if (roof <= S0) continue; for (let x = -34; x <= 34; x++) { const h = Math.min(H - 3, Math.round(roof - Math.max(0, Math.abs(x) - 18) * 0.9)); for (let y = S0 + 1; y <= h; y++) put(CXl + x, y, p[1], PK); } }
-    for (const p of P) ball(p[0], p[2], p[1], p[3], p[4], p[5]); dress(P.slice(30), 0.15); for (const p of P) for (let a = -22; a <= 22; a++) for (let y = p[5] - 3; y <= p[2] + 16; y++) { const b = get(p[0] + a, y, p[1]); if (b && (LOGGY[b] || LEAFY[b])) put(p[0] + a, y, p[1], 0); }
-    const L = {city: [CXl, D - 1 - LT - 2 - CR + 4, CR], top0: 37}; cavern(L);
-    return {city: L.city, FL: L.FL, TOP: L.TOP, spires: L.spires, path: P.filter((p, i) => i % 40 === 0 || i === P.length - 1).map(p => [p[0], p[5] + 7, p[1]])}; }
-  U.genExt = genExt;
   const big = () => { try { return !!(window.__c317 && __c317.on()); } catch (_) { return false; } };   // v1.1.39: on the big round Earth the only way into Agartha is the desert pyramid
   function build() { if (big()) { U.M = null; U.Lw = null; return; } const t = performance.now(); s = (Math.random() * 4294967296) >>> 0; const M = mouth(); if (!M) { U.err = U.err || 'no site'; return; }
     carveMouth(M); const F = WP(M, M.df, 0); U.M = {x: F[0], z: F[1], y: SEA + 2, e: M.e, c: M.c, df: M.df, d0: M.d0, f0: M.f0, castle: M.cas}; U.L = {v: 3, mouth: [F[0], F[1], SEA + 2], e: M.e, c: M.c, df: M.df, d0: M.d0, f0: M.f0}; U.ms = Math.round(performance.now() - t); }
   try { const aps = applySave; applySave = function (d) { try { if (d && d.c294a) U.A = d.c294a; } catch (_) {} return aps.apply(this, arguments); }; } catch (e) { ERR('ap', e); }
   U.build = build; U.genAg = genAg;
-  // walking into the back of the mouth (the map edge) takes you on along the tunnel; walking back out of the tunnel start returns you
-  let cool = 0; setInterval(async () => { try { if (big() && !DIM.cur) { U.M = null; return; } if (!started || DIM.busy || paused || dead || performance.now() < cool || (window.__c307 && (__c307.ready || __c307.nw))) return;
-      const m = U.M, inner = m && (!DIM.cur ? (() => { const e = m.e, d = e === 'N' ? P.z : e === 'S' ? D - P.z : e === 'W' ? P.x : W - P.x, a = (e === 'N' || e === 'S' ? P.x : P.z) - m.c; return d < 5 && Math.abs(a) < 18 && P.y < SEA + 28; })() : false);
-      if (!DIM.cur && inner) { cool = performance.now() + 4000; const [X, Z] = WP(m, 14, 0); P.x = X + 0.5; P.z = Z + 0.5;
-        await enterDim('agartha', genAg, spawnAg); if (DIM.cur === 'agartha') { spawnAg(); toast('The tunnel runs on, out past the edge of the world...'); dirtyAll = true; } }
-      else if (DIM.cur === 'agartha' && P.z < 4 && !window.__agr) { cool = performance.now() + 4000; await exitDim(); if (m) { const [X, Z] = WP(m, 12, 0); P.x = X + 0.5; P.z = Z + 0.5; P.y = SEA + 2.05; } toast('Back at the ice wall.'); } } catch (e) { ERR('tp', e); } }, 250);
+  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). Kept from the removed GLX-C307: a NEW world whose flag turned on after generate still gets its mouth record once (GLX-V1214 and the Watcher bowl use it as the Agartha keep out). */
+  let fresh7 = false; try { const g7 = generate; generate = function () { fresh7 = true; return g7.apply(this, arguments); }; const e7 = enterWorld; enterWorld = function (save) { fresh7 = !save || !!(save && save.tpl); return e7.apply(this, arguments); }; } catch (e) { ERR('f7', e); }
+  setInterval(() => { try { if (!fresh7 || U.M || !started || DIM.cur || W < 600 || !on()) return; fresh7 = false; build(); } catch (e) { ERR('ens', e); } }, 1000);
   U.WP = (d, a) => U.M ? WP(U.M, d, a) : null; U.AG = {CX, CZ, TL, AW, AD};
   Object.defineProperty(U, 'L', {get() { return DIM.cur === 'agartha' ? U.A : (!DIM.cur && window.__c307 && __c307.ready && __c307.L) || (U.Lw && U.Lw.v === 2 ? U.Lw : null); }, set(v) { U.Lw = v; }, configurable: true});
   const gen = generate; generate = function () { U.L = null; U.M = null; const r = gen.apply(this, arguments); try { if (on()) { build(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
@@ -46329,113 +46312,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     C0.lerp(BK, f); sc.background.copy(C0); if (sc.fog) { sc.fog.color.copy(C0); sc.fog.near = 60 + f * 600; sc.fog.far = 200 + f * 900; } return DIM.cur === 'moon' || f > 0.2 || (typeof daylight !== 'undefined' && daylight < 0.4); };
 })();
 
-/* GLX-C307 (v1.1.17): THE NORTH EXTENSION. The map now runs on 1500 blocks north past its old top edge (z 0 down to z -1500), in the same
-   world and the same coordinates - no teleport, no separate area. It is flat ice, made on the fly in 26 x 26 chunks as you get near; only
-   chunks that differ from flat ice are kept (the Agartha tunnel and city, and anything you dig or build), and only the ones you changed are
-   saved. The 800 block tunnel runs from the ice wall hole near Blackstone Castle (72 blocks inside the map, 728 out here) down under the ice
-   to Agartha. The base block helpers (getB, setB, solid, groundTop, skyTop) answer for z < 0 through __XG / __XS; GLX-C307b draws it. */
-(function c307() {
-  const X = window.__c307 = {err: null, ready: false, ch: new Map(), mod: new Set(), EH: 80, EXT: 1500, LT: 728, CR: 112, ZW: 240, L: null, route: null, ms: 0, gens: 0, x0: 0, z0: 0, W: 0};
-  const ERR = (w, e) => { if (!X.err) X.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
-  const EH = X.EH, CHs = CH, N = CHs * EH * CHs, key = (cx, cz) => (cz + 100) * 64 + cx;
-  let FC = null;   // one flat-ice column
-  const FL = () => SEA - 15;   // v1.1.29: open sea over a sea floor, like the rest of the round Earth (C320), no more ice plain
-  const seaCol = () => { const c = new Uint16Array(EH); c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y < SEA; y++) c[y] = y <= FL() ? T.STONE : y <= FL() + 3 ? T.SAND : T.WATER; return c; };
-  function shell(Z, ZW, ZD, F0, F1) { const y0 = FL() - 3, y1 = SEA + 1, ny = y1 - y0 + 1, n = ZW * ny * ZD, m = new Uint8Array(n), t = new Uint8Array(n), id = (x, y, z) => (x * ny + y) * ZD + z;
-    for (let x = 0; x < ZW; x++) for (let y = 0; y < ny; y++) for (let z = 0; z < ZD; z++) if (!Z[(x * EH + y + y0) * ZD + z]) m[id(x, y, z)] = 1;
-    const pass = (A, B, L, st, cnt) => { for (let o of cnt) { for (let i = 0; i < L; i++) { let v = 0; for (let k = -3; k <= 3; k++) { const j = i + k; if (j >= 0 && j < L && A[o + j * st]) { v = 1; break; } } B[o + i * st] = v; } } };
-    const offs = (f) => { const r = []; f(r); return r; };
-    pass(m, t, ZD, 1, offs(r => { for (let x = 0; x < ZW; x++) for (let y = 0; y < ny; y++) r.push(id(x, y, 0)); }));
-    pass(t, m, ny, ZD, offs(r => { for (let x = 0; x < ZW; x++) for (let z = 0; z < ZD; z++) r.push(id(x, 0, z)); }));
-    pass(m, t, ZW, ny * ZD, offs(r => { for (let y = 0; y < ny; y++) for (let z = 0; z < ZD; z++) r.push(id(0, y, z)); }));
-    let n2 = 0; for (let x = 0; x < ZW; x++) for (let y = FL() + 1; y <= y1; y++) for (let z = 0; z < ZD; z++) { const i = (x * EH + y) * ZD + z, v = Z[i]; if (!v || v !== F0[y]) continue; Z[i] = t[id(x, y - y0, z)] ? T.STONE : F1[y]; n2++; }
-    X.shellN = n2; }
-  const flatCol = () => { const c = new Uint16Array(EH), S0 = SEA + 1; c[0] = T.DEEPSLATE || T.STONE; for (let y = 1; y <= S0; y++) c[y] = y > S0 - 4 ? (T.PACKSNOW || T.SNOW || T.STONE) : T.STONE; return c; };
-  const newCh = () => { const a = new Uint16Array(N); for (let lx = 0; lx < CHs; lx++) for (let y = 0; y < EH; y++) a.fill(FC[y], (lx * EH + y) * CHs, (lx * EH + y + 1) * CHs); return a; };
-  X.on = () => { try { return !!(window.__g89 && __g89() && W >= 600 && window.__c294 && __c294.M && __c294.M.e === 'N'); } catch (_) { return false; } };
-  function getE(x, y, z) { if (z < __XZ || y < 0 || y >= EH) return 0; const cx = (x / CHs) | 0, cz = Math.floor(z / CHs), a = X.ch.get(key(cx, cz));
-    return a ? a[((x - cx * CHs) * EH + y) * CHs + (z - cz * CHs)] : FC[y]; }
-  function setE(x, y, z, v) { if (z < __XZ || y < 0 || y >= EH) return; const cx = (x / CHs) | 0, cz = Math.floor(z / CHs), k = key(cx, cz); let a = X.ch.get(k);
-    if (!a) { if (FC[y] === v) return; a = newCh(); X.ch.set(k, a); } const lx = x - cx * CHs, lz = z - cz * CHs; a[(lx * EH + y) * CHs + lz] = v; X.mod.add(k);
-    const d = X.dirty; d.add(k); if (lx === 0) d.add(key(cx - 1, cz)); if (lx === CHs - 1) d.add(key(cx + 1, cz)); if (lz === 0) d.add(key(cx, cz - 1)); if (lz === CHs - 1) d.add(key(cx, cz + 1));
-    if (z === -1) try { markDirty(x, 0); } catch (_) {} }
-  X.dirty = new Set(); X.get = getE; X.set = setE;
-  function hook(a) { if (a) { __XG = getE; __XS = setE; __XN = (x, y) => y < EH ? getE(x, y, -1) : 0; __XZ = -X.EXT; } else { __XG = __XS = __XN = null; __XZ = 0; } }
-  X.hook = hook;
-  // ---------- make the extension: the zone (tunnel + Agartha) is carved once into a scratch array, then cut into chunks ----------
-  function init(saved) { const t0 = performance.now(); X.ready = false; hook(false); X.ch.clear(); X.mod.clear(); X.dirty.clear(); X.L = null; X.route = null;
-    try { if (window.__c307b) __c307b.clear(); } catch (_) {}
-    if (!X.on()) return; FC = flatCol(); const M = __c294.M; X.LT = Math.max(600, 800 - Math.round(M.z));
-    const ZW = X.ZW, ZD = X.LT + 2 * X.CR + 16, x0 = Math.max(0, Math.min(W - ZW, Math.round(M.c) - (ZW >> 1))), z0 = 3 - ZD; X.x0 = x0; X.z0 = z0; X.W = W;
-    const sv = [world, W, H, D], Z = new Uint16Array(ZW * EH * ZD); let R = null;
-    try { world = Z; W = ZW; H = EH; D = ZD; R = __c294.genExt({LT: X.LT, CR: X.CR, seed: typeof gSeed !== 'undefined' ? gSeed : 0, c: Math.round(M.c)}); }
-    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; }
-    try { const t1 = performance.now(), F1 = seaCol(); shell(Z, ZW, ZD, FC, F1); FC = F1; X.shellMs = Math.round(performance.now() - t1); } catch (e) { ERR('shell', e); }
-    const cx0 = Math.floor(x0 / CHs), cx1 = Math.floor((x0 + ZW - 1) / CHs), cz0 = Math.floor(z0 / CHs);
-    for (let cx = cx0; cx <= cx1; cx++) for (let cz = cz0; cz <= -1; cz++) { let a = null;
-      for (let lx = 0; lx < CHs; lx++) { const zx = cx * CHs + lx - x0; if (zx < 0 || zx >= ZW || cx * CHs + lx >= W) continue;
-        for (let lz = 0; lz < CHs; lz++) { const wz = cz * CHs + lz, zz = wz - z0; if (wz >= 0 || zz < 0) continue;
-          for (let y = 0; y < EH; y++) { const v = Z[(zx * EH + y) * ZD + zz]; if (!a) { if (v === FC[y]) continue; a = newCh(); } a[(lx * EH + y) * CHs + lz] = v; } } }
-      if (a) X.ch.set(key(cx, cz), a); }
-    // the zone answer in world coordinates for Agartha life, light, sky and the saucer
-    const wx = x => x + x0, wz = z => z + z0;
-    X.L = {v: 2, ag: 3, ext: 1, city: [wx(R.city[0]), wz(R.city[1]), R.city[2]], FL: R.FL, TOP: R.TOP, spires: (R.spires || []).map(p => [wx(p[0]), wz(p[1]), p[2], p[3]]), cry105: 1};
-    X.route = R.path.map(p => [wx(p[0]), p[1], wz(p[2])]); X.tunnelEnd = X.route[X.route.length - 1];
-    // saved changes go back on top
-    if (saved && saved.v === 1 && saved.ch) for (const k in saved.ch) { try { const a = newCh(); rleDecode(saved.ch[k], a); X.ch.set(+k, a); X.mod.add(+k); } catch (e) { ERR('load', e); } }
-    hook(true); X.ready = true; X.gens++; X.ms = Math.round(performance.now() - t0); try { if (window.__c307b) __c307b.clear(); } catch (_) {} }
-  X.init = init;
-  // the hole in the map edge: open the last two rows of the ice wall so the mouth tunnel runs straight on into the extension (new worlds only)
-  function openEdge() { if (!window.__c294 || !__c294.M) return; const M = __c294.M, Y = SEA + 13; for (let z = 0; z <= 3; z++) for (let x = -17; x <= 17; x++) for (let y = SEA + 2; y <= Y + 13; y++) {
-      if ((x * x) / (17 * 17) + ((y - Y) * (y - Y)) / (13 * 13) > 1) continue; const X0 = Math.round(M.c) + x; if (X0 < 0 || X0 >= W) continue; const i = idx(X0, y, z), b = world[i]; if (b && b !== T.HBEDROCK) world[i] = 0; }
-    try { for (let x = -18; x <= 18; x++) markDirty(Math.round(M.c) + x, 0); } catch (_) {} }
-  try { const gen = generate; generate = function () { hook(false); X.ready = false; const r = gen.apply(this, arguments); try { if (X.on()) { init(null); openEdge(); X.fresh = current && current.id; } } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
-  try { const ew = enterWorld; enterWorld = function (save) { hook(false); X.ready = false; X.fresh = null; const r = ew.apply(this, arguments);
-      X.nw = !save || !!save.c307 || !!save.tpl; const go = () => { try { if (X.fresh && current && X.fresh === current.id && X.ready) return; if (!save) ens(); if (save) { init(save.c307 || null); if (!save.c307 && X.ready) openEdge(); } else if (!X.ready) { init(null); openEdge(); } } catch (e) { ERR('ew', e); } };
-      if (r && typeof r.then === 'function') return r.then(v => { go(); return v; }); go(); return r; }; } catch (e) { ERR('ew0', e); }
-  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && X.ready) { const ch = {}; for (const k of X.mod) { const a = X.ch.get(k); if (a) ch[k] = rleEncode(a); } d.c307 = {v: 1, ch}; } } catch (e) { ERR('ser', e); } return d; }; } catch (e) { ERR('sw', e); }
-  // v1.1.22: new and reset worlds always get the v1.1.17 layout, even when the mouth was not placed during generate (some world sizes and paths skipped it)
-  function ens() { try { if (!DIM.cur && window.__g89 && __g89() && W >= 600 && window.__c294 && !__c294.M) __c294.build(); } catch (e) { ERR('ens', e); } }
-  setInterval(() => { try { if (!X.nw || X.ready || !started || DIM.cur || !window.__g89 || !__g89() || W < 600) return; ens(); if (X.on()) { init(null); openEdge(); X.fresh = current && current.id; } } catch (e) { ERR('nw', e); } }, 500);
-  // off in other dimensions (Moon, Mars, Hell) and back on at home
-  setInterval(() => { try { const a = X.ready && !DIM.cur && W === X.W && !(window.__c317 && __c317.on());   /* v1.1.38: no north ice plain on the round Earth, it is ocean now */ if (a !== !!__XG) hook(a); } catch (_) {} }, 100);
-})();
-
-/* GLX-C307b (v1.1.17): drawing the north extension. Ext chunks near you are meshed by the game's own chunk mesher (the original
-   buildChunk, before any wrappers) on a small padded scratch copy, then moved into place, two per tick, nearest first; chunks out of range
-   are thrown away again, so phone memory and frame rate stay flat however far north you walk. */
-(function c307b() {
-  const U = window.__c307b = {err: null, n: 0, built: 0, ms: 0, R: 4};
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
-  const X = window.__c307, EH = X.EH, C = CH, PW = 3 * C + 1, key = (cx, cz) => (cz + 100) * 64 + cx;
-  const grp = new THREE.Group(); grp.name = 'ext307'; scene.add(grp); const M = new Map(); let TMP = null;
-  function drop(k) { const g = M.get(k); if (!g) return; grp.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); M.delete(k); }
-  U.clear = () => { for (const k of [...M.keys()]) drop(k); };
-  function build(cx, cz) { const t0 = performance.now(), k = key(cx, cz);
-    if (!TMP) TMP = new Uint16Array(PW * EH * PW); const ox = cx * C - C, oz = cz * C - C, Hm = H, Dm = D, wd = world, Wm = W;
-    for (let tx = C - 1; tx <= 2 * C; tx++) { const x = ox + tx; for (let tz = C - 1; tz <= 2 * C; tz++) { const z = oz + tz, b = (tx * EH) * PW + tz;
-        if (x < 0 || x >= Wm || z < __XZ) { for (let y = 0; y < EH; y++) TMP[b + y * PW] = 0; continue; }
-        if (z >= 0) { const m = (x * Hm) * Dm + z; for (let y = 0; y < EH; y++) TMP[b + y * PW] = wd[m + y * Dm]; continue; }
-        for (let y = 0; y < EH; y++) TMP[b + y * PW] = X.get(x, y, z); } }
-    const sv = [world, W, H, D], cc = window.__caveCull, o = chunkObjs.get(65), ol = chunkLists.get(65); let g = null;
-    chunkObjs.delete(65); chunkLists.delete(65); window.__caveCull = null;
-    try { world = TMP; W = PW; H = EH; D = PW; __bcBase(1, 1); g = chunkObjs.get(65); }
-    catch (e) { ERR('bc', e); }
-    finally { world = sv[0]; W = sv[1]; H = sv[2]; D = sv[3]; window.__caveCull = cc; chunkObjs.delete(65); chunkLists.delete(65); if (o) chunkObjs.set(65, o); if (ol) chunkLists.set(65, ol); }
-    if (!g) return; blockGroup.remove(g); drop(k); g.position.set(ox, 0, oz); g.userData.ext = k; grp.add(g); M.set(k, g); U.built++; U.ms = Math.round(performance.now() - t0); }
-  U.build = build;
-  setInterval(() => { try {
-      const on = X.ready && !!__XG && typeof started !== 'undefined' && started; grp.visible = on; if (!on) { if (M.size) U.clear(); return; }
-      const pcx = Math.floor(P.x / C), pcz = Math.floor(P.z / C), R = U.R, want = [];
-      for (const k of [...M.keys()]) { const cx = k % 64, cz = Math.floor(k / 64) - 100; if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > R + 1) drop(k); }
-      if (pcz - R <= -1) for (let cz = Math.max(Math.floor(__XZ / C), pcz - R); cz <= Math.min(-1, pcz + R); cz++) for (let cx = Math.max(0, pcx - R); cx <= Math.min(Math.floor((W - 1) / C), pcx + R); cx++) {
-        const k = key(cx, cz); if (!M.has(k) || X.dirty.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (X.dirty.has(k) ? 99 : 0), cx, cz, k]); }
-      want.sort((a, b) => a[0] - b[0]); for (let i = 0; i < Math.min(2, want.length); i++) { const w = want[i]; X.dirty.delete(w[3]); build(w[1], w[2]); }
-      U.n = M.size; } catch (e) { ERR('loop', e); } }, 90);
-  // ---------- the edges move with it: the world bound, the freezing and the open sea now sit at the new north boundary ----------
-  try { setInterval(() => { try { if (!X.ready || !__XG || !started || (window.__c317 && __c317.on())) return; if (P.z < __XZ + 1.5) { P.z = __XZ + 1.5; } } catch (_) {} }, 100); } catch (e) { ERR('edge', e); }
-})();
-
+/* v1.2.24: GLX-C307 removed (obsolete) */
+/* v1.2.24: GLX-C307b removed (obsolete) */
 /* GLX-C309 (v1.1.19): THE PLAYERS OWN UFO + the flat Earth seen from space. Every world has your own silver saucer parked next to where you
    start (old worlds get one beside you when they load); it is saved where you leave it. Fly UFO next to it. No gravity while you pilot:
    move stick / WASD to fly where you look, JUMP up, SHIFT down, BOOST (button or Ctrl) for speed, and it gently levels itself to the local
@@ -50635,21 +50513,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 (function vac1224() {
   const U = window.__vac1224 = {err: null, on: 0, flips: 0};
   window.__vac = () => { try { if (typeof DIM !== 'undefined' && DIM.cur) return false; const e = window.__c320; const v = !!(e && typeof e.space === 'function' && typeof P !== 'undefined' && e.space(P.x, P.y, P.z)); if (v !== !!U.on) { U.on = v ? 1 : 0; U.flips++; } return v; } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); return false; } };
-})();
-
-/* GLX-LEG1224 (v1.2.24): the old north extension is gone from the UK world. GLX-C307 (v1.1.17) answered every block north of the old map
-   edge (z below 0) from its own zone: old flat ice and the old Agartha tunnel strip. On the flat UK map that zone is never drawn, so
-   old saves that still had it switched on walked on invisible ice. In the flat UK world its hook stays off, so those blocks come from the
-   real UK land (GLX-C320 earth) like everywhere else. Edits stored in the old zone are left in the save, untouched, just not used. */
-(function leg1224() {
-  const U = window.__leg1224 = {err: null, off: 0, refused: 0};
-  const uk = () => { try { return !!(window.__c320 && __c320.flat && window.__c317 && __c317.on()); } catch (_) { return false; } };
-  const X = window.__c307; if (!X || typeof X.hook !== 'function') return;
-  const h0 = X.hook; X.hook = function (a) { if (a && uk()) { U.refused++; return h0.call(this, false); } return h0.apply(this, arguments); };
-  const off = () => { if (typeof __XG === 'undefined' || !__XG || !uk()) return; h0(false); X.ready = false; U.off++;
-    try { if (window.__c324 && __c324.cache) __c324.cache.clear(); const e = window.__c320; e.dirty = 1; e.edgeClr && e.edgeClr(); } catch (_) {} try { if (window.__c307b) __c307b.clear(); } catch (_) {} try { dirtyAll = true; } catch (_) {} };
-  U.check = () => { try { off(); } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); } };
-  setInterval(U.check, 1000);
 })();
 
 /* GLX-GRIP1222 (v1.2.22): grip sockets for the first person hands. Each held tool gets a handle socket worked out once from its own meshes

@@ -22,9 +22,17 @@ one("function duck() { try { if (window.__c259 && __c259.on) return 0;","functio
 one("const w = hid || pz ? 0 : U.RB_LEVEL;","const w = hid || pz || (window.__vac && __vac()) ? 0 : U.RB_LEVEL;");
 one("U.thunder = vol => { if (!U.bus()","U.thunder = vol => { if (window.__vac && __vac()) { U.vacSkip = (U.vacSkip || 0) + 1; return true; } if (!U.bus()");
 one("h.gain.setTargetAtTime(tgt, AC.currentTime, 0.6);","h.gain.setTargetAtTime((window.__vac && __vac()) ? 0 : tgt, AC.currentTime, 0.6);");
-// old north extension off in the flat UK world (ghost ice north of the old map edge)
-one('/* GLX-GRIP1222',fs.readFileSync(path.join(__dirname,'content-source','leg-1224.js'),'utf8')+'\n/* GLX-GRIP1222');
 // below bedrock is an empty void (user): bedrock y -237 (GLX-V1217 BOT) to -240 stays solid, nothing is generated under it. Old saves and
 // the fail closed path (GLX-DEEP old layers ran on down to the core about 1450 below the sea, with no bedrock) get the same bedrock band.
 one("function gen(x, y, z, d) { try { U.n++; if (y < 0 && window.__v1217 && __v1217.on()) return __v1217.gen(x, y, z);","function gen(x, y, z, d) { try { if (y < -240) { U.voidQ = (U.voidQ || 0) + 1; return 0; } if (y < -233 && !(window.__v1217 && __v1217.on())) return T.BEDROCK || T.HBEDROCK || 211;   /* v1.2.24: void under the bedrock */ U.n++; if (y < 0 && window.__v1217 && __v1217.on()) return __v1217.gen(x, y, z);");
+// ---- source removal (user: old tunnel Agartha, its ice map and north extension gone completely) ----
+// cut a whole GLX block (from its marker to the next block marker); every other reference to it is already guarded (window.__x && ...)
+const cutBlock=k=>{const a=s.indexOf('/* GLX-'+k+' ');if(a<0||s.indexOf('/* GLX-'+k+' ',a+1)>=0)throw Error('block '+k);const b=s.indexOf('/* GLX-',a+8);const n=b-a;s=s.slice(0,a)+'/* v1.2.24: GLX-'+k+' removed (obsolete) */\n'+s.slice(b);return n;};
+const REMOVED={};
+REMOVED.C307=cutBlock('C307');     // the north extension: flat ice zone, its chunks, save field, edge push, hooks into generate / enterWorld / serialize
+REMOVED.C307b=cutBlock('C307b');   // its chunk drawing
+// GLX-C294: the old separate Agartha world entry (walk into the ice wall mouth -> enterDim('agartha')) and the extension carver genExt
+{const a=s.indexOf('  // walking into the back of the mouth (the map edge)'),b=s.indexOf("}, 250);\n",a)+9;if(a<0||b<9)throw Error('c294 entry');REMOVED.c294entry=b-a;s=s.slice(0,a)+'  /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). Kept from the removed GLX-C307: a NEW world whose flag turned on after generate still gets its mouth record once (GLX-V1214 and the Watcher bowl use it as the Agartha keep out). */\n  let fresh7 = false; try { const g7 = generate; generate = function () { fresh7 = true; return g7.apply(this, arguments); }; const e7 = enterWorld; enterWorld = function (save) { fresh7 = !save || !!(save && save.tpl); return e7.apply(this, arguments); }; } catch (e) { ERR(\'f7\', e); }\n  setInterval(() => { try { if (!fresh7 || U.M || !started || DIM.cur || W < 600 || !on()) return; fresh7 = false; build(); } catch (e) { ERR(\'ens\', e); } }, 1000);\n'+s.slice(b);}
+{const a=s.indexOf('  // v1.1.17: Agartha in the SAME world - GLX-C307 swaps in a zone array'),b=s.indexOf('  U.genExt = genExt;\n',a)+'  U.genExt = genExt;\n'.length;if(a<0||b<30)throw Error('genExt');REMOVED.genExt=b-a;s=s.slice(0,a)+s.slice(b);}
+console.error('removed bytes',JSON.stringify(REMOVED),Object.values(REMOVED).reduce((x,y)=>x+y,0));
 fs.writeFileSync(out,s);
