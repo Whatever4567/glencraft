@@ -6,7 +6,7 @@ import * as THREE0 from '/workspace/glencraft-anatomy-tools/node_modules/three/b
 import {loadGun} from './glb-node.mjs';
 const html = fs.readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
 const cut = (a, b, from) => { const i = html.indexOf(a, from || 0), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, 'cut ' + a.slice(0, 40)); return html.slice(i, j); };
-export async function make() {
+export async function make(opt = {}) {
   const THREE = Object.assign({}, THREE0);
   const MOD = {pistol: await loadGun('pistol'), rifle: await loadGun('rifle')};
   for (const n in MOD) MOD[n].traverse(o => { if (o.isMesh) { o.castShadow = false; o.frustumCulled = false; const m = o.material; if (m && /glass/i.test(m.name)) o.visible = false; } if (/_scope$/.test(o.name)) o.visible = false; });
@@ -15,7 +15,7 @@ export async function make() {
   const IT = {PISTOL: 300, MUSKET: 301}, PICK = 761;
   const inv = {[IT.PISTOL]: 1, [IT.MUSKET]: 1, [PICK]: 1};
   const G = {THREE, Math, JSON, Object, Array, Map, Set, Number, String, isFinite, performance, document, console,
-    camera: new THREE.PerspectiveCamera(70, 1.6, 0.05, 1000), scene: new THREE.Scene(), renderer: {render() {}, initTexture() {}},
+    camera: new THREE.PerspectiveCamera(70, 1.6, 0.05, 1000), scene: new THREE.Scene(), renderer: {render(s, c) { if (opt.render) opt.render(s, c); }, initTexture() {}, clearDepth() {}, autoClear: true},
     P: {x: 0, y: 0, z: 0, yaw: 0, pitch: 0, onGround: true}, SET: {fov: 70, hd: 1, legs: 0, sfx: 1, imm: 1}, walkPhase: 0, rmb: false, tch: false, padB: () => false, warn() {}, camMode: 0, started: true, dead: false, menuOpen: false, paused: false,
     IT, GUN: {[IT.PISTOL]: {reload: 1.6, rl: 1.6, mag: 12, rate: 0.25}, [IT.MUSKET]: {reload: 2.4, rl: 2.4, mag: 5, rate: 1.0}}, TOOL: {[PICK]: ['pick', 4, 50, 6]}, cnt: id => inv[id] || 0, selId: PICK, armour: [0, 0, 0, 0, 0], ARMOUR: {}, armourMat: () => null,
     gunReload: 0, gunReloadId: 0, sprinting: false, ironBuzz: 0, heldBy: null, bobPhase: 0, worldModel: null, DIM: {cur: null}, MODE: {}, flying: false, tartanTex: null, sfx() {},
