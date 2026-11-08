@@ -27,4 +27,15 @@ one("function decal(x, y, z, n, size, tex, col, op, life, parent) { const m = ne
     "function decal(x, y, z, n, size, tex, col, op, life, parent) { const dk = (tex && tex.uuid) + '|' + col, fr = !parent && DFREE.get(dk), m = fr && fr.length ? fr.pop() : new THREE.Mesh(PG, dmat(tex, col, op)); m.material.opacity = op; if (!parent) m.material.userData.dk = dk; m.rotation.set(0, 0, 0);");
 one("decals.push({m, t: 0, life, op}); while (decals.length > DCAP) kill(decals.shift().m);","decals.push({m, t: 0, life, op}); while (decals.length > DCAP) rel(decals.shift().m);");
 one("if (k <= 0) { kill(d.m); decals.splice(i, 1); continue; }","if (k <= 0) { rel(d.m); decals.splice(i, 1); continue; }");
+// ---- thinner first person hands (v1.2.29 candidate): slimmer palm and wrist, slimmer finger and thumb segments; joints, finger spacing and grip points unchanged
+one("new THREE.BoxGeometry(0.075, 0.095, 0.03, 3, 3, 2), skinM)","new THREE.BoxGeometry(0.07, 0.095, 0.024, 3, 3, 2), skinM)");
+one("const a = limb(0.0085, 0.0075, 0.036, skinM, 8)","const a = limb(0.0074, 0.0066, 0.036, skinM, 10)");
+one("const b = limb(0.0075, 0.007, 0.017, skinM, 8); k.add(b); k.add(ball(0.0074, skinM));","const b = limb(0.0066, 0.0062, 0.017, skinM, 10); k.add(b); k.add(ball(0.0065, skinM));");
+one("dj.add(ball(0.007, skinM)); dj.add(limb(0.007, 0.0062, 0.013, skinM, 8)); const tip = ball(0.0063, skinM);","dj.add(ball(0.0062, skinM)); dj.add(limb(0.0062, 0.0054, 0.013, skinM, 10)); const tip = ball(0.0055, skinM);");
+one("const b = ball(0.0098, skinM); b.position.set((i - 1.5) * 0.0215, 0.094, 0.006);","const b = ball(0.0086, skinM); b.position.set((i - 1.5) * 0.0215, 0.094, 0.006);");
+one("th.add(limb(0.01, 0.008, 0.05, skinM, 8))","th.add(limb(0.0088, 0.0072, 0.05, skinM, 10))");
+one("const wr = limb(0.034, 0.031, 0.045, skinM, 12)","const wr = limb(0.031, 0.028, 0.045, skinM, 12)");
+// ---- face shape (v1.2.29 candidate): brow ridge, nose bridge, cheekbones, lip ridge, chin and ear folds as low relief on the skin, so the
+// painted face gets real shape. Same skin material and parent, so they merge into the head mesh (no new draw calls); far away they drop out.
+one("   // nose\n","   // nose\n    { const F = (geo, x, y, z, sx, sy, sz) => { const o = M(geo, skin, x, y, z, head); o.scale.set(sx, sy, sz); return o; };   /* v1.2.29: face relief */\n      F(rb(0.3, 0.03, 0.03, 0.012), 0, 0.312, 0.208, 1, 1, 1);   // brow ridge\n      F(rb(0.034, 0.075, 0.03, 0.013), 0, 0.268, 0.212, 1, 1, 1);   // nose bridge\n      for (const sx of [-1, 1]) { F(new THREE.SphereGeometry(0.045, 16, 10), sx * 0.125, 0.2, 0.205, 1.25, 0.65, 0.32);   // cheekbones\n        F(new THREE.SphereGeometry(0.03, 12, 8), sx * 0.1, 0.235, 0.214, 1.4, 0.35, 0.2);   // under eye\n        F(new THREE.TorusGeometry(0.018, 0.005, 6, 12, Math.PI * 1.3), sx * 0.243, 0.24, 0.004, 1, 1, 1).rotation.y = sx * Math.PI / 2; }   // ear fold\n      F(new THREE.SphereGeometry(0.05, 16, 8), 0, 0.118, 0.21, 1.15, 0.22, 0.28);   // lip ridge\n      F(new THREE.SphereGeometry(0.055, 16, 10), 0, 0.06, 0.205, 1.25, 0.6, 0.35); }   // chin\n");
 fs.writeFileSync(out,s);
