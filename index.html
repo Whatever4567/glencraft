@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1230-v1.2.30 -->
+<!-- glencraft-build: b1231-v1.2.31 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.30';
+const GAME_VERSION = '1.2.31';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -48011,7 +48011,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const nr = g.attributes.normal, ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r; for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i); c.set(Math.max(-ix, Math.min(ix, v.x)), Math.max(-iy, Math.min(iy, v.y)), Math.max(-iz, Math.min(iz, v.z)));
       const o = v.clone().sub(c); if (o.lengthSq() > 1e-9) o.setLength(r); v.copy(c).add(o); p.setXYZ(i, v.x, v.y, v.z); nr.setXYZ(i, o.x / r || 0, o.y / r || 0, o.z / r || 0); } g.attributes.normal.needsUpdate = true; return g; }
   // v1.1.61: smooth shading (the normal at every point is the true rounded normal, so no hard creases) and two levels of detail per part
-  const RB = rbox; let LODS = null; rbox = function (w, h, d, r, seg) { const hi = RB(w, h, d, Math.min(r * 1.35, Math.min(w, h, d) * 0.48), seg || 8); if (LODS) { const lo = RB(w, h, d, Math.min(r * 1.35, Math.min(w, h, d) * 0.48), 3); LODS.push([hi, lo]); } return hi; };
+  const RB = rbox; let LODS = null; rbox = function (w, h, d, r, seg) { const hi = RB(w, h, d, Math.min(r * 1.35, Math.min(w, h, d) * 0.48), seg || (Math.max(w, h, d) < 0.1 ? 3 : 8));   /* v1.2.31: small trims (laces, flashes, buckles) need far fewer rounding steps */ if (LODS) { const lo = RB(w, h, d, Math.min(r * 1.35, Math.min(w, h, d) * 0.48), 3); LODS.push([hi, lo]); } return hi; };
   U.rbox = rbox;
   function tex(fn, s) { const c = document.createElement('canvas'); c.width = c.height = s || 256; fn(c.getContext('2d'), s || 256); const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t; }
   let TX = null; function texs() { if (TX) return TX; TX = {
@@ -48054,13 +48054,18 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     SC.ad = (a, b) => { let d = a - b; d -= Math.round(d / (Math.PI * 2)) * Math.PI * 2; return d; };
     SC.sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
     // keys [y, rx, zf, zb, n, z0]: half width, front depth, back depth, superellipse power, depth offset; smooth between keys
-    SC.K = keys => t => { const y0 = keys[0][0], y1 = keys[keys.length - 1][0], y = y0 + (y1 - y0) * t; let i = 0; while (i < keys.length - 2 && y > keys[i + 1][0]) i++;
+    /* v1.2.31: cross sections blend with smooth slopes through each key (Hermite), so smooth shading shows no ridge at every key ring */
+    SC.KH = keys => t => { const N = keys.length, y0 = keys[0][0], y1 = keys[N - 1][0], y = y0 + (y1 - y0) * t; let i = 0; while (i < N - 2 && y > keys[i + 1][0]) i++; const A = keys[i], B = keys[i + 1], h = (B[0] - A[0]) || 1, u = Math.min(1, Math.max(0, (y - A[0]) / h)), u2 = u * u, u3 = u2 * u;
+      const val = (K, k, d) => K[k] == null ? d : K[k], tan = (j, k, d) => { const a = keys[Math.max(0, j - 1)], c = keys[Math.min(N - 1, j + 1)]; return (val(c, k, d) - val(a, k, d)) / ((c[0] - a[0]) || 1); };
+      const L = (k, d) => { const p = val(A, k, d), q = val(B, k, d), v = (2 * u3 - 3 * u2 + 1) * p + (u3 - 2 * u2 + u) * h * tan(i, k, d) + (-2 * u3 + 3 * u2) * q + (u3 - u2) * h * tan(i + 1, k, d); return Math.min(Math.max(p, q), Math.max(Math.min(p, q), v)); };   // no overshoot past the keys
+      return {y, rx: Math.max(0.001, L(1, 0)), zf: Math.max(0.001, L(2, 0)), zb: Math.max(0.001, L(3, 0)), n: L(4, 2), z0: L(5, 0)}; };
+    SC.K = keys => SC.KH(keys); SC.K0 = keys => t => { const y0 = keys[0][0], y1 = keys[keys.length - 1][0], y = y0 + (y1 - y0) * t; let i = 0; while (i < keys.length - 2 && y > keys[i + 1][0]) i++;
       const A = keys[i], B = keys[i + 1], u0 = Math.min(1, Math.max(0, (y - A[0]) / ((B[0] - A[0]) || 1))), u = u0 * u0 * (3 - 2 * u0), L = (k, d) => (A[k] == null ? d : A[k]) + ((B[k] == null ? d : B[k]) - (A[k] == null ? d : A[k])) * u;
       return {y, rx: L(1, 0), zf: L(2, 0), zb: L(3, 0), n: L(4, 2), z0: L(5, 0)}; };
     // rings along y, ns around (angle a: 0 front +z, pi/2 +x), closed ends; F adds [dx, dy, dz]; off pushes outward; keep filters triangles
     SC.raw = (S, nr, ns, F, off) => { const P = [], UV = [], I = [], C = [];
-      for (let i = 0; i <= nr; i++) { const t = i / nr, s = S(t); C.push([s.y, s.z0 || 0]);
-        for (let j = 0; j <= ns; j++) { const a = j / ns * Math.PI * 2, sa = Math.sin(a), ca = Math.cos(a), p = 2 / (s.n || 2), ex = Math.sign(sa) * Math.pow(Math.abs(sa), p), ez = Math.sign(ca) * Math.pow(Math.abs(ca), p);
+      for (let i = 0; i <= nr; i++) { const t = SC.tw ? SC.tw(i / nr) : i / nr, s = S(t); C.push([s.y, s.z0 || 0]);
+        for (let j = 0; j <= ns; j++) { const a = SC.aw ? SC.aw(j / ns) : j / ns * Math.PI * 2, sa = Math.sin(a), ca = Math.cos(a), p = 2 / (s.n || 2), ex = Math.sign(sa) * Math.pow(Math.abs(sa), p), ez = Math.sign(ca) * Math.pow(Math.abs(ca), p);
           let x = s.rx * ex, z = (ca > 0 ? s.zf : s.zb) * ez, y = s.y; const o = off ? off(a, t, y) : 0; if (o) { const l = Math.hypot(x, z) || 1; x += x / l * o; z += z / l * o; }
           if (F) { const d = F(a, t, y, x, z); if (d) { x += d[0] || 0; y += d[1] || 0; z += d[2] || 0; } } P.push(x, y, z + (s.z0 || 0)); UV.push(j / ns, t); } }
       for (let i = 0; i < nr; i++) for (let j = 0; j < ns; j++) { const a = i * (ns + 1) + j, b = a + ns + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
@@ -48135,23 +48140,97 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     // shoe lofted heel to toe (loft y is forward, loft front is down after the turn): heel, instep, ball, toe
     SC.soleS = SC.K([[-0.112, 0.034, 0.015, 0.015, 3, 0.03], [-0.1, 0.059, 0.015, 0.015, 3, 0.03], [0.05, 0.066, 0.015, 0.015, 3, 0.03], [0.12, 0.063, 0.015, 0.015, 3, 0.03], [0.17, 0.044, 0.015, 0.015, 3, 0.028], [0.193, 0.012, 0.012, 0.012, 2, 0.026]]);
     SC.shoeS = SC.K([[-0.115, 0.03, 0.03, 0.03, 2], [-0.1, 0.055, 0.04, 0.045, 3], [-0.03, 0.06, 0.04, 0.056, 3], [0.05, 0.062, 0.04, 0.05, 3], [0.12, 0.059, 0.04, 0.03, 2.8], [0.17, 0.04, 0.035, 0.02, 2.4], [0.19, 0.01, 0.02, 0.01, 2]]);
+    /* v1.2.31 finer sculpt. The same lofted Highlander with many more rings where the eye reads form (face, ears, hair, neck, joints) and
+       smooth shading instead of flat facets, so the bands across the face are gone but creases stay where the shape makes them: deeper eye
+       sockets with an eyeball and lid folds, a nose with bridge, tip, wings and nostrils, real upper and lower lips with a mouth line and corners,
+       a philtrum, smile folds, cheekbones, chin and jaw; ears with a rim, inner fold, bowl and lobe; hair in locks; neck, collarbones, elbows, knees,
+       knuckles. Built once per model, shared materials, a much coarser copy far away. */
+    // smooth version of the loft: shared vertices, the seam down the back welded so it shades as one surface
+    SC.geoS = (S, nr, ns, F, o) => { o = o || {}; const r = (o.raw || SC.raw)(S, nr, ns, F, o.off), P = r.P, I = r.I.slice();
+      const ge = new THREE.BufferGeometry(); ge.setAttribute('position', new THREE.Float32BufferAttribute(P, 3));
+      let UV = r.UV; if (o.vuv) { UV = []; for (let i = 0; i < P.length; i += 3) { const w = o.vuv(P[i], P[i + 1], P[i + 2]); UV.push(w[0], w[1]); } } ge.setAttribute('uv', new THREE.Float32BufferAttribute(UV, 2));
+      ge.setIndex(I); ge.computeVertexNormals();
+      const weld = () => { if (o.seam === false) return; const na = ge.attributes.normal; for (let i = 0; i <= (r.rows || nr); i++) { const a = i * ((r.cols || ns) + 1), b = a + (r.cols || ns); if (b >= na.count) break; const x = na.getX(a) + na.getX(b), y = na.getY(a) + na.getY(b), z = na.getZ(a) + na.getZ(b), l = Math.hypot(x, y, z) || 1; na.setXYZ(a, x / l, y / l, z / l); na.setXYZ(b, x / l, y / l, z / l); } };
+      weld(); const pa = ge.attributes.position.array, nn = ge.attributes.normal.array; let dot = 0; for (let i = 0; i < pa.length; i += 3) dot += o.out ? o.out(pa[i], pa[i + 1], pa[i + 2], nn[i], nn[i + 1], nn[i + 2]) : pa[i] * nn[i] + pa[i + 2] * nn[i + 2] * 0.3;
+      if (dot < 0) { const ix = ge.index.array; for (let k = 0; k < ix.length; k += 3) { const t = ix[k + 1]; ix[k + 1] = ix[k + 2]; ix[k + 2] = t; } ge.computeVertexNormals(); weld(); }
+      if (o.rot) ge.rotateX(o.rot); ge.computeBoundingSphere(); ge.userData = {sculpt: o.tag || 1, smooth: 1}; return ge; };
+    SC.loftS = (S, nr, ns, F, o) => { o = o || {}; const hi = SC.geoS(S, nr, ns, F, o), d = o.lod || 1; if (LODS) LODS.push([hi, (o.loGeo || SC.geo)(S, Math.max(3, nr >> d), Math.max(6, ns >> d), F, Object.assign({}, o, {uv: o.vuv ? ((cx, cy, cz, tri) => tri.map(p => o.vuv(p[0], p[1], p[2]))) : null}))]); return hi; };
+    // the head grid is denser where the face is: columns gather at the front (2.5 times), rings gather between chin and brow
+    SC.warpA = s => Math.PI * 2 * s - 0.6 * Math.sin(Math.PI * 2 * s);
+    SC.mkTW = dens => { const n = 400, c = [0]; for (let i = 1; i <= n; i++) c.push(c[i - 1] + dens((i - 0.5) / n)); return u => { const v = u * c[n]; let i = 0; while (i < n - 1 && c[i + 1] < v) i++; return (i + (v - c[i]) / ((c[i + 1] - c[i]) || 1)) / n; }; };
+    SC.headTW = SC.mkTW(t => 1 + 1.6 * Math.exp(-(((t - 0.42) / 0.2) ** 2)));
+    SC.torsoTW = SC.mkTW(t => 1 + 2.2 * Math.exp(-(((t - 0.9) / 0.07) ** 2)));   // rings gather at the collarbones
+    SC.warped = (fn, aw, tw) => { SC.aw = aw === undefined ? SC.warpA : aw; SC.tw = tw || SC.headTW; try { return fn(); } finally { SC.aw = SC.tw = null; } };
+    // face: every term is a smooth fall off around a feature centre (head space, before the 0.9 head scale)
+    SC.ell = (x, y, cx, cy, rx, ry) => Math.exp(-(((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2));
+    SC.headF2 = (a, t, y, x, z) => { const g = SC.gs, e = SC.ell, ax = Math.abs(x), r = Math.hypot(x, z) || 1, f = SC.sm(0.04, 0.14, z), aa = Math.abs(a > Math.PI ? a - Math.PI * 2 : a); let dr = 0, dz = 0;
+      // brow ridge and glabella
+      dr += f * (0.012 * g(y - 0.316, 0.017) * g(ax - 0.09, 0.075) + 0.005 * e(x, y, 0, 0.3, 0.03, 0.02));
+      // eye socket, the eyeball inside it, upper lid fold and lower lid
+      dr -= f * 0.02 * e(ax, y, 0.1, 0.273, 0.058, 0.038); dr += f * 0.011 * e(ax, y, 0.1, 0.27, 0.036, 0.024);
+      { const re = Math.hypot((ax - 0.1) / 0.048, (y - 0.284) / 0.026); dr -= f * 0.003 * g(re - 1, 0.18) * SC.sm(0.265, 0.285, y); }
+      dr += f * 0.0035 * e(ax, y, 0.1, 0.246, 0.032, 0.008);
+      // nose: bridge narrowing up to the brow, tip, wings, nostrils, the crease round the wings
+      { const pr = y > 0.3 ? 0 : y > 0.19 ? 0.008 + (0.3 - y) / 0.11 * 0.034 : y > 0.155 ? 0.042 + 0.004 * Math.sin((0.19 - y) / 0.035 * Math.PI) - (0.19 - y) / 0.035 * 0.034 : 0; const wn = 0.014 + 0.016 * SC.sm(0.3, 0.18, y);
+        dz += f * (pr * g(x, wn) + 0.016 * e(x, y, 0, 0.186, 0.02, 0.017)); }
+      dz += f * (0.016 * e(ax, y, 0.028, 0.17, 0.014, 0.016) - 0.008 * e(ax, y, 0.013, 0.158, 0.008, 0.006)); dr -= f * 0.004 * e(ax, y, 0.046, 0.17, 0.006, 0.02);
+      // smile folds from the nose wings down and out, a little fullness beside them
+      { const t2 = Math.min(1, Math.max(0, (0.165 - y) / 0.07)), lx = 0.047 + 0.028 * t2, d = ax - lx; const wv = SC.sm(0.08, 0.1, y) * (1 - SC.sm(0.165, 0.18, y)); dr -= f * wv * 0.0035 * g(d, 0.007); dr += f * wv * 0.0035 * g(d - 0.016, 0.012); }
+      // mouth: a muzzle the lips sit on, philtrum, upper and lower lip, the line between them and the corners
+      dz += f * 0.01 * e(x, y, 0, 0.12, 0.06, 0.036);
+      dz -= f * 0.0028 * g(x, 0.006) * g(y - 0.14, 0.012); dz += f * 0.0016 * (g(ax - 0.011, 0.004)) * g(y - 0.14, 0.012);
+      dz += f * 0.012 * g(y - 0.124, 0.0085) * g(x, 0.046) * (1 + 0.25 * g(ax - 0.014, 0.01)); dz += f * 0.014 * g(y - 0.103, 0.01) * g(x, 0.04);
+      dz -= f * 0.007 * g(y - 0.1135, 0.0028) * g(x, 0.052); dz -= f * 0.005 * e(ax, y, 0.055, 0.113, 0.008, 0.009);
+      // chin and the dip above it
+      dz += f * 0.015 * e(x, y, 0, 0.05, 0.042, 0.022); dz -= f * 0.005 * g(y - 0.084, 0.008) * g(x, 0.04);
+      // cheekbones, the hollow under them, temples, jaw line
+      dr += f * 0.013 * e(ax, y, 0.138, 0.214, 0.042, 0.03); dr -= f * 0.005 * e(ax, y, 0.13, 0.14, 0.04, 0.035);
+      dr -= 0.006 * g(y - 0.37, 0.05) * g(aa - 1.45, 0.25);
+      dr -= (1 - SC.sm(0.0, 0.17, y)) * 0.055 * SC.sm(0.7, 1.8, aa);
+      return [x / r * dr, 0, z / r * dr + dz]; };
+    SC.faceVUV = (x, y) => [(x + 0.22) / 0.44, (y - 0.01) / 0.48];   // the painted face, projected from the front as before
+    // hair in locks: grooves that sweep back and down, fuller on top, a side parting, fringe locks
+    SC.hairOff2 = (a, t, y) => { const s = Math.sin(a * 15 + y * 18), lock = 0.008 * (s > 0 ? Math.sqrt(s) : -0.5 * Math.sqrt(-s)) * SC.sm(0.2, 0.36, y); return 0.014 + 0.022 * SC.sm(0.3, 0.47, y) + 0.008 * SC.gs(SC.ad(a, Math.PI), 0.9) * SC.sm(0.1, 0.3, y) + lock - 0.004 * SC.gs(SC.ad(a, -0.45), 0.05) * SC.sm(0.36, 0.44, y); };
+    // ear: outline taller than wide with a lobe; front sheet with rim (helix), inner fold (antihelix), bowl (concha) and tragus; flat back sheet
+    SC.earRaw = sx => (S, nu, nt) => { const P = [], UV = [], I = [], rows = 2 * nu;
+      for (let i = 0; i <= rows; i++) { const front = i <= nu, u = front ? i / nu : (rows - i) / nu;
+        for (let j = 0; j <= nt; j++) { const th = j / nt * Math.PI * 2, c = Math.cos(th), s = Math.sin(th), lobe = s < 0 ? 1 - 0.25 * SC.sm(0.3, 1, -c) * (-s) : 1;
+          const ry = 0.056 * (s > 0 ? 1 : 0.92), rz = 0.034 * lobe * (c > 0 ? 0.85 : 1), Y = u * ry * s, Z = u * rz * c - 0.006 * u * s;
+          let X = front ? 0.006 + 0.012 * SC.gs(u - 0.86, 0.11) * (s > -0.7 ? 1 : 0.6) + 0.006 * SC.gs(u - 0.6, 0.09) * SC.sm(-0.3, 0.4, s) - 0.008 * SC.gs(u - 0.3, 0.22) * SC.sm(-0.2, 0.6, -s + 0.4) + 0.007 * SC.ell(Z, Y, 0.022, -0.006, 0.007, 0.01) + 0.006 * SC.sm(0.4, 1, -s) * SC.gs(u - 0.6, 0.3) : 0.003 * (1 - u * u);
+          X += 0.016 * u * u * SC.sm(-0.2, 0.8, -c);   // the ear stands out more at the back
+          P.push(sx * X, Y, Z); UV.push(j / nt, i / rows); } }
+      for (let i = 0; i < rows; i++) for (let j = 0; j < nt; j++) { const a = i * (nt + 1) + j, b = a + nt + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+      return {P, UV, I, rows, cols: nt}; };
+    SC.earOut = sx => (x, y, z, nx, ny, nz) => Math.abs(x) > 0.008 ? sx * nx : 0;
+    // neck with the side muscles and a slight throat
+    SC.neckS = SC.K([[-0.02, 0.1, 0.09, 0.09], [0.04, 0.082, 0.076, 0.082], [0.1, 0.073, 0.07, 0.076], [0.16, 0.075, 0.07, 0.08]]);
+    SC.neckF = (a, t, y, x, z) => { const aa = Math.abs(a > Math.PI ? a - Math.PI * 2 : a), r = Math.hypot(x, z) || 1, sl = 0.6 + (0.16 - y) * 4; let dr = 0.006 * SC.gs(aa - sl, 0.18) - 0.004 * SC.gs(aa - sl - 0.4, 0.15); dr += 0.007 * SC.gs(y - 0.07, 0.015) * SC.gs(aa, 0.18); return [x / r * dr, 0, z / r * dr]; };
+    // torso extras: collarbones and the notch between them
+    SC.torsoF2 = (a, t, y, x, z) => { const d = SC.torsoF(a, t, y, x, z), r = Math.hypot(x, z) || 1, ax = Math.abs(x); let dr = 0;
+      if (z > 0) { dr += 0.006 * SC.gs(y - (1.425 - 0.08 * ax), 0.009) * SC.sm(0.025, 0.06, ax) * (1 - SC.sm(0.17, 0.23, ax)); dr -= 0.006 * SC.ell(x, y, 0, 1.44, 0.02, 0.014); }
+      return [d[0] + x / r * dr, 0, d[2] + z / r * dr]; };
+    // joints: elbow point at the back of the forearm top, kneecap and shin bone, knuckles on the back of the hand
+    SC.foreF = (a, t, y, x, z) => [0, 0, -0.008 * SC.ell(x, y, 0, -0.01, 0.02, 0.02) * (z < 0 ? 1 : 0)];
+    SC.shinF = (a, t, y, x, z) => [0, 0, z > 0 ? 0.012 * SC.ell(x, y, 0, -0.012, 0.03, 0.025) + 0.003 * SC.gs(x, 0.012) * SC.sm(-0.3, -0.06, y) * (1 - SC.sm(-0.06, -0.03, y)) : 0];
+    SC.handF2 = (a, t, y, x, z) => { const d = SC.handF(a, t, y, x, z); let k = 0; if (z < 0) for (let i = 0; i < 4; i++) k += 0.004 * SC.ell(x, y, -0.033 + i * 0.022, -0.056, 0.008, 0.008); return [d[0], 0, d[2] - k]; };
+    SC.thighF = (a, t, y, x, z) => [0, 0, z > 0 ? 0.005 * SC.ell(x, y, 0, -0.19, 0.035, 0.02) : 0];
     const head = new THREE.Group(); head.position.y = 1.5; head.scale.setScalar(0.9); g.add(head);
-    { const hm = M(SC.loft(SC.headS, 30, 32, SC.headF, {uv: SC.faceUV, tag: 'head'}), faceM, 0, 0, 0, head); hm.userData.sculpt = 'head'; hm.userData.face = 1;
-      M(SC.loft(SC.headS, 14, 40, null, {raw: SC.hairRaw, off: SC.hairOff, tag: 'hair'}), hair, 0, 0, 0, head).userData.sculpt = 'hair'; }
+    { const hm = M(SC.warped(() => SC.loftS(SC.headS, 72, 80, SC.headF2, {vuv: SC.faceVUV, lod: 2, tag: 'head'})), faceM, 0, 0, 0, head); hm.userData.sculpt = 'head'; hm.userData.face = 1;
+      M(SC.loftS(SC.headS, 22, 72, null, {raw: SC.hairRaw, off: SC.hairOff2, lod: 2, tag: 'hair'}), hair, 0, 0, 0, head).userData.sculpt = 'hair'; }
 
 
 
 
 
 
-    for (const sx of [-1, 1]) { const e = M(new THREE.SphereGeometry(0.05, 14, 10), skin, sx * 0.226, 0.24, 0, head); e.scale.set(0.35, 1.05, 0.7); M(new THREE.TorusGeometry(0.03, 0.008, 6, 14), skin, sx * 0.24, 0.24, 0.002, head).rotation.y = Math.PI / 2; }   // ears
-    M(lathe([[0, 0.085], [0.07, 0.075], [0.14, 0.08]], 1, 1, 20), skin, 0, 1.4, 0);   // neck
+    for (const sx of [-1, 1]) M(SC.loftS(null, 12, 28, null, {raw: SC.earRaw(sx), out: SC.earOut(sx), lod: 1, tag: 'ear'}), skin, sx * 0.198, 0.235, -0.01, head);   // sculpted ears   // ears
+    M(SC.loftS(SC.neckS, 12, 32, SC.neckF, {lod: 2, tag: 'neck'}), skin, 0, 1.4, 0);   // neck
     // torso: slimmer, tapered chest (waist 0.4 wide, chest 0.44), collar, sash, belt and buckle, kilt pin
     const torso = new THREE.Group(); g.add(torso);
-    M(SC.loft(SC.torsoS, 26, 36, SC.torsoF, {tag: 'torso'}), shirt, 0, 0, 0, torso).userData.sculpt = 'torso';
+    M(SC.warped(() => SC.loftS(SC.torsoS, 40, 48, SC.torsoF2, {lod: 2, tag: 'torso'}), null, SC.torsoTW), shirt, 0, 0, 0, torso).userData.sculpt = 'torso';
     M(new THREE.TorusGeometry(0.085, 0.022, 8, 20, Math.PI * 1.6), shirt, 0, 1.43, 0.01, torso).rotation.set(Math.PI / 2, 0, Math.PI * 0.7);   // open collar
     M(rb(0.012, 0.14, 0.01, 0.004), shirt, 0, 1.32, 0.137, torso);   // placket
-    for (const sd of [1, -1]) M(SC.loft(SC.torsoS, 28, 4, null, {raw: SC.sashRaw(sd), tag: 'sash'}), kiltM, 0, 0, 0, torso).userData.sculpt = 'sash';
+    for (const sd of [1, -1]) M(SC.loftS(SC.torsoS, 40, 6, null, {raw: SC.sashRaw(sd), seam: false, lod: 2, tag: 'sash'}), kiltM, 0, 0, 0, torso).userData.sculpt = 'sash';
     M(lathe([[0, 0.205], [0.075, 0.205]], 1, 0.64, 32), leather, 0, 0.845, 0, torso);
     M(rb(0.08, 0.065, 0.02, 0.008), metal, 0, 0.88, 0.135, torso); M(rb(0.05, 0.04, 0.024, 0.006), dark, 0, 0.88, 0.136, torso);
     // pleated kilt: 18 sharp box pleats (more round steps than before), a hem band, kilt pin on the apron
@@ -48166,19 +48245,19 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const arms = [], legs = [], fore = [], shin = [];
     // arms: same shoulder pivot, elbow at -0.32 and hand grip; thinner tapered sleeves and forearms, rolled cuff
     for (const sx of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(sx * 0.33, 1.42, 0); g.add(piv);
-      M(SC.loft(SC.upperS, 18, 18, SC.upperF(sx), {tag: 'upper'}), shirt, 0, 0, 0, piv);
+      M(SC.loftS(SC.upperS, 24, 24, SC.upperF(sx), {lod: 2, tag: 'upper'}), shirt, 0, 0, 0, piv);
       const el = new THREE.Group(); el.position.y = -0.32; piv.add(el);
-      M(SC.loft(SC.foreS, 14, 16, null, {tag: 'fore'}), skin, 0, 0, 0, el); M(new THREE.TorusGeometry(0.056, 0.018, 8, 18), shirt, 0, -0.02, 0, el).rotation.x = Math.PI / 2;
-      const hnd = M(SC.loft(SC.handS, 8, 16, SC.handF, {tag: 'hand'}), skin, 0, -0.32, 0.005, el); hnd.userData.hand = 1;
+      M(SC.loftS(SC.foreS, 22, 22, SC.foreF, {lod: 2, tag: 'fore'}), skin, 0, 0, 0, el); M(new THREE.TorusGeometry(0.056, 0.018, 8, 18), shirt, 0, -0.02, 0, el).rotation.x = Math.PI / 2;
+      const hnd = M(SC.loftS(SC.handS, 12, 20, SC.handF2, {lod: 2, tag: 'hand'}), skin, 0, -0.32, 0.005, el); hnd.userData.hand = 1;
       const grip = new THREE.Group(); grip.position.set(0, -0.33, 0.04); el.add(grip); piv.userData.grip = grip; piv.userData.el = el; arms.push(piv); fore.push(el); }
     // legs: same hip pivot and knee; slim thigh under the kilt, ribbed sock with calf, flashes, sgian dubh, brogue with sole, toe cap and laces
     for (const sx of [-1, 1]) { const piv = new THREE.Group(); piv.position.set(sx * 0.12, 0.62, 0); g.add(piv);
-      M(SC.loft(SC.thighS, 10, 16, null, {tag: 'thigh'}), skin, 0, 0, 0, piv); kilts.push(M(lathe([[-0.2, 0.077], [-0.17, 0.08]], 1, 1, 18), kiltM, 0, 0, 0, piv));
+      M(SC.loftS(SC.thighS, 12, 20, SC.thighF, {lod: 2, tag: 'thigh'}), skin, 0, 0, 0, piv); kilts.push(M(lathe([[-0.2, 0.077], [-0.17, 0.08]], 1, 1, 18), kiltM, 0, 0, 0, piv));
       const kn = new THREE.Group(); kn.position.y = -0.2; piv.add(kn);
-      M(SC.loft(SC.shinS, 16, 16, null, {tag: 'shin'}), sock, 0, 0, 0, kn); M(lathe([[-0.06, 0.07], [-0.02, 0.071]], 1, 1, 18), sock, 0, 0, 0, kn);
+      M(SC.loftS(SC.shinS, 24, 22, SC.shinF, {lod: 2, tag: 'shin'}), sock, 0, 0, 0, kn); M(lathe([[-0.06, 0.07], [-0.02, 0.071]], 1, 1, 18), sock, 0, 0, 0, kn);
       for (const dz of [-0.025, 0.025]) M(rb(0.012, 0.07, 0.02, 0.004), kiltM, sx * 0.071, -0.09, dz, kn);   // garter flashes
       if (sx > 0) { M(rb(0.018, 0.06, 0.022, 0.007), dark, 0.066, -0.04, 0.02, kn); M(new THREE.SphereGeometry(0.009, 8, 6), metal, 0.066, -0.005, 0.02, kn); }   // sgian dubh
-      M(SC.loft(SC.shoeS, 18, 16, null, {rot: Math.PI / 2, tag: 'shoe'}), leather, 0, -0.375, 0, kn); M(SC.loft(SC.soleS, 18, 16, null, {rot: Math.PI / 2, tag: 'sole'}), sole, 0, -0.375, 0, kn);
+      M(SC.loftS(SC.shoeS, 24, 20, null, {rot: Math.PI / 2, lod: 2, tag: 'shoe'}), leather, 0, -0.375, 0, kn); M(SC.loftS(SC.soleS, 20, 12, null, {rot: Math.PI / 2, lod: 2, tag: 'sole'}), sole, 0, -0.375, 0, kn);
       for (let i = 0; i < 3; i++) M(rb(0.07, 0.008, 0.012, 0.003), dark, 0, -0.325 + i * 0.002, 0.06 + i * 0.03, kn).rotation.x = -0.3;
       piv.userData.kn = kn; legs.push(piv); shin.push(kn); }
     const lids = []; for (const sx of [-1, 1]) { const l = M(new THREE.SphereGeometry(0.052, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), skin, sx * 0.1, 0.27, 0.188, head); l.rotation.x = Math.PI / 2; l.scale.set(1, 0.35, 0.02); l.visible = false; l.castShadow = false; lids.push(l); }
@@ -48200,7 +48279,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         for (const [mat, list] of by) { if (list.length < 2) continue; const hi = bake(list, false), lo = bake(list, true); for (const o of list) par.remove(o); const m = new THREE.Mesh(hi, mat); m.castShadow = true; m.receiveShadow = true; m.userData.merged = list.length; par.add(m); merged.push([m, hi, lo]); } }
       LODS.push(...merged.map(([m, hi, lo]) => [hi, lo || EMPTY]));
       const has = new Set(LODS.map(e => e[0])); g.traverse(o => { if (o.isMesh && !has.has(o.geometry)) { const l = loGeo(o.geometry); if (l !== o.geometry) { LODS.push([o.geometry, l]); has.add(o.geometry); } } }); }
-    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3, detail: 1226, sculpt: 1230};
+    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3, detail: 1226, sculpt: 1230, fine: 1231};
     const lm = new Map(LODS.map(([a, b]) => [a, b])); g.userData.lod = []; g.traverse(o => { if (o.isMesh) { o.castShadow = true; const lo = lm.get(o.geometry); if (lo) g.userData.lod.push([o, o.geometry, lo]); } }); LODS = null; g.userData.lv = 0;
     // hands: four fingers and a thumb, a touch slimmer to match the hand
     for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.0115, 0.05, 3, 8) : new THREE.CylinderGeometry(0.0115, 0.0115, 0.073, 8)), skin, -0.033 + i * 0.022, -0.085, 0.01, hn); f.rotation.x = 0.35; (hn.userData.fg || (hn.userData.fg = [])).push(f); } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.04, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.068, 8)), skin, 0.05, -0.03, 0.026, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
@@ -52185,6 +52264,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.31","d":"2026-11-08","notes":["Player model has much finer shape and smooth shading, so the face no longer shows flat bands.","Face: eye sockets with lids, a nose with bridge, tip, wings and nostrils, real upper and lower lips, a groove above the lip, cheekbones, chin and jaw.","Ears now have a rim, inner fold, bowl and lobe, and the hair falls in locks.","Neck, collarbones, elbows, knees and knuckles are shaped too. Same Highlander, joints, hand grips and armour fit, with no extra draws or materials."]},
 {"v":"v1.2.30","d":"2026-11-08","notes":["Player model reshaped: the block head is now a sculpted head with a shaped skull, brow, eye sockets, nose, cheekbones, jaw and chin, and the hair follows the head from a real hairline.","The body is reshaped too: a chest that narrows to the waist, rounded shoulders, arms that taper from shoulder to wrist, shaped calves, slimmer hands and shoes shaped heel to toe.","The sash is now a smooth band lying across the shirt.","Same kilted Highlander, same joints, hand grips and armour fit, with no extra draws or materials."]},
 {"v":"v1.2.29","d":"2026-11-08","notes":["Guns: firing no longer makes and throws away new spark, dust, bullet hole and tracer materials on every shot. They are reused, which removes a likely cause of the stutter when firing.","Player model: the face has real shape now, with a brow ridge, nose bridge, cheekbones, lip ridge, chin and ear folds. No extra draw cost.","Hands: first person hands are slimmer, with a thinner palm, wrist, fingers and thumb. Grips are unchanged.","Animals: ragdolls fall with gravity all the way to the real ground, and launches depend on the size of the animal."]},
 {"v":"v1.2.28","d":"2026-11-08","notes":["Agartha: the seven city residents are now called the Paladiens. They wear fitted blue suits with a black high collar and a gold brooch, and have long blond hair and blue eyes. Their leader wears gold shoulder pieces, a turquoise sash and a turquoise pendant.","Agartha: the city sky is now deep navy and violet space with cyan nebula, stars, planets and soft glows."]},

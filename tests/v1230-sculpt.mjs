@@ -1,4 +1,5 @@
 // Local sculpt pass (after v1.2.29): the third person player is reshaped into lofted anatomical surfaces. Compares the built model with
+// v1.2.31 finer sculpt (userData.fine 1231) is held to the game wide player budget from v1226-player-detail (45000 near) instead of the 40000 set for the first sculpt pass.
 // main (04259ef) through the game's own TP-HD builder: cross sections that change along the body, no block head or face slab left,
 // finite normals and UVs, the same joints and grips, bounded triangles, meshes and materials.
 import fs from 'node:fs'; import {execFileSync} from 'node:child_process'; import {load, stats} from './lib/tph-harness.mjs';
@@ -62,7 +63,7 @@ ok(J(a) === J(b), 'shoulder, elbow, grip, hip, knee and neck joints unchanged');
 ok(b.userData.lids.length === 2 && b.userData.lids.every(l => !l.visible) && b.userData.kilts.length === a.userData.kilts.length, 'eyelids (hidden until a blink) and kilt pieces kept');
 ok(b.userData.fore.every(el => { const h = el.children.find(c => c.userData.hand); return h && h.userData.fg && h.userData.fg.length === 4 && h.children.length === 5; }), 'each hand keeps four fingers and a thumb');
 ok(sb.meshes <= sa.meshes && sb.mats <= sa.mats, `meshes ${sa.meshes} -> ${sb.meshes}, materials ${sa.mats} -> ${sb.mats}`);
-ok(sb.tris < 40000 && sb.trisFar < sb.tris * 0.5, `triangles near ${sa.tris} -> ${sb.tris}, far ${sa.trisFar} -> ${sb.trisFar}`);
+ok(sb.tris < (b.userData.fine === 1231 ? 45000 : 40000) && sb.trisFar < sb.tris * 0.5, `triangles near ${sa.tris} -> ${sb.tris}, far ${sa.trisFar} -> ${sb.trisFar}`);
 { const hm = b.userData.head.children.find(o => o.userData.face), e = b.userData.lod.find(x => x[0] === hm); ok(e && (e[2].attributes.position.count < e[1].attributes.position.count / 2), 'head has a coarser copy far away'); }
 // 7. HD armour still fits (helmet on the head, chest on the torso)
 { const arm = []; const u = b.userData; B.fit(null, u, 0, new T.MeshStandardMaterial()); B.fit(null, u, 1, new T.MeshStandardMaterial()); ok(u.armourParts.length >= 7, 'helmet and chest armour fitted to the new body (' + u.armourParts.length + ' parts)'); }
