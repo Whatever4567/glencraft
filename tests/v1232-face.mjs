@@ -5,7 +5,7 @@ import fs from 'node:fs'; import {createRequire} from 'node:module'; import {loa
 const {createCanvas} = createRequire('/workspace/qa/tools/index.js')('@napi-rs/canvas');
 let fails = 0, n = 0; const ok = (c, m) => { n++; console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fails++; };
 const file = new URL('../index.html', import.meta.url).pathname, html = fs.readFileSync(file, 'utf8');
-const fi = html.indexOf('function paintFaceV1232'), fj = html.indexOf('    faceTexP = cv(512, 512', fi);
+const fi = html.indexOf('function paintFaceV1232'), fj = html.indexOf('    faceTexP = cv(', fi);
 ok(fi > 0 && fj > fi && html.split('function paintFaceV1232').length === 2, 'painter present once and used for faceTexP');
 const paint = () => { const c = createCanvas(512, 512), g = c.getContext('2d'); new Function('g', html.slice(fi, fj) + '\npaintFaceV1232(g, 512);')(g); return g.getImageData(0, 0, 512, 512).data; };
 const D = paint(), D2 = paint(); ok(Buffer.compare(Buffer.from(D), Buffer.from(D2)) === 0, 'texture is deterministic (seeded)');

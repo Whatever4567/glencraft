@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1233-v1.2.33 realism-experiment-local -->
+<!-- glencraft-build: b1233-v1.2.33 surface-experiment-local -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -25096,7 +25096,15 @@ var c37busy = false;
       for(const sx of [-1,1])blob(X(sx*0.058),Y(0.117),3.2,2,'rgba(140,88,67,0.25)');
       blob(256,Y(0.086),33,6,'rgba(170,115,90,0.1)');
     }
-    faceTexP = cv(512, 512, (g, w) => { paintFaceV1232(g, w); });   // v1.2.32 natural face
+    // One packed authored detail atlas, 1024 px. Alpha: skin .62, sclera/cornea .20, lips .46 plus restrained pore relief.
+    function packSurfaceDetail1233(g,w){const im=g.getImageData(0,0,w,w),d=im.data,S=w/512;let sd=7331;const R=()=>((sd=sd*16807%2147483647)/2147483647);
+      for(let y=0;y<w;y++)for(let x=0;x<w;x++){const px=x/S,py=y/S,i=(y*w+x)*4;let rough=.64+(R()-.5)*.035;
+        for(const cx of [144,376]){const u=(px-cx)/48,v=(py-235)/29,r=Math.hypot(u,v);if(r<.96)rough=.22+(R()-.5)*.006;else if(r<1.12)rough=.52+(R()-.5)*.014;}
+        if(Math.abs(px-256)<65&&py>392&&py<427)rough=.48+(R()-.5)*.025;
+        if(py<76)rough=.78;
+        d[i+3]=Math.round(rough*255);}
+      g.putImageData(im,0,0);}
+    faceTexP = cv(1024, 1024, (g, w) => { paintFaceV1232(g, w); packSurfaceDetail1233(g,w); });   // v1.2.32 natural face
     const shirtT = cv(256, 256, (g, w) => { g.fillStyle = '#3a8a94'; g.fillRect(0, 0, w, w); g.globalAlpha = .07; g.fillStyle = '#000'; for (let y = 0; y < w; y += 3) g.fillRect(0, y, w, 1); for (let x = 0; x < w; x += 3) g.fillRect(x, 0, 1, w); g.globalAlpha = 1; noise(g, w, w, 12); });
     const hairT = cv(256, 256, (g, w) => { g.fillStyle = '#4a2f1c'; g.fillRect(0, 0, w, w); for (let i = 0; i < 900; i++) { g.fillStyle = ['#3d2616', '#5a3a24', '#33200f', '#6a4630'][i % 4]; g.fillRect(Math.random() * w, Math.random() * w, 3, 12 + Math.random() * 20); } });
     const leatherT = cv(256, 256, (g, w) => { g.fillStyle = '#4a2e1b'; g.fillRect(0, 0, w, w); noise(g, w, w, 26); });
@@ -48116,7 +48124,11 @@ function paintHairV1233(g,s){
     const std = o => new THREE.MeshStandardMaterial(Object.assign({roughness: .7, metalness: 0}, o));
     const skin = std({color: 0xe0ac86, roughness: .48}), shirt = std({map: T_.linen, bumpMap: T_.linen, bumpScale: 0.6, roughness: .88}), leather = std({map: T_.leather, bumpMap: T_.leather, bumpScale: 0.8, roughness: .38, metalness: .05}),
       sole = std({color: 0x1c120b, roughness: .6}), sock = std({map: T_.sock, bumpMap: T_.sock, bumpScale: 0.9, roughness: .95}), hair = std({map: T_.hair, bumpMap: T_.hair, bumpScale: 0.003, roughness: .55, color: 0xffffff}), fur = std({map: T_.fur, roughness: .9});
-    let faceM = skin, kiltM = leather; try { faceM = std({map: faceTexP, roughness: .48}); } catch (_) {} try { kiltM = std({map: tartanTex, bumpMap: T_.weave, bumpScale: 0.5, roughness: .74, side: THREE.DoubleSide}); } catch (_) {}
+    let faceM = skin, kiltM = leather; try { faceM = std({map: faceTexP, roughness: .48, roughnessMap: faceTexP, bumpMap: faceTexP, bumpScale: .00025});         // Roughness and bump reuse alpha of the existing face atlas, not colour channels and not new texture objects.
+        faceM.onBeforeCompile=shader=>{
+          shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>',THREE.ShaderChunk.roughnessmap_fragment.replace('roughnessFactor *= texelRoughness.g;','roughnessFactor = texelRoughness.a;'));
+          shader.fragmentShader=shader.fragmentShader.replace('#include <bumpmap_pars_fragment>',THREE.ShaderChunk.bumpmap_pars_fragment.replace(/(texture2D\([^;]+?\))\.x/g,'$1.a'));
+        };faceM.customProgramCacheKey=()=> 'gc-surface1233-alpha-detail';faceM.userData.surfaceDetail=1233; } catch (_) {} try { kiltM = std({map: tartanTex, bumpMap: T_.weave, bumpScale: 0.5, roughness: .74, side: THREE.DoubleSide}); } catch (_) {}
     const metal = std({color: 0xd9dde0, metalness: .9, roughness: .25}), dark = std({color: 0x15100c, roughness: .4});
     const M = (geo, m, x, y, z, par) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; (par || g).add(o); return o; };
     // a round tapered limb: profile [y, r] from bottom to top, closed with round ends; a low detail copy for distance
@@ -48317,9 +48329,9 @@ function paintHairV1233(g,s){
           const edge=0.003+0.010*u*u*SC.sm(-0.1,0.9,-c),fade=1-SC.sm(0.9,1,u);
           const rim=0.010*SC.gs(u-0.82,0.115)*(0.75+0.25*SC.sm(-0.5,0.5,s));
           // A Y-shaped antihelix, specified in ear coordinates rather than another concentric ring.
-          const stem=0.0055*SC.gs(Z-(-0.003-0.006*SC.sm(0.005,0.03,Y)),0.0045)*SC.sm(-0.026,-0.008,Y)*(1-SC.sm(0.027,0.039,Y));
-          const branch=0.0045*SC.gs(Z-(0.001+0.33*(Y-0.008)),0.0045)*SC.sm(0.002,0.014,Y)*(1-SC.sm(0.027,0.039,Y)),fork=stem+branch;
-          const bowl=-0.0045*SC.ell(Z,Y,-0.002,-0.004,0.014,0.022),tragus=0.006*SC.ell(Z,Y,0.015,-0.008,0.007,0.011);
+          const stem=0.0075*SC.gs(Z-(-0.003-0.006*SC.sm(0.005,0.03,Y)),0.0045)*SC.sm(-0.026,-0.008,Y)*(1-SC.sm(0.027,0.039,Y));
+          const branch=0.006*SC.gs(Z-(0.001+0.33*(Y-0.008)),0.0045)*SC.sm(0.002,0.014,Y)*(1-SC.sm(0.027,0.039,Y)),fork=stem+branch;
+          const bowl=-0.0065*SC.ell(Z,Y,-0.002,-0.004,0.014,0.022),tragus=0.0085*SC.ell(Z,Y,0.015,-0.008,0.007,0.011);
           const X=front?edge+fade*(rim+fork+bowl+tragus):edge-0.005*(1-u*u);
           P.push(sx*X,Y,Z);UV.push(j/nt,i/rows);}}
       for(let i=0;i<rows;i++)for(let j=0;j<nt;j++){const a=i*(nt+1)+j,b=a+nt+1;I.push(a,b,a+1,b,b+1,a+1);}
@@ -48350,9 +48362,19 @@ function paintHairV1233(g,s){
       const swept=a+0.23*Math.sin((y-.35)*12)+0.08*Math.sin(a*3);
       return baseOff(a,t,y)+front*top*(.0035*Math.sin(swept*23)+.002*Math.sin(swept*37+y*8));};}
 
-    // Same large eye footprint, but a subtle domed corneal area and a continuous upper/lower lid ridge rather than a flat decal.
-    {const anatomyEyeF=SC.headF2;SC.headF2=(a,t,y,x,z)=>{const d=anatomyEyeF(a,t,y,x,z),du=(Math.abs(x)-.1)/.043,dv=(y-.27)/.029,r=Math.hypot(du,dv),f=SC.sm(.08,.15,z);
-      d[2]+=f*(.0035*Math.exp(-(r**4))+.0017*SC.gs(r-1,.13)*SC.sm(.249,.28,y)+.0006*SC.gs(r-1,.15)*(1-SC.sm(.25,.275,y)));return d;};}
+    // Reconstructed orbital patch: an ellipsoidal globe cap, raised lid rolls, two canthi and a surrounding socket recess.
+    // The cap is fitted to the sloping orbital plane, not a sphere floating forward of the skull; a smooth overlap joins the lids.
+    {const baseOrbitalF=SC.headF2;SC.headF2=(a,t,y,x,z)=>{const d=baseOrbitalF(a,t,y,x,z),ax=Math.abs(x),u=(ax-.1)/.043,v=(y-.27)/.029,r=Math.hypot(u,v),front=SC.sm(.08,.15,z);
+      const cap=.13375+.05975*Math.sqrt(Math.max(.05,1-.5*r*r))-.45*(ax-.1),cover=1-SC.sm(.72,1.1,r);
+      d[2]+=front*(cap-(z+d[2]))*cover;
+      const lid=.006*SC.gs(r-1,.105)*SC.sm(.26,.281,y)+.0015*SC.gs(r-1,.13)*(1-SC.sm(.25,.277,y));
+      const socket=-.0023*SC.gs(r-1.28,.18)*SC.sm(.269,.3,y)-.0005*SC.gs(r-1.3,.2)*(1-SC.sm(.248,.267,y));
+      const corners=.0045*(SC.ell(ax,y,.057,.27,.007,.008)+SC.ell(ax,y,.143,.271,.007,.008));
+      d[2]+=front*(lid+socket+corners);return d;};}
+    // Separate alar wings, recessed nostril floors and septum/columella underside, blended in the actual nose surface.
+    {const baseNoseF=SC.headF2;SC.headF2=(a,t,y,x,z)=>{const d=baseNoseF(a,t,y,x,z),ax=Math.abs(x),f=SC.sm(.08,.15,z);
+      d[2]+=f*(.004*SC.ell(ax,y,.028,.178,.014,.014)-.0042*SC.ell(ax,y,.016,.168,.007,.005)+.003*SC.ell(x,y,0,.162,.007,.009));
+      d[1]-=f*.0015*SC.ell(ax,y,.024,.172,.015,.01);return d;};}
 
     const head = new THREE.Group(); head.position.y = 1.5; head.scale.setScalar(0.9); g.add(head);
     { const hm = M(SC.warped(() => SC.loftS(SC.headS, 140, 160, SC.headF2, {vuv: SC.faceVUV, lod: 3, tag: 'head'})), faceM, 0, 0, 0, head); hm.userData.sculpt = 'head'; hm.userData.face = 1;
@@ -48363,7 +48385,7 @@ function paintHairV1233(g,s){
 
 
 
-    for (const sx of [-1, 1]) M(SC.loftS(null, 20, 44, null, {raw: SC.earRaw(sx), out: SC.earOut(sx), lod: 2, tag: 'ear'}), skin, sx * 0.198, 0.235, -0.01, head);   // sculpted ears   // ears
+    for (const sx of [-1, 1]) M(SC.loftS(null, 28, 44, null, {raw: SC.earRaw(sx), out: SC.earOut(sx), lod: 2, tag: 'ear'}), skin, sx * 0.198, 0.235, -0.01, head);   // sculpted ears   // ears
     M(SC.loftS(SC.neckS, 12, 32, SC.neckF, {lod: 2, tag: 'neck'}), skin, 0, 1.4, 0);   // neck
     // torso: slimmer, tapered chest (waist 0.4 wide, chest 0.44), collar, sash, belt and buckle, kilt pin
     const torso = new THREE.Group(); g.add(torso);
@@ -48419,7 +48441,7 @@ function paintHairV1233(g,s){
         for (const [mat, list] of by) { if (list.length < 2) continue; const hi = bake(list, false), lo = bake(list, true); for (const o of list) par.remove(o); const m = new THREE.Mesh(hi, mat); m.castShadow = true; m.receiveShadow = true; m.userData.merged = list.length; par.add(m); merged.push([m, hi, lo]); } }
       LODS.push(...merged.map(([m, hi, lo]) => [hi, lo || EMPTY]));
       const has = new Set(LODS.map(e => e[0])); g.traverse(o => { if (o.isMesh && !has.has(o.geometry)) { const l = loGeo(o.geometry); if (l !== o.geometry) { LODS.push([o.geometry, l]); has.add(o.geometry); } } }); }
-    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3, detail: 1226, sculpt: 1230, fine: 1231, face: 1232, art: 100000, look: 1232, anatomy: 1233, realism: 1233};
+    g.userData = {arms, legs, head, torso, pbr, armourParts: [], fore, shin, hd: 1, kilts, lids, blk: 1 + Math.random() * 3, detail: 1226, sculpt: 1230, fine: 1231, face: 1232, art: 100000, look: 1232, anatomy: 1233, realism: 1233, surface: 1233};
     const lm = new Map(LODS.map(([a, b]) => [a, b])); g.userData.lod = []; g.traverse(o => { if (o.isMesh) { o.castShadow = true; const lo = lm.get(o.geometry); if (lo) g.userData.lod.push([o, o.geometry, lo]); } }); LODS = null; g.userData.lv = 0;
     // hands: four fingers and a thumb, a touch slimmer to match the hand
     for (const el of fore) { const hn = el.children.find(c => c.userData.hand); if (!hn) continue; for (let i = 0; i < 4; i++) { const f = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.0115, 0.05, 3, 8) : new THREE.CylinderGeometry(0.0115, 0.0115, 0.073, 8)), skin, -0.033 + i * 0.022, -0.085, 0.01, hn); f.rotation.x = 0.35; (hn.userData.fg || (hn.userData.fg = [])).push(f); } const t = M((THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(0.014, 0.04, 3, 8) : new THREE.CylinderGeometry(0.014, 0.014, 0.068, 8)), skin, 0.05, -0.03, 0.026, hn); t.rotation.z = 0.6; t.rotation.x = 0.4; }
