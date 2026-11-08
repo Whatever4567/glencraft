@@ -1,5 +1,5 @@
 // v1.2.24 diagnosis (2026-11-08): the real AG1220 + AG1222 Agarthan blocks over a stand in city (__agw.L, flat floor). Proves the show/hide
-// logic works (7 made once, shown in the city, hidden by Disable mobs / far / old realm, back on return, no duplicate groups). Does NOT
+// logic works (7 made once, shown in the city, kept with Disable mobs (v1.2.26), hidden far / old realm, back on return, no duplicate groups). Does NOT
 // prove the user's world builds __agw.L (the Scotland stamp) - that is the unverified part of the missing Agarthans report.
 import assert from 'node:assert';
 import fs from 'node:fs'; import * as THREE0 from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
@@ -29,6 +29,6 @@ G.DIM.cur = 'agartha'; tick(5); rep('in DIM agartha (old tunnel realm)');
 G.DIM.cur = null; tick(5); rep('exit realm, back');
 G.P.y = FLY + 60; tick(5); rep('60 above floor');
 console.log('missing', [...missing].join(' '));
-const want = {'new world: in city': 1, 'Disable mobs ON': 0, 'Disable mobs OFF again': 1, 'far away': 0, 'back in city': 1, 'in DIM agartha (old tunnel realm)': 0, 'exit realm, back': 1, '60 above floor': 0};
+const want = {'new world: in city': 1, 'Disable mobs ON': 1, 'Disable mobs OFF again': 1, 'far away': 0, 'back in city': 1, 'in DIM agartha (old tunnel realm)': 0, 'exit realm, back': 1, '60 above floor': 0};
 for (const [t, why, n, vis, kids] of W) { assert.equal(n, 7, t + ' seven'); assert.equal(kids, 1, t + ' one group, no duplicates'); assert.equal(+vis, want[t], t + ' visible ' + why); }
 console.log('all ok');
