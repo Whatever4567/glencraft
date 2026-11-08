@@ -5,7 +5,7 @@
 const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process'),os=require('node:os');
 const out=process.argv[2];if(!out)throw Error('output path required');
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'b1227-')),f=path.join(dir,'b.html');let s;
-try{cp.execFileSync(process.execPath,[path.join(__dirname,'build-1.2.26.cjs'),f]);s=fs.readFileSync(f,'utf8');}finally{fs.rmSync(dir,{recursive:true,force:true});}
+try{cp.execFileSync(process.execPath,[path.join(__dirname,'build-1.2.26-ag-drawcull.cjs'),f]);s=fs.readFileSync(f,'utf8');}finally{fs.rmSync(dir,{recursive:true,force:true});}
 function one(a,b){const i=s.indexOf(a);if(i<0||s.indexOf(a,i+1)>=0)throw Error('need exactly one: '+a.slice(0,80));s=s.slice(0,i)+b+s.slice(i+a.length);}
 // the TP-HD build() function, start to end, swapped for the detailed one
 {const A='  function build(pbr) { try { playerTextures(); } catch (_) {} const T_ = texs(), g = new THREE.Group(); LODS = [];',E='    U.built++; return g; }\n';
