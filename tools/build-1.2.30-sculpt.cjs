@@ -17,8 +17,8 @@ line("M(rb(0.44, 0.48, 0.44, 0.09), [skin, skin, hair, skin, faceM, hair], 0, 0.
 for(const m of["M(rb(0.47, 0.12, 0.47, 0.06), hair, 0, 0.475, -0.01, head);","// fringe locks","// sideburns, brows","rotation.x = -Math.PI / 2 + 0.25;   // nose","/* v1.2.29: face relief */","F(rb(0.3, 0.03, 0.03, 0.012), 0, 0.312, 0.208, 1, 1, 1);","F(rb(0.034, 0.075, 0.03, 0.013)","// cheekbones","// under eye","// ear fold","// lip ridge","F(new THREE.SphereGeometry(0.055, 16, 10), 0, 0.06, 0.205"])line(m,"");
 // torso, placket clear of the chest, sash as a band on the chest surface
 line("M(lathe([[0.86, 0.001], [0.865, 0.19]","    M(SC.loft(SC.torsoS, 26, 36, SC.torsoF, {tag: 'torso'}), shirt, 0, 0, 0, torso).userData.sculpt = 'torso';");
-one("M(rb(0.012, 0.3, 0.01, 0.004), shirt, 0, 1.24, 0.138, torso);","M(rb(0.012, 0.3, 0.01, 0.004), shirt, 0, 1.24, 0.14, torso);");
-line("const sash = M(rb(0.1, 0.76, 0.3, 0.03), kiltM, 0, 1.18, 0.004, torso); sash.rotation.z = 0.62;","    M(SC.loft(SC.torsoS, 70, 96, SC.torsoF, {off: () => 0.008, keep: SC.sashKeep, tag: 'sash'}), kiltM, 0, 0, 0, torso).userData.sculpt = 'sash';");
+one("M(rb(0.012, 0.3, 0.01, 0.004), shirt, 0, 1.24, 0.138, torso);","M(rb(0.012, 0.14, 0.01, 0.004), shirt, 0, 1.32, 0.137, torso);");
+line("const sash = M(rb(0.1, 0.76, 0.3, 0.03), kiltM, 0, 1.18, 0.004, torso); sash.rotation.z = 0.62;","    for (const sd of [1, -1]) M(SC.loft(SC.torsoS, 28, 4, null, {raw: SC.sashRaw(sd), tag: 'sash'}), kiltM, 0, 0, 0, torso).userData.sculpt = 'sash';");
 // arms, hands, legs, shoes
 one("M(new THREE.SphereGeometry(0.085, 18, 12), shirt, -sx * 0.01, -0.02, 0, piv); M(lathe(capP(-0.3, -0.04, 0.058, 0.07, 0.006), 1, 1, 18), shirt, 0, 0, 0, piv);","M(SC.loft(SC.upperS, 18, 18, SC.upperF(sx), {tag: 'upper'}), shirt, 0, 0, 0, piv);");
 one("M(lathe(capP(-0.27, -0.02, 0.043, 0.054, 0.007), 1, 1, 18), skin, 0, 0, 0, el);","M(SC.loft(SC.foreS, 14, 16, null, {tag: 'fore'}), skin, 0, 0, 0, el);");

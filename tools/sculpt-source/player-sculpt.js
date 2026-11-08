@@ -64,7 +64,19 @@
       dr += 0.008 * g(y - 1.3, 0.06) * (g(SC.ad(a, Math.PI - 0.6), 0.35) + g(SC.ad(a, Math.PI + 0.6), 0.35));   // shoulder blades
       dr -= 0.006 * g(SC.ad(a, Math.PI), 0.12) * SC.sm(0.95, 1.05, y) * (1 - SC.sm(1.3, 1.4, y));   // spine
       return [x / r * dr, 0, z / r * dr]; };
-    SC.sashKeep = (cx, cy, cz) => Math.abs(cx * Math.cos(0.62) + (cy - 1.18) * Math.sin(0.62)) < 0.05 && cy > 0.9 && cy < 1.46;
+    // a point on a lofted surface at angle a and height y (the same formula as the rings)
+    SC.surf = (S, F, a, y, y0, y1) => { const s = S(Math.min(1, Math.max(0, (y - y0) / (y1 - y0)))), sa = Math.sin(a), ca = Math.cos(a), p = 2 / (s.n || 2);
+      let x = s.rx * Math.sign(sa) * Math.pow(Math.abs(sa), p), z = (ca > 0 ? s.zf : s.zb) * Math.sign(ca) * Math.pow(Math.abs(ca), p); if (F) { const d = F(a, 0, y, x, z); x += d[0]; z += d[2]; } return [x, y, z + (s.z0 || 0)]; };
+    // sash: a band laid on the torso along a straight line seen from the front (shoulder to hip), sampled continuously along and across;
+    // each sample finds the torso angle whose x matches, front or back half, then sits 13 mm out from the shirt. side 1 front, -1 back.
+    SC.sashRaw = side => (S, nr, ns) => { const P = [], UV = [], I = [], c = Math.cos(0.62), sn = Math.sin(0.62), hw = 0.05, L = 0.33, y0 = 0.86, y1 = 1.48;
+      for (let i = 0; i <= nr; i++) { const s = -0.34 + (L + 0.34) * i / nr;
+        for (let j = 0; j <= ns; j++) { const w = -hw + 2 * hw * j / ns, x = -s * sn + w * c, y = 1.18 + s * c + w * sn;
+          let lo = side > 0 ? -Math.PI / 2 : Math.PI / 2, hi = side > 0 ? Math.PI / 2 : Math.PI * 1.5; const fx = a => SC.surf(S, SC.torsoF, a, y, y0, y1)[0] * (side > 0 ? 1 : -1);
+          const rm = 0.97 * Math.max(fx(side > 0 ? Math.PI / 2 : Math.PI * 1.5), 0.01), u = Math.abs(x) / rm, us = u < 0.8 ? u : 0.8 + 0.2 * Math.tanh((u - 0.8) / 0.2), tx = Math.sign(x) * us * rm * (side > 0 ? 1 : -1);   /* eases round the side instead of folding past it */ for (let k = 0; k < 30; k++) { const m = (lo + hi) / 2; if (fx(m) < tx) lo = m; else hi = m; }
+          const a = (lo + hi) / 2, q = SC.surf(S, SC.torsoF, a, y, y0, y1), r = Math.hypot(q[0], q[2]) || 1, o = 0.013; P.push(q[0] + q[0] / r * o, y, q[2] + q[2] / r * o); UV.push(i / nr * 6, j / ns); } }
+      for (let i = 0; i < nr; i++) for (let j = 0; j < ns; j++) { const a = i * (ns + 1) + j, b = a + ns + 1; I.push(a, b, a + 1, b, b + 1, a + 1); }
+      return {P, UV, I}; };
     // limbs: sx is the side so the deltoid swells outward
     SC.upperS = SC.K([[-0.31, 0.045, 0.045, 0.045], [-0.27, 0.05, 0.05, 0.048], [-0.2, 0.054, 0.064, 0.05], [-0.12, 0.064, 0.064, 0.056], [-0.04, 0.078, 0.072, 0.07], [0.0, 0.08, 0.074, 0.072], [0.035, 0.064, 0.058, 0.058], [0.065, 0.012, 0.012, 0.012]]);   // rounded deltoid cap over the shoulder pivot
     SC.upperF = sx => (a, t, y, x) => [sx * x > 0 ? sx * 0 + x / (Math.abs(x) || 1) * 0.01 * SC.gs(y + 0.08, 0.06) : 0, 0, 0];
