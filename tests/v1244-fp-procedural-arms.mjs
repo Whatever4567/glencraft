@@ -10,15 +10,15 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';"), 'GAME_VERSION is 1.2.46 or 1.2.44');
-ok(html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->'), 'build marker is b1246 or b1244');
+ok(html.includes("const GAME_VERSION = '1.2.47';") || html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';"), 'GAME_VERSION is 1.2.46 or 1.2.44');
+ok(html.includes('<!-- glencraft-build: b1247-v1.2.47 -->') || html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->'), 'build marker is b1246 or b1244');
 ok(html.includes('retextureProceduralArms'), 'retextureProceduralArms is in the build');
 ok(html.includes('W.__fpaOff = 0'), 'helper clears __fpaOff so procedural HD arms run');
 ok(html.includes('do not drive Held1240FpArms as the main') || html.includes('NOT Held1240FpArms as the main') || html.includes('NOT\n * Held1240FpArms'), 'source documents procedural arms are main');
 ok(!/Retire every pre-1\.2\.40 first-person arm so only Held1240FpArms draws/.test(html), 'old retirement comment is gone');
 
 const helper = fs.readFileSync(new URL('../tools/pilot-model-source/held-fp-1240.js', import.meta.url), 'utf8');
-ok(helper.includes("version: '1.2.44'"), 'held-fp helper is the 1.2.44 revision');
+ok(helper.includes("version: '1.2.47'") || helper.includes("version: '1.2.46'") || helper.includes("version: '1.2.44'"), 'held-fp helper is 1.2.47 / 1.2.46 / 1.2.44');
 ok(helper.includes('retextureProceduralArms') && helper.includes('sampleCharacterLooks'), 'helper samples character looks and retextures procedural arms');
 
 const W = {THREE: T, __fpaOff: 1};

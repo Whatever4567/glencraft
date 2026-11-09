@@ -8,7 +8,7 @@
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.44', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.47', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -166,6 +166,35 @@
         if (!m.userData) m.userData = {};
         if (m.userData.held1240Crystal === (purple ? 'p' : 'b')) continue;
         m.userData.held1240Crystal = purple ? 'p' : 'b';
+        const useMap = !!m.map;
+        const colorHex = useMap ? mapCol : col;
+        // Prism pass uses MeshStandardMaterial + flatShading, which fails to
+        // compile on SwiftShader ('normal' undeclared) and leaves only the
+        // wooden haft. Keep the purple colour on a Phong material.
+        if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || (m.type && /Standard|Physical/.test(m.type))) {
+          const ph = new T.MeshPhongMaterial({
+            color: colorHex,
+            map: m.map || null,
+            emissive: new T.Color(em),
+            specular: new T.Color(purple ? 0xffd8ff : 0xd8f0ff),
+            shininess: 140,
+            flatShading: !!m.flatShading,
+            transparent: !!m.transparent,
+            opacity: m.opacity == null ? 1 : m.opacity,
+            side: m.side
+          });
+          ph.userData.held1240Crystal = purple ? 'p' : 'b';
+          ph.needsUpdate = true;
+          const arr = Array.isArray(o.material) ? o.material.slice() : null;
+          if (arr) {
+            const ix = arr.indexOf(m);
+            if (ix >= 0) arr[ix] = ph;
+            o.material = arr;
+          } else {
+            o.material = ph;
+          }
+          continue;
+        }
         if (m.map) m.color.setHex(mapCol);
         else m.color.setHex(col);
         if ('emissive' in m) m.emissive.setHex(em);
@@ -174,6 +203,7 @@
         m.needsUpdate = true;
       }
     });
+    U.hardenMeshMats(root);
     return root;
   };
   U.buildMapCard = function (tex) {
@@ -229,12 +259,16 @@
     mesh.visible = true;
     return {socket, mesh, kind: k};
   };
+
   U.poseHeld = function (model, opts) {
     opts = opts || {};
     const p = model && model.userData && model.userData.pilot;
     if (!p || !p.near) return null;
     const slot = opts.slot == null ? 1 : opts.slot;
-    const socket = find(p.near.root, 'weapon_grip_slot' + slot);
+    const socket = find(p.near.root, 'weapon_grip_slot' + slot)
+      || (p.far && p.far.root && find(p.far.root, 'weapon_grip_slot' + slot))
+      || find(model, 'weapon_grip_slot' + slot)
+      || find(p.near.root, 'weapon_grip_slot' + (slot === 1 ? 0 : 1));
     const arms = model.userData.arms;
     const grip = arms && arms[slot] && arms[slot].userData && arms[slot].userData.grip;
     if (socket && grip) copySocketToGrip(grip, socket);
@@ -484,61 +518,129 @@
       // Procedural box / limb arms rarely share the character UV layout, so prefer
       // the sampled colour (from the map average or material) over assigning the
       // character map, which would otherwise read as flat white / wrong texels.
-      if (src && src.color) { dst.map = null; dst.color.copy(src.color); }
-      else if (fallbackHex != null && dst.color) { dst.map = null; dst.color.setHex(fallbackHex); }
+      if (src && src.color) { dst.color.copy(src.color); }
+      else if (fallbackHex != null && dst.color) { dst.color.setHex(fallbackHex); }
       if (src && src.roughness != null && dst.roughness != null) dst.roughness = src.roughness;
       if (src && src.metalness != null && dst.metalness != null) dst.metalness = src.metalness;
       dst.needsUpdate = true;
     } catch (_) {}
   }
 
+  function toPhong(src, color, map, opts) {
+    opts = opts || {};
+    const c = color ? color.clone() : (src && src.color ? src.color.clone() : new T.Color(0xffffff));
+    const ph = new T.MeshPhongMaterial({
+      color: c,
+      map: map || null,
+      specular: new T.Color(opts.specular != null ? opts.specular : 0x222222),
+      shininess: opts.shininess != null ? opts.shininess : 16,
+      skinning: !!opts.skinning,
+      transparent: !!(src && src.transparent),
+      opacity: src && src.opacity != null ? src.opacity : 1,
+      side: src && src.side != null ? src.side : T.FrontSide,
+      flatShading: !!(src && src.flatShading),
+      vertexColors: !!(src && src.vertexColors)
+    });
+    if (src && src.emissive && ph.emissive) ph.emissive.copy(src.emissive);
+    ph.userData = Object.assign({}, (src && src.userData) || {}, {held1240Phong: 1});
+    ph.needsUpdate = true;
+    return ph;
+  }
+
+  U.hardenMeshMats = function (root, pred) {
+    if (!root) return 0;
+    let n = 0;
+    root.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
+      if (pred && !pred(o)) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      let ch = false;
+      const out = mats.map(m => {
+        if (!m) return m;
+        if (!(m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || /Standard|Physical/.test(m.type || ''))) return m;
+        ch = true;
+        return toPhong(m, m.color, m.map, {skinning: !!o.isSkinnedMesh, shininess: m.shininess || 16, vertexColors: m.vertexColors, flatShading: m.flatShading});
+      });
+      if (ch) { o.material = out.length === 1 ? out[0] : out; n++; }
+    });
+    return n;
+  };
+
+  U.hardenFpa = function () {
+    const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
+    if (!rig) return 0;
+    return U.hardenMeshMats(rig);
+  };
+
+  function saneColor(look, fallbackHex) {
+    const fb = new T.Color(fallbackHex);
+    const c = look && look.color;
+    if (!c) return fb;
+    const chroma = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
+    // Authored glTF colour is often white with the look in a map we cannot
+    // reuse on procedural UVs. A near-white sample would paint ghost arms.
+    if (c.r > 0.88 && c.g > 0.88 && c.b > 0.88 && chroma < 0.08) return fb;
+    return c;
+  }
+  function paintMesh(o, look, fallbackHex, keepMap) {
+    if (!o) return;
+    const visit = (mesh) => {
+      if (!(mesh.isMesh || mesh.isSkinnedMesh) || !mesh.material) return;
+      const src = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const color = saneColor(look, fallbackHex);
+      // Keep the procedural fabric() weave for sleeves; never assign the
+      // character atlas (wrong UVs). Skin is a flat sampled colour.
+      const map = keepMap ? (src && src.map) || (look && look.procMap) || null : null;
+      mesh.material = toPhong(src, color, map, {skinning: !!mesh.isSkinnedMesh, shininess: keepMap ? 8 : 18});
+    };
+    if (o.isMesh || o.isSkinnedMesh) visit(o);
+    if (o.traverse) o.traverse(c => { if (c !== o) visit(c); });
+  }
+
   U.retextureProceduralArms = function (template) {
-    if (U._retexDone && !template) return U._retexDone;
     const looks = sampleCharacterLooks(template || (W.__pilot1235 && W.__pilot1235.templates && W.__pilot1235.templates[0]));
     U._looks = looks;
     // Classic box fist / sleeve
     try {
       if (typeof armMat !== 'undefined' && armMat) applyMat(armMat, looks.skin, 0xd4a07a);
       if (typeof sleeveMat !== 'undefined' && sleeveMat) applyMat(sleeveMat, looks.sleeve, 0xe9e2d4);
-      if (typeof fist !== 'undefined' && fist) fist.visible = fist.visible;
-      if (typeof armMesh !== 'undefined' && armMesh) armMesh.visible = armMesh.visible;
     } catch (_) {}
-    // mcArm cuboid materials
     try {
       if (typeof window !== 'undefined' && window.mcArm) {
         window.mcArm.traverse(o => {
           if (!o.isMesh || !o.material) return;
-          const m = o.material;
-          // forearm+fist cuboid uses skin; second box is sleeve if present
           const n = String(o.name || '');
-          if (/sleeve|shirt|cloth/i.test(n)) applyMat(m, looks.sleeve, 0xe9e2d4);
-          else applyMat(m, looks.skin, 0xd4a07a);
+          if (/sleeve|shirt|cloth/i.test(n)) paintMesh(o, looks.sleeve, 0xe9e2d4, true);
+          else paintMesh(o, looks.skin, 0xd4a07a, false);
         });
       }
     } catch (_) {}
-    // HD __fpa materials (skinM / shirtM closed over in that IIFE — reach via meshes)
+    // Paint via the __fpa rig joints: upper / elbow / cuff = cream linen,
+    // forearm + hand + fingers = new skin. This matches the 1.2.46 layout.
     try {
       const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
       if (rig) {
-        rig.traverse(o => {
-          if (!o.isMesh || !o.material) return;
-          const m = o.material;
-          const n = String(o.name || '');
-          // Heuristic: shirt/sleeve meshes are larger limb boxes; hands are smaller
-          const box = o.geometry && o.geometry.boundingBox;
-          try { if (o.geometry && !o.geometry.boundingBox) o.geometry.computeBoundingBox(); } catch (_) {}
-          const bb = o.geometry && o.geometry.boundingBox;
-          let isHand = /hand|palm|finger|wrist/i.test(n);
-          if (!isHand && bb) {
-            const s = bb.getSize(new T.Vector3());
-            if (s.x < 0.12 && s.y < 0.14 && s.z < 0.08) isHand = true;
+        const armourOn = (function(){ try { return !!(typeof armour !== 'undefined' && armour && armour[1]); } catch (_) { return false; } })();
+        const paintArm = (arm) => {
+          const p = arm && arm.userData && arm.userData.p;
+          if (!p) return;
+          if (armourOn) {
+            U.hardenMeshMats(p.up); U.hardenMeshMats(p.el); U.hardenMeshMats(p.cuff);
+          } else {
+            paintMesh(p.up, looks.sleeve, 0xe9e2d4, true);
+            paintMesh(p.el, looks.sleeve, 0xe9e2d4, true);
+            paintMesh(p.cuff, looks.sleeve, 0xe9e2d4, true);
           }
-          if (isHand) applyMat(m, looks.skin, 0xd4a07a);
-          else applyMat(m, looks.sleeve, 0xe9e2d4);
-        });
+          paintMesh(p.fo, looks.skin, 0xd4a07a, false);
+          paintMesh(p.h, looks.skin, 0xd4a07a, false);
+        };
+        paintArm(rig.userData && rig.userData.R);
+        paintArm(rig.userData && rig.userData.L);
+        // Any other mesh on the rig that was missed (finger joints live under p.h).
+        U.hardenFpa();
       }
     } catch (_) {}
-    U._retexDone = {skin: !!(looks.skin), sleeve: !!(looks.sleeve)};
+    U._retexDone = {skin: !!(looks.skin && (looks.skin.map || looks.skin.color)), sleeve: !!(looks.sleeve && (looks.sleeve.map || looks.sleeve.color))};
     return U._retexDone;
   };
 
@@ -564,6 +666,8 @@
     return false;
   }
   U.stepFp = function (dt) {
+    // 1.2.47: ArmSwitch1247 owns visible GLB arms; keep Held1240FpArms hidden; never set __fpaOff.
+
     // 1.2.44: do not drive Held1240FpArms as the main first-person arms.
     // Procedural __fpa / mcArm / fist (already hooked by the game) keep ownership
     // of held items and swing / place / reload / gun / swim animations.
@@ -594,6 +698,15 @@
     } catch (_) {}
     U.fpOn = 0;
     U.fpKind = currentFpKind();
+    try {
+      if (typeof held !== 'undefined' && held) {
+        U.hardenMeshMats(held);
+        const id = typeof selId !== 'undefined' ? selId : (typeof heldId !== 'undefined' ? heldId : 0);
+        const raw = parseInt(id, 10);
+        if (raw === 761 || (typeof IT !== 'undefined' && raw === IT.PCPICK)) U.paintCrystalPick(held, 'purple');
+        if (raw === 760 || (typeof IT !== 'undefined' && raw === IT.BCPICK)) U.paintCrystalPick(held, 'blue');
+      }
+    } catch (_) {}
   };
   U.install = function () {
     const runtime = W.__pilot1235;
@@ -634,6 +747,23 @@
       if (typeof updateHand === 'function') updateHand = hook(updateHand);
       else if (typeof updatePlayer === 'function') updatePlayer = hook(updatePlayer);
     } catch (e) { if (!U.err) U.err = 'wrap step: ' + e; }
+    try {
+      const repose = () => {
+        try {
+          if (typeof worldModel !== 'undefined' && worldModel) U.poseHeld(worldModel);
+        } catch (e) { if (!U.err) U.err = 'repose: ' + (e && e.message || e); }
+      };
+      if (typeof setHeld === 'function' && !U._setHeldWrapped) {
+        const sh = setHeld;
+        setHeld = function () { const r = sh.apply(this, arguments); repose(); return r; };
+        U._setHeldWrapped = 1;
+      }
+      if (typeof window !== 'undefined' && window.__gunFix && !U._gunFixWrapped) {
+        const gf = window.__gunFix;
+        window.__gunFix = function () { const r = gf.apply(this, arguments); repose(); return r; };
+        U._gunFixWrapped = 1;
+      }
+    } catch (e) { if (!U.err) U.err = 'wrap setHeld: ' + e; }
     return U;
   };
   if (W.__pilot1235) U.install();
