@@ -7,7 +7,7 @@
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.40', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.42', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -399,9 +399,33 @@
     return fp;
   };
   function hideProceduralFp() {
+    // Retire every pre-1.2.40 first-person arm so only Held1240FpArms draws.
+    // The live game still builds mcArm / __fpa / gripHand / realArm and some of
+    // those wrappers force .visible = true every updateHand — hide them again
+    // here after that, every frame.
+    try { W.__fpaOff = 1; } catch (_) {}
     try {
       const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
-      if (rig) rig.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      if (rig) {
+        rig.visible = false;
+        rig.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
+    } catch (_) {}
+    try {
+      if (typeof fist !== 'undefined' && fist) { fist.visible = false; fist.userData.held1240Hid = 1; }
+      if (typeof armMesh !== 'undefined' && armMesh) { armMesh.visible = false; armMesh.userData.held1240Hid = 1; }
+      if (typeof window !== 'undefined' && window.mcArm) {
+        window.mcArm.visible = false;
+        window.mcArm.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
+      if (typeof realArm !== 'undefined' && realArm && realArm.fa) {
+        realArm.fa.visible = false;
+        realArm.fa.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
+      if (typeof gripHand !== 'undefined' && gripHand) {
+        gripHand.visible = false;
+        gripHand.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
     } catch (_) {}
     try {
       const cam = (typeof camera !== 'undefined') ? camera : W.camera;
@@ -417,6 +441,18 @@
           }
         }
       });
+      // Hide leftover box/HD arms under the classic `hand` group, keep held + haggis.
+      if (typeof hand !== 'undefined' && hand) {
+        hand.traverse(o => {
+          if (!(o.isMesh || o.isSkinnedMesh)) return;
+          let p = o, keep = false;
+          while (p) {
+            if (p === (typeof held !== 'undefined' ? held : null) || p === (typeof grabHaggis !== 'undefined' ? grabHaggis : null) || (p.name === 'Held1240FpArms')) { keep = true; break; }
+            p = p.parent;
+          }
+          if (!keep) { o.userData.held1240Hid = 1; o.visible = false; }
+        });
+      }
     } catch (_) {}
   }
   U.hideProceduralFp = hideProceduralFp;

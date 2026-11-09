@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1241-v1.2.41 -->
+<!-- glencraft-build: b1242-v1.2.42 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.41';
+const GAME_VERSION = '1.2.42';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -13869,12 +13869,13 @@ function placeDecor() {
   THREE.ShaderChunk[k] = c.replace(a, 'pointLight = pointLights[ i ];\n\t\tif ( pointLight.color.r + pointLight.color.g + pointLight.color.b > 0.0005 && ( pointLight.distance <= 0.0 || length( pointLight.position - geometry.position ) < pointLight.distance ) ) {\n\t\tgetPointDirectLightIrradiance( pointLight, geometry, directLight );')
     .replace(b, 'RE_Direct( directLight, geometry, material, reflectedLight );\n\t\t}\n\t}\n\t#pragma unroll_loop_end\n#endif\n#if ( NUM_SPOT_LIGHTS > 0 )'); window.__lightSkip = 1; })();
 const canvas = $('c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH && !PERF, powerPreference: 'high-performance'});
+const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH && !PERF && !(touchMode || /Android|iPhone|iPad|Mobile/i.test((typeof navigator!=='undefined'&&navigator.userAgent)||'')), powerPreference: 'high-performance'});
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 const DPR = window.devicePixelRatio || 1;
-renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? DPR : Math.min(DPR, 2));
+const __weakBoot1242 = !!(touchMode || /Android|iPhone|iPad|iPod|Mobile/i.test((typeof navigator!=='undefined'&&navigator.userAgent)||'') || ((typeof navigator!=='undefined')&&navigator.hardwareConcurrency>0&&navigator.hardwareConcurrency<=4) || ((typeof navigator!=='undefined')&&navigator.deviceMemory>0&&navigator.deviceMemory<=4));
+renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? Math.min(DPR, __weakBoot1242 ? 1.25 : 2.5) : Math.min(DPR, 2));
 const MAXANISO = renderer.capabilities.getMaxAnisotropy();
-const TEXANISO = PERF ? Math.min(2, MAXANISO) : Math.min(HIGH ? 16 : 8, MAXANISO);   // GLX-C30
+const TEXANISO = PERF ? Math.min(2, MAXANISO) : Math.min(HIGH ? (touchMode ? 4 : 16) : 8, MAXANISO);   // GLX-C30 / 1.2.42 touch 4K
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xb9c6c9);
 scene.fog = new THREE.Fog(0xb9c6c9, PERF ? 10 : 14, PERF ? 34 : 52);
@@ -18480,11 +18481,11 @@ function enterWorld(save) {
   showScreen('loading');
   try { let el = document.getElementById('loadDbg'); const host = document.getElementById('loadPct');
     if (!el && host && host.parentNode) { el = document.createElement('div'); el.id = 'loadDbg'; el.style.cssText = 'font:11px/1.3 system-ui,sans-serif;opacity:.75;margin-top:6px;max-width:90vw;word-break:break-word'; host.parentNode.insertBefore(el, host.nextSibling); }
-    let sb = document.getElementById('loadSafeBtn'); if (!sb && host && host.parentNode) { sb = document.createElement('button'); sb.id = 'loadSafeBtn'; sb.textContent = 'Load safe mode'; sb.style.cssText = 'display:none;margin:10px auto 0;padding:8px 16px;font:600 14px system-ui,sans-serif;border-radius:10px';
-      sb.onclick = () => { try { localStorage.setItem('glen_safe', current.id); } catch (_) {} location.reload(); }; host.parentNode.insertBefore(sb, el ? el.nextSibling : host.nextSibling); }
-    if (sb) { sb.style.display = 'none'; clearTimeout(enterWorld._sbT); enterWorld._sbT = setTimeout(() => { if (screen === 'loading') sb.style.display = 'block'; }, 15000); }
+    // 1.2.42: no "Load safe mode" button / timer. Loading just continues.
+    try { const sb = document.getElementById('loadSafeBtn'); if (sb && sb.parentNode) sb.parentNode.removeChild(sb); } catch (_) {}
+    try { clearTimeout(enterWorld._sbT); } catch (_) {}
   } catch (_) {}
-  window.__loadErrTxt = ''; loadStep('start' + (window.__safeLoad ? ' (safe mode)' : ''));   // the soundtrack keeps playing through loading and into the world
+  window.__loadErrTxt = ''; loadStep('start');   // the soundtrack keeps playing through loading and into the world
   const bar = $('loadW').firstChild, tip = $('loadTip'), pct = $('loadPct');
   let i = 0, shown = 0, target = 0, t0 = performance.now(), ready = false;
   // GLX-B3: the bar eases toward the real progress and only finishes when every chunk mesh around spawn is built and the GPU has compiled it
@@ -18858,7 +18859,7 @@ var torchCap = 99;
   const base = updateLights;
   updateLights = function (dt) {
     base(dt);
-    if (QUALITY !== 'phone' || !started || paused || !(dt > 0) || dt > 0.5) return;
+    if (!((QUALITY === 'phone') || (HIGH && touchMode)) || !started || paused || !(dt > 0) || dt > 0.5) return;
     perfGuard.ema += (1 / dt - perfGuard.ema) * Math.min(1, dt * 2);
     perfGuard.lowT = perfGuard.ema < 40 ? perfGuard.lowT + dt : Math.max(0, perfGuard.lowT - dt * 0.5);
     if (perfGuard.lowT > 3 && perfGuard.step < 2) {
@@ -27884,8 +27885,8 @@ var C79 = {st: {cullBuilt: 0, fullBuilt: 0, caveFaces: 0, reb: 0, pr: []}};
     const R = fullR(); for (const [id, g] of chunkObjs) { if (!g.userData.cav) continue; const cx = Math.floor(id / 64), cz = id % 64; if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) <= R) dirtyCh.add(id); }
   } catch (e) { if (!C79.e1) { C79.e1 = String(e); console.warn('c79 cave', e); } } }, 400);
   const bc = buildChunk; buildChunk = function (cx, cz) { const r = bc.apply(this, arguments); const g = chunkObjs.get(cx * 64 + cz); if (g) { if (g.userData.cav) C79.st.cullBuilt++; else C79.st.fullBuilt++; C79.st.caveFaces += g.userData.cavN || 0; } return r; };
-  // ---- phone: dynamic resolution (lower pixel ratio when frames are slow, raise it again when there is headroom) ----
-  const PHONE = touchMode && !HIGH;
+  // ---- phone/touch: dynamic resolution (also under 4K UHD label; pixel ratio was uncapped and dynres was off when HIGH) ----
+  const PHONE = !!touchMode;
   const PRMAX = PHONE ? Math.min(DPR, 1.6) : (PERF ? 1 : HIGH ? DPR : Math.min(DPR, 2)), PRMIN = PHONE ? Math.min(0.7, PRMAX) : PRMAX;
   if (PHONE) { try { perfGuard.step = 2; torchCap = Math.min(torchCap, 3); renderer.setPixelRatio(Math.min(renderer.getPixelRatio(), PRMAX)); resize(); } catch (_) {} }
   let acc = 0, n = 0, slow = 0, last = performance.now(), hold = 0;
@@ -29475,9 +29476,8 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     return r;
   };
   function openSafe(id) {
-    window.__safeLoad = true;
-    const go = () => { const w = (worldList() || []).find(q => q && q.id === id) || (worldList() || [])[0]; if (!w) { toast('No world to open'); return; } playWorld(w); };
-    const wait = setInterval(() => { if (screen === 'title' || screen === 'worlds') { clearInterval(wait); Promise.race([worldsReady, new Promise(r => setTimeout(r, 6000))]).then(go, go); } }, 300);
+    // 1.2.42: safe mode removed — do not set __safeLoad or reopen the world stripped.
+    try { localStorage.removeItem('glen_safe'); } catch (_) {}
   }
   S.openSafe = openSafe;
   // pause menu: teleport to each clansman (safe standing spot next to him, land around him built first)
@@ -29504,25 +29504,13 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
       b.textContent = 'Teleport to ' + nm; b.setAttribute('data-testid', 'pause-tp-' + m.role); b.onclick = () => tpTo(m); box.appendChild(b); }
   }
   const sp0 = setPause; setPause = function (on) { const r = sp0.apply(this, arguments); if (on) try { tpButtons(); } catch (e) { console.warn('tp buttons', e); } return r; };
-  let safeId = null; try { safeId = localStorage.getItem('glen_safe'); localStorage.removeItem('glen_safe'); } catch (_) {}
-  if (safeId) { openSafe(safeId); return; }
-  // the last load never finished (page froze or was closed on the loading screen): offer safe mode on the title screen
-  let ld = null; try { ld = JSON.parse(localStorage.getItem('glen_load') || 'null'); } catch (_) {}
-  if (ld && ld.id && Date.now() - (ld.hb || ld.t || 0) > 5000) {
-    S.lastLoad = ld;
-    const show = () => {
-      if (document.getElementById('c99note')) return;
-      const el = document.createElement('div'); el.id = 'c99note';
-      el.style.cssText = 'position:fixed;left:50%;top:10%;transform:translateX(-50%);z-index:70;max-width:min(520px,92vw);background:rgba(20,28,22,.95);color:#f3ead2;border:2px solid #d9b45a;border-radius:14px;padding:14px 18px;font:15px/1.4 system-ui,sans-serif;text-align:center';
-      const esc = t => String(t || '').replace(/[&<>"]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[c]));
-      el.innerHTML = '<b>' + esc(ld.name || 'Your world') + ' did not finish loading last time</b><br><small>stuck at: ' + esc(ld.step) + ' (' + esc(ld.v) + ')</small><br>' +
-        '<button id="c99safe" style="margin:10px 6px 0;padding:8px 14px;font:600 14px system-ui">Open in safe mode</button><button id="c99no" style="margin:10px 6px 0;padding:8px 14px;font:14px system-ui">Dismiss</button>';
-      document.body.appendChild(el);
-      document.getElementById('c99safe').onclick = () => { el.remove(); try { localStorage.removeItem('glen_load'); } catch (_) {} openSafe(ld.id); };
-      document.getElementById('c99no').onclick = () => { el.remove(); try { localStorage.removeItem('glen_load'); } catch (_) {} };
-    };
-    const w = setInterval(() => { if (screen === 'title') { clearInterval(w); show(); } }, 400);
-  }
+  // 1.2.42: safe-mode popup / auto-open removed. Clear any stale glen_safe flag so a
+  // previous offer cannot force safe mode on the next boot. Loading just continues.
+  try { localStorage.removeItem('glen_safe'); } catch (_) {}
+  try { const note = document.getElementById('c99note'); if (note) note.remove(); } catch (_) {}
+  S.safeModeUiRemoved = 1;
+  // If a previous session left a frozen-load marker, drop it quietly — no dialog.
+  try { const ld = JSON.parse(localStorage.getItem('glen_load') || 'null'); if (ld && ld.id && Date.now() - (ld.hb || ld.t || 0) > 5000) { S.lastLoad = ld; localStorage.removeItem('glen_load'); } } catch (_) {}
   // stale page check: compare this page's build with the live one (first 1 KB only, never cached); offer a cache-busting reload
   try {
     const mine = (() => { for (const n of (document.head ? document.head.childNodes : [])) if (n.nodeType === 8) { const m = /glencraft-build: ([a-z0-9.-]+)/.exec(n.nodeValue); if (m) return m[1]; } return null; })();
@@ -29535,8 +29523,8 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
           el.querySelector('button').onclick = () => { try { if (started) saveWorld(true); } catch (_) {} setTimeout(() => location.replace(location.origin + location.pathname + '?v=' + S.live), 800); }; } }).catch(() => {});
     }, 4000);
   } catch (_) {}
-  // in safe mode the extras that run on top of the world stay off for this session
-  const tg = setInterval(() => { if (window.__safeLoad && started) { clearInterval(tg); setTimeout(() => toast('Safe mode: bots and castle doors were reset, your land, inventory and chests are kept'), 1500); } }, 500);
+  // 1.2.42: no safe-mode toast. openSafe left as a no-op so nothing can re-enter it.
+  S.openSafe = function () { try { localStorage.removeItem('glen_safe'); } catch (_) {} };
 })();
 
 /* ===================== GLX-C100 (v0.9.81): the two clansmen - new looks with painted faces + moods, gruff Scottish voices (synthesised), trading for rubies ===================== */
@@ -52394,6 +52382,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.42","d":"2026-11-09","notes":["4K UHD stays looking nice but is now adaptive on phones and slower devices: resolution, shadows and view distance scale with measured FPS (no popup).","World block tiles, textures and terrain materials are back to exactly how they were in 1.2.40. The prism gleam no longer rewrites the shared block atlas (that was causing slideshow-level lag on entering a world).","Inventory item icons, held tools and listed mobs keep the prism / crystal look. Icons are generated a few at a time after the world is playable and cached — not all at once on the first click.","First-person view now hides the old box / mcArm / gripHand / __fpa arms so only the new scottish-base-v2 arms show (empty hand, held items, after respawn/reload).","4K UHD stays the default label and look, but on touch devices the effective pixel ratio is capped at 1.5 (antialias off, lighter anisotropy) and the adaptive quality / dynamic-resolution guard also runs under 4K UHD."]},
 {"v":"v1.2.41","d":"2026-11-09","notes":["Tools, inventory icons, block tiles and 3D icons now share the new character's prism / crystal-faceted 4K UHD look, without changing each item's identity, colour or silhouette.","The same shared, cached facet pass is applied to sheep, haggis, pigs, creepers, Treemen, skeletons, black skeletons, clansmen, farmers, aliens, Agartha people (Paladiens), Egyptians, zombies, spiders, ghosts, the moss hag, the raincloud, and wizards."]},
 {"v":"v1.2.40","d":"2026-11-09","notes":["Held items in first and third person now follow the new character hand sockets: every tool and held item faces forward, stays a sensible size, stays visible in the hand and keeps its own material. The purple crystal pickaxe is thin and reasonably sized.","First-person and swimming arms now come from the new character, including the crystal vambrace and gauntlet when armour is on.","First-person musket reload uses the player's own new-model right arm (cream sleeve or armour gauntlet) on the ramrod, with no duplicate arm and no 360° flip back to idle. Pistol reload no longer spawns a huge sphere at the muzzle."]},
 {"v":"v1.2.39","d":"2026-11-09","notes":["Default graphics mode is now 4K UHD."]},
@@ -55394,7 +55383,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   });
   const U=window.__pilot1235=window.PilotRuntimeFactory(THREE,{
     ensureLibrary,scottish:true,
-    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.41'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.41')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
+    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.42'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.42')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
     equipment:()=>armour,
     tier:id=>id&&ARMOUR[id]?ARMOUR[id].mat:null,
     distance:model=>(typeof worldModel!=='undefined'&&model===worldModel)?camera.position.distanceTo(model.position):0,
@@ -55421,7 +55410,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.40', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.42', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -55813,9 +55802,33 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     return fp;
   };
   function hideProceduralFp() {
+    // Retire every pre-1.2.40 first-person arm so only Held1240FpArms draws.
+    // The live game still builds mcArm / __fpa / gripHand / realArm and some of
+    // those wrappers force .visible = true every updateHand — hide them again
+    // here after that, every frame.
+    try { W.__fpaOff = 1; } catch (_) {}
     try {
       const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
-      if (rig) rig.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      if (rig) {
+        rig.visible = false;
+        rig.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
+    } catch (_) {}
+    try {
+      if (typeof fist !== 'undefined' && fist) { fist.visible = false; fist.userData.held1240Hid = 1; }
+      if (typeof armMesh !== 'undefined' && armMesh) { armMesh.visible = false; armMesh.userData.held1240Hid = 1; }
+      if (typeof window !== 'undefined' && window.mcArm) {
+        window.mcArm.visible = false;
+        window.mcArm.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
+      if (typeof realArm !== 'undefined' && realArm && realArm.fa) {
+        realArm.fa.visible = false;
+        realArm.fa.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
+      if (typeof gripHand !== 'undefined' && gripHand) {
+        gripHand.visible = false;
+        gripHand.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
+      }
     } catch (_) {}
     try {
       const cam = (typeof camera !== 'undefined') ? camera : W.camera;
@@ -55831,6 +55844,18 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
           }
         }
       });
+      // Hide leftover box/HD arms under the classic `hand` group, keep held + haggis.
+      if (typeof hand !== 'undefined' && hand) {
+        hand.traverse(o => {
+          if (!(o.isMesh || o.isSkinnedMesh)) return;
+          let p = o, keep = false;
+          while (p) {
+            if (p === (typeof held !== 'undefined' ? held : null) || p === (typeof grabHaggis !== 'undefined' ? grabHaggis : null) || (p.name === 'Held1240FpArms')) { keep = true; break; }
+            p = p.parent;
+          }
+          if (!keep) { o.userData.held1240Hid = 1; o.visible = false; }
+        });
+      }
     } catch (_) {}
   }
   U.hideProceduralFp = hideProceduralFp;
@@ -56180,8 +56205,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   };
   try { U.install(); } catch (e) { U.err = 'install: ' + e; }
 })(typeof window !== 'undefined' ? window : this);
-
-/* v1.2.41 (local candidate): shared, cached prism / crystal-facet pass.
+/* v1.2.42: shared, cached prism / crystal-facet pass.
  * Inspired by the scottish-base-v2 crystal armour: cut-gem geometry,
  * flat facets with per-facet brightness, a deeper view-facing tint and a
  * grazing fresnel rim, without changing a subject's identity, colour or
@@ -56987,6 +57011,9 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       const g = prev.apply(this, arguments);
       try {
         if (!g) return g;
+        // Never prism world-shared block materials or dropped/held block cubes.
+        if (g.userData && g.userData.block) return g;
+        try { if (typeof PLACEABLE !== 'undefined' && PLACEABLE && PLACEABLE.has && PLACEABLE.has(id) && !(typeof TOOLS !== 'undefined' && TOOLS && TOOLS.has && TOOLS.has(id))) return g; } catch (_) {}
         const entry = (W.__held1240 && W.__held1240.entry) ? W.__held1240.entry(id) : null;
         const kind = (entry && entry.kind) || (g.userData && (g.userData.p761 ? 'p761' : g.userData.p760 ? 'p760' : g.userData.kind));
         const mat = entry && entry.mat;
@@ -57004,7 +57031,10 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
           applyPrism(g, {hint: 'metal', noShards: true});
           return g;
         }
-        applyPrism(g, {hint: hintFromId(id), noShards: true});
+        // Tools / guns only. Do not facet generic sprites or block items.
+        if (g.userData && g.userData.tool) {
+          applyPrism(g, {hint: hintFromId(id), noShards: true});
+        }
       } catch (e) { if (!U.err) U.err = 'item ' + e; }
       return g;
     };
@@ -57026,55 +57056,42 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     return 'default';
   }
 
-  function wrapTex() {
-    try {
-      if (typeof tex !== 'function' || tex.__prism1241) return;
-      const prev = tex;
-      tex = function (key) {
-        const t = prev.apply(this, arguments);
-        try { restyleTexKey(key); } catch (_) {}
-        return t;
-      };
-      tex.__prism1241 = 1;
-    } catch (e) { if (!U.err) U.err = 'texwrap ' + e; }
-  }
-  function restyleTexKey(key) {
-    try {
-      if (typeof texImg === 'undefined' || !texImg[key] || texImg[key].__prism1241) return;
-      const src = texImg[key];
-      const out = U.prismTile(src, key);
-      out.__prism1241 = 1;
-      texImg[key] = out;
-      if (typeof texCache !== 'undefined' && texCache[key]) {
-        texCache[key].image = out;
-        texCache[key].needsUpdate = true;
-      }
-    } catch (e) { if (!U.err) U.err = 'tile ' + e; }
-  }
-  U.restyleAllTiles = function () {
-    try {
-      if (typeof texImg === 'undefined') return 0;
-      let n = 0;
-      for (const k in texImg) { if (texImg[k] && !texImg[k].__prism1241) { restyleTexKey(k); n++; } }
-      return n;
-    } catch (e) { if (!U.err) U.err = 'tiles ' + e; return 0; }
-  };
+  // 1.2.42: do NOT wrap tex() or mutate texImg / texCache. Those are the shared
+  // world block atlas used by BLOCK_MATS / terrain chunks. Prism on them made
+  // every block texture re-upload and caused slideshow-level lag.
+  function wrapTex() { /* intentionally empty: world tiles stay at 1.2.40 */ }
+  function restyleTexKey(key) { return; }
+  U.restyleAllTiles = function () { return 0; };
+  U.worldTilesUntouched = 1;
 
-  function restyleIcons() {
+  const iconDone = U.iconDone = U.iconDone || new Set();
+  function restyleIcons(limit) {
     try {
       if (typeof ICONS === 'undefined') return 0;
+      // Defer until the world is playable so entering a game is not paying for
+      // a full 4K inventory icon restyle on the first click / pointer lock.
+      try { if (typeof started !== 'undefined' && !started && !U.forceIcons) return 0; } catch (_) {}
       let n = 0;
+      const max = limit == null ? 6 : limit;
       const set = function (id, url) {
         try { if (window.__c121 && __c121.setIcon) __c121.setIcon(id, url); } catch (_) {}
         ICONS[id] = url;
+        iconDone.add(id);
+        // Bust derived caches once when we first swap the icon, not every tick.
         try { delete ICON_KEY[id]; } catch (_) {}
         try { delete spriteMats[id]; } catch (_) {}
       };
       for (const k in ICONS) {
+        if (n >= max) break;
         const id = +k, url = ICONS[k];
-        if (!url || (typeof url === 'string' && url.__prism1241)) continue;
+        if (!url) continue;
+        if (iconDone.has(id)) continue;
         const styled = U.styleIconUrl(url, 'icon:' + id);
         if (styled && styled !== url) { set(id, styled); n++; }
+        else if (styled === url && typeof url === 'string' && url.indexOf('data:') === 0) iconDone.add(id);
+        else if (!styled || styled === url) {
+          // Image not ready yet — try again later without marking done.
+        }
       }
       U.iconApplied = (U.iconApplied || 0) + n;
       return n;
@@ -57162,32 +57179,219 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   U.dressListedMobs = dressListedMobs;
 
   U.install = function () {
-    if (U.hooked && U.hookRev === 2) return U;
-    U.hooked = 1; U.hookRev = 2;
+    if (U.hooked && U.hookRev === 3) return U;
+    U.hooked = 1; U.hookRev = 3;
     wrapMakeItemMesh();
-    wrapTex();
+    // wrapTex intentionally not called — world block atlas stays 1.2.40.
     hookIso();
     wrapMakers();
-    // Browser-only restyle tick. In node tests, an interval would keep the process alive.
+    // Browser-only: restyle inventory item icons once they exist, dress new mobs.
+    // Never restyle world tiles. Stop once icons stop changing.
     if (typeof document !== 'undefined') {
-      let tries = 0;
+      let tries = 0, idle = 0;
       const iv = setInterval(function () {
         try {
-          wrapMakeItemMesh(); wrapTex(); hookIso(); wrapMakers();
-          U.restyleAllTiles();
-          restyleIcons();
-          dressListedMobs();
+          wrapMakeItemMesh(); hookIso(); wrapMakers();
+          // After first playable frame only: a few icons per second, not the whole inventory.
+          let n = 0;
+          try { if (typeof started === 'undefined' || started) n = restyleIcons(4); } catch (_) { n = restyleIcons(4); }
+          try { if (typeof started === 'undefined' || started) dressListedMobs(); } catch (_) {}
+          if (n === 0) idle++; else idle = 0;
         } catch (e) { if (!U.err) U.err = 'tick ' + e; }
-        if (++tries > 120) clearInterval(iv);
-      }, 1000);
+        if (++tries > 90 || idle >= 12) clearInterval(iv);
+      }, 500);
     }
-    try { U.restyleAllTiles(); } catch (_) {}
     return U;
   };
   try { U.install(); } catch (e) { U.err = 'install: ' + e; }
 })(typeof window !== 'undefined' ? window : this);
 
 
+/* v1.2.42: adaptive 4K UHD preset.
+ * Keeps the 4K UHD label and visual features (materials, prism, lighting), but on
+ * weak / mobile / Android devices (and whenever measured FPS dips) scales the
+ * effective pixel ratio, shadow size, view distance, AA and particle budget to
+ * hold around 50–60 FPS. Steps down quickly, back up slowly. No popup. */
+(function adaptive4k1242(W) {
+  'use strict';
+  const U = W.__adapt4k1242 = W.__adapt4k1242 || {version: '1.2.42', err: null, on: 0};
+  const nav = (typeof navigator !== 'undefined') ? navigator : {};
+  const ua = String(nav.userAgent || '');
+  const cores = +nav.hardwareConcurrency || 0;
+  const mem = +nav.deviceMemory || 0;
+
+  const WEAK_GPU = /adreno \(tm\) [1-5]|adreno [1-5]|mali-[234]|mali-t|powervr|apple gpu|intel\(r\) hd|intel\(r\) uhd graphics 6|intel\(r\) iris\(r\) (plus )?6|swiftshader|llvmpipe|microsoft basic render/i;
+  const STRONG_GPU = /geforce rtx|radeon rx|quadro|apple m[1-9]|adreno \(tm\) [7-9]|adreno [7-9]|mali-g7|mali-g[89]|xclipse/i;
+
+  U.isAndroid = /Android/i.test(ua);
+  U.isMobileUA = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  U.isTouch = !!(W.touchMode || (typeof touchMode !== 'undefined' && touchMode) || ('ontouchstart' in (W || {})) || (W.matchMedia && W.matchMedia('(pointer: coarse)').matches));
+
+  U.gpuString = function () {
+    try {
+      const r = (typeof renderer !== 'undefined' && renderer) || W.renderer;
+      if (!r || !r.getContext) return U._gpu || '';
+      const gl = r.getContext();
+      if (!gl) return U._gpu || '';
+      const ext = gl.getExtension && gl.getExtension('WEBGL_debug_renderer_info');
+      const s = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) || '') : String(gl.getParameter(gl.RENDERER) || '');
+      U._gpu = s;
+      return s;
+    } catch (_) { return U._gpu || ''; }
+  };
+
+  // Tiers: full (desktop/strong), balanced (typical phone), light (weak).
+  U.pickTier = function (info) {
+    info = info || {};
+    const android = info.android != null ? !!info.android : U.isAndroid;
+    const mobile = info.mobile != null ? !!info.mobile : (U.isMobileUA || U.isTouch);
+    const c = info.cores != null ? info.cores : cores;
+    const m = info.mem != null ? info.mem : mem;
+    const gpu = String(info.gpu != null ? info.gpu : U.gpuString() || '');
+    if (STRONG_GPU.test(gpu) && !android) return 'full';
+    if (WEAK_GPU.test(gpu) || (android && c && c <= 4) || (m && m <= 2) || (mobile && c && c <= 4 && m && m <= 4)) return 'light';
+    if (android || mobile || (c && c <= 6) || (m && m <= 4) || WEAK_GPU.test(gpu)) return 'balanced';
+    if (c && c <= 4) return 'balanced';
+    return 'full';
+  };
+
+  U.TIER = {
+    full:     {prMax: 2.5, prMin: 1.0, shadow: 2048, rdist: 8, particles: 1.0, aa: 1},
+    balanced: {prMax: 1.35, prMin: 0.85, shadow: 1024, rdist: 6, particles: 0.55, aa: 0},
+    light:    {prMax: 1.1, prMin: 0.7, shadow: 512, rdist: 5, particles: 0.35, aa: 0}
+  };
+
+  U.capsFor = function (tier) {
+    const t = U.TIER[tier] || U.TIER.balanced;
+    const dpr = (typeof DPR !== 'undefined' ? DPR : (W.devicePixelRatio || 1)) || 1;
+    return {
+      tier: tier,
+      prMax: Math.min(dpr, t.prMax),
+      prMin: Math.min(dpr, t.prMin),
+      shadow: t.shadow,
+      rdist: t.rdist,
+      particles: t.particles,
+      aa: t.aa
+    };
+  };
+
+  function applyCaps(caps, reason) {
+    U.caps = caps;
+    U.reason = reason || U.reason || '';
+    try {
+      if (typeof renderer !== 'undefined' && renderer && renderer.setPixelRatio) {
+        const cur = renderer.getPixelRatio ? renderer.getPixelRatio() : caps.prMax;
+        const next = Math.max(caps.prMin, Math.min(caps.prMax, cur || caps.prMax));
+        if (Math.abs(next - cur) > 0.02) {
+          renderer.setPixelRatio(next);
+          try { if (typeof resize === 'function') resize(); } catch (_) {}
+        }
+        U.pr = next;
+      }
+    } catch (e) { if (!U.err) U.err = 'pr ' + e; }
+    try {
+      if (typeof SET !== 'undefined' && SET && typeof caps.rdist === 'number') {
+        // Only pull view distance down, never force it above a player-chosen higher value on strong machines mid-session.
+        if (SET.rdist == null || SET.rdist > caps.rdist) SET.rdist = caps.rdist;
+      }
+    } catch (_) {}
+    try {
+      if (typeof sunL !== 'undefined' && sunL && sunL.shadow && sunL.shadow.mapSize) {
+        const s = caps.shadow;
+        if (sunL.shadow.mapSize.x !== s) {
+          sunL.shadow.mapSize.set(s, s);
+          if (sunL.shadow.map) { try { sunL.shadow.map.dispose(); } catch (_) {} sunL.shadow.map = null; }
+        }
+      }
+    } catch (_) {}
+    try { W.__adaptParticles = caps.particles; } catch (_) {}
+    try { W.__adaptAA = caps.aa; } catch (_) {}
+  }
+
+  U.applyTier = function (tier, reason) {
+    U.tier = tier;
+    applyCaps(U.capsFor(tier), reason || tier);
+    return U.caps;
+  };
+
+  // Dynamic scaler: target ~55 FPS. Drop fast, raise slowly. No popup.
+  U.ema = 55;
+  U.hold = 0;
+  U.samples = 0;
+  U.tick = function (dt) {
+    if (!U.on) return U;
+    if (!(dt > 0) || dt > 0.5) return U;
+    try {
+      if (typeof started !== 'undefined' && !started) return U;
+      if (typeof paused !== 'undefined' && paused) return U;
+      if (typeof QUALITY !== 'undefined' && QUALITY !== '4k' && !U.force) return U;
+    } catch (_) {}
+    const fps = 1 / dt;
+    U.ema += (fps - U.ema) * Math.min(1, dt * 2.5);
+    U.samples++;
+    if (U.hold > 0) { U.hold--; return U; }
+    const caps = U.caps || U.capsFor(U.tier || 'balanced');
+    let pr = (typeof renderer !== 'undefined' && renderer.getPixelRatio) ? renderer.getPixelRatio() : caps.prMax;
+    let next = pr;
+    // Step down quickly when under ~50 FPS.
+    if (U.ema < 48 || fps < 40) {
+      next = Math.max(caps.prMin, pr * 0.82);
+      U.hold = 2;
+      // Also tighten view distance one step if still struggling after a few samples.
+      if (U.ema < 42 && typeof SET !== 'undefined' && SET && SET.rdist > Math.max(3, caps.rdist - 2)) {
+        try { SET.rdist = Math.max(3, SET.rdist - 1); } catch (_) {}
+      }
+    } else if (U.ema > 58 && fps > 55 && U.samples > 90) {
+      // Raise slowly only with sustained headroom.
+      next = Math.min(caps.prMax, pr * 1.04);
+      U.hold = 8;
+    }
+    if (Math.abs(next - pr) > 0.02) {
+      try {
+        renderer.setPixelRatio(next);
+        if (typeof resize === 'function') resize();
+        U.pr = next;
+        U.history = U.history || [];
+        U.history.push(+next.toFixed(2));
+        if (U.history.length > 24) U.history.shift();
+      } catch (e) { if (!U.err) U.err = 'tick ' + e; }
+    }
+    return U;
+  };
+
+  U.install = function () {
+    if (U.hooked) return U;
+    U.hooked = 1;
+    try {
+      const high = (typeof HIGH !== 'undefined') ? HIGH : (typeof QUALITY !== 'undefined' && QUALITY === '4k');
+      if (!high && !U.force) { U.on = 0; U.tier = 'full'; return U; }
+      U.on = 1;
+      // Initial tier from UA / memory / cores; refine with GPU string once available.
+      let tier = U.pickTier();
+      try { const g = U.gpuString(); if (g) tier = U.pickTier({gpu: g}); } catch (_) {}
+      U.applyTier(tier, 'boot');
+      // Disable legacy phone-only dynres fighting us when we own HIGH scaling.
+      try { if (tier !== 'full') W.__noDynRes = 1; } catch (_) {}
+    } catch (e) { U.err = 'install ' + e; }
+    try {
+      const hook = (fn) => {
+        if (typeof fn !== 'function' || fn.__adapt4k) return fn;
+        const wrap = function (dt) {
+          const r = fn.apply(this, arguments);
+          try { U.tick(typeof dt === 'number' ? dt : 0.016); } catch (_) {}
+          return r;
+        };
+        wrap.__adapt4k = 1;
+        return wrap;
+      };
+      if (typeof updateLights === 'function') updateLights = hook(updateLights);
+      else if (typeof updatePlayer === 'function') updatePlayer = hook(updatePlayer);
+    } catch (e) { if (!U.err) U.err = 'hook ' + e; }
+    return U;
+  };
+
+  try { U.install(); } catch (e) { U.err = 'boot ' + e; }
+})(typeof window !== 'undefined' ? window : this);
 
 </script>
 </body>

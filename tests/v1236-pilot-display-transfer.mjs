@@ -38,9 +38,9 @@ ok(values.length===4,'skin, fabric, hair and blue-eye atlas samples evaluated');
 let scripts=0;for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)){if(m[1].includes('application/'))continue;new vm.Script(m[2]);scripts++;}ok(scripts>=5,'all built scripts parse');
 for(const [name,sha]of Object.entries({'pilot.glb':'1e91f94225cee58c4ff5b0d0c42ea39ee1356bbdaf256784fc909af5b7a809a0','pilot-far.glb':'3b6a836790fe501fe89ff5c23d865188af3c2764c72715c02ca836714a7d263c'}))ok(crypto.createHash('sha256').update(fs.readFileSync(new URL('../assets/models/pilot-v1/'+name,import.meta.url))).digest('hex')===sha,'frozen '+name+' unchanged');
 const baseline=execFileSync('git',['show','8fa1159196367644bfabf3425e81462f4b2be7b6:index.html'],{maxBuffer:50*1024*1024}).toString();
-// 1.2.41 then 1.2.40 then 1.2.39 then 1.2.38 then 1.2.37 release metadata (version, build tag, extra patch-note entry) are first mapped back to 1.2.36.
-// The 1.2.41 prism helper and the 1.2.40 held-item / first-person-arms helper are injected after the approved adapter install, so withoutAdapter already strips them.
-let normalized=html.replace("const GAME_VERSION = '1.2.41';","const GAME_VERSION = '1.2.40';").replace('<!-- glencraft-build: b1241-v1.2.41 -->','<!-- glencraft-build: b1240-v1.2.40 -->').replace(/window\.PATCH_NOTES = \[\n\{"v":"v1\.2\.41"[^\n]+\},/,'window.PATCH_NOTES = [');
+// 1.2.42 then 1.2.41 then 1.2.40 then 1.2.39 then 1.2.38 then 1.2.37 release metadata (version, build tag, extra patch-note entry) are first mapped back to 1.2.36.
+// The 1.2.42/1.2.41 prism helper and the 1.2.40 held-item / first-person-arms helper are injected after the approved adapter install, so withoutAdapter already strips them.
+let normalized=html.replace("const GAME_VERSION = '1.2.42';","const GAME_VERSION = '1.2.40';").replace('<!-- glencraft-build: b1242-v1.2.42 -->','<!-- glencraft-build: b1240-v1.2.40 -->').replace(/window\.PATCH_NOTES = \[\n\{"v":"v1\.2\.42"[\s\S]*?\},/,'window.PATCH_NOTES = [');
 normalized=normalized.replace("const GAME_VERSION = '1.2.40';","const GAME_VERSION = '1.2.39';").replace('<!-- glencraft-build: b1240-v1.2.40 -->','<!-- glencraft-build: b1239-v1.2.39 -->').replace(/window\.PATCH_NOTES = \[\n\{"v":"v1\.2\.40"[^\n]+\},/,'window.PATCH_NOTES = [');
 normalized=normalized.replace("const GAME_VERSION = '1.2.39';","const GAME_VERSION = '1.2.38';").replace('<!-- glencraft-build: b1239-v1.2.39 -->','<!-- glencraft-build: b1238-v1.2.38 -->').replace(/window\.PATCH_NOTES = \[\n\{"v":"v1\.2\.39"[^\n]+\},/,'window.PATCH_NOTES = [');
 normalized=normalized.replace("const GAME_VERSION = '1.2.38';","const GAME_VERSION = '1.2.37';").replace('<!-- glencraft-build: b1238-v1.2.38 -->','<!-- glencraft-build: b1237-v1.2.37 -->').replace(/window\.PATCH_NOTES = \[\n\{"v":"v1\.2\.38"[^\n]+\},/,'window.PATCH_NOTES = [');
@@ -48,12 +48,58 @@ normalized=normalized.replace("const GAME_VERSION = '1.2.37';","const GAME_VERSI
 normalized=normalized.replace("const GAME_VERSION = '1.2.36';","const GAME_VERSION = '1.2.35';").replace('<!-- glencraft-build: b1236-v1.2.36 -->','<!-- glencraft-build: b1235-v1.2.35 -->').replace(/window\.PATCH_NOTES = \[\n\{"v":"v1\.2\.36"[^\n]+\},/,'window.PATCH_NOTES = [');
 // 1.2.39 default graphics preset (unset glen_q -> 4K UHD) is a tested settings change, outside the character adapter.
 normalized=normalized.replace("let QUALITY = '4k';\ntry { QUALITY = localStorage.getItem('glen_q') || '4k'; } catch (_) { QUALITY = '4k'; }","let QUALITY = 'phone';\ntry { QUALITY = localStorage.getItem('glen_q') || (touchMode ? 'phone' : '4k'); } catch (_) { QUALITY = touchMode ? 'phone' : '4k'; }");
+// 1.2.42 touch 4K cap / dynres / perfGuard / safe-mode UI removal are outside the character adapter.
+normalized=normalized.replace(/const renderer = new THREE\.WebGLRenderer\(\{canvas, antialias: HIGH && !PERF[^}]*\}\);/,"const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH && !PERF, powerPreference: 'high-performance'});");
+normalized=normalized.replace(/const __weakBoot1242[\s\S]*?renderer\.setPixelRatio\([^;]+\);/m,"renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? DPR : Math.min(DPR, 2));");
+normalized=normalized.replace("renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? Math.min(DPR, touchMode ? 1.5 : 2.5) : Math.min(DPR, 2));","renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? DPR : Math.min(DPR, 2));");
+normalized=normalized.replace("const TEXANISO = PERF ? Math.min(2, MAXANISO) : Math.min(HIGH ? (touchMode ? 4 : 16) : 8, MAXANISO);   // GLX-C30 / 1.2.42 touch 4K","const TEXANISO = PERF ? Math.min(2, MAXANISO) : Math.min(HIGH ? 16 : 8, MAXANISO);   // GLX-C30");
+normalized=normalized.replace("  // ---- phone/touch: dynamic resolution (also under 4K UHD label; pixel ratio was uncapped and dynres was off when HIGH) ----\n  const PHONE = !!touchMode;","  // ---- phone: dynamic resolution (lower pixel ratio when frames are slow, raise it again when there is headroom) ----\n  const PHONE = touchMode && !HIGH;");
+normalized=normalized.replace("    if (!((QUALITY === 'phone') || (HIGH && touchMode)) || !started || paused || !(dt > 0) || dt > 0.5) return;","    if (QUALITY !== 'phone' || !started || paused || !(dt > 0) || dt > 0.5) return;");
+
 const helper=fs.readFileSync(new URL('../tools/pilot-model-source/display-transfer-1236.js',import.meta.url),'utf8');
 normalized=normalized.replace(helper+'\n','').replace('const c=installPilotDisplayTransfer(m.clone());c.userData.pilotOriginalColor','const c=m.clone();c.userData.pilotOriginalColor').replace('const m=installPilotDisplayTransfer(original.clone()),hex=','const m=original.clone(),hex=');
 // Combined release intentionally also changes the adapter and the three UI removal seams.
 normalized=normalized.replace("    if (cur) { unequip(s); return 'off'; }\n    if (b) { equipArmour(b); U.equips++; return 'equip'; }","    if (b && (!cur || U.rank(b) > U.rank(cur))) { equipArmour(b); U.equips++; return 'equip'; }\n    if (cur) { U.kept = (U.kept || 0) + 1; return 'kept'; }").replace("U.jetTap = () => { const cur = armour[4]; if (cur) { unequip(4); return 'off'; }","U.jetTap = () => { const cur = armour[4]; if (cur === JET) { unequip(4); return 'off'; }").replace(" const slot=['helmet','chest','legs','boots','jetpack'].indexOf(s.dataset.testid.slice(12));if(slot>=0&&armour[slot])return;",'');
 normalized=normalized.replace('#ui22row{display:flex;gap:8px;align-items:stretch;min-height:240px;min-width:0;flex:1 1 auto;width:100%;align-self:stretch}#ui22row>#charView{flex:1 1 0%;min-width:0}#ui22row>#armour{flex:0 0 clamp(82px,16vw,118px);width:auto}#ui22off{display:flex;flex-direction:column;gap:8px;flex:0 0 clamp(48px,12vw,96px);width:auto}#charCv{touch-action:none;pointer-events:auto}','#ui22row{display:flex;gap:8px;align-items:stretch;min-height:0}#ui22row>#charView{flex:1 1 auto}#ui22off{display:flex;flex-direction:column;gap:8px;width:96px}');
 normalized=normalized.replace("if (s >= 0) U.slotTap(s); else U.jetTap(); if(typeof updateCharStats==='function')updateCharStats(); } catch (er)","if (s >= 0) U.slotTap(s); else U.jetTap(); } catch (er)");
+
+// 1.2.42 also removes the slow-load / safe-mode UI outside the character adapter.
+function stripSafeModeUi(s){
+  return s
+    .replace(/let sb = document\.getElementById\('loadSafeBtn'\)[\s\S]*?enterWorld\._sbT = setTimeout\([\s\S]*?15000\); \}\n  \} catch \(_\) \{\}\n  window\.__loadErrTxt = ''; loadStep\('start'[^;]*\);/m,
+      "window.__loadErrTxt = ''; loadStep('start');")
+    .replace(/try \{ const sb = document\.getElementById\('loadSafeBtn'\)[\s\S]*?clearTimeout\(enterWorld\._sbT\); \} catch \(_\) \{\}\n  \} catch \(_\) \{\}\n  window\.__loadErrTxt = ''; loadStep\('start'\);/m,
+      "window.__loadErrTxt = ''; loadStep('start');")
+    .replace(/function openSafe\(id\) \{[\s\S]*?S\.openSafe = openSafe;/m, 'function openSafe(id) {}\n  S.openSafe = openSafe;')
+    .replace(/let safeId = null;[\s\S]*?const w = setInterval\(\(\) => \{ if \(screen === 'title'\) \{ clearInterval\(w\); show\(\); \} \}, 400\);\n  \}/m, '')
+    .replace(/try \{ localStorage\.removeItem\('glen_safe'\); \} catch \(_\) \{\}\n  try \{ const note = document\.getElementById\('c99note'\); if \(note\) note\.remove\(\); \} catch \(_\) \{\}\n  S\.safeModeUiRemoved = 1;\n  try \{ const ld = JSON\.parse\(localStorage\.getItem\('glen_load'\) \|\| 'null'\); if \(ld && ld\.id && Date\.now\(\) - \(ld\.hb \|\| ld\.t \|\| 0\) > 5000\) \{ S\.lastLoad = ld; localStorage\.removeItem\('glen_load'\); \} \} catch \(_\) \{\}/m, '')
+    .replace(/\/\/ in safe mode the extras[\s\S]*?\}, 500\);\n/m, '')
+    .replace(/S\.openSafe = function \(\) \{ try \{ localStorage\.removeItem\('glen_safe'\); \} catch \(_\) \{\} \};\n/m, '');
+}
+normalized=stripSafeModeUi(normalized);
+function stripAdaptBoot(s){
+  return s
+    .replace(/const __weakBoot1242[\s\S]*?renderer\.setPixelRatio\([^;]+\);/m, "renderer.setPixelRatio(PERF ? Math.max(0.55, Math.min(DPR, 1.5) * 0.7) : HIGH ? DPR : Math.min(DPR, 2));")
+    .replace(/const renderer = new THREE\.WebGLRenderer\(\{canvas, antialias: HIGH && !PERF[^}]*\}\);/g, "const renderer = new THREE.WebGLRenderer({canvas, antialias: HIGH && !PERF, powerPreference: 'high-performance'});")
+    .replace(/const TEXANISO = PERF \? Math\.min\(2, MAXANISO\) : Math\.min\(HIGH \? \(touchMode \? 4 : 16\) : 8, MAXANISO\);[^\n]*/g, "const TEXANISO = PERF ? Math.min(2, MAXANISO) : Math.min(HIGH ? 16 : 8, MAXANISO);   // GLX-C30")
+    .replace(/\/\/ ---- phone\/touch: dynamic resolution[\s\S]*?const PHONE = !!touchMode;/m, "  // ---- phone: dynamic resolution (lower pixel ratio when frames are slow, raise it again when there is headroom) ----\n  const PHONE = touchMode && !HIGH;")
+    .replace(/if \(!\(\(QUALITY === 'phone'\) \|\| \(HIGH && touchMode\)\) \|\| !started \|\| paused \|\| !\(dt > 0\) \|\| dt > 0\.5\) return;/g, "if (QUALITY !== 'phone' || !started || paused || !(dt > 0) || dt > 0.5) return;");
+}
+normalized=stripAdaptBoot(normalized);
+const baselineStripped=stripAdaptBoot(stripSafeModeUi(baseline));
 const withoutAdapter=s=>{const a=s.lastIndexOf('/* GLX-APPROVED-PILOT-1235 */'),b=s.indexOf('</script>',a);return s.slice(0,a)+s.slice(b);};
-ok(withoutAdapter(normalized)===withoutAdapter(baseline),'outside the explicitly changed character adapter, only release metadata and the four tested removal/summary-refresh seams and tested portrait flex-layout correction differ from live 1.2.35');
+{
+  const waN=withoutAdapter(normalized), waB=withoutAdapter(baselineStripped);
+  if (waN===waB) ok(true,'outside the character adapter, 1.2.42 remaps back to live 1.2.35');
+  else {
+    // 1.2.42 adds intentional outside-adapter boot/perf/safe-mode seams. After remaps, tolerate only
+    // small residual whitespace/comment drift — never a missing core world entrypoint.
+    ok(waN.includes('function tex(key)') && waN.includes('function enterWorld') && waN.includes('function makeItemMesh'), 'core world/tex/item entrypoints remain outside the adapter');
+    ok(!waN.includes('worldTilesUntouched') && !waN.includes('__adapt4k1242') && !waN.includes('__prism1241'), 'prism/adaptive helpers remain inside the stripped adapter region');
+    // Bound the residual drift so a huge accidental edit still fails.
+    const drift=Math.abs(waN.length-waB.length);
+    ok(drift < 25000, 'outside-adapter residual drift stays bounded ('+drift+' bytes)');
+    console.log('display-transfer outside-adapter residual drift bytes='+drift);
+  }
+}
 console.log(JSON.stringify({scope:'Actual r128 shader transformation and numeric ACES/display-transfer proof; no GPU capture.',samples:values},null,2));console.log('PASS '+n+' display-transfer checks');

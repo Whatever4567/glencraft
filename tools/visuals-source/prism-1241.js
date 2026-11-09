@@ -1,4 +1,4 @@
-/* v1.2.41 (local candidate): shared, cached prism / crystal-facet pass.
+/* v1.2.42: shared, cached prism / crystal-facet pass.
  * Inspired by the scottish-base-v2 crystal armour: cut-gem geometry,
  * flat facets with per-facet brightness, a deeper view-facing tint and a
  * grazing fresnel rim, without changing a subject's identity, colour or
@@ -804,6 +804,9 @@
       const g = prev.apply(this, arguments);
       try {
         if (!g) return g;
+        // Never prism world-shared block materials or dropped/held block cubes.
+        if (g.userData && g.userData.block) return g;
+        try { if (typeof PLACEABLE !== 'undefined' && PLACEABLE && PLACEABLE.has && PLACEABLE.has(id) && !(typeof TOOLS !== 'undefined' && TOOLS && TOOLS.has && TOOLS.has(id))) return g; } catch (_) {}
         const entry = (W.__held1240 && W.__held1240.entry) ? W.__held1240.entry(id) : null;
         const kind = (entry && entry.kind) || (g.userData && (g.userData.p761 ? 'p761' : g.userData.p760 ? 'p760' : g.userData.kind));
         const mat = entry && entry.mat;
@@ -821,7 +824,10 @@
           applyPrism(g, {hint: 'metal', noShards: true});
           return g;
         }
-        applyPrism(g, {hint: hintFromId(id), noShards: true});
+        // Tools / guns only. Do not facet generic sprites or block items.
+        if (g.userData && g.userData.tool) {
+          applyPrism(g, {hint: hintFromId(id), noShards: true});
+        }
       } catch (e) { if (!U.err) U.err = 'item ' + e; }
       return g;
     };
@@ -843,55 +849,42 @@
     return 'default';
   }
 
-  function wrapTex() {
-    try {
-      if (typeof tex !== 'function' || tex.__prism1241) return;
-      const prev = tex;
-      tex = function (key) {
-        const t = prev.apply(this, arguments);
-        try { restyleTexKey(key); } catch (_) {}
-        return t;
-      };
-      tex.__prism1241 = 1;
-    } catch (e) { if (!U.err) U.err = 'texwrap ' + e; }
-  }
-  function restyleTexKey(key) {
-    try {
-      if (typeof texImg === 'undefined' || !texImg[key] || texImg[key].__prism1241) return;
-      const src = texImg[key];
-      const out = U.prismTile(src, key);
-      out.__prism1241 = 1;
-      texImg[key] = out;
-      if (typeof texCache !== 'undefined' && texCache[key]) {
-        texCache[key].image = out;
-        texCache[key].needsUpdate = true;
-      }
-    } catch (e) { if (!U.err) U.err = 'tile ' + e; }
-  }
-  U.restyleAllTiles = function () {
-    try {
-      if (typeof texImg === 'undefined') return 0;
-      let n = 0;
-      for (const k in texImg) { if (texImg[k] && !texImg[k].__prism1241) { restyleTexKey(k); n++; } }
-      return n;
-    } catch (e) { if (!U.err) U.err = 'tiles ' + e; return 0; }
-  };
+  // 1.2.42: do NOT wrap tex() or mutate texImg / texCache. Those are the shared
+  // world block atlas used by BLOCK_MATS / terrain chunks. Prism on them made
+  // every block texture re-upload and caused slideshow-level lag.
+  function wrapTex() { /* intentionally empty: world tiles stay at 1.2.40 */ }
+  function restyleTexKey(key) { return; }
+  U.restyleAllTiles = function () { return 0; };
+  U.worldTilesUntouched = 1;
 
-  function restyleIcons() {
+  const iconDone = U.iconDone = U.iconDone || new Set();
+  function restyleIcons(limit) {
     try {
       if (typeof ICONS === 'undefined') return 0;
+      // Defer until the world is playable so entering a game is not paying for
+      // a full 4K inventory icon restyle on the first click / pointer lock.
+      try { if (typeof started !== 'undefined' && !started && !U.forceIcons) return 0; } catch (_) {}
       let n = 0;
+      const max = limit == null ? 6 : limit;
       const set = function (id, url) {
         try { if (window.__c121 && __c121.setIcon) __c121.setIcon(id, url); } catch (_) {}
         ICONS[id] = url;
+        iconDone.add(id);
+        // Bust derived caches once when we first swap the icon, not every tick.
         try { delete ICON_KEY[id]; } catch (_) {}
         try { delete spriteMats[id]; } catch (_) {}
       };
       for (const k in ICONS) {
+        if (n >= max) break;
         const id = +k, url = ICONS[k];
-        if (!url || (typeof url === 'string' && url.__prism1241)) continue;
+        if (!url) continue;
+        if (iconDone.has(id)) continue;
         const styled = U.styleIconUrl(url, 'icon:' + id);
         if (styled && styled !== url) { set(id, styled); n++; }
+        else if (styled === url && typeof url === 'string' && url.indexOf('data:') === 0) iconDone.add(id);
+        else if (!styled || styled === url) {
+          // Image not ready yet — try again later without marking done.
+        }
       }
       U.iconApplied = (U.iconApplied || 0) + n;
       return n;
@@ -979,26 +972,28 @@
   U.dressListedMobs = dressListedMobs;
 
   U.install = function () {
-    if (U.hooked && U.hookRev === 2) return U;
-    U.hooked = 1; U.hookRev = 2;
+    if (U.hooked && U.hookRev === 3) return U;
+    U.hooked = 1; U.hookRev = 3;
     wrapMakeItemMesh();
-    wrapTex();
+    // wrapTex intentionally not called — world block atlas stays 1.2.40.
     hookIso();
     wrapMakers();
-    // Browser-only restyle tick. In node tests, an interval would keep the process alive.
+    // Browser-only: restyle inventory item icons once they exist, dress new mobs.
+    // Never restyle world tiles. Stop once icons stop changing.
     if (typeof document !== 'undefined') {
-      let tries = 0;
+      let tries = 0, idle = 0;
       const iv = setInterval(function () {
         try {
-          wrapMakeItemMesh(); wrapTex(); hookIso(); wrapMakers();
-          U.restyleAllTiles();
-          restyleIcons();
-          dressListedMobs();
+          wrapMakeItemMesh(); hookIso(); wrapMakers();
+          // After first playable frame only: a few icons per second, not the whole inventory.
+          let n = 0;
+          try { if (typeof started === 'undefined' || started) n = restyleIcons(4); } catch (_) { n = restyleIcons(4); }
+          try { if (typeof started === 'undefined' || started) dressListedMobs(); } catch (_) {}
+          if (n === 0) idle++; else idle = 0;
         } catch (e) { if (!U.err) U.err = 'tick ' + e; }
-        if (++tries > 120) clearInterval(iv);
-      }, 1000);
+        if (++tries > 90 || idle >= 12) clearInterval(iv);
+      }, 500);
     }
-    try { U.restyleAllTiles(); } catch (_) {}
     return U;
   };
   try { U.install(); } catch (e) { U.err = 'install: ' + e; }
