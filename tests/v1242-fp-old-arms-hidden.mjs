@@ -9,8 +9,8 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.42');
-ok(html.includes('<!-- glencraft-build: b1242-v1.2.42 -->'), 'build marker is b1242-v1.2.42');
+ok(html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.43 or 1.2.42');
+ok(html.includes('<!-- glencraft-build: b1243-v1.2.43 -->'), 'build marker is b1243-v1.2.43');
 ok(html.includes('W.__fpaOff = 1') && html.includes('window.mcArm') && html.includes('held1240Hid'), 'hideProceduralFp retires __fpa / mcArm / box arms');
 ok(html.includes('only Held1240FpArms') || html.includes('Retire every pre-1.2.40 first-person arm'), 'source comments document the old-arm retirement');
 

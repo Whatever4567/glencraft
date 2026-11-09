@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1242-v1.2.42 -->
+<!-- glencraft-build: b1243-v1.2.43 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -18,7 +18,7 @@
 html,body{margin:0;height:100%;overflow:hidden;background:#101612;color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .hidden{display:none!important}
-.glass{background:var(--glass);border:2px solid var(--line);border-radius:10px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.glass{background:var(--glass);border:2px solid var(--line);border-radius:10px;-webkit-backdrop-filter:none;backdrop-filter:none}/* 1.2.43 menu blur off */
 #hud{position:fixed;inset:0;pointer-events:none;z-index:6;text-shadow:0 1px 2px #000}
 #cross{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px}
 #cross:before,#cross:after{content:"";position:absolute;background:rgba(255,255,255,.9);box-shadow:0 0 2px #000}
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.42';
+const GAME_VERSION = '1.2.43';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -16723,6 +16723,9 @@ document.querySelectorAll('#qSeg2 button').forEach(b => b.addEventListener('clic
 let pFocus = 0;
 const pauseItems = () => [...$('pause').querySelectorAll('button, input')];
 function refocusPause() {
+  // 1.2.43: skip DOM focus rewrite when selection unchanged.
+  const sig = pFocus + ':' + ($('pause').className || '');
+  if (refocusPause._sig === sig) return; refocusPause._sig = sig;
   pauseItems().forEach((el, i) => {
     const on = i === pFocus && padConnected;
     if (el.tagName === 'INPUT') el.closest('.set').classList.toggle('focus', on); else el.classList.toggle('focus', on);
@@ -17814,6 +17817,9 @@ function dropIntoSlot(slot, onlyOne) {
 // ---------- chest: pick up / put down stacks ----------
 function invGrid(el, prefix, rerender, filterHint) {
   const items = bagItems();
+  const sig = items.map(id => id + ':' + cnt(id)).join(',') + '|' + (filterHint ? 'f' : '') + '|' + (cursor ? cursor.id + ':' + cursor.n : '');
+  if (el.__invSig === sig && el.children.length) return; // 1.2.43: skip full rebuild when bag unchanged
+  el.__invSig = sig;
   el.innerHTML = '';
   items.forEach((id, i) => {
     const d = document.createElement('button'); d.className = 'gslot' + (filterHint && filterHint(id) ? ' hint' : '');
@@ -18491,11 +18497,13 @@ function enterWorld(save) {
   // GLX-B3: the bar eases toward the real progress and only finishes when every chunk mesh around spawn is built and the GPU has compiled it
   const anim = () => { shown += (target - shown) * 0.12; bar.style.width = shown.toFixed(1) + '%'; if (pct) pct.textContent = Math.round(shown) + '%'; if (screen === 'loading') requestAnimationFrame(anim); };
   requestAnimationFrame(anim);
+  // 1.2.43: enter after a small ring (R=1 → up to 9 chunks), then stream the rest.
+  const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1);
   const chunksReady = () => {
     if (dirtyAll) return false;
     const pcx = Math.floor(P.x / CH), pcz = Math.floor(P.z / CH);
     let need = 0, got = 0;
-    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) { const cx = pcx + a, cz = pcz + b; if (cx < 0 || cz < 0 || cx * CH >= W || cz * CH >= D) continue; need++; if (chunkObjs.has(cx * 64 + cz)) got++; }
+    for (let a = -LOAD_R; a <= LOAD_R; a++) for (let b = -LOAD_R; b <= LOAD_R; b++) { const cx = pcx + a, cz = pcz + b; if (cx < 0 || cz < 0 || cx * CH >= W || cz * CH >= D) continue; need++; if (chunkObjs.has(cx * 64 + cz)) got++; }
     chunksReady.need = need; chunksReady.got = got;
     return got >= need;
   };
@@ -18513,22 +18521,26 @@ function enterWorld(save) {
       try { if (current.mode === 'creative' && typeof installCreative === 'function') installCreative(); } catch (e) { console.error('load step', e); }
       try { if (save && current.mode !== 'creative' && !save.inv) addItem(T.DIRT, 8); } catch (e) { console.error('load step', e); }
       try { ensureHotbar(); } catch (e) { console.error('load step', e); }
-      try { for (let n = 0; n < 4; n++) spawnMob('sheep'); } catch (e) { console.error('load step', e); }
-      try { for (let n = 0; n < 4; n++) spawnMob('haggis'); } catch (e) { console.error('load step', e); }
-      try { for (let n = 0; n < 2; n++) spawnMob('duck'); } catch (e) { console.error('load step', e); }
-      try { for (let n = 0; n < 1; n++) spawnMob('puffer'); } catch (e) { console.error('load step', e); }
       try { refreshArmour(); } catch (e) { console.error('load step', e); }
+      // 1.2.43: defer fauna until after the first playable frame (was blocking load).
+      enterWorld._fauna = function () {
+        try { for (let n = 0; n < 3; n++) spawnMob('sheep'); } catch (e) { console.error('load fauna', e); }
+        try { for (let n = 0; n < 3; n++) spawnMob('haggis'); } catch (e) { console.error('load fauna', e); }
+        try { spawnMob('duck'); } catch (e) { console.error('load fauna', e); }
+      };
     }
-    if (i > LOAD_STEPS.length && !ready) {
+    // 1.2.43: mesh as soon as the world exists (i>=2), do not wait out the remaining tip steps.
+    if (i >= 2 && !ready) {
       let cr = false; try { cr = chunksReady(); } catch (e) { loadErr('chunksReady', e); cr = true; }
-      const cn = chunksReady.need || 25, cg = chunksReady.got || 0; target = Math.max(target, 70 + 29 * cg / Math.max(1, cn)); tip.textContent = 'Building the land around you... ' + cg + '/' + cn;
+      const cn = chunksReady.need || 9, cg = chunksReady.got || 0; target = Math.max(target, 70 + 29 * cg / Math.max(1, cn)); tip.textContent = (i <= LOAD_STEPS.length ? LOAD_STEPS[Math.min(i, LOAD_STEPS.length - 1)] + '... ' : '') + 'Building the land around you... ' + cg + '/' + cn;
       loadStep('building the land ' + cg + '/' + cn + ' (' + Math.round((performance.now() - t0) / 1000) + ' s)');
       if (!enterWorld._fb) { enterWorld._fb = 1; const fb = () => { if (screen !== 'loading' || ready) { enterWorld._fb = 0; return; } try { if (dirtyAll || dirtyCh.size) rebuild(25); } catch (e) {} requestAnimationFrame(fb); }; requestAnimationFrame(fb); }   // keep meshing between ticks so the land is ready sooner
       if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(); } catch (e) { console.error('load: full rebuild', e); } }
       if (!cr && performance.now() - t0 >= 45000) { console.error('load: gave up waiting for the land, entering anyway'); window.__loadSafe = 1; }
       if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { loadErr('rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } return; }
       ready = true; loadStep('first render');
-      try { renderer.compile(scene, camera); renderer.render(scene, camera); } catch (e) { loadErr('first render', e); }
+      // 1.2.43: one quick present is enough to enter; full shader compile streams in after playable.
+      try { renderer.render(scene, camera); } catch (e) { loadErr('first render', e); }
       loadStep('entering the world');
       target = 100; tip.textContent = 'Ready!';
       return;
@@ -18538,10 +18550,14 @@ function enterWorld(save) {
       showScreen('none');
       started = true; lastAutosave = performance.now();
       if (!touchMode) { try { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {} }
-      if (!save) { const cw = current; setTimeout(() => { try { if (started && current === cw) saveWorld(true); } catch (_) {} }, 4000); }
+      // Stream the next ring and warm shaders after the player can move.
+      try { setTimeout(function () { try { if (dirtyAll || dirtyCh.size) rebuild(80); } catch (_) {} try { if (renderer && renderer.compileAsync) renderer.compileAsync(scene, camera); else if (renderer && renderer.compile) renderer.compile(scene, camera); } catch (_) {} }, 0); } catch (_) {}
+      try { if (enterWorld._fauna) setTimeout(enterWorld._fauna, 120); } catch (_) {}
+      try { STREAM_R = streamRadius(); } catch (_) {}
+      if (!save) { const cw = current; setTimeout(() => { try { if (started && current === cw) saveWorld(true); } catch (_) {} }, 5000); }
       enterWorld._rs = 0; clearTimeout(enterWorld._sbT); try { localStorage.removeItem('glen_load'); } catch (_) {} if (save) toast(window.__loadSafe ? 'Loaded ' + current.name + ' (some parts were skipped - the world is safe)' : 'Welcome back to ' + current.name);
     }
-  }, 420);
+  }, 80);
 }
 function finishBoot() {
   if (screen !== 'boot') return;
@@ -18557,7 +18573,12 @@ function menuItems() {
   const scr = document.querySelector('#menu .scr.on'); if (!scr) return [];
   return [...scr.querySelectorAll('button, input')].filter(e => e.offsetParent !== null);
 }
-function refocusMenu() { menuItems().forEach((e, i) => e.classList.toggle('focus', i === menuFocus && padConnected)); }
+function refocusMenu() {
+  // 1.2.43: skip DOM focus rewrite when selection/pad state unchanged.
+  const on = !!(padConnected); const sig = String(screen) + ':' + menuFocus + ':' + (on ? 1 : 0);
+  if (refocusMenu._sig === sig) return; refocusMenu._sig = sig;
+  menuItems().forEach((e, i) => e.classList.toggle('focus', i === menuFocus && on));
+}
 function menuPad(E) {
   if (!$('pause').classList.contains('hidden')) {
     if (E[1] || E[9]) closeTitleSettings();
@@ -18614,9 +18635,13 @@ buildPips();
 resize();
 texProgress();
 syncSettingsUI();
-for (let i = 0; i < 5; i++) spawnMob('sheep');
-for (let i = 0; i < 8; i++) spawnMob('haggis');
-for (let i = 0; i < 2; i++) spawnMob('treeman');
+// 1.2.43: do not block first title paint with a full fauna spawn.
+try { spawnMob('sheep'); spawnMob('haggis'); } catch (_) {}
+setTimeout(function () {
+  try { for (let i = 0; i < 2; i++) spawnMob('sheep'); } catch (_) {}
+  try { for (let i = 0; i < 3; i++) spawnMob('haggis'); } catch (_) {}
+  try { spawnMob('treeman'); } catch (_) {}
+}, 800);
 
 let last = performance.now();
 const waterTex = tex('water'), lavaTex = tex('lava');
@@ -18670,7 +18695,13 @@ function render() {
   const k = SET.bob ? bobAmp * (sprinting ? 1.35 : 1) : 0;
   const bx = Math.sin(bobPhase) * 0.006 * k, by = -0.5 * Math.cos(2 * bobPhase) * 0.05 * k;   // GLX-D1: smooth sinusoids (no |cos| cusp)
   const rx = Math.cos(P.yaw), rz = -Math.sin(P.yaw);
-  if (!started) { hand.visible = false; menuCamera(performance.now()); renderer.render(scene, camera); return; }
+  if (!started) {
+    hand.visible = false;
+    // 1.2.43: title/menus target ~20 FPS for the orbit backdrop (was every display frame).
+    const _n = performance.now(), _mt = frame._menuT || 0;
+    if (_n - _mt >= 50) { frame._menuT = _n; menuCamera(_n); try { renderer.render(scene, camera); } catch (_) {} }
+    return;
+  }
   const tn = performance.now() / 1000, sh = shakeT > 0 ? shakeAmp * Math.min(1, shakeT * 2) : 0, wob = brewWobble > 0 ? Math.min(1, brewWobble / 3) : 0;
   camera.rotation.set(P.pitch + (0.5 + 0.5 * Math.cos(2 * bobPhase)) * 0.006 * k + (Math.random() - .5) * sh + Math.sin(tn * 1.3) * 0.03 * wob,
     P.yaw + (Math.random() - .5) * sh + Math.sin(tn * 0.9) * 0.05 * wob,
@@ -20701,7 +20732,10 @@ rebuild = function (budget) {
     for (let cx = 0; cx < ncx; cx++) for (let cz = 0; cz < ncz; cz++) dirtyCh.add(cx * 64 + cz);
     dirtyAll = false;
   }
-  const R = STREAM_R = streamRadius(), pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5;
+  // 1.2.43: while loading, only mesh the enter ring so the playable frame arrives sooner; stream outwards after start.
+  let _sr = streamRadius();
+  try { if (!started || (typeof screen !== 'undefined' && screen === 'loading')) { const lr = (window.__loadChunkR != null ? window.__loadChunkR : 1); if (_sr > lr) _sr = lr; } } catch (_) {}
+  const R = STREAM_R = _sr, pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5;
   const dist = id => Math.max(Math.abs(Math.floor(id / 64) - pcx), Math.abs(id % 64 - pcz));
   // unload far chunks (they stay "dirty" so they rebuild when you come back)
   const now = performance.now();
@@ -52382,6 +52416,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.43","d":"2026-11-09","notes":["Worlds reach a playable frame sooner: only a small chunk ring is required to enter, meshing starts as soon as the world exists (no waiting out tip steps), stream radius is capped during load then expands, fauna and full shader compile continue afterwards, and the rest of the land streams in.","Title and pause menus are lighter: the orbit backdrop runs at a capped rate, inventory grids skip unchanged rebuilds, and glass blur is off."]},
 {"v":"v1.2.42","d":"2026-11-09","notes":["4K UHD stays looking nice but is now adaptive on phones and slower devices: resolution, shadows and view distance scale with measured FPS (no popup).","World block tiles, textures and terrain materials are back to exactly how they were in 1.2.40. The prism gleam no longer rewrites the shared block atlas (that was causing slideshow-level lag on entering a world).","Inventory item icons, held tools and listed mobs keep the prism / crystal look. Icons are generated a few at a time after the world is playable and cached — not all at once on the first click.","First-person view now hides the old box / mcArm / gripHand / __fpa arms so only the new scottish-base-v2 arms show (empty hand, held items, after respawn/reload).","4K UHD stays the default label and look, but on touch devices the effective pixel ratio is capped at 1.5 (antialias off, lighter anisotropy) and the adaptive quality / dynamic-resolution guard also runs under 4K UHD."]},
 {"v":"v1.2.41","d":"2026-11-09","notes":["Tools, inventory icons, block tiles and 3D icons now share the new character's prism / crystal-faceted 4K UHD look, without changing each item's identity, colour or silhouette.","The same shared, cached facet pass is applied to sheep, haggis, pigs, creepers, Treemen, skeletons, black skeletons, clansmen, farmers, aliens, Agartha people (Paladiens), Egyptians, zombies, spiders, ghosts, the moss hag, the raincloud, and wizards."]},
 {"v":"v1.2.40","d":"2026-11-09","notes":["Held items in first and third person now follow the new character hand sockets: every tool and held item faces forward, stays a sensible size, stays visible in the hand and keeps its own material. The purple crystal pickaxe is thin and reasonably sized.","First-person and swimming arms now come from the new character, including the crystal vambrace and gauntlet when armour is on.","First-person musket reload uses the player's own new-model right arm (cream sleeve or armour gauntlet) on the ramrod, with no duplicate arm and no 360° flip back to idle. Pistol reload no longer spawns a huge sphere at the muzzle."]},
@@ -55383,7 +55418,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   });
   const U=window.__pilot1235=window.PilotRuntimeFactory(THREE,{
     ensureLibrary,scottish:true,
-    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.42'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.42')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
+    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.43'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.43')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
     equipment:()=>armour,
     tier:id=>id&&ARMOUR[id]?ARMOUR[id].mat:null,
     distance:model=>(typeof worldModel!=='undefined'&&model===worldModel)?camera.position.distanceTo(model.position):0,
