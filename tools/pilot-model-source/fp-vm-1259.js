@@ -82,10 +82,12 @@
       item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.12 }
     },
     pistolAds: {
-      two: 1, hs: 1.12,
-      R: { sh: [0.50, -1.24, -0.44], wr: [0.10, -0.28, -0.46], rot: [0, 0, 0], haft: [0.04, 1.00, 0], curl: 1 },
-      L: { sh: [-0.48, -1.26, -0.52], wr: [-0.06, -0.36, -0.54], rot: [0, 0, 0], haft: [0.04, 0.90, 0], curl: 1 },
-      item: { p: [0.00, 0.02, 0.00], r: [0.20, 3.94, 1.57], s: 1.10 }
+      // 1267: look-down-the-sights like musket ADS — barrel centred receding
+      // up, two hands wrapping the grip low-centre.
+      two: 1, hs: 1.00,
+      R: { sh: [0.70, -1.24, -0.50], wr: [0.22, -0.48, -0.52], rot: [0, 0, 0], haft: [0.00, 0.14, -1.00], curl: 1, sleeve: 'linen' },
+      L: { sh: [-0.58, -1.26, -0.62], wr: [-0.10, -0.50, -0.60], rot: [0, 0, 0], haft: [0.00, 0.14, -1.00], curl: 1, sleeve: 'linen', hs: 0.86 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.10 }
     },
     musket: {
       two: 1, hs: 0.98,
@@ -595,75 +597,93 @@
 
   function fpCrescentGeo() {
     // fpHook1262 / fpCrescentGeo / aUpper / arcDeg1263: 1264 FP head is an
-    // extruded TWO-ARC crescent (THREE.Shape + bevel), not a tube.
-    // Two-circle lune (outer disk minus inner disk), minor cap: convex outer
-    // edge, concave inner edge, tapering to two sharp points, open (not a hoop).
-    // After Rz(-π/2), item +Y is the haft and item -X is left-of-haft sky.
-    // The blade sits at the haft top and sweeps out to the left and up, with
-    // a lower tip hanging in the air beside the shaft. TP/world keeps hook 0.42.
+    // extruded crescent (THREE.Shape + bevel), not a tube. 1267 keeps those
+    // identifiers and the open face-on hook, but replaces the fat two-circle
+    // lune (a barely-major ~162° moon) with a slender tapered sickle: the
+    // blade grows out of a carved socket at the haft top, widest near the
+    // root (~2.5x the haft thickness), tapering smoothly to a needle point.
+    // Convex outer edge, concave inner edge, a short lower horn hanging in
+    // the air beside the shaft. After Rz(-π/2), item +Y is the haft and
+    // item -X is left-of-haft sky. Origin is the inner socket (right edge
+    // of the root) so the shaft end is covered by the carved head. TP/world
+    // keeps hook 0.42.
     if (U._fpHookGeo) return U._fpHookGeo;
-    // 1266: a true minor-cap sickle (outer arc ~120°), not the barely-major
-    // ~183° C that 1265's thicken produced. Face-on at the 1265 framing, the
-    // 183° lune filled half the frame and clipped; this compact hook stays
-    // on screen, sweeps left of the haft top, and keeps an open silhouette.
-    const Ro = 0.155;
-    const dOff = 0.11;
-    const thick = 0.092;
-    const Ri = Ro + dOff - thick;
-    const coy = -0.015; // lower tip hangs in the air beside the shaft, below the socket
-    const rotZ = 18 * Math.PI / 180;
-    const Co0 = { x: 0, y: coy };
-    const Ci0 = { x: dOff, y: coy };
-    const dx = Ci0.x - Co0.x, dy = Ci0.y - Co0.y;
-    const dist = Math.hypot(dx, dy);
-    const aRad = (Ro * Ro - Ri * Ri + dist * dist) / (2 * dist);
-    const hRad = Math.sqrt(Math.max(0, Ro * Ro - aRad * aRad));
-    const mx = Co0.x + aRad * dx / dist, my = Co0.y + aRad * dy / dist;
-    const px = -dy / dist * hRad, py = dx / dist * hRad;
-    let T1 = { x: mx + px, y: my + py };
-    let T2 = { x: mx - px, y: my - py };
-    if (T1.y < T2.y) { const tmp = T1; T1 = T2; T2 = tmp; }
-    // Keep both tips just left of the haft (no tail down the shaft).
-    const attachX = T1.x - 0.02;
-    function sh(p) { return { x: p.x - attachX, y: p.y }; }
-    function rot(p) {
-      const c = Math.cos(rotZ), s = Math.sin(rotZ);
-      return { x: c * p.x - s * p.y, y: s * p.x + c * p.y };
+    function crSeg(t, p0, p1, p2, p3) {
+      const t2 = t * t, t3 = t2 * t;
+      return {
+        x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+        y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+      };
     }
-    const Co = rot(sh(Co0)), Ci = rot(sh(Ci0)), tipU = rot(sh(T1)), tipL = rot(sh(T2));
-    const aUo = Math.atan2(tipU.y - Co.y, tipU.x - Co.x);
-    const aLo = Math.atan2(tipL.y - Co.y, tipL.x - Co.x);
-    const aUi = Math.atan2(tipU.y - Ci.y, tipU.x - Ci.x);
-    const aLi = Math.atan2(tipL.y - Ci.y, tipL.x - Ci.x);
-    // aUpper kept as an identifier so v1263's HTML assertion stays green.
-    const aUpper = aUo;
-    const belly = rot(sh({ x: Co0.x - Ro, y: Co0.y }));
-    const hollow = rot(sh({ x: Ci0.x - Ri, y: Ci0.y }));
-    function onCw(aStart, aEnd, aMid) {
-      let dEnd = aStart - aEnd; while (dEnd < 0) dEnd += Math.PI * 2;
-      let dMid = aStart - aMid; while (dMid < 0) dMid += Math.PI * 2;
-      return dMid < dEnd - 1e-8;
+    function crChain(pts, n) {
+      const out = [];
+      const nseg = pts.length - 3;
+      for (let i = 0; i < nseg; i++) {
+        const nn = (i < nseg - 1) ? n : n + 1;
+        for (let k = 0; k < nn; k++) {
+          const p = crSeg(k / n, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
+          // Origin is the inner socket against the haft; never spill right.
+          if (p.x > 0) p.x = 0;
+          out.push(p);
+        }
+      }
+      return out;
     }
-    const aBelly = Math.atan2(belly.y - Co.y, belly.x - Co.x);
-    const aHollow = Math.atan2(hollow.y - Ci.y, hollow.x - Ci.x);
-    const outerCw = onCw(aUo, aLo, aBelly);
-    const innerCw = onCw(aLi, aUi, aHollow);
-    let dOuter = outerCw ? (aUo - aLo) : (aLo - aUo);
-    while (dOuter < 0) dOuter += Math.PI * 2;
-    const arcDeg = +(dOuter * 180 / Math.PI).toFixed(1);
+    const P = function (x, y) { return { x: x, y: y }; };
+    // Outer (left, convex) then inner (right, concave, back U -> socket -> L).
+    // More upright than a wide left C: the 17° haft lean already
+    // carries a left sweep toward the portrait's narrow left edge, so
+    // the local belly stays inside ~-0.08 or the horn clips.
+    const outerPts = [
+      P(-0.006, -0.110),
+      P(-0.024, -0.088),
+      P(-0.058, -0.012),
+      P(-0.086,  0.050),
+      P(-0.102,  0.108),
+      P(-0.088,  0.168),
+      P(-0.052,  0.218),
+      P(-0.022,  0.245)
+    ];
+    const innerPts = [
+      P(-0.022,  0.245),
+      P(-0.052,  0.218),
+      P(-0.068,  0.165),
+      P(-0.078,  0.108),
+      P(-0.048,  0.045),
+      P( 0.000,  0.000),
+      P(-0.010, -0.042),
+      P(-0.024, -0.088),
+      P(-0.006, -0.110)
+    ];
+    const outer = crChain(outerPts, 20);
+    const inner = crChain(innerPts, 20);
+    const tipU = outer[outer.length - 1];
+    const tipL = outer[0];
+    // aUpper / arcDeg1263: heading sweep of the outer edge (open hook, ~110°).
+    let aUpper = Math.atan2(outer[1].y - outer[0].y, outer[1].x - outer[0].x);
+    let dOuter = 0, prev = aUpper;
+    for (let i = 1; i < outer.length - 1; i++) {
+      const a = Math.atan2(outer[i + 1].y - outer[i].y, outer[i + 1].x - outer[i].x);
+      let da = a - prev;
+      while (da > Math.PI) da -= Math.PI * 2;
+      while (da < -Math.PI) da += Math.PI * 2;
+      dOuter += da;
+      prev = a;
+    }
+    const arcDeg = +(Math.abs(dOuter) * 180 / Math.PI).toFixed(1);
     const shape = new T.Shape();
-    shape.moveTo(tipU.x, tipU.y);
-    shape.absarc(Co.x, Co.y, Ro, aUo, aLo, outerCw);
-    shape.absarc(Ci.x, Ci.y, Ri, aLi, aUi, innerCw);
+    shape.moveTo(outer[0].x, outer[0].y);
+    for (let i = 1; i < outer.length; i++) shape.lineTo(outer[i].x, outer[i].y);
+    for (let i = 0; i < inner.length; i++) shape.lineTo(inner[i].x, inner[i].y);
     shape.closePath();
     const geo = new T.ExtrudeGeometry(shape, {
       depth: 0.016,
       bevelEnabled: true,
-      bevelThickness: 0.004,
-      bevelSize: 0.0035,
+      bevelThickness: 0.005,
+      bevelSize: 0.004,
       bevelOffset: 0,
-      bevelSegments: 2,
-      curveSegments: 40
+      bevelSegments: 3,
+      curveSegments: 28
     });
     geo.translate(0, 0, -0.008);
     geo.computeVertexNormals();
@@ -678,24 +698,74 @@
     return geo;
   }
   function tintCrescent(blade) {
-    if (!blade || !blade.material) return;
-    const mat = blade.material;
-    // 1266: brighter purple with light/dark shading and a glossy highlight.
-    // Keep a low emissive so the key light can still model the face.
-    if (mat.color) mat.color.setHex(0xb44cff);
-    if (mat.emissive) mat.emissive.setHex(0x4a1480);
-    mat.emissiveIntensity = 0.18;
-    if (mat.specular) mat.specular.setHex(0xe8c8ff);
-    if (mat.shininess != null) mat.shininess = 58;
-    mat.map = null;
-    mat.bumpMap = null;
-    mat.normalMap = null;
-    mat.blending = T.NormalBlending;
-    mat.transparent = false;
-    mat.opacity = 1;
-    mat.depthWrite = true;
-    if (mat.side != null) mat.side = T.DoubleSide;
-    if (mat.userData) mat.userData.crystalCore1249 = 1;
+    if (!blade) return;
+    // 1267: glossy luminous purple (MeshStandard, emissive ~0.15) with a
+    // sharp specular from the bevel along the outer edge. 0xb44cff is the
+    // 1266 keeper tint and stays the base color.
+    const prev = blade.material;
+    if (!U._fpEnv1267) {
+      const faces = [];
+      for (let i = 0; i < 6; i++) {
+        const c = document.createElement('canvas');
+        c.width = c.height = 32;
+        const g = c.getContext('2d');
+        const grd = g.createLinearGradient(0, 0, 32, 32);
+        // A bright streak on two faces, deep violet elsewhere, so the
+        // bevel picks up a sharp specular along the outer edge.
+        if (i === 0 || i === 2) {
+          grd.addColorStop(0, '#ffffff');
+          grd.addColorStop(0.25, '#e0c0ff');
+          grd.addColorStop(1, '#3a1860');
+        } else {
+          grd.addColorStop(0, '#b080e8');
+          grd.addColorStop(1, '#2a1048');
+        }
+        g.fillStyle = grd;
+        g.fillRect(0, 0, 32, 32);
+        faces.push(c);
+      }
+      const env = new T.CubeTexture(faces);
+      env.needsUpdate = true;
+      U._fpEnv1267 = env;
+    }
+    if (!blade.userData.fpStd1267 || !prev || !prev.isMeshStandardMaterial) {
+      const mat = new T.MeshStandardMaterial({
+        color: 0xb44cff,
+        emissive: 0x5a1a90,
+        emissiveIntensity: 0.16,
+        roughness: 0.10,
+        metalness: 0.38,
+        envMap: U._fpEnv1267,
+        envMapIntensity: 1.15,
+        side: T.DoubleSide,
+        flatShading: false,
+        transparent: false,
+        opacity: 1,
+        depthWrite: true
+      });
+      mat.userData = mat.userData || {};
+      mat.userData.crystalCore1249 = 1;
+      blade.material = mat;
+      blade.userData.fpStd1267 = 1;
+    } else {
+      const mat = prev;
+      mat.color.setHex(0xb44cff);
+      mat.emissive.setHex(0x5a1a90);
+      mat.emissiveIntensity = 0.16;
+      mat.roughness = 0.16;
+      mat.metalness = 0.32;
+      mat.envMap = U._fpEnv1267;
+      mat.envMapIntensity = 0.85;
+      mat.map = null;
+      mat.bumpMap = null;
+      mat.normalMap = null;
+      mat.blending = T.NormalBlending;
+      mat.transparent = false;
+      mat.opacity = 1;
+      mat.depthWrite = true;
+      mat.side = T.DoubleSide;
+      if (mat.userData) mat.userData.crystalCore1249 = 1;
+    }
   }
   function haftTopY(blade) {
     let yMax = 0.80;
@@ -727,10 +797,10 @@
         }
       }
     });
-    // Socket near the visible shaft tip, but leave a little room above
-    // for the upper horn of the sickle.
+    // 1267: seat the carved head at the true shaft tip so the shaft does
+    // not peek above the socket (the 0.92 cap left a visible gap).
     if (yMax < 0.82) yMax = 0.87;
-    if (yMax > 0.92) yMax = 0.92;
+    if (yMax > 0.98) yMax = 0.98;
     return yMax;
   }
   function alignCrescentFace(blade) {
@@ -834,8 +904,9 @@
     blade.userData.fpHook1263 = 1;
     blade.userData.fpHook1262 = 1;
     blade.userData.noGrip = 1;
-    // Wooden wrap/knot at the socket, filling the crescent's hollow so the
-    // blade reads as growing from the haft top (goal carved head).
+    // 1267 carved socket AT the origin (haft top): a cap over the shaft
+    // end, a collar down the shaft, and a short flare into the blade root
+    // only. No knot sitting in the hollow, no shaft tip peeking out.
     if (!blade.userData.fpSock1265) {
       const wood = new T.MeshPhongMaterial({
         color: 0x4a2c14, shininess: 10, specular: 0x2a1a0c
@@ -851,14 +922,14 @@
         knot.add(m);
         return m;
       }
-      // Modest carved wrap in the hollow, not a giant sphere. Item -X is
-      // left-of-haft, so the knot sits just off the socket into the C.
-      addWood(new T.SphereGeometry(0.048, 14, 12), -0.040, 0.010, 0, 1.25, 0.72, 0.78);
-      addWood(new T.SphereGeometry(0.032, 12, 10), -0.018, -0.028, 0.010, 1.05, 0.90, 0.72);
-      addWood(new T.SphereGeometry(0.024, 10, 8), -0.030, 0.032, -0.008, 1.10, 0.70, 0.80);
-      // Tight collar around the haft end.
-      const collar = addWood(new T.CylinderGeometry(0.026, 0.020, 0.065, 12), 0, -0.036, 0, 1, 1, 1);
-      collar.rotation.z = 0.06;
+      // Cap the true shaft tip so nothing peeks above the head.
+      addWood(new T.SphereGeometry(0.028, 14, 12), 0.000, 0.008, 0, 1.05, 0.72, 1.00);
+      // Collar down the shaft, flared at the top.
+      const collar = addWood(new T.CylinderGeometry(0.024, 0.016, 0.078, 12), 0, -0.034, 0, 1, 1, 1);
+      collar.rotation.z = 0.04;
+      // Short flare into the blade root only (item -X = left), not the hollow.
+      addWood(new T.SphereGeometry(0.022, 12, 10), -0.016, 0.000, 0, 1.20, 0.70, 0.82);
+      addWood(new T.SphereGeometry(0.016, 10, 8), -0.010, -0.018, 0.006, 1.05, 0.80, 0.75);
       knot.userData.handle1249 = 1;
       knot.userData.fpSock1265 = 1;
       blade.add(knot);
@@ -1082,12 +1153,33 @@
     if (k0 === 'pistol') {
       try { dressPistolFlintlock(); } catch (_) {}
     }
+    if (k0 === 'musket') {
+      try { dressMusketFlintlock(); } catch (_) {}
+    }
   }
 
   function aimFlintlockSide(g) {
     if (!g) return;
     if (U.poseKey === 'pistolAds' || U.ads) {
-      g.rotation.set(0.15, 0.35, 0.10);
+      // Look down the sights: muzzle (local -Z) recedes away and slightly
+      // up, grip (local -Y) rolls toward camera-down.
+      g.rotation.set(0, 0, 0);
+      if (!vc) return;
+      const parentDir = new T.Vector3(0.08, 0.42, -1).normalize();
+      g.quaternion.setFromUnitVectors(new T.Vector3(0, 0, -1), parentDir);
+      g.updateWorldMatrix(true, true);
+      const _r = new T.Vector3(), _u = new T.Vector3(), _z = new T.Vector3();
+      try { vc.matrixWorld.extractBasis(_r, _u, _z); } catch (_) { return; }
+      const barrelW = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).normalize();
+      const gripW = new T.Vector3(0, -1, 0).transformDirection(g.matrixWorld).normalize();
+      const camDown = _u.clone().multiplyScalar(-1).normalize();
+      const gP = gripW.addScaledVector(barrelW, -gripW.dot(barrelW));
+      const dP = camDown.addScaledVector(barrelW, -camDown.dot(barrelW));
+      if (gP.lengthSq() > 1e-6 && dP.lengthSq() > 1e-6) {
+        gP.normalize(); dP.normalize();
+        const ang = Math.atan2(new T.Vector3().copy(gP).cross(dP).dot(barrelW), gP.dot(dP));
+        g.rotateOnWorldAxis(barrelW, ang);
+      }
       return;
     }
     g.rotation.set(0.10, 1.05, 0.15);
@@ -1187,27 +1279,35 @@
     add(new T.BoxGeometry(0.004, 0.006, 0.018), steel, 0, 0.040, -0.04); // sight
     add(new T.BoxGeometry(0.0024, 0.008, 0.0024), steel, 0, 0.038, muzzleZ + 0.01);
 
-    // Slim wooden forestock hugging the underside of the barrel (not a plank).
-    const fore = add(new T.CylinderGeometry(0.011, 0.009, 0.18, 8), wood, 0, 0.010, -0.07);
+    // 1267: slim forestock hugging the underside of the barrel, then a
+    // one-piece bird's-head grip joining the stock at the wrist. No
+    // detached pommel, no boxy upright beside the barrel.
+    const fore = add(new T.CylinderGeometry(0.010, 0.008, 0.16, 10), wood, 0, 0.013, -0.08);
     fore.rotation.x = Math.PI / 2;
-    add(new T.BoxGeometry(0.020, 0.012, 0.08), wood, 0, 0.004, -0.02);
-
-    // Curved bird's-head grip: 110° from the barrel, hooking to a rounded pommel.
-    const gripN = 5;
-    let lastY = 0, lastZ = 0;
-    for (let i = 0; i < gripN; i++) {
-      const t = i / (gripN - 1);
-      const ang = (110 + 28 * t) * Math.PI / 180;
-      const dist = 0.008 + t * 0.052;
-      lastY = -Math.sin(ang) * dist;
-      lastZ = 0.032 + (1 - Math.cos(ang)) * 0.032;
-      const rad = 0.014 + (t > 0.6 ? (t - 0.6) * 0.008 : 0);
-      const seg = add(new T.CylinderGeometry(rad * 0.95, rad, 0.020, 8), wood, 0, lastY, lastZ);
-      seg.rotation.x = -ang + Math.PI / 2;
-    }
-    add(new T.SphereGeometry(0.015, 10, 8), wood, 0, lastY - 0.004, lastZ + 0.004);
-    add(new T.SphereGeometry(0.013, 8, 6), brass, 0, lastY - 0.007, lastZ + 0.007);
-    add(new T.BoxGeometry(0.026, 0.022, 0.048), wood, 0, 0.004, 0.036); // wrist / lock wood
+    const stockSh = new T.Shape();
+    // shape.x = local Z (muzzle negative), shape.y = local Y. Grip only.
+    stockSh.moveTo(-0.025, 0.020);
+    stockSh.lineTo(0.022, 0.024);
+    stockSh.bezierCurveTo(0.048, 0.024, 0.052, 0.010, 0.044, -0.010);
+    stockSh.bezierCurveTo(0.058, -0.038, 0.056, -0.068, 0.036, -0.084);
+    stockSh.bezierCurveTo(0.018, -0.094, 0.000, -0.086, 0.000, -0.060);
+    stockSh.bezierCurveTo(0.000, -0.036, 0.006, -0.016, 0.002, -0.002);
+    stockSh.bezierCurveTo(-0.010, 0.006, -0.020, 0.012, -0.025, 0.012);
+    stockSh.closePath();
+    const stockGeo = new T.ExtrudeGeometry(stockSh, {
+      depth: 0.026,
+      bevelEnabled: true,
+      bevelThickness: 0.0045,
+      bevelSize: 0.0035,
+      bevelSegments: 2,
+      curveSegments: 22
+    });
+    stockGeo.translate(0, 0, -0.013);
+    stockGeo.rotateY(-Math.PI / 2);
+    stockGeo.computeVertexNormals();
+    add(stockGeo, wood, 0, 0, 0);
+    // Small brass cap sitting on the pommel (joined, not a detached ball).
+    add(new T.SphereGeometry(0.0065, 8, 6), brass, 0, -0.078, 0.026);
 
     // Brass furniture.
     
@@ -1233,6 +1333,41 @@
     parent.add(g);
     held.userData.fpFlint1265 = 1;
     held.userData.fpFlint1266 = 1;
+  }
+
+
+  function dressMusketFlintlock() {
+    // 1267: dress the existing hip/ADS musket with the same flintlock
+    // materials (wood stock, brass furniture, steel barrel/lock). Pose
+    // stays the 1266 diagonal + BL support; we only retint the meshes.
+    if (typeof held === 'undefined' || !held) return;
+    if (held.userData.fpMusket1267) return;
+    const woodCol = 0x6b4226, steelCol = 0x3a4450, brassCol = 0xc4a056;
+    held.traverse(function (o) {
+      if (!o.isMesh || !o.material) return;
+      if (o.userData && (o.userData.fpFlint1265 || o.userData.fpFlint1266 || o.userData.fpHook1264)) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (let i = 0; i < mats.length; i++) {
+        const mat = mats[i];
+        if (!mat || !mat.color || !mat.color.getHex) continue;
+        const c = mat.color.getHex();
+        const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        if (r > 160 && g > 100 && b < 130 && r > b + 30) {
+          mat.color.setHex(brassCol);
+          if (mat.specular) mat.specular.setHex(0xffe2a0);
+          if (mat.shininess != null) mat.shininess = 90;
+        } else if (r > 55 && r >= b && g > b * 0.7 && r < 190 && g < 150 && b < 120) {
+          mat.color.setHex(woodCol);
+          if (mat.specular) mat.specular.setHex(0x3a2210);
+          if (mat.shininess != null) mat.shininess = 22;
+        } else if (Math.abs(r - g) < 40 && Math.abs(g - b) < 40 && r + g + b < 520) {
+          mat.color.setHex(steelCol);
+          if (mat.specular) mat.specular.setHex(0xa8b8c8);
+          if (mat.shininess != null) mat.shininess = 80;
+        }
+      }
+    });
+    held.userData.fpMusket1267 = 1;
   }
 
   function revealHeldItem(root) {
