@@ -79,6 +79,14 @@ await shoot(portrait, 'portrait', [
   {hold: 2, cam: 'close', name: 'pose2-close.png'},
   {hold: 4, cam: 'close', name: 'pose4-close.png'},
   {hold: 2, cam: 'side', name: 'pose2-side.png'},
+  {hold: 1, cam: 'up', name: 'pose1-up.png'},
+  {hold: 2, cam: 'up', name: 'pose2-up.png'},
+  {hold: 3, cam: 'up', name: 'pose3-up.png'},
+  {hold: 4, cam: 'up', name: 'pose4-up.png'},
+  {hold: 2, cam: 'upclose', name: 'pose2-upclose.png'},
+  {hold: 4, cam: 'upclose', name: 'pose4-upclose.png'},
+  {hold: 1, cam: 'close', name: 'pose1-close.png'},
+  {hold: 3, cam: 'close', name: 'pose3-close.png'},
 ]);
 await shoot(wide, 'wide', [
   {hold: 1, cam: 'wide', name: 'pose1-wide.png'},
