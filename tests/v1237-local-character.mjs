@@ -1,6 +1,6 @@
 // 1.2.37 release: real embedded Three r128 + built adapter (index.html) + refined assets. CPU evidence, not GPU.
 import fs from 'node:fs';import crypto from 'node:crypto';import assert from 'node:assert/strict';import{T,load,builtRuntime,legacy,animation,skinnedVertices}from './lib/pilot-native-r128.mjs';
-const PACK_TRIS=JSON.parse(fs.readFileSync('/workspace/scottish-character-refinement/out/pack-report.json','utf8')).triangles;let checks=0;const ok=(c,s)=>{assert.ok(c,s);console.log('ok '+(++checks)+' '+s);},dir=new URL('../assets/models/scottish-base-v2/',import.meta.url),OUT='/workspace/qa/character-1237/';
+const packOnly=(await load(new URL('../assets/models/scottish-base-v2/jetpack-only.glb',import.meta.url))).scene;let PACK_TRIS=0;packOnly.traverse(o=>{if(o.isMesh)PACK_TRIS+=o.geometry.index.count/3;});let checks=0;const ok=(c,s)=>{assert.ok(c,s);console.log('ok '+(++checks)+' '+s);},dir=new URL('../assets/models/scottish-base-v2/',import.meta.url),OUT='/workspace/qa/character-1237/';
 const sha={};for(const f of fs.readdirSync(dir))sha[f]=crypto.createHash('sha256').update(fs.readFileSync(new URL(f,dir))).digest('hex');
 let clock=0;const now=()=>clock;try{Object.defineProperty(performance,'now',{value:()=>clock*1000+1000,configurable:true,writable:true});}catch(e){performance.now=()=>clock*1000+1000;}
 let eq=[0,0,0,0,0],distance=0,requests=0,U;const tier=id=>id>=129&&id<=132?'diamond':id>=112&&id<=115?'gold':id>=108&&id<=111?'iron':'copper';
