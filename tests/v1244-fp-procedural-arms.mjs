@@ -10,8 +10,8 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.49';") || html.includes("const GAME_VERSION = '1.2.48';") || html.includes("const GAME_VERSION = '1.2.47';") || html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';"), 'GAME_VERSION is 1.2.46 or 1.2.44');
-ok(html.includes('<!-- glencraft-build: b1249-v1.2.49 -->') || html.includes('<!-- glencraft-build: b1248-v1.2.48 -->') || html.includes('<!-- glencraft-build: b1247-v1.2.47 -->') || html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->'), 'build marker is b1246 or b1244');
+ok(html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';") || html.includes("const GAME_VERSION = '1.2.48';") || html.includes("const GAME_VERSION = '1.2.47';") || html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';"), 'GAME_VERSION is 1.2.46 or 1.2.44');
+ok(html.includes('<!-- glencraft-build: b1250-held-popstar -->') || html.includes('<!-- glencraft-build: b1250-v1.2.50 -->') || html.includes('<!-- glencraft-build: b1249-v1.2.49 -->') || html.includes('<!-- glencraft-build: b1248-v1.2.48 -->') || html.includes('<!-- glencraft-build: b1247-v1.2.47 -->') || html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->'), 'build marker is b1246 or b1244');
 ok(html.includes('retextureProceduralArms'), 'retextureProceduralArms is in the build');
 ok(html.includes('W.__fpaOff = 0'), 'helper clears __fpaOff so procedural HD arms run');
 ok(html.includes('do not drive Held1240FpArms as the main') || html.includes('NOT Held1240FpArms as the main') || html.includes('NOT\n * Held1240FpArms'), 'source documents procedural arms are main');

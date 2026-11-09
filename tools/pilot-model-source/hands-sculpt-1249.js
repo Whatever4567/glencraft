@@ -94,7 +94,34 @@
     });
   }
 
+  function skinTexFp() {
+    return tex(512, 512, (g) => {
+      const grd = g.createLinearGradient(0, 0, 512, 512);
+      grd.addColorStop(0, '#e4c4ae');
+      grd.addColorStop(0.35, '#d5a88c');
+      grd.addColorStop(0.7, '#c48c70');
+      grd.addColorStop(1, '#a8725a');
+      g.fillStyle = grd; g.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 2800; i++) {
+        const v = 140 + Math.random() * 50 | 0;
+        g.fillStyle = 'rgba(' + v + ',' + (v - 30) + ',' + (v - 42) + ',' + (0.05 + Math.random() * 0.06) + ')';
+        g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1);
+      }
+      for (let i = 0; i < 1000; i++) {
+        g.fillStyle = 'rgba(80,55,40,' + (0.04 + Math.random() * 0.05) + ')';
+        g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+      }
+      g.strokeStyle = 'rgba(90,60,45,0.16)'; g.lineWidth = 1.3;
+      for (let i = 0; i < 18; i++) {
+        g.beginPath();
+        const x = 30 + Math.random() * 420, y = 30 + Math.random() * 420;
+        g.moveTo(x, y); g.quadraticCurveTo(x + 36, y + 8, x + 72, y - 5);
+        g.stroke();
+      }
+    });
+  }
   const SKIN_MAP = skinTex();
+  const SKIN_MAP_FP = skinTexFp();
   const SKIN_BUMP = skinBump();
   const LINEN_MAP = linenTex();
   LINEN_MAP.repeat.set(2, 3);
@@ -116,6 +143,38 @@
     m.userData.sculptKeep = 1;
     return m;
   }
+  U.linenMat = linenMat;
+  function knuckleMatFp() {
+    const m = new T.MeshPhongMaterial({
+      color: 0xd4a090, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.05,
+      shininess: 22, specular: 0x5a3a32
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.knuckleFp1263 = 1;
+    return m;
+  }
+  function skinMatFp() {
+    // 0xc6b399 was the 1262 desaturated tan; 1263 is a warmer, more saturated mid.
+    const m = new T.MeshPhongMaterial({
+      color: 0xd2a07c, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.045,
+      shininess: 18, specular: 0x5a3c30
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.skinFp1262 = 1;
+    return m;
+  }
+  function linenMatFp() {
+    const m = new T.MeshPhongMaterial({
+      color: 0xe8e2d6, map: LINEN_MAP, bumpMap: LINEN_MAP, bumpScale: 0.28,
+      shininess: 4, specular: 0x1a1814
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.linenFp1262 = 1;
+    return m;
+  }
+  U.skinMatFp = skinMatFp;
+  U.knuckleMatFp = knuckleMatFp;
+  U.linenMatFp = linenMatFp;
   function tartanTex() {
     if (U._tartan) return U._tartan;
     U._tartan = tex(256, 256, (g) => {
@@ -139,9 +198,10 @@
     m.userData.tartan1251 = 1;
     return m;
   }
+  U.tartanMat = tartanMat;
   function nailMat() {
     const m = new T.MeshPhongMaterial({
-      color: 0xedd3c4, shininess: 55, specular: 0x886655
+      color: 0xf7e8dc, shininess: 70, specular: 0xaa8870
     });
     m.userData.nail1249 = 1;
     m.userData.sculptKeep = 1;
@@ -150,37 +210,49 @@
 
   // Tapered oval capsule along +Y from 0..len, squashed in Z (palmar/dorsal).
   function fingerSegGeo(len, r0, r1, ovalZ, segs, rad, knuckle) {
-    const key = geoKey('fseg', len, r0, r1, ovalZ, segs, rad, knuckle);
+    // 1264: overlap the joint (hide the dowel gap) and cap the tip with a
+    // small hemisphere instead of a cone point.
+    const ov = Math.max(0.0022, r0 * 0.62);
+    const key = geoKey('fseg4', len, r0, r1, ovalZ, segs, rad, knuckle, ov);
     return share(key, function () {
       segs = segs || 8; rad = rad || 10;
+      const ozS = ovalZ || 0.72;
       const pos = [], nrm = [], uv = [], ix = [];
-      for (let i = 0; i <= segs; i++) {
-        const t = i / segs, y = t * len;
-        let r = r0 + (r1 - r0) * Math.pow(t, 0.85);
-        if (knuckle && t < 0.22) r *= 1 + 0.28 * (1 - t / 0.22) * Math.sin((1 - t / 0.22) * Math.PI);
-        // slight belly on the palmar mid-section
-        if (t > 0.25 && t < 0.8) r *= 1.04;
+      function ring(y, r, ny) {
         for (let k = 0; k < rad; k++) {
           const a = (k / rad) * Math.PI * 2;
-          const ox = Math.cos(a), oz = Math.sin(a) * (ovalZ || 0.72);
+          const ox = Math.cos(a), oz = Math.sin(a) * ozS;
           pos.push(ox * r, y, oz * r);
-          const n = new T.Vector3(ox, 0, oz).normalize();
+          const n = new T.Vector3(ox, ny || 0, oz).normalize();
           nrm.push(n.x, n.y, n.z);
-          uv.push(k / rad, t);
+          uv.push(k / rad, 0);
         }
       }
-      // tip cap
-      const tip = pos.length / 3;
-      pos.push(0, len + r1 * 0.7, 0); nrm.push(0, 1, 0); uv.push(0.5, 1);
-      for (let i = 0; i < segs; i++) {
+      const y0 = -ov, y1 = len;
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs, y = y0 + t * (y1 - y0);
+        let r = r0 + (r1 - r0) * Math.pow(t, 0.85);
+        if (knuckle && t < 0.18) r *= 1 + 0.16 * (1 - t / 0.18) * Math.sin((1 - t / 0.18) * Math.PI);
+        if (t > 0.25 && t < 0.8) r *= 1.04;
+        ring(y, r, 0);
+      }
+      const capRings = 4;
+      for (let i = 1; i < capRings; i++) {
+        const phi = (i / capRings) * Math.PI * 0.5;
+        ring(len + r1 * Math.sin(phi), r1 * Math.cos(phi), Math.sin(phi));
+      }
+      const pole = pos.length / 3;
+      pos.push(0, len + r1, 0); nrm.push(0, 1, 0); uv.push(0.5, 1);
+      const nFull = segs + capRings; // full rings: segs+1 shaft + (capRings-1) cap
+      for (let i = 0; i < nFull - 1; i++) {
         for (let k = 0; k < rad; k++) {
           const a = i * rad + k, b = i * rad + (k + 1) % rad;
           const c = (i + 1) * rad + k, d = (i + 1) * rad + (k + 1) % rad;
           ix.push(a, c, b, b, c, d);
         }
       }
-      const base = segs * rad;
-      for (let k = 0; k < rad; k++) ix.push(base + k, base + (k + 1) % rad, tip);
+      const last = (nFull - 1) * rad;
+      for (let k = 0; k < rad; k++) ix.push(last + k, last + (k + 1) % rad, pole);
       const geo = new T.BufferGeometry();
       geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
       geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
@@ -191,37 +263,55 @@
     });
   }
   function knuckleGeo(r) {
-    return share(geoKey('kn', r), function () {
-      const g = new T.SphereGeometry(r, 14, 12);
+    return share(geoKey('kns', r), function () {
+      const g = new T.SphereGeometry(r, 16, 14);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const y = p.getY(i), z = p.getZ(i);
-        p.setZ(i, z * 0.78);
-        if (y > 0) p.setY(i, y * 0.75);
+        p.setZ(i, z * 0.48);
+        if (y > 0) p.setY(i, y * 0.55);
+        p.setX(i, p.getX(i) * 0.92);
       }
       g.computeVertexNormals();
       return g;
     });
   }
+  function creaseMat() {
+    const m = new T.MeshPhongMaterial({
+      color: 0xb08670, shininess: 8, specular: 0x3a2a20
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.crease1262 = 1;
+    return m;
+  }
+  function creaseRing(parent, y, r, mat) {
+    const m = new T.Mesh(new T.TorusGeometry(Math.max(0.002, r * 0.82), Math.max(0.0004, r * 0.08), 6, 14), mat);
+    m.rotation.x = Math.PI / 2;
+    m.position.set(0, y, 0);
+    mark(m);
+    parent.add(m);
+    return m;
+  }
   function palmGeo() {
-    return share('palm', function () {
-      const g = new T.BoxGeometry(0.074, 0.10, 0.032, 8, 8, 4);
+    return share('palm1263', function () {
+      const g = new T.BoxGeometry(0.070, 0.10, 0.030, 12, 12, 8);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
         const yn = (y + 0.05) / 0.10; // 0 bottom (wrist) .. 1 top (fingers)
-        const xn = x / 0.037;
-        // round the sides and shrink toward the wrist
-        const side = 1 - 0.16 * xn * xn;
-        const wrist = 1 - 0.18 * (1 - yn) * (1 - yn);
-        x *= side * wrist;
-        // palmar cup (positive Z is the back of the hand in this rig? the old code flattened +Z by |x|)
-        // original: pp.setZ(i, z * (1 - Math.abs(x) * 4)) — shrinks Z at the sides.
-        z *= (1 - Math.abs(xn) * 0.28);
-        // palmar hollow on the front (we'll treat -Z as palm, +Z as dorsum based on old flatten being modest)
-        if (z < 0) z *= 0.85 + 0.2 * (1 - yn);
-        // thenar / hypothenar will be separate pads; slight dorsal knuckle row at the top
-        if (yn > 0.82 && z > 0) z += 0.003;
+        const xn = x / 0.035;
+        const zn = z / 0.015;
+        // Stronger side rounding so it does not read as a box.
+        const side = 1 - 0.32 * xn * xn;
+        const wrist = 1 - 0.26 * (1 - yn) * (1 - yn);
+        const distal = 1 - 0.10 * Math.max(0, yn - 0.82) / 0.18;
+        x *= side * wrist * distal;
+        z *= (1 - Math.abs(xn) * 0.48) * (1 - 0.12 * (1 - yn) * (1 - yn));
+        // Round the dorsal / palmar "corners" of the box.
+        const edge = Math.max(0, Math.abs(zn) - 0.55) / 0.45;
+        x *= 1 - 0.12 * edge * edge;
+        if (z < 0) z *= 0.78 + 0.18 * (1 - yn);
+        if (yn > 0.82 && z > 0) z += 0.002;
         p.setXYZ(i, x, y, z);
       }
       g.computeVertexNormals();
@@ -319,15 +409,14 @@
     palmPad.scale.set(0.024, 0.014, 0.008);
     palmPad.position.set(0, 0.048, -0.008);
 
-    // Dorsal tendons
+    // Short dorsal tendon ridges — never long sticks poking past the knuckles.
     for (let i = 0; i < 4; i++) {
-      const t = addMesh(h, share(geoKey('tend', i), () => {
-        const g = new T.CylinderGeometry(0.0016, 0.0022, 0.07, 6);
-        g.translate(0, 0.035, 0);
+      const t = addMesh(h, share(geoKey('tend2', i), () => {
+        const g = new T.CylinderGeometry(0.0012, 0.0016, 0.028, 8);
+        g.translate(0, 0.014, 0);
         return g;
-      }), sm, (i - 1.5) * 0.016, 0.055, 0.013);
-      t.rotation.z = (i - 1.5) * -0.04;
-      t.rotation.x = 0.08;
+      }), sm, (i - 1.5) * 0.016, 0.072, 0.011);
+      t.rotation.z = (i - 1.5) * -0.03;
     }
 
     const fingers = h.userData.f || [];
@@ -338,19 +427,23 @@
       if (!pair) continue;
       const f = pair[0], k = pair[1];
       const r = widths[i] || 0.007;
+      const cm = creaseMat();
       // proximal on f
-      addMesh(f, fingerSegGeo(0.036, r, r * 0.88, 0.70, 10, 12, 1), sm);
-      addMesh(f, knuckleGeo(r * 1.15), sm, 0, 0.001, 0.001);
+      addMesh(f, fingerSegGeo(0.038, r * 1.02, r * 0.84, 0.48, 14, 14, 1), sm);
+      addMesh(f, knuckleGeo(r * 0.58), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
+      creaseRing(f, 0.001, r * 0.95, cm);
       if (k) {
-        addMesh(k, fingerSegGeo(0.017, r * 0.88, r * 0.80, 0.70, 9, 12, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.95), sm, 0, 0.001, 0.001);
+        addMesh(k, fingerSegGeo(0.018, r * 0.86, r * 0.76, 0.46, 12, 14, 1), sm);
+        addMesh(k, knuckleGeo(r * 0.50), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
+        creaseRing(k, 0.0008, r * 0.82, cm);
         const d = k.userData && k.userData.d;
         if (d) {
-          addMesh(d, fingerSegGeo(0.013, r * 0.80, r * 0.62, 0.68, 9, 12, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.85), sm, 0, 0.001, 0.001);
+          addMesh(d, fingerSegGeo(0.014, r * 0.76, r * 0.54, 0.44, 12, 14, 0), sm);
+          addMesh(d, knuckleGeo(r * 0.40), sm, 0, 0.001, 0.0005).userData.knuckle1263 = 1;
+          creaseRing(d, 0.0006, r * 0.70, cm);
           // nail on the dorsal distal
-          const nail = addMesh(d, nailGeo(r * 1.05, 0.0055, r * 0.28), nailMat(), 0, 0.010, r * 0.38);
-          nail.rotation.x = -0.12;
+          const nail = addMesh(d, nailGeo(r * 1.45, 0.0075, r * 0.42), nailMat(), 0, 0.011, r * 0.48);
+          nail.rotation.x = -0.18;
           nail.userData.nail1249 = 1;
         }
       }
@@ -358,15 +451,18 @@
 
     const th = h.userData.th;
     if (th) {
+      const tcm = creaseMat();
       addMesh(th, fingerSegGeo(0.05, 0.0096, 0.0080, 0.78, 10, 12, 1), sm);
+      creaseRing(th, 0.001, 0.0090, tcm);
       const tk = th.userData && th.userData.k;
       if (tk) {
         addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0076, 0.78, 9, 12, 1), sm);
+        creaseRing(tk, 0.0008, 0.0076, tcm);
         const td = tk.userData && tk.userData.d;
         if (td) {
           addMesh(td, fingerSegGeo(0.014, 0.0076, 0.0064, 0.76, 9, 12, 0), sm);
-          const tn = addMesh(td, nailGeo(0.008, 0.006, 0.0024), nailMat(), 0, 0.010, 0.0044);
-          tn.rotation.x = -0.12;
+          const tn = addMesh(td, nailGeo(0.011, 0.0075, 0.0036), nailMat(), 0, 0.011, 0.0055);
+          tn.rotation.x = -0.18;
           tn.userData.nail1249 = 1;
         }
       }
@@ -380,7 +476,8 @@
     }
     const kn = [];
     for (let i = 0; i < 4; i++) {
-      const b = addMesh(h, knuckleGeo(0.0078 - i * 0.0004), sm, (i - 1.5) * 0.0215, 0.096, 0.009);
+      const b = addMesh(h, knuckleGeo(0.0052 - i * 0.0003), sm, (i - 1.5) * 0.0215, 0.096, 0.007);
+      b.userData.knuckle1263 = 1;
       kn.push(b);
     }
     h.userData.kn = kn;
@@ -395,7 +492,7 @@
     if (p.el) { p.el.material = lm; mark(p.el); }
     if (p.cuff) { p.cuff.material = lm; foldCloth(p.cuff, 1.45); mark(p.cuff);
       if (!p.cuff.userData.roll1251 && p.cuff.parent) {
-        const roll = new T.Mesh(new T.TorusGeometry(0.042, 0.012, 8, 18), lm);
+        const roll = new T.Mesh(new T.TorusGeometry(0.028, 0.007, 8, 16), lm);
         roll.rotation.x = Math.PI / 2;
         // Sit the roll at the cuff, slightly toward the camera.
         roll.position.copy(p.cuff.position);
@@ -403,7 +500,7 @@
         roll.userData.folded1249 = 1;
         roll.userData.sculptKeep = 1;
         p.cuff.parent.add(roll);
-        const roll2 = new T.Mesh(new T.TorusGeometry(0.038, 0.008, 8, 16), lm);
+        const roll2 = new T.Mesh(new T.TorusGeometry(0.024, 0.005, 8, 14), lm);
         roll2.rotation.x = Math.PI / 2;
         roll2.position.copy(p.cuff.position);
         roll2.position.y += 0.022;
@@ -417,7 +514,7 @@
       // Keep the existing forearm mesh (already tapered) but paint + slightly reshape.
       p.fo.material = sm;
       mark(p.fo);
-      if (!p.fo.userData.tapered1249 && p.fo.geometry) {
+      if (!p.fo.userData.tapered1254 && p.fo.geometry) {
         const g = p.fo.geometry.clone();
         const pos = g.attributes.position;
         if (pos) {
@@ -426,15 +523,17 @@
           const span = (ymax - ymin) || 1;
           for (let i = 0; i < pos.count; i++) {
             const y = (pos.getY(i) - ymin) / span;
-            // more taper toward the wrist (y=1 in limb geo is the far end)
-            const s = 1 - 0.12 * y * y;
+            // y=0 elbow, y=1 wrist: mid-forearm muscle belly, narrow wrist, not a cone.
+            const muscle = 1.0 + 0.14 * Math.sin(y * Math.PI);
+            const wrist = 1.0 - 0.38 * y * y;
+            const s = muscle * wrist;
             pos.setX(i, pos.getX(i) * s);
-            pos.setZ(i, pos.getZ(i) * s * 0.92);
+            pos.setZ(i, pos.getZ(i) * (s * 0.88));
           }
           pos.needsUpdate = true;
           g.computeVertexNormals();
           p.fo.geometry = g;
-          p.fo.userData.tapered1249 = 1;
+          p.fo.userData.tapered1254 = 1;
         }
       }
     }
@@ -474,7 +573,7 @@
         if (p.up) p.up.material = lm;
         if (p.el) p.el.material = lm;
         if (p.cuff) p.cuff.material = lm;
-        if (p.fo) p.fo.material = sm;
+        if (p.fo) p.fo.material = (p.fo.userData && p.fo.userData.sleevePaint1254) ? lm : sm;
       }
       if (rig.userData.R) fixArm(rig.userData.R);
       if (rig.userData.L) fixArm(rig.userData.L);
@@ -499,6 +598,47 @@
       return true;
     } catch (e) { ERR('apply', e); return false; }
   }
+
+  // Standalone sculpted hand for the 1259 first-person viewmodel.
+  // Finger pivots match __fpa mkHand so curl can drive the same joints.
+  U.buildHand = function (side) {
+    side = side || 1;
+    const h = new T.Group();
+    h.name = side > 0 ? 'FpHandR' : 'FpHandL';
+    h.userData.fpHand1259 = 1;
+    h.userData.side = side;
+    h.userData.f = [];
+    for (let i = 0; i < 4; i++) {
+      const f = new T.Group();
+      f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004);
+      f.rotation.z = (i - 1.5) * -0.05;
+      const k = new T.Group();
+      k.position.y = 0.036;
+      const d = new T.Group();
+      d.position.y = 0.017;
+      k.add(d);
+      k.userData.d = d;
+      f.add(k);
+      f.userData.k = k;
+      h.add(f);
+      h.userData.f.push([f, k]);
+    }
+    const th = new T.Group();
+    th.position.set(side * 0.038, 0.028, 0.01);
+    th.rotation.set(0.85, side * 0.55, side * 0.85);
+    const tk = new T.Group();
+    tk.position.y = 0.05;
+    const td = new T.Group();
+    td.position.y = 0.018;
+    tk.add(td);
+    tk.userData.d = td;
+    th.add(tk);
+    th.userData.k = tk;
+    h.userData.th = th;
+    h.add(th);
+    upgradeHand(h, side);
+    return h;
+  };
 
   function hookPaint() {
     if (U._hooked) return;
