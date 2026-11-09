@@ -215,6 +215,21 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   }
 }
 
+// Sculpted first-person hands (nails, palm pads, linen folds) on the __fpa rig.
+{
+  const hs = fs.readFileSync(path.join(__dirname, 'pilot-model-source/hands-sculpt-1249.js'), 'utf8');
+  if (!s.includes('handsSculpt1249')) {
+    if (s.includes('heldVm1249')) {
+      const mark = '// GLX-ZAP v1.1.59: the Thunner Cloudie lightning strike gets a big zap';
+      const idx = s.lastIndexOf(mark);
+      if (idx < 0) throw new Error('hands-sculpt inject anchor missing');
+      s = s.slice(0, idx) + hs.trim() + '\n\n' + s.slice(idx);
+    } else {
+      throw new Error('held-vm missing; cannot inject hands-sculpt');
+    }
+  }
+}
+
 // After the last placeCamera wrap in the gameplay script, call the QA hook.
 {
   const endAnchor = "})();\n</script>\n<div id=\"notesUI\" class=\"hidden\" data-testid=\"patch-notes\"";
@@ -234,29 +249,80 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   }
 }
 
-// Seat first-person blocks: grip closer to the cube centre (plus seatFpBlock).
+
+// 1.2.49: never parent the atlas-textured leftover palm onto empty / blocks.
+// The hybrid __fpa hand is the only visible empty hand (fixes the dirt box).
 {
-  const a = 'TR = grip(TR.add(V3(0.01, 0.05, -0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]);';
-  const b = 'TR = grip(TR.add(V3(0, -0.01, 0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]);';
-  if (s.includes(a)) s = s.replace(a, b);
-  else if (!s.includes('TR.add(V3(0, -0.01, 0.02))') && s.includes('userData.block) { TR = grip')) {
-    throw new Error('block grip offset line not found');
+  const a = "      gripHand.position.set(0, -0.01, -0.17); gripHand.rotation.set(Math.PI / 2, 0, 0); gripHand.scale.setScalar(1.25);\n      armPivot.add(gripHand);";
+  const b = "      if (gripHand.parent) gripHand.parent.remove(gripHand); gripHand.visible = false; gripHand.scale.set(0, 0, 0);";
+  if (s.includes(a) && !s.includes('gripHand.visible = false; gripHand.scale.set(0, 0, 0);')) s = s.replace(a, b);
+  else if (!s.includes('gripHand.visible = false; gripHand.scale.set(0, 0, 0);')) throw new Error('empty gripHand branch not found');
+  const ua = 'updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; return r; };';
+  const ub = "updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; if (fist.parent) fist.parent.remove(fist); try { if (typeof armMesh !== 'undefined' && armMesh) armMesh.visible = false; if (gripHand && !(held.children[0] && held.children[0].userData && held.children[0].userData.tool)) { gripHand.visible = false; if (gripHand.parent) gripHand.parent.remove(gripHand); } const root = (typeof hand !== 'undefined' && hand) ? hand : null; if (root && root.traverse) { root.traverse(function(o){ if (!o || !o.isMesh) return; let p=o; let inHeld=false; while(p){ if(p===held){inHeld=true;break;} p=p.parent; } if(inHeld) return; const g=o.geometry, m=[].concat(o.material||[])[0]; if (g && g.type==='BoxGeometry' && m && m.map) o.visible=false; }); } } catch (e) {} return r; };";
+  if (s.includes(ua)) s = s.replace(ua, ub);
+  else {
+    const oldUb = "updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; try { if (gripHand && !(held.children[0] && held.children[0].userData && held.children[0].userData.tool)) { gripHand.visible = false; if (gripHand.parent) gripHand.parent.remove(gripHand); } } catch (e) {} return r; };";
+    if (s.includes(oldUb)) s = s.replace(oldUb, ub);
   }
+}
+
+// Keep the legacy box fist hidden when the hand is empty (setHeld turns it on).
+{
+  const a = 'if (!cnt(id)) { fist.visible = true; return; }';
+  const b = "if (!cnt(id)) { fist.visible = false; if (fist.parent) fist.parent.remove(fist); return; }";
+  if (s.includes(a)) s = s.replace(a, b);
+  else if (!s.includes(b)) throw new Error('setHeld empty fist.visible not found');
+}
+
+// Seat first-person blocks in the palm: grip the cube centre, wrap fingers.
+{
+  const blockA = [
+    'TR = grip(TR, V3(0.08, 0.18, 1), V3(0, 1, 0.08), [1.08, 1.15, 1.22, 1.28], 0.07);',
+    'TR = grip(TR.add(V3(0.01, 0.05, -0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]);',
+    'TR = grip(TR.add(V3(0, -0.01, 0.02)), V3(0.15, 0.1, 1), V3(0, 1, 0.05), [0.72, 0.78, 0.82, 0.88]);'
+  ];
+  const blockB = 'TR = grip(TR, V3(0.08, 0.18, 1), V3(0, 1, 0.08), [1.28, 1.36, 1.42, 1.48], 0.02);';
+  let blockHit = s.includes(blockB);
+  for (const a of blockA) { if (s.includes(a)) { s = s.replace(a, blockB); blockHit = true; } }
+  if (!blockHit) throw new Error('block grip offset line not found');
+  const trA = 'TR = local(held, V3(0, 0, 0)); TR.y -= held.children[0].userData.block ? 0.1 : 0.03; TR.z += 0.03;';
+  const trOld = 'TR = local(held.children[0] || held, V3(0, 0, 0)); if (held.children[0].userData.block) { TR.y -= 0.015; } else { TR.y -= 0.03; TR.z += 0.03; }';
+  const trB = 'TR = local(held.children[0] || held, V3(0, 0, 0)); if (held.children[0].userData.block) { TR.y += 0.055; TR.z += 0.01; } else { TR.y -= 0.03; TR.z += 0.03; }';
+  if (s.includes(trA)) s = s.replace(trA, trB);
+  else if (s.includes(trOld)) s = s.replace(trOld, trB);
+  else if (!s.includes(trB)) throw new Error('block TR local line not found');
 }
 
 // Distinct musket hip vs shouldered ADS.
 {
   const prevs = [
+    'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68',
+    'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.52], sk: 0.68',
+    'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, 0.02, -0.26], sk: 0.72',
     'rifle: {hip: [0.12, -0.05, -0.34], ads: [0, -0.003, -0.42], sk: 0.68',
     'rifle: {hip: [0.085, -0.125, -0.42], ads: [0, -0.003, -0.42], sk: 0.62',
     'rifle: {hip: [0.07, -0.05, -0.34], ads: [0, -0.003, -0.42], sk: 0.68'
   ];
-  const next = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, 0.02, -0.26], sk: 0.72';
+  const next = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68';
   let hit = s.includes(next);
   for (const a of prevs) {
     if (s.includes(a)) { s = s.replace(a, next); hit = true; }
   }
   if (!hit) throw new Error('rifle hip/ads pose line not found');
+  // Pull the musket ADS sight back so we look down the barrel, not into the stock.
+  const closeAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, 0.02, -0.26], sk: 0.72, yaw: 0.05, roll: 0.02, zoom: 0.18';
+  const midAds0 = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.18';
+  const midAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.52], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.18';
+  const midAds2 = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.52], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.12';
+  const farAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10';
+  const cleanAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.11';
+  if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
+  else if (s.includes(midAds0)) s = s.replace(midAds0, cleanAds);
+  else if (s.includes(midAds)) s = s.replace(midAds, cleanAds);
+  else if (s.includes(midAds2)) s = s.replace(midAds2, cleanAds);
+  else if (s.includes(farAds)) s = s.replace(farAds, cleanAds);
+  else if (s.includes('rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10')) s = s.replace('rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10', cleanAds);
+  else if (!s.includes(cleanAds)) throw new Error('rifle ads zoom/sight line not found');
 }
 
 if (!s.includes("const GAME_VERSION = '1.2.49';")) throw new Error('ver missing');
