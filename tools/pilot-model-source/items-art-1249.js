@@ -49,6 +49,7 @@
       g.add(bail);
     }
     // Water: slightly higher quality, keep transparency.
+    let hasWater = false;
     if (water) {
       g.traverse(o => {
         if (!o.isMesh || !o.material) return;
@@ -56,8 +57,20 @@
         if (m.transparent && m.color && m.color.b > m.color.r) {
           m.opacity = 0.72; m.shininess = 140; m.userData.keepTransparent = 1;
           m.transparent = true; m.depthWrite = false;
+          hasWater = true;
         }
       });
+      if (!hasWater) {
+        const waterM = new T.MeshPhongMaterial({
+          color: 0x3a7aC8, transparent: true, opacity: 0.72, shininess: 140,
+          specular: 0xaad4ff, depthWrite: false
+        });
+        waterM.userData.keepTransparent = 1;
+        const disc = new T.Mesh(new T.CircleGeometry(0.09, 20), waterM);
+        disc.rotation.x = -Math.PI / 2;
+        disc.position.y = 0.07;
+        g.add(disc);
+      }
     }
     return g;
   }
@@ -68,7 +81,7 @@
     // Scale the existing torch up a little and add extra flame + sparks.
     try {
       const inner = g.children && g.children[0];
-      if (inner && inner.scale) inner.scale.setScalar(Math.max(inner.scale.x || 0.42, 0.72));
+      if (inner && inner.scale) inner.scale.setScalar(Math.max(inner.scale.x || 0.42, 1.15));
     } catch (_) {}
     const flameT = (function () {
       try {
@@ -80,19 +93,21 @@
     const extra = new T.Sprite(new T.SpriteMaterial({
       map: flameT, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85
     }));
-    extra.scale.set(0.40, 0.64, 1);
-    extra.position.set(0, 0.50, 0);
+    extra.scale.set(0.85, 1.35, 1);
+    extra.position.set(0, 0.62, 0);
     extra.material.userData.keepTransparent = 1;
     extra.userData.glow1249 = 1;
     g.add(extra);
     const sparks = [];
     const st = sparkTex();
-    for (let i = 0; i < 8; i++) {
+    // Second, larger core flame
+    const core = extra.clone(); core.scale.set(0.55, 0.90, 1); core.position.set(0, 0.52, 0.01); core.material = extra.material.clone(); core.material.opacity = 0.95; g.add(core);
+    for (let i = 0; i < 14; i++) {
       const s = new T.Sprite(new T.SpriteMaterial({
         map: st, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.9
       }));
-      s.scale.set(0.03, 0.03, 1);
-      s.position.set((Math.random() - 0.5) * 0.08, 0.38 + Math.random() * 0.16, (Math.random() - 0.5) * 0.08);
+      s.scale.set(0.05, 0.05, 1);
+      s.position.set((Math.random() - 0.5) * 0.14, 0.48 + Math.random() * 0.28, (Math.random() - 0.5) * 0.14);
       s.material.userData.keepTransparent = 1;
       s.userData.spark1249 = 1;
       g.add(s);
@@ -110,9 +125,9 @@
       if (!sparks) return;
       const t = (performance.now() / 1000);
       for (const sp of sparks) {
-        const y = 0.36 + ((t * sp.sp + sp.p) % 0.28);
+        const y = 0.48 + ((t * sp.sp + sp.p) % 0.42);
         const a = t * 2 + sp.p;
-        sp.s.position.set(Math.sin(a) * 0.04, y, Math.cos(a * 1.3) * 0.04);
+        sp.s.position.set(Math.sin(a) * 0.07, y, Math.cos(a * 1.3) * 0.07);
         sp.s.material.opacity = 0.4 + 0.6 * Math.abs(Math.sin(t * 6 + sp.p));
       }
     } catch (_) {}
@@ -154,8 +169,8 @@
           } else {
             // Sit the musket sight on the barrel, forward of the lock so ADS
             // looks down the sights instead of into the stock.
-            u.sight.z = Math.min(u.sight.z, -0.12);
-            u.sight.y += 0.014;
+            u.sight.z = Math.min(u.sight.z, -0.20);
+            u.sight.y += 0.018;
           }
         }
       } catch (e) { ERR('sight', e); }

@@ -212,6 +212,12 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   if (!s.includes('heldVm1249')) {
     if (!s.includes(anchor)) throw new Error('C350/ZAP inject anchor missing');
     s = s.replace(anchor, '})();\n\n' + vm.trim() + '\n\n// GLX-ZAP v1.1.59: the Thunner Cloudie lightning strike gets a big zap');
+  } else {
+    const i = s.indexOf('(function heldVm1249');
+    const end = '})();\n';
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('held-vm replace failed');
+    s = s.slice(0, i) + vm.trim() + '\n' + s.slice(j + end.length);
   }
 }
 
@@ -251,6 +257,24 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
     const j = s.indexOf(end, i);
     if (i < 0 || j < 0) throw new Error('items-art replace failed');
     s = s.slice(0, i) + art.trim() + '\n' + s.slice(j + end.length);
+  }
+}
+
+// Per-item first-person framing, map-overlay hide, TP grip, finger wrap.
+{
+  const fr = fs.readFileSync(path.join(__dirname, 'pilot-model-source/held-frame-1251.js'), 'utf8');
+  if (!s.includes('(function heldFrame1251')) {
+    const i = s.indexOf('(function itemsArt1249');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('held-frame inject anchor missing');
+    s = s.slice(0, j + end.length) + fr.trim() + '\n' + s.slice(j + end.length);
+  } else {
+    const i = s.indexOf('(function heldFrame1251');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('held-frame replace failed');
+    s = s.slice(0, i) + fr.trim() + '\n' + s.slice(j + end.length);
   }
 }
 
@@ -329,8 +353,9 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   ];
   const next = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68';
   const already = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70';
+  const already1 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58';
   const already0 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70';
-  let hit = s.includes(next) || s.includes(already) || s.includes(already0);
+  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1);
   for (const a of prevs) {
     if (s.includes(a)) { s = s.replace(a, next); hit = true; }
   }
@@ -342,9 +367,11 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const midAds2 = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.52], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.12';
   const farAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10';
   const oldClean = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.11';
-  const cleanAds = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
+  const prevClean2 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
+  const cleanAds = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58, yaw: 0.04, roll: 0.02, zoom: 0.12';
   const prevClean = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
   if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
+  else if (s.includes(prevClean2)) s = s.replace(prevClean2, cleanAds);
   else if (s.includes(prevClean)) s = s.replace(prevClean, cleanAds);
   else if (s.includes(midAds0)) s = s.replace(midAds0, cleanAds);
   else if (s.includes(midAds)) s = s.replace(midAds, cleanAds);
@@ -357,8 +384,12 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
     'pistol: {hip: [0.08, -0.12, -0.42], ads: [0, -0.0035, -0.47], sk: 0',
     'pistol: {hip: [0.10, -0.10, -0.34], ads: [0, -0.008, -0.28], sk: 0'
   ];
-  const pNew = 'pistol: {hip: [0.13, -0.08, -0.28], ads: [0, -0.012, -0.22], sk: 0';
+  const pPrev = 'pistol: {hip: [0.13, -0.08, -0.28], ads: [0, -0.012, -0.22], sk: 0';
+  const pMid = 'pistol: {hip: [0.06, -0.10, -0.20], ads: [0, -0.010, -0.24], sk: 0';
+  const pNew = 'pistol: {hip: [0.10, -0.08, -0.24], ads: [0, -0.010, -0.26], sk: 0';
   let pHit = s.includes(pNew);
+  if (s.includes(pMid)) { s = s.replace(pMid, pNew); pHit = true; }
+  if (s.includes(pPrev)) { s = s.replace(pPrev, pNew); pHit = true; }
   for (const a of pOld) { if (s.includes(a)) { s = s.replace(a, pNew); pHit = true; } }
   if (!pHit) throw new Error('pistol hip/ads pose line not found');
 }
@@ -385,7 +416,8 @@ if (s.includes('specular: 0xffffff, transparent: true, opacity: 0.92') || s.incl
 if (!s.includes('handsSculpt1249') || !s.includes('fingerSegGeo')) throw new Error('sculpted hands missing');
 if (!s.includes('crescentBladeGeometry') || !s.includes('crystalVeinTexture')) throw new Error('crescent crystal pick missing');
 if (!s.includes('itemsArt1249')) throw new Error('items-art 1249 missing');
-if (!s.includes('ads: [0, 0.022, -0.40]')) throw new Error('musket ADS pose not applied');
+if (!s.includes('ads: [0, 0.014, -0.50]')) throw new Error('musket ADS pose not applied');
+if (!s.includes('heldFrame1251') || !s.includes('__heldFrame1251')) throw new Error('held-frame 1251 missing');
 
 
 fs.writeFileSync(out, s);

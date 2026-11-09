@@ -596,11 +596,11 @@
     if (!U._geo) U._geo = {};
     if (U._geo[key]) return U._geo[key];
     const segs = 14, sides = 6;
-    // Arc through the two tips with a deep inner curve, socket at t=0.42 (slightly above centre).
-    const top = new T.Vector3(len * 0.20, len * 0.86, 0);
-    const bot = new T.Vector3(len * 0.18, -len * 0.64, 0);
-    const mid = new T.Vector3(len * 0.06, 0.06 * len, 0);
-    const outerCtrl = new T.Vector3(len * 0.38, 0.10 * len, 0);
+    // Fuller C-crescent: both tips sweep well off the haft, deep inner belly.
+    const top = new T.Vector3(len * 0.28, len * 0.90, 0);
+    const bot = new T.Vector3(len * 0.26, -len * 0.72, 0);
+    const mid = new T.Vector3(len * 0.08, 0.04 * len, 0);
+    const outerCtrl = new T.Vector3(len * 0.54, 0.06 * len, 0);
     // Param t=0 at bottom tip, t=1 at top tip. Socket near t=0.46.
     const pos = [], nrm = [], uv = [], ix = [];
     function bezier(a, c, b, t) {
@@ -846,7 +846,7 @@
     mat.userData.glow1249 = 1;
     const m = new T.Mesh(geo, mat);
     m.position.set(x || 0, y || 0, z || 0);
-    m.scale.setScalar(1.08);
+    m.scale.setScalar(1.05);
     m.renderOrder = 4;
     m.userData.glow1249 = 1;
     m.userData.keepTransparent = 1;
@@ -886,36 +886,49 @@
       try {
         const wt = woodRuneTexture();
         runeWood.map = wt;
-        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x3a2a08); runeWood.emissiveMap = wt; }
+        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x8a6a18); runeWood.emissiveMap = wt; runeWood.emissiveIntensity = 0.85; }
         runeWood.needsUpdate = true;
       } catch (_) {}
-      addMesh(g, twistedHaftGeometry(0.0145, len, 1.35), runeWood, 0, 0, 0);
-      addMesh(g, carvedSocketGeometry(0.012, 0.09), runeWood, 0, len - 0.02, 0);
+      const haftM = addMesh(g, twistedHaftGeometry(0.020, len, 1.35), runeWood, 0, 0, 0);
+      haftM.scale.z = 0.62;
+      const sockM = addMesh(g, carvedSocketGeometry(0.016, 0.10), runeWood, 0, len - 0.02, 0);
+      sockM.scale.z = 0.62;
       const vein = crystalVeinTexture(), emTex = crystalEmissiveTexture();
       const coreCol = purple ? 0xb060ff : 0x4ec0ff;
       const emCol = purple ? 0x7722bb : 0x1560aa;
       const core = new T.MeshPhongMaterial({
         color: coreCol, map: vein, emissive: emCol, emissiveMap: emTex,
-        emissiveIntensity: 0.95, shininess: 120, specular: purple ? 0xffd8ff : 0xd8f0ff,
+        emissiveIntensity: 1.35, shininess: 140, specular: purple ? 0xffd8ff : 0xd8f0ff,
         transparent: false, opacity: 1, depthWrite: true
       });
       core.userData.crystalCore1249 = 1;
-      const blade = crescentBladeGeometry(0.52, 0.008, 0.032);
+      const blade = crescentBladeGeometry(0.48, 0.0068, 0.040);
       const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
       bladeMesh.rotation.z = -0.08;
       const glow = addGlowShell(g, blade, purple ? 0xc080ff : 0x66c8ff, 0, len - 0.01, 0);
       if (glow) glow.rotation.z = -0.08;
       try {
-        const spr = new T.Sprite(new T.SpriteMaterial({
-          map: glowSpriteTex(), color: purple ? 0xcc88ff : 0x88ccff,
-          blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.7
-        }));
-        spr.position.set(0.01, len + 0.06, 0);
-        spr.scale.set(0.14, 0.22, 0.14);
-        spr.renderOrder = 5;
-        spr.material.userData.keepTransparent = 1;
-        spr.userData.glow1249 = 1;
-        g.add(spr);
+        const gtex = glowSpriteTex();
+        const col = purple ? 0xcc88ff : 0x88ccff;
+        // Soft bloom along the whole crescent, not a second white blade.
+        const spots = [
+          [0.08, len + 0.24, 0, 0.10, 0.16, 0.55],
+          [0.09, len + 0.06, 0, 0.12, 0.16, 0.70],
+          [0.07, len - 0.14, 0, 0.10, 0.14, 0.55]
+        ];
+        for (let i = 0; i < spots.length; i++) {
+          const [x, y, z, sx, sy, op] = spots[i];
+          const spr = new T.Sprite(new T.SpriteMaterial({
+            map: gtex, color: col,
+            blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: op
+          }));
+          spr.position.set(x, y, z);
+          spr.scale.set(sx, sy, sx);
+          spr.renderOrder = 5;
+          spr.material.userData.keepTransparent = 1;
+          spr.userData.glow1249 = 1;
+          g.add(spr);
+        }
       } catch (_) {}
       g.userData.__gs = {b: new T.Vector3(0, 0.10, 0), h: new T.Vector3(0, len * 0.42, 0), r: 0.016, authored: 1};
     } else if (k === 'pick') {
