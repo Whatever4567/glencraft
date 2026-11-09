@@ -91,27 +91,32 @@
       return sparkTex();
     })();
     const extra = new T.Sprite(new T.SpriteMaterial({
-      map: flameT, color: 0xff8a28, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.62
+      map: flameT, color: 0xff7a18, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.70
     }));
-    extra.scale.set(0.42, 0.70, 1);
-    extra.position.set(0, 0.56, 0);
+    extra.scale.set(0.58, 0.95, 1);
+    extra.position.set(0, 0.62, 0);
     extra.material.userData.keepTransparent = 1;
     extra.userData.glow1249 = 1;
     g.add(extra);
     const sparks = [];
     const st = sparkTex();
-    // Small orange core — not a blown-out white ball.
-    const core = extra.clone(); core.scale.set(0.20, 0.32, 1); core.position.set(0, 0.50, 0.01); core.material = extra.material.clone(); core.material.color.setHex(0xff6a14); core.material.opacity = 0.55; g.add(core);
-    for (let i = 0; i < 8; i++) {
+    // Mid orange body + a small bright core, not a white bloom.
+    const mid = extra.clone(); mid.scale.set(0.36, 0.58, 1); mid.position.set(0.02, 0.58, 0.01); mid.material = extra.material.clone(); mid.material.color.setHex(0xff5a10); mid.material.opacity = 0.62; g.add(mid);
+    const tongue = extra.clone(); tongue.scale.set(0.28, 0.78, 1); tongue.position.set(-0.05, 0.66, -0.02); tongue.material = extra.material.clone(); tongue.material.color.setHex(0xff3a00); tongue.material.opacity = 0.58; g.add(tongue);
+    const tongue2 = extra.clone(); tongue2.scale.set(0.22, 0.58, 1); tongue2.position.set(0.05, 0.72, 0.02); tongue2.material = extra.material.clone(); tongue2.material.color.setHex(0xffa014); tongue2.material.opacity = 0.52; g.add(tongue2);
+    const core = extra.clone(); core.scale.set(0.16, 0.24, 1); core.position.set(0, 0.52, 0.02); core.material = extra.material.clone(); core.material.color.setHex(0xff9a28); core.material.opacity = 0.45; g.add(core);
+    for (let i = 0; i < 22; i++) {
+      const ember = (i % 3 === 0) ? 0xffc040 : 0xff6a10;
       const s = new T.Sprite(new T.SpriteMaterial({
-        map: st, color: 0xffa030, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.7
+        map: st, color: ember, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.8
       }));
-      s.scale.set(0.028, 0.028, 1);
-      s.position.set((Math.random() - 0.5) * 0.10, 0.48 + Math.random() * 0.20, (Math.random() - 0.5) * 0.10);
+      const sz = 0.020 + (i % 5) * 0.006;
+      s.scale.set(sz, sz, 1);
+      s.position.set((Math.random() - 0.5) * 0.18, 0.50 + Math.random() * 0.40, (Math.random() - 0.5) * 0.18);
       s.material.userData.keepTransparent = 1;
       s.userData.spark1249 = 1;
       g.add(s);
-      sparks.push({s, p: Math.random() * Math.PI * 2, sp: 0.6 + Math.random() * 0.8});
+      sparks.push({s, p: Math.random() * Math.PI * 2, sp: 0.55 + Math.random() * 0.95});
     }
     g.userData.sparks1249 = sparks;
     return g;
@@ -125,10 +130,10 @@
       if (!sparks) return;
       const t = (performance.now() / 1000);
       for (const sp of sparks) {
-        const y = 0.48 + ((t * sp.sp + sp.p) % 0.42);
+        const y = 0.50 + ((t * sp.sp + sp.p) % 0.72);
         const a = t * 2 + sp.p;
-        sp.s.position.set(Math.sin(a) * 0.07, y, Math.cos(a * 1.3) * 0.07);
-        sp.s.material.opacity = 0.25 + 0.4 * Math.abs(Math.sin(t * 6 + sp.p));
+        sp.s.position.set(Math.sin(a) * 0.11, y, Math.cos(a * 1.3) * 0.11);
+        sp.s.material.opacity = 0.20 + 0.5 * Math.abs(Math.sin(t * 6 + sp.p));
       }
     } catch (_) {}
   }
@@ -169,8 +174,11 @@
           } else {
             // Sit the musket sight on the barrel, forward of the lock so ADS
             // looks down the sights instead of into the stock.
-            u.sight.z = Math.min(u.sight.z, -0.20);
-            u.sight.y += 0.018;
+            if (!u.__sight1253) {
+              u.sight.z = Math.min(u.sight.z, -0.32);
+              u.sight.y += 0.012;
+              u.__sight1253 = 1;
+            }
           }
         }
       } catch (e) { ERR('sight', e); }

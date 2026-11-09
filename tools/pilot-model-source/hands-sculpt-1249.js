@@ -157,7 +157,7 @@
       for (let i = 0; i <= segs; i++) {
         const t = i / segs, y = t * len;
         let r = r0 + (r1 - r0) * Math.pow(t, 0.85);
-        if (knuckle && t < 0.22) r *= 1 + 0.28 * (1 - t / 0.22) * Math.sin((1 - t / 0.22) * Math.PI);
+        if (knuckle && t < 0.18) r *= 1 + 0.12 * (1 - t / 0.18) * Math.sin((1 - t / 0.18) * Math.PI);
         // slight belly on the palmar mid-section
         if (t > 0.25 && t < 0.8) r *= 1.04;
         for (let k = 0; k < rad; k++) {
@@ -196,7 +196,7 @@
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const y = p.getY(i), z = p.getZ(i);
-        p.setZ(i, z * 0.78);
+        p.setZ(i, z * 0.62);
         if (y > 0) p.setY(i, y * 0.75);
       }
       g.computeVertexNormals();
@@ -319,15 +319,14 @@
     palmPad.scale.set(0.024, 0.014, 0.008);
     palmPad.position.set(0, 0.048, -0.008);
 
-    // Dorsal tendons
+    // Short dorsal tendon ridges — never long sticks poking past the knuckles.
     for (let i = 0; i < 4; i++) {
-      const t = addMesh(h, share(geoKey('tend', i), () => {
-        const g = new T.CylinderGeometry(0.0016, 0.0022, 0.07, 6);
-        g.translate(0, 0.035, 0);
+      const t = addMesh(h, share(geoKey('tend2', i), () => {
+        const g = new T.CylinderGeometry(0.0012, 0.0016, 0.028, 8);
+        g.translate(0, 0.014, 0);
         return g;
-      }), sm, (i - 1.5) * 0.016, 0.055, 0.013);
-      t.rotation.z = (i - 1.5) * -0.04;
-      t.rotation.x = 0.08;
+      }), sm, (i - 1.5) * 0.016, 0.072, 0.011);
+      t.rotation.z = (i - 1.5) * -0.03;
     }
 
     const fingers = h.userData.f || [];
@@ -339,15 +338,15 @@
       const f = pair[0], k = pair[1];
       const r = widths[i] || 0.007;
       // proximal on f
-      addMesh(f, fingerSegGeo(0.036, r, r * 0.88, 0.70, 10, 12, 1), sm);
-      addMesh(f, knuckleGeo(r * 1.15), sm, 0, 0.001, 0.001);
+      addMesh(f, fingerSegGeo(0.038, r * 1.02, r * 0.84, 0.48, 14, 14, 1), sm);
+      addMesh(f, knuckleGeo(r * 0.72), sm, 0, 0.001, 0.001);
       if (k) {
-        addMesh(k, fingerSegGeo(0.017, r * 0.88, r * 0.80, 0.70, 9, 12, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.95), sm, 0, 0.001, 0.001);
+        addMesh(k, fingerSegGeo(0.018, r * 0.86, r * 0.76, 0.46, 12, 14, 1), sm);
+        addMesh(k, knuckleGeo(r * 0.62), sm, 0, 0.001, 0.001);
         const d = k.userData && k.userData.d;
         if (d) {
-          addMesh(d, fingerSegGeo(0.013, r * 0.80, r * 0.62, 0.68, 9, 12, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.85), sm, 0, 0.001, 0.001);
+          addMesh(d, fingerSegGeo(0.014, r * 0.76, r * 0.54, 0.44, 12, 14, 0), sm);
+          addMesh(d, knuckleGeo(r * 0.50), sm, 0, 0.001, 0.001);
           // nail on the dorsal distal
           const nail = addMesh(d, nailGeo(r * 1.05, 0.0055, r * 0.28), nailMat(), 0, 0.010, r * 0.38);
           nail.rotation.x = -0.12;
@@ -395,7 +394,7 @@
     if (p.el) { p.el.material = lm; mark(p.el); }
     if (p.cuff) { p.cuff.material = lm; foldCloth(p.cuff, 1.45); mark(p.cuff);
       if (!p.cuff.userData.roll1251 && p.cuff.parent) {
-        const roll = new T.Mesh(new T.TorusGeometry(0.042, 0.012, 8, 18), lm);
+        const roll = new T.Mesh(new T.TorusGeometry(0.028, 0.007, 8, 16), lm);
         roll.rotation.x = Math.PI / 2;
         // Sit the roll at the cuff, slightly toward the camera.
         roll.position.copy(p.cuff.position);
@@ -403,7 +402,7 @@
         roll.userData.folded1249 = 1;
         roll.userData.sculptKeep = 1;
         p.cuff.parent.add(roll);
-        const roll2 = new T.Mesh(new T.TorusGeometry(0.038, 0.008, 8, 16), lm);
+        const roll2 = new T.Mesh(new T.TorusGeometry(0.024, 0.005, 8, 14), lm);
         roll2.rotation.x = Math.PI / 2;
         roll2.position.copy(p.cuff.position);
         roll2.position.y += 0.022;

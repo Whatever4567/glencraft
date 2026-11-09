@@ -355,7 +355,11 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const already = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70';
   const already1 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58';
   const already0 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70';
-  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1);
+  const already2 = 'rifle: {hip: [0.14, -0.04, -0.32], ads: [0, 0.004, -0.20], sk: 0.52';
+  const already3 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.022, -0.34], sk: 0.58';
+  const already4 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.018, -0.22], sk: 0.55';
+  const already5 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.032, -0.22], sk: 0.55';
+  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1) || s.includes(already2) || s.includes(already3) || s.includes(already4) || s.includes(already5);
   for (const a of prevs) {
     if (s.includes(a)) { s = s.replace(a, next); hit = true; }
   }
@@ -368,9 +372,17 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const farAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10';
   const oldClean = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.11';
   const prevClean2 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
-  const cleanAds = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58, yaw: 0.04, roll: 0.02, zoom: 0.12';
+    const prevClean3 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58, yaw: 0.04, roll: 0.02, zoom: 0.12';
+  const prevClean4 = 'rifle: {hip: [0.14, -0.04, -0.32], ads: [0, 0.004, -0.20], sk: 0.52, yaw: 0.03, roll: 0.012, zoom: 0.16';
+  const prevClean5 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.022, -0.34], sk: 0.58, yaw: 0.04, roll: 0.016, zoom: 0.14';
+  const prevClean7 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.032, -0.22], sk: 0.55, yaw: 0.04, roll: 0.016, zoom: 0.14';
+  const cleanAds = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.018, -0.22], sk: 0.55, yaw: 0.04, roll: 0.016, zoom: 0.14';
   const prevClean = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
-  if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
+  if (s.includes(prevClean7)) s = s.replace(prevClean7, cleanAds);
+  else if (s.includes(prevClean5)) s = s.replace(prevClean5, cleanAds);
+  else if (s.includes(prevClean4)) s = s.replace(prevClean4, cleanAds);
+  else if (s.includes(prevClean3)) s = s.replace(prevClean3, cleanAds);
+  else if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
   else if (s.includes(prevClean2)) s = s.replace(prevClean2, cleanAds);
   else if (s.includes(prevClean)) s = s.replace(prevClean, cleanAds);
   else if (s.includes(midAds0)) s = s.replace(midAds0, cleanAds);
@@ -386,12 +398,20 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   ];
   const pPrev = 'pistol: {hip: [0.13, -0.08, -0.28], ads: [0, -0.012, -0.22], sk: 0';
   const pMid = 'pistol: {hip: [0.06, -0.10, -0.20], ads: [0, -0.010, -0.24], sk: 0';
-  const pNew = 'pistol: {hip: [0.10, -0.08, -0.24], ads: [0, -0.010, -0.26], sk: 0';
+  const pOldHip = 'pistol: {hip: [0.10, -0.08, -0.24], ads: [0, -0.010, -0.26], sk: 0';
+  const pOldClose = 'pistol: {hip: [0.16, 0.04, -0.32], ads: [0, 0.002, -0.16], sk: 0';
+  const pNew = 'pistol: {hip: [0.11, 0.02, -0.28], ads: [0, 0.010, -0.22], sk: 0';
   let pHit = s.includes(pNew);
+  if (s.includes(pOldClose)) { s = s.replace(pOldClose, pNew); pHit = true; }
+  if (s.includes(pOldHip)) { s = s.replace(pOldHip, pNew); pHit = true; }
   if (s.includes(pMid)) { s = s.replace(pMid, pNew); pHit = true; }
   if (s.includes(pPrev)) { s = s.replace(pPrev, pNew); pHit = true; }
   for (const a of pOld) { if (s.includes(a)) { s = s.replace(a, pNew); pHit = true; } }
   if (!pHit) throw new Error('pistol hip/ads pose line not found');
+  const pYawOld = 'pistol: {hip: [0.11, 0.02, -0.28], ads: [0, 0.010, -0.22], sk: 0, yaw: 0.06, roll: 0.03';
+  const pYawNew = 'pistol: {hip: [0.11, 0.02, -0.28], ads: [0, 0.010, -0.22], sk: 0, yaw: 0.42, roll: 0.10';
+  if (s.includes(pYawOld)) s = s.replace(pYawOld, pYawNew);
+  else if (!s.includes(pYawNew)) throw new Error('pistol hip yaw not applied');
 }
 
 // Idempotent hook: run the view-space coverage cull *inside* the gun VM
@@ -430,7 +450,7 @@ if (s.includes('specular: 0xffffff, transparent: true, opacity: 0.92') || s.incl
 if (!s.includes('handsSculpt1249') || !s.includes('fingerSegGeo')) throw new Error('sculpted hands missing');
 if (!s.includes('crescentBladeGeometry') || !s.includes('crystalVeinTexture')) throw new Error('crescent crystal pick missing');
 if (!s.includes('itemsArt1249')) throw new Error('items-art 1249 missing');
-if (!s.includes('ads: [0, 0.014, -0.50]')) throw new Error('musket ADS pose not applied');
+if (!s.includes('ads: [0, 0.018, -0.22]')) throw new Error('musket ADS pose not applied');
 if (!s.includes('heldFrame1251') || !s.includes('__heldFrame1251')) throw new Error('held-frame 1251 missing');
 if (!s.includes('GLX-CULLVM-1252') || !s.includes('cullVm')) throw new Error('viewmodel coverage cull hook missing');
 

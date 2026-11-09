@@ -14,7 +14,7 @@
   // armS scales the visible __fpa rig around the camera (use sparingly).
   const FRAME = {
     empty:  {dx:  0.02, dy: -0.12, dz: 0.02, fov: 0.76, s: 1.00, armS: 1.16},
-    block:  {dx: -0.04, dy:  0.00, dz: 0.04, fov: 0.76, s: 0.68, armS: 1.20},
+    block:  {dx: -0.02, dy:  0.04, dz: 0.02, fov: 0.78, s: 0.62, armS: 1.16},
     pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
     p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
     p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
@@ -22,13 +22,13 @@
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     sword:  {dx: -0.02, dy: -0.06, dz: 0.06, fov: 0.68, s: 1.10, armS: 1.16},
-    bucket: {dx: -0.06, dy:  0.00, dz: 0.08, fov: 0.68, s: 1.16, armS: 1.12},
-    torch:  {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12},
+    bucket: {dx: -0.04, dy: -0.10, dz: -0.02, fov: 0.84, s: 0.70, armS: 1.10},
+    torch:  {dx: -0.05, dy: -0.02, dz: 0.04, fov: 0.72, s: 1.08, armS: 1.10},
     map:    {dx: -0.05, dy:  0.02, dz: 0.08, fov: 0.68, s: 1.55, armS: 1.12},
-    musket: {dx: -0.02, dy:  0.02, dz: 0.02, fov: 0.92, s: 1.00, armS: 1.00},
-    pistol: {dx: -0.06, dy:  0.00, dz: 0.06, fov: 0.90, s: 1.00, armS: 1.00},
-    musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
-    pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
+    musket: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 1.00},
+    pistol: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 1.00},
+    musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.88},
+    pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.90},
     other:  {dx: -0.04, dy:  0.08, dz: 0.12, fov: 0.64, s: 1.10, armS: 1.20}
   };
   U.FRAME = FRAME;
@@ -150,6 +150,10 @@
           // so a linen cuff cannot sit in the lens.
           try {
             if (W.__vm && W.__vm.vs && sc === W.__vm.vs) hideGunSleeves();
+            else {
+              const k = kindOf();
+              if (k && k !== 'musket' && k !== 'pistol') shrinkCuff(k);
+            }
           } catch (_) {}
           return rd.apply(this, arguments);
         };
@@ -163,8 +167,8 @@
       const fpa = W.__fpa;
       const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
       if (!rig) return;
-      const tight = {empty: 0.35, block: 1.05, pick: 1.0, p761: 1.0, p760: 1.0, axe: 1.0, shovel: 1.0, hoe: 1.0,
-        sword: 1.05, bucket: 0.95, torch: 0.95, map: 0.45, musket: ads ? 0.7 : 0.85, pistol: ads ? 0.65 : 0.9, other: 0.8};
+      const tight = {empty: 0.35, block: 1.28, pick: 1.18, p761: 1.18, p760: 1.18, axe: 1.05, shovel: 1.05, hoe: 1.05,
+        sword: 1.08, bucket: 1.05, torch: 1.00, map: 0.45, musket: ads ? 0.62 : 0.95, pistol: ads ? 0.58 : 1.02, other: 0.8};
       const gamt = tight[kind] != null ? tight[kind] : 0.8;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -177,7 +181,7 @@
           // index (0) stays straighter on a pistol trigger; support hand stays flatter under a musket forestock
           let c = gamt;
           if (trigger && !isLeft && i === 0) c = 0.25;
-          if (kind === 'musket' && ads && isLeft) c = 0.35;
+          if ((kind === 'musket' || kind === 'pistol') && ads && isLeft) c = 0.28;
           if (kind === 'map') c = 0.35 + i * 0.04;
           try {
             f.rotation.x = 0.15 + c * 0.85;
@@ -205,6 +209,61 @@
     } catch (e) { ERR('curl', e); }
   }
 
+  function gripFg(arm, amt) {
+    try {
+      const el = arm && arm.userData && arm.userData.el;
+      const hn = el && el.children && el.children.find(function (c) { return c.userData && c.userData.hand; });
+      const fg = hn && hn.userData && hn.userData.fg;
+      if (!fg) return;
+      for (let i = 0; i < fg.length; i++) {
+        if (fg[i] && fg[i].rotation) fg[i].rotation.x = amt;
+      }
+    } catch (_) {}
+  }
+
+  function curlPilotFingers(model, side, amt) {
+    try {
+      const p = model && model.userData && model.userData.pilot;
+      const r = p && p.near;
+      if (!r || !r.bone || !r.rest) return;
+      const Q = new T.Quaternion();
+      const ax = new T.Vector3(1, 0, 0);
+      for (let digit = 0; digit < 4; digit++) {
+        for (let part = 1; part <= 2; part++) {
+          const b = r.bone('finger.' + side + '.' + digit + '.0' + part);
+          if (!b || !r.rest[b.name]) continue;
+          const ang = Math.max(0, amt - 0.35) * (part === 1 ? 0.70 : 0.52);
+          b.quaternion.copy(r.rest[b.name].q).multiply(Q.setFromAxisAngle(ax, ang));
+        }
+      }
+      for (let part = 1; part <= 2; part++) {
+        const b = r.bone('thumb.' + side + '.0' + part);
+        if (!b || !r.rest[b.name]) continue;
+        const ang = part === 1 ? 0.55 : 0.40;
+        b.quaternion.copy(r.rest[b.name].q).multiply(Q.setFromAxisAngle(ax, ang));
+      }
+    } catch (_) {}
+  }
+
+  function prepTpControls() {
+    // Runs BEFORE PilotRuntime.sync so pose() picks up a firm grip + slight hold.
+    try {
+      if (typeof worldModel === 'undefined' || !worldModel) return;
+      const arms = worldModel.userData && worldModel.userData.arms;
+      const mesh = (typeof heldMesh3p !== 'undefined') ? heldMesh3p : null;
+      if (!arms || !mesh) return;
+      // Production hold is slot 1 (hand.L) — the viewer's-right hand on this rig.
+      const a = arms[1];
+      if (a) {
+        a.rotation.x = -0.55;
+        a.rotation.z = 0.18;
+        const el = a.userData && a.userData.el;
+        if (el && el.rotation) el.rotation.x = -0.85;
+        gripFg(a, 1.85);
+      }
+    } catch (e) { ERR('tpPrep', e); }
+  }
+
   function poseTp() {
     try {
       if (typeof camMode === 'undefined' || !camMode) return;
@@ -213,48 +272,56 @@
       if (H && typeof H.poseHeld === 'function') {
         try { H.poseHeld(worldModel); } catch (_) {}
       }
-      const arms = worldModel.userData && worldModel.userData.arms;
-      const grip = arms && arms[1] && arms[1].userData && arms[1].userData.grip;
-      const mesh = (typeof heldMesh3p !== 'undefined') ? heldMesh3p : null;
-      if (grip && mesh) {
-        if (mesh.parent !== grip) {
-          try { if (mesh.parent) mesh.parent.remove(mesh); } catch (_) {}
-          grip.add(mesh);
-        }
-        mesh.visible = true;
-        if (!mesh.userData) mesh.userData = {};
-        if (!mesh.userData.tpSeat1251) {
-          mesh.position.set(0, -0.01, 0.04);
-          if (mesh.userData.tool || mesh.userData.p761 || mesh.userData.sword) {
-            mesh.rotation.set(-1.15, 0.05, 0.08);
-            mesh.scale.setScalar(Math.max(mesh.scale.x || 1, 1.35));
-          }
-          mesh.userData.tpSeat1251 = 1;
-        }
-      }
-      // Walk with a slight hold bend, not an A-pose.
-      if (arms && arms[1] && mesh) {
-        const sw = (typeof bobPhase !== 'undefined') ? Math.sin(bobPhase) * 0.55 * (typeof bobAmp !== 'undefined' ? bobAmp : 1) : 0;
-        arms[1].rotation.z = (arms[1].rotation.z || 0) * 0.4 + 0.12;
-        if (!(typeof swingT !== 'undefined' && swingT > 0)) {
-          arms[1].rotation.x = sw * 0.55 - 0.7;
-        }
-      }
-      // Curl visible finger bones on the Scottish model if present.
+      // After PilotRuntime.sync, re-apply bone curls (sync overwrites quaternions
+      // from rest + fg; thumb is otherwise almost straight). Then refresh the
+      // skinned meshes so the closed fist is what actually draws.
+      curlPilotFingers(worldModel, 'L', 2.05);
+      curlPilotFingers(worldModel, 'R', 0.55);
       try {
+        worldModel.updateMatrixWorld(true);
         worldModel.traverse(function (o) {
-          const n = (o.name || '').toLowerCase();
-          if (!/finger|thumb|index|middle|ring|pinky/.test(n)) return;
-          if (!/slot1|_r$|right|arm_slot1/.test(n) && !/finger/.test(n)) return;
-          if (o.rotation) {
-            if (/thumb/.test(n)) o.rotation.x = Math.max(o.rotation.x, 0.25);
-            else o.rotation.x = Math.max(o.rotation.x, 0.55);
-          }
+          if (o.isSkinnedMesh && o.skeleton && typeof o.skeleton.update === 'function') o.skeleton.update();
         });
       } catch (_) {}
     } catch (e) { ERR('tp', e); }
   }
 
+  function hookPilotSync() {
+    try {
+      const P = W.__pilot1235;
+      if (!P || typeof P.sync !== 'function') return false;
+      if (!P.__grip1253) {
+      const prev = P.sync.bind(P);
+      P.sync = function (model) {
+        try {
+          if (typeof worldModel !== 'undefined' && model === worldModel && typeof camMode !== 'undefined' && camMode) {
+            prepTpControls();
+          }
+        } catch (_) {}
+        const r = prev(model);
+        try {
+          if (typeof worldModel !== 'undefined' && model === worldModel && typeof camMode !== 'undefined' && camMode) {
+            poseTp();
+          }
+        } catch (_) {}
+        return r;
+      };
+      P.__grip1253 = 1;
+      }
+      try {
+        const sc = (typeof scene !== 'undefined') ? scene : null;
+        if (sc && !sc.userData.grip1253Hook) {
+          const old = sc.onBeforeRender;
+          sc.onBeforeRender = function () {
+            if (old) old.apply(this, arguments);
+            try { if (typeof camMode !== 'undefined' && camMode) poseTp(); } catch (_) {}
+          };
+          sc.userData.grip1253Hook = 1;
+        }
+      } catch (_) {}
+      return !!P.__grip1253;
+    } catch (e) { ERR('tpHook', e); return false; }
+  }
 
   function eachArm(fn) {
     try {
@@ -541,9 +608,88 @@
     try { if (typeof hand !== 'undefined' && hand) unhide(hand); } catch (_) {}
   }
 
+  function shrinkCuff(kind) {
+    // The long linen sleeve (p.up / p.cuff / the legacy sleeve under `hand`)
+    // is a camera-swallowing wall. Hide those sheets; keep a modest rolled cuff.
+    function hideLongLinen(root) {
+      if (!root || !root.traverse) return;
+      root.traverse(function (o) {
+        if (!o.isMesh) return;
+        if (isItemMesh(o)) return;
+        const typ = (o.geometry && o.geometry.type) || '';
+        if (o.userData && o.userData.folded1249 && /Torus/.test(typ)) {
+          o.visible = true;
+          o.scale.setScalar(0.90);
+          return;
+        }
+        if (isHandPart(o) && !isLinenMesh(o)) return;
+        const m = [].concat(o.material || [])[0];
+        const pale = m && m.color && m.color.r > 0.65 && m.color.g > 0.65 && m.color.b > 0.62;
+        if (isLinenMesh(o) || typ === 'ConeGeometry' || typ === 'CylinderGeometry' || (pale && typ === 'BufferGeometry')) {
+          o.visible = false;
+          o.userData.__hidCuff1253 = 1;
+        }
+      });
+    }
+    eachArm(function (arm) {
+      const p = arm.userData && arm.userData.p;
+      if (p) {
+        if (p.up) p.up.visible = false;
+        if (p.cuff) p.cuff.visible = false;
+      }
+      hideLongLinen(arm);
+    });
+    try { if (typeof hand !== 'undefined' && hand) hideLongLinen(hand); } catch (_) {}
+  }
+
+  // After __fpa.step has solved the gun IK: scale the rig down in ADS so
+  // hands do not fill the lens, and cup the support hand under the forestock
+  // instead of clawing the barrel in the sight line.
+  function offsetInCam(obj, dx, dy, dz) {
+    if (!obj || !obj.parent) return;
+    const cam = (W.__vm && W.__vm.vc) || (typeof camera !== 'undefined' ? camera : W.camera);
+    obj.updateWorldMatrix(true, false);
+    obj.parent.updateWorldMatrix(true, false);
+    const w = obj.getWorldPosition(new T.Vector3());
+    if (cam && cam.matrixWorld) {
+      cam.updateMatrixWorld(true);
+      const len = Math.hypot(dx, dy, dz) || 1;
+      const add = new T.Vector3(dx, dy, dz);
+      add.transformDirection(cam.matrixWorld).multiplyScalar(len);
+      w.add(add);
+    } else {
+      w.x += dx; w.y += dy; w.z += dz;
+    }
+    obj.position.copy(obj.parent.worldToLocal(w));
+  }
+
+  function poseGunHands(kind, ads) {
+    try {
+      const rig = W.__fpa && (typeof W.__fpa.rig === 'function' ? W.__fpa.rig() : null);
+      if (!rig) return;
+      const L = rig.userData && rig.userData.L;
+      if (kind !== 'musket' && kind !== 'pistol') return;
+      const armS = ads ? ((kind === 'musket') ? 0.88 : 0.90) : 1;
+      rig.scale.setScalar(armS);
+      if (ads && L && L.visible) {
+        // Small local cup only — a large camera-space shove put the
+        // support forearm across the musket lens.
+        L.position.y -= (kind === 'musket') ? 0.02 : 0.012;
+        const p = L.userData && L.userData.p;
+        if (p && p.h) {
+          p.h.rotation.z += (kind === 'musket') ? 0.35 : 0.22;
+          p.h.rotation.x -= 0.15;
+        }
+        if (p && p.up) p.up.visible = false;
+        if (p && p.cuff) p.cuff.visible = false;
+      }
+    } catch (e) { ERR('gunHands', e); }
+  }
+
   function apply(dt) {
     try {
       hideMapOverlay();
+      hookPilotSync();
       if (typeof camMode !== 'undefined' && camMode) {
         U.fovK = 1;
         applyArmScale(1, 0, 0, 0);
@@ -575,14 +721,33 @@
         hand.position.z += cur.dz;
       }
       applyItemScale(cur.s);
+      if (k === 'bucket' || k === 'block') {
+        try {
+          const mesh = (typeof held !== 'undefined' && held && held.children && held.children[0]) || null;
+          if (mesh) {
+            if (k === 'bucket') {
+              // Hang the pail below the fist so the hand is visible on the bail.
+              mesh.position.set(0.01, -0.11, 0.02);
+              mesh.rotation.set(0.25, 0.55, 0.08);
+            } else {
+              // Tuck cobble into the palm every frame; fingers wrap via curl.
+              mesh.position.set(0, -0.015, 0.055);
+              mesh.rotation.set(0.22, 0.45, 0.12);
+            }
+          }
+        } catch (_) {}
+      }
       if (k === 'musket' || k === 'pistol') {
-        // Guns: only nudge `hand` (already applied). Leave the __fpa rig unscaled
-        // so a sleeve cannot sit in the lens during hip or ADS.
-        applyArmScale(1, 0, 0, 0);
+        // Guns: the viewmodel owns `hand`. Scale the __fpa rig in ADS so the
+        // hands stay out of the sight picture; keep hip at 1:1.
+        applyArmScale(cur.armS, 0, 0, 0);
         hideGunSleeves();
+        // poseGunHands runs once, inside the __fpa.step hook after IK (not
+        // here, or the support-hand nudge would be applied twice).
       } else {
         applyArmScale(cur.armS, cur.dx, cur.dy, cur.dz);
         showGunSleeves();
+        shrinkCuff(k);
       }
       curlFingers(k, ads);
       U.fovK = cur.fov;
@@ -602,7 +767,10 @@
         const r = prev.apply(this, arguments);
         try {
           const k = kindOf();
-          if (k === 'musket' || k === 'pistol') hideGunSleeves();
+          if (k === 'musket' || k === 'pistol') {
+            hideGunSleeves();
+            poseGunHands(k, isAds());
+          }
         } catch (_) {}
         return r;
       };
@@ -620,6 +788,7 @@
         return r;
       };
       hookFpa();
+      hookPilotSync();
       U._hooked = 1;
       return true;
     } catch (e) { ERR('hook', e); return false; }
@@ -629,7 +798,8 @@
   const boot = setInterval(function () {
     n++;
     hideMapOverlay();
-    if (hook() || n > 80) clearInterval(boot);
+    hookPilotSync();
+    if ((hook() && hookPilotSync()) || n > 80) clearInterval(boot);
   }, 120);
   W.addEventListener && W.addEventListener('load', function () { hook(); hideMapOverlay(); });
 })(typeof window !== 'undefined' ? window : this);

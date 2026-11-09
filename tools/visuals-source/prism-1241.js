@@ -597,10 +597,10 @@
     if (U._geo[key]) return U._geo[key];
     const segs = 14, sides = 6;
     // Fuller C-crescent: both tips sweep well off the haft, deep inner belly.
-    const top = new T.Vector3(len * 0.34, len * 0.96, 0);
-    const bot = new T.Vector3(len * 0.32, -len * 0.84, 0);
-    const mid = new T.Vector3(len * 0.06, 0.04 * len, 0);
-    const outerCtrl = new T.Vector3(len * 0.72, 0.08 * len, 0);
+    const top = new T.Vector3(len * 0.32, len * 1.00, 0);
+    const bot = new T.Vector3(len * 0.30, -len * 0.88, 0);
+    const mid = new T.Vector3(len * 0.04, 0.04 * len, 0);
+    const outerCtrl = new T.Vector3(len * 0.70, 0.10 * len, 0);
     // Param t=0 at bottom tip, t=1 at top tip. Socket near t=0.46.
     const pos = [], nrm = [], uv = [], ix = [];
     function bezier(a, c, b, t) {
@@ -903,7 +903,7 @@
         transparent: false, opacity: 1, depthWrite: true
       });
       core.userData.crystalCore1249 = 1;
-      const blade = crescentBladeGeometry(0.50, 0.0064, 0.038);
+      const blade = crescentBladeGeometry(0.50, 0.0090, 0.050);
       const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
       bladeMesh.rotation.z = -0.08;
       const glow = addGlowShell(g, blade, purple ? 0xc080ff : 0x66c8ff, 0, len - 0.01, 0);

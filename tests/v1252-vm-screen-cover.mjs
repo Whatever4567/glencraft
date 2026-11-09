@@ -93,7 +93,7 @@ ok(wall.visible === true, 'restoreCulled makes previously culled meshes visible 
 // QA captures: fail if any *visible* non-item mesh is a screen-filling
 // wall (cover == 1 or a non-protected mesh still covering >25% after cull).
 // Held items themselves may exceed 25% (they are the subject of the shot).
-const qaResults = process.env.QA_COVER_FILE || '/workspace/qa/held-1252/webgl-results.json';
+const qaResults = process.env.QA_COVER_FILE || (fs.existsSync('/workspace/qa/held-1253/webgl-results.json') ? '/workspace/qa/held-1253/webgl-results.json' : '/workspace/qa/held-1252/webgl-results.json');
 if (fs.existsSync(qaResults)) {
   const results = JSON.parse(fs.readFileSync(qaResults, 'utf8')).results || {};
   const shots = Object.keys(results).filter(k => k.startsWith('fp-') && !k.includes('reload'));
