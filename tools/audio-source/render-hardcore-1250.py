@@ -56,13 +56,24 @@ BASS = [73.42, 110.00, 61.74, 98.00]
 
 # Musical hooks: (eighth-index in a 2-bar phrase 0..15, midi, duration in 8ths)
 # Derived from the highland-mist D–E–F shape, raised to D major, nightcore register.
-HOOK_A = [
+# Two-bar phrases sit over D→A (ci % 4 == 0) or Bm→G (ci % 4 == 2).
+# Notes are chosen so they are chord tones or safe extensions on both bars
+# of the phrase (no G-against-F# on D/Bm, no long C# against G).
+HOOK_A_DA = [
     (0, 86, 2), (2, 88, 1), (3, 90, 1), (4, 93, 2), (6, 90, 1), (7, 88, 1),
     (8, 90, 2), (10, 93, 1), (11, 95, 1), (12, 93, 2), (14, 90, 1), (15, 86, 1),
 ]
-HOOK_B = [
-    (0, 90, 2), (2, 91, 1), (3, 93, 1), (4, 95, 2), (6, 93, 1), (7, 90, 1),
+HOOK_A_BmG = [
+    (0, 86, 2), (2, 88, 1), (3, 90, 1), (4, 93, 2), (6, 90, 1), (7, 88, 1),
+    (8, 91, 2), (10, 93, 1), (11, 95, 1), (12, 93, 2), (14, 86, 1), (15, 91, 1),
+]
+HOOK_B_DA = [
+    (0, 90, 2), (2, 88, 1), (3, 93, 1), (4, 95, 2), (6, 93, 1), (7, 90, 1),
     (8, 90, 1), (9, 93, 1), (10, 95, 1), (11, 98, 1), (12, 97, 2), (14, 95, 1), (15, 90, 1),
+]
+HOOK_B_BmG = [
+    (0, 90, 2), (2, 88, 1), (3, 93, 1), (4, 95, 2), (6, 93, 1), (7, 86, 1),
+    (8, 91, 2), (10, 93, 1), (11, 95, 1), (12, 98, 2), (14, 95, 1), (15, 91, 1),
 ]
 # Break colour: highland dorian, sparse (not a hook wall)
 HOOK_PIPE = [
@@ -141,8 +152,8 @@ def shape_arrangement(body, sr=SR):
     from scipy.ndimage import uniform_filter1d
     n = len(body)
     sec_db = {
-        "intro": 4.8, "build1": -0.4, "drop1": 0.0, "break": -5.4,
-        "build2": -1.0, "drop2": 0.0, "outro": 1.5,
+        "intro": 4.6, "build1": -0.4, "drop1": 0.0, "break": -6.4,
+        "build2": -1.0, "drop2": 0.0, "outro": 0.5,
     }
     env = np.ones(n)
     for name, (a, b) in SEC.items():
@@ -277,7 +288,12 @@ def render():
             )
             if sec_arr == "drop2":
                 cutoff = 8800
-            for j, f in enumerate(CHORD_HZ[ci]):
+            # Break keeps open fifths so the highland dorian pipe doesn't clash
+            # with a major 3rd (F vs F#).
+            freqs = CHORD_HZ[ci]
+            if sec_arr == "break":
+                freqs = [freqs[0], freqs[2], freqs[3]] if len(freqs) >= 4 else freqs
+            for j, f in enumerate(freqs):
                 L, R = E.supersaw_stereo(f, BAR * 0.98, det=17 if sec_arr.startswith("drop") else 13,
                                          cutoff=cutoff)
                 E.add_stereo(music, t_body(bar), L, R, gain=chord_gain * 0.20)
@@ -317,7 +333,10 @@ def render():
 
         # Musical lead (not grains). Off during the break.
         if lead_on:
-            hook = HOOK_A if sec_arr in ("drop1", "build2") else HOOK_B
+            if sec_arr in ("drop1", "build2"):
+                hook = HOOK_A_DA if ci % 4 == 0 else HOOK_A_BmG
+            else:
+                hook = HOOK_B_DA if ci % 4 == 0 else HOOK_B_BmG
             if arr_bar % 2 == 0:
                 t0 = t_body(bar)
                 g = 0.68 if sec_arr.startswith("drop") else 0.38

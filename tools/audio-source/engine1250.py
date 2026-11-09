@@ -161,11 +161,11 @@ def make_donk(freq, rng, spb, style="bounce"):
     n = int(dur * SR)
     t = np.arange(n) / SR
     fade_out = np.ones(n)
-    tail = int(0.014 * SR)
+    tail = int(0.022 * SR)  # clear the next kick
     fade_out[-tail:] = np.linspace(1, 0, tail)
 
     # --- FM donk (octave-up mid, woody/hollow) ---
-    st_env = 6.0 * np.exp(-t / 0.028)  # +6 st, 30 ms
+    st_env = 7.0 * np.exp(-t / 0.024)  # slightly snappier thunk
     f = (freq * 2.0) * (2.0 ** (st_env / 12.0))
     idx = 5.5 * np.exp(-t / 0.065)
     ph_c = 2 * np.pi * np.cumsum(f) / SR
@@ -174,26 +174,32 @@ def make_donk(freq, rng, spb, style="bounce"):
     # a little pulse for hollowness
     pulse = blep_square(n, float(np.median(f)), phase0=0.1, pw=0.28) * np.exp(-t / 0.08)
     raw = fm * 0.85 + pulse * 0.25
-    donk = rbj(raw, 520, 3.6, "band") * 0.7
-    donk += rbj(raw, 720, 4.8, "band")
-    donk += rbj(raw, 1100, 3.2, "band") * 0.32
+    donk = rbj(raw, 520, 3.2, "band") * 0.7
+    donk += rbj(raw, 720, 3.8, "band")  # slightly lower Q — less whistle
+    donk += rbj(raw, 1100, 2.8, "band") * 0.32
     # amp: present from the start, slight swell (bounce), fade into the kick
     denv = (0.72 + 0.28 * (t / (t[-1] + 1e-12)) ** 0.45) * fade_out
-    att = int(0.004 * SR)
+    att = int(0.003 * SR)
     denv[:att] *= np.linspace(0, 1, att)
+
+    # --- 150–200 Hz octave body (the missing bounce weight vs the reference) ---
+    body = np.sin(ph_c)
+    body = sos_lp(body, 220)
+    benv = (0.80 * np.exp(-t / 0.16) + 0.35) * fade_out
+    benv[:att] *= np.linspace(0, 1, att)
 
     # --- reverse-bass: bandlimited saw, rising toward the next kick ---
     saw = np.zeros(n)
     for cents, amp in ((-11, 0.55), (0, 0.8), (11, 0.55)):
         saw += amp * blep_saw(n, freq * 2 ** (cents / 1200.0), phase0=0.07 * (cents + 12))
     saw = tanh_sat(saw / 1.9, 1.6)
-    cut = 280 + 520 * (t / (t[-1] + 1e-12)) ** 0.7
-    saw = rbj_tv_low(saw, cut, Q=1.3)
-    rb_env = (t / (t[-1] + 1e-12)) ** 0.55 * fade_out
+    cut = 360 + 500 * (t / (t[-1] + 1e-12)) ** 0.7
+    saw = rbj_tv_low(saw, cut, Q=1.2)
+    rb_env = (t / (t[-1] + 1e-12)) ** 0.50 * fade_out
 
     sub = np.sin(2 * np.pi * freq * t) * (0.55 + 0.45 * (t / t[-1]) ** 0.4) * fade_out
 
-    sig = donk * denv * 1.15 + saw * rb_env * 0.8 + sub * 0.7
+    sig = donk * denv * 1.20 + body * benv * 0.72 + saw * rb_env * 0.95 + sub * 0.75
     sig = tanh_sat(sig, 1.18) * fade_out
     return sig.astype(np.float64)
 
@@ -379,8 +385,8 @@ def fm_glass_bell(freq, dur, rng, ratio=3.71, index0=4.2):
     att = int(0.012 * SR)
     env[:att] *= np.linspace(0, 1, att)
     glass = sos_bp(rng.standard_normal(n), 2500, 9000) * np.exp(-t / 0.07) * 0.06
-    # Keep the drip inside the choir wash; the reference has almost no air above 3 kHz.
-    return fade(sos_lp(car * env + glass, 3200), 6, 400)
+    # A touch of air so the drip sparkles, without a fizzy 10 kHz tail.
+    return fade(sos_lp(car * env + glass, 7500), 6, 400)
 
 
 def make_cave_ir(sec, rng, decay_pow=2.6, dark=6500):

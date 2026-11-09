@@ -122,24 +122,26 @@ def lfo_formants(n, a, b, hz, seed):
 
 
 def tone_liminal(x):
-    """Match the t1134 choir wall: mid-forward 200–800 Hz, modest body, dark air."""
+    """Match the t1134 choir wall: mid-forward 200–800 Hz, trim 60–80, some air."""
     y = np.stack([E.sos_hp(x[:, 0], 62, 2), E.sos_hp(x[:, 1], 62, 2)], 1)
-    # a little warmth so 80–150 isn't a hole, but the wall lives in the mids
-    y = np.stack([E.rbj(y[:, 0], 95, 0.7, "peak", gain_db=1.5),
-                  E.rbj(y[:, 1], 95, 0.7, "peak", gain_db=1.5)], 1)
+    # trim the 60–80 Hz build-up from the chest/sub
+    y = np.stack([E.rbj(y[:, 0], 70, 0.8, "peak", gain_db=-2.2),
+                  E.rbj(y[:, 1], 70, 0.8, "peak", gain_db=-2.2)], 1)
+    y = np.stack([E.rbj(y[:, 0], 95, 0.7, "peak", gain_db=2.0),
+                  E.rbj(y[:, 1], 95, 0.7, "peak", gain_db=2.0)], 1)
     y = np.stack([E.rbj(y[:, 0], 280, 0.8, "peak", gain_db=4.5),
                   E.rbj(y[:, 1], 280, 0.8, "peak", gain_db=4.5)], 1)
     y = np.stack([E.rbj(y[:, 0], 450, 0.8, "peak", gain_db=5.5),
                   E.rbj(y[:, 1], 450, 0.8, "peak", gain_db=5.5)], 1)
     y = np.stack([E.rbj(y[:, 0], 800, 0.9, "peak", gain_db=3.5),
                   E.rbj(y[:, 1], 800, 0.9, "peak", gain_db=3.5)], 1)
-    # a little more presence so 600–1500 isn't shy of the reference wall
-    y = np.stack([E.rbj(y[:, 0], 950, 0.85, "peak", gain_db=3.2),
-                  E.rbj(y[:, 1], 950, 0.85, "peak", gain_db=3.2)], 1)
-    y = np.stack([E.rbj(y[:, 0], 55, 0.7, "peak", gain_db=2.5),
-                  E.rbj(y[:, 1], 55, 0.7, "peak", gain_db=2.5)], 1)
-    y = np.stack([E.sos_lp(y[:, 0], 3200, 2), E.sos_lp(y[:, 1], 3200, 2)], 1)
-    y = np.stack([E.sos_lp(y[:, 0], 4500, 1), E.sos_lp(y[:, 1], 4500, 1)], 1)
+    # lift 800–1200 so it meets the reference wall
+    y = np.stack([E.rbj(y[:, 0], 1050, 0.8, "peak", gain_db=5.8),
+                  E.rbj(y[:, 1], 1050, 0.8, "peak", gain_db=5.8)], 1)
+    # a touch of air above 3 kHz so the bells can sparkle (not a fizzy shelf)
+    air = np.stack([E.sos_hp(y[:, 0], 3200, 1), E.sos_hp(y[:, 1], 3200, 1)], 1)
+    y = y + air * 0.055
+    y = np.stack([E.sos_lp(y[:, 0], 8500, 1), E.sos_lp(y[:, 1], 8500, 1)], 1)
     return y
 
 
@@ -197,8 +199,8 @@ def render_liminal(name, spec, dur=DUR, rng=None):
             continue
         f = spec["bells"][i % len(spec["bells"])] * 2 ** (rng.uniform(-0.12, 0.12) / 12)
         sig = E.fm_glass_bell(f, dur=8.5 if name != "agartha" else 10.0, rng=rng)
-        sig = E.sos_lp(sig, 2400)  # drip inside the wash, no airy streaks
-        E.add_mono(bells, t0, sig, gain=0.05 if name != "agartha" else 0.04,
+        sig = E.sos_lp(sig, 7000)  # keep a little shimmer, no 10 kHz fizz
+        E.add_mono(bells, t0, sig, gain=0.085 if name != "agartha" else 0.07,
                    pan=float(rng.uniform(-0.65, 0.65)))
 
     ir = E.make_cave_ir(spec["ir"], rng, decay_pow=2.6, dark=5000)
