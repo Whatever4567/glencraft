@@ -9,7 +9,7 @@ const seam="let QUALITY = '4k';\ntry { QUALITY = localStorage.getItem('glen_q') 
 ok(html.includes(seam),'built index defaults QUALITY to 4k when glen_q is unset');
 ok(!html.includes("let QUALITY = 'phone';"),'old phone initializer is gone');
 ok(!html.includes("touchMode ? 'phone' : '4k'"),'touch devices no longer default to phone when unset');
-ok((html.includes("const GAME_VERSION = '1.2.40';") && html.includes('<!-- glencraft-build: b1240-v1.2.40 -->')) || (html.includes("const GAME_VERSION = '1.2.39';") && html.includes('<!-- glencraft-build: b1239-v1.2.39 -->')),'version and build marker are 1.2.40 (1.2.39 4K default preserved)');
+ok((html.includes("const GAME_VERSION = '1.2.41';") && html.includes('<!-- glencraft-build: b1241-v1.2.41 -->')) || (html.includes("const GAME_VERSION = '1.2.40';") && html.includes('<!-- glencraft-build: b1240-v1.2.40 -->')) || (html.includes("const GAME_VERSION = '1.2.39';") && html.includes('<!-- glencraft-build: b1239-v1.2.39 -->')),'version and build marker are 1.2.41 (4K default preserved)');
 ok(html.includes('Default graphics mode is now 4K UHD.'),'patch notes mention the 4K UHD default');
 
 const start=html.indexOf("let QUALITY = ");
