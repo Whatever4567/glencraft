@@ -8,7 +8,7 @@
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.45', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.44', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -30,13 +30,12 @@
     stick:  Object.assign({}, TOOL_POSE, {s: 0.7}),
     p761:   Object.assign({}, TOOL_POSE, {s: 0.62}),
     p760:   Object.assign({}, TOOL_POSE, {s: 0.66}),
-    map:    {p: [0.02, 0.05, 0.09], r: [-1.15, 0.12, 0.2], s: 1.08, euler: 'YXZ'},
-    pistol: {p: [0.015, 0.01, 0.045], r: [0.12, -Math.PI / 2, 0.05], s: 0.92, euler: 'YXZ'},
-    // Port / ready: barrel forward (+Z after yaw), stock down — never across the face.
-    musket: {p: [0.06, -0.1, 0.14], r: [0.05, -Math.PI / 2, 0.12], s: 0.72, euler: 'YXZ'},
+    map:    {p: [0, 0.03, 0.06], r: [-1.05, 0, 0.15], s: 1, euler: 'YXZ'},
+    pistol: {p: [0.01, 0.02, 0.04], r: [0.15, -Math.PI / 2, 0], s: 0.95, euler: 'YXZ'},
+    musket: {p: [0.02, 0.03, 0.06], r: [0.2, -Math.PI / 2, 0], s: 0.82, euler: 'YXZ'},
     block:  {p: [0, 0.02, 0.06], r: [0.2, 0.5, 0], s: 0.9, euler: 'YXZ'},
-    bucket: {p: [0, 0.06, 0.04], r: [0.05, 0, 0], s: 0.8, euler: 'YXZ'},
-    torch:  {p: [0, 0.04, 0.035], r: [0.15, 0, 0], s: 0.82, euler: 'YXZ'},
+    bucket: {p: [0, 0.04, 0.05], r: [0.15, 0, 0], s: 0.85, euler: 'YXZ'},
+    torch:  {p: [0, 0.03, 0.04], r: [0.2, 0, 0], s: 0.85, euler: 'YXZ'},
     drink:  {p: [0, 0.03, 0.05], r: [0.1, 0.3, 0], s: 0.95, euler: 'YXZ'},
     item:   {p: [0, 0.02, 0.05], r: [-0.2, 0.4, 0], s: 0.9, euler: 'YXZ'},
     jetpack:{p: [0, 0.02, 0.06], r: [0.2, 0.6, 0], s: 0.7, euler: 'YXZ'},
@@ -157,9 +156,6 @@
     root.userData.tool = true;
     root.userData.kind = 'pick';
     const col = purple ? (0xa64dff) : 0x3ab8ff, mapCol = purple ? 0xc090ff : 0x9ad8ff, em = purple ? 0x4a1078 : 0x0a3a66;
-    // Keep the prism pick thin — never the chunky grey survival pick silhouette.
-    try { root.scale.set(0.72, 1.05, 0.55); } catch (_) {}
-    root.userData.held1245CrystalPrism = purple ? 'purple' : 'blue';
     root.traverse(o => {
       if (!o.isMesh || !o.material) return;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
@@ -242,16 +238,10 @@
     const arms = model.userData.arms;
     const grip = arms && arms[slot] && arms[slot].userData && arms[slot].userData.grip;
     if (socket && grip) copySocketToGrip(grip, socket);
-    let mesh = opts.mesh || (slot === 1 ? (typeof heldMesh3p !== 'undefined' ? heldMesh3p : opts.heldMesh3p) : opts.mesh);
-    // Fall back to the first-person held child clone source when 3p mesh is missing.
-    if (!mesh && slot === 1) {
-      try { if (typeof held !== 'undefined' && held && held.children[0]) mesh = held.children[0]; } catch (_) {}
-    }
+    const mesh = opts.mesh || (slot === 1 ? (typeof heldMesh3p !== 'undefined' ? heldMesh3p : opts.heldMesh3p) : opts.mesh);
     if (!mesh || !socket) return {socket, grip, mesh, kind: null};
-    const id = opts.heldId != null ? opts.heldId : (typeof heldId !== 'undefined' ? heldId : (typeof selId !== 'undefined' ? selId : null));
+    const id = opts.heldId != null ? opts.heldId : (typeof heldId !== 'undefined' ? heldId : null);
     const kind = opts.kind || kindOf(mesh, id);
-    prepareItem(mesh, kind, id);
-    mesh.visible = true;
     const info = Object.assign({grip}, U.placeItem(socket, mesh, kind, id));
     U.last = info; U.on = 1;
     return info;
@@ -346,7 +336,7 @@
     const restY = new T.Vector3(0, -1, 0); // arm bones' +Y points down the limb in this rig
     function reach(side, target) {
       if (!target) return;
-      const upper = bone('upper_arm.' + side) || bone('upper_arm' + side), fore = bone('forearm.' + side) || bone('forearm' + side), hand = bone('hand.' + side) || bone('hand' + side);
+      const upper = bone('upper_arm.' + side), fore = bone('forearm.' + side), hand = bone('hand.' + side);
       if (!upper || !fore) return;
       const start = upper.getWorldPosition(V());
       const goal = V().set(target[0], target[1], target[2]);
@@ -574,8 +564,9 @@
     return false;
   }
   U.stepFp = function (dt) {
-    // 1.2.45: ArmSwitch1245 owns the visible Scottish GLB arms on __fpa drivers.
-    // Keep Held1240FpArms hidden; never set __fpaOff.
+    // 1.2.44: do not drive Held1240FpArms as the main first-person arms.
+    // Procedural __fpa / mcArm / fist (already hooked by the game) keep ownership
+    // of held items and swing / place / reload / gun / swim animations.
     try { W.__fpaOff = 0; } catch (_) {}
     const cam = (typeof camera !== 'undefined') ? camera : W.camera;
     if (!cam) return;

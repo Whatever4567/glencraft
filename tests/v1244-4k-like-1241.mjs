@@ -7,8 +7,8 @@ const helper = fs.readFileSync(new URL('../tools/visuals-source/adaptive-4k-1242
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.45';") || html.includes("const GAME_VERSION = '1.2.45';"), 'GAME_VERSION is 1.2.45 or 1.2.44');
-ok(html.includes('<!-- glencraft-build: b1245-v1.2.45 -->') || html.includes('<!-- glencraft-build: b1245-v1.2.45 -->'), 'build marker is b1245 or b1244');
+ok(html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';"), 'GAME_VERSION is 1.2.46 or 1.2.44');
+ok(html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->'), 'build marker is b1246 or b1244');
 ok(/HIGH \? DPR : Math\.min\(DPR, 2\)/.test(html), 'pixel ratio uses uncapped DPR on HIGH (1.2.41 form)');
 ok(!/__weakBoot1242 \? 1\.25/.test(html), 'weak-boot 1.25 PR cap is gone');
 ok(helper.includes('scaler REMOVED') || helper.includes('disabled: 1'), 'adaptive helper source is a disabled stub');

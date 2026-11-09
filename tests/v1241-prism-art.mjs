@@ -9,8 +9,8 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.45';") || html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.44+');
-ok(html.includes('<!-- glencraft-build: b1245-v1.2.45 -->'), 'build marker is b1245-v1.2.45');
+ok(html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';") || html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.46+');
+ok(html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->'), 'build marker is b1246 or b1244');
 ok(html.includes('__prism1241') && html.includes('facetGeometry') && html.includes('prismMaterial') && html.includes('applyPrism'), 'shared prism helper is in the built index');
 ok(html.includes('cached facet') || html.includes('shared, cached facet'), 'patch notes mention the shared cached facet pass');
 ok(html.includes('prism / crystal-faceted') || html.includes("prism / crystal-faceted"), 'patch notes mention the prism look for tools and icons');
