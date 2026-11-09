@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1246-v1.2.46 -->
+<!-- glencraft-build: b1247-v1.2.47 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.46';
+const GAME_VERSION = '1.2.47';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -15824,6 +15824,24 @@ const armPivot = new THREE.Group(); hand.add(armPivot);
 const armMesh = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.15, 0.55), sleeveMat); armMesh.position.set(0, 0, 0.12); armPivot.add(armMesh);
 const fist = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), armMat); fist.position.set(0, 0, -0.2); armPivot.add(fist);
 const held = new THREE.Group(); held.position.set(0, 0.04, -0.24); armPivot.add(held);
+window.__fpLegacy = {
+  fist: fist,
+  armMesh: (typeof armMesh !== 'undefined') ? armMesh : null,
+  armPivot: armPivot,
+  hand: (typeof hand !== 'undefined') ? hand : null,
+  held: held,
+  gripHand: (typeof gripHand !== 'undefined') ? gripHand : null,
+  mcArm: (typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null,
+  idle: function () { try { swingT = 0; } catch (e) {} try { placeT = 0; } catch (e) {} try { grabT = 0; } catch (e) {} },
+  walk: function (dt) {
+    dt = dt || 0.016;
+    try { P.onGround = true; } catch (e) {}
+    try { bobPhase = (bobPhase || 0) + dt * 6; walkPhase = bobPhase; } catch (e) {}
+    try { bobAmt = 1; } catch (e) {}
+    try { bobAmp = 0.85; } catch (e) {}
+  }
+};
+
 // a wee haggis that clamps onto your arm when it gets you
 const grabHaggis = new THREE.Group(); grabHaggis.visible = false; armPivot.add(grabHaggis);
 {
@@ -48706,7 +48724,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const aim = () => { try { return !!((window.__c288 && __c288.aiming) || (window.__c145 && __c145.hold)); } catch (_) { return false; } };
   // per gun: hip spot of the sight point, aim spot of the sight point (on the view axis), hip turn, aim zoom, kick
   const PRE = {pistol: {hip: [0.08, -0.12, -0.42], ads: [0, -0.0035, -0.47], sk: 0, yaw: 0.06, roll: 0.03, zoom: 0.10, kz: 0.045, kr: 0.22},
-               rifle: {hip: [0.085, -0.125, -0.42], ads: [0, -0.003, -0.42], sk: 0.62, yaw: 0.05, roll: 0.02, zoom: 0.18, kz: 0.06, kr: 0.12}};
+               rifle: {hip: [0.12, -0.05, -0.34], ads: [0, -0.003, -0.42], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.18, kz: 0.06, kr: 0.12}};
   const M1 = new THREE.Matrix4(), Mr = new THREE.Matrix4(), Md = new THREE.Matrix4(), B = new THREE.Matrix4(), v = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3();
   let k = 0, kick = 0, shots = -1, tm = 0, lyaw = 0, lpit = 0, sx = 0, sy = 0, bx = 0, by = 0, sel = -1, sw = 1, baseFov = 0, ready = null;
   // preload both real guns once the game runs
@@ -48716,7 +48734,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function step(d) { const g = gun(); U.on = 0; if (!g || tp() || !hand.visible) { ready = null; restoreHS(); return; }
     const u = g.userData;
     if (!u.c322) { try { if (__c322.swap) __c322.swap(g); } catch (_) {} }
-    if (!u.c322) { const fl = window.__c322 && __c322.fail && __c322.fail[u.gun === IT.PISTOL ? 'pistol' : 'rifle']; if (fl) { g.visible = true; U.fallback = (U.fallback || 0) + 1; try { __c322.load(u.gun === IT.PISTOL ? 'pistol' : 'rifle'); } catch (_) {} return; } g.visible = false; U.hidden++; return; }   // real model not in yet: show nothing rather than the old gun (v1.2.26: unless its download failed, then the built in gun)
+    if (!u.c322) { const fl = window.__c322 && __c322.fail && __c322.fail[u.gun === IT.PISTOL ? 'pistol' : 'rifle']; u.__pw = (u.__pw || 0) + d; if (fl || u.__pw > 0.5) { u.__fb = 1; g.visible = true; U.pend = 1; U.fallback = (U.fallback || 0) + 1; try { __c322.load(u.gun === IT.PISTOL ? 'pistol' : 'rifle'); } catch (_) {} return; } g.visible = false; U.hidden++; return; }   // 1.2.47: pending >0.5s or failed download shows the built-in gun
     if (ready !== g) { ready = g; warm(g); g.visible = false; U.hidden++; return; }   // one frame to upload its textures
     g.visible = true; U.on = 1; tm += d;
     const isP = u.gun === IT.PISTOL, C = PRE[isP ? 'pistol' : 'rifle'];
@@ -48751,7 +48769,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const vs = new THREE.Scene(), vc = new THREE.PerspectiveCamera(70, 1, 0.01, 20), amb = new THREE.AmbientLight(0xffffff, 0.6), sun = new THREE.DirectionalLight(0xffffff, 0.8);
   vs.add(amb, sun, sun.target, vc); U.vs = vs;
   try { const rd = renderer.render; renderer.render = function (sc0, cam) {
-      try { const g0 = sc0 === scene && gun(); if (g0 && !g0.userData.c322) g0.visible = false; } catch (_) {}   // never draw the old gun, even for the frame it is made
+      try { const g0 = sc0 === scene && gun(); if (g0 && !g0.userData.c322 && !g0.userData.__fb) g0.visible = false; } catch (_) {}   // 1.2.47: allow built-in fallback (__fb) to draw
       if (!U.on || sc0 !== scene || cam !== camera || tp()) return rd.apply(this, arguments);
       const R = window.__fpa && __fpa.rig ? __fpa.rig() : null, objs = [hand].concat(R && R.parent === camera ? [R] : []);
       for (const o of objs) camera.remove(o);
@@ -52416,6 +52434,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.47","d":"2026-11-09","notes":["First-person arms: the new Scottish character arm and skin are switched onto your existing arm animations, so swing, place, reload, aim and swim stay the same. Only the arms are used — the body, stomach and kilt never appear in first person.","Guns keep the earlier hand work: both hands on the musket, pistol in the right hand with a finger on the trigger, a smooth aim to the centre, and a fluid reload with no flip, no duplicate arm and no giant sphere.","Every held item sits in the hand in first and third person — the thin purple crystal pickaxe, the map with the fingers closed, the pistol, and a musket held ready, not across the face.","If a gun model is slow to load, the built-in gun is shown after half a second so aiming does not leave you with an empty hand."]},
 {"v": "v1.2.46", "d": "2026-11-09", "notes": ["Hotfix: first-person view is back to how it worked in 1.2.44. The 1.2.45 arm-switch change that showed the stomach and a glitched grey texture with no arms or tools is fully reverted.", "Procedural first-person arms (cream sleeve and skin hand), held items, reload, 4K UHD, prism tools/mobs/icons, world-block restore, faster loading and no safe-mode popup all stay as in 1.2.44."]},
 {"v":"v1.2.44","d":"2026-11-09","notes":["4K UHD is back to exactly how it rendered in 1.2.41 on every device — the adaptive scaler and weak-device pixel-ratio cap from 1.2.42 are gone.","First-person arms use the working procedural rig again (swing, place, reload, gun and swim animations, held items visible in the fist). The Held1240FpArms clone is no longer the main arms.","Those restored arms are retextured from the new character: skin from the hand meshes and the cream linen sleeve from the outfit.","Menu glass blur is restored. The 1.2.43 faster world load and lighter inventory/orbit-menu work stay."]},
 {"v":"v1.2.43","d":"2026-11-09","notes":["Worlds reach a playable frame sooner: only a small chunk ring is required to enter, meshing starts as soon as the world exists (no waiting out tip steps), stream radius is capped during load then expands, fauna and full shader compile continue afterwards, and the rest of the land streams in.","Title and pause menus are lighter: the orbit backdrop runs at a capped rate, inventory grids skip unchanged rebuilds, and glass blur is off."]},
@@ -55420,7 +55439,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   });
   const U=window.__pilot1235=window.PilotRuntimeFactory(THREE,{
     ensureLibrary,scottish:true,
-    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.46'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.46')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
+    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.47'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.47')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
     equipment:()=>armour,
     tier:id=>id&&ARMOUR[id]?ARMOUR[id].mat:null,
     distance:model=>(typeof worldModel!=='undefined'&&model===worldModel)?camera.position.distanceTo(model.position):0,
@@ -55465,10 +55484,73 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
  * Held1240FpArms as the main arms. Those procedural arms are retextured from
  * the new character (skin from the hand meshes, cream linen sleeve from the
  * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.44', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.47', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -55626,6 +55708,35 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         if (!m.userData) m.userData = {};
         if (m.userData.held1240Crystal === (purple ? 'p' : 'b')) continue;
         m.userData.held1240Crystal = purple ? 'p' : 'b';
+        const useMap = !!m.map;
+        const colorHex = useMap ? mapCol : col;
+        // Prism pass uses MeshStandardMaterial + flatShading, which fails to
+        // compile on SwiftShader ('normal' undeclared) and leaves only the
+        // wooden haft. Keep the purple colour on a Phong material.
+        if (m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || (m.type && /Standard|Physical/.test(m.type))) {
+          const ph = new T.MeshPhongMaterial({
+            color: colorHex,
+            map: m.map || null,
+            emissive: new T.Color(em),
+            specular: new T.Color(purple ? 0xffd8ff : 0xd8f0ff),
+            shininess: 140,
+            flatShading: !!m.flatShading,
+            transparent: !!m.transparent,
+            opacity: m.opacity == null ? 1 : m.opacity,
+            side: m.side
+          });
+          ph.userData.held1240Crystal = purple ? 'p' : 'b';
+          ph.needsUpdate = true;
+          const arr = Array.isArray(o.material) ? o.material.slice() : null;
+          if (arr) {
+            const ix = arr.indexOf(m);
+            if (ix >= 0) arr[ix] = ph;
+            o.material = arr;
+          } else {
+            o.material = ph;
+          }
+          continue;
+        }
         if (m.map) m.color.setHex(mapCol);
         else m.color.setHex(col);
         if ('emissive' in m) m.emissive.setHex(em);
@@ -55634,6 +55745,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         m.needsUpdate = true;
       }
     });
+    U.hardenMeshMats(root);
     return root;
   };
   U.buildMapCard = function (tex) {
@@ -55694,7 +55806,10 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     const p = model && model.userData && model.userData.pilot;
     if (!p || !p.near) return null;
     const slot = opts.slot == null ? 1 : opts.slot;
-    const socket = find(p.near.root, 'weapon_grip_slot' + slot);
+    const socket = find(p.near.root, 'weapon_grip_slot' + slot)
+      || (p.far && p.far.root && find(p.far.root, 'weapon_grip_slot' + slot))
+      || find(model, 'weapon_grip_slot' + slot)
+      || find(p.near.root, 'weapon_grip_slot' + (slot === 1 ? 0 : 1));
     const arms = model.userData.arms;
     const grip = arms && arms[slot] && arms[slot].userData && arms[slot].userData.grip;
     if (socket && grip) copySocketToGrip(grip, socket);
@@ -55944,61 +56059,129 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       // Procedural box / limb arms rarely share the character UV layout, so prefer
       // the sampled colour (from the map average or material) over assigning the
       // character map, which would otherwise read as flat white / wrong texels.
-      if (src && src.color) { dst.map = null; dst.color.copy(src.color); }
-      else if (fallbackHex != null && dst.color) { dst.map = null; dst.color.setHex(fallbackHex); }
+      if (src && src.color) { dst.color.copy(src.color); }
+      else if (fallbackHex != null && dst.color) { dst.color.setHex(fallbackHex); }
       if (src && src.roughness != null && dst.roughness != null) dst.roughness = src.roughness;
       if (src && src.metalness != null && dst.metalness != null) dst.metalness = src.metalness;
       dst.needsUpdate = true;
     } catch (_) {}
   }
 
+  function toPhong(src, color, map, opts) {
+    opts = opts || {};
+    const c = color ? color.clone() : (src && src.color ? src.color.clone() : new T.Color(0xffffff));
+    const ph = new T.MeshPhongMaterial({
+      color: c,
+      map: map || null,
+      specular: new T.Color(opts.specular != null ? opts.specular : 0x222222),
+      shininess: opts.shininess != null ? opts.shininess : 16,
+      skinning: !!opts.skinning,
+      transparent: !!(src && src.transparent),
+      opacity: src && src.opacity != null ? src.opacity : 1,
+      side: src && src.side != null ? src.side : T.FrontSide,
+      flatShading: !!(src && src.flatShading),
+      vertexColors: !!(src && src.vertexColors)
+    });
+    if (src && src.emissive && ph.emissive) ph.emissive.copy(src.emissive);
+    ph.userData = Object.assign({}, (src && src.userData) || {}, {held1240Phong: 1});
+    ph.needsUpdate = true;
+    return ph;
+  }
+
+  U.hardenMeshMats = function (root, pred) {
+    if (!root) return 0;
+    let n = 0;
+    root.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
+      if (pred && !pred(o)) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      let ch = false;
+      const out = mats.map(m => {
+        if (!m) return m;
+        if (!(m.isMeshStandardMaterial || m.isMeshPhysicalMaterial || /Standard|Physical/.test(m.type || ''))) return m;
+        ch = true;
+        return toPhong(m, m.color, m.map, {skinning: !!o.isSkinnedMesh, shininess: m.shininess || 16, vertexColors: m.vertexColors, flatShading: m.flatShading});
+      });
+      if (ch) { o.material = out.length === 1 ? out[0] : out; n++; }
+    });
+    return n;
+  };
+
+  U.hardenFpa = function () {
+    const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
+    if (!rig) return 0;
+    return U.hardenMeshMats(rig);
+  };
+
+  function saneColor(look, fallbackHex) {
+    const fb = new T.Color(fallbackHex);
+    const c = look && look.color;
+    if (!c) return fb;
+    const chroma = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
+    // Authored glTF colour is often white with the look in a map we cannot
+    // reuse on procedural UVs. A near-white sample would paint ghost arms.
+    if (c.r > 0.88 && c.g > 0.88 && c.b > 0.88 && chroma < 0.08) return fb;
+    return c;
+  }
+  function paintMesh(o, look, fallbackHex, keepMap) {
+    if (!o) return;
+    const visit = (mesh) => {
+      if (!(mesh.isMesh || mesh.isSkinnedMesh) || !mesh.material) return;
+      const src = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const color = saneColor(look, fallbackHex);
+      // Keep the procedural fabric() weave for sleeves; never assign the
+      // character atlas (wrong UVs). Skin is a flat sampled colour.
+      const map = keepMap ? (src && src.map) || (look && look.procMap) || null : null;
+      mesh.material = toPhong(src, color, map, {skinning: !!mesh.isSkinnedMesh, shininess: keepMap ? 8 : 18});
+    };
+    if (o.isMesh || o.isSkinnedMesh) visit(o);
+    if (o.traverse) o.traverse(c => { if (c !== o) visit(c); });
+  }
+
   U.retextureProceduralArms = function (template) {
-    if (U._retexDone && !template) return U._retexDone;
     const looks = sampleCharacterLooks(template || (W.__pilot1235 && W.__pilot1235.templates && W.__pilot1235.templates[0]));
     U._looks = looks;
     // Classic box fist / sleeve
     try {
       if (typeof armMat !== 'undefined' && armMat) applyMat(armMat, looks.skin, 0xd4a07a);
       if (typeof sleeveMat !== 'undefined' && sleeveMat) applyMat(sleeveMat, looks.sleeve, 0xe9e2d4);
-      if (typeof fist !== 'undefined' && fist) fist.visible = fist.visible;
-      if (typeof armMesh !== 'undefined' && armMesh) armMesh.visible = armMesh.visible;
     } catch (_) {}
-    // mcArm cuboid materials
     try {
       if (typeof window !== 'undefined' && window.mcArm) {
         window.mcArm.traverse(o => {
           if (!o.isMesh || !o.material) return;
-          const m = o.material;
-          // forearm+fist cuboid uses skin; second box is sleeve if present
           const n = String(o.name || '');
-          if (/sleeve|shirt|cloth/i.test(n)) applyMat(m, looks.sleeve, 0xe9e2d4);
-          else applyMat(m, looks.skin, 0xd4a07a);
+          if (/sleeve|shirt|cloth/i.test(n)) paintMesh(o, looks.sleeve, 0xe9e2d4, true);
+          else paintMesh(o, looks.skin, 0xd4a07a, false);
         });
       }
     } catch (_) {}
-    // HD __fpa materials (skinM / shirtM closed over in that IIFE — reach via meshes)
+    // Paint via the __fpa rig joints: upper / elbow / cuff = cream linen,
+    // forearm + hand + fingers = new skin. This matches the 1.2.46 layout.
     try {
       const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
       if (rig) {
-        rig.traverse(o => {
-          if (!o.isMesh || !o.material) return;
-          const m = o.material;
-          const n = String(o.name || '');
-          // Heuristic: shirt/sleeve meshes are larger limb boxes; hands are smaller
-          const box = o.geometry && o.geometry.boundingBox;
-          try { if (o.geometry && !o.geometry.boundingBox) o.geometry.computeBoundingBox(); } catch (_) {}
-          const bb = o.geometry && o.geometry.boundingBox;
-          let isHand = /hand|palm|finger|wrist/i.test(n);
-          if (!isHand && bb) {
-            const s = bb.getSize(new T.Vector3());
-            if (s.x < 0.12 && s.y < 0.14 && s.z < 0.08) isHand = true;
+        const armourOn = (function(){ try { return !!(typeof armour !== 'undefined' && armour && armour[1]); } catch (_) { return false; } })();
+        const paintArm = (arm) => {
+          const p = arm && arm.userData && arm.userData.p;
+          if (!p) return;
+          if (armourOn) {
+            U.hardenMeshMats(p.up); U.hardenMeshMats(p.el); U.hardenMeshMats(p.cuff);
+          } else {
+            paintMesh(p.up, looks.sleeve, 0xe9e2d4, true);
+            paintMesh(p.el, looks.sleeve, 0xe9e2d4, true);
+            paintMesh(p.cuff, looks.sleeve, 0xe9e2d4, true);
           }
-          if (isHand) applyMat(m, looks.skin, 0xd4a07a);
-          else applyMat(m, looks.sleeve, 0xe9e2d4);
-        });
+          paintMesh(p.fo, looks.skin, 0xd4a07a, false);
+          paintMesh(p.h, looks.skin, 0xd4a07a, false);
+        };
+        paintArm(rig.userData && rig.userData.R);
+        paintArm(rig.userData && rig.userData.L);
+        // Any other mesh on the rig that was missed (finger joints live under p.h).
+        U.hardenFpa();
       }
     } catch (_) {}
-    U._retexDone = {skin: !!(looks.skin), sleeve: !!(looks.sleeve)};
+    U._retexDone = {skin: !!(looks.skin && (looks.skin.map || looks.skin.color)), sleeve: !!(looks.sleeve && (looks.sleeve.map || looks.sleeve.color))};
     return U._retexDone;
   };
 
@@ -56024,6 +56207,8 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     return false;
   }
   U.stepFp = function (dt) {
+    // 1.2.47: ArmSwitch1247 owns visible GLB arms; keep Held1240FpArms hidden; never set __fpaOff.
+
     // 1.2.44: do not drive Held1240FpArms as the main first-person arms.
     // Procedural __fpa / mcArm / fist (already hooked by the game) keep ownership
     // of held items and swing / place / reload / gun / swim animations.
@@ -56054,6 +56239,15 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     } catch (_) {}
     U.fpOn = 0;
     U.fpKind = currentFpKind();
+    try {
+      if (typeof held !== 'undefined' && held) {
+        U.hardenMeshMats(held);
+        const id = typeof selId !== 'undefined' ? selId : (typeof heldId !== 'undefined' ? heldId : 0);
+        const raw = parseInt(id, 10);
+        if (raw === 761 || (typeof IT !== 'undefined' && raw === IT.PCPICK)) U.paintCrystalPick(held, 'purple');
+        if (raw === 760 || (typeof IT !== 'undefined' && raw === IT.BCPICK)) U.paintCrystalPick(held, 'blue');
+      }
+    } catch (_) {}
   };
   U.install = function () {
     const runtime = W.__pilot1235;
@@ -56094,6 +56288,23 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       if (typeof updateHand === 'function') updateHand = hook(updateHand);
       else if (typeof updatePlayer === 'function') updatePlayer = hook(updatePlayer);
     } catch (e) { if (!U.err) U.err = 'wrap step: ' + e; }
+    try {
+      const repose = () => {
+        try {
+          if (typeof worldModel !== 'undefined' && worldModel) U.poseHeld(worldModel);
+        } catch (e) { if (!U.err) U.err = 'repose: ' + (e && e.message || e); }
+      };
+      if (typeof setHeld === 'function' && !U._setHeldWrapped) {
+        const sh = setHeld;
+        setHeld = function () { const r = sh.apply(this, arguments); repose(); return r; };
+        U._setHeldWrapped = 1;
+      }
+      if (typeof window !== 'undefined' && window.__gunFix && !U._gunFixWrapped) {
+        const gf = window.__gunFix;
+        window.__gunFix = function () { const r = gf.apply(this, arguments); repose(); return r; };
+        U._gunFixWrapped = 1;
+      }
+    } catch (e) { if (!U.err) U.err = 'wrap setHeld: ' + e; }
     return U;
   };
   if (W.__pilot1235) U.install();
@@ -57344,6 +57555,920 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
 })(typeof window !== 'undefined' ? window : this);
 
 
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  window.__fpLegacy = {
+    fist: (typeof fist !== 'undefined') ? fist : null,
+    armMesh: (typeof armMesh !== 'undefined') ? armMesh : null,
+    armPivot: (typeof armPivot !== 'undefined') ? armPivot : null,
+    hand: (typeof hand !== 'undefined') ? hand : null,
+    held: (typeof held !== 'undefined') ? held : null,
+    gripHand: (typeof gripHand !== 'undefined') ? gripHand : null,
+    mcArm: (typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  window.__fpLegacy = {
+    fist: (typeof fist !== 'undefined') ? fist : null,
+    armMesh: (typeof armMesh !== 'undefined') ? armMesh : null,
+    armPivot: (typeof armPivot !== 'undefined') ? armPivot : null,
+    hand: (typeof hand !== 'undefined') ? hand : null,
+    held: (typeof held !== 'undefined') ? held : null,
+    gripHand: (typeof gripHand !== 'undefined') ? gripHand : null,
+    mcArm: (typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  window.__fpLegacy = {
+    fist: (typeof fist !== 'undefined') ? fist : null,
+    armMesh: (typeof armMesh !== 'undefined') ? armMesh : null,
+    armPivot: (typeof armPivot !== 'undefined') ? armPivot : null,
+    hand: (typeof hand !== 'undefined') ? hand : null,
+    held: (typeof held !== 'undefined') ? held : null,
+    gripHand: (typeof gripHand !== 'undefined') ? gripHand : null,
+    mcArm: (typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  window.__fpLegacy = {
+    fist: (typeof fist !== 'undefined') ? fist : null,
+    armMesh: (typeof armMesh !== 'undefined') ? armMesh : null,
+    armPivot: (typeof armPivot !== 'undefined') ? armPivot : null,
+    hand: (typeof hand !== 'undefined') ? hand : null,
+    held: (typeof held !== 'undefined') ? held : null,
+    gripHand: (typeof gripHand !== 'undefined') ? gripHand : null,
+    mcArm: (typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  const prev = window.__fpLegacy || {};
+  window.__fpLegacy = {
+    fist: prev.fist || ((typeof fist !== 'undefined') ? fist : null),
+    armMesh: prev.armMesh || ((typeof armMesh !== 'undefined') ? armMesh : null),
+    armPivot: prev.armPivot || ((typeof armPivot !== 'undefined') ? armPivot : null),
+    hand: prev.hand || ((typeof hand !== 'undefined') ? hand : null),
+    held: prev.held || ((typeof held !== 'undefined') ? held : null),
+    gripHand: prev.gripHand || ((typeof gripHand !== 'undefined') ? gripHand : null),
+    mcArm: prev.mcArm || ((typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null),
+    idle: prev.idle,
+    walk: prev.walk
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  const prev = window.__fpLegacy || {};
+  window.__fpLegacy = {
+    fist: prev.fist || ((typeof fist !== 'undefined') ? fist : null),
+    armMesh: prev.armMesh || ((typeof armMesh !== 'undefined') ? armMesh : null),
+    armPivot: prev.armPivot || ((typeof armPivot !== 'undefined') ? armPivot : null),
+    hand: prev.hand || ((typeof hand !== 'undefined') ? hand : null),
+    held: prev.held || ((typeof held !== 'undefined') ? held : null),
+    gripHand: prev.gripHand || ((typeof gripHand !== 'undefined') ? gripHand : null),
+    mcArm: prev.mcArm || ((typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null),
+    idle: prev.idle,
+    walk: prev.walk
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+(function armSwitch1247(W) {
+  'use strict';
+  const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
+  const U = W.__armSwitch1247 = W.__armSwitch1247 || {version: '1.2.47', err: null, on: 0};
+  U.version = '1.2.47';
+  // After world-retarget spikes and bind-local+rotateX mittens/claws, default
+  // to the user's literal ask: paint the new skin and cream linen onto the
+  // proven 1.2.46 procedural __fpa arms so animations never reset. Set
+  // U.hybrid = 0 to review the GLB-mesh path again.
+  if (U.hybrid == null) U.hybrid = 1;
+  if (!T) { U.err = 'no THREE'; return; }
+  const _v1 = new T.Vector3(), _v2 = new T.Vector3();
+  const _m1 = new T.Matrix4(), _m2 = new T.Matrix4();
+  const _s = new T.Vector3();
+  const Y_UP = new T.Vector3(0, 1, 0);
+  const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
+
+  function isArmRegion(o) {
+    for (let p = o; p; p = p.parent) {
+      const n = p.name || '';
+      if (/^visual_arm_slot[01]_hand/.test(n)) return 'arm';
+      if (/^gear_chest_slot[01]/.test(n)) return 'gear';
+      if (o.userData && o.userData.armSwitchSleeve) return 'sleeve';
+      if (/^ArmSwitchSleeve/.test(n)) return 'sleeve';
+    }
+    return null;
+  }
+
+  function aliasBoneName(name) {
+    if (!name) return [];
+    const out = [name];
+    if (T.PropertyBinding && T.PropertyBinding.sanitizeNodeName)
+      out.push(T.PropertyBinding.sanitizeNodeName(name));
+    out.push(name.replace(/[.\s]/g, ''));
+    const finger = name.match(/^finger[._]?([RL])[._]?(\d)[._]?0?(\d)$/i);
+    if (finger) {
+      const s = finger[1].toUpperCase(), d = finger[2], j = finger[3];
+      out.push('finger' + s + d + '0' + j, 'finger.' + s + '.' + d + '.0' + j);
+    }
+    const thumb = name.match(/^thumb[._]?([RL])[._]?0?(\d)$/i);
+    if (thumb) {
+      const s = thumb[1].toUpperCase(), j = thumb[2];
+      out.push('thumb' + s + '0' + j, 'thumb.' + s + '.0' + j);
+    }
+    const limb = name.match(/^(clavicle|upper_arm|forearm|hand)[._]?([RL])$/i);
+    if (limb) out.push(limb[1] + limb[2].toUpperCase(), limb[1] + '.' + limb[2].toUpperCase());
+    return out;
+  }
+  function registerBone(bones, o) {
+    if (!o || !o.name) return;
+    for (const n of aliasBoneName(o.name)) bones[n] = o;
+  }
+  function getBone(bones, name) {
+    if (!bones) return null;
+    for (const n of aliasBoneName(name)) if (bones[n]) return bones[n];
+    return null;
+  }
+  function boneMap(root) {
+    const bones = {};
+    root.traverse(o => {
+      if (o.isBone || (o.name && /^(clavicle|upper_arm|forearm|hand|finger|thumb|weapon_grip|palm_center)/.test(o.name)))
+        registerBone(bones, o);
+    });
+    return bones;
+  }
+
+  function lookY(from, to, outQ) {
+    const d = _v1.copy(to).sub(from);
+    if (d.lengthSq() < 1e-10) { outQ.identity(); return outQ; }
+    d.normalize();
+    return outQ.setFromUnitVectors(Y_UP, d);
+  }
+
+  function frameAt(pos, quat, outM) {
+    return outM.compose(pos, quat, _v2.set(1, 1, 1));
+  }
+
+  function applyWorld(bone, worldMat) {
+    if (!bone) return;
+    if (!bone.parent) { worldMat.decompose(bone.position, bone.quaternion, _s); bone.updateMatrix(); return; }
+    bone.parent.updateWorldMatrix(true, false);
+    const local = _m1.copy(bone.parent.matrixWorld).invert().multiply(worldMat);
+    local.decompose(bone.position, bone.quaternion, _s);
+    bone.updateMatrix();
+  }
+
+  function vertsWeight(geo, i, idxSet) {
+    const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+    if (!si || !sw) return 0;
+    const n = si.itemSize || 4, ia = si.array, wa = sw.array;
+    let w = 0;
+    for (let k = 0; k < n; k++) {
+      if (idxSet.has(ia[i * n + k])) w += wa[i * n + k];
+    }
+    return w;
+  }
+
+  function renormalizeArmWeights(geo, armIdx) {
+    const si = geo.attributes.skinIndex, sw = geo.attributes.skinWeight;
+    if (!si || !sw) return;
+    const n = si.itemSize || 4, ia = si.array, wa = sw.array, count = si.count;
+    let fallback = 0;
+    armIdx.forEach(i => { if (fallback === 0) fallback = i; });
+    for (let i = 0; i < count; i++) {
+      let sum = 0, firstArm = -1;
+      for (let k = 0; k < n; k++) {
+        const bi = ia[i * n + k];
+        if (armIdx.has(bi)) {
+          if (firstArm < 0) firstArm = k;
+          sum += wa[i * n + k];
+        } else {
+          wa[i * n + k] = 0;
+        }
+      }
+      if (sum < 1e-5) {
+        for (let k = 0; k < n; k++) wa[i * n + k] = 0;
+        ia[i * n] = firstArm >= 0 ? ia[i * n + firstArm] : fallback;
+        wa[i * n] = 1;
+      } else {
+        const inv = 1 / sum;
+        for (let k = 0; k < n; k++) wa[i * n + k] *= inv;
+      }
+    }
+    sw.needsUpdate = true;
+  }
+
+  function boneIndexSet(skel, re) {
+    const set = new Set();
+    if (!skel) return set;
+    skel.bones.forEach((b, i) => { if (re.test(b.name || '')) set.add(i); });
+    return set;
+  }
+
+  function hardenMat(m, skinned) {
+    if (!m) return m;
+    const map = m.map || null;
+    const color = m.color ? m.color.clone() : new T.Color(0xffffff);
+    const c = new T.MeshPhongMaterial({
+      color: color,
+      map: map,
+      specular: new T.Color(0x222222),
+      shininess: 18,
+      skinning: !!skinned,
+      morphTargets: !!m.morphTargets,
+      transparent: !!m.transparent,
+      opacity: m.opacity == null ? 1 : m.opacity,
+      side: m.side != null ? m.side : T.FrontSide,
+      depthTest: true,
+      depthWrite: true,
+      alphaTest: m.alphaTest || 0
+    });
+    if (m.alphaMap) c.alphaMap = m.alphaMap;
+    c.name = m.name || '';
+    c.needsUpdate = true;
+    return c;
+  }
+
+  function hardenMesh(o) {
+    if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
+    const skinned = !!o.isSkinnedMesh;
+    const mats = [].concat(o.material).map(m => hardenMat(m, skinned));
+    o.material = mats.length === 1 ? mats[0] : mats;
+    o.frustumCulled = false;
+    if (o.isSkinnedMesh) o.bindMode = 'attached';
+  }
+
+  function extractSleeve(srcMesh, armIdx, thresh) {
+
+    const geo = srcMesh.geometry;
+    if (!geo || !geo.attributes || !geo.attributes.position) return null;
+    const pos = geo.attributes.position;
+    const count = pos.count;
+    const keepVert = new Uint8Array(count);
+    let keptV = 0;
+    for (let i = 0; i < count; i++) {
+      if (vertsWeight(geo, i, armIdx) >= thresh) { keepVert[i] = 1; keptV++; }
+    }
+    if (keptV < 24) return null;
+    const index = geo.index ? geo.index.array : null;
+    const triCount = index ? (index.length / 3) : (count / 3);
+    const keepTri = [];
+    for (let t = 0; t < triCount; t++) {
+      const a = index ? index[t * 3] : t * 3;
+      const b = index ? index[t * 3 + 1] : t * 3 + 1;
+      const c = index ? index[t * 3 + 2] : t * 3 + 2;
+      const hits = (keepVert[a] ? 1 : 0) + (keepVert[b] ? 1 : 0) + (keepVert[c] ? 1 : 0);
+      if (hits >= 2) keepTri.push(a, b, c);
+    }
+    if (keepTri.length < 36) return null;
+    const map = new Map();
+    const used = [];
+    for (let i = 0; i < keepTri.length; i++) {
+      const old = keepTri[i];
+      if (!map.has(old)) { map.set(old, used.length); used.push(old); }
+      keepTri[i] = map.get(old);
+    }
+    const dst = geo.clone();
+    function remapAttr(name) {
+      const attr = geo.attributes[name];
+      if (!attr) return;
+      const item = attr.itemSize, Arr = attr.array.constructor;
+      const out = new Arr(used.length * item);
+      for (let i = 0; i < used.length; i++) {
+        for (let k = 0; k < item; k++) out[i * item + k] = attr.array[used[i] * item + k];
+      }
+      dst.setAttribute(name, new T.BufferAttribute(out, item, attr.normalized));
+    }
+    Object.keys(geo.attributes).forEach(remapAttr);
+    dst.setIndex(new T.BufferAttribute(new (keepTri.length > 65535 ? Uint32Array : Uint16Array)(keepTri), 1));
+    try { dst.computeVertexNormals(); } catch (_) {}
+    const mesh = srcMesh.clone();
+    mesh.geometry = dst;
+    // Keep the authored linen map — never a flat grey.
+    if (srcMesh.material) {
+      hardenMesh(mesh);
+    }
+    if (srcMesh.isSkinnedMesh && srcMesh.skeleton) {
+      try { mesh.bind(srcMesh.skeleton, srcMesh.bindMatrix && srcMesh.bindMatrix.clone ? srcMesh.bindMatrix.clone() : srcMesh.bindMatrix); } catch (_) {}
+    }
+    // Residual spine/root weights pull sleeve verts back to the un-retargeted
+    // bind torso and tear a floating sheet. Keep only the arm-chain weights.
+    try { if (armIdx && mesh.geometry) renormalizeArmWeights(mesh.geometry, armIdx); } catch (_) {}
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.renderOrder = 3;
+    mesh.visible = true;
+    mesh.userData.armSwitchSleeve = 1;
+    return mesh;
+  }
+
+  function captureBind(fp) {
+    fp.updateMatrixWorld(true);
+    const bones = fp.userData.bones;
+    const bind = {}, drivers = {}, Toff = {};
+    function wp(o, t) { return o.getWorldPosition(t || new T.Vector3()); }
+    function recordDriver(key, from, to) {
+      const p = wp(from, new T.Vector3());
+      const q = new T.Quaternion();
+      if (to) lookY(p, wp(to, new T.Vector3()), q);
+      else from.getWorldQuaternion(q);
+      const m = new T.Matrix4();
+      frameAt(p, q, m);
+      drivers[key] = m;
+    }
+    function recordBone(name) {
+      const b = getBone(bones, name);
+      if (!b) return;
+      bind[name] = new T.Matrix4().copy(b.matrixWorld);
+    }
+    function off(boneName, driverKey) {
+      if (!bind[boneName] || !drivers[driverKey]) return;
+      Toff[boneName] = new T.Matrix4().copy(drivers[driverKey]).invert().multiply(bind[boneName]);
+    }
+    for (const side of ['R', 'L']) {
+      const u = getBone(bones, 'upper_arm' + side), f = getBone(bones, 'forearm' + side), h = getBone(bones, 'hand' + side);
+      const cl = getBone(bones, 'clavicle' + side);
+      if (u && f) recordDriver('upper' + side, u, f);
+      if (f && h) recordDriver('fore' + side, f, h);
+      if (h) {
+        const mid = bones['finger' + side + '201'] || bones['finger' + side + '101'];
+        recordDriver('hand' + side, h, mid || null);
+      }
+      if (cl && u) recordDriver('clav' + side, cl, u);
+      ['clavicle', 'upper_arm', 'forearm', 'hand'].forEach(n => recordBone(n + side));
+      recordBone('weapon_grip_slot' + (side === 'R' ? '0' : '1'));
+      for (let d = 0; d < 4; d++) {
+        const p1 = getBone(bones, 'finger' + side + d + '01');
+        const p2 = getBone(bones, 'finger' + side + d + '02');
+        if (p1 && p2) recordDriver('finger' + side + d + '01', p1, p2);
+        else if (p1) recordDriver('finger' + side + d + '01', p1, null);
+        if (p2) recordDriver('finger' + side + d + '02', p2, null);
+        recordBone('finger' + side + d + '01');
+        recordBone('finger' + side + d + '02');
+        off('finger' + side + d + '01', 'finger' + side + d + '01');
+        off('finger' + side + d + '02', 'finger' + side + d + '02');
+      }
+      const t1 = getBone(bones, 'thumb' + side + '01'), t2 = getBone(bones, 'thumb' + side + '02');
+      if (t1 && t2) recordDriver('thumb' + side + '01', t1, t2);
+      else if (t1) recordDriver('thumb' + side + '01', t1, null);
+      if (t2) recordDriver('thumb' + side + '02', t2, null);
+      recordBone('thumb' + side + '01');
+      recordBone('thumb' + side + '02');
+      off('clavicle' + side, 'clav' + side);
+      off('upper_arm' + side, 'upper' + side);
+      off('forearm' + side, 'fore' + side);
+      off('hand' + side, 'hand' + side);
+      off('thumb' + side + '01', 'thumb' + side + '01');
+      off('thumb' + side + '02', 'thumb' + side + '02');
+    }
+    // Bind-local finger / thumb poses (the GLB's own rest). Curl is applied
+    // around each bone's local +X, which in this rig is toward the palm.
+    const bindLocal = {};
+    function recordLocal(name) {
+      const b = getBone(bones, name);
+      if (!b) return;
+      bindLocal[name] = {
+        pos: b.position.clone(),
+        quat: b.quaternion.clone(),
+        scale: b.scale.clone()
+      };
+    }
+    for (const side of ['R', 'L']) {
+      for (let d = 0; d < 4; d++) {
+        recordLocal('finger' + side + d + '01');
+        recordLocal('finger' + side + d + '02');
+      }
+      recordLocal('thumb' + side + '01');
+      recordLocal('thumb' + side + '02');
+    }
+    fp.userData.bindLocal = bindLocal;
+    fp.userData.bind = bind;
+    fp.userData.drivers = drivers;
+    fp.userData.Toff = Toff;
+    const uR = getBone(bones, 'upper_armR'), fR = getBone(bones, 'forearmR'), hR = getBone(bones, 'handR');
+    let glen = 0.47;
+    if (uR && fR && hR) glen = wp(uR).distanceTo(wp(fR)) + wp(fR).distanceTo(wp(hR));
+    fp.userData.glbArmLen = glen;
+    return {bind, drivers, Toff, glen};
+  }
+
+  function stripBody(clone) {
+    const doomed = [];
+    clone.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh)) return;
+      const kind = isArmRegion(o);
+      if (kind === 'arm' || kind === 'sleeve' || kind === 'gear' || o.userData.armSwitchSleeve) return;
+      doomed.push(o);
+    });
+    for (const o of doomed) {
+      try { if (o.parent) o.parent.remove(o); } catch (_) {}
+      o.visible = false;
+      o.userData.armSwitchStripped = 1;
+    }
+    U.stripped = doomed.length;
+    return doomed.length;
+  }
+
+  U.buildFromTemplate = function (template) {
+    if (!template) return null;
+    const src = template.scene || template.root || template;
+    const clone = (T.SkeletonUtils && T.SkeletonUtils.clone) ? T.SkeletonUtils.clone(src) : src.clone(true);
+    clone.name = 'ArmSwitch1247';
+    clone.userData.armSwitchVer = '1.2.47';
+    const bones = boneMap(clone);
+    clone.userData.bones = bones;
+    clone.userData.bone = n => bones[n] || find(clone, n);
+
+    clone.traverse(o => {
+      o.matrixAutoUpdate = true;
+      if (o.isMesh || o.isSkinnedMesh) {
+        o.visible = false;
+        o.frustumCulled = false;
+        o.castShadow = false;
+        o.receiveShadow = false;
+        o.renderOrder = 3;
+        if (o.isSkinnedMesh) o.bindMode = 'attached';
+        if (o.material) hardenMesh(o); // Phong + authored maps; Standard fails on SwiftShader
+      }
+    });
+
+    clone.traverse(o => {
+      if ((o.isMesh || o.isSkinnedMesh) && isArmRegion(o) === 'arm') o.visible = true;
+    });
+
+    // Cream linen upper sleeves: extract per side from the torso outfit,
+    // dropping any vertex that still carries spine/pelvis weight so the
+    // stomach cannot leak. The glove mesh already carries the cuff.
+    const sleeves = [];
+    clone.traverse(o => {
+      if (!(o.isSkinnedMesh && o.skeleton)) return;
+      const n = (o.name || '') + ' ' + ((o.parent && o.parent.name) || '');
+      if (!/visual_torso_outfit/.test(n)) return;
+      const mats = [].concat(o.material || []);
+      const linen = mats.some(m => m && /Linen|eee6d6|shirt|cloth/i.test((m.name || '') + (o.name || '')));
+      const cream = mats.some(m => {
+        if (!m || !m.color) return false;
+        const c = m.color;
+        return (m.map && c.r > 0.9) || (c.r > 0.7 && c.g > 0.65 && c.b > 0.5);
+      });
+      if (!(linen || cream || /torso_outfit/.test(o.name || ''))) return;
+      const torsoIdx = boneIndexSet(o.skeleton, /^(spine|pelvis|root|thigh|neck|head)/);
+      for (const side of ['R', 'L']) {
+        const sleeveIdx = boneIndexSet(o.skeleton, new RegExp('^(clavicle|upper_arm|forearm)[._]?' + side + '$'));
+        const sleeve = extractSleeve(o, sleeveIdx, 0.48);
+        if (!sleeve) continue;
+        // Drop leftover torso-weighted verts instead of rejecting the sleeve.
+        const geo = sleeve.geometry, pos = geo.attributes.position, idx = geo.index && geo.index.array;
+        if (pos && idx) {
+          const keepTri = [];
+          for (let t = 0; t < idx.length; t += 3) {
+            const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+            const tw = Math.max(vertsWeight(geo, a, torsoIdx), vertsWeight(geo, b, torsoIdx), vertsWeight(geo, c, torsoIdx));
+            if (tw < 0.22) keepTri.push(a, b, c);
+          }
+          if (keepTri.length >= 36) {
+            const ia = keepTri.length > 65535 ? Uint32Array : Uint16Array;
+            geo.setIndex(new T.BufferAttribute(new ia(keepTri), 1));
+            try { geo.computeVertexNormals(); } catch (_) {}
+          } else {
+            try { if (sleeve.parent) sleeve.parent.remove(sleeve); } catch (_) {}
+            continue;
+          }
+        }
+        sleeve.visible = true;
+        sleeve.userData.armSwitchSleeve = 1;
+        sleeve.userData.armSwitchSide = side;
+        o.parent.add(sleeve);
+        sleeves.push(sleeve);
+      }
+    });
+    sleeves.forEach((sl, i) => { sl.name = 'ArmSwitchSleeve' + i; });
+    clone.userData.sleeves = sleeves;
+
+    stripBody(clone);
+
+    captureBind(clone);
+    clone.scale.set(1, 1, 1);
+    clone.position.set(0, 0, 0);
+    clone.rotation.set(0, 0, 0);
+    return clone;
+  };
+
+  function hideDriverMeshes(rig) {
+    if (!rig) return;
+    const hybrid = U.hybrid !== 0;
+    rig.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh)) return;
+      if (hybrid) {
+        o.visible = true;
+        o.userData.armSwitchKeep = 1;
+        o.userData.armSwitchHid = 0;
+        return;
+      }
+      if (o.userData && o.userData.armSwitchKeep) return;
+      o.visible = false;
+      o.userData.armSwitchHid = 1;
+    });
+  }
+  function under(o, ancestor) {
+    if (!ancestor) return false;
+    for (let p = o; p; p = p.parent) if (p === ancestor) return true;
+    return false;
+  }
+  function hideObj(o) {
+    if (!o) return;
+    o.visible = false;
+    o.userData && (o.userData.armSwitchHid = 1);
+    if (o.traverse) o.traverse(c => {
+      if (c.isMesh || c.isSkinnedMesh) { c.visible = false; c.userData.armSwitchHid = 1; }
+    });
+  }
+  // The game keeps doing fist.visible = true on the empty hand (and again in
+  // render). Pin the leftover box palm and classic arm mesh hidden so they
+  // cannot come back over the painted procedural fist.
+  function pinHidden(o) {
+    if (!o || o.userData && o.userData.armSwitchPinned) return;
+    try {
+      if (o.userData) { o.userData.armSwitchHid = 1; o.userData.armSwitchPinned = 1; }
+      o.visible = false;
+      try { o.scale.set(0, 0, 0); } catch (_) {}
+      try { if (o.parent) o.parent.remove(o); } catch (_) {}
+    } catch (_) { try { o.visible = false; } catch (e) {} }
+  }
+  function posePistolTrigger() {
+    try {
+      const held = (W.__fpLegacy && W.__fpLegacy.held) || (typeof W.held !== 'undefined' ? W.held : null);
+      const mesh = held && held.children && held.children[0];
+      const isP = !!(mesh && mesh.userData && (mesh.userData.gun === 212 || mesh.userData.pistol));
+      if (!isP) return;
+      const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
+      const h = rig && rig.userData && rig.userData.R && rig.userData.R.userData && rig.userData.R.userData.p && rig.userData.R.userData.p.h;
+      const fingers = h && h.userData && h.userData.f;
+      if (!fingers || !fingers[0]) return;
+      // Index (digit 0) stays extended along the trigger; the other three wrap the grip.
+      const ix = fingers[0];
+      ix[0].rotation.x = 0.22;
+      ix[1].rotation.x = 0.16;
+      if (ix[1].userData && ix[1].userData.d) ix[1].userData.d.rotation.x = 0.06;
+      ix[0].updateMatrix(); ix[1].updateMatrix();
+    } catch (_) {}
+  }
+  function hideLegacyBoxes() {
+    try {
+      const L = W.__fpLegacy || {};
+      pinHidden(L.fist);
+      pinHidden(L.armMesh);
+      hideObj(L.gripHand);
+      hideObj(W.mcArm || L.mcArm);
+      const held = L.held;
+      const cam = (typeof camera !== 'undefined') ? camera : W.camera;
+      const roots = [L.armPivot, L.hand, L.fist && L.fist.parent, cam].filter(Boolean);
+      const seen = new Set();
+      for (const r of roots) {
+        r.traverse(o => {
+          if (!(o.isMesh || o.isSkinnedMesh) || seen.has(o)) return;
+          seen.add(o);
+          if (under(o, held)) return;
+          let p = o;
+          while (p) {
+            if (p.name === 'ArmSwitch1247' || p.userData && p.userData.armSwitchVer) return;
+            p = p.parent;
+          }
+          const typ = o.geometry && o.geometry.type;
+          if (o.userData && (o.userData.armSwitchKeep || (U.hybrid !== 0 && W.__fpaR && W.__fpaR(o)))) return;
+          if (typ === 'BoxGeometry' || typ === 'CylinderGeometry' || typ === 'SphereGeometry' || typ === 'TorusGeometry') {
+            pinHidden(o);
+          }
+        });
+      }
+    } catch (_) {}
+  }
+
+  function retarget(fp, side, arm) {
+    if (!fp || !arm) return;
+    const bones = fp.userData.bones, Toff = fp.userData.Toff;
+    if (!Toff) return;
+    const p = arm.userData && arm.userData.p;
+    if (!p) return;
+    function apply(boneName, driverObj) {
+      const bone = getBone(bones, boneName), off = Toff[boneName];
+      if (!bone || !off || !driverObj) return;
+      driverObj.updateWorldMatrix(true, false);
+      applyWorld(bone, _m2.multiplyMatrices(driverObj.matrixWorld, off));
+    }
+    // Parent-first: changing clavicle after the arm would invalidate
+    // the children's locals / matrixWorld.
+    if (p.up && Toff['clavicle' + side] && getBone(bones, 'clavicle' + side)) apply('clavicle' + side, p.up);
+    apply('upper_arm' + side, p.up);
+    apply('forearm' + side, p.fo);
+    apply('hand' + side, p.h);
+    // Fingers stay on the GLB bind pose relative to the (now placed) hand,
+    // then curl around local +X using the __fpa joint angles. World-matrix
+    // retarget of these short bones caused the spike / claw hands.
+    const bindLocal = fp.userData.bindLocal || {};
+    function restoreLocal(name) {
+      const bone = getBone(bones, name), loc = bindLocal[name];
+      if (!bone || !loc) return null;
+      bone.position.copy(loc.pos);
+      bone.quaternion.copy(loc.quat);
+      if (loc.scale) bone.scale.copy(loc.scale);
+      bone.updateMatrix();
+      return bone;
+    }
+    const fingers = p.h && p.h.userData && p.h.userData.f;
+    for (let d = 0; d < 4; d++) {
+      const b1 = restoreLocal('finger' + side + d + '01');
+      const b2 = restoreLocal('finger' + side + d + '02');
+      const pair = fingers && fingers[d];
+      // fpa rest is already a closed-ish pose (~1.0 / 1.2). GLB bind is nearly
+      // straight, so the fpa rotation.x maps directly onto +X curl.
+      const cx = pair && pair[0] ? pair[0].rotation.x : 1.15;
+      const kx = pair && pair[1] ? pair[1].rotation.x : 1.25;
+      if (b1) { b1.rotateX(cx); b1.updateMatrix(); }
+      if (b2) { b2.rotateX(kx); b2.updateMatrix(); }
+    }
+    const th = p.h && p.h.userData && p.h.userData.th;
+    const t1 = restoreLocal('thumb' + side + '01');
+    const t2 = restoreLocal('thumb' + side + '02');
+    let tg = 1;
+    if (th) {
+      tg = (th.rotation.x - 0.85) / 0.4;
+      if (!isFinite(tg)) tg = 1;
+      tg = Math.max(0, Math.min(1.4, tg));
+    }
+    // Thumb curls across the palm; +X is still the flex axis on this rig.
+    if (t1) { t1.rotateX(0.35 + tg * 0.55); t1.updateMatrix(); }
+    if (t2) { t2.rotateX(0.2 + tg * 0.7); t2.updateMatrix(); }
+  }
+
+  function leakGuard(fp) {
+    const leak = [];
+    fp.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh) || o.visible === false) return;
+      const kind = isArmRegion(o);
+      if (kind === 'arm' || kind === 'sleeve' || kind === 'gear' || o.userData.armSwitchSleeve) return;
+      o.visible = false;
+      leak.push(o);
+      try { if (o.parent) o.parent.remove(o); } catch (_) {}
+    });
+    if (leak.length) U.leaks = (U.leaks || 0) + leak.length;
+  }
+
+  U.syncFromFpa = function (dt) {
+    const fpa = W.__fpa;
+    const cam = (typeof camera !== 'undefined') ? camera : W.camera;
+    if (!cam || !fpa) return;
+    const runtime = W.__pilot1235;
+    if (!runtime || !runtime.templates || !runtime.templates[0]) return;
+
+    let fp = cam.getObjectByName('ArmSwitch1247') || U.fp;
+    if (!fp) {
+      fp = U.buildFromTemplate(runtime.templates[0]);
+      if (!fp) return;
+      // Identity under the camera: bones are written in world space from __fpa
+      // drivers. The body has already been stripped, so nothing sits in the
+      // near plane in bind pose.
+      fp.position.set(0, 0, 0);
+      fp.rotation.set(0, 0, 0);
+      fp.scale.set(1, 1, 1);
+      cam.add(fp);
+      U.fp = fp;
+    }
+
+    try {
+      const old = cam.getObjectByName('Held1240FpArms') || cam.getObjectByName('ArmSwitch1245');
+      if (old) { old.visible = false; old.traverse(o => { if (o.isMesh || o.isSkinnedMesh) o.visible = false; }); }
+    } catch (_) {}
+
+    const rig = fpa.rig && fpa.rig();
+    if (!rig || !rig.visible) { fp.visible = false; U.on = 0; return; }
+    if (typeof camMode !== 'undefined' && camMode !== 0) { fp.visible = false; U.on = 0; return; }
+    if (typeof started !== 'undefined' && !started) { fp.visible = false; U.on = 0; return; }
+
+    hideDriverMeshes(rig);
+    hideLegacyBoxes();
+    if (U.hybrid !== 0) {
+      fp.visible = false;
+      try { fp.traverse(o => { if (o.isMesh || o.isSkinnedMesh) o.visible = false; }); } catch (_) {}
+      try {
+        if (W.__held1240 && typeof W.__held1240.retextureProceduralArms === 'function')
+          W.__held1240.retextureProceduralArms();
+        if (W.__held1240 && typeof W.__held1240.hardenFpa === 'function')
+          W.__held1240.hardenFpa();
+      } catch (e) { if (!U.err) U.err = 'hybrid paint: ' + (e && e.message || e); }
+      U.on = 1;
+    } else {
+      fp.visible = true;
+      U.on = 1;
+    }
+
+    const Rarm = rig.userData.R, Larm = rig.userData.L;
+    const showL = !!(Larm && Larm.visible);
+    const armourOn = (function () {
+      try { if (typeof armour !== 'undefined' && armour && armour[1]) return true; } catch (_) {}
+      return false;
+    })();
+
+    try {
+      if (Rarm) retarget(fp, 'R', Rarm);
+      if (showL && Larm) retarget(fp, 'L', Larm);
+    } catch (e) { if (!U.err) U.err = 'retarget: ' + (e && e.message || e); }
+
+    try {
+      fp.traverse(o => {
+        if (!(o.isMesh || o.isSkinnedMesh)) return;
+        const kind = isArmRegion(o);
+        const n = o.name || '';
+        if (kind === 'gear') {
+          const left = /slot1|_L_|GLOVE_\|_L_/.test(n + (o.parent && o.parent.name || ''));
+          o.visible = armourOn && (left ? showL : true);
+          return;
+        }
+        if (kind === 'sleeve' || o.userData.armSwitchSleeve) {
+          o.visible = !armourOn;
+          return;
+        }
+        if (kind === 'arm') {
+          const left = /GLOVE_\|_L_|visual_arm_slot1/.test(n + ' ' + (o.parent && o.parent.name || ''));
+          o.visible = left ? showL : true;
+          return;
+        }
+        o.visible = false;
+      });
+    } catch (_) {}
+
+    // matrixWorld must be current BEFORE skeleton.update() reads it.
+    // Otherwise skinned vertices stay at the unparented bind origin
+    // and never appear in the first-person view.
+    try { fp.updateMatrixWorld(true); } catch (_) {}
+    try {
+      fp.traverse(o => {
+        if (!o.isSkinnedMesh || !o.skeleton) return;
+        o.bindMode = 'attached';
+        o.updateMatrixWorld(true);
+        o.skeleton.update();
+      });
+    } catch (_) {}
+    leakGuard(fp);
+    try { fp.updateMatrixWorld(true); } catch (_) {}
+    if (U.hybrid !== 0) posePistolTrigger();
+
+    // Do NOT snap `held` to the GLB socket. __fpa / __vm already place the
+    // item and then reach the driver hands to it (1.2.22–1.2.27 gun project).
+    U.kind = (function () {
+      try {
+        if (W.__swimHide || (typeof swimDeep !== 'undefined' && swimDeep && !camMode)) return 'swim';
+        const H = W.__held1240;
+        if (typeof held !== 'undefined' && held && held.children[0] && H && H.kindOf) {
+          return H.kindOf(held.children[0], typeof heldId !== 'undefined' ? heldId : null);
+        }
+      } catch (_) {}
+      return 'empty';
+    })();
+  };
+
+  U.install = function () {
+    if (U._hooked) return U;
+    U._hooked = 1;
+    try {
+      const wrap = (fn) => {
+        const prev = fn;
+        return function (dt) {
+          const r = prev.apply(this, arguments);
+          try { U.syncFromFpa(typeof dt === 'number' ? dt : 0.016); } catch (e) { if (!U.err) U.err = String(e && e.message || e); }
+          return r;
+        };
+      };
+      if (typeof updateHand === 'function') updateHand = wrap(updateHand);
+    } catch (e) { U.err = 'install: ' + e; }
+    try {
+      if (W.__fpa && typeof W.__fpa.step === 'function' && !W.__fpa.__armSwitchWrapped) {
+        const prev = W.__fpa.step.bind(W.__fpa);
+        W.__fpa.step = function (dt) {
+          const r = prev(dt);
+          try { U.syncFromFpa(dt); } catch (e) { if (!U.err) U.err = String(e && e.message || e); }
+          return r;
+        };
+        W.__fpa.__armSwitchWrapped = 1;
+      }
+    } catch (_) {}
+    return U;
+  };
+
+  try {
+    if (W.__pilot1235) U.install();
+    else {
+      const t = setInterval(() => {
+        if (W.__pilot1235) { clearInterval(t); try { U.install(); } catch (_) {} }
+      }, 200);
+      setTimeout(() => clearInterval(t), 30000);
+    }
+  } catch (_) {}
+})(typeof window !== 'undefined' ? window : this);
 /* v1.2.44: adaptive 4K UHD scaler REMOVED.
  * 4K UHD renders exactly as in 1.2.41 on all devices (no weak-boot cap, no
  * dynamic pixel-ratio / shadow / view-distance scaler). This stub keeps the

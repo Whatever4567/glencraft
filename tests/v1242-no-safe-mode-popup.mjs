@@ -8,7 +8,7 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';") || html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.46+');
+ok(html.includes("const GAME_VERSION = '1.2.47';") || html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';") || html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.46+');
 ok(html.includes('safeModeUiRemoved'), 'c99 marks safe-mode UI as removed');
 ok(!/sb\.textContent = 'Load safe mode'/.test(html), 'loading screen does not create a Load safe mode button');
 ok(!/Open in safe mode/.test(html), 'title screen does not offer Open in safe mode');
