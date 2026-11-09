@@ -1,4 +1,4 @@
-/* v1.2.45 / v1.2.40: first-person musket/pistol reload. The player's own new-character
+/* v1.2.40: first-person musket/pistol reload. The player's own new-character
  * arm (cream sleeve or armour gauntlet) moves to the ramrod/bolt and back —
  * no duplicate striped arm, no 360° flip (shortest-path quaternion slerp),
  * and reload props (ball, magazine, powder) stay small in viewmodel space. */
@@ -62,7 +62,7 @@
   function isPlayerArm(o) {
     for (let p = o; p; p = p.parent) {
       const n = p.name || '';
-      if (n === 'Held1240FpArms' || n === 'Held1240ReloadArm' || n === 'ArmSwitch1245') return true;
+      if (n === 'Held1240FpArms' || n === 'Held1240ReloadArm') return true;
       if (W.__fpaR && W.__fpaR(p)) return true;
     }
     return false;

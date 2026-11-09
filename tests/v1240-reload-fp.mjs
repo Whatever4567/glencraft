@@ -9,7 +9,7 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.45';") || html.includes("const GAME_VERSION = '1.2.42';") || html.includes("const GAME_VERSION = '1.2.40';"), 'GAME_VERSION is 1.2.41 or 1.2.40');
+ok(html.includes("const GAME_VERSION = '1.2.44';") || html.includes("const GAME_VERSION = '1.2.42';") || html.includes("const GAME_VERSION = '1.2.40';"), 'GAME_VERSION is 1.2.41 or 1.2.40');
 ok(html.includes('__heldReload1240') && html.includes('slerpToward') && html.includes('MAX_PROP_R'), 'reload fixer is in the built index');
 ok(html.includes('no duplicate arm') && html.includes('no 360') && html.includes('huge sphere'), 'patch notes cover musket flip / duplicate arm and the pistol sphere');
 ok(html.includes('Held1240FpArms') && html.includes('setArmourArms'), 'gear-matching first-person arms stay in the build');
