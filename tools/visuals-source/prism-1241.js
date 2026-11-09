@@ -590,20 +590,23 @@
 
   // A single continuous thin crescent blade (two tips, inner glow UVs).
   // side length is the long (upper) tip; the short tip is ~0.72 of that.
-  function crescentBladeGeometry(len, thick, wide) {
+  function crescentBladeGeometry(len, thick, wide, hook) {
     len = len || 0.50; thick = thick || 0.007; wide = wide || 0.034;
-    const key = 'crescentC:' + [len, thick, wide].join(',');
+    // hook: how far the lower horn extends below the socket, as a fraction
+    // of `len`. 1.04 is a full scythe (covers the haft). ~0.30 is a pick
+    // head: a short lower hook so the long brown haft stays visible.
+    hook = hook == null ? 1.04 : hook;
+    const key = 'crescentC:' + [len, thick, wide, hook].join(',');
     if (!U._geo) U._geo = {};
     if (U._geo[key]) return U._geo[key];
     const segs = 16, sides = 6;
-    // Slender full-C: long tapering tips, modest face width (not a sail),
-    // enough depth to read as a blade rather than a ribbon.
+    // Slender C: long tapering upper tip, modest face width, short lower hook.
     const topO = new T.Vector3(len * 0.13, len * 1.14, 0);
-    const botO = new T.Vector3(len * 0.11, -len * 1.04, 0);
-    const outerCtrl = new T.Vector3(len * 0.50, 0.03 * len, 0);
+    const botO = new T.Vector3(len * 0.16, -len * hook, 0);
+    const outerCtrl = new T.Vector3(len * 0.50, (0.15 - 0.12 * Math.min(1, hook)) * len, 0);
     const topI = new T.Vector3(len * 0.025, len * 0.96, 0);
-    const botI0 = new T.Vector3(len * 0.025, -len * 0.86, 0);
-    const innerCtrl = new T.Vector3(len * 0.00, 0.02 * len, 0);
+    const botI0 = new T.Vector3(len * 0.04, -len * hook * 0.72, 0);
+    const innerCtrl = new T.Vector3(len * 0.00, (0.10 - 0.08 * Math.min(1, hook)) * len, 0);
     const pos = [], nrm = [], uv = [], ix = [];
     function bezier(a, c, b, t) {
       const u = 1 - t;
@@ -888,7 +891,7 @@
       // Glowing translucent-violet (or blue) crescent on a carved, twisted
       // wood-grained haft with gold runes. The core stays opaque/depthWrite
       // so it never vanishes on SwiftShader; glow is a sprite + additive shell.
-      const len = 0.64;
+      const len = 0.88;
       const purple = k === 'p761';
       const runeWood = matFor(0x4a2c14, 'wood');
       try {
@@ -912,7 +915,7 @@
         transparent: false, opacity: 1, depthWrite: true
       });
       core.userData.crystalCore1249 = 1;
-      const blade = crescentBladeGeometry(0.52, 0.0230, 0.048);
+      const blade = crescentBladeGeometry(0.44, 0.0230, 0.048, 0.42);
       const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
       bladeMesh.rotation.z = -0.08;
       bladeMesh.userData.noGrip = 1;
@@ -941,7 +944,7 @@
           g.add(spr);
         }
       } catch (_) {}
-      g.userData.__gs = {b: new T.Vector3(0, 0.10, 0), h: new T.Vector3(0, len * 0.42, 0), r: 0.016, authored: 1};
+      g.userData.__gs = {b: new T.Vector3(0, 0.08, 0), h: new T.Vector3(0, 0.22, 0), r: 0.016, authored: 1};
     } else if (k === 'pick') {
       const len = 0.56;
       handleWithFerrule(g, woodM, ferM, len, 0.016, false);

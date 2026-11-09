@@ -15,9 +15,9 @@
   const FRAME = {
     empty:  {dx:  0.02, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.00, armS: 1.10},
     block:  {dx: -0.02, dy:  0.02, dz: 0.04, fov: 0.74, s: 0.58, armS: 1.12},
-    pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
-    p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
-    p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    pick:   {dx: -0.02, dy: -0.08, dz:-0.16, fov: 1.08, s: 0.95, armS: 1.00},
+    p761:   {dx: -0.02, dy: -0.08, dz:-0.16, fov: 1.08, s: 0.95, armS: 1.00},
+    p760:   {dx: -0.02, dy: -0.08, dz:-0.16, fov: 1.08, s: 0.95, armS: 1.00},
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
@@ -25,7 +25,7 @@
     bucket: {dx: -0.02, dy: -0.02, dz: 0.06, fov: 0.70, s: 0.74, armS: 1.08},
     torch:  {dx: -0.05, dy: -0.02, dz: 0.04, fov: 0.72, s: 1.08, armS: 1.10},
     map:    {dx: -0.05, dy:  0.02, dz: 0.08, fov: 0.68, s: 1.55, armS: 1.12},
-    musket: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 0.82},
+    musket: {dx:  0.02, dy:  0.03, dz: 0.02, fov: 1.00, s: 1.00, armS: 0.55},
     pistol: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 0.90},
     musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.94},
     pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.94},
@@ -74,6 +74,8 @@
     try {
       if (W.__c340 && +W.__c340.k > 0.45) return true;
       if (typeof S !== 'undefined' && S && S.adsK > 0.45) return true;
+      if (W.__c288 && W.__c288.aiming) return true;
+      if (W.__c145 && (W.__c145.force || W.__c145.hold)) return true;
     } catch (_) {}
     return false;
   }
@@ -149,10 +151,12 @@
           // own scene, which re-shows sleeves. Hide them again in that pass
           // so a linen cuff cannot sit in the lens.
           try {
-            if (W.__vm && W.__vm.vs && sc === W.__vm.vs) hideGunSleeves();
-            else {
-              const k = kindOf();
-              if (k && k !== 'musket' && k !== 'pistol') shrinkCuff(k);
+            const k = kindOf();
+            if (k === 'musket' || k === 'pistol') {
+              hideGunSleeves();
+              poseGunHands(k, isAds());
+            } else if (k) {
+              shrinkCuff(k);
             }
           } catch (_) {}
           return rd.apply(this, arguments);
@@ -635,15 +639,18 @@
   function shrinkCuff(kind) {
     // The long linen sleeve (p.up / p.cuff / the legacy sleeve under `hand`)
     // is a camera-swallowing wall. Hide those sheets; keep a modest rolled cuff.
-    function hideLongLinen(root) {
+    function hideLongLinen(root, fo) {
       if (!root || !root.traverse) return;
       root.traverse(function (o) {
         if (!o.isMesh) return;
         if (isItemMesh(o)) return;
         const typ = (o.geometry && o.geometry.type) || '';
-        if (o.userData && (o.userData.sleeve1254 || ((o.userData.folded1249 || o.userData.wristCuff1254) && /Torus/.test(typ)))) {
-          o.visible = true;
-          return;
+        if (o.userData && (o.userData.sleeve1254 || o.userData.sleeve1257 || ((o.userData.folded1249 || o.userData.wristCuff1254) && /Torus/.test(typ)))) {
+          // Only keep cuffs/sleeves that live on the visible forearm. A roll
+          // parented to a hidden upper-arm sheet otherwise floats in view.
+          let underFo = !fo;
+          for (let n = o; n; n = n.parent) if (fo && n === fo) { underFo = true; break; }
+          if (underFo) { o.visible = true; return; }
         }
         if (isHandPart(o) && !isLinenMesh(o)) return;
         const m = [].concat(o.material || [])[0];
@@ -660,10 +667,16 @@
         if (p.up) p.up.visible = false;
         if (p.cuff) p.cuff.visible = false;
       }
-      hideLongLinen(arm);
+      hideLongLinen(arm, p && p.fo);
       ensureWristCuff(arm);
     });
-    try { if (typeof hand !== 'undefined' && hand) hideLongLinen(hand); } catch (_) {}
+    try {
+      if (typeof hand !== 'undefined' && hand) {
+        let fo = null;
+        eachArm(function (arm) { const p = arm.userData && arm.userData.p; if (p && p.fo) fo = p.fo; });
+        hideLongLinen(hand, fo);
+      }
+    } catch (_) {}
   }
 
   function ensureWristCuff(arm) {
@@ -682,33 +695,61 @@
           if (o.isMesh && o.userData && o.userData.wristCuff1254) o.visible = false;
         });
       }
-      if (fo.userData.sleeve1254) return;
+      if (fo.userData.sleeve1257) return;
       if (fo.geometry) {
-        if (!fo.geometry.boundingBox) fo.geometry.computeBoundingBox();
+        fo.geometry.computeBoundingBox();
         const bb = fo.geometry.boundingBox;
         const pos = fo.geometry.attributes && fo.geometry.attributes.position;
         const span = (bb.max.y - bb.min.y) || 1;
-        let wr = 0;
+        let wr = 0, er = 0;
         if (pos) {
           for (let i = 0; i < pos.count; i++) {
-            if (Math.abs(pos.getY(i) - bb.max.y) <= span * 0.1) {
-              const rr = Math.hypot(pos.getX(i), pos.getZ(i));
-              if (rr > wr) wr = rr;
-            }
+            const y = pos.getY(i);
+            const rr = Math.hypot(pos.getX(i), pos.getZ(i));
+            if (Math.abs(y - bb.max.y) <= span * 0.1 && rr > wr) wr = rr;
+            if (Math.abs(y - bb.min.y) <= span * 0.15 && rr > er) er = rr;
           }
         }
         if (wr < 1e-4) wr = Math.max(Math.abs(bb.max.x), Math.abs(bb.max.z), 0.012);
-        const r = wr * 1.06;
-        const roll = new T3.Mesh(new T3.TorusGeometry(r, Math.max(0.003, r * 0.18), 8, 14), lm);
+        if (er < wr) er = wr * 1.45;
+        const lm2 = lm.clone();
+        if ('side' in lm2) lm2.side = T3.DoubleSide;
+        const tag = function (m, keep) {
+          m.userData.sleeve1254 = 1;
+          m.userData.sleeve1257 = 1;
+          m.userData.folded1249 = 1;
+          if (keep) m.userData.sculptKeep = 1;
+          return m;
+        };
+        // Linen shirt sleeve sits just outside the skin forearm. The elbow
+        // stump (camera-facing end) is capped with a double-sided disc so we
+        // never look down a tube or at a bare skin cut. Not prot, so the
+        // coverage cull can still hide a wall.
+        const rW = wr * 1.14;
+        const rE = er * 1.18;
+        const h = span * 0.90;
+        const y0 = bb.min.y;
+        const sleeve = tag(new T3.Mesh(new T3.CylinderGeometry(rW, rE, h, 12, 1, true), lm2));
+        sleeve.position.set(0, y0 + h * 0.5, 0);
+        fo.add(sleeve);
+        const cap = tag(new T3.Mesh(new T3.CircleGeometry(Math.max(rE * 1.2, wr * 1.6), 16), lm2));
+        cap.rotation.x = -Math.PI / 2;
+        cap.position.set(0, y0 - 0.008, 0);
+        cap.renderOrder = 2;
+        fo.add(cap);
+        const roll = tag(new T3.Mesh(new T3.TorusGeometry(rW, Math.max(0.003, rW * 0.16), 8, 14), lm2), 1);
         roll.rotation.x = Math.PI / 2;
-        roll.position.set(0, bb.max.y - r * 0.04, 0);
-        roll.userData.sleeve1254 = 1;
-        roll.userData.folded1249 = 1;
+        roll.position.set(0, y0 + h - rW * 0.02, 0);
         roll.userData.wristCuff1254 = 1;
-        roll.userData.sculptKeep = 1;
         fo.add(roll);
+        const roll2 = tag(new T3.Mesh(new T3.TorusGeometry(rW * 1.06, Math.max(0.0025, rW * 0.11), 8, 14), lm2), 1);
+        roll2.rotation.x = Math.PI / 2;
+        roll2.position.set(0, y0 + h - rW * 0.08, 0);
+        roll2.userData.wristCuff1254 = 1;
+        fo.add(roll2);
       }
       fo.userData.sleeve1254 = 1;
+      fo.userData.sleeve1257 = 1;
     } catch (_) {}
   }
 
@@ -753,16 +794,30 @@
   function hideArmSheets(arm, hideFore) {
     const p = arm && arm.userData && arm.userData.p;
     if (!p) return;
-    if (p.up) p.up.visible = false;
-    if (p.el) p.el.visible = false;
-    if (p.cuff) p.cuff.visible = false;
-    if (hideFore && p.fo) p.fo.visible = false;
+    function hideSheet(o) {
+      if (!o) return;
+      o.visible = false;
+      if (!o.userData) o.userData = {};
+      o.userData.__hidSleeve1252 = 1;
+      try {
+        o.traverse(function (c) {
+          if (!c.isMesh && !c.isSkinnedMesh) return;
+          if (!c.userData) c.userData = {};
+          c.visible = false;
+          c.userData.__hidSleeve1252 = 1;
+        });
+      } catch (_) {}
+    }
+    hideSheet(p.up); hideSheet(p.el); hideSheet(p.cuff);
+    if (hideFore) hideSheet(p.fo);
     try {
       arm.traverse(function (o) {
         if (!o.isMesh) return;
         const typ = (o.geometry && o.geometry.type) || '';
-        if (o.userData && (o.userData.sleeve1254 || o.userData.wristCuff1254 || o.userData.folded1249)) {
+        const u = o.userData || {};
+        if (u.sleeve1254 || u.sleeve1257 || u.wristCuff1254 || u.folded1249) {
           o.visible = false;
+          if (!o.userData) o.userData = {};
           o.userData.__hidSleeve1252 = 1;
         }
       });
@@ -798,7 +853,7 @@
       const L = rig.userData && rig.userData.L;
       const R = rig.userData && rig.userData.R;
       if (kind !== 'musket' && kind !== 'pistol') return;
-      const armS = ads ? 0.94 : (kind === 'musket' ? 0.70 : 0.88);
+      const armS = ads ? (kind === 'musket' ? 0.72 : 0.94) : (kind === 'musket' ? 0.52 : 0.88);
       rig.scale.setScalar(armS);
       // Hip and ADS: hide the close forearm cones so the gun and hands lead.
       hideArmSheets(L, true);
@@ -807,10 +862,19 @@
         L.visible = true;
         if (L.userData && L.userData.p && L.userData.p.h) L.userData.p.h.visible = true;
         if (kind === 'musket') {
-          // Cup under the forestock in the lower-left of the barrel, out of the sights.
-          setInCam(L, -0.06, -0.11, -0.36);
+          // Support hand cups the forestock, low-left and further than the
+          // sight so it cannot cover the sight picture.
+          setInCam(L, -0.07, -0.16, -0.46);
           const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(-0.2, 0.1, 0.75);
+          if (p && p.h) p.h.rotation.set(-0.25, 0.12, 0.85);
+          if (R) {
+            R.visible = true;
+            if (R.userData && R.userData.p && R.userData.p.h) R.userData.p.h.visible = true;
+            // Grip hand stays low-right of the receiver, not in the sights.
+            setInCam(R, 0.05, -0.15, -0.30);
+            const rp = R.userData && R.userData.p;
+            if (rp && rp.h) rp.h.rotation.set(0.15, -0.1, -0.35);
+          }
         } else {
           // Wrap the support hand around the grip, low and slightly left of the slide.
           setInCam(L, -0.02, -0.13, -0.24);
@@ -857,7 +921,7 @@
       cur.fov = lerpNum(from.fov, tgt.fov, e);
       cur.s = lerpNum(from.s, tgt.s, e);
       cur.armS = lerpNum(from.armS, tgt.armS, e);
-      if (typeof hand !== 'undefined' && hand) {
+      if (typeof hand !== 'undefined' && hand && k !== 'musket' && k !== 'pistol') {
         hand.position.x += cur.dx;
         hand.position.y += cur.dy;
         hand.position.z += cur.dz;
