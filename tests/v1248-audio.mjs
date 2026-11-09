@@ -17,7 +17,7 @@ ok(html.includes('nextN = t + R(45, 180)'), 'UKS cave one-shots are now rare');
 ok(src.includes('startBed') && src.includes("'day'") && src.includes("'night'") && src.includes("'cave1'") && src.includes("'blue'") && src.includes("'purple'") && src.includes("'hell'"), 'music beds exist for every requested mood');
 ok(src.includes('detectMood') && src.includes('__v1217') && src.includes('crossfade') || src.includes('stopBed'), 'music follows cave layers and crossfades');
 ok(src.includes('musGapUntil') && src.includes('SET.music'), 'gaps of silence and SET.music are respected');
-ok(src.includes('caveShot') && src.includes('icy') || src.includes('chime'), 'rare cave one-shots are unique per layer');
+ok(src.includes('caveShot') && src.includes("mood === 'cave1'") && src.includes("mood === 'blue'") && src.includes("mood === 'purple'") && src.includes("mood === 'hell'"), 'rare cave one-shots are unique per layer');
 ok(src.includes('setUfoHover') && src.includes('findUfo') && src.includes('dop'), 'UFO hover is spatialised with a cheap Doppler');
 ok(credits.includes('v1.2.48') && /procedural|Web Audio/i.test(credits), 'CREDITS records procedural 1.2.48 audio');
 ok(!src.includes('freesound') && !html.includes('youtube.com/watch'), 'no third-party recordings were added');
@@ -28,7 +28,7 @@ console.log('v1248-audio ok', n);
 ok(html.includes('id="ostSeg"') && html.includes('data-ost="calm"') && html.includes('data-ost="classic"') && html.includes('data-ost="hardcore"'), 'settings has Calm, Classic and Happy Hardcore');
 ok(src.includes("SET.soundtrack") && src.includes("setSoundtrack") && src.includes("'calm'") && src.includes("'classic'") && src.includes("'hardcore'"), 'runtime has a selectable soundtrack');
 ok(src.includes('HC_BPM = U.HC_BPM = 170') || src.includes('HC_BPM = 170') || /HC_BPM\s*=\s*170/.test(src), 'happy hardcore is 170 BPM');
-ok(src.includes('four') || src.includes('kick(') && src.includes('hoover') && src.includes('chord') && src.includes('piano'), 'hardcore has kick, hoover, chords and piano');
+ok(src.includes('kick(') && (src.includes('donk') || src.includes('hoover')), 'hardcore has a kick and an off-beat bass (donk or hoover)');
 const classicFiles = [
   'highland_mist.mp3', 'glen_dawn.mp3', 'loch_night.mp3', 'heather_air.mp3',
   'under_the_glen.mp3', 'glencraft_theme_extended.mp3', 'old_pine.mp3',

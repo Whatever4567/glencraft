@@ -16,7 +16,7 @@
   const U = W.__prism1241 = W.__prism1241 || {};
   U.err = null; U.geoHits = 0; U.matHits = 0; U.geoMiss = 0; U.matMiss = 0;
   U.meshes = 0; U.icons = 0; U.tiles = 0; U.mobs = 0; U.on = 1;
-  U.REV = 2;
+  U.REV = 3;
 
   const geoCache = U.geoCache = new Map();
   const matCache = U.matCache = new Map();
@@ -400,12 +400,22 @@
     mat.onBeforeCompile = function (shader) {
       shader.uniforms.crDeep = {value: new T.Vector3(rim.deep[0], rim.deep[1], rim.deep[2])};
       shader.uniforms.crGlow = {value: new T.Vector3(rim.glow[0], rim.glow[1], rim.glow[2])};
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 crDeep;\nuniform vec3 crGlow;')
-        .replace('#include <color_fragment>', '#include <color_fragment>\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  float facing = clamp(dot(crN, crV), 0.0, 1.0);\n  vec3 qn = sign(crN) * floor(abs(crN) * 3.0 + 0.51);\n  if (dot(qn, qn) < 1e-6) qn = crN; else qn = normalize(qn);\n  float fh = fract(sin(dot(qn, vec3(12.9898, 78.233, 45.164))) * 43758.5453);\n  diffuseColor.rgb *= mix(0.70, 1.24, fh);\n  diffuseColor.rgb *= mix(crDeep, vec3(1.16), crF);\n  diffuseColor.rgb *= mix(vec3(1.0), crDeep, facing * 0.28);\n}\n')
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  totalEmissiveRadiance += crGlow * crF * 0.85;\n}\n');
+      // `normal` is only declared in <normal_fragment_begin>, which runs AFTER
+      // <color_fragment>. Under FLAT_SHADED that declaration is the dFdx/dFdy
+      // path, so injecting normalize(normal) at color_fragment fails to compile
+      // on SwiftShader and on real low-end Android GPUs. Tint after the normal
+      // exists; keep the emissive term on emissivemap_fragment (already after).
+      const rimTint = '\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  float facing = clamp(dot(crN, crV), 0.0, 1.0);\n  vec3 qn = sign(crN) * floor(abs(crN) * 3.0 + 0.51);\n  if (dot(qn, qn) < 1e-6) qn = crN; else qn = normalize(qn);\n  float fh = fract(sin(dot(qn, vec3(12.9898, 78.233, 45.164))) * 43758.5453);\n  diffuseColor.rgb *= mix(0.70, 1.24, fh);\n  diffuseColor.rgb *= mix(crDeep, vec3(1.16), crF);\n  diffuseColor.rgb *= mix(vec3(1.0), crDeep, facing * 0.28);\n}\n';
+      let fs = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 crDeep;\nuniform vec3 crGlow;');
+      if (fs.indexOf('#include <normal_fragment_maps>') >= 0)
+        fs = fs.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + rimTint);
+      else
+        fs = fs.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>' + rimTint);
+      fs = fs.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  totalEmissiveRadiance += crGlow * crF * 0.85;\n}\n');
+      shader.fragmentShader = fs;
     };
-    mat.customProgramCacheKey = function () { return 'prism1241v2-' + (hint || 'd'); };
+    mat.customProgramCacheKey = function () { return 'prism1241v3-' + (hint || 'd'); };
     mat.userData.prismRim1241 = 1;
     mat.userData.prism1241 = 1;
     mat.flatShading = true;
@@ -436,8 +446,11 @@
       map: src.map || null,
       emissive: src.emissive && src.emissive.clone ? src.emissive.clone() : new T.Color(src.emissive || 0),
       emissiveIntensity: src.emissiveIntensity != null ? src.emissiveIntensity : 1,
-      transparent: !!src.transparent,
-      opacity: src.opacity != null ? src.opacity : 1,
+      // Crystal tool heads must be solid: transparent/opacity < 1 made the
+      // purple pickaxe a faint sliver on phones (t1119). Do not change armour.
+      transparent: (crystal && hint !== 'armour') ? false : !!src.transparent,
+      opacity: (crystal && hint !== 'armour') ? 1 : (src.opacity != null ? src.opacity : 1),
+      depthWrite: true,
       side: src.side != null ? src.side : T.FrontSide,
       vertexColors: true,
       flatShading: true,
@@ -474,7 +487,7 @@
   const FERRULE_HEX = {
     wood: 0x8a6230, stone: 0x6a6860, iron: 0x9aa0a8, gold: 0xd4a824,
     diamond: 0xc8d0d8, cobalt: 0x4a5a80,
-    crystalpurple: 0xc0a050, crystalblue: 0xc0a050, metal: 0x8a9098
+    crystalpurple: 0x5a4630, crystalblue: 0x4a5a70, metal: 0x8a9098
   };
   const HAFT = 0x6b4a2a;
 
@@ -497,6 +510,350 @@
     return m;
   }
 
+
+  // Longer, thin, faceted crystal spike along a quadratic Bezier.
+  // side = +1 / -1: two points arc out and down from the haft, like a real pick.
+  function curvedPickSpikeGeometry(side, len, rise, drop, r0, r1, sides) {
+    side = side < 0 ? -1 : 1;
+    len = len || 0.46;
+    rise = rise == null ? 0.055 : rise;
+    drop = drop == null ? 0.16 : drop;
+    r0 = r0 || 0.024;
+    r1 = r1 == null ? 0.0022 : r1;
+    sides = sides || 6;
+    const zScale = (arguments.length > 7 && arguments[7] != null) ? arguments[7] : 0.55;
+    const segs = 16;
+    const p0 = new T.Vector3(0, 0, 0);
+    const p1 = new T.Vector3(side * len * 0.36, rise, 0);
+    const p2 = new T.Vector3(side * len, -drop, 0);
+    const bez = function (t) {
+      const u = 1 - t;
+      return new T.Vector3(
+        u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+        u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+        u * u * p0.z + 2 * u * t * p1.z + t * t * p2.z
+      );
+    };
+    const pts = [], tans = [];
+    for (let i = 0; i <= segs; i++) {
+      const tt = i / segs;
+      const a = bez(Math.max(0, tt - 0.012)), b = bez(Math.min(1, tt + 0.012));
+      pts.push(bez(tt));
+      const tan = b.sub(a);
+      if (tan.lengthSq() < 1e-10) tan.set(side, 0, 0);
+      tans.push(tan.normalize());
+    }
+    const pos = [], nrm = [], ix = [];
+    for (let i = 0; i <= segs; i++) {
+      const p = pts[i], tan = tans[i];
+      let up = new T.Vector3(0, 0, 1);
+      if (Math.abs(tan.dot(up)) > 0.86) up = new T.Vector3(0, 1, 0);
+      const bin = new T.Vector3().crossVectors(tan, up).normalize();
+      up = new T.Vector3().crossVectors(bin, tan).normalize();
+      const r = r0 + (r1 - r0) * Math.pow(i / segs, 0.85);
+      for (let k = 0; k < sides; k++) {
+        const ang = (k / sides) * Math.PI * 2 + Math.PI / sides;
+        // Flatten in Z so the blade stays slim, not chunky.
+        const cx = Math.cos(ang) * r, cz = Math.sin(ang) * r * 0.48;
+        const q = new T.Vector3().copy(p).addScaledVector(bin, cx).addScaledVector(up, cz);
+        pos.push(q.x, q.y, q.z);
+        const n = new T.Vector3().addScaledVector(bin, Math.cos(ang)).addScaledVector(up, Math.sin(ang)).normalize();
+        nrm.push(n.x, n.y, n.z);
+      }
+    }
+    const tip = pts[segs].clone().addScaledVector(tans[segs], r1 * 2.2);
+    const tipI = pos.length / 3;
+    pos.push(tip.x, tip.y, tip.z);
+    nrm.push(tans[segs].x, tans[segs].y, tans[segs].z);
+    for (let i = 0; i < segs; i++) {
+      for (let k = 0; k < sides; k++) {
+        const a = i * sides + k, b = i * sides + (k + 1) % sides;
+        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
+        ix.push(a, c, b, b, c, d);
+      }
+    }
+    const base = segs * sides;
+    for (let k = 0; k < sides; k++) ix.push(base + k, base + (k + 1) % sides, tipI);
+    const rootC = pos.length / 3;
+    pos.push(0, 0, 0); nrm.push(-tans[0].x, -tans[0].y, -tans[0].z);
+    for (let k = 0; k < sides; k++) ix.push(rootC, (k + 1) % sides, k);
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setIndex(ix);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  U.curvedPickSpikeGeometry = curvedPickSpikeGeometry;
+
+
+
+  // A single continuous thin crescent blade (two tips, inner glow UVs).
+  // side length is the long (upper) tip; the short tip is ~0.72 of that.
+  function crescentBladeGeometry(len, thick, wide) {
+    len = len || 0.50; thick = thick || 0.007; wide = wide || 0.034;
+    const key = 'crescent:' + [len, thick, wide].join(',');
+    if (!U._geo) U._geo = {};
+    if (U._geo[key]) return U._geo[key];
+    const segs = 14, sides = 6;
+    // Fuller C-crescent: both tips sweep well off the haft, deep inner belly.
+    const top = new T.Vector3(len * 0.34, len * 0.96, 0);
+    const bot = new T.Vector3(len * 0.32, -len * 0.84, 0);
+    const mid = new T.Vector3(len * 0.06, 0.04 * len, 0);
+    const outerCtrl = new T.Vector3(len * 0.72, 0.08 * len, 0);
+    // Param t=0 at bottom tip, t=1 at top tip. Socket near t=0.46.
+    const pos = [], nrm = [], uv = [], ix = [];
+    function bezier(a, c, b, t) {
+      const u = 1 - t;
+      return new T.Vector3(
+        u * u * a.x + 2 * u * t * c.x + t * t * b.x,
+        u * u * a.y + 2 * u * t * c.y + t * t * b.y,
+        0
+      );
+    }
+    const pts = [], tans = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs;
+      const a = bezier(bot, outerCtrl, top, Math.max(0, t - 0.01));
+      const b = bezier(bot, outerCtrl, top, Math.min(1, t + 0.01));
+      const p = bezier(bot, outerCtrl, top, t);
+      pts.push(p);
+      const tan = b.sub(a);
+      if (tan.lengthSq() < 1e-10) tan.set(0, 1, 0);
+      tans.push(tan.normalize());
+    }
+    const sockI = Math.round(0.46 * segs);
+    const sockP = pts[sockI].clone();
+    for (let i = 0; i <= segs; i++) { pts[i].sub(sockP); }
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs, p = pts[i], tan = tans[i];
+      // Thickness peaks at the socket (~t=0.46) and tapers to a sharp tip.
+      const sock = 1 - Math.min(1, Math.abs(t - 0.46) / 0.54);
+      const bladeW = wide * (0.28 + 0.72 * Math.pow(sock, 0.7));
+      const bladeT = thick * (0.45 + 0.55 * sock);
+      // tip sharpen
+      const tipFade = (t < 0.08) ? t / 0.08 : (t > 0.92 ? (1 - t) / 0.08 : 1);
+      const w = bladeW * Math.pow(Math.max(0.05, tipFade), 0.55);
+      const th = bladeT * Math.pow(Math.max(0.08, tipFade), 0.7);
+      let bin = new T.Vector3().crossVectors(tan, new T.Vector3(0, 0, 1));
+      if (bin.lengthSq() < 1e-8) bin = new T.Vector3(1, 0, 0);
+      bin.normalize();
+      const up = new T.Vector3().crossVectors(bin, tan).normalize();
+      for (let k = 0; k < sides; k++) {
+        const ang = (k / sides) * Math.PI * 2 + Math.PI / sides;
+        const cx = Math.cos(ang) * w, cz = Math.sin(ang) * th;
+        const q = new T.Vector3().copy(p).addScaledVector(bin, cx).addScaledVector(up, cz);
+        pos.push(q.x, q.y, q.z);
+        const n = new T.Vector3().addScaledVector(bin, Math.cos(ang)).addScaledVector(up, Math.sin(ang)).normalize();
+        nrm.push(n.x, n.y, n.z);
+        uv.push(k / sides, t);
+      }
+    }
+    const tipI = pos.length / 3;
+    const tipP = pts[segs].clone().addScaledVector(tans[segs], thick * 1.4);
+    pos.push(tipP.x, tipP.y, tipP.z); nrm.push(tans[segs].x, tans[segs].y, tans[segs].z); uv.push(0.5, 1);
+    const botI = pos.length / 3;
+    const botP = pts[0].clone().addScaledVector(tans[0], -thick * 1.4);
+    pos.push(botP.x, botP.y, botP.z); nrm.push(-tans[0].x, -tans[0].y, -tans[0].z); uv.push(0.5, 0);
+    for (let i = 0; i < segs; i++) {
+      for (let k = 0; k < sides; k++) {
+        const a = i * sides + k, b = i * sides + (k + 1) % sides;
+        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
+        ix.push(a, c, b, b, c, d);
+      }
+    }
+    const last = segs * sides;
+    for (let k = 0; k < sides; k++) ix.push(last + k, last + (k + 1) % sides, tipI);
+    for (let k = 0; k < sides; k++) ix.push((k + 1) % sides, k, botI);
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    geo.setIndex(ix);
+    geo.computeVertexNormals();
+    U._geo[key] = geo;
+    return geo;
+  }
+  U.crescentBladeGeometry = crescentBladeGeometry;
+
+  function crystalVeinTexture() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    
+    const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+    const g = c.getContext('2d');
+    const grd = g.createLinearGradient(0, 0, 256, 512);
+    grd.addColorStop(0, '#3a0a66'); grd.addColorStop(0.45, '#7a2ad8'); grd.addColorStop(1, '#c070ff');
+    g.fillStyle = grd; g.fillRect(0, 0, 256, 512);
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 40; i++) {
+      g.strokeStyle = 'rgba(255,200,255,' + (0.18 + Math.random() * 0.35) + ')';
+      g.lineWidth = 0.6 + Math.random() * 1.8;
+      g.beginPath();
+      const x = Math.random() * 256, y = Math.random() * 512;
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x + (Math.random() - 0.5) * 80, y + 60, x + (Math.random() - 0.5) * 40, y + 140);
+      g.stroke();
+    }
+    for (let i = 0; i < 80; i++) {
+      g.fillStyle = 'rgba(255,230,255,' + (0.15 + Math.random() * 0.4) + ')';
+      g.beginPath(); g.arc(Math.random() * 256, Math.random() * 512, 0.6 + Math.random() * 1.6, 0, 7); g.fill();
+    }
+    const tex = new T.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = T.RepeatWrapping;
+    return tex;
+  }
+  function crystalEmissiveTexture() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    
+    const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+    const g = c.getContext('2d');
+    g.fillStyle = '#1a0530'; g.fillRect(0, 0, 256, 512);
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 28; i++) {
+      g.strokeStyle = 'rgba(220,140,255,' + (0.4 + Math.random() * 0.5) + ')';
+      g.lineWidth = 1 + Math.random() * 2;
+      g.beginPath();
+      const x = 40 + Math.random() * 176, y = Math.random() * 512;
+      g.moveTo(x, y); g.quadraticCurveTo(x + 20, y + 80, x - 10, y + 160); g.stroke();
+    }
+    const tex = new T.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = T.RepeatWrapping;
+    return tex;
+  }
+  function glowSpriteTex() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grd.addColorStop(0, 'rgba(230,180,255,0.95)');
+    grd.addColorStop(0.25, 'rgba(170,80,255,0.55)');
+    grd.addColorStop(0.6, 'rgba(110,30,200,0.18)');
+    grd.addColorStop(1, 'rgba(40,0,80,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 128, 128);
+    const tex = new T.CanvasTexture(c);
+    return tex;
+  }
+  function carvedSocketGeometry(r, len) {
+    r = r || 0.018; len = len || 0.10;
+    const segs = 8, sides = 8;
+    const pos = [], nrm = [], uv = [], ix = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs, y = (t - 0.15) * len;
+      const swell = 1 + 0.28 * Math.sin(t * Math.PI) + 0.06 * Math.sin(t * 8);
+      const rot = t * 1.4 * Math.PI;
+      const rr = r * swell;
+      for (let k = 0; k < sides; k++) {
+        const a0 = (k / sides) * Math.PI * 2 + rot;
+        const ridge = 1 + ((k % 2) ? 0.16 : -0.06);
+        const x = Math.cos(a0) * rr * ridge, z = Math.sin(a0) * rr * ridge;
+        pos.push(x, y, z);
+        nrm.push(Math.cos(a0), 0, Math.sin(a0));
+        uv.push(k / sides, t);
+      }
+    }
+    for (let i = 0; i < segs; i++) {
+      for (let k = 0; k < sides; k++) {
+        const a = i * sides + k, b = i * sides + (k + 1) % sides;
+        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
+        ix.push(a, c, b, b, c, d);
+      }
+    }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    geo.setIndex(ix);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+
+  function woodRuneTexture() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    
+    const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+    const g = c.getContext('2d');
+    g.fillStyle = '#6a4424'; g.fillRect(0, 0, 256, 512);
+    for (let y = 0; y < 512; y += 5) {
+      g.strokeStyle = y % 10 === 0 ? 'rgba(30,16,6,0.7)' : 'rgba(140,90,40,0.38)';
+      g.lineWidth = 1 + (y % 4);
+      g.beginPath();
+      g.moveTo(0, y + Math.sin(y * 0.08) * 5);
+      g.bezierCurveTo(80, y + Math.cos(y * 0.05) * 6, 160, y + Math.sin(y * 0.07) * 4, 256, y + Math.cos(y * 0.04) * 5);
+      g.stroke();
+    }
+    // darker cracks / carved flutes
+    g.strokeStyle = 'rgba(20,10,0,0.45)'; g.lineWidth = 2;
+    for (let x = 24; x < 256; x += 32) {
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 8, 512); g.stroke();
+    }
+    // carved gold runes down the shaft — large and bright so they read at FP scale
+    const runes = ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ'];
+    g.font = 'bold 42px serif'; g.textAlign = 'center';
+    for (let i = 0; i < runes.length; i++) {
+      const y = 48 + i * 40;
+      g.fillStyle = 'rgba(20,8,0,0.7)'; g.fillText(runes[i], 132, y + 3);
+      g.fillStyle = '#f0d060'; g.fillText(runes[i], 128, y);
+      g.fillStyle = '#ffe9a0'; g.font = 'bold 38px serif'; g.fillText(runes[i], 128, y);
+      g.font = 'bold 42px serif';
+    }
+    const tex = new T.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = T.RepeatWrapping;
+    tex.repeat.set(1, 1);
+    return tex;
+  }
+  function twistedHaftGeometry(r, len, twists) {
+    r = r || 0.016; len = len || 0.62; twists = twists == null ? 1.35 : twists;
+    const segs = 16, sides = 8;
+    const pos = [], nrm = [], uv = [], ix = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs, y = t * len - 0.02;
+      const swell = 1 + 0.22 * Math.sin(t * Math.PI) + 0.08 * Math.sin(t * Math.PI * 6);
+      const rr = r * swell * (t < 0.08 ? 1.25 : (t > 0.92 ? 1.15 : 1));
+      const rot = t * twists * Math.PI * 2;
+      for (let k = 0; k < sides; k++) {
+        const a0 = (k / sides) * Math.PI * 2 + rot;
+        // slight ridge every other vertex, like carved flutes
+        const ridge = 1 + ((k % 2) ? 0.14 : -0.06);
+        const x = Math.cos(a0) * rr * ridge, z = Math.sin(a0) * rr * ridge;
+        pos.push(x, y, z);
+        nrm.push(Math.cos(a0), 0, Math.sin(a0));
+        uv.push(k / sides, t);
+      }
+    }
+    for (let i = 0; i < segs; i++) {
+      for (let k = 0; k < sides; k++) {
+        const a = i * sides + k, b = i * sides + (k + 1) % sides;
+        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
+        ix.push(a, c, b, b, c, d);
+      }
+    }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    geo.setIndex(ix);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function addGlowShell(g, geo, color, x, y, z) {
+    const mat = new T.MeshBasicMaterial({
+      color: color || 0xc080ff, transparent: true, opacity: 0.32,
+      depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending
+    });
+    mat.userData.keepTransparent = 1;
+    mat.userData.glow1249 = 1;
+    const m = new T.Mesh(geo, mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    m.scale.setScalar(1.05);
+    m.renderOrder = 4;
+    m.userData.glow1249 = 1;
+    m.userData.keepTransparent = 1;
+    g.add(m);
+    return m;
+  }
+
   function handleWithFerrule(g, woodM, ferM, len, r, slim) {
     const shaftR = slim ? r * 0.78 : r;
     addMesh(g, octShaftGeometry(shaftR, len, slim ? 0.92 : 0.96, 8), woodM, 0, len * 0.5 - 0.02, 0);
@@ -512,22 +869,74 @@
     const headHint = crystal ? 'crystal' : (mat === 'gold' ? 'gold' : (mat === 'wood' ? 'wood' : 'metal'));
     const headHex = HEAD_HEX[kind === 'p761' ? 'crystalpurple' : kind === 'p760' ? 'crystalblue' : mat] || HEAD_HEX.iron;
     const extra = {};
-    if (kind === 'p761') extra.emissive = 0x4a1078;
+    if (kind === 'p761') extra.emissive = 0x551888;
     if (kind === 'p760') extra.emissive = 0x0a3a66;
     const headM = matFor(headHex, headHint, extra);
     const woodM = matFor(HAFT, 'wood');
     const ferM = matFor(FERRULE_HEX[mat] || FERRULE_HEX.iron, mat === 'gold' ? 'gold' : 'metal');
     const k = kind;
 
-    if (k === 'pick' || k === 'p760' || k === 'p761') {
-      const len = slim ? 0.62 : 0.56;
-      const r = slim ? 0.011 : 0.016;
-      handleWithFerrule(g, woodM, ferM, len, r, slim);
-      const hl = slim ? 0.28 : 0.34;
-      const hr = slim ? 0.017 : 0.026;
-      const hz = slim ? 0.015 : 0.024;
-      addMesh(g, gemAlong('x', hl, hr, hz, {sides: 8, pointTip: true, pointButt: true, tip: 0.32, butt: 0.32, girdle: 0.08}), headM, 0, len - 0.01, 0);
-      addMesh(g, cutGemGeometry({length: slim ? 0.05 : 0.06, rx: slim ? 0.02 : 0.028, rz: slim ? 0.02 : 0.028, sides: 8, pointTip: true, pointButt: true, tip: 0.3, butt: 0.3}), headM, 0, len - 0.01, 0);
+    if (k === 'p761' || k === 'p760') {
+      // Glowing translucent-violet (or blue) crescent on a carved, twisted
+      // wood-grained haft with gold runes. The core stays opaque/depthWrite
+      // so it never vanishes on SwiftShader; glow is a sprite + additive shell.
+      const len = 0.64;
+      const purple = k === 'p761';
+      const runeWood = matFor(0x4a2c14, 'wood');
+      try {
+        const wt = woodRuneTexture();
+        runeWood.map = wt;
+        // Dim amber runes on brown wood — never a gold/yellow haft.
+        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x2a1808); runeWood.emissiveMap = wt; runeWood.emissiveIntensity = 0.22; }
+        runeWood.needsUpdate = true;
+      } catch (_) {}
+      const haftM = addMesh(g, twistedHaftGeometry(0.020, len, 1.35), runeWood, 0, 0, 0);
+      haftM.scale.z = 0.62;
+      const sockM = addMesh(g, carvedSocketGeometry(0.016, 0.10), runeWood, 0, len - 0.02, 0);
+      sockM.scale.z = 0.62;
+      const vein = crystalVeinTexture(), emTex = crystalEmissiveTexture();
+      const coreCol = purple ? 0x7a22e8 : 0x4ec0ff;
+      const emCol = purple ? 0x4a1088 : 0x1560aa;
+      const core = new T.MeshPhongMaterial({
+        color: coreCol, map: vein, emissive: emCol, emissiveMap: emTex,
+        emissiveIntensity: 0.85, shininess: 80, specular: purple ? 0xc090ff : 0xd8f0ff,
+        transparent: false, opacity: 1, depthWrite: true
+      });
+      core.userData.crystalCore1249 = 1;
+      const blade = crescentBladeGeometry(0.50, 0.0064, 0.038);
+      const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
+      bladeMesh.rotation.z = -0.08;
+      const glow = addGlowShell(g, blade, purple ? 0xc080ff : 0x66c8ff, 0, len - 0.01, 0);
+      if (glow) glow.rotation.z = -0.08;
+      try {
+        const gtex = glowSpriteTex();
+        const col = purple ? 0xaa66ee : 0x66aadd;
+        // Soft violet bloom along the whole crescent, never a gold/white wash.
+        const spots = [
+          [0.10, len + 0.26, 0, 0.09, 0.14, 0.40],
+          [0.12, len + 0.06, 0, 0.11, 0.15, 0.48],
+          [0.09, len - 0.16, 0, 0.09, 0.13, 0.36]
+        ];
+        for (let i = 0; i < spots.length; i++) {
+          const [x, y, z, sx, sy, op] = spots[i];
+          const spr = new T.Sprite(new T.SpriteMaterial({
+            map: gtex, color: col,
+            blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: op
+          }));
+          spr.position.set(x, y, z);
+          spr.scale.set(sx, sy, sx);
+          spr.renderOrder = 5;
+          spr.material.userData.keepTransparent = 1;
+          spr.userData.glow1249 = 1;
+          g.add(spr);
+        }
+      } catch (_) {}
+      g.userData.__gs = {b: new T.Vector3(0, 0.10, 0), h: new T.Vector3(0, len * 0.42, 0), r: 0.016, authored: 1};
+    } else if (k === 'pick') {
+      const len = 0.56;
+      handleWithFerrule(g, woodM, ferM, len, 0.016, false);
+      addMesh(g, gemAlong('x', 0.34, 0.026, 0.024, {sides: 8, pointTip: true, pointButt: true, tip: 0.32, butt: 0.32, girdle: 0.08}), headM, 0, len - 0.01, 0);
+      addMesh(g, cutGemGeometry({length: 0.06, rx: 0.028, rz: 0.028, sides: 8, pointTip: true, pointButt: true, tip: 0.3, butt: 0.3}), headM, 0, len - 0.01, 0);
     } else if (k === 'axe') {
       handleWithFerrule(g, woodM, ferM, 0.56, 0.016, false);
       // Flattened, chamfered, tapered blade: sharp bit on -X, faceted poll on +X.
@@ -535,13 +944,26 @@
       addMesh(g, chamferBoxGeometry(0.05, 0.07, 0.04, 0.01), headM, 0.03, 0.54, 0);
     } else if (k === 'sword' || k === 'claymore') {
       const long = k === 'claymore';
-      const bladeL = long ? 0.64 : 0.50;
-      const bladeW = long ? 0.032 : 0.024;
-      const bladeT = long ? 0.011 : 0.009;
-      addMesh(g, cutGemGeometry({length: 0.05, rx: 0.022, rz: 0.022, sides: 8, pointTip: true, pointButt: true}), ferM, 0, -0.04, 0); // pommel
-      addMesh(g, octShaftGeometry(0.013, long ? 0.16 : 0.13, 1, 8), woodM, 0, 0.04, 0);
-      addMesh(g, gemAlong('x', long ? 0.22 : 0.17, 0.018, 0.016, {sides: 8, pointTip: true, pointButt: true, tip: 0.2, butt: 0.2}), ferM, 0, 0.13, 0);
-      addMesh(g, cutGemGeometry({length: bladeL, rx: bladeW, rz: bladeT, sides: 6, pointTip: true, pointButt: false, tip: 0.22, butt: 0.08, girdle: 0.06}), headM, 0, 0.16 + bladeL * 0.5, 0);
+      const bladeL = long ? 0.66 : 0.54;
+      const bladeW = long ? 0.034 : 0.028;
+      const bladeT = long ? 0.010 : 0.0085;
+      const steel = (mat === 'gold') ? matFor(0xf4c542, 'gold') : matFor(0x6a7078, 'metal');
+      const guardM = (mat === 'gold') ? ferM : matFor(0x5a5e66, 'metal');
+      const gripM = (mat === 'gold') ? ferM : matFor(0x4a2c14, 'wood');
+      // peen / pommel
+      addMesh(g, cutGemGeometry({length: 0.046, rx: 0.024, rz: 0.024, sides: 8, pointTip: true, pointButt: true}), guardM, 0, -0.04, 0);
+      // leather / wood grip with a slight oval
+      addMesh(g, octShaftGeometry(0.014, long ? 0.15 : 0.125, 1, 8), gripM, 0, 0.035, 0);
+      // steel crossguard (straight quillons, not a gold bar)
+      addMesh(g, gemAlong('x', long ? 0.20 : 0.16, 0.014, 0.014, {sides: 8, pointTip: true, pointButt: true, tip: 0.28, butt: 0.28}), guardM, 0, 0.112, 0);
+      addMesh(g, chamferBoxGeometry(long ? 0.20 : 0.16, 0.016, 0.022, 0.004), guardM, 0, 0.112, 0);
+      // ricasso / shoulder
+      addMesh(g, chamferBoxGeometry(bladeW * 1.6, 0.03, bladeT * 1.5, 0.003), steel, 0, 0.135, 0);
+      // blade
+      const blade = addMesh(g, cutGemGeometry({length: bladeL, rx: bladeW, rz: bladeT, sides: 6, pointTip: true, pointButt: false, tip: 0.22, butt: 0.08, girdle: 0.05}), steel, 0, 0.15 + bladeL * 0.5, 0);
+      // fuller groove (darker inset)
+      const fullerM = matFor(0x4a5058, 'metal');
+      addMesh(g, chamferBoxGeometry(bladeW * 0.28, bladeL * 0.62, bladeT * 0.35, 0.002), fullerM, 0, 0.18 + bladeL * 0.28, bladeT * 0.55);
     } else if (k === 'shovel') {
       handleWithFerrule(g, woodM, ferM, 0.52, 0.016, false);
       addMesh(g, cutGemGeometry({length: 0.16, rx: 0.07, rz: 0.014, sides: 8, pointTip: true, pointButt: false, tip: 0.28, butt: 0.12, girdle: 0.1}), headM, 0, 0.58, 0);
@@ -590,9 +1012,24 @@
   }
   U.buildTool = buildTool;
 
+  function gunWoodTexture() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    
+    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
+    const g = c.getContext('2d');
+    g.fillStyle = '#5a3a1c'; g.fillRect(0, 0, 256, 256);
+    for (let y = 0; y < 256; y += 4) {
+      g.strokeStyle = y % 8 === 0 ? 'rgba(20,10,0,0.5)' : 'rgba(120,70,30,0.3)';
+      g.lineWidth = 1 + (y % 3);
+      g.beginPath(); g.moveTo(0, y + Math.sin(y * 0.1) * 3); g.lineTo(256, y + Math.cos(y * 0.08) * 3); g.stroke();
+    }
+    const tex = new T.CanvasTexture(c); tex.wrapS = tex.wrapT = T.RepeatWrapping; tex.repeat.set(1, 2);
+    return tex;
+  }
   function buildGun(kind, into) {
     const g = into || new T.Group();
     const woodM = matFor(0x5a3a1c, 'wood');
+    try { woodM.map = gunWoodTexture(); woodM.needsUpdate = true; } catch (_) {}
     const ironM = matFor(0xb0b6be, 'metal');
     const brassM = matFor(0xc0a050, 'gold');
     const musket = kind === 'musket';
@@ -615,9 +1052,33 @@
       addMesh(g, chamferBoxGeometry(0.04, 0.05, 0.08, 0.008), woodM, 0, -0.02, 0.08);
       addMesh(g, chamferBoxGeometry(0.03, 0.02, 0.04, 0.004), brassM, 0, 0.02, 0.04);
     }
-    // lock / cock accent
-    addMesh(g, chamferBoxGeometry(0.008, 0.03, 0.05, 0.002), ironM, 0.026, 0.02, musket ? 0.13 : 0.02);
-    addMesh(g, cutGemGeometry({length: 0.02, rx: 0.008, rz: 0.006, sides: 6, pointTip: true, pointButt: true}), matFor(0x3a3a44, 'default'), 0.03, 0.04, musket ? 0.10 : 0.0);
+    // lock / cock, frizzen, trigger and guard
+    addMesh(g, chamferBoxGeometry(0.01, 0.036, 0.07, 0.002), ironM, 0.028, 0.02, musket ? 0.13 : 0.02);
+    addMesh(g, chamferBoxGeometry(0.008, 0.028, 0.018, 0.002), ironM, 0.034, 0.042, musket ? 0.11 : 0.0, 0.55);
+    addMesh(g, cutGemGeometry({length: 0.02, rx: 0.008, rz: 0.006, sides: 6, pointTip: true, pointButt: true}), matFor(0x3a3a44, 'default'), 0.036, 0.05, musket ? 0.10 : 0.0);
+    addMesh(g, chamferBoxGeometry(0.006, 0.028, 0.01, 0.001), ironM, 0.0, -0.02, musket ? 0.18 : 0.06);
+    if (typeof T.TorusGeometry === 'function') {
+      const guard = flattenGeo ? flattenGeo(new T.TorusGeometry(0.028, 0.004, 5, 10, Math.PI * 1.15)) : new T.TorusGeometry(0.028, 0.004, 5, 10, Math.PI * 1.15);
+      addMesh(g, guard, brassM, 0, -0.01, musket ? 0.19 : 0.07, Math.PI / 2, 0, 0);
+    }
+    // Readable front and rear sights, so ADS has something to look through.
+    if (musket) {
+      addMesh(g, chamferBoxGeometry(0.012, 0.014, 0.008, 0.001), ironM, 0, 0.048, 0.08);
+      addMesh(g, chamferBoxGeometry(0.0035, 0.016, 0.0035, 0.0005), ironM, -0.005, 0.052, 0.08);
+      addMesh(g, chamferBoxGeometry(0.0035, 0.016, 0.0035, 0.0005), ironM, 0.005, 0.052, 0.08);
+      addMesh(g, chamferBoxGeometry(0.004, 0.016, 0.004, 0.0005), ironM, 0, 0.048, -0.68);
+    } else {
+      addMesh(g, chamferBoxGeometry(0.008, 0.012, 0.006, 0.001), ironM, 0, 0.042, 0.03);
+      addMesh(g, chamferBoxGeometry(0.003, 0.012, 0.003, 0.0005), ironM, 0, 0.042, -0.20);
+    }
+    // Iron sights: rear notch near the lock, front blade at the muzzle.
+    if (musket) {
+      addMesh(g, chamferBoxGeometry(0.016, 0.012, 0.008, 0.001), ironM, 0, 0.046, 0.08);
+      addMesh(g, chamferBoxGeometry(0.004, 0.016, 0.004, 0.001), ironM, 0, 0.054, -0.68);
+    } else {
+      addMesh(g, chamferBoxGeometry(0.01, 0.01, 0.006, 0.001), ironM, 0, 0.042, 0.02);
+      addMesh(g, chamferBoxGeometry(0.003, 0.012, 0.003, 0.001), ironM, 0, 0.048, -0.21);
+    }
     g.userData.kind = kind;
     g.userData.gun = kind === 'pistol' ? 212 : 213;
     g.userData.prismBuilt = 1;
@@ -798,7 +1259,7 @@
   const REBUILD = {pick: 1, p760: 1, p761: 1, axe: 1, sword: 1, claymore: 1, shovel: 1, hoe: 1, stick: 1, flint: 1, shears: 1};
 
   function wrapMakeItemMesh() {
-    if (typeof makeItemMesh !== 'function' || makeItemMesh.__prism1241v2) return;
+    if (typeof makeItemMesh !== 'function' || makeItemMesh.__prism1241v3) return;
     const prev = makeItemMesh;
     makeItemMesh = function (id) {
       const g = prev.apply(this, arguments);
@@ -831,7 +1292,7 @@
       } catch (e) { if (!U.err) U.err = 'item ' + e; }
       return g;
     };
-    makeItemMesh.__prism1241v2 = 1;
+    makeItemMesh.__prism1241v3 = 1;
     makeItemMesh.__prism1241 = 1;
   }
   function hintFromId(id) {
