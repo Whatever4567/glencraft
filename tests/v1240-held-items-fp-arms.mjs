@@ -10,8 +10,8 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.42';") || html.includes("const GAME_VERSION = '1.2.40';"), 'GAME_VERSION is 1.2.41 or 1.2.40');
-ok(html.includes('<!-- glencraft-build: b1242-v1.2.42 -->') || html.includes('<!-- glencraft-build: b1240-v1.2.40 -->'), 'build marker is 1.2.41 or 1.2.40');
+ok(html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';") || html.includes("const GAME_VERSION = '1.2.40';"), 'GAME_VERSION is 1.2.41 or 1.2.40');
+ok(html.includes('<!-- glencraft-build: b1243-v1.2.43 -->') || html.includes('<!-- glencraft-build: b1242-v1.2.42 -->') || html.includes('<!-- glencraft-build: b1240-v1.2.40 -->'), 'build marker is 1.2.41 or 1.2.40');
 ok(html.includes('Default graphics mode is now 4K UHD'), '1.2.39 graphics note kept');
 ok(html.includes('every tool and held item faces forward') && html.includes('First-person and swimming arms now come from the new character'), '1.2.40 patch notes cover all held items and new arms');
 ok(html.includes('__held1240') && html.includes('weapon_grip_slot') && html.includes('U.CATALOG'), 'held-item helper and full catalog are in the build');

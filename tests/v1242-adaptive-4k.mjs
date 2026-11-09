@@ -7,7 +7,7 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.42');
+ok(html.includes("const GAME_VERSION = '1.2.43';") || html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.43 or 1.2.42');
 ok(html.includes('__adapt4k1242') && html.includes('pickTier') && html.includes('__weakBoot1242'), 'adaptive 4K helper and weak-boot cap are in the build');
 ok(html.includes('adaptive on phones') || html.includes('now adaptive on phones'), 'patch notes mention adaptive 4K UHD');
 ok(!/adaptive[^\n]{0,80}popup/i.test(html) || html.includes('no popup') || html.includes('No popup'), 'adaptive path documents no popup');
