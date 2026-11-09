@@ -97,14 +97,14 @@
   function skinTexFp() {
     return tex(512, 512, (g) => {
       const grd = g.createLinearGradient(0, 0, 512, 512);
-      grd.addColorStop(0, '#d8c8b4');
-      grd.addColorStop(0.4, '#cbb9a4');
-      grd.addColorStop(0.7, '#bca58e');
-      grd.addColorStop(1, '#a89078');
+      grd.addColorStop(0, '#e4c4ae');
+      grd.addColorStop(0.35, '#d5a88c');
+      grd.addColorStop(0.7, '#c48c70');
+      grd.addColorStop(1, '#a8725a');
       g.fillStyle = grd; g.fillRect(0, 0, 512, 512);
       for (let i = 0; i < 2800; i++) {
         const v = 140 + Math.random() * 50 | 0;
-        g.fillStyle = 'rgba(' + v + ',' + (v - 22) + ',' + (v - 40) + ',' + (0.04 + Math.random() * 0.06) + ')';
+        g.fillStyle = 'rgba(' + v + ',' + (v - 30) + ',' + (v - 42) + ',' + (0.05 + Math.random() * 0.06) + ')';
         g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1);
       }
       for (let i = 0; i < 1000; i++) {
@@ -144,10 +144,20 @@
     return m;
   }
   U.linenMat = linenMat;
-  function skinMatFp() {
+  function knuckleMatFp() {
     const m = new T.MeshPhongMaterial({
-      color: 0xc6b399, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.04,
-      shininess: 16, specular: 0x3a2e28
+      color: 0xd4a090, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.05,
+      shininess: 22, specular: 0x5a3a32
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.knuckleFp1263 = 1;
+    return m;
+  }
+  function skinMatFp() {
+    // 0xc6b399 was the 1262 desaturated tan; 1263 is a warmer, more saturated mid.
+    const m = new T.MeshPhongMaterial({
+      color: 0xd2a07c, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.045,
+      shininess: 18, specular: 0x5a3c30
     });
     m.userData.sculptKeep = 1;
     m.userData.skinFp1262 = 1;
@@ -163,6 +173,7 @@
     return m;
   }
   U.skinMatFp = skinMatFp;
+  U.knuckleMatFp = knuckleMatFp;
   U.linenMatFp = linenMatFp;
   function tartanTex() {
     if (U._tartan) return U._tartan;
@@ -270,24 +281,25 @@
     return m;
   }
   function palmGeo() {
-    return share('palm', function () {
-      const g = new T.BoxGeometry(0.074, 0.10, 0.032, 8, 8, 4);
+    return share('palm1263', function () {
+      const g = new T.BoxGeometry(0.070, 0.10, 0.030, 12, 12, 8);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
         const yn = (y + 0.05) / 0.10; // 0 bottom (wrist) .. 1 top (fingers)
-        const xn = x / 0.037;
-        // round the sides and shrink toward the wrist
-        const side = 1 - 0.16 * xn * xn;
-        const wrist = 1 - 0.18 * (1 - yn) * (1 - yn);
-        x *= side * wrist;
-        // palmar cup (positive Z is the back of the hand in this rig? the old code flattened +Z by |x|)
-        // original: pp.setZ(i, z * (1 - Math.abs(x) * 4)) — shrinks Z at the sides.
-        z *= (1 - Math.abs(xn) * 0.28);
-        // palmar hollow on the front (we'll treat -Z as palm, +Z as dorsum based on old flatten being modest)
-        if (z < 0) z *= 0.85 + 0.2 * (1 - yn);
-        // thenar / hypothenar will be separate pads; slight dorsal knuckle row at the top
-        if (yn > 0.82 && z > 0) z += 0.003;
+        const xn = x / 0.035;
+        const zn = z / 0.015;
+        // Stronger side rounding so it does not read as a box.
+        const side = 1 - 0.32 * xn * xn;
+        const wrist = 1 - 0.26 * (1 - yn) * (1 - yn);
+        const distal = 1 - 0.10 * Math.max(0, yn - 0.82) / 0.18;
+        x *= side * wrist * distal;
+        z *= (1 - Math.abs(xn) * 0.48) * (1 - 0.12 * (1 - yn) * (1 - yn));
+        // Round the dorsal / palmar "corners" of the box.
+        const edge = Math.max(0, Math.abs(zn) - 0.55) / 0.45;
+        x *= 1 - 0.12 * edge * edge;
+        if (z < 0) z *= 0.78 + 0.18 * (1 - yn);
+        if (yn > 0.82 && z > 0) z += 0.002;
         p.setXYZ(i, x, y, z);
       }
       g.computeVertexNormals();
@@ -406,16 +418,16 @@
       const cm = creaseMat();
       // proximal on f
       addMesh(f, fingerSegGeo(0.038, r * 1.02, r * 0.84, 0.48, 14, 14, 1), sm);
-      addMesh(f, knuckleGeo(r * 0.42), sm, 0, 0.001, 0.0006);
+      addMesh(f, knuckleGeo(r * 0.42), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
       creaseRing(f, 0.001, r * 0.95, cm);
       if (k) {
         addMesh(k, fingerSegGeo(0.018, r * 0.86, r * 0.76, 0.46, 12, 14, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.36), sm, 0, 0.001, 0.0006);
+        addMesh(k, knuckleGeo(r * 0.36), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
         creaseRing(k, 0.0008, r * 0.82, cm);
         const d = k.userData && k.userData.d;
         if (d) {
           addMesh(d, fingerSegGeo(0.014, r * 0.76, r * 0.54, 0.44, 12, 14, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.28), sm, 0, 0.001, 0.0005);
+          addMesh(d, knuckleGeo(r * 0.28), sm, 0, 0.001, 0.0005).userData.knuckle1263 = 1;
           creaseRing(d, 0.0006, r * 0.70, cm);
           // nail on the dorsal distal
           const nail = addMesh(d, nailGeo(r * 1.05, 0.0055, r * 0.28), nailMat(), 0, 0.010, r * 0.38);
@@ -453,6 +465,7 @@
     const kn = [];
     for (let i = 0; i < 4; i++) {
       const b = addMesh(h, knuckleGeo(0.0052 - i * 0.0003), sm, (i - 1.5) * 0.0215, 0.096, 0.007);
+      b.userData.knuckle1263 = 1;
       kn.push(b);
     }
     h.userData.kn = kn;
