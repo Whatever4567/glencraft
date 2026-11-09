@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1236-v1.2.36 -->
+<!-- glencraft-build: b1237-v1.2.37 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.36';
+const GAME_VERSION = '1.2.37';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -52394,6 +52394,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.37","d":"2026-11-09","notes":["Refined Scottish character: groomed hair, finished face with blinking eyelids, anatomical hands, sewn shirt, pleated kilt and sporran.","Natural hip, shoulder, wrist and foot motion while walking, plus idle breathing.","The jetpack is a gunmetal pack with a glowing blue core and a leather harness, and it fits over the base outfit or the armour.","Armour is now a faceted crystal set using the same equipment slots."]},
 {"v":"v1.2.36","d":"2026-11-09","notes":["Corrected character display colour transfer in the legacy world renderer.","The approved Scottish base is restored; a jetpack adds only the pack. Occupied armour slots now remove their item and return it to the inventory. The character portrait now fills the available panel and accepts drag rotation."]},
 {"v":"v1.2.35","d":"2026-11-09","notes":["The approved fitted pilot model replaces the previous third person and inventory avatar after its cached assets load.","Native skinning, independent portrait rigs, removable equipment and distance LOD are adapted to the game.","The frozen asset has 85107 near and 11295 far triangles before optional flame effects. MakeHuman CC0 graphical data credits are bundled."]},
 {"v":"v1.2.34","d":"2026-11-08","notes":["Pilot armour has a fitted collar and helmet details, curved brown webbing, buckles and hip pouches.","The worn white jetpack has a shaped casing, frame, hoses and red indicator. Native pack fitting returns when the pilot chest is removed.","The face, hands, underlying body, rig, gold jetpack, combat and saves are unchanged."]},
@@ -55066,6 +55067,23 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     // legacy colours. glTF inputs are linear-light PBR values, unlike that legacy art.
     // Add the missing display transfer ONLY for this model, after ACES and before fog.
     // Keep glTF map encodings, PBR factors and data maps intact; do not brighten the world.
+    // v1.2.37: cheap crystal look for the faceted armour (r128 MeshStandardMaterial only, flat-shaded GLB; untested on GPU).
+    // View-facing facets are tinted deeper (fake inner depth); grazing facets brighten and gain a blue fresnel rim.
+    // Applied only to the tier-tintable crystal material, after the 1.2.36 display transfer (which it preserves).
+    function crystalRim1237(material){
+      if(!material.isMeshStandardMaterial||!/^(Far_)?ArmorTintable$/.test(material.name)||material.onBeforeCompile.crystalRim1237)return material;
+      const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey();
+      const patched=function(shader,renderer){
+        previous.call(this,shader,renderer);
+        const seam='#include <emissivemap_fragment>';
+        if(!shader.fragmentShader.includes(seam))throw Error('Crystal rim shader seam missing');
+        shader.fragmentShader=shader.fragmentShader.replace(seam,seam+'\n{ vec3 crV = normalize( vViewPosition ); float crF = pow( 1.0 - clamp( abs( dot( normal, crV ) ), 0.0, 1.0 ), 2.0 ); diffuseColor.rgb *= mix( vec3( 0.62, 0.74, 0.92 ), vec3( 1.06 ), crF ); totalEmissiveRadiance += vec3( 0.30, 0.62, 1.0 ) * crF * 0.55 * diffuseColor.rgb; } // CRYSTAL_RIM_1237');
+      };
+      for(const k of Object.keys(previous))patched[k]=previous[k];
+      patched.crystalRim1237=true;material.onBeforeCompile=patched;
+      material.customProgramCacheKey=function(){return previousKey+'|crystal-rim-1237';};
+      material.needsUpdate=true;return material;
+    }
     function installPilotDisplayTransfer(material) {
       if(material.onBeforeCompile.pilotDisplayTransfer1236)return material;
       const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey();
@@ -55093,7 +55111,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         o.matrixAutoUpdate=true;
         if(o.isBone){bones[o.name]=o;rest[o.name]={q:o.quaternion.clone(),p:o.position.clone(),s:o.scale.clone(),w:o.getWorldQuaternion(Q()),pos:o.getWorldPosition(V())};}
         if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
-          const cloneMat=m=>{if(!mats.has(m)){const c=installPilotDisplayTransfer(m.clone());c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
+          const cloneMat=m=>{if(!mats.has(m)){const c=crystalRim1237(installPilotDisplayTransfer(m.clone()));c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
           o.material=Array.isArray(o.material)?o.material.map(cloneMat):cloneMat(o.material);
         }
       });
@@ -55163,7 +55181,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
           region.traverse(o=>{if(!o.isMesh)return;const original=Array.from(r.mats.values()).find(m=>m.name==='ArmorTintable'||m.name==='Far_ArmorTintable');
             if(!original||!(o.material.name==='ArmorTintable'||o.material.name==='Far_ArmorTintable'))return;
             if(!tier||tier==='diamond'){o.material=original;return;}
-            if(!r.tintVariants.has(tier)){const m=installPilotDisplayTransfer(original.clone()),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
+            if(!r.tintVariants.has(tier)){const m=crystalRim1237(installPilotDisplayTransfer(original.clone())),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
           });
         }
         for(const material of r.mats.values())if(material.name==='PackWhite'||(O.scottish&&material.name.startsWith('08 • ceramic white tank'))){material.color.copy(material.userData.pilotOriginalColor);if(p.equipment[4]===777)material.color.setHex(0xf2c440).convertSRGBToLinear();}
@@ -55193,13 +55211,81 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       }
       const error=socket.getWorldPosition(V()).distanceTo(target.position);a.userData.pilotGripError=error;a.userData.pilotClamped=clamped;
     }
+    // v1.2.37: procedural secondary motion + face life for the refined Scottish base.
+    // The legacy controls only drive torso/head/arms/legs/fingers; the native pelvis, spine.002, neck,
+    // clavicles, wrists and feet were left at rest (the "stiff" look). Eyelids use the GLB 'blink' morph
+    // (real lid deformation), eyes use look_* morphs. Deterministic when O.now is supplied (tests).
+    const NOW=()=>O.now?O.now():performance.now()/1000;
+    function addWorld(r,rootQ,name,x,y,z){const b=r.bone(name);if(!b||(!x&&!y&&!z))return;const cur=b.getWorldQuaternion(Q());worldRotation(b,rootQ.clone().multiply(Q().setFromEuler(new T.Euler(x,y,z,'YXZ'))).multiply(rootQ.clone().invert()).multiply(cur));}
+    function lifeState(model){const u=model.userData;if(!u.pilotLife){const seed=Math.random();u.pilotLife={seed,phase:seed*20,nextBlink:NOW()+1+seed*2,blinkAt:-9,second:false,look:[0,0],target:[0,0],nextLook:NOW()+.8,last:NOW(),blinks:0};}return u.pilotLife;}
+    function gait(u){
+      const l0=u.legs[0].rotation.x,l1=u.legs[1].rotation.x,k0=u.legs[0].userData.kn?u.legs[0].userData.kn.rotation.x:0,k1=u.legs[1].userData.kn?u.legs[1].userData.kn.rotation.x:0;
+      const s=(l0-l1)/2,amp=Math.min(1,Math.abs(s)/.45+Math.abs(k0-k1)*.5);return{s,amp,l:[l0,l1],k:[k0,k1],a:[u.arms[0].rotation.x,u.arms[1].rotation.x]};
+    }
+    function secondaryBody(model,r,rootQ){
+      const u=model.userData,L=lifeState(model),t=NOW()-0+L.phase,g=gait(u),idle=1-Math.min(1,g.amp*1.5);
+      const breath=Math.sin(t*1.55)*.018,shift=Math.sin(t*.37)*.025*idle;
+      // hips rotate toward the forward leg and drop on the swing side; shoulders counter-rotate
+      addWorld(r,rootQ,'pelvis',0,-g.s*.42,(g.k[0]-g.k[1])*.07+shift);
+      L.pre={g,breath,idle,t};
+    }
+    function secondaryUpper(model,r,rootQ){
+      const L=model.userData.pilotLife,g=L.pre.g;
+      addWorld(r,rootQ,'spine.002',L.pre.breath*.8,g.s*.30,-(g.k[0]-g.k[1])*.04);
+      addWorld(r,rootQ,'neck',-L.pre.breath*.4,-g.s*.18,0);
+    }
+    function secondaryShoulders(model,r,rootQ){
+      const u=model.userData,L=u.pilotLife,g=L.pre.g;
+      for(let slot=0;slot<2;slot++){const side=slot?'L':'R',sg=slot?1:-1;if(u.arms[slot].userData.pilotTarget)continue;
+        addWorld(r,rootQ,'clavicle.'+side,-g.a[slot]*.10,g.a[slot]*.08*sg,L.pre.breath*.25*sg);}
+    }
+    function secondaryLimbs(model,r,rootQ){
+      const u=model.userData,L=u.pilotLife,g=L.pre.g;
+      for(let slot=0;slot<2;slot++){const side=slot?'L':'R';
+        if(!u.arms[slot].userData.pilotTarget)addWorld(r,rootQ,'hand.'+side,.12+g.a[slot]*.22,0,0);
+        // keep soles closer to level through the stride and roll off the toe on push-off
+        const pitch=Math.max(-.55,Math.min(.55,-(g.l[slot])*.55-g.k[slot]*.35));addWorld(r,rootQ,'foot.'+side,pitch,0,0);
+      }
+    }
+    function faceLife(model,r){
+      const L=lifeState(model),now=NOW(),dt=Math.max(0,Math.min(.1,now-L.last));L.last=now;
+      if(now>=L.nextBlink){L.blinkAt=now;L.blinks++;const dbl=!L.second&&((L.blinks*7919+Math.floor(L.seed*97))%5===0);L.second=dbl;L.nextBlink=now+(dbl?.28:2.2+((L.blinks*2654435761)%1000)/1000*3.6);if(!dbl)L.second=false;}
+      const e=now-L.blinkAt,blink=e<0?0:e<.075?e/.075:e<.11?1:e<.24?1-(e-.11)/.13:0;
+      if(now>=L.nextLook){const h=(L.blinks+1)*1013+Math.floor(now*7);L.target=[((h%997)/997-.5)*.9,((h%631)/631-.5)*.5];L.nextLook=now+.7+((h%577)/577)*2.4;}
+      for(let i=0;i<2;i++)L.look[i]+=(L.target[i]-L.look[i])*Math.min(1,dt*18);
+      L.blink=blink;
+      if(!r.faceMeshes){r.faceMeshes=[];const head=r.regions.visual_head_hair_eyes&&r.regions.visual_head_hair_eyes.o;if(head)head.traverse(o=>{if(o.isMesh&&o.morphTargetDictionary&&o.morphTargetDictionary.blink!==undefined)r.faceMeshes.push(o);});}
+      for(const o of r.faceMeshes){const d=o.morphTargetDictionary,m=o.morphTargetInfluences,lx=L.look[0],ly=L.look[1];
+        m[d.blink]=Math.max(blink,.0);
+        if(d.look_left!==undefined){m[d.look_left]=Math.max(0,lx);m[d.look_right]=Math.max(0,-lx);m[d.look_up]=Math.max(0,ly)*(1-blink);m[d.look_down]=Math.max(0,-ly)+blink*.15;}
+      }
+    }
+    // v1.2.37 jetpack harness fit: the pack + straps carry an 'armour_fit' morph that moves them over the crystal cuirass.
+    // crystal helm follows the skull: while the helmet region is shown, the hair is pulled onto the skull ('helm_hair' morph)
+    function helmFit(model,r){
+      if(!r||!r.regions)return;const hd=r.regions.visual_head_hair_eyes;if(!hd||!hd.o)return;
+      if(!r.helmMeshes){r.helmMeshes=[];hd.o.traverse(o=>{if(o.isMesh&&o.morphTargetDictionary&&o.morphTargetDictionary.helm_hair!==undefined)r.helmMeshes.push(o);});}
+      const g=r.regions.gear_helmet,k=g&&g.o&&g.o.visible?1:0;
+      for(const o of r.helmMeshes)o.morphTargetInfluences[o.morphTargetDictionary.helm_hair]=k;
+    }
+    function packFit(model,r){
+      if(!r||!r.regions)return;const pk=r.regions.gear_white_pack;if(!pk||!pk.o)return;
+      if(!r.packMeshes){r.packMeshes=[];pk.o.traverse(o=>{if(o.isMesh&&o.morphTargetDictionary&&o.morphTargetDictionary.armour_fit!==undefined)r.packMeshes.push(o);});}
+      const vis=n=>{const g=r.regions[n];return !!(g&&g.o&&g.o.visible);};
+      const k=(vis('gear_chest_harness')||vis('gear_chest_slot0')||vis('gear_chest_slot1'))?1:0;
+      for(const o of r.packMeshes)o.morphTargetInfluences[o.morphTargetDictionary.armour_fit]=k;
+    }
+
     function pose(model,r){
       const u=model.userData,rootQ=model.getWorldQuaternion(Q());restore(r);model.updateMatrixWorld(true);
       const torso=u.torso.quaternion.clone();
       // Apply model-space control deltas, corrected by each native bone rest basis.
       const rotate=(name,delta)=>worldRotation(r.bone(name),rootQ.clone().multiply(delta).multiply(native(r,name).w));
+      if(O.scottish&&O.life!==false)secondaryBody(model,r,rootQ);
       rotate('spine.001',torso);
+      if(O.scottish&&O.life!==false)secondaryUpper(model,r,rootQ);
       rotate('head',torso.clone().multiply(u.head.quaternion));
+      if(O.scottish&&O.life!==false)secondaryShoulders(model,r,rootQ);
       for(let slot=0;slot<2;slot++){
         const side=slot?'L':'R',a=u.arms[slot],el=a.userData.el,leg=u.legs[slot],knee=leg.userData.kn;
         if(a.userData.pilotTarget)ik(model,r,slot,a.userData.pilotTarget,rootQ);
@@ -55214,6 +55300,8 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         }
         for(let part=1;part<=2;part++){const b=r.bone('thumb.'+side+'.0'+part);const angle=a.userData.pilotTarget ? .20 : 0;b.quaternion.copy(r.rest[b.name].q).multiply(Q().setFromAxisAngle(new T.Vector3(1,0,0),angle));}
       }
+      if(O.scottish&&O.life!==false){secondaryLimbs(model,r,rootQ);faceLife(model,r);}
+      if(O.scottish){packFit(model,r);helmFit(model,r);}
       model.updateMatrixWorld(true);
     }
     function visibility(model,r){
@@ -55274,14 +55362,14 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   for(let slot=0;slot<2;slot++)find(scene,'visual_leg_slot'+slot).traverse(o=>{
    if(!o.isSkinnedMesh)return;const ge=o.geometry.clone(),pa=ge.attributes.position,ix=ge.index,ys=[],keep=[];o.updateWorldMatrix(true,false);o.skeleton.update();
    for(let i=0;i<pa.count;i++){const v=new T.Vector3().fromBufferAttribute(pa,i);o.boneTransform(i,v);ys.push(v.applyMatrix4(o.matrixWorld).y);}
-   const count=ix?ix.count:pa.count;for(let i=0;i<count;i+=3){const ids=[0,1,2].map(j=>ix?ix.getX(i+j):i+j);if(ids.reduce((a,j)=>a+ys[j],0)/3>.63)occludedTriangles++;else keep.push(...ids);}
-   ge.setIndex(keep);o.geometry=ge;
+   const count=ix?ix.count:pa.count;for(let i=0;i<count;i+=3){const ids=[0,1,2].map(j=>ix?ix.getX(i+j):i+j);if(ids.reduce((a,j)=>a+ys[j],0)/3>.68)occludedTriangles++;else keep.push(...ids);}
+   ge.setIndex(keep);o.geometry=ge;if(o.morphTargetDictionary&&o.morphTargetDictionary.under_kilt!==undefined)o.morphTargetInfluences[o.morphTargetDictionary.under_kilt]=1;
   });
   // Cloth corrective: fixed waistband, soft hem following the two native thighs.
   // Rest vertex positions/UVs/normals remain identical to the approved GLB.
   const kilt=find(scene,'visual_kilt_clothing');let corrected=0;
   kilt.traverse(o=>{if(!o.isSkinnedMesh)return;o.updateWorldMatrix(true,false);o.skeleton.update();const ge=o.geometry.clone(),pa=ge.attributes.position,indices=new Uint16Array(pa.count*4),weights=new Float32Array(pa.count*4),names=o.skeleton.bones.map(b=>b.name),pelvis=names.indexOf('pelvis'),left=names.indexOf('thighL'),right=names.indexOf('thighR');if(Math.min(pelvis,left,right)<0)throw Error('Kilt corrective bones missing');
-   const p=new T.Vector3();for(let i=0;i<pa.count;i++){p.fromBufferAttribute(pa,i);o.boneTransform(i,p);p.applyMatrix4(o.matrixWorld);const t=Math.max(0,Math.min(1,(.90-p.y)/.28)),w=.35*t*t*(3-2*t),blend=Math.max(0,Math.min(1,(p.x+.12)/.24)),s=blend*blend*(3-2*blend);indices.set([pelvis,left,right,0],i*4);weights.set([1-w,w*s,w*(1-s),0],i*4);if(w>0)corrected++;}
+   const p=new T.Vector3();for(let i=0;i<pa.count;i++){p.fromBufferAttribute(pa,i);o.boneTransform(i,p);p.applyMatrix4(o.matrixWorld);const t=Math.max(0,Math.min(1,(.90-p.y)/.28)),fz=Math.max(0,Math.min(1,p.z/.10)),w=(.35+.25*fz*fz*(3-2*fz))*t*t*(3-2*t),blend=Math.max(0,Math.min(1,(p.x+.12)/.24)),s=blend*blend*(3-2*blend);indices.set([pelvis,left,right,0],i*4);weights.set([1-w,w*s,w*(1-s),0],i*4);if(w>0)corrected++;}
    ge.setAttribute('skinIndex',new T.Uint16BufferAttribute(indices,4));ge.setAttribute('skinWeight',new T.Float32BufferAttribute(weights,4));o.geometry=ge;
   });
   scene.userData.scottish1236={far:!!far,occludedTriangles,kiltCorrectedVertices:corrected,base:'approved-scottish-v1',packOnly:true};
@@ -55302,7 +55390,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   });
   const U=window.__pilot1235=window.PilotRuntimeFactory(THREE,{
     ensureLibrary,scottish:true,
-    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v1/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.36'),fetch('assets/models/pilot-v1/'+name+'?v=1.2.35')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
+    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.37'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.37')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
     equipment:()=>armour,
     tier:id=>id&&ARMOUR[id]?ARMOUR[id].mat:null,
     distance:model=>(typeof worldModel!=='undefined'&&model===worldModel)?camera.position.distanceTo(model.position):0,
