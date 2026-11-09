@@ -9,8 +9,8 @@ const html = fs.readFileSync(file, 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.41';"), 'GAME_VERSION is 1.2.41');
-ok(html.includes('<!-- glencraft-build: b1241-v1.2.41 -->'), 'build marker is b1241-v1.2.41');
+ok(html.includes("const GAME_VERSION = '1.2.42';"), 'GAME_VERSION is 1.2.42');
+ok(html.includes('<!-- glencraft-build: b1242-v1.2.42 -->'), 'build marker is b1242-v1.2.42');
 ok(html.includes('__prism1241') && html.includes('facetGeometry') && html.includes('prismMaterial') && html.includes('applyPrism'), 'shared prism helper is in the built index');
 ok(html.includes('cached facet') || html.includes('shared, cached facet'), 'patch notes mention the shared cached facet pass');
 ok(html.includes('prism / crystal-faceted') || html.includes("prism / crystal-faceted"), 'patch notes mention the prism look for tools and icons');
@@ -19,7 +19,7 @@ const helper = fs.readFileSync(new URL('../tools/visuals-source/prism-1241.js', 
 const W = {THREE: T, QUALITY: '4k', HIGH: true};
 new Function('window', 'THREE', 'document', 'Image', helper)(W, T, undefined, undefined);
 const U = W.__prism1241;
-ok(U && typeof U.facetGeometry === 'function' && typeof U.applyPrism === 'function' && typeof U.prismTile === 'function', 'helper exposes the shared geometry, material, tile and apply API');
+ok(U && typeof U.facetGeometry === 'function' && typeof U.applyPrism === 'function' && typeof U.prismTile === 'function' && typeof U.prismIcon2d === 'function', 'helper exposes the shared geometry, material, icon and apply API');
 ok(typeof U.buildTool === 'function' && typeof U.cutGemGeometry === 'function' && typeof U.chamferBoxGeometry === 'function', 'helper exposes cut-gem / chamfer builders');
 ok(U.quality4k(), '4K UHD quality is detected');
 ok(U.iconSize() === 1024, 'inventory icons use a 1024px canvas in 4K UHD');
@@ -126,28 +126,29 @@ ok(listed.every(k => U.LISTED[k]), 'every listed mob/NPC kind is in the shared d
   ok(mesh.material && mesh.material.userData && mesh.material.userData.prism1241, 'skinned mobs still get the cached prism material');
 }
 
-// --- tile / icon 2D pass keeps the dominant colour ---
+// --- world tiles untouched; inventory icon 2D pass still available and cached ---
 {
+  ok(U.worldTilesUntouched === 1, 'helper marks world tiles as untouched (1.2.42)');
+  ok(html.includes('worldTilesUntouched') && html.includes('intentionally empty: world tiles stay at 1.2.40'), 'built index keeps the world-tile no-op');
+  ok(!/function restyleTexKey\(key\) \{[\s\S]{0,200}prismTile/.test(html), 'restyleTexKey no longer calls prismTile on texImg');
+  ok(html.includes('U.restyleAllTiles = function () { return 0; }') || html.includes('U.restyleAllTiles = function () { return 0 }'), 'restyleAllTiles is a no-op');
   const {createCanvas} = (await import('node:module')).createRequire('/workspace/qa/tools/index.js')('@napi-rs/canvas');
   U.makeCanvas = (w, h) => createCanvas(w, h);
+  // Inventory icon path still styles a canvas once and caches it.
   const c = createCanvas(64, 64);
   const g = c.getContext('2d');
-  g.fillStyle = '#4f9a32'; g.fillRect(0, 0, 64, 32); // grass top
-  g.fillStyle = '#7a5232'; g.fillRect(0, 32, 64, 32); // dirt
-  const out = U.prismTile(c, 'grass_test');
-  ok(out && out !== c && out.width === 64, 'prismTile returns a same-size styled canvas');
-  const mean = (ctx, y0) => {
-    const d = ctx.getImageData(0, y0, 64, 16).data; let r=0,g2=0,b=0,n=0;
-    for (let i=0;i<d.length;i+=4){ r+=d[i]; g2+=d[i+1]; b+=d[i+2]; n++; }
-    return [r/n,g2/n,b/n];
-  };
-  const mg = mean(out.getContext('2d'), 0), md = mean(out.getContext('2d'), 40);
-  ok(mg[1] > mg[0] && mg[1] > mg[2] && mg[1] > 80, 'a grass tile stays predominantly green (mean '+mg.map(x=>x|0).join(',')+')');
-  ok(md[0] > md[2] && md[0] > 60, 'the dirt half stays predominantly brown (mean '+md.map(x=>x|0).join(',')+')');
-  const raw = createCanvas(64, 64); raw.getContext('2d').drawImage(c, 0, 0);
-  const a = raw.getContext('2d').getImageData(0,0,64,64).data, b = out.getContext('2d').getImageData(0,0,64,64).data;
-  let diff=0; for (let i=0;i<a.length;i++) if (a[i]!==b[i]) diff++;
-  ok(diff > 64, 'the tile facet pass actually changes pixels ('+diff+' channels)');
+  g.fillStyle = '#c0392b'; g.fillRect(8, 8, 48, 48);
+  const a = U.prismIcon2d(c, 'item_test');
+  const b = U.prismIcon2d(c, 'item_test');
+  ok(a && a === b, 'inventory icon prism pass is cached for the same key');
+  ok(typeof U.styleIconUrl === 'function' && typeof U.restyleIcons === 'function', 'inventory icon restyle API remains');
+  // Simulate a tiny texImg atlas: restyleAllTiles must not mutate it.
+  const fake = {grass: c};
+  const prev = globalThis.texImg;
+  globalThis.texImg = fake;
+  const n = U.restyleAllTiles();
+  ok(n === 0 && fake.grass === c, 'restyleAllTiles leaves a fake world texImg atlas unchanged');
+  globalThis.texImg = prev;
 }
 
 // --- mob colour / silhouette identity ---
@@ -171,5 +172,8 @@ ok(listed.every(k => U.LISTED[k]), 'every listed mob/NPC kind is in the shared d
   ok(tMob < U.BUDGET.mobBox, 'a chamfered box mob stays under the ' + U.BUDGET.mobBox + ' triangle budget (' + tMob + ')');
 }
 
+ok(html.includes('World block tiles') || html.includes('shared block atlas'), '1.2.42 patch notes mention the world block atlas revert');
+ok(html.includes('__weakBoot1242') || html.includes('touchMode ? 1.5'), '4K UHD pixel ratio is capped on weak/touch devices');
+ok(html.includes('HIGH && touchMode') || html.includes("(HIGH && touchMode)"), 'adaptive quality guard also runs under 4K UHD on touch');
 ok(!U.err, 'prism helper ran without error' + (U.err ? ': ' + U.err : ''));
 console.log('PASS ' + n + ' v1241 prism-art checks');
