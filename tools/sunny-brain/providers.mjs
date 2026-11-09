@@ -11,10 +11,10 @@ function looksSpoken(s){
   if(weird>0)return false;
   if(letters<10)return false;
   if(!/\s/.test(s))return false;
-  if(digits>2)return false;
-  if(s.split(/[^A-Za-z]+/).some(w=>w.length>16))return false;
+  if(digits>0)return false;
+  if(s.split(/[^A-Za-z]+/).some(w=>w.length>12))return false;
   if(letters/chars.length<0.55)return false;
-  if(/(motherboard|cliquez|archivo|instructional|proven it justice|hobbie|r[eé]duction|choisit|nugante)/i.test(s))return false;
+  if(/(motherboard|cliquez|archivo|instructional|proven it justice|hobbie|r[eé]duction|choisit|nugante|utilizator|softwareen|breweilig|enseigner|oisel)/i.test(s))return false;
   return true;
 }
 

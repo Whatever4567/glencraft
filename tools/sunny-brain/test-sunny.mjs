@@ -28,7 +28,11 @@ const out = await complete({
 assert.equal(out.provider, 'transformers-local');
 assert.match(out.model, /LaMini|Flan|T5|Qwen|Phi/i);
 assert.ok(out.content && out.content.length >= 2, 'real model text required');
+assert.equal(out.provider, 'transformers-local');
+assert.ok(out.model && /LaMini|Flan|T5/i.test(out.model), 'must be real local model id');
 assert.ok(!/NO_PROVIDER|fake llm|procedural only/i.test(out.content));
+// Accept either clean speech or explicit qualityFallback from the real model path
+assert.ok(out.qualityFallback === true || (/^[A-Za-z ,'.!?-]+$/.test(out.content) && out.content.includes(' ')));
 
 // Paid anthropic must stay blocked without opt-in
 const prevKey = process.env.ANTHROPIC_API_KEY; process.env.ANTHROPIC_API_KEY = 'test-key-not-for-use';
