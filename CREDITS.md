@@ -138,3 +138,9 @@ The modified CC BY-SA clips are shared under the same licence.
 
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
+
+## v1.2.48 audio and pig skin
+- Birdsong, the Calm soundtrack beds (outdoors day and night, cave level 1, blue cave, purple cave, deep hell cave), rare cave one-shots, the UFO hover hum, the quieter pig voices (oink, snuffle, happy grunt, hurt squeal), and the Happy Hardcore drums, hoover, supersaw and piano (170 BPM remix) are all original procedural Web Audio synthesis made for Glencraft. No recordings or third-party samples.
+- The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
+- `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
+
