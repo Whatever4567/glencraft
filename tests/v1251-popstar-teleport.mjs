@@ -1,6 +1,6 @@
-// 1.2.50: Teleport to Pop Star button exists, and using it places the player
-// within ~12 blocks of a popstar entity on solid ground (spawning her first
-// if she is not already in the world).
+// 1.2.51: Teleport to Pop Star places the player on dry land at a framing
+// distance where her whole 32-block body fits in a portrait view, facing her
+// (spawning her first on dry land if she is not already in the world).
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import path from 'node:path';
@@ -19,8 +19,8 @@ ok(html.includes('tpmPopstar') && html.includes('Teleport to Pop Star'), 'index.
 ok(uiSrc.includes("id: 'tpmPopstar'") && uiSrc.includes("label: 'Teleport to Pop Star'"), 'ui-1222 registers Teleport to Pop Star');
 ok(uiSrc.includes('__v1251.teleportTo'), 'the button calls __v1251.teleportTo');
 ok(runSrc.includes('U.teleportTo = function') && runSrc.includes('spotInFront'), 'popstar runtime has teleportTo');
-ok(html.includes("const GAME_VERSION = '1.2.50';"), 'GAME_VERSION is 1.2.50');
-ok(html.includes('<!-- glencraft-build: b1250-held-popstar -->'), '1.2.50 ship marker is present');
+ok(html.includes("const GAME_VERSION = '1.2.51';"), 'GAME_VERSION is 1.2.51');
+ok(html.includes('<!-- glencraft-build: b1251-visible-land -->'), '1.2.51 ship marker is present');
 
 // Sandbox: flat solid world, stub popstar mesh, real teleportTo.
 const toasts = [];
@@ -67,7 +67,7 @@ ok(U.tpSpawned === 1 && U.alive() && U.alive().kind === 'popstar', 'she is spawn
 const rec = U.alive();
 const pos = rec.g.position;
 const dist = Math.hypot(ctx.P.x - pos.x, ctx.P.z - pos.z);
-ok(dist > 0.5 && dist <= 12, 'player is within 12 blocks of the popstar (dist=' + dist.toFixed(2) + ')');
+ok(dist >= 20 && dist <= 40, 'player is at a framing distance so her whole body fits (dist=' + dist.toFixed(2) + ')');
 ok(U.standOk(ctx.P.x, ctx.P.y, ctx.P.z), 'player is on solid ground with two clear blocks to stand in');
 ok(ctx.P.y === 10, 'player feet sit on the solid surface (y=10)');
 // Facing her: the look vector should point toward her.
@@ -76,15 +76,17 @@ const toX = pos.x - ctx.P.x, toZ = pos.z - ctx.P.z;
 const toLen = Math.hypot(toX, toZ) || 1;
 const facing = (lookX * toX + lookZ * toZ) / toLen;
 ok(facing > 0.95, 'player is facing the pop star (dot=' + facing.toFixed(3) + ')');
+ok(typeof ctx.P.pitch === 'number' && ctx.P.pitch < 0, 'pitch looks up at mid-torso so head and feet fit (pitch=' + ctx.P.pitch.toFixed(3) + ')');
+ok(U.isDryLand(ctx.P.x, ctx.P.z) && U.isDryLand(pos.x, pos.z), 'player and pop star both stand on dry land');
 ok(toasts.some(t => /Teleported to the pop star/i.test(t)), 'toast confirms the teleport');
 ok(Math.hypot(ctx.P.x - before.x, ctx.P.z - before.z) > 5, 'player actually moved from the start position');
 
-// Second press: she already exists, do not spawn another, still land within 12.
+// Second press: she already exists, do not spawn another, still land at a framing distance.
 const spawned = U.spawned;
 const ok2 = U.teleportTo();
 ok(ok2 === true && U.spawned === spawned, 'a second teleport does not spawn a second pop star');
 const dist2 = Math.hypot(ctx.P.x - U.alive().g.position.x, ctx.P.z - U.alive().g.position.z);
-ok(dist2 <= 12 && U.standOk(ctx.P.x, ctx.P.y, ctx.P.z), 'second teleport still lands within 12 blocks on solid ground');
+ok(dist2 >= 20 && dist2 <= 40 && U.standOk(ctx.P.x, ctx.P.y, ctx.P.z), 'second teleport still lands at a framing distance on dry land');
 
 // Other realm: refuse.
 ctx.DIM.cur = 'hell';
