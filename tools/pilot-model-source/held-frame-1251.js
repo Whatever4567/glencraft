@@ -516,6 +516,23 @@
       cam.updateMatrixWorld(true);
       root.traverse(function (o) {
         if (!o.isMesh || o.visible === false) return;
+        const mats = [].concat(o.material || []);
+        const matHid = !!(o.userData && o.userData.__hidSkin1258) ||
+          (mats.length > 0 && mats.every(function (m) { return !m || m.visible === false; }));
+        if (matHid) {
+          // Skin forearm is kept as a parent for the linen sleeve but its
+          // material is hidden; do not report it as a visible wall.
+          const recHid = {
+            name: o.name || '(anon)',
+            parent: (o.parent && (o.parent.name || o.parent.type)) || '',
+            typ: (o.geometry && o.geometry.type) || '',
+            cov: 0,
+            prot: isProtectedMesh(o),
+            hid: 1
+          };
+          dump.push(recHid);
+          return;
+        }
         const cov = screenCover(o, cam);
         const vsb = cov >= 0.08 ? viewBox(o, cam) : null;
         const rec = {
@@ -645,7 +662,8 @@
         if (!o.isMesh) return;
         if (isItemMesh(o)) return;
         const typ = (o.geometry && o.geometry.type) || '';
-        if (o.userData && (o.userData.sleeve1254 || o.userData.sleeve1257 || ((o.userData.folded1249 || o.userData.wristCuff1254) && /Torus/.test(typ)))) {
+        if (o.userData && o.userData.__hidSkin1258) return;
+        if (o.userData && (o.userData.sleeve1254 || o.userData.sleeve1257 || o.userData.sleeve1258 || ((o.userData.folded1249 || o.userData.wristCuff1254) && /Torus/.test(typ)))) {
           // Only keep cuffs/sleeves that live on the visible forearm. A roll
           // parented to a hidden upper-arm sheet otherwise floats in view.
           let underFo = !fo;
@@ -679,6 +697,39 @@
     } catch (_) {}
   }
 
+  function hideFoSkin(fo) {
+    try {
+      if (!fo || !fo.isMesh) return;
+      // Restore geometry if a previous pass emptied it (that also hid any
+      // meshes that shared the buffer, including the hand).
+      if (fo.userData.__skinGeom1258) {
+        fo.geometry = fo.userData.__skinGeom1258;
+        delete fo.userData.__skinGeom1258;
+      }
+      const hideMats = function (root) {
+        const mats = [].concat(root.material || []);
+        const shared = mats.some(function (m) { return m && !(m.userData && m.userData.__skinMat1258) && m.visible !== false; });
+        if (shared) {
+          const cloned = mats.map(function (m) {
+            if (!m || !m.clone) return m;
+            if (m.userData && m.userData.__skinMat1258) { m.visible = false; return m; }
+            const c = m.clone();
+            c.visible = false;
+            c.userData = c.userData || {};
+            c.userData.__skinMat1258 = 1;
+            return c;
+          });
+          root.material = cloned.length === 1 ? cloned[0] : cloned;
+        } else {
+          mats.forEach(function (m) { if (m) m.visible = false; });
+        }
+      };
+      hideMats(fo);
+      fo.onBeforeRender = function () { hideMats(this); };
+      fo.userData.__hidSkin1258 = 1;
+    } catch (_) {}
+  }
+
   function ensureWristCuff(arm) {
     try {
       const p = arm && arm.userData && arm.userData.p;
@@ -689,13 +740,29 @@
       try { lm = (W.__hands1249 && W.__hands1249.linenMat && W.__hands1249.linenMat()) || null; } catch (_) {}
       if (!lm && p.cuff && p.cuff.material) lm = p.cuff.material;
       if (!lm) lm = new T3.MeshPhongMaterial({color: 0xf4efe6, shininess: 6});
-      const h = p.h;
-      if (h) {
-        h.traverse(function (o) {
+      const hand = p.h;
+      if (hand) {
+        hand.visible = true;
+        hand.traverse(function (o) {
           if (o.isMesh && o.userData && o.userData.wristCuff1254) o.visible = false;
+          else if (o.isMesh || o.isSkinnedMesh) o.visible = true;
         });
       }
-      if (fo.userData.sleeve1257) return;
+      // Rebuild if a previous tapered 1257 sleeve is still on the cone.
+      if (fo.userData.sleeve1258) {
+        hideFoSkin(fo);
+        if (hand) hand.visible = true;
+        return;
+      }
+      const rm = [];
+      (fo.children || []).forEach(function (c) {
+        const u = c.userData || {};
+        if (u.sleeve1254 || u.sleeve1257 || u.sleeve1258 || u.folded1249 || u.wristCuff1254) rm.push(c);
+      });
+      rm.forEach(function (c) { try { fo.remove(c); } catch (_) {} });
+      delete fo.userData.sleeve1254;
+      delete fo.userData.sleeve1257;
+
       if (fo.geometry) {
         fo.geometry.computeBoundingBox();
         const bb = fo.geometry.boundingBox;
@@ -706,50 +773,60 @@
           for (let i = 0; i < pos.count; i++) {
             const y = pos.getY(i);
             const rr = Math.hypot(pos.getX(i), pos.getZ(i));
-            if (Math.abs(y - bb.max.y) <= span * 0.1 && rr > wr) wr = rr;
+            if (Math.abs(y - bb.max.y) <= span * 0.12 && rr > wr) wr = rr;
             if (Math.abs(y - bb.min.y) <= span * 0.15 && rr > er) er = rr;
           }
         }
         if (wr < 1e-4) wr = Math.max(Math.abs(bb.max.x), Math.abs(bb.max.z), 0.012);
-        if (er < wr) er = wr * 1.45;
+        if (er < 1e-4) er = wr;
         const lm2 = lm.clone();
         if ('side' in lm2) lm2.side = T3.DoubleSide;
         const tag = function (m, keep) {
           m.userData.sleeve1254 = 1;
           m.userData.sleeve1257 = 1;
+          m.userData.sleeve1258 = 1;
           m.userData.folded1249 = 1;
           if (keep) m.userData.sculptKeep = 1;
+          m.frustumCulled = false;
           return m;
         };
-        // Linen shirt sleeve sits just outside the skin forearm. The elbow
-        // stump (camera-facing end) is capped with a double-sided disc so we
-        // never look down a tube or at a bare skin cut. Not prot, so the
-        // coverage cull can still hide a wall.
-        const rW = wr * 1.14;
-        const rE = er * 1.18;
-        const h = span * 0.90;
-        const y0 = bb.min.y;
-        const sleeve = tag(new T3.Mesh(new T3.CylinderGeometry(rW, rE, h, 12, 1, true), lm2));
-        sleeve.position.set(0, y0 + h * 0.5, 0);
+        // Shirt sleeve: constant-radius cylinder ending at the wrist so the
+        // hand can grip the item. Extend the elbow past the skin cone so the
+        // tube enters from the bottom-right instead of showing a stump disc.
+        // Do not tag `fo` itself — that left the tapered skin cone visible.
+        // Use a mid/wrist radius, not the flared elbow, or the tube swallows
+        // the hand. Stop short of the palm so curled fingers stay in view.
+        const r = Math.max(wr * 1.32, (wr * 0.75 + er * 0.25) * 1.1, 0.015);
+        let wristY = bb.max.y - Math.max(0.018, span * 0.12);
+        try {
+          if (hand) {
+            const wp = new T3.Vector3();
+            hand.updateWorldMatrix(true, false);
+            fo.updateWorldMatrix(true, false);
+            hand.getWorldPosition(wp);
+            fo.worldToLocal(wp);
+            if (isFinite(wp.y)) wristY = Math.min(wristY, wp.y - 0.024);
+          }
+        } catch (_) {}
+        const elbowY = bb.min.y - Math.max(0.28, span * 1.05);
+        const hh = Math.max(0.04, wristY - elbowY);
+        const sleeve = tag(new T3.Mesh(new T3.CylinderGeometry(r, r, hh, 16, 1, true), lm2));
+        sleeve.position.set(0, elbowY + hh * 0.5, 0);
         fo.add(sleeve);
-        const cap = tag(new T3.Mesh(new T3.CircleGeometry(Math.max(rE * 1.2, wr * 1.6), 16), lm2));
-        cap.rotation.x = -Math.PI / 2;
-        cap.position.set(0, y0 - 0.008, 0);
-        cap.renderOrder = 2;
-        fo.add(cap);
-        const roll = tag(new T3.Mesh(new T3.TorusGeometry(rW, Math.max(0.003, rW * 0.16), 8, 14), lm2), 1);
+        const roll = tag(new T3.Mesh(new T3.TorusGeometry(r, Math.max(0.0032, r * 0.18), 8, 16), lm2), 1);
         roll.rotation.x = Math.PI / 2;
-        roll.position.set(0, y0 + h - rW * 0.02, 0);
+        roll.position.set(0, wristY - r * 0.02, 0);
         roll.userData.wristCuff1254 = 1;
         fo.add(roll);
-        const roll2 = tag(new T3.Mesh(new T3.TorusGeometry(rW * 1.06, Math.max(0.0025, rW * 0.11), 8, 14), lm2), 1);
+        const roll2 = tag(new T3.Mesh(new T3.TorusGeometry(r * 1.05, Math.max(0.0024, r * 0.11), 8, 16), lm2), 1);
         roll2.rotation.x = Math.PI / 2;
-        roll2.position.set(0, y0 + h - rW * 0.08, 0);
+        roll2.position.set(0, wristY - r * 0.12, 0);
         roll2.userData.wristCuff1254 = 1;
         fo.add(roll2);
       }
-      fo.userData.sleeve1254 = 1;
-      fo.userData.sleeve1257 = 1;
+      hideFoSkin(fo);
+      fo.userData.sleeve1258 = 1;
+      if (hand) hand.visible = true;
     } catch (_) {}
   }
 
@@ -815,7 +892,8 @@
         if (!o.isMesh) return;
         const typ = (o.geometry && o.geometry.type) || '';
         const u = o.userData || {};
-        if (u.sleeve1254 || u.sleeve1257 || u.wristCuff1254 || u.folded1249) {
+        if (u.sleeve1254 || u.sleeve1257 || u.sleeve1258 || u.wristCuff1254 || u.folded1249) {
+          if (!hideFore && u.sleeve1258) return;
           o.visible = false;
           if (!o.userData) o.userData = {};
           o.userData.__hidSleeve1252 = 1;
@@ -846,6 +924,62 @@
     } catch (_) {}
   }
 
+  function gunCamPos() {
+    try {
+      const cam = (typeof camera !== 'undefined' ? camera : W.camera);
+      if (!cam) return null;
+      cam.updateMatrixWorld(true);
+      const inv = new T.Matrix4().copy(cam.matrixWorld).invert();
+      let best = null;
+      const roots = [];
+      try { if (W.__vm && W.__vm.grp) roots.push(W.__vm.grp); } catch (_) {}
+      try { if (W.__vm && W.__vm.vs) roots.push(W.__vm.vs); } catch (_) {}
+      try { if (typeof held !== 'undefined' && held) roots.push(held); } catch (_) {}
+      try { if (typeof hand !== 'undefined' && hand) roots.push(hand); } catch (_) {}
+      try { roots.push(cam); } catch (_) {}
+      const seen = new Set();
+      for (let i = 0; i < roots.length; i++) {
+        const root = roots[i];
+        if (!root || !root.traverse) continue;
+        root.traverse(function (o) {
+          if (seen.has(o) || !o.isMesh || o.visible === false) return;
+          seen.add(o);
+          const n = (o.name || '') + ' ' + ((o.parent && o.parent.name) || '');
+          const u = o.userData || {};
+          if (u.sleeve1258 || u.sleeve1257 || u.__hidSkin1258 || u.wristCuff1254) return;
+          if (!(/pistol|service_pistol|musket|rifle|gun/i.test(n) || u.gun || u.pistol || u.c322 || u.__fb)) return;
+          o.updateWorldMatrix(true, false);
+          const w = new T.Vector3();
+          o.getWorldPosition(w);
+          const c = w.applyMatrix4(inv);
+          if (!(c.z < 0)) return;
+          if (!best || c.z > best.z) best = c.clone();
+        });
+      }
+      return best;
+    } catch (_) { return null; }
+  }
+
+  function dressGunArm(arm) {
+    if (!arm) return;
+    arm.visible = true;
+    const p = arm.userData && arm.userData.p;
+    if (p && p.h) p.h.visible = true;
+    if (p && p.fo) {
+      p.fo.visible = true;
+      try {
+        p.fo.traverse(function (o) {
+          const u = o.userData || {};
+          if (u.sleeve1258 || u.sleeve1257 || u.wristCuff1254 || u.folded1249) {
+            o.visible = true;
+            u.__hidSleeve1252 = 0;
+          }
+        });
+      } catch (_) {}
+    }
+    try { ensureWristCuff(arm); } catch (_) {}
+  }
+
   function poseGunHands(kind, ads) {
     try {
       const rig = W.__fpa && (typeof W.__fpa.rig === 'function' ? W.__fpa.rig() : null);
@@ -855,31 +989,26 @@
       if (kind !== 'musket' && kind !== 'pistol') return;
       const armS = ads ? (kind === 'musket' ? 0.72 : 0.94) : (kind === 'musket' ? 0.52 : 0.88);
       rig.scale.setScalar(armS);
-      // Hip and ADS: hide the close forearm cones so the gun and hands lead.
+      // Pistol: showing the forearm (hideFore=false) put a skin wall in the
+      // lens. Keep the 1257 hide until a sleeve can reach the edge without
+      // swallowing the camera. Musket keeps its existing ADS poses.
       hideArmSheets(L, true);
       hideArmSheets(R, true);
       if (ads && L) {
         L.visible = true;
         if (L.userData && L.userData.p && L.userData.p.h) L.userData.p.h.visible = true;
-        if (kind === 'musket') {
-          // Support hand cups the forestock, low-left and further than the
-          // sight so it cannot cover the sight picture.
-          setInCam(L, -0.07, -0.16, -0.46);
-          const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(-0.25, 0.12, 0.85);
-          if (R) {
-            R.visible = true;
-            if (R.userData && R.userData.p && R.userData.p.h) R.userData.p.h.visible = true;
-            // Grip hand stays low-right of the receiver, not in the sights.
-            setInCam(R, 0.05, -0.15, -0.30);
-            const rp = R.userData && R.userData.p;
-            if (rp && rp.h) rp.h.rotation.set(0.15, -0.1, -0.35);
-          }
-        } else {
-          // Wrap the support hand around the grip, low and slightly left of the slide.
-          setInCam(L, -0.02, -0.13, -0.24);
-          const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(0.4, 0.2, 0.55);
+        // Support hand cups the forestock, low-left and further than the
+        // sight so it cannot cover the sight picture.
+        setInCam(L, -0.07, -0.16, -0.46);
+        const p = L.userData && L.userData.p;
+        if (p && p.h) p.h.rotation.set(-0.25, 0.12, 0.85);
+        if (R) {
+          R.visible = true;
+          if (R.userData && R.userData.p && R.userData.p.h) R.userData.p.h.visible = true;
+          // Grip hand stays low-right of the receiver, not in the sights.
+          setInCam(R, 0.05, -0.15, -0.30);
+          const rp = R.userData && R.userData.p;
+          if (rp && rp.h) rp.h.rotation.set(0.15, -0.1, -0.35);
         }
       } else if (!ads && kind === 'musket') {
         if (R && R.userData && R.userData.p && R.userData.p.fo) {

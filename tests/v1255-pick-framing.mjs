@@ -51,7 +51,12 @@ const gripY2 = k2.b.y + (k2.h.y - k2.b.y) * 0.27;
 ok(gripY2 < 0.40,
   'auto-detect grip stays on the haft (y=' + gripY2.toFixed(3) + ', b=' + JSON.stringify([k2.b.x, k2.b.y, k2.b.z].map(v => +v.toFixed(3))) + ')');
 
-const qa = process.env.QA_COVER_FILE || (fs.existsSync('/workspace/qa/held-1257/webgl-results.json') ? '/workspace/qa/held-1257/webgl-results.json' : (fs.existsSync('/workspace/qa/held-1256/webgl-results.json') ? '/workspace/qa/held-1256/webgl-results.json' : '/workspace/qa/held-1255/webgl-results.json'));
+const qa = process.env.QA_COVER_FILE || [
+  '/workspace/qa/held-1258/webgl-results.json',
+  '/workspace/qa/held-1257/webgl-results.json',
+  '/workspace/qa/held-1256/webgl-results.json',
+  '/workspace/qa/held-1255/webgl-results.json',
+].find(p => fs.existsSync(p));
 if (fs.existsSync(qa)) {
   const doc = JSON.parse(fs.readFileSync(qa, 'utf8'));
   const results = doc.results || {};

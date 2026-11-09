@@ -29,6 +29,7 @@ assert.ok(/pick:\s*\{dx:\s*-0\.02,\s*dy:\s*-0\.08,\s*dz:-0\.16/.test(html),
   'pick FRAME stays at the 1257 pulled-back framing');
 
 const qaPath = [
+  '/workspace/qa/held-1258/webgl-results.json',
   '/workspace/qa/held-1257/webgl-results.json',
   '/workspace/qa/held-1256/webgl-results.json',
   '/workspace/qa/held-1255/webgl-results.json',

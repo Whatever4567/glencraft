@@ -16,9 +16,10 @@ assert.ok(/const len = 0\.88/.test(html) || html.includes('const len = 0.88'),
   'crystal pick haft is lengthened');
 assert.ok(html.includes("ads: [0, 0.010, -0.34]"), 'musket ADS sight sits 0.34 in front of the camera');
 assert.ok(html.includes('setInCam(L, -0.07, -0.16, -0.46)'), 'musket ADS support hand is out of the sights');
-assert.ok(html.includes('sleeve1257'), 'linen sleeve shell is in the build');
+assert.ok(html.includes('sleeve1257') || html.includes('sleeve1258'), 'linen sleeve shell is in the build');
 
 const qaPath = [
+  '/workspace/qa/held-1258/webgl-results.json',
   '/workspace/qa/held-1257/webgl-results.json',
   '/workspace/qa/held-1256/webgl-results.json',
 ].find(p => existsSync(p));
