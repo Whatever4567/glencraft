@@ -13,6 +13,7 @@ let confirmCalled = 0, fsExit = 0; document.exitFullscreen = () => { fsExit++; }
 const ivs = []; let pausedOn = true;
 const G = {document, MutationObserver: class { observe() {} }, setInterval: f => ivs.push(f), setTimeout: f => 0, started: true, DIM: {cur: null},
   spawnPlayer: () => hit('spawn'), openTeleportMenu: () => hit('builds'), __agw: {toMouth() {}, toCity() {}}, __tpm: {toIsland: () => hit('cave'), toTube: () => hit('city')},
+  __v1251: {teleportTo: () => hit('popstar')},
   setPause: on => { pausedOn = on; hit('pause' + on); }, padPause: () => hit('pad'), navRefresh() {}, confirm: () => { confirmCalled++; return true; }};
 G.window = G; G.addEventListener = (t, f, c) => document.addEventListener(t, f, c);  // linkedom has no window phase: stand in for window capture, registered before the game handler as in the browser order
 new Function('with(this){' + src + '}').call(G); const U = G.__ui1222; assert.equal(U.err, null, U.err);
@@ -22,9 +23,9 @@ let saved = 0; document.addEventListener('click', e => { if (e.target.closest &&
 ivs.forEach(f => f());
 // teleport list
 document.getElementById('tpmBtn').click(); const ids = [...document.querySelectorAll('#tpmBox button')].map(b => b.id);
-assert.deepEqual(ids, ['tpmSpawn', 'tpmIsland', 'tpmTube', 'tpmUni', 'tpmC_chief', 'tpmC_piper', 'tpmBuilds', 'tpmBack']); assert.equal(new Set(ids).size, ids.length, 'no duplicates');
+assert.deepEqual(ids, ['tpmSpawn', 'tpmIsland', 'tpmTube', 'tpmUni', 'tpmPopstar', 'tpmC_chief', 'tpmC_piper', 'tpmBuilds', 'tpmBack']); assert.equal(new Set(ids).size, ids.length, 'no duplicates');
 assert(!/moon|mars|dim/i.test(ids.join()), 'no Moon, Mars or old realm');
-for (const [id, k] of [['tpmSpawn', 'spawn'], ['tpmIsland', 'cave'], ['tpmTube', 'city'], ['tpmUni', 'uni'], ['tpmC_chief', 'chief'], ['tpmBuilds', 'builds']]) { document.getElementById(id).click(); document.getElementById(id).click(); assert.equal(calls[k], 1, id + ' runs once'); }
+for (const [id, k] of [['tpmSpawn', 'spawn'], ['tpmIsland', 'cave'], ['tpmTube', 'city'], ['tpmUni', 'uni'], ['tpmPopstar', 'popstar'], ['tpmC_chief', 'chief'], ['tpmBuilds', 'builds']]) { document.getElementById(id).click(); document.getElementById(id).click(); assert.equal(calls[k], 1, id + ' runs once'); }
 for (const b of ['tpUniBtn', 'teleportBuildsBtn']) assert.equal(document.getElementById(b).style.display, 'none', 'old button folded in');
 G.DIM.cur = 'hell'; G.__agw = null; U.render(); const sp = document.getElementById('tpmSpawn'); assert(sp.disabled && /Leave this realm/.test(sp.textContent)); assert(document.getElementById('tpmTube').disabled);
 sp.click(); assert.equal(calls.spawn, 1, 'disabled does nothing'); G.DIM.cur = null;

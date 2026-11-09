@@ -413,7 +413,105 @@
     if (typeof NICE !== 'undefined') NICE.popstar = 'Pop star';
   } catch (_) {}
 
-  U.alive = () => aLive;
+
+  function standOk(x, y, z) {
+    try {
+      x = Math.floor(x); z = Math.floor(z); y = Math.floor(y);
+      const bad = b => (typeof T !== 'undefined' && (b === T.WATER || b === T.LAVA));
+      if (typeof W === 'number' && (x < 2 || z < 2 || x > W - 3 || z > D - 3)) return false;
+      if (typeof H === 'number' && (y < 1 || y > H - 3)) return false;
+      if (typeof solid !== 'function') return y >= 1;
+      if (!solid(x, y - 1, z)) return false;
+      if (solid(x, y, z) || solid(x, y + 1, z)) return false;
+      if (typeof getB === 'function' && (bad(getB(x, y - 1, z)) || bad(getB(x, y, z)) || bad(getB(x, y + 1, z)))) return false;
+      return true;
+    } catch (e) { ERR('stand', e); return false; }
+  }
+
+  // A safe standing spot a few blocks in front of her, always within maxD blocks.
+  function spotInFront(rec, maxD) {
+    maxD = maxD || 12;
+    const p = rec.g && rec.g.position ? rec.g.position : {x: rec.pathX || 0, y: 0, z: rec.pathZ || 0};
+    const yaw = (typeof rec.yaw === 'number') ? rec.yaw : (rec.g && rec.g.rotation ? rec.g.rotation.y : 0);
+    const tryAt = (x, z) => {
+      const y = footGround(x, z);
+      if (standOk(x, y, z) && Math.hypot((x - p.x), (z - p.z)) <= maxD + 0.05) {
+        return {x: Math.floor(x) + 0.5, y: y, z: Math.floor(z) + 0.5};
+      }
+      return null;
+    };
+    const fx = Math.sin(yaw), fz = Math.cos(yaw);
+    for (const dist of [8, 7, 9, 6, 10, 5, 11, 4, 3]) {
+      const s = tryAt(p.x + fx * dist, p.z + fz * dist);
+      if (s) return s;
+    }
+    for (let r = 3; r <= maxD; r++) {
+      for (let a = 0; a < 16; a++) {
+        const ang = yaw + (a / 16) * Math.PI * 2;
+        const s = tryAt(p.x + Math.sin(ang) * r, p.z + Math.cos(ang) * r);
+        if (s) return s;
+      }
+    }
+    return null;
+  }
+
+  // Pause menu: Teleport to Pop Star. Spawns her nearby if she is not in the world,
+  // then puts the player on solid ground a few blocks in front of her, facing her.
+  U.teleportTo = function () {
+    const R = U.tp || (U.tp = {n: 0, last: null});
+    R.n++;
+    try {
+      if (typeof started !== 'undefined' && !started) {
+        R.last = 'noworld';
+        try { toast('Start a world first'); } catch (_) {}
+        return false;
+      }
+      if (typeof DIM !== 'undefined' && DIM && DIM.cur) {
+        R.last = 'dim';
+        try { toast('The pop star is in the overworld - use Return to overworld first'); } catch (_) {}
+        return false;
+      }
+      if (typeof P === 'undefined' || !P) { R.last = 'noplayer'; return false; }
+      let rec = aLive;
+      if (!rec) {
+        let sp = pickSpawn();
+        if (!sp) {
+          const yaw = (typeof P.yaw === 'number') ? P.yaw : 0;
+          const x = P.x + Math.sin(yaw) * 28, z = P.z + Math.cos(yaw) * 28;
+          sp = {x: x, y: footGround(x, z), z: z, yaw: yaw + Math.PI};
+        }
+        rec = U.spawnAt(sp.x, sp.y, sp.z, sp.yaw);
+        if (!rec) {
+          R.last = 'nospawn';
+          try { toast('Could not bring in the pop star'); } catch (_) {}
+          return false;
+        }
+        U.tpSpawned = (U.tpSpawned || 0) + 1;
+      }
+      const p = rec.g && rec.g.position;
+      if (!p) { R.last = 'nobody'; return false; }
+      const sp = spotInFront(rec, 12);
+      if (!sp) {
+        R.last = 'nospot';
+        try { toast('Could not find a safe spot by the pop star'); } catch (_) {}
+        return false;
+      }
+      P.x = sp.x; P.y = sp.y; P.z = sp.z; P.vy = 0; P.fallTop = null;
+      try { P.kbx = 0; P.kbz = 0; P.onGround = true; } catch (_) {}
+      try { if (typeof flying !== 'undefined') flying = false; } catch (_) {}
+      P.yaw = Math.atan2(-(p.x - P.x), -(p.z - P.z));
+      try { if (typeof rebuild === 'function') rebuild(); } catch (_) {}
+      try { if (typeof setPause === 'function') setPause(false); } catch (_) {}
+      try { toast('Teleported to the pop star'); } catch (_) {}
+      R.last = 'ok'; R.x = P.x; R.y = P.y; R.z = P.z;
+      return true;
+    } catch (e) { ERR('tp', e); R.last = 'err'; return false; }
+  };
+  U.spotInFront = spotInFront;
+  U.standOk = standOk;
+
+
+    U.alive = () => aLive;
   U.tick = tickPopstar;
   U.stopSong = stopSong;
   U.loadSong = loadSong;

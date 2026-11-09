@@ -1,5 +1,5 @@
 /* GLX-UI1222 (v1.2.22): menus.
-   - One Teleport list in the pause menu: Glencraft spawn, the North Scotland cave, Agartha city, the unicorn, each clansman and your builds,
+   - One Teleport list in the pause menu: Glencraft spawn, the North Scotland cave, Agartha city, the unicorn, the giant pop star, each clansman and your builds,
      all in one place. A place that is not ready says why and its button is off. The Moon and Mars have no teleport (you fly there), and the
      old separate Agartha world is not offered.
    - Settings: smaller text, same big tap areas; on and off buttons are strongly inverted (the chosen one is white with dark text and a tick,
@@ -21,6 +21,9 @@
     L.push({id: 'tpmIsland', g: 'Agartha', label: 'North Scotland cave to Agartha', why: window.__agw && __agw.toMouth ? '' : 'Not ready', go: () => __tpm.toIsland()});
     L.push({id: 'tpmTube', g: 'Agartha', label: 'Agartha (crystal city)', why: window.__agw && __agw.toCity ? '' : 'Not ready', go: () => __tpm.toTube()});
     const uni = $('tpUniBtn'); L.push({id: 'tpmUni', g: 'Friends', label: 'Unicorn', why: uni ? '' : 'Not ready', go: () => uni.click()});
+    L.push({id: 'tpmPopstar', g: 'Friends', label: 'Teleport to Pop Star',
+      why: !ok() ? 'Start a world first' : !ow() ? 'Leave this realm first' : (window.__v1251 && typeof __v1251.teleportTo === 'function') ? '' : 'Not ready',
+      go: () => __v1251.teleportTo()});
     for (const b of clan()) { const t = (b.textContent || '').replace(/^Teleport to /, ''); L.push({id: 'tpmC_' + b.dataset.testid.slice(9), g: 'Friends', label: t, why: '', go: () => b.click()}); }
     L.push({id: 'tpmBuilds', g: 'Builds', label: 'My builds\u2026', why: has('openTeleportMenu') ? '' : 'Not ready', go: () => openTeleportMenu()});
     const seen = new Set(); return L.filter(e => !seen.has(e.id) && seen.add(e.id)); };
