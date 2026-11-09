@@ -900,6 +900,7 @@
       } catch (_) {}
       const haftM = addMesh(g, twistedHaftGeometry(0.020, len, 1.75), runeWood, 0, 0, 0);
       haftM.scale.z = 0.55;
+      haftM.userData.handle1249 = 1;
       const sockM = addMesh(g, carvedSocketGeometry(0.020, 0.13), runeWood, 0, len - 0.03, 0);
       sockM.scale.z = 0.55;
       const vein = crystalVeinTexture(), emTex = crystalEmissiveTexture();
@@ -914,6 +915,7 @@
       const blade = crescentBladeGeometry(0.52, 0.0230, 0.048);
       const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
       bladeMesh.rotation.z = -0.08;
+      bladeMesh.userData.noGrip = 1;
       const glow = addGlowShell(g, blade, purple ? 0xc080ff : 0x66c8ff, 0, len - 0.01, 0);
       if (glow) glow.rotation.z = -0.08;
       try {
