@@ -59084,7 +59084,38 @@ try {
     }
     return b;
   }
+  const MOOD_FILE = {blue: 'music/mood_blue.ogg', purple: 'music/mood_purple.ogg', agartha: 'music/mood_agartha.ogg'};
+  let moodBufs = {}, moodLoads = {};
+  function loadMoodLoop(mood) {
+    const src = MOOD_FILE[mood];
+    if (!src) return Promise.resolve(null);
+    if (moodLoads[mood]) return moodLoads[mood];
+    if (!acOk()) return Promise.resolve(null);
+    const trySrc = s => fetch(s).then(r => r.ok ? r.arrayBuffer() : Promise.reject()).then(b => AC.decodeAudioData(b.slice(0)));
+    moodLoads[mood] = trySrc(src).catch(() => trySrc(src.replace('.ogg', '.mp3')))
+      .then(buf => { moodBufs[mood] = buf; return buf; }).catch(() => null);
+    return moodLoads[mood];
+  }
+  function startMoodFile(mood, out, bag, t0) {
+    const startBuf = buf => {
+      if (mus !== bag || !buf) return false;
+      try {
+        const src = AC.createBufferSource();
+        src.buffer = buf; src.loop = true;
+        src.connect(out); src.start(t0 || AC.currentTime);
+        bag.osc.push({ stop() { try { src.stop(); } catch (_) {} } });
+        bag.src = src; U.moodMode = 'loop';
+        return true;
+      } catch (_) { return false; }
+    };
+    if (moodBufs[mood] && startBuf(moodBufs[mood])) return true;
+    loadMoodLoop(mood).then(buf => { if (buf && mus === bag && !bag.src) startBuf(buf); });
+    return !!moodBufs[mood];
+  }
+  try { ['blue', 'purple', 'agartha'].forEach(m => { try { loadMoodLoop(m); } catch (_) {} }); } catch (_) {}
+
   function startLiminalBed(mood, out, bag, t0) {
+
     const spec = LIMINAL[mood];
     if (!spec) return;
     const bus = AC.createGain();
@@ -59226,7 +59257,7 @@ try {
     } else if (mood === 'cave1') {
       pad([65.4, 98, 146.8], 'sine', 0.26, 0.04);
     } else if (mood === 'blue' || mood === 'purple' || mood === 'agartha') {
-      startLiminalBed(mood, out, bag, t0);
+      if (!startMoodFile(mood, out, bag, t0)) { startLiminalBed(mood, out, bag, t0); if (!bag.src) bag.src = 'procedural'; }
     } else {
       pad([36.7, 49, 73.4, 92.5], 'sine', 0.3, 0.04);
       pad([110], 'triangle', 0.06, 0.07);

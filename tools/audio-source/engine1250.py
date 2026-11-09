@@ -1,0 +1,541 @@
+#!/usr/bin/env python3
+"""Shared pro-quality synth engine for the 1.2.50 soundtrack.
+
+Band-limited oscillators, layered kick, FM+resonant donk / reverse-bass,
+detuned supersaw, clap stack, formant choir, FM glass bells, a dense
+convolution IR, and a gentle true-peak limiter. No third-party samples.
+"""
+from __future__ import annotations
+
+import numpy as np
+from scipy.signal import butter, sosfilt, lfilter
+
+SR = 44100
+
+
+def fade(sig, ms_in=4, ms_out=8):
+    n = len(sig)
+    a = min(max(n // 4, 1), int(ms_in * SR / 1000.0))
+    b = min(max(n // 4, 1), int(ms_out * SR / 1000.0))
+    out = np.array(sig, dtype=np.float64, copy=True)
+    if a:
+        out[:a] *= np.linspace(0.0, 1.0, a)
+    if b:
+        out[-b:] *= np.linspace(1.0, 0.0, b)
+    return out
+
+
+def sos_lp(x, hz, order=2):
+    hz = min(max(hz, 20.0), SR * 0.45)
+    return sosfilt(butter(order, hz, btype="lowpass", fs=SR, output="sos"), x)
+
+
+def sos_hp(x, hz, order=2):
+    hz = min(max(hz, 20.0), SR * 0.45)
+    return sosfilt(butter(order, hz, btype="highpass", fs=SR, output="sos"), x)
+
+
+def sos_bp(x, lo, hi, order=2):
+    lo = max(30.0, min(lo, SR * 0.4))
+    hi = max(lo + 30.0, min(hi, SR * 0.49))
+    return sosfilt(butter(order, [lo, hi], btype="bandpass", fs=SR, output="sos"), x)
+
+
+def tanh_sat(x, drive=1.2):
+    d = max(drive, 1e-6)
+    return np.tanh(x * d) / np.tanh(d)
+
+
+# --- RBJ biquads (high-Q bandpass / lowshelf etc.) ---------------------------------
+def rbj_sos(f0, Q, typ="band", sr=SR, gain_db=0.0):
+    w0 = 2 * np.pi * max(20.0, min(f0, sr * 0.45)) / sr
+    cos, sin = np.cos(w0), np.sin(w0)
+    alpha = sin / (2 * max(Q, 0.05))
+    if typ == "band":
+        b0, b1, b2 = alpha, 0.0, -alpha
+        a0, a1, a2 = 1 + alpha, -2 * cos, 1 - alpha
+    elif typ == "low":
+        b0 = (1 - cos) / 2
+        b1 = 1 - cos
+        b2 = (1 - cos) / 2
+        a0, a1, a2 = 1 + alpha, -2 * cos, 1 - alpha
+    elif typ == "high":
+        b0 = (1 + cos) / 2
+        b1 = -(1 + cos)
+        b2 = (1 + cos) / 2
+        a0, a1, a2 = 1 + alpha, -2 * cos, 1 - alpha
+    elif typ == "peak":
+        A = 10 ** (gain_db / 40.0)
+        b0 = 1 + alpha * A
+        b1 = -2 * cos
+        b2 = 1 - alpha * A
+        a0 = 1 + alpha / A
+        a1 = -2 * cos
+        a2 = 1 - alpha / A
+    else:
+        raise ValueError(typ)
+    return np.array([[b0 / a0, b1 / a0, b2 / a0, 1.0, a1 / a0, a2 / a0]], dtype=np.float64)
+
+
+def rbj(x, f0, Q, typ="band", gain_db=0.0):
+    return sosfilt(rbj_sos(f0, Q, typ, SR, gain_db), x)
+
+
+def rbj_tv_low(x, cutoff, Q, block=256):
+    """Time-varying RBJ lowpass; cutoff is a per-sample array."""
+    n = len(x)
+    y = np.zeros(n)
+    z = np.zeros(2)
+    for i0 in range(0, n, block):
+        i1 = min(n, i0 + block)
+        fc = float(np.mean(cutoff[i0:i1]))
+        sos = rbj_sos(fc, Q, "low")
+        # direct form II transients: use lfilter with zi
+        b, a = sos[0, :3], sos[0, 3:]
+        y[i0:i1], zf = lfilter(b, a, x[i0:i1], zi=z)
+        z = zf
+    return y
+
+
+# --- Band-limited oscillators ------------------------------------------------------
+def blep_saw(n, freq, sr=SR, phase0=0.0):
+    dt = np.float64(freq) / sr
+    if dt <= 0:
+        return np.zeros(n)
+    phase = (phase0 + np.arange(n, dtype=np.float64) * dt) % 1.0
+    y = 2.0 * phase - 1.0
+    m1 = phase < dt
+    x = phase[m1] / dt
+    y[m1] -= x + x - x * x - 1.0
+    m2 = phase > (1.0 - dt)
+    x = (phase[m2] - 1.0) / dt
+    y[m2] -= x + x + x * x + 1.0
+    return y
+
+
+def blep_square(n, freq, sr=SR, phase0=0.0, pw=0.5):
+    # two saws
+    return blep_saw(n, freq, sr, phase0) - blep_saw(n, freq, sr, phase0 + pw)
+
+
+def sine(n, freq, sr=SR, phase0=0.0):
+    return np.sin(2 * np.pi * (phase0 + np.arange(n) * freq / sr))
+
+
+def sine_sweep(freq_hz):
+    """freq_hz is a per-sample instantaneous frequency array."""
+    return np.sin(2 * np.pi * np.cumsum(freq_hz) / SR)
+
+
+# --- Drums ------------------------------------------------------------------------
+def make_kick(rng, dur=0.18):
+    """Layered clean UK-hardcore kick: click + pitched body + sub. Not gabber."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    # Body: ~175 Hz down to 48 Hz, tight-ish 909-like
+    f = 48.0 + 130.0 * np.exp(-t / 0.018)
+    body = sine_sweep(f) * np.exp(-t / 0.052) * (1 - np.exp(-t / 0.0012))
+    punch = np.sin(2 * np.pi * 98 * t) * np.exp(-t / 0.026) * 0.65
+    sub = np.sin(2 * np.pi * 51 * t) * np.exp(-t / 0.075) * 0.85
+    # Wideband click so the spectrogram shows vertical transients
+    noise = rng.standard_normal(n)
+    click = sos_hp(noise, 3500) * np.exp(-t / 0.0032) * 0.55
+    click += sos_bp(noise, 2000, 7000) * np.exp(-t / 0.0045) * 0.25
+    click += np.sin(2 * np.pi * 2800 * t) * np.exp(-t / 0.002) * 0.3
+    mid = tanh_sat(sos_bp(body, 70, 1800), 1.5) * 0.28
+    sig = body * 0.95 + punch + sub + click + mid
+    sig = tanh_sat(sig, 1.15)
+    k = int(0.025 * SR)
+    sig[-k:] *= np.linspace(1, 0, k)
+    return sig.astype(np.float64)
+
+
+def make_donk(freq, rng, spb, style="bounce"):
+    """Off-beat donk + reverse-bass.
+
+    Donk: FM sine → resonant band-pass (hollow mid ring ~500–1200 Hz),
+    short pitch envelope. Reverse-bass: detuned saw, rising amp/filter,
+    pointing at the next kick. Lasts most of the off-beat.
+    """
+    dur = spb * 0.90
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    fade_out = np.ones(n)
+    tail = int(0.014 * SR)
+    fade_out[-tail:] = np.linspace(1, 0, tail)
+
+    # --- FM donk (octave-up mid, woody/hollow) ---
+    st_env = 6.0 * np.exp(-t / 0.028)  # +6 st, 30 ms
+    f = (freq * 2.0) * (2.0 ** (st_env / 12.0))
+    idx = 5.5 * np.exp(-t / 0.065)
+    ph_c = 2 * np.pi * np.cumsum(f) / SR
+    ph_m = 2 * np.pi * np.cumsum(f * 1.0) / SR
+    fm = np.sin(ph_c + idx * np.sin(ph_m))
+    # a little pulse for hollowness
+    pulse = blep_square(n, float(np.median(f)), phase0=0.1, pw=0.28) * np.exp(-t / 0.08)
+    raw = fm * 0.85 + pulse * 0.25
+    donk = rbj(raw, 520, 3.6, "band") * 0.7
+    donk += rbj(raw, 720, 4.8, "band")
+    donk += rbj(raw, 1100, 3.2, "band") * 0.32
+    # amp: present from the start, slight swell (bounce), fade into the kick
+    denv = (0.72 + 0.28 * (t / (t[-1] + 1e-12)) ** 0.45) * fade_out
+    att = int(0.004 * SR)
+    denv[:att] *= np.linspace(0, 1, att)
+
+    # --- reverse-bass: bandlimited saw, rising toward the next kick ---
+    saw = np.zeros(n)
+    for cents, amp in ((-11, 0.55), (0, 0.8), (11, 0.55)):
+        saw += amp * blep_saw(n, freq * 2 ** (cents / 1200.0), phase0=0.07 * (cents + 12))
+    saw = tanh_sat(saw / 1.9, 1.6)
+    cut = 280 + 520 * (t / (t[-1] + 1e-12)) ** 0.7
+    saw = rbj_tv_low(saw, cut, Q=1.3)
+    rb_env = (t / (t[-1] + 1e-12)) ** 0.55 * fade_out
+
+    sub = np.sin(2 * np.pi * freq * t) * (0.55 + 0.45 * (t / t[-1]) ** 0.4) * fade_out
+
+    sig = donk * denv * 1.15 + saw * rb_env * 0.8 + sub * 0.7
+    sig = tanh_sat(sig, 1.18) * fade_out
+    return sig.astype(np.float64)
+
+
+def make_clap(rng):
+    """Layered clap: 4 delayed noise bursts + short bright plate-ish tail."""
+    n = int(0.32 * SR)
+    t = np.arange(n) / SR
+    sig = np.zeros(n)
+    for off, amp in ((0.0, 1.0), (0.011, 0.8), (0.019, 0.55), (0.030, 0.38)):
+        i = int(off * SR)
+        burst = sos_bp(rng.standard_normal(n - i), 800, 5200)
+        burst *= np.exp(-np.arange(n - i) / SR / 0.032) * amp
+        sig[i:] += burst
+    # thin snare body
+    sig += np.sin(2 * np.pi * 210 * t) * np.exp(-t / 0.03) * 0.22
+    sig += sos_bp(rng.standard_normal(n), 1500, 8000) * np.exp(-t / 0.05) * 0.2
+    sig = tanh_sat(sig, 1.2)
+    return fade(sig, 0.8, 40)
+
+
+def make_snare(rng):
+    n = int(0.2 * SR)
+    t = np.arange(n) / SR
+    body = np.sin(2 * np.pi * 180 * t) * np.exp(-t / 0.035)
+    noise = sos_bp(rng.standard_normal(n), 600, 10000) * np.exp(-t / 0.055)
+    return fade(tanh_sat(body * 0.5 + noise, 1.15), 0.8, 16)
+
+
+def make_hat(rng, open_hat=False):
+    """Metallic closed/open hat: HP noise through a few high resonant peaks."""
+    dur = 0.16 if open_hat else 0.048
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    noise = rng.standard_normal(n)
+    x = sos_hp(noise, 7000)
+    x += rbj(noise, 8000, 7, "band") * 0.5
+    x += rbj(noise, 10500, 8, "band") * 0.35
+    x *= np.exp(-t / (0.085 if open_hat else 0.018))
+    return fade(x, 0.4, 5)
+
+
+def make_crash(rng):
+    n = int(1.8 * SR)
+    t = np.arange(n) / SR
+    x = sos_hp(rng.standard_normal(n), 2400)
+    x += rbj(rng.standard_normal(n), 6000, 2.5, "band") * 0.4
+    x *= np.exp(-t / 0.6)
+    return fade(x, 2, 80)
+
+
+def make_riser(rng, dur, start_hz=180, end_hz=10000):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    noise = rng.standard_normal(n)
+    out = np.zeros(n)
+    chunks = 40
+    for k in range(chunks):
+        a = int(k * n / chunks)
+        b = int((k + 1) * n / chunks)
+        p = k / max(chunks - 1, 1)
+        hz = start_hz * (end_hz / start_hz) ** p
+        out[a:b] = sos_hp(noise[a:b], hz)
+    env = (t / dur) ** 1.35
+    f = start_hz * (end_hz / start_hz) ** (t / dur)
+    sweep = sine_sweep(f) * env * 0.16
+    return fade(out * env * 0.95 + sweep, 10, 5)
+
+
+def make_sweep(rng, dur=0.35):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    noise = sos_bp(rng.standard_normal(n), 400, 12000)
+    return noise * (np.sin(np.pi * t / dur) ** 1.15)
+
+
+def make_impact(rng):
+    n = int(0.55 * SR)
+    t = np.arange(n) / SR
+    low = sine_sweep(80 * np.exp(-t / 0.05) + 36) * np.exp(-t / 0.2)
+    noise = sos_hp(rng.standard_normal(n), 180) * np.exp(-t / 0.14)
+    return fade(tanh_sat(low * 0.95 + noise * 0.45, 1.25), 1, 30)
+
+
+# --- Tonal ------------------------------------------------------------------------
+def supersaw(freq, dur, det=18, n_osc=7, cutoff=8000, hp=230):
+    n = int(dur * SR)
+    s = np.zeros(n)
+    dets = np.linspace(-det, det, n_osc)
+    for i, c in enumerate(dets):
+        s += blep_saw(n, freq * 2 ** (c / 1200.0), phase0=0.07 * i)
+    s /= n_osc
+    s = sos_hp(s, hp)
+    s = sos_lp(s, cutoff)
+    att, rel = int(0.01 * SR), int(0.035 * SR)
+    env = np.ones(n)
+    if att < n:
+        env[:att] = np.linspace(0, 1, att)
+    if rel < n:
+        env[-rel:] = np.linspace(1, 0, rel)
+    return s * env
+
+
+def supersaw_stereo(freq, dur, det=18, n_osc=7, cutoff=8000):
+    """Return (L, R) with odd/even unison spread + a mono centre saw."""
+    n = int(dur * SR)
+    L, R = np.zeros(n), np.zeros(n)
+    dets = np.linspace(-det, det, n_osc)
+    for i, c in enumerate(dets):
+        w = blep_saw(n, freq * 2 ** (c / 1200.0), phase0=0.09 * i)
+        if i == n_osc // 2:
+            L += w * 0.7
+            R += w * 0.7
+        elif i % 2 == 0:
+            L += w
+            R += w * 0.25
+        else:
+            R += w
+            L += w * 0.25
+    L = sos_lp(sos_hp(L / (n_osc * 0.7), 230), cutoff)
+    R = sos_lp(sos_hp(R / (n_osc * 0.7), 230), cutoff)
+    att, rel = int(0.01 * SR), int(0.035 * SR)
+    env = np.ones(n)
+    env[:att] = np.linspace(0, 1, att)
+    env[-rel:] = np.linspace(1, 0, rel)
+    return L * env, R * env
+
+
+def lead_note(freq, dur, cutoff=7500):
+    """Bright musical lead: centre pulse + stereo supersaw. Not a grain."""
+    n = int(max(dur, 0.03) * SR)
+    centre = blep_square(n, freq, pw=0.42) * 0.35
+    centre += blep_saw(n, freq * 1.002) * 0.25
+    L, R = supersaw_stereo(freq, dur, det=14, n_osc=5, cutoff=cutoff)
+    att = int(0.006 * SR)
+    rel = max(int(0.04 * SR), int(0.18 * n))
+    env = np.ones(n)
+    env[: min(att, n)] = np.linspace(0, 1, min(att, n))
+    if rel < n:
+        env[-rel:] = np.linspace(1, 0, rel)
+    # tiny vibrato
+    t = np.arange(n) / SR
+    vib = 1 + 0.004 * np.sin(2 * np.pi * 5.2 * t)
+    L = (L * 0.7 + centre) * env * vib
+    R = (R * 0.7 + centre) * env * vib
+    return fade(L, 2, 8), fade(R, 2, 8)
+
+
+# --- Choir / bells / IR -----------------------------------------------------------
+def choir_voice(n, freq, formants, detune=9, rng=None):
+    """Detuned band-limited saws through parallel vowel formants."""
+    raw = np.zeros(n)
+    n_osc = 7
+    dets = np.linspace(-detune, detune, n_osc)
+    for i, c in enumerate(dets):
+        raw += blep_saw(n, freq * 2 ** (c / 1200.0), phase0=0.05 * i)
+    raw /= n_osc
+    # a little triangle body so the low mids stay full
+    t = np.arange(n) / SR
+    raw += 0.22 * (2 / np.pi) * np.arcsin(np.sin(2 * np.pi * freq * t))
+    if rng is not None:
+        raw += sos_bp(rng.standard_normal(n), 400, 2600) * 0.035
+    formed = np.zeros(n)
+    gains = (1.0, 0.62, 0.32)
+    qs = (5.0, 4.2, 3.2)
+    for fc, g, q in zip(formants, gains, qs):
+        formed += g * rbj(raw, fc, q, "band")
+    # keep dark body so 200–600 Hz is a wall, like the reference
+    body = sos_lp(raw, 900) * 0.70
+    return sos_lp(formed * 0.90 + body, 4200)
+
+
+def fm_glass_bell(freq, dur, rng, ratio=3.71, index0=4.2):
+    """Inharmonic FM glass / crystal bell with a long fade."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    idx = index0 * np.exp(-t / (dur * 0.22))
+    mod = np.sin(2 * np.pi * freq * ratio * t)
+    car = np.sin(2 * np.pi * freq * t + idx * mod)
+    # second partial slightly inharmonic
+    car += 0.28 * np.sin(2 * np.pi * freq * 2.01 * t + 0.6 * idx * np.sin(2 * np.pi * freq * 5.04 * t))
+    env = np.exp(-t / (dur * 0.32))
+    att = int(0.012 * SR)
+    env[:att] *= np.linspace(0, 1, att)
+    glass = sos_bp(rng.standard_normal(n), 2500, 9000) * np.exp(-t / 0.07) * 0.06
+    # Keep the drip inside the choir wash; the reference has almost no air above 3 kHz.
+    return fade(sos_lp(car * env + glass, 3200), 6, 400)
+
+
+def make_cave_ir(sec, rng, decay_pow=2.6, dark=6500):
+    """Dense stereo IR: early reflections + frequency-dependent tail."""
+    n = int(sec * SR)
+    ir = np.zeros((n, 2))
+    # early reflections 12–90 ms
+    for ch in (0, 1):
+        for _ in range(18):
+            tms = 12 + rng.random() * 80
+            i = int(tms * SR / 1000)
+            if i < n:
+                ir[i, ch] += rng.uniform(-1, 1) * (0.35 ** (tms / 40.0))
+    # dense tail
+    t = np.arange(n) / n
+    env = (1 - t) ** decay_pow
+    # highs die faster: start brighter, lowpass closes
+    noise_l = rng.standard_normal(n) * env
+    noise_r = rng.standard_normal(n) * env
+    chunks = 24
+    for k in range(chunks):
+        a = int(k * n / chunks)
+        b = int((k + 1) * n / chunks)
+        p = k / max(chunks - 1, 1)
+        hz = dark * (0.25 ** p)  # closes toward the dark end
+        noise_l[a:b] = sos_lp(noise_l[a:b], max(400, hz))
+        noise_r[a:b] = sos_lp(noise_r[a:b], max(380, hz * 0.95))
+    ir[:, 0] += noise_l * 0.9
+    ir[:, 1] += noise_r * 0.9
+    # pre-delay is applied by the caller (pad zeros)
+    peak = np.max(np.abs(ir)) + 1e-12
+    return ir / peak
+
+
+def convolve_stereo(x, ir, wet=0.7, dry=0.3, predelay_s=0.06):
+    from scipy.signal import fftconvolve
+    pd = int(predelay_s * SR)
+    padded = np.vstack([np.zeros((pd, 2)), ir])
+    y = np.zeros((len(x), 2))
+    for ch in (0, 1):
+        conv = fftconvolve(x[:, ch], padded[:, ch], mode="full")
+        y[:, ch] = conv[: len(x)]
+    peak = np.max(np.abs(y)) + 1e-12
+    src_peak = np.max(np.abs(x)) + 1e-12
+    y = y / peak * src_peak * 1.35
+    return x * dry + y * wet
+
+
+# --- Mix helpers ------------------------------------------------------------------
+def add_mono(bus, t0, sig, gain=1.0, pan=0.0, sr=SR):
+    i0 = int(round(t0 * sr))
+    if i0 >= bus.shape[0] or len(sig) == 0:
+        return
+    if i0 < 0:
+        sig = sig[-i0:]
+        i0 = 0
+        if len(sig) == 0:
+            return
+    n = min(len(sig), bus.shape[0] - i0)
+    if n <= 0:
+        return
+    l = np.sqrt(0.5 * (1.0 - pan)) * gain
+    r = np.sqrt(0.5 * (1.0 + pan)) * gain
+    bus[i0:i0 + n, 0] += sig[:n] * l
+    bus[i0:i0 + n, 1] += sig[:n] * r
+
+
+def add_stereo(bus, t0, left, right, gain=1.0, sr=SR):
+    i0 = int(round(t0 * sr))
+    if i0 >= bus.shape[0]:
+        return
+    if i0 < 0:
+        left, right = left[-i0:], right[-i0:]
+        i0 = 0
+    n = min(len(left), len(right), bus.shape[0] - i0)
+    if n <= 0:
+        return
+    bus[i0:i0 + n, 0] += left[:n] * gain
+    bus[i0:i0 + n, 1] += right[:n] * gain
+
+
+def sidechain(n, kick_times, depth=0.8, rel=0.12, sr=SR):
+    duck = np.ones(n)
+    n_d = int((rel * 2.2) * sr)
+    t = np.arange(n_d) / sr
+    curve = 1.0 - depth * np.exp(-t / rel)
+    for tk in kick_times:
+        i = int(round(tk * sr))
+        if i >= n or i < 0:
+            continue
+        j = min(n_d, n - i)
+        duck[i:i + j] = np.minimum(duck[i:i + j], curve[:j])
+    return duck
+
+
+def ping_pong_delay(x, delay_s, fb=0.28, mix=0.22):
+    d = int(delay_s * SR)
+    if d <= 0 or 2 * d >= len(x):
+        return x
+    y = np.zeros_like(x)
+    y[d:, 1] += x[:-d, 0]
+    y[2 * d:, 0] += x[:-2 * d, 0] * fb
+    y[d:, 0] += x[:-d, 1] * 0.7
+    y[2 * d:, 1] += x[:-2 * d, 1] * fb
+    return x * (1 - mix) + y * mix
+
+
+def glue(x, thresh=0.42, ratio=1.8, att_s=0.006, rel_s=0.16):
+    """Gentle glue only — do not squash loudness range."""
+    peak = np.maximum(np.max(np.abs(x), axis=1), 1e-9)
+    att = 1 - np.exp(-1 / (att_s * SR))
+    rel = 1 - np.exp(-1 / (rel_s * SR))
+    env = np.zeros_like(peak)
+    e = 0.0
+    for i, p in enumerate(peak):
+        e = e + (att if p > e else rel) * (p - e)
+        env[i] = e
+    gain = np.ones_like(env)
+    over = env > thresh
+    gain[over] = (thresh + (env[over] - thresh) / ratio) / env[over]
+    gain = np.convolve(gain, np.ones(16) / 16, mode="same")
+    return x * gain[:, None]
+
+
+def limiter(x, ceiling=10 ** (-1.0 / 20.0), look_ms=5):
+    """Safety true-peak catcher, not a loudness crusher."""
+    from scipy.ndimage import maximum_filter1d
+    look = int(look_ms * SR / 1000)
+    peak = np.max(np.abs(x), axis=1)
+    padded = np.pad(peak, (0, look), mode="edge")
+    fut = maximum_filter1d(padded, size=look + 1, origin=look // 2, mode="nearest")[: len(peak)]
+    gain = np.ones_like(peak)
+    mask = fut > ceiling
+    gain[mask] = ceiling / (fut[mask] + 1e-12)
+    rel = 1 - np.exp(-1.0 / (0.12 * SR))
+    out_g = np.empty_like(gain)
+    g = 1.0
+    for i, t in enumerate(gain):
+        g = t if t < g else g + rel * (t - g)
+        out_g[i] = g
+    return np.clip(x * out_g[:, None], -ceiling, ceiling)
+
+
+def seamless_loop(x, xfade_s=0.08, polish_s=0.01, sr=SR):
+    """Equal-power end→start crossfade, then a short smoothstep so the wrap step is 0."""
+    y = np.array(x, dtype=np.float64, copy=True)
+    c = max(8, int(xfade_s * sr))
+    c = min(c, len(y) // 8)
+    t = np.linspace(0, 1, c)[:, None]
+    y[-c:] = y[-c:] * np.cos(t * np.pi / 2) + y[:c] * np.sin(t * np.pi / 2)
+    # bring last sample exactly onto first (inaudible 1-sample continuity)
+    p = max(8, int(polish_s * sr))
+    # smoothstep 0..1
+    u = np.linspace(0, 1, p)[:, None]
+    w = u * u * (3 - 2 * u)
+    target = y[0]
+    y[-p:] += (target - y[-1]) * w
+    return y
