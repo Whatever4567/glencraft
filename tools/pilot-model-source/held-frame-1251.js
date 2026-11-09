@@ -13,8 +13,8 @@
   // s scales the held item (not the arm length) so fists stay reachable.
   // armS scales the visible __fpa rig around the camera (use sparingly).
   const FRAME = {
-    empty:  {dx:  0.02, dy: -0.12, dz: 0.02, fov: 0.76, s: 1.00, armS: 1.16},
-    block:  {dx: -0.02, dy:  0.04, dz: 0.02, fov: 0.78, s: 0.62, armS: 1.16},
+    empty:  {dx:  0.02, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.00, armS: 1.10},
+    block:  {dx: -0.02, dy:  0.02, dz: 0.04, fov: 0.74, s: 0.58, armS: 1.12},
     pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
     p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
     p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
@@ -22,13 +22,13 @@
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     sword:  {dx: -0.02, dy: -0.06, dz: 0.06, fov: 0.68, s: 1.10, armS: 1.16},
-    bucket: {dx: -0.04, dy: -0.10, dz: -0.02, fov: 0.84, s: 0.70, armS: 1.10},
+    bucket: {dx: -0.02, dy: -0.02, dz: 0.06, fov: 0.70, s: 0.74, armS: 1.08},
     torch:  {dx: -0.05, dy: -0.02, dz: 0.04, fov: 0.72, s: 1.08, armS: 1.10},
     map:    {dx: -0.05, dy:  0.02, dz: 0.08, fov: 0.68, s: 1.55, armS: 1.12},
-    musket: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 1.00},
-    pistol: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 1.00},
-    musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.88},
-    pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.90},
+    musket: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 0.82},
+    pistol: {dx:  0.00, dy:  0.00, dz: 0.00, fov: 1.00, s: 1.00, armS: 0.90},
+    musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.94},
+    pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 0.94},
     other:  {dx: -0.04, dy:  0.08, dz: 0.12, fov: 0.64, s: 1.10, armS: 1.20}
   };
   U.FRAME = FRAME;
@@ -167,8 +167,8 @@
       const fpa = W.__fpa;
       const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
       if (!rig) return;
-      const tight = {empty: 0.35, block: 1.28, pick: 1.18, p761: 1.18, p760: 1.18, axe: 1.05, shovel: 1.05, hoe: 1.05,
-        sword: 1.08, bucket: 1.05, torch: 1.00, map: 0.45, musket: ads ? 0.62 : 0.95, pistol: ads ? 0.58 : 1.02, other: 0.8};
+      const tight = {empty: 0.32, block: 0.48, pick: 1.55, p761: 1.55, p760: 1.55, axe: 1.15, shovel: 1.15, hoe: 1.15,
+        sword: 1.08, bucket: 1.15, torch: 1.00, map: 0.45, musket: ads ? 0.70 : 0.95, pistol: ads ? 0.85 : 1.02, other: 0.8};
       const gamt = tight[kind] != null ? tight[kind] : 0.8;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -198,10 +198,20 @@
           const side = (arm.userData && arm.userData.side) || 1;
           if (kind === 'musket' && ads && isLeft) {
             th.rotation.set(0.3, side * 0.2, side * 0.15);
+          } else if ((kind === 'pistol') && ads && isLeft) {
+            // Wrap the support thumb over the grip hand.
+            th.rotation.set(0.55, side * 0.55, side * 0.45);
+            if (th.userData && th.userData.k) th.userData.k.rotation.set(0.35, 0, 0);
           } else {
             th.rotation.set(0.45 + gamt * 0.2, side * 0.4, side * 0.28);
             if (th.userData && th.userData.k) th.userData.k.rotation.set(0.2 + gamt * 0.3, 0, 0);
           }
+        }
+        // Cup the wrist so fingers actually go around a haft / cobble, not sit on top.
+        if (!ads && kind === 'block' && !isLeft) {
+          // Open cupped palm, fingers slightly curled under the cobble.
+          h.rotation.x += 0.12;
+          h.rotation.z += 0.04;
         }
       }
       if (rig.userData.R) curlArm(rig.userData.R, 0);
@@ -334,7 +344,7 @@
   function isLinenMesh(o) {
     if (!o || !o.isMesh) return false;
     const ud = o.userData || {};
-    if (ud.folded1249 || ud.tartan1251) return true;
+    if (ud.folded1249 || ud.tartan1251 || ud.sleeve1254 || ud.wristCuff1254) return true;
     const n = ((o.name || '') + (o.parent && o.parent.name || '')).toLowerCase();
     if (/cuff|sleeve|shirt|\bup\b|linen/.test(n)) return true;
     const m = [].concat(o.material || [])[0];
@@ -479,7 +489,12 @@
   function restoreCulled() {
     const list = U._culled || [];
     for (let i = 0; i < list.length; i++) {
-      try { if (list[i]) list[i].visible = true; } catch (_) {}
+      try {
+        const o = list[i];
+        if (!o) continue;
+        if (o.userData && o.userData.__hidSleeve1252) continue;
+        o.visible = true;
+      } catch (_) {}
     }
     U._culled = [];
   }
@@ -526,6 +541,10 @@
         }
       });
     } catch (e) { ERR('cull', e); }
+    try {
+      const k = U.kind;
+      if (k === 'musket' || k === 'pistol') hideGunSleeves();
+    } catch (_) {}
     U.lastDump = dump;
     U.maxCover = dump.reduce(function (m, r) { return Math.max(m, r.cov || 0); }, 0);
     U.lastKind = U.kind;
@@ -550,7 +569,12 @@
       }
       try {
         arm.traverse(function (o) {
-          if (o.isMesh && !keep.has(o)) { o.userData.__hidSleeve1252 = 1; o.visible = false; hid++; }
+          if (!o.isMesh) return;
+          const typ = (o.geometry && o.geometry.type) || '';
+          const cuff = o.userData && (o.userData.sleeve1254 || o.userData.wristCuff1254 || o.userData.folded1249);
+          if (!keep.has(o) || cuff || /Torus/.test(typ) || (isLinenMesh(o) && /Cylinder/.test(typ))) {
+            o.userData.__hidSleeve1252 = 1; o.visible = false; hid++;
+          }
         });
       } catch (_) {}
     });
@@ -617,9 +641,8 @@
         if (!o.isMesh) return;
         if (isItemMesh(o)) return;
         const typ = (o.geometry && o.geometry.type) || '';
-        if (o.userData && o.userData.folded1249 && /Torus/.test(typ)) {
+        if (o.userData && (o.userData.sleeve1254 || ((o.userData.folded1249 || o.userData.wristCuff1254) && /Torus/.test(typ)))) {
           o.visible = true;
-          o.scale.setScalar(0.90);
           return;
         }
         if (isHandPart(o) && !isLinenMesh(o)) return;
@@ -638,8 +661,55 @@
         if (p.cuff) p.cuff.visible = false;
       }
       hideLongLinen(arm);
+      ensureWristCuff(arm);
     });
     try { if (typeof hand !== 'undefined' && hand) hideLongLinen(hand); } catch (_) {}
+  }
+
+  function ensureWristCuff(arm) {
+    try {
+      const p = arm && arm.userData && arm.userData.p;
+      const fo = p && p.fo;
+      if (!fo) return;
+      const T3 = T;
+      let lm = null;
+      try { lm = (W.__hands1249 && W.__hands1249.linenMat && W.__hands1249.linenMat()) || null; } catch (_) {}
+      if (!lm && p.cuff && p.cuff.material) lm = p.cuff.material;
+      if (!lm) lm = new T3.MeshPhongMaterial({color: 0xf4efe6, shininess: 6});
+      const h = p.h;
+      if (h) {
+        h.traverse(function (o) {
+          if (o.isMesh && o.userData && o.userData.wristCuff1254) o.visible = false;
+        });
+      }
+      if (fo.userData.sleeve1254) return;
+      if (fo.geometry) {
+        if (!fo.geometry.boundingBox) fo.geometry.computeBoundingBox();
+        const bb = fo.geometry.boundingBox;
+        const pos = fo.geometry.attributes && fo.geometry.attributes.position;
+        const span = (bb.max.y - bb.min.y) || 1;
+        let wr = 0;
+        if (pos) {
+          for (let i = 0; i < pos.count; i++) {
+            if (Math.abs(pos.getY(i) - bb.max.y) <= span * 0.1) {
+              const rr = Math.hypot(pos.getX(i), pos.getZ(i));
+              if (rr > wr) wr = rr;
+            }
+          }
+        }
+        if (wr < 1e-4) wr = Math.max(Math.abs(bb.max.x), Math.abs(bb.max.z), 0.012);
+        const r = wr * 1.06;
+        const roll = new T3.Mesh(new T3.TorusGeometry(r, Math.max(0.003, r * 0.18), 8, 14), lm);
+        roll.rotation.x = Math.PI / 2;
+        roll.position.set(0, bb.max.y - r * 0.04, 0);
+        roll.userData.sleeve1254 = 1;
+        roll.userData.folded1249 = 1;
+        roll.userData.wristCuff1254 = 1;
+        roll.userData.sculptKeep = 1;
+        fo.add(roll);
+      }
+      fo.userData.sleeve1254 = 1;
+    } catch (_) {}
   }
 
   // After __fpa.step has solved the gun IK: scale the rig down in ADS so
@@ -663,25 +733,97 @@
     obj.position.copy(obj.parent.worldToLocal(w));
   }
 
+  function setInCam(obj, x, y, z) {
+    try {
+      if (!obj || !obj.parent) return;
+      let cam = null;
+      for (let n = obj.parent; n; n = n.parent) {
+        if (n.isCamera) { cam = n; break; }
+      }
+      if (!cam) cam = (W.__vm && W.__vm.vc) || (typeof camera !== 'undefined' ? camera : W.camera);
+      if (!cam) return;
+      cam.updateMatrixWorld(true);
+      obj.parent.updateWorldMatrix(true, false);
+      const w = new T.Vector3(x, y, z);
+      w.applyMatrix4(cam.matrixWorld);
+      obj.position.copy(obj.parent.worldToLocal(w));
+    } catch (_) {}
+  }
+
+  function hideArmSheets(arm, hideFore) {
+    const p = arm && arm.userData && arm.userData.p;
+    if (!p) return;
+    if (p.up) p.up.visible = false;
+    if (p.el) p.el.visible = false;
+    if (p.cuff) p.cuff.visible = false;
+    if (hideFore && p.fo) p.fo.visible = false;
+    try {
+      arm.traverse(function (o) {
+        if (!o.isMesh) return;
+        const typ = (o.geometry && o.geometry.type) || '';
+        if (o.userData && (o.userData.sleeve1254 || o.userData.wristCuff1254 || o.userData.folded1249)) {
+          o.visible = false;
+          o.userData.__hidSleeve1252 = 1;
+        }
+      });
+    } catch (_) {}
+  }
+
+  function nudgeInView(obj, dx, dy, dz) {
+    // Add a camera-space delta using the camera this object is parented under
+    // (not the VM vc, which is a different space).
+    try {
+      if (!obj || !obj.parent) return;
+      let cam = (typeof camera !== 'undefined' ? camera : W.camera);
+      for (let n = obj.parent; n; n = n.parent) {
+        if (n.isCamera) { cam = n; break; }
+      }
+      if (!cam) return;
+      cam.updateMatrixWorld(true);
+      obj.updateWorldMatrix(true, false);
+      obj.parent.updateWorldMatrix(true, false);
+      const w = obj.getWorldPosition(new T.Vector3());
+      const add = new T.Vector3(dx, dy, dz);
+      const len = Math.hypot(dx, dy, dz) || 1;
+      add.transformDirection(cam.matrixWorld).multiplyScalar(len);
+      w.add(add);
+      obj.position.copy(obj.parent.worldToLocal(w));
+    } catch (_) {}
+  }
+
   function poseGunHands(kind, ads) {
     try {
       const rig = W.__fpa && (typeof W.__fpa.rig === 'function' ? W.__fpa.rig() : null);
       if (!rig) return;
       const L = rig.userData && rig.userData.L;
+      const R = rig.userData && rig.userData.R;
       if (kind !== 'musket' && kind !== 'pistol') return;
-      const armS = ads ? ((kind === 'musket') ? 0.88 : 0.90) : 1;
+      const armS = ads ? 0.94 : (kind === 'musket' ? 0.70 : 0.88);
       rig.scale.setScalar(armS);
-      if (ads && L && L.visible) {
-        // Small local cup only — a large camera-space shove put the
-        // support forearm across the musket lens.
-        L.position.y -= (kind === 'musket') ? 0.02 : 0.012;
-        const p = L.userData && L.userData.p;
-        if (p && p.h) {
-          p.h.rotation.z += (kind === 'musket') ? 0.35 : 0.22;
-          p.h.rotation.x -= 0.15;
+      // Hip and ADS: hide the close forearm cones so the gun and hands lead.
+      hideArmSheets(L, true);
+      hideArmSheets(R, true);
+      if (ads && L) {
+        L.visible = true;
+        if (L.userData && L.userData.p && L.userData.p.h) L.userData.p.h.visible = true;
+        if (kind === 'musket') {
+          // Cup under the forestock in the lower-left of the barrel, out of the sights.
+          setInCam(L, -0.06, -0.11, -0.36);
+          const p = L.userData && L.userData.p;
+          if (p && p.h) p.h.rotation.set(-0.2, 0.1, 0.75);
+        } else {
+          // Wrap the support hand around the grip, low and slightly left of the slide.
+          setInCam(L, -0.02, -0.13, -0.24);
+          const p = L.userData && L.userData.p;
+          if (p && p.h) p.h.rotation.set(0.4, 0.2, 0.55);
         }
-        if (p && p.up) p.up.visible = false;
-        if (p && p.cuff) p.cuff.visible = false;
+      } else if (!ads && kind === 'musket') {
+        if (R && R.userData && R.userData.p && R.userData.p.fo) {
+          R.userData.p.fo.scale.set(0.62, 0.72, 0.62);
+        }
+        if (L && L.userData && L.userData.p && L.userData.p.fo) {
+          L.userData.p.fo.scale.set(0.70, 0.80, 0.70);
+        }
       }
     } catch (e) { ERR('gunHands', e); }
   }
@@ -721,22 +863,6 @@
         hand.position.z += cur.dz;
       }
       applyItemScale(cur.s);
-      if (k === 'bucket' || k === 'block') {
-        try {
-          const mesh = (typeof held !== 'undefined' && held && held.children && held.children[0]) || null;
-          if (mesh) {
-            if (k === 'bucket') {
-              // Hang the pail below the fist so the hand is visible on the bail.
-              mesh.position.set(0.01, -0.11, 0.02);
-              mesh.rotation.set(0.25, 0.55, 0.08);
-            } else {
-              // Tuck cobble into the palm every frame; fingers wrap via curl.
-              mesh.position.set(0, -0.015, 0.055);
-              mesh.rotation.set(0.22, 0.45, 0.12);
-            }
-          }
-        } catch (_) {}
-      }
       if (k === 'musket' || k === 'pistol') {
         // Guns: the viewmodel owns `hand`. Scale the __fpa rig in ADS so the
         // hands stay out of the sight picture; keep hip at 1:1.

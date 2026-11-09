@@ -116,6 +116,7 @@
     m.userData.sculptKeep = 1;
     return m;
   }
+  U.linenMat = linenMat;
   function tartanTex() {
     if (U._tartan) return U._tartan;
     U._tartan = tex(256, 256, (g) => {
@@ -416,7 +417,7 @@
       // Keep the existing forearm mesh (already tapered) but paint + slightly reshape.
       p.fo.material = sm;
       mark(p.fo);
-      if (!p.fo.userData.tapered1249 && p.fo.geometry) {
+      if (!p.fo.userData.tapered1254 && p.fo.geometry) {
         const g = p.fo.geometry.clone();
         const pos = g.attributes.position;
         if (pos) {
@@ -425,15 +426,17 @@
           const span = (ymax - ymin) || 1;
           for (let i = 0; i < pos.count; i++) {
             const y = (pos.getY(i) - ymin) / span;
-            // more taper toward the wrist (y=1 in limb geo is the far end)
-            const s = 1 - 0.12 * y * y;
+            // y=0 elbow, y=1 wrist: mid-forearm muscle belly, narrow wrist, not a cone.
+            const muscle = 1.0 + 0.14 * Math.sin(y * Math.PI);
+            const wrist = 1.0 - 0.38 * y * y;
+            const s = muscle * wrist;
             pos.setX(i, pos.getX(i) * s);
-            pos.setZ(i, pos.getZ(i) * s * 0.92);
+            pos.setZ(i, pos.getZ(i) * (s * 0.88));
           }
           pos.needsUpdate = true;
           g.computeVertexNormals();
           p.fo.geometry = g;
-          p.fo.userData.tapered1249 = 1;
+          p.fo.userData.tapered1254 = 1;
         }
       }
     }
@@ -473,7 +476,7 @@
         if (p.up) p.up.material = lm;
         if (p.el) p.el.material = lm;
         if (p.cuff) p.cuff.material = lm;
-        if (p.fo) p.fo.material = sm;
+        if (p.fo) p.fo.material = (p.fo.userData && p.fo.userData.sleevePaint1254) ? lm : sm;
       }
       if (rig.userData.R) fixArm(rig.userData.R);
       if (rig.userData.L) fixArm(rig.userData.L);

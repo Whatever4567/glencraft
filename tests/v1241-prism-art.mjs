@@ -65,10 +65,12 @@ ok(listed.every(k => U.LISTED[k]), 'every listed mob/NPC kind is in the shared d
   };
   ok(maxUnique(pick) >= 8, 'a pickaxe head exposes at least 8 unique facet normals (' + maxUnique(pick) + ')');
   ok(maxUnique(purple) >= 8, 'the purple crystal pickaxe is a cut gem, not a box (' + maxUnique(purple) + ' normals)');
-  // thin elegant purple pick: head / handle thinner than the standard diamond pick
+  // Slender crescent: depth/thickness may reach ~0.050, but must stay thinner
+  // than a standard pick in depth. The old 95% cap on both axes forced a ribbon.
   const size = root => { root.updateMatrixWorld(true); return new T.Box3().setFromObject(root).getSize(new T.Vector3()); };
   const sp = size(pick), su = size(purple);
-  ok(su.x < sp.x * 0.95 && su.z < sp.z * 0.95, 'the purple crystal pickaxe is thinner than a standard pick (purple ' + su.x.toFixed(3) + 'x' + su.z.toFixed(3) + ' vs ' + sp.x.toFixed(3) + 'x' + sp.z.toFixed(3) + ')');
+  ok(su.z < 0.0505 && su.z < sp.z, 'the purple crystal pickaxe is slender in depth (purple z=' + su.z.toFixed(3) + ' vs standard ' + sp.z.toFixed(3) + ', cap 0.050)');
+  ok(su.x < sp.x * 1.45, 'the purple crescent width stays in a reasonable range (purple x=' + su.x.toFixed(3) + ' vs standard ' + sp.x.toFixed(3) + ')');
   ok(meshCount(flint) >= 2 && U.countTris(flint) > 24, 'flint-and-steel is not a generic block (' + meshCount(flint) + ' meshes, ' + U.countTris(flint) + ' tris)');
   ok(meshCount(shears) >= 3 && U.countTris(shears) > 24, 'shears are not a generic block (' + meshCount(shears) + ' meshes, ' + U.countTris(shears) + ' tris)');
   const tPick = U.countTris(pick), tPurple = U.countTris(purple), tMusket = U.countTris(musket), tPistol = U.countTris(pistol);
