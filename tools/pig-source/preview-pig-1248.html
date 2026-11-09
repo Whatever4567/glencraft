@@ -1,0 +1,260 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pig 1248 qa</title>
+<style>
+  html,body{margin:0;background:#1b241c;color:#f4f0e4;font:14px/1.3 ui-sans-serif,system-ui,sans-serif}
+  #sheet{display:block;background:#1b241c}
+  h1{margin:0;padding:10px 16px;font-size:18px;background:#122016;color:#e8f4dc}
+</style>
+<canvas id="sheet" width="1800" height="980"></canvas>
+<script type="importmap">{"imports":{"three":"/three/build/three.module.js","three/addons/":"/three/examples/jsm/"}}</script>
+<script>
+window.__err = null;
+window.addEventListener('error', e => { window.__err = String(e.message||e.error||e)+' @'+(e.filename||'')+':'+(e.lineno||''); console.error('ERR', window.__err); });
+window.addEventListener('unhandledrejection', e => { window.__err = 'rej '+String(e.reason&&e.reason.stack||e.reason||e); console.error('REJ', window.__err); });
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {MeshoptDecoder} from 'three/addons/libs/meshopt_decoder.module.js';
+import {clone as cloneSkel} from 'three/addons/utils/SkeletonUtils.js';
+try {
+
+// Game constants from tickPig (c118) and v1248 (scale 1.4, walk clip, roll math).
+const PIG_SCALE = 1.4;
+const CEN = 0.55;
+const ease = x => x < 0 ? 0 : x > 1 ? 1 : x * x * (3 - 2 * x);
+
+await MeshoptDecoder.ready;
+const tex = await new THREE.TextureLoader().loadAsync('pig2.webp');
+tex.colorSpace = THREE.SRGBColorSpace;
+tex.anisotropy = 8;
+tex.flipY = false; // glTF
+const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('pig2.glb');
+const WALK = gltf.animations.find(a => /walk/i.test(a.name)) || gltf.animations[0];
+
+function makePig() {
+  // Same clone path as c135.attach: SkeletonUtils.clone (NOT scene.clone).
+  const m = cloneSkel(gltf.scene);
+  m.traverse(o => {
+    if (o.isMesh || o.isSkinnedMesh) {
+      o.frustumCulled = false;
+      o.material = new THREE.MeshLambertMaterial({
+        map: tex, color: 0xffffff, roughness: 0.7
+      });
+      o.material.skinning = !!o.isSkinnedMesh;
+    }
+  });
+  // Match the procedural body: snout toward +Z, so rotation.z is a side-lie (tickPig).
+  m.rotation.y = Math.PI / 2;
+  m.updateMatrixWorld(true);
+  // c135 fit: sit feet on y=0 and centre xz
+  const box = skinnedBox(m);
+  const ctr = box.getCenter(new THREE.Vector3());
+  m.position.x -= ctr.x;
+  m.position.z -= ctr.z;
+  m.position.y -= box.min.y;
+  const hd = new THREE.Group();
+  hd.add(m);
+  hd.scale.setScalar(PIG_SCALE);
+  const mix = new THREE.AnimationMixer(m);
+  const walk = WALK ? mix.clipAction(WALK) : null;
+  if (walk) { walk.play(); walk.setEffectiveWeight(0); }
+  return {hd, m, mix, walk};
+}
+
+function skinnedBox(root) {
+  root.updateMatrixWorld(true);
+  root.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
+  const box = new THREE.Box3().setFromObject(root);
+  return box;
+}
+
+function applyRoll(pig, r, sink) {
+  sink = sink || 0;
+  const f = Math.min(1, Math.abs(Math.sin(r)) + Math.max(0, -Math.cos(r)));
+  const ty = CEN - (CEN - 0.34) * f;
+  pig.hd.rotation.order = 'ZYX';
+  pig.hd.rotation.z = r;
+  pig.hd.position.x = CEN * Math.sin(r) * PIG_SCALE;
+  pig.hd.position.y = (ty - CEN * Math.cos(r) + sink) * PIG_SCALE;
+  pig.hd.position.z = 0;
+}
+
+function posePig(pig, kind, tWalk) {
+  pig.hd.rotation.set(0, 0, 0);
+  pig.hd.position.set(0, 0, 0);
+  if (pig.walk) { pig.walk.setEffectiveWeight(0); pig.walk.stop(); }
+  if ((kind === 'walk' || kind === 'walk2') && pig.walk) {
+    pig.walk.reset();
+    pig.walk.play();
+    pig.walk.setEffectiveWeight(1);
+    pig.walk.paused = true;
+    pig.walk.time = tWalk;
+    pig.mix.update(0);
+  } else if (kind === 'idle') {
+    // bind pose + a slight head bob (Bone002), same idea as posePig idle nod
+    const head = pig.m.getObjectByName('Bone002');
+    if (head) head.rotation.x += 0.10;
+    const earL = pig.m.getObjectByName('Bone016') || pig.m.getObjectByName('oci');
+    const earR = pig.m.getObjectByName('Bone018') || pig.m.getObjectByName('oci2');
+    if (earL) earL.rotation.z += 0.12;
+    if (earR) earR.rotation.z -= 0.10;
+    pig.m.updateMatrixWorld(true);
+    pig.m.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.update(); });
+  } else if (kind === 'wallow') {
+    applyRoll(pig, 1.45, -0.08); // lie on one side in the mud (tickPig tgt)
+    pig.m.updateMatrixWorld(true);
+  } else if (kind === 'up') {
+    const k = 0.55; // mid stand-up: S.r = S.r0 * (1-k)
+    applyRoll(pig, 1.45 * (1 - ease(k)), -0.04);
+    pig.m.updateMatrixWorld(true);
+  }
+}
+
+function makeScene(kind, W, H, herd) {
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x9ecdee);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
+  const sun = new THREE.DirectionalLight(0xfff4e0, 1.15);
+  sun.position.set(4.5, 8, 3.5); scene.add(sun);
+  const hemi = new THREE.HemisphereLight(0xcfe8ff, 0x5a7a3a, 0.35);
+  scene.add(hemi);
+
+  const grass = new THREE.Mesh(
+    new THREE.CircleGeometry(8, 48),
+    new THREE.MeshLambertMaterial({color: 0x5d9a3c})
+  );
+  grass.rotation.x = -Math.PI / 2; grass.position.y = -0.002; scene.add(grass);
+
+  const pigs = [];
+  const addMud = (x, z, r) => {
+    const mud = new THREE.Mesh(
+      new THREE.CircleGeometry(r, 40),
+      new THREE.MeshLambertMaterial({color: 0x6a4a34})
+    );
+    mud.rotation.x = -Math.PI / 2; mud.position.set(x, 0.01, z); scene.add(mud);
+    // a slightly darker rim
+    const rim = new THREE.Mesh(
+      new THREE.RingGeometry(r * 0.82, r, 40),
+      new THREE.MeshLambertMaterial({color: 0x4a3324})
+    );
+    rim.rotation.x = -Math.PI / 2; rim.position.set(x, 0.012, z); scene.add(rim);
+  };
+
+  if (herd) {
+    addMud(0.15, 0.1, 1.35);
+    const specs = [
+      {kind: 'wallow', x: 0.05, z: 0.1, yaw: 0.4},
+      {kind: 'idle', x: -1.35, z: 0.85, yaw: 0.9},
+      {kind: 'walk', x: 1.45, z: 0.7, yaw: -0.8, t: 0.40},
+      {kind: 'walk', x: 0.9, z: -1.15, yaw: 2.4, t: 1.10},
+      {kind: 'up', x: -0.95, z: -0.85, yaw: 0.2}
+    ];
+    for (const s of specs) {
+      const p = makePig();
+      posePig(p, s.kind, s.t);
+      p.hd.rotation.y = s.yaw || 0;
+      p.hd.position.x += s.x; p.hd.position.z += s.z;
+      scene.add(p.hd); pigs.push(p);
+    }
+  } else {
+    if (kind === 'wallow' || kind === 'up') addMud(0, 0, 1.25);
+    const p = makePig();
+    posePig(p, kind, tWalkFor(kind));
+    if (kind === 'wallow' || kind === 'up') {
+      const mudc = new THREE.Color(0x6a4a34);
+      p.m.traverse(o => { if (o.material && o.material.color) o.material.color.lerp(mudc, kind==='wallow'?0.35:0.15); });
+    }
+    // idle slightly toward camera; walk from a 3/4 side so the diagonal gait reads
+    p.hd.rotation.y = (kind === 'walk' || kind === 'walk2') ? -0.7 : 0.35;
+    scene.add(p.hd); pigs.push(p);
+  }
+
+  const box = new THREE.Box3();
+  for (const p of pigs) box.union(skinnedBox(p.hd));
+  const cam = new THREE.PerspectiveCamera(32, W / H, 0.05, 50);
+  frameCam(cam, box, herd);
+  return {scene, cam, pigs, box};
+}
+
+function tWalkFor(kind) {
+  const d = (WALK && WALK.duration) || 2.21;
+  if (kind === 'walk') return d * 0.22;
+  if (kind === 'walk2') return d * 0.55;
+  return 0;
+}
+
+function frameCam(cam, box, herd) {
+  const size = box.getSize(new THREE.Vector3());
+  const ctr = box.getCenter(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const fov = (cam.fov * Math.PI) / 180;
+  const fill = herd ? 0.82 : 0.70;
+  const dist = (maxDim * fill) / Math.tan(fov / 2);
+  const dir = new THREE.Vector3(1.05, 0.52, 1.25).normalize();
+  cam.position.copy(ctr).addScaledVector(dir, dist * (herd ? 1.15 : 1.2));
+  cam.lookAt(ctr.x, ctr.y + size.y * 0.02, ctr.z);
+  return {size, ctr, maxDim, dist};
+}
+
+function renderShot(kind, W, H, herd) {
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: false, preserveDrawingBuffer: true});
+  renderer.setSize(W, H, false);
+  renderer.setPixelRatio(1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const {scene, cam, box} = makeScene(kind, W, H, herd);
+  renderer.render(scene, cam);
+  const vs = [];
+  scene.traverse(o=>{
+    if(o.isSkinnedMesh && vs.length<3){
+      const t=new THREE.Vector3();
+      t.fromBufferAttribute(o.geometry.attributes.position, 0);
+      if (o.applyBoneTransform) { const t2=t.clone(); o.applyBoneTransform(0,t2); vs.push({bind:t.toArray(), skinnedLocal:t2.toArray(), world:t2.clone().applyMatrix4(o.matrixWorld).toArray(), scale:o.scale.toArray()}); }
+    }
+  });
+  const info = {kind, min: box.min.toArray(), max: box.max.toArray(), size: box.getSize(new THREE.Vector3()).toArray(), cam: cam.position.toArray(), look: [0,0,0], vs};
+
+  return {canvas, info, renderer};
+}
+
+const shots = [
+  {id: 'idle', label: 'idle (upright, 1.4×, pinker skin)', kind: 'idle'},
+  {id: 'walk', label: 'walk mid-stride A (GLB walk clip)', kind: 'walk'},
+  {id: 'walk2', label: 'walk mid-stride B (opposite diagonal)', kind: 'walk2'},
+  {id: 'wallow', label: 'wallowing in a mud pool', kind: 'wallow'},
+  {id: 'up', label: 'standing back up from the mud', kind: 'up'},
+  {id: 'herd', label: 'herd by a mud pool', kind: 'herd', herd: true}
+];
+
+const sheet = document.getElementById('sheet');
+const sctx = sheet.getContext('2d');
+sctx.fillStyle = '#1b241c'; sctx.fillRect(0, 0, 1800, 980);
+sctx.fillStyle = '#122016'; sctx.fillRect(0, 0, 1800, 56);
+sctx.fillStyle = '#e8f4dc'; sctx.font = 'bold 22px system-ui,sans-serif';
+sctx.fillText('Glencraft 1.2.48  —  pigs upright, larger, pinker  ·  game walk clip + tickPig roll  ·  not the old on-side bug', 18, 36);
+
+const report = [];
+const PW = 580, PH = 420, GAP = 16, OX = 20, OY = 70;
+for (let i = 0; i < shots.length; i++) {
+  const sh = shots[i];
+  const col = i % 3, row = Math.floor(i / 3);
+  const {canvas, info} = renderShot(sh.kind, PW, PH - 36, sh.herd);
+  const x = OX + col * (PW + GAP), y = OY + row * (PH + GAP);
+  sctx.drawImage(canvas, x, y);
+  sctx.fillStyle = 'rgba(10,20,12,0.82)'; sctx.fillRect(x, y + PH - 36, PW, 36);
+  sctx.fillStyle = '#f4f0e4'; sctx.font = 'bold 16px system-ui,sans-serif';
+  sctx.fillText(sh.label, x + 10, y + PH - 13);
+  // stash individual data URL
+  sh.data = canvas.toDataURL('image/png');
+  report.push({id: sh.id, ...info});
+}
+window.__SHOTS = shots;
+window.__REPORT = report;
+window.__SHEET = sheet.toDataURL('image/png');
+document.title = 'ready';
+window.__ready = 1;
+} catch (e) { window.__err = String(e && e.stack || e); console.error(e); document.title='error'; }
+</script>
