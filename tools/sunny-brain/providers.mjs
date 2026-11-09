@@ -12,6 +12,7 @@ function looksSpoken(s){
   if(letters<8)return false;
   if(digits>2)return false;
   if(letters/chars.length<0.55)return false;
+  if(/(motherboard|cliquez|archivo|instructional|proven it justice|hobbie|r[eé]duction|choisit|nugante)/i.test(s))return false;
   return true;
 }
 
