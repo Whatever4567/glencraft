@@ -714,8 +714,12 @@
       if (!mesh || !mesh.userData || !mesh.userData.block) return;
       // Tuck the cube down and slightly back into the palm (t1112: it was
       // floating above and in front of the hand).
+      // Keep the cube at the held origin so the fpa grip target matches the
+      // mesh. A slight tilt only; fingers wrap via the tighter block grip.
       if (!mesh.userData.seated1249) {
-        mesh.position.set(0, -0.02, 0.01);
+        // Held -Z is toward the fingertips; +Y is up in the palm frame after
+        // the fpa grip. Pull the cube back into the palm so fingers can wrap.
+        mesh.position.set(0, -0.01, 0.035);
         mesh.rotation.set(0.18, 0.4, 0.1);
         mesh.userData.seated1249 = 1;
       }

@@ -586,6 +586,76 @@
   }
   U.curvedPickSpikeGeometry = curvedPickSpikeGeometry;
 
+
+  function woodRuneTexture() {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+    const g = c.getContext('2d');
+    g.fillStyle = '#8a6238'; g.fillRect(0, 0, 256, 512);
+    for (let y = 0; y < 512; y += 7) {
+      g.strokeStyle = y % 14 === 0 ? 'rgba(40,24,12,0.55)' : 'rgba(120,80,40,0.28)';
+      g.lineWidth = 1 + (y % 3);
+      g.beginPath(); g.moveTo(0, y + Math.sin(y * 0.08) * 3); g.lineTo(256, y + Math.cos(y * 0.05) * 3); g.stroke();
+    }
+    // carved gold runes down the shaft
+    const runes = ['ᚠ','ᚢ','ᚦ','ᚨ','ᚱ','ᚲ','ᚷ','ᚹ','ᚺ','ᚾ','ᛁ','ᛃ'];
+    g.font = 'bold 28px serif'; g.textAlign = 'center';
+    for (let i = 0; i < runes.length; i++) {
+      const y = 36 + i * 38;
+      g.fillStyle = 'rgba(20,10,0,0.55)'; g.fillText(runes[i], 130, y + 2);
+      g.fillStyle = '#d6b24a'; g.fillText(runes[i], 128, y);
+    }
+    const tex = new T.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = T.RepeatWrapping;
+    tex.repeat.set(1, 1);
+    return tex;
+  }
+  function twistedHaftGeometry(r, len, twists) {
+    r = r || 0.012; len = len || 0.62; twists = twists == null ? 0.7 : twists;
+    const segs = 28, sides = 10;
+    const pos = [], nrm = [], uv = [], ix = [];
+    for (let i = 0; i <= segs; i++) {
+      const t = i / segs, y = t * len - 0.02;
+      const swell = 1 + 0.16 * Math.sin(t * Math.PI) + 0.05 * Math.sin(t * Math.PI * 5);
+      const rr = r * swell * (t < 0.08 ? 1.25 : (t > 0.92 ? 1.15 : 1));
+      const rot = t * twists * Math.PI * 2;
+      for (let k = 0; k < sides; k++) {
+        const a0 = (k / sides) * Math.PI * 2 + rot;
+        // slight ridge every other vertex, like carved flutes
+        const ridge = 1 + ((k % 2) ? 0.07 : -0.03);
+        const x = Math.cos(a0) * rr * ridge, z = Math.sin(a0) * rr * ridge;
+        pos.push(x, y, z);
+        nrm.push(Math.cos(a0), 0, Math.sin(a0));
+        uv.push(k / sides, t);
+      }
+    }
+    for (let i = 0; i < segs; i++) {
+      for (let k = 0; k < sides; k++) {
+        const a = i * sides + k, b = i * sides + (k + 1) % sides;
+        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
+        ix.push(a, c, b, b, c, d);
+      }
+    }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    geo.setIndex(ix);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function addGlowShell(g, geo, color, x, y, z) {
+    const m = new T.Mesh(geo, new T.MeshBasicMaterial({
+      color: color || 0xaa55ff, transparent: true, opacity: 0.22,
+      depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending
+    }));
+    m.position.set(x || 0, y || 0, z || 0);
+    m.scale.setScalar(1.08);
+    m.renderOrder = 4;
+    m.userData.glow1249 = 1;
+    g.add(m);
+    return m;
+  }
+
   function handleWithFerrule(g, woodM, ferM, len, r, slim) {
     const shaftR = slim ? r * 0.78 : r;
     addMesh(g, octShaftGeometry(shaftR, len, slim ? 0.92 : 0.96, 8), woodM, 0, len * 0.5 - 0.02, 0);
@@ -601,7 +671,7 @@
     const headHint = crystal ? 'crystal' : (mat === 'gold' ? 'gold' : (mat === 'wood' ? 'wood' : 'metal'));
     const headHex = HEAD_HEX[kind === 'p761' ? 'crystalpurple' : kind === 'p760' ? 'crystalblue' : mat] || HEAD_HEX.iron;
     const extra = {};
-    if (kind === 'p761') extra.emissive = 0x4a1078;
+    if (kind === 'p761') extra.emissive = 0x551888;
     if (kind === 'p760') extra.emissive = 0x0a3a66;
     const headM = matFor(headHex, headHint, extra);
     const woodM = matFor(HAFT, 'wood');
@@ -610,16 +680,18 @@
 
     if (k === 'p761' || k === 'p760') {
       // Longer thin crystal pick: two tapered points arc out and down from
-      // the haft, like a real pickaxe. Same mesh for FP, 3p, drops and icons
-      // (they share makeItemMesh). Handle layout stays along +Y so the grip
-      // does not move. Solid / opaque crystal (see prismMaterial).
+      // the haft. Twisted carved wood with gold runes; opaque crystal with a
+      // soft additive glow (the blade itself stays depthWrite/opaque).
       const len = 0.62;
-      handleWithFerrule(g, woodM, ferM, len, 0.011, true);
-      addMesh(g, curvedPickSpikeGeometry(1, 0.46, 0.05, 0.15, 0.024, 0.0022, 6, 0.55), headM, 0, len - 0.008, 0);
-      addMesh(g, curvedPickSpikeGeometry(-1, 0.46, 0.05, 0.15, 0.024, 0.0022, 6, 0.55), headM, 0, len - 0.008, 0);
-      addMesh(g, cutGemGeometry({length: 0.042, rx: 0.018, rz: 0.016, sides: 8, pointTip: true, pointButt: true, tip: 0.28, butt: 0.28}), headM, 0, len - 0.008, 0);
-      // Authored haft socket (item space, +Y). Stops sock() treating a long
-      // crystal spike as the handle, so FP / 3p / drop grips stay aligned.
+      const runeWood = matFor(HAFT, 'wood');
+      try { runeWood.map = woodRuneTexture(); runeWood.needsUpdate = true; } catch (_) {}
+      addMesh(g, twistedHaftGeometry(0.012, len, 0.85), runeWood, 0, 0, 0);
+      addMesh(g, octShaftGeometry(0.016, 0.034, 1, 8), ferM, 0, len - 0.04, 0);
+      const spikeA = curvedPickSpikeGeometry(1, 0.48, 0.055, 0.16, 0.028, 0.002, 8, 0.5);
+      const spikeB = curvedPickSpikeGeometry(-1, 0.48, 0.055, 0.16, 0.028, 0.002, 8, 0.5);
+      addMesh(g, spikeA, headM, 0, len - 0.008, 0);
+      addMesh(g, spikeB, headM, 0, len - 0.008, 0);
+      addMesh(g, cutGemGeometry({length: 0.05, rx: 0.02, rz: 0.018, sides: 8, pointTip: true, pointButt: true, tip: 0.28, butt: 0.28}), headM, 0, len - 0.008, 0);
       g.userData.__gs = {b: new T.Vector3(0, 0.08, 0), h: new T.Vector3(0, len - 0.02, 0), r: 0.014, authored: 1};
     } else if (k === 'pick') {
       const len = 0.56;
@@ -713,9 +785,23 @@
       addMesh(g, chamferBoxGeometry(0.04, 0.05, 0.08, 0.008), woodM, 0, -0.02, 0.08);
       addMesh(g, chamferBoxGeometry(0.03, 0.02, 0.04, 0.004), brassM, 0, 0.02, 0.04);
     }
-    // lock / cock accent
-    addMesh(g, chamferBoxGeometry(0.008, 0.03, 0.05, 0.002), ironM, 0.026, 0.02, musket ? 0.13 : 0.02);
-    addMesh(g, cutGemGeometry({length: 0.02, rx: 0.008, rz: 0.006, sides: 6, pointTip: true, pointButt: true}), matFor(0x3a3a44, 'default'), 0.03, 0.04, musket ? 0.10 : 0.0);
+    // lock / cock, frizzen, trigger and guard
+    addMesh(g, chamferBoxGeometry(0.01, 0.036, 0.07, 0.002), ironM, 0.028, 0.02, musket ? 0.13 : 0.02);
+    addMesh(g, chamferBoxGeometry(0.008, 0.028, 0.018, 0.002), ironM, 0.034, 0.042, musket ? 0.11 : 0.0, 0.55);
+    addMesh(g, cutGemGeometry({length: 0.02, rx: 0.008, rz: 0.006, sides: 6, pointTip: true, pointButt: true}), matFor(0x3a3a44, 'default'), 0.036, 0.05, musket ? 0.10 : 0.0);
+    addMesh(g, chamferBoxGeometry(0.006, 0.028, 0.01, 0.001), ironM, 0.0, -0.02, musket ? 0.18 : 0.06);
+    if (typeof T.TorusGeometry === 'function') {
+      const guard = flattenGeo ? flattenGeo(new T.TorusGeometry(0.028, 0.004, 5, 10, Math.PI * 1.15)) : new T.TorusGeometry(0.028, 0.004, 5, 10, Math.PI * 1.15);
+      addMesh(g, guard, brassM, 0, -0.01, musket ? 0.19 : 0.07, Math.PI / 2, 0, 0);
+    }
+    // Iron sights: rear notch near the lock, front blade at the muzzle.
+    if (musket) {
+      addMesh(g, chamferBoxGeometry(0.016, 0.012, 0.008, 0.001), ironM, 0, 0.046, 0.08);
+      addMesh(g, chamferBoxGeometry(0.004, 0.016, 0.004, 0.001), ironM, 0, 0.054, -0.68);
+    } else {
+      addMesh(g, chamferBoxGeometry(0.01, 0.01, 0.006, 0.001), ironM, 0, 0.042, 0.02);
+      addMesh(g, chamferBoxGeometry(0.003, 0.012, 0.003, 0.001), ironM, 0, 0.048, -0.21);
+    }
     g.userData.kind = kind;
     g.userData.gun = kind === 'pistol' ? 212 : 213;
     g.userData.prismBuilt = 1;
