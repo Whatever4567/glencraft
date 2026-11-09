@@ -24,5 +24,9 @@ one("/3>.63)occludedTriangles++","/3>.68)occludedTriangles++");
 one("ge.setIndex(keep);o.geometry=ge;","ge.setIndex(keep);o.geometry=ge;if(o.morphTargetDictionary&&o.morphTargetDictionary.under_kilt!==undefined)o.morphTargetInfluences[o.morphTargetDictionary.under_kilt]=1;");
 // pleated kilt: the flat front apron follows the striding thigh more (up to 60%), back pleats keep the approved 35%
 one("w=.35*t*t*(3-2*t)","fz=Math.max(0,Math.min(1,p.z/.10)),w=(.35+.25*fz*fz*(3-2*fz))*t*t*(3-2*t)");
+// crystal armour: fresnel rim + fake inner depth on the tintable crystal material (authored and tier variants)
+one('    function installPilotDisplayTransfer(material) {',fs.readFileSync(path.join(__dirname,'pilot-model-source/crystal-rim-1237.js'),'utf8')+'    function installPilotDisplayTransfer(material) {');
+one('const c=installPilotDisplayTransfer(m.clone());c.userData.pilotOriginalColor','const c=crystalRim1237(installPilotDisplayTransfer(m.clone()));c.userData.pilotOriginalColor');
+one('if(!r.tintVariants.has(tier)){const m=installPilotDisplayTransfer(original.clone()),','if(!r.tintVariants.has(tier)){const m=crystalRim1237(installPilotDisplayTransfer(original.clone())),');
 fs.writeFileSync(out,s);fs.writeFileSync(path.join(path.dirname(path.resolve(out)),'version.json'),JSON.stringify({v:'1.2.37'})+'\n');
 console.log('Built LOCAL 1.2.37 candidate: '+out);

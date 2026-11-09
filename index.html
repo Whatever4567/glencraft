@@ -55067,6 +55067,23 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     // legacy colours. glTF inputs are linear-light PBR values, unlike that legacy art.
     // Add the missing display transfer ONLY for this model, after ACES and before fog.
     // Keep glTF map encodings, PBR factors and data maps intact; do not brighten the world.
+    // LOCAL 1.2.37 CANDIDATE: cheap crystal look for the faceted armour (r128 MeshStandardMaterial only, flat-shaded GLB).
+    // View-facing facets are tinted deeper (fake inner depth); grazing facets brighten and gain a blue fresnel rim.
+    // Applied only to the tier-tintable crystal material, after the 1.2.36 display transfer (which it preserves).
+    function crystalRim1237(material){
+      if(!material.isMeshStandardMaterial||!/^(Far_)?ArmorTintable$/.test(material.name)||material.onBeforeCompile.crystalRim1237)return material;
+      const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey();
+      const patched=function(shader,renderer){
+        previous.call(this,shader,renderer);
+        const seam='#include <emissivemap_fragment>';
+        if(!shader.fragmentShader.includes(seam))throw Error('Crystal rim shader seam missing');
+        shader.fragmentShader=shader.fragmentShader.replace(seam,seam+'\n{ vec3 crV = normalize( vViewPosition ); float crF = pow( 1.0 - clamp( abs( dot( normal, crV ) ), 0.0, 1.0 ), 2.0 ); diffuseColor.rgb *= mix( vec3( 0.62, 0.74, 0.92 ), vec3( 1.06 ), crF ); totalEmissiveRadiance += vec3( 0.30, 0.62, 1.0 ) * crF * 0.55 * diffuseColor.rgb; } // CRYSTAL_RIM_1237');
+      };
+      for(const k of Object.keys(previous))patched[k]=previous[k];
+      patched.crystalRim1237=true;material.onBeforeCompile=patched;
+      material.customProgramCacheKey=function(){return previousKey+'|crystal-rim-1237';};
+      material.needsUpdate=true;return material;
+    }
     function installPilotDisplayTransfer(material) {
       if(material.onBeforeCompile.pilotDisplayTransfer1236)return material;
       const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey();
@@ -55094,7 +55111,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         o.matrixAutoUpdate=true;
         if(o.isBone){bones[o.name]=o;rest[o.name]={q:o.quaternion.clone(),p:o.position.clone(),s:o.scale.clone(),w:o.getWorldQuaternion(Q()),pos:o.getWorldPosition(V())};}
         if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
-          const cloneMat=m=>{if(!mats.has(m)){const c=installPilotDisplayTransfer(m.clone());c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
+          const cloneMat=m=>{if(!mats.has(m)){const c=crystalRim1237(installPilotDisplayTransfer(m.clone()));c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
           o.material=Array.isArray(o.material)?o.material.map(cloneMat):cloneMat(o.material);
         }
       });
@@ -55164,7 +55181,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
           region.traverse(o=>{if(!o.isMesh)return;const original=Array.from(r.mats.values()).find(m=>m.name==='ArmorTintable'||m.name==='Far_ArmorTintable');
             if(!original||!(o.material.name==='ArmorTintable'||o.material.name==='Far_ArmorTintable'))return;
             if(!tier||tier==='diamond'){o.material=original;return;}
-            if(!r.tintVariants.has(tier)){const m=installPilotDisplayTransfer(original.clone()),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
+            if(!r.tintVariants.has(tier)){const m=crystalRim1237(installPilotDisplayTransfer(original.clone())),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
           });
         }
         for(const material of r.mats.values())if(material.name==='PackWhite'||(O.scottish&&material.name.startsWith('08 • ceramic white tank'))){material.color.copy(material.userData.pilotOriginalColor);if(p.equipment[4]===777)material.color.setHex(0xf2c440).convertSRGBToLinear();}
