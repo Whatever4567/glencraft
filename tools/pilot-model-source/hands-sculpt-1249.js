@@ -94,7 +94,34 @@
     });
   }
 
+  function skinTexFp() {
+    return tex(512, 512, (g) => {
+      const grd = g.createLinearGradient(0, 0, 512, 512);
+      grd.addColorStop(0, '#d8c8b4');
+      grd.addColorStop(0.4, '#cbb9a4');
+      grd.addColorStop(0.7, '#bca58e');
+      grd.addColorStop(1, '#a89078');
+      g.fillStyle = grd; g.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 2800; i++) {
+        const v = 140 + Math.random() * 50 | 0;
+        g.fillStyle = 'rgba(' + v + ',' + (v - 22) + ',' + (v - 40) + ',' + (0.04 + Math.random() * 0.06) + ')';
+        g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1);
+      }
+      for (let i = 0; i < 1000; i++) {
+        g.fillStyle = 'rgba(80,55,40,' + (0.04 + Math.random() * 0.05) + ')';
+        g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+      }
+      g.strokeStyle = 'rgba(90,60,45,0.16)'; g.lineWidth = 1.3;
+      for (let i = 0; i < 18; i++) {
+        g.beginPath();
+        const x = 30 + Math.random() * 420, y = 30 + Math.random() * 420;
+        g.moveTo(x, y); g.quadraticCurveTo(x + 36, y + 8, x + 72, y - 5);
+        g.stroke();
+      }
+    });
+  }
   const SKIN_MAP = skinTex();
+  const SKIN_MAP_FP = skinTexFp();
   const SKIN_BUMP = skinBump();
   const LINEN_MAP = linenTex();
   LINEN_MAP.repeat.set(2, 3);
@@ -117,6 +144,26 @@
     return m;
   }
   U.linenMat = linenMat;
+  function skinMatFp() {
+    const m = new T.MeshPhongMaterial({
+      color: 0xc6b399, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.04,
+      shininess: 16, specular: 0x3a2e28
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.skinFp1262 = 1;
+    return m;
+  }
+  function linenMatFp() {
+    const m = new T.MeshPhongMaterial({
+      color: 0xe8e2d6, map: LINEN_MAP, bumpMap: LINEN_MAP, bumpScale: 0.28,
+      shininess: 4, specular: 0x1a1814
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.linenFp1262 = 1;
+    return m;
+  }
+  U.skinMatFp = skinMatFp;
+  U.linenMatFp = linenMatFp;
   function tartanTex() {
     if (U._tartan) return U._tartan;
     U._tartan = tex(256, 256, (g) => {
@@ -193,17 +240,34 @@
     });
   }
   function knuckleGeo(r) {
-    return share(geoKey('kn', r), function () {
-      const g = new T.SphereGeometry(r, 14, 12);
+    return share(geoKey('kns', r), function () {
+      const g = new T.SphereGeometry(r, 16, 14);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const y = p.getY(i), z = p.getZ(i);
-        p.setZ(i, z * 0.62);
-        if (y > 0) p.setY(i, y * 0.75);
+        p.setZ(i, z * 0.48);
+        if (y > 0) p.setY(i, y * 0.55);
+        p.setX(i, p.getX(i) * 0.92);
       }
       g.computeVertexNormals();
       return g;
     });
+  }
+  function creaseMat() {
+    const m = new T.MeshPhongMaterial({
+      color: 0x7a5c4a, shininess: 6, specular: 0x2a1c14
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.crease1262 = 1;
+    return m;
+  }
+  function creaseRing(parent, y, r, mat) {
+    const m = new T.Mesh(new T.TorusGeometry(Math.max(0.002, r * 0.90), Math.max(0.0006, r * 0.14), 6, 14), mat);
+    m.rotation.x = Math.PI / 2;
+    m.position.set(0, y, 0);
+    mark(m);
+    parent.add(m);
+    return m;
   }
   function palmGeo() {
     return share('palm', function () {
@@ -339,16 +403,20 @@
       if (!pair) continue;
       const f = pair[0], k = pair[1];
       const r = widths[i] || 0.007;
+      const cm = creaseMat();
       // proximal on f
       addMesh(f, fingerSegGeo(0.038, r * 1.02, r * 0.84, 0.48, 14, 14, 1), sm);
-      addMesh(f, knuckleGeo(r * 0.72), sm, 0, 0.001, 0.001);
+      addMesh(f, knuckleGeo(r * 0.42), sm, 0, 0.001, 0.0006);
+      creaseRing(f, 0.001, r * 0.95, cm);
       if (k) {
         addMesh(k, fingerSegGeo(0.018, r * 0.86, r * 0.76, 0.46, 12, 14, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.62), sm, 0, 0.001, 0.001);
+        addMesh(k, knuckleGeo(r * 0.36), sm, 0, 0.001, 0.0006);
+        creaseRing(k, 0.0008, r * 0.82, cm);
         const d = k.userData && k.userData.d;
         if (d) {
           addMesh(d, fingerSegGeo(0.014, r * 0.76, r * 0.54, 0.44, 12, 14, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.50), sm, 0, 0.001, 0.001);
+          addMesh(d, knuckleGeo(r * 0.28), sm, 0, 0.001, 0.0005);
+          creaseRing(d, 0.0006, r * 0.70, cm);
           // nail on the dorsal distal
           const nail = addMesh(d, nailGeo(r * 1.05, 0.0055, r * 0.28), nailMat(), 0, 0.010, r * 0.38);
           nail.rotation.x = -0.12;
@@ -359,10 +427,13 @@
 
     const th = h.userData.th;
     if (th) {
+      const tcm = creaseMat();
       addMesh(th, fingerSegGeo(0.05, 0.0096, 0.0080, 0.78, 10, 12, 1), sm);
+      creaseRing(th, 0.001, 0.0090, tcm);
       const tk = th.userData && th.userData.k;
       if (tk) {
         addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0076, 0.78, 9, 12, 1), sm);
+        creaseRing(tk, 0.0008, 0.0076, tcm);
         const td = tk.userData && tk.userData.d;
         if (td) {
           addMesh(td, fingerSegGeo(0.014, 0.0076, 0.0064, 0.76, 9, 12, 0), sm);
@@ -381,7 +452,7 @@
     }
     const kn = [];
     for (let i = 0; i < 4; i++) {
-      const b = addMesh(h, knuckleGeo(0.0078 - i * 0.0004), sm, (i - 1.5) * 0.0215, 0.096, 0.009);
+      const b = addMesh(h, knuckleGeo(0.0052 - i * 0.0003), sm, (i - 1.5) * 0.0215, 0.096, 0.007);
       kn.push(b);
     }
     h.userData.kn = kn;

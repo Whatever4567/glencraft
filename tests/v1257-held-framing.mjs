@@ -10,8 +10,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const html = readFileSync(join(root, 'index.html'), 'utf8');
 
 assert.ok(/dz:-0\.16, fov: 1\.08/.test(html), 'pick FRAME is pulled back (1257)');
-assert.ok(html.includes('crescentBladeGeometry(0.44') && html.includes('0.30') || html.includes('crescentBladeGeometry(0.44, 0.0230, 0.048, 0.42)'),
-  'pick crescent uses a short lower hook so the haft stays visible');
+// The short hook (0.42) is the third-person / world pick. First-person uses a
+// separate deep hook (fpCrescentGeo / hook 1.04) swapped in by the 1259 VM.
+assert.ok(html.includes('crescentBladeGeometry(0.44, 0.0230, 0.048, 0.42)'),
+  'TP/world pick crescent keeps the short lower hook so the world haft stays visible');
 assert.ok(/const len = 0\.88/.test(html) || html.includes('const len = 0.88'),
   'crystal pick haft is lengthened');
 assert.ok(html.includes("ads: [0, 0.010, -0.34]"), 'musket ADS sight sits 0.34 in front of the camera');
