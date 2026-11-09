@@ -220,131 +220,27 @@
     return true;
   }
 
-  function isPistolGun(u) {
-    return !!(u && ((typeof IT !== 'undefined' && u.gun === IT.PISTOL) || u.gun === 212 || u.kind === 'pistol'));
-  }
-  function isMusketGun(u) {
-    return !!(u && ((typeof IT !== 'undefined' && u.gun === IT.MUSKET) || u.gun === 213 || u.kind === 'musket'));
-  }
-
-  // Replace the modern service-pistol / bolt-action mesh with a procedural
-  // flintlock (wood stock, hammer, brass). No flintlock GLB exists in the repo.
-  // Fitted into the existing rig the same way C322 fits a GLB, so hip/ADS
-  // poses and the muzzle stay in the viewmodel frame.
-  function boxIn(o, rel) {
-    const b = new T.Box3();
-    o.updateMatrixWorld(true);
-    const inv = new T.Matrix4().copy(rel.matrixWorld).invert();
-    o.traverse(function (m) {
-      if (m.isMesh && m.visible && m.geometry) {
-        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
-        b.union(m.geometry.boundingBox.clone().applyMatrix4(new T.Matrix4().multiplyMatrices(inv, m.matrixWorld)));
-      }
-    });
-    return b;
-  }
-  function dressFlintlock(g) {
-    const u = g && g.userData;
-    if (!u || !u.rig || u.__flint1255) return false;
-    // Pistol must be a flintlock (goal t1141). The musket keeps the C322
-    // rig frame so ADS/hip poses stay out of the stock; forestock hands are posed separately.
-    if (!isPistolGun(u)) return false;
-    const P = W.__prism1241;
-    if (!P || typeof P.buildGun !== 'function') return false;
-    const isP = isPistolGun(u);
-    const kind = isP ? 'pistol' : 'musket';
-    const flint = P.buildGun(kind);
-    if (!flint) return false;
-    const rig = u.rig;
-    rig.updateMatrixWorld(true);
-    const ob = boxIn(rig, rig);
-    if (ob.isEmpty()) return false;
-    // Clear the modern/blocky parts but keep the rig's world pose.
-    while (rig.children.length) rig.remove(rig.children[0]);
-    const hold = new T.Group();
-    hold.name = 'flintlock1255';
-    hold.add(flint);
-    rig.add(hold);
-    hold.updateMatrixWorld(true);
-    const nb = boxIn(hold, hold);
-    const L0 = ob.max.z - ob.min.z, L1 = nb.max.z - nb.min.z, k = (L1 > 1e-6) ? L0 / L1 : 1;
-    hold.scale.setScalar(k);
-    flint.position.set(0, 0, 0);
-    const nb2 = boxIn(hold, hold);
-    flint.position.set(
-      -(nb2.min.x + nb2.max.x) / 2 / k,
-      ((ob.min.y + ob.max.y) / 2 - (nb2.min.y + nb2.max.y) / 2) / k,
-      (ob.max.z - nb2.max.z) / k
-    );
-    hold.updateMatrixWorld(true);
-    const fb = boxIn(hold, rig);
-    const mz = new T.Object3D();
-    mz.name = 'muzzle';
-    mz.position.set((fb.min.x + fb.max.x) / 2, fb.max.y - (fb.max.y - fb.min.y) * (isP ? 0.22 : 0.30), fb.min.z - 0.01);
-    rig.add(mz);
-    u.muzzle = mz;
-    // Sight: highest point over the front half of the barrel, so ADS looks
-    // down the sights and not into the stock.
-    rig.updateMatrixWorld(true);
-    let fy = -1e9, fz = fb.min.z + (fb.max.z - fb.min.z) * (isP ? 0.35 : 0.20);
-    const P0 = new T.Vector3(), inv = new T.Matrix4().copy(rig.matrixWorld).invert();
-    const zc = fb.min.z + (fb.max.z - fb.min.z) * (isP ? 0.30 : 0.12);
-    hold.traverse(function (o) {
-      if (!o.isMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return;
-      const p = o.geometry.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        P0.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
-        if (P0.z < zc && P0.y > fy && P0.y <= fb.max.y + 1e-3) { fy = P0.y; fz = P0.z; }
-      }
-    });
-    if (fy < -1e8) fy = fb.max.y;
-    // Sight is mid-barrel, slightly above the bore — never the muzzle
-    // (that would put the whole gun behind the camera) and never the
-    // stock (that would put the camera inside it).
-    u.sight = new T.Vector3(mz.position.x, fy + 0.002, -0.12);
-    u.__sight1253 = 1;
-    u.slide = new T.Group(); rig.add(u.slide);
-    u.mag = new T.Group(); rig.add(u.mag);
-    try {
-      const S = W.__gs1222;
-      if (S && S.addAnch) {
-        const key = isP ? 'pistol' : 'rifle';
-        const saved = S.ANCH && S.ANCH[key];
-        if (S.ANCH) {
-          S.ANCH[key] = isP
-            ? [['grip', 'rig', 0, -0.07, 0.05], ['sup', 'rig', -0.028, -0.065, 0.045], ['well', 'rig', 0, -0.08, 0.06]]
-            : [['grip', 'rig', 0, -0.03, 0.16], ['fore', 'rig', 0, -0.02, -0.22], ['bolt', 'rig', 0.04, 0.02, 0.10]];
-        }
-        u.anch = {};
-        S.addAnch(g, key);
-        if (S.ANCH && saved) S.ANCH[key] = saved;
-      }
-    } catch (e) { ERR('anch', e); }
-    u.__flint1255 = 1;
-    u.c322 = 1;
-    u.prismBuilt = 1;
-    return true;
-  }
-
   function wrapSight() {
     const C = W.__c322;
     if (!C || !C.swap || C.__sight1249) return !!C && !!C.__sight1249;
     const prev = C.swap;
     C.swap = function (g) {
-      try {
-        if (dressFlintlock(g)) return;
-      } catch (e) { ERR('flint', e); }
       const r = prev.apply(this, arguments);
       try {
         const u = g && g.userData;
-        if (u && u.sight && !u.__flint1255) {
-          const isP = isPistolGun(u);
+        if (u && u.sight) {
+          const isP = (typeof IT !== 'undefined' && u.gun === IT.PISTOL) || u.gun === 212;
           if (isP) {
+            // Keep the pistol sight on the barrel, slightly forward of the lock.
             if (u.sight.z > 0.02) u.sight.z = 0.02;
-          } else if (!u.__sight1253) {
-            u.sight.z = Math.min(u.sight.z, -0.32);
-            u.sight.y += 0.012;
-            u.__sight1253 = 1;
+          } else {
+            // Sit the musket sight on the barrel, forward of the lock so ADS
+            // looks down the sights instead of into the stock.
+            if (!u.__sight1253) {
+              u.sight.z = Math.min(u.sight.z, -0.32);
+              u.sight.y += 0.012;
+              u.__sight1253 = 1;
+            }
           }
         }
       } catch (e) { ERR('sight', e); }
@@ -354,27 +250,14 @@
     return true;
   }
 
-  function scanFlintlock() {
-    try {
-      const h = (typeof held !== 'undefined') ? held : (W.__fpLegacy && W.__fpLegacy.held);
-      if (!h || !h.traverse) return;
-      h.traverse(function (o) {
-        const u = o.userData;
-        if (!u || !u.gun || !u.rig || u.__flint1255) return;
-        try { dressFlintlock(o); } catch (e) { ERR('flintScan', e); }
-      });
-    } catch (_) {}
-  }
-
   let n = 0;
   const boot = setInterval(function () {
     n++;
     const a = wrapMake(), b = wrapSight();
-    scanFlintlock();
     if ((a && b) || n > 80) clearInterval(boot);
   }, 150);
   try {
-    const hook = function () { tickSparks(); scanFlintlock(); };
+    const hook = function () { tickSparks(); };
     const t = setInterval(hook, 50);
     W.addEventListener && W.addEventListener('beforeunload', function () { clearInterval(t); });
   } catch (_) {}

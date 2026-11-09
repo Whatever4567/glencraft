@@ -49005,6 +49005,22 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
  * blocks and empty hands. Guns already have this in GLX-C350; when the
  * gun pass is on we leave it alone. Also forces the #c121hand overlay
  * off (`__handHD = 0`) so only one solid arm is drawn (t1119 ghost). */
+/* GLX-HELDVM-1249: depth-cleared first-person viewmodel pass for tools,
+ * blocks and empty hands. Guns already have this in GLX-C350; when the
+ * gun pass is on we leave it alone. Also forces the #c121hand overlay
+ * off (`__handHD = 0`) so only one solid arm is drawn (t1119 ghost). */
+/* GLX-HELDVM-1249: depth-cleared first-person viewmodel pass for tools,
+ * blocks and empty hands. Guns already have this in GLX-C350; when the
+ * gun pass is on we leave it alone. Also forces the #c121hand overlay
+ * off (`__handHD = 0`) so only one solid arm is drawn (t1119 ghost). */
+/* GLX-HELDVM-1249: depth-cleared first-person viewmodel pass for tools,
+ * blocks and empty hands. Guns already have this in GLX-C350; when the
+ * gun pass is on we leave it alone. Also forces the #c121hand overlay
+ * off (`__handHD = 0`) so only one solid arm is drawn (t1119 ghost). */
+/* GLX-HELDVM-1249: depth-cleared first-person viewmodel pass for tools,
+ * blocks and empty hands. Guns already have this in GLX-C350; when the
+ * gun pass is on we leave it alone. Also forces the #c121hand overlay
+ * off (`__handHD = 0`) so only one solid arm is drawn (t1119 ghost). */
 (function heldVm1249() {
   const U = window.__heldVm1249 = {err: null, on: 0};
   try { window.__handHD = 0; } catch (_) {}
@@ -49103,6 +49119,22 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 /* v1.2.49 hands-sculpt: richer first-person anatomy on the existing
    __fpa pivots (knuckles, nails, palm pads, cloth-like linen). Does not
    replace the animation rig. Items keep their authored grips. */
+/* v1.2.49 hands-sculpt: replace sausage finger/palm meshes with sculpted
+   anatomy on the existing __fpa pivots (knuckles, tapered jointed fingers,
+   thenar pad, nails, forearm taper, linen folds). Animation drivers stay
+   untouched. Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.49 hands-sculpt: replace sausage finger/palm meshes with sculpted
+   anatomy on the existing __fpa pivots (knuckles, tapered jointed fingers,
+   thenar pad, nails, forearm taper, linen folds). Animation drivers stay
+   untouched. Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.49 hands-sculpt: replace sausage finger/palm meshes with sculpted
+   anatomy on the existing __fpa pivots (knuckles, tapered jointed fingers,
+   thenar pad, nails, forearm taper, linen folds). Animation drivers stay
+   untouched. Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.49 hands-sculpt: replace sausage finger/palm meshes with sculpted
+   anatomy on the existing __fpa pivots (knuckles, tapered jointed fingers,
+   thenar pad, nails, forearm taper, linen folds). Animation drivers stay
+   untouched. Retexture/harden are hooked so paint cannot strip the sculpt. */
 /* v1.2.49 hands-sculpt: replace sausage finger/palm meshes with sculpted
    anatomy on the existing __fpa pivots (knuckles, tapered jointed fingers,
    thenar pad, nails, forearm taper, linen folds). Animation drivers stay
@@ -49562,26 +49594,24 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     });
   }
   function palmGeo() {
-    return share('palm1255', function () {
-      const g = new T.BoxGeometry(0.074, 0.10, 0.032, 10, 10, 6);
+    return share('palm', function () {
+      const g = new T.BoxGeometry(0.074, 0.10, 0.032, 8, 8, 4);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
         const yn = (y + 0.05) / 0.10; // 0 bottom (wrist) .. 1 top (fingers)
         const xn = x / 0.037;
-        const zn = z / 0.016;
-        // Round the box corners and taper strongly into the wrist so empty
-        // and sword hands no longer read as a rectangle.
-        const side = 1 - 0.30 * xn * xn;
-        const wrist = 1 - 0.36 * (1 - yn) * (1 - yn);
-        const tip = 1 - 0.10 * Math.max(0, yn - 0.82) / 0.18;
-        x *= side * wrist * tip;
-        const corner = Math.max(0, Math.abs(xn) + Math.abs(zn) * 0.7 - 1.05);
-        x *= (1 - 0.40 * corner);
-        z *= (1 - Math.abs(xn) * 0.38) * (1 - 0.28 * corner);
-        // palmar hollow on the front; slight dorsal knuckle row at the top
-        if (z < 0) z *= 0.78 + 0.22 * (1 - yn);
-        if (yn > 0.82 && z > 0) z += 0.0035;
+        // round the sides and shrink toward the wrist
+        const side = 1 - 0.16 * xn * xn;
+        const wrist = 1 - 0.18 * (1 - yn) * (1 - yn);
+        x *= side * wrist;
+        // palmar cup (positive Z is the back of the hand in this rig? the old code flattened +Z by |x|)
+        // original: pp.setZ(i, z * (1 - Math.abs(x) * 4)) — shrinks Z at the sides.
+        z *= (1 - Math.abs(xn) * 0.28);
+        // palmar hollow on the front (we'll treat -Z as palm, +Z as dorsum based on old flatten being modest)
+        if (z < 0) z *= 0.85 + 0.2 * (1 - yn);
+        // thenar / hypothenar will be separate pads; slight dorsal knuckle row at the top
+        if (yn > 0.82 && z > 0) z += 0.003;
         p.setXYZ(i, x, y, z);
       }
       g.computeVertexNormals();
@@ -50025,6 +50055,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    musket/pistol sight-point correction for a clean ADS picture. */
 /* v1.2.49 item art: rope-handled bucket, bigger torch with sparks,
    musket/pistol sight-point correction for a clean ADS picture. */
+/* v1.2.49 item art: rope-handled bucket, bigger torch with sparks,
+   musket/pistol sight-point correction for a clean ADS picture. */
+/* v1.2.49 item art: rope-handled bucket, bigger torch with sparks,
+   musket/pistol sight-point correction for a clean ADS picture. */
+/* v1.2.49 item art: rope-handled bucket, bigger torch with sparks,
+   musket/pistol sight-point correction for a clean ADS picture. */
+/* v1.2.49 item art: rope-handled bucket, bigger torch with sparks,
+   musket/pistol sight-point correction for a clean ADS picture. */
 (function itemsArt1249(W) {
   const U = W.__itemsArt1249 = {on: 0, err: null, version: '1.2.49'};
   const T = W.THREE;
@@ -50245,131 +50283,27 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     return true;
   }
 
-  function isPistolGun(u) {
-    return !!(u && ((typeof IT !== 'undefined' && u.gun === IT.PISTOL) || u.gun === 212 || u.kind === 'pistol'));
-  }
-  function isMusketGun(u) {
-    return !!(u && ((typeof IT !== 'undefined' && u.gun === IT.MUSKET) || u.gun === 213 || u.kind === 'musket'));
-  }
-
-  // Replace the modern service-pistol / bolt-action mesh with a procedural
-  // flintlock (wood stock, hammer, brass). No flintlock GLB exists in the repo.
-  // Fitted into the existing rig the same way C322 fits a GLB, so hip/ADS
-  // poses and the muzzle stay in the viewmodel frame.
-  function boxIn(o, rel) {
-    const b = new T.Box3();
-    o.updateMatrixWorld(true);
-    const inv = new T.Matrix4().copy(rel.matrixWorld).invert();
-    o.traverse(function (m) {
-      if (m.isMesh && m.visible && m.geometry) {
-        if (!m.geometry.boundingBox) m.geometry.computeBoundingBox();
-        b.union(m.geometry.boundingBox.clone().applyMatrix4(new T.Matrix4().multiplyMatrices(inv, m.matrixWorld)));
-      }
-    });
-    return b;
-  }
-  function dressFlintlock(g) {
-    const u = g && g.userData;
-    if (!u || !u.rig || u.__flint1255) return false;
-    // Pistol must be a flintlock (goal t1141). The musket keeps the C322
-    // rig frame so ADS/hip poses stay out of the stock; forestock hands are posed separately.
-    if (!isPistolGun(u)) return false;
-    const P = W.__prism1241;
-    if (!P || typeof P.buildGun !== 'function') return false;
-    const isP = isPistolGun(u);
-    const kind = isP ? 'pistol' : 'musket';
-    const flint = P.buildGun(kind);
-    if (!flint) return false;
-    const rig = u.rig;
-    rig.updateMatrixWorld(true);
-    const ob = boxIn(rig, rig);
-    if (ob.isEmpty()) return false;
-    // Clear the modern/blocky parts but keep the rig's world pose.
-    while (rig.children.length) rig.remove(rig.children[0]);
-    const hold = new T.Group();
-    hold.name = 'flintlock1255';
-    hold.add(flint);
-    rig.add(hold);
-    hold.updateMatrixWorld(true);
-    const nb = boxIn(hold, hold);
-    const L0 = ob.max.z - ob.min.z, L1 = nb.max.z - nb.min.z, k = (L1 > 1e-6) ? L0 / L1 : 1;
-    hold.scale.setScalar(k);
-    flint.position.set(0, 0, 0);
-    const nb2 = boxIn(hold, hold);
-    flint.position.set(
-      -(nb2.min.x + nb2.max.x) / 2 / k,
-      ((ob.min.y + ob.max.y) / 2 - (nb2.min.y + nb2.max.y) / 2) / k,
-      (ob.max.z - nb2.max.z) / k
-    );
-    hold.updateMatrixWorld(true);
-    const fb = boxIn(hold, rig);
-    const mz = new T.Object3D();
-    mz.name = 'muzzle';
-    mz.position.set((fb.min.x + fb.max.x) / 2, fb.max.y - (fb.max.y - fb.min.y) * (isP ? 0.22 : 0.30), fb.min.z - 0.01);
-    rig.add(mz);
-    u.muzzle = mz;
-    // Sight: highest point over the front half of the barrel, so ADS looks
-    // down the sights and not into the stock.
-    rig.updateMatrixWorld(true);
-    let fy = -1e9, fz = fb.min.z + (fb.max.z - fb.min.z) * (isP ? 0.35 : 0.20);
-    const P0 = new T.Vector3(), inv = new T.Matrix4().copy(rig.matrixWorld).invert();
-    const zc = fb.min.z + (fb.max.z - fb.min.z) * (isP ? 0.30 : 0.12);
-    hold.traverse(function (o) {
-      if (!o.isMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return;
-      const p = o.geometry.attributes.position;
-      for (let i = 0; i < p.count; i++) {
-        P0.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
-        if (P0.z < zc && P0.y > fy && P0.y <= fb.max.y + 1e-3) { fy = P0.y; fz = P0.z; }
-      }
-    });
-    if (fy < -1e8) fy = fb.max.y;
-    // Sight is mid-barrel, slightly above the bore — never the muzzle
-    // (that would put the whole gun behind the camera) and never the
-    // stock (that would put the camera inside it).
-    u.sight = new T.Vector3(mz.position.x, fy + 0.002, -0.12);
-    u.__sight1253 = 1;
-    u.slide = new T.Group(); rig.add(u.slide);
-    u.mag = new T.Group(); rig.add(u.mag);
-    try {
-      const S = W.__gs1222;
-      if (S && S.addAnch) {
-        const key = isP ? 'pistol' : 'rifle';
-        const saved = S.ANCH && S.ANCH[key];
-        if (S.ANCH) {
-          S.ANCH[key] = isP
-            ? [['grip', 'rig', 0, -0.07, 0.05], ['sup', 'rig', -0.028, -0.065, 0.045], ['well', 'rig', 0, -0.08, 0.06]]
-            : [['grip', 'rig', 0, -0.03, 0.16], ['fore', 'rig', 0, -0.02, -0.22], ['bolt', 'rig', 0.04, 0.02, 0.10]];
-        }
-        u.anch = {};
-        S.addAnch(g, key);
-        if (S.ANCH && saved) S.ANCH[key] = saved;
-      }
-    } catch (e) { ERR('anch', e); }
-    u.__flint1255 = 1;
-    u.c322 = 1;
-    u.prismBuilt = 1;
-    return true;
-  }
-
   function wrapSight() {
     const C = W.__c322;
     if (!C || !C.swap || C.__sight1249) return !!C && !!C.__sight1249;
     const prev = C.swap;
     C.swap = function (g) {
-      try {
-        if (dressFlintlock(g)) return;
-      } catch (e) { ERR('flint', e); }
       const r = prev.apply(this, arguments);
       try {
         const u = g && g.userData;
-        if (u && u.sight && !u.__flint1255) {
-          const isP = isPistolGun(u);
+        if (u && u.sight) {
+          const isP = (typeof IT !== 'undefined' && u.gun === IT.PISTOL) || u.gun === 212;
           if (isP) {
+            // Keep the pistol sight on the barrel, slightly forward of the lock.
             if (u.sight.z > 0.02) u.sight.z = 0.02;
-          } else if (!u.__sight1253) {
-            u.sight.z = Math.min(u.sight.z, -0.32);
-            u.sight.y += 0.012;
-            u.__sight1253 = 1;
+          } else {
+            // Sit the musket sight on the barrel, forward of the lock so ADS
+            // looks down the sights instead of into the stock.
+            if (!u.__sight1253) {
+              u.sight.z = Math.min(u.sight.z, -0.32);
+              u.sight.y += 0.012;
+              u.__sight1253 = 1;
+            }
           }
         }
       } catch (e) { ERR('sight', e); }
@@ -50379,31 +50313,34 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     return true;
   }
 
-  function scanFlintlock() {
-    try {
-      const h = (typeof held !== 'undefined') ? held : (W.__fpLegacy && W.__fpLegacy.held);
-      if (!h || !h.traverse) return;
-      h.traverse(function (o) {
-        const u = o.userData;
-        if (!u || !u.gun || !u.rig || u.__flint1255) return;
-        try { dressFlintlock(o); } catch (e) { ERR('flintScan', e); }
-      });
-    } catch (_) {}
-  }
-
   let n = 0;
   const boot = setInterval(function () {
     n++;
     const a = wrapMake(), b = wrapSight();
-    scanFlintlock();
     if ((a && b) || n > 80) clearInterval(boot);
   }, 150);
   try {
-    const hook = function () { tickSparks(); scanFlintlock(); };
+    const hook = function () { tickSparks(); };
     const t = setInterval(hook, 50);
     W.addEventListener && W.addEventListener('beforeunload', function () { clearInterval(t); });
   } catch (_) {}
 })(typeof window !== 'undefined' ? window : this);
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
 /* v1.2.49 held-frame: first-person view transforms so the hand+item sits
    big and low-right, matching t1122 composition. Also hides the duplicate
    c112 map overlay, tightens third-person grip, and eases per-item finger
@@ -50633,9 +50570,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const FRAME = {
     empty:  {dx:  0.02, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.00, armS: 1.10},
     block:  {dx: -0.02, dy:  0.02, dz: 0.04, fov: 0.74, s: 0.58, armS: 1.12},
-    pick:   {dx:  0.00, dy: -0.04, dz:-0.08, fov: 0.76, s: 1.06, armS: 0.95},
-    p761:   {dx:  0.00, dy: -0.04, dz:-0.08, fov: 0.76, s: 1.06, armS: 0.95},
-    p760:   {dx:  0.00, dy: -0.04, dz:-0.08, fov: 0.76, s: 1.06, armS: 0.95},
+    pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
@@ -50785,8 +50722,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       const fpa = W.__fpa;
       const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
       if (!rig) return;
-      const tight = {empty: 0.22, block: 0.16, pick: 1.55, p761: 1.55, p760: 1.55, axe: 1.15, shovel: 1.15, hoe: 1.15,
-        sword: 1.00, bucket: 1.15, torch: 1.00, map: 0.45, musket: ads ? 0.55 : 0.90, pistol: ads ? 0.80 : 1.00, other: 0.8};
+      const tight = {empty: 0.32, block: 0.48, pick: 1.55, p761: 1.55, p760: 1.55, axe: 1.15, shovel: 1.15, hoe: 1.15,
+        sword: 1.08, bucket: 1.15, torch: 1.00, map: 0.45, musket: ads ? 0.70 : 0.95, pistol: ads ? 0.85 : 1.02, other: 0.8};
       const gamt = tight[kind] != null ? tight[kind] : 0.8;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -50827,9 +50764,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         }
         // Cup the wrist so fingers actually go around a haft / cobble, not sit on top.
         if (!ads && kind === 'block' && !isLeft) {
-          // Open palm: cobble rests on the hand, fingers almost straight.
-          h.rotation.x += 0.04;
-          h.rotation.z += 0.02;
+          // Open cupped palm, fingers slightly curled under the cobble.
+          h.rotation.x += 0.12;
+          h.rotation.z += 0.04;
         }
       }
       if (rig.userData.R) curlArm(rig.userData.R, 0);
@@ -51277,9 +51214,6 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (p) {
         if (p.up) p.up.visible = false;
         if (p.cuff) p.cuff.visible = false;
-        // The long skin forearm is a camera-facing cone. Hide it and keep
-        // a short rolled linen cuff on the wrist so the hand stays visible.
-        if (p.fo) p.fo.visible = false;
       }
       hideLongLinen(arm);
       ensureWristCuff(arm);
@@ -51290,34 +51224,46 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function ensureWristCuff(arm) {
     try {
       const p = arm && arm.userData && arm.userData.p;
-      const h = p && p.h;
-      if (!h) return;
-      if (h.userData.sleeve1254) return;
+      const fo = p && p.fo;
+      if (!fo) return;
       const T3 = T;
       let lm = null;
       try { lm = (W.__hands1249 && W.__hands1249.linenMat && W.__hands1249.linenMat()) || null; } catch (_) {}
       if (!lm && p.cuff && p.cuff.material) lm = p.cuff.material;
       if (!lm) lm = new T3.MeshPhongMaterial({color: 0xf4efe6, shininess: 6});
-      // Two modest linen rolls at the wrist — no open cylinder (that reads
-      // as a tube-mouth / camera wall). Keep coverage well under 25%.
-      const r = 0.024;
-      const rollR = 0.0048;
-      const tag = function (m) {
-        m.userData.sleeve1254 = 1;
-        m.userData.folded1249 = 1;
-        m.userData.wristCuff1254 = 1;
-        m.userData.sculptKeep = 1;
-        return m;
-      };
-      const roll = tag(new T3.Mesh(new T3.TorusGeometry(r, rollR, 8, 16), lm));
-      roll.rotation.x = Math.PI / 2;
-      roll.position.set(0, 0.004, 0);
-      h.add(roll);
-      const roll2 = tag(new T3.Mesh(new T3.TorusGeometry(r * 1.08, rollR * 0.75, 8, 16), lm));
-      roll2.rotation.x = Math.PI / 2;
-      roll2.position.set(0, -0.006, 0);
-      h.add(roll2);
-      h.userData.sleeve1254 = 1;
+      const h = p.h;
+      if (h) {
+        h.traverse(function (o) {
+          if (o.isMesh && o.userData && o.userData.wristCuff1254) o.visible = false;
+        });
+      }
+      if (fo.userData.sleeve1254) return;
+      if (fo.geometry) {
+        if (!fo.geometry.boundingBox) fo.geometry.computeBoundingBox();
+        const bb = fo.geometry.boundingBox;
+        const pos = fo.geometry.attributes && fo.geometry.attributes.position;
+        const span = (bb.max.y - bb.min.y) || 1;
+        let wr = 0;
+        if (pos) {
+          for (let i = 0; i < pos.count; i++) {
+            if (Math.abs(pos.getY(i) - bb.max.y) <= span * 0.1) {
+              const rr = Math.hypot(pos.getX(i), pos.getZ(i));
+              if (rr > wr) wr = rr;
+            }
+          }
+        }
+        if (wr < 1e-4) wr = Math.max(Math.abs(bb.max.x), Math.abs(bb.max.z), 0.012);
+        const r = wr * 1.06;
+        const roll = new T3.Mesh(new T3.TorusGeometry(r, Math.max(0.003, r * 0.18), 8, 14), lm);
+        roll.rotation.x = Math.PI / 2;
+        roll.position.set(0, bb.max.y - r * 0.04, 0);
+        roll.userData.sleeve1254 = 1;
+        roll.userData.folded1249 = 1;
+        roll.userData.wristCuff1254 = 1;
+        roll.userData.sculptKeep = 1;
+        fo.add(roll);
+      }
+      fo.userData.sleeve1254 = 1;
     } catch (_) {}
   }
 
@@ -51416,16 +51362,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         L.visible = true;
         if (L.userData && L.userData.p && L.userData.p.h) L.userData.p.h.visible = true;
         if (kind === 'musket') {
-          // Cupped support hand under the forestock, low-left of the sight line.
-          setInCam(L, -0.05, -0.09, -0.32);
+          // Cup under the forestock in the lower-left of the barrel, out of the sights.
+          setInCam(L, -0.06, -0.11, -0.36);
           const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(-0.35, 0.15, 0.95);
-          if (p && p.fo) p.fo.visible = false;
+          if (p && p.h) p.h.rotation.set(-0.2, 0.1, 0.75);
         } else {
-          // Tight two-hand ADS wrap: support palm cups the grip hand.
-          setInCam(L, -0.018, -0.105, -0.20);
+          // Wrap the support hand around the grip, low and slightly left of the slide.
+          setInCam(L, -0.02, -0.13, -0.24);
           const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(0.55, 0.25, 0.70);
+          if (p && p.h) p.h.rotation.set(0.4, 0.2, 0.55);
         }
       } else if (!ads && kind === 'musket') {
         if (R && R.userData && R.userData.p && R.userData.p.fo) {
@@ -58818,6 +58763,34 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
  * Held1240FpArms as the main arms. Those procedural arms are retextured from
  * the new character (skin from the hand meshes, cream linen sleeve from the
  * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
@@ -58846,7 +58819,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     map:    {p: [0, 0.03, 0.06], r: [-1.05, 0, 0.15], s: 1, euler: 'YXZ'},
     pistol: {p: [0.01, 0.02, 0.04], r: [0.15, -Math.PI / 2, 0], s: 0.95, euler: 'YXZ'},
     musket: {p: [0.02, 0.03, 0.06], r: [0.2, -Math.PI / 2, 0], s: 0.82, euler: 'YXZ'},
-    block:  {p: [0, 0.07, 0.02], r: [0.10, 0.40, 0.06], s: 0.78, euler: 'YXZ'},
+    block:  {p: [0, 0.05, 0.03], r: [0.15, 0.45, 0.08], s: 0.82, euler: 'YXZ'},
     bucket: {p: [0.02, -0.08, 0.05], r: [0.95, 0.25, 0.18], s: 0.80, euler: 'YXZ'},
     torch:  {p: [0, 0.03, 0.04], r: [0.2, 0, 0], s: 0.85, euler: 'YXZ'},
     drink:  {p: [0, 0.03, 0.05], r: [0.1, 0.3, 0], s: 0.95, euler: 'YXZ'},
@@ -61534,6 +61507,110 @@ try {
     held: (typeof held !== 'undefined') ? held : null,
     gripHand: (typeof gripHand !== 'undefined') ? gripHand : null,
     mcArm: (typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  const prev = window.__fpLegacy || {};
+  window.__fpLegacy = {
+    fist: prev.fist || ((typeof fist !== 'undefined') ? fist : null),
+    armMesh: prev.armMesh || ((typeof armMesh !== 'undefined') ? armMesh : null),
+    armPivot: prev.armPivot || ((typeof armPivot !== 'undefined') ? armPivot : null),
+    hand: prev.hand || ((typeof hand !== 'undefined') ? hand : null),
+    held: prev.held || ((typeof held !== 'undefined') ? held : null),
+    gripHand: prev.gripHand || ((typeof gripHand !== 'undefined') ? gripHand : null),
+    mcArm: prev.mcArm || ((typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null),
+    idle: prev.idle,
+    walk: prev.walk
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  const prev = window.__fpLegacy || {};
+  window.__fpLegacy = {
+    fist: prev.fist || ((typeof fist !== 'undefined') ? fist : null),
+    armMesh: prev.armMesh || ((typeof armMesh !== 'undefined') ? armMesh : null),
+    armPivot: prev.armPivot || ((typeof armPivot !== 'undefined') ? armPivot : null),
+    hand: prev.hand || ((typeof hand !== 'undefined') ? hand : null),
+    held: prev.held || ((typeof held !== 'undefined') ? held : null),
+    gripHand: prev.gripHand || ((typeof gripHand !== 'undefined') ? gripHand : null),
+    mcArm: prev.mcArm || ((typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null),
+    idle: prev.idle,
+    walk: prev.walk
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  const prev = window.__fpLegacy || {};
+  window.__fpLegacy = {
+    fist: prev.fist || ((typeof fist !== 'undefined') ? fist : null),
+    armMesh: prev.armMesh || ((typeof armMesh !== 'undefined') ? armMesh : null),
+    armPivot: prev.armPivot || ((typeof armPivot !== 'undefined') ? armPivot : null),
+    hand: prev.hand || ((typeof hand !== 'undefined') ? hand : null),
+    held: prev.held || ((typeof held !== 'undefined') ? held : null),
+    gripHand: prev.gripHand || ((typeof gripHand !== 'undefined') ? gripHand : null),
+    mcArm: prev.mcArm || ((typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null),
+    idle: prev.idle,
+    walk: prev.walk
+  };
+} catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
+/* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +
+ * skin hand) onto the existing __fpa / mcArm / fist animation pivots.
+ * Box meshes become invisible drivers only — swing, place, reload, gun and
+ * swim timings, plus the proven 1.2.27 three-joint finger curls, 1.2.24 /
+ * 42d5925 rifle-bolt / pistol-wrist caps, and 1.2.40 shortest-path reload
+ * slerp, all stay on __fpa. Held items stay parented where __fpa / __vm put
+ * them (no snap-to-socket feedback loop).
+ *
+ * The 1.2.45 clone put the full bind-pose body in the first-person camera
+ * (stomach in view, grey clipped texture, arms and tools hidden). This
+ * build PHYSICALLY REMOVES every non-arm mesh (torso, kilt, head, pack,
+ * legs) so the body can never appear in first person. */
+try {
+  const prev = window.__fpLegacy || {};
+  window.__fpLegacy = {
+    fist: prev.fist || ((typeof fist !== 'undefined') ? fist : null),
+    armMesh: prev.armMesh || ((typeof armMesh !== 'undefined') ? armMesh : null),
+    armPivot: prev.armPivot || ((typeof armPivot !== 'undefined') ? armPivot : null),
+    hand: prev.hand || ((typeof hand !== 'undefined') ? hand : null),
+    held: prev.held || ((typeof held !== 'undefined') ? held : null),
+    gripHand: prev.gripHand || ((typeof gripHand !== 'undefined') ? gripHand : null),
+    mcArm: prev.mcArm || ((typeof window !== 'undefined' && window.mcArm) ? window.mcArm : null),
+    idle: prev.idle,
+    walk: prev.walk
   };
 } catch (e) { window.__fpLegacyErr = String(e && e.message || e); }
 /* v1.2.47: switch the Scottish character GLB arm meshes (cream linen sleeve +

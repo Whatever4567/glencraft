@@ -15,9 +15,9 @@
   const FRAME = {
     empty:  {dx:  0.02, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.00, armS: 1.10},
     block:  {dx: -0.02, dy:  0.02, dz: 0.04, fov: 0.74, s: 0.58, armS: 1.12},
-    pick:   {dx:  0.00, dy: -0.04, dz:-0.08, fov: 0.76, s: 1.06, armS: 0.95},
-    p761:   {dx:  0.00, dy: -0.04, dz:-0.08, fov: 0.76, s: 1.06, armS: 0.95},
-    p760:   {dx:  0.00, dy: -0.04, dz:-0.08, fov: 0.76, s: 1.06, armS: 0.95},
+    pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
@@ -167,8 +167,8 @@
       const fpa = W.__fpa;
       const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
       if (!rig) return;
-      const tight = {empty: 0.22, block: 0.16, pick: 1.55, p761: 1.55, p760: 1.55, axe: 1.15, shovel: 1.15, hoe: 1.15,
-        sword: 1.00, bucket: 1.15, torch: 1.00, map: 0.45, musket: ads ? 0.55 : 0.90, pistol: ads ? 0.80 : 1.00, other: 0.8};
+      const tight = {empty: 0.32, block: 0.48, pick: 1.55, p761: 1.55, p760: 1.55, axe: 1.15, shovel: 1.15, hoe: 1.15,
+        sword: 1.08, bucket: 1.15, torch: 1.00, map: 0.45, musket: ads ? 0.70 : 0.95, pistol: ads ? 0.85 : 1.02, other: 0.8};
       const gamt = tight[kind] != null ? tight[kind] : 0.8;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -209,9 +209,9 @@
         }
         // Cup the wrist so fingers actually go around a haft / cobble, not sit on top.
         if (!ads && kind === 'block' && !isLeft) {
-          // Open palm: cobble rests on the hand, fingers almost straight.
-          h.rotation.x += 0.04;
-          h.rotation.z += 0.02;
+          // Open cupped palm, fingers slightly curled under the cobble.
+          h.rotation.x += 0.12;
+          h.rotation.z += 0.04;
         }
       }
       if (rig.userData.R) curlArm(rig.userData.R, 0);
@@ -659,9 +659,6 @@
       if (p) {
         if (p.up) p.up.visible = false;
         if (p.cuff) p.cuff.visible = false;
-        // The long skin forearm is a camera-facing cone. Hide it and keep
-        // a short rolled linen cuff on the wrist so the hand stays visible.
-        if (p.fo) p.fo.visible = false;
       }
       hideLongLinen(arm);
       ensureWristCuff(arm);
@@ -672,34 +669,46 @@
   function ensureWristCuff(arm) {
     try {
       const p = arm && arm.userData && arm.userData.p;
-      const h = p && p.h;
-      if (!h) return;
-      if (h.userData.sleeve1254) return;
+      const fo = p && p.fo;
+      if (!fo) return;
       const T3 = T;
       let lm = null;
       try { lm = (W.__hands1249 && W.__hands1249.linenMat && W.__hands1249.linenMat()) || null; } catch (_) {}
       if (!lm && p.cuff && p.cuff.material) lm = p.cuff.material;
       if (!lm) lm = new T3.MeshPhongMaterial({color: 0xf4efe6, shininess: 6});
-      // Two modest linen rolls at the wrist — no open cylinder (that reads
-      // as a tube-mouth / camera wall). Keep coverage well under 25%.
-      const r = 0.024;
-      const rollR = 0.0048;
-      const tag = function (m) {
-        m.userData.sleeve1254 = 1;
-        m.userData.folded1249 = 1;
-        m.userData.wristCuff1254 = 1;
-        m.userData.sculptKeep = 1;
-        return m;
-      };
-      const roll = tag(new T3.Mesh(new T3.TorusGeometry(r, rollR, 8, 16), lm));
-      roll.rotation.x = Math.PI / 2;
-      roll.position.set(0, 0.004, 0);
-      h.add(roll);
-      const roll2 = tag(new T3.Mesh(new T3.TorusGeometry(r * 1.08, rollR * 0.75, 8, 16), lm));
-      roll2.rotation.x = Math.PI / 2;
-      roll2.position.set(0, -0.006, 0);
-      h.add(roll2);
-      h.userData.sleeve1254 = 1;
+      const h = p.h;
+      if (h) {
+        h.traverse(function (o) {
+          if (o.isMesh && o.userData && o.userData.wristCuff1254) o.visible = false;
+        });
+      }
+      if (fo.userData.sleeve1254) return;
+      if (fo.geometry) {
+        if (!fo.geometry.boundingBox) fo.geometry.computeBoundingBox();
+        const bb = fo.geometry.boundingBox;
+        const pos = fo.geometry.attributes && fo.geometry.attributes.position;
+        const span = (bb.max.y - bb.min.y) || 1;
+        let wr = 0;
+        if (pos) {
+          for (let i = 0; i < pos.count; i++) {
+            if (Math.abs(pos.getY(i) - bb.max.y) <= span * 0.1) {
+              const rr = Math.hypot(pos.getX(i), pos.getZ(i));
+              if (rr > wr) wr = rr;
+            }
+          }
+        }
+        if (wr < 1e-4) wr = Math.max(Math.abs(bb.max.x), Math.abs(bb.max.z), 0.012);
+        const r = wr * 1.06;
+        const roll = new T3.Mesh(new T3.TorusGeometry(r, Math.max(0.003, r * 0.18), 8, 14), lm);
+        roll.rotation.x = Math.PI / 2;
+        roll.position.set(0, bb.max.y - r * 0.04, 0);
+        roll.userData.sleeve1254 = 1;
+        roll.userData.folded1249 = 1;
+        roll.userData.wristCuff1254 = 1;
+        roll.userData.sculptKeep = 1;
+        fo.add(roll);
+      }
+      fo.userData.sleeve1254 = 1;
     } catch (_) {}
   }
 
@@ -798,16 +807,15 @@
         L.visible = true;
         if (L.userData && L.userData.p && L.userData.p.h) L.userData.p.h.visible = true;
         if (kind === 'musket') {
-          // Cupped support hand under the forestock, low-left of the sight line.
-          setInCam(L, -0.05, -0.09, -0.32);
+          // Cup under the forestock in the lower-left of the barrel, out of the sights.
+          setInCam(L, -0.06, -0.11, -0.36);
           const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(-0.35, 0.15, 0.95);
-          if (p && p.fo) p.fo.visible = false;
+          if (p && p.h) p.h.rotation.set(-0.2, 0.1, 0.75);
         } else {
-          // Tight two-hand ADS wrap: support palm cups the grip hand.
-          setInCam(L, -0.018, -0.105, -0.20);
+          // Wrap the support hand around the grip, low and slightly left of the slide.
+          setInCam(L, -0.02, -0.13, -0.24);
           const p = L.userData && L.userData.p;
-          if (p && p.h) p.h.rotation.set(0.55, 0.25, 0.70);
+          if (p && p.h) p.h.rotation.set(0.4, 0.2, 0.55);
         }
       } else if (!ads && kind === 'musket') {
         if (R && R.userData && R.userData.p && R.userData.p.fo) {

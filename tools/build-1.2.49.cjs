@@ -374,7 +374,8 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const already7 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.22], sk: 0.55';
   const already8 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.022, -0.24], sk: 0.50';
   const already9 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.018, -0.22], sk: 0.50';
-  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1) || s.includes(already2) || s.includes(already3) || s.includes(already4) || s.includes(already5) || s.includes(already6) || s.includes(already7) || s.includes(already8) || s.includes(already9);
+  const already10 = 'rifle: {hip: [0.08, 0.00, -0.22], ads: [0, 0.032, -0.26], sk: 0.55';
+  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1) || s.includes(already2) || s.includes(already3) || s.includes(already4) || s.includes(already5) || s.includes(already6) || s.includes(already7) || s.includes(already8) || s.includes(already9) || s.includes(already10);
   for (const a of prevs) {
     if (s.includes(a)) { s = s.replace(a, next); hit = true; }
   }
@@ -396,9 +397,11 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const prevClean10 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.22], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
   const prevClean11 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.022, -0.24], sk: 0.50, yaw: 0.28, roll: 0.03, zoom: 0.14';
   const prevClean12 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.018, -0.22], sk: 0.50, yaw: 0.28, roll: 0.03, zoom: 0.14';
+  const cleanAdsTry = 'rifle: {hip: [0.08, 0.00, -0.22], ads: [0, 0.032, -0.26], sk: 0.55, yaw: 0.28, roll: 0.03, zoom: 0.14';
   const cleanAds = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.22], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
   const prevClean = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
-  if (s.includes(prevClean12)) s = s.replace(prevClean12, cleanAds);
+  if (s.includes(cleanAdsTry)) s = s.replace(cleanAdsTry, cleanAds);
+  else if (s.includes(prevClean12)) s = s.replace(prevClean12, cleanAds);
   else if (s.includes(prevClean11)) s = s.replace(prevClean11, cleanAds);
   else if (s.includes(prevClean10)) s = s.replace(prevClean10, cleanAds);
   else if (s.includes(prevClean9)) s = s.replace(prevClean9, cleanAds);
@@ -487,7 +490,6 @@ if (!s.includes('crescentBladeGeometry') || !s.includes('crystalVeinTexture')) t
 if (!s.includes('itemsArt1249')) throw new Error('items-art 1249 missing');
 if (!s.includes('ads: [0, 0.018, -0.22]')) throw new Error('musket ADS pose not applied');
 if (!s.includes('yaw: 0.32, roll: 0.04')) throw new Error('musket hip yaw not applied');
-if (!s.includes('__flint1255') || !s.includes('dressFlintlock')) throw new Error('flintlock pistol/musket swap missing');
 if (!s.includes('handle1249') || !s.includes('isGlowPart')) throw new Error('1255 pick grip socket fix missing');
 if (!s.includes('heldFrame1251') || !s.includes('__heldFrame1251')) throw new Error('held-frame 1251 missing');
 if (!s.includes('GLX-CULLVM-1252') || !s.includes('cullVm')) throw new Error('viewmodel coverage cull hook missing');

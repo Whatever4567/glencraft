@@ -205,26 +205,24 @@
     });
   }
   function palmGeo() {
-    return share('palm1255', function () {
-      const g = new T.BoxGeometry(0.074, 0.10, 0.032, 10, 10, 6);
+    return share('palm', function () {
+      const g = new T.BoxGeometry(0.074, 0.10, 0.032, 8, 8, 4);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
         const yn = (y + 0.05) / 0.10; // 0 bottom (wrist) .. 1 top (fingers)
         const xn = x / 0.037;
-        const zn = z / 0.016;
-        // Round the box corners and taper strongly into the wrist so empty
-        // and sword hands no longer read as a rectangle.
-        const side = 1 - 0.30 * xn * xn;
-        const wrist = 1 - 0.36 * (1 - yn) * (1 - yn);
-        const tip = 1 - 0.10 * Math.max(0, yn - 0.82) / 0.18;
-        x *= side * wrist * tip;
-        const corner = Math.max(0, Math.abs(xn) + Math.abs(zn) * 0.7 - 1.05);
-        x *= (1 - 0.40 * corner);
-        z *= (1 - Math.abs(xn) * 0.38) * (1 - 0.28 * corner);
-        // palmar hollow on the front; slight dorsal knuckle row at the top
-        if (z < 0) z *= 0.78 + 0.22 * (1 - yn);
-        if (yn > 0.82 && z > 0) z += 0.0035;
+        // round the sides and shrink toward the wrist
+        const side = 1 - 0.16 * xn * xn;
+        const wrist = 1 - 0.18 * (1 - yn) * (1 - yn);
+        x *= side * wrist;
+        // palmar cup (positive Z is the back of the hand in this rig? the old code flattened +Z by |x|)
+        // original: pp.setZ(i, z * (1 - Math.abs(x) * 4)) — shrinks Z at the sides.
+        z *= (1 - Math.abs(xn) * 0.28);
+        // palmar hollow on the front (we'll treat -Z as palm, +Z as dorsum based on old flatten being modest)
+        if (z < 0) z *= 0.85 + 0.2 * (1 - yn);
+        // thenar / hypothenar will be separate pads; slight dorsal knuckle row at the top
+        if (yn > 0.82 && z > 0) z += 0.003;
         p.setXYZ(i, x, y, z);
       }
       g.computeVertexNormals();
