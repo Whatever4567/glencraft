@@ -12,7 +12,7 @@ const ver = JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.ur
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(ver.v === '1.2.50' && html.includes("const GAME_VERSION = '1.2.50';"), 'version is 1.2.50');
+ok(ver.v === '1.2.49' && html.includes("const GAME_VERSION = '1.2.49';"), 'version is 1.2.49 (combined launch)');
 ok(html.includes('id="ostSeg"') && html.includes('data-ost="hardcore"'), 'soundtrack picker is still present');
 
 // Hardcore remix

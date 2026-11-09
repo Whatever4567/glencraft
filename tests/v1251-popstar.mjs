@@ -16,9 +16,9 @@ const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' 
 
 ok(html.includes('GLX-V1251') && html.includes('__v1251') && html.includes('__popstarCore'), 'v1251 module is embedded in index.html');
 ok(html.includes('<!-- glencraft-build: b1251-popstar -->'), 'b1251 marker is present');
-ok(html.includes('<!-- glencraft-build: b1248-v1.2.48 -->'), '1.2.48 marker is still present');
-ok(html.includes("const GAME_VERSION = '1.2.48';"), 'GAME_VERSION stays 1.2.48 on this unpublished branch');
-ok(!html.includes("const GAME_VERSION = '1.2.51';"), 'GAME_VERSION was not bumped');
+ok(html.includes('<!-- glencraft-build: b1249-v1.2.49 -->'), '1.2.49 launch marker is present');
+ok(html.includes("const GAME_VERSION = '1.2.49';"), 'GAME_VERSION is 1.2.49 on the combined launch');
+ok(!html.includes("const GAME_VERSION = '1.2.51';"), 'GAME_VERSION was not bumped to 1.2.51');
 ok(html.includes('worldTilesUntouched'), 'world block atlas was not re-prismed');
 ok(html.includes('__fpa') || html.includes('mcArm') || html.includes('fist'), 'first-person arm hooks are still in the bundle');
 
