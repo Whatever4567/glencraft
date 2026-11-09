@@ -27,9 +27,13 @@ function looksSpoken(s) {
   if (!s || s.length < 2) return false;
   if (/as an ai|language model|I cannot/i.test(s)) return false;
   if (/\b(alert|warn|instruct|tell|advise|inform)\b.*\b(traveller|traveler|player|user)\b/i.test(s)) return false;
+  if (/^(As I |I (lay|lie|stood|watched|saw|heard)|There (was|were)|The (rain|night|sun|moon)\b)/i.test(s)) return false;
+  if (/\b(makeshift bed|soft raindrops|falling from the sky)\b/i.test(s)) return false;
   if (/dung drops from the sun|motherboard|cliquez/i.test(s)) return false;
   const weird = [...s].filter(c => c.charCodeAt(0) > 126).length;
   if (weird > 2) return false;
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 16) return false;
   return [...s].filter(c => /[A-Za-z]/.test(c)).length >= 4;
 }
 

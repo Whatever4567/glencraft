@@ -6,7 +6,7 @@ const scenarios = [
   { id: 'greet', user: 'A traveller stands close by the castle gate. Greet them as yourself in one short spoken line.', stimulus: 'greet' },
   { id: 'trade', user: 'The traveller offers rubies for bread. Answer as yourself in one short spoken line.', stimulus: 'trade' },
   { id: 'danger', user: 'Skeletons are attacking nearby. Shout one short warning as yourself.', stimulus: 'alarm' },
-  { id: 'night', user: 'It is night and raining. Say one short spoken line as a sleepy clansman.', stimulus: 'idle' },
+  { id: 'night', user: 'It is night and raining. Speak one short sleepy greeting aloud to the traveller.', stimulus: 'idle' },
   { id: 'follow', user: 'The traveller asks you to follow. Agree briefly as yourself.', stimulus: 'agree' }
 ];
 

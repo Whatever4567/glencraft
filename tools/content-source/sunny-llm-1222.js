@@ -112,7 +112,15 @@
     } catch (e) { ERR(e); }
   };
   U.cancelBrowserBrain = function () {
-    try { if (worker) worker.postMessage({ type: 'cancel' }); U.status = 'cancelled'; setStatusUI(); } catch (e) { ERR(e); }
+    try {
+      if (worker) {
+        try { worker.postMessage({ type: 'cancel' }); } catch (_) {}
+        try { worker.terminate(); } catch (_) {}
+      }
+      worker = null; workerReady = false; U.browserReady = false; pending = null; q.length = 0;
+      U.status = 'cancelled'; U.progress = null; setStatusUI();
+      try { toast('Sunny brain load cancelled'); } catch (_) {}
+    } catch (e) { ERR(e); }
   };
 
   function chatBrowser(job) {

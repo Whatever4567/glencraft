@@ -55,8 +55,14 @@ export function looksSpoken(s) {
   if (/\b(alert|warn|instruct|tell|advise|inform)\b.*\b(traveller|traveler|player|user)\b/i.test(s)) return false;
   if (/\b(the traveller should|you should say|stage direction)\b/i.test(s)) return false;
   if (/dung drops from the sun|motherboard|cliquez|utilizator/i.test(s)) return false;
+  // Reject journal/narration (not spoken dialogue)
+  if (/^(As I |I (lay|lie|stood|watched|saw|heard)|There (was|were)|The (rain|night|sun|moon)\b)/i.test(s)) return false;
+  if (/\b(makeshift bed|soft raindrops|falling from the sky)\b/i.test(s)) return false;
+  if (/\b(he said|she said|they said|narrat)\b/i.test(s)) return false;
   const weird = [...s].filter(c => c.charCodeAt(0) > 126).length;
   if (weird > 2) return false;
   const letters = [...s].filter(c => /[A-Za-z]/.test(c)).length;
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length < 1 || words.length > 16) return false;
   return letters >= 4;
 }
