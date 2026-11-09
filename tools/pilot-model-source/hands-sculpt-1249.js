@@ -95,30 +95,23 @@
   }
 
   function skinTexFp() {
-    return tex(512, 512, (g) => {
-      const grd = g.createLinearGradient(0, 0, 512, 512);
-      grd.addColorStop(0, '#e4c4ae');
-      grd.addColorStop(0.35, '#d5a88c');
-      grd.addColorStop(0.7, '#c48c70');
-      grd.addColorStop(1, '#a8725a');
-      g.fillStyle = grd; g.fillRect(0, 0, 512, 512);
-      for (let i = 0; i < 2800; i++) {
-        const v = 140 + Math.random() * 50 | 0;
-        g.fillStyle = 'rgba(' + v + ',' + (v - 30) + ',' + (v - 42) + ',' + (0.05 + Math.random() * 0.06) + ')';
-        g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1);
-      }
-      for (let i = 0; i < 1000; i++) {
-        g.fillStyle = 'rgba(80,55,40,' + (0.04 + Math.random() * 0.05) + ')';
-        g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
-      }
-      g.strokeStyle = 'rgba(90,60,45,0.16)'; g.lineWidth = 1.3;
-      for (let i = 0; i < 18; i++) {
-        g.beginPath();
-        const x = 30 + Math.random() * 420, y = 30 + Math.random() * 420;
-        g.moveTo(x, y); g.quadraticCurveTo(x + 36, y + 8, x + 72, y - 5);
-        g.stroke();
+    // 1265: smooth warm skin — no long crease strokes or busy grain that
+    // reads as bark / wood on a close first-person hand.
+    const t = tex(256, 256, (g) => {
+      const grd = g.createLinearGradient(0, 0, 256, 256);
+      grd.addColorStop(0, '#e6c4a8');
+      grd.addColorStop(0.45, '#d4a888');
+      grd.addColorStop(1, '#c49072');
+      g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 400; i++) {
+        const v = 180 + Math.random() * 30 | 0;
+        g.fillStyle = 'rgba(' + v + ',' + (v - 28) + ',' + (v - 40) + ',0.04)';
+        g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
       }
     });
+    t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    t.repeat.set(1, 1);
+    return t;
   }
   const SKIN_MAP = skinTex();
   const SKIN_MAP_FP = skinTexFp();
@@ -146,7 +139,7 @@
   U.linenMat = linenMat;
   function knuckleMatFp() {
     const m = new T.MeshPhongMaterial({
-      color: 0xd4a090, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.05,
+      color: 0xd4a090, map: SKIN_MAP_FP, bumpMap: null, bumpScale: 0,
       shininess: 22, specular: 0x5a3a32
     });
     m.userData.sculptKeep = 1;
@@ -156,7 +149,7 @@
   function skinMatFp() {
     // 0xc6b399 was the 1262 desaturated tan; 1263 is a warmer, more saturated mid.
     const m = new T.MeshPhongMaterial({
-      color: 0xd2a07c, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP, bumpScale: 0.045,
+      color: 0xd2a07c, map: SKIN_MAP_FP, bumpMap: null, bumpScale: 0,
       shininess: 18, specular: 0x5a3c30
     });
     m.userData.sculptKeep = 1;

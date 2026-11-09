@@ -33,8 +33,10 @@
   // sh/wr: [ndcX, ndcY, zCam]
   const POSES = {
     empty: {
-      two: 0, hs: 1.22,
-      R: { sh: [0.52, -1.34, -0.58], wr: [0.26, -0.66, -0.52], rot: [0, 0, 0], haft: [0.62, -0.52, 0], curl: 1 }
+      two: 0, hs: 0.88,
+      // 1265: small relaxed hand low in the bottom-right corner, fingers
+      // loosely curled (not a huge splayed claw). Sleeve radius follows.
+      R: { sh: [0.70, -1.36, -0.62], wr: [0.42, -0.78, -0.58], rot: [0, 0, 0], haft: [0.40, -0.35, 0.15], curl: 1, rs: 0.72 }
     },
     block: {
       two: 0, hs: 1.22,
@@ -43,8 +45,10 @@
     },
     p761: {
       two: 0, hs: 1.20,
-      R: { sh: [1.32, -1.14, -0.50], wr: [0.52, -0.58, -0.56], rot: [0, 0, 0], haft: [-0.47, 0.88, 0], curl: 1 },
-      item: { p: [-0.05, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.34 }
+      // 1265: fist bottom-centre-right, haft nearly vertical (~17° lean left),
+      // head in the top fifth, a long pick that spans most of the frame height.
+      R: { sh: [1.22, -1.16, -0.50], wr: [0.48, -0.52, -0.56], rot: [0, 0, 0], haft: [-0.29, 0.96, 0], curl: 1 },
+      item: { p: [-0.05, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.44 }
     },
     pick: null,
     p760: null,
@@ -64,9 +68,12 @@
       item: { p: [0.00, 0.00, 0.00], r: [1.57, 0.12, 0.06], s: 1.05 }
     },
     bucket: {
-      two: 0, hs: 1.18,
-      R: { sh: [1.25, -0.48, -0.55], wr: [0.16, -0.06, -0.50], rot: [0, 0, 0], haft: [0.00, -1.00, 0], curl: 1 },
-      item: { p: [0.12, -0.06, 0.00], r: [0.00, 0.00, 1.57], s: 0.60 }
+      two: 0, hs: 1.16,
+      // 1265: fist holds the bail, bucket centred (~x 0.5-0.6) and held up in
+      // front; arm rises from the bottom-right so the opening (and water) is
+      // not covered. A slight tip toward the camera shows the water surface.
+      R: { sh: [1.28, -1.30, -0.54], wr: [0.36, 0.00, -0.52], rot: [0, 0, 0], haft: [1.00, 0.08, 0], curl: 1 },
+      item: { p: [-0.03, -0.08, -0.04], r: [0.45, 0.00, 0.00], s: 0.62 }
     },
     pistol: {
       two: 0, hs: 1.16,
@@ -306,7 +313,7 @@
     // Joint angles in radians, curled toward the palm (-Z). A full grip is
     // ~80-100° (1.4-1.75 rad) per joint so the fingers wrap a handle.
     let p0, k0, d0, spread;
-    if (mode === 'relax') { p0 = 0.42; k0 = 0.32; d0 = 0.22; spread = 0.06; }
+    if (mode === 'relax') { p0 = 1.02; k0 = 1.12; d0 = 0.88; spread = 0.02; }
     else if (mode === 'cup') { p0 = 0.34; k0 = 0.40; d0 = 0.22; spread = 0.12; }
     else if (mode === 'pinch') { p0 = 0.85; k0 = 1.05; d0 = 0.80; spread = 0.02; }
     else { p0 = 1.55; k0 = 1.70; d0 = 1.25; spread = 0.02; } // fist
@@ -389,20 +396,21 @@
     arm.position.copy(sh);
     arm.quaternion.setFromUnitVectors(_y, _v);
     arm.scale.set(1, 1, 1);
-    // Lengthen the unit sleeve along +Y only; keep radius on X/Z equal.
-    p.sleeve.scale.set(1, len, 1);
+    // Lengthen the unit sleeve along +Y only; radius may shrink per pose (rs).
+    const rs = Math.max(0.55, Math.min(1.4, (spec.rs != null ? spec.rs : 1)));
+    p.sleeve.scale.set(rs, len, rs);
     p.sleeve.position.set(0, 0, 0);
     p.sleeve.rotation.set(0, 0, 0);
     p.cuff.position.set(0, len, 0);
     p.cuff.rotation.set(0, 0, 0);
-    p.cuff.scale.set(1, 1, 1);
+    p.cuff.scale.set(rs, 1, rs);
     p.roll.position.set(0, len - CUFF_H * 0.70, 0);
     p.roll.rotation.set(0, 0, 0);
-    p.roll.scale.set(1, 1, 1);
+    p.roll.scale.set(rs, 1, rs);
     if (p.roll2) {
       p.roll2.position.set(0, len - CUFF_H * 1.15, 0);
       p.roll2.rotation.set(0, 0, 0);
-      p.roll2.scale.set(1, 1, 1);
+      p.roll2.scale.set(rs, 1, rs);
     }
     p.wrist.position.set(0, len, 0);
     p.wrist.scale.set(1, 1, 1);
@@ -594,8 +602,8 @@
     // a lower tip hanging in the air beside the shaft. TP/world keeps hook 0.42.
     if (U._fpHookGeo) return U._fpHookGeo;
     const Ro = 0.32;
-    const dOff = 0.14;
-    const thick = 0.105; // mid thickness; Ri must stay above hypot(Ro, dOff) for a minor cap
+    const dOff = 0.25;
+    const thick = 0.158; // 1265: ~1.5x the 1264 mid-thickness, still a minor-cap lune
     const Ri = Ro + dOff - thick;
     const coy = -0.02; // lower tip hangs in the air beside the shaft, below the socket
     const rotZ = -6 * Math.PI / 180; // slight clockwise: upper tip more vertical in camera
@@ -726,6 +734,92 @@
     blade.userData.fpHook1263 = 1;
     blade.userData.fpHook1262 = 1;
     blade.userData.noGrip = 1;
+    // Wooden wrap/knot at the socket, filling the crescent's hollow so the
+    // blade reads as growing from the haft top (goal carved head).
+    if (!blade.userData.fpSock1265) {
+      const wood = new T.MeshPhongMaterial({
+        color: 0x4a2c14, shininess: 10, specular: 0x2a1a0c
+      });
+      const knot = new T.Group();
+      knot.name = 'FpPickSock';
+      function addWood(geo, px, py, pz, sx, sy, sz) {
+        const m = new T.Mesh(geo, wood);
+        m.position.set(px, py, pz);
+        m.scale.set(sx, sy, sz);
+        m.userData.handle1249 = 1;
+        m.userData.fpSock1265 = 1;
+        knot.add(m);
+        return m;
+      }
+      // Modest carved wrap in the hollow, not a giant sphere. Item -X is
+      // left-of-haft, so the knot sits just off the socket into the C.
+      addWood(new T.SphereGeometry(0.048, 14, 12), -0.040, 0.010, 0, 1.25, 0.72, 0.78);
+      addWood(new T.SphereGeometry(0.032, 12, 10), -0.018, -0.028, 0.010, 1.05, 0.90, 0.72);
+      addWood(new T.SphereGeometry(0.024, 10, 8), -0.030, 0.032, -0.008, 1.10, 0.70, 0.80);
+      // Tight collar around the haft end.
+      const collar = addWood(new T.CylinderGeometry(0.026, 0.020, 0.065, 12), 0, -0.036, 0, 1, 1, 1);
+      collar.rotation.z = 0.06;
+      knot.userData.handle1249 = 1;
+      knot.userData.fpSock1265 = 1;
+      blade.add(knot);
+      blade.userData.fpSock1265 = 1;
+    }
+  }
+  function warmFlameTex1265() {
+    if (U._warmFlameTex1265) return U._warmFlameTex1265;
+    const c = document.createElement('canvas'); c.width = 128; c.height = 256;
+    const g = c.getContext('2d');
+    g.clearRect(0, 0, 128, 256);
+    // Teardrop tongues: rounded (not square) base, warm orange mid and tip.
+    // Transparent padding at the canvas edges so the sprite quad does not show.
+    const baseY = 236;
+    const tongues = [
+      {x: 64, w: 32, h: 214, c0: 'rgba(255,150,30,0.96)', c1: 'rgba(255,110,10,0.9)', c2: 'rgba(255,70,0,0)'},
+      {x: 42, w: 16, h: 165, c0: 'rgba(255,130,20,0.88)', c1: 'rgba(255,90,0,0.78)', c2: 'rgba(220,50,0,0)'},
+      {x: 86, w: 15, h: 158, c0: 'rgba(255,130,20,0.86)', c1: 'rgba(255,85,0,0.76)', c2: 'rgba(220,40,0,0)'},
+      {x: 54, w: 11, h: 190, c0: 'rgba(255,140,20,0.8)', c1: 'rgba(255,80,0,0.68)', c2: 'rgba(200,30,0,0)'},
+      {x: 76, w: 11, h: 180, c0: 'rgba(255,150,30,0.78)', c1: 'rgba(255,85,0,0.66)', c2: 'rgba(200,30,0,0)'}
+    ];
+    function widthAt(k, w) {
+      if (k < 0.14) return w * Math.sin((k / 0.14) * Math.PI * 0.5);
+      return w * (1 - ((k - 0.14) / 0.86) * 0.96);
+    }
+    for (let t = 0; t < tongues.length; t++) {
+      const tg = tongues[t];
+      g.beginPath();
+      const steps = 18;
+      for (let i = 0; i <= steps; i++) {
+        const k = i / steps, y = baseY - tg.h * k;
+        const wob = Math.sin(k * 17 + tg.x) * (tg.w * 0.28) * k * (1 - k);
+        const x = tg.x - (widthAt(k, tg.w) + wob);
+        if (i === 0) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      for (let i = steps; i >= 0; i--) {
+        const k = i / steps, y = baseY - tg.h * k;
+        const wob = Math.cos(k * 19 + tg.x) * (tg.w * 0.28) * k * (1 - k);
+        g.lineTo(tg.x + (widthAt(k, tg.w) + wob), y);
+      }
+      g.closePath();
+      const grd = g.createLinearGradient(tg.x, baseY, tg.x, baseY - tg.h);
+      grd.addColorStop(0, tg.c0);
+      grd.addColorStop(0.38, tg.c1);
+      grd.addColorStop(1, tg.c2);
+      g.fillStyle = grd;
+      g.fill();
+    }
+    // White-yellow core only at the base, inside the orange body.
+    const core = g.createRadialGradient(64, 214, 3, 64, 200, 26);
+    core.addColorStop(0, 'rgba(255,252,220,0.96)');
+    core.addColorStop(0.4, 'rgba(255,220,90,0.7)');
+    core.addColorStop(1, 'rgba(255,140,20,0)');
+    g.fillStyle = core;
+    g.beginPath();
+    g.ellipse(64, 210, 18, 26, 0, 0, Math.PI * 2);
+    g.fill();
+    const tex = new T.CanvasTexture(c);
+    tex.needsUpdate = 1;
+    U._warmFlameTex1265 = tex;
+    return tex;
   }
   function dressTorchFlame(spec) {
     const flameS = (spec && spec.item && spec.item.flameS != null) ? spec.item.flameS : 0.48;
@@ -786,17 +880,15 @@
       const g = roots[i];
       const flames = g.userData && g.userData.flames1249;
       if (flames) {
-        const tints = [0xff6a14, 0xff3a00, 0xff8a10, 0xff2200, 0xffc040];
-        // 1264: a large fire (~25% of frame height) still ANCHORED on the tip
-        // (1263 keeper). Tongues stack along the shaft past the head, not off to the side.
-        // Rise in CAMERA-up from the tip so a tall billboard's bottom
-        // stays on the head even when the shaft is diagonal.
+        // 1265: warm orange-yellow throughout; a white-yellow core only at the base.
+        // Keep the fire ANCHORED on the tip (1263) and rising camera-up (1264).
+        const tints = [0xff8a12, 0xff6a00, 0xff9a18, 0xff7010, 0xff8a12];
         const tongues = [
-          { ox: 0.000, sx: 0.26, sy: 0.82 },
-          { ox: -0.030, sx: 0.16, sy: 0.48 },
-          { ox: 0.030, sx: 0.15, sy: 0.54 },
-          { ox: 0.012, sx: 0.12, sy: 0.40 },
-          { ox: 0.000, sx: 0.22, sy: 0.26 }
+          { ox: 0.000, sx: 0.34, sy: 0.82, op: 0.95 },
+          { ox: -0.022, sx: 0.18, sy: 0.54, op: 0.82 },
+          { ox: 0.022, sx: 0.18, sy: 0.58, op: 0.82 },
+          { ox: 0.008, sx: 0.14, sy: 0.44, op: 0.72 },
+          { ox: 0.000, sx: 0.16, sy: 0.36, op: 0.80 }
         ];
         for (let j = 0; j < flames.length; j++) {
           flames[j]._anchored1263 = 1;
@@ -805,12 +897,17 @@
             const tg = tongues[j % tongues.length];
             const sy = tg.sy * flameS, sx = tg.sx * flameS;
             spr.position.set(0, headY, 0);
-            spr.position.addScaledVector(camUpL, sy * 0.40);
+            spr.position.addScaledVector(camUpL, sy * 0.38);
             spr.position.addScaledVector(camRightL, tg.ox);
             spr.scale.set(sx, sy, 1);
             if (spr.material) {
+              spr.material.map = warmFlameTex1265();
               spr.material.color.setHex(tints[j % tints.length]);
-              spr.material.opacity = Math.min(0.92, (flames[j].op || 0.8));
+              spr.material.opacity = tg.op;
+              spr.material.blending = T.NormalBlending;
+              spr.material.transparent = true;
+              spr.material.depthWrite = false;
+              spr.material.needsUpdate = 1;
             }
             spr.visible = true;
             spr.userData.fpFlame1262 = 1;
@@ -833,7 +930,7 @@
           if (sparks[j].s) {
             sparks[j].s.visible = true;
             sparks[j].s.userData.fpFlame1262 = 1;
-            if (sparks[j].s.material) sparks[j].s.material.color.setHex((j % 2) ? 0xff6a10 : 0xffc040);
+            if (sparks[j].s.material) sparks[j].s.material.color.setHex((j % 2) ? 0xff7a12 : 0xffd060);
           }
         }
       }
@@ -882,6 +979,93 @@
     if (k0 === 'torch') {
       try { dressTorchFlame(spec); } catch (_) {}
     }
+    if (k0 === 'pistol') {
+      try { dressPistolFlintlock(); } catch (_) {}
+    }
+  }
+
+  function dressPistolFlintlock() {
+    // 1265: swap only the mesh (1255 lesson). Keep the authored pistol
+    // transform; dress a procedural flintlock (dark steel, wood stock,
+    // brass furniture, visible hammer and frizzen) onto the existing gun
+    // group, hiding the blocky C322 slab.
+    if (typeof held === 'undefined' || !held) return;
+    let have = false;
+    held.traverse(function (o) { if (o.userData && o.userData.fpFlint1265 && o.isMesh) have = true; });
+    if (have) {
+      // C322 may re-show the slab after a late swap; keep it hidden.
+      held.traverse(function (o) {
+        if (!o.isMesh) return;
+        if (o.userData && o.userData.fpFlint1265) { o.visible = true; return; }
+        o.visible = false;
+        o.userData = o.userData || {};
+        o.userData.keepHidden1263 = 1;
+      });
+      return;
+    }
+    held.userData.fpFlint1265 = 0;
+    const gun = (held.children && held.children[0]) || held;
+    const rig = (gun.userData && gun.userData.rig) || null;
+    const parent = rig || gun;
+    parent.updateWorldMatrix(true, true);
+
+    const steel = new T.MeshPhongMaterial({ color: 0x3a4450, shininess: 80, specular: 0xa8b8c8 });
+    const wood = new T.MeshPhongMaterial({ color: 0x6b4226, shininess: 22, specular: 0x3a2210 });
+    const brass = new T.MeshPhongMaterial({ color: 0xc4a056, shininess: 90, specular: 0xffe2a0 });
+    const flintC = new T.MeshPhongMaterial({ color: 0x3a3a44, shininess: 40, specular: 0x666677 });
+
+    // Hide the blocky slab, but leave the group (and its transform) in place.
+    gun.traverse(function (o) {
+      if (!o.isMesh) return;
+      if (o.userData && o.userData.fpFlint1265) return;
+      o.visible = false;
+      o.userData = o.userData || {};
+      o.userData.keepHidden1263 = 1;
+    });
+
+    const g = new T.Group();
+    g.name = 'FpFlintlock1265';
+    g.userData.fpFlint1265 = 1;
+    function add(geo, mat, x, y, z, rx, ry, rz) {
+      const m = new T.Mesh(geo, mat);
+      m.position.set(x || 0, y || 0, z || 0);
+      if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+      m.userData.fpFlint1265 = 1;
+      m.castShadow = false;
+      g.add(m);
+      return m;
+    }
+    // Compact flintlock: grip at the existing origin (the fist). Do not
+    // inherit the C322 slab's oversized length (that stretched the stock
+    // into a hanging plank). Barrel along -Z, grip dropping in -Y.
+    add(new T.CylinderGeometry(0.010, 0.0115, 0.22, 12), steel, 0, 0.028, -0.09).rotation.x = Math.PI / 2;
+    add(new T.CylinderGeometry(0.013, 0.013, 0.042, 8), steel, 0, 0.028, 0.028).rotation.x = Math.PI / 2;
+    add(new T.CylinderGeometry(0.0125, 0.0125, 0.014, 12), steel, 0, 0.028, -0.198).rotation.x = Math.PI / 2;
+    // Wooden lock/fore and a short, slightly raked grip.
+    add(new T.BoxGeometry(0.028, 0.024, 0.11), wood, 0, 0.008, -0.01);
+    add(new T.BoxGeometry(0.026, 0.070, 0.034), wood, 0, -0.036, 0.042, 0.32, 0, 0);
+    add(new T.BoxGeometry(0.028, 0.030, 0.040), wood, 0, -0.008, 0.050);
+    // Brass furniture: butt cap, wrist band, ramrod pipes, trigger guard.
+    add(new T.BoxGeometry(0.029, 0.028, 0.008), brass, 0, -0.070, 0.058, 0.32, 0, 0);
+    add(new T.BoxGeometry(0.029, 0.007, 0.016), brass, 0, 0.016, 0.028);
+    add(new T.BoxGeometry(0.029, 0.005, 0.014), brass, 0, 0.016, -0.050);
+    if (typeof T.TorusGeometry === 'function') {
+      add(new T.TorusGeometry(0.022, 0.0032, 6, 12, Math.PI * 1.15), brass, 0, -0.016, 0.055, Math.PI / 2, 0, 0);
+    }
+    add(new T.BoxGeometry(0.0035, 0.018, 0.007), steel, 0, -0.018, 0.048, 0.25, 0, 0);
+    // Lock plate, cocked hammer, and frizzen — offset to +X so they sit
+    // beside the fist, not inside it.
+    add(new T.BoxGeometry(0.007, 0.028, 0.048), steel, 0.020, 0.020, 0.018);
+    add(new T.BoxGeometry(0.006, 0.026, 0.012), steel, 0.026, 0.038, 0.006, 0.60, 0, 0);
+    add(new T.BoxGeometry(0.005, 0.009, 0.014), flintC, 0.028, 0.050, 0.002, 0.45, 0, 0);
+    add(new T.BoxGeometry(0.005, 0.022, 0.011), brass, 0.024, 0.032, 0.032, -0.40, 0, 0);
+    add(new T.BoxGeometry(0.007, 0.009, 0.005), steel, 0, 0.038, 0.022);
+    add(new T.BoxGeometry(0.0028, 0.009, 0.0028), steel, 0, 0.040, -0.188);
+    g.position.set(0, 0, 0);
+    g.scale.setScalar(1);
+
+        parent.add(g);
+    held.userData.fpFlint1265 = 1;
   }
 
   function revealHeldItem(root) {
@@ -891,13 +1075,14 @@
     const rig = gun && gun.userData && gun.userData.rig;
     const swapped = !!(gun && gun.userData && (gun.userData.c322 || rig));
     root.traverse(function (o) {
+      if (o.userData && o.userData.fpFlint1265) { if (o.isMesh || o.type === 'Group') o.visible = true; return; }
+      if (o.userData && o.userData.keepHidden1263) { o.visible = false; return; }
       if (swapped && o.isMesh) {
         let underRig = false, n = o;
         while (n) { if (n === rig) { underRig = true; break; } n = n.parent; }
         o.visible = underRig;
         return;
       }
-      if (o.userData && o.userData.keepHidden1263) { o.visible = false; return; }
       o.visible = true;
     });
     if (gun) {
