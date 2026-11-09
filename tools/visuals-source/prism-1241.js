@@ -16,7 +16,7 @@
   const U = W.__prism1241 = W.__prism1241 || {};
   U.err = null; U.geoHits = 0; U.matHits = 0; U.geoMiss = 0; U.matMiss = 0;
   U.meshes = 0; U.icons = 0; U.tiles = 0; U.mobs = 0; U.on = 1;
-  U.REV = 2;
+  U.REV = 3;
 
   const geoCache = U.geoCache = new Map();
   const matCache = U.matCache = new Map();
@@ -400,12 +400,22 @@
     mat.onBeforeCompile = function (shader) {
       shader.uniforms.crDeep = {value: new T.Vector3(rim.deep[0], rim.deep[1], rim.deep[2])};
       shader.uniforms.crGlow = {value: new T.Vector3(rim.glow[0], rim.glow[1], rim.glow[2])};
-      shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nuniform vec3 crDeep;\nuniform vec3 crGlow;')
-        .replace('#include <color_fragment>', '#include <color_fragment>\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  float facing = clamp(dot(crN, crV), 0.0, 1.0);\n  vec3 qn = sign(crN) * floor(abs(crN) * 3.0 + 0.51);\n  if (dot(qn, qn) < 1e-6) qn = crN; else qn = normalize(qn);\n  float fh = fract(sin(dot(qn, vec3(12.9898, 78.233, 45.164))) * 43758.5453);\n  diffuseColor.rgb *= mix(0.70, 1.24, fh);\n  diffuseColor.rgb *= mix(crDeep, vec3(1.16), crF);\n  diffuseColor.rgb *= mix(vec3(1.0), crDeep, facing * 0.28);\n}\n')
-        .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  totalEmissiveRadiance += crGlow * crF * 0.85;\n}\n');
+      // `normal` is only declared in <normal_fragment_begin>, which runs AFTER
+      // <color_fragment>. Under FLAT_SHADED that declaration is the dFdx/dFdy
+      // path, so injecting normalize(normal) at color_fragment fails to compile
+      // on SwiftShader and on real low-end Android GPUs. Tint after the normal
+      // exists; keep the emissive term on emissivemap_fragment (already after).
+      const rimTint = '\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  float facing = clamp(dot(crN, crV), 0.0, 1.0);\n  vec3 qn = sign(crN) * floor(abs(crN) * 3.0 + 0.51);\n  if (dot(qn, qn) < 1e-6) qn = crN; else qn = normalize(qn);\n  float fh = fract(sin(dot(qn, vec3(12.9898, 78.233, 45.164))) * 43758.5453);\n  diffuseColor.rgb *= mix(0.70, 1.24, fh);\n  diffuseColor.rgb *= mix(crDeep, vec3(1.16), crF);\n  diffuseColor.rgb *= mix(vec3(1.0), crDeep, facing * 0.28);\n}\n';
+      let fs = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 crDeep;\nuniform vec3 crGlow;');
+      if (fs.indexOf('#include <normal_fragment_maps>') >= 0)
+        fs = fs.replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>' + rimTint);
+      else
+        fs = fs.replace('#include <normal_fragment_begin>', '#include <normal_fragment_begin>' + rimTint);
+      fs = fs.replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n{\n  vec3 crN = normalize(normal);\n  vec3 crV = normalize(-vViewPosition);\n  float crF = pow(1.0 - clamp(abs(dot(crN, crV)), 0.0, 1.0), 1.45);\n  totalEmissiveRadiance += crGlow * crF * 0.85;\n}\n');
+      shader.fragmentShader = fs;
     };
-    mat.customProgramCacheKey = function () { return 'prism1241v2-' + (hint || 'd'); };
+    mat.customProgramCacheKey = function () { return 'prism1241v3-' + (hint || 'd'); };
     mat.userData.prismRim1241 = 1;
     mat.userData.prism1241 = 1;
     mat.flatShading = true;
@@ -436,8 +446,11 @@
       map: src.map || null,
       emissive: src.emissive && src.emissive.clone ? src.emissive.clone() : new T.Color(src.emissive || 0),
       emissiveIntensity: src.emissiveIntensity != null ? src.emissiveIntensity : 1,
-      transparent: !!src.transparent,
-      opacity: src.opacity != null ? src.opacity : 1,
+      // Crystal tool heads must be solid: transparent/opacity < 1 made the
+      // purple pickaxe a faint sliver on phones (t1119). Do not change armour.
+      transparent: (crystal && hint !== 'armour') ? false : !!src.transparent,
+      opacity: (crystal && hint !== 'armour') ? 1 : (src.opacity != null ? src.opacity : 1),
+      depthWrite: true,
       side: src.side != null ? src.side : T.FrontSide,
       vertexColors: true,
       flatShading: true,
@@ -497,6 +510,82 @@
     return m;
   }
 
+
+  // Longer, thin, faceted crystal spike along a quadratic Bezier.
+  // side = +1 / -1: two points arc out and down from the haft, like a real pick.
+  function curvedPickSpikeGeometry(side, len, rise, drop, r0, r1, sides) {
+    side = side < 0 ? -1 : 1;
+    len = len || 0.46;
+    rise = rise == null ? 0.055 : rise;
+    drop = drop == null ? 0.16 : drop;
+    r0 = r0 || 0.024;
+    r1 = r1 == null ? 0.0022 : r1;
+    sides = sides || 6;
+    const zScale = (arguments.length > 7 && arguments[7] != null) ? arguments[7] : 0.55;
+    const segs = 16;
+    const p0 = new T.Vector3(0, 0, 0);
+    const p1 = new T.Vector3(side * len * 0.36, rise, 0);
+    const p2 = new T.Vector3(side * len, -drop, 0);
+    const bez = function (t) {
+      const u = 1 - t;
+      return new T.Vector3(
+        u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+        u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+        u * u * p0.z + 2 * u * t * p1.z + t * t * p2.z
+      );
+    };
+    const pts = [], tans = [];
+    for (let i = 0; i <= segs; i++) {
+      const tt = i / segs;
+      const a = bez(Math.max(0, tt - 0.012)), b = bez(Math.min(1, tt + 0.012));
+      pts.push(bez(tt));
+      const tan = b.sub(a);
+      if (tan.lengthSq() < 1e-10) tan.set(side, 0, 0);
+      tans.push(tan.normalize());
+    }
+    const pos = [], nrm = [], ix = [];
+    for (let i = 0; i <= segs; i++) {
+      const p = pts[i], tan = tans[i];
+      let up = new T.Vector3(0, 0, 1);
+      if (Math.abs(tan.dot(up)) > 0.86) up = new T.Vector3(0, 1, 0);
+      const bin = new T.Vector3().crossVectors(tan, up).normalize();
+      up = new T.Vector3().crossVectors(bin, tan).normalize();
+      const r = r0 + (r1 - r0) * Math.pow(i / segs, 0.85);
+      for (let k = 0; k < sides; k++) {
+        const ang = (k / sides) * Math.PI * 2 + Math.PI / sides;
+        // Flatten in Z so the blade stays slim, not chunky.
+        const cx = Math.cos(ang) * r, cz = Math.sin(ang) * r * 0.48;
+        const q = new T.Vector3().copy(p).addScaledVector(bin, cx).addScaledVector(up, cz);
+        pos.push(q.x, q.y, q.z);
+        const n = new T.Vector3().addScaledVector(bin, Math.cos(ang)).addScaledVector(up, Math.sin(ang)).normalize();
+        nrm.push(n.x, n.y, n.z);
+      }
+    }
+    const tip = pts[segs].clone().addScaledVector(tans[segs], r1 * 2.2);
+    const tipI = pos.length / 3;
+    pos.push(tip.x, tip.y, tip.z);
+    nrm.push(tans[segs].x, tans[segs].y, tans[segs].z);
+    for (let i = 0; i < segs; i++) {
+      for (let k = 0; k < sides; k++) {
+        const a = i * sides + k, b = i * sides + (k + 1) % sides;
+        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
+        ix.push(a, c, b, b, c, d);
+      }
+    }
+    const base = segs * sides;
+    for (let k = 0; k < sides; k++) ix.push(base + k, base + (k + 1) % sides, tipI);
+    const rootC = pos.length / 3;
+    pos.push(0, 0, 0); nrm.push(-tans[0].x, -tans[0].y, -tans[0].z);
+    for (let k = 0; k < sides; k++) ix.push(rootC, (k + 1) % sides, k);
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setIndex(ix);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  U.curvedPickSpikeGeometry = curvedPickSpikeGeometry;
+
   function handleWithFerrule(g, woodM, ferM, len, r, slim) {
     const shaftR = slim ? r * 0.78 : r;
     addMesh(g, octShaftGeometry(shaftR, len, slim ? 0.92 : 0.96, 8), woodM, 0, len * 0.5 - 0.02, 0);
@@ -519,15 +608,24 @@
     const ferM = matFor(FERRULE_HEX[mat] || FERRULE_HEX.iron, mat === 'gold' ? 'gold' : 'metal');
     const k = kind;
 
-    if (k === 'pick' || k === 'p760' || k === 'p761') {
-      const len = slim ? 0.62 : 0.56;
-      const r = slim ? 0.011 : 0.016;
-      handleWithFerrule(g, woodM, ferM, len, r, slim);
-      const hl = slim ? 0.28 : 0.34;
-      const hr = slim ? 0.017 : 0.026;
-      const hz = slim ? 0.015 : 0.024;
-      addMesh(g, gemAlong('x', hl, hr, hz, {sides: 8, pointTip: true, pointButt: true, tip: 0.32, butt: 0.32, girdle: 0.08}), headM, 0, len - 0.01, 0);
-      addMesh(g, cutGemGeometry({length: slim ? 0.05 : 0.06, rx: slim ? 0.02 : 0.028, rz: slim ? 0.02 : 0.028, sides: 8, pointTip: true, pointButt: true, tip: 0.3, butt: 0.3}), headM, 0, len - 0.01, 0);
+    if (k === 'p761' || k === 'p760') {
+      // Longer thin crystal pick: two tapered points arc out and down from
+      // the haft, like a real pickaxe. Same mesh for FP, 3p, drops and icons
+      // (they share makeItemMesh). Handle layout stays along +Y so the grip
+      // does not move. Solid / opaque crystal (see prismMaterial).
+      const len = 0.62;
+      handleWithFerrule(g, woodM, ferM, len, 0.011, true);
+      addMesh(g, curvedPickSpikeGeometry(1, 0.46, 0.05, 0.15, 0.024, 0.0022, 6, 0.55), headM, 0, len - 0.008, 0);
+      addMesh(g, curvedPickSpikeGeometry(-1, 0.46, 0.05, 0.15, 0.024, 0.0022, 6, 0.55), headM, 0, len - 0.008, 0);
+      addMesh(g, cutGemGeometry({length: 0.042, rx: 0.018, rz: 0.016, sides: 8, pointTip: true, pointButt: true, tip: 0.28, butt: 0.28}), headM, 0, len - 0.008, 0);
+      // Authored haft socket (item space, +Y). Stops sock() treating a long
+      // crystal spike as the handle, so FP / 3p / drop grips stay aligned.
+      g.userData.__gs = {b: new T.Vector3(0, 0.08, 0), h: new T.Vector3(0, len - 0.02, 0), r: 0.014, authored: 1};
+    } else if (k === 'pick') {
+      const len = 0.56;
+      handleWithFerrule(g, woodM, ferM, len, 0.016, false);
+      addMesh(g, gemAlong('x', 0.34, 0.026, 0.024, {sides: 8, pointTip: true, pointButt: true, tip: 0.32, butt: 0.32, girdle: 0.08}), headM, 0, len - 0.01, 0);
+      addMesh(g, cutGemGeometry({length: 0.06, rx: 0.028, rz: 0.028, sides: 8, pointTip: true, pointButt: true, tip: 0.3, butt: 0.3}), headM, 0, len - 0.01, 0);
     } else if (k === 'axe') {
       handleWithFerrule(g, woodM, ferM, 0.56, 0.016, false);
       // Flattened, chamfered, tapered blade: sharp bit on -X, faceted poll on +X.
@@ -798,7 +896,7 @@
   const REBUILD = {pick: 1, p760: 1, p761: 1, axe: 1, sword: 1, claymore: 1, shovel: 1, hoe: 1, stick: 1, flint: 1, shears: 1};
 
   function wrapMakeItemMesh() {
-    if (typeof makeItemMesh !== 'function' || makeItemMesh.__prism1241v2) return;
+    if (typeof makeItemMesh !== 'function' || makeItemMesh.__prism1241v3) return;
     const prev = makeItemMesh;
     makeItemMesh = function (id) {
       const g = prev.apply(this, arguments);
@@ -831,7 +929,7 @@
       } catch (e) { if (!U.err) U.err = 'item ' + e; }
       return g;
     };
-    makeItemMesh.__prism1241v2 = 1;
+    makeItemMesh.__prism1241v3 = 1;
     makeItemMesh.__prism1241 = 1;
   }
   function hintFromId(id) {

@@ -8,7 +8,7 @@
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.47', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.49', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -179,8 +179,9 @@
             specular: new T.Color(purple ? 0xffd8ff : 0xd8f0ff),
             shininess: 140,
             flatShading: !!m.flatShading,
-            transparent: !!m.transparent,
-            opacity: m.opacity == null ? 1 : m.opacity,
+            transparent: false,
+            opacity: 1,
+            depthWrite: true,
             side: m.side
           });
           ph.userData.held1240Crystal = purple ? 'p' : 'b';
@@ -200,6 +201,9 @@
         if ('emissive' in m) m.emissive.setHex(em);
         if ('specular' in m) m.specular = new T.Color(purple ? 0xffd8ff : 0xd8f0ff);
         if ('shininess' in m) m.shininess = Math.max(m.shininess || 0, 140);
+        m.transparent = false;
+        m.opacity = 1;
+        if ('depthWrite' in m) m.depthWrite = true;
         m.needsUpdate = true;
       }
     });
@@ -263,12 +267,15 @@
   U.poseHeld = function (model, opts) {
     opts = opts || {};
     const p = model && model.userData && model.userData.pilot;
-    if (!p || !p.near) return null;
+    if (!model) return null;
     const slot = opts.slot == null ? 1 : opts.slot;
-    const socket = find(p.near.root, 'weapon_grip_slot' + slot)
-      || (p.far && p.far.root && find(p.far.root, 'weapon_grip_slot' + slot))
+    const nearRoot = p && p.near && p.near.root;
+    const farRoot = p && p.far && p.far.root;
+    const socket = (nearRoot && find(nearRoot, 'weapon_grip_slot' + slot))
+      || (farRoot && find(farRoot, 'weapon_grip_slot' + slot))
       || find(model, 'weapon_grip_slot' + slot)
-      || find(p.near.root, 'weapon_grip_slot' + (slot === 1 ? 0 : 1));
+      || (nearRoot && find(nearRoot, 'weapon_grip_slot' + (slot === 1 ? 0 : 1)))
+      || find(model, 'weapon_grip_slot' + (slot === 1 ? 0 : 1));
     const arms = model.userData.arms;
     const grip = arms && arms[slot] && arms[slot].userData && arms[slot].userData.grip;
     if (socket && grip) copySocketToGrip(grip, socket);
@@ -665,6 +672,56 @@
     } catch (_) {}
     return false;
   }
+
+  U.authorSwordGrip = function (mesh) {
+    if (!mesh) return mesh;
+    const k = (mesh.userData && mesh.userData.kind) || kindOf(mesh);
+    if (k !== 'sword' && k !== 'claymore') return mesh;
+    if (mesh.userData && mesh.userData.__gsSword) return mesh;
+    try { if (mesh.userData) delete mesh.userData.__gs; } catch (_) {}
+    const hiltY = 0.13, pommelY = -0.05;
+    mesh.userData = mesh.userData || {};
+    mesh.userData.__gs = {b: new T.Vector3(0, pommelY, 0), h: new T.Vector3(0, hiltY, 0), r: 0.018, authored: 1};
+    mesh.userData.__gsSword = 1;
+    return mesh;
+  };
+
+  U.makeHeldOpaque = function (root) {
+    if (!root) return 0;
+    let n = 0;
+    root.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (!m) continue;
+        if (m.userData && m.userData.keepTransparent) continue;
+        if (m.transparent || m.opacity < 1 || (m.depthWrite === false)) {
+          m.transparent = false;
+          m.opacity = 1;
+          if ('depthWrite' in m) m.depthWrite = true;
+          m.needsUpdate = true;
+          n++;
+        }
+      }
+    });
+    return n;
+  };
+
+  U.seatFpBlock = function () {
+    try {
+      if (typeof held === 'undefined' || !held || !held.children || !held.children.length) return;
+      const mesh = held.children[0];
+      if (!mesh || !mesh.userData || !mesh.userData.block) return;
+      // Tuck the cube down and slightly back into the palm (t1112: it was
+      // floating above and in front of the hand).
+      if (!mesh.userData.seated1249) {
+        mesh.position.set(0, -0.02, 0.01);
+        mesh.rotation.set(0.18, 0.4, 0.1);
+        mesh.userData.seated1249 = 1;
+      }
+    } catch (_) {}
+  };
+
   U.stepFp = function (dt) {
     // 1.2.47: ArmSwitch1247 owns visible GLB arms; keep Held1240FpArms hidden; never set __fpaOff.
 
@@ -705,6 +762,10 @@
         const raw = parseInt(id, 10);
         if (raw === 761 || (typeof IT !== 'undefined' && raw === IT.PCPICK)) U.paintCrystalPick(held, 'purple');
         if (raw === 760 || (typeof IT !== 'undefined' && raw === IT.BCPICK)) U.paintCrystalPick(held, 'blue');
+        U.makeHeldOpaque(held);
+        const ch0 = held.children && held.children[0];
+        if (ch0) U.authorSwordGrip(ch0);
+        U.seatFpBlock();
       }
     } catch (_) {}
   };
@@ -730,6 +791,8 @@
             if (k === 'p761' || (typeof IT !== 'undefined' && id === IT.PCPICK) || id === 761) U.paintCrystalPick(g, 'purple');
             if (k === 'p760' || (typeof IT !== 'undefined' && id === IT.BCPICK) || id === 760) U.paintCrystalPick(g, 'blue');
             if (k === 'map' || (typeof IT !== 'undefined' && id === IT.MAP) || id === 410) U.ensureMapMesh(g);
+            if (k === 'sword' || k === 'claymore') U.authorSwordGrip(g);
+            U.makeHeldOpaque(g);
           } catch (_) {}
           return g;
         };

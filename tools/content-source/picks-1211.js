@@ -18,15 +18,15 @@
   // mining speed: the game's break time uses toolTierSpeed(material) (hand 1, wood 2 ... diamond 8, gold 12)
   try { const ts = toolTierSpeed; toolTierSpeed = function (id) { const m = toolMat(id); if (m === 'crystalblue') return 15; if (m === 'crystalpurple') return 50; return ts.apply(this, arguments); }; } catch (e) { ERR('speed', e); }
   // crystal heads read as glass-like metal
-  try { const hm = headMatFor; headMatFor = function (mat) { if (mat === 'crystalblue' || mat === 'crystalpurple') return new THREE.MeshPhongMaterial({color: TOOL_COL[mat], emissive: mat === 'crystalblue' ? 0x0a3a66 : 0x3a0a66, shininess: 160, specular: 0xffffff, transparent: true, opacity: 0.92}); return hm.apply(this, arguments); }; } catch (e) { ERR('hm', e); }
+  try { const hm = headMatFor; headMatFor = function (mat) { if (mat === 'crystalblue' || mat === 'crystalpurple') return new THREE.MeshPhongMaterial({color: TOOL_COL[mat], emissive: mat === 'crystalblue' ? 0x0a3a66 : 0x3a0a66, shininess: 160, specular: 0xffffff, transparent: false, opacity: 1, depthWrite: true}); return hm.apply(this, arguments); }; } catch (e) { ERR('hm', e); }
   // icons
   function icon(c1, c2, c3, glow) { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'); g.translate(128, 128); g.scale(4, 4); g.lineJoin = g.lineCap = 'round';
     g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(2, 28, 20, 3.5, 0, 0, 7); g.fill();
     g.save(); g.rotate(-0.78); const hd = g.createLinearGradient(0, 0, 0, 20); hd.addColorStop(0, '#9a6a36'); hd.addColorStop(1, '#5a3a18'); g.fillStyle = hd; g.fillRect(-2.6, -8, 5.2, 38); g.fillStyle = '#3a2410'; for (let y = 4; y < 28; y += 5) g.fillRect(-2.6, y, 5.2, 1.2); g.restore();
     g.save(); g.translate(-6, -8); g.rotate(-0.78); g.shadowColor = glow; g.shadowBlur = 8;
-    g.beginPath(); g.moveTo(-26, 4); g.quadraticCurveTo(-12, -9, 0, -9); g.quadraticCurveTo(12, -9, 26, 4); g.lineTo(18, 2); g.quadraticCurveTo(8, -3, 0, -3); g.quadraticCurveTo(-8, -3, -18, 2); g.closePath();
+    g.beginPath(); g.moveTo(-30, 10); g.quadraticCurveTo(-16, -8, 0, -11); g.quadraticCurveTo(16, -8, 30, 10); g.lineTo(26, 12); g.quadraticCurveTo(12, -2, 0, -4); g.quadraticCurveTo(-12, -2, -26, 12); g.closePath();
     const cg = g.createLinearGradient(-26, -9, 26, 4); cg.addColorStop(0, c3); cg.addColorStop(0.35, c1); cg.addColorStop(0.55, '#ffffff'); cg.addColorStop(0.7, c1); cg.addColorStop(1, c2); g.fillStyle = cg; g.fill(); g.shadowBlur = 0; g.strokeStyle = c2; g.lineWidth = 1; g.stroke();
-    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.6; for (const x of [-16, -8, 8, 16]) { g.beginPath(); g.moveTo(x, -6 + Math.abs(x) * 0.25); g.lineTo(x * 0.85, -1.5 + Math.abs(x) * 0.12); g.stroke(); }
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.6; for (const x of [-18, -9, 9, 18]) { g.beginPath(); g.moveTo(x, -6 + Math.abs(x) * 0.35); g.lineTo(x * 0.85, -0.5 + Math.abs(x) * 0.28); g.stroke(); }
     g.fillStyle = c2; g.fillRect(-3.5, -9.5, 7, 8); g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(-2.5, -8.5, 2, 2); g.restore();
     g.fillStyle = 'rgba(255,255,255,.95)'; for (const [x, y, z] of [[-14, -18, 2.2], [10, -22, 1.6], [16, -6, 1.2]]) { g.beginPath(); g.moveTo(x, y - z * 2); g.lineTo(x + z * .5, y - z * .5); g.lineTo(x + z * 2, y); g.lineTo(x + z * .5, y + z * .5); g.lineTo(x, y + z * 2); g.lineTo(x - z * .5, y + z * .5); g.lineTo(x - z * 2, y); g.lineTo(x - z * .5, y - z * .5); g.fill(); }
     return c; }
