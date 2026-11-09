@@ -28,19 +28,23 @@ function start() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
   renderer.setSize(w, h, false);
   renderer.setPixelRatio(1);
-  renderer.setClearColor(0x9ec6e0, 1);
+  renderer.setClearColor(0xa8d0ea, 1);
+  try { if (THREE.SRGBColorSpace) renderer.outputColorSpace = THREE.SRGBColorSpace; } catch (_) {}
+  try { if (THREE.sRGBEncoding != null) renderer.outputEncoding = THREE.sRGBEncoding; } catch (_) {}
   document.body.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x9ec6e0, 40, 160);
+  scene.fog = new THREE.Fog(0xa8d0ea, 80, 220);
   const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 400);
-  const hemi = new THREE.HemisphereLight(0xe8f0f8, 0x6a7a4a, 0.85);
+  const hemi = new THREE.HemisphereLight(0xfff4e8, 0x7a6a48, 0.7);
   scene.add(hemi);
-  const sun = new THREE.DirectionalLight(0xfff1d0, 0.95);
-  sun.position.set(-40, 80, 30);
+  const sun = new THREE.DirectionalLight(0xfff3c8, 1.2);
+  sun.position.set(-30, 90, 40);
   scene.add(sun);
-  const fill = new THREE.DirectionalLight(0xc0d8ff, 0.25);
-  fill.position.set(30, 20, -20);
+  const fill = new THREE.DirectionalLight(0xffe8d0, 0.28);
+  fill.position.set(40, 25, -15);
   scene.add(fill);
+  const amb = new THREE.AmbientLight(0xfff0d8, 0.22);
+  scene.add(amb);
 
   // ground
   const ground = new THREE.Mesh(
@@ -71,7 +75,8 @@ function start() {
     const st = P.stepState(t);
     // Treadmill: keep the hip at the origin so the camera can frame her.
     parts.g.position.set(0, 0, 0);
-    parts.g.rotation.set(0, 0, 0);
+    const yaw = (cam === 'side') ? 0 : (cam === 'wide' ? 0.22 : 0.42);
+    parts.g.rotation.set(0, yaw, 0);
     P.applyPose(parts, st, { l: 0, r: 0, h: 0 });
     parts.g.updateMatrixWorld(true);
     if (!window.__bboxOnce) {
@@ -88,12 +93,21 @@ function start() {
       camera.position.set(48, 20, 70);
       camera.lookAt(0, 12, 0);
     } else if (cam === 'close') {
-      camera.fov = 32; camera.aspect = w/h; camera.updateProjectionMatrix();
-      camera.position.set(12, 24, 28);
-      camera.lookAt(0, 24, 0);
+      camera.fov = 36; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(12, 21, 22);
+      camera.lookAt(0, 23.5, 0);
     } else if (cam === 'side') {
       camera.fov = 40; camera.aspect = w/h; camera.updateProjectionMatrix();
       camera.position.set(56, 16, 8);
+      camera.lookAt(0, 14, 0);
+    } else if (cam === 'up' || cam === 'ground') {
+      // ground-level looking up, like the TikTok
+      camera.fov = 44; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(8, 1.5, 28);
+      camera.lookAt(0, 16, 0);
+    } else if (cam === 'upclose') {
+      camera.fov = 38; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(5, 1.4, 16);
       camera.lookAt(0, 14, 0);
     }
     renderer.render(scene, camera);
@@ -117,7 +131,7 @@ function start() {
       const beat = P.BEAT;
       const step = Math.round(t / beat);
       const even = (step % 2 === 0) ? step : step + 1;
-      t = (even + 0.35) * beat;
+      t = (even + 0.22) * beat;
       place(t, cam || 'portrait');
       return t;
     },
