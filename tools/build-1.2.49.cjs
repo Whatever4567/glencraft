@@ -394,6 +394,20 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   if (!pHit) throw new Error('pistol hip/ads pose line not found');
 }
 
+// Idempotent hook: run the view-space coverage cull *inside* the gun VM
+// pass, after objects are parented to `vc` and after __fpa.step / __vm have
+// posed them, immediately before the vs/vc draw. An outer renderer.render
+// wrap cannot see this call (rd.call bypasses later wrappers).
+{
+  const MARK = '/* GLX-CULLVM-1252 */';
+  const needle = 'try { rd.call(this, vs, vc)';
+  const repl = 'try { if (window.__heldFrame1251 && __heldFrame1251.cullVm) __heldFrame1251.cullVm(vs, vc); ' + MARK + ' rd.call(this, vs, vc)';
+  // held-vm source already carries MARK, so includes(MARK) is not enough —
+  // still patch any remaining raw rd.call sites (the inlined __vm gun pass).
+  if (s.includes(needle)) s = s.split(needle).join(repl);
+  if (!s.includes(MARK)) throw new Error('gun/tool VM rd.call(this, vs, vc) site not found for cull hook');
+}
+
 if (!s.includes("const GAME_VERSION = '1.2.49';")) throw new Error('ver missing');
 if (!s.includes('<!-- glencraft-build: b1249-v1.2.49 -->')) throw new Error('marker missing');
 if (!s.includes('armSwitch1247') || !s.includes('ArmSwitch1247')) throw new Error('arm-switch not embedded');
@@ -418,6 +432,7 @@ if (!s.includes('crescentBladeGeometry') || !s.includes('crystalVeinTexture')) t
 if (!s.includes('itemsArt1249')) throw new Error('items-art 1249 missing');
 if (!s.includes('ads: [0, 0.014, -0.50]')) throw new Error('musket ADS pose not applied');
 if (!s.includes('heldFrame1251') || !s.includes('__heldFrame1251')) throw new Error('held-frame 1251 missing');
+if (!s.includes('GLX-CULLVM-1252') || !s.includes('cullVm')) throw new Error('viewmodel coverage cull hook missing');
 
 
 fs.writeFileSync(out, s);
