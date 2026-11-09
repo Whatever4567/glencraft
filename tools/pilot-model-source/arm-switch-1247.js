@@ -439,11 +439,6 @@
     rig.traverse(o => {
       if (!(o.isMesh || o.isSkinnedMesh)) return;
       if (hybrid) {
-        // Keep first-person shrinkCuff / hideGunSleeves / hideArmSheets
-        // decisions. Unhiding every driver mesh after those ran brought the
-        // musket forearm slab back once the pilot template had loaded.
-        const hid = o.userData && (o.userData.__hidSleeve1252 || o.userData.__hidCuff1253);
-        if (hid) return;
         o.visible = true;
         o.userData.armSwitchKeep = 1;
         o.userData.armSwitchHid = 0;
