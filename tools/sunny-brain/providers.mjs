@@ -3,7 +3,7 @@ import { pipeline, env } from '@xenova/transformers';
 import { sanitizeSpoken } from './brain.mjs';
 function looksSpoken(s){
   if(!s||s.length<3)return false;
-  if(/inappropriate|cannot respond|as an ai/i.test(s))return false;
+  if(/inappropriate|cannot (respond|provide)|as an ai|no context provided|dienstleistungs|website!/i.test(s))return false;
   const chars=[...s];
   const letters=chars.filter(c=>/[A-Za-z]/.test(c)).length;
   const weird=chars.filter(c=>c.charCodeAt(0)<32||c.charCodeAt(0)>126).length;
@@ -11,6 +11,7 @@ function looksSpoken(s){
   if(weird>0)return false;
   if(letters<8)return false;
   if(digits>2)return false;
+  if(s.split(/[^A-Za-z]+/).some(w=>w.length>16))return false;
   if(letters/chars.length<0.55)return false;
   if(/(motherboard|cliquez|archivo|instructional|proven it justice|hobbie|r[eé]duction|choisit|nugante)/i.test(s))return false;
   return true;

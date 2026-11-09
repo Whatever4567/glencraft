@@ -39,6 +39,7 @@ try {
   assert.equal(chat.provider, 'transformers-local');
   assert.ok(chat.text && chat.text.length > 1);
   assert.deepEqual(chat.actions, []);
+  assert.ok(chat.text && !/dienstleistungs|cannot provide a response/i.test(chat.text));
   // second request while ensuring busy/queue semantics: sequential ok
   const chat2 = await fetch(`http://127.0.0.1:${PORT}/chat`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
