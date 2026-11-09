@@ -154,13 +154,18 @@
     root.userData[purple ? 'p761' : 'p760'] = 1;
     root.userData.crystalPick = purple ? 'purple' : 'blue';
     root.userData.tool = true;
-    root.userData.kind = 'pick';
+    if (!root.userData.kind || root.userData.kind === 'pick') root.userData.kind = purple ? 'p761' : 'p760';
+    // Authored 1.2.49 crescent + glow already has the look; do not flatten it
+    // every frame (paint + makeHeldOpaque used to strip the emissive veins).
+    if (root.userData.prismBuilt || root.userData.art1249) return root;
     const col = purple ? (0xa64dff) : 0x3ab8ff, mapCol = purple ? 0xc090ff : 0x9ad8ff, em = purple ? 0x4a1078 : 0x0a3a66;
     root.traverse(o => {
       if (!o.isMesh || !o.material) return;
+      if (o.userData && (o.userData.glow1249 || o.userData.keepTransparent || o.userData.crystalCore1249)) return;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
         if (!m || !m.color) continue;
+        if (m.userData && (m.userData.glow1249 || m.userData.keepTransparent || m.userData.crystalCore1249 || m.userData.sculptKeep)) continue;
         const c = m.color, isWood = c.r > 0.25 && c.g > 0.12 && c.g < 0.55 && c.b < 0.28 && c.r > c.b + 0.08 && c.r >= c.g;
         if (isWood) continue;
         if (!m.userData) m.userData = {};
@@ -210,27 +215,72 @@
     U.hardenMeshMats(root);
     return root;
   };
+  function parchmentTex() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    const c = document.createElement('canvas'); c.width = c.height = 512;
+    const ctx = c.getContext('2d');
+    const grd = ctx.createLinearGradient(0, 0, 512, 512);
+    grd.addColorStop(0, '#f3e2c0'); grd.addColorStop(0.5, '#e8d2a4'); grd.addColorStop(1, '#d9c089');
+    ctx.fillStyle = grd; ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 2400; i++) {
+      ctx.fillStyle = 'rgba(90,60,20,' + (0.03 + Math.random() * 0.06) + ')';
+      ctx.fillRect(Math.random() * 512, Math.random() * 512, 2, 1);
+    }
+    // faint map lines
+    ctx.strokeStyle = 'rgba(70,50,25,0.28)'; ctx.lineWidth = 1.4;
+    for (let i = 0; i < 8; i++) {
+      ctx.beginPath();
+      ctx.moveTo(40 + Math.random() * 80, 40 + i * 55);
+      ctx.quadraticCurveTo(200, 80 + i * 50, 470, 60 + i * 50);
+      ctx.stroke();
+    }
+    const t = new T.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+  function compassTex() {
+    if (typeof document === 'undefined' || !document.createElement) return null;
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.translate(128, 128);
+    ctx.fillStyle = '#d8c090'; ctx.beginPath(); ctx.arc(0, 0, 120, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#5a3a14'; ctx.lineWidth = 8; ctx.beginPath(); ctx.arc(0, 0, 116, 0, 7); ctx.stroke();
+    ctx.strokeStyle = '#8a6a30'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 90, 0, 7); ctx.stroke();
+    for (let i = 0; i < 8; i++) {
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = i % 2 ? '#3a2a10' : '#c03028';
+      ctx.beginPath(); ctx.moveTo(0, -100); ctx.lineTo(8, 0); ctx.lineTo(-8, 0); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#3a2a10'; ctx.font = 'bold 28px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('N', 0, -70);
+    const t = new T.CanvasTexture(c); return t;
+  }
   U.buildMapCard = function (tex) {
-    const g = new T.Group(); g.userData.map = true; g.userData.held1240Map = 1;
-    const cover = new T.Mesh(new T.BoxGeometry(0.22, 0.015, 0.22), new T.MeshPhongMaterial({color: 0x8a6a38, shininess: 20}));
-    const face = new T.Mesh(new T.PlaneGeometry(0.2, 0.2), new T.MeshLambertMaterial({color: 0xe8d6a8, side: T.DoubleSide}));
-    face.position.y = 0.009; face.rotation.x = -Math.PI / 2;
-    if (tex) { face.material.map = tex; face.material.color.setHex(0xffffff); face.material.needsUpdate = true; }
-    const back = new T.Mesh(new T.PlaneGeometry(0.2, 0.2), new T.MeshLambertMaterial({color: 0xd9c48a, side: T.DoubleSide}));
-    back.position.y = -0.009; back.rotation.x = Math.PI / 2;
-    g.add(cover, face, back);
+    const g = new T.Group(); g.userData.map = true; g.userData.held1240Map = 1; g.userData.art1249 = 1;
+    const parch = tex || parchmentTex();
+    const cover = new T.Mesh(new T.BoxGeometry(0.34, 0.01, 0.28), new T.MeshPhongMaterial({color: 0x6a4a24, shininess: 18}));
+    const face = new T.Mesh(new T.PlaneGeometry(0.32, 0.26), new T.MeshPhongMaterial({color: parch ? 0xffffff : 0xe8d6a8, map: parch || null, side: T.DoubleSide, shininess: 8}));
+    face.position.y = 0.007; face.rotation.x = -Math.PI / 2;
+    const back = new T.Mesh(new T.PlaneGeometry(0.32, 0.26), new T.MeshPhongMaterial({color: 0xd9c48a, map: parchmentTex() || null, side: T.DoubleSide, shininess: 6}));
+    back.position.y = -0.007; back.rotation.x = Math.PI / 2;
+    const folded = new T.Mesh(new T.BoxGeometry(0.12, 0.008, 0.12), new T.MeshPhongMaterial({color: 0xe8d6a8, shininess: 10}));
+    folded.position.set(0.07, 0.012, 0.04); folded.rotation.y = 0.2;
+    const rim = new T.Mesh(new T.TorusGeometry(0.055, 0.006, 8, 24), new T.MeshPhongMaterial({color: 0xc0a050, shininess: 80, specular: 0xffe8a0}));
+    rim.rotation.x = Math.PI / 2; rim.position.set(-0.06, 0.016, 0.07);
+    const disc = new T.Mesh(new T.CircleGeometry(0.05, 24), new T.MeshPhongMaterial({color: 0xd8c090, map: compassTex() || null, shininess: 40, specular: 0x886633}));
+    disc.rotation.x = -Math.PI / 2; disc.position.set(-0.06, 0.017, 0.07);
+    g.add(cover, face, back, folded, rim, disc);
     return g;
   };
   function ensureMapMesh(mesh) {
     if (!mesh) return mesh;
     mesh.userData.map = true;
-    let has = false;
-    mesh.traverse(o => { if (o.isMesh) has = true; });
-    if (!has) {
-      let tex = null;
-      try { if (W.__c112 && W.__c112.TX) { tex = new T.CanvasTexture(W.__c112.TX); } } catch (_) {}
-      mesh.add(U.buildMapCard(tex));
-    }
+    if (mesh.userData.art1249) return mesh;
+    let tex = null;
+    try { if (W.__c112 && W.__c112.TX) { tex = new T.CanvasTexture(W.__c112.TX); } } catch (_) {}
+    // Replace the crude card with the parchment + compass build.
+    const kids = mesh.children.slice();
+    for (const c of kids) mesh.remove(c);
+    mesh.add(U.buildMapCard(tex));
+    mesh.userData.art1249 = 1;
     return mesh;
   }
   U.ensureMapMesh = ensureMapMesh;
@@ -560,6 +610,7 @@
     root.traverse(o => {
       if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
       if (pred && !pred(o)) return;
+      if (o.userData && (o.userData.glow1249 || o.userData.keepTransparent || o.userData.nail1249)) return;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       let ch = false;
       const out = mats.map(m => {
@@ -593,6 +644,9 @@
     if (!o) return;
     const visit = (mesh) => {
       if (!(mesh.isMesh || mesh.isSkinnedMesh) || !mesh.material) return;
+      if (mesh.userData && (mesh.userData.sculptKeep || mesh.userData.nail1249 || mesh.userData.glow1249 || mesh.userData.sculptHidden)) return;
+      const src0 = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      if (src0 && src0.userData && (src0.userData.sculptKeep || src0.userData.nail1249 || src0.userData.keepTransparent)) return;
       const src = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       const color = saneColor(look, fallbackHex);
       // Keep the procedural fabric() weave for sleeves; never assign the
@@ -694,7 +748,8 @@
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
         if (!m) continue;
-        if (m.userData && m.userData.keepTransparent) continue;
+        if (m.userData && (m.userData.keepTransparent || m.userData.glow1249)) continue;
+        if (o.userData && (o.userData.keepTransparent || o.userData.glow1249)) continue;
         if (m.transparent || m.opacity < 1 || (m.depthWrite === false)) {
           m.transparent = false;
           m.opacity = 1;

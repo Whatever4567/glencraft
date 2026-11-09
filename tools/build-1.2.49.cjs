@@ -227,6 +227,30 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
     } else {
       throw new Error('held-vm missing; cannot inject hands-sculpt');
     }
+  } else {
+    const i = s.indexOf('(function handsSculpt1249');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('hands-sculpt replace failed');
+    s = s.slice(0, i) + hs.trim() + '\n' + s.slice(j + end.length);
+  }
+}
+
+// Bucket / torch / map-adjacent art + musket sight correction.
+{
+  const art = fs.readFileSync(path.join(__dirname, 'pilot-model-source/items-art-1249.js'), 'utf8');
+  if (!s.includes('itemsArt1249')) {
+    const i = s.indexOf('(function handsSculpt1249');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('items-art inject anchor missing');
+    s = s.slice(0, j + end.length) + art.trim() + '\n' + s.slice(j + end.length);
+  } else {
+    const i = s.indexOf('(function itemsArt1249');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('items-art replace failed');
+    s = s.slice(0, i) + art.trim() + '\n' + s.slice(j + end.length);
   }
 }
 
@@ -258,7 +282,7 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   if (s.includes(a) && !s.includes('gripHand.visible = false; gripHand.scale.set(0, 0, 0);')) s = s.replace(a, b);
   else if (!s.includes('gripHand.visible = false; gripHand.scale.set(0, 0, 0);')) throw new Error('empty gripHand branch not found');
   const ua = 'updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; return r; };';
-  const ub = "updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; if (fist.parent) fist.parent.remove(fist); try { if (typeof armMesh !== 'undefined' && armMesh) armMesh.visible = false; if (gripHand && !(held.children[0] && held.children[0].userData && held.children[0].userData.tool)) { gripHand.visible = false; if (gripHand.parent) gripHand.parent.remove(gripHand); } const root = (typeof hand !== 'undefined' && hand) ? hand : null; if (root && root.traverse) { root.traverse(function(o){ if (!o || !o.isMesh) return; let p=o; let inHeld=false; while(p){ if(p===held){inHeld=true;break;} p=p.parent; } if(inHeld) return; const g=o.geometry, m=[].concat(o.material||[])[0]; if (g && g.type==='BoxGeometry' && m && m.map) o.visible=false; }); } } catch (e) {} return r; };";
+  const ub = "updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; if (fist.parent) fist.parent.remove(fist); try { if (typeof armMesh !== 'undefined' && armMesh) armMesh.visible = false; if (gripHand && !(held.children[0] && held.children[0].userData && held.children[0].userData.tool)) { gripHand.visible = false; if (gripHand.parent) gripHand.parent.remove(gripHand); } const root = (typeof hand !== 'undefined' && hand) ? hand : null; if (root && root.traverse) { root.traverse(function(o){ if (!o || !o.isMesh) return; let p=o; let inHeld=false; while(p){ if(p===held){inHeld=true;break;} p=p.parent; } if(inHeld) return; if (o.userData && (o.userData.sculptKeep || o.userData.sculpt1249 || o.userData.nail1249)) return; const g=o.geometry, m=[].concat(o.material||[])[0]; if (g && g.type==='BoxGeometry' && m && m.map) o.visible=false; }); } } catch (e) {} return r; };";
   if (s.includes(ua)) s = s.replace(ua, ub);
   else {
     const oldUb = "updateHand = function () { const r = uh.apply(this, arguments); fist.visible = false; try { if (gripHand && !(held.children[0] && held.children[0].userData && held.children[0].userData.tool)) { gripHand.visible = false; if (gripHand.parent) gripHand.parent.remove(gripHand); } } catch (e) {} return r; };";
@@ -304,7 +328,9 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
     'rifle: {hip: [0.07, -0.05, -0.34], ads: [0, -0.003, -0.42], sk: 0.68'
   ];
   const next = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68';
-  let hit = s.includes(next);
+  const already = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70';
+  const already0 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70';
+  let hit = s.includes(next) || s.includes(already) || s.includes(already0);
   for (const a of prevs) {
     if (s.includes(a)) { s = s.replace(a, next); hit = true; }
   }
@@ -315,14 +341,26 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const midAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.52], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.18';
   const midAds2 = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.52], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.12';
   const farAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10';
-  const cleanAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.11';
+  const oldClean = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.11';
+  const cleanAds = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
+  const prevClean = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
   if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
+  else if (s.includes(prevClean)) s = s.replace(prevClean, cleanAds);
   else if (s.includes(midAds0)) s = s.replace(midAds0, cleanAds);
   else if (s.includes(midAds)) s = s.replace(midAds, cleanAds);
   else if (s.includes(midAds2)) s = s.replace(midAds2, cleanAds);
   else if (s.includes(farAds)) s = s.replace(farAds, cleanAds);
+  else if (s.includes(oldClean)) s = s.replace(oldClean, cleanAds);
   else if (s.includes('rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10')) s = s.replace('rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10', cleanAds);
   else if (!s.includes(cleanAds)) throw new Error('rifle ads zoom/sight line not found');
+  const pOld = [
+    'pistol: {hip: [0.08, -0.12, -0.42], ads: [0, -0.0035, -0.47], sk: 0',
+    'pistol: {hip: [0.10, -0.10, -0.34], ads: [0, -0.008, -0.28], sk: 0'
+  ];
+  const pNew = 'pistol: {hip: [0.13, -0.08, -0.28], ads: [0, -0.012, -0.22], sk: 0';
+  let pHit = s.includes(pNew);
+  for (const a of pOld) { if (s.includes(a)) { s = s.replace(a, pNew); pHit = true; } }
+  if (!pHit) throw new Error('pistol hip/ads pose line not found');
 }
 
 if (!s.includes("const GAME_VERSION = '1.2.49';")) throw new Error('ver missing');
@@ -344,7 +382,12 @@ if (!s.includes('transparent: false, opacity: 1, depthWrite: true')) throw new E
 if (s.includes('specular: 0xffffff, transparent: true, opacity: 0.92') || s.includes('specular: 0xffd8ff, transparent: true, opacity: 0.94')) {
   throw new Error('old translucent crystal headMatFor still present');
 }
+if (!s.includes('handsSculpt1249') || !s.includes('fingerSegGeo')) throw new Error('sculpted hands missing');
+if (!s.includes('crescentBladeGeometry') || !s.includes('crystalVeinTexture')) throw new Error('crescent crystal pick missing');
+if (!s.includes('itemsArt1249')) throw new Error('items-art 1249 missing');
+if (!s.includes('ads: [0, 0.022, -0.40]')) throw new Error('musket ADS pose not applied');
+
 
 fs.writeFileSync(out, s);
 fs.writeFileSync(path.join(path.dirname(path.resolve(out)), 'version.json'), JSON.stringify({v: '1.2.49'}) + '\n');
-console.log('Built 1.2.49 held repair (opaque tools, curved purple pick, vm pass): ' + out);
+console.log('Built 1.2.49 held repair (sculpted hands, crescent pick, item art): ' + out);
