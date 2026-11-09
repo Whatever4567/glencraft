@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Glencraft popstar preview</title>
+<style>
+  html,body{margin:0;background:#8eb4d4;overflow:hidden}
+  canvas{display:block}
+</style>
+</head>
+<body>
+<script type="importmap">
+{ "imports": { "three": "/three/three.module.js" } }
+</script>
+<script type="module">
+import * as THREE from 'three';
+window.THREE = THREE;
+const s = document.createElement('script');
+s.src = './popstar-core.js';
+s.onload = start;
+document.head.appendChild(s);
+
+function start() {
+  const P = window.__popstarCore;
+  const q = new URLSearchParams(location.search);
+  const w = +(q.get('w') || window.__previewW || window.innerWidth || 412);
+  const h = +(q.get('h') || window.__previewH || window.innerHeight || 915);
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+  renderer.setSize(w, h, false);
+  renderer.setPixelRatio(1);
+  renderer.setClearColor(0x9ec6e0, 1);
+  document.body.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x9ec6e0, 40, 160);
+  const camera = new THREE.PerspectiveCamera(42, w / h, 0.1, 400);
+  const hemi = new THREE.HemisphereLight(0xe8f0f8, 0x6a7a4a, 0.85);
+  scene.add(hemi);
+  const sun = new THREE.DirectionalLight(0xfff1d0, 0.95);
+  sun.position.set(-40, 80, 30);
+  scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xc0d8ff, 0.25);
+  fill.position.set(30, 20, -20);
+  scene.add(fill);
+
+  // ground
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(400, 400),
+    new THREE.MeshLambertMaterial({ color: 0x6e9a4e })
+  );
+  ground.rotation.x = -Math.PI / 2;
+  scene.add(ground);
+  // a few blocky "buildings" for scale, like the meme
+  const bmat = new THREE.MeshLambertMaterial({ color: 0xc4c0b4 });
+  const rmat = new THREE.MeshLambertMaterial({ color: 0xa04838 });
+  for (const [x,z,bw,bh,bd,m] of [
+    [-18, -8, 8, 14, 8, rmat], [16, -12, 7, 18, 7, bmat],
+    [-22, 20, 9, 11, 9, bmat], [24, 16, 6, 22, 6, rmat]
+  ]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), m);
+    b.position.set(x, bh/2, z); scene.add(b);
+  }
+  // 2-block-tall "player" dummy for scale
+  const dummy = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.8, 0.4), new THREE.MeshLambertMaterial({ color: 0x3a6ab0 }));
+  dummy.position.set(6, 0.9, 8); scene.add(dummy);
+
+  const parts = P.make();
+  scene.add(parts.g);
+
+  const st0 = P.stepState(0);
+  function place(t, cam) {
+    const st = P.stepState(t);
+    // Treadmill: keep the hip at the origin so the camera can frame her.
+    parts.g.position.set(0, 0, 0);
+    parts.g.rotation.set(0, 0, 0);
+    P.applyPose(parts, st, { l: 0, r: 0, h: 0 });
+    parts.g.updateMatrixWorld(true);
+    if (!window.__bboxOnce) {
+      window.__bboxOnce = 1;
+      const b = new THREE.Box3().setFromObject(parts.g);
+      console.log('popstar-bbox', JSON.stringify({min:[b.min.x,b.min.y,b.min.z],max:[b.max.x,b.max.y,b.max.z]}));
+    }
+    if (cam === 'portrait') {
+      camera.fov = 36; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(20, 16, 64);
+      camera.lookAt(0, 14, 0);
+    } else if (cam === 'wide') {
+      camera.fov = 42; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(48, 20, 70);
+      camera.lookAt(0, 12, 0);
+    } else if (cam === 'close') {
+      camera.fov = 32; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(12, 24, 28);
+      camera.lookAt(0, 24, 0);
+    } else if (cam === 'side') {
+      camera.fov = 40; camera.aspect = w/h; camera.updateProjectionMatrix();
+      camera.position.set(56, 16, 8);
+      camera.lookAt(0, 14, 0);
+    }
+    renderer.render(scene, camera);
+  }
+
+  window.__qa = {
+    P, parts, scene, camera, renderer,
+    pose(t, cam) { place(t, cam || 'portrait'); },
+    size(nw, nh) { renderer.setSize(nw, nh, false); camera.aspect = nw/nh; camera.updateProjectionMatrix(); },
+    holdPose(id, midStride, cam) {
+      // mid-stride of a left-foot plant (even beat) while holding a pose
+      // pick a time in the pose sequence where pose == id, plus 0.25 beat
+      let t = 0.25 * P.BEAT;
+      const seq = P.POSE_SEQ;
+      let acc = 0;
+      for (const [pid, dur] of seq) {
+        if (pid === id && dur > 0.6) { t = acc + Math.min(dur * 0.55, dur - 0.05); break; }
+        acc += dur;
+      }
+      // snap onto a mid-stride left plant (even beat + 0.35)
+      const beat = P.BEAT;
+      const step = Math.round(t / beat);
+      const even = (step % 2 === 0) ? step : step + 1;
+      t = (even + 0.35) * beat;
+      place(t, cam || 'portrait');
+      return t;
+    },
+    capture() { return renderer.domElement.toDataURL('image/png'); }
+  };
+  place(0.35 * P.BEAT, 'portrait');
+  console.log('popstar-preview-ready');
+}
+</script>
+</body>
+</html>
