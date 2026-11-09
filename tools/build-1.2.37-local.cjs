@@ -14,7 +14,7 @@ one('    function pose(model,r){',helper+'\n    function pose(model,r){');
 one("      rotate('spine.001',torso);\n      rotate('head',torso.clone().multiply(u.head.quaternion));\n",
     "      if(O.scottish&&O.life!==false)secondaryBody(model,r,rootQ);\n      rotate('spine.001',torso);\n      if(O.scottish&&O.life!==false)secondaryUpper(model,r,rootQ);\n      rotate('head',torso.clone().multiply(u.head.quaternion));\n      if(O.scottish&&O.life!==false)secondaryShoulders(model,r,rootQ);\n");
 one("      model.updateMatrixWorld(true);\n    }\n    function visibility(model,r){",
-    "      if(O.scottish&&O.life!==false){secondaryLimbs(model,r,rootQ);faceLife(model,r);}\n      if(O.scottish)packFit(model,r);\n      model.updateMatrixWorld(true);\n    }\n    function visibility(model,r){");
+    "      if(O.scottish&&O.life!==false){secondaryLimbs(model,r,rootQ);faceLife(model,r);}\n      if(O.scottish){packFit(model,r);helmFit(model,r);}\n      model.updateMatrixWorld(true);\n    }\n    function visibility(model,r){");
 one("fetch('assets/models/scottish-base-v1/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.36'),fetch('assets/models/pilot-v1/'+name+'?v=1.2.35')",
     "fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.37'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.37')");
 // refined kilt hem sits at y=.581: the base legs carry an 'under_kilt' slim morph (thigh band under the kilt pulled up to 18% toward

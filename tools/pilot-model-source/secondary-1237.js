@@ -48,6 +48,13 @@
       }
     }
     // v1.2.37 jetpack harness fit: the pack + straps carry an 'armour_fit' morph that moves them over the crystal cuirass.
+    // crystal helm follows the skull: while the helmet region is shown, the hair is pulled onto the skull ('helm_hair' morph)
+    function helmFit(model,r){
+      if(!r||!r.regions)return;const hd=r.regions.visual_head_hair_eyes;if(!hd||!hd.o)return;
+      if(!r.helmMeshes){r.helmMeshes=[];hd.o.traverse(o=>{if(o.isMesh&&o.morphTargetDictionary&&o.morphTargetDictionary.helm_hair!==undefined)r.helmMeshes.push(o);});}
+      const g=r.regions.gear_helmet,k=g&&g.o&&g.o.visible?1:0;
+      for(const o of r.helmMeshes)o.morphTargetInfluences[o.morphTargetDictionary.helm_hair]=k;
+    }
     function packFit(model,r){
       if(!r||!r.regions)return;const pk=r.regions.gear_white_pack;if(!pk||!pk.o)return;
       if(!r.packMeshes){r.packMeshes=[];pk.o.traverse(o=>{if(o.isMesh&&o.morphTargetDictionary&&o.morphTargetDictionary.armour_fit!==undefined)r.packMeshes.push(o);});}
