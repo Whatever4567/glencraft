@@ -492,13 +492,53 @@
       ix[0].updateMatrix(); ix[1].updateMatrix();
     } catch (_) {}
   }
+  function findGripHand() {
+    const L = W.__fpLegacy || {};
+    if (L.gripHand && L.gripHand.parent) return L.gripHand;
+    if (W.gripHand && W.gripHand.parent) return W.gripHand;
+    const ap = L.armPivot || W.armPivot;
+    if (!ap || !ap.traverse) return L.gripHand || W.gripHand || null;
+    let found = null;
+    ap.traverse(o => {
+      if (found || !o.children || o.children.length < 4) return;
+      let tubes = 0, box = 0;
+      for (const c of o.children) {
+        const typ = c.geometry && c.geometry.type;
+        if (typ === 'TubeGeometry') tubes++;
+        if (typ === 'BoxGeometry') box++;
+      }
+      if (tubes >= 3 && box >= 1) found = o;
+    });
+    return found || L.gripHand || W.gripHand || null;
+  }
   function hideLegacyBoxes() {
     try {
       const L = W.__fpLegacy || {};
+      const gh = findGripHand();
+      if (gh) {
+        L.gripHand = gh;
+        try { if (W.__fpLegacy) W.__fpLegacy.gripHand = gh; } catch (_) {}
+      }
       pinHidden(L.fist);
       pinHidden(L.armMesh);
-      hideObj(L.gripHand);
+      hideObj(gh);
       hideObj(W.mcArm || L.mcArm);
+      // 1.2.47 unparented the dirt-box fist; if it was left in the scene it
+      // still draws under the wrist. Hide any orphan fist-sized box.
+      try {
+        const sc = (typeof scene !== 'undefined') ? scene : W.scene;
+        const fist = L.fist;
+        if (fist && (!fist.parent || fist.parent === sc)) pinHidden(fist);
+        if (sc && sc.traverse) {
+          sc.traverse(o => {
+            if (!o.isMesh || !o.geometry || o.geometry.type !== 'BoxGeometry') return;
+            if (under(o, held)) return;
+            const pms = o.geometry.parameters;
+            if (pms && Math.abs((pms.width || 0) - 0.14) < 0.02 && Math.abs((pms.height || 0) - 0.14) < 0.02)
+              pinHidden(o);
+          });
+        }
+      } catch (_) {}
       const held = L.held;
       const cam = (typeof camera !== 'undefined') ? camera : W.camera;
       const roots = [L.armPivot, L.hand, L.fist && L.fist.parent, cam].filter(Boolean);
