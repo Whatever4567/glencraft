@@ -9,7 +9,8 @@ function looksSpoken(s){
   const weird=chars.filter(c=>c.charCodeAt(0)<32||c.charCodeAt(0)>126).length;
   const digits=chars.filter(c=>/[0-9]/.test(c)).length;
   if(weird>0)return false;
-  if(letters<8)return false;
+  if(letters<10)return false;
+  if(!/\s/.test(s))return false;
   if(digits>2)return false;
   if(s.split(/[^A-Za-z]+/).some(w=>w.length>16))return false;
   if(letters/chars.length<0.55)return false;
