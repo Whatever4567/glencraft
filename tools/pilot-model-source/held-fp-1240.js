@@ -1,13 +1,14 @@
-/* v1.2.40: third-person held items follow the scottish-base-v2 / crystal-armour
- * weapon_grip_slot sockets (position AND rotation). The unset/empty map gets a
- * visible card; the purple crystal pickaxe is thin, reasonably sized and tinted
- * purple; pistol and musket stay visible in the hand. First-person and swim
- * arms are cloned from the new character (linen sleeve + skin, or crystal
- * vambrace/gauntlet when chest armour is on). */
+/* v1.2.40 / v1.2.44: third-person held items follow the scottish-base-v2 /
+ * crystal-armour weapon_grip_slot sockets. First-person view (1.2.44) uses the
+ * working procedural arm rig (mcArm / __fpa / fist) that drives swing, place,
+ * reload and gun animations and keeps held items parented in the fist — NOT
+ * Held1240FpArms as the main arms. Those procedural arms are retextured from
+ * the new character (skin from the hand meshes, cream linen sleeve from the
+ * outfit). Held1240FpArms may still be built for tests but stays hidden in play. */
 (function heldFp1240(W) {
   'use strict';
   const T = W.THREE || (typeof THREE !== 'undefined' ? THREE : null);
-  const U = W.__held1240 = W.__held1240 || {version: '1.2.42', err: null, on: 0};
+  const U = W.__held1240 = W.__held1240 || {version: '1.2.44', err: null, on: 0};
   if (!T) { U.err = 'no THREE'; return; }
   const V = () => new T.Vector3(), Q = () => new T.Quaternion(), E = () => new T.Euler();
   const find = (r, n) => r && (r.getObjectByName(n) || (T.PropertyBinding && r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))));
@@ -399,63 +400,148 @@
     return fp;
   };
   function hideProceduralFp() {
-    // Retire every pre-1.2.40 first-person arm so only Held1240FpArms draws.
-    // The live game still builds mcArm / __fpa / gripHand / realArm and some of
-    // those wrappers force .visible = true every updateHand — hide them again
-    // here after that, every frame.
-    try { W.__fpaOff = 1; } catch (_) {}
-    try {
-      const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
-      if (rig) {
-        rig.visible = false;
-        rig.traverse(o => { if (o.isMesh || o.isSkinnedMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
-      }
-    } catch (_) {}
-    try {
-      if (typeof fist !== 'undefined' && fist) { fist.visible = false; fist.userData.held1240Hid = 1; }
-      if (typeof armMesh !== 'undefined' && armMesh) { armMesh.visible = false; armMesh.userData.held1240Hid = 1; }
-      if (typeof window !== 'undefined' && window.mcArm) {
-        window.mcArm.visible = false;
-        window.mcArm.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
-      }
-      if (typeof realArm !== 'undefined' && realArm && realArm.fa) {
-        realArm.fa.visible = false;
-        realArm.fa.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
-      }
-      if (typeof gripHand !== 'undefined' && gripHand) {
-        gripHand.visible = false;
-        gripHand.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
-      }
-    } catch (_) {}
+    // 1.2.44: no longer retire the working procedural arms. Keep __fpa / mcArm /
+    // fist / armMesh driving animations and showing held items. Hide the unused
+    // Held1240FpArms clone so it cannot cover or steal the held group.
+    try { W.__fpaOff = 0; } catch (_) {}
     try {
       const cam = (typeof camera !== 'undefined') ? camera : W.camera;
-      if (!cam) return;
-      cam.children.forEach(ch => {
-        if (ch.name === 'Held1240FpArms') return;
-        // c51 swim boxes: two pivots each with a sleeve box ~0.13 and a hand box
-        if (ch.children && ch.children.length === 2 && ch.children[0] && ch.children[0].children) {
-          const m = ch.children[0].children[0];
-          if (m && m.isMesh && m.geometry && m.geometry.type === 'BoxGeometry') {
-            ch.traverse(o => { if (o.isMesh) { o.userData.held1240Hid = 1; o.visible = false; } });
-            ch.userData.held1240SwimHost = 1;
-          }
-        }
-      });
-      // Hide leftover box/HD arms under the classic `hand` group, keep held + haggis.
-      if (typeof hand !== 'undefined' && hand) {
-        hand.traverse(o => {
-          if (!(o.isMesh || o.isSkinnedMesh)) return;
-          let p = o, keep = false;
-          while (p) {
-            if (p === (typeof held !== 'undefined' ? held : null) || p === (typeof grabHaggis !== 'undefined' ? grabHaggis : null) || (p.name === 'Held1240FpArms')) { keep = true; break; }
-            p = p.parent;
-          }
-          if (!keep) { o.userData.held1240Hid = 1; o.visible = false; }
-        });
+      if (cam) {
+        const fp = cam.getObjectByName && cam.getObjectByName('Held1240FpArms');
+        if (fp) { fp.visible = false; fp.traverse(o => { if (o.isMesh || o.isSkinnedMesh) o.visible = false; }); }
       }
     } catch (_) {}
   }
   U.hideProceduralFp = hideProceduralFp;
+
+  function avgMapColor(map) {
+    try {
+      const im = map && map.image;
+      if (!im) return null;
+      const w = im.width || 0, h = im.height || 0;
+      if (!w || !h) return null;
+      let ctx = null, data = null;
+      if (typeof im.getContext === 'function') {
+        ctx = im.getContext('2d'); data = ctx.getImageData(0, 0, w, h).data;
+      } else if (im.data && im.data.length) {
+        data = im.data;
+      }
+      if (!data) return null;
+      let r = 0, g = 0, b = 0, n = 0;
+      const step = Math.max(4, Math.floor(data.length / 4 / 4000) * 4);
+      for (let i = 0; i + 3 < data.length; i += step) {
+        if (data[i + 3] < 200) continue;
+        r += data[i]; g += data[i + 1]; b += data[i + 2]; n++;
+      }
+      if (!n) return null;
+      return new T.Color(r / n / 255, g / n / 255, b / n / 255);
+    } catch (_) { return null; }
+  }
+  function sampleCharacterLooks(template) {
+    const looks = {skin: null, sleeve: null};
+    if (!template) return looks;
+    const skinNames = /visual_arm_slot[01]_hand|GLOVE_|hand|palm|finger|skin|anatomical/i;
+    const sleeveNames = /visual_torso_outfit|sleeve|shirt|linen|cloth|fabric/i;
+    const skipArmour = /crystal|armour|armor|metal|vambrace|gauntlet|pauldr|gear_chest|gear_helmet|gear_legs|gear_boots|harness|jetpack|pack/i;
+    let skinBest = null, sleeveBest = null;
+    template.traverse(o => {
+      if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
+      const n = String(o.name || '');
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        if (!m || !m.color) continue;
+        let c = m.color.clone();
+        // Authored glTF often keeps colour at white and puts the look in the map.
+        if (m.map && c.r > 0.95 && c.g > 0.95 && c.b > 0.95) {
+          const avg = avgMapColor(m.map);
+          if (avg) c = avg;
+        }
+        const entry = {map: m.map || null, color: c.clone(), roughness: m.roughness, metalness: m.metalness, name: n};
+        const skinLike = c.r > 0.45 && c.g > 0.28 && c.b > 0.18 && c.r > c.b && c.r >= c.g - 0.05 && c.g > c.b;
+        const creamLike = c.r > 0.62 && c.g > 0.55 && c.b > 0.42 && Math.abs(c.r - c.g) < 0.18 && c.r >= c.b;
+        if (skinNames.test(n) || skinLike) {
+          if (!skinBest || skinNames.test(n)) skinBest = entry;
+        }
+        if (!skipArmour.test(n) && sleeveNames.test(n)) {
+          const lum = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+          if (lum < 0.28) continue;
+          const score = (/visual_torso_outfit/.test(n) ? 2 : 0) + (creamLike ? 1 : 0) + lum;
+          entry._score = score;
+          if (!sleeveBest || score >= (sleeveBest._score || 0)) sleeveBest = entry;
+        }
+      }
+    });
+    // Fallbacks matching the scottish cream shirt / warm skin if sampling missed.
+    if (!looks.skin) {/* filled below */}
+    looks.skin = skinBest || {map: null, color: new T.Color(0xd4a07a), name: 'fallback-skin'};
+    looks.sleeve = sleeveBest || {map: null, color: new T.Color(0xe9e2d4), name: 'fallback-cream'};
+    return looks;
+  }
+
+  function applyMat(dst, src, fallbackHex) {
+    if (!dst) return;
+    try {
+      // Procedural box / limb arms rarely share the character UV layout, so prefer
+      // the sampled colour (from the map average or material) over assigning the
+      // character map, which would otherwise read as flat white / wrong texels.
+      if (src && src.color) { dst.map = null; dst.color.copy(src.color); }
+      else if (fallbackHex != null && dst.color) { dst.map = null; dst.color.setHex(fallbackHex); }
+      if (src && src.roughness != null && dst.roughness != null) dst.roughness = src.roughness;
+      if (src && src.metalness != null && dst.metalness != null) dst.metalness = src.metalness;
+      dst.needsUpdate = true;
+    } catch (_) {}
+  }
+
+  U.retextureProceduralArms = function (template) {
+    if (U._retexDone && !template) return U._retexDone;
+    const looks = sampleCharacterLooks(template || (W.__pilot1235 && W.__pilot1235.templates && W.__pilot1235.templates[0]));
+    U._looks = looks;
+    // Classic box fist / sleeve
+    try {
+      if (typeof armMat !== 'undefined' && armMat) applyMat(armMat, looks.skin, 0xd4a07a);
+      if (typeof sleeveMat !== 'undefined' && sleeveMat) applyMat(sleeveMat, looks.sleeve, 0xe9e2d4);
+      if (typeof fist !== 'undefined' && fist) fist.visible = fist.visible;
+      if (typeof armMesh !== 'undefined' && armMesh) armMesh.visible = armMesh.visible;
+    } catch (_) {}
+    // mcArm cuboid materials
+    try {
+      if (typeof window !== 'undefined' && window.mcArm) {
+        window.mcArm.traverse(o => {
+          if (!o.isMesh || !o.material) return;
+          const m = o.material;
+          // forearm+fist cuboid uses skin; second box is sleeve if present
+          const n = String(o.name || '');
+          if (/sleeve|shirt|cloth/i.test(n)) applyMat(m, looks.sleeve, 0xe9e2d4);
+          else applyMat(m, looks.skin, 0xd4a07a);
+        });
+      }
+    } catch (_) {}
+    // HD __fpa materials (skinM / shirtM closed over in that IIFE — reach via meshes)
+    try {
+      const rig = W.__fpa && W.__fpa.rig && W.__fpa.rig();
+      if (rig) {
+        rig.traverse(o => {
+          if (!o.isMesh || !o.material) return;
+          const m = o.material;
+          const n = String(o.name || '');
+          // Heuristic: shirt/sleeve meshes are larger limb boxes; hands are smaller
+          const box = o.geometry && o.geometry.boundingBox;
+          try { if (o.geometry && !o.geometry.boundingBox) o.geometry.computeBoundingBox(); } catch (_) {}
+          const bb = o.geometry && o.geometry.boundingBox;
+          let isHand = /hand|palm|finger|wrist/i.test(n);
+          if (!isHand && bb) {
+            const s = bb.getSize(new T.Vector3());
+            if (s.x < 0.12 && s.y < 0.14 && s.z < 0.08) isHand = true;
+          }
+          if (isHand) applyMat(m, looks.skin, 0xd4a07a);
+          else applyMat(m, looks.sleeve, 0xe9e2d4);
+        });
+      }
+    } catch (_) {}
+    U._retexDone = {skin: !!(looks.skin), sleeve: !!(looks.sleeve)};
+    return U._retexDone;
+  };
+
   function currentFpKind() {
     try {
       if (typeof window !== 'undefined' && window.__swimHide) return 'swim';
@@ -474,46 +560,40 @@
   function chestArmourOn() {
     try {
       if (typeof armour !== 'undefined' && armour && armour[1]) return true;
-      if (W.__pilot1235 && typeof W.__pilot1235.stats === 'function') {
-        /* equipment comes from O.equipment */
-      }
     } catch (_) {}
     return false;
   }
   U.stepFp = function (dt) {
+    // 1.2.44: do not drive Held1240FpArms as the main first-person arms.
+    // Procedural __fpa / mcArm / fist (already hooked by the game) keep ownership
+    // of held items and swing / place / reload / gun / swim animations.
+    try { W.__fpaOff = 0; } catch (_) {}
     const cam = (typeof camera !== 'undefined') ? camera : W.camera;
-    const runtime = W.__pilot1235;
-    if (!cam || !runtime || !runtime.templates || !runtime.templates[0]) return;
-    const fpOn = (typeof camMode === 'undefined' || camMode === 0);
-    let fp = cam.getObjectByName('Held1240FpArms');
-    if (!fpOn) { if (fp) fp.visible = false; return; }
-    if (typeof started !== 'undefined' && !started) { if (fp) fp.visible = false; return; }
-    const template = runtime.templates[0];
-    fp = U.installFpOnCamera(cam, template, chestArmourOn());
-    if (!fp) return;
-    fp.visible = true;
-    hideProceduralFp();
-    const kind = currentFpKind();
-    let phase = 0;
-    try { if (kind === 'swim') phase = (performance.now() / 1000) * 4.6; } catch (_) {}
-    U.applyFpIk(fp, kind, phase);
+    if (!cam) return;
+    const fp = cam.getObjectByName && cam.getObjectByName('Held1240FpArms');
+    if (fp) {
+      fp.visible = false;
+      try { fp.traverse(o => { if (o.isMesh || o.isSkinnedMesh) o.visible = false; }); } catch (_) {}
+    }
     try {
-      const item = (typeof heldMesh3p !== 'undefined' && camMode === 0 && heldMesh3p) ? null : null;
-      let mesh = null, id = null;
-      if (typeof held !== 'undefined' && held && held.children && held.children.length) {
-        mesh = held; // pose the whole first-person held group into the new hand socket
-        id = typeof heldId !== 'undefined' ? heldId : (typeof selId !== 'undefined' ? selId : null);
-        const k = kindOf(held.children[0], id);
-        if (k !== 'pistol' && k !== 'musket') {
-          // Drop the old camera-space lean/turn so the shared socket pose is the only transform.
-          held.position.set(0,0,0); held.rotation.set(0,0,0); held.scale.setScalar(1);
-          const top = held.children[0];
-          if (top && !top.isMesh) { top.position.set(0,0,0); top.rotation.set(0,0,0); if (typeof top.scale !== 'undefined') { /* keep tool self-scale */ } }
-          U.poseHeldFp(fp, held, k, id);
+      const runtime = W.__pilot1235;
+      if (runtime && runtime.templates && runtime.templates[0] && !U._retexDone) {
+        U.retextureProceduralArms(runtime.templates[0]);
+      }
+    } catch (e) { if (!U.err) U.err = 'retex: ' + (e && e.message || e); }
+    // Ensure held stays under the procedural fist / armPivot / hand — never under Held1240FpArms.
+    try {
+      if (typeof held !== 'undefined' && held) {
+        let p = held.parent, underNew = false;
+        while (p) { if (p.name === 'Held1240FpArms') { underNew = true; break; } p = p.parent; }
+        if (underNew) {
+          const host = (typeof armPivot !== 'undefined' && armPivot) || (typeof hand !== 'undefined' && hand) || null;
+          if (host) host.add(held);
         }
       }
-    } catch (e) { if (!U.err) U.err = 'fp item: ' + (e && e.message || e); }
-    U.fpOn = 1;
+    } catch (_) {}
+    U.fpOn = 0;
+    U.fpKind = currentFpKind();
   };
   U.install = function () {
     const runtime = W.__pilot1235;
