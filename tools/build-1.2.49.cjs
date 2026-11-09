@@ -309,6 +309,24 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   }
 }
 
+// 1270: first-person arms cloned from the live Scottish TP player mesh.
+{
+  const tparm = fs.readFileSync(path.join(__dirname, 'pilot-model-source/fp-tp-arm-1270.js'), 'utf8');
+  if (!s.includes('(function fpTpArm1270')) {
+    const i = s.indexOf('(function fpVm1259');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('fp-tp-arm-1270 inject anchor missing');
+    s = s.slice(0, j + end.length) + tparm.trim() + '\n' + s.slice(j + end.length);
+  } else {
+    const i = s.indexOf('(function fpTpArm1270');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('fp-tp-arm-1270 replace failed');
+    s = s.slice(0, i) + tparm.trim() + '\n' + s.slice(j + end.length);
+  }
+}
+
 // After the last placeCamera wrap in the gameplay script, call the QA hook.
 {
   const endAnchor = "})();\n</script>\n<div id=\"notesUI\" class=\"hidden\" data-testid=\"patch-notes\"";

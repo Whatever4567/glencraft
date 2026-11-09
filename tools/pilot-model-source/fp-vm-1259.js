@@ -1558,6 +1558,7 @@
     vc.updateProjectionMatrix();
     placeLights();
     rig.updateMatrixWorld(true);
+    try { if (W.__fpTpArm1270 && W.__fpTpArm1270.sync) W.__fpTpArm1270.sync(); } catch (_) {}
   }
 
   function underOurRig(o) {
