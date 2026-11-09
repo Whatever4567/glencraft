@@ -23,7 +23,7 @@
     axe:    Object.assign({}, TOOL_POSE, {s: 0.74}),
     shovel: Object.assign({}, TOOL_POSE, {s: 0.74}),
     hoe:    Object.assign({}, TOOL_POSE, {s: 0.72}),
-    sword:  {p: [0, 0.01, 0.03], r: [0.2, Math.PI / 2, 0], s: 0.78, euler: 'YXZ'},
+    sword:  {p: [0, 0.00, 0.04], r: [0.38, Math.PI / 2, 0.05], s: 0.82, euler: 'YXZ'},
     claymore:{p: [0, 0.01, 0.03], r: [0.15, Math.PI / 2, 0], s: 0.85, euler: 'YXZ'},
     shears: {p: [0, 0.02, 0.04], r: [0.2, Math.PI / 2, 0], s: 0.85, euler: 'YXZ'},
     flint:  {p: [0, 0.02, 0.04], r: [0.2, Math.PI / 2, 0], s: 0.9, euler: 'YXZ'},

@@ -13,20 +13,20 @@
   // s scales the held item (not the arm length) so fists stay reachable.
   // armS scales the visible __fpa rig around the camera (use sparingly).
   const FRAME = {
-    empty:  {dx: -0.06, dy:  0.14, dz: 0.18, fov: 0.52, s: 1.00, armS: 1.55},
-    block:  {dx: -0.06, dy:  0.12, dz: 0.17, fov: 0.54, s: 1.20, armS: 1.48},
-    pick:   {dx: -0.03, dy:  0.02, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
-    p761:   {dx: -0.03, dy:  0.02, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
-    p760:   {dx: -0.03, dy:  0.02, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
-    axe:    {dx: -0.03, dy:  0.02, dz: 0.07, fov: 0.78, s: 1.06, armS: 1.10},
-    shovel: {dx: -0.03, dy:  0.02, dz: 0.07, fov: 0.78, s: 1.06, armS: 1.10},
-    hoe:    {dx: -0.03, dy:  0.02, dz: 0.07, fov: 0.78, s: 1.06, armS: 1.10},
-    sword:  {dx: -0.05, dy:  0.10, dz: 0.12, fov: 0.58, s: 1.18, armS: 1.28},
-    bucket: {dx: -0.08, dy:  0.08, dz: 0.12, fov: 0.62, s: 1.22, armS: 1.18},
-    torch:  {dx: -0.08, dy:  0.08, dz: 0.12, fov: 0.60, s: 1.35, armS: 1.20},
-    map:    {dx: -0.05, dy:  0.08, dz: 0.12, fov: 0.62, s: 1.70, armS: 1.18},
-    musket: {dx: -0.02, dy:  0.08, dz: 0.04, fov: 0.88, s: 1.00, armS: 1.00},
-    pistol: {dx: -0.02, dy:  0.06, dz: 0.03, fov: 0.86, s: 1.00, armS: 1.00},
+    empty:  {dx:  0.02, dy: -0.12, dz: 0.02, fov: 0.76, s: 1.00, armS: 1.16},
+    block:  {dx: -0.04, dy:  0.00, dz: 0.04, fov: 0.76, s: 0.68, armS: 1.20},
+    pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
+    shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
+    hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
+    sword:  {dx: -0.02, dy: -0.06, dz: 0.06, fov: 0.68, s: 1.10, armS: 1.16},
+    bucket: {dx: -0.06, dy:  0.00, dz: 0.08, fov: 0.68, s: 1.16, armS: 1.12},
+    torch:  {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12},
+    map:    {dx: -0.05, dy:  0.02, dz: 0.08, fov: 0.68, s: 1.55, armS: 1.12},
+    musket: {dx: -0.02, dy:  0.02, dz: 0.02, fov: 0.92, s: 1.00, armS: 1.00},
+    pistol: {dx: -0.06, dy:  0.00, dz: 0.06, fov: 0.90, s: 1.00, armS: 1.00},
     musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     other:  {dx: -0.04, dy:  0.08, dz: 0.12, fov: 0.64, s: 1.10, armS: 1.20}
@@ -279,6 +279,196 @@
     } catch (_) {}
     return false;
   }
+
+  // View-space bbox + projected screen coverage for a mesh (0..1 of the
+  // viewport). Used to cull any viewmodel mesh that fills the lens — the
+  // giant linen sleeve wall that sat in the top half of gun hip/ADS.
+  const _cv = [];
+  for (let i = 0; i < 8; i++) _cv.push(new T.Vector3());
+  const _inv = new T.Matrix4();
+  const COVER_LIMIT = 0.25;
+  U.COVER_LIMIT = COVER_LIMIT;
+
+  function viewBox(mesh, cam) {
+    const g = mesh && mesh.geometry;
+    if (!g) return null;
+    if (!g.boundingBox) g.computeBoundingBox();
+    const bb = g.boundingBox;
+    cam.updateMatrixWorld(true);
+    mesh.updateWorldMatrix(true, false);
+    _inv.copy(cam.matrixWorld);
+    if (typeof _inv.invert === 'function') _inv.invert();
+    else if (typeof _inv.getInverse === 'function') _inv.getInverse(cam.matrixWorld);
+    let minx = Infinity, miny = Infinity, minz = Infinity;
+    let maxx = -Infinity, maxy = -Infinity, maxz = -Infinity;
+    for (let i = 0; i < 8; i++) {
+      const v = _cv[i];
+      v.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z);
+      v.applyMatrix4(mesh.matrixWorld).applyMatrix4(_inv);
+      if (v.x < minx) minx = v.x; if (v.y < miny) miny = v.y; if (v.z < minz) minz = v.z;
+      if (v.x > maxx) maxx = v.x; if (v.y > maxy) maxy = v.y; if (v.z > maxz) maxz = v.z;
+    }
+    return {min: {x: minx, y: miny, z: minz}, max: {x: maxx, y: maxy, z: maxz}};
+  }
+
+  function screenCover(mesh, cam) {
+    try {
+      const g = mesh && mesh.geometry;
+      if (!g || !cam) return 0;
+      if (!g.boundingBox) g.computeBoundingBox();
+      const bb = g.boundingBox;
+      cam.updateMatrixWorld(true);
+      mesh.updateWorldMatrix(true, false);
+      _inv.copy(cam.matrixWorld);
+      if (typeof _inv.invert === 'function') _inv.invert();
+      else if (typeof _inv.getInverse === 'function') _inv.getInverse(cam.matrixWorld);
+      const near = (cam.near || 0.01);
+      const pts = [];
+      let minx = Infinity, miny = Infinity, minz = Infinity;
+      let maxx = -Infinity, maxy = -Infinity, maxz = -Infinity;
+      let inFront = 0;
+      for (let i = 0; i < 8; i++) {
+        const v = _cv[i];
+        v.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z);
+        v.applyMatrix4(mesh.matrixWorld).applyMatrix4(_inv);
+        pts.push({x: v.x, y: v.y, z: v.z});
+        if (v.x < minx) minx = v.x; if (v.y < miny) miny = v.y; if (v.z < minz) minz = v.z;
+        if (v.x > maxx) maxx = v.x; if (v.y > maxy) maxy = v.y; if (v.z > maxz) maxz = v.z;
+        if (v.z < 0) inFront++;
+      }
+      // Entirely behind the camera: not on screen.
+      if (inFront === 0) return 0;
+      // Mesh swallows the camera (the linen sleeve wall): bbox crosses z=0
+      // with a large near-plane footprint.
+      const swallows = (minz < -0.001 && maxz > 0) && (maxx - minx) > 0.10 && (maxy - miny) > 0.10;
+      if (swallows) return 1;
+      const tanHalf = Math.tan(((cam.fov || 70) * Math.PI / 180) * 0.5);
+      const aspect = cam.aspect || 1;
+      function project(vx, vy, vz) {
+        const z = Math.min(vz, -near);
+        const ph = Math.max(1e-5, (-z) * tanHalf);
+        const pw = ph * aspect;
+        return {x: vx / pw, y: vy / ph};
+      }
+      let ndcMinX = Infinity, ndcMinY = Infinity, ndcMaxX = -Infinity, ndcMaxY = -Infinity;
+      let any = false;
+      function addP(vx, vy, vz) {
+        const p = project(vx, vy, vz);
+        if (p.x < ndcMinX) ndcMinX = p.x; if (p.x > ndcMaxX) ndcMaxX = p.x;
+        if (p.y < ndcMinY) ndcMinY = p.y; if (p.y > ndcMaxY) ndcMaxY = p.y;
+        any = true;
+      }
+      for (let i = 0; i < 8; i++) {
+        if (pts[i].z < -near * 0.5) addP(pts[i].x, pts[i].y, pts[i].z);
+      }
+      // Clip bbox edges that cross the near plane.
+      const edges = [
+        [0,1],[0,2],[0,4],[1,3],[1,5],[2,3],[2,6],[3,7],[4,5],[4,6],[5,7],[6,7]
+      ];
+      for (let e = 0; e < edges.length; e++) {
+        const a = pts[edges[e][0]], b = pts[edges[e][1]];
+        const az = a.z, bz = b.z;
+        if ((az < -near) === (bz < -near)) continue;
+        const t = (-near - az) / (bz - az);
+        if (t < 0 || t > 1) continue;
+        addP(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, -near);
+      }
+      if (!any) return 0;
+      const x0 = Math.max(-1, ndcMinX), x1 = Math.min(1, ndcMaxX);
+      const y0 = Math.max(-1, ndcMinY), y1 = Math.min(1, ndcMaxY);
+      if (x1 <= x0 || y1 <= y0) return 0;
+      return ((x1 - x0) * (y1 - y0)) / 4;
+    } catch (_) { return 0; }
+  }
+
+  function isHandPart(o) {
+    if (!o) return false;
+    const n = (o.name || '') + ' ' + ((o.parent && o.parent.name) || '');
+    if (/PalmSculpt|finger|thumb|index|middle|ring|pinky|knuckle|nail|thenar|fist/i.test(n)) return true;
+    const u = o.userData || {};
+    if (u.sculptKeep || u.sculpt1249 || u.nail1249 || u.__fpaHand) return true;
+    return false;
+  }
+  function isItemMesh(o) {
+    const heldRoot = (typeof held !== 'undefined') ? held : null;
+    let n = o;
+    while (n) {
+      const u = n.userData || {};
+      if (heldRoot && n === heldRoot) return true;
+      if (u.gun || u.c322 || u.__fb || u.tool || u.prismBuilt || u.sword ||
+          u.block || u.torch || u.bucket || u.map || u.p761 || u.p760 ||
+          u.crystalPick || u.kind === 'sword' || u.kind === 'pick') return true;
+      n = n.parent;
+    }
+    return false;
+  }
+  function isProtectedMesh(o) {
+    // Palm/fingers on the mesh itself only. A linen sleeve parented under
+    // the hand group must NOT inherit protection — that was the wall.
+    if (isHandPart(o) && !isLinenMesh(o)) return true;
+    return isItemMesh(o);
+  }
+
+  function restoreCulled() {
+    const list = U._culled || [];
+    for (let i = 0; i < list.length; i++) {
+      try { if (list[i]) list[i].visible = true; } catch (_) {}
+    }
+    U._culled = [];
+  }
+
+  // Idempotent: restore last frame's cull, then hide any non-item mesh whose
+  // projected coverage exceeds 25% of the viewport. Called in the same path
+  // as the viewmodel draw, after objects are parented to the VM camera and
+  // after __fpa.step / __vm have posed them — not in a raced earlier hook.
+  function cullVm(root, cam) {
+    restoreCulled();
+    const dump = [];
+    if (!root || !cam) { U.lastDump = dump; U.maxCover = 0; return dump; }
+    try {
+      root.updateMatrixWorld(true);
+      cam.updateMatrixWorld(true);
+      root.traverse(function (o) {
+        if (!o.isMesh || o.visible === false) return;
+        const cov = screenCover(o, cam);
+        const vsb = cov >= 0.08 ? viewBox(o, cam) : null;
+        const rec = {
+          name: o.name || '(anon)',
+          parent: (o.parent && (o.parent.name || o.parent.type)) || '',
+          typ: (o.geometry && o.geometry.type) || '',
+          cov: +(+cov).toFixed(4),
+          vsb: vsb && {min: [+vsb.min.x.toFixed(3), +vsb.min.y.toFixed(3), +vsb.min.z.toFixed(3)], max: [+vsb.max.x.toFixed(3), +vsb.max.y.toFixed(3), +vsb.max.z.toFixed(3)]},
+          prot: isProtectedMesh(o)
+        };
+        if (cov >= 0.08) dump.push(rec);
+        // Hide only wall-like meshes: they swallow the camera (cover==1)
+        // or a linen/sleeve sheet covers more than half the frame. Do not
+        // hide a close hand, forearm or held item just for exceeding 25%.
+        const vsbZ = rec.vsb && rec.vsb.min && rec.vsb.max;
+        const swallows = !!(vsbZ && rec.vsb.min[2] < 0 && rec.vsb.max[2] > 0 && (cov > COVER_LIMIT || cov >= 0.999));
+        const palm = isHandPart(o) && !isLinenMesh(o);
+        const item = isItemMesh(o);
+        rec.prot = !!(palm || item);
+        // Always hide a camera-swallowing linen/sleeve wall, even if it
+        // sits under the hand group. Never hide the held item or a finger.
+        const wall = !item && !palm && (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)));
+        if (wall) {
+          o.visible = false;
+          U._culled.push(o);
+          rec.hid = 1;
+        }
+      });
+    } catch (e) { ERR('cull', e); }
+    U.lastDump = dump;
+    U.maxCover = dump.reduce(function (m, r) { return Math.max(m, r.cov || 0); }, 0);
+    U.lastKind = U.kind;
+    return dump;
+  }
+  U.screenCover = screenCover;
+  U.viewBox = viewBox;
+  U.cullVm = cullVm;
+  U.restoreCulled = restoreCulled;
+
   function hideGunSleeves() {
     let hid = 0;
     eachArm(function (arm) {
@@ -293,7 +483,7 @@
       }
       try {
         arm.traverse(function (o) {
-          if (o.isMesh && !keep.has(o)) { o.visible = false; hid++; }
+          if (o.isMesh && !keep.has(o)) { o.userData.__hidSleeve1252 = 1; o.visible = false; hid++; }
         });
       } catch (_) {}
     });
@@ -321,7 +511,7 @@
           // Keep textured gun parts (often colour 0xffffff + a wood/metal map).
           if (nonLinenMap && !pale && !isLinenMesh(o)) return;
           if (isLinenMesh(o) || pale || (typ && /Cylinder|Torus/.test(typ) && !nonLinenMap)) {
-            o.visible = false; hid++;
+            o.userData.__hidSleeve1252 = 1; o.visible = false; hid++;
           }
         });
       }
@@ -329,17 +519,26 @@
     U.hidSleeve = hid;
   }
   function showGunSleeves() {
-    eachArm(function (arm) {
-      const p = arm.userData && arm.userData.p;
-      if (!p) return;
-      if (p.up) p.up.visible = true;
-      if (p.el) p.el.visible = true;
+    function unhide(root) {
+      if (!root || !root.traverse) return;
       try {
-        arm.traverse(function (o) {
-          if (o.userData && o.userData.folded1249) o.visible = true;
+        root.traverse(function (o) {
+          if (o.userData && o.userData.__hidSleeve1252) {
+            o.visible = true; o.userData.__hidSleeve1252 = 0;
+          }
         });
       } catch (_) {}
+    }
+    eachArm(function (arm) {
+      const p = arm.userData && arm.userData.p;
+      if (p) {
+        if (p.up) p.up.visible = true;
+        if (p.el) p.el.visible = true;
+        if (p.cuff) p.cuff.visible = true;
+      }
+      unhide(arm);
     });
+    try { if (typeof hand !== 'undefined' && hand) unhide(hand); } catch (_) {}
   }
 
   function apply(dt) {

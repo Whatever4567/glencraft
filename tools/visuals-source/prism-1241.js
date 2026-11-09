@@ -487,7 +487,7 @@
   const FERRULE_HEX = {
     wood: 0x8a6230, stone: 0x6a6860, iron: 0x9aa0a8, gold: 0xd4a824,
     diamond: 0xc8d0d8, cobalt: 0x4a5a80,
-    crystalpurple: 0xc0a050, crystalblue: 0xc0a050, metal: 0x8a9098
+    crystalpurple: 0x5a4630, crystalblue: 0x4a5a70, metal: 0x8a9098
   };
   const HAFT = 0x6b4a2a;
 
@@ -597,10 +597,10 @@
     if (U._geo[key]) return U._geo[key];
     const segs = 14, sides = 6;
     // Fuller C-crescent: both tips sweep well off the haft, deep inner belly.
-    const top = new T.Vector3(len * 0.28, len * 0.90, 0);
-    const bot = new T.Vector3(len * 0.26, -len * 0.72, 0);
-    const mid = new T.Vector3(len * 0.08, 0.04 * len, 0);
-    const outerCtrl = new T.Vector3(len * 0.54, 0.06 * len, 0);
+    const top = new T.Vector3(len * 0.34, len * 0.96, 0);
+    const bot = new T.Vector3(len * 0.32, -len * 0.84, 0);
+    const mid = new T.Vector3(len * 0.06, 0.04 * len, 0);
+    const outerCtrl = new T.Vector3(len * 0.72, 0.08 * len, 0);
     // Param t=0 at bottom tip, t=1 at top tip. Socket near t=0.46.
     const pos = [], nrm = [], uv = [], ix = [];
     function bezier(a, c, b, t) {
@@ -882,11 +882,12 @@
       // so it never vanishes on SwiftShader; glow is a sprite + additive shell.
       const len = 0.64;
       const purple = k === 'p761';
-      const runeWood = matFor(0x5a3a1c, 'wood');
+      const runeWood = matFor(0x4a2c14, 'wood');
       try {
         const wt = woodRuneTexture();
         runeWood.map = wt;
-        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x8a6a18); runeWood.emissiveMap = wt; runeWood.emissiveIntensity = 0.85; }
+        // Dim amber runes on brown wood — never a gold/yellow haft.
+        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x2a1808); runeWood.emissiveMap = wt; runeWood.emissiveIntensity = 0.22; }
         runeWood.needsUpdate = true;
       } catch (_) {}
       const haftM = addMesh(g, twistedHaftGeometry(0.020, len, 1.35), runeWood, 0, 0, 0);
@@ -894,27 +895,27 @@
       const sockM = addMesh(g, carvedSocketGeometry(0.016, 0.10), runeWood, 0, len - 0.02, 0);
       sockM.scale.z = 0.62;
       const vein = crystalVeinTexture(), emTex = crystalEmissiveTexture();
-      const coreCol = purple ? 0xb060ff : 0x4ec0ff;
-      const emCol = purple ? 0x7722bb : 0x1560aa;
+      const coreCol = purple ? 0x7a22e8 : 0x4ec0ff;
+      const emCol = purple ? 0x4a1088 : 0x1560aa;
       const core = new T.MeshPhongMaterial({
         color: coreCol, map: vein, emissive: emCol, emissiveMap: emTex,
-        emissiveIntensity: 1.35, shininess: 140, specular: purple ? 0xffd8ff : 0xd8f0ff,
+        emissiveIntensity: 0.85, shininess: 80, specular: purple ? 0xc090ff : 0xd8f0ff,
         transparent: false, opacity: 1, depthWrite: true
       });
       core.userData.crystalCore1249 = 1;
-      const blade = crescentBladeGeometry(0.48, 0.0068, 0.040);
+      const blade = crescentBladeGeometry(0.50, 0.0064, 0.038);
       const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
       bladeMesh.rotation.z = -0.08;
       const glow = addGlowShell(g, blade, purple ? 0xc080ff : 0x66c8ff, 0, len - 0.01, 0);
       if (glow) glow.rotation.z = -0.08;
       try {
         const gtex = glowSpriteTex();
-        const col = purple ? 0xcc88ff : 0x88ccff;
-        // Soft bloom along the whole crescent, not a second white blade.
+        const col = purple ? 0xaa66ee : 0x66aadd;
+        // Soft violet bloom along the whole crescent, never a gold/white wash.
         const spots = [
-          [0.08, len + 0.24, 0, 0.10, 0.16, 0.55],
-          [0.09, len + 0.06, 0, 0.12, 0.16, 0.70],
-          [0.07, len - 0.14, 0, 0.10, 0.14, 0.55]
+          [0.10, len + 0.26, 0, 0.09, 0.14, 0.40],
+          [0.12, len + 0.06, 0, 0.11, 0.15, 0.48],
+          [0.09, len - 0.16, 0, 0.09, 0.13, 0.36]
         ];
         for (let i = 0; i < spots.length; i++) {
           const [x, y, z, sx, sy, op] = spots[i];
@@ -946,9 +947,9 @@
       const bladeL = long ? 0.66 : 0.54;
       const bladeW = long ? 0.034 : 0.028;
       const bladeT = long ? 0.010 : 0.0085;
-      const steel = (mat === 'gold') ? matFor(0xf4c542, 'gold') : matFor(0xd8dde4, 'metal');
-      const guardM = (mat === 'gold') ? ferM : matFor(0xb0b6be, 'metal');
-      const gripM = (mat === 'gold') ? ferM : woodM;
+      const steel = (mat === 'gold') ? matFor(0xf4c542, 'gold') : matFor(0x6a7078, 'metal');
+      const guardM = (mat === 'gold') ? ferM : matFor(0x5a5e66, 'metal');
+      const gripM = (mat === 'gold') ? ferM : matFor(0x4a2c14, 'wood');
       // peen / pommel
       addMesh(g, cutGemGeometry({length: 0.046, rx: 0.024, rz: 0.024, sides: 8, pointTip: true, pointButt: true}), guardM, 0, -0.04, 0);
       // leather / wood grip with a slight oval
@@ -961,7 +962,7 @@
       // blade
       const blade = addMesh(g, cutGemGeometry({length: bladeL, rx: bladeW, rz: bladeT, sides: 6, pointTip: true, pointButt: false, tip: 0.22, butt: 0.08, girdle: 0.05}), steel, 0, 0.15 + bladeL * 0.5, 0);
       // fuller groove (darker inset)
-      const fullerM = matFor(0x8a9098, 'metal');
+      const fullerM = matFor(0x4a5058, 'metal');
       addMesh(g, chamferBoxGeometry(bladeW * 0.28, bladeL * 0.62, bladeT * 0.35, 0.002), fullerM, 0, 0.18 + bladeL * 0.28, bladeT * 0.55);
     } else if (k === 'shovel') {
       handleWithFerrule(g, woodM, ferM, 0.52, 0.016, false);

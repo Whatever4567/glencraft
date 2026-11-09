@@ -69,7 +69,7 @@
         try {
           const mesh = (typeof held !== 'undefined' && held && held.children[0]) || null;
           const isTorch = !!(mesh && (mesh.userData.torch || mesh.userData.sparks1249));
-          torchL.intensity = isTorch ? 1.35 : 0;
+          torchL.intensity = isTorch ? 0.55 : 0;
           if (isTorch && mesh) {
             const wp = new THREE.Vector3();
             mesh.updateWorldMatrix(true, false);
@@ -80,7 +80,7 @@
         } catch (_) { torchL.intensity = 0; }
         for (const o of objs) vc.add(o);
         const ac0 = this.autoClear; this.autoClear = false; this.clearDepth();
-        try { rd.call(this, vs, vc); } finally { this.autoClear = ac0; }
+        try { if (window.__heldFrame1251 && __heldFrame1251.cullVm) __heldFrame1251.cullVm(vs, vc); /* GLX-CULLVM-1252 */ rd.call(this, vs, vc); } finally { this.autoClear = ac0; }
       } catch (e) { if (!U.err) U.err = String(e && e.message || e); }
       for (const o of objs) { try { camera.add(o); } catch (_) {} }
       return r;

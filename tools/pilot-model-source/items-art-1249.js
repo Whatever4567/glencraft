@@ -81,7 +81,7 @@
     // Scale the existing torch up a little and add extra flame + sparks.
     try {
       const inner = g.children && g.children[0];
-      if (inner && inner.scale) inner.scale.setScalar(Math.max(inner.scale.x || 0.42, 1.15));
+      if (inner && inner.scale) inner.scale.setScalar(Math.max(inner.scale.x || 0.42, 1.00));
     } catch (_) {}
     const flameT = (function () {
       try {
@@ -91,23 +91,23 @@
       return sparkTex();
     })();
     const extra = new T.Sprite(new T.SpriteMaterial({
-      map: flameT, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.85
+      map: flameT, color: 0xff8a28, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.62
     }));
-    extra.scale.set(0.85, 1.35, 1);
-    extra.position.set(0, 0.62, 0);
+    extra.scale.set(0.42, 0.70, 1);
+    extra.position.set(0, 0.56, 0);
     extra.material.userData.keepTransparent = 1;
     extra.userData.glow1249 = 1;
     g.add(extra);
     const sparks = [];
     const st = sparkTex();
-    // Second, larger core flame
-    const core = extra.clone(); core.scale.set(0.55, 0.90, 1); core.position.set(0, 0.52, 0.01); core.material = extra.material.clone(); core.material.opacity = 0.95; g.add(core);
-    for (let i = 0; i < 14; i++) {
+    // Small orange core — not a blown-out white ball.
+    const core = extra.clone(); core.scale.set(0.20, 0.32, 1); core.position.set(0, 0.50, 0.01); core.material = extra.material.clone(); core.material.color.setHex(0xff6a14); core.material.opacity = 0.55; g.add(core);
+    for (let i = 0; i < 8; i++) {
       const s = new T.Sprite(new T.SpriteMaterial({
-        map: st, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.9
+        map: st, color: 0xffa030, blending: T.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.7
       }));
-      s.scale.set(0.05, 0.05, 1);
-      s.position.set((Math.random() - 0.5) * 0.14, 0.48 + Math.random() * 0.28, (Math.random() - 0.5) * 0.14);
+      s.scale.set(0.028, 0.028, 1);
+      s.position.set((Math.random() - 0.5) * 0.10, 0.48 + Math.random() * 0.20, (Math.random() - 0.5) * 0.10);
       s.material.userData.keepTransparent = 1;
       s.userData.spark1249 = 1;
       g.add(s);
@@ -128,7 +128,7 @@
         const y = 0.48 + ((t * sp.sp + sp.p) % 0.42);
         const a = t * 2 + sp.p;
         sp.s.position.set(Math.sin(a) * 0.07, y, Math.cos(a * 1.3) * 0.07);
-        sp.s.material.opacity = 0.4 + 0.6 * Math.abs(Math.sin(t * 6 + sp.p));
+        sp.s.material.opacity = 0.25 + 0.4 * Math.abs(Math.sin(t * 6 + sp.p));
       }
     } catch (_) {}
   }
