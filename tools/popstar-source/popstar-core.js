@@ -123,13 +123,15 @@
     t.needsUpdate = true;
     return t;
   }
+  // Always fully opaque, never faded by scene fog or distance alpha.
+  const VIS = { fog: false, transparent: false, opacity: 1, depthWrite: true, depthTest: true, alphaTest: 0 };
   function phong(opts) {
-    const o = Object.assign({ color: 0xffffff, shininess: 50, specular: 0x333333 }, opts || {});
+    const o = Object.assign({ color: 0xffffff, shininess: 50, specular: 0x333333 }, VIS, opts || {}, VIS);
     if (typeof THREE.MeshPhongMaterial === 'function') return new THREE.MeshPhongMaterial(o);
     return new THREE.MeshLambertMaterial(o);
   }
   function lamb(opts) {
-    return new THREE.MeshLambertMaterial(Object.assign({ color: 0xffffff }, opts || {}));
+    return new THREE.MeshLambertMaterial(Object.assign({ color: 0xffffff }, VIS, opts || {}, VIS));
   }
 
   function sequinMaps() {
@@ -235,7 +237,7 @@
       color: 0xffd21c, map: seq.map, emissive: 0x7a4a00,
       emissiveMap: seq.emissiveMap, shininess: 110, specular: 0xfff2c0
     };
-    try { dressOpts.emissiveIntensity = 0.7; } catch (_) {}
+    try { dressOpts.emissiveIntensity = 1.05; } catch (_) {}
     const dress = addM(phong(dressOpts));
     const dressDark = addM(phong(Object.assign({}, dressOpts, { color: 0xe8b40e, emissive: 0x4a2e00 })));
     const belt = addM(phong({ color: 0x6a4814, shininess: 40, specular: 0x665533 }));
@@ -445,6 +447,55 @@
     };
 
     P.applyPose(parts, P.stepState(0));
+    P.dressVisible(parts);
+    return parts;
+  };
+
+  // Keep her crisp and fully visible at any distance: no fog, no fade, not culled,
+  // and her own fill light so the gold dress and blonde hair stay vivid.
+  P.dressVisible = function (parts) {
+    const g = parts && parts.g;
+    if (!g) return parts;
+    const mats = parts.mats || [];
+    const applyMat = m => {
+      if (!m) return;
+      m.fog = false;
+      m.transparent = false;
+      m.opacity = 1;
+      m.depthWrite = true;
+      m.depthTest = true;
+      try { m.alphaTest = 0; } catch (_) {}
+      try { if (m.alphaMap) m.alphaMap = null; } catch (_) {}
+      try { m.toneMapped = false; } catch (_) {}
+    };
+    mats.forEach(applyMat);
+    g.name = g.name || 'popstar';
+    g.frustumCulled = false;
+    g.traverse(function (o) {
+      o.frustumCulled = false;
+      if (o.material) [].concat(o.material).forEach(applyMat);
+      if (o.geometry) {
+        try {
+          o.geometry.computeBoundingSphere();
+          if (o.geometry.boundingSphere) {
+            o.geometry.boundingSphere.radius = Math.max(o.geometry.boundingSphere.radius, 48);
+          }
+        } catch (_) {}
+      }
+    });
+    try {
+      if (typeof THREE !== 'undefined' && THREE.Sphere) {
+        g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 16, 0), 56);
+      }
+    } catch (_) {}
+    if (!parts.light && typeof THREE !== 'undefined' && THREE.PointLight) {
+      const lit = new THREE.PointLight(0xfff2c8, 1.6, 90, 1.2);
+      lit.position.set(0, 18, 5);
+      lit.frustumCulled = false;
+      lit.name = 'popstarFill';
+      g.add(lit);
+      parts.light = lit;
+    }
     return parts;
   };
 

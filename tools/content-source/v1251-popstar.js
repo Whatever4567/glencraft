@@ -34,23 +34,55 @@
     return true;
   }
 
-  function footGround(x, z) {
+  function isFluid(b) {
+    if (typeof T === 'undefined' || T == null || b == null) return false;
+    return b === T.WATER || b === T.LAVA || (T.STILL_WATER != null && b === T.STILL_WATER);
+  }
+  function isLandBlock(b) {
+    if (b == null || b === 0) return false;
+    if (isFluid(b)) return false;
+    try { if (typeof LEAFY !== 'undefined' && LEAFY[b]) return false; } catch (_) {}
+    try { if (typeof PLANT !== 'undefined' && PLANT[b]) return false; } catch (_) {}
+    return true;
+  }
+  // Top of a solid dry-land block (not water, lava, leaves, plants or air). 0 if none.
+  function landY(x, z) {
     try {
       const bx = Math.floor(x), bz = Math.floor(z);
-      if (typeof W === 'number' && (bx < 1 || bz < 1 || bx >= W - 1 || bz >= D - 1)) {
-        return (typeof SEA === 'number' ? SEA : 0);
-      }
-      if (typeof getB !== 'function' || typeof solid !== 'function') return 0;
+      if (typeof W === 'number' && (bx < 2 || bz < 2 || bx >= W - 2 || bz >= D - 2)) return 0;
+      if (typeof getB !== 'function') return 0;
       const Hgt = (typeof H === 'number') ? H : 90;
       for (let y = Hgt - 1; y >= 0; y--) {
-        if (!solid(bx, y, bz)) continue;
         const b = getB(bx, y, bz);
-        if (typeof LEAFY !== 'undefined' && LEAFY[b]) continue;
-        if (typeof PLANT !== 'undefined' && PLANT[b]) continue;
+        if (!isLandBlock(b)) continue;
+        if (typeof solid === 'function' && !solid(bx, y, bz)) continue;
+        // need two clear non-fluid blocks to stand in
+        const above = (typeof getB === 'function') ? getB(bx, y + 1, bz) : 0;
+        const above2 = getB(bx, y + 2, bz);
+        if (isFluid(above) || isFluid(above2)) continue;
+        if (typeof solid === 'function' && (solid(bx, y + 1, bz) || solid(bx, y + 2, bz))) continue;
         return y + 1;
       }
-    } catch (e) { ERR('ground', e); }
+    } catch (e) { ERR('land', e); }
     return 0;
+  }
+  function isDryLand(x, z) { return landY(x, z) > 0; }
+  // Kept name: callers and tests use footGround; it now means dry land only (never sea).
+  function footGround(x, z) { return landY(x, z); }
+
+  // Search outward from (x,z) for a dry-land column. Used when the player is on a shore or at sea.
+  function findLandNear(x, z, maxR) {
+    maxR = maxR || 80;
+    if (landY(x, z) > 0) return {x: x, y: landY(x, z), z: z};
+    for (let r = 2; r <= maxR; r += 2) {
+      for (let a = 0; a < 20; a++) {
+        const ang = a / 20 * Math.PI * 2;
+        const nx = x + Math.cos(ang) * r, nz = z + Math.sin(ang) * r;
+        const y = landY(nx, nz);
+        if (y > 0) return {x: nx, y: y, z: nz};
+      }
+    }
+    return null;
   }
 
   function headingVec(yaw) { return { x: Math.sin(yaw), z: Math.cos(yaw) }; }
@@ -160,21 +192,24 @@
   function pickSpawn() {
     try {
       if (typeof P === 'undefined' || !P) return null;
-      if (typeof W !== 'number') return null;
-      for (let i = 0; i < 24; i++) {
+      // Prefer a dry-land ring around the player; if the local area is all water, search outward.
+      for (let i = 0; i < 40; i++) {
         const ang = Math.random() * Math.PI * 2;
         const r = 28 + Math.random() * 50;
         let x = P.x + Math.sin(ang) * r, z = P.z + Math.cos(ang) * r;
-        if (x < 8) x = 8; if (z < 8) z = 8;
-        if (x > W - 8) x = W - 8; if (z > D - 8) z = D - 8;
-        const y = footGround(x, z);
+        if (typeof W === 'number') {
+          if (x < 8) x = 8; if (z < 8) z = 8;
+          if (x > W - 8) x = W - 8; if (z > D - 8) z = D - 8;
+        }
+        const y = landY(x, z);
         if (y < 1) continue;
-        // prefer open sky
         let sky = true;
         try { if (typeof skyTop === 'function' && skyTop(Math.floor(x), Math.floor(z)) > y + 8) sky = false; } catch (_) {}
-        if (!sky && i < 16) continue;
+        if (!sky && i < 24) continue;
         return { x: x, y: y, z: z, yaw: Math.atan2(P.x - x, P.z - z) };
       }
+      const near = findLandNear(P.x, P.z, 96);
+      if (near) return { x: near.x, y: near.y, z: near.z, yaw: Math.atan2(P.x - near.x, P.z - near.z) };
     } catch (e) { ERR('spot', e); }
     return null;
   }
@@ -196,15 +231,23 @@
     if (typeof THREE === 'undefined' || typeof scene === 'undefined') { ERR('scene', 'no THREE/scene'); return null; }
     let parts;
     try { parts = C.make(); } catch (e) { ERR('make', e); return null; }
-    const gy = (y != null) ? y : footGround(x, z);
-    parts.g.position.set(x, gy, z);
+    let gx = x, gz = z, gy = landY(x, z);
+    if (gy < 1) {
+      const near = findLandNear(x, z, 96);
+      if (!near) { ERR('spawn', 'no dry land'); try { /* parts still need cleanup */ } catch (_) {} return null; }
+      gx = near.x; gy = near.y; gz = near.z;
+    }
+    try { if (C.dressVisible) C.dressVisible(parts); } catch (e) { ERR('vis', e); }
+    parts.g.position.set(gx, gy, gz);
     parts.g.rotation.y = yaw || 0;
+    parts.g.visible = true;
+    parts.g.frustumCulled = false;
     scene.add(parts.g);
     const rec = {
       kind: 'popstar', g: parts.g, parts: parts, hostile: false, harmless: true,
       hp: 9999, hitY: 8, hitR: 0.01, tall: C.HEIGHT, speed: C.STRIDE / C.BEAT,
       flee: 0, angry: 0, mats: parts.mats, named: true,
-      yaw: yaw || 0, destYaw: yaw || 0, pathX: x, pathZ: z, pathYaw: yaw || 0,
+      yaw: yaw || 0, destYaw: yaw || 0, pathX: gx, pathZ: gz, pathYaw: yaw || 0,
       born: (typeof performance !== 'undefined' ? performance.now() : 0),
       life: 0, tSong: 0, lastStep: -1
     };
@@ -261,13 +304,17 @@
     rec.tSong = tSong;
     const st = C.stepState(tSong);
 
-    // Long straight-ish walk; turn at the world edge or after a long leg.
+    // Long straight-ish walk on dry land only; turn back at water, lava, air or a steep drop.
     if (typeof W === 'number') {
       const look = 18;
       const nx = rec.pathX + fwd.x * look, nz = rec.pathZ + fwd.z * look;
       const nearEdge = nx < 6 || nz < 6 || nx > W - 6 || nz > D - 6;
-      if (nearEdge) {
+      const aheadY = landY(nx, nz);
+      const hereY = landY(rec.pathX, rec.pathZ);
+      const badAhead = aheadY < 1 || (hereY > 0 && Math.abs(aheadY - hereY) > 3);
+      if (nearEdge || badAhead) {
         rec.destYaw = yaw + (Math.random() < 0.5 ? 1 : -1) * (Math.PI * (0.6 + Math.random() * 0.6));
+        U.turns = (U.turns || 0) + 1;
       }
     }
     // Smooth yaw toward dest
@@ -277,11 +324,15 @@
     rec.yaw += Math.max(-2.2 * dt, Math.min(2.2 * dt, dy));
     rec.pathYaw = rec.yaw;
 
-    // Path origin moves with the hip: world path at (pathX, pathZ) is the t=0 origin
-    // Easier: integrate hip speed along current heading.
     const speed = C.STRIDE / C.BEAT;
-    rec.pathX += fwd.x * speed * dt;
-    rec.pathZ += fwd.z * speed * dt;
+    const step = U.proposeStep(rec.pathX, rec.pathZ, rec.yaw, speed * dt);
+    if (step.ok) {
+      rec.pathX = step.x;
+      rec.pathZ = step.z;
+    } else {
+      rec.destYaw = rec.yaw + Math.PI * (0.7 + Math.random() * 0.4);
+      U.turns = (U.turns || 0) + 1;
+    }
     if (typeof W === 'number') {
       rec.pathX = Math.max(6, Math.min(W - 6, rec.pathX));
       rec.pathZ = Math.max(6, Math.min(D - 6, rec.pathZ));
@@ -306,14 +357,18 @@
       return { x: hipWX + sa * rz - ca * rx, z: hipWZ + ca * rz + sa * rx };
     }
     const lW = footWZ(st.left), rW = footWZ(st.right);
-    const gL = footGround(lW.x, lW.z), gR = footGround(rW.x, rW.z);
-    const gH = footGround(hipWX, hipWZ);
-    const support = st.left.planted && !st.right.planted ? gL
-      : st.right.planted && !st.left.planted ? gR
+    const gL = landY(lW.x, lW.z), gR = landY(rW.x, rW.z);
+    const gH = landY(hipWX, hipWZ);
+    const support = (st.left.planted && !st.right.planted && gL > 0) ? gL
+      : (st.right.planted && !st.left.planted && gR > 0) ? gR
       : Math.max(gL, gR, gH);
-
-    rec.g.position.set(hipWX, support, hipWZ);
+    // Snap feet to the dry surface; never float, sink or stand in water.
+    if (support > 0) rec.g.position.set(hipWX, support, hipWZ);
     rec.g.rotation.set(0, rec.yaw, 0);
+    rec.g.visible = true;
+    rec.g.frustumCulled = false;
+    try { if (rec.g.parent !== scene && typeof scene !== 'undefined') scene.add(rec.g); } catch (_) {}
+    try { if (C.dressVisible) C.dressVisible(parts); } catch (_) {}
     // applyPose expects rig at origin with hipZ subtracted from foot z; we already
     // placed g at the hip, so pass a state whose hipZ is used only relatively.
     C.applyPose(parts, st, { l: gL - support, r: gR - support, h: 0 });
@@ -416,40 +471,70 @@
 
   function standOk(x, y, z) {
     try {
-      x = Math.floor(x); z = Math.floor(z); y = Math.floor(y);
-      const bad = b => (typeof T !== 'undefined' && (b === T.WATER || b === T.LAVA));
+      const yLand = landY(x, z);
+      if (yLand < 1) return false;
+      if (y != null && Math.abs(yLand - y) > 1.1) return false;
+      x = Math.floor(x); z = Math.floor(z); y = Math.floor(yLand);
       if (typeof W === 'number' && (x < 2 || z < 2 || x > W - 3 || z > D - 3)) return false;
       if (typeof H === 'number' && (y < 1 || y > H - 3)) return false;
-      if (typeof solid !== 'function') return y >= 1;
-      if (!solid(x, y - 1, z)) return false;
-      if (solid(x, y, z) || solid(x, y + 1, z)) return false;
-      if (typeof getB === 'function' && (bad(getB(x, y - 1, z)) || bad(getB(x, y, z)) || bad(getB(x, y + 1, z)))) return false;
       return true;
     } catch (e) { ERR('stand', e); return false; }
   }
 
-  // A safe standing spot a few blocks in front of her, always within maxD blocks.
+  // One wander step: accept only dry land, reject steep drops or climbs of more than 3 blocks.
+  U.proposeStep = function (x, z, yaw, stepLen) {
+    const fwd = headingVec(yaw);
+    const nx = x + fwd.x * stepLen, nz = z + fwd.z * stepLen;
+    const y0 = landY(x, z), y1 = landY(nx, nz);
+    if (y1 < 1 || y0 < 1 || Math.abs(y1 - y0) > 3) {
+      return {ok: false, x: x, z: z, y: y0, yaw: yaw, reason: y1 < 1 ? 'water' : 'steep'};
+    }
+    return {ok: true, x: nx, z: nz, y: y1, yaw: yaw};
+  };
+
+  // Distance at which her whole 32-block body fits in a portrait 412x915, ~70° vertical FOV, with margin.
+  function framingDist() {
+    const h = (C && C.HEIGHT) || 32;
+    let fov = 70;
+    try { if (typeof camera !== 'undefined' && camera && camera.fov) fov = camera.fov; } catch (_) {}
+    const rad = (fov * Math.PI / 180);
+    return (h * 1.28) / (2 * Math.tan(rad / 2));
+  }
+
+  // A dry-land spot in front of her, far enough that head-to-feet fit in the portrait view.
   function spotInFront(rec, maxD) {
-    maxD = maxD || 12;
+    const ideal = framingDist();
+    const lo = Math.max(20, ideal - 6), hi = Math.min(maxD || (ideal + 8), ideal + 8);
     const p = rec.g && rec.g.position ? rec.g.position : {x: rec.pathX || 0, y: 0, z: rec.pathZ || 0};
     const yaw = (typeof rec.yaw === 'number') ? rec.yaw : (rec.g && rec.g.rotation ? rec.g.rotation.y : 0);
     const tryAt = (x, z) => {
-      const y = footGround(x, z);
-      if (standOk(x, y, z) && Math.hypot((x - p.x), (z - p.z)) <= maxD + 0.05) {
-        return {x: Math.floor(x) + 0.5, y: y, z: Math.floor(z) + 0.5};
-      }
-      return null;
+      const y = landY(x, z);
+      if (y < 1 || !standOk(x, y, z)) return null;
+      const d = Math.hypot((x - p.x), (z - p.z));
+      if (d < lo - 0.5 || d > hi + 0.5) return null;
+      return {x: Math.floor(x) + 0.5, y: y, z: Math.floor(z) + 0.5, dist: d};
     };
     const fx = Math.sin(yaw), fz = Math.cos(yaw);
-    for (const dist of [8, 7, 9, 6, 10, 5, 11, 4, 3]) {
+    const dists = [];
+    for (let d = Math.round(ideal); d >= Math.ceil(lo); d--) dists.push(d);
+    for (let d = Math.round(ideal) + 1; d <= Math.floor(hi); d++) dists.push(d);
+    for (const dist of dists) {
       const s = tryAt(p.x + fx * dist, p.z + fz * dist);
       if (s) return s;
     }
-    for (let r = 3; r <= maxD; r++) {
-      for (let a = 0; a < 16; a++) {
-        const ang = yaw + (a / 16) * Math.PI * 2;
+    for (let r = Math.ceil(lo); r <= Math.floor(hi); r++) {
+      for (let a = 0; a < 24; a++) {
+        const ang = yaw + (a / 24) * Math.PI * 2;
         const s = tryAt(p.x + Math.sin(ang) * r, p.z + Math.cos(ang) * r);
         if (s) return s;
+      }
+    }
+    // Last resort: any dry land in front in a slightly wider band.
+    for (let r = 16; r <= 48; r++) {
+      for (let a = 0; a < 24; a++) {
+        const ang = yaw + (a / 24) * Math.PI * 2;
+        const y = landY(p.x + Math.sin(ang) * r, p.z + Math.cos(ang) * r);
+        if (y > 0) return {x: Math.floor(p.x + Math.sin(ang) * r) + 0.5, y: y, z: Math.floor(p.z + Math.cos(ang) * r) + 0.5, dist: r};
       }
     }
     return null;
@@ -477,8 +562,14 @@
         let sp = pickSpawn();
         if (!sp) {
           const yaw = (typeof P.yaw === 'number') ? P.yaw : 0;
-          const x = P.x + Math.sin(yaw) * 28, z = P.z + Math.cos(yaw) * 28;
-          sp = {x: x, y: footGround(x, z), z: z, yaw: yaw + Math.PI};
+          const raw = {x: P.x + Math.sin(yaw) * 28, z: P.z + Math.cos(yaw) * 28};
+          const land = findLandNear(raw.x, raw.z, 96) || findLandNear(P.x, P.z, 96);
+          if (!land) {
+            R.last = 'noland';
+            try { toast('Could not find dry land for the pop star'); } catch (_) {}
+            return false;
+          }
+          sp = {x: land.x, y: land.y, z: land.z, yaw: yaw + Math.PI};
         }
         rec = U.spawnAt(sp.x, sp.y, sp.z, sp.yaw);
         if (!rec) {
@@ -490,7 +581,7 @@
       }
       const p = rec.g && rec.g.position;
       if (!p) { R.last = 'nobody'; return false; }
-      const sp = spotInFront(rec, 12);
+      const sp = spotInFront(rec, 42);
       if (!sp) {
         R.last = 'nospot';
         try { toast('Could not find a safe spot by the pop star'); } catch (_) {}
@@ -500,6 +591,13 @@
       try { P.kbx = 0; P.kbz = 0; P.onGround = true; } catch (_) {}
       try { if (typeof flying !== 'undefined') flying = false; } catch (_) {}
       P.yaw = Math.atan2(-(p.x - P.x), -(p.z - P.z));
+      // Look at mid-torso so head and feet both sit in the portrait frame.
+      try {
+        const eye = (P.y || 0) + 1.6;
+        const mid = (p.y || 0) + ((C && C.HEIGHT) || 32) * 0.5;
+        const hd = Math.max(1, Math.hypot(p.x - P.x, p.z - P.z));
+        P.pitch = -Math.atan2(mid - eye, hd);
+      } catch (_) {}
       try { if (typeof rebuild === 'function') rebuild(); } catch (_) {}
       try { if (typeof setPause === 'function') setPause(false); } catch (_) {}
       try { toast('Teleported to the pop star'); } catch (_) {}
@@ -509,6 +607,11 @@
   };
   U.spotInFront = spotInFront;
   U.standOk = standOk;
+  U.landY = landY;
+  U.isDryLand = isDryLand;
+  U.isFluid = isFluid;
+  U.findLandNear = findLandNear;
+  U.framingDist = framingDist;
 
 
     U.alive = () => aLive;
@@ -526,8 +629,9 @@
           if (typeof started !== 'undefined' && started && typeof P !== 'undefined' && P && typeof scene !== 'undefined') {
             clearInterval(t);
             const yaw = (typeof P.yaw === 'number') ? P.yaw : 0;
-            const x = P.x + Math.sin(yaw) * 28, z = P.z + Math.cos(yaw) * 28;
-            U.spawnAt(x, footGround(x, z), z, yaw + Math.PI);
+            const rawX = P.x + Math.sin(yaw) * 28, rawZ = P.z + Math.cos(yaw) * 28;
+            const land = findLandNear(rawX, rawZ, 96) || findLandNear(P.x, P.z, 96);
+            if (land) U.spawnAt(land.x, land.y, land.z, yaw + Math.PI);
             U.qa = 1;
           }
         } catch (e) { ERR('qa', e); }
