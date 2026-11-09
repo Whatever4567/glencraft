@@ -40,7 +40,8 @@
     },
     block: {
       two: 0, hs: 1.22,
-      R: { sh: [0.75, -1.30, -0.54], wr: [0.22, -0.58, -0.52], rot: [0, 0, 0], haft: [-0.85, 0.02, 0.08], face: 'palmUp', curl: 1 },
+      // 1266: forearm angled in from the bottom-right, cube still cupped mid-low.
+      R: { sh: [1.18, -1.34, -0.52], wr: [0.42, -0.48, -0.52], rot: [0, 0, 0], haft: [-0.72, 0.18, 0.08], face: 'palmUp', curl: 1 },
       item: { p: [0.00, 0.06, -0.012], r: [0.10, 0.18, 0.08], s: 0.55 }
     },
     p761: {
@@ -601,12 +602,16 @@
     // The blade sits at the haft top and sweeps out to the left and up, with
     // a lower tip hanging in the air beside the shaft. TP/world keeps hook 0.42.
     if (U._fpHookGeo) return U._fpHookGeo;
-    const Ro = 0.32;
-    const dOff = 0.25;
-    const thick = 0.158; // 1265: ~1.5x the 1264 mid-thickness, still a minor-cap lune
+    // 1266: a true minor-cap sickle (outer arc ~120°), not the barely-major
+    // ~183° C that 1265's thicken produced. Face-on at the 1265 framing, the
+    // 183° lune filled half the frame and clipped; this compact hook stays
+    // on screen, sweeps left of the haft top, and keeps an open silhouette.
+    const Ro = 0.155;
+    const dOff = 0.11;
+    const thick = 0.092;
     const Ri = Ro + dOff - thick;
-    const coy = -0.02; // lower tip hangs in the air beside the shaft, below the socket
-    const rotZ = -6 * Math.PI / 180; // slight clockwise: upper tip more vertical in camera
+    const coy = -0.015; // lower tip hangs in the air beside the shaft, below the socket
+    const rotZ = 18 * Math.PI / 180;
     const Co0 = { x: 0, y: coy };
     const Ci0 = { x: dOff, y: coy };
     const dx = Ci0.x - Co0.x, dy = Ci0.y - Co0.y;
@@ -619,7 +624,7 @@
     let T2 = { x: mx - px, y: my - py };
     if (T1.y < T2.y) { const tmp = T1; T1 = T2; T2 = tmp; }
     // Keep both tips just left of the haft (no tail down the shaft).
-    const attachX = T1.x + 0.045;
+    const attachX = T1.x - 0.02;
     function sh(p) { return { x: p.x - attachX, y: p.y }; }
     function rot(p) {
       const c = Math.cos(rotZ), s = Math.sin(rotZ);
@@ -672,11 +677,118 @@
     U._fpHookArc = arcDeg;
     return geo;
   }
+  function tintCrescent(blade) {
+    if (!blade || !blade.material) return;
+    const mat = blade.material;
+    // 1266: brighter purple with light/dark shading and a glossy highlight.
+    // Keep a low emissive so the key light can still model the face.
+    if (mat.color) mat.color.setHex(0xb44cff);
+    if (mat.emissive) mat.emissive.setHex(0x4a1480);
+    mat.emissiveIntensity = 0.18;
+    if (mat.specular) mat.specular.setHex(0xe8c8ff);
+    if (mat.shininess != null) mat.shininess = 58;
+    mat.map = null;
+    mat.bumpMap = null;
+    mat.normalMap = null;
+    mat.blending = T.NormalBlending;
+    mat.transparent = false;
+    mat.opacity = 1;
+    mat.depthWrite = true;
+    if (mat.side != null) mat.side = T.DoubleSide;
+    if (mat.userData) mat.userData.crystalCore1249 = 1;
+  }
+  function haftTopY(blade) {
+    let yMax = 0.80;
+    if (typeof held === 'undefined' || !held) return yMax;
+    held.updateWorldMatrix(true, true);
+    held.traverse(function (o) {
+      if (!o.isMesh || o === blade || o.visible === false) return;
+      const ud = o.userData || {};
+      if (ud.fpSock1265 || ud.fpHook1264 || ud.keepHidden1263) return;
+      const mat = o.material || {};
+      const col = mat.color && mat.color.getHex && mat.color.getHex();
+      if (col !== 0x4a2c14 && col !== 0x3a2412 && col !== 0x5a3a1e) return;
+      if (!o.geometry) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const bb = o.geometry.boundingBox;
+      if (!bb) return;
+      const corners = [bb.min.x, bb.max.x, bb.min.y, bb.max.y, bb.min.z, bb.max.z];
+      for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 2; j++) {
+          for (let k = 0; k < 2; k++) {
+            const pt = new T.Vector3(
+              i ? bb.max.x : bb.min.x,
+              j ? bb.max.y : bb.min.y,
+              k ? bb.max.z : bb.min.z
+            ).applyMatrix4(o.matrixWorld);
+            held.worldToLocal(pt);
+            if (pt.y > yMax) yMax = pt.y;
+          }
+        }
+      }
+    });
+    // Socket near the visible shaft tip, but leave a little room above
+    // for the upper horn of the sickle.
+    if (yMax < 0.82) yMax = 0.87;
+    if (yMax > 0.92) yMax = 0.92;
+    return yMax;
+  }
+  function alignCrescentFace(blade) {
+    // The stock hook lives under an intermediate group whose rotation
+    // presents the extruded face edge-on at the 1265 framing. Reparent
+    // the blade to `held` and give it identity rotation so the lune sits
+    // in held-XY (face toward the camera, item -X = left of the haft)
+    // with the socket on the haft top. Do not rotate about a guessed axis.
+    if (!blade || typeof held === 'undefined' || !held) return;
+    const root = (held.children && held.children[0]) || held;
+    if (blade.parent !== root) {
+      root.attach(blade);
+    }
+    const yTop = haftTopY(blade);
+    blade.rotation.set(0, 0, 0);
+    // Origin stays on the haft; attachX pulls the inner hollow onto the knot.
+    blade.position.set(0, yTop, 0);
+    blade.scale.set(1, 1, 1);
+    blade.updateWorldMatrix(true, true);
+    let nDot = null;
+    if (vc) {
+      const n = new T.Vector3(0, 0, 1).transformDirection(blade.matrixWorld).normalize();
+      const camZ = new T.Vector3(), _r = new T.Vector3(), _u = new T.Vector3();
+      try {
+        vc.matrixWorld.extractBasis(_r, _u, camZ);
+        nDot = +n.dot(camZ.normalize()).toFixed(3);
+        if (nDot < 0) {
+          // Face points away: flip local Z so the silhouette stays put.
+          if (!blade.userData.fpFlipZ1266) {
+            const g = blade.geometry;
+            if (g && U._fpHookGeo && g === U._fpHookGeo) blade.geometry = g.clone();
+            if (blade.geometry && blade.geometry.scale) {
+              blade.geometry.scale(1, 1, -1);
+              blade.geometry.computeVertexNormals();
+            }
+            blade.userData.fpFlipZ1266 = 1;
+          }
+        }
+      } catch (_) {}
+    }
+    const arr = function (v) { return v.toArray().slice(0, 3).map(function (n) { return +n.toFixed(4); }); };
+    U.pickDump = {
+      yTop: +yTop.toFixed(4), rot: arr(blade.rotation), pos: arr(blade.position),
+      scl: arr(blade.scale), par: (blade.parent && (blade.parent.name || blade.parent.type)) || null,
+      flip: !!blade.userData.fpFlipZ1266, nDot: nDot
+    };
+  }
   function dressPickHook() {
     if (!held) return;
-    let already = false;
-    held.traverse(function (o) { if (o.userData && o.userData.fpHook1264 && o.isMesh) already = true; });
-    if (already) return;
+    let already = false, blade0 = null;
+    held.traverse(function (o) {
+      if (o.userData && o.userData.fpHook1264 && o.isMesh) { already = true; blade0 = o; }
+    });
+    if (already && blade0) {
+      alignCrescentFace(blade0);
+      tintCrescent(blade0);
+      return;
+    }
     const geo = fpCrescentGeo();
     if (!geo) return;
     let blade = null;
@@ -695,21 +807,9 @@
     });
     if (!blade) return;
     blade.geometry = geo;
-    blade.rotation.z = 0;
-    // Solid matte-to-glossy purple; no additive rim, no white emissive core.
-    if (blade.material) {
-      const mat = blade.material;
-      if (mat.color) mat.color.setHex(0x6e1ad0);
-      if (mat.emissive) mat.emissive.setHex(0x2a0860);
-      mat.emissiveIntensity = 0.28;
-      if (mat.specular) mat.specular.setHex(0xc4a0ff);
-      if (mat.shininess != null) mat.shininess = 48;
-      mat.blending = T.NormalBlending;
-      mat.transparent = false;
-      mat.opacity = 1;
-      mat.depthWrite = true;
-      if (mat.userData) mat.userData.crystalCore1249 = 1;
-    }
+    // 1266: face the camera about the haft; brighter shaded purple.
+    alignCrescentFace(blade);
+    tintCrescent(blade);
     for (let i = 0; i < hide.length; i++) {
       if (hide[i] === blade) continue;
       hide[i].visible = false;
@@ -984,24 +1084,57 @@
     }
   }
 
+  function aimFlintlockSide(g) {
+    if (!g) return;
+    if (U.poseKey === 'pistolAds' || U.ads) {
+      g.rotation.set(0.15, 0.35, 0.10);
+      return;
+    }
+    g.rotation.set(0.10, 1.05, 0.15);
+    g.updateWorldMatrix(true, true);
+    if (!vc) return;
+    const camZ = new T.Vector3(), _r = new T.Vector3(), _u = new T.Vector3();
+    try { vc.matrixWorld.extractBasis(_r, _u, camZ); } catch (_) { return; }
+    camZ.normalize();
+    const qInv = vc.getWorldQuaternion(new T.Quaternion()).invert();
+    const barrel = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).applyQuaternion(qInv);
+    barrel.z = 0;
+    if (barrel.lengthSq() < 1e-8) return;
+    barrel.normalize();
+    const target = new T.Vector3(-0.52, 0.85, 0);
+    const ang = Math.atan2(barrel.x * target.y - barrel.y * target.x, barrel.x * target.x + barrel.y * target.y);
+    if (Math.abs(ang) < 0.02) return;
+    // Image-plane CCW is about camera -Z (camera +Z points behind the lens).
+    g.rotateOnWorldAxis(camZ, -ang);
+  }
   function dressPistolFlintlock() {
-    // 1265: swap only the mesh (1255 lesson). Keep the authored pistol
-    // transform; dress a procedural flintlock (dark steel, wood stock,
-    // brass furniture, visible hammer and frizzen) onto the existing gun
-    // group, hiding the blocky C322 slab.
+    // 1266: rebuild the procedural flintlock as a side-on piece — longer
+    // octagonal tapering barrel, curved bird's-head grip at ~110° to the
+    // barrel, lock/hammer/frizzen on the camera-facing side, trigger guard.
+    // Keep fpFlint1265 / keepHidden1263 so earlier tests stay green.
     if (typeof held === 'undefined' || !held) return;
     let have = false;
-    held.traverse(function (o) { if (o.userData && o.userData.fpFlint1265 && o.isMesh) have = true; });
+    held.traverse(function (o) { if (o.userData && o.userData.fpFlint1266 && o.isMesh) have = true; });
     if (have) {
-      // C322 may re-show the slab after a late swap; keep it hidden.
       held.traverse(function (o) {
         if (!o.isMesh) return;
-        if (o.userData && o.userData.fpFlint1265) { o.visible = true; return; }
+        if (o.userData && (o.userData.fpFlint1266 || o.userData.fpFlint1265)) { o.visible = true; return; }
         o.visible = false;
         o.userData = o.userData || {};
         o.userData.keepHidden1263 = 1;
       });
+      held.traverse(function (o) {
+        if (o.name === 'FpFlintlock1265') aimFlintlockSide(o);
+      });
       return;
+    }
+    // Drop the boxy 1265 flint if it is already on the gun.
+    const drop = [];
+    held.traverse(function (o) {
+      if (o.userData && o.userData.fpFlint1265 && o.name === 'FpFlintlock1265') drop.push(o);
+    });
+    for (let i = 0; i < drop.length; i++) {
+      if (drop[i].parent) drop[i].parent.remove(drop[i]);
     }
     held.userData.fpFlint1265 = 0;
     const gun = (held.children && held.children[0]) || held;
@@ -1014,10 +1147,9 @@
     const brass = new T.MeshPhongMaterial({ color: 0xc4a056, shininess: 90, specular: 0xffe2a0 });
     const flintC = new T.MeshPhongMaterial({ color: 0x3a3a44, shininess: 40, specular: 0x666677 });
 
-    // Hide the blocky slab, but leave the group (and its transform) in place.
     gun.traverse(function (o) {
       if (!o.isMesh) return;
-      if (o.userData && o.userData.fpFlint1265) return;
+      if (o.userData && (o.userData.fpFlint1265 || o.userData.fpFlint1266)) return;
       o.visible = false;
       o.userData = o.userData || {};
       o.userData.keepHidden1263 = 1;
@@ -1026,46 +1158,81 @@
     const g = new T.Group();
     g.name = 'FpFlintlock1265';
     g.userData.fpFlint1265 = 1;
-    function add(geo, mat, x, y, z, rx, ry, rz) {
-      const m = new T.Mesh(geo, mat);
-      m.position.set(x || 0, y || 0, z || 0);
-      if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+    g.userData.fpFlint1266 = 1;
+    function tag(m) {
       m.userData.fpFlint1265 = 1;
+      m.userData.fpFlint1266 = 1;
       m.castShadow = false;
       g.add(m);
       return m;
     }
-    // Compact flintlock: grip at the existing origin (the fist). Do not
-    // inherit the C322 slab's oversized length (that stretched the stock
-    // into a hanging plank). Barrel along -Z, grip dropping in -Y.
-    add(new T.CylinderGeometry(0.010, 0.0115, 0.22, 12), steel, 0, 0.028, -0.09).rotation.x = Math.PI / 2;
-    add(new T.CylinderGeometry(0.013, 0.013, 0.042, 8), steel, 0, 0.028, 0.028).rotation.x = Math.PI / 2;
-    add(new T.CylinderGeometry(0.0125, 0.0125, 0.014, 12), steel, 0, 0.028, -0.198).rotation.x = Math.PI / 2;
-    // Wooden lock/fore and a short, slightly raked grip.
-    add(new T.BoxGeometry(0.028, 0.024, 0.11), wood, 0, 0.008, -0.01);
-    add(new T.BoxGeometry(0.026, 0.070, 0.034), wood, 0, -0.036, 0.042, 0.32, 0, 0);
-    add(new T.BoxGeometry(0.028, 0.030, 0.040), wood, 0, -0.008, 0.050);
-    // Brass furniture: butt cap, wrist band, ramrod pipes, trigger guard.
-    add(new T.BoxGeometry(0.029, 0.028, 0.008), brass, 0, -0.070, 0.058, 0.32, 0, 0);
-    add(new T.BoxGeometry(0.029, 0.007, 0.016), brass, 0, 0.016, 0.028);
-    add(new T.BoxGeometry(0.029, 0.005, 0.014), brass, 0, 0.016, -0.050);
-    if (typeof T.TorusGeometry === 'function') {
-      add(new T.TorusGeometry(0.022, 0.0032, 6, 12, Math.PI * 1.15), brass, 0, -0.016, 0.055, Math.PI / 2, 0, 0);
+    function add(geo, mat, x, y, z, rx, ry, rz) {
+      const m = new T.Mesh(geo, mat);
+      m.position.set(x || 0, y || 0, z || 0);
+      if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+      return tag(m);
     }
-    add(new T.BoxGeometry(0.0035, 0.018, 0.007), steel, 0, -0.018, 0.048, 0.25, 0, 0);
-    // Lock plate, cocked hammer, and frizzen — offset to +X so they sit
-    // beside the fist, not inside it.
-    add(new T.BoxGeometry(0.007, 0.028, 0.048), steel, 0.020, 0.020, 0.018);
-    add(new T.BoxGeometry(0.006, 0.026, 0.012), steel, 0.026, 0.038, 0.006, 0.60, 0, 0);
-    add(new T.BoxGeometry(0.005, 0.009, 0.014), flintC, 0.028, 0.050, 0.002, 0.45, 0, 0);
-    add(new T.BoxGeometry(0.005, 0.022, 0.011), brass, 0.024, 0.032, 0.032, -0.40, 0, 0);
-    add(new T.BoxGeometry(0.007, 0.009, 0.005), steel, 0, 0.038, 0.022);
-    add(new T.BoxGeometry(0.0028, 0.009, 0.0028), steel, 0, 0.040, -0.188);
-    g.position.set(0, 0, 0);
-    g.scale.setScalar(1);
 
-        parent.add(g);
+    // Local frame: muzzle along -Z, grip raking down in -Y and slightly back
+    // (+Z) at ~110° from the barrel. Lock plate on +X (side facing the camera
+    // after a slight yaw).
+    const barrelLen = 0.30;
+    const breechZ = 0.02;
+    const muzzleZ = breechZ - barrelLen;
+    // Octagonal tapering barrel (8 sides), plus a round muzzle cap.
+    const bar = add(new T.CylinderGeometry(0.0065, 0.0105, barrelLen, 8), steel, 0, 0.026, breechZ - barrelLen / 2);
+    bar.rotation.x = Math.PI / 2;
+    add(new T.CylinderGeometry(0.0072, 0.0072, 0.016, 12), steel, 0, 0.026, muzzleZ - 0.004).rotation.x = Math.PI / 2;
+    add(new T.CylinderGeometry(0.013, 0.013, 0.036, 8), steel, 0, 0.026, 0.030).rotation.x = Math.PI / 2; // breech
+    add(new T.BoxGeometry(0.004, 0.006, 0.018), steel, 0, 0.040, -0.04); // sight
+    add(new T.BoxGeometry(0.0024, 0.008, 0.0024), steel, 0, 0.038, muzzleZ + 0.01);
+
+    // Slim wooden forestock hugging the underside of the barrel (not a plank).
+    const fore = add(new T.CylinderGeometry(0.011, 0.009, 0.18, 8), wood, 0, 0.010, -0.07);
+    fore.rotation.x = Math.PI / 2;
+    add(new T.BoxGeometry(0.020, 0.012, 0.08), wood, 0, 0.004, -0.02);
+
+    // Curved bird's-head grip: 110° from the barrel, hooking to a rounded pommel.
+    const gripN = 5;
+    let lastY = 0, lastZ = 0;
+    for (let i = 0; i < gripN; i++) {
+      const t = i / (gripN - 1);
+      const ang = (110 + 28 * t) * Math.PI / 180;
+      const dist = 0.008 + t * 0.052;
+      lastY = -Math.sin(ang) * dist;
+      lastZ = 0.032 + (1 - Math.cos(ang)) * 0.032;
+      const rad = 0.014 + (t > 0.6 ? (t - 0.6) * 0.008 : 0);
+      const seg = add(new T.CylinderGeometry(rad * 0.95, rad, 0.020, 8), wood, 0, lastY, lastZ);
+      seg.rotation.x = -ang + Math.PI / 2;
+    }
+    add(new T.SphereGeometry(0.015, 10, 8), wood, 0, lastY - 0.004, lastZ + 0.004);
+    add(new T.SphereGeometry(0.013, 8, 6), brass, 0, lastY - 0.007, lastZ + 0.007);
+    add(new T.BoxGeometry(0.026, 0.022, 0.048), wood, 0, 0.004, 0.036); // wrist / lock wood
+
+    // Brass furniture.
+    
+    add(new T.BoxGeometry(0.027, 0.006, 0.016), brass, 0, 0.014, 0.030);
+    add(new T.BoxGeometry(0.020, 0.005, 0.012), brass, 0, 0.012, -0.08);
+    add(new T.BoxGeometry(0.018, 0.004, 0.010), brass, 0, 0.010, -0.15);
+    if (typeof T.TorusGeometry === 'function') {
+      add(new T.TorusGeometry(0.024, 0.0030, 6, 14, Math.PI * 1.2), brass, 0, -0.020, 0.048, Math.PI / 2, 0, 0);
+    }
+    add(new T.BoxGeometry(0.0032, 0.016, 0.006), steel, 0, -0.022, 0.042, 0.20, 0, 0); // trigger
+
+    // Lock plate + cocked hammer + frizzen on +X (side toward the camera).
+    add(new T.BoxGeometry(0.006, 0.030, 0.052), steel, 0.018, 0.018, 0.016);
+    add(new T.BoxGeometry(0.006, 0.028, 0.012), steel, 0.024, 0.038, 0.004, 0.70, 0, 0);
+    add(new T.BoxGeometry(0.005, 0.010, 0.014), flintC, 0.026, 0.052, 0.000, 0.55, 0, 0);
+    add(new T.BoxGeometry(0.005, 0.024, 0.012), brass, 0.022, 0.030, 0.032, -0.45, 0, 0);
+
+    // Yaw the whole piece so the side profile (lock plate) faces the camera
+    // and the barrel reads up-left, not end-on. Grip stays at the origin (fist).
+    g.position.set(0, 0, 0);
+    g.scale.setScalar(0.92);
+    aimFlintlockSide(g);
+    parent.add(g);
     held.userData.fpFlint1265 = 1;
+    held.userData.fpFlint1266 = 1;
   }
 
   function revealHeldItem(root) {
@@ -1075,7 +1242,7 @@
     const rig = gun && gun.userData && gun.userData.rig;
     const swapped = !!(gun && gun.userData && (gun.userData.c322 || rig));
     root.traverse(function (o) {
-      if (o.userData && o.userData.fpFlint1265) { if (o.isMesh || o.type === 'Group') o.visible = true; return; }
+      if (o.userData && (o.userData.fpFlint1265 || o.userData.fpFlint1266)) { if (o.isMesh || o.type === 'Group') o.visible = true; return; }
       if (o.userData && o.userData.keepHidden1263) { o.visible = false; return; }
       if (swapped && o.isMesh) {
         let underRig = false, n = o;
@@ -1335,6 +1502,7 @@
         out.two = 1;
         out.leftTartan = !!(pL.sleeve.material && pL.sleeve.material.userData && pL.sleeve.material.userData.tartan1251);
       }
+      if (U.pickDump) out.pickDump = U.pickDump;
       out.fov = FP_FOV;
     } catch (e) { out.probeErr = String(e && e.message || e); }
     return out;
