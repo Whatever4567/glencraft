@@ -95,17 +95,25 @@
   }
 
   function skinTexFp() {
-    // 1265: smooth warm skin — no long crease strokes or busy grain that
-    // reads as bark / wood on a close first-person hand.
+    // 1268: keep the 1265 smooth (no bark grain), but add subtle skin-tone
+    // variation — a lighter palm edge and slightly redder knuckle patches.
     const t = tex(256, 256, (g) => {
       const grd = g.createLinearGradient(0, 0, 256, 256);
-      grd.addColorStop(0, '#e6c4a8');
-      grd.addColorStop(0.45, '#d4a888');
+      grd.addColorStop(0, '#e8cbb4');
+      grd.addColorStop(0.40, '#d2a07c');
       grd.addColorStop(1, '#c49072');
       g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
-      for (let i = 0; i < 400; i++) {
-        const v = 180 + Math.random() * 30 | 0;
-        g.fillStyle = 'rgba(' + v + ',' + (v - 28) + ',' + (v - 40) + ',0.04)';
+      const lg = g.createLinearGradient(0, 0, 90, 0);
+      lg.addColorStop(0, 'rgba(245, 220, 200, 0.35)');
+      lg.addColorStop(1, 'rgba(245, 220, 200, 0)');
+      g.fillStyle = lg; g.fillRect(0, 0, 90, 256);
+      g.fillStyle = 'rgba(176, 86, 80, 0.16)';
+      g.beginPath(); g.ellipse(188, 70, 36, 22, 0.2, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(200, 130, 30, 18, -0.1, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(176, 190, 28, 16, 0.15, 0, Math.PI * 2); g.fill();
+      for (let i = 0; i < 280; i++) {
+        const v = 180 + Math.random() * 28 | 0;
+        g.fillStyle = 'rgba(' + v + ',' + (v - 30) + ',' + (v - 42) + ',0.035)';
         g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2);
       }
     });
@@ -113,8 +121,27 @@
     t.repeat.set(1, 1);
     return t;
   }
+  function skinBumpFp() {
+    // Soft dorsal tendons and one faint vein. Mid-grey field, low contrast
+    // so it does not read as the 1265 bark grain.
+    const t = tex(256, 256, (g) => {
+      g.fillStyle = '#808080'; g.fillRect(0, 0, 256, 256);
+      g.strokeStyle = 'rgba(70, 70, 70, 0.55)';
+      g.lineWidth = 3; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(150, 230); g.quadraticCurveTo(158, 140, 168, 40); g.stroke();
+      g.beginPath(); g.moveTo(175, 230); g.quadraticCurveTo(184, 140, 198, 36); g.stroke();
+      g.beginPath(); g.moveTo(128, 230); g.quadraticCurveTo(132, 150, 138, 50); g.stroke();
+      g.strokeStyle = 'rgba(95, 70, 80, 0.4)';
+      g.lineWidth = 2;
+      g.beginPath(); g.moveTo(110, 210); g.quadraticCurveTo(125, 120, 160, 30); g.stroke();
+    });
+    t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    t.repeat.set(1, 1);
+    return t;
+  }
   const SKIN_MAP = skinTex();
   const SKIN_MAP_FP = skinTexFp();
+  const SKIN_BUMP_FP = skinBumpFp();
   const SKIN_BUMP = skinBump();
   const LINEN_MAP = linenTex();
   LINEN_MAP.repeat.set(2, 3);
@@ -139,7 +166,7 @@
   U.linenMat = linenMat;
   function knuckleMatFp() {
     const m = new T.MeshPhongMaterial({
-      color: 0xd4a090, map: SKIN_MAP_FP, bumpMap: null, bumpScale: 0,
+      color: 0xd09086, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP_FP, bumpScale: 0.045,
       shininess: 22, specular: 0x5a3a32
     });
     m.userData.sculptKeep = 1;
@@ -149,7 +176,7 @@
   function skinMatFp() {
     // 0xc6b399 was the 1262 desaturated tan; 1263 is a warmer, more saturated mid.
     const m = new T.MeshPhongMaterial({
-      color: 0xd2a07c, map: SKIN_MAP_FP, bumpMap: null, bumpScale: 0,
+      color: 0xd2a07c, map: SKIN_MAP_FP, bumpMap: SKIN_BUMP_FP, bumpScale: 0.05,
       shininess: 18, specular: 0x5a3c30
     });
     m.userData.sculptKeep = 1;
@@ -218,7 +245,9 @@
           pos.push(ox * r, y, oz * r);
           const n = new T.Vector3(ox, ny || 0, oz).normalize();
           nrm.push(n.x, n.y, n.z);
-          uv.push(k / rad, 0);
+          // 1268: V along the shaft so a dorsal bump can run as tendons.
+          const vv = (typeof y0 === 'number') ? (y - y0) / Math.max(1e-6, (y1 - y0)) : 0;
+          uv.push(k / rad, Math.max(0, Math.min(1, vv)));
         }
       }
       const y0 = -ov, y1 = len;

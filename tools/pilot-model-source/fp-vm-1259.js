@@ -82,11 +82,10 @@
       item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.12 }
     },
     pistolAds: {
-      // 1267: look-down-the-sights like musket ADS — barrel centred receding
-      // up, two hands wrapping the grip low-centre.
+      // 1268: centred look-down-the-sights; both hands fist-wrap the grip.
       two: 1, hs: 1.00,
-      R: { sh: [0.70, -1.24, -0.50], wr: [0.22, -0.48, -0.52], rot: [0, 0, 0], haft: [0.00, 0.14, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-0.58, -1.26, -0.62], wr: [-0.10, -0.50, -0.60], rot: [0, 0, 0], haft: [0.00, 0.14, -1.00], curl: 1, sleeve: 'linen', hs: 0.86 },
+      R: { sh: [0.62, -1.22, -0.50], wr: [0.16, -0.42, -0.52], rot: [0, 0, 0], haft: [0.00, 0.12, -1.00], curl: 1, sleeve: 'linen' },
+      L: { sh: [-0.50, -1.22, -0.58], wr: [-0.04, -0.42, -0.58], rot: [0, 0, 0], haft: [0.00, 0.12, -1.00], curl: 1, sleeve: 'linen', hs: 1.00 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.10 }
     },
     musket: {
@@ -418,8 +417,23 @@
     p.wrist.position.set(0, len, 0);
     p.wrist.scale.set(1, 1, 1);
     orientHand(arm, spec, (arm.userData && arm.userData.side) || 1);
-    const hscl = Math.max(0.6, Math.min(2.2, spec.hs || hs || 1));
-    p.h.scale.setScalar(hscl);
+    // 1268: keep the authored pose hand scale on p.h (the grip/held item
+    // is parented here — dropping this to 1 shrinks the pick). The extra
+    // 1.10 lives only on visual children so the hand reads slightly larger
+    // than the sleeve without changing item world size.
+    const poseHs = Math.max(0.6, Math.min(2.2, spec.hs || hs || 1));
+    const visHs = 1.10;
+    p.h.scale.setScalar(poseHs);
+    const kids = p.h.children;
+    for (let i = 0; i < kids.length; i++) {
+      const c = kids[i];
+      if (c === p.grip) continue;
+      // Palm pads are unit spheres with a tiny authored scale; multiply,
+      // do not overwrite, or they engulf the camera (backface-culled).
+      if (!c.userData._fpHsBase1268) c.userData._fpHsBase1268 = c.scale.clone();
+      const b = c.userData._fpHsBase1268;
+      c.scale.set(b.x * visHs, b.y * visHs, b.z * visHs);
+    }
     dressSleeve(arm, spec.sleeve || sleeveKind || 'linen');
     curlHand(p.h, spec.curl != null ? spec.curl : 1, curlOpts || {});
     arm.visible = true;
@@ -629,7 +643,15 @@
       }
       return out;
     }
-    const P = function (x, y) { return { x: x, y: y }; };
+    // 1268: scale the 1267 hook ~1.3x so the arc is closer to ~30% of the
+    // frame width. A small clockwise rot keeps the longer horn on-screen
+    // (the 17° haft lean already carries the sweep left).
+    const HEAD_S = 1.3;
+    const HEAD_C = Math.cos(-11 * Math.PI / 180), HEAD_SN = Math.sin(-11 * Math.PI / 180);
+    const P = function (x, y) {
+      x *= HEAD_S; y *= HEAD_S;
+      return { x: HEAD_C * x - HEAD_SN * y, y: HEAD_SN * x + HEAD_C * y };
+    };
     // Outer (left, convex) then inner (right, concave, back U -> socket -> L).
     // More upright than a wide left C: the 17° haft lean already
     // carries a left sweep toward the portrait's narrow left edge, so
@@ -699,26 +721,26 @@
   }
   function tintCrescent(blade) {
     if (!blade) return;
-    // 1267: glossy luminous purple (MeshStandard, emissive ~0.15) with a
-    // sharp specular from the bevel along the outer edge. 0xb44cff is the
-    // 1266 keeper tint and stays the base color.
+    // 1268: deep violet-purple, not the 1266/1267 magenta 0xb44cff.
+    // Base #4b1f8a, highlight #8a4ce0, shadow #1e0c3a. No red-channel
+    // boost; env map is blue-violet (not pink) so MeshStandard sheen
+    // stays on the violet side under the linear-display r128 renderer.
     const prev = blade.material;
-    if (!U._fpEnv1267) {
+    if (!U._fpEnv1268) {
       const faces = [];
       for (let i = 0; i < 6; i++) {
         const c = document.createElement('canvas');
         c.width = c.height = 32;
         const g = c.getContext('2d');
         const grd = g.createLinearGradient(0, 0, 32, 32);
-        // A bright streak on two faces, deep violet elsewhere, so the
-        // bevel picks up a sharp specular along the outer edge.
+        // A bright violet streak on two faces, near-black violet elsewhere.
         if (i === 0 || i === 2) {
-          grd.addColorStop(0, '#ffffff');
-          grd.addColorStop(0.25, '#e0c0ff');
-          grd.addColorStop(1, '#3a1860');
+          grd.addColorStop(0, '#f2e9ff');
+          grd.addColorStop(0.22, '#8a4ce0');
+          grd.addColorStop(1, '#1e0c3a');
         } else {
-          grd.addColorStop(0, '#b080e8');
-          grd.addColorStop(1, '#2a1048');
+          grd.addColorStop(0, '#5a2aa8');
+          grd.addColorStop(1, '#1e0c3a');
         }
         g.fillStyle = grd;
         g.fillRect(0, 0, 32, 32);
@@ -726,17 +748,17 @@
       }
       const env = new T.CubeTexture(faces);
       env.needsUpdate = true;
-      U._fpEnv1267 = env;
+      U._fpEnv1268 = env;
     }
     if (!blade.userData.fpStd1267 || !prev || !prev.isMeshStandardMaterial) {
       const mat = new T.MeshStandardMaterial({
-        color: 0xb44cff,
-        emissive: 0x5a1a90,
-        emissiveIntensity: 0.16,
-        roughness: 0.10,
-        metalness: 0.38,
-        envMap: U._fpEnv1267,
-        envMapIntensity: 1.15,
+        color: 0x4b1f8a,
+        emissive: 0x1e0c3a,
+        emissiveIntensity: 0.15,
+        roughness: 0.22,
+        metalness: 0.16,
+        envMap: U._fpEnv1268,
+        envMapIntensity: 0.90,
         side: T.DoubleSide,
         flatShading: false,
         transparent: false,
@@ -749,13 +771,13 @@
       blade.userData.fpStd1267 = 1;
     } else {
       const mat = prev;
-      mat.color.setHex(0xb44cff);
-      mat.emissive.setHex(0x5a1a90);
-      mat.emissiveIntensity = 0.16;
-      mat.roughness = 0.16;
-      mat.metalness = 0.32;
-      mat.envMap = U._fpEnv1267;
-      mat.envMapIntensity = 0.85;
+      mat.color.setHex(0x4b1f8a);
+      mat.emissive.setHex(0x1e0c3a);
+      mat.emissiveIntensity = 0.15;
+      mat.roughness = 0.22;
+      mat.metalness = 0.16;
+      mat.envMap = U._fpEnv1268;
+      mat.envMapIntensity = 0.90;
       mat.map = null;
       mat.bumpMap = null;
       mat.normalMap = null;
@@ -923,13 +945,13 @@
         return m;
       }
       // Cap the true shaft tip so nothing peeks above the head.
-      addWood(new T.SphereGeometry(0.028, 14, 12), 0.000, 0.008, 0, 1.05, 0.72, 1.00);
+      addWood(new T.SphereGeometry(0.032, 14, 12), 0.000, 0.010, 0, 1.05, 0.72, 1.00);
       // Collar down the shaft, flared at the top.
-      const collar = addWood(new T.CylinderGeometry(0.024, 0.016, 0.078, 12), 0, -0.034, 0, 1, 1, 1);
+      const collar = addWood(new T.CylinderGeometry(0.026, 0.017, 0.085, 12), 0, -0.036, 0, 1, 1, 1);
       collar.rotation.z = 0.04;
-      // Short flare into the blade root only (item -X = left), not the hollow.
-      addWood(new T.SphereGeometry(0.022, 12, 10), -0.016, 0.000, 0, 1.20, 0.70, 0.82);
-      addWood(new T.SphereGeometry(0.016, 10, 8), -0.010, -0.018, 0.006, 1.05, 0.80, 0.75);
+      // Short flare into the 1.3x blade root only (item -X = left), not the hollow.
+      addWood(new T.SphereGeometry(0.026, 12, 10), -0.020, 0.000, 0, 1.20, 0.70, 0.82);
+      addWood(new T.SphereGeometry(0.018, 10, 8), -0.012, -0.020, 0.006, 1.05, 0.80, 0.75);
       knot.userData.handle1249 = 1;
       knot.userData.fpSock1265 = 1;
       blade.add(knot);
@@ -1165,7 +1187,7 @@
       // up, grip (local -Y) rolls toward camera-down.
       g.rotation.set(0, 0, 0);
       if (!vc) return;
-      const parentDir = new T.Vector3(0.08, 0.42, -1).normalize();
+      const parentDir = new T.Vector3(0.02, 0.36, -1).normalize();
       g.quaternion.setFromUnitVectors(new T.Vector3(0, 0, -1), parentDir);
       g.updateWorldMatrix(true, true);
       const _r = new T.Vector3(), _u = new T.Vector3(), _z = new T.Vector3();
@@ -1234,7 +1256,7 @@
     const parent = rig || gun;
     parent.updateWorldMatrix(true, true);
 
-    const steel = new T.MeshPhongMaterial({ color: 0x3a4450, shininess: 80, specular: 0xa8b8c8 });
+    const steel = new T.MeshPhongMaterial({ color: 0x4a5562, shininess: 90, specular: 0xc0cad4 });
     const wood = new T.MeshPhongMaterial({ color: 0x6b4226, shininess: 22, specular: 0x3a2210 });
     const brass = new T.MeshPhongMaterial({ color: 0xc4a056, shininess: 90, specular: 0xffe2a0 });
     const flintC = new T.MeshPhongMaterial({ color: 0x3a3a44, shininess: 40, specular: 0x666677 });
@@ -1271,18 +1293,19 @@
     const barrelLen = 0.30;
     const breechZ = 0.02;
     const muzzleZ = breechZ - barrelLen;
-    // Octagonal tapering barrel (8 sides), plus a round muzzle cap.
-    const bar = add(new T.CylinderGeometry(0.0065, 0.0105, barrelLen, 8), steel, 0, 0.026, breechZ - barrelLen / 2);
+    // 1268: slightly thicker octagonal steel-grey barrel; group scale
+    // supplies most of the 1.6x size so the lock does not become a slab.
+    const bar = add(new T.CylinderGeometry(0.0085, 0.013, barrelLen, 8), steel, 0, 0.026, breechZ - barrelLen / 2);
     bar.rotation.x = Math.PI / 2;
-    add(new T.CylinderGeometry(0.0072, 0.0072, 0.016, 12), steel, 0, 0.026, muzzleZ - 0.004).rotation.x = Math.PI / 2;
-    add(new T.CylinderGeometry(0.013, 0.013, 0.036, 8), steel, 0, 0.026, 0.030).rotation.x = Math.PI / 2; // breech
-    add(new T.BoxGeometry(0.004, 0.006, 0.018), steel, 0, 0.040, -0.04); // sight
-    add(new T.BoxGeometry(0.0024, 0.008, 0.0024), steel, 0, 0.038, muzzleZ + 0.01);
+    add(new T.CylinderGeometry(0.0095, 0.0095, 0.016, 12), steel, 0, 0.026, muzzleZ - 0.004).rotation.x = Math.PI / 2;
+    add(new T.CylinderGeometry(0.016, 0.016, 0.038, 8), steel, 0, 0.026, 0.030).rotation.x = Math.PI / 2; // breech
+    add(new T.BoxGeometry(0.0045, 0.007, 0.020), steel, 0, 0.042, -0.04); // sight
+    add(new T.BoxGeometry(0.0026, 0.009, 0.0026), steel, 0, 0.040, muzzleZ + 0.01);
 
     // 1267: slim forestock hugging the underside of the barrel, then a
     // one-piece bird's-head grip joining the stock at the wrist. No
     // detached pommel, no boxy upright beside the barrel.
-    const fore = add(new T.CylinderGeometry(0.010, 0.008, 0.16, 10), wood, 0, 0.013, -0.08);
+    const fore = add(new T.CylinderGeometry(0.012, 0.009, 0.16, 10), wood, 0, 0.012, -0.08);
     fore.rotation.x = Math.PI / 2;
     const stockSh = new T.Shape();
     // shape.x = local Z (muzzle negative), shape.y = local Y. Grip only.
@@ -1319,16 +1342,18 @@
     }
     add(new T.BoxGeometry(0.0032, 0.016, 0.006), steel, 0, -0.022, 0.042, 0.20, 0, 0); // trigger
 
-    // Lock plate + cocked hammer + frizzen on +X (side toward the camera).
-    add(new T.BoxGeometry(0.006, 0.030, 0.052), steel, 0.018, 0.018, 0.016);
-    add(new T.BoxGeometry(0.006, 0.028, 0.012), steel, 0.024, 0.038, 0.004, 0.70, 0, 0);
-    add(new T.BoxGeometry(0.005, 0.010, 0.014), flintC, 0.026, 0.052, 0.000, 0.55, 0, 0);
-    add(new T.BoxGeometry(0.005, 0.024, 0.012), brass, 0.022, 0.030, 0.032, -0.45, 0, 0);
+    // 1268: lock plate + cocked hammer + frizzen on +X; modest local size
+    // so the 1.4x group scale keeps them readable, not slab-like.
+    add(new T.BoxGeometry(0.004, 0.028, 0.050), steel, 0.019, 0.018, 0.016);
+    add(new T.BoxGeometry(0.005, 0.026, 0.011), steel, 0.024, 0.036, 0.002, 0.70, 0, 0);
+    add(new T.BoxGeometry(0.004, 0.010, 0.013), flintC, 0.026, 0.050, -0.002, 0.55, 0, 0);
+    add(new T.BoxGeometry(0.004, 0.022, 0.011), brass, 0.022, 0.030, 0.032, -0.45, 0, 0);
 
     // Yaw the whole piece so the side profile (lock plate) faces the camera
     // and the barrel reads up-left, not end-on. Grip stays at the origin (fist).
+    // 1268: 1.40 / 0.92 ≈ 1.52x the 1267 visual size (barrel also a hair thicker).
     g.position.set(0, 0, 0);
-    g.scale.setScalar(0.92);
+    g.scale.setScalar(1.18);
     aimFlintlockSide(g);
     parent.add(g);
     held.userData.fpFlint1265 = 1;
@@ -1368,6 +1393,68 @@
       }
     });
     held.userData.fpMusket1267 = 1;
+
+    // 1268: add a visible lock plate, hammer, frizzen, brass trigger guard
+    // and butt plate. Pose stays the 1266 diagonal; furniture is parented
+    // to the gun rig so ADS still works.
+    if (!held.userData.fpMusketLock1268) {
+      const gun = (held.children && held.children[0]) || held;
+      const parent = (gun.userData && gun.userData.rig) || gun;
+      parent.updateWorldMatrix(true, true);
+      const box = new T.Box3();
+      parent.traverse(function (o) {
+        if (!o.isMesh || o.visible === false) return;
+        if (o.userData && o.userData.fpMusketLock1268) return;
+        if (!o.geometry) return;
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox;
+        if (!bb) return;
+        for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+          const pt = new T.Vector3(
+            i ? bb.max.x : bb.min.x,
+            j ? bb.max.y : bb.min.y,
+            k ? bb.max.z : bb.min.z
+          ).applyMatrix4(o.matrixWorld);
+          parent.worldToLocal(pt);
+          box.expandByPoint(pt);
+        }
+      });
+      if (!box.isEmpty()) {
+        const steelM = new T.MeshPhongMaterial({ color: 0x3a4450, shininess: 80, specular: 0xa8b8c8 });
+        const brassM = new T.MeshPhongMaterial({ color: 0xc4a056, shininess: 90, specular: 0xffe2a0 });
+        const flintM = new T.MeshPhongMaterial({ color: 0x3a3a44, shininess: 40, specular: 0x666677 });
+        const g = new T.Group();
+        g.name = 'FpMusketLock1268';
+        g.userData.fpMusketLock1268 = 1;
+        g.userData.fpMusket1267 = 1;
+        function addM(geo, mat, x, y, z, rx, ry, rz) {
+          const m = new T.Mesh(geo, mat);
+          m.position.set(x, y, z);
+          if (rx || ry || rz) m.rotation.set(rx || 0, ry || 0, rz || 0);
+          m.userData.fpMusketLock1268 = 1;
+          m.userData.fpMusket1267 = 1;
+          g.add(m);
+          return m;
+        }
+        const size = new T.Vector3(); box.getSize(size);
+        const mid = new T.Vector3(); box.getCenter(mid);
+        const zMuzzle = box.min.z, zButt = box.max.z;
+        const zLock = zButt + (zMuzzle - zButt) * 0.32;
+        const yMid = mid.y, xSide = box.max.x + 0.004;
+        addM(new T.BoxGeometry(0.008, 0.038, 0.072), steelM, xSide, yMid + 0.008, zLock);
+        addM(new T.BoxGeometry(0.007, 0.034, 0.014), steelM, xSide + 0.006, yMid + 0.030, zLock - 0.012, 0.70, 0, 0);
+        addM(new T.BoxGeometry(0.006, 0.012, 0.016), flintM, xSide + 0.008, yMid + 0.048, zLock - 0.016, 0.55, 0, 0);
+        addM(new T.BoxGeometry(0.006, 0.028, 0.014), brassM, xSide + 0.005, yMid + 0.018, zLock + 0.018, -0.45, 0, 0);
+        if (typeof T.TorusGeometry === 'function') {
+          addM(new T.TorusGeometry(0.028, 0.0034, 6, 16, Math.PI * 1.15), brassM, mid.x, yMid - 0.028, zLock + 0.008, Math.PI / 2, 0, 0);
+        }
+        addM(new T.BoxGeometry(0.0034, 0.018, 0.007), steelM, mid.x, yMid - 0.026, zLock + 0.004, 0.15, 0, 0);
+        const by = Math.max(0.04, size.y * 0.55), bx = Math.max(0.028, size.x * 0.7);
+        addM(new T.BoxGeometry(bx, by, 0.010), brassM, mid.x, mid.y - size.y * 0.05, zButt - 0.002);
+        parent.add(g);
+        held.userData.fpMusketLock1268 = 1;
+      }
+    }
   }
 
   function revealHeldItem(root) {
@@ -1377,7 +1464,7 @@
     const rig = gun && gun.userData && gun.userData.rig;
     const swapped = !!(gun && gun.userData && (gun.userData.c322 || rig));
     root.traverse(function (o) {
-      if (o.userData && (o.userData.fpFlint1265 || o.userData.fpFlint1266)) { if (o.isMesh || o.type === 'Group') o.visible = true; return; }
+      if (o.userData && (o.userData.fpFlint1265 || o.userData.fpFlint1266 || o.userData.fpMusketLock1268)) { if (o.isMesh || o.type === 'Group') o.visible = true; return; }
       if (o.userData && o.userData.keepHidden1263) { o.visible = false; return; }
       if (swapped && o.isMesh) {
         let underRig = false, n = o;
@@ -1435,7 +1522,7 @@
     if (two) {
       armL.traverse(function (o) { o.visible = true; });
       const curlL = (key === 'pistolAds')
-        ? { mode: 'cup', support: true }
+        ? { mode: 'fist' }
         : { mode: 'fist', support: true };
       poseArm(armL, spec.L, aspect, hs, (spec.L && spec.L.sleeve) || 'linen', curlL);
     } else {
