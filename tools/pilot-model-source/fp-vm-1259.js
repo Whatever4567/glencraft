@@ -38,13 +38,13 @@
     },
     block: {
       two: 0, hs: 1.40,
-      R: { sh: [0.38, -1.26, -0.55], wr: [0.22, -0.36, -0.50], rot: [0, 0, 0], haft: [1.00, 0.05, 0], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.00, -0.06], r: [0.20, 0.35, 0.10], s: 0.40 }
+      R: { sh: [0.38, -1.26, -0.55], wr: [0.16, -0.30, -0.48], rot: [0, 0, 0], haft: [0.55, 0.20, 0], face: 'palmUp', curl: 1 },
+      item: { p: [0.00, -0.02, -0.04], r: [0.15, 0.25, 0.08], s: 0.32 }
     },
     p761: {
       two: 0, hs: 1.20,
-      R: { sh: [1.28, -1.05, -0.50], wr: [0.40, -0.52, -0.56], rot: [0, 0, 0], haft: [-0.18, 0.98, 0], curl: 1 },
-      item: { p: [-0.38, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.76 }
+      R: { sh: [1.22, -1.12, -0.50], wr: [0.38, -0.58, -0.56], rot: [0, 0, 0], haft: [-0.32, 0.95, 0], curl: 1 },
+      item: { p: [-0.05, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.34 }
     },
     pick: null,
     p760: null,
@@ -55,29 +55,29 @@
     },
     torch: {
       two: 0, hs: 1.18,
-      R: { sh: [1.22, -1.10, -0.50], wr: [0.38, -0.48, -0.54], rot: [0, 0, 0], haft: [-0.28, 0.96, 0], curl: 1 },
-      item: { p: [-0.08, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.48 }
+      R: { sh: [1.20, -1.12, -0.50], wr: [0.34, -0.52, -0.54], rot: [0, 0, 0], haft: [-0.36, 0.93, 0], curl: 1 },
+      item: { p: [-0.05, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.32, flameS: 0.28 }
     },
     map: {
       two: 0, hs: 1.16,
-      R: { sh: [1.00, -1.16, -0.48], wr: [0.22, -0.28, -0.50], rot: [0.10, 0.05, 0.00], haft: [0.70, 0.40, 0], curl: 1 },
-      item: { p: [-0.02, 0.08, -0.10], r: [-1.15, 3.49, 0.10], s: 1.15 }
+      R: { sh: [0.70, -1.16, -0.50], wr: [0.10, -0.18, -0.50], rot: [0.10, 0.05, 0.00], haft: [0.70, 0.35, 0], curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [1.57, 0.12, 0.06], s: 1.05 }
     },
     bucket: {
       two: 0, hs: 1.18,
-      R: { sh: [1.05, -1.14, -0.50], wr: [0.32, -0.18, -0.52], rot: [0, 0, 0], haft: [0.00, -1.00, 0], curl: 1 },
-      item: { p: [0.04, 0.02, 0.00], r: [0.00, 0.00, -1.57], s: 0.72 }
+      R: { sh: [1.25, -0.48, -0.55], wr: [0.16, -0.06, -0.50], rot: [0, 0, 0], haft: [0.00, -1.00, 0], curl: 1 },
+      item: { p: [0.12, -0.06, 0.00], r: [0.00, 0.00, 1.57], s: 0.60 }
     },
     pistol: {
       two: 0, hs: 1.16,
-      R: { sh: [0.90, -1.20, -0.48], wr: [0.22, -0.32, -0.50], rot: [0, 0, 0], haft: [0.08, 1.00, 0], curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 1.57], s: 0.85 }
+      R: { sh: [0.90, -1.20, -0.48], wr: [0.22, -0.32, -0.50], rot: [0, 0, 0], haft: [0.10, 0.95, 0], curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.12 }
     },
     pistolAds: {
       two: 1, hs: 1.12,
-      R: { sh: [0.55, -1.24, -0.44], wr: [0.10, -0.28, -0.46], rot: [0, 0, 0], haft: [0.04, 1.00, 0], curl: 1 },
-      L: { sh: [-0.50, -1.26, -0.50], wr: [-0.02, -0.38, -0.52], rot: [0, 0, 0], haft: [0.04, 0.90, 0], curl: 1 },
-      item: { p: [0.00, 0.04, 0.00], r: [0.00, 0.00, 1.57], s: 0.80 }
+      R: { sh: [0.50, -1.24, -0.44], wr: [0.10, -0.28, -0.46], rot: [0, 0, 0], haft: [0.04, 1.00, 0], curl: 1 },
+      L: { sh: [-0.48, -1.26, -0.52], wr: [-0.06, -0.36, -0.54], rot: [0, 0, 0], haft: [0.04, 0.90, 0], curl: 1 },
+      item: { p: [0.00, 0.02, 0.00], r: [0.20, 3.94, 1.57], s: 1.10 }
     },
     musket: {
       two: 1, hs: 1.08,
@@ -86,10 +86,10 @@
       item: { p: [0.10, -0.04, 0.00], r: [0.00, -1.57, 0.00], s: 0.95 }
     },
     musketAds: {
-      two: 1, hs: 0.92,
-      R: { sh: [1.05, -1.24, -0.52], wr: [0.12, -0.55, -0.54], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1, sleeve: 'linen' },
-      L: { sh: [-1.22, -1.28, -0.78], wr: [-0.14, -0.60, -0.80], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1, sleeve: 'tartan', hs: 0.78 },
-      item: { p: [0.04, -0.08, 0.00], r: [0.00, -1.57, 0.00], s: 0.88 }
+      two: 1, hs: 0.88,
+      R: { sh: [0.78, -1.24, -0.54], wr: [0.30, -0.52, -0.54], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
+      L: { sh: [-0.62, -1.26, -0.66], wr: [-0.14, -0.54, -0.64], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'tartan', hs: 0.74 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.00 }
     },
     axe: null, shovel: null, hoe: null,
     other: {
@@ -126,6 +126,7 @@
         if (id === IT.BUCKET || id === IT.WATERB || id === 39 || id === 48) return 'bucket';
         if (id === IT.PISTOL || id === 212) return 'pistol';
         if (id === IT.MUSKET || id === 213) return 'musket';
+        if (id === 12 || id === IT.COBBLE || id === IT.COBBLESTONE) return 'block';
       }
       if (!mesh) return 'empty';
       return 'other';
@@ -252,7 +253,7 @@
     // ~80-100° (1.4-1.75 rad) per joint so the fingers wrap a handle.
     let p0, k0, d0, spread;
     if (mode === 'relax') { p0 = 0.78; k0 = 0.62; d0 = 0.40; spread = 0.04; }
-    else if (mode === 'cup') { p0 = 0.70; k0 = 0.85; d0 = 0.50; spread = 0.09; }
+    else if (mode === 'cup') { p0 = 0.72; k0 = 0.82; d0 = 0.50; spread = 0.10; }
     else if (mode === 'pinch') { p0 = 0.85; k0 = 1.05; d0 = 0.80; spread = 0.02; }
     else { p0 = 1.55; k0 = 1.70; d0 = 1.25; spread = 0.02; } // fist
     for (let i = 0; i < fingers.length; i++) {
@@ -303,7 +304,7 @@
   function orientHand(arm, spec, side) {
     const p = arm.userData.p;
     const haft = spec.haft || (side > 0 ? [-0.45, 0.80, 0] : [0.45, 0.70, 0]);
-    if (spec.face === 'palmUp') _hz.set(0, -1, 0.18);
+    if (spec.face === 'palmUp') _hz.set(0, -0.25, -0.97);
     else _hz.set(0, 0, 1);
     _hx.set(haft[0], haft[1], haft[2] || 0);
     _hx.addScaledVector(_hz, -_hx.dot(_hz));
@@ -504,6 +505,81 @@
     try {
       revealHeldItem(held);
     } catch (_) {}
+    try {
+      dressHeld(spec);
+    } catch (_) {}
+  }
+
+  function dressHeld(spec) {
+    if (typeof held === 'undefined' || !held) return;
+    const k0 = kindOf();
+    // Show the illustrated parchment + compass card, and hide the stock
+    // lined board. The card may already be a child of the stock mesh
+    // (makeItemMesh wrapper); reparent it onto `held` and hide every
+    // mesh that is not part of the card.
+    if (k0 === 'map') {
+      try {
+        const hf = W.__held1240;
+        let card = null;
+        held.traverse(function (o) {
+          if (o.userData && o.userData.held1240Map) card = o;
+        });
+        if (!card && hf && typeof hf.buildMapCard === 'function') {
+          let tex = null;
+          try { if (W.__c112 && W.__c112.TX) tex = new T.CanvasTexture(W.__c112.TX); } catch (_) {}
+          card = hf.buildMapCard(tex);
+          held.add(card);
+        }
+        if (card && card.parent !== held) {
+          held.add(card);
+          card.position.set(0, 0, 0);
+          card.rotation.set(0, 0, 0);
+          card.scale.set(1, 1, 1);
+        }
+        held.traverse(function (o) {
+          if (!o.isMesh) return;
+          let under = false, n = o;
+          while (n) { if (n === card) { under = true; break; } n = n.parent; }
+          o.visible = !!under;
+          const mats = Array.isArray(o.material) ? o.material : [o.material];
+          for (let i = 0; i < mats.length; i++) if (mats[i]) mats[i].visible = !!under;
+        });
+      } catch (_) {}
+    }
+    // Flame sprites were authored for a tiny torch; shrink them independently
+    // so a longer stick does not blow the fire up into a white wall.
+    if (k0 === 'torch') {
+      const flameS = (spec && spec.item && spec.item.flameS != null) ? spec.item.flameS : 0.28;
+      const roots = [];
+      held.traverse(function (o) {
+        if (o.userData && (o.userData.flames1249 || o.userData.sparks1249) && !o.userData.flameScaled1261) {
+          roots.push(o);
+        }
+      });
+      if (!roots.length && held.children[0]) roots.push(held.children[0]);
+      for (let i = 0; i < roots.length; i++) {
+        const g = roots[i];
+        if (g.userData && g.userData.flameScaled1261) continue;
+        const flames = g.userData && g.userData.flames1249;
+        if (flames) {
+          for (let j = 0; j < flames.length; j++) {
+            flames[j].sx *= flameS;
+            flames[j].sy *= flameS;
+          }
+        }
+        const sparks = g.userData && g.userData.sparks1249;
+        if (sparks) {
+          for (let j = 0; j < sparks.length; j++) sparks[j].sz = (sparks[j].sz || 0.03) * flameS;
+        }
+        g.traverse(function (o) {
+          if (!o.isSprite) return;
+          if (o.userData && (o.userData.flame1249 || o.userData.spark1249 || o.userData.glow1249)) {
+            o.scale.multiplyScalar(flameS);
+          }
+        });
+        if (g.userData) g.userData.flameScaled1261 = 1;
+      }
+    }
   }
 
   function revealHeldItem(root) {
