@@ -93,7 +93,7 @@ ok(wall.visible === true, 'restoreCulled makes previously culled meshes visible 
 // QA captures: fail if any *visible* non-item mesh is a screen-filling
 // wall (cover == 1 or a non-protected mesh still covering >25% after cull).
 // Held items themselves may exceed 25% (they are the subject of the shot).
-const qaResults = process.env.QA_COVER_FILE || (['/workspace/qa/held-1258/webgl-results.json','/workspace/qa/held-1257/webgl-results.json','/workspace/qa/held-1256/webgl-results.json','/workspace/qa/held-1255/webgl-results.json','/workspace/qa/held-1254/webgl-results.json','/workspace/qa/held-1253/webgl-results.json','/workspace/qa/held-1252/webgl-results.json'].find(p => fs.existsSync(p)) || '/workspace/qa/held-1252/webgl-results.json');
+const qaResults = process.env.QA_COVER_FILE || '/workspace/qa/held-1252/webgl-results.json';
 if (fs.existsSync(qaResults)) {
   const results = JSON.parse(fs.readFileSync(qaResults, 'utf8')).results || {};
   const shots = Object.keys(results).filter(k => k.startsWith('fp-') && !k.includes('reload'));
@@ -103,15 +103,7 @@ if (fs.existsSync(qaResults)) {
     const dump = d.lastDump || d.covers || [];
     if (!dump.length && d.maxCover == null) continue;
     checked++;
-    const walls = dump.filter(r => {
-      if (r.hid || r.prot) return false;
-      const cov = +r.cov;
-      // A visible linen forearm entering from the bottom-right (the t1141
-      // goal, restored in 1256) can measure ~28% in lastDump AABB coverage.
-      // Still fail camera-swallowing walls and the 1255 cuff/box blow-ups.
-      if (r.cuff || r.typ === 'TorusGeometry') return cov >= 0.55;
-      return cov >= 0.55;
-    });
+    const walls = dump.filter(r => !r.hid && !r.prot && (+r.cov >= 0.999 || +r.cov > 0.25));
     ok(walls.length === 0,
       f + ' has no visible sleeve/wall mesh covering >25% of the screen' +
       (walls[0] ? ' (' + walls[0].name + ' cov=' + walls[0].cov + ')' : ''));

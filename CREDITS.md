@@ -148,6 +148,10 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Happy Hardcore remix (`music/hardcore_remix.mp3` / `.ogg`) is an original 170 BPM UK-bounce / happy-hardcore arrangement synthesised for Glencraft (clean punchy kick, off-beat donk / reverse-bass, supersaw pads, pitched-up formant synth chops of the old highland-mist / glen-dawn / heather-air melodies, plus time-aligned in-key grains of Glencraft's own Classic mp3 themes). No piano, no third-party samples, no copyrighted vocals or lyrics. The in-game player loops the pre-rendered file and falls back to a lighter procedural Web Audio groove (same kick + donk, no piano) if the file is missing. Renderer: `tools/audio-source/render-hardcore-1250.py`.
 - Calm soundtrack, blue and purple crystal caves: new beatless liminal 'choir pad' beds (breathy Mellotron-like synth choir, sparse glassy crystal bells, deep sub drone, long cavernous convolver reverb). Agartha now has its own Calm mood instead of sharing the purple cave's music. The first cave layer and the hell cave keep their 1.2.48 beds so they stay distinct. All procedural Web Audio. Preview renderer: `tools/audio-source/render-cave-1250.py`. No recordings or third-party assets.
 
+## v1.2.52 held-item rollback
+
+- Held items and guns are temporarily restored to the 1.2.49 look while the new versions are finished. The giant pop star, Teleport to Pop Star, and the 1.2.51 visibility / land-only fixes are unchanged.
+
 ## v1.2.51 pop star visibility and land-only walking
 
 - The giant pop star is fully visible at any distance: her materials ignore scene fog, stay opaque (`depthWrite` on, no transparency or distance fade), are not frustum- or draw-distance culled, and she carries her own fill light so the gold dress and blonde hair stay vivid.

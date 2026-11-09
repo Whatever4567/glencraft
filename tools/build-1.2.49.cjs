@@ -121,17 +121,6 @@ const reload = fs.readFileSync(path.join(__dirname, 'pilot-model-source/reload-1
   s = s.slice(0, i) + src.trim() + '\n' + s.slice(j + '})();\n'.length);
 }
 
-// Grip sockets: 1255 skip glow/blade-as-handle, prefer authored / thinner haft.
-{
-  const src = fs.readFileSync(path.join(__dirname, 'content-source/grip-1222.js'), 'utf8');
-  const startTok = '/* GLX-GRIP1222 (v1.2.22): grip sockets';
-  const nextTok = '/* GLX-AG1222 (v1.2.22): Agartha';
-  const i = s.indexOf(startTok);
-  const j = s.indexOf(nextTok, i);
-  if (i < 0 || j < 0) throw new Error('grip-1222 replace failed');
-  s = s.slice(0, i) + src.trim() + '\n' + s.slice(j);
-}
-
 const FIST_ANCHOR = "const fist = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), armMat); fist.position.set(0, 0, -0.2); armPivot.add(fist);\nconst held = new THREE.Group(); held.position.set(0, 0.04, -0.24); armPivot.add(held);";
 const FP_LEGACY_AT_FIST = `
 window.__fpLegacy = {
@@ -289,26 +278,6 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   }
 }
 
-
-// Dedicated first-person viewmodel (camera-space pose table). After held-frame
-// so the 1259 early-out in held-frame can see window.__fpVm1259.
-{
-  const fpvm = fs.readFileSync(path.join(__dirname, 'pilot-model-source/fp-vm-1259.js'), 'utf8');
-  if (!s.includes('(function fpVm1259')) {
-    const i = s.indexOf('(function heldFrame1251');
-    const end = ")(typeof window !== 'undefined' ? window : this);\n";
-    const j = s.indexOf(end, i);
-    if (i < 0 || j < 0) throw new Error('fp-vm-1259 inject anchor missing');
-    s = s.slice(0, j + end.length) + fpvm.trim() + '\n' + s.slice(j + end.length);
-  } else {
-    const i = s.indexOf('(function fpVm1259');
-    const end = ")(typeof window !== 'undefined' ? window : this);\n";
-    const j = s.indexOf(end, i);
-    if (i < 0 || j < 0) throw new Error('fp-vm-1259 replace failed');
-    s = s.slice(0, i) + fpvm.trim() + '\n' + s.slice(j + end.length);
-  }
-}
-
 // After the last placeCamera wrap in the gameplay script, call the QA hook.
 {
   const endAnchor = "})();\n</script>\n<div id=\"notesUI\" class=\"hidden\" data-testid=\"patch-notes\"";
@@ -386,21 +355,7 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const already = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70';
   const already1 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58';
   const already0 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70';
-  const already2 = 'rifle: {hip: [0.14, -0.04, -0.32], ads: [0, 0.004, -0.20], sk: 0.52';
-  const already3 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.022, -0.34], sk: 0.58';
-  const already4 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.018, -0.22], sk: 0.55';
-  const already5 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.032, -0.22], sk: 0.55';
-  const already6 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.026, -0.23], sk: 0.62';
-  const already7 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.22], sk: 0.55';
-  const already8 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.022, -0.24], sk: 0.50';
-  const already9 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.018, -0.22], sk: 0.50';
-  const already10 = 'rifle: {hip: [0.08, 0.00, -0.22], ads: [0, 0.032, -0.26], sk: 0.55';
-  const already11 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.40], sk: 0.55';
-  const already12 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.000, -0.30], sk: 0.55';
-  const already13 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.010, -0.34], sk: 0.55';
-  const already14 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.045, -0.34], sk: 0.55';
-  const already15 = 'rifle: {hip: [0.08, 0.01, -0.24], ads: [0, 0.010, -0.34], sk: 0.55';
-  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1) || s.includes(already2) || s.includes(already3) || s.includes(already4) || s.includes(already5) || s.includes(already6) || s.includes(already7) || s.includes(already8) || s.includes(already9) || s.includes(already10) || s.includes(already11) || s.includes(already12) || s.includes(already13) || s.includes(already14) || s.includes(already15);
+  let hit = s.includes(next) || s.includes(already) || s.includes(already0) || s.includes(already1);
   for (const a of prevs) {
     if (s.includes(a)) { s = s.replace(a, next); hit = true; }
   }
@@ -413,39 +368,9 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   const farAds = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.82], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.10';
   const oldClean = 'rifle: {hip: [0.16, -0.14, -0.40], ads: [0, -0.003, -0.62], sk: 0.68, yaw: 0.05, roll: 0.02, zoom: 0.11';
   const prevClean2 = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.022, -0.40], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
-    const prevClean3 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58, yaw: 0.04, roll: 0.02, zoom: 0.12';
-  const prevClean4 = 'rifle: {hip: [0.14, -0.04, -0.32], ads: [0, 0.004, -0.20], sk: 0.52, yaw: 0.03, roll: 0.012, zoom: 0.16';
-  const prevClean5 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.022, -0.34], sk: 0.58, yaw: 0.04, roll: 0.016, zoom: 0.14';
-  const prevClean7 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.032, -0.22], sk: 0.55, yaw: 0.04, roll: 0.016, zoom: 0.14';
-  const prevClean8 = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.018, -0.22], sk: 0.55, yaw: 0.04, roll: 0.016, zoom: 0.14';
-  const prevClean9 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.026, -0.23], sk: 0.62, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const prevClean10 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.22], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const prevClean11 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.022, -0.24], sk: 0.50, yaw: 0.28, roll: 0.03, zoom: 0.14';
-  const prevClean12 = 'rifle: {hip: [0.12, 0.02, -0.22], ads: [0, 0.018, -0.22], sk: 0.50, yaw: 0.28, roll: 0.03, zoom: 0.14';
-  const cleanAdsTry = 'rifle: {hip: [0.08, 0.00, -0.22], ads: [0, 0.032, -0.26], sk: 0.55, yaw: 0.28, roll: 0.03, zoom: 0.14';
-  const cleanAds1256 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.22], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const cleanAds40 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.018, -0.40], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const cleanAds30 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.000, -0.30], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const cleanAds45 = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.045, -0.34], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const cleanAdsHip = 'rifle: {hip: [0.10, -0.03, -0.26], ads: [0, 0.010, -0.34], sk: 0.55, yaw: 0.32, roll: 0.04, zoom: 0.14';
-  const cleanAds = 'rifle: {hip: [0.08, 0.01, -0.24], ads: [0, 0.010, -0.34], sk: 0.55, yaw: 0.26, roll: 0.03, zoom: 0.14';
+  const cleanAds = 'rifle: {hip: [0.12, -0.06, -0.28], ads: [0, 0.014, -0.50], sk: 0.58, yaw: 0.04, roll: 0.02, zoom: 0.12';
   const prevClean = 'rifle: {hip: [0.18, -0.15, -0.38], ads: [0, 0.008, -0.36], sk: 0.70, yaw: 0.05, roll: 0.02, zoom: 0.14';
-  if (s.includes(cleanAdsHip)) s = s.replace(cleanAdsHip, cleanAds);
-  else if (s.includes(cleanAds45)) s = s.replace(cleanAds45, cleanAds);
-  else if (s.includes(cleanAds30)) s = s.replace(cleanAds30, cleanAds);
-  else if (s.includes(cleanAds40)) s = s.replace(cleanAds40, cleanAds);
-  else if (s.includes(cleanAds1256)) s = s.replace(cleanAds1256, cleanAds);
-  else if (s.includes(cleanAdsTry)) s = s.replace(cleanAdsTry, cleanAds);
-  else if (s.includes(prevClean12)) s = s.replace(prevClean12, cleanAds);
-  else if (s.includes(prevClean11)) s = s.replace(prevClean11, cleanAds);
-  else if (s.includes(prevClean10)) s = s.replace(prevClean10, cleanAds);
-  else if (s.includes(prevClean9)) s = s.replace(prevClean9, cleanAds);
-  else if (s.includes(prevClean8)) s = s.replace(prevClean8, cleanAds);
-  else if (s.includes(prevClean7)) s = s.replace(prevClean7, cleanAds);
-  else if (s.includes(prevClean5)) s = s.replace(prevClean5, cleanAds);
-  else if (s.includes(prevClean4)) s = s.replace(prevClean4, cleanAds);
-  else if (s.includes(prevClean3)) s = s.replace(prevClean3, cleanAds);
-  else if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
+  if (s.includes(closeAds)) s = s.replace(closeAds, cleanAds);
   else if (s.includes(prevClean2)) s = s.replace(prevClean2, cleanAds);
   else if (s.includes(prevClean)) s = s.replace(prevClean, cleanAds);
   else if (s.includes(midAds0)) s = s.replace(midAds0, cleanAds);
@@ -461,30 +386,12 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   ];
   const pPrev = 'pistol: {hip: [0.13, -0.08, -0.28], ads: [0, -0.012, -0.22], sk: 0';
   const pMid = 'pistol: {hip: [0.06, -0.10, -0.20], ads: [0, -0.010, -0.24], sk: 0';
-  const pOldHip = 'pistol: {hip: [0.10, -0.08, -0.24], ads: [0, -0.010, -0.26], sk: 0';
-  const pOldClose = 'pistol: {hip: [0.16, 0.04, -0.32], ads: [0, 0.002, -0.16], sk: 0';
-  const pOld1253 = 'pistol: {hip: [0.11, 0.02, -0.28], ads: [0, 0.010, -0.22], sk: 0';
-  const pNew1255 = 'pistol: {hip: [0.05, 0.02, -0.22], ads: [0, 0.010, -0.24], sk: 0';
-  const pNew = 'pistol: {hip: [0.09, 0.03, -0.28], ads: [0, 0.012, -0.22], sk: 0';
+  const pNew = 'pistol: {hip: [0.10, -0.08, -0.24], ads: [0, -0.010, -0.26], sk: 0';
   let pHit = s.includes(pNew);
-  if (s.includes(pNew1255)) { s = s.replace(pNew1255, pNew); pHit = true; }
-  if (s.includes(pOld1253)) { s = s.replace(pOld1253, pNew); pHit = true; }
-  if (s.includes(pOldClose)) { s = s.replace(pOldClose, pNew); pHit = true; }
-  if (s.includes(pOldHip)) { s = s.replace(pOldHip, pNew); pHit = true; }
   if (s.includes(pMid)) { s = s.replace(pMid, pNew); pHit = true; }
   if (s.includes(pPrev)) { s = s.replace(pPrev, pNew); pHit = true; }
   for (const a of pOld) { if (s.includes(a)) { s = s.replace(a, pNew); pHit = true; } }
   if (!pHit) throw new Error('pistol hip/ads pose line not found');
-  const pYawOld = 'pistol: {hip: [0.09, 0.03, -0.28], ads: [0, 0.012, -0.22], sk: 0, yaw: 0.42, roll: 0.10';
-  const pYawMid = 'pistol: {hip: [0.09, 0.03, -0.28], ads: [0, 0.012, -0.22], sk: 0, yaw: 0.06, roll: 0.03';
-  const pYawPrev = 'pistol: {hip: [0.09, 0.03, -0.28], ads: [0, 0.012, -0.22], sk: 0, yaw: 0.34, roll: 0.08';
-  const pYaw1255 = 'pistol: {hip: [0.05, 0.02, -0.22], ads: [0, 0.010, -0.24], sk: 0, yaw: 0.34, roll: 0.08';
-  const pYawNew = 'pistol: {hip: [0.09, 0.03, -0.28], ads: [0, 0.012, -0.22], sk: 0, yaw: 0.34, roll: 0.08';
-  if (s.includes(pYawOld)) s = s.replace(pYawOld, pYawNew);
-  else if (s.includes(pYawMid)) s = s.replace(pYawMid, pYawNew);
-  else if (s.includes(pYawPrev)) s = s.replace(pYawPrev, pYawNew);
-  else if (s.includes(pYaw1255)) s = s.replace(pYaw1255, pYawNew);
-  else if (!s.includes(pYawNew)) throw new Error('pistol hip yaw not applied');
 }
 
 // Idempotent hook: run the view-space coverage cull *inside* the gun VM
@@ -523,11 +430,8 @@ if (s.includes('specular: 0xffffff, transparent: true, opacity: 0.92') || s.incl
 if (!s.includes('handsSculpt1249') || !s.includes('fingerSegGeo')) throw new Error('sculpted hands missing');
 if (!s.includes('crescentBladeGeometry') || !s.includes('crystalVeinTexture')) throw new Error('crescent crystal pick missing');
 if (!s.includes('itemsArt1249')) throw new Error('items-art 1249 missing');
-if (!s.includes('ads: [0, 0.010, -0.34]')) throw new Error('musket ADS pose not applied');
-if (!s.includes('yaw: 0.26, roll: 0.03')) throw new Error('musket hip yaw not applied');
-if (!s.includes('handle1249') || !s.includes('isGlowPart')) throw new Error('1255 pick grip socket fix missing');
+if (!s.includes('ads: [0, 0.014, -0.50]')) throw new Error('musket ADS pose not applied');
 if (!s.includes('heldFrame1251') || !s.includes('__heldFrame1251')) throw new Error('held-frame 1251 missing');
-if (!s.includes('fpVm1259') || !s.includes('__fpVm1259')) throw new Error('fp-vm 1259 missing');
 if (!s.includes('GLX-CULLVM-1252') || !s.includes('cullVm')) throw new Error('viewmodel coverage cull hook missing');
 
 

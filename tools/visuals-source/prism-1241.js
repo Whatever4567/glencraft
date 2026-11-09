@@ -590,23 +590,18 @@
 
   // A single continuous thin crescent blade (two tips, inner glow UVs).
   // side length is the long (upper) tip; the short tip is ~0.72 of that.
-  function crescentBladeGeometry(len, thick, wide, hook) {
+  function crescentBladeGeometry(len, thick, wide) {
     len = len || 0.50; thick = thick || 0.007; wide = wide || 0.034;
-    // hook: how far the lower horn extends below the socket, as a fraction
-    // of `len`. 1.04 is a full scythe (covers the haft). ~0.30 is a pick
-    // head: a short lower hook so the long brown haft stays visible.
-    hook = hook == null ? 1.04 : hook;
-    const key = 'crescentC:' + [len, thick, wide, hook].join(',');
+    const key = 'crescent:' + [len, thick, wide].join(',');
     if (!U._geo) U._geo = {};
     if (U._geo[key]) return U._geo[key];
-    const segs = 16, sides = 6;
-    // Slender C: long tapering upper tip, modest face width, short lower hook.
-    const topO = new T.Vector3(len * 0.13, len * 1.14, 0);
-    const botO = new T.Vector3(len * 0.16, -len * hook, 0);
-    const outerCtrl = new T.Vector3(len * 0.50, (0.15 - 0.12 * Math.min(1, hook)) * len, 0);
-    const topI = new T.Vector3(len * 0.025, len * 0.96, 0);
-    const botI0 = new T.Vector3(len * 0.04, -len * hook * 0.72, 0);
-    const innerCtrl = new T.Vector3(len * 0.00, (0.10 - 0.08 * Math.min(1, hook)) * len, 0);
+    const segs = 14, sides = 6;
+    // Fuller C-crescent: both tips sweep well off the haft, deep inner belly.
+    const top = new T.Vector3(len * 0.34, len * 0.96, 0);
+    const bot = new T.Vector3(len * 0.32, -len * 0.84, 0);
+    const mid = new T.Vector3(len * 0.06, 0.04 * len, 0);
+    const outerCtrl = new T.Vector3(len * 0.72, 0.08 * len, 0);
+    // Param t=0 at bottom tip, t=1 at top tip. Socket near t=0.46.
     const pos = [], nrm = [], uv = [], ix = [];
     function bezier(a, c, b, t) {
       const u = 1 - t;
@@ -616,31 +611,26 @@
         0
       );
     }
-    const pts = [], tans = [], widths = [], inners = [];
+    const pts = [], tans = [];
     for (let i = 0; i <= segs; i++) {
       const t = i / segs;
-      const inner = bezier(botI0, innerCtrl, topI, t);
-      const outer = bezier(botO, outerCtrl, topO, t);
-      const p = inner.clone().add(outer).multiplyScalar(0.5);
+      const a = bezier(bot, outerCtrl, top, Math.max(0, t - 0.01));
+      const b = bezier(bot, outerCtrl, top, Math.min(1, t + 0.01));
+      const p = bezier(bot, outerCtrl, top, t);
       pts.push(p);
-      inners.push(inner);
-      widths.push(Math.max(0.004, inner.distanceTo(outer) * 0.5));
-      const a = bezier(botO, outerCtrl, topO, Math.max(0, t - 0.01));
-      const b = bezier(botO, outerCtrl, topO, Math.min(1, t + 0.01));
       const tan = b.sub(a);
       if (tan.lengthSq() < 1e-10) tan.set(0, 1, 0);
       tans.push(tan.normalize());
     }
-    // Attach the haft at the inner belly (min inner x), not the tips.
-    let sockI = Math.round(0.5 * segs), minX = Infinity;
-    for (let i = 0; i <= segs; i++) { if (inners[i].x < minX) { minX = inners[i].x; sockI = i; } }
-    const sockP = inners[sockI].clone();
+    const sockI = Math.round(0.46 * segs);
+    const sockP = pts[sockI].clone();
     for (let i = 0; i <= segs; i++) { pts[i].sub(sockP); }
     for (let i = 0; i <= segs; i++) {
       const t = i / segs, p = pts[i], tan = tans[i];
-      const sock = 1 - Math.min(1, Math.abs(t - sockI / segs) / 0.54);
-      const bladeW = widths[i] * (0.85 + 0.15 * Math.pow(sock, 0.7));
-      const bladeT = thick * (0.55 + 0.45 * sock);
+      // Thickness peaks at the socket (~t=0.46) and tapers to a sharp tip.
+      const sock = 1 - Math.min(1, Math.abs(t - 0.46) / 0.54);
+      const bladeW = wide * (0.28 + 0.72 * Math.pow(sock, 0.7));
+      const bladeT = thick * (0.45 + 0.55 * sock);
       // tip sharpen
       const tipFade = (t < 0.08) ? t / 0.08 : (t > 0.92 ? (1 - t) / 0.08 : 1);
       const w = bladeW * Math.pow(Math.max(0.05, tipFade), 0.55);
@@ -695,8 +685,8 @@
     grd.addColorStop(0, '#3a0a66'); grd.addColorStop(0.45, '#7a2ad8'); grd.addColorStop(1, '#c070ff');
     g.fillStyle = grd; g.fillRect(0, 0, 256, 512);
     g.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 55; i++) {
-      g.strokeStyle = 'rgba(255,210,255,' + (0.28 + Math.random() * 0.45) + ')';
+    for (let i = 0; i < 40; i++) {
+      g.strokeStyle = 'rgba(255,200,255,' + (0.18 + Math.random() * 0.35) + ')';
       g.lineWidth = 0.6 + Math.random() * 1.8;
       g.beginPath();
       const x = Math.random() * 256, y = Math.random() * 512;
@@ -704,8 +694,8 @@
       g.quadraticCurveTo(x + (Math.random() - 0.5) * 80, y + 60, x + (Math.random() - 0.5) * 40, y + 140);
       g.stroke();
     }
-    for (let i = 0; i < 110; i++) {
-      g.fillStyle = 'rgba(255,240,255,' + (0.25 + Math.random() * 0.5) + ')';
+    for (let i = 0; i < 80; i++) {
+      g.fillStyle = 'rgba(255,230,255,' + (0.15 + Math.random() * 0.4) + ')';
       g.beginPath(); g.arc(Math.random() * 256, Math.random() * 512, 0.6 + Math.random() * 1.6, 0, 7); g.fill();
     }
     const tex = new T.CanvasTexture(c);
@@ -784,7 +774,7 @@
     
     const c = document.createElement('canvas'); c.width = 256; c.height = 512;
     const g = c.getContext('2d');
-    g.fillStyle = '#4a2c14'; g.fillRect(0, 0, 256, 512);
+    g.fillStyle = '#6a4424'; g.fillRect(0, 0, 256, 512);
     for (let y = 0; y < 512; y += 5) {
       g.strokeStyle = y % 10 === 0 ? 'rgba(30,16,6,0.7)' : 'rgba(140,90,40,0.38)';
       g.lineWidth = 1 + (y % 4);
@@ -819,9 +809,8 @@
     const pos = [], nrm = [], uv = [], ix = [];
     for (let i = 0; i <= segs; i++) {
       const t = i / segs, y = t * len - 0.02;
-      const swell = 1 + 0.26 * Math.sin(t * Math.PI) + 0.10 * Math.sin(t * Math.PI * 5) + 0.05 * Math.sin(t * Math.PI * 11);
-      const knot = 1 + 0.07 * Math.max(0, Math.sin(t * Math.PI * 3.2));
-      const rr = r * swell * knot * (t < 0.08 ? 1.22 : (t > 0.90 ? 1.16 : 1));
+      const swell = 1 + 0.22 * Math.sin(t * Math.PI) + 0.08 * Math.sin(t * Math.PI * 6);
+      const rr = r * swell * (t < 0.08 ? 1.25 : (t > 0.92 ? 1.15 : 1));
       const rot = t * twists * Math.PI * 2;
       for (let k = 0; k < sides; k++) {
         const a0 = (k / sides) * Math.PI * 2 + rot;
@@ -850,14 +839,14 @@
   }
   function addGlowShell(g, geo, color, x, y, z) {
     const mat = new T.MeshBasicMaterial({
-      color: color || 0xc080ff, transparent: true, opacity: 0.40,
+      color: color || 0xc080ff, transparent: true, opacity: 0.32,
       depthWrite: false, side: T.DoubleSide, blending: T.AdditiveBlending
     });
     mat.userData.keepTransparent = 1;
     mat.userData.glow1249 = 1;
     const m = new T.Mesh(geo, mat);
     m.position.set(x || 0, y || 0, z || 0);
-    m.scale.setScalar(1.06);
+    m.scale.setScalar(1.05);
     m.renderOrder = 4;
     m.userData.glow1249 = 1;
     m.userData.keepTransparent = 1;
@@ -891,34 +880,32 @@
       // Glowing translucent-violet (or blue) crescent on a carved, twisted
       // wood-grained haft with gold runes. The core stays opaque/depthWrite
       // so it never vanishes on SwiftShader; glow is a sprite + additive shell.
-      const len = 0.88;
+      const len = 0.64;
       const purple = k === 'p761';
       const runeWood = matFor(0x4a2c14, 'wood');
       try {
         const wt = woodRuneTexture();
         runeWood.map = wt;
         // Dim amber runes on brown wood — never a gold/yellow haft.
-        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x3a2208); runeWood.emissiveMap = wt; runeWood.emissiveIntensity = 0.40; }
+        if ('emissiveMap' in runeWood) { runeWood.emissive = new T.Color(0x2a1808); runeWood.emissiveMap = wt; runeWood.emissiveIntensity = 0.22; }
         runeWood.needsUpdate = true;
       } catch (_) {}
-      const haftM = addMesh(g, twistedHaftGeometry(0.020, len, 1.75), runeWood, 0, 0, 0);
-      haftM.scale.z = 0.55;
-      haftM.userData.handle1249 = 1;
-      const sockM = addMesh(g, carvedSocketGeometry(0.020, 0.13), runeWood, 0, len - 0.03, 0);
-      sockM.scale.z = 0.55;
+      const haftM = addMesh(g, twistedHaftGeometry(0.020, len, 1.35), runeWood, 0, 0, 0);
+      haftM.scale.z = 0.62;
+      const sockM = addMesh(g, carvedSocketGeometry(0.016, 0.10), runeWood, 0, len - 0.02, 0);
+      sockM.scale.z = 0.62;
       const vein = crystalVeinTexture(), emTex = crystalEmissiveTexture();
       const coreCol = purple ? 0x7a22e8 : 0x4ec0ff;
       const emCol = purple ? 0x4a1088 : 0x1560aa;
       const core = new T.MeshPhongMaterial({
         color: coreCol, map: vein, emissive: emCol, emissiveMap: emTex,
-        emissiveIntensity: 1.05, shininess: 90, specular: purple ? 0xc090ff : 0xd8f0ff,
+        emissiveIntensity: 0.85, shininess: 80, specular: purple ? 0xc090ff : 0xd8f0ff,
         transparent: false, opacity: 1, depthWrite: true
       });
       core.userData.crystalCore1249 = 1;
-      const blade = crescentBladeGeometry(0.44, 0.0230, 0.048, 0.42);
+      const blade = crescentBladeGeometry(0.50, 0.0064, 0.038);
       const bladeMesh = addMesh(g, blade, core, 0, len - 0.01, 0);
       bladeMesh.rotation.z = -0.08;
-      bladeMesh.userData.noGrip = 1;
       const glow = addGlowShell(g, blade, purple ? 0xc080ff : 0x66c8ff, 0, len - 0.01, 0);
       if (glow) glow.rotation.z = -0.08;
       try {
@@ -944,7 +931,7 @@
           g.add(spr);
         }
       } catch (_) {}
-      g.userData.__gs = {b: new T.Vector3(0, 0.08, 0), h: new T.Vector3(0, 0.22, 0), r: 0.016, authored: 1};
+      g.userData.__gs = {b: new T.Vector3(0, 0.10, 0), h: new T.Vector3(0, len * 0.42, 0), r: 0.016, authored: 1};
     } else if (k === 'pick') {
       const len = 0.56;
       handleWithFerrule(g, woodM, ferM, len, 0.016, false);
