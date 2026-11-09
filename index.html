@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1235-v1.2.35 -->
+<!-- glencraft-build: b1236-v1.2.36 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.35';
+const GAME_VERSION = '1.2.36';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -52394,6 +52394,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.36","d":"2026-11-09","notes":["Corrected the pilot model display colour transfer in the legacy world renderer.","The approved character assets, equipment, skeleton and gameplay are unchanged."]},
 {"v":"v1.2.35","d":"2026-11-09","notes":["The approved fitted pilot model replaces the previous third person and inventory avatar after its cached assets load.","Native skinning, independent portrait rigs, removable equipment and distance LOD are adapted to the game.","The frozen asset has 85107 near and 11295 far triangles before optional flame effects. MakeHuman CC0 graphical data credits are bundled."]},
 {"v":"v1.2.34","d":"2026-11-08","notes":["Pilot armour has a fitted collar and helmet details, curved brown webbing, buckles and hip pouches.","The worn white jetpack has a shaped casing, frame, hoses and red indicator. Native pack fitting returns when the pilot chest is removed.","The face, hands, underlying body, rig, gold jetpack, combat and saves are unchanged."]},
 {"v":"v1.2.33","d":"2026-11-08","notes":["Fitted armour has a shaped chest, tapered limb plates and restrained diamond surfaces with clean edge trim.","Armour tiers keep their colours, and worn jetpack straps fit over the new plates.","The head, body underneath, rig, combat and saves are unchanged."]},
@@ -55061,6 +55062,30 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       if (!promise) promise = Promise.resolve().then(()=>O.ensureLibrary&&O.ensureLibrary()).then(()=>Promise.all([O.load('pilot.glb'),O.load('pilot-far.glb')])).then(a=>{const p=a.map(validate);state.templates=p;state.loaded=true;return p;}).catch(e=>{state.error=String(e&&e.message||e);throw e;});
       return promise;
     };
+    // The game's main r128 renderer intentionally emits LinearEncoding/display-space
+    // legacy colours. glTF inputs are linear-light PBR values, unlike that legacy art.
+    // Add the missing display transfer ONLY for this model, after ACES and before fog.
+    // Keep glTF map encodings, PBR factors and data maps intact; do not brighten the world.
+    function installPilotDisplayTransfer(material) {
+      if(material.onBeforeCompile.pilotDisplayTransfer1236)return material;
+      const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey();
+      material.onBeforeCompile=function(shader,renderer){
+        previous.call(this,shader,renderer);
+        const target=renderer.getRenderTarget?renderer.getRenderTarget():null;
+        const encoding=target&&target.texture?target.texture.encoding:renderer.outputEncoding;
+        const active=encoding===T.LinearEncoding;
+        this.userData.pilotDisplayTransfer1236={active,encoding,renderTarget:!!target};
+        if(active){
+          const seam='#include <encodings_fragment>';
+          if(!shader.fragmentShader.includes(seam))throw Error('Pilot output transfer shader seam missing');
+          shader.fragmentShader=shader.fragmentShader.replace(seam,seam+'\n gl_FragColor = LinearTosRGB( gl_FragColor ); // PILOT_DISPLAY_TRANSFER_1236');
+        }
+      };
+      material.onBeforeCompile.pilotDisplayTransfer1236=true;
+      material.customProgramCacheKey=function(){return previousKey+'|pilot-display-transfer-1236';};
+      material.needsUpdate=true;return material;
+    }
+
     function rig(template) {
       const root = T.SkeletonUtils.clone(template), bones = {}, rest = {}, regions = {}, mats = new Map();
       root.updateMatrixWorld(true);
@@ -55068,7 +55093,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         o.matrixAutoUpdate=true;
         if(o.isBone){bones[o.name]=o;rest[o.name]={q:o.quaternion.clone(),p:o.position.clone(),s:o.scale.clone(),w:o.getWorldQuaternion(Q()),pos:o.getWorldPosition(V())};}
         if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
-          const cloneMat=m=>{if(!mats.has(m)){const c=m.clone();c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
+          const cloneMat=m=>{if(!mats.has(m)){const c=installPilotDisplayTransfer(m.clone());c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
           o.material=Array.isArray(o.material)?o.material.map(cloneMat):cloneMat(o.material);
         }
       });
@@ -55138,7 +55163,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
           region.traverse(o=>{if(!o.isMesh)return;const original=Array.from(r.mats.values()).find(m=>m.name==='ArmorTintable'||m.name==='Far_ArmorTintable');
             if(!original||!(o.material.name==='ArmorTintable'||o.material.name==='Far_ArmorTintable'))return;
             if(!tier||tier==='diamond'){o.material=original;return;}
-            if(!r.tintVariants.has(tier)){const m=original.clone(),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
+            if(!r.tintVariants.has(tier)){const m=installPilotDisplayTransfer(original.clone()),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
           });
         }
         for(const material of r.mats.values())if(material.name==='PackWhite'){material.color.copy(material.userData.pilotOriginalColor);if(p.equipment[4]===777)material.color.setHex(0xf2c440).convertSRGBToLinear();}

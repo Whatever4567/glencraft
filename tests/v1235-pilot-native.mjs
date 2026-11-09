@@ -45,7 +45,7 @@ for(const [name,id]of [['rifle',14],['pistol',13]]){
  hm.parent.remove(hm);
 }
 check(!A.G.__tpa.err&&!U.error,'no production procedural-animation or adapter errors');
-check(html.includes("const GAME_VERSION = '1.2.35'")&&JSON.parse(fs.readFileSync(new URL('../version.json',import.meta.url))).v==='1.2.35','release metadata 1.2.35 aligned');
+const expectedRelease=process.env.PILOT_EXPECT_VERSION||'1.2.35';check(['1.2.35','1.2.36'].includes(expectedRelease)&&html.includes("const GAME_VERSION = '"+expectedRelease+"'")&&JSON.parse(fs.readFileSync(new URL('../version.json',import.meta.url))).v===expectedRelease,'release metadata '+expectedRelease+' aligned');
 check(html.indexOf('/* GLX-APPROVED-PILOT-1235 */')>html.indexOf('/* GLX-TP-ANIM'),'adapter installs after production pose wrappers');
 check(requests===2,'poses, LOD and dress make no additional network requests');
 // Execute the final browser installer with the actual shipped loader (only file transport is stubbed).
