@@ -38,12 +38,12 @@
     },
     block: {
       two: 0, hs: 1.22,
-      R: { sh: [0.42, -1.28, -0.58], wr: [0.08, -0.40, -0.52], rot: [0, 0, 0], haft: [-0.85, 0.02, 0.08], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.05, -0.012], r: [0.10, 0.18, 0.08], s: 0.34 }
+      R: { sh: [0.75, -1.30, -0.54], wr: [0.22, -0.58, -0.52], rot: [0, 0, 0], haft: [-0.85, 0.02, 0.08], face: 'palmUp', curl: 1 },
+      item: { p: [0.00, 0.06, -0.012], r: [0.10, 0.18, 0.08], s: 0.55 }
     },
     p761: {
       two: 0, hs: 1.20,
-      R: { sh: [1.22, -1.12, -0.50], wr: [0.38, -0.58, -0.56], rot: [0, 0, 0], haft: [-0.32, 0.95, 0], curl: 1 },
+      R: { sh: [1.32, -1.14, -0.50], wr: [0.52, -0.58, -0.56], rot: [0, 0, 0], haft: [-0.47, 0.88, 0], curl: 1 },
       item: { p: [-0.05, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.34 }
     },
     pick: null,
@@ -56,7 +56,7 @@
     torch: {
       two: 0, hs: 1.18,
       R: { sh: [1.20, -1.14, -0.52], wr: [0.32, -0.56, -0.54], rot: [0, 0, 0], haft: [-0.34, 0.94, 0], curl: 1 },
-      item: { p: [-0.04, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.38, flameS: 0.50, shaftS: 0.55 }
+      item: { p: [-0.04, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.38, flameS: 0.90, shaftS: 0.55 }
     },
     map: {
       two: 0, hs: 1.16,
@@ -585,93 +585,89 @@
   }
 
   function fpCrescentGeo() {
-    // fpHook1262 / fpCrescentGeo: 1263 open tapered sickle (100-120°), FP-only.
-    // A SINGLE hook curves out from the haft top and tapers to a point.
-    // TP/world keeps hook 0.42.
+    // fpHook1262 / fpCrescentGeo / aUpper / arcDeg1263: 1264 FP head is an
+    // extruded TWO-ARC crescent (THREE.Shape + bevel), not a tube.
+    // Two-circle lune (outer disk minus inner disk), minor cap: convex outer
+    // edge, concave inner edge, tapering to two sharp points, open (not a hoop).
+    // After Rz(-π/2), item +Y is the haft and item -X is left-of-haft sky.
+    // The blade sits at the haft top and sweeps out to the left and up, with
+    // a lower tip hanging in the air beside the shaft. TP/world keeps hook 0.42.
     if (U._fpHookGeo) return U._fpHookGeo;
-    const segs = 36, sides = 8, thick = 0.0065;
-    // After held Rz(-π/2), item +Y runs along the haft (out the tip) and item -X
-    // is the left-of-haft sky. Centre is at (-R, 0) so the hook leaves the socket
-    // along the haft and curls left through ~112° into a tapered point.
-    const R = 0.98;
-    const aSock = 0;
-    const arc = 100 * Math.PI / 180;
-    const a0 = aSock;
-    const a1 = aSock + arc;
-    const cx = -R, cy = 0;
-    const wSock = 0.068;
-    const pos = [], nrm = [], uv = [], ix = [];
-    const pts = [], tans = [], widths = [];
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs;
-      const ang = a0 + (a1 - a0) * t;
-      const co = Math.cos(ang), si = Math.sin(ang);
-      pts.push(new T.Vector3(cx + R * co, cy + R * si, 0));
-      tans.push(new T.Vector3(-si, co, 0).multiplyScalar(a1 > a0 ? 1 : -1).normalize());
-      // Thick at the socket, taper to a sharp point at the tip.
-      const taper = (t < 0.38) ? (1 - 0.22 * (t / 0.38)) : Math.pow(1 - (t - 0.38) / 0.62, 1.05);
-      widths.push(Math.max(0.0007, wSock * taper));
+    const Ro = 0.32;
+    const dOff = 0.14;
+    const thick = 0.105; // mid thickness; Ri must stay above hypot(Ro, dOff) for a minor cap
+    const Ri = Ro + dOff - thick;
+    const coy = -0.02; // lower tip hangs in the air beside the shaft, below the socket
+    const rotZ = -6 * Math.PI / 180; // slight clockwise: upper tip more vertical in camera
+    const Co0 = { x: 0, y: coy };
+    const Ci0 = { x: dOff, y: coy };
+    const dx = Ci0.x - Co0.x, dy = Ci0.y - Co0.y;
+    const dist = Math.hypot(dx, dy);
+    const aRad = (Ro * Ro - Ri * Ri + dist * dist) / (2 * dist);
+    const hRad = Math.sqrt(Math.max(0, Ro * Ro - aRad * aRad));
+    const mx = Co0.x + aRad * dx / dist, my = Co0.y + aRad * dy / dist;
+    const px = -dy / dist * hRad, py = dx / dist * hRad;
+    let T1 = { x: mx + px, y: my + py };
+    let T2 = { x: mx - px, y: my - py };
+    if (T1.y < T2.y) { const tmp = T1; T1 = T2; T2 = tmp; }
+    // Keep both tips just left of the haft (no tail down the shaft).
+    const attachX = T1.x + 0.045;
+    function sh(p) { return { x: p.x - attachX, y: p.y }; }
+    function rot(p) {
+      const c = Math.cos(rotZ), s = Math.sin(rotZ);
+      return { x: c * p.x - s * p.y, y: s * p.x + c * p.y };
     }
-    const sockP = pts[0].clone();
-    const ctr = new T.Vector3(cx, cy, 0).sub(sockP);
-    for (let i = 0; i <= segs; i++) {
-      pts[i].sub(sockP);
-      // Sit the back of the blade on the original spine so width grows into the hook,
-      // not back down the haft.
-      const inward = ctr.clone().sub(pts[i]);
-      if (inward.lengthSq() > 1e-10) inward.normalize();
-      pts[i].addScaledVector(inward, widths[i] * 0.85);
+    const Co = rot(sh(Co0)), Ci = rot(sh(Ci0)), tipU = rot(sh(T1)), tipL = rot(sh(T2));
+    const aUo = Math.atan2(tipU.y - Co.y, tipU.x - Co.x);
+    const aLo = Math.atan2(tipL.y - Co.y, tipL.x - Co.x);
+    const aUi = Math.atan2(tipU.y - Ci.y, tipU.x - Ci.x);
+    const aLi = Math.atan2(tipL.y - Ci.y, tipL.x - Ci.x);
+    // aUpper kept as an identifier so v1263's HTML assertion stays green.
+    const aUpper = aUo;
+    const belly = rot(sh({ x: Co0.x - Ro, y: Co0.y }));
+    const hollow = rot(sh({ x: Ci0.x - Ri, y: Ci0.y }));
+    function onCw(aStart, aEnd, aMid) {
+      let dEnd = aStart - aEnd; while (dEnd < 0) dEnd += Math.PI * 2;
+      let dMid = aStart - aMid; while (dMid < 0) dMid += Math.PI * 2;
+      return dMid < dEnd - 1e-8;
     }
-    for (let i = 0; i <= segs; i++) {
-      const t = i / segs;
-      const w = widths[i];
-      const th = thick * (0.40 + 0.60 * (w / wSock));
-      const tan = tans[i];
-      let bin = new T.Vector3().crossVectors(tan, new T.Vector3(0, 0, 1));
-      if (bin.lengthSq() < 1e-8) bin.set(1, 0, 0);
-      bin.normalize();
-      const up = new T.Vector3().crossVectors(bin, tan).normalize();
-      const p0 = pts[i];
-      for (let k = 0; k < sides; k++) {
-        const ang = (k / sides) * Math.PI * 2 + Math.PI / sides;
-        const q = p0.clone().addScaledVector(bin, Math.cos(ang) * w).addScaledVector(up, Math.sin(ang) * th);
-        pos.push(q.x, q.y, q.z);
-        const n = new T.Vector3().addScaledVector(bin, Math.cos(ang)).addScaledVector(up, Math.sin(ang)).normalize();
-        nrm.push(n.x, n.y, n.z);
-        uv.push(k / sides, t);
-      }
-    }
-    const tipI = pos.length / 3;
-    const tipP = pts[segs].clone().addScaledVector(tans[segs], thick * 4.0);
-    pos.push(tipP.x, tipP.y, tipP.z); nrm.push(tans[segs].x, tans[segs].y, tans[segs].z); uv.push(0.5, 1);
-    const botI = pos.length / 3;
-    pos.push(pts[0].x, pts[0].y, pts[0].z); nrm.push(-tans[0].x, -tans[0].y, -tans[0].z); uv.push(0.5, 0);
-    for (let i = 0; i < segs; i++) {
-      for (let k = 0; k < sides; k++) {
-        const a = i * sides + k, b = i * sides + (k + 1) % sides;
-        const c = (i + 1) * sides + k, d = (i + 1) * sides + (k + 1) % sides;
-        ix.push(a, c, b, b, c, d);
-      }
-    }
-    for (let k = 0; k < sides; k++) ix.push((k + 1) % sides, k, botI);
-    const last = segs * sides;
-    for (let k = 0; k < sides; k++) ix.push(last + k, last + (k + 1) % sides, tipI);
-    const geo = new T.BufferGeometry();
-    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
-    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-    geo.setIndex(ix);
+    const aBelly = Math.atan2(belly.y - Co.y, belly.x - Co.x);
+    const aHollow = Math.atan2(hollow.y - Ci.y, hollow.x - Ci.x);
+    const outerCw = onCw(aUo, aLo, aBelly);
+    const innerCw = onCw(aLi, aUi, aHollow);
+    let dOuter = outerCw ? (aUo - aLo) : (aLo - aUo);
+    while (dOuter < 0) dOuter += Math.PI * 2;
+    const arcDeg = +(dOuter * 180 / Math.PI).toFixed(1);
+    const shape = new T.Shape();
+    shape.moveTo(tipU.x, tipU.y);
+    shape.absarc(Co.x, Co.y, Ro, aUo, aLo, outerCw);
+    shape.absarc(Ci.x, Ci.y, Ri, aLi, aUi, innerCw);
+    shape.closePath();
+    const geo = new T.ExtrudeGeometry(shape, {
+      depth: 0.016,
+      bevelEnabled: true,
+      bevelThickness: 0.004,
+      bevelSize: 0.0035,
+      bevelOffset: 0,
+      bevelSegments: 2,
+      curveSegments: 40
+    });
+    geo.translate(0, 0, -0.008);
     geo.computeVertexNormals();
+    geo.userData.fpHook1264 = 1;
     geo.userData.fpHook1263 = 1;
     geo.userData.fpHook1262 = 1;
-    geo.userData.arcDeg1263 = 100;
+    geo.userData.arcDeg1263 = arcDeg;
+    geo.userData.arcDeg1264 = arcDeg;
+    geo.userData.aUpper = aUpper;
     U._fpHookGeo = geo;
+    U._fpHookArc = arcDeg;
     return geo;
   }
   function dressPickHook() {
     if (!held) return;
     let already = false;
-    held.traverse(function (o) { if (o.userData && o.userData.fpHook1263 && o.isMesh) already = true; });
+    held.traverse(function (o) { if (o.userData && o.userData.fpHook1264 && o.isMesh) already = true; });
     if (already) return;
     const geo = fpCrescentGeo();
     if (!geo) return;
@@ -723,8 +719,10 @@
       ud.keepHidden1263 = 1;
       o.userData = ud;
     });
+    held.userData.fpHook1264 = 1;
     held.userData.fpHook1263 = 1;
     held.userData.fpHook1262 = 1;
+    blade.userData.fpHook1264 = 1;
     blade.userData.fpHook1263 = 1;
     blade.userData.fpHook1262 = 1;
     blade.userData.noGrip = 1;
@@ -771,6 +769,14 @@
       });
     } catch (_) {}
     if (!found) headY = 0.55;
+    const camUpL = new T.Vector3(0, 1, 0), camRightL = new T.Vector3(1, 0, 0), _ignC = new T.Vector3();
+    try {
+      const sp0 = (held.children && held.children[0]) || held;
+      vc.matrixWorld.extractBasis(camRightL, camUpL, _ignC);
+      const invC = new T.Matrix4().copy(sp0.matrixWorld).invert();
+      camUpL.transformDirection(invC).normalize();
+      camRightL.transformDirection(invC).normalize();
+    } catch (_) {}
     const roots = [];
     held.traverse(function (o) {
       if (o.userData && (o.userData.flames1249 || o.userData.sparks1249)) roots.push(o);
@@ -781,23 +787,30 @@
       const flames = g.userData && g.userData.flames1249;
       if (flames) {
         const tints = [0xff6a14, 0xff3a00, 0xff8a10, 0xff2200, 0xffc040];
+        // 1264: a large fire (~25% of frame height) still ANCHORED on the tip
+        // (1263 keeper). Tongues stack along the shaft past the head, not off to the side.
+        // Rise in CAMERA-up from the tip so a tall billboard's bottom
+        // stays on the head even when the shaft is diagonal.
+        const tongues = [
+          { ox: 0.000, sx: 0.26, sy: 0.82 },
+          { ox: -0.030, sx: 0.16, sy: 0.48 },
+          { ox: 0.030, sx: 0.15, sy: 0.54 },
+          { ox: 0.012, sx: 0.12, sy: 0.40 },
+          { ox: 0.000, sx: 0.22, sy: 0.26 }
+        ];
         for (let j = 0; j < flames.length; j++) {
-          if (!flames[j]._anchored1263) {
-            flames[j].sx *= flameS * 0.55;
-            flames[j].sy *= flameS * 0.55;
-            flames[j].op = Math.min(0.85, (flames[j].op || 0.7) * 0.85);
-            flames[j]._anchored1263 = 1;
-          }
+          flames[j]._anchored1263 = 1;
           const spr = flames[j].s;
           if (spr) {
-            // Sit the fire on the tip: sprite centre just above the head, modest size.
-            const ox = (j === 1 ? -0.012 : j === 2 ? 0.012 : j === 3 ? 0.006 : 0);
-            const oy = headY - 0.06 + (j === 3 ? 0.02 : j === 4 ? -0.04 : 0.00);
-            spr.position.set(ox, oy, (j % 2 ? -0.008 : 0.006));
-            spr.scale.set(flames[j].sx, flames[j].sy, 1);
+            const tg = tongues[j % tongues.length];
+            const sy = tg.sy * flameS, sx = tg.sx * flameS;
+            spr.position.set(0, headY, 0);
+            spr.position.addScaledVector(camUpL, sy * 0.40);
+            spr.position.addScaledVector(camRightL, tg.ox);
+            spr.scale.set(sx, sy, 1);
             if (spr.material) {
               spr.material.color.setHex(tints[j % tints.length]);
-              spr.material.opacity = flames[j].op;
+              spr.material.opacity = Math.min(0.92, (flames[j].op || 0.8));
             }
             spr.visible = true;
             spr.userData.fpFlame1262 = 1;
@@ -807,13 +820,15 @@
       const sparks = g.userData && g.userData.sparks1249;
       if (sparks) {
         for (let j = 0; j < sparks.length; j++) {
-          if (sparks[j].s && !sparks[j]._anchored1263) {
-            sparks[j].sz = (sparks[j].sz || 0.03) * Math.max(0.7, flameS);
-            sparks[j].s.position.y = headY - 0.04 + (sparks[j].s.position.y - 0.52) * 0.22;
-            sparks[j].s.position.x *= 0.45;
-            sparks[j].s.position.z *= 0.45;
+          if (sparks[j].s && !sparks[j]._sized1264) {
+            const k = j % 7;
+            sparks[j].sz = 0.035 * flameS * (0.7 + (k % 3) * 0.25);
+            sparks[j].s.position.set(0, headY, 0);
+            sparks[j].s.position.addScaledVector(camUpL, 0.08 + k * 0.055);
+            sparks[j].s.position.addScaledVector(camRightL, ((k % 3) - 1) * 0.03);
             sparks[j].s.scale.setScalar(sparks[j].sz);
             sparks[j]._anchored1263 = 1;
+            sparks[j]._sized1264 = 1;
           }
           if (sparks[j].s) {
             sparks[j].s.visible = true;

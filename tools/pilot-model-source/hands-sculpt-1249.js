@@ -201,7 +201,7 @@
   U.tartanMat = tartanMat;
   function nailMat() {
     const m = new T.MeshPhongMaterial({
-      color: 0xedd3c4, shininess: 55, specular: 0x886655
+      color: 0xf7e8dc, shininess: 70, specular: 0xaa8870
     });
     m.userData.nail1249 = 1;
     m.userData.sculptKeep = 1;
@@ -210,37 +210,49 @@
 
   // Tapered oval capsule along +Y from 0..len, squashed in Z (palmar/dorsal).
   function fingerSegGeo(len, r0, r1, ovalZ, segs, rad, knuckle) {
-    const key = geoKey('fseg', len, r0, r1, ovalZ, segs, rad, knuckle);
+    // 1264: overlap the joint (hide the dowel gap) and cap the tip with a
+    // small hemisphere instead of a cone point.
+    const ov = Math.max(0.0022, r0 * 0.62);
+    const key = geoKey('fseg4', len, r0, r1, ovalZ, segs, rad, knuckle, ov);
     return share(key, function () {
       segs = segs || 8; rad = rad || 10;
+      const ozS = ovalZ || 0.72;
       const pos = [], nrm = [], uv = [], ix = [];
-      for (let i = 0; i <= segs; i++) {
-        const t = i / segs, y = t * len;
-        let r = r0 + (r1 - r0) * Math.pow(t, 0.85);
-        if (knuckle && t < 0.18) r *= 1 + 0.12 * (1 - t / 0.18) * Math.sin((1 - t / 0.18) * Math.PI);
-        // slight belly on the palmar mid-section
-        if (t > 0.25 && t < 0.8) r *= 1.04;
+      function ring(y, r, ny) {
         for (let k = 0; k < rad; k++) {
           const a = (k / rad) * Math.PI * 2;
-          const ox = Math.cos(a), oz = Math.sin(a) * (ovalZ || 0.72);
+          const ox = Math.cos(a), oz = Math.sin(a) * ozS;
           pos.push(ox * r, y, oz * r);
-          const n = new T.Vector3(ox, 0, oz).normalize();
+          const n = new T.Vector3(ox, ny || 0, oz).normalize();
           nrm.push(n.x, n.y, n.z);
-          uv.push(k / rad, t);
+          uv.push(k / rad, 0);
         }
       }
-      // tip cap
-      const tip = pos.length / 3;
-      pos.push(0, len + r1 * 0.7, 0); nrm.push(0, 1, 0); uv.push(0.5, 1);
-      for (let i = 0; i < segs; i++) {
+      const y0 = -ov, y1 = len;
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs, y = y0 + t * (y1 - y0);
+        let r = r0 + (r1 - r0) * Math.pow(t, 0.85);
+        if (knuckle && t < 0.18) r *= 1 + 0.16 * (1 - t / 0.18) * Math.sin((1 - t / 0.18) * Math.PI);
+        if (t > 0.25 && t < 0.8) r *= 1.04;
+        ring(y, r, 0);
+      }
+      const capRings = 4;
+      for (let i = 1; i < capRings; i++) {
+        const phi = (i / capRings) * Math.PI * 0.5;
+        ring(len + r1 * Math.sin(phi), r1 * Math.cos(phi), Math.sin(phi));
+      }
+      const pole = pos.length / 3;
+      pos.push(0, len + r1, 0); nrm.push(0, 1, 0); uv.push(0.5, 1);
+      const nFull = segs + capRings; // full rings: segs+1 shaft + (capRings-1) cap
+      for (let i = 0; i < nFull - 1; i++) {
         for (let k = 0; k < rad; k++) {
           const a = i * rad + k, b = i * rad + (k + 1) % rad;
           const c = (i + 1) * rad + k, d = (i + 1) * rad + (k + 1) % rad;
           ix.push(a, c, b, b, c, d);
         }
       }
-      const base = segs * rad;
-      for (let k = 0; k < rad; k++) ix.push(base + k, base + (k + 1) % rad, tip);
+      const last = (nFull - 1) * rad;
+      for (let k = 0; k < rad; k++) ix.push(last + k, last + (k + 1) % rad, pole);
       const geo = new T.BufferGeometry();
       geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
       geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
@@ -266,14 +278,14 @@
   }
   function creaseMat() {
     const m = new T.MeshPhongMaterial({
-      color: 0x7a5c4a, shininess: 6, specular: 0x2a1c14
+      color: 0xb08670, shininess: 8, specular: 0x3a2a20
     });
     m.userData.sculptKeep = 1;
     m.userData.crease1262 = 1;
     return m;
   }
   function creaseRing(parent, y, r, mat) {
-    const m = new T.Mesh(new T.TorusGeometry(Math.max(0.002, r * 0.90), Math.max(0.0006, r * 0.14), 6, 14), mat);
+    const m = new T.Mesh(new T.TorusGeometry(Math.max(0.002, r * 0.82), Math.max(0.0004, r * 0.08), 6, 14), mat);
     m.rotation.x = Math.PI / 2;
     m.position.set(0, y, 0);
     mark(m);
@@ -418,20 +430,20 @@
       const cm = creaseMat();
       // proximal on f
       addMesh(f, fingerSegGeo(0.038, r * 1.02, r * 0.84, 0.48, 14, 14, 1), sm);
-      addMesh(f, knuckleGeo(r * 0.42), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
+      addMesh(f, knuckleGeo(r * 0.58), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
       creaseRing(f, 0.001, r * 0.95, cm);
       if (k) {
         addMesh(k, fingerSegGeo(0.018, r * 0.86, r * 0.76, 0.46, 12, 14, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.36), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
+        addMesh(k, knuckleGeo(r * 0.50), sm, 0, 0.001, 0.0006).userData.knuckle1263 = 1;
         creaseRing(k, 0.0008, r * 0.82, cm);
         const d = k.userData && k.userData.d;
         if (d) {
           addMesh(d, fingerSegGeo(0.014, r * 0.76, r * 0.54, 0.44, 12, 14, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.28), sm, 0, 0.001, 0.0005).userData.knuckle1263 = 1;
+          addMesh(d, knuckleGeo(r * 0.40), sm, 0, 0.001, 0.0005).userData.knuckle1263 = 1;
           creaseRing(d, 0.0006, r * 0.70, cm);
           // nail on the dorsal distal
-          const nail = addMesh(d, nailGeo(r * 1.05, 0.0055, r * 0.28), nailMat(), 0, 0.010, r * 0.38);
-          nail.rotation.x = -0.12;
+          const nail = addMesh(d, nailGeo(r * 1.45, 0.0075, r * 0.42), nailMat(), 0, 0.011, r * 0.48);
+          nail.rotation.x = -0.18;
           nail.userData.nail1249 = 1;
         }
       }
@@ -449,8 +461,8 @@
         const td = tk.userData && tk.userData.d;
         if (td) {
           addMesh(td, fingerSegGeo(0.014, 0.0076, 0.0064, 0.76, 9, 12, 0), sm);
-          const tn = addMesh(td, nailGeo(0.008, 0.006, 0.0024), nailMat(), 0, 0.010, 0.0044);
-          tn.rotation.x = -0.12;
+          const tn = addMesh(td, nailGeo(0.011, 0.0075, 0.0036), nailMat(), 0, 0.011, 0.0055);
+          tn.rotation.x = -0.18;
           tn.userData.nail1249 = 1;
         }
       }
