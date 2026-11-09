@@ -46,10 +46,11 @@
     },
     p761: {
       two: 0, hs: 1.20,
-      // 1265: fist bottom-centre-right, haft nearly vertical (~17° lean left),
-      // head in the top fifth, a long pick that spans most of the frame height.
-      R: { sh: [1.22, -1.16, -0.50], wr: [0.48, -0.52, -0.56], rot: [0, 0, 0], haft: [-0.29, 0.96, 0], curl: 1 },
-      item: { p: [-0.05, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.44 }
+      // 1269: socket near frame centre (image x ~0.45-0.50, y ~0.18),
+      // fist bottom-right but left of 1265 (image x ~0.6, y ~0.7),
+      // haft nearly vertical (slight lean) so a ~30% head fits with sky margin.
+      R: { sh: [1.12, -1.32, -0.50], wr: [0.40, -0.64, -0.56], rot: [0, 0, 0], haft: [-0.05, 0.999, 0], curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.44 }
     },
     pick: null,
     p760: null,
@@ -643,19 +644,17 @@
       }
       return out;
     }
-    // 1268: scale the 1267 hook ~1.3x so the arc is closer to ~30% of the
-    // frame width. A small clockwise rot keeps the longer horn on-screen
-    // (the 17° haft lean already carries the sweep left).
-    const HEAD_S = 1.3;
-    const HEAD_C = Math.cos(-11 * Math.PI / 180), HEAD_SN = Math.sin(-11 * Math.PI / 180);
+    // 1269: no clockwise rot — that flattened the hook into an axe face
+    // against the left edge. Tip stays up (crescent on its side). With the
+    // socket moved to frame centre there is room for a ~30% arc.
+    // Wider in X (~30% frame) but shorter in Y so the upward tip stays
+    // on-screen with a 3% sky margin once the socket sits near centre.
+    const HEAD_SX = 1.75, HEAD_SY = 1.28;
     const P = function (x, y) {
-      x *= HEAD_S; y *= HEAD_S;
-      return { x: HEAD_C * x - HEAD_SN * y, y: HEAD_SN * x + HEAD_C * y };
+      return { x: x * HEAD_SX, y: y * HEAD_SY };
     };
     // Outer (left, convex) then inner (right, concave, back U -> socket -> L).
-    // More upright than a wide left C: the 17° haft lean already
-    // carries a left sweep toward the portrait's narrow left edge, so
-    // the local belly stays inside ~-0.08 or the horn clips.
+    // Upright sickle: long horn up, short lower horn, belly to the left.
     const outerPts = [
       P(-0.006, -0.110),
       P(-0.024, -0.088),
@@ -1182,7 +1181,7 @@
 
   function aimFlintlockSide(g) {
     if (!g) return;
-    if (U.poseKey === 'pistolAds' || U.ads) {
+    if (U.poseKey === 'pistolAds' || U.ads || (typeof isAds === 'function' && isAds() && kindOf() === 'pistol')) {
       // Look down the sights: muzzle (local -Z) recedes away and slightly
       // up, grip (local -Y) rolls toward camera-down.
       g.rotation.set(0, 0, 0);
@@ -1204,11 +1203,17 @@
       }
       return;
     }
+    // Start from the proven 1266/1268 local pose, then tilt ~30° in the
+    // image plane (around camera Z) so the barrel is no longer near-vertical
+    // and the bird's-head stock can read beside the fist.
+    // 1268 hip pose (visible upright flintlock). The euler alone lies the
+    // gun on its side; the image-plane swing stands the barrel up.
     g.rotation.set(0.10, 1.05, 0.15);
+    g.position.set(0, 0, 0);
     g.updateWorldMatrix(true, true);
     if (!vc) return;
-    const camZ = new T.Vector3(), _r = new T.Vector3(), _u = new T.Vector3();
-    try { vc.matrixWorld.extractBasis(_r, _u, camZ); } catch (_) { return; }
+    const camZ = new T.Vector3(), _rHip = new T.Vector3(), _uHip = new T.Vector3();
+    try { vc.matrixWorld.extractBasis(_rHip, _uHip, camZ); } catch (_) { return; }
     camZ.normalize();
     const qInv = vc.getWorldQuaternion(new T.Quaternion()).invert();
     const barrel = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).applyQuaternion(qInv);
@@ -1218,7 +1223,6 @@
     const target = new T.Vector3(-0.52, 0.85, 0);
     const ang = Math.atan2(barrel.x * target.y - barrel.y * target.x, barrel.x * target.x + barrel.y * target.y);
     if (Math.abs(ang) < 0.02) return;
-    // Image-plane CCW is about camera -Z (camera +Z points behind the lens).
     g.rotateOnWorldAxis(camZ, -ang);
   }
   function dressPistolFlintlock() {
@@ -1529,12 +1533,12 @@
       armL.visible = false;
       armL.traverse(function (o) { o.visible = false; });
     }
-    poseItem(armR.userData.p.grip, spec);
-    rig.visible = true;
-    hideLegacy(true);
     U.kind = k0;
     U.ads = ads ? 1 : 0;
     U.poseKey = key;
+    poseItem(armR.userData.p.grip, spec);
+    rig.visible = true;
+    hideLegacy(true);
     U.active = 1;
     try {
       const worldCam = (typeof camera !== 'undefined' && camera) || W.camera;
