@@ -2,7 +2,7 @@
 import fs from 'node:fs'; import assert from 'node:assert';
 import * as THREE from '/workspace/glencraft-anatomy-tools/node_modules/three/build/three.module.js';
 import {parseHTML} from '/workspace/domtools/node_modules/linkedom/esm/index.js';
-const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const html = fs.readFileSync(process.env.EQUIP_TEST_HTML || new URL('../index.html', import.meta.url), 'utf8');
 const cut = (a, b) => { const i = html.indexOf(a), j = html.indexOf(b, i + 10); assert(i > 0 && j > i, a); return html.slice(i, j); };
 const src = cut('/* GLX-EQ1222', '/* GLX-CL1222');
 const eq = cut('function equipArmour(id) {', '\nconst blockGroup');
@@ -22,12 +22,12 @@ const tot = () => Object.values(G.inv).reduce((a, b) => a + b, 0) + G.armour.fil
 const tap = n => document.querySelector('[data-testid=armour-slot-' + n + ']').dispatchEvent(new document.defaultView.Event('click', {bubbles: true}));
 // helmets owned: copper 104 (1 pt), gold 112 (2), iron 108 (2), diamond 129 (3)
 Object.assign(G.inv, {104: 1, 112: 1, 108: 1, 130: 2, 109: 1}); const t0 = tot();
-tap('helmet'); assert.equal(G.armour[0], 108, 'iron beats gold on a points tie (lasts longer)'); G.inv[129] = 1; tap('helmet'); assert.equal(G.armour[0], 129, 'diamond best'); assert.equal(G.inv[108], 1, 'old helmet back');
-{ const h0 = G.inv[129] || 0, o0 = G.inv[108]; tap('helmet'); tap('helmet'); assert.equal(G.armour[0], 129, 'already best: tap keeps it on'); assert.equal(G.inv[129] || 0, h0); assert.equal(G.inv[108], o0, 'idempotent'); }
+tap('helmet'); assert.equal(G.armour[0], 108, 'iron beats gold on a points tie (lasts longer)'); G.inv[129] = 1; tap('helmet'); assert.equal(G.armour[0], 0, 'occupied slot removes before considering an upgrade'); tap('helmet'); assert.equal(G.armour[0], 129, 'empty slot chooses diamond best'); assert.equal(G.inv[108], 1, 'old helmet back');
+{ const h0 = G.inv[129] || 0, o0 = G.inv[108]; tap('helmet'); assert.equal(G.armour[0],0,'best armour is removable'); assert.equal(G.inv[129],h0+1,'removed item returned'); tap('helmet'); assert.equal(G.armour[0], 129, 'second intentional click equips again'); assert.equal(G.inv[129] || 0, h0); assert.equal(G.inv[108], o0, 'idempotent'); }
 tap('chest'); assert.equal(G.armour[1], 130); assert.equal(G.inv[130], 1); assert.equal(tot(), t0 + 1, 'nothing made or lost (+1 is the diamond helmet given above, worn now)');
 tap('legs'); assert.equal(G.armour[2], 0); assert(toasts.length);
 // jetpack: white only
-G.inv[777] = 1; G.armour[4] = 0; tap('jetpack'); assert.equal(G.armour[4], 0, 'no white jetpack: gold not worn by the button'); G.inv[291] = 1; G.armour[4] = 777; G.inv[777] = 0; tap('jetpack'); assert.equal(G.armour[4], 291); assert.equal(G.inv[777], 1, 'gold goes back');
+G.inv[777] = 1; G.armour[4] = 0; tap('jetpack'); assert.equal(G.armour[4], 0, 'no white jetpack: gold not worn by the button'); G.inv[291] = 1; G.armour[4] = 777; G.inv[777] = 0; tap('jetpack'); assert.equal(G.armour[4], 0,'gold pack is removable'); assert.equal(G.inv[777], 1, 'gold goes back'); tap('jetpack'); assert.equal(G.armour[4],291,'empty slot equips white');
 // 2x climb for the white one only
 G.__c102j = {boost: true, air: 1}; G.P.vy = 0; G.updatePlayer(0.05, 1, 0); const vW = G.P.vy; assert(vW > 2.6 * 1.9, 'white: two climb steps'); G.P.vy = 11; for (let i = 0; i < 10; i++) G.updatePlayer(0.05, 0, 0); assert(G.P.vy > 12 && G.P.vy <= 24, 'white cap doubled');
 G.armour[4] = 777; G.P.vy = 0; G.updatePlayer(0.05, 1, 0); assert(Math.abs(G.P.vy - 2.6) < 1e-9, 'gold unchanged');
@@ -41,3 +41,5 @@ assert.equal(U.applyIcons(), 2); assert.equal(G.ICONS[119], U._brew); assert.equ
 const a = G.makeItemMesh(85), b = G.makeItemMesh(85); const ga = [], gb = []; a.traverse(o => o.isMesh && ga.push(o.geometry)); b.traverse(o => o.isMesh && gb.push(o.geometry)); console.log(ga.length, gb.length, G.__eq1222.err); assert(ga.length >= 4 && ga.every((g, i) => g === gb[i]), 'shared geometry');
 assert.equal(a.userData.__gs, null); G.dropItem(85, 1); assert(G.drops[0].m.userData.tat1222); assert.equal(U.texN, 512, 'texture size reported, not 4K');
 console.log('v1222-equip ok');
+
+export {G,document,U,tap,ARMOUR};

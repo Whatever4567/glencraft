@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
-<!-- glencraft-build: b1235-v1.2.35 -->
+<!-- glencraft-build: b1236-v1.2.36 -->
 <title>Glencraft: Survival 4K</title>
 <style>
 :root{
@@ -13359,7 +13359,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.35';
+const GAME_VERSION = '1.2.36';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -46473,7 +46473,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function equip(id) { try { if (id && ARMOUR[id] && cnt(id)) { equipArmour(id); U.eq++; if (typeof cursor !== 'undefined' && cursor) { cursor = null; showCursor(); } renderBag(); return true; } } catch (e) { ERR('eq', e); } return false; }
   function toHot(i, id) { const j = MODE.hotbar.indexOf(id), old = MODE.hotbar[i]; if (j >= 0) MODE.hotbar[j] = old; MODE.hotbar[i] = id; selId = id; try { sfx('pop', .35); } catch (_) {} try { if (typeof cursor !== 'undefined' && cursor) { cursor = null; showCursor(); } } catch (_) {} renderBag(); try { renderHotbar(); } catch (_) {} }
   // a held cursor item tapped onto an armour / jetpack slot is equipped (the slot click would only unequip)
-  document.addEventListener('click', e => { const s = e.target.closest && e.target.closest('[data-testid^="armour-slot-"]'); if (!s) return; try { if (typeof cursor !== 'undefined' && cursor && ARMOUR[cursor.id]) { const id = cursor.id; returnCursor(); if (equip(id)) { e.stopPropagation(); e.preventDefault(); } } } catch (er) { ERR('aslot', er); } }, true);
+  document.addEventListener('click', e => { const s = e.target.closest && e.target.closest('[data-testid^="armour-slot-"]'); if (!s) return; const slot=['helmet','chest','legs','boots','jetpack'].indexOf(s.dataset.testid.slice(12));if(slot>=0&&armour[slot])return; try { if (typeof cursor !== 'undefined' && cursor && ARMOUR[cursor.id]) { const id = cursor.id; returnCursor(); if (equip(id)) { e.stopPropagation(); e.preventDefault(); } } } catch (er) { ERR('aslot', er); } }, true);
   let dg = null;
   document.addEventListener('pointerdown', e => { if (!isT(e)) return; const b = e.target.closest && e.target.closest('[data-testid^="bag-item-"],[data-testid^="bag-hotbar-"]'); if (!b) return; const id = bagId(b); if (!id) return;
     dg = {id, b, x: e.clientX, y: e.clientY, pid: e.pointerId, on: false, lp: setTimeout(() => { if (dg && !dg.on && ARMOUR[dg.id]) { dg.done = equip(dg.id); } }, 520)}; }, true);
@@ -51163,14 +51163,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.rank = id => { const a = ARMOUR[id]; return a ? (a.pts || 0) * 100 + (DUR[a.mat] || 0) : -1; };
   U.best = s => { let b = 0; for (const k in inv) { const id = +k; const a = ARMOUR[id]; if (!a || a.slot !== s || !(cnt(id) > 0)) continue; if (!b || U.rank(id) > U.rank(b)) b = id; } return b; };
   U.slotTap = s => { const cur = armour[s], b = U.best(s);
-    if (b && (!cur || U.rank(b) > U.rank(cur))) { equipArmour(b); U.equips++; return 'equip'; }
-    if (cur) { U.kept = (U.kept || 0) + 1; return 'kept'; } try { toast('You have no ' + ['helmet', 'chest armour', 'leg armour', 'boots'][s] + ' to wear'); } catch (_) {} return 'none'; };
-  U.jetTap = () => { const cur = armour[4]; if (cur === JET) { unequip(4); return 'off'; }
+    if (cur) { unequip(s); return 'off'; }
+    if (b) { equipArmour(b); U.equips++; return 'equip'; } try { toast('You have no ' + ['helmet', 'chest armour', 'leg armour', 'boots'][s] + ' to wear'); } catch (_) {} return 'none'; };
+  U.jetTap = () => { const cur = armour[4]; if (cur) { unequip(4); return 'off'; }
     if (cnt(JET) > 0) { equipArmour(JET); U.equips++; return 'white'; }
     if (cur) { unequip(4); return 'off'; } try { toast('You have no Jetpack to wear'); } catch (_) {} return 'none'; };
   // taps (mouse, touch and controller A all send click): caught before the older slot handlers
   try { document.addEventListener('click', e => { const el = e.target && e.target.closest && e.target.closest('[data-testid^="armour-slot-"]'); if (!el) return; const n = el.dataset.testid.slice(12), s = SLOTS.indexOf(n);
-      if (s < 0 && n !== 'jetpack') return; e.stopImmediatePropagation(); e.preventDefault(); try { if (s >= 0) U.slotTap(s); else U.jetTap(); } catch (er) { ERR('tap', er); } }, true); } catch (e) { ERR('click', e); }
+      if (s < 0 && n !== 'jetpack') return; e.stopImmediatePropagation(); e.preventDefault(); try { if (s >= 0) U.slotTap(s); else U.jetTap(); if(typeof updateCharStats==='function')updateCharStats(); } catch (er) { ERR('tap', er); } }, true); } catch (e) { ERR('click', e); }
   const ICON = {helmet: '\u26D1', chest: '\uD83D\uDEE1', legs: '\uD83D\uDC56', boots: '\uD83E\uDD7E', jetpack: '\uD83D\uDE80', offhand: '\u270B'};
   U.icons = () => { for (const n in ICON) { const el = document.querySelector('[data-testid="armour-slot-' + n + '"]'); if (!el) continue; const i = el.querySelector('i'); if (!i) continue; const worn = n === 'offhand' ? !!(typeof offhand !== 'undefined' && offhand && offhand.id) : !!armour[n === 'jetpack' ? 4 : SLOTS.indexOf(n)];
       if (!worn && i.textContent !== ICON[n]) i.textContent = ICON[n]; el.setAttribute('aria-label', n); } };
@@ -51482,7 +51482,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       '#tpmBox .ui22h{font-weight:800;text-align:center;font-size:16px}#tpmBox .ui22g{font-size:12px;opacity:.75;margin:6px 2px 0;text-transform:uppercase;letter-spacing:.06em}#tpmBox .btn[disabled]{opacity:.5}' +
       '.c277ctl{background:linear-gradient(100deg,#b8862b 0%,#f6d77a 35%,#fff4c8 50%,#f6d77a 65%,#b8862b 100%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;-webkit-text-fill-color:transparent;text-shadow:0 0 6px rgba(246,200,90,.35);animation:ui22sh 3.2s linear infinite}' +
       '@keyframes ui22sh{from{background-position:100% 0}to{background-position:-150% 0}}@media (prefers-reduced-motion:reduce){.c277ctl{animation:none;background-position:50% 0}}' +
-      '#ui22row{display:flex;gap:8px;align-items:stretch;min-height:0}#ui22row>#charView{flex:1 1 auto}#ui22off{display:flex;flex-direction:column;gap:8px;width:96px}';
+      '#ui22row{display:flex;gap:8px;align-items:stretch;min-height:240px;min-width:0;flex:1 1 auto;width:100%;align-self:stretch}#ui22row>#charView{flex:1 1 0%;min-width:0}#ui22row>#armour{flex:0 0 clamp(82px,16vw,118px);width:auto}#ui22off{display:flex;flex-direction:column;gap:8px;flex:0 0 clamp(48px,12vw,96px);width:auto}#charCv{touch-action:none;pointer-events:auto}';
     document.head.appendChild(st); } catch (e) { ERR('css', e); }
   U.aria = () => { for (const b of document.querySelectorAll('#pause .seg button')) { const v = b.classList.contains('on') ? 'true' : 'false'; if (b.getAttribute('aria-pressed') !== v) { b.setAttribute('aria-pressed', v); U.ariaN++; } } };
   try { new MutationObserver(() => U.aria()).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['class']}); } catch (e) { ERR('mo', e); }
@@ -52394,6 +52394,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.36","d":"2026-11-09","notes":["Corrected character display colour transfer in the legacy world renderer.","The approved Scottish base is restored; a jetpack adds only the pack. Occupied armour slots now remove their item and return it to the inventory. The character portrait now fills the available panel and accepts drag rotation."]},
 {"v":"v1.2.35","d":"2026-11-09","notes":["The approved fitted pilot model replaces the previous third person and inventory avatar after its cached assets load.","Native skinning, independent portrait rigs, removable equipment and distance LOD are adapted to the game.","The frozen asset has 85107 near and 11295 far triangles before optional flame effects. MakeHuman CC0 graphical data credits are bundled."]},
 {"v":"v1.2.34","d":"2026-11-08","notes":["Pilot armour has a fitted collar and helmet details, curved brown webbing, buckles and hip pouches.","The worn white jetpack has a shaped casing, frame, hoses and red indicator. Native pack fitting returns when the pilot chest is removed.","The face, hands, underlying body, rig, gold jetpack, combat and saves are unchanged."]},
 {"v":"v1.2.33","d":"2026-11-08","notes":["Fitted armour has a shaped chest, tapered limb plates and restrained diamond surfaces with clean edge trim.","Armour tiers keep their colours, and worn jetpack straps fit over the new plates.","The head, body underneath, rig, combat and saves are unchanged."]},
@@ -55045,7 +55046,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   function create(T, options) {
     const O = options || {}, V = () => new T.Vector3(), Q = () => new T.Quaternion();
     const instances = new Set(), down = new T.Vector3(0,-1,0), up = new T.Vector3(0,1,0);
-    const names = ['visual_head_hair_eyes','visual_arm_slot0_hand','visual_arm_slot1_hand','visual_torso_outfit','visual_leg_slot0','visual_leg_slot1','gear_helmet','gear_chest_harness','gear_chest_slot0','gear_chest_slot1','gear_legs_slot0','gear_legs_slot1','gear_boots_slot0','gear_boots_slot1','gear_white_pack'];
+    const names = O.scottish ? ['visual_head_hair_eyes','visual_arm_slot0_hand','visual_arm_slot1_hand','visual_torso_outfit','visual_leg_slot0','visual_leg_slot1','visual_kilt_clothing','visual_sporran_clothing','armoured_leg_slot0','armoured_leg_slot1','gear_helmet','gear_chest_harness','gear_chest_slot0','gear_chest_slot1','gear_legs_slot0','gear_legs_slot1','gear_boots_slot0','gear_boots_slot1','gear_white_pack'] : ['visual_head_hair_eyes','visual_arm_slot0_hand','visual_arm_slot1_hand','visual_torso_outfit','visual_leg_slot0','visual_leg_slot1','gear_helmet','gear_chest_harness','gear_chest_slot0','gear_chest_slot1','gear_legs_slot0','gear_legs_slot1','gear_boots_slot0','gear_boots_slot1','gear_white_pack'];
     const gearSlots = {gear_helmet:0,gear_chest_harness:1,gear_chest_slot0:1,gear_chest_slot1:1,gear_legs_slot0:2,gear_legs_slot1:2,gear_boots_slot0:3,gear_boots_slot1:3,gear_white_pack:4};
     const find = (r,n) => r.getObjectByName(n) || r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n)) || r.getObjectByName(n+'_LOD1');
     const state = {error:null,loaded:false,instances,asset:'pilot-v1',revision:T.REVISION};
@@ -55061,6 +55062,30 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       if (!promise) promise = Promise.resolve().then(()=>O.ensureLibrary&&O.ensureLibrary()).then(()=>Promise.all([O.load('pilot.glb'),O.load('pilot-far.glb')])).then(a=>{const p=a.map(validate);state.templates=p;state.loaded=true;return p;}).catch(e=>{state.error=String(e&&e.message||e);throw e;});
       return promise;
     };
+    // The game's main r128 renderer intentionally emits LinearEncoding/display-space
+    // legacy colours. glTF inputs are linear-light PBR values, unlike that legacy art.
+    // Add the missing display transfer ONLY for this model, after ACES and before fog.
+    // Keep glTF map encodings, PBR factors and data maps intact; do not brighten the world.
+    function installPilotDisplayTransfer(material) {
+      if(material.onBeforeCompile.pilotDisplayTransfer1236)return material;
+      const previous=material.onBeforeCompile,previousKey=material.customProgramCacheKey();
+      material.onBeforeCompile=function(shader,renderer){
+        previous.call(this,shader,renderer);
+        const target=renderer.getRenderTarget?renderer.getRenderTarget():null;
+        const encoding=target&&target.texture?target.texture.encoding:renderer.outputEncoding;
+        const active=encoding===T.LinearEncoding;
+        this.userData.pilotDisplayTransfer1236={active,encoding,renderTarget:!!target};
+        if(active){
+          const seam='#include <encodings_fragment>';
+          if(!shader.fragmentShader.includes(seam))throw Error('Pilot output transfer shader seam missing');
+          shader.fragmentShader=shader.fragmentShader.replace(seam,seam+'\n gl_FragColor = LinearTosRGB( gl_FragColor ); // PILOT_DISPLAY_TRANSFER_1236');
+        }
+      };
+      material.onBeforeCompile.pilotDisplayTransfer1236=true;
+      material.customProgramCacheKey=function(){return previousKey+'|pilot-display-transfer-1236';};
+      material.needsUpdate=true;return material;
+    }
+
     function rig(template) {
       const root = T.SkeletonUtils.clone(template), bones = {}, rest = {}, regions = {}, mats = new Map();
       root.updateMatrixWorld(true);
@@ -55068,7 +55093,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         o.matrixAutoUpdate=true;
         if(o.isBone){bones[o.name]=o;rest[o.name]={q:o.quaternion.clone(),p:o.position.clone(),s:o.scale.clone(),w:o.getWorldQuaternion(Q()),pos:o.getWorldPosition(V())};}
         if(o.isMesh){o.castShadow=true;o.receiveShadow=true;o.frustumCulled=false;
-          const cloneMat=m=>{if(!mats.has(m)){const c=m.clone();c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
+          const cloneMat=m=>{if(!mats.has(m)){const c=installPilotDisplayTransfer(m.clone());c.userData.pilotOriginalColor=c.color.clone();mats.set(m,c);}return mats.get(m);};
           o.material=Array.isArray(o.material)?o.material.map(cloneMat):cloneMat(o.material);
         }
       });
@@ -55138,10 +55163,10 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
           region.traverse(o=>{if(!o.isMesh)return;const original=Array.from(r.mats.values()).find(m=>m.name==='ArmorTintable'||m.name==='Far_ArmorTintable');
             if(!original||!(o.material.name==='ArmorTintable'||o.material.name==='Far_ArmorTintable'))return;
             if(!tier||tier==='diamond'){o.material=original;return;}
-            if(!r.tintVariants.has(tier)){const m=original.clone(),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
+            if(!r.tintVariants.has(tier)){const m=installPilotDisplayTransfer(original.clone()),hex={copper:0xc8703f,iron:0xd4d8dc,gold:0xf2c440}[tier];if(hex!==undefined)m.color.setHex(hex).convertSRGBToLinear();r.tintVariants.set(tier,m);}o.material=r.tintVariants.get(tier);
           });
         }
-        for(const material of r.mats.values())if(material.name==='PackWhite'){material.color.copy(material.userData.pilotOriginalColor);if(p.equipment[4]===777)material.color.setHex(0xf2c440).convertSRGBToLinear();}
+        for(const material of r.mats.values())if(material.name==='PackWhite'||(O.scottish&&material.name.startsWith('08 • ceramic white tank'))){material.color.copy(material.userData.pilotOriginalColor);if(p.equipment[4]===777)material.color.setHex(0xf2c440).convertSRGBToLinear();}
       }
       // Far pack shares a palette material, so recolour just neutral casing vertices in a private geometry.
       const region=p.far.regions.gear_white_pack.o;
@@ -55179,7 +55204,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         const side=slot?'L':'R',a=u.arms[slot],el=a.userData.el,leg=u.legs[slot],knee=leg.userData.kn;
         if(a.userData.pilotTarget)ik(model,r,slot,a.userData.pilotTarget,rootQ);
         else {const armDelta=torso.clone().multiply(a.quaternion);rotate('upper_arm.'+side,armDelta);rotate('forearm.'+side,armDelta.multiply(el?el.quaternion:Q()));}
-        rotate('thigh.'+side,leg.quaternion);rotate('shin.'+side,leg.quaternion.clone().multiply(knee?knee.quaternion:Q()));
+        const legPose=O.scottish&&!u.pilot.equipment[2]?Q().setFromEuler(new T.Euler(Math.max(-.52,Math.min(.52,leg.rotation.x)),leg.rotation.y,Math.max(-.24,Math.min(.24,leg.rotation.z)))):leg.quaternion;rotate('thigh.'+side,legPose);rotate('shin.'+side,legPose.clone().multiply(knee?knee.quaternion:Q()));
         const hn=el&&el.children.find(c=>c.userData.hand),fg=hn&&hn.userData.fg;
         // Legacy fg order is little/ring/middle/index. The thumb has its own native controls.
         for(let digit=0;digit<4;digit++)for(let part=1;part<=2;part++){
@@ -55196,7 +55221,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       for(const n of names){let visible=true;const slot=gearSlots[n];if(slot!==undefined)visible=slot===4?(p.equipment[4]===291||p.equipment[4]===777):!!p.equipment[slot];
         if((n==='visual_head_hair_eyes'||n==='gear_helmet')&&!u.head.visible)visible=false;
         for(let a=0;a<2;a++)if((n==='visual_arm_slot'+a+'_hand'||n==='gear_chest_slot'+a)&&!u.arms[a].visible)visible=false;
-        r.regions[n].o.visible=visible;
+        if(O.scottish){if(n==='visual_kilt_clothing'||n==='visual_sporran_clothing'||n==='visual_leg_slot0'||n==='visual_leg_slot1')visible=!p.equipment[2];if(n==='armoured_leg_slot0'||n==='armoured_leg_slot1')visible=!!p.equipment[2];}r.regions[n].o.visible=visible;
       }
     }
     state.sync=function(model){
@@ -55224,6 +55249,46 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
   W.PilotRuntimeFactory=create;
 })(window);
 
+/* SCOTTISH_BASE_1236: approved base; optional genuine armour is separate from pack. */
+(function(W){
+ W.__mergeScottish1236=function(T,base,old,far){
+  const scene=base.scene,find=(r,n)=>r.getObjectByName(n)||r.getObjectByName(T.PropertyBinding.sanitizeNodeName(n))||r.getObjectByName(n+'_LOD1');
+  scene.updateMatrixWorld(true);old.scene.updateMatrixWorld(true);
+  const targetBones={};scene.traverse(o=>{if(o.isBone)targetBones[o.name]=o;});
+  // Transfer only actual optional armour regions, never the old flight suit/head.
+  const pieces=['gear_helmet','gear_chest_harness','gear_chest_slot0','gear_chest_slot1','gear_legs_slot0','gear_legs_slot1','gear_boots_slot0','gear_boots_slot1'];
+  const copy=(sourceName,name)=>{
+   const source=find(old.scene,sourceName);if(!source)throw Error('Optional armour region missing: '+sourceName);
+   const copy=source.clone(true);copy.name=name;scene.add(copy);
+   copy.traverse(o=>{if(!o.isSkinnedMesh)return;const bones=o.skeleton.bones.map(b=>{if(!targetBones[b.name])throw Error('Scottish armour bone missing '+b.name);return targetBones[b.name];});
+    o.bind(new T.Skeleton(bones,o.skeleton.boneInverses.map(m=>m.clone())),o.bindMatrix.clone());
+   });return copy;
+  };
+  for(const name of pieces)copy(name,name);
+  // Leg armour has its own trousers; removing it restores Scottish hose/kilt, not a flight suit.
+  for(let slot=0;slot<2;slot++)copy('visual_leg_slot'+slot,'armoured_leg_slot'+slot);
+  // Standard under-clothing occlusion: remove only leg triangles entirely covered by
+  // the kilt at bind pose. Keep original vertex/normal/UV arrays, exposed knees/hose
+  // and the untouched approved files. This prevents thigh poke-through in stride.
+  let occludedTriangles=0;
+  for(let slot=0;slot<2;slot++)find(scene,'visual_leg_slot'+slot).traverse(o=>{
+   if(!o.isSkinnedMesh)return;const ge=o.geometry.clone(),pa=ge.attributes.position,ix=ge.index,ys=[],keep=[];o.updateWorldMatrix(true,false);o.skeleton.update();
+   for(let i=0;i<pa.count;i++){const v=new T.Vector3().fromBufferAttribute(pa,i);o.boneTransform(i,v);ys.push(v.applyMatrix4(o.matrixWorld).y);}
+   const count=ix?ix.count:pa.count;for(let i=0;i<count;i+=3){const ids=[0,1,2].map(j=>ix?ix.getX(i+j):i+j);if(ids.reduce((a,j)=>a+ys[j],0)/3>.63)occludedTriangles++;else keep.push(...ids);}
+   ge.setIndex(keep);o.geometry=ge;
+  });
+  // Cloth corrective: fixed waistband, soft hem following the two native thighs.
+  // Rest vertex positions/UVs/normals remain identical to the approved GLB.
+  const kilt=find(scene,'visual_kilt_clothing');let corrected=0;
+  kilt.traverse(o=>{if(!o.isSkinnedMesh)return;o.updateWorldMatrix(true,false);o.skeleton.update();const ge=o.geometry.clone(),pa=ge.attributes.position,indices=new Uint16Array(pa.count*4),weights=new Float32Array(pa.count*4),names=o.skeleton.bones.map(b=>b.name),pelvis=names.indexOf('pelvis'),left=names.indexOf('thighL'),right=names.indexOf('thighR');if(Math.min(pelvis,left,right)<0)throw Error('Kilt corrective bones missing');
+   const p=new T.Vector3();for(let i=0;i<pa.count;i++){p.fromBufferAttribute(pa,i);o.boneTransform(i,p);p.applyMatrix4(o.matrixWorld);const t=Math.max(0,Math.min(1,(.90-p.y)/.28)),w=.35*t*t*(3-2*t),blend=Math.max(0,Math.min(1,(p.x+.12)/.24)),s=blend*blend*(3-2*blend);indices.set([pelvis,left,right,0],i*4);weights.set([1-w,w*s,w*(1-s),0],i*4);if(w>0)corrected++;}
+   ge.setAttribute('skinIndex',new T.Uint16BufferAttribute(indices,4));ge.setAttribute('skinWeight',new T.Float32BufferAttribute(weights,4));o.geometry=ge;
+  });
+  scene.userData.scottish1236={far:!!far,occludedTriangles,kiltCorrectedVertices:corrected,base:'approved-scottish-v1',packOnly:true};
+  return base;
+ };
+})(window);
+
 /* Install after the final production animation/equipment wrappers. */
 (function installApprovedPilotV1(){
   const ensureLibrary=()=>new Promise((resolve,reject)=>{
@@ -55236,8 +55301,8 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     else{script.addEventListener('load',done,{once:true});script.addEventListener('error',fail,{once:true});if(THREE.GLTFLoader)done();}
   });
   const U=window.__pilot1235=window.PilotRuntimeFactory(THREE,{
-    ensureLibrary,
-    load:name=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load('assets/models/pilot-v1/'+name+'?v=1.2.35',resolve,undefined,reject)),
+    ensureLibrary,scottish:true,
+    load:name=>{const far=name==='pilot-far.glb',fetch=p=>new Promise((resolve,reject)=>new THREE.GLTFLoader().load(p,resolve,undefined,reject));return Promise.all([fetch('assets/models/scottish-base-v1/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.36'),fetch('assets/models/pilot-v1/'+name+'?v=1.2.35')]).then(([base,gear])=>window.__mergeScottish1236(THREE,base,gear,far));},
     equipment:()=>armour,
     tier:id=>id&&ARMOUR[id]?ARMOUR[id].mat:null,
     distance:model=>(typeof worldModel!=='undefined'&&model===worldModel)?camera.position.distanceTo(model.position):0,

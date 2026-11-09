@@ -45,12 +45,12 @@ for(const [name,id]of [['rifle',14],['pistol',13]]){
  hm.parent.remove(hm);
 }
 check(!A.G.__tpa.err&&!U.error,'no production procedural-animation or adapter errors');
-check(html.includes("const GAME_VERSION = '1.2.35'")&&JSON.parse(fs.readFileSync(new URL('../version.json',import.meta.url))).v==='1.2.35','release metadata 1.2.35 aligned');
+const expectedRelease=process.env.PILOT_EXPECT_VERSION||'1.2.35';check(['1.2.35','1.2.36'].includes(expectedRelease)&&html.includes("const GAME_VERSION = '"+expectedRelease+"'")&&JSON.parse(fs.readFileSync(new URL('../version.json',import.meta.url))).v===expectedRelease,'release metadata '+expectedRelease+' aligned');
 check(html.indexOf('/* GLX-APPROVED-PILOT-1235 */')>html.indexOf('/* GLX-TP-ANIM'),'adapter installs after production pose wrappers');
 check(requests===2,'poses, LOD and dress make no additional network requests');
 // Execute the final browser installer with the actual shipped loader (only file transport is stubbed).
 const originalLoad=T.GLTFLoader.prototype.load;let installerRequests=0;
-T.GLTFLoader.prototype.load=function(url,onLoad,progress,onError){installerRequests++;load(new URL(url.split('/').pop().split('?')[0],dir)).then(onLoad,onError);};
+T.GLTFLoader.prototype.load=function(url,onLoad,progress,onError){installerRequests++;load(new URL('../'+url.split('?')[0],import.meta.url)).then(onLoad,onError);};
 try{
  const world=B.build(false),portrait=B.build(true),worldScene=new T.Scene(),charScene=new T.Scene();worldScene.add(world);charScene.add(portrait);let beforeCalls=0,charCalls=0;worldScene.onBeforeRender=()=>beforeCalls++;
  const ARMOUR={};for(const [base,name]of [[104,'copper'],[108,'iron'],[112,'gold'],[129,'diamond']])for(let k=0;k<4;k++)ARMOUR[base+k]={mat:name};
@@ -59,7 +59,7 @@ try{
  await J.__pilot1235.ready();await Promise.all([world.userData.pilotPending,portrait.userData.pilotPending]);
  check(!!world.userData.pilot&&!!portrait.userData.pilot,'actual late installer upgrades already-created world and portrait models');
  const newModel=J.buildPlayerModel(true);charScene.add(newModel);J.dressModel(newModel);await newModel.userData.pilotPending;
- check(!!newModel.userData.pilot&&installerRequests===2,'actual build/dress wrapper upgrades future models from one cached load');
+ check(!!newModel.userData.pilot&&installerRequests===(html.includes('SCOTTISH_BASE_1236')?4:2),'actual build/dress wrapper upgrades future models from one cached load');
  worldScene.onBeforeRender();J.renderChar();charScene.onBeforeRender();check(beforeCalls===1&&charCalls===1&&charScene.userData.pilot1235Hook,'actual scene and inventory hooks preserve previous callbacks');
  equip[0]=0;J.dressModel(world);check(!world.userData.pilot.near.regions.gear_helmet.o.visible,'actual late dress wrapper removes native helmet');
  check(!J.__pilot1235.error,'actual installer/loader/control lifecycle has no runtime error');

@@ -19,3 +19,5 @@ export function animation(model,U){
  return H;
 }
 export function skinnedVertices(root){const out=new Map();root.updateMatrixWorld(true);root.traverse(o=>{if(!o.isMesh)return;const a=o.geometry.attributes.position,points=[];if(o.isSkinnedMesh)o.skeleton.update();for(let i=0;i<a.count;i++){const p=new T.Vector3().fromBufferAttribute(a,i);if(o.isSkinnedMesh)o.boneTransform(i,p);p.applyMatrix4(o.matrixWorld);points.push(p);}out.set(o.name,points);});return out;}
+
+export function builtRuntime(options){const W={};const i=html.lastIndexOf("/* GLX-APPROVED-PILOT-1235 */"),j=html.indexOf("/* Install after",i);new Function("window",html.slice(i,j))(W);const U=W.PilotRuntimeFactory(T,options);U.combineScottish=(b,o,f)=>W.__mergeScottish1236(T,b,o,f);return U;}
