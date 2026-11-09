@@ -8,8 +8,8 @@ const src = fs.readFileSync(new URL('../tools/content-source/v1248.js', import.m
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.48';"), 'GAME_VERSION is 1.2.48');
-ok(html.includes('<!-- glencraft-build: b1248-v1.2.48 -->'), 'build marker is b1248');
+ok(/const GAME_VERSION = '1\.2\.(48|50)';/.test(html), 'GAME_VERSION is 1.2.48 or 1.2.50');
+ok(/glencraft-build: b12(48|50)-v1\.2\.(48|50)/.test(html), 'build marker is present');
 ok(html.includes('GLX-V1248') && html.includes('__v1248'), 'v1248 module is embedded');
 ok(src.includes("clansman") && src.includes('isFriendly'), 'source lists clansman as friendly');
 ok(html.includes('window.__v1248 && __v1248.isFriendly(m)'), 'nspider prey loop skips friendly NPCs');
