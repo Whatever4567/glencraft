@@ -1,5 +1,5 @@
 /* GLX-SUNNY1222 (local preview): clansmen voices + real LLM dialogue brain restored in a bounded async form.
-   Uses the uploaded Sunny/digital-brain concepts (identity, memory, mood) with a localhost LLM adapter.
+   Uses Sunny/digital-brain concepts (identity, memory, mood). Prefers localhost brain when present; otherwise opt-in browser Web Worker Qwen (Pages-reachable). Never auto-download models on boot.
    Does NOT restore the laggy v1.0.53 pathfinding/inventory/objectives AI loop. Clansmen only. Voice only (no telepathy text). */
 (function sunnyLlm1222() {
   const U = window.__sunny1222 = window.SUNNY_BRAIN = {
@@ -68,10 +68,43 @@
     } catch (e) { ERR(e); return false; }
   }
 
+  
+  // Pages-reachable path: opt-in browser worker (no auto boot download).
+  let worker = null, workerReady = false, workerWant = false;
+  U.enableBrowserBrain = function () {
+    workerWant = true;
+    try {
+      if (!worker) {
+        worker = new Worker('tools/sunny-brain/browser/sunny-worker.js', { type: 'module' });
+        worker.onmessage = (e) => {
+          const m = e.data || {};
+          if (m.type === 'ready') { workerReady = true; U.provider = 'browser-qwen'; U.model = m.modelId; U.device = m.device; }
+          if (m.type === 'chat_result' && U._pending && U._pending.id === m.id) { U._pending.resolve(m); U._pending = null; }
+          if (m.type === 'error' && U._pending) { U._pending.reject(new Error(m.message || 'worker')); U._pending = null; }
+        };
+      }
+      worker.postMessage({ type: 'warmup' });
+      toast('Loading Sunny browser brain (opt-in, one-time model cache)…');
+    } catch (e) { ERR(e); }
+  };
+  function chatBrowser(job) {
+    return new Promise((resolve, reject) => {
+      const id = 'c' + Math.random().toString(36).slice(2);
+      U._pending = { id, resolve, reject };
+      worker.postMessage({ type: 'chat', id, user: job.user, system: 'You are ' + (job.name||'a clansman') + ', a highland clansman. One short Scots-tinged English sentence under 18 words. No quotes or commands.', maxTokens: 40 });
+      setTimeout(() => { if (U._pending && U._pending.id === id) { U._pending = null; reject(new Error('timeout')); } }, TIMEOUT);
+    });
+  }
+
   async function runOne(job) {
     inflight++; U.busy = inflight;
     try {
       const h = await healthz(false);
+      if ((!h || !h.ok) && workerReady) {
+        const j = await chatBrowser(job);
+        if (!job.alive()) { U.skip++; return; }
+        U.ok++; U.n++; U.provider = 'browser-qwen'; U.model = j.model; job.a.__sunnyLast = performance.now(); job.a.__sunnyLine = j.text; speakText(j.text, job.a.g.position, job.a); return;
+      }
       if (!h || !h.ok) { U.fail++; return; }
       const ac = new AbortController(); const t = setTimeout(() => ac.abort(), TIMEOUT);
       const r = await fetch(U.endpoint + '/chat', {
@@ -160,10 +193,13 @@
         sync();
         seg.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
           e.preventDefault(); SET.sunnyLlm = Number(b.dataset.v); U.enabled = !!SET.sunnyLlm; try { saveSet(); } catch (_) {} sync();
-          toast(SET.sunnyLlm ? 'Clansmen Sunny LLM ON (local brain)' : 'Clansmen Sunny LLM OFF');
+          toast(SET.sunnyLlm ? 'Clansmen Sunny LLM ON (localhost brain if available)' : 'Clansmen Sunny LLM OFF');
         }));
       }
       row.after(r2);
+      const b = document.createElement('button'); b.textContent = 'Load Sunny browser brain (opt-in, ~Qwen 0.5B cache)'; b.setAttribute('data-testid','sunny-browser-load');
+      b.onclick = (e) => { e.preventDefault(); try { U.enableBrowserBrain(); } catch (err) { ERR(err); } };
+      r2.appendChild(b);
     }
   } catch (e) { ERR(e); }
 
