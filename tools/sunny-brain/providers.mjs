@@ -1,31 +1,14 @@
-/** Real LLM providers for Sunny clansmen. No API keys in client HTML. */
-import { sanitizeSpoken } from './brain.mjs';
+/** Real LLM providers for Sunny clansmen. Browser/Pages path is primary; no API keys in client. */
+import { createClanBrain, sanitizeSpoken, looksSpoken } from './brain.mjs';
 
 let hfPipe = null;
 let hfModelId = null;
 let hfLoadError = null;
-let xenovaPipe = null;
 
-/** Soft gate: keep intelligible short speech; do not over-reject Scots flavour. */
-export function looksSpoken(s) {
-  if (!s || s.length < 2) return false;
-  if (/```|https?:|javascript:|localStorage|eval\(|\brm -\w|sudo /i.test(s)) return false;
-  if (/inappropriate|as an ai language model|i cannot provide a response/i.test(s)) return false;
-  const weird = [...s].filter(c => c.charCodeAt(0) < 9 || (c.charCodeAt(0) > 13 && c.charCodeAt(0) < 32) || c.charCodeAt(0) > 126).length;
-  if (weird > 3) return false;
-  const letters = [...s].filter(c => /[A-Za-z]/.test(c)).length;
-  return letters >= 4;
-}
+export { looksSpoken, sanitizeSpoken };
 
-export async function detectProviders({ timeoutMs = 1200 } = {}) {
-  const out = {
-    ollama: false,
-    ollamaModels: [],
-    anthropicEnv: false,
-    transformersLocal: true,
-    qwenLocal: true,
-    preferred: null
-  };
+export async function detectProviders({ timeoutMs = 800 } = {}) {
+  const out = { ollama: false, ollamaModels: [], anthropicEnv: false, qwenLocal: true, preferred: 'qwen-local' };
   out.anthropicEnv = !!(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.trim());
   try {
     const ac = new AbortController();
@@ -36,12 +19,9 @@ export async function detectProviders({ timeoutMs = 1200 } = {}) {
       const j = await r.json();
       out.ollama = true;
       out.ollamaModels = (j.models || []).map(m => m.name);
+      if (out.ollamaModels.length) out.preferred = 'ollama';
     }
   } catch (_) {}
-  if (out.ollama && out.ollamaModels.length) out.preferred = 'ollama';
-  else if (out.qwenLocal) out.preferred = 'qwen-local';
-  else if (out.transformersLocal) out.preferred = 'transformers-local';
-  else if (out.anthropicEnv) out.preferred = 'anthropic';
   return out;
 }
 
@@ -55,30 +35,40 @@ async function ensureQwen(model = process.env.SUNNY_QWEN_MODEL || 'onnx-communit
   return hfPipe;
 }
 
-async function ensureXenova(model = process.env.SUNNY_LOCAL_MODEL || 'Xenova/LaMini-Flan-T5-248M') {
-  if (xenovaPipe) return xenovaPipe;
-  const { pipeline, env } = await import('@xenova/transformers');
-  env.allowLocalModels = true;
-  env.useBrowserCache = false;
-  xenovaPipe = await pipeline('text2text-generation', model, { quantized: true });
-  return xenovaPipe;
-}
-
-function extractAssistant(raw) {
-  if (Array.isArray(raw)) {
-    const last = raw.at(-1);
-    if (last && typeof last === 'object' && last.content) return String(last.content);
+function extractAssistant(generated) {
+  if (Array.isArray(generated)) {
+    for (let i = generated.length - 1; i >= 0; i--) {
+      const m = generated[i];
+      if (m && m.role === 'assistant' && m.content) return String(m.content);
+    }
+    const last = generated.at(-1);
+    if (last && last.content) return String(last.content);
   }
-  return String(raw || '');
+  return String(generated || '');
 }
 
-export async function complete({ provider, system, user, maxTokens = 48, temperature = 0.7, model }) {
-  const det = await detectProviders();
-  const p = provider || det.preferred;
-  if (!p) throw Object.assign(new Error('No LLM provider available'), { code: 'NO_PROVIDER' });
+async function generateOnce(pipe, system, user, maxTokens, temperature) {
+  const messages = [
+    { role: 'system', content: system },
+    { role: 'user', content: user }
+  ];
+  const res = await pipe(messages, {
+    max_new_tokens: Math.min(48, maxTokens),
+    temperature,
+    do_sample: temperature > 0.05,
+    return_full_text: false
+  });
+  const generated = res?.[0]?.generated_text;
+  const raw = extractAssistant(generated);
+  return { raw, text: sanitizeSpoken(raw) };
+}
 
-  if (p === 'ollama') {
-    const m = model || process.env.SUNNY_OLLAMA_MODEL || det.ollamaModels[0] || 'qwen2.5:0.5b';
+export async function complete({ provider, system, user, maxTokens = 40, temperature = 0.7, model }) {
+  const det = await detectProviders();
+  const p = provider || det.preferred || 'qwen-local';
+
+  if (p === 'ollama' && det.ollamaModels.length) {
+    const m = model || process.env.SUNNY_OLLAMA_MODEL || det.ollamaModels[0];
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 30000);
     const r = await fetch('http://127.0.0.1:11434/api/chat', {
@@ -87,75 +77,46 @@ export async function complete({ provider, system, user, maxTokens = 48, tempera
       body: JSON.stringify({
         model: m, stream: false,
         options: { temperature, num_predict: maxTokens },
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user }
-        ]
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }]
       })
     });
     clearTimeout(t);
     if (!r.ok) throw new Error('ollama HTTP ' + r.status);
     const j = await r.json();
-    const content = sanitizeSpoken(j.message?.content || '');
-    return { provider: p, model: m, content: looksSpoken(content) ? content : sanitizeSpoken(j.message?.content || '') || content, raw: j.message?.content || '', qualityFallback: false };
+    const text = sanitizeSpoken(j.message?.content || '');
+    return { provider: p, model: m, content: text, raw: j.message?.content || '', ok: looksSpoken(text), qualityFallback: false };
   }
 
-  if (p === 'qwen-local') {
+  if (p === 'qwen-local' || p === 'transformers-local') {
     const pipe = await ensureQwen(model);
-    const messages = [
-      { role: 'system', content: system },
-      { role: 'user', content: user }
-    ];
     const t0 = Date.now();
-    const res = await pipe(messages, { max_new_tokens: Math.min(64, maxTokens), temperature, do_sample: temperature > 0.05 });
+    let out = await generateOnce(pipe, system, user, maxTokens, temperature);
+    let ok = looksSpoken(out.text);
+    let repaired = false;
+    if (!ok) {
+      // one bounded repair retry with clearer constraint
+      const repairSystem = system + ' Answer only with the spoken words. No narration.';
+      out = await generateOnce(pipe, repairSystem, user, maxTokens, Math.min(0.9, temperature + 0.1));
+      ok = looksSpoken(out.text);
+      repaired = true;
+    }
     const ms = Date.now() - t0;
-    const rawList = res?.[0]?.generated_text;
-    const raw = extractAssistant(rawList);
-    let text = sanitizeSpoken(raw);
-    const ok = looksSpoken(text);
-    return { provider: p, model: hfModelId, content: ok ? text : (text || raw.slice(0, 120)), raw, ms, qualityFallback: !ok };
-  }
-
-  if (p === 'transformers-local') {
-    const pipe = await ensureXenova(model);
-    const prompt = `One short Scottish highland clansman spoken reply (under 18 words): ${user}`;
-    const res = await pipe(prompt, { max_new_tokens: Math.min(48, maxTokens), temperature: Math.max(0.3, temperature), do_sample: true });
-    const raw = Array.isArray(res) ? (res[0].generated_text || '') : String(res);
-    let text = sanitizeSpoken(raw);
-    return { provider: p, model: process.env.SUNNY_LOCAL_MODEL || 'Xenova/LaMini-Flan-T5-248M', content: text || raw.slice(0, 80), raw, qualityFallback: !looksSpoken(text) };
+    if (!ok) {
+      return { provider: 'qwen-local', model: hfModelId, content: '', raw: out.raw, ms, ok: false, quiet: true, repaired, qualityFallback: false };
+    }
+    return { provider: 'qwen-local', model: hfModelId, content: out.text, raw: out.raw, ms, ok: true, repaired, qualityFallback: false };
   }
 
   if (p === 'anthropic') {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw Object.assign(new Error('ANTHROPIC_API_KEY missing'), { code: 'NO_KEY' });
-    if (process.env.SUNNY_ALLOW_PAID !== '1') {
-      throw Object.assign(new Error('Paid Anthropic calls blocked until SUNNY_ALLOW_PAID=1'), { code: 'PAID_BLOCKED' });
-    }
-    const m = model || process.env.SUNNY_ANTHROPIC_MODEL || 'claude-3-5-haiku-20241022';
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: m, max_tokens: maxTokens, temperature, system, messages: [{ role: 'user', content: user }] })
-    });
-    if (!r.ok) throw new Error('anthropic HTTP ' + r.status);
-    const j = await r.json();
-    const content = (j.content || []).map(c => c.text || '').join(' ');
-    return { provider: p, model: m, content: sanitizeSpoken(content), raw: content };
+    throw Object.assign(new Error('Paid Anthropic blocked (no auto spend)'), { code: 'PAID_BLOCKED' });
   }
-
   throw new Error('Unknown provider ' + p);
 }
 
 export async function warmupLocal() {
   try {
-    const det = await detectProviders();
-    if (det.preferred === 'ollama') return { ok: true, model: det.ollamaModels[0], provider: 'ollama' };
-    if (det.preferred === 'qwen-local') {
-      await ensureQwen();
-      return { ok: true, model: hfModelId, provider: 'qwen-local' };
-    }
-    await ensureXenova();
-    return { ok: true, model: 'Xenova/LaMini-Flan-T5-248M', provider: 'transformers-local' };
+    await ensureQwen();
+    return { ok: true, model: hfModelId, provider: 'qwen-local' };
   } catch (e) {
     hfLoadError = String(e && e.stack || e);
     return { ok: false, error: hfLoadError };
