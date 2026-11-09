@@ -58,10 +58,10 @@
   function skinBump() {
     return tex(512, 512, (g) => {
       g.fillStyle = '#808080'; g.fillRect(0, 0, 512, 512);
-      for (let i = 0; i < 12000; i++) {
-        const v = 110 + Math.random() * 40 | 0;
+      for (let i = 0; i < 3500; i++) {
+        const v = 118 + Math.random() * 22 | 0;
         g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
-        g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+        g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 1.5, 1);
       }
       g.strokeStyle = 'rgba(70,70,70,0.35)'; g.lineWidth = 1;
       for (let i = 0; i < 40; i++) {
@@ -102,8 +102,8 @@
 
   function skinMat() {
     const m = new T.MeshPhongMaterial({
-      color: 0xe2b494, map: SKIN_MAP, bumpMap: SKIN_BUMP, bumpScale: 0.10,
-      shininess: 18, specular: 0x3a2820
+      color: 0xe2b494, map: SKIN_MAP, bumpMap: SKIN_BUMP, bumpScale: 0.06,
+      shininess: 28, specular: 0x6a4838
     });
     m.userData.sculptKeep = 1;
     return m;
@@ -114,6 +114,29 @@
       shininess: 6, specular: 0x222222
     });
     m.userData.sculptKeep = 1;
+    return m;
+  }
+  function tartanTex() {
+    if (U._tartan) return U._tartan;
+    U._tartan = tex(256, 256, (g) => {
+      g.fillStyle = '#1c3a24'; g.fillRect(0, 0, 256, 256);
+      const cols = ['#1c3a24', '#245c38', '#0c1a20', '#7a1c28', '#d8d0c0'];
+      for (let i = 0; i < 16; i++) {
+        const x = i * 16;
+        g.fillStyle = cols[i % cols.length];
+        g.fillRect(x, 0, (i % 4 === 0 ? 5 : 2), 256);
+        g.fillRect(0, x, 256, (i % 4 === 0 ? 5 : 2));
+      }
+    });
+    return U._tartan;
+  }
+  function tartanMat() {
+    const m = new T.MeshPhongMaterial({
+      color: 0xffffff, map: tartanTex(), bumpMap: tartanTex(), bumpScale: 0.12,
+      shininess: 8, specular: 0x222222
+    });
+    m.userData.sculptKeep = 1;
+    m.userData.tartan1251 = 1;
     return m;
   }
   function nailMat() {
@@ -169,7 +192,7 @@
   }
   function knuckleGeo(r) {
     return share(geoKey('kn', r), function () {
-      const g = new T.SphereGeometry(r, 12, 10);
+      const g = new T.SphereGeometry(r, 14, 12);
       const p = g.attributes.position;
       for (let i = 0; i < p.count; i++) {
         const y = p.getY(i), z = p.getZ(i);
@@ -316,14 +339,14 @@
       const f = pair[0], k = pair[1];
       const r = widths[i] || 0.007;
       // proximal on f
-      addMesh(f, fingerSegGeo(0.036, r, r * 0.88, 0.70, 8, 10, 1), sm);
+      addMesh(f, fingerSegGeo(0.036, r, r * 0.88, 0.70, 10, 12, 1), sm);
       addMesh(f, knuckleGeo(r * 1.15), sm, 0, 0.001, 0.001);
       if (k) {
-        addMesh(k, fingerSegGeo(0.017, r * 0.88, r * 0.80, 0.70, 7, 10, 1), sm);
+        addMesh(k, fingerSegGeo(0.017, r * 0.88, r * 0.80, 0.70, 9, 12, 1), sm);
         addMesh(k, knuckleGeo(r * 0.95), sm, 0, 0.001, 0.001);
         const d = k.userData && k.userData.d;
         if (d) {
-          addMesh(d, fingerSegGeo(0.013, r * 0.80, r * 0.62, 0.68, 7, 10, 0), sm);
+          addMesh(d, fingerSegGeo(0.013, r * 0.80, r * 0.62, 0.68, 9, 12, 0), sm);
           addMesh(d, knuckleGeo(r * 0.85), sm, 0, 0.001, 0.001);
           // nail on the dorsal distal
           const nail = addMesh(d, nailGeo(r * 1.05, 0.0055, r * 0.28), nailMat(), 0, 0.010, r * 0.38);
@@ -335,13 +358,13 @@
 
     const th = h.userData.th;
     if (th) {
-      addMesh(th, fingerSegGeo(0.05, 0.0096, 0.0080, 0.78, 8, 10, 1), sm);
+      addMesh(th, fingerSegGeo(0.05, 0.0096, 0.0080, 0.78, 10, 12, 1), sm);
       const tk = th.userData && th.userData.k;
       if (tk) {
-        addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0076, 0.78, 7, 10, 1), sm);
+        addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0076, 0.78, 9, 12, 1), sm);
         const td = tk.userData && tk.userData.d;
         if (td) {
-          addMesh(td, fingerSegGeo(0.014, 0.0076, 0.0064, 0.76, 7, 10, 0), sm);
+          addMesh(td, fingerSegGeo(0.014, 0.0076, 0.0064, 0.76, 9, 12, 0), sm);
           const tn = addMesh(td, nailGeo(0.008, 0.006, 0.0024), nailMat(), 0, 0.010, 0.0044);
           tn.rotation.x = -0.12;
           tn.userData.nail1249 = 1;
@@ -350,7 +373,7 @@
     }
 
     // Wrist
-    addMesh(h, fingerSegGeo(0.048, 0.030, 0.026, 0.82, 8, 12, 0), sm, 0, -0.048, 0);
+    addMesh(h, fingerSegGeo(0.048, 0.030, 0.026, 0.82, 10, 14, 0), sm, 0, -0.048, 0);
     // Dorsal knuckles at the finger roots (replace the old balls)
     if (h.userData.kn) {
       for (const b of h.userData.kn) hideOld(b);
@@ -370,7 +393,26 @@
     const sm = skinMat();
     if (p.up) { p.up.material = lm; foldCloth(p.up, 1.15); mark(p.up); }
     if (p.el) { p.el.material = lm; mark(p.el); }
-    if (p.cuff) { p.cuff.material = lm; foldCloth(p.cuff, 1.45); mark(p.cuff); }
+    if (p.cuff) { p.cuff.material = lm; foldCloth(p.cuff, 1.45); mark(p.cuff);
+      if (!p.cuff.userData.roll1251 && p.cuff.parent) {
+        const roll = new T.Mesh(new T.TorusGeometry(0.042, 0.012, 8, 18), lm);
+        roll.rotation.x = Math.PI / 2;
+        // Sit the roll at the cuff, slightly toward the camera.
+        roll.position.copy(p.cuff.position);
+        roll.position.y += 0.01;
+        roll.userData.folded1249 = 1;
+        roll.userData.sculptKeep = 1;
+        p.cuff.parent.add(roll);
+        const roll2 = new T.Mesh(new T.TorusGeometry(0.038, 0.008, 8, 16), lm);
+        roll2.rotation.x = Math.PI / 2;
+        roll2.position.copy(p.cuff.position);
+        roll2.position.y += 0.022;
+        roll2.userData.folded1249 = 1;
+        roll2.userData.sculptKeep = 1;
+        p.cuff.parent.add(roll2);
+        p.cuff.userData.roll1251 = 1;
+      }
+    }
     if (p.fo) {
       // Keep the existing forearm mesh (already tapered) but paint + slightly reshape.
       p.fo.material = sm;
