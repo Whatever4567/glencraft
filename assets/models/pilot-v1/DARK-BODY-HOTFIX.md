@@ -1,6 +1,13 @@
-# Local 1.2.36 candidate — dark pilot rendering regression
+# 1.2.36 — character display transfer and portrait regression
 
-Not published. Live remains 1.2.35 until publication is approved.
+Combined release approved for publication with the Scottish base and armour-removal fix.
+
+Public GPU QA of 1.2.35 showed a lit world face and distinguishable dark teal clothing,
+but a collapsed zero-width inventory portrait and a faint silhouette behind its panel.
+The initial claim that missing world transfer alone explained the report was too broad.
+The UI22 row lacked flex growth; its absolutely positioned canvas contributed no
+intrinsic width, collapsing charView. The release also fixes that layout and pointer
+interaction, with a failing-before/passing-after portrait lifecycle regression.
 
 ## Concrete cause found in the shipped runtime
 
@@ -13,8 +20,8 @@ adapter explicitly compensates by using Lambert/display-space map handling.
 The new pilot path instead retains GLTFLoader PBR materials: base-colour maps
 are `sRGBEncoding (3001)` and decode into linear light; material factors and far
 vertex colours are also linear. It did NOT compensate for the main renderer
-omitting the final linear-to-sRGB display transfer. This makes the character
-markedly too dark. The Character & armour portrait has a DIFFERENT pipeline:
+omitting the final linear-to-sRGB display transfer. This is a separate, numerically verified display-transfer mismatch, not proof that
+the entire world character was black. The Character & armour portrait has a DIFFERENT pipeline:
 explicit sRGB output, ACES exposure 0.9, a PMREM environment, key 1.7, rim 1.6
 and hemisphere 0.25. Its final display transfer is already present.
 
@@ -42,8 +49,9 @@ Skinning, normals, tangent/data maps, depth and alpha modes remain intact.
   world-output-transfer assertion; candidate PASSES 108 checks.
 - 63 native loader/rig/visibility/equipment/animation integration checks pass.
 - Two complete authoritative builds match byte for byte.
-- Entire HTML matches live 1.2.35 after reversing only the helper, its two
-  material-clone hooks and release metadata. No art/gameplay changes are hidden.
+- Outside the character adapter, HTML matches live 1.2.35 after reversing release
+  metadata, four explicit armour-removal/summary seams and the portrait flex-layout fix.
+  The combined adapter additionally integrates the separately approved Scottish base.
 - Both GLB SHA256 values remain the approved frozen values.
 - Actual cloth atlas mean, decoded and processed by r128 ACES at exposure 1.05,
   produces display code G/B 0.1585/0.2016 without the transfer versus
@@ -52,7 +60,7 @@ Skinning, normals, tangent/data maps, depth and alpha modes remain intact.
 - The CPU comparison uses identical real mesh/maps and approximate diffuse
   lighting with the actual r128 ACES/output equations. It is NOT a browser
   screenshot or a complete PBR/normal/specular simulation.
-- No browser/GPU execution or FPS claim. Candidate GPU appearance still requires
+- No browser/GPU execution or FPS claim. Post-release GPU appearance still requires
   approved deployment/browser QA; local browser access is intentionally blocked.
 
 ## Reproduction / browser QA for the parent
