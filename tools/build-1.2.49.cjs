@@ -289,6 +289,26 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   }
 }
 
+
+// Dedicated first-person viewmodel (camera-space pose table). After held-frame
+// so the 1259 early-out in held-frame can see window.__fpVm1259.
+{
+  const fpvm = fs.readFileSync(path.join(__dirname, 'pilot-model-source/fp-vm-1259.js'), 'utf8');
+  if (!s.includes('(function fpVm1259')) {
+    const i = s.indexOf('(function heldFrame1251');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('fp-vm-1259 inject anchor missing');
+    s = s.slice(0, j + end.length) + fpvm.trim() + '\n' + s.slice(j + end.length);
+  } else {
+    const i = s.indexOf('(function fpVm1259');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('fp-vm-1259 replace failed');
+    s = s.slice(0, i) + fpvm.trim() + '\n' + s.slice(j + end.length);
+  }
+}
+
 // After the last placeCamera wrap in the gameplay script, call the QA hook.
 {
   const endAnchor = "})();\n</script>\n<div id=\"notesUI\" class=\"hidden\" data-testid=\"patch-notes\"";
@@ -507,6 +527,7 @@ if (!s.includes('ads: [0, 0.010, -0.34]')) throw new Error('musket ADS pose not 
 if (!s.includes('yaw: 0.26, roll: 0.03')) throw new Error('musket hip yaw not applied');
 if (!s.includes('handle1249') || !s.includes('isGlowPart')) throw new Error('1255 pick grip socket fix missing');
 if (!s.includes('heldFrame1251') || !s.includes('__heldFrame1251')) throw new Error('held-frame 1251 missing');
+if (!s.includes('fpVm1259') || !s.includes('__fpVm1259')) throw new Error('fp-vm 1259 missing');
 if (!s.includes('GLX-CULLVM-1252') || !s.includes('cullVm')) throw new Error('viewmodel coverage cull hook missing');
 
 

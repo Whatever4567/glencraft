@@ -1033,6 +1033,16 @@
         return;
       }
       captureHS();
+      // 1259 dedicated FP viewmodel owns first-person posing. Leave the
+      // 279fd13 path untouched so disabling 1259 falls back cleanly.
+      if (W.__fpVm1259 && W.__fpVm1259.active && !W.__fpVm1259.disabled) {
+        const k0 = kindOf();
+        U.fovK = 1;
+        U.kind = k0;
+        U.ads = isAds() ? 1 : 0;
+        U.on = 1;
+        return;
+      }
       const k = kindOf();
       const ads = isAds();
       const fkey = (k === 'musket' && ads) ? 'musketAds' : (k === 'pistol' && ads) ? 'pistolAds' : k;

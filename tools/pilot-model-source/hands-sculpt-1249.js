@@ -140,6 +140,7 @@
     m.userData.tartan1251 = 1;
     return m;
   }
+  U.tartanMat = tartanMat;
   function nailMat() {
     const m = new T.MeshPhongMaterial({
       color: 0xedd3c4, shininess: 55, specular: 0x886655
@@ -501,6 +502,47 @@
       return true;
     } catch (e) { ERR('apply', e); return false; }
   }
+
+  // Standalone sculpted hand for the 1259 first-person viewmodel.
+  // Finger pivots match __fpa mkHand so curl can drive the same joints.
+  U.buildHand = function (side) {
+    side = side || 1;
+    const h = new T.Group();
+    h.name = side > 0 ? 'FpHandR' : 'FpHandL';
+    h.userData.fpHand1259 = 1;
+    h.userData.side = side;
+    h.userData.f = [];
+    for (let i = 0; i < 4; i++) {
+      const f = new T.Group();
+      f.position.set((i - 1.5) * 0.0215, 0.097 - Math.abs(i - 1.2) * 0.006, 0.004);
+      f.rotation.z = (i - 1.5) * -0.05;
+      const k = new T.Group();
+      k.position.y = 0.036;
+      const d = new T.Group();
+      d.position.y = 0.017;
+      k.add(d);
+      k.userData.d = d;
+      f.add(k);
+      f.userData.k = k;
+      h.add(f);
+      h.userData.f.push([f, k]);
+    }
+    const th = new T.Group();
+    th.position.set(side * 0.038, 0.028, 0.01);
+    th.rotation.set(0.85, side * 0.55, side * 0.85);
+    const tk = new T.Group();
+    tk.position.y = 0.05;
+    const td = new T.Group();
+    td.position.y = 0.018;
+    tk.add(td);
+    tk.userData.d = td;
+    th.add(tk);
+    th.userData.k = tk;
+    h.userData.th = th;
+    h.add(th);
+    upgradeHand(h, side);
+    return h;
+  };
 
   function hookPaint() {
     if (U._hooked) return;
