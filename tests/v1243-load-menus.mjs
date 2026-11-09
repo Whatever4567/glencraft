@@ -6,8 +6,8 @@ const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.44';") || html.includes("const GAME_VERSION = '1.2.43';"), 'GAME_VERSION is 1.2.44 or 1.2.43');
-ok(html.includes('<!-- glencraft-build: b1244-v1.2.44 -->') || html.includes('<!-- glencraft-build: b1243-v1.2.43 -->'), 'build marker is b1244 or b1243');
+ok(html.includes("const GAME_VERSION = '1.2.46';") || html.includes("const GAME_VERSION = '1.2.44';") || html.includes("const GAME_VERSION = '1.2.43';"), 'GAME_VERSION is 1.2.46+');
+ok(html.includes('<!-- glencraft-build: b1246-v1.2.46 -->') || html.includes('<!-- glencraft-build: b1244-v1.2.44 -->') || html.includes('<!-- glencraft-build: b1243-v1.2.43 -->'), 'build marker is b1246+');
 ok(/const LOAD_R = \(window\.__loadChunkR != null \? window\.__loadChunkR : 1\)/.test(html), 'initial load chunk ring defaults to R=1');
 ok(/for \(let a = -LOAD_R; a <= LOAD_R; a\+\+\)/.test(html), 'chunksReady uses LOAD_R');
 ok(html.includes('enterWorld._fauna'), 'fauna spawn is deferred via enterWorld._fauna');
