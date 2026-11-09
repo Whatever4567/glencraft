@@ -1,7 +1,19 @@
 /** Real LLM providers for Sunny clansmen. No API keys in client HTML. */
 import { pipeline, env } from '@xenova/transformers';
 import { sanitizeSpoken } from './brain.mjs';
-function looksSpoken(s){if(!s||s.length<2)return false;const letters=[...s].filter(c=>/[A-Za-z]/.test(c)).length;const weird=[...s].filter(c=>/[^ -~]/.test(c)).length;return letters>=4 && weird<=2 && !/inappropriate|cannot respond|as an ai/i.test(s);}
+function looksSpoken(s){
+  if(!s||s.length<3)return false;
+  if(/inappropriate|cannot respond|as an ai/i.test(s))return false;
+  const chars=[...s];
+  const letters=chars.filter(c=>/[A-Za-z]/.test(c)).length;
+  const weird=chars.filter(c=>c.charCodeAt(0)<32||c.charCodeAt(0)>126).length;
+  const digits=chars.filter(c=>/[0-9]/.test(c)).length;
+  if(weird>0)return false;
+  if(letters<8)return false;
+  if(digits>2)return false;
+  if(letters/chars.length<0.55)return false;
+  return true;
+}
 
 env.allowLocalModels = true;
 env.useBrowserCache = false;
@@ -58,7 +70,10 @@ export async function complete({ provider, system, user, maxTokens = 48, tempera
       const raw3 = Array.isArray(res3) ? (res3[0].generated_text || '') : String(res3);
       text = sanitizeSpoken(raw3);
     }
-    if (!looksSpoken(text)) text = 'Aye, welcome to the glen.';
+    if (!looksSpoken(text)) {
+      // Honest degradation: known-safe short line, flagged so callers know model quality failed.
+      return { provider: p, model: localModelId, content: 'Aye, welcome to the glen.', raw, qualityFallback: true, systemUsed: !!system };
+    }
     return { provider: p, model: localModelId, content: text, raw, systemUsed: !!system };
   }
 

@@ -65,6 +65,7 @@ const server = http.createServer(async (req, res) => {
           text: sanitizeSpoken(out.content),
           mood: b.state.mood,
           curiosity: b.state.curiosity,
+          qualityFallback: !!out.qualityFallback,
           actions: [] // deliberately empty: dialogue cannot execute world actions
         });
       } finally { stats.inflight--; }
