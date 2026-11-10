@@ -161,7 +161,7 @@
     const col = purple ? (0xa64dff) : 0x3ab8ff, mapCol = purple ? 0xc090ff : 0x9ad8ff, em = purple ? 0x4a1078 : 0x0a3a66;
     root.traverse(o => {
       if (!o.isMesh || !o.material) return;
-      if (o.userData && (o.userData.glow1249 || o.userData.keepTransparent || o.userData.crystalCore1249)) return;
+      if (o.userData && (o.userData.glow1249 || o.userData.keepTransparent || o.userData.crystalCore1249 || o.userData.fpHaftCyl1274 || o.userData.fpSockMetal1274 || o.userData.fpSock1265 || o.userData.handle1249)) return;
       const mats = Array.isArray(o.material) ? o.material : [o.material];
       for (const m of mats) {
         if (!m || !m.color) continue;

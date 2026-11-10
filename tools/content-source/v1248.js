@@ -218,6 +218,13 @@
   // c302/c310 overwrite the bones). Run last on the HD frame list so the clip wins, and
   // so a leftover side-roll from the rig cannot be copied onto the visible model on grass.
   function drivePigClip(a, H, wallow) {
+    if (H.mix && (!H.act || !(H.act.walk || H.act.Walk))) {
+      try {
+        const _pm = window.__c135 && window.__c135.models; const clips = (_pm && ((_pm.pig3 && _pm.pig3.clips) || (_pm.pig2 && _pm.pig2.clips))) || {};
+        H.act = H.act || {};
+        for (const r in clips) if (!H.act[r]) H.act[r] = H.mix.clipAction(clips[r]);
+      } catch (_) {}
+    }
     const walk = H.act && (H.act.walk || H.act.Walk);
     if (!walk || !H.mix) return;
     if (!H._p1248clip) {
@@ -227,17 +234,18 @@
       walk.setEffectiveWeight(0);
       H._p1248clip = 1;
     }
+    const idle = H.act && (H.act.idle || H.act.Idle);
+    if (idle && !H._pIdleOn) {
+      try { idle.reset().play(); idle.setLoop(THREE.LoopRepeat, Infinity); idle.setEffectiveWeight(0); H._pIdleOn = 1; } catch (_) {}
+    }
     const moving = !wallow && !!(a.moving || a.flee > 0 || (H.v || 0) > 0.25);
-    if (wallow) walk.setEffectiveWeight(0);
+    if (wallow) { walk.setEffectiveWeight(0); if (idle) idle.setEffectiveWeight(0); }
     else {
       walk.setEffectiveWeight(moving ? 1 : 0);
+      if (idle) idle.setEffectiveWeight(moving ? 0 : 1);
       if (moving) walk.timeScale = Math.max(0.55, Math.min(2.2, (H.v || a.speed || 1) / 1.3));
     }
-    if (!moving && !wallow) {
-      try {
-        H.m.traverse(o => { if (o.isSkinnedMesh && o.skeleton) o.skeleton.pose(); });
-      } catch (_) {}
-    }
+    // Do not reset pig2 bones to bind: that drops the Armature transform and hangs the mesh.
     try { H.mix.update(0); } catch (_) {}
   }
 
@@ -256,7 +264,7 @@
         // tickPig rolls around Z to lie on its side. Yaw the model once so a
         // Z roll is a side-lie, not a somersault.
         if (!H._yaw1248 && H.m && typeof THREE !== 'undefined') {
-          const tip = H.m.getObjectByName('Bone003') || H.m.getObjectByName('Bone002');
+          const tip = H.m.getObjectByName('Bone003') || H.m.getObjectByName('Bone002') || (c && c.f !== 'pig3' ? H.m.getObjectByName('Snout') : null);
           if (tip && a.g) {
             a.g.updateMatrixWorld(true); H.m.updateMatrixWorld(true);
             const w = tip.getWorldPosition(new THREE.Vector3());
@@ -591,7 +599,7 @@
     }
     return b;
   }
-  const MOOD_FILE = {blue: 'music/mood_blue.ogg', purple: 'music/mood_purple.ogg', agartha: 'music/mood_agartha.ogg'};
+  const MOOD_FILE = {blue: 'music/mood_blue.ogg?v=1.2.54', purple: 'music/mood_purple.ogg?v=1.2.54', agartha: 'music/mood_agartha.ogg?v=1.2.54'};
   let moodBufs = {}, moodLoads = {};
   function loadMoodLoop(mood) {
     const src = MOOD_FILE[mood];
@@ -1091,8 +1099,8 @@
 
   // Baked 170 BPM loop is the in-game path (cheap on Android). Procedural fallback
   // keeps the same kick + off-beat donk groove if the file is missing.
-  const HC_FILE = 'music/hardcore_remix.mp3';
-  const HC_FILE_OGG = 'music/hardcore_remix.ogg';
+  const HC_FILE = 'music/hardcore_remix.mp3?v=1.2.54';
+  const HC_FILE_OGG = 'music/hardcore_remix.ogg?v=1.2.54';
   let hcLoopBuf = null, hcLoopLoad = null;
 
   function loadHcLoop() {

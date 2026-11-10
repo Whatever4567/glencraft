@@ -7,6 +7,7 @@
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
 
   const SRC = 'music/album/';
+  const SRC_Q = '?v=1.2.54';
   // Batches 1–2. Later batches append; fallbacks remain for unfilled contexts.
   const POOLS = U.POOLS = {
     menu: ['the_glen_opens'],
@@ -130,7 +131,7 @@
     });
     el.addEventListener('error', () => {
       if (el && el.src && el.src.indexOf('.ogg') >= 0 && curId) {
-        try { el.src = SRC + curId + '.mp3'; el.load(); const p = el.play(); if (p && p.catch) p.catch(() => {}); return; } catch (_) {}
+        try { el.src = SRC + curId + '.mp3' + SRC_Q; el.load(); const p = el.play(); if (p && p.catch) p.catch(() => {}); return; } catch (_) {}
       }
       gapUntil = performance.now() + 8000;
       wanted = false; curId = null;
@@ -140,7 +141,7 @@
 
   function playId(id) {
     const a = ensureEl();
-    const ogg = SRC + id + '.ogg';
+    const ogg = SRC + id + '.ogg' + SRC_Q;
     curId = id; wanted = true; U.track = id; U.gap = 0;
     a.volume = albumVol();
     // Prefer Ogg; the error handler falls back to MP3.

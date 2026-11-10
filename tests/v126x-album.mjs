@@ -12,16 +12,18 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';"),
-  'public version is unchanged');
+ok(html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';"),
+  'version is 1.2.54 (or a previous 1.2.52/1.2.53 launch)');
 ok(html.includes('id="ostSeg"') && html.includes('data-ost="calm"') && html.includes('data-ost="classic"') && html.includes('data-ost="hardcore"'),
   'Calm / Classic / Happy Hardcore picker remains');
 ok(html.includes('data-ost="album"') && html.includes('GLX-V126X-ALBUM'), 'Album mode is present');
 ok(v1248.includes("'album'") && v1248.includes('__v126x'), 'v1248 hands Album ticks to the new player');
 ok(html.includes('hardcore_remix.mp3') && html.includes('music/glen_dawn.mp3') && html.includes('music/highland_mist.mp3'),
   'Classic tracks and the remix stay referenced');
-ok(album.includes("music/album/") && album.includes('.ogg') && album.includes('.mp3'),
-  'album player lazy-loads OGG with an MP3 fallback');
+ok(html.includes('GLX-V1251-START') && html.includes('GLX-V1251-END') && html.includes('popstar_song'),
+  'V1251 pop-star block and her song stay in index.html');
+ok(album.includes("music/album/") && album.includes('.ogg') && album.includes('.mp3') && album.includes('SRC_Q'),
+  'album player lazy-loads OGG with an MP3 fallback and a cache-bust query');
 ok(album.includes('the_glen_opens') && album.includes('heather_road') && album.includes('blue_vault') && album.includes('choir_of_the_hollow'),
   'batch 1 titles are in the context pools');
 ok(album.includes('drove_road') && album.includes('peat_fire') && album.includes('purple_chamber') && album.includes('white_pass')
@@ -51,8 +53,10 @@ for (const id of tracks) {
 }
 ok(!album.includes('freesound') && !album.includes('youtube.com') && !v1248.includes('youtube.com/watch'),
   'no third-party recordings referenced');
-ok(credits.includes('v1.2.6x') && /Original Soundtrack|Album mode/i.test(credits),
-  'CREDITS records the album');
+ok(credits.includes('v1.2.54') && /Album soundtrack mode|Album mode/i.test(credits),
+  'CREDITS records the live album');
+ok(credits.includes('drove_road') && /v1.2.6x Album batches/i.test(credits),
+  'CREDITS records unpublished batch 2 as branch-only');
 ok(credits.includes('hardcore_remix') && /Classic soundtrack/i.test(credits),
   'CREDITS still record the remix and Classic soundtrack');
 

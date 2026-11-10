@@ -19,14 +19,14 @@ ok(html.includes('tpmPopstar') && html.includes('Teleport to Pop Star'), 'index.
 ok(uiSrc.includes("id: 'tpmPopstar'") && uiSrc.includes("label: 'Teleport to Pop Star'"), 'ui-1222 registers Teleport to Pop Star');
 ok(uiSrc.includes('__v1251.teleportTo'), 'the button calls __v1251.teleportTo');
 ok(runSrc.includes('U.teleportTo = function') && runSrc.includes('spotInFront'), 'popstar runtime has teleportTo');
-ok(html.includes("const GAME_VERSION = '1.2.53';"), 'GAME_VERSION is 1.2.53');
-ok(html.includes('<!-- glencraft-build: b1253-v1.2.53 -->') && html.includes('<!-- glencraft-build: b1252-held-rollback -->') && html.includes('<!-- glencraft-build: b1251-visible-land -->'), '1.2.53 marker, 1.2.52 held-rollback marker and 1.2.51 pop-star marker are present');
+ok(html.includes("const GAME_VERSION = '1.2.54';"), 'GAME_VERSION is 1.2.54');
+ok(html.includes('<!-- glencraft-build: b1254-v1.2.54 -->') && html.includes('<!-- glencraft-build: b1253-v1.2.53 -->') && html.includes('<!-- glencraft-build: b1252-held-rollback -->') && html.includes('<!-- glencraft-build: b1251-visible-land -->'), '1.2.54 marker, 1.2.53 marker, 1.2.52 held-rollback marker and 1.2.51 pop-star marker are present');
 
 // Sandbox: flat solid world, stub popstar mesh, real teleportTo.
 const toasts = [];
 const added = [];
 const core = {
-  HEIGHT: 32, STRIDE: 11, LOOP: 30.72, BPM: 93.75, BEAT: 0.64, SONG_OGG: '', SONG_MP3: '',
+  HEIGHT: 32, STRIDE: 3, MAX_STEP: 1, BODY_R: 4.2, LOOP: 30.72, BPM: 93.75, BEAT: 0.64, SONG_OGG: '', SONG_MP3: '',
   make() {
     const pos = {x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; }};
     const rot = {y: 0};

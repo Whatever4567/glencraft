@@ -17,7 +17,7 @@ const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' 
 ok(html.includes('GLX-V1251') && html.includes('__v1251') && html.includes('__popstarCore'), 'v1251 module is embedded in index.html');
 ok(html.includes('<!-- glencraft-build: b1251-popstar -->'), 'b1251 marker is present');
 ok(html.includes('<!-- glencraft-build: b1252-held-rollback -->') || html.includes('<!-- glencraft-build: b1251-visible-land -->') || html.includes('<!-- glencraft-build: b1250-held-popstar -->') || html.includes('<!-- glencraft-build: b1249-v1.2.49 -->'), '1.2.49+ launch marker is present');
-ok(html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';") || html.includes("const GAME_VERSION = '1.2.51';") || html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';"), 'GAME_VERSION is 1.2.51 (or a previous launch)');
+ok(html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';") || html.includes("const GAME_VERSION = '1.2.51';") || html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';"), 'GAME_VERSION is 1.2.51 (or a previous launch)');
 ok(html.includes('fog: false') || html.includes('fog:false'), 'popstar materials disable scene fog');
 ok(html.includes('worldTilesUntouched'), 'world block atlas was not re-prismed');
 ok(html.includes('__fpa') || html.includes('mcArm') || html.includes('fist'), 'first-person arm hooks are still in the bundle');
@@ -35,7 +35,7 @@ vm.createContext(ctx);
 vm.runInContext(coreSrc, ctx);
 const C = ctx.__popstarCore;
 ok(C && C.BPM === 93.75 && C.BEAT === 0.64 && C.LOOP === 30.72, 'core tempo is 93.75 BPM / 30.72 s loop');
-ok(C.HEIGHT === 32 && C.STRIDE === 11, 'she is 32 blocks tall with an 11-block stride');
+ok(C.HEIGHT === 32 && C.STRIDE === 3 && C.MAX_STEP === 1, 'she is 32 blocks tall with a slow 3-block stride and a 1-block max step');
 ok(C.SPAWN_CHANCE === 0.18 && C.LIFE === 120, 'spawn chance is 18% per day and she despawns after 120 s');
 
 // Finite pose loop: only poses 1-4, sequence does not grow, wraps cleanly.
