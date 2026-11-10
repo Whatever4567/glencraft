@@ -26,6 +26,7 @@ sys.path.insert(0, str(HERE))
 import engine1260 as E
 import album_lib as A
 import album_cinema as C
+import master_album as M
 
 _spec = importlib.util.spec_from_file_location("album_batch1", HERE / "render-album-batch1.py")
 B1 = importlib.util.module_from_spec(_spec)
@@ -50,6 +51,44 @@ def write_wav(path, x):
 def _shape(bus, times, gains):
     t = np.arange(len(bus)) / SR
     bus *= np.interp(t, times, gains)[:, None]
+
+
+
+VOC_DIR = Path("/workspace/qa/album/vocals")
+_voc_cache = {}
+
+
+def load_voc(name):
+    if name not in _voc_cache:
+        path = VOC_DIR / f"{name}.wav"
+        if not path.exists():
+            raise FileNotFoundError(f"missing vocal stem {path}")
+        y, _sr = sf.read(str(path), always_2d=True)
+        _voc_cache[name] = np.asarray(y, dtype=np.float64)
+    return _voc_cache[name]
+
+
+def place_vocal(bus, t0, key, gain=0.85, layers="full"):
+    def add(stem, g):
+        y = load_voc(stem)
+        E.add_stereo(bus, t0, y[:, 0], y[:, 1], gain=g)
+    if layers == "dry":
+        add(f"hook_{key}_dry", gain)
+        return
+    if layers in ("lead", "tag", "intimate"):
+        add(f"hook_{key}_lead", gain)
+        return
+    add(f"hook_{key}_lead", gain)
+    if layers in ("thick", "full"):
+        add(f"hook_{key}_oct", gain * 0.32)
+        add(f"hook_{key}_double", gain * 0.34)
+    if layers == "full":
+        add(f"hook_{key}_harm", gain * 0.28)
+
+
+def place_chop(bus, t0, name, gain=0.7):
+    y = load_voc(f"chop_{name}")
+    E.add_stereo(bus, t0, y[:, 0], y[:, 1], gain=gain)
 
 
 def hook_phrase(close, t0, degrees, durs, root, mode, vel=0.7, cut=4200, pan=-0.05):
@@ -79,7 +118,7 @@ def saw_bed(far, t0, freq, length, cut, vel):
 # ---------------------------------------------------------------------------
 # Shared 165 BPM cell renderer. Each cell must be a unique arrangement.
 # ---------------------------------------------------------------------------
-def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, target_lufs, sections):
+def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, target_lufs, sections, vocals=None):
     """cells: list of dicts covering the track, each unique.
     hooks: list of (bar, degrees, durs, vel, cut, root_off)
     lifts: dict bar->semitone shift applied to bass/hook root from that bar.
@@ -247,9 +286,18 @@ def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, tar
             if bed == "fifth":
                 saw_bed(far, tbar(b0, BPM), hz(r0 - 12, 5, mo0), length, cut, 0.08 * energy)
 
-    # hooks
+    # hooks — sung WORLD leads take the memorable motif; synth answers stay quiet
+    vocal_bars = {int(v[0]) for v in (vocals or [])}
     for bar, degs, durs, vel, cut, roff in hooks:
+        if int(bar) in vocal_bars:
+            vel = min(vel, 0.16)
         hook_phrase(close, tbar(bar, BPM), degs, durs, root_at(bar) + roff, mode_at(bar), vel=vel, cut=cut)
+    for item in (vocals or []):
+        bar, key, gain, layers = item[0], item[1], item[2], item[3]
+        place_vocal(close, tbar(bar, BPM), key, gain=gain, layers=layers)
+        if len(item) > 4:
+            for chop_off, chop_name, chop_g in item[4]:
+                place_chop(close, tbar(bar, BPM) + chop_off * BEAT, chop_name, gain=chop_g)
 
     # festival builds / impacts at planned joins
     for bar, kind, vel in cell_fx(cells):
@@ -289,11 +337,11 @@ def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, tar
     perc = C.polish_stem(perc, hp=24)
     mixed = C.depth_mix(close, mid, far, perc, 1.08, 0.95, 0.78, 1.12)
     mixed = A.apply_reverb(mixed, np.random.default_rng(seed + 7), ir_s=1.8, wet=0.16, dry=1.0, pre=0.015, dark=4200)
-    out = A.loop_master(mixed[: int(dur * SR)], xfade_s=1.4, target_lufs=target_lufs, split=120)
     sec = [(n, tbar(a, BPM) if a else 0.0, tbar(b, BPM) if b < bars else dur) for n, a, b in sections]
     if sec[-1][2] < dur:
         sec[-1] = (sec[-1][0], sec[-1][1], dur)
-    return out, sec, dict(title=title, context=context, bpm=BPM, target_lufs=target_lufs)
+    out, loud_map = M.festive_master(mixed[: int(dur * SR)], sec, xfade_s=1.4)
+    return out, sec, dict(title=title, context=context, bpm=BPM, target_lufs=target_lufs, section_lufs=loud_map)
 
 
 def cell_fx(cells):
@@ -340,8 +388,12 @@ def render_bounce_the_glen():
              bass=("growl", 1, 4), bass_walk=[1, 5, 4, 7], stabs=2, bed="fifth", cut=5000, e=1.05),
         dict(bars=(56, 64), kit="slam", kick="rush", snare="clap", hat="open", donk="sync", donk_walk=[1, 7, 8, 4],
              bass=("reese", 1, 2), bass_walk=[1, 8, 7, 5], stabs=1, cut=6200, e=1.08),
-        dict(bars=(64, 88), kit="soft", kick="half", snare="sparse", hat="sparse", donk=None,
+        dict(bars=(64, 72), kit="soft", kick="half", snare="sparse", hat="sparse", donk=None,
              bass=("funk", 1, 8), bed="pad", cut=1600, e=0.4),
+        dict(bars=(72, 80), kit="soft", kick="none", snare="", hat="off", donk=None,
+             bass=("pluck", 1, 4), bass_walk=[1, 6, 7, 5], bed="pad", cut=2400, e=0.34),
+        dict(bars=(80, 88), kit="tight", kick="sparse", snare="sparse", hat="open", donk="half",
+             bass=("funk", 1, 4), bass_walk=[1, 7, 5, 4], stabs=1, bed="fifth", cut=2800, e=0.52),
         dict(bars=(88, 104), kit="tight", kick="build", snare="back", hat="open", donk="half",
              bass=("pluck", 1, 2), bass_walk=[1, 7, 5, 4], stabs=1, bed="pad", cut=3000, e=0.75),
         dict(bars=(104, 120), kit="slam", kick="four", snare="back", hat="16", donk="off", donk_walk=[1, 5, 1, 7],
@@ -366,7 +418,21 @@ def render_bounce_the_glen():
         ("intro", 0, 16), ("build1", 16, 32), ("drop1a", 32, 48), ("drop1b", 48, 64),
         ("break", 64, 88), ("build2", 88, 104), ("drop2a", 104, 120), ("drop2b", 120, 128), ("outro", 128, 136),
     ]
-    return render_side("Bounce the Glen", "bounce", 9501, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections)
+    vocals = [
+        (24, "bounce_a_soft", 0.48, "thick"),
+        (32, "bounce_a", 0.86, "full"),
+        (40, "bounce_b", 0.84, "full"),
+        (48, "bounce_a", 0.90, "full"),
+        (56, "bounce_c", 0.88, "full"),
+        (64, "bounce_a_soft", 0.50, "intimate" if False else "thick"),
+        (80, "bounce_b", 0.46, "thick"),
+        (96, "bounce_a_soft", 0.52, "thick"),
+        (104, "bounce_a", 0.94, "full"),
+        (112, "bounce_b", 0.92, "full"),
+        (120, "bounce_c", 0.90, "full"),
+        (124, "bounce_tag", 0.70, "tag"),
+    ]
+    return render_side("Bounce the Glen", "bounce", 9501, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals)
 
 
 def render_nightcore_loch():
@@ -383,8 +449,12 @@ def render_nightcore_loch():
              bass=("growl", 1, 4), bass_walk=[1, 5, 6, 7], stabs=2, bed="fifth", cut=4400, e=1.05),
         dict(bars=(56, 64), kit="slam", kick="sync", snare="back_extra", hat="open", donk="sync", donk_walk=[1, 8, 6, 3],
              bass=("pluck", 1, 2), bass_walk=[1, 7, 8, 5], stabs=0, cut=6000, e=1.10),
-        dict(bars=(64, 88), kit="soft", kick="half", snare="sparse", hat="sparse", donk=None,
+        dict(bars=(64, 72), kit="soft", kick="half", snare="sparse", hat="sparse", donk=None,
              bass=("funk", 1, 8), bed="pad", cut=1400, e=0.38),
+        dict(bars=(72, 80), kit="soft", kick="none", snare="", hat="off", donk=None,
+             bass=None, bed="pad", cut=2000, e=0.30),
+        dict(bars=(80, 88), kit="tight", kick="sparse", snare="back", hat="open", donk="half",
+             bass=("pluck", 1, 2), bass_walk=[1, 6, 7, 5], stabs=1, bed="fifth", cut=2600, e=0.50),
         dict(bars=(88, 104), kit="tight", kick="build", snare="back", hat="open", donk="half",
              bass=("pluck", 1, 2), bass_walk=[1, 6, 7, 5], stabs=1, bed="pad", cut=2800, e=0.72),
         dict(bars=(104, 120), kit="slam", kick="four", snare="back", hat="16", donk="off", donk_walk=[1, 5, 1, 6],
@@ -411,7 +481,21 @@ def render_nightcore_loch():
         ("depth", 0, 16), ("undertow", 16, 32), ("drop1a", 32, 48), ("drop1b", 48, 64),
         ("blackwater", 64, 88), ("lift", 88, 104), ("drop2a", 104, 120), ("drop2b", 120, 128), ("surface", 128, 136),
     ]
-    return render_side("Nightcore Loch", "bounce", 9502, root, mode, bars, cells, hooks, lifts=lifts, target_lufs=-10.0, sections=sections)
+    vocals = [
+        (24, "night_a_soft", 0.48, "thick"),
+        (32, "night_a", 0.86, "full"),
+        (40, "night_b", 0.84, "full"),
+        (48, "night_a", 0.90, "full"),
+        (56, "night_c", 0.88, "full"),
+        (64, "night_a_soft", 0.50, "thick"),
+        (80, "night_b", 0.46, "thick"),
+        (96, "night_a_soft", 0.52, "thick"),
+        (104, "night_a_lift", 0.94, "full"),
+        (112, "night_b_lift", 0.92, "full"),
+        (120, "night_c_lift", 0.90, "full"),
+        (124, "night_tag", 0.70, "tag"),
+    ]
+    return render_side("Nightcore Loch", "bounce", 9502, root, mode, bars, cells, hooks, lifts=lifts, target_lufs=-10.0, sections=sections, vocals=vocals)
 
 
 def render_cairn_flash():
@@ -426,8 +510,10 @@ def render_cairn_flash():
              bass=("reese", 1, 4), bass_walk=[1, 5, 4, 7], stabs=2, bed="fifth", cut=4400, e=1.02),
         dict(bars=(44, 60), kit="drop", kick="sync", snare="back_extra", hat="16", donk="late", donk_walk=[1, 4, 7, 5],
              bass=("pluck", 1, 1), bass_walk=[1, 5, 7, 8], stabs=2, bed="fifth", cut=5200, e=1.08),
-        dict(bars=(60, 80), kit="soft", kick="half", snare="sparse", hat="sparse", donk=None,
+        dict(bars=(60, 68), kit="soft", kick="half", snare="sparse", hat="sparse", donk=None,
              bass=("funk", 1, 8), bed="pad", cut=1700, e=0.42),
+        dict(bars=(68, 80), kit="soft", kick="none", snare="", hat="open", donk=None,
+             bass=("pluck", 1, 4), bass_walk=[1, 7, 5, 8], bed="fifth", cut=2600, e=0.36),
         dict(bars=(80, 96), kit="tight", kick="build", snare="clap", hat="open", donk="half",
              bass=("funk", 1, 4), bass_walk=[1, 7, 5, 4], stabs=1, bed="pad", cut=3200, e=0.78),
         dict(bars=(96, 112), kit="slam", kick="drive", snare="back", hat="16", donk="off", donk_walk=[1, 5, 7, 1],
@@ -452,7 +538,21 @@ def render_cairn_flash():
         ("spark", 0, 12), ("kindle", 12, 28), ("flash1", 28, 44), ("flash2", 44, 60),
         ("ash", 60, 80), ("rally", 80, 96), ("flare", 96, 112), ("whiteout", 112, 124), ("ember", 124, 132),
     ]
-    return render_side("Cairn Flash", "bounce", 9503, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections)
+    vocals = [
+        (20, "cairn_a_soft", 0.46, "thick"),
+        (28, "cairn_a", 0.86, "full"),
+        (36, "cairn_b", 0.84, "full"),
+        (44, "cairn_a", 0.90, "full"),
+        (52, "cairn_c", 0.88, "full"),
+        (60, "cairn_a_soft", 0.50, "thick"),
+        (72, "cairn_b", 0.44, "thick"),
+        (88, "cairn_a_soft", 0.52, "thick"),
+        (96, "cairn_a", 0.94, "full"),
+        (104, "cairn_b", 0.92, "full"),
+        (112, "cairn_c", 0.90, "full"),
+        (116, "cairn_tag", 0.70, "tag"),
+    ]
+    return render_side("Cairn Flash", "bounce", 9503, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals)
 
 
 def render_till_the_hills():
@@ -496,7 +596,20 @@ def render_till_the_hills():
         ("mist", 0, 16), ("path", 16, 32), ("climb", 32, 48), ("drop1a", 48, 64),
         ("drop1b", 64, 80), ("heather", 80, 104), ("call", 104, 116), ("drop2", 116, 132), ("home", 132, 140),
     ]
-    return render_side("Till the Hills", "bounce", 9504, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections)
+    vocals = [
+        (16, "hills_a_soft", 0.42, "thick"),
+        (32, "hills_a_soft", 0.50, "thick"),
+        (48, "hills_a", 0.86, "full"),
+        (56, "hills_b", 0.84, "full"),
+        (64, "hills_a", 0.90, "full"),
+        (72, "hills_c", 0.88, "full"),
+        (88, "hills_a_soft", 0.42, "thick"),
+        (108, "hills_a_soft", 0.52, "thick"),
+        (116, "hills_a", 0.94, "full"),
+        (124, "hills_b", 0.90, "full"),
+        (128, "hills_tag", 0.70, "tag"),
+    ]
+    return render_side("Till the Hills", "bounce", 9504, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals)
 
 
 TRACKS = {

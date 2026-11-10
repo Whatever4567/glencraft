@@ -29,6 +29,7 @@ sys.path.insert(0, str(HERE))
 import engine1260 as E
 import album_lib as A
 import album_cinema as C
+import master_album as M
 
 _spec = importlib.util.spec_from_file_location("album_batch1", HERE / "render-album-batch1.py")
 B1 = importlib.util.module_from_spec(_spec)
@@ -684,7 +685,6 @@ def render_claymore():
     perc = C.polish_stem(perc, hp=24)
     mixed = C.depth_mix(close, mid, far, perc, 0.95, 0.95, 0.8, 1.05)
     mixed = A.apply_reverb(mixed, np.random.default_rng(36), ir_s=2.1, wet=0.2, dry=1.0, pre=0.02, dark=2400)
-    out = A.loop_master(mixed[: int(dur * SR)], xfade_s=1.8, target_lufs=-13.0, split=120)
     sections = [
         ("steel_draw", 0.0, tbar(8, bpm)),
         ("advance", tbar(8, bpm), tbar(16, bpm)),
@@ -694,7 +694,8 @@ def render_claymore():
         ("press", tbar(40, bpm), tbar(56, bpm)),
         ("last_guard", tbar(56, bpm), dur),
     ]
-    return out, sections, dict(title="Claymore", context="combat", bpm=bpm, target_lufs=-13.0)
+    out, loud_map = M.festive_master(mixed[: int(dur * SR)], sections, xfade_s=1.8)
+    return out, sections, dict(title="Claymore", context="combat", bpm=bpm, target_lufs=-9.0, section_lufs=loud_map)
 
 
 # ---------------------------------------------------------------------------
@@ -734,9 +735,14 @@ def render_starlight_show():
             cycle = [(root_lo, mode, [1, 3, 5, 8]), (root_lo, mode, [3, 5, 7]),
                      (root_lo, mode, [4, 6, 8]), (root_lo, mode, [5, 7, 9])]
             return cycle[int(bar) % 4]
-        if bar < 72:
+        if bar < 64:
             cycle = [(fm_root, fm_mode, [1, 3, 5]), (fm_root, fm_mode, [7, 2, 5]),
                      (fm_root, fm_mode, [6, 1, 3]), (fm_root, fm_mode, [5, 7, 9])]
+            return cycle[int(bar) % 4]
+        if bar < 72:
+            # second half of the break turns toward the lift — not a copy of bars 56–64
+            cycle = [(fm_root, fm_mode, [1, 3, 6]), (root_lo, mix_mode, [4, 6, 8]),
+                     (root_lo, mix_mode, [6, 1, 3]), (root_lo, mode, [5, 7, 9])]
             return cycle[int(bar) % 4]
         if bar < 80:
             cycle = [(fm_root, fm_mode, [1, 3, 5]), (root_lo, mode, [4, 6, 8]),
@@ -762,8 +768,10 @@ def render_starlight_show():
             cut, vel, dur_s = 2600, 0.4, 0.07
         elif b < 56:
             cut, vel, dur_s = 4200, 0.46, 0.08
-        elif b < 72:
+        elif b < 64:
             cut, vel, dur_s = 1400, 0.3, 0.1
+        elif b < 72:
+            cut, vel, dur_s = 2600, 0.34, 0.08
         elif b < 80:
             cut, vel, dur_s = 3000, 0.42, 0.07
         elif b < 96:
@@ -772,8 +780,12 @@ def render_starlight_show():
             cut, vel, dur_s = 1600, 0.28, 0.09
         L, R = E.muted_stab(freqs, dur=dur_s, cutoff=cut, det=7)
         # off-beat and 'and' of 4 in drops; downbeats only in intro/break
-        if b < 16 or 56 <= b < 72 or b >= 96:
+        if b < 16 or 56 <= b < 64 or b >= 96:
             E.add_stereo(mid, tbar(b, bpm) + 0.5 * beat, L, R, gain=vel)
+        elif 64 <= b < 72:
+            E.add_stereo(mid, tbar(b, bpm) + 0.5 * beat, L, R, gain=vel)
+            if b % 2 == 1:
+                E.add_stereo(mid, tbar(b, bpm) + 0.75 * beat, L, R, gain=vel * 0.55)
         else:
             E.add_stereo(mid, tbar(b, bpm) + 0.5 * beat, L, R, gain=vel)
             if b % 4 == 3:
@@ -804,7 +816,9 @@ def render_starlight_show():
                                       (1.0, 5, 1.0, False, None), (2.0, 7, 0.5, False, None),
                                       (2.5, 4, 0.5, False, None), (3.0, 5, 0.5, False, 1),
                                       (3.5, 1, 0.5, False, None)])
-    bass_cell(56, 72, fm_root, fm_mode, [(0.0, 1, 2.0, False, None), (2.0, 7, 2.0, False, None)])
+    bass_cell(56, 64, fm_root, fm_mode, [(0.0, 1, 2.0, False, None), (2.0, 7, 2.0, False, None)])
+    bass_cell(64, 72, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 3, 0.5, True, None),
+                                         (2.0, 5, 1.0, False, None), (3.0, 1, 1.0, False, 5)])
     bass_cell(72, 80, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 5, 0.5, False, None),
                                          (2.0, 1, 1.0, False, None), (3.0, 4, 1.0, False, 1)])
     bass_cell(80, 96, root_lo, mode, [(0.0, 1, 0.5, False, None), (0.5, 1, 0.5, True, None),
@@ -823,7 +837,8 @@ def render_starlight_show():
     pluck_fig(32, 40, fm_root, fm_mode, [1, 3, 5, 8, 7, 5, 3, 5], 0.4, 0.7)
     pluck_fig(40, 48, root, mode, [1, 5, 8, 10, 8, 7, 5, 8], 0.46, 0.75)
     pluck_fig(48, 56, root + 12, mode, [5, 8, 10, 12, 10, 8, 7, 5], 0.5, 0.8)
-    pluck_fig(56, 72, fm_root, fm_mode, [1, 5, 3, 5], 0.28, 0.5)
+    pluck_fig(56, 64, fm_root, fm_mode, [1, 5, 3, 5], 0.28, 0.5)
+    pluck_fig(64, 72, root, mix_mode, [5, 7, 8, 10, 8, 7, 5, 3], 0.36, 0.68)
     pluck_fig(72, 80, root, mode, [1, 3, 5, 8, 10, 8, 7, 5], 0.42, 0.72)
     pluck_fig(80, 96, root + 12, mode, [1, 5, 8, 10, 8, 7, 5, 8], 0.44, 0.78)
 
@@ -860,7 +875,10 @@ def render_starlight_show():
     hook_at(24, "a", 0.42, voc=True)   # late verse teaser
     hook_at(40, "a", 0.78, voc=True)
     hook_at(48, "b", 0.74, voc=True)
-    hook_at(64, "a", 0.4, voc=True)    # break, quieter
+    hook_at(64, "b", 0.48, voc=True)   # break second half — answering figure, not hook A again
+    A.add_phrase(close, tbar(68, bpm), COUNTER, COUNTER_DUR, fm_root, fm_mode,
+                 (lambda freq, dur, vel=0.6, **k: E.supersaw_stereo(freq, dur, det=8, n_osc=5, cutoff=2800)),
+                 bpm, vel=0.32, pan=-0.22)
     hook_at(80, "a", 0.82, voc=True)
     hook_at(88, "b", 0.8, voc=True)
     # countermelody on drop 2 only
@@ -947,13 +965,21 @@ def render_starlight_show():
             E.add_mono(perc, tbar(b, bpm) + 0.375 * beat, C.ghost_stick(rng, vel=0.18), gain=1.0, pan=-0.22)
             if b % 4 == 0:
                 E.add_stereo(perc, tbar(b, bpm), *C.impact(rng, dur=1.1, vel=0.35))
-    # break: kick every bar only, snare half, dry
-    for b in range(56, 72):
+    # break first 8: half-time kick, dry
+    for b in range(56, 64):
         if b % 2 == 0:
             k_at(float(b), "soft", 0.48)
         if b % 4 == 2:
             s_at(float(b), "hit", 0.3)
         h_at(b + 0.5, "sizzle", 0.12, 0.15)
+    # break second 8: no kick, open hats, light snare — a lift toward the build
+    for b in range(64, 72):
+        if b % 4 == 0:
+            s_at(float(b), "hit", 0.24)
+        h_at(b + 0.5, "sizzle", 0.20, -0.18, open_hat=True)
+        if b >= 68:
+            h_at(b + 0.25, "sizzle", 0.14, 0.16)
+            h_at(b + 0.75, "sizzle", 0.14, -0.12)
     # lift: build again
     for b in range(72, 80):
         k_at(float(b), "punch", 0.8)
@@ -1031,7 +1057,6 @@ def render_starlight_show():
     perc = C.polish_stem(perc, hp=24)
     mixed = C.depth_mix(close, mid, far, perc, 1.05, 0.95, 0.8, 1.08)
     mixed = A.apply_reverb(mixed, np.random.default_rng(37), ir_s=2.0, wet=0.2, dry=1.0, pre=0.02, dark=3600)
-    out = A.loop_master(mixed[: int(dur * SR)], xfade_s=1.6, target_lufs=-12.0, split=120)
     sections = [
         ("lights_up", 0.0, tbar(16, bpm)),
         ("verse", tbar(16, bpm), tbar(32, bpm)),
@@ -1042,7 +1067,8 @@ def render_starlight_show():
         ("drop_2", tbar(80, bpm), tbar(96, bpm)),
         ("curtain", tbar(96, bpm), dur),
     ]
-    return out, sections, dict(title="Starlight Show", context="popstar", bpm=bpm, target_lufs=-12.0)
+    out, loud_map = M.festive_master(mixed[: int(dur * SR)], sections, xfade_s=1.6)
+    return out, sections, dict(title="Starlight Show", context="popstar", bpm=bpm, target_lufs=-9.0, section_lufs=loud_map)
 
 
 # ---------------------------------------------------------------------------

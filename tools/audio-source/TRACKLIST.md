@@ -8,7 +8,7 @@ Tuning of the score:
 - A shared highland leitmotif (the "Glen theme") returns in every piece, re-harmonised per place.
 - Scottish colour: tin whistle, low whistle, fiddle, Celtic harp, bagpipe drones, bodhran. No piano-led writing. Piano is avoided entirely in batch 1 and reserved, if ever, as a background colour in later calm overworld pieces only.
 - Crystal caves and Agartha are beatless ethereal liminal ambient: choir pad, glassy bells, deep drone, cavernous reverb, minor or modal.
-- Energetic / hardcore album sides (batch 5) follow UK happy hardcore / bounce: 165 BPM, punchy kick, off-beat FM donk, original pitched-up lead hooks. They live in an opt-in bounce pool and do not replace the live remix file.
+- Energetic / hardcore album sides (batch 5) follow UK happy hardcore / bounce: 165 BPM, punchy kick, off-beat FM donk, and original WORLD-sung hooks (new lyrics and melodies, not the live remix). They live in an opt-in bounce pool and do not replace the live remix file. Drops are section-matched to about −9 LUFS; 8-bar similarity stays below 0.85.
 - Space, Moon and Mars stay weightless and thin. Volcanoes are dark and slow, not dance music. Night is watchful. Combat (`claymore`) is a tense written-percussion bed, not happy hardcore. The pop-star cue (`starlight_show`) is original dance-pop and must not replace her diegetic song.
 
 Playback (Album mode):

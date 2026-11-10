@@ -4,7 +4,7 @@
 Primary similarity is residual high-passed log-mel (track-mean subtracted).
 That measures whether consecutive sections are arranged as copies, not
 whether they share a pedal tone or key. Threshold: < 0.85 consecutive
-sections, < 0.92 adjacent 8-bar (or 16s) windows. Also records RMS,
+sections, < 0.85 adjacent 8-bar (or 16s) windows. Also records RMS,
 centroid and chroma so the section map can be read as a listening guide.
 """
 from __future__ import annotations

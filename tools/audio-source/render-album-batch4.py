@@ -25,6 +25,7 @@ sys.path.insert(0, str(HERE))
 import engine1260 as E
 import album_lib as A
 import album_cinema as C
+import master_album as M
 
 _spec = importlib.util.spec_from_file_location("album_batch1", HERE / "render-album-batch1.py")
 B1 = importlib.util.module_from_spec(_spec)
@@ -576,7 +577,8 @@ def render_boss_of_the_glen():
 
     bass_walk(8, 16, root_lo, mode, 0.48, [1, 1, 2, 1])
     bass_walk(16, 28, root_lo, mode, 0.58, BASS_MOTIF)
-    bass_walk(28, 40, root_lo, mode, 0.6, [1, 5, 4, 2, 1, 1, 2, 1])
+    bass_walk(28, 32, root_lo, mode, 0.6, [1, 5, 4, 2, 1, 1, 2, 1])
+    bass_walk(32, 40, root_lo, mode, 0.58, [1, 2, 5, 2, 4, 1, 7, 1])
     bass_walk(40, 48, root_lo, mode, 0.32, [1, 1, 1, 1, 1, 1, 2, 1])  # bare
     bass_walk(48, 64, lift_root, lift_mode, 0.64, BASS_MOTIF)
     bass_walk(64, 76, root_lo, mode, 0.5, [1, 1, 5, 1, 2, 1, 1, 1])
@@ -584,7 +586,8 @@ def render_boss_of_the_glen():
     _strings_at(mid, tbar(0, bpm), tbar(8, bpm), chord_hz(root_lo, [1, 5], mode), 0.055, 0.8, 1.0, 0.16)
     _strings_at(mid, tbar(8, bpm), tbar(8, bpm), chord_hz(root_lo, [1, 2, 5], mode), 0.08, 0.4, 0.7, 0.28)
     _strings_at(mid, tbar(16, bpm), tbar(12, bpm), chord_hz(root_lo, [1, 2, 5, 8], mode), 0.13, 0.25, 0.5, 0.4)
-    _strings_at(mid, tbar(28, bpm), tbar(12, bpm), chord_hz(root_lo, [1, 4, 5, 8], mode), 0.14, 0.2, 0.5, 0.44)
+    _strings_at(mid, tbar(28, bpm), tbar(4, bpm), chord_hz(root_lo, [1, 4, 5, 8], mode), 0.14, 0.2, 0.5, 0.44)
+    _strings_at(mid, tbar(32, bpm), tbar(8, bpm), chord_hz(root_lo, [1, 2, 7], mode), 0.11, 0.15, 0.4, 0.55)
     _strings_at(mid, tbar(40, bpm), tbar(8, bpm), chord_hz(root_lo, [1, 5], mode), 0.05, 0.9, 1.2, 0.12)
     _strings_at(mid, tbar(48, bpm), tbar(16, bpm), chord_hz(lift_root - 12, [1, 2, 5, 8], lift_mode), 0.15, 0.2, 0.5, 0.5)
     _strings_at(mid, tbar(64, bpm), tbar(12, bpm), chord_hz(root_lo, [1, 2, 5, 8], mode), 0.11, 0.3, 0.7, 0.36)
@@ -598,6 +601,10 @@ def render_boss_of_the_glen():
                  root, mode, A.fiddle_note, bpm, vel=0.5, pan=0.22)
     hL, hR = C.horn_swell(hz(root_lo, 5, mode), 2.4, vel=0.46, bright=0.5)
     E.add_stereo(close, tbar(27.4, bpm), hL, hR)
+    A.add_phrase(close, tbar(32, bpm), [1, 2, 5, 4, 2, 1], [1, 1, 2, 2, 2, 8],
+                 root, mode, A.fiddle_note, bpm, vel=0.48, pan=0.18)
+    hL, hR = C.horn_swell(hz(root_lo, 7, mode), 2.8, vel=0.40, bright=0.62)
+    E.add_stereo(close, tbar(36, bpm), hL, hR)
     A.add_phrase(close, tbar(50, bpm), [1, 2, 5, 8, 9, 8], [1, 1, 1, 2, 2, 9],
                  lift_root, lift_mode, A.tin_whistle, bpm, vel=0.58, pan=-0.1)
     hL, hR = C.horn_swell(hz(lift_root, 1, lift_mode), 3.2, vel=0.5, bright=0.55)
@@ -630,10 +637,15 @@ def render_boss_of_the_glen():
         (28.00, "kick", 0.7, 0.0, True), (28.00, "taiko", 0.55, 0.0, False),
         (29.00, "snare", 0.5, 0.08, True), (30.00, "taiko", 0.48, 0.0, False),
         (30.75, "ghost", 0.16, 0.2, False), (31.00, "kick", 0.56, 0.0, False),
-        (32.00, "kick", 0.68, 0.0, True), (33.00, "snare", 0.48, 0.08, False),
-        (34.00, "taiko", 0.5, 0.0, False), (35.00, "snare", 0.4, 0.1, False),
-        (36.00, "kick", 0.66, 0.0, True), (37.50, "hat", 0.16, 0.2, False),
-        (38.00, "taiko", 0.44, 0.0, False), (39.00, "snare", 0.34, 0.1, False),
+        (32.00, "kick", 0.70, 0.0, True), (32.00, "taiko", 0.48, 0.0, False),
+        (32.50, "hat", 0.18, 0.2, False), (32.75, "ghost", 0.16, -0.18, False),
+        (33.00, "snare", 0.52, 0.08, True), (33.50, "hat", 0.16, -0.16, False),
+        (34.00, "kick", 0.50, 0.0, False), (34.50, "taiko", 0.36, 0.0, False),
+        (35.00, "snare", 0.44, 0.1, False), (35.75, "snare", 0.28, 0.12, False),
+        (36.00, "kick", 0.72, 0.0, True), (36.50, "hat", 0.2, 0.2, False),
+        (37.00, "snare", 0.46, 0.08, False), (37.50, "hat", 0.18, -0.2, False),
+        (38.00, "taiko", 0.5, 0.0, False), (38.75, "ghost", 0.18, 0.16, False),
+        (39.00, "kick", 0.56, 0.0, False), (39.50, "snare", 0.34, 0.1, False),
         # bare
         (40.00, "taiko", 0.3, 0.0, False), (42.00, "hat", 0.1, 0.15, False),
         (44.00, "taiko", 0.28, 0.0, False), (46.00, "ghost", 0.12, -0.2, False),
@@ -686,7 +698,6 @@ def render_boss_of_the_glen():
     perc = C.polish_stem(perc, hp=22)
     mixed = C.depth_mix(close, mid, far, perc, 0.95, 0.98, 0.82, 1.08)
     mixed = A.apply_reverb(mixed, np.random.default_rng(47), ir_s=2.2, wet=0.22, dry=1.0, pre=0.02, dark=2200)
-    out = A.loop_master(mixed[: int(dur * SR)], xfade_s=1.8, target_lufs=-12.5, split=115)
     sections = [
         ("approach", 0.0, tbar(8, bpm)),
         ("eye_open", tbar(8, bpm), tbar(16, bpm)),
@@ -696,7 +707,8 @@ def render_boss_of_the_glen():
         ("second_coil", tbar(48, bpm), tbar(64, bpm)),
         ("last_stand", tbar(64, bpm), dur),
     ]
-    return out, sections, dict(title="Boss of the Glen", context="boss", bpm=bpm, target_lufs=-12.5)
+    out, loud_map = M.festive_master(mixed[: int(dur * SR)], sections, xfade_s=1.8)
+    return out, sections, dict(title="Boss of the Glen", context="boss", bpm=bpm, target_lufs=-9.0, section_lufs=loud_map)
 
 
 # ---------------------------------------------------------------------------
@@ -828,7 +840,6 @@ def render_crystal_hunt():
     perc = C.polish_stem(perc, hp=24)
     mixed = C.depth_mix(close, mid, far, perc, 1.0, 1.0, 0.95, 0.95)
     mixed = A.apply_reverb(mixed, np.random.default_rng(48), ir_s=3.6, wet=0.36, dry=0.92, pre=0.04, dark=2000)
-    out = A.loop_master(mixed[: int(dur * SR)], xfade_s=2.2, target_lufs=-14.0, split=110)
     sections = [
         ("first_glint", 0.0, tbar(16, bpm)),
         ("pulse_in", tbar(16, bpm), tbar(28, bpm)),
@@ -838,7 +849,8 @@ def render_crystal_hunt():
         ("close_in", tbar(64, bpm), tbar(76, bpm)),
         ("after_image", tbar(76, bpm), dur),
     ]
-    return out, sections, dict(title="Crystal Hunt", context="crystal", bpm=bpm, target_lufs=-14.0)
+    out, loud_map = M.festive_master(mixed[: int(dur * SR)], sections, xfade_s=2.2)
+    return out, sections, dict(title="Crystal Hunt", context="crystal", bpm=bpm, target_lufs=-9.0, section_lufs=loud_map)
 
 
 TRACKS = {
