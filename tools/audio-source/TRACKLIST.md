@@ -1,7 +1,7 @@
 # Glencraft Original Soundtrack
 
 Working title: **Glencraft — Original Soundtrack**
-Artist: original score composed and produced for Glencraft (no third-party songs, vocals, or samples).
+Artist: original score composed and produced for Glencraft (no third-party songs, vocals, or copyrighted samples; recorded instruments are only from the CC0 / MIT libraries in LICENSES.md).
 Scope: a full in-game album on the scale of Minecraft's early volumes (about 30–34 tracks), shipped in batches of about eight. The existing Classic soundtrack, Calm beds, and Happy Hardcore remix stay untouched. This album is a new opt-in soundtrack mode.
 
 Tuning of the score:

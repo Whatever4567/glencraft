@@ -5,8 +5,10 @@ Techniques inspired by award-level dance and pop production
 (filter journeys, side-chain depth, vocoder formants, funk bass
 articulation, folk-meets-electronic plucks, cinematic builds and
 impacts, layered custom drums) — implemented as original synthesis
-and applied to original writing only. No third-party samples,
-melodies, or lyrics.
+and applied to original writing only. No copyrighted melodies or
+lyrics. Recorded instruments, when present, come only from the
+permissively licensed libraries listed in LICENSES.md and are
+layered with the synths rather than replacing the writing.
 """
 from __future__ import annotations
 
@@ -450,3 +452,16 @@ def polish_stem(x, hp=30.0, air_db=0.0, mud_cut_db=0.0):
     if air_db:
         y = stereo_shelf(y, 9000, air_db, typ="high")
     return y
+
+
+def _try_install_samples():
+    try:
+        import album_samples
+        import sample_player as _sp
+        if _sp.libraries_available():
+            album_samples.install_cinema(globals())
+    except Exception as exc:
+        print(f"[album] sample libraries not layered (cinema): {exc}", file=sys.stderr)
+
+
+_try_install_samples()

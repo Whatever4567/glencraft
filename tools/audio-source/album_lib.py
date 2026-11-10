@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Shared instruments, mixing and mastering for the Glencraft OST.
 
-Original synthesis for Glencraft. No third-party recordings.
-Band-limited / additive / Karplus-style voices, mid-side width with a
-mono low end, BS.1770 loudness via pyloudnorm, and a true-peak limiter.
+Original synthesis for Glencraft, layered (when libraries are present)
+with permissively licensed recorded instruments — see LICENSES.md.
+Band-limited / additive voices, mid-side width with a mono low end,
+BS.1770 loudness via pyloudnorm, and a true-peak limiter.
 """
 from __future__ import annotations
 
@@ -423,3 +424,16 @@ def stats(x, sr=SR):
         "join": join,
         "dc": (float(dc[0]), float(dc[1])),
     }
+
+
+def _try_install_samples():
+    try:
+        import album_samples
+        import sample_player as _sp
+        if _sp.libraries_available():
+            album_samples.install_lib(globals())
+    except Exception as exc:
+        print(f"[album] sample libraries not layered (lib): {exc}", file=sys.stderr)
+
+
+_try_install_samples()

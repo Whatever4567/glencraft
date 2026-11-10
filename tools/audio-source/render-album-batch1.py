@@ -5,7 +5,9 @@ Eight through-composed pieces. Techniques from award-level dance and
 film-hybrid production (filter journeys, side-chain, vocoder formants,
 funk bass articulation, folk plucks, cinematic builds and impacts,
 layered custom drums, mix depth) applied only to original writing.
-No copyrighted melodies, lyrics, or samples. No tiled 4-8 bar loops.
+No copyrighted melodies or lyrics. Recorded instruments are only from
+the CC0 / MIT libraries in LICENSES.md, layered with the original synths.
+No tiled 4-8 bar loops.
 """
 from __future__ import annotations
 
