@@ -63577,6 +63577,46 @@ try {
     return map;
   }
 
+  // Dense blonde cap texture with fine strands flowing away from a soft side part.
+  function hairCapMap() {
+    const S = 512;
+    const c = document.createElement('canvas'); c.width = S; c.height = S;
+    const g = c.getContext('2d');
+    const lg = g.createLinearGradient(0, 0, S, 0);
+    lg.addColorStop(0, '#c4923a');
+    lg.addColorStop(0.18, '#e8c45a');
+    lg.addColorStop(0.42, '#ffe08a');
+    lg.addColorStop(0.55, '#fff3c0');
+    lg.addColorStop(0.72, '#f0d078');
+    lg.addColorStop(1, '#c4923a');
+    g.fillStyle = lg; g.fillRect(0, 0, S, S);
+    // Soft side-part groove around u=0.38 (aligned by rotating the cap mesh).
+    const partU = 0.38 * S;
+    g.fillStyle = 'rgba(120,80,20,0.28)';
+    g.fillRect(partU - 7, 0, 14, S);
+    g.fillStyle = 'rgba(80,50,10,0.18)';
+    g.fillRect(partU - 3, 0, 6, S);
+    let seed = 31;
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    // Fine strands flowing away from the part on both sides.
+    for (let i = 0; i < 140; i++) {
+      const side = i % 2 === 0 ? 1 : -1;
+      const x0 = partU + side * (10 + rnd() * (S * 0.55));
+      const w = 0.7 + rnd() * 1.6;
+      g.strokeStyle = rnd() < 0.35 ? 'rgba(255,248,220,0.40)' : 'rgba(140,90,25,0.28)';
+      g.lineWidth = w;
+      g.beginPath();
+      g.moveTo(x0, 0);
+      g.quadraticCurveTo(x0 + side * (8 + rnd() * 14), S * 0.5, x0 + side * (rnd() * 8 - 4), S);
+      g.stroke();
+    }
+    const map = tagTex(new THREE.CanvasTexture(c));
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(1, 2);
+    map.anisotropy = 8;
+    return map;
+  }
+
   function sequinMaps() {
     const S = 1024;
     const c = document.createElement('canvas'); c.width = S; c.height = S;
@@ -63775,7 +63815,9 @@ try {
     const hairA = addM(phong({ color: 0xffe08a, map: hairMap, shininess: 14, specular: 0x554422, emissive: 0x2a2208 }));
     const hairB = addM(phong({ color: 0xfff6d8, map: hairMap, shininess: 22, specular: 0xaa9966, emissive: 0x3a2c0c }));
     const hairC = addM(phong({ color: 0xe8c45a, map: hairMap, shininess: 18, specular: 0x554422, emissive: 0x221a06 }));
-    const hairCap = addM(phong({ color: 0xe0b850, map: hairMap, shininess: 6, specular: 0x332208, emissive: 0x1a1404 }));
+    const capMap = hairCapMap();
+    const hairCap = addM(phong({ color: 0xffe08a, map: capMap, shininess: 16, specular: 0x665522, emissive: 0x2a2208 }));
+    const hairPart = addM(phong({ color: 0xc4923a, map: capMap, shininess: 10, specular: 0x443318, emissive: 0x1a1404 }));
     const seq = sequinMaps();
     const dressOpts = {
       color: 0xf0c010, map: seq.map, emissive: 0xaa7700,
@@ -63796,7 +63838,9 @@ try {
     const lip = addM(phong({ color: 0xde8492, shininess: 78, specular: 0xffd4dc }));
     const lipHi = addM(phong({ color: 0xf4b8c0, shininess: 95, specular: 0xfff0f4 }));
     const eyeW = addM(lamb({ color: 0xfffaf4 }));
-    const eyeP = addM(lamb({ color: 0x2a1a12 }));
+    const eyeP = addM(lamb({ color: 0x1a120e }));
+    const irisM = addM(phong({ color: 0x5a7a62, shininess: 40, specular: 0xaac8b8 }));
+    const irisRing = addM(lamb({ color: 0x3a4e40 }));
     const lash = addM(lamb({ color: 0x1a100c }));
     const brow = addM(lamb({ color: 0x3a2418 }));
     const micBlk = addM(phong({ color: 0x161616, shininess: 40, specular: 0x444444 }));
@@ -63962,14 +64006,13 @@ try {
       const sh = new THREE.Group();
       sh.position.set(side * (PR.shoulderW * 0.52), -0.2, 0);
       chestTop.add(sh);
-      // Soft deltoid that blends into the upper arm — not a detached shoulder ball.
-      const deltoid = sphere(0.56, skin, side * 0.06, -0.22, 0.02, sh, 12);
-      deltoid.scale.set(1.12, 1.28, 1.08);
+      // Slim shoulder: a mild taper at the top of the upper arm, not a lumpy ball.
+      const deltoid = sphere(0.38, skin, side * 0.03, -0.16, 0, sh, 12);
+      deltoid.scale.set(1.02, 1.12, 1.00);
       const upper = new THREE.Group(); sh.add(upper);
-      capsule(0.46, PR.upperArm * 0.92, skin, 0, -PR.upperArm / 2, 0, upper, 10);
-      // overlap the capsule top with the deltoid so the joint disappears
-      const capBlend = sphere(0.50, skin, 0, -0.06, 0, upper, 10);
-      capBlend.scale.set(1.05, 0.70, 1.05);
+      capsule(0.40, PR.upperArm * 0.92, skin, 0, -PR.upperArm / 2, 0, upper, 10);
+      const capBlend = sphere(0.40, skin, 0, -0.08, 0, upper, 10);
+      capBlend.scale.set(1.04, 0.80, 1.00);
       const elbow = new THREE.Group(); elbow.position.y = -PR.upperArm; upper.add(elbow);
       sphere(0.42, skin, 0, 0, 0, elbow, 8);
       const lower = new THREE.Group(); elbow.add(lower);
@@ -63981,32 +64024,32 @@ try {
       }
       const wrist = new THREE.Group(); wrist.position.y = -PR.lowerArm; lower.add(wrist);
       const hand = new THREE.Group(); wrist.add(hand);
-      // Flattened palm. For the mic hand, fingers wrap around a +Z handle.
-      const palm = sphere(0.28, skin, 0, -0.36, 0.02, hand, 10);
-      palm.scale.set(grip ? 0.85 : 0.80, 1.15, grip ? 0.62 : 0.55);
-      const heel = sphere(0.16, skin, 0, -0.16, -0.02, hand, 8);
-      heel.scale.set(0.85, 0.70, 0.65);
+      // Compact palm so it does not swallow the fingers into a mitten.
+      const palm = sphere(0.20, skin, 0, -0.30, 0.00, hand, 10);
+      palm.scale.set(grip ? 0.90 : 0.80, 1.05, grip ? 0.70 : 0.55);
+      const heel = sphere(0.13, skin, 0, -0.14, -0.02, hand, 8);
+      heel.scale.set(0.80, 0.65, 0.60);
       if (grip) {
-        // Handle sits at (0, -0.44, along +Z). Fingers wrap around Z in the XY plane,
-        // knuckles lined up along the handle toward the grille.
-        function wrapFinger(zK, startAng, r, lens, curls) {
+        // Handle along +Z at (0, -0.44). Align each finger so local X = handle axis,
+        // then curl around X (around the mic), leaving a visible gap between fingers.
+        function wrapFinger(zK, aroundAng, r, lens, curls) {
           const g = new THREE.Group();
           g.position.set(0, -0.44, zK);
-          g.rotation.z = startAng;
+          g.rotation.order = 'YXZ';
+          g.rotation.set(aroundAng, Math.PI / 2, 0);
           hand.add(g);
-          // offset so the first phalanx sits on the handle surface, not through it
-          const lift = 0.048 + r;
+          const lift = 0.085 + r; // handle radius ~0.08 plus finger
           makeFinger(g, 0, -lift, 0, [0, 0, 0], r, lens, curls);
         }
-        // startAng ~ 0.35 places roots on the underside; curl wraps up and around.
-        wrapFinger( 0.32, 0.45, 0.070, [0.26, 0.18, 0.14], [1.05, 1.10]); // index, nearest grille
-        wrapFinger( 0.16, 0.38, 0.074, [0.28, 0.19, 0.14], [1.10, 1.15]);
-        wrapFinger( 0.00, 0.34, 0.072, [0.26, 0.18, 0.13], [1.10, 1.15]);
-        wrapFinger(-0.14, 0.28, 0.062, [0.22, 0.16, 0.11], [1.00, 1.05]); // pinky
-        // Thumb comes from the +X / wrist side and opposes across the handle.
-        makeFinger(hand, 0.18, -0.30, 0.18, [0.85, 1.05, -0.55], 0.074, [0.22, 0.16, 0.12], [0.75, 0.70]);
-        // Shift the palm so it sits behind the handle, not through it.
-        palm.position.set(0.04, -0.30, 0.04);
+        // Open C-curl so each phalanx reads; knuckles spaced along the handle.
+        wrapFinger( 0.34,  0.50, 0.085, [0.26, 0.18, 0.13], [-0.95, -1.00]); // index
+        wrapFinger( 0.18,  0.62, 0.090, [0.28, 0.18, 0.13], [-1.00, -1.05]);
+        wrapFinger( 0.02,  0.70, 0.088, [0.26, 0.17, 0.12], [-1.00, -1.05]);
+        wrapFinger(-0.12,  0.58, 0.078, [0.22, 0.15, 0.11], [-0.95, -0.98]); // pinky
+        // Thumb opposes from the other side, kept short so it does not poke out.
+        wrapFinger( 0.16, -0.75, 0.088, [0.20, 0.14, 0.10], [-0.80, -0.70]);
+        palm.position.set(0.10, -0.28, 0.00);
+        palm.scale.set(0.75, 0.95, 0.62);
       } else {
         // Relaxed, slightly curved fingers (not a sausage stump).
         const curls = [0.35, 0.30];
@@ -64025,14 +64068,14 @@ try {
     const mic = new THREE.Group();
     rightArm.hand.add(mic);
     mic.position.set(0.00, -0.44, 0.08);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.052, 0.95, 10), micBlk);
-    handle.rotation.x = Math.PI / 2; handle.position.set(0, 0, 0.38); mic.add(handle);
-    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.105, 10, 8), micGrille);
-    grille.position.set(0, 0, 0.92); grille.scale.set(0.95, 0.95, 1.18); mic.add(grille);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.048, 0.10, 8), micBlk);
-    cap.rotation.x = Math.PI / 2; cap.position.set(0, 0, 0.78); mic.add(cap);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.085, 0.012, 6, 12), micBlk);
-    ring.position.set(0, 0, 0.82); mic.add(ring);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.078, 0.088, 0.92, 12), micBlk);
+    handle.rotation.x = Math.PI / 2; handle.position.set(0, 0, 0.36); mic.add(handle);
+    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.145, 12, 10), micGrille);
+    grille.position.set(0, 0, 0.90); grille.scale.set(0.95, 0.95, 1.12); mic.add(grille);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.080, 0.070, 0.10, 10), micBlk);
+    cap.rotation.x = Math.PI / 2; cap.position.set(0, 0, 0.74); mic.add(cap);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.016, 6, 14), micBlk);
+    ring.position.set(0, 0, 0.78); mic.add(ring);
 
     // ---- neck + smoother head ----
     const neck = new THREE.Group(); neck.position.y = PR.torso + PR.neck * 0.15; torso.add(neck);
@@ -64069,23 +64112,29 @@ try {
     const eyeY = PR.headH * 0.54, eyeZ = hd * 0.58, eyeX = 0.34;
     const shadowM = addM(phong({ color: 0xe0b8a4, shininess: 8, specular: 0x221810 }));
     function addEye(sx) {
-      // Large slightly almond eyes.
-      const w = sphere(0.22, eyeW, sx * eyeX, eyeY, eyeZ + 0.06, head, 12);
-      w.scale.set(1.32, 0.90, 0.58);
-      // Soft dusty-rose lid makeup, flattened onto the upper lid.
-      const lidMk = sphere(0.20, shadowM, sx * eyeX, eyeY + 0.07, eyeZ + 0.02, head, 8);
-      lidMk.scale.set(1.40, 0.32, 0.55);
-      sphere(0.11, eyeP, sx * eyeX + sx * 0.015, eyeY - 0.01, eyeZ + 0.16, head, 10);
-      sphere(0.035, eyeW, sx * eyeX - 0.04, eyeY + 0.03, eyeZ + 0.22, head, 6);
-      // Upper lash line
-      const line = sphere(0.17, lash, sx * eyeX, eyeY + 0.11, eyeZ + 0.10, head, 6);
-      line.scale.set(1.45, 0.16, 0.50);
+      // Almond eye white — the iris is smaller and partly covered by the upper lid,
+      // so it does not read as a googly black dot on a white ball.
+      const w = sphere(0.20, eyeW, sx * eyeX, eyeY - 0.01, eyeZ + 0.06, head, 12);
+      w.scale.set(1.26, 0.78, 0.52);
+      const iris = sphere(0.078, irisM, sx * eyeX, eyeY - 0.018, eyeZ + 0.155, head, 12);
+      iris.scale.set(1.04, 0.98, 0.72);
+      const ring = sphere(0.080, irisRing, sx * eyeX, eyeY - 0.018, eyeZ + 0.148, head, 10);
+      ring.scale.set(1.06, 1.00, 0.55);
+      sphere(0.030, eyeP, sx * eyeX, eyeY - 0.020, eyeZ + 0.198, head, 10);
+      sphere(0.015, eyeW, sx * eyeX - 0.026, eyeY + 0.000, eyeZ + 0.232, head, 6);
+      const lidMk = sphere(0.20, shadowM, sx * eyeX, eyeY + 0.07, eyeZ + 0.04, head, 8);
+      lidMk.scale.set(1.38, 0.34, 0.55);
+      // Slight upper lid over the top of the iris, not a sleepy droop.
+      const lid = sphere(0.185, skin, sx * eyeX, eyeY + 0.08, eyeZ + 0.13, head, 10);
+      lid.scale.set(1.32, 0.34, 0.55);
+      const line = sphere(0.16, lash, sx * eyeX, eyeY + 0.10, eyeZ + 0.15, head, 6);
+      line.scale.set(1.40, 0.15, 0.48);
       // Individual lashes fanning up and out.
       for (let i = -2; i <= 2; i++) {
         const u = i / 2;
         const lx = sx * eyeX + sx * u * 0.18;
-        const ly = eyeY + 0.16 + 0.02 * Math.abs(u);
-        const lz = eyeZ + 0.14;
+        const ly = eyeY + 0.15 + 0.02 * Math.abs(u);
+        const lz = eyeZ + 0.15;
         const ls = capsule(0.012, 0.11, lash, lx, ly, lz, head, 5);
         ls.rotation.z = sx * (-0.25 - u * 0.28);
         ls.rotation.x = -0.28;
@@ -64128,10 +64177,27 @@ try {
 
     // ---- long wavy blonde hair: side-parted, past the chest, face left clear ----
     const hair = new THREE.Group(); hair.position.y = PR.headH; head.add(hair);
-    // Matte under-hair on the crown and back only — tall enough to hide the
-    // cranium, shifted back so it never forms a visor or hat rim at the forehead.
-    const scalp = sphere(1.16, hairCap, 0, -1.08, -0.38, hair, 20);
-    scalp.scale.set(1.04, 1.12, 0.86);
+    // Solid dense blonde cap covering the whole scalp. Shifted slightly back so
+    // the front edge is a hairline above the brows, not a visor over the eyes.
+    const scalp = sphere(1.26, hairCap, 0, -1.00, -0.28, hair, 24);
+    scalp.scale.set(1.12, 1.10, 1.00);
+    // Rotate so the painted side-part in the cap texture sits on her left.
+    scalp.rotation.y = 0.36;
+    // A little extra volume on top — skull-shaped, not a flat disc lid.
+    const topVol = sphere(0.85, hairCap, 0.04, -0.18, -0.22, hair, 20);
+    topVol.scale.set(1.16, 0.55, 1.05);
+    topVol.rotation.y = 0.36;
+    const sideR = sphere(0.62, hairCap,  0.62, -0.58, -0.22, hair, 16);
+    sideR.scale.set(1.06, 0.90, 0.95);
+    const sideL = sphere(0.56, hairCap, -0.58, -0.60, -0.20, hair, 16);
+    sideL.scale.set(1.04, 0.88, 0.95);
+    // Soft side part: a shallow darker-blonde groove, cap stays solid underneath.
+    hairRibbon([
+      [-0.22, -0.52,  0.72],
+      [-0.30, -0.08,  0.20],
+      [-0.28, -0.02, -0.25],
+      [-0.18, -0.30, -0.80]
+    ], 0.028, 0.022, hairPart, hair, 12, 6);
 
     // Hair grows from a side parting over the scalp. Skull in hair-space:
     // centre (0, -1.08, -0.08). lon 0 = +Z (front), +PI/2 = +X (her right).
@@ -64167,40 +64233,14 @@ try {
       }
       return pts;
     }
-    // Thin locks from a narrow part, hugging the scalp and draping over the sides.
+    // A few highlight strands lying on the solid cap — not coverage, the cap is the volume.
     const CROWN = [
-      // heavy side (her right) — cover the parietal dome, tight to the part
-      { lat: 0.14, lon: PART_LON + 0.02, dLon:  0.85, drop: 2.4, r0: 0.13, r1: 0.05,  mat: hairB, n: 16, hug: 0.62 },
-      { lat: 0.22, lon: PART_LON + 0.02, dLon:  1.10, drop: 3.2, r0: 0.14, r1: 0.055, mat: hairA, n: 16, hug: 0.60 },
-      { lat: 0.32, lon: PART_LON + 0.02, dLon:  1.35, drop: 3.6, r0: 0.14, r1: 0.055, mat: hairB, n: 16, hug: 0.56 },
-      { lat: 0.42, lon: PART_LON + 0.02, dLon:  1.50, drop: 3.8, r0: 0.13, r1: 0.05,  mat: hairC, n: 16, hug: 0.52 },
-      { lat: 0.54, lon: PART_LON + 0.03, dLon:  1.55, drop: 3.6, r0: 0.13, r1: 0.05,  mat: hairA, n: 16, hug: 0.50 },
-      { lat: 0.68, lon: PART_LON + 0.03, dLon:  1.40, drop: 3.2, r0: 0.12, r1: 0.045, mat: hairC, n: 14, hug: 0.48 },
-      { lat: 0.84, lon: PART_LON + 0.03, dLon:  1.15, drop: 2.6, r0: 0.11, r1: 0.04,  mat: hairA, n: 14, hug: 0.45 },
-      { lat: 1.00, lon: PART_LON + 0.04, dLon:  0.90, drop: 2.2, r0: 0.10, r1: 0.04,  mat: hairB, n: 12, hug: 0.42 },
-      // extra right-side cover so the cap dome does not show
-      { lat: 0.28, lon: PART_LON + 0.15, dLon:  1.20, drop: 3.0, r0: 0.12, r1: 0.05,  mat: hairA, n: 14, hug: 0.50 },
-      { lat: 0.50, lon: PART_LON + 0.20, dLon:  1.15, drop: 3.2, r0: 0.12, r1: 0.05,  mat: hairB, n: 14, hug: 0.48 },
-      { lat: 0.72, lon: PART_LON + 0.25, dLon:  1.00, drop: 2.6, r0: 0.11, r1: 0.045, mat: hairC, n: 12, hug: 0.45 },
-      // thin highlights
-      { lat: 0.18, lon: PART_LON + 0.015, dLon: 0.95, drop: 2.8, r0: 0.07, r1: 0.03,  mat: hairB, n: 16, hug: 0.60 },
-      { lat: 0.36, lon: PART_LON + 0.015, dLon: 1.25, drop: 3.4, r0: 0.07, r1: 0.03,  mat: hairB, n: 16, hug: 0.56 },
-      { lat: 0.58, lon: PART_LON + 0.02,  dLon: 1.35, drop: 3.2, r0: 0.065,r1: 0.028, mat: hairB, n: 14, hug: 0.50 },
-      // light side (her left) — close the part gap
-      { lat: 0.16, lon: PART_LON - 0.02, dLon: -0.50, drop: 2.2, r0: 0.12, r1: 0.05,  mat: hairA, n: 14, hug: 0.62 },
-      { lat: 0.28, lon: PART_LON - 0.02, dLon: -0.70, drop: 3.0, r0: 0.13, r1: 0.05,  mat: hairB, n: 14, hug: 0.58 },
-      { lat: 0.44, lon: PART_LON - 0.02, dLon: -0.80, drop: 3.2, r0: 0.12, r1: 0.05,  mat: hairC, n: 14, hug: 0.54 },
-      { lat: 0.62, lon: PART_LON - 0.02, dLon: -0.70, drop: 2.8, r0: 0.11, r1: 0.045, mat: hairA, n: 12, hug: 0.50 },
-      { lat: 0.82, lon: PART_LON - 0.02, dLon: -0.55, drop: 2.2, r0: 0.10, r1: 0.04,  mat: hairC, n: 12, hug: 0.46 },
-      { lat: 0.24, lon: PART_LON - 0.015,dLon: -0.60, drop: 2.6, r0: 0.07, r1: 0.03,  mat: hairB, n: 14, hug: 0.58 },
-      // Right temple / parietal drapes so the 3/4 view does not show a smooth cap.
-      { lat: 0.22, lon:  0.55, dLon:  0.70, drop: 2.4, r0: 0.14, r1: 0.055, mat: hairA, n: 14, hug: 0.50 },
-      { lat: 0.40, lon:  0.70, dLon:  0.65, drop: 2.6, r0: 0.14, r1: 0.055, mat: hairB, n: 14, hug: 0.48 },
-      { lat: 0.58, lon:  0.85, dLon:  0.50, drop: 2.2, r0: 0.13, r1: 0.05,  mat: hairC, n: 12, hug: 0.45 },
-      { lat: 0.30, lon:  0.90, dLon:  0.40, drop: 1.8, r0: 0.12, r1: 0.045, mat: hairA, n: 12, hug: 0.42 }
+      { lat: 0.18, lon: PART_LON + 0.10, dLon:  0.90, drop: 2.4, r0: 0.07, r1: 0.03, mat: hairB, n: 14, hug: 0.62 },
+      { lat: 0.36, lon: PART_LON + 0.10, dLon:  1.10, drop: 3.0, r0: 0.07, r1: 0.03, mat: hairB, n: 14, hug: 0.58 },
+      { lat: 0.22, lon: PART_LON - 0.10, dLon: -0.55, drop: 2.2, r0: 0.06, r1: 0.028, mat: hairB, n: 12, hug: 0.60 }
     ];
     CROWN.forEach(L => {
-      hairRibbon(lockFromPart(L.lat, L.lon, L.dLon, L.drop, L.n, L.hug), L.r0, L.r1, L.mat, hair, 28, 10);
+      hairRibbon(lockFromPart(L.lat, L.lon, L.dLon, L.drop, L.n, L.hug), L.r0, L.r1, L.mat, hair, 24, 8);
     });
 
     function wavePts(x0, y0, z0, len, side, phase, flare, amp, n, zAmp) {
@@ -64530,6 +64570,10 @@ try {
     const wristQ = new THREE.Quaternion();
     wrist.getWorldQuaternion(wristQ);
     hand.quaternion.copy(wristQ.invert().multiply(qAlign));
+    // Twist around the mic axis so the curled fingers face up / toward the camera
+    // rather than hiding on the far side of a mitten.
+    const twist = new THREE.Quaternion().setFromAxisAngle(localAim, 0.35);
+    hand.quaternion.multiply(twist);
   }
 
   function twinkleGlints(parts, st) {
