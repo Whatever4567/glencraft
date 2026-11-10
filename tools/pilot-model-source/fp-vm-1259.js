@@ -36,7 +36,9 @@
       two: 0, hs: 0.88,
       // 1265: small relaxed hand low in the bottom-right corner, fingers
       // loosely curled (not a huge splayed claw). Sleeve radius follows.
-      R: { sh: [0.52, -1.45, -0.68], wr: [0.36, -0.22, -0.68], rot: [0, 0, 0], haft: [0.25, 0.20, 0.05], curl: 1, rs: 0.72 }
+      // 1272: hand low bottom-right (image ~x 0.75, y 0.88), forearm
+      // entering from the bottom edge at ~35° from vertical. Not a raised fist.
+      R: { sh: [1.55, -1.40, -0.82], wr: [0.55, -0.80, -0.82], rot: [0, 0, 0], haft: [0.22, 0.25, 0.05], curl: 1, rs: 0.72 }
     },
     block: {
       two: 0, hs: 1.22,
@@ -78,14 +80,14 @@
     },
     pistol: {
       two: 0, hs: 1.16,
-      R: { sh: [1.05, -1.00, -0.48], wr: [0.22, -0.32, -0.50], rot: [0, 0, 0], haft: [0.10, 0.95, 0], curl: 1 },
+      R: { sh: [1.10, -1.25, -0.52], wr: [0.18, -0.42, -0.52], rot: [0, 0, 0], haft: [0.10, 0.95, 0], curl: 1 },
       item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.12 }
     },
     pistolAds: {
       // 1268: centred look-down-the-sights; both hands fist-wrap the grip.
       two: 1, hs: 1.00,
-      R: { sh: [0.62, -1.22, -0.50], wr: [0.16, -0.42, -0.52], rot: [0, 0, 0], haft: [0.00, 0.12, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-0.70, -1.18, -0.58], wr: [-0.22, -0.46, -0.60], rot: [0.35, 0, 0], haft: [0.75, 0.20, -0.55], curl: 1, sleeve: 'linen', hs: 1.00, face: 'palmUp' },
+      R: { sh: [0.95, -1.40, -0.52], wr: [0.28, -0.58, -0.50], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
+      L: { sh: [-1.05, -1.45, -0.60], wr: [-0.24, -0.62, -0.56], rot: [0, 0, 0], haft: [0.55, 0.15, -0.70], curl: 1, sleeve: 'linen', hs: 1.00 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.10 }
     },
     musket: {
@@ -96,8 +98,8 @@
     },
     musketAds: {
       two: 1, hs: 0.88,
-      R: { sh: [0.78, -1.24, -0.54], wr: [0.30, -0.52, -0.54], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-0.80, -1.20, -0.66], wr: [-0.28, -0.56, -0.68], rot: [0.35, 0, 0], haft: [0.70, 0.25, -0.55], curl: 1, sleeve: 'tartan', hs: 0.74, face: 'palmUp' },
+      R: { sh: [1.00, -1.40, -0.54], wr: [0.30, -0.60, -0.52], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
+      L: { sh: [-1.10, -1.45, -0.66], wr: [-0.26, -0.62, -0.64], rot: [0, 0, 0], haft: [0.55, 0.15, -0.70], curl: 1, sleeve: 'tartan', hs: 0.80 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.00 }
     },
     axe: null, shovel: null, hoe: null,
@@ -1203,58 +1205,32 @@
       }
       return;
     }
-    // 1271: idempotent hip pose (fpPistolHip1271). Rebuild from a fixed
-    // Euler every frame (the 1268 side-profile: lock toward camera,
-    // bird's-head below the fist), then apply one image-plane swing so
-    // the barrel sits ~30° from vertical up-left. Parent world matrix is
-    // refreshed first so the swing is computed against the live pose,
-    // not a stale transform. Never accumulate.
+    // 1272: idempotent hip pose (fpPistolHip1271). Rebuild from the
+    // 1268 slim quaternion every frame, then roll around the barrel so
+    // the bird's-head (local -Y) hangs down in the palm — not out to
+    // the right as a flat disc. Barrel stays upright-ish. No camZ swing.
     g.position.set(0, 0, 0);
-    // Post-sync slim side-profile (lock toward camera, bird's-head hook
-    // below the fist, barrel ~7° from vertical). Authored as a fixed
-    // quaternion so we do not depend on Euler conversion against a
-    // mid-frame parent. The image-plane swing then takes it to 30°.
     const q0 = new T.Quaternion(0.43638, 0.50004, -0.59181, 0.45748);
     g.quaternion.copy(q0);
     if (g.parent) g.parent.updateWorldMatrix(true, true);
     g.updateWorldMatrix(true, true);
     if (vc) {
-      const camZ = new T.Vector3(), _rHip = new T.Vector3(), _uHip = new T.Vector3();
-      try { vc.matrixWorld.extractBasis(_rHip, _uHip, camZ); } catch (_) { camZ.set(0, 0, 1); }
-      camZ.normalize();
-      const qInv = vc.getWorldQuaternion(new T.Quaternion()).invert();
-      function camBarrel(obj) {
-        obj.updateWorldMatrix(true, true);
-        const qi = vc.getWorldQuaternion(new T.Quaternion()).invert();
-        const b = new T.Vector3(0, 0, -1).transformDirection(obj.matrixWorld).applyQuaternion(qi);
-        return b;
-      }
-      const barrel = camBarrel(g);
-      const xy = barrel.clone(); xy.z = 0;
-      const before = { x: +barrel.x.toFixed(4), y: +barrel.y.toFixed(4), z: +barrel.z.toFixed(4),
-                       deg: (xy.lengthSq() > 1e-8 ? (Math.atan2(Math.abs(xy.x), Math.max(1e-6, xy.y)) * 180 / Math.PI) : null) };
-      if (xy.lengthSq() > 1e-8) {
-        xy.normalize();
-        const target = new T.Vector3(-Math.sin(30 * Math.PI / 180), Math.cos(30 * Math.PI / 180), 0);
-        const ang = Math.atan2(xy.x * target.y - xy.y * target.x, xy.x * target.x + xy.y * target.y);
-        // Apply the image-plane swing in world, then convert to local
-        // (rotateOnWorldAxis can no-op if matrixAutoUpdate is off).
+      const _r = new T.Vector3(), _u = new T.Vector3(), camZ = new T.Vector3();
+      try { vc.matrixWorld.extractBasis(_r, _u, camZ); } catch (_) { _u.set(0, 1, 0); }
+      g.updateWorldMatrix(true, true);
+      const barrelW = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).normalize();
+      const gripW = new T.Vector3(0, -1, 0).transformDirection(g.matrixWorld).normalize();
+      const camDown = _u.clone().multiplyScalar(-1);
+      const desired = camDown.addScaledVector(barrelW, -camDown.dot(barrelW));
+      if (desired.lengthSq() > 1e-8) {
+        desired.normalize();
+        const ang = Math.atan2(new T.Vector3().copy(gripW).cross(desired).dot(barrelW), gripW.dot(desired));
         const qWorld = g.getWorldQuaternion(new T.Quaternion());
-        const qSwing = new T.Quaternion().setFromAxisAngle(camZ, ang);
-        const qNewWorld = qSwing.multiply(qWorld);
+        const qRoll = new T.Quaternion().setFromAxisAngle(barrelW, ang);
+        const qNewWorld = qRoll.multiply(qWorld);
         const qParent = g.parent ? g.parent.getWorldQuaternion(new T.Quaternion()) : new T.Quaternion();
         g.quaternion.copy(qParent.invert().multiply(qNewWorld));
-        U.pistolHipAng = ang;
       }
-      const afterB = camBarrel(g);
-      const axy = afterB.clone(); axy.z = 0;
-      U.pistolHipDebug = {
-        before: before,
-        ang: U.pistolHipAng,
-        after: { x: +afterB.x.toFixed(4), y: +afterB.y.toFixed(4), z: +afterB.z.toFixed(4),
-                 deg: (axy.lengthSq() > 1e-8 ? (Math.atan2(Math.abs(axy.x), Math.max(1e-6, axy.y)) * 180 / Math.PI) : null) },
-        parent: (g.parent && (g.parent.name || g.parent.type)) || null
-      };
     }
     g.userData.fpPistolHip1271 = 1;
     U.pistolHipQ = [+g.quaternion.x.toFixed(5), +g.quaternion.y.toFixed(5), +g.quaternion.z.toFixed(5), +g.quaternion.w.toFixed(5)];
@@ -1356,14 +1332,14 @@
     stockSh.bezierCurveTo(-0.010, 0.006, -0.020, 0.012, -0.025, 0.012);
     stockSh.closePath();
     const stockGeo = new T.ExtrudeGeometry(stockSh, {
-      depth: 0.026,
+      depth: 0.016,
       bevelEnabled: true,
-      bevelThickness: 0.0045,
-      bevelSize: 0.0035,
+      bevelThickness: 0.0030,
+      bevelSize: 0.0025,
       bevelSegments: 2,
       curveSegments: 22
     });
-    stockGeo.translate(0, 0, -0.013);
+    stockGeo.translate(0, 0, -0.008);
     stockGeo.rotateY(-Math.PI / 2);
     stockGeo.computeVertexNormals();
     add(stockGeo, wood, 0, 0, 0);
@@ -1527,17 +1503,63 @@
     return { mode: 'fist' };
   }
 
+  // 1272 hybrid (fpHybrid1272): the new TP-arm rig ships only for items
+  // that clearly beat 1.2.49. Guns (pistol/musket hip+ADS) and anything
+  // else fall back to the exact 1.2.49 held path. Toggle is synchronous
+  // in applyPose so a hotbar switch never presents a frame with both
+  // rigs, leftover TP meshes, or a hidden 1.2.49 item.
+  const NEW_FP_KINDS = {
+    empty: 1, p761: 1, p760: 1, pick: 1,
+    sword: 1, claymore: 1,
+    torch: 1, block: 1, bucket: 1, map: 1
+  };
+  function usesNewFp(kind) {
+    return !!NEW_FP_KINDS[kind || ''];
+  }
+  U.usesNewFp = usesNewFp;
+  U.newFpKinds = NEW_FP_KINDS;
+
+  function dropNewRig() {
+    U.active = 0;
+    U.fallback1249 = 1;
+    try { restoreHeld(); } catch (_) {}
+    try { hideLegacy(false); } catch (_) {}
+    if (rig) rig.visible = false;
+    try { if (W.__fpTpArm1270 && typeof W.__fpTpArm1270.hideAll === 'function') W.__fpTpArm1270.hideAll(); } catch (_) {}
+    // Put the 1.2.49 held pose and procedural arms back now that we
+    // have released `held` and un-hidden the legacy rig. Without this,
+    // restoreHeld zeroes the item transform and the gun floats.
+    try {
+      const H = W.__held1240;
+      if (H && typeof H.poseHeld === 'function' && typeof worldModel !== 'undefined' && worldModel)
+        H.poseHeld(worldModel);
+    } catch (_) {}
+    try {
+      const A = W.__armSwitch1247;
+      if (A && typeof A.syncFromFpa === 'function') A.syncFromFpa(0.016);
+    } catch (_) {}
+  }
+
   function applyPose() {
     if (U.disabled || isTp()) {
       U.active = 0;
       restoreHeld();
       hideLegacy(false);
       if (rig) rig.visible = false;
+      try { if (W.__fpTpArm1270 && W.__fpTpArm1270.hideAll) W.__fpTpArm1270.hideAll(); } catch (_) {}
       return;
     }
     if (!build()) { U.active = 0; return; }
     const k0 = kindOf();
     const ads = isAds();
+    if (!usesNewFp(k0)) {
+      U.kind = k0;
+      U.ads = ads ? 1 : 0;
+      U.poseKey = k0;
+      dropNewRig();
+      return;
+    }
+    U.fallback1249 = 0;
     const key = (k0 === 'musket' && ads) ? 'musketAds' : (k0 === 'pistol' && ads) ? 'pistolAds' : k0;
     let spec = POSES[key] || POSES[k0] || POSES.other;
     try {
@@ -1689,7 +1711,7 @@
 
   // Diagnose contact / sleeve-wrist / entry for tests and the QA studio.
   U.probe = function () {
-    const out = { active: !!U.active, kind: U.kind, ads: U.ads, poseKey: U.poseKey, err: U.err };
+    const out = { active: !!U.active, kind: U.kind, ads: U.ads, poseKey: U.poseKey, err: U.err, fallback1249: !!U.fallback1249, usesNewFp: usesNewFp(U.kind), fpHybrid1272: 1 };
     try {
       if (!U.active || !armR) return out;
       const pR = armR.userData.p;

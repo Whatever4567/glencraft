@@ -728,8 +728,7 @@
   U.sync = function () {
     const vm = W.__fpVm1259;
     if (!vm || !vm.active || vm.disabled) {
-      if (U.fp) U.fp.visible = false;
-      U.on = 0;
+      hideAll();
       return;
     }
     const fp = ensure(vm);
@@ -763,6 +762,21 @@
       if (!U.err) U.err = 'sync: ' + String(e && e.stack || e).slice(0, 280);
     }
   };
+
+  function hideAll() {
+    U.on = 0;
+    const root = U.fp || (typeof fp !== 'undefined' ? fp : null);
+    if (!root) return;
+    root.visible = false;
+    try { setSideVisible(root, 'R', false); } catch (_) {}
+    try { setSideVisible(root, 'L', false); } catch (_) {}
+    try {
+      root.traverse(function (o) {
+        if (o.isMesh || o.isSkinnedMesh) o.visible = false;
+      });
+    } catch (_) {}
+  }
+  U.hideAll = hideAll;
 
   U.buildFromTemplate = buildFromTemplate;
 })(typeof window !== 'undefined' ? window : this);
