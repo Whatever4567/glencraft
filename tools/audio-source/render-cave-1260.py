@@ -62,7 +62,8 @@ MOODS = {
         "ir": 8.0,
         "wet": 0.82,
         "lfo": 0.04,
-        "mid_gain": 0.70,
+        "mid_gain": 1.00,
+        "mid_eq_db": -1.0,
         "desc": "purple crystal cave — dusk F# minor choir",
     },
     "agartha": {
@@ -311,6 +312,12 @@ def render_liminal(name, spec, dur=DUR, rng=None):
     mixed = np.stack([E.sos_hp(mixed[:, 0], 36, 2), E.sos_hp(mixed[:, 1], 36, 2)], 1)
     mixed = tone_liminal(mixed)
     mixed = fit_to_ref(mixed, rng, name)
+    mid_eq = float(spec.get("mid_eq_db", 0.0))
+    if abs(mid_eq) >= 0.25:
+        mixed = np.stack([
+            E.rbj(mixed[:, 0], 250, 0.9, "peak", gain_db=mid_eq),
+            E.rbj(mixed[:, 1], 250, 0.9, "peak", gain_db=mid_eq),
+        ], 1)
     # loop: last 2s ≈ first 2s material after xfade (choir is already continuous)
     mixed = E.seamless_loop(mixed, xfade_s=1.8, polish_s=0.03)
     # Preview level near the reference (~-16 LUFS). We'll fine-tune after measure.
