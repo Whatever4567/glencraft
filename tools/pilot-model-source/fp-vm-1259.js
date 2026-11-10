@@ -3247,6 +3247,32 @@
   const FP_HILT_R1282 = 0.0088;
   const FP_HILT_HALF1282 = 0.050;
 
+  function bevelBoxGeo(sx, sy, sz, bev) {
+    const b = Math.max(0.0004, Math.min(bev != null ? bev : Math.min(sx, sy, sz) * 0.22, Math.min(sx, sy, sz) * 0.35));
+    const hw = Math.max(0.0004, sx * 0.5 - b);
+    const hh = Math.max(0.0004, sy * 0.5 - b);
+    const depth = Math.max(0.0008, sz - 2 * b);
+    const sh = new T.Shape();
+    sh.moveTo(-hw, -hh);
+    sh.lineTo(hw, -hh);
+    sh.lineTo(hw, hh);
+    sh.lineTo(-hw, hh);
+    sh.closePath();
+    const geo = new T.ExtrudeGeometry(sh, {
+      depth: depth,
+      bevelEnabled: true,
+      bevelThickness: b,
+      bevelSize: b,
+      bevelSegments: 2
+    });
+    if (geo.computeBoundingBox) geo.computeBoundingBox();
+    if (geo.boundingBox) {
+      const c = geo.boundingBox.getCenter(new T.Vector3());
+      geo.translate(-c.x, -c.y, -c.z);
+    }
+    if (geo.computeVertexNormals) geo.computeVertexNormals();
+    return geo;
+  }
   function applyLongGrainUV(geo, axis, repeatU, repeatV) {
     if (!geo || !geo.attributes || !geo.attributes.position) return;
     if (geo.computeBoundingBox) geo.computeBoundingBox();
@@ -3442,26 +3468,26 @@
     bar.rotation.x = Math.PI / 2;
     addFpPart(g, new T.CylinderGeometry(0.0090, 0.0090, 0.016, 12), steel, 0, barrelY, muzZ - 0.004).rotation.x = Math.PI / 2;
     addFpPart(g, new T.CylinderGeometry(0.014, 0.014, 0.028, 8), steel, 0, barrelY, 0.016).rotation.x = Math.PI / 2;
-    addFpPart(g, new T.BoxGeometry(0.004, 0.006, 0.016), steel, 0, barrelY + 0.014, -0.04);
-    addFpPart(g, new T.BoxGeometry(0.0024, 0.008, 0.0024), steel, 0, barrelY + 0.012, muzZ + 0.01);
+    addFpPart(g, bevelBoxGeo(0.004, 0.006, 0.016, 0.0006), steel, 0, barrelY + 0.014, -0.04);
+    addFpPart(g, bevelBoxGeo(0.0024, 0.008, 0.0024, 0.0004), steel, 0, barrelY + 0.012, muzZ + 0.01);
 
     // Forestock hugging the barrel underside, clear of the fist.
     const fore = addFpPart(g, new T.CylinderGeometry(0.011, 0.008, 0.15, 12), wood, 0, barrelY - 0.014, -0.080);
     fore.rotation.x = Math.PI / 2;
-    addFpPart(g, new T.BoxGeometry(0.016, 0.010, 0.040), wood, 0, barrelY - 0.016, -0.010);
+    addFpPart(g, bevelBoxGeo(0.016, 0.010, 0.040, 0.0014), wood, 0, barrelY - 0.016, -0.010);
 
     // Lock plate, cocked hammer, flint, frizzen on +X, all above the fist.
-    addFpPart(g, new T.BoxGeometry(0.004, 0.024, 0.040), steel, 0.016, 0.074, -0.004);
-    addFpPart(g, new T.BoxGeometry(0.0045, 0.022, 0.010), steel, 0.020, 0.090, -0.016, 0.70, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.009, 0.012), flint, 0.022, 0.104, -0.020, 0.55, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.018, 0.010), brass, 0.019, 0.084, 0.010, -0.45, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.008, 0.006, 0.012), brass, 0.014, 0.068, 0.012); // pan
+    addFpPart(g, bevelBoxGeo(0.004, 0.024, 0.040), steel, 0.016, 0.074, -0.004);
+    addFpPart(g, bevelBoxGeo(0.0045, 0.022, 0.010), steel, 0.020, 0.090, -0.016, 0.70, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.0036, 0.009, 0.012, 0.0006), flint, 0.022, 0.104, -0.020, 0.55, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.0036, 0.018, 0.010), brass, 0.019, 0.084, 0.010, -0.45, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.008, 0.006, 0.012), brass, 0.014, 0.068, 0.012); // pan
 
     // Trigger and guard under the lock, toward the muzzle, clear of the knuckles.
     if (typeof T.TorusGeometry === 'function') {
-      addFpPart(g, new T.TorusGeometry(0.012, 0.0020, 6, 16, Math.PI * 1.15), steel, 0, 0.058, 0.000, Math.PI / 2, 0, 0);
+      addFpPart(g, new T.TorusGeometry(0.012, 0.0020, 8, 20, Math.PI * 1.15), steel, 0, 0.058, 0.000, Math.PI / 2, 0, 0);
     }
-    addFpPart(g, new T.BoxGeometry(0.0030, 0.012, 0.005), steel, 0, 0.062, 0.010, 0.20, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.0030, 0.012, 0.005, 0.0005), steel, 0, 0.062, 0.010, 0.20, 0, 0);
 
     // Small brass cap on the pommel (joined, not a floating ball).
     addFpPart(g, new T.SphereGeometry(0.0048, 8, 6), brass, 0, -0.090, 0.006);
@@ -3509,7 +3535,7 @@
     if (stockGeo.computeBoundingSphere) stockGeo.computeBoundingSphere();
     applyLongGrainUV(stockGeo, 1, 1, 2.6);
     addFpPart(g, stockGeo, wood, 0, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.018, 0.024, 0.004), steel, 0, -0.134, 0.008, 0.12, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.018, 0.024, 0.004, 0.0006), steel, 0, -0.134, 0.008, 0.12, 0, 0);
 
     // Lock tang and barrel.
     addFpPart(g, new T.CylinderGeometry(0.014, r, 0.036, 12), wood, 0, 0.050, 0.002, 0.12, 0, 0);
@@ -3521,13 +3547,13 @@
     bar.rotation.x = Math.PI / 2;
     addFpPart(g, new T.CylinderGeometry(0.0085, 0.0085, 0.018, 12), steel, 0, barrelY, muzZ - 0.004).rotation.x = Math.PI / 2;
     addFpPart(g, new T.CylinderGeometry(0.014, 0.014, 0.036, 8), steel, 0, barrelY, 0.028).rotation.x = Math.PI / 2;
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.006, 0.014), steel, 0, barrelY + 0.012, -0.06);
-    addFpPart(g, new T.BoxGeometry(0.0022, 0.007, 0.0022), steel, 0, barrelY + 0.011, muzZ + 0.012);
+    addFpPart(g, bevelBoxGeo(0.0036, 0.006, 0.014, 0.0005), steel, 0, barrelY + 0.012, -0.06);
+    addFpPart(g, bevelBoxGeo(0.0022, 0.007, 0.0022, 0.0003), steel, 0, barrelY + 0.011, muzZ + 0.012);
 
     // Forestock under the barrel, one connected wood piece.
     const fore = addFpPart(g, new T.CylinderGeometry(0.012, 0.008, 0.42, 12), wood, 0, barrelY - 0.014, -0.200);
     fore.rotation.x = Math.PI / 2;
-    addFpPart(g, new T.BoxGeometry(0.018, 0.012, 0.080), wood, 0, barrelY - 0.016, 0.000);
+    addFpPart(g, bevelBoxGeo(0.018, 0.012, 0.080, 0.0016), wood, 0, barrelY - 0.016, 0.000);
     // Barrel bands.
     addFpPart(g, new T.CylinderGeometry(0.013, 0.013, 0.010, 12), brass, 0, barrelY - 0.006, -0.12).rotation.x = Math.PI / 2;
     addFpPart(g, new T.CylinderGeometry(0.011, 0.011, 0.010, 12), brass, 0, barrelY - 0.008, -0.28).rotation.x = Math.PI / 2;
@@ -3535,16 +3561,16 @@
     addFpPart(g, new T.CylinderGeometry(0.0024, 0.0024, 0.36, 8), steel, 0, barrelY - 0.026, -0.20).rotation.x = Math.PI / 2;
 
     // Lock, hammer, flint, frizzen, pan.
-    addFpPart(g, new T.BoxGeometry(0.004, 0.028, 0.052), steel, 0.017, 0.050, 0.006);
-    addFpPart(g, new T.BoxGeometry(0.0045, 0.026, 0.010), steel, 0.021, 0.068, -0.006, 0.70, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.010, 0.012), flint, 0.023, 0.082, -0.010, 0.55, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.022, 0.010), brass, 0.020, 0.060, 0.022, -0.45, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.008, 0.006, 0.012), brass, 0.015, 0.042, 0.024);
+    addFpPart(g, bevelBoxGeo(0.004, 0.028, 0.052), steel, 0.017, 0.050, 0.006);
+    addFpPart(g, bevelBoxGeo(0.0045, 0.026, 0.010), steel, 0.021, 0.068, -0.006, 0.70, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.0036, 0.010, 0.012, 0.0006), flint, 0.023, 0.082, -0.010, 0.55, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.0036, 0.022, 0.010), brass, 0.020, 0.060, 0.022, -0.45, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.008, 0.006, 0.012), brass, 0.015, 0.042, 0.024);
 
     if (typeof T.TorusGeometry === 'function') {
-      addFpPart(g, new T.TorusGeometry(0.014, 0.0020, 6, 16, Math.PI * 1.15), steel, 0, 0.028, 0.024, Math.PI / 2, 0, 0);
+      addFpPart(g, new T.TorusGeometry(0.014, 0.0020, 8, 20, Math.PI * 1.15), steel, 0, 0.028, 0.024, Math.PI / 2, 0, 0);
     }
-    addFpPart(g, new T.BoxGeometry(0.0030, 0.016, 0.005), steel, 0, 0.032, 0.034, 0.20, 0, 0);
+    addFpPart(g, bevelBoxGeo(0.0030, 0.016, 0.005, 0.0005), steel, 0, 0.032, 0.034, 0.20, 0, 0);
 
     addForestockAnchor(g, 0, barrelY - 0.032, -0.200);
     return g;
