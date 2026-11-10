@@ -35,7 +35,7 @@ vm.createContext(ctx);
 vm.runInContext(coreSrc, ctx);
 const C = ctx.__popstarCore;
 ok(C && C.BPM === 93.75 && C.BEAT === 0.64 && C.LOOP === 30.72, 'core tempo is 93.75 BPM / 30.72 s loop');
-ok(C.HEIGHT === 32 && C.STRIDE === 11, 'she is 32 blocks tall with an 11-block stride');
+ok(C.HEIGHT === 32 && C.STRIDE === 3 && C.MAX_STEP === 1, 'she is 32 blocks tall with a slow 3-block stride and a 1-block max step');
 ok(C.SPAWN_CHANCE === 0.18 && C.LIFE === 120, 'spawn chance is 18% per day and she despawns after 120 s');
 
 // Finite pose loop: only poses 1-4, sequence does not grow, wraps cleanly.

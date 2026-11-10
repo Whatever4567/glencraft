@@ -8,7 +8,9 @@
   P.BEAT = 60 / P.BPM;          // 0.64 s
   P.LOOP = 12 * 4 * P.BEAT;     // 30.72 s, matches assets/sfx/popstar_song.*
   P.HEIGHT = 32;                // top of hair, in blocks
-  P.STRIDE = 11;                // one step per beat ~ 17.2 blocks/s (~38 mph)
+  P.STRIDE = 3;                 // slow walk: 3 blocks per beat ~ 4.7 blocks/s
+  P.MAX_STEP = 1;               // max step-up / step-down, in blocks
+  P.BODY_R = 4.2;               // keep-out radius so the camera cannot enter her
   P.SPAWN_CHANCE = 0.18;
   P.LIFE = 120;
   P.SONG_MP3 = 'assets/sfx/popstar_song.mp3';
@@ -920,6 +922,10 @@
       try { m.alphaTest = 0; } catch (_) {}
       try { if (m.alphaMap) m.alphaMap = null; } catch (_) {}
       try { m.toneMapped = false; } catch (_) {}
+      try {
+        const ds = (typeof THREE !== 'undefined' && THREE.DoubleSide != null) ? THREE.DoubleSide : 2;
+        m.side = ds;
+      } catch (_) {}
     };
     mats.forEach(applyMat);
     g.name = g.name || 'popstar';

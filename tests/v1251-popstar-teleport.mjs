@@ -26,7 +26,7 @@ ok(html.includes('<!-- glencraft-build: b1252-held-rollback -->') && html.includ
 const toasts = [];
 const added = [];
 const core = {
-  HEIGHT: 32, STRIDE: 11, LOOP: 30.72, BPM: 93.75, BEAT: 0.64, SONG_OGG: '', SONG_MP3: '',
+  HEIGHT: 32, STRIDE: 3, MAX_STEP: 1, BODY_R: 4.2, LOOP: 30.72, BPM: 93.75, BEAT: 0.64, SONG_OGG: '', SONG_MP3: '',
   make() {
     const pos = {x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; }};
     const rot = {y: 0};

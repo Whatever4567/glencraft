@@ -63424,7 +63424,9 @@ try {
   P.BEAT = 60 / P.BPM;          // 0.64 s
   P.LOOP = 12 * 4 * P.BEAT;     // 30.72 s, matches assets/sfx/popstar_song.*
   P.HEIGHT = 32;                // top of hair, in blocks
-  P.STRIDE = 11;                // one step per beat ~ 17.2 blocks/s (~38 mph)
+  P.STRIDE = 3;                 // slow walk: 3 blocks per beat ~ 4.7 blocks/s
+  P.MAX_STEP = 1;               // max step-up / step-down, in blocks
+  P.BODY_R = 4.2;               // keep-out radius so the camera cannot enter her
   P.SPAWN_CHANCE = 0.18;
   P.LIFE = 120;
   P.SONG_MP3 = 'assets/sfx/popstar_song.mp3';
@@ -64336,6 +64338,10 @@ try {
       try { m.alphaTest = 0; } catch (_) {}
       try { if (m.alphaMap) m.alphaMap = null; } catch (_) {}
       try { m.toneMapped = false; } catch (_) {}
+      try {
+        const ds = (typeof THREE !== 'undefined' && THREE.DoubleSide != null) ? THREE.DoubleSide : 2;
+        m.side = ds;
+      } catch (_) {}
     };
     mats.forEach(applyMat);
     g.name = g.name || 'popstar';
@@ -64648,7 +64654,46 @@ try {
     try { if (typeof PLANT !== 'undefined' && PLANT[b]) return false; } catch (_) {}
     return true;
   }
-  // Top of a solid dry-land block (not water, lava, leaves, plants or air). 0 if none.
+  // A thin floor / roof / battlement: there is a cavity in the 4 blocks under the surface.
+  // Natural terrain (dirt hills, solid ground) is filled and returns false.
+  function isRoofOrStructure(bx, standY, bz) {
+    try {
+      const floorY = standY - 1;
+      let gaps = 0, filled = 0;
+      for (let y = floorY - 1; y >= floorY - 4 && y >= 0; y--) {
+        const b = (typeof getB === 'function') ? getB(bx, y, bz) : 0;
+        const sol = isLandBlock(b) && (typeof solid !== 'function' || solid(bx, y, bz));
+        if (sol) filled++;
+        else gaps++;
+      }
+      return gaps >= 1;
+    } catch (e) { ERR('roof', e); return false; }
+  }
+
+  // Highest standable surface, including roofs and wall-tops. Used to detect structures
+  // sitting above the walkable grade so her footprint cannot clip through them.
+  function rawStandY(x, z) {
+    try {
+      const bx = Math.floor(x), bz = Math.floor(z);
+      if (typeof W === 'number' && (bx < 2 || bz < 2 || bx >= W - 2 || bz >= D - 2)) return 0;
+      if (typeof getB !== 'function') return 0;
+      const Hgt = (typeof H === 'number') ? H : 90;
+      for (let y = Hgt - 1; y >= 0; y--) {
+        const b = getB(bx, y, bz);
+        if (!isLandBlock(b)) continue;
+        if (typeof solid === 'function' && !solid(bx, y, bz)) continue;
+        const above = getB(bx, y + 1, bz);
+        const above2 = getB(bx, y + 2, bz);
+        if (isFluid(above) || isFluid(above2)) continue;
+        if (typeof solid === 'function' && (solid(bx, y + 1, bz) || solid(bx, y + 2, bz))) continue;
+        return y + 1;
+      }
+    } catch (e) { ERR('rawY', e); }
+    return 0;
+  }
+
+  // Top of a solid dry-land block she may walk on: not water, lava, leaves, plants,
+  // air, or a roof / thin structure floor. 0 if none.
   function landY(x, z) {
     try {
       const bx = Math.floor(x), bz = Math.floor(z);
@@ -64664,6 +64709,7 @@ try {
         const above2 = getB(bx, y + 2, bz);
         if (isFluid(above) || isFluid(above2)) continue;
         if (typeof solid === 'function' && (solid(bx, y + 1, bz) || solid(bx, y + 2, bz))) continue;
+        if (isRoofOrStructure(bx, y + 1, bz)) continue;
         return y + 1;
       }
     } catch (e) { ERR('land', e); }
@@ -64848,7 +64894,7 @@ try {
     scene.add(parts.g);
     const rec = {
       kind: 'popstar', g: parts.g, parts: parts, hostile: false, harmless: true,
-      hp: 9999, hitY: 8, hitR: 0.01, tall: C.HEIGHT, speed: C.STRIDE / C.BEAT,
+      hp: 9999, hitY: 16, hitR: (C.BODY_R || 4.2), tall: C.HEIGHT, speed: C.STRIDE / C.BEAT, supportY: gy,
       flee: 0, angry: 0, mats: parts.mats, named: true,
       yaw: yaw || 0, destYaw: yaw || 0, pathX: gx, pathZ: gz, pathYaw: yaw || 0,
       born: (typeof performance !== 'undefined' ? performance.now() : 0),
@@ -64914,7 +64960,8 @@ try {
       const nearEdge = nx < 6 || nz < 6 || nx > W - 6 || nz > D - 6;
       const aheadY = landY(nx, nz);
       const hereY = landY(rec.pathX, rec.pathZ);
-      const badAhead = aheadY < 1 || (hereY > 0 && Math.abs(aheadY - hereY) > 3);
+      const maxStep = (C && C.MAX_STEP != null) ? C.MAX_STEP : 1;
+      const badAhead = aheadY < 1 || (hereY > 0 && Math.abs(aheadY - hereY) > maxStep);
       if (nearEdge || badAhead) {
         rec.destYaw = yaw + (Math.random() < 0.5 ? 1 : -1) * (Math.PI * (0.6 + Math.random() * 0.6));
         U.turns = (U.turns || 0) + 1;
@@ -64960,13 +65007,29 @@ try {
       return { x: hipWX + sa * rz - ca * rx, z: hipWZ + ca * rz + sa * rx };
     }
     const lW = footWZ(st.left), rW = footWZ(st.right);
+    const maxStep = (C && C.MAX_STEP != null) ? C.MAX_STEP : 1;
     const gL = landY(lW.x, lW.z), gR = landY(rW.x, rW.z);
     const gH = landY(hipWX, hipWZ);
-    const support = (st.left.planted && !st.right.planted && gL > 0) ? gL
-      : (st.right.planted && !st.left.planted && gR > 0) ? gR
-      : Math.max(gL, gR, gH);
-    // Snap feet to the dry surface; never float, sink or stand in water.
-    if (support > 0) rec.g.position.set(hipWX, support, hipWZ);
+    // Ignore a foot that landed on a skipped roof or a >1-block jump; that was the castle spaz.
+    function stableSample(y, ref) {
+      if (!(y > 0)) return 0;
+      if (ref > 0 && Math.abs(y - ref) > maxStep) return 0;
+      return y;
+    }
+    const base = gH > 0 ? gH : Math.max(gL, gR);
+    const sL = stableSample(gL, base), sR = stableSample(gR, base);
+    let support = (sL > 0 && st.left.planted && !st.right.planted) ? sL
+      : (sR > 0 && st.right.planted && !st.left.planted) ? sR
+      : (base > 0 ? base : Math.max(sL, sR));
+    if (rec.supportY > 0 && support > 0) {
+      if (support > rec.supportY + maxStep) support = rec.supportY + maxStep;
+      if (support < rec.supportY - maxStep) support = rec.supportY - maxStep;
+    }
+    // Snap feet to the dry surface; never float, sink, stand in water, or pop onto a roof.
+    if (support > 0) {
+      rec.supportY = support;
+      rec.g.position.set(hipWX, support, hipWZ);
+    }
     rec.g.rotation.set(0, rec.yaw, 0);
     rec.g.visible = true;
     rec.g.frustumCulled = false;
@@ -64974,7 +65037,10 @@ try {
     try { if (C.dressVisible) C.dressVisible(parts); } catch (_) {}
     // applyPose expects rig at origin with hipZ subtracted from foot z; we already
     // placed g at the hip, so pass a state whose hipZ is used only relatively.
-    C.applyPose(parts, st, { l: gL - support, r: gR - support, h: 0 });
+    const dL = ((sL > 0) ? sL : support) - support;
+    const dR = ((sR > 0) ? sR : support) - support;
+    C.applyPose(parts, st, { l: dL, r: dR, h: 0 });
+    try { U.pushPlayerOut(); } catch (_) {}
 
     // Footstep events
     if (st.step !== rec.lastStep) {
@@ -64998,6 +65064,15 @@ try {
   }
 
   // ---------- hooks (chained after 1.2.48) ----------
+  try {
+    const up = updatePlayer;
+    window.updatePlayer = updatePlayer = function () {
+      const r = up.apply(this, arguments);
+      try { U.pushPlayerOut(); } catch (e) { ERR('push', e); }
+      return r;
+    };
+  } catch (e) { ERR('upw', e); }
+
   try {
     const um = updateMobs;
     window.updateMobs = updateMobs = function (dt) {
@@ -65084,15 +65159,69 @@ try {
     } catch (e) { ERR('stand', e); return false; }
   }
 
-  // One wander step: accept only dry land, reject steep drops or climbs of more than 3 blocks.
+  U.MAX_STEP = (C && C.MAX_STEP != null) ? C.MAX_STEP : 1;
+  U.BODY_R = (C && C.BODY_R != null) ? C.BODY_R : 4.2;
+  U.FOOT_R = 2.0;
+
+  // Sample her giant footprint: every point must be walkable terrain within 1 block of yRef.
+  function footprintOk(x, z, yRef) {
+    const r = U.FOOT_R;
+    const pts = [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]];
+    for (let i = 0; i < pts.length; i++) {
+      const sx = x + pts[i][0] * r, sz = z + pts[i][1] * r;
+      const y = landY(sx, sz);
+      const raw = rawStandY(sx, sz);
+      if (y < 1) return false;
+      if (yRef != null && Math.abs(y - yRef) > U.MAX_STEP) return false;
+      // A roof, battlement or wall sitting above the walk grade is a structure: refuse.
+      if (raw > y) return false;
+      if (yRef != null && raw > yRef + U.MAX_STEP) return false;
+    }
+    return true;
+  }
+
+  // One wander step: dry terrain only, max 1-block step-up/down, no roofs or thin structures.
   U.proposeStep = function (x, z, yaw, stepLen) {
     const fwd = headingVec(yaw);
     const nx = x + fwd.x * stepLen, nz = z + fwd.z * stepLen;
     const y0 = landY(x, z), y1 = landY(nx, nz);
-    if (y1 < 1 || y0 < 1 || Math.abs(y1 - y0) > 3) {
-      return {ok: false, x: x, z: z, y: y0, yaw: yaw, reason: y1 < 1 ? 'water' : 'steep'};
+    if (y1 < 1 || y0 < 1) {
+      return {ok: false, x: x, z: z, y: y0, yaw: yaw, reason: 'water'};
+    }
+    if (Math.abs(y1 - y0) > U.MAX_STEP) {
+      return {ok: false, x: x, z: z, y: y0, yaw: yaw, reason: 'steep'};
+    }
+    if (!footprintOk(nx, nz, y0)) {
+      return {ok: false, x: x, z: z, y: y0, yaw: yaw, reason: 'roof'};
     }
     return {ok: true, x: nx, z: nz, y: y1, yaw: yaw};
+  };
+
+  // Keep the player (and first-person camera) out of her body so meshes are never
+  // clipped by the near plane and backfaces stay out of view.
+  U.pushPlayerOut = function (player, rec) {
+    rec = rec || aLive;
+    player = player || ((typeof P !== 'undefined') ? P : null);
+    if (!rec || !player || !rec.g || !rec.g.position) return { pushed: false };
+    const px = player.x, py = player.y || 0, pz = player.z;
+    const gx = rec.g.position.x, gy = rec.g.position.y || 0, gz = rec.g.position.z;
+    const h = (C && C.HEIGHT) || 32;
+    const r = U.BODY_R;
+    if (py + 1.8 < gy - 0.5 || py > gy + h + 0.5) {
+      return { pushed: false, dist: Math.hypot(px - gx, pz - gz) };
+    }
+    const dx = px - gx, dz = pz - gz;
+    const dist = Math.hypot(dx, dz);
+    if (dist >= r) return { pushed: false, dist: dist };
+    const ux = (dist < 1e-4) ? 1 : dx / dist, uz = (dist < 1e-4) ? 0 : dz / dist;
+    const nx = gx + ux * r, nz = gz + uz * r;
+    player.x = nx;
+    player.z = nz;
+    const y = landY(nx, nz);
+    if (y >= 1) player.y = y;
+    try { player.kbx = 0; player.kbz = 0; } catch (_) {}
+    U.pushed = (U.pushed || 0) + 1;
+    return { pushed: true, dist: r, x: nx, y: player.y, z: nz };
   };
 
   // Distance at which her whole 32-block body fits in a portrait 412x915, ~70° vertical FOV, with margin.
@@ -65211,6 +65340,9 @@ try {
   U.spotInFront = spotInFront;
   U.standOk = standOk;
   U.landY = landY;
+  U.rawStandY = rawStandY;
+  U.isRoofOrStructure = isRoofOrStructure;
+  U.footprintOk = footprintOk;
   U.isDryLand = isDryLand;
   U.isFluid = isFluid;
   U.findLandNear = findLandNear;
@@ -65252,7 +65384,6 @@ try {
     };
   } catch (_) {}
 })();
-
 /* GLX-V1251-END */
 
 </script>
