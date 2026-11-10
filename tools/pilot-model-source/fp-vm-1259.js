@@ -3361,8 +3361,8 @@
     // row can close around the hilt cylinder, then hooks slightly +Z.
     if (typeof T.LatheGeometry === 'function') {
       const pts = [
-        new T.Vector2(r, -0.050),
-        new T.Vector2(r * 1.05, -0.056),
+        new T.Vector2(r, -0.056),
+        new T.Vector2(r * 1.05, -0.062),
         new T.Vector2(0.013, -0.068),
         new T.Vector2(0.012, -0.080),
         new T.Vector2(0.007, -0.088),
@@ -3375,37 +3375,37 @@
     addFpPart(g, new T.SphereGeometry(0.009, 10, 8), wood, 0, -0.082, 0.016);
     addFpPart(g, new T.CylinderGeometry(0.006, 0.009, 0.018, 10), wood, 0, -0.076, 0.022, 1.05, 0, 0);
 
-    // Wood lock-tang joining the wrist to the barrel / forestock.
-    addFpPart(g, new T.CylinderGeometry(0.013, r, 0.040, 12), wood, 0, 0.048, 0.004, 0.15, 0, 0);
+    // Wood tang and barrel sit clearly ABOVE the fist so the knuckle
+    // row can close around the hilt the way it does on the sword.
+    const barrelY = 0.078;
+    addFpPart(g, new T.CylinderGeometry(0.011, r, 0.028, 12), wood, 0, 0.062, 0.002, 0.12, 0, 0);
     const barrelLen = 0.28;
-    const barrelY = 0.048;
-    const breechZ = 0.018;
+    const breechZ = 0.008;
     const muzZ = breechZ - barrelLen;
     const bar = addFpPart(g, new T.CylinderGeometry(0.0078, 0.0115, barrelLen, 8), steel, 0, barrelY, breechZ - barrelLen / 2);
     bar.rotation.x = Math.PI / 2;
     addFpPart(g, new T.CylinderGeometry(0.0090, 0.0090, 0.016, 12), steel, 0, barrelY, muzZ - 0.004).rotation.x = Math.PI / 2;
-    addFpPart(g, new T.CylinderGeometry(0.015, 0.015, 0.032, 8), steel, 0, barrelY, 0.028).rotation.x = Math.PI / 2;
+    addFpPart(g, new T.CylinderGeometry(0.014, 0.014, 0.028, 8), steel, 0, barrelY, 0.016).rotation.x = Math.PI / 2;
     addFpPart(g, new T.BoxGeometry(0.004, 0.006, 0.016), steel, 0, barrelY + 0.014, -0.04);
     addFpPart(g, new T.BoxGeometry(0.0024, 0.008, 0.0024), steel, 0, barrelY + 0.012, muzZ + 0.01);
 
     // Forestock hugging the barrel underside, clear of the fist.
-    const fore = addFpPart(g, new T.CylinderGeometry(0.011, 0.008, 0.15, 12), wood, 0, barrelY - 0.014, -0.070);
+    const fore = addFpPart(g, new T.CylinderGeometry(0.011, 0.008, 0.15, 12), wood, 0, barrelY - 0.014, -0.080);
     fore.rotation.x = Math.PI / 2;
-    addFpPart(g, new T.BoxGeometry(0.016, 0.010, 0.046), wood, 0, barrelY - 0.016, 0.010);
+    addFpPart(g, new T.BoxGeometry(0.016, 0.010, 0.040), wood, 0, barrelY - 0.016, -0.010);
 
-    // Lock plate, cocked hammer, flint, frizzen on +X (mirrored to camera later).
-    addFpPart(g, new T.BoxGeometry(0.004, 0.026, 0.046), steel, 0.016, 0.042, 0.008);
-    addFpPart(g, new T.BoxGeometry(0.0045, 0.024, 0.010), steel, 0.020, 0.058, -0.004, 0.70, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.009, 0.012), flint, 0.022, 0.072, -0.008, 0.55, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.0036, 0.020, 0.010), brass, 0.019, 0.052, 0.022, -0.45, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.008, 0.006, 0.012), brass, 0.014, 0.036, 0.024); // pan
+    // Lock plate, cocked hammer, flint, frizzen on +X, all above the fist.
+    addFpPart(g, new T.BoxGeometry(0.004, 0.024, 0.040), steel, 0.016, 0.074, -0.004);
+    addFpPart(g, new T.BoxGeometry(0.0045, 0.022, 0.010), steel, 0.020, 0.090, -0.016, 0.70, 0, 0);
+    addFpPart(g, new T.BoxGeometry(0.0036, 0.009, 0.012), flint, 0.022, 0.104, -0.020, 0.55, 0, 0);
+    addFpPart(g, new T.BoxGeometry(0.0036, 0.018, 0.010), brass, 0.019, 0.084, 0.010, -0.45, 0, 0);
+    addFpPart(g, new T.BoxGeometry(0.008, 0.006, 0.012), brass, 0.014, 0.068, 0.012); // pan
 
-    // Trigger and guard sit under the lock, toward the muzzle, ABOVE the
-    // fist so they never open the knuckle row.
+    // Trigger and guard under the lock, toward the muzzle, clear of the knuckles.
     if (typeof T.TorusGeometry === 'function') {
-      addFpPart(g, new T.TorusGeometry(0.013, 0.0020, 6, 16, Math.PI * 1.15), steel, 0, 0.026, 0.022, Math.PI / 2, 0, 0);
+      addFpPart(g, new T.TorusGeometry(0.012, 0.0020, 6, 16, Math.PI * 1.15), steel, 0, 0.058, 0.000, Math.PI / 2, 0, 0);
     }
-    addFpPart(g, new T.BoxGeometry(0.0030, 0.014, 0.005), steel, 0, 0.030, 0.032, 0.20, 0, 0);
+    addFpPart(g, new T.BoxGeometry(0.0030, 0.012, 0.005), steel, 0, 0.062, 0.010, 0.20, 0, 0);
 
     // Small brass cap on the pommel (joined, not a floating ball).
     addFpPart(g, new T.SphereGeometry(0.0048, 8, 6), brass, 0, -0.090, 0.006);
