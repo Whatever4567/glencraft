@@ -48,6 +48,12 @@ ok(album.includes('moor_light') && album.includes('midday_glen') && album.includ
 ok(album.includes("moor: ['moor_light']") && album.includes("high: ['ridge_wind']")
   && album.includes("boss: ['boss_of_the_glen']") && album.includes("crystal: ['crystal_hunt']"),
   'batch 4 contexts map to their dedicated cues');
+ok(album.includes('bounce_the_glen') && album.includes('nightcore_loch') && album.includes('cairn_flash') && album.includes('till_the_hills'),
+  'batch 5 hardcore album sides are in the bounce pool');
+ok(album.includes("bounce: ['bounce_the_glen'") && album.includes("return 'bounce'"),
+  'bounce sides are opt-in and do not auto-play in day/night rotation');
+ok(!album.includes('hardcore_remix'),
+  'album player does not reference the live Happy Hardcore remix file');
 ok(album.includes("return 'moor'") && album.includes("return 'high'") && album.includes("return 'pine'")
   && album.includes("return 'boss'") && album.includes("'crystal'"),
   'detectContext returns moor, high, pine, boss and crystal');
@@ -66,7 +72,8 @@ const tracks = [
   'below_the_map', 'open_sketch', 'inner_sun', 'pine_shelter',
   'owl_hour', 'claymore', 'starlight_show', 'last_light',
   'moor_light', 'midday_glen', 'bothy_smoke', 'northern_quiet',
-  'ridge_wind', 'stone_memory', 'boss_of_the_glen', 'crystal_hunt'
+  'ridge_wind', 'stone_memory', 'boss_of_the_glen', 'crystal_hunt',
+  'bounce_the_glen', 'nightcore_loch', 'cairn_flash', 'till_the_hills'
 ];
 for (const id of tracks) {
   const ogg = new URL('../music/album/' + id + '.ogg', import.meta.url);
@@ -89,6 +96,9 @@ ok(credits.includes('starlight_show') && credits.includes('claymore') && credits
   'CREDITS records unpublished batch 3');
 ok(credits.includes('moor_light') && credits.includes('boss_of_the_glen') && credits.includes('crystal_hunt') && credits.includes('stone_memory'),
   'CREDITS records unpublished batch 4');
+ok(credits.includes('bounce_the_glen') && credits.includes('nightcore_loch') && credits.includes('cairn_flash') && credits.includes('till_the_hills')
+  && /does not replace|not replaced/i.test(credits),
+  'CREDITS records unpublished batch 5 and that the live remix stays');
 ok(credits.includes('hardcore_remix') && /Classic soundtrack/i.test(credits),
   'CREDITS still record the remix and Classic soundtrack');
 

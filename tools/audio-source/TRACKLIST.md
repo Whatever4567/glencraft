@@ -8,16 +8,16 @@ Tuning of the score:
 - A shared highland leitmotif (the "Glen theme") returns in every piece, re-harmonised per place.
 - Scottish colour: tin whistle, low whistle, fiddle, Celtic harp, bagpipe drones, bodhran. No piano-led writing. Piano is avoided entirely in batch 1 and reserved, if ever, as a background colour in later calm overworld pieces only.
 - Crystal caves and Agartha are beatless ethereal liminal ambient: choir pad, glassy bells, deep drone, cavernous reverb, minor or modal.
-- Energetic / hardcore album tracks (later batches) follow UK happy hardcore / bounce: 165 BPM, punchy kick, off-beat FM donk, pitched-up original vocal hooks. The live remix file is not replaced.
+- Energetic / hardcore album sides (batch 5) follow UK happy hardcore / bounce: 165 BPM, punchy kick, off-beat FM donk, original pitched-up lead hooks. They live in an opt-in bounce pool and do not replace the live remix file.
 - Space, Moon and Mars stay weightless and thin. Volcanoes are dark and slow, not dance music. Night is watchful. Combat (`claymore`) is a tense written-percussion bed, not happy hardcore. The pop-star cue (`starlight_show`) is original dance-pop and must not replace her diegetic song.
 
 Playback (Album mode):
 - Per-context playlists, random rotation, no immediate repeat when a pool has more than one track.
 - Silence gaps after a piece, in the spirit of Minecraft (about 45–180 s in the world; shorter on the title screen; combat may interrupt).
 - Lazy-loaded Ogg Vorbis (about 96–128 kbps) with an MP3 fallback.
-- Missing contexts fall back along a sensible chain (for example loch → day, purple cave → blue cave, Mars → Moon). Batch 2 fills purple, snow, desert, Mars, space and underwater, and adds second day and night cues. Batch 3 adds pine/owl companions, a warmer Agartha cue, hell/void, creative, combat, the pop-star dance-pop cue, and a credits reprise, plus detectContext hooks for combat, near the pop star, and credits. Batch 4 adds further day/night and highlands cues, an older Agartha memory, a boss cue, and crystal-cave combat, plus biome hooks for moor, high and pine.
+- Missing contexts fall back along a sensible chain (for example loch → day, purple cave → blue cave, Mars → Moon). Batch 2 fills purple, snow, desert, Mars, space and underwater, and adds second day and night cues. Batch 3 adds pine/owl companions, a warmer Agartha cue, hell/void, creative, combat, the pop-star dance-pop cue, and a credits reprise, plus detectContext hooks for combat, near the pop star, and credits. Batch 4 adds further day/night and highlands cues, an older Agartha memory, a boss cue, and crystal-cave combat, plus biome hooks for moor, high and pine. Batch 5 adds four original 165 BPM UK-bounce album sides (they do not replace the live Happy Hardcore remix).
 
-Status key: **B1** / **B2** / **B3** / **B4** = shipped on this branch, later = planned.
+Status key: **B1** / **B2** / **B3** / **B4** / **B5** = shipped on this branch.
 
 ## Tracklist
 
@@ -55,12 +55,14 @@ Status key: **B1** / **B2** / **B3** / **B4** = shipped on this branch, later = 
 | 30 | `open_sketch` | Open Sketch | Creative mode | 3:12 | **B3** | Lighter, more open day variant. C mixolydian. |
 | 31 | `down_among_the_reeds` | Down Among the Reeds | Underwater | 3:00 | **B2** | Muffled harp, bubbling air, slow choir. |
 | 32 | `last_light` | Last Light | Credits | 3:15 | **B3** | Full Glen-theme reprise, then thin-out. |
-| 33 | `bounce_the_glen` | Bounce the Glen | Hardcore (overworld) | 3:20 | later | Original 165 BPM UK bounce; does not replace the remix. |
-| 34 | `nightcore_loch` | Nightcore Loch | Hardcore (night / drop) | 3:00 | later | Night-coloured hardcore sibling. |
+| 33 | `bounce_the_glen` | Bounce the Glen | Album hardcore side | 3:18 | **B5** | Original 165 BPM UK bounce, E dorian. Does not replace the remix. |
+| 34 | `nightcore_loch` | Nightcore Loch | Album hardcore side | 3:18 | **B5** | Night-coloured sibling, F# aeolian, drop 2 lifts +3. Does not replace the remix. |
+| 35 | `cairn_flash` | Cairn Flash | Album hardcore side | 3:12 | **B5** | Brighter festival side, B dorian. Does not replace the remix. |
+| 36 | `till_the_hills` | Till the Hills | Album hardcore side | 3:24 | **B5** | Emotive folk-EDM build into bounce drops, A dorian. Does not replace the remix. |
 
 The live Happy Hardcore remix (`music/hardcore_remix.ogg` / `.mp3`) remains the Happy Hardcore mode's loop and is not part of this album's file set.
 
-## Playlist wiring (batches 1–4)
+## Playlist wiring (batches 1–5)
 
 | Context | Pool | Fallback if empty / later |
 |---|---|---|
@@ -88,9 +90,10 @@ The live Happy Hardcore remix (`music/hardcore_remix.ogg` / `.mp3`) remains the 
 | boss (Ember Wyrm / `kind === 'dragon'` or `boss === true`, within 56 blocks) | `boss_of_the_glen` | combat |
 | near the giant pop star | `starlight_show` | day. Duck or skip while `__v1251.songOn`. |
 | credits (`__creditsOpen`, `#credits`, or a credits roll element) | `last_light` | menu |
+| album hardcore sides (opt-in: `__v126x.bounce`, `__albumBounce`, or `#bounce`; never auto-mixed into day/night) | `bounce_the_glen`, `nightcore_loch`, `cairn_flash`, `till_the_hills` | day |
 
 ## Production notes
 
-- Rendered at 44.1 kHz stereo, mastered to about −16 to −14 LUFS for calm / scenic tracks (true peak ≤ −1 dB). Later energetic hardcore album tracks aim near −9 LUFS.
+- Rendered at 44.1 kHz stereo, mastered to about −16 to −14 LUFS for calm / scenic tracks (true peak ≤ −1 dB). Energetic hardcore album sides aim near −9 to −10 LUFS, with quieter intros and breakdowns so the drops stay festive without flattening the dynamic range.
 - Each piece is arranged in sections with motif development, then crossfaded so the loop is seamless.
-- Sources and renderers live in `tools/audio-source/` (`album_lib.py`, `album_cinema.py`, `render-album-batch1.py`, `render-album-batch2.py`, `render-album-batch3.py`, `render-album-batch4.py`) and the in-game player in `tools/content-source/v126x-album.js`.
+- Sources and renderers live in `tools/audio-source/` (`album_lib.py`, `album_cinema.py`, `render-album-batch1.py`, `render-album-batch2.py`, `render-album-batch3.py`, `render-album-batch4.py`, `render-album-batch5.py`) and the in-game player in `tools/content-source/v126x-album.js`.

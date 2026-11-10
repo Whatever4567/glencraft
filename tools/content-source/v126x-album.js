@@ -8,7 +8,7 @@
 
   const SRC = 'music/album/';
   const SRC_Q = '?v=1.2.54';
-  // Batches 1–4. Later batches append; fallbacks remain for unfilled contexts.
+  // Batches 1–5. Bounce sides live in their own pool so they do not land in pastoral day/night rotation.
   const POOLS = U.POOLS = {
     menu: ['the_glen_opens'],
     day: ['heather_road', 'drove_road', 'pine_shelter', 'midday_glen', 'bothy_smoke'],
@@ -34,14 +34,15 @@
     crystal: ['crystal_hunt'],
     boss: ['boss_of_the_glen'],
     popstar: ['starlight_show'],
-    credits: ['last_light']
+    credits: ['last_light'],
+    bounce: ['bounce_the_glen', 'nightcore_loch', 'cairn_flash', 'till_the_hills']
   };
   const FALLBACK = {
     purple: 'blue', cave1: 'blue', hell: 'volcano',
     mars: 'moon', space: 'moon',
     snow: 'night', desert: 'day', underwater: 'loch',
     creative: 'day', combat: 'volcano', crystal: 'combat', boss: 'combat',
-    popstar: 'day', credits: 'menu',
+    popstar: 'day', credits: 'menu', bounce: 'day',
     loch: 'day', volcano: 'day', high: 'day', pine: 'day', moor: 'day'
   };
   const GAP = {
@@ -53,6 +54,7 @@
     crystal: [8, 20],
     boss: [6, 14],
     popstar: [10, 24],
+    bounce: [8, 20],
     default: [50, 160]
   };
 
@@ -154,6 +156,12 @@
     try {
       // Credits beat the title-screen menu so a roll can play from either place.
       if (creditsOpen()) return 'credits';
+      // Album hardcore sides (never the live remix). Opt-in only: they must
+      // not land in ordinary day/night rotation or replace Happy Hardcore mode.
+      try {
+        if (U.bounce || window.__albumBounce) return 'bounce';
+        if (typeof location !== 'undefined' && /(?:^|#|&)bounce\b/i.test(String(location.hash || ''))) return 'bounce';
+      } catch (_) {}
       if (typeof started !== 'undefined' && !started) return 'menu';
       // Boss, crystal-cave combat, then general combat, then the pop star.
       if (nearBoss()) return 'boss';
