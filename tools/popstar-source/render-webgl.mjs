@@ -71,6 +71,17 @@ async function shoot(viewport, namePrefix, shots) {
 
 const portrait = {width: 412, height: 915};
 const wide = {width: 1280, height: 720};
+const QUICK = process.argv.includes('quick');
+if (QUICK) {
+  await shoot(portrait, 'portrait', [
+    {hold: 2, cam: 'close', name: 'pose2-close.png'},
+    {hold: 2, cam: 'side', name: 'pose2-side.png'},
+    {hold: 2, cam: 'portrait', name: 'pose2-portrait.png'},
+  ]);
+  server.close();
+  console.log('done quick');
+  process.exit(0);
+}
 await shoot(portrait, 'portrait', [
   {hold: 1, cam: 'portrait', name: 'pose1-portrait.png'},
   {hold: 2, cam: 'portrait', name: 'pose2-portrait.png'},
