@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p21', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p22', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -659,7 +659,12 @@
         // sits under the hand group. Never hide the held item, a finger,
         // or the 1270 Scottish TP arm (its bind AABB is at the camera
         // because cover uses the unskinned box).
-        const wall = !item && !palm && !tpArm && (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)));
+        const bowlKeepFo = !!(U.__keepBowlFo || (U.__palmBowl && U.__bowl && U.__bowl[U.kind] && U.__bowl[U.kind].keepFo));
+        const isFo = !!(o.userData && o.userData.sleeveFo21);
+        const wall = !item && !palm && !tpArm && (
+          (bowlKeepFo && isFo) ? !!swallows :
+          (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)))
+        );
         if (wall) {
           o.visible = false;
           U._culled.push(o);
@@ -1073,6 +1078,7 @@
       hideLeftoverCubes();
       trimToolCuff(k);
       trimAdsDebris(k, ads);
+      trimBowlCap(k);
       U.fovK = cur.fov;
       U.kind = k;
       U.ads = ads ? 1 : 0;
@@ -1105,26 +1111,27 @@
   // a toward-camera bowl, thumb abducted to the side (ref 09). Cobble and
   // map lock that same arm (useEmpty) so item seating cannot chase the IK.
   U.__palmBowl = 1;
-  const bowlFrame = {dx: -0.02, dy: -0.10, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12};
+  const bowlFrame = {dx: -0.04, dy: -0.10, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12};
   const bowlThumb = {eul: [0.35, 1.10, 0.25], mid: 0.15};
   U.__bowl = {
     empty: {
       frame: bowlFrame,
-      pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
-      curl: -0.50, thumb: bowlThumb
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI, tilt: 0.25,
+      curl: -0.50, thumb: bowlThumb,
+      hideCap: 1
     },
     block: {
-      frame: Object.assign({}, bowlFrame, {dx: -0.06, s: 0.70}),
-      pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
-      curl: -0.70, thumb: bowlThumb,
-      useEmpty: 1,
+      frame: Object.assign({}, bowlFrame, {dx: -0.06, s: 0.60}),
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI, tilt: 0.25,
+      curl: -0.85, curlI: -0.08, thumb: bowlThumb,
+      useEmpty: 1, hideCap: 1,
       grip: {p: [0, 0, 0], palm: [-0.01, 0.030, -0.08], align: 0}
     },
     map: {
       frame: Object.assign({}, bowlFrame, {s: 1.04, fov: 0.76}),
-      pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI, tilt: 0.25,
       curl: -0.35, thumb: {eul: [0.85, 0.70, 0.35], mid: 0.80},
-      useEmpty: 1,
+      useEmpty: 1, hideCap: 1,
       grip: {p: [0.08, 0, 0.06], palm: [0, 0.03, -0.02], align: 0}
     }
   };
@@ -1202,11 +1209,11 @@
   // pitch/sup. Fallback when cobble or map is equipped before empty has
   // been posed this session.
   U._emptyBowlFallback = {
-    up: {P: [0.1917, -0.3488, -0.041], Q: [-0.66985, 0, 0.05076, 0.74076]},
-    el: {P: [0.1632, -0.3118, -0.4181], Q: [0, 0, 0, 1]},
-    fo: {P: [0.2003, -0.3241, -0.3294], Q: [-0.09238, 0.93443, -0.34395, 0]},
-    cuff: {P: [0.1393, -0.4188, -0.4496], Q: [-0.09238, 0.93443, -0.34395, 0]},
-    h: {P: [0.1381, -0.0555, -0.5608], Q: [-0.14274, 0.92394, -0.32629, 0.13964]}
+    up: {P: [0.1916, -0.3483, -0.0424], Q: [-0.66883, 0, 0.05049, 0.7417]},
+    el: {P: [0.1631, -0.3103, -0.4194], Q: [0, 0, 0, 1]},
+    fo: {P: [0.2151, -0.3409, -0.3519], Q: [-0.09633, 0.96715, -0.23494, 0.0121]},
+    cuff: {P: [0.2119, -0.3252, -0.3602], Q: [-0.09633, 0.96715, -0.23494, 0.0121]},
+    h: {P: [0.1501, -0.0273, -0.5164], Q: [-0.13035, 0.95448, -0.2179, 0.1565]}
   };
   function applyPalmBowl(arm, kind) {
     const spec = U.__bowl && U.__bowl[kind];
@@ -1268,6 +1275,38 @@
         foAxis2.normalize();
         const pivot2 = p.el ? p.el.position.clone() : p.fo.position.clone();
         parts.forEach(function (o) { rotateAround(o, pivot2, foAxis2, sup); });
+      }
+    }
+    // Extra visual yaw/tilt after pitch+sup, still pivoted at the elbow,
+    // so the linen sleeve can run off the bottom-right instead of presenting
+    // its end cap. Axes are camera-up / camera-right in the arm's local space.
+    const yaw = spec.yaw || 0, tilt = spec.tilt || 0;
+    if ((yaw || tilt) && p.fo.parent) {
+      const arm = p.fo.parent;
+      const pivot3 = p.el ? p.el.position.clone() : p.fo.position.clone();
+      arm.updateWorldMatrix(true, false);
+      const inv = new T.Matrix4();
+      if (typeof arm.matrixWorld.invert === 'function') inv.copy(arm.matrixWorld).invert();
+      else if (typeof inv.getInverse === 'function') inv.getInverse(arm.matrixWorld);
+      function camAxis(x, y, z) {
+        const v = new T.Vector3(x, y, z);
+        try {
+          if (typeof camera !== 'undefined' && camera) {
+            camera.updateMatrixWorld(true);
+            v.transformDirection(camera.matrixWorld);
+          }
+        } catch (_) {}
+        v.transformDirection(inv);
+        if (v.lengthSq() < 1e-10) return null;
+        return v.normalize();
+      }
+      if (yaw) {
+        const yax = (spec.yax && spec.yax.length === 3) ? new T.Vector3(spec.yax[0], spec.yax[1], spec.yax[2]) : camAxis(0, 1, 0);
+        if (yax && yax.lengthSq() > 1e-10) parts.forEach(function (o) { rotateAround(o, pivot3, yax, yaw); });
+      }
+      if (tilt) {
+        const tax = (spec.tax && spec.tax.length === 3) ? new T.Vector3(spec.tax[0], spec.tax[1], spec.tax[2]) : camAxis(1, 0, 0);
+        if (tax && tax.lengthSq() > 1e-10) parts.forEach(function (o) { rotateAround(o, pivot3, tax, tilt); });
       }
     }
     if (kind === 'empty' && side === 1) U._emptyBowlApplied = snapBowlParts(p);
@@ -1642,6 +1681,23 @@
     } catch (e) { ERR('ads-debris', e); }
   }
 
+  function trimBowlCap(kind) {
+    try {
+      const bowl = U.__palmBowl && U.__bowl && U.__bowl[kind];
+      const hide = !!(bowl && (bowl.hideCap || U.__hideBowlCap));
+      eachArm(function (arm) {
+        const p = arm.userData && arm.userData.p;
+        if (!p || !p.h) return;
+        p.h.traverse(function (o) {
+          if (!o.isMesh) return;
+          if (!(o.userData && (o.userData.wristCap1249 || o.userData.sleeveCap))) return;
+          if (hide) { o.visible = false; o.userData.__hidBowlCap = 1; }
+          else if (o.userData.__hidBowlCap) { o.visible = true; o.userData.__hidBowlCap = 0; }
+        });
+      });
+    } catch (_) {}
+  }
+
   function repose() {
     try {
       const k = kindOf();
@@ -1655,6 +1711,7 @@
       else showGunSleeves();
       trimToolCuff(k);
       trimAdsDebris(k, ads);
+      trimBowlCap(k);
     } catch (e) { ERR('repose', e); }
   }
 

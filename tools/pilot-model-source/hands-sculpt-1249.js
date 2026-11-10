@@ -3,7 +3,7 @@
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
-  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p21', sculpted: 0};
+  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p22', sculpted: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -678,10 +678,10 @@
     }
     if (p.el) { p.el.material = lm; mark(p.el); }
     if (p.cuff) {
-      if (!p.cuff.userData.sleeve1257) {
-        // Cuff in the same local frame as the original limb ( +Y along the forearm ).
-        // A slight flare at the wrist end reads as a rolled hem, with no extra torus.
-        p.cuff.geometry = sleeveGeo(0.060, 0.068, 0.145, 24, 14, 3);
+      if (!p.cuff.userData.sleeveCuff22) {
+        // Slightly wider, softer rolled hem at the wrist (ref 08/09).
+        // Same local frame (+Y along the forearm) and length as before.
+        p.cuff.geometry = sleeveGeo(0.062, 0.078, 0.145, 24, 14, 3);
         const g = p.cuff.geometry.clone();
         const pos = g.attributes.position;
         let ymin = Infinity, ymax = -Infinity;
@@ -689,10 +689,10 @@
         const span = (ymax - ymin) || 1;
         for (let i = 0; i < pos.count; i++) {
           const t = (pos.getY(i) - ymin) / span;
-          // swell the last 18% into a soft rolled lip
-          if (t > 0.82) {
-            const k = (t - 0.82) / 0.18;
-            const fl = 1 + 0.22 * k * k;
+          // swell the last 28% into a soft rolled lip
+          if (t > 0.72) {
+            const k = (t - 0.72) / 0.28;
+            const fl = 1 + 0.30 * k * k;
             pos.setX(i, pos.getX(i) * fl);
             pos.setZ(i, pos.getZ(i) * fl);
           }
@@ -700,6 +700,7 @@
         pos.needsUpdate = true;
         g.computeVertexNormals();
         p.cuff.geometry = g;
+        p.cuff.userData.sleeveCuff22 = 1;
         p.cuff.userData.sleeve1257 = 1;
       }
       p.cuff.material = lm; mark(p.cuff);
