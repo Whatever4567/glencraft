@@ -152,56 +152,68 @@ def make_kick(rng, dur=0.22):
 
 
 def make_donk(freq, rng, spb, style="bounce"):
-    """Off-beat donk + reverse-bass.
+    """Hollow metallic 2-op FM donk on the off-beat.
 
-    Donk: FM sine → resonant band-pass (hollow mid ring ~500–1200 Hz),
-    short pitch envelope. Reverse-bass: detuned saw, rising amp/filter,
-    pointing at the next kick. Lasts most of the off-beat.
+    Carrier an octave above the root, modulator ratio 1.75 (between 1.5 and
+    2), a short pitch-dropping envelope and a fast-decaying FM index. Resonant
+    band-passes give the classic UK bounce 'donk' hollow mid. High-passed and
+    notched at 50 Hz so it does not mask the kick fundamental. A quiet
+    high-passed reverse-bass still leans into the next kick.
     """
-    dur = spb * 0.90
+    dur = spb * 0.84
     n = int(dur * SR)
     t = np.arange(n) / SR
     fade_out = np.ones(n)
-    tail = int(0.022 * SR)  # clear the next kick
+    tail = int(0.016 * SR)
     fade_out[-tail:] = np.linspace(1, 0, tail)
 
-    # --- FM donk (octave-up mid, woody/hollow) ---
-    st_env = 7.0 * np.exp(-t / 0.024)  # slightly snappier thunk
-    f = (freq * 2.0) * (2.0 ** (st_env / 12.0))
-    idx = 5.5 * np.exp(-t / 0.065)
-    ph_c = 2 * np.pi * np.cumsum(f) / SR
-    ph_m = 2 * np.pi * np.cumsum(f * 1.0) / SR
+    # Pitch drop: ~+10 st down to the octave-up carrier in ~20 ms
+    drop_st = 10.0 * np.exp(-t / 0.018)
+    f_car = (freq * 2.0) * (2.0 ** (drop_st / 12.0))
+    ratio = 1.75
+    f_mod = f_car * ratio
+    idx = 7.2 * np.exp(-t / 0.020) + 0.35
+    ph_m = 2 * np.pi * np.cumsum(f_mod) / SR
+    ph_c = 2 * np.pi * np.cumsum(f_car) / SR
     fm = np.sin(ph_c + idx * np.sin(ph_m))
-    # a little pulse for hollowness
-    pulse = blep_square(n, float(np.median(f)), phase0=0.1, pw=0.28) * np.exp(-t / 0.08)
-    raw = fm * 0.85 + pulse * 0.25
-    donk = rbj(raw, 520, 3.2, "band") * 0.7
-    donk += rbj(raw, 720, 3.8, "band")  # slightly lower Q — less whistle
-    donk += rbj(raw, 1100, 2.8, "band") * 0.32
-    # amp: present from the start, slight swell (bounce), fade into the kick
-    denv = (0.72 + 0.28 * (t / (t[-1] + 1e-12)) ** 0.45) * fade_out
-    att = int(0.003 * SR)
+
+    # Hollow metallic resonances (mid is the donk; keep out of the kick band)
+    donk = rbj(fm, 430, 4.4, "band") * 0.70
+    donk += rbj(fm, 680, 5.2, "band") * 1.05
+    donk += rbj(fm, 980, 3.6, "band") * 0.48
+    donk += rbj(fm, 1480, 2.8, "band") * 0.22
+    donk += rbj(fm, 2200, 2.2, "band") * 0.08
+
+    denv = (0.62 * np.exp(-t / 0.090) + 0.38 * np.exp(-t / 0.20)) * fade_out
+    att = int(0.0018 * SR)
     denv[:att] *= np.linspace(0, 1, att)
 
-    # --- 150–200 Hz octave body (the missing bounce weight vs the reference) ---
-    body = np.sin(ph_c)
-    body = sos_lp(body, 220)
-    benv = (0.80 * np.exp(-t / 0.16) + 0.35) * fade_out
+    # Mid-bass thump 90–200 Hz (octave weight) plus a short root thunk
+    # at 58–73 Hz (the 60–80 Hz bounce band of the reference). The thunk
+    # decays fast so it does not become a 50 Hz sub that masks the kick.
+    body = sos_bp(np.sin(ph_c), 90, 220)
+    benv = np.exp(-t / 0.090) * fade_out
     benv[:att] *= np.linspace(0, 1, att)
+    root = np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.055) * fade_out
+    root[:att] *= np.linspace(0, 1, att)
+    # 1.5× root sits in 87–110 Hz (the reference's 80–100 Hz donk band)
+    upper = np.sin(2 * np.pi * freq * 1.5 * t) * np.exp(-t / 0.070) * fade_out
+    upper[:att] *= np.linspace(0, 1, att)
 
-    # --- reverse-bass: bandlimited saw, rising toward the next kick ---
+    # Quiet reverse-bass, high-passed so it cannot mask the kick
     saw = np.zeros(n)
-    for cents, amp in ((-11, 0.55), (0, 0.8), (11, 0.55)):
+    for cents, amp in ((-9, 0.45), (0, 0.7), (9, 0.45)):
         saw += amp * blep_saw(n, freq * 2 ** (cents / 1200.0), phase0=0.07 * (cents + 12))
-    saw = tanh_sat(saw / 1.9, 1.6)
-    cut = 360 + 500 * (t / (t[-1] + 1e-12)) ** 0.7
-    saw = rbj_tv_low(saw, cut, Q=1.2)
-    rb_env = (t / (t[-1] + 1e-12)) ** 0.50 * fade_out
+    saw = tanh_sat(saw / 1.7, 1.4)
+    cut = 280 + 420 * (t / (t[-1] + 1e-12)) ** 0.7
+    saw = sos_hp(rbj_tv_low(saw, cut, Q=1.1), 110)
+    rb_env = (t / (t[-1] + 1e-12)) ** 0.62 * fade_out * 0.50
 
-    sub = np.sin(2 * np.pi * freq * t) * (0.55 + 0.45 * (t / t[-1]) ** 0.4) * fade_out
-
-    sig = donk * denv * 1.20 + body * benv * 0.72 + saw * rb_env * 0.95 + sub * 0.75
-    sig = tanh_sat(sig, 1.18) * fade_out
+    sig = donk * denv * 1.55 + body * benv * 1.05 + root * 0.95 + upper * 0.85 + saw * rb_env
+    # Keep rumble below the lowest donk root out; notch the kick fundamental narrowly
+    sig = sos_hp(sig, 54)
+    sig = rbj(sig, 50, 5.5, "peak", gain_db=-7.0)
+    sig = tanh_sat(sig, 1.22) * fade_out
     return sig.astype(np.float64)
 
 
@@ -567,3 +579,92 @@ def seamless_loop(x, xfade_s=0.08, polish_s=0.01, sr=SR):
     target = y[0]
     y[-p:] += (target - y[-1]) * w
     return y
+
+
+def make_noise_sweep(rng, dur, up=True, lo=200, hi=12000):
+    """White-noise filter sweep (uplifter or downlifter) with a slight sine zip."""
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    p = t / max(dur, 1e-9)
+    if not up:
+        p = 1.0 - p
+    noise = rng.standard_normal(n)
+    out = np.zeros(n)
+    chunks = max(24, int(dur * 20))
+    for k in range(chunks):
+        a = int(k * n / chunks)
+        b = int((k + 1) * n / chunks)
+        q = k / max(chunks - 1, 1)
+        if not up:
+            q = 1.0 - q
+        hz = lo * (hi / lo) ** q
+        out[a:b] = sos_hp(noise[a:b], hz)
+    env = p ** 1.15
+    f = lo * (hi / lo) ** p
+    zipw = sine_sweep(f) * env * 0.10
+    return fade(out * env * 0.95 + zipw, 8, 4)
+
+
+def make_reverse_cymbal(rng, dur=0.7):
+    c = make_crash(rng)
+    r = c[::-1]
+    n = int(dur * SR)
+    if len(r) < n:
+        r = np.pad(r, (n - len(r), 0))
+    r = r[-n:]
+    r *= np.linspace(0.05, 1.0, len(r)) ** 1.2
+    return fade(r, 8, 3)
+
+
+def make_zap(freq, dur=0.09):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    f = freq * (2.0 ** (8 * np.exp(-t / 0.018)))
+    sig = sine_sweep(f) * np.exp(-t / 0.04)
+    sig += sos_bp(np.sin(2 * np.pi * np.cumsum(f * 2.1) / SR), 800, 4000) * np.exp(-t / 0.03) * 0.3
+    return fade(tanh_sat(sig, 1.3), 0.6, 8)
+
+
+def mono_below(x, hz=150):
+    """Force the low end to mono; keep stereo above hz."""
+    low_l = sos_lp(x[:, 0], hz, 2)
+    low_r = sos_lp(x[:, 1], hz, 2)
+    low = 0.5 * (low_l + low_r)
+    high_l = x[:, 0] - low_l
+    high_r = x[:, 1] - low_r
+    return np.stack([low + high_l, low + high_r], 1)
+
+
+def widen_highs(x, hz=500, amount=1.35):
+    """Widen the side signal above hz, leave the low mid alone."""
+    mid = 0.5 * (x[:, 0] + x[:, 1])
+    side = 0.5 * (x[:, 0] - x[:, 1])
+    side_lo = sos_lp(side, hz, 2)
+    side_hi = side - side_lo
+    side = side_lo + side_hi * amount
+    return np.stack([mid + side, mid - side], 1)
+
+
+def true_peak_limiter(x, ceiling=10 ** (-1.0 / 20.0), look_ms=6, os=4):
+    """Lookahead limiter with simple oversampling so true-peak stays under ceiling."""
+    from scipy.ndimage import maximum_filter1d
+    from scipy.signal import resample_poly
+    # 4x oversample a mono peak proxy
+    peak_s = np.max(np.abs(x), axis=1)
+    up = resample_poly(peak_s, os, 1)
+    look = int(look_ms * SR * os / 1000)
+    padded = np.pad(np.abs(up), (0, look), mode="edge")
+    fut = maximum_filter1d(padded, size=look + 1, origin=look // 2, mode="nearest")[: len(up)]
+    # downsample future-peak envelope
+    fut_ds = resample_poly(fut, 1, os)[: len(peak_s)]
+    gain = np.ones_like(peak_s)
+    mask = fut_ds > ceiling
+    gain[mask] = ceiling / (fut_ds[mask] + 1e-12)
+    rel = 1 - np.exp(-1.0 / (0.08 * SR))
+    out_g = np.empty_like(gain)
+    g = 1.0
+    for i, t in enumerate(gain):
+        g = t if t < g else g + rel * (t - g)
+        out_g[i] = g
+    y = x * out_g[:, None]
+    return np.clip(y, -ceiling, ceiling)
