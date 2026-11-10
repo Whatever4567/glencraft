@@ -4,7 +4,7 @@
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
   // ---- Disable mobs: no new spawns; existing mobs (only the mobs[] list) are removed with removeMob (disposes geometry/materials) ----
   try { const sm = spawnMob; spawnMob = function () { if (SET.noMobs) { U.blocked++; return null; } return sm.apply(this, arguments); }; } catch (e) { ERR('spawn', e); }
-  U.sweep = () => { if (!SET.noMobs) return 0; let n = 0; for (const a of mobs.slice()) { try { removeMob(a); n++; } catch (e) { ERR('rm', e); const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); } } U.removed += n; return n; };
+  U.sweep = () => { if (!SET.noMobs) return 0; let n = 0; for (const a of mobs.slice()) { if (a && a.kind === 'popstar') continue; try { removeMob(a); n++; } catch (e) { ERR('rm', e); const i = mobs.indexOf(a); if (i >= 0) mobs.splice(i, 1); } } U.removed += n; return n; };
   setInterval(() => { try { if (SET.noMobs && mobs.length) U.sweep(); } catch (e) { ERR('sweep', e); } }, 1000);
   U.ui = () => { const ts = document.getElementById('touchSeg'); if (!ts || document.getElementById('mobSeg')) return !!ts; const row = ts.closest('.set') || ts.parentNode;
     const d = document.createElement('div'); d.className = 'set inline'; d.innerHTML = '<span>Disable mobs</span><div class="seg" id="mobSeg"><button data-v="1" data-testid="settings-mobSeg-1">On</button><button data-v="0" data-testid="settings-mobSeg-0">Off</button></div>';

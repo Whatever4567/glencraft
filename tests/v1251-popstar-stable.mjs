@@ -117,6 +117,7 @@ vm.runInContext(runSrc, ctx);
 const U = ctx.window.__v1251;
 ok(U && typeof U.landY === 'function' && typeof U.proposeStep === 'function', 'runtime loaded');
 ok(U.MAX_STEP === 1 && U.BODY_R >= 4, 'runtime max step is 1 and keep-out is at least 4');
+ok(U.COLLIDE_R >= 2.2 && U.COLLIDE_R <= 3.2, 'feet/legs collider is a tight cylinder around her boots');
 
 // AFTER: yard and roofs.
 ok(U.landY(25, 15) === 10, 'AFTER: open yard is still the dry surface at y=10');
@@ -179,14 +180,14 @@ ok(inside < 1, 'BEFORE-style: the player can stand inside her (dist=' + inside.t
 const pushed = U.pushPlayerOut(player, rec);
 ok(pushed.pushed === true, 'AFTER: pushPlayerOut fires when the player is inside her');
 const after = Math.hypot(player.x - rec.g.position.x, player.z - rec.g.position.z);
-ok(after >= U.BODY_R - 1e-6, 'AFTER: the player is outside her keep-out (dist=' + after.toFixed(2) + ', r=' + U.BODY_R + ')');
+ok(after >= U.COLLIDE_R - 1e-6, 'AFTER: the player is outside her feet/legs collider (dist=' + after.toFixed(2) + ', r=' + U.COLLIDE_R + ')');
 ok(U.landY(player.x, player.z) === 10, 'AFTER: the pushed player still stands on dry land');
 
 // Already-outside player is left alone.
-player.x = rec.g.position.x + U.BODY_R + 1;
+player.x = rec.g.position.x + U.COLLIDE_R + 1;
 player.z = rec.g.position.z;
 const stay = U.pushPlayerOut(player, rec);
-ok(stay.pushed === false && Math.abs(player.x - (rec.g.position.x + U.BODY_R + 1)) < 1e-9,
+ok(stay.pushed === false && Math.abs(player.x - (rec.g.position.x + U.COLLIDE_R + 1)) < 1e-9,
   'AFTER: a player already outside her volume is not shoved');
 
 console.log('v1251-popstar-stable ok', n);

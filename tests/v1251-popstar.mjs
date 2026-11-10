@@ -17,7 +17,7 @@ const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' 
 ok(html.includes('GLX-V1251') && html.includes('__v1251') && html.includes('__popstarCore'), 'v1251 module is embedded in index.html');
 ok(html.includes('<!-- glencraft-build: b1251-popstar -->'), 'b1251 marker is present');
 ok(html.includes('<!-- glencraft-build: b1252-held-rollback -->') || html.includes('<!-- glencraft-build: b1251-visible-land -->') || html.includes('<!-- glencraft-build: b1250-held-popstar -->') || html.includes('<!-- glencraft-build: b1249-v1.2.49 -->'), '1.2.49+ launch marker is present');
-ok(html.includes("const GAME_VERSION = '1.2.56';") || html.includes("const GAME_VERSION = '1.2.55';") || html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';") || html.includes("const GAME_VERSION = '1.2.51';") || html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';"), 'GAME_VERSION is 1.2.51 (or a previous launch)');
+ok(html.includes("const GAME_VERSION = '1.2.57';") || html.includes("const GAME_VERSION = '1.2.56';") || html.includes("const GAME_VERSION = '1.2.55';") || html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';") || html.includes("const GAME_VERSION = '1.2.51';") || html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';"), 'GAME_VERSION is 1.2.51 (or a previous launch)');
 ok(html.includes('fog: false') || html.includes('fog:false'), 'popstar materials disable scene fog');
 ok(html.includes('worldTilesUntouched'), 'world block atlas was not re-prismed');
 ok(html.includes('__fpa') || html.includes('mcArm') || html.includes('fist'), 'first-person arm hooks are still in the bundle');
@@ -86,7 +86,8 @@ ok(runSrc.includes("cause.kind === 'popstar'") && runSrc.includes('U.blocked++')
 ok(!/setB\s*\(/.test(runSrc) && !/setBlock/.test(runSrc), 'tick does not write world blocks');
 ok(runSrc.includes('FRIENDLY') && runSrc.includes("add('popstar')"), 'she is added to the 1.2.48 friendly set');
 ok(runSrc.includes('maybeSpawn') && runSrc.includes("'dawn'") && runSrc.includes('if (aLive) return'), 'one rare dawn roll, single instance');
-ok(runSrc.includes('thud') && runSrc.includes('applyShake'), 'footstep thuds and camera shake are present');
+ok(runSrc.includes('thud') && runSrc.includes('function thud'), 'footstep thuds are present');
+ok(!/shake\s*=\s*Math\.max\(\s*shake/.test(runSrc) && !/camera\.position\.[xyz]\s*\+=/.test(runSrc), 'she no longer shakes the camera');
 ok((coreSrc.includes('popstar_song.ogg') && coreSrc.includes('popstar_song.mp3') || runSrc.includes('popstar_song')) && runSrc.includes('createPanner'), 'positional song uses the trimmed loop');
 ok(!runSrc.includes('__fpa') || true, 'runtime does not retune first-person arms');
 ok(!runSrc.includes('makeItemMesh') && !runSrc.includes('armSwitch'), 'held-item / FP arm systems are not touched');
