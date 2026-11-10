@@ -49241,6 +49241,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
   const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p11', sculpted: 0};
   const T = W.THREE;
@@ -50390,8 +50398,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    big and low-right, matching t1122 composition. Also hides the duplicate
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p16', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p17', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -50621,10 +50637,39 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
             const P = (U.__thumbP && U.__thumbP.length >= 3) ? U.__thumbP : [0, 0, 0];
             th.position.set(p0.x + side * P[0], p0.y + P[1], p0.z + P[2]);
             const W = (U.__thumbW && U.__thumbW.length >= 4) ? U.__thumbW : [0.28, 1.20, 1.50, 1.10];
-            if (U.__thumbAim) {
-              const tgtA = U.__thumbT || [-0.012, 0.078, -0.024];
-              const origin = th.position;
-              const dir = new T.Vector3(side * tgtA[0], tgtA[1], tgtA[2]).sub(origin);
+            if (U.__thumbAim || U.__thumbLive) {
+              let target = null;
+              if (U.__thumbLive) {
+                // Aim at a point on the palmar side of the index/middle mids,
+                // measured live in hand space after the finger curl.
+                const fingers = h.userData.f || [];
+                const pts = [];
+                h.updateMatrixWorld(true);
+                for (let i = 0; i < 2 && i < fingers.length; i++) {
+                  const pair = fingers[i];
+                  const k = pair && pair[1];
+                  const d = k && k.userData && k.userData.d;
+                  const obj = d || k;
+                  if (!obj || !obj.getWorldPosition) continue;
+                  obj.updateMatrixWorld(true);
+                  const w = new T.Vector3();
+                  obj.getWorldPosition(w);
+                  pts.push(h.worldToLocal(w));
+                }
+                if (pts.length) {
+                  target = pts[0].clone();
+                  if (pts[1]) target.add(pts[1]).multiplyScalar(0.5);
+                  const off = U.__thumbOff || [0, 0.010, -0.022];
+                  target.x += side * (off[0] || 0);
+                  target.y += off[1] || 0;
+                  target.z += off[2] || 0;
+                }
+              }
+              if (!target) {
+                const tgtA = U.__thumbT || [-0.012, 0.078, -0.024];
+                target = new T.Vector3(side * tgtA[0], tgtA[1], tgtA[2]);
+              }
+              const dir = target.clone().sub(th.position);
               if (dir.lengthSq() > 1e-10) {
                 dir.normalize();
                 th.quaternion.copy(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir));
@@ -51330,7 +51375,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.PALM_AIM = PALM_AIM;
   U.__palmSwing = 0;
   U.__thumbAim = 0;
+  U.__thumbLive = 0;
+  U.__palmFlip = 0;
   U.__adsHideLeft = 1;
+  U.__adsHideWrist = 0;
+  U.__adsHideRThumb = 1;
   // Override from a diagnostic: __palmAxis, __palmWant (camera space).
   U.__palmAxis = [0, 0, -1];
   U.__palmWant = [0, 0.85, 0.55];
@@ -51502,6 +51551,52 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           if (z) h.rotateZ(z);
           tag.y = y; tag.x = x; tag.z = z; tag.applied = 1;
         }
+        // After a known-good dorsum pose, flip around an axis in the
+        // camera plane so the palmar face comes toward the lens while
+        // the wrist stays down. Camera-forward (Z) would only invert
+        // the dorsum; camera-up / the on-screen finger axis is the
+        // flip that reveals the palm.
+        if (U.__palmFlip && tag.applied) {
+          const originC = toCameraLocal(h, new T.Vector3(0, 0, 0));
+          const yC = toCameraLocal(h, new T.Vector3(0, 1, 0));
+          let axis = null;
+          const mode = U.__palmFlipMode || 'finger';
+          if (mode === 'camY') axis = new T.Vector3(0, 1, 0);
+          else if (mode === 'camX') axis = new T.Vector3(1, 0, 0);
+          else if (mode === 'camZ') axis = new T.Vector3(0, 0, 1);
+          else if (originC && yC) {
+            axis = yC.sub(originC.clone());
+            axis.z = 0; // project onto the camera XY / screen plane
+            if (axis.lengthSq() < 1e-8) axis = new T.Vector3(0, 1, 0);
+            else axis.normalize();
+          } else axis = new T.Vector3(0, 1, 0);
+          const ang = (U.__palmFlipA != null) ? U.__palmFlipA : Math.PI;
+          const qCam = new T.Quaternion().setFromAxisAngle(axis, ang);
+          const pm = parentCamMatrix(h.parent || h);
+          let qLocal = qCam;
+          if (pm) {
+            const rot = new T.Matrix4().extractRotation(pm);
+            const qParent = new T.Quaternion().setFromRotationMatrix(rot);
+            qLocal = qParent.clone().invert().multiply(qCam).multiply(qParent);
+          }
+          h.quaternion.premultiply(qLocal);
+          const wristC = toCameraLocal(h, new T.Vector3(0, -0.05, 0));
+          const palmPt = toCameraLocal(h, new T.Vector3(0, 0.05, 0));
+          const presented = !!(wristC && palmPt && wristC.z > palmPt.z + 0.03);
+          if (presented) {
+            // Undo only the flip; keep the dorsum pose rather than
+            // throwing the wrist into the lens.
+            h.quaternion.copy(tag.baseQ);
+            if (pose) {
+              const y = side * (pose.y || 0);
+              const x = pose.x || 0;
+              const z = side * (pose.z || 0);
+              if (y) h.rotateY(y);
+              if (x) h.rotateX(x);
+              if (z) h.rotateZ(z);
+            }
+          }
+        }
       });
     } catch (e) { ERR('palm', e); }
   }
@@ -51607,6 +51702,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         // scraps cannot sit in the sight; the right hand stays on the gun.
         const side = (arm.userData && arm.userData.side) || 1;
         const hideLeft = !!(gunsAds && U.__adsHideLeft && side < 0);
+        const hideWrist = !!(gunsAds && U.__adsHideWrist);
+        const hideRThumb = !!(gunsAds && U.__adsHideRThumb && side > 0);
+        const th = p.h.userData && p.h.userData.th;
         arm.traverse(function (o) {
           if (!o.isMesh) return;
           if (isItemMesh(o)) return;
@@ -51615,7 +51713,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           const leftover = !u.sculpt1249 && !u.nail1249 && !u.sculptGeo1249 && !u.sleeve1257 && !u.tapered1257 && !u.folded1249 &&
             (typ === 'BoxGeometry' || typ === 'CylinderGeometry' || typ === 'DodecahedronGeometry');
           const cap = !!u.wristCap1249;
-          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap)) {
+          let wristChild = false;
+          if (hideWrist && o.parent === p.h && o.position && o.position.y < -0.02) wristChild = true;
+          let underThumb = false;
+          if (hideRThumb && th) {
+            for (let n = o; n && n !== p.h; n = n.parent) if (n === th) { underThumb = true; break; }
+          }
+          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap || wristChild || underThumb)) {
             o.visible = false;
             o.userData.__hidAds1252 = 1;
           } else if (o.userData && o.userData.__hidAds1252) {
