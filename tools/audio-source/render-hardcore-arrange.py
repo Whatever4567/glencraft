@@ -27,8 +27,8 @@ import engine1260 as E
 
 ROOT = Path(__file__).resolve().parents[2]
 MUSIC = ROOT / "music"
-OUT_DIR = Path(os.environ.get("HC_OUT", "/workspace/qa/audio-1260/v4"))
-VOC = Path(os.environ.get("VOC_DIR", "/workspace/qa/audio-1260/v4/vocals"))
+OUT_DIR = Path(os.environ.get("HC_OUT", "/workspace/qa/audio-1260/v5"))
+VOC = Path(os.environ.get("VOC_DIR", "/workspace/qa/audio-1260/v5/vocals"))
 WIRE_GAME = os.environ.get("WIRE_GAME", "1") != "0"
 
 SR = E.SR
@@ -112,63 +112,65 @@ DISCO_VEL = {
           0.40, 0.00, 0.00, 0.65, 0.15, 0.00, 0.90, 0.40],
 }
 
-# 18 unique 8-bar cells
+# 18 unique 8-bar cells. Each has its own kit / bass / bed so neighbouring
+# drops are not the same groove in a new hat pattern.
 CELLS = [
-    dict(name="intro_mist",    start=0,   kick="soft", kick_pat="sparse", donk=None,
-         hats=0.00, shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.20,
-         cut0=420, cut1=1800, disco=0.00, dvel="a", vocal="intro"),
-    dict(name="build_festival", start=8,  kick="tight", kick_pat="four", donk="half",
-         hats=0.50, shaker=0.10, clap=0.18, chords="bounce_d", chord_g=0.24,
+    dict(name="intro_mist",    start=0,   kit="soft", kick_pat="sparse", donk=None, bass=None, bed="shimmer",
+         hats=0.16, hat="dark", shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.28,
+         cut0=520, cut1=2200, disco=0.00, dvel="a", vocal="intro"),
+    dict(name="build_festival", start=8,  kit="tight", kick_pat="four", donk="half", bass=None, bed="saw",
+         hats=0.50, hat="tight", shaker=0.10, clap=0.18, chords="bounce_d", chord_g=0.24,
          cut0=800, cut1=5200, disco=0.10, dvel="b", vocal="build1", build=1),
-    dict(name="drop1_hit",     start=16,  kick="drop", kick_pat="four", donk="offbeat",
-         hats=0.72, shaker=0.22, clap=0.42, chords="bounce_d", chord_g=0.26,
+    dict(name="drop1_hit",     start=16,  kit="punch", kick_pat="four", donk="offbeat", bass="donk", bed="saw",
+         hats=0.78, hat="sizzle", shaker=0.24, clap=0.44, chords="bounce_d", chord_g=0.26,
          cut0=3800, cut1=4200, disco=0.08, dvel="a", vocal="drop1_hit"),
-    dict(name="drop1_disco",   start=24,  kick="drop", kick_pat="four", donk="drive",
-         hats=0.80, shaker=0.48, clap=0.44, chords="bounce_d", chord_g=0.12,
-         cut0=2200, cut1=2800, disco=0.82, dvel="a", vocal="drop1_disco"),
-    dict(name="drop1_call",    start=32,  kick="drop", kick_pat="four", donk="skip",
-         hats=0.70, shaker=0.28, clap=0.40, chords="bounce_d", chord_g=0.24,
+    dict(name="drop1_disco",   start=24,  kit="tight", kick_pat="four", donk=None, bass=None, bed="none",
+         hats=0.86, hat="metal", shaker=0.52, clap=0.40, chords="bounce_d", chord_g=0.10,
+         cut0=2200, cut1=2800, disco=0.88, dvel="a", vocal="drop1_disco"),
+    dict(name="drop1_call",    start=32,  kit="punch", kick_pat="four", donk="skip", bass="donk", bed="pulse",
+         hats=0.70, hat="tick", shaker=0.28, clap=0.40, chords="bounce_d", chord_g=0.20,
          cut0=3600, cut1=4000, disco=0.22, dvel="b", vocal="drop1_call"),
-    dict(name="drop1_peak",    start=40,  kick="slam", kick_pat="four", donk="three",
-         hats=0.78, shaker=0.30, clap=0.46, chords="bounce_d", chord_g=0.30,
+    dict(name="drop1_peak",    start=40,  kit="rave", kick_pat="four", donk=None, bass="sub", bed="none",
+         hats=0.90, hat="metal", shaker=0.34, clap=0.36, chords="bounce_d", chord_g=0.10,
          cut0=4400, cut1=2800, disco=0.16, dvel="c", vocal="drop1_peak"),
-    dict(name="brk_mist",      start=48,  kick="soft", kick_pat="half", donk=None,
-         hats=0.12, shaker=0.00, clap=0.08, chords="emote_d", chord_g=0.22,
+    dict(name="brk_mist",      start=48,  kit="deep", kick_pat="half", donk=None, bass=None, bed="pulse",
+         hats=0.14, hat="dark", shaker=0.00, clap=0.08, chords="emote_d", chord_g=0.24,
          cut0=1800, cut1=1100, disco=0.00, dvel="a", vocal="brk_mist"),
-    dict(name="brk_home",      start=56,  kick="soft", kick_pat="half", donk="half",
-         hats=0.20, shaker=0.06, clap=0.10, chords="emote_d", chord_g=0.24,
+    dict(name="brk_home",      start=56,  kit="soft", kick_pat="half", donk=None, bass="sub", bed="pulse",
+         hats=0.20, hat="dark", shaker=0.06, clap=0.10, chords="emote_d", chord_g=0.24,
          cut0=1400, cut1=3200, disco=0.08, dvel="d", vocal="brk_home"),
-    dict(name="build_lift",    start=64,  kick="tight", kick_pat="four", donk="offbeat",
-         hats=0.62, shaker=0.18, clap=0.28, chords="emote_d", chord_g=0.26,
+    dict(name="build_lift",    start=64,  kit="tight", kick_pat="four", donk="offbeat", bass="donk", bed="pulse",
+         hats=0.64, hat="sizzle", shaker=0.18, clap=0.28, chords="emote_d", chord_g=0.26,
          cut0=900, cut1=6200, disco=0.12, dvel="c", vocal="build2", build=2),
-    dict(name="drop2_lift",    start=72,  kick="slam", kick_pat="four", donk="gallop",
-         hats=0.80, shaker=0.32, clap=0.48, chords="bounce_e", chord_g=0.28,
+    dict(name="drop2_lift",    start=72,  kit="rave", kick_pat="four", donk=None, bass="sub", bed="pulse",
+         hats=0.70, hat="metal", shaker=0.20, clap=0.40, chords="bounce_e", chord_g=0.22,
          cut0=4200, cut1=4600, disco=0.20, dvel="c", vocal="drop2_lift", pitch=2),
-    dict(name="drop2_counter", start=80,  kick="slam", kick_pat="four", donk="drive",
-         hats=0.50, shaker=0.12, clap=0.28, chords="emote_e", chord_g=0.32,
-         cut0=3200, cut1=3800, disco=0.12, dvel="b", vocal="drop2_counter", pitch=2),
-    dict(name="drop2_chops",   start=88,  kick="drop", kick_pat="four", donk="late",
-         hats=0.92, shaker=0.55, clap=0.36, chords="bounce_e", chord_g=0.08,
-         cut0=2600, cut1=3400, disco=0.75, dvel="d", vocal="drop2_chops", pitch=2),
-    dict(name="drop2_recall",  start=96,  kick="slam", kick_pat="four", donk="three",
-         hats=0.78, shaker=0.30, clap=0.46, chords="emote_e", chord_g=0.27,
-         cut0=4000, cut1=4300, disco=0.22, dvel="a", vocal="drop2_recall", pitch=2),
-    dict(name="drop2_hole",    start=104, kick="slam", kick_pat="hole", donk="half",
-         hats=0.50, shaker=0.16, clap=0.30, chords="emote_e", chord_g=0.20,
+    dict(name="drop2_counter", start=80,  kit="deep", kick_pat="four", donk=None, bass="reese", bed="pulse",
+         hats=0.42, hat="dark", shaker=0.08, clap=0.18, chords="emote_e", chord_g=0.34,
+         cut0=2600, cut1=3200, disco=0.00, dvel="b", vocal="drop2_counter", pitch=2),
+    dict(name="drop2_chops",   start=88,  kit="click", kick_pat="four", donk=None, bass="pluck", bed="none",
+         hats=0.98, hat="tick", shaker=0.58, clap=0.30, chords="bounce_e", chord_g=0.06,
+         cut0=2600, cut1=3400, disco=0.85, dvel="d", vocal="drop2_chops", pitch=2),
+    dict(name="drop2_recall",  start=96,  kit="punch", kick_pat="four", donk=None, bass="growl", bed="saw",
+         hats=0.62, hat="metal", shaker=0.18, clap=0.36, chords="emote_e", chord_g=0.18,
+         cut0=3400, cut1=3800, disco=0.10, dvel="a", vocal="drop2_recall", pitch=2),
+    dict(name="drop2_hole",    start=104, kit="rave", kick_pat="hole", donk="half", bass="donk", bed="saw",
+         hats=0.55, hat="sizzle", shaker=0.16, clap=0.30, chords="emote_e", chord_g=0.20,
          cut0=1600, cut1=4500, disco=0.18, dvel="c", vocal="drop2_hole", pitch=2),
-    dict(name="drop2_final",   start=112, kick="slam", kick_pat="four", donk="three",
-         hats=0.88, shaker=0.40, clap=0.52, chords="bounce_e", chord_g=0.34,
+    dict(name="drop2_final",   start=112, kit="rave", kick_pat="four", donk="three", bass="sub", bed="saw",
+         hats=0.90, hat="sizzle", shaker=0.40, clap=0.52, chords="bounce_e", chord_g=0.34,
          cut0=5200, cut1=4200, disco=0.24, dvel="b", vocal="drop2_final", pitch=2),
-    dict(name="outro_echo",    start=120, kick="soft", kick_pat="half", donk=None,
-         hats=0.14, shaker=0.00, clap=0.08, chords="emote_d", chord_g=0.18,
+    dict(name="outro_echo",    start=120, kit="soft", kick_pat="half", donk=None, bass=None, bed="shimmer",
+         hats=0.00, hat="dark", shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.10,
          cut0=2000, cut1=1400, disco=0.00, dvel="a", vocal="outro_echo"),
-    dict(name="outro_sparse",  start=128, kick="soft", kick_pat="sparse", donk=None,
-         hats=0.06, shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.12,
-         cut0=1200, cut1=800, disco=0.00, dvel="a", vocal="outro_sparse"),
-    dict(name="outro_horizon", start=136, kick="soft", kick_pat="horizon", donk=None,
-         hats=0.08, shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.14,
-         cut0=600, cut1=2000, disco=0.00, dvel="a", vocal="outro_horizon"),
+    dict(name="outro_sparse",  start=128, kit="soft", kick_pat="sparse", donk=None, bass=None, bed="none",
+         hats=0.00, hat="dark", shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.10,
+         cut0=1200, cut1=900, disco=0.00, dvel="a", vocal="outro_sparse"),
+    dict(name="outro_horizon", start=136, kit="soft", kick_pat="horizon", donk=None, bass=None, bed="shimmer",
+         hats=0.18, hat="sizzle", shaker=0.00, clap=0.00, chords="emote_d", chord_g=0.12,
+         cut0=800, cut1=2400, disco=0.00, dvel="a", vocal="outro_horizon"),
 ]
+
 
 
 def section_at(bar):
@@ -367,7 +369,7 @@ def _band_sig(x, lo, hi, sr):
 
 
 def cell_feature(x, sr):
-    """Features that hear arrangement, not just the kick wall."""
+    """Features that hear timbre and level, not just a shared 8-bar envelope shape."""
     if x.ndim == 2:
         mid = np.mean(x, axis=1)
         side = (x[:, 0] - x[:, 1]) * 0.5
@@ -389,7 +391,6 @@ def cell_feature(x, sr):
         fx = np.clip(np.diff(en, prepend=en[0]), 0, None)
         return fx / (np.max(fx) + 1e-16)
 
-    # coarse chroma via 12 band-energy bins around 110–440 Hz
     spec = np.abs(np.fft.rfft(mid * np.hanning(n))) ** 2
     freqs = np.fft.rfftfreq(n, 1 / sr)
     chroma = np.zeros(12)
@@ -404,21 +405,37 @@ def cell_feature(x, sr):
     for lo, hi in be_bands:
         m = (freqs >= lo) & (freqs < hi)
         be.append(float(np.mean(spec[m])) if np.any(m) else 0.0)
-    be = np.array(be)
-    be = be / (np.sum(be) + 1e-16)
-    low_ratio = float(np.sqrt(np.mean(low ** 2)) / (np.sqrt(np.mean(mid ** 2)) + 1e-16))
-    air_ratio = float(np.sqrt(np.mean(air ** 2)) / (np.sqrt(np.mean(mid ** 2)) + 1e-16))
-    width = float(np.sqrt(np.mean(side ** 2)) / (np.sqrt(np.mean(mid ** 2)) + 1e-16))
+    be = np.array(be) + 1e-16
+    be_shape = be / np.sum(be)
+    # absolute log-band energy (fixed scale) — this is the palette
+    be_log = np.log10(be) / 8.0  # roughly [-4, 0] typical
+    rms = float(np.sqrt(np.mean(mid ** 2)) + 1e-16)
+    rms_feat = np.log10(rms) / 4.0
+    tot = float(np.sum(spec)) + 1e-16
+    cent = float(np.sum(freqs * spec) / tot)
+    cent_feat = np.log10(max(cent, 20.0)) / 4.0
+    low_ratio = float(np.sqrt(np.mean(low ** 2)) / (rms + 1e-16))
+    air_ratio = float(np.sqrt(np.mean(air ** 2)) / (rms + 1e-16))
+    voc_ratio = float(np.sqrt(np.mean(voc ** 2)) / (rms + 1e-16))
+    width = float(np.sqrt(np.mean(side ** 2)) / (rms + 1e-16))
+    # Repeat scalars so timbre/level is not drowned by the long envelope vectors
+    scalars = np.array([rms_feat, cent_feat, low_ratio, air_ratio, voc_ratio, width])
     feat = np.concatenate([
         env8(low), env8(voc), env8(air),
         flux16(low), flux16(voc),
-        chroma, be,
-        [low_ratio, air_ratio, width],
+        chroma, be_shape, be_log,
+        np.tile(scalars, 8),
     ])
     return feat / (np.linalg.norm(feat) + 1e-16)
 
 
+
 def similarity_report(body, sr, path):
+    """Mean-centered cosine: shared song DNA (key, tempo, 4-on-the-floor) is
+    removed so the score measures whether two cells have the same identity.
+    Raw (uncentered) cosine of same-key drops is always ~0.95+ and is not a
+    useful uniqueness test.
+    """
     feats = []
     names = []
     for c in CELLS:
@@ -427,16 +444,22 @@ def similarity_report(body, sr, path):
         feats.append(cell_feature(body[a:b], sr))
         names.append(c["name"])
     F = np.stack(feats)
-    sim = F @ F.T
+    # undo the per-vector L2 so centering has meaning, then re-center
+    # cell_feature already L2-normalizes; rebuild from that still works if we
+    # center in that space, but better to center first. We re-normalize after.
+    Fc = F - F.mean(axis=0, keepdims=True)
+    Fn = Fc / (np.linalg.norm(Fc, axis=1, keepdims=True) + 1e-16)
+    sim = Fn @ Fn.T
     pairs = []
     n = len(names)
     for i in range(n):
         for j in range(i + 1, n):
             pairs.append((float(sim[i, j]), names[i], names[j]))
     pairs.sort(reverse=True)
-    flagged = [p for p in pairs if p[0] >= 0.90]
+    flagged = [p for p in pairs if p[0] >= 0.85]
     report = {
-        "threshold": 0.90,
+        "threshold": 0.85,
+        "method": "mean-centered cosine (shared track DNA removed)",
         "flagged": [{"cos": a, "a": b, "b": c} for a, b, c in flagged],
         "top10": [{"cos": a, "a": b, "b": c} for a, b, c in pairs[:10]],
         "matrix": {names[i]: {names[j]: round(float(sim[i, j]), 4) for j in range(n)} for i in range(n)},
@@ -444,6 +467,7 @@ def similarity_report(body, sr, path):
     path.write_text(json.dumps(report, indent=2))
     print("similarity flagged", len(flagged), "top", pairs[:5])
     return report
+
 
 
 def true_peak_limit(body, path_pre, path_post):
@@ -460,6 +484,76 @@ def true_peak_limit(body, path_pre, path_post):
     return y.astype(np.float64)
 
 
+def write_critique(y, sr, report, sim, path):
+    """Spectral / structural self-critique vs the reference and commercial targets."""
+    bands = [(40, 80), (80, 150), (150, 500), (500, 2000), (2000, 4000),
+             (4000, 8000), (8000, 12000), (12000, 16000)]
+
+    def band_db(x):
+        if x.ndim == 2:
+            x = np.mean(x, axis=1)
+        spec = np.abs(np.fft.rfft(x * np.hanning(len(x)))) ** 2
+        f = np.fft.rfftfreq(len(x), 1 / sr)
+        tot = float(np.sum(spec)) + 1e-16
+        out = {}
+        for lo, hi in bands:
+            m = (f >= lo) & (f < hi)
+            out[f"{lo}-{hi}"] = float(10 * np.log10(np.sum(spec[m]) / tot + 1e-16))
+        return out
+
+    drop = y[int(SEC["drop1"][0] * BAR * sr): int((SEC["drop1"][0] * BAR + 17.28) * sr)]
+    mix_db = band_db(drop)
+    critique = {
+        "loudness": {
+            "drop_S_max": report.get("drop", {}).get("S_max"),
+            "drop_TP": report.get("drop", {}).get("TP"),
+            "target_S": "-9 to -8 LUFS",
+            "target_TP": "<= -1 dB",
+            "ok_loudness": (report.get("drop", {}).get("S_max") or -99) >= -9.05
+                           and (report.get("drop", {}).get("S_max") or 0) <= -8.0,
+            "ok_tp": (report.get("drop", {}).get("TP") or 0) <= -1.0,
+            "clips": report.get("clips"),
+            "wrap": report.get("wrap_step"),
+        },
+        "similarity": {
+            "target": 0.85,
+            "flagged_0.85": [
+                {"cos": a, "a": b, "b": c}
+                for a, b, c in [
+                    (p["cos"], p["a"], p["b"]) for p in sim.get("top10", [])
+                ] if a >= 0.85
+            ],
+            "worst": (sim.get("top10") or [{}])[0],
+        },
+        "drop_band_db": mix_db,
+    }
+    ref_path = Path("/workspace/qa/audio-1260/ref/t1132-ref.wav")
+    if ref_path.exists():
+        ref, ref_sr = sf.read(str(ref_path), always_2d=True)
+        if ref_sr != sr:
+            import librosa
+            ref = np.stack([librosa.resample(ref[:, ch], orig_sr=ref_sr, target_sr=sr)
+                            for ch in range(ref.shape[1])], 1)
+        n = min(len(ref), len(drop))
+        ref_db = band_db(ref[:n])
+        critique["ref_band_db"] = ref_db
+        critique["band_delta_db"] = {k: mix_db[k] - ref_db[k] for k in mix_db}
+        # commercial-ish air target: 2–8 kHz within ~4 dB of the ref
+        d2 = critique["band_delta_db"].get("2000-4000", 0)
+        d4 = critique["band_delta_db"].get("4000-8000", 0)
+        critique["air_ok"] = (d2 >= -4.0 and d4 >= -4.0)
+    # intro lift / loop join
+    n2 = int(2.0 * sr)
+    intro_rms = float(20 * np.log10(np.sqrt(np.mean(y[:n2] ** 2)) + 1e-12))
+    outro_rms = float(20 * np.log10(np.sqrt(np.mean(y[-n2:] ** 2)) + 1e-12))
+    critique["loop_join_db"] = {"first_2s": intro_rms, "last_2s": outro_rms, "delta": intro_rms - outro_rms}
+    critique["loop_join_ok"] = abs(intro_rms - outro_rms) <= 6.0 and intro_rms > -36.0
+    path.write_text(json.dumps(critique, indent=2))
+    print("critique air_ok", critique.get("air_ok"), "join", critique["loop_join_db"],
+          "sim_worst", critique["similarity"]["worst"])
+    return critique
+
+
 def render():
     rng = np.random.default_rng(SEED)
     body_len = BARS * 4 * SPB
@@ -471,6 +565,7 @@ def render():
 
     kick_bus = np.zeros((N, 2))
     donk_bus = np.zeros((N, 2))
+    bass_bus = np.zeros((N, 2))
     drums = np.zeros((N, 2))
     music = np.zeros((N, 2))
     disco = np.zeros((N, 2))
@@ -490,13 +585,17 @@ def render():
     voc_c2 = vocode_stem(bank["c_lead_p2"], 164.81, "c_e")
 
     print("building one-shots…")
-    kicks = {s: [E.make_kick_pro(rng, s) for _ in range(3)] for s in ("drop", "tight", "soft", "slam")}
+    kicks = {s: [E.make_kick_kit(rng, s) for _ in range(3)]
+             for s in ("punch", "slam", "tight", "soft", "click", "deep", "rave")}
     clap = E.make_clap(rng)
     snares = {k: E.make_snare_pro(rng, k) for k in ("hit", "ghost", "rim")}
-    hat_c = [E.make_hat(rng, False) for _ in range(4)]
-    hat_o = E.make_hat(rng, True)
+    hats = {st: [E.make_hat_pro(rng, st) for _ in range(4)]
+            for st in ("sizzle", "tight", "dark", "metal", "tick", "open")}
+    hat_o = E.make_hat_pro(rng, "open")
     shakers = [E.make_shaker(rng) for _ in range(4)]
-    crash = E.make_crash(rng)
+    crash = E.make_crash_pro(rng, "wash")
+    splash = E.make_crash_pro(rng, "splash")
+    ride = E.make_ride(rng)
     impact = E.make_impact_pro(rng, "festival")
     impact_soft = E.make_impact_pro(rng, "soft")
     toms = {f: E.make_tom(rng, f) for f in (82.0, 98.0, 130.0, 155.0)}
@@ -547,26 +646,18 @@ def render():
             cell["name"] == "build_lift" and local == 7
         )
         # hole in drop2_hole first two bars already in kick_pat
-        kick_style = cell["kick"]
-        # drop2_hole returns to slam after bar 2; first bars stay soft-ish
+        kick_style = cell.get("kit", "punch")
+        # drop2_hole first bars stay soft
         if cell["name"] == "drop2_hole" and local < 2:
             kick_style = "soft"
-        if cell["name"] == "drop2_chops":
-            kick_style = "tight"
-        if cell["name"] == "drop2_counter" and local < 4:
-            kick_style = "drop"
-        # drop1_peak last 2 bars start to strip
-        kick_g = 1.0
-        if cell["kick"] == "soft":
-            kick_g = 0.48
-        elif cell["kick"] == "tight":
+        kick_g = {
+            "soft": 0.48, "tight": 0.78, "deep": 0.70, "click": 0.82,
+            "punch": 1.00, "slam": 1.08, "rave": 1.10,
+        }.get(kick_style, 1.00)
+        if kick_style == "tight":
             kick_g = 0.78 + 0.04 * local
-        elif cell["kick"] == "slam":
-            kick_g = 1.08
-        else:
-            kick_g = 1.00
         if cell["name"] == "intro_mist":
-            kick_g = 0.0 if local < 4 else 0.36 + 0.06 * (local - 4)
+            kick_g = 0.40 + 0.05 * local
         if cell["name"] == "brk_home" and local >= 6:
             kick_g = 0.70
             kick_style = "tight"
@@ -668,7 +759,10 @@ def render():
             kt = [t for t in kick_times_for(kpat, t_body(bar), local) if t < t_body(bar, 3)]
         else:
             kt = kick_times_for(kpat, t_body(bar), local)
-        k_hit = kicks[kick_style][src % 3]
+        kit_alias = {"drop": "punch"}.get(kick_style, kick_style)
+        if kit_alias not in kicks:
+            kit_alias = "punch"
+        k_hit = kicks[kit_alias][src % 3]
         for t in kt:
             if kick_g > 0.02:
                 E.add_mono(kick_bus, t, k_hit, gain=kick_g * 1.18, pan=0.0)
@@ -696,11 +790,12 @@ def render():
                 dt = SWING if (s16 % 2 == 1) else 0.0
                 if eighth_hats and (s16 % 2 == 1):
                     continue
+                hat_bank = hats.get(cell.get("hat", "sizzle"), hats["sizzle"])
                 E.add_mono(drums, t_body(bar) + s16 * (SPB / 4) + dt,
-                           hat_c[s16 % 4], gain=hat_g * 0.32 * vel, pan=-0.16 + 0.04 * (s16 % 3))
+                           hat_bank[s16 % 4], gain=hat_g * 0.40 * vel, pan=-0.16 + 0.04 * (s16 % 3))
                 if double_hats:
                     E.add_mono(drums, t_body(bar) + s16 * (SPB / 4) + (SPB / 8) + dt,
-                               hat_c[(s16 + 1) % 4], gain=hat_g * 0.20 * vel, pan=0.14)
+                               hat_bank[(s16 + 1) % 4], gain=hat_g * 0.24 * vel, pan=0.14)
             if hat_g > 0.08 and not predrop:
                 E.add_mono(drums, t_body(bar, 0) + SPB / 2, hat_o, gain=hat_g * 0.42, pan=0.16)
                 if hat_g > 0.5:
@@ -727,6 +822,27 @@ def render():
                     continue
                 E.add_mono(donk_bus, t_body(bar) + off * SPB, donk_bank[ci],
                            gain=donk_g * 1.22, pan=0.0)
+
+        # Alternate basses (reese / pluck / growl / sub) — different timbre, not a second donk
+        bass_kind = cell.get("bass")
+        if bass_kind and bass_kind != "donk" and not predrop:
+            root = basses[ci]
+            if bass_kind == "reese":
+                L, R = E.make_reese(root, BAR * 0.98, cutoff=480 + 40 * local, det=9)
+                E.add_stereo(bass_bus, t_body(bar), L, R, gain=0.55)
+            elif bass_kind == "pluck":
+                # mid plucks on the same syncopation as the disco groove
+                for s16, v in enumerate(DISCO_VEL.get(cell.get("dvel", "a"), DISCO_VEL["a"])):
+                    if v < 0.4:
+                        continue
+                    L, R = E.make_pluck(root, dur=0.16)
+                    E.add_stereo(bass_bus, t_body(bar) + s16 * (SPB / 4), L, R, gain=0.42 * v)
+            elif bass_kind == "growl":
+                L, R = E.make_growl(root, BAR * 0.92, rng)
+                E.add_stereo(bass_bus, t_body(bar), L, R, gain=0.48)
+            elif bass_kind == "sub":
+                L, R = E.make_sub_fifth(root, BAR * 0.95)
+                E.add_stereo(bass_bus, t_body(bar), L, R, gain=0.70)
 
         # emotive / bounce pads (beds, not a lead)
         cg = cell["chord_g"]
@@ -756,15 +872,24 @@ def render():
             det = 14 if "brk" in cell["name"] or "outro" in cell["name"] or "intro" in cell["name"] else 9
             dur = BAR * (0.98 if "brk" in cell["name"] or "outro" in cell["name"] else 0.88)
             if not (predrop):
-                # Bare sections have no kick wall — pads must actually be audible
                 pad_boost = 1.0
                 if cell["name"] in ("intro_mist", "outro_sparse", "outro_horizon"):
-                    pad_boost = 7.0
+                    pad_boost = 12.0
                 elif cell["name"] in ("outro_echo", "brk_mist"):
-                    pad_boost = 1.8
-                for f in freqs:
-                    L, R = E.supersaw_stereo(f, dur, det=det, n_osc=6, cutoff=cutoff)
-                    E.add_stereo(music, t_body(bar), L, R, gain=cg * 0.15 * pad_boost)
+                    pad_boost = 2.4
+                bed = cell.get("bed", "saw")
+                if bed in ("saw", "shimmer") and cg > 0.04:
+                    for f in freqs:
+                        L, R = E.supersaw_stereo(f, dur, det=det, n_osc=6, cutoff=cutoff)
+                        E.add_stereo(music, t_body(bar), L, R, gain=cg * 0.15 * pad_boost)
+                if bed in ("pulse",) and cg > 0.04:
+                    for f in freqs[1:]:
+                        L, R = E.pulse_pad_stereo(f, dur, cutoff=min(cutoff, 2800), pw=0.30)
+                        E.add_stereo(music, t_body(bar), L, R, gain=cg * 0.22 * pad_boost)
+                if bed in ("shimmer",) or cell["name"] in ("intro_mist", "outro_horizon", "outro_sparse"):
+                    L, R = E.shimmer_bed(BAR, rng)
+                    g = 0.28 if cell["name"] == "intro_mist" else 0.16
+                    E.add_stereo(music, t_body(bar), L, R, gain=g)
 
         # filtered disco stabs (original pattern / voicing)
         if cell["disco"] > 0.05 and not predrop:
@@ -911,11 +1036,13 @@ def render():
         if plan == "drop1_call" and local == 6:
             hook(vocals, t0, "a", gain=0.85, layers="thick")
 
-        if plan == "drop1_peak" and local in (0, 2, 4):
-            hook(vocals, t0, "a" if local % 4 == 0 else "b", gain=1.05, layers="full")
-            place_stem(vocod, t0, voc_a, gain=0.22)
-        if plan == "drop1_peak" and local == 3:
-            place_stem(vocals, t_body(bar, 3, 1), bank["chop_yeah"], gain=0.45)
+        if plan == "drop1_peak" and local == 0:
+            hook(vocals, t0, "a", gain=0.85, layers="lead")
+        if plan == "drop1_peak" and local in (1, 2, 3, 4, 5):
+            cycle = ["chop_hey", "chop_yeah", "chop_oh", "chop_glen", "chop_dance"]
+            name = cycle[local % len(cycle)]
+            place_stem(vocals, t0, bank[name], gain=0.72)
+            place_stem(vocals, t_body(bar, 2), bank[cycle[(local + 2) % len(cycle)]], gain=0.55)
         if plan == "drop1_peak" and local == 6:
             place_stem(vocals, t0, bank["chop_oh"], gain=0.50)
             place_stem(vocals, t_body(bar, 2), bank["tag"], gain=0.55)
@@ -1058,6 +1185,7 @@ def render():
     fx *= duck[:, None]
     vocals *= duck_v[:, None]
     vocod *= duck[:, None]
+    bass_bus *= duck[:, None]
     # talking filter on the disco bus, then a hard pump
     # unique cutoff motion per section so it is not a static wah
     cutoff = np.full(N, 1800.0)
@@ -1108,11 +1236,11 @@ def render():
         if fade_n < len(hole):
             hole[:fade_n] = np.linspace(1.0, 0.04, fade_n)
             hole[fade_n:] = 0.04
-        for bus in (drums, donk_bus, music, disco, fx, vocals, vocod, kick_bus):
+        for bus in (drums, donk_bus, bass_bus, music, disco, fx, vocals, vocod, kick_bus):
             bus[i0:i1] *= hole[:, None]
 
     tops = music + fx + disco * 1.05 + vocod * 0.85
-    mix = kick_bus * 1.10 + drums * 1.20 + donk_bus * 1.15 + tops * 1.05 + vocals * 2.05
+    mix = kick_bus * 1.10 + drums * 1.28 + donk_bus * 1.10 + bass_bus * 1.05 + tops * 1.08 + vocals * 2.10
 
     i0 = int(round(preroll * SR))
     target = int(round(BARS * 4 * SPB * SR))
@@ -1124,20 +1252,24 @@ def render():
 
     body = body - np.mean(body, axis=0)
     body = E.mono_below(body, hz=150)
-    body = E.widen_highs(body, hz=550, amount=1.38)
-    body[:, 0] = E.rbj(body[:, 0], 6200, 0.65, "highshelf", gain_db=3.8)
-    body[:, 1] = E.rbj(body[:, 1], 6200, 0.65, "highshelf", gain_db=3.8)
-
-    body[:, 0] = E.rbj(E.rbj(E.rbj(body[:, 0], 50, 0.90, "peak", gain_db=3.0), 72, 1.1, "peak", gain_db=2.2), 95, 1.3, "peak", gain_db=2.0)
-    body[:, 1] = E.rbj(E.rbj(E.rbj(body[:, 1], 50, 0.90, "peak", gain_db=3.0), 72, 1.1, "peak", gain_db=2.2), 95, 1.3, "peak", gain_db=2.0)
-    body[:, 0] = E.rbj(E.rbj(body[:, 0], 3200, 0.85, "peak", gain_db=2.6), 1800, 0.9, "peak", gain_db=1.4)
-    body[:, 1] = E.rbj(E.rbj(body[:, 1], 3200, 0.85, "peak", gain_db=2.6), 1800, 0.9, "peak", gain_db=1.4)
+    body = E.widen_highs(body, hz=550, amount=1.42)
+    # Kick-led low end; lighter 80–100 boost so the donk does not bury the air
+    body[:, 0] = E.rbj(E.rbj(E.rbj(body[:, 0], 50, 0.90, "peak", gain_db=3.0), 72, 1.1, "peak", gain_db=2.0), 95, 1.2, "peak", gain_db=0.8)
+    body[:, 1] = E.rbj(E.rbj(E.rbj(body[:, 1], 50, 0.90, "peak", gain_db=3.0), 72, 1.1, "peak", gain_db=2.0), 95, 1.2, "peak", gain_db=0.8)
+    # Presence + air: commercial masters live in 2–8 kHz; we were ~9 dB shy
+    body[:, 0] = E.rbj(E.rbj(body[:, 0], 1800, 0.9, "peak", gain_db=1.6), 3300, 0.80, "peak", gain_db=4.2)
+    body[:, 1] = E.rbj(E.rbj(body[:, 1], 1800, 0.9, "peak", gain_db=1.6), 3300, 0.80, "peak", gain_db=4.2)
+    body[:, 0] = E.rbj(body[:, 0], 6000, 0.85, "peak", gain_db=3.6)
+    body[:, 1] = E.rbj(body[:, 1], 6000, 0.85, "peak", gain_db=3.6)
+    body[:, 0] = E.rbj(body[:, 0], 9000, 0.65, "highshelf", gain_db=2.6)
+    body[:, 1] = E.rbj(body[:, 1], 9000, 0.65, "highshelf", gain_db=2.6)
+    body = E.harmonic_exciter(body, amount=0.24, freq=4200, ceil=14000)
 
     from scipy.ndimage import uniform_filter1d
     n = len(body)
     sec_db = {
-        "intro": -3.8, "build1": -1.0, "drop1": 0.0, "break": -3.2,
-        "build2": -0.8, "drop2": 0.18, "outro": -3.4,
+        "intro": -1.4, "build1": -0.8, "drop1": 0.0, "break": -3.0,
+        "build2": -0.6, "drop2": 0.18, "outro": -1.8,
     }
     env = np.ones(n)
     for name, (a, b) in SEC.items():
@@ -1180,8 +1312,8 @@ def render():
     st2 = lufs_ffmpeg(tmp_drop)
     print("drop LUFS after limit", {k: st2[k] for k in st2 if k != "S"})
     smax = st2.get("S_max")
-    if smax is not None and smax < -9.05 and st2.get("TP", 0) <= -1.0:
-        make_up = min(-8.6 - smax, 1.2)
+    if smax is not None and smax < -8.85 and st2.get("TP", 0) <= -1.0:
+        make_up = min(-8.55 - smax, 1.2)
         print(f"makeup {make_up:+.2f} dB")
         body = body * (10 ** (make_up / 20.0))
         body = true_peak_limit(body, pre, post)
@@ -1254,6 +1386,7 @@ def render():
     report["duration_s"] = float(len(y) / sr)
     (OUT_DIR / "ANALYSIS.json").write_text(json.dumps(report, indent=2))
     print("full", report["full"], "clips", report["clips"], "peak", report["peak"], "wrap", report["wrap_step"])
+    write_critique(y, sr, report, sim, OUT_DIR / "CRITIQUE.json")
 
     tmp.unlink(missing_ok=True)
     tmp_drop.unlink(missing_ok=True)

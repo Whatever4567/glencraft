@@ -33,7 +33,7 @@ MODEL_LEAD = os.environ.get(
 MODEL_DOUBLE = os.environ.get(
     "PIPER_MODEL_DOUBLE", "/workspace/tools/piper-voices/en_GB-alba-medium.onnx"
 )
-OUT = Path(os.environ.get("VOC_OUT", "/workspace/qa/audio-1260/v3/vocals"))
+OUT = Path(os.environ.get("VOC_OUT", "/workspace/qa/audio-1260/v5/vocals"))
 
 # Original lyrics (Glencraft / Highlands). Do not copy the reference clip.
 # Hook A: "Up the glen, we never sleep"
@@ -330,9 +330,15 @@ def get_word(text, model, cache):
     say = SAY.get(text, text)
     key = cache_key(say + "_" + text, model)
     path = cache / key
-    v2 = Path("/workspace/qa/audio-1260/v2/vocals/_cache") / key
-    if not path.exists() and v2.exists():
-        path = v2
+    if not path.exists():
+        for alt in (
+            Path("/workspace/qa/audio-1260/v4/vocals/_cache") / key,
+            Path("/workspace/qa/audio-1260/v3/vocals/_cache") / key,
+            Path("/workspace/qa/audio-1260/v2/vocals/_cache") / key,
+        ):
+            if alt.exists():
+                path = alt
+                break
     if not path.exists():
         # slightly slower for vowels so pitch-correction has something to chew on
         scale = 1.25 if text.lower() in {"oh", "yeah", "hey", "sleep", "hills", "glen", "never", "heather", "glows", "fire", "loch", "over", "mist", "home", "again", "ground", "when", "call"} else 1.12
@@ -355,7 +361,22 @@ def place(phrase, sig, t0, sr=SR):
         phrase[i0:i0 + n] += sig[:n]
 
 
+def add_scoop(y, sr, cents=-32, dur_s=0.055):
+    """Brief downward scoop into the note — a sung onset, not a hard robot step."""
+    n = len(y)
+    if n < int(0.06 * sr):
+        return y
+    t = np.arange(n) / sr
+    env = np.clip(1.0 - t / dur_s, 0.0, 1.0)
+    env = env * env
+    ratio = 2.0 ** ((cents / 1200.0) * env)
+    idx = np.cumsum(ratio)
+    idx *= (n - 1) / max(idx[-1], 1e-9)
+    return np.interp(np.arange(n), idx, y).astype(np.float64)
+
+
 def add_vibrato(y, sr, rate=5.5, depth_cents=20, delay_s=0.09):
+
     """Ramp in a gentle sung vibrato on held notes, keeping length fixed."""
     n = len(y)
     if n < int(0.12 * sr):
@@ -398,15 +419,16 @@ def render_hook(events, model, cache, phrase_dur=PHRASE_DUR):
     n = int(round(phrase_dur * SR))
     phrase = np.zeros(n)
     eighth = SPB / 2.0
-    legato = 0.040  # 40 ms overlap between neighbouring notes
+    legato = 0.055  # slightly longer sung overlap
     for i, (pos, mid, dur8, word) in enumerate(events):
         raw = get_word(word, model, cache)
         sung = retune_to(raw, SR, midi_hz(mid), formant="preserved")
         # extend a little so the legato tail has audio to fade
         dur = dur8 * eighth * 0.96 + (legato if i < len(events) - 1 else 0.0)
         fitted = fit_duration(sung, SR, dur)
+        fitted = add_scoop(fitted, SR, cents=-28 if dur8 >= 2 else -18, dur_s=0.05)
         if dur8 >= 2:
-            fitted = add_vibrato(fitted, SR, rate=5.4, depth_cents=18, delay_s=0.08)
+            fitted = add_vibrato(fitted, SR, rate=5.2, depth_cents=26, delay_s=0.07)
         seed = (abs(hash((word, mid, i))) % 99991) + 3
         fitted = add_breath(fitted, SR, seed=seed, amount=0.040)
         # longer crossfade on connected notes, crisper start on the first
@@ -427,7 +449,10 @@ def render_hook(events, model, cache, phrase_dur=PHRASE_DUR):
 
 def nightcore(y, st=NIGHTCORE_ST):
     """Pitch up with formant shift, tempo unchanged — nightcore timbre at 165 BPM."""
-    return ffmpeg_rubberband(y, SR, semitones=st, tempo=1.0, formant="shifted", quality=True)
+    # Formant-correct: raise the sung pitch, keep the singer's mouth shape.
+    # Nightcore sheen comes from the pro chain (presence, air, a touch of exciter),
+    # not a full cartoon formant shift.
+    return ffmpeg_rubberband(y, SR, semitones=st, tempo=1.0, formant="preserved", quality=True)
 
 
 def octave_down(y):
@@ -559,19 +584,64 @@ def chorus_double(mono, cents=11, delay_ms=15):
 def finish_intimate(mono, formant_shift=0.02):
     """Breakdown vocal: less nightcore (+3 st, formants shifted less aggressively),
     longer plate, almost no delay — a scene change, not a hook wall."""
-    soft = ffmpeg_rubberband(mono, SR, semitones=3.0, tempo=1.0, formant="shifted", quality=True)
+    soft = ffmpeg_rubberband(mono, SR, semitones=3.0, tempo=1.0, formant="preserved", quality=True)
     st = chorus_double(soft, cents=7, delay_ms=18)
     st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=0.38, predelay_s=0.032, decay=1.8)
     st = ping_pong(st, delay_s=SPB * 1.5, fb=0.18, mix=0.08)
+    st = ffmpeg_pro_chain(st, intimate=True)
     peak = np.max(np.abs(st)) + 1e-12
     if peak > 0.98:
         st *= 0.95 / peak
     return st
 
 
+def ffmpeg_pro_chain(y, sr=SR, intimate=False):
+    """De-ess, compress, presence, air, a light exciter — a small vocal mix bus."""
+    if intimate:
+        filt = (
+            "highpass=f=80:poles=2,"
+            "equalizer=f=260:t=q:w=0.9:g=-1.5,"
+            "equalizer=f=2800:t=q:w=0.8:g=2.2,"
+            "equalizer=f=5200:t=q:w=1.1:g=1.2,"
+            "deesser=i=0.18:m=0.5:f=0.5,"
+            "acompressor=threshold=-22dB:ratio=2.6:attack=8:release=90:makeup=2.0:knee=4,"
+            "aexciter=amount=0.18:drive=2.8:blend=0:freq=5000:ceil=13000,"
+            "treble=g=1.2:f=8500"
+        )
+    else:
+        filt = (
+            "highpass=f=90:poles=2,"
+            "equalizer=f=280:t=q:w=0.9:g=-2.0,"
+            "equalizer=f=3300:t=q:w=0.8:g=3.4,"
+            "equalizer=f=5600:t=q:w=1.15:g=2.0,"
+            "deesser=i=0.24:m=0.58:f=0.55,"
+            "acompressor=threshold=-20dB:ratio=3.2:attack=6:release=70:makeup=2.6:knee=4,"
+            "aexciter=amount=0.32:drive=3.2:blend=0:freq=4500:ceil=14500,"
+            "treble=g=2.0:f=9000"
+        )
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="vchain-") as td:
+        inp = Path(td) / "in.wav"
+        out = Path(td) / "out.wav"
+        sf.write(str(inp), y, sr, subtype="FLOAT")
+        run([
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-i", str(inp), "-af", filt, "-ar", str(sr), str(out),
+        ])
+        z, _ = sf.read(str(out), always_2d=True)
+    z = z.astype(np.float64)
+    if y.ndim == 1 and z.shape[1] == 1:
+        z = z[:, 0]
+    peak = np.max(np.abs(z)) + 1e-12
+    src = np.max(np.abs(y)) + 1e-12
+    if peak > src * 1.15:
+        z *= (src * 1.05) / peak
+    return z
+
+
 def finish_lead(mono, throws=None, formant_shift=0.035):
-    """Nightcore, sung chorus double, formant colour, plate, throws."""
+    """Formant-correct nightcore, doubles, colour, plate, throws, pro chain."""
     nc = nightcore(mono)
     st = chorus_double(nc, cents=11, delay_ms=15)
     st = formant_colour(st, shift=formant_shift)
@@ -581,6 +651,7 @@ def finish_lead(mono, throws=None, formant_shift=0.035):
         for start, dur in throws:
             # throws are timed on the pre-nightcore phrase; tempo is unchanged so times stand
             st = delay_throw(st, start, dur, delay_s=SPB * 0.75, taps=4)
+    st = ffmpeg_pro_chain(st, intimate=False)
     peak = np.max(np.abs(st)) + 1e-12
     if peak > 0.98:
         st *= 0.95 / peak
@@ -593,6 +664,7 @@ def finish_layer(mono, wet=0.16, width=0.28, delay_mix=0.10, formant_shift=-0.03
     st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=wet, predelay_s=0.028, decay=1.2)
     st = ping_pong(st, delay_s=SPB * 0.75, fb=0.22, mix=delay_mix)
+    st = ffmpeg_pro_chain(st, intimate=False)
     peak = np.max(np.abs(st)) + 1e-12
     if peak > 0.98:
         st *= 0.95 / peak

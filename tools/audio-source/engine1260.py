@@ -825,3 +825,219 @@ def muted_stab(freqs, dur=0.08, cutoff=1400, det=6):
     att = int(0.003 * SR)
     env[:att] *= np.linspace(0, 1, att)
     return sL * env, sR * env
+
+
+# --- Alternate kits, basses, sparkle / vocal-chain helpers ---------------------
+def make_kick_kit(rng, style="punch"):
+    """Family of kicks with genuinely different spectra (not just velocity)."""
+    presets = {
+        "punch": dict(dur=0.155, sub_t=0.050, sub_f=50.0, body_f=50.0, knock=0.22, punch=0.16, click=0.50, click_hp=4500, drive=1.12),
+        "slam":  dict(dur=0.15,  sub_t=0.048, sub_f=50.0, body_f=52.0, knock=0.24, punch=0.18, click=0.58, click_hp=5000, drive=1.22),
+        "tight": dict(dur=0.12,  sub_t=0.038, sub_f=54.0, body_f=56.0, knock=0.18, punch=0.14, click=0.40, click_hp=4800, drive=1.08),
+        "soft":  dict(dur=0.20,  sub_t=0.070, sub_f=48.0, body_f=48.0, knock=0.10, punch=0.08, click=0.22, click_hp=3500, drive=1.04),
+        "click": dict(dur=0.11,  sub_t=0.026, sub_f=62.0, body_f=70.0, knock=0.38, punch=0.26, click=0.80, click_hp=5500, drive=1.16),
+        "deep":  dict(dur=0.22,  sub_t=0.080, sub_f=44.0, body_f=46.0, knock=0.08, punch=0.10, click=0.12, click_hp=2800, drive=1.06),
+        "rave":  dict(dur=0.14,  sub_t=0.042, sub_f=52.0, body_f=55.0, knock=0.30, punch=0.22, click=0.62, click_hp=5200, drive=1.28),
+    }
+    pset = presets[style]
+    n = int(pset["dur"] * SR)
+    t = np.arange(n) / SR
+    f = pset["body_f"] + 130.0 * np.exp(-t / 0.0065)
+    body = sine_sweep(f) * (1.0 - np.exp(-t / 0.0006)) * np.exp(-t / 0.032)
+    sub = np.sin(2 * np.pi * pset["sub_f"] * t) * (1.0 - np.exp(-t / 0.0010)) * np.exp(-t / pset["sub_t"]) * 1.22
+    knock = np.sin(2 * np.pi * 180.0 * t) * np.exp(-t / 0.010) * pset["knock"]
+    punch = np.sin(2 * np.pi * 62.0 * t) * np.exp(-t / 0.008) * pset["punch"]
+    noise = rng.standard_normal(n)
+    click = sos_hp(noise, pset["click_hp"]) * np.exp(-t / 0.0022) * pset["click"]
+    click += sos_bp(noise, 2200, 7000) * np.exp(-t / 0.0030) * (0.22 if style in ("click", "rave", "slam") else 0.14)
+    sig = tanh_sat(body * 0.55 + sub + knock + punch + click, pset["drive"])
+    k = int(0.008 * SR)
+    sig[-k:] *= np.linspace(1, 0, k)
+    return sig.astype(np.float64)
+
+
+def make_hat_pro(rng, style="sizzle"):
+    """Hats with real 4–12 kHz body, not just air hiss."""
+    specs = {
+        "sizzle": dict(dur=0.070, hp=4200, b1=(6200, 0.55), b2=(9000, 0.45), b3=(12500, 0.35), dec=0.022),
+        "tight":  dict(dur=0.040, hp=5000, b1=(7000, 0.45), b2=(10500, 0.30), b3=(13000, 0.18), dec=0.014),
+        "dark":   dict(dur=0.080, hp=2800, b1=(4500, 0.70), b2=(7000, 0.25), b3=(10000, 0.08), dec=0.030),
+        "metal":  dict(dur=0.090, hp=3800, b1=(8000, 0.80), b2=(11800, 0.55), b3=(14000, 0.28), dec=0.028),
+        "open":   dict(dur=0.22,  hp=3500, b1=(6000, 0.50), b2=(9500, 0.40), b3=(12500, 0.30), dec=0.090),
+        "tick":   dict(dur=0.028, hp=6000, b1=(8000, 0.35), b2=(12000, 0.40), b3=(15000, 0.22), dec=0.010),
+    }
+    p = specs[style]
+    n = int(p["dur"] * SR)
+    t = np.arange(n) / SR
+    noise = rng.standard_normal(n)
+    x = sos_hp(noise, p["hp"]) * 0.55
+    x += rbj(noise, p["b1"][0], 6.5, "band") * p["b1"][1]
+    x += rbj(noise, p["b2"][0], 7.0, "band") * p["b2"][1]
+    x += rbj(noise, p["b3"][0], 5.5, "band") * p["b3"][1]
+    x *= np.exp(-t / p["dec"])
+    return fade(x, 0.3, 5)
+
+
+def make_crash_pro(rng, style="wash"):
+    dur = 2.1 if style == "wash" else (1.2 if style == "splash" else 1.6)
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    x = sos_hp(rng.standard_normal(n), 1800 if style != "splash" else 3500)
+    x += rbj(rng.standard_normal(n), 4500, 2.2, "band") * 0.45
+    x += rbj(rng.standard_normal(n), 7500, 2.8, "band") * 0.55
+    x += rbj(rng.standard_normal(n), 11000, 2.4, "band") * 0.40
+    x += rbj(rng.standard_normal(n), 14000, 2.0, "band") * 0.22
+    dec = 0.70 if style == "wash" else (0.28 if style == "splash" else 0.50)
+    x *= np.exp(-t / dec)
+    return fade(tanh_sat(x, 1.08), 2, 80)
+
+
+def make_ride(rng):
+    n = int(0.55 * SR)
+    t = np.arange(n) / SR
+    ping = np.sin(2 * np.pi * 5200 * t) * np.exp(-t / 0.12) * 0.35
+    ping += np.sin(2 * np.pi * 7800 * t) * np.exp(-t / 0.08) * 0.22
+    wash = sos_bp(rng.standard_normal(n), 5000, 13000) * np.exp(-t / 0.22) * 0.5
+    return fade(ping + wash, 0.4, 20)
+
+
+def harmonic_exciter(x, amount=0.35, freq=4500, ceil=15000):
+    """Add even/odd harmonics above `freq` — commercial air without a harsh hiss."""
+    if x.ndim == 1:
+        x = x[:, None]
+        squeeze = True
+    else:
+        squeeze = False
+    y = np.zeros_like(x)
+    for ch in range(x.shape[1]):
+        band = sos_hp(x[:, ch], freq)
+        band = sos_lp(band, ceil)
+        harm = np.tanh(band * (1.8 + 3.0 * amount))
+        harm = 0.55 * harm + 0.45 * np.sign(band) * (band ** 2)
+        harm = sos_hp(harm, freq * 1.05)
+        harm = sos_lp(harm, ceil)
+        y[:, ch] = x[:, ch] + harm * amount
+    return y[:, 0] if squeeze else y
+
+
+def deess(x, sr=SR, freq=7000, thresh=0.12, depth=0.55, rel_s=0.040):
+    """Dynamic dip of the sibilant band."""
+    if x.ndim == 1:
+        x = x[:, None]
+        squeeze = True
+    else:
+        squeeze = False
+    y = np.array(x, dtype=np.float64, copy=True)
+    coeff = np.exp(-1.0 / (rel_s * sr))
+    for ch in range(y.shape[1]):
+        sib = np.abs(sos_bp(y[:, ch], freq * 0.7, freq * 1.5))
+        env = np.empty_like(sib)
+        e = 0.0
+        for i, v in enumerate(sib):
+            e = v if v > e else coeff * e + (1 - coeff) * v
+            env[i] = e
+        gain = np.ones_like(env)
+        over = env > thresh
+        gain[over] = 1.0 - depth * np.clip((env[over] - thresh) / (thresh + 1e-9), 0, 1)
+        # apply only to the sibilant band
+        band = sos_bp(y[:, ch], freq * 0.7, freq * 1.5)
+        rest = y[:, ch] - band
+        y[:, ch] = rest + band * gain
+    return y[:, 0] if squeeze else y
+
+
+def compress_bus(x, thresh=0.22, ratio=3.0, att_s=0.006, rel_s=0.070, makeup=1.4):
+    """Faster vocal-style compressor (vs the slower glue)."""
+    if x.ndim == 1:
+        x = x[:, None]
+        squeeze = True
+    else:
+        squeeze = False
+    peak = np.maximum(np.max(np.abs(x), axis=1), 1e-9)
+    att = 1 - np.exp(-1 / (att_s * SR))
+    rel = 1 - np.exp(-1 / (rel_s * SR))
+    env = np.zeros_like(peak)
+    e = 0.0
+    for i, p in enumerate(peak):
+        e = e + (att if p > e else rel) * (p - e)
+        env[i] = e
+    gain = np.ones_like(env)
+    over = env > thresh
+    gain[over] = (thresh + (env[over] - thresh) / ratio) / env[over]
+    y = x * (gain * makeup)[:, None]
+    return y[:, 0] if squeeze else y
+
+
+def make_reese(freq, dur, cutoff=520, det=8):
+    n = int(dur * SR)
+    sigL = np.zeros(n)
+    sigR = np.zeros(n)
+    for cents, pan in ((-det, -0.7), (0.0, 0.0), (det, 0.7)):
+        f = freq * 2 ** (cents / 1200.0)
+        s = blep_saw(n, f, phase0=0.11 * (cents + 9))
+        s += 0.35 * blep_saw(n, f * 0.5, phase0=0.3)
+        s = sos_lp(tanh_sat(s, 1.25), cutoff)
+        l = np.sqrt(0.5 * (1 - pan))
+        r = np.sqrt(0.5 * (1 + pan))
+        sigL += s * l
+        sigR += s * r
+    env = 1.0 - np.exp(-np.arange(n) / SR / 0.012)
+    return fade(sigL * env, 4, 20), fade(sigR * env, 4, 20)
+
+
+def make_pluck(freq, dur=0.22):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    sig = blep_square(n, freq, pw=0.28) * np.exp(-t / 0.070)
+    sig += np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.090) * 0.6
+    sig += np.sin(2 * np.pi * freq * 2 * t) * np.exp(-t / 0.040) * 0.15
+    sig = sos_hp(sos_lp(tanh_sat(sig, 1.3), 2200), 70)
+    s = fade(sig, 1, 16)
+    return s, s.copy()
+
+
+def make_growl(freq, dur, rng):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    ratio = 1.5
+    idx = 3.2 + 0.6 * np.sin(2 * np.pi * 0.7 * t)
+    ph_m = 2 * np.pi * np.cumsum(np.full(n, freq * ratio)) / SR
+    ph_c = 2 * np.pi * np.cumsum(np.full(n, freq * 2)) / SR
+    fm = np.sin(ph_c + idx * np.sin(ph_m))
+    body = sos_bp(fm, 180, 900) * 0.9
+    body += sos_bp(fm, 700, 1600) * 0.35
+    body += np.sin(2 * np.pi * freq * t) * 0.45
+    body = sos_hp(tanh_sat(body, 1.4), 55)
+    env = 1.0 - np.exp(-t / 0.008)
+    s = fade(body * env, 2, 18)
+    # slight stereo decorrelation
+    r = np.roll(s, int(0.003 * SR))
+    return s, r
+
+
+def make_sub_fifth(freq, dur):
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    env = 1.0 - np.exp(-t / 0.01)
+    sub = np.sin(2 * np.pi * freq * t) * env
+    fifth = np.sin(2 * np.pi * freq * 1.5 * t) * env * 0.28
+    s = fade(tanh_sat(sub + fifth, 1.1), 3, 16)
+    return s, s.copy()
+
+
+def pulse_pad_stereo(freq, dur, cutoff=2400, pw=0.28):
+    n = int(dur * SR)
+    L = sos_lp(blep_square(n, freq, pw=pw, phase0=0.02), cutoff)
+    R = sos_lp(blep_square(n, freq * 1.002, pw=min(0.95, pw + 0.04), phase0=0.11), cutoff * 1.04)
+    env = 1.0 - np.exp(-np.arange(n) / SR / 0.04)
+    return fade(L * env, 8, 24), fade(R * env, 8, 24)
+
+
+def shimmer_bed(dur, rng, lo=6000, hi=14000):
+    n = int(dur * SR)
+    x = sos_bp(rng.standard_normal(n), lo, hi) * 0.15
+    # slow amplitude movement
+    t = np.arange(n) / SR
+    x *= 0.6 + 0.4 * np.sin(2 * np.pi * 0.15 * t)
+    s = fade(x, 30, 40)
+    return s, np.roll(s, int(0.008 * SR))
