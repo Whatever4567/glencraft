@@ -49269,6 +49269,18 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
   const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p19', sculpted: 0};
   const T = W.THREE;
@@ -50631,8 +50643,20 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    big and low-right, matching t1122 composition. Also hides the duplicate
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p19', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p20', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -50850,7 +50874,17 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           const side = (arm.userData && arm.userData.side) || 1;
           if (!th.userData._thP0) th.userData._thP0 = th.position.clone();
           const p0 = th.userData._thP0;
-          if (kind === 'empty' || kind === 'map' || kind === 'block') {
+          const bowlTh = (U.__palmBowl && U.__bowl && U.__bowl[kind] && U.__bowl[kind].thumb) || null;
+          if (bowlTh) {
+            // Bowl rest: typically abducted out to the side (empty / cobble)
+            // or curled over the top of the map. Visual only, rig joints stay.
+            const pos = bowlTh.pos || [0, 0, 0];
+            th.position.set(p0.x + side * (pos[0] || 0), p0.y + (pos[1] || 0), p0.z + (pos[2] || 0));
+            const eul = bowlTh.eul || [0.40, 1.00, 0.20];
+            th.rotation.set(eul[0] || 0, side * (eul[1] || 0), side * (eul[2] || 0));
+            const mid = (bowlTh.mid != null) ? bowlTh.mid : 0.20;
+            if (th.userData && th.userData.k) th.userData.k.rotation.set(mid, 0, 0);
+          } else if (kind === 'empty' || kind === 'map' || kind === 'block') {
             // Open / supporting / cupped: thumb sits beside the palm, not across it.
             th.position.copy(p0);
             th.rotation.set(0.55, side * 0.70, side * 0.35);
@@ -51505,7 +51539,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     return m;
   }
 
-  function seatItem(kind) {
+  function seatItem(kind, extraSpec) {
     const info = {kind: kind, seated: 0, errBefore: null, errAfter: null, why: null};
     U.gripInfo = info;
     try {
@@ -51514,7 +51548,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         if (W.__rl && W.__rl.t > 0) { info.why = 'reload'; return false; }
         if (typeof rlT !== 'undefined' && rlT > 0) { info.why = 'reload'; return false; }
       } catch (_) {}
-      const spec = GRIP[kind];
+      const spec = extraSpec || GRIP[kind];
       if (!spec) { info.why = 'no-spec'; return false; }
       if (typeof held === 'undefined' || !held) { info.why = 'no-held'; return false; }
       const mesh = held.children && held.children[0];
@@ -51608,8 +51642,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   }
 
   function placeItem(kind) {
-    if (GRIP[kind]) {
-      const ok = seatItem(kind);
+    const bowlGrip = (U.__palmBowl && U.__bowl && U.__bowl[kind] && U.__bowl[kind].grip) || null;
+    if (bowlGrip || GRIP[kind]) {
+      const ok = seatItem(kind, bowlGrip || GRIP[kind]);
       if (!ok && ITEM_NUDGE[kind]) nudgeItem(kind);
     } else {
       U.gripInfo = {kind: kind, seated: 0, why: 'nudge'};
@@ -51718,13 +51753,33 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.__thumbAim = 0;
   U.__thumbLive = 0;
   U.__palmFlip = 0;
-  // Empty hand: forearm comes up from below the frame, pitched forward,
-  // then supinated ~180° about the forearm long axis so the palmar face
-  // (now painted with a pinker tone and crease lines) is toward the camera.
-  // Cobble/map are not included until the block can be seated in that palm.
+  // Empty / cobble / map share a torch-scale (armS 1.12) palm-up rest:
+  // forearm and linen cuff enter from the bottom-right, fingers curl into
+  // a toward-camera bowl, thumb abducted to the side (ref 09). Cobble and
+  // map lock that same arm (useEmpty) so item seating cannot chase the IK.
   U.__palmBowl = 1;
+  const bowlFrame = {dx: -0.02, dy: -0.10, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12};
+  const bowlThumb = {eul: [0.35, 1.10, 0.25], mid: 0.15};
   U.__bowl = {
-    empty: {frame: {dy: -0.18}, pitch: 0.80, pitchOf: 'elb', sup: Math.PI, curl: 0.36}
+    empty: {
+      frame: bowlFrame,
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
+      curl: -0.50, thumb: bowlThumb
+    },
+    block: {
+      frame: Object.assign({}, bowlFrame, {dx: -0.06, s: 0.70}),
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
+      curl: -0.70, thumb: bowlThumb,
+      useEmpty: 1,
+      grip: {p: [0, 0, 0], palm: [0.03, 0.055, -0.08], align: 0}
+    },
+    map: {
+      frame: Object.assign({}, bowlFrame, {s: 1.04, fov: 0.76}),
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
+      curl: -0.35, thumb: {eul: [0.85, 0.70, 0.35], mid: 0.80},
+      useEmpty: 1,
+      grip: {p: [0.08, 0, 0.06], palm: [0, 0.03, -0.02], align: 0}
+    }
   };
   U.__thumbVis = {};
   U.__thumbDist = {};
@@ -51772,11 +51827,53 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // the frame, pitch the forearm forward, then supinate around the
   // forearm's own long axis (local +Y of p.fo, elbow -> wrist). This is
   // not a camera-axis flip — those kept showing the dorsum.
+  function snapBowlParts(p) {
+    function rec(o) {
+      if (!o) return null;
+      return {P: o.position.clone(), Q: o.quaternion.clone()};
+    }
+    return {up: rec(p.up), el: rec(p.el), fo: rec(p.fo), cuff: rec(p.cuff), h: rec(p.h)};
+  }
+  function applyBowlParts(p, rec) {
+    if (!p || !rec) return;
+    ['up', 'el', 'fo', 'cuff', 'h'].forEach(function (k) {
+      const o = p[k], r = rec[k];
+      if (o && r && r.P && r.Q) { o.position.copy(r.P); o.quaternion.copy(r.Q); }
+    });
+  }
+  function applyFallbackParts(p, rec) {
+    if (!p || !rec) return;
+    ['up', 'el', 'fo', 'cuff', 'h'].forEach(function (k) {
+      const o = p[k], r = rec[k];
+      if (o && r && r.P && r.Q) {
+        o.position.set(r.P[0], r.P[1], r.P[2]);
+        o.quaternion.set(r.Q[0], r.Q[1], r.Q[2], r.Q[3]);
+      }
+    });
+  }
+  // Right-arm local pose of the p20 empty palm-up rest, captured after
+  // pitch/sup. Fallback when cobble or map is equipped before empty has
+  // been posed this session.
+  U._emptyBowlFallback = {
+    up: {P: [0.1917, -0.3488, -0.041], Q: [-0.66985, 0, 0.05076, 0.74076]},
+    el: {P: [0.1632, -0.3118, -0.4181], Q: [0, 0, 0, 1]},
+    fo: {P: [0.2003, -0.3241, -0.3294], Q: [-0.09238, 0.93443, -0.34395, 0]},
+    cuff: {P: [0.1393, -0.4188, -0.4496], Q: [-0.09238, 0.93443, -0.34395, 0]},
+    h: {P: [0.1381, -0.0555, -0.5608], Q: [-0.14274, 0.92394, -0.32629, 0.13964]}
+  };
   function applyPalmBowl(arm, kind) {
     const spec = U.__bowl && U.__bowl[kind];
     if (!spec) return;
     const p = arm && arm.userData && arm.userData.p;
     if (!p || !p.fo || !p.h) return;
+    const side = (arm.userData && arm.userData.side) || 1;
+    // Visual only: lock cobble/map to the empty palm-up arm so seating the
+    // item cannot drag the IK. Rig graph and animation curves are unchanged.
+    if (spec.useEmpty && side === 1) {
+      if (U._emptyBowlApplied) applyBowlParts(p, U._emptyBowlApplied);
+      else applyFallbackParts(p, U._emptyBowlFallback);
+      return;
+    }
     if (!p._bowl0) {
       p._bowl0 = {
         foP: p.fo.position.clone(), foQ: p.fo.quaternion.clone(),
@@ -51826,6 +51923,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         parts.forEach(function (o) { rotateAround(o, pivot2, foAxis2, sup); });
       }
     }
+    if (kind === 'empty' && side === 1) U._emptyBowlApplied = snapBowlParts(p);
   }
   // Idempotent: undo a roll already applied this frame, then apply the current amount once.
   function restPalm(kind) {
