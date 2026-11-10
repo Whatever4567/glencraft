@@ -15,9 +15,11 @@
   const FRAME = {
     empty:  {dx:  0.02, dy: -0.12, dz: 0.02, fov: 0.76, s: 1.00, armS: 1.16},
     block:  {dx: -0.04, dy:  0.00, dz: 0.04, fov: 0.76, s: 0.68, armS: 1.20},
-    pick:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
-    p761:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
-    p760:   {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.82, s: 1.06, armS: 1.10},
+    // t1183-13 POSITION: pick comes in large from the bottom-right corner,
+    // head angled up-left, hand at the corner / nearly off-screen.
+    pick:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
+    p761:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
+    p760:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
@@ -25,8 +27,11 @@
     bucket: {dx: -0.06, dy:  0.00, dz: 0.08, fov: 0.68, s: 1.16, armS: 1.12},
     torch:  {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12},
     map:    {dx: -0.05, dy:  0.02, dz: 0.08, fov: 0.68, s: 1.55, armS: 1.12},
-    musket: {dx: -0.02, dy:  0.02, dz: 0.02, fov: 0.92, s: 1.00, armS: 1.00},
-    pistol: {dx: -0.06, dy:  0.00, dz: 0.06, fov: 0.90, s: 1.00, armS: 1.00},
+    // t1183-12 POSITION: gun held big and low in the bottom-right, angled
+    // in towards the centre, forearm coming up from the bottom edge. ADS
+    // rest offsets stay identity so aim animations are unchanged.
+    musket: {dx:  0.03, dy: -0.08, dz: 0.08, fov: 0.78, s: 1.20, armS: 1.00},
+    pistol: {dx:  0.03, dy: -0.10, dz: 0.12, fov: 0.70, s: 1.32, armS: 1.00},
     musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     other:  {dx: -0.04, dy:  0.08, dz: 0.12, fov: 0.64, s: 1.10, armS: 1.20}
