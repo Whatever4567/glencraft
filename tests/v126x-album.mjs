@@ -24,12 +24,19 @@ ok(album.includes("music/album/") && album.includes('.ogg') && album.includes('.
   'album player lazy-loads OGG with an MP3 fallback');
 ok(album.includes('the_glen_opens') && album.includes('heather_road') && album.includes('blue_vault') && album.includes('choir_of_the_hollow'),
   'batch 1 titles are in the context pools');
+ok(album.includes('drove_road') && album.includes('peat_fire') && album.includes('purple_chamber') && album.includes('white_pass')
+  && album.includes('long_sand') && album.includes('red_horizon') && album.includes('between_worlds') && album.includes('down_among_the_reeds'),
+  'batch 2 fallback-filling titles are in the context pools');
+ok(album.includes("purple: ['purple_chamber']"),
+  'purple cave plays Purple Chamber, not the blue fallback');
 ok(album.includes("return 'menu'") && album.includes("return 'moon'") && album.includes("return 'volcano'") && album.includes("return 'loch'"),
   'context detector covers menu, moon, volcano and loch');
 
 const tracks = [
   'the_glen_opens', 'heather_road', 'still_water', 'watcher_on_the_ridge',
-  'blue_vault', 'choir_of_the_hollow', 'silver_sea', 'ash_line'
+  'blue_vault', 'choir_of_the_hollow', 'silver_sea', 'ash_line',
+  'drove_road', 'peat_fire', 'purple_chamber', 'white_pass',
+  'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds'
 ];
 for (const id of tracks) {
   const ogg = new URL('../music/album/' + id + '.ogg', import.meta.url);
