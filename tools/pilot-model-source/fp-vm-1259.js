@@ -20,7 +20,7 @@
   const MIN_FORE = 0.30;
   const SLEEVE_R = 0.036;
   const CUFF_R = 0.034;
-  const CUFF_H = 0.016;
+  const CUFF_H = 0.012;
   const Y = new T.Vector3(0, 1, 0);
 
   // Per-item pose table in portrait NDC + camera Z (z < 0).
@@ -36,12 +36,12 @@
       two: 0, hs: 0.95,
       // t1153: open palm up, reaching forward-centre / slightly right,
       // cream linen cuff on the forearm entering from the bottom-right.
-      R: { sh: [1.22, -1.18, -0.60], wr: [0.30, -0.18, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 0, rs: 0.88, hs: 1.15 }
+      R: { wr: [0.22, -0.16, -0.38], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 0, rs: 0.88, hs: 1.15 }
     },
     block: {
       two: 0, hs: 1.18,
       // t1153: cube cradled in the open palm, fingers under, mid-frame.
-      R: { sh: [1.22, -1.18, -0.58], wr: [0.28, -0.16, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1 },
+      R: { wr: [0.22, -0.16, -0.38], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1, rs: 0.88 },
       item: { p: [0.00, 0.016, -0.030], r: [0.10, 0.18, 0.06], s: 0.36 }
     },
     p761: {
@@ -49,7 +49,7 @@
       // t1154: Minecraft-style FP. Fist lower-right, haft diagonal up
       // toward the centre, two-sided head large in the upper-right/centre.
       // 1269 wr/HEAD identifiers are kept; framing follows the new refs.
-      R: { sh: [1.18, -1.16, -0.50], wr: [0.20, -0.58, -0.48], rot: [0, 0, 0], haft: [0.18, 0.96, -0.16], curl: 1 },
+      R: { wr: [0.28, -0.38, -0.38], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.22, haft: [0.18, 0.96, -0.16], curl: 1, rs: 0.78 },
       item: { p: [-0.045, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.62 }
     },
     pick: null,
@@ -58,25 +58,25 @@
       two: 0, hs: 1.10,
       // t1153: whole sword visible, angled slightly, fist lower-right,
       // cream linen sleeve from the screen edge to the wrist.
-      R: { sh: [1.26, -1.20, -0.58], wr: [0.46, -0.48, -0.52], rot: [0, 0, 0], haft: [0.16, 0.98, -0.06], curl: 1 },
+      R: { wr: [0.28, -0.38, -0.44], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.22, haft: [0.16, 0.98, -0.06], curl: 1, rs: 0.78 },
       item: { p: [-0.015, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 0.72 }
     },
     torch: {
       two: 0, hs: 1.16,
       // t1153: vertical torch in a lower-right fist, flame up.
-      R: { sh: [1.20, -1.18, -0.54], wr: [0.36, -0.36, -0.54], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1 },
+      R: { wr: [0.28, -0.38, -0.38], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.22, haft: [0.05, 0.98, -0.10], curl: 1, rs: 0.78 },
       item: { p: [-0.050, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.42, flameS: 0.95, shaftS: 0.55 }
     },
     map: {
       two: 0, hs: 1.14,
       // t1153: map held flat up in front, thumb on the bottom edge.
-      R: { sh: [1.18, -1.20, -0.56], wr: [0.22, -0.28, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.48 }
+      R: { wr: [0.14, -0.30, -0.50], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1, rs: 0.88 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.40 }
     },
     bucket: {
       two: 0, hs: 1.14,
       // t1153: fist grips the wire bail from above, bucket hangs below.
-      R: { sh: [1.32, -1.00, -0.56], wr: [0.62, -0.28, -0.54], rot: [0, 0, 0], haft: [0.90, 0.20, 0.00], curl: 1, rs: 0.80, hs: 1.08 },
+      R: { wr: [0.58, -0.20, -0.40], pitch: 28, yaw: 32, elev: 20, lenFore: 0.30, face: 'dorsumAbove', faceY: 0.18, haft: [0.92, 0.20, -0.10], curl: 1, rs: 0.58, hs: 1.08 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.65 }
     },
     pistol: {
@@ -163,6 +163,31 @@
     const hx = hy * (aspect || REF_ASPECT);
     return new T.Vector3(nx * hx, ny * hy, z);
   }
+  // Build a shoulder NDC from the wrist so the forearm enters from the
+  // lower-right (or lower-left) edge, pitched toward the camera and yawed in.
+  // pitch/yaw/elev are degrees. side > 0 is the right arm.
+  function shFromWrist(wr, yawDeg, pitchDeg, len, aspect, elevDeg, side) {
+    const wrp = ndcCam(wr[0], wr[1], wr[2], aspect);
+    const yaw = ((yawDeg != null) ? yawDeg : 28) * Math.PI / 180;
+    const pitch = ((pitchDeg != null) ? pitchDeg : 32) * Math.PI / 180;
+    const elev = ((elevDeg != null) ? elevDeg : 34) * Math.PI / 180;
+    const sx = (side < 0) ? -1 : 1;
+    // sh→wr: inward from the side, upward, toward the camera (+Z).
+    const dir = new T.Vector3(
+      -sx * Math.sin(yaw + 0.45),
+      Math.sin(elev),
+      Math.sin(pitch)
+    );
+    if (dir.lengthSq() < 1e-8) dir.set(-sx * 0.7, 0.5, 0.4);
+    dir.normalize();
+    const L = Math.max(MIN_FORE, (len != null) ? len : 0.36);
+    const sh = wrp.clone().addScaledVector(dir, -L);
+    const z = sh.z;
+    const hy = Math.tan(FP_FOV * 0.5 * Math.PI / 180) * Math.abs(z || 1);
+    const hx = hy * (aspect || REF_ASPECT);
+    return [sh.x / hx, sh.y / hy, z];
+  }
+  U.shFromWrist = shFromWrist;
 
   function linen() {
     try { return (W.__hands1249 && W.__hands1249.linenMat && W.__hands1249.linenMat()) || null; } catch (_) { return null; }
@@ -206,7 +231,13 @@
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
       const a = Math.atan2(z, x), r = Math.hypot(x, z) || 1e-6;
       // Long, soft linen folds — high-frequency sines read as engraved armour.
-      const wr = 1 + amount * (0.07 * Math.sin(a * 2 + y * 1.6) + 0.04 * Math.sin(a * 3 - y * 2.2) + 0.02 * Math.sin(y * 2.8 + a * 0.8));
+      const wr = 1 + amount * (
+        0.13 * Math.sin(a * 3 + y * 0.9) +
+        0.08 * Math.sin(a * 2 - y * 0.6 + 0.5) +
+        0.05 * Math.sin(y * 1.7 + a * 0.45) +
+        0.035 * Math.sin(a * 5 + y * 2.1) +
+        0.025 * Math.sin(y * 3.1 - a * 1.1)
+      );
       p.setX(i, (x / r) * r * wr);
       p.setZ(i, (z / r) * r * wr);
     }
@@ -217,14 +248,14 @@
   function unitSleeveGeo() {
     // Height 1 along +Y, from y=0 (shoulder) to y=1 (wrist). More rings
     // so linen folds have something to wrinkle.
-    const g = new T.CylinderGeometry(SLEEVE_R * 0.95, SLEEVE_R * 1.28, 1, 24, 16, false);
+    const g = new T.CylinderGeometry(SLEEVE_R * 0.95, SLEEVE_R * 1.28, 1, 28, 24, true);
     g.translate(0, 0.5, 0);
-    return wrinkleCyl(g, 0.42);
+    return wrinkleCyl(g, 0.58);
   }
   function cuffGeo() {
     // Solid rolled cuff — a short thick band with visible folds.
     const g = new T.CylinderGeometry(CUFF_R, CUFF_R * 0.96, CUFF_H, 24, 3, false);
-    return wrinkleCyl(g, 0.36);
+    return wrinkleCyl(g, 0.48);
   }
 
   function makeArm(side) {
@@ -261,7 +292,7 @@
     arm.add(roll);
     // Third, slightly looser outer fold of the rolled cuff.
     const roll2 = new T.Mesh(
-      wrinkleCyl(new T.CylinderGeometry(CUFF_R * 1.10, CUFF_R * 1.04, CUFF_H * 0.42, 24, 2, false), 0.30),
+      wrinkleCyl(new T.CylinderGeometry(CUFF_R * 1.10, CUFF_R * 1.04, CUFF_H * 0.42, 24, 2, false), 0.40),
       lm
     );
     roll2.name = 'FpCuffRoll2';
@@ -760,7 +791,10 @@
     if (spec.face === 'palmUp') _hz.set(0, -0.22, -0.97);
     else if (spec.face === 'palmUpHigh') _hz.set(0, -0.82, -0.35);
     else if (spec.face === 'palmDown') _hz.set(0, 0.75, 0.45);
-    else _hz.set(0, 0, 1);
+    else if (spec.face === 'dorsumAbove') {
+      const ty = (spec.faceY != null) ? spec.faceY : 0.30;
+      _hz.set(0, ty, Math.sqrt(Math.max(0.2, 1 - ty * ty)));
+    } else _hz.set(0, 0, 1);
     _hx.set(haft[0], haft[1], haft[2] || 0);
     _hx.addScaledVector(_hz, -_hx.dot(_hz));
     if (_hx.lengthSq() < 1e-6) _hx.set(side > 0 ? -0.4 : 0.4, 0.8, 0);
@@ -777,7 +811,11 @@
 
   function poseArm(arm, spec, aspect, hs, sleeveKind, curlOpts) {
     const p = arm.userData.p;
-    const sh = ndcCam(spec.sh[0], spec.sh[1], spec.sh[2], aspect);
+    let shN = spec.sh;
+    if (spec.pitch != null && spec.wr) {
+      shN = shFromWrist(spec.wr, spec.yaw, spec.pitch, spec.lenFore, aspect, spec.elev, (arm.userData && arm.userData.side) || 1);
+    }
+    const sh = ndcCam(shN[0], shN[1], shN[2], aspect);
     const wr = ndcCam(spec.wr[0], spec.wr[1], spec.wr[2], aspect);
     _v.copy(wr).sub(sh);
     let len = _v.length();
@@ -795,15 +833,15 @@
     p.sleeve.scale.set(rs, len, rs);
     p.sleeve.position.set(0, 0, 0);
     p.sleeve.rotation.set(0, 0, 0);
-    p.cuff.position.set(0, len + CUFF_H * 0.70, 0);
+    p.cuff.position.set(0, len + CUFF_H * 0.25, 0);
     p.cuff.rotation.set(0, 0, 0);
     p.cuff.scale.set(rs, 1, rs);
-    p.roll.position.set(0, len + CUFF_H * 0.15, 0);
+    p.roll.position.set(0, len - CUFF_H * 0.20, 0);
     p.roll.rotation.set(0, 0, 0);
     p.roll.scale.set(rs * 1.04, 0.80, rs * 1.04);
     if (p.roll2) {
       p.roll2.visible = true;
-      p.roll2.position.set(0, len - CUFF_H * 0.40, 0);
+      p.roll2.position.set(0, len - CUFF_H * 0.65, 0);
       p.roll2.rotation.set(0, 0, 0);
       p.roll2.scale.set(rs * 1.08, 0.85, rs * 1.08);
     }
@@ -1047,9 +1085,16 @@
     // A little extra hang so the fist sits on the bail with a gap to the rim.
     const camDown = new T.Vector3(0, -1, 0);
     try { camDown.set(0, -1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
-    const extra = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camDown, 0.100));
-    const origin = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
+    const originW = grip.getWorldPosition(new T.Vector3());
+    const origin = grip.worldToLocal(originW.clone());
+    const extra = grip.worldToLocal(originW.clone().addScaledVector(camDown, 0.070));
     held.position.add(extra.sub(origin));
+    // Sit the fist on the right of the bail so the cuff stays outside the wire.
+    const camRight = new T.Vector3(1, 0, 0);
+    try { camRight.set(1, 0, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
+    const origin2 = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
+    const side = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camRight, -0.058));
+    held.position.add(side.sub(origin2));
   }
 
   function sitInPalm(held, grip) {
@@ -1090,8 +1135,15 @@
       const t = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(dir, amt));
       held.position.add(t.sub(o));
     }
-    addCam(towardCam, 0.006);
-    addCam(camUp, 0.038);
+    // Hold-pose thumb pad is on the radial, palmar side of the grip
+    // (~[-0.034, 0.027, -0.051] in hand space after bake scale). Sit the
+    // bottom edge just behind that pad so the thumb stays on the front
+    // of the edge, then push the sheet toward the camera enough that the
+    // fingers and palm stay under it.
+    const thumbPad = new T.Vector3(-0.030, 0.004, -0.018);
+    held.position.add(thumbPad);
+    addCam(towardCam, 0.014);
+    addCam(camUp, 0.016);
   }
 
   function fpCrescentGeo() {
@@ -2002,6 +2054,101 @@
     }
     g.userData.fpPistolHip1271 = 1;
     U.pistolHipQ = [+g.quaternion.x.toFixed(5), +g.quaternion.y.toFixed(5), +g.quaternion.z.toFixed(5), +g.quaternion.w.toFixed(5)];
+    // Bird's-head seating is kept but off until the fist can wrap the
+    // grip without the cuff intersecting the stock.
+    if (false) seatChildPointOnParentOrigin(g, new T.Vector3(0, -0.058, 0.022));
+  }
+  function seatChildPointOnParentOrigin(g, localPoint) {
+    if (!g) return;
+    g.updateWorldMatrix(true, true);
+    if (!g.parent) {
+      const s = (g.scale && g.scale.x) || 1;
+      g.position.copy(localPoint.clone().multiplyScalar(s).applyQuaternion(g.quaternion).negate());
+      return;
+    }
+    const gripW = g.localToWorld(localPoint.clone());
+    const fistW = g.parent.getWorldPosition(new T.Vector3());
+    const newWorld = g.getWorldPosition(new T.Vector3()).add(fistW.sub(gripW));
+    g.position.copy(g.parent.worldToLocal(newWorld));
+  }
+  function seatHeldWorldPoint(heldObj, worldPoint) {
+    if (!heldObj || !heldObj.parent || !worldPoint) return;
+    heldObj.updateWorldMatrix(true, true);
+    const fistW = heldObj.parent.getWorldPosition(new T.Vector3());
+    const newWorld = heldObj.getWorldPosition(new T.Vector3()).add(fistW.clone().sub(worldPoint));
+    heldObj.position.copy(heldObj.parent.worldToLocal(newWorld));
+  }
+  function seatMusketInFist(heldObj) {
+    if (!heldObj || !heldObj.parent) return;
+    heldObj.updateWorldMatrix(true, true);
+    // Measure the stock AABB in held-local units (not world metres).
+    const lb = new T.Box3();
+    let any = false;
+    const tmp = new T.Vector3();
+    heldObj.traverse(function (o) {
+      if (!o.isMesh || o.visible === false || !o.geometry) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const bb = o.geometry.boundingBox;
+      if (!bb) return;
+      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+        tmp.set(i ? bb.max.x : bb.min.x, j ? bb.max.y : bb.min.y, k ? bb.max.z : bb.min.z);
+        o.localToWorld(tmp);
+        heldObj.worldToLocal(tmp);
+        lb.expandByPoint(tmp);
+        any = true;
+      }
+    });
+    if (!any || lb.isEmpty()) return;
+    const size = new T.Vector3(); lb.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (!(maxDim > 0.08 && maxDim < 3.5)) {
+      U.musketSeatSkip = { maxDim: maxDim };
+      return;
+    }
+    let ax = 'z';
+    if (size.x >= size.y && size.x >= size.z) ax = 'x';
+    else if (size.y >= size.x && size.y >= size.z) ax = 'y';
+    const minA = lb.min[ax], maxA = lb.max[ax];
+    let lockL = null;
+    heldObj.traverse(function (o) {
+      if (o.name === 'FpMusketLock1268') lockL = heldObj.worldToLocal(o.getWorldPosition(new T.Vector3()));
+    });
+    const mid = new T.Vector3(); lb.getCenter(mid);
+    const grip = mid.clone();
+    if (lockL) {
+      grip.copy(lockL);
+      const toMax = Math.abs(maxA - lockL[ax]);
+      const toMin = Math.abs(lockL[ax] - minA);
+      const butt = (toMax > toMin) ? minA : maxA;
+      grip[ax] += (butt - lockL[ax]) * 0.34;
+    } else {
+      const butt = (Math.abs(minA) < Math.abs(maxA)) ? minA : maxA;
+      const muzzle = (butt === minA) ? maxA : minA;
+      grip[ax] = butt + (muzzle - butt) * 0.22;
+    }
+    grip.y = Math.min(grip.y, lb.min.y + size.y * 0.42);
+    if (grip.length() > 1.6) {
+      U.musketSeatSkip = { gripLen: grip.length(), maxDim: maxDim };
+      return;
+    }
+    seatHeldWorldPoint(heldObj, heldObj.localToWorld(grip.clone()));
+    U.musketSeat = { maxDim: +maxDim.toFixed(3), ax: ax, grip: [+grip.x.toFixed(3), +grip.y.toFixed(3), +grip.z.toFixed(3)] };
+  }
+  function placeSupportUnderForestock(arm, gun) {
+    if (!arm || !gun || !arm.userData || !arm.userData.p) return;
+    gun.updateWorldMatrix(true, true);
+    // Underside of the pistol forestock, a little forward of the lock.
+    const local = new T.Vector3(0, 0.002, -0.10);
+    const target = gun.localToWorld(local.clone());
+    const socket = arm.userData.p.grip || arm.userData.p.h;
+    if (!socket) return;
+    socket.updateWorldMatrix(true, true);
+    const cupW = socket.getWorldPosition(new T.Vector3());
+    const delta = target.sub(cupW);
+    const parent = arm.parent;
+    const newW = arm.getWorldPosition(new T.Vector3()).add(delta);
+    if (parent) parent.worldToLocal(newW);
+    arm.position.copy(newW);
   }
   function dressPistolFlintlock() {
     // 1266: rebuild the procedural flintlock as a side-on piece — longer
@@ -2137,17 +2284,8 @@
     // 1268: 1.40 / 0.92 ≈ 1.52x the 1267 visual size (barrel also a hair thicker).
     g.position.set(0, 0, 0);
     g.scale.setScalar(1.18);
-    aimFlintlockSide(g);
-    // Pull the bird's-head (local -Y) into the fist; the procedural origin
-    // is the breech, which otherwise leaves the grip hanging empty.
-    const gripLocal = new T.Vector3(0, -0.055, 0.020);
-    const gripWorld = g.localToWorld(gripLocal.clone());
-    const parentInv = new T.Matrix4().copy((g.parent || parent).matrixWorld).invert();
-    // After aim, g may not be parented yet — offset in its own space.
-    g.updateWorldMatrix(true, false);
-    const off = gripLocal.clone().multiplyScalar(-1);
-    g.position.add(off.multiplyScalar(g.scale.x));
     parent.add(g);
+    aimFlintlockSide(g);
     held.userData.fpFlint1265 = 1;
     held.userData.fpFlint1266 = 1;
   }
@@ -2245,6 +2383,9 @@
         addM(new T.BoxGeometry(bx, by, 0.010), brassM, mid.x, mid.y - size.y * 0.05, zButt - 0.002);
         parent.add(g);
         held.userData.fpMusketLock1268 = 1;
+        // Stock grip: just behind the trigger, slightly down toward the butt.
+        held.userData.fpMusketGripSpace = parent;
+        held.userData.fpMusketGripLocal = new T.Vector3(mid.x, yMid - 0.048, zLock + (zButt - zLock) * 0.18);
       }
     }
   }
@@ -2427,10 +2568,24 @@
     // Re-aim the hip flintlock now that vc and the grip parent are final.
     // aimFlintlockSide during poseItem ran against a stale camera matrix.
     try {
-      if (U.poseKey === 'pistol' && typeof held !== 'undefined' && held) {
-        held.traverse(function (o) {
-          if (o.name === 'FpFlintlock1265') aimFlintlockSide(o);
-        });
+      if (typeof held !== 'undefined' && held) {
+        if (U.poseKey === 'pistol' || U.poseKey === 'pistolAds') {
+          held.traverse(function (o) {
+            if (o.name === 'FpFlintlock1265') aimFlintlockSide(o);
+          });
+        }
+        // Hip seating stays available but is off until the stock frames
+        // fully on screen; the held-local AABB path is kept for later.
+        if (false && U.poseKey === 'musket') {
+          seatMusketInFist(held);
+        }
+        if (false && (U.poseKey === 'pistolAds') && armL && armL.visible) {
+          let gun = null;
+          held.traverse(function (o) {
+            if (!gun && o.name === 'FpFlintlock1265') gun = o;
+          });
+          if (gun) placeSupportUnderForestock(armL, gun);
+        }
       }
     } catch (_) {}
   }
@@ -2645,6 +2800,153 @@
     return out;
   };
 
+  function scorePose() {
+    const out = { ok: 0, score: -1e9 };
+    try {
+      if (!armR || !vc) return out;
+      armR.updateWorldMatrix(true, true);
+      if (typeof held !== 'undefined' && held) held.updateWorldMatrix(true, true);
+      const p = armR.userData && armR.userData.p;
+      if (!p || !p.h) return out;
+      const camToward = new T.Vector3(0, 0, 1);
+      try { camToward.set(0, 0, 1).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
+      const hx = new T.Vector3(), hy = new T.Vector3(), hz = new T.Vector3();
+      p.h.matrixWorld.extractBasis(hx, hy, hz);
+      const dorsumDot = hz.dot(camToward);
+      const palmDot = hz.clone().multiplyScalar(-1).dot(camToward);
+      const palm = (U.poseKey === 'empty' || U.poseKey === 'block' || U.poseKey === 'map');
+      const faceDot = palm ? palmDot : dorsumDot;
+      // Sleeve axis sh→wr in world, vs view-to-wrist (looking down the cuff).
+      const wrW = p.wrist.getWorldPosition(new T.Vector3());
+      const shW = armR.getWorldPosition(new T.Vector3());
+      const sleeveDir = wrW.clone().sub(shW);
+      const sleeveLen = sleeveDir.length() || 1;
+      sleeveDir.multiplyScalar(1 / sleeveLen);
+      const viewToWr = wrW.clone();
+      try { viewToWr.sub(vc.getWorldPosition(new T.Vector3())); } catch (_) { viewToWr.set(0, 0, -1); }
+      if (viewToWr.lengthSq() > 1e-8) viewToWr.normalize();
+      const lookDown = Math.abs(sleeveDir.dot(viewToWr));
+      const towardAmt = sleeveDir.dot(camToward);
+      // Knuckles: dorsum-side, mid-finger verts of the visible baked hand.
+      let fist = null;
+      p.h.traverse(function (o) {
+        if (o.isMesh && o.visible && o.userData && o.userData.fpHand1276) fist = o;
+      });
+      const cam = vc;
+      const proj = new T.Vector3();
+      function toNdc(v) {
+        proj.copy(v).project(cam);
+        return proj;
+      }
+      let knOn = 0, knN = 0, knClear = 0, fistMinZ = 1, fistMaxZ = -1, fistMinX = 2, fistMaxX = -2, fistMinY = 2, fistMaxY = -2;
+      if (fist && fist.geometry && fist.geometry.attributes && fist.geometry.attributes.position) {
+        const pos = fist.geometry.attributes.position;
+        const step = Math.max(1, Math.floor(pos.count / 90));
+        fist.updateWorldMatrix(true, true);
+        const lp = new T.Vector3();
+        for (let i = 0; i < pos.count; i += step) {
+          lp.fromBufferAttribute(pos, i);
+          // Knuckle row: mid-finger, dorsal.
+          const isKn = (lp.y > 0.04 && lp.y < 0.10 && lp.z > 0.004);
+          const wp = fist.localToWorld(lp.clone());
+          toNdc(wp);
+          const on = (proj.x > -0.98 && proj.x < 0.98 && proj.y > -0.98 && proj.y < 0.98 && proj.z > -1 && proj.z < 1);
+          fistMinX = Math.min(fistMinX, proj.x); fistMaxX = Math.max(fistMaxX, proj.x);
+          fistMinY = Math.min(fistMinY, proj.y); fistMaxY = Math.max(fistMaxY, proj.y);
+          if (on) { fistMinZ = Math.min(fistMinZ, proj.z); fistMaxZ = Math.max(fistMaxZ, proj.z); }
+          if (isKn) {
+            knN++;
+            if (on) knOn++;
+            // Outside the cuff: a wrist/cuff point should not sit in front of the knuckle.
+            if (on && p.cuff) {
+              const cN = toNdc(p.cuff.getWorldPosition(new T.Vector3()));
+              const dx = proj.x - cN.x, dy = proj.y - cN.y;
+              const sep = Math.hypot(dx, dy);
+              if (sep > 0.08 && proj.z <= cN.z + 0.02) knClear++;
+            }
+          }
+        }
+      }
+      const knVis = knN ? (knOn / knN) : 0;
+      const knOut = knN ? (knClear / knN) : 0;
+      // Item fully on screen.
+      let itemOn = 1, itemFrac = 1, itemN = 0, itemIn = 0, itemClip = 0;
+      if (typeof held !== 'undefined' && held && U.poseKey !== 'empty') {
+        held.traverse(function (o) {
+          if (!o.isMesh || !o.visible || !o.geometry) return;
+          if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+          const bb = o.geometry.boundingBox;
+          if (!bb) return;
+          const v = new T.Vector3();
+          for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+            v.set(i ? bb.max.x : bb.min.x, j ? bb.max.y : bb.min.y, k ? bb.max.z : bb.min.z);
+            o.localToWorld(v);
+            toNdc(v);
+            itemN++;
+            const on = (proj.x > -1 && proj.x < 1 && proj.y > -1 && proj.y < 1 && proj.z > -1 && proj.z < 1);
+            if (on) itemIn++;
+            if (proj.x < -1.02 || proj.x > 1.02 || proj.y < -1.02 || proj.y > 1.02) itemClip++;
+          }
+        });
+        itemFrac = itemN ? (itemIn / itemN) : 1;
+        itemOn = (itemClip === 0 && itemFrac > 0.92) ? 1 : itemFrac;
+      }
+      // Intersection: cuff/sleeve vs item AABB in world, and knuckles buried in cuff.
+      let inter = 0;
+      if (typeof held !== 'undefined' && held && p.sleeve) {
+        const sBox = new T.Box3().setFromObject(p.sleeve);
+        const iBox = new T.Box3().setFromObject(held);
+        if (!sBox.isEmpty() && !iBox.isEmpty() && sBox.intersectsBox(iBox)) {
+          const h = sBox.intersect(iBox);
+          const hs = new T.Vector3(); h.getSize(hs);
+          const isz = new T.Vector3(); iBox.getSize(isz);
+          const vol = Math.max(0, hs.x) * Math.max(0, hs.y) * Math.max(0, hs.z);
+          const ivol = Math.max(1e-8, isz.x * isz.y * isz.z);
+          inter = Math.min(1, vol / ivol);
+        }
+      }
+      // Pick head width / clip if present.
+      let pickOk = 1;
+      if (U.pickContact && U.pickContact.ok === false) pickOk = 0;
+      const wrCloser = (wrW.z > shW.z - 0.01) || (towardAmt > 0.15) ? 1 : 0;
+      // Sweet-spot look-down: foreshortened, not down the tube and not flat-on.
+      const foreshort = 1 - Math.min(1, Math.abs(lookDown - 0.45) / 0.55);
+      let score = 0;
+      score += 2.6 * faceDot;
+      score += 1.4 * knVis;
+      score += 1.6 * knOut;
+      score += 2.2 * itemOn;
+      score += 0.8 * foreshort;
+      score += 0.4 * wrCloser;
+      score += 0.6 * pickOk;
+      score -= 3.2 * inter;
+      score -= 1.8 * (1 - knVis);
+      if (lookDown > 0.88) score -= 2.5;
+      if (faceDot < 0.25) score -= 2.0;
+      if (itemOn < 0.85) score -= 2.5;
+      out.ok = 1;
+      out.score = +score.toFixed(4);
+      out.faceDot = +faceDot.toFixed(4);
+      out.dorsumDot = +dorsumDot.toFixed(4);
+      out.palmDot = +palmDot.toFixed(4);
+      out.knVis = +knVis.toFixed(3);
+      out.knOut = +knOut.toFixed(3);
+      out.itemOn = +itemOn.toFixed(3);
+      out.itemFrac = +itemFrac.toFixed(3);
+      out.inter = +inter.toFixed(3);
+      out.lookDown = +lookDown.toFixed(3);
+      out.towardAmt = +towardAmt.toFixed(3);
+      out.foreshort = +foreshort.toFixed(3);
+      out.poseKey = U.poseKey;
+      out.musketSeat = U.musketSeat || null;
+      out.musketSeatSkip = U.musketSeatSkip || null;
+      out.heldPos = (typeof held !== 'undefined' && held) ? [+held.position.x.toFixed(3), +held.position.y.toFixed(3), +held.position.z.toFixed(3)] : null;
+    } catch (e) {
+      out.err = String(e && e.stack || e).slice(0, 300);
+    }
+    return out;
+  }
+  U.scorePose = scorePose;
   U.apply = applyPose;
   U.disable = function () { U.disabled = 1; U.active = 0; restoreHeld(); hideLegacy(false); };
   U.enable = function () { U.disabled = 0; };
