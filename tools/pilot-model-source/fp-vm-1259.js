@@ -168,7 +168,7 @@
   // Build a shoulder NDC from the wrist so the forearm enters from the
   // lower-right (or lower-left) edge, pitched toward the camera and yawed in.
   // pitch/yaw/elev are degrees. side > 0 is the right arm.
-  function shFromWrist(wr, yawDeg, pitchDeg, len, aspect, elevDeg, side) {
+  function shFromWrist(wr, yawDeg, pitchDeg, len, aspect, elevDeg, side, minFore) {
     const wrp = ndcCam(wr[0], wr[1], wr[2], aspect);
     const yaw = ((yawDeg != null) ? yawDeg : 28) * Math.PI / 180;
     const pitch = ((pitchDeg != null) ? pitchDeg : 32) * Math.PI / 180;
@@ -182,7 +182,8 @@
     );
     if (dir.lengthSq() < 1e-8) dir.set(-sx * 0.7, 0.5, 0.4);
     dir.normalize();
-    const L = Math.max(MIN_FORE, (len != null) ? len : 0.36);
+    const floor = (minFore != null) ? minFore : MIN_FORE;
+    const L = Math.max(floor, (len != null) ? len : 0.36);
     const sh = wrp.clone().addScaledVector(dir, -L);
     const z = sh.z;
     const hy = Math.tan(FP_FOV * 0.5 * Math.PI / 180) * Math.abs(z || 1);
@@ -940,7 +941,7 @@
     const p = arm.userData.p;
     let shN = spec.sh;
     if (spec.pitch != null && spec.wr) {
-      shN = shFromWrist(spec.wr, spec.yaw, spec.pitch, spec.lenFore, aspect, spec.elev, (arm.userData && arm.userData.side) || 1);
+      shN = shFromWrist(spec.wr, spec.yaw, spec.pitch, spec.lenFore, aspect, spec.elev, (arm.userData && arm.userData.side) || 1, spec.minFore);
     }
     const sh = ndcCam(shN[0], shN[1], shN[2], aspect);
     const wr = ndcCam(spec.wr[0], spec.wr[1], spec.wr[2], aspect);
@@ -948,9 +949,10 @@
     let len = _v.length();
     if (len < 1e-5) { _v.set(0, 1, -0.2); len = _v.length(); }
     _v.multiplyScalar(1 / len);
-    if (len < MIN_FORE) {
-      sh.copy(wr).addScaledVector(_v, -MIN_FORE);
-      len = MIN_FORE;
+    const minF = (spec.minFore != null) ? spec.minFore : MIN_FORE;
+    if (len < minF) {
+      sh.copy(wr).addScaledVector(_v, -minF);
+      len = minF;
     }
     arm.position.copy(sh);
     arm.quaternion.setFromUnitVectors(_y, _v);
@@ -2700,7 +2702,7 @@
       return [v.x / (hx || 1), v.y / (hy || 1), z];
     }
     // Wrist of the cup sits at the cuff (anchor +Z, slightly down).
-    const wrLocal = new T.Vector3(0, -0.022, 0.078);
+    const wrLocal = new T.Vector3(0, -0.030, 0.070);
     const wrW = anc.localToWorld(wrLocal.clone());
     const wr0 = worldToWr(wrW, aspect || REF_ASPECT);
     let haftL = [-0.55, 0.12, -0.82];
@@ -2714,7 +2716,7 @@
     } catch (_) {}
     const specL = {
       wr: wr0,
-      pitch: 25, yaw: 35, elev: 44, lenFore: 0.34,
+      pitch: 25, yaw: 35, elev: 44, lenFore: 0.18, minFore: 0.16,
       face: 'palmUnder',
       haft: haftL,
       curl: 1, rs: 0.88, sleeve: 'linen', hs: hs || 1.18
@@ -2722,6 +2724,7 @@
     armL.visible = true;
     armL.traverse(function (o) { o.visible = true; });
     poseArm(armL, specL, aspect || REF_ASPECT, hs || 1.18, 'linen', { mode: 'cup', support: true });
+    try { ensureSleeveEndCap(armL); } catch (_) {}
     // Hide the left arm's own baked hand — the cup lives on the gun.
     armL.traverse(function (o) {
       if (o.userData && (o.userData.fpHand1275 || o.userData.fpHand1276 || o.userData.fpPalmPlug1280 || o.userData.fpPistolCPlug1280)) {
@@ -2912,6 +2915,29 @@
         }
       });
     }
+  }
+  function ensureSleeveEndCap(arm) {
+    if (!arm || !arm.userData || !arm.userData.p || !arm.userData.p.sleeve) return;
+    const p = arm.userData.p;
+    let cap = p.sleeveEndCap;
+    if (!cap || !cap.parent) cap = arm.getObjectByName('FpSleeveEndCap1283');
+    if (!cap) {
+      const src = p.sleeve.material || (p.cuff && p.cuff.material);
+      const mat = src ? src.clone() : new T.MeshPhongMaterial({ color: 0xe8e2d6, shininess: 4 });
+      mat.side = T.DoubleSide;
+      cap = new T.Mesh(new T.CircleGeometry(1, 24), mat);
+      cap.name = 'FpSleeveEndCap1283';
+      cap.userData.fpSleeveEndCap1283 = 1;
+      cap.userData.sculptKeep = 1;
+      cap.rotation.x = Math.PI / 2; // faces back toward the shoulder
+      cap.renderOrder = 7;
+      p.sleeve.add(cap);
+    }
+    p.sleeveEndCap = cap;
+    const rs = p.sleeve.scale.x || 1;
+    cap.position.set(0, 0.002, 0);
+    cap.scale.set(1.02, 1.02, 1); // local to the sleeve (already radius-scaled)
+    cap.visible = true;
   }
   function ensureCuffCap(arm) {
     if (!arm || !arm.userData || !arm.userData.p) return;
@@ -3315,10 +3341,16 @@
       // Baker: +Y fingers, +Z dorsum, palm = -Z.
       // Palm up into the forestock (anchor +Y), fingers toward the muzzle
       // (anchor -Z), dorsum hanging down (anchor -Y).
-      mesh.rotation.order = 'XYZ';
-      mesh.rotation.set(-Math.PI / 2, Math.PI, 0);
-      // Sit the palm just under the wood.
-      mesh.position.set(0, -0.018, 0.000);
+      // Right-handed basis: fingers along the muzzle (anchor -Z),
+      // palm normal up into the forestock (anchor +Y), dorsum down.
+      // Using -X for hand +X keeps the basis proper so the palm does
+      // not flip to face the camera.
+      mesh.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(
+        new T.Vector3(-1, 0, 0),
+        new T.Vector3(0, 0, -1),
+        new T.Vector3(0, -1, 0)
+      ));
+      mesh.position.set(0, -0.026, 0.006);
       grp.add(mesh);
       // Short linen cuff at the cup wrist (opposite the fingers: +Z).
       let lmat = null;
@@ -3328,12 +3360,12 @@
       const cuff = new T.Mesh(new T.CylinderGeometry(0.028, 0.032, 0.046, 16, 1, true), lmat);
       tagFpGun1282(cuff);
       cuff.rotation.x = Math.PI / 2;
-      cuff.position.set(0, -0.022, 0.055);
+      cuff.position.set(0, -0.030, 0.048);
       cuff.renderOrder = 7;
       grp.add(cuff);
       const cap = new T.Mesh(new T.CircleGeometry(0.032, 20), lmat);
       tagFpGun1282(cap);
-      cap.position.set(0, -0.022, 0.078);
+      cap.position.set(0, -0.030, 0.070);
       cap.renderOrder = 7;
       grp.add(cap);
       anc.add(grp);
@@ -3410,7 +3442,7 @@
     // Small brass cap on the pommel (joined, not a floating ball).
     addFpPart(g, new T.SphereGeometry(0.0048, 8, 6), brass, 0, -0.090, 0.006);
 
-    addForestockAnchor(g, 0, barrelY - 0.024, -0.130);
+    addForestockAnchor(g, 0, barrelY - 0.030, -0.120);
     return g;
   }
 
@@ -3489,7 +3521,7 @@
     }
     addFpPart(g, new T.BoxGeometry(0.0030, 0.016, 0.005), steel, 0, 0.032, 0.034, 0.20, 0, 0);
 
-    addForestockAnchor(g, 0, barrelY - 0.026, -0.220);
+    addForestockAnchor(g, 0, barrelY - 0.032, -0.200);
     return g;
   }
 
