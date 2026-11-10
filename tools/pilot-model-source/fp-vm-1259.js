@@ -33,68 +33,69 @@
   // sh/wr: [ndcX, ndcY, zCam]
   const POSES = {
     empty: {
-      two: 0, hs: 0.88,
-      // 1265: small relaxed hand low in the bottom-right corner, fingers
-      // loosely curled (not a huge splayed claw). Sleeve radius follows.
-      // 1272: hand low bottom-right (image ~x 0.75, y 0.88), forearm
-      // entering from the bottom edge at ~35° from vertical. Not a raised fist.
-      R: { sh: [1.55, -1.40, -0.82], wr: [0.55, -0.80, -0.82], rot: [0, 0, 0], haft: [0.22, 0.25, 0.05], curl: 1, rs: 0.72 }
+      two: 0, hs: 0.95,
+      // t1153: open palm up, reaching forward-centre / slightly right,
+      // cream linen cuff on the forearm entering from the bottom-right.
+      R: { sh: [1.35, -1.28, -0.70], wr: [0.32, -0.18, -0.58], rot: [0.05, 0.00, 0.00], haft: [0.85, 0.15, 0.20], face: 'palmUp', curl: 0, rs: 0.80 }
     },
     block: {
-      two: 0, hs: 1.22,
-      // 1266: forearm angled in from the bottom-right, cube still cupped mid-low.
-      R: { sh: [1.22, -1.08, -0.52], wr: [0.42, -0.48, -0.52], rot: [0, 0, 0], haft: [-0.72, 0.18, 0.08], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.06, -0.012], r: [0.10, 0.18, 0.08], s: 0.55 }
+      two: 0, hs: 1.18,
+      // t1153: cube cradled in the open palm, fingers under, mid-frame.
+      R: { sh: [1.25, -1.20, -0.58], wr: [0.20, -0.04, -0.52], rot: [0.00, 0.00, 0.00], haft: [0.90, 0.10, 0.15], face: 'palmUp', curl: 1 },
+      item: { p: [0.00, 0.07, -0.05], r: [0.10, 0.15, 0.05], s: 0.52 }
     },
     p761: {
       two: 0, hs: 1.20,
-      // 1269: socket near frame centre (image x ~0.45-0.50, y ~0.18),
-      // fist bottom-right but left of 1265 (image x ~0.6, y ~0.7),
-      // haft nearly vertical (slight lean) so a ~30% head fits with sky margin.
-      R: { sh: [1.22, -1.06, -0.50], wr: [0.40, -0.64, -0.56], rot: [0, 0, 0], haft: [-0.05, 0.999, 0], curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.44 }
+      // t1154: Minecraft-style FP. Fist lower-right, haft diagonal up
+      // toward the centre, two-sided head large in the upper-right/centre.
+      // 1269 wr/HEAD identifiers are kept; framing follows the new refs.
+      R: { sh: [1.26, -1.12, -0.48], wr: [0.42, -0.68, -0.48], rot: [0, 0, 0], haft: [0.08, 0.98, -0.12], curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.50 }
     },
     pick: null,
     p760: null,
     sword: {
-      two: 0, hs: 1.18,
-      R: { sh: [1.28, -0.92, -0.50], wr: [0.42, -0.50, -0.55], rot: [0, 0, 0], haft: [-0.16, 0.99, 0], curl: 1 },
-      item: { p: [-0.06, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 1.10 }
+      two: 0, hs: 1.16,
+      // t1153: upright sword in the fist, crossguard just above the hand.
+      R: { sh: [1.22, -1.16, -0.55], wr: [0.40, -0.36, -0.55], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1 },
+      item: { p: [-0.04, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 1.10 }
     },
     torch: {
-      two: 0, hs: 1.18,
-      R: { sh: [1.26, -0.96, -0.52], wr: [0.32, -0.56, -0.54], rot: [0, 0, 0], haft: [-0.34, 0.94, 0], curl: 1 },
-      item: { p: [-0.04, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.38, flameS: 0.90, shaftS: 0.55 }
+      two: 0, hs: 1.16,
+      // t1153: vertical torch in a lower-right fist, flame up.
+      R: { sh: [1.20, -1.18, -0.54], wr: [0.36, -0.36, -0.54], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1 },
+      item: { p: [-0.03, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.42, flameS: 0.95, shaftS: 0.55 }
     },
     map: {
-      two: 0, hs: 1.16,
-      R: { sh: [0.95, -0.98, -0.50], wr: [0.10, -0.18, -0.50], rot: [0.10, 0.05, 0.00], haft: [0.70, 0.35, 0], curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [1.57, 0.12, 0.06], s: 1.05 }
+      two: 0, hs: 1.14,
+      // t1153: map held flat up in front, thumb on the bottom edge.
+      R: { sh: [1.15, -1.20, -0.55], wr: [0.16, -0.32, -0.50], rot: [0.00, 0.00, 0.00], haft: [0.95, 0.05, 0.10], face: 'palmUp', curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.18 }
     },
     bucket: {
-      two: 0, hs: 1.16,
-      // 1271: fist on the bail, bucket hanging below (not an arm stretched
-      // up-right with the hand in the water).
-      R: { sh: [1.45, -0.40, -0.52], wr: [0.50, -0.14, -0.50], rot: [0, 0, 0], haft: [0.85, 0.30, 0], curl: 1 },
-      item: { p: [-0.06, -0.18, 0.00], r: [0.10, 0.00, 0.00], s: 0.62 }
+      two: 0, hs: 1.14,
+      // t1153: fist grips the wire bail from above, bucket hangs below.
+      R: { sh: [1.35, -0.85, -0.56], wr: [0.40, -0.08, -0.50], rot: [0, 0, 0], haft: [0.95, 0.05, 0.10], face: 'palmDown', curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.72 }
     },
     pistol: {
-      two: 0, hs: 1.16,
-      R: { sh: [1.10, -1.25, -0.52], wr: [0.18, -0.42, -0.52], rot: [0, 0, 0], haft: [0.10, 0.95, 0], curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.12 }
+      two: 0, hs: 1.12,
+      // t1153 hip: one hand on the grip, barrel angled left-forward.
+      R: { sh: [1.18, -1.22, -0.54], wr: [0.32, -0.30, -0.52], rot: [0, 0, 0], haft: [-0.55, 0.40, -0.55], curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.15 }
     },
     pistolAds: {
-      // 1268: centred look-down-the-sights; both hands fist-wrap the grip.
-      two: 1, hs: 1.00,
-      R: { sh: [0.95, -1.40, -0.52], wr: [0.28, -0.58, -0.50], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-1.05, -1.45, -0.60], wr: [-0.24, -0.62, -0.56], rot: [0, 0, 0], haft: [0.55, 0.15, -0.70], curl: 1, sleeve: 'linen', hs: 1.00 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.10 }
+      // t1153: two hands on the flintlock, centred, 3/4 side — not iron-sights.
+      two: 1, hs: 1.04,
+      R: { sh: [1.18, -1.28, -0.54], wr: [0.30, -0.22, -0.52], rot: [0, 0, 0], haft: [-0.20, 0.55, -0.70], curl: 1, sleeve: 'linen' },
+      L: { sh: [-1.05, -1.28, -0.58], wr: [0.02, -0.10, -0.58], rot: [0, 0, 0], haft: [0.70, 0.10, -0.50], curl: 1, sleeve: 'linen', hs: 1.00 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.15 }
     },
     musket: {
-      two: 1, hs: 0.98,
-      R: { sh: [1.40, -0.65, -0.56], wr: [0.32, -0.44, -0.58], rot: [0, 0, 0], haft: [-0.74, 0.58, 0], curl: 1 },
-      L: { sh: [-1.35, -1.55, -1.15], wr: [-0.42, -0.18, -0.95], rot: [0, 0, 0], haft: [-0.74, 0.58, 0], curl: 1, hs: 0.70 },
-      item: { p: [0.06, -0.02, 0.00], r: [0.00, -1.57, 0.00], s: 0.95 }
+      // t1153: one hand on the grip, barrel angled left-forward.
+      two: 0, hs: 1.10,
+      R: { sh: [1.20, -1.20, -0.56], wr: [0.34, -0.28, -0.54], rot: [0, 0, 0], haft: [-0.62, 0.42, -0.40], curl: 1, sleeve: 'linen' },
+      item: { p: [0.00, 0.00, 0.00], r: [0.10, -1.20, 0.15], s: 1.00 }
     },
     musketAds: {
       two: 1, hs: 0.88,
@@ -369,7 +370,9 @@
   function orientHand(arm, spec, side) {
     const p = arm.userData.p;
     const haft = spec.haft || (side > 0 ? [-0.45, 0.80, 0] : [0.45, 0.70, 0]);
-    if (spec.face === 'palmUp') _hz.set(0, -0.82, -0.35);
+    if (spec.face === 'palmUp') _hz.set(0, -0.35, -0.80);
+    else if (spec.face === 'palmUpHigh') _hz.set(0, -0.82, -0.35);
+    else if (spec.face === 'palmDown') _hz.set(0, 0.75, 0.45);
     else _hz.set(0, 0, 1);
     _hx.set(haft[0], haft[1], haft[2] || 0);
     _hx.addScaledVector(_hz, -_hx.dot(_hz));
@@ -610,6 +613,58 @@
     try {
       dressHeld(spec);
     } catch (_) {}
+    try {
+      const k0 = kindOf();
+      if (k0 === 'bucket') hangBucket(held, grip);
+      if (k0 === 'map') faceMap(held, grip);
+    } catch (_) {}
+  }
+
+  function hangBucket(held, grip) {
+    if (!held || !grip || !vc) return;
+    grip.updateWorldMatrix(true, true);
+    const camUp = new T.Vector3(0, 1, 0);
+    try { camUp.set(0, 1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
+    const qWorld = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), camUp);
+    const qParent = grip.getWorldQuaternion(new T.Quaternion());
+    held.quaternion.copy(qParent.clone().invert().multiply(qWorld));
+    held.position.set(0, 0, 0);
+    held.updateWorldMatrix(true, true);
+    let bail = null;
+    held.traverse(function (o) {
+      if (!o.isMesh || !o.geometry || o.geometry.type !== 'TorusGeometry') return;
+      bail = held.worldToLocal(o.getWorldPosition(new T.Vector3()));
+    });
+    if (!bail) bail = new T.Vector3(0, 0.155, 0);
+    held.updateWorldMatrix(true, true);
+    const bailG = grip.worldToLocal(held.localToWorld(bail.clone()));
+    held.position.copy(bailG).multiplyScalar(-1);
+  }
+
+  function faceMap(held, grip) {
+    if (!held || !grip || !vc) return;
+    grip.updateWorldMatrix(true, true);
+    const towardCam = new T.Vector3(0, 0, 1);
+    const camUp = new T.Vector3(0, 1, 0);
+    try {
+      towardCam.set(0, 0, 1).transformDirection(vc.matrixWorld).normalize();
+      camUp.set(0, 1, 0).transformDirection(vc.matrixWorld).normalize();
+    } catch (_) {}
+    const faceDir = towardCam.clone().addScaledVector(camUp, 0.12).normalize();
+    const zDir = camUp.clone().addScaledVector(faceDir, -camUp.dot(faceDir));
+    if (zDir.lengthSq() < 1e-8) zDir.set(0, 1, 0);
+    zDir.normalize();
+    const xDir = new T.Vector3().crossVectors(faceDir, zDir).normalize();
+    zDir.crossVectors(xDir, faceDir).normalize();
+    const m = new T.Matrix4().makeBasis(xDir, faceDir, zDir);
+    const qWorld = new T.Quaternion().setFromRotationMatrix(m);
+    const qParent = grip.getWorldQuaternion(new T.Quaternion());
+    held.quaternion.copy(qParent.clone().invert().multiply(qWorld));
+    held.position.set(0, 0, 0);
+    held.updateWorldMatrix(true, true);
+    // Sit the bottom edge (local -Z, half of 0.28) in the palm.
+    const edgeG = grip.worldToLocal(held.localToWorld(new T.Vector3(0, 0, -0.12)));
+    held.position.copy(edgeG).multiplyScalar(-1);
   }
 
   function fpCrescentGeo() {
@@ -639,47 +694,49 @@
         const nn = (i < nseg - 1) ? n : n + 1;
         for (let k = 0; k < nn; k++) {
           const p = crSeg(k / n, pts[i], pts[i + 1], pts[i + 2], pts[i + 3]);
-          // Origin is the inner socket against the haft; never spill right.
-          if (p.x > 0) p.x = 0;
+          // t1154: two-sided head may extend to +X (right horn).
           out.push(p);
         }
       }
       return out;
     }
-    // 1269: no clockwise rot — that flattened the hook into an axe face
-    // against the left edge. Tip stays up (crescent on its side). With the
-    // socket moved to frame centre there is room for a ~30% arc.
-    // Wider in X (~30% frame) but shorter in Y so the upward tip stays
-    // on-screen with a 3% sky margin once the socket sits near centre.
+    // t1154 / 1269 identifiers: HEAD_SX, HEAD_SY, aUpper, arcDeg1263.
+    // Two-sided slender curved pick: long left horn, shorter right horn,
+    // both tapering to a point, crown sitting on the metal collar.
+    // Origin is the collar / haft-top centre. No +X clamp.
     const HEAD_SX = 1.75, HEAD_SY = 1.28;
     const P = function (x, y) {
       return { x: x * HEAD_SX, y: y * HEAD_SY };
     };
-    // Outer (left, convex) then inner (right, concave, back U -> socket -> L).
-    // Upright sickle: long horn up, short lower horn, belly to the left.
+    // Slender two-horn outline, explicit points (crChain kept above for
+    // identifiers). Thickness ~0.022 so it reads as a pick, not an axe slab.
     const outerPts = [
-      P(-0.006, -0.110),
-      P(-0.024, -0.088),
-      P(-0.058, -0.012),
-      P(-0.086,  0.050),
-      P(-0.102,  0.108),
-      P(-0.088,  0.168),
-      P(-0.052,  0.218),
-      P(-0.022,  0.245)
+      P(-0.155, -0.055),
+      P(-0.130, -0.072),
+      P(-0.090, -0.060),
+      P(-0.040, -0.028),
+      P(-0.012, -0.012),
+      P( 0.012, -0.012),
+      P( 0.038, -0.034),
+      P( 0.070, -0.068),
+      P( 0.095, -0.082),
+      P( 0.105, -0.062)
     ];
     const innerPts = [
-      P(-0.022,  0.245),
-      P(-0.052,  0.218),
-      P(-0.068,  0.165),
-      P(-0.078,  0.108),
-      P(-0.048,  0.045),
-      P( 0.000,  0.000),
-      P(-0.010, -0.042),
-      P(-0.024, -0.088),
-      P(-0.006, -0.110)
+      P( 0.105, -0.062),
+      P( 0.088, -0.048),
+      P( 0.060, -0.018),
+      P( 0.022,  0.014),
+      P( 0.000,  0.024),
+      P(-0.022,  0.016),
+      P(-0.060, -0.006),
+      P(-0.100, -0.024),
+      P(-0.138, -0.038),
+      P(-0.155, -0.055)
     ];
-    const outer = crChain(outerPts, 20);
-    const inner = crChain(innerPts, 20);
+    // Sample the Catmull-Rom, then also keep the raw tips so the horns stay pointed.
+    const outer = crChain(outerPts, 16);
+    const inner = crChain(innerPts, 16);
     const tipU = outer[outer.length - 1];
     const tipL = outer[0];
     // aUpper / arcDeg1263: heading sweep of the outer edge (open hook, ~110°).
@@ -700,15 +757,15 @@
     for (let i = 0; i < inner.length; i++) shape.lineTo(inner[i].x, inner[i].y);
     shape.closePath();
     const geo = new T.ExtrudeGeometry(shape, {
-      depth: 0.016,
+      depth: 0.048,
       bevelEnabled: true,
-      bevelThickness: 0.005,
-      bevelSize: 0.004,
+      bevelThickness: 0.014,
+      bevelSize: 0.011,
       bevelOffset: 0,
-      bevelSegments: 3,
+      bevelSegments: 5,
       curveSegments: 28
     });
-    geo.translate(0, 0, -0.008);
+    geo.translate(0, 0, -0.024);
     geo.computeVertexNormals();
     geo.userData.fpHook1264 = 1;
     geo.userData.fpHook1263 = 1;
@@ -720,9 +777,90 @@
     U._fpHookArc = arcDeg;
     return geo;
   }
+  function woodGrainTex1274() {
+    if (U._woodGrainTex1274) return U._woodGrainTex1274;
+    const c = document.createElement('canvas');
+    c.width = 256; c.height = 512;
+    const g = c.getContext('2d');
+    g.fillStyle = '#6b4226';
+    g.fillRect(0, 0, 256, 512);
+    for (let i = 0; i < 48; i++) {
+      const x = (i / 48) * 256 + (Math.sin(i * 1.7) * 8);
+      g.strokeStyle = i % 3 === 0 ? 'rgba(42,24,10,0.45)' : (i % 3 === 1 ? 'rgba(120,78,40,0.4)' : 'rgba(90,52,24,0.35)');
+      g.lineWidth = 1.2 + (i % 5) * 0.6;
+      g.beginPath();
+      g.moveTo(x, 0);
+      for (let y = 0; y <= 512; y += 16) {
+        g.lineTo(x + Math.sin(y * 0.04 + i) * 6 + Math.sin(y * 0.11 + i * 0.7) * 3, y);
+      }
+      g.stroke();
+    }
+    for (let i = 0; i < 10; i++) {
+      const y = 30 + i * 48;
+      g.strokeStyle = 'rgba(30,16,6,0.18)';
+      g.lineWidth = 8;
+      g.beginPath();
+      g.ellipse(128, y, 90 + (i % 3) * 20, 10, 0, 0, Math.PI * 2);
+      g.stroke();
+    }
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.repeat.set(1, 3);
+    U._woodGrainTex1274 = t;
+    return t;
+  }
+  function crystalTex1274() {
+    if (U._crystalTex1274) return U._crystalTex1274;
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 256, 256);
+    bg.addColorStop(0, '#b06aff');
+    bg.addColorStop(0.45, '#7a2ad0');
+    bg.addColorStop(1, '#4a1488');
+    g.fillStyle = bg;
+    g.fillRect(0, 0, 256, 256);
+    function vein(x0, y0, color, w, n) {
+      g.strokeStyle = color;
+      g.lineWidth = w;
+      g.beginPath();
+      g.moveTo(x0, y0);
+      let x = x0, y = y0;
+      for (let k = 0; k < n; k++) {
+        x += (Math.sin(k * 1.3 + x0) * 18) + 8;
+        y += (Math.cos(k * 0.9 + y0) * 16) + 14;
+        g.lineTo(x % 256, y % 256);
+      }
+      g.stroke();
+    }
+    for (let i = 0; i < 18; i++) {
+      vein(i * 14, (i * 37) % 256, 'rgba(180,130,255,0.45)', 2.2, 12);
+      vein((i * 23 + 40) % 256, (i * 19) % 256, 'rgba(90,40,170,0.4)', 3.4, 10);
+    }
+    for (let i = 0; i < 14; i++) {
+      vein((i * 31 + 10) % 256, (i * 47) % 256, 'rgba(230,210,255,0.35)', 1.1, 8);
+    }
+    // glossy facets
+    for (let i = 0; i < 8; i++) {
+      const x = (i * 53) % 256, y = (i * 71) % 256;
+      const grd = g.createRadialGradient(x, y, 2, x, y, 28);
+      grd.addColorStop(0, 'rgba(255,240,255,0.5)');
+      grd.addColorStop(1, 'rgba(255,240,255,0)');
+      g.fillStyle = grd;
+      g.beginPath();
+      g.ellipse(x, y, 18, 10, i * 0.7, 0, Math.PI * 2);
+      g.fill();
+    }
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.repeat.set(2, 2);
+    U._crystalTex1274 = t;
+    return t;
+  }
   function tintCrescent(blade) {
     if (!blade) return;
     // 1268: deep violet-purple, not the 1266/1267 magenta 0xb44cff.
+    // t1154: veined glossy crystal map on top of that base.
     // Base #4b1f8a, highlight #8a4ce0, shadow #1e0c3a. No red-channel
     // boost; env map is blue-violet (not pink) so MeshStandard sheen
     // stays on the violet side under the linear-display r128 renderer.
@@ -751,15 +889,16 @@
       env.needsUpdate = true;
       U._fpEnv1268 = env;
     }
-    if (!blade.userData.fpStd1267 || !prev || !prev.isMeshStandardMaterial) {
-      const mat = new T.MeshStandardMaterial({
-        color: 0x4b1f8a,
-        emissive: 0x1e0c3a,
-        emissiveIntensity: 0.15,
-        roughness: 0.22,
-        metalness: 0.16,
-        envMap: U._fpEnv1268,
-        envMapIntensity: 0.90,
+    // SwiftShader cannot compile MeshStandardMaterial here (held-fp-1240
+    // already notes 'normal' undeclared) — use Phong so the crystal stays
+    // a bright glossy violet instead of a near-black slab.
+    if (!blade.userData.fpStd1267 || !prev || prev.isMeshStandardMaterial) {
+      const mat = new T.MeshPhongMaterial({
+        color: 0xd080ff,
+        emissive: new T.Color(0x8a30d8),
+        specular: new T.Color(0xfff0ff),
+        shininess: 90,
+        envMap: null,
         side: T.DoubleSide,
         flatShading: false,
         transparent: false,
@@ -772,13 +911,11 @@
       blade.userData.fpStd1267 = 1;
     } else {
       const mat = prev;
-      mat.color.setHex(0x4b1f8a);
-      mat.emissive.setHex(0x1e0c3a);
-      mat.emissiveIntensity = 0.15;
-      mat.roughness = 0.22;
-      mat.metalness = 0.16;
-      mat.envMap = U._fpEnv1268;
-      mat.envMapIntensity = 0.90;
+      mat.color.setHex(0xd080ff);
+      if (mat.emissive) mat.emissive.setHex(0x8a30d8);
+      if (mat.specular) mat.specular.setHex(0xfff0ff);
+      if (mat.shininess != null) mat.shininess = 90;
+      mat.envMap = null;
       mat.map = null;
       mat.bumpMap = null;
       mat.normalMap = null;
@@ -790,41 +927,74 @@
       if (mat.userData) mat.userData.crystalCore1249 = 1;
     }
   }
+  function isHaftWood(o) {
+    const ud = o.userData || {};
+    if (ud.fpSock1265 || ud.fpHook1264 || ud.fpHook1263 || ud.keepHidden1263 || ud.glow1249 || ud.crystalCore1249 || ud.noGrip) return false;
+    const mat = o.material || {};
+    const c = mat.color;
+    const col = c && c.getHex && c.getHex();
+    if (col === 0x4a2c14 || col === 0x3a2412 || col === 0x5a3a1e) return true;
+    if (c && c.r > 0.20 && c.g > 0.08 && c.g < 0.55 && c.b < 0.32 && c.r > c.b + 0.06 && c.r >= c.g) return true;
+    if (ud.handle1249 || ud.prism1241Applied) return true;
+    return false;
+  }
+  // Tip of the long wooden haft in `root` local space (the group the
+  // blade is parented to). The 1.2.49 prism pick tip sits at ~0.62;
+  // a 1267 floor of 0.87 left a floating socket on that mesh.
   function haftTopY(blade) {
-    let yMax = 0.80;
-    if (typeof held === 'undefined' || !held) return yMax;
-    held.updateWorldMatrix(true, true);
-    held.traverse(function (o) {
-      if (!o.isMesh || o === blade || o.visible === false) return;
-      const ud = o.userData || {};
-      if (ud.fpSock1265 || ud.fpHook1264 || ud.keepHidden1263) return;
-      const mat = o.material || {};
-      const col = mat.color && mat.color.getHex && mat.color.getHex();
-      if (col !== 0x4a2c14 && col !== 0x3a2412 && col !== 0x5a3a1e) return;
-      if (!o.geometry) return;
-      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      const bb = o.geometry.boundingBox;
-      if (!bb) return;
-      const corners = [bb.min.x, bb.max.x, bb.min.y, bb.max.y, bb.min.z, bb.max.z];
-      for (let i = 0; i < 2; i++) {
-        for (let j = 0; j < 2; j++) {
-          for (let k = 0; k < 2; k++) {
-            const pt = new T.Vector3(
-              i ? bb.max.x : bb.min.x,
-              j ? bb.max.y : bb.min.y,
-              k ? bb.max.z : bb.min.z
-            ).applyMatrix4(o.matrixWorld);
-            held.worldToLocal(pt);
-            if (pt.y > yMax) yMax = pt.y;
-          }
+    const root = (blade && blade.parent)
+      || (typeof held !== 'undefined' && held && held.children && held.children[0])
+      || (typeof held !== 'undefined' ? held : null);
+    if (!root) return 0.62;
+    root.updateWorldMatrix(true, true);
+    let bestSpan = 0, tipY = null;
+    const v = new T.Vector3();
+    root.traverse(function (o) {
+      if (!o.isMesh || o === blade || o.visible === false || !o.geometry) return;
+      let p = o.parent;
+      while (p) { if (p === blade) return; p = p.parent; }
+      if (!isHaftWood(o)) return;
+      try {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox;
+        if (!bb) return;
+        let minY = null, maxY = null;
+        for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+          v.set(i ? bb.max.x : bb.min.x, j ? bb.max.y : bb.min.y, k ? bb.max.z : bb.min.z)
+            .applyMatrix4(o.matrixWorld);
+          root.worldToLocal(v);
+          if (minY == null || v.y < minY) minY = v.y;
+          if (maxY == null || v.y > maxY) maxY = v.y;
         }
-      }
+        const span = maxY - minY;
+        // The shaft is the long wood piece; ignore the short carved socket.
+        if (span > bestSpan) { bestSpan = span; tipY = maxY; }
+      } catch (_) {}
     });
-    // 1267: seat the carved head at the true shaft tip so the shaft does
-    // not peek above the socket (the 0.92 cap left a visible gap).
-    if (yMax < 0.82) yMax = 0.87;
-    if (yMax > 0.98) yMax = 0.98;
-    return yMax;
+    return tipY == null ? 0.62 : tipY;
+  }
+  function measurePickContact(blade) {
+    const rec = { pickContact1273: 1, ok: false, gap: null, haftY: null, bladeY: null };
+    try {
+      const b = blade;
+      if (!b) {
+        try {
+          (typeof held !== 'undefined' && held) && held.traverse(function (o) {
+            if (!b && o.isMesh && o.userData && o.userData.fpHook1264) blade = o;
+          });
+        } catch (_) {}
+      }
+      if (!blade) { U.pickContact = rec; return rec; }
+      const haftY = haftTopY(blade);
+      const bladeY = blade.position.y;
+      const gap = +(bladeY - haftY).toFixed(4);
+      rec.haftY = +(+haftY).toFixed(4);
+      rec.bladeY = +(+bladeY).toFixed(4);
+      rec.gap = gap;
+      rec.ok = Math.abs(gap) <= 0.02;
+    } catch (e) { rec.err = String(e && e.message || e); }
+    U.pickContact = rec;
+    return rec;
   }
   function alignCrescentFace(blade) {
     // The stock hook lives under an intermediate group whose rotation
@@ -870,6 +1040,123 @@
       scl: arr(blade.scale), par: (blade.parent && (blade.parent.name || blade.parent.type)) || null,
       flip: !!blade.userData.fpFlipZ1266, nDot: nDot
     };
+    measurePickContact(blade);
+  }
+  function dressHaftShaft() {
+    // t1154: replace the twisted prism shaft with a straight grain-mapped
+    // wood cylinder of the same length, tip still at the measured haft top.
+    if (!held || held.userData.fpHaft1274) return;
+    const root = (held.children && held.children[0]) || held;
+    root.updateWorldMatrix(true, true);
+    let minY = null, maxY = null;
+    const v = new T.Vector3();
+    const oldWood = [];
+    root.traverse(function (o) {
+      if (!o.isMesh || o.visible === false || !o.geometry) return;
+      if (!isHaftWood(o)) return;
+      if (o.userData && o.userData.fpHaftCyl1274) return;
+      oldWood.push(o);
+      try {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox;
+        if (!bb) return;
+        for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+          v.set(i ? bb.max.x : bb.min.x, j ? bb.max.y : bb.min.y, k ? bb.max.z : bb.min.z)
+            .applyMatrix4(o.matrixWorld);
+          root.worldToLocal(v);
+          if (minY == null || v.y < minY) minY = v.y;
+          if (maxY == null || v.y > maxY) maxY = v.y;
+        }
+      } catch (_) {}
+    });
+    if (maxY == null) { maxY = 0.62; minY = -0.02; }
+    const len = Math.max(0.35, maxY - minY);
+    const mid = (maxY + minY) * 0.5;
+    const woodMat = new T.MeshPhongMaterial({
+      color: 0x6b4226,
+      map: woodGrainTex1274(),
+      shininess: 18,
+      specular: 0x3a2210
+    });
+    const cyl = new T.Mesh(new T.CylinderGeometry(0.016, 0.020, len, 20), woodMat);
+    cyl.position.set(0, mid, 0);
+    cyl.userData.handle1249 = 1;
+    cyl.userData.fpHaftCyl1274 = 1;
+    cyl.userData.prism1241Applied = 1;
+    root.add(cyl);
+    for (let i = 0; i < oldWood.length; i++) {
+      oldWood[i].visible = false;
+      oldWood[i].userData = oldWood[i].userData || {};
+      oldWood[i].userData.keepHidden1263 = 1;
+    }
+    held.userData.fpHaft1274 = 1;
+    restoreHaftMats();
+  }
+  function restoreHaftMats() {
+    if (!held) return;
+    const woodCol = 0x6b4226, metalCol = 0x2a2c32;
+    held.traverse(function (o) {
+      if (!o.isMesh || !o.material) return;
+      const ud = o.userData || {};
+      if (ud.fpHaftCyl1274 || (ud.handle1249 && !ud.fpHook1264 && !ud.crystalCore1249 && !ud.fpSockMetal1274 && !ud.fpSock1265)) {
+        const m = o.material;
+        if (m.color) m.color.setHex(woodCol);
+        if (m.map !== woodGrainTex1274()) m.map = woodGrainTex1274();
+        if (m.emissive && m.emissive.setHex) m.emissive.setHex(0x000000);
+        if (m.specular && m.specular.setHex) m.specular.setHex(0x3a2210);
+        if (m.shininess != null) m.shininess = 18;
+        m.needsUpdate = true;
+      }
+      if (ud.fpSockMetal1274 && !ud.handle1249) {
+        const m = o.material;
+        if (m.color) m.color.setHex(metalCol);
+        m.map = null;
+        if (m.emissive && m.emissive.setHex) m.emissive.setHex(0x000000);
+        if (m.specular && m.specular.setHex) m.specular.setHex(0xb0b4bc);
+        if (m.shininess != null) m.shininess = 80;
+        m.needsUpdate = true;
+      }
+    });
+  }
+  function ensureMetalCollar(blade) {
+    if (!blade) return;
+    if (blade.userData.fpSockMetal1274) return;
+    // Drop any previous carved-wood socket children.
+    const drop = [];
+    blade.traverse(function (o) {
+      if (o !== blade && o.userData && o.userData.fpSock1265) drop.push(o);
+    });
+    for (let i = 0; i < drop.length; i++) {
+      try { if (drop[i].parent) drop[i].parent.remove(drop[i]); } catch (_) {}
+    }
+    const metal = new T.MeshPhongMaterial({
+      color: 0x2a2c32, shininess: 80, specular: 0xb0b4bc
+    });
+    const woodMat = new T.MeshPhongMaterial({
+      color: 0x6b4226, map: woodGrainTex1274(), shininess: 18, specular: 0x3a2210
+    });
+    const knot = new T.Group();
+    knot.name = 'FpPickSock';
+    function add(geo, mat, px, py, pz, tags) {
+      const m = new T.Mesh(geo, mat);
+      m.position.set(px, py, pz);
+      m.userData = m.userData || {};
+      m.userData.fpSock1265 = 1;
+      m.userData.fpSockMetal1274 = 1;
+      if (tags) for (const k in tags) m.userData[k] = tags[k];
+      knot.add(m);
+      return m;
+    }
+    // Dark metal collar around the haft top; a short wood cap pokes above.
+    add(new T.CylinderGeometry(0.028, 0.025, 0.050, 18), metal, 0, -0.006, 0, null);
+    add(new T.CylinderGeometry(0.030, 0.028, 0.008, 18), metal, 0, 0.018, 0, null);
+    add(new T.CylinderGeometry(0.017, 0.015, 0.022, 12), woodMat, 0, 0.028, 0, { handle1249: 1 });
+    add(new T.SphereGeometry(0.015, 12, 8), woodMat, 0, 0.038, 0, { handle1249: 1 }).scale.set(1, 0.65, 1);
+    knot.userData.fpSock1265 = 1;
+    knot.userData.fpSockMetal1274 = 1;
+    blade.add(knot);
+    blade.userData.fpSock1265 = 1;
+    blade.userData.fpSockMetal1274 = 1;
   }
   function dressPickHook() {
     if (!held) return;
@@ -878,8 +1165,11 @@
       if (o.userData && o.userData.fpHook1264 && o.isMesh) { already = true; blade0 = o; }
     });
     if (already && blade0) {
+      try { dressHaftShaft(); } catch (_) {}
       alignCrescentFace(blade0);
       tintCrescent(blade0);
+      try { ensureMetalCollar(blade0); } catch (_) {}
+      try { restoreHaftMats(); } catch (_) {}
       return;
     }
     const geo = fpCrescentGeo();
@@ -927,70 +1217,13 @@
     blade.userData.fpHook1263 = 1;
     blade.userData.fpHook1262 = 1;
     blade.userData.noGrip = 1;
-    // On a 1.2.49 pick the stock head mesh origin is not the socket.
-    // After swapping in fpCrescentGeo (origin at the inner socket), snap
-    // the blade so that origin sits on the visible haft tip.
-    try {
-      const parent = blade.parent;
-      if (parent) {
-        parent.updateWorldMatrix(true, true);
-        const inv = new T.Matrix4().copy(parent.matrixWorld).invert();
-        const tip = new T.Vector3();
-        let maxY = null;
-        held.traverse(function (o) {
-          if (!o.isMesh || o === blade || !o.visible) return;
-          let p = o.parent;
-          while (p) { if (p === blade) return; p = p.parent; }
-          const mat = o.material || {};
-          const col = mat.color && mat.color.getHex && mat.color.getHex();
-          const wood = (o.userData && o.userData.handle1249) || col === 0x4a2c14 || col === 0x3a2412 || col === 0x5a3a1e;
-          if (!wood || !o.geometry) return;
-          try {
-            if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-            const b = o.geometry.boundingBox;
-            if (!b) return;
-            const xs = [b.min.x, b.max.x], ys = [b.min.y, b.max.y], zs = [b.min.z, b.max.z];
-            const v = new T.Vector3();
-            for (let ix = 0; ix < 2; ix++) for (let iy = 0; iy < 2; iy++) for (let iz = 0; iz < 2; iz++) {
-              v.set(xs[ix], ys[iy], zs[iz]).applyMatrix4(o.matrixWorld).applyMatrix4(inv);
-              if (maxY == null || v.y > maxY) { maxY = v.y; tip.copy(v); }
-            }
-          } catch (_) {}
-        });
-        if (maxY != null) blade.position.copy(tip);
-      }
-    } catch (_) {}
-    // 1267 carved socket AT the origin (haft top): a cap over the shaft
-    // end, a collar down the shaft, and a short flare into the blade root
-    // only. No knot sitting in the hollow, no shaft tip peeking out.
-    if (!blade.userData.fpSock1265) {
-      const wood = new T.MeshPhongMaterial({
-        color: 0x4a2c14, shininess: 10, specular: 0x2a1a0c
-      });
-      const knot = new T.Group();
-      knot.name = 'FpPickSock';
-      function addWood(geo, px, py, pz, sx, sy, sz) {
-        const m = new T.Mesh(geo, wood);
-        m.position.set(px, py, pz);
-        m.scale.set(sx, sy, sz);
-        m.userData.handle1249 = 1;
-        m.userData.fpSock1265 = 1;
-        knot.add(m);
-        return m;
-      }
-      // Cap the true shaft tip so nothing peeks above the head.
-      addWood(new T.SphereGeometry(0.032, 14, 12), 0.000, 0.010, 0, 1.05, 0.72, 1.00);
-      // Collar down the shaft, flared at the top.
-      const collar = addWood(new T.CylinderGeometry(0.026, 0.017, 0.085, 12), 0, -0.036, 0, 1, 1, 1);
-      collar.rotation.z = 0.04;
-      // Short flare into the 1.3x blade root only (item -X = left), not the hollow.
-      addWood(new T.SphereGeometry(0.026, 12, 10), -0.020, 0.000, 0, 1.20, 0.70, 0.82);
-      addWood(new T.SphereGeometry(0.018, 10, 8), -0.012, -0.020, 0.006, 1.05, 0.80, 0.75);
-      knot.userData.handle1249 = 1;
-      knot.userData.fpSock1265 = 1;
-      blade.add(knot);
-      blade.userData.fpSock1265 = 1;
-    }
+    // t1154: dark metal collar + short wood cap at the haft top.
+    // Identifier fpSock1265 kept. dressHaftShaft runs first so the blade
+    // seats on the new cylinder tip.
+    try { dressHaftShaft(); } catch (_) {}
+    alignCrescentFace(blade);
+    try { ensureMetalCollar(blade); } catch (_) {}
+    try { restoreHaftMats(); } catch (_) {}
   }
   function warmFlameTex1265() {
     if (U._warmFlameTex1265) return U._warmFlameTex1265;
@@ -1216,41 +1449,33 @@
 
   function aimFlintlockSide(g) {
     if (!g) return;
-    if (U.poseKey === 'pistolAds' || U.ads || (typeof isAds === 'function' && isAds() && kindOf() === 'pistol')) {
-      // Look down the sights: muzzle (local -Z) recedes away and slightly
-      // up, grip (local -Y) rolls toward camera-down.
-      g.rotation.set(0, 0, 0);
-      if (!vc) return;
-      const parentDir = new T.Vector3(0.02, 0.36, -1).normalize();
-      g.quaternion.setFromUnitVectors(new T.Vector3(0, 0, -1), parentDir);
-      g.updateWorldMatrix(true, true);
-      const _r = new T.Vector3(), _u = new T.Vector3(), _z = new T.Vector3();
-      try { vc.matrixWorld.extractBasis(_r, _u, _z); } catch (_) { return; }
-      const barrelW = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).normalize();
-      const gripW = new T.Vector3(0, -1, 0).transformDirection(g.matrixWorld).normalize();
-      const camDown = _u.clone().multiplyScalar(-1).normalize();
-      const gP = gripW.addScaledVector(barrelW, -gripW.dot(barrelW));
-      const dP = camDown.addScaledVector(barrelW, -camDown.dot(barrelW));
-      if (gP.lengthSq() > 1e-6 && dP.lengthSq() > 1e-6) {
-        gP.normalize(); dP.normalize();
-        const ang = Math.atan2(new T.Vector3().copy(gP).cross(dP).dot(barrelW), gP.dot(dP));
-        g.rotateOnWorldAxis(barrelW, ang);
-      }
-      return;
-    }
-    // 1272: idempotent hip pose (fpPistolHip1271). Rebuild from the
-    // 1268 slim quaternion every frame, then roll around the barrel so
-    // the bird's-head (local -Y) hangs down in the palm — not out to
-    // the right as a flat disc. Barrel stays upright-ish. No camZ swing.
+    // t1153: both hip and two-hand aim are a 3/4 left-forward barrel with
+    // the bird's-head (local -Y) hanging down in the palm. ADS is a slightly
+    // flatter, more centred 3/4 — not an iron-sights camera punch-in.
+    // Identifier fpPistolHip1271 is kept so earlier tests stay green.
+    const ads = (U.poseKey === 'pistolAds' || U.ads || (typeof isAds === 'function' && isAds() && kindOf() === 'pistol'));
     g.position.set(0, 0, 0);
-    const q0 = new T.Quaternion(0.43638, 0.50004, -0.59181, 0.45748);
-    g.quaternion.copy(q0);
+    g.rotation.set(0, 0, 0);
     if (g.parent) g.parent.updateWorldMatrix(true, true);
+    const muzzle = new T.Vector3(0, 0, -1);
+    const dir = ads
+      ? new T.Vector3(-0.62, 0.12, -0.77)
+      : new T.Vector3(-0.72, 0.28, -0.63);
+    dir.normalize();
+    // dir is in camera space; lift it into the flintlock parent's space.
+    if (vc) {
+      try {
+        const wDir = dir.clone().transformDirection(vc.matrixWorld).normalize();
+        const parent = g.parent;
+        const inv = parent ? new T.Matrix4().copy(parent.matrixWorld).invert() : new T.Matrix4();
+        dir.copy(wDir).transformDirection(inv).normalize();
+      } catch (_) {}
+    }
+    g.quaternion.setFromUnitVectors(muzzle, dir);
     g.updateWorldMatrix(true, true);
     if (vc) {
       const _r = new T.Vector3(), _u = new T.Vector3(), camZ = new T.Vector3();
       try { vc.matrixWorld.extractBasis(_r, _u, camZ); } catch (_) { _u.set(0, 1, 0); }
-      g.updateWorldMatrix(true, true);
       const barrelW = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).normalize();
       const gripW = new T.Vector3(0, -1, 0).transformDirection(g.matrixWorld).normalize();
       const camDown = _u.clone().multiplyScalar(-1);
@@ -1529,9 +1754,9 @@
   }
 
   function curlOptsFor(key, k0, ads) {
-    if (k0 === 'empty') return { mode: 'relax' };
-    if (k0 === 'block') return { mode: 'cup' };
-    if (k0 === 'map') return { mode: 'pinch' };
+    if (k0 === 'empty') return { mode: 'open' };
+    if (k0 === 'block') return { mode: 'fist' };
+    if (k0 === 'map') return { mode: 'fist' };
     if (key === 'pistol' || key === 'pistolAds') return { mode: 'fist', trigger: true };
     return { mode: 'fist' };
   }
@@ -1544,7 +1769,10 @@
   const NEW_FP_KINDS = {
     empty: 1, p761: 1, p760: 1, pick: 1,
     sword: 1, claymore: 1,
-    torch: 1, block: 1, bucket: 1, map: 1
+    torch: 1, block: 1, bucket: 1, map: 1,
+    // t1153 gun targets: hip and ADS share the flintlock rig so a toggle
+    // cannot swap in the 1.2.49 modern rifle. Drop either side if unclean.
+    pistol: 1, musket: 1
   };
   function usesNewFp(kind) {
     return !!NEW_FP_KINDS[kind || ''];
@@ -1610,7 +1838,16 @@
       U.kind = k0;
       U.ads = ads ? 1 : 0;
       U.poseKey = k0;
-      dropNewRig();
+      // Only tear down the new rig on the transition off an allowlisted
+      // item. Re-running restoreHeld/poseHeld every fallback frame fought
+      // the 1.2.49 musket ADS viewmodel and left the item off-screen.
+      if (U.active || !U.fallback1249) dropNewRig();
+      else {
+        U.active = 0;
+        U.fallback1249 = 1;
+        if (rig) rig.visible = false;
+        try { if (W.__fpTpArm1270 && W.__fpTpArm1270.hideAll) W.__fpTpArm1270.hideAll(); } catch (_) {}
+      }
       return;
     }
     U.fallback1249 = 0;
@@ -1775,6 +2012,33 @@
   // Diagnose contact / sleeve-wrist / entry for tests and the QA studio.
   U.probe = function () {
     const out = { active: !!U.active, kind: U.kind, ads: U.ads, poseKey: U.poseKey, err: U.err, fallback1249: !!U.fallback1249, usesNewFp: usesNewFp(U.kind), fpHybrid1272: 1 };
+    try { if (U.pickContact) out.pickContact = U.pickContact; } catch (_) {}
+    try { if (U.pickDump) out.pickDump = U.pickDump; } catch (_) {}
+    try {
+      if (W.__heldFrame1251) out.frameAds = W.__heldFrame1251.ads ? 1 : 0;
+    } catch (_) {}
+    try {
+      const vm = W.__vm;
+      if (vm) out.vmOn = vm.on ? 1 : 0;
+    } catch (_) {}
+    try {
+      const g = (typeof held !== 'undefined' && held && held.children && held.children[0]) || null;
+      const id = (typeof selId !== 'undefined') ? selId : null;
+      let cntV = null;
+      try { if (typeof cnt === 'function') cntV = cnt(id); } catch (_) {}
+      out.gunDiag = {
+        selId: id,
+        hasChild: !!g,
+        gunUd: g && g.userData && g.userData.gun,
+        gunTable: !!(typeof GUN !== 'undefined' && id != null && GUN[id]),
+        cnt: cntV,
+        handVis: (typeof hand !== 'undefined' && hand) ? !!hand.visible : null,
+        c340: W.__c340 ? +W.__c340.k : null,
+        adsK: (typeof S !== 'undefined' && S) ? S.adsK : null,
+        c145: !!(W.__c145 && (W.__c145.force || W.__c145.hold)),
+        c288: !!(W.__c288 && W.__c288.aiming)
+      };
+    } catch (_) {}
     try {
       if (!U.active || !armR) return out;
       const pR = armR.userData.p;

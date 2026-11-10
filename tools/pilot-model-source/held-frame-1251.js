@@ -74,6 +74,8 @@
     try {
       if (W.__c340 && +W.__c340.k > 0.45) return true;
       if (typeof S !== 'undefined' && S && S.adsK > 0.45) return true;
+      if (W.__c288 && W.__c288.aiming) return true;
+      if (W.__c145 && (W.__c145.force || W.__c145.hold)) return true;
     } catch (_) {}
     return false;
   }

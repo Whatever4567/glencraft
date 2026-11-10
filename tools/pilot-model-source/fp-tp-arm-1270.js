@@ -471,11 +471,14 @@
     let cx = 0.70, kx = 0.78, t1a = 0.50, t2a = 0.55, tY = 0;
     const dex = [1, 1, 1, 1]; // per-digit scale, index..pinky
     if (k === 'empty') {
-      cx = 0.55; kx = 0.46; t1a = 0.28; t2a = 0.22; // ~32° / 26°
+      // t1153: open palm, slight natural curve, not a fist.
+      cx = 0.10; kx = 0.08; t1a = 0.18; t2a = 0.12;
     } else if (k === 'block') {
-      cx = 0.48; kx = 0.42; t1a = 0.40; t2a = 0.34;
+      // t1153: fingers under the cube, a cradle not a tight fist.
+      cx = 0.32; kx = 0.28; t1a = 0.34; t2a = 0.28;
     } else if (k === 'map') {
-      cx = 0.52; kx = 0.46; t1a = 0.36; t2a = 0.30;
+      // t1153: thumb on the bottom edge, fingers under the sheet.
+      cx = 0.22; kx = 0.18; t1a = 0.40; t2a = 0.28;
     } else if (k === 'bucket') {
       cx = 0.72; kx = 0.80; t1a = 0.55; t2a = 0.60;
     } else if (key === 'pistol') {
@@ -483,10 +486,10 @@
       cx = 0.72; kx = 0.78; t1a = 0.42; t2a = 0.36; tY = 0.18;
       dex[0] = 0.18;
     } else if (key === 'pistolAds') {
-      if (isLeft) { cx = 0.22; kx = 0.18; t1a = 0.24; t2a = 0.20; }
+      if (isLeft) { cx = 0.58; kx = 0.62; t1a = 0.40; t2a = 0.36; tY = 0.10; }
       else { cx = 0.70; kx = 0.74; t1a = 0.42; t2a = 0.36; tY = 0.16; dex[0] = 0.18; }
     } else if (key === 'musketAds') {
-      if (isLeft) { cx = 0.22; kx = 0.18; t1a = 0.24; t2a = 0.20; }
+      if (isLeft) { cx = 0.58; kx = 0.62; t1a = 0.40; t2a = 0.36; }
       else { cx = 0.68; kx = 0.72; t1a = 0.48; t2a = 0.50; }
     } else if (key === 'musket') {
       if (isLeft) { cx = 0.58; kx = 0.62; t1a = 0.42; t2a = 0.40; }
@@ -494,11 +497,12 @@
     } else {
       // pick / sword / torch: wrap the haft, pinky a little less so the
       // far-side fingertips do not punch through each other.
-      cx = 0.50; kx = 0.36; t1a = 0.55; t2a = 0.58; tY = 0.16;
-      dex[0] = 0.88; dex[3] = 0.75;
+      cx = 0.62; kx = 0.50; t1a = 0.60; t2a = 0.62; tY = 0.18;
+      dex[0] = 0.90; dex[3] = 0.80;
     }
     if (opts.mode === 'cup') { cx = 0.20; kx = 0.16; t1a = 0.22; t2a = 0.18; }
     if (opts.mode === 'relax') { cx = 0.52; kx = 0.48; t1a = 0.28; t2a = 0.22; }
+    if (opts.mode === 'open') { cx = 0.10; kx = 0.08; t1a = 0.18; t2a = 0.12; }
     if (opts.trigger) dex[0] = 0.18;
     if (U.curlMul != null) {
       cx *= U.curlMul; kx *= U.curlMul; t1a *= U.curlMul; t2a *= U.curlMul;
@@ -510,7 +514,7 @@
       const sc = dex[d] != null ? dex[d] : 1;
       if (b1) {
         b1.rotateX(cx * sc);
-        if (k === 'empty') b1.rotateZ((1.5 - d) * 0.07);
+        if (k === 'empty') b1.rotateZ((1.5 - d) * 0.10);
         b1.updateMatrix();
       }
       if (b2) { b2.rotateX(kx * sc); b2.updateMatrix(); }
@@ -558,7 +562,10 @@
     // (a bind-length point along the arm) sits just inside the bottom
     // or right frame edge. Wrist stays put; no bone scaling.
     const vmKey = ((W.__fpVm1259 && (W.__fpVm1259.poseKey || W.__fpVm1259.kind)) || '');
-    const skipCuff = (vmKey === 'bucket' || vmKey === 'musketAds' || vmKey === 'pistolAds' || vmKey === 'musket' || vmKey === 'empty');
+    // t1153: the Scottish shirt cuff sits ~0.24m from the wrist (elbow).
+    // Nudge the forearm so that cuff reads at the frame edge as a wrist
+    // cuff; the authored wr stays put. skipCuff stays false.
+    const skipCuff = false;
     if (vc && !skipCuff) {
       try {
         vc.updateWorldMatrix(true, false);
@@ -634,6 +641,34 @@
     const dorsum = new T.Vector3(0, 0, 1).transformDirection(p.h.matrixWorld);
     if (dorsum.lengthSq() < 1e-8) dorsum.set(0, 0, 1);
     dorsum.normalize().negate();
+
+    // Pronate/supinate the forearm so the wrist skin follows the hand
+    // palm instead of tearing when the driver asks for palm-up.
+    if (f) {
+      f.updateWorldMatrix(true, false);
+      const axis = wr.clone().sub(el);
+      if (axis.lengthSq() > 1e-8) {
+        axis.normalize();
+        function sideOf(mat, axisV) {
+          const z = new T.Vector3(0, 0, 1).transformDirection(mat);
+          const x = new T.Vector3(1, 0, 0).transformDirection(mat);
+          z.addScaledVector(axisV, -z.dot(axisV));
+          x.addScaledVector(axisV, -x.dot(axisV));
+          return (z.lengthSq() >= x.lengthSq()) ? z : x;
+        }
+        const cur = sideOf(f.matrixWorld, axis);
+        const des = dorsum.clone().addScaledVector(axis, -dorsum.dot(axis));
+        if (cur.lengthSq() > 1e-8 && des.lengthSq() > 1e-8) {
+          cur.normalize(); des.normalize();
+          const ang = Math.atan2(new T.Vector3().copy(cur).cross(des).dot(axis), cur.dot(des));
+          const pW = new T.Vector3(), qW = new T.Quaternion(), sW = new T.Vector3();
+          f.matrixWorld.decompose(pW, qW, sW);
+          qW.premultiply(new T.Quaternion().setFromAxisAngle(axis, ang));
+          applyWorld(f, new T.Matrix4().compose(pW, qW, sW));
+        }
+      }
+    }
+
     const mid = wr.clone().addScaledVector(tip, 0.08);
     const hm = new T.Matrix4();
     frameYUp(wr, mid, dorsum, hm);
