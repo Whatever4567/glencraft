@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p20', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p21', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -1118,7 +1118,7 @@
       pitch: 0.65, pitchOf: 'elb', sup: Math.PI,
       curl: -0.70, thumb: bowlThumb,
       useEmpty: 1,
-      grip: {p: [0, 0, 0], palm: [0.03, 0.055, -0.08], align: 0}
+      grip: {p: [0, 0, 0], palm: [-0.01, 0.030, -0.08], align: 0}
     },
     map: {
       frame: Object.assign({}, bowlFrame, {s: 1.04, fov: 0.76}),
