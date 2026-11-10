@@ -42,7 +42,7 @@
       two: 0, hs: 1.18,
       // t1153: cube cradled in the open palm, fingers under, mid-frame.
       R: { sh: [1.22, -1.18, -0.58], wr: [0.28, -0.16, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.04, -0.04], r: [0.10, 0.15, 0.05], s: 0.48 }
+      item: { p: [0.00, 0.016, -0.030], r: [0.10, 0.18, 0.06], s: 0.36 }
     },
     p761: {
       two: 0, hs: 1.20,
@@ -50,7 +50,7 @@
       // toward the centre, two-sided head large in the upper-right/centre.
       // 1269 wr/HEAD identifiers are kept; framing follows the new refs.
       R: { sh: [1.18, -1.16, -0.50], wr: [0.20, -0.58, -0.48], rot: [0, 0, 0], haft: [0.18, 0.96, -0.16], curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.62 }
+      item: { p: [-0.045, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.62 }
     },
     pick: null,
     p760: null,
@@ -59,43 +59,43 @@
       // t1153: whole sword visible, angled slightly, fist lower-right,
       // cream linen sleeve from the screen edge to the wrist.
       R: { sh: [1.26, -1.20, -0.58], wr: [0.46, -0.48, -0.52], rot: [0, 0, 0], haft: [0.16, 0.98, -0.06], curl: 1 },
-      item: { p: [-0.04, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 0.72 }
+      item: { p: [-0.015, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 0.72 }
     },
     torch: {
       two: 0, hs: 1.16,
       // t1153: vertical torch in a lower-right fist, flame up.
       R: { sh: [1.20, -1.18, -0.54], wr: [0.36, -0.36, -0.54], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1 },
-      item: { p: [-0.03, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.42, flameS: 0.95, shaftS: 0.55 }
+      item: { p: [-0.050, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.42, flameS: 0.95, shaftS: 0.55 }
     },
     map: {
       two: 0, hs: 1.14,
       // t1153: map held flat up in front, thumb on the bottom edge.
       R: { sh: [1.18, -1.20, -0.56], wr: [0.22, -0.28, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.72 }
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.48 }
     },
     bucket: {
       two: 0, hs: 1.14,
       // t1153: fist grips the wire bail from above, bucket hangs below.
-      R: { sh: [1.40, -0.85, -0.58], wr: [0.50, -0.18, -0.52], rot: [0, 0, 0], haft: [0.95, 0.05, 0.10], face: 'palmDown', curl: 1 },
+      R: { sh: [1.32, -1.00, -0.56], wr: [0.62, -0.28, -0.54], rot: [0, 0, 0], haft: [0.90, 0.20, 0.00], curl: 1, rs: 0.80, hs: 1.08 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.65 }
     },
     pistol: {
       two: 0, hs: 1.12,
       // t1153 hip: one hand on the grip, barrel angled left-forward.
-      R: { sh: [1.18, -1.22, -0.54], wr: [0.32, -0.30, -0.52], rot: [0, 0, 0], haft: [-0.55, 0.40, -0.55], curl: 1 },
+      R: { sh: [1.18, -1.22, -0.54], wr: [0.32, -0.30, -0.52], rot: [0, 0, 0], haft: [-0.55, 0.40, -0.55], curl: 1, rs: 0.70 },
       item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.15 }
     },
     pistolAds: {
       // t1153: two hands on the flintlock, centred, 3/4 side — not iron-sights.
       two: 1, hs: 1.04,
-      R: { sh: [1.18, -1.28, -0.54], wr: [0.30, -0.22, -0.52], rot: [0, 0, 0], haft: [-0.20, 0.55, -0.70], curl: 1, sleeve: 'linen' },
-      L: { sh: [-1.05, -1.28, -0.58], wr: [0.02, -0.10, -0.58], rot: [0, 0, 0], haft: [0.70, 0.10, -0.50], curl: 1, sleeve: 'linen', hs: 1.00 },
+      R: { sh: [1.18, -1.28, -0.54], wr: [0.30, -0.22, -0.52], rot: [0, 0, 0], haft: [-0.20, 0.55, -0.70], curl: 1, sleeve: 'linen', rs: 0.70 },
+      L: { sh: [-1.08, -1.22, -0.58], wr: [-0.06, -0.18, -0.55], rot: [0, 0, 0], haft: [0.75, 0.05, -0.45], sleeve: 'linen', hs: 1.00, rs: 0.68 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.15 }
     },
     musket: {
       // t1153: one hand on the grip, barrel angled left-forward.
       two: 0, hs: 1.10,
-      R: { sh: [1.20, -1.20, -0.56], wr: [0.34, -0.28, -0.54], rot: [0, 0, 0], haft: [-0.62, 0.42, -0.40], curl: 1, sleeve: 'linen' },
+      R: { sh: [1.20, -1.20, -0.56], wr: [0.34, -0.28, -0.54], rot: [0, 0, 0], haft: [-0.62, 0.42, -0.40], curl: 1, sleeve: 'linen', rs: 0.70 },
       item: { p: [0.00, 0.00, 0.00], r: [0.10, -1.20, 0.15], s: 1.00 }
     },
     musketAds: {
@@ -219,12 +219,12 @@
     // so linen folds have something to wrinkle.
     const g = new T.CylinderGeometry(SLEEVE_R * 0.95, SLEEVE_R * 1.28, 1, 24, 16, false);
     g.translate(0, 0.5, 0);
-    return wrinkleCyl(g, 0.32);
+    return wrinkleCyl(g, 0.42);
   }
   function cuffGeo() {
     // Solid rolled cuff — a short thick band with visible folds.
     const g = new T.CylinderGeometry(CUFF_R, CUFF_R * 0.96, CUFF_H, 24, 3, false);
-    return wrinkleCyl(g, 0.28);
+    return wrinkleCyl(g, 0.36);
   }
 
   function makeArm(side) {
@@ -614,9 +614,11 @@
     // AO, a lighter palm, and a warm SSS-like tint.
     const m = new T.MeshBasicMaterial({
       // Warm the atlas toward the HeadSkin face mean (~195,142,107)
-      color: 0xf3c8a4,
+      color: 0xffd2aa,
       map: map || undefined,
-      side: T.DoubleSide
+      side: T.DoubleSide,
+      transparent: false,
+      opacity: 1
     });
     m.userData.sculptKeep = 1;
     U._skinMat1276 = m;
@@ -641,6 +643,7 @@
     addKind('fist', 'fpFist1275');
     addKind('open', 'fpPalm1275');
     addKind('cup', 'fpCup1276');
+    addKind('hold', 'fpHold1277');
     h.userData.fpBaked1276 = 1;
     return true;
   }
@@ -681,10 +684,12 @@
     try {
       ensureFpHands(h, h.userData.side || 1);
       const useOpen = (mode === 'open' || mode === 'relax');
-      const useCup = (mode === 'cup' || mode === 'pinch');
-      if (h.userData.fpFist1275) h.userData.fpFist1275.visible = !useOpen && !useCup;
+      const useHold = (mode === 'hold' || mode === 'pinch');
+      const useCup = (mode === 'cup');
+      if (h.userData.fpFist1275) h.userData.fpFist1275.visible = !useOpen && !useCup && !useHold;
       if (h.userData.fpPalm1275) h.userData.fpPalm1275.visible = useOpen;
       if (h.userData.fpCup1276) h.userData.fpCup1276.visible = useCup;
+      if (h.userData.fpHold1277) h.userData.fpHold1277.visible = useHold;
       hideLegacySculpt(h);
     } catch (e) { ERR('fpHands', e); }
     const side = (h.userData && h.userData.side) || 1;
@@ -827,9 +832,12 @@
     arm.userData.curlOpts1271 = curlOpts || {};
     const modeG = (curlOpts && curlOpts.mode) || 'fist';
     if (p.grip) {
-      if (modeG === 'open' || modeG === 'cup' || modeG === 'relax') p.grip.position.set(0, 0.048, -0.010);
-      else if (modeG === 'pinch') p.grip.position.set(0, 0.030, -0.008);
-      else p.grip.position.set(0, 0.032, -0.018);
+      const tun = (W.__fpHandsBaked1276 && W.__fpHandsBaked1276.tunnel) || { y: 0.050, z: -0.026 };
+      const gsc = BAKE_HAND_SCALE * 1.10;
+      if (modeG === 'open' || modeG === 'relax') p.grip.position.set(0, 0.048, -0.010);
+      else if (modeG === 'cup') p.grip.position.set(0, 0.042, -0.016);
+      else if (modeG === 'pinch' || modeG === 'hold') p.grip.position.set(0, 0.028, -0.010);
+      else p.grip.position.set(0, tun.y * gsc, tun.z * gsc);
     }
     curlHand(p.h, spec.curl != null ? spec.curl : 1, curlOpts || {});
     arm.visible = true;
@@ -1039,7 +1047,7 @@
     // A little extra hang so the fist sits on the bail with a gap to the rim.
     const camDown = new T.Vector3(0, -1, 0);
     try { camDown.set(0, -1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
-    const extra = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camDown, 0.088));
+    const extra = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camDown, 0.100));
     const origin = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
     held.position.add(extra.sub(origin));
   }
@@ -1049,8 +1057,8 @@
     grip.updateWorldMatrix(true, true);
     // Grip sits in the palmar cup (+Y fingers, -Z palm). Drop the cube
     // into that cup so the fingers (cup pose) read under it.
-    held.rotation.set(0.12, 0.18, 0.06);
-    held.position.set(0.00, 0.018, -0.028);
+    held.rotation.set(0.16, 0.22, 0.08);
+    held.position.set(0.00, 0.022, -0.024);
   }
   function faceMap(held, grip) {
     if (!held || !grip || !vc) return;
@@ -1073,9 +1081,17 @@
     held.quaternion.copy(qParent.clone().invert().multiply(qWorld));
     held.position.set(0, 0, 0);
     held.updateWorldMatrix(true, true);
-    // Sit the bottom edge (local -Z, half of 0.28) in the palm.
-    const edgeG = grip.worldToLocal(held.localToWorld(new T.Vector3(0, 0, -0.12)));
+    // Sit the bottom edge in the thumb/palm, then push the sheet slightly
+    // toward the camera so the fingers stay under the map.
+    const edgeG = grip.worldToLocal(held.localToWorld(new T.Vector3(0, 0, -0.10)));
     held.position.copy(edgeG).multiplyScalar(-1);
+    function addCam(dir, amt) {
+      const o = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
+      const t = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(dir, amt));
+      held.position.add(t.sub(o));
+    }
+    addCam(towardCam, 0.006);
+    addCam(camUp, 0.038);
   }
 
   function fpCrescentGeo() {
@@ -2103,8 +2119,9 @@
     add(new T.BoxGeometry(0.027, 0.006, 0.016), brass, 0, 0.014, 0.030);
     add(new T.BoxGeometry(0.020, 0.005, 0.012), brass, 0, 0.012, -0.08);
     add(new T.BoxGeometry(0.018, 0.004, 0.010), brass, 0, 0.010, -0.15);
+    // Tight steel trigger guard, not a floating gold ring.
     if (typeof T.TorusGeometry === 'function') {
-      add(new T.TorusGeometry(0.024, 0.0030, 6, 14, Math.PI * 1.2), brass, 0, -0.020, 0.048, Math.PI / 2, 0, 0);
+      add(new T.TorusGeometry(0.014, 0.0022, 6, 14, Math.PI * 1.15), steel, 0, -0.028, 0.030, Math.PI / 2, 0, 0);
     }
     add(new T.BoxGeometry(0.0032, 0.016, 0.006), steel, 0, -0.022, 0.042, 0.20, 0, 0); // trigger
 
@@ -2121,6 +2138,15 @@
     g.position.set(0, 0, 0);
     g.scale.setScalar(1.18);
     aimFlintlockSide(g);
+    // Pull the bird's-head (local -Y) into the fist; the procedural origin
+    // is the breech, which otherwise leaves the grip hanging empty.
+    const gripLocal = new T.Vector3(0, -0.055, 0.020);
+    const gripWorld = g.localToWorld(gripLocal.clone());
+    const parentInv = new T.Matrix4().copy((g.parent || parent).matrixWorld).invert();
+    // After aim, g may not be parented yet — offset in its own space.
+    g.updateWorldMatrix(true, false);
+    const off = gripLocal.clone().multiplyScalar(-1);
+    g.position.add(off.multiplyScalar(g.scale.x));
     parent.add(g);
     held.userData.fpFlint1265 = 1;
     held.userData.fpFlint1266 = 1;
@@ -2250,7 +2276,7 @@
   function curlOptsFor(key, k0, ads) {
     if (k0 === 'empty') return { mode: 'open' };
     if (k0 === 'block') return { mode: 'cup' };
-    if (k0 === 'map') return { mode: 'pinch' };
+    if (k0 === 'map') return { mode: 'hold' };
     if (key === 'pistol' || key === 'pistolAds') return { mode: 'fist', trigger: true };
     return { mode: 'fist' };
   }
@@ -2366,7 +2392,7 @@
     poseArm(armR, spec.R, aspect, hs, (spec.R && spec.R.sleeve) || 'linen', curlR);
     if (two) {
       armL.traverse(function (o) { o.visible = true; });
-      const curlL = { mode: 'fist', support: true };
+      const curlL = (key === 'pistolAds') ? { mode: 'cup', support: true } : { mode: 'fist', support: true };
       poseArm(armL, spec.L, aspect, hs, (spec.L && spec.L.sleeve) || 'linen', curlL);
     } else {
       armL.visible = false;
