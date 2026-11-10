@@ -128,8 +128,8 @@ def analyse(name):
         if prev is not None and prev and f:
             s = arrangement_sim(prev, f)
             report["windows"].append({"t0": prev_t, "t1": t, "sim": s})
-            if s >= 0.92:
-                report["fail"].append(f"adjacent window {prev_t:.1f}->{t:.1f}s residual-mel sim={s:.3f} >= 0.92")
+            if s >= 0.85:
+                report["fail"].append(f"adjacent window {prev_t:.1f}->{t:.1f}s residual-mel sim={s:.3f} >= 0.85")
         prev, prev_t = f, t
         t += hop
 

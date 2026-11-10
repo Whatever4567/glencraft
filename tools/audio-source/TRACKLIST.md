@@ -24,7 +24,7 @@ Status key: **B1** / **B2** / **B3** / **B4** / **B5** = shipped on this branch.
 | # | Filename | Title | Context | Length target | Batch | Notes |
 |---:|---|---|---|---|---|---|
 | 1 | `the_glen_opens` | The Glen Opens | Menu / title | 2:40 | **B1** | States the Glen theme on harp and whistle. |
-| 2 | `heather_road` | Heather Road | Overworld day | 3:10 | **B1** | Walking piece; whistle, harp, fiddle, soft bodhran. |
+| 2 | `heather_road` | Heather Road | Overworld day | 3:10 | **B1** | Walking piece; whistle, harp, fiddle, soft bodhran. Warmer low end and a bigger lift_two. |
 | 3 | `drove_road` | Drove Road | Overworld day | 3:00 | **B2** | Brisker step, more bodhran. |
 | 4 | `pine_shelter` | Pine Shelter | Overworld day | 3:06 | **B3** | Closer, wooded, quieter lead. E mixolydian. |
 | 5 | `moor_light` | Moor Light | Overworld day / moor | 3:12 | **B4** | Open and airy; highlands moor. Bb mixolydian. |
@@ -49,16 +49,16 @@ Status key: **B1** / **B2** / **B3** / **B4** / **B5** = shipped on this branch.
 | 24 | `red_horizon` | Red Horizon | Mars | 3:10 | **B2** | Drier, rust-coloured, slow winds. |
 | 25 | `between_worlds` | Between Worlds | Deep space | 3:20 | **B2** | Almost empty, long tones, vacuum quiet. |
 | 26 | `claymore` | Claymore | Combat | 3:02 | **B3** | Tense written percussion, not hardcore. D aeolian. |
-| 27 | `boss_of_the_glen` | Boss of the Glen | Boss (Ember Wyrm) | 3:14 | **B4** | Heavier percussion, Glen motif in the bass. E phrygian. |
-| 28 | `crystal_hunt` | Crystal Hunt | Cave combat | 3:10 | **B4** | Liminal colours under a written pulse, not hardcore. C# dorian. |
-| 29 | `starlight_show` | Starlight Show | Giant pop star | 3:16 | **B3** | Original dance-pop cue; not her diegetic song. Duck or skip if her song is playing. |
+| 27 | `boss_of_the_glen` | Boss of the Glen | Boss (Ember Wyrm) | 3:45 | **B4** | Heavier percussion, Glen motif in the bass, filled mids and presence, quiet aftermath. E phrygian. |
+| 28 | `crystal_hunt` | Crystal Hunt | Cave combat | 3:10 | **B4** | Liminal colours under a written pulse, not hardcore, with more low end and presence. C# dorian. |
+| 29 | `starlight_show` | Starlight Show | Giant pop star | 3:17 | **B3** | Original dance-pop cue with a WORLD-sung hook and a dramatic drop; not her diegetic song. Duck or skip if her song is playing. |
 | 30 | `open_sketch` | Open Sketch | Creative mode | 3:12 | **B3** | Lighter, more open day variant. C mixolydian. |
 | 31 | `down_among_the_reeds` | Down Among the Reeds | Underwater | 3:00 | **B2** | Muffled harp, bubbling air, slow choir. |
 | 32 | `last_light` | Last Light | Credits | 3:15 | **B3** | Full Glen-theme reprise, then thin-out. |
 | 33 | `bounce_the_glen` | Bounce the Glen | Album hardcore side | 3:18 | **B5** | Original 165 BPM UK bounce, E dorian. Does not replace the remix. |
 | 34 | `nightcore_loch` | Nightcore Loch | Album hardcore side | 3:18 | **B5** | Night-coloured sibling, F# aeolian, drop 2 lifts +3. Does not replace the remix. |
-| 35 | `cairn_flash` | Cairn Flash | Album hardcore side | 3:12 | **B5** | Brighter festival side, B dorian. Does not replace the remix. |
-| 36 | `till_the_hills` | Till the Hills | Album hardcore side | 3:24 | **B5** | Emotive folk-EDM build into bounce drops, A dorian. Does not replace the remix. |
+| 35 | `cairn_flash` | Cairn Flash | Album hardcore side | 3:24 | **B5** | Brighter festival side, B dorian, 4-bar harmonic motion. Does not replace the remix. |
+| 36 | `till_the_hills` | Till the Hills | Album hardcore side | 3:35 | **B5** | Emotive folk-EDM build into bounce drops, A dorian, 4-bar harmonic motion. Does not replace the remix. |
 
 The live Happy Hardcore remix (`music/hardcore_remix.ogg` / `.mp3`) remains the Happy Hardcore mode's loop and is not part of this album's file set.
 

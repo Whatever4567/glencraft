@@ -118,7 +118,7 @@ def saw_bed(far, t0, freq, length, cut, vel):
 # ---------------------------------------------------------------------------
 # Shared 165 BPM cell renderer. Each cell must be a unique arrangement.
 # ---------------------------------------------------------------------------
-def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, target_lufs, sections, vocals=None):
+def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, target_lufs, sections, vocals=None, mix_eq=None):
     """cells: list of dicts covering the track, each unique.
     hooks: list of (bar, degrees, durs, vel, cut, root_off)
     lifts: dict bar->semitone shift applied to bass/hook root from that bar.
@@ -240,12 +240,14 @@ def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, tar
                     sig = E.make_donk(freq, rng, BEAT, style="bounce")
                     E.add_mono(mid, tbar0 + off * BEAT, sig, gain=0.7 * energy)
 
-            # bass (written, changes with cell)
+            # bass (written, changes with cell); 4-bar tonal centre so the sub moves with the harmony
             if bass:
                 kind, deg, beats = bass if len(bass) == 3 else (*bass, 4.0)
                 # optional per-bar degree cycle
                 if cell.get("bass_walk"):
                     deg = cell["bass_walk"][(b - b0) % len(cell["bass_walk"])]
+                centre = [1, 4, 5, 7][(b // 4) % 4]
+                deg = deg + (centre - 1)
                 freq = hz(r - 24, deg, mo)
                 def _stereo(out, g):
                     L, R = out if isinstance(out, tuple) else (out, out)
@@ -270,21 +272,40 @@ def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, tar
                     L, R = _stereo(E.make_growl(freq, beats * BEAT, rng), 0.5 * energy)
                     E.add_stereo(mid, tbar0, L, R, gain=1.0)
 
+            # Audible 4-bar harmonic centre in the midrange so chroma actually moves
+            centre = [1, 4, 5, 7][(b // 4) % 4]
+            g_harm = 0.12 * energy + 0.10
+            Lh, Rh = E.supersaw_stereo(hz(r, centre, mo), BEAT * 3.5, det=9, n_osc=5, cutoff=1600 + 1800 * energy)
+            E.add_stereo(mid, tbar0, Lh, Rh, gain=g_harm)
+            Lh, Rh = E.supersaw_stereo(hz(r, centre + 4, mo), BEAT * 3.5, det=8, n_osc=4, cutoff=2600 + 2000 * energy)
+            E.add_stereo(mid, tbar0, Lh, Rh, gain=g_harm * 0.65)
+
             if stabs:
-                freqs = [hz(r, d, mo) for d in cell.get("stab_deg", [1, 3, 5])]
+                stab_cycle = cell.get("stab_cycle", [
+                    cell.get("stab_deg", [1, 3, 5]),
+                    [4, 6, 8],
+                    [5, 7, 9],
+                    [2, 5, 7],
+                ])
+                deg_s = stab_cycle[(b // 4) % len(stab_cycle)]
+                freqs = [hz(r, d, mo) for d in deg_s]
                 saw_stab(mid, tbar0 + 0.5 * BEAT, freqs, 0.08, cut, 0.28 * energy * stabs)
                 if stabs >= 2 and (b - b0) % 2:
                     saw_stab(mid, tbar0 + 1.5 * BEAT, freqs, 0.07, cut * 0.9, 0.2 * energy)
 
-        # beds once per cell, not every bar (arrangement contrast)
+        # beds in 4-bar harmonic cells so the 4-bar chroma lag is a progression, not a copy
         if bed:
-            r0 = root_at(b0)
-            mo0 = mode_at(b0)
-            length = tbar(b1, BPM) - tbar(b0, BPM)
-            freq = hz(r0 - 12, 1, mo0)
-            saw_bed(far, tbar(b0, BPM), freq, length, cut, 0.12 * energy)
-            if bed == "fifth":
-                saw_bed(far, tbar(b0, BPM), hz(r0 - 12, 5, mo0), length, cut, 0.08 * energy)
+            bed_cycle = cell.get("bed_cycle", [1, 4, 5, 7])
+            for bb in range(b0, b1, 4):
+                end = min(b1, bb + 4)
+                r0 = root_at(bb)
+                mo0 = mode_at(bb)
+                deg = bed_cycle[(bb // 4) % len(bed_cycle)]
+                length = tbar(end, BPM) - tbar(bb, BPM)
+                saw_bed(far, tbar(bb, BPM), hz(r0 - 12, deg, mo0), length, cut, 0.12 * energy)
+                if bed == "fifth":
+                    fifth = deg + 4 if deg + 4 <= 12 else 5
+                    saw_bed(far, tbar(bb, BPM), hz(r0 - 12, fifth, mo0), length, cut, 0.08 * energy)
 
     # hooks — sung WORLD leads take the memorable motif; synth answers stay quiet
     vocal_bars = {int(v[0]) for v in (vocals or [])}
@@ -331,12 +352,17 @@ def render_side(title, context, seed, root, mode, bars, cells, hooks, lifts, tar
     for bus in (close, mid, far, perc):
         _shape(bus, times, gains)
 
+    mud = -4.0 if mix_eq == "mud" else -2.2
     close = C.polish_stem(close, hp=80, air_db=2.4)
-    mid = C.polish_stem(mid, hp=32, mud_cut_db=-2.2)
+    mid = C.polish_stem(mid, hp=36, mud_cut_db=mud)
     far = C.polish_stem(far, hp=28)
-    perc = C.polish_stem(perc, hp=24)
+    perc = C.polish_stem(perc, hp=26, mud_cut_db=(-2.5 if mix_eq == "mud" else 0.0))
     mixed = C.depth_mix(close, mid, far, perc, 1.08, 0.95, 0.78, 1.12)
     mixed = A.apply_reverb(mixed, np.random.default_rng(seed + 7), ir_s=1.8, wet=0.16, dry=1.0, pre=0.015, dark=4200)
+    if mix_eq == "mud":
+        for ch in range(2):
+            mixed[:, ch] = mixed[:, ch] + (10 ** (-3.2 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 260, 0.85, "band")
+            mixed[:, ch] = mixed[:, ch] + (10 ** (2.6 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 1150, 0.80, "band")
     sec = [(n, tbar(a, BPM) if a else 0.0, tbar(b, BPM) if b < bars else dur) for n, a, b in sections]
     if sec[-1][2] < dur:
         sec[-1] = (sec[-1][0], sec[-1][1], dur)
@@ -500,7 +526,7 @@ def render_nightcore_loch():
 
 def render_cairn_flash():
     # B dorian, brighter festival side
-    bars = 132  # 192.0 s
+    bars = 140  # 203.6 s, longer ember so the peak is not in the last 12%
     root, mode = 71, "dorian"
     cells = [
         dict(bars=(0, 12), kit="soft", kick="sparse", snare="", hat="sparse", donk=None, bass=None, bed="pad", cut=1500, e=0.32),
@@ -520,7 +546,7 @@ def render_cairn_flash():
              bass=("growl", 1, 4), bass_walk=[1, 5, 7, 4], stabs=2, bed="fifth", cut=5000, e=1.12),
         dict(bars=(112, 124), kit="slam", kick="rush", snare="back_extra", hat="16", donk="sync", donk_walk=[1, 8, 7, 5],
              bass=("reese", 1, 4), bass_walk=[1, 7, 5, 8], stabs=2, bed="fifth", cut=5800, e=1.16),
-        dict(bars=(124, 132), kit="soft", kick="sparse", snare="", hat="sparse", donk=None, bass=None, bed="pad", cut=1800, e=0.38),
+        dict(bars=(124, 140), kit="soft", kick="sparse", snare="", hat="sparse", donk=None, bass=None, bed="pad", cut=1800, e=0.34),
     ]
     hooks = [
         (20, *H_CAIRN_A, 0.44, 3600, 0),
@@ -536,7 +562,7 @@ def render_cairn_flash():
     ]
     sections = [
         ("spark", 0, 12), ("kindle", 12, 28), ("flash1", 28, 44), ("flash2", 44, 60),
-        ("ash", 60, 80), ("rally", 80, 96), ("flare", 96, 112), ("whiteout", 112, 124), ("ember", 124, 132),
+        ("ash", 60, 80), ("rally", 80, 96), ("flare", 96, 112), ("whiteout", 112, 124), ("ember", 124, 140),
     ]
     vocals = [
         (20, "cairn_a_soft", 0.46, "thick"),
@@ -552,12 +578,12 @@ def render_cairn_flash():
         (112, "cairn_c", 0.90, "full"),
         (116, "cairn_tag", 0.70, "tag"),
     ]
-    return render_side("Cairn Flash", "bounce", 9503, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals)
+    return render_side("Cairn Flash", "bounce", 9503, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals, mix_eq="mud")
 
 
 def render_till_the_hills():
     # A dorian, more emotive folk-EDM build into bounce drops
-    bars = 140  # 203.6 s
+    bars = 148  # 215.3 s, longer home so drop 2 sits inside the arc window
     root, mode = 69, "dorian"
     cells = [
         dict(bars=(0, 16), kit="soft", kick="none", snare="", hat="sparse", donk=None, bass=None, bed="pad", cut=1200, e=0.28),
@@ -577,7 +603,7 @@ def render_till_the_hills():
              bass=("pluck", 1, 2), bass_walk=[1, 6, 7, 5], stabs=1, bed="pad", cut=3000, e=0.76),
         dict(bars=(116, 132), kit="slam", kick="drive", snare="back_extra", hat="16", donk="off", donk_walk=[1, 7, 5, 8],
              bass=("reese", 1, 4), bass_walk=[1, 7, 5, 6], stabs=2, bed="fifth", cut=5200, e=1.14),
-        dict(bars=(132, 140), kit="soft", kick="sparse", snare="", hat="sparse", donk=None, bass=None, bed="pad", cut=1600, e=0.38),
+        dict(bars=(132, 148), kit="soft", kick="sparse", snare="", hat="sparse", donk=None, bass=None, bed="pad", cut=1600, e=0.34),
     ]
     hooks = [
         (16, *H_HILLS_A, 0.4, 3200, 0),
@@ -594,7 +620,7 @@ def render_till_the_hills():
     ]
     sections = [
         ("mist", 0, 16), ("path", 16, 32), ("climb", 32, 48), ("drop1a", 48, 64),
-        ("drop1b", 64, 80), ("heather", 80, 104), ("call", 104, 116), ("drop2", 116, 132), ("home", 132, 140),
+        ("drop1b", 64, 80), ("heather", 80, 104), ("call", 104, 116), ("drop2", 116, 132), ("home", 132, 148),
     ]
     vocals = [
         (16, "hills_a_soft", 0.42, "thick"),
@@ -609,7 +635,7 @@ def render_till_the_hills():
         (124, "hills_b", 0.90, "full"),
         (128, "hills_tag", 0.70, "tag"),
     ]
-    return render_side("Till the Hills", "bounce", 9504, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals)
+    return render_side("Till the Hills", "bounce", 9504, root, mode, bars, cells, hooks, lifts=[], target_lufs=-10.0, sections=sections, vocals=vocals, mix_eq="mud")
 
 
 TRACKS = {

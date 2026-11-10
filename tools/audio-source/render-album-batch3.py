@@ -760,8 +760,10 @@ def render_starlight_show():
     for b in range(0, bars):
         r, m, degs = prog_at(b)
         freqs = [hz(r, d, m) for d in degs[:3]]
+        if 36 <= b < 40 or 76 <= b < 80:
+            continue
         if b < 16:
-            cut, vel, dur_s = 1100, 0.28, 0.09
+            cut, vel, dur_s = 900, 0.16, 0.09
         elif b < 32:
             cut, vel, dur_s = 1800, 0.34, 0.08
         elif b < 40:
@@ -805,9 +807,12 @@ def render_starlight_show():
                 E.add_mono(mid, tbar(b, bpm) + off * beat, sig, gain=1.0)
 
     bass_cell(0, 16, root_lo, mix_mode, [(0.0, 1, 2.0, False, None), (2.0, 1, 1.0, True, None), (3.0, 5, 1.0, False, None)])
-    bass_cell(16, 32, root_lo, mode, [(0.0, 1, 1.0, False, None), (1.0, 1, 1.0, True, None),
+    bass_cell(16, 24, root_lo, mode, [(0.0, 1, 1.0, False, None), (1.0, 1, 1.0, True, None),
                                       (2.0, 5, 1.0, False, None), (3.0, 4, 1.0, False, 5)])
-    bass_cell(32, 40, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 5, 0.5, False, None),
+    bass_cell(24, 32, root_lo, mode, [(0.0, 5, 1.0, False, None), (1.0, 1, 0.5, True, None),
+                                      (1.5, 5, 0.5, False, None), (2.0, 7, 1.0, False, None),
+                                      (3.0, 4, 1.0, False, 1)])
+    bass_cell(32, 36, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 5, 0.5, False, None),
                                          (2.0, 1, 1.0, False, None), (3.0, 7, 1.0, False, 1)])
     bass_cell(40, 48, root_lo, mode, [(0.0, 1, 1.0, False, None), (1.0, 5, 0.5, False, None),
                                       (1.5, 1, 0.5, True, None), (2.0, 4, 1.0, False, None),
@@ -819,7 +824,7 @@ def render_starlight_show():
     bass_cell(56, 64, fm_root, fm_mode, [(0.0, 1, 2.0, False, None), (2.0, 7, 2.0, False, None)])
     bass_cell(64, 72, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 3, 0.5, True, None),
                                          (2.0, 5, 1.0, False, None), (3.0, 1, 1.0, False, 5)])
-    bass_cell(72, 80, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 5, 0.5, False, None),
+    bass_cell(72, 76, fm_root, fm_mode, [(0.0, 1, 1.0, False, None), (1.5, 5, 0.5, False, None),
                                          (2.0, 1, 1.0, False, None), (3.0, 4, 1.0, False, 1)])
     bass_cell(80, 96, root_lo, mode, [(0.0, 1, 0.5, False, None), (0.5, 1, 0.5, True, None),
                                       (1.0, 5, 1.0, False, None), (2.0, 7, 1.0, False, None),
@@ -833,13 +838,14 @@ def render_starlight_show():
                 L, R = C.avicii_pluck(hz(root_, d, mode_), beat * 1.1, vel=vel, bright=bright)
                 E.add_stereo(close, tbar(b, bpm) + i * 0.5 * beat, L, R, gain=0.75)
 
-    pluck_fig(16, 32, root, mode, [1, 5, 8, 5, 7, 5, 4, 5], 0.36, 0.62)
-    pluck_fig(32, 40, fm_root, fm_mode, [1, 3, 5, 8, 7, 5, 3, 5], 0.4, 0.7)
+    pluck_fig(16, 24, root, mode, [1, 5, 8, 5, 7, 5, 4, 5], 0.36, 0.62)
+    pluck_fig(24, 32, root, mode, [5, 7, 8, 10, 8, 7, 5, 3], 0.40, 0.70)
+    pluck_fig(32, 36, fm_root, fm_mode, [1, 3, 5, 8, 7, 5, 3, 5], 0.4, 0.7)
     pluck_fig(40, 48, root, mode, [1, 5, 8, 10, 8, 7, 5, 8], 0.46, 0.75)
     pluck_fig(48, 56, root + 12, mode, [5, 8, 10, 12, 10, 8, 7, 5], 0.5, 0.8)
     pluck_fig(56, 64, fm_root, fm_mode, [1, 5, 3, 5], 0.28, 0.5)
     pluck_fig(64, 72, root, mix_mode, [5, 7, 8, 10, 8, 7, 5, 3], 0.36, 0.68)
-    pluck_fig(72, 80, root, mode, [1, 3, 5, 8, 10, 8, 7, 5], 0.42, 0.72)
+    pluck_fig(72, 76, root, mode, [1, 3, 5, 8, 10, 8, 7, 5], 0.42, 0.72)
     pluck_fig(80, 96, root + 12, mode, [1, 5, 8, 10, 8, 7, 5, 8], 0.44, 0.78)
 
     # Original hook: a syncopated 8-beat figure, then an answering lift.
@@ -872,15 +878,47 @@ def render_starlight_show():
             v = C.vocoder(0.5 * (car_L[:nn] + car_R[:nn]), mod[:nn], bands=16, lo=200, hi=5200)
             E.add_mono(close, t0, C.fade_edges(v * 0.55 * vel, 0.02, 0.08), gain=1.0, pan=0.05)
 
-    hook_at(24, "a", 0.42, voc=True)   # late verse teaser
-    hook_at(40, "a", 0.78, voc=True)
-    hook_at(48, "b", 0.74, voc=True)
-    hook_at(64, "b", 0.48, voc=True)   # break second half — answering figure, not hook A again
+    hook_at(24, "a", 0.18, voc=False)   # synth teaser under the sung hook
+    hook_at(40, "a", 0.22, voc=False)
+    hook_at(48, "b", 0.20, voc=False)
+    hook_at(64, "b", 0.16, voc=False)
     A.add_phrase(close, tbar(68, bpm), COUNTER, COUNTER_DUR, fm_root, fm_mode,
                  (lambda freq, dur, vel=0.6, **k: E.supersaw_stereo(freq, dur, det=8, n_osc=5, cutoff=2800)),
                  bpm, vel=0.32, pan=-0.22)
-    hook_at(80, "a", 0.82, voc=True)
-    hook_at(88, "b", 0.8, voc=True)
+    hook_at(80, "a", 0.22, voc=False)
+    hook_at(88, "b", 0.20, voc=False)
+
+    # Original WORLD-sung hook (Piper + WORLD). Not the remix, not her diegetic song.
+    VOC_DIR = Path("/workspace/qa/album/vocals")
+    _vcache = {}
+    def _load_voc(name):
+        if name not in _vcache:
+            y, _ = sf.read(str(VOC_DIR / f"{name}.wav"), always_2d=True)
+            _vcache[name] = y.astype(np.float64)
+        return _vcache[name]
+    def place_voc(bar, key, gain=0.85, layers="full"):
+        t0 = tbar(bar, bpm)
+        def add(stem, g):
+            y = _load_voc(stem)
+            E.add_stereo(close, t0, y[:, 0], y[:, 1], gain=g)
+        add(f"hook_{key}_lead", gain)
+        if layers == "full":
+            add(f"hook_{key}_oct", gain * 0.30)
+            add(f"hook_{key}_double", gain * 0.34)
+            add(f"hook_{key}_harm", gain * 0.26)
+        elif layers == "thick":
+            add(f"hook_{key}_double", gain * 0.30)
+            add(f"hook_{key}_oct", gain * 0.22)
+    place_voc(24, "star_a_soft", 0.50, "thick")
+    place_voc(38, "star_tag", 0.62, "lead")  # tag into the silence, then the hit
+    place_voc(40, "star_a", 0.92, "full")
+    place_voc(44, "star_c", 0.86, "full")
+    place_voc(48, "star_b", 0.90, "full")
+    place_voc(64, "star_a_soft", 0.48, "thick")
+    place_voc(78, "star_tag", 0.66, "lead")
+    place_voc(80, "star_a", 0.96, "full")
+    place_voc(84, "star_c", 0.90, "full")
+    place_voc(88, "star_b", 0.94, "full")
     # countermelody on drop 2 only
     A.add_phrase(close, tbar(84, bpm), COUNTER, COUNTER_DUR, root + 12, mode,
                  (lambda freq, dur, vel=0.6, **k: E.supersaw_stereo(freq, dur, det=10, n_osc=5, cutoff=4200)),
@@ -899,7 +937,7 @@ def render_starlight_show():
     saw_pad(32, 8, fm_root, fm_mode, [1, 5], 2200, 0.12)
     saw_pad(40, 16, root_lo, mode, [1, 5], 3600, 0.16)
     saw_pad(56, 16, fm_root, fm_mode, [1, 3], 1400, 0.08)
-    saw_pad(72, 8, root_lo, mode, [1, 5], 2800, 0.14)
+    saw_pad(72, 4, root_lo, mode, [1, 5], 2800, 0.14)
     saw_pad(80, 16, root_lo, mode, [1, 5], 4200, 0.18)
     saw_pad(96, 4, root_lo, mix_mode, [1, 5], 1800, 0.08)
 
@@ -921,14 +959,16 @@ def render_starlight_show():
         else:
             E.add_mono(perc, t, E.make_hat_pro(rng, style=style) * vel, gain=1.0, pan=pan)
 
-    # lights_up: four-on-the-floor but filtered, hats only on 2+4 later
+    # lights_up: sparse and quiet so the first drop can lift hard
     for b in range(0, 16):
-        k_at(float(b), "soft", 0.55 if b >= 8 else 0.42)
-        if b >= 8 and b % 2 == 1:
-            s_at(float(b), "hit", 0.28)
-        h_at(b + 0.5, "sizzle", 0.14 if b < 8 else 0.2, 0.2)
-    # verse: tighter kit, ghost notes
-    for b in range(16, 32):
+        if b % 2 == 0:
+            k_at(float(b), "soft", 0.28 if b < 8 else 0.34)
+        if b >= 12 and b % 2 == 1:
+            s_at(float(b), "hit", 0.16)
+        if b >= 8:
+            h_at(b + 0.5, "sizzle", 0.10, 0.2)
+    # verse: tighter kit, then a second 8-bar cell with off-beat kick and open hats
+    for b in range(16, 24):
         k_at(float(b), "tight", 0.7)
         if b % 2 == 1:
             s_at(float(b), "hit", 0.55)
@@ -936,19 +976,32 @@ def render_starlight_show():
         if b % 4 == 3:
             h_at(b + 0.75, "sizzle", 0.16, -0.1)
             E.add_mono(perc, tbar(b, bpm) + 0.75 * beat, C.ghost_stick(rng, vel=0.16), gain=1.0, pan=-0.2)
-    # pre: open hats, rising density
-    for b in range(32, 40):
+    for b in range(24, 32):
+        k_at(float(b), "punch", 0.74)
+        if b % 2 == 0:
+            k_at(b + 0.5, "click", 0.34)
+        if b % 2 == 1:
+            s_at(float(b), "hit", 0.60)
+        h_at(b + 0.5, "sizzle", 0.26, -0.20, open_hat=True)
+        h_at(b + 0.25, "sizzle", 0.14, 0.16)
+        if b % 4 == 0:
+            E.add_mono(perc, tbar(b, bpm) + 0.75 * beat, C.ghost_stick(rng, vel=0.18), gain=1.0, pan=0.18)
+    # pre: open hats, rising density, then strip to near silence before the drop
+    for b in range(32, 36):
         k_at(float(b), "punch", 0.78)
         if b % 2 == 1:
             s_at(float(b), "hit", 0.62)
-        h_at(b + 0.5, "sizzle", 0.28, 0.2, open_hat=(b >= 36))
-        if b >= 36:
-            h_at(b + 0.25, "sizzle", 0.16, -0.15)
-            h_at(b + 0.75, "sizzle", 0.16, 0.15)
-    # drop 1: slam kit, written 8-bar variations (two different 8-bar cells)
+        h_at(b + 0.5, "sizzle", 0.28, 0.2, open_hat=False)
+    # bars 36-40: near silence — just a thinning click and the riser already placed
+    for b in range(36, 40):
+        if b == 36:
+            h_at(b + 0.5, "sizzle", 0.08, 0.15)
+        if b == 39:
+            E.add_mono(perc, tbar(b, bpm) + 3.5 * beat, C.ghost_stick(rng, vel=0.10), gain=1.0, pan=0.1)
+    # drop 1: full-band hit, then written 8-bar variations
     for b in range(40, 56):
         style = "slam" if b < 48 else "punch"
-        k_at(float(b), style, 0.9)
+        k_at(float(b), style, 1.0 if b == 40 else 0.92)
         if (b % 4) == 2:
             k_at(b + 0.75, "click", 0.45)  # syncopated pickup, only some bars
         if b % 2 == 1:
@@ -980,18 +1033,20 @@ def render_starlight_show():
         if b >= 68:
             h_at(b + 0.25, "sizzle", 0.14, 0.16)
             h_at(b + 0.75, "sizzle", 0.14, -0.12)
-    # lift: build again
-    for b in range(72, 80):
+    # lift: build again, then strip to near silence before drop 2
+    for b in range(72, 76):
         k_at(float(b), "punch", 0.8)
         if b % 2 == 1:
             s_at(float(b), "hit", 0.66)
-        h_at(b + 0.5, "sizzle", 0.28, 0.2, open_hat=(b >= 76))
-        if b >= 76:
-            h_at(b + 0.25, "sizzle", 0.18, -0.16)
-            h_at(b + 0.75, "sizzle", 0.18, 0.16)
-    # drop 2: bigger, extra off-beat kick in later 8
+        h_at(b + 0.5, "sizzle", 0.28, 0.2, open_hat=False)
+    for b in range(76, 80):
+        if b == 76:
+            h_at(b + 0.5, "sizzle", 0.08, -0.16)
+        if b == 79:
+            E.add_mono(perc, tbar(b, bpm) + 3.5 * beat, C.ghost_stick(rng, vel=0.10), gain=1.0, pan=0.1)
+    # drop 2: full-band hit, then bigger off-beat writing in later 8
     for b in range(80, 96):
-        k_at(float(b), "slam", 0.95)
+        k_at(float(b), "slam", 1.02 if b == 80 else 0.96)
         if b >= 88 and b % 2 == 0:
             k_at(b + 0.5, "click", 0.4)
         if b % 2 == 1:
@@ -1010,13 +1065,13 @@ def render_starlight_show():
     # Impacts and builds
     rL, rR = C.riser(rng, tbar(3.5, bpm), start_hz=220, end_hz=10000, vel=0.5)
     E.add_stereo(far, tbar(36.5, bpm), rL, rR)
-    iL, iR = C.impact(rng, dur=1.8, vel=0.7)
+    iL, iR = C.impact(rng, dur=2.2, vel=0.92)
     E.add_stereo(perc, tbar(40, bpm), iL, iR)
     dwn = C.downlifter(rng, dur=1.3, vel=0.32)
     E.add_mono(far, tbar(56, bpm), dwn, gain=1.0)
     rL, rR = C.riser(rng, tbar(3.8, bpm), start_hz=200, end_hz=11000, vel=0.58)
     E.add_stereo(far, tbar(76.2, bpm), rL, rR)
-    iL, iR = C.impact(rng, dur=2.0, vel=0.78)
+    iL, iR = C.impact(rng, dur=2.4, vel=0.98)
     E.add_stereo(perc, tbar(80, bpm), iL, iR)
     dwn = C.downlifter(rng, dur=1.5, vel=0.3)
     E.add_mono(far, tbar(96, bpm), dwn, gain=1.0)
@@ -1036,27 +1091,32 @@ def render_starlight_show():
     # Sectional gain: intro, break and curtain must sit below the drops
     # (mastering must not flatten this — leave headroom, target a slightly
     # quieter LUFS so the true-peak limiter does not squash the range).
-    _shape(close, [0, tbar(16, bpm), tbar(32, bpm), tbar(40, bpm), tbar(56, bpm),
-                   tbar(72, bpm), tbar(80, bpm), tbar(96, bpm), dur],
-                  [0.55, 0.8, 0.95, 1.15, 0.42, 0.9, 1.2, 0.55, 0.45])
-    _shape(mid,   [0, tbar(16, bpm), tbar(32, bpm), tbar(40, bpm), tbar(56, bpm),
-                   tbar(72, bpm), tbar(80, bpm), tbar(96, bpm), dur],
-                  [0.5, 0.78, 0.95, 1.12, 0.38, 0.88, 1.15, 0.5, 0.4])
-    _shape(far,   [0, tbar(16, bpm), tbar(40, bpm), tbar(56, bpm), tbar(80, bpm), tbar(96, bpm), dur],
-                  [0.55, 0.85, 1.05, 0.45, 1.1, 0.55, 0.45])
-    _shape(perc,  [0, tbar(16, bpm), tbar(32, bpm), tbar(40, bpm), tbar(56, bpm),
-                   tbar(72, bpm), tbar(80, bpm), tbar(96, bpm), dur],
-                  [0.45, 0.75, 0.92, 1.15, 0.32, 0.95, 1.2, 0.5, 0.4])
+    _shape(close, [0, tbar(16, bpm), tbar(32, bpm), tbar(36, bpm), tbar(40, bpm), tbar(56, bpm),
+                   tbar(72, bpm), tbar(76, bpm), tbar(80, bpm), tbar(96, bpm), dur],
+                  [0.18, 0.62, 0.85, 0.18, 1.22, 0.36, 0.82, 0.16, 1.28, 0.45, 0.38])
+    _shape(mid,   [0, tbar(16, bpm), tbar(32, bpm), tbar(36, bpm), tbar(40, bpm), tbar(56, bpm),
+                   tbar(72, bpm), tbar(76, bpm), tbar(80, bpm), tbar(96, bpm), dur],
+                  [0.16, 0.58, 0.82, 0.14, 1.18, 0.32, 0.78, 0.14, 1.22, 0.42, 0.34])
+    _shape(far,   [0, tbar(16, bpm), tbar(36, bpm), tbar(40, bpm), tbar(56, bpm), tbar(76, bpm), tbar(80, bpm), tbar(96, bpm), dur],
+                  [0.18, 0.45, 0.16, 1.10, 0.38, 0.16, 1.16, 0.48, 0.38])
+    _shape(perc,  [0, tbar(16, bpm), tbar(32, bpm), tbar(36, bpm), tbar(40, bpm), tbar(56, bpm),
+                   tbar(72, bpm), tbar(76, bpm), tbar(80, bpm), tbar(96, bpm), dur],
+                  [0.14, 0.58, 0.80, 0.10, 1.25, 0.28, 0.85, 0.10, 1.30, 0.42, 0.34])
 
     # A touch of ping-pong on the hook bus
     close[:, :] = E.ping_pong_delay(close, beat * 0.75, fb=0.22, mix=0.14)
 
-    close = C.polish_stem(close, hp=70, air_db=2.2)
-    mid = C.polish_stem(mid, hp=32, mud_cut_db=-2.0)
-    far = C.polish_stem(far, hp=28)
-    perc = C.polish_stem(perc, hp=24)
-    mixed = C.depth_mix(close, mid, far, perc, 1.05, 0.95, 0.8, 1.08)
-    mixed = A.apply_reverb(mixed, np.random.default_rng(37), ir_s=2.0, wet=0.2, dry=1.0, pre=0.02, dark=3600)
+    close = C.polish_stem(close, hp=80, air_db=2.6)
+    mid = C.polish_stem(mid, hp=40, mud_cut_db=-4.5)
+    far = C.polish_stem(far, hp=32)
+    perc = C.polish_stem(perc, hp=30, mud_cut_db=-3.0)
+    mixed = C.depth_mix(close, mid, far, perc, 1.08, 0.95, 0.8, 1.10)
+    mixed = A.apply_reverb(mixed, np.random.default_rng(37), ir_s=1.8, wet=0.16, dry=1.0, pre=0.018, dark=4000)
+    # extra mud cut under the kick, then restore body and presence
+    for ch in range(2):
+        mixed[:, ch] = mixed[:, ch] + (10 ** (-3.5 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 250, 0.85, "band")
+        mixed[:, ch] = mixed[:, ch] + (10 ** (2.8 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 1100, 0.80, "band")
+        mixed[:, ch] = mixed[:, ch] + (10 ** (2.4 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 3400, 0.90, "band")
     sections = [
         ("lights_up", 0.0, tbar(16, bpm)),
         ("verse", tbar(16, bpm), tbar(32, bpm)),
@@ -1068,6 +1128,30 @@ def render_starlight_show():
         ("curtain", tbar(96, bpm), dur),
     ]
     out, loud_map = M.festive_master(mixed[: int(dur * SR)], sections, xfade_s=1.6)
+    # Guarantee a dramatic drop: peak section RMS at least 5.25 dB above the first section.
+    def _rms(a, b, y=None):
+        sl = (y if y is not None else out)[int(a * SR): int(b * SR)]
+        mono = sl.mean(axis=1) if getattr(sl, "ndim", 1) == 2 else sl
+        return 20.0 * np.log10(np.sqrt(np.mean(mono ** 2)) + 1e-12)
+    first_n, first_a, first_b = sections[0]
+    peak = max((_rms(a, b), n, a, b) for n, a, b in sections)
+    lift = peak[0] - _rms(first_a, first_b)
+    if lift < 6.0:
+        need = 6.0 - lift
+        g = 10 ** (-need / 20.0)
+        n0, n1 = int(first_a * SR), int(first_b * SR)
+        fade = max(8, int(0.2 * SR))
+        env = np.full(n1 - n0, g, dtype=np.float64)
+        env[-fade:] = np.linspace(g, 1.0, fade)
+        # also ease in from the loop join so curtain -> lights_up stays smooth
+        env[:fade] = np.linspace(g, g, fade)  # hold the duck through the join; curtain is already quiet
+        out[n0:n1] *= env[:, None]
+        out = E.seamless_loop(out, xfade_s=0.04, polish_s=0.008)
+        ceiling = 10 ** (-1.0 / 20.0)
+        tp = A.true_peak(out)
+        if tp > ceiling:
+            out = out * (ceiling / tp)
+        loud_map = list(loud_map) + [dict(name="intro_duck_db", gain_db=-need, lift_after=_rms(first_a, first_b, out), peak=peak[0])]
     return out, sections, dict(title="Starlight Show", context="popstar", bpm=bpm, target_lufs=-9.0, section_lufs=loud_map)
 
 

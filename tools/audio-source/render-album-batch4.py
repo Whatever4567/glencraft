@@ -541,7 +541,7 @@ def render_stone_memory():
 # 7. Boss of the Glen — Ember Wyrm / boss. E phrygian, motif in the bass.
 # ---------------------------------------------------------------------------
 def render_boss_of_the_glen():
-    bpm, bars = 94.0, 76  # 193.6 s
+    bpm, bars = 94.0, 88  # 224.7 s, aftermath so the stand is not in the last 12%
     dur = tbar(bars, bpm)
     close, mid, far, perc = make_bus(dur), make_bus(dur), make_bus(dur), make_bus(dur)
     rng = np.random.default_rng(9407)
@@ -688,16 +688,42 @@ def render_boss_of_the_glen():
     dwn = C.downlifter(rng, dur=1.6, vel=0.3)
     E.add_mono(far, tbar(64, bpm), dwn, gain=1.0)
 
+    # Mid-range beds in the coils, reharmonized every 4 bars, with a brighter upper layer
+    bed_degs = [1, 4, 5, 2]
+    for bar0, bar1, rt, md, cut, g in (
+        (16, 28, root_lo, mode, 3200, 0.14),
+        (32, 40, root_lo, mode, 3600, 0.12),
+        (48, 64, lift_root, lift_mode, 4000, 0.16),
+    ):
+        for bb in range(bar0, bar1, 4):
+            end = min(bar1, bb + 4)
+            length = tbar(end, bpm) - tbar(bb, bpm)
+            deg = bed_degs[(bb // 4) % 4]
+            L, R = E.supersaw_stereo(hz(rt, deg, md), length + 0.2, det=12, n_osc=6, cutoff=cut)
+            E.add_stereo(mid, tbar(bb, bpm), L, R, gain=g)
+            L, R = E.supersaw_stereo(hz(rt, deg + 4, md), length + 0.2, det=10, n_osc=5, cutoff=min(6800, cut + 1200))
+            E.add_stereo(close, tbar(bb, bpm), L, R, gain=g * 0.55)
+
+    # Aftermath — the glen after the wyrm falls
+    _strings_at(mid, tbar(76, bpm), tbar(12, bpm), chord_hz(root_lo, [1, 5], mode), 0.06, 1.6, 2.2, 0.18)
+    _strings_at(far, tbar(76, bpm), tbar(12, bpm), chord_hz(root_lo, [1], mode), 0.04, 2.0, 2.4, 0.10)
+    A.add_phrase(close, tbar(80, bpm), [5, 4, 2, 1], [2, 2, 4, 8], root, mode, A.fiddle_note, bpm, vel=0.28, pan=0.18)
+
     mid[:, :] = C.apply_sidechain(mid, [h for h in hits if tbar(16, bpm) <= h < tbar(40, bpm) or tbar(48, bpm) <= h < tbar(64, bpm)],
                                   depth=0.44, rel=0.15)
     far[:, :] = C.apply_sidechain(far, [h for h in hits if tbar(48, bpm) <= h < tbar(64, bpm)], depth=0.26, rel=0.2)
 
-    close = C.polish_stem(close, hp=48, air_db=1.0)
-    mid = C.polish_stem(mid, hp=26, mud_cut_db=-1.6)
-    far = C.polish_stem(far, hp=20)
+    close = C.polish_stem(close, hp=40, air_db=3.6)
+    mid = C.polish_stem(mid, hp=28, mud_cut_db=-0.6)
+    far = C.polish_stem(far, hp=22)
     perc = C.polish_stem(perc, hp=22)
-    mixed = C.depth_mix(close, mid, far, perc, 0.95, 0.98, 0.82, 1.08)
-    mixed = A.apply_reverb(mixed, np.random.default_rng(47), ir_s=2.2, wet=0.22, dry=1.0, pre=0.02, dark=2200)
+    mixed = C.depth_mix(close, mid, far, perc, 1.02, 1.02, 0.82, 1.04)
+    mixed = A.apply_reverb(mixed, np.random.default_rng(47), ir_s=2.0, wet=0.18, dry=1.0, pre=0.018, dark=3200)
+    for ch in range(2):
+        mixed[:, ch] = mixed[:, ch] + (10 ** (3.0 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 850, 0.75, "band")
+        mixed[:, ch] = mixed[:, ch] + (10 ** (3.2 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 1700, 0.80, "band")
+        mixed[:, ch] = mixed[:, ch] + (10 ** (6.0 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 3800, 0.90, "band")
+        mixed[:, ch] = mixed[:, ch] + (10 ** (3.8 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 6200, 0.80, "band")
     sections = [
         ("approach", 0.0, tbar(8, bpm)),
         ("eye_open", tbar(8, bpm), tbar(16, bpm)),
@@ -705,7 +731,8 @@ def render_boss_of_the_glen():
         ("bind", tbar(28, bpm), tbar(40, bpm)),
         ("bare", tbar(40, bpm), tbar(48, bpm)),
         ("second_coil", tbar(48, bpm), tbar(64, bpm)),
-        ("last_stand", tbar(64, bpm), dur),
+        ("last_stand", tbar(64, bpm), tbar(76, bpm)),
+        ("aftermath", tbar(76, bpm), dur),
     ]
     out, loud_map = M.festive_master(mixed[: int(dur * SR)], sections, xfade_s=1.8)
     return out, sections, dict(title="Boss of the Glen", context="boss", bpm=bpm, target_lufs=-9.0, section_lufs=loud_map)
@@ -723,9 +750,10 @@ def render_crystal_hunt():
     n = close.shape[0]
     beat = spb(bpm)
 
-    sL, sR = A.sub_drone(n, A.midi(25), gain=0.12, lfo=0.02)
-    air_L, air_R = A.air_noise(n, rng, lo=220, hi=2600, gain=0.012)
-    far[:n] += np.stack([sL + air_L, sR + air_R], 1)
+    sL, sR = A.sub_drone(n, A.midi(25), gain=0.22, lfo=0.02)
+    s2L, s2R = A.sub_drone(n, A.midi(37), gain=0.10, lfo=0.035)
+    air_L, air_R = A.air_noise(n, rng, lo=220, hi=4000, gain=0.014)
+    far[:n] += np.stack([sL + s2L + air_L, sR + s2R + air_R], 1)
 
     # Choir rooms under the pulse — still liminal, not a dance pad
     _choir_at(mid, tbar(0, bpm), tbar(12, bpm), chord_hz(root_lo, [1, 5], mode),
@@ -766,6 +794,15 @@ def render_crystal_hunt():
     A.add_phrase(close, tbar(40, bpm), list(reversed(HUNT)), [1, 1, 2, 1, 1, 2, 8], root, mode,
                  A.tin_whistle, bpm, vel=0.48, pan=-0.12)
     A.add_phrase(close, tbar(66, bpm), HUNT, HUNT_DUR, root, mode, A.tin_whistle, bpm, vel=0.46, pan=-0.12)
+
+    # Low-end pulse under the hunt so the cue has weight, not just glass
+    for b in list(range(16, 28, 2)) + list(range(28, 52)) + list(range(64, 76)):
+        vel = 0.38 if b < 28 else (0.58 if b < 52 else 0.52)
+        sig = C.funk_bass(hz(root_lo - 12, 1, mode), beat * 1.6, vel=vel)
+        E.add_mono(mid, tbar(b, bpm), sig, gain=1.0)
+        if b >= 28 and b % 4 == 0:
+            sig = C.funk_bass(hz(root_lo - 12, 5, mode), beat * 0.8, vel=vel * 0.7)
+            E.add_mono(mid, tbar(b, bpm) + 2 * beat, sig, gain=1.0)
 
     # Written pulse — tense, not four-on-the-floor hardcore; changes every section
     hits = []
@@ -834,12 +871,16 @@ def render_crystal_hunt():
     _shape(perc,  [0, tbar(16, bpm), tbar(28, bpm), tbar(36, bpm), tbar(52, bpm), tbar(64, bpm), tbar(76, bpm), dur],
                   [0.3, 0.7, 1.05, 1.15, 0.25, 1.05, 0.4, 0.3])
 
-    close = C.polish_stem(close, hp=70, air_db=2.0)
-    mid = C.polish_stem(mid, hp=28, mud_cut_db=-1.2)
-    far = C.polish_stem(far, hp=22)
-    perc = C.polish_stem(perc, hp=24)
-    mixed = C.depth_mix(close, mid, far, perc, 1.0, 1.0, 0.95, 0.95)
-    mixed = A.apply_reverb(mixed, np.random.default_rng(48), ir_s=3.6, wet=0.36, dry=0.92, pre=0.04, dark=2000)
+    close = C.polish_stem(close, hp=55, air_db=3.0)
+    mid = C.polish_stem(mid, hp=24, mud_cut_db=-0.8)
+    far = C.polish_stem(far, hp=18)
+    perc = C.polish_stem(perc, hp=22)
+    mixed = C.depth_mix(close, mid, far, perc, 1.0, 1.02, 1.0, 0.95)
+    mixed = A.apply_reverb(mixed, np.random.default_rng(48), ir_s=3.2, wet=0.30, dry=0.95, pre=0.03, dark=3800)
+    mixed = C.stereo_shelf(mixed, 90, 3.0, typ="low")
+    for ch in range(2):
+        mixed[:, ch] = mixed[:, ch] + (10 ** (3.0 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 3300, 0.85, "band")
+        mixed[:, ch] = mixed[:, ch] + (10 ** (1.6 / 20.0) - 1.0) * E.rbj(mixed[:, ch], 6500, 0.80, "band")
     sections = [
         ("first_glint", 0.0, tbar(16, bpm)),
         ("pulse_in", tbar(16, bpm), tbar(28, bpm)),
