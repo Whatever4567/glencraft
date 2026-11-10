@@ -19,35 +19,40 @@ if (!s.includes("const GAME_VERSION = '1.2.52';")) {
 }
 const src = fs.readFileSync(srcPath, 'utf8').replace(/\s+$/, '') + '\n    ';
 // Replace the live 1.2.37 crystalRim1237 block with the v12 source (crystal + pack halo).
-const startTok = '    // v1.2.37: cheap crystal look for the faceted armour (r128 MeshStandardMaterial only, flat-shaded GLB; untested on GPU).';
-const startTokAlt = '    // v12 local: pale icy glass for faceted armour (r128 MeshStandardMaterial).';
+const startToks = [
+  '    // v1.2.37: cheap crystal look for the faceted armour (r128 MeshStandardMaterial only, flat-shaded GLB; untested on GPU).',
+  '    // v12 local: pale icy glass for faceted armour (r128 MeshStandardMaterial).',
+  '    // v13 local: pale icy glass for faceted armour (r128 MeshStandardMaterial).',
+  '    // v12 local: pale icy glass for faceted armour',
+];
 const endTok = '    function installPilotDisplayTransfer(material) {';
-let start = s.indexOf(startTok);
-if (start < 0) start = s.indexOf(startTokAlt);
+let start = -1;
+for (const t of startToks) { const i = s.indexOf(t); if (i >= 0) { start = i; break; } }
 if (start < 0) throw new Error('missing crystalRim comment block');
 const end = s.indexOf(endTok, start);
 if (end < 0) throw new Error('missing installPilotDisplayTransfer after crystalRim');
 s = s.slice(0, start) + src + s.slice(end);
 
+if(!s.includes('return packHalo1238(crystalRim1237(material));')){
 one(
   '      if(material.onBeforeCompile.pilotDisplayTransfer1236)return material;',
   '      if(material.onBeforeCompile.pilotDisplayTransfer1236)return packHalo1238(crystalRim1237(material));',
   'display-transfer early return'
 );
+}
 one(
   "      material.customProgramCacheKey=function(){return previousKey+'|pilot-display-transfer-1236';};\n      material.needsUpdate=true;return material;\n    }",
   "      material.customProgramCacheKey=function(){return previousKey+'|pilot-display-transfer-1236';};\n      material.needsUpdate=true;return packHalo1238(crystalRim1237(material));\n    }",
   'display-transfer return'
 );
 one(
-  "fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.52'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.52')",
   "fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.6x-p2'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.6x-p2')",
+  "fetch('assets/models/scottish-base-v2/'+(far?'scottish-far.glb':'scottish-base-with-jetpack.glb')+'?v=1.2.6x-p2b'),fetch('assets/models/scottish-base-v2/'+(far?'crystal-armour-far.glb':'crystal-armour.glb')+'?v=1.2.6x-p2b')",
   'model cache query'
 );
 if (!s.includes('function packHalo1238')) throw new Error('packHalo1238 not inserted');
 if (!s.includes('CRYSTAL_RIM_1237') || !s.includes('crSpark')) throw new Error('v12 crystal shader not inserted');
-if (s.includes('?v=1.2.52') && s.includes("scottish-base-with-jetpack.glb')+'?v=1.2.52")) {
-  throw new Error('cache query not updated');
-}
+if (s.includes("scottish-base-with-jetpack.glb')+'?v=1.2.52")) throw new Error('cache query not updated');
+
 fs.writeFileSync(out, s);
 console.log('Built LOCAL v1.2.6x player/armour candidate on 1.2.52: ' + out);
