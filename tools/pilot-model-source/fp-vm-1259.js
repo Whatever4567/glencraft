@@ -1061,40 +1061,89 @@
     if (!held || !grip || !vc) return;
     grip.updateWorldMatrix(true, true);
     const camUp = new T.Vector3(0, 1, 0);
-    try { camUp.set(0, 1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
-    const qWorld = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), camUp);
-    const qParent = grip.getWorldQuaternion(new T.Quaternion());
-    held.quaternion.copy(qParent.clone().invert().multiply(qWorld));
+    const camRight = new T.Vector3(1, 0, 0);
+    try {
+      camUp.set(0, 1, 0).transformDirection(vc.matrixWorld).normalize();
+      camRight.set(1, 0, 0).transformDirection(vc.matrixWorld).normalize();
+    } catch (_) {}
+    // Upright first so the bail is the high torus in a stable frame.
+    const qWorld0 = new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), camUp);
+    const qParent0 = grip.getWorldQuaternion(new T.Quaternion());
+    held.quaternion.copy(qParent0.clone().invert().multiply(qWorld0));
     held.position.set(0, 0, 0);
     held.updateWorldMatrix(true, true);
-    let bail = null, bailY = -1e9;
-    const v = new T.Vector3();
+
+    let bailMesh = null, bailY = -1e9;
     held.traverse(function (o) {
       if (!o.isMesh || !o.geometry) return;
       const typ = o.geometry.type || '';
-      if (typ === 'TorusGeometry' || typ === 'TorusBufferGeometry') {
-        const p = held.worldToLocal(o.getWorldPosition(new T.Vector3()));
-        if (p.y > bailY) { bailY = p.y; bail = p; }
-        return;
-      }
+      if (typ !== 'TorusGeometry' && typ !== 'TorusBufferGeometry') return;
+      const p = held.worldToLocal(o.getWorldPosition(new T.Vector3()));
+      if (p.y > bailY) { bailY = p.y; bailMesh = o; }
     });
-    if (!bail) bail = new T.Vector3(0, 0.155, 0);
+
+    function wireContact(mesh) {
+      const out = { ok: 0, p: new T.Vector3(), tan: new T.Vector3() };
+      if (!mesh || !mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) return out;
+      mesh.updateWorldMatrix(true, true);
+      const pos = mesh.geometry.attributes.position;
+      const v = new T.Vector3();
+      const best = [];
+      let maxS = -1e9;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i);
+        mesh.localToWorld(v);
+        // Top of the wire, slightly toward camera-right so the cuff
+        // stays outside the loop.
+        const sc = v.dot(camUp) + 0.45 * v.dot(camRight);
+        if (sc > maxS + 1e-5) { maxS = sc; best.length = 0; best.push(v.clone()); }
+        else if (Math.abs(sc - maxS) < 0.004) best.push(v.clone());
+      }
+      if (!best.length) return out;
+      out.p.set(0, 0, 0);
+      for (let i = 0; i < best.length; i++) out.p.add(best[i]);
+      out.p.multiplyScalar(1 / best.length);
+      const centre = mesh.getWorldPosition(new T.Vector3());
+      const axis = new T.Vector3(0, 0, 1).transformDirection(mesh.matrixWorld);
+      if (axis.lengthSq() < 1e-8) axis.set(0, 0, 1);
+      axis.normalize();
+      out.tan.copy(out.p).sub(centre).cross(axis);
+      if (out.tan.lengthSq() < 1e-8) out.tan.copy(camRight);
+      out.tan.normalize();
+      const gripX = new T.Vector3(1, 0, 0).transformDirection(grip.matrixWorld);
+      if (gripX.lengthSq() > 1e-8 && out.tan.dot(gripX) < 0) out.tan.multiplyScalar(-1);
+      out.ok = 1;
+      return out;
+    }
+
+    let c0 = wireContact(bailMesh);
+    if (c0.ok) {
+      // Keep the bucket hanging straight down; only yaw around camUp so
+      // the bail's horizontal tangent lines up with the fist tunnel.
+      const gripX = new T.Vector3(1, 0, 0).transformDirection(grip.matrixWorld);
+      const want = gripX.clone().addScaledVector(camUp, -gripX.dot(camUp));
+      const cur = c0.tan.clone().addScaledVector(camUp, -c0.tan.dot(camUp));
+      if (want.lengthSq() > 1e-8 && cur.lengthSq() > 1e-8) {
+        want.normalize();
+        cur.normalize();
+        const ang = Math.atan2(new T.Vector3().copy(cur).cross(want).dot(camUp), cur.dot(want));
+        if (Math.abs(ang) > 1e-4 && Math.abs(ang) < Math.PI * 0.9) {
+          const qYaw = new T.Quaternion().setFromAxisAngle(camUp, ang);
+          const qHeldW = held.getWorldQuaternion(new T.Quaternion());
+          const qNewW = qYaw.multiply(qHeldW);
+          const qPar = grip.getWorldQuaternion(new T.Quaternion());
+          held.quaternion.copy(qPar.invert().multiply(qNewW));
+          held.position.set(0, 0, 0);
+          held.updateWorldMatrix(true, true);
+        }
+      }
+    }
+
+    const c1 = wireContact(bailMesh);
+    const contactW = c1.ok ? c1.p : (c0.ok ? c0.p : held.localToWorld(new T.Vector3(0, 0.155, 0)));
+    const contactG = grip.worldToLocal(contactW.clone());
+    held.position.copy(contactG).multiplyScalar(-1);
     held.updateWorldMatrix(true, true);
-    const bailG = grip.worldToLocal(held.localToWorld(bail.clone()));
-    held.position.copy(bailG).multiplyScalar(-1);
-    // A little extra hang so the fist sits on the bail with a gap to the rim.
-    const camDown = new T.Vector3(0, -1, 0);
-    try { camDown.set(0, -1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
-    const originW = grip.getWorldPosition(new T.Vector3());
-    const origin = grip.worldToLocal(originW.clone());
-    const extra = grip.worldToLocal(originW.clone().addScaledVector(camDown, 0.070));
-    held.position.add(extra.sub(origin));
-    // Sit the fist on the right of the bail so the cuff stays outside the wire.
-    const camRight = new T.Vector3(1, 0, 0);
-    try { camRight.set(1, 0, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
-    const origin2 = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
-    const side = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camRight, -0.058));
-    held.position.add(side.sub(origin2));
   }
 
   function sitInPalm(held, grip) {
@@ -2054,9 +2103,30 @@
     }
     g.userData.fpPistolHip1271 = 1;
     U.pistolHipQ = [+g.quaternion.x.toFixed(5), +g.quaternion.y.toFixed(5), +g.quaternion.z.toFixed(5), +g.quaternion.w.toFixed(5)];
-    // Bird's-head seating is kept but off until the fist can wrap the
-    // grip without the cuff intersecting the stock.
-    if (false) seatChildPointOnParentOrigin(g, new T.Vector3(0, -0.058, 0.022));
+    // When seating, run the grip through the fist tunnel and roll the
+    // barrel to the 3/4 left-forward aim so the cuff can clear the stock.
+    const wantSeat = !!(U.useSeat || (U.POSES[U.poseKey] && U.POSES[U.poseKey].seat));
+    if (wantSeat && g.parent && vc) {
+      const parent = g.parent;
+      parent.updateWorldMatrix(true, true);
+      const tunnelW = new T.Vector3(1, 0, 0).transformDirection(parent.matrixWorld).normalize();
+      const muzCam = ads ? new T.Vector3(-0.62, 0.12, -0.77) : new T.Vector3(-0.72, 0.28, -0.63);
+      muzCam.normalize();
+      const muzW = muzCam.transformDirection(vc.matrixWorld).normalize();
+      const muzP = muzW.clone().addScaledVector(tunnelW, -muzW.dot(tunnelW));
+      if (muzP.lengthSq() < 1e-8) muzP.copy(muzW);
+      muzP.normalize();
+      const yW = tunnelW.clone().multiplyScalar(-1);
+      const zW = muzP.clone().multiplyScalar(-1);
+      const xW = new T.Vector3().crossVectors(yW, zW).normalize();
+      zW.crossVectors(xW, yW).normalize();
+      const mW = new T.Matrix4().makeBasis(xW, yW, zW);
+      const qW = new T.Quaternion().setFromRotationMatrix(mW);
+      const qP = parent.getWorldQuaternion(new T.Quaternion());
+      g.quaternion.copy(qP.invert().multiply(qW));
+      g.updateWorldMatrix(true, true);
+      seatChildPointOnParentOrigin(g, new T.Vector3(0, -0.058, 0.022));
+    }
   }
   function seatChildPointOnParentOrigin(g, localPoint) {
     if (!g) return;
@@ -2134,6 +2204,93 @@
     seatHeldWorldPoint(heldObj, heldObj.localToWorld(grip.clone()));
     U.musketSeat = { maxDim: +maxDim.toFixed(3), ax: ax, grip: [+grip.x.toFixed(3), +grip.y.toFixed(3), +grip.z.toFixed(3)] };
   }
+  function aimMusketHip(heldObj) {
+    if (!heldObj || !heldObj.parent || !vc) return;
+    heldObj.updateWorldMatrix(true, true);
+    const lb = new T.Box3();
+    let any = false;
+    const tmp = new T.Vector3();
+    heldObj.traverse(function (o) {
+      if (!o.isMesh || o.visible === false || !o.geometry) return;
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const bb = o.geometry.boundingBox;
+      if (!bb) return;
+      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) for (let k = 0; k < 2; k++) {
+        tmp.set(i ? bb.max.x : bb.min.x, j ? bb.max.y : bb.min.y, k ? bb.max.z : bb.min.z);
+        o.localToWorld(tmp);
+        heldObj.worldToLocal(tmp);
+        lb.expandByPoint(tmp);
+        any = true;
+      }
+    });
+    if (!any || lb.isEmpty()) return;
+    const size = new T.Vector3(); lb.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    if (!(maxDim > 0.08 && maxDim < 3.5)) {
+      U.musketSeatSkip = { maxDim: maxDim };
+      return;
+    }
+    let ax = 'z';
+    if (size.x >= size.y && size.x >= size.z) ax = 'x';
+    else if (size.y >= size.x && size.y >= size.z) ax = 'y';
+    const minA = lb.min[ax], maxA = lb.max[ax];
+    let lockL = null;
+    heldObj.traverse(function (o) {
+      if (o.name === 'FpMusketLock1268') lockL = heldObj.worldToLocal(o.getWorldPosition(new T.Vector3()));
+    });
+    const mid = new T.Vector3(); lb.getCenter(mid);
+    const grip = mid.clone();
+    let buttA, muzA;
+    if (lockL) {
+      grip.copy(lockL);
+      const toMax = Math.abs(maxA - lockL[ax]);
+      const toMin = Math.abs(lockL[ax] - minA);
+      buttA = (toMax > toMin) ? minA : maxA;
+      muzA = (buttA === minA) ? maxA : minA;
+      // Wrist of the stock: a short way from the lock toward the butt.
+      grip[ax] += (buttA - lockL[ax]) * 0.28;
+    } else {
+      buttA = (Math.abs(minA) < Math.abs(maxA)) ? minA : maxA;
+      muzA = (buttA === minA) ? maxA : minA;
+      grip[ax] = buttA + (muzA - buttA) * 0.22;
+    }
+    grip.y = Math.min(grip.y, lb.min.y + size.y * 0.42);
+    if (grip.length() > 1.6) {
+      U.musketSeatSkip = { gripLen: grip.length(), maxDim: maxDim };
+      return;
+    }
+    const muzL = mid.clone(); muzL[ax] = muzA;
+    const buttL = mid.clone(); buttL[ax] = buttA;
+    const axisW = heldObj.localToWorld(muzL.clone()).sub(heldObj.localToWorld(buttL.clone()));
+    if (axisW.lengthSq() < 1e-10) return;
+    axisW.normalize();
+    const wantMuz = new T.Vector3(-0.78, 0.22, -0.58).normalize();
+    wantMuz.transformDirection(vc.matrixWorld).normalize();
+    const qDelta = new T.Quaternion().setFromUnitVectors(axisW, wantMuz);
+    const qHeld = heldObj.getWorldQuaternion(new T.Quaternion());
+    const qNew = qDelta.multiply(qHeld);
+    const qPar = heldObj.parent.getWorldQuaternion(new T.Quaternion());
+    heldObj.quaternion.copy(qPar.invert().multiply(qNew));
+    heldObj.updateWorldMatrix(true, true);
+    const _u = new T.Vector3(0, 1, 0);
+    try { vc.matrixWorld.extractBasis(new T.Vector3(), _u, new T.Vector3()); } catch (_) {}
+    const camDown = _u.clone().multiplyScalar(-1);
+    const downP = camDown.clone().addScaledVector(wantMuz, -camDown.dot(wantMuz));
+    if (downP.lengthSq() > 1e-8) {
+      downP.normalize();
+      const stockDown = new T.Vector3(0, -1, 0).transformDirection(heldObj.matrixWorld).normalize();
+      const ang = Math.atan2(new T.Vector3().copy(stockDown).cross(downP).dot(wantMuz), stockDown.dot(downP));
+      const qRoll = new T.Quaternion().setFromAxisAngle(wantMuz, ang);
+      const qH = heldObj.getWorldQuaternion(new T.Quaternion());
+      const qN = qRoll.multiply(qH);
+      const qP = heldObj.parent.getWorldQuaternion(new T.Quaternion());
+      heldObj.quaternion.copy(qP.invert().multiply(qN));
+      heldObj.updateWorldMatrix(true, true);
+    }
+    seatHeldWorldPoint(heldObj, heldObj.localToWorld(grip.clone()));
+    U.musketSeat = { maxDim: +maxDim.toFixed(3), ax: ax, grip: [+grip.x.toFixed(3), +grip.y.toFixed(3), +grip.z.toFixed(3)] };
+  }
+
   function placeSupportUnderForestock(arm, gun) {
     if (!arm || !gun || !arm.userData || !arm.userData.p) return;
     gun.updateWorldMatrix(true, true);
@@ -2574,18 +2731,12 @@
             if (o.name === 'FpFlintlock1265') aimFlintlockSide(o);
           });
         }
-        // Hip seating stays available but is off until the stock frames
-        // fully on screen; the held-local AABB path is kept for later.
-        if (false && U.poseKey === 'musket') {
-          seatMusketInFist(held);
+        const wantSeat = !!(U.useSeat || (U.POSES[U.poseKey] && U.POSES[U.poseKey].seat));
+        if (wantSeat && U.poseKey === 'musket') {
+          aimMusketHip(held);
         }
-        if (false && (U.poseKey === 'pistolAds') && armL && armL.visible) {
-          let gun = null;
-          held.traverse(function (o) {
-            if (!gun && o.name === 'FpFlintlock1265') gun = o;
-          });
-          if (gun) placeSupportUnderForestock(armL, gun);
-        }
+        // Left ADS support is posed with the L arm table, not teleported.
+
       }
     } catch (_) {}
   }
@@ -2812,6 +2963,9 @@
       try { camToward.set(0, 0, 1).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
       const hx = new T.Vector3(), hy = new T.Vector3(), hz = new T.Vector3();
       p.h.matrixWorld.extractBasis(hx, hy, hz);
+      if (hx.lengthSq() > 1e-8) hx.normalize();
+      if (hy.lengthSq() > 1e-8) hy.normalize();
+      if (hz.lengthSq() > 1e-8) hz.normalize();
       const dorsumDot = hz.dot(camToward);
       const palmDot = hz.clone().multiplyScalar(-1).dot(camToward);
       const palm = (U.poseKey === 'empty' || U.poseKey === 'block' || U.poseKey === 'map');
@@ -2891,19 +3045,30 @@
         itemFrac = itemN ? (itemIn / itemN) : 1;
         itemOn = (itemClip === 0 && itemFrac > 0.92) ? 1 : itemFrac;
       }
-      // Intersection: cuff/sleeve vs item AABB in world, and knuckles buried in cuff.
-      let inter = 0;
-      if (typeof held !== 'undefined' && held && p.sleeve) {
-        const sBox = new T.Box3().setFromObject(p.sleeve);
+      // Intersection: cuff/rolls vs the item (not the whole sleeve AABB,
+      // which falsely overlaps a long musket or hanging bucket).
+      let inter = 0, interVol = 0, cuffVol = 0;
+      if (typeof held !== 'undefined' && held) {
         const iBox = new T.Box3().setFromObject(held);
-        if (!sBox.isEmpty() && !iBox.isEmpty() && sBox.intersectsBox(iBox)) {
-          const h = sBox.intersect(iBox);
-          const hs = new T.Vector3(); h.getSize(hs);
-          const isz = new T.Vector3(); iBox.getSize(isz);
-          const vol = Math.max(0, hs.x) * Math.max(0, hs.y) * Math.max(0, hs.z);
-          const ivol = Math.max(1e-8, isz.x * isz.y * isz.z);
-          inter = Math.min(1, vol / ivol);
+        const parts = [p.cuff, p.roll, p.roll2];
+        if (armL && armL.visible && armL.userData && armL.userData.p) {
+          const q = armL.userData.p;
+          parts.push(q.cuff, q.roll, q.roll2);
         }
+        for (let i = 0; i < parts.length; i++) {
+          const c = parts[i];
+          if (!c) continue;
+          const cBox = new T.Box3().setFromObject(c);
+          if (cBox.isEmpty()) continue;
+          const cs = new T.Vector3(); cBox.getSize(cs);
+          cuffVol += Math.max(0, cs.x) * Math.max(0, cs.y) * Math.max(0, cs.z);
+          if (!iBox.isEmpty() && cBox.intersectsBox(iBox)) {
+            const h = cBox.clone().intersect(iBox);
+            const hs = new T.Vector3(); h.getSize(hs);
+            interVol += Math.max(0, hs.x) * Math.max(0, hs.y) * Math.max(0, hs.z);
+          }
+        }
+        inter = cuffVol > 1e-10 ? Math.min(1, interVol / cuffVol) : 0;
       }
       // Pick head width / clip if present.
       let pickOk = 1;
@@ -2920,10 +3085,38 @@
       score += 0.4 * wrCloser;
       score += 0.6 * pickOk;
       score -= 3.2 * inter;
+      if (inter > 0.001) score -= 8.0 + 6.0 * inter;
       score -= 1.8 * (1 - knVis);
       if (lookDown > 0.88) score -= 2.5;
       if (faceDot < 0.25) score -= 2.0;
       if (itemOn < 0.85) score -= 2.5;
+      // Guns must stay framed: a long musket may clip a hidden butt
+      // corner, but the visible body should still be mostly on screen.
+      const isGun = (U.poseKey === 'pistol' || U.poseKey === 'pistolAds' || U.poseKey === 'musket' || U.poseKey === 'musketAds');
+      if (isGun && itemFrac < 0.55) score -= 3.0;
+      if (isGun && itemOn >= 0.92 && inter <= 0.001) score += 1.4;
+      let support = 0, supportDist = null, leftIn = 0;
+      if (U.poseKey === 'pistolAds' && armL && armL.visible && armL.userData && armL.userData.p) {
+        let gun = null;
+        if (typeof held !== 'undefined' && held) {
+          held.traverse(function (o) { if (!gun && o.name === 'FpFlintlock1265') gun = o; });
+        }
+        const socket = armL.userData.p.grip || armL.userData.p.h;
+        if (gun && socket) {
+          gun.updateWorldMatrix(true, true);
+          socket.updateWorldMatrix(true, true);
+          const target = gun.localToWorld(new T.Vector3(0, 0.002, -0.10));
+          const cup = socket.getWorldPosition(new T.Vector3());
+          supportDist = cup.distanceTo(target);
+          support = Math.max(0, 1 - supportDist / 0.14);
+        }
+        const wrL = armL.userData.p.wrist.getWorldPosition(new T.Vector3());
+        try { vc.worldToLocal(wrL); } catch (_) {}
+        if (wrL.x < -0.02) leftIn = 1;
+        score += 2.2 * support;
+        score += 0.5 * leftIn;
+        if (support < 0.35) score -= 2.8;
+      }
       out.ok = 1;
       out.score = +score.toFixed(4);
       out.faceDot = +faceDot.toFixed(4);
@@ -2933,7 +3126,12 @@
       out.knOut = +knOut.toFixed(3);
       out.itemOn = +itemOn.toFixed(3);
       out.itemFrac = +itemFrac.toFixed(3);
-      out.inter = +inter.toFixed(3);
+      out.inter = +inter.toFixed(4);
+      out.interVol = +interVol.toFixed(6);
+      out.cuffVol = +cuffVol.toFixed(6);
+      out.support = +support.toFixed(3);
+      out.supportDist = (supportDist == null) ? null : +supportDist.toFixed(4);
+      out.leftIn = leftIn;
       out.lookDown = +lookDown.toFixed(3);
       out.towardAmt = +towardAmt.toFixed(3);
       out.foreshort = +foreshort.toFixed(3);
