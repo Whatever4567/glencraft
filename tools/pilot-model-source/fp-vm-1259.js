@@ -81,28 +81,33 @@
     },
     pistol: {
       two: 0, hs: 1.12,
-      // t1153 hip: one hand on the grip, barrel angled left-forward.
-      R: { sh: [1.18, -1.22, -0.54], wr: [0.32, -0.30, -0.52], rot: [0, 0, 0], haft: [-0.55, 0.40, -0.55], curl: 1, rs: 0.70 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.15 }
+      // Keyframe from t1153/t1157 hip: fist lower-right, dorsum, gun moved
+      // so the bird's-head grip anchor sits in the fist tunnel.
+      R: { wr: [0.48, -0.30, -0.82], pitch: 28, yaw: 32, elev: 26, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.52, haft: [0.18, -0.90, 0.30], curl: 1, rs: 0.62 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.05 }
     },
     pistolAds: {
-      // t1153: two hands on the flintlock, centred, 3/4 side — not iron-sights.
-      two: 1, hs: 1.04,
-      R: { sh: [1.18, -1.28, -0.54], wr: [0.30, -0.22, -0.52], rot: [0, 0, 0], haft: [-0.20, 0.55, -0.70], curl: 1, sleeve: 'linen', rs: 0.70 },
-      L: { sh: [-1.08, -1.22, -0.58], wr: [-0.06, -0.18, -0.55], rot: [0, 0, 0], haft: [0.75, 0.05, -0.45], sleeve: 'linen', hs: 1.00, rs: 0.68 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.15 }
+      // t1153 ref 6: right fist on the grip, left cup under the forestock,
+      // both forearms from the lower corners, 3/4 side — not iron-sights.
+      two: 1, hs: 1.12,
+      R: { wr: [0.38, -0.26, -0.76], pitch: 26, yaw: 30, elev: 28, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.52, haft: [0.18, -0.90, 0.30], curl: 1, sleeve: 'linen', rs: 0.62 },
+      L: { wr: [-0.48, -0.34, -0.72], pitch: 28, yaw: 32, elev: 26, lenFore: 0.38, face: 'dorsumAbove', faceY: 0.28, haft: [-0.50, 0.10, -0.85], sleeve: 'linen', hs: 1.00, rs: 0.58 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.05 }
     },
     musket: {
-      // t1153: one hand on the grip, barrel angled left-forward.
-      two: 0, hs: 1.10,
-      R: { sh: [1.20, -1.20, -0.56], wr: [0.34, -0.28, -0.54], rot: [0, 0, 0], haft: [-0.62, 0.42, -0.40], curl: 1, sleeve: 'linen', rs: 0.70 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.10, -1.20, 0.15], s: 1.00 }
+      // t1153 ref 7: right hand on the wrist of the stock, gun moved to the
+      // fist tunnel, barrel left-forward, cuff clear of the wood.
+      two: 0, hs: 1.12,
+      R: { wr: [0.14, -0.16, -1.08], pitch: 28, yaw: 32, elev: 22, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.50, haft: [0.24, -0.22, 0.94], curl: 1, sleeve: 'linen', rs: 0.62 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.00 }
     },
     musketAds: {
-      two: 1, hs: 0.88,
-      R: { sh: [1.00, -1.40, -0.54], wr: [0.30, -0.60, -0.52], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-1.10, -1.45, -0.66], wr: [-0.26, -0.62, -0.64], rot: [0, 0, 0], haft: [0.55, 0.15, -0.70], curl: 1, sleeve: 'tartan', hs: 0.80 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.00 }
+      // Two-hand 3/4, same anchors as hip: right on the stock wrist, left
+      // cup under the forestock. Not an iron-sights punch-in.
+      two: 1, hs: 1.12,
+      R: { wr: [0.16, -0.16, -1.04], pitch: 26, yaw: 30, elev: 24, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.48, haft: [0.24, -0.20, 0.94], curl: 1, sleeve: 'linen', rs: 0.62 },
+      L: { wr: [-0.50, -0.30, -0.80], pitch: 28, yaw: 32, elev: 26, lenFore: 0.40, face: 'palmUpHigh', haft: [-0.48, 0.08, -0.87], sleeve: 'linen', hs: 1.12, rs: 0.58 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.00 }
     },
     axe: null, shovel: null, hoe: null,
     other: {
@@ -675,6 +680,8 @@
     addKind('open', 'fpPalm1275');
     addKind('cup', 'fpCup1276');
     addKind('hold', 'fpHold1277');
+    addKind('wrapPistol', 'fpWrapPistol1280');
+    addKind('wrapMusket', 'fpWrapMusket1280');
     h.userData.fpBaked1276 = 1;
     return true;
   }
@@ -717,10 +724,14 @@
       const useOpen = (mode === 'open' || mode === 'relax');
       const useHold = (mode === 'hold' || mode === 'pinch');
       const useCup = (mode === 'cup');
-      if (h.userData.fpFist1275) h.userData.fpFist1275.visible = !useOpen && !useCup && !useHold;
+      const useWrapP = (mode === 'wrapPistol');
+      const useWrapM = (mode === 'wrapMusket');
+      if (h.userData.fpFist1275) h.userData.fpFist1275.visible = !useOpen && !useCup && !useHold && !useWrapP && !useWrapM;
       if (h.userData.fpPalm1275) h.userData.fpPalm1275.visible = useOpen;
       if (h.userData.fpCup1276) h.userData.fpCup1276.visible = useCup;
       if (h.userData.fpHold1277) h.userData.fpHold1277.visible = useHold;
+      if (h.userData.fpWrapPistol1280) h.userData.fpWrapPistol1280.visible = useWrapP;
+      if (h.userData.fpWrapMusket1280) h.userData.fpWrapMusket1280.visible = useWrapM;
       hideLegacySculpt(h);
     } catch (e) { ERR('fpHands', e); }
     const side = (h.userData && h.userData.side) || 1;
@@ -870,7 +881,9 @@
     arm.userData.curlOpts1271 = curlOpts || {};
     const modeG = (curlOpts && curlOpts.mode) || 'fist';
     if (p.grip) {
-      const tun = (W.__fpHandsBaked1276 && W.__fpHandsBaked1276.tunnel) || { y: 0.050, z: -0.026 };
+      const B = W.__fpHandsBaked1276;
+      const tuns = (B && B.tunnels) || {};
+      const tun = tuns[modeG] || (B && B.tunnel) || { y: 0.050, z: -0.026 };
       const gsc = BAKE_HAND_SCALE * 1.10;
       if (modeG === 'open' || modeG === 'relax') p.grip.position.set(0, 0.048, -0.010);
       else if (modeG === 'cup') p.grip.position.set(0, 0.042, -0.016);
@@ -2148,6 +2161,295 @@
     const newWorld = heldObj.getWorldPosition(new T.Vector3()).add(fistW.clone().sub(worldPoint));
     heldObj.position.copy(heldObj.parent.worldToLocal(newWorld));
   }
+  // Hand-authored gun anchors, inspected in gun-local space (the
+  // flintlock group for the pistol; held/rig local for the musket).
+  // grip: where the fist wraps. forestock: left-hand cup. gripAxis:
+  // through the fist tunnel (pommel → lock / butt → slightly back).
+  // muzzle: along the barrel.
+  const GUN_ANCHORS = {
+    pistol: {
+      grip: new T.Vector3(0.000, -0.055, 0.022),
+      forestock: new T.Vector3(0.000, -0.036, -0.095),
+      // Toward the pommel so the bird's-head hangs down in the fist.
+      gripAxis: new T.Vector3(0.000, -0.970, 0.240),
+      muzzle: new T.Vector3(0.000, 0.000, -1.000),
+      lockAxis: new T.Vector3(1.000, 0.000, 0.000),
+      muzCamHip: new T.Vector3(-0.50, 0.18, -0.85),
+      muzCamAds: new T.Vector3(-0.44, 0.12, -0.89)
+    },
+    musket: {
+      // Wrist of the stock, just behind the trigger guard, in the wooden
+      // narrows at z≈0.14–0.18. Muzzle is -Z, butt is +Z, lock is +X.
+      grip: new T.Vector3(0.000, -0.016, 0.155),
+      forestock: new T.Vector3(0.000, -0.040, -0.200),
+      gripAxis: new T.Vector3(0.000, 0.000, 1.000),
+      muzzle: new T.Vector3(0.000, 0.000, -1.000),
+      lockAxis: new T.Vector3(1.000, 0.000, 0.000),
+      muzCamHip: new T.Vector3(-0.26, 0.18, -0.95),
+      muzCamAds: new T.Vector3(-0.22, 0.10, -0.97)
+    }
+  };
+  U.GUN_ANCHORS = GUN_ANCHORS;
+
+  function gunRoot(kind) {
+    if (typeof held === 'undefined' || !held) return null;
+    if (kind === 'pistol' || kind === 'pistolAds') {
+      let g = null;
+      held.traverse(function (o) { if (!g && o.name === 'FpFlintlock1265') g = o; });
+      return g;
+    }
+    return held;
+  }
+
+  function alignLocalToWorld(obj, locA, worldA, locB, worldB) {
+    if (!obj || !obj.parent) return;
+    const a = locA.clone().normalize();
+    const wa = worldA.clone().normalize();
+    const q1 = new T.Quaternion().setFromUnitVectors(a, wa);
+    const b = locB.clone().normalize().applyQuaternion(q1);
+    const bWant = worldB.clone().addScaledVector(wa, -worldB.dot(wa));
+    const bHave = b.clone().addScaledVector(wa, -b.dot(wa));
+    if (bWant.lengthSq() > 1e-8 && bHave.lengthSq() > 1e-8) {
+      bWant.normalize();
+      bHave.normalize();
+      const ang = Math.atan2(new T.Vector3().copy(bHave).cross(bWant).dot(wa), bHave.dot(bWant));
+      q1.premultiply(new T.Quaternion().setFromAxisAngle(wa, ang));
+    }
+    const qP = obj.parent.getWorldQuaternion(new T.Quaternion());
+    obj.quaternion.copy(qP.invert().multiply(q1));
+    obj.updateWorldMatrix(true, true);
+  }
+
+
+  function restoreGunSlim() {
+    const list = U._slimMeshes || [];
+    for (let i = 0; i < list.length; i++) {
+      const mesh = list[i];
+      if (!mesh || !mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) continue;
+      const orig = mesh.userData && mesh.userData._posOrig1280;
+      if (!orig) continue;
+      const pos = mesh.geometry.attributes.position;
+      if (pos.array && orig.length === pos.array.length) pos.array.set(orig);
+      pos.needsUpdate = true;
+    }
+    U._slimMeshes = [];
+  }
+  function slimAroundAnchor(gun, anchorLoc, axisLoc, along, radial, scale) {
+    if (!gun || !anchorLoc || !axisLoc) return;
+    gun.updateWorldMatrix(true, true);
+    const ax = axisLoc.clone().normalize();
+    const sc = (scale != null) ? scale : 0.80;
+    if (!U._slimMeshes) U._slimMeshes = [];
+    gun.traverse(function (mesh) {
+      if (!mesh.isMesh || !mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) return;
+      const pos = mesh.geometry.attributes.position;
+      if (!mesh.userData._posOrig1280) mesh.userData._posOrig1280 = Float32Array.from(pos.array);
+      const orig = mesh.userData._posOrig1280;
+      const tmp = new T.Vector3();
+      let touched = false;
+      for (let i = 0; i < pos.count; i++) {
+        tmp.set(orig[i * 3], orig[i * 3 + 1], orig[i * 3 + 2]);
+        mesh.localToWorld(tmp);
+        gun.worldToLocal(tmp);
+        const relX = tmp.x - anchorLoc.x, relY = tmp.y - anchorLoc.y, relZ = tmp.z - anchorLoc.z;
+        const t = relX * ax.x + relY * ax.y + relZ * ax.z;
+        const px = relX - ax.x * t, py = relY - ax.y * t, pz = relZ - ax.z * t;
+        const pr = Math.sqrt(px * px + py * py + pz * pz);
+        if (Math.abs(t) <= along && pr <= radial) {
+          const fall = 1 - Math.abs(t) / Math.max(along, 1e-6);
+          const k = 1 - (1 - sc) * fall * fall;
+          tmp.set(
+            anchorLoc.x + ax.x * t + px * k,
+            anchorLoc.y + ax.y * t + py * k,
+            anchorLoc.z + ax.z * t + pz * k
+          );
+          gun.localToWorld(tmp);
+          mesh.worldToLocal(tmp);
+          pos.setXYZ(i, tmp.x, tmp.y, tmp.z);
+          touched = true;
+        } else {
+          pos.setXYZ(i, orig[i * 3], orig[i * 3 + 1], orig[i * 3 + 2]);
+        }
+      }
+      if (touched) {
+        pos.needsUpdate = true;
+        if (mesh.geometry.computeVertexNormals) mesh.geometry.computeVertexNormals();
+        U._slimMeshes.push(mesh);
+      }
+    });
+  }
+  function seatGunOnFist(kind) {
+    const an = (kind === 'musket' || kind === 'musketAds') ? GUN_ANCHORS.musket : GUN_ANCHORS.pistol;
+    const ads = (kind === 'pistolAds' || kind === 'musketAds');
+    const gun = gunRoot(kind);
+    if (!gun || !gun.parent || !vc || !an) return;
+    vc.updateMatrixWorld(true);
+    // Zero the wrapper so only the gun (or held, for the musket) carries
+    // the keyframe pose. The gun is moved to the hand, not the reverse.
+    if (typeof held !== 'undefined' && held && gun !== held) {
+      held.position.set(0, 0, 0);
+      held.quaternion.identity();
+      held.updateWorldMatrix(true, true);
+    }
+    gun.parent.updateWorldMatrix(true, true);
+    const tunnelW = new T.Vector3(1, 0, 0).transformDirection(gun.parent.matrixWorld).normalize();
+    const muzCam = (ads ? an.muzCamAds : an.muzCamHip).clone().normalize();
+    const muzW = muzCam.clone().transformDirection(vc.matrixWorld).normalize();
+    const lockCam = new T.Vector3(0.55, 0.15, 0.82).normalize();
+    const lockW = lockCam.transformDirection(vc.matrixWorld).normalize();
+    const colinear = Math.abs(an.gripAxis.clone().normalize().dot(an.muzzle.clone().normalize())) > 0.85;
+    if (colinear) {
+      // Long gun: muzzle and grip axis share a line, so the fist haft
+      // already aims the barrel. Align muzzle to the authored camera
+      // direction, then roll the lock toward the camera/right.
+      alignLocalToWorld(gun, an.muzzle, muzW, an.lockAxis, lockW);
+    } else {
+      // Pistol: thread the bird's-head through the fist, then roll the
+      // barrel to the 3/4 left-forward aim.
+      alignLocalToWorld(gun, an.gripAxis, tunnelW, an.muzzle, muzW);
+    }
+    const twist = ads ? (an.twistAds || 0) : (an.twistHip || 0);
+    if (twist) {
+      const muzAxis = an.muzzle.clone().transformDirection(gun.matrixWorld).normalize();
+      const qTw = new T.Quaternion().setFromAxisAngle(muzAxis, twist);
+      const qP = gun.parent.getWorldQuaternion(new T.Quaternion());
+      const qW = gun.getWorldQuaternion(new T.Quaternion());
+      gun.quaternion.copy(qP.invert().multiply(qTw.multiply(qW)));
+      gun.updateWorldMatrix(true, true);
+    }
+    // Mirror the pistol in local X so the +X lock faces the camera in a
+    // right-hand 3/4 (Y up, barrel left). Grip is on x=0 so the seat holds.
+    if (!colinear) {
+      const sx = Math.abs((gun.scale && gun.scale.x) || 1) || 1;
+      gun.scale.x = -sx;
+      gun.updateWorldMatrix(true, true);
+    }
+    seatChildPointOnParentOrigin(gun, an.grip.clone());
+    gun.updateWorldMatrix(true, true);
+    // Slim the stock/grip locally around the anchor so the wood sits in
+    // the wrap with a 1–2 mm gap (20% musket, 15% pistol).
+    const slim = colinear ? 0.80 : 0.85;
+    const along = colinear ? 0.090 : 0.055;
+    const rad = colinear ? 0.070 : 0.045;
+    try { slimAroundAnchor(gun, an.grip.clone(), an.gripAxis.clone(), along, rad, slim); } catch (_) {}
+    gun.updateWorldMatrix(true, true);
+    const muzNow = an.muzzle.clone().transformDirection(gun.matrixWorld).normalize();
+    const muzNowCam = muzNow.clone().transformDirection(new T.Matrix4().copy(vc.matrixWorld).invert());
+    U.gunSeated = {
+      kind: kind,
+      colinear: colinear ? 1 : 0,
+      muzCam: [+muzNowCam.x.toFixed(3), +muzNowCam.y.toFixed(3), +muzNowCam.z.toFixed(3)]
+    };
+  }
+
+  function poseLeftOnForestock(kind, aspect, hs) {
+    if (!armL || !vc) return;
+    const an = (kind === 'musketAds') ? GUN_ANCHORS.musket : GUN_ANCHORS.pistol;
+    const gun = gunRoot(kind);
+    if (!gun || !an) return;
+    vc.updateMatrixWorld(true);
+    gun.updateWorldMatrix(true, true);
+    const target = gun.localToWorld(an.forestock.clone());
+    const muzCam = (kind === 'musketAds' ? an.muzCamAds : an.muzCamAds).clone();
+    // Silhouette first: forearm from the lower-left edge, cup along the barrel.
+    const wr0 = (kind === 'musketAds') ? [-0.50, -0.34, -0.74] : [-0.52, -0.36, -0.72];
+    const specL = {
+      wr: wr0,
+      pitch: 28, yaw: 32, elev: 26, lenFore: 0.40,
+      face: 'dorsumAbove', faceY: 0.22,
+      haft: [-0.50, 0.08, -0.86],
+      curl: 1, rs: 0.58, sleeve: 'linen', hs: hs || 1.12
+    };
+    armL.visible = true;
+    armL.traverse(function (o) { o.visible = true; });
+    poseArm(armL, specL, aspect || REF_ASPECT, hs || 1.12, 'linen', { mode: 'cup', support: true });
+    armL.updateWorldMatrix(true, true);
+    // Slide the whole left arm so the cup contact sits under the forestock,
+    // keeping the authored lower-left silhouette if the delta is modest.
+    const cup = (armL.userData.p && (armL.userData.p.grip || armL.userData.p.h)) || armL;
+    const cupW = cup.getWorldPosition(new T.Vector3());
+    const delta = target.clone().sub(cupW);
+    if (armL.parent) {
+      const p0 = armL.getWorldPosition(new T.Vector3());
+      armL.position.copy(armL.parent.worldToLocal(p0.add(delta)));
+      armL.updateWorldMatrix(true, true);
+    }
+    U.leftForestockWr = wr0;
+    U.leftDelta = [+delta.x.toFixed(3), +delta.y.toFixed(3), +delta.z.toFixed(3)];
+  }
+
+  function restoreTrim(mesh) {
+    if (!mesh || !mesh.geometry) return;
+    const geo = mesh.geometry;
+    if (geo.userData && geo.userData._idxOrig) {
+      const src = geo.userData._idxOrig;
+      const idx = (src instanceof Uint32Array || src instanceof Uint16Array) ? src.slice() : Array.from(src);
+      geo.setIndex(idx);
+    }
+  }
+  function restoreAllSleeveTrim() {
+    [armR, armL].forEach(function (arm) {
+      if (!arm || !arm.userData || !arm.userData.p) return;
+      const q = arm.userData.p;
+      restoreTrim(q.sleeve); restoreTrim(q.cuff); restoreTrim(q.roll); restoreTrim(q.roll2);
+    });
+  }
+  function hideFacesNear(mesh, test, maxFrac) {
+    if (!mesh || !mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) return;
+    const geo = mesh.geometry;
+    const pos = geo.attributes.position;
+    mesh.updateWorldMatrix(true, true);
+    let idxArr;
+    if (geo.index) {
+      if (!geo.userData._idxOrig) geo.userData._idxOrig = geo.index.array.slice();
+      idxArr = geo.userData._idxOrig;
+    } else {
+      const n = pos.count;
+      if (!geo.userData._idxOrig) {
+        const a = new Uint32Array(n);
+        for (let i = 0; i < n; i++) a[i] = i;
+        geo.userData._idxOrig = a;
+      }
+      idxArr = geo.userData._idxOrig;
+    }
+    const keep = [];
+    const v = new T.Vector3();
+    const nTri = Math.floor(idxArr.length / 3);
+    for (let t = 0; t < nTri; t++) {
+      const a = idxArr[t * 3], b = idxArr[t * 3 + 1], c = idxArr[t * 3 + 2];
+      let close = false;
+      [a, b, c].forEach(function (i) {
+        if (close) return;
+        v.fromBufferAttribute(pos, i);
+        mesh.localToWorld(v);
+        if (test(v)) close = true;
+      });
+      if (!close) keep.push(a, b, c);
+    }
+    const dropped = (nTri - keep.length / 3) / Math.max(1, nTri);
+    if (maxFrac != null && dropped > maxFrac) return; // don't wipe the whole cuff
+    if (keep.length < 3) return;
+    geo.setIndex(keep);
+    geo.computeBoundingSphere();
+  }
+  function pullCuffBack(arm, back) {
+    if (!arm || !arm.userData || !arm.userData.p) return;
+    const q = arm.userData.p;
+    const len = (q.wrist && q.wrist.position) ? q.wrist.position.y : 0;
+    const b = back || 0.032;
+    if (q.cuff) q.cuff.position.y = len + CUFF_H * 0.25 - b;
+    if (q.roll) q.roll.position.y = len - CUFF_H * 0.20 - b;
+    if (q.roll2) q.roll2.position.y = len - CUFF_H * 0.65 - b;
+  }
+  function trimSleeveNearGun(kind) {
+    // Pull the rolled cuff back up the sleeve so it stays clear of the
+    // grip/forestock. Do not hide hand or gun faces: the held item is
+    // parented under the fist, so a traverse would shred the weapon.
+    const back = (kind === 'musket' || kind === 'musketAds') ? 0.018 : 0.012;
+    pullCuffBack(armR, back);
+    if (kind === 'pistolAds' || kind === 'musketAds') pullCuffBack(armL, back);
+  }
+
   function seatMusketInFist(heldObj) {
     if (!heldObj || !heldObj.parent) return;
     heldObj.updateWorldMatrix(true, true);
@@ -2575,7 +2877,8 @@
     if (k0 === 'empty') return { mode: 'open' };
     if (k0 === 'block') return { mode: 'cup' };
     if (k0 === 'map') return { mode: 'hold' };
-    if (key === 'pistol' || key === 'pistolAds') return { mode: 'fist', trigger: true };
+    if (key === 'pistol' || key === 'pistolAds') return { mode: 'wrapPistol', trigger: true };
+    if (key === 'musket' || key === 'musketAds') return { mode: 'wrapMusket' };
     return { mode: 'fist' };
   }
 
@@ -2650,6 +2953,8 @@
       return;
     }
     if (!build()) { U.active = 0; return; }
+    try { restoreAllSleeveTrim(); } catch (_) {}
+    try { restoreGunSlim(); } catch (_) {}
     const k0 = kindOf();
     const ads = isAds();
     if (!usesNewFp(k0)) {
@@ -2726,16 +3031,18 @@
     // aimFlintlockSide during poseItem ran against a stale camera matrix.
     try {
       if (typeof held !== 'undefined' && held) {
-        if (U.poseKey === 'pistol' || U.poseKey === 'pistolAds') {
-          held.traverse(function (o) {
-            if (o.name === 'FpFlintlock1265') aimFlintlockSide(o);
-          });
+        const pk = U.poseKey;
+        if (pk === 'pistol' || pk === 'pistolAds' || pk === 'musket' || pk === 'musketAds') {
+          vc.updateMatrixWorld(true);
+          seatGunOnFist(pk);
+          if (pk === 'pistolAds' || pk === 'musketAds') {
+            const aspect = (worldCam && worldCam.aspect) || REF_ASPECT;
+            const hs = (U.POSES[pk] && U.POSES[pk].hs) || 1.04;
+            poseLeftOnForestock(pk, aspect, hs);
+          }
+          trimSleeveNearGun(pk);
+          try { if (W.__fpTpArm1270 && W.__fpTpArm1270.sync) W.__fpTpArm1270.sync(); } catch (_) {}
         }
-        const wantSeat = !!(U.useSeat || (U.POSES[U.poseKey] && U.POSES[U.poseKey].seat));
-        if (wantSeat && U.poseKey === 'musket') {
-          aimMusketHip(held);
-        }
-        // Left ADS support is posed with the L arm table, not teleported.
 
       }
     } catch (_) {}
