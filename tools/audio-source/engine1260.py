@@ -72,6 +72,15 @@ def rbj_sos(f0, Q, typ="band", sr=SR, gain_db=0.0):
         a0 = 1 + alpha / A
         a1 = -2 * cos
         a2 = 1 - alpha / A
+    elif typ == "highshelf":
+        A = 10 ** (gain_db / 40.0)
+        two_sa = 2 * np.sqrt(A) * alpha
+        b0 = A * ((A + 1) + (A - 1) * cos + two_sa)
+        b1 = -2 * A * ((A - 1) + (A + 1) * cos)
+        b2 = A * ((A + 1) + (A - 1) * cos - two_sa)
+        a0 = (A + 1) - (A - 1) * cos + two_sa
+        a1 = 2 * ((A - 1) - (A + 1) * cos)
+        a2 = (A + 1) - (A - 1) * cos - two_sa
     else:
         raise ValueError(typ)
     return np.array([[b0 / a0, b1 / a0, b2 / a0, 1.0, a1 / a0, a2 / a0]], dtype=np.float64)
@@ -688,3 +697,131 @@ def true_peak_limiter(x, ceiling=10 ** (-1.0 / 20.0), look_ms=6, os=4):
         out_g[i] = g
     y = x * out_g[:, None]
     return np.clip(y, -ceiling, ceiling)
+
+
+# --- Pro drum layers, vocoder, disco filter ------------------------------------
+def make_kick_pro(rng, style="drop"):
+    """Layered kick: sub, body, knock, click, a short saturated crack.
+
+    style: drop (festival punch, short tail), tight (builds), soft (breakdown),
+    slam (drop-2, slightly harder transient). Tail is always over before the
+    off-beat donk at 165 BPM (~181 ms).
+    """
+    dur = {"drop": 0.155, "tight": 0.12, "soft": 0.20, "slam": 0.15}[style]
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    sub_t = {"drop": 0.050, "tight": 0.038, "soft": 0.070, "slam": 0.048}[style]
+    f = 50.0 + 130.0 * np.exp(-t / 0.0065)
+    body = sine_sweep(f) * (1.0 - np.exp(-t / 0.0006)) * np.exp(-t / 0.032)
+    sub = np.sin(2 * np.pi * 50.0 * t) * (1.0 - np.exp(-t / 0.0010)) * np.exp(-t / sub_t) * 1.22
+    # very short mid knock — dies in ~12 ms so it cannot mask the donk
+    knock = np.sin(2 * np.pi * 180.0 * t) * np.exp(-t / 0.010) * (0.22 if style != "soft" else 0.10)
+    punch = np.sin(2 * np.pi * 62.0 * t) * np.exp(-t / 0.008) * (0.16 if style != "soft" else 0.08)
+    noise = rng.standard_normal(n)
+    click = sos_hp(noise, 4500) * np.exp(-t / 0.0022) * (0.48 if style in ("drop", "slam") else 0.28)
+    click += sos_bp(noise, 2200, 7000) * np.exp(-t / 0.0030) * 0.18
+    crack = tanh_sat(sos_bp(noise, 800, 2400) * np.exp(-t / 0.004), 2.2) * (0.22 if style == "slam" else 0.12)
+    sig = body * 0.55 + sub + knock + punch + click + crack
+    drive = {"drop": 1.12, "tight": 1.08, "soft": 1.04, "slam": 1.22}[style]
+    sig = tanh_sat(sig, drive)
+    k = int(0.008 * SR)
+    sig[-k:] *= np.linspace(1, 0, k)
+    return sig.astype(np.float64)
+
+
+def make_snare_pro(rng, kind="hit"):
+    """Hybrid snare: tonal body, noise crack, short room. kind=hit/ghost/rim."""
+    dur = {"hit": 0.28, "ghost": 0.11, "rim": 0.07}[kind]
+    n = int(dur * SR)
+    t = np.arange(n) / SR
+    body = np.sin(2 * np.pi * 190 * t) * np.exp(-t / 0.028) * (0.7 if kind == "hit" else 0.25)
+    body += np.sin(2 * np.pi * 285 * t) * np.exp(-t / 0.018) * 0.25
+    crack = sos_bp(rng.standard_normal(n), 900, 9000) * np.exp(-t / (0.045 if kind == "hit" else 0.018))
+    room = sos_bp(rng.standard_normal(n), 400, 3500) * np.exp(-t / 0.12) * (0.35 if kind == "hit" else 0.05)
+    rim = sos_bp(rng.standard_normal(n), 2000, 8000) * np.exp(-t / 0.008) * (0.8 if kind == "rim" else 0.15)
+    sig = body + crack * (1.0 if kind != "rim" else 0.4) + room + rim
+    return fade(tanh_sat(sig, 1.25 if kind == "hit" else 1.1), 0.5, 12)
+
+
+def make_shaker(rng):
+    n = int(0.09 * SR)
+    t = np.arange(n) / SR
+    x = sos_bp(rng.standard_normal(n), 5000, 14000) * np.exp(-t / 0.025)
+    x += rbj(rng.standard_normal(n), 9000, 6, "band") * np.exp(-t / 0.018) * 0.4
+    return fade(x, 0.3, 6)
+
+
+def make_tom(rng, freq=98.0):
+    n = int(0.28 * SR)
+    t = np.arange(n) / SR
+    f = freq * (1.0 + 0.35 * np.exp(-t / 0.02))
+    sig = sine_sweep(f) * np.exp(-t / 0.08)
+    sig += sos_bp(rng.standard_normal(n), freq * 2, 4000) * np.exp(-t / 0.03) * 0.2
+    return fade(tanh_sat(sig, 1.15), 1, 16)
+
+
+def make_impact_pro(rng, kind="festival"):
+    """Hybrid festival impact: sub drop + noise smash + tonal cluster."""
+    n = int((0.70 if kind == "festival" else 0.45) * SR)
+    t = np.arange(n) / SR
+    sub = sine_sweep(90 * np.exp(-t / 0.06) + 32) * np.exp(-t / 0.22)
+    smash = sos_hp(rng.standard_normal(n), 200) * np.exp(-t / 0.12)
+    smash += sos_bp(rng.standard_normal(n), 800, 6000) * np.exp(-t / 0.08) * 0.6
+    # original minor-cluster hit, not a sampled crash
+    tonal = np.zeros(n)
+    for f, a in ((155.0, 0.4), (185.0, 0.28), (233.0, 0.18)):
+        tonal += np.sin(2 * np.pi * f * t) * np.exp(-t / 0.15) * a
+    sig = tanh_sat(sub * 0.95 + smash * 0.55 + tonal * 0.35, 1.3)
+    return fade(sig, 1, 40)
+
+
+def vocoder(carrier, modulator, n_bands=16, lo=140, hi=7600, rel_s=0.05, sr=SR):
+    """Band vocoder: modulator envelopes applied to a carrier (original layers)."""
+    if carrier.ndim == 1:
+        carrier = np.stack([carrier, carrier], 1)
+    if modulator.ndim == 1:
+        modulator = np.stack([modulator, modulator], 1)
+    n = min(len(carrier), len(modulator))
+    carrier = np.array(carrier[:n], dtype=np.float64)
+    modulator = np.array(modulator[:n], dtype=np.float64)
+    edges = np.geomspace(lo, hi, n_bands + 1)
+    out = np.zeros((n, 2))
+    coeff = np.exp(-1.0 / (max(rel_s, 1e-4) * sr))
+    for i in range(n_bands):
+        sos = butter(2, [edges[i], edges[i + 1]], btype="bandpass", fs=sr, output="sos")
+        for ch in (0, 1):
+            m = np.abs(sosfilt(sos, modulator[:, ch]))
+            env = np.empty(n)
+            e = 0.0
+            for k, v in enumerate(m):
+                e = v if v > e else coeff * e + (1 - coeff) * v
+                env[k] = e
+            c = sosfilt(sos, carrier[:, ch])
+            out[:, ch] += c * env
+    peak = np.max(np.abs(out)) + 1e-12
+    src = np.max(np.abs(carrier)) + 1e-12
+    return out / peak * src
+
+
+def tv_lowpass_stereo(x, cutoff, Q=0.9, block=256):
+    """Time-varying stereo lowpass. cutoff is a per-sample array."""
+    y = np.zeros_like(x)
+    for ch in range(x.shape[1]):
+        y[:, ch] = rbj_tv_low(x[:, ch], cutoff, Q=Q, block=block)
+    return y
+
+
+def muted_stab(freqs, dur=0.08, cutoff=1400, det=6):
+    """Short muted cluster — filtered disco / house stab, original voicing."""
+    n = int(dur * SR)
+    sL, sR = np.zeros(n), np.zeros(n)
+    for i, f in enumerate(freqs):
+        L, R = supersaw_stereo(f, dur, det=det, n_osc=5, cutoff=cutoff)
+        sL += L
+        sR += R
+    sL /= max(len(freqs), 1)
+    sR /= max(len(freqs), 1)
+    env = np.exp(-np.arange(n) / SR / 0.035)
+    att = int(0.003 * SR)
+    env[:att] *= np.linspace(0, 1, att)
+    return sL * env, sR * env

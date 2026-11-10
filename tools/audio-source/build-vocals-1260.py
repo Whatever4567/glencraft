@@ -78,6 +78,35 @@ HOOK_D = [
     (7, 77, 1, "the"),
     (8, 74, 6, "hills"),
 ]
+# Breakdown — new lyrical idea, longer notes, not the drop hook.
+# "When the mist comes down the glen / I'll find my way home again"
+HOOK_E = [
+    (0, 74, 2, "When"),
+    (2, 76, 1, "the"),
+    (3, 77, 3, "mist"),
+    (6, 76, 2, "comes"),
+    (8, 74, 2, "down"),
+    (10, 72, 1, "the"),
+    (11, 74, 5, "glen"),
+]
+HOOK_F = [
+    (0, 77, 2, "Ill"),
+    (2, 79, 2, "find"),
+    (4, 81, 2, "my"),
+    (6, 79, 2, "way"),
+    (8, 77, 3, "home"),
+    (11, 74, 5, "again"),
+]
+# Drop-2 countermelody, sitting a third above the hook.
+# "Call me over the high ground"
+HOOK_G = [
+    (0, 81, 2, "Call"),
+    (2, 83, 1, "me"),
+    (3, 84, 3, "over"),
+    (6, 83, 1, "the"),
+    (7, 81, 2, "high"),
+    (9, 79, 7, "ground"),
+]
 # Pre-drop vocal tag, slightly higher so it cuts through.
 TAG = [
     (0, 79, 2, "To"),
@@ -93,6 +122,10 @@ CHOPS = {
     "sleep": "sleep",
     "dance": "dance",
     "up": "Up",
+    "mist": "mist",
+    "home": "home",
+    "call": "Call",
+    "again": "again",
 }
 
 # Words we ask Piper to say (phonetic helpers for tight syllables).
@@ -120,6 +153,20 @@ SAY = {
     "yeah": "yeah",
     "dance": "dance",
     "up": "Up",
+    "When": "When",
+    "mist": "mist",
+    "comes": "comes",
+    "down": "down",
+    "Ill": "I'll",
+    "find": "find",
+    "my": "my",
+    "way": "way",
+    "home": "home",
+    "again": "again",
+    "Call": "Call",
+    "me": "me",
+    "high": "high",
+    "ground": "ground",
 }
 
 # D dorian scale midi classes: D E F G A B C
@@ -288,7 +335,7 @@ def get_word(text, model, cache):
         path = v2
     if not path.exists():
         # slightly slower for vowels so pitch-correction has something to chew on
-        scale = 1.25 if text.lower() in {"oh", "yeah", "hey", "sleep", "hills", "glen", "never", "heather", "glows", "fire", "loch", "over"} else 1.12
+        scale = 1.25 if text.lower() in {"oh", "yeah", "hey", "sleep", "hills", "glen", "never", "heather", "glows", "fire", "loch", "over", "mist", "home", "again", "ground", "when", "call"} else 1.12
         piper_say(say, model, path, length_scale=scale, sentence_silence=0.0)
     y = trim_silence(load_mono(path))
     # de-clip / normalise Piper's occasional peak=1
@@ -509,6 +556,20 @@ def chorus_double(mono, cents=11, delay_ms=15):
     return np.stack([L, R], 1)
 
 
+def finish_intimate(mono, formant_shift=0.02):
+    """Breakdown vocal: less nightcore (+3 st, formants shifted less aggressively),
+    longer plate, almost no delay — a scene change, not a hook wall."""
+    soft = ffmpeg_rubberband(mono, SR, semitones=3.0, tempo=1.0, formant="shifted", quality=True)
+    st = chorus_double(soft, cents=7, delay_ms=18)
+    st = formant_colour(st, shift=formant_shift)
+    st = plate_reverb(st, wet=0.38, predelay_s=0.032, decay=1.8)
+    st = ping_pong(st, delay_s=SPB * 1.5, fb=0.18, mix=0.08)
+    peak = np.max(np.abs(st)) + 1e-12
+    if peak > 0.98:
+        st *= 0.95 / peak
+    return st
+
+
 def finish_lead(mono, throws=None, formant_shift=0.035):
     """Nightcore, sung chorus double, formant colour, plate, throws."""
     nc = nightcore(mono)
@@ -564,6 +625,9 @@ def main():
     lead_b, dbl_b, harm_b, oct_b = render_set(HOOK_B)
     lead_c, dbl_c, harm_c, oct_c = render_set(HOOK_C)
     lead_d, dbl_d, harm_d, oct_d = render_set(HOOK_D)
+    lead_e, dbl_e, harm_e, oct_e = render_set(HOOK_E)
+    lead_f, dbl_f, harm_f, oct_f = render_set(HOOK_F)
+    lead_g, dbl_g, harm_g, oct_g = render_set(HOOK_G)
     tag = render_hook(TAG, MODEL_LEAD, cache, phrase_dur=2 * BAR)
     tag_dbl = render_hook(TAG, MODEL_DOUBLE, cache, phrase_dur=2 * BAR)
 
@@ -591,6 +655,19 @@ def main():
     oct_b_fx = stereoize(nightcore(oct_b), width_ms=6, width=0.08)
     oct_c_fx = stereoize(nightcore(oct_c), width_ms=6, width=0.08)
     oct_d_fx = stereoize(nightcore(oct_d), width_ms=6, width=0.08)
+    # Breakdown: intimate (soft +3 st nightcore + long plate). Countermelody: bright lead.
+    lead_e_fx = finish_intimate(lead_e, formant_shift=0.02)
+    dbl_e_fx = finish_intimate(dbl_e, formant_shift=-0.02)
+    harm_e_fx = finish_intimate(harm_e, formant_shift=0.03)
+    oct_e_fx = plate_reverb(stereoize(oct_e, width_ms=8, width=0.08), wet=0.30, predelay_s=0.03, decay=1.6)
+    lead_f_fx = finish_intimate(lead_f, formant_shift=0.02)
+    dbl_f_fx = finish_intimate(dbl_f, formant_shift=-0.02)
+    harm_f_fx = finish_intimate(harm_f, formant_shift=0.03)
+    oct_f_fx = plate_reverb(stereoize(oct_f, width_ms=8, width=0.08), wet=0.30, predelay_s=0.03, decay=1.6)
+    lead_g_fx = finish_lead(lead_g, throws=[(9 * (SPB / 2.0), 7 * (SPB / 2.0))], formant_shift=0.06)
+    dbl_g_fx = finish_layer(dbl_g, wet=0.22, width=0.36, delay_mix=0.16, formant_shift=-0.04)
+    harm_g_fx = finish_layer(harm_g, wet=0.24, width=0.42, delay_mix=0.16, formant_shift=0.05)
+    oct_g_fx = stereoize(nightcore(oct_g), width_ms=6, width=0.10)
     # tag: bigger reverb, no delay smear into the drop
     tag_fx = plate_reverb(stereoize(nightcore(tag), width_ms=10, width=0.2), wet=0.38, predelay_s=0.018, decay=1.6)
     tag_fx += plate_reverb(stereoize(nightcore(tag_dbl), width_ms=16, width=0.3), wet=0.40, predelay_s=0.03, decay=1.7) * 0.45
@@ -602,6 +679,9 @@ def main():
         ("b", lead_b_fx, dbl_b_fx, harm_b_fx, oct_b_fx, lead_b),
         ("c", lead_c_fx, dbl_c_fx, harm_c_fx, oct_c_fx, lead_c),
         ("d", lead_d_fx, dbl_d_fx, harm_d_fx, oct_d_fx, lead_d),
+        ("e", lead_e_fx, dbl_e_fx, harm_e_fx, oct_e_fx, lead_e),
+        ("f", lead_f_fx, dbl_f_fx, harm_f_fx, oct_f_fx, lead_f),
+        ("g", lead_g_fx, dbl_g_fx, harm_g_fx, oct_g_fx, lead_g),
     ):
         write(OUT / f"hook_{key}_lead.wav", lead)
         write(OUT / f"hook_{key}_double.wav", dbl)
@@ -641,6 +721,9 @@ def main():
     write(OUT / "hook_ab_layered.wav", stacked)
     stacked_cd = stack_ab(lead_c_fx, lead_d_fx, dbl_c_fx, dbl_d_fx, harm_c_fx, harm_d_fx, oct_c_fx, oct_d_fx)
     write(OUT / "hook_cd_layered.wav", stacked_cd)
+    stacked_ef = stack_ab(lead_e_fx, lead_f_fx, dbl_e_fx, dbl_f_fx, harm_e_fx, harm_f_fx, oct_e_fx, oct_f_fx)
+    write(OUT / "hook_ef_layered.wav", stacked_ef)
+    write(OUT / "hook_g_layered.wav", lead_g_fx * 1.0 + dbl_g_fx * 0.35 + harm_g_fx * 0.28)
     print("vocals ready", OUT)
 
 
