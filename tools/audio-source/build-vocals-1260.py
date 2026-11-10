@@ -3,12 +3,16 @@
 
 Voice: Piper TTS 1.8 (en_GB-jenny_dioco-medium lead, en_GB-alba-medium double).
 Lyrics and melody are original (D-dorian hook derived from the highland-mist
-D–E–F shape, not a copy of any reference clip). Each word is pitch-corrected
-onto the hook, then the phrase is pitched +6 semitones with formants shifted
-(nightcore) without changing tempo, plus reverb and delay.
+D–E–F shape, not a copy of any reference clip). Each word is time-stretched
+and roughly retuned, then the whole phrase is resynthesised in one WORLD
+pass (harvest / cheaptrick / d4c) onto an exact sung F0: scoop into notes,
+portamento, delayed vibrato on holds, consonants left unvoiced. The nightcore
++6 (breakdown +3) is applied as an F0 multiply in that same pass so formants
+stay with the singer. Run under /workspace/tools/audio-venv (pyworld-prebuilt).
 """
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import tempfile
@@ -33,7 +37,7 @@ MODEL_LEAD = os.environ.get(
 MODEL_DOUBLE = os.environ.get(
     "PIPER_MODEL_DOUBLE", "/workspace/tools/piper-voices/en_GB-alba-medium.onnx"
 )
-OUT = Path(os.environ.get("VOC_OUT", "/workspace/qa/audio-1260/v5/vocals"))
+OUT = Path(os.environ.get("VOC_OUT", "/workspace/qa/audio-1260/v6/vocals"))
 
 # Original lyrics (Glencraft / Highlands). Do not copy the reference clip.
 # Hook A: "Up the glen, we never sleep"
@@ -111,7 +115,9 @@ HOOK_G = [
 TAG = [
     (0, 79, 2, "To"),
     (2, 81, 2, "the"),
-    (4, 86, 8, "hills"),
+    # 84 not 86: midi 86 +6 is G#6 (~1661 Hz), which WORLD cannot stably
+    # voice from the Piper envelope. 84 +6 is F#6 and still sits above "the".
+    (4, 84, 8, "hills"),
 ]
 # Spoken/sung chops (single sustained note later retuned per use).
 CHOPS = {
@@ -332,6 +338,7 @@ def get_word(text, model, cache):
     path = cache / key
     if not path.exists():
         for alt in (
+            Path("/workspace/qa/audio-1260/v5/vocals/_cache") / key,
             Path("/workspace/qa/audio-1260/v4/vocals/_cache") / key,
             Path("/workspace/qa/audio-1260/v3/vocals/_cache") / key,
             Path("/workspace/qa/audio-1260/v2/vocals/_cache") / key,
@@ -359,6 +366,140 @@ def place(phrase, sig, t0, sr=SR):
     n = min(len(sig), len(phrase) - i0)
     if n > 0:
         phrase[i0:i0 + n] += sig[:n]
+
+
+WORLD_FRAME = 5.0  # ms
+try:
+    import pyworld as pw
+    HAS_WORLD = True
+except ImportError:  # pragma: no cover
+    pw = None
+    HAS_WORLD = False
+
+
+def _require_world():
+    if not HAS_WORLD:
+        raise RuntimeError(
+            "pyworld is required for sung resynthesis. "
+            "Install a prebuilt wheel into the audio venv: "
+            "/workspace/tools/audio-venv/bin/pip install pyworld-prebuilt"
+        )
+
+
+def world_analyze(y, sr=SR, f0_floor=71.0, f0_ceil=2000.0):
+    """WORLD analysis at a 5 ms hop. Returns (y, f0, t, spectrogram, aperiodicity)."""
+    _require_world()
+    y = np.ascontiguousarray(np.asarray(y, dtype=np.float64).ravel())
+    f0, t = pw.harvest(y, sr, f0_floor=f0_floor, f0_ceil=f0_ceil, frame_period=WORLD_FRAME)
+    f0 = pw.stonemask(y, f0, t, sr)
+    sp = pw.cheaptrick(y, f0, t, sr)
+    ap = pw.d4c(y, f0, t, sr)
+    return y, f0, t, sp, ap
+
+
+def sung_f0_contour(t, events, pitch_st=0.0, eighth=None):
+    """Exact hook F0: scoop into each note, 45 ms portamento, vibrato on holds."""
+    if eighth is None:
+        eighth = SPB / 2.0
+    f0 = np.zeros_like(t, dtype=np.float64)
+    notes = []
+    for pos, mid, dur8, _word in events:
+        t0 = pos * eighth
+        t1 = (pos + dur8) * eighth * 0.98
+        hz = midi_hz(mid + pitch_st)
+        notes.append((t0, t1, hz, dur8 >= 2))
+    for i, (t0, t1, hz, do_vib) in enumerate(notes):
+        m = (t >= t0) & (t < t1)
+        if not np.any(m):
+            continue
+        tt = t[m] - t0
+        start_hz = notes[i - 1][2] if i else hz * 2.0 ** (-28.0 / 1200.0)
+        alpha = np.clip(tt / 0.050, 0.0, 1.0)
+        alpha = alpha * alpha * (3.0 - 2.0 * alpha)
+        base = start_hz * (1.0 - alpha) + hz * alpha
+        if i + 1 < len(notes):
+            nxt = notes[i + 1][2]
+            remain = t1 - t[m]
+            g = np.clip(1.0 - remain / 0.045, 0.0, 1.0) ** 2
+            base = base * (1.0 - g) + nxt * g
+        if do_vib:
+            env = np.clip((tt - 0.080) / 0.120, 0.0, 1.0)
+            env = env * env * (3.0 - 2.0 * env)
+            base = base * (2.0 ** ((28.0 / 1200.0) * np.sin(2.0 * np.pi * 5.35 * t[m]) * env))
+        f0[m] = base
+    return f0
+
+
+def voicing_mask(y, f0, ap, t, sr=SR):
+    """Keep F0 only where the source is voiced, or energetic with low aperiodicity.
+
+    Sibilants and breath stay unvoiced so WORLD does not buzz through consonants.
+    """
+    hop = max(1, int(sr * WORLD_FRAME / 1000.0))
+    energy = np.zeros(len(t), dtype=np.float64)
+    n = len(y)
+    for i, ti in enumerate(t):
+        a = int(ti * sr)
+        b = min(n, a + hop)
+        if b > a:
+            energy[i] = np.sqrt(np.mean(y[a:b] ** 2))
+    if ap.ndim == 2:
+        # Mean aperiodicity over the vowel band only. A full-spectrum mean is
+        # dominated by always-noisy bins above ~5 kHz and never falls below 0.45.
+        n_bins = ap.shape[1]
+        k4k = max(8, int(round(4000.0 / (sr / 2.0) * (n_bins - 1))))
+        ap_low = np.mean(ap[:, :k4k], axis=1)
+    else:
+        ap_low = np.asarray(ap, dtype=np.float64)
+    thresh = 0.06 * (np.max(energy) + 1e-12)
+    return (f0 > 0) | ((energy > thresh) & (ap_low < 0.65))
+
+
+def _match_length(z, n):
+    z = np.asarray(z, dtype=np.float64).ravel()
+    if len(z) < n:
+        z = np.pad(z, (0, n - len(z)))
+    return z[:n]
+
+
+def world_sing(y, events, pitch_st=0.0, sr=SR):
+    """One-pass WORLD resynthesis onto a sung contour in the final register."""
+    _require_world()
+    y, f0, t, sp, ap = world_analyze(y, sr)
+    target = sung_f0_contour(t, events, pitch_st=pitch_st)
+    mask = voicing_mask(y, f0, ap, t, sr)
+    new_f0 = np.where((target > 0) & mask, target, 0.0)
+    z = pw.synthesize(new_f0, sp, ap, sr, frame_period=WORLD_FRAME)
+    z = _match_length(z, len(y))
+    src_peak = np.max(np.abs(y)) + 1e-12
+    peak = np.max(np.abs(z)) + 1e-12
+    if peak > 1e-9:
+        z *= src_peak / peak
+    return z
+
+
+def world_shift_f0(y, st, sr=SR):
+    """Formant-preserving F0 multiply (octave layer, leftover nightcore)."""
+    if abs(st) < 0.01:
+        return np.asarray(y, dtype=np.float64).ravel()
+    _require_world()
+    y, f0, t, sp, ap = world_analyze(y, sr)
+    ratio = 2.0 ** (st / 12.0)
+    new_f0 = np.where(f0 > 0, f0 * ratio, 0.0)
+    z = pw.synthesize(new_f0, sp, ap, sr, frame_period=WORLD_FRAME)
+    z = _match_length(z, len(y))
+    src_peak = np.max(np.abs(y)) + 1e-12
+    peak = np.max(np.abs(z)) + 1e-12
+    if peak > 1e-9:
+        z *= src_peak / peak
+    return z
+
+
+def world_sing_hold(y, midi, pitch_st=0.0, sr=SR, vibrato=True):
+    """Resynthesise a single held syllable (vocal chops) onto one target note."""
+    dur8 = max(1.0, (len(y) / sr) / (SPB / 2.0))
+    events = [(0.0, midi, dur8 if vibrato else min(dur8, 1.5), "chop")]
+    return world_sing(y, events, pitch_st=pitch_st, sr=sr)
 
 
 def add_scoop(y, sr, cents=-32, dur_s=0.055):
@@ -414,24 +555,25 @@ def add_breath(y, sr, seed=1, amount=0.045):
     return y + air * env * amount * peak
 
 
-def render_hook(events, model, cache, phrase_dur=PHRASE_DUR):
-    """Sung hook: legato overlaps, vibrato on holds, breath at onsets."""
+def render_hook(events, model, cache, phrase_dur=PHRASE_DUR, pitch_st=0.0):
+    """Stitch mid-register Piper words, then one WORLD pass in the final register.
+
+    pitch_st is applied only in WORLD (F0 multiply on the sung contour) so
+    formants stay with the mid-register retune and we do not run a second
+    vocoder pass for nightcore.
+    """
     n = int(round(phrase_dur * SR))
     phrase = np.zeros(n)
     eighth = SPB / 2.0
-    legato = 0.055  # slightly longer sung overlap
+    legato = 0.055
     for i, (pos, mid, dur8, word) in enumerate(events):
         raw = get_word(word, model, cache)
+        # Rough mid-register retune only — WORLD writes the exact sung F0.
         sung = retune_to(raw, SR, midi_hz(mid), formant="preserved")
-        # extend a little so the legato tail has audio to fade
         dur = dur8 * eighth * 0.96 + (legato if i < len(events) - 1 else 0.0)
         fitted = fit_duration(sung, SR, dur)
-        fitted = add_scoop(fitted, SR, cents=-28 if dur8 >= 2 else -18, dur_s=0.05)
-        if dur8 >= 2:
-            fitted = add_vibrato(fitted, SR, rate=5.2, depth_cents=26, delay_s=0.07)
         seed = (abs(hash((word, mid, i))) % 99991) + 3
         fitted = add_breath(fitted, SR, seed=seed, amount=0.040)
-        # longer crossfade on connected notes, crisper start on the first
         ms_in = 8 if i == 0 else 22
         ms_out = 14 if i == len(events) - 1 else 36
         fitted = fade(fitted, ms_in=ms_in, ms_out=ms_out)
@@ -444,24 +586,21 @@ def render_hook(events, model, cache, phrase_dur=PHRASE_DUR):
     peak = np.max(np.abs(phrase)) + 1e-12
     if peak > 0.95:
         phrase *= 0.92 / peak
-    return phrase
+    return world_sing(phrase, events, pitch_st=pitch_st, sr=SR)
 
 
 def nightcore(y, st=NIGHTCORE_ST):
-    """Pitch up with formant shift, tempo unchanged — nightcore timbre at 165 BPM."""
-    # Formant-correct: raise the sung pitch, keep the singer's mouth shape.
-    # Nightcore sheen comes from the pro chain (presence, air, a touch of exciter),
-    # not a full cartoon formant shift.
-    return ffmpeg_rubberband(y, SR, semitones=st, tempo=1.0, formant="preserved", quality=True)
+    """Formant-preserving F0 raise. Prefer baking nightcore into world_sing instead."""
+    return world_shift_f0(y, st, sr=SR)
 
 
 def octave_down(y):
-    return ffmpeg_rubberband(y, SR, semitones=-12.0, tempo=1.0, formant="preserved", quality=True)
+    return world_shift_f0(y, -12.0, sr=SR)
 
 
-def harmony_from(events, model, cache, phrase_dur=PHRASE_DUR):
+def harmony_from(events, model, cache, phrase_dur=PHRASE_DUR, pitch_st=0.0):
     harm = [(pos, dorian_third_up(mid), dur, word) for pos, mid, dur, word in events]
-    return render_hook(harm, model, cache, phrase_dur)
+    return render_hook(harm, model, cache, phrase_dur, pitch_st=pitch_st)
 
 
 def stereoize(y, width_ms=11, width=0.22):
@@ -582,10 +721,8 @@ def chorus_double(mono, cents=11, delay_ms=15):
 
 
 def finish_intimate(mono, formant_shift=0.02):
-    """Breakdown vocal: less nightcore (+3 st, formants shifted less aggressively),
-    longer plate, almost no delay — a scene change, not a hook wall."""
-    soft = ffmpeg_rubberband(mono, SR, semitones=3.0, tempo=1.0, formant="preserved", quality=True)
-    st = chorus_double(soft, cents=7, delay_ms=18)
+    """Breakdown vocal: already WORLD-sung at +3, longer plate, almost no delay."""
+    st = chorus_double(mono, cents=7, delay_ms=18)
     st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=0.38, predelay_s=0.032, decay=1.8)
     st = ping_pong(st, delay_s=SPB * 1.5, fb=0.18, mix=0.08)
@@ -641,9 +778,8 @@ def ffmpeg_pro_chain(y, sr=SR, intimate=False):
 
 
 def finish_lead(mono, throws=None, formant_shift=0.035):
-    """Formant-correct nightcore, doubles, colour, plate, throws, pro chain."""
-    nc = nightcore(mono)
-    st = chorus_double(nc, cents=11, delay_ms=15)
+    """Doubles, colour, plate, throws, pro chain. Pitch is already in the final register."""
+    st = chorus_double(mono, cents=11, delay_ms=15)
     st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=0.20, predelay_s=0.022, decay=1.05)
     st = ping_pong(st, delay_s=SPB * 0.75, fb=0.26, mix=0.16)
@@ -659,8 +795,7 @@ def finish_lead(mono, throws=None, formant_shift=0.035):
 
 
 def finish_layer(mono, wet=0.16, width=0.28, delay_mix=0.10, formant_shift=-0.03):
-    nc = nightcore(mono)
-    st = chorus_double(nc, cents=8, delay_ms=18)
+    st = chorus_double(mono, cents=8, delay_ms=18)
     st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=wet, predelay_s=0.028, decay=1.2)
     st = ping_pong(st, delay_s=SPB * 0.75, fb=0.22, mix=delay_mix)
@@ -676,8 +811,193 @@ def write(path, y):
     path.parent.mkdir(parents=True, exist_ok=True)
     if y.ndim == 1:
         y = np.stack([y, y], 1)
+    peak = np.max(np.abs(y)) + 1e-12
+    if peak > 0.98:
+        y = y * (0.95 / peak)
     sf.write(str(path), y, SR, subtype="PCM_24")
     print(f"  wrote {path}  {len(y)/SR:.3f}s  peak={np.max(np.abs(y)):.3f}")
+
+
+
+def _frame_rms(y, t, sr=SR, frame_ms=WORLD_FRAME):
+    hop = max(1, int(sr * frame_ms / 1000.0))
+    e = np.zeros(len(t), dtype=np.float64)
+    n = len(y)
+    for i, ti in enumerate(t):
+        a = int(ti * sr)
+        b = min(n, a + hop)
+        if b > a:
+            e[i] = np.sqrt(np.mean(y[a:b] ** 2))
+    return e
+
+
+def measure_vibrato(cents_res, sr_frames):
+    """Estimate vibrato rate/depth from residual cents on a held note."""
+    x = np.asarray(cents_res, dtype=np.float64)
+    if len(x) < 16:
+        return None
+    x = x - np.mean(x)
+    depth = float(np.sqrt(2.0) * np.std(x))
+    # autocorrelation peak in the 4.5–6.8 Hz band
+    n = len(x)
+    nfft = 1
+    while nfft < n * 4:
+        nfft *= 2
+    spec = np.fft.rfft(x * np.hanning(n), n=nfft)
+    freqs = np.fft.rfftfreq(nfft, d=1.0 / sr_frames)
+    band = (freqs >= 4.3) & (freqs <= 6.8)
+    if not np.any(band) or np.max(np.abs(spec[band])) < 1e-9:
+        return {"rate_hz": None, "depth_cents": depth}
+    k = np.argmax(np.abs(spec[band]))
+    rate = float(freqs[band][k])
+    return {"rate_hz": rate, "depth_cents": depth}
+
+
+def listen_stem(path, events, pitch_st=0.0, sr=SR):
+    """Pitch / voicing / naturalness of one vocal stem against its target MIDI."""
+    y, file_sr = sf.read(str(path), always_2d=False)
+    if y.ndim > 1:
+        y = np.mean(y, axis=1)
+    y = y.astype(np.float64)
+    if file_sr != sr:
+        y = librosa.resample(y, orig_sr=file_sr, target_sr=sr)
+    _require_world()
+    y, f0, t, sp, ap = world_analyze(y, sr)
+    target = sung_f0_contour(t, events, pitch_st=pitch_st)
+    n = min(len(f0), len(target))
+    f0, target, t = f0[:n], target[:n], t[:n]
+    if ap.ndim == 2:
+        n_bins = ap.shape[1]
+        k4k = max(8, int(round(4000.0 / (sr / 2.0) * (n_bins - 1))))
+        ap_mean = np.mean(ap[:n, :k4k], axis=1)
+    else:
+        ap_mean = np.asarray(ap[:n], dtype=np.float64)
+    voiced = (f0 > 80.0) & (target > 0)
+    report = {
+        "file": str(path),
+        "voicing_ratio": float(np.mean(f0 > 80.0)),
+        "target_voiced_ratio": float(np.mean(target > 0)),
+        "n_voiced": int(np.sum(voiced)),
+        "median_abs_cents": None,
+        "mean_abs_cents": None,
+        "pct_within_50c": None,
+        "pct_within_30c": None,
+        "jitter_pct": None,
+        "shimmer_pct": None,
+        "mean_aperiodicity_voiced": None,
+        "vibrato": [],
+        "ok": False,
+        "warnings": [],
+    }
+    if voiced.any():
+        cents = 1200.0 * np.log2(f0[voiced] / np.maximum(target[voiced], 1e-6))
+        report["median_abs_cents"] = float(np.median(np.abs(cents)))
+        report["mean_abs_cents"] = float(np.mean(np.abs(cents)))
+        report["pct_within_50c"] = float(np.mean(np.abs(cents) < 50.0))
+        report["pct_within_30c"] = float(np.mean(np.abs(cents) < 30.0))
+        report["mean_aperiodicity_voiced"] = float(np.mean(ap_mean[voiced]))
+        # jitter: relative F0 step after removing the intended contour
+        if np.sum(voiced) > 4:
+            # period perturbation of residual
+            res = f0[voiced] / np.maximum(target[voiced], 1e-6)
+            # use only consecutive voiced frames
+            report["jitter_pct"] = float(np.median(np.abs(np.diff(res))) * 100.0)
+        energy = _frame_rms(y, t, sr)
+        ev = energy[voiced]
+        if len(ev) > 4 and np.median(ev) > 1e-9:
+            report["shimmer_pct"] = float(np.median(np.abs(np.diff(ev)) / (np.maximum(ev[:-1], 1e-12))) * 100.0)
+        # per-hold vibrato
+        eighth = SPB / 2.0
+        sr_frames = 1000.0 / WORLD_FRAME
+        for pos, mid, dur8, word in events:
+            if dur8 < 2:
+                continue
+            t0 = pos * eighth + 0.10
+            t1 = (pos + dur8) * eighth * 0.98
+            m = (t >= t0) & (t < t1) & (f0 > 80.0)
+            if np.sum(m) < 16:
+                continue
+            straight = midi_hz(mid + pitch_st)
+            residual = 1200.0 * np.log2(f0[m] / max(straight, 1e-6))
+            vib = measure_vibrato(residual, sr_frames)
+            if vib:
+                vib["word"] = word
+                report["vibrato"].append(vib)
+    warnings = []
+    if report["median_abs_cents"] is None:
+        warnings.append("no voiced frames against the target contour")
+    else:
+        if report["median_abs_cents"] > 40.0:
+            warnings.append(f"median pitch error {report['median_abs_cents']:.1f} cents > 40")
+        if report["pct_within_50c"] < 0.70:
+            warnings.append(f"only {100*report['pct_within_50c']:.0f}% of frames within 50 cents")
+    if report["voicing_ratio"] < 0.35:
+        warnings.append(f"low voicing ratio {report['voicing_ratio']:.2f}")
+    if report["mean_aperiodicity_voiced"] is not None and report["mean_aperiodicity_voiced"] > 0.72:
+        warnings.append(f"high vowel-band aperiodicity {report['mean_aperiodicity_voiced']:.2f} (buzz/noise)")
+    report["warnings"] = warnings
+    report["ok"] = (
+        report["median_abs_cents"] is not None
+        and report["median_abs_cents"] <= 40.0
+        and report["pct_within_50c"] >= 0.70
+        and report["voicing_ratio"] >= 0.35
+    )
+    return report
+
+
+LISTEN_STEMS = (
+    ("hook_a_lead_dry.wav", "HOOK_A", 6.0),
+    ("hook_b_lead_dry.wav", "HOOK_B", 6.0),
+    ("hook_c_lead_dry.wav", "HOOK_C", 6.0),
+    ("hook_d_lead_dry.wav", "HOOK_D", 6.0),
+    ("hook_e_lead_dry.wav", "HOOK_E", 3.0),
+    ("hook_f_lead_dry.wav", "HOOK_F", 3.0),
+    ("hook_g_lead_dry.wav", "HOOK_G", 6.0),
+    ("tag_to_the_hills_dry.wav", "TAG", 6.0),
+)
+
+
+def listen_stems(out_dir=None, dest=None):
+    """Run the pitch/voicing proxy on the dry lead stems and write VOCAL_LISTEN.json."""
+    out_dir = Path(out_dir or OUT)
+    dest = Path(dest or (out_dir / "VOCAL_LISTEN.json"))
+    table = {
+        "HOOK_A": HOOK_A, "HOOK_B": HOOK_B, "HOOK_C": HOOK_C, "HOOK_D": HOOK_D,
+        "HOOK_E": HOOK_E, "HOOK_F": HOOK_F, "HOOK_G": HOOK_G, "TAG": TAG,
+    }
+    stems = []
+    for name, key, st in LISTEN_STEMS:
+        path = out_dir / name
+        if not path.exists():
+            stems.append({"file": str(path), "ok": False, "warnings": ["missing stem"]})
+            continue
+        report = listen_stem(path, table[key], pitch_st=st)
+        stems.append(report)
+        flag = "OK" if report["ok"] else "WARN"
+        med = report["median_abs_cents"]
+        med_s = "n/a" if med is None else f"{med:.1f}c"
+        pct = report["pct_within_50c"]
+        pct_s = "n/a" if pct is None else f"{100*pct:.0f}%"
+        print(f"  [{flag}] {name}  med={med_s}  <50={pct_s}  voice={report['voicing_ratio']:.2f}")
+        for w in report["warnings"]:
+            print(f"         {w}")
+    ok = all(s.get("ok") for s in stems)
+    summary = {
+        "ok": ok,
+        "n_ok": int(sum(1 for s in stems if s.get("ok"))),
+        "n_stems": len(stems),
+        "worst_median_abs_cents": max((s["median_abs_cents"] or 0) for s in stems) if stems else None,
+        "notes": (
+            "WORLD-sung Piper stems, judged by harvest F0 vs the intended hook "
+            "contour (scoop, portamento, vibrato included). This is a pitch/"
+            "voicing proxy, not a substitute for a human singer or a formal MOS."
+        ),
+        "stems": stems,
+    }
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(json.dumps(summary, indent=2))
+    print(f"  wrote {dest}  ok={ok}  {summary['n_ok']}/{summary['n_stems']}")
+    return summary
 
 
 def main():
@@ -686,10 +1006,10 @@ def main():
     cache.mkdir(exist_ok=True)
     print("synthesising + tuning hooks A/B and C/D (Jenny lead, Alba double)…")
 
-    def render_set(events):
-        lead = render_hook(events, MODEL_LEAD, cache)
-        dbl = render_hook(events, MODEL_DOUBLE, cache)
-        harm = harmony_from(events, MODEL_LEAD, cache)
+    def render_set(events, pitch_st=NIGHTCORE_ST):
+        lead = render_hook(events, MODEL_LEAD, cache, pitch_st=pitch_st)
+        dbl = render_hook(events, MODEL_DOUBLE, cache, pitch_st=pitch_st)
+        harm = harmony_from(events, MODEL_LEAD, cache, pitch_st=pitch_st)
         octv = octave_down(lead)
         return lead, dbl, harm, octv
 
@@ -697,11 +1017,11 @@ def main():
     lead_b, dbl_b, harm_b, oct_b = render_set(HOOK_B)
     lead_c, dbl_c, harm_c, oct_c = render_set(HOOK_C)
     lead_d, dbl_d, harm_d, oct_d = render_set(HOOK_D)
-    lead_e, dbl_e, harm_e, oct_e = render_set(HOOK_E)
-    lead_f, dbl_f, harm_f, oct_f = render_set(HOOK_F)
+    lead_e, dbl_e, harm_e, oct_e = render_set(HOOK_E, pitch_st=3.0)
+    lead_f, dbl_f, harm_f, oct_f = render_set(HOOK_F, pitch_st=3.0)
     lead_g, dbl_g, harm_g, oct_g = render_set(HOOK_G)
-    tag = render_hook(TAG, MODEL_LEAD, cache, phrase_dur=2 * BAR)
-    tag_dbl = render_hook(TAG, MODEL_DOUBLE, cache, phrase_dur=2 * BAR)
+    tag = render_hook(TAG, MODEL_LEAD, cache, phrase_dur=2 * BAR, pitch_st=NIGHTCORE_ST)
+    tag_dbl = render_hook(TAG, MODEL_DOUBLE, cache, phrase_dur=2 * BAR, pitch_st=NIGHTCORE_ST)
 
     # Landing-word throws: "sleep"/"glows" at 9 eighths, "hills" at 8
     eighth = SPB / 2.0
@@ -710,7 +1030,7 @@ def main():
     throws_c = [(9 * eighth, 5 * eighth)]
     throws_d = [(8 * eighth, 6 * eighth)]
 
-    print("nightcore + fx…")
+    print("fx (pitch already in WORLD register)…")
     lead_a_fx = finish_lead(lead_a, throws=throws_a, formant_shift=0.035)
     lead_b_fx = finish_lead(lead_b, throws=throws_b, formant_shift=0.035)
     lead_c_fx = finish_lead(lead_c, throws=throws_c, formant_shift=0.050)
@@ -723,10 +1043,10 @@ def main():
     harm_b_fx = finish_layer(harm_b, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.02)
     harm_c_fx = finish_layer(harm_c, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.04)
     harm_d_fx = finish_layer(harm_d, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.04)
-    oct_a_fx = stereoize(nightcore(oct_a), width_ms=6, width=0.08)
-    oct_b_fx = stereoize(nightcore(oct_b), width_ms=6, width=0.08)
-    oct_c_fx = stereoize(nightcore(oct_c), width_ms=6, width=0.08)
-    oct_d_fx = stereoize(nightcore(oct_d), width_ms=6, width=0.08)
+    oct_a_fx = stereoize(oct_a, width_ms=6, width=0.08)
+    oct_b_fx = stereoize(oct_b, width_ms=6, width=0.08)
+    oct_c_fx = stereoize(oct_c, width_ms=6, width=0.08)
+    oct_d_fx = stereoize(oct_d, width_ms=6, width=0.08)
     # Breakdown: intimate (soft +3 st nightcore + long plate). Countermelody: bright lead.
     lead_e_fx = finish_intimate(lead_e, formant_shift=0.02)
     dbl_e_fx = finish_intimate(dbl_e, formant_shift=-0.02)
@@ -739,10 +1059,10 @@ def main():
     lead_g_fx = finish_lead(lead_g, throws=[(9 * (SPB / 2.0), 7 * (SPB / 2.0))], formant_shift=0.06)
     dbl_g_fx = finish_layer(dbl_g, wet=0.22, width=0.36, delay_mix=0.16, formant_shift=-0.04)
     harm_g_fx = finish_layer(harm_g, wet=0.24, width=0.42, delay_mix=0.16, formant_shift=0.05)
-    oct_g_fx = stereoize(nightcore(oct_g), width_ms=6, width=0.10)
+    oct_g_fx = stereoize(oct_g, width_ms=6, width=0.10)
     # tag: bigger reverb, no delay smear into the drop
-    tag_fx = plate_reverb(stereoize(nightcore(tag), width_ms=10, width=0.2), wet=0.38, predelay_s=0.018, decay=1.6)
-    tag_fx += plate_reverb(stereoize(nightcore(tag_dbl), width_ms=16, width=0.3), wet=0.40, predelay_s=0.03, decay=1.7) * 0.45
+    tag_fx = plate_reverb(stereoize(tag, width_ms=10, width=0.2), wet=0.38, predelay_s=0.018, decay=1.6)
+    tag_fx += plate_reverb(stereoize(tag_dbl, width_ms=16, width=0.3), wet=0.40, predelay_s=0.03, decay=1.7) * 0.45
     peak = np.max(np.abs(tag_fx)) + 1e-12
     tag_fx *= 0.95 / max(peak, 0.95)
 
@@ -759,18 +1079,20 @@ def main():
         write(OUT / f"hook_{key}_double.wav", dbl)
         write(OUT / f"hook_{key}_harm.wav", harm)
         write(OUT / f"hook_{key}_oct.wav", octv)
-        write(OUT / f"hook_{key}_lead_dry.wav", stereoize(nightcore(dry_src), width_ms=7, width=0.12))
+        write(OUT / f"hook_{key}_lead_dry.wav", stereoize(dry_src, width_ms=7, width=0.12))
+    write(OUT / "tag_to_the_hills_dry.wav", stereoize(tag, width_ms=10, width=0.2))
     write(OUT / "tag_to_the_hills.wav", tag_fx)
 
     print("chops…")
     for name, text in CHOPS.items():
         raw = get_word(text, MODEL_LEAD, cache)
-        # tune to A4 (81) as a neutral; renderer retunes if needed
+        # Mid-register A4 retune, then WORLD sings it into the +6 nightcore register.
         sung = retune_to(raw, SR, midi_hz(81), formant="preserved")
         sung = fade(fit_duration(sung, SR, SPB), ms_in=5, ms_out=20)
+        sung = world_sing_hold(sung, 81, pitch_st=NIGHTCORE_ST, vibrato=True)
         st = finish_layer(sung, wet=0.20, width=0.35, delay_mix=0.12)
         write(OUT / f"chop_{name}.wav", st)
-        write(OUT / f"chop_{name}_dry.wav", stereoize(nightcore(sung), width_ms=8, width=0.2))
+        write(OUT / f"chop_{name}_dry.wav", stereoize(sung, width_ms=8, width=0.2))
 
     # Combined hook A+B (4 bars) already mixed at production levels for convenience
     def stack_ab(a, b, da, db, ha, hb, oa, ob):
@@ -796,6 +1118,8 @@ def main():
     stacked_ef = stack_ab(lead_e_fx, lead_f_fx, dbl_e_fx, dbl_f_fx, harm_e_fx, harm_f_fx, oct_e_fx, oct_f_fx)
     write(OUT / "hook_ef_layered.wav", stacked_ef)
     write(OUT / "hook_g_layered.wav", lead_g_fx * 1.0 + dbl_g_fx * 0.35 + harm_g_fx * 0.28)
+    print("listening proxy…")
+    listen_stems(OUT)
     print("vocals ready", OUT)
 
 

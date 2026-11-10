@@ -27,8 +27,8 @@ import engine1260 as E
 
 ROOT = Path(__file__).resolve().parents[2]
 MUSIC = ROOT / "music"
-OUT_DIR = Path(os.environ.get("HC_OUT", "/workspace/qa/audio-1260/v5"))
-VOC = Path(os.environ.get("VOC_DIR", "/workspace/qa/audio-1260/v5/vocals"))
+OUT_DIR = Path(os.environ.get("HC_OUT", "/workspace/qa/audio-1260/v6"))
+VOC = Path(os.environ.get("VOC_DIR", "/workspace/qa/audio-1260/v6/vocals"))
 WIRE_GAME = os.environ.get("WIRE_GAME", "1") != "0"
 
 SR = E.SR
