@@ -3,7 +3,7 @@
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
-  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p9', sculpted: 0};
+  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p11', sculpted: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -199,7 +199,7 @@
 
   // Tapered oval capsule along +Y from 0..len, squashed in Z (palmar/dorsal).
   function fingerSegGeo(len, r0, r1, ovalZ, segs, rad, knuckle) {
-    const key = geoKey('fseg3', len, r0, r1, ovalZ, segs, rad, knuckle);
+    const key = geoKey('fseg4', len, r0, r1, ovalZ, segs, rad, knuckle);
     return share(key, function () {
       segs = segs || 12; rad = rad || 16;
       const pos = [], nrm = [], uv = [], ix = [];
@@ -227,6 +227,11 @@
       }
       const base = segs * rad;
       for (let k = 0; k < rad; k++) ix.push(base + k, base + (k + 1) % rad, tip);
+      // Cap the open proximal end so looking down a finger or wrist
+      // does not show a white interior.
+      const baseCtr = pos.length / 3;
+      pos.push(0, 0, 0); nrm.push(0, -1, 0); uv.push(0.5, 0);
+      for (let k = 0; k < rad; k++) ix.push(baseCtr, (k + 1) % rad, k);
       const geo = new T.BufferGeometry();
       geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
       geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
@@ -374,13 +379,13 @@
     });
   }
 
-  function wristCapGeo(r) {
-    return share(geoKey('wcap', r), function () {
-      // Dome points toward -Y (elbow), filling the open proximal end of
-      // the wrist capsule when the camera looks down the forearm.
-      const g = new T.SphereGeometry(r, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-      g.rotateX(Math.PI);
-      g.computeVertexNormals();
+  function wristCapGeo(r, squat) {
+    // Thin disc that closes the open proximal wrist. A squat hemisphere
+    // still read as a ball on sword / empty; a lid does not.
+    squat = (squat == null) ? 0.10 : squat;
+    const h = Math.max(0.002, (r || 0.027) * squat);
+    return share(geoKey('wcap4', r, h), function () {
+      const g = new T.CylinderGeometry(r, r, h, 20);
       return g;
     });
   }
@@ -459,7 +464,7 @@
     // the camera looked down the forearm. A static dome cap fills that
     // proximal opening (not an animation or rig change).
     addMesh(h, fingerSegGeo(0.048, 0.031, 0.026, 0.82, 12, 18, 0), sm, 0, -0.048, 0);
-    const wcap = addMesh(h, wristCapGeo(0.031), sm, 0, -0.048, 0);
+    const wcap = addMesh(h, wristCapGeo(0.027, 0.12), sm, 0, -0.048, 0);
     wcap.name = 'WristCap';
     wcap.userData.wristCap1249 = 1;
     if (h.userData.kn) {
