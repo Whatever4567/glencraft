@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p14', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p26', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -17,16 +17,17 @@
     empty:  {dx:  0.00, dy:  0.06, dz: 0.04, fov: 0.76, s: 1.00, armS: 1.14},
     // Ref 08: cobble sits in a cupped palm, same family as the empty hand.
     block:  {dx:  0.00, dy:  0.04, dz: 0.02, fov: 0.76, s: 0.70, armS: 1.12},
-    // t1183-13 POSITION: pick comes in large from the bottom-right corner,
-    // head angled up-left, hand at the corner / nearly off-screen.
-    pick:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
-    p761:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
-    p760:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
+    // t1183-13 POSITION: pick enters from the bottom-right corner, shaft
+    // angled up-left. Fist stays big and on-screen (look refs 01/11) so the
+    // glowing head is not clipped off the top.
+    pick:   {dx:  0.03, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
+    p761:   {dx:  0.03, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
+    p760:   {dx:  0.03, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     sword:  {dx: -0.02, dy: -0.06, dz: 0.06, fov: 0.70, s: 1.10, armS: 1.12},
-    bucket: {dx: -0.04, dy:  0.06, dz: 0.00, fov: 0.80, s: 1.08, armS: 1.04},
+    bucket: {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.08, armS: 1.12},
     torch:  {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12},
     // Ref 02: supporting palm and sleeve should stay visible under the map.
     map:    {dx: -0.02, dy:  0.04, dz: 0.02, fov: 0.80, s: 1.04, armS: 1.08},
@@ -183,8 +184,8 @@
       // Static rest curls only (not animation curves). Tools get a closed fist
       // with the thumb wrapped over the top; empty is an open palm; the block
       // is a soft cup so cobble can sit in the hand.
-      const tight = {empty: 0.06, block: 0.52, pick: 1.16, p761: 1.16, p760: 1.16, axe: 1.16, shovel: 1.16, hoe: 1.16,
-        sword: 1.22, bucket: 1.24, torch: 1.22, map: 0.16, musket: ads ? 0.78 : 1.08, pistol: ads ? 0.72 : 1.32, other: 0.9};
+      const tight = {empty: 0.06, block: 0.52, pick: 1.62, p761: 1.62, p760: 1.62, axe: 1.16, shovel: 1.16, hoe: 1.16,
+        sword: 1.62, bucket: 1.68, torch: 1.22, map: 0.16, musket: ads ? 0.78 : 1.08, pistol: ads ? 0.72 : 1.32, other: 0.9};
       const gamt = tight[kind] != null ? tight[kind] : 0.9;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -204,6 +205,9 @@
           if (kind === 'map') c = 0.10 + i * 0.03;
           if (kind === 'empty') c = 0.14 + i * 0.05;
           if (kind === 'block') c = 0.48 + i * 0.08;
+          if (U.__palmBowl && U.__bowl && U.__bowl[kind] && U.__bowl[kind].curl != null) {
+            c = U.__bowl[kind].curl + i * (U.__bowl[kind].curlI != null ? U.__bowl[kind].curlI : 0.05);
+          }
           try {
             f.rotation.x = 0.12 + c * 1.35;
             if (k && k.rotation) {
@@ -216,24 +220,199 @@
         const th = h.userData.th;
         if (th) {
           const side = (arm.userData && arm.userData.side) || 1;
-          if (kind === 'empty' || kind === 'map' || kind === 'block') {
+          if (!th.userData._thP0) th.userData._thP0 = th.position.clone();
+          const p0 = th.userData._thP0;
+          const bowlTh = (U.__palmBowl && U.__bowl && U.__bowl[kind] && U.__bowl[kind].thumb) || null;
+          if (bowlTh) {
+            // Bowl rest: typically abducted out to the side (empty / cobble)
+            // or curled over the top of the map. Visual only, rig joints stay.
+            const pos = bowlTh.pos || [0, 0, 0];
+            th.position.set(p0.x + side * (pos[0] || 0), p0.y + (pos[1] || 0), p0.z + (pos[2] || 0));
+            const eul = bowlTh.eul || [0.40, 1.00, 0.20];
+            th.rotation.set(eul[0] || 0, side * (eul[1] || 0), side * (eul[2] || 0));
+            const mid = (bowlTh.mid != null) ? bowlTh.mid : 0.20;
+            if (th.userData && th.userData.k) th.userData.k.rotation.set(mid, 0, 0);
+          } else if (kind === 'empty' || kind === 'map' || kind === 'block') {
             // Open / supporting / cupped: thumb sits beside the palm, not across it.
+            th.position.copy(p0);
             th.rotation.set(0.55, side * 0.70, side * 0.35);
             if (th.userData && th.userData.k) th.userData.k.rotation.set(0.15, 0, 0);
           } else if (kind === 'musket' && ads && isLeft) {
+            th.position.copy(p0);
             th.rotation.set(0.3, side * 0.2, side * 0.15);
           } else {
-            // Closed fist: thumb wraps over the far side of the fingers.
-            const W = (U.__thumbW && U.__thumbW.length === 4) ? U.__thumbW : [0.28, 1.20, 1.50, 1.10];
-            th.rotation.set(W[0], side * W[1], side * W[2]);
-            if (th.userData && th.userData.k) th.userData.k.rotation.set(W[3], 0, 0);
+            // Closed fist. Optional analytical aim: point the thumb +Y at a
+            // palmar target over the fingers (hand-local), then curl the mid
+            // joint. Falls back to the p14 Euler when __thumbAim is off.
+            const P = (U.__thumbP && U.__thumbP.length >= 3) ? U.__thumbP : [0, 0, 0];
+            th.position.set(p0.x + side * P[0], p0.y + P[1], p0.z + P[2]);
+            const W = (U.__thumbW && U.__thumbW.length >= 4) ? U.__thumbW : [0.28, 1.20, 1.50, 1.10];
+            if (U.__thumbAim || U.__thumbLive) {
+              let target = null;
+              if (U.__thumbLive) {
+                // Aim at a point on the palmar side of the index/middle mids,
+                // measured live in hand space after the finger curl.
+                const fingers = h.userData.f || [];
+                const pts = [];
+                h.updateMatrixWorld(true);
+                for (let i = 0; i < 2 && i < fingers.length; i++) {
+                  const pair = fingers[i];
+                  const k = pair && pair[1];
+                  const d = k && k.userData && k.userData.d;
+                  const obj = d || k;
+                  if (!obj || !obj.getWorldPosition) continue;
+                  obj.updateMatrixWorld(true);
+                  const w = new T.Vector3();
+                  obj.getWorldPosition(w);
+                  pts.push(h.worldToLocal(w));
+                }
+                if (pts.length) {
+                  target = pts[0].clone();
+                  if (pts[1]) target.add(pts[1]).multiplyScalar(0.5);
+                  const off = U.__thumbOff || [0, 0.010, -0.022];
+                  target.x += side * (off[0] || 0);
+                  target.y += off[1] || 0;
+                  target.z += off[2] || 0;
+                }
+              }
+              if (!target) {
+                const tgtA = U.__thumbT || [-0.012, 0.078, -0.024];
+                target = new T.Vector3(side * tgtA[0], tgtA[1], tgtA[2]);
+              }
+              const dir = target.clone().sub(th.position);
+              if (dir.lengthSq() > 1e-10) {
+                dir.normalize();
+                th.quaternion.copy(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir));
+              } else {
+                th.rotation.set(W[0], side * W[1], side * W[2]);
+              }
+              const mid = (U.__thumbMid != null) ? U.__thumbMid : 1.25;
+              if (th.userData && th.userData.k) th.userData.k.rotation.set(mid, 0, 0);
+            } else if (kind === 'bucket') {
+              // Tighter wrap over the bail: thumb crosses the fingers, mid curled.
+              th.rotation.set(0.18, side * 0.95, side * 0.62);
+              if (th.userData && th.userData.k) th.userData.k.rotation.set(1.40, 0, 0);
+            } else {
+              th.rotation.set(W[0], side * W[1], side * W[2]);
+              if (th.userData && th.userData.k) th.userData.k.rotation.set(W[3], side * (W[4] || 0), side * (W[5] || 0));
+            }
           }
         }
       }
       if (rig.userData.R) curlArm(rig.userData.R, 0);
       if (rig.userData.L) curlArm(rig.userData.L, 1);
+      // Visual-only thumb-box override. Joints (th / tk / td) stay where
+      // curl / the rig left them; only the sculpted meshes are moved.
+      applyThumbVis(kind);
+      applyThumbDist(kind);
     } catch (e) { ERR('curl', e); }
   }
+
+  function thumbVisMeshes(th) {
+    const out = [];
+    if (!th || !th.traverse) return out;
+    th.traverse(function (o) {
+      if (o.isMesh && o.userData && (o.userData.sculpt1249 || o.userData.nail1249)) out.push(o);
+    });
+    return out;
+  }
+  function restoreThumbVis(th) {
+    thumbVisMeshes(th).forEach(function (m) {
+      if (!m.userData._thVis0) return;
+      m.position.copy(m.userData._thVis0.p);
+      m.quaternion.copy(m.userData._thVis0.q);
+    });
+  }
+  function applyThumbVis(kind) {
+    try {
+      const spec = U.__thumbVis && U.__thumbVis[kind];
+      eachArm(function (arm) {
+        const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+        const th = h && h.userData && h.userData.th;
+        if (!th) return;
+        const meshes = thumbVisMeshes(th);
+        meshes.forEach(function (m) {
+          if (!m.userData._thVis0) m.userData._thVis0 = {p: m.position.clone(), q: m.quaternion.clone()};
+          m.position.copy(m.userData._thVis0.p);
+          m.quaternion.copy(m.userData._thVis0.q);
+        });
+        if (!spec || !meshes.length) return;
+        const pos = spec.pos || [0, 0, 0];
+        const eul = spec.eul || [0, 0, 0];
+        const qH = new T.Quaternion().setFromEuler(new T.Euler(eul[0] || 0, eul[1] || 0, eul[2] || 0, 'XYZ'));
+        const tH = new T.Vector3(pos[0] || 0, pos[1] || 0, pos[2] || 0);
+        h.updateMatrixWorld(true);
+        meshes.forEach(function (m) {
+          if (m.parent) m.parent.updateMatrixWorld(true);
+          m.updateMatrixWorld(true);
+          const wP = new T.Vector3(); m.getWorldPosition(wP);
+          const wQ = new T.Quaternion(); m.getWorldQuaternion(wQ);
+          const loc = h.worldToLocal(wP.clone());
+          loc.applyQuaternion(qH).add(tH);
+          const worldNew = h.localToWorld(loc);
+          const hW = new T.Quaternion(); h.getWorldQuaternion(hW);
+          const wQnew = hW.clone().multiply(qH).multiply(hW.clone().invert()).multiply(wQ);
+          const parent = m.parent;
+          if (!parent) return;
+          parent.updateMatrixWorld(true);
+          const inv = new T.Matrix4().copy(parent.matrixWorld).invert();
+          m.position.copy(worldNew).applyMatrix4(inv);
+          const pWq = new T.Quaternion(); parent.getWorldQuaternion(pWq);
+          m.quaternion.copy(pWq.invert().multiply(wQnew));
+        });
+      });
+    } catch (e) { ERR('thumbVis', e); }
+  }
+
+  // Visual-only: lengthen or rotate just the thumb's distal box (and its
+  // nail) in td-local space. Joints th/tk/td and the proximal/mid boxes
+  // stay where the rig put them.
+  function applyThumbDist(kind) {
+    try {
+      const spec = U.__thumbDist && U.__thumbDist[kind];
+      eachArm(function (arm) {
+        const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+        const th = h && h.userData && h.userData.th;
+        const tk = th && th.userData && th.userData.k;
+        const td = tk && tk.userData && tk.userData.d;
+        if (!td || !td.traverse) return;
+        const meshes = [];
+        td.traverse(function (o) {
+          if (o.isMesh && o.userData && (o.userData.sculpt1249 || o.userData.nail1249)) meshes.push(o);
+        });
+        meshes.forEach(function (m) {
+          if (!m.userData._tdVis0) {
+            m.userData._tdVis0 = {p: m.position.clone(), q: m.quaternion.clone(), s: m.scale.clone()};
+          }
+          const b = m.userData._tdVis0;
+          m.position.copy(b.p);
+          m.quaternion.copy(b.q);
+          m.scale.copy(b.s);
+        });
+        if (!spec || !meshes.length) return;
+        const scl = (spec.scl != null) ? spec.scl : 1;
+        const eul = spec.eul || [0, 0, 0];
+        const off = spec.pos || [0, 0, 0];
+        const q = new T.Quaternion().setFromEuler(new T.Euler(eul[0] || 0, eul[1] || 0, eul[2] || 0, 'XYZ'));
+        meshes.forEach(function (m) {
+          const isNail = !!(m.userData && m.userData.nail1249);
+          if (!isNail && scl !== 1) {
+            m.scale.y *= scl;
+          }
+          if (isNail && scl !== 1) {
+            // Keep the nail at the new tip rather than stretching it.
+            m.position.y += (scl - 1) * 0.014;
+          }
+          m.position.applyQuaternion(q);
+          m.position.x += off[0] || 0;
+          m.position.y += off[1] || 0;
+          m.position.z += off[2] || 0;
+          m.quaternion.premultiply(q);
+        });
+      });
+    } catch (e) { ERR('thumbDist', e); }
+  }
+
 
   function poseTp() {
     try {
@@ -485,7 +664,12 @@
         // sits under the hand group. Never hide the held item, a finger,
         // or the 1270 Scottish TP arm (its bind AABB is at the camera
         // because cover uses the unskinned box).
-        const wall = !item && !palm && !tpArm && (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)));
+        const bowlKeepFo = !!(U.__keepBowlFo || (U.__palmBowl && U.__bowl && U.__bowl[U.kind] && U.__bowl[U.kind].keepFo));
+        const isFo = !!(o.userData && o.userData.sleeveFo21);
+        const wall = !item && !palm && !tpArm && (
+          (bowlKeepFo && isFo) ? !!swallows :
+          (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)))
+        );
         if (wall) {
           o.visible = false;
           U._culled.push(o);
@@ -665,8 +849,11 @@
   // align: also rotate the item so its axis matches the through-fist axis.
   const GRIP = {
     torch:  {p: [0, -0.016, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
-    sword:  {p: [0, -0.075, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
-    bucket: {p: [0, 0.252, 0], axis: [1, 0, 0], palm: [0, 0.055, 0.022], align: 0},
+    sword:  {p: [0, -0.075, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0, aimCam: [-0.22, 1, 0], errMax: 1.20},
+    p761:   {p: [0, 0.02, 0], axis: [0, 1, 0], palm: [0, 0.058, 0.018], align: 0, errMax: 1.20},
+    pick:   {p: [0, 0.02, 0], axis: [0, 1, 0], palm: [0, 0.058, 0.018], align: 0, errMax: 1.20},
+    p760:   {p: [0, 0.02, 0], axis: [0, 1, 0], palm: [0, 0.058, 0.018], align: 0, errMax: 1.20},
+    bucket: {p: [0, 0.252, 0], axis: [1, 0, 0], palm: [0, 0.074, 0.012], align: 0, hang: 1, errMax: 1.20},
     pistol: {p: [0, -0.07, 0.05], axis: [0, -0.95, 0.30], palm: [0, 0.050, 0.018], align: 0}
   };
   U.GRIP = GRIP;
@@ -712,7 +899,22 @@
     return m;
   }
 
-  function seatItem(kind) {
+  // Apply a camera-space rotation to a mesh whose parent may not be the camera.
+  function applyCamQuat(mesh, qCam) {
+    if (!mesh || !mesh.parent || !qCam) return false;
+    const pm = parentCamMatrix(mesh.parent);
+    if (!pm) return false;
+    const pos = new T.Vector3(), quat = new T.Quaternion(), scl = new T.Vector3();
+    pm.decompose(pos, quat, scl);
+    const qP = quat.clone();
+    const qInv = quat.clone().invert();
+    const qNew = qInv.multiply(qCam).multiply(qP).multiply(mesh.quaternion.clone());
+    mesh.quaternion.copy(qNew);
+    mesh.updateMatrix();
+    return true;
+  }
+
+  function seatItem(kind, extraSpec) {
     const info = {kind: kind, seated: 0, errBefore: null, errAfter: null, why: null};
     U.gripInfo = info;
     try {
@@ -721,7 +923,7 @@
         if (W.__rl && W.__rl.t > 0) { info.why = 'reload'; return false; }
         if (typeof rlT !== 'undefined' && rlT > 0) { info.why = 'reload'; return false; }
       } catch (_) {}
-      const spec = GRIP[kind];
+      const spec = extraSpec || GRIP[kind];
       if (!spec) { info.why = 'no-spec'; return false; }
       if (typeof held === 'undefined' || !held) { info.why = 'no-held'; return false; }
       const mesh = held.children && held.children[0];
@@ -760,16 +962,8 @@
         info.itemUnder = !!gripC0;
         return false;
       }
-      const err0 = palmC.distanceTo(gripC0);
-      info.errBefore = +err0.toFixed(4);
       info.palmC = [+palmC.x.toFixed(3), +palmC.y.toFixed(3), +palmC.z.toFixed(3)];
       info.gripC = [+gripC0.x.toFixed(3), +gripC0.y.toFixed(3), +gripC0.z.toFixed(3)];
-      // A closed fist is ~0.08 across. Anything over half a metre is a
-      // mismatched space — refuse rather than throw the item off-screen.
-      if (!(err0 < 0.80) || !isFinite(err0)) {
-        info.why = 'err-too-large';
-        return false;
-      }
 
       if (spec.align && mesh.parent) {
         const axisWant = new T.Vector3(1, 0, 0);
@@ -790,9 +984,83 @@
         }
       }
 
+      // Rotate about the bail so the pail body (grip -> item origin) hangs
+      // camera-down. Static item orientation only; animation curves untouched.
+      if (spec.hang) {
+        const gP = toCameraLocal(mesh, v3(spec.p));
+        const gO = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+        const a0 = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+        const a1 = toCameraLocal(mesh, v3(spec.axis));
+        if (gP && gO && a0 && a1) {
+          const axis = a1.clone().sub(a0);
+          if (axis.lengthSq() > 1e-8) {
+            axis.normalize();
+            // Pail body is item origin relative to the bail grip. Hang it
+            // camera-down and slightly away (-Z) so the open top tilts toward
+            // the lens, matching ref 07.
+            const downNow = gO.clone().sub(gP);
+            downNow.addScaledVector(axis, -downNow.dot(axis));
+            const downWant = new T.Vector3(0, -1, -0.35);
+            downWant.addScaledVector(axis, -downWant.dot(axis));
+            if (downNow.lengthSq() > 1e-8 && downWant.lengthSq() > 1e-8) {
+              downNow.normalize();
+              downWant.normalize();
+              const q = new T.Quaternion().setFromUnitVectors(downNow, downWant);
+              // Prefer a direct premultiply when the held mesh is already
+              // under the camera (usual VM path); fall back to conjugation.
+              const used = applyCamQuat(mesh, q);
+              if (!used) mesh.quaternion.premultiply(q);
+              mesh.updateMatrix();
+              const gP2 = toCameraLocal(mesh, v3(spec.p));
+              const gO2 = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+              if (gP2 && gO2) {
+                const d = gO2.sub(gP2).normalize();
+                info.pailC = [+d.x.toFixed(3), +d.y.toFixed(3), +d.z.toFixed(3)];
+              }
+              info.hung = used ? 1 : 2;
+            }
+          }
+        }
+      }
+
+      // Static item aim: rotate so the item axis points at a camera-space
+      // direction (e.g. more upright sword). Animation curves untouched.
+      if (spec.aimCam) {
+        const a0 = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+        const a1 = toCameraLocal(mesh, v3(spec.axis));
+        const want = v3(spec.aimCam);
+        if (a0 && a1 && want.lengthSq() > 1e-8) {
+          const axisNow = a1.clone().sub(a0);
+          if (axisNow.lengthSq() > 1e-8) {
+            axisNow.normalize();
+            want.normalize();
+            const q = new T.Quaternion().setFromUnitVectors(axisNow, want);
+            if (!applyCamQuat(mesh, q)) mesh.quaternion.premultiply(q);
+            mesh.updateMatrix();
+            info.aimed = 1;
+            const a2 = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+            const a3 = toCameraLocal(mesh, v3(spec.axis));
+            if (a2 && a3) {
+              const d = a3.sub(a2).normalize();
+              info.axisC = [+d.x.toFixed(3), +d.y.toFixed(3), +d.z.toFixed(3)];
+            }
+          }
+        }
+      }
+
       const gripC = toCameraLocal(mesh, v3(spec.p)) || gripC0;
       const originC2 = toCameraLocal(mesh, new T.Vector3(0, 0, 0)) || originC;
       const palmC2 = toCameraLocal(h, v3(spec.palm)) || palmC;
+      const err0 = palmC2.distanceTo(gripC);
+      info.errBefore = +err0.toFixed(4);
+      info.gripC = [+gripC.x.toFixed(3), +gripC.y.toFixed(3), +gripC.z.toFixed(3)];
+      info.palmC = [+palmC2.x.toFixed(3), +palmC2.y.toFixed(3), +palmC2.z.toFixed(3)];
+      // Measure after any hang/aim rotation. A closed fist is ~0.08 across.
+      const errMax = (spec.errMax != null) ? spec.errMax : 0.80;
+      if (!(err0 < errMax) || !isFinite(err0)) {
+        info.why = 'err-too-large';
+        return false;
+      }
       const deltaC = palmC2.clone().sub(gripC);
       const targetC = originC2.clone().add(deltaC);
       const pm = parentCamMatrix(mesh.parent);
@@ -815,8 +1083,9 @@
   }
 
   function placeItem(kind) {
-    if (GRIP[kind]) {
-      const ok = seatItem(kind);
+    const bowlGrip = (U.__palmBowl && U.__bowl && U.__bowl[kind] && U.__bowl[kind].grip) || null;
+    if (bowlGrip || GRIP[kind]) {
+      const ok = seatItem(kind, bowlGrip || GRIP[kind]);
       if (!ok && ITEM_NUDGE[kind]) nudgeItem(kind);
     } else {
       U.gripInfo = {kind: kind, seated: 0, why: 'nudge'};
@@ -849,7 +1118,10 @@
       const k = kindOf();
       const ads = isAds();
       const fkey = (k === 'musket' && ads) ? 'musketAds' : (k === 'pistol' && ads) ? 'pistolAds' : k;
-      const tgt = FRAME[fkey] || FRAME[k] || FRAME.other;
+      let tgt = FRAME[fkey] || FRAME[k] || FRAME.other;
+      if (U.__palmBowl && U.__bowl && U.__bowl[k] && U.__bowl[k].frame) {
+        tgt = Object.assign({}, tgt, U.__bowl[k].frame);
+      }
       if (fkey !== key) {
         key = fkey;
         from = {dx: cur.dx, dy: cur.dy, dz: cur.dz, fov: cur.fov, s: cur.s, armS: cur.armS};
@@ -895,6 +1167,7 @@
       hideLeftoverCubes();
       trimToolCuff(k);
       trimAdsDebris(k, ads);
+      trimBowlCap(k);
       U.fovK = cur.fov;
       U.kind = k;
       U.ads = ads ? 1 : 0;
@@ -918,6 +1191,52 @@
   U.PALM_POSE = PALM_POSE;
   const PALM_AIM = {};
   U.PALM_AIM = PALM_AIM;
+  U.__palmSwing = 0;
+  U.__thumbAim = 0;
+  U.__thumbLive = 0;
+  U.__palmFlip = 0;
+  // Empty / cobble / map share a torch-scale (armS 1.12) palm-up rest:
+  // forearm and linen cuff enter from the bottom-right, fingers curl into
+  // a toward-camera bowl, thumb abducted to the side (ref 09). Cobble and
+  // map lock that same arm (useEmpty) so item seating cannot chase the IK.
+  U.__palmBowl = 1;
+  const bowlFrame = {dx: -0.04, dy: -0.10, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12};
+  const bowlThumb = {eul: [0.35, 1.10, 0.25], mid: 0.15};
+  U.__bowl = {
+    empty: {
+      frame: bowlFrame,
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI, tilt: 0.25,
+      curl: -0.50, thumb: bowlThumb,
+      hideCap: 1
+    },
+    block: {
+      frame: Object.assign({}, bowlFrame, {dx: -0.06, s: 0.60}),
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI, tilt: 0.25,
+      curl: -0.85, curlI: -0.08, thumb: bowlThumb,
+      useEmpty: 1, hideCap: 1,
+      grip: {p: [0, 0, 0], palm: [-0.01, 0.030, -0.08], align: 0}
+    },
+    map: {
+      frame: Object.assign({}, bowlFrame, {s: 1.04, fov: 0.76}),
+      pitch: 0.65, pitchOf: 'elb', sup: Math.PI, tilt: 0.25,
+      curl: -0.35, thumb: {eul: [0.85, 0.70, 0.35], mid: 0.80},
+      useEmpty: 1, hideCap: 1,
+      grip: {p: [0.08, 0, 0.06], palm: [0, 0.03, -0.02], align: 0}
+    }
+  };
+  U.__thumbVis = {};
+  U.__thumbDist = {};
+  U.__adsHideLeft = 1;
+  U.__adsHideWrist = 0;
+  U.__adsHideRThumb = 1;
+  // Musket ADS only (gated in trimAdsDebris): hide right-hand finger 3
+  // (pinky) so the U-shaped loop over the rear sight is gone. Pistol ADS
+  // and hip poses are unchanged.
+  U.__adsHideFingers = [3];
+  U.__adsHideOver = 0;
+  // Musket ADS only: hide right-hand finger meshes left of the sight so
+  // the wrapping tips do not sit as shards on the lock. 0 = camera-local x.
+  U.__adsHideLeftX = 0;
   // Override from a diagnostic: __palmAxis, __palmWant (camera space).
   U.__palmAxis = [0, 0, -1];
   U.__palmWant = [0, 0.85, 0.55];
@@ -931,9 +1250,155 @@
   // fpa.step overwrites hand quaternions, so any previous roll is already gone.
   function clearPalmTag() {
     palmHands(function (arm) {
-      const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+      const p = arm && arm.userData && arm.userData.p;
+      const h = p && p.h;
       if (h && h.userData && h.userData._palmTag) { h.userData._palmTag.applied = 0; h.userData._palmTag.baseQ = null; }
+      if (p) p._bowl0 = null;
     });
+  }
+
+  function rotateAround(obj, pivot, axis, ang) {
+    if (!obj || !ang) return;
+    const q = new T.Quaternion().setFromAxisAngle(axis, ang);
+    const r = obj.position.clone().sub(pivot);
+    r.applyQuaternion(q);
+    obj.position.copy(pivot).add(r);
+    obj.quaternion.premultiply(q);
+  }
+
+  // Per-item rest for empty / cobble / map: drop the wrist and cuff below
+  // the frame, pitch the forearm forward, then supinate around the
+  // forearm's own long axis (local +Y of p.fo, elbow -> wrist). This is
+  // not a camera-axis flip — those kept showing the dorsum.
+  function snapBowlParts(p) {
+    function rec(o) {
+      if (!o) return null;
+      return {P: o.position.clone(), Q: o.quaternion.clone()};
+    }
+    return {up: rec(p.up), el: rec(p.el), fo: rec(p.fo), cuff: rec(p.cuff), h: rec(p.h)};
+  }
+  function applyBowlParts(p, rec) {
+    if (!p || !rec) return;
+    ['up', 'el', 'fo', 'cuff', 'h'].forEach(function (k) {
+      const o = p[k], r = rec[k];
+      if (o && r && r.P && r.Q) { o.position.copy(r.P); o.quaternion.copy(r.Q); }
+    });
+  }
+  function applyFallbackParts(p, rec) {
+    if (!p || !rec) return;
+    ['up', 'el', 'fo', 'cuff', 'h'].forEach(function (k) {
+      const o = p[k], r = rec[k];
+      if (o && r && r.P && r.Q) {
+        o.position.set(r.P[0], r.P[1], r.P[2]);
+        o.quaternion.set(r.Q[0], r.Q[1], r.Q[2], r.Q[3]);
+      }
+    });
+  }
+  // Right-arm local pose of the p20 empty palm-up rest, captured after
+  // pitch/sup. Fallback when cobble or map is equipped before empty has
+  // been posed this session.
+  U._emptyBowlFallback = {
+    up: {P: [0.1916, -0.3483, -0.0424], Q: [-0.66883, 0, 0.05049, 0.7417]},
+    el: {P: [0.1631, -0.3103, -0.4194], Q: [0, 0, 0, 1]},
+    fo: {P: [0.2151, -0.3409, -0.3519], Q: [-0.09633, 0.96715, -0.23494, 0.0121]},
+    cuff: {P: [0.2119, -0.3252, -0.3602], Q: [-0.09633, 0.96715, -0.23494, 0.0121]},
+    h: {P: [0.1501, -0.0273, -0.5164], Q: [-0.13035, 0.95448, -0.2179, 0.1565]}
+  };
+  function applyPalmBowl(arm, kind) {
+    const spec = U.__bowl && U.__bowl[kind];
+    if (!spec) return;
+    const p = arm && arm.userData && arm.userData.p;
+    if (!p || !p.fo || !p.h) return;
+    const side = (arm.userData && arm.userData.side) || 1;
+    // Visual only: lock cobble/map to the empty palm-up arm so seating the
+    // item cannot drag the IK. Rig graph and animation curves are unchanged.
+    if (spec.useEmpty && side === 1) {
+      if (U._emptyBowlApplied) applyBowlParts(p, U._emptyBowlApplied);
+      else applyFallbackParts(p, U._emptyBowlFallback);
+      return;
+    }
+    if (!p._bowl0) {
+      p._bowl0 = {
+        foP: p.fo.position.clone(), foQ: p.fo.quaternion.clone(),
+        hP: p.h.position.clone(), hQ: p.h.quaternion.clone(),
+        cuffP: p.cuff ? p.cuff.position.clone() : null,
+        cuffQ: p.cuff ? p.cuff.quaternion.clone() : null
+      };
+    } else {
+      const s = p._bowl0;
+      p.fo.position.copy(s.foP); p.fo.quaternion.copy(s.foQ);
+      p.h.position.copy(s.hP); p.h.quaternion.copy(s.hQ);
+      if (p.cuff && s.cuffP) { p.cuff.position.copy(s.cuffP); p.cuff.quaternion.copy(s.cuffQ); }
+    }
+    const foAxis = new T.Vector3(0, 1, 0).applyQuaternion(p.fo.quaternion);
+    if (foAxis.lengthSq() < 1e-10) return;
+    foAxis.normalize();
+    const pitch = spec.pitch || 0;
+    const sup = (spec.sup != null) ? spec.sup : 0;
+    const parts = [p.fo, p.h];
+    if (p.cuff) parts.push(p.cuff);
+    if (pitch) {
+      const mode = spec.pitchOf || 'palm';
+      let pivot, pax;
+      if (mode === 'elb' && p.el) pivot = p.el.position.clone();
+      else {
+        p.h.updateMatrix();
+        pivot = new T.Vector3(0, 0.05, 0).applyMatrix4(p.h.matrix);
+      }
+      if (spec.pax && spec.pax.length === 3) pax = new T.Vector3(spec.pax[0], spec.pax[1], spec.pax[2]);
+      else {
+        // Horizontal axis perpendicular to the forearm, so a pitch
+        // drops the wrist / raises the fingers rather than rolling.
+        const upHint = new T.Vector3(0, 1, 0);
+        pax = new T.Vector3().crossVectors(foAxis, upHint);
+        if (pax.lengthSq() < 1e-8) pax.crossVectors(foAxis, new T.Vector3(1, 0, 0));
+      }
+      if (pax.lengthSq() > 1e-10) {
+        pax.normalize();
+        parts.forEach(function (o) { rotateAround(o, pivot, pax, pitch); });
+      }
+    }
+    if (sup) {
+      const foAxis2 = new T.Vector3(0, 1, 0).applyQuaternion(p.fo.quaternion);
+      if (foAxis2.lengthSq() > 1e-10) {
+        foAxis2.normalize();
+        const pivot2 = p.el ? p.el.position.clone() : p.fo.position.clone();
+        parts.forEach(function (o) { rotateAround(o, pivot2, foAxis2, sup); });
+      }
+    }
+    // Extra visual yaw/tilt after pitch+sup, still pivoted at the elbow,
+    // so the linen sleeve can run off the bottom-right instead of presenting
+    // its end cap. Axes are camera-up / camera-right in the arm's local space.
+    const yaw = spec.yaw || 0, tilt = spec.tilt || 0;
+    if ((yaw || tilt) && p.fo.parent) {
+      const arm = p.fo.parent;
+      const pivot3 = p.el ? p.el.position.clone() : p.fo.position.clone();
+      arm.updateWorldMatrix(true, false);
+      const inv = new T.Matrix4();
+      if (typeof arm.matrixWorld.invert === 'function') inv.copy(arm.matrixWorld).invert();
+      else if (typeof inv.getInverse === 'function') inv.getInverse(arm.matrixWorld);
+      function camAxis(x, y, z) {
+        const v = new T.Vector3(x, y, z);
+        try {
+          if (typeof camera !== 'undefined' && camera) {
+            camera.updateMatrixWorld(true);
+            v.transformDirection(camera.matrixWorld);
+          }
+        } catch (_) {}
+        v.transformDirection(inv);
+        if (v.lengthSq() < 1e-10) return null;
+        return v.normalize();
+      }
+      if (yaw) {
+        const yax = (spec.yax && spec.yax.length === 3) ? new T.Vector3(spec.yax[0], spec.yax[1], spec.yax[2]) : camAxis(0, 1, 0);
+        if (yax && yax.lengthSq() > 1e-10) parts.forEach(function (o) { rotateAround(o, pivot3, yax, yaw); });
+      }
+      if (tilt) {
+        const tax = (spec.tax && spec.tax.length === 3) ? new T.Vector3(spec.tax[0], spec.tax[1], spec.tax[2]) : camAxis(1, 0, 0);
+        if (tax && tax.lengthSq() > 1e-10) parts.forEach(function (o) { rotateAround(o, pivot3, tax, tilt); });
+      }
+    }
+    if (kind === 'empty' && side === 1) U._emptyBowlApplied = snapBowlParts(p);
   }
   // Idempotent: undo a roll already applied this frame, then apply the current amount once.
   function restPalm(kind) {
@@ -954,27 +1419,135 @@
         if (!tag.baseQ) tag.baseQ = h.quaternion.clone();
         else h.quaternion.copy(tag.baseQ);
         tag.applied = 0; tag.y = 0; tag.x = 0; tag.z = 0;
-        if (aim) {
-          const axis = U.__palmAxis || [0, 0, -1];
-          const wantA = U.__palmWant || [0, 0.40, 1];
+        if (U.__palmBowl && U.__bowl && U.__bowl[kind]) {
+          applyPalmBowl(arm, kind);
+          tag.applied = 1;
+          return;
+        }
+        if (U.__palmSwing) {
+          // Clamped two-step: swing the wrist/elbow axis toward camera-down
+          // (so the cap is not presented), then twist around the finger axis
+          // to show the palm. Angle is capped so the hand stays on the forearm.
+          const maxA = (U.__palmSwingMax != null) ? U.__palmSwingMax : 0.70;
+          const wantWristA = U.__palmWristWant || [0.20, -1.00, -0.15];
+          const palmar = U.__palmAxis || [0, 0, -1];
+          const wantPalmA = U.__palmWant || [0, 0.50, 0.85];
           const originC = toCameraLocal(h, new T.Vector3(0, 0, 0));
-          const axisC = toCameraLocal(h, new T.Vector3(axis[0], axis[1], axis[2]));
-          if (originC && axisC) {
-            const now = axisC.sub(originC);
-            if (now.lengthSq() > 1e-10) {
-              now.normalize();
-              const want = new T.Vector3(wantA[0], wantA[1], wantA[2]);
-              if (want.lengthSq() > 1e-10) want.normalize();
-              const qCam = new T.Quaternion().setFromUnitVectors(now, want);
-              const pm = parentCamMatrix(h.parent || h);
-              let qLocal = qCam;
-              if (pm) {
+          const yNegC = toCameraLocal(h, new T.Vector3(0, -1, 0));
+          const palmC = toCameraLocal(h, new T.Vector3(palmar[0], palmar[1], palmar[2]));
+          const yC = toCameraLocal(h, new T.Vector3(0, 1, 0));
+          if (originC && yNegC && palmC && yC) {
+            const wristDir = yNegC.sub(originC.clone());
+            if (wristDir.lengthSq() > 1e-10) {
+              wristDir.normalize();
+              const wantW = new T.Vector3(wantWristA[0], wantWristA[1], wantWristA[2]);
+              if (wantW.lengthSq() > 1e-10) wantW.normalize();
+              let qSwing = new T.Quaternion().setFromUnitVectors(wristDir, wantW);
+              const ea = 2 * Math.acos(Math.min(1, Math.abs(qSwing.w)));
+              if (ea > maxA && ea > 1e-6) {
+                const t = maxA / ea;
+                qSwing = new T.Quaternion().slerpQuaternions(new T.Quaternion(), qSwing, t);
+              }
+              function toLocal(qCam) {
+                const pm = parentCamMatrix(h.parent || h);
+                if (!pm) return qCam;
                 const rot = new T.Matrix4().extractRotation(pm);
                 const qParent = new T.Quaternion().setFromRotationMatrix(rot);
-                qLocal = qParent.clone().invert().multiply(qCam).multiply(qParent);
+                return qParent.clone().invert().multiply(qCam).multiply(qParent);
               }
-              h.quaternion.premultiply(qLocal);
+              if (ea > 1e-5) h.quaternion.premultiply(toLocal(qSwing));
+              // Twist around the (now updated) finger axis.
+              const origin2 = toCameraLocal(h, new T.Vector3(0, 0, 0));
+              const palm2 = toCameraLocal(h, new T.Vector3(palmar[0], palmar[1], palmar[2]));
+              const y2 = toCameraLocal(h, new T.Vector3(0, 1, 0));
+              if (origin2 && palm2 && y2) {
+                const now = palm2.sub(origin2.clone());
+                const axisY = y2.sub(origin2.clone());
+                if (now.lengthSq() > 1e-10 && axisY.lengthSq() > 1e-10) {
+                  now.normalize(); axisY.normalize();
+                  const wantP = new T.Vector3(wantPalmA[0], wantPalmA[1], wantPalmA[2]);
+                  if (wantP.lengthSq() > 1e-10) wantP.normalize();
+                  const nowP = now.clone().sub(axisY.clone().multiplyScalar(now.dot(axisY)));
+                  const wantPP = wantP.clone().sub(axisY.clone().multiplyScalar(wantP.dot(axisY)));
+                  if (nowP.lengthSq() > 1e-8 && wantPP.lengthSq() > 1e-8) {
+                    nowP.normalize(); wantPP.normalize();
+                    const qTw = new T.Quaternion().setFromUnitVectors(nowP, wantPP);
+                    h.quaternion.premultiply(toLocal(qTw));
+                  }
+                }
+              }
+              const wristC = toCameraLocal(h, new T.Vector3(0, -0.05, 0));
+              const palmPt = toCameraLocal(h, new T.Vector3(0, 0.05, 0));
+              const presented = !!(wristC && palmPt && wristC.z > palmPt.z + 0.03);
+              if (presented) {
+                h.quaternion.copy(tag.baseQ);
+                const euler = PALM_POSE[kind];
+                if (euler) {
+                  const y = side * (euler.y || 0);
+                  const x = euler.x || 0;
+                  const z = side * (euler.z || 0);
+                  if (y) h.rotateY(y);
+                  if (x) h.rotateX(x);
+                  if (z) h.rotateZ(z);
+                  tag.y = y; tag.x = x; tag.z = z;
+                }
+              }
               tag.applied = 1;
+            }
+          }
+        } else if (aim) {
+          const palmar = U.__palmAxis || [0, 0, -1];
+          const wantA = U.__palmWant || [0, 0.70, 0.70];
+          const originC = toCameraLocal(h, new T.Vector3(0, 0, 0));
+          const palmC = toCameraLocal(h, new T.Vector3(palmar[0], palmar[1], palmar[2]));
+          const yC = toCameraLocal(h, new T.Vector3(0, 1, 0));
+          if (originC && palmC && yC) {
+            const now = palmC.sub(originC);
+            const axisY = yC.sub(originC.clone());
+            if (now.lengthSq() > 1e-10 && axisY.lengthSq() > 1e-10) {
+              now.normalize();
+              axisY.normalize();
+              const want = new T.Vector3(wantA[0], wantA[1], wantA[2]);
+              if (want.lengthSq() > 1e-10) want.normalize();
+              // Twist only: rotate around the finger axis so the wrist
+              // cannot pitch into the lens (that was the p14 aim failure).
+              const nowP = now.clone().sub(axisY.clone().multiplyScalar(now.dot(axisY)));
+              const wantP = want.clone().sub(axisY.clone().multiplyScalar(want.dot(axisY)));
+              let qCam = null;
+              if (nowP.lengthSq() > 1e-8 && wantP.lengthSq() > 1e-8) {
+                nowP.normalize();
+                wantP.normalize();
+                qCam = new T.Quaternion().setFromUnitVectors(nowP, wantP);
+              }
+              if (qCam) {
+                const pm = parentCamMatrix(h.parent || h);
+                let qLocal = qCam;
+                if (pm) {
+                  const rot = new T.Matrix4().extractRotation(pm);
+                  const qParent = new T.Quaternion().setFromRotationMatrix(rot);
+                  qLocal = qParent.clone().invert().multiply(qCam).multiply(qParent);
+                }
+                h.quaternion.premultiply(qLocal);
+                // Safety: if the wrist is now closer to the camera than the
+                // palm, we presented the cap — undo and use the Euler pose.
+                const wristC = toCameraLocal(h, new T.Vector3(0, -0.05, 0));
+                const palmPt = toCameraLocal(h, new T.Vector3(0, 0.05, 0));
+                const presented = !!(wristC && palmPt && wristC.z > palmPt.z + 0.03);
+                if (presented) {
+                  h.quaternion.copy(tag.baseQ);
+                  const euler = PALM_POSE[kind];
+                  if (euler) {
+                    const y = side * (euler.y || 0);
+                    const x = euler.x || 0;
+                    const z = side * (euler.z || 0);
+                    if (y) h.rotateY(y);
+                    if (x) h.rotateX(x);
+                    if (z) h.rotateZ(z);
+                    tag.y = y; tag.x = x; tag.z = z;
+                  }
+                }
+                tag.applied = 1;
+              }
             }
           }
         } else if (pose) {
@@ -985,6 +1558,52 @@
           if (x) h.rotateX(x);
           if (z) h.rotateZ(z);
           tag.y = y; tag.x = x; tag.z = z; tag.applied = 1;
+        }
+        // After a known-good dorsum pose, flip around an axis in the
+        // camera plane so the palmar face comes toward the lens while
+        // the wrist stays down. Camera-forward (Z) would only invert
+        // the dorsum; camera-up / the on-screen finger axis is the
+        // flip that reveals the palm.
+        if (U.__palmFlip && tag.applied) {
+          const originC = toCameraLocal(h, new T.Vector3(0, 0, 0));
+          const yC = toCameraLocal(h, new T.Vector3(0, 1, 0));
+          let axis = null;
+          const mode = U.__palmFlipMode || 'finger';
+          if (mode === 'camY') axis = new T.Vector3(0, 1, 0);
+          else if (mode === 'camX') axis = new T.Vector3(1, 0, 0);
+          else if (mode === 'camZ') axis = new T.Vector3(0, 0, 1);
+          else if (originC && yC) {
+            axis = yC.sub(originC.clone());
+            axis.z = 0; // project onto the camera XY / screen plane
+            if (axis.lengthSq() < 1e-8) axis = new T.Vector3(0, 1, 0);
+            else axis.normalize();
+          } else axis = new T.Vector3(0, 1, 0);
+          const ang = (U.__palmFlipA != null) ? U.__palmFlipA : Math.PI;
+          const qCam = new T.Quaternion().setFromAxisAngle(axis, ang);
+          const pm = parentCamMatrix(h.parent || h);
+          let qLocal = qCam;
+          if (pm) {
+            const rot = new T.Matrix4().extractRotation(pm);
+            const qParent = new T.Quaternion().setFromRotationMatrix(rot);
+            qLocal = qParent.clone().invert().multiply(qCam).multiply(qParent);
+          }
+          h.quaternion.premultiply(qLocal);
+          const wristC = toCameraLocal(h, new T.Vector3(0, -0.05, 0));
+          const palmPt = toCameraLocal(h, new T.Vector3(0, 0.05, 0));
+          const presented = !!(wristC && palmPt && wristC.z > palmPt.z + 0.03);
+          if (presented) {
+            // Undo only the flip; keep the dorsum pose rather than
+            // throwing the wrist into the lens.
+            h.quaternion.copy(tag.baseQ);
+            if (pose) {
+              const y = side * (pose.y || 0);
+              const x = pose.x || 0;
+              const z = side * (pose.z || 0);
+              if (y) h.rotateY(y);
+              if (x) h.rotateX(x);
+              if (z) h.rotateZ(z);
+            }
+          }
         }
       });
     } catch (e) { ERR('palm', e); }
@@ -1085,13 +1704,61 @@
           for (let n = o; n && n !== p.h; n = n.parent) if (keep[n.uuid]) return true;
           return false;
         }
-        // Gun ADS: keep only finger / thumb meshes. Hide palm, wrist,
-        // forearm, cuff, pads, knuckles and leftover boxes per-mesh so
-        // they cannot sit in the sight.
+        // Gun ADS: by default keep finger / thumb meshes and hide palm,
+        // wrist, forearm, cuff and leftover primitives. Optional
+        // U.__adsHideLeft hides the whole support (left) arm so sliced
+        // scraps cannot sit in the sight; the right hand stays on the gun.
+        const side = (arm.userData && arm.userData.side) || 1;
+        const hideLeft = !!(gunsAds && U.__adsHideLeft && side < 0);
+        const hideWrist = !!(gunsAds && U.__adsHideWrist);
+        const hideRThumb = !!(gunsAds && U.__adsHideRThumb && side > 0);
+        const hideIdx = (gunsAds && kind === 'musket' && side > 0 && Array.isArray(U.__adsHideFingers)) ? U.__adsHideFingers : null;
+        const hideOver = !!(gunsAds && kind === 'musket' && side > 0 && U.__adsHideOver);
+        const hideLeftX = (gunsAds && kind === 'musket' && side > 0 && U.__adsHideLeftX != null) ? U.__adsHideLeftX : null;
+        const th = p.h.userData && p.h.userData.th;
+        const fingers = (p.h.userData && p.h.userData.f) || [];
+        const hideRoots = [];
+        if (hideIdx) {
+          for (let i = 0; i < hideIdx.length; i++) {
+            const pair = fingers[hideIdx[i]];
+            const f = pair && (pair.isObject3D ? pair : pair[0]);
+            if (f) hideRoots.push(f);
+          }
+        }
         arm.traverse(function (o) {
           if (!o.isMesh) return;
           if (isItemMesh(o)) return;
-          if (gunsAds && !underKeep(o)) {
+          const typ = o.geometry && o.geometry.type;
+          const u = o.userData || {};
+          const leftover = !u.sculpt1249 && !u.nail1249 && !u.sculptGeo1249 && !u.sleeve1257 && !u.tapered1257 && !u.folded1249 &&
+            (typ === 'BoxGeometry' || typ === 'CylinderGeometry' || typ === 'DodecahedronGeometry');
+          const cap = !!u.wristCap1249;
+          let wristChild = false;
+          if (hideWrist && o.parent === p.h && o.position && o.position.y < -0.02) wristChild = true;
+          let underThumb = false;
+          if (hideRThumb && th) {
+            for (let n = o; n && n !== p.h; n = n.parent) if (n === th) { underThumb = true; break; }
+          }
+          let underFinger = false;
+          if (hideRoots.length) {
+            for (let n = o; n && n !== p.h; n = n.parent) {
+              for (let i = 0; i < hideRoots.length; i++) if (n === hideRoots[i]) { underFinger = true; break; }
+              if (underFinger) break;
+            }
+          }
+          let leftShard = false;
+          if (hideLeftX != null && underKeep(o) && !underThumb) {
+            const pcL = toCameraLocal(o, new T.Vector3(0, 0, 0));
+            if (pcL && pcL.x < hideLeftX) leftShard = true;
+          }
+          let overSight = false;
+          if (hideOver && underKeep(o) && !underThumb) {
+            const pc = toCameraLocal(o, new T.Vector3(0, 0, 0));
+            const limX = (U.__adsOverX != null) ? U.__adsOverX : 0.028;
+            const limY = (U.__adsOverY != null) ? U.__adsOverY : -0.045;
+            if (pc && Math.abs(pc.x) < limX && pc.y > limY) overSight = true;
+          }
+          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap || wristChild || underThumb || underFinger || overSight || leftShard)) {
             o.visible = false;
             o.userData.__hidAds1252 = 1;
           } else if (o.userData && o.userData.__hidAds1252) {
@@ -1101,6 +1768,33 @@
         });
       });
     } catch (e) { ERR('ads-debris', e); }
+  }
+
+  function trimBowlCap(kind) {
+    try {
+      if (kind === 'musket' || kind === 'pistol') {
+        eachArm(function (arm) {
+          const p = arm.userData && arm.userData.p;
+          if (!p || !p.h) return;
+          p.h.traverse(function (o) {
+            if (o.userData && o.userData.__hidBowlCap) { o.visible = true; o.userData.__hidBowlCap = 0; }
+          });
+        });
+        return;
+      }
+      const bowl = U.__palmBowl && U.__bowl && U.__bowl[kind];
+      const hide = !!(bowl && (bowl.hideCap || U.__hideBowlCap));
+      eachArm(function (arm) {
+        const p = arm.userData && arm.userData.p;
+        if (!p || !p.h) return;
+        p.h.traverse(function (o) {
+          if (!o.isMesh) return;
+          if (!(o.userData && (o.userData.wristCap1249 || o.userData.sleeveCap))) return;
+          if (hide) { o.visible = false; o.userData.__hidBowlCap = 1; }
+          else if (o.userData.__hidBowlCap) { o.visible = true; o.userData.__hidBowlCap = 0; }
+        });
+      });
+    } catch (_) {}
   }
 
   function repose() {
@@ -1116,6 +1810,7 @@
       else showGunSleeves();
       trimToolCuff(k);
       trimAdsDebris(k, ads);
+      trimBowlCap(k);
     } catch (e) { ERR('repose', e); }
   }
 
