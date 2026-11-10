@@ -33,7 +33,7 @@ MODEL_LEAD = os.environ.get(
 MODEL_DOUBLE = os.environ.get(
     "PIPER_MODEL_DOUBLE", "/workspace/tools/piper-voices/en_GB-alba-medium.onnx"
 )
-OUT = Path(os.environ.get("VOC_OUT", "/workspace/qa/audio-1260/v2/vocals"))
+OUT = Path(os.environ.get("VOC_OUT", "/workspace/qa/audio-1260/v3/vocals"))
 
 # Original lyrics (Glencraft / Highlands). Do not copy the reference clip.
 # Hook A: "Up the glen, we never sleep"
@@ -47,8 +47,7 @@ HOOK_A = [
     (2, 76, 1, "the"),
     (3, 77, 3, "glen"),
     (6, 77, 1, "we"),
-    (7, 79, 1, "nev"),
-    (8, 81, 1, "er"),
+    (7, 79, 2, "never"),  # one word, one note (G4) — no "nev"/"er" chop
     (9, 77, 5, "sleep"),
 ]
 HOOK_B = [
@@ -56,6 +55,25 @@ HOOK_B = [
     (2, 79, 1, "till"),
     (3, 77, 1, "the"),
     (4, 81, 2, "suns"),  # "sun's"
+    (6, 79, 1, "on"),
+    (7, 77, 1, "the"),
+    (8, 74, 6, "hills"),
+]
+# Drop-2 chorus variation (original, still Highlands / Glencraft — not the ref clip).
+# Hook C: "Over the loch, the heather glows"
+# Hook D: "Keep the fire on the hills"
+HOOK_C = [
+    (0, 81, 2, "Over"),
+    (2, 79, 1, "the"),
+    (3, 77, 3, "loch"),
+    (6, 79, 1, "the"),
+    (7, 81, 2, "heather"),
+    (9, 79, 5, "glows"),
+]
+HOOK_D = [
+    (0, 79, 2, "Keep"),
+    (2, 77, 1, "the"),
+    (3, 81, 3, "fire"),
     (6, 79, 1, "on"),
     (7, 77, 1, "the"),
     (8, 74, 6, "hills"),
@@ -83,9 +101,14 @@ SAY = {
     "the": "the",
     "glen": "glen",
     "we": "we",
-    "nev": "nev",
-    "er": "er",
+    "never": "never",
     "sleep": "sleep",
+    "Over": "Over",
+    "loch": "loch",
+    "heather": "heather",
+    "glows": "glows",
+    "Keep": "Keep",
+    "fire": "fire",
     "Dance": "Dance",
     "till": "till",
     "suns": "suns",
@@ -258,10 +281,14 @@ def cache_key(text, model):
 
 def get_word(text, model, cache):
     say = SAY.get(text, text)
-    path = cache / cache_key(say + "_" + text, model)
+    key = cache_key(say + "_" + text, model)
+    path = cache / key
+    v2 = Path("/workspace/qa/audio-1260/v2/vocals/_cache") / key
+    if not path.exists() and v2.exists():
+        path = v2
     if not path.exists():
         # slightly slower for vowels so pitch-correction has something to chew on
-        scale = 1.25 if text.lower() in {"oh", "yeah", "hey", "sleep", "hills", "glen"} else 1.12
+        scale = 1.25 if text.lower() in {"oh", "yeah", "hey", "sleep", "hills", "glen", "never", "heather", "glows", "fire", "loch", "over"} else 1.12
         piper_say(say, model, path, length_scale=scale, sentence_silence=0.0)
     y = trim_silence(load_mono(path))
     # de-clip / normalise Piper's occasional peak=1
@@ -281,20 +308,70 @@ def place(phrase, sig, t0, sr=SR):
         phrase[i0:i0 + n] += sig[:n]
 
 
+def add_vibrato(y, sr, rate=5.5, depth_cents=20, delay_s=0.09):
+    """Ramp in a gentle sung vibrato on held notes, keeping length fixed."""
+    n = len(y)
+    if n < int(0.12 * sr):
+        return y
+    t = np.arange(n) / sr
+    env = np.clip((t - delay_s) / 0.10, 0.0, 1.0)
+    env = env * env * (3 - 2 * env)
+    ratio = 2.0 ** ((depth_cents / 1200.0) * np.sin(2 * np.pi * rate * t) * env)
+    idx = np.cumsum(ratio)
+    idx *= (n - 1) / max(idx[-1], 1e-9)
+    return np.interp(np.arange(n), idx, y).astype(np.float64)
+
+
+def add_breath(y, sr, seed=1, amount=0.045):
+    """Soft breath / air at the onset, like a sung consonant release."""
+    rng = np.random.default_rng(seed)
+    n = len(y)
+    noise = rng.standard_normal(n)
+    # simple 2–7 kHz air
+    from scipy.signal import butter, sosfilt
+    sos = butter(2, [1800, 7000], btype="bandpass", fs=sr, output="sos")
+    air = sosfilt(sos, noise)
+    att = int(0.012 * sr)
+    hold = int(0.06 * sr)
+    env = np.zeros(n)
+    a = min(att, n)
+    env[:a] = np.linspace(0, 1, a)
+    b = min(n, a + hold)
+    if b > a:
+        env[a:b] = np.linspace(1, 0.25, b - a)
+    if b < n:
+        tail = n - b
+        env[b:] = 0.25 * np.exp(-np.arange(tail) / sr / 0.08)
+    peak = np.max(np.abs(y)) + 1e-12
+    return y + air * env * amount * peak
+
+
 def render_hook(events, model, cache, phrase_dur=PHRASE_DUR):
+    """Sung hook: legato overlaps, vibrato on holds, breath at onsets."""
     n = int(round(phrase_dur * SR))
     phrase = np.zeros(n)
     eighth = SPB / 2.0
-    for pos, mid, dur8, word in events:
+    legato = 0.040  # 40 ms overlap between neighbouring notes
+    for i, (pos, mid, dur8, word) in enumerate(events):
         raw = get_word(word, model, cache)
         sung = retune_to(raw, SR, midi_hz(mid), formant="preserved")
-        dur = dur8 * eighth * 0.96
-        fitted = fade(fit_duration(sung, SR, dur), ms_in=6, ms_out=18)
-        # small natural amplitude envelope: longer notes bloom then settle
+        # extend a little so the legato tail has audio to fade
+        dur = dur8 * eighth * 0.96 + (legato if i < len(events) - 1 else 0.0)
+        fitted = fit_duration(sung, SR, dur)
+        if dur8 >= 2:
+            fitted = add_vibrato(fitted, SR, rate=5.4, depth_cents=18, delay_s=0.08)
+        seed = (abs(hash((word, mid, i))) % 99991) + 3
+        fitted = add_breath(fitted, SR, seed=seed, amount=0.040)
+        # longer crossfade on connected notes, crisper start on the first
+        ms_in = 8 if i == 0 else 22
+        ms_out = 14 if i == len(events) - 1 else 36
+        fitted = fade(fitted, ms_in=ms_in, ms_out=ms_out)
         t = np.arange(len(fitted)) / SR
-        env = 0.88 + 0.12 * np.exp(-t / 0.12)
-        place(phrase, fitted * env, pos * eighth)
-    # gentle peak normalise
+        env = 0.90 + 0.10 * np.exp(-t / 0.12)
+        t0 = pos * eighth
+        if i > 0:
+            t0 = max(0.0, t0 - legato * 0.5)
+        place(phrase, fitted * env, t0)
     peak = np.max(np.abs(phrase)) + 1e-12
     if peak > 0.95:
         phrase *= 0.92 / peak
@@ -399,10 +476,44 @@ def delay_throw(x, word_start_s, word_dur_s, delay_s=SPB * 0.75, taps=4):
     return y
 
 
-def finish_lead(mono, throws=None):
-    """Nightcore, width, plate, dotted-8th delay, optional landing-word throws."""
+def formant_colour(y, shift=0.04):
+    """Nudge vowel formant peaks by a fraction so layers do not share one mouth."""
+    import engine1260 as E
+    src = y if y.ndim == 2 else y[:, None]
+    out = np.zeros_like(src, dtype=np.float64)
+    f1, f2, f3 = 820 * (1 + shift), 1580 * (1 + shift), 2680 * (1 + shift)
+    o1, o2, o3 = 820 * (1 - shift * 0.4), 1580 * (1 - shift * 0.4), 2680 * (1 - shift * 0.4)
+    for ch in range(src.shape[1]):
+        x = src[:, ch]
+        x = E.rbj(x, f1, 4.8, "peak", gain_db=1.8)
+        x = E.rbj(x, f2, 4.2, "peak", gain_db=1.4)
+        x = E.rbj(x, f3, 3.2, "peak", gain_db=0.8)
+        x = E.rbj(x, o1, 4.8, "peak", gain_db=-0.8)
+        x = E.rbj(x, o2, 4.2, "peak", gain_db=-0.6)
+        out[:, ch] = x
+    return out if y.ndim == 2 else out[:, 0]
+
+
+def chorus_double(mono, cents=11, delay_ms=15):
+    """Stereo-detuned chorus: dry centre, slightly sharp / flat delayed sides."""
+    up = ffmpeg_rubberband(mono, SR, semitones=cents / 100.0, formant="shifted", quality=True)
+    dn = ffmpeg_rubberband(mono, SR, semitones=-cents / 100.0, formant="shifted", quality=True)
+    d = int(delay_ms * SR / 1000)
+    up_d = np.pad(up, (d, 0))[: len(mono)]
+    dn_d = np.pad(dn, (int(d * 1.2), 0))[: len(mono)]
+    # match lengths
+    n = min(len(mono), len(up_d), len(dn_d))
+    mono, up_d, dn_d = mono[:n], up_d[:n], dn_d[:n]
+    L = mono * 0.70 + dn_d * 0.55 + up_d * 0.20
+    R = mono * 0.70 + up_d * 0.55 + dn_d * 0.20
+    return np.stack([L, R], 1)
+
+
+def finish_lead(mono, throws=None, formant_shift=0.035):
+    """Nightcore, sung chorus double, formant colour, plate, throws."""
     nc = nightcore(mono)
-    st = stereoize(nc, width_ms=9, width=0.18)
+    st = chorus_double(nc, cents=11, delay_ms=15)
+    st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=0.20, predelay_s=0.022, decay=1.05)
     st = ping_pong(st, delay_s=SPB * 0.75, fb=0.26, mix=0.16)
     if throws:
@@ -415,9 +526,10 @@ def finish_lead(mono, throws=None):
     return st
 
 
-def finish_layer(mono, wet=0.16, width=0.28, delay_mix=0.10):
+def finish_layer(mono, wet=0.16, width=0.28, delay_mix=0.10, formant_shift=-0.03):
     nc = nightcore(mono)
-    st = stereoize(nc, width_ms=14, width=width)
+    st = chorus_double(nc, cents=8, delay_ms=18)
+    st = formant_colour(st, shift=formant_shift)
     st = plate_reverb(st, wet=wet, predelay_s=0.028, decay=1.2)
     st = ping_pong(st, delay_s=SPB * 0.75, fb=0.22, mix=delay_mix)
     peak = np.max(np.abs(st)) + 1e-12
@@ -439,52 +551,64 @@ def main():
     OUT.mkdir(parents=True, exist_ok=True)
     cache = OUT / "_cache"
     cache.mkdir(exist_ok=True)
-    print("synthesising + tuning hook A/B (Jenny lead, Alba double)…")
+    print("synthesising + tuning hooks A/B and C/D (Jenny lead, Alba double)…")
 
-    lead_a = render_hook(HOOK_A, MODEL_LEAD, cache)
-    lead_b = render_hook(HOOK_B, MODEL_LEAD, cache)
-    dbl_a = render_hook(HOOK_A, MODEL_DOUBLE, cache)
-    dbl_b = render_hook(HOOK_B, MODEL_DOUBLE, cache)
-    harm_a = harmony_from(HOOK_A, MODEL_LEAD, cache)
-    harm_b = harmony_from(HOOK_B, MODEL_LEAD, cache)
-    oct_a = octave_down(lead_a)
-    oct_b = octave_down(lead_b)
+    def render_set(events):
+        lead = render_hook(events, MODEL_LEAD, cache)
+        dbl = render_hook(events, MODEL_DOUBLE, cache)
+        harm = harmony_from(events, MODEL_LEAD, cache)
+        octv = octave_down(lead)
+        return lead, dbl, harm, octv
+
+    lead_a, dbl_a, harm_a, oct_a = render_set(HOOK_A)
+    lead_b, dbl_b, harm_b, oct_b = render_set(HOOK_B)
+    lead_c, dbl_c, harm_c, oct_c = render_set(HOOK_C)
+    lead_d, dbl_d, harm_d, oct_d = render_set(HOOK_D)
     tag = render_hook(TAG, MODEL_LEAD, cache, phrase_dur=2 * BAR)
     tag_dbl = render_hook(TAG, MODEL_DOUBLE, cache, phrase_dur=2 * BAR)
 
-    # Landing-word throws: "sleep" starts at 9 eighths, "hills" at 8
+    # Landing-word throws: "sleep"/"glows" at 9 eighths, "hills" at 8
     eighth = SPB / 2.0
     throws_a = [(9 * eighth, 5 * eighth)]
     throws_b = [(8 * eighth, 6 * eighth)]
+    throws_c = [(9 * eighth, 5 * eighth)]
+    throws_d = [(8 * eighth, 6 * eighth)]
 
     print("nightcore + fx…")
-    lead_a_fx = finish_lead(lead_a, throws=throws_a)
-    lead_b_fx = finish_lead(lead_b, throws=throws_b)
-    dbl_a_fx = finish_layer(dbl_a, wet=0.18, width=0.32, delay_mix=0.08)
-    dbl_b_fx = finish_layer(dbl_b, wet=0.18, width=0.32, delay_mix=0.08)
-    harm_a_fx = finish_layer(harm_a, wet=0.22, width=0.40, delay_mix=0.14)
-    harm_b_fx = finish_layer(harm_b, wet=0.22, width=0.40, delay_mix=0.14)
+    lead_a_fx = finish_lead(lead_a, throws=throws_a, formant_shift=0.035)
+    lead_b_fx = finish_lead(lead_b, throws=throws_b, formant_shift=0.035)
+    lead_c_fx = finish_lead(lead_c, throws=throws_c, formant_shift=0.050)
+    lead_d_fx = finish_lead(lead_d, throws=throws_d, formant_shift=0.050)
+    dbl_a_fx = finish_layer(dbl_a, wet=0.18, width=0.32, delay_mix=0.08, formant_shift=-0.03)
+    dbl_b_fx = finish_layer(dbl_b, wet=0.18, width=0.32, delay_mix=0.08, formant_shift=-0.03)
+    dbl_c_fx = finish_layer(dbl_c, wet=0.18, width=0.32, delay_mix=0.08, formant_shift=-0.045)
+    dbl_d_fx = finish_layer(dbl_d, wet=0.18, width=0.32, delay_mix=0.08, formant_shift=-0.045)
+    harm_a_fx = finish_layer(harm_a, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.02)
+    harm_b_fx = finish_layer(harm_b, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.02)
+    harm_c_fx = finish_layer(harm_c, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.04)
+    harm_d_fx = finish_layer(harm_d, wet=0.22, width=0.40, delay_mix=0.14, formant_shift=0.04)
     oct_a_fx = stereoize(nightcore(oct_a), width_ms=6, width=0.08)
     oct_b_fx = stereoize(nightcore(oct_b), width_ms=6, width=0.08)
+    oct_c_fx = stereoize(nightcore(oct_c), width_ms=6, width=0.08)
+    oct_d_fx = stereoize(nightcore(oct_d), width_ms=6, width=0.08)
     # tag: bigger reverb, no delay smear into the drop
     tag_fx = plate_reverb(stereoize(nightcore(tag), width_ms=10, width=0.2), wet=0.38, predelay_s=0.018, decay=1.6)
     tag_fx += plate_reverb(stereoize(nightcore(tag_dbl), width_ms=16, width=0.3), wet=0.40, predelay_s=0.03, decay=1.7) * 0.45
     peak = np.max(np.abs(tag_fx)) + 1e-12
     tag_fx *= 0.95 / max(peak, 0.95)
 
-    write(OUT / "hook_a_lead.wav", lead_a_fx)
-    write(OUT / "hook_b_lead.wav", lead_b_fx)
-    write(OUT / "hook_a_double.wav", dbl_a_fx)
-    write(OUT / "hook_b_double.wav", dbl_b_fx)
-    write(OUT / "hook_a_harm.wav", harm_a_fx)
-    write(OUT / "hook_b_harm.wav", harm_b_fx)
-    write(OUT / "hook_a_oct.wav", oct_a_fx)
-    write(OUT / "hook_b_oct.wav", oct_b_fx)
+    for key, lead, dbl, harm, octv, dry_src in (
+        ("a", lead_a_fx, dbl_a_fx, harm_a_fx, oct_a_fx, lead_a),
+        ("b", lead_b_fx, dbl_b_fx, harm_b_fx, oct_b_fx, lead_b),
+        ("c", lead_c_fx, dbl_c_fx, harm_c_fx, oct_c_fx, lead_c),
+        ("d", lead_d_fx, dbl_d_fx, harm_d_fx, oct_d_fx, lead_d),
+    ):
+        write(OUT / f"hook_{key}_lead.wav", lead)
+        write(OUT / f"hook_{key}_double.wav", dbl)
+        write(OUT / f"hook_{key}_harm.wav", harm)
+        write(OUT / f"hook_{key}_oct.wav", octv)
+        write(OUT / f"hook_{key}_lead_dry.wav", stereoize(nightcore(dry_src), width_ms=7, width=0.12))
     write(OUT / "tag_to_the_hills.wav", tag_fx)
-
-    # Dry nightcore phrases too (renderer may want a tighter dry lead)
-    write(OUT / "hook_a_lead_dry.wav", stereoize(nightcore(lead_a), width_ms=7, width=0.12))
-    write(OUT / "hook_b_lead_dry.wav", stereoize(nightcore(lead_b), width_ms=7, width=0.12))
 
     print("chops…")
     for name, text in CHOPS.items():
@@ -515,6 +639,8 @@ def main():
 
     stacked = stack_ab(lead_a_fx, lead_b_fx, dbl_a_fx, dbl_b_fx, harm_a_fx, harm_b_fx, oct_a_fx, oct_b_fx)
     write(OUT / "hook_ab_layered.wav", stacked)
+    stacked_cd = stack_ab(lead_c_fx, lead_d_fx, dbl_c_fx, dbl_d_fx, harm_c_fx, harm_d_fx, oct_c_fx, oct_d_fx)
+    write(OUT / "hook_cd_layered.wav", stacked_cd)
     print("vocals ready", OUT)
 
 

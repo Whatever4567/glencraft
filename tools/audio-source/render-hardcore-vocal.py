@@ -29,8 +29,8 @@ import engine1260 as E
 
 ROOT = Path(__file__).resolve().parents[2]
 MUSIC = ROOT / "music"
-OUT_DIR = Path(os.environ.get("HC_OUT", "/workspace/qa/audio-1260/v2"))
-VOC = Path(os.environ.get("VOC_DIR", "/workspace/qa/audio-1260/v2/vocals"))
+OUT_DIR = Path(os.environ.get("HC_OUT", "/workspace/qa/audio-1260/v3"))
+VOC = Path(os.environ.get("VOC_DIR", "/workspace/qa/audio-1260/v3/vocals"))
 
 SR = E.SR
 BPM = 165.0
@@ -120,19 +120,13 @@ def load_stem(name):
 
 
 def load_bank():
-    bank = {
-        "a_lead": load_stem("hook_a_lead.wav"),
-        "b_lead": load_stem("hook_b_lead.wav"),
-        "a_dbl": load_stem("hook_a_double.wav"),
-        "b_dbl": load_stem("hook_b_double.wav"),
-        "a_harm": load_stem("hook_a_harm.wav"),
-        "b_harm": load_stem("hook_b_harm.wav"),
-        "a_oct": load_stem("hook_a_oct.wav"),
-        "b_oct": load_stem("hook_b_oct.wav"),
-        "a_dry": load_stem("hook_a_lead_dry.wav"),
-        "b_dry": load_stem("hook_b_lead_dry.wav"),
-        "tag": load_stem("tag_to_the_hills.wav"),
-    }
+    bank = {"tag": load_stem("tag_to_the_hills.wav")}
+    for key in "abcd":
+        bank[f"{key}_lead"] = load_stem(f"hook_{key}_lead.wav")
+        bank[f"{key}_dbl"] = load_stem(f"hook_{key}_double.wav")
+        bank[f"{key}_harm"] = load_stem(f"hook_{key}_harm.wav")
+        bank[f"{key}_oct"] = load_stem(f"hook_{key}_oct.wav")
+        bank[f"{key}_dry"] = load_stem(f"hook_{key}_lead_dry.wav")
     for name in ("oh", "hey", "yeah", "glen", "sleep", "dance", "up"):
         bank[f"chop_{name}"] = load_stem(f"chop_{name}.wav")
         dry = VOC / f"chop_{name}_dry.wav"
@@ -211,13 +205,16 @@ def render():
             return bank["a_dry"], bank["b_dry"]
         return bank["a_lead"], bank["b_lead"]
 
-    def place_hook_at(bar, gain=1.0, layers="full", dry=False):
-        """Place a 2-bar A or B hook starting at `bar` (even = A, odd = B)."""
-        if bar < 0:
+    def place_hook_at(bar, gain=1.0, layers="full", dry=False, hookset="ab"):
+        """Place a 2-bar hook starting at `bar`. hookset 'ab' (drop 1) or 'cd' (drop 2)."""
+        if bar is None or bar < 0:
             return
         t0 = t_body(bar)
-        is_a = (bar % 4) < 2
-        key = "a" if is_a else "b"
+        first = (bar % 4) < 2
+        if hookset == "cd":
+            key = "c" if first else "d"
+        else:
+            key = "a" if first else "b"
         lead = bank[f"{key}_dry"] if dry else bank[f"{key}_lead"]
         place_stem(vocals, t0, lead, gain=gain)
         if layers in ("full", "thick"):
@@ -420,13 +417,11 @@ def render():
 
         # Drops: relentless 2-bar hook, full layers, rest/chops on bars 6-7 of each 8
         if drop_sec:
+            hookset = "cd" if sec_arr == "drop2" else "ab"
             if phrase < 6:
-                # A/B alternation every 2 bars, already handled by place_hook_at
-                layers = "full" if (arr_bar % 16) < 8 or phrase >= 2 else "thick"
-                # first 8 of a 16: full; second 8: add more harm already in full
-                place_hook_at(bar if (bar % 2 == 0) else None, gain=1.0, layers="full") if False else None
                 if arr_bar % 2 == 0:
-                    place_hook_at(bar, gain=1.00 if sec_arr == "drop1" else 1.04, layers="full")
+                    g = 1.00 if sec_arr == "drop1" else 1.04
+                    place_hook_at(bar, gain=g, layers="full", hookset=hookset)
             elif phrase == 6:
                 # answer: chops + a dry echo of the landing word
                 chop_cycle = ["chop_oh", "chop_hey", "chop_yeah", "chop_glen"]
@@ -463,12 +458,19 @@ def render():
     # Tight pump on everything except the kick. Vocals a little less so words stay clear.
     duck = E.sidechain(N, kick_times, depth=0.90, rel=0.155)
     duck_v = 0.28 + 0.72 * duck
-    duck_d = 0.58 + 0.42 * duck  # donk sits on the off-beat; keep it loud
     music *= duck[:, None]
     drums *= duck[:, None]       # clap/hats/snares pump; kick is on its own bus
     fx *= duck[:, None]
     vocals *= duck_v[:, None]
-    donk_bus *= duck_d[:, None]
+    # Donk: fundamental (55–120 Hz) is sidechained hard and short so it
+    # only speaks between kicks; mid/harmonics stay louder. Parallel sat
+    # adds 80–100 Hz harmonic weight without a longer 50 Hz tail.
+    duck_low = E.sidechain(N, kick_times, depth=0.94, rel=0.075)
+    duck_mid = 0.62 + 0.38 * duck
+    donk_sat = E.parallel_sat(donk_bus, drive=2.6, mix=0.45, hp=70, focus_hz=92)
+    low = np.stack([E.sos_lp(donk_sat[:, 0], 120, 2), E.sos_lp(donk_sat[:, 1], 120, 2)], 1)
+    mid = donk_sat - low
+    donk_bus = low * duck_low[:, None] + mid * duck_mid[:, None]
 
     # Break scene: close the tops, keep kick + a quieter donk + dry-ish vocal
     br_a = int(round((preroll + 64 * BAR) * SR))
@@ -506,7 +508,7 @@ def render():
         for bus in (drums, donk_bus, music, fx, vocals, kick_bus):
             bus[i0:i1] *= hole[:, None]
 
-    mix = kick_bus * 1.00 + drums * 1.00 + donk_bus * 1.15 + tops * 1.0 + vocals * 1.95
+    mix = kick_bus * 1.00 + drums * 1.00 + donk_bus * 1.28 + tops * 1.0 + vocals * 1.95
 
     i0 = int(round(preroll * SR))
     target = int(round(BARS * 4 * SPB * SR))
@@ -523,8 +525,8 @@ def render():
     body = E.widen_highs(body, hz=550, amount=1.40)
 
     # Kick-band presence without bringing the donk with it
-    body[:, 0] = E.rbj(E.rbj(body[:, 0], 50, 0.90, "peak", gain_db=3.2), 72, 1.1, "peak", gain_db=1.8)
-    body[:, 1] = E.rbj(E.rbj(body[:, 1], 50, 0.90, "peak", gain_db=3.2), 72, 1.1, "peak", gain_db=1.8)
+    body[:, 0] = E.rbj(E.rbj(E.rbj(body[:, 0], 50, 0.90, "peak", gain_db=3.0), 72, 1.1, "peak", gain_db=2.2), 95, 1.3, "peak", gain_db=2.0)
+    body[:, 1] = E.rbj(E.rbj(E.rbj(body[:, 1], 50, 0.90, "peak", gain_db=3.0), 72, 1.1, "peak", gain_db=2.2), 95, 1.3, "peak", gain_db=2.0)
     # Vocal presence shelf (intelligibility)
     body[:, 0] = E.rbj(E.rbj(body[:, 0], 3200, 0.85, "peak", gain_db=2.6), 1800, 0.9, "peak", gain_db=1.4)
     body[:, 1] = E.rbj(E.rbj(body[:, 1], 3200, 0.85, "peak", gain_db=2.6), 1800, 0.9, "peak", gain_db=1.4)
@@ -636,6 +638,8 @@ def render():
         st2 = lufs_ffmpeg(tmp_drop)
         print("drop LUFS after makeup", {k: st2[k] for k in st2 if k != "S"})
 
+    body = E.seamless_loop(body, xfade_s=0.06, polish_s=0.010)
+
     wav = OUT_DIR / "music-hardcore.wav"
     mp3 = OUT_DIR / "music-hardcore.mp3"
     sf.write(str(wav), body, SR, subtype="PCM_24")
@@ -689,6 +693,7 @@ def render():
     preview("preview-hardcore-arrange", 8, 40)          # build + drop hit
     preview("preview-hardcore-break-in", SEC["drop1"][1] - 16, SEC["build2"][0] + 8)
     preview("preview-hardcore-tag", 14, 20)             # pre-drop tag + impact
+    preview("preview-hardcore-drop2", SEC["drop2"][0], SEC["drop2"][0] + 32)  # new chorus
     # full track already at music-hardcore.mp3
 
     # A/B vs reference

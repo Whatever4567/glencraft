@@ -128,25 +128,25 @@ def sine_sweep(freq_hz):
 
 
 # --- Drums ------------------------------------------------------------------------
-def make_kick(rng, dur=0.22):
-    """Punchy clean UK-hardcore kick: 50 Hz fundamental, short click, no mid thud.
+def make_kick(rng, dur=0.155):
+    """Punchy clean UK-hardcore kick: 50 Hz fundamental, short click, short tail.
 
-    Pitch drops to 50 Hz in a few milliseconds so 40–60 Hz is the spectral peak
-    (matching t1132-ref). Mild saturation only — no 98 Hz punch or 70–1800 mid
-    layer, which previously piled energy in 60–150 Hz and made the kick boxy.
+    Pitch drops to 50 Hz in a few milliseconds so 40–60 Hz is the spectral peak.
+    The sub decays in ~55 ms and the whole hit is over before the off-beat donk
+    (181 ms at 165 BPM), so the donk can own 60–100 Hz without the kick masking it.
     """
     n = int(dur * SR)
     t = np.arange(n) / SR
     f = 50.0 + 110.0 * np.exp(-t / 0.0075)
-    body = sine_sweep(f) * (1.0 - np.exp(-t / 0.0007)) * np.exp(-t / 0.048)
-    sub = np.sin(2 * np.pi * 50.0 * t) * (1.0 - np.exp(-t / 0.0012)) * np.exp(-t / 0.12) * 1.25
-    punch = np.sin(2 * np.pi * 62.0 * t) * np.exp(-t / 0.014) * 0.32
+    body = sine_sweep(f) * (1.0 - np.exp(-t / 0.0007)) * np.exp(-t / 0.036)
+    sub = np.sin(2 * np.pi * 50.0 * t) * (1.0 - np.exp(-t / 0.0012)) * np.exp(-t / 0.052) * 1.20
+    punch = np.sin(2 * np.pi * 62.0 * t) * np.exp(-t / 0.009) * 0.18
     noise = rng.standard_normal(n)
-    click = sos_hp(noise, 4000) * np.exp(-t / 0.0026) * 0.40
+    click = sos_hp(noise, 4000) * np.exp(-t / 0.0026) * 0.42
     click += sos_bp(noise, 2500, 6500) * np.exp(-t / 0.0035) * 0.16
     sig = body * 0.55 + sub + punch + click
     sig = tanh_sat(sig, 1.08)
-    k = int(0.028 * SR)
+    k = int(0.010 * SR)
     sig[-k:] *= np.linspace(1, 0, k)
     return sig.astype(np.float64)
 
@@ -194,7 +194,7 @@ def make_donk(freq, rng, spb, style="bounce"):
     body = sos_bp(np.sin(ph_c), 90, 220)
     benv = np.exp(-t / 0.090) * fade_out
     benv[:att] *= np.linspace(0, 1, att)
-    root = np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.055) * fade_out
+    root = np.sin(2 * np.pi * freq * t) * np.exp(-t / 0.085) * fade_out
     root[:att] *= np.linspace(0, 1, att)
     # 1.5× root sits in 87–110 Hz (the reference's 80–100 Hz donk band)
     upper = np.sin(2 * np.pi * freq * 1.5 * t) * np.exp(-t / 0.070) * fade_out
@@ -209,7 +209,7 @@ def make_donk(freq, rng, spb, style="bounce"):
     saw = sos_hp(rbj_tv_low(saw, cut, Q=1.1), 110)
     rb_env = (t / (t[-1] + 1e-12)) ** 0.62 * fade_out * 0.50
 
-    sig = donk * denv * 1.55 + body * benv * 1.05 + root * 0.95 + upper * 0.85 + saw * rb_env
+    sig = donk * denv * 1.55 + body * benv * 1.10 + root * 1.20 + upper * 1.10 + saw * rb_env
     # Keep rumble below the lowest donk root out; notch the kick fundamental narrowly
     sig = sos_hp(sig, 54)
     sig = rbj(sig, 50, 5.5, "peak", gain_db=-7.0)
@@ -624,6 +624,26 @@ def make_zap(freq, dur=0.09):
     sig += sos_bp(np.sin(2 * np.pi * np.cumsum(f * 2.1) / SR), 800, 4000) * np.exp(-t / 0.03) * 0.3
     return fade(tanh_sat(sig, 1.3), 0.6, 8)
 
+
+
+def parallel_sat(x, drive=2.6, mix=0.42, hp=70, focus_hz=92):
+    """Parallel saturation: keep the dry fundamental, add harmonics.
+
+    High-passed so the 50 Hz kick band stays clean. A mild 90 Hz peak on the
+    wet path puts extra bounce weight in 80–100 Hz.
+    """
+    if x.ndim == 1:
+        wet = tanh_sat(x, drive)
+        wet = sos_hp(wet, hp)
+        wet = rbj(wet, focus_hz, 1.3, "peak", gain_db=3.0)
+        return x + wet * mix
+    y = np.zeros_like(x)
+    for ch in range(x.shape[1]):
+        wet = tanh_sat(x[:, ch], drive)
+        wet = sos_hp(wet, hp)
+        wet = rbj(wet, focus_hz, 1.3, "peak", gain_db=3.0)
+        y[:, ch] = x[:, ch] + wet * mix
+    return y
 
 def mono_below(x, hz=150):
     """Force the low end to mono; keep stereo above hz."""
