@@ -2,12 +2,12 @@
    She wanders the overworld by day, dancing a catwalk to her song (the user's
    own AI TikTok, used with permission, trimmed of the TikTok outro / end screen
    and looped). Harmless, single instance, does not change world blocks, first-
-   person arms, or other mobs. Footstep thuds and a near-field camera shake are
-   procedural. */
+   person arms, or other mobs. Footstep thuds are procedural. The giant singer
+   no longer shakes the camera or the ground when she walks or sings. */
 (function v1251() {
   const C = (typeof window !== 'undefined' && window.__popstarCore) ? window.__popstarCore : null;
   const U = window.__v1251 = {
-    err: null, ver: '1.2.51', spawned: 0, despawned: 0, rolls: 0, hits: 0,
+    err: null, ver: '1.2.57', spawned: 0, despawned: 0, rolls: 0, hits: 0,
     present: 0, songOn: 0, thuds: 0, shakes: 0, blocked: 0
   };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -222,11 +222,8 @@
   }
 
   function applyShake() {
-    if (shake <= 0 || typeof camera === 'undefined') return;
-    const s = shake;
-    camera.position.x += (Math.random() - 0.5) * s;
-    camera.position.y += (Math.random() - 0.5) * s * 0.6;
-    camera.position.z += (Math.random() - 0.5) * s;
+    // 1.2.57: the giant singer must not shake the camera or the ground.
+    shake = 0;
   }
 
   function pickSpawn() {
@@ -287,6 +284,7 @@
       kind: 'popstar', g: parts.g, parts: parts, hostile: false, harmless: true,
       hp: 9999, hitY: 16, hitR: (C.BODY_R || 4.2), tall: C.HEIGHT, speed: C.STRIDE / C.BEAT, supportY: gy,
       flee: 0, angry: 0, mats: parts.mats, named: true,
+      timer: 9999, biteCd: 0, noCull: true, noDespawn: true, immortal: true,
       yaw: yaw || 0, destYaw: yaw || 0, pathX: gx, pathZ: gz, pathYaw: yaw || 0,
       born: (typeof performance !== 'undefined' ? performance.now() : 0),
       life: 0, tSong: 0, lastStep: -1
@@ -295,6 +293,7 @@
     attachToMobs(rec);
     if (U.songBuf) startSong(); else loadSong();
     U.spawned++; U.present = 1;
+    try { U.protect(rec); } catch (_) {}
     try { if (typeof toast === 'function') toast('A giant pop star is strutting through the glen!'); } catch (_) {}
     return rec;
   };
@@ -328,9 +327,8 @@
     if (typeof started !== 'undefined' && !started) return;
     if (typeof paused !== 'undefined' && paused) return;
     if (!aLive) return;
-    if ((typeof daylight === 'number' && daylight < 0.35) || aLive.life > C.LIFE) {
-      U.despawn(); return;
-    }
+    // 1.2.57: she is not an animal. Night, life timers, distance and
+    // mob-cap culls must not despawn her. Teleport / overworld exit still can.
     aLive.life += dt;
     const rec = aLive;
     const parts = rec.parts;
@@ -440,16 +438,8 @@
       const fy = st.left.planted ? gL : gR;
       thud(f.x, fy, f.z);
       try { if (typeof burst === 'function') burst(f.x, fy + 0.2, f.z, 0xc8c0a8, 8, 2.5); } catch (_) {}
-      if (typeof P !== 'undefined' && P) {
-        const dist = Math.hypot(hipWX - P.x, (support + 4) - (P.y || 0), hipWZ - P.z);
-        if (dist < 48) {
-          const amt = Math.min(0.55, 6 / (dist + 4));
-          shake = Math.max(shake, amt);
-          U.shakes++;
-        }
-      }
     }
-    shake *= Math.max(0, 1 - dt * 4.5);
+    shake = 0;
 
     updateSongPos({ x: hipWX, y: support, z: hipWZ });
   }
@@ -467,7 +457,23 @@
   try {
     const um = updateMobs;
     window.updateMobs = updateMobs = function (dt) {
+      const rec = aLive;
+      let idx = -1;
+      // Keep her out of animal update / cap / cull / noMobs sweep for this pass.
+      try {
+        if (rec && typeof mobs !== 'undefined' && Array.isArray(mobs)) {
+          idx = mobs.indexOf(rec);
+          if (idx >= 0) mobs.splice(idx, 1);
+        }
+      } catch (_) {}
       const r = um.apply(this, arguments);
+      try {
+        if (rec && typeof mobs !== 'undefined' && Array.isArray(mobs) && idx >= 0 && mobs.indexOf(rec) < 0) {
+          mobs.splice(Math.min(idx, mobs.length), 0, rec);
+        }
+      } catch (_) {}
+      try { U.protect(); } catch (e) { ERR('prot', e); }
+      try { U.flushPending(); } catch (e) { ERR('pend', e); }
       try { tickPopstar(dt); } catch (e) { ERR('tick', e); }
       return r;
     };
@@ -478,6 +484,17 @@
     window.placeCamera = placeCamera = function () {
       const r = pc.apply(this, arguments);
       try { applyShake(); } catch (e) { ERR('shake', e); }
+      try {
+        if (aLive && aLive.g && typeof camera !== 'undefined' && camera && camera.position) {
+          U.protect(aLive);
+          const p = aLive.g.position;
+          const d = Math.hypot(camera.position.x - p.x, (camera.position.y || 0) - (p.y || 0), camera.position.z - p.z);
+          if (d < 20 && typeof camera.near === 'number' && camera.near > 0.08) {
+            camera.near = 0.05;
+            try { camera.updateProjectionMatrix(); } catch (_) {}
+          }
+        }
+      } catch (e) { ERR('near', e); }
       return r;
     };
   } catch (e) { ERR('pc', e); }
@@ -537,6 +554,51 @@
     if (typeof NICE !== 'undefined') NICE.popstar = 'Pop star';
   } catch (_) {}
 
+  // 1.2.57: exempt from removeMob / noMobs sweep (animal-style despawn).
+  try {
+    const rm = removeMob;
+    window.removeMob = removeMob = function (a) {
+      if (a && (a === aLive || a.kind === 'popstar')) {
+        U.protected = (U.protected || 0) + 1;
+        try { U.protect(a); } catch (_) {}
+        return a;
+      }
+      return rm.apply(this, arguments);
+    };
+  } catch (e) { ERR('rmw', e); }
+  try {
+    if (window.__v127 && typeof __v127.sweep === 'function') {
+      const sw = __v127.sweep;
+      __v127.sweep = function () {
+        const rec = aLive;
+        let idx = -1;
+        try {
+          if (rec && typeof mobs !== 'undefined') {
+            idx = mobs.indexOf(rec);
+            if (idx >= 0) mobs.splice(idx, 1);
+          }
+        } catch (_) {}
+        const n = sw.apply(this, arguments);
+        try {
+          if (rec) {
+            if (typeof mobs !== 'undefined' && idx >= 0 && mobs.indexOf(rec) < 0) {
+              mobs.splice(Math.min(idx, mobs.length), 0, rec);
+            }
+            U.protect(rec);
+          }
+        } catch (_) {}
+        return n;
+      };
+    }
+  } catch (e) { ERR('sw', e); }
+  try {
+    const col = collides;
+    window.collides = collides = function (x, y, z) {
+      try { if (U.solidAt(x, y, z)) return true; } catch (e) { ERR('col', e); }
+      return col.apply(this, arguments);
+    };
+  } catch (e) { ERR('colw', e); }
+
 
   function standOk(x, y, z) {
     try {
@@ -553,6 +615,10 @@
   U.MAX_STEP = (C && C.MAX_STEP != null) ? C.MAX_STEP : 1;
   U.BODY_R = (C && C.BODY_R != null) ? C.BODY_R : 4.2;
   U.FOOT_R = 2.0;
+  // Solid feet/legs cylinder: wide enough to stop at her boots (~hip/2 + margin)
+  // so the player can walk up to her feet without entering the mesh.
+  U.COLLIDE_R = 2.6;
+  U.COLLIDE_H = (C && C.HEIGHT) || 32;
 
   // Sample her giant footprint: every point must be walkable terrain within 1 block of yRef.
   function footprintOk(x, z, yRef) {
@@ -597,7 +663,7 @@
     const px = player.x, py = player.y || 0, pz = player.z;
     const gx = rec.g.position.x, gy = rec.g.position.y || 0, gz = rec.g.position.z;
     const h = (C && C.HEIGHT) || 32;
-    const r = U.BODY_R;
+    const r = U.COLLIDE_R || 2.6;
     if (py + 1.8 < gy - 0.5 || py > gy + h + 0.5) {
       return { pushed: false, dist: Math.hypot(px - gx, pz - gz) };
     }
@@ -663,6 +729,107 @@
     return null;
   }
 
+
+  U.meshOk = function (rec) {
+    rec = rec || aLive;
+    if (!rec || !rec.g) return false;
+    try {
+      if (typeof scene !== 'undefined' && rec.g.parent && rec.g.parent !== scene) return false;
+      if (rec.g.visible === false) return false;
+    } catch (_) { return false; }
+    return true;
+  };
+
+  U.protect = function (rec) {
+    rec = rec || aLive;
+    if (!rec || !rec.g) return false;
+    try {
+      rec.kind = 'popstar';
+      rec.hostile = false;
+      rec.harmless = true;
+      rec.immortal = true;
+      rec.noCull = true;
+      rec.noDespawn = true;
+      rec.g.visible = true;
+      rec.g.frustumCulled = false;
+      rec.g.matrixAutoUpdate = true;
+      if (typeof scene !== 'undefined' && rec.g.parent !== scene) scene.add(rec.g);
+      attachToMobs(rec);
+      if (C && C.dressVisible && rec.parts) C.dressVisible(rec.parts);
+      rec.g.traverse(function (o) {
+        o.frustumCulled = false;
+        if (o.geometry) {
+          try {
+            if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+            if (o.geometry.boundingSphere) {
+              o.geometry.boundingSphere.radius = Math.max(o.geometry.boundingSphere.radius || 0, 48);
+            }
+          } catch (_) {}
+        }
+      });
+    } catch (e) { ERR('protect', e); }
+    return true;
+  };
+
+  U.solidAt = function (x, y, z) {
+    const rec = aLive;
+    if (!rec || !rec.g || !rec.g.position) return false;
+    const gx = rec.g.position.x, gy = rec.g.position.y || 0, gz = rec.g.position.z;
+    const r = U.COLLIDE_R || 2.6, h = U.COLLIDE_H || 32;
+    if (y + 1.8 < gy - 0.2 || y > gy + h + 0.5) return false;
+    const dx = x - gx, dz = z - gz;
+    return (dx * dx + dz * dz) < (r * r);
+  };
+
+  U.forcePresent = function (opts) {
+    opts = opts || {};
+    if (U.meshOk(aLive)) {
+      U.protect(aLive);
+      if (aLive) aLive.life = 0;
+      return aLive;
+    }
+    if (aLive) {
+      try { U.despawn(); } catch (_) { aLive = null; }
+    }
+    const P0 = (typeof P !== 'undefined') ? P : null;
+    let sp = pickSpawn();
+    if (!sp && P0) {
+      const yaw = (typeof P0.yaw === 'number') ? P0.yaw : 0;
+      const rawX = P0.x + Math.sin(yaw) * 28, rawZ = P0.z + Math.cos(yaw) * 28;
+      const land = findLandNear(rawX, rawZ, 96) || findLandNear(P0.x, P0.z, 96);
+      if (land) sp = {x: land.x, y: land.y, z: land.z, yaw: yaw + Math.PI};
+    }
+    if (!sp) {
+      U.pendingPresent = {t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()), n: ((U.pendingPresent && U.pendingPresent.n) || 0) + 1, why: opts.why || 'force'};
+      return null;
+    }
+    const rec = U.spawnAt(sp.x, sp.y, sp.z, sp.yaw || 0);
+    if (rec) {
+      U.protect(rec);
+      rec.life = 0;
+      U.pendingPresent = null;
+      if (opts.why === 'teleport') U.tpSpawned = (U.tpSpawned || 0) + 1;
+    } else {
+      U.pendingPresent = {t0: (typeof performance !== 'undefined' ? performance.now() : Date.now()), n: ((U.pendingPresent && U.pendingPresent.n) || 0) + 1, why: opts.why || 'force'};
+    }
+    return rec;
+  };
+
+  U.flushPending = function () {
+    if (!U.pendingPresent && !U.pendingTp) return null;
+    const rec = U.forcePresent({why: (U.pendingTp ? 'teleport' : 'pending')});
+    if (rec && U.pendingTp) {
+      const pending = U.pendingTp;
+      U.pendingTp = null;
+      try {
+        const ok = U.teleportTo();
+        if (ok === true || (U.tp && U.tp.last === 'ok')) pending.done = true;
+        else U.pendingTp = pending;
+      } catch (e) { ERR('flush-tp', e); U.pendingTp = pending; }
+    }
+    return rec;
+  };
+
   // Pause menu: Teleport to Pop Star. Spawns her nearby if she is not in the world,
   // then puts the player on solid ground a few blocks in front of her, facing her.
   U.teleportTo = function () {
@@ -680,28 +847,17 @@
         return false;
       }
       if (typeof P === 'undefined' || !P) { R.last = 'noplayer'; return false; }
-      let rec = aLive;
+      let rec = U.meshOk(aLive) ? aLive : null;
       if (!rec) {
-        let sp = pickSpawn();
-        if (!sp) {
-          const yaw = (typeof P.yaw === 'number') ? P.yaw : 0;
-          const raw = {x: P.x + Math.sin(yaw) * 28, z: P.z + Math.cos(yaw) * 28};
-          const land = findLandNear(raw.x, raw.z, 96) || findLandNear(P.x, P.z, 96);
-          if (!land) {
-            R.last = 'noland';
-            try { toast('Could not find dry land for the pop star'); } catch (_) {}
-            return false;
-          }
-          sp = {x: land.x, y: land.y, z: land.z, yaw: yaw + Math.PI};
-        }
-        rec = U.spawnAt(sp.x, sp.y, sp.z, sp.yaw);
+        rec = U.forcePresent({why: 'teleport'});
         if (!rec) {
-          R.last = 'nospawn';
-          try { toast('Could not bring in the pop star'); } catch (_) {}
-          return false;
+          U.pendingTp = {n: ((U.pendingTp && U.pendingTp.n) || 0) + 1, t0: (typeof performance !== 'undefined' ? performance.now() : Date.now())};
+          R.last = 'pending';
+          try { toast('Bringing in the pop star...'); } catch (_) {}
+          return 'pending';
         }
-        U.tpSpawned = (U.tpSpawned || 0) + 1;
       }
+      try { U.protect(rec); rec.life = 0; } catch (_) {}
       const p = rec.g && rec.g.position;
       if (!p) { R.last = 'nobody'; return false; }
       const sp = spotInFront(rec, 42);
