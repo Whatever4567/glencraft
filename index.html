@@ -37225,7 +37225,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const col = new THREE.Color('#' + w); m.traverse(o => { if (o.isMesh) for (const mm of [].concat(o.material)) mm.color && mm.color.copy(col).lerp(new THREE.Color(1, 1, 1), 0.25); }); });
   if (U.cat.clansman) U.cat.clansman.tartan = ['Pants'];
   U.add({
-    pig: {f: 'pig2', k: 1.4},
+    pig: {f: 'pig3', k: 1.4},
     duck: {f: 'duck', k: 1.0, pal: {'9f9f9f': 'b3ab9c', '7e2648': '2f7a3e', '895123': 'e0a02a'}, headCol: ['b3ab9c', '2f7a3e', 0.62]},
     haggis: {f: 'haggis', k: 1.0, pal: {'674d3b': '8a6a54', '3c2815': '5c4030'}, tam: 'auto'},
     imp: {f: 'imp', k: 1.0},
@@ -37368,6 +37368,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     nmunicorn: {p: 'fur', a: 0.5, b: 1.16}   // pearly white: gentler grain
   };
   for (const k in S) if (U.cat[k]) U.cat[k].gl = S[k];
+  if (U.cat.pig && U.cat.pig.f === 'pig3') U.cat.pig.gl = null;
   if (U.cat.nm28) { U.cat.nm28.tint = 0xffffff; U.cat.nm28.emis = 0x0a1028; }   // the stars carry the colour now
   U.post.push((a, c, M, m, hd, s, mats) => { try { U.glStyle(a, c, m, hd, mats); } catch (e) { U.err.push('gl ' + e); } });
 })();
@@ -46618,12 +46619,13 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.size = big ? 4096 : 2048;
   const TX = {}, L = new THREE.TextureLoader();
   function tex(f) { if (TX[f]) return TX[f]; const t = TX[f] = {t: null, wait: []};
-    L.load('assets/tex/' + f + '_' + (big ? '4k' : '2k') + '.webp?' + (typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : ''), x => {
-      x.flipY = false; x.colorSpace = THREE.SRGBColorSpace; x.generateMipmaps = true; x.minFilter = THREE.LinearMipmapLinearFilter; x.magFilter = THREE.LinearFilter;
+    const sz = (f === 'pig3') ? '2k' : (big ? '4k' : '2k');
+    L.load('assets/tex/' + f + '_' + sz + '.webp?' + (typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : ''), x => {
+      x.flipY = false; if (THREE.SRGBColorSpace) x.colorSpace = THREE.SRGBColorSpace; if (THREE.sRGBEncoding) x.encoding = THREE.sRGBEncoding; x.needsUpdate = true; x.generateMipmaps = true; x.minFilter = THREE.LinearMipmapLinearFilter; x.magFilter = THREE.LinearFilter;
       try { x.anisotropy = Math.min(big ? 8 : 4, renderer.capabilities.getMaxAnisotropy()); } catch (_) {}
       t.t = x; U.loaded[f] = 1; t.wait.forEach(fn => fn(x)); t.wait = []; }, undefined, e => { U.err = 'tex ' + f; }); return t; }
-  const use = (m, x) => m.traverse(o => { if (!o.isMesh) return; for (const mm of [].concat(o.material)) if (mm && mm.map) { const old = mm.map; x.wrapS = old.wrapS; x.wrapT = old.wrapT; x.channel = old.channel || 0; mm.map = x; mm.needsUpdate = true; U.swapped++; } });
-  C.post.push((a, c, M, m) => { try { if (c.f !== 'pig2' && c.f !== 'sheep2') return; const t = tex(c.f); if (t.t) use(m, t.t); else t.wait.push(x => use(m, x)); } catch (e) { U.err = String(e); } });
+  const use = (m, x) => { if (!x || !x.image) return; if (THREE.SRGBColorSpace) x.colorSpace = THREE.SRGBColorSpace; if (THREE.sRGBEncoding) x.encoding = THREE.sRGBEncoding; x.needsUpdate = true; m.traverse(o => { if (!o.isMesh) return; for (const mm of [].concat(o.material)) if (mm) { if (mm.map) { const old = mm.map; x.wrapS = old.wrapS || x.wrapS; x.wrapT = old.wrapT || x.wrapT; x.channel = old.channel || 0; } mm.map = x; if (mm.color) mm.color.setHex(0xffffff); mm.needsUpdate = true; U.swapped++; } }); };
+  C.post.push((a, c, M, m) => { try { if (c.f !== 'pig2' && c.f !== 'pig3' && c.f !== 'sheep2') return; const t = tex(c.f); if (t.t) use(m, t.t); else t.wait.push(x => use(m, x)); } catch (e) { U.err = String(e); } });
 })();
 
 /* GLX-C315 (v1.1.25): MOON AND MARS BLOCKS. Block slots 191-199 are used for real planet blocks with painted
@@ -47163,7 +47165,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   function shorn(fn) { if (shornT) return fn(shornT); shornWait.push(fn); if (shornWait.length > 1) return;
     const big = window.__c313 && __c313.size === 4096;
     new THREE.TextureLoader().load('assets/tex/sheep2s_' + (big ? '4k' : '2k') + '.webp?' + (typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : ''), x => {
-      x.flipY = false; x.colorSpace = THREE.SRGBColorSpace; x.generateMipmaps = true; x.minFilter = THREE.LinearMipmapLinearFilter; x.magFilter = THREE.LinearFilter;
+      x.flipY = false; if (THREE.SRGBColorSpace) x.colorSpace = THREE.SRGBColorSpace; if (THREE.sRGBEncoding) x.encoding = THREE.sRGBEncoding; x.needsUpdate = true; x.generateMipmaps = true; x.minFilter = THREE.LinearMipmapLinearFilter; x.magFilter = THREE.LinearFilter;
       try { x.anisotropy = Math.min(big ? 8 : 4, renderer.capabilities.getMaxAnisotropy()); } catch (_) {}
       shornT = x; const w = shornWait; shornWait = []; w.forEach(f => f(x)); }, undefined, e => ERR('tex', e)); }
   if (C && C.cat && C.cat.sheep) {
@@ -62358,10 +62360,15 @@ try {
       walk.setEffectiveWeight(0);
       H._p1248clip = 1;
     }
+    const idle = H.act && (H.act.idle || H.act.Idle);
+    if (idle && !H._pIdleOn) {
+      try { idle.reset().play(); idle.setLoop(THREE.LoopRepeat, Infinity); idle.setEffectiveWeight(0); H._pIdleOn = 1; } catch (_) {}
+    }
     const moving = !wallow && !!(a.moving || a.flee > 0 || (H.v || 0) > 0.25);
-    if (wallow) walk.setEffectiveWeight(0);
+    if (wallow) { walk.setEffectiveWeight(0); if (idle) idle.setEffectiveWeight(0); }
     else {
       walk.setEffectiveWeight(moving ? 1 : 0);
+      if (idle) idle.setEffectiveWeight(moving ? 0 : 1);
       if (moving) walk.timeScale = Math.max(0.55, Math.min(2.2, (H.v || a.speed || 1) / 1.3));
     }
     // Do not reset pig2 bones to bind: that drops the Armature transform and hangs the mesh.
@@ -62383,7 +62390,7 @@ try {
         // tickPig rolls around Z to lie on its side. Yaw the model once so a
         // Z roll is a side-lie, not a somersault.
         if (!H._yaw1248 && H.m && typeof THREE !== 'undefined') {
-          const tip = H.m.getObjectByName('Bone003') || H.m.getObjectByName('Bone002');
+          const tip = H.m.getObjectByName('Bone003') || H.m.getObjectByName('Bone002') || H.m.getObjectByName('Snout');
           if (tip && a.g) {
             a.g.updateMatrixWorld(true); H.m.updateMatrixWorld(true);
             const w = tip.getWorldPosition(new THREE.Vector3());
