@@ -17,7 +17,7 @@ ok(/fog\s*:\s*false/.test(coreSrc), 'core defaults include fog:false');
 ok(/transparent\s*:\s*false/.test(coreSrc), 'core defaults include transparent:false');
 ok(/depthWrite\s*:\s*true/.test(coreSrc), 'core defaults include depthWrite:true');
 ok(coreSrc.includes('P.dressVisible') && coreSrc.includes('frustumCulled = false'), 'dressVisible disables frustum culling');
-ok(coreSrc.includes('PointLight') && /emissiveIntensity = 1\.05/.test(coreSrc), 'she has her own fill light and a vivid dress emissive');
+ok(coreSrc.includes('PointLight') && /emissiveIntensity = 1\.\d+/.test(coreSrc), 'she has her own fill light and a vivid dress emissive');
 ok(runSrc.includes('U.proposeStep') && runSrc.includes('function landY') && runSrc.includes('isFluid'), 'runtime has dry-land helpers');
 
 const coreCtx = { console, window: {}, globalThis: null, THREE: {

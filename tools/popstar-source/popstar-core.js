@@ -21,11 +21,11 @@
     hipY: 0, torso: 5.55, shoulderY: 0,
     neck: 0.7, headH: 2.2, scalpY: 0,
     hairTop: 32,
-    shoulderW: 3.55, waistW: 2.15, hipW: 4.25,
-    thighW: 1.85, thighD: 1.7, shinW: 1.38, shinD: 1.28,
+    shoulderW: 3.45, waistW: 1.88, hipW: 4.55,
+    thighW: 1.92, thighD: 1.7, shinW: 1.48, shinD: 1.28,
     bootW: 1.95, bootD: 2.55,
     upperArm: 3.55, lowerArm: 3.35, hand: 1.05,
-    chestW: 3.55, chestD: 2.05
+    chestW: 3.65, chestD: 2.15
   };
   PR.hipY = PR.bootH + PR.shin + PR.thigh;          // 19.35
   PR.shoulderY = PR.hipY + PR.torso;                // 24.90
@@ -134,48 +134,121 @@
     return new THREE.MeshLambertMaterial(Object.assign({ color: 0xffffff }, VIS, opts || {}, VIS));
   }
 
+  function hairMaps() {
+    const S = 256;
+    const c = document.createElement('canvas'); c.width = S; c.height = S;
+    const g = c.getContext('2d');
+    const lg = g.createLinearGradient(0, 0, S, 0);
+    lg.addColorStop(0, '#d4a84a');
+    lg.addColorStop(0.22, '#f0d078');
+    lg.addColorStop(0.5, '#fff3c0');
+    lg.addColorStop(0.78, '#f0d078');
+    lg.addColorStop(1, '#c4923a');
+    g.fillStyle = lg; g.fillRect(0, 0, S, S);
+    // soft strand lines
+    for (let i = 0; i < 40; i++) {
+      const x = (i + 0.3) * (S / 40);
+      g.strokeStyle = i % 3 === 0 ? 'rgba(255,255,230,0.28)' : 'rgba(160,110,30,0.18)';
+      g.lineWidth = 1 + (i % 2);
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.quadraticCurveTo(x + 4, S * 0.5, x, S);
+      g.stroke();
+    }
+    const map = tagTex(new THREE.CanvasTexture(c));
+    map.wrapS = map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(2, 4);
+    return map;
+  }
+
   function sequinMaps() {
-    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
-    const e = document.createElement('canvas'); e.width = 256; e.height = 256;
+    const S = 1024;
+    const c = document.createElement('canvas'); c.width = S; c.height = S;
+    const e = document.createElement('canvas'); e.width = S; e.height = S;
+    const n = document.createElement('canvas'); n.width = S; n.height = S;
     const g = c.getContext('2d');
     const h = e.getContext('2d');
-    // Bright saturated yellow-gold (#f2c518-ish, slightly hotter so lighting doesn't khaki it).
-    const lg = g.createLinearGradient(0, 0, 0, 256);
-    lg.addColorStop(0, '#ffe34a');
-    lg.addColorStop(0.35, '#f2c518');
-    lg.addColorStop(0.7, '#ffd21c');
-    lg.addColorStop(1, '#e8b40e');
-    g.fillStyle = lg; g.fillRect(0, 0, 256, 256);
-    h.fillStyle = '#000'; h.fillRect(0, 0, 256, 256);
-    // soft vertical folds
-    for (let i = 0; i < 10; i++) {
-      g.fillStyle = i % 2 ? 'rgba(255,236,120,0.28)' : 'rgba(200,140,10,0.18)';
-      g.fillRect(i * 26 + 3, 0, 9, 256);
+    const k = n.getContext('2d');
+    g.fillStyle = '#c8960c'; g.fillRect(0, 0, S, S);
+    h.fillStyle = '#000'; h.fillRect(0, 0, S, S);
+    k.fillStyle = '#8080ff'; k.fillRect(0, 0, S, S);
+    const imgN = k.getImageData(0, 0, S, S);
+    const nd = imgN.data;
+    function setN(x, y, nx, ny, nz) {
+      const i = (y * S + x) * 4;
+      nd[i]     = Math.max(0, Math.min(255, (nx * 0.5 + 0.5) * 255));
+      nd[i + 1] = Math.max(0, Math.min(255, (ny * 0.5 + 0.5) * 255));
+      nd[i + 2] = Math.max(0, Math.min(255, (nz * 0.5 + 0.5) * 255));
+      nd[i + 3] = 255;
     }
-    const sparks = [
-      'rgba(255,255,255,ALP)', 'rgba(255,248,200,ALP)',
-      'rgba(255,230,80,ALP)', 'rgba(255,210,40,ALP)'
-    ];
-    for (let i = 0; i < 2200; i++) {
-      const x = Math.random() * 256, y = Math.random() * 256;
-      const s = 0.7 + Math.random() * 2.4;
-      const a = 0.45 + Math.random() * 0.55;
-      g.fillStyle = sparks[i % sparks.length].replace('ALP', a.toFixed(2));
-      g.beginPath(); g.arc(x, y, s, 0, 6.3); g.fill();
-      if (a > 0.75) {
-        h.fillStyle = 'rgba(255,240,160,' + ((a - 0.4) * 1.2).toFixed(2) + ')';
-        h.beginPath(); h.arc(x, y, s * 1.15, 0, 6.3); h.fill();
+    let seed = 19;
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    // Relaxed random packing — jittered positions, not a regular grid.
+    const pts = [];
+    const minD = 11;
+    for (let tries = 0; tries < 18000 && pts.length < 4200; tries++) {
+      const x = rnd() * S, y = rnd() * S;
+      let ok = true;
+      for (let j = pts.length - 1; j >= 0 && j >= pts.length - 28; j--) {
+        const dx = x - pts[j][0], dy = y - pts[j][1];
+        if (dx * dx + dy * dy < minD * minD) { ok = false; break; }
+      }
+      if (ok) pts.push([x, y, 4.4 + rnd() * 3.6, rnd()]);
+    }
+    for (let i = 0; i < pts.length; i++) {
+      const cx = Math.round(pts[i][0]), cy = Math.round(pts[i][1]);
+      const rad = pts[i][2], u = pts[i][3];
+      const ir = Math.ceil(rad) + 1;
+      const hue = 38 + u * 18;
+      const lit = 55 + rnd() * 32;
+      g.fillStyle = 'hsl(' + hue.toFixed(0) + ',94%,' + lit.toFixed(0) + '%)';
+      g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.fill();
+      g.fillStyle = 'rgba(255,248,210,0.88)';
+      g.beginPath(); g.arc(cx - rad * 0.30, cy - rad * 0.30, rad * 0.36, 0, 6.3); g.fill();
+      g.strokeStyle = 'rgba(80,50,0,0.28)';
+      g.lineWidth = 0.7;
+      g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.stroke();
+      const hot = u < 0.22 || rnd() < 0.10;
+      if (hot) {
+        const a = 0.60 + rnd() * 0.40;
+        h.fillStyle = 'rgba(255,240,170,' + a.toFixed(2) + ')';
+        h.beginPath(); h.arc(cx, cy, rad * 0.75, 0, 6.3); h.fill();
+        if (u < 0.08) {
+          // plus-shaped sparkle
+          g.fillStyle = 'rgba(255,255,245,0.95)';
+          const r = rad * 1.6;
+          g.fillRect(cx - r * 2.0, cy - r * 0.22, r * 4.0, r * 0.44);
+          g.fillRect(cx - r * 0.22, cy - r * 2.0, r * 0.44, r * 4.0);
+          h.fillStyle = 'rgba(255,250,220,0.95)';
+          h.fillRect(cx - r * 1.6, cy - r * 0.18, r * 3.2, r * 0.36);
+          h.fillRect(cx - r * 0.18, cy - r * 1.6, r * 0.36, r * 3.2);
+        }
+      }
+      for (let dy = -ir; dy <= ir; dy++) {
+        for (let dx = -ir; dx <= ir; dx++) {
+          const px = cx + dx, py = cy + dy;
+          if (px < 0 || py < 0 || px >= S || py >= S) continue;
+          const d = Math.sqrt(dx * dx + dy * dy) / rad;
+          if (d >= 1) continue;
+          const nz = Math.sqrt(Math.max(0, 1 - d * d));
+          setN(px, py, dx / rad, -dy / rad, nz);
+        }
       }
     }
-    // a few larger glints
-    for (let i = 0; i < 40; i++) {
-      const x = Math.random() * 256, y = Math.random() * 256;
-      g.fillStyle = 'rgba(255,255,255,0.95)';
-      g.beginPath(); g.arc(x, y, 2.2, 0, 6.3); g.fill();
-      h.fillStyle = 'rgba(255,255,220,0.95)';
-      h.beginPath(); h.arc(x, y, 2.6, 0, 6.3); h.fill();
-    }
-    return { map: tagTex(new THREE.CanvasTexture(c)), emissiveMap: tagTex(new THREE.CanvasTexture(e)) };
+    k.putImageData(imgN, 0, 0);
+    const map = tagTex(new THREE.CanvasTexture(c));
+    const emissiveMap = tagTex(new THREE.CanvasTexture(e));
+    const normalMap = new THREE.CanvasTexture(n);
+    try { if (THREE.LinearSRGBColorSpace) normalMap.colorSpace = THREE.LinearSRGBColorSpace; } catch (_) {}
+    try { if (THREE.LinearEncoding != null) normalMap.encoding = THREE.LinearEncoding; } catch (_) {}
+    normalMap.needsUpdate = true;
+    [map, emissiveMap, normalMap].forEach(t => {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(2.2, 2.2);
+      t.anisotropy = 8;
+      t.needsUpdate = true;
+    });
+    return { map: map, emissiveMap: emissiveMap, normalMap: normalMap };
   }
 
   function goldBootTex() {
@@ -219,6 +292,59 @@
     if (parent) parent.add(m);
     return m;
   }
+  function sphere(r, mat, x, y, z, parent, seg) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg || 12, seg || 10), mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    m.castShadow = false; m.receiveShadow = false;
+    if (parent) parent.add(m);
+    return m;
+  }
+  // Rounded limb: cylinder with spherical caps. Works on THREE r128 (no CapsuleGeometry).
+  function capsule(r, len, mat, x, y, z, parent, seg) {
+    seg = seg || 10;
+    const g = new THREE.Group();
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, Math.max(len, 0.05), seg), mat);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(6, (seg / 2) | 0)), mat);
+    const bot = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(6, (seg / 2) | 0)), mat);
+    top.position.y = len / 2; bot.position.y = -len / 2;
+    g.add(cyl); g.add(top); g.add(bot);
+    g.position.set(x || 0, y || 0, z || 0);
+    if (parent) parent.add(g);
+    return g;
+  }
+  function lathe(profile, mat, parent, segs, x, y, z) {
+    const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
+    const m = new THREE.Mesh(new THREE.LatheGeometry(pts, segs || 24), mat);
+    m.position.set(x || 0, y || 0, z || 0);
+    m.castShadow = false; m.receiveShadow = false;
+    if (parent) parent.add(m);
+    return m;
+  }
+  // A few large tapered ribbon locks along a gentle S-curve (not a cloud of boxes).
+  function hairRibbon(pts, r0, r1, mat, parent, tubular, radial) {
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])));
+    tubular = tubular || 20; radial = radial || 8;
+    const geo = new THREE.TubeGeometry(curve, tubular, r0, radial, false);
+    const pos = geo.attributes.position;
+    for (let i = 0; i <= tubular; i++) {
+      const t = i / tubular;
+      const r = r0 * (1 - t) + r1 * t;
+      const scale = r / r0;
+      const c = curve.getPoint(t);
+      for (let j = 0; j <= radial; j++) {
+        const k = (i * (radial + 1) + j) * 3;
+        pos.array[k]     = c.x + (pos.array[k]     - c.x) * scale;
+        pos.array[k + 1] = c.y + (pos.array[k + 1] - c.y) * scale;
+        pos.array[k + 2] = c.z + (pos.array[k + 2] - c.z) * scale;
+      }
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, mat);
+    m.castShadow = false; m.receiveShadow = false;
+    if (parent) parent.add(m);
+    return m;
+  }
 
   P.make = function () {
     if (typeof THREE === 'undefined') throw new Error('THREE required');
@@ -229,15 +355,18 @@
     const SKIN = 0xf0c49c, SKIN_SH = 0xe0a878;
     const skin = addM(phong({ color: SKIN, shininess: 18, specular: 0x332010 }));
     const skinSh = addM(phong({ color: SKIN_SH, shininess: 14, specular: 0x22180c }));
-    const hairA = addM(phong({ color: 0xffe07a, shininess: 42, specular: 0x887744, emissive: 0x2a2208 }));
-    const hairB = addM(phong({ color: 0xfff0b8, shininess: 55, specular: 0xaa9966, emissive: 0x33280a }));
-    const hairC = addM(phong({ color: 0xe8c45a, shininess: 32, specular: 0x665522, emissive: 0x221a06 }));
+    const hairMap = hairMaps();
+    const hairA = addM(phong({ color: 0xffe08a, map: hairMap, shininess: 14, specular: 0x554422, emissive: 0x2a2208 }));
+    const hairB = addM(phong({ color: 0xfff6d8, map: hairMap, shininess: 48, specular: 0xaa9966, emissive: 0x3a2c0c }));
+    const hairC = addM(phong({ color: 0xe8c45a, map: hairMap, shininess: 18, specular: 0x554422, emissive: 0x221a06 }));
     const seq = sequinMaps();
     const dressOpts = {
-      color: 0xffd21c, map: seq.map, emissive: 0x7a4a00,
-      emissiveMap: seq.emissiveMap, shininess: 110, specular: 0xfff2c0
+      color: 0xf0c010, map: seq.map, emissive: 0xaa7700,
+      emissiveMap: seq.emissiveMap, normalMap: seq.normalMap,
+      shininess: 48, specular: 0xffe08a
     };
-    try { dressOpts.emissiveIntensity = 1.05; } catch (_) {}
+    try { dressOpts.emissiveIntensity = 1.45; } catch (_) {}
+    try { dressOpts.normalScale = new THREE.Vector2(1.35, 1.35); } catch (_) {}
     const dress = addM(phong(dressOpts));
     const dressDark = addM(phong(Object.assign({}, dressOpts, { color: 0xe8b40e, emissive: 0x4a2e00 })));
     const belt = addM(phong({ color: 0x6a4814, shininess: 40, specular: 0x665533 }));
@@ -247,12 +376,12 @@
     const bootMap = goldBootTex();
     const bootM = addM(phong({ color: 0xffd24a, map: bootMap, shininess: 100, specular: 0xfff3c8, emissive: 0x3a2800 }));
     const bootSole = addM(phong({ color: 0xb88620, shininess: 40, specular: 0x665522 }));
-    const lip = addM(phong({ color: 0xc45b6a, shininess: 40, specular: 0x662233 }));
-    const lipHi = addM(phong({ color: 0xe07884, shininess: 50, specular: 0x884444 }));
+    const lip = addM(phong({ color: 0xde8492, shininess: 78, specular: 0xffd4dc }));
+    const lipHi = addM(phong({ color: 0xf4b8c0, shininess: 95, specular: 0xfff0f4 }));
     const eyeW = addM(lamb({ color: 0xfffaf4 }));
     const eyeP = addM(lamb({ color: 0x2a1a12 }));
     const lash = addM(lamb({ color: 0x1a100c }));
-    const brow = addM(lamb({ color: 0x5a3a28 }));
+    const brow = addM(lamb({ color: 0x3a2418 }));
     const micBlk = addM(phong({ color: 0x161616, shininess: 40, specular: 0x444444 }));
     const micGrille = addM(phong({ color: 0xc8cdd4, shininess: 80, specular: 0xffffff, emissive: 0x222222 }));
 
@@ -261,189 +390,348 @@
     const rig = new THREE.Group(); rig.name = 'rig'; g.add(rig);
     const hip = new THREE.Group(); hip.name = 'hip'; hip.position.y = PR.hipY; rig.add(hip);
 
-    // ---- legs (slim, not sticks) ----
+    // ---- legs: rounded capsules, not raw boxes ----
     function makeLeg(side) {
       const root = new THREE.Group(); root.position.set(side * PR.hipW * 0.22, 0, 0); hip.add(root);
       const thigh = new THREE.Group(); root.add(thigh);
-      box(PR.thighW, PR.thigh, PR.thighD, skin, 0, -PR.thigh / 2, 0, thigh);
-      // slight taper at the knee
-      box(PR.thighW * 0.88, PR.thigh * 0.35, PR.thighD * 0.88, skinSh, 0, -PR.thigh * 0.82, 0, thigh);
+      capsule(PR.thighW * 0.48, PR.thigh * 0.92, skin, 0, -PR.thigh / 2, 0, thigh, 12);
       const knee = new THREE.Group(); knee.position.y = -PR.thigh; thigh.add(knee);
+      sphere(PR.thighW * 0.42, skinSh, 0, 0, 0, knee, 10);
       const shin = new THREE.Group(); knee.add(shin);
-      box(PR.shinW, PR.shin, PR.shinD, skinSh, 0, -PR.shin / 2, 0, shin);
-      box(PR.shinW * 0.9, PR.shin * 0.4, PR.shinD * 0.9, skin, 0, -PR.shin * 0.28, 0, shin);
+      // Shaped calf: thicker in the upper third, tapering to a slim ankle.
+      lathe([
+        [PR.shinW * 0.30, -0.05],
+        [PR.shinW * 0.44, -0.9],
+        [PR.shinW * 0.54, -2.15],
+        [PR.shinW * 0.48, -3.6],
+        [PR.shinW * 0.30, -6.2],
+        [PR.shinW * 0.20, -PR.shin + 0.12]
+      ], skinSh, shin, 14);
       const ankle = new THREE.Group(); ankle.position.y = -PR.shin; shin.add(ankle);
       const boot = new THREE.Group(); ankle.add(boot);
-      // chunky gold sparkly ankle boots
-      box(PR.bootW * 0.95, PR.bootH * 0.78, PR.bootD * 0.72, bootM, 0, -PR.bootH * 0.38, 0.12, boot);
-      box(PR.bootW * 1.08, PR.bootH * 0.42, PR.bootD, bootM, 0, -PR.bootH * 0.82, 0.40, boot);
-      box(PR.bootW * 1.12, 0.2, PR.bootD * 1.06, bootSole, 0, -PR.bootH * 1.02, 0.40, boot);
+      boot.position.y = -0.58;
+      // Gold high-heel: slim ankle cuff, pointed toe, stiletto post to the ground.
+      const cuff = sphere(0.36, bootM, 0, -0.08, 0.04, boot, 10);
+      cuff.scale.set(1.05, 0.7, 1.0);
+      const vamp = sphere(0.38, bootM, 0, -0.55, 0.38, boot, 10);
+      vamp.scale.set(0.95, 0.55, 1.55);
+      const toe = sphere(0.20, bootM, 0, -PR.bootH + 0.16, 0.88, boot, 8);
+      toe.scale.set(0.85, 0.42, 1.25);
+      box(0.50, 0.07, 0.70, bootSole, 0, -PR.bootH, 0.58, boot);
+      const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.10, PR.bootH * 0.78, 8), bootM);
+      heel.position.set(0, -PR.bootH * 0.50, -0.22); boot.add(heel);
+      sphere(0.08, bootSole, 0, -PR.bootH, -0.22, boot, 6);
       return { root: root, thigh: thigh, knee: knee, shin: shin, ankle: ankle, boot: boot, side: side };
     }
     const leftLeg = makeLeg(-1), rightLeg = makeLeg(1);
 
-    // ---- torso / fitted strapless tube dress ----
+    // ---- torso / sequinned mini-dress: defined waist, hips, spaghetti straps ----
     const torso = new THREE.Group(); torso.name = 'torso'; hip.add(torso);
-    // pelvis under the dress
-    box(PR.hipW * 0.92, 1.35, 2.15, dress, 0, 0.5, 0.05, torso);
-    // hourglass stack: hip -> waist -> underbust -> bust (strapless, no shoulder slab)
-    box(PR.hipW * 0.78, 1.15, 1.9, dress, 0, 1.45, 0.04, torso);
-    box(PR.waistW, 1.25, 1.55, dressDark, 0, 2.35, 0.02, torso);
-    // darker gold belt at the waist + white star buckle
-    box(PR.waistW + 0.7, 0.72, 1.82, belt, 0, 2.45, 0.08, torso);
-    box(0.95, 0.95, 0.22, starM, 0, 2.45, 1.00, torso);
-    // underbust / bust, strapless tube
-    box(PR.chestW * 0.88, 1.05, 1.8, dress, 0, 3.35, 0.08, torso);
-    box(PR.chestW, 1.7, PR.chestD, dress, 0, 4.5, 0.14, torso);
-    // slight bust rounding
-    box(PR.chestW * 0.95, 1.05, PR.chestD * 0.7, dress, 0, 4.65, 0.55, torso);
+    lathe([
+      [PR.hipW * 0.54, -0.20],
+      [PR.hipW * 0.52, 0.25],
+      [PR.hipW * 0.46, 1.05],
+      [PR.waistW * 0.44, 2.20],
+      [PR.waistW * 0.42, 2.70],
+      [PR.chestW * 0.40, 3.45],
+      [PR.chestW * 0.52, 4.40],
+      [PR.chestW * 0.55, 4.95],
+      [PR.chestW * 0.48, 5.38],
+      [PR.chestW * 0.32, 5.55]
+    ], dress, torso, 28);
+    const bustL = sphere(0.88, dress, -0.68, 4.58, 0.58, torso, 12);
+    bustL.scale.set(1.08, 0.88, 0.92);
+    const bustR = sphere(0.88, dress,  0.68, 4.58, 0.58, torso, 12);
+    bustR.scale.set(1.08, 0.88, 0.92);
+    // Spaghetti straps over the shoulders (as in the t1136 ref).
+    function strapPts(side) {
+      return [
+        [side * 0.62, 4.85, 0.55],
+        [side * 0.95, 5.55, 0.18],
+        [side * 1.12, 5.82, -0.12],
+        [side * 0.70, 5.05, -0.58],
+        [side * 0.40, 4.55, -0.50]
+      ];
+    }
+    hairRibbon(strapPts(-1), 0.075, 0.065, dress, torso, 12, 6);
+    hairRibbon(strapPts( 1), 0.075, 0.065, dress, torso, 12, 6);
+    // Brown belt + a real 5-point star buckle on the front.
+    const beltM = new THREE.Mesh(new THREE.TorusGeometry(PR.waistW * 0.50, 0.16, 8, 24), belt);
+    beltM.rotation.x = Math.PI / 2; beltM.position.set(0, 2.35, 0.06); torso.add(beltM);
+    const starShape = new THREE.Shape();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+      const b = a + Math.PI / 5;
+      const fn = i === 0 ? 'moveTo' : 'lineTo';
+      starShape[fn](Math.cos(a) * 0.42, Math.sin(a) * 0.42);
+      starShape.lineTo(Math.cos(b) * 0.17, Math.sin(b) * 0.17);
+    }
+    starShape.closePath();
+    let starGeo;
+    try {
+      starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.10, bevelEnabled: false, steps: 1, amount: 0.10 });
+    } catch (_) {
+      starGeo = new THREE.CircleGeometry(0.42, 5);
+    }
+    const starBuckle = new THREE.Mesh(starGeo, starM);
+    starBuckle.position.set(0, 2.35, 1.08);
+    starBuckle.scale.set(1.15, 1.15, 1);
+    torso.add(starBuckle);
 
-    // fitted skirt to mid-thigh, slight hem flare (child of hip so it hangs with the hips)
     const skirt = new THREE.Group(); hip.add(skirt);
-    box(PR.hipW + 0.15, 2.35, 2.25, dress, 0, -0.95, 0.08, skirt);
-    box(PR.hipW + 0.05, 1.55, 2.15, dress, 0, -2.25, 0.1, skirt);
-    box(PR.hipW + 0.45, 0.85, 2.3, dress, 0, -3.25, 0.12, skirt);
+    lathe([
+      [PR.hipW * 0.54,  0.30],
+      [PR.hipW * 0.55, -0.85],
+      [PR.hipW * 0.56, -1.85],
+      [PR.hipW * 0.58, -2.55],
+      [PR.hipW * 0.62, -3.25],
+      [PR.hipW * 0.52, -3.45]
+    ], dress, skirt, 28);
 
-    // ---- shoulders / arms (skin at the joint — dress is strapless) ----
+    // Fine twinkling glints — small, many, not chunky plus signs
+    const glints = [];
+    const glintMat = new THREE.MeshBasicMaterial({
+      color: 0xfff8d8, fog: false, transparent: true, opacity: 0.85,
+      depthWrite: false, depthTest: true
+    });
+    function addGlint(parent, x, y, z, s) {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(s, 6, 6), glintMat);
+      m.position.set(x, y, z);
+      parent.add(m);
+      glints.push(m);
+    }
+    const GLINTS = [
+      [torso, -0.85, 4.55, 1.18, 0.045], [torso,  0.70, 4.85, 1.20, 0.05],
+      [torso,  0.15, 4.20, 1.16, 0.04],  [torso, -0.40, 3.40, 1.02, 0.045],
+      [torso,  1.05, 3.55, 0.92, 0.04],  [torso, -1.10, 4.15, 0.88, 0.04],
+      [torso,  0.55, 2.50, 0.85, 0.035], [torso, -0.20, 1.55, 1.00, 0.04],
+      [torso,  1.25, 4.60, 0.50, 0.035], [torso, -1.30, 4.70, 0.48, 0.03],
+      [torso,  0.90, 5.10, 0.70, 0.035], [torso, -0.70, 5.00, 0.72, 0.03],
+      [skirt, -1.10, -0.70, 1.18, 0.045], [skirt,  0.90, -1.10, 1.20, 0.05],
+      [skirt,  0.10, -1.85, 1.14, 0.04],  [skirt, -0.70, -2.40, 1.12, 0.04],
+      [skirt,  1.20, -2.55, 1.05, 0.035], [skirt,  0.35, -3.15, 1.16, 0.045],
+      [skirt, -1.35, -1.50, 0.68, 0.035], [skirt,  1.40, -1.70, 0.62, 0.03],
+      [skirt, -0.20, -0.40, 1.22, 0.04],  [skirt,  0.60, -2.90, 1.10, 0.035]
+    ];
+    GLINTS.forEach(a => addGlint.apply(null, a));
+
+    // ---- shoulders / rounded arms ----
     const chestTop = new THREE.Group(); chestTop.position.y = PR.torso; torso.add(chestTop);
-    // collarbone / upper chest skin, not a dress shoulder slab
-    box(2.2, 0.45, 1.15, skin, 0, -0.15, 0.15, chestTop);
+    // collarbone / upper chest skin
+    const collar = sphere(0.7, skin, 0, -0.15, 0.20, chestTop, 10);
+    collar.scale.set(1.8, 0.45, 1.0);
 
     function makeArm(side) {
       const sh = new THREE.Group();
       sh.position.set(side * (PR.shoulderW * 0.52), -0.2, 0);
       chestTop.add(sh);
-      box(1.15, 1.05, 1.1, skin, side * 0.12, 0, 0, sh);
+      sphere(0.62, skin, side * 0.10, 0, 0, sh, 10);
       const upper = new THREE.Group(); sh.add(upper);
-      box(1.05, PR.upperArm, 1.05, skin, 0, -PR.upperArm / 2, 0, upper);
+      capsule(0.48, PR.upperArm * 0.92, skin, 0, -PR.upperArm / 2, 0, upper, 10);
       const elbow = new THREE.Group(); elbow.position.y = -PR.upperArm; upper.add(elbow);
+      sphere(0.42, skin, 0, 0, 0, elbow, 8);
       const lower = new THREE.Group(); elbow.add(lower);
-      box(0.92, PR.lowerArm, 0.92, skin, 0, -PR.lowerArm / 2, 0, lower);
-      box(1.12, 0.18, 1.12, gold, 0, -0.32, 0, lower);
-      box(1.16, 0.16, 1.16, goldShiny, 0, -0.52, 0, lower);
-      box(1.1, 0.14, 1.1, gold, 0, -0.7, 0, lower);
+      capsule(0.40, PR.lowerArm * 0.90, skin, 0, -PR.lowerArm / 2, 0, lower, 10);
+      // gold bangles as thin toruses
+      for (const [yy, rr] of [[-0.32, 0.50], [-0.52, 0.52], [-0.70, 0.48]]) {
+        const b = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.06, 6, 14), goldShiny);
+        b.rotation.x = Math.PI / 2; b.position.y = yy; lower.add(b);
+      }
       const wrist = new THREE.Group(); wrist.position.y = -PR.lowerArm; lower.add(wrist);
       const hand = new THREE.Group(); wrist.add(hand);
-      box(0.72, PR.hand, 0.52, skin, 0, -PR.hand / 2, 0.05, hand);
+      const palm = sphere(0.38, skin, 0, -PR.hand * 0.35, 0.06, hand, 8);
+      palm.scale.set(0.95, 1.15, 0.7);
       for (let i = -1.5; i <= 1.5; i += 1) {
-        box(0.16, 0.55, 0.16, skin, i * 0.16, -PR.hand - 0.15, 0.12, hand);
+        capsule(0.08, 0.42, skin, i * 0.14, -PR.hand - 0.05, 0.10, hand, 6);
       }
       return { sh: sh, upper: upper, elbow: elbow, lower: lower, wrist: wrist, hand: hand, side: side };
     }
     const leftArm = makeArm(-1), rightArm = makeArm(1);
 
-    // microphone in the right hand: handle in the palm, grille along +Z (aimed at the mouth)
+    // Microphone stays IN the right hand. Grille is small and sits near, not over, the mouth.
     const mic = new THREE.Group();
     rightArm.hand.add(mic);
-    mic.position.set(0.08, -PR.hand * 0.4, 0.15);
-    const handle = box(0.2, 0.2, 1.2, micBlk, 0, 0, 0.4, mic);
-    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), micGrille);
-    grille.position.set(0, 0, 1.2); mic.add(grille);
-    box(0.16, 0.16, 0.16, micBlk, 0, 0, 0.95, mic);
+    mic.position.set(0.10, -PR.hand * 0.15, 0.22);
+    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.05, 8), micBlk);
+    handle.rotation.x = Math.PI / 2; handle.position.set(0, 0, 0.42); mic.add(handle);
+    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 8), micGrille);
+    grille.position.set(0, 0, 1.00); grille.scale.set(1.0, 1.0, 1.15); mic.add(grille);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.08, 0.14, 8), micBlk);
+    cap.rotation.x = Math.PI / 2; cap.position.set(0, 0, 0.82); mic.add(cap);
 
-    // ---- neck, faceted head, jewellery ----
+    // ---- neck + smoother head ----
     const neck = new THREE.Group(); neck.position.y = PR.torso + PR.neck * 0.15; torso.add(neck);
-    box(0.85, PR.neck, 0.85, skin, 0, PR.neck * 0.4, 0, neck);
-    box(1.15, 0.26, 1.15, goldShiny, 0, 0.12, 0.04, neck); // choker
+    // Tapered neck that blends into the jaw — no hard collar cut.
+    capsule(0.36, PR.neck * 0.85, skin, 0, PR.neck * 0.42, 0.02, neck, 14);
+    const neckTop = sphere(0.42, skin, 0, PR.neck * 0.78, 0.04, neck, 14);
+    neckTop.scale.set(0.92, 0.62, 0.90);
+    const choker = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.06, 6, 16), goldShiny);
+    choker.rotation.x = Math.PI / 2; choker.position.set(0, 0.14, 0.04); neck.add(choker);
 
     const head = new THREE.Group(); head.position.y = PR.neck; neck.add(head);
-    // slightly smaller cranium + a narrower jaw, so the head reads smaller than the body
-    const hw = PR.headH * 0.78, hd = PR.headH * 0.76;
-    box(hw, PR.headH * 0.72, hd, skin, 0, PR.headH * 0.62, 0, head);           // cranium
-    box(hw * 0.9, PR.headH * 0.42, hd * 0.92, skin, 0, PR.headH * 0.22, 0.02, head); // jaw
-    // ears + gold hoops
-    box(0.22, 0.48, 0.3, skin, -hw * 0.55, PR.headH * 0.5, 0, head);
-    box(0.22, 0.48, 0.3, skin, hw * 0.55, PR.headH * 0.5, 0, head);
-    const hoopGeo = new THREE.TorusGeometry(0.34, 0.065, 6, 12);
-    const hoopL = new THREE.Mesh(hoopGeo, goldShiny); hoopL.position.set(-hw * 0.58, PR.headH * 0.22, 0.04); hoopL.rotation.x = 0.2; head.add(hoopL);
-    const hoopR = new THREE.Mesh(hoopGeo, goldShiny); hoopR.position.set(hw * 0.58, PR.headH * 0.22, 0.04); hoopR.rotation.x = 0.2; head.add(hoopR);
+    const hw = PR.headH * 0.74, hd = PR.headH * 0.76;
+    // Soft oval cranium + a small tapered chin, overlapped so the jaw is not a second ball.
+    const cranium = sphere(PR.headH * 0.50, skin, 0, PR.headH * 0.50, 0.04, head, 22);
+    cranium.scale.set(0.88, 1.12, 0.94);
+    const jaw = sphere(PR.headH * 0.28, skin, 0, PR.headH * 0.20, 0.10, head, 18);
+    jaw.scale.set(0.78, 0.68, 0.86);
+    const chin = sphere(0.22, skin, 0, PR.headH * 0.06, 0.16, head, 14);
+    chin.scale.set(0.85, 0.70, 0.90);
+    // Smooth joint: a throat sphere sits between neck top and the chin.
+    const throat = sphere(0.34, skin, 0, -0.06, 0.08, head, 14);
+    throat.scale.set(0.80, 0.70, 0.78);
+    const earL = sphere(0.18, skin, -hw * 0.54, PR.headH * 0.48, 0.00, head, 10);
+    earL.scale.set(0.50, 1.05, 0.70);
+    const earR = sphere(0.18, skin,  hw * 0.54, PR.headH * 0.48, 0.00, head, 10);
+    earR.scale.set(0.50, 1.05, 0.70);
+    // Thin gold hoops hanging from the lobes, not a chunky ball at the jaw.
+    const hoopGeo = new THREE.TorusGeometry(0.16, 0.028, 6, 16);
+    const hoopL = new THREE.Mesh(hoopGeo, goldShiny);
+    hoopL.position.set(-hw * 0.56, PR.headH * 0.34, 0.02); hoopL.rotation.x = 0.15; head.add(hoopL);
+    const hoopR = new THREE.Mesh(hoopGeo, goldShiny);
+    hoopR.position.set( hw * 0.56, PR.headH * 0.34, 0.02); hoopR.rotation.x = 0.15; head.add(hoopR);
 
-    // faceted facial features (readable from the front and the side)
-    const eyeY = PR.headH * 0.55, eyeZ = hd * 0.52, eyeX = 0.38;
+    const eyeY = PR.headH * 0.54, eyeZ = hd * 0.58, eyeX = 0.34;
+    const shadowM = addM(phong({ color: 0xc9a090, shininess: 8, specular: 0x221810 }));
     function addEye(sx) {
-      box(0.42, 0.28, 0.12, eyeW, sx * eyeX, eyeY, eyeZ, head);
-      box(0.22, 0.22, 0.08, eyeP, sx * eyeX, eyeY - 0.01, eyeZ + 0.08, head);
-      box(0.07, 0.07, 0.04, eyeW, sx * eyeX - 0.05, eyeY + 0.05, eyeZ + 0.12, head);
-      box(0.42, 0.08, 0.1, lash, sx * eyeX, eyeY + 0.16, eyeZ + 0.02, head);
-      box(0.46, 0.08, 0.12, brow, sx * eyeX, eyeY + 0.28, eyeZ - 0.02, head, [0, 0, sx * -0.18]);
+      // Large slightly almond eyes.
+      const w = sphere(0.22, eyeW, sx * eyeX, eyeY, eyeZ + 0.06, head, 12);
+      w.scale.set(1.32, 0.90, 0.58);
+      // Soft dusty-rose lid makeup, flattened onto the upper lid.
+      const lidMk = sphere(0.20, shadowM, sx * eyeX, eyeY + 0.07, eyeZ + 0.02, head, 8);
+      lidMk.scale.set(1.40, 0.32, 0.55);
+      sphere(0.11, eyeP, sx * eyeX + sx * 0.015, eyeY - 0.01, eyeZ + 0.16, head, 10);
+      sphere(0.035, eyeW, sx * eyeX - 0.04, eyeY + 0.03, eyeZ + 0.22, head, 6);
+      // Upper lash line
+      const line = sphere(0.17, lash, sx * eyeX, eyeY + 0.11, eyeZ + 0.10, head, 6);
+      line.scale.set(1.45, 0.16, 0.50);
+      // Individual lashes fanning up and out.
+      for (let i = -2; i <= 2; i++) {
+        const u = i / 2;
+        const lx = sx * eyeX + sx * u * 0.18;
+        const ly = eyeY + 0.16 + 0.02 * Math.abs(u);
+        const lz = eyeZ + 0.14;
+        const ls = capsule(0.012, 0.11, lash, lx, ly, lz, head, 5);
+        ls.rotation.z = sx * (-0.25 - u * 0.28);
+        ls.rotation.x = -0.28;
+      }
+      const br = sphere(0.16, brow, sx * eyeX, eyeY + 0.28, eyeZ + 0.04, head, 8);
+      br.scale.set(1.45, 0.20, 0.50);
+      br.rotation.z = sx * -0.28;
     }
     addEye(-1); addEye(1);
-    // nose: bridge + tip, protruding so it reads in profile
-    box(0.22, 0.48, 0.32, skinSh, 0, PR.headH * 0.46, eyeZ + 0.16, head);
-    box(0.32, 0.22, 0.3, skin, 0, PR.headH * 0.3, eyeZ + 0.32, head);
-    // lips
-    box(0.58, 0.14, 0.18, lip, 0, PR.headH * 0.18, eyeZ + 0.14, head);
-    box(0.48, 0.09, 0.16, lipHi, 0, PR.headH * 0.23, eyeZ + 0.18, head);
-    // cheeks
-    box(0.35, 0.28, 0.16, addM(phong({ color: 0xeba08a, shininess: 16, specular: 0x331810 })), -0.52, PR.headH * 0.36, eyeZ * 0.7, head);
-    box(0.35, 0.28, 0.16, addM(phong({ color: 0xeba08a, shininess: 16, specular: 0x331810 })), 0.52, PR.headH * 0.36, eyeZ * 0.7, head);
+    const bridge = sphere(0.11, skinSh, 0, PR.headH * 0.46, eyeZ + 0.22, head, 8);
+    bridge.scale.set(0.62, 1.35, 0.80);
+    sphere(0.11, skin, 0, PR.headH * 0.32, eyeZ + 0.32, head, 8);
+    // Smaller natural-pink glossy lips (upper + lower), not a big red mouth.
+    const mouth = sphere(0.155, lip, 0, PR.headH * 0.165, eyeZ + 0.20, head, 10);
+    mouth.scale.set(1.22, 0.36, 0.60);
+    const lowerLip = sphere(0.13, lip, 0, PR.headH * 0.135, eyeZ + 0.22, head, 10);
+    lowerLip.scale.set(1.08, 0.30, 0.56);
+    const mouthHi = sphere(0.10, lipHi, 0, PR.headH * 0.18, eyeZ + 0.28, head, 8);
+    mouthHi.scale.set(1.08, 0.24, 0.50);
+    // Soft blended blush — large, flat, close to skin tone so it is shading not a sticker.
+    const cheekM = addM(phong({ color: 0xebc2b0, shininess: 12, specular: 0x332018 }));
+    const chL = sphere(0.32, cheekM, -0.42, PR.headH * 0.34, eyeZ * 0.62, head, 10);
+    chL.scale.set(1.15, 0.80, 0.55);
+    const chR = sphere(0.32, cheekM,  0.42, PR.headH * 0.34, eyeZ * 0.62, head, 10);
+    chR.scale.set(1.15, 0.80, 0.55);
 
-    // ---- voluminous wavy blonde hair: many layered strands, not a helmet ----
+    // ---- long wavy blonde hair: side-parted, past the chest, face left clear ----
     const hair = new THREE.Group(); hair.position.y = PR.headH; head.add(hair);
-    function lock(x, y, z, w, hh, d, rot, mat) {
-      return box(w, hh, d, mat || hairA, x, y, z, hair, rot);
+    // Tight cap that stays BEHIND the hairline so it cannot visor over the face.
+    const scalp = sphere(1.18, hairA, 0, -0.92, -0.28, hair, 20);
+    scalp.scale.set(1.16, 0.95, 0.96);
+    const lid = sphere(0.98, hairB, 0, -0.18, -0.32, hair, 18);
+    lid.scale.set(1.14, 0.46, 0.96);
+    // Side caps so the 3/4 crown doesn't show a hard cut edge.
+    const capR = sphere(0.62, hairA,  0.55, -0.45, -0.10, hair, 14);
+    capR.scale.set(1.10, 0.80, 0.95);
+    const capL = sphere(0.55, hairA, -0.50, -0.48, -0.10, hair, 14);
+    capL.scale.set(1.05, 0.78, 0.95);
+
+    function wavePts(x0, y0, z0, len, side, phase, flare, amp, n, zAmp) {
+      n = n || 14;
+      zAmp = zAmp == null ? 0.28 : zAmp;
+      const pts = [];
+      for (let i = 0; i <= n; i++) {
+        const t = i / n;
+        const te = t * t * (3 - 2 * t);
+        const tw = Math.pow(t, 0.55);
+        const y = y0 - t * len;
+        const x = x0 + side * flare * te + side * amp * tw * Math.sin(phase + t * Math.PI * 5.2);
+        const z = z0 + zAmp * tw * Math.sin(phase * 0.7 + t * Math.PI * 3.4) - 0.18 * te;
+        pts.push([x, y, z]);
+      }
+      return pts;
     }
-    // crown volume sitting on the scalp (not covering the face)
-    lock(0, 0.55, -0.15, 2.15, 1.05, 2.05, null, hairB);
-    lock(0, 1.05, -0.25, 1.7, 0.7, 1.6, [0.15, 0, 0], hairA);
-    lock(-0.55, 0.7, 0.15, 1.1, 0.7, 1.2, [0.1, 0.2, 0.15], hairB);
-    lock(0.55, 0.7, 0.15, 1.1, 0.7, 1.2, [0.1, -0.2, -0.15], hairB);
-    // fringe framing the forehead, ending above the eyes
-    lock(0, 0.05, 0.95, 0.65, 0.55, 0.35, [0.55, 0, 0], hairB);
-    lock(-0.5, 0.0, 0.88, 0.48, 0.6, 0.34, [0.55, 0.2, 0.12], hairA);
-    lock(0.5, 0.0, 0.88, 0.48, 0.6, 0.34, [0.55, -0.2, -0.12], hairA);
-    lock(-0.95, 0.05, 0.7, 0.42, 0.55, 0.32, [0.45, 0.35, 0.18], hairB);
-    lock(0.95, 0.05, 0.7, 0.42, 0.55, 0.32, [0.45, -0.35, -0.18], hairB);
-    // side locks — layered wavy clumps falling past the shoulders on both sides
-    const sideLocks = [
-      // upper
-      [-1.35, -0.15, 0.45, 0.7, 1.5, 0.7, [0.25, 0.35, 0.2], hairB],
-      [ 1.35, -0.15, 0.45, 0.7, 1.5, 0.7, [0.25, -0.35, -0.2], hairB],
-      [-1.55, -0.35, 0.05, 0.75, 1.8, 0.75, [0.2, 0.15, 0.28], hairA],
-      [ 1.55, -0.35, 0.05, 0.75, 1.8, 0.75, [0.2, -0.15, -0.28], hairA],
-      [-1.7, -1.3, 0.2, 0.7, 2.1, 0.7, [0.35, 0.25, 0.3], hairA],
-      [ 1.7, -1.3, 0.2, 0.7, 2.1, 0.7, [0.35, -0.25, -0.3], hairA],
-      [-1.85, -2.2, 0.05, 0.72, 2.4, 0.72, [0.45, 0.15, 0.28], hairC],
-      [ 1.85, -2.2, 0.05, 0.72, 2.4, 0.72, [0.45, -0.15, -0.28], hairC],
-      // mid, past the shoulders
-      [-1.65, -3.3, -0.05, 0.7, 2.2, 0.7, [0.55, 0.2, 0.22], hairA],
-      [ 1.65, -3.3, -0.05, 0.7, 2.2, 0.7, [0.55, -0.2, -0.22], hairA],
-      [-1.95, -3.6, 0.2, 0.62, 2.0, 0.65, [0.6, 0.3, 0.25], hairB],
-      [ 1.95, -3.6, 0.2, 0.62, 2.0, 0.65, [0.6, -0.3, -0.25], hairB],
-      [-1.4, -4.4, 0.15, 0.6, 1.9, 0.6, [0.7, 0.15, 0.18], hairA],
-      [ 1.4, -4.4, 0.15, 0.6, 1.9, 0.6, [0.7, -0.15, -0.18], hairA],
-      // lower tips
-      [-1.55, -5.3, 0.05, 0.55, 1.6, 0.55, [0.8, 0.2, 0.15], hairC],
-      [ 1.55, -5.3, 0.05, 0.55, 1.6, 0.55, [0.8, -0.2, -0.15], hairC],
-      [-1.15, -5.7, 0.25, 0.5, 1.35, 0.5, [0.85, 0.1, 0.12], hairB],
-      [ 1.15, -5.7, 0.25, 0.5, 1.35, 0.5, [0.85, -0.1, -0.12], hairB],
-      // face-framing waves — kept off the cheeks so the face stays open
-      [-1.45, -1.0, 0.45, 0.5, 1.8, 0.5, [0.4, 0.45, 0.22], hairB],
-      [ 1.45, -1.0, 0.45, 0.5, 1.8, 0.5, [0.4, -0.45, -0.22], hairB],
-      [-1.5, -2.2, 0.25, 0.5, 1.7, 0.48, [0.55, 0.35, 0.18], hairA],
-      [ 1.5, -2.2, 0.25, 0.5, 1.7, 0.48, [0.55, -0.35, -0.18], hairA]
+    // Side part on her left ( -X ). Heavier mass on the right, long past the chest.
+    // Roots sit at the temples / sides of the crown — not in front of the eyes.
+    const LOCKS = [
+      { x: 0.22, y: -0.18, z: -0.05, len: 12.2, ph: 0.2, fl: 0.85, amp: 0.62, r0: 0.38, r1: 0.14, mat: hairB, za: 0.30, side:  1 },
+      { x: 0.38, y: -0.22, z:  0.22, len: 11.6, ph: 1.3, fl: 0.70, amp: 0.56, r0: 0.32, r1: 0.12, mat: hairA, za: 0.26, side:  1 },
+      { x: 0.55, y: -0.28, z: -0.15, len: 11.8, ph: 2.1, fl: 0.55, amp: 0.50, r0: 0.30, r1: 0.12, mat: hairC, za: 0.24, side:  1 },
+      { x: 0.72, y: -0.32, z:  0.18, len: 10.8, ph: 0.7, fl: 0.40, amp: 0.38, r0: 0.26, r1: 0.11, mat: hairA, za: 0.20, side:  1 },
+      { x: 0.88, y: -0.36, z:  0.02, len: 10.2, ph: 1.8, fl: 0.28, amp: 0.32, r0: 0.20, r1: 0.09, mat: hairB, za: 0.16, side:  1 },
+      // lighter side of the part (her left)
+      { x: -0.42, y: -0.22, z:  0.10, len: 11.4, ph: 0.5, fl: 0.65, amp: 0.52, r0: 0.30, r1: 0.12, mat: hairA, za: 0.24, side: -1 },
+      { x: -0.62, y: -0.28, z: -0.12, len: 11.0, ph: 1.6, fl: 0.48, amp: 0.40, r0: 0.28, r1: 0.11, mat: hairC, za: 0.20, side: -1 },
+      { x: -0.80, y: -0.34, z:  0.16, len: 10.4, ph: 2.4, fl: 0.30, amp: 0.34, r0: 0.22, r1: 0.10, mat: hairB, za: 0.16, side: -1 }
     ];
-    sideLocks.forEach(a => lock.apply(null, a));
-    // back curtain, down to mid-back
-    const backLocks = [
-      [0, -0.4, -1.15, 2.2, 1.8, 0.9, [0.25, 0, 0], hairA],
-      [-0.7, -1.5, -1.2, 1.2, 2.2, 0.85, [0.4, 0.12, 0.08], hairC],
-      [ 0.7, -1.5, -1.2, 1.2, 2.2, 0.85, [0.4, -0.12, -0.08], hairC],
-      [0, -2.6, -1.15, 2.0, 2.4, 0.95, [0.5, 0, 0], hairA],
-      [-0.85, -3.6, -0.95, 1.05, 2.2, 0.8, [0.6, 0.15, 0.1], hairA],
-      [ 0.85, -3.6, -0.95, 1.05, 2.2, 0.8, [0.6, -0.15, -0.1], hairA],
-      [0, -4.5, -0.85, 1.7, 2.0, 0.8, [0.7, 0, 0], hairC],
-      [-0.55, -5.5, -0.55, 0.85, 1.6, 0.7, [0.8, 0.1, 0.08], hairB],
-      [ 0.55, -5.5, -0.55, 0.85, 1.6, 0.7, [0.8, -0.1, -0.08], hairB],
-      [0, -6.2, -0.35, 1.15, 1.3, 0.65, [0.9, 0, 0], hairA]
+    LOCKS.forEach(L => {
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 20, L.za), L.r0, L.r1, L.mat, hair, 32, 8);
+    });
+    // Face-framing ripples — thinner, tighter S-curves so the sides are not a flat curtain.
+    const FACE_FRAME = [
+      { x: 0.48, y: -0.24, z:  0.42, len: 11.2, ph: 0.4, fl: 0.35, amp: 0.58, r0: 0.16, r1: 0.07, za: 0.32, side:  1 },
+      { x: 0.62, y: -0.28, z:  0.28, len: 10.8, ph: 1.8, fl: 0.28, amp: 0.50, r0: 0.14, r1: 0.06, za: 0.28, side:  1 },
+      { x: -0.55, y: -0.26, z:  0.36, len: 11.0, ph: 0.9, fl: 0.32, amp: 0.54, r0: 0.15, r1: 0.07, za: 0.30, side: -1 }
     ];
-    backLocks.forEach(a => lock.apply(null, a));
+    FACE_FRAME.forEach(L => {
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 22, L.za), L.r0, L.r1, hairB, hair, 28, 7);
+    });
+    // Highlight strands: thinner, paler, higher-frequency ripples woven through the mass.
+    const HI = [
+      { x: 0.30, y: -0.20, z:  0.12, len: 12.0, ph: 0.9, fl: 0.75, amp: 0.62, r0: 0.11, r1: 0.05, za: 0.30, side:  1 },
+      { x: 0.60, y: -0.26, z: -0.05, len: 11.4, ph: 2.6, fl: 0.50, amp: 0.55, r0: 0.10, r1: 0.045, za: 0.26, side:  1 },
+      { x: -0.50, y: -0.24, z:  0.08, len: 11.2, ph: 1.4, fl: 0.52, amp: 0.58, r0: 0.10, r1: 0.045, za: 0.28, side: -1 }
+    ];
+    HI.forEach(L => {
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 22, L.za), L.r0, L.r1, hairB, hair, 28, 6);
+    });
+    // Side-swept fringe from the left part, across the forehead, ending beside the right eye.
+    // Stays ABOVE the eyes so the face stays clear.
+    hairRibbon([
+      [-0.32, -0.22, 0.48], [-0.04, -0.38, 0.82], [0.26, -0.58, 0.78], [0.50, -0.90, 0.42]
+    ], 0.055, 0.03, hairB, hair, 14, 7);
+    hairRibbon([
+      [-0.24, -0.28, 0.40], [0.08, -0.48, 0.70], [0.36, -0.78, 0.52], [0.52, -1.10, 0.26]
+    ], 0.045, 0.025, hairA, hair, 14, 7);
+    // Crown drapes that soften the 3/4 hard edge, still behind the hairline.
+    hairRibbon([
+      [0.12, -0.02, -0.10], [0.42, -0.18, 0.00], [0.72, -1.1, 0.12], [0.92, -3.4, 0.06]
+    ], 0.30, 0.12, hairA, hair, 16, 8);
+    hairRibbon([
+      [0.28, -0.08, 0.15], [0.55, -0.35, 0.18], [0.80, -1.5, 0.10], [0.95, -4.0, 0.00]
+    ], 0.24, 0.10, hairB, hair, 16, 8);
+    hairRibbon([
+      [-0.20, -0.04, -0.08], [-0.48, -0.22, 0.00], [-0.72, -1.2, 0.08], [-0.88, -3.2, 0.04]
+    ], 0.26, 0.11, hairA, hair, 16, 8);
+    // Back / side curtains, long past the chest.
+    const BACK = [
+      { x: 0.00, y: -0.10, z: -0.95, len: 12.4, ph: 0.3, fl: 0.08, amp: 0.22, r0: 0.70, r1: 0.20, mat: hairA, side: 1, za: 0.14 },
+      { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.1, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairC, side: 1, za: 0.16 },
+      { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.8, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairB, side: -1, za: 0.16 }
+    ];
+    BACK.forEach(L => {
+      hairRibbon(wavePts(L.x * (L.side === -1 ? -1 : 1), L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 20, L.za), L.r0, L.r1, L.mat, hair, 32, 8);
+    });
 
     const parts = {
       g: g, rig: rig, hip: hip, torso: torso, skirt: skirt, chestTop: chestTop,
-      neck: neck, head: head, hair: hair, mic: mic,
+      neck: neck, head: head, hair: hair, mic: mic, glints: glints,
       leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm,
-      mats: mats
+      mats: mats, dressMat: dress
     };
 
     P.applyPose(parts, P.stepState(0));
@@ -585,7 +873,7 @@
     const highL = ltw(ct, -2.05, PR.armLen * 0.95, 0.35);
     const highR = ltw(ct,  2.05, PR.armLen * 0.95, 0.35);
     // mic hand sits just to the right of and slightly below the mouth so the grille can reach the lips
-    const micHand = ltw(hd, 0.55, PR.headH * 0.18, PR.headH * 0.45);
+    const micHand = ltw(hd, 0.70, PR.headH * 0.12, PR.headH * 0.78);
     const downL = ltw(parts.leftArm.sh, 0, -(PR.upperArm + PR.lowerArm), 0);
     const downR = ltw(parts.rightArm.sh, 0, -(PR.upperArm + PR.lowerArm), 0);
     const poleLOut = ltw(ct, -3.2, 0.2, -1.2);
@@ -612,13 +900,13 @@
   const ARM = {
     // 1: left at the collarbone, right mic at the mouth
     p1L: { sh: [1.05, 0.55, -0.45], el: [1.55, 0.3, 0.2], wr: [0.3, 0.55, 0.2] },
-    p1R: { sh: [1.22, 0.28, -0.42], el: [2.05, 0.15, 0.18], wr: [0.15, 0.2, 0.1] },
+    p1R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
     // 2: left on the hip (akimbo), right still singing
     p2L: { sh: [0.25, -0.1, 1.05], el: [1.65, 0.12, 0.45], wr: [0.3, 0.4, 0.55] },
-    p2R: { sh: [1.22, 0.28, -0.42], el: [2.05, 0.15, 0.18], wr: [0.15, 0.2, 0.1] },
+    p2R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
     // 3: left hand ON TOP of the head (arm up and slightly in, elbow folded over the crown)
     p3L: { sh: [0.35, 0.2, 3.35], el: [1.85, 0.3, -1.2], wr: [0.6, 0.3, 0.2] },
-    p3R: { sh: [1.22, 0.28, -0.42], el: [2.05, 0.15, 0.18], wr: [0.15, 0.2, 0.1] },
+    p3R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
     // 4: symmetrical high V, both arms nearly straight up, slightly out
     p4L: { sh: [0.1, 0.08, 2.88], el: [0.18, 0, 0.06], wr: [0.1, 0, 0] },
     p4R: { sh: [0.1, -0.08, 2.88], el: [0.18, 0, -0.06], wr: [0.1, 0, 0] }
@@ -670,9 +958,69 @@
     mixArm(parts.leftArm, A.L, B.L, k, -1);
     mixArm(parts.rightArm, A.R, B.R, k, 1);
     const micKind = (st.pose === 4) ? k : (st.prevPose === 4 ? 1 - k : 0);
-    if (parts.mic) parts.mic.rotation.set(-0.2 - 0.3 * micKind, 0.15, 0.2 + 0.1 * micKind);
+    aimMic(parts, micKind);
+    twinkleGlints(parts, st);
   };
 
+  // Keep the mic in the hand. Point the grille toward a spot just to the right
+  // of and slightly in front of the lips — never covering the mouth like a gag.
+  function aimMic(parts, micKind) {
+    if (!parts.mic || !parts.head || !parts.rightArm || !parts.rightArm.hand) return;
+    if (micKind > 0.85) {
+      parts.mic.position.set(0.10, -PR.hand * 0.15, 0.22);
+      parts.mic.rotation.set(-0.55, 0.20, 0.25);
+      parts.mic.scale.set(1, 1, 1);
+      return;
+    }
+    // Stay parented to the palm. Only rotate so +Z (grille) aims at the
+    // right-of-mouth target; do not teleport the handle out of the hand.
+    parts.head.updateWorldMatrix(true, false);
+    parts.rightArm.hand.updateWorldMatrix(true, false);
+    const targetW = ltw(parts.head, 0.30, PR.headH * 0.17, PR.headH * 0.55);
+    const handW = new THREE.Vector3();
+    parts.rightArm.hand.getWorldPosition(handW);
+    const dir = targetW.clone().sub(handW);
+    if (dir.length() < 0.15) dir.set(0.3, 0.15, 0.9);
+    dir.normalize();
+    // Local +Z of the mic should follow dir. Build a basis, then convert to hand space
+    // while keeping the mic origin in the palm.
+    const z = dir;
+    const tmp = Math.abs(z.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const x = tmp.clone().cross(z).normalize();
+    const y = z.clone().cross(x).normalize();
+    const mat = new THREE.Matrix4().makeBasis(x, y, z);
+    const handInv = new THREE.Matrix4().copy(parts.rightArm.hand.matrixWorld).invert();
+    const local = new THREE.Matrix4().multiplyMatrices(handInv, mat);
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scl = new THREE.Vector3();
+    local.decompose(pos, quat, scl);
+    parts.mic.position.set(0.10, -PR.hand * 0.15, 0.22);
+    parts.mic.quaternion.copy(quat);
+    parts.mic.scale.set(1, 1, 1);
+  }
+
+  function twinkleGlints(parts, st) {
+    const t = (st && (st.t != null ? st.t : st.u)) || 0;
+    const pose = (st && st.pose) || 0;
+    if (parts.glints && parts.glints.length) {
+      for (let i = 0; i < parts.glints.length; i++) {
+        const g = parts.glints[i];
+        const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(t * 7.5 + i * 1.73 + pose));
+        g.scale.setScalar(0.65 + 0.70 * pulse);
+      }
+    }
+    if (parts.dressMat) {
+      try {
+        parts.dressMat.emissiveIntensity = 1.15 + 0.50 * (0.5 + 0.5 * Math.sin(t * 9.2));
+      } catch (_) {}
+    }
+  }
+
+  P.debugArm = function (parts, sh, el, wr) {
+    setArm(parts.rightArm, { sh: sh, el: el, wr: wr || [0.2, 0.3, 0.1] }, 1);
+    aimMic(parts, 0);
+  };
   P.ikLeg = ikLeg;
   P.ikArm = ikArm;
 })(typeof window !== 'undefined' ? window : globalThis);
