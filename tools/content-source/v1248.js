@@ -599,7 +599,7 @@
     }
     return b;
   }
-  const MOOD_FILE = {blue: 'music/mood_blue.ogg?v=1.2.54', purple: 'music/mood_purple.ogg?v=1.2.54', agartha: 'music/mood_agartha.ogg?v=1.2.54'};
+  const MOOD_FILE = {blue: 'music/mood_blue.ogg?v=1.2.56', purple: 'music/mood_purple.ogg?v=1.2.56', agartha: 'music/mood_agartha.ogg?v=1.2.56'};
   let moodBufs = {}, moodLoads = {};
   function loadMoodLoop(mood) {
     const src = MOOD_FILE[mood];
@@ -1099,8 +1099,8 @@
 
   // Baked 170 BPM loop is the in-game path (cheap on Android). Procedural fallback
   // keeps the same kick + off-beat donk groove if the file is missing.
-  const HC_FILE = 'music/hardcore_remix.mp3?v=1.2.54';
-  const HC_FILE_OGG = 'music/hardcore_remix.ogg?v=1.2.54';
+  const HC_FILE = 'music/hardcore_remix.mp3?v=1.2.56';
+  const HC_FILE_OGG = 'music/hardcore_remix.ogg?v=1.2.56';
   let hcLoopBuf = null, hcLoopLoad = null;
 
   function loadHcLoop() {

@@ -3659,18 +3659,18 @@
     return { mode: 'fist' };
   }
 
-  // 1272 hybrid (fpHybrid1272): the new TP-arm rig ships only for items
-  // that clearly beat 1.2.49. Guns (pistol/musket hip+ADS) and anything
-  // else fall back to the exact 1.2.49 held path. Toggle is synchronous
-  // in applyPose so a hotbar switch never presents a frame with both
-  // rigs, leftover TP meshes, or a hidden 1.2.49 item.
+  // 1272 hybrid (fpHybrid1272): the baked-fist / 1282 FP-gun rig is off
+  // for every item in 1.2.56. First-person arms, animations (switch,
+  // reload, swing, aim) and grip positions use the 1.2.49 __fpa path,
+  // including pistol and musket with their original gun models. Keys
+  // stay listed at 0 so a later allowlist can be restored item by item.
+  // Toggle is still synchronous in applyPose so a switch never presents
+  // both rigs, leftover TP meshes, or a hidden 1.2.49 item.
   const NEW_FP_KINDS = {
-    empty: 1, p761: 1, p760: 1, pick: 1,
-    sword: 1, claymore: 1,
-    torch: 1, block: 1, bucket: 1, map: 1,
-    // t1153 gun targets: hip and ADS share the flintlock rig so a toggle
-    // cannot swap in the 1.2.49 modern rifle. Drop either side if unclean.
-    pistol: 1, musket: 1
+    empty: 0, p761: 0, p760: 0, pick: 0,
+    sword: 0, claymore: 0,
+    torch: 0, block: 0, bucket: 0, map: 0,
+    pistol: 0, musket: 0
   };
   function usesNewFp(kind) {
     return !!NEW_FP_KINDS[kind || ''];

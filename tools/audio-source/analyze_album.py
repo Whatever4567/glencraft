@@ -4,7 +4,7 @@
 Primary similarity is residual high-passed log-mel (track-mean subtracted).
 That measures whether consecutive sections are arranged as copies, not
 whether they share a pedal tone or key. Threshold: < 0.85 consecutive
-sections, < 0.92 adjacent 8-bar (or 16s) windows. Also records RMS,
+sections, < 0.85 adjacent 8-bar (or 16s) windows. Also records RMS,
 centroid and chroma so the section map can be read as a listening guide.
 """
 from __future__ import annotations
@@ -128,8 +128,8 @@ def analyse(name):
         if prev is not None and prev and f:
             s = arrangement_sim(prev, f)
             report["windows"].append({"t0": prev_t, "t1": t, "sim": s})
-            if s >= 0.92:
-                report["fail"].append(f"adjacent window {prev_t:.1f}->{t:.1f}s residual-mel sim={s:.3f} >= 0.92")
+            if s >= 0.85:
+                report["fail"].append(f"adjacent window {prev_t:.1f}->{t:.1f}s residual-mel sim={s:.3f} >= 0.85")
         prev, prev_t = f, t
         t += hop
 
