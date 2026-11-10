@@ -210,7 +210,7 @@
   }
 
   function isKeepMesh(o) {
-    if (o.userData && (o.userData.armSwitchSleeve || o.userData.fpTpArm1270)) return true;
+    if (o.userData && (o.userData.armSwitchSleeve || o.userData.fpTpArm1270 || o.userData.fpLinenCuff1275)) return true;
     const n = ((o.name || '') + ' ' + ((o.parent && o.parent.name) || ''));
     if (/visual_arm_slot[01]_hand/.test(n)) return true;
     if (/GLOVE\s*\|\s*[RL]/.test(n)) return true;
@@ -472,7 +472,7 @@
     const dex = [1, 1, 1, 1]; // per-digit scale, index..pinky
     if (k === 'empty') {
       // t1153: open palm, slight natural curve, not a fist.
-      cx = 0.10; kx = 0.08; t1a = 0.18; t2a = 0.12;
+      cx = 0.20; kx = 0.16; t1a = 0.22; t2a = 0.16;
     } else if (k === 'block') {
       // t1153: fingers under the cube, a cradle not a tight fist.
       cx = 0.32; kx = 0.28; t1a = 0.34; t2a = 0.28;
@@ -495,10 +495,9 @@
       if (isLeft) { cx = 0.58; kx = 0.62; t1a = 0.42; t2a = 0.40; }
       else { cx = 0.68; kx = 0.72; t1a = 0.48; t2a = 0.52; }
     } else {
-      // pick / sword / torch: wrap the haft, pinky a little less so the
-      // far-side fingertips do not punch through each other.
-      cx = 0.62; kx = 0.50; t1a = 0.60; t2a = 0.62; tY = 0.18;
-      dex[0] = 0.90; dex[3] = 0.80;
+      // pick / sword / torch: a tight fist wrap around the haft.
+      cx = 0.88; kx = 0.82; t1a = 0.72; t2a = 0.70; tY = 0.24;
+      dex[0] = 0.96; dex[3] = 0.88;
     }
     if (opts.mode === 'cup') { cx = 0.20; kx = 0.16; t1a = 0.22; t2a = 0.18; }
     if (opts.mode === 'relax') { cx = 0.52; kx = 0.48; t1a = 0.28; t2a = 0.22; }
@@ -530,6 +529,89 @@
       t1.updateMatrix();
     }
     if (t2) { t2.rotateX(t2a); t2.updateMatrix(); }
+  }
+
+  function lightenLinenMat(mat) {
+    // Always Phong — a cloned MeshStandard linen goes black on SwiftShader.
+    if (mat && mat.userData && mat.userData.fpLinenLight1275 && mat.isMeshPhongMaterial) return mat;
+    const map = (mat && mat.map) ? mat.map : null;
+    const m = new T.MeshPhongMaterial({
+      color: 0xf6eedc,
+      map: map,
+      shininess: 10,
+      specular: 0x3a3020,
+      side: T.DoubleSide,
+      skinning: !!(mat && (mat.skinning || mat.isMeshPhongMaterial && mat.skinning))
+    });
+    m.userData = Object.assign({}, (mat && mat.userData) || {});
+    m.userData.fpLinenLight1275 = 1;
+    m.userData.sculptKeep = 1;
+    m.userData.fpTpArm1270 = 1;
+    return m;
+  }
+  function sleeveMatOf(fp) {
+    const sleeves = (fp && fp.userData && fp.userData.sleeves) || [];
+    for (let i = 0; i < sleeves.length; i++) {
+      if (sleeves[i] && sleeves[i].material) return sleeves[i].material;
+    }
+    return null;
+  }
+  function dressSleeveCream(fp) {
+    const sleeves = (fp && fp.userData && fp.userData.sleeves) || [];
+    for (let i = 0; i < sleeves.length; i++) {
+      const sl = sleeves[i];
+      if (!sl) continue;
+      sl.material = lightenLinenMat(sl.material);
+      sl.visible = true;
+    }
+    fp.userData.fpLinenDressed1275 = 1;
+  }
+  function ensureWristCuff(fp, side, wr, el) {
+    if (!fp || !wr || !el) return;
+    const key = 'linenCuff' + side;
+    let cuff = fp.userData[key];
+    const mat = lightenLinenMat(sleeveMatOf(fp));
+    if (!cuff) {
+      cuff = new T.Group();
+      cuff.name = 'FpLinenCuff1275_' + side;
+      cuff.userData.fpLinenCuff1275 = 1;
+      cuff.userData.sculptKeep = 1;
+      cuff.userData.fpTpArm1270 = 1;
+      cuff.userData.armSwitchSleeve = 1;
+      cuff.userData.fpTpSide = side;
+      cuff.userData.armSwitchSide = side;
+      function tag(m) {
+        m.userData.fpLinenCuff1275 = 1;
+        m.userData.sculptKeep = 1;
+        m.userData.fpTpArm1270 = 1;
+        m.userData.armSwitchSleeve = 1;
+        m.userData.fpTpSide = side;
+        m.castShadow = false;
+        m.frustumCulled = false;
+        cuff.add(m);
+        return m;
+      }
+      // Short cream band ending in a modest rolled lip at the wrist —
+      // uses the TP linen texture, not the old procedural foam stack.
+      const band = tag(new T.Mesh(new T.CylinderGeometry(0.030, 0.033, 0.030, 22, 1, true), mat));
+      const roll = tag(new T.Mesh(new T.TorusGeometry(0.032, 0.0065, 10, 22), mat));
+      roll.rotation.x = Math.PI / 2;
+      roll.position.y = 0.015;
+      fp.add(cuff);
+      fp.userData[key] = cuff;
+    }
+    fp.updateWorldMatrix(true, false);
+    const axisW = wr.clone().sub(el);
+    if (axisW.lengthSq() < 1e-10) axisW.set(0, 1, 0);
+    axisW.normalize();
+    const posW = wr.clone().addScaledVector(axisW, -0.015);
+    const inv = new T.Matrix4().copy(fp.matrixWorld).invert();
+    cuff.position.copy(posW).applyMatrix4(inv);
+    const axisL = axisW.clone().transformDirection(inv).normalize();
+    cuff.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), axisL);
+    cuff.visible = true;
+    cuff.traverse(function (o) { o.visible = true; });
+    cuff.updateMatrix();
   }
 
   function poseSide(fp, side, arm, vc) {
@@ -565,7 +647,8 @@
     // t1153: the Scottish shirt cuff sits ~0.24m from the wrist (elbow).
     // Nudge the forearm so that cuff reads at the frame edge as a wrist
     // cuff; the authored wr stays put. skipCuff stays false.
-    const skipCuff = false;
+    const kind0 = ((W.__fpVm1259 && (W.__fpVm1259.poseKey || W.__fpVm1259.kind)) || '');
+    const skipCuff = (kind0 === 'empty' || kind0 === 'block' || kind0 === 'map');
     if (vc && !skipCuff) {
       try {
         vc.updateWorldMatrix(true, false);
@@ -640,7 +723,14 @@
     tip.normalize();
     const dorsum = new T.Vector3(0, 0, 1).transformDirection(p.h.matrixWorld);
     if (dorsum.lengthSq() < 1e-8) dorsum.set(0, 0, 1);
-    dorsum.normalize().negate();
+    dorsum.normalize();
+    // Default bind: the 1270 hand bone +Z is opposite the 1259 driver, so
+    // we negate when the driver is showing the dorsum (knuckles to camera).
+    // palmUp already has the driver dorsum pointing away — leave it so
+    // the palm stays facing the camera. Pronation of the forearm (below)
+    // carries that twist, not a 180 at the wrist.
+    const face = (arm.userData && arm.userData.face) || '';
+    if (face !== 'palmUp' && face !== 'palmUpHigh') dorsum.negate();
 
     // Pronate/supinate the forearm so the wrist skin follows the hand
     // palm instead of tearing when the driver asks for palm-up.
@@ -678,8 +768,30 @@
       _s.set(suit, suit, suit);
       hm.compose(_v3, _q, _s);
     }
+    const kindH = ((W.__fpVm1259 && (W.__fpVm1259.poseKey || W.__fpVm1259.kind)) || '');
+    const faceH = (arm.userData && arm.userData.face) || ((kindH === 'empty' || kindH === 'block' || kindH === 'map') ? 'palmUp' : '');
+    if ((faceH === 'palmUp' || faceH === 'palmUpHigh') && vc) {
+      // Explicit palm-toward-camera frame. Fingers point left-up, palm
+      // faces the camera and slightly up, dorsum down/away. Forearm
+      // pronation (above) has already aligned the wrist skin to this.
+      try {
+        const cRight = new T.Vector3(1, 0, 0).transformDirection(vc.matrixWorld).normalize();
+        const cUp = new T.Vector3(0, 1, 0).transformDirection(vc.matrixWorld).normalize();
+        const cToward = new T.Vector3(0, 0, 1).transformDirection(vc.matrixWorld).normalize();
+        const fingers = cRight.clone().multiplyScalar(-0.88).addScaledVector(cUp, 0.18).addScaledVector(cToward, 0.08).normalize();
+        const palm = cToward.clone().addScaledVector(cUp, 0.18).normalize();
+        const z = palm.clone().negate(); // dorsum
+        const x = new T.Vector3().crossVectors(fingers, z).normalize();
+        z.crossVectors(x, fingers).normalize();
+        hm.makeBasis(x, fingers, z);
+        hm.setPosition(wr);
+        // Toff is a knuckles-to-camera bind offset and fights palm-up.
+      } catch (_) {}
+    }
     applyWorld(h, hm);
     curlFingers(fp, side, p);
+    try { if (!fp.userData.fpLinenDressed1275) dressSleeveCream(fp); } catch (_) {}
+    try { ensureWristCuff(fp, side, wr, el); } catch (_) {}
   }
 
   function parkUnused(fp, at) {

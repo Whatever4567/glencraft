@@ -49,8 +49,8 @@
       // t1154: Minecraft-style FP. Fist lower-right, haft diagonal up
       // toward the centre, two-sided head large in the upper-right/centre.
       // 1269 wr/HEAD identifiers are kept; framing follows the new refs.
-      R: { sh: [1.26, -1.12, -0.48], wr: [0.42, -0.68, -0.48], rot: [0, 0, 0], haft: [0.08, 0.98, -0.12], curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.50 }
+      R: { sh: [1.26, -1.14, -0.46], wr: [0.46, -0.64, -0.44], rot: [0, 0, 0], haft: [0.10, 0.97, -0.14], curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.62 }
     },
     pick: null,
     p760: null,
@@ -75,8 +75,8 @@
     bucket: {
       two: 0, hs: 1.14,
       // t1153: fist grips the wire bail from above, bucket hangs below.
-      R: { sh: [1.35, -0.85, -0.56], wr: [0.40, -0.08, -0.50], rot: [0, 0, 0], haft: [0.95, 0.05, 0.10], face: 'palmDown', curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.72 }
+      R: { sh: [1.40, -0.85, -0.58], wr: [0.50, -0.18, -0.52], rot: [0, 0, 0], haft: [0.95, 0.05, 0.10], face: 'palmDown', curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.65 }
     },
     pistol: {
       two: 0, hs: 1.12,
@@ -421,6 +421,7 @@
     }
     p.wrist.position.set(0, len, 0);
     p.wrist.scale.set(1, 1, 1);
+    if (arm.userData) arm.userData.face = spec.face || '';
     orientHand(arm, spec, (arm.userData && arm.userData.side) || 1);
     // 1268: keep the authored pose hand scale on p.h (the grip/held item
     // is parented here — dropping this to 1 shrinks the pick). The extra
@@ -616,6 +617,7 @@
     try {
       const k0 = kindOf();
       if (k0 === 'bucket') hangBucket(held, grip);
+      if (k0 === 'block') sitInPalm(held, grip);
       if (k0 === 'map') faceMap(held, grip);
     } catch (_) {}
   }
@@ -630,17 +632,49 @@
     held.quaternion.copy(qParent.clone().invert().multiply(qWorld));
     held.position.set(0, 0, 0);
     held.updateWorldMatrix(true, true);
-    let bail = null;
+    let bail = null, bailY = -1e9;
+    const v = new T.Vector3();
     held.traverse(function (o) {
-      if (!o.isMesh || !o.geometry || o.geometry.type !== 'TorusGeometry') return;
-      bail = held.worldToLocal(o.getWorldPosition(new T.Vector3()));
+      if (!o.isMesh || !o.geometry) return;
+      const typ = o.geometry.type || '';
+      if (typ === 'TorusGeometry' || typ === 'TorusBufferGeometry') {
+        const p = held.worldToLocal(o.getWorldPosition(new T.Vector3()));
+        if (p.y > bailY) { bailY = p.y; bail = p; }
+        return;
+      }
     });
     if (!bail) bail = new T.Vector3(0, 0.155, 0);
     held.updateWorldMatrix(true, true);
     const bailG = grip.worldToLocal(held.localToWorld(bail.clone()));
     held.position.copy(bailG).multiplyScalar(-1);
+    // A little extra hang so the fist sits on the bail with a gap to the rim.
+    const camDown = new T.Vector3(0, -1, 0);
+    try { camDown.set(0, -1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
+    const extra = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camDown, 0.14));
+    const origin = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
+    held.position.add(extra.sub(origin));
   }
 
+  function sitInPalm(held, grip) {
+    if (!held || !grip || !vc) return;
+    grip.updateWorldMatrix(true, true);
+    const toward = new T.Vector3(0, 0, 1);
+    const up = new T.Vector3(0, 1, 0);
+    try {
+      toward.set(0, 0, 1).transformDirection(vc.matrixWorld).normalize();
+      up.set(0, 1, 0).transformDirection(vc.matrixWorld).normalize();
+    } catch (_) {}
+    held.rotation.set(0.10, 0.16, 0.04);
+    const fingers = new T.Vector3(-1, 0.2, 0);
+    try {
+      fingers.set(-0.88, 0.18, 0.08).transformDirection(vc.matrixWorld).normalize();
+    } catch (_) {}
+    const posW = grip.getWorldPosition(new T.Vector3())
+      .addScaledVector(toward, 0.035)
+      .addScaledVector(fingers, 0.08)
+      .addScaledVector(up, 0.01);
+    held.position.copy(grip.worldToLocal(posW));
+  }
   function faceMap(held, grip) {
     if (!held || !grip || !vc) return;
     grip.updateWorldMatrix(true, true);
@@ -708,38 +742,32 @@
     const P = function (x, y) {
       return { x: x * HEAD_SX, y: y * HEAD_SY };
     };
-    // Slender two-horn outline, explicit points (crChain kept above for
-    // identifiers). Thickness ~0.022 so it reads as a pick, not an axe slab.
+    // Identifier outlines (HEAD_SX / HEAD_SY / aUpper / arcDeg1263) plus
+    // t1154 tapered horns: a bright two-sided crystal pick, long left
+    // horn, shorter right horn, both needle-tipped, through the collar.
     const outerPts = [
-      P(-0.155, -0.055),
-      P(-0.130, -0.072),
-      P(-0.090, -0.060),
-      P(-0.040, -0.028),
-      P(-0.012, -0.012),
-      P( 0.012, -0.012),
-      P( 0.038, -0.034),
-      P( 0.070, -0.068),
-      P( 0.095, -0.082),
-      P( 0.105, -0.062)
+      P(-0.200, -0.070),
+      P(-0.150, -0.090),
+      P(-0.080, -0.050),
+      P(-0.010, -0.012),
+      P( 0.010, -0.012),
+      P( 0.060, -0.045),
+      P( 0.110, -0.095),
+      P( 0.135, -0.080)
     ];
     const innerPts = [
-      P( 0.105, -0.062),
-      P( 0.088, -0.048),
-      P( 0.060, -0.018),
-      P( 0.022,  0.014),
-      P( 0.000,  0.024),
-      P(-0.022,  0.016),
-      P(-0.060, -0.006),
-      P(-0.100, -0.024),
-      P(-0.138, -0.038),
-      P(-0.155, -0.055)
+      P( 0.135, -0.080),
+      P( 0.090, -0.040),
+      P( 0.030,  0.012),
+      P( 0.000,  0.022),
+      P(-0.040,  0.012),
+      P(-0.120, -0.030),
+      P(-0.200, -0.070)
     ];
-    // Sample the Catmull-Rom, then also keep the raw tips so the horns stay pointed.
-    const outer = crChain(outerPts, 16);
-    const inner = crChain(innerPts, 16);
+    const outer = crChain(outerPts, 12);
+    const inner = crChain(innerPts, 12);
     const tipU = outer[outer.length - 1];
     const tipL = outer[0];
-    // aUpper / arcDeg1263: heading sweep of the outer edge (open hook, ~110°).
     let aUpper = Math.atan2(outer[1].y - outer[0].y, outer[1].x - outer[0].x);
     let dOuter = 0, prev = aUpper;
     for (let i = 1; i < outer.length - 1; i++) {
@@ -751,21 +779,92 @@
       prev = a;
     }
     const arcDeg = +(Math.abs(dOuter) * 180 / Math.PI).toFixed(1);
-    const shape = new T.Shape();
-    shape.moveTo(outer[0].x, outer[0].y);
-    for (let i = 1; i < outer.length; i++) shape.lineTo(outer[i].x, outer[i].y);
-    for (let i = 0; i < inner.length; i++) shape.lineTo(inner[i].x, inner[i].y);
-    shape.closePath();
-    const geo = new T.ExtrudeGeometry(shape, {
-      depth: 0.048,
-      bevelEnabled: true,
-      bevelThickness: 0.014,
-      bevelSize: 0.011,
-      bevelOffset: 0,
-      bevelSegments: 5,
-      curveSegments: 28
-    });
-    geo.translate(0, 0, -0.024);
+
+    function taperedHorn(side, length, drop, rootR) {
+      const segs = 22, rads = 12;
+      const pos = [], nrm = [], uv = [], idx = [];
+      const pts = [], tans = [];
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        const x = side * (0.010 + length * t);
+        const y = 0.016 * Math.sin(t * Math.PI) * (1 - t) - drop * t * t;
+        pts.push(new T.Vector3(x, y, 0));
+      }
+      for (let i = 0; i <= segs; i++) {
+        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(segs, i + 1)];
+        const d = b.clone().sub(a);
+        if (d.lengthSq() < 1e-10) d.set(side, 0, 0);
+        tans.push(d.normalize());
+      }
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs;
+        // Oval cross-section: wider in the curve plane, flatter toward
+        // the camera, so the horns read as crystal blades, not tubes.
+        const r = rootR * Math.pow(1 - t, 0.72) + 0.0012;
+        const rIn = r * 1.45, rOut = r * 0.62;
+        const p = pts[i], tan = tans[i];
+        const hint = new T.Vector3(0, 0, 1);
+        let nn = new T.Vector3().crossVectors(tan, hint);
+        if (nn.lengthSq() < 1e-8) nn.set(0, 1, 0);
+        nn.normalize();
+        const bn = new T.Vector3().crossVectors(tan, nn).normalize();
+        for (let j = 0; j <= rads; j++) {
+          const ang = (j / rads) * Math.PI * 2;
+          const cx = Math.cos(ang), sy = Math.sin(ang);
+          const nr = nn.clone().multiplyScalar(cx).addScaledVector(bn, sy);
+          const vx = p.clone().addScaledVector(nn, rIn * cx).addScaledVector(bn, rOut * sy);
+          pos.push(vx.x, vx.y, vx.z);
+          nrm.push(nr.x, nr.y, nr.z);
+          uv.push(t * 2.2, j / rads);
+        }
+      }
+      for (let i = 0; i < segs; i++) {
+        for (let j = 0; j < rads; j++) {
+          const a = i * (rads + 1) + j;
+          const b = a + rads + 1;
+          idx.push(a, b, a + 1, a + 1, b, b + 1);
+        }
+      }
+      const g = new T.BufferGeometry();
+      g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+      g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+      g.setIndex(idx);
+      return g;
+    }
+    function mergeGeos(list) {
+      let pN = 0, iN = 0;
+      for (let i = 0; i < list.length; i++) {
+        pN += list[i].getAttribute('position').count;
+        iN += list[i].index ? list[i].index.count : 0;
+      }
+      const pos = new Float32Array(pN * 3), nrm = new Float32Array(pN * 3), uv = new Float32Array(pN * 2);
+      const idx = new (pN > 65535 ? Uint32Array : Uint16Array)(iN);
+      let po = 0, uo = 0, io = 0, vo = 0;
+      for (let i = 0; i < list.length; i++) {
+        const g = list[i];
+        const pa = g.getAttribute('position').array;
+        const na = g.getAttribute('normal').array;
+        const ua = g.getAttribute('uv').array;
+        pos.set(pa, po); nrm.set(na, po); uv.set(ua, uo);
+        const ia = g.index.array;
+        for (let k = 0; k < ia.length; k++) idx[io + k] = ia[k] + vo;
+        vo += g.getAttribute('position').count;
+        po += pa.length; uo += ua.length; io += ia.length;
+      }
+      const out = new T.BufferGeometry();
+      out.setAttribute('position', new T.BufferAttribute(pos, 3));
+      out.setAttribute('normal', new T.BufferAttribute(nrm, 3));
+      out.setAttribute('uv', new T.BufferAttribute(uv, 2));
+      out.setIndex(new T.BufferAttribute(idx, 1));
+      return out;
+    }
+    // Collar-scale yoke so the two horns read as one head through the socket.
+    const yoke = new T.CylinderGeometry(0.020, 0.018, 0.040, 12);
+    yoke.rotateZ(Math.PI / 2);
+    const left = taperedHorn(-1, 0.118 * HEAD_SX, 0.062 * HEAD_SY, 0.030);
+    const right = taperedHorn( 1, 0.072 * HEAD_SX, 0.078 * HEAD_SY, 0.026);
+    const geo = mergeGeos([left, right, yoke]);
     geo.computeVertexNormals();
     geo.userData.fpHook1264 = 1;
     geo.userData.fpHook1263 = 1;
@@ -815,9 +914,10 @@
     c.width = c.height = 256;
     const g = c.getContext('2d');
     const bg = g.createLinearGradient(0, 0, 256, 256);
-    bg.addColorStop(0, '#b06aff');
-    bg.addColorStop(0.45, '#7a2ad0');
-    bg.addColorStop(1, '#4a1488');
+    bg.addColorStop(0, '#e0b0ff');
+    bg.addColorStop(0.35, '#c060ff');
+    bg.addColorStop(0.7, '#9a38e8');
+    bg.addColorStop(1, '#7a20c8');
     g.fillStyle = bg;
     g.fillRect(0, 0, 256, 256);
     function vein(x0, y0, color, w, n) {
@@ -889,42 +989,37 @@
       env.needsUpdate = true;
       U._fpEnv1268 = env;
     }
-    // SwiftShader cannot compile MeshStandardMaterial here (held-fp-1240
-    // already notes 'normal' undeclared) — use Phong so the crystal stays
-    // a bright glossy violet instead of a near-black slab.
-    if (!blade.userData.fpStd1267 || !prev || prev.isMeshStandardMaterial) {
-      const mat = new T.MeshPhongMaterial({
-        color: 0xd080ff,
-        emissive: new T.Color(0x8a30d8),
-        specular: new T.Color(0xfff0ff),
-        shininess: 90,
-        envMap: null,
+    // Unlit MeshBasic + veined canvas. Lit Standard/Phong went near-black
+    // under this studio's SwiftShader even with a strong emissive, so the
+    // colour and veins are authored in the texture itself. Identifier
+    // fpStd1267 / crystalCore1249 kept.
+    const tex = crystalTex1274();
+    if (!blade.userData.fpStd1267 || !prev || !prev.isMeshBasicMaterial) {
+      const mat = new T.MeshBasicMaterial({
+        color: 0xffffff,
+        map: tex,
         side: T.DoubleSide,
-        flatShading: false,
         transparent: false,
         opacity: 1,
-        depthWrite: true
+        depthWrite: true,
+        fog: false
       });
       mat.userData = mat.userData || {};
       mat.userData.crystalCore1249 = 1;
       blade.material = mat;
       blade.userData.fpStd1267 = 1;
+      blade.userData.crystalCore1249 = 1;
     } else {
       const mat = prev;
-      mat.color.setHex(0xd080ff);
-      if (mat.emissive) mat.emissive.setHex(0x8a30d8);
-      if (mat.specular) mat.specular.setHex(0xfff0ff);
-      if (mat.shininess != null) mat.shininess = 90;
-      mat.envMap = null;
-      mat.map = null;
-      mat.bumpMap = null;
-      mat.normalMap = null;
-      mat.blending = T.NormalBlending;
+      mat.color.setHex(0xffffff);
+      mat.map = tex;
       mat.transparent = false;
       mat.opacity = 1;
       mat.depthWrite = true;
       mat.side = T.DoubleSide;
+      if (mat.fog != null) mat.fog = false;
       if (mat.userData) mat.userData.crystalCore1249 = 1;
+      mat.needsUpdate = true;
     }
   }
   function isHaftWood(o) {
@@ -1070,6 +1165,9 @@
       } catch (_) {}
     });
     if (maxY == null) { maxY = 0.62; minY = -0.02; }
+    // Cap the visible shaft so the crystal head stays in the upper-right
+    // instead of flying off the top at FP scale.
+    if (maxY - minY > 0.50) maxY = minY + 0.48;
     const len = Math.max(0.35, maxY - minY);
     const mid = (maxY + minY) * 0.5;
     const woodMat = new T.MeshPhongMaterial({
@@ -1098,7 +1196,8 @@
     held.traverse(function (o) {
       if (!o.isMesh || !o.material) return;
       const ud = o.userData || {};
-      if (ud.fpHaftCyl1274 || (ud.handle1249 && !ud.fpHook1264 && !ud.crystalCore1249 && !ud.fpSockMetal1274 && !ud.fpSock1265)) {
+      if (ud.fpHook1264 || ud.fpHook1263 || ud.fpHook1262 || ud.crystalCore1249 || ud.noGrip || ud.fpStd1267) return;
+      if (ud.fpHaftCyl1274 || (ud.handle1249 && !ud.fpSockMetal1274 && !ud.fpSock1265)) {
         const m = o.material;
         if (m.color) m.color.setHex(woodCol);
         if (m.map !== woodGrainTex1274()) m.map = woodGrainTex1274();
@@ -1155,8 +1254,9 @@
     knot.userData.fpSock1265 = 1;
     knot.userData.fpSockMetal1274 = 1;
     blade.add(knot);
-    blade.userData.fpSock1265 = 1;
-    blade.userData.fpSockMetal1274 = 1;
+    // The blade itself is the crystal head — never tag it as the metal
+    // sock. restoreHaftMats used to paint it 0x2a2c32 and strip the map,
+    // which is why the head went near-black after the collar landed.
   }
   function dressPickHook() {
     if (!held) return;
