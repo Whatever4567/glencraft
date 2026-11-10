@@ -8,28 +8,28 @@
 
   const SRC = 'music/album/';
   const SRC_Q = '?v=1.2.54';
-  // Batches 1–2. Later batches append; fallbacks remain for unfilled contexts.
+  // Batches 1–3. Later batches append; fallbacks remain for unfilled contexts.
   const POOLS = U.POOLS = {
     menu: ['the_glen_opens'],
-    day: ['heather_road', 'drove_road'],
-    night: ['watcher_on_the_ridge', 'peat_fire'],
+    day: ['heather_road', 'drove_road', 'pine_shelter'],
+    night: ['watcher_on_the_ridge', 'peat_fire', 'owl_hour'],
     loch: ['still_water'],
     volcano: ['ash_line'],
     blue: ['blue_vault'],
     purple: ['purple_chamber'],
-    agartha: ['choir_of_the_hollow'],
+    agartha: ['choir_of_the_hollow', 'inner_sun'],
     moon: ['silver_sea'],
     mars: ['red_horizon'],
     space: ['between_worlds'],
     cave1: ['blue_vault'],
-    hell: ['ash_line'],
+    hell: ['below_the_map'],
     snow: ['white_pass'],
     desert: ['long_sand'],
     underwater: ['down_among_the_reeds'],
-    creative: ['heather_road', 'drove_road'],
-    combat: ['ash_line'],
-    popstar: ['the_glen_opens'],
-    credits: ['the_glen_opens']
+    creative: ['open_sketch'],
+    combat: ['claymore'],
+    popstar: ['starlight_show'],
+    credits: ['last_light']
   };
   const FALLBACK = {
     purple: 'blue', cave1: 'blue', hell: 'volcano',
@@ -44,6 +44,7 @@
     blue: [70, 180], purple: [70, 180], agartha: [70, 180], cave1: [70, 180],
     moon: [60, 160], mars: [60, 160], space: [60, 160],
     combat: [8, 20],
+    popstar: [10, 24],
     default: [50, 160]
   };
 
@@ -60,9 +61,70 @@
     return (POOLS[c] && POOLS[c].length) ? { ctx: c, ids: POOLS[c].slice() } : { ctx: 'day', ids: (POOLS.day || []).slice() };
   }
 
+  function creditsOpen() {
+    try {
+      if (window.__creditsOpen || U.creditsOpen) return true;
+      if (typeof location !== 'undefined' && /(?:^|#|&)credits\b/i.test(String(location.hash || ''))) return true;
+      const elc = (typeof document !== 'undefined') && (
+        document.getElementById('glxCredits') ||
+        document.getElementById('creditsRoll') ||
+        document.querySelector('[data-screen="credits"]')
+      );
+      if (elc) {
+        const st = (typeof getComputedStyle === 'function') ? getComputedStyle(elc) : null;
+        if (elc.offsetParent !== null && (!st || (st.display !== 'none' && st.visibility !== 'hidden'))) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function isHostileActor(a) {
+    if (!a || a.kind === 'popstar') return false;
+    try { if (window.__v1248 && __v1248.isHostileMob && __v1248.isHostileMob(a)) return true; } catch (_) {}
+    return !!(a.hostile || a.kind === 'nspider' || a.kind === 'spider' || a.kind === 'zombie'
+      || a.kind === 'skeleton' || a.kind === 'blackskel' || a.kind === 'creeper'
+      || a.kind === 'blazeskel' || a.kind === 'guardian');
+  }
+
+  function inCombat() {
+    try {
+      if (typeof mobs === 'undefined' || !mobs || typeof P === 'undefined') return false;
+      for (let i = 0; i < mobs.length; i++) {
+        const m = mobs[i];
+        if (!isHostileActor(m) || !m.g || !m.g.position) continue;
+        const d = Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z);
+        if (d < 8) return true;
+        if (d < 16 && (m.aggro > 0 || m.vic === P || m.target === P)) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function nearPopstar() {
+    try {
+      const u = window.__v1251;
+      if (!u) return false;
+      const a = u.alive && u.alive();
+      if (!a || !a.g || !a.g.position || typeof P === 'undefined') return false;
+      const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z);
+      return d < 72;
+    } catch (_) { return false; }
+  }
+
+  // Her diegetic dance song (__v1251.songOn) must not be replaced by Album.
+  function popstarSongOn() {
+    try { return !!(window.__v1251 && window.__v1251.songOn); } catch (_) { return false; }
+  }
+  U.popstarSongOn = popstarSongOn;
+
   function detectContext() {
     try {
+      // Credits beat the title-screen menu so a roll can play from either place.
+      if (creditsOpen()) return 'credits';
       if (typeof started !== 'undefined' && !started) return 'menu';
+      // Combat and the pop star interrupt exploration (combat first).
+      if (inCombat()) return 'combat';
+      if (nearPopstar()) return 'popstar';
       if (typeof DIM !== 'undefined' && DIM && DIM.cur) {
         if (DIM.cur === 'moon') return 'moon';
         if (DIM.cur === 'mars') return 'mars';
@@ -165,7 +227,7 @@
   }
 
   function stop() {
-    wanted = false; curId = null; U.track = null;
+    wanted = false; curId = null; U.track = null; U.ducked = 0;
     if (el) try { el.pause(); } catch (_) {}
   }
   function pause() {
@@ -182,13 +244,39 @@
 
   function tick() {
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-    const vol = hidden ? 0 : albumVol();
     const a = ensureEl();
+    const songOn = popstarSongOn();
+    U.songOn = songOn ? 1 : 0;
+    U.ctx = detectContext();
+
+    // Her own dance song owns the bed: skip starting Album, and duck/pause
+    // anything already playing (including starlight_show) until she stops.
+    if (songOn) {
+      a.volume = 0;
+      if (wanted) { try { a.pause(); } catch (_) {} }
+      U.ducked = 1;
+      return;
+    }
+    if (U.ducked) {
+      U.ducked = 0;
+      const now0 = performance.now();
+      const vol0 = hidden ? 0 : albumVol();
+      // Resume the same cue if we paused mid-track; otherwise a short gap, then pick.
+      if (curId && a && a.src && !a.ended && vol0 >= 0.01) {
+        wanted = true;
+        a.volume = vol0;
+        const p = a.play(); if (p && p.catch) p.catch(() => {});
+        gapUntil = now0 + 400;
+        return;
+      }
+      gapUntil = now0 + 800;
+    }
+
+    const vol = hidden ? 0 : albumVol();
     a.volume = vol;
     if (hidden || vol < 0.01) { try { a.pause(); } catch (_) {} return; }
 
-    const ctx = detectContext();
-    U.ctx = ctx;
+    const ctx = U.ctx;
     const now = performance.now();
 
     const playing = wanted && a && !a.paused && !a.ended;

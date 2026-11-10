@@ -90,7 +90,9 @@ const musicDir = path.join(path.dirname(path.resolve(out)), 'music/album');
 const need = ['the_glen_opens', 'heather_road', 'still_water', 'watcher_on_the_ridge',
   'blue_vault', 'choir_of_the_hollow', 'silver_sea', 'ash_line',
   'drove_road', 'peat_fire', 'purple_chamber', 'white_pass',
-  'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds'];
+  'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds',
+  'below_the_map', 'open_sketch', 'inner_sun', 'pine_shelter',
+  'owl_hour', 'claymore', 'starlight_show', 'last_light'];
 for (const id of need) {
   const ogg = path.join(musicDir, id + '.ogg');
   const mp3 = path.join(musicDir, id + '.mp3');

@@ -9,6 +9,7 @@ const html = fs.readFileSync(file, 'utf8');
 const v1248 = fs.readFileSync(new URL('../tools/content-source/v1248.js', import.meta.url), 'utf8');
 const album = fs.readFileSync(new URL('../tools/content-source/v126x-album.js', import.meta.url), 'utf8');
 const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8');
+const build = fs.readFileSync(new URL('../tools/build-1.2.6x-album.cjs', import.meta.url), 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
@@ -22,6 +23,9 @@ ok(html.includes('hardcore_remix.mp3') && html.includes('music/glen_dawn.mp3') &
   'Classic tracks and the remix stay referenced');
 ok(html.includes('GLX-V1251-START') && html.includes('GLX-V1251-END') && html.includes('popstar_song'),
   'V1251 pop-star block and her song stay in index.html');
+ok(build.includes('function moduleEnd') && build.includes('GLX-V1251') && build.includes('const end = moduleEnd')
+  && build.includes('without crossing </script>'),
+  'build script replaces only GLX modules and refuses to cut through </script>');
 ok(album.includes("music/album/") && album.includes('.ogg') && album.includes('.mp3') && album.includes('SRC_Q'),
   'album player lazy-loads OGG with an MP3 fallback and a cache-bust query');
 ok(album.includes('the_glen_opens') && album.includes('heather_road') && album.includes('blue_vault') && album.includes('choir_of_the_hollow'),
@@ -31,6 +35,17 @@ ok(album.includes('drove_road') && album.includes('peat_fire') && album.includes
   'batch 2 fallback-filling titles are in the context pools');
 ok(album.includes("purple: ['purple_chamber']"),
   'purple cave plays Purple Chamber, not the blue fallback');
+ok(album.includes('below_the_map') && album.includes('open_sketch') && album.includes('inner_sun') && album.includes('pine_shelter')
+  && album.includes('owl_hour') && album.includes('claymore') && album.includes('starlight_show') && album.includes('last_light'),
+  'batch 3 titles are in the context pools');
+ok(album.includes("hell: ['below_the_map']") && album.includes("creative: ['open_sketch']")
+  && album.includes("combat: ['claymore']") && album.includes("popstar: ['starlight_show']")
+  && album.includes("credits: ['last_light']"),
+  'batch 3 contexts map to their dedicated cues');
+ok(album.includes("return 'combat'") && album.includes("return 'popstar'") && album.includes("return 'credits'"),
+  'detectContext returns combat, popstar and credits');
+ok(album.includes('popstarSongOn') && album.includes('songOn') && album.includes('U.ducked'),
+  'album ducks or skips while the pop star\'s diegetic song is playing');
 ok(album.includes("return 'menu'") && album.includes("return 'moon'") && album.includes("return 'volcano'") && album.includes("return 'loch'"),
   'context detector covers menu, moon, volcano and loch');
 
@@ -38,7 +53,9 @@ const tracks = [
   'the_glen_opens', 'heather_road', 'still_water', 'watcher_on_the_ridge',
   'blue_vault', 'choir_of_the_hollow', 'silver_sea', 'ash_line',
   'drove_road', 'peat_fire', 'purple_chamber', 'white_pass',
-  'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds'
+  'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds',
+  'below_the_map', 'open_sketch', 'inner_sun', 'pine_shelter',
+  'owl_hour', 'claymore', 'starlight_show', 'last_light'
 ];
 for (const id of tracks) {
   const ogg = new URL('../music/album/' + id + '.ogg', import.meta.url);
@@ -57,6 +74,8 @@ ok(credits.includes('v1.2.54') && /Album soundtrack mode|Album mode/i.test(credi
   'CREDITS records the live album');
 ok(credits.includes('drove_road') && /v1.2.6x Album batches/i.test(credits),
   'CREDITS records unpublished batch 2 as branch-only');
+ok(credits.includes('starlight_show') && credits.includes('claymore') && credits.includes('below_the_map'),
+  'CREDITS records unpublished batch 3');
 ok(credits.includes('hardcore_remix') && /Classic soundtrack/i.test(credits),
   'CREDITS still record the remix and Classic soundtrack');
 

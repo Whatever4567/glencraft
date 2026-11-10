@@ -168,7 +168,8 @@ The modified CC BY-SA clips are shared under the same licence.
 ## v1.2.6x Album batches 2+ (unpublished)
 
 - Batch 2 fills previously falling-back contexts and is on this branch only, not in the live 1.2.54 release: `drove_road` (day), `peat_fire` (night), `purple_chamber` (purple crystal cave), `white_pass` (snow), `long_sand` (desert), `red_horizon` (Mars), `between_worlds` (deep space), `down_among_the_reeds` (underwater). Same through-composed, sample-layered production as batch 1. Purple Chamber is a darker beatless sibling of Blue Vault (choir pad, glassy bells, drone, cavernous reverb). No piano-led writing.
-- Renderer: `tools/audio-source/render-album-batch2.py`. Later batches (further day/night and highlands cues, more Agartha, hell/void, combat, pop star, creative, credits, and original hardcore album sides) remain listed in `tools/audio-source/TRACKLIST.md`.
+- Batch 3, also unpublished: `below_the_map` (hell / void, beatless), `open_sketch` (creative), `inner_sun` (warmer beatless Agartha companion), `pine_shelter` (day), `owl_hour` (night), `claymore` (combat; tense written percussion, not hardcore), `starlight_show` (original dance-pop when near the pop star; the player ducks or skips it while her diegetic song is playing), `last_light` (credits reprise of the Glen theme). `detectContext` now returns `combat`, `popstar` and `credits`.
+- Renderers: `tools/audio-source/render-album-batch2.py`, `render-album-batch3.py`. Later batches (further day/night and highlands cues, more Agartha, boss / cave-combat, and original hardcore album sides) remain listed in `tools/audio-source/TRACKLIST.md`.
 
 ## v1.2.53 soundtrack, pop star, and player / armour
 
