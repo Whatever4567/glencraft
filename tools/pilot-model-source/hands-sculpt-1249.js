@@ -3,7 +3,7 @@
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
-  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p8', sculpted: 0};
+  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p9', sculpted: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -374,6 +374,17 @@
     });
   }
 
+  function wristCapGeo(r) {
+    return share(geoKey('wcap', r), function () {
+      // Dome points toward -Y (elbow), filling the open proximal end of
+      // the wrist capsule when the camera looks down the forearm.
+      const g = new T.SphereGeometry(r, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+      g.rotateX(Math.PI);
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+
   function upgradeHand(h, side) {
     if (!h || h.userData.sculptGeo1249) return;
     h.userData.sculptGeo1249 = 1;
@@ -443,8 +454,14 @@
       }
     }
 
-    // Wrist — slightly more defined, tapered into the palm
+    // Wrist — slightly more defined, tapered into the palm.
+    // fingerSegGeo is open at the base, which read as a hollow bowl when
+    // the camera looked down the forearm. A static dome cap fills that
+    // proximal opening (not an animation or rig change).
     addMesh(h, fingerSegGeo(0.048, 0.031, 0.026, 0.82, 12, 18, 0), sm, 0, -0.048, 0);
+    const wcap = addMesh(h, wristCapGeo(0.031), sm, 0, -0.048, 0);
+    wcap.name = 'WristCap';
+    wcap.userData.wristCap1249 = 1;
     if (h.userData.kn) {
       for (const b of h.userData.kn) hideOld(b);
     }

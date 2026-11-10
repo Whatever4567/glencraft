@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p13', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p14', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -25,9 +25,9 @@
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
-    sword:  {dx: -0.02, dy: -0.10, dz: 0.02, fov: 0.78, s: 1.08, armS: 1.00},
+    sword:  {dx: -0.02, dy: -0.06, dz: 0.06, fov: 0.70, s: 1.10, armS: 1.12},
     bucket: {dx: -0.04, dy:  0.06, dz: 0.00, fov: 0.80, s: 1.08, armS: 1.04},
-    torch:  {dx: -0.04, dy: -0.12, dz: 0.00, fov: 0.82, s: 1.08, armS: 1.00},
+    torch:  {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12},
     // Ref 02: supporting palm and sleeve should stay visible under the map.
     map:    {dx: -0.02, dy:  0.04, dz: 0.02, fov: 0.80, s: 1.04, armS: 1.08},
     // t1183-12 POSITION: gun held big and low in the bottom-right, angled
@@ -35,7 +35,7 @@
     // rest offsets stay identity so aim animations are unchanged.
     // Keep close to the on-screen pass-2 framing; only a slight bigger/lower push.
     musket: {dx:  0.02, dy: -0.02, dz: 0.04, fov: 0.88, s: 1.12, armS: 1.00},
-    pistol: {dx:  0.035, dy: -0.08, dz: 0.10, fov: 0.74, s: 1.28, armS: 1.00},
+    pistol: {dx:  0.03, dy: -0.10, dz: 0.12, fov: 0.70, s: 1.32, armS: 1.00},
     musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     other:  {dx: -0.04, dy:  0.08, dz: 0.12, fov: 0.64, s: 1.10, armS: 1.20}
@@ -184,7 +184,7 @@
       // with the thumb wrapped over the top; empty is an open palm; the block
       // is a soft cup so cobble can sit in the hand.
       const tight = {empty: 0.06, block: 0.52, pick: 1.16, p761: 1.16, p760: 1.16, axe: 1.16, shovel: 1.16, hoe: 1.16,
-        sword: 1.22, bucket: 1.24, torch: 1.22, map: 0.16, musket: ads ? 0.78 : 1.08, pistol: ads ? 0.72 : 1.10, other: 0.9};
+        sword: 1.22, bucket: 1.24, torch: 1.22, map: 0.16, musket: ads ? 0.78 : 1.08, pistol: ads ? 0.72 : 1.32, other: 0.9};
       const gamt = tight[kind] != null ? tight[kind] : 0.9;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -815,8 +815,10 @@
   }
 
   function placeItem(kind) {
-    if (GRIP[kind]) seatItem(kind);
-    else {
+    if (GRIP[kind]) {
+      const ok = seatItem(kind);
+      if (!ok && ITEM_NUDGE[kind]) nudgeItem(kind);
+    } else {
       U.gripInfo = {kind: kind, seated: 0, why: 'nudge'};
       nudgeItem(kind);
     }
@@ -906,15 +908,19 @@
   // pronation/supination. Not an animation curve — re-applied after fpa.step.
   const PALM_ROLL = {empty: -1.50, block: -1.45, map: -1.30};
   U.PALM_ROLL = PALM_ROLL;
-  // Y is pronation (p6 diagnostic sweet spot ~-1.4). Pitch X tips the
-  // bowl toward the camera; start at 0 and only add what the pitch
-  // grid shows is an improvement over Y-only.
+  // Euler pose kept only as a diagnostic fallback. Live empty/cobble/map
+  // aim the palmar normal (local -Z — palmGeo hollows z<0) at the camera.
   const PALM_POSE = {
     empty: {y: -1.55, x: 0.00, z: -0.40},
     block: {y: -1.50, x: 0.00, z: -0.35},
     map:   {y: -1.35, x: 0.00, z: -0.20}
   };
   U.PALM_POSE = PALM_POSE;
+  const PALM_AIM = {};
+  U.PALM_AIM = PALM_AIM;
+  // Override from a diagnostic: __palmAxis, __palmWant (camera space).
+  U.__palmAxis = [0, 0, -1];
+  U.__palmWant = [0, 0.85, 0.55];
   function palmHands(fn) {
     const fpa = W.__fpa;
     const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
@@ -937,17 +943,41 @@
         if (W.__rl && W.__rl.t > 0) return;
         if (typeof rlT !== 'undefined' && rlT > 0) return;
       } catch (_) {}
-      const pose = PALM_POSE[kind] || null;
+      const aim = PALM_AIM[kind];
+      const pose = (!aim && PALM_POSE[kind]) ? PALM_POSE[kind] : null;
       palmHands(function (arm) {
         const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
-        if (!h || !h.rotateY) return;
+        if (!h || !h.quaternion) return;
         const side = (arm.userData && arm.userData.side) || 1;
         if (!h.userData._palmTag) h.userData._palmTag = {applied: 0, y: 0, x: 0, z: 0, baseQ: null};
         const tag = h.userData._palmTag;
         if (!tag.baseQ) tag.baseQ = h.quaternion.clone();
         else h.quaternion.copy(tag.baseQ);
         tag.applied = 0; tag.y = 0; tag.x = 0; tag.z = 0;
-        if (pose) {
+        if (aim) {
+          const axis = U.__palmAxis || [0, 0, -1];
+          const wantA = U.__palmWant || [0, 0.40, 1];
+          const originC = toCameraLocal(h, new T.Vector3(0, 0, 0));
+          const axisC = toCameraLocal(h, new T.Vector3(axis[0], axis[1], axis[2]));
+          if (originC && axisC) {
+            const now = axisC.sub(originC);
+            if (now.lengthSq() > 1e-10) {
+              now.normalize();
+              const want = new T.Vector3(wantA[0], wantA[1], wantA[2]);
+              if (want.lengthSq() > 1e-10) want.normalize();
+              const qCam = new T.Quaternion().setFromUnitVectors(now, want);
+              const pm = parentCamMatrix(h.parent || h);
+              let qLocal = qCam;
+              if (pm) {
+                const rot = new T.Matrix4().extractRotation(pm);
+                const qParent = new T.Quaternion().setFromRotationMatrix(rot);
+                qLocal = qParent.clone().invert().multiply(qCam).multiply(qParent);
+              }
+              h.quaternion.premultiply(qLocal);
+              tag.applied = 1;
+            }
+          }
+        } else if (pose) {
           const y = side * (pose.y || 0);
           const x = pose.x || 0;
           const z = side * (pose.z || 0);
@@ -994,7 +1024,7 @@
   // along +Y so the distal rolled edge stays on the wrist).
   function trimToolCuff(kind) {
     try {
-      const tools = (kind === 'torch' || kind === 'sword');
+      const tools = (kind === 'sword');
       eachArm(function (arm) {
         const p = arm.userData && arm.userData.p;
         if (!p) return;
@@ -1055,15 +1085,13 @@
           for (let n = o; n && n !== p.h; n = n.parent) if (keep[n.uuid]) return true;
           return false;
         }
-        p.h.traverse(function (o) {
+        // Gun ADS: keep only finger / thumb meshes. Hide palm, wrist,
+        // forearm, cuff, pads, knuckles and leftover boxes per-mesh so
+        // they cannot sit in the sight.
+        arm.traverse(function (o) {
           if (!o.isMesh) return;
-          const typ = o.geometry && o.geometry.type;
-          const isWrist = !!(o.parent === p.h && o.position && o.position.y < -0.015);
-          const isPalm = o.name === 'PalmSculpt' || !!(o.userData && o.userData.pad1249);
-          const isKn = !!(p.h.userData && p.h.userData.kn && p.h.userData.kn.indexOf && p.h.userData.kn.indexOf(o) >= 0);
-          const isBox = typ === 'BoxGeometry' && o.name !== 'PalmSculpt' && !(o.userData && (o.userData.nail1249 || o.userData.sculpt1249));
-          const hide = gunsAds && !underKeep(o) && (isWrist || isPalm || isKn || isBox);
-          if (hide) {
+          if (isItemMesh(o)) return;
+          if (gunsAds && !underKeep(o)) {
             o.visible = false;
             o.userData.__hidAds1252 = 1;
           } else if (o.userData && o.userData.__hidAds1252) {
