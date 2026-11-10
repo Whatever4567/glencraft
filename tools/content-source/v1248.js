@@ -940,7 +940,7 @@
   U.findUfo = findUfo;
 
   // ---------- 4. soundtrack modes: Calm / Classic / Happy Hardcore ----------
-  const OST_MODES = ['calm', 'classic', 'hardcore'];
+  const OST_MODES = ['calm', 'classic', 'hardcore', 'album'];
   const CLASSIC_TRACKS = U.CLASSIC_TRACKS = [
     {id: 'mist', src: 'music/highland_mist.mp3'},
     {id: 'theme_ext', src: 'music/glencraft_theme_extended.mp3'},
@@ -970,7 +970,7 @@
   function soundtrack() {
     try {
       const v = SET && SET.soundtrack;
-      if (v === 'classic' || v === 'hardcore') return v;
+      if (v === 'classic' || v === 'hardcore' || v === 'album') return v;
     } catch (_) {}
     return 'calm';
   }
@@ -1222,6 +1222,7 @@
     if (mode !== 'calm' && mus) { stopBed(mus, 1.2); mus = null; }
     if (mode !== 'classic') stopClassic();
     if (mode !== 'hardcore') stopHardcore();
+    if (mode !== 'album') { try { window.__v126x && __v126x.stop && __v126x.stop(); } catch (_) {} }
     if (mode === 'hardcore' && acOk()) startHardcore();
   }
   function applyOstVol() {
@@ -1245,7 +1246,10 @@
   } catch (_) {}
 
   function tickAudio1248(dt) {
-    if (typeof started !== 'undefined' && !started) return;
+    if (typeof started !== 'undefined' && !started) {
+      if (soundtrack() === 'album') { try { window.__v126x && __v126x.tick && __v126x.tick(dt); } catch (e) { ERR('album', e); } }
+      return;
+    }
     if (typeof paused !== 'undefined' && paused) return;
     const mood = detectMood();
     U.mood = mood;
@@ -1255,7 +1259,13 @@
     U.ost = ost;
     const now = (typeof AC !== 'undefined' && AC) ? AC.currentTime : 0;
 
-    if (ost !== 'calm') {
+    if (ost === 'album') {
+      if (mus) { stopBed(mus, 1.2); mus = null; }
+      stopClassic();
+      stopHardcore();
+      if (vol > 0.01 && !hidden) { try { window.__v126x && __v126x.tick && __v126x.tick(dt); } catch (e) { ERR('album', e); } }
+      else { try { window.__v126x && __v126x.pause && __v126x.pause(); } catch (_) {} }
+    } else if (ost !== 'calm') {
       if (mus) { stopBed(mus, 1.2); mus = null; }
     } else if (acOk() && vol > 0.01) {
       // Calm: crossfade on mood change, pieces of ~30-45s, then a gap of silence

@@ -13283,7 +13283,7 @@ html body #tradeUI .tp{background:rgba(10,18,40,.96)!important;border-color:rgba
     <label class="set" data-k="pad"><span>Controller sensitivity<b id="padV"></b></span><input type="range" id="padSens" min="0.3" max="5" step="0.1" data-testid="settings-controller-sensitivity"></label>
     <label class="set" data-k="sfx"><span>Sound effects volume<b id="sfxV"></b></span><input type="range" id="sfxVol" min="0" max="1" step="0.05" data-testid="settings-sfx-volume"></label>
     <label class="set" data-k="music"><span>Music volume<b id="musV"></b></span><input type="range" id="musVol" min="0" max="1" step="0.05" data-testid="settings-music-volume"></label>
-    <div class="set inline"><span>Soundtrack</span><div class="seg" id="ostSeg"><button data-ost="calm" data-testid="settings-ost-calm">Calm</button><button data-ost="classic" data-testid="settings-ost-classic">Classic</button><button data-ost="hardcore" data-testid="settings-ost-hardcore">Happy Hardcore</button></div></div>
+    <div class="set inline"><span>Soundtrack</span><div class="seg" id="ostSeg"><button data-ost="calm" data-testid="settings-ost-calm">Calm</button><button data-ost="classic" data-testid="settings-ost-classic">Classic</button><button data-ost="hardcore" data-testid="settings-ost-hardcore">Happy Hardcore</button><button data-ost="album" data-testid="settings-ost-album">Album</button></div></div>
     <label class="set" data-k="fov"><span>Field of view<b id="fovV"></b></span><input type="range" id="fov" min="60" max="100" step="1" data-testid="settings-fov"></label>
     <div class="set inline"><span>Head bobbing</span><div class="seg" id="bobSeg"><button data-bob="1" data-testid="settings-bob-on">On</button><button data-bob="0" data-testid="settings-bob-off">Off</button></div></div>
     <div class="set inline"><span>Graphics</span><div class="seg" id="qSeg2"><button data-q="phone" data-testid="settings-quality-phone">Phone</button><button data-q="4k" data-testid="settings-quality-4k">4K UHD</button></div></div>
@@ -62732,7 +62732,7 @@ try {
     }
     return b;
   }
-  const MOOD_FILE = {blue: 'music/mood_blue.ogg?v=1.2.53', purple: 'music/mood_purple.ogg?v=1.2.53', agartha: 'music/mood_agartha.ogg?v=1.2.53'};
+  const MOOD_FILE = {blue: 'music/mood_blue.ogg', purple: 'music/mood_purple.ogg', agartha: 'music/mood_agartha.ogg'};
   let moodBufs = {}, moodLoads = {};
   function loadMoodLoop(mood) {
     const src = MOOD_FILE[mood];
@@ -63081,7 +63081,7 @@ try {
   U.findUfo = findUfo;
 
   // ---------- 4. soundtrack modes: Calm / Classic / Happy Hardcore ----------
-  const OST_MODES = ['calm', 'classic', 'hardcore'];
+  const OST_MODES = ['calm', 'classic', 'hardcore', 'album'];
   const CLASSIC_TRACKS = U.CLASSIC_TRACKS = [
     {id: 'mist', src: 'music/highland_mist.mp3'},
     {id: 'theme_ext', src: 'music/glencraft_theme_extended.mp3'},
@@ -63111,7 +63111,7 @@ try {
   function soundtrack() {
     try {
       const v = SET && SET.soundtrack;
-      if (v === 'classic' || v === 'hardcore') return v;
+      if (v === 'classic' || v === 'hardcore' || v === 'album') return v;
     } catch (_) {}
     return 'calm';
   }
@@ -63232,8 +63232,8 @@ try {
 
   // Baked 170 BPM loop is the in-game path (cheap on Android). Procedural fallback
   // keeps the same kick + off-beat donk groove if the file is missing.
-  const HC_FILE = 'music/hardcore_remix.mp3?v=1.2.53';
-  const HC_FILE_OGG = 'music/hardcore_remix.ogg?v=1.2.53';
+  const HC_FILE = 'music/hardcore_remix.mp3';
+  const HC_FILE_OGG = 'music/hardcore_remix.ogg';
   let hcLoopBuf = null, hcLoopLoad = null;
 
   function loadHcLoop() {
@@ -63363,6 +63363,7 @@ try {
     if (mode !== 'calm' && mus) { stopBed(mus, 1.2); mus = null; }
     if (mode !== 'classic') stopClassic();
     if (mode !== 'hardcore') stopHardcore();
+    if (mode !== 'album') { try { window.__v126x && __v126x.stop && __v126x.stop(); } catch (_) {} }
     if (mode === 'hardcore' && acOk()) startHardcore();
   }
   function applyOstVol() {
@@ -63386,7 +63387,10 @@ try {
   } catch (_) {}
 
   function tickAudio1248(dt) {
-    if (typeof started !== 'undefined' && !started) return;
+    if (typeof started !== 'undefined' && !started) {
+      if (soundtrack() === 'album') { try { window.__v126x && __v126x.tick && __v126x.tick(dt); } catch (e) { ERR('album', e); } }
+      return;
+    }
     if (typeof paused !== 'undefined' && paused) return;
     const mood = detectMood();
     U.mood = mood;
@@ -63396,7 +63400,13 @@ try {
     U.ost = ost;
     const now = (typeof AC !== 'undefined' && AC) ? AC.currentTime : 0;
 
-    if (ost !== 'calm') {
+    if (ost === 'album') {
+      if (mus) { stopBed(mus, 1.2); mus = null; }
+      stopClassic();
+      stopHardcore();
+      if (vol > 0.01 && !hidden) { try { window.__v126x && __v126x.tick && __v126x.tick(dt); } catch (e) { ERR('album', e); } }
+      else { try { window.__v126x && __v126x.pause && __v126x.pause(); } catch (_) {} }
+    } else if (ost !== 'calm') {
       if (mus) { stopBed(mus, 1.2); mus = null; }
     } else if (acOk() && vol > 0.01) {
       // Calm: crossfade on mood change, pieces of ~30-45s, then a gap of silence
@@ -63438,1688 +63448,222 @@ try {
 })();
 
 
+/* GLX-V126X-ALBUM: Glencraft Original Soundtrack (Album mode).
+   Per-context playlists, shuffle-bag rotation, Minecraft-like silence gaps,
+   lazy-loaded Ogg Vorbis with an MP3 fallback. Does not replace Classic,
+   Calm, or the Happy Hardcore remix. */
+(function v126xAlbum() {
+  const U = window.__v126x = window.__v126x || { err: null, ctx: '', track: null, gap: 0, mode: 'album' };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
 
-/* GLX-V1251-START */
-/* GLX-V1251 popstar core: constants, walk math, low-poly model, pose driver.
-   Giant pop-star meme mob. Art is original Glencraft low-poly, modelled after the
-   user's own AI TikTok (used with permission). No third-party meshes. */
-(function (root) {
-  const P = root.__popstarCore = root.__popstarCore || {};
-
-  P.BPM = 93.75;
-  P.BEAT = 60 / P.BPM;          // 0.64 s
-  P.LOOP = 12 * 4 * P.BEAT;     // 30.72 s, matches assets/sfx/popstar_song.*
-  P.HEIGHT = 32;                // top of hair, in blocks
-  P.STRIDE = 11;                // one step per beat ~ 17.2 blocks/s (~38 mph)
-  P.SPAWN_CHANCE = 0.18;
-  P.LIFE = 120;
-  P.SONG_MP3 = 'assets/sfx/popstar_song.mp3';
-  P.SONG_OGG = 'assets/sfx/popstar_song.ogg';
-
-  // Body proportions in blocks, y=0 at the sole of a standing boot.
-  // Slim long-legged fashion figure: smaller head, longer legs, hourglass torso.
-  const PR = P.PR = {
-    bootH: 1.65, ankle: 1.65, shin: 8.35, thigh: 9.35,
-    hipY: 0, torso: 5.55, shoulderY: 0,
-    neck: 0.7, headH: 2.2, scalpY: 0,
-    hairTop: 32,
-    shoulderW: 3.45, waistW: 1.88, hipW: 4.55,
-    thighW: 1.92, thighD: 1.7, shinW: 1.48, shinD: 1.28,
-    bootW: 1.95, bootD: 2.55,
-    upperArm: 3.55, lowerArm: 3.35, hand: 1.05,
-    chestW: 3.65, chestD: 2.15
+  const SRC = 'music/album/';
+  // Batch 1 pools. Later batches append to these lists; fallbacks fill gaps.
+  const POOLS = U.POOLS = {
+    menu: ['the_glen_opens'],
+    day: ['heather_road'],
+    night: ['watcher_on_the_ridge'],
+    loch: ['still_water'],
+    volcano: ['ash_line'],
+    blue: ['blue_vault'],
+    purple: ['blue_vault'],
+    agartha: ['choir_of_the_hollow'],
+    moon: ['silver_sea'],
+    mars: ['silver_sea'],
+    space: ['silver_sea'],
+    cave1: ['blue_vault'],
+    hell: ['ash_line'],
+    snow: ['watcher_on_the_ridge'],
+    desert: ['heather_road'],
+    underwater: ['still_water'],
+    creative: ['heather_road'],
+    combat: ['ash_line'],
+    popstar: ['the_glen_opens'],
+    credits: ['the_glen_opens']
   };
-  PR.hipY = PR.bootH + PR.shin + PR.thigh;          // 19.35
-  PR.shoulderY = PR.hipY + PR.torso;                // 24.90
-  PR.chinY = PR.shoulderY + PR.neck;                // 25.60
-  PR.scalpY = PR.chinY + PR.headH;                  // 27.80
-  PR.armLen = PR.upperArm + PR.lowerArm + PR.hand;
-
-  // 1 mic-to-mouth + left at collarbone; 2 left on hip; 3 left on head; 4 both arms high V.
-  P.POSE_SEQ = [
-    [1, 3], [2, 3], [3, 1], [2, 6], [4, 2], [2, 9], [3, 1], [2, 6], [4, 2]
-  ];
-  let _poseDur = 0;
-  P.POSE_SEQ.forEach(p => { _poseDur += p[1]; });
-  P.POSE_CYCLE = _poseDur; // 33 s
-  P.POSE_BLEND = 0.45;
-
-  P.poseAt = function (t) {
-    const cyc = P.POSE_CYCLE;
-    let u = ((t % cyc) + cyc) % cyc;
-    let acc = 0, prev = P.POSE_SEQ[P.POSE_SEQ.length - 1][0], cur = 1, hold = 0;
-    for (let i = 0; i < P.POSE_SEQ.length; i++) {
-      const [id, dur] = P.POSE_SEQ[i];
-      if (u < acc + dur) { cur = id; hold = u - acc; prev = P.POSE_SEQ[(i + P.POSE_SEQ.length - 1) % P.POSE_SEQ.length][0]; break; }
-      acc += dur;
-    }
-    const k = P.POSE_BLEND <= 0 ? 1 : Math.min(1, hold / P.POSE_BLEND);
-    const s = k * k * (3 - 2 * k);
-    return { pose: cur, prev: prev, blend: s, tIn: hold };
+  const FALLBACK = {
+    purple: 'blue', cave1: 'blue', hell: 'volcano',
+    mars: 'moon', space: 'moon',
+    snow: 'night', desert: 'day', underwater: 'loch',
+    creative: 'day', combat: 'volcano', popstar: 'day', credits: 'menu',
+    loch: 'day', volcano: 'day', high: 'day', pine: 'day', moor: 'day'
+  };
+  const GAP = {
+    menu: [4, 12],
+    credits: [3, 8],
+    blue: [70, 180], purple: [70, 180], agartha: [70, 180], cave1: [70, 180],
+    moon: [60, 160], mars: [60, 160], space: [60, 160],
+    combat: [8, 20],
+    default: [50, 160]
   };
 
-  // Walk / foot-plant state. Forward is +Z, right is +X, up is +Y.
-  // Left plants on even beats (1 and 3), right on odd beats (2 and 4).
-  P.stepState = function (t, opt) {
-    opt = opt || {};
-    const beat = P.BEAT, stride = (opt.stride != null ? opt.stride : P.STRIDE);
-    const hipY0 = (opt.hipY != null ? opt.hipY : PR.hipY);
-    const tSafe = (t == null || !isFinite(t)) ? 0 : t;
-    const beatF = tSafe / beat;
-    const step = Math.floor(beatF);
-    const u = beatF - step;
-    const leftPlant = (step % 2 === 0);
-    const hipZ = tSafe * (stride / beat);
-    // Stronger hip pop toward the planted foot, then a slight settle.
-    const pop = (u < 0.14) ? (u / 0.14) : (u < 0.75 ? 1 : 1 - 0.18 * (u - 0.75) / 0.25);
-    const eased = pop * pop * (3 - 2 * pop);
-    const side = leftPlant ? -1 : 1;
-    const hipX = side * 1.55 * eased;
-    const hipYaw = side * 0.11 * eased;
-    const hipRoll = side * 0.24 * eased;
-    const torsoRoll = -hipRoll * 0.82;     // counterbalance so the torso stays upright
-    const torsoSway = -hipX * 0.22;
-    const torsoYaw = -hipYaw * 0.45;
-    const headYaw = -hipYaw * 0.25;
-    const headNod = 0.035 * Math.sin(beatF * Math.PI * 2);
+  let el = null, wanted = false, curId = null, curCtx = '', bag = {}, gapUntil = 0;
 
-    function foot(isLeft) {
-      const plantedNow = isLeft ? leftPlant : !leftPlant;
-      // Catwalk: feet land under the body, slight crossover over the centre line.
-      const x = (isLeft ? 1 : -1) * 0.16;
-      let z, yLift = 0, planted = plantedNow;
-      if (plantedNow) {
-        z = (step + 0.5) * stride;
-        yLift = 0;
-      } else {
-        const z0 = (step - 0.5) * stride;
-        const z1 = (step + 1.5) * stride;
-        const su = u * u * (3 - 2 * u);
-        z = z0 + (z1 - z0) * su;
-        yLift = Math.sin(u * Math.PI) * 2.45;
-        planted = false;
-      }
-      return { x: x, y: yLift, z: z, planted: planted, isLeft: isLeft };
-    }
-    const left = foot(true), right = foot(false);
-    const pose = P.poseAt(tSafe);
-    return {
-      t: tSafe, step: step, u: u, beatF: beatF, leftPlant: leftPlant,
-      hipX: hipX, hipY: hipY0, hipZ: hipZ, hipYaw: hipYaw, hipRoll: hipRoll,
-      torsoRoll: torsoRoll, torsoSway: torsoSway, torsoYaw: torsoYaw,
-      headYaw: headYaw, headNod: headNod,
-      left: left, right: right, pose: pose.pose, prevPose: pose.prev, poseBlend: pose.blend,
-      stride: stride
-    };
-  };
-
-  P.plantedFootWorldZ = function (t, which) {
-    const s = P.stepState(t);
-    return which === 'left' ? s.left.z : s.right.z;
-  };
-
-  // ---------- materials & model (requires THREE) ----------
-  function tagTex(t) {
-    try { if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace; } catch (_) {}
-    try { if (THREE.sRGBEncoding != null) t.encoding = THREE.sRGBEncoding; } catch (_) {}
-    t.needsUpdate = true;
-    return t;
+  function masterVol() {
+    try { return Math.max(0, Math.min(1, SET && SET.music != null ? SET.music : 0.7)); } catch (_) { return 0.7; }
   }
-  // Always fully opaque, never faded by scene fog or distance alpha.
-  const VIS = { fog: false, transparent: false, opacity: 1, depthWrite: true, depthTest: true, alphaTest: 0 };
-  function phong(opts) {
-    const o = Object.assign({ color: 0xffffff, shininess: 50, specular: 0x333333 }, VIS, opts || {}, VIS);
-    if (typeof THREE.MeshPhongMaterial === 'function') return new THREE.MeshPhongMaterial(o);
-    return new THREE.MeshLambertMaterial(o);
-  }
-  function lamb(opts) {
-    return new THREE.MeshLambertMaterial(Object.assign({ color: 0xffffff }, VIS, opts || {}, VIS));
+  function albumVol() { return Math.max(0, Math.min(1, masterVol() * 0.78)); }
+
+  function poolFor(ctx) {
+    let c = ctx, guard = 0;
+    while (c && (!POOLS[c] || !POOLS[c].length) && FALLBACK[c] && guard++ < 8) c = FALLBACK[c];
+    return (POOLS[c] && POOLS[c].length) ? { ctx: c, ids: POOLS[c].slice() } : { ctx: 'day', ids: (POOLS.day || []).slice() };
   }
 
-  function hairMaps() {
-    const S = 256;
-    const c = document.createElement('canvas'); c.width = S; c.height = S;
-    const g = c.getContext('2d');
-    const lg = g.createLinearGradient(0, 0, S, 0);
-    lg.addColorStop(0, '#d4a84a');
-    lg.addColorStop(0.22, '#f0d078');
-    lg.addColorStop(0.5, '#fff3c0');
-    lg.addColorStop(0.78, '#f0d078');
-    lg.addColorStop(1, '#c4923a');
-    g.fillStyle = lg; g.fillRect(0, 0, S, S);
-    // soft strand lines
-    for (let i = 0; i < 40; i++) {
-      const x = (i + 0.3) * (S / 40);
-      g.strokeStyle = i % 3 === 0 ? 'rgba(255,255,230,0.28)' : 'rgba(160,110,30,0.18)';
-      g.lineWidth = 1 + (i % 2);
-      g.beginPath();
-      g.moveTo(x, 0);
-      g.quadraticCurveTo(x + 4, S * 0.5, x, S);
-      g.stroke();
-    }
-    const map = tagTex(new THREE.CanvasTexture(c));
-    map.wrapS = map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(2, 4);
-    return map;
-  }
-
-  function sequinMaps() {
-    const S = 1024;
-    const c = document.createElement('canvas'); c.width = S; c.height = S;
-    const e = document.createElement('canvas'); e.width = S; e.height = S;
-    const n = document.createElement('canvas'); n.width = S; n.height = S;
-    const g = c.getContext('2d');
-    const h = e.getContext('2d');
-    const k = n.getContext('2d');
-    g.fillStyle = '#c8960c'; g.fillRect(0, 0, S, S);
-    h.fillStyle = '#000'; h.fillRect(0, 0, S, S);
-    k.fillStyle = '#8080ff'; k.fillRect(0, 0, S, S);
-    const imgN = k.getImageData(0, 0, S, S);
-    const nd = imgN.data;
-    function setN(x, y, nx, ny, nz) {
-      const i = (y * S + x) * 4;
-      nd[i]     = Math.max(0, Math.min(255, (nx * 0.5 + 0.5) * 255));
-      nd[i + 1] = Math.max(0, Math.min(255, (ny * 0.5 + 0.5) * 255));
-      nd[i + 2] = Math.max(0, Math.min(255, (nz * 0.5 + 0.5) * 255));
-      nd[i + 3] = 255;
-    }
-    let seed = 19;
-    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
-    // Relaxed random packing — jittered positions, not a regular grid.
-    const pts = [];
-    const minD = 11;
-    for (let tries = 0; tries < 18000 && pts.length < 4200; tries++) {
-      const x = rnd() * S, y = rnd() * S;
-      let ok = true;
-      for (let j = pts.length - 1; j >= 0 && j >= pts.length - 28; j--) {
-        const dx = x - pts[j][0], dy = y - pts[j][1];
-        if (dx * dx + dy * dy < minD * minD) { ok = false; break; }
-      }
-      if (ok) pts.push([x, y, 4.4 + rnd() * 3.6, rnd()]);
-    }
-    for (let i = 0; i < pts.length; i++) {
-      const cx = Math.round(pts[i][0]), cy = Math.round(pts[i][1]);
-      const rad = pts[i][2], u = pts[i][3];
-      const ir = Math.ceil(rad) + 1;
-      const hue = 38 + u * 18;
-      const lit = 55 + rnd() * 32;
-      g.fillStyle = 'hsl(' + hue.toFixed(0) + ',94%,' + lit.toFixed(0) + '%)';
-      g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.fill();
-      g.fillStyle = 'rgba(255,248,210,0.88)';
-      g.beginPath(); g.arc(cx - rad * 0.30, cy - rad * 0.30, rad * 0.36, 0, 6.3); g.fill();
-      g.strokeStyle = 'rgba(80,50,0,0.28)';
-      g.lineWidth = 0.7;
-      g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.stroke();
-      const hot = u < 0.22 || rnd() < 0.10;
-      if (hot) {
-        const a = 0.60 + rnd() * 0.40;
-        h.fillStyle = 'rgba(255,240,170,' + a.toFixed(2) + ')';
-        h.beginPath(); h.arc(cx, cy, rad * 0.75, 0, 6.3); h.fill();
-        if (u < 0.08) {
-          // plus-shaped sparkle
-          g.fillStyle = 'rgba(255,255,245,0.95)';
-          const r = rad * 1.6;
-          g.fillRect(cx - r * 2.0, cy - r * 0.22, r * 4.0, r * 0.44);
-          g.fillRect(cx - r * 0.22, cy - r * 2.0, r * 0.44, r * 4.0);
-          h.fillStyle = 'rgba(255,250,220,0.95)';
-          h.fillRect(cx - r * 1.6, cy - r * 0.18, r * 3.2, r * 0.36);
-          h.fillRect(cx - r * 0.18, cy - r * 1.6, r * 0.36, r * 3.2);
-        }
-      }
-      for (let dy = -ir; dy <= ir; dy++) {
-        for (let dx = -ir; dx <= ir; dx++) {
-          const px = cx + dx, py = cy + dy;
-          if (px < 0 || py < 0 || px >= S || py >= S) continue;
-          const d = Math.sqrt(dx * dx + dy * dy) / rad;
-          if (d >= 1) continue;
-          const nz = Math.sqrt(Math.max(0, 1 - d * d));
-          setN(px, py, dx / rad, -dy / rad, nz);
-        }
-      }
-    }
-    k.putImageData(imgN, 0, 0);
-    const map = tagTex(new THREE.CanvasTexture(c));
-    const emissiveMap = tagTex(new THREE.CanvasTexture(e));
-    const normalMap = new THREE.CanvasTexture(n);
-    try { if (THREE.LinearSRGBColorSpace) normalMap.colorSpace = THREE.LinearSRGBColorSpace; } catch (_) {}
-    try { if (THREE.LinearEncoding != null) normalMap.encoding = THREE.LinearEncoding; } catch (_) {}
-    normalMap.needsUpdate = true;
-    [map, emissiveMap, normalMap].forEach(t => {
-      t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(2.2, 2.2);
-      t.anisotropy = 8;
-      t.needsUpdate = true;
-    });
-    return { map: map, emissiveMap: emissiveMap, normalMap: normalMap };
-  }
-
-  function goldBootTex() {
-    const c = document.createElement('canvas'); c.width = 128; c.height = 128;
-    const g = c.getContext('2d');
-    const lg = g.createLinearGradient(0, 0, 0, 128);
-    lg.addColorStop(0, '#ffe27a');
-    lg.addColorStop(0.45, '#f0c44a');
-    lg.addColorStop(1, '#c99220');
-    g.fillStyle = lg; g.fillRect(0, 0, 128, 128);
-    for (let i = 0; i < 700; i++) {
-      const a = 0.45 + Math.random() * 0.55;
-      g.fillStyle = Math.random() < 0.55 ? 'rgba(255,255,230,' + a + ')' : 'rgba(255,210,80,' + a + ')';
-      g.beginPath(); g.arc(Math.random() * 128, Math.random() * 128, 0.6 + Math.random() * 1.8, 0, 7); g.fill();
-    }
-    return tagTex(new THREE.CanvasTexture(c));
-  }
-
-  function starTex() {
-    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
-    const g = c.getContext('2d');
-    g.fillStyle = '#6a4814'; g.fillRect(0, 0, 64, 64);
-    g.fillStyle = '#fff8ee';
-    g.translate(32, 32);
-    g.beginPath();
-    for (let i = 0; i < 5; i++) {
-      const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
-      const b = a + Math.PI / 5;
-      g.lineTo(Math.cos(a) * 26, Math.sin(a) * 26);
-      g.lineTo(Math.cos(b) * 11, Math.sin(b) * 11);
-    }
-    g.closePath(); g.fill();
-    return tagTex(new THREE.CanvasTexture(c));
-  }
-
-  function box(w, h, d, mat, x, y, z, parent, rot) {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-    m.position.set(x || 0, y || 0, z || 0);
-    if (rot) m.rotation.set(rot[0] || 0, rot[1] || 0, rot[2] || 0);
-    m.castShadow = false; m.receiveShadow = false;
-    if (parent) parent.add(m);
-    return m;
-  }
-  function sphere(r, mat, x, y, z, parent, seg) {
-    const m = new THREE.Mesh(new THREE.SphereGeometry(r, seg || 12, seg || 10), mat);
-    m.position.set(x || 0, y || 0, z || 0);
-    m.castShadow = false; m.receiveShadow = false;
-    if (parent) parent.add(m);
-    return m;
-  }
-  // Rounded limb: cylinder with spherical caps. Works on THREE r128 (no CapsuleGeometry).
-  function capsule(r, len, mat, x, y, z, parent, seg) {
-    seg = seg || 10;
-    const g = new THREE.Group();
-    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, Math.max(len, 0.05), seg), mat);
-    const top = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(6, (seg / 2) | 0)), mat);
-    const bot = new THREE.Mesh(new THREE.SphereGeometry(r, seg, Math.max(6, (seg / 2) | 0)), mat);
-    top.position.y = len / 2; bot.position.y = -len / 2;
-    g.add(cyl); g.add(top); g.add(bot);
-    g.position.set(x || 0, y || 0, z || 0);
-    if (parent) parent.add(g);
-    return g;
-  }
-  function lathe(profile, mat, parent, segs, x, y, z) {
-    const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
-    const m = new THREE.Mesh(new THREE.LatheGeometry(pts, segs || 24), mat);
-    m.position.set(x || 0, y || 0, z || 0);
-    m.castShadow = false; m.receiveShadow = false;
-    if (parent) parent.add(m);
-    return m;
-  }
-  // A few large tapered ribbon locks along a gentle S-curve (not a cloud of boxes).
-  function hairRibbon(pts, r0, r1, mat, parent, tubular, radial) {
-    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(p[0], p[1], p[2])));
-    tubular = tubular || 20; radial = radial || 8;
-    const geo = new THREE.TubeGeometry(curve, tubular, r0, radial, false);
-    const pos = geo.attributes.position;
-    for (let i = 0; i <= tubular; i++) {
-      const t = i / tubular;
-      const r = r0 * (1 - t) + r1 * t;
-      const scale = r / r0;
-      const c = curve.getPoint(t);
-      for (let j = 0; j <= radial; j++) {
-        const k = (i * (radial + 1) + j) * 3;
-        pos.array[k]     = c.x + (pos.array[k]     - c.x) * scale;
-        pos.array[k + 1] = c.y + (pos.array[k + 1] - c.y) * scale;
-        pos.array[k + 2] = c.z + (pos.array[k + 2] - c.z) * scale;
-      }
-    }
-    pos.needsUpdate = true;
-    geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
-    m.castShadow = false; m.receiveShadow = false;
-    if (parent) parent.add(m);
-    return m;
-  }
-
-  P.make = function () {
-    if (typeof THREE === 'undefined') throw new Error('THREE required');
-    const mats = [];
-    const addM = m => { mats.push(m); return m; };
-
-    // Warm light tan skin (not grey-brown).
-    const SKIN = 0xf0c49c, SKIN_SH = 0xe0a878;
-    const skin = addM(phong({ color: SKIN, shininess: 18, specular: 0x332010 }));
-    const skinSh = addM(phong({ color: SKIN_SH, shininess: 14, specular: 0x22180c }));
-    const hairMap = hairMaps();
-    const hairA = addM(phong({ color: 0xffe08a, map: hairMap, shininess: 14, specular: 0x554422, emissive: 0x2a2208 }));
-    const hairB = addM(phong({ color: 0xfff6d8, map: hairMap, shininess: 48, specular: 0xaa9966, emissive: 0x3a2c0c }));
-    const hairC = addM(phong({ color: 0xe8c45a, map: hairMap, shininess: 18, specular: 0x554422, emissive: 0x221a06 }));
-    const seq = sequinMaps();
-    const dressOpts = {
-      color: 0xf0c010, map: seq.map, emissive: 0xaa7700,
-      emissiveMap: seq.emissiveMap, normalMap: seq.normalMap,
-      shininess: 48, specular: 0xffe08a
-    };
-    try { dressOpts.emissiveIntensity = 1.45; } catch (_) {}
-    try { dressOpts.normalScale = new THREE.Vector2(1.35, 1.35); } catch (_) {}
-    const dress = addM(phong(dressOpts));
-    const dressDark = addM(phong(Object.assign({}, dressOpts, { color: 0xe8b40e, emissive: 0x4a2e00 })));
-    const belt = addM(phong({ color: 0x6a4814, shininess: 40, specular: 0x665533 }));
-    const starM = addM(phong({ color: 0xffffff, map: starTex(), shininess: 80, specular: 0xffffff, emissive: 0x333322 }));
-    const gold = addM(phong({ color: 0xf0c44a, shininess: 90, specular: 0xfff0c0, emissive: 0x3a2800 }));
-    const goldShiny = addM(phong({ color: 0xffe07a, shininess: 120, specular: 0xffffff, emissive: 0x5a3a00 }));
-    const bootMap = goldBootTex();
-    const bootM = addM(phong({ color: 0xffd24a, map: bootMap, shininess: 100, specular: 0xfff3c8, emissive: 0x3a2800 }));
-    const bootSole = addM(phong({ color: 0xb88620, shininess: 40, specular: 0x665522 }));
-    const lip = addM(phong({ color: 0xde8492, shininess: 78, specular: 0xffd4dc }));
-    const lipHi = addM(phong({ color: 0xf4b8c0, shininess: 95, specular: 0xfff0f4 }));
-    const eyeW = addM(lamb({ color: 0xfffaf4 }));
-    const eyeP = addM(lamb({ color: 0x2a1a12 }));
-    const lash = addM(lamb({ color: 0x1a100c }));
-    const brow = addM(lamb({ color: 0x3a2418 }));
-    const micBlk = addM(phong({ color: 0x161616, shininess: 40, specular: 0x444444 }));
-    const micGrille = addM(phong({ color: 0xc8cdd4, shininess: 80, specular: 0xffffff, emissive: 0x222222 }));
-
-    const g = new THREE.Group();
-    g.name = 'popstar';
-    const rig = new THREE.Group(); rig.name = 'rig'; g.add(rig);
-    const hip = new THREE.Group(); hip.name = 'hip'; hip.position.y = PR.hipY; rig.add(hip);
-
-    // ---- legs: rounded capsules, not raw boxes ----
-    function makeLeg(side) {
-      const root = new THREE.Group(); root.position.set(side * PR.hipW * 0.22, 0, 0); hip.add(root);
-      const thigh = new THREE.Group(); root.add(thigh);
-      capsule(PR.thighW * 0.48, PR.thigh * 0.92, skin, 0, -PR.thigh / 2, 0, thigh, 12);
-      const knee = new THREE.Group(); knee.position.y = -PR.thigh; thigh.add(knee);
-      sphere(PR.thighW * 0.42, skinSh, 0, 0, 0, knee, 10);
-      const shin = new THREE.Group(); knee.add(shin);
-      // Shaped calf: thicker in the upper third, tapering to a slim ankle.
-      lathe([
-        [PR.shinW * 0.30, -0.05],
-        [PR.shinW * 0.44, -0.9],
-        [PR.shinW * 0.54, -2.15],
-        [PR.shinW * 0.48, -3.6],
-        [PR.shinW * 0.30, -6.2],
-        [PR.shinW * 0.20, -PR.shin + 0.12]
-      ], skinSh, shin, 14);
-      const ankle = new THREE.Group(); ankle.position.y = -PR.shin; shin.add(ankle);
-      const boot = new THREE.Group(); ankle.add(boot);
-      boot.position.y = -0.58;
-      // Gold high-heel: slim ankle cuff, pointed toe, stiletto post to the ground.
-      const cuff = sphere(0.36, bootM, 0, -0.08, 0.04, boot, 10);
-      cuff.scale.set(1.05, 0.7, 1.0);
-      const vamp = sphere(0.38, bootM, 0, -0.55, 0.38, boot, 10);
-      vamp.scale.set(0.95, 0.55, 1.55);
-      const toe = sphere(0.20, bootM, 0, -PR.bootH + 0.16, 0.88, boot, 8);
-      toe.scale.set(0.85, 0.42, 1.25);
-      box(0.50, 0.07, 0.70, bootSole, 0, -PR.bootH, 0.58, boot);
-      const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.10, PR.bootH * 0.78, 8), bootM);
-      heel.position.set(0, -PR.bootH * 0.50, -0.22); boot.add(heel);
-      sphere(0.08, bootSole, 0, -PR.bootH, -0.22, boot, 6);
-      return { root: root, thigh: thigh, knee: knee, shin: shin, ankle: ankle, boot: boot, side: side };
-    }
-    const leftLeg = makeLeg(-1), rightLeg = makeLeg(1);
-
-    // ---- torso / sequinned mini-dress: defined waist, hips, spaghetti straps ----
-    const torso = new THREE.Group(); torso.name = 'torso'; hip.add(torso);
-    lathe([
-      [PR.hipW * 0.54, -0.20],
-      [PR.hipW * 0.52, 0.25],
-      [PR.hipW * 0.46, 1.05],
-      [PR.waistW * 0.44, 2.20],
-      [PR.waistW * 0.42, 2.70],
-      [PR.chestW * 0.40, 3.45],
-      [PR.chestW * 0.52, 4.40],
-      [PR.chestW * 0.55, 4.95],
-      [PR.chestW * 0.48, 5.38],
-      [PR.chestW * 0.32, 5.55]
-    ], dress, torso, 28);
-    const bustL = sphere(0.88, dress, -0.68, 4.58, 0.58, torso, 12);
-    bustL.scale.set(1.08, 0.88, 0.92);
-    const bustR = sphere(0.88, dress,  0.68, 4.58, 0.58, torso, 12);
-    bustR.scale.set(1.08, 0.88, 0.92);
-    // Spaghetti straps over the shoulders (as in the t1136 ref).
-    function strapPts(side) {
-      return [
-        [side * 0.62, 4.85, 0.55],
-        [side * 0.95, 5.55, 0.18],
-        [side * 1.12, 5.82, -0.12],
-        [side * 0.70, 5.05, -0.58],
-        [side * 0.40, 4.55, -0.50]
-      ];
-    }
-    hairRibbon(strapPts(-1), 0.075, 0.065, dress, torso, 12, 6);
-    hairRibbon(strapPts( 1), 0.075, 0.065, dress, torso, 12, 6);
-    // Brown belt + a real 5-point star buckle on the front.
-    const beltM = new THREE.Mesh(new THREE.TorusGeometry(PR.waistW * 0.50, 0.16, 8, 24), belt);
-    beltM.rotation.x = Math.PI / 2; beltM.position.set(0, 2.35, 0.06); torso.add(beltM);
-    const starShape = new THREE.Shape();
-    for (let i = 0; i < 5; i++) {
-      const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
-      const b = a + Math.PI / 5;
-      const fn = i === 0 ? 'moveTo' : 'lineTo';
-      starShape[fn](Math.cos(a) * 0.42, Math.sin(a) * 0.42);
-      starShape.lineTo(Math.cos(b) * 0.17, Math.sin(b) * 0.17);
-    }
-    starShape.closePath();
-    let starGeo;
+  function detectContext() {
     try {
-      starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.10, bevelEnabled: false, steps: 1, amount: 0.10 });
-    } catch (_) {
-      starGeo = new THREE.CircleGeometry(0.42, 5);
-    }
-    const starBuckle = new THREE.Mesh(starGeo, starM);
-    starBuckle.position.set(0, 2.35, 1.08);
-    starBuckle.scale.set(1.15, 1.15, 1);
-    torso.add(starBuckle);
-
-    const skirt = new THREE.Group(); hip.add(skirt);
-    lathe([
-      [PR.hipW * 0.54,  0.30],
-      [PR.hipW * 0.55, -0.85],
-      [PR.hipW * 0.56, -1.85],
-      [PR.hipW * 0.58, -2.55],
-      [PR.hipW * 0.62, -3.25],
-      [PR.hipW * 0.52, -3.45]
-    ], dress, skirt, 28);
-
-    // Fine twinkling glints — small, many, not chunky plus signs
-    const glints = [];
-    const glintMat = new THREE.MeshBasicMaterial({
-      color: 0xfff8d8, fog: false, transparent: true, opacity: 0.85,
-      depthWrite: false, depthTest: true
-    });
-    function addGlint(parent, x, y, z, s) {
-      const m = new THREE.Mesh(new THREE.SphereGeometry(s, 6, 6), glintMat);
-      m.position.set(x, y, z);
-      parent.add(m);
-      glints.push(m);
-    }
-    const GLINTS = [
-      [torso, -0.85, 4.55, 1.18, 0.045], [torso,  0.70, 4.85, 1.20, 0.05],
-      [torso,  0.15, 4.20, 1.16, 0.04],  [torso, -0.40, 3.40, 1.02, 0.045],
-      [torso,  1.05, 3.55, 0.92, 0.04],  [torso, -1.10, 4.15, 0.88, 0.04],
-      [torso,  0.55, 2.50, 0.85, 0.035], [torso, -0.20, 1.55, 1.00, 0.04],
-      [torso,  1.25, 4.60, 0.50, 0.035], [torso, -1.30, 4.70, 0.48, 0.03],
-      [torso,  0.90, 5.10, 0.70, 0.035], [torso, -0.70, 5.00, 0.72, 0.03],
-      [skirt, -1.10, -0.70, 1.18, 0.045], [skirt,  0.90, -1.10, 1.20, 0.05],
-      [skirt,  0.10, -1.85, 1.14, 0.04],  [skirt, -0.70, -2.40, 1.12, 0.04],
-      [skirt,  1.20, -2.55, 1.05, 0.035], [skirt,  0.35, -3.15, 1.16, 0.045],
-      [skirt, -1.35, -1.50, 0.68, 0.035], [skirt,  1.40, -1.70, 0.62, 0.03],
-      [skirt, -0.20, -0.40, 1.22, 0.04],  [skirt,  0.60, -2.90, 1.10, 0.035]
-    ];
-    GLINTS.forEach(a => addGlint.apply(null, a));
-
-    // ---- shoulders / rounded arms ----
-    const chestTop = new THREE.Group(); chestTop.position.y = PR.torso; torso.add(chestTop);
-    // collarbone / upper chest skin
-    const collar = sphere(0.7, skin, 0, -0.15, 0.20, chestTop, 10);
-    collar.scale.set(1.8, 0.45, 1.0);
-
-    function makeArm(side) {
-      const sh = new THREE.Group();
-      sh.position.set(side * (PR.shoulderW * 0.52), -0.2, 0);
-      chestTop.add(sh);
-      sphere(0.62, skin, side * 0.10, 0, 0, sh, 10);
-      const upper = new THREE.Group(); sh.add(upper);
-      capsule(0.48, PR.upperArm * 0.92, skin, 0, -PR.upperArm / 2, 0, upper, 10);
-      const elbow = new THREE.Group(); elbow.position.y = -PR.upperArm; upper.add(elbow);
-      sphere(0.42, skin, 0, 0, 0, elbow, 8);
-      const lower = new THREE.Group(); elbow.add(lower);
-      capsule(0.40, PR.lowerArm * 0.90, skin, 0, -PR.lowerArm / 2, 0, lower, 10);
-      // gold bangles as thin toruses
-      for (const [yy, rr] of [[-0.32, 0.50], [-0.52, 0.52], [-0.70, 0.48]]) {
-        const b = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.06, 6, 14), goldShiny);
-        b.rotation.x = Math.PI / 2; b.position.y = yy; lower.add(b);
+      if (typeof started !== 'undefined' && !started) return 'menu';
+      if (typeof DIM !== 'undefined' && DIM && DIM.cur) {
+        if (DIM.cur === 'moon') return 'moon';
+        if (DIM.cur === 'mars') return 'mars';
+        if (DIM.cur === 'agartha') return 'agartha';
+        if (DIM.cur === 'hell') return 'hell';
       }
-      const wrist = new THREE.Group(); wrist.position.y = -PR.lowerArm; lower.add(wrist);
-      const hand = new THREE.Group(); wrist.add(hand);
-      const palm = sphere(0.38, skin, 0, -PR.hand * 0.35, 0.06, hand, 8);
-      palm.scale.set(0.95, 1.15, 0.7);
-      for (let i = -1.5; i <= 1.5; i += 1) {
-        capsule(0.08, 0.42, skin, i * 0.14, -PR.hand - 0.05, 0.10, hand, 6);
-      }
-      return { sh: sh, upper: upper, elbow: elbow, lower: lower, wrist: wrist, hand: hand, side: side };
-    }
-    const leftArm = makeArm(-1), rightArm = makeArm(1);
+      try { if (window.__vac && __vac()) return 'space'; } catch (_) {}
+      // underwater: head in water
+      try {
+        if (typeof getB === 'function' && typeof P !== 'undefined' && typeof T !== 'undefined') {
+          const b = getB(Math.floor(P.x), Math.floor((P.y || 0) + 0.4), Math.floor(P.z));
+          if (b === T.WATER || (T.STILL_WATER != null && b === T.STILL_WATER)) return 'underwater';
+        }
+      } catch (_) {}
+      // cave / crystal layers reuse the existing mood detector
+      try {
+        const mood = window.__v1248 && __v1248.detectMood && __v1248.detectMood();
+        if (mood === 'blue' || mood === 'purple' || mood === 'agartha' || mood === 'hell' || mood === 'cave1') return mood;
+      } catch (_) {}
+      // volcano: near the active crater
+      try {
+        const at = window.__c229 && __c229.at;
+        if (at && typeof P !== 'undefined') {
+          const d = Math.hypot(P.x - at[0], P.z - at[2]);
+          const r = (at[3] || 20) + 28;
+          if (d < r) return 'volcano';
+        }
+      } catch (_) {}
+      // desert
+      try { if (window.__c243 && __c243.isDesert && __c243.isDesert()) return 'desert'; } catch (_) {}
+      // snow underfoot
+      try {
+        if (typeof getB === 'function' && typeof P !== 'undefined' && typeof T !== 'undefined') {
+          const y = Math.floor((P.y || 0) - 0.6);
+          const b = getB(Math.floor(P.x), y, Math.floor(P.z));
+          if (b === T.SNOW || b === T.PACKSNOW || b === T.ICE) return 'snow';
+        }
+      } catch (_) {}
+      // loch / highlands
+      try {
+        if (typeof biomeAt === 'function' && typeof P !== 'undefined') {
+          const bio = biomeAt(P.x, P.z);
+          if (bio === 'loch') return 'loch';
+        }
+      } catch (_) {}
+      try {
+        if (typeof isNight !== 'undefined' && isNight) return 'night';
+      } catch (_) {}
+      try {
+        if (typeof MODE !== 'undefined' && MODE && MODE.name === 'creative') return 'creative';
+      } catch (_) {}
+      return 'day';
+    } catch (e) { ERR('ctx', e); return 'day'; }
+  }
+  U.detectContext = detectContext;
 
-    // Microphone stays IN the right hand. Grille is small and sits near, not over, the mouth.
-    const mic = new THREE.Group();
-    rightArm.hand.add(mic);
-    mic.position.set(0.10, -PR.hand * 0.15, 0.22);
-    const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.09, 1.05, 8), micBlk);
-    handle.rotation.x = Math.PI / 2; handle.position.set(0, 0, 0.42); mic.add(handle);
-    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 8), micGrille);
-    grille.position.set(0, 0, 1.00); grille.scale.set(1.0, 1.0, 1.15); mic.add(grille);
-    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.08, 0.14, 8), micBlk);
-    cap.rotation.x = Math.PI / 2; cap.position.set(0, 0, 0.82); mic.add(cap);
-
-    // ---- neck + smoother head ----
-    const neck = new THREE.Group(); neck.position.y = PR.torso + PR.neck * 0.15; torso.add(neck);
-    // Tapered neck that blends into the jaw — no hard collar cut.
-    capsule(0.36, PR.neck * 0.85, skin, 0, PR.neck * 0.42, 0.02, neck, 14);
-    const neckTop = sphere(0.42, skin, 0, PR.neck * 0.78, 0.04, neck, 14);
-    neckTop.scale.set(0.92, 0.62, 0.90);
-    const choker = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.06, 6, 16), goldShiny);
-    choker.rotation.x = Math.PI / 2; choker.position.set(0, 0.14, 0.04); neck.add(choker);
-
-    const head = new THREE.Group(); head.position.y = PR.neck; neck.add(head);
-    const hw = PR.headH * 0.74, hd = PR.headH * 0.76;
-    // Soft oval cranium + a small tapered chin, overlapped so the jaw is not a second ball.
-    const cranium = sphere(PR.headH * 0.50, skin, 0, PR.headH * 0.50, 0.04, head, 22);
-    cranium.scale.set(0.88, 1.12, 0.94);
-    const jaw = sphere(PR.headH * 0.28, skin, 0, PR.headH * 0.20, 0.10, head, 18);
-    jaw.scale.set(0.78, 0.68, 0.86);
-    const chin = sphere(0.22, skin, 0, PR.headH * 0.06, 0.16, head, 14);
-    chin.scale.set(0.85, 0.70, 0.90);
-    // Smooth joint: a throat sphere sits between neck top and the chin.
-    const throat = sphere(0.34, skin, 0, -0.06, 0.08, head, 14);
-    throat.scale.set(0.80, 0.70, 0.78);
-    const earL = sphere(0.18, skin, -hw * 0.54, PR.headH * 0.48, 0.00, head, 10);
-    earL.scale.set(0.50, 1.05, 0.70);
-    const earR = sphere(0.18, skin,  hw * 0.54, PR.headH * 0.48, 0.00, head, 10);
-    earR.scale.set(0.50, 1.05, 0.70);
-    // Thin gold hoops hanging from the lobes, not a chunky ball at the jaw.
-    const hoopGeo = new THREE.TorusGeometry(0.16, 0.028, 6, 16);
-    const hoopL = new THREE.Mesh(hoopGeo, goldShiny);
-    hoopL.position.set(-hw * 0.56, PR.headH * 0.34, 0.02); hoopL.rotation.x = 0.15; head.add(hoopL);
-    const hoopR = new THREE.Mesh(hoopGeo, goldShiny);
-    hoopR.position.set( hw * 0.56, PR.headH * 0.34, 0.02); hoopR.rotation.x = 0.15; head.add(hoopR);
-
-    const eyeY = PR.headH * 0.54, eyeZ = hd * 0.58, eyeX = 0.34;
-    const shadowM = addM(phong({ color: 0xc9a090, shininess: 8, specular: 0x221810 }));
-    function addEye(sx) {
-      // Large slightly almond eyes.
-      const w = sphere(0.22, eyeW, sx * eyeX, eyeY, eyeZ + 0.06, head, 12);
-      w.scale.set(1.32, 0.90, 0.58);
-      // Soft dusty-rose lid makeup, flattened onto the upper lid.
-      const lidMk = sphere(0.20, shadowM, sx * eyeX, eyeY + 0.07, eyeZ + 0.02, head, 8);
-      lidMk.scale.set(1.40, 0.32, 0.55);
-      sphere(0.11, eyeP, sx * eyeX + sx * 0.015, eyeY - 0.01, eyeZ + 0.16, head, 10);
-      sphere(0.035, eyeW, sx * eyeX - 0.04, eyeY + 0.03, eyeZ + 0.22, head, 6);
-      // Upper lash line
-      const line = sphere(0.17, lash, sx * eyeX, eyeY + 0.11, eyeZ + 0.10, head, 6);
-      line.scale.set(1.45, 0.16, 0.50);
-      // Individual lashes fanning up and out.
-      for (let i = -2; i <= 2; i++) {
-        const u = i / 2;
-        const lx = sx * eyeX + sx * u * 0.18;
-        const ly = eyeY + 0.16 + 0.02 * Math.abs(u);
-        const lz = eyeZ + 0.14;
-        const ls = capsule(0.012, 0.11, lash, lx, ly, lz, head, 5);
-        ls.rotation.z = sx * (-0.25 - u * 0.28);
-        ls.rotation.x = -0.28;
-      }
-      const br = sphere(0.16, brow, sx * eyeX, eyeY + 0.28, eyeZ + 0.04, head, 8);
-      br.scale.set(1.45, 0.20, 0.50);
-      br.rotation.z = sx * -0.28;
-    }
-    addEye(-1); addEye(1);
-    const bridge = sphere(0.11, skinSh, 0, PR.headH * 0.46, eyeZ + 0.22, head, 8);
-    bridge.scale.set(0.62, 1.35, 0.80);
-    sphere(0.11, skin, 0, PR.headH * 0.32, eyeZ + 0.32, head, 8);
-    // Smaller natural-pink glossy lips (upper + lower), not a big red mouth.
-    const mouth = sphere(0.155, lip, 0, PR.headH * 0.165, eyeZ + 0.20, head, 10);
-    mouth.scale.set(1.22, 0.36, 0.60);
-    const lowerLip = sphere(0.13, lip, 0, PR.headH * 0.135, eyeZ + 0.22, head, 10);
-    lowerLip.scale.set(1.08, 0.30, 0.56);
-    const mouthHi = sphere(0.10, lipHi, 0, PR.headH * 0.18, eyeZ + 0.28, head, 8);
-    mouthHi.scale.set(1.08, 0.24, 0.50);
-    // Soft blended blush — large, flat, close to skin tone so it is shading not a sticker.
-    const cheekM = addM(phong({ color: 0xebc2b0, shininess: 12, specular: 0x332018 }));
-    const chL = sphere(0.32, cheekM, -0.42, PR.headH * 0.34, eyeZ * 0.62, head, 10);
-    chL.scale.set(1.15, 0.80, 0.55);
-    const chR = sphere(0.32, cheekM,  0.42, PR.headH * 0.34, eyeZ * 0.62, head, 10);
-    chR.scale.set(1.15, 0.80, 0.55);
-
-    // ---- long wavy blonde hair: side-parted, past the chest, face left clear ----
-    const hair = new THREE.Group(); hair.position.y = PR.headH; head.add(hair);
-    // Tight cap that stays BEHIND the hairline so it cannot visor over the face.
-    const scalp = sphere(1.18, hairA, 0, -0.92, -0.28, hair, 20);
-    scalp.scale.set(1.16, 0.95, 0.96);
-    const lid = sphere(0.98, hairB, 0, -0.18, -0.32, hair, 18);
-    lid.scale.set(1.14, 0.46, 0.96);
-    // Side caps so the 3/4 crown doesn't show a hard cut edge.
-    const capR = sphere(0.62, hairA,  0.55, -0.45, -0.10, hair, 14);
-    capR.scale.set(1.10, 0.80, 0.95);
-    const capL = sphere(0.55, hairA, -0.50, -0.48, -0.10, hair, 14);
-    capL.scale.set(1.05, 0.78, 0.95);
-
-    function wavePts(x0, y0, z0, len, side, phase, flare, amp, n, zAmp) {
-      n = n || 14;
-      zAmp = zAmp == null ? 0.28 : zAmp;
-      const pts = [];
-      for (let i = 0; i <= n; i++) {
-        const t = i / n;
-        const te = t * t * (3 - 2 * t);
-        const tw = Math.pow(t, 0.55);
-        const y = y0 - t * len;
-        const x = x0 + side * flare * te + side * amp * tw * Math.sin(phase + t * Math.PI * 5.2);
-        const z = z0 + zAmp * tw * Math.sin(phase * 0.7 + t * Math.PI * 3.4) - 0.18 * te;
-        pts.push([x, y, z]);
-      }
-      return pts;
-    }
-    // Side part on her left ( -X ). Heavier mass on the right, long past the chest.
-    // Roots sit at the temples / sides of the crown — not in front of the eyes.
-    const LOCKS = [
-      { x: 0.22, y: -0.18, z: -0.05, len: 12.2, ph: 0.2, fl: 0.85, amp: 0.62, r0: 0.38, r1: 0.14, mat: hairB, za: 0.30, side:  1 },
-      { x: 0.38, y: -0.22, z:  0.22, len: 11.6, ph: 1.3, fl: 0.70, amp: 0.56, r0: 0.32, r1: 0.12, mat: hairA, za: 0.26, side:  1 },
-      { x: 0.55, y: -0.28, z: -0.15, len: 11.8, ph: 2.1, fl: 0.55, amp: 0.50, r0: 0.30, r1: 0.12, mat: hairC, za: 0.24, side:  1 },
-      { x: 0.72, y: -0.32, z:  0.18, len: 10.8, ph: 0.7, fl: 0.40, amp: 0.38, r0: 0.26, r1: 0.11, mat: hairA, za: 0.20, side:  1 },
-      { x: 0.88, y: -0.36, z:  0.02, len: 10.2, ph: 1.8, fl: 0.28, amp: 0.32, r0: 0.20, r1: 0.09, mat: hairB, za: 0.16, side:  1 },
-      // lighter side of the part (her left)
-      { x: -0.42, y: -0.22, z:  0.10, len: 11.4, ph: 0.5, fl: 0.65, amp: 0.52, r0: 0.30, r1: 0.12, mat: hairA, za: 0.24, side: -1 },
-      { x: -0.62, y: -0.28, z: -0.12, len: 11.0, ph: 1.6, fl: 0.48, amp: 0.40, r0: 0.28, r1: 0.11, mat: hairC, za: 0.20, side: -1 },
-      { x: -0.80, y: -0.34, z:  0.16, len: 10.4, ph: 2.4, fl: 0.30, amp: 0.34, r0: 0.22, r1: 0.10, mat: hairB, za: 0.16, side: -1 }
-    ];
-    LOCKS.forEach(L => {
-      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 20, L.za), L.r0, L.r1, L.mat, hair, 32, 8);
+  function ensureEl() {
+    if (el) return el;
+    el = new Audio();
+    el.preload = 'auto';
+    el.addEventListener('ended', () => {
+      const ctx = curCtx || 'day';
+      const g = GAP[ctx] || GAP.default;
+      gapUntil = performance.now() + (g[0] + Math.random() * (g[1] - g[0])) * 1000;
+      wanted = false; curId = null; U.track = null; U.gap = 1;
     });
-    // Face-framing ripples — thinner, tighter S-curves so the sides are not a flat curtain.
-    const FACE_FRAME = [
-      { x: 0.48, y: -0.24, z:  0.42, len: 11.2, ph: 0.4, fl: 0.35, amp: 0.58, r0: 0.16, r1: 0.07, za: 0.32, side:  1 },
-      { x: 0.62, y: -0.28, z:  0.28, len: 10.8, ph: 1.8, fl: 0.28, amp: 0.50, r0: 0.14, r1: 0.06, za: 0.28, side:  1 },
-      { x: -0.55, y: -0.26, z:  0.36, len: 11.0, ph: 0.9, fl: 0.32, amp: 0.54, r0: 0.15, r1: 0.07, za: 0.30, side: -1 }
-    ];
-    FACE_FRAME.forEach(L => {
-      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 22, L.za), L.r0, L.r1, hairB, hair, 28, 7);
-    });
-    // Highlight strands: thinner, paler, higher-frequency ripples woven through the mass.
-    const HI = [
-      { x: 0.30, y: -0.20, z:  0.12, len: 12.0, ph: 0.9, fl: 0.75, amp: 0.62, r0: 0.11, r1: 0.05, za: 0.30, side:  1 },
-      { x: 0.60, y: -0.26, z: -0.05, len: 11.4, ph: 2.6, fl: 0.50, amp: 0.55, r0: 0.10, r1: 0.045, za: 0.26, side:  1 },
-      { x: -0.50, y: -0.24, z:  0.08, len: 11.2, ph: 1.4, fl: 0.52, amp: 0.58, r0: 0.10, r1: 0.045, za: 0.28, side: -1 }
-    ];
-    HI.forEach(L => {
-      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 22, L.za), L.r0, L.r1, hairB, hair, 28, 6);
-    });
-    // Side-swept fringe from the left part, across the forehead, ending beside the right eye.
-    // Stays ABOVE the eyes so the face stays clear.
-    hairRibbon([
-      [-0.32, -0.22, 0.48], [-0.04, -0.38, 0.82], [0.26, -0.58, 0.78], [0.50, -0.90, 0.42]
-    ], 0.055, 0.03, hairB, hair, 14, 7);
-    hairRibbon([
-      [-0.24, -0.28, 0.40], [0.08, -0.48, 0.70], [0.36, -0.78, 0.52], [0.52, -1.10, 0.26]
-    ], 0.045, 0.025, hairA, hair, 14, 7);
-    // Crown drapes that soften the 3/4 hard edge, still behind the hairline.
-    hairRibbon([
-      [0.12, -0.02, -0.10], [0.42, -0.18, 0.00], [0.72, -1.1, 0.12], [0.92, -3.4, 0.06]
-    ], 0.30, 0.12, hairA, hair, 16, 8);
-    hairRibbon([
-      [0.28, -0.08, 0.15], [0.55, -0.35, 0.18], [0.80, -1.5, 0.10], [0.95, -4.0, 0.00]
-    ], 0.24, 0.10, hairB, hair, 16, 8);
-    hairRibbon([
-      [-0.20, -0.04, -0.08], [-0.48, -0.22, 0.00], [-0.72, -1.2, 0.08], [-0.88, -3.2, 0.04]
-    ], 0.26, 0.11, hairA, hair, 16, 8);
-    // Back / side curtains, long past the chest.
-    const BACK = [
-      { x: 0.00, y: -0.10, z: -0.95, len: 12.4, ph: 0.3, fl: 0.08, amp: 0.22, r0: 0.70, r1: 0.20, mat: hairA, side: 1, za: 0.14 },
-      { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.1, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairC, side: 1, za: 0.16 },
-      { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.8, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairB, side: -1, za: 0.16 }
-    ];
-    BACK.forEach(L => {
-      hairRibbon(wavePts(L.x * (L.side === -1 ? -1 : 1), L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 20, L.za), L.r0, L.r1, L.mat, hair, 32, 8);
-    });
-
-    const parts = {
-      g: g, rig: rig, hip: hip, torso: torso, skirt: skirt, chestTop: chestTop,
-      neck: neck, head: head, hair: hair, mic: mic, glints: glints,
-      leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm,
-      mats: mats, dressMat: dress
-    };
-
-    P.applyPose(parts, P.stepState(0));
-    P.dressVisible(parts);
-    return parts;
-  };
-
-  // Keep her crisp and fully visible at any distance: no fog, no fade, not culled,
-  // and her own fill light so the gold dress and blonde hair stay vivid.
-  P.dressVisible = function (parts) {
-    const g = parts && parts.g;
-    if (!g) return parts;
-    const mats = parts.mats || [];
-    const applyMat = m => {
-      if (!m) return;
-      m.fog = false;
-      m.transparent = false;
-      m.opacity = 1;
-      m.depthWrite = true;
-      m.depthTest = true;
-      try { m.alphaTest = 0; } catch (_) {}
-      try { if (m.alphaMap) m.alphaMap = null; } catch (_) {}
-      try { m.toneMapped = false; } catch (_) {}
-    };
-    mats.forEach(applyMat);
-    g.name = g.name || 'popstar';
-    g.frustumCulled = false;
-    g.traverse(function (o) {
-      o.frustumCulled = false;
-      if (o.material) [].concat(o.material).forEach(applyMat);
-      if (o.geometry) {
-        try {
-          o.geometry.computeBoundingSphere();
-          if (o.geometry.boundingSphere) {
-            o.geometry.boundingSphere.radius = Math.max(o.geometry.boundingSphere.radius, 48);
-          }
-        } catch (_) {}
+    el.addEventListener('error', () => {
+      if (el && el.src && el.src.indexOf('.ogg') >= 0 && curId) {
+        try { el.src = SRC + curId + '.mp3'; el.load(); const p = el.play(); if (p && p.catch) p.catch(() => {}); return; } catch (_) {}
       }
+      gapUntil = performance.now() + 8000;
+      wanted = false; curId = null;
     });
-    try {
-      if (typeof THREE !== 'undefined' && THREE.Sphere) {
-        g.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 16, 0), 56);
+    return el;
+  }
+
+  function playId(id) {
+    const a = ensureEl();
+    const ogg = SRC + id + '.ogg';
+    curId = id; wanted = true; U.track = id; U.gap = 0;
+    a.volume = albumVol();
+    // Prefer Ogg; the error handler falls back to MP3.
+    if (a.src.indexOf(ogg) < 0 && a.src.indexOf(id + '.mp3') < 0) {
+      a.src = ogg; a.load();
+    } else {
+      try { a.currentTime = 0; } catch (_) {}
+    }
+    const p = a.play(); if (p && p.catch) p.catch(() => {});
+  }
+
+  function pick(ctx) {
+    const { ctx: c, ids } = poolFor(ctx);
+    if (!bag[c] || !bag[c].length) {
+      bag[c] = ids.filter(id => id !== curId);
+      if (!bag[c].length) bag[c] = ids.slice();
+    }
+    const i = (Math.random() * bag[c].length) | 0;
+    const id = bag[c].splice(i, 1)[0] || ids[0];
+    return id;
+  }
+
+  function stop() {
+    wanted = false; curId = null; U.track = null;
+    if (el) try { el.pause(); } catch (_) {}
+  }
+  function pause() {
+    if (el) try { el.pause(); } catch (_) {}
+  }
+  U.stop = stop;
+  U.pause = pause;
+
+  function samePool(ctxA, ctxB) {
+    const a = poolFor(ctxA).ids.join(',');
+    const b = poolFor(ctxB).ids.join(',');
+    return a === b;
+  }
+
+  function tick() {
+    const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    const vol = hidden ? 0 : albumVol();
+    const a = ensureEl();
+    a.volume = vol;
+    if (hidden || vol < 0.01) { try { a.pause(); } catch (_) {} return; }
+
+    const ctx = detectContext();
+    U.ctx = ctx;
+    const now = performance.now();
+
+    const playing = wanted && a && !a.paused && !a.ended;
+    if (playing) {
+      // Context change: only retarget if the new pool would not already include this track
+      if (curCtx && !samePool(ctx, curCtx)) {
+        try { a.pause(); } catch (_) {}
+        wanted = false; curId = null; U.track = null;
+        gapUntil = now + 1200; // short cross-gap, then the new place
+        curCtx = ctx;
+        return;
       }
-    } catch (_) {}
-    if (!parts.light && typeof THREE !== 'undefined' && THREE.PointLight) {
-      const lit = new THREE.PointLight(0xfff2c8, 1.6, 90, 1.2);
-      lit.position.set(0, 18, 5);
-      lit.frustumCulled = false;
-      lit.name = 'popstarFill';
-      g.add(lit);
-      parts.light = lit;
-    }
-    return parts;
-  };
-
-  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
-
-  // Simple 2-bone IK in the thigh-shin plane. Limbs hang along local -Y.
-  function ikLeg(leg, hipWorld, footTarget, lenA, lenB, extraBend) {
-    const dx = footTarget.x - hipWorld.x;
-    const dy = footTarget.y - hipWorld.y;
-    const dz = footTarget.z - hipWorld.z;
-    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const reach = Math.max(0.2, Math.min(lenA + lenB - 0.18, dist));
-    const down = Math.max(0.2, hipWorld.y - footTarget.y);
-    const thighSwing = Math.atan2(dz, down);
-    const abd = clamp(Math.atan2(dx, down), -0.16, 0.16);
-    const cosK = (lenA * lenA + lenB * lenB - reach * reach) / (2 * lenA * lenB);
-    let kneeBend = Math.PI - Math.acos(clamp(cosK, -1, 1));
-    const cosH = (lenA * lenA + reach * reach - lenB * lenB) / (2 * lenA * reach);
-    const hipBend = Math.acos(clamp(cosH, -1, 1));
-    kneeBend = Math.max(0.16 + (extraBend || 0), kneeBend);
-    // Always subtract hipBend: for a rear foot the thigh must go further back so
-    // the +rotX knee bend can still reach behind the hip.
-    const thighX = thighSwing - hipBend;
-    leg.root.rotation.set(0, 0, 0);
-    leg.thigh.rotation.set(thighX, 0, abd);
-    leg.knee.rotation.set(kneeBend, 0, 0);
-    leg.ankle.rotation.set(-(thighX + kneeBend), 0, -abd);
-  }
-
-  const _down = /* lazily */ { v: null, tmp: null };
-  function v3(x, y, z) { return new THREE.Vector3(x, y, z); }
-  function ltw(obj, x, y, z, out) {
-    const v = out || v3(0, 0, 0);
-    v.set(x || 0, y || 0, z || 0);
-    obj.updateWorldMatrix(true, false);
-    return obj.localToWorld(v);
-  }
-
-  // 2-bone arm IK: point the shoulder's -Y toward the target, bend the elbow toward a pole.
-  function ikArm(arm, target, pole, lenA, lenB) {
-    const sh = ltw(arm.sh, 0, 0, 0);
-    const to = v3(target.x - sh.x, target.y - sh.y, target.z - sh.z);
-    const dist = to.length();
-    const maxR = lenA + lenB - 0.06;
-    const minR = 0.25;
-    const reach = clamp(dist, minR, maxR);
-    const cosK = (lenA * lenA + lenB * lenB - reach * reach) / (2 * lenA * lenB);
-    const kneeBend = Math.PI - Math.acos(clamp(cosK, -1, 1));
-    const cosH = (lenA * lenA + reach * reach - lenB * lenB) / (2 * lenA * reach);
-    const hipBend = Math.acos(clamp(cosH, -1, 1));
-    if (dist > 1e-5) to.multiplyScalar(1 / dist);
-    else to.set(0, -1, 0);
-    const qAim = new THREE.Quaternion().setFromUnitVectors(v3(0, -1, 0), to);
-    const poleDir = v3(pole.x - sh.x, pole.y - sh.y, pole.z - sh.z);
-    let axis = v3(0, 0, 0).crossVectors(to, poleDir);
-    if (axis.lengthSq() < 1e-6) {
-      axis.crossVectors(to, v3(0, 0, 1));
-      if (axis.lengthSq() < 1e-6) axis.set(1, 0, 0);
-    }
-    axis.normalize();
-    const qBend = new THREE.Quaternion().setFromAxisAngle(axis, -hipBend);
-    qAim.premultiply(qBend);
-    const parent = arm.sh.parent;
-    parent.updateWorldMatrix(true, false);
-    const parentQ = new THREE.Quaternion();
-    parent.getWorldQuaternion(parentQ);
-    arm.sh.quaternion.copy(parentQ.invert().multiply(qAim));
-    arm.elbow.rotation.set(kneeBend, 0, 0);
-    arm.elbow.quaternion.setFromEuler(arm.elbow.rotation);
-  }
-
-  function lerpV(a, b, t, out) {
-    out = out || v3(0, 0, 0);
-    out.set(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
-    return out;
-  }
-
-  // Hand targets and elbow poles in world space, derived from the posed torso/head.
-  function armTargets(parts, poseId) {
-    const ct = parts.chestTop, hd = parts.head, hp = parts.hip;
-    const mouth = ltw(hd, 0.15, PR.headH * 0.28, PR.headH * 0.58);
-    const scalp = ltw(hd, -0.1, PR.headH + 0.25, 0.05);
-    const collar = ltw(ct, -0.35, -0.05, 0.9);
-    const lHip = ltw(hp, -PR.hipW * 0.62, 0.2, 0.4);
-    const lSh = ltw(parts.leftArm.sh, 0, 0, 0);
-    const rSh = ltw(parts.rightArm.sh, 0, 0, 0);
-    const highL = ltw(ct, -2.05, PR.armLen * 0.95, 0.35);
-    const highR = ltw(ct,  2.05, PR.armLen * 0.95, 0.35);
-    // mic hand sits just to the right of and slightly below the mouth so the grille can reach the lips
-    const micHand = ltw(hd, 0.70, PR.headH * 0.12, PR.headH * 0.78);
-    const downL = ltw(parts.leftArm.sh, 0, -(PR.upperArm + PR.lowerArm), 0);
-    const downR = ltw(parts.rightArm.sh, 0, -(PR.upperArm + PR.lowerArm), 0);
-    const poleLOut = ltw(ct, -3.2, 0.2, -1.2);
-    const poleROut = ltw(ct,  3.2, 0.2, -1.2);
-    const poleLUp = ltw(ct, -3.4, 2.5, -0.4);
-    const poleRUp = ltw(ct,  3.4, 2.5, -0.4);
-    const poleLBack = ltw(ct, -2.6, -0.5, -2.0);
-    if (poseId === 1) {
-      return { L: collar, R: micHand, pL: poleLOut, pR: poleROut, mic: 1 };
-    }
-    if (poseId === 2) {
-      return { L: lHip, R: micHand, pL: poleLBack, pR: poleROut, mic: 1 };
-    }
-    if (poseId === 3) {
-      return { L: scalp, R: micHand, pL: poleLUp, pR: poleROut, mic: 1 };
-    }
-    if (poseId === 4) {
-      return { L: highL, R: highR, pL: poleLUp, pR: poleRUp, mic: 4 };
-    }
-    return { L: downL, R: downR, pL: poleLOut, pR: poleROut, mic: 0 };
-  }
-
-
-  const ARM = {
-    // 1: left at the collarbone, right mic at the mouth
-    p1L: { sh: [1.05, 0.55, -0.45], el: [1.55, 0.3, 0.2], wr: [0.3, 0.55, 0.2] },
-    p1R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
-    // 2: left on the hip (akimbo), right still singing
-    p2L: { sh: [0.25, -0.1, 1.05], el: [1.65, 0.12, 0.45], wr: [0.3, 0.4, 0.55] },
-    p2R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
-    // 3: left hand ON TOP of the head (arm up and slightly in, elbow folded over the crown)
-    p3L: { sh: [0.35, 0.2, 3.35], el: [1.85, 0.3, -1.2], wr: [0.6, 0.3, 0.2] },
-    p3R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
-    // 4: symmetrical high V, both arms nearly straight up, slightly out
-    p4L: { sh: [0.1, 0.08, 2.88], el: [0.18, 0, 0.06], wr: [0.1, 0, 0] },
-    p4R: { sh: [0.1, -0.08, 2.88], el: [0.18, 0, -0.06], wr: [0.1, 0, 0] }
-  };
-  const POSES = {
-    1: { L: ARM.p1L, R: ARM.p1R },
-    2: { L: ARM.p2L, R: ARM.p2R },
-    3: { L: ARM.p3L, R: ARM.p3R },
-    4: { L: ARM.p4L, R: ARM.p4R }
-  };
-  function lerp3(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
-  function setEuler(o, t) { o.rotation.set(t[0], t[1], t[2]); }
-  function setArm(arm, pose, sideSign) {
-    setEuler(arm.sh, [pose.sh[0], pose.sh[1] * sideSign, pose.sh[2] * sideSign]);
-    setEuler(arm.elbow, [pose.el[0], pose.el[1] * sideSign, pose.el[2] * sideSign]);
-    setEuler(arm.wrist, [pose.wr[0], pose.wr[1] * sideSign, pose.wr[2] * sideSign]);
-  }
-  function mixArm(arm, A, B, k, sideSign) {
-    setArm(arm, { sh: lerp3(A.sh, B.sh, k), el: lerp3(A.el, B.el, k), wr: lerp3(A.wr, B.wr, k) }, sideSign);
-  }
-
-  P.applyPose = function (parts, st, groundY) {
-    if (!parts || !st) return;
-    const gY = groundY || { l: 0, r: 0, h: 0 };
-    parts.hip.position.set(st.hipX, PR.hipY, 0);
-    parts.hip.rotation.set(0, st.hipYaw, st.hipRoll);
-    parts.torso.position.x = st.torsoSway;
-    parts.torso.rotation.set(0.05, st.torsoYaw || 0, st.torsoRoll);
-    parts.head.rotation.set(st.headNod, st.headYaw, -st.torsoRoll * 0.3);
-
-    // Legs first, then arms (which need an up-to-date torso/head matrix).
-    const u = st.u;
-    const cushL = st.left.planted ? ((u < 0.35) ? Math.sin((u / 0.35) * Math.PI) * 0.18 : 0.05) : 0.08;
-    const cushR = st.right.planted ? ((u < 0.35) ? Math.sin((u / 0.35) * Math.PI) * 0.18 : 0.05) : 0.08;
-    // Solve IK in hip-local space so a rolled/yawed pelvis still plants the feet.
-    parts.hip.updateMatrix();
-    const hipInv = new THREE.Matrix4().copy(parts.hip.matrix).invert();
-    function footInHip(foot, g) {
-      const v = new THREE.Vector3(foot.x, g + PR.bootH + foot.y, foot.z - st.hipZ);
-      v.applyMatrix4(hipInv);
-      return v;
-    }
-    ikLeg(parts.leftLeg, { x: parts.leftLeg.root.position.x, y: 0, z: 0 }, footInHip(st.left, gY.l), PR.thigh, PR.shin, cushL);
-    ikLeg(parts.rightLeg, { x: parts.rightLeg.root.position.x, y: 0, z: 0 }, footInHip(st.right, gY.r), PR.thigh, PR.shin, cushR);
-
-    const k = st.poseBlend == null ? 1 : st.poseBlend;
-    const A = POSES[st.prevPose] || POSES[1];
-    const B = POSES[st.pose] || POSES[1];
-    mixArm(parts.leftArm, A.L, B.L, k, -1);
-    mixArm(parts.rightArm, A.R, B.R, k, 1);
-    const micKind = (st.pose === 4) ? k : (st.prevPose === 4 ? 1 - k : 0);
-    aimMic(parts, micKind);
-    twinkleGlints(parts, st);
-  };
-
-  // Keep the mic in the hand. Point the grille toward a spot just to the right
-  // of and slightly in front of the lips — never covering the mouth like a gag.
-  function aimMic(parts, micKind) {
-    if (!parts.mic || !parts.head || !parts.rightArm || !parts.rightArm.hand) return;
-    if (micKind > 0.85) {
-      parts.mic.position.set(0.10, -PR.hand * 0.15, 0.22);
-      parts.mic.rotation.set(-0.55, 0.20, 0.25);
-      parts.mic.scale.set(1, 1, 1);
       return;
     }
-    // Stay parented to the palm. Only rotate so +Z (grille) aims at the
-    // right-of-mouth target; do not teleport the handle out of the hand.
-    parts.head.updateWorldMatrix(true, false);
-    parts.rightArm.hand.updateWorldMatrix(true, false);
-    const targetW = ltw(parts.head, 0.30, PR.headH * 0.17, PR.headH * 0.55);
-    const handW = new THREE.Vector3();
-    parts.rightArm.hand.getWorldPosition(handW);
-    const dir = targetW.clone().sub(handW);
-    if (dir.length() < 0.15) dir.set(0.3, 0.15, 0.9);
-    dir.normalize();
-    // Local +Z of the mic should follow dir. Build a basis, then convert to hand space
-    // while keeping the mic origin in the palm.
-    const z = dir;
-    const tmp = Math.abs(z.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
-    const x = tmp.clone().cross(z).normalize();
-    const y = z.clone().cross(x).normalize();
-    const mat = new THREE.Matrix4().makeBasis(x, y, z);
-    const handInv = new THREE.Matrix4().copy(parts.rightArm.hand.matrixWorld).invert();
-    const local = new THREE.Matrix4().multiplyMatrices(handInv, mat);
-    const pos = new THREE.Vector3();
-    const quat = new THREE.Quaternion();
-    const scl = new THREE.Vector3();
-    local.decompose(pos, quat, scl);
-    parts.mic.position.set(0.10, -PR.hand * 0.15, 0.22);
-    parts.mic.quaternion.copy(quat);
-    parts.mic.scale.set(1, 1, 1);
+
+    if (!gapUntil) gapUntil = now + (ctx === 'menu' ? 400 : 1500);
+    if (now < gapUntil) return;
+
+    curCtx = ctx;
+    const id = pick(ctx);
+    if (!id) { gapUntil = now + 8000; return; }
+    playId(id);
+    gapUntil = now + 4000; // debounce
   }
-
-  function twinkleGlints(parts, st) {
-    const t = (st && (st.t != null ? st.t : st.u)) || 0;
-    const pose = (st && st.pose) || 0;
-    if (parts.glints && parts.glints.length) {
-      for (let i = 0; i < parts.glints.length; i++) {
-        const g = parts.glints[i];
-        const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(t * 7.5 + i * 1.73 + pose));
-        g.scale.setScalar(0.65 + 0.70 * pulse);
-      }
-    }
-    if (parts.dressMat) {
-      try {
-        parts.dressMat.emissiveIntensity = 1.15 + 0.50 * (0.5 + 0.5 * Math.sin(t * 9.2));
-      } catch (_) {}
-    }
-  }
-
-  P.debugArm = function (parts, sh, el, wr) {
-    setArm(parts.rightArm, { sh: sh, el: el, wr: wr || [0.2, 0.3, 0.1] }, 1);
-    aimMic(parts, 0);
-  };
-  P.ikLeg = ikLeg;
-  P.ikArm = ikArm;
-})(typeof window !== 'undefined' ? window : globalThis);
-
-/* GLX-V1251 (v1.2.51): rare giant pop-star meme mob.
-   She wanders the overworld by day, dancing a catwalk to her song (the user's
-   own AI TikTok, used with permission, trimmed of the TikTok outro / end screen
-   and looped). Harmless, single instance, does not change world blocks, first-
-   person arms, or other mobs. Footstep thuds and a near-field camera shake are
-   procedural. */
-(function v1251() {
-  const C = (typeof window !== 'undefined' && window.__popstarCore) ? window.__popstarCore : null;
-  const U = window.__v1251 = {
-    err: null, ver: '1.2.51', spawned: 0, despawned: 0, rolls: 0, hits: 0,
-    present: 0, songOn: 0, thuds: 0, shakes: 0, blocked: 0
-  };
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
-  if (!C) { ERR('core', 'missing __popstarCore'); return; }
-  U.core = C;
-
-  // Be a friendly, so 1.2.48 spiders / hostiles will not hunt her.
-  try { if (window.__v1248 && __v1248.FRIENDLY) __v1248.FRIENDLY.add('popstar'); } catch (e) { ERR('friendly', e); }
-
-  let aLive = null, song = null, shake = 0, lastPlant = -1, songT0 = 0, dayRolled = -1;
-
-  function acOk() {
-    try { return typeof AC !== 'undefined' && AC && AC.createGain; } catch (_) { return false; }
-  }
-  function sfxV() { try { return Math.max(0, Math.min(1, SET.sfx)); } catch (_) { return 0.8; } }
-  function musV() { try { return Math.max(0, Math.min(1, SET.music)); } catch (_) { return 0.8; } }
-  function songV() { return Math.max(musV(), sfxV() * 0.55); }
-
-  function isOutdoors() {
-    try {
-      if (typeof caveK === 'number' && caveK > 0.35) return false;
-      if (typeof DIM !== 'undefined' && DIM && DIM.cur) return false;
-    } catch (_) {}
-    return true;
-  }
-
-  function isFluid(b) {
-    if (typeof T === 'undefined' || T == null || b == null) return false;
-    return b === T.WATER || b === T.LAVA || (T.STILL_WATER != null && b === T.STILL_WATER);
-  }
-  function isLandBlock(b) {
-    if (b == null || b === 0) return false;
-    if (isFluid(b)) return false;
-    try { if (typeof LEAFY !== 'undefined' && LEAFY[b]) return false; } catch (_) {}
-    try { if (typeof PLANT !== 'undefined' && PLANT[b]) return false; } catch (_) {}
-    return true;
-  }
-  // Top of a solid dry-land block (not water, lava, leaves, plants or air). 0 if none.
-  function landY(x, z) {
-    try {
-      const bx = Math.floor(x), bz = Math.floor(z);
-      if (typeof W === 'number' && (bx < 2 || bz < 2 || bx >= W - 2 || bz >= D - 2)) return 0;
-      if (typeof getB !== 'function') return 0;
-      const Hgt = (typeof H === 'number') ? H : 90;
-      for (let y = Hgt - 1; y >= 0; y--) {
-        const b = getB(bx, y, bz);
-        if (!isLandBlock(b)) continue;
-        if (typeof solid === 'function' && !solid(bx, y, bz)) continue;
-        // need two clear non-fluid blocks to stand in
-        const above = (typeof getB === 'function') ? getB(bx, y + 1, bz) : 0;
-        const above2 = getB(bx, y + 2, bz);
-        if (isFluid(above) || isFluid(above2)) continue;
-        if (typeof solid === 'function' && (solid(bx, y + 1, bz) || solid(bx, y + 2, bz))) continue;
-        return y + 1;
-      }
-    } catch (e) { ERR('land', e); }
-    return 0;
-  }
-  function isDryLand(x, z) { return landY(x, z) > 0; }
-  // Kept name: callers and tests use footGround; it now means dry land only (never sea).
-  function footGround(x, z) { return landY(x, z); }
-
-  // Search outward from (x,z) for a dry-land column. Used when the player is on a shore or at sea.
-  function findLandNear(x, z, maxR) {
-    maxR = maxR || 80;
-    if (landY(x, z) > 0) return {x: x, y: landY(x, z), z: z};
-    for (let r = 2; r <= maxR; r += 2) {
-      for (let a = 0; a < 20; a++) {
-        const ang = a / 20 * Math.PI * 2;
-        const nx = x + Math.cos(ang) * r, nz = z + Math.sin(ang) * r;
-        const y = landY(nx, nz);
-        if (y > 0) return {x: nx, y: y, z: nz};
-      }
-    }
-    return null;
-  }
-
-  function headingVec(yaw) { return { x: Math.sin(yaw), z: Math.cos(yaw) }; }
-
-  function startSong() {
-    stopSong();
-    if (!acOk()) return;
-    try {
-      const buf = U.songBuf;
-      if (!buf) { loadSong(); return; }
-      const src = AC.createBufferSource();
-      src.buffer = buf;
-      src.loop = true;
-      src.loopStart = 0;
-      src.loopEnd = Math.min(buf.duration, C.LOOP);
-      const gain = AC.createGain();
-      gain.gain.value = 0.0001;
-      const panner = AC.createPanner ? AC.createPanner() : null;
-      if (panner) {
-        try {
-          panner.panningModel = 'equalpower';
-          panner.distanceModel = 'inverse';
-          panner.refDistance = 28;
-          panner.maxDistance = 260;
-          panner.rolloffFactor = 0.65;
-        } catch (_) {}
-        src.connect(gain); gain.connect(panner);
-        panner.connect((typeof master !== 'undefined' && master) ? master : AC.destination);
-      } else {
-        src.connect(gain); gain.connect((typeof master !== 'undefined' && master) ? master : AC.destination);
-      }
-      src.start();
-      song = { src: src, gain: gain, panner: panner };
-      songT0 = AC.currentTime;
-      U.songOn = 1;
-    } catch (e) { ERR('song', e); }
-  }
-  function stopSong() {
-    if (!song) return;
-    try { song.src.stop(); } catch (_) {}
-    try { song.gain.disconnect(); } catch (_) {}
-    song = null; U.songOn = 0;
-  }
-  function loadSong() {
-    if (U._loadingSong || !acOk()) return;
-    U._loadingSong = 1;
-    const tryUrl = (url, next) => {
-      fetch(url).then(r => { if (!r.ok) throw new Error(String(r.status)); return r.arrayBuffer(); })
-        .then(b => AC.decodeAudioData(b.slice(0)))
-        .then(buf => { U.songBuf = buf; U._loadingSong = 0; if (aLive && !song) startSong(); })
-        .catch(() => { if (next) next(); else { U._loadingSong = 0; ERR('decode', url); } });
-    };
-    tryUrl(C.SONG_OGG, () => tryUrl(C.SONG_MP3, null));
-  }
-
-  function thud(wx, wy, wz) {
-    if (!acOk() || sfxV() < 0.02) return;
-    try {
-      const t = AC.currentTime;
-      const o = AC.createOscillator(); o.type = 'sine'; o.frequency.value = 48;
-      const o2 = AC.createOscillator(); o2.type = 'triangle'; o2.frequency.value = 72;
-      const g = AC.createGain(); g.gain.setValueAtTime(0.0001, t);
-      const dist = (typeof P !== 'undefined' && P) ? Math.hypot((wx - P.x), (wy - (P.y || 0)), (wz - P.z)) : 40;
-      const att = Math.min(1, 22 / (dist + 8));
-      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.7 * sfxV() * att), t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-      const flt = AC.createBiquadFilter(); flt.type = 'lowpass'; flt.frequency.value = 180;
-      o.connect(flt); o2.connect(flt); flt.connect(g);
-      if (AC.createPanner) {
-        const p = AC.createPanner();
-        try { p.panningModel = 'equalpower'; p.distanceModel = 'inverse'; p.refDistance = 16; p.maxDistance = 160; p.rolloffFactor = 0.9; } catch (_) {}
-        try { if (p.positionX) { p.positionX.value = wx; p.positionY.value = wy; p.positionZ.value = wz; } } catch (_) {}
-        g.connect(p); p.connect((typeof master !== 'undefined' && master) ? master : AC.destination);
-      } else g.connect((typeof master !== 'undefined' && master) ? master : AC.destination);
-      o.start(t); o2.start(t); o.stop(t + 0.3); o2.stop(t + 0.3);
-      U.thuds++;
-    } catch (e) { ERR('thud', e); }
-  }
-
-  function updateSongPos(pos) {
-    if (!song || !acOk()) return;
-    const now = AC.currentTime;
-    const vol = songV() * 0.55;
-    try { song.gain.gain.setTargetAtTime(Math.max(0.0001, vol), now, 0.08); } catch (_) {}
-    if (song.panner && song.panner.positionX) {
-      try {
-        song.panner.positionX.setTargetAtTime(pos.x, now, 0.05);
-        song.panner.positionY.setTargetAtTime(pos.y + 16, now, 0.05);
-        song.panner.positionZ.setTargetAtTime(pos.z, now, 0.05);
-        if (typeof camera !== 'undefined' && AC.listener && AC.listener.positionX) {
-          AC.listener.positionX.setTargetAtTime(camera.position.x, now, 0.05);
-          AC.listener.positionY.setTargetAtTime(camera.position.y, now, 0.05);
-          AC.listener.positionZ.setTargetAtTime(camera.position.z, now, 0.05);
-        }
-      } catch (_) {}
-    }
-  }
-
-  function applyShake() {
-    if (shake <= 0 || typeof camera === 'undefined') return;
-    const s = shake;
-    camera.position.x += (Math.random() - 0.5) * s;
-    camera.position.y += (Math.random() - 0.5) * s * 0.6;
-    camera.position.z += (Math.random() - 0.5) * s;
-  }
-
-  function pickSpawn() {
-    try {
-      if (typeof P === 'undefined' || !P) return null;
-      // Prefer a dry-land ring around the player; if the local area is all water, search outward.
-      for (let i = 0; i < 40; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const r = 28 + Math.random() * 50;
-        let x = P.x + Math.sin(ang) * r, z = P.z + Math.cos(ang) * r;
-        if (typeof W === 'number') {
-          if (x < 8) x = 8; if (z < 8) z = 8;
-          if (x > W - 8) x = W - 8; if (z > D - 8) z = D - 8;
-        }
-        const y = landY(x, z);
-        if (y < 1) continue;
-        let sky = true;
-        try { if (typeof skyTop === 'function' && skyTop(Math.floor(x), Math.floor(z)) > y + 8) sky = false; } catch (_) {}
-        if (!sky && i < 24) continue;
-        return { x: x, y: y, z: z, yaw: Math.atan2(P.x - x, P.z - z) };
-      }
-      const near = findLandNear(P.x, P.z, 96);
-      if (near) return { x: near.x, y: near.y, z: near.z, yaw: Math.atan2(P.x - near.x, P.z - near.z) };
-    } catch (e) { ERR('spot', e); }
-    return null;
-  }
-
-  function attachToMobs(rec) {
-    try {
-      if (typeof mobs !== 'undefined' && Array.isArray(mobs) && mobs.indexOf(rec) < 0) mobs.push(rec);
-    } catch (_) {}
-  }
-  function detachFromMobs(rec) {
-    try {
-      if (typeof mobs === 'undefined') return;
-      const i = mobs.indexOf(rec); if (i >= 0) mobs.splice(i, 1);
-    } catch (_) {}
-  }
-
-  U.spawnAt = function (x, y, z, yaw) {
-    if (aLive) U.despawn();
-    if (typeof THREE === 'undefined' || typeof scene === 'undefined') { ERR('scene', 'no THREE/scene'); return null; }
-    let parts;
-    try { parts = C.make(); } catch (e) { ERR('make', e); return null; }
-    let gx = x, gz = z, gy = landY(x, z);
-    if (gy < 1) {
-      const near = findLandNear(x, z, 96);
-      if (!near) { ERR('spawn', 'no dry land'); try { /* parts still need cleanup */ } catch (_) {} return null; }
-      gx = near.x; gy = near.y; gz = near.z;
-    }
-    try { if (C.dressVisible) C.dressVisible(parts); } catch (e) { ERR('vis', e); }
-    parts.g.position.set(gx, gy, gz);
-    parts.g.rotation.y = yaw || 0;
-    parts.g.visible = true;
-    parts.g.frustumCulled = false;
-    scene.add(parts.g);
-    const rec = {
-      kind: 'popstar', g: parts.g, parts: parts, hostile: false, harmless: true,
-      hp: 9999, hitY: 8, hitR: 0.01, tall: C.HEIGHT, speed: C.STRIDE / C.BEAT,
-      flee: 0, angry: 0, mats: parts.mats, named: true,
-      yaw: yaw || 0, destYaw: yaw || 0, pathX: gx, pathZ: gz, pathYaw: yaw || 0,
-      born: (typeof performance !== 'undefined' ? performance.now() : 0),
-      life: 0, tSong: 0, lastStep: -1
-    };
-    aLive = rec;
-    attachToMobs(rec);
-    if (U.songBuf) startSong(); else loadSong();
-    U.spawned++; U.present = 1;
-    try { if (typeof toast === 'function') toast('A giant pop star is strutting through the glen!'); } catch (_) {}
-    return rec;
-  };
-
-  U.despawn = function () {
-    if (!aLive) return;
-    try { scene.remove(aLive.g); } catch (_) {}
-    try {
-      aLive.g.traverse(o => { if (o.geometry) o.geometry.dispose(); });
-      (aLive.mats || []).forEach(m => { try { if (m.map) m.map.dispose(); m.dispose(); } catch (_) {} });
-    } catch (_) {}
-    detachFromMobs(aLive);
-    aLive = null; U.present = 0; U.despawned++;
-    stopSong();
-    shake = 0;
-  };
-
-  U.maybeSpawn = function (why) {
-    if (aLive) return null;
-    if (typeof started !== 'undefined' && !started) return null;
-    if (typeof daylight === 'number' && daylight < 0.55) return null;
-    if (!isOutdoors()) return null;
-    U.rolls++;
-    if (Math.random() >= C.SPAWN_CHANCE && why !== 'force') return null;
-    const sp = pickSpawn();
-    if (!sp) return null;
-    return U.spawnAt(sp.x, sp.y, sp.z, sp.yaw);
-  };
-
-  function tickPopstar(dt) {
-    if (typeof started !== 'undefined' && !started) return;
-    if (typeof paused !== 'undefined' && paused) return;
-    if (!aLive) return;
-    if ((typeof daylight === 'number' && daylight < 0.35) || aLive.life > C.LIFE) {
-      U.despawn(); return;
-    }
-    aLive.life += dt;
-    const rec = aLive;
-    const parts = rec.parts;
-    const yaw = rec.yaw;
-    const fwd = headingVec(yaw);
-
-    // Song-synced clock. Prefer the audio clock so steps stay on the beat.
-    let tSong;
-    if (song && acOk()) tSong = (AC.currentTime - songT0) % C.LOOP;
-    else tSong = rec.tSong = (rec.tSong || 0) + dt;
-    rec.tSong = tSong;
-    const st = C.stepState(tSong);
-
-    // Long straight-ish walk on dry land only; turn back at water, lava, air or a steep drop.
-    if (typeof W === 'number') {
-      const look = 18;
-      const nx = rec.pathX + fwd.x * look, nz = rec.pathZ + fwd.z * look;
-      const nearEdge = nx < 6 || nz < 6 || nx > W - 6 || nz > D - 6;
-      const aheadY = landY(nx, nz);
-      const hereY = landY(rec.pathX, rec.pathZ);
-      const badAhead = aheadY < 1 || (hereY > 0 && Math.abs(aheadY - hereY) > 3);
-      if (nearEdge || badAhead) {
-        rec.destYaw = yaw + (Math.random() < 0.5 ? 1 : -1) * (Math.PI * (0.6 + Math.random() * 0.6));
-        U.turns = (U.turns || 0) + 1;
-      }
-    }
-    // Smooth yaw toward dest
-    let dy = rec.destYaw - rec.yaw;
-    while (dy > Math.PI) dy -= Math.PI * 2;
-    while (dy < -Math.PI) dy += Math.PI * 2;
-    rec.yaw += Math.max(-2.2 * dt, Math.min(2.2 * dt, dy));
-    rec.pathYaw = rec.yaw;
-
-    const speed = C.STRIDE / C.BEAT;
-    const step = U.proposeStep(rec.pathX, rec.pathZ, rec.yaw, speed * dt);
-    if (step.ok) {
-      rec.pathX = step.x;
-      rec.pathZ = step.z;
-    } else {
-      rec.destYaw = rec.yaw + Math.PI * (0.7 + Math.random() * 0.4);
-      U.turns = (U.turns || 0) + 1;
-    }
-    if (typeof W === 'number') {
-      rec.pathX = Math.max(6, Math.min(W - 6, rec.pathX));
-      rec.pathZ = Math.max(6, Math.min(D - 6, rec.pathZ));
-    }
-
-    // Ground under each foot and under the body (step over foliage).
-    const ca = Math.cos(rec.yaw), sa = Math.sin(rec.yaw);
-    function worldFoot(f) {
-      // foot in path space (x right, z forward) rotated by yaw, origin at path
-      // After applyPose, the model is placed with g at path origin and g.position.z offset...
-      const lx = f.x, lz = f.z; // already along the walk in stepState, z is world-along-path
-      // We place the group at the current hip world, then applyPose uses z - hipZ
-      return { x: rec.pathX + sa * lz - ca * lx, z: rec.pathZ + ca * lz + sa * lx };
-    }
-    // Actually we place g at the hip's world XZ, y = support, rotation yaw.
-    // stepState hipZ is the distance travelled along the path since t=0, which would drift
-    // from pathX/pathZ if we also integrate. Better: treat pathX/Z as the hip XZ.
-    const hipWX = rec.pathX, hipWZ = rec.pathZ;
-    function footWZ(f) {
-      // foot relative to hip in path space: (f.x - hipX, f.z - hipZ)
-      const rx = f.x - st.hipX, rz = f.z - st.hipZ;
-      return { x: hipWX + sa * rz - ca * rx, z: hipWZ + ca * rz + sa * rx };
-    }
-    const lW = footWZ(st.left), rW = footWZ(st.right);
-    const gL = landY(lW.x, lW.z), gR = landY(rW.x, rW.z);
-    const gH = landY(hipWX, hipWZ);
-    const support = (st.left.planted && !st.right.planted && gL > 0) ? gL
-      : (st.right.planted && !st.left.planted && gR > 0) ? gR
-      : Math.max(gL, gR, gH);
-    // Snap feet to the dry surface; never float, sink or stand in water.
-    if (support > 0) rec.g.position.set(hipWX, support, hipWZ);
-    rec.g.rotation.set(0, rec.yaw, 0);
-    rec.g.visible = true;
-    rec.g.frustumCulled = false;
-    try { if (rec.g.parent !== scene && typeof scene !== 'undefined') scene.add(rec.g); } catch (_) {}
-    try { if (C.dressVisible) C.dressVisible(parts); } catch (_) {}
-    // applyPose expects rig at origin with hipZ subtracted from foot z; we already
-    // placed g at the hip, so pass a state whose hipZ is used only relatively.
-    C.applyPose(parts, st, { l: gL - support, r: gR - support, h: 0 });
-
-    // Footstep events
-    if (st.step !== rec.lastStep) {
-      rec.lastStep = st.step;
-      const f = st.left.planted ? lW : rW;
-      const fy = st.left.planted ? gL : gR;
-      thud(f.x, fy, f.z);
-      try { if (typeof burst === 'function') burst(f.x, fy + 0.2, f.z, 0xc8c0a8, 8, 2.5); } catch (_) {}
-      if (typeof P !== 'undefined' && P) {
-        const dist = Math.hypot(hipWX - P.x, (support + 4) - (P.y || 0), hipWZ - P.z);
-        if (dist < 48) {
-          const amt = Math.min(0.55, 6 / (dist + 4));
-          shake = Math.max(shake, amt);
-          U.shakes++;
-        }
-      }
-    }
-    shake *= Math.max(0, 1 - dt * 4.5);
-
-    updateSongPos({ x: hipWX, y: support, z: hipWZ });
-  }
-
-  // ---------- hooks (chained after 1.2.48) ----------
-  try {
-    const um = updateMobs;
-    window.updateMobs = updateMobs = function (dt) {
-      const r = um.apply(this, arguments);
-      try { tickPopstar(dt); } catch (e) { ERR('tick', e); }
-      return r;
-    };
-  } catch (e) { ERR('um', e); }
-
-  try {
-    const pc = placeCamera;
-    window.placeCamera = placeCamera = function () {
-      const r = pc.apply(this, arguments);
-      try { applyShake(); } catch (e) { ERR('shake', e); }
-      return r;
-    };
-  } catch (e) { ERR('pc', e); }
-
-  try {
-    const od = onDawn;
-    window.onDawn = onDawn = function () {
-      const r = od.apply(this, arguments);
-      try {
-        const n = (typeof dayNum === 'number') ? dayNum : (dayRolled + 1);
-        if (n !== dayRolled) { dayRolled = n; U.maybeSpawn('dawn'); }
-      } catch (e) { ERR('dawn', e); }
-      return r;
-    };
-  } catch (e) { ERR('od', e); }
-
-  try {
-    const ew = enterWorld;
-    window.enterWorld = enterWorld = function () {
-      try { if (aLive) U.despawn(); dayRolled = -1; } catch (e) { ERR('ew-pre', e); }
-      const r = ew.apply(this, arguments);
-      try {
-        // New / loaded daytime worlds get one roll, not a guaranteed spawn.
-        setTimeout(() => {
-          try {
-            if (typeof dayNum === 'number') dayRolled = dayNum;
-            if (typeof daylight === 'number' && daylight > 0.55) U.maybeSpawn('enter');
-          } catch (e) { ERR('ew-roll', e); }
-        }, 800);
-      } catch (e) { ERR('ew', e); }
-      return r;
-    };
-  } catch (e) { ERR('eww', e); }
-
-  try {
-    const dm = damageMob;
-    window.damageMob = damageMob = function (a, dmg, byPlayer) {
-      try {
-        if (a && a.kind === 'popstar') { U.hits++; return a; }
-      } catch (e) { ERR('dm', e); }
-      return dm.apply(this, arguments);
-    };
-  } catch (e) { ERR('dmw', e); }
-
-  try {
-    const ht = hurt;
-    window.hurt = hurt = function (n, cause) {
-      try {
-        if (aLive && cause && (cause === aLive || cause.kind === 'popstar')) { U.blocked++; return; }
-      } catch (e) { ERR('hurt', e); }
-      return ht.apply(this, arguments);
-    };
-  } catch (e) { ERR('hw', e); }
-
-  // Don't let her go through the generic remove/attack loops as a normal mob in a bad way.
-  try {
-    if (typeof NICE !== 'undefined') NICE.popstar = 'Pop star';
-  } catch (_) {}
-
-
-  function standOk(x, y, z) {
-    try {
-      const yLand = landY(x, z);
-      if (yLand < 1) return false;
-      if (y != null && Math.abs(yLand - y) > 1.1) return false;
-      x = Math.floor(x); z = Math.floor(z); y = Math.floor(yLand);
-      if (typeof W === 'number' && (x < 2 || z < 2 || x > W - 3 || z > D - 3)) return false;
-      if (typeof H === 'number' && (y < 1 || y > H - 3)) return false;
-      return true;
-    } catch (e) { ERR('stand', e); return false; }
-  }
-
-  // One wander step: accept only dry land, reject steep drops or climbs of more than 3 blocks.
-  U.proposeStep = function (x, z, yaw, stepLen) {
-    const fwd = headingVec(yaw);
-    const nx = x + fwd.x * stepLen, nz = z + fwd.z * stepLen;
-    const y0 = landY(x, z), y1 = landY(nx, nz);
-    if (y1 < 1 || y0 < 1 || Math.abs(y1 - y0) > 3) {
-      return {ok: false, x: x, z: z, y: y0, yaw: yaw, reason: y1 < 1 ? 'water' : 'steep'};
-    }
-    return {ok: true, x: nx, z: nz, y: y1, yaw: yaw};
-  };
-
-  // Distance at which her whole 32-block body fits in a portrait 412x915, ~70° vertical FOV, with margin.
-  function framingDist() {
-    const h = (C && C.HEIGHT) || 32;
-    let fov = 70;
-    try { if (typeof camera !== 'undefined' && camera && camera.fov) fov = camera.fov; } catch (_) {}
-    const rad = (fov * Math.PI / 180);
-    return (h * 1.28) / (2 * Math.tan(rad / 2));
-  }
-
-  // A dry-land spot in front of her, far enough that head-to-feet fit in the portrait view.
-  function spotInFront(rec, maxD) {
-    const ideal = framingDist();
-    const lo = Math.max(20, ideal - 6), hi = Math.min(maxD || (ideal + 8), ideal + 8);
-    const p = rec.g && rec.g.position ? rec.g.position : {x: rec.pathX || 0, y: 0, z: rec.pathZ || 0};
-    const yaw = (typeof rec.yaw === 'number') ? rec.yaw : (rec.g && rec.g.rotation ? rec.g.rotation.y : 0);
-    const tryAt = (x, z) => {
-      const y = landY(x, z);
-      if (y < 1 || !standOk(x, y, z)) return null;
-      const d = Math.hypot((x - p.x), (z - p.z));
-      if (d < lo - 0.5 || d > hi + 0.5) return null;
-      return {x: Math.floor(x) + 0.5, y: y, z: Math.floor(z) + 0.5, dist: d};
-    };
-    const fx = Math.sin(yaw), fz = Math.cos(yaw);
-    const dists = [];
-    for (let d = Math.round(ideal); d >= Math.ceil(lo); d--) dists.push(d);
-    for (let d = Math.round(ideal) + 1; d <= Math.floor(hi); d++) dists.push(d);
-    for (const dist of dists) {
-      const s = tryAt(p.x + fx * dist, p.z + fz * dist);
-      if (s) return s;
-    }
-    for (let r = Math.ceil(lo); r <= Math.floor(hi); r++) {
-      for (let a = 0; a < 24; a++) {
-        const ang = yaw + (a / 24) * Math.PI * 2;
-        const s = tryAt(p.x + Math.sin(ang) * r, p.z + Math.cos(ang) * r);
-        if (s) return s;
-      }
-    }
-    // Last resort: any dry land in front in a slightly wider band.
-    for (let r = 16; r <= 48; r++) {
-      for (let a = 0; a < 24; a++) {
-        const ang = yaw + (a / 24) * Math.PI * 2;
-        const y = landY(p.x + Math.sin(ang) * r, p.z + Math.cos(ang) * r);
-        if (y > 0) return {x: Math.floor(p.x + Math.sin(ang) * r) + 0.5, y: y, z: Math.floor(p.z + Math.cos(ang) * r) + 0.5, dist: r};
-      }
-    }
-    return null;
-  }
-
-  // Pause menu: Teleport to Pop Star. Spawns her nearby if she is not in the world,
-  // then puts the player on solid ground a few blocks in front of her, facing her.
-  U.teleportTo = function () {
-    const R = U.tp || (U.tp = {n: 0, last: null});
-    R.n++;
-    try {
-      if (typeof started !== 'undefined' && !started) {
-        R.last = 'noworld';
-        try { toast('Start a world first'); } catch (_) {}
-        return false;
-      }
-      if (typeof DIM !== 'undefined' && DIM && DIM.cur) {
-        R.last = 'dim';
-        try { toast('The pop star is in the overworld - use Return to overworld first'); } catch (_) {}
-        return false;
-      }
-      if (typeof P === 'undefined' || !P) { R.last = 'noplayer'; return false; }
-      let rec = aLive;
-      if (!rec) {
-        let sp = pickSpawn();
-        if (!sp) {
-          const yaw = (typeof P.yaw === 'number') ? P.yaw : 0;
-          const raw = {x: P.x + Math.sin(yaw) * 28, z: P.z + Math.cos(yaw) * 28};
-          const land = findLandNear(raw.x, raw.z, 96) || findLandNear(P.x, P.z, 96);
-          if (!land) {
-            R.last = 'noland';
-            try { toast('Could not find dry land for the pop star'); } catch (_) {}
-            return false;
-          }
-          sp = {x: land.x, y: land.y, z: land.z, yaw: yaw + Math.PI};
-        }
-        rec = U.spawnAt(sp.x, sp.y, sp.z, sp.yaw);
-        if (!rec) {
-          R.last = 'nospawn';
-          try { toast('Could not bring in the pop star'); } catch (_) {}
-          return false;
-        }
-        U.tpSpawned = (U.tpSpawned || 0) + 1;
-      }
-      const p = rec.g && rec.g.position;
-      if (!p) { R.last = 'nobody'; return false; }
-      const sp = spotInFront(rec, 42);
-      if (!sp) {
-        R.last = 'nospot';
-        try { toast('Could not find a safe spot by the pop star'); } catch (_) {}
-        return false;
-      }
-      P.x = sp.x; P.y = sp.y; P.z = sp.z; P.vy = 0; P.fallTop = null;
-      try { P.kbx = 0; P.kbz = 0; P.onGround = true; } catch (_) {}
-      try { if (typeof flying !== 'undefined') flying = false; } catch (_) {}
-      P.yaw = Math.atan2(-(p.x - P.x), -(p.z - P.z));
-      // Look at mid-torso so head and feet both sit in the portrait frame.
-      try {
-        const eye = (P.y || 0) + 1.6;
-        const mid = (p.y || 0) + ((C && C.HEIGHT) || 32) * 0.5;
-        const hd = Math.max(1, Math.hypot(p.x - P.x, p.z - P.z));
-        P.pitch = -Math.atan2(mid - eye, hd);
-      } catch (_) {}
-      try { if (typeof rebuild === 'function') rebuild(); } catch (_) {}
-      try { if (typeof setPause === 'function') setPause(false); } catch (_) {}
-      try { toast('Teleported to the pop star'); } catch (_) {}
-      R.last = 'ok'; R.x = P.x; R.y = P.y; R.z = P.z;
-      return true;
-    } catch (e) { ERR('tp', e); R.last = 'err'; return false; }
-  };
-  U.spotInFront = spotInFront;
-  U.standOk = standOk;
-  U.landY = landY;
-  U.isDryLand = isDryLand;
-  U.isFluid = isFluid;
-  U.findLandNear = findLandNear;
-  U.framingDist = framingDist;
-
-
-    U.alive = () => aLive;
-  U.tick = tickPopstar;
-  U.stopSong = stopSong;
-  U.loadSong = loadSong;
-  U.footGround = footGround;
-  U.isHarmless = a => !!(a && (a.kind === 'popstar' || a.harmless));
-
-  // QA hook: ?qa=popstar after the world has started will force a spawn in front of the player.
-  try {
-    if (typeof location !== 'undefined' && /[?&]qa=popstar\b/.test(location.search)) {
-      const t = setInterval(() => {
-        try {
-          if (typeof started !== 'undefined' && started && typeof P !== 'undefined' && P && typeof scene !== 'undefined') {
-            clearInterval(t);
-            const yaw = (typeof P.yaw === 'number') ? P.yaw : 0;
-            const rawX = P.x + Math.sin(yaw) * 28, rawZ = P.z + Math.cos(yaw) * 28;
-            const land = findLandNear(rawX, rawZ, 96) || findLandNear(P.x, P.z, 96);
-            if (land) U.spawnAt(land.x, land.y, land.z, yaw + Math.PI);
-            U.qa = 1;
-          }
-        } catch (e) { ERR('qa', e); }
-      }, 400);
-    }
-  } catch (_) {}
-
-  // Warm the audio buffer once AC exists.
-  try {
-    const ia = initAudio;
-    window.initAudio = initAudio = function () {
-      const r = ia.apply(this, arguments);
-      try { if (acOk()) loadSong(); } catch (e) { ERR('ia', e); }
-      return r;
-    };
-  } catch (_) {}
+  U.tick = tick;
 })();
-
-/* GLX-V1251-END */
 
 </script>
 </body>
