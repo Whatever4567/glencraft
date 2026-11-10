@@ -12,8 +12,8 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';"),
-  'version is 1.2.54 (or a previous 1.2.52/1.2.53 launch)');
+ok(html.includes("const GAME_VERSION = '1.2.55';") || html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';"),
+  'version is 1.2.55 (or a previous 1.2.52–1.2.54 launch)');
 ok(html.includes('id="ostSeg"') && html.includes('data-ost="calm"') && html.includes('data-ost="classic"') && html.includes('data-ost="hardcore"'),
   'Calm / Classic / Happy Hardcore picker remains');
 ok(html.includes('data-ost="album"') && html.includes('GLX-V126X-ALBUM'), 'Album mode is present');

@@ -12,7 +12,7 @@ const ver = JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.ur
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok((ver.v === '1.2.54' || ver.v === '1.2.53' || ver.v === '1.2.52' || ver.v === '1.2.51' || ver.v === '1.2.50' || ver.v === '1.2.49') && (html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';") || html.includes("const GAME_VERSION = '1.2.51';") || html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';")), 'version is 1.2.54 (or a previous 1.2.49–1.2.53 launch)');
+ok((ver.v === '1.2.55' || ver.v === '1.2.54' || ver.v === '1.2.53' || ver.v === '1.2.52' || ver.v === '1.2.51' || ver.v === '1.2.50' || ver.v === '1.2.49') && (html.includes("const GAME_VERSION = '1.2.55';") || html.includes("const GAME_VERSION = '1.2.54';") || html.includes("const GAME_VERSION = '1.2.53';") || html.includes("const GAME_VERSION = '1.2.52';") || html.includes("const GAME_VERSION = '1.2.51';") || html.includes("const GAME_VERSION = '1.2.50';") || html.includes("const GAME_VERSION = '1.2.49';")), 'version is 1.2.55 (or a previous 1.2.49–1.2.54 launch)');
 ok(html.includes('id="ostSeg"') && html.includes('data-ost="hardcore"'), 'soundtrack picker is still present');
 
 // Hardcore remix
