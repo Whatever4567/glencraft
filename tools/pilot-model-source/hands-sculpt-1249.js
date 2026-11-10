@@ -3,7 +3,7 @@
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
-  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p7', sculpted: 0};
+  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p8', sculpted: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -31,10 +31,11 @@
     // Smooth tanned skin, no speckled pits. Soft warmth, faint pores, crease hints.
     return tex(1024, 1024, (g) => {
       const grd = g.createLinearGradient(0, 0, 1024, 1024);
-      grd.addColorStop(0, '#e6c4a6');
-      grd.addColorStop(0.35, '#dcb394');
-      grd.addColorStop(0.7, '#c99a76');
-      grd.addColorStop(1, '#c09070');
+      grd.addColorStop(0, '#e8c6aa');
+      grd.addColorStop(0.28, '#e0b496');
+      grd.addColorStop(0.55, '#d4a084');
+      grd.addColorStop(0.8, '#c49476');
+      grd.addColorStop(1, '#be8c6e');
       g.fillStyle = grd; g.fillRect(0, 0, 1024, 1024);
       // very soft blotches of warmth (blood) and cooler shadow
       for (let i = 0; i < 18; i++) {
@@ -190,7 +191,7 @@
   }
   function nailMat() {
     const m = std({
-      color: 0xf0d8c8, roughness: 0.28, metalness: 0.04
+      color: 0xc9a08c, roughness: 0.42, metalness: 0.02
     });
     m.userData.nail1249 = 1;
     return m;
@@ -198,15 +199,14 @@
 
   // Tapered oval capsule along +Y from 0..len, squashed in Z (palmar/dorsal).
   function fingerSegGeo(len, r0, r1, ovalZ, segs, rad, knuckle) {
-    const key = geoKey('fseg2', len, r0, r1, ovalZ, segs, rad, knuckle);
+    const key = geoKey('fseg3', len, r0, r1, ovalZ, segs, rad, knuckle);
     return share(key, function () {
       segs = segs || 12; rad = rad || 16;
       const pos = [], nrm = [], uv = [], ix = [];
       for (let i = 0; i <= segs; i++) {
         const t = i / segs, y = t * len;
         let r = r0 + (r1 - r0) * Math.pow(t, 0.85);
-        if (knuckle && t < 0.28) r *= 1 + 0.22 * (1 - t / 0.28) * Math.sin((1 - t / 0.28) * Math.PI);
-        if (t > 0.25 && t < 0.8) r *= 1.05;
+        if (knuckle && t < 0.28) r *= 1 + 0.14 * (1 - t / 0.28) * Math.sin((1 - t / 0.28) * Math.PI);
         for (let k = 0; k < rad; k++) {
           const a = (k / rad) * Math.PI * 2;
           const ox = Math.cos(a), oz = Math.sin(a) * (ovalZ || 0.72);
@@ -405,23 +405,23 @@
 
     const fingers = h.userData.f || [];
     // Proximal lengths stay on the original pivot spacing (0.036, 0.017, 0.013)
-    const widths = [0.0088, 0.0084, 0.0076, 0.0068];
+    const widths = [0.0086, 0.0082, 0.0074, 0.0066];
     for (let i = 0; i < fingers.length; i++) {
       const pair = fingers[i];
       if (!pair) continue;
       const f = pair[0], k = pair[1];
       const r = widths[i] || 0.0075;
-      addMesh(f, fingerSegGeo(0.036, r, r * 0.88, 0.70, 12, 16, 1), sm);
-      addMesh(f, knuckleGeo(r * 1.18), sm, 0, 0.001, 0.0012);
+      addMesh(f, fingerSegGeo(0.036, r, r * 0.82, 0.58, 14, 18, 1), sm);
+      addMesh(f, knuckleGeo(r * 1.10), sm, 0, 0.001, 0.0008);
       if (k) {
-        addMesh(k, fingerSegGeo(0.017, r * 0.88, r * 0.80, 0.70, 10, 16, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.98), sm, 0, 0.001, 0.001);
+        addMesh(k, fingerSegGeo(0.017, r * 0.82, r * 0.72, 0.56, 12, 18, 1), sm);
+        addMesh(k, knuckleGeo(r * 0.92), sm, 0, 0.001, 0.0006);
         const d = k.userData && k.userData.d;
         if (d) {
-          addMesh(d, fingerSegGeo(0.013, r * 0.80, r * 0.62, 0.68, 10, 16, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.86), sm, 0, 0.001, 0.001);
-          const nail = addMesh(d, nailGeo(r * 1.12, 0.0062, r * 0.32), nailMat(), 0, 0.0095, r * 0.42);
-          nail.rotation.x = -0.14;
+          addMesh(d, fingerSegGeo(0.013, r * 0.72, r * 0.52, 0.54, 12, 18, 0), sm);
+          addMesh(d, knuckleGeo(r * 0.78), sm, 0, 0.001, 0.0005);
+          const nail = addMesh(d, nailGeo(r * 0.92, 0.0048, r * 0.18), nailMat(), 0, 0.0090, r * 0.26);
+          nail.rotation.x = -0.10;
           nail.userData.nail1249 = 1;
         }
       }
@@ -429,15 +429,15 @@
 
     const th = h.userData.th;
     if (th) {
-      addMesh(th, fingerSegGeo(0.05, 0.0102, 0.0084, 0.78, 12, 16, 1), sm);
+      addMesh(th, fingerSegGeo(0.05, 0.0100, 0.0078, 0.64, 14, 18, 1), sm);
       const tk = th.userData && th.userData.k;
       if (tk) {
-        addMesh(tk, fingerSegGeo(0.018, 0.0086, 0.0078, 0.78, 10, 16, 1), sm);
+        addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0070, 0.62, 12, 18, 1), sm);
         const td = tk.userData && tk.userData.d;
         if (td) {
-          addMesh(td, fingerSegGeo(0.014, 0.0078, 0.0066, 0.76, 10, 16, 0), sm);
-          const tn = addMesh(td, nailGeo(0.0086, 0.0064, 0.0026), nailMat(), 0, 0.010, 0.0048);
-          tn.rotation.x = -0.14;
+          addMesh(td, fingerSegGeo(0.014, 0.0070, 0.0056, 0.60, 12, 18, 0), sm);
+          const tn = addMesh(td, nailGeo(0.0072, 0.0050, 0.0018), nailMat(), 0, 0.0095, 0.0032);
+          tn.rotation.x = -0.10;
           tn.userData.nail1249 = 1;
         }
       }

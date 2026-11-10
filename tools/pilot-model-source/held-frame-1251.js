@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p11', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p13', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -14,9 +14,9 @@
   // armS scales the visible __fpa rig around the camera (use sparingly).
   const FRAME = {
     // Ref 09: larger open palm, mid-right, cuff coming from the bottom-right.
-    empty:  {dx:  0.02, dy:  0.04, dz: 0.06, fov: 0.72, s: 1.00, armS: 1.18},
+    empty:  {dx:  0.00, dy:  0.06, dz: 0.04, fov: 0.76, s: 1.00, armS: 1.14},
     // Ref 08: cobble sits in a cupped palm, same family as the empty hand.
-    block:  {dx:  0.00, dy:  0.02, dz: 0.04, fov: 0.74, s: 0.70, armS: 1.14},
+    block:  {dx:  0.00, dy:  0.04, dz: 0.02, fov: 0.76, s: 0.70, armS: 1.12},
     // t1183-13 POSITION: pick comes in large from the bottom-right corner,
     // head angled up-left, hand at the corner / nearly off-screen.
     pick:   {dx:  0.05, dy: -0.10, dz: 0.06, fov: 0.72, s: 1.18, armS: 1.06},
@@ -25,17 +25,17 @@
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
-    sword:  {dx: -0.02, dy: -0.04, dz: 0.04, fov: 0.72, s: 1.08, armS: 1.10},
+    sword:  {dx: -0.02, dy: -0.10, dz: 0.02, fov: 0.78, s: 1.08, armS: 1.00},
     bucket: {dx: -0.04, dy:  0.06, dz: 0.00, fov: 0.80, s: 1.08, armS: 1.04},
-    torch:  {dx: -0.04, dy:  0.04, dz: 0.02, fov: 0.76, s: 1.08, armS: 1.06},
+    torch:  {dx: -0.04, dy: -0.12, dz: 0.00, fov: 0.82, s: 1.08, armS: 1.00},
     // Ref 02: supporting palm and sleeve should stay visible under the map.
-    map:    {dx: -0.02, dy:  0.02, dz: 0.04, fov: 0.76, s: 1.04, armS: 1.12},
+    map:    {dx: -0.02, dy:  0.04, dz: 0.02, fov: 0.80, s: 1.04, armS: 1.08},
     // t1183-12 POSITION: gun held big and low in the bottom-right, angled
     // in towards the centre, forearm coming up from the bottom edge. ADS
     // rest offsets stay identity so aim animations are unchanged.
     // Keep close to the on-screen pass-2 framing; only a slight bigger/lower push.
     musket: {dx:  0.02, dy: -0.02, dz: 0.04, fov: 0.88, s: 1.12, armS: 1.00},
-    pistol: {dx:  0.03, dy: -0.07, dz: 0.09, fov: 0.76, s: 1.24, armS: 1.00},
+    pistol: {dx:  0.035, dy: -0.08, dz: 0.10, fov: 0.74, s: 1.28, armS: 1.00},
     musketAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     pistolAds: {dx: 0, dy: 0, dz: 0, fov: 1, s: 1, armS: 1},
     other:  {dx: -0.04, dy:  0.08, dz: 0.12, fov: 0.64, s: 1.10, armS: 1.20}
@@ -201,9 +201,9 @@
           let c = gamt;
           if (trigger && !isLeft && i === 0) c = 0.28;
           if (kind === 'musket' && ads && isLeft) c = 0.40;
-          if (kind === 'map') c = 0.18 + i * 0.04;
-          if (kind === 'empty') c = 0.04 + i * 0.025;
-          if (kind === 'block') c = 0.42 + i * 0.06;
+          if (kind === 'map') c = 0.10 + i * 0.03;
+          if (kind === 'empty') c = 0.14 + i * 0.05;
+          if (kind === 'block') c = 0.48 + i * 0.08;
           try {
             f.rotation.x = 0.12 + c * 1.35;
             if (k && k.rotation) {
@@ -224,7 +224,7 @@
             th.rotation.set(0.3, side * 0.2, side * 0.15);
           } else {
             // Closed fist: thumb wraps over the far side of the fingers.
-            const W = [0.70, 0.90, 1.15, 0.80];
+            const W = (U.__thumbW && U.__thumbW.length === 4) ? U.__thumbW : [0.28, 1.20, 1.50, 1.10];
             th.rotation.set(W[0], side * W[1], side * W[2]);
             if (th.userData && th.userData.k) th.userData.k.rotation.set(W[3], 0, 0);
           }
@@ -636,11 +636,11 @@
   // Fallback local nudges for items that are not analytically seated
   // (cobble / map / pick keep a small rest offset). Not animation curves.
   const ITEM_NUDGE = {
-    block:  {x: 0.00, y: 0.01, z: -0.055},
+    block:  {x: 0.00, y: 0.02, z: -0.040},
     pick:   {x: 0.00, y: 0.00, z: -0.018},
     p761:   {x: 0.00, y: 0.00, z: -0.018},
     p760:   {x: 0.00, y: 0.00, z: -0.018},
-    map:    {x: 0.00, y: 0.05, z: 0.02}
+    map:    {x: 0.00, y: 0.06, z: 0.03}
   };
   function nudgeItem(kind) {
     try {
@@ -766,7 +766,7 @@
       info.gripC = [+gripC0.x.toFixed(3), +gripC0.y.toFixed(3), +gripC0.z.toFixed(3)];
       // A closed fist is ~0.08 across. Anything over half a metre is a
       // mismatched space — refuse rather than throw the item off-screen.
-      if (!(err0 < 0.65) || !isFinite(err0)) {
+      if (!(err0 < 0.80) || !isFinite(err0)) {
         info.why = 'err-too-large';
         return false;
       }
@@ -891,6 +891,8 @@
       placeItem(k);
       trimGunArms(k, ads);
       hideLeftoverCubes();
+      trimToolCuff(k);
+      trimAdsDebris(k, ads);
       U.fovK = cur.fov;
       U.kind = k;
       U.ads = ads ? 1 : 0;
@@ -902,8 +904,17 @@
   // Static rest roll so empty / cobble / map show the palm to the camera
   // (ref 09 / 08 / 02). Local +Y is along the fingers, so a Y rotation is
   // pronation/supination. Not an animation curve — re-applied after fpa.step.
-  const PALM_ROLL = {empty: -1.55, block: -1.45, map: -1.20};
+  const PALM_ROLL = {empty: -1.50, block: -1.45, map: -1.30};
   U.PALM_ROLL = PALM_ROLL;
+  // Y is pronation (p6 diagnostic sweet spot ~-1.4). Pitch X tips the
+  // bowl toward the camera; start at 0 and only add what the pitch
+  // grid shows is an improvement over Y-only.
+  const PALM_POSE = {
+    empty: {y: -1.55, x: 0.00, z: -0.40},
+    block: {y: -1.50, x: 0.00, z: -0.35},
+    map:   {y: -1.35, x: 0.00, z: -0.20}
+  };
+  U.PALM_POSE = PALM_POSE;
   function palmHands(fn) {
     const fpa = W.__fpa;
     const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
@@ -915,7 +926,7 @@
   function clearPalmTag() {
     palmHands(function (arm) {
       const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
-      if (h && h.userData && h.userData._palmTag) h.userData._palmTag.rolled = 0;
+      if (h && h.userData && h.userData._palmTag) { h.userData._palmTag.applied = 0; h.userData._palmTag.baseQ = null; }
     });
   }
   // Idempotent: undo a roll already applied this frame, then apply the current amount once.
@@ -926,21 +937,24 @@
         if (W.__rl && W.__rl.t > 0) return;
         if (typeof rlT !== 'undefined' && rlT > 0) return;
       } catch (_) {}
-      const roll = PALM_ROLL[kind] || 0;
+      const pose = PALM_POSE[kind] || null;
       palmHands(function (arm) {
         const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
         if (!h || !h.rotateY) return;
         const side = (arm.userData && arm.userData.side) || 1;
-        if (!h.userData._palmTag) h.userData._palmTag = {rolled: 0};
+        if (!h.userData._palmTag) h.userData._palmTag = {applied: 0, y: 0, x: 0, z: 0, baseQ: null};
         const tag = h.userData._palmTag;
-        if (tag.rolled) {
-          h.rotateY(-tag.rolled);
-          tag.rolled = 0;
-        }
-        if (roll) {
-          const amt = side * roll;
-          h.rotateY(amt);
-          tag.rolled = amt;
+        if (!tag.baseQ) tag.baseQ = h.quaternion.clone();
+        else h.quaternion.copy(tag.baseQ);
+        tag.applied = 0; tag.y = 0; tag.x = 0; tag.z = 0;
+        if (pose) {
+          const y = side * (pose.y || 0);
+          const x = pose.x || 0;
+          const z = side * (pose.z || 0);
+          if (y) h.rotateY(y);
+          if (x) h.rotateX(x);
+          if (z) h.rotateZ(z);
+          tag.y = y; tag.x = x; tag.z = z; tag.applied = 1;
         }
       });
     } catch (e) { ERR('palm', e); }
@@ -948,21 +962,117 @@
 
   function hideLeftoverCubes() {
     try {
+      function sweep(root) {
+        if (!root || !root.traverse) return;
+        root.traverse(function (o) {
+          if (!o.isMesh) return;
+          if (isItemMesh(o)) return;
+          // Never hide the held item even if it lives under `hand`.
+          try {
+            if (typeof held !== 'undefined' && held) {
+              for (let n = o; n; n = n.parent) if (n === held) return;
+            }
+          } catch (_) {}
+          const u = o.userData || {};
+          if (u.sculpt1249 || u.nail1249 || u.sculptKeep || u.sleeve1257 || u.tapered1257 || u.folded1249 || u.roll1257 || u.sculptGeo1249) return;
+          const typ = o.geometry && o.geometry.type;
+          if (typ === 'BoxGeometry' || typ === 'SphereGeometry' || typ === 'CylinderGeometry' || typ === 'DodecahedronGeometry') {
+            o.visible = false;
+            u.sculptHidden = 1;
+            o.userData = u;
+          }
+        });
+      }
       const fpa = W.__fpa;
       const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : null);
-      if (!rig) return;
-      rig.traverse(function (o) {
-        if (!o.isMesh) return;
-        const u = o.userData || {};
-        if (u.sculpt1249 || u.nail1249 || u.sculptKeep || u.sleeve1257 || u.tapered1257 || u.folded1249 || u.roll1257 || u.sculptGeo1249) return;
-        const typ = o.geometry && o.geometry.type;
-        if (typ === 'BoxGeometry' || typ === 'SphereGeometry' || typ === 'CylinderGeometry' || typ === 'DodecahedronGeometry') {
-          o.visible = false;
-          u.sculptHidden = 1;
-          o.userData = u;
+      sweep(rig);
+    } catch (_) {}
+  }
+
+  // Torch / sword: hide the long upper-arm linen so it cannot fill the
+  // frame as a wall. Keep a short cuff hem at the wrist (scale + slide
+  // along +Y so the distal rolled edge stays on the wrist).
+  function trimToolCuff(kind) {
+    try {
+      const tools = (kind === 'torch' || kind === 'sword');
+      eachArm(function (arm) {
+        const p = arm.userData && arm.userData.p;
+        if (!p) return;
+        if (p.up) {
+          if (tools) { p.up.visible = false; p.up.userData.__hidCuff1252 = 1; }
+          else if (p.up.userData && p.up.userData.__hidCuff1252) {
+            p.up.visible = true; p.up.userData.__hidCuff1252 = 0;
+          }
+        }
+        if (p.el && tools) { p.el.visible = false; p.el.userData.__hidCuff1252 = 1; }
+        else if (p.el && p.el.userData && p.el.userData.__hidCuff1252) {
+          p.el.visible = true; p.el.userData.__hidCuff1252 = 0;
+        }
+        if (p.cuff) {
+          if (!p.cuff.userData._cS0) {
+            p.cuff.userData._cS0 = {x: p.cuff.scale.x, y: p.cuff.scale.y, z: p.cuff.scale.z};
+            p.cuff.userData._cP0 = {x: p.cuff.position.x, y: p.cuff.position.y, z: p.cuff.position.z};
+          }
+          const s0 = p.cuff.userData._cS0, p0 = p.cuff.userData._cP0;
+          if (tools) {
+            const kCuff = 0.55;
+            p.cuff.visible = true;
+            p.cuff.scale.set(s0.x, s0.y * kCuff, s0.z);
+            // cuff geo is 0.145 along +Y toward the wrist; keep the hem there.
+            p.cuff.position.set(p0.x, p0.y + 0.145 * s0.y * (1 - kCuff), p0.z);
+          } else {
+            p.cuff.scale.set(s0.x, s0.y, s0.z);
+            p.cuff.position.set(p0.x, p0.y, p0.z);
+          }
         }
       });
-    } catch (_) {}
+    } catch (e) { ERR('cuff', e); }
+  }
+
+  // Musket ADS: hide sculpted wrist capsules and leftover box shards so
+  // they cannot sit in the sight. Restored as soon as ADS ends.
+  function trimAdsDebris(kind, ads) {
+    try {
+      eachArm(function (arm) {
+        const p = arm.userData && arm.userData.p;
+        if (!p || !p.h) return;
+        const gunsAds = ads && (kind === 'musket' || kind === 'pistol');
+        const keep = {};
+        try {
+          const fingers = (p.h.userData && p.h.userData.f) || [];
+          for (let i = 0; i < fingers.length; i++) {
+            const pair = fingers[i];
+            const f = pair && (pair.isObject3D ? pair : pair[0]);
+            if (f) keep[f.uuid] = 1;
+            const k = pair && pair[1];
+            if (k) keep[k.uuid] = 1;
+            const d = k && k.userData && k.userData.d;
+            if (d) keep[d.uuid] = 1;
+          }
+          if (p.h.userData && p.h.userData.th) keep[p.h.userData.th.uuid] = 1;
+        } catch (_) {}
+        function underKeep(o) {
+          for (let n = o; n && n !== p.h; n = n.parent) if (keep[n.uuid]) return true;
+          return false;
+        }
+        p.h.traverse(function (o) {
+          if (!o.isMesh) return;
+          const typ = o.geometry && o.geometry.type;
+          const isWrist = !!(o.parent === p.h && o.position && o.position.y < -0.015);
+          const isPalm = o.name === 'PalmSculpt' || !!(o.userData && o.userData.pad1249);
+          const isKn = !!(p.h.userData && p.h.userData.kn && p.h.userData.kn.indexOf && p.h.userData.kn.indexOf(o) >= 0);
+          const isBox = typ === 'BoxGeometry' && o.name !== 'PalmSculpt' && !(o.userData && (o.userData.nail1249 || o.userData.sculpt1249));
+          const hide = gunsAds && !underKeep(o) && (isWrist || isPalm || isKn || isBox);
+          if (hide) {
+            o.visible = false;
+            o.userData.__hidAds1252 = 1;
+          } else if (o.userData && o.userData.__hidAds1252) {
+            o.visible = true;
+            o.userData.__hidAds1252 = 0;
+          }
+        });
+      });
+    } catch (e) { ERR('ads-debris', e); }
   }
 
   function repose() {
@@ -976,6 +1086,8 @@
       hideLeftoverCubes();
       if (k === 'musket' || k === 'pistol') hideGunSleeves();
       else showGunSleeves();
+      trimToolCuff(k);
+      trimAdsDebris(k, ads);
     } catch (e) { ERR('repose', e); }
   }
 
