@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p22', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p24', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -26,7 +26,7 @@
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     sword:  {dx: -0.02, dy: -0.06, dz: 0.06, fov: 0.70, s: 1.10, armS: 1.12},
-    bucket: {dx: -0.04, dy:  0.06, dz: 0.00, fov: 0.80, s: 1.08, armS: 1.04},
+    bucket: {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.08, armS: 1.12},
     torch:  {dx: -0.06, dy: -0.02, dz: 0.06, fov: 0.70, s: 1.12, armS: 1.12},
     // Ref 02: supporting palm and sleeve should stay visible under the map.
     map:    {dx: -0.02, dy:  0.04, dz: 0.02, fov: 0.80, s: 1.04, armS: 1.08},
@@ -845,7 +845,7 @@
   const GRIP = {
     torch:  {p: [0, -0.016, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
     sword:  {p: [0, -0.075, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
-    bucket: {p: [0, 0.252, 0], axis: [1, 0, 0], palm: [0, 0.055, 0.022], align: 0},
+    bucket: {p: [0, 0.252, 0], axis: [1, 0, 0], palm: [0, 0.055, 0.022], align: 0, errMax: 1.20},
     pistol: {p: [0, -0.07, 0.05], axis: [0, -0.95, 0.30], palm: [0, 0.050, 0.018], align: 0}
   };
   U.GRIP = GRIP;
@@ -945,7 +945,8 @@
       info.gripC = [+gripC0.x.toFixed(3), +gripC0.y.toFixed(3), +gripC0.z.toFixed(3)];
       // A closed fist is ~0.08 across. Anything over half a metre is a
       // mismatched space — refuse rather than throw the item off-screen.
-      if (!(err0 < 0.80) || !isFinite(err0)) {
+      const errMax = (spec.errMax != null) ? spec.errMax : 0.80;
+      if (!(err0 < errMax) || !isFinite(err0)) {
         info.why = 'err-too-large';
         return false;
       }
@@ -1683,6 +1684,16 @@
 
   function trimBowlCap(kind) {
     try {
+      if (kind === 'musket' || kind === 'pistol') {
+        eachArm(function (arm) {
+          const p = arm.userData && arm.userData.p;
+          if (!p || !p.h) return;
+          p.h.traverse(function (o) {
+            if (o.userData && o.userData.__hidBowlCap) { o.visible = true; o.userData.__hidBowlCap = 0; }
+          });
+        });
+        return;
+      }
       const bowl = U.__palmBowl && U.__bowl && U.__bowl[kind];
       const hide = !!(bowl && (bowl.hideCap || U.__hideBowlCap));
       eachArm(function (arm) {
