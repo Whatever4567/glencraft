@@ -20,7 +20,10 @@
     const g = c.getContext('2d'); fn(g, c);
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
-    t.anisotropy = 4;
+    t.generateMipmaps = true;
+    t.minFilter = T.LinearMipmapLinearFilter;
+    t.magFilter = T.LinearFilter;
+    t.anisotropy = 8;
     return t;
   }
   function skinTex() {
@@ -73,22 +76,21 @@
     });
   }
   function linenTex() {
-    return tex(512, 512, (g) => {
-      g.fillStyle = '#efe8dc'; g.fillRect(0, 0, 512, 512);
-      for (let y = 0; y < 512; y += 2) {
-        g.fillStyle = y % 4 === 0 ? 'rgba(120,100,80,0.16)' : 'rgba(255,250,240,0.14)';
-        g.fillRect(0, y, 512, 1);
+    // Soft cream linen, no high-frequency weave (that moired) and no
+    // windowpane grid. Broad, irregular fibres and a few fold shadows.
+    return tex(256, 256, (g) => {
+      g.fillStyle = '#eee6d6'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 80; i++) {
+        const v = 200 + Math.random() * 40 | 0;
+        g.fillStyle = 'rgba(' + v + ',' + (v - 8) + ',' + (v - 18) + ',' + (0.05 + Math.random() * 0.08) + ')';
+        g.fillRect(Math.random() * 256, Math.random() * 256, 8 + Math.random() * 28, 3 + Math.random() * 6);
       }
-      for (let x = 0; x < 512; x += 2) {
-        g.fillStyle = x % 4 === 0 ? 'rgba(100,85,70,0.12)' : 'rgba(255,252,245,0.10)';
-        g.fillRect(x, 0, 1, 512);
-      }
-      for (let i = 0; i < 18; i++) {
-        g.strokeStyle = 'rgba(90,70,50,' + (0.04 + Math.random() * 0.06) + ')';
-        g.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        g.strokeStyle = 'rgba(90,70,50,' + (0.04 + Math.random() * 0.05) + ')';
+        g.lineWidth = 6 + Math.random() * 6;
         g.beginPath();
-        const x = Math.random() * 512, y = Math.random() * 512;
-        g.moveTo(x, y); g.quadraticCurveTo(x + 20, y + 40, x - 8, y + 80);
+        const x = Math.random() * 256, y = Math.random() * 256;
+        g.moveTo(x, y); g.quadraticCurveTo(x + 50, y + 40, x - 16, y + 110);
         g.stroke();
       }
     });
@@ -97,26 +99,32 @@
   const SKIN_MAP = skinTex();
   const SKIN_BUMP = skinBump();
   const LINEN_MAP = linenTex();
-  LINEN_MAP.repeat.set(2, 3);
+  LINEN_MAP.repeat.set(1, 1.15);
   U.SKIN_MAP = SKIN_MAP; U.SKIN_BUMP = SKIN_BUMP; U.LINEN_MAP = LINEN_MAP;
 
   function skinMat() {
+    // Natural warm light skin — not the saturated orange TP texture.
     const m = new T.MeshPhongMaterial({
-      color: 0xe2b494, map: SKIN_MAP, bumpMap: SKIN_BUMP, bumpScale: 0.06,
-      shininess: 28, specular: 0x6a4838
+      color: 0xe9c8aa, map: SKIN_MAP, bumpMap: SKIN_BUMP, bumpScale: 0.05,
+      shininess: 22, specular: 0x5a4030
     });
     m.userData.sculptKeep = 1;
     return m;
   }
   function linenMat() {
     const m = new T.MeshPhongMaterial({
-      color: 0xf4efe6, map: LINEN_MAP, bumpMap: LINEN_MAP, bumpScale: 0.18,
-      shininess: 6, specular: 0x222222
+      color: 0xf3eee4, map: LINEN_MAP, bumpMap: LINEN_MAP, bumpScale: 0.035,
+      shininess: 4, specular: 0x2a2a22
     });
     m.userData.sculptKeep = 1;
     return m;
   }
   U.linenMat = linenMat;
+  U.skinMat = skinMat;
+  function skinMatFp() { return skinMat(); }
+  function linenMatFp() { return linenMat(); }
+  U.skinMatFp = skinMatFp;
+  U.linenMatFp = linenMatFp;
   function tartanTex() {
     if (U._tartan) return U._tartan;
     U._tartan = tex(256, 256, (g) => {

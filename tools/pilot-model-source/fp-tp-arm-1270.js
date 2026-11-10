@@ -1,9 +1,9 @@
-/* v1.2.49 / 1270: first-person arms use the live third-person Scottish
- * player mesh — the same skinned arm / forearm / hand, HeadSkin_CC0_toned
- * and Scottish_Linen_eee6d6 shirt sleeve — posed in the 1259 camera-space
- * rig. Procedural tube sleeves and sculpted mitten hands are hidden once
- * the clone is ready. The held item stays parented to the FpGrip socket.
- * Identifier: fpTpArm1270 */
+/* v1.2.49 / 1270: the Scottish TP-arm clone stays in the 1259 camera-space
+ * rig for posing hooks only (identifier fpTpArm1270). t1155: the skinned
+ * hand tears into spiky shards when curled, so the visible FP fist/palm
+ * is the 1259 sculpted mesh in a natural warm skin tone, and the forearm
+ * is a full cream linen tube from the screen edge to a rolled cuff at the
+ * wrist. The held item stays parented to the FpGrip socket. */
 (function fpTpArm1270(W) {
   'use strict';
   const U = W.__fpTpArm1270 = W.__fpTpArm1270 || { version: '1270', on: 0, err: null };
@@ -414,16 +414,26 @@
   }
 
   function hideProcedural(arm) {
+    // Kept as a no-op. t1155: the TP skinned fist tears into spiky shards
+    // and the bare orange forearm does not match the linen-sleeve refs, so
+    // the 1259 sculpted hands + full linen tube stay visible.
+  }
+
+  function showProcedural(arm) {
     if (!arm || !arm.userData || !arm.userData.p) return;
     const p = arm.userData.p;
-    [p.sleeve, p.cuff, p.roll, p.roll2].forEach(o => { if (o) o.visible = false; });
+    [p.sleeve, p.cuff, p.roll].forEach(o => { if (o) o.visible = true; });
+    // roll2 is the outer fold of the rolled cuff; 1259 poseArm owns its visibility.
     if (p.h) {
       p.h.traverse(o => {
         if (!(o.isMesh || o.isSkinnedMesh)) return;
         if (p.grip) {
           for (let n = o; n; n = n.parent) if (n === p.grip) return;
         }
-        o.visible = false;
+        // 1276 baked fist/open/cup: curlHand owns which pose is shown.
+        if (o.userData && (o.userData.fpHand1276 || o.userData.fpHandKind)) return;
+        if (o.userData && o.userData.sculptHidden) { o.visible = false; return; }
+        o.visible = true;
       });
     }
   }
@@ -890,19 +900,15 @@
       const shPos = showR ? wp(armR, new T.Vector3()) : wp(armL, new T.Vector3());
       parkUnused(fp, shPos);
 
-      if (showR) {
-        hideProcedural(armR);
-        setSideVisible(fp, 'R', true);
-        poseSide(fp, 'R', armR, vm.vc);
-      } else setSideVisible(fp, 'R', false);
-      if (showL) {
-        hideProcedural(armL);
-        setSideVisible(fp, 'L', true);
-        poseSide(fp, 'L', armL, vm.vc);
-      } else setSideVisible(fp, 'L', false);
-
-      updateSkins(fp);
-      leakGuard(fp);
+      // t1155: hide every Scottish TP mesh (torn skinned fingers, bare
+      // orange forearm, bracelet cuff). The 1259 sculpted fist/palm and
+      // the full linen sleeve tube are the visible FP rig. The 1270
+      // clone stays in the scene for posing hooks only.
+      fp.visible = false;
+      setSideVisible(fp, 'R', false);
+      setSideVisible(fp, 'L', false);
+      if (showR) showProcedural(armR);
+      if (showL) showProcedural(armL);
       U.on = 1;
       U.kind = vm.kind;
     } catch (e) {

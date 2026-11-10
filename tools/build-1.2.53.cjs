@@ -275,6 +275,24 @@ const arm = FP_LEGACY_HOOK + fs.readFileSync(path.join(__dirname, 'pilot-model-s
   s = s.slice(0, i) + src + s.slice(j);
 }
 
+// 1276: baked MakeHuman / HeadSkin fist + palm + cup (static, no live curl).
+{
+  const baked = fs.readFileSync(path.join(__dirname, 'pilot-model-source/fp-hands-baked-1276.js'), 'utf8');
+  if (!s.includes('(function fpHandsBaked1276')) {
+    const i = s.indexOf('(function heldFrame1251');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('fp-hands-baked-1276 inject anchor missing');
+    s = s.slice(0, j + end.length) + baked.trim() + '\n' + s.slice(j + end.length);
+  } else {
+    const i = s.indexOf('(function fpHandsBaked1276');
+    const end = ")(typeof window !== 'undefined' ? window : this);\n";
+    const j = s.indexOf(end, i);
+    if (i < 0 || j < 0) throw new Error('fp-hands-baked-1276 replace failed');
+    s = s.slice(0, i) + baked.trim() + '\n' + s.slice(j + end.length);
+  }
+}
+
 // Dedicated first-person viewmodel (camera-space pose table). After held-frame
 // so the 1259 early-out in held-frame can see window.__fpVm1259. Per-item
 // fpHybrid1272 keeps unready kinds on the exact 1.2.49 path.

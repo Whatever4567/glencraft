@@ -19,8 +19,8 @@
   const REF_ASPECT = 412 / 915;
   const MIN_FORE = 0.30;
   const SLEEVE_R = 0.036;
-  const CUFF_R = 0.043;
-  const CUFF_H = 0.026;
+  const CUFF_R = 0.034;
+  const CUFF_H = 0.016;
   const Y = new T.Vector3(0, 1, 0);
 
   // Per-item pose table in portrait NDC + camera Z (z < 0).
@@ -36,29 +36,30 @@
       two: 0, hs: 0.95,
       // t1153: open palm up, reaching forward-centre / slightly right,
       // cream linen cuff on the forearm entering from the bottom-right.
-      R: { sh: [1.35, -1.28, -0.70], wr: [0.32, -0.18, -0.58], rot: [0.05, 0.00, 0.00], haft: [0.85, 0.15, 0.20], face: 'palmUp', curl: 0, rs: 0.80 }
+      R: { sh: [1.22, -1.18, -0.60], wr: [0.30, -0.18, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 0, rs: 0.88, hs: 1.15 }
     },
     block: {
       two: 0, hs: 1.18,
       // t1153: cube cradled in the open palm, fingers under, mid-frame.
-      R: { sh: [1.25, -1.20, -0.58], wr: [0.20, -0.04, -0.52], rot: [0.00, 0.00, 0.00], haft: [0.90, 0.10, 0.15], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.07, -0.05], r: [0.10, 0.15, 0.05], s: 0.52 }
+      R: { sh: [1.22, -1.18, -0.58], wr: [0.28, -0.16, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1 },
+      item: { p: [0.00, 0.04, -0.04], r: [0.10, 0.15, 0.05], s: 0.48 }
     },
     p761: {
       two: 0, hs: 1.20,
       // t1154: Minecraft-style FP. Fist lower-right, haft diagonal up
       // toward the centre, two-sided head large in the upper-right/centre.
       // 1269 wr/HEAD identifiers are kept; framing follows the new refs.
-      R: { sh: [1.26, -1.14, -0.46], wr: [0.46, -0.64, -0.44], rot: [0, 0, 0], haft: [0.10, 0.97, -0.14], curl: 1 },
+      R: { sh: [1.18, -1.16, -0.50], wr: [0.20, -0.58, -0.48], rot: [0, 0, 0], haft: [0.18, 0.96, -0.16], curl: 1 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.62 }
     },
     pick: null,
     p760: null,
     sword: {
-      two: 0, hs: 1.16,
-      // t1153: upright sword in the fist, crossguard just above the hand.
-      R: { sh: [1.22, -1.16, -0.55], wr: [0.40, -0.36, -0.55], rot: [0, 0, 0], haft: [0.00, 1.00, 0], curl: 1 },
-      item: { p: [-0.04, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 1.10 }
+      two: 0, hs: 1.10,
+      // t1153: whole sword visible, angled slightly, fist lower-right,
+      // cream linen sleeve from the screen edge to the wrist.
+      R: { sh: [1.26, -1.20, -0.58], wr: [0.46, -0.48, -0.52], rot: [0, 0, 0], haft: [0.16, 0.98, -0.06], curl: 1 },
+      item: { p: [-0.04, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 0.72 }
     },
     torch: {
       two: 0, hs: 1.16,
@@ -69,8 +70,8 @@
     map: {
       two: 0, hs: 1.14,
       // t1153: map held flat up in front, thumb on the bottom edge.
-      R: { sh: [1.15, -1.20, -0.55], wr: [0.16, -0.32, -0.50], rot: [0.00, 0.00, 0.00], haft: [0.95, 0.05, 0.10], face: 'palmUp', curl: 1 },
-      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.18 }
+      R: { sh: [1.18, -1.20, -0.56], wr: [0.22, -0.28, -0.50], rot: [0.00, 0.00, 0.00], haft: [-0.90, 0.18, 0.05], face: 'palmUp', curl: 1 },
+      item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 0.72 }
     },
     bucket: {
       two: 0, hs: 1.14,
@@ -204,7 +205,8 @@
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
       const a = Math.atan2(z, x), r = Math.hypot(x, z) || 1e-6;
-      const wr = 1 + amount * (0.07 * Math.sin(a * 5 + y * 10) + 0.045 * Math.sin(a * 9 - y * 16) + 0.03 * Math.sin(y * 22 + a * 2));
+      // Long, soft linen folds — high-frequency sines read as engraved armour.
+      const wr = 1 + amount * (0.07 * Math.sin(a * 2 + y * 1.6) + 0.04 * Math.sin(a * 3 - y * 2.2) + 0.02 * Math.sin(y * 2.8 + a * 0.8));
       p.setX(i, (x / r) * r * wr);
       p.setZ(i, (z / r) * r * wr);
     }
@@ -215,14 +217,14 @@
   function unitSleeveGeo() {
     // Height 1 along +Y, from y=0 (shoulder) to y=1 (wrist). More rings
     // so linen folds have something to wrinkle.
-    const g = new T.CylinderGeometry(SLEEVE_R, SLEEVE_R * 1.05, 1, 24, 16, false);
+    const g = new T.CylinderGeometry(SLEEVE_R * 0.95, SLEEVE_R * 1.28, 1, 24, 16, false);
     g.translate(0, 0.5, 0);
-    return wrinkleCyl(g, 1.0);
+    return wrinkleCyl(g, 0.32);
   }
   function cuffGeo() {
     // Solid rolled cuff — a short thick band with visible folds.
     const g = new T.CylinderGeometry(CUFF_R, CUFF_R * 0.96, CUFF_H, 24, 3, false);
-    return wrinkleCyl(g, 0.7);
+    return wrinkleCyl(g, 0.28);
   }
 
   function makeArm(side) {
@@ -259,7 +261,7 @@
     arm.add(roll);
     // Third, slightly looser outer fold of the rolled cuff.
     const roll2 = new T.Mesh(
-      wrinkleCyl(new T.CylinderGeometry(CUFF_R * 1.10, CUFF_R * 1.04, CUFF_H * 0.42, 24, 2, false), 0.55),
+      wrinkleCyl(new T.CylinderGeometry(CUFF_R * 1.10, CUFF_R * 1.04, CUFF_H * 0.42, 24, 2, false), 0.30),
       lm
     );
     roll2.name = 'FpCuffRoll2';
@@ -287,10 +289,11 @@
     grip.name = 'FpGrip';
     grip.userData.fpGrip1259 = 1;
     // Sit in the palmar cup: +Y toward fingertips, -Z palm.
-    grip.position.set(0, 0.052, -0.010);
+    grip.position.set(0, 0.040, -0.012);
     hand.add(grip);
     arm.userData.p = { sleeve: sleeve, cuff: cuff, roll: roll, roll2: roll2, wrist: wrist, h: hand, grip: grip, side: side };
     try { paintFpSkin(hand); } catch (_) {}
+    try { ensureFpHands(hand, side); } catch (e) { ERR('ensureHands', e); }
     arm.traverse(function (o) {
       if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; o.renderOrder = 4; }
     });
@@ -309,16 +312,388 @@
     }
   }
 
+
+  // t1155: dedicated smooth FP fist + open-palm sculpts. The 1249 jointed
+  // sausages cannot curl into a clean closed fist (tendon sticks, box palm,
+  // fingers beside the haft). These meshes are static in the 1259 bind:
+  // +X along the haft, +Y toward the wrap / finger-start (left when the
+  // dorsum +Z faces the camera), -Y toward the wrist / sleeve.
+  function fpSkinMat1275() {
+    if (U._skin1275) return U._skin1275;
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#d4a07c';
+    ctx.fillRect(0, 0, 128, 128);
+    for (let i = 0; i < 500; i++) {
+      ctx.fillStyle = (i % 2) ? 'rgba(200,140,110,0.05)' : 'rgba(255,230,210,0.05)';
+      ctx.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
+    const tex = new T.CanvasTexture(c);
+    const m = new T.MeshPhongMaterial({
+      color: 0xf2d2b0, map: tex, shininess: 16, specular: 0x5a4030,
+      emissive: 0x2a1810, emissiveIntensity: 0.18
+    });
+    m.userData.sculptKeep = 1;
+    U._skin1275 = m;
+    return m;
+  }
+  function fpNailMat1275() {
+    if (U._nail1275) return U._nail1275;
+    const m = new T.MeshPhongMaterial({
+      color: 0xf0d4c4, shininess: 55, specular: 0x886655
+    });
+    m.userData.nail1249 = 1;
+    m.userData.sculptKeep = 1;
+    U._nail1275 = m;
+    return m;
+  }
+  function taperedTube1275(pts, r0, r1, radial, cap) {
+    radial = radial || 12;
+    const n = pts.length;
+    if (n < 2) return new T.BufferGeometry();
+    const tans = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+      const d = b.clone().sub(a);
+      if (d.lengthSq() < 1e-12) d.set(0, 1, 0);
+      tans.push(d.normalize());
+    }
+    const pos = [], nrm = [], uv = [], idx = [];
+    let hint = new T.Vector3(0, 0, 1);
+    const ring = radial + 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const r = r0 + (r1 - r0) * t;
+      const p = pts[i], tan = tans[i];
+      let nn = new T.Vector3().crossVectors(tan, hint);
+      if (nn.lengthSq() < 1e-10) {
+        hint.set(0, 1, 0);
+        nn.crossVectors(tan, hint);
+      }
+      nn.normalize();
+      const bn = new T.Vector3().crossVectors(tan, nn).normalize();
+      hint = nn;
+      for (let j = 0; j <= radial; j++) {
+        const a = (j / radial) * Math.PI * 2;
+        const nr = nn.clone().multiplyScalar(Math.cos(a)).addScaledVector(bn, Math.sin(a));
+        const v = p.clone().addScaledVector(nr, r);
+        pos.push(v.x, v.y, v.z);
+        nrm.push(nr.x, nr.y, nr.z);
+        uv.push(t, j / radial);
+      }
+    }
+    for (let i = 0; i < n - 1; i++) {
+      for (let j = 0; j < radial; j++) {
+        const a = i * ring + j, b = a + ring;
+        idx.push(a, b, a + 1, a + 1, b, b + 1);
+      }
+    }
+    if (cap) {
+      const tip = pos.length / 3;
+      const last = pts[n - 1], tan = tans[n - 1];
+      const v = last.clone().addScaledVector(tan, r1 * 0.65);
+      pos.push(v.x, v.y, v.z);
+      nrm.push(tan.x, tan.y, tan.z);
+      uv.push(1, 0.5);
+      const base = (n - 1) * ring;
+      for (let j = 0; j < radial; j++) idx.push(base + j, base + j + 1, tip);
+    }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function tagHandMesh(mesh) {
+    mesh.userData.fpHand1275 = 1;
+    mesh.userData.sculptKeep = 1;
+    mesh.frustumCulled = false;
+    mesh.castShadow = false;
+    return mesh;
+  }
+  function buildFpFist(side) {
+    side = side || 1;
+    const g = new T.Group();
+    g.name = 'FpFist1275';
+    g.userData.fpFist1275 = 1;
+    g.userData.fpHand1275 = 1;
+    g.userData.sculptKeep = 1;
+    const sm = fpSkinMat1275();
+    const nm = fpNailMat1275();
+    function add(mesh) { tagHandMesh(mesh); g.add(mesh); return mesh; }
+
+    // Compact rounded palm around the haft, large enough to read at FP scale.
+    const palm = add(new T.Mesh(new T.SphereGeometry(1, 18, 14), sm));
+    palm.name = 'FistPalm';
+    palm.scale.set(0.042, 0.030, 0.026);
+    palm.position.set(0.000, 0.000, 0.006);
+
+    const thenar = add(new T.Mesh(new T.SphereGeometry(1, 12, 10), sm));
+    thenar.scale.set(0.020, 0.018, 0.016);
+    thenar.position.set(0.010, -0.020, 0.004);
+
+    const hypo = add(new T.Mesh(new T.SphereGeometry(1, 10, 8), sm));
+    hypo.scale.set(0.016, 0.014, 0.013);
+    hypo.position.set(-0.018, -0.012, 0.002);
+
+    // Wrist stump into the cuff (-Y), short so the cuff does not swallow it.
+    const wristPts = [];
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;
+      wristPts.push(new T.Vector3(-0.002, -0.020 - t * 0.022, 0.002));
+    }
+    add(new T.Mesh(taperedTube1275(wristPts, 0.020, 0.017, 12, false), sm));
+
+    // Four fingers wrapped around the haft (axis +X through the origin).
+    // a = 0 is +Y (left of the haft). Negative a is toward the camera, so
+    // knuckles start on the front-left and curl around the far side.
+    const widths = [0.0092, 0.0088, 0.0082, 0.0072];
+    for (let i = 0; i < 4; i++) {
+      const x = (1.15 - i) * 0.015;
+      const rW = 0.024 + i * 0.0008;
+      const a0 = -0.55, a1 = -0.55 + 2.55;
+      const pts = [];
+      const n = 18;
+      for (let k = 0; k <= n; k++) {
+        const t = k / n;
+        const a = a0 + (a1 - a0) * t;
+        pts.push(new T.Vector3(x, Math.cos(a) * rW, 0.004 - Math.sin(a) * rW));
+      }
+      add(new T.Mesh(taperedTube1275(pts, widths[i], widths[i] * 0.62, 12, true), sm));
+      const kn = add(new T.Mesh(new T.SphereGeometry(widths[i] * 1.35, 10, 8), sm));
+      kn.position.set(x, Math.cos(a0) * rW * 0.95, 0.008 - Math.sin(a0) * rW * 0.35);
+      kn.scale.set(1.05, 0.90, 0.80);
+      const aN = a1 - 0.20;
+      const nail = add(new T.Mesh(new T.SphereGeometry(1, 8, 6), nm));
+      nail.userData.nail1249 = 1;
+      nail.scale.set(widths[i] * 0.70, widths[i] * 0.45, widths[i] * 0.22);
+      nail.position.set(x, Math.cos(aN) * rW, 0.004 - Math.sin(aN) * rW + widths[i] * 0.28);
+    }
+
+    // Thumb wraps over the near-right side of the haft, pad visible.
+    const tPts = [];
+    const tN = 14;
+    for (let k = 0; k <= tN; k++) {
+      const t = k / tN;
+      const a = 0.10 + t * 1.25;
+      const x = 0.006 + t * 0.006;
+      const y = -0.004 - Math.cos(a) * 0.018;
+      const z = 0.008 + Math.sin(a) * 0.018;
+      tPts.push(new T.Vector3(x, y, z));
+    }
+    add(new T.Mesh(taperedTube1275(tPts, 0.0094, 0.0068, 12, true), sm));
+    const tNail = add(new T.Mesh(new T.SphereGeometry(1, 8, 6), nm));
+    tNail.userData.nail1249 = 1;
+    tNail.scale.set(0.0062, 0.0042, 0.0022);
+    const tp = tPts[tPts.length - 2];
+    tNail.position.copy(tp).add(new T.Vector3(0, 0, 0.0035));
+
+    return g;
+  }
+  function buildFpPalm(side) {
+    side = side || 1;
+    const g = new T.Group();
+    g.name = 'FpPalm1275';
+    g.userData.fpPalm1275 = 1;
+    g.userData.fpHand1275 = 1;
+    g.userData.sculptKeep = 1;
+    const sm = fpSkinMat1275();
+    const nm = fpNailMat1275();
+    function add(mesh) { tagHandMesh(mesh); g.add(mesh); return mesh; }
+
+    const palm = add(new T.Mesh(new T.SphereGeometry(1, 18, 14), sm));
+    palm.name = 'OpenPalm';
+    palm.scale.set(0.032, 0.042, 0.014);
+    palm.position.set(0.000, 0.028, 0.000);
+
+    const thenar = add(new T.Mesh(new T.SphereGeometry(1, 12, 10), sm));
+    thenar.scale.set(0.016, 0.018, 0.011);
+    thenar.position.set(-side * 0.016, 0.016, -0.004);
+
+    const pad = add(new T.Mesh(new T.SphereGeometry(1, 10, 8), sm));
+    pad.scale.set(0.022, 0.024, 0.008);
+    pad.position.set(0.000, 0.030, -0.006);
+
+    // Wrist stump into the cuff (-Y).
+    const wristPts = [];
+    for (let i = 0; i <= 8; i++) {
+      const t = i / 8;
+      wristPts.push(new T.Vector3(0.000, -0.006 - t * 0.030, 0.000));
+    }
+    add(new T.Mesh(taperedTube1275(wristPts, 0.018, 0.016, 12, false), sm));
+
+    const widths = [0.0074, 0.0071, 0.0066, 0.0058];
+    const lens = [0.058, 0.062, 0.058, 0.048];
+    for (let i = 0; i < 4; i++) {
+      const x = (i - 1.5) * 0.0165;
+      const pts = [];
+      const n = 14;
+      for (let k = 0; k <= n; k++) {
+        const t = k / n;
+        // Slight natural curl toward the palm (-Z).
+        const y = 0.050 + lens[i] * t;
+        const z = 0.004 - 0.012 * t * t;
+        pts.push(new T.Vector3(x * (1 - 0.04 * t), y, z));
+      }
+      add(new T.Mesh(taperedTube1275(pts, widths[i], widths[i] * 0.70, 12, true), sm));
+      const kn = add(new T.Mesh(new T.SphereGeometry(widths[i] * 1.2, 10, 8), sm));
+      kn.position.set(x, 0.052, 0.006);
+      kn.scale.set(1.0, 0.8, 0.7);
+      const nail = add(new T.Mesh(new T.SphereGeometry(1, 8, 6), nm));
+      nail.userData.nail1249 = 1;
+      nail.scale.set(widths[i] * 0.72, widths[i] * 0.40, widths[i] * 0.20);
+      const tip = pts[pts.length - 2];
+      nail.position.set(tip.x, tip.y, tip.z + widths[i] * 0.35);
+    }
+
+    // Thumb abducted, slightly toward the palm.
+    const tPts = [];
+    const tN = 12;
+    for (let k = 0; k <= tN; k++) {
+      const t = k / tN;
+      const a = 0.15 + t * 0.70;
+      const x = -side * (0.022 + 0.028 * Math.sin(a));
+      const y = 0.014 + 0.032 * t;
+      const z = 0.002 - 0.010 * Math.sin(t * 0.9);
+      tPts.push(new T.Vector3(x, y, z));
+    }
+    add(new T.Mesh(taperedTube1275(tPts, 0.0082, 0.0064, 12, true), sm));
+    const tNail = add(new T.Mesh(new T.SphereGeometry(1, 8, 6), nm));
+    tNail.userData.nail1249 = 1;
+    tNail.scale.set(0.0054, 0.0036, 0.0018);
+    const tp = tPts[tPts.length - 2];
+    tNail.position.set(tp.x, tp.y, tp.z + 0.003);
+
+    return g;
+  }
+  function hideLegacySculpt(h) {
+    if (!h) return;
+    h.traverse(function (o) {
+      if (!o.isMesh) return;
+      let p = o;
+      while (p && p !== h) {
+        if (p.userData && p.userData.fpHand1275) return;
+        p = p.parent;
+      }
+      o.visible = false;
+      o.userData = o.userData || {};
+      o.userData.sculptHidden = 1;
+    });
+  }
+  // 1276: bind the offline-posed MakeHuman HeadSkin hand (not primitive
+  // tubes). Scale is in 1259 bind units; the bake is ~20cm wrist-to-tip.
+  const BAKE_HAND_SCALE = 0.76;
+  function fpSkinTex1276() {
+    if (U._skinTex1276) return U._skinTex1276;
+    const B = W.__fpHandsBaked1276;
+    const url = (B && (B.skinDataUrl || B.skinUrl)) || 'assets/models/fp-hands-1275/hand-skin.png';
+    let t;
+    try {
+      t = new T.TextureLoader().load(url);
+    } catch (_) {
+      t = null;
+    }
+    if (!t) return null;
+    t.flipY = false; // glTF / this atlas: v=0 at the top of the PNG
+    t.generateMipmaps = true;
+    t.minFilter = T.LinearMipmapLinearFilter;
+    t.magFilter = T.LinearFilter;
+    t.anisotropy = 8;
+    t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    U._skinTex1276 = t;
+    return t;
+  }
+  function fpSkinMat1276() {
+    if (U._skinMat1276) return U._skinMat1276;
+    const map = fpSkinTex1276();
+    // MeshBasic keeps the authored HeadSkin tone on SwiftShader (lit Phong
+    // crushed midtones / washed the atlas). The texture already has crease
+    // AO, a lighter palm, and a warm SSS-like tint.
+    const m = new T.MeshBasicMaterial({
+      // Warm the atlas toward the HeadSkin face mean (~195,142,107)
+      color: 0xf3c8a4,
+      map: map || undefined,
+      side: T.DoubleSide
+    });
+    m.userData.sculptKeep = 1;
+    U._skinMat1276 = m;
+    return m;
+  }
+  function attachBakedHands(h, side) {
+    const B = W.__fpHandsBaked1276;
+    if (!B || typeof B.makeMesh !== 'function') return false;
+    const mat = fpSkinMat1276();
+    function addKind(kind, flag) {
+      if (h.userData[flag]) return h.userData[flag];
+      const mesh = B.makeMesh(kind, mat, T, side || 1);
+      mesh.scale.multiplyScalar(BAKE_HAND_SCALE);
+      // makeMesh already set scale.x to ±1; preserve the mirror and apply size
+      const sx = (side < 0) ? -BAKE_HAND_SCALE : BAKE_HAND_SCALE;
+      mesh.scale.set(sx, BAKE_HAND_SCALE, BAKE_HAND_SCALE);
+      clampWristStump(mesh);
+      h.add(mesh);
+      h.userData[flag] = mesh;
+      return mesh;
+    }
+    addKind('fist', 'fpFist1275');
+    addKind('open', 'fpPalm1275');
+    addKind('cup', 'fpCup1276');
+    h.userData.fpBaked1276 = 1;
+    return true;
+  }
+  // The MH extract keeps ~5cm of forearm. Flatten that stump at the wrist
+  // so it cannot poke through the sleeve wall.
+  function clampWristStump(mesh) {
+    const geo = mesh && mesh.geometry;
+    const pos = geo && geo.attributes && geo.attributes.position;
+    if (!pos) return;
+    for (let i = 0; i < pos.count; i++) {
+      if (pos.getY(i) < -0.004) pos.setY(i, -0.004);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+  }
+  function ensureFpHands(h, side) {
+    if (!h) return;
+    const sd = side || h.userData.side || 1;
+    if (!attachBakedHands(h, sd)) {
+      if (!h.userData.fpFist1275) {
+        const fist = buildFpFist(sd);
+        h.add(fist);
+        h.userData.fpFist1275 = fist;
+      }
+      if (!h.userData.fpPalm1275) {
+        const palm = buildFpPalm(sd);
+        h.add(palm);
+        h.userData.fpPalm1275 = palm;
+      }
+    }
+    hideLegacySculpt(h);
+  }
+
   function curlHand(h, amt, opts) {
     if (!h || !h.userData) return;
     opts = opts || {};
     const mode = opts.mode || 'fist';
+    try {
+      ensureFpHands(h, h.userData.side || 1);
+      const useOpen = (mode === 'open' || mode === 'relax');
+      const useCup = (mode === 'cup' || mode === 'pinch');
+      if (h.userData.fpFist1275) h.userData.fpFist1275.visible = !useOpen && !useCup;
+      if (h.userData.fpPalm1275) h.userData.fpPalm1275.visible = useOpen;
+      if (h.userData.fpCup1276) h.userData.fpCup1276.visible = useCup;
+      hideLegacySculpt(h);
+    } catch (e) { ERR('fpHands', e); }
     const side = (h.userData && h.userData.side) || 1;
     const fingers = h.userData.f || [];
     // Joint angles in radians, curled toward the palm (-Z). A full grip is
     // ~80-100° (1.4-1.75 rad) per joint so the fingers wrap a handle.
     let p0, k0, d0, spread;
     if (mode === 'relax') { p0 = 1.02; k0 = 1.12; d0 = 0.88; spread = 0.02; }
+    else if (mode === 'open') { p0 = 0.16; k0 = 0.12; d0 = 0.08; spread = 0.11; }
     else if (mode === 'cup') { p0 = 0.34; k0 = 0.40; d0 = 0.22; spread = 0.12; }
     else if (mode === 'pinch') { p0 = 0.85; k0 = 1.05; d0 = 0.80; spread = 0.02; }
     else { p0 = 1.55; k0 = 1.70; d0 = 1.25; spread = 0.02; } // fist
@@ -350,6 +725,13 @@
           const td = th.userData.k.userData && th.userData.k.userData.d;
           if (td) td.rotation.set(-0.55, 0, 0);
         }
+      } else if (mode === 'open') {
+        th.rotation.set(0.15, side * 0.55, side * 0.28);
+        if (th.userData && th.userData.k) {
+          th.userData.k.rotation.set(-0.12, 0, 0);
+          const td = th.userData.k.userData && th.userData.k.userData.d;
+          if (td) td.rotation.set(-0.08, 0, 0);
+        }
       } else if (mode === 'pinch') {
         th.rotation.set(0.15, side * 1.05, side * 0.45);
         if (th.userData && th.userData.k) th.userData.k.rotation.set(-0.80, 0, 0);
@@ -370,7 +752,7 @@
   function orientHand(arm, spec, side) {
     const p = arm.userData.p;
     const haft = spec.haft || (side > 0 ? [-0.45, 0.80, 0] : [0.45, 0.70, 0]);
-    if (spec.face === 'palmUp') _hz.set(0, -0.35, -0.80);
+    if (spec.face === 'palmUp') _hz.set(0, -0.22, -0.97);
     else if (spec.face === 'palmUpHigh') _hz.set(0, -0.82, -0.35);
     else if (spec.face === 'palmDown') _hz.set(0, 0.75, 0.45);
     else _hz.set(0, 0, 1);
@@ -408,16 +790,17 @@
     p.sleeve.scale.set(rs, len, rs);
     p.sleeve.position.set(0, 0, 0);
     p.sleeve.rotation.set(0, 0, 0);
-    p.cuff.position.set(0, len, 0);
+    p.cuff.position.set(0, len + CUFF_H * 0.70, 0);
     p.cuff.rotation.set(0, 0, 0);
     p.cuff.scale.set(rs, 1, rs);
-    p.roll.position.set(0, len - CUFF_H * 0.70, 0);
+    p.roll.position.set(0, len + CUFF_H * 0.15, 0);
     p.roll.rotation.set(0, 0, 0);
-    p.roll.scale.set(rs, 1, rs);
+    p.roll.scale.set(rs * 1.04, 0.80, rs * 1.04);
     if (p.roll2) {
-      p.roll2.position.set(0, len - CUFF_H * 1.15, 0);
+      p.roll2.visible = true;
+      p.roll2.position.set(0, len - CUFF_H * 0.40, 0);
       p.roll2.rotation.set(0, 0, 0);
-      p.roll2.scale.set(rs, 1, rs);
+      p.roll2.scale.set(rs * 1.08, 0.85, rs * 1.08);
     }
     p.wrist.position.set(0, len, 0);
     p.wrist.scale.set(1, 1, 1);
@@ -442,6 +825,12 @@
     }
     dressSleeve(arm, spec.sleeve || sleeveKind || 'linen');
     arm.userData.curlOpts1271 = curlOpts || {};
+    const modeG = (curlOpts && curlOpts.mode) || 'fist';
+    if (p.grip) {
+      if (modeG === 'open' || modeG === 'cup' || modeG === 'relax') p.grip.position.set(0, 0.048, -0.010);
+      else if (modeG === 'pinch') p.grip.position.set(0, 0.030, -0.008);
+      else p.grip.position.set(0, 0.032, -0.018);
+    }
     curlHand(p.h, spec.curl != null ? spec.curl : 1, curlOpts || {});
     arm.visible = true;
   }
@@ -650,7 +1039,7 @@
     // A little extra hang so the fist sits on the bail with a gap to the rim.
     const camDown = new T.Vector3(0, -1, 0);
     try { camDown.set(0, -1, 0).transformDirection(vc.matrixWorld).normalize(); } catch (_) {}
-    const extra = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camDown, 0.14));
+    const extra = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()).addScaledVector(camDown, 0.088));
     const origin = grip.worldToLocal(grip.getWorldPosition(new T.Vector3()));
     held.position.add(extra.sub(origin));
   }
@@ -658,22 +1047,10 @@
   function sitInPalm(held, grip) {
     if (!held || !grip || !vc) return;
     grip.updateWorldMatrix(true, true);
-    const toward = new T.Vector3(0, 0, 1);
-    const up = new T.Vector3(0, 1, 0);
-    try {
-      toward.set(0, 0, 1).transformDirection(vc.matrixWorld).normalize();
-      up.set(0, 1, 0).transformDirection(vc.matrixWorld).normalize();
-    } catch (_) {}
-    held.rotation.set(0.10, 0.16, 0.04);
-    const fingers = new T.Vector3(-1, 0.2, 0);
-    try {
-      fingers.set(-0.88, 0.18, 0.08).transformDirection(vc.matrixWorld).normalize();
-    } catch (_) {}
-    const posW = grip.getWorldPosition(new T.Vector3())
-      .addScaledVector(toward, 0.035)
-      .addScaledVector(fingers, 0.08)
-      .addScaledVector(up, 0.01);
-    held.position.copy(grip.worldToLocal(posW));
+    // Grip sits in the palmar cup (+Y fingers, -Z palm). Drop the cube
+    // into that cup so the fingers (cup pose) read under it.
+    held.rotation.set(0.12, 0.18, 0.06);
+    held.position.set(0.00, 0.018, -0.028);
   }
   function faceMap(held, grip) {
     if (!held || !grip || !vc) return;
@@ -787,7 +1164,9 @@
       for (let i = 0; i <= segs; i++) {
         const t = i / segs;
         const x = side * (0.010 + length * t);
-        const y = 0.016 * Math.sin(t * Math.PI) * (1 - t) - drop * t * t;
+        // Shallower arch per t1154 LOOK: almost level at the root, a
+        // gentle drop toward the tip (t^2.4 instead of t^2).
+        const y = 0.010 * Math.sin(t * Math.PI) * (1 - t) - drop * Math.pow(t, 2.4);
         pts.push(new T.Vector3(x, y, 0));
       }
       for (let i = 0; i <= segs; i++) {
@@ -862,8 +1241,8 @@
     // Collar-scale yoke so the two horns read as one head through the socket.
     const yoke = new T.CylinderGeometry(0.020, 0.018, 0.040, 12);
     yoke.rotateZ(Math.PI / 2);
-    const left = taperedHorn(-1, 0.118 * HEAD_SX, 0.062 * HEAD_SY, 0.030);
-    const right = taperedHorn( 1, 0.072 * HEAD_SX, 0.078 * HEAD_SY, 0.026);
+    const left = taperedHorn(-1, 0.118 * HEAD_SX, 0.036 * HEAD_SY, 0.024);
+    const right = taperedHorn( 1, 0.072 * HEAD_SX, 0.048 * HEAD_SY, 0.022);
     const geo = mergeGeos([left, right, yoke]);
     geo.computeVertexNormals();
     geo.userData.fpHook1264 = 1;
@@ -913,47 +1292,62 @@
     const c = document.createElement('canvas');
     c.width = c.height = 256;
     const g = c.getContext('2d');
-    const bg = g.createLinearGradient(0, 0, 256, 256);
-    bg.addColorStop(0, '#e0b0ff');
-    bg.addColorStop(0.35, '#c060ff');
-    bg.addColorStop(0.7, '#9a38e8');
-    bg.addColorStop(1, '#7a20c8');
+    // V is the horn circumference (taperedHorn uv.y = j/rads). Saturated
+    // amethyst body with a bright rim at V=0 and V=1 (the blade edges).
+    const bg = g.createLinearGradient(0, 0, 0, 256);
+    bg.addColorStop(0.00, '#f7eeff');
+    bg.addColorStop(0.07, '#c56cff');
+    bg.addColorStop(0.16, '#8a22e6');
+    bg.addColorStop(0.50, '#5a0eb0');
+    bg.addColorStop(0.84, '#8a22e6');
+    bg.addColorStop(0.93, '#c56cff');
+    bg.addColorStop(1.00, '#f7eeff');
     g.fillStyle = bg;
     g.fillRect(0, 0, 256, 256);
-    function vein(x0, y0, color, w, n) {
-      g.strokeStyle = color;
-      g.lineWidth = w;
+    // Darker veins across the body, kept off the bright rim.
+    g.save();
+    g.beginPath();
+    g.rect(0, 28, 256, 200);
+    g.clip();
+    for (let i = 0; i < 22; i++) {
+      g.strokeStyle = i % 3 === 0 ? 'rgba(16,4,40,0.88)' : (i % 3 === 1 ? 'rgba(40,8,90,0.72)' : 'rgba(70,18,140,0.50)');
+      g.lineWidth = i % 4 === 0 ? 2.6 : 1.3;
       g.beginPath();
-      g.moveTo(x0, y0);
-      let x = x0, y = y0;
-      for (let k = 0; k < n; k++) {
-        x += (Math.sin(k * 1.3 + x0) * 18) + 8;
-        y += (Math.cos(k * 0.9 + y0) * 16) + 14;
-        g.lineTo(x % 256, y % 256);
+      let x = (i * 37) % 256, y = 28;
+      g.moveTo(x, y);
+      for (let k = 0; k < 18; k++) {
+        x += Math.sin(k * 1.4 + i) * 22 + 3;
+        y += 10 + Math.cos(k * 0.85 + i) * 7;
+        g.lineTo(((x % 256) + 256) % 256, y);
       }
       g.stroke();
     }
-    for (let i = 0; i < 18; i++) {
-      vein(i * 14, (i * 37) % 256, 'rgba(180,130,255,0.45)', 2.2, 12);
-      vein((i * 23 + 40) % 256, (i * 19) % 256, 'rgba(90,40,170,0.4)', 3.4, 10);
-    }
-    for (let i = 0; i < 14; i++) {
-      vein((i * 31 + 10) % 256, (i * 47) % 256, 'rgba(230,210,255,0.35)', 1.1, 8);
-    }
-    // glossy facets
-    for (let i = 0; i < 8; i++) {
-      const x = (i * 53) % 256, y = (i * 71) % 256;
-      const grd = g.createRadialGradient(x, y, 2, x, y, 28);
-      grd.addColorStop(0, 'rgba(255,240,255,0.5)');
+    // A few glossy body facets, not enough to pastel-wash the violet.
+    for (let i = 0; i < 5; i++) {
+      const x = 48 + (i * 43) % 160, y = 72 + (i * 29) % 100;
+      const grd = g.createRadialGradient(x, y, 1, x, y, 14);
+      grd.addColorStop(0, 'rgba(255,240,255,0.40)');
       grd.addColorStop(1, 'rgba(255,240,255,0)');
       g.fillStyle = grd;
       g.beginPath();
-      g.ellipse(x, y, 18, 10, i * 0.7, 0, Math.PI * 2);
+      g.ellipse(x, y, 12, 6, i * 0.8, 0, Math.PI * 2);
       g.fill();
     }
+    g.restore();
+    // Bright edge highlight along both blade rims.
+    const rim = g.createLinearGradient(0, 0, 0, 256);
+    rim.addColorStop(0.00, 'rgba(255,252,255,0.95)');
+    rim.addColorStop(0.05, 'rgba(236,210,255,0.70)');
+    rim.addColorStop(0.11, 'rgba(160,80,255,0)');
+    rim.addColorStop(0.89, 'rgba(160,80,255,0)');
+    rim.addColorStop(0.95, 'rgba(236,210,255,0.70)');
+    rim.addColorStop(1.00, 'rgba(255,252,255,0.95)');
+    g.fillStyle = rim;
+    g.fillRect(0, 0, 256, 256);
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
-    t.repeat.set(2, 2);
+    // One wrap around the horn so the rim sits on the sharp edges.
+    t.repeat.set(1, 1);
     U._crystalTex1274 = t;
     return t;
   }
@@ -1855,8 +2249,8 @@
 
   function curlOptsFor(key, k0, ads) {
     if (k0 === 'empty') return { mode: 'open' };
-    if (k0 === 'block') return { mode: 'fist' };
-    if (k0 === 'map') return { mode: 'fist' };
+    if (k0 === 'block') return { mode: 'cup' };
+    if (k0 === 'map') return { mode: 'pinch' };
     if (key === 'pistol' || key === 'pistolAds') return { mode: 'fist', trigger: true };
     return { mode: 'fist' };
   }
@@ -1972,9 +2366,7 @@
     poseArm(armR, spec.R, aspect, hs, (spec.R && spec.R.sleeve) || 'linen', curlR);
     if (two) {
       armL.traverse(function (o) { o.visible = true; });
-      const curlL = (key === 'pistolAds' || key === 'musketAds')
-        ? { mode: 'cup', support: true }
-        : { mode: 'fist', support: true };
+      const curlL = { mode: 'fist', support: true };
       poseArm(armL, spec.L, aspect, hs, (spec.L && spec.L.sleeve) || 'linen', curlL);
     } else {
       armL.visible = false;
