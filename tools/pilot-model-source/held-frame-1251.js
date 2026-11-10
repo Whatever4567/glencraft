@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p24', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p25', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -184,7 +184,7 @@
       // with the thumb wrapped over the top; empty is an open palm; the block
       // is a soft cup so cobble can sit in the hand.
       const tight = {empty: 0.06, block: 0.52, pick: 1.16, p761: 1.16, p760: 1.16, axe: 1.16, shovel: 1.16, hoe: 1.16,
-        sword: 1.22, bucket: 1.24, torch: 1.22, map: 0.16, musket: ads ? 0.78 : 1.08, pistol: ads ? 0.72 : 1.32, other: 0.9};
+        sword: 1.22, bucket: 1.68, torch: 1.22, map: 0.16, musket: ads ? 0.78 : 1.08, pistol: ads ? 0.72 : 1.32, other: 0.9};
       const gamt = tight[kind] != null ? tight[kind] : 0.9;
       const trigger = (kind === 'pistol');
       function curlArm(arm, isLeft) {
@@ -287,6 +287,10 @@
               }
               const mid = (U.__thumbMid != null) ? U.__thumbMid : 1.25;
               if (th.userData && th.userData.k) th.userData.k.rotation.set(mid, 0, 0);
+            } else if (kind === 'bucket') {
+              // Tighter wrap over the bail: thumb crosses the fingers, mid curled.
+              th.rotation.set(0.18, side * 0.95, side * 0.62);
+              if (th.userData && th.userData.k) th.userData.k.rotation.set(1.40, 0, 0);
             } else {
               th.rotation.set(W[0], side * W[1], side * W[2]);
               if (th.userData && th.userData.k) th.userData.k.rotation.set(W[3], side * (W[4] || 0), side * (W[5] || 0));
@@ -845,7 +849,7 @@
   const GRIP = {
     torch:  {p: [0, -0.016, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
     sword:  {p: [0, -0.075, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
-    bucket: {p: [0, 0.252, 0], axis: [1, 0, 0], palm: [0, 0.055, 0.022], align: 0, errMax: 1.20},
+    bucket: {p: [0, 0.252, 0], axis: [1, 0, 0], palm: [0, 0.074, 0.012], align: 0, hang: 1, errMax: 1.20},
     pistol: {p: [0, -0.07, 0.05], axis: [0, -0.95, 0.30], palm: [0, 0.050, 0.018], align: 0}
   };
   U.GRIP = GRIP;
@@ -889,6 +893,21 @@
       m.multiply(chain[i].matrix);
     }
     return m;
+  }
+
+  // Apply a camera-space rotation to a mesh whose parent may not be the camera.
+  function applyCamQuat(mesh, qCam) {
+    if (!mesh || !mesh.parent || !qCam) return false;
+    const pm = parentCamMatrix(mesh.parent);
+    if (!pm) return false;
+    const pos = new T.Vector3(), quat = new T.Quaternion(), scl = new T.Vector3();
+    pm.decompose(pos, quat, scl);
+    const qP = quat.clone();
+    const qInv = quat.clone().invert();
+    const qNew = qInv.multiply(qCam).multiply(qP).multiply(mesh.quaternion.clone());
+    mesh.quaternion.copy(qNew);
+    mesh.updateMatrix();
+    return true;
   }
 
   function seatItem(kind, extraSpec) {
@@ -966,6 +985,45 @@
             if (axisNow.dot(axisWant) < 0) axisWant.negate();
             const q = new T.Quaternion().setFromUnitVectors(axisNow, axisWant);
             mesh.quaternion.premultiply(q);
+          }
+        }
+      }
+
+      // Rotate about the bail so the pail body (grip -> item origin) hangs
+      // camera-down. Static item orientation only; animation curves untouched.
+      if (spec.hang) {
+        const gP = toCameraLocal(mesh, v3(spec.p));
+        const gO = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+        const a0 = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+        const a1 = toCameraLocal(mesh, v3(spec.axis));
+        if (gP && gO && a0 && a1) {
+          const axis = a1.clone().sub(a0);
+          if (axis.lengthSq() > 1e-8) {
+            axis.normalize();
+            // Pail body is item origin relative to the bail grip. Hang it
+            // camera-down and slightly away (-Z) so the open top tilts toward
+            // the lens, matching ref 07.
+            const downNow = gO.clone().sub(gP);
+            downNow.addScaledVector(axis, -downNow.dot(axis));
+            const downWant = new T.Vector3(0, -1, -0.35);
+            downWant.addScaledVector(axis, -downWant.dot(axis));
+            if (downNow.lengthSq() > 1e-8 && downWant.lengthSq() > 1e-8) {
+              downNow.normalize();
+              downWant.normalize();
+              const q = new T.Quaternion().setFromUnitVectors(downNow, downWant);
+              // Prefer a direct premultiply when the held mesh is already
+              // under the camera (usual VM path); fall back to conjugation.
+              const used = applyCamQuat(mesh, q);
+              if (!used) mesh.quaternion.premultiply(q);
+              mesh.updateMatrix();
+              const gP2 = toCameraLocal(mesh, v3(spec.p));
+              const gO2 = toCameraLocal(mesh, new T.Vector3(0, 0, 0));
+              if (gP2 && gO2) {
+                const d = gO2.sub(gP2).normalize();
+                info.pailC = [+d.x.toFixed(3), +d.y.toFixed(3), +d.z.toFixed(3)];
+              }
+              info.hung = used ? 1 : 2;
+            }
           }
         }
       }
