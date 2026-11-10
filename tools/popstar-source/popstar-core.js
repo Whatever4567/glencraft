@@ -169,55 +169,69 @@
     const g = c.getContext('2d');
     const h = e.getContext('2d');
     const k = n.getContext('2d');
-    g.fillStyle = '#d4a010'; g.fillRect(0, 0, S, S);
+    g.fillStyle = '#c8960c'; g.fillRect(0, 0, S, S);
     h.fillStyle = '#000'; h.fillRect(0, 0, S, S);
-    // Flat 128,128,255 normal base (pointing +Z).
     k.fillStyle = '#8080ff'; k.fillRect(0, 0, S, S);
     const imgN = k.getImageData(0, 0, S, S);
     const nd = imgN.data;
     function setN(x, y, nx, ny, nz) {
       const i = (y * S + x) * 4;
-      nd[i] = Math.max(0, Math.min(255, (nx * 0.5 + 0.5) * 255));
+      nd[i]     = Math.max(0, Math.min(255, (nx * 0.5 + 0.5) * 255));
       nd[i + 1] = Math.max(0, Math.min(255, (ny * 0.5 + 0.5) * 255));
       nd[i + 2] = Math.max(0, Math.min(255, (nz * 0.5 + 0.5) * 255));
       nd[i + 3] = 255;
     }
-    const cell = 16;
-    let seed = 7;
+    let seed = 19;
     function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
-    for (let row = 0; row < S / cell + 2; row++) {
-      const off = (row % 2) * (cell * 0.5);
-      for (let col = -1; col < S / cell + 2; col++) {
-        const cx = Math.round(col * cell + off + (rnd() - 0.5) * 2.2);
-        const cy = Math.round(row * cell + (rnd() - 0.5) * 2.2);
-        const rad = 5.2 + rnd() * 2.4;
-        const ir = Math.ceil(rad) + 1;
-        // Disc body + specular highlight on the upper-left of each sequin.
-        const hue = 42 + rnd() * 16;
-        const lit = 62 + rnd() * 28;
-        g.fillStyle = 'hsl(' + hue.toFixed(0) + ',95%,' + lit.toFixed(0) + '%)';
-        g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.fill();
-        g.fillStyle = 'rgba(255,248,210,0.85)';
-        g.beginPath(); g.arc(cx - rad * 0.28, cy - rad * 0.28, rad * 0.38, 0, 6.3); g.fill();
-        g.strokeStyle = 'rgba(90,60,0,0.35)';
-        g.lineWidth = 0.8;
-        g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.stroke();
-        const hot = rnd() < 0.18;
-        if (hot) {
-          const a = 0.55 + rnd() * 0.45;
-          h.fillStyle = 'rgba(255,236,150,' + a.toFixed(2) + ')';
-          h.beginPath(); h.arc(cx, cy, rad * 0.7, 0, 6.3); h.fill();
+    // Relaxed random packing — jittered positions, not a regular grid.
+    const pts = [];
+    const minD = 11;
+    for (let tries = 0; tries < 18000 && pts.length < 4200; tries++) {
+      const x = rnd() * S, y = rnd() * S;
+      let ok = true;
+      for (let j = pts.length - 1; j >= 0 && j >= pts.length - 28; j--) {
+        const dx = x - pts[j][0], dy = y - pts[j][1];
+        if (dx * dx + dy * dy < minD * minD) { ok = false; break; }
+      }
+      if (ok) pts.push([x, y, 4.4 + rnd() * 3.6, rnd()]);
+    }
+    for (let i = 0; i < pts.length; i++) {
+      const cx = Math.round(pts[i][0]), cy = Math.round(pts[i][1]);
+      const rad = pts[i][2], u = pts[i][3];
+      const ir = Math.ceil(rad) + 1;
+      const hue = 38 + u * 18;
+      const lit = 55 + rnd() * 32;
+      g.fillStyle = 'hsl(' + hue.toFixed(0) + ',94%,' + lit.toFixed(0) + '%)';
+      g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.fill();
+      g.fillStyle = 'rgba(255,248,210,0.88)';
+      g.beginPath(); g.arc(cx - rad * 0.30, cy - rad * 0.30, rad * 0.36, 0, 6.3); g.fill();
+      g.strokeStyle = 'rgba(80,50,0,0.28)';
+      g.lineWidth = 0.7;
+      g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.stroke();
+      const hot = u < 0.22 || rnd() < 0.10;
+      if (hot) {
+        const a = 0.60 + rnd() * 0.40;
+        h.fillStyle = 'rgba(255,240,170,' + a.toFixed(2) + ')';
+        h.beginPath(); h.arc(cx, cy, rad * 0.75, 0, 6.3); h.fill();
+        if (u < 0.08) {
+          // plus-shaped sparkle
+          g.fillStyle = 'rgba(255,255,245,0.95)';
+          const r = rad * 1.6;
+          g.fillRect(cx - r * 2.0, cy - r * 0.22, r * 4.0, r * 0.44);
+          g.fillRect(cx - r * 0.22, cy - r * 2.0, r * 0.44, r * 4.0);
+          h.fillStyle = 'rgba(255,250,220,0.95)';
+          h.fillRect(cx - r * 1.6, cy - r * 0.18, r * 3.2, r * 0.36);
+          h.fillRect(cx - r * 0.18, cy - r * 1.6, r * 0.36, r * 3.2);
         }
-        for (let dy = -ir; dy <= ir; dy++) {
-          for (let dx = -ir; dx <= ir; dx++) {
-            const px = cx + dx, py = cy + dy;
-            if (px < 0 || py < 0 || px >= S || py >= S) continue;
-            const d = Math.sqrt(dx * dx + dy * dy) / rad;
-            if (d >= 1) continue;
-            const nz = Math.sqrt(Math.max(0, 1 - d * d));
-            const nx = dx / rad, ny = -dy / rad;
-            setN(px, py, nx, ny, nz);
-          }
+      }
+      for (let dy = -ir; dy <= ir; dy++) {
+        for (let dx = -ir; dx <= ir; dx++) {
+          const px = cx + dx, py = cy + dy;
+          if (px < 0 || py < 0 || px >= S || py >= S) continue;
+          const d = Math.sqrt(dx * dx + dy * dy) / rad;
+          if (d >= 1) continue;
+          const nz = Math.sqrt(Math.max(0, 1 - d * d));
+          setN(px, py, dx / rad, -dy / rad, nz);
         }
       }
     }
@@ -230,7 +244,7 @@
     normalMap.needsUpdate = true;
     [map, emissiveMap, normalMap].forEach(t => {
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(2.4, 2.4);
+      t.repeat.set(2.2, 2.2);
       t.anisotropy = 8;
       t.needsUpdate = true;
     });
@@ -342,7 +356,7 @@
     const skin = addM(phong({ color: SKIN, shininess: 18, specular: 0x332010 }));
     const skinSh = addM(phong({ color: SKIN_SH, shininess: 14, specular: 0x22180c }));
     const hairMap = hairMaps();
-    const hairA = addM(phong({ color: 0xffe08a, map: hairMap, shininess: 22, specular: 0x665533, emissive: 0x2a2208 }));
+    const hairA = addM(phong({ color: 0xffe08a, map: hairMap, shininess: 14, specular: 0x554422, emissive: 0x2a2208 }));
     const hairB = addM(phong({ color: 0xfff6d8, map: hairMap, shininess: 48, specular: 0xaa9966, emissive: 0x3a2c0c }));
     const hairC = addM(phong({ color: 0xe8c45a, map: hairMap, shininess: 18, specular: 0x554422, emissive: 0x221a06 }));
     const seq = sequinMaps();
@@ -362,8 +376,8 @@
     const bootMap = goldBootTex();
     const bootM = addM(phong({ color: 0xffd24a, map: bootMap, shininess: 100, specular: 0xfff3c8, emissive: 0x3a2800 }));
     const bootSole = addM(phong({ color: 0xb88620, shininess: 40, specular: 0x665522 }));
-    const lip = addM(phong({ color: 0xc42848, shininess: 45, specular: 0x882233 }));
-    const lipHi = addM(phong({ color: 0xe85070, shininess: 55, specular: 0xaa4455 }));
+    const lip = addM(phong({ color: 0xde8492, shininess: 78, specular: 0xffd4dc }));
+    const lipHi = addM(phong({ color: 0xf4b8c0, shininess: 95, specular: 0xfff0f4 }));
     const eyeW = addM(lamb({ color: 0xfffaf4 }));
     const eyeP = addM(lamb({ color: 0x2a1a12 }));
     const lash = addM(lamb({ color: 0x1a100c }));
@@ -547,61 +561,94 @@
 
     // ---- neck + smoother head ----
     const neck = new THREE.Group(); neck.position.y = PR.torso + PR.neck * 0.15; torso.add(neck);
-    capsule(0.38, PR.neck * 0.7, skin, 0, PR.neck * 0.4, 0, neck, 10);
-    const choker = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.08, 6, 16), goldShiny);
-    choker.rotation.x = Math.PI / 2; choker.position.set(0, 0.12, 0.04); neck.add(choker);
+    // Tapered neck that blends into the jaw — no hard collar cut.
+    capsule(0.36, PR.neck * 0.85, skin, 0, PR.neck * 0.42, 0.02, neck, 14);
+    const neckTop = sphere(0.42, skin, 0, PR.neck * 0.78, 0.04, neck, 14);
+    neckTop.scale.set(0.92, 0.62, 0.90);
+    const choker = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.06, 6, 16), goldShiny);
+    choker.rotation.x = Math.PI / 2; choker.position.set(0, 0.14, 0.04); neck.add(choker);
 
     const head = new THREE.Group(); head.position.y = PR.neck; neck.add(head);
-    const hw = PR.headH * 0.78, hd = PR.headH * 0.76;
-    // Smooth cranium + slightly narrower jaw, not two boxes.
-    const cranium = sphere(PR.headH * 0.48, skin, 0, PR.headH * 0.55, 0.02, head, 18);
-    cranium.scale.set(0.95, 1.05, 0.96);
-    const jaw = sphere(PR.headH * 0.36, skin, 0, PR.headH * 0.26, 0.06, head, 14);
-    jaw.scale.set(0.95, 0.85, 0.92);
-    // ears + gold hoops
-    const earL = sphere(0.22, skin, -hw * 0.52, PR.headH * 0.50, 0.00, head, 8);
-    earL.scale.set(0.55, 1.15, 0.8);
-    const earR = sphere(0.22, skin,  hw * 0.52, PR.headH * 0.50, 0.00, head, 8);
-    earR.scale.set(0.55, 1.15, 0.8);
-    const hoopGeo = new THREE.TorusGeometry(0.30, 0.055, 6, 14);
-    const hoopL = new THREE.Mesh(hoopGeo, goldShiny); hoopL.position.set(-hw * 0.55, PR.headH * 0.22, 0.04); hoopL.rotation.x = 0.2; head.add(hoopL);
-    const hoopR = new THREE.Mesh(hoopGeo, goldShiny); hoopR.position.set( hw * 0.55, PR.headH * 0.22, 0.04); hoopR.rotation.x = 0.2; head.add(hoopR);
+    const hw = PR.headH * 0.74, hd = PR.headH * 0.76;
+    // Soft oval cranium + a small tapered chin, overlapped so the jaw is not a second ball.
+    const cranium = sphere(PR.headH * 0.50, skin, 0, PR.headH * 0.50, 0.04, head, 22);
+    cranium.scale.set(0.88, 1.12, 0.94);
+    const jaw = sphere(PR.headH * 0.28, skin, 0, PR.headH * 0.20, 0.10, head, 18);
+    jaw.scale.set(0.78, 0.68, 0.86);
+    const chin = sphere(0.22, skin, 0, PR.headH * 0.06, 0.16, head, 14);
+    chin.scale.set(0.85, 0.70, 0.90);
+    // Smooth joint: a throat sphere sits between neck top and the chin.
+    const throat = sphere(0.34, skin, 0, -0.06, 0.08, head, 14);
+    throat.scale.set(0.80, 0.70, 0.78);
+    const earL = sphere(0.18, skin, -hw * 0.54, PR.headH * 0.48, 0.00, head, 10);
+    earL.scale.set(0.50, 1.05, 0.70);
+    const earR = sphere(0.18, skin,  hw * 0.54, PR.headH * 0.48, 0.00, head, 10);
+    earR.scale.set(0.50, 1.05, 0.70);
+    // Thin gold hoops hanging from the lobes, not a chunky ball at the jaw.
+    const hoopGeo = new THREE.TorusGeometry(0.16, 0.028, 6, 16);
+    const hoopL = new THREE.Mesh(hoopGeo, goldShiny);
+    hoopL.position.set(-hw * 0.56, PR.headH * 0.34, 0.02); hoopL.rotation.x = 0.15; head.add(hoopL);
+    const hoopR = new THREE.Mesh(hoopGeo, goldShiny);
+    hoopR.position.set( hw * 0.56, PR.headH * 0.34, 0.02); hoopR.rotation.x = 0.15; head.add(hoopR);
 
-    const eyeY = PR.headH * 0.54, eyeZ = hd * 0.58, eyeX = 0.38;
+    const eyeY = PR.headH * 0.54, eyeZ = hd * 0.58, eyeX = 0.34;
+    const shadowM = addM(phong({ color: 0xc9a090, shininess: 8, specular: 0x221810 }));
     function addEye(sx) {
-      const w = sphere(0.24, eyeW, sx * eyeX, eyeY, eyeZ + 0.04, head, 10);
-      w.scale.set(1.20, 0.95, 0.62);
-      sphere(0.13, eyeP, sx * eyeX + sx * 0.01, eyeY - 0.01, eyeZ + 0.16, head, 8);
-      sphere(0.045, eyeW, sx * eyeX - 0.05, eyeY + 0.05, eyeZ + 0.22, head, 6);
-      const b = sphere(0.18, lash, sx * eyeX, eyeY + 0.16, eyeZ + 0.04, head, 6);
-      b.scale.set(1.35, 0.30, 0.62);
-      const br = sphere(0.20, brow, sx * eyeX, eyeY + 0.30, eyeZ + 0.02, head, 6);
-      br.scale.set(1.55, 0.32, 0.58);
-      br.rotation.z = sx * -0.22;
+      // Large slightly almond eyes.
+      const w = sphere(0.22, eyeW, sx * eyeX, eyeY, eyeZ + 0.06, head, 12);
+      w.scale.set(1.32, 0.90, 0.58);
+      // Soft dusty-rose lid makeup, flattened onto the upper lid.
+      const lidMk = sphere(0.20, shadowM, sx * eyeX, eyeY + 0.07, eyeZ + 0.02, head, 8);
+      lidMk.scale.set(1.40, 0.32, 0.55);
+      sphere(0.11, eyeP, sx * eyeX + sx * 0.015, eyeY - 0.01, eyeZ + 0.16, head, 10);
+      sphere(0.035, eyeW, sx * eyeX - 0.04, eyeY + 0.03, eyeZ + 0.22, head, 6);
+      // Upper lash line
+      const line = sphere(0.17, lash, sx * eyeX, eyeY + 0.11, eyeZ + 0.10, head, 6);
+      line.scale.set(1.45, 0.16, 0.50);
+      // Individual lashes fanning up and out.
+      for (let i = -2; i <= 2; i++) {
+        const u = i / 2;
+        const lx = sx * eyeX + sx * u * 0.18;
+        const ly = eyeY + 0.16 + 0.02 * Math.abs(u);
+        const lz = eyeZ + 0.14;
+        const ls = capsule(0.012, 0.11, lash, lx, ly, lz, head, 5);
+        ls.rotation.z = sx * (-0.25 - u * 0.28);
+        ls.rotation.x = -0.28;
+      }
+      const br = sphere(0.16, brow, sx * eyeX, eyeY + 0.28, eyeZ + 0.04, head, 8);
+      br.scale.set(1.45, 0.20, 0.50);
+      br.rotation.z = sx * -0.28;
     }
     addEye(-1); addEye(1);
-    const bridge = sphere(0.13, skinSh, 0, PR.headH * 0.46, eyeZ + 0.24, head, 8);
-    bridge.scale.set(0.7, 1.5, 0.9);
-    sphere(0.14, skin, 0, PR.headH * 0.30, eyeZ + 0.36, head, 8);
-    // Red lips, clearly readable from the front.
-    const mouth = sphere(0.26, lip, 0, PR.headH * 0.17, eyeZ + 0.20, head, 8);
-    mouth.scale.set(1.40, 0.50, 0.75);
-    const mouthHi = sphere(0.18, lipHi, 0, PR.headH * 0.21, eyeZ + 0.26, head, 8);
-    mouthHi.scale.set(1.28, 0.36, 0.62);
-    // soft cheeks
-    const cheekM = addM(phong({ color: 0xeba08a, shininess: 16, specular: 0x331810 }));
-    const chL = sphere(0.20, cheekM, -0.48, PR.headH * 0.36, eyeZ * 0.72, head, 8);
-    chL.scale.set(1.1, 0.85, 0.7);
-    const chR = sphere(0.20, cheekM,  0.48, PR.headH * 0.36, eyeZ * 0.72, head, 8);
-    chR.scale.set(1.1, 0.85, 0.7);
+    const bridge = sphere(0.11, skinSh, 0, PR.headH * 0.46, eyeZ + 0.22, head, 8);
+    bridge.scale.set(0.62, 1.35, 0.80);
+    sphere(0.11, skin, 0, PR.headH * 0.32, eyeZ + 0.32, head, 8);
+    // Smaller natural-pink glossy lips (upper + lower), not a big red mouth.
+    const mouth = sphere(0.155, lip, 0, PR.headH * 0.165, eyeZ + 0.20, head, 10);
+    mouth.scale.set(1.22, 0.36, 0.60);
+    const lowerLip = sphere(0.13, lip, 0, PR.headH * 0.135, eyeZ + 0.22, head, 10);
+    lowerLip.scale.set(1.08, 0.30, 0.56);
+    const mouthHi = sphere(0.10, lipHi, 0, PR.headH * 0.18, eyeZ + 0.28, head, 8);
+    mouthHi.scale.set(1.08, 0.24, 0.50);
+    // Soft blended blush — large, flat, close to skin tone so it is shading not a sticker.
+    const cheekM = addM(phong({ color: 0xebc2b0, shininess: 12, specular: 0x332018 }));
+    const chL = sphere(0.32, cheekM, -0.42, PR.headH * 0.34, eyeZ * 0.62, head, 10);
+    chL.scale.set(1.15, 0.80, 0.55);
+    const chR = sphere(0.32, cheekM,  0.42, PR.headH * 0.34, eyeZ * 0.62, head, 10);
+    chR.scale.set(1.15, 0.80, 0.55);
 
     // ---- long wavy blonde hair: side-parted, past the chest, face left clear ----
     const hair = new THREE.Group(); hair.position.y = PR.headH; head.add(hair);
     // Tight cap that stays BEHIND the hairline so it cannot visor over the face.
-    const scalp = sphere(1.12, hairA, 0, -0.98, -0.38, hair, 18);
-    scalp.scale.set(1.10, 0.92, 0.90);
-    const lid = sphere(0.88, hairB, 0, -0.22, -0.42, hair, 16);
-    lid.scale.set(1.08, 0.40, 0.88);
+    const scalp = sphere(1.18, hairA, 0, -0.92, -0.28, hair, 20);
+    scalp.scale.set(1.16, 0.95, 0.96);
+    const lid = sphere(0.98, hairB, 0, -0.18, -0.32, hair, 18);
+    lid.scale.set(1.14, 0.46, 0.96);
+    // Side caps so the 3/4 crown doesn't show a hard cut edge.
+    const capR = sphere(0.62, hairA,  0.55, -0.45, -0.10, hair, 14);
+    capR.scale.set(1.10, 0.80, 0.95);
+    const capL = sphere(0.55, hairA, -0.50, -0.48, -0.10, hair, 14);
+    capL.scale.set(1.05, 0.78, 0.95);
 
     function wavePts(x0, y0, z0, len, side, phase, flare, amp, n, zAmp) {
       n = n || 14;
@@ -612,8 +659,8 @@
         const te = t * t * (3 - 2 * t);
         const tw = Math.pow(t, 0.55);
         const y = y0 - t * len;
-        const x = x0 + side * flare * te + side * amp * tw * Math.sin(phase + t * Math.PI * 3.6);
-        const z = z0 + zAmp * tw * Math.sin(phase * 0.7 + t * Math.PI * 2.4) - 0.20 * te;
+        const x = x0 + side * flare * te + side * amp * tw * Math.sin(phase + t * Math.PI * 5.2);
+        const z = z0 + zAmp * tw * Math.sin(phase * 0.7 + t * Math.PI * 3.4) - 0.18 * te;
         pts.push([x, y, z]);
       }
       return pts;
@@ -621,18 +668,27 @@
     // Side part on her left ( -X ). Heavier mass on the right, long past the chest.
     // Roots sit at the temples / sides of the crown — not in front of the eyes.
     const LOCKS = [
-      { x: 0.22, y: -0.18, z: -0.05, len: 12.2, ph: 0.2, fl: 0.85, amp: 0.55, r0: 0.40, r1: 0.15, mat: hairB, za: 0.28, side:  1 },
-      { x: 0.38, y: -0.22, z:  0.22, len: 11.6, ph: 1.3, fl: 0.70, amp: 0.48, r0: 0.34, r1: 0.13, mat: hairA, za: 0.24, side:  1 },
-      { x: 0.55, y: -0.28, z: -0.15, len: 11.8, ph: 2.1, fl: 0.55, amp: 0.42, r0: 0.32, r1: 0.12, mat: hairC, za: 0.22, side:  1 },
+      { x: 0.22, y: -0.18, z: -0.05, len: 12.2, ph: 0.2, fl: 0.85, amp: 0.62, r0: 0.38, r1: 0.14, mat: hairB, za: 0.30, side:  1 },
+      { x: 0.38, y: -0.22, z:  0.22, len: 11.6, ph: 1.3, fl: 0.70, amp: 0.56, r0: 0.32, r1: 0.12, mat: hairA, za: 0.26, side:  1 },
+      { x: 0.55, y: -0.28, z: -0.15, len: 11.8, ph: 2.1, fl: 0.55, amp: 0.50, r0: 0.30, r1: 0.12, mat: hairC, za: 0.24, side:  1 },
       { x: 0.72, y: -0.32, z:  0.18, len: 10.8, ph: 0.7, fl: 0.40, amp: 0.38, r0: 0.26, r1: 0.11, mat: hairA, za: 0.20, side:  1 },
       { x: 0.88, y: -0.36, z:  0.02, len: 10.2, ph: 1.8, fl: 0.28, amp: 0.32, r0: 0.20, r1: 0.09, mat: hairB, za: 0.16, side:  1 },
       // lighter side of the part (her left)
-      { x: -0.42, y: -0.22, z:  0.10, len: 11.4, ph: 0.5, fl: 0.65, amp: 0.45, r0: 0.32, r1: 0.12, mat: hairA, za: 0.22, side: -1 },
+      { x: -0.42, y: -0.22, z:  0.10, len: 11.4, ph: 0.5, fl: 0.65, amp: 0.52, r0: 0.30, r1: 0.12, mat: hairA, za: 0.24, side: -1 },
       { x: -0.62, y: -0.28, z: -0.12, len: 11.0, ph: 1.6, fl: 0.48, amp: 0.40, r0: 0.28, r1: 0.11, mat: hairC, za: 0.20, side: -1 },
       { x: -0.80, y: -0.34, z:  0.16, len: 10.4, ph: 2.4, fl: 0.30, amp: 0.34, r0: 0.22, r1: 0.10, mat: hairB, za: 0.16, side: -1 }
     ];
     LOCKS.forEach(L => {
-      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 16, L.za), L.r0, L.r1, L.mat, hair, 28, 8);
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 20, L.za), L.r0, L.r1, L.mat, hair, 32, 8);
+    });
+    // Face-framing ripples — thinner, tighter S-curves so the sides are not a flat curtain.
+    const FACE_FRAME = [
+      { x: 0.48, y: -0.24, z:  0.42, len: 11.2, ph: 0.4, fl: 0.35, amp: 0.58, r0: 0.16, r1: 0.07, za: 0.32, side:  1 },
+      { x: 0.62, y: -0.28, z:  0.28, len: 10.8, ph: 1.8, fl: 0.28, amp: 0.50, r0: 0.14, r1: 0.06, za: 0.28, side:  1 },
+      { x: -0.55, y: -0.26, z:  0.36, len: 11.0, ph: 0.9, fl: 0.32, amp: 0.54, r0: 0.15, r1: 0.07, za: 0.30, side: -1 }
+    ];
+    FACE_FRAME.forEach(L => {
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 22, L.za), L.r0, L.r1, hairB, hair, 28, 7);
     });
     // Highlight strands: thinner, paler, higher-frequency ripples woven through the mass.
     const HI = [
@@ -641,7 +697,7 @@
       { x: -0.50, y: -0.24, z:  0.08, len: 11.2, ph: 1.4, fl: 0.52, amp: 0.58, r0: 0.10, r1: 0.045, za: 0.28, side: -1 }
     ];
     HI.forEach(L => {
-      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 18, L.za), L.r0, L.r1, hairB, hair, 24, 6);
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 22, L.za), L.r0, L.r1, hairB, hair, 28, 6);
     });
     // Side-swept fringe from the left part, across the forehead, ending beside the right eye.
     // Stays ABOVE the eyes so the face stays clear.
@@ -651,10 +707,16 @@
     hairRibbon([
       [-0.24, -0.28, 0.40], [0.08, -0.48, 0.70], [0.36, -0.78, 0.52], [0.52, -1.10, 0.26]
     ], 0.045, 0.025, hairA, hair, 14, 7);
-    // A little more crown cover on the right, still behind the hairline.
+    // Crown drapes that soften the 3/4 hard edge, still behind the hairline.
     hairRibbon([
-      [0.15, -0.05, -0.15], [0.45, -0.20, -0.05], [0.75, -1.2, 0.10], [0.90, -3.2, 0.05]
-    ], 0.28, 0.12, hairA, hair, 16, 8);
+      [0.12, -0.02, -0.10], [0.42, -0.18, 0.00], [0.72, -1.1, 0.12], [0.92, -3.4, 0.06]
+    ], 0.30, 0.12, hairA, hair, 16, 8);
+    hairRibbon([
+      [0.28, -0.08, 0.15], [0.55, -0.35, 0.18], [0.80, -1.5, 0.10], [0.95, -4.0, 0.00]
+    ], 0.24, 0.10, hairB, hair, 16, 8);
+    hairRibbon([
+      [-0.20, -0.04, -0.08], [-0.48, -0.22, 0.00], [-0.72, -1.2, 0.08], [-0.88, -3.2, 0.04]
+    ], 0.26, 0.11, hairA, hair, 16, 8);
     // Back / side curtains, long past the chest.
     const BACK = [
       { x: 0.00, y: -0.10, z: -0.95, len: 12.4, ph: 0.3, fl: 0.08, amp: 0.22, r0: 0.70, r1: 0.20, mat: hairA, side: 1, za: 0.14 },
@@ -662,7 +724,7 @@
       { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.8, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairB, side: -1, za: 0.16 }
     ];
     BACK.forEach(L => {
-      hairRibbon(wavePts(L.x * (L.side === -1 ? -1 : 1), L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 16, L.za), L.r0, L.r1, L.mat, hair, 28, 8);
+      hairRibbon(wavePts(L.x * (L.side === -1 ? -1 : 1), L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 20, L.za), L.r0, L.r1, L.mat, hair, 32, 8);
     });
 
     const parts = {
@@ -838,13 +900,13 @@
   const ARM = {
     // 1: left at the collarbone, right mic at the mouth
     p1L: { sh: [1.05, 0.55, -0.45], el: [1.55, 0.3, 0.2], wr: [0.3, 0.55, 0.2] },
-    p1R: { sh: [0.66, 0.40, 0.10], el: [1.92, 0.25, 0.15], wr: [0.22, 0.50, 0.08] },
+    p1R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
     // 2: left on the hip (akimbo), right still singing
     p2L: { sh: [0.25, -0.1, 1.05], el: [1.65, 0.12, 0.45], wr: [0.3, 0.4, 0.55] },
-    p2R: { sh: [0.66, 0.40, 0.10], el: [1.92, 0.25, 0.15], wr: [0.22, 0.50, 0.08] },
+    p2R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
     // 3: left hand ON TOP of the head (arm up and slightly in, elbow folded over the crown)
     p3L: { sh: [0.35, 0.2, 3.35], el: [1.85, 0.3, -1.2], wr: [0.6, 0.3, 0.2] },
-    p3R: { sh: [0.66, 0.40, 0.10], el: [1.92, 0.25, 0.15], wr: [0.22, 0.50, 0.08] },
+    p3R: { sh: [0.78, 0.38, 0.12], el: [1.98, 0.22, 0.14], wr: [0.20, 0.48, 0.08] },
     // 4: symmetrical high V, both arms nearly straight up, slightly out
     p4L: { sh: [0.1, 0.08, 2.88], el: [0.18, 0, 0.06], wr: [0.1, 0, 0] },
     p4R: { sh: [0.1, -0.08, 2.88], el: [0.18, 0, -0.06], wr: [0.1, 0, 0] }
