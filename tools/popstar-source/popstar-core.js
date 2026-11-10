@@ -21,11 +21,11 @@
     hipY: 0, torso: 5.55, shoulderY: 0,
     neck: 0.7, headH: 2.2, scalpY: 0,
     hairTop: 32,
-    shoulderW: 3.55, waistW: 2.15, hipW: 4.25,
-    thighW: 1.85, thighD: 1.7, shinW: 1.38, shinD: 1.28,
+    shoulderW: 3.45, waistW: 1.88, hipW: 4.55,
+    thighW: 1.92, thighD: 1.7, shinW: 1.48, shinD: 1.28,
     bootW: 1.95, bootD: 2.55,
     upperArm: 3.55, lowerArm: 3.35, hand: 1.05,
-    chestW: 3.55, chestD: 2.05
+    chestW: 3.65, chestD: 2.15
   };
   PR.hipY = PR.bootH + PR.shin + PR.thigh;          // 19.35
   PR.shoulderY = PR.hipY + PR.torso;                // 24.90
@@ -165,54 +165,76 @@
     const S = 1024;
     const c = document.createElement('canvas'); c.width = S; c.height = S;
     const e = document.createElement('canvas'); e.width = S; e.height = S;
+    const n = document.createElement('canvas'); n.width = S; n.height = S;
     const g = c.getContext('2d');
     const h = e.getContext('2d');
-    const lg = g.createLinearGradient(0, 0, 0, S);
-    lg.addColorStop(0, '#ffe34a');
-    lg.addColorStop(0.35, '#f2c518');
-    lg.addColorStop(0.7, '#ffd21c');
-    lg.addColorStop(1, '#e8b40e');
-    g.fillStyle = lg; g.fillRect(0, 0, S, S);
+    const k = n.getContext('2d');
+    g.fillStyle = '#d4a010'; g.fillRect(0, 0, S, S);
     h.fillStyle = '#000'; h.fillRect(0, 0, S, S);
-    for (let i = 0; i < 18; i++) {
-      g.fillStyle = i % 2 ? 'rgba(255,236,120,0.18)' : 'rgba(200,140,10,0.12)';
-      g.fillRect(i * 56 + 6, 0, 16, S);
+    // Flat 128,128,255 normal base (pointing +Z).
+    k.fillStyle = '#8080ff'; k.fillRect(0, 0, S, S);
+    const imgN = k.getImageData(0, 0, S, S);
+    const nd = imgN.data;
+    function setN(x, y, nx, ny, nz) {
+      const i = (y * S + x) * 4;
+      nd[i] = Math.max(0, Math.min(255, (nx * 0.5 + 0.5) * 255));
+      nd[i + 1] = Math.max(0, Math.min(255, (ny * 0.5 + 0.5) * 255));
+      nd[i + 2] = Math.max(0, Math.min(255, (nz * 0.5 + 0.5) * 255));
+      nd[i + 3] = 255;
     }
-    // Dense fine sequin field — tiny discs, not chunky sparks.
-    for (let i = 0; i < 28000; i++) {
-      const x = Math.random() * S, y = Math.random() * S;
-      const sz = 0.35 + Math.random() * 0.95;
-      const a = 0.40 + Math.random() * 0.55;
-      const hot = Math.random() < 0.22;
-      g.fillStyle = hot ? ('rgba(255,255,245,' + a.toFixed(2) + ')')
-                        : (Math.random() < 0.5 ? ('rgba(255,230,90,' + a.toFixed(2) + ')')
-                                               : ('rgba(255,248,200,' + a.toFixed(2) + ')'));
-      g.beginPath(); g.arc(x, y, sz, 0, 6.3); g.fill();
-      if (hot && a > 0.7) {
-        h.fillStyle = 'rgba(255,240,170,' + ((a - 0.25) * 0.9).toFixed(2) + ')';
-        h.beginPath(); h.arc(x, y, sz * 1.15, 0, 6.3); h.fill();
+    const cell = 16;
+    let seed = 7;
+    function rnd() { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; }
+    for (let row = 0; row < S / cell + 2; row++) {
+      const off = (row % 2) * (cell * 0.5);
+      for (let col = -1; col < S / cell + 2; col++) {
+        const cx = Math.round(col * cell + off + (rnd() - 0.5) * 2.2);
+        const cy = Math.round(row * cell + (rnd() - 0.5) * 2.2);
+        const rad = 5.2 + rnd() * 2.4;
+        const ir = Math.ceil(rad) + 1;
+        // Disc body + specular highlight on the upper-left of each sequin.
+        const hue = 42 + rnd() * 16;
+        const lit = 62 + rnd() * 28;
+        g.fillStyle = 'hsl(' + hue.toFixed(0) + ',95%,' + lit.toFixed(0) + '%)';
+        g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.fill();
+        g.fillStyle = 'rgba(255,248,210,0.85)';
+        g.beginPath(); g.arc(cx - rad * 0.28, cy - rad * 0.28, rad * 0.38, 0, 6.3); g.fill();
+        g.strokeStyle = 'rgba(90,60,0,0.35)';
+        g.lineWidth = 0.8;
+        g.beginPath(); g.arc(cx, cy, rad, 0, 6.3); g.stroke();
+        const hot = rnd() < 0.18;
+        if (hot) {
+          const a = 0.55 + rnd() * 0.45;
+          h.fillStyle = 'rgba(255,236,150,' + a.toFixed(2) + ')';
+          h.beginPath(); h.arc(cx, cy, rad * 0.7, 0, 6.3); h.fill();
+        }
+        for (let dy = -ir; dy <= ir; dy++) {
+          for (let dx = -ir; dx <= ir; dx++) {
+            const px = cx + dx, py = cy + dy;
+            if (px < 0 || py < 0 || px >= S || py >= S) continue;
+            const d = Math.sqrt(dx * dx + dy * dy) / rad;
+            if (d >= 1) continue;
+            const nz = Math.sqrt(Math.max(0, 1 - d * d));
+            const nx = dx / rad, ny = -dy / rad;
+            setN(px, py, nx, ny, nz);
+          }
+        }
       }
     }
-    // A few slightly larger but still fine glints
-    for (let i = 0; i < 220; i++) {
-      const x = Math.random() * S, y = Math.random() * S;
-      const r = 0.9 + Math.random() * 1.3;
-      g.fillStyle = 'rgba(255,255,255,0.92)';
-      g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill();
-      g.fillRect(x - r * 2.2, y - r * 0.28, r * 4.4, r * 0.56);
-      g.fillRect(x - r * 0.28, y - r * 2.2, r * 0.56, r * 4.4);
-      h.fillStyle = 'rgba(255,248,210,0.9)';
-      h.beginPath(); h.arc(x, y, r * 1.2, 0, 6.3); h.fill();
-    }
+    k.putImageData(imgN, 0, 0);
     const map = tagTex(new THREE.CanvasTexture(c));
     const emissiveMap = tagTex(new THREE.CanvasTexture(e));
-    [map, emissiveMap].forEach(t => {
+    const normalMap = new THREE.CanvasTexture(n);
+    try { if (THREE.LinearSRGBColorSpace) normalMap.colorSpace = THREE.LinearSRGBColorSpace; } catch (_) {}
+    try { if (THREE.LinearEncoding != null) normalMap.encoding = THREE.LinearEncoding; } catch (_) {}
+    normalMap.needsUpdate = true;
+    [map, emissiveMap, normalMap].forEach(t => {
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
-      t.repeat.set(4.0, 4.0);
+      t.repeat.set(2.4, 2.4);
       t.anisotropy = 8;
       t.needsUpdate = true;
     });
-    return { map, emissiveMap };
+    return { map: map, emissiveMap: emissiveMap, normalMap: normalMap };
   }
 
   function goldBootTex() {
@@ -321,14 +343,16 @@
     const skinSh = addM(phong({ color: SKIN_SH, shininess: 14, specular: 0x22180c }));
     const hairMap = hairMaps();
     const hairA = addM(phong({ color: 0xffe08a, map: hairMap, shininess: 22, specular: 0x665533, emissive: 0x2a2208 }));
-    const hairB = addM(phong({ color: 0xfff3c4, map: hairMap, shininess: 28, specular: 0x776644, emissive: 0x33280a }));
+    const hairB = addM(phong({ color: 0xfff6d8, map: hairMap, shininess: 48, specular: 0xaa9966, emissive: 0x3a2c0c }));
     const hairC = addM(phong({ color: 0xe8c45a, map: hairMap, shininess: 18, specular: 0x554422, emissive: 0x221a06 }));
     const seq = sequinMaps();
     const dressOpts = {
-      color: 0xffd21c, map: seq.map, emissive: 0xcc8800,
-      emissiveMap: seq.emissiveMap, shininess: 70, specular: 0xeedd88
+      color: 0xf0c010, map: seq.map, emissive: 0xaa7700,
+      emissiveMap: seq.emissiveMap, normalMap: seq.normalMap,
+      shininess: 48, specular: 0xffe08a
     };
-    try { dressOpts.emissiveIntensity = 1.35; } catch (_) {}
+    try { dressOpts.emissiveIntensity = 1.45; } catch (_) {}
+    try { dressOpts.normalScale = new THREE.Vector2(1.35, 1.35); } catch (_) {}
     const dress = addM(phong(dressOpts));
     const dressDark = addM(phong(Object.assign({}, dressOpts, { color: 0xe8b40e, emissive: 0x4a2e00 })));
     const belt = addM(phong({ color: 0x6a4814, shininess: 40, specular: 0x665533 }));
@@ -338,12 +362,12 @@
     const bootMap = goldBootTex();
     const bootM = addM(phong({ color: 0xffd24a, map: bootMap, shininess: 100, specular: 0xfff3c8, emissive: 0x3a2800 }));
     const bootSole = addM(phong({ color: 0xb88620, shininess: 40, specular: 0x665522 }));
-    const lip = addM(phong({ color: 0xc45b6a, shininess: 40, specular: 0x662233 }));
-    const lipHi = addM(phong({ color: 0xe07884, shininess: 50, specular: 0x884444 }));
+    const lip = addM(phong({ color: 0xc42848, shininess: 45, specular: 0x882233 }));
+    const lipHi = addM(phong({ color: 0xe85070, shininess: 55, specular: 0xaa4455 }));
     const eyeW = addM(lamb({ color: 0xfffaf4 }));
     const eyeP = addM(lamb({ color: 0x2a1a12 }));
     const lash = addM(lamb({ color: 0x1a100c }));
-    const brow = addM(lamb({ color: 0x5a3a28 }));
+    const brow = addM(lamb({ color: 0x3a2418 }));
     const micBlk = addM(phong({ color: 0x161616, shininess: 40, specular: 0x444444 }));
     const micGrille = addM(phong({ color: 0xc8cdd4, shininess: 80, specular: 0xffffff, emissive: 0x222222 }));
 
@@ -360,51 +384,94 @@
       const knee = new THREE.Group(); knee.position.y = -PR.thigh; thigh.add(knee);
       sphere(PR.thighW * 0.42, skinSh, 0, 0, 0, knee, 10);
       const shin = new THREE.Group(); knee.add(shin);
-      capsule(PR.shinW * 0.48, PR.shin * 0.90, skinSh, 0, -PR.shin / 2, 0, shin, 12);
+      // Shaped calf: thicker in the upper third, tapering to a slim ankle.
+      lathe([
+        [PR.shinW * 0.30, -0.05],
+        [PR.shinW * 0.44, -0.9],
+        [PR.shinW * 0.54, -2.15],
+        [PR.shinW * 0.48, -3.6],
+        [PR.shinW * 0.30, -6.2],
+        [PR.shinW * 0.20, -PR.shin + 0.12]
+      ], skinSh, shin, 14);
       const ankle = new THREE.Group(); ankle.position.y = -PR.shin; shin.add(ankle);
       const boot = new THREE.Group(); ankle.add(boot);
-      // chunky gold ankle boots, slightly rounded
-      sphere(PR.bootW * 0.48, bootM, 0, -PR.bootH * 0.28, 0.10, boot, 10);
-      capsule(PR.bootW * 0.46, PR.bootH * 0.55, bootM, 0, -PR.bootH * 0.55, 0.22, boot, 10);
-      const toe = sphere(PR.bootW * 0.42, bootM, 0, -PR.bootH * 0.78, 0.55, boot, 10);
-      toe.scale.set(1.15, 0.7, 1.35);
-      box(PR.bootW * 1.05, 0.16, PR.bootD * 1.02, bootSole, 0, -PR.bootH * 1.00, 0.36, boot);
+      boot.position.y = -0.58;
+      // Gold high-heel: slim ankle cuff, pointed toe, stiletto post to the ground.
+      const cuff = sphere(0.36, bootM, 0, -0.08, 0.04, boot, 10);
+      cuff.scale.set(1.05, 0.7, 1.0);
+      const vamp = sphere(0.38, bootM, 0, -0.55, 0.38, boot, 10);
+      vamp.scale.set(0.95, 0.55, 1.55);
+      const toe = sphere(0.20, bootM, 0, -PR.bootH + 0.16, 0.88, boot, 8);
+      toe.scale.set(0.85, 0.42, 1.25);
+      box(0.50, 0.07, 0.70, bootSole, 0, -PR.bootH, 0.58, boot);
+      const heel = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.10, PR.bootH * 0.78, 8), bootM);
+      heel.position.set(0, -PR.bootH * 0.50, -0.22); boot.add(heel);
+      sphere(0.08, bootSole, 0, -PR.bootH, -0.22, boot, 6);
       return { root: root, thigh: thigh, knee: knee, shin: shin, ankle: ankle, boot: boot, side: side };
     }
     const leftLeg = makeLeg(-1), rightLeg = makeLeg(1);
 
-    // ---- torso / fitted strapless tube dress (lathed hourglass, not stacked boxes) ----
+    // ---- torso / sequinned mini-dress: defined waist, hips, spaghetti straps ----
     const torso = new THREE.Group(); torso.name = 'torso'; hip.add(torso);
     lathe([
-      [PR.hipW * 0.48, -0.25],
-      [PR.hipW * 0.46, 0.15],
-      [PR.hipW * 0.42, 0.9],
-      [PR.waistW * 0.52, 2.15],
-      [PR.waistW * 0.50, 2.6],
-      [PR.chestW * 0.42, 3.35],
-      [PR.chestW * 0.50, 4.35],
-      [PR.chestW * 0.52, 4.85],
-      [PR.chestW * 0.48, 5.35],
-      [PR.chestW * 0.40, 5.52]
+      [PR.hipW * 0.54, -0.20],
+      [PR.hipW * 0.52, 0.25],
+      [PR.hipW * 0.46, 1.05],
+      [PR.waistW * 0.44, 2.20],
+      [PR.waistW * 0.42, 2.70],
+      [PR.chestW * 0.40, 3.45],
+      [PR.chestW * 0.52, 4.40],
+      [PR.chestW * 0.55, 4.95],
+      [PR.chestW * 0.48, 5.38],
+      [PR.chestW * 0.32, 5.55]
     ], dress, torso, 28);
-    // soft bust rounding
-    const bustL = sphere(0.85, dress, -0.62, 4.55, 0.55, torso, 12);
-    bustL.scale.set(1.05, 0.85, 0.9);
-    const bustR = sphere(0.85, dress,  0.62, 4.55, 0.55, torso, 12);
-    bustR.scale.set(1.05, 0.85, 0.9);
-    // darker gold belt + white star buckle
-    const beltM = new THREE.Mesh(new THREE.TorusGeometry(PR.waistW * 0.54, 0.18, 8, 24), belt);
-    beltM.rotation.x = Math.PI / 2; beltM.position.set(0, 2.45, 0.04); torso.add(beltM);
-    sphere(0.42, starM, 0, 2.45, 1.05, torso, 8);
+    const bustL = sphere(0.88, dress, -0.68, 4.58, 0.58, torso, 12);
+    bustL.scale.set(1.08, 0.88, 0.92);
+    const bustR = sphere(0.88, dress,  0.68, 4.58, 0.58, torso, 12);
+    bustR.scale.set(1.08, 0.88, 0.92);
+    // Spaghetti straps over the shoulders (as in the t1136 ref).
+    function strapPts(side) {
+      return [
+        [side * 0.62, 4.85, 0.55],
+        [side * 0.95, 5.55, 0.18],
+        [side * 1.12, 5.82, -0.12],
+        [side * 0.70, 5.05, -0.58],
+        [side * 0.40, 4.55, -0.50]
+      ];
+    }
+    hairRibbon(strapPts(-1), 0.075, 0.065, dress, torso, 12, 6);
+    hairRibbon(strapPts( 1), 0.075, 0.065, dress, torso, 12, 6);
+    // Brown belt + a real 5-point star buckle on the front.
+    const beltM = new THREE.Mesh(new THREE.TorusGeometry(PR.waistW * 0.50, 0.16, 8, 24), belt);
+    beltM.rotation.x = Math.PI / 2; beltM.position.set(0, 2.35, 0.06); torso.add(beltM);
+    const starShape = new THREE.Shape();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+      const b = a + Math.PI / 5;
+      const fn = i === 0 ? 'moveTo' : 'lineTo';
+      starShape[fn](Math.cos(a) * 0.42, Math.sin(a) * 0.42);
+      starShape.lineTo(Math.cos(b) * 0.17, Math.sin(b) * 0.17);
+    }
+    starShape.closePath();
+    let starGeo;
+    try {
+      starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.10, bevelEnabled: false, steps: 1, amount: 0.10 });
+    } catch (_) {
+      starGeo = new THREE.CircleGeometry(0.42, 5);
+    }
+    const starBuckle = new THREE.Mesh(starGeo, starM);
+    starBuckle.position.set(0, 2.35, 1.08);
+    starBuckle.scale.set(1.15, 1.15, 1);
+    torso.add(starBuckle);
 
     const skirt = new THREE.Group(); hip.add(skirt);
     lathe([
-      [PR.hipW * 0.48,  0.35],
-      [PR.hipW * 0.50, -0.85],
-      [PR.hipW * 0.52, -1.85],
-      [PR.hipW * 0.55, -2.65],
-      [PR.hipW * 0.62, -3.35],
-      [PR.hipW * 0.58, -3.55]
+      [PR.hipW * 0.54,  0.30],
+      [PR.hipW * 0.55, -0.85],
+      [PR.hipW * 0.56, -1.85],
+      [PR.hipW * 0.58, -2.55],
+      [PR.hipW * 0.62, -3.25],
+      [PR.hipW * 0.52, -3.45]
     ], dress, skirt, 28);
 
     // Fine twinkling glints — small, many, not chunky plus signs
@@ -434,7 +501,7 @@
     ];
     GLINTS.forEach(a => addGlint.apply(null, a));
 
-    // ---- shoulders / rounded arms (dress is strapless) ----
+    // ---- shoulders / rounded arms ----
     const chestTop = new THREE.Group(); chestTop.position.y = PR.torso; torso.add(chestTop);
     // collarbone / upper chest skin
     const collar = sphere(0.7, skin, 0, -0.15, 0.20, chestTop, 10);
@@ -500,28 +567,27 @@
     const hoopL = new THREE.Mesh(hoopGeo, goldShiny); hoopL.position.set(-hw * 0.55, PR.headH * 0.22, 0.04); hoopL.rotation.x = 0.2; head.add(hoopL);
     const hoopR = new THREE.Mesh(hoopGeo, goldShiny); hoopR.position.set( hw * 0.55, PR.headH * 0.22, 0.04); hoopR.rotation.x = 0.2; head.add(hoopR);
 
-    const eyeY = PR.headH * 0.55, eyeZ = hd * 0.50, eyeX = 0.36;
+    const eyeY = PR.headH * 0.54, eyeZ = hd * 0.58, eyeX = 0.38;
     function addEye(sx) {
-      const w = sphere(0.20, eyeW, sx * eyeX, eyeY, eyeZ + 0.02, head, 8);
-      w.scale.set(1.15, 0.85, 0.55);
-      sphere(0.11, eyeP, sx * eyeX, eyeY - 0.01, eyeZ + 0.12, head, 8);
-      sphere(0.035, eyeW, sx * eyeX - 0.04, eyeY + 0.04, eyeZ + 0.18, head, 6);
-      const b = sphere(0.16, lash, sx * eyeX, eyeY + 0.14, eyeZ + 0.02, head, 6);
-      b.scale.set(1.3, 0.28, 0.6);
-      const br = sphere(0.16, brow, sx * eyeX, eyeY + 0.26, eyeZ - 0.02, head, 6);
-      br.scale.set(1.4, 0.25, 0.55);
-      br.rotation.z = sx * -0.18;
+      const w = sphere(0.24, eyeW, sx * eyeX, eyeY, eyeZ + 0.04, head, 10);
+      w.scale.set(1.20, 0.95, 0.62);
+      sphere(0.13, eyeP, sx * eyeX + sx * 0.01, eyeY - 0.01, eyeZ + 0.16, head, 8);
+      sphere(0.045, eyeW, sx * eyeX - 0.05, eyeY + 0.05, eyeZ + 0.22, head, 6);
+      const b = sphere(0.18, lash, sx * eyeX, eyeY + 0.16, eyeZ + 0.04, head, 6);
+      b.scale.set(1.35, 0.30, 0.62);
+      const br = sphere(0.20, brow, sx * eyeX, eyeY + 0.30, eyeZ + 0.02, head, 6);
+      br.scale.set(1.55, 0.32, 0.58);
+      br.rotation.z = sx * -0.22;
     }
     addEye(-1); addEye(1);
-    // nose
-    const bridge = sphere(0.12, skinSh, 0, PR.headH * 0.46, eyeZ + 0.22, head, 8);
+    const bridge = sphere(0.13, skinSh, 0, PR.headH * 0.46, eyeZ + 0.24, head, 8);
     bridge.scale.set(0.7, 1.5, 0.9);
-    sphere(0.13, skin, 0, PR.headH * 0.30, eyeZ + 0.34, head, 8);
-    // lips
-    const mouth = sphere(0.22, lip, 0, PR.headH * 0.18, eyeZ + 0.16, head, 8);
-    mouth.scale.set(1.35, 0.45, 0.7);
-    const mouthHi = sphere(0.16, lipHi, 0, PR.headH * 0.22, eyeZ + 0.20, head, 8);
-    mouthHi.scale.set(1.25, 0.35, 0.6);
+    sphere(0.14, skin, 0, PR.headH * 0.30, eyeZ + 0.36, head, 8);
+    // Red lips, clearly readable from the front.
+    const mouth = sphere(0.26, lip, 0, PR.headH * 0.17, eyeZ + 0.20, head, 8);
+    mouth.scale.set(1.40, 0.50, 0.75);
+    const mouthHi = sphere(0.18, lipHi, 0, PR.headH * 0.21, eyeZ + 0.26, head, 8);
+    mouthHi.scale.set(1.28, 0.36, 0.62);
     // soft cheeks
     const cheekM = addM(phong({ color: 0xeba08a, shininess: 16, specular: 0x331810 }));
     const chL = sphere(0.20, cheekM, -0.48, PR.headH * 0.36, eyeZ * 0.72, head, 8);
@@ -529,74 +595,81 @@
     const chR = sphere(0.20, cheekM,  0.48, PR.headH * 0.36, eyeZ * 0.72, head, 8);
     chR.scale.set(1.1, 0.85, 0.7);
 
-    // ---- long wavy blonde hair: parted continuous mass of large tapered ribbons ----
+    // ---- long wavy blonde hair: side-parted, past the chest, face left clear ----
     const hair = new THREE.Group(); hair.position.y = PR.headH; head.add(hair);
-    // A modest scalp under the locks (matte, mostly hidden).
-    // Skull-hugging cap + a flattened crown lid that buries tube roots
-    // without puffing into a mushroom bowl.
-    const scalp = sphere(1.18, hairA, 0, -0.85, -0.08, hair, 18);
-    scalp.scale.set(1.12, 1.00, 1.16);
-    const lid = sphere(1.08, hairB, 0, -0.08, 0.02, hair, 16);
-    lid.scale.set(1.14, 0.50, 1.16);
+    // Tight cap that stays BEHIND the hairline so it cannot visor over the face.
+    const scalp = sphere(1.12, hairA, 0, -0.98, -0.38, hair, 18);
+    scalp.scale.set(1.10, 0.92, 0.90);
+    const lid = sphere(0.88, hairB, 0, -0.22, -0.42, hair, 16);
+    lid.scale.set(1.08, 0.40, 0.88);
 
     function wavePts(x0, y0, z0, len, side, phase, flare, amp, n, zAmp) {
-      n = n || 10;
-      zAmp = zAmp == null ? 0.22 : zAmp;
+      n = n || 14;
+      zAmp = zAmp == null ? 0.28 : zAmp;
       const pts = [];
       for (let i = 0; i <= n; i++) {
         const t = i / n;
-        // Ease out so roots sit on the scalp; waves only grow as the lock falls.
         const te = t * t * (3 - 2 * t);
+        const tw = Math.pow(t, 0.55);
         const y = y0 - t * len;
-        const x = x0 + side * flare * te + side * amp * te * Math.sin(phase + t * Math.PI * 2.2);
-        const z = z0 + zAmp * te * Math.sin(phase * 0.6 + t * Math.PI * 1.7) - 0.15 * te;
+        const x = x0 + side * flare * te + side * amp * tw * Math.sin(phase + t * Math.PI * 3.6);
+        const z = z0 + zAmp * tw * Math.sin(phase * 0.7 + t * Math.PI * 2.4) - 0.20 * te;
         pts.push([x, y, z]);
       }
       return pts;
     }
-    // Crown locks start at the part (x ≈ ±0.12) and flow out over the head, then down
-    // past the shoulders in a gentle S — a mass, not a cloud of boxes or a helmet.
+    // Side part on her left ( -X ). Heavier mass on the right, long past the chest.
+    // Roots sit at the temples / sides of the crown — not in front of the eyes.
     const LOCKS = [
-      // Start beside a clean centre part (not piled on the apex) and fall past the shoulders.
-      { x: 0.28, y: -0.06, z:  0.30, len: 7.0, ph: 0.2, fl: 0.70, amp: 0.32, r0: 0.36, r1: 0.14, mat: hairB, za: 0.16 },
-      { x: 0.36, y: -0.10, z: -0.08, len: 6.8, ph: 1.1, fl: 0.85, amp: 0.30, r0: 0.34, r1: 0.13, mat: hairA, za: 0.14 },
-      { x: 0.42, y: -0.12, z:  0.42, len: 6.2, ph: 2.2, fl: 0.55, amp: 0.26, r0: 0.28, r1: 0.12, mat: hairC, za: 0.14 },
-      { x: 0.70, y: -0.16, z:  0.08, len: 6.5, ph: 0.7, fl: 0.40, amp: 0.28, r0: 0.32, r1: 0.13, mat: hairA, za: 0.16 },
-      { x: 0.85, y: -0.20, z: 0.38, len: 5.6, ph: 0.4, fl: 0.22, amp: 0.22, r0: 0.22, r1: 0.10, mat: hairB, za: 0.10 }
+      { x: 0.22, y: -0.18, z: -0.05, len: 12.2, ph: 0.2, fl: 0.85, amp: 0.55, r0: 0.40, r1: 0.15, mat: hairB, za: 0.28, side:  1 },
+      { x: 0.38, y: -0.22, z:  0.22, len: 11.6, ph: 1.3, fl: 0.70, amp: 0.48, r0: 0.34, r1: 0.13, mat: hairA, za: 0.24, side:  1 },
+      { x: 0.55, y: -0.28, z: -0.15, len: 11.8, ph: 2.1, fl: 0.55, amp: 0.42, r0: 0.32, r1: 0.12, mat: hairC, za: 0.22, side:  1 },
+      { x: 0.72, y: -0.32, z:  0.18, len: 10.8, ph: 0.7, fl: 0.40, amp: 0.38, r0: 0.26, r1: 0.11, mat: hairA, za: 0.20, side:  1 },
+      { x: 0.88, y: -0.36, z:  0.02, len: 10.2, ph: 1.8, fl: 0.28, amp: 0.32, r0: 0.20, r1: 0.09, mat: hairB, za: 0.16, side:  1 },
+      // lighter side of the part (her left)
+      { x: -0.42, y: -0.22, z:  0.10, len: 11.4, ph: 0.5, fl: 0.65, amp: 0.45, r0: 0.32, r1: 0.12, mat: hairA, za: 0.22, side: -1 },
+      { x: -0.62, y: -0.28, z: -0.12, len: 11.0, ph: 1.6, fl: 0.48, amp: 0.40, r0: 0.28, r1: 0.11, mat: hairC, za: 0.20, side: -1 },
+      { x: -0.80, y: -0.34, z:  0.16, len: 10.4, ph: 2.4, fl: 0.30, amp: 0.34, r0: 0.22, r1: 0.10, mat: hairB, za: 0.16, side: -1 }
     ];
     LOCKS.forEach(L => {
-      hairRibbon(wavePts( L.x, L.y, L.z, L.len,  1, L.ph, L.fl, L.amp, 11, L.za), L.r0, L.r1, L.mat, hair, 24, 8);
-      hairRibbon(wavePts(-L.x, L.y, L.z, L.len, -1, L.ph + 0.2, L.fl, L.amp, 11, L.za), L.r0, L.r1, L.mat, hair, 24, 8);
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 16, L.za), L.r0, L.r1, L.mat, hair, 28, 8);
     });
-    // Soft fringe / face-frame, starting at the hairline not the crown apex.
+    // Highlight strands: thinner, paler, higher-frequency ripples woven through the mass.
+    const HI = [
+      { x: 0.30, y: -0.20, z:  0.12, len: 12.0, ph: 0.9, fl: 0.75, amp: 0.62, r0: 0.11, r1: 0.05, za: 0.30, side:  1 },
+      { x: 0.60, y: -0.26, z: -0.05, len: 11.4, ph: 2.6, fl: 0.50, amp: 0.55, r0: 0.10, r1: 0.045, za: 0.26, side:  1 },
+      { x: -0.50, y: -0.24, z:  0.08, len: 11.2, ph: 1.4, fl: 0.52, amp: 0.58, r0: 0.10, r1: 0.045, za: 0.28, side: -1 }
+    ];
+    HI.forEach(L => {
+      hairRibbon(wavePts(L.x, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 18, L.za), L.r0, L.r1, hairB, hair, 24, 6);
+    });
+    // Side-swept fringe from the left part, across the forehead, ending beside the right eye.
+    // Stays ABOVE the eyes so the face stays clear.
     hairRibbon([
-      [-0.12, 0.08, 0.95], [-0.32, -0.15, 1.10], [-0.50, -0.48, 0.88], [-0.52, -0.85, 0.48]
-    ], 0.18, 0.09, hairB, hair, 12, 7);
+      [-0.32, -0.22, 0.48], [-0.04, -0.38, 0.82], [0.26, -0.58, 0.78], [0.50, -0.90, 0.42]
+    ], 0.055, 0.03, hairB, hair, 14, 7);
     hairRibbon([
-      [ 0.12, 0.08, 0.95], [ 0.32, -0.15, 1.10], [ 0.50, -0.48, 0.88], [ 0.52, -0.85, 0.48]
-    ], 0.18, 0.09, hairB, hair, 12, 7);
-    // Wide crown sheets that drape from either side of the part over the head.
+      [-0.24, -0.28, 0.40], [0.08, -0.48, 0.70], [0.36, -0.78, 0.52], [0.52, -1.10, 0.26]
+    ], 0.045, 0.025, hairA, hair, 14, 7);
+    // A little more crown cover on the right, still behind the hairline.
     hairRibbon([
-      [0.16, -0.08, 0.22], [0.45, -0.18, 0.00], [0.72, -0.55, -0.28], [0.88, -1.55, -0.12]
-    ], 0.30, 0.13, hairA, hair, 16, 8);
-    hairRibbon([
-      [-0.16, -0.08, 0.22], [-0.45, -0.18, 0.00], [-0.72, -0.55, -0.28], [-0.88, -1.55, -0.12]
-    ], 0.30, 0.13, hairA, hair, 16, 8);
-    // Back curtain, mid-back.
+      [0.15, -0.05, -0.15], [0.45, -0.20, -0.05], [0.75, -1.2, 0.10], [0.90, -3.2, 0.05]
+    ], 0.28, 0.12, hairA, hair, 16, 8);
+    // Back / side curtains, long past the chest.
     const BACK = [
-      { x: 0.00, y: 0.35, z: -0.85, len: 6.6, ph: 0.3, fl: 0.05, amp: 0.16, r0: 0.72, r1: 0.22, mat: hairA, side: 1, za: 0.10 },
-      { x: 0.40, y: 0.20, z: -0.90, len: 6.3, ph: 1.0, fl: 0.25, amp: 0.22, r0: 0.50, r1: 0.16, mat: hairC, side: 1, za: 0.12 },
-      { x: 0.40, y: 0.20, z: -0.90, len: 6.3, ph: 1.5, fl: 0.25, amp: 0.22, r0: 0.50, r1: 0.16, mat: hairB, side: -1, za: 0.12 }
+      { x: 0.00, y: -0.10, z: -0.95, len: 12.4, ph: 0.3, fl: 0.08, amp: 0.22, r0: 0.70, r1: 0.20, mat: hairA, side: 1, za: 0.14 },
+      { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.1, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairC, side: 1, za: 0.16 },
+      { x: 0.45, y: -0.18, z: -0.92, len: 12.0, ph: 1.8, fl: 0.30, amp: 0.28, r0: 0.48, r1: 0.16, mat: hairB, side: -1, za: 0.16 }
     ];
     BACK.forEach(L => {
-      hairRibbon(wavePts(L.x * L.side, L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 11, L.za), L.r0, L.r1, L.mat, hair, 24, 8);
+      hairRibbon(wavePts(L.x * (L.side === -1 ? -1 : 1), L.y, L.z, L.len, L.side, L.ph, L.fl, L.amp, 16, L.za), L.r0, L.r1, L.mat, hair, 28, 8);
     });
 
     const parts = {
       g: g, rig: rig, hip: hip, torso: torso, skirt: skirt, chestTop: chestTop,
       neck: neck, head: head, hair: hair, mic: mic, glints: glints,
       leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm,
-      mats: mats
+      mats: mats, dressMat: dress
     };
 
     P.applyPose(parts, P.stepState(0));
@@ -765,13 +838,13 @@
   const ARM = {
     // 1: left at the collarbone, right mic at the mouth
     p1L: { sh: [1.05, 0.55, -0.45], el: [1.55, 0.3, 0.2], wr: [0.3, 0.55, 0.2] },
-    p1R: { sh: [1.12, 0.38, 0.62], el: [2.08, 0.16, 0.18], wr: [0.12, 0.28, 0.12] },
+    p1R: { sh: [0.66, 0.40, 0.10], el: [1.92, 0.25, 0.15], wr: [0.22, 0.50, 0.08] },
     // 2: left on the hip (akimbo), right still singing
     p2L: { sh: [0.25, -0.1, 1.05], el: [1.65, 0.12, 0.45], wr: [0.3, 0.4, 0.55] },
-    p2R: { sh: [1.12, 0.38, 0.62], el: [2.08, 0.16, 0.18], wr: [0.12, 0.28, 0.12] },
+    p2R: { sh: [0.66, 0.40, 0.10], el: [1.92, 0.25, 0.15], wr: [0.22, 0.50, 0.08] },
     // 3: left hand ON TOP of the head (arm up and slightly in, elbow folded over the crown)
     p3L: { sh: [0.35, 0.2, 3.35], el: [1.85, 0.3, -1.2], wr: [0.6, 0.3, 0.2] },
-    p3R: { sh: [1.12, 0.38, 0.62], el: [2.08, 0.16, 0.18], wr: [0.12, 0.28, 0.12] },
+    p3R: { sh: [0.66, 0.40, 0.10], el: [1.92, 0.25, 0.15], wr: [0.22, 0.50, 0.08] },
     // 4: symmetrical high V, both arms nearly straight up, slightly out
     p4L: { sh: [0.1, 0.08, 2.88], el: [0.18, 0, 0.06], wr: [0.1, 0, 0] },
     p4R: { sh: [0.1, -0.08, 2.88], el: [0.18, 0, -0.06], wr: [0.1, 0, 0] }
@@ -841,7 +914,7 @@
     // right-of-mouth target; do not teleport the handle out of the hand.
     parts.head.updateWorldMatrix(true, false);
     parts.rightArm.hand.updateWorldMatrix(true, false);
-    const targetW = ltw(parts.head, 0.55, PR.headH * 0.18, PR.headH * 0.95);
+    const targetW = ltw(parts.head, 0.30, PR.headH * 0.17, PR.headH * 0.55);
     const handW = new THREE.Vector3();
     parts.rightArm.hand.getWorldPosition(handW);
     const dir = targetW.clone().sub(handW);
@@ -866,16 +939,26 @@
   }
 
   function twinkleGlints(parts, st) {
-    if (!parts.glints || !parts.glints.length) return;
     const t = (st && (st.t != null ? st.t : st.u)) || 0;
     const pose = (st && st.pose) || 0;
-    for (let i = 0; i < parts.glints.length; i++) {
-      const g = parts.glints[i];
-      const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(t * 7.5 + i * 1.73 + pose));
-      g.scale.setScalar(0.65 + 0.70 * pulse);
+    if (parts.glints && parts.glints.length) {
+      for (let i = 0; i < parts.glints.length; i++) {
+        const g = parts.glints[i];
+        const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(t * 7.5 + i * 1.73 + pose));
+        g.scale.setScalar(0.65 + 0.70 * pulse);
+      }
+    }
+    if (parts.dressMat) {
+      try {
+        parts.dressMat.emissiveIntensity = 1.15 + 0.50 * (0.5 + 0.5 * Math.sin(t * 9.2));
+      } catch (_) {}
     }
   }
 
+  P.debugArm = function (parts, sh, el, wr) {
+    setArm(parts.rightArm, { sh: sh, el: el, wr: wr || [0.2, 0.3, 0.1] }, 1);
+    aimMic(parts, 0);
+  };
   P.ikLeg = ikLeg;
   P.ikArm = ikArm;
 })(typeof window !== 'undefined' ? window : globalThis);
