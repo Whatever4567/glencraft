@@ -145,6 +145,33 @@ def cap_sections(body, sr=SR):
 
 
 
+
+def drop_movement(body, sr=SR):
+    """8-bar short-term movement inside the drops: fill then a breakdown/pickup.
+
+    LRA uses 3 s windows; 2 bars at 165 BPM is ~2.9 s, so a real dip here
+    shows up as loudness range instead of a flat wall.
+    """
+    from scipy.ndimage import uniform_filter1d
+    n = len(body)
+    env = np.ones(n)
+    for name in ("drop1", "drop2"):
+        a, b = SEC[name]
+        for bar in range(a, b):
+            ph = bar % 8
+            ia = int(bar * BAR * sr)
+            ib = min(int((bar + 1) * BAR * sr), n)
+            if ph == 6:
+                env[ia:ib] *= 0.72          # fill, slightly down
+            elif ph == 7:
+                mid = (ia + ib) // 2
+                env[ia:mid] *= 0.38         # ~-8 dB breakdown
+                rise = np.linspace(0.38, 1.0, max(ib - mid, 1))
+                env[mid:ib] *= rise
+    env = uniform_filter1d(env, size=int(0.07 * sr), mode="nearest")
+    return body * env[:, None]
+
+
 def shape_arrangement(body, sr=SR):
     """Widen LRA (~6 LU) and deepen the break; drop loudness is retargeted after."""
     from scipy.ndimage import uniform_filter1d
@@ -255,6 +282,24 @@ def render():
             "outro": 0.14,
         }[sec_arr]
 
+        # 8-bar drop variation so short-term loudness actually moves (LRA).
+        # 0-5: full call. 6: fill / answer (bed down, snare roll). 7: breakdown
+        # then pickup. Alternate 8-bar phrases slightly (even = hook A, odd = darker).
+        phrase = arr_bar % 8
+        phrase8 = (arr_bar % 16) >= 8
+        drop_sec = sec_arr in ("drop1", "drop2")
+        if drop_sec and phrase == 6:
+            chord_gain *= 0.55
+            donk_gain *= 0.70
+            hat_gain *= 0.85
+        if drop_sec and phrase == 7:
+            chord_gain *= 0.22
+            donk_gain *= 0.45
+            kick_gain *= 0.55
+            hat_gain *= 0.40
+        if drop_sec and phrase8 and phrase < 6:
+            chord_gain *= 0.88  # slightly darker alternate phrase
+
         lead_on = sec_arr in ("drop1", "drop2") or (sec_arr == "build2" and arr_bar >= 76)
         pipe_on = sec_arr == "break"
 
@@ -296,11 +341,12 @@ def render():
                                          cutoff=cutoff)
                 E.add_stereo(music, t_body(bar), L, R, gain=chord_gain * 0.20)
 
-        # Quiet snare rolls — builds must not out-peak the drop
+        # Fills: last bar of a 16, and bar 6 of every drop 8-bar phrase (the answer)
         do_roll = (
             (sec_arr == "build1" and arr_bar >= 12)
             or (sec_arr == "build2" and arr_bar >= 76)
             or (sec_arr in ("drop1", "drop2") and arr_bar % 16 >= 14)
+            or (sec_arr in ("drop1", "drop2") and phrase == 6)
         )
         if do_roll:
             last = arr_bar in (15, 79) or (sec_arr in ("drop1", "drop2") and arr_bar % 16 == 15)
@@ -354,7 +400,7 @@ def render():
                 E.add_stereo(lead, t0 + pos * (SPB / 2), L, R, gain=0.28)
 
     print("sidechain, delay, break filter, glue…")
-    duck = E.sidechain(N, kick_times, depth=0.88, rel=0.15)
+    duck = E.sidechain(N, kick_times, depth=0.92, rel=0.22)
     music *= duck[:, None]
     lead *= (0.32 + 0.68 * duck)[:, None]
     lead = E.ping_pong_delay(lead, delay_s=SPB * 0.75, fb=0.26, mix=0.20)
@@ -404,6 +450,7 @@ def render():
     body = E.limiter(body, ceiling=10 ** (-1.3 / 20.0))
     body = E.seamless_loop(body, xfade_s=0.08, polish_s=0.012)
     body = shape_arrangement(body)
+    body = drop_movement(body)
     # Lift the 50 Hz kick fundamental toward the t1132-ref 40–60 Hz peak.
     # A gentle cut at 78 Hz keeps the donk's 60–80 Hz body from rising with it.
     body[:, 0] = E.rbj(E.rbj(body[:, 0], 50, 0.80, "peak", gain_db=8.0), 78, 0.85, "peak", gain_db=-2.6)

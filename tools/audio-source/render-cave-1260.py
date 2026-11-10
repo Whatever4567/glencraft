@@ -139,6 +139,87 @@ def tone_liminal(x):
     return y
 
 
+
+# t1134-cave-ref band shape (mean FFT power, normalized to the peak band).
+REF_BANDS = [
+    ((20, 40), 0.064), ((40, 60), 0.65), ((60, 80), 0.647), ((80, 100), 1.0),
+    ((100, 150), 0.522), ((150, 200), 0.35), ((200, 300), 0.645),
+    ((300, 400), 0.38), ((400, 600), 0.243), ((600, 800), 0.195),
+    ((800, 1200), 0.061),
+]
+
+
+def _bands(y, sr=SR, dur=28.03):
+    mono = y[: int(dur * sr)].mean(axis=1)
+    w = np.hanning(len(mono))
+    spec = np.abs(np.fft.rfft(mono * w)) ** 2
+    freqs = np.fft.rfftfreq(len(mono), 1 / sr)
+    out = {}
+    for (lo, hi), _ in REF_BANDS:
+        m = (freqs >= lo) & (freqs < hi)
+        out[(lo, hi)] = float(spec[m].mean()) if m.any() else 0.0
+    return out
+
+
+def _cosine(cur):
+    t = np.array([v for _, v in REF_BANDS])
+    c = np.array([cur[k] for k, _ in REF_BANDS])
+    mx = c.max() or 1.0
+    c = c / mx
+    return float(np.dot(t, c) / (np.linalg.norm(t) * np.linalg.norm(c) + 1e-12))
+
+
+def fit_to_ref(y, rng, name, rounds=5):
+    """Add band-limited layers and a gentle graphic EQ until cosine vs t1134 is high."""
+    n = len(y)
+    t = np.arange(n) / SR
+    sw = 0.85 + 0.15 * np.sin(2 * np.pi * 0.04 * t)
+    cur = _bands(y)
+    print(f"  {name} cosine before fit {_cosine(cur):.3f}")
+    # One shot: inject energy into any band that's clearly short of the ref.
+    mx = max(cur.values()) or 1.0
+    for (lo, hi), tgt in REF_BANDS:
+        rel = cur[(lo, hi)] / mx
+        if rel >= tgt * 0.75:
+            continue
+        need = tgt - rel
+        f0 = 0.5 * (lo + hi)
+        tone = np.sin(2 * np.pi * f0 * t) * sw
+        if lo >= 150:
+            # slightly richer mid/choir energy, not a dead test tone
+            tone += 0.45 * np.sin(2 * np.pi * f0 * 1.01 * t)
+            tone += 0.25 * E.sos_bp(rng.standard_normal(n), lo, hi)
+        tone = E.sos_bp(tone, max(lo, 20), hi)
+        # Empirical scale: a unit sine is huge in a narrow FFT band; keep modest
+        # and iterate.
+        g = 0.035 * need * (1.4 if lo >= 180 else 1.0)
+        E.add_mono(y, 0, tone, gain=g, pan=0.0)
+        if lo <= 40:
+            # don't over-fill the 20–40 Hz rumble
+            pass
+    # Graphic EQ iterations toward the target shape.
+    for rnd in range(rounds):
+        cur = _bands(y)
+        mx = max(cur.values()) or 1.0
+        for (lo, hi), tgt in REF_BANDS:
+            rel = max(cur[(lo, hi)] / mx, 1e-6)
+            ratio = tgt / rel
+            db = float(np.clip(20.0 * np.log10(ratio), -6.0, 8.0))
+            if abs(db) < 0.6:
+                continue
+            f0 = 0.5 * (lo + hi)
+            q = 0.9 if (hi - lo) > 40 else 1.2
+            y = np.stack([
+                E.rbj(y[:, 0], f0, q, "peak", gain_db=db),
+                E.rbj(y[:, 1], f0, q, "peak", gain_db=db),
+            ], 1)
+        print(f"  {name} cosine after EQ {rnd+1} {_cosine(_bands(y)):.3f}")
+    # Final high-pass so 20–40 cannot dominate (blue's 34 Hz sub).
+    y = np.stack([E.sos_hp(y[:, 0], 36, 2), E.sos_hp(y[:, 1], 36, 2)], 1)
+    print(f"  {name} cosine after fit {_cosine(_bands(y)):.3f}")
+    return y
+
+
 def render_liminal(name, spec, dur=DUR, rng=None):
     if rng is None:
         rng = np.random.default_rng(SEED + abs(hash(name)) % 999)
@@ -162,7 +243,7 @@ def render_liminal(name, spec, dur=DUR, rng=None):
             k = 0.5 + 0.5 * np.sin(2 * np.pi * spec["lfo"] * 0.6 * t + vi)
             mono = v1 * (1 - k) + v2 * k
             pan = (-0.48, -0.22, 0.0, 0.22, 0.48)[vi % 5]
-            g = 0.42 / (1 + 0.05 * vi)
+            g = 0.55 / (1 + 0.05 * vi)
             E.add_mono(pad, 0, mono * env, gain=g, pan=pan)
 
     # Deep 40–60 Hz drone — present, but not so loud it buries the choir
@@ -179,9 +260,24 @@ def render_liminal(name, spec, dur=DUR, rng=None):
         root = float(min(chord))
         body = np.sin(2 * np.pi * root * t)
         body += 0.22 * np.sin(2 * np.pi * root * 2 * t)
-        body += 0.12 * np.sin(2 * np.pi * 77.0 * t)
-        body = E.sos_lp(body, 180) * env * 0.12
+        body += 0.35 * np.sin(2 * np.pi * 90.0 * t)
+        body += 0.30 * np.sin(2 * np.pi * 98.0 * t)
+        body += 0.18 * np.sin(2 * np.pi * 77.0 * t)
+        body = E.sos_lp(body, 200) * env * 0.20
         E.add_mono(pad, 0, body, gain=1.0, pan=0.0)
+    # Dedicated 80–100 Hz chest wall (fixes the blue hole) + 200–300 Hz choir mid
+    chest = (np.sin(2 * np.pi * 90.0 * t) * 0.7
+             + np.sin(2 * np.pi * 98.0 * t) * 0.55
+             + np.sin(2 * np.pi * 85.0 * t) * 0.35) * sw
+    E.add_mono(pad, 0, E.sos_bp(chest, 80, 110), gain=0.22, pan=0.0)
+    mid_wall = np.zeros(n)
+    for fmid, gmid in ((196.0, 0.55), (220.0, 0.70), (246.9, 0.60),
+                       (261.6, 0.45), (277.2, 0.55), (293.7, 0.40)):
+        vox = E.choir_voice(n, fmid, (260, 420, 780), detune=8, rng=rng)
+        mid_wall += gmid * E.sos_bp(vox, 180, 420)
+    mid_wall *= sw
+    E.add_mono(pad, 0, mid_wall, gain=0.28, pan=-0.12)
+    E.add_mono(pad, 0, mid_wall, gain=0.28, pan=0.12)
 
     # Stereo choir widening: delayed / detuned copies
     d1, d2 = int(0.027 * SR), int(0.043 * SR)
@@ -205,6 +301,7 @@ def render_liminal(name, spec, dur=DUR, rng=None):
                               predelay_s=0.065)
     mixed = np.stack([E.sos_hp(mixed[:, 0], 36, 2), E.sos_hp(mixed[:, 1], 36, 2)], 1)
     mixed = tone_liminal(mixed)
+    mixed = fit_to_ref(mixed, rng, name)
     # loop: last 2s ≈ first 2s material after xfade (choir is already continuous)
     mixed = E.seamless_loop(mixed, xfade_s=1.8, polish_s=0.03)
     # Preview level near the reference (~-16 LUFS). We'll fine-tune after measure.
