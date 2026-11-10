@@ -340,8 +340,9 @@ def render_heather_road():
     # walking air + pad, filter journey (Daft-style opening, then close in the break, reopen)
     air_L, air_R = A.air_noise(n, rng, lo=300, hi=2200, gain=0.02)
     pL, pR = A.soft_pad(n, chord_hz(root_lo, [1, 5, 8], mode), gain=0.07, lp=1600, lfo=0.05)
-    dL, dR = A.bagpipe_drone(n, A.midi(root_lo), gain=0.035)
-    amb = np.stack([air_L + pL + dL, air_R + pR + dR], 1)
+    dL, dR = A.bagpipe_drone(n, A.midi(root_lo), gain=0.06)
+    subL, subR = A.sub_drone(n, A.midi(38), gain=0.10, lfo=0.03)  # D1 warmth
+    amb = np.stack([air_L + pL + dL + subL, air_R + pR + dR + subR], 1)
     t = np.arange(n) / SR
     # three-stage cutoff path
     c1 = C.sweep_cutoff(n, 420, 9000, curve=0.7)
@@ -365,7 +366,7 @@ def render_heather_road():
     add_strings(24, 32, [1, 3, 5, 8, 9], 0.11, 0.45)
     add_strings(32, 40, [1, 3, 5, 7], 0.06, 0.15, alt_mode, alt_root - 12)
     add_strings(40, 48, [1, 4, 5, 8], 0.1, 0.4)
-    add_strings(48, 56, [1, 3, 5, 8, 10], 0.12, 0.5)
+    add_strings(48, 56, [1, 3, 5, 8, 10], 0.18, 0.55)
     add_strings(56, 60, [1, 5, 8], 0.06, 0.22)
 
     # Bodhran + layered kicks — 60 unique-ish bars from a long written vocabulary, never 2 identical in a row
@@ -468,7 +469,7 @@ def render_heather_road():
 
     rL, rR = C.riser(rng, tbar(4, bpm), start_hz=150, end_hz=8500, vel=0.34)
     E.add_stereo(far, tbar(44, bpm), rL, rR)
-    iL, iR = C.impact(rng, dur=2.0, vel=0.4)
+    iL, iR = C.impact(rng, dur=2.4, vel=0.62)
     E.add_stereo(perc, tbar(48, bpm), iL, iR)
 
     # Funk bass — original written line, different vocabulary per section
@@ -537,7 +538,7 @@ def render_heather_road():
         if b >= 52:
             line = [(0, 4, 1.0, False, None), (1.0, 6, 1.0, False, None), (2.0, 5, 1.0, False, None), (3.0, 1, 1.0, False, None)]
         for off, deg, beats, dead, sl in line:
-            bass_evt(b + off / 4.0, deg, beats, dead, sl, vel=0.74)
+            bass_evt(b + off / 4.0, deg, beats, dead, sl, vel=0.86)
     bass_evt(56.0, 1, 8.0, False, None, vel=0.5)
     bass_evt(58.0, 5, 4.0, False, None, vel=0.4)
     bass_evt(59.0, 1, 4.0, False, None, vel=0.35)
@@ -617,12 +618,19 @@ def render_heather_road():
     mid[:, :] = C.apply_sidechain(mid, lift_hits, depth=0.4, rel=0.16)
     far[:, :] = C.apply_sidechain(far, lift_hits, depth=0.22, rel=0.2)
 
-    close = C.polish_stem(close, hp=60, air_db=1.8)
-    mid = C.polish_stem(mid, hp=35, mud_cut_db=-1.8)
-    far = C.polish_stem(far, hp=30)
-    perc = C.polish_stem(perc, hp=30)
-    mixed = C.depth_mix(close, mid, far, perc, 1.0, 0.88, 0.75, 0.9)
-    mixed = A.apply_reverb(mixed, np.random.default_rng(22), ir_s=2.6, wet=0.24, dry=1.0, pre=0.03, dark=2800)
+    close = C.polish_stem(close, hp=50, air_db=1.8)
+    mid = C.polish_stem(mid, hp=24, mud_cut_db=-0.6)
+    far = C.polish_stem(far, hp=20)
+    perc = C.polish_stem(perc, hp=22)
+    # Quiet walk-in, bigger lift_two — the lift has to be felt, not just a return of the verse
+    t = np.arange(close.shape[0]) / SR
+    g = np.interp(t,
+                  [0, tbar(8, bpm), tbar(24, bpm), tbar(32, bpm), tbar(40, bpm), tbar(48, bpm), tbar(56, bpm), dur],
+                  [0.42, 0.75, 1.05, 0.62, 0.88, 1.28, 0.7, 0.55])
+    close *= g[:, None]; mid *= g[:, None]; far *= g[:, None]; perc *= (g * np.clip(g, 0.5, 1.15))[:, None]
+    mixed = C.depth_mix(close, mid, far, perc, 1.0, 0.92, 0.82, 0.95)
+    mixed = A.apply_reverb(mixed, np.random.default_rng(22), ir_s=2.6, wet=0.22, dry=1.0, pre=0.03, dark=2800)
+    mixed = C.stereo_shelf(mixed, 110, 3.2, typ="low")
     out = A.loop_master(mixed[: int(dur * SR)], xfade_s=2.0, target_lufs=-14.0, split=125)
     sections = [
         ("walk_in", 0.0, tbar(8, bpm)),

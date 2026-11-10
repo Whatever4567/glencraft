@@ -7,35 +7,42 @@
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
 
   const SRC = 'music/album/';
-  const SRC_Q = '?v=1.2.54';
-  // Batch 1 pools. Later batches append to these lists; fallbacks fill gaps.
+  const SRC_Q = '?v=1.2.56';
+  // Batches 1–5. Bounce sides live in their own pool so they do not land in pastoral day/night rotation.
   const POOLS = U.POOLS = {
     menu: ['the_glen_opens'],
-    day: ['heather_road'],
-    night: ['watcher_on_the_ridge'],
+    day: ['heather_road', 'drove_road', 'pine_shelter', 'midday_glen', 'bothy_smoke'],
+    night: ['watcher_on_the_ridge', 'peat_fire', 'owl_hour', 'northern_quiet'],
     loch: ['still_water'],
     volcano: ['ash_line'],
     blue: ['blue_vault'],
-    purple: ['blue_vault'],
-    agartha: ['choir_of_the_hollow'],
+    purple: ['purple_chamber'],
+    agartha: ['choir_of_the_hollow', 'inner_sun', 'stone_memory'],
+    moor: ['moor_light'],
+    high: ['ridge_wind'],
+    pine: ['pine_shelter'],
     moon: ['silver_sea'],
-    mars: ['silver_sea'],
-    space: ['silver_sea'],
+    mars: ['red_horizon'],
+    space: ['between_worlds'],
     cave1: ['blue_vault'],
-    hell: ['ash_line'],
-    snow: ['watcher_on_the_ridge'],
-    desert: ['heather_road'],
-    underwater: ['still_water'],
-    creative: ['heather_road'],
-    combat: ['ash_line'],
-    popstar: ['the_glen_opens'],
-    credits: ['the_glen_opens']
+    hell: ['below_the_map'],
+    snow: ['white_pass'],
+    desert: ['long_sand'],
+    underwater: ['down_among_the_reeds'],
+    creative: ['open_sketch'],
+    combat: ['claymore'],
+    crystal: ['crystal_hunt'],
+    boss: ['boss_of_the_glen'],
+    popstar: ['starlight_show'],
+    credits: ['last_light'],
+    bounce: ['bounce_the_glen', 'nightcore_loch', 'cairn_flash', 'till_the_hills']
   };
   const FALLBACK = {
     purple: 'blue', cave1: 'blue', hell: 'volcano',
     mars: 'moon', space: 'moon',
     snow: 'night', desert: 'day', underwater: 'loch',
-    creative: 'day', combat: 'volcano', popstar: 'day', credits: 'menu',
+    creative: 'day', combat: 'volcano', crystal: 'combat', boss: 'combat',
+    popstar: 'day', credits: 'menu', bounce: 'day',
     loch: 'day', volcano: 'day', high: 'day', pine: 'day', moor: 'day'
   };
   const GAP = {
@@ -44,6 +51,10 @@
     blue: [70, 180], purple: [70, 180], agartha: [70, 180], cave1: [70, 180],
     moon: [60, 160], mars: [60, 160], space: [60, 160],
     combat: [8, 20],
+    crystal: [8, 20],
+    boss: [6, 14],
+    popstar: [10, 24],
+    bounce: [8, 20],
     default: [50, 160]
   };
 
@@ -60,9 +71,102 @@
     return (POOLS[c] && POOLS[c].length) ? { ctx: c, ids: POOLS[c].slice() } : { ctx: 'day', ids: (POOLS.day || []).slice() };
   }
 
+  function creditsOpen() {
+    try {
+      if (window.__creditsOpen || U.creditsOpen) return true;
+      if (typeof location !== 'undefined' && /(?:^|#|&)credits\b/i.test(String(location.hash || ''))) return true;
+      const elc = (typeof document !== 'undefined') && (
+        document.getElementById('glxCredits') ||
+        document.getElementById('creditsRoll') ||
+        document.querySelector('[data-screen="credits"]')
+      );
+      if (elc) {
+        const st = (typeof getComputedStyle === 'function') ? getComputedStyle(elc) : null;
+        if (elc.offsetParent !== null && (!st || (st.display !== 'none' && st.visibility !== 'hidden'))) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function isHostileActor(a) {
+    if (!a || a.kind === 'popstar') return false;
+    try { if (window.__v1248 && __v1248.isHostileMob && __v1248.isHostileMob(a)) return true; } catch (_) {}
+    return !!(a.hostile || a.kind === 'nspider' || a.kind === 'spider' || a.kind === 'zombie'
+      || a.kind === 'skeleton' || a.kind === 'blackskel' || a.kind === 'creeper'
+      || a.kind === 'blazeskel' || a.kind === 'guardian');
+  }
+
+  function nearBoss() {
+    try {
+      if (typeof mobs === 'undefined' || !mobs || typeof P === 'undefined') return false;
+      for (let i = 0; i < mobs.length; i++) {
+        const m = mobs[i];
+        if (!m || m.kind === 'popstar') continue;
+        // Ember Wyrm is kind === 'dragon' with boss: true. Some adds store a parent on .boss.
+        const isBoss = (m.kind === 'dragon' || m.boss === true);
+        if (!isBoss || !m.g || !m.g.position) continue;
+        const d = Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z);
+        if (d < 56) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function crystalMood() {
+    try {
+      const mood = window.__v1248 && __v1248.detectMood && __v1248.detectMood();
+      if (mood === 'blue' || mood === 'purple' || mood === 'cave1' || mood === 'agartha') return mood;
+    } catch (_) {}
+    try { if (typeof DIM !== 'undefined' && DIM && DIM.cur === 'agartha') return 'agartha'; } catch (_) {}
+    return null;
+  }
+
+  function inCombat() {
+    try {
+      if (typeof mobs === 'undefined' || !mobs || typeof P === 'undefined') return false;
+      for (let i = 0; i < mobs.length; i++) {
+        const m = mobs[i];
+        if (!isHostileActor(m) || !m.g || !m.g.position) continue;
+        const d = Math.hypot(m.g.position.x - P.x, m.g.position.z - P.z);
+        if (d < 8) return true;
+        if (d < 16 && (m.aggro > 0 || m.vic === P || m.target === P)) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function nearPopstar() {
+    try {
+      const u = window.__v1251;
+      if (!u) return false;
+      const a = u.alive && u.alive();
+      if (!a || !a.g || !a.g.position || typeof P === 'undefined') return false;
+      const d = Math.hypot(a.g.position.x - P.x, a.g.position.z - P.z);
+      return d < 72;
+    } catch (_) { return false; }
+  }
+
+  // Her diegetic dance song (__v1251.songOn) must not be replaced by Album.
+  function popstarSongOn() {
+    try { return !!(window.__v1251 && window.__v1251.songOn); } catch (_) { return false; }
+  }
+  U.popstarSongOn = popstarSongOn;
+
   function detectContext() {
     try {
+      // Credits beat the title-screen menu so a roll can play from either place.
+      if (creditsOpen()) return 'credits';
+      // Album hardcore sides (never the live remix). Opt-in only: they must
+      // not land in ordinary day/night rotation or replace Happy Hardcore mode.
+      try {
+        if (U.bounce || window.__albumBounce) return 'bounce';
+        if (typeof location !== 'undefined' && /(?:^|#|&)bounce\b/i.test(String(location.hash || ''))) return 'bounce';
+      } catch (_) {}
       if (typeof started !== 'undefined' && !started) return 'menu';
+      // Boss, crystal-cave combat, then general combat, then the pop star.
+      if (nearBoss()) return 'boss';
+      if (inCombat()) return crystalMood() ? 'crystal' : 'combat';
+      if (nearPopstar()) return 'popstar';
       if (typeof DIM !== 'undefined' && DIM && DIM.cur) {
         if (DIM.cur === 'moon') return 'moon';
         if (DIM.cur === 'mars') return 'mars';
@@ -110,6 +214,15 @@
       } catch (_) {}
       try {
         if (typeof isNight !== 'undefined' && isNight) return 'night';
+      } catch (_) {}
+      // Day-only highland biomes (night already returned above). Loch stays earlier so water wins at night.
+      try {
+        if (typeof biomeAt === 'function' && typeof P !== 'undefined') {
+          const bio = biomeAt(P.x, P.z);
+          if (bio === 'high') return 'high';
+          if (bio === 'moor') return 'moor';
+          if (bio === 'pine') return 'pine';
+        }
       } catch (_) {}
       try {
         if (typeof MODE !== 'undefined' && MODE && MODE.name === 'creative') return 'creative';
@@ -165,7 +278,7 @@
   }
 
   function stop() {
-    wanted = false; curId = null; U.track = null;
+    wanted = false; curId = null; U.track = null; U.ducked = 0;
     if (el) try { el.pause(); } catch (_) {}
   }
   function pause() {
@@ -182,13 +295,39 @@
 
   function tick() {
     const hidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-    const vol = hidden ? 0 : albumVol();
     const a = ensureEl();
+    const songOn = popstarSongOn();
+    U.songOn = songOn ? 1 : 0;
+    U.ctx = detectContext();
+
+    // Her own dance song owns the bed: skip starting Album, and duck/pause
+    // anything already playing (including starlight_show) until she stops.
+    if (songOn) {
+      a.volume = 0;
+      if (wanted) { try { a.pause(); } catch (_) {} }
+      U.ducked = 1;
+      return;
+    }
+    if (U.ducked) {
+      U.ducked = 0;
+      const now0 = performance.now();
+      const vol0 = hidden ? 0 : albumVol();
+      // Resume the same cue if we paused mid-track; otherwise a short gap, then pick.
+      if (curId && a && a.src && !a.ended && vol0 >= 0.01) {
+        wanted = true;
+        a.volume = vol0;
+        const p = a.play(); if (p && p.catch) p.catch(() => {});
+        gapUntil = now0 + 400;
+        return;
+      }
+      gapUntil = now0 + 800;
+    }
+
+    const vol = hidden ? 0 : albumVol();
     a.volume = vol;
     if (hidden || vol < 0.01) { try { a.pause(); } catch (_) {} return; }
 
-    const ctx = detectContext();
-    U.ctx = ctx;
+    const ctx = U.ctx;
     const now = performance.now();
 
     const playing = wanted && a && !a.paused && !a.ended;
