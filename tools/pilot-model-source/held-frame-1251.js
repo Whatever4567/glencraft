@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p18', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p19', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -289,6 +289,7 @@
       // Visual-only thumb-box override. Joints (th / tk / td) stay where
       // curl / the rig left them; only the sculpted meshes are moved.
       applyThumbVis(kind);
+      applyThumbDist(kind);
     } catch (e) { ERR('curl', e); }
   }
 
@@ -347,6 +348,56 @@
       });
     } catch (e) { ERR('thumbVis', e); }
   }
+
+  // Visual-only: lengthen or rotate just the thumb's distal box (and its
+  // nail) in td-local space. Joints th/tk/td and the proximal/mid boxes
+  // stay where the rig put them.
+  function applyThumbDist(kind) {
+    try {
+      const spec = U.__thumbDist && U.__thumbDist[kind];
+      eachArm(function (arm) {
+        const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+        const th = h && h.userData && h.userData.th;
+        const tk = th && th.userData && th.userData.k;
+        const td = tk && tk.userData && tk.userData.d;
+        if (!td || !td.traverse) return;
+        const meshes = [];
+        td.traverse(function (o) {
+          if (o.isMesh && o.userData && (o.userData.sculpt1249 || o.userData.nail1249)) meshes.push(o);
+        });
+        meshes.forEach(function (m) {
+          if (!m.userData._tdVis0) {
+            m.userData._tdVis0 = {p: m.position.clone(), q: m.quaternion.clone(), s: m.scale.clone()};
+          }
+          const b = m.userData._tdVis0;
+          m.position.copy(b.p);
+          m.quaternion.copy(b.q);
+          m.scale.copy(b.s);
+        });
+        if (!spec || !meshes.length) return;
+        const scl = (spec.scl != null) ? spec.scl : 1;
+        const eul = spec.eul || [0, 0, 0];
+        const off = spec.pos || [0, 0, 0];
+        const q = new T.Quaternion().setFromEuler(new T.Euler(eul[0] || 0, eul[1] || 0, eul[2] || 0, 'XYZ'));
+        meshes.forEach(function (m) {
+          const isNail = !!(m.userData && m.userData.nail1249);
+          if (!isNail && scl !== 1) {
+            m.scale.y *= scl;
+          }
+          if (isNail && scl !== 1) {
+            // Keep the nail at the new tip rather than stretching it.
+            m.position.y += (scl - 1) * 0.014;
+          }
+          m.position.applyQuaternion(q);
+          m.position.x += off[0] || 0;
+          m.position.y += off[1] || 0;
+          m.position.z += off[2] || 0;
+          m.quaternion.premultiply(q);
+        });
+      });
+    } catch (e) { ERR('thumbDist', e); }
+  }
+
 
   function poseTp() {
     try {
@@ -1038,9 +1089,16 @@
   U.__thumbAim = 0;
   U.__thumbLive = 0;
   U.__palmFlip = 0;
-  U.__palmBowl = 0;
-  U.__bowl = {};
+  // Empty hand: forearm comes up from below the frame, pitched forward,
+  // then supinated ~180° about the forearm long axis so the palmar face
+  // (now painted with a pinker tone and crease lines) is toward the camera.
+  // Cobble/map are not included until the block can be seated in that palm.
+  U.__palmBowl = 1;
+  U.__bowl = {
+    empty: {frame: {dy: -0.18}, pitch: 0.80, pitchOf: 'elb', sup: Math.PI, curl: 0.36}
+  };
   U.__thumbVis = {};
+  U.__thumbDist = {};
   U.__adsHideLeft = 1;
   U.__adsHideWrist = 0;
   U.__adsHideRThumb = 1;
@@ -1049,6 +1107,9 @@
   // and hip poses are unchanged.
   U.__adsHideFingers = [3];
   U.__adsHideOver = 0;
+  // Musket ADS only: hide right-hand finger meshes left of the sight so
+  // the wrapping tips do not sit as shards on the lock. 0 = camera-local x.
+  U.__adsHideLeftX = 0;
   // Override from a diagnostic: __palmAxis, __palmWant (camera space).
   U.__palmAxis = [0, 0, -1];
   U.__palmWant = [0, 0.85, 0.55];
@@ -1451,6 +1512,7 @@
         const hideRThumb = !!(gunsAds && U.__adsHideRThumb && side > 0);
         const hideIdx = (gunsAds && kind === 'musket' && side > 0 && Array.isArray(U.__adsHideFingers)) ? U.__adsHideFingers : null;
         const hideOver = !!(gunsAds && kind === 'musket' && side > 0 && U.__adsHideOver);
+        const hideLeftX = (gunsAds && kind === 'musket' && side > 0 && U.__adsHideLeftX != null) ? U.__adsHideLeftX : null;
         const th = p.h.userData && p.h.userData.th;
         const fingers = (p.h.userData && p.h.userData.f) || [];
         const hideRoots = [];
@@ -1482,6 +1544,11 @@
               if (underFinger) break;
             }
           }
+          let leftShard = false;
+          if (hideLeftX != null && underKeep(o) && !underThumb) {
+            const pcL = toCameraLocal(o, new T.Vector3(0, 0, 0));
+            if (pcL && pcL.x < hideLeftX) leftShard = true;
+          }
           let overSight = false;
           if (hideOver && underKeep(o) && !underThumb) {
             const pc = toCameraLocal(o, new T.Vector3(0, 0, 0));
@@ -1489,7 +1556,7 @@
             const limY = (U.__adsOverY != null) ? U.__adsOverY : -0.045;
             if (pc && Math.abs(pc.x) < limX && pc.y > limY) overSight = true;
           }
-          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap || wristChild || underThumb || underFinger || overSight)) {
+          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap || wristChild || underThumb || underFinger || overSight || leftShard)) {
             o.visible = false;
             o.userData.__hidAds1252 = 1;
           } else if (o.userData && o.userData.__hidAds1252) {

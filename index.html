@@ -49257,8 +49257,20 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
+/* v1.2.57-sculpt: upgrade the existing __fpa cube-arm meshes in place
+   (subdivide, round, better palm/fingers/nails/wrist, skin and linen).
+   Animation drivers, joints, pivots and grip positions stay untouched.
+   Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
-  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p11', sculpted: 0};
+  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p19', sculpted: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -49282,55 +49294,187 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     try { if (T.sRGBEncoding) t.encoding = T.sRGBEncoding; } catch (_) {}
     return t;
   }
-  function skinTex() {
-    // Smooth tanned skin, no speckled pits. Soft warmth, faint pores, crease hints.
-    return tex(1024, 1024, (g) => {
-      const grd = g.createLinearGradient(0, 0, 1024, 1024);
+  function fillSkinBase(g, w, h, paler) {
+    const grd = g.createLinearGradient(0, 0, w, h);
+    if (paler) {
+      grd.addColorStop(0, '#f3d2c0');
+      grd.addColorStop(0.3, '#eebba6');
+      grd.addColorStop(0.6, '#e4a894');
+      grd.addColorStop(1, '#d89880');
+    } else {
       grd.addColorStop(0, '#e8c6aa');
       grd.addColorStop(0.28, '#e0b496');
       grd.addColorStop(0.55, '#d4a084');
       grd.addColorStop(0.8, '#c49476');
       grd.addColorStop(1, '#be8c6e');
-      g.fillStyle = grd; g.fillRect(0, 0, 1024, 1024);
-      // very soft blotches of warmth (blood) and cooler shadow
-      for (let i = 0; i < 18; i++) {
-        const x = Math.random() * 1024, y = Math.random() * 1024;
-        const r = 80 + Math.random() * 160;
-        const rad = g.createRadialGradient(x, y, 0, x, y, r);
-        const warm = Math.random() < 0.6;
-        rad.addColorStop(0, warm ? 'rgba(180,70,45,0.10)' : 'rgba(90,60,50,0.07)');
-        rad.addColorStop(1, 'rgba(0,0,0,0)');
-        g.fillStyle = rad; g.fillRect(0, 0, 1024, 1024);
-      }
-      // faint pores (tiny, low contrast)
-      for (let i = 0; i < 1800; i++) {
-        g.fillStyle = 'rgba(90,50,30,' + (0.03 + Math.random() * 0.04) + ')';
-        g.fillRect(Math.random() * 1024, Math.random() * 1024, 1, 1);
-      }
-      // Irregular short creases — no regular rows (those wrapped as brick bands on cylinders).
+    }
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 14; i++) {
+      const x = Math.random() * w, y = Math.random() * h;
+      const r = 60 + Math.random() * 140;
+      const rad = g.createRadialGradient(x, y, 0, x, y, r);
+      const warm = Math.random() < 0.65;
+      rad.addColorStop(0, paler
+        ? (warm ? 'rgba(200,80,70,0.14)' : 'rgba(120,60,55,0.08)')
+        : (warm ? 'rgba(180,70,45,0.10)' : 'rgba(90,60,50,0.07)'));
+      rad.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rad; g.fillRect(0, 0, w, h);
+    }
+    for (let i = 0; i < 1400; i++) {
+      g.fillStyle = 'rgba(90,50,30,' + (0.03 + Math.random() * 0.04) + ')';
+      g.fillRect(Math.random() * w, Math.random() * h, 1, 1);
+    }
+  }
+  function softSideBlend(g, x0, x1, h, mid) {
+    // Fade each vertical edge to a shared mid-tone so palmar/dorsal
+    // halves meet cleanly on the sides of a finger or palm.
+    const w = 22;
+    [[x0, 1], [x1, -1]].forEach(function (e) {
+      const x = e[0], dir = e[1];
+      const grd = g.createLinearGradient(x, 0, x + dir * w, 0);
+      grd.addColorStop(0, mid);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grd;
+      g.fillRect(dir > 0 ? x : x - w, 0, w, h);
+    });
+  }
+  function skinTex() {
+    // Limb / general skin. No knuckle pairs or veins — those live on the
+    // dorsal half of the hand and finger atlases only.
+    return tex(1024, 1024, (g) => {
+      fillSkinBase(g, 1024, 1024, false);
       g.lineCap = 'round';
-      for (let i = 0; i < 40; i++) {
-        g.strokeStyle = 'rgba(110,60,40,' + (0.06 + Math.random() * 0.08) + ')';
-        g.lineWidth = 1 + Math.random() * 1.4;
+      for (let i = 0; i < 28; i++) {
+        g.strokeStyle = 'rgba(110,60,40,' + (0.05 + Math.random() * 0.06) + ')';
+        g.lineWidth = 1 + Math.random() * 1.2;
         g.beginPath();
         const x = Math.random() * 1024, y = Math.random() * 1024;
-        const dx = (Math.random() - 0.5) * 90, dy = (Math.random() - 0.4) * 30;
-        g.moveTo(x, y); g.quadraticCurveTo(x + dx * 0.5, y + dy + 6, x + dx, y + dy);
+        const dx = (Math.random() - 0.5) * 80, dy = (Math.random() - 0.4) * 24;
+        g.moveTo(x, y); g.quadraticCurveTo(x + dx * 0.5, y + dy + 5, x + dx, y + dy);
         g.stroke();
       }
-      // a few slightly stronger knuckle-like pairs, randomly placed (not a grid)
-      for (let i = 0; i < 14; i++) {
-        const x = 40 + Math.random() * 940, y = 40 + Math.random() * 940;
-        g.strokeStyle = 'rgba(100,55,35,0.16)'; g.lineWidth = 1.8;
-        g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 22, y + 4, x + 48, y - 1); g.stroke();
-        g.beginPath(); g.moveTo(x, y + 6); g.quadraticCurveTo(x + 22, y + 10, x + 48, y + 5); g.stroke();
+    });
+  }
+  function handAtlasTex() {
+    // U 0-0.5 = dorsum of the palm (veins, tendons, knuckle-row hint).
+    // U 0.5-1 = palmar face (lighter/pinker, creases, pads).
+    return tex(1024, 1024, (g) => {
+      const mid = 'rgba(210,160,130,0.55)';
+      // --- dorsum ---
+      g.save(); g.beginPath(); g.rect(0, 0, 512, 1024); g.clip();
+      fillSkinBase(g, 512, 1024, false);
+      g.lineCap = 'round';
+      // faint veins (dorsum only)
+      for (let i = 0; i < 5; i++) {
+        const x = 80 + i * 80 + (Math.random() - 0.5) * 20;
+        g.strokeStyle = 'rgba(90,90,130,0.13)';
+        g.lineWidth = 2 + Math.random();
+        g.beginPath();
+        g.moveTo(x, 80);
+        g.quadraticCurveTo(x + (Math.random() - 0.5) * 40, 480, x + (Math.random() - 0.5) * 28, 980);
+        g.stroke();
       }
-      // faint irregular tendon streaks (not equally spaced)
-      for (let i = 0; i < 6; i++) {
-        const x = 60 + Math.random() * 900;
-        g.strokeStyle = 'rgba(140,80,60,0.06)'; g.lineWidth = 2.5;
-        g.beginPath(); g.moveTo(x, 30); g.quadraticCurveTo(x + (Math.random() - 0.5) * 40, 500, x + (Math.random() - 0.5) * 30, 990); g.stroke();
+      // tendon streaks
+      for (let i = 0; i < 4; i++) {
+        const x = 110 + i * 90;
+        g.strokeStyle = 'rgba(140,80,60,0.10)'; g.lineWidth = 3;
+        g.beginPath(); g.moveTo(x, 40); g.quadraticCurveTo(x + 8, 500, x - 6, 1000); g.stroke();
       }
+      // knuckle-row hint near the finger bases (top of the palm)
+      for (let i = 0; i < 4; i++) {
+        const x = 70 + i * 100;
+        g.strokeStyle = 'rgba(100,55,35,0.22)'; g.lineWidth = 2;
+        g.beginPath(); g.moveTo(x, 880); g.quadraticCurveTo(x + 22, 894, x + 50, 882); g.stroke();
+        g.beginPath(); g.moveTo(x, 894); g.quadraticCurveTo(x + 22, 908, x + 50, 896); g.stroke();
+      }
+      g.restore();
+      // --- palm ---
+      g.save(); g.beginPath(); g.rect(512, 0, 512, 1024); g.clip();
+      fillSkinBase(g, 1024, 1024, true);
+      g.fillStyle = '#000'; // clip already set; paint over the left half is clipped
+      // thenar / hypothenar / central palmar pads
+      function blush(x, y, rx, ry, rgba) {
+        const rad = g.createRadialGradient(x, y, 0, x, y, rx);
+        rad.addColorStop(0, rgba);
+        rad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = rad;
+        g.save(); g.translate(x, y); g.scale(1, ry / rx); g.translate(-x, -y);
+        g.fillRect(x - rx, y - rx, rx * 2, rx * 2);
+        g.restore();
+      }
+      blush(650, 360, 130, 160, 'rgba(210,90,80,0.22)');
+      blush(890, 360, 120, 150, 'rgba(210,90,80,0.18)');
+      blush(770, 620, 150, 130, 'rgba(220,110,95,0.16)');
+      // slightly paler hollow in the centre
+      blush(770, 520, 90, 110, 'rgba(255,220,200,0.16)');
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(140,70,60,0.38)';
+      g.lineWidth = 3.2;
+      // life line (curve from thumb side down)
+      g.beginPath(); g.moveTo(620, 820); g.quadraticCurveTo(640, 500, 680, 200); g.stroke();
+      // head line
+      g.lineWidth = 2.8;
+      g.beginPath(); g.moveTo(640, 620); g.quadraticCurveTo(780, 600, 960, 640); g.stroke();
+      // heart line
+      g.lineWidth = 3.0;
+      g.beginPath(); g.moveTo(640, 760); g.quadraticCurveTo(800, 790, 970, 740); g.stroke();
+      // finger-root creases at the top of the palm
+      g.lineWidth = 2.2;
+      g.strokeStyle = 'rgba(140,70,60,0.32)';
+      for (let i = 0; i < 4; i++) {
+        const x = 580 + i * 100;
+        g.beginPath(); g.moveTo(x, 910); g.quadraticCurveTo(x + 30, 924, x + 70, 908); g.stroke();
+        g.beginPath(); g.moveTo(x + 6, 936); g.quadraticCurveTo(x + 34, 948, x + 66, 934); g.stroke();
+      }
+      g.restore();
+      softSideBlend(g, 0, 512, 1024, mid);
+      softSideBlend(g, 512, 1024, 1024, mid);
+    });
+  }
+  function fingerAtlasTex() {
+    // U 0-0.5 = dorsal finger (knuckle wrinkles only).
+    // U 0.5-1 = palmar finger (pads + joint creases).
+    return tex(1024, 1024, (g) => {
+      const mid = 'rgba(210,160,130,0.55)';
+      g.save(); g.beginPath(); g.rect(0, 0, 512, 1024); g.clip();
+      fillSkinBase(g, 512, 1024, false);
+      g.lineCap = 'round';
+      // knuckle wrinkle pairs near the proximal end (v~0.12) and mid
+      [[70, 0.12], [70, 0.48]].forEach(function (row) {
+        for (let i = 0; i < 3; i++) {
+          const x = row[0] + i * 130, y = row[1] * 1024;
+          g.strokeStyle = 'rgba(100,55,35,0.28)'; g.lineWidth = 2.2;
+          g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 30, y + 8, x + 80, y); g.stroke();
+          g.beginPath(); g.moveTo(x, y + 10); g.quadraticCurveTo(x + 30, y + 18, x + 80, y + 10); g.stroke();
+        }
+      });
+      g.restore();
+      g.save(); g.beginPath(); g.rect(512, 0, 512, 1024); g.clip();
+      fillSkinBase(g, 1024, 1024, true);
+      // finger-pad ovals along the palmar face
+      function pad(cx, cy, rx, ry) {
+        const rad = g.createRadialGradient(cx, cy, 0, cx, cy, rx);
+        rad.addColorStop(0, 'rgba(210,90,80,0.26)');
+        rad.addColorStop(0.55, 'rgba(200,90,80,0.10)');
+        rad.addColorStop(1, 'rgba(0,0,0,0)');
+        g.fillStyle = rad;
+        g.save(); g.translate(cx, cy); g.scale(1, ry / rx); g.translate(-cx, -cy);
+        g.fillRect(cx - rx, cy - rx, rx * 2, rx * 2);
+        g.restore();
+      }
+      pad(768, 280, 150, 180);
+      pad(768, 620, 160, 190);
+      pad(768, 900, 140, 120);
+      g.lineCap = 'round';
+      g.strokeStyle = 'rgba(140,70,60,0.34)'; g.lineWidth = 2.4;
+      // joint creases at the proximal end of the pad
+      [140, 480, 820].forEach(function (y) {
+        g.beginPath(); g.moveTo(580, y); g.quadraticCurveTo(768, y + 10, 960, y); g.stroke();
+        g.beginPath(); g.moveTo(600, y + 14); g.quadraticCurveTo(768, y + 22, 940, y + 12); g.stroke();
+      });
+      g.restore();
+      softSideBlend(g, 0, 512, 1024, mid);
+      softSideBlend(g, 512, 1024, 1024, mid);
     });
   }
   function skinBump() {
@@ -49392,9 +49536,12 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 
   const SKIN_MAP = skinTex();
   const SKIN_BUMP = skinBump();
+  const HAND_ATLAS = handAtlasTex();
+  const FINGER_ATLAS = fingerAtlasTex();
   const LINEN_MAP = linenTex();
   LINEN_MAP.repeat.set(1, 1.4);
   U.SKIN_MAP = SKIN_MAP; U.SKIN_BUMP = SKIN_BUMP; U.LINEN_MAP = LINEN_MAP;
+  U.HAND_ATLAS = HAND_ATLAS; U.FINGER_ATLAS = FINGER_ATLAS;
 
   function std(opts) {
     const m = new T.MeshStandardMaterial(opts);
@@ -49409,6 +49556,24 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     });
     return m;
   }
+  function handMat() {
+    const m = std({
+      color: 0xffffff, map: HAND_ATLAS, bumpMap: SKIN_BUMP, bumpScale: 0.016,
+      roughness: 0.52, metalness: 0.0
+    });
+    m.userData.handAtlas1249 = 1;
+    return m;
+  }
+  function fingerMat() {
+    const m = std({
+      color: 0xffffff, map: FINGER_ATLAS, bumpMap: SKIN_BUMP, bumpScale: 0.014,
+      roughness: 0.52, metalness: 0.0
+    });
+    m.userData.fingerAtlas1249 = 1;
+    return m;
+  }
+  U.handMat = handMat;
+  U.fingerMat = fingerMat;
   function linenMat() {
     const m = std({
       color: 0xf2eee4, map: LINEN_MAP, bumpMap: LINEN_MAP, bumpScale: 0.018,
@@ -49509,10 +49674,22 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       return g;
     });
   }
+  function uvAtlasU(geo, side) {
+    // side: 'palm' uses U 0.5-1, 'dorsum' uses U 0-0.5.
+    const uv = geo.getAttribute && geo.getAttribute('uv');
+    if (!uv) return geo;
+    for (let i = 0; i < uv.count; i++) {
+      const u = uv.getX(i);
+      uv.setX(i, side === 'palm' ? 0.5 + 0.5 * u : 0.5 * u);
+    }
+    uv.needsUpdate = true;
+    return geo;
+  }
   function palmGeo() {
-    return share('palm2', function () {
+    return share('palm3', function () {
       const g = new T.BoxGeometry(0.078, 0.102, 0.036, 12, 12, 6);
       const p = g.attributes.position;
+      const uv = g.attributes.uv;
       for (let i = 0; i < p.count; i++) {
         let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
         const yn = (y + 0.051) / 0.102;
@@ -49533,7 +49710,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           x *= k; z *= k;
         }
         p.setXYZ(i, x, y, z);
+        // Existing box: palmar face (z<0) samples the pink/crease half,
+        // dorsal face samples veins / knuckle-row. Sides split on z.
+        if (uv) {
+          const u = uv.getX(i);
+          uv.setX(i, z < 0 ? 0.5 + 0.5 * u : 0.5 * u);
+        }
       }
+      if (uv) uv.needsUpdate = true;
       g.computeVertexNormals();
       const out = g.clone();
       out.type = 'BufferGeometry';
@@ -49649,6 +49833,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     if (!h || h.userData.sculptGeo1249) return;
     h.userData.sculptGeo1249 = 1;
     const sm = skinMat();
+    const hm = handMat();
+    const fm = fingerMat();
     hideOriginalLimbs(h);
     // Sweep again for anything paint/harden may have left visible (grey shard at the wrist).
     h.traverse(o => {
@@ -49657,19 +49843,20 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       hideOld(o);
     });
 
-    const palm = addMesh(h, palmGeo(), sm, 0, 0.05, 0);
+    const palm = addMesh(h, palmGeo(), hm, 0, 0.05, 0);
     palm.name = 'PalmSculpt';
+    palm.userData.palmAtlas = 1;
 
     // Thenar (thumb) and hypothenar pads, palmar bulge — slightly fuller.
-    const thenar = addMesh(h, new T.SphereGeometry(1, 16, 12), sm);
+    const thenar = addMesh(h, uvAtlasU(new T.SphereGeometry(1, 16, 12), 'palm'), hm);
     thenar.scale.set(0.011, 0.010, 0.008);
     thenar.position.set(side * 0.024, 0.030, -0.005);
     thenar.userData.pad1249 = 1;
-    const hypo = addMesh(h, new T.SphereGeometry(1, 14, 10), sm);
+    const hypo = addMesh(h, uvAtlasU(new T.SphereGeometry(1, 14, 10), 'palm'), hm);
     hypo.scale.set(0.009, 0.008, 0.006);
     hypo.position.set(-side * 0.023, 0.028, -0.003);
     hypo.userData.pad1249 = 1;
-    const palmPad = addMesh(h, new T.SphereGeometry(1, 14, 10), sm);
+    const palmPad = addMesh(h, uvAtlasU(new T.SphereGeometry(1, 14, 10), 'palm'), hm);
     palmPad.scale.set(0.013, 0.009, 0.006);
     palmPad.position.set(0, 0.050, -0.009);
     palmPad.userData.pad1249 = 1;
@@ -49682,15 +49869,18 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (!pair) continue;
       const f = pair[0], k = pair[1];
       const r = widths[i] || 0.0075;
-      addMesh(f, fingerSegGeo(0.036, r, r * 0.82, 0.58, 14, 18, 1), sm);
-      addMesh(f, knuckleGeo(r * 1.10), sm, 0, 0.001, 0.0008);
+      const fp = addMesh(f, fingerSegGeo(0.036, r, r * 0.82, 0.58, 14, 18, 1), fm);
+      fp.userData.fingerAtlas = 1;
+      addMesh(f, knuckleGeo(r * 1.10), sm, 0, 0.001, 0.0008).userData.knuckle1249 = 1;
       if (k) {
-        addMesh(k, fingerSegGeo(0.017, r * 0.82, r * 0.72, 0.56, 12, 18, 1), sm);
-        addMesh(k, knuckleGeo(r * 0.92), sm, 0, 0.001, 0.0006);
+        const mp = addMesh(k, fingerSegGeo(0.017, r * 0.82, r * 0.72, 0.56, 12, 18, 1), fm);
+        mp.userData.fingerAtlas = 1;
+        addMesh(k, knuckleGeo(r * 0.92), sm, 0, 0.001, 0.0006).userData.knuckle1249 = 1;
         const d = k.userData && k.userData.d;
         if (d) {
-          addMesh(d, fingerSegGeo(0.013, r * 0.72, r * 0.52, 0.54, 12, 18, 0), sm);
-          addMesh(d, knuckleGeo(r * 0.78), sm, 0, 0.001, 0.0005);
+          const dp = addMesh(d, fingerSegGeo(0.013, r * 0.72, r * 0.52, 0.54, 12, 18, 0), fm);
+          dp.userData.fingerAtlas = 1;
+          addMesh(d, knuckleGeo(r * 0.78), sm, 0, 0.001, 0.0005).userData.knuckle1249 = 1;
           const nail = addMesh(d, nailGeo(r * 0.92, 0.0048, r * 0.18), nailMat(), 0, 0.0090, r * 0.26);
           nail.rotation.x = -0.10;
           nail.userData.nail1249 = 1;
@@ -49700,13 +49890,17 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 
     const th = h.userData.th;
     if (th) {
-      addMesh(th, fingerSegGeo(0.05, 0.0100, 0.0078, 0.64, 14, 18, 1), sm);
+      const ths = addMesh(th, fingerSegGeo(0.05, 0.0100, 0.0078, 0.64, 14, 18, 1), fm);
+      ths.userData.fingerAtlas = 1;
       const tk = th.userData && th.userData.k;
       if (tk) {
-        addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0070, 0.62, 12, 18, 1), sm);
+        const tks = addMesh(tk, fingerSegGeo(0.018, 0.0082, 0.0070, 0.62, 12, 18, 1), fm);
+        tks.userData.fingerAtlas = 1;
         const td = tk.userData && tk.userData.d;
         if (td) {
-          addMesh(td, fingerSegGeo(0.014, 0.0070, 0.0056, 0.60, 12, 18, 0), sm);
+          const tds = addMesh(td, fingerSegGeo(0.014, 0.0070, 0.0056, 0.60, 12, 18, 0), fm);
+          tds.userData.fingerAtlas = 1;
+          tds.userData.thumbDist1249 = 1;
           const tn = addMesh(td, nailGeo(0.0072, 0.0050, 0.0018), nailMat(), 0, 0.0095, 0.0032);
           tn.rotation.x = -0.10;
           tn.userData.nail1249 = 1;
@@ -49819,7 +50013,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       const fpa = W.__fpa;
       const rig = fpa && (typeof fpa.rig === 'function' ? fpa.rig() : fpa.g);
       if (!rig) return false;
-      const sm = skinMat(), lm = linenMat(), nm = nailMat();
+      const sm = skinMat(), lm = linenMat(), nm = nailMat(), hm = handMat(), fm = fingerMat();
       rig.traverse(o => {
         if (!(o.isMesh || o.isSkinnedMesh) || !o.material) return;
         if (o.userData && o.userData.sculptHidden) { o.visible = false; return; }
@@ -49834,7 +50028,10 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
             if (p && (o === p.up || o === p.el || o === p.cuff)) sleeve = true;
           } catch (_) {}
           if (o.userData.roll1257 || o.userData.folded1249) sleeve = true;
-          o.material = sleeve || isSleeve ? lm : sm;
+          if (sleeve || isSleeve) o.material = lm;
+          else if (o.userData.palmAtlas || o.userData.pad1249) o.material = hm;
+          else if (o.userData.fingerAtlas) o.material = fm;
+          else o.material = sm;
           if (o.userData.nail1249) o.material = nm;
           o.visible = true;
         }
@@ -50422,8 +50619,20 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    big and low-right, matching t1122 composition. Also hides the duplicate
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
+/* v1.2.49 held-frame: first-person view transforms so the hand+item sits
+   big and low-right, matching t1122 composition. Also hides the duplicate
+   c112 map overlay, tightens third-person grip, and eases per-item finger
+   wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p18', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p19', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -50709,6 +50918,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       // Visual-only thumb-box override. Joints (th / tk / td) stay where
       // curl / the rig left them; only the sculpted meshes are moved.
       applyThumbVis(kind);
+      applyThumbDist(kind);
     } catch (e) { ERR('curl', e); }
   }
 
@@ -50767,6 +50977,56 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       });
     } catch (e) { ERR('thumbVis', e); }
   }
+
+  // Visual-only: lengthen or rotate just the thumb's distal box (and its
+  // nail) in td-local space. Joints th/tk/td and the proximal/mid boxes
+  // stay where the rig put them.
+  function applyThumbDist(kind) {
+    try {
+      const spec = U.__thumbDist && U.__thumbDist[kind];
+      eachArm(function (arm) {
+        const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+        const th = h && h.userData && h.userData.th;
+        const tk = th && th.userData && th.userData.k;
+        const td = tk && tk.userData && tk.userData.d;
+        if (!td || !td.traverse) return;
+        const meshes = [];
+        td.traverse(function (o) {
+          if (o.isMesh && o.userData && (o.userData.sculpt1249 || o.userData.nail1249)) meshes.push(o);
+        });
+        meshes.forEach(function (m) {
+          if (!m.userData._tdVis0) {
+            m.userData._tdVis0 = {p: m.position.clone(), q: m.quaternion.clone(), s: m.scale.clone()};
+          }
+          const b = m.userData._tdVis0;
+          m.position.copy(b.p);
+          m.quaternion.copy(b.q);
+          m.scale.copy(b.s);
+        });
+        if (!spec || !meshes.length) return;
+        const scl = (spec.scl != null) ? spec.scl : 1;
+        const eul = spec.eul || [0, 0, 0];
+        const off = spec.pos || [0, 0, 0];
+        const q = new T.Quaternion().setFromEuler(new T.Euler(eul[0] || 0, eul[1] || 0, eul[2] || 0, 'XYZ'));
+        meshes.forEach(function (m) {
+          const isNail = !!(m.userData && m.userData.nail1249);
+          if (!isNail && scl !== 1) {
+            m.scale.y *= scl;
+          }
+          if (isNail && scl !== 1) {
+            // Keep the nail at the new tip rather than stretching it.
+            m.position.y += (scl - 1) * 0.014;
+          }
+          m.position.applyQuaternion(q);
+          m.position.x += off[0] || 0;
+          m.position.y += off[1] || 0;
+          m.position.z += off[2] || 0;
+          m.quaternion.premultiply(q);
+        });
+      });
+    } catch (e) { ERR('thumbDist', e); }
+  }
+
 
   function poseTp() {
     try {
@@ -51458,9 +51718,16 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   U.__thumbAim = 0;
   U.__thumbLive = 0;
   U.__palmFlip = 0;
-  U.__palmBowl = 0;
-  U.__bowl = {};
+  // Empty hand: forearm comes up from below the frame, pitched forward,
+  // then supinated ~180° about the forearm long axis so the palmar face
+  // (now painted with a pinker tone and crease lines) is toward the camera.
+  // Cobble/map are not included until the block can be seated in that palm.
+  U.__palmBowl = 1;
+  U.__bowl = {
+    empty: {frame: {dy: -0.18}, pitch: 0.80, pitchOf: 'elb', sup: Math.PI, curl: 0.36}
+  };
   U.__thumbVis = {};
+  U.__thumbDist = {};
   U.__adsHideLeft = 1;
   U.__adsHideWrist = 0;
   U.__adsHideRThumb = 1;
@@ -51469,6 +51736,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // and hip poses are unchanged.
   U.__adsHideFingers = [3];
   U.__adsHideOver = 0;
+  // Musket ADS only: hide right-hand finger meshes left of the sight so
+  // the wrapping tips do not sit as shards on the lock. 0 = camera-local x.
+  U.__adsHideLeftX = 0;
   // Override from a diagnostic: __palmAxis, __palmWant (camera space).
   U.__palmAxis = [0, 0, -1];
   U.__palmWant = [0, 0.85, 0.55];
@@ -51871,6 +52141,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         const hideRThumb = !!(gunsAds && U.__adsHideRThumb && side > 0);
         const hideIdx = (gunsAds && kind === 'musket' && side > 0 && Array.isArray(U.__adsHideFingers)) ? U.__adsHideFingers : null;
         const hideOver = !!(gunsAds && kind === 'musket' && side > 0 && U.__adsHideOver);
+        const hideLeftX = (gunsAds && kind === 'musket' && side > 0 && U.__adsHideLeftX != null) ? U.__adsHideLeftX : null;
         const th = p.h.userData && p.h.userData.th;
         const fingers = (p.h.userData && p.h.userData.f) || [];
         const hideRoots = [];
@@ -51902,6 +52173,11 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
               if (underFinger) break;
             }
           }
+          let leftShard = false;
+          if (hideLeftX != null && underKeep(o) && !underThumb) {
+            const pcL = toCameraLocal(o, new T.Vector3(0, 0, 0));
+            if (pcL && pcL.x < hideLeftX) leftShard = true;
+          }
           let overSight = false;
           if (hideOver && underKeep(o) && !underThumb) {
             const pc = toCameraLocal(o, new T.Vector3(0, 0, 0));
@@ -51909,7 +52185,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
             const limY = (U.__adsOverY != null) ? U.__adsOverY : -0.045;
             if (pc && Math.abs(pc.x) < limX && pc.y > limY) overSight = true;
           }
-          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap || wristChild || underThumb || underFinger || overSight)) {
+          if (gunsAds && (hideLeft || !underKeep(o) || leftover || cap || wristChild || underThumb || underFinger || overSight || leftShard)) {
             o.visible = false;
             o.userData.__hidAds1252 = 1;
           } else if (o.userData && o.userData.__hidAds1252) {
