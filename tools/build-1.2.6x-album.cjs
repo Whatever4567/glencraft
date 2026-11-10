@@ -92,7 +92,9 @@ const need = ['the_glen_opens', 'heather_road', 'still_water', 'watcher_on_the_r
   'drove_road', 'peat_fire', 'purple_chamber', 'white_pass',
   'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds',
   'below_the_map', 'open_sketch', 'inner_sun', 'pine_shelter',
-  'owl_hour', 'claymore', 'starlight_show', 'last_light'];
+  'owl_hour', 'claymore', 'starlight_show', 'last_light',
+  'moor_light', 'midday_glen', 'bothy_smoke', 'northern_quiet',
+  'ridge_wind', 'stone_memory', 'boss_of_the_glen', 'crystal_hunt'];
 for (const id of need) {
   const ogg = path.join(musicDir, id + '.ogg');
   const mp3 = path.join(musicDir, id + '.mp3');

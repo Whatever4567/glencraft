@@ -42,7 +42,16 @@ ok(album.includes("hell: ['below_the_map']") && album.includes("creative: ['open
   && album.includes("combat: ['claymore']") && album.includes("popstar: ['starlight_show']")
   && album.includes("credits: ['last_light']"),
   'batch 3 contexts map to their dedicated cues');
-ok(album.includes("return 'combat'") && album.includes("return 'popstar'") && album.includes("return 'credits'"),
+ok(album.includes('moor_light') && album.includes('midday_glen') && album.includes('bothy_smoke') && album.includes('northern_quiet')
+  && album.includes('ridge_wind') && album.includes('stone_memory') && album.includes('boss_of_the_glen') && album.includes('crystal_hunt'),
+  'batch 4 titles are in the context pools');
+ok(album.includes("moor: ['moor_light']") && album.includes("high: ['ridge_wind']")
+  && album.includes("boss: ['boss_of_the_glen']") && album.includes("crystal: ['crystal_hunt']"),
+  'batch 4 contexts map to their dedicated cues');
+ok(album.includes("return 'moor'") && album.includes("return 'high'") && album.includes("return 'pine'")
+  && album.includes("return 'boss'") && album.includes("'crystal'"),
+  'detectContext returns moor, high, pine, boss and crystal');
+ok((album.includes("return 'combat'") || album.includes(": 'combat'")) && album.includes("return 'popstar'") && album.includes("return 'credits'"),
   'detectContext returns combat, popstar and credits');
 ok(album.includes('popstarSongOn') && album.includes('songOn') && album.includes('U.ducked'),
   'album ducks or skips while the pop star\'s diegetic song is playing');
@@ -55,7 +64,9 @@ const tracks = [
   'drove_road', 'peat_fire', 'purple_chamber', 'white_pass',
   'long_sand', 'red_horizon', 'between_worlds', 'down_among_the_reeds',
   'below_the_map', 'open_sketch', 'inner_sun', 'pine_shelter',
-  'owl_hour', 'claymore', 'starlight_show', 'last_light'
+  'owl_hour', 'claymore', 'starlight_show', 'last_light',
+  'moor_light', 'midday_glen', 'bothy_smoke', 'northern_quiet',
+  'ridge_wind', 'stone_memory', 'boss_of_the_glen', 'crystal_hunt'
 ];
 for (const id of tracks) {
   const ogg = new URL('../music/album/' + id + '.ogg', import.meta.url);
@@ -76,6 +87,8 @@ ok(credits.includes('drove_road') && /v1.2.6x Album batches/i.test(credits),
   'CREDITS records unpublished batch 2 as branch-only');
 ok(credits.includes('starlight_show') && credits.includes('claymore') && credits.includes('below_the_map'),
   'CREDITS records unpublished batch 3');
+ok(credits.includes('moor_light') && credits.includes('boss_of_the_glen') && credits.includes('crystal_hunt') && credits.includes('stone_memory'),
+  'CREDITS records unpublished batch 4');
 ok(credits.includes('hardcore_remix') && /Classic soundtrack/i.test(credits),
   'CREDITS still record the remix and Classic soundtrack');
 
