@@ -3,7 +3,7 @@
    Animation drivers, joints, pivots and grip positions stay untouched.
    Retexture/harden are hooked so paint cannot strip the sculpt. */
 (function handsSculpt1249(W) {
-  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p2', sculpted: 0};
+  const U = W.__hands1249 = {on: 0, err: null, version: '1.2.57-sculpt-p7', sculpted: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -51,24 +51,51 @@
         g.fillStyle = 'rgba(90,50,30,' + (0.03 + Math.random() * 0.04) + ')';
         g.fillRect(Math.random() * 1024, Math.random() * 1024, 1, 1);
       }
-      // soft crease strokes
-      g.strokeStyle = 'rgba(110,65,45,0.10)'; g.lineWidth = 1.4;
+      // Irregular short creases — no regular rows (those wrapped as brick bands on cylinders).
       g.lineCap = 'round';
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 40; i++) {
+        g.strokeStyle = 'rgba(110,60,40,' + (0.06 + Math.random() * 0.08) + ')';
+        g.lineWidth = 1 + Math.random() * 1.4;
         g.beginPath();
-        const x = 40 + Math.random() * 900, y = 40 + Math.random() * 900;
-        g.moveTo(x, y); g.quadraticCurveTo(x + 50, y + 14, x + 110, y - 8);
+        const x = Math.random() * 1024, y = Math.random() * 1024;
+        const dx = (Math.random() - 0.5) * 90, dy = (Math.random() - 0.4) * 30;
+        g.moveTo(x, y); g.quadraticCurveTo(x + dx * 0.5, y + dy + 6, x + dx, y + dy);
         g.stroke();
+      }
+      // a few slightly stronger knuckle-like pairs, randomly placed (not a grid)
+      for (let i = 0; i < 14; i++) {
+        const x = 40 + Math.random() * 940, y = 40 + Math.random() * 940;
+        g.strokeStyle = 'rgba(100,55,35,0.16)'; g.lineWidth = 1.8;
+        g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + 22, y + 4, x + 48, y - 1); g.stroke();
+        g.beginPath(); g.moveTo(x, y + 6); g.quadraticCurveTo(x + 22, y + 10, x + 48, y + 5); g.stroke();
+      }
+      // faint irregular tendon streaks (not equally spaced)
+      for (let i = 0; i < 6; i++) {
+        const x = 60 + Math.random() * 900;
+        g.strokeStyle = 'rgba(140,80,60,0.06)'; g.lineWidth = 2.5;
+        g.beginPath(); g.moveTo(x, 30); g.quadraticCurveTo(x + (Math.random() - 0.5) * 40, 500, x + (Math.random() - 0.5) * 30, 990); g.stroke();
       }
     });
   }
   function skinBump() {
     return tex(512, 512, (g) => {
       g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, 512, 512);
-      for (let i = 0; i < 900; i++) {
-        const v = 132 + Math.random() * 16 | 0;
+      for (let i = 0; i < 1200; i++) {
+        const v = 128 + Math.random() * 20 | 0;
         g.fillStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
         g.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+      }
+      // irregular shallow crease valleys, not a grid
+      g.lineCap = 'round';
+      for (let i = 0; i < 28; i++) {
+        const v = 80 + (Math.random() * 20 | 0);
+        g.strokeStyle = 'rgb(' + v + ',' + v + ',' + v + ')';
+        g.lineWidth = 1 + Math.random();
+        const x = Math.random() * 512, y = Math.random() * 512;
+        g.beginPath();
+        g.moveTo(x, y);
+        g.quadraticCurveTo(x + 16, y + 3, x + 36, y - 1);
+        g.stroke();
       }
     });
   }
@@ -121,7 +148,7 @@
   }
   function skinMat() {
     const m = std({
-      color: 0xffffff, map: SKIN_MAP, bumpMap: SKIN_BUMP, bumpScale: 0.008,
+      color: 0xffffff, map: SKIN_MAP, bumpMap: SKIN_BUMP, bumpScale: 0.012,
       roughness: 0.55, metalness: 0.0
     });
     return m;
@@ -352,20 +379,29 @@
     h.userData.sculptGeo1249 = 1;
     const sm = skinMat();
     hideOriginalLimbs(h);
+    // Sweep again for anything paint/harden may have left visible (grey shard at the wrist).
+    h.traverse(o => {
+      if (!o.isMesh) return;
+      if (o.userData && (o.userData.sculpt1249 || o.userData.nail1249 || o.userData.sculptKeep)) return;
+      hideOld(o);
+    });
 
     const palm = addMesh(h, palmGeo(), sm, 0, 0.05, 0);
     palm.name = 'PalmSculpt';
 
     // Thenar (thumb) and hypothenar pads, palmar bulge — slightly fuller.
     const thenar = addMesh(h, new T.SphereGeometry(1, 16, 12), sm);
-    thenar.scale.set(0.022, 0.018, 0.014);
+    thenar.scale.set(0.011, 0.010, 0.008);
     thenar.position.set(side * 0.024, 0.030, -0.005);
+    thenar.userData.pad1249 = 1;
     const hypo = addMesh(h, new T.SphereGeometry(1, 14, 10), sm);
-    hypo.scale.set(0.015, 0.013, 0.011);
+    hypo.scale.set(0.009, 0.008, 0.006);
     hypo.position.set(-side * 0.023, 0.028, -0.003);
+    hypo.userData.pad1249 = 1;
     const palmPad = addMesh(h, new T.SphereGeometry(1, 14, 10), sm);
-    palmPad.scale.set(0.026, 0.015, 0.009);
+    palmPad.scale.set(0.013, 0.009, 0.006);
     palmPad.position.set(0, 0.050, -0.009);
+    palmPad.userData.pad1249 = 1;
 
     const fingers = h.userData.f || [];
     // Proximal lengths stay on the original pivot spacing (0.036, 0.017, 0.013)
@@ -414,7 +450,7 @@
     }
     const kn = [];
     for (let i = 0; i < 4; i++) {
-      const b = addMesh(h, knuckleGeo(0.0082 - i * 0.0004), sm, (i - 1.5) * 0.0215, 0.096, 0.010);
+      const b = addMesh(h, knuckleGeo(0.0072 - i * 0.0004), sm, (i - 1.5) * 0.0215, 0.096, 0.009);
       kn.push(b);
     }
     h.userData.kn = kn;
@@ -438,7 +474,7 @@
       if (!p.cuff.userData.sleeve1257) {
         // Cuff in the same local frame as the original limb ( +Y along the forearm ).
         // A slight flare at the wrist end reads as a rolled hem, with no extra torus.
-        p.cuff.geometry = sleeveGeo(0.062, 0.070, 0.12, 24, 12, 3);
+        p.cuff.geometry = sleeveGeo(0.060, 0.068, 0.145, 24, 14, 3);
         const g = p.cuff.geometry.clone();
         const pos = g.attributes.position;
         let ymin = Infinity, ymax = -Infinity;
