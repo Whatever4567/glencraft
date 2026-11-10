@@ -458,43 +458,74 @@
       bone.updateMatrix();
       return bone;
     }
-    const mul = (function () {
-      if (U.curlMul != null) return U.curlMul;
-      try {
-        const k = (W.__fpVm1259 && W.__fpVm1259.kind) || '';
-        if (k === 'empty') return 0.30;
-        if (k === 'block') return 0.32;
-        if (k === 'map') return 0.38;
-      } catch (_) {}
-      return 0.40;
-    })();
+    // 1271: explicit joint angles (radians). Identifier: fpCurl1271
+    // Empty is a loose 30-45° curl, not a splayed wave. Tool fists wrap
+    // the haft without punching through; gun support uses a cup, not a mash.
+    const vm = W.__fpVm1259 || {};
+    const key = vm.poseKey || vm.kind || '';
+    const k = vm.kind || '';
+    const isLeft = side === 'L';
+    const opts = (p && p.side && vm.armR && vm.armL)
+      ? ((isLeft ? vm.armL : vm.armR) && (isLeft ? vm.armL : vm.armR).userData && (isLeft ? vm.armL : vm.armR).userData.curlOpts1271) || {}
+      : {};
+    let cx = 0.70, kx = 0.78, t1a = 0.50, t2a = 0.55, tY = 0;
+    const dex = [1, 1, 1, 1]; // per-digit scale, index..pinky
+    if (k === 'empty') {
+      cx = 0.55; kx = 0.46; t1a = 0.28; t2a = 0.22; // ~32° / 26°
+    } else if (k === 'block') {
+      cx = 0.48; kx = 0.42; t1a = 0.40; t2a = 0.34;
+    } else if (k === 'map') {
+      cx = 0.52; kx = 0.46; t1a = 0.36; t2a = 0.30;
+    } else if (k === 'bucket') {
+      cx = 0.72; kx = 0.80; t1a = 0.55; t2a = 0.60;
+    } else if (key === 'pistol') {
+      // Wrapped grip, index along the trigger/frame, no thumb paddle.
+      cx = 0.72; kx = 0.78; t1a = 0.42; t2a = 0.36; tY = 0.18;
+      dex[0] = 0.18;
+    } else if (key === 'pistolAds') {
+      if (isLeft) { cx = 0.22; kx = 0.18; t1a = 0.24; t2a = 0.20; }
+      else { cx = 0.70; kx = 0.74; t1a = 0.42; t2a = 0.36; tY = 0.16; dex[0] = 0.18; }
+    } else if (key === 'musketAds') {
+      if (isLeft) { cx = 0.22; kx = 0.18; t1a = 0.24; t2a = 0.20; }
+      else { cx = 0.68; kx = 0.72; t1a = 0.48; t2a = 0.50; }
+    } else if (key === 'musket') {
+      if (isLeft) { cx = 0.58; kx = 0.62; t1a = 0.42; t2a = 0.40; }
+      else { cx = 0.68; kx = 0.72; t1a = 0.48; t2a = 0.52; }
+    } else {
+      // pick / sword / torch: wrap the haft, pinky a little less so the
+      // far-side fingertips do not punch through each other.
+      cx = 0.50; kx = 0.36; t1a = 0.55; t2a = 0.58; tY = 0.16;
+      dex[0] = 0.88; dex[3] = 0.75;
+    }
+    if (opts.mode === 'cup') { cx = 0.20; kx = 0.16; t1a = 0.22; t2a = 0.18; }
+    if (opts.mode === 'relax') { cx = 0.52; kx = 0.48; t1a = 0.28; t2a = 0.22; }
+    if (opts.trigger) dex[0] = 0.18;
+    if (U.curlMul != null) {
+      cx *= U.curlMul; kx *= U.curlMul; t1a *= U.curlMul; t2a *= U.curlMul;
+    }
     const fingers = p.h && p.h.userData && p.h.userData.f;
     for (let d = 0; d < 4; d++) {
       const b1 = restoreLocal('finger' + side + d + '01');
       const b2 = restoreLocal('finger' + side + d + '02');
-      const pair = fingers && fingers[d];
-      // 1259 curlHand uses negative rotation.x (fingertips toward -Z).
-      // The Scottish rig flexes around local +X toward the palm, so take
-      // the absolute curl.
-      let cx = 1.05, kx = 1.15;
-      if (pair && pair[0]) cx = Math.abs(pair[0].rotation.x);
-      if (pair && pair[1]) kx = Math.abs(pair[1].rotation.x);
-      if (b1) { b1.rotateX(cx * mul); b1.updateMatrix(); }
-      if (b2) { b2.rotateX(kx * mul); b2.updateMatrix(); }
+      const sc = dex[d] != null ? dex[d] : 1;
+      if (b1) {
+        b1.rotateX(cx * sc);
+        if (k === 'empty') b1.rotateZ((1.5 - d) * 0.07);
+        b1.updateMatrix();
+      }
+      if (b2) { b2.rotateX(kx * sc); b2.updateMatrix(); }
     }
-    const th = p.h && p.h.userData && p.h.userData.th;
     const t1 = restoreLocal('thumb' + side + '01');
     const t2 = restoreLocal('thumb' + side + '02');
-    let tg = 0.7;
-    if (th) {
-      // fist: rot.x ~ -0.20; relax/cup: positive ~0.25-0.30
-      const rx = th.rotation.x;
-      if (rx < 0) tg = 1.0;
-      else if (rx < 0.22) tg = 0.55;
-      else tg = 0.25;
+    // Thumb wraps over the haft (or stays modest on empty). A large
+    // rotateX alone flattens it into the pistol "paddle".
+    const sideSign = (side === 'L') ? -1 : 1;
+    if (t1) {
+      t1.rotateX(t1a);
+      if (tY) t1.rotateY(sideSign * tY);
+      t1.updateMatrix();
     }
-    if (t1) { t1.rotateX((0.35 + tg * 0.55) * mul); t1.updateMatrix(); }
-    if (t2) { t2.rotateX((0.2 + tg * 0.7) * mul); t2.updateMatrix(); }
+    if (t2) { t2.rotateX(t2a); t2.updateMatrix(); }
   }
 
   function poseSide(fp, side, arm, vc) {
@@ -523,8 +554,31 @@
     const dir = _v1.copy(sh).sub(wr);
     if (dir.lengthSq() < 1e-8) dir.set(0.2, -0.8, 0.15);
     dir.normalize();
+    // 1271: fpSleeveNudge1271 — point the forearm so the shirt cuff
+    // (a bind-length point along the arm) sits just inside the bottom
+    // or right frame edge. Wrist stays put; no bone scaling.
+    const vmKey = ((W.__fpVm1259 && (W.__fpVm1259.poseKey || W.__fpVm1259.kind)) || '');
+    const skipCuff = (vmKey === 'bucket' || vmKey === 'musketAds' || vmKey === 'pistolAds' || vmKey === 'musket' || vmKey === 'empty');
+    if (vc && !skipCuff) {
+      try {
+        vc.updateWorldMatrix(true, false);
+        const cuffDist = Math.min(0.28, (lens["fore" + side] || 0.24) + 0.04);
+        const isLeft = side === 'L';
+        const nx = isLeft ? -0.70 : 0.70;
+        const ny = -0.90;
+        const wrCam = wr.clone().applyMatrix4(new T.Matrix4().copy(vc.matrixWorld).invert());
+        const z = wrCam.z;
+        const hy = Math.tan((vc.fov || 70) * 0.5 * Math.PI / 180) * Math.abs(z);
+        const hx = hy * (vc.aspect || (412 / 915));
+        const cuffCam = new T.Vector3(nx * hx, ny * hy, z);
+        const cuffW = cuffCam.applyMatrix4(vc.matrixWorld);
+        const d = cuffW.sub(wr);
+        if (d.lengthSq() > 1e-8) dir.copy(d.normalize());
+      } catch (_) {}
+    }
     const target = bindTotal * 0.94;
-    sh = wr.clone().addScaledVector(dir, target);
+    const shDir = dir.clone();
+    sh = wr.clone().addScaledVector(shDir, target);
     // Uniform scale about the wrist: shortens the sleeve into frame
     // without stretching verts (every bone, including the hand, shares
     // this scale; finger locals stay at their bind scale).
@@ -543,7 +597,9 @@
         camFwd.set(0, 0, -1).transformDirection(vc.matrixWorld);
       }
     } catch (_) {}
-    const bend = camDown.multiplyScalar(0.85).addScaledVector(camFwd, -0.25);
+    const vmKey2 = ((W.__fpVm1259 && (W.__fpVm1259.poseKey || W.__fpVm1259.kind)) || '');
+    const oneHand = (vmKey2 === 'empty' || vmKey2 === 'p761' || vmKey2 === 'sword' || vmKey2 === 'torch' || vmKey2 === 'block' || vmKey2 === 'map' || vmKey2 === 'pistol');
+    const bend = camDown.multiplyScalar(oneHand ? 0.25 : 0.85).addScaledVector(camFwd, oneHand ? -0.08 : -0.25);
     let el = solveElbow(sh, wr, uLen, fLen, bend);
     // suit already set above (uniform scale about the wrist)
     if (Math.abs(suit - 1) > 1e-3) {

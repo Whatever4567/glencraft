@@ -36,12 +36,12 @@
       two: 0, hs: 0.88,
       // 1265: small relaxed hand low in the bottom-right corner, fingers
       // loosely curled (not a huge splayed claw). Sleeve radius follows.
-      R: { sh: [0.70, -1.36, -0.62], wr: [0.42, -0.78, -0.58], rot: [0, 0, 0], haft: [0.40, -0.35, 0.15], curl: 1, rs: 0.72 }
+      R: { sh: [0.52, -1.45, -0.68], wr: [0.36, -0.22, -0.68], rot: [0, 0, 0], haft: [0.25, 0.20, 0.05], curl: 1, rs: 0.72 }
     },
     block: {
       two: 0, hs: 1.22,
       // 1266: forearm angled in from the bottom-right, cube still cupped mid-low.
-      R: { sh: [1.18, -1.34, -0.52], wr: [0.42, -0.48, -0.52], rot: [0, 0, 0], haft: [-0.72, 0.18, 0.08], face: 'palmUp', curl: 1 },
+      R: { sh: [1.22, -1.08, -0.52], wr: [0.42, -0.48, -0.52], rot: [0, 0, 0], haft: [-0.72, 0.18, 0.08], face: 'palmUp', curl: 1 },
       item: { p: [0.00, 0.06, -0.012], r: [0.10, 0.18, 0.08], s: 0.55 }
     },
     p761: {
@@ -49,44 +49,43 @@
       // 1269: socket near frame centre (image x ~0.45-0.50, y ~0.18),
       // fist bottom-right but left of 1265 (image x ~0.6, y ~0.7),
       // haft nearly vertical (slight lean) so a ~30% head fits with sky margin.
-      R: { sh: [1.12, -1.32, -0.50], wr: [0.40, -0.64, -0.56], rot: [0, 0, 0], haft: [-0.05, 0.999, 0], curl: 1 },
+      R: { sh: [1.22, -1.06, -0.50], wr: [0.40, -0.64, -0.56], rot: [0, 0, 0], haft: [-0.05, 0.999, 0], curl: 1 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.44 }
     },
     pick: null,
     p760: null,
     sword: {
       two: 0, hs: 1.18,
-      R: { sh: [1.24, -1.08, -0.50], wr: [0.42, -0.50, -0.55], rot: [0, 0, 0], haft: [-0.16, 0.99, 0], curl: 1 },
+      R: { sh: [1.28, -0.92, -0.50], wr: [0.42, -0.50, -0.55], rot: [0, 0, 0], haft: [-0.16, 0.99, 0], curl: 1 },
       item: { p: [-0.06, 0.00, 0.00], r: [1.57, 0.00, -1.57], s: 1.10 }
     },
     torch: {
       two: 0, hs: 1.18,
-      R: { sh: [1.20, -1.14, -0.52], wr: [0.32, -0.56, -0.54], rot: [0, 0, 0], haft: [-0.34, 0.94, 0], curl: 1 },
+      R: { sh: [1.26, -0.96, -0.52], wr: [0.32, -0.56, -0.54], rot: [0, 0, 0], haft: [-0.34, 0.94, 0], curl: 1 },
       item: { p: [-0.04, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 0.38, flameS: 0.90, shaftS: 0.55 }
     },
     map: {
       two: 0, hs: 1.16,
-      R: { sh: [0.70, -1.16, -0.50], wr: [0.10, -0.18, -0.50], rot: [0.10, 0.05, 0.00], haft: [0.70, 0.35, 0], curl: 1 },
+      R: { sh: [0.95, -0.98, -0.50], wr: [0.10, -0.18, -0.50], rot: [0.10, 0.05, 0.00], haft: [0.70, 0.35, 0], curl: 1 },
       item: { p: [0.00, 0.00, 0.00], r: [1.57, 0.12, 0.06], s: 1.05 }
     },
     bucket: {
       two: 0, hs: 1.16,
-      // 1265: fist holds the bail, bucket centred (~x 0.5-0.6) and held up in
-      // front; arm rises from the bottom-right so the opening (and water) is
-      // not covered. A slight tip toward the camera shows the water surface.
-      R: { sh: [1.28, -1.30, -0.54], wr: [0.36, 0.00, -0.52], rot: [0, 0, 0], haft: [1.00, 0.08, 0], curl: 1 },
-      item: { p: [-0.03, -0.08, -0.04], r: [0.45, 0.00, 0.00], s: 0.62 }
+      // 1271: fist on the bail, bucket hanging below (not an arm stretched
+      // up-right with the hand in the water).
+      R: { sh: [1.45, -0.40, -0.52], wr: [0.50, -0.14, -0.50], rot: [0, 0, 0], haft: [0.85, 0.30, 0], curl: 1 },
+      item: { p: [-0.06, -0.18, 0.00], r: [0.10, 0.00, 0.00], s: 0.62 }
     },
     pistol: {
       two: 0, hs: 1.16,
-      R: { sh: [0.90, -1.20, -0.48], wr: [0.22, -0.32, -0.50], rot: [0, 0, 0], haft: [0.10, 0.95, 0], curl: 1 },
+      R: { sh: [1.05, -1.00, -0.48], wr: [0.22, -0.32, -0.50], rot: [0, 0, 0], haft: [0.10, 0.95, 0], curl: 1 },
       item: { p: [0.00, 0.00, 0.00], r: [0.20, 3.94, 1.57], s: 1.12 }
     },
     pistolAds: {
       // 1268: centred look-down-the-sights; both hands fist-wrap the grip.
       two: 1, hs: 1.00,
       R: { sh: [0.62, -1.22, -0.50], wr: [0.16, -0.42, -0.52], rot: [0, 0, 0], haft: [0.00, 0.12, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-0.50, -1.22, -0.58], wr: [-0.04, -0.42, -0.58], rot: [0, 0, 0], haft: [0.00, 0.12, -1.00], curl: 1, sleeve: 'linen', hs: 1.00 },
+      L: { sh: [-0.70, -1.18, -0.58], wr: [-0.22, -0.46, -0.60], rot: [0.35, 0, 0], haft: [0.75, 0.20, -0.55], curl: 1, sleeve: 'linen', hs: 1.00, face: 'palmUp' },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.10 }
     },
     musket: {
@@ -98,7 +97,7 @@
     musketAds: {
       two: 1, hs: 0.88,
       R: { sh: [0.78, -1.24, -0.54], wr: [0.30, -0.52, -0.54], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'linen' },
-      L: { sh: [-0.62, -1.26, -0.66], wr: [-0.14, -0.54, -0.64], rot: [0, 0, 0], haft: [0.00, 0.15, -1.00], curl: 1, sleeve: 'tartan', hs: 0.74 },
+      L: { sh: [-0.80, -1.20, -0.66], wr: [-0.28, -0.56, -0.68], rot: [0.35, 0, 0], haft: [0.70, 0.25, -0.55], curl: 1, sleeve: 'tartan', hs: 0.74, face: 'palmUp' },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, -1.57], s: 1.00 }
     },
     axe: null, shovel: null, hoe: null,
@@ -436,6 +435,7 @@
       c.scale.set(b.x * visHs, b.y * visHs, b.z * visHs);
     }
     dressSleeve(arm, spec.sleeve || sleeveKind || 'linen');
+    arm.userData.curlOpts1271 = curlOpts || {};
     curlHand(p.h, spec.curl != null ? spec.curl : 1, curlOpts || {});
     arm.visible = true;
   }
@@ -1203,27 +1203,61 @@
       }
       return;
     }
-    // Start from the proven 1266/1268 local pose, then tilt ~30° in the
-    // image plane (around camera Z) so the barrel is no longer near-vertical
-    // and the bird's-head stock can read beside the fist.
-    // 1268 hip pose (visible upright flintlock). The euler alone lies the
-    // gun on its side; the image-plane swing stands the barrel up.
-    g.rotation.set(0.10, 1.05, 0.15);
+    // 1271: idempotent hip pose (fpPistolHip1271). Rebuild from a fixed
+    // Euler every frame (the 1268 side-profile: lock toward camera,
+    // bird's-head below the fist), then apply one image-plane swing so
+    // the barrel sits ~30° from vertical up-left. Parent world matrix is
+    // refreshed first so the swing is computed against the live pose,
+    // not a stale transform. Never accumulate.
     g.position.set(0, 0, 0);
+    // Post-sync slim side-profile (lock toward camera, bird's-head hook
+    // below the fist, barrel ~7° from vertical). Authored as a fixed
+    // quaternion so we do not depend on Euler conversion against a
+    // mid-frame parent. The image-plane swing then takes it to 30°.
+    const q0 = new T.Quaternion(0.43638, 0.50004, -0.59181, 0.45748);
+    g.quaternion.copy(q0);
+    if (g.parent) g.parent.updateWorldMatrix(true, true);
     g.updateWorldMatrix(true, true);
-    if (!vc) return;
-    const camZ = new T.Vector3(), _rHip = new T.Vector3(), _uHip = new T.Vector3();
-    try { vc.matrixWorld.extractBasis(_rHip, _uHip, camZ); } catch (_) { return; }
-    camZ.normalize();
-    const qInv = vc.getWorldQuaternion(new T.Quaternion()).invert();
-    const barrel = new T.Vector3(0, 0, -1).transformDirection(g.matrixWorld).applyQuaternion(qInv);
-    barrel.z = 0;
-    if (barrel.lengthSq() < 1e-8) return;
-    barrel.normalize();
-    const target = new T.Vector3(-0.52, 0.85, 0);
-    const ang = Math.atan2(barrel.x * target.y - barrel.y * target.x, barrel.x * target.x + barrel.y * target.y);
-    if (Math.abs(ang) < 0.02) return;
-    g.rotateOnWorldAxis(camZ, -ang);
+    if (vc) {
+      const camZ = new T.Vector3(), _rHip = new T.Vector3(), _uHip = new T.Vector3();
+      try { vc.matrixWorld.extractBasis(_rHip, _uHip, camZ); } catch (_) { camZ.set(0, 0, 1); }
+      camZ.normalize();
+      const qInv = vc.getWorldQuaternion(new T.Quaternion()).invert();
+      function camBarrel(obj) {
+        obj.updateWorldMatrix(true, true);
+        const qi = vc.getWorldQuaternion(new T.Quaternion()).invert();
+        const b = new T.Vector3(0, 0, -1).transformDirection(obj.matrixWorld).applyQuaternion(qi);
+        return b;
+      }
+      const barrel = camBarrel(g);
+      const xy = barrel.clone(); xy.z = 0;
+      const before = { x: +barrel.x.toFixed(4), y: +barrel.y.toFixed(4), z: +barrel.z.toFixed(4),
+                       deg: (xy.lengthSq() > 1e-8 ? (Math.atan2(Math.abs(xy.x), Math.max(1e-6, xy.y)) * 180 / Math.PI) : null) };
+      if (xy.lengthSq() > 1e-8) {
+        xy.normalize();
+        const target = new T.Vector3(-Math.sin(30 * Math.PI / 180), Math.cos(30 * Math.PI / 180), 0);
+        const ang = Math.atan2(xy.x * target.y - xy.y * target.x, xy.x * target.x + xy.y * target.y);
+        // Apply the image-plane swing in world, then convert to local
+        // (rotateOnWorldAxis can no-op if matrixAutoUpdate is off).
+        const qWorld = g.getWorldQuaternion(new T.Quaternion());
+        const qSwing = new T.Quaternion().setFromAxisAngle(camZ, ang);
+        const qNewWorld = qSwing.multiply(qWorld);
+        const qParent = g.parent ? g.parent.getWorldQuaternion(new T.Quaternion()) : new T.Quaternion();
+        g.quaternion.copy(qParent.invert().multiply(qNewWorld));
+        U.pistolHipAng = ang;
+      }
+      const afterB = camBarrel(g);
+      const axy = afterB.clone(); axy.z = 0;
+      U.pistolHipDebug = {
+        before: before,
+        ang: U.pistolHipAng,
+        after: { x: +afterB.x.toFixed(4), y: +afterB.y.toFixed(4), z: +afterB.z.toFixed(4),
+                 deg: (axy.lengthSq() > 1e-8 ? (Math.atan2(Math.abs(axy.x), Math.max(1e-6, axy.y)) * 180 / Math.PI) : null) },
+        parent: (g.parent && (g.parent.name || g.parent.type)) || null
+      };
+    }
+    g.userData.fpPistolHip1271 = 1;
+    U.pistolHipQ = [+g.quaternion.x.toFixed(5), +g.quaternion.y.toFixed(5), +g.quaternion.z.toFixed(5), +g.quaternion.w.toFixed(5)];
   }
   function dressPistolFlintlock() {
     // 1266: rebuild the procedural flintlock as a side-on piece — longer
@@ -1525,8 +1559,8 @@
     poseArm(armR, spec.R, aspect, hs, (spec.R && spec.R.sleeve) || 'linen', curlR);
     if (two) {
       armL.traverse(function (o) { o.visible = true; });
-      const curlL = (key === 'pistolAds')
-        ? { mode: 'fist' }
+      const curlL = (key === 'pistolAds' || key === 'musketAds')
+        ? { mode: 'cup', support: true }
         : { mode: 'fist', support: true };
       poseArm(armL, spec.L, aspect, hs, (spec.L && spec.L.sleeve) || 'linen', curlL);
     } else {
@@ -1559,6 +1593,15 @@
     placeLights();
     rig.updateMatrixWorld(true);
     try { if (W.__fpTpArm1270 && W.__fpTpArm1270.sync) W.__fpTpArm1270.sync(); } catch (_) {}
+    // Re-aim the hip flintlock now that vc and the grip parent are final.
+    // aimFlintlockSide during poseItem ran against a stale camera matrix.
+    try {
+      if (U.poseKey === 'pistol' && typeof held !== 'undefined' && held) {
+        held.traverse(function (o) {
+          if (o.name === 'FpFlintlock1265') aimFlintlockSide(o);
+        });
+      }
+    } catch (_) {}
   }
 
   function underOurRig(o) {
