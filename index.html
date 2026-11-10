@@ -37104,11 +37104,31 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const hd = new THREE.Group(), m = THREE.SkeletonUtils.clone(M.g.scene); hd.add(m); hd.userData.hd = 1;
     m.scale.setScalar(s); m.position.set(-M.cx * s, -M.y0 * s, -M.cz * s);
     let fwd = 1; try { if (a.head) { const p = new THREE.Vector3(); a.head.getWorldPosition(p); g.worldToLocal(p); if (p.z < -0.05) fwd = -1; } } catch (_) {}
+    // pig3 is authored facing +Z, same as the procedural body; do not inherit a.head's sign.
+    if (c && c.f === 'pig3') fwd = 1;
     hd.rotation.y = (fwd < 0 ? Math.PI : 0) + (c.yaw || 0);
     const hidden = []; g.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine || o.isSprite) && !(c.keep && c.keep(o))) { hidden.push([o, o.layers.mask]); o.layers.set(HIDE); } });
     const mats = []; m.traverse(o => { if (!o.isMesh) return; o.frustumCulled = false; o.castShadow = !PERF; o.userData.hd = 1; const src = [].concat(o.material);
-      const out = src.map(sm => { const nm = new THREE.MeshLambertMaterial({color: sm.color ? sm.color.clone() : 0xffffff, map: sm.map || null, vertexColors: !!sm.vertexColors, skinning: !!o.isSkinnedMesh, transparent: !!sm.transparent, opacity: sm.opacity, side: sm.side, alphaTest: sm.alphaTest || 0});
-        nm.name = sm.name || ''; if (nm.map) { if (nm.map.encoding !== THREE.LinearEncoding) { nm.map.encoding = THREE.LinearEncoding; nm.map.needsUpdate = true; } } else if (renderer.outputEncoding !== THREE.sRGBEncoding) nm.color.convertLinearToSRGB(); if (c.tint) nm.color.multiply(new THREE.Color(c.tint)); if (c.bright) nm.color.multiplyScalar(c.bright); mats.push(nm); return nm; });
+      const out = src.map(sm => { const isPig3 = c && c.f === 'pig3';
+        const base = {color: sm.color ? sm.color.clone() : 0xffffff, map: sm.map || null, skinning: !!o.isSkinnedMesh, transparent: !!sm.transparent, opacity: sm.opacity, side: sm.side, alphaTest: sm.alphaTest || 0};
+        const nm = (isPig3 && THREE.MeshStandardMaterial)
+          ? new THREE.MeshStandardMaterial(Object.assign({vertexColors: false, metalness: 0, roughness: 0.72}, base))
+          : new THREE.MeshLambertMaterial(Object.assign({vertexColors: !!sm.vertexColors}, base));
+        nm.name = sm.name || '';
+        if (nm.map) {
+          if (isPig3) {
+            if (THREE.SRGBColorSpace) nm.map.colorSpace = THREE.SRGBColorSpace;
+            if (THREE.sRGBEncoding) nm.map.encoding = THREE.sRGBEncoding;
+            nm.map.needsUpdate = true;
+          } else if (nm.map.encoding !== THREE.LinearEncoding) { nm.map.encoding = THREE.LinearEncoding; nm.map.needsUpdate = true; }
+        } else if (renderer.outputEncoding !== THREE.sRGBEncoding) nm.color.convertLinearToSRGB();
+        if (isPig3) {
+          if (nm.color) nm.color.setHex(0xffffff);
+          nm.emissive = new THREE.Color(0x3d1c14);
+          nm.emissiveIntensity = 0.11;
+          nm.vertexColors = false;
+        }
+        if (c.tint) nm.color.multiply(new THREE.Color(c.tint)); if (c.bright) nm.color.multiplyScalar(c.bright); mats.push(nm); return nm; });
       o.material = Array.isArray(o.material) ? out : out[0]; });
     for (const f of U.post) { try { f(a, c, M, m, hd, s, mats); } catch (e) { U.err.push('post ' + e); } }
     g.add(hd); mats.forEach(x => a.mats.push(x));
