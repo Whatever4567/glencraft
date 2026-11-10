@@ -3247,6 +3247,30 @@
   const FP_HILT_R1282 = 0.0088;
   const FP_HILT_HALF1282 = 0.050;
 
+  function applyLongGrainUV(geo, axis, repeatU, repeatV) {
+    if (!geo || !geo.attributes || !geo.attributes.position) return;
+    if (geo.computeBoundingBox) geo.computeBoundingBox();
+    const bb = geo.boundingBox;
+    if (!bb) return;
+    const pos = geo.attributes.position;
+    const n = pos.count;
+    const uv = new Float32Array(n * 2);
+    const ax = (axis == null) ? 1 : axis;
+    const a2 = (ax + 1) % 3, a3 = (ax + 2) % 3;
+    const minA = bb.min.getComponent(ax), maxA = bb.max.getComponent(ax);
+    const len = Math.max(1e-6, maxA - minA);
+    const ru = (repeatU || 1), rv = (repeatV || 2.4);
+    for (let i = 0; i < n; i++) {
+      const v = [pos.getX(i), pos.getY(i), pos.getZ(i)];
+      const along = (v[ax] - minA) / len;
+      // Planar wrap in the plane perpendicular to the long axis so a
+      // narrow stock face still gets several grain lines, not one stripe.
+      uv[i * 2] = (v[a2] * 36 + v[a3] * 36) * ru;
+      uv[i * 2 + 1] = along * rv;
+    }
+    geo.setAttribute('uv', new T.BufferAttribute(uv, 2));
+    geo.attributes.uv.needsUpdate = 1;
+  }
   function tagFpGun1282(o) {
     o.userData = o.userData || {};
     o.userData.fpGun1282 = 1;
@@ -3463,28 +3487,29 @@
     // short comb in +Z. Kept shallow toward the camera so it will not
     // read as a close-up sail.
     const stockSh = new T.Shape();
-    stockSh.moveTo(0.000, -0.048);
-    stockSh.lineTo(0.014, -0.048);
-    stockSh.bezierCurveTo(0.022, -0.052, 0.026, -0.070, 0.026, -0.090);
-    stockSh.bezierCurveTo(0.028, -0.100, 0.024, -0.125, 0.016, -0.138);
-    stockSh.lineTo(0.002, -0.140);
-    stockSh.bezierCurveTo(-0.002, -0.120, -0.002, -0.070, 0.000, -0.048);
+    stockSh.moveTo(0.000, -0.050);
+    stockSh.lineTo(0.010, -0.050);
+    stockSh.bezierCurveTo(0.015, -0.055, 0.016, -0.075, 0.016, -0.095);
+    stockSh.bezierCurveTo(0.016, -0.115, 0.013, -0.128, 0.008, -0.136);
+    stockSh.lineTo(0.000, -0.138);
+    stockSh.bezierCurveTo(-0.003, -0.120, -0.003, -0.075, 0.000, -0.050);
     stockSh.closePath();
     const stockGeo = new T.ExtrudeGeometry(stockSh, {
-      depth: 0.024,
+      depth: 0.018,
       bevelEnabled: true,
-      bevelThickness: 0.003,
-      bevelSize: 0.0024,
+      bevelThickness: 0.0024,
+      bevelSize: 0.0020,
       bevelSegments: 3,
       curveSegments: 20
     });
-    stockGeo.translate(0, 0, -0.012);
+    stockGeo.translate(0, 0, -0.009);
     stockGeo.rotateY(-Math.PI / 2);
     if (stockGeo.computeVertexNormals) stockGeo.computeVertexNormals();
     if (stockGeo.computeBoundingBox) stockGeo.computeBoundingBox();
     if (stockGeo.computeBoundingSphere) stockGeo.computeBoundingSphere();
+    applyLongGrainUV(stockGeo, 1, 1, 2.6);
     addFpPart(g, stockGeo, wood, 0, 0, 0);
-    addFpPart(g, new T.BoxGeometry(0.024, 0.028, 0.005), steel, 0, -0.136, 0.016, 0.15, 0, 0);
+    addFpPart(g, new T.BoxGeometry(0.018, 0.024, 0.004), steel, 0, -0.134, 0.008, 0.12, 0, 0);
 
     // Lock tang and barrel.
     addFpPart(g, new T.CylinderGeometry(0.014, r, 0.036, 12), wood, 0, 0.050, 0.002, 0.12, 0, 0);
