@@ -619,23 +619,68 @@
   // 1276: bind the offline-posed MakeHuman HeadSkin hand (not primitive
   // tubes). Scale is in 1259 bind units; the bake is ~20cm wrist-to-tip.
   const BAKE_HAND_SCALE = 0.76;
+  function enhanceSkinAtlas1283(image) {
+    if (!image || !image.width || typeof document === 'undefined') return image;
+    try {
+      const c = document.createElement('canvas');
+      c.width = image.width;
+      c.height = image.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(image, 0, 0);
+      const img = ctx.getImageData(0, 0, c.width, c.height);
+      const d = img.data;
+      // Push crease AO down and lift dorsum highlights so the fist has
+      // the same shading depth as the sword hand, which uses this atlas
+      // but is often read with more of the knuckle row visible.
+      for (let i = 0; i < d.length; i += 4) {
+        if (d[i + 3] < 8) continue;
+        const r = d[i], g = d[i + 1], b = d[i + 2];
+        const y = r * 0.30 + g * 0.59 + b * 0.11;
+        if (y < 8) continue;
+        const mid = 128;
+        let y2 = mid + (y - mid) * 1.50;
+        if (y < mid) y2 -= (mid - y) * 0.22; // deeper knuckle / palm creases
+        if (y > mid) y2 += (y - mid) * 0.16; // brighter dorsum highlight
+        const k = y2 / y;
+        d[i]     = Math.max(0, Math.min(255, r * k + (y2 > mid ? 6 : 0)));
+        d[i + 1] = Math.max(0, Math.min(255, g * k + (y2 > mid ? 3 : 0)));
+        d[i + 2] = Math.max(0, Math.min(255, b * k * 0.98));
+      }
+      ctx.putImageData(img, 0, 0);
+      return c;
+    } catch (_) {
+      return image;
+    }
+  }
   function fpSkinTex1276() {
     if (U._skinTex1276) return U._skinTex1276;
     const B = W.__fpHandsBaked1276;
     const url = (B && (B.skinDataUrl || B.skinUrl)) || 'assets/models/fp-hands-1275/hand-skin.png';
+    function finish(t, image) {
+      if (!t) return;
+      if (image && !(t.userData && t.userData.enhanced1283)) {
+        t.image = enhanceSkinAtlas1283(image);
+        t.userData = t.userData || {};
+        t.userData.enhanced1283 = 1;
+        t.needsUpdate = 1;
+      }
+      t.flipY = false; // glTF / this atlas: v=0 at the top of the PNG
+      t.generateMipmaps = true;
+      t.minFilter = T.LinearMipmapLinearFilter;
+      t.magFilter = T.LinearFilter;
+      t.anisotropy = 8;
+      t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    }
     let t;
     try {
-      t = new T.TextureLoader().load(url);
+      t = new T.TextureLoader().load(url, function (tex) {
+        finish(tex, tex && tex.image);
+      });
     } catch (_) {
       t = null;
     }
     if (!t) return null;
-    t.flipY = false; // glTF / this atlas: v=0 at the top of the PNG
-    t.generateMipmaps = true;
-    t.minFilter = T.LinearMipmapLinearFilter;
-    t.magFilter = T.LinearFilter;
-    t.anisotropy = 8;
-    t.wrapS = t.wrapT = T.ClampToEdgeWrapping;
+    finish(t, t.image);
     U._skinTex1276 = t;
     return t;
   }
