@@ -63551,47 +63551,59 @@ try {
   }
 
   function sequinMaps() {
-    const c = document.createElement('canvas'); c.width = 256; c.height = 256;
-    const e = document.createElement('canvas'); e.width = 256; e.height = 256;
+    const S = 512;
+    const c = document.createElement('canvas'); c.width = S; c.height = S;
+    const e = document.createElement('canvas'); e.width = S; e.height = S;
     const g = c.getContext('2d');
     const h = e.getContext('2d');
-    // Bright saturated yellow-gold (#f2c518-ish, slightly hotter so lighting doesn't khaki it).
-    const lg = g.createLinearGradient(0, 0, 0, 256);
+    const lg = g.createLinearGradient(0, 0, 0, S);
     lg.addColorStop(0, '#ffe34a');
     lg.addColorStop(0.35, '#f2c518');
     lg.addColorStop(0.7, '#ffd21c');
     lg.addColorStop(1, '#e8b40e');
-    g.fillStyle = lg; g.fillRect(0, 0, 256, 256);
-    h.fillStyle = '#000'; h.fillRect(0, 0, 256, 256);
-    // soft vertical folds
-    for (let i = 0; i < 10; i++) {
+    g.fillStyle = lg; g.fillRect(0, 0, S, S);
+    h.fillStyle = '#000'; h.fillRect(0, 0, S, S);
+    for (let i = 0; i < 14; i++) {
       g.fillStyle = i % 2 ? 'rgba(255,236,120,0.28)' : 'rgba(200,140,10,0.18)';
-      g.fillRect(i * 26 + 3, 0, 9, 256);
+      g.fillRect(i * 36 + 4, 0, 12, S);
+    }
+    function plus(ctx, x, y, r, fill) {
+      ctx.fillStyle = fill;
+      ctx.fillRect(x - r * 3.1, y - r * 0.45, r * 6.2, r * 0.9);
+      ctx.fillRect(x - r * 0.45, y - r * 3.1, r * 0.9, r * 6.2);
+      ctx.beginPath(); ctx.arc(x, y, r * 1.1, 0, 6.3); ctx.fill();
     }
     const sparks = [
       'rgba(255,255,255,ALP)', 'rgba(255,248,200,ALP)',
       'rgba(255,230,80,ALP)', 'rgba(255,210,40,ALP)'
     ];
-    for (let i = 0; i < 2200; i++) {
-      const x = Math.random() * 256, y = Math.random() * 256;
-      const s = 0.7 + Math.random() * 2.4;
-      const a = 0.45 + Math.random() * 0.55;
+    for (let i = 0; i < 4200; i++) {
+      const x = Math.random() * S, y = Math.random() * S;
+      const sz = 0.7 + Math.random() * 2.2;
+      const a = 0.50 + Math.random() * 0.50;
       g.fillStyle = sparks[i % sparks.length].replace('ALP', a.toFixed(2));
-      g.beginPath(); g.arc(x, y, s, 0, 6.3); g.fill();
-      if (a > 0.75) {
-        h.fillStyle = 'rgba(255,240,160,' + ((a - 0.4) * 1.2).toFixed(2) + ')';
-        h.beginPath(); h.arc(x, y, s * 1.15, 0, 6.3); h.fill();
+      g.beginPath(); g.arc(x, y, sz, 0, 6.3); g.fill();
+      if (a > 0.78) {
+        h.fillStyle = 'rgba(255,240,160,' + ((a - 0.35) * 1.25).toFixed(2) + ')';
+        h.beginPath(); h.arc(x, y, sz * 1.25, 0, 6.3); h.fill();
       }
     }
-    // a few larger glints
-    for (let i = 0; i < 40; i++) {
-      const x = Math.random() * 256, y = Math.random() * 256;
-      g.fillStyle = 'rgba(255,255,255,0.95)';
-      g.beginPath(); g.arc(x, y, 2.2, 0, 6.3); g.fill();
-      h.fillStyle = 'rgba(255,255,220,0.95)';
-      h.beginPath(); h.arc(x, y, 2.6, 0, 6.3); h.fill();
+    // Gold sequin glints: 4-point sparkles, not just soft dots.
+    for (let i = 0; i < 160; i++) {
+      const x = Math.random() * S, y = Math.random() * S;
+      const r = 1.6 + Math.random() * 2.4;
+      plus(g, x, y, r, 'rgba(255,255,255,0.98)');
+      plus(h, x, y, r * 1.25, 'rgba(255,248,200,1)');
     }
-    return { map: tagTex(new THREE.CanvasTexture(c)), emissiveMap: tagTex(new THREE.CanvasTexture(e)) };
+    const map = tagTex(new THREE.CanvasTexture(c));
+    const emissiveMap = tagTex(new THREE.CanvasTexture(e));
+    [map, emissiveMap].forEach(t => {
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.repeat.set(2.4, 2.4);
+      t.anisotropy = 8;
+      t.needsUpdate = true;
+    });
+    return { map, emissiveMap };
   }
 
   function goldBootTex() {
@@ -63650,10 +63662,10 @@ try {
     const hairC = addM(phong({ color: 0xe8c45a, shininess: 32, specular: 0x665522, emissive: 0x221a06 }));
     const seq = sequinMaps();
     const dressOpts = {
-      color: 0xffd21c, map: seq.map, emissive: 0x7a4a00,
-      emissiveMap: seq.emissiveMap, shininess: 110, specular: 0xfff2c0
+      color: 0xffd21c, map: seq.map, emissive: 0xcc8800,
+      emissiveMap: seq.emissiveMap, shininess: 140, specular: 0xfff8d8
     };
-    try { dressOpts.emissiveIntensity = 1.05; } catch (_) {}
+    try { dressOpts.emissiveIntensity = 1.55; } catch (_) {}
     const dress = addM(phong(dressOpts));
     const dressDark = addM(phong(Object.assign({}, dressOpts, { color: 0xe8b40e, emissive: 0x4a2e00 })));
     const belt = addM(phong({ color: 0x6a4814, shininess: 40, specular: 0x665533 }));
@@ -63720,6 +63732,45 @@ try {
     box(PR.hipW + 0.05, 1.55, 2.15, dress, 0, -2.25, 0.1, skirt);
     box(PR.hipW + 0.45, 0.85, 2.3, dress, 0, -3.25, 0.12, skirt);
 
+    // Discrete gold sequin glints (plus-shaped sprites) that catch the light.
+    const glints = [];
+    const glintMat = new THREE.MeshBasicMaterial({
+      color: 0xfff6c8, fog: false, transparent: true, opacity: 0.95,
+      depthWrite: false, depthTest: true
+    });
+    function addGlint(parent, x, y, z, s) {
+      const grp = new THREE.Group();
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(s * 3.4, s * 0.38, s * 0.16), glintMat);
+      const upright = new THREE.Mesh(new THREE.BoxGeometry(s * 0.38, s * 3.4, s * 0.16), glintMat);
+      const core = new THREE.Mesh(new THREE.BoxGeometry(s * 1.1, s * 1.1, s * 0.2), glintMat);
+      core.rotation.z = Math.PI / 4;
+      grp.add(arm); grp.add(upright); grp.add(core);
+      grp.position.set(x, y, z);
+      parent.add(grp);
+      glints.push(grp);
+    }
+    // Chest / bodice front
+    addGlint(torso, -0.85, 4.55, 1.22, 0.10);
+    addGlint(torso,  0.70, 4.85, 1.24, 0.12);
+    addGlint(torso,  0.15, 4.20, 1.20, 0.09);
+    addGlint(torso, -0.40, 3.40, 1.08, 0.11);
+    addGlint(torso,  1.10, 3.55, 1.00, 0.08);
+    addGlint(torso, -1.15, 4.15, 0.95, 0.09);
+    addGlint(torso,  0.55, 2.50, 0.88, 0.08);
+    addGlint(torso, -0.20, 1.55, 1.05, 0.10);
+    // Skirt front and sides
+    addGlint(skirt, -1.10, -0.70, 1.22, 0.11);
+    addGlint(skirt,  0.90, -1.10, 1.24, 0.13);
+    addGlint(skirt,  0.10, -1.85, 1.18, 0.09);
+    addGlint(skirt, -0.70, -2.40, 1.16, 0.10);
+    addGlint(skirt,  1.25, -2.55, 1.10, 0.08);
+    addGlint(skirt,  0.35, -3.15, 1.20, 0.12);
+    addGlint(skirt, -1.40, -1.50, 0.70, 0.09);
+    addGlint(skirt,  1.50, -1.70, 0.65, 0.08);
+    addGlint(skirt, -0.20, -0.40, 1.26, 0.10);
+    addGlint(torso,  1.40, 4.60, 0.55, 0.08);
+    addGlint(torso, -1.35, 4.70, 0.50, 0.07);
+
     // ---- shoulders / arms (skin at the joint — dress is strapless) ----
     const chestTop = new THREE.Group(); chestTop.position.y = PR.torso; torso.add(chestTop);
     // collarbone / upper chest skin, not a dress shoulder slab
@@ -63751,9 +63802,9 @@ try {
     // microphone in the right hand: handle in the palm, grille along +Z (aimed at the mouth)
     const mic = new THREE.Group();
     rightArm.hand.add(mic);
-    mic.position.set(0.08, -PR.hand * 0.4, 0.15);
+    mic.position.set(0.10, -PR.hand * 0.25, 0.35);
     const handle = box(0.2, 0.2, 1.2, micBlk, 0, 0, 0.4, mic);
-    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), micGrille);
+    const grille = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), micGrille);
     grille.position.set(0, 0, 1.2); mic.add(grille);
     box(0.16, 0.16, 0.16, micBlk, 0, 0, 0.95, mic);
 
@@ -63794,70 +63845,74 @@ try {
     box(0.35, 0.28, 0.16, addM(phong({ color: 0xeba08a, shininess: 16, specular: 0x331810 })), -0.52, PR.headH * 0.36, eyeZ * 0.7, head);
     box(0.35, 0.28, 0.16, addM(phong({ color: 0xeba08a, shininess: 16, specular: 0x331810 })), 0.52, PR.headH * 0.36, eyeZ * 0.7, head);
 
-    // ---- voluminous wavy blonde hair: many layered strands, not a helmet ----
+    // ---- long wavy blonde hair: chained S-curve locks, face left open for the mic ----
     const hair = new THREE.Group(); hair.position.y = PR.headH; head.add(hair);
     function lock(x, y, z, w, hh, d, rot, mat) {
       return box(w, hh, d, mat || hairA, x, y, z, hair, rot);
     }
-    // crown volume sitting on the scalp (not covering the face)
-    lock(0, 0.55, -0.15, 2.15, 1.05, 2.05, null, hairB);
-    lock(0, 1.05, -0.25, 1.7, 0.7, 1.6, [0.15, 0, 0], hairA);
-    lock(-0.55, 0.7, 0.15, 1.1, 0.7, 1.2, [0.1, 0.2, 0.15], hairB);
-    lock(0.55, 0.7, 0.15, 1.1, 0.7, 1.2, [0.1, -0.2, -0.15], hairB);
-    // fringe framing the forehead, ending above the eyes
-    lock(0, 0.05, 0.95, 0.65, 0.55, 0.35, [0.55, 0, 0], hairB);
-    lock(-0.5, 0.0, 0.88, 0.48, 0.6, 0.34, [0.55, 0.2, 0.12], hairA);
-    lock(0.5, 0.0, 0.88, 0.48, 0.6, 0.34, [0.55, -0.2, -0.12], hairA);
-    lock(-0.95, 0.05, 0.7, 0.42, 0.55, 0.32, [0.45, 0.35, 0.18], hairB);
-    lock(0.95, 0.05, 0.7, 0.42, 0.55, 0.32, [0.45, -0.35, -0.18], hairB);
-    // side locks — layered wavy clumps falling past the shoulders on both sides
-    const sideLocks = [
-      // upper
-      [-1.35, -0.15, 0.45, 0.7, 1.5, 0.7, [0.25, 0.35, 0.2], hairB],
-      [ 1.35, -0.15, 0.45, 0.7, 1.5, 0.7, [0.25, -0.35, -0.2], hairB],
-      [-1.55, -0.35, 0.05, 0.75, 1.8, 0.75, [0.2, 0.15, 0.28], hairA],
-      [ 1.55, -0.35, 0.05, 0.75, 1.8, 0.75, [0.2, -0.15, -0.28], hairA],
-      [-1.7, -1.3, 0.2, 0.7, 2.1, 0.7, [0.35, 0.25, 0.3], hairA],
-      [ 1.7, -1.3, 0.2, 0.7, 2.1, 0.7, [0.35, -0.25, -0.3], hairA],
-      [-1.85, -2.2, 0.05, 0.72, 2.4, 0.72, [0.45, 0.15, 0.28], hairC],
-      [ 1.85, -2.2, 0.05, 0.72, 2.4, 0.72, [0.45, -0.15, -0.28], hairC],
-      // mid, past the shoulders
-      [-1.65, -3.3, -0.05, 0.7, 2.2, 0.7, [0.55, 0.2, 0.22], hairA],
-      [ 1.65, -3.3, -0.05, 0.7, 2.2, 0.7, [0.55, -0.2, -0.22], hairA],
-      [-1.95, -3.6, 0.2, 0.62, 2.0, 0.65, [0.6, 0.3, 0.25], hairB],
-      [ 1.95, -3.6, 0.2, 0.62, 2.0, 0.65, [0.6, -0.3, -0.25], hairB],
-      [-1.4, -4.4, 0.15, 0.6, 1.9, 0.6, [0.7, 0.15, 0.18], hairA],
-      [ 1.4, -4.4, 0.15, 0.6, 1.9, 0.6, [0.7, -0.15, -0.18], hairA],
-      // lower tips
-      [-1.55, -5.3, 0.05, 0.55, 1.6, 0.55, [0.8, 0.2, 0.15], hairC],
-      [ 1.55, -5.3, 0.05, 0.55, 1.6, 0.55, [0.8, -0.2, -0.15], hairC],
-      [-1.15, -5.7, 0.25, 0.5, 1.35, 0.5, [0.85, 0.1, 0.12], hairB],
-      [ 1.15, -5.7, 0.25, 0.5, 1.35, 0.5, [0.85, -0.1, -0.12], hairB],
-      // face-framing waves — kept off the cheeks so the face stays open
-      [-1.45, -1.0, 0.45, 0.5, 1.8, 0.5, [0.4, 0.45, 0.22], hairB],
-      [ 1.45, -1.0, 0.45, 0.5, 1.8, 0.5, [0.4, -0.45, -0.22], hairB],
-      [-1.5, -2.2, 0.25, 0.5, 1.7, 0.48, [0.55, 0.35, 0.18], hairA],
-      [ 1.5, -2.2, 0.25, 0.5, 1.7, 0.48, [0.55, -0.35, -0.18], hairA]
+    // Crown volume on the scalp — does not come forward over the face.
+    lock(0, 0.55, -0.20, 2.15, 1.05, 2.00, null, hairB);
+    lock(0, 1.08, -0.30, 1.70, 0.70, 1.55, [0.15, 0, 0], hairA);
+    lock(-0.60, 0.72, 0.00, 1.05, 0.68, 1.10, [0.10, 0.22, 0.15], hairB);
+    lock( 0.60, 0.72, 0.00, 1.05, 0.68, 1.10, [0.10, -0.22, -0.15], hairB);
+    // Short fringe ending above the eyes; sides kept out of the mouth/mic lane.
+    lock(0, 0.08, 0.92, 0.62, 0.50, 0.32, [0.55, 0, 0], hairB);
+    lock(-0.52, 0.02, 0.82, 0.44, 0.52, 0.30, [0.55, 0.22, 0.12], hairA);
+    lock( 0.52, 0.02, 0.82, 0.44, 0.52, 0.30, [0.55, -0.22, -0.12], hairA);
+    lock(-1.00, 0.06, 0.58, 0.40, 0.50, 0.28, [0.42, 0.38, 0.16], hairB);
+    lock( 1.00, 0.06, 0.58, 0.40, 0.50, 0.28, [0.42, -0.38, -0.16], hairB);
+
+    // One falling lock as overlapping boxes along an S-curve in X and a slower Z wave.
+    function waveStrand(x0, y0, z0, segs, len, w, d, phase, side, mat, flare) {
+      const fl = flare == null ? 0.22 : flare;
+      for (let i = 0; i < segs; i++) {
+        const t = (i + 0.5) / segs;
+        const amp = 0.16 + t * 0.46;
+        const wx = Math.sin(phase + t * Math.PI * 2.25) * amp * side;
+        const wz = Math.cos(phase * 0.8 + t * Math.PI * 1.65) * (0.08 + t * 0.16);
+        const x = x0 + side * t * fl + wx;
+        const y = y0 - t * len;
+        const z = z0 + wz;
+        const taper = 1 - t * 0.34;
+        const pitch = 0.22 + t * 0.42 + wz * 0.45;
+        const yaw = side * 0.10 + wx * 0.40;
+        const roll = side * (0.16 + t * 0.10) + wx * 0.55;
+        lock(x, y, z, w * taper, (len / segs) * 1.18, d * taper, [pitch, yaw, roll], mat);
+      }
+    }
+    // Side and face-framing waves: start beside the temples, fall past the shoulders.
+    // z starts near 0 / slightly back so the front view keeps the mic and face clear.
+    const STRANDS = [
+      // outer side curtain
+      { x: 1.62, y: -0.10, z: -0.05, segs: 8, len: 6.4, w: 0.46, d: 0.42, ph: 0.2, mat: hairA, fl: 0.28 },
+      { x: 1.78, y: -0.20, z:  0.10, segs: 8, len: 6.1, w: 0.42, d: 0.40, ph: 1.4, mat: hairB, fl: 0.32 },
+      { x: 1.48, y: -0.05, z: -0.22, segs: 7, len: 5.8, w: 0.44, d: 0.40, ph: 2.2, mat: hairC, fl: 0.20 },
+      { x: 1.95, y: -0.35, z:  0.00, segs: 7, len: 5.6, w: 0.40, d: 0.38, ph: 3.1, mat: hairA, fl: 0.36 },
+      // mid-side volume
+      { x: 1.55, y: -0.15, z:  0.18, segs: 7, len: 5.5, w: 0.40, d: 0.36, ph: 0.8, mat: hairB, fl: 0.24 },
+      { x: 1.70, y: -0.55, z: -0.15, segs: 6, len: 5.2, w: 0.42, d: 0.38, ph: 2.7, mat: hairC, fl: 0.26 },
+      // face-framing — pulled out to the side (x>=1.45) and not past z=0.22
+      { x: 1.45, y: -0.20, z:  0.16, segs: 7, len: 5.0, w: 0.36, d: 0.34, ph: 0.5, mat: hairB, fl: 0.18 }
     ];
-    sideLocks.forEach(a => lock.apply(null, a));
-    // back curtain, down to mid-back
-    const backLocks = [
-      [0, -0.4, -1.15, 2.2, 1.8, 0.9, [0.25, 0, 0], hairA],
-      [-0.7, -1.5, -1.2, 1.2, 2.2, 0.85, [0.4, 0.12, 0.08], hairC],
-      [ 0.7, -1.5, -1.2, 1.2, 2.2, 0.85, [0.4, -0.12, -0.08], hairC],
-      [0, -2.6, -1.15, 2.0, 2.4, 0.95, [0.5, 0, 0], hairA],
-      [-0.85, -3.6, -0.95, 1.05, 2.2, 0.8, [0.6, 0.15, 0.1], hairA],
-      [ 0.85, -3.6, -0.95, 1.05, 2.2, 0.8, [0.6, -0.15, -0.1], hairA],
-      [0, -4.5, -0.85, 1.7, 2.0, 0.8, [0.7, 0, 0], hairC],
-      [-0.55, -5.5, -0.55, 0.85, 1.6, 0.7, [0.8, 0.1, 0.08], hairB],
-      [ 0.55, -5.5, -0.55, 0.85, 1.6, 0.7, [0.8, -0.1, -0.08], hairB],
-      [0, -6.2, -0.35, 1.15, 1.3, 0.65, [0.9, 0, 0], hairA]
+    STRANDS.forEach(st => {
+      waveStrand( st.x, st.y, st.z, st.segs, st.len, st.w, st.d, st.ph,  1, st.mat, st.fl);
+      waveStrand(-st.x, st.y, st.z, st.segs, st.len, st.w, st.d, st.ph + 0.35, -1, st.mat, st.fl);
+    });
+    // Back curtain, also in S-curve strands down to mid-back.
+    const BACK = [
+      { x: 0.00, y: -0.25, z: -1.15, segs: 8, len: 6.3, w: 0.70, d: 0.55, ph: 0.4, mat: hairA, fl: 0.00 },
+      { x: 0.55, y: -0.30, z: -1.10, segs: 8, len: 6.1, w: 0.50, d: 0.48, ph: 1.1, mat: hairC, fl: 0.08 },
+      { x: 0.95, y: -0.40, z: -0.95, segs: 7, len: 5.7, w: 0.46, d: 0.44, ph: 2.0, mat: hairA, fl: 0.12 },
+      { x: 0.30, y: -0.20, z: -1.22, segs: 7, len: 5.9, w: 0.52, d: 0.50, ph: 2.8, mat: hairB, fl: 0.04 }
     ];
-    backLocks.forEach(a => lock.apply(null, a));
+    BACK.forEach(st => {
+      waveStrand( st.x, st.y, st.z, st.segs, st.len, st.w, st.d, st.ph,  1, st.mat, st.fl);
+      if (st.x !== 0) waveStrand(-st.x, st.y, st.z, st.segs, st.len, st.w, st.d, st.ph + 0.4, -1, st.mat, st.fl);
+    });
 
     const parts = {
       g: g, rig: rig, hip: hip, torso: torso, skirt: skirt, chestTop: chestTop,
-      neck: neck, head: head, hair: hair, mic: mic,
+      neck: neck, head: head, hair: hair, mic: mic, glints: glints,
       leftLeg: leftLeg, rightLeg: rightLeg, leftArm: leftArm, rightArm: rightArm,
       mats: mats
     };
@@ -64001,7 +64056,7 @@ try {
     const highL = ltw(ct, -2.05, PR.armLen * 0.95, 0.35);
     const highR = ltw(ct,  2.05, PR.armLen * 0.95, 0.35);
     // mic hand sits just to the right of and slightly below the mouth so the grille can reach the lips
-    const micHand = ltw(hd, 0.55, PR.headH * 0.18, PR.headH * 0.45);
+    const micHand = ltw(hd, 0.62, PR.headH * 0.16, PR.headH * 0.92);
     const downL = ltw(parts.leftArm.sh, 0, -(PR.upperArm + PR.lowerArm), 0);
     const downR = ltw(parts.rightArm.sh, 0, -(PR.upperArm + PR.lowerArm), 0);
     const poleLOut = ltw(ct, -3.2, 0.2, -1.2);
@@ -64086,8 +64141,54 @@ try {
     mixArm(parts.leftArm, A.L, B.L, k, -1);
     mixArm(parts.rightArm, A.R, B.R, k, 1);
     const micKind = (st.pose === 4) ? k : (st.prevPose === 4 ? 1 - k : 0);
-    if (parts.mic) parts.mic.rotation.set(-0.2 - 0.3 * micKind, 0.15, 0.2 + 0.1 * micKind);
+    aimMic(parts, micKind);
+    twinkleGlints(parts, st);
   };
+
+  // Place the grille at the mouth, in front of the face — never buried in the hair.
+  function aimMic(parts, micKind) {
+    if (!parts.mic || !parts.head || !parts.rightArm || !parts.rightArm.hand) return;
+    if (micKind > 0.85) {
+      parts.mic.position.set(0.10, -PR.hand * 0.25, 0.35);
+      parts.mic.rotation.set(-0.50, 0.15, 0.30);
+      parts.mic.scale.set(1, 1, 1);
+      return;
+    }
+    parts.head.updateWorldMatrix(true, false);
+    parts.rightArm.hand.updateWorldMatrix(true, false);
+    const mouthW = ltw(parts.head, 0.32, PR.headH * 0.18, PR.headH * 0.92);
+    const handW = new THREE.Vector3();
+    parts.rightArm.hand.getWorldPosition(handW);
+    const dir = mouthW.clone().sub(handW);
+    if (dir.length() < 0.15) dir.set(0, 0.1, 1);
+    dir.normalize();
+    const originW = mouthW.clone().addScaledVector(dir, -1.2);
+    const z = dir;
+    const tmp = Math.abs(z.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+    const x = tmp.clone().cross(z).normalize();
+    const y = z.clone().cross(x).normalize();
+    const mat = new THREE.Matrix4().makeBasis(x, y, z);
+    mat.setPosition(originW);
+    const local = new THREE.Matrix4().copy(parts.rightArm.hand.matrixWorld).invert().multiply(mat);
+    const pos = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scl = new THREE.Vector3();
+    local.decompose(pos, quat, scl);
+    parts.mic.position.copy(pos);
+    parts.mic.quaternion.copy(quat);
+    parts.mic.scale.set(1, 1, 1);
+  }
+
+  function twinkleGlints(parts, st) {
+    if (!parts.glints || !parts.glints.length) return;
+    const t = (st && (st.t != null ? st.t : st.u)) || 0;
+    const pose = (st && st.pose) || 0;
+    for (let i = 0; i < parts.glints.length; i++) {
+      const g = parts.glints[i];
+      const pulse = 0.45 + 0.55 * Math.max(0, Math.sin(t * 7.5 + i * 1.73 + pose));
+      g.scale.setScalar(0.65 + 0.70 * pulse);
+    }
+  }
 
   P.ikLeg = ikLeg;
   P.ikArm = ikArm;
