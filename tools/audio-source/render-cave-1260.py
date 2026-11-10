@@ -43,6 +43,7 @@ MOODS = {
         "ir": 7.5,
         "wet": 0.80,
         "lfo": 0.05,
+        "mid_gain": 0.28,
         "desc": "blue crystal cave — icy C# minor choir",
     },
     "purple": {
@@ -61,6 +62,7 @@ MOODS = {
         "ir": 8.0,
         "wet": 0.82,
         "lfo": 0.04,
+        "mid_gain": 0.70,
         "desc": "purple crystal cave — dusk F# minor choir",
     },
     "agartha": {
@@ -79,6 +81,7 @@ MOODS = {
         "ir": 9.0,
         "wet": 0.85,
         "lfo": 0.032,
+        "mid_gain": 1.05,
         "desc": "Agartha — ancient D/A pedal, darker choir",
     },
 }
@@ -170,13 +173,16 @@ def _cosine(cur):
 
 
 def fit_to_ref(y, rng, name, rounds=5):
-    """Add band-limited layers and a gentle graphic EQ until cosine vs t1134 is high."""
+    """Add band-limited layers and a gentle graphic EQ until cosine vs t1134 is high.
+
+    EQ rounds can overshoot; keep the best-cosine iteration, not necessarily the last.
+    """
     n = len(y)
     t = np.arange(n) / SR
     sw = 0.85 + 0.15 * np.sin(2 * np.pi * 0.04 * t)
     cur = _bands(y)
-    print(f"  {name} cosine before fit {_cosine(cur):.3f}")
-    # One shot: inject energy into any band that's clearly short of the ref.
+    best_y, best_c = y.copy(), _cosine(cur)
+    print(f"  {name} cosine before fit {best_c:.3f}")
     mx = max(cur.values()) or 1.0
     for (lo, hi), tgt in REF_BANDS:
         rel = cur[(lo, hi)] / mx
@@ -186,18 +192,15 @@ def fit_to_ref(y, rng, name, rounds=5):
         f0 = 0.5 * (lo + hi)
         tone = np.sin(2 * np.pi * f0 * t) * sw
         if lo >= 150:
-            # slightly richer mid/choir energy, not a dead test tone
+            # breathy formant-ish mid, not a dead test tone
             tone += 0.45 * np.sin(2 * np.pi * f0 * 1.01 * t)
-            tone += 0.25 * E.sos_bp(rng.standard_normal(n), lo, hi)
+            tone += 0.35 * E.sos_bp(rng.standard_normal(n), lo, hi)
         tone = E.sos_bp(tone, max(lo, 20), hi)
-        # Empirical scale: a unit sine is huge in a narrow FFT band; keep modest
-        # and iterate.
         g = 0.035 * need * (1.4 if lo >= 180 else 1.0)
         E.add_mono(y, 0, tone, gain=g, pan=0.0)
-        if lo <= 40:
-            # don't over-fill the 20–40 Hz rumble
-            pass
-    # Graphic EQ iterations toward the target shape.
+    c = _cosine(_bands(y))
+    if c > best_c:
+        best_y, best_c = y.copy(), c
     for rnd in range(rounds):
         cur = _bands(y)
         mx = max(cur.values()) or 1.0
@@ -213,10 +216,13 @@ def fit_to_ref(y, rng, name, rounds=5):
                 E.rbj(y[:, 0], f0, q, "peak", gain_db=db),
                 E.rbj(y[:, 1], f0, q, "peak", gain_db=db),
             ], 1)
-        print(f"  {name} cosine after EQ {rnd+1} {_cosine(_bands(y)):.3f}")
-    # Final high-pass so 20–40 cannot dominate (blue's 34 Hz sub).
+        c = _cosine(_bands(y))
+        print(f"  {name} cosine after EQ {rnd+1} {c:.3f}")
+        if c > best_c:
+            best_y, best_c = y.copy(), c
+    y = best_y
     y = np.stack([E.sos_hp(y[:, 0], 36, 2), E.sos_hp(y[:, 1], 36, 2)], 1)
-    print(f"  {name} cosine after fit {_cosine(_bands(y)):.3f}")
+    print(f"  {name} cosine after fit (best kept) {_cosine(_bands(y)):.3f}")
     return y
 
 
@@ -272,12 +278,15 @@ def render_liminal(name, spec, dur=DUR, rng=None):
     E.add_mono(pad, 0, E.sos_bp(chest, 80, 110), gain=0.22, pan=0.0)
     mid_wall = np.zeros(n)
     for fmid, gmid in ((196.0, 0.55), (220.0, 0.70), (246.9, 0.60),
-                       (261.6, 0.45), (277.2, 0.55), (293.7, 0.40)):
-        vox = E.choir_voice(n, fmid, (260, 420, 780), detune=8, rng=rng)
-        mid_wall += gmid * E.sos_bp(vox, 180, 420)
+                       (261.6, 0.45), (277.2, 0.55), (293.7, 0.40),
+                       (311.1, 0.35)):
+        vox = E.choir_voice(n, fmid, (250, 390, 720), detune=10, rng=rng)
+        breath = E.sos_bp(rng.standard_normal(n), 190, 340) * 0.18
+        mid_wall += gmid * E.sos_bp(vox + breath, 185, 340)
     mid_wall *= sw
-    E.add_mono(pad, 0, mid_wall, gain=0.28, pan=-0.12)
-    E.add_mono(pad, 0, mid_wall, gain=0.28, pan=0.12)
+    mg = float(spec.get("mid_gain", 0.28))
+    E.add_mono(pad, 0, mid_wall, gain=mg, pan=-0.12)
+    E.add_mono(pad, 0, mid_wall, gain=mg, pan=0.12)
 
     # Stereo choir widening: delayed / detuned copies
     d1, d2 = int(0.027 * SR), int(0.043 * SR)
