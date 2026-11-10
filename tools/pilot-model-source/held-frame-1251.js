@@ -74,6 +74,8 @@
     try {
       if (W.__c340 && +W.__c340.k > 0.45) return true;
       if (typeof S !== 'undefined' && S && S.adsK > 0.45) return true;
+      if (W.__c288 && W.__c288.aiming) return true;
+      if (W.__c145 && (W.__c145.force || W.__c145.hold)) return true;
     } catch (_) {}
     return false;
   }
@@ -405,6 +407,7 @@
   function isProtectedMesh(o) {
     // Palm/fingers on the mesh itself only. A linen sleeve parented under
     // the hand group must NOT inherit protection — that was the wall.
+    if (o.userData && o.userData.fpTpArm1270) return true;
     if (isHandPart(o) && !isLinenMesh(o)) return true;
     return isItemMesh(o);
   }
@@ -448,10 +451,13 @@
         const swallows = !!(vsbZ && rec.vsb.min[2] < 0 && rec.vsb.max[2] > 0 && (cov > COVER_LIMIT || cov >= 0.999));
         const palm = isHandPart(o) && !isLinenMesh(o);
         const item = isItemMesh(o);
-        rec.prot = !!(palm || item);
+        const tpArm = !!(o.userData && o.userData.fpTpArm1270);
+        rec.prot = !!(palm || item || tpArm);
         // Always hide a camera-swallowing linen/sleeve wall, even if it
-        // sits under the hand group. Never hide the held item or a finger.
-        const wall = !item && !palm && (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)));
+        // sits under the hand group. Never hide the held item, a finger,
+        // or the 1270 Scottish TP arm (its bind AABB is at the camera
+        // because cover uses the unskinned box).
+        const wall = !item && !palm && !tpArm && (cov >= 0.999 || swallows || (cov > 0.50 && isLinenMesh(o)));
         if (wall) {
           o.visible = false;
           U._culled.push(o);
@@ -552,6 +558,17 @@
         return;
       }
       captureHS();
+      // 1259 dedicated FP viewmodel owns first-person posing. Leave the
+      // 1.2.49 path untouched so items not on the 1272 allowlist fall back
+      // cleanly when __fpVm1259.active is off.
+      if (W.__fpVm1259 && W.__fpVm1259.active && !W.__fpVm1259.disabled) {
+        const k0 = kindOf();
+        U.fovK = 1;
+        U.kind = k0;
+        U.ads = isAds() ? 1 : 0;
+        U.on = 1;
+        return;
+      }
       const k = kindOf();
       const ads = isAds();
       const fkey = (k === 'musket' && ads) ? 'musketAds' : (k === 'pistol' && ads) ? 'pistolAds' : k;
