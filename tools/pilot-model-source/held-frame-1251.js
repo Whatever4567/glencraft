@@ -3,7 +3,7 @@
    c112 map overlay, tightens third-person grip, and eases per-item finger
    wrap. Existing __fpa / fist animation drivers are kept. */
 (function heldFrame1251(W) {
-  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.57-frame-p26', fovK: 1, kind: '', ads: 0};
+  const U = W.__heldFrame1251 = {on: 0, err: null, version: '1.2.59-frame-torch', fovK: 1, kind: '', ads: 0};
   const T = W.THREE;
   if (!T) return;
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
@@ -20,9 +20,9 @@
     // t1183-13 POSITION: pick enters from the bottom-right corner, shaft
     // angled up-left. Fist stays big and on-screen (look refs 01/11) so the
     // glowing head is not clipped off the top.
-    pick:   {dx:  0.03, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
-    p761:   {dx:  0.03, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
-    p760:   {dx:  0.03, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
+    pick:   {dx:  0.12, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
+    p761:   {dx:  0.12, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
+    p760:   {dx:  0.12, dy: -0.06, dz: 0.06, fov: 0.70, s: 0.80, armS: 1.14},
     axe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     shovel: {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
     hoe:    {dx: -0.03, dy:  0.00, dz: 0.06, fov: 0.80, s: 1.06, armS: 1.10},
@@ -848,7 +848,7 @@
   //   (hand +Y along the fingers, +Z palmar, so the curl wraps a shaft along +X)
   // align: also rotate the item so its axis matches the through-fist axis.
   const GRIP = {
-    torch:  {p: [0, -0.016, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0},
+    torch:  {p: [0, -0.016, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0, errMax: 1.20, stable: 1},
     sword:  {p: [0, -0.075, 0], axis: [0, 1, 0], palm: [0, 0.055, 0.020], align: 0, aimCam: [-0.22, 1, 0], errMax: 1.20},
     p761:   {p: [0, 0.02, 0], axis: [0, 1, 0], palm: [0, 0.058, 0.018], align: 0, errMax: 1.20},
     pick:   {p: [0, 0.02, 0], axis: [0, 1, 0], palm: [0, 0.058, 0.018], align: 0, errMax: 1.20},
@@ -939,6 +939,18 @@
         mesh.userData._seatKey = key;
         mesh.userData._seatP0 = mesh.position.clone();
         mesh.userData._seatQ0 = mesh.quaternion.clone();
+        mesh.userData._seatStable = null;
+      }
+      // Freeze a settled torch (and any other stable:1 item) in held-local
+      // space. fpa.step aims the arm at the item, then repose()/apply()
+      // used to re-seat it to the new palm every frame, so the arm chased
+      // the torch and snapped. Reusing the first good pose breaks that loop.
+      if (spec.stable && bt >= 1 && mesh.userData._seatStable && mesh.userData._seatStable.key === key) {
+        mesh.position.copy(mesh.userData._seatStable.p);
+        mesh.quaternion.copy(mesh.userData._seatStable.q);
+        info.seated = 1;
+        info.why = 'stable';
+        return true;
       }
       // Aim poses already place the gun; do not fight them.
       if (adsNow && (kind === 'pistol' || kind === 'musket')) {
@@ -1074,6 +1086,9 @@
       const palm1 = toCameraLocal(h, v3(spec.palm));
       info.errAfter = (grip1 && palm1) ? +palm1.distanceTo(grip1).toFixed(4) : null;
       info.seated = 1;
+      if (spec.stable && bt >= 1) {
+        mesh.userData._seatStable = {key: key, p: mesh.position.clone(), q: mesh.quaternion.clone()};
+      }
       return true;
     } catch (e) {
       info.why = String(e && e.message || e);
