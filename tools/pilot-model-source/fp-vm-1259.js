@@ -82,8 +82,9 @@
     pistol: {
       // Exact sword right fist (mesh, wr, dorsum, haft). Gun is adapted
       // to that fixed hand, not the reverse.
-      two: 0, hs: 1.10,
+      two: 1, hs: 1.10,
       R: { wr: [0.28, -0.38, -0.44], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.22, haft: [0.16, 0.98, -0.06], curl: 1, rs: 0.78, sleeve: 'linen' },
+      L: { wr: [-0.22, -0.22, -0.48], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'palmUnder', haft: [-0.90, 0.18, 0.05], curl: 1, sleeve: 'linen', hs: 1.18, rs: 0.88 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.00 }
     },
     pistolAds: {
@@ -96,8 +97,9 @@
     musket: {
       // Same sword right fist. Barrel is aimed independently of the
       // upward tunnel so the musket does not stand vertical.
-      two: 0, hs: 1.10,
+      two: 1, hs: 1.10,
       R: { wr: [0.28, -0.38, -0.44], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'dorsumAbove', faceY: 0.22, haft: [0.16, 0.98, -0.06], curl: 1, sleeve: 'linen', rs: 0.78 },
+      L: { wr: [-0.22, -0.22, -0.50], pitch: 25, yaw: 35, elev: 44, lenFore: 0.34, face: 'palmUnder', haft: [-0.90, 0.18, 0.05], curl: 1, sleeve: 'linen', hs: 1.18, rs: 0.88 },
       item: { p: [0.00, 0.00, 0.00], r: [0.00, 0.00, 0.00], s: 1.00 }
     },
     musketAds: {
@@ -3653,9 +3655,9 @@
   function curlOptsFor(key, k0, ads) {
     if (k0 === 'empty') return { mode: 'open' };
     if (k0 === 'block') return { mode: 'cup' };
-    if (k0 === 'map') return { mode: 'hold' };
-    if (key === 'pistol' || key === 'pistolAds') return { mode: 'fist', trigger: true };
-    if (key === 'musket' || key === 'musketAds') return { mode: 'fist' };
+    if (k0 === 'map' || k0 === 'bucket') return { mode: 'hold' };
+    if (key === 'pistol' || key === 'pistolAds') return { mode: 'wrapPistol', trigger: true };
+    if (key === 'musket' || key === 'musketAds') return { mode: 'wrapMusket' };
     return { mode: 'fist' };
   }
 
@@ -3667,10 +3669,10 @@
   // Toggle is still synchronous in applyPose so a switch never presents
   // both rigs, leftover TP meshes, or a hidden 1.2.49 item.
   const NEW_FP_KINDS = {
-    empty: 0, p761: 0, p760: 0, pick: 0,
-    sword: 0, claymore: 0,
-    torch: 0, block: 0, bucket: 0, map: 0,
-    pistol: 0, musket: 0
+    empty: 1, p761: 1, p760: 1, pick: 1,
+    sword: 1, claymore: 1,
+    torch: 1, block: 1, bucket: 1, map: 1,
+    pistol: 1, musket: 1
   };
   function usesNewFp(kind) {
     return !!NEW_FP_KINDS[kind || ''];
