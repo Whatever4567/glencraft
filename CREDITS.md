@@ -144,6 +144,14 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.71 A second sculpt pass: a narrower palm, a real thumb, a cream cuff
+
+- A second sculpt pass on the classic 1.2.59 `__fpa` path, the 1.2.57 meshes, the 1.2.66 fingers and the 1.2.70 flesh — the arm is not replaced, and no animation (swing, mine, place, idle, hip-fire, aim-down-sights) is touched.
+- The open palm is narrower and thinner, with a slight cup and a bevel. Skin is a softer, desaturated natural pink-beige (less orange / terracotta), with a palm-centre shade and a rim light.
+- The thumb is a proper 2-segment tapered digit angled off the palm, not a sphere. Finger cross-sections are rounder, with less ring segmentation, and the nails are slightly lighter at the tips.
+- The cuff reads as a white / cream shirt sleeve: lighter, with fold shading, a soft hem line, and a slight flare rather than a box. A static view-model offset (not an animation change) lifts the pistol and torch so the knuckles and wrapped fingers show at the bottom right. Grips still wrap the torch, pistol, sword, block and bucket.
+- First-person hands stay hidden in third person. The gold D-pad is left alone.
+
 ## v1.2.70 A solid sculpt pass: lighter flesh, fleshy fingers, a slimmer sleeve
 
 - A sculpt pass on the classic 1.2.59 `__fpa` path, the 1.2.57 meshes and the 1.2.66 fingers — the arm is not replaced, and no animation (swing, mine, place, idle, hip-fire, aim-down-sights) is touched.
