@@ -562,7 +562,7 @@
     F.H = (F.H || 0) + U.turnV * dt;
     F.Pt = Math.max(-1.48, Math.min(1.48, (F.Pt || 0) + U.pitchV * dt));
     F.inp = [Math.max(-1, Math.min(1, -tr)), Math.max(-1, Math.min(1, -pr))];
-    /* accelerate with no top speed while the stick is held */
+    /* accelerate, then cap at 100,000 mph (1.2.73) */
     const cP = Math.cos(F.Pt || 0), sP = Math.sin(F.Pt || 0);
     const fwdX = -Math.sin(F.H) * cP, fwdY = sP, fwdZ = -Math.cos(F.H) * cP;
     const rightX = Math.cos(F.H), rightZ = -Math.sin(F.H);
@@ -580,7 +580,14 @@
       const damp = Math.exp(-dt * 1.6);
       F.v[0] *= damp; F.v[1] *= damp; F.v[2] *= damp;
     }
-    U.speed = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    const MAX_V1273 = 100000 * 1609.344 / 3600;
+    let spd1273 = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    if (spd1273 > MAX_V1273 && spd1273 > 0) {
+      const s1273 = MAX_V1273 / spd1273;
+      F.v[0] *= s1273; F.v[1] *= s1273; F.v[2] *= s1273;
+      spd1273 = MAX_V1273;
+    }
+    U.speed = spd1273; U.speedMph = spd1273 * 3600 / 1609.344;
     if (LSb && !U._ls) { try { F.whooshP && F.whooshP(0.9); } catch (_) {} try { window.__v130 && __v130.boosts++; } catch (_) {} }
     U._ls = LSb;
     let nx = S.x, ny = S.y, nz = S.z;

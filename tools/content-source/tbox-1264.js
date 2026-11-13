@@ -523,7 +523,16 @@
       const damp = Math.exp(-dt * 1.6);
       F.v[0] *= damp; F.v[1] *= damp; F.v[2] *= damp;
     }
-    if (A) A.speed = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    /* 1.2.73: cap at 100,000 mph (1 block = 1 m → 44704.0 blocks/s). Boost is also clamped by this ceiling. */
+    const MAX_V1273 = 100000 * 1609.344 / 3600;
+    let spd1273 = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    if (spd1273 > MAX_V1273 && spd1273 > 0) {
+      const s1273 = MAX_V1273 / spd1273;
+      F.v[0] *= s1273; F.v[1] *= s1273; F.v[2] *= s1273;
+      spd1273 = MAX_V1273;
+    }
+    if (A) { A.speed = spd1273; A.speedMph = spd1273 * 3600 / 1609.344; }
+    try { const _U = window.__tbox1260; if (_U) { _U.speed = spd1273; _U.speedMph = spd1273 * 3600 / 1609.344; } } catch (_) {}
     let nx = S.x, ny = S.y, nz = S.z;
     const ddx = F.v[0] * dt, ddy = F.v[1] * dt, ddz = F.v[2] * dt;
     const n = Math.min(64, Math.max(1, Math.ceil(Math.max(Math.abs(ddx), Math.abs(ddy), Math.abs(ddz)) / 1.0)));

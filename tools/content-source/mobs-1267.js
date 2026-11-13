@@ -369,18 +369,70 @@
   }
 
   function spawnPack() {
-    const spot = findPackSpot();
+    /* 1.2.73: only near trees (log or leaves), groups of at most 3, 4-8 blocks apart. */
+    function nearTree(x, y, z, radius) {
+      radius = radius || 5;
+      const gx = Math.floor(x), gy = Math.floor(y || 0), gz = Math.floor(z);
+      const leafy = (typeof LEAFY !== 'undefined') ? LEAFY : null;
+      const loggy = (typeof LOGGY !== 'undefined') ? LOGGY : null;
+      const Tref = (typeof T !== 'undefined') ? T : {};
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dz = -radius; dz <= radius; dz++) {
+          if (dx * dx + dz * dz > radius * radius) continue;
+          for (let dy = -3; dy <= 8; dy++) {
+            let id = 0;
+            try { id = (typeof getBlock === 'function' ? getBlock(gx + dx, gy + dy, gz + dz) : (typeof getB === 'function' ? getB(gx + dx, gy + dy, gz + dz) : 0)) | 0; } catch (_) {}
+            if (!id) continue;
+            if (loggy && loggy[id]) return true;
+            if (leafy && leafy[id]) return true;
+            if (Tref && (id === Tref.LOG || id === Tref.LEAVES)) return true;
+          }
+        }
+      }
+      return false;
+    }
+    function chunkCount(x, z) {
+      const cx = Math.floor(x / 16), cz = Math.floor(z / 16);
+      try {
+        return mobs.filter(function (a) {
+          if (!a || !a.__1267 || a.kind !== 'wolf' || a.tamed) return false;
+          const p = a.g && a.g.position;
+          if (!p) return false;
+          return Math.floor(p.x / 16) === cx && Math.floor(p.z / 16) === cz;
+        }).length;
+      } catch (_) { return 0; }
+    }
+    let spot = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const s = findPackSpot();
+      if (s && nearTree(s[0], s[1], s[2], 5) && chunkCount(s[0], s[2]) < 3) { spot = s; break; }
+    }
     if (!spot) return null;
-    const n = 3 + (Math.random() < 0.45 ? 1 : 0);
+    const n = Math.min(3, 1 + Math.floor(Math.random() * 3));
     const packId = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 999);
     const out = [];
+    const used = [];
     for (let i = 0; i < n; i++) {
+      let px = spot[0], pz = spot[2], ok = false;
+      for (let t = 0; t < 20; t++) {
+        const ang = (i / Math.max(1, n)) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+        const r = 4 + Math.random() * 4;
+        px = spot[0] + Math.cos(ang) * r;
+        pz = spot[2] + Math.sin(ang) * r;
+        ok = used.every(function (u) { return Math.hypot(px - u[0], pz - u[1]) >= 4; });
+        if (ok || !used.length) { ok = true; break; }
+      }
+      if (!ok && used.length) {
+        const ang = (i / Math.max(1, n)) * Math.PI * 2;
+        px = spot[0] + Math.cos(ang) * 6;
+        pz = spot[2] + Math.sin(ang) * 6;
+      }
       const a = makeAnimal('wolf', { packId: packId });
-      const ox = (Math.random() - 0.5) * 3.2, oz = (Math.random() - 0.5) * 3.2;
-      placeAnimal(a, spot[0] + ox, groundAt(spot[0] + ox, spot[2] + oz), spot[2] + oz);
+      placeAnimal(a, px, groundAt(px, pz), pz);
       a.ang = Math.random() * Math.PI * 2;
       a.g.rotation.y = a.ang;
       out.push(a);
+      used.push([px, pz]);
     }
     U.packs++;
     U.on = 1;
@@ -933,7 +985,7 @@
             if (U._spT <= 0) {
               U._spT = 8 + Math.random() * 6;
               try {
-                if (started && !paused && !(typeof DIM !== 'undefined' && DIM.cur) && wildCount() < 7) spawnPack();
+                if (started && !paused && !(typeof DIM !== 'undefined' && DIM.cur) && wildCount() < 3 && Math.random() < 0.1) spawnPack();
               } catch (_) {}
             }
             upgradeLiveHags();

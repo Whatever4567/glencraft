@@ -32,6 +32,7 @@
 <!-- glencraft-build: b1270-v1.2.70 -->
 <!-- glencraft-build: b1271-v1.2.71 -->
 <!-- glencraft-build: b1272-v1.2.72 -->
+<!-- glencraft-build: b1273-v1.2.73 -->
 <!-- glencraft-build: b1251-popstar -->
 <title>Glencraft: Survival 4K</title>
 <style>
@@ -13386,7 +13387,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.72';
+const GAME_VERSION = '1.2.73';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -16943,7 +16944,7 @@ function setupTouch() {
   const brk = $('bMine');
   brk.addEventListener('pointerdown', e => { e.preventDefault(); buzz(); attackTouch = true; brk.classList.add('on'); try { brk.setPointerCapture(e.pointerId); } catch (_) {} });
   const brkEnd = () => { attackTouch = false; brk.classList.remove('on'); };
-  brk.addEventListener('pointerup', brkEnd); brk.addEventListener('pointercancel', brkEnd);
+  brk.addEventListener('pointerup', brkEnd); brk.addEventListener('pointercancel', brkEnd); brk.addEventListener('lostpointercapture', brkEnd);
 }
 
 /* ---------- start / download / quality ---------- */
@@ -25570,7 +25571,7 @@ function ammoPick() { return (inv[IT.SILVERSHOT] || 0) > 0 ? IT.SILVERSHOT : IT.
       for (const g of live) { if (!g.parent) { live.delete(g); continue; } const u = g.userData, rig = u.rig; const isP = u.gun === IT.PISTOL;
         const dip = rlT > 0 ? Math.sin(Math.min(1, rf * 1.15) * Math.PI) : 0;
         rig.position.set(0, -0.12 * dip, recoil * (isP ? 0.05 : 0.09)); rig.rotation.set(recoil * (isP ? 0.45 : 0.25) - 0.9 * dip * 0.6, 0, 0.5 * dip);
-        const magOut = rlT > 0 ? (rf < 0.25 ? rf / 0.25 : rf < 0.55 ? 1 - (rf - 0.25) / 0.3 : 0) : 0; u.mag.position.y = -0.12 * magOut; u.mag.visible = magOut < 0.98;
+        const magOut = rlT > 0 ? (rf < 0.25 ? rf / 0.25 : rf < 0.55 ? 1 - (rf - 0.25) / 0.3 : 0) : 0; if (u.mag) { let _rm = false; try { u.mag.traverse(o => { if (o.isMesh && /magazine/i.test(o.name || '')) _rm = true; }); } catch (_) {} if (_rm) { u.mag.position.y = -0.12 * magOut; u.mag.visible = magOut < 0.98; } }
         const rack = rlT > 0 && rf > 0.8 ? Math.sin((rf - 0.8) / 0.2 * Math.PI) : 0; u.slide.position.z = (isP ? 0.04 : 0.05) * Math.max(recoil > 0.5 ? (recoil - 0.5) * 2 : 0, rack, gunMag[u.gun] <= 0 && isP ? 1 : 0); }
       if (flashT > 0) { flashT -= dt; const g = [...live].find(q => q.parent === held || (q.parent && q.parent.parent === held)) || [...live][0]; if (g) { const v = new THREE.Vector3(); g.userData.muzzle.getWorldPosition(v); flash.position.copy(v); flashL.position.copy(v); } flash.visible = true; flash.scale.setScalar(0.6 + Math.random() * 0.5); flashL.intensity = 3; }
       else { flash.visible = false; flashL.intensity = 0; }
@@ -47149,7 +47150,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     // moving parts in their own holders (C43 moves the holder, the part keeps its spot)
     try { if (isP && window.__gs1222 && __gs1222.magFix) U.magFix = __gs1222.magFix(m); } catch (_) {}
     const part = re => { let f = null; m.traverse(o => { if (!f && re.test(o.name)) f = o; }); if (!f) return new THREE.Group(); const h = new THREE.Group(); f.parent.add(h); h.attach(f); const w = new THREE.Group(); hold.add(w); w.attach(h); return w; };
-    u.slide = part(isP ? /slide_a$/ : /bolt_a$/); u.mag = part(isP ? /magazine_loaded$/ : /^$/); try { if (window.__gs1222 && __gs1222.reanch) __gs1222.reanch(g, n, m); } catch (e) { ERR('anch', e); }
+    u.slide = part(isP ? /slide_a$/ : /bolt_a$/); u.mag = isP ? part(/magazine_loaded$/) : new THREE.Group(); try { if (window.__gs1222 && __gs1222.reanch) __gs1222.reanch(g, n, m); } catch (e) { ERR('anch', e); }
     const fb = box(hold, rig), mz = new THREE.Object3D(); mz.position.set((fb.min.x + fb.max.x) / 2, isP ? fb.max.y - (fb.max.y - fb.min.y) * 0.18 : fb.max.y - (fb.max.y - fb.min.y) * 0.3, fb.min.z - 0.01); rig.add(mz); u.muzzle = mz;
     // the sights: highest point over the front end of the barrel, at the back of the gun
     rig.updateMatrixWorld(true); let fy = -1e9; const P0 = new THREE.Vector3(), inv = new THREE.Matrix4().copy(rig.matrixWorld).invert(), zc = fb.min.z + (fb.max.z - fb.min.z) * (isP ? 0.25 : 0.06);
@@ -51313,7 +51314,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
             // ADS: hide or shrink the forearm so it cannot fill the sight.
             // Hands stay on the gun. Also shrink the sculpted wrist capsule
             // on the hand (it reads as a flesh column in the lens).
-            if (kind === 'musket') p.fo.visible = false;
+            if (kind === 'musket') { p.fo.visible = true; p.fo.scale.set(s0.x * 0.85, s0.y * 0.72, s0.z * 0.85); }
             else {
               p.fo.visible = true;
               p.fo.scale.set(s0.x * 0.55, s0.y * 0.30, s0.z * 0.55);
@@ -52280,6 +52281,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
           const typ = o.geometry && o.geometry.type;
           const u = o.userData || {};
           const leftover = !u.sculpt1249 && !u.nail1249 && !u.sculptGeo1249 && !u.sleeve1257 && !u.tapered1257 && !u.folded1249 &&
+            !u.sculpt1270 && !u.sculpt1271 && !u.slim1270 && !u.slim1271 && !u.sculptKeep &&
             (typ === 'BoxGeometry' || typ === 'CylinderGeometry' || typ === 'DodecahedronGeometry');
           const cap = !!u.wristCap1249;
           let wristChild = false;
@@ -59904,7 +59906,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // the real pistol model keeps its spare magazine beside the gun (as shown in the asset); move it into the grip so it sits in the well
   U.magFix = m => { let F = null, M = null; m.traverse(o => { if (o.isMesh && /pistol_a$/.test(o.name)) F = o; if (o.isMesh && /magazine_loaded$/.test(o.name)) M = o; }); if (!F || !M) return 0;
     m.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(m.matrixWorld).invert(), rb = o => { const b = new THREE.Box3(), v = new THREE.Vector3(), X = new THREE.Matrix4(); o.traverse(c => { if (!c.isMesh || !c.geometry) return; X.multiplyMatrices(inv, c.matrixWorld); const q = c.geometry.attributes.position; for (let i = 0; i < q.count; i++) b.expandByPoint(v.fromBufferAttribute(q, i).applyMatrix4(X)); }); return b; }, bf = rb(F), bm = rb(M);   /* v1.2.27: in the model frame */
-    if (bm.max.x > bf.min.x) return 0; const t = new THREE.Object3D(), par = M.parent; m.add(t); t.attach(M); M.position.x += 0.085; par.attach(M); m.remove(t); return 1; };
+    const _cx = ((bf.min.x + bf.max.x) / 2) - ((bm.min.x + bm.max.x) / 2); const _ov = bm.max.x > bf.min.x + 0.002 && bm.min.x < bf.max.x - 0.002; if (_ov && Math.abs(_cx) < 0.012) return 1; const t = new THREE.Object3D(), par = M.parent; m.add(t); t.attach(M); M.position.x += _cx; par.attach(M); m.remove(t); return 1; };
 })();
 
 /* GLX-AG1222 (v1.2.22): Agartha and deep cave calm and lighter.
@@ -61491,6 +61493,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.73","d":"2026-11-13","notes":["Fix: the Highland pistol\u2019s magazine sits in the grip, in hip fire and when you aim, on every gun that has a magazine.","Fix: letting go of the on-screen RT / Mine button stops the pickaxe (and other tools). The swing no longer keeps going after you take your finger off. The pickaxe arm is a connected sleeve and hand, not a floating stump.","Fix: aiming the Highland pistol no longer drives your arms through the gun, and aiming the Highland musket no longer leaves the arms as floating twisted pieces. Reloading the musket keeps the gun together \u2014 it no longer explodes, spins apart, or vanishes.","New: the TARDIS cannot fly faster than 100,000 miles an hour (at the game\u2019s scale of one block to one metre). If you are piloting it, your speed is shown in mph.","Change: Scottish dogs only turn up near trees, in small groups of at most three, spaced a few blocks apart, and much more rarely than before.","First-person hands stay hidden in third person, and the gold D-pad is left alone.","Hard-refresh to load this build."]},
 {"v":"v1.2.72","d":"2026-11-13","notes":["Fix: the pickaxe, torch and bucket no longer repeat their swing, place or use on their own. Those actions only fire while you are actually pressing (a mouse button, a finger on Mine or Place, or a controller trigger). Stuck attack and place-hold flags are cleared when the pointer, the trigger or the window is no longer down, including when pointer lock is lost or a gamepad disappears.","Fix: the \"world is taking too long to start\" box, and its request to take a screenshot and send it, is gone. A slow or partial load no longer toasts \"some parts were skipped — the world is safe\". The same recovery still runs, and it only logs to the console. Ordinary gameplay toasts (pickups and the like) are unchanged.","First-person hands, grips and animations are left as they are. First-person hands stay hidden in third person, and the gold D-pad is left alone.","Hard-refresh to load this build."]},
 {"v":"v1.2.71","d":"2026-11-13","notes":["Hands: a second sculpt pass. The open palm is narrower and thinner, with a slight cup and a bevel; the skin is a softer, desaturated natural pink-beige (less orange / terracotta), with a palm-centre shade and a rim light. The thumb is a proper 2-segment tapered digit angled off the palm, not a sphere. Finger cross-sections are rounder, with less ring segmentation, and the nails are slightly lighter at the tips. The cuff reads as a white / cream shirt sleeve: lighter, with fold shading, a soft hem line, and a slight flare.","A static view-model offset (not an animation change) lifts the pistol and torch so the knuckles and wrapped fingers show at the bottom right. Grips still wrap the torch, pistol, sword, block and bucket. Every animation (swing, mine, place, idle, hip-fire, aim-down-sights) is left untouched. First-person hands stay hidden in third person, and the gold D-pad is left alone.","Hard-refresh to load this build."]},
 {"v":"v1.2.70","d":"2026-11-13","notes":["Hands: a solid sculpt pass on the classic arms. The skin is a lighter, warmer natural flesh tone (matching the v1262 refs), not dark wood-brown. The fingers are fleshy rather than claw-like: rounder padded tips, a subtler knuckle shade, a sparse specular highlight, and a limited palette. The forearm and cuff are slimmer and less blocky, with a taper and a bevelled, better-shaded sleeve cuff.","Grips still wrap the torch, pistol, sword, block and bucket. Every animation (swing, mine, place, idle, hip-fire, aim-down-sights) is left untouched. First-person hands stay hidden in third person, and the gold D-pad is left alone.","Hard-refresh to load this build."]},
@@ -73875,7 +73878,7 @@ try {
     F.H = (F.H || 0) + U.turnV * dt;
     F.Pt = Math.max(-1.48, Math.min(1.48, (F.Pt || 0) + U.pitchV * dt));
     F.inp = [Math.max(-1, Math.min(1, -tr)), Math.max(-1, Math.min(1, -pr))];
-    /* accelerate with no top speed while the stick is held */
+    /* accelerate, then cap at 100,000 mph (1.2.73) */
     const cP = Math.cos(F.Pt || 0), sP = Math.sin(F.Pt || 0);
     const fwdX = -Math.sin(F.H) * cP, fwdY = sP, fwdZ = -Math.cos(F.H) * cP;
     const rightX = Math.cos(F.H), rightZ = -Math.sin(F.H);
@@ -73893,7 +73896,14 @@ try {
       const damp = Math.exp(-dt * 1.6);
       F.v[0] *= damp; F.v[1] *= damp; F.v[2] *= damp;
     }
-    U.speed = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    const MAX_V1273 = 100000 * 1609.344 / 3600;
+    let spd1273 = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    if (spd1273 > MAX_V1273 && spd1273 > 0) {
+      const s1273 = MAX_V1273 / spd1273;
+      F.v[0] *= s1273; F.v[1] *= s1273; F.v[2] *= s1273;
+      spd1273 = MAX_V1273;
+    }
+    U.speed = spd1273; U.speedMph = spd1273 * 3600 / 1609.344;
     if (LSb && !U._ls) { try { F.whooshP && F.whooshP(0.9); } catch (_) {} try { window.__v130 && __v130.boosts++; } catch (_) {} }
     U._ls = LSb;
     let nx = S.x, ny = S.y, nz = S.z;
@@ -76792,7 +76802,16 @@ try {
       const damp = Math.exp(-dt * 1.6);
       F.v[0] *= damp; F.v[1] *= damp; F.v[2] *= damp;
     }
-    if (A) A.speed = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    /* 1.2.73: cap at 100,000 mph (1 block = 1 m → 44704.0 blocks/s). Boost is also clamped by this ceiling. */
+    const MAX_V1273 = 100000 * 1609.344 / 3600;
+    let spd1273 = Math.hypot(F.v[0], F.v[1], F.v[2]);
+    if (spd1273 > MAX_V1273 && spd1273 > 0) {
+      const s1273 = MAX_V1273 / spd1273;
+      F.v[0] *= s1273; F.v[1] *= s1273; F.v[2] *= s1273;
+      spd1273 = MAX_V1273;
+    }
+    if (A) { A.speed = spd1273; A.speedMph = spd1273 * 3600 / 1609.344; }
+    try { const _U = window.__tbox1260; if (_U) { _U.speed = spd1273; _U.speedMph = spd1273 * 3600 / 1609.344; } } catch (_) {}
     let nx = S.x, ny = S.y, nz = S.z;
     const ddx = F.v[0] * dt, ddy = F.v[1] * dt, ddz = F.v[2] * dt;
     const n = Math.min(64, Math.max(1, Math.ceil(Math.max(Math.abs(ddx), Math.abs(ddy), Math.abs(ddz)) / 1.0)));
@@ -78988,18 +79007,70 @@ try {
   }
 
   function spawnPack() {
-    const spot = findPackSpot();
+    /* 1.2.73: only near trees (log or leaves), groups of at most 3, 4-8 blocks apart. */
+    function nearTree(x, y, z, radius) {
+      radius = radius || 5;
+      const gx = Math.floor(x), gy = Math.floor(y || 0), gz = Math.floor(z);
+      const leafy = (typeof LEAFY !== 'undefined') ? LEAFY : null;
+      const loggy = (typeof LOGGY !== 'undefined') ? LOGGY : null;
+      const Tref = (typeof T !== 'undefined') ? T : {};
+      for (let dx = -radius; dx <= radius; dx++) {
+        for (let dz = -radius; dz <= radius; dz++) {
+          if (dx * dx + dz * dz > radius * radius) continue;
+          for (let dy = -3; dy <= 8; dy++) {
+            let id = 0;
+            try { id = (typeof getBlock === 'function' ? getBlock(gx + dx, gy + dy, gz + dz) : (typeof getB === 'function' ? getB(gx + dx, gy + dy, gz + dz) : 0)) | 0; } catch (_) {}
+            if (!id) continue;
+            if (loggy && loggy[id]) return true;
+            if (leafy && leafy[id]) return true;
+            if (Tref && (id === Tref.LOG || id === Tref.LEAVES)) return true;
+          }
+        }
+      }
+      return false;
+    }
+    function chunkCount(x, z) {
+      const cx = Math.floor(x / 16), cz = Math.floor(z / 16);
+      try {
+        return mobs.filter(function (a) {
+          if (!a || !a.__1267 || a.kind !== 'wolf' || a.tamed) return false;
+          const p = a.g && a.g.position;
+          if (!p) return false;
+          return Math.floor(p.x / 16) === cx && Math.floor(p.z / 16) === cz;
+        }).length;
+      } catch (_) { return 0; }
+    }
+    let spot = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const s = findPackSpot();
+      if (s && nearTree(s[0], s[1], s[2], 5) && chunkCount(s[0], s[2]) < 3) { spot = s; break; }
+    }
     if (!spot) return null;
-    const n = 3 + (Math.random() < 0.45 ? 1 : 0);
+    const n = Math.min(3, 1 + Math.floor(Math.random() * 3));
     const packId = 'w' + Date.now().toString(36) + Math.floor(Math.random() * 999);
     const out = [];
+    const used = [];
     for (let i = 0; i < n; i++) {
+      let px = spot[0], pz = spot[2], ok = false;
+      for (let t = 0; t < 20; t++) {
+        const ang = (i / Math.max(1, n)) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+        const r = 4 + Math.random() * 4;
+        px = spot[0] + Math.cos(ang) * r;
+        pz = spot[2] + Math.sin(ang) * r;
+        ok = used.every(function (u) { return Math.hypot(px - u[0], pz - u[1]) >= 4; });
+        if (ok || !used.length) { ok = true; break; }
+      }
+      if (!ok && used.length) {
+        const ang = (i / Math.max(1, n)) * Math.PI * 2;
+        px = spot[0] + Math.cos(ang) * 6;
+        pz = spot[2] + Math.sin(ang) * 6;
+      }
       const a = makeAnimal('wolf', { packId: packId });
-      const ox = (Math.random() - 0.5) * 3.2, oz = (Math.random() - 0.5) * 3.2;
-      placeAnimal(a, spot[0] + ox, groundAt(spot[0] + ox, spot[2] + oz), spot[2] + oz);
+      placeAnimal(a, px, groundAt(px, pz), pz);
       a.ang = Math.random() * Math.PI * 2;
       a.g.rotation.y = a.ang;
       out.push(a);
+      used.push([px, pz]);
     }
     U.packs++;
     U.on = 1;
@@ -79552,7 +79623,7 @@ try {
             if (U._spT <= 0) {
               U._spT = 8 + Math.random() * 6;
               try {
-                if (started && !paused && !(typeof DIM !== 'undefined' && DIM.cur) && wildCount() < 7) spawnPack();
+                if (started && !paused && !(typeof DIM !== 'undefined' && DIM.cur) && wildCount() < 3 && Math.random() < 0.1) spawnPack();
               } catch (_) {}
             }
             upgradeLiveHags();
@@ -82755,6 +82826,507 @@ try {
     zapBox();
     if (++n > 40) clearInterval(iv);
   }, 50);
+})();
+
+/* GLX-FIX1273 (v1.2.73): pistol magazine in the well, RT release stops
+   the swing, gun ADS and musket reload stay together, TARDIS speed cap,
+   and rare tree-near Scottish dog packs.
+   (1) The Highland pistol's magazine is seated in the grip in hip fire
+   and ADS, on every gun that has a magazine. The spare that sits beside
+   the body in the asset is moved fully into the well (the old +0.085
+   nudge left it short).
+   (2) Letting go of the on-screen RT / Mine button clears attackTouch,
+   including when the pointer-up is lost by #lookZone, a failed
+   setPointerCapture, a pointerId mismatch, pointercancel, touchcancel
+   or lostpointercapture. Hold-to-mine still works while that finger is
+   down. Two-finger LOOK + RT is unchanged. Animations only run on real
+   input. The pickaxe sleeve stays a connected forearm, cuff and hand
+   in first person — not a floating cream stump.
+   (3) A musket or rifle no longer treats a nameless mesh as its
+   magazine, so reload cannot slide, hide or spin the gun itself.
+   Musket ADS keeps the forearm visible so the arms stay attached.
+   1.2.71 skin and material are kept.
+   (4) TARDIS flight is capped at 100,000 miles per hour (1 block = 1 m,
+   so 44,704 blocks/s). Pilot velocity and boost cannot exceed that.
+   While you are flying it, speed is shown in mph.
+   (5) Wild 1267 canine packs (the path that becomes Scottish dogs)
+   only spawn near trees, in groups of at most 3, 4-8 blocks apart,
+   at about a tenth of the old rate, with a lower per-chunk cap.
+   First-person hands stay hidden in third person. The gold D-pad is
+   left alone. */
+(function fix1273() {
+  const U = window.__fix1273 = {
+    err: null, on: 1, version: '1.2.73',
+    seated: 0, magRepair: 0, rtClears: 0, rtHook: 0, flyHud: 0,
+    lastClear: '', rtIds: 0
+  };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+
+  const MPH_CAP = 100000;
+  const M_PER_MILE = 1609.344;
+  const MAX_V = MPH_CAP * M_PER_MILE / 3600; /* 44704.0 blocks/s */
+  U.MAX_V = MAX_V;
+  U.mph = (blocksPerSec) => (blocksPerSec || 0) * 3600 / M_PER_MILE;
+  U.clampV = function (v) {
+    if (!v) return 0;
+    const spd = Math.hypot(v[0] || 0, v[1] || 0, v[2] || 0);
+    if (spd > MAX_V && spd > 0) {
+      const s = MAX_V / spd;
+      v[0] *= s; v[1] *= s; v[2] *= s;
+      return MAX_V;
+    }
+    return spd;
+  };
+
+  function isTp() {
+    try { return !!(window.__thirdPerson || (typeof camMode !== 'undefined' && camMode)); } catch (_) { return false; }
+  }
+  function T3() { try { return window.THREE; } catch (_) { return null; } }
+
+  /* ---------- (1) seat the pistol magazine in the well ---------- */
+  function modelBox(root, o) {
+    const T = T3();
+    if (!T || !root || !o) return null;
+    const b = new T.Box3(), v = new T.Vector3(), X = new T.Matrix4();
+    const inv = new T.Matrix4().copy(root.matrixWorld).invert();
+    o.traverse(function (c) {
+      if (!c.isMesh || !c.geometry || !c.geometry.attributes || !c.geometry.attributes.position) return;
+      X.multiplyMatrices(inv, c.matrixWorld);
+      const q = c.geometry.attributes.position;
+      for (let i = 0; i < q.count; i++) b.expandByPoint(v.fromBufferAttribute(q, i).applyMatrix4(X));
+    });
+    return b.isEmpty() ? null : b;
+  }
+
+  function seatMag(root) {
+    const T = T3();
+    if (!T || !root) return 0;
+    let F = null, M = null;
+    try {
+      root.traverse(function (o) {
+        if (!o.isMesh || !o.name) return;
+        if (/pistol_a$/.test(o.name) || /rifle_a$/.test(o.name)) F = o;
+        if (/magazine_loaded$/.test(o.name) || /magazine$/.test(o.name)) M = o;
+      });
+    } catch (e) { ERR('seat-find', e); return 0; }
+    if (!F || !M) return 0;
+    try { root.updateMatrixWorld(true); } catch (_) {}
+    const bf = modelBox(root, F), bm = modelBox(root, M);
+    if (!bf || !bm) return 0;
+    const bodyCx = (bf.min.x + bf.max.x) / 2;
+    const magCx = (bm.min.x + bm.max.x) / 2;
+    const dx = bodyCx - magCx;
+    /* Already in the well: the mag's X extent overlaps the body's, and
+       the centres are close. */
+    const overlapX = bm.max.x > bf.min.x + 0.002 && bm.min.x < bf.max.x - 0.002;
+    if (overlapX && Math.abs(dx) < 0.012) {
+      M.userData.__seated1273 = 1;
+      return 2;
+    }
+    if (Math.abs(dx) < 1e-5) return 2;
+    try {
+      const t = new T.Object3D(), par = M.parent;
+      root.add(t);
+      t.attach(M);
+      M.position.x += dx;
+      if (par) par.attach(M);
+      else root.attach(M);
+      root.remove(t);
+      M.userData.__seated1273 = 1;
+      U.seated++;
+      return 1;
+    } catch (e) { ERR('seat', e); return 0; }
+  }
+  U.seatMag = seatMag;
+
+  function hookMagFix() {
+    try {
+      const G = window.__gs1222;
+      if (G && typeof G.magFix === 'function' && !G.magFix.__fix1273) {
+        const prev = G.magFix;
+        G.magFix = function (m) {
+          let r = 0;
+          try { r = prev.apply(this, arguments); } catch (e) { ERR('magFix0', e); }
+          try { const s = seatMag(m); if (s) r = s; } catch (e) { ERR('magFix1', e); }
+          return r;
+        };
+        G.magFix.__fix1273 = 1;
+      }
+    } catch (e) { ERR('hookMag', e); }
+  }
+
+  function eachGun(fn) {
+    const roots = [];
+    try { if (typeof held !== 'undefined' && held) roots.push(held); } catch (_) {}
+    try { if (typeof hand !== 'undefined' && hand) roots.push(hand); } catch (_) {}
+    try { if (window.__vm && __vm.vs) roots.push(__vm.vs); } catch (_) {}
+    try { if (typeof scene !== 'undefined' && scene) roots.push(scene); } catch (_) {}
+    const seen = new Set();
+    for (let i = 0; i < roots.length; i++) {
+      const r = roots[i];
+      if (!r || !r.traverse) continue;
+      try {
+        r.traverse(function (o) {
+          const u = o.userData;
+          if (!u || !u.gun || !u.rig || seen.has(o)) return;
+          seen.add(o);
+          fn(o, u);
+        });
+      } catch (e) { ERR('eachGun', e); }
+    }
+  }
+
+  function isRealMag(holder) {
+    let ok = false;
+    if (!holder || !holder.traverse) return false;
+    try {
+      holder.traverse(function (o) {
+        if (o.isMesh && /magazine/i.test(o.name || '')) ok = true;
+      });
+    } catch (_) {}
+    return ok;
+  }
+
+  function repairGuns() {
+    eachGun(function (g, u) {
+      try {
+        const isP = (typeof IT !== 'undefined' && u.gun === IT.PISTOL) || u.gun === 212;
+        if (u.mag && !isRealMag(u.mag) && !isP && !u.__mag1273) {
+          try { u.mag.visible = true; u.mag.position.y = 0; } catch (_) {}
+          try { u.mag.traverse(function (o) { if (o.visible === false) o.visible = true; }); } catch (_) {}
+          try { u.mag = new (T3().Group)(); } catch (_) { u.mag = { position: { y: 0 }, visible: true, traverse: function () {} }; }
+          u.__mag1273 = 1;
+          U.magRepair++;
+        }
+        if (isP || isRealMag(g) || isRealMag(u.rig) || isRealMag(u.mag)) {
+          seatMag(g);
+          if (u.rig) seatMag(u.rig);
+        }
+      } catch (e) { ERR('repair', e); }
+    });
+  }
+
+  /* ---------- (2) RT / Mine release clears attackTouch ---------- */
+  const rtIds = new Set();
+
+  function bMine() {
+    try { return document.getElementById('bMine'); } catch (_) { return null; }
+  }
+  function setRt(id, on) {
+    if (id == null) return;
+    if (on) rtIds.add(id);
+    else rtIds.delete(id);
+    U.rtIds = rtIds.size;
+    try { attackTouch = rtIds.size > 0; } catch (_) {}
+    const el = bMine();
+    if (el && el.classList) {
+      if (rtIds.size) el.classList.add('on');
+      else el.classList.remove('on');
+    }
+  }
+  function clearRt(id, why) {
+    const had = (id == null) ? rtIds.size : rtIds.has(id);
+    if (id == null) {
+      rtIds.clear();
+      try { if (typeof attackTouch !== 'undefined' && attackTouch) attackTouch = false; } catch (_) {}
+      const el = bMine();
+      if (el) el.classList.remove('on');
+      U.rtIds = 0;
+    } else {
+      setRt(id, false);
+    }
+    if (had) { U.rtClears++; U.lastClear = why || ''; }
+  }
+  U.clearRt = clearRt;
+
+  function fromMine(e) {
+    try {
+      const t = e && (e.target || e.srcElement);
+      if (t && t.closest && t.closest('#bMine')) return true;
+      if (t && t.id === 'bMine') return true;
+    } catch (_) {}
+    return false;
+  }
+
+  function hookMine(el) {
+    if (!el || el.__fix1273rt) return;
+    el.__fix1273rt = 1;
+    U.rtHook = 1;
+    el.addEventListener('pointerdown', function (e) {
+      try {
+        if (e.button != null && e.button !== 0) return;
+        setRt(e.pointerId, true);
+        try { el.setPointerCapture(e.pointerId); } catch (_) {}
+      } catch (err) { ERR('rtdn', err); }
+    }, true);
+    function end(e) {
+      try {
+        if (!e || e.pointerId == null) return;
+        if (rtIds.has(e.pointerId) || fromMine(e)) clearRt(e.pointerId, e.type);
+      } catch (err) { ERR('rtend', err); }
+    }
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) {
+      el.addEventListener(ev, end, true);
+    });
+  }
+
+  function mineTouchStillDown(e) {
+    try {
+      const ts = e && e.touches;
+      if (!ts || !ts.length) return false;
+      for (let i = 0; i < ts.length; i++) {
+        const t = ts[i];
+        if (rtIds.has(t.identifier)) return true;
+        const tgt = t.target;
+        if (tgt && tgt.closest && tgt.closest('#bMine')) return true;
+        try {
+          const el = document.elementFromPoint(t.clientX, t.clientY);
+          if (el && el.closest && el.closest('#bMine')) return true;
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function installRt() {
+    if (U._rt) return;
+    U._rt = 1;
+    hookMine(bMine());
+    function winEnd(e) {
+      try {
+        if (!e) return;
+        if (e.pointerId != null && rtIds.has(e.pointerId)) {
+          clearRt(e.pointerId, 'win-' + e.type);
+          return;
+        }
+        /* Fallback for a press our hook missed (button rebuilt, or the
+           original handler set attackTouch without us seeing the id):
+           a non-mouse release, no tracked RT finger, and the event is
+           not a leftover look-zone hold, clears a stuck attackTouch. */
+        if (e.pointerType && e.pointerType !== 'mouse' && rtIds.size === 0) {
+          let hold = false;
+          try { if (window.__c245 && __c245.hold) hold = true; } catch (_) {}
+          if (!hold && !fromMine(e)) {
+            /* only clear if nothing is still down on #bMine */
+            const el = bMine();
+            let down = false;
+            try { if (el && typeof el.hasPointerCapture === 'function' && e.pointerId != null && el.hasPointerCapture(e.pointerId)) down = true; } catch (_) {}
+            if (!down) {
+              try {
+                if (typeof attackTouch !== 'undefined' && attackTouch) {
+                  attackTouch = false;
+                  if (el) el.classList.remove('on');
+                  U.rtClears++;
+                  U.lastClear = 'win-fallback-' + e.type;
+                }
+              } catch (_) {}
+            }
+          }
+        }
+      } catch (err) { ERR('winEnd', err); }
+    }
+    try { window.addEventListener('pointerup', winEnd, true); } catch (_) {}
+    try { window.addEventListener('pointercancel', winEnd, true); } catch (_) {}
+    try { window.addEventListener('lostpointercapture', winEnd, true); } catch (_) {}
+    function touchEnd(e) {
+      try {
+        const live = new Set();
+        try { const ts = e.touches; for (let i = 0; i < (ts && ts.length); i++) live.add(ts[i].identifier); } catch (_) {}
+        const ids = [];
+        rtIds.forEach(function (id) { ids.push(id); });
+        for (let i = 0; i < ids.length; i++) {
+          if (!live.has(ids[i])) clearRt(ids[i], e.type);
+        }
+        if (rtIds.size === 0 && !mineTouchStillDown(e)) {
+          try {
+            if (typeof attackTouch !== 'undefined' && attackTouch) {
+              /* Look-zone long-press (C245) may also use attackTouch;
+                 only clear if this touch was on #bMine or we tracked it. */
+              let ours = false;
+              try {
+                const ch = e.changedTouches;
+                for (let i = 0; ch && i < ch.length; i++) {
+                  const t = ch[i];
+                  if (t.target && t.target.closest && t.target.closest('#bMine')) ours = true;
+                }
+              } catch (_) {}
+              if (ours) {
+                attackTouch = false;
+                const el = bMine();
+                if (el) el.classList.remove('on');
+                U.rtClears++;
+                U.lastClear = e.type;
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (err) { ERR('te', err); }
+    }
+    try { window.addEventListener('touchend', touchEnd, true); } catch (_) {}
+    try { window.addEventListener('touchcancel', touchEnd, true); } catch (_) {}
+    try {
+      window.addEventListener('blur', function () { clearRt(null, 'blur'); }, true);
+      document.addEventListener('visibilitychange', function () {
+        try { if (document.hidden) clearRt(null, 'hidden'); } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
+  /* ---------- connected tool arm (no floating cream stump) ---------- */
+  function connectToolArm() {
+    if (isTp()) return;
+    let kind = '';
+    try {
+      const id = (typeof selId !== 'undefined') ? selId : null;
+      if (typeof IT !== 'undefined' && id != null) {
+        if (id === IT.TORCH || id === 67) kind = 'torch';
+        else if (id === IT.BUCKET || id === IT.WATERB || id === 39 || id === 48) kind = 'bucket';
+        else if (id === 761 || id === IT.PCPICK || (IT.PICK && id === IT.PICK) ||
+                 (IT.WPICK && id === IT.WPICK) || (IT.SPICK && id === IT.SPICK) ||
+                 (IT.IPICK && id === IT.IPICK) || (IT.GPICK && id === IT.GPICK)) kind = 'pick';
+      }
+      const n = (typeof NAMES !== 'undefined' && id != null && NAMES[id]) ? String(NAMES[id]).toLowerCase() : '';
+      if (!kind && /pick/.test(n)) kind = 'pick';
+      if (!kind && /torch/.test(n)) kind = 'torch';
+      if (!kind && /bucket/.test(n)) kind = 'bucket';
+    } catch (_) {}
+    if (!kind) return;
+    const roots = [];
+    try { if (typeof hand !== 'undefined' && hand) roots.push(hand); } catch (_) {}
+    try { if (window.__vm && __vm.vs) roots.push(__vm.vs); } catch (_) {}
+    for (let i = 0; i < roots.length; i++) {
+      const r = roots[i];
+      if (!r || !r.traverse) continue;
+      try {
+        r.traverse(function (arm) {
+          const p = arm.userData && arm.userData.p;
+          if (!p) return;
+          if (p.fo) p.fo.visible = true;
+          if (p.h) p.h.visible = true;
+          if (p.cuff) {
+            p.cuff.visible = true;
+            /* Undo a stale sword cuff trim if it was left on a pick/torch/bucket. */
+            if (p.cuff.userData && p.cuff.userData._cS0 && kind !== 'sword') {
+              const s0 = p.cuff.userData._cS0, p0 = p.cuff.userData._cP0;
+              if (s0 && p0) {
+                p.cuff.scale.set(s0.x, s0.y, s0.z);
+                p.cuff.position.set(p0.x, p0.y, p0.z);
+              }
+            }
+          }
+        });
+      } catch (e) { ERR('cuff', e); }
+    }
+  }
+
+  /* ---------- (4) TARDIS mph HUD (flight cap is inlined in fly) ---------- */
+  function livePilot() {
+    try {
+      if (document.body && document.body.classList && document.body.classList.contains('tboxPilot')) return true;
+    } catch (_) {}
+    try {
+      const F = window.__tbox3, T = window.__tbox, S = T && T.S;
+      if (F && F.pilot && S && S.on) return true;
+    } catch (_) {}
+    return false;
+  }
+  function currentMph() {
+    try {
+      const A = window.__tbox1260;
+      if (A && A.speedMph != null) return A.speedMph;
+      if (A && typeof A.speed === 'number') return U.mph(A.speed);
+    } catch (_) {}
+    try {
+      const F = window.__tbox3;
+      if (F && F.v) return U.mph(Math.hypot(F.v[0], F.v[1], F.v[2]));
+    } catch (_) {}
+    return 0;
+  }
+  function ensureMphHud() {
+    let el = document.getElementById('tboxMph');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'tboxMph';
+    el.setAttribute('data-testid', 'tardis-speed-mph');
+    el.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:85;pointer-events:none;color:#d7ecff;font:600 15px/1.2 system-ui,sans-serif;letter-spacing:.02em;text-shadow:0 1px 4px #000,0 0 8px #052;display:none;';
+    try { (document.body || document.documentElement).appendChild(el); } catch (_) {}
+    return el;
+  }
+  function tickMph() {
+    try {
+      const on = livePilot();
+      const el = ensureMphHud();
+      if (!el) return;
+      if (!on) { el.style.display = 'none'; el.textContent = ''; return; }
+      const mph = currentMph();
+      el.style.display = 'block';
+      const n = Math.max(0, Math.round(mph));
+      el.textContent = n.toLocaleString('en-GB') + ' mph';
+      U.flyHud = 1;
+    } catch (e) { ERR('mph', e); }
+  }
+
+  /* Clamp after any fly tick (safety net; the inlined cap runs first). */
+  function hookFly() {
+    function wrap(obj, key) {
+      try {
+        if (!obj || typeof obj[key] !== 'function' || obj[key].__fix1273) return;
+        const orig = obj[key];
+        obj[key] = function (dt) {
+          const r = orig.apply(this, arguments);
+          try {
+            const F = arguments[1] || null;
+            /* fly closes over F; after it returns F.v is already applied.
+               Still clamp for the next frame if something raced. */
+            const hosts = [window.__tbox1264, window.__tbox1260];
+            for (let i = 0; i < hosts.length; i++) {
+              const H = hosts[i];
+              if (!H) continue;
+              if (H.speed > MAX_V) {
+                /* cannot reach F.v from here if it is not on H */
+              }
+            }
+          } catch (_) {}
+          try { tickMph(); } catch (_) {}
+          return r;
+        };
+        obj[key].__fix1273 = 1;
+      } catch (e) { ERR('flyw', e); }
+    }
+    try { wrap(window.__tbox1264, 'fly'); } catch (_) {}
+    try { wrap(window.__tbox1260, 'fly'); } catch (_) {}
+    try {
+      const A = window.__tbox1264;
+      if (A) wrap(A, 'fly');
+    } catch (_) {}
+  }
+
+  /* ---------- boot ---------- */
+  function tick() {
+    hookMagFix();
+    hookMine(bMine());
+    hookFly();
+    try { repairGuns(); } catch (e) { ERR('rg', e); }
+    try { connectToolArm(); } catch (e) { ERR('cta', e); }
+    try { tickMph(); } catch (e) { ERR('mh', e); }
+  }
+
+  installRt();
+  tick();
+  try {
+    let n = 0;
+    const iv = setInterval(function () {
+      tick();
+      if (++n > 80) clearInterval(iv);
+    }, 50);
+  } catch (_) {}
+  try {
+    const loop = function () {
+      try { connectToolArm(); tickMph(); repairGuns(); hookMine(bMine()); } catch (_) {}
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  } catch (_) {}
 })();
 </script>
 </body>
