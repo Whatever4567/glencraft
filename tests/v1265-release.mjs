@@ -10,9 +10,9 @@ const src = fs.readFileSync(new URL('../tools/content-source/hands-1265.js', imp
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.66' || ver.v === '1.2.65', 'version.json is 1.2.65');
-ok(html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';"), 'GAME_VERSION is 1.2.65');
-ok(html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->'), 'build marker b1265');
+ok(ver.v === '1.2.67' || ver.v === '1.2.66' || ver.v === '1.2.65', 'version.json is 1.2.65');
+ok(html.includes("const GAME_VERSION = '1.2.67';") || html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';"), 'GAME_VERSION is 1.2.65');
+ok(html.includes('<!-- glencraft-build: b1267-v1.2.67 -->') || html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->'), 'build marker b1265');
 ok(html.includes('<!-- glencraft-build: b1264-v1.2.64 -->'), '1.2.64 build marker stays');
 ok(html.includes('<!-- glencraft-build: b1263-v1.2.63 -->'), '1.2.63 build marker stays');
 ok(credits.includes('## v1.2.65 Further pixel-sculpt detail on the classic hands'), 'CREDITS has the 1.2.65 section');
@@ -20,7 +20,7 @@ ok(credits.includes('1e9db15') && credits.includes('__fpa'), 'CREDITS names the 
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 28000);
+const head = html.slice(notesStart, notesStart + 34000);
 ok(head.includes('"v":"v1.2.65"') && head.includes('"d":"2026-11-13"'), 'v1.2.65 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.65"') < head.indexOf('"v":"v1.2.64"'), '1.2.65 notes sit above 1.2.64');
 ok(head.includes('Hands: further pixel-sculpt detail on the classic hands'), 'patch notes use the required phrase');
