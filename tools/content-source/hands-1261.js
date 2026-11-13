@@ -599,6 +599,10 @@
 
   function apply() {
     try {
+      /* Cheap: the sculpt is built once; do not re-pose more than once a frame. */
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (U._apAt && now - U._apAt < 8) return;
+      U._apAt = now;
       if (!U.R) return;
       const cam = getCam();
       if (!cam) return;

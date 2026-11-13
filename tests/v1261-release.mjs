@@ -1,4 +1,5 @@
-// v1.2.61: larger police-box windows, dark navy, arm framing, single hum.
+// v1.2.61: larger police-box windows, dark navy, arm framing, single hum,
+// pop-star setting, render-distance cap, touch LT door toggle.
 // Source proofs against the shipped index.html.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
@@ -16,7 +17,7 @@ ok(credits.includes('## v1.2.61'), 'CREDITS has a v1.2.61 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 3600);
+const head = html.slice(notesStart, notesStart + 7000);
 ok(head.includes('"v":"v1.2.61"') && head.includes('"d":"2026-11-13"'), 'v1.2.61 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.61"') < head.indexOf('"v":"v1.2.60"'), '1.2.61 notes sit above 1.2.60');
 for (const phrase of [
@@ -40,6 +41,15 @@ for (const phrase of [
   'linen sleeve cuff',
   'pixel-polygon sculpt',
   'no longer hums twice',
+  'on-screen LT button',
+  'gamepad LT',
+  'door leaf',
+  'hitbox is the door itself',
+  'giant pop star off in Settings',
+  'Teleport to Pop Star is hidden',
+  'stays within the Render distance',
+  'chunks past that are unloaded',
+  'default is a shorter 4 chunks',
   'Hard-refresh'
 ]) {
   ok(head.includes(phrase), 'patch notes mention: ' + phrase);
@@ -56,7 +66,12 @@ ok(html.includes('lamp1261') && (html.includes('0x6af0ff') || html.includes('0x9
 ok(html.includes('RingGeometry(holeR') && html.includes('huge blank') || html.includes('not a solid disc') || html.includes('gallery RING'), 'ceiling is a gallery ring, not a solid disc');
 ok(html.includes('rotor1261') && html.includes('roundel'), 'rotor room and roundels');
 ok(html.includes('__glxSingleHum') && html.includes('humOn(!!(f && f.pilot && T.inside && !window.__glxSingleHum))'), 'v130 hum is gated so the box only hums once');
-ok(html.includes('isFlightPad') && html.includes("indexOf('Fwd')") && html.includes("'dU'") && html.includes('dL') && html.includes('lockHidden'), 'flight pad and gold D-pad are hidden by label and id, not a brittle CSS string');
+ok(html.includes('isFlightPad') && html.includes("indexOf('Fwd')") && html.includes('lockHidden'), 'flight pad is hidden by label, not a brittle CSS string');
+ok(!html.includes("['dU', 'dL', 'dR'].forEach") && html.includes('gold D-pad is left alone'), 'gold D-pad is not hidden');
+ok(html.includes('GLX-PERF1261') && html.includes('streamRadius = function') && html.includes('capChunks') && html.includes("SET.rdist = touchMode ? 4 : 8"), 'render distance caps stream radius; phone default is 4');
+ok(html.includes('skippedQs') && html.includes("sel === 'div'"), 'per-frame all-div scan is skipped during render');
+ok(html.includes('GLX-POP1261') && html.includes('Disable pop star') && html.includes('settings-popSeg-1') && html.includes('SET.noPopstar') && html.includes('tpmPopstar'), 'Disable pop star setting is in the menu and gates spawn, song and teleport');
+ok(html.includes('__tbox1261.lookingAtDoor') && html.includes('intersectObjects') && html.includes('leafL1261') && html.includes('hookTouchLT') && html.includes("getElementById('bPlace')"), 'door hitbox is the leaf mesh; touch LT is hooked like gamepad LT');
 ok(html.includes('function buildArm') && html.includes('sleeveMesh') && html.includes('pixel-polygon'), 'voxel / pixel-polygon hand sculpt');
 ok(html.includes('centre-to-lower-right') || html.includes('center-to-lower-right') || html.includes('cuff: [0.14, -0.305'), 'arm framing is lower and centred, cuff at the bottom');
 ok(html.includes('_seatStable1261') && html.includes("version: '1.2.59-frame-torch'"), '1.2.59 torch freeze is still in the page and 1261 keeps a stable torch seat');

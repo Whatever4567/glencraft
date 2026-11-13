@@ -400,6 +400,8 @@
   }
   function lookingAtDoor() {
     try {
+      /* 1.2.61: leaf-geometry raycast (crosshair on the swinging door) */
+      if (window.__tbox1261 && typeof __tbox1261.lookingAtDoor === 'function') return __tbox1261.lookingAtDoor();
       if (!S.on) return null;
       const eye = (typeof EYE === 'number' ? EYE : 1.62);
       const ox = P.x, oy = P.y + eye, oz = P.z;

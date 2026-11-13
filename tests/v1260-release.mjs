@@ -18,7 +18,7 @@ ok(credits.includes('## v1.2.60'), 'CREDITS has a v1.2.60 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 2800);
+const head = html.slice(notesStart, notesStart + 7000);
 ok(head.includes('"v":"v1.2.60"') && head.includes('"d":"2026-11-13"'), 'v1.2.60 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.60"') < head.indexOf('"v":"v1.2.59"'), '1.2.60 notes sit above 1.2.59');
 for (const phrase of [

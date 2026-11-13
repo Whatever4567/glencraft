@@ -26965,7 +26965,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
 /* ===================== GLX-C70 (v0.9.56): world-space rain, wet look + puddles, render distance in chunks ===================== */
 (function c70() {
   // ---- render distance (chunks of 16 blocks); fog always fully hides a chunk before it is culled, cull distance fixed (no flicker) ----
-  if (typeof SET.rdist !== 'number') SET.rdist = touchMode ? 6 : 8;
+  if (typeof SET.rdist !== 'number') SET.rdist = touchMode ? 4 : 8;
   const VF = () => clamp(SET.rdist, 3, 16) * 16;
   try { const ds = document.getElementById('distSeg'); if (ds) { const row = ds.parentNode;
       row.innerHTML = '<span>Render distance</span><div class="seg" id="rdSeg"><button data-testid="rd-minus" id="rdMinus">−</button><input type="range" id="rdRange" data-testid="settings-rdist" min="3" max="16" step="1" style="width:120px;vertical-align:middle"><b id="rdVal" style="min-width:76px;display:inline-block;text-align:center"></b><button data-testid="rd-plus" id="rdPlus">+</button></div>';
@@ -61486,7 +61486,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{"v":"v1.2.61","d":"2026-11-13","notes":["The time box windows are much larger now: a six-pane window on each door, on every side, nearly as wide as the door and about a fifth of its height, with thick dark frames and a warm glow, like a real police box.","The shell is a very dark navy, almost black, and no longer a bright royal blue. The POLICE PUBLIC CALL BOX signs glow from inside, and the blue roof lamp sits on the roof and glows.","The base step, corner posts and roof are in proportion with the real box, and every side is complete.","Inside, the rotor room is a proper room: roundels lining the walls, a console in the middle, and a glowing column that rises into a lit opening in the ceiling. The huge blank disc is gone.","The extra up, down, left and right pad is gone on touch as well. The left stick flies you.","Pistols and muskets show in first person with the two-handed wrap.","First-person hands sit lower and more centred, with the palm facing up, the wrist low, and the linen sleeve cuff at the bottom of the screen. The hands are a detailed pixel-polygon sculpt, and a block rests in the open palm.","The box no longer hums twice while you are flying it.","Hard-refresh to load this build."]},
+{"v":"v1.2.61","d":"2026-11-13","notes":["The time box windows are much larger now: a six-pane window on each door, on every side, nearly as wide as the door and about a fifth of its height, with thick dark frames and a warm glow, like a real police box.","The shell is a very dark navy, almost black, and no longer a bright royal blue. The POLICE PUBLIC CALL BOX signs glow from inside, and the blue roof lamp sits on the roof and glows.","The base step, corner posts and roof are in proportion with the real box, and every side is complete.","Inside, the rotor room is a proper room: roundels lining the walls, a console in the middle, and a glowing column that rises into a lit opening in the ceiling. The huge blank disc is gone.","The extra up, down, left and right pad is gone on touch as well. The left stick flies you.","Pistols and muskets show in first person with the two-handed wrap.","First-person hands sit lower and more centred, with the palm facing up, the wrist low, and the linen sleeve cuff at the bottom of the screen. The hands are a detailed pixel-polygon sculpt, and a block rests in the open palm.","The box no longer hums twice while you are flying it.","The time box doors open when you tap the on-screen LT button, the same as gamepad LT. Aim the crosshair at a door leaf to open or close that door; each door's hitbox is the door itself and swings with it.","You can turn the giant pop star off in Settings. When she is off she is not in the world, her song does not play, and Teleport to Pop Star is hidden.","The game stays within the Render distance you set: chunks past that are unloaded, and the view no longer grows on its own. On phones the default is a shorter 4 chunks, which is easier on the device. Walking around should feel smoother.","Hard-refresh to load this build."]},
 {"v":"v1.2.60","d":"2026-11-13","notes":["The time box has a new police-box shell: panelled dark navy, framed six-pane windows, POLICE PUBLIC CALL BOX signs on every side, a phone panel on the left door, and a blue lamp on the roof. The old block-pile look is gone.","Inside is a tall rotor room, bigger on the inside, with roundels on the walls, a central console, and a glowing column that rises to the ceiling in purple and pink light.","The extra up, down, left and right pad is gone. The left stick flies you, the right stick turns and tilts, Jump rises, and Down sinks. In drive mode the hands are hidden and the arms sit at the bottom of the screen.","LS, or Sprint on touch, multiplies your speed by 10. Holding the stick keeps accelerating with no top speed. Speed and turning ease in, and the turn is quicker. The faster you go, the harsher the engines sound.","Flying up, down or sideways keeps you on the cabin floor instead of dumping you outside.","The box hums while you are in it or near it. A teleport is only the travel sound now. The blue screen is gone.","Both doors stay shut. Look at one and press LT (or right click / USE) to open or close that door on its own.","The sculpted first-person hands are back on for the empty hand, block, map, bucket, torch, sword, pick, pistol and rifle. A pistol and a rifle use a two-handed wrap, a block sits in an open palm, and a map and a bucket use the hold grip. The skin uses the real hand atlas and takes light.","Hard-refresh to load this build."]},
 {"v":"v1.2.59","d":"2026-11-11","notes":["The first-person arm no longer jitters or snaps when holding a torch.","The pickaxe is moved further to the right in first person."]},
 {"v":"v1.2.58","d":"2026-11-10","notes":["First-person hands sculpting: pick, sword, bucket, palm and sleeve upgrades"]},
@@ -73697,6 +73697,8 @@ try {
   }
   function lookingAtDoor() {
     try {
+      /* 1.2.61: leaf-geometry raycast (crosshair on the swinging door) */
+      if (window.__tbox1261 && typeof __tbox1261.lookingAtDoor === 'function') return __tbox1261.lookingAtDoor();
       if (!S.on) return null;
       const eye = (typeof EYE === 'number' ? EYE : 1.62);
       const ox = P.x, oy = P.y + eye, oz = P.z;
@@ -74282,7 +74284,7 @@ try {
    dark navy shell that stays dark under game light, glowing signs and roof
    lamp, a proper plinth and roof stack, a rotor room without the blank
    ceiling disc, a single in-flight hum, and a robust hide of the extra
-   touch flight pad (and the leftover gold arrow pad). */
+   touch flight pad. The gold D-pad is left alone. */
 (function tbox1261() {
   const U = window.__tbox1261 = { err: null, built: 0, hum: 0 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); try { console.warn('t1261', w, e); } catch (_) {} };
@@ -74797,14 +74799,12 @@ try {
   }
 
   /* ---- extra touch pads ----
-     1. The 3×2 TARDIS flight pad (Up/Fwd/Down/Left/Back/Right). 1.2.60 hid
-        it by matching gridTemplateColumns === 'repeat(3, 54px)' WITH a space,
-        but the style is set as 'repeat(3,54px)' and Safari computed-ifies it
-        to '54px 54px 54px', so the pad came back. Match by button labels and
-        any 3-column 54px grid, and lock display to none.
-     2. The gold arrow D-pad (#dU/#dL/#dR) sits left of the joystick on
-        touch — the leftover up/down/left/right pad the live phone shot still
-        showed. Hide those three; keep #bDrop so a player can still drop. */
+     The 3×2 TARDIS flight pad (Up/Fwd/Down/Left/Back/Right). 1.2.60 hid
+     it by matching gridTemplateColumns === 'repeat(3, 54px)' WITH a space,
+     but the style is set as 'repeat(3,54px)' and Safari computed-ifies it
+     to '54px 54px 54px', so the pad came back. Match by button labels and
+     any 3-column 54px grid, and lock display to none.
+     The gold arrow D-pad (#dU/#dL/#dR, class .dp) is left alone. */
   function isFlightPad(d) {
     if (!d || !d.style) return false;
     if (d.dataset && d.dataset.t1261pad === '1') return true;
@@ -74837,22 +74837,15 @@ try {
   }
   function hideExtraPads() {
     try {
+      if (U._padLocked) return;
       const nodes = document.querySelectorAll('div,section,nav');
+      let found = 0;
       for (let i = 0; i < nodes.length; i++) {
-        if (isFlightPad(nodes[i])) lockHidden(nodes[i]);
+        if (isFlightPad(nodes[i])) { lockHidden(nodes[i]); found++; }
       }
-      /* gold arrow D-pad (camera / swap / cycle) — leftover extra pad */
-      ['dU', 'dL', 'dR'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) lockHidden(el);
-      });
-      /* also any element with class 'dp' that is an arrow and is not drop */
-      try {
-        document.querySelectorAll('.dp').forEach(el => {
-          if (el.id === 'bDrop') return;
-          lockHidden(el);
-        });
-      } catch (_) {}
+      /* Once the flight pad is locked we stop scanning the whole DOM.
+         The gold D-pad is not touched. */
+      if (found) U._padLocked = 1;
     } catch (e) { ERR('pad', e); }
   }
   function wrapFlyToggle() {
@@ -74882,6 +74875,128 @@ try {
     } catch (_) {}
   }
 
+
+  /* Door hitboxes are the 1261 leaf meshes themselves (they swing with the
+     door). The on-screen LT / Place button toggles the leaf under the
+     crosshair, same rising-edge as gamepad LT. */
+  function muteOldDoorRaycast() {
+    try {
+      const T = window.__tbox;
+      const old = T && T.parts && T.parts.all && T.parts.all.getObjectByName('tardis1260');
+      if (old && !old._muteRc) {
+        old._muteRc = 1;
+        old.traverse(o => { if (o.isMesh) o.raycast = function () {}; });
+      }
+      /* any leftover 1260 leaf still referenced on U0 under a 1260-only name */
+      const U0 = window.__tbox1260;
+      if (U0) {
+        [U0._leafL0, U0._leafR0].forEach(g => {
+          if (g && g !== U.leafL && g !== U.leafR) g.traverse(o => { if (o.isMesh) o.raycast = function () {}; });
+        });
+      }
+    } catch (e) { ERR('muteRc', e); }
+  }
+  function lookingAtDoor() {
+    try {
+      const T = window.__tbox, S = T && T.S;
+      if (!S || !S.on) return null;
+      if (typeof camera === 'undefined' || !camera || typeof THREE === 'undefined') return null;
+      const L = U.leafL, R = U.leafR;
+      if (!L || !R) return null;
+      L.updateMatrixWorld(true);
+      R.updateMatrixWorld(true);
+      const rc = U._rc || (U._rc = new THREE.Raycaster());
+      const ndc = U._ndc || (U._ndc = new THREE.Vector2(0, 0));
+      rc.near = 0;
+      rc.far = 8;
+      rc.setFromCamera(ndc, camera);
+      const hits = rc.intersectObjects([L, R], true);
+      for (let i = 0; i < hits.length; i++) {
+        const h = hits[i];
+        if (h.distance > 8) continue;
+        let o = h.object, hidden = false;
+        while (o) {
+          if (o.visible === false) { hidden = true; break; }
+          if (o === L || o.name === 'leafL1261') return hidden ? null : 'left';
+          if (o === R || o.name === 'leafR1261') return hidden ? null : 'right';
+          o = o.parent;
+        }
+      }
+      return null;
+    } catch (e) { ERR('look', e); return null; }
+  }
+  U.lookingAtDoor = lookingAtDoor;
+  function flightPiloting() {
+    try {
+      const U0 = window.__tbox1260;
+      if (U0 && U0._F) return !!U0._F.pilot;
+    } catch (_) {}
+    try {
+      const T = window.__tbox3 || window.__tbox;
+      const F = T && (T.F || T.flight);
+      if (F) return !!F.pilot;
+    } catch (_) {}
+    return false;
+  }
+  function onLTEdge() {
+    try {
+      if (U._ltLatch) return false;
+      if (flightPiloting()) return false;
+      if (typeof paused !== 'undefined' && paused) return false;
+      if (typeof menuOpen !== 'undefined' && menuOpen) return false;
+      const U0 = window.__tbox1260;
+      const d = lookingAtDoor();
+      if (d && U0 && typeof U0.toggleDoor === 'function') {
+        U0.toggleDoor(d);
+        U._ltLatch = 1;
+        U._ltWhich = d;
+        return true;
+      }
+      return false;
+    } catch (e) { ERR('ltEdge', e); return false; }
+  }
+  U.onLTEdge = onLTEdge;
+  function hookTouchLT(el) {
+    if (!el || el._t1261lt) return;
+    el._t1261lt = 1;
+    const down = () => { U._ltHeld = 1; onLTEdge(); };
+    const up = () => { U._ltHeld = 0; U._ltLatch = 0; };
+    el.addEventListener('pointerdown', down, true);
+    el.addEventListener('touchstart', down, { capture: true, passive: true });
+    ['pointerup', 'pointercancel', 'touchend', 'lostpointercapture'].forEach(ev => {
+      el.addEventListener(ev, up, true);
+    });
+  }
+  function wireDoors() {
+    try {
+      muteOldDoorRaycast();
+      const U0 = window.__tbox1260;
+      if (U0) {
+        U0.lookingAtDoor = lookingAtDoor;
+        U.lookingAtDoor = lookingAtDoor;
+        /* useItem: 1260 already toggles when lookingAtDoor hits; if our
+           pointerdown already toggled, skip so we do not open-and-shut. */
+        if (!U0._use1261 && typeof useItem === 'function') {
+          const ui = useItem;
+          useItem = function () {
+            if (U._ltLatch) return;
+            return ui.apply(this, arguments);
+          };
+          window.useItem = useItem;
+          U0._use1261 = 1;
+        }
+      }
+      hookTouchLT(document.getElementById('bPlace'));
+      try {
+        document.querySelectorAll('button,b,div,span').forEach(el => {
+          const tx = (el.textContent || '').replace(/\s+/g, ' ').trim();
+          if (tx === 'LT' || (el.id === 'bPlace')) hookTouchLT(el.id === 'bPlace' ? el : (el.closest('button') || el));
+        });
+      } catch (_) {}
+    } catch (e) { ERR('wireDoors', e); }
+  }
+  U.wireDoors = wireDoors;
+
   function boot() {
     try {
       if (typeof THREE === 'undefined') { setTimeout(boot, 80); return; }
@@ -74889,8 +75004,9 @@ try {
       const U0 = window.__tbox1260;
       if (!T || !T.parts || !T.parts.all) { setTimeout(boot, 80); return; }
       if (U._booted) {
-        /* already built; still keep pads hidden */
+        /* already built; still keep pads hidden and doors wired */
         hideExtraPads();
+        wireDoors();
         return;
       }
       U._booted = 1;
@@ -74900,7 +75016,8 @@ try {
       silenceV130();
       hideExtraPads();
       wrapFlyToggle();
-      setInterval(hideExtraPads, 250);
+      wireDoors();
+      { let n = 0; const iv = setInterval(() => { hideExtraPads(); if (U._padLocked || ++n > 40) clearInterval(iv); }, 400); }
       setInterval(tickRotor, 50);
       setInterval(() => {
         try {
@@ -75530,6 +75647,10 @@ try {
 
   function apply() {
     try {
+      /* Cheap: the sculpt is built once; do not re-pose more than once a frame. */
+      const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+      if (U._apAt && now - U._apAt < 8) return;
+      U._apAt = now;
       if (!U.R) return;
       const cam = getCam();
       if (!cam) return;
@@ -75712,6 +75833,305 @@ try {
   else setTimeout(boot, 80);
   setTimeout(boot, 500);
   setTimeout(boot, 1500);
+})();
+/* GLX-PERF1261 (v1.2.61): Make the Render distance setting actually cap the
+   work. Chunks past the setting are not meshed and already-meshed ones are
+   unloaded; fog, the camera far plane and the shadow camera stay inside that
+   range. A later "see further the higher you are" wrap had been growing the
+   stream radius up to 200–700 blocks and ignoring the slider. On phones the
+   default is 4 chunks when the player has never chosen one. Also drop the
+   per-frame whole-DOM scan that 1.2.60 ran on every render (blue-overlay
+   cleanup), which is a big part of the lag on Android Chrome. */
+(function perf1261() {
+  const U = window.__perf1261 = { err: null, cap: 0, unl: 0, frames: 0 };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+  const isTouch = () => {
+    try { if (typeof touchMode !== 'undefined' && touchMode) return true; } catch (_) {}
+    try { return !!(window.matchMedia && matchMedia('(pointer: coarse)').matches); } catch (_) { return false; }
+  };
+  const rdist = () => {
+    let n = 8;
+    try {
+      if (typeof SET !== 'undefined' && typeof SET.rdist === 'number') n = SET.rdist;
+      else n = isTouch() ? 4 : 8;
+    } catch (_) { n = 8; }
+    return Math.max(3, Math.min(16, n));
+  };
+  /* UI unit is "chunks" of 16 blocks (the slider), even though CH is 26. */
+  const vfBlocks = () => rdist() * 16;
+  const capChunks = () => {
+    const ch = (typeof CH === 'number' && CH > 0) ? CH : 26;
+    return vfBlocks() / ch + 0.5;
+  };
+  U.rdist = rdist;
+  U.vfBlocks = vfBlocks;
+  U.capChunks = capChunks;
+
+  /* ---- stream radius: LAST wrap, the setting is the cap, never a floor that grows ---- */
+  try {
+    streamRadius = function () { U.cap = capChunks(); return U.cap; };
+  } catch (e) { ERR('sr', e); }
+
+  /* ---- unload anything past the cap; call rebuild so the existing streamer drops them ---- */
+  function evict() {
+    try {
+      if (typeof chunkObjs === 'undefined' || !chunkObjs || typeof rebuild !== 'function') return 0;
+      if (typeof started !== 'undefined' && !started) return 0;
+      const R = capChunks(), ch = (typeof CH === 'number' && CH > 0) ? CH : 26;
+      const pcx = (typeof P !== 'undefined' && P ? P.x / ch : 0) - 0.5;
+      const pcz = (typeof P !== 'undefined' && P ? P.z / ch : 0) - 0.5;
+      const dist = id => Math.max(Math.abs(Math.floor(id / 64) - pcx), Math.abs(id % 64 - pcz));
+      let n = 0;
+      for (const id of [...chunkObjs.keys()]) {
+        if (dist(id) > R + 1.6) {
+          const g = chunkObjs.get(id);
+          if (!g) continue;
+          try { if (typeof blockGroup !== 'undefined') blockGroup.remove(g); } catch (_) {}
+          try { g.children.forEach(c => { if (c.isInstancedMesh) c.dispose(); else if (c.geometry) c.geometry.dispose(); }); } catch (_) {}
+          chunkObjs.delete(id);
+          try { chunkLists.delete(id); } catch (_) {}
+          try { dirtyCh.add(id); } catch (_) {}
+          n++;
+        }
+      }
+      U.unl += n;
+      if (n && typeof rebuild === 'function') {
+        try { rebuild._unloaded = true; rebuild(4); } catch (_) {}
+      }
+      U.chunks = chunkObjs.size;
+      U.R = R;
+      return n;
+    } catch (e) { ERR('evict', e); return 0; }
+  }
+  U.evict = evict;
+
+  /* ---- fog + camera.far never exceed the setting (after every earlier wrap) ---- */
+  try {
+    if (typeof updateSky === 'function' && !updateSky._p1261) {
+      const us = updateSky;
+      updateSky = function () {
+        const r = us.apply(this, arguments);
+        try {
+          if (typeof DIM !== 'undefined' && DIM.cur) return r;
+          if (!scene || !scene.fog) return r;
+          const vf = vfBlocks();
+          const far = Math.min(scene.fog.far, Math.max(12, vf - 4));
+          if (scene.fog.far > far) scene.fog.far = far;
+          if (scene.fog.near > far * 0.55) scene.fog.near = far * 0.45;
+          if (typeof camera !== 'undefined' && camera && camera.isPerspectiveCamera) {
+            const want = vf + 40;
+            /* do not let the far plane grow past the setting; c75 scales the sky to camera.far */
+            if (camera.far > want + 2 || Math.abs(camera.far - want) > 8) {
+              camera.far = want;
+              camera.updateProjectionMatrix();
+            }
+          }
+        } catch (e) { ERR('sky', e); }
+        return r;
+      };
+      updateSky._p1261 = 1;
+      window.updateSky = updateSky;
+    }
+  } catch (e) { ERR('usw', e); }
+
+  /* ---- shadow camera range stays inside the view distance ---- */
+  function capShadow() {
+    try {
+      const vf = vfBlocks();
+      const lights = [];
+      if (typeof sunL !== 'undefined' && sunL) lights.push(sunL);
+      if (typeof sunLight !== 'undefined' && sunLight) lights.push(sunLight);
+      if (typeof scene !== 'undefined' && scene) scene.traverse(o => { if (o && o.isDirectionalLight && o.shadow) lights.push(o); });
+      const seen = new Set();
+      for (const L of lights) {
+        if (!L || !L.shadow || !L.shadow.camera || seen.has(L)) continue;
+        seen.add(L);
+        const c = L.shadow.camera;
+        const r = Math.min(34, Math.max(14, vf * 0.4));
+        if (c.isOrthographicCamera) {
+          if (c.right > r + 1) {
+            c.left = -r; c.right = r; c.top = r; c.bottom = -r;
+          }
+        }
+        const farMax = Math.max(80, vf + 40);
+        if (c.far > farMax) c.far = farMax;
+        try { c.updateProjectionMatrix(); } catch (_) {}
+      }
+    } catch (e) { ERR('sh', e); }
+  }
+  U.capShadow = capShadow;
+  try { capShadow(); } catch (_) {}
+
+  /* ---- 1260 onBeforeRender: do not scan every div every frame ---- */
+  try {
+    if (typeof scene !== 'undefined' && scene && !scene._p1261hook) {
+      const prev = scene.onBeforeRender;
+      scene.onBeforeRender = function (r, s, c) {
+        const proto = Document.prototype.querySelectorAll;
+        /* 1260 killBlueCut does document.querySelectorAll('div') every frame.
+           Allow the real cleanup on C2.go; skip the all-div scan during render. */
+        Document.prototype.querySelectorAll = function (sel) {
+          if (sel === 'div') {
+            U.skippedQs = (U.skippedQs || 0) + 1;
+            return proto.call(this, 'body:not(body)');
+          }
+          return proto.call(this, sel);
+        };
+        try { if (prev) return prev.apply(this, arguments); }
+        finally { Document.prototype.querySelectorAll = proto; }
+      };
+      scene._p1261hook = 1;
+    }
+  } catch (e) { ERR('rb', e); }
+
+  /* ---- keep the cap applied: evict on an easy interval, and when the slider moves ---- */
+  try {
+    const setHook = () => {
+      try {
+        const rg = document.getElementById('rdRange');
+        const plus = document.getElementById('rdPlus');
+        const minus = document.getElementById('rdMinus');
+        const hook = el => {
+          if (!el || el._p1261) return;
+          el._p1261 = 1;
+          el.addEventListener('input', () => { try { evict(); capShadow(); } catch (_) {} });
+          el.addEventListener('click', () => { try { evict(); capShadow(); } catch (_) {} });
+        };
+        hook(rg); hook(plus); hook(minus);
+        return !!(rg || plus);
+      } catch (e) { ERR('ui', e); return true; }
+    };
+    let t = 0; const iv = setInterval(() => { if (setHook() || ++t > 40) clearInterval(iv); }, 400);
+  } catch (e) { ERR('sethook', e); }
+
+  setInterval(() => { try { evict(); } catch (e) { ERR('ev', e); } }, 1500);
+  setTimeout(() => { try { evict(); capShadow(); } catch (_) {} }, 800);
+  setTimeout(() => { try { evict(); capShadow(); } catch (_) {} }, 2500);
+
+  /* wrap rebuild so a dirty-all never meshes past the cap (the 1.2.43 streamer
+     already filters, but the cap is applied here too if a later wrap grew R) */
+  try {
+    if (typeof rebuild === 'function' && !rebuild._p1261) {
+      const rb = rebuild;
+      rebuild = function (budget) {
+        try { streamRadius = function () { return capChunks(); }; } catch (_) {}
+        const r = rb.apply(this, arguments);
+        return r;
+      };
+      rebuild._p1261 = 1;
+      window.rebuild = rebuild;
+    }
+  } catch (e) { ERR('rbw', e); }
+})();
+/* GLX-POP1261 (v1.2.61): Disable pop star setting (persisted in glen_set as
+   SET.noPopstar, default off — the singer stays on). When the setting is on
+   she is not spawned or drawn, her song and the pop-star album cue do not
+   play, her per-frame dance is skipped, and Teleport to Pop Star is hidden.
+   Turning it off mid-game despawns her at once, which also saves the frame
+   time her mesh and audio were using. */
+(function pop1261() {
+  const U = window.__pop1261 = { err: null, blocked: 0, off: 0 };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+  const off = () => { try { return !!(typeof SET !== 'undefined' && SET.noPopstar); } catch (_) { return false; } };
+  U.off = () => off();
+
+  function hideTeleport(hide) {
+    try {
+      const b = document.getElementById('tpmPopstar');
+      if (b) {
+        b.style.display = hide ? 'none' : '';
+        b.disabled = !!hide;
+        if (hide) { b.setAttribute('aria-disabled', 'true'); b.setAttribute('hidden', ''); }
+        else { b.removeAttribute('aria-disabled'); b.removeAttribute('hidden'); }
+      }
+    } catch (_) {}
+  }
+
+  function applyOff() {
+    if (!off()) { hideTeleport(false); U.on = 0; return; }
+    U.on = 1;
+    try {
+      const V = window.__v1251;
+      if (V) {
+        try { if (typeof V.stopSong === 'function') V.stopSong(); } catch (_) {}
+        try { if (typeof V.despawn === 'function') V.despawn(); } catch (_) {}
+        try { V.pendingPresent = null; V.pendingTp = null; } catch (_) {}
+        try { V.songOn = 0; } catch (_) {}
+      }
+    } catch (e) { ERR('off', e); }
+    hideTeleport(true);
+  }
+  U.applyOff = applyOff;
+
+  function wrapApi() {
+    const V = window.__v1251;
+    if (!V || V._p1261) return !!V;
+    V._p1261 = 1;
+    const wrap = (name) => {
+      if (typeof V[name] !== 'function') return;
+      const orig = V[name].bind(V);
+      V[name] = function () {
+        if (off()) {
+          U.blocked++;
+          if (name === 'teleportTo') {
+            try { toast('The pop star is turned off in Settings'); } catch (_) {}
+            try { V.tp = V.tp || {}; V.tp.last = 'disabled'; } catch (_) {}
+            return false;
+          }
+          return null;
+        }
+        return orig.apply(this, arguments);
+      };
+    };
+    ['spawnAt', 'maybeSpawn', 'forcePresent', 'teleportTo', 'flushPending'].forEach(wrap);
+    if (typeof V.tick === 'function') {
+      const tk = V.tick.bind(V);
+      V.tick = function () { if (off()) return; return tk.apply(this, arguments); };
+    }
+    /* Teleport menu: drop the row while she is off. */
+    try {
+      const tpm = window.__tpm || window.__ui22;
+      if (tpm && typeof tpm.list === 'function' && !tpm._p1261) {
+        const ls = tpm.list.bind(tpm);
+        tpm.list = function () {
+          const L = ls.apply(this, arguments) || [];
+          if (!off()) return L;
+          return L.filter(e => !e || e.id !== 'tpmPopstar');
+        };
+        tpm._p1261 = 1;
+      }
+    } catch (e) { ERR('tpm', e); }
+    applyOff();
+    return true;
+  }
+  U.wrapApi = wrapApi;
+
+  U.set = function (v) {
+    try { SET.noPopstar = !!v; } catch (_) {}
+    try { saveSet(); } catch (_) {}
+    applyOff();
+    wrapApi();
+    if (U.sync) U.sync();
+  };
+
+  U.ui = () => {
+    if (document.getElementById('popSeg')) return true;
+    const after = document.getElementById('folSeg') || document.getElementById('mobSeg') || document.getElementById('rdSeg') || document.getElementById('touchSeg') || document.getElementById('bobSeg') || document.getElementById('ostSeg');
+    if (!after) return false;
+    const row = after.closest('.set') || after.parentNode;
+    const d = document.createElement('div');
+    d.className = 'set inline';
+    d.id = 'popSetRow';
+    d.innerHTML = '<span>Disable pop star</span><div class="seg" id="popSeg"><button data-v="1" data-testid="settings-popSeg-1">On</button><button data-v="0" data-testid="settings-popSeg-0">Off</button></div>';
+    row.after(d);
+    U.sync = () => d.querySelectorAll('button').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === (off() ? 1 : 0)));
+    d.querySelectorAll('button').forEach(b => b.addEventListener('click', () => U.set(Number(b.dataset.v) === 1)));
+    U.sync();
+    return true;
+  };
+
+  { let t = 0; const iv = setInterval(() => { try { wrapApi(); if ((U.ui() && wrapApi()) || ++t > 80) clearInterval(iv); } catch (e) { ERR('boot', e); clearInterval(iv); } }, 400); }
+  setInterval(() => { try { if (off()) applyOff(); else hideTeleport(false); } catch (e) { ERR('keep', e); } }, 2000);
 })();
 </script>
 </body>

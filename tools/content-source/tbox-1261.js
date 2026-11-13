@@ -2,7 +2,7 @@
    dark navy shell that stays dark under game light, glowing signs and roof
    lamp, a proper plinth and roof stack, a rotor room without the blank
    ceiling disc, a single in-flight hum, and a robust hide of the extra
-   touch flight pad (and the leftover gold arrow pad). */
+   touch flight pad. The gold D-pad is left alone. */
 (function tbox1261() {
   const U = window.__tbox1261 = { err: null, built: 0, hum: 0 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); try { console.warn('t1261', w, e); } catch (_) {} };
@@ -517,14 +517,12 @@
   }
 
   /* ---- extra touch pads ----
-     1. The 3×2 TARDIS flight pad (Up/Fwd/Down/Left/Back/Right). 1.2.60 hid
-        it by matching gridTemplateColumns === 'repeat(3, 54px)' WITH a space,
-        but the style is set as 'repeat(3,54px)' and Safari computed-ifies it
-        to '54px 54px 54px', so the pad came back. Match by button labels and
-        any 3-column 54px grid, and lock display to none.
-     2. The gold arrow D-pad (#dU/#dL/#dR) sits left of the joystick on
-        touch — the leftover up/down/left/right pad the live phone shot still
-        showed. Hide those three; keep #bDrop so a player can still drop. */
+     The 3×2 TARDIS flight pad (Up/Fwd/Down/Left/Back/Right). 1.2.60 hid
+     it by matching gridTemplateColumns === 'repeat(3, 54px)' WITH a space,
+     but the style is set as 'repeat(3,54px)' and Safari computed-ifies it
+     to '54px 54px 54px', so the pad came back. Match by button labels and
+     any 3-column 54px grid, and lock display to none.
+     The gold arrow D-pad (#dU/#dL/#dR, class .dp) is left alone. */
   function isFlightPad(d) {
     if (!d || !d.style) return false;
     if (d.dataset && d.dataset.t1261pad === '1') return true;
@@ -557,22 +555,15 @@
   }
   function hideExtraPads() {
     try {
+      if (U._padLocked) return;
       const nodes = document.querySelectorAll('div,section,nav');
+      let found = 0;
       for (let i = 0; i < nodes.length; i++) {
-        if (isFlightPad(nodes[i])) lockHidden(nodes[i]);
+        if (isFlightPad(nodes[i])) { lockHidden(nodes[i]); found++; }
       }
-      /* gold arrow D-pad (camera / swap / cycle) — leftover extra pad */
-      ['dU', 'dL', 'dR'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) lockHidden(el);
-      });
-      /* also any element with class 'dp' that is an arrow and is not drop */
-      try {
-        document.querySelectorAll('.dp').forEach(el => {
-          if (el.id === 'bDrop') return;
-          lockHidden(el);
-        });
-      } catch (_) {}
+      /* Once the flight pad is locked we stop scanning the whole DOM.
+         The gold D-pad is not touched. */
+      if (found) U._padLocked = 1;
     } catch (e) { ERR('pad', e); }
   }
   function wrapFlyToggle() {
@@ -602,6 +593,128 @@
     } catch (_) {}
   }
 
+
+  /* Door hitboxes are the 1261 leaf meshes themselves (they swing with the
+     door). The on-screen LT / Place button toggles the leaf under the
+     crosshair, same rising-edge as gamepad LT. */
+  function muteOldDoorRaycast() {
+    try {
+      const T = window.__tbox;
+      const old = T && T.parts && T.parts.all && T.parts.all.getObjectByName('tardis1260');
+      if (old && !old._muteRc) {
+        old._muteRc = 1;
+        old.traverse(o => { if (o.isMesh) o.raycast = function () {}; });
+      }
+      /* any leftover 1260 leaf still referenced on U0 under a 1260-only name */
+      const U0 = window.__tbox1260;
+      if (U0) {
+        [U0._leafL0, U0._leafR0].forEach(g => {
+          if (g && g !== U.leafL && g !== U.leafR) g.traverse(o => { if (o.isMesh) o.raycast = function () {}; });
+        });
+      }
+    } catch (e) { ERR('muteRc', e); }
+  }
+  function lookingAtDoor() {
+    try {
+      const T = window.__tbox, S = T && T.S;
+      if (!S || !S.on) return null;
+      if (typeof camera === 'undefined' || !camera || typeof THREE === 'undefined') return null;
+      const L = U.leafL, R = U.leafR;
+      if (!L || !R) return null;
+      L.updateMatrixWorld(true);
+      R.updateMatrixWorld(true);
+      const rc = U._rc || (U._rc = new THREE.Raycaster());
+      const ndc = U._ndc || (U._ndc = new THREE.Vector2(0, 0));
+      rc.near = 0;
+      rc.far = 8;
+      rc.setFromCamera(ndc, camera);
+      const hits = rc.intersectObjects([L, R], true);
+      for (let i = 0; i < hits.length; i++) {
+        const h = hits[i];
+        if (h.distance > 8) continue;
+        let o = h.object, hidden = false;
+        while (o) {
+          if (o.visible === false) { hidden = true; break; }
+          if (o === L || o.name === 'leafL1261') return hidden ? null : 'left';
+          if (o === R || o.name === 'leafR1261') return hidden ? null : 'right';
+          o = o.parent;
+        }
+      }
+      return null;
+    } catch (e) { ERR('look', e); return null; }
+  }
+  U.lookingAtDoor = lookingAtDoor;
+  function flightPiloting() {
+    try {
+      const U0 = window.__tbox1260;
+      if (U0 && U0._F) return !!U0._F.pilot;
+    } catch (_) {}
+    try {
+      const T = window.__tbox3 || window.__tbox;
+      const F = T && (T.F || T.flight);
+      if (F) return !!F.pilot;
+    } catch (_) {}
+    return false;
+  }
+  function onLTEdge() {
+    try {
+      if (U._ltLatch) return false;
+      if (flightPiloting()) return false;
+      if (typeof paused !== 'undefined' && paused) return false;
+      if (typeof menuOpen !== 'undefined' && menuOpen) return false;
+      const U0 = window.__tbox1260;
+      const d = lookingAtDoor();
+      if (d && U0 && typeof U0.toggleDoor === 'function') {
+        U0.toggleDoor(d);
+        U._ltLatch = 1;
+        U._ltWhich = d;
+        return true;
+      }
+      return false;
+    } catch (e) { ERR('ltEdge', e); return false; }
+  }
+  U.onLTEdge = onLTEdge;
+  function hookTouchLT(el) {
+    if (!el || el._t1261lt) return;
+    el._t1261lt = 1;
+    const down = () => { U._ltHeld = 1; onLTEdge(); };
+    const up = () => { U._ltHeld = 0; U._ltLatch = 0; };
+    el.addEventListener('pointerdown', down, true);
+    el.addEventListener('touchstart', down, { capture: true, passive: true });
+    ['pointerup', 'pointercancel', 'touchend', 'lostpointercapture'].forEach(ev => {
+      el.addEventListener(ev, up, true);
+    });
+  }
+  function wireDoors() {
+    try {
+      muteOldDoorRaycast();
+      const U0 = window.__tbox1260;
+      if (U0) {
+        U0.lookingAtDoor = lookingAtDoor;
+        U.lookingAtDoor = lookingAtDoor;
+        /* useItem: 1260 already toggles when lookingAtDoor hits; if our
+           pointerdown already toggled, skip so we do not open-and-shut. */
+        if (!U0._use1261 && typeof useItem === 'function') {
+          const ui = useItem;
+          useItem = function () {
+            if (U._ltLatch) return;
+            return ui.apply(this, arguments);
+          };
+          window.useItem = useItem;
+          U0._use1261 = 1;
+        }
+      }
+      hookTouchLT(document.getElementById('bPlace'));
+      try {
+        document.querySelectorAll('button,b,div,span').forEach(el => {
+          const tx = (el.textContent || '').replace(/\s+/g, ' ').trim();
+          if (tx === 'LT' || (el.id === 'bPlace')) hookTouchLT(el.id === 'bPlace' ? el : (el.closest('button') || el));
+        });
+      } catch (_) {}
+    } catch (e) { ERR('wireDoors', e); }
+  }
+  U.wireDoors = wireDoors;
+
   function boot() {
     try {
       if (typeof THREE === 'undefined') { setTimeout(boot, 80); return; }
@@ -609,8 +722,9 @@
       const U0 = window.__tbox1260;
       if (!T || !T.parts || !T.parts.all) { setTimeout(boot, 80); return; }
       if (U._booted) {
-        /* already built; still keep pads hidden */
+        /* already built; still keep pads hidden and doors wired */
         hideExtraPads();
+        wireDoors();
         return;
       }
       U._booted = 1;
@@ -620,7 +734,8 @@
       silenceV130();
       hideExtraPads();
       wrapFlyToggle();
-      setInterval(hideExtraPads, 250);
+      wireDoors();
+      { let n = 0; const iv = setInterval(() => { hideExtraPads(); if (U._padLocked || ++n > 40) clearInterval(iv); }, 400); }
       setInterval(tickRotor, 50);
       setInterval(() => {
         try {
