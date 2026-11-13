@@ -144,6 +144,15 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.73 Magazine in the gun, RT lets go, TARDIS cap, rare dogs
+
+- Fix: the Highland pistol's magazine sits in the grip, in hip fire and when you aim, on every gun that has a magazine.
+- Fix: letting go of the on-screen RT / Mine button stops the pickaxe (and other tools). The swing no longer keeps going after you take your finger off. The pickaxe arm is a connected sleeve and hand, not a floating stump.
+- Fix: aiming the Highland pistol no longer drives your arms through the gun, and aiming the Highland musket no longer leaves the arms as floating twisted pieces. Reloading the musket keeps the gun together — it no longer explodes, spins apart, or vanishes.
+- New: the TARDIS cannot fly faster than 100,000 miles an hour (at the game's scale of one block to one metre). If you are piloting it, your speed is shown in mph.
+- Change: Scottish dogs only turn up near trees, in small groups of at most three, spaced a few blocks apart, and much more rarely than before.
+- First-person hands stay hidden in third person. The gold D-pad is left alone.
+
 ## v1.2.72 Actions only on real input, and the load boxes are gone
 
 - Fix: the pickaxe, torch and bucket no longer repeat their swing, place or use on their own. Those actions only fire while you are actually pressing (a mouse button, a finger on Mine or Place, or a controller trigger). Stuck attack and place-hold flags are cleared when the pointer, the trigger or the window is no longer down — including when pointer lock is lost, a gamepad disappears, or an overlay ate the pointer-up.

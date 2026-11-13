@@ -77,6 +77,6 @@
   // the real pistol model keeps its spare magazine beside the gun (as shown in the asset); move it into the grip so it sits in the well
   U.magFix = m => { let F = null, M = null; m.traverse(o => { if (o.isMesh && /pistol_a$/.test(o.name)) F = o; if (o.isMesh && /magazine_loaded$/.test(o.name)) M = o; }); if (!F || !M) return 0;
     m.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(m.matrixWorld).invert(), rb = o => { const b = new THREE.Box3(), v = new THREE.Vector3(), X = new THREE.Matrix4(); o.traverse(c => { if (!c.isMesh || !c.geometry) return; X.multiplyMatrices(inv, c.matrixWorld); const q = c.geometry.attributes.position; for (let i = 0; i < q.count; i++) b.expandByPoint(v.fromBufferAttribute(q, i).applyMatrix4(X)); }); return b; }, bf = rb(F), bm = rb(M);   /* v1.2.27: in the model frame */
-    if (bm.max.x > bf.min.x) return 0; const t = new THREE.Object3D(), par = M.parent; m.add(t); t.attach(M); M.position.x += 0.085; par.attach(M); m.remove(t); return 1; };
+    const _cx = ((bf.min.x + bf.max.x) / 2) - ((bm.min.x + bm.max.x) / 2); const _ov = bm.max.x > bf.min.x + 0.002 && bm.min.x < bf.max.x - 0.002; if (_ov && Math.abs(_cx) < 0.012) return 1; const t = new THREE.Object3D(), par = M.parent; m.add(t); t.attach(M); M.position.x += _cx; par.attach(M); m.remove(t); return 1; };
 })();
 
