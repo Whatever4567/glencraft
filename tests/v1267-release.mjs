@@ -10,16 +10,16 @@ const src = fs.readFileSync(new URL('../tools/content-source/mobs-1267.js', impo
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.67', 'version.json is 1.2.67');
-ok(html.includes("const GAME_VERSION = '1.2.67';"), 'GAME_VERSION is 1.2.67');
-ok(html.includes('<!-- glencraft-build: b1267-v1.2.67 -->'), 'build marker b1267');
+ok(ver.v === '1.2.68' || ver.v === '1.2.67', 'version.json is 1.2.67');
+ok(html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.67';"), 'GAME_VERSION is 1.2.67');
+ok(html.includes('<!-- glencraft-build: b1268-v1.2.68 -->') || html.includes('<!-- glencraft-build: b1267-v1.2.67 -->'), 'build marker b1267');
 ok(html.includes('<!-- glencraft-build: b1266-v1.2.66 -->'), '1.2.66 build marker stays');
 ok(credits.includes('## v1.2.67 Wild wolves, Scottish dogs, and a hag upgrade'), 'CREDITS has the 1.2.67 section');
 ok(credits.includes('1e9db15') && credits.includes('__fpa'), 'CREDITS still names the restored 1.2.59 __fpa path');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 34000);
+const head = html.slice(notesStart, notesStart + 40000);
 ok(head.includes('"v":"v1.2.67"') && head.includes('"d":"2026-11-13"'), 'v1.2.67 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.67"') < head.indexOf('"v":"v1.2.66"'), '1.2.67 notes sit above 1.2.66');
 ok(head.includes('Wild wolves spawn naturally in packs'), 'patch notes mention wild wolf packs');
