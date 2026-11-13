@@ -8,14 +8,14 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.68' || ver.v === '1.2.67' || ver.v === '1.2.66' || ver.v === '1.2.65' || ver.v === '1.2.64' || ver.v === '1.2.63' || ver.v === '1.2.62', 'version.json is 1.2.62');
-ok(html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.67';") || html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';") || html.includes("const GAME_VERSION = '1.2.64';") || html.includes("const GAME_VERSION = '1.2.63';") || html.includes("const GAME_VERSION = '1.2.62';"), 'GAME_VERSION is 1.2.62');
-ok(html.includes('<!-- glencraft-build: b1268-v1.2.68 -->') || html.includes('<!-- glencraft-build: b1267-v1.2.67 -->') || html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->') || html.includes('<!-- glencraft-build: b1264-v1.2.64 -->') || html.includes('<!-- glencraft-build: b1263-v1.2.63 -->') || html.includes('<!-- glencraft-build: b1262-v1.2.62 -->'), 'build marker b1262');
+ok(ver.v === '1.2.69' || ver.v === '1.2.68' || ver.v === '1.2.67' || ver.v === '1.2.66' || ver.v === '1.2.65' || ver.v === '1.2.64' || ver.v === '1.2.63' || ver.v === '1.2.62', 'version.json is 1.2.62');
+ok(html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.67';") || html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';") || html.includes("const GAME_VERSION = '1.2.64';") || html.includes("const GAME_VERSION = '1.2.63';") || html.includes("const GAME_VERSION = '1.2.62';"), 'GAME_VERSION is 1.2.62');
+ok(html.includes('<!-- glencraft-build: b1269-v1.2.69 -->') || html.includes('<!-- glencraft-build: b1268-v1.2.68 -->') || html.includes('<!-- glencraft-build: b1267-v1.2.67 -->') || html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->') || html.includes('<!-- glencraft-build: b1264-v1.2.64 -->') || html.includes('<!-- glencraft-build: b1263-v1.2.63 -->') || html.includes('<!-- glencraft-build: b1262-v1.2.62 -->'), 'build marker b1262');
 ok(credits.includes('## v1.2.62'), 'CREDITS has a v1.2.62 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 40000);
+const head = html.slice(notesStart, notesStart + 46000);
 ok(head.includes('"v":"v1.2.62"') && head.includes('"d":"2026-11-13"'), 'v1.2.62 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.62"') < head.indexOf('"v":"v1.2.61"'), '1.2.62 notes sit above 1.2.61');
 for (const phrase of [

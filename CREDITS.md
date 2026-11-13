@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.69 Egypt land
+
+- Egypt land is a new Earth-like dimension (sky, sun, sea and sand) with the old pyramid island at its heart: the sandstone pyramid and its gold capstone, the hall and galleries, the chest room, and the Great Sphinx. The island is not in the Glencraft overworld.
+- A portal framed in gold blocks, lit the same way as a Nether portal, takes you there. The portal surface reuses the Nether portal texture, recoloured gold. A return portal sits by the pyramid, and the pause menu can teleport you to Egypt land.
+- The Egyptian people have moved out of Glencraft and live at the pyramid in Egypt land. The dimension is saved with the world, and if you quit while you are there you come back to Egypt land.
+- First-person hands and the gold D-pad are left alone. The view-model stays hidden in third person.
+
 ## v1.2.68 Castle garrisons and a path to the farmers
 
 - The Black Castle is home to 100 black skeletons that live around and inside it (idle and patrol; shaded so they do not burn in daylight). Each white (mossy) skeleton castle has 50 white skeletons. You can kill them all. Some respawn slowly, but a garrison can never refill to its original lot: the respawn cap decays with the kill count (`max(floor(max*0.12), max - kills)`), which is saved with the world (`glen_garrison_`). Only nearby skeletons in loaded chunks are simulated and drawn (live cap 28).
