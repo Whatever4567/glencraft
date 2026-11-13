@@ -144,6 +144,12 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.60 TARDIS overhaul and sculpted hands
+
+- The time box exterior is an original procedural police-box shell modelled on the Series 1-4 TARDIS plan (Bill Rudloff transcription, used for shape accuracy). Panelled dark navy, six-pane windows, POLICE PUBLIC CALL BOX signs, a phone panel, and a blue roof lamp. No third-party meshes or textures.
+- The tall rotor-room interior (roundels, central console, glowing column, purple/pink lighting) is original Glencraft procedural art. The in-or-near hum and the speed-harsh engine are procedural Web Audio, as is the existing travel whoosh (the blue travel overlay is removed).
+- Sculpted first-person hands already in the game (the 1.2.54–1.2.55 viewmodel and the 1.2.57 cube-arm sculpt, with the in-game hand atlas) are turned back on for every item. They were switched off in 1.2.56. The 1.2.59 torch-arm freeze and pickaxe rightward shift are kept. No third-party hand scans.
+
 ## v1.2.59 Torch arm and first-person pickaxe
 
 - The first-person arm no longer jitters or snaps when holding a torch.
