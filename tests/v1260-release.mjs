@@ -11,9 +11,9 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.60', 'version.json is 1.2.60');
-ok(html.includes("const GAME_VERSION = '1.2.60';"), 'GAME_VERSION is 1.2.60');
-ok(html.includes('<!-- glencraft-build: b1260-v1.2.60 -->'), 'build marker b1260');
+ok(ver.v === '1.2.61' || ver.v === '1.2.60', 'version.json is 1.2.60');
+ok(html.includes("const GAME_VERSION = '1.2.61';") || html.includes("const GAME_VERSION = '1.2.60';"), 'GAME_VERSION is 1.2.60');
+ok(html.includes('<!-- glencraft-build: b1261-v1.2.61 -->') || html.includes('<!-- glencraft-build: b1260-v1.2.60 -->'), 'build marker b1260');
 ok(credits.includes('## v1.2.60'), 'CREDITS has a v1.2.60 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');

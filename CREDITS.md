@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.61 Police-box windows, dark navy, and first-person arm framing
+
+- The police-box windows are resized to match a real Series TARDIS: a six-pane window on each door, on every side, about a fifth of the door height and nearly the width of each leaf, with thick dark frames and a warm unlit glow. The shell is a very dark navy (MeshBasic, so game lighting cannot wash it to royal blue). The signs glow from inside, the blue lamp sits on the roof, and the plinth, posts and roof stack follow the same plan as 1.2.60 with a taller, visible base step. No third-party meshes.
+- The rotor-room ceiling is a lit gallery ring with a hole for the column, not a huge blank disc. Roundels line the walls. The 1.2.60 interior console and procedural hum stay; the older v130 in-flight hum is gated so the box only hums once.
+- First-person arms are reframed (hand centre-to-lower-right, palm up, wrist low, linen cuff at the bottom edge, short mostly-vertical forearm) and rebuilt as a pixel-polygon voxel sculpt with per-item grips. The 1.2.59 torch-arm freeze and pickaxe rightward shift are kept. Pistol and musket meshes are forced visible with the two-handed wrap.
+- The extra touch flight pad is hidden by button labels as well as grid style, so it stays gone on Safari and Chrome. The leftover gold arrow D-pad (up / left / right) is hidden on touch; drop is kept.
+
 ## v1.2.60 TARDIS overhaul and sculpted hands
 
 - The time box exterior is an original procedural police-box shell modelled on the Series 1-4 TARDIS plan (Bill Rudloff transcription, used for shape accuracy). Panelled dark navy, six-pane windows, POLICE PUBLIC CALL BOX signs, a phone panel, and a blue roof lamp. No third-party meshes or textures.
