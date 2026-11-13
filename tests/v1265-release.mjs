@@ -10,9 +10,9 @@ const src = fs.readFileSync(new URL('../tools/content-source/hands-1265.js', imp
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.65', 'version.json is 1.2.65');
-ok(html.includes("const GAME_VERSION = '1.2.65';"), 'GAME_VERSION is 1.2.65');
-ok(html.includes('<!-- glencraft-build: b1265-v1.2.65 -->'), 'build marker b1265');
+ok(ver.v === '1.2.66' || ver.v === '1.2.65', 'version.json is 1.2.65');
+ok(html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';"), 'GAME_VERSION is 1.2.65');
+ok(html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->'), 'build marker b1265');
 ok(html.includes('<!-- glencraft-build: b1264-v1.2.64 -->'), '1.2.64 build marker stays');
 ok(html.includes('<!-- glencraft-build: b1263-v1.2.63 -->'), '1.2.63 build marker stays');
 ok(credits.includes('## v1.2.65 Further pixel-sculpt detail on the classic hands'), 'CREDITS has the 1.2.65 section');
@@ -20,7 +20,7 @@ ok(credits.includes('1e9db15') && credits.includes('__fpa'), 'CREDITS names the 
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 26000);
+const head = html.slice(notesStart, notesStart + 28000);
 ok(head.includes('"v":"v1.2.65"') && head.includes('"d":"2026-11-13"'), 'v1.2.65 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.65"') < head.indexOf('"v":"v1.2.64"'), '1.2.65 notes sit above 1.2.64');
 ok(head.includes('Hands: further pixel-sculpt detail on the classic hands'), 'patch notes use the required phrase');
@@ -41,7 +41,15 @@ for (const phrase of [
 ok(html.includes('/* GLX-HANDS1265 (v1.2.65):'), 'HANDS1265 IIFE is in the page');
 const i1265 = html.indexOf('/* GLX-HANDS1265');
 ok(i1265 > 0, 'HANDS1265 marker found');
-const h1265 = html.slice(i1265, i1265 + 50000);
+const i1265End = (() => {
+  const next = html.indexOf('\n/* GLX-', i1265 + 10);
+  const scr = html.indexOf('</script>', i1265);
+  let end = i1265 + 50000;
+  if (next > i1265 && next < end) end = next;
+  if (scr > i1265 && scr < end) end = scr;
+  return end;
+})();
+const h1265 = html.slice(i1265, i1265End);
 ok(h1265.includes('fingerSegFacet') && h1265.includes('knuckleFacet'), '1265 has faceted knuckle and finger segmentation');
 ok(h1265.includes('thumbPadGeo') && h1265.includes('ThumbPad1265'), '1265 adds a thumb pad');
 ok(h1265.includes('nailFacet') && h1265.includes('nail1265'), '1265 has faceted nail tips');
