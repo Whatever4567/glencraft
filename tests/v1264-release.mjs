@@ -11,15 +11,15 @@ const src = fs.readFileSync(new URL('../tools/content-source/tbox-1264.js', impo
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.68' || ver.v === '1.2.67' || ver.v === '1.2.66' || ver.v === '1.2.65' || ver.v === '1.2.64', 'version.json is 1.2.64');
-ok(html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.67';") || html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';") || html.includes("const GAME_VERSION = '1.2.64';"), 'GAME_VERSION is 1.2.64');
-ok(html.includes('<!-- glencraft-build: b1268-v1.2.68 -->') || html.includes('<!-- glencraft-build: b1267-v1.2.67 -->') || html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->') || html.includes('<!-- glencraft-build: b1264-v1.2.64 -->'), 'build marker b1264');
+ok(ver.v === '1.2.69' || ver.v === '1.2.68' || ver.v === '1.2.67' || ver.v === '1.2.66' || ver.v === '1.2.65' || ver.v === '1.2.64', 'version.json is 1.2.64');
+ok(html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.67';") || html.includes("const GAME_VERSION = '1.2.66';") || html.includes("const GAME_VERSION = '1.2.65';") || html.includes("const GAME_VERSION = '1.2.64';"), 'GAME_VERSION is 1.2.64');
+ok(html.includes('<!-- glencraft-build: b1269-v1.2.69 -->') || html.includes('<!-- glencraft-build: b1268-v1.2.68 -->') || html.includes('<!-- glencraft-build: b1267-v1.2.67 -->') || html.includes('<!-- glencraft-build: b1266-v1.2.66 -->') || html.includes('<!-- glencraft-build: b1265-v1.2.65 -->') || html.includes('<!-- glencraft-build: b1264-v1.2.64 -->'), 'build marker b1264');
 ok(html.includes('<!-- glencraft-build: b1263-v1.2.63 -->'), '1.2.63 build marker stays');
 ok(credits.includes('## v1.2.64 TARDIS floor, touch piloting, and raised scanner'), 'CREDITS has the 1.2.64 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 40000);
+const head = html.slice(notesStart, notesStart + 46000);
 ok(head.includes('"v":"v1.2.64"') && head.includes('"d":"2026-11-13"'), 'v1.2.64 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.64"') < head.indexOf('"v":"v1.2.63"'), '1.2.64 notes sit above 1.2.63');
 for (const phrase of [
