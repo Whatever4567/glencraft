@@ -11,15 +11,15 @@ const src = fs.readFileSync(new URL('../tools/content-source/tbox-1264.js', impo
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.64', 'version.json is 1.2.64');
-ok(html.includes("const GAME_VERSION = '1.2.64';"), 'GAME_VERSION is 1.2.64');
-ok(html.includes('<!-- glencraft-build: b1264-v1.2.64 -->'), 'build marker b1264');
+ok(ver.v === '1.2.65' || ver.v === '1.2.64', 'version.json is 1.2.64');
+ok(html.includes("const GAME_VERSION = '1.2.65';") || html.includes("const GAME_VERSION = '1.2.64';"), 'GAME_VERSION is 1.2.64');
+ok(html.includes('<!-- glencraft-build: b1265-v1.2.65 -->') || html.includes('<!-- glencraft-build: b1264-v1.2.64 -->'), 'build marker b1264');
 ok(html.includes('<!-- glencraft-build: b1263-v1.2.63 -->'), '1.2.63 build marker stays');
 ok(credits.includes('## v1.2.64 TARDIS floor, touch piloting, and raised scanner'), 'CREDITS has the 1.2.64 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 22000);
+const head = html.slice(notesStart, notesStart + 26000);
 ok(head.includes('"v":"v1.2.64"') && head.includes('"d":"2026-11-13"'), 'v1.2.64 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.64"') < head.indexOf('"v":"v1.2.63"'), '1.2.64 notes sit above 1.2.63');
 for (const phrase of [
@@ -39,7 +39,16 @@ for (const phrase of [
 ok(html.includes('/* GLX-TBOX1264 (v1.2.64):'), 'TBOX1264 IIFE is in the page');
 const i1264 = html.indexOf('/* GLX-TBOX1264');
 ok(i1264 > 0, 'TBOX1264 marker found');
-const h1264 = html.slice(i1264, i1264 + 40000);
+/* Slice only the 1264 IIFE, not a later 1.2.65 (or later) IIFE that follows it. */
+const i1264End = (() => {
+  const next = html.indexOf('\n/* GLX-', i1264 + 10);
+  const scr = html.indexOf('</script>', i1264);
+  let end = i1264 + 40000;
+  if (next > i1264 && next < end) end = next;
+  if (scr > i1264 && scr < end) end = scr;
+  return end;
+})();
+const h1264 = html.slice(i1264, i1264End);
 ok(h1264 === src.trim() + '\n' || h1264.includes('buildOpaqueFloor'), '1264 source is in the page');
 
 ok(h1264.includes('buildOpaqueFloor') && h1264.includes('CylinderGeometry'), '1264 builds a thick opaque floor disc');

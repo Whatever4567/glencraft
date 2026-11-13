@@ -144,6 +144,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.65 Further pixel-sculpt detail on the classic hands
+
+- Hands: further pixel-sculpt detail on the classic hands (the 1.2.59 `__fpa` path with the 1.2.57–1.2.58 sculpt, restored in 1.2.63 from `1e9db15`). Finer pixel-polygon facets on the existing hand, forearm and sleeve meshes: knuckle and finger segmentation, a thumb pad, nail tips, palm creases, and skin-tone shading in small faceted steps (lighter on top, warmer and darker in the creases and between the fingers), plus wrist tendons. The sleeve has a rolled linen cuff with fold facets. Geometry is cached and merged so there are no stutter spikes.
+- The same objects, hierarchy, pivots, rig, per-item grips, hold offsets and every animation (swing, mine, place, idle, gun hip and ADS, torch) are kept. The 1.2.60 HANDS1260 path and the 1.2.61 voxel arm are not used. The first-person view-model stays hidden in third person. The gold D-pad is left alone.
+
 ## v1.2.64 TARDIS floor, touch piloting, and raised scanner
 
 - The in-cabin floor is a thick, fully opaque tartan disc with depth-write and polygon offset, so it stays solid and correctly depth-sorted. While you are inside, terrain and grass in the interior footprint are hidden (chunk faces are skipped for the visual mesh only; the world is not edited) and nearby grass tufts are scaled away. They come back when you step out.
