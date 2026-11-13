@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.63 Hands restored to the pre-1.2.60 version
+
+- First-person arms and gun holds are restored exactly as they were in 1.2.59 (commit `1e9db15`, the last release before the 1.2.60 merge). That is the 1.2.49 `__fpa` path with the 1.2.57–1.2.58 sculpt and the 1.2.59 torch-pose freeze and pickaxe rightward shift, including pistol and musket hip and ADS with the original gun models.
+- The 1.2.60 sculpted-hands re-enable (`GLX-HANDS1260` turning `NEW_FP_KINDS` on for every item, plus two-handed gun wraps) and the 1.2.62 wrist-pose tweak (`shiftPoses` in `GLX-HANDS1262`) are undone for the arm/hands only, by `GLX-HANDS1263`. The 1.2.61 voxel arm stays removed.
+- The first-person view-model stays hidden in third person (the 1.2.62 hide is kept).
+- Everything else from 1.2.60–1.2.62 is kept: TARDIS shell and rotor room, doors, shirt torso sides, render-distance cap, pop-star setting, touch LT doors. The gold D-pad is untouched.
+
 ## v1.2.62 Original arm restored, shirt sides, time-box door
 
 - The 1.2.61 voxel / pixel-polygon first-person arm is removed. The 1.2.60 arm (`__fpVm1259` with the sculpted 1.2.49/1260 hands) is restored, including swing, mining, place, idle bob and per-item grips. Rest-pose wrist positions and hold offsets are shifted so the forearm comes in from the bottom-right, the sleeve sits at the screen edge, the empty hand is palm-up, and each item has a sensible grip. The view-model is hidden in third person. No new geometry or animation system is added. The 1.2.59 torch-arm freeze and pickaxe rightward shift stay.
