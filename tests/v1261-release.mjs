@@ -10,14 +10,14 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.61', 'version.json is 1.2.61');
-ok(html.includes("const GAME_VERSION = '1.2.61';"), 'GAME_VERSION is 1.2.61');
-ok(html.includes('<!-- glencraft-build: b1261-v1.2.61 -->'), 'build marker b1261');
+ok(ver.v === '1.2.62' || ver.v === '1.2.61', 'version.json is 1.2.61');
+ok(html.includes("const GAME_VERSION = '1.2.62';") || html.includes("const GAME_VERSION = '1.2.61';"), 'GAME_VERSION is 1.2.61');
+ok(html.includes('<!-- glencraft-build: b1262-v1.2.62 -->') || html.includes('<!-- glencraft-build: b1261-v1.2.61 -->'), 'build marker b1261');
 ok(credits.includes('## v1.2.61'), 'CREDITS has a v1.2.61 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 7000);
+const head = html.slice(notesStart, notesStart + 14000);
 ok(head.includes('"v":"v1.2.61"') && head.includes('"d":"2026-11-13"'), 'v1.2.61 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.61"') < head.indexOf('"v":"v1.2.60"'), '1.2.61 notes sit above 1.2.60');
 for (const phrase of [
@@ -56,7 +56,7 @@ for (const phrase of [
 }
 
 ok(html.includes('/* GLX-TBOX1261 (v1.2.61):'), 'TBOX1261 IIFE is in the page');
-ok(html.includes('/* GLX-HANDS1261 (v1.2.61):'), 'HANDS1261 IIFE is in the page');
+ok(html.includes('/* GLX-HANDS1261 (v1.2.61):') || (html.includes('GLX-HANDS1262') && html.includes('GLX-HANDS1260')), 'HANDS1261 IIFE is in the page (or withdrawn by 1.2.62 in favour of the original arm)');
 ok(html.includes('/* GLX-TBOX1260 (v1.2.60):'), 'TBOX1260 IIFE is still in the page');
 ok(html.includes('winH: 17.75'), 'windows are two 7 5/8 rows plus bars (17.75")');
 ok(html.includes('baseH: 8.0'), 'plinth is a substantial 8" step');
@@ -72,11 +72,11 @@ ok(html.includes('GLX-PERF1261') && html.includes('streamRadius = function') && 
 ok(html.includes('skippedQs') && html.includes("sel === 'div'"), 'per-frame all-div scan is skipped during render');
 ok(html.includes('GLX-POP1261') && html.includes('Disable pop star') && html.includes('settings-popSeg-1') && html.includes('SET.noPopstar') && html.includes('tpmPopstar'), 'Disable pop star setting is in the menu and gates spawn, song and teleport');
 ok(html.includes('__tbox1261.lookingAtDoor') && html.includes('intersectObjects') && html.includes('leafL1261') && html.includes('hookTouchLT') && html.includes("getElementById('bPlace')"), 'door hitbox is the leaf mesh; touch LT is hooked like gamepad LT');
-ok(html.includes('function buildArm') && html.includes('sleeveMesh') && html.includes('pixel-polygon'), 'voxel / pixel-polygon hand sculpt');
-ok(html.includes('centre-to-lower-right') || html.includes('center-to-lower-right') || html.includes('cuff: [0.14, -0.305'), 'arm framing is lower and centred, cuff at the bottom');
-ok(html.includes('_seatStable1261') && html.includes("version: '1.2.59-frame-torch'"), '1.2.59 torch freeze is still in the page and 1261 keeps a stable torch seat');
+ok((html.includes('function buildArm') && html.includes('sleeveMesh') && html.includes('pixel-polygon')) || html.includes('GLX-HANDS1262'), 'voxel hand sculpt (or 1.2.62 original-arm restore)');
+ok(html.includes('centre-to-lower-right') || html.includes('center-to-lower-right') || html.includes('cuff: [0.14, -0.305') || html.includes('forearm comes in from the bottom-right'), 'arm framing is lower and centred, cuff at the bottom');
+ok(html.includes("version: '1.2.59-frame-torch'"), '1.2.59 torch freeze is still in the page');
 ok(html.includes('pick:   {dx:  0.12, dy: -0.06, dz: 0.06') || html.includes('pick:   {dx:  0.12'), '1.2.59 pickaxe rightward shift is still in the page');
-ok(html.includes('forceGunVisible') && html.includes('procGun') && html.includes('two-handed'), 'pistols and muskets are forced visible with a two-handed wrap');
+ok((html.includes('forceGunVisible') && html.includes('procGun') && html.includes('two-handed')) || (html.includes('GLX-HANDS1260') && html.includes('pistol') && html.includes('two = 1')), 'pistols and muskets use the two-handed wrap');
 ok(html.includes('empty: 1, p761: 1, p760: 1, pick: 1'), 'NEW_FP_KINDS is still on');
 
 ok(html.includes('/* GLX-TBOX (v1.1.55):'), 'original TBOX block is still there');

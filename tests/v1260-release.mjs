@@ -11,14 +11,14 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.61' || ver.v === '1.2.60', 'version.json is 1.2.60');
-ok(html.includes("const GAME_VERSION = '1.2.61';") || html.includes("const GAME_VERSION = '1.2.60';"), 'GAME_VERSION is 1.2.60');
-ok(html.includes('<!-- glencraft-build: b1261-v1.2.61 -->') || html.includes('<!-- glencraft-build: b1260-v1.2.60 -->'), 'build marker b1260');
+ok(ver.v === '1.2.62' || ver.v === '1.2.61' || ver.v === '1.2.60', 'version.json is 1.2.60');
+ok(html.includes("const GAME_VERSION = '1.2.62';") || html.includes("const GAME_VERSION = '1.2.61';") || html.includes("const GAME_VERSION = '1.2.60';"), 'GAME_VERSION is 1.2.60');
+ok(html.includes('<!-- glencraft-build: b1262-v1.2.62 -->') || html.includes('<!-- glencraft-build: b1261-v1.2.61 -->') || html.includes('<!-- glencraft-build: b1260-v1.2.60 -->'), 'build marker b1260');
 ok(credits.includes('## v1.2.60'), 'CREDITS has a v1.2.60 section');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 7000);
+const head = html.slice(notesStart, notesStart + 14000);
 ok(head.includes('"v":"v1.2.60"') && head.includes('"d":"2026-11-13"'), 'v1.2.60 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.60"') < head.indexOf('"v":"v1.2.59"'), '1.2.60 notes sit above 1.2.59');
 for (const phrase of [
