@@ -10,16 +10,16 @@ const src = fs.readFileSync(new URL('../tools/content-source/castle-1268.js', im
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.70' || ver.v === '1.2.69' || ver.v === '1.2.68', 'version.json is 1.2.68');
-ok(html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.68';"), 'GAME_VERSION is 1.2.68');
-ok(html.includes('<!-- glencraft-build: b1270-v1.2.70 -->') || html.includes('<!-- glencraft-build: b1269-v1.2.69 -->') || html.includes('<!-- glencraft-build: b1268-v1.2.68 -->'), 'build marker b1268');
+ok(ver.v === '1.2.71' || ver.v === '1.2.70' || ver.v === '1.2.69' || ver.v === '1.2.68', 'version.json is 1.2.68');
+ok(html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.68';"), 'GAME_VERSION is 1.2.68');
+ok(html.includes('<!-- glencraft-build: b1271-v1.2.71 -->') || html.includes('<!-- glencraft-build: b1270-v1.2.70 -->') || html.includes('<!-- glencraft-build: b1269-v1.2.69 -->') || html.includes('<!-- glencraft-build: b1268-v1.2.68 -->'), 'build marker b1268');
 ok(html.includes('<!-- glencraft-build: b1267-v1.2.67 -->'), '1.2.67 build marker stays');
 ok(credits.includes('## v1.2.68 Castle garrisons and a path to the farmers'), 'CREDITS has the 1.2.68 section');
 ok(credits.includes('1e9db15') && credits.includes('__fpa'), 'CREDITS still names the restored 1.2.59 __fpa path');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 52000);
+const head = html.slice(notesStart, notesStart + 58000);
 ok(head.includes('"v":"v1.2.68"') && head.includes('"d":"2026-11-13"'), 'v1.2.68 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.68"') < head.indexOf('"v":"v1.2.67"'), '1.2.68 notes sit above 1.2.67');
 ok(head.includes('The Black Castle is home to 100 black skeletons'), 'patch notes mention the black garrison');

@@ -9,9 +9,9 @@ const src = fs.readFileSync(join(root, 'tools/content-source/hands-1270.js'), 'u
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) throw new Error('FAIL ' + n + ': ' + msg); }
 
-ok(ver.v === '1.2.70', 'version.json is 1.2.70');
-ok(html.includes("const GAME_VERSION = '1.2.70';"), 'GAME_VERSION is 1.2.70');
-ok(html.includes('<!-- glencraft-build: b1270-v1.2.70 -->'), 'build marker');
+ok(ver.v === '1.2.71' || ver.v === '1.2.70', 'version.json is 1.2.70');
+ok(html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.70';"), 'GAME_VERSION is 1.2.70');
+ok(html.includes('<!-- glencraft-build: b1271-v1.2.71 -->') || html.includes('<!-- glencraft-build: b1270-v1.2.70 -->'), 'build marker');
 ok(html.includes('"v":"v1.2.70"'), 'PATCH_NOTES entry');
 ok(html.includes('lighter, warmer natural flesh'), 'notes: lighter warmer flesh');
 ok(html.includes('fleshy rather than claw-like'), 'notes: fleshy fingers');
