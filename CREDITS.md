@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.70 A solid sculpt pass: lighter flesh, fleshy fingers, a slimmer sleeve
+
+- A sculpt pass on the classic 1.2.59 `__fpa` path, the 1.2.57 meshes and the 1.2.66 fingers — the arm is not replaced, and no animation (swing, mine, place, idle, hip-fire, aim-down-sights) is touched.
+- Skin is a lighter, warmer natural flesh tone matching the v1262 refs, not dark wood-brown. Fingers are fleshy rather than claw-like: rounder padded tips, a subtler knuckle shade, a sparse specular highlight, and a limited palette.
+- The forearm and cuff are slimmer and less blocky, with a taper and a bevelled, better-shaded sleeve cuff. Grips still wrap the torch, pistol, sword, block and bucket.
+- First-person hands stay hidden in third person. The gold D-pad is left alone.
+
 ## v1.2.69 Egypt land
 
 - Egypt land is a new Earth-like dimension (sky, sun, sea and sand) with the old pyramid island at its heart: the sandstone pyramid and its gold capstone, the hall and galleries, the chest room, and the Great Sphinx. The island is not in the Glencraft overworld.
