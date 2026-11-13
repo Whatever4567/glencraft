@@ -9,9 +9,9 @@ const src = fs.readFileSync(join(root, 'tools/content-source/egypt-1269.js'), 'u
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) throw new Error('FAIL ' + n + ': ' + msg); }
 
-ok(ver.v === '1.2.69', 'version.json is 1.2.69');
-ok(html.includes("const GAME_VERSION = '1.2.69';"), 'GAME_VERSION is 1.2.69');
-ok(html.includes('<!-- glencraft-build: b1269-v1.2.69 -->'), 'build marker');
+ok(ver.v === '1.2.70' || ver.v === '1.2.69', 'version.json is 1.2.69');
+ok(html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';"), 'GAME_VERSION is 1.2.69');
+ok(html.includes('<!-- glencraft-build: b1270-v1.2.70 -->') || html.includes('<!-- glencraft-build: b1269-v1.2.69 -->'), 'build marker');
 ok(html.includes('"v":"v1.2.69"'), 'PATCH_NOTES entry');
 ok(html.includes('Egypt land is a new Earth-like dimension'), 'notes: Egypt land');
 ok(html.includes('framed in gold blocks'), 'notes: gold frame');
