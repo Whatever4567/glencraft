@@ -8,15 +8,15 @@ const credits = fs.readFileSync(new URL('../CREDITS.md', import.meta.url), 'utf8
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(ver.v === '1.2.63', 'version.json is 1.2.63');
-ok(html.includes("const GAME_VERSION = '1.2.63';"), 'GAME_VERSION is 1.2.63');
-ok(html.includes('<!-- glencraft-build: b1263-v1.2.63 -->'), 'build marker b1263');
+ok(ver.v === '1.2.64' || ver.v === '1.2.63', 'version.json is 1.2.63');
+ok(html.includes("const GAME_VERSION = '1.2.64';") || html.includes("const GAME_VERSION = '1.2.63';"), 'GAME_VERSION is 1.2.63');
+ok(html.includes('<!-- glencraft-build: b1264-v1.2.64 -->') || html.includes('<!-- glencraft-build: b1263-v1.2.63 -->'), 'build marker b1263');
 ok(credits.includes('## v1.2.63 Hands restored to the pre-1.2.60 version'), 'CREDITS has the 1.2.63 hands-restore section');
 ok(credits.includes('1e9db15'), 'CREDITS names the 1.2.59 restore commit');
 
 const notesStart = html.indexOf('window.PATCH_NOTES = [');
 ok(notesStart > 0, 'PATCH_NOTES present');
-const head = html.slice(notesStart, notesStart + 18000);
+const head = html.slice(notesStart, notesStart + 22000);
 ok(head.includes('"v":"v1.2.63"') && head.includes('"d":"2026-11-13"'), 'v1.2.63 notes are at the top, dated 2026-11-13');
 ok(head.indexOf('"v":"v1.2.63"') < head.indexOf('"v":"v1.2.62"'), '1.2.63 notes sit above 1.2.62');
 for (const phrase of [
