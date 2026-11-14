@@ -38,6 +38,7 @@
 <!-- glencraft-build: b1276-v1.2.76 -->
 <!-- glencraft-build: b1277-v1.2.77 -->
 <!-- glencraft-build: b1278-v1.2.78 -->
+<!-- glencraft-build: b1279-v1.2.79 -->
 <!-- glencraft-build: b1251-popstar -->
 <title>Glencraft: Survival 4K</title>
 <style>
@@ -13392,7 +13393,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.78';
+const GAME_VERSION = '1.2.79';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -48575,7 +48576,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     worldModel.position.y = P.y + Math.abs(Math.sin(ph)) * 0.04 * amp * (1 + run) - land * 0.12 + air * 0.03;
     // arms and the held item
     const hm = typeof heldMesh3p !== 'undefined' ? heldMesh3p : null, hid = parseInt(heldId) || 0, gunId = hm && GUN && GUN[hid] ? hid : 0, isP = gunId && gunId === IT.PISTOL, aim = aiming(); U.g = gunId; U.n = (U.n || 0) + 1;
-    worldModel.updateMatrixWorld(true); const base = V().set(P.x, worldModel.position.y, P.z), F = V().set(fx, 0, fz), R = V().set(-rx, 0, -rz);  // model faces +Z after the yaw + PI, so its right is -rx
+    worldModel.updateMatrixWorld(true); const base = V().set(P.x, worldModel.position.y, P.z), F = V().set(fx, 0, fz), R = u.pilot ? V().set(rx, 0, rz) : V().set(-rx, 0, -rz);  /* GLX-TPR1279: pilot holds in the right hand */  // model faces +Z after the yaw + PI, so its right is -rx
     E.set(-P.pitch * 0.9, P.yaw, 0); const qv = new THREE.Quaternion().setFromEuler(E), look = new THREE.Vector3(0, 0, -1).applyQuaternion(qv);
     const k = swingT > 0 ? Math.sin((1 - Math.max(0, swingT) / 0.3) * Math.PI) : 0;
     if (gunId && hm) { realGun(hm, gunId); const two = !isP || aim; const grip = base.clone().add(V().set(0, isP && !aim ? 1.0 : 1.3, 0)).addScaledVector(R, isP && !aim ? (u.pilot ? .22 : .3) : (u.pilot ? .10 : .16)).addScaledVector(F, isP && !aim ? .15 : (u.pilot ? .14 : .22)).addScaledVector(look, isP && aim ? (u.pilot ? .22 : .35) : (u.pilot ? 0 : .05));
@@ -61502,6 +61503,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.79","d":"2026-11-14","notes":["Map is held in the hand: thumb on the sheet, tilted up so you can read it.","First person: your hands now have forearms and sleeves.","Third person: held items are in the right hand."]},
 {"v":"v1.2.78","d":"2026-11-13","notes":["Less lag: rain, drops, animations and mobs only run near you.","Ores get more common the deeper you go; diamonds common near y -200.","Removed obsidian/gold portal blocks from deep caves."]},
 {"v":"v1.2.77","d":"2026-11-13","notes":["Reverted 1.2.76 cave/view-distance changes (lag)."]},
 {"v":"v1.2.76","d":"2026-11-13","notes":["Map is now held in your hand.","Cave walls no longer go see-through; longer view distance."]},
@@ -64321,9 +64323,9 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
         const u=model.userData;
         // Control pivots remain -Y oriented. Mesh bones keep their native rests/roll.
         for(let slot=0;slot<2;slot++){
-          const side=slot?'L':'R',a=u.arms[slot],el=a.userData.el;
-          a.position.copy(native(near,'upper_arm.'+side).pos);
-          const l1=native(near,'forearm.'+side).pos.distanceTo(a.position),l2=native(near,'hand.'+side).pos.distanceTo(native(near,'forearm.'+side).pos);
+          const side=slot?'L':'R',aS=slot?'R':'L'/* GLX-TPR1279 */,a=u.arms[slot],el=a.userData.el;
+          a.position.copy(native(near,'upper_arm.'+aS).pos);
+          const l1=native(near,'forearm.'+aS).pos.distanceTo(a.position),l2=native(near,'hand.'+aS).pos.distanceTo(native(near,'forearm.'+aS).pos);
           a.userData.pilot={length1:l1,length2:l2};
           if(el)el.position.set(0,-l1,0);
           if(a.userData.grip)a.userData.grip.position.set(0,-l2,0);
@@ -64369,7 +64371,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       state.sync(model);
     };
     function ik(model,r,slot,target,rootQ){
-      const side=slot?'L':'R',upper=r.bone('upper_arm.'+side),fore=r.bone('forearm.'+side),hand=r.bone('hand.'+side),socket=find(r.root,'weapon_grip_slot'+slot);
+      const side=slot?'R':'L'/* GLX-TPR1279 */,upper=r.bone('upper_arm.'+side),fore=r.bone('forearm.'+side),hand=r.bone('hand.'+side),socket=find(r.root,'weapon_grip_slot'+(1-slot));
       const a=model.userData.arms[slot],l1=a.userData.pilot.length1,l2=a.userData.pilot.length2;
       const start=upper.getWorldPosition(V()),wrist=target.position.clone(),pole=target.side.clone().multiplyScalar(.8).add(new T.Vector3(0,-1,0)).addScaledVector(target.forward,-.3);
       let clamped=false;
@@ -64411,13 +64413,13 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     }
     function secondaryShoulders(model,r,rootQ){
       const u=model.userData,L=u.pilotLife,g=L.pre.g;
-      for(let slot=0;slot<2;slot++){const side=slot?'L':'R',sg=slot?1:-1;if(u.arms[slot].userData.pilotTarget)continue;
+      for(let slot=0;slot<2;slot++){const side=slot?'R':'L',sg=slot?-1:1/* GLX-TPR1279 */;if(u.arms[slot].userData.pilotTarget)continue;
         addWorld(r,rootQ,'clavicle.'+side,-g.a[slot]*.10,g.a[slot]*.08*sg,L.pre.breath*.25*sg);}
     }
     function secondaryLimbs(model,r,rootQ){
       const u=model.userData,L=u.pilotLife,g=L.pre.g;
-      for(let slot=0;slot<2;slot++){const side=slot?'L':'R';
-        if(!u.arms[slot].userData.pilotTarget)addWorld(r,rootQ,'hand.'+side,.12+g.a[slot]*.22,0,0);
+      for(let slot=0;slot<2;slot++){const side=slot?'L':'R',aS=slot?'R':'L'/* GLX-TPR1279 */;
+        if(!u.arms[slot].userData.pilotTarget)addWorld(r,rootQ,'hand.'+aS,.12+g.a[slot]*.22,0,0);
         // keep soles closer to level through the stride and roll off the toe on push-off
         const pitch=Math.max(-.55,Math.min(.55,-(g.l[slot])*.55-g.k[slot]*.35));addWorld(r,rootQ,'foot.'+side,pitch,0,0);
       }
@@ -64462,18 +64464,18 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       rotate('head',torso.clone().multiply(u.head.quaternion));
       if(O.scottish&&O.life!==false)secondaryShoulders(model,r,rootQ);
       for(let slot=0;slot<2;slot++){
-        const side=slot?'L':'R',a=u.arms[slot],el=a.userData.el,leg=u.legs[slot],knee=leg.userData.kn;
+        const side=slot?'L':'R',aS=slot?'R':'L'/* GLX-TPR1279 */,a=u.arms[slot],el=a.userData.el,leg=u.legs[slot],knee=leg.userData.kn;
         if(a.userData.pilotTarget)ik(model,r,slot,a.userData.pilotTarget,rootQ);
-        else {const armDelta=torso.clone().multiply(a.quaternion);rotate('upper_arm.'+side,armDelta);rotate('forearm.'+side,armDelta.multiply(el?el.quaternion:Q()));}
+        else {const armDelta=torso.clone().multiply(Q().set(a.quaternion.x,-a.quaternion.y,-a.quaternion.z,a.quaternion.w)/* mirrored: arms[1] is now the right arm */);rotate('upper_arm.'+aS,armDelta);rotate('forearm.'+aS,armDelta.multiply(el?Q().copy(el.quaternion).set(el.quaternion.x,-el.quaternion.y,-el.quaternion.z,el.quaternion.w):Q()));}
         const legPose=O.scottish&&!u.pilot.equipment[2]?Q().setFromEuler(new T.Euler(Math.max(-.52,Math.min(.52,leg.rotation.x)),leg.rotation.y,Math.max(-.24,Math.min(.24,leg.rotation.z)))):leg.quaternion;rotate('thigh.'+side,legPose);rotate('shin.'+side,legPose.clone().multiply(knee?knee.quaternion:Q()));
         const hn=el&&el.children.find(c=>c.userData.hand),fg=hn&&hn.userData.fg;
         // Legacy fg order is little/ring/middle/index. The thumb has its own native controls.
         for(let digit=0;digit<4;digit++)for(let part=1;part<=2;part++){
-          const b=r.bone('finger.'+side+'.'+digit+'.0'+part);if(!b)continue;
+          const b=r.bone('finger.'+aS+'.'+digit+'.0'+part);if(!b)continue;
           const angle=fg&&fg[3-digit]?fg[3-digit].rotation.x:0;
           b.quaternion.copy(r.rest[b.name].q).multiply(Q().setFromAxisAngle(new T.Vector3(1,0,0),Math.max(0,angle-.35)*(part===1?.58:.42)));
         }
-        for(let part=1;part<=2;part++){const b=r.bone('thumb.'+side+'.0'+part);const angle=a.userData.pilotTarget ? .20 : 0;b.quaternion.copy(r.rest[b.name].q).multiply(Q().setFromAxisAngle(new T.Vector3(1,0,0),angle));}
+        for(let part=1;part<=2;part++){const b=r.bone('thumb.'+aS+'.0'+part);const angle=a.userData.pilotTarget ? .20 : 0;b.quaternion.copy(r.rest[b.name].q).multiply(Q().setFromAxisAngle(new T.Vector3(1,0,0),angle));}
       }
       if(O.scottish&&O.life!==false){secondaryLimbs(model,r,rootQ);faceLife(model,r);}
       if(O.scottish){packFit(model,r);helmFit(model,r);}
@@ -64483,7 +64485,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       const u=model.userData,p=u.pilot;
       for(const n of names){let visible=true;const slot=gearSlots[n];if(slot!==undefined)visible=slot===4?(p.equipment[4]===291||p.equipment[4]===777):!!p.equipment[slot];
         if((n==='visual_head_hair_eyes'||n==='gear_helmet')&&!u.head.visible)visible=false;
-        for(let a=0;a<2;a++)if((n==='visual_arm_slot'+a+'_hand'||n==='gear_chest_slot'+a)&&!u.arms[a].visible)visible=false;
+        for(let a=0;a<2;a++)if((n==='visual_arm_slot'+a+'_hand'||n==='gear_chest_slot'+a)&&!u.arms[1-a].visible)visible=false;
         if(O.scottish){if(n==='visual_kilt_clothing'||n==='visual_sporran_clothing'||n==='visual_leg_slot0'||n==='visual_leg_slot1')visible=!p.equipment[2];if(n==='armoured_leg_slot0'||n==='armoured_leg_slot1')visible=!!p.equipment[2];}r.regions[n].o.visible=visible;
       }
     }
@@ -64495,7 +64497,7 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
       const far=O.distance?O.distance(model)>16:false;p.farActive=far;p.near.root.visible=!far;p.far.root.visible=far;
       visibility(model,p.near);visibility(model,p.far);model.updateMatrixWorld(true);
       for(let slot=0;slot<2;slot++){
-        const grip=u.arms[slot].userData.grip,socket=find(p.near.root,'weapon_grip_slot'+slot);
+        const grip=u.arms[slot].userData.grip,socket=find(p.near.root,'weapon_grip_slot'+(1-slot));
         if(grip&&grip.parent){grip.parent.updateWorldMatrix(true,false);grip.position.copy(grip.parent.worldToLocal(socket.getWorldPosition(V())));}
       }
       for(let i=0;i<p.flames.length;i++){
@@ -65248,11 +65250,12 @@ html body #pause .panel > div:not(#z9){color:#9fd2ff!important}html body .keys b
     const slot = opts.slot == null ? 1 : opts.slot;
     const nearRoot = p && p.near && p.near.root;
     const farRoot = p && p.far && p.far.root;
-    const socket = (nearRoot && find(nearRoot, 'weapon_grip_slot' + slot))
-      || (farRoot && find(farRoot, 'weapon_grip_slot' + slot))
-      || find(model, 'weapon_grip_slot' + slot)
-      || (nearRoot && find(nearRoot, 'weapon_grip_slot' + (slot === 1 ? 0 : 1)))
-      || find(model, 'weapon_grip_slot' + (slot === 1 ? 0 : 1));
+    const sk = p ? (slot === 1 ? 0 : 1) : slot;  /* GLX-TPR1279: arms[1] is the pilot's right hand (socket 0) */
+    const socket = (nearRoot && find(nearRoot, 'weapon_grip_slot' + sk))
+      || (farRoot && find(farRoot, 'weapon_grip_slot' + sk))
+      || find(model, 'weapon_grip_slot' + sk)
+      || (nearRoot && find(nearRoot, 'weapon_grip_slot' + (sk === 1 ? 0 : 1)))
+      || find(model, 'weapon_grip_slot' + (sk === 1 ? 0 : 1));
     const arms = model.userData.arms;
     const grip = arms && arms[slot] && arms[slot].userData && arms[slot].userData.grip;
     if (socket && grip) copySocketToGrip(grip, socket);
@@ -84601,6 +84604,165 @@ try {
       };
     }
   } catch (_) {}
+})();
+/* GLX-FIX1279 (v1.2.79): Map is held in the hand. Arms in first person. Items held in the right hand in third person.
+
+   Map: the live C112 chart is pinched in the current __fpa right hand.
+   The thumb lies on the front of the sheet at its bottom-left corner,
+   the curled fingers sit behind it, and the sheet is tilted up to face
+   the camera, close and readable. It is drawn in the same view-model
+   pass as the hand, so the hand and sheet sort by depth. The terrain,
+   the red player arrow and the heading stay live (C112 frame() keeps
+   running; this only re-seats the sheet). The 1.2.76 palm seat is
+   switched off so it cannot fight the pose; the 1.2.75 live-map tick
+   still runs and is re-seated every render.
+
+   Forearms: a linen sleeve is parented to each existing __fpa hand,
+   running from the wrist down off the bottom of the screen. The 1.2.57
+   hand meshes are not replaced or changed. They share the hand's cuff
+   material, and they are hidden with the view-model in third person.
+
+   This IIFE never wraps held-frame apply / repose or renderer.render.
+   It never touches a gun, musket, or the 1.2.75 potion-style pickaxe /
+   bucket / torch grip, render distance or meshing. The gold D-pad and
+   the LT context action are left alone. No popups. */
+(function fix1279() {
+  const U = window.__fix1279 = {
+    err: null, on: 1, version: '1.2.79',
+    seat: 0, arms: 0, hook: 0, last: '',
+    /* grip tuning (camera space, metres): sheet scale, thumb-tip offset
+       from the bottom-left corner, depth behind the thumb tip, roll */
+    cfg: {s: 0.8, tx: 0.028, ty: 0.04, back: 0.03, roll: 0.05, tilt: 0,
+      curl: 0.75, thR: [-1.2, 0, 0.4], thK: -0.3}
+  };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+  const T3 = () => (typeof THREE !== 'undefined' && THREE) || window.THREE || null;
+  const MAP_ID = () => { try { return (typeof IT !== 'undefined' && IT.MAP) || 410; } catch (_) { return 410; } };
+  function isMapHeld() { try { return selId === MAP_ID() || selId === 410; } catch (_) { return false; } }
+  function isTp() { try { return typeof camMode !== 'undefined' && camMode !== 0; } catch (_) { return false; } }
+  function rig() { try { return window.__fpa && __fpa.rig ? __fpa.rig() : null; } catch (_) { return null; } }
+  function handOf(R, side) { try { const g = R && R.userData && R.userData[side]; return g && g.userData && g.userData.p && g.userData.p.h || null; } catch (_) { return null; } }
+  function sheet() {
+    try {
+      const C = window.__c112; if (!C) return null;
+      const p = C.inset && C.inset.parent;
+      if (p && p.geometry && p.geometry.parameters && p.geometry.parameters.width === 0.34) return p;
+      const s = C._sheet1274;
+      if (s && s.geometry && s.geometry.parameters && s.geometry.parameters.width === 0.34) return s;
+    } catch (_) {}
+    return null;
+  }
+
+  /* ---------------- map in hand ---------------- */
+  let M = null, tex = null, texTick = 0;
+  function mats() {
+    const THREE = T3(); const C = window.__c112;
+    if (!THREE || !C || !C.TX) return null;
+    if (!M) {
+      tex = new THREE.CanvasTexture(C.TX);
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      try { tex.anisotropy = 4; if (renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; } catch (_) {}
+      M = {
+        sheet: new THREE.MeshBasicMaterial({map: tex, side: THREE.DoubleSide}),
+        white: new THREE.MeshBasicMaterial({color: 0xffffff}),
+        red: new THREE.MeshBasicMaterial({color: 0xd01818})
+      };
+    }
+    return M;
+  }
+  let V0, V1, O0, Mx, Mi;
+  function seat(R) {
+    const THREE = T3(); if (!THREE) return;
+    const plane = sheet();
+    if (!isMapHeld() || isTp() || !U.on) { release(R, plane); return; }
+    const h = handOf(R, 'R'); const m = mats();
+    if (!h || !plane || !m) return;
+    if (!V0) { V0 = new THREE.Vector3(); V1 = new THREE.Vector3(); O0 = new THREE.Object3D(); Mx = new THREE.Matrix4(); Mi = new THREE.Matrix4(); }
+    const cfg = U.cfg;
+    /* pinch: fingers curl behind the sheet, thumb over its front */
+    const fs = h.userData.f || [];
+    for (let i = 0; i < fs.length; i++) { const a = fs[i] && fs[i][0], b = fs[i] && fs[i][1], c = cfg.curl + i * 0.06; if (a) a.rotation.x = 0.12 + c * 1.35; if (b) b.rotation.x = 0.15 + c * 1.45; }
+    const th = h.userData.th;
+    if (th) { th.rotation.set(cfg.thR[0], cfg.thR[1], cfg.thR[2]); if (th.userData.k) th.userData.k.rotation.x = cfg.thK; }
+    try { const C = window.__c112; if (C.g) C.g.visible = false; } catch (_) {}
+    const cam = R.parent; if (!cam) return;
+    h.updateWorldMatrix(true, true);
+    let tip = th || h; try { if (tip.userData.k) tip = tip.userData.k; if (tip.userData && tip.userData.d) tip = tip.userData.d; } catch (_) {}
+    tip.localToWorld(V0.set(0, 0.018, 0));
+    Mi.copy(cam.matrixWorld).invert(); V0.applyMatrix4(Mi);           // thumb tip, camera space
+    const s = cfg.s, hs = 0.17 * s;
+    O0.position.copy(V0); O0.quaternion.identity(); O0.up.set(0, 1, 0);
+    O0.lookAt(V1.set(0, 0, 0));                                        // +Z faces the eye
+    O0.rotateX(cfg.tilt); O0.rotateZ(cfg.roll);
+    V1.set(-hs + cfg.tx * s, -hs + cfg.ty * s, cfg.back).applyQuaternion(O0.quaternion);
+    O0.position.sub(V1); O0.updateMatrix();
+    if (plane.parent !== R) R.add(plane);
+    R.updateWorldMatrix(false, false);
+    Mx.copy(cam.matrixWorld).multiply(O0.matrix);
+    Mi.copy(R.matrixWorld).invert().multiply(Mx).decompose(plane.position, plane.quaternion, plane.scale);
+    plane.scale.multiplyScalar(s);
+    plane.material = m.sheet;
+    m.sheet.depthTest = true; m.sheet.depthWrite = true; m.sheet.transparent = false; m.sheet.opacity = 1;
+    plane.renderOrder = 0; plane.visible = true; plane.frustumCulled = false;
+    if ((texTick -= 1) <= 0) { texTick = 30; tex.needsUpdate = true; }
+    try { const C = window.__c112; if (C.inset) C.inset.visible = false;
+      for (const ch of plane.children) { if (ch === C.inset) continue; ch.visible = true;
+        ch.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.renderOrder = 1; o.material = o.position.z > 0.0001 ? m.red : m.white; } }); } } catch (_) {}
+    try { held.traverse(c => { const u = c.userData || {}; if (u.held1240Map || u.art1249) c.visible = false; }); } catch (_) {}
+    U.seat++;
+  }
+  function release(R, plane) {
+    if (plane && plane.parent === R) { R.remove(plane); plane.visible = false; }
+  }
+
+  /* ---------------- first-person forearms ---------------- */
+  const LEN = 0.42;
+  let armGeo = null;
+  function cuffOf(h) {
+    let c = null;
+    for (const o of h.children) {
+      if (!o.isMesh || !o.material || o.userData.fpForearm1279) continue;
+      if (o.material.type === 'MeshStandardMaterial' && o.geometry && o.geometry.type === 'BufferGeometry' && Math.abs(o.position.y + 0.048) < 0.002) c = o;
+    }
+    return c;
+  }
+  function arms(R) {
+    const THREE = T3(); if (!THREE || !R) return;
+    for (const side of ['R', 'L']) {
+      const h = handOf(R, side); if (!h) continue;
+      const cuff = cuffOf(h);
+      let fa = h.userData.forearm1279;
+      if (!fa) {
+        if (!armGeo) { armGeo = new THREE.CylinderGeometry(0.031, 0.04, LEN, 18, 6, true); armGeo.translate(0, -LEN / 2, 0); }
+        fa = new THREE.Mesh(armGeo, cuff ? cuff.material : new THREE.MeshLambertMaterial({color: 0xf2eee4}));
+        fa.name = 'Forearm1279'; fa.position.set(0, -0.046, 0.001);
+        fa.userData.fpForearm1279 = 1; fa.userData.sculptKeep = 1; fa.userData.armSwitchKeep = 1;
+        fa.frustumCulled = false; fa.renderOrder = cuff ? cuff.renderOrder : 2;
+        h.add(fa); h.userData.forearm1279 = fa; U.arms++;
+      }
+      if (cuff && fa.material !== cuff.material) fa.material = cuff.material;   // follow sleeve / vambrace re-skins
+      fa.visible = cuff ? cuff.visible !== false : true;
+    }
+  }
+
+  /* ---------------- hook: pose at view-model render time ---------------- */
+  function install() {
+    const THREE = T3(); const R = rig();
+    if (!THREE || !R) return;
+    if (!R.userData.fix1279) {
+      const base = THREE.Object3D.prototype.updateMatrixWorld;
+      R.updateMatrixWorld = function (force) {
+        try { if (U.on) seat(this); } catch (e) { ERR('seat', e); }
+        return base.call(this, force);
+      };
+      R.userData.fix1279 = 1; U.hook++;
+    }
+    try { arms(R); } catch (e) { ERR('arms', e); }
+    try { if (window.__fix1276) __fix1276.on = 0; } catch (_) {}
+  }
+  U.install = install;
+  try { install(); } catch (e) { ERR('install', e); }
+  setInterval(function () { try { install(); } catch (e) { ERR('tick', e); } }, 1000);
 })();
 </script>
 </body>
