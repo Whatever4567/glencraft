@@ -75699,7 +75699,10 @@ try {
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1 };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1, WIDEN: 1, SASH_BACK: 0, BRIDGE_NB: 0.85,
+    /* 1.2.84 torso volume (t1203): width / depth factors for the shirt core */
+    SX: 1.30, SZF: 1.28, SZB: 1.14, FADE_Y0: 1.33, FADE_Y1: 1.42 };
+  try { Object.assign(U, window.__torso1262cfg || {}); } catch (_) {}
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -76033,6 +76036,82 @@ try {
   U.FP_SET = FP_SET;
   U.wrapRender = wrapRender;
 
+  /* 1.2.84 (t1203): give the v2 shirt the refs' chest, waist and back
+     volume by moving its existing vertices outward, weighted by how much
+     each vertex follows the spine / pelvis bones (so sleeves, collar and
+     armholes stay put and nothing tears). The sash and buttons get the same
+     mapping so they stay on the cloth. Same vertices, same skin weights,
+     same bones: nothing is rebuilt, added or deleted here. */
+  const WIDENED = (typeof WeakSet === 'function') ? new WeakSet() : null;
+  function widenMesh(mesh) {
+    try {
+      if (!U.WIDEN || !WIDENED || !mesh.isSkinnedMesh || !mesh.skeleton) return false;
+      const geo = mesh.geometry;
+      if (!geo || WIDENED.has(geo)) return false;
+      const n0 = (mesh.name || '');
+      if (!/visual_torso_outfit00\d/.test(n0)) return false;     /* near LOD only */
+      const pa = geo.getAttribute('position'), si = geo.getAttribute('skinIndex'), sw = geo.getAttribute('skinWeight');
+      if (!pa || !si || !sw) return false;
+      WIDENED.add(geo);
+      const torso = new Set();
+      mesh.skeleton.bones.forEach((b, i) => { if (/^(spine|pelvis)/.test(b.name || '')) torso.add(i); });
+      const ZC = U.ZC == null ? -0.026 : U.ZC;
+      const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+      for (let i = 0; i < pa.count; i++) {
+        let w = 0;
+        for (let k = 0; k < 4; k++) if (torso.has(si.getComponent(i, k))) w += sw.getComponent(i, k);
+        if (w <= 0.001) continue;
+        const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i);
+        const f = w * (1 - sm(U.FADE_Y0, U.FADE_Y1, y));
+        if (f <= 0) continue;
+        /* fuller chest than waist, like the refs */
+        const chest = sm(1.12, 1.30, y);
+        const sx = 1 + (U.SX - 1) * f * (0.75 + 0.25 * chest);
+        const sz = 1 + ((z > ZC ? U.SZF : U.SZB) - 1) * f * (z > ZC ? (0.55 + 0.45 * chest) : 1);
+        pa.setXYZ(i, x * sx, y, ZC + (z - ZC) * sz);
+      }
+      pa.needsUpdate = true;
+      try { geo.computeBoundingSphere(); geo.computeBoundingBox(); } catch (_) {}
+      U.widened = (U.widened || 0) + 1;
+      return true;
+    } catch (e) { ERR('widen', e); return false; }
+  }
+  U.widenMesh = widenMesh;
+
+  /* 1.2.84 (t1203): the refs show no sash across the back. Hide (discard)
+     only the sash fragments behind the body's mid-plane. A baked per-vertex
+     flag drives it; nothing is deleted, and meshes sharing the material
+     without the flag read 0 and draw as before. */
+  function hideSashBack(mesh) {
+    try {
+      if (!U.SASH_BACK || !mesh.isMesh) return;
+      const m = Array.isArray(mesh.material) ? null : mesh.material;
+      if (!m || !/Tartan/i.test(m.name || '') || !/visual_torso_outfit00\d/.test(mesh.name || '')) return;
+      const geo = mesh.geometry;
+      if (!geo.getAttribute('aBack1284')) {
+        const pa = geo.getAttribute('position'), a = new Float32Array(pa.count);
+        const ZC = U.ZC == null ? -0.026 : U.ZC;
+        for (let i = 0; i < pa.count; i++) a[i] = pa.getZ(i) < ZC - 0.01 ? 1 : 0;
+        geo.setAttribute('aBack1284', new THREE.BufferAttribute(a, 1));
+      }
+      if (m.onBeforeCompile && m.onBeforeCompile.__sash1284) return;
+      const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
+      m.onBeforeCompile = function (sh, r) {
+        if (typeof prev === 'function') prev.call(this, sh, r);
+        if (sh.vertexShader.indexOf('aBack1284') >= 0) return;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aBack1284;\nvarying float vBack1284;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBack1284 = aBack1284;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vBack1284;')
+          .replace(/void\s+main\s*\(\s*\)\s*\{/, 'void main() {\n  if (vBack1284 > 0.5) discard;\n');
+      };
+      try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
+      m.onBeforeCompile.__sash1284 = 1;
+      m.customProgramCacheKey = function () { return (typeof prevKey === 'function' ? prevKey.call(this) : '') + '|sash1284'; };
+      m.needsUpdate = true;
+      U.sashBack = (U.sashBack || 0) + 1;
+    } catch (e) { ERR('sash', e); }
+  }
+
   function patchMesh(mesh) {
     try {
       if (!mesh || !(mesh.isMesh || mesh.isSkinnedMesh)) return false;
@@ -76043,6 +76122,8 @@ try {
          for your own FP camera only, like the torso. */
       if (U.KILT_FP && /visual_(kilt|sporran)_clothing/.test(n)) { attachFpCull(mesh); return false; }
       if (!/visual_torso_outfit/.test(n)) return false;
+      widenMesh(mesh);
+      hideSashBack(mesh);
       /* only the linen shirt primitive — skip sash / buttons if they are
          separate meshes; if they share one mesh with groups, still add
          sides using the linen-sized position attribute. */
