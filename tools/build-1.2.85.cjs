@@ -26,7 +26,7 @@ if (!html.includes('<!-- glencraft-build: b1285-v1.2.85 -->')) {
     'build marker');
 }
 
-const NOTE = '{"v":"v1.2.85","d":"2026-11-15","notes":["Your shirt\'s original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down."]},';
+const NOTE = '{"v":"v1.2.85","d":"2026-11-15","notes":["Your shirt\'s original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down.","First-person hands now match the rounded third-person look, with the same crease, knuckle and nail shading. Your current arm animations and grips stay as they are."]},';
 if (!html.includes('"v":"v1.2.85"')) {
   html = replaceOnce(html,
     'window.PATCH_NOTES = [\n{"v":"v1.2.84"',
@@ -59,6 +59,33 @@ must(!torso.includes('SHOULDER'), 'shoulder WIP must not ship in 1.2.85 sides');
   must((html.split('(function torso1262()').length - 1) === 1, 'duplicate torso1262');
 }
 
+
+/* Inject or replace the first-person hand finish (t1210). */
+{
+  const src = fs.readFileSync(path.join(root, 'tools/content-source/hands-fp-1285.js'), 'utf8').trim() + '\n';
+  must(src.includes('/* GLX-HANDSFP1285'), 'hands-fp-1285 banner missing');
+  must(src.includes('function handsFp1285') && src.includes('aCrease1282') && src.includes('aNail1282') && src.includes('aKnk1282'), 'fp hand bake/shader missing');
+  must(!src.includes('worldModel') && !src.includes('charModel'), 'fp hands must not patch TP world/char models');
+  const START = '/* GLX-HANDSFP1285';
+  const i = html.indexOf(START);
+  if (i >= 0) {
+    const re = /\n\}\)\(typeof window !== 'undefined' \? window : this\);\n/g;
+    re.lastIndex = i;
+    const m = re.exec(html);
+    must(m, 'HANDSFP1285 tail not found');
+    html = html.slice(0, i) + src + html.slice(m.index + m[0].length);
+  } else {
+    const tp = html.indexOf('/* GLX-HANDSTP1282');
+    must(tp >= 0, 'HANDSTP1282 missing, cannot insert FP hands');
+    const re = /\n\}\)\(\);\n/g; re.lastIndex = tp;
+    const m = re.exec(html);
+    must(m, 'HANDSTP1282 tail not found');
+    html = html.slice(0, m.index + m[0].length) + src + html.slice(m.index + m[0].length);
+  }
+  must(html.includes(src.trim()), 'hands-fp-1285 not in page after inject');
+  must((html.split('(function handsFp1285').length - 1) === 1, 'duplicate handsFp1285');
+}
+
 must(html.includes('/* GLX-SCULPT1280'), 'SCULPT1280 is in the build');
 must(html.includes('/* GLX-SCULPT1281'), 'SCULPT1281 is in the build');
 must(html.includes('/* GLX-SCULPT1282'), 'SCULPT1282 is in the build');
@@ -73,6 +100,8 @@ must(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), '1.2.84 marker st
 must(html.includes('<!-- glencraft-build: b1283-v1.2.83 -->'), '1.2.83 marker stays');
 must(html.includes("+ '|t1264clip'") && !html.includes("prev.customProgramCacheKey() : '') + 't1264clip'"), 'tartan cache-key fix');
 must(html.includes('/* GLX-HANDSTP1282'), 'TP hands');
+must(html.includes('/* GLX-HANDSFP1285') && html.includes('__handsFp1285'), 'FP hands 1.2.85');
+must(html.includes('/* GLX-HANDS1266') && html.includes('/* GLX-HANDS1271') && html.includes('const U = window.__fpa'), 'fpa sculpt chain stays');
 must(html.includes('function hideSashBack(') && html.includes('SASH_BACK: 1'), 'sash-back hide stays');
 must(html.includes('WIDEN: 0') && html.includes('FILL_GLOW: 0') && html.includes('BRIDGE: 0'), 'stitched bridges, glow and widen off');
 must(html.includes('SHIRT_|_sewn_torso_with_open_throat'), 'v1 source mesh name embedded');
