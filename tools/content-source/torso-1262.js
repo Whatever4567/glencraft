@@ -21,7 +21,7 @@
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0, KILT_FP: 1 };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 0, KILT_FP: 1, BRIDGE: 1 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -192,6 +192,118 @@
     return geo;
   }
 
+  /* 1.2.84 (t1203): close the shirt from its own edges. The scottish-base-v2
+     linen (since 1.2.37, and narrower again in the v13 asset) is a front
+     panel and a back panel: both sides are open from the hem to the
+     armpit, and the henley placket is an open slit. Through those gaps the
+     back-face-culled inside of the shirt draws nothing, so the torso reads
+     as a flat white patch with holes. This zips each open side edge of the
+     front panel to the matching edge of the back panel, and the two placket
+     edges to each other, using the shirt's existing boundary vertices
+     (exact positions and skin weights), so the seams meet with no cracks and
+     nothing on the authored model is moved, rebuilt or deleted. */
+  function buildBridgeGeo(src) {
+    const T = window.THREE;
+    const pa = src.getAttribute('position');
+    const ix = src.index;
+    if (!pa || !ix) return null;
+    const pos = pa.array, n = pa.count, id = ix.array;
+    const uvA = src.getAttribute('uv');
+    const siA = src.getAttribute('skinIndex'), swA = src.getAttribute('skinWeight');
+    const colA = src.getAttribute('color');
+    /* weld by position so glTF seam duplicates count as one vertex */
+    const keyOf = i => Math.round(pos[i * 3] * 1e4) + ',' + Math.round(pos[i * 3 + 1] * 1e4) + ',' + Math.round(pos[i * 3 + 2] * 1e4);
+    const wmap = new Map(), rep = new Int32Array(n);
+    for (let i = 0; i < n; i++) { const k = keyOf(i); let r = wmap.get(k); if (r === undefined) { r = i; wmap.set(k, r); } rep[i] = r; }
+    const ecount = new Map();
+    const ek = (a, b) => a < b ? a * 1048576 + b : b * 1048576 + a;
+    for (let t = 0; t < id.length; t += 3) {
+      const a = rep[id[t]], b = rep[id[t + 1]], c = rep[id[t + 2]];
+      for (const [u, v] of [[a, b], [b, c], [c, a]]) { const k = ek(u, v); ecount.set(k, (ecount.get(k) || 0) + 1); }
+    }
+    const bset = new Set();
+    ecount.forEach((c, k) => { if (c === 1) { bset.add(Math.floor(k / 1048576)); bset.add(k % 1048576); } });
+    const X = i => pos[i * 3], Y = i => pos[i * 3 + 1], Z = i => pos[i * 3 + 2];
+    /* the shirt's own extents decide the bands, so the far LOD works too */
+    let y0 = 1e9, y1 = -1e9, zf = -1e9, zb = 1e9;
+    for (let i = 0; i < n; i++) { if (Y(i) < y0) y0 = Y(i); if (Y(i) > y1) y1 = Y(i); if (Z(i) > zf) zf = Z(i); if (Z(i) < zb) zb = Z(i); }
+    const zMid = (zf + zb) * 0.5, H = y1 - y0;
+    const yLo = y0 + H * 0.05, yArm = y0 + H * 0.73;
+    function chain(filter) {
+      const out = [];
+      bset.forEach(i => { if (filter(i)) out.push(i); });
+      out.sort((a, b) => Y(a) - Y(b));
+      const c = [];
+      for (const i of out) if (!c.length || Y(i) - Y(c[c.length - 1]) > 0.002) c.push(i);
+      return c;
+    }
+    const P = [], N = [], UV = [], SI = [], SW = [], C = [], I = [];
+    let nv = 0;
+    /* plain linen UV: the shirt vertex nearest the middle of the front */
+    let uvPlain = null;
+    if (uvA) {
+      let best = -1, bd = 1e9;
+      for (let i = 0; i < n; i++) { const d = Math.abs(X(i) - 0.04) + Math.abs(Y(i) - (y0 + H * 0.3)) + Math.abs(Z(i) - zf) * 2; if (d < bd) { bd = d; best = i; } }
+      if (best >= 0) uvPlain = [uvA.getX(best), uvA.getY(best)];
+    }
+    function vert(i, nx, ny, nz) {
+      P.push(X(i), Y(i), Z(i));
+      const l = Math.hypot(nx, ny, nz) || 1; N.push(nx / l, ny / l, nz / l);
+      if (uvPlain) UV.push(uvPlain[0] + (X(i) * 0.02), uvPlain[1] + (Y(i) - y0) * 0.02); else if (uvA) UV.push(uvA.getX(i), uvA.getY(i));
+      if (siA && swA) { for (let k = 0; k < 4; k++) { SI.push(siA.getComponent ? siA.getComponent(i, k) : siA.array[i * 4 + k]); SW.push(swA.getComponent ? swA.getComponent(i, k) : swA.array[i * 4 + k]); } }
+      if (colA) for (let k = 0; k < colA.itemSize; k++) C.push(colA.array[i * colA.itemSize + k]);
+      return nv++;
+    }
+    /* zip two y-sorted chains; out = outward normal hint */
+    function zip(A, B, outF) {
+      if (A.length < 2 || B.length < 2) return 0;
+      const va = A.map(i => { const o = outF(i); return vert(i, o[0], o[1], o[2]); });
+      const vb = B.map(i => { const o = outF(i); return vert(i, o[0], o[1], o[2]); });
+      let a = 0, b = 0, made = 0;
+      const tri = (p, q, r) => {
+        /* wind so the face normal agrees with the outward hint */
+        const ax = P[q * 3] - P[p * 3], ay = P[q * 3 + 1] - P[p * 3 + 1], az = P[q * 3 + 2] - P[p * 3 + 2];
+        const bx = P[r * 3] - P[p * 3], by = P[r * 3 + 1] - P[p * 3 + 1], bz = P[r * 3 + 2] - P[p * 3 + 2];
+        const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+        const d = cx * (N[p * 3] + N[q * 3] + N[r * 3]) + cy * (N[p * 3 + 1] + N[q * 3 + 1] + N[r * 3 + 1]) + cz * (N[p * 3 + 2] + N[q * 3 + 2] + N[r * 3 + 2]);
+        if (d >= 0) I.push(p, q, r); else I.push(p, r, q);
+        made++;
+      };
+      while (a < A.length - 1 || b < B.length - 1) {
+        if (b >= B.length - 1 || (a < A.length - 1 && Y(A[a + 1]) <= Y(B[b + 1]))) { tri(va[a], va[a + 1], vb[b]); a++; }
+        else { tri(va[a], vb[b + 1], vb[b]); b++; }
+      }
+      return made;
+    }
+    let tris = 0;
+    for (const sx of [-1, 1]) {
+      const side = i => sx * X(i) > 0.045 && Y(i) > yLo && Y(i) < yArm;
+      const F = chain(i => side(i) && Z(i) > zMid);
+      const B = chain(i => side(i) && Z(i) <= zMid);
+      tris += zip(F, B, i => [sx, 0, (Z(i) - zMid) * 3]);
+    }
+    /* henley placket slit: centre front, below the collar */
+    {
+      const slit = i => Math.abs(X(i)) < 0.03 && Z(i) > zMid + (zf - zMid) * 0.5 && Y(i) > y0 + H * 0.35 && Y(i) < y0 + H * 0.82;
+      const L = chain(i => slit(i) && X(i) < 0);
+      const R = chain(i => slit(i) && X(i) >= 0);
+      tris += zip(L, R, () => [0, 0, 1]);
+    }
+    if (tris < 8) return null;
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(P, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(N, 3));
+    if (UV.length) geo.setAttribute('uv', new T.Float32BufferAttribute(UV, 2));
+    if (SI.length) { geo.setAttribute('skinIndex', new T.Uint16BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new T.Float32BufferAttribute(SW, 4)); }
+    if (C.length && colA) geo.setAttribute('color', new T.Float32BufferAttribute(C, colA.itemSize));
+    geo.setIndex(I);
+    geo.computeBoundingSphere();
+    geo.userData.bridgeTris1284 = tris;
+    U.bridgeTris = (U.bridgeTris || 0) + tris;
+    return geo;
+  }
+  U.buildBridgeGeo = buildBridgeGeo;
+
   /* Hide these meshes ONLY when the local first-person camera is drawing,
      so a mirror or another player's camera still sees a solid torso. */
   function attachFpCull(mesh) {
@@ -274,7 +386,7 @@
       let sideGeo = null;
       try { sideGeo = U._sideGeo && U._sideGeo.get(geo); } catch (_) {}
       if (!sideGeo) {
-        sideGeo = buildSideGeo(geo);
+        sideGeo = U.BRIDGE ? buildBridgeGeo(geo) : buildSideGeo(geo);
         if (sideGeo && U._sideGeo) { try { U._sideGeo.set(geo, sideGeo); } catch (_) {} }
       }
       if (!sideGeo) { attachFpCull(mesh); return false; }
@@ -291,6 +403,9 @@
          the fill has none, which lit it pitch black. Use screen-space
          tangents on the fill only. */
       try { if (mat.vertexTangents) mat.vertexTangents = false; } catch (_) {}
+      /* 1.2.84: the bridge has flat linen UVs, so drop the weave normal map
+         on the fill (screen-space tangents on flat UVs shade it grey). */
+      if (U.BRIDGE) { try { mat.normalMap = null; mat.needsUpdate = true; } catch (_) {} }
       const side = mesh.isSkinnedMesh
         ? new T.SkinnedMesh(sideGeo, mat)
         : new T.Mesh(sideGeo, mat);
