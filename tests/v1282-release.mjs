@@ -38,7 +38,7 @@ ok(html.includes('function hideArtefactsOnce(on)') && html.includes('hideArtefac
 ok(html.includes('if (F._lock1282) return;'), 'sculpt1282 defines locked getters once');
 ok(html.includes("version: '1.2.59-frame-torch'"), 'torch freeze stays');
 // chest
-ok(torso.includes('SIDES: 0') && torso.includes('if (!U.SIDES) { attachFpCull(mesh); return false; }'), 'side fill off: shirt as in 1.2.61');
+ok((torso.includes('SIDES: 0') || (torso.includes('SIDES: 1') && torso.includes('BRIDGE: 1') && torso.includes('function buildBridgeGeo('))) && torso.includes('if (!U.SIDES) { attachFpCull(mesh); return false; }'), 'no old procedural fill: off, or the 1.2.84 edge bridge');
 ok(torso.includes('renderer.render.__torso1282') && torso.includes('cam === camera') && torso.includes('ownModel(m)'), 'torso hidden only for the local FP camera on your own model');
 ok(!/mesh\.onBeforeRender = function/.test(torso), 'no onBeforeRender visibility trick (too late in r128)');
 ok(html.includes(torso.trim()), 'torso source matches the page');
