@@ -1,19 +1,22 @@
-/* GLX-SCULPT1282 (local WIP): Tighter pick fist, cleaner thumb, BR framing on 1.2.81.
+/* GLX-SCULPT1282 (local WIP): Post-1.2.81 first-person grip pass.
 
-   Keeps the 1281 frozen mesh-local rest, pick model, and __fpa animations.
-   Re-tunes finger bunch / thumb wrap after 1281, and overrides the pick
-   FRAME so the fist sits flush in the bottom-right without going off-screen.
+   Keeps the 1281 frozen pick rest, original models, and __fpa animations.
    No geometry is deleted. Version stays 1.2.81.
+
+   - Pick: slightly lower FRAME so more of the fist stays on-screen.
+   - Musket: hide the FPA elbow / upper-arm / forearm-cuff parts that
+     cross camera.near and draw as a solid black mass at the hip. Hide,
+     do not delete. Restore those parts on any other item so the 1280
+     cream linen cuff is not replaced by a black band.
 */
 (function sculpt1282() {
   const U = window.__sculpt1282 = {
-    err: null, on: 1, version: 'sculpt-1282', hook: 0, thumb: 0
+    err: null, on: 1, version: 'sculpt-1282', hook: 0, thumb: 0, hid: 0
   };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+  const T3 = () => (typeof THREE !== 'undefined' && THREE) || window.THREE || null;
   const PICK_KIND = { p761: 1, pick: 1, p760: 1 };
 
-  /* A little less right than 1281 (that cropped the palm) and lower, so
-     the whole fist sits in the bottom-right corner and stays on-screen. */
   const FRAME_PICK = { dx: 0.046, dy: -0.034, dz: 0.02, fov: 0.68, s: 0.94, armS: 1.26 };
 
   function isTp() {
@@ -30,12 +33,47 @@
   function rig() {
     try { return window.__fpa && __fpa.rig ? __fpa.rig() : null; } catch (_) { return null; }
   }
-  function rightHand() {
+  function rightArm(R) {
+    try { return (R || rig()) && (R || rig()).userData && (R || rig()).userData.R || null; } catch (_) { return null; }
+  }
+  function rightHand(R) {
     try {
-      const R = rig();
-      const g = R && R.userData && R.userData.R;
+      const g = rightArm(R);
       return g && g.userData && g.userData.p && g.userData.p.h || null;
     } catch (_) { return null; }
+  }
+  function sculptOn() {
+    if (!U.on || isTp()) return false;
+    if (window.__sculpt1281 && !window.__sculpt1281.on) return false;
+    return true;
+  }
+
+  /* Musket only. The elbow sphere and upper-arm limb cross camera.near
+     and draw as a solid black mass at the hip. Hide, do not delete.
+     Restore when switching to any other item. */
+  function hideNearPlaneMass(kind) {
+    try {
+      const arm = rightArm();
+      if (!arm || !arm.userData || !arm.userData.p) return;
+      const p = arm.userData.p;
+      const on = (kind === 'musket');
+      const parts = [p.el, p.up, p.fo, p.cuff];
+      for (let i = 0; i < parts.length; i++) {
+        const o = parts[i];
+        if (!o) continue;
+        if (on) {
+          if (o.visible) {
+            o.userData = o.userData || {};
+            o.userData.__hidBy1282 = 1;
+            U.hid++;
+          }
+          o.visible = false;
+        } else if (o.userData && o.userData.__hidBy1282) {
+          o.visible = true;
+          o.userData.__hidBy1282 = 0;
+        }
+      }
+    } catch (e) { ERR('hide', e); }
   }
 
   function applyPickFrame() {
@@ -58,53 +96,49 @@
     } catch (e) { ERR('frame', e); }
   }
 
+  function refinePick() {
+    const h = rightHand();
+    if (!h || !h.userData) return;
+    const fingers = h.userData.f || [];
+    for (let i = 0; i < fingers.length; i++) {
+      const pair = fingers[i];
+      const f = (pair && pair.isObject3D) ? pair : (pair && pair[0]);
+      if (!f || !f.rotation) continue;
+      f.rotation.z = (i - 1.5) * -0.015;
+    }
+    const th = h.userData.th;
+    if (!th) return;
+    const side = 1;
+    const yS = 0.088, zS = 0.037, rHandle = 0.0135;
+    const tx = th.position.x - side * 0.010;
+    const ty = yS - (rHandle + 0.007);
+    const tz = zS;
+    const dx = tx - th.position.x, dy = ty - th.position.y, dz = tz - th.position.z;
+    const len = Math.hypot(dx, dy, dz) || 1;
+    const T = T3();
+    if (T) {
+      const dir = new T.Vector3(dx / len, dy / len, dz / len);
+      th.quaternion.copy(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir));
+    } else {
+      th.rotation.set(0.30, side * 1.12, side * 0.98);
+    }
+    if (th.userData && th.userData.k) {
+      th.userData.k.rotation.set(1.18, 0, 0);
+      if (th.userData.k.userData && th.userData.k.userData.d) {
+        th.userData.k.userData.d.rotation.set(0.62, 0, 0);
+      }
+    }
+    U.thumb = 1;
+  }
+
   function refineGrip() {
     try {
-      if (!U.on || isTp()) return;
-      if (window.__sculpt1281 && !window.__sculpt1281.on) return;
+      if (!sculptOn()) return;
       const kind = kindOf();
-      if (PICK_KIND[kind]) applyPickFrame();
-      if (!PICK_KIND[kind]) return;
-      const h = rightHand();
-      if (!h || !h.userData) return;
-
-      /* Bunch the existing finger cubes into a tighter fist. 1281 already
-         set the wrap curl (rotation.x); only close the spread. */
-      const fingers = h.userData.f || [];
-      for (let i = 0; i < fingers.length; i++) {
-        const pair = fingers[i];
-        const f = (pair && pair.isObject3D) ? pair : (pair && pair[0]);
-        if (!f || !f.rotation) continue;
-        f.rotation.z = (i - 1.5) * -0.015;
-      }
-
-      /* Thumb: aim the pad at the camera-facing face and curl moderately
-         so it wraps across the front, not along the wood or edge-on. */
-      const th = h.userData.th;
-      if (th) {
-        const side = 1;
-        const yS = 0.088, zS = 0.037, rHandle = 0.0135;
-        const tx = th.position.x - side * 0.010;
-        const ty = yS - (rHandle + 0.007);
-        const tz = zS;
-        const dx = tx - th.position.x;
-        const dy = ty - th.position.y;
-        const dz = tz - th.position.z;
-        const len = Math.hypot(dx, dy, dz) || 1;
-        const T = (typeof window !== 'undefined' && window.THREE) || (typeof THREE !== 'undefined' && THREE) || null;
-        if (T) {
-          const dir = new T.Vector3(dx / len, dy / len, dz / len);
-          th.quaternion.copy(new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), dir));
-        } else {
-          th.rotation.set(0.30, side * 1.12, side * 0.98);
-        }
-        if (th.userData && th.userData.k) {
-          th.userData.k.rotation.set(1.18, 0, 0);
-          if (th.userData.k.userData && th.userData.k.userData.d) {
-            th.userData.k.userData.d.rotation.set(0.62, 0, 0);
-          }
-        }
-        U.thumb = 1;
+      hideNearPlaneMass(kind);
+      if (PICK_KIND[kind]) {
+        applyPickFrame();
+        refinePick();
       }
     } catch (e) { ERR('grip', e); }
   }
