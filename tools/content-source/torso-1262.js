@@ -23,7 +23,7 @@
 (function torso1262() {
   const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1, WIDEN: 1, SASH_BACK: 1, BRIDGE_NB: 0.7, FILL_GLOW: 0.4,
     /* 1.2.84 torso volume (t1203): width / depth factors for the shirt core */
-    SX: 1.30, SZF: 1.28, SZB: 1.14, FADE_Y0: 1.33, FADE_Y1: 1.42 };
+    SX: 1.38, SZF: 1.34, SZB: 1.18, FADE_Y0: 1.33, FADE_Y1: 1.42 };
   try { Object.assign(U, window.__torso1262cfg || {}); } catch (_) {}
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
