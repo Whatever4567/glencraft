@@ -144,6 +144,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.85 Original shirt sides
+
+- The 1.2.84 stitched side bridges and their side glow are replaced with the original 1.2.36 scottish-base-v1 shirt side and stomach geometry (SHIRT_|_sewn_torso_with_open_throat, plus the far-LOD visual_torso_outfit), skinned to the current torso bones and aligned to the current shirt so there are no gaps or z-fighting.
+- The 1.2.84 width/depth scale is off so the chest matches the original 1.2.36 shape. Sash-back hide and first-person-only torso hide are unchanged. Nothing on the player is deleted.
+
 ## v1.2.84 Chest restored with volume
 
 - The scottish-base-v2 shirt has been a separate front and back panel since 1.2.37 (open sides from hem to armpit, open henley slit). The gaps are now zipped from the shirt's own boundary vertices (same positions and skin weights); nothing is rebuilt or deleted.
