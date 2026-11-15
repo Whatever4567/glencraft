@@ -5,9 +5,23 @@
    right azimuth bins are empty), which is why the white tee shows big
    holes at the waist. Side panels are added as a skinned sibling bound to
    the same skeleton, and are culled ONLY for the local player's first-person
-   camera so the chest still does not block the view. */
+   camera so the chest still does not block the view.
+
+   1.2.82 (t1200): the chest is back. 1.2.62 also built "side panels" from
+   the tartan sash primitive (and from the far-LOD vertex-palette shirt,
+   which has no colour attribute for them, so they drew black). Those
+   panels wrapped right across the chest and back, so in third person the
+   white shirt and sash looked deleted under a dark slab. The fill is now
+   off by default (U.SIDES) so the shirt draws exactly as in 1.2.61; if it
+   is turned back on it only uses the linen shirt itself (and copies vertex
+   colour where the source has it). Nothing on the player model is deleted.
+   The first-person hide also never worked: setting visible=false inside
+   onBeforeRender is too late in three r128 (the draw is already queued).
+   The torso is now hidden by a visibility toggle around the local
+   first-person camera's render only, and only on your own player model,
+   so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.62' };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -61,10 +75,12 @@
     const uv = attrArr(src, 'uv') || attrArr(src, 'TEXCOORD_0');
     const jnt = attrArr(src, 'skinIndex') || attrArr(src, 'joint') || (src.attributes && src.attributes.JOINTS_0 && src.attributes.JOINTS_0.array);
     const wgt = attrArr(src, 'skinWeight') || (src.attributes && src.attributes.WEIGHTS_0 && src.attributes.WEIGHTS_0.array);
+    const col = attrArr(src, 'color');
+    const cItem = (src.attributes && src.attributes.color && src.attributes.color.itemSize) || 3;
     const jItem = (src.attributes && src.attributes.JOINTS_0 && src.attributes.JOINTS_0.itemSize) || 4;
     const wItem = (src.attributes && src.attributes.WEIGHTS_0 && src.attributes.WEIGHTS_0.itemSize) || 4;
 
-    const P = [], N = [], UV = [], J = [], W = [], I = [];
+    const P = [], N = [], UV = [], J = [], W = [], I = [], C = [];
     let v = 0;
 
     function pushVert(x, y, z, nx, ny, nz, srcI) {
@@ -75,6 +91,10 @@
       } else {
         /* unused linen region; cream is near-uniform so a mid UV is fine */
         UV.push(0.55 + 0.08 * Math.atan2(z, x) / Math.PI, 0.25 + (y - Y0) / (Y1 - Y0) * 0.35);
+      }
+      if (col) {
+        const ci = srcI >= 0 ? srcI : nearestVert(pos, x, y, z, n);
+        for (let k = 0; k < cItem; k++) C.push(col[ci * cItem + k]);
       }
       if (jnt && wgt && srcI >= 0) {
         for (let k = 0; k < jItem; k++) J.push(jnt[srcI * jItem + k] || 0);
@@ -157,6 +177,7 @@
     geo.setAttribute('position', new T.Float32BufferAttribute(P, 3));
     geo.setAttribute('normal', new T.Float32BufferAttribute(N, 3));
     geo.setAttribute('uv', new T.Float32BufferAttribute(UV, 2));
+    if (col && C.length === v * cItem) geo.setAttribute('color', new T.Float32BufferAttribute(C, cItem));
     if (J.length && W.length) {
       const JArr = (v > 65535 || (jnt && jnt instanceof Uint16Array) ? Uint16Array : Uint16Array);
       geo.setAttribute('skinIndex', new T.BufferAttribute(new Uint16Array(J), jItem));
@@ -176,24 +197,46 @@
   function attachFpCull(mesh) {
     if (!mesh || mesh.userData._fpCull1262) return;
     mesh.userData._fpCull1262 = 1;
-    const prevB = mesh.onBeforeRender;
-    const prevA = mesh.onAfterRender;
-    mesh.onBeforeRender = function (renderer, scene, cam) {
-      try { if (typeof prevB === 'function') prevB.apply(this, arguments); } catch (_) {}
-      this.userData._vis1262 = this.visible;
-      try {
-        const local = (typeof camera !== 'undefined' && cam === camera);
-        const fp = (typeof camMode !== 'undefined' && camMode === 0);
-        if (local && fp) this.visible = false;
-      } catch (_) {}
-    };
-    mesh.onAfterRender = function () {
-      try {
-        if (this.userData._vis1262 != null) this.visible = this.userData._vis1262;
-      } catch (_) {}
-      try { if (typeof prevA === 'function') prevA.apply(this, arguments); } catch (_) {}
-    };
+    FP_SET.add(mesh);
   }
+
+  /* 1.2.82: hide the registered torso meshes only while the renderer is
+     drawing the local first-person camera, and only on your own player
+     model (worldModel). Restored straight after that draw. */
+  const FP_SET = new Set();
+  function ownModel(o) {
+    let wm = null;
+    try { wm = (typeof worldModel !== 'undefined') ? worldModel : null; } catch (_) {}
+    if (!wm) return false;
+    for (let p = o; p; p = p.parent) if (p === wm) return true;
+    return false;
+  }
+  function wrapRender() {
+    try {
+      if (typeof renderer === 'undefined' || !renderer || !renderer.render) return;
+      if (renderer.render.__torso1282) return;
+      const r0 = renderer.render;
+      const wrapped = function (sc, cam) {
+        let n = 0, hid = null;
+        try {
+          const fp = (typeof camMode !== 'undefined' && camMode === 0) && (typeof camera !== 'undefined' && cam === camera);
+          if (fp && FP_SET.size) {
+            FP_SET.forEach(function (m) {
+              if (!m.parent) { FP_SET.delete(m); return; }
+              if (m.visible && ownModel(m)) { m.visible = false; (hid || (hid = []))[n++] = m; }
+            });
+            if (n) U.fpHid++;
+          }
+        } catch (_) {}
+        try { return r0.apply(this, arguments); }
+        finally { for (let i = 0; i < n; i++) hid[i].visible = true; }
+      };
+      wrapped.__torso1282 = 1;
+      renderer.render = wrapped;
+    } catch (e) { ERR('wrap', e); }
+  }
+  U.FP_SET = FP_SET;
+  U.wrapRender = wrapRender;
 
   function patchMesh(mesh) {
     try {
@@ -206,6 +249,21 @@
          sides using the linen-sized position attribute. */
       const geo = mesh.geometry;
       if (!geo || !geo.attributes || !geo.attributes.position) return false;
+      /* 1.2.82: only the linen shirt (or a vertex-coloured far-LOD shirt)
+         gets side panels. The tartan sash / buttons primitives made dark
+         slabs across the chest. */
+      {
+        const m0 = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+        const mn = (m0 && m0.name) || '';
+        const linen = /Linen|eee6d6|shirt|cloth/i.test(mn) || (Array.isArray(mesh.material) && mesh.material.some(m => m && /Linen|eee6d6/i.test(m.name || '')));
+        const vcol = !!(m0 && m0.vertexColors && geo.attributes.color);
+        if (!linen && !vcol) { attachFpCull(mesh); return false; }
+      }
+      /* 1.2.82 (t1200): "put my chest back all like it was". Even linen-only
+         panels showed as grey bands down the chest in third person, so the
+         fill is off by default and the shirt is drawn exactly as it was in
+         1.2.61. Set window.__torso1262.SIDES = 1 to try the fill again. */
+      if (!U.SIDES) { attachFpCull(mesh); return false; }
       /* Build the fill once per source geometry, then clone it for each
          instance so world, character and other players all get sides. */
       U._sideGeo = U._sideGeo || (typeof WeakMap === 'function' ? new WeakMap() : null);
@@ -225,6 +283,10 @@
       }
       /* clone so DoubleSide on the fill does not change the authored shirt */
       try { mat = mat.clone(); mat.side = T.DoubleSide; mat.needsUpdate = true; } catch (_) {}
+      /* 1.2.82: the glTF linen uses per-vertex tangents for its normal map;
+         the fill has none, which lit it pitch black. Use screen-space
+         tangents on the fill only. */
+      try { if (mat.vertexTangents) mat.vertexTangents = false; } catch (_) {}
       const side = mesh.isSkinnedMesh
         ? new T.SkinnedMesh(sideGeo, mat)
         : new T.Mesh(sideGeo, mat);
@@ -269,6 +331,7 @@
   function tick() {
     try {
       if (typeof THREE === 'undefined') return;
+      wrapRender();
       if (typeof worldModel !== 'undefined' && worldModel) U.patched += patchRoot(worldModel);
       if (typeof charModel !== 'undefined' && charModel) U.patched += patchRoot(charModel);
       /* other players / clones hanging off the pilot adapter */

@@ -144,6 +144,12 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.82 Smooth first person, chest restored
+
+- Fixed the first-person slideshow from 1.2.81: the view-model cull no longer re-runs the arm rig for every mesh, and the pickaxe hand pass scans once per frame.
+- The player chest (white shirt and sash) draws as it did in 1.2.61 in third person; it is hidden only from your own first-person camera. No body geometry is deleted.
+- Pickaxe fist a little lower; musket hip dark blob hidden.
+
 ## v1.2.81 First-person pickaxe grip
 
 - In first person, the pickaxe is held in a closed fist at a proper angle and follows the mining swing.

@@ -497,14 +497,19 @@
   const _inv = new T.Matrix4();
   const COVER_LIMIT = 0.25;
   U.COVER_LIMIT = COVER_LIMIT;
+  /* GLX-PERF1282 (v1.2.82): cullVm brings the view-model root and camera
+     matrices up to date once, then measures every mesh. screenCover and
+     viewBox used to call cam.updateMatrixWorld(true) for EACH mesh, which
+     re-ran the whole first-person arm rig (and every hook on it) ~100+
+     times per frame. Called on their own they still update as before. */
+  let _fresh1282 = 0;
 
   function viewBox(mesh, cam) {
     const g = mesh && mesh.geometry;
     if (!g) return null;
     if (!g.boundingBox) g.computeBoundingBox();
     const bb = g.boundingBox;
-    cam.updateMatrixWorld(true);
-    mesh.updateWorldMatrix(true, false);
+    if (!_fresh1282) { cam.updateMatrixWorld(true); mesh.updateWorldMatrix(true, false); } /* GLX-PERF1282 */
     _inv.copy(cam.matrixWorld);
     if (typeof _inv.invert === 'function') _inv.invert();
     else if (typeof _inv.getInverse === 'function') _inv.getInverse(cam.matrixWorld);
@@ -526,8 +531,7 @@
       if (!g || !cam) return 0;
       if (!g.boundingBox) g.computeBoundingBox();
       const bb = g.boundingBox;
-      cam.updateMatrixWorld(true);
-      mesh.updateWorldMatrix(true, false);
+      if (!_fresh1282) { cam.updateMatrixWorld(true); mesh.updateWorldMatrix(true, false); } /* GLX-PERF1282 */
       _inv.copy(cam.matrixWorld);
       if (typeof _inv.invert === 'function') _inv.invert();
       else if (typeof _inv.getInverse === 'function') _inv.getInverse(cam.matrixWorld);
@@ -638,6 +642,7 @@
     try {
       root.updateMatrixWorld(true);
       cam.updateMatrixWorld(true);
+      _fresh1282 = 1;
       root.traverse(function (o) {
         if (!o.isMesh || o.visible === false) return;
         const cov = screenCover(o, cam);
@@ -677,6 +682,7 @@
         }
       });
     } catch (e) { ERR('cull', e); }
+    _fresh1282 = 0;
     U.lastDump = dump;
     U.maxCover = dump.reduce(function (m, r) { return Math.max(m, r.cov || 0); }, 0);
     U.lastKind = U.kind;
