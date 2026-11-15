@@ -51040,14 +51040,19 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const _inv = new T.Matrix4();
   const COVER_LIMIT = 0.25;
   U.COVER_LIMIT = COVER_LIMIT;
+  /* GLX-PERF1282 (v1.2.82): cullVm brings the view-model root and camera
+     matrices up to date once, then measures every mesh. screenCover and
+     viewBox used to call cam.updateMatrixWorld(true) for EACH mesh, which
+     re-ran the whole first-person arm rig (and every hook on it) ~100+
+     times per frame. Called on their own they still update as before. */
+  let _fresh1282 = 0;
 
   function viewBox(mesh, cam) {
     const g = mesh && mesh.geometry;
     if (!g) return null;
     if (!g.boundingBox) g.computeBoundingBox();
     const bb = g.boundingBox;
-    cam.updateMatrixWorld(true);
-    mesh.updateWorldMatrix(true, false);
+    if (!_fresh1282) { cam.updateMatrixWorld(true); mesh.updateWorldMatrix(true, false); } /* GLX-PERF1282 */
     _inv.copy(cam.matrixWorld);
     if (typeof _inv.invert === 'function') _inv.invert();
     else if (typeof _inv.getInverse === 'function') _inv.getInverse(cam.matrixWorld);
@@ -51069,8 +51074,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (!g || !cam) return 0;
       if (!g.boundingBox) g.computeBoundingBox();
       const bb = g.boundingBox;
-      cam.updateMatrixWorld(true);
-      mesh.updateWorldMatrix(true, false);
+      if (!_fresh1282) { cam.updateMatrixWorld(true); mesh.updateWorldMatrix(true, false); } /* GLX-PERF1282 */
       _inv.copy(cam.matrixWorld);
       if (typeof _inv.invert === 'function') _inv.invert();
       else if (typeof _inv.getInverse === 'function') _inv.getInverse(cam.matrixWorld);
@@ -51181,6 +51185,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     try {
       root.updateMatrixWorld(true);
       cam.updateMatrixWorld(true);
+      _fresh1282 = 1;
       root.traverse(function (o) {
         if (!o.isMesh || o.visible === false) return;
         const cov = screenCover(o, cam);
@@ -51220,6 +51225,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         }
       });
     } catch (e) { ERR('cull', e); }
+    _fresh1282 = 0;
     U.lastDump = dump;
     U.maxCover = dump.reduce(function (m, r) { return Math.max(m, r.cov || 0); }, 0);
     U.lastKind = U.kind;
@@ -85097,7 +85103,7 @@ try {
   try { install(); } catch (e) { ERR('install', e); }
   setInterval(function () { try { install(); } catch (e) { ERR('tick', e); } }, 1000);
 })();
-/* GLX-SCULPT1281 (local WIP): First-person pickaxe grip and slant on 1.2.80.
+/* GLX-SCULPT1281 (v1.2.81, perf-gated in 1.2.82): First-person pickaxe grip and slant on 1.2.80.
 
    The pick stays on the existing held/`hand` chain (potion path) so __fpa
    can keep using it as a stable IK target. A camera-space rest (shaft
@@ -85181,11 +85187,13 @@ try {
       const arm = rightArm(R);
       if (!arm) return;
       const p = arm.userData && arm.userData.p;
+      const list = U._hidList = [];
       const hidePart = function (o) {
         if (!o) return;
         if (on) {
           if (o.visible) o.userData = o.userData || {}, o.userData.__hidBy1281 = 1;
           o.visible = false;
+          list.push(o);
         } else if (o.userData && o.userData.__hidBy1281) {
           o.visible = true;
           o.userData.__hidBy1281 = 0;
@@ -85603,12 +85611,31 @@ try {
     } catch (e) { ERR('frame', e); }
   }
 
+  /* 1.2.82 perf: this hook runs every time the FPA rig's matrices are
+     updated, which can be many times per rendered frame. The full scan
+     in hideArtefacts walks every mesh on the camera, so it now runs at
+     most once per frame (or when the held kind changes). Later calls in
+     the same frame only re-apply the cheap hide flags it already set. */
+  let FRAME = 0;
+  (function tickFrame() { FRAME++; try { requestAnimationFrame(tickFrame); } catch (_) {} })();
+  let lastScanFrame = -1, lastScanOn = null;
+  function hideArtefactsOnce(on) {
+    if (lastScanFrame === FRAME && lastScanOn === on) {
+      if (on && U._hidList) {
+        for (let i = 0; i < U._hidList.length; i++) { const o = U._hidList[i]; if (o && o.visible) o.visible = false; }
+      }
+      return;
+    }
+    lastScanFrame = FRAME; lastScanOn = on;
+    hideArtefacts(on);
+  }
+
   function applyPickRest() {
     try {
       if (!U.on || isTp()) return;
       const kind = kindOf();
       if (PICK_KIND[kind]) applyPickFrame();
-      hideArtefacts(!!PICK_KIND[kind]);
+      hideArtefactsOnce(!!PICK_KIND[kind]);
       if (!PICK_KIND[kind] || typeof held === 'undefined' || !held) {
         wrapFingers();
         return;
@@ -85628,6 +85655,8 @@ try {
       try { mesh.updateMatrix(); } catch (_) {}
       wrapFingers();
       U.rest++;
+      if (U._dbgFrame === FRAME) return;
+      U._dbgFrame = FRAME;
       const d = tmp(THREE);
       const h = rightHand();
       const p = rightArm() && rightArm().userData && rightArm().userData.p;
@@ -85779,6 +85808,8 @@ try {
       ['pick', 'p761', 'p760'].forEach(function (k) {
         const F = HF.FRAME[k];
         if (!F) return;
+        /* 1.2.82 perf: define the locked getters once, not on every rig update. */
+        if (F._lock1282) return;
         ['dx', 'dy', 'dz', 'fov', 's', 'armS'].forEach(function (key) {
           Object.defineProperty(F, key, {
             configurable: true, enumerable: true,

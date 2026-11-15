@@ -1,4 +1,4 @@
-/* GLX-SCULPT1281 (local WIP): First-person pickaxe grip and slant on 1.2.80.
+/* GLX-SCULPT1281 (v1.2.81, perf-gated in 1.2.82): First-person pickaxe grip and slant on 1.2.80.
 
    The pick stays on the existing held/`hand` chain (potion path) so __fpa
    can keep using it as a stable IK target. A camera-space rest (shaft
@@ -82,11 +82,13 @@
       const arm = rightArm(R);
       if (!arm) return;
       const p = arm.userData && arm.userData.p;
+      const list = U._hidList = [];
       const hidePart = function (o) {
         if (!o) return;
         if (on) {
           if (o.visible) o.userData = o.userData || {}, o.userData.__hidBy1281 = 1;
           o.visible = false;
+          list.push(o);
         } else if (o.userData && o.userData.__hidBy1281) {
           o.visible = true;
           o.userData.__hidBy1281 = 0;
@@ -504,12 +506,31 @@
     } catch (e) { ERR('frame', e); }
   }
 
+  /* 1.2.82 perf: this hook runs every time the FPA rig's matrices are
+     updated, which can be many times per rendered frame. The full scan
+     in hideArtefacts walks every mesh on the camera, so it now runs at
+     most once per frame (or when the held kind changes). Later calls in
+     the same frame only re-apply the cheap hide flags it already set. */
+  let FRAME = 0;
+  (function tickFrame() { FRAME++; try { requestAnimationFrame(tickFrame); } catch (_) {} })();
+  let lastScanFrame = -1, lastScanOn = null;
+  function hideArtefactsOnce(on) {
+    if (lastScanFrame === FRAME && lastScanOn === on) {
+      if (on && U._hidList) {
+        for (let i = 0; i < U._hidList.length; i++) { const o = U._hidList[i]; if (o && o.visible) o.visible = false; }
+      }
+      return;
+    }
+    lastScanFrame = FRAME; lastScanOn = on;
+    hideArtefacts(on);
+  }
+
   function applyPickRest() {
     try {
       if (!U.on || isTp()) return;
       const kind = kindOf();
       if (PICK_KIND[kind]) applyPickFrame();
-      hideArtefacts(!!PICK_KIND[kind]);
+      hideArtefactsOnce(!!PICK_KIND[kind]);
       if (!PICK_KIND[kind] || typeof held === 'undefined' || !held) {
         wrapFingers();
         return;
@@ -529,6 +550,8 @@
       try { mesh.updateMatrix(); } catch (_) {}
       wrapFingers();
       U.rest++;
+      if (U._dbgFrame === FRAME) return;
+      U._dbgFrame = FRAME;
       const d = tmp(THREE);
       const h = rightHand();
       const p = rightArm() && rightArm().userData && rightArm().userData.p;

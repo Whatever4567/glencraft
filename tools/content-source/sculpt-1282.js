@@ -84,6 +84,8 @@
       ['pick', 'p761', 'p760'].forEach(function (k) {
         const F = HF.FRAME[k];
         if (!F) return;
+        /* 1.2.82 perf: define the locked getters once, not on every rig update. */
+        if (F._lock1282) return;
         ['dx', 'dy', 'dz', 'fov', 's', 'armS'].forEach(function (key) {
           Object.defineProperty(F, key, {
             configurable: true, enumerable: true,
