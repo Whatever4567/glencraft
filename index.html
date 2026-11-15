@@ -75699,7 +75699,7 @@ try {
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1, WIDEN: 1, SASH_BACK: 0, BRIDGE_NB: 0.85,
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1, WIDEN: 1, SASH_BACK: 0, BRIDGE_NB: 0.85, FILL_GLOW: 0.22,
     /* 1.2.84 torso volume (t1203): width / depth factors for the shirt core */
     SX: 1.30, SZF: 1.28, SZB: 1.14, FADE_Y0: 1.33, FADE_Y1: 1.42 };
   try { Object.assign(U, window.__torso1262cfg || {}); } catch (_) {}
@@ -76059,7 +76059,8 @@ try {
       const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
       for (let i = 0; i < pa.count; i++) {
         let w = 0;
-        for (let k = 0; k < 4; k++) if (torso.has(si.getComponent(i, k))) w += sw.getComponent(i, k);
+        const sIdx = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)], sWt = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)];
+        for (let k = 0; k < 4; k++) if (torso.has(sIdx[k])) w += sWt[k];
         if (w <= 0.001) continue;
         const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i);
         const f = w * (1 - sm(U.FADE_Y0, U.FADE_Y1, y));
@@ -76169,6 +76170,9 @@ try {
       /* 1.2.84: the bridge has flat linen UVs, so drop the weave normal map
          on the fill (screen-space tangents on flat UVs shade it grey). */
       if (U.BRIDGE) { try { mat.normalMap = null; mat.needsUpdate = true; } catch (_) {} }
+      /* the flat side panel faces away from the key light; lift it with a
+         faint cream glow so it blends with the lit front (FILL_GLOW) */
+      if (U.BRIDGE && U.FILL_GLOW > 0) { try { if (mat.emissive) { mat.emissive.setRGB(0.93, 0.90, 0.84).multiplyScalar(U.FILL_GLOW); mat.needsUpdate = true; } } catch (_) {} }
       const side = mesh.isSkinnedMesh
         ? new T.SkinnedMesh(sideGeo, mat)
         : new T.Mesh(sideGeo, mat);
