@@ -105,8 +105,8 @@
         const rad = p2.clone().sub(t.axis.clone().multiplyScalar(p2.dot(t.axis)));
         const rl = rad.length();
         const d = rl > 1e-5 ? rad.dot(t.dorsal) / rl : 0;            /* 1 = straight up the back */
-        const a = Math.max(0, Math.min(1, (along - 0.38) / 0.18)) * Math.max(0, Math.min(1, (0.98 - along) / 0.06 + 0.4));
-        const s = Math.max(0, Math.min(1, (d - 0.45) / 0.3));
+        const a = Math.max(0, Math.min(1, (along - 0.45) / 0.12)) * Math.max(0, Math.min(1, (0.95 - along) / 0.08));
+        const s = Math.max(0, Math.min(1, (d - 0.6) / 0.25));
         nail[i] = Math.min(1, a * s * 1.2);
       }
       /* knuckle: back of the hand at the hand/finger-01 fold */
@@ -161,15 +161,17 @@
       if (skin) {
         frag = frag.replace('#include <lights_physical_fragment>', `
         {
-          float cr = smoothstep(0.08, 0.9, vCrease1282);
+          float cr = smoothstep(0.45, 1.0, vCrease1282);
           /* fold shadow, slightly warm (blood under thin skin) */
-          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.62, 0.50, 0.46), cr);
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.80, 0.70, 0.66), cr);
           /* knuckle sheen: lighter, a touch desaturated */
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.12 + vec3(0.03, 0.02, 0.02), clamp(vKnk1282 * 1.4, 0.0, 1.0));
           /* nail plate, lunula-ish pale base, lighter free edge */
-          float nl = smoothstep(0.15, 0.75, vNail1282);
-          vec3 nailC = mix(vec3(0.93, 0.76, 0.72), vec3(0.98, 0.93, 0.88), smoothstep(0.75, 1.0, vNail1282));
-          diffuseColor.rgb = mix(diffuseColor.rgb, nailC, nl * 0.82);
+          float nl = smoothstep(0.2, 0.7, vNail1282);
+          /* nail plate: the finger's own tone, pinker and lighter, not paint */
+          vec3 nailC = diffuseColor.rgb * vec3(1.18, 1.05, 1.02) + vec3(0.07, 0.04, 0.04);
+          nailC = mix(nailC, nailC + vec3(0.08, 0.07, 0.06), smoothstep(0.85, 1.0, vNail1282));
+          diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.7);
 
         roughnessFactor = mix(roughnessFactor, 0.28, smoothstep(0.2, 0.8, vNail1282));
         roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));
@@ -178,13 +180,13 @@
       } else {
         frag = frag.replace('#include <lights_physical_fragment>', `
         {
-          float cr = smoothstep(0.12, 0.85, vCrease1282);
+          float cr = smoothstep(0.3, 0.95, vCrease1282);
           float seam = smoothstep(0.55, 0.95, cr);
           float rim = cr * (1.0 - seam);
           /* dark articulation seam with a bright silver lip beside it */
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.07, 0.10), seam * 0.85);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.90, 0.95), rim * 0.55);
-          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.86, 0.92), clamp(vKnk1282 * 1.2, 0.0, 1.0) * 0.4);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.90, 0.95), rim * 0.28);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.86, 0.92), clamp(vKnk1282 * 1.2, 0.0, 1.0) * 0.2);
 
         roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.2, 0.8, vCrease1282) * 0.6);
         }
