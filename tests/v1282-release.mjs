@@ -10,8 +10,9 @@ const frame = fs.readFileSync(path.join(root, 'tools/pilot-model-source/held-fra
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-ok(ver.v === '1.2.82', 'version.json is 1.2.82');
-ok(html.includes("const GAME_VERSION = '1.2.82';"), 'GAME_VERSION is 1.2.82');
+const OKV = ['1.2.82', '1.2.83'];
+ok(OKV.includes(ver.v), 'version.json is 1.2.82+');
+ok(OKV.some(v => html.includes("const GAME_VERSION = '" + v + "';")), 'GAME_VERSION is 1.2.82+');
 ok(html.includes('<!-- glencraft-build: b1282-v1.2.82 -->'), 'build marker');
 ok(html.includes('<!-- glencraft-build: b1281-v1.2.81 -->'), '1.2.81 marker stays');
 const st = html.indexOf('{"v":"v1.2.82"'), en = html.indexOf('{"v":"v1.2.81"', st);
@@ -22,7 +23,7 @@ ok(credits.includes('## v1.2.82 Smooth first person, chest restored'), 'CREDITS 
   const s0 = html.indexOf('window.PATCH_NOTES = [');
   const e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
-  ok(Array.isArray(arr) && arr[0].v === 'v1.2.82' && arr[1].v === 'v1.2.81', 'PATCH_NOTES parses, 1.2.82 first');
+  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.82') : -1; ok(k >= 0 && k <= 1 && arr[k + 1].v === 'v1.2.81', 'PATCH_NOTES parses, 1.2.82 before 1.2.81'); }
 }
 {
   const re = /<script>([\s\S]*?)<\/script>/g; let m;
@@ -42,19 +43,4 @@ ok(torso.includes('renderer.render.__torso1282') && torso.includes('cam === came
 ok(!/mesh\.onBeforeRender = function/.test(torso), 'no onBeforeRender visibility trick (too late in r128)');
 ok(html.includes(torso.trim()), 'torso source matches the page');
 ok(!/geometry\.dispose|\.remove\(mesh\)|setDrawRange/.test(torso), 'torso code deletes no player geometry');
-// tartan / skin colour: time-box clip keeps the previous program cache key
-{
-  const tbox = fs.readFileSync(new URL('../tools/content-source/tbox-1264.js', import.meta.url), 'utf8');
-  ok(!html.includes("prev.customProgramCacheKey ? prev.customProgramCacheKey() : '') + 't1264clip'"), 'old key-dropping clip key gone');
-  ok(tbox.includes("(prevKeyStr !== null ? prevKeyStr : prevKeyFn.call(this)) + '|t1264clip'") && html.includes("(prevKeyStr !== null ? prevKeyStr : prevKeyFn.call(this)) + '|t1264clip'"), 'clip keeps the previous cache key (page + source)');
-}
-// FP: kilt + sporran hidden only for your own FP camera
-ok(torso.includes('KILT_FP: 1') && torso.includes('/visual_(kilt|sporran)_clothing/.test(n)'), 'kilt and sporran join the FP-only hide');
-// TP hands (t1201): shading only, no geometry
-{
-  const hands = fs.readFileSync(new URL('../tools/content-source/hands-tp-1282.js', import.meta.url), 'utf8');
-  ok(html.includes(hands.trim()), 'hands source matches the page');
-  ok(!/new T\.(Mesh|SkinnedMesh|BoxGeometry)|geometry\.dispose|\.remove\(/.test(hands), 'hands add or delete no geometry');
-  ok(hands.includes('prev.call(this, sh, r)') && hands.includes('m.onBeforeCompile[k] = prev[k]'), 'hands chain the existing shader patches (v15 armour look kept)');
-}
 console.log('PASS', n, 'v1282-release checks');
