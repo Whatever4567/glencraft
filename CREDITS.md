@@ -148,6 +148,9 @@ The modified CC BY-SA clips are shared under the same licence.
 
 - Fixed the first-person slideshow from 1.2.81: the view-model cull no longer re-runs the arm rig for every mesh, and the pickaxe hand pass scans once per frame.
 - The player chest (white shirt and sash) draws as it did in 1.2.61 in third person; it is hidden only from your own first-person camera. No body geometry is deleted.
+- Kilt and sash tartan are no longer black: the time-box clip patch (1.2.64) dropped each material's shader cache key, so the tartan and hand skin shared a world shader without the display colour transfer. The key is kept now.
+- Kilt, belt and sporran are also hidden only from your own first-person camera.
+- Third-person hands: baked knuckle creases, fingernails and gauntlet joint seams through shading, with no added triangles.
 - Pickaxe fist a little lower; musket hip dark blob hidden.
 
 ## v1.2.81 First-person pickaxe grip
