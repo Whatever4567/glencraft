@@ -148,7 +148,7 @@ The modified CC BY-SA clips are shared under the same licence.
 
 - The 1.2.84 stitched side bridges and their side glow are replaced with the original 1.2.36 scottish-base-v1 shirt side and stomach geometry (SHIRT_|_sewn_torso_with_open_throat, plus the far-LOD visual_torso_outfit), skinned to the current torso bones and aligned to the current shirt so there are no gaps or z-fighting.
 - The 1.2.84 width/depth scale is off so the chest matches the original 1.2.36 shape. Sash-back hide and first-person-only torso hide are unchanged. Nothing on the player is deleted.
-- First-person hands are upgraded on the existing __fpa rig to match the current third-person rounded look, with the 1.2.83 crease, knuckle and nail shading. Animations, grips, and third-person hands are unchanged.
+- First-person hands now use the same third-person hand mesh and HeadSkin shading, attached to the existing __fpa wrist and coming out of the cream linen cuff. The old box and tube first-person hand pieces are hidden, not deleted. Fingers curl around each held item. Animations, item positions, torch and pick jitter, and third-person hands are unchanged.
 
 ## v1.2.84 Chest restored with volume
 

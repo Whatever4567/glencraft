@@ -26,7 +26,7 @@ if (!html.includes('<!-- glencraft-build: b1285-v1.2.85 -->')) {
     'build marker');
 }
 
-const NOTE = '{"v":"v1.2.85","d":"2026-11-15","notes":["Your shirt\'s original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down.","First-person hands now match the rounded third-person look, with the same crease, knuckle and nail shading. Your current arm animations and grips stay as they are."]},';
+const NOTE = '{"v":"v1.2.85","d":"2026-11-15","notes":["Your shirt\'s original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down.","First-person hands now use the same smooth third-person hand, coming out of your cream shirt cuff, with the fingers wrapped around whatever you\'re holding. Your current arm animations and grips stay as they are."]},';
 if (!html.includes('"v":"v1.2.85"')) {
   html = replaceOnce(html,
     'window.PATCH_NOTES = [\n{"v":"v1.2.84"',
@@ -60,7 +60,7 @@ must(!torso.includes('SHOULDER'), 'shoulder WIP must not ship in 1.2.85 sides');
 }
 
 
-/* Inject or replace the first-person hand finish (t1210). */
+/* Inject or replace the first-person hand finish (t1212). */
 {
   const src = fs.readFileSync(path.join(root, 'tools/content-source/hands-fp-1285.js'), 'utf8').trim() + '\n';
   must(src.includes('/* GLX-HANDSFP1285'), 'hands-fp-1285 banner missing');

@@ -1,383 +1,266 @@
-/* GLX-HANDSFP1285 (v1.2.85, t1210): first-person hands match the current
-   third-person hand look. Builds on the existing __fpa cube-arm rig and the
-   1.2.71 sculpt (same groups, pivots, grips and animations). Fingers and
-   the palm are remeshed with a rounder welded cross-section and smooth
-   normals (the 1.2.71 tubes were flat-shaded 14-gons on a beveled box
-   palm). Crease, knuckle and nail shading is the 1.2.83 TP recipe from
-   hands-tp-1282.js, baked for the __fpa segment/joint topology rather than
-   skin weights. Third-person GLOVE hands and hands-tp-1282 are not
-   touched. No geometry is deleted, no grips or animation curves change,
-   and fpa.step / held-frame / torch-pick jitter hooks are not wrapped. */
-(function handsFp1285(W) {
+/* GLX-HANDSFP1285 (v1.2.85): first-person uses the actual third-person
+   GLOVE hand mesh (HeadSkin, 1.2.83 crease/knuckle/nail shading) attached
+   to the existing __fpa wrist, coming out of the cream linen cuff.
+   Old box/tube __fpa hand and finger pieces are hidden, not deleted.
+   Finger bones curl around each held item. Arm animations, item
+   positions and torch/pick jitter are unchanged. Third-person is not
+   patched. */
+(function handsFp1285() {
+  const W = window;
   const U = W.__handsFp1285 = {
-    err: null, on: 1, version: '1.2.85-fp-hands',
-    rounded: 0, meshes: 0, mats: 0, baked: 0, sculpted: 0
+    err: null, on: 1, version: '1.2.85-tp-hand',
+    attached: 0, hidden: 0, loaded: 0, kind: '',
+    tune: { scale: 1, x: 0, y: -0.012, z: 0, rx: 0, ry: 3.14159, rz: 0 },
+    /* Per-kind wrap offset on top of tune, in p.h space (Y along fingers). */
+    seat: {
+      empty:  { x: 0, y: 0.00, z: 0.00 },
+      block:  { x: 0, y: -0.03, z: 0.03 },
+      bucket: { x: 0, y: 0.01, z: 0.00 },
+      torch:  { x: 0, y: 0.01, z: 0.00 },
+      sword:  { x: 0, y: 0.02, z: 0.00 },
+      pick:   { x: 0, y: 0.03, z: 0.00 },
+      p761:   { x: 0, y: 0.03, z: 0.00 },
+      p760:   { x: 0, y: 0.03, z: 0.00 },
+      pistol: { x: 0, y: 0.02, z: 0.01 },
+      musket: { x: 0, y: 0.02, z: 0.01 },
+      map:    { x: 0, y: 0.01, z: 0.02 }
+    }
   };
-  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
+
+  const FINGER = /^(finger[LR]\d\d\d|thumb[LR]\d\d)$/;
+  const HANDB = /^hand[LR]$/;
+  const TIP = /^(finger[LR]\d02|thumb[LR]02)$/;
+  const sideOf = nm => { const m = /^[a-z]+([LR])/.exec(nm || ''); return m ? m[1] : 'R'; };
+  const norm = n => String(n || '').replace(/\./g, '');
+
+  /* Extra rotateX (and thumb Y/Z) on top of the bind pose, in radians.
+     Negative X continues the rest-pose curl toward the palm. */
+  const S = -1;
+  const fist = (a, tY) => ({
+    p: [1.20, 1.25, 1.25, 1.15].map(v => S * v),
+    d: [1.05, 1.10, 1.10, 1.00].map(v => S * v),
+    t: [0.85 * S, 0.65 * S], tY: tY == null ? 0.35 : tY, tZ: 0.18
+  });
+  const POSES = {
+    empty: {
+      p: [0.22, 0.28, 0.34, 0.44].map(v => S * v),
+      d: [0.18, 0.22, 0.28, 0.34].map(v => S * v),
+      t: [0.12 * S, 0.16 * S], tY: 0.12, tZ: 0.06
+    },
+    block: {
+      p: [0.70, 0.80, 0.82, 0.72].map(v => S * v),
+      d: [0.55, 0.62, 0.64, 0.55].map(v => S * v),
+      t: [0.45 * S, 0.35 * S], tY: 0.22, tZ: 0.12
+    },
+    bucket: fist(1, 0.40),
+    torch: fist(1, 0.36),
+    sword: fist(1, 0.36),
+    pick: fist(1, 0.40),
+    p761: fist(1, 0.40),
+    p760: fist(1, 0.40),
+    axe: fist(1, 0.36),
+    shovel: fist(1, 0.36),
+    hoe: fist(1, 0.36),
+    /* Index slightly open for the trigger; thumb over the grip. */
+    pistol: {
+      p: [0.32, 1.15, 1.20, 1.10].map(v => S * v),
+      d: [0.22, 1.00, 1.05, 0.95].map(v => S * v),
+      t: [0.50 * S, 0.30 * S], tY: 0.28, tZ: 0.08
+    },
+    musket: {
+      p: [0.38, 1.10, 1.15, 1.05].map(v => S * v),
+      d: [0.24, 0.95, 1.00, 0.90].map(v => S * v),
+      t: [0.52 * S, 0.32 * S], tY: 0.22, tZ: 0.08
+    },
+    map: {
+      p: [0.42, 0.44, 0.48, 0.50].map(v => S * v),
+      d: [0.32, 0.34, 0.36, 0.38].map(v => S * v),
+      t: [0.28 * S, 0.18 * S], tY: 0.06, tZ: 0.04
+    },
+    support: {
+      p: [0.70, 0.76, 0.80, 0.74].map(v => S * v),
+      d: [0.50, 0.55, 0.55, 0.50].map(v => S * v),
+      t: [0.40 * S, 0.28 * S], tY: 0.18, tZ: 0.10
+    }
+  };
+  POSES.default = POSES.empty;
+
+  const KIND_BY_ID = {
+    0: 'empty', 1: 'block', 2: 'block', 10: 'block', 12: 'block',
+    39: 'bucket', 48: 'bucket', 201: 'bucket',
+    67: 'torch', 257: 'torch',
+    94: 'sword', 42: 'sword', 43: 'sword', 98: 'sword', 126: 'sword', 266: 'sword', 217: 'sword',
+    212: 'pistol', 213: 'musket', 410: 'map',
+    761: 'p761', 760: 'p760',
+    40: 'pick', 41: 'pick', 92: 'pick', 96: 'pick', 124: 'pick', 264: 'pick'
+  };
 
   function T3() { return (typeof THREE !== 'undefined' && THREE) || W.THREE || null; }
 
-  function roleOf(i, side) { return side >= 0 ? (3 - i) : i; }
-  const WIDTH = [0.0072, 0.0073, 0.0067, 0.0058];
-  const PROX = [0.0356, 0.0360, 0.0354, 0.0310];
-  const MID  = [0.0166, 0.0172, 0.0164, 0.0136];
-  const DIST = [0.0138, 0.0162, 0.0140, 0.0098];
-  const BEND = [0.08, 0.07, 0.11, 0.16];
-
-  const GEO = {};
-  function share(key, build) {
-    if (!GEO[key]) GEO[key] = build();
-    return GEO[key];
+  function currentKind() {
+    let id = 0, got = 0;
+    try { if (typeof selId !== 'undefined') { id = selId; got = 1; } } catch (_) {}
+    if (got && (id === 0 || id === '0' || !id)) return 'empty';
+    id = +id;
+    if (KIND_BY_ID[id]) return KIND_BY_ID[id];
+    try {
+      const list = (typeof ITEM !== 'undefined' && ITEM) || (typeof ITEMS !== 'undefined' && ITEMS);
+      const rec = list && (list[id] || (list.find && list.find(function (x) { return x && x.id === id; })));
+      if (rec && rec.kind) return rec.kind;
+    } catch (_) {}
+    return id ? 'block' : 'empty';
   }
 
-  function bagToGeo(bag) {
-    const T = T3();
-    const g = new T.BufferGeometry();
-    g.setAttribute('position', new T.Float32BufferAttribute(bag.pos, 3));
-    g.setAttribute('normal', new T.Float32BufferAttribute(bag.nrm, 3));
-    g.setAttribute('uv', new T.Float32BufferAttribute(bag.uv, 2));
-    if (bag.col && bag.col.length) g.setAttribute('color', new T.Float32BufferAttribute(bag.col, 3));
-    if (bag.idx && bag.idx.length) g.setIndex(bag.idx);
-    g.computeVertexNormals();
-    return g;
+  function rig() {
+    try { return W.__fpa && typeof W.__fpa.rig === 'function' ? W.__fpa.rig() : null; } catch (_) { return null; }
   }
 
-  /* Rounded, welded palm — same overall size as 1.2.71 (W 0.066, H 0.100,
-     D 0.023), same placement, but a fleshy rounded slab with smooth
-     normals instead of a faceted BoxGeometry. */
-  function palmGeo(side) {
-    return share('palm85-' + (side >= 0 ? 'r' : 'l'), function () {
-      const T = T3();
-      const Wd = 0.066, Ht = 0.100, Dp = 0.023;
-      const SU = 18, SV = 20, ST = 10;
-      const pos = [], nrm = [], uv = [], col = [], idx = [];
-      const ths = side >= 0 ? 1 : -1;
-      const rx = 0.011, ry = 0.013, rz = 0.0075;
-      function signedD(q, half, rad) {
-        const a = Math.abs(q) - (half - rad);
-        if (a <= 0) return q;
-        return Math.sign(q) * (half - rad + Math.sqrt(rad * rad - Math.max(0, rad * rad - a * a)));
-      }
-      /* Build a rounded box by projecting a grid on each face, then
-         rounding into the fillet. Easier and watertight: sample a
-         superellipsoid and apply the 1.2.71 cup / waist / thenar. */
-      const nu = SU, nv = SV;
-      function deform(x, y, z) {
-        const yn = (y + Ht * 0.5) / Ht;
-        const xn = x / (Wd * 0.5);
-        const wrist = 1 - 0.30 * Math.pow(Math.max(0, 1 - yn), 1.55);
-        const tip = 1 - 0.08 * Math.pow(Math.max(0, yn - 0.78) / 0.22, 2);
-        x *= wrist * tip;
-        const cup = (1 - xn * xn) * Math.sin(Math.max(0.05, Math.min(0.95, yn)) * Math.PI);
-        if (z < 0) z = z * 0.78 - 0.007 * cup;
-        else z = z * 0.78 + 0.0025 * yn;
-        if ((x * ths) > 0 && yn > 0.18 && yn < 0.72 && z <= 0.002) {
-          const tu = (x * ths) / (Wd * 0.5);
-          const tv = (yn - 0.42) / 0.28;
-          const mound = Math.exp(-(Math.pow((tu - 0.62) * 3.2, 2) + tv * tv * 3.4));
-          z += -0.006 * mound;
-          x += ths * 0.003 * mound;
-        }
-        return { x: x, y: y, z: z, yn: yn, xn: xn };
-      }
-      /* Parametric rounded box: for each of 6 faces, a (su x sv) grid,
-         vertices snapped onto the rounded-box surface. */
-      const faces = [
-        { n: [0, 0, 1], u: [1, 0, 0], v: [0, 1, 0], su: SU, sv: SV },
-        { n: [0, 0, -1], u: [1, 0, 0], v: [0, 1, 0], su: SU, sv: SV },
-        { n: [1, 0, 0], u: [0, 0, 1], v: [0, 1, 0], su: ST, sv: SV },
-        { n: [-1, 0, 0], u: [0, 0, 1], v: [0, 1, 0], su: ST, sv: SV },
-        { n: [0, 1, 0], u: [1, 0, 0], v: [0, 0, 1], su: SU, sv: ST },
-        { n: [0, -1, 0], u: [1, 0, 0], v: [0, 0, 1], su: SU, sv: ST }
-      ];
-      function onRoundedBox(px, py, pz) {
-        const hx = Wd * 0.5 - rx, hy = Ht * 0.5 - ry, hz = Dp * 0.5 - rz;
-        const cx = Math.max(-hx, Math.min(hx, px));
-        const cy = Math.max(-hy, Math.min(hy, py));
-        const cz = Math.max(-hz, Math.min(hz, pz));
-        const dx = px - cx, dy = py - cy, dz = pz - cz;
-        const L = Math.hypot(dx, dy, dz);
-        if (L < 1e-8) return { x: px, y: py, z: pz };
-        /* points already inside the inner box keep their face; points in
-           the fillet are pushed onto the quarter-cylinder / sphere. */
-        const k = 1 / L;
-        return { x: cx + dx * k * rx, y: cy + dy * k * ry, z: cz + dz * k * rz };
-      }
-      for (let f = 0; f < faces.length; f++) {
-        const F = faces[f];
-        const hx = Wd * 0.5, hy = Ht * 0.5, hz = Dp * 0.5;
-        const base = pos.length / 3;
-        for (let j = 0; j <= F.sv; j++) {
-          for (let i = 0; i <= F.su; i++) {
-            const su = (i / F.su) * 2 - 1, sv = (j / F.sv) * 2 - 1;
-            let px = F.n[0] * hx + F.u[0] * su * hx + F.v[0] * sv * hy;
-            let py = F.n[1] * hy + F.u[1] * su * hx + F.v[1] * sv * hy;
-            let pz = F.n[2] * hz + F.u[2] * su * hz + F.v[2] * sv * hz;
-            /* remap v extent per axis (faces use hy or hz as v scale above
-               inconsistently); rebuild from n/u/v unit axes. */
-            px = F.n[0] * (Wd * 0.5) + F.u[0] * su * (F.u[0] ? Wd * 0.5 : (F.u[2] ? Dp * 0.5 : Ht * 0.5))
-               + F.v[0] * sv * (F.v[0] ? Wd * 0.5 : (F.v[1] ? Ht * 0.5 : Dp * 0.5));
-            py = F.n[1] * (Ht * 0.5) + F.u[1] * su * (F.u[0] ? Wd * 0.5 : (F.u[2] ? Dp * 0.5 : Ht * 0.5))
-               + F.v[1] * sv * (F.v[0] ? Wd * 0.5 : (F.v[1] ? Ht * 0.5 : Dp * 0.5));
-            pz = F.n[2] * (Dp * 0.5) + F.u[2] * su * (F.u[0] ? Wd * 0.5 : (F.u[2] ? Dp * 0.5 : Ht * 0.5))
-               + F.v[2] * sv * (F.v[0] ? Wd * 0.5 : (F.v[1] ? Ht * 0.5 : Dp * 0.5));
-            const rb = onRoundedBox(px, py, pz);
-            const d = deform(rb.x, rb.y, rb.z);
-            pos.push(d.x, d.y, d.z);
-            nrm.push(0, 0, 0);
-            const u = 0.5 + 0.5 * (d.z < 0 ? 0.5 + 0.5 * (d.x / (Wd * 0.5)) : 0.5 * (d.x / (Wd * 0.5) * 0.5 + 0.5));
-            uv.push(d.z < 0 ? 0.5 + 0.5 * (0.5 + 0.5 * d.xn) : 0.5 * (0.5 + 0.5 * d.xn), d.yn);
-            const cx = d.xn, cy = d.yn - 0.5;
-            const well = (d.z < 0) ? Math.exp(-(cx * cx * 2.8 + cy * cy * 3.2)) : 0;
-            const rim = Math.max(0, Math.abs(d.xn) - 0.55) + Math.max(0, Math.abs(d.yn - 0.5) - 0.42);
-            let cr = 0.97, cg = 0.90, cb = 0.86;
-            if (d.z < 0) { cr = 0.92; cg = 0.80; cb = 0.76; }
-            cr -= well * 0.10; cg -= well * 0.12; cb -= well * 0.10;
-            const rl = Math.min(1, rim * 1.4);
-            col.push(cr + rl * 0.06, cg + rl * 0.06, cb + rl * 0.07);
-          }
-        }
-        const rw = F.su + 1;
-        for (let j = 0; j < F.sv; j++) {
-          for (let i = 0; i < F.su; i++) {
-            const a = base + j * rw + i, b = a + 1, c = a + rw, d = c + 1;
-            if (F.n[0] + F.n[1] + F.n[2] > 0) idx.push(a, c, b, b, c, d);
-            else idx.push(a, b, c, b, d, c);
-          }
-        }
-      }
-      const g = new T.BufferGeometry();
-      g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
-      g.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
-      g.setAttribute('uv', new T.Float32BufferAttribute(uv, 2));
-      g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
-      g.setIndex(idx);
-      g.computeVertexNormals();
-      return g;
-    });
-  }
-
-  /* Same 1.2.71 phalanx proportions, higher RAD, indexed, smooth normals. */
-  function phalanxGeo(len, r0, r1, ovalZ, knuckle, bend, tipR) {
-    const key = ['phx85', len, r0, r1, ovalZ, knuckle ? 1 : 0, bend || 0, tipR || 0].join(',');
-    return share(key, function () {
-      const RAD = 16;
-      const rings = [];
-      function pushRing(t, rm, sh) { rings.push({ t: t, rm: rm, sh: sh }); }
-      pushRing(0.00, 1.00, 0.98);
-      pushRing(0.16, 0.97, 0.97);
-      if (knuckle) {
-        pushRing(0.36, 1.06, 0.95);
-        pushRing(0.58, 0.99, 0.99);
-      } else {
-        pushRing(0.40, 0.98, 0.99);
-      }
-      pushRing(0.80, 0.97, 1.00);
-      pushRing(1.00, 0.96, 1.02);
-      const cap = (tipR && tipR > 0) ? tipR : r1 * 0.55;
-      const steps = [[0.22, 0.90], [0.45, 0.74], [0.68, 0.50], [0.88, 0.28], [1.00, 0.12]];
-      for (let s = 0; s < steps.length; s++) {
-        pushRing(1.00 + (cap * steps[s][0]) / Math.max(len, 0.001), steps[s][1], 1.05);
-      }
-      const oval = ovalZ || 0.90;
-      function radiusAt(ring) {
-        const tt = Math.min(1, ring.t);
-        return (r0 + (r1 - r0) * Math.pow(tt, 0.85)) * ring.rm;
-      }
-      function centerAt(t) {
-        const b = bend || 0;
-        if (b < 1e-4) return { y: t * len, z: 0 };
-        const R = len / b, a = b * Math.min(t, 1);
-        return { y: R * Math.sin(a) + Math.max(0, t - 1) * len, z: -R * (1 - Math.cos(a)) };
-      }
-      const pos = [], nrm = [], uv = [], col = [], index = [];
-      const rc = rings.length;
-      for (let i = 0; i < rc; i++) {
-        const ring = rings[i];
-        const c = centerAt(ring.t);
-        const r = radiusAt(ring);
-        const vUv = (ring.t >= 0.995) ? 0.15 : Math.min(0.82, Math.max(0, ring.t));
-        let cr = 1, cg = 0.98, cb = 0.96;
-        if (ring.t >= 0.995) { cr = 1; cg = 0.98; cb = 0.95; }
-        else if ((ring.sh || 1) < 0.96) { cr = 0.95; cg = 0.88; cb = 0.85; }
-        for (let k = 0; k <= RAD; k++) {
-          const a = (k / RAD) * Math.PI * 2;
-          const palmar = Math.max(0, -Math.sin(a));
-          const oz = oval * (1 - 0.08 * palmar);
-          pos.push(Math.cos(a) * r, c.y, c.z + Math.sin(a) * r * oz);
-          nrm.push(0, 0, 0);
-          uv.push(k / RAD, vUv);
-          col.push(cr, cg, cb);
-        }
-      }
-      const rw = RAD + 1;
-      for (let i = 0; i < rc - 1; i++) {
-        for (let k = 0; k < RAD; k++) {
-          const a = i * rw + k, b = a + 1, c = a + rw, d = c + 1;
-          index.push(a, c, b, b, c, d);
-        }
-      }
-      /* Solid shallow-dome caps so an end-on view is a fleshy pad, not a
-         hollow tube. Winding is checked against the outward axis. */
-      function capPole(ringIdx, outwardY) {
-        const ring = rings[ringIdx];
-        const c = centerAt(ring.t);
-        const bump = Math.max(radiusAt(ring) * 0.45, 0.0012);
-        const py = c.y + outwardY * bump;
-        const pi = pos.length / 3;
-        pos.push(0, py, c.z);
-        nrm.push(0, outwardY, 0);
-        uv.push(0.5, 0.15);
-        col.push(1, 0.98, 0.95);
-        const base = ringIdx * rw;
-        const a0 = base, b0 = base + 1;
-        const ax = pos[a0 * 3], ay = pos[a0 * 3 + 1], az = pos[a0 * 3 + 2];
-        const bx = pos[b0 * 3], by = pos[b0 * 3 + 1], bz = pos[b0 * 3 + 2];
-        const e1x = bx - ax, e1y = by - ay, e1z = bz - az;
-        const e2x = 0 - ax, e2y = py - ay, e2z = c.z - az;
-        const ny = e1z * e2x - e1x * e2z;
-        const flip = (ny * outwardY) < 0;
-        for (let k = 0; k < RAD; k++) {
-          const a = base + k, b = base + k + 1;
-          if (flip) index.push(pi, b, a);
-          else index.push(pi, a, b);
-        }
-      }
-      capPole(0, -1);
-      capPole(rc - 1, 1);
-      return bagToGeo({ pos: pos, nrm: nrm, uv: uv, col: col, idx: index });
-    });
-  }
-
-  function knuckleGeo(r, ovalZ) {
-    return share(['kn85', r, ovalZ].join(','), function () {
-      const RAD = 16, SEG = 6, oval = ovalZ || 0.90;
-      const rr = r * 0.72;
-      const pos = [], nrm = [], uv = [], col = [], index = [];
-      for (let i = 0; i <= SEG; i++) {
-        const t = i / SEG;
-        const y = (t - 0.5) * rr * 0.95;
-        const f = Math.sin(t * Math.PI);
-        for (let k = 0; k <= RAD; k++) {
-          const a = (k / RAD) * Math.PI * 2;
-          pos.push(Math.cos(a) * rr * f, y, Math.sin(a) * rr * f * oval);
-          nrm.push(0, 0, 0);
-          uv.push(k / RAD, t);
-          col.push(0.96, 0.90, 0.87);
-        }
-      }
-      const rw = RAD + 1;
-      for (let i = 0; i < SEG; i++) {
-        for (let k = 0; k < RAD; k++) {
-          const a = i * rw + k, b = a + 1, c = a + rw, d = c + 1;
-          index.push(a, c, b, b, c, d);
-        }
-      }
-      return bagToGeo({ pos: pos, nrm: nrm, uv: uv, col: col, idx: index });
-    });
-  }
-
-  function matOf(mesh, kind) {
-    const H71 = W.__hands1271, H70 = W.__hands1270, H65 = W.__hands1265;
-    const src = H71 || H70 || H65;
-    if (src) {
-      if (kind === 'finger' && src._finger) return src._finger;
-      if (kind === 'knuckle' && src._kn) return src._kn;
-      if (kind === 'nail' && src._nail) return src._nail;
-      if (kind === 'palm' && src._palm) return src._palm;
-      if (kind === 'skin' && (src._skin || src._finger)) return src._skin || src._finger;
+  function isHeldItem(o) {
+    let x = o, heldObj = null;
+    try { if (typeof held !== 'undefined') heldObj = held; } catch (_) {}
+    for (let i = 0; i < 8 && x; i++) {
+      if (heldObj && x === heldObj) return true;
+      const n = x.name || '';
+      if (n === 'held' || n === 'grabHaggis') return true;
+      x = x.parent;
     }
-    return mesh && mesh.material;
+    return false;
   }
 
-  function directMeshes(group, pred) {
-    const out = [];
-    if (!group || !group.children) return out;
-    for (let i = 0; i < group.children.length; i++) {
-      const o = group.children[i];
-      if (o && o.isMesh && (!pred || pred(o))) out.push(o);
-    }
-    return out;
+  /* Hide (do not delete) every old box/tube hand mesh under p.h.
+     Later sculpts keep setting .visible back to true each frame, so
+     lock the property once the first time we hide a mesh. */
+  function lockHidden(o) {
+    if (o.userData && o.userData.__fpHideLock) return;
+    o.userData = o.userData || {};
+    o.userData.__fpHideLock = 1;
+    try { o.visible = false; } catch (_) {}
+    try {
+      Object.defineProperty(o, 'visible', {
+        get: function () { return false; },
+        set: function () {},
+        configurable: true,
+        enumerable: true
+      });
+    } catch (_) { try { o.visible = false; } catch (e2) {} }
+    U.hidden++;
+  }
+  function hideOld(h) {
+    if (!h) return;
+    h.traverse(function (o) {
+      if (!o.isMesh) return;
+      if (o.userData && o.userData.fpTpHand1285) {
+        try { if (o.visible === false) o.visible = true; } catch (_) {}
+        return;
+      }
+      if (isHeldItem(o)) return;
+      lockHidden(o);
+    });
   }
 
-  function setGeo(mesh, geo, kind) {
-    if (!mesh || !geo) return;
-    mesh.geometry = geo;
-    const m = matOf(mesh, kind);
-    if (m) mesh.material = m;
-    mesh.userData = mesh.userData || {};
-    mesh.userData.sculpt1285geo = 1;
-    mesh.userData.sculpt1285 = 1;
-    mesh.userData.sculptKeep = 1;
-    mesh.frustumCulled = false;
-    U.rounded++;
+  function hideBoth() {
+    try {
+      const R = rig(); if (!R || !R.userData) return;
+      if (R.userData.R && R.userData.R.userData && R.userData.R.userData.p) hideOld(R.userData.R.userData.p.h);
+      if (R.userData.L && R.userData.L.userData && R.userData.L.userData.p) hideOld(R.userData.L.userData.p.h);
+    } catch (e) { ERR('hide', e); }
   }
 
-  /* Bake 1.2.83 crease / nail / knuckle attributes for __fpa topology. */
-  function bake(mesh, kind) {
-    const T = T3();
-    const g = mesh && mesh.geometry;
-    if (!g || !g.attributes || !g.attributes.position) return;
-    if (g.userData.handsFp1285) return;
-    const pos = g.attributes.position;
-    const nrm = g.attributes.normal;
+  /* ---- 1.2.83 crease / nail / knuckle bake + skin shader (clone only) ---- */
+  function bake(mesh, T) {
+    const g = mesh.geometry;
+    if (!g || g.userData.handsTp1282 || !g.attributes.skinIndex || !mesh.skeleton) return !!(g && g.userData.handsTp1282);
+    const bones = mesh.skeleton.bones, inv = mesh.skeleton.boneInverses;
+    const names = bones.map(b => norm(b.name || ''));
+    const pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
     const n = pos.count;
     const crease = new Float32Array(n), nail = new Float32Array(n), knk = new Float32Array(n);
-    let ymin = Infinity, ymax = -Infinity;
+    const v = new T.Vector3();
+    const tipInfo = {};
+    const handVerts = { L: [], R: [] };
     for (let i = 0; i < n; i++) {
-      const y = pos.getY(i);
-      if (y < ymin) ymin = y;
-      if (y > ymax) ymax = y;
+      const b = si.getX(i), w = sw.getX(i), nm = names[b];
+      if (w > 0.85 && TIP.test(nm)) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).applyMatrix4(inv[b]);
+        const t = tipInfo[b] || (tipInfo[b] = { c: new T.Vector3(), n: 0, verts: [] });
+        t.c.add(v); t.n++; t.verts.push(i);
+      }
+      if (w > 0.9 && HANDB.test(nm)) handVerts[sideOf(nm)].push(i);
     }
-    const span = Math.max(1e-5, ymax - ymin);
+    const dorsalW = {};
+    for (const side of ['L', 'R']) {
+      const hv = handVerts[side]; if (hv.length < 12) continue;
+      const c = new T.Vector3(); const p = new T.Vector3();
+      for (const i of hv) { p.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix); c.add(p); } c.multiplyScalar(1 / hv.length);
+      let xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+      for (const i of hv) { p.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).sub(c); xx += p.x * p.x; xy += p.x * p.y; xz += p.x * p.z; yy += p.y * p.y; yz += p.y * p.z; zz += p.z * p.z; }
+      const M = new T.Matrix3().set(xx, xy, xz, xy, yy, yz, xz, yz, zz);
+      let inv3; try { inv3 = new T.Matrix3().copy(M).invert(); } catch (_) { inv3 = null; }
+      if (!inv3 || !isFinite(inv3.elements[0])) continue;
+      const e = new T.Vector3(0.3, 0.5, 0.8);
+      for (let k = 0; k < 30; k++) e.applyMatrix3(inv3).normalize();
+      let tt = null;
+      for (const b in tipInfo) if (names[b] === 'thumb' + side + '02') {
+        tt = new T.Vector3();
+        for (const i of tipInfo[b].verts) { p.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix); tt.add(p); }
+        tt.multiplyScalar(1 / tipInfo[b].verts.length);
+      }
+      if (tt && tt.clone().sub(c).dot(e) > 0) e.negate();
+      dorsalW[side] = e;
+    }
+    for (const b in tipInfo) {
+      const t = tipInfo[b]; t.c.multiplyScalar(1 / t.n);
+      t.len = t.c.length() * 2;
+      t.axis = t.c.clone().normalize();
+      const dw = dorsalW[sideOf(names[b])];
+      if (dw) {
+        const bw = new T.Matrix4().copy(inv[b]).multiply(mesh.bindMatrix);
+        const m3 = new T.Matrix3().setFromMatrix4(bw);
+        t.dorsal = dw.clone().applyMatrix3(m3).normalize();
+      }
+    }
+    const p2 = new T.Vector3();
     for (let i = 0; i < n; i++) {
-      const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      const yn = (y - ymin) / span;
-      const nx = nrm ? nrm.getX(i) : 0;
-      const ny = nrm ? nrm.getY(i) : 0;
-      const nz = nrm ? nrm.getZ(i) : 0;
-      const dorsal = Math.max(0, nz);
-      if (kind === 'nail') {
-        nail[i] = 0.55 + 0.45 * yn;
-        knk[i] = 0;
-        crease[i] = 0;
-      } else if (kind === 'knuckle') {
-        knk[i] = Math.min(1, dorsal * 1.2);
-        crease[i] = Math.max(0, 1 - Math.abs(yn - 0.5) * 2) * 0.35;
-      } else if (kind === 'palm') {
-        /* Finger-root crease near the top edge; palmar life/head lines. */
-        const root = Math.max(0, (yn - 0.78) / 0.22);
-        const palmar = Math.max(0, -nz);
-        crease[i] = Math.min(1, root * 0.9 + palmar * Math.exp(-((yn - 0.42) * (yn - 0.42) * 18 + x * x * 900)) * 0.55);
-        knk[i] = Math.min(1, dorsal * Math.max(0, (yn - 0.72) / 0.28) * 1.1);
-      } else if (kind === 'wrist') {
-        crease[i] = Math.max(0, 1 - Math.abs(yn - 0.0) * 4) * 0.4;
-      } else {
-        /* Phalanx: crease at the proximal joint (and a soft mid-joint),
-           knuckle sheen on the dorsal bulge. */
-        const joint0 = Math.max(0, 1 - yn * 6);
-        const joint1 = (yn > 0.85) ? Math.max(0, (yn - 0.85) / 0.15) : 0;
-        crease[i] = Math.min(1, Math.pow(Math.max(joint0, joint1 * 0.45), 1.2));
-        const bulge = Math.max(0, 1 - Math.abs(yn - 0.36) / 0.22);
-        knk[i] = Math.min(1, dorsal * bulge * 1.15);
+      const b0 = si.getX(i), b1 = si.getY(i), w0 = sw.getX(i), w1 = sw.getY(i);
+      const n0 = names[b0], n1 = names[b1];
+      const f0 = FINGER.test(n0) || HANDB.test(n0), f1 = FINGER.test(n1) || HANDB.test(n1);
+      if (b0 !== b1 && (FINGER.test(n0) || FINGER.test(n1)) && (f0 || f1) && w1 > 0.05) {
+        crease[i] = Math.min(1, Math.pow(4 * w0 * w1, 1.6));
+      }
+      const t = tipInfo[b0];
+      if (t && w0 > 0.85 && t.dorsal) {
+        p2.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).applyMatrix4(inv[b0]);
+        const along = p2.dot(t.axis) / Math.max(1e-4, t.len);
+        const rad = p2.clone().sub(t.axis.clone().multiplyScalar(p2.dot(t.axis)));
+        const rl = rad.length();
+        const d = rl > 1e-5 ? rad.dot(t.dorsal) / rl : 0;
+        const a = Math.max(0, Math.min(1, (along - 0.45) / 0.12)) * Math.max(0, Math.min(1, (0.95 - along) / 0.08));
+        const s = Math.max(0, Math.min(1, (d - 0.6) / 0.25));
+        nail[i] = Math.min(1, a * s * 1.2);
+      }
+      if (b0 !== b1 && ((HANDB.test(n0) && /01$/.test(n1)) || (HANDB.test(n1) && /01$/.test(n0)))) {
+        const side = HANDB.test(n0) ? sideOf(n0) : sideOf(n1);
+        const dw = dorsalW[side];
+        if (dw) {
+          const nr = g.attributes.normal;
+          if (nr) { p2.fromBufferAttribute(nr, i).transformDirection(mesh.bindMatrix); knk[i] = Math.max(0, p2.dot(dw)) * Math.min(1, 4 * w0 * w1); }
+        }
       }
     }
     g.setAttribute('aCrease1282', new T.BufferAttribute(crease, 1));
     g.setAttribute('aNail1282', new T.BufferAttribute(nail, 1));
     g.setAttribute('aKnk1282', new T.BufferAttribute(knk, 1));
-    g.userData.handsFp1285 = 1;
-    U.baked++;
-    U.meshes++;
+    g.userData.handsTp1282 = 1;
+    return true;
   }
 
-  /* Same skin snippet as hands-tp-1282.js (crease / knuckle / nail). */
   function patchMat(m) {
-    if (!m || (m.onBeforeCompile && m.onBeforeCompile.__handsFp1285)) return;
+    if (!m || (m.onBeforeCompile && m.onBeforeCompile.__hands1282)) return;
     const prev = m.onBeforeCompile;
     const prevKey = m.customProgramCacheKey;
     m.onBeforeCompile = function (sh, r) {
       if (typeof prev === 'function') prev.call(this, sh, r);
-      if (!U.on) return;
       if (sh.vertexShader.indexOf('aCrease1282') >= 0) return;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nattribute float aCrease1282;\nattribute float aNail1282;\nattribute float aKnk1282;\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;')
@@ -387,199 +270,284 @@
       frag = frag.replace('#include <lights_physical_fragment>', `
         {
           float cr = smoothstep(0.45, 1.0, vCrease1282);
-          /* fold shadow, slightly warm (blood under thin skin) */
           diffuseColor.rgb *= mix(vec3(1.0), vec3(0.80, 0.70, 0.66), cr);
-          /* knuckle sheen: lighter, a touch desaturated */
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.12 + vec3(0.03, 0.02, 0.02), clamp(vKnk1282 * 1.4, 0.0, 1.0));
-          /* nail plate, lunula-ish pale base, lighter free edge */
           float nl = smoothstep(0.2, 0.7, vNail1282);
           vec3 nailC = diffuseColor.rgb * vec3(1.18, 1.05, 1.02) + vec3(0.07, 0.04, 0.04);
           nailC = mix(nailC, nailC + vec3(0.08, 0.07, 0.06), smoothstep(0.85, 1.0, vNail1282));
           diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.7);
-
-        roughnessFactor = mix(roughnessFactor, 0.28, smoothstep(0.2, 0.8, vNail1282));
-        roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));
+          roughnessFactor = mix(roughnessFactor, 0.28, smoothstep(0.2, 0.8, vNail1282));
+          roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));
         }
         #include <lights_physical_fragment>`);
       sh.fragmentShader = frag;
     };
     try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
-    m.onBeforeCompile.__handsFp1285 = 1;
+    m.onBeforeCompile.__hands1282 = 1;
     m.customProgramCacheKey = function () {
       const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
-      return k + '|handsFp1285:' + (U.on ? 1 : 0);
+      return k + '|handsFp1285skin';
     };
     m.needsUpdate = true;
-    U.mats++;
   }
 
-  function patchMesh(o, kind) {
-    if (!o || !o.isMesh) return;
-    bake(o, kind);
-    const mats = Array.isArray(o.material) ? o.material : [o.material];
-    for (let i = 0; i < mats.length; i++) patchMat(mats[i]);
+  function isSkinMat(m) { return m && /Skin/i.test(m.name || ''); }
+
+  /* ---- clone the loaded GLOVE + a bind-pose skeleton onto p.h ---- */
+  function inSubtree(b, root) {
+    let x = b;
+    while (x) { if (x === root) return true; x = x.parent; }
+    return false;
   }
 
-  function refineFinger(f, k, role, isThumb) {
-    const r = isThumb ? 0.0092 : (WIDTH[role] || 0.0066);
-    const oval = isThumb ? 0.88 : 0.90;
-    const bend = isThumb ? 0.07 : (BEND[role] || 0.09);
-    if (isThumb) {
-      directMeshes(f, function (o) { return o.userData && o.userData.fingerAtlas; }).forEach(function (o) {
-        setGeo(o, phalanxGeo(0.054, 0.0132, 0.0100, oval, 1, bend, 0), 'finger');
-        patchMesh(o, 'finger');
-      });
-      directMeshes(f, function (o) { return o.userData && o.userData.knuckle1249; }).forEach(function (o) {
-        setGeo(o, knuckleGeo(0.0088, oval), 'knuckle');
-        patchMesh(o, 'knuckle');
-      });
-      if (k) {
-        directMeshes(k, function (o) { return o.userData && o.userData.fingerAtlas; }).forEach(function (o) {
-          setGeo(o, phalanxGeo(0.028, 0.0100, 0.0082, oval, 0, bend * 0.7, 0), 'finger');
-          patchMesh(o, 'finger');
-        });
-        const d = k.userData && k.userData.d;
-        if (d) {
-          directMeshes(d, function (o) { return o.userData && o.userData.fingerAtlas; }).forEach(function (o) {
-            setGeo(o, phalanxGeo(0.022, 0.0082, 0.0068, oval * 0.98, 0, bend * 0.45, 0.0105), 'finger');
-            patchMesh(o, 'finger');
-          });
-          directMeshes(d, function (o) { return o.userData && (o.userData.nail1249 || o.userData.nail1265 || o.userData.nail1266 || o.userData.nail1270 || o.userData.nail1271); }).forEach(function (o) {
-            /* Geometry only — keep 1.2.71 nail position / rotation. */
-            patchMesh(o, 'nail');
-          });
-        }
-      }
-      return;
+  function buildSide(srcScene, srcMeshes, srcSkel, side, T) {
+    srcScene.updateMatrixWorld(true);
+    const srcBones = srcSkel.bones;
+    const copies = [];
+    const map = new Map();
+    for (let i = 0; i < srcBones.length; i++) {
+      const s = srcBones[i];
+      const b = new T.Bone();
+      b.name = norm(s.name);
+      b.position.copy(s.position);
+      b.quaternion.copy(s.quaternion);
+      b.scale.copy(s.scale);
+      map.set(s, b);
+      copies.push(b);
     }
-    const lp = PROX[role], lm = MID[role], ld = DIST[role];
-    const r0 = r, r1 = r * 0.92, r2 = r * 0.86, r3 = r * 0.82;
-    const tipR = r3 * 0.98;
-    directMeshes(f, function (o) { return o.userData && o.userData.fingerAtlas; }).forEach(function (o) {
-      setGeo(o, phalanxGeo(lp, r0, r1, oval, 1, bend, 0), 'finger');
-      patchMesh(o, 'finger');
+    for (let i = 0; i < srcBones.length; i++) {
+      const s = srcBones[i];
+      const kids = s.children || [];
+      for (let k = 0; k < kids.length; k++) {
+        const c = map.get(kids[k]);
+        if (c) copies[i].add(c);
+      }
+    }
+    const hand = copies.find(b => b.name === 'hand' + side);
+    if (!hand) throw new Error('no hand' + side);
+
+    /* Wrist at the wrapper origin: invert the bind-world of the source hand
+       so the cloned hand bone sits at the __fpa wrist. */
+    const wrap = new T.Group();
+    wrap.name = 'fpTpHand' + side;
+    wrap.userData.fpTpHand1285 = 1;
+    const align = new T.Group();
+    align.userData.fpTpHand1285 = 1;
+    wrap.add(align);
+
+    const srcHand = srcBones.find(b => norm(b.name) === 'hand' + side);
+    const invH = new T.Matrix4().copy(srcHand.matrixWorld).invert();
+    invH.decompose(align.position, align.quaternion, align.scale);
+
+    /* Forest roots of the copied skeleton go under align. */
+    for (let i = 0; i < srcBones.length; i++) {
+      if (!srcBones[i].parent || !map.get(srcBones[i].parent)) align.add(copies[i]);
+    }
+
+    const newSkel = new T.Skeleton(copies);
+    const outMeshes = [];
+    for (let i = 0; i < srcMeshes.length; i++) {
+      const src = srcMeshes[i];
+      const mesh = src.clone();
+      mesh.geometry = src.geometry.clone();
+      mesh.material = Array.isArray(src.material) ? src.material.map(function (m) { return m.clone(); }) : src.material.clone();
+      mesh.userData.fpTpHand1285 = 1;
+      mesh.frustumCulled = false;
+      mesh.castShadow = false;
+      mesh.renderOrder = 2;
+      mesh.position.set(0, 0, 0);
+      mesh.quaternion.identity();
+      mesh.scale.set(1, 1, 1);
+      align.add(mesh);
+      outMeshes.push(mesh);
+    }
+    /* Bind in the already-aligned space so the wrist sits at wrap origin. */
+    align.updateMatrixWorld(true);
+    for (let i = 0; i < outMeshes.length; i++) {
+      const mesh = outMeshes[i];
+      mesh.bind(newSkel);
+      if (!mesh.geometry.attributes.aCrease1282) bake(mesh, T);
+      const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (let j = 0; j < mats.length; j++) if (isSkinMat(mats[j])) patchMat(mats[j]);
+    }
+
+    const state = {
+      wrap: wrap, align: align, skeleton: newSkel, meshes: outMeshes, side: side,
+      prox: [], dist: [], thumb: [], hand: hand, names: copies.map(function (b) { return b.name; })
+    };
+    function findB(kind, idx, seg) {
+      const mid = (idx == null || idx === '') ? '' : String(idx);
+      const exact = kind + side + mid + seg;
+      let b = copies.find(function (x) { return x.name === exact; });
+      if (b) return b;
+      const re = new RegExp('^' + kind + '[._]?' + side + '[._]?' + (mid ? mid + '[._]?' : '') + seg + '$', 'i');
+      return copies.find(function (x) { return re.test(x.name); }) || null;
+    }
+    for (let i = 0; i < 4; i++) {
+      state.prox[i] = findB('finger', i, '01');
+      state.dist[i] = findB('finger', i, '02');
+    }
+    state.thumb[0] = findB('thumb', '', '01');
+    state.thumb[1] = findB('thumb', '', '02');
+    U['bones' + side] = {
+      names: state.names.filter(function (n) { return /hand|finger|thumb/i.test(n); }),
+      prox: state.prox.map(function (b) { return b && b.name; }),
+      dist: state.dist.map(function (b) { return b && b.name; }),
+      thumb: state.thumb.map(function (b) { return b && b.name; })
+    };
+    copies.forEach(function (b) {
+      b.userData.bindQ = b.quaternion.clone();
     });
-    directMeshes(f, function (o) { return o.userData && o.userData.knuckle1249; }).forEach(function (o) {
-      setGeo(o, knuckleGeo(r0 * 0.85, oval), 'knuckle');
-      patchMesh(o, 'knuckle');
+    return state;
+  }
+
+  function applyTune(state) {
+    const t = U.tune;
+    const seat = (U.seat && U.seat[U.kind]) || (U.seat && U.seat.empty) || {};
+    state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
+    state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
+    const s = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
+    state.wrap.scale.setScalar(s);
+  }
+
+  function poseState(state, name) {
+    const pose = POSES[name] || POSES.empty;
+    function curl(bone, ax, ay, az) {
+      if (!bone || !bone.userData.bindQ) return;
+      bone.quaternion.copy(bone.userData.bindQ);
+      if (ax) bone.rotateX(ax);
+      if (ay) bone.rotateY(ay);
+      if (az) bone.rotateZ(az);
+    }
+    for (let i = 0; i < 4; i++) {
+      curl(state.prox[i], pose.p[i], 0, 0);
+      curl(state.dist[i], pose.d[i], 0, 0);
+    }
+    const ty = state.side === 'L' ? -(pose.tY || 0) : (pose.tY || 0);
+    const tz = state.side === 'L' ? -(pose.tZ || 0) : (pose.tZ || 0);
+    curl(state.thumb[0], pose.t[0], ty, tz);
+    curl(state.thumb[1], pose.t[1], 0, 0);
+  }
+
+  function poseKind(kind) {
+    if (!U.sides) return;
+    const right = POSES[kind] ? kind : 'empty';
+    if (U.sides.R) poseState(U.sides.R, right);
+    if (U.sides.L) {
+      const left = (kind === 'pistol' || kind === 'musket') ? 'support' : right;
+      poseState(U.sides.L, left);
+    }
+    U.kind = kind;
+  }
+
+  function attach() {
+    if (U.attached || !U.src || !U.on) return;
+    const T = T3(); if (!T) return;
+    const R = rig();
+    if (!R || !R.userData || !R.userData.R || !R.userData.R.userData || !R.userData.R.userData.p) return;
+    try {
+      U.sides = {};
+      const arms = { R: R.userData.R, L: R.userData.L };
+      for (const side of ['R', 'L']) {
+        const arm = arms[side];
+        if (!arm || !arm.userData || !arm.userData.p || !arm.userData.p.h) continue;
+        const st = buildSide(U.src.scene, U.src.bySide[side], U.src.skel, side, T);
+        applyTune(st);
+        arm.userData.p.h.add(st.wrap);
+        hideOld(arm.userData.p.h);
+        U.sides[side] = st;
+        U.attached++;
+      }
+      poseKind(currentKind());
+      if (U.err === 'load no GLTFLoader') U.err = null;
+    } catch (e) { ERR('attach', e); }
+  }
+
+  function collectGloves(root) {
+    const bySide = { R: [], L: [] };
+    let skel = null;
+    root.traverse(function (o) {
+      if (!o.isSkinnedMesh) return;
+      const n = (o.name || '') + '|' + ((o.parent && o.parent.name) || '');
+      let side = null;
+      if (/visual_arm_slot0/.test(n) || /GLOVE\s*\|\s*R\b/.test(n)) side = 'R';
+      else if (/visual_arm_slot1/.test(n) || /GLOVE\s*\|\s*L\b/.test(n)) side = 'L';
+      if (!side) return;
+      bySide[side].push(o);
+      if (!skel && o.skeleton) skel = o.skeleton;
     });
-    if (k) {
-      directMeshes(k, function (o) { return o.userData && o.userData.fingerAtlas; }).forEach(function (o) {
-        setGeo(o, phalanxGeo(lm, r1, r2, oval * 0.99, 1, bend * 0.85, 0), 'finger');
-        patchMesh(o, 'finger');
-      });
-      directMeshes(k, function (o) { return o.userData && o.userData.knuckle1249; }).forEach(function (o) {
-        setGeo(o, knuckleGeo(r1 * 0.80, oval), 'knuckle');
-        patchMesh(o, 'knuckle');
-      });
-      const d = k.userData && k.userData.d;
-      if (d) {
-        directMeshes(d, function (o) { return o.userData && o.userData.fingerAtlas; }).forEach(function (o) {
-          setGeo(o, phalanxGeo(ld, r2, r3, oval * 0.98, 0, bend * 0.55, tipR), 'finger');
-          patchMesh(o, 'finger');
-        });
-        directMeshes(d, function (o) { return o.userData && (o.userData.nail1249 || o.userData.nail1265 || o.userData.nail1266 || o.userData.nail1270 || o.userData.nail1271); }).forEach(function (o) {
-          patchMesh(o, 'nail');
-        });
-      }
-    }
+    return { bySide: bySide, skel: skel, scene: root };
   }
 
-  function upgradeHand(h, side) {
-    if (!h || h.userData.sculpt1285) return;
-    h.userData.sculpt1285 = 1;
-    const fingers = h.userData.f || [];
-    for (let i = 0; i < fingers.length; i++) {
-      const pair = fingers[i];
-      if (!pair) continue;
-      refineFinger(pair[0], pair[1], roleOf(i, side), false);
-    }
-    if (h.userData.th) {
-      refineFinger(h.userData.th, h.userData.th.userData && h.userData.th.userData.k, 0, true);
-    }
+  function onGltf(gltf) {
     try {
-      h.traverse(function (o) {
-        if (!o.isMesh || !o.userData) return;
-        if (o.userData.palmAtlas) {
-          setGeo(o, palmGeo(side), 'palm');
-          patchMesh(o, 'palm');
-        }
-        if (o.userData.thenar1271) {
-          setGeo(o, phalanxGeo(0.032, 0.0130, 0.0088, 0.62, 0, 0.18, 0.008), 'skin');
-          patchMesh(o, 'finger');
-        }
-        if (o.userData.slimWrist1271) patchMesh(o, 'wrist');
+      const found = collectGloves(gltf.scene);
+      if (!found.skel || (!found.bySide.R.length && !found.bySide.L.length)) {
+        ERR('load', 'no GLOVE meshes');
+        return;
+      }
+      U.src = found;
+      U.loaded = found.bySide.R.length + found.bySide.L.length;
+      attach();
+    } catch (e) { ERR('gltf', e); }
+  }
+
+  function loadGlb() {
+    if (U._loading || U.src) return;
+    const T = T3();
+    if (!T || !T.GLTFLoader) { ERR('load', 'no GLTFLoader'); return; }
+    U._loading = 1;
+    try {
+      const L = new T.GLTFLoader();
+      try { if (W.MeshoptDecoder && L.setMeshoptDecoder) L.setMeshoptDecoder(W.MeshoptDecoder); } catch (_) {}
+      L.load('assets/models/scottish-base-v2/scottish-base.glb', function (g) {
+        U._loading = 0;
+        onGltf(g);
+      }, null, function (e) {
+        U._loading = 0;
+        ERR('glb', e);
       });
-    } catch (e) { ERR('palm', e); }
+    } catch (e) { U._loading = 0; ERR('load', e); }
+  }
+
+  function tick() {
     try {
-      const kn = h.userData && h.userData.kn;
-      if (kn) {
-        for (let i = 0; i < kn.length; i++) {
-          if (kn[i] && kn[i].isMesh) {
-            setGeo(kn[i], knuckleGeo(0.0086, 0.88), 'skin');
-            patchMesh(kn[i], 'knuckle');
-          }
+      if (!U.on) return;
+      if (!U.src) loadGlb();
+      if (U.src && !U.attached) attach();
+      if (U.attached) {
+        hideBoth();
+        const k = currentKind();
+        poseKind(k);
+        if (U.sides) {
+          if (U.sides.R) applyTune(U.sides.R);
+          if (U.sides.L) applyTune(U.sides.L);
         }
       }
-    } catch (_) {}
+    } catch (e) { ERR('tick', e); }
   }
 
-  function upgradeArm(arm) {
-    if (!arm || !arm.userData || !arm.userData.p) return;
-    const p = arm.userData.p;
-    const side = arm.userData.side || 1;
-    if (p.h) upgradeHand(p.h, side);
-  }
-
-  function apply() {
-    if (U._applying) return !!U.sculpted;
-    U._applying = 1;
-    try {
-      const fpa = W.__fpa;
-      if (!fpa) return false;
-      const rig = (typeof fpa.rig === 'function' ? fpa.rig() : fpa.g);
-      if (!rig) return false;
-      /* Let 1.2.71 finish first so we build on its proportions. */
-      try {
-        if (W.__hands1271 && typeof W.__hands1271.apply === 'function' && !W.__hands1271.sculpted) {
-          W.__hands1271.apply();
-        }
-      } catch (_) {}
-      if (rig.userData.R) upgradeArm(rig.userData.R);
-      if (rig.userData.L) upgradeArm(rig.userData.L);
-      U.sculpted = 1;
-      U.on = 1;
-      return true;
-    } catch (e) { ERR('apply', e); return false; }
-    finally { U._applying = 0; }
-  }
-  U.apply = apply;
-
-  /* Wrap 1271.apply only — not fpa.step, held-frame, or renderer. */
-  function hook() {
+  function hook1271() {
     try {
       const H = W.__hands1271;
-      if (H && typeof H.apply === 'function' && !H.__wrap1285) {
-        const pa = H.apply.bind(H);
+      if (!H || H.__fp1285) return;
+      const prev = H.apply;
+      if (typeof prev === 'function') {
         H.apply = function () {
-          const r = pa.apply(this, arguments);
-          try { apply(); } catch (_) {}
+          const r = prev.apply(this, arguments);
+          try { tick(); } catch (e) { ERR('apply', e); }
           return r;
         };
-        H.__wrap1285 = 1;
       }
+      H.__fp1285 = 1;
     } catch (e) { ERR('hook', e); }
   }
 
-  let n = 0;
-  const boot = setInterval(function () {
-    n++;
-    hook();
-    try { apply(); } catch (_) {}
-    if (n > 80) clearInterval(boot);
-  }, 50);
-  [200, 500, 1000, 1800, 3000, 5000].forEach(function (ms) {
-    setTimeout(function () { try { hook(); apply(); } catch (_) {} }, ms);
-  });
-  if (W.addEventListener) W.addEventListener('load', function () { hook(); apply(); });
+  hook1271();
+  loadGlb();
+  [300, 800, 2000, 5000, 12000].forEach(function (t) { setTimeout(function () { hook1271(); tick(); }, t); });
+  setInterval(tick, 200);
+  U.tick = tick;
+  U.poseKind = poseKind;
+  U.POSES = POSES;
 })(typeof window !== 'undefined' ? window : this);
