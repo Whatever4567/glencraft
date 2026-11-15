@@ -133,20 +133,6 @@
   function patchMat(m, kind) {
     if (!m || (m.onBeforeCompile && m.onBeforeCompile.__hands1282)) return;
     const skin = kind === 'skin';
-    /* Keep the colour the player sees today. Several patched materials
-       share one program by cache key, so the live hand program may lack
-       the pilot display transfer even though this material's own chain
-       adds it. Giving the hand its own program would brighten the skin,
-       so read what the live program does and match it. */
-    let keepTransfer = !skin;
-    try {
-      const P = renderer.properties.get(m).currentProgram;
-      if (P && P.program) {
-        const gl = renderer.getContext();
-        const shs = gl.getAttachedShaders(P.program) || [];
-        for (const x of shs) if (gl.getShaderParameter(x, gl.SHADER_TYPE) === gl.FRAGMENT_SHADER) keepTransfer = gl.getShaderSource(x).indexOf('PILOT_DISPLAY_TRANSFER_1236') >= 0;
-      }
-    } catch (_) {}
     const prev = m.onBeforeCompile;
     const prevKey = m.customProgramCacheKey;
     m.onBeforeCompile = function (sh, r) {
@@ -192,7 +178,6 @@
         }
         #include <lights_physical_fragment>`);
       }
-      if (!keepTransfer) frag = frag.replace(/\n?\s*gl_FragColor = LinearTosRGB\( gl_FragColor \); \/\/ PILOT_DISPLAY_TRANSFER_1236/g, '');
       sh.fragmentShader = frag;
     };
     /* keep the earlier patchers' marker flags (crystalRim1237 etc.) so
@@ -200,7 +185,6 @@
     try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
     m.onBeforeCompile.__hands1282 = 1;
     m.userData.hands1282Prev = [prev, prevKey];
-    m.userData.hands1282Transfer = keepTransfer;
     m.customProgramCacheKey = function () {
       const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
       return k + '|handsTp1282:' + kind + (U.on ? 1 : 0);

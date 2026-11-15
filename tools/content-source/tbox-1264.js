@@ -231,6 +231,16 @@
     m.userData.t1264clip = 1;
     ensureClipUni();
     const prev = m.onBeforeCompile;
+    /* GLX-KEY1282: keep the material's previous program cache key. The
+       old key read prev.customProgramCacheKey, which the onBeforeCompile
+       function never has, so every patched material collapsed to the bare
+       key 't1264clip'. Materials with the same shader settings then shared
+       whichever program compiled first; the player's tartan and hand skin
+       picked up a world program without the pilot display transfer and
+       rendered too dark (black tartan, orange hands) from 1.2.64 on. */
+    const prevKeyFn = m.customProgramCacheKey;
+    const protoKey = THREE.Material && THREE.Material.prototype.customProgramCacheKey;
+    const prevKeyStr = (!prevKeyFn || prevKeyFn === protoKey) ? (prev ? prev.toString() : '') : null;
     m.onBeforeCompile = function (sh) {
       try { if (prev) prev.apply(this, arguments); } catch (_) {}
       sh.uniforms.t1264c = clipC;
@@ -243,7 +253,7 @@
         'void main() {\n  if (t1264c.w > 0.5) { float dx = t1264wp.x - t1264c.x, dz = t1264wp.z - t1264c.y; if (dx * dx + dz * dz < t1264c.z) discard; }\n'
       );
     };
-    m.customProgramCacheKey = function () { return (prev && prev.customProgramCacheKey ? prev.customProgramCacheKey() : '') + 't1264clip'; };
+    m.customProgramCacheKey = function () { return (prevKeyStr !== null ? prevKeyStr : prevKeyFn.call(this)) + '|t1264clip'; };
     m.needsUpdate = true;
   }
 
