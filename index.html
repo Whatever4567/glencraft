@@ -44,6 +44,7 @@
 <!-- glencraft-build: b1282-v1.2.82 -->
 <!-- glencraft-build: b1283-v1.2.83 -->
 <!-- glencraft-build: b1284-v1.2.84 -->
+<!-- glencraft-build: load1285 -->
 <!-- glencraft-build: b1251-popstar -->
 <title>Glencraft: Survival 4K</title>
 <style>
@@ -13229,7 +13230,7 @@ html body #tradeUI .tp{background:rgba(10,18,40,.96)!important;border-color:rgba
   <div class="scr" id="scr-loading" data-testid="world-loading-screen">
     <div class="glogo" aria-label="Glencraft" role="img"><svg viewBox="22 22 636 190" preserveAspectRatio="xMidYMin meet" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="glG3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6cf"/><stop offset=".48" stop-color="#f6c83e"/><stop offset="1" stop-color="#b06e10"/></linearGradient><filter id="glA3" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur in="SourceAlpha" stdDeviation="12" result="b"/><feFlood flood-color="#ff9b30" flood-opacity=".8"/><feComposite in2="b" operator="in" result="g"/><feGaussianBlur in="SourceAlpha" stdDeviation="3" result="b2"/><feFlood flood-color="#fff1b0" flood-opacity=".55"/><feComposite in2="b2" operator="in" result="g2"/><feDropShadow dx="0" dy="5" stdDeviation="3" flood-color="#000" flood-opacity=".7" in="SourceGraphic" result="s"/><feMerge><feMergeNode in="g"/><feMergeNode in="g2"/><feMergeNode in="s"/></feMerge></filter></defs><g filter="url(#glA3)"><text x="340" y="132" text-anchor="middle" style="font-family:GlenBold,Impact,'Arial Black',sans-serif!important;font-weight:900" font-size="104" fill="url(#glG3)" stroke="#2a1604" stroke-width="6" paint-order="stroke" letter-spacing="3" textLength="600" lengthAdjust="spacingAndGlyphs">GLENCRAFT</text></g><text x="340" y="196" text-anchor="middle" style="font-family:GlenBold,system-ui,sans-serif!important;font-weight:700" font-size="20" letter-spacing="10" fill="#f3ead0" opacity=".92">SCOTTISH SURVIVAL</text></svg></div><div class="logo" hidden>GLENCRAFT</div>
     <div class="spin-blocks c3d" data-testid="loading-cube"><div class="cube"><i class="f1"></i><i class="f2"></i><i class="f3"></i><i class="f4"></i><i class="f5"></i><i class="f6"></i></div></div>
-    <div class="bootbar" id="loadW"><i></i></div>
+    <div class="bootbar liquid1285" id="loadW"><i class="load-fill"><b class="load-wave" aria-hidden="true"></b></i></div>
     <div class="boottip" id="loadTip">Raising the mountains...</div>
     <div id="loadPct">0%</div>
     
@@ -18550,9 +18551,16 @@ function enterWorld(save) {
   } catch (_) {}
   window.__loadErrTxt = ''; loadStep('start');   // the soundtrack keeps playing through loading and into the world
   const bar = $('loadW').firstChild, tip = $('loadTip'), pct = $('loadPct');
-  let i = 0, shown = 0, target = 0, t0 = performance.now(), ready = false;
+  let i = 0, shown = (window.__glenLoad && __glenLoad.shown) || 0, target = Math.max(shown, (window.__glenLoad && __glenLoad.real) || 0), t0 = performance.now(), ready = false;
   // GLX-B3: the bar eases toward the real progress and only finishes when every chunk mesh around spawn is built and the GPU has compiled it
-  const anim = () => { shown += (target - shown) * 0.12; bar.style.width = shown.toFixed(1) + '%'; if (pct) pct.textContent = Math.round(shown) + '%'; if (screen === 'loading') requestAnimationFrame(anim); };
+  const anim = () => {
+    if (window.__glenLoad && __glenLoad.live) {
+      try { __glenLoad.setReal(Math.max(target, __glenLoad.real || 0), tip && tip.textContent, ready ? 100 : 99); if (ready) __glenLoad.finish(); } catch (_) {}
+      if (screen === 'loading') requestAnimationFrame(anim);
+      return;
+    }
+    shown += (target - shown) * 0.12; if (shown > target) shown = target; bar.style.width = shown.toFixed(1) + '%'; if (pct) pct.textContent = Math.round(shown) + '%'; if (screen === 'loading') requestAnimationFrame(anim);
+  };
   requestAnimationFrame(anim);
   // 1.2.43: enter after a small ring (R=1 → up to 9 chunks), then stream the rest.
   const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1);
@@ -18592,7 +18600,7 @@ function enterWorld(save) {
       const cn = chunksReady.need || 9, cg = chunksReady.got || 0; target = Math.max(target, 70 + 29 * cg / Math.max(1, cn)); tip.textContent = (i <= LOAD_STEPS.length ? LOAD_STEPS[Math.min(i, LOAD_STEPS.length - 1)] + '... ' : '') + 'Building the land around you... ' + cg + '/' + cn;
       loadStep('building the land ' + cg + '/' + cn + ' (' + Math.round((performance.now() - t0) / 1000) + ' s)');
       if (!enterWorld._fb) { enterWorld._fb = 1; const fb = () => { if (screen !== 'loading' || ready) { enterWorld._fb = 0; return; } try { if (dirtyAll || dirtyCh.size) rebuild(25); } catch (e) {} requestAnimationFrame(fb); }; requestAnimationFrame(fb); }   // keep meshing between ticks so the land is ready sooner
-      if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(); } catch (e) { console.error('load: full rebuild', e); } }
+      if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(32); } catch (e) { console.error('load: full rebuild', e); } }
       if (!cr && performance.now() - t0 >= 45000) { console.error('load: gave up waiting for the land, entering anyway'); window.__loadSafe = 1; }
       if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { loadErr('rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } return; }
       ready = true; loadStep('first render');
@@ -18602,7 +18610,7 @@ function enterWorld(save) {
       target = 100; tip.textContent = 'Ready!';
       return;
     }
-    if (ready && shown > 98.5) {
+    if (ready && (shown > 98.5 || (window.__glenLoad && (__glenLoad.shown > 98.5 || __glenLoad.done)))) {
       clearInterval(tick);
       showScreen('none');
       started = true; lastAutosave = performance.now();
@@ -20619,25 +20627,40 @@ function g9height(x, z) {
   return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), glen, mMask, loch: loch && glen > 0.55};
 }
 function generate() {
+  const __L = window.__glenLoad, __resume = !!(__L && __L.held && __L._g9);
+  let rnd, hash, cav, tun, tri;
+  if (__resume) {
+    rnd = __L._g9.rnd; hash = __L._g9.hash; cav = __L._g9.cav; tun = __L._g9.tun; tri = __L._g9.tri;
+  } else {
   if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0;
   G9P = g9perm(gSeed); genVer = GEN9; NSEED = gSeed;
-  const rnd = g9rng(gSeed ^ 0x9e3779b9), hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  rnd = g9rng(gSeed ^ 0x9e3779b9); hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   world.fill(T.AIR);
   g9cols = new Int16Array(W * D * 2);
   // cavern density on a coarse 4x4x4 lattice, trilinearly interpolated (64x fewer noise calls)
-  const SX = Math.ceil(W / 4) + 1, SY = Math.ceil(H / 4) + 1, SZ = Math.ceil(D / 4) + 1, cav = new Float32Array(SX * SY * SZ), tun = new Float32Array(SX * SY * SZ);
+  const SX = Math.ceil(W / 4) + 1, SY = Math.ceil(H / 4) + 1, SZ = Math.ceil(D / 4) + 1;
+  cav = new Float32Array(SX * SY * SZ); tun = new Float32Array(SX * SY * SZ);
   for (let i = 0; i < SX; i++) for (let j = 0; j < SY; j++) for (let k = 0; k < SZ; k++) {
     const x = i * 4, y = j * 4, z = k * 4, o = (i * SY + j) * SZ + k;
     cav[o] = g9n3(x / 38, y / 16, z / 38) + 0.5 * g9n3(x / 17, y / 9, z / 17);
     tun[o] = Math.abs(g9n3(x / 26 + 100, y / 15, z / 26 - 50));
   }
-  const tri = (A, x, y, z) => {
+  tri = (A, x, y, z) => {
     const fx = x / 4, fy = y / 4, fz = z / 4, i = Math.floor(fx), j = Math.floor(fy), k = Math.floor(fz), u = fx - i, v = fy - j, w = fz - k;
     const at = (a, b, c) => A[((i + a) * SY + (j + b)) * SZ + (k + c)];
     const L = (a, b, t) => a + (b - a) * t;
     return L(L(L(at(0, 0, 0), at(1, 0, 0), u), L(at(0, 1, 0), at(1, 1, 0), u), v), L(L(at(0, 0, 1), at(1, 0, 1), u), L(at(0, 1, 1), at(1, 1, 1), u), v), w);
   };
-  for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
+  if (__L && __L.held) {
+    __L._g9 = {rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
+    try { __L.touch(6, 'Raising the mountains… 0/' + W, 70); } catch (_) {}
+    throw __L.YIELD;
+  }
+  }
+  const __x0 = (__L && __L.held && __L.genX) || 0;
+  let __tSlice = performance.now();
+  for (let x = __x0; x < W; x++) {
+    for (let z = 0; z < D; z++) {
     const c = g9height(x, z), h = c.h;
     const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
     let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
@@ -20662,7 +20685,14 @@ function generate() {
       const d = tri(cav, x, y, z), t = tri(tun, x, y, z);
       if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
     }
+    }
+    if (__L && __L.held && (performance.now() - __tSlice > 40)) {
+      __L.genX = x + 1;
+      try { __L.touch(6 + 58 * (x + 1) / Math.max(1, W), 'Raising the mountains… ' + (x + 1) + '/' + W, 70); } catch (_) {}
+      throw __L.YIELD;
+    }
   }
+  if (__L && __L.held) { __L.genX = 0; __L._g9 = null; try { __L.touch(66, 'Carving the glens…', 90); } catch (_) {} }
   // ores: veins by depth (rarity per 1000 columns)
   const vein = (ore, n, y0, y1, r) => {
     for (let i = 0; i < n; i++) {
@@ -21341,9 +21371,9 @@ function applyCityEdits(s) { const e = b64ToU32(s); cityEdits = new Map(); for (
 // ---------- entering worlds: make sure the map is loaded first ----------
 (function () {
   const ew = enterWorld;
-  enterWorld = function (save) {
+  enterWorld = async function (save) {
     const needs = !c1Want && ((!save && current.mode === 'creative') || (save && save.gen === GEN10 && !isGold(current)));
-    if (!save && current.mode !== 'creative') { const nw = g9Island ? ISL_W : 320; NEW_W = nw; setWorldSize(nw); gSeed = 0; generate(); dirtyAll = true; g9spawn = null; }
+    if (!save && current.mode !== 'creative') { const nw = g9Island ? ISL_W : 320; NEW_W = nw; setWorldSize(nw); gSeed = 0; if (window.__glenLoad && __glenLoad.generate) { try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {} await __glenLoad.boot('Raising the mountains…'); await __glenLoad.generate(); } else generate(); dirtyAll = true; g9spawn = null; }
     if (!needs) return ew.apply(this, arguments);
     const go = () => {
       if (!save && CLY) { gSeed = 0; setWorldSize(CLY.N); clyGenerate(); NEW_W = CLY.N; dirtyAll = true; }
@@ -23384,7 +23414,7 @@ function flowTick(lavaToo) {
   const sb = setB;
   setB = function (x, y, z, v) { const r = sb.apply(this, arguments); if (started && !flGen && x >= 0 && z >= 0 && x < W && z < D && y >= 0 && y < H) { const i = idx(x, y, z); if (!isFl(v)) FLV.delete(i); flQueue(x, y, z); } return r; };
   const ge = generate;
-  generate = function () { flGen = true; try { return ge.apply(this, arguments); } finally { flGen = false; FLV.clear(); FLQ.clear(); } };
+  generate = function () { flGen = true; try { return ge.apply(this, arguments); } finally { if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear(); FLQ.clear(); } } };
   const ser = serialize;
   serialize = function () { const d = ser.apply(this, arguments); if (FLV.size) { const a = []; for (const [k, v] of FLV) a.push(k, v); d.flv = a; } return d; };
   const ap = applySave;
@@ -86398,6 +86428,288 @@ try {
   [500, 1500, 4000, 8000].forEach(t => setTimeout(tick, t));
   setInterval(tick, 1500);
 })();
+/* GLX-LOAD1285: liquid world-loading meter + cooperative generate yields.
+   No version bump. Folded into 1.2.85 later. */
+(function load1285(WIN) {
+  const YIELD = {__glenYield: 1};
+  const U = WIN.__glenLoad = {
+    on: 1,
+    version: 'load-1285',
+    YIELD: YIELD,
+    isYield: function (e) { return e === YIELD || (e && e.__glenYield); },
+    real: 0,
+    shown: 0,
+    done: 0,
+    live: 0,
+    held: 0,
+    genX: 0,
+    _g9: null,
+    cap: 92,
+    label: '',
+    creepT: 0,
+    t0: 0,
+    err: null
+  };
+
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+
+  function $(id) { return document.getElementById(id); }
+
+  function yieldPaint() {
+    return new Promise(function (res) {
+      requestAnimationFrame(function () { setTimeout(res, 0); });
+    });
+  }
+  U.yieldPaint = yieldPaint;
+
+  function ensureDom() {
+    const bar = $('loadW');
+    if (!bar) return;
+    if (!bar.classList.contains('liquid1285')) {
+      bar.classList.add('liquid1285');
+      let fill = bar.querySelector('.load-fill') || bar.firstElementChild;
+      if (!fill) {
+        fill = document.createElement('i');
+        bar.insertBefore(fill, bar.firstChild);
+      }
+      fill.classList.add('load-fill');
+      if (!bar.querySelector('.load-wave')) {
+        const w = document.createElement('b');
+        w.className = 'load-wave';
+        w.setAttribute('aria-hidden', 'true');
+        fill.appendChild(w);
+      }
+    }
+    if (!$('load1285css')) {
+      const st = document.createElement('style');
+      st.id = 'load1285css';
+      st.textContent = [
+        '#scr-loading #loadW.liquid1285{width:min(72vw,440px);height:18px;border-radius:11px;border:2px solid #e0a548;background:#120c06;overflow:hidden;position:relative;box-shadow:inset 0 1px 3px rgba(0,0,0,.65),0 0 0 1px rgba(0,0,0,.35);margin:4px 0 8px}',
+        '#scr-loading #loadW.liquid1285 .load-fill, #scr-loading #loadW.liquid1285 > i{display:block;position:absolute;left:0;top:0;bottom:0;height:100%;width:0;max-width:100%;background:linear-gradient(180deg,#fff1b0 0%,#ffe58e 18%,#f0c24a 48%,#d9a52c 76%,#a66b12 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 14px rgba(242,196,64,.45)!important;animation:none!important;background-image:none!important;background-size:auto!important;transition:none!important;border-radius:0 8px 8px 0}',
+        '#scr-loading #loadW.liquid1285 .load-wave{position:absolute;top:-7px;left:-40%;right:-40%;height:14px;pointer-events:none;display:block;background:radial-gradient(ellipse 18px 8px at 12% 70%,rgba(255,249,220,.95) 0%,rgba(255,249,220,0) 70%),radial-gradient(ellipse 22px 9px at 36% 40%,rgba(255,236,170,.9) 0%,rgba(255,236,170,0) 70%),radial-gradient(ellipse 16px 8px at 58% 75%,rgba(255,249,220,.95) 0%,rgba(255,249,220,0) 70%),radial-gradient(ellipse 20px 9px at 82% 45%,rgba(255,236,170,.9) 0%,rgba(255,236,170,0) 70%);animation:load1285wave 1.15s linear infinite;opacity:.95;filter:drop-shadow(0 1px 0 rgba(80,40,0,.25))}',
+        '#scr-loading #loadW.liquid1285 .load-fill::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.28) 45%,rgba(255,255,255,.02) 60%,transparent 100%);background-size:140% 100%;animation:load1285shine 2.2s linear infinite;pointer-events:none;mix-blend-mode:soft-light}',
+        '@keyframes load1285wave{from{transform:translateX(0)}to{transform:translateX(20%)}}',
+        '@keyframes load1285shine{from{background-position:-40% 0}to{background-position:140% 0}}',
+        '#scr-loading #loadPct{font:800 clamp(20px,5.2vw,28px) GlenBold,system-ui,sans-serif;color:#fff6cf!important;letter-spacing:.04em;margin-top:2px;text-shadow:0 0 12px rgba(224,165,72,.55),0 2px 6px #000}',
+        '@media (orientation:landscape) and (max-height:500px){#scr-loading #loadW.liquid1285{height:14px;width:min(60vw,480px)}#scr-loading #loadPct{font-size:clamp(16px,3.6vh,22px)}}',
+        '@media (min-width:1200px) and (min-height:700px){#scr-loading #loadW.liquid1285{height:22px;width:min(46vw,560px);border-width:3px}}'
+      ].join('\n');
+      document.head.appendChild(st);
+    }
+  }
+  U.ensureDom = ensureDom;
+
+  function setReal(n, label, cap) {
+    n = +n;
+    if (!Number.isFinite(n)) return;
+    if (U.done) {
+      U.real = 100;
+      return;
+    }
+    if (cap != null) U.cap = cap;
+    const next = Math.max(U.real, Math.min(U.done ? 100 : U.cap, n));
+    U.real = next;
+    if (label) U.label = label;
+    U.creepT = performance.now();
+    const tip = $('loadTip');
+    if (tip && label) tip.textContent = label;
+  }
+  U.setReal = setReal;
+  U.touch = setReal;
+
+  function finish() {
+    U.done = 1;
+    U.cap = 100;
+    U.real = 100;
+  }
+  U.finish = finish;
+
+  function paint(shown) {
+    const bar = $('loadW');
+    if (!bar) return;
+    const fill = bar.querySelector('.load-fill') || bar.firstElementChild;
+    if (fill) fill.style.width = shown.toFixed(2) + '%';
+    const pct = $('loadPct');
+    if (pct) pct.textContent = Math.round(shown) + '%';
+  }
+
+  function tick() {
+    if (!U.live) return;
+    const now = performance.now();
+    if (!U.done && U.real < U.cap) {
+      const idle = now - (U.creepT || now);
+      if (idle > 180) {
+        const room = U.cap - U.real;
+        const step = Math.min(room * 0.018, Math.max(0.07, room * 0.004));
+        U.real = Math.min(U.cap - 0.15, U.real + step);
+      }
+    }
+    const target = U.done ? 100 : U.real;
+    let shown = U.shown;
+    if (target > shown) {
+      const k = U.done ? 0.22 : 0.16;
+      shown += (target - shown) * k;
+      if (target - shown < 0.04) shown = target;
+    }
+    if (shown > target) shown = target;
+    if (shown < 0) shown = 0;
+    if (U.done && shown > 99.4) shown = 100;
+    if (!U.done && shown > 99.2) shown = 99.2;
+    U.shown = shown;
+    paint(shown);
+    if (U.live) requestAnimationFrame(tick);
+  }
+
+  function start(label) {
+    ensureDom();
+    U.live = 1;
+    U.done = 0;
+    U.real = Math.max(U.real, 0.5);
+    U.shown = Math.max(U.shown, 0);
+    U.cap = 92;
+    U.creepT = performance.now();
+    U.t0 = U.t0 || performance.now();
+    if (label) setReal(U.real, label);
+    paint(U.shown);
+    requestAnimationFrame(tick);
+  }
+  U.start = start;
+
+  function stop() {
+    U.done = 1;
+    U.real = 100;
+    U.shown = 100;
+    paint(100);
+    U.live = 0;
+  }
+  U.stop = stop;
+
+  U.boot = async function (label) {
+    try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
+    start(label || 'Preparing your glen…');
+    await yieldPaint();
+    await yieldPaint();
+  };
+
+  U.generate = async function () {
+    U.held = 1;
+    U.genX = 0;
+    U._g9 = null;
+    if (typeof generate !== 'function') throw new Error('generate missing');
+    const g = generate;
+    let guarded = 0;
+    while (true) {
+      try {
+        const r = g.apply(null, arguments);
+        U.held = 0;
+        U._g9 = null;
+        U.genX = 0;
+        setReal(Math.max(U.real, 68), 'Building the land around you…', 99);
+        return r;
+      } catch (e) {
+        if (!U.isYield(e)) {
+          U.held = 0;
+          U._g9 = null;
+          throw e;
+        }
+        guarded++;
+        if (guarded > 20000) {
+          U.held = 0;
+          throw new Error('generate yield overflow');
+        }
+        await yieldPaint();
+      }
+    }
+  };
+
+  /* Take over the original enterWorld rAF lerp so both sources share one meter. */
+  const _ew = typeof enterWorld === 'function' ? enterWorld : null;
+  if (_ew && !_ew.__load1285) {
+    enterWorld = function (save) {
+      try {
+        if (typeof showScreen === 'function') showScreen('loading');
+        U.t0 = performance.now();
+        U.real = 0;
+        U.shown = 0;
+        U.done = 0;
+        start(save ? 'Restoring your world…' : 'Preparing your glen…');
+      } catch (e) { ERR('start', e); }
+      const self = this, args = arguments;
+      const run = async function () {
+        try { await yieldPaint(); } catch (_) {}
+        try {
+          const r = _ew.apply(self, args);
+          if (r && typeof r.then === 'function') await r;
+          return r;
+        } catch (e) {
+          ERR('ew', e);
+          throw e;
+        }
+      };
+      const p = run();
+      return p;
+    };
+    enterWorld.__load1285 = 1;
+    try { WIN.enterWorld = enterWorld; } catch (_) {}
+  }
+
+  /* When the original loader marks ready, hold 100% for a beat then stop. */
+  try {
+    if (typeof showScreen === 'function' && !showScreen.__load1285) {
+      const ss = showScreen;
+      showScreen = function (name) {
+        try {
+          if (name === 'loading') {
+            ensureDom();
+            if (!U.live) start();
+          } else if (U.live && name !== 'loading') {
+            finish();
+            paint(100);
+            setTimeout(function () { try { U.stop(); } catch (_) {} }, 80);
+          }
+        } catch (e) { ERR('ss', e); }
+        return ss.apply(this, arguments);
+      };
+      showScreen.__load1285 = 1;
+    }
+  } catch (e) { ERR('ssw', e); }
+
+  /* Also creep-report from applySave so saved worlds are not a silent gap. */
+  /* Never run an unbounded rebuild behind the loading screen — that is a
+     multi-second main-thread stall, so the meter cannot paint or creep. */
+  try {
+    if (typeof rebuild === 'function' && !rebuild.__load1285) {
+      const rb = rebuild;
+      rebuild = function (budget) {
+        if (U.live && (budget == null || budget > 32)) budget = 32;
+        return rb.apply(this, arguments);
+      };
+      rebuild.__load1285 = 1;
+      try { WIN.rebuild = rebuild; } catch (_) {}
+    }
+  } catch (e) { ERR('rb', e); }
+
+  try {
+    if (typeof applySave === 'function' && !applySave.__load1285) {
+      const ap = applySave;
+      applySave = function () {
+        try { if (U.live) setReal(Math.max(U.real, 12), 'Restoring the save…', 90); } catch (_) {}
+        const r = ap.apply(this, arguments);
+        try { if (U.live) setReal(Math.max(U.real, 62), 'Building the land around you…', 99); } catch (_) {}
+        return r;
+      };
+      applySave.__load1285 = 1;
+    }
+  } catch (e) { ERR('ap', e); }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { try { ensureDom(); } catch (e) { ERR('dom', e); } });
+  } else {
+    try { ensureDom(); } catch (e) { ERR('dom', e); }
+  }
+})(typeof window !== 'undefined' ? window : this);
+
+
 </script>
 </body>
 </html>
