@@ -17,4 +17,14 @@ ok(torso.includes('if (vBack1284 > 0.5) discard;'), 'sash back hidden by discard
 ok(!/geometry\.dispose|\.remove\(mesh\)|setDrawRange|setIndex\(new[^)]*keep/.test(torso), 'no player geometry deleted');
 ok(torso.includes('attachFpCull(side)') && torso.includes('renderer.render.__torso1282'), 'fill hidden only in your own FP view');
 ok(torso.includes('Object.assign(U, window.__torso1262cfg || {})'), 'QA config hook');
+const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
+const credits = fs.readFileSync(path.join(root, 'CREDITS.md'), 'utf8');
+ok(ver.v === '1.2.84' && html.includes("const GAME_VERSION = '1.2.84';"), 'version 1.2.84');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1283-v1.2.83 -->'), 'build markers');
+{ const st = html.indexOf('{"v":"v1.2.84"'), en = html.indexOf('{"v":"v1.2.83"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.84 notes first, no food');
+  const s0 = html.indexOf('window.PATCH_NOTES = ['), e0 = html.indexOf('\n];', s0);
+  const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
+  ok(arr[0].v === 'v1.2.84' && arr[1].v === 'v1.2.83', 'PATCH_NOTES parses'); }
+ok(credits.includes('## v1.2.84 Chest restored with volume'), 'CREDITS 1.2.84');
 console.log('PASS', n, 'v1284-torso checks');
