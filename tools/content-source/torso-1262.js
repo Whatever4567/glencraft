@@ -21,7 +21,7 @@
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 0, KILT_FP: 1, BRIDGE: 1 };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84-wip', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -211,6 +211,8 @@
     const uvA = src.getAttribute('uv');
     const siA = src.getAttribute('skinIndex'), swA = src.getAttribute('skinWeight');
     const colA = src.getAttribute('color');
+    const nA = src.getAttribute('normal');
+    const NB = U.BRIDGE_NB == null ? 0.6 : U.BRIDGE_NB;
     /* weld by position so glTF seam duplicates count as one vertex */
     const keyOf = i => Math.round(pos[i * 3] * 1e4) + ',' + Math.round(pos[i * 3 + 1] * 1e4) + ',' + Math.round(pos[i * 3 + 2] * 1e4);
     const wmap = new Map(), rep = new Int32Array(n);
@@ -248,6 +250,9 @@
     }
     function vert(i, nx, ny, nz) {
       P.push(X(i), Y(i), Z(i));
+      /* blend the shirt's own edge normal with the outward hint so the
+         fill shades continuously from the panel it joins */
+      if (nA) { const l0 = Math.hypot(nx, ny, nz) || 1; nx = nA.getX(i) * NB + (nx / l0) * (1 - NB); ny = nA.getY(i) * NB + (ny / l0) * (1 - NB); nz = nA.getZ(i) * NB + (nz / l0) * (1 - NB); }
       const l = Math.hypot(nx, ny, nz) || 1; N.push(nx / l, ny / l, nz / l);
       if (uvPlain) UV.push(uvPlain[0] + (X(i) * 0.02), uvPlain[1] + (Y(i) - y0) * 0.02); else if (uvA) UV.push(uvA.getX(i), uvA.getY(i));
       if (siA && swA) { for (let k = 0; k < 4; k++) { SI.push(siA.getComponent ? siA.getComponent(i, k) : siA.array[i * 4 + k]); SW.push(swA.getComponent ? swA.getComponent(i, k) : swA.array[i * 4 + k]); } }
@@ -375,10 +380,9 @@
         const vcol = !!(m0 && m0.vertexColors && geo.attributes.color);
         if (!linen && !vcol) { attachFpCull(mesh); return false; }
       }
-      /* 1.2.82 (t1200): "put my chest back all like it was". Even linen-only
-         panels showed as grey bands down the chest in third person, so the
-         fill is off by default and the shirt is drawn exactly as it was in
-         1.2.61. Set window.__torso1262.SIDES = 1 to try the fill again. */
+      /* 1.2.82 (t1200) turned the old procedural fill off (it drew grey
+         bands). 1.2.84 (t1203) turns the fill back on as the BRIDGE: the
+         shirt's own open edges zipped together, see buildBridgeGeo. */
       if (!U.SIDES) { attachFpCull(mesh); return false; }
       /* Build the fill once per source geometry, then clone it for each
          instance so world, character and other players all get sides. */
