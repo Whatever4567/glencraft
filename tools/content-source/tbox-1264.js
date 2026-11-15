@@ -239,7 +239,7 @@
        picked up a world program without the pilot display transfer and
        rendered too dark (black tartan, orange hands) from 1.2.64 on. */
     const prevKeyFn = m.customProgramCacheKey;
-    const protoKey = THREE.Material && THREE.Material.prototype.customProgramCacheKey;
+    const protoKey = (typeof THREE !== 'undefined' && THREE.Material) ? THREE.Material.prototype.customProgramCacheKey : null;
     const prevKeyStr = (!prevKeyFn || prevKeyFn === protoKey) ? (prev ? prev.toString() : '') : null;
     m.onBeforeCompile = function (sh) {
       try { if (prev) prev.apply(this, arguments); } catch (_) {}
