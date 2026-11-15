@@ -85968,7 +85968,8 @@ try {
      each finger joint so the fingers read as plated segments.
    Only vertices weighted to hand / finger / thumb bones change, so the
    rest of the v15 armour and the body look the same. No geometry is
-   added or removed; two float attributes and a cloned material per hand. */
+   added or removed; three float attributes per hand mesh and a chained
+   shader snippet on the existing materials (no material clones). */
 (function handsTp1282() {
   const U = window.__handsTp1282 = { err: null, on: 1, version: '1.2.82-wip', meshes: 0, mats: 0 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
@@ -86080,22 +86081,40 @@ try {
     return true;
   }
 
-  const MATS = new Map();
-  function handMat(src, kind, T) {
-    const key = src.uuid + ':' + kind;
-    let m = MATS.get(key);
-    if (m) return m;
-    m = src.clone();
-    m.name = (src.name || '') + '_hands1282';
+  /* Patch the hand materials in place, chaining any existing
+     onBeforeCompile (the v15 crystal shader keeps running first). Meshes
+     sharing the material without the baked attributes (the head, the
+     chest plate) read 0 for them, so they render exactly as before. */
+  function patchMat(m, kind) {
+    if (!m || (m.onBeforeCompile && m.onBeforeCompile.__hands1282)) return;
     const skin = kind === 'skin';
-    m.onBeforeCompile = function (sh) {
+    /* Keep the colour the player sees today. Several patched materials
+       share one program by cache key, so the live hand program may lack
+       the pilot display transfer even though this material's own chain
+       adds it. Giving the hand its own program would brighten the skin,
+       so read what the live program does and match it. */
+    let keepTransfer = !skin;
+    try {
+      const P = renderer.properties.get(m).currentProgram;
+      if (P && P.program) {
+        const gl = renderer.getContext();
+        const shs = gl.getAttachedShaders(P.program) || [];
+        for (const x of shs) if (gl.getShaderParameter(x, gl.SHADER_TYPE) === gl.FRAGMENT_SHADER) keepTransfer = gl.getShaderSource(x).indexOf('PILOT_DISPLAY_TRANSFER_1236') >= 0;
+      }
+    } catch (_) {}
+    const prev = m.onBeforeCompile;
+    const prevKey = m.customProgramCacheKey;
+    m.onBeforeCompile = function (sh, r) {
+      if (typeof prev === 'function') prev.call(this, sh, r);
+      if (!U.on) return;
+      if (sh.vertexShader.indexOf('aCrease1282') >= 0) return;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nattribute float aCrease1282;\nattribute float aNail1282;\nattribute float aKnk1282;\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;')
         .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCrease1282 = aCrease1282; vNail1282 = aNail1282; vKnk1282 = aKnk1282;');
       let frag = sh.fragmentShader
         .replace('#include <common>', '#include <common>\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;');
       if (skin) {
-        frag = frag.replace('#include <map_fragment>', `#include <map_fragment>
+        frag = frag.replace('#include <lights_physical_fragment>', `
         {
           float cr = smoothstep(0.08, 0.9, vCrease1282);
           /* fold shadow, slightly warm (blood under thin skin) */
@@ -86106,12 +86125,13 @@ try {
           float nl = smoothstep(0.15, 0.75, vNail1282);
           vec3 nailC = mix(vec3(0.93, 0.76, 0.72), vec3(0.98, 0.93, 0.88), smoothstep(0.75, 1.0, vNail1282));
           diffuseColor.rgb = mix(diffuseColor.rgb, nailC, nl * 0.82);
-        }`)
-        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+
         roughnessFactor = mix(roughnessFactor, 0.28, smoothstep(0.2, 0.8, vNail1282));
-        roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));`);
+        roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));
+        }
+        #include <lights_physical_fragment>`);
       } else {
-        frag = frag.replace('#include <map_fragment>', `#include <map_fragment>
+        frag = frag.replace('#include <lights_physical_fragment>', `
         {
           float cr = smoothstep(0.12, 0.85, vCrease1282);
           float seam = smoothstep(0.55, 0.95, cr);
@@ -86120,28 +86140,39 @@ try {
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.07, 0.10), seam * 0.85);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.90, 0.95), rim * 0.55);
           diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.86, 0.92), clamp(vKnk1282 * 1.2, 0.0, 1.0) * 0.4);
-        }`)
-        .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.2, 0.8, vCrease1282) * 0.6);`);
+
+        roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.2, 0.8, vCrease1282) * 0.6);
+        }
+        #include <lights_physical_fragment>`);
       }
+      if (!keepTransfer) frag = frag.replace(/\n?\s*gl_FragColor = LinearTosRGB\( gl_FragColor \); \/\/ PILOT_DISPLAY_TRANSFER_1236/g, '');
       sh.fragmentShader = frag;
     };
-    m.customProgramCacheKey = function () { return 'handsTp1282:' + kind; };
+    /* keep the earlier patchers' marker flags (crystalRim1237 etc.) so
+       they do not wrap again */
+    try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
+    m.onBeforeCompile.__hands1282 = 1;
+    m.userData.hands1282Prev = [prev, prevKey];
+    m.userData.hands1282Transfer = keepTransfer;
+    m.customProgramCacheKey = function () {
+      const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
+      return k + '|handsTp1282:' + kind + (U.on ? 1 : 0);
+    };
     m.needsUpdate = true;
-    MATS.set(key, m);
     U.mats++;
-    return m;
   }
 
   function patchMesh(o, T) {
-    if (!o || !o.isSkinnedMesh || o.userData.handsTp1282) return;
-    const skin = isSkinHand(o), gaunt = !skin && isGauntlet(o);
-    if (!skin && !gaunt) return;
-    o.userData.handsTp1282 = 1;
-    if (!bake(o, T)) return;
-    if (Array.isArray(o.material)) return;
-    o.userData.handsTp1282Src = o.material;
-    o.material = handMat(o.material, skin ? 'skin' : 'gauntlet', T);
+    if (!o || !o.isSkinnedMesh) return;
+    let kind = o.userData.handsTp1282;
+    if (kind === undefined) {
+      kind = o.userData.handsTp1282 = isSkinHand(o) ? 'skin' : isGauntlet(o) ? 'gauntlet' : '';
+      if (kind && !bake(o, T)) kind = o.userData.handsTp1282 = '';
+    }
+    if (!kind) return;
+    /* re-check each tick: refreshArmour may hand the mesh a new material */
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) patchMat(m, kind);
   }
 
   function patchRoot(r, T) { try { r.traverse(o => patchMesh(o, T)); } catch (e) { ERR('root', e); } }
