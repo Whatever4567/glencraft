@@ -21,7 +21,7 @@
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0 };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0, KILT_FP: 1 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -243,6 +243,10 @@
       if (!mesh || !(mesh.isMesh || mesh.isSkinnedMesh)) return false;
       if (mesh.userData.torsoSides1262) { attachFpCull(mesh); return false; }
       const n = (mesh.name || '') + ' ' + ((mesh.parent && mesh.parent.name) || '');
+      /* 1.2.82: the kilt, belt and sporran made a dark ring across the
+         bottom of the screen when looking down in first person. Hide them
+         for your own FP camera only, like the torso. */
+      if (U.KILT_FP && /visual_(kilt|sporran)_clothing/.test(n)) { attachFpCull(mesh); return false; }
       if (!/visual_torso_outfit/.test(n)) return false;
       /* only the linen shirt primitive — skip sash / buttons if they are
          separate meshes; if they share one mesh with groups, still add

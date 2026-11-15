@@ -42,6 +42,7 @@
 <!-- glencraft-build: b1280-v1.2.80 -->
 <!-- glencraft-build: b1281-v1.2.81 -->
 <!-- glencraft-build: b1282-v1.2.82 -->
+<!-- glencraft-build: b1283-v1.2.83 -->
 <!-- glencraft-build: b1251-popstar -->
 <title>Glencraft: Survival 4K</title>
 <style>
@@ -13396,7 +13397,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.82';
+const GAME_VERSION = '1.2.83';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -61512,6 +61513,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.83","d":"2026-11-15","notes":["The kilt and sash tartan show their blue, green, red and gold colours again instead of black. A shader mix-up from 1.2.64 was drawing them without colour correction, and your hands now match your face again.","Your kilt, belt and sporran are hidden only from your own first-person camera, like the shirt, so nothing fills the bottom of the screen when you look down. Nothing on your body is deleted.","Third-person hands now have knuckle creases and fingernails, and crystal gauntlet fingers show their joint seams. This is done with shading, so it adds no triangles and costs no frame rate."]},
 {"v":"v1.2.82","d":"2026-11-15","notes":["First person is smooth again: the 1.2.81 hand update was re-running the arm rig over a hundred times every frame, which made the game a slideshow. Frame time is back to 1.2.80 levels.","Your player's chest is back in third person, mirrors and other players' views: the white shirt and sash look as they did in 1.2.61, with no dark panels over them.","The chest is hidden only from your own first-person camera, so it still never blocks your view when you look down. Nothing on your body is deleted.","Pickaxe fist sits a little lower, and the musket hip no longer shows a dark blob."]},
 {"v":"v1.2.81","d":"2026-11-15","notes":["First-person pickaxe is now held in a closed fist at a proper angle and follows the swing."]},
 {"v":"v1.2.80","d":"2026-11-15","notes":["First-person hands: the pickaxe fist comes in from the bottom-right corner.","The pistol is lower and bigger in first person.","Tools have cream linen sleeves."]},
@@ -75697,7 +75699,7 @@ try {
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0 };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0, KILT_FP: 1 };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -75919,6 +75921,10 @@ try {
       if (!mesh || !(mesh.isMesh || mesh.isSkinnedMesh)) return false;
       if (mesh.userData.torsoSides1262) { attachFpCull(mesh); return false; }
       const n = (mesh.name || '') + ' ' + ((mesh.parent && mesh.parent.name) || '');
+      /* 1.2.82: the kilt, belt and sporran made a dark ring across the
+         bottom of the screen when looking down in first person. Hide them
+         for your own FP camera only, like the torso. */
+      if (U.KILT_FP && /visual_(kilt|sporran)_clothing/.test(n)) { attachFpCull(mesh); return false; }
       if (!/visual_torso_outfit/.test(n)) return false;
       /* only the linen shirt primitive — skip sash / buttons if they are
          separate meshes; if they share one mesh with groups, still add
@@ -76602,6 +76608,16 @@ try {
     m.userData.t1264clip = 1;
     ensureClipUni();
     const prev = m.onBeforeCompile;
+    /* GLX-KEY1282: keep the material's previous program cache key. The
+       old key read prev.customProgramCacheKey, which the onBeforeCompile
+       function never has, so every patched material collapsed to the bare
+       key 't1264clip'. Materials with the same shader settings then shared
+       whichever program compiled first; the player's tartan and hand skin
+       picked up a world program without the pilot display transfer and
+       rendered too dark (black tartan, orange hands) from 1.2.64 on. */
+    const prevKeyFn = m.customProgramCacheKey;
+    const protoKey = (typeof THREE !== 'undefined' && THREE.Material) ? THREE.Material.prototype.customProgramCacheKey : null;
+    const prevKeyStr = (!prevKeyFn || prevKeyFn === protoKey) ? (prev ? prev.toString() : '') : null;
     m.onBeforeCompile = function (sh) {
       try { if (prev) prev.apply(this, arguments); } catch (_) {}
       sh.uniforms.t1264c = clipC;
@@ -76614,7 +76630,7 @@ try {
         'void main() {\n  if (t1264c.w > 0.5) { float dx = t1264wp.x - t1264c.x, dz = t1264wp.z - t1264c.y; if (dx * dx + dz * dz < t1264c.z) discard; }\n'
       );
     };
-    m.customProgramCacheKey = function () { return (prev && prev.customProgramCacheKey ? prev.customProgramCacheKey() : '') + 't1264clip'; };
+    m.customProgramCacheKey = function () { return (prevKeyStr !== null ? prevKeyStr : prevKeyFn.call(this)) + '|t1264clip'; };
     m.needsUpdate = true;
   }
 
@@ -85952,6 +85968,229 @@ try {
   U.install = install;
   try { install(); } catch (e) { ERR('boot', e); }
   setInterval(function () { try { install(); } catch (e) { ERR('tick', e); } }, 1000);
+})();
+/* GLX-HANDSTP1282 (local WIP, t1201/t1202): third-person hand finish.
+
+   The TP Scottish hands (GLOVE articulated fingers, skin) and the v15
+   crystal gauntlet fingers read as flat, unfinished blocks. In the t1202
+   "UHD with tricks" style this adds detail with baked per-vertex shading,
+   not triangles:
+   - joint creases at every knuckle and the finger/palm fold, baked from
+     where the skin weights split between two finger bones;
+   - knuckle highlights on the back of the hand;
+   - fingernails on every fingertip (pale, glossy, with a lighter free
+     edge), masked from the distal bone's own vertices;
+   - on the crystal gauntlets, dark articulation seams and a silver edge at
+     each finger joint so the fingers read as plated segments.
+   Only vertices weighted to hand / finger / thumb bones change, so the
+   rest of the v15 armour and the body look the same. No geometry is
+   added or removed; three float attributes per hand mesh and a chained
+   shader snippet on the existing materials (no material clones). */
+(function handsTp1282() {
+  const U = window.__handsTp1282 = { err: null, on: 1, version: '1.2.82-wip', meshes: 0, mats: 0 };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
+  const FINGER = /^(finger[LR]\d\d\d|thumb[LR]\d\d)$/;
+  const HANDB = /^hand[LR]$/;
+  const TIP = /^(finger[LR]\d02|thumb[LR]02)$/;
+  const sideOf = nm => { const m = /^[a-z]+([LR])/.exec(nm || ''); return m ? m[1] : 'R'; };
+
+  function isSkinHand(o) {
+    const n = (o.name || '') + '|' + ((o.parent && o.parent.name) || '');
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    return /visual_arm_slot\d_hand/.test(n) && /articulated_finger/i.test(n) && m && /Skin/i.test(m.name || '');
+  }
+  function isGauntlet(o) {
+    const n = (o.name || '') + '|' + ((o.parent && o.parent.name) || '');
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    return /gear_chest_slot\d/.test(n) && m && /ArmorTintable|Crystal_SilverRim|Crystal_IceInner/.test(m.name || '');
+  }
+
+  /* Bake aCrease / aNail / aKnuckle from bind-pose skin weights. */
+  function bake(mesh, T) {
+    const g = mesh.geometry;
+    if (!g || g.userData.handsTp1282 || !g.attributes.skinIndex || !mesh.skeleton) return !!(g && g.userData.handsTp1282);
+    const bones = mesh.skeleton.bones, inv = mesh.skeleton.boneInverses;
+    const names = bones.map(b => b.name || '');
+    const pos = g.attributes.position, si = g.attributes.skinIndex, sw = g.attributes.skinWeight;
+    const n = pos.count;
+    const crease = new Float32Array(n), nail = new Float32Array(n), knk = new Float32Array(n);
+    const v = new T.Vector3();
+    /* per tip bone: bone-local centroid (finger axis) and extent */
+    const tipInfo = {};
+    const handVerts = { L: [], R: [] }, thumbTip = { L: null, R: null };
+    for (let i = 0; i < n; i++) {
+      const b = si.getX(i), w = sw.getX(i), nm = names[b];
+      if (w > 0.85 && TIP.test(nm)) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).applyMatrix4(inv[b]);
+        const t = tipInfo[b] || (tipInfo[b] = { c: new T.Vector3(), n: 0, verts: [] });
+        t.c.add(v); t.n++; t.verts.push(i);
+      }
+      if (w > 0.9 && HANDB.test(nm)) handVerts[sideOf(nm)].push(i);
+    }
+    /* dorsal axis per hand: smallest-spread axis of the hand-bone verts,
+       signed away from the thumb tip (the thumb sits palm-side). */
+    const dorsalW = {};
+    for (const side of ['L', 'R']) {
+      const hv = handVerts[side]; if (hv.length < 12) continue;
+      const c = new T.Vector3(); const p = new T.Vector3();
+      for (const i of hv) { p.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix); c.add(p); } c.multiplyScalar(1 / hv.length);
+      let xx = 0, xy = 0, xz = 0, yy = 0, yz = 0, zz = 0;
+      for (const i of hv) { p.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).sub(c); xx += p.x * p.x; xy += p.x * p.y; xz += p.x * p.z; yy += p.y * p.y; yz += p.y * p.z; zz += p.z * p.z; }
+      /* smallest eigenvector by inverse power iteration on (M + eps I) */
+      const M = new T.Matrix3().set(xx, xy, xz, xy, yy, yz, xz, yz, zz);
+      let inv3; try { inv3 = new T.Matrix3().copy(M).invert(); } catch (_) { inv3 = null; }
+      if (!inv3 || !isFinite(inv3.elements[0])) continue;
+      const e = new T.Vector3(0.3, 0.5, 0.8);
+      for (let k = 0; k < 30; k++) e.applyMatrix3(inv3).normalize();
+      /* thumb tip centroid in bind space */
+      let tt = null;
+      for (const b in tipInfo) if (names[b] === 'thumb' + side + '02') { tt = new T.Vector3(); for (const i of tipInfo[b].verts) { p.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix); tt.add(p); } tt.multiplyScalar(1 / tipInfo[b].verts.length); }
+      if (tt && tt.clone().sub(c).dot(e) > 0) e.negate();
+      dorsalW[side] = e;
+    }
+    for (const b in tipInfo) {
+      const t = tipInfo[b]; t.c.multiplyScalar(1 / t.n);
+      t.len = t.c.length() * 2;
+      t.axis = t.c.clone().normalize();
+      const side = sideOf(names[b]);
+      const dw = dorsalW[side];
+      if (dw) {
+        /* dorsal direction into bone-local space */
+        const bw = new T.Matrix4().copy(inv[b]).multiply(mesh.bindMatrix);
+        const m3 = new T.Matrix3().setFromMatrix4(bw);
+        t.dorsal = dw.clone().applyMatrix3(m3).normalize();
+      }
+    }
+    const p2 = new T.Vector3();
+    for (let i = 0; i < n; i++) {
+      const b0 = si.getX(i), b1 = si.getY(i), w0 = sw.getX(i), w1 = sw.getY(i);
+      const n0 = names[b0], n1 = names[b1];
+      const f0 = FINGER.test(n0) || HANDB.test(n0), f1 = FINGER.test(n1) || HANDB.test(n1);
+      if (b0 !== b1 && (FINGER.test(n0) || FINGER.test(n1)) && (f0 || f1) && w1 > 0.05) {
+        crease[i] = Math.min(1, Math.pow(4 * w0 * w1, 1.6));
+      }
+      const t = tipInfo[b0];
+      if (t && w0 > 0.85 && t.dorsal) {
+        p2.fromBufferAttribute(pos, i).applyMatrix4(mesh.bindMatrix).applyMatrix4(inv[b0]);
+        const along = p2.dot(t.axis) / Math.max(1e-4, t.len);       /* 0 at joint, ~1 at tip */
+        const rad = p2.clone().sub(t.axis.clone().multiplyScalar(p2.dot(t.axis)));
+        const rl = rad.length();
+        const d = rl > 1e-5 ? rad.dot(t.dorsal) / rl : 0;            /* 1 = straight up the back */
+        const a = Math.max(0, Math.min(1, (along - 0.45) / 0.12)) * Math.max(0, Math.min(1, (0.95 - along) / 0.08));
+        const s = Math.max(0, Math.min(1, (d - 0.6) / 0.25));
+        nail[i] = Math.min(1, a * s * 1.2);
+      }
+      /* knuckle: back of the hand at the hand/finger-01 fold */
+      if (b0 !== b1 && ((HANDB.test(n0) && /01$/.test(n1)) || (HANDB.test(n1) && /01$/.test(n0)))) {
+        const side = HANDB.test(n0) ? sideOf(n0) : sideOf(n1);
+        const dw = dorsalW[side];
+        if (dw) {
+          const nr = g.attributes.normal; if (nr) { p2.fromBufferAttribute(nr, i).transformDirection(mesh.bindMatrix); knk[i] = Math.max(0, p2.dot(dw)) * Math.min(1, 4 * w0 * w1); }
+        }
+      }
+    }
+    g.setAttribute('aCrease1282', new T.BufferAttribute(crease, 1));
+    g.setAttribute('aNail1282', new T.BufferAttribute(nail, 1));
+    g.setAttribute('aKnk1282', new T.BufferAttribute(knk, 1));
+    g.userData.handsTp1282 = 1;
+    U.meshes++;
+    return true;
+  }
+
+  /* Patch the hand materials in place, chaining any existing
+     onBeforeCompile (the v15 crystal shader keeps running first). Meshes
+     sharing the material without the baked attributes (the head, the
+     chest plate) read 0 for them, so they render exactly as before. */
+  function patchMat(m, kind) {
+    if (!m || (m.onBeforeCompile && m.onBeforeCompile.__hands1282)) return;
+    const skin = kind === 'skin';
+    const prev = m.onBeforeCompile;
+    const prevKey = m.customProgramCacheKey;
+    m.onBeforeCompile = function (sh, r) {
+      if (typeof prev === 'function') prev.call(this, sh, r);
+      if (!U.on) return;
+      if (sh.vertexShader.indexOf('aCrease1282') >= 0) return;
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float aCrease1282;\nattribute float aNail1282;\nattribute float aKnk1282;\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;')
+        .replace('#include <begin_vertex>', '#include <begin_vertex>\nvCrease1282 = aCrease1282; vNail1282 = aNail1282; vKnk1282 = aKnk1282;');
+      let frag = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;');
+      if (skin) {
+        frag = frag.replace('#include <lights_physical_fragment>', `
+        {
+          float cr = smoothstep(0.45, 1.0, vCrease1282);
+          /* fold shadow, slightly warm (blood under thin skin) */
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.80, 0.70, 0.66), cr);
+          /* knuckle sheen: lighter, a touch desaturated */
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.12 + vec3(0.03, 0.02, 0.02), clamp(vKnk1282 * 1.4, 0.0, 1.0));
+          /* nail plate, lunula-ish pale base, lighter free edge */
+          float nl = smoothstep(0.2, 0.7, vNail1282);
+          /* nail plate: the finger's own tone, pinker and lighter, not paint */
+          vec3 nailC = diffuseColor.rgb * vec3(1.18, 1.05, 1.02) + vec3(0.07, 0.04, 0.04);
+          nailC = mix(nailC, nailC + vec3(0.08, 0.07, 0.06), smoothstep(0.85, 1.0, vNail1282));
+          diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.7);
+
+        roughnessFactor = mix(roughnessFactor, 0.28, smoothstep(0.2, 0.8, vNail1282));
+        roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));
+        }
+        #include <lights_physical_fragment>`);
+      } else {
+        frag = frag.replace('#include <lights_physical_fragment>', `
+        {
+          float cr = smoothstep(0.3, 0.95, vCrease1282);
+          float seam = smoothstep(0.55, 0.95, cr);
+          float rim = cr * (1.0 - seam);
+          /* dark articulation seam with a bright silver lip beside it */
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.05, 0.07, 0.10), seam * 0.85);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.90, 0.95), rim * 0.28);
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.80, 0.86, 0.92), clamp(vKnk1282 * 1.2, 0.0, 1.0) * 0.2);
+
+        roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.2, 0.8, vCrease1282) * 0.6);
+        }
+        #include <lights_physical_fragment>`);
+      }
+      sh.fragmentShader = frag;
+    };
+    /* keep the earlier patchers' marker flags (crystalRim1237 etc.) so
+       they do not wrap again */
+    try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
+    m.onBeforeCompile.__hands1282 = 1;
+    m.userData.hands1282Prev = [prev, prevKey];
+    m.customProgramCacheKey = function () {
+      const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
+      return k + '|handsTp1282:' + kind + (U.on ? 1 : 0);
+    };
+    m.needsUpdate = true;
+    U.mats++;
+  }
+
+  function patchMesh(o, T) {
+    if (!o || !o.isSkinnedMesh) return;
+    let kind = o.userData.handsTp1282;
+    if (kind === undefined) {
+      kind = o.userData.handsTp1282 = isSkinHand(o) ? 'skin' : isGauntlet(o) ? 'gauntlet' : '';
+      if (kind && !bake(o, T)) kind = o.userData.handsTp1282 = '';
+    }
+    if (!kind) return;
+    /* re-check each tick: refreshArmour may hand the mesh a new material */
+    const mats = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) patchMat(m, kind);
+  }
+
+  function patchRoot(r, T) { try { r.traverse(o => patchMesh(o, T)); } catch (e) { ERR('root', e); } }
+
+  function tick() {
+    try {
+      if (!U.on) return;
+      const T = (typeof THREE !== 'undefined' && THREE) || window.THREE; if (!T) return;
+      try { if (typeof worldModel !== 'undefined' && worldModel) patchRoot(worldModel, T); } catch (_) {}
+      try { if (typeof charModel !== 'undefined' && charModel) patchRoot(charModel, T); } catch (_) {}
+      try { const p = window.__pilot1235; if (p && p.instances && p.instances.forEach) p.instances.forEach(m => patchRoot(m, T)); } catch (_) {}
+    } catch (e) { ERR('tick', e); }
+  }
+  U.tick = tick;
+  [500, 1500, 4000, 8000].forEach(t => setTimeout(tick, t));
+  setInterval(tick, 1500);
 })();
 </script>
 </body>
