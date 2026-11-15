@@ -42,4 +42,19 @@ ok(torso.includes('renderer.render.__torso1282') && torso.includes('cam === came
 ok(!/mesh\.onBeforeRender = function/.test(torso), 'no onBeforeRender visibility trick (too late in r128)');
 ok(html.includes(torso.trim()), 'torso source matches the page');
 ok(!/geometry\.dispose|\.remove\(mesh\)|setDrawRange/.test(torso), 'torso code deletes no player geometry');
+// tartan / skin colour: time-box clip keeps the previous program cache key
+{
+  const tbox = fs.readFileSync(new URL('../tools/content-source/tbox-1264.js', import.meta.url), 'utf8');
+  ok(!html.includes("prev.customProgramCacheKey ? prev.customProgramCacheKey() : '') + 't1264clip'"), 'old key-dropping clip key gone');
+  ok(tbox.includes("(prevKeyStr !== null ? prevKeyStr : prevKeyFn.call(this)) + '|t1264clip'") && html.includes("(prevKeyStr !== null ? prevKeyStr : prevKeyFn.call(this)) + '|t1264clip'"), 'clip keeps the previous cache key (page + source)');
+}
+// FP: kilt + sporran hidden only for your own FP camera
+ok(torso.includes('KILT_FP: 1') && torso.includes('/visual_(kilt|sporran)_clothing/.test(n)'), 'kilt and sporran join the FP-only hide');
+// TP hands (t1201): shading only, no geometry
+{
+  const hands = fs.readFileSync(new URL('../tools/content-source/hands-tp-1282.js', import.meta.url), 'utf8');
+  ok(html.includes(hands.trim()), 'hands source matches the page');
+  ok(!/new T\.(Mesh|SkinnedMesh|BoxGeometry)|geometry\.dispose|\.remove\(/.test(hands), 'hands add or delete no geometry');
+  ok(hands.includes('prev.call(this, sh, r)') && hands.includes('m.onBeforeCompile[k] = prev[k]'), 'hands chain the existing shader patches (v15 armour look kept)');
+}
 console.log('PASS', n, 'v1282-release checks');
