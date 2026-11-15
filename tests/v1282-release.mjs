@@ -10,7 +10,7 @@ const frame = fs.readFileSync(path.join(root, 'tools/pilot-model-source/held-fra
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-const OKV = ['1.2.82', '1.2.83'];
+const OKV = ['1.2.82', '1.2.83', '1.2.84'];
 ok(OKV.includes(ver.v), 'version.json is 1.2.82+');
 ok(OKV.some(v => html.includes("const GAME_VERSION = '" + v + "';")), 'GAME_VERSION is 1.2.82+');
 ok(html.includes('<!-- glencraft-build: b1282-v1.2.82 -->'), 'build marker');
@@ -23,7 +23,7 @@ ok(credits.includes('## v1.2.82 Smooth first person, chest restored'), 'CREDITS 
   const s0 = html.indexOf('window.PATCH_NOTES = [');
   const e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
-  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.82') : -1; ok(k >= 0 && k <= 1 && arr[k + 1].v === 'v1.2.81', 'PATCH_NOTES parses, 1.2.82 before 1.2.81'); }
+  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.82') : -1; ok(k >= 0 && k <= 2 && arr[k + 1].v === 'v1.2.81', 'PATCH_NOTES parses, 1.2.82 before 1.2.81'); }
 }
 {
   const re = /<script>([\s\S]*?)<\/script>/g; let m;
@@ -38,7 +38,7 @@ ok(html.includes('function hideArtefactsOnce(on)') && html.includes('hideArtefac
 ok(html.includes('if (F._lock1282) return;'), 'sculpt1282 defines locked getters once');
 ok(html.includes("version: '1.2.59-frame-torch'"), 'torch freeze stays');
 // chest
-ok(torso.includes('SIDES: 0') && torso.includes('if (!U.SIDES) { attachFpCull(mesh); return false; }'), 'side fill off: shirt as in 1.2.61');
+ok((torso.includes('SIDES: 0') || (torso.includes('SIDES: 1') && torso.includes('BRIDGE: 1') && torso.includes('function buildBridgeGeo('))) && torso.includes('if (!U.SIDES) { attachFpCull(mesh); return false; }'), 'no old procedural fill: off, or the 1.2.84 edge bridge');
 ok(torso.includes('renderer.render.__torso1282') && torso.includes('cam === camera') && torso.includes('ownModel(m)'), 'torso hidden only for the local FP camera on your own model');
 ok(!/mesh\.onBeforeRender = function/.test(torso), 'no onBeforeRender visibility trick (too late in r128)');
 ok(html.includes(torso.trim()), 'torso source matches the page');

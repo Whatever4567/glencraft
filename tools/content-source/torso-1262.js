@@ -21,7 +21,10 @@
    first-person camera's render only, and only on your own player model,
    so third person, mirrors and other players still see the full chest. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.82', fpHid: 0, SIDES: 0, KILT_FP: 1 };
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.84', fpHid: 0, SIDES: 1, KILT_FP: 1, BRIDGE: 1, WIDEN: 1, SASH_BACK: 1, BRIDGE_NB: 0.7, FILL_GLOW: 0.4,
+    /* 1.2.84 torso volume (t1203): width / depth factors for the shirt core */
+    SX: 1.38, SZF: 1.34, SZB: 1.18, FADE_Y0: 1.33, FADE_Y1: 1.42 };
+  try { Object.assign(U, window.__torso1262cfg || {}); } catch (_) {}
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
 
   const Y0 = 0.990, Y1 = 1.365, RINGS = 14, SEGS = 8;
@@ -192,6 +195,123 @@
     return geo;
   }
 
+  /* 1.2.84 (t1203): close the shirt from its own edges. The scottish-base-v2
+     linen (since 1.2.37, and narrower again in the v13 asset) is a front
+     panel and a back panel: both sides are open from the hem to the
+     armpit, and the henley placket is an open slit. Through those gaps the
+     back-face-culled inside of the shirt draws nothing, so the torso reads
+     as a flat white patch with holes. This zips each open side edge of the
+     front panel to the matching edge of the back panel, and the two placket
+     edges to each other, using the shirt's existing boundary vertices
+     (exact positions and skin weights), so the seams meet with no cracks and
+     nothing on the authored model is moved, rebuilt or deleted. */
+  function buildBridgeGeo(src) {
+    const T = window.THREE;
+    const pa = src.getAttribute('position');
+    const ix = src.index;
+    if (!pa || !ix) return null;
+    const pos = pa.array, n = pa.count, id = ix.array;
+    const uvA = src.getAttribute('uv');
+    const siA = src.getAttribute('skinIndex'), swA = src.getAttribute('skinWeight');
+    const colA = src.getAttribute('color');
+    const nA = src.getAttribute('normal');
+    const NB = U.BRIDGE_NB == null ? 0.6 : U.BRIDGE_NB;
+    /* weld by position so glTF seam duplicates count as one vertex */
+    const keyOf = i => Math.round(pos[i * 3] * 1e4) + ',' + Math.round(pos[i * 3 + 1] * 1e4) + ',' + Math.round(pos[i * 3 + 2] * 1e4);
+    const wmap = new Map(), rep = new Int32Array(n);
+    for (let i = 0; i < n; i++) { const k = keyOf(i); let r = wmap.get(k); if (r === undefined) { r = i; wmap.set(k, r); } rep[i] = r; }
+    const ecount = new Map();
+    const ek = (a, b) => a < b ? a * 1048576 + b : b * 1048576 + a;
+    for (let t = 0; t < id.length; t += 3) {
+      const a = rep[id[t]], b = rep[id[t + 1]], c = rep[id[t + 2]];
+      for (const [u, v] of [[a, b], [b, c], [c, a]]) { const k = ek(u, v); ecount.set(k, (ecount.get(k) || 0) + 1); }
+    }
+    const bset = new Set();
+    ecount.forEach((c, k) => { if (c === 1) { bset.add(Math.floor(k / 1048576)); bset.add(k % 1048576); } });
+    const X = i => pos[i * 3], Y = i => pos[i * 3 + 1], Z = i => pos[i * 3 + 2];
+    /* the shirt's own extents decide the bands, so the far LOD works too */
+    let y0 = 1e9, y1 = -1e9, zf = -1e9, zb = 1e9;
+    for (let i = 0; i < n; i++) { if (Y(i) < y0) y0 = Y(i); if (Y(i) > y1) y1 = Y(i); if (Z(i) > zf) zf = Z(i); if (Z(i) < zb) zb = Z(i); }
+    const zMid = (zf + zb) * 0.5, H = y1 - y0;
+    const yLo = y0 + H * 0.05, yArm = y0 + H * 0.73;
+    function chain(filter) {
+      const out = [];
+      bset.forEach(i => { if (filter(i)) out.push(i); });
+      out.sort((a, b) => Y(a) - Y(b));
+      const c = [];
+      for (const i of out) if (!c.length || Y(i) - Y(c[c.length - 1]) > 0.002) c.push(i);
+      return c;
+    }
+    const P = [], N = [], UV = [], SI = [], SW = [], C = [], I = [];
+    let nv = 0;
+    /* plain linen UV: the shirt vertex nearest the middle of the front */
+    let uvPlain = null;
+    if (uvA) {
+      let best = -1, bd = 1e9;
+      for (let i = 0; i < n; i++) { const d = Math.abs(X(i) - 0.04) + Math.abs(Y(i) - (y0 + H * 0.3)) + Math.abs(Z(i) - zf) * 2; if (d < bd) { bd = d; best = i; } }
+      if (best >= 0) uvPlain = [uvA.getX(best), uvA.getY(best)];
+    }
+    function vert(i, nx, ny, nz) {
+      P.push(X(i), Y(i), Z(i));
+      /* blend the shirt's own edge normal with the outward hint so the
+         fill shades continuously from the panel it joins */
+      if (nA) { const l0 = Math.hypot(nx, ny, nz) || 1; nx = nA.getX(i) * NB + (nx / l0) * (1 - NB); ny = nA.getY(i) * NB + (ny / l0) * (1 - NB); nz = nA.getZ(i) * NB + (nz / l0) * (1 - NB); }
+      const l = Math.hypot(nx, ny, nz) || 1; N.push(nx / l, ny / l, nz / l);
+      if (uvPlain) UV.push(uvPlain[0] + (X(i) * 0.02), uvPlain[1] + (Y(i) - y0) * 0.02); else if (uvA) UV.push(uvA.getX(i), uvA.getY(i));
+      if (siA && swA) { for (let k = 0; k < 4; k++) { SI.push(siA.getComponent ? siA.getComponent(i, k) : siA.array[i * 4 + k]); SW.push(swA.getComponent ? swA.getComponent(i, k) : swA.array[i * 4 + k]); } }
+      if (colA) for (let k = 0; k < colA.itemSize; k++) C.push(colA.array[i * colA.itemSize + k]);
+      return nv++;
+    }
+    /* zip two y-sorted chains; out = outward normal hint */
+    function zip(A, B, outF) {
+      if (A.length < 2 || B.length < 2) return 0;
+      const va = A.map(i => { const o = outF(i); return vert(i, o[0], o[1], o[2]); });
+      const vb = B.map(i => { const o = outF(i); return vert(i, o[0], o[1], o[2]); });
+      let a = 0, b = 0, made = 0;
+      const tri = (p, q, r) => {
+        /* wind so the face normal agrees with the outward hint */
+        const ax = P[q * 3] - P[p * 3], ay = P[q * 3 + 1] - P[p * 3 + 1], az = P[q * 3 + 2] - P[p * 3 + 2];
+        const bx = P[r * 3] - P[p * 3], by = P[r * 3 + 1] - P[p * 3 + 1], bz = P[r * 3 + 2] - P[p * 3 + 2];
+        const cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+        const d = cx * (N[p * 3] + N[q * 3] + N[r * 3]) + cy * (N[p * 3 + 1] + N[q * 3 + 1] + N[r * 3 + 1]) + cz * (N[p * 3 + 2] + N[q * 3 + 2] + N[r * 3 + 2]);
+        if (d >= 0) I.push(p, q, r); else I.push(p, r, q);
+        made++;
+      };
+      while (a < A.length - 1 || b < B.length - 1) {
+        if (b >= B.length - 1 || (a < A.length - 1 && Y(A[a + 1]) <= Y(B[b + 1]))) { tri(va[a], va[a + 1], vb[b]); a++; }
+        else { tri(va[a], vb[b + 1], vb[b]); b++; }
+      }
+      return made;
+    }
+    let tris = 0;
+    for (const sx of [-1, 1]) {
+      const side = i => sx * X(i) > 0.045 && Y(i) > yLo && Y(i) < yArm;
+      const F = chain(i => side(i) && Z(i) > zMid);
+      const B = chain(i => side(i) && Z(i) <= zMid);
+      tris += zip(F, B, i => [sx, 0, (Z(i) - zMid) * 3]);
+    }
+    /* henley placket slit: centre front, below the collar */
+    {
+      const slit = i => Math.abs(X(i)) < 0.03 && Z(i) > zMid + (zf - zMid) * 0.5 && Y(i) > y0 + H * 0.35 && Y(i) < y0 + H * 0.82;
+      const L = chain(i => slit(i) && X(i) < 0);
+      const R = chain(i => slit(i) && X(i) >= 0);
+      tris += zip(L, R, () => [0, 0, 1]);
+    }
+    if (tris < 8) return null;
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(P, 3));
+    geo.setAttribute('normal', new T.Float32BufferAttribute(N, 3));
+    if (UV.length) geo.setAttribute('uv', new T.Float32BufferAttribute(UV, 2));
+    if (SI.length) { geo.setAttribute('skinIndex', new T.Uint16BufferAttribute(SI, 4)); geo.setAttribute('skinWeight', new T.Float32BufferAttribute(SW, 4)); }
+    if (C.length && colA) geo.setAttribute('color', new T.Float32BufferAttribute(C, colA.itemSize));
+    geo.setIndex(I);
+    geo.computeBoundingSphere();
+    geo.userData.bridgeTris1284 = tris;
+    U.bridgeTris = (U.bridgeTris || 0) + tris;
+    return geo;
+  }
+  U.buildBridgeGeo = buildBridgeGeo;
+
   /* Hide these meshes ONLY when the local first-person camera is drawing,
      so a mirror or another player's camera still sees a solid torso. */
   function attachFpCull(mesh) {
@@ -238,6 +358,83 @@
   U.FP_SET = FP_SET;
   U.wrapRender = wrapRender;
 
+  /* 1.2.84 (t1203): give the v2 shirt the refs' chest, waist and back
+     volume by moving its existing vertices outward, weighted by how much
+     each vertex follows the spine / pelvis bones (so sleeves, collar and
+     armholes stay put and nothing tears). The sash and buttons get the same
+     mapping so they stay on the cloth. Same vertices, same skin weights,
+     same bones: nothing is rebuilt, added or deleted here. */
+  const WIDENED = (typeof WeakSet === 'function') ? new WeakSet() : null;
+  function widenMesh(mesh) {
+    try {
+      if (!U.WIDEN || !WIDENED || !mesh.isSkinnedMesh || !mesh.skeleton) return false;
+      const geo = mesh.geometry;
+      if (!geo || WIDENED.has(geo)) return false;
+      const n0 = (mesh.name || '');
+      if (!/visual_torso_outfit00\d/.test(n0)) return false;     /* near LOD only */
+      const pa = geo.getAttribute('position'), si = geo.getAttribute('skinIndex'), sw = geo.getAttribute('skinWeight');
+      if (!pa || !si || !sw) return false;
+      WIDENED.add(geo);
+      const torso = new Set();
+      mesh.skeleton.bones.forEach((b, i) => { if (/^(spine|pelvis)/.test(b.name || '')) torso.add(i); });
+      const ZC = U.ZC == null ? -0.026 : U.ZC;
+      const sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+      for (let i = 0; i < pa.count; i++) {
+        let w = 0;
+        const sIdx = [si.getX(i), si.getY(i), si.getZ(i), si.getW(i)], sWt = [sw.getX(i), sw.getY(i), sw.getZ(i), sw.getW(i)];
+        for (let k = 0; k < 4; k++) if (torso.has(sIdx[k])) w += sWt[k];
+        if (w <= 0.001) continue;
+        const x = pa.getX(i), y = pa.getY(i), z = pa.getZ(i);
+        const f = w * (1 - sm(U.FADE_Y0, U.FADE_Y1, y));
+        if (f <= 0) continue;
+        /* fuller chest than waist, like the refs */
+        const chest = sm(1.12, 1.30, y);
+        const sx = 1 + (U.SX - 1) * f * (0.75 + 0.25 * chest);
+        const sz = 1 + ((z > ZC ? U.SZF : U.SZB) - 1) * f * (z > ZC ? (0.55 + 0.45 * chest) : 1);
+        pa.setXYZ(i, x * sx, y, ZC + (z - ZC) * sz);
+      }
+      pa.needsUpdate = true;
+      try { geo.computeBoundingSphere(); geo.computeBoundingBox(); } catch (_) {}
+      U.widened = (U.widened || 0) + 1;
+      return true;
+    } catch (e) { ERR('widen', e); return false; }
+  }
+  U.widenMesh = widenMesh;
+
+  /* 1.2.84 (t1203): the refs show no sash across the back. Hide (discard)
+     only the sash fragments behind the body's mid-plane. A baked per-vertex
+     flag drives it; nothing is deleted, and meshes sharing the material
+     without the flag read 0 and draw as before. */
+  function hideSashBack(mesh) {
+    try {
+      if (!U.SASH_BACK || !mesh.isMesh) return;
+      const m = Array.isArray(mesh.material) ? null : mesh.material;
+      if (!m || !/Tartan/i.test(m.name || '') || !/visual_torso_outfit00\d/.test(mesh.name || '')) return;
+      const geo = mesh.geometry;
+      if (!geo.getAttribute('aBack1284')) {
+        const pa = geo.getAttribute('position'), a = new Float32Array(pa.count);
+        const ZC = U.ZC == null ? -0.026 : U.ZC;
+        for (let i = 0; i < pa.count; i++) a[i] = pa.getZ(i) < ZC - 0.01 ? 1 : 0;
+        geo.setAttribute('aBack1284', new THREE.BufferAttribute(a, 1));
+      }
+      if (m.onBeforeCompile && m.onBeforeCompile.__sash1284) return;
+      const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
+      m.onBeforeCompile = function (sh, r) {
+        if (typeof prev === 'function') prev.call(this, sh, r);
+        if (sh.vertexShader.indexOf('aBack1284') >= 0) return;
+        sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aBack1284;\nvarying float vBack1284;')
+          .replace('#include <begin_vertex>', '#include <begin_vertex>\nvBack1284 = aBack1284;');
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vBack1284;')
+          .replace(/void\s+main\s*\(\s*\)\s*\{/, 'void main() {\n  if (vBack1284 > 0.5) discard;\n');
+      };
+      try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
+      m.onBeforeCompile.__sash1284 = 1;
+      m.customProgramCacheKey = function () { return (typeof prevKey === 'function' ? prevKey.call(this) : '') + '|sash1284'; };
+      m.needsUpdate = true;
+      U.sashBack = (U.sashBack || 0) + 1;
+    } catch (e) { ERR('sash', e); }
+  }
+
   function patchMesh(mesh) {
     try {
       if (!mesh || !(mesh.isMesh || mesh.isSkinnedMesh)) return false;
@@ -248,6 +445,8 @@
          for your own FP camera only, like the torso. */
       if (U.KILT_FP && /visual_(kilt|sporran)_clothing/.test(n)) { attachFpCull(mesh); return false; }
       if (!/visual_torso_outfit/.test(n)) return false;
+      widenMesh(mesh);
+      hideSashBack(mesh);
       /* only the linen shirt primitive — skip sash / buttons if they are
          separate meshes; if they share one mesh with groups, still add
          sides using the linen-sized position attribute. */
@@ -263,10 +462,9 @@
         const vcol = !!(m0 && m0.vertexColors && geo.attributes.color);
         if (!linen && !vcol) { attachFpCull(mesh); return false; }
       }
-      /* 1.2.82 (t1200): "put my chest back all like it was". Even linen-only
-         panels showed as grey bands down the chest in third person, so the
-         fill is off by default and the shirt is drawn exactly as it was in
-         1.2.61. Set window.__torso1262.SIDES = 1 to try the fill again. */
+      /* 1.2.82 (t1200) turned the old procedural fill off (it drew grey
+         bands). 1.2.84 (t1203) turns the fill back on as the BRIDGE: the
+         shirt's own open edges zipped together, see buildBridgeGeo. */
       if (!U.SIDES) { attachFpCull(mesh); return false; }
       /* Build the fill once per source geometry, then clone it for each
          instance so world, character and other players all get sides. */
@@ -274,7 +472,7 @@
       let sideGeo = null;
       try { sideGeo = U._sideGeo && U._sideGeo.get(geo); } catch (_) {}
       if (!sideGeo) {
-        sideGeo = buildSideGeo(geo);
+        sideGeo = U.BRIDGE ? buildBridgeGeo(geo) : buildSideGeo(geo);
         if (sideGeo && U._sideGeo) { try { U._sideGeo.set(geo, sideGeo); } catch (_) {} }
       }
       if (!sideGeo) { attachFpCull(mesh); return false; }
@@ -291,6 +489,12 @@
          the fill has none, which lit it pitch black. Use screen-space
          tangents on the fill only. */
       try { if (mat.vertexTangents) mat.vertexTangents = false; } catch (_) {}
+      /* 1.2.84: the bridge has flat linen UVs, so drop the weave normal map
+         on the fill (screen-space tangents on flat UVs shade it grey). */
+      if (U.BRIDGE) { try { mat.normalMap = null; mat.needsUpdate = true; } catch (_) {} }
+      /* the flat side panel faces away from the key light; lift it with a
+         faint cream glow so it blends with the lit front (FILL_GLOW) */
+      if (U.BRIDGE && U.FILL_GLOW > 0) { try { if (mat.emissive) { mat.emissive.setRGB(0.93, 0.90, 0.84).multiplyScalar(U.FILL_GLOW); mat.needsUpdate = true; } } catch (_) {} }
       const side = mesh.isSkinnedMesh
         ? new T.SkinnedMesh(sideGeo, mat)
         : new T.Mesh(sideGeo, mat);

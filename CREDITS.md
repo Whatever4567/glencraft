@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.84 Chest restored with volume
+
+- The scottish-base-v2 shirt has been a separate front and back panel since 1.2.37 (open sides from hem to armpit, open henley slit). The gaps are now zipped from the shirt's own boundary vertices (same positions and skin weights); nothing is rebuilt or deleted.
+- Shirt core widened and deepened by spine/pelvis skin weight (width x1.38, front x1.34, back x1.18); sash and buttons follow the same mapping.
+- Side fill shading matched to the front (edge normals, faint cream glow); sash hidden behind the back mid-plane by discard.
+- Torso fill hidden only for your own first-person camera.
+
 ## v1.2.83 Tartan colour, clear first-person view, finished hands
 
 - Kilt and sash tartan no longer render black: the time-box clip patch (1.2.64) dropped each material's shader cache key, so the tartan and hand skin shared a world shader without the display colour transfer. The previous key is kept now.
