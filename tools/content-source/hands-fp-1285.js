@@ -115,14 +115,14 @@
     hoe: fist(),
     /* Middle/ring/pinky wrap the grip; index rests on the trigger guard. */
     pistol: {
-      p: [0.24, 1.50, 1.54, 1.42].map(v => S * v),
-      d: [0.14, 1.32, 1.36, 1.24].map(v => S * v),
-      t: [1.00 * S, 0.74 * S], tY: 0.56, tZ: 0.34
+      p: [0.62, 1.56, 1.60, 1.48].map(v => S * v),
+      d: [0.48, 1.40, 1.44, 1.32].map(v => S * v),
+      t: [1.08 * S, 0.82 * S], tY: 0.62, tZ: 0.40
     },
     musket: {
-      p: [0.32, 1.36, 1.40, 1.28].map(v => S * v),
-      d: [0.20, 1.16, 1.20, 1.08].map(v => S * v),
-      t: [0.80 * S, 0.54 * S], tY: 0.36, tZ: 0.20
+      p: [0.36, 1.44, 1.48, 1.36].map(v => S * v),
+      d: [0.24, 1.24, 1.28, 1.16].map(v => S * v),
+      t: [0.88 * S, 0.60 * S], tY: 0.40, tZ: 0.24
     },
     map: {
       p: [0.42, 0.44, 0.48, 0.50].map(v => S * v),
@@ -136,9 +136,9 @@
     },
     /* Left hand wraps the musket forestock (not the open support pose). */
     forestock: {
-      p: [1.36, 1.48, 1.48, 1.32].map(v => S * v),
-      d: [1.18, 1.30, 1.30, 1.16].map(v => S * v),
-      t: [1.00 * S, 0.72 * S], tY: 0.56, tZ: 0.32
+      p: [1.48, 1.58, 1.58, 1.44].map(v => S * v),
+      d: [1.32, 1.44, 1.44, 1.28].map(v => S * v),
+      t: [1.10 * S, 0.82 * S], tY: 0.64, tZ: 0.40
     }
   };
   POSES.p761 = POSES.pick;
@@ -470,10 +470,10 @@
     /* Keep the wrist cut off the play camera. Musket looks down the
        forearm; pick / sword / guns also showed a sliced stump with the
        short -0.022 cut. The linen cuff still sits on the kept forearm. */
-    if (U.kind === 'musket') return -0.22;
+    if (U.kind === 'musket') return -0.05;
+    if (U.kind === 'pistol') return -0.05;
     if (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760') return -0.14;
     if (U.kind === 'sword' || U.kind === 'torch' || U.kind === 'bucket' || U.kind === 'axe' || U.kind === 'shovel' || U.kind === 'hoe') return -0.12;
-    if (U.kind === 'pistol') return -0.12;
     return -0.08;
   }
   function syncCuffCut() {
@@ -1324,7 +1324,7 @@
 
   function applyTune(state) {
     const t = U.tune;
-    const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1 };
+    const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1, pistol: 1 };
     let seat = (U.seat && U.seat[U.kind]) || (U.seat && U.seat.empty) || {};
     /* Seat offsets are for the holding hand. Applying them to the left
        glove slid it into the play camera (two overlapping fists). */
@@ -1337,6 +1337,15 @@
       state.wrap.parent.position.sub(state._snapOff);
       state._snapOff = null;
       state._snapKind = null;
+    }
+    if (state._cuffSnapOff) {
+      try {
+        const R = rig();
+        const arm = R && R.userData && R.userData[state.side];
+        const cuff = arm && arm.userData && arm.userData.p && arm.userData.p.cuff;
+        if (cuff) cuff.position.sub(state._cuffSnapOff);
+      } catch (_) {}
+      state._cuffSnapOff = null;
     }
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
@@ -1357,7 +1366,12 @@
     if (U.handleSeek && state.side === 'R' && (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760' || U.kind === 'sword')) {
       try { seekHandle(state); } catch (e) { ERR('handleSeek', e); }
     }
+    try { hideGunSleeveTubes(state); } catch (e) { ERR('hideTube', e); }
     try { clampCamZ(state); } catch (e) { ERR('camZ', e); }
+    if (state.side === 'R') {
+      try { pushMusketFront(state); } catch (e) { ERR('musketFront', e); }
+      try { applyHeldOffsets(); } catch (e) { ERR('itemGrip', e); }
+    }
   }
 
   /* t1225 grip lock: slide the glove (translation only, in p.h space) so
@@ -1526,20 +1540,15 @@
        animation is not accumulated. */
     const wrist = state.wrap.parent;
     if (wrist && wrist.parent) {
-      /* applyTune already restored any previous offset, so wrist.position is the
-         animated rest. Save it once and add the (clamped) forearm-space delta. */
-      const base = wrist.position.clone();
-      wrist.updateMatrix();
+      /* d is in wrist (p.h) space. Convert to a world-metre delta and
+         reuse addWristWorld so parent scale cannot inflate the travel
+         (a 5-10 cm seek must not become a 1 m jump). */
+      const want = Math.min(d.length(), maxD);
       wrist.updateMatrixWorld(true);
       tmp.a.copy(d).transformDirection(wrist.matrixWorld);
-      const len = tmp.a.length();
-      tmp.pi.copy(wrist.parent.matrixWorld).invert();
-      tmp.a.transformDirection(tmp.pi);
-      if (tmp.a.lengthSq() > 1e-12) tmp.a.setLength(len);
-      wrist.position.copy(base).add(tmp.a);
-      state._snapOff = tmp.a.clone();
-      state._snapKind = tag;
-      U.wristSnapD = +tmp.a.length().toFixed(3);
+      if (tmp.a.lengthSq() > 1e-12) tmp.a.setLength(want);
+      addWristWorld(state, tmp.a, T);
+      U.wristSnapD = +want.toFixed(3);
     } else {
       state.wrap.position.add(d);
     }
@@ -1691,7 +1700,7 @@
     if (!cam) return;
     let minDist = 0.12;
     if (U.kind === 'pistol') minDist = 0.10;
-    if (U.kind === 'musket' && state.side === 'L') minDist = 0.16;
+    if (U.kind === 'musket' && state.side === 'L') minDist = 0.14;
     if (U.kind === 'musket' && state.side === 'R') minDist = 0.10;
     cam.updateMatrixWorld(true);
     const ci = U._camInv || (U._camInv = new T.Matrix4());
@@ -1700,19 +1709,195 @@
     state.wrap.updateMatrixWorld(true);
     const w = tmp.a;
     state.wrap.getWorldPosition(w).applyMatrix4(ci);
-    /* Camera looks down -Z: more-negative z is further in front. z=-0.05 is
-       closer than z=-0.22. Push along the look vector when too close. */
+    /* Camera looks down -Z: more-negative z is further in front. Push the
+       wrist (not wrap.position) so the linen cuff rides with the glove. */
     const dz0 = w.z - (-minDist);
     if (dz0 <= 0) return;
-    /* Cap the push so a single frame cannot slide the cuff off the glove
-       or throw the wrap through the lens. */
     const dz = Math.min(0.03, dz0);
-    tmp.b.set(0, 0, -1).transformDirection(cam.matrixWorld);
-    state.wrap.getWorldPosition(tmp.c);
-    tmp.c.addScaledVector(tmp.b, dz);
-    state.wrap.parent.worldToLocal(tmp.c);
-    state.wrap.position.copy(tmp.c);
+    tmp.b.set(0, 0, -1).transformDirection(cam.matrixWorld).setLength(dz);
+    addWristWorld(state, tmp.b, T);
     U.camZClamp = +dz.toFixed(3);
+  }
+
+  /* Translate p.h in its parent by a world-space delta, folding the
+     local step into _snapOff so applyTune can restore it next frame. */
+  function addWristWorld(state, dWorld, T) {
+    const wrist = state.wrap && state.wrap.parent;
+    if (!wrist || !wrist.parent) return;
+    const tmp = U._gripTmp || (U._gripTmp = { m: new T.Matrix4(), a: new T.Vector3(), b: new T.Vector3(), c: new T.Vector3(), q: new T.Quaternion(), pi: new T.Matrix4() });
+    const shift = function (obj, store) {
+      if (!obj || !obj.parent) return;
+      if (obj.userData && obj.userData.__fpHideLock) return;
+      obj.updateMatrixWorld(true);
+      obj.parent.updateMatrixWorld(true);
+      tmp.c.copy(obj.position);
+      obj.getWorldPosition(tmp.a).add(dWorld);
+      obj.parent.worldToLocal(tmp.a);
+      const step = tmp.a.sub(tmp.c);
+      if (step.lengthSq() < 1e-12) return;
+      if (step.length() > 0.20) step.setLength(0.20);
+      obj.position.add(step);
+      if (store) {
+        if (!state[store]) state[store] = step.clone();
+        else state[store].add(step);
+      }
+    };
+    shift(wrist, '_snapOff');
+    /* The linen cuff is a sibling of p.h, not a child, so it must be
+       translated by the same world delta or the seam opens. */
+    try {
+      const R = rig();
+      const arm = R && R.userData && R.userData[state.side];
+      const p = arm && arm.userData && arm.userData.p;
+      if (p && p.cuff && p.cuff !== wrist) shift(p.cuff, '_cuffSnapOff');
+    } catch (_) {}
+  }
+
+  /* Hide the long beige __fpa forearm / upper-arm tube in first person
+     for guns only. Geometry is locked hidden, never deleted. The cuff
+     and the 1285 glove stay visible. */
+  function hideGunSleeveTubes(state) {
+    const guns = (U.kind === 'musket' || U.kind === 'pistol');
+    const R = rig();
+    const arm = R && R.userData && R.userData[state.side];
+    const p = arm && arm.userData && arm.userData.p;
+    if (!p) return;
+    const hide = guns && state.side === 'L';
+    const roots = [p.fo, p.up, p.el];
+    const visit = function (o) {
+      if (!o) return;
+      /* Leave the glove wrap and a short wrist cuff visible. */
+      if (state.wrap && (o === state.wrap || (o.parent === state.wrap))) return;
+      if (p.cuff && o === p.cuff) return;
+      if (p.h && o === p.h) return;
+      if (hide) {
+        if (o.userData && o.userData.__fpHideLock) return;
+        if (o.visible) {
+          o.userData = o.userData || {};
+          o.userData.__hidGunTube1285 = 1;
+        }
+        o.visible = false;
+      } else if (o.userData && o.userData.__hidGunTube1285) {
+        o.visible = true;
+        o.userData.__hidGunTube1285 = 0;
+      }
+    };
+    roots.forEach(visit);
+    /* Also tuck any leftover linen / forearm meshes on the left arm
+       (1280 sleeves live under the wrist or forearm). */
+    const root = arm;
+    if (root && root.traverse) {
+      root.traverse(function (o) {
+        if (!o.isMesh) return;
+        if (o.userData && o.userData.__fpHideLock) return;
+        if (isLinenSleeve(o) || /forearm|upperarm|sleeve/i.test(o.name || '')) visit(o);
+      });
+    }
+  }
+
+  /* If the musket right hand sits at or behind the camera (the 1.2.88
+     hip), push the right wrist, left wrist and `held` by the same world
+     delta so the grip stays together. Capped, restored via _snapOff /
+     _fpGrip-style tags, no shoulder-chain edit. */
+  function pushMusketFront(state) {
+    if (U.kind !== 'musket' || state.side !== 'R') { if (U.kind !== 'musket') U.musketFrontD = 0; return; }
+    const T = T3(); if (!T) return;
+    const cam = (typeof camera !== 'undefined' && camera) || W.camera;
+    if (!cam) return;
+    cam.updateMatrixWorld(true);
+    const ci = U._camInv || (U._camInv = new T.Matrix4());
+    ci.copy(cam.matrixWorld).invert();
+    const tmp = U._gripTmp || (U._gripTmp = { m: new T.Matrix4(), a: new T.Vector3(), b: new T.Vector3(), c: new T.Vector3(), q: new T.Quaternion(), pi: new T.Matrix4() });
+    state.wrap.updateMatrixWorld(true);
+    const z = state.wrap.getWorldPosition(tmp.a).applyMatrix4(ci).z;
+    const want = -0.12;
+    if (z <= want) return;
+    const dz = Math.min(0.20, z - want);
+    tmp.b.set(0, 0, -1).transformDirection(cam.matrixWorld).setLength(dz);
+    addWristWorld(state, tmp.b, T);
+    const stL = U.sides && U.sides.L;
+    if (stL) addWristWorld(stL, tmp.b, T);
+    U._heldFront = tmp.b.clone();
+    U.musketFrontD = +dz.toFixed(3);
+  }
+
+  /* Compose the static grip-point offset and any musket-front delta onto
+     `held` in one write. 1251 / 1261 keep writing their mesh-local freeze
+     (torch/pick jitter-fix); we never edit those tables. Restore-if-
+     unchanged so a live write from them is not accumulated, then add a
+     constant held-parent translation. */
+  function applyHeldOffsets() {
+    const T = T3(); if (!T) return;
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    if (!h || !h.parent) return;
+    const rec = h.userData._fpGrip1285;
+    if (rec && h.position.distanceToSquared(rec.out) < 1e-12) {
+      h.position.copy(rec.base);
+    }
+    const kinds = { pick: 1, p761: 1, p760: 1, sword: 1, bucket: 1 };
+    const grip = kinds[U.kind] ? itemGripOff(T, h) : null;
+    const front = (U.kind === 'musket' && U._heldFront) ? U._heldFront : null;
+    U._heldFront = null;
+    if ((!grip || grip.lengthSq() < 1e-10) && !front) {
+      h.userData._fpGrip1285 = null;
+      U.itemGripD = 0;
+      return;
+    }
+    const base = h.position.clone();
+    if (grip) h.position.add(grip);
+    if (front) {
+      h.parent.updateMatrixWorld(true);
+      h.updateMatrixWorld(true);
+      const w = new T.Vector3();
+      h.getWorldPosition(w).add(front);
+      h.parent.worldToLocal(w);
+      h.position.copy(w);
+    }
+    h.userData._fpGrip1285 = { base: base, out: h.position.clone(), kind: U.kind };
+    U.itemGripD = +(grip ? grip.length() : 0).toFixed(3);
+  }
+
+  function itemGripOff(T, h) {
+    const st = U.sides && U.sides.R;
+    if (!st || !st.wrap) return null;
+    const uid = (h.children[0] && h.children[0].uuid) || h.uuid;
+    const key = U.kind + ':' + uid;
+    if (U._itemGripKey === key) return U._itemGripOff;
+    try {
+      st.wrap.updateMatrixWorld(true);
+      h.updateMatrixWorld(true);
+      const holeW = new T.Vector3();
+      if (st.prox[1] && st.dist[1]) {
+        const a = st.prox[1].getWorldPosition(new T.Vector3());
+        const b = st.dist[1].getWorldPosition(new T.Vector3());
+        holeW.copy(a).add(b).multiplyScalar(0.5);
+      } else {
+        st.wrap.getWorldPosition(holeW);
+      }
+      const g = heldGripLocal(T, h, U.kind);
+      if (!g) return null;
+      const gripW = g.clone().applyMatrix4(h.matrixWorld);
+      const dW = holeW.clone().sub(gripW);
+      const dist = dW.length();
+      /* Wait for a sane first sample. A stale 1-2 m pick/sword reading
+         must not be cached as a 14 cm tug in the wrong place. */
+      if (dist > 0.28) return null;
+      if (dist < 0.012) {
+        U._itemGripKey = key;
+        U._itemGripOff = null;
+        return null;
+      }
+      if (dist > 0.14) dW.setLength(0.14);
+      h.parent.updateMatrixWorld(true);
+      const end = h.getWorldPosition(new T.Vector3()).add(dW);
+      h.parent.worldToLocal(end);
+      const off = end.sub(h.position.clone());
+      if (off.lengthSq() < 1e-10) return null;
+      U._itemGripKey = key;
+      U._itemGripOff = off.clone();
+      return U._itemGripOff;
+    } catch (e) { ERR('itemGripOff', e); return null; }
   }
 
   /* Pull the pistol off the near plane in camera space, moving the held
@@ -2082,8 +2267,8 @@
     const right = POSES[kind] ? kind : 'empty';
     if (U.sides.R) poseState(U.sides.R, right);
     if (U.sides.L) {
-      const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1 };
-      const left = (kind === 'pistol') ? 'support' : (kind === 'musket') ? 'forestock' : (ONE_HAND[kind] ? 'empty' : right);
+      const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1, pistol: 1 };
+      const left = (kind === 'musket') ? 'forestock' : (ONE_HAND[kind] ? 'empty' : right);
       poseState(U.sides.L, left);
     }
     U.kind = kind;
