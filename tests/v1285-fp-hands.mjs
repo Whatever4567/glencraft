@@ -18,10 +18,11 @@ ok(!/fpa\.step\s*=/.test(src) && !src.includes('__heldFrame1251') && !src.includ
 ok(!src.includes('.remove(') && !src.includes('dispose('), 'does not delete player geometry');
 ok(src.includes('visible = false') && src.includes('hideOld') && src.includes('fpTpHand1285'), 'hides old box/tube FP hand pieces, keeps the TP mesh');
 ok(src.includes('scottish-base-v2') && /GLOVE|visual_arm_slot/.test(src), 'loads the TP scottish-base GLOVE hand');
+ok(src.includes('prism: 0') && src.includes('cuffFolds: 0'), 'blocky prism pieces stay hidden');
 ok(src.includes('__hands1271') && src.includes('__fpa') && src.includes('p.h'), 'attaches to existing __fpa wrist, builds on 1271');
 ok(src.includes('POSES') && src.includes('finger') && src.includes('thumb'), 'poses finger bones per item');
 ok(html.includes('/* GLX-HANDSTP1282') && html.includes('/* GLX-HANDS1271') && html.includes('/* GLX-SCULPT1282') && html.includes("version: '1.2.59-frame-torch'") && html.includes('/* GLX-FIX1279'), 'TP hands, 1271 sculpt, jitter/grip fixes stay');
-ok(html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.85';"), 'version is 1.2.85+');
+ok(html.includes("const GAME_VERSION = '1.2.88';") || html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.85';"), 'version is 1.2.85+');
 ok(/First-person hands now use the same smooth third-person hand/.test(html), 'patch notes mention TP hand in FP');
 {
   const st = html.indexOf('{"v":"v1.2.85"');

@@ -10,7 +10,7 @@ const frame = fs.readFileSync(path.join(root, 'tools/pilot-model-source/held-fra
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-const OKV = ['1.2.83', '1.2.84', '1.2.85', '1.2.86', '1.2.87'];
+const OKV = ['1.2.83', '1.2.84', '1.2.85', '1.2.86', '1.2.87', '1.2.88'];
 ok(OKV.includes(ver.v), 'version.json is 1.2.83+');
 ok(OKV.some(v => html.includes("const GAME_VERSION = '" + v + "';")), 'GAME_VERSION is 1.2.83+');
 ok(html.includes('<!-- glencraft-build: b1283-v1.2.83 -->'), 'build marker');
