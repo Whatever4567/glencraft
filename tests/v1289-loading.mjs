@@ -43,5 +43,8 @@ ok(html.includes('GLX-LOAD1289 timer gate') && html.includes('tick.__tgFree = 1'
 ok(html.includes('const resume9 = function') && html.includes('__glenLoad._g12 = on'), 'GEN9 resume re-holds c37busy/__g12 wrapper flags');
 ok(html.includes('U.gateHold = 1') && html.includes('L.gateHold && performance.now() < (L.gateUntil || 0)'), 'timer gate also holds for up to 3s before generate starts');
 ok(src.includes('U.gateHold = 1') && src.includes('U.gateHold = 0') && src.includes('U.gateUntil = performance.now() + 3000'), 'loading source sets and clears the pre-generate gate');
+ok(html.includes('U._postResume') && html.includes('if (!U._postResume) return outer.apply') && src.includes('U._postResume'), 'post-stages resume directly after a yield instead of re-entering generate wrappers');
+ok((html.includes('WIN.scheduler.yield') || html.includes('scheduler.yield')) && html.includes('new MessageChannel()'), 'yield prefers scheduler.yield with a MessageChannel fallback');
+ok(html.includes('U.sliceMs') && html.includes('Math.min(300, b + 50)') && html.includes('Math.max(200, b - 25)'), 'slice budget adapts between 100 and 300ms');
 
 console.log('v1289-loading: ' + n + ' ok');

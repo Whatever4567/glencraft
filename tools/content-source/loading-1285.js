@@ -44,6 +44,13 @@
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
     try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
+    /* Prefer scheduler.yield() so the continuation is prioritized over
+       ordinary timers; MessageChannel is the no-clamp fallback. */
+    try {
+      if (_mcLive && U.live && WIN.scheduler && typeof WIN.scheduler.yield === 'function') {
+        return WIN.scheduler.yield();
+      }
+    } catch (_) {}
     return new Promise(function (res) {
       if (!_mcLive || !U.live) { res(); return; }
       try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
@@ -417,9 +424,13 @@
     await yieldPaint();
   };
 
+  U.sliceMs = function () {
+    const n = U._sliceMs || 200;
+    return n < 100 ? 100 : (n > 300 ? 300 : n);
+  };
   U.maybeYield = function () {
     if (!U.held && !U._softHold) return false;
-    if (performance.now() - (U._tSlice || 0) > 200) {
+    if (performance.now() - (U._tSlice || 0) > U.sliceMs()) {
       U._tSlice = performance.now();
       throw U.YIELD;
     }
@@ -432,12 +443,21 @@
     if (!U._ret) U._ret = Object.create(null);
     if (U._passed[id]) return U._ret[id];
     if (U.held && label) try { U.touch(p, label, 99); } catch (_) {}
-    const r = fn();
-    U._ret[id] = r;
-    U._passed[id] = 1;
-    /* Do not yield here — markPost yields after the wrapper is marked so
-       a resume can skip this wrapper's pre-apply work. */
-    return r;
+    /* Resume this post directly after a yield. Re-entering the 50+ generate
+       wrappers each slice was the 6x load-time blow-up (settle 4.5s → 107s). */
+    U._postResume = function () { return U.coop(id, label, p, fn); };
+    try {
+      const r = fn();
+      U._ret[id] = r;
+      U._passed[id] = 1;
+      U._postResume = null;
+      /* Do not yield here — markPost yields after the wrapper is marked so
+         a resume can skip this wrapper's pre-apply work. */
+      return r;
+    } catch (e) {
+      if (!U.isYield(e)) U._postResume = null;
+      throw e;
+    }
   };
   /* After a yield in the outer post chain, skip wrapper post-bodies that
      already finished so uncached posts are not redone on every slice. */
@@ -458,7 +478,7 @@
     /* Only paint when a yield is due — touching the DOM on every loop
        iteration (e.g. 6000 placePools tries) stalls a throttled phone
        for minutes and the world never reaches ready. */
-    const due = performance.now() - (U._tSlice || 0) > 200;
+    const due = performance.now() - (U._tSlice || 0) > U.sliceMs();
     if (due && label && n != null) {
       const a = p0 != null ? p0 : U.real, b = p1 != null ? p1 : a;
       try { U.touch(a + (b - a) * (i + 1) / Math.max(1, n), label, 99); } catch (_) {}
@@ -479,6 +499,8 @@
     U._passed = Object.create(null);
     U._ret = Object.create(null);
     U._loop = Object.create(null);
+    U._postResume = null;
+    U._sliceMs = 200;
     try { window.__c77 = null; } catch (_) {}
     U._tSlice = performance.now();
     if (typeof generate !== 'function') throw new Error('generate missing');
@@ -505,9 +527,18 @@
           /* Catch the displayed bar up from the time curve and real work. */
           try { applyDisplay(); } catch (_) {}
           _randGap = 1;
+          const y0 = performance.now();
           try { await yieldPaint(); }
           finally { _randGap = 0; }
-          /* Fresh 200ms work budget after the yield. Otherwise the
+          /* Grow the slice toward 300ms if yield overhead is large
+             (CPU throttle makes a 200ms wall budget too small); shrink
+             back toward 200ms when yields are cheap. */
+          const yMs = performance.now() - y0;
+          let b = U._sliceMs || 200;
+          if (yMs > 40) b = Math.min(300, b + 50);
+          else if (yMs < 8 && b > 200) b = Math.max(200, b - 25);
+          U._sliceMs = b;
+          /* Fresh work budget after the yield. Otherwise the
              wrapper-chain / paint time already burns the slice and
              a loop like placePools does one try per yield. */
           U._tSlice = performance.now();
@@ -546,13 +577,26 @@
     };
     const rInner = await pump(function () { return (!U.genDone && U._gen9) ? resume9 : outer; });
     r = rInner;
-    if (U.genDone) r = await pump(function () { return outer; });
+    if (U.genDone) r = await pump(function () {
+      /* After GEN9, resume the in-flight post-stage (settle, ores, …)
+         instead of walking the wrapper chain every 200ms. When the post
+         finishes, fall through to outer so later posts still run. */
+      if (U._postResume) {
+        return function () {
+          const out = U._postResume();
+          if (!U._postResume) return outer.apply(null, args);
+          return out;
+        };
+      }
+      return outer;
+    });
     } finally {
       _randGap = 0;
       Math.random = _origRandom;
       U._randGap = null;
     }
     U.held = 0;
+    U._postResume = null;
     U.gateHold = 0;
     try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
