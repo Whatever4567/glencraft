@@ -1885,15 +1885,16 @@
        it from scratch each frame (or copy the torch freeze), and the
        __fpa arm aims at `held`, not at this child, so a constant here
        is not chased. Restore-if-unchanged keeps it from accumulating. */
-    /* t1246: render-scoped on every held child (guns have several
-       meshes, not just children[0]). Applied in onBeforeRender and
-       undone in onAfterRender so 1251/1261 and the __fpa aim never
-       see it. O(1): a few vector adds per draw. */
+    /* t1247: HELD_OFF on every top-level held child (guns may be a
+       Group, not a single mesh). Restore-if-unchanged so a freeze
+       rewrite is not accumulated; re-applied from each held mesh's
+       onBeforeRender after any earlier hook. The arm aims at `held`. */
     const t = heldOffOf(U.kind);
     const ox = t ? (t[0] || 0) : 0, oy = t ? (t[1] || 0) : 0, oz = t ? (t[2] || 0) : 0;
     U._drawOff = (t && (ox || oy || oz)) ? { x: ox, y: oy, z: oz } : null;
     U.itemGripD = t ? +Math.hypot(ox, oy, oz).toFixed(3) : 0;
     hookDrawOff();
+    drawOffOn();
     const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
     const vx = v[0] || 0, vy = v[1] || 0, vz = v[2] || 0;
     const hr = h.userData._fpView1285;
@@ -1922,49 +1923,52 @@
     if (!h || !h.children) return;
     for (let i = 0; i < h.children.length; i++) fn(h.children[i]);
   }
+  function restoreChildOff(m) {
+    const rec = m.userData && m.userData._fpHeldOff1285;
+    if (!rec) return;
+    if (m.position.distanceToSquared(rec.out) < 1e-12) m.position.copy(rec.base);
+    m.userData._fpHeldOff1285 = null;
+  }
+  /* Idempotent. Restore-if-unchanged, then add the current table row.
+     Safe to call twice in one draw and after a freeze rewrite. */
   function drawOffOn() {
     const d = U._drawOff;
-    if (!d || U._drawOffOn) return;
     eachHeldChild(function (m) {
-      m.position.x += d.x; m.position.y += d.y; m.position.z += d.z;
+      if (!d) { restoreChildOff(m); return; }
+      const rec = m.userData && m.userData._fpHeldOff1285;
+      if (rec && rec.kind === U.kind && rec.x === d.x && rec.y === d.y && rec.z === d.z
+          && m.position.distanceToSquared(rec.out) < 1e-12) return;
+      if (rec && m.position.distanceToSquared(rec.out) < 1e-12) m.position.copy(rec.base);
+      const base = m.position.clone();
+      m.position.set(base.x + d.x, base.y + d.y, base.z + d.z);
+      m.userData = m.userData || {};
+      m.userData._fpHeldOff1285 = { base: base, out: m.position.clone(), kind: U.kind, x: d.x, y: d.y, z: d.z };
     });
-    U._drawOffOn = d;
+    U._drawOffOn = d || null;
   }
   function drawOffOff() {
-    const d = U._drawOffOn;
-    if (!d) return;
-    eachHeldChild(function (m) {
-      m.position.x -= d.x; m.position.y -= d.y; m.position.z -= d.z;
-    });
+    eachHeldChild(restoreChildOff);
     U._drawOffOn = null;
   }
   U.drawOffOn = drawOffOn; U.drawOffOff = drawOffOff;
   function hookChildOff(m) {
-    if (!m || m.__fpOffHook1285) return;
-    const prevB = m.onBeforeRender;
-    const prevA = m.onAfterRender;
-    /* Offset is applied once around renderer.render (drawOffOn/Off),
-       which also moves Group children. onBeforeRender is not used:
-       a Group is not drawn, and hooking both paths doubled the shift. */
-    if (typeof prevB === 'function' || typeof prevA === 'function') { /* keep any existing hooks */ }
-
-    m.__fpOffHook1285 = 1;
+    if (!m) return;
+    if (m.isMesh && !m.__fpOffHook1285) {
+      const prevB = m.onBeforeRender;
+      m.onBeforeRender = function () {
+        if (typeof prevB === 'function') prevB.apply(this, arguments);
+        const cur = W.__handsFp1285;
+        if (cur && cur.drawOffOn) cur.drawOffOn();
+      };
+      m.__fpOffHook1285 = 1;
+    }
+    const kids = m.children;
+    if (kids) for (let i = 0; i < kids.length; i++) hookChildOff(kids[i]);
   }
   function hookDrawOff() {
     let h = null;
     try { if (typeof held !== 'undefined') h = held; } catch (_) {}
     if (h && h.children) for (let i = 0; i < h.children.length; i++) hookChildOff(h.children[i]);
-    let r = null;
-    try { if (typeof renderer !== 'undefined') r = renderer; } catch (_) {}
-    if (!r || r.__drawOff1285) return;
-    const prev = r.render;
-    r.render = function () {
-      const top = !U._drawDepth;
-      U._drawDepth = (U._drawDepth || 0) + 1;
-      if (top) drawOffOn();
-      try { return prev.apply(this, arguments); } finally { U._drawDepth--; if (top) drawOffOff(); }
-    };
-    r.__drawOff1285 = 1;
   }
 
   function applyViewRig(T) {
