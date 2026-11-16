@@ -86749,7 +86749,7 @@ try {
       pick:   { x: 0.06, y: -0.02, z: 0.08 },
       p761:   { x: 0.06, y: -0.02, z: 0.08 },
       p760:   { x: 0.06, y: -0.02, z: 0.08 },
-      pistol: { x: 0.076, y: 0.131, z: -0.048 },
+      pistol: { x: 0.076, y: 0.131, z: -0.048, cuffFollow: 1, cuffScale: 1.2 },
       musket: { x: 0.021, y: -0.015, z: -0.017 },
       /* Left wrap onto the forestock (p.h space). Translation only —
          a seat rotation drove the forearm into the near plane. */
@@ -88028,9 +88028,18 @@ try {
     const follow = !!(seat && seat.cuffFollow);
     /* t1248: no per-frame cuff solve. If this seat has no follow, reset
        any leftover shift once per kind and return. */
-    const fk = (U.kind || '') + ':' + state.side + ':' + (follow ? 1 : 0);
-    if (!follow && state._cuffFk === fk) return;
-    state._cuffFk = fk;
+    const fk = (U.kind || '') + ':' + state.side + ':' + (follow ? 1 : 0)
+      + ':' + ((seat && seat.x) || 0) + ',' + ((seat && seat.y) || 0) + ',' + ((seat && seat.z) || 0)
+      + ':' + ((seat && seat.cuffScale) || 1) + ':' + ((seat && seat.cuffNx) || 0) + ',' + ((seat && seat.cuffNy) || 0) + ',' + ((seat && seat.cuffNz) || 0);
+    /* Once per kind/seat, plus one confirm tick so a first call before
+       the parent world matrix is ready cannot stick a short delta. */
+    if (state._cuffFk === fk) {
+      if (state._cuffConfirm) return;
+      state._cuffConfirm = 1;
+    } else {
+      state._cuffFk = fk;
+      state._cuffConfirm = 0;
+    }
     const wrap = state.wrap;
     /* Recompute every pose tick so a first call before the wrap is
        seated cannot stick a stale cuff delta. Vector temps are cached. */
@@ -88039,6 +88048,7 @@ try {
       /* World delta of a wrap-local wrist anchor (not the origin, which
          stays put under a pure rotation) from the tune-only rest to the
          seated pose, so a palm-up flip does not open a cuff gap. */
+      try { wrap.parent.updateMatrixWorld(true); } catch (_) {}
       const t = U.tune || {};
       const tmp = U._cuffTmp || (U._cuffTmp = {
         a: new T.Vector3(), b: new T.Vector3(), loc: new T.Vector3(0, -0.03, 0)
@@ -88059,7 +88069,17 @@ try {
       wrap.updateMatrixWorld(true);
       tmp.b.copy(tmp.loc).applyMatrix4(wrap.matrixWorld);
       dW = tmp.b.sub(tmp.a);
-      if (dW.lengthSq() < 1e-12) dW = null;
+      const boost = (seat && seat.cuffScale != null) ? seat.cuffScale : 1;
+      if (boost !== 1 && dW) dW.multiplyScalar(boost);
+      const nx = (seat && seat.cuffNx) || 0, ny = (seat && seat.cuffNy) || 0, nz = (seat && seat.cuffNz) || 0;
+      if ((nx || ny || nz) && wrap.parent) {
+        const p0 = new T.Vector3(), p1 = new T.Vector3(nx, ny, nz);
+        wrap.parent.localToWorld(p0);
+        wrap.parent.localToWorld(p1);
+        if (!dW) dW = new T.Vector3();
+        dW.add(p1.sub(p0));
+      }
+      if (!dW || dW.lengthSq() < 1e-12) dW = null;
     }
     const visit = function (o) {
       if (!o || !o.isMesh || !o.parent) return;
@@ -89248,16 +89268,22 @@ try {
       if (!U.src) loadGlb();
       if (U.src && !U.attached) attach();
       if (U.attached) {
-        const _ph = profBegin('hideBoth'); hideBoth(); profEnd('hideBoth', _ph);
-        const _pk = profBegin('poseKind');
         const k = currentKind();
-        poseKind(k);
-        profEnd('poseKind', _pk);
+        const switched = (U._tickKind !== k);
+        if (switched) {
+          const _ph = profBegin('hideBoth'); hideBoth(); profEnd('hideBoth', _ph);
+          const _pk = profBegin('poseKind');
+          poseKind(k);
+          profEnd('poseKind', _pk);
+          U._tickKind = k;
+        }
         if (U.sides) {
           if (U.sides.R) applyTune(U.sides.R);
           if (U.sides.L) applyTune(U.sides.L);
         }
-        const _pg = profBegin('hookGunDraw'); hookGunDraw(T3()); profEnd('hookGunDraw', _pg);
+        if (switched) {
+          const _pg = profBegin('hookGunDraw'); hookGunDraw(T3()); profEnd('hookGunDraw', _pg);
+        }
         const _pv = profBegin('applyViewOff'); applyViewOff(T3()); profEnd('applyViewOff', _pv);
       }
     } catch (e) { ERR('tick', e); }
