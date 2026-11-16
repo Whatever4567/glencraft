@@ -86749,7 +86749,7 @@ try {
       pick:   { x: 0.06, y: -0.02, z: 0.08 },
       p761:   { x: 0.06, y: -0.02, z: 0.08 },
       p760:   { x: 0.06, y: -0.02, z: 0.08 },
-      pistol: { x: 0.076, y: 0.131, z: -0.048, cuffFollow: 1, cuffScale: 1.2 },
+      pistol: { x: 0.076, y: 0.131, z: -0.048, cuffFollow: 1 },
       musket: { x: 0.021, y: -0.015, z: -0.017 },
       /* Left wrap onto the forestock (p.h space). Translation only —
          a seat rotation drove the forearm into the near plane. */
@@ -88026,33 +88026,31 @@ try {
     const arm = R && R.userData && R.userData[state.side];
     if (!arm) return;
     const follow = !!(seat && seat.cuffFollow);
-    /* t1248: no per-frame cuff solve. If this seat has no follow, reset
-       any leftover shift once per kind and return. */
     const fk = (U.kind || '') + ':' + state.side + ':' + (follow ? 1 : 0)
       + ':' + ((seat && seat.x) || 0) + ',' + ((seat && seat.y) || 0) + ',' + ((seat && seat.z) || 0)
       + ':' + ((seat && seat.cuffScale) || 1) + ':' + ((seat && seat.cuffNx) || 0) + ',' + ((seat && seat.cuffNy) || 0) + ',' + ((seat && seat.cuffNz) || 0);
-    /* Once per kind/seat, plus one confirm tick so a first call before
-       the parent world matrix is ready cannot stick a short delta. */
-    if (state._cuffFk === fk) {
-      if (state._cuffConfirm) return;
-      state._cuffConfirm = 1;
-    } else {
-      state._cuffFk = fk;
-      state._cuffConfirm = 0;
-    }
+    /* Once per kind/seat. The t1249 confirm pass re-walked the arm and
+       called updateMatrixWorld after the viewmodel parent scale had
+       already started drifting (0.56–0.84), which dirtied matrices
+       every time the scale changed. */
+    if (state._cuffFk === fk) return;
+    state._cuffFk = fk;
     const wrap = state.wrap;
-    /* Recompute every pose tick so a first call before the wrap is
-       seated cannot stick a stale cuff delta. Vector temps are cached. */
-    let dW = null;
+    /* Wrist-local (p.h) delta, not a world delta. A world bake includes
+       the current parent scale, so a later scale change (c350 / fpa)
+       either reopens the cuff or forces a recompute. Local wrap.matrix
+       already lives in p.h space; common-ancestor scale then cancels
+       in the relative matrix for nested linen. (Three.js: divide out
+       parent scale / work in the parent's local frame; see also
+       viewmodel attach under a scaled parent.) */
+    let dPh = null;
+    const tmp = U._cuffTmp || (U._cuffTmp = {
+      a: new T.Vector3(), b: new T.Vector3(), loc: new T.Vector3(0, -0.03, 0),
+      d: new T.Vector3(), p0: new T.Vector3(), p1: new T.Vector3(),
+      mat: new T.Matrix4(), inv: new T.Matrix4()
+    });
     if (follow && wrap && wrap.parent) {
-      /* World delta of a wrap-local wrist anchor (not the origin, which
-         stays put under a pure rotation) from the tune-only rest to the
-         seated pose, so a palm-up flip does not open a cuff gap. */
-      try { wrap.parent.updateMatrixWorld(true); } catch (_) {}
       const t = U.tune || {};
-      const tmp = U._cuffTmp || (U._cuffTmp = {
-        a: new T.Vector3(), b: new T.Vector3(), loc: new T.Vector3(0, -0.03, 0)
-      });
       const px = wrap.position.x, py = wrap.position.y, pz = wrap.position.z;
       const rx = wrap.rotation.x, ry = wrap.rotation.y, rz = wrap.rotation.z;
       const sx = wrap.scale.x, sy = wrap.scale.y, sz = wrap.scale.z;
@@ -88061,26 +88059,22 @@ try {
       wrap.position.set(t.x || 0, t.y || 0, t.z || 0);
       wrap.rotation.set(t.rx || 0, t.ry || 0, t.rz || 0);
       wrap.scale.set(sc * tsx, sc, sc);
-      wrap.updateMatrixWorld(true);
-      tmp.a.copy(tmp.loc).applyMatrix4(wrap.matrixWorld);
+      wrap.updateMatrix();
+      tmp.a.copy(tmp.loc).applyMatrix4(wrap.matrix);
       wrap.position.set(px, py, pz);
       wrap.rotation.set(rx, ry, rz);
       wrap.scale.set(sx, sy, sz);
-      wrap.updateMatrixWorld(true);
-      tmp.b.copy(tmp.loc).applyMatrix4(wrap.matrixWorld);
-      dW = tmp.b.sub(tmp.a);
+      wrap.updateMatrix();
+      tmp.b.copy(tmp.loc).applyMatrix4(wrap.matrix);
+      dPh = tmp.d.copy(tmp.b).sub(tmp.a);
       const boost = (seat && seat.cuffScale != null) ? seat.cuffScale : 1;
-      if (boost !== 1 && dW) dW.multiplyScalar(boost);
-      const nx = (seat && seat.cuffNx) || 0, ny = (seat && seat.cuffNy) || 0, nz = (seat && seat.cuffNz) || 0;
-      if ((nx || ny || nz) && wrap.parent) {
-        const p0 = new T.Vector3(), p1 = new T.Vector3(nx, ny, nz);
-        wrap.parent.localToWorld(p0);
-        wrap.parent.localToWorld(p1);
-        if (!dW) dW = new T.Vector3();
-        dW.add(p1.sub(p0));
-      }
-      if (!dW || dW.lengthSq() < 1e-12) dW = null;
+      if (boost !== 1) dPh.multiplyScalar(boost);
+      dPh.x += (seat && seat.cuffNx) || 0;
+      dPh.y += (seat && seat.cuffNy) || 0;
+      dPh.z += (seat && seat.cuffNz) || 0;
+      if (dPh.lengthSq() < 1e-12) dPh = null;
     }
+    const wrist = wrap && wrap.parent;
     const visit = function (o) {
       if (!o || !o.isMesh || !o.parent) return;
       if (state.wrap && (o === state.wrap || o.parent === state.wrap)) return;
@@ -88089,11 +88083,26 @@ try {
       if (!linen && !/cuff|sleeve|linen|forearm/i.test(n) && !(arm.userData && arm.userData.p && o === arm.userData.p.cuff)) return;
       if (!o.userData._fpCuffBase1285) o.userData._fpCuffBase1285 = o.position.clone();
       o.position.copy(o.userData._fpCuffBase1285);
-      if (!dW) return;
-      o.parent.updateMatrixWorld(true);
-      const w = o.getWorldPosition(new T.Vector3()).add(dW);
-      o.parent.worldToLocal(w);
-      o.position.copy(w);
+      if (!dPh || !wrist) return;
+      if (o.parent === wrist) { o.position.add(dPh); return; }
+      /* Delta in wrist space -> o.parent space: invert the local chain
+         from the wrist down to the cuff's parent. */
+      tmp.mat.identity();
+      let node = o.parent, hops = 0, under = 0;
+      while (node && hops++ < 8) {
+        if (node === wrist) { under = 1; break; }
+        tmp.mat.premultiply(node.matrix);
+        node = node.parent;
+      }
+      if (under) {
+        tmp.mat.invert();
+      } else {
+        try { wrist.updateMatrixWorld(true); o.parent.updateMatrixWorld(true); } catch (_) {}
+        tmp.mat.copy(wrist.matrixWorld).premultiply(tmp.inv.copy(o.parent.matrixWorld).invert());
+      }
+      tmp.p0.set(0, 0, 0).applyMatrix4(tmp.mat);
+      tmp.p1.copy(dPh).applyMatrix4(tmp.mat);
+      o.position.add(tmp.p1.sub(tmp.p0));
     };
     if (arm.traverse) arm.traverse(visit);
     else visit(arm.userData && arm.userData.p && arm.userData.p.cuff);
