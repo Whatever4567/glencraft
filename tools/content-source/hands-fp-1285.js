@@ -37,16 +37,17 @@
        lands on the palm centre. Applied from the game's own held base
        so the 1251/1261 jitter-fix writes stay intact. */
     HELD_OFF: {
-      /* t1247: solved so the grip-region centroid lands on the palm
-         (qa/t1246/solve-offsets.mjs). Pick keeps a conservative step
-         toward the full solved row so the shaft enters the fist without
-         a 30 cm jump. Pistol/block were previously left at zero. */
+      /* t1248 best-of: 8be741a / align2 tables (torch 0.0096, pistol
+         0.0051, bucket 0.0086, sword 0.0133). Later pistol/block
+         offsets and VIEW_OFF nudges regressed torch and pistol, so
+         they stay zero. Pick uses the 1359f1c step (finger 0.071),
+         the best verified pick row. */
       empty: [0, 0, 0],
-      block: [0.1029, -0.1371, -0.1358],
+      block: [0, 0, 0],
       bucket: [0, 0, 0],
       torch: [0.045, -0.0368, -0.0314],
       sword: [0.0167, -0.1172, 0.0589],
-      pistol: [0, -0.1252, -0.0766],
+      pistol: [0, 0, 0],
       musket: [-0.0607, -0.0058, -0.0175],
       map: [0, 0, 0],
       pick: [0.0414, -0.0522, -0.2143],
@@ -54,9 +55,9 @@
       p760: [0.0414, -0.0522, -0.2143]
     },
     VIEW_OFF: {
-      /* Push the hip-placed musket + both wrists forward so the right hand sits in front of the lens. */
-      musket: [0, 0, -0.36],
-      pistol: [0, 0, -0.18]
+      /* 8be741a / align2: right musket wrist in front of the lens
+         without the later -0.36 nudge that reopened a poke. */
+      musket: [0, 0, -0.23]
     },
     /* Bake each held-item fist into a non-skinned mesh so the glove
        skeleton is not skinned or walked every frame. Hidden, not deleted.
@@ -71,10 +72,10 @@
        empty/block/map flip to a palm-up seat; fists keep the 37aa5cf grip
        direction so held items stay in the hand. */
     seat: {
-      empty:  { sx: -1, rx: -0.50, x: 0, y: 0.00, z: 0.00, cuffFollow: 1 },
-      block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04, cuffFollow: 1 },
-      map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03, cuffFollow: 1 },
-      bucket: { x: -0.081, y: 0.077, z: 0.130, cuffFollow: 1 },
+      empty:  { sx: -1, rx: -0.50, x: 0, y: 0.00, z: 0.00 },
+      block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04 },
+      map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03 },
+      bucket: { x: 0, y: 0.01, z: 0.00 },
       torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
       pick:   { x: 0.06, y: -0.02, z: 0.08 },
@@ -1357,6 +1358,11 @@
     const arm = R && R.userData && R.userData[state.side];
     if (!arm) return;
     const follow = !!(seat && seat.cuffFollow);
+    /* t1248: no per-frame cuff solve. If this seat has no follow, reset
+       any leftover shift once per kind and return. */
+    const fk = (U.kind || '') + ':' + state.side + ':' + (follow ? 1 : 0);
+    if (!follow && state._cuffFk === fk) return;
+    state._cuffFk = fk;
     const wrap = state.wrap;
     /* Recompute every pose tick so a first call before the wrap is
        seated cannot stick a stale cuff delta. Vector temps are cached. */
