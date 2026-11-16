@@ -46,9 +46,9 @@
       pistol: [0, 0, 0],
       musket: [-0.0607, -0.0058, -0.0175],
       map: [0, 0, 0],
-      pick: [0.0173, -0.0222, -0.091],
-      p761: [0.0173, -0.0222, -0.091],
-      p760: [0.0173, -0.0222, -0.091]
+      pick: [0, 0, 0],
+      p761: [0, 0, 0],
+      p760: [0, 0, 0]
     },
     VIEW_OFF: {
       /* Push the hip-placed musket + both wrists forward so the right hand sits in front of the lens. */
@@ -70,12 +70,12 @@
       empty:  { sx: -1, rx: -0.50, x: 0, y: 0.00, z: 0.00 },
       block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04 },
       map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03 },
-      bucket: { x: 0, y: 0.01, z: 0.00 },
+      bucket: { x: -0.081, y: 0.077, z: 0.130, cuffFollow: 1 },
       torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
-      pick:   { x: 0.06, y: -0.02, z: 0.08 },
-      p761:   { x: 0.06, y: -0.02, z: 0.08 },
-      p760:   { x: 0.06, y: -0.02, z: 0.08 },
+      pick:   { x: 0.063, y: -0.134, z: 0.047, cuffFollow: 1 },
+      p761:   { x: 0.063, y: -0.134, z: 0.047, cuffFollow: 1 },
+      p760:   { x: 0.063, y: -0.134, z: 0.047, cuffFollow: 1 },
       pistol: { x: 0.076, y: 0.131, z: -0.048 },
       musket: { x: 0.021, y: -0.015, z: -0.017 },
       /* Left wrap onto the forestock (p.h space). Translation only —
@@ -1343,6 +1343,29 @@
     return state;
   }
 
+
+  /* Constant cuff translation in the same parent space as the glove
+     wrap, so a wrist seat that reaches a bail/shaft does not open a
+     10 cm cuff gap. Base is captured once per cuff; not a per-frame seek. */
+  function applyCuffFollow(state, seat) {
+    const R = rig();
+    const arm = R && R.userData && R.userData[state.side];
+    const cuff = arm && arm.userData && arm.userData.p && arm.userData.p.cuff;
+    if (!cuff) return;
+    if (!cuff.userData._fpCuffBase1285) cuff.userData._fpCuffBase1285 = cuff.position.clone();
+    const b = cuff.userData._fpCuffBase1285;
+    const follow = !!(seat && seat.cuffFollow);
+    const dx = follow ? (seat.x || 0) : 0;
+    const dy = follow ? (seat.y || 0) : 0;
+    const dz = follow ? (seat.z || 0) : 0;
+    /* Only apply in the same parent space as the wrap (p.h). */
+    if (follow && state.wrap && cuff.parent !== state.wrap.parent) {
+      cuff.position.copy(b);
+      return;
+    }
+    cuff.position.set(b.x + dx, b.y + dy, b.z + dz);
+  }
+
   function applyTune(state) {
     const _pt = profBegin('applyTune');
 
@@ -1359,6 +1382,8 @@
     const sc = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
     const sx = (seat.sx != null ? seat.sx : (t.sx == null ? 1 : t.sx));
     state.wrap.scale.set(sc * sx, sc, sc);
+    try { applyCuffFollow(state, seat); } catch (e) { ERR('cuffFollow', e); }
+
     if (state.side === 'R') {
       if (U._tubeKind !== U.kind) {
         try {
@@ -1928,12 +1953,9 @@
     try { if (typeof renderer !== 'undefined') r = renderer; } catch (_) {}
     if (!r || r.__drawOff1285) return;
     const prev = r.render;
-    r.render = function () {
-      const top = !U._drawDepth;
-      U._drawDepth = (U._drawDepth || 0) + 1;
-      if (top) drawOffOn();
-      try { return prev.apply(this, arguments); } finally { U._drawDepth--; if (top) drawOffOff(); }
-    };
+    /* Don't also apply here: onBeforeRender/onAfterRender already
+       shift the children for the draw. Applying twice doubled the
+       baked offset in screenshots. */
     r.__drawOff1285 = 1;
   }
 
