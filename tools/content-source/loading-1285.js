@@ -353,6 +353,17 @@
       }
     }
     if (U.shown < 0) U.shown = 0;
+    /* Once meshing has started, creep 99.0–99.8 so the label keeps moving
+       until enterWorld can paint. 100 is reserved for finish(). */
+    if (!U.finishing && !U.done && (U.real >= 98)) {
+      const holdCap = 99.8;
+      if (U.shown < 99) {
+        U.shown = Math.min(99, U.shown + Math.max(0.02, 0.2 * (dt / 1000)));
+      }
+      if (U.shown >= 99 && U.shown < holdCap) {
+        U.shown = Math.min(holdCap, U.shown + 0.06 * (dt / 1000));
+      }
+    }
     return U.shown;
   }
   U.applyDisplay = applyDisplay;
@@ -403,8 +414,17 @@
     const pct = $('loadPct');
     if (!pct) return;
     const now = performance.now();
-    const prev = U._pctShown || 0;
+    let prev = U._pctShown || 0;
+    try {
+      const cur = parseFloat(String(pct.textContent || '').replace(/%/g, ''));
+      if (Number.isFinite(cur)) prev = Math.max(prev, cur);
+    } catch (_) {}
     let v, text;
+    function labelFor(x) {
+      if (U.finishing || (U.done && x >= 99.5)) return Math.min(100, Math.round(x)) + '%';
+      if (x < 90) return Math.floor(x + 1e-9) + '%';
+      return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
+    }
     if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
       v = Math.min(100, Math.max(prev, shown || 0));
       const n = Math.min(100, Math.max(Math.round(prev), Math.round(v)));
@@ -412,7 +432,7 @@
       text = n + '%';
     } else {
       const aim = Math.max(shown || 0, displayAim(now));
-      v = Math.min(99, Math.max(prev, aim));
+      v = Math.min(99.8, Math.max(prev, aim));
       if (v < 90) {
         const n = Math.min(89, Math.floor(v + 1e-9));
         v = n;
@@ -423,10 +443,16 @@
         text = d.toFixed(1) + '%';
       }
     }
-    if (v < prev) v = prev;
+    if (v < prev) { v = prev; text = labelFor(v); }
     if (v !== prev) U._pctShownAt = now;
     U._pctShown = v;
     U._pctInt = Math.floor(v + 1e-9);
+    /* Never let the on-screen label go backwards, even if another writer
+       raced us or stop() cleared finishing mid-frame. */
+    try {
+      const on = parseFloat(String(pct.textContent || '').replace(/%/g, ''));
+      if (Number.isFinite(on) && v + 1e-9 < on) { v = on; text = pct.textContent; U._pctShown = v; }
+    } catch (_) {}
     pct.textContent = text;
   }
 
@@ -828,8 +854,10 @@
             chunksReady();
             const cn = chunksReady.need || 9, cg = chunksReady.got || 0;
             const p = 98 + 1.8 * cg / Math.max(1, cn);
-            setReal(p, 'Building terrain meshes… ' + cg + '/' + cn, 99.8);
-            if (cg >= cn && cn > 0 && !U.finishing && !U.done) U.finish();
+            /* Hold at 99.x until enterWorld can actually paint, then glide to 100.
+               Finishing here made the label hit 100 too early, then a stale
+               enterWorld fallback overwrote it with 98% after stop() cleared live. */
+            setReal(Math.min(99.6, p), 'Building terrain meshes… ' + cg + '/' + cn, 99.6);
           }
         } catch (_) {}
         return r;

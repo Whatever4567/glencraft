@@ -18611,8 +18611,13 @@ function enterWorld(save) {
   let i = 0, shown = (window.__glenLoad && __glenLoad.shown) || 0, target = Math.max(shown, (window.__glenLoad && __glenLoad.real) || 0), t0 = performance.now(), ready = false;
   // GLX-B3: the bar eases toward the real progress and only finishes when every chunk mesh around spawn is built and the GPU has compiled it
   const anim = () => {
-    if (window.__glenLoad && __glenLoad.live) {
-      try { __glenLoad.setReal(Math.max(target, __glenLoad.real || 0), tip && tip.textContent, ready ? 100 : 99); if (ready) __glenLoad.finish(); } catch (_) {}
+    if (window.__glenLoad) {
+      /* Never write #loadPct from this fallback. After finish()/stop()
+         live is 0 and the local `shown` is still ~98, which used to snap
+         the label backwards from 100% to 98% as started flipped. */
+      if (__glenLoad.live) {
+        try { __glenLoad.setReal(Math.max(target, __glenLoad.real || 0), tip && tip.textContent, ready ? 100 : 99.6); if (ready) __glenLoad.finish(); } catch (_) {}
+      }
       if (screen === 'loading') requestAnimationFrame(anim);
       return;
     }
@@ -27912,15 +27917,7 @@ var ORE18 = false, ISL_S = 1;
   const SIZE = {human: 15, mossy: 15, black: 13};
   const MINE = new Set([T.PLANKS, 162, T.COBWEB, T.TORCH, T.CHEST].filter(v => v !== undefined));
   function castleWork() { const out = [];
-    /* GLX-LOAD1289: yield after each keep so raising the keeps cannot block
-       the thread for seconds. Each keep is deterministic (h3 only). */
-    const __Lc = window.__glenLoad;
-    const __st = (__Lc && __Lc.held && __Lc._loop && __Lc._loop.c77cast) ? __Lc._loop.c77cast : null;
-    if (__st && __st.out) Array.prototype.push.apply(out, __st.out);
-    const __tC = performance.now(), __wC = Date.now();
-    let __ci = 0;
     for (const c of g9castles) { const [k, cx, cz] = c; const S = SIZE[k]; if (!S) continue;
-      if (__st && __ci < (__st.ci || 0)) { __ci++; continue; }
       const info = (window.__c53 || []).find(o => o.cx === cx && o.cz === cz); const gy = info ? info.gy : solidTop(cx, cz) + 1;
       const R = S + 4, fill = y => y < 21 ? T.DEEPSLATE : T.STONE; let filled = 0, mines = 0;
       // 1) mineshaft pieces under and around the castle go back to rock
@@ -27950,16 +27947,7 @@ var ORE18 = false, ISL_S = 1;
         if (ns < s) for (let x = cx - 1; x <= cx + 1; x++) { put(x, s, z - 1, 167); entMeta.set(keyOf(x, s, z - 1), {face: stairF(0, -1)}); }
         if (k === 'human' && j % 5 === 0) for (const sx of [-2, 2]) { const tt = solidTop(cx + sx, z); put(cx + sx, tt + 1, z, 162); put(cx + sx, tt + 2, z, T.TORCH); }
         s = ns; }
-      out.push({k, cx, cz, gy, filled, mines});
-      __ci++;
-      if (__Lc && __Lc.held && ((performance.now() - __tC > (__SLB())) || (Date.now() - __wC > (__SLB())))) {
-        if (!__Lc._loop) __Lc._loop = {};
-        __Lc._loop.c77cast = {ci: __ci, out: out};
-        try { __Lc.touch(84, 'Raising the keeps…', 92); } catch (_) {}
-        throw __Lc.YIELD;
-      }
-    }
-    if (__Lc && __Lc._loop) __Lc._loop.c77cast = null;
+      out.push({k, cx, cz, gy, filled, mines}); }
     try { scanLights(); validateLights(); } catch (_) {}
     return out; }
   // ---- caves: every cavern, deep cave and worm cave joined into one network ----
@@ -89395,6 +89383,17 @@ try {
       }
     }
     if (U.shown < 0) U.shown = 0;
+    /* Once meshing has started, creep 99.0–99.8 so the label keeps moving
+       until enterWorld can paint. 100 is reserved for finish(). */
+    if (!U.finishing && !U.done && (U.real >= 98)) {
+      const holdCap = 99.8;
+      if (U.shown < 99) {
+        U.shown = Math.min(99, U.shown + Math.max(0.02, 0.2 * (dt / 1000)));
+      }
+      if (U.shown >= 99 && U.shown < holdCap) {
+        U.shown = Math.min(holdCap, U.shown + 0.06 * (dt / 1000));
+      }
+    }
     return U.shown;
   }
   U.applyDisplay = applyDisplay;
@@ -89445,8 +89444,17 @@ try {
     const pct = $('loadPct');
     if (!pct) return;
     const now = performance.now();
-    const prev = U._pctShown || 0;
+    let prev = U._pctShown || 0;
+    try {
+      const cur = parseFloat(String(pct.textContent || '').replace(/%/g, ''));
+      if (Number.isFinite(cur)) prev = Math.max(prev, cur);
+    } catch (_) {}
     let v, text;
+    function labelFor(x) {
+      if (U.finishing || (U.done && x >= 99.5)) return Math.min(100, Math.round(x)) + '%';
+      if (x < 90) return Math.floor(x + 1e-9) + '%';
+      return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
+    }
     if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
       v = Math.min(100, Math.max(prev, shown || 0));
       const n = Math.min(100, Math.max(Math.round(prev), Math.round(v)));
@@ -89454,7 +89462,7 @@ try {
       text = n + '%';
     } else {
       const aim = Math.max(shown || 0, displayAim(now));
-      v = Math.min(99, Math.max(prev, aim));
+      v = Math.min(99.8, Math.max(prev, aim));
       if (v < 90) {
         const n = Math.min(89, Math.floor(v + 1e-9));
         v = n;
@@ -89465,10 +89473,16 @@ try {
         text = d.toFixed(1) + '%';
       }
     }
-    if (v < prev) v = prev;
+    if (v < prev) { v = prev; text = labelFor(v); }
     if (v !== prev) U._pctShownAt = now;
     U._pctShown = v;
     U._pctInt = Math.floor(v + 1e-9);
+    /* Never let the on-screen label go backwards, even if another writer
+       raced us or stop() cleared finishing mid-frame. */
+    try {
+      const on = parseFloat(String(pct.textContent || '').replace(/%/g, ''));
+      if (Number.isFinite(on) && v + 1e-9 < on) { v = on; text = pct.textContent; U._pctShown = v; }
+    } catch (_) {}
     pct.textContent = text;
   }
 
@@ -89870,8 +89884,10 @@ try {
             chunksReady();
             const cn = chunksReady.need || 9, cg = chunksReady.got || 0;
             const p = 98 + 1.8 * cg / Math.max(1, cn);
-            setReal(p, 'Building terrain meshes… ' + cg + '/' + cn, 99.8);
-            if (cg >= cn && cn > 0 && !U.finishing && !U.done) U.finish();
+            /* Hold at 99.x until enterWorld can actually paint, then glide to 100.
+               Finishing here made the label hit 100 too early, then a stale
+               enterWorld fallback overwrote it with 98% after stop() cleared live. */
+            setReal(Math.min(99.6, p), 'Building terrain meshes… ' + cg + '/' + cn, 99.6);
           }
         } catch (_) {}
         return r;

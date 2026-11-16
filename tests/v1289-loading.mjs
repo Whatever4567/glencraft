@@ -54,6 +54,7 @@ ok(html.includes("phase: 'scan'") && html.includes('__Lf._loop.finishC = {ci: ci
 
 ok(html.includes('G.rafs') && html.includes('nST.call(W, function () { try { cb(); }') && html.includes('if (G.rafs.indexOf(fn) < 0) G.rafs.push(fn)'), 'timer-gate flush re-arms timeouts after generate and dedupes skipped frames');
 ok(html.includes('__kf.__tgFree = 1') && html.includes('requestAnimationFrame(__kf)'), 'the yield-paint frame kick is exempt from the timer gate');
-ok(html.includes('__Lc._loop.c77cast') && html.includes('Raising the keeps'), 'c77 castleWork yields after each keep and persists out');
-ok(html.includes('if (loading) return;') && html.includes('window.chunksReady = chunksReady') && html.includes('if (cg >= cn && cn > 0 && !U.finishing && !U.done) U.finish()'), 'spawn-ring meshing starts the 100 glide once the ring is ready and defers entity sync');
+ok(html.includes('function castleWork()') && !html.includes('__Lc._loop.c77cast'), 'c77 castleWork is unsliced again so generate time stays at or below 1.2.88');
+ok(html.includes('if (loading) return;') && html.includes('window.chunksReady = chunksReady') && html.includes("setReal(Math.min(99.6, p), 'Building terrain meshes… '") && html.includes('Hold at 99.x until enterWorld can actually paint'), 'spawn-ring meshing reports 99.x and defers the 100 glide until enter can paint, and defers entity sync');
+ok(html.includes('Never write #loadPct from this fallback') && html.includes('creep 99.0–99.8') && html.includes('Never let the on-screen label go backwards'), 'the % label holds at 99.x with visible motion and never goes backwards after 100');
 console.log('v1289-loading: ' + n + ' ok');
