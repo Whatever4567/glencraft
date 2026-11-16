@@ -88394,6 +88394,7 @@ try {
       } catch (e) { ERR('bakePose', e); }
       hookGunDraw(T);
       applyViewOff(T);
+      try { seatReloadHands(T); } catch (e) { ERR('rlSeat', e); }
     }
     for (let i = 0; i < outMeshes.length; i++) outMeshes[i].onBeforeRender = beforeDraw;
     return state;
@@ -88406,6 +88407,10 @@ try {
     /* Seat offsets are for the holding hand. Applying them to the left
        glove slid it into the play camera (two overlapping fists). */
     if (state.side === 'L' && ONE_HAND[U.kind]) seat = (U.seat && U.seat.empty) || {};
+    /* Holding-hand seat is for the right glove. Applying it to the left
+       support hand during a pistol/musket reload slid the off-hand off the
+       well/fore. Do not hide the left glove — these guns are two-handed. */
+    if (state.side === 'L' && (U.kind === 'pistol' || U.kind === 'musket')) seat = {};
     if (state.wrap) state.wrap.visible = !(state.side === 'L' && ONE_HAND[U.kind]);
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
@@ -88994,6 +88999,210 @@ try {
     } catch (e) { U._loading = 0; ERR('load', e); }
   }
 
+
+  function rlTmp(T) {
+    let t = U._rlTmp;
+    if (!t) {
+      t = U._rlTmp = {
+        v1: new T.Vector3(), v2: new T.Vector3(), v3: new T.Vector3(),
+        gunW: new T.Vector3(), inv: new T.Matrix4()
+      };
+    }
+    return t;
+  }
+  function reloadOn() {
+    try { if (W.__c43rf > 0 && W.__c43rf <= 1) return { on: 1, rf: +W.__c43rf }; } catch (_) {}
+    try { const R = W.__rl; if (R && R.t > 0) return { on: 1, rf: 1 - R.t / (R.dur || 1) }; } catch (_) {}
+    try { if (typeof rlT !== 'undefined' && rlT > 0 && typeof GUN !== 'undefined' && GUN[rlId]) return { on: 1, rf: 1 - rlT / GUN[rlId].rl }; } catch (_) {}
+    return { on: 0, rf: -1 };
+  }
+  function gunHeld() {
+    try {
+      const g = (typeof held !== 'undefined' && held && held.children[0]) || null;
+      return (g && g.userData && g.userData.gun) ? g : null;
+    } catch (_) { return null; }
+  }
+  function anchWorld(g, name, out, gunW) {
+    try {
+      const a = g.userData && g.userData.anch && g.userData.anch[name];
+      if (!a) return null;
+      a.updateMatrixWorld(true);
+      a.getWorldPosition(out);
+      if (!isFinite(out.x + out.y + out.z)) return null;
+      if (gunW && out.distanceTo(gunW) > 2.5) return null;
+      return out;
+    } catch (_) { return null; }
+  }
+  function stabilizeFpaWrists(T, g, tmp) {
+    const R = rig();
+    if (!R || !R.userData) return;
+    g.updateMatrixWorld(true);
+    g.getWorldPosition(tmp.gunW);
+    const sides = ['L', 'R'];
+    for (let i = 0; i < sides.length; i++) {
+      const side = sides[i];
+      try {
+        const arm = R.userData[side];
+        const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+        if (!h) continue;
+        h.updateMatrixWorld(true);
+        const pos = tmp.v1;
+        h.getWorldPosition(pos);
+        const dGun = pos.distanceTo(tmp.gunW);
+        const prevP = U['_rlPrevP' + side];
+        const prevQ = U['_rlPrevQ' + side];
+        const goodP = U['_rlGoodP' + side];
+        const goodQ = U['_rlGoodQ' + side];
+        let jump = 0;
+        if (prevP) jump = pos.distanceTo(prevP);
+        let flip = 0;
+        if (prevQ) flip = h.quaternion.angleTo(prevQ);
+        /* Only snap back on true teleports / wrist inversions. A normal
+           reload reach can travel tens of centimetres and rotate freely. */
+        const bad = !isFinite(dGun) || dGun > 2.5 || jump > 0.8 || flip > 1.6;
+        if (bad && goodP && goodQ) {
+          h.position.copy(goodP);
+          h.quaternion.copy(goodQ);
+          h.updateMatrix();
+          h.updateMatrixWorld(true);
+          h.getWorldPosition(pos);
+          if (prevP) prevP.copy(pos);
+          if (prevQ) prevQ.copy(h.quaternion);
+          U._rlClamp = (U._rlClamp || 0) + 1;
+        } else if (!bad) {
+          if (!goodP) U['_rlGoodP' + side] = h.position.clone();
+          else U['_rlGoodP' + side].copy(h.position);
+          if (!goodQ) U['_rlGoodQ' + side] = h.quaternion.clone();
+          else U['_rlGoodQ' + side].copy(h.quaternion);
+          if (!prevP) U['_rlPrevP' + side] = pos.clone();
+          else U['_rlPrevP' + side].copy(pos);
+          if (!prevQ) U['_rlPrevQ' + side] = h.quaternion.clone();
+          else U['_rlPrevQ' + side].copy(h.quaternion);
+        }
+      } catch (e) { ERR('rlStab', e); }
+    }
+  }
+  function closestHole(state, targetW, out, tmp) {
+    let best = null, bestD = Infinity;
+    const bones = [].concat((state && state.dist) || [], (state && state.thumb) || []);
+    for (let i = 0; i < bones.length; i++) {
+      const b = bones[i];
+      if (!b) continue;
+      try {
+        b.updateMatrixWorld(true);
+        b.getWorldPosition(tmp.v2);
+        const d = tmp.v2.distanceTo(targetW);
+        if (d < bestD) { bestD = d; if (!best) best = tmp.v2.clone(); else best.copy(tmp.v2); }
+      } catch (_) {}
+    }
+    if (best) { out.copy(best); return out; }
+    if (state && state.wrap) { state.wrap.updateMatrixWorld(true); state.wrap.getWorldPosition(out); return out; }
+    return null;
+  }
+  function pullWrist(side, targetW, maxD, T, tmp) {
+    const R = rig();
+    const arm = R && R.userData && R.userData[side];
+    const h = arm && arm.userData && arm.userData.p && arm.userData.p.h;
+    if (!h || !h.parent || !targetW) return;
+    const ph = h.parent;
+    ph.updateMatrixWorld(true);
+    h.updateMatrixWorld(true);
+    h.getWorldPosition(tmp.v1);
+    tmp.inv.copy(ph.matrixWorld).invert();
+    const curL = tmp.v2.copy(tmp.v1).applyMatrix4(tmp.inv);
+    const tgtL = tmp.v3.copy(targetW).applyMatrix4(tmp.inv);
+    const d = tgtL.sub(curL);
+    const len = d.length();
+    if (!isFinite(len) || len < 0.003 || len > 8) return;
+    if (len > maxD) d.setLength(maxD);
+    h.position.add(d);
+    h.updateMatrix();
+    h.updateMatrixWorld(true);
+  }
+  function seatOneWrap(state, targetW, maxD, T, tmp) {
+    if (!state || !state.wrap || !state.wrap.parent || !targetW) return;
+    const wrap = state.wrap;
+    const ph = wrap.parent;
+    ph.updateMatrixWorld(true);
+    wrap.updateMatrixWorld(true);
+    const hole = tmp.v1;
+    if (!closestHole(state, targetW, hole, tmp)) wrap.getWorldPosition(hole);
+    tmp.inv.copy(ph.matrixWorld).invert();
+    const holeL = tmp.v2.copy(hole).applyMatrix4(tmp.inv);
+    const tgtL = tmp.v3.copy(targetW).applyMatrix4(tmp.inv);
+    const d = tgtL.sub(holeL);
+    const len = d.length();
+    if (!isFinite(len) || len < 0.002 || len > 8) return;
+    if (len > maxD) d.setLength(maxD);
+    wrap.position.add(d);
+    wrap.updateMatrix();
+    wrap.updateMatrixWorld(true);
+  }
+  function meshWorld(obj, gunW, out) {
+    try {
+      if (!obj) return null;
+      obj.updateMatrixWorld(true);
+      obj.getWorldPosition(out);
+      if (!isFinite(out.x + out.y + out.z) || out.distanceTo(gunW) > 2.5) return null;
+      return out;
+    } catch (_) { return null; }
+  }
+  function seatReloadHands(T) {
+    if (!T || !U.on || !U.sides) return;
+    const g = gunHeld();
+    if (!g) return;
+    const info = reloadOn();
+    if (info.on) U._rlSettle = 10;
+    else if (U._rlSettle) U._rlSettle--;
+    if (!info.on && !U._rlSettle) return;
+    if (U._rlGun !== g.uuid) {
+      U._rlGun = g.uuid;
+      const clr = ['L', 'R'];
+      for (let i = 0; i < clr.length; i++) {
+        const side = clr[i];
+        U['_rlPrevP' + side] = U['_rlPrevQ' + side] = U['_rlGoodP' + side] = U['_rlGoodQ' + side] = null;
+      }
+      U._rlAnch = null;
+    }
+    const tmp = rlTmp(T);
+    stabilizeFpaWrists(T, g, tmp);
+    const isP = g.userData.gun === (typeof IT !== 'undefined' ? IT.PISTOL : 212);
+    try {
+      if (g.userData.c322 && U._rlAnch !== g.uuid) {
+        const S = W.__gs1222;
+        if (S && S.reanch) S.reanch(g, isP ? 'pistol' : 'rifle', g);
+        U._rlAnch = g.uuid;
+      }
+    } catch (e) { ERR('rlReanch', e); }
+    g.updateMatrixWorld(true);
+    g.getWorldPosition(tmp.gunW);
+    const tgtR = tmp.v1;
+    if (!anchWorld(g, 'grip', tgtR, tmp.gunW)) return;
+    if (!U._rlGrip) U._rlGrip = new T.Vector3();
+    U._rlGrip.copy(tgtR);
+    let tgtL = null;
+    if (!U._rlLeft) U._rlLeft = new T.Vector3();
+    const support = anchWorld(g, isP ? 'sup' : 'fore', U._rlLeft, tmp.gunW);
+    if (support && support.distanceTo(tmp.gunW) < 2.5) tgtL = U._rlLeft;
+    let phase = 'idle';
+    try {
+      const S = W.__gs1222;
+      if (S && S.rl) phase = (S.rl(!!isP, info.on ? info.rf : -1).phase) || 'idle';
+    } catch (_) {}
+    if (/^(insert|mag out|grab|cycle|belt)$/.test(phase)) {
+      const a = isP ? (anchWorld(g, 'well', tmp.v2, tmp.gunW) || meshWorld(g.userData.mag, tmp.gunW, tmp.v2))
+                    : (anchWorld(g, 'bolt', tmp.v2, tmp.gunW) || meshWorld(g.userData.slide, tmp.gunW, tmp.v2));
+      if (a && a.distanceTo(tmp.gunW) < 2.5) {
+        U._rlLeft.copy(a);
+        tgtL = U._rlLeft;
+      }
+    }
+    try { pullWrist('R', U._rlGrip, 0.8, T, tmp); } catch (e) { ERR('rlPullR', e); }
+    try { if (tgtL) pullWrist('L', tgtL, 0.8, T, tmp); } catch (e) { ERR('rlPullL', e); }
+    try { seatOneWrap(U.sides.R, U._rlGrip, 0.8, T, tmp); } catch (e) { ERR('rlSeatR', e); }
+    try { if (tgtL) seatOneWrap(U.sides.L, tgtL, 0.8, T, tmp); } catch (e) { ERR('rlSeatL', e); }
+  }
+
   function tick() {
     try {
       if (!U.on) return;
@@ -89009,6 +89218,7 @@ try {
         }
         hookGunDraw(T3());
         applyViewOff(T3());
+        try { seatReloadHands(T3()); } catch (e) { ERR('rlSeat', e); }
       }
     } catch (e) { ERR('tick', e); }
   }
