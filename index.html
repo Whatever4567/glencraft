@@ -4,6 +4,24 @@
 <meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 fill=%27%23593d29%27/%3E%3Crect width=%2716%27 height=%275%27 fill=%27%235a9a3a%27/%3E%3C/svg%3E">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<script>/* GLX-LOAD1289 timer gate: while the world loader is generating in slices,
+   game timers and frame callbacks wait, exactly as they did when generate()
+   was one synchronous call. Otherwise timers in the yield gaps (map preview,
+   edge caches, ...) read a half-built world and the generated world changes.
+   Intervals skip their ticks; timeouts and frames run once generate ends.
+   The loading meter's own callbacks are marked __tgFree and keep running. */
+(function () { try {
+  var W = window, G = W.__tgate = {q: [], skipped: 0, deferred: 0};
+  var held = function () { try { return !!(W.__glenLoad && W.__glenLoad.held); } catch (_) { return false; } };
+  var nST = W.setTimeout, nSI = W.setInterval, nRAF = W.requestAnimationFrame;
+  W.setTimeout = function (fn, ms) { if (typeof fn !== 'function') return nST.apply(W, arguments); var a = Array.prototype.slice.call(arguments, 2);
+    return nST.call(W, function () { if (held() && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn.apply(W, a); }); return; } return fn.apply(W, a); }, ms); };
+  W.setInterval = function (fn, ms) { if (typeof fn !== 'function') return nSI.apply(W, arguments); var a = Array.prototype.slice.call(arguments, 2);
+    return nSI.call(W, function () { if (held() && !fn.__tgFree) { G.skipped++; return; } return fn.apply(W, a); }, ms); };
+  if (nRAF) W.requestAnimationFrame = function (fn) { if (typeof fn !== 'function') return nRAF.apply(W, arguments);
+    return nRAF.call(W, function (t) { if (held() && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn(performance.now()); }); return; } return fn(t); }); };
+  G.flush = function () { var q = G.q; G.q = []; for (var i = 0; i < q.length; i++) { try { q[i](); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } } };
+} catch (_) {} })();</script>
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
 <!-- glencraft-build: b1249-v1.2.49 -->
@@ -37142,7 +37160,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const hide = uk > 0.45, objs = [skyDome, typeof stars !== 'undefined' && stars, typeof sunDisc !== 'undefined' && sunDisc, typeof moonDisc !== 'undefined' && moonDisc, typeof moonHalo !== 'undefined' && moonHalo, typeof scenery !== 'undefined' && scenery].concat(typeof clouds !== 'undefined' ? clouds : []);
     for (const m of objs) { if (!m || !m.isObject3D) continue; const u = m.userData; if (hide) { if (!u.c131h) { u.c131h = 1; u.c131v = m.visible; } m.visible = false; } else if (u.c131h) { u.c131h = 0; m.visible = u.c131v; } } }
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); sky12(+dt || 0.016); return r; };
-  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(27)) return gen.apply(this, arguments);  const on = elig(); window.__g12 = on; let r;
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(27)) return gen.apply(this, arguments);  const on = elig(); window.__g12 = on; try { if (window.__glenLoad && __glenLoad.held) __glenLoad._g12 = on; } catch (_) {} let r;
     try { r = gen.apply(this, arguments); } finally { window.__g12 = false; }
     if (on) { try { U.st = post(); U.err = null; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); console.warn('c131', e); } } else U.st = null;
     { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(27); return r; } };
@@ -89171,6 +89189,7 @@ try {
     if (U.live) _raf = requestAnimationFrame(tick);
     else _raf = 0;
   }
+  tick.__tgFree = 1;
 
   function start(label) {
     ensureDom();
@@ -89355,7 +89374,20 @@ try {
     U._randGap = function (on) { _randGap = on ? 1 : 0; };
     let r;
     try {
-    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? U._gen9 : outer; });
+    /* GLX-LOAD1289: resuming the innermost GEN9 skips the wrapper preambles,
+       whose finally blocks already reset their flags on the first yield.
+       Re-establish the flags those wrappers hold around the inner call
+       (c37busy from the c37 wrapper, __g12 from the c167 wrapper) so the
+       resumed slices behave exactly like one synchronous call. */
+    U._g12 = undefined;
+    const resume9 = function () {
+      let wasB, wasG;
+      try { wasB = c37busy; c37busy = true; } catch (_) {}
+      try { wasG = window.__g12; if (U._g12 !== undefined) window.__g12 = U._g12; } catch (_) {}
+      try { return U._gen9.apply(null, arguments); }
+      finally { try { c37busy = wasB; } catch (_) {} try { window.__g12 = wasG; } catch (_) {} }
+    };
+    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? resume9 : outer; });
     r = rInner;
     if (U.genDone) r = await pump(function () { return outer; });
     } finally {
@@ -89364,6 +89396,7 @@ try {
       U._randGap = null;
     }
     U.held = 0;
+    try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
     setReal(Math.max(U.real, 88), 'Building the land around you…', 99);

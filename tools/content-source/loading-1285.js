@@ -345,6 +345,7 @@
     if (U.live) _raf = requestAnimationFrame(tick);
     else _raf = 0;
   }
+  tick.__tgFree = 1;
 
   function start(label) {
     ensureDom();
@@ -529,7 +530,20 @@
     U._randGap = function (on) { _randGap = on ? 1 : 0; };
     let r;
     try {
-    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? U._gen9 : outer; });
+    /* GLX-LOAD1289: resuming the innermost GEN9 skips the wrapper preambles,
+       whose finally blocks already reset their flags on the first yield.
+       Re-establish the flags those wrappers hold around the inner call
+       (c37busy from the c37 wrapper, __g12 from the c167 wrapper) so the
+       resumed slices behave exactly like one synchronous call. */
+    U._g12 = undefined;
+    const resume9 = function () {
+      let wasB, wasG;
+      try { wasB = c37busy; c37busy = true; } catch (_) {}
+      try { wasG = window.__g12; if (U._g12 !== undefined) window.__g12 = U._g12; } catch (_) {}
+      try { return U._gen9.apply(null, arguments); }
+      finally { try { c37busy = wasB; } catch (_) {} try { window.__g12 = wasG; } catch (_) {} }
+    };
+    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? resume9 : outer; });
     r = rInner;
     if (U.genDone) r = await pump(function () { return outer; });
     } finally {
@@ -538,6 +552,7 @@
       U._randGap = null;
     }
     U.held = 0;
+    try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
     setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
