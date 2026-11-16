@@ -1,4 +1,4 @@
-// 1.2.85-loading (unpublished): liquid meter + cooperative world generate.
+// 1.2.85: liquid meter + cooperative world generate (folded into the 1.2.85 release).
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -7,10 +7,11 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.84';"), 'GAME_VERSION stays 1.2.84');
-ok(!html.includes("const GAME_VERSION = '1.2.85';"), 'no 1.2.85 version bump');
-ok(!/"v"\s*:\s*"v1\.2\.85"/.test(html), 'no 1.2.85 patch notes');
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.84', 'version.json stays 1.2.84');
+ok(html.includes("const GAME_VERSION = '1.2.85';"), 'GAME_VERSION is 1.2.85');
+ok(!html.includes("const GAME_VERSION = '1.2.84';"), 'GAME_VERSION is no longer 1.2.84');
+ok(/"v"\s*:\s*"v1\.2\.85"/.test(html), '1.2.85 patch notes present');
+ok(/loading bar now fills smoothly like liquid/.test(html), '1.2.85 notes mention the liquid loading bar');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.85', 'version.json is 1.2.85');
 ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), '1.2.84 build marker stays');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');

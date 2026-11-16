@@ -1,0 +1,32 @@
+// 1.2.85 (t1208): original 1.2.36 shirt sides replace the 1.2.84 stitched bridges. Static checks.
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const torso = fs.readFileSync(path.join(root, 'tools/content-source/torso-1262.js'), 'utf8');
+let n = 0;
+function ok(c, m) { n++; if (!c) { console.error('FAIL:', m); process.exit(1); } }
+ok(html.includes(torso.trim()), 'torso source matches the page');
+ok(/SIDES: 1, KILT_FP: 1, V1SIDES: 1, BRIDGE: 0, WIDEN: 0, SASH_BACK: 1/.test(torso), 'v1 sides on; bridges, widen and glow off');
+ok(torso.includes('FILL_GLOW: 0'), 'side glow off');
+ok(torso.includes('function buildV1SideGeo(') && torso.includes('function alignV1Sides(') && torso.includes('function hideSashBack('), 'helpers present');
+ok(torso.includes('SHIRT_|_sewn_torso_with_open_throat') && torso.includes('visual_torso_outfit') && torso.includes('scottish-base-v1'), 'v1 source mesh names embedded');
+ok(/"tris":768/.test(torso) && /"srcTris":2688/.test(torso) && /"keptSrcTris":640/.test(torso), 'near v1 side tri counts');
+ok(torso.includes('attachFpCull(side)') && torso.includes('renderer.render.__torso1282'), 'sides hidden only in your own FP view');
+ok(!/geometry\.dispose|\.remove\(mesh\)|setDrawRange|setIndex\(new[^)]*keep/.test(torso), 'no player geometry deleted');
+ok(!torso.includes('SHOULDER') && !torso.includes('SH_K'), 'no shoulder WIP');
+ok(torso.includes('Object.assign(U, window.__torso1262cfg || {})'), 'QA config hook');
+ok(torso.includes('if (vBack1284 > 0.5) discard;'), 'sash back hidden by discard, not deleted');
+const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
+const credits = fs.readFileSync(path.join(root, 'CREDITS.md'), 'utf8');
+ok(ver.v === '1.2.85' && html.includes("const GAME_VERSION = '1.2.85';"), 'version 1.2.85');
+ok(html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), 'build markers');
+{ const st = html.indexOf('{"v":"v1.2.85"'), en = html.indexOf('{"v":"v1.2.84"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.85 notes first, no food');
+  const s0 = html.indexOf('window.PATCH_NOTES = ['), e0 = html.indexOf('\n];', s0);
+  const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
+  ok(arr[0].v === 'v1.2.85' && arr[1].v === 'v1.2.84', 'PATCH_NOTES parses'); }
+ok(credits.includes('## v1.2.85 Original shirt sides'), 'CREDITS 1.2.85');
+ok(html.includes("version: '1.2.59-frame-torch'") && html.includes('/* GLX-SCULPT1282') && html.includes('/* GLX-HANDSTP1282'), 'torch/pick jitter, FP sculpt and TP hands stay');
+console.log('PASS', n, 'v1285-torso checks');
