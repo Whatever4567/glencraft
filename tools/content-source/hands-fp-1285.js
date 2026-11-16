@@ -1923,6 +1923,13 @@
     const ox = t ? (t[0] || 0) : 0, oy = t ? (t[1] || 0) : 0, oz = t ? (t[2] || 0) : 0;
     U._drawOff = (t && (ox || oy || oz)) ? { x: ox, y: oy, z: oz } : null;
     U.itemGripD = t ? +Math.hypot(ox, oy, oz).toFixed(3) : 0;
+    /* Once per item switch: drop any previous row so we recapture the
+       1251/1261 base, then bake the new constant. Later ticks only
+       re-apply if a freeze rewrite clobbered the child. */
+    if (U._offKind !== U.kind) {
+      drawOffOff();
+      U._offKind = U.kind;
+    }
     hookDrawOff();
     drawOffOn();
     const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
@@ -2018,6 +2025,9 @@
       m.renderOrder = 2e9;
       m.onAfterRender = function () {
         const cur = W.__handsFp1285;
+        /* Leave the table on while QA is measuring, and for any
+           caller that set _keepDrawOff (once-per-switch tools path). */
+        if (cur && cur._keepDrawOff) return;
         if (cur && (cur.kind === 'pistol' || cur.kind === 'musket') && cur.drawOffOff) cur.drawOffOff();
       };
       U._gunSent = m;
