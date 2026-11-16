@@ -88890,13 +88890,10 @@ try {
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
     try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
-    /* Prefer scheduler.yield() so the continuation is prioritized over
-       ordinary timers; MessageChannel is the no-clamp fallback. */
-    try {
-      if (_mcLive && U.live && WIN.scheduler && typeof WIN.scheduler.yield === 'function') {
-        return WIN.scheduler.yield();
-      }
-    } catch (_) {}
+    /* MessageChannel is the reliable macrotask yield (no setTimeout 4ms
+       clamp). scheduler.yield() in this Chrome resolved too early and
+       the pump never gave the event loop a turn, freezing the % text
+       for the whole generate. */
     return new Promise(function (res) {
       if (!_mcLive || !U.live) { res(); return; }
       try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
