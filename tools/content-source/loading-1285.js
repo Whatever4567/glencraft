@@ -477,6 +477,7 @@
     U._passed = Object.create(null);
     U._ret = Object.create(null);
     U._loop = Object.create(null);
+    try { window.__c77 = null; } catch (_) {}
     U._tSlice = performance.now();
     if (typeof generate !== 'function') throw new Error('generate missing');
     const outer = generate;
@@ -495,7 +496,7 @@
           }
           guarded++;
           U._yields = guarded;
-          if (guarded > 20000) {
+          if (guarded > 100000) {
             U.held = 0;
             throw new Error('generate yield overflow');
           }
