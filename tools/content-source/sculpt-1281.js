@@ -576,10 +576,15 @@
     } catch (e) { ERR('rest', e); }
   }
 
+  const WRAPPED1281 = (typeof WeakSet === 'function') ? new WeakSet() : { _a: [], has(o) { return this._a.indexOf(o) >= 0; }, add(o) { this._a.push(o); } };
   function install() {
     const R = rig();
     if (!R) return;
-    if (!R.updateMatrixWorld.__sculpt1281) {
+    /* GLX-PERF1286: the wrapped flag lives on the rig (WeakSet), not on the outermost function.
+       Before, sculpt1280/1281/1282 each saw the other's wrapper on top every 1s install tick and
+       wrapped again, so R.updateMatrixWorld grew by 3 wrappers a second and frame cost kept rising. */
+    if (!WRAPPED1281.has(R)) {
+      WRAPPED1281.add(R);
       const prev = R.updateMatrixWorld;
       R.updateMatrixWorld = function (force) {
         const r = prev.call(this, force);
