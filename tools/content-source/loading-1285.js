@@ -18,6 +18,11 @@
     label: '',
     creepT: 0,
     t0: 0,
+    expectMs: 60000,
+    timed: 0,
+    finishing: 0,
+    finishT: 0,
+    finishFrom: 0,
     err: null
   };
 
@@ -29,13 +34,17 @@
      One rAF after that lets the browser composite the DOM bar — no 3D. */
   const _mc = new MessageChannel();
   _mc.port1.start();
+  let _mcLive = 1;
+  let _raf = 0;
   function yieldPaint() {
-    try { paint(U.shown); } catch (_) {}
+    if (!U.live) return Promise.resolve();
+    try { applyDisplay(); paint(U.shown); } catch (_) {}
     // Kick a frame so the already-updated DOM bar can composite, but do
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
-    try { requestAnimationFrame(function () {}); } catch (_) {}
+    try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
     return new Promise(function (res) {
+      if (!_mcLive || !U.live) { res(); return; }
       try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
       catch (_) { res(); }
     });
@@ -68,6 +77,7 @@
         '#scr-loading #loadW.liquid1285 .load-fill, #scr-loading #loadW.liquid1285 > i{display:block;position:absolute;left:0;top:0;bottom:0;height:100%;width:0;max-width:100%;background:linear-gradient(180deg,#fff1b0 0%,#ffe58e 18%,#f0c24a 48%,#d9a52c 76%,#a66b12 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 14px rgba(242,196,64,.45)!important;animation:none!important;background-image:none!important;background-size:auto!important;transition:none!important;border-radius:0 8px 8px 0}',
         '#scr-loading #loadW.liquid1285 .load-wave{position:absolute;top:-7px;left:-40%;right:-40%;height:14px;pointer-events:none;display:block;background:radial-gradient(ellipse 18px 8px at 12% 70%,rgba(255,249,220,.95) 0%,rgba(255,249,220,0) 70%),radial-gradient(ellipse 22px 9px at 36% 40%,rgba(255,236,170,.9) 0%,rgba(255,236,170,0) 70%),radial-gradient(ellipse 16px 8px at 58% 75%,rgba(255,249,220,.95) 0%,rgba(255,249,220,0) 70%),radial-gradient(ellipse 20px 9px at 82% 45%,rgba(255,236,170,.9) 0%,rgba(255,236,170,0) 70%);animation:load1285wave 1.15s linear infinite;opacity:.95;filter:drop-shadow(0 1px 0 rgba(80,40,0,.25))}',
         '#scr-loading #loadW.liquid1285 .load-fill::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.28) 45%,rgba(255,255,255,.02) 60%,transparent 100%);background-size:140% 100%;animation:load1285shine 2.2s linear infinite;pointer-events:none;mix-blend-mode:soft-light}',
+        '#scr-loading #loadW.liquid1285.load1285done .load-wave, #scr-loading #loadW.liquid1285.load1285done .load-fill::before, #scr-loading:not(.on) #loadW .load-wave, #scr-loading:not(.on) #loadW .load-fill::before{animation:none!important;-webkit-animation:none!important;display:none!important}',
         '@keyframes load1285wave{from{transform:translateX(0)}to{transform:translateX(20%)}}',
         '@keyframes load1285shine{from{background-position:-40% 0}to{background-position:140% 0}}',
         '#scr-loading #loadPct{font:800 clamp(20px,5.2vw,28px) GlenBold,system-ui,sans-serif;color:#fff6cf!important;letter-spacing:.04em;margin-top:2px;text-shadow:0 0 12px rgba(224,165,72,.55),0 2px 6px #000}',
@@ -79,20 +89,113 @@
   }
   U.ensureDom = ensureDom;
 
+  /* Time-driven displayed progress, separate from real work.
+     displayed = max(real-based, time curve). The curve eases toward 97% over
+     the expected load, then creeps asymptotically toward 99% so the bar never
+     freezes if the world takes longer. Expected duration starts at 60s and
+     adapts from the last few actual loads in localStorage. When the world is
+     ready, shown glides to 100 over ~400ms and the rAF tick then stops. */
+  const LS_KEY = 'glenLoadTimes';
+  const EXPECT_DEFAULT = 60000;
+  const EXPECT_MIN = 30000;
+  const EXPECT_MAX = 120000;
+  const TIMED_AT_T = 97;
+  const TIMED_CAP = 99;
+  const GLIDE_MS = 400;
+
+  function readExpect() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+      const times = (raw && Array.isArray(raw.times) ? raw.times : [])
+        .map(Number).filter(function (t) { return t >= 8000 && t <= 180000; });
+      if (!times.length) return EXPECT_DEFAULT;
+      const last = times.slice(-5);
+      const avg = last.reduce(function (a, b) { return a + b; }, 0) / last.length;
+      return Math.max(EXPECT_MIN, Math.min(EXPECT_MAX, avg));
+    } catch (_) { return EXPECT_DEFAULT; }
+  }
+  function rememberLoad(ms) {
+    ms = Math.round(ms);
+    if (!Number.isFinite(ms) || ms < 8000 || ms > 180000) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null') || {};
+      const times = Array.isArray(raw.times) ? raw.times.slice() : [];
+      times.push(ms);
+      while (times.length > 5) times.shift();
+      localStorage.setItem(LS_KEY, JSON.stringify({times: times, v: 1}));
+    } catch (_) {}
+  }
+  /* Pure. elapsed and T in ms. Ease to 97% at t=T, then exp creep toward 99%. */
+  function timeCurve(elapsed, T) {
+    T = Math.max(1, T || EXPECT_DEFAULT);
+    const t = Math.max(0, elapsed);
+    if (t <= T) {
+      const u = t / T;
+      /* Mostly linear so the last seconds of T still move; a little ease so it is not a hard corner. */
+      const e = 0.8 * u + 0.2 * (u * u * (3 - 2 * u));
+      return TIMED_AT_T * e;
+    }
+    const over = t - T;
+    const tau = 45000;
+    return Math.min(TIMED_CAP - 0.05, TIMED_AT_T + (TIMED_CAP - TIMED_AT_T) * (1 - 1 / (1 + over / tau)));
+  }
+  U.timeCurve = timeCurve;
+  U.readExpect = readExpect;
+
+  function applyDisplay(now) {
+    now = now || performance.now();
+    const prevT = U._tickAt || now;
+    const dt = Math.max(0, Math.min(3000, now - prevT));
+    U._tickAt = now;
+    if (U.finishing) {
+      const u = Math.min(1, (now - (U.finishT || now)) / GLIDE_MS);
+      const e = 1 - (1 - u) * (1 - u);
+      let shown = (U.finishFrom || 0) + (100 - (U.finishFrom || 0)) * e;
+      if (u >= 1) shown = 100;
+      if (shown < U.shown) shown = U.shown;
+      U.shown = shown;
+      return U.shown;
+    }
+    if (!U.t0) U.t0 = now;
+    const timed = timeCurve(now - U.t0, U.expectMs || EXPECT_DEFAULT);
+    U.timed = timed;
+    let aim = Math.max(U.shown, timed, Math.min(U.real || 0, TIMED_CAP));
+    aim = Math.min(TIMED_CAP, aim);
+    /* Floor creep so a flat time-curve tail, or a tick after a long task,
+       still moves the bar. The rate tapers as shown nears 99 so the last
+       2% is not burned in ~25s, leaving the bar frozen until ready.
+       Catch-up after a hitch is capped at 8% per second (and 8% in one
+       paint) so two rAF frames cannot snap the bar 16%. */
+    const cap = TIMED_CAP - 0.02;
+    if (U.shown < cap) {
+      const room = cap - U.shown;
+      const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
+      const floor = floorRate * (dt / 1000);
+      const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
+      const stepped = Math.min(cap, U.shown + floor);
+      if (aim > U.shown) {
+        U.shown = Math.min(cap, Math.max(stepped, Math.min(aim, U.shown + maxStep)));
+      } else {
+        U.shown = stepped;
+      }
+    }
+    if (U.shown < 0) U.shown = 0;
+    return U.shown;
+  }
+  U.applyDisplay = applyDisplay;
+
   function setReal(n, label, cap) {
     n = +n;
     if (!Number.isFinite(n)) return;
-    if (U.done) {
+    if (U.done && !U.finishing) {
       U.real = 100;
       return;
     }
+    if (U.finishing) return;
     if (cap != null) U.cap = cap;
     const next = Math.max(U.real, Math.min(U.done ? 100 : U.cap, n));
     U.real = next;
-    /* During generate the lerp tick cannot run; keep shown within 5% of real
-       and never jump more than ~10% in one paint. */
-    if (U.held && U.shown < next - 5) U.shown = Math.min(next - 5, U.shown + 10);
-    try { if (U.held) paint(U.shown); } catch (_) {}
+    try { applyDisplay(); paint(U.shown); } catch (_) {}
     if (label) U.label = label;
     U.creepT = performance.now();
     const tip = $('loadTip');
@@ -102,11 +205,16 @@
   U.touch = setReal;
 
   function finish() {
+    if (U.finishing) return;
+    const now = performance.now();
     U.done = 1;
     U.cap = 100;
     U.real = 100;
-    /* Do not snap shown to 100 — tick/lerp fills the last few percent so
-       the bar does not jump 88→100 in one paint. */
+    U.finishing = 1;
+    U.finishT = now;
+    U.finishFrom = Math.max(0, Math.min(99, U.shown || 0));
+    try { rememberLoad(now - (U.t0 || now)); } catch (_) {}
+    /* Do not snap shown to 100 — applyDisplay glides the last stretch in ~400ms. */
   }
   U.finish = finish;
 
@@ -122,42 +230,47 @@
   function tick() {
     if (!U.live) return;
     const now = performance.now();
-    if (!U.done && U.real < U.cap) {
+    if (!U.done && !U.finishing && U.real < U.cap) {
       const idle = now - (U.creepT || now);
       if (idle > 180) {
-        const room = U.cap - U.real;
+        const room = Math.min(U.cap, TIMED_CAP) - U.real;
         const step = Math.min(room * 0.018, Math.max(0.07, room * 0.004));
-        U.real = Math.min(U.cap - 0.15, U.real + step);
+        U.real = Math.min(Math.min(U.cap, TIMED_CAP) - 0.15, U.real + step);
       }
     }
-    const target = U.done ? 100 : U.real;
-    let shown = U.shown;
-    if (target > shown) {
-      const k = U.done ? 0.22 : 0.16;
-      shown += (target - shown) * k;
-      if (target - shown < 0.04) shown = target;
+    applyDisplay(now);
+    paint(U.shown);
+    if (U.finishing && (U.shown >= 99.95 || (now - (U.finishT || now)) >= GLIDE_MS + 50)) {
+      stop();
+      return;
     }
-    if (shown > target) shown = target;
-    if (shown < 0) shown = 0;
-    if (U.done && shown > 99.4) shown = 100;
-    if (!U.done && shown > 99.2) shown = 99.2;
-    U.shown = shown;
-    paint(shown);
-    if (U.live) requestAnimationFrame(tick);
+    if (U.live) _raf = requestAnimationFrame(tick);
+    else _raf = 0;
   }
 
   function start(label) {
     ensureDom();
+    try {
+      const bar = $('loadW');
+      if (bar) bar.classList.remove('load1285done');
+    } catch (_) {}
+    _mcLive = 1;
+    try { if (_raf) cancelAnimationFrame(_raf); } catch (_) {}
+    _raf = 0;
     U.live = 1;
     U.done = 0;
+    U.finishing = 0;
     U.real = Math.max(U.real, 0.5);
     U.shown = Math.max(U.shown, 0);
-    U.cap = 92;
+    U.cap = 99;
     U.creepT = performance.now();
     U.t0 = U.t0 || performance.now();
+    U.expectMs = readExpect();
+    U._tickAt = U.t0;
     if (label) setReal(U.real, label);
+    applyDisplay();
     paint(U.shown);
-    requestAnimationFrame(tick);
+    _raf = requestAnimationFrame(tick);
   }
   U.start = start;
 
@@ -165,8 +278,30 @@
     U.done = 1;
     U.real = 100;
     U.shown = 100;
-    paint(100);
+    U.finishing = 0;
     U.live = 0;
+    try { if (_raf) cancelAnimationFrame(_raf); } catch (_) {}
+    _raf = 0;
+    _mcLive = 0;
+    try { _mc.port1.onmessage = null; } catch (_) {}
+    try { paint(100); } catch (_) {}
+    try {
+      const bar = $('loadW');
+      if (bar) {
+        bar.classList.add('load1285done');
+        const wave = bar.querySelector('.load-wave');
+        if (wave) {
+          wave.style.animation = 'none';
+          wave.style.webkitAnimation = 'none';
+          wave.style.display = 'none';
+        }
+        const fill = bar.querySelector('.load-fill') || bar.firstElementChild;
+        if (fill) {
+          fill.style.animation = 'none';
+          fill.style.webkitAnimation = 'none';
+        }
+      }
+    } catch (_) {}
   }
   U.stop = stop;
 
@@ -177,7 +312,7 @@
   };
 
   U.maybeYield = function () {
-    if (!U.held) return false;
+    if (!U.held && !U._softHold) return false;
     if (performance.now() - (U._tSlice || 0) > 200) {
       U._tSlice = performance.now();
       throw U.YIELD;
@@ -190,7 +325,7 @@
     if (!U._passed) U._passed = Object.create(null);
     if (!U._ret) U._ret = Object.create(null);
     if (U._passed[id]) return U._ret[id];
-    if (U.held && label) try { U.touch(p, label, 92); } catch (_) {}
+    if (U.held && label) try { U.touch(p, label, 99); } catch (_) {}
     const r = fn();
     U._ret[id] = r;
     U._passed[id] = 1;
@@ -203,6 +338,9 @@
   U.markPost = function (id) {
     if (!U._passed) U._passed = Object.create(null);
     U._passed['w:' + id] = 1;
+    /* Yield only after the wrapper is marked so a resume skips its post. */
+    try { applyDisplay(); paint(U.shown); } catch (_) {}
+    U.maybeYield();
   };
   U.skipPost = function (id) {
     return !!(U.held && U.genDone && U._passed && U._passed['w:' + id]);
@@ -211,9 +349,13 @@
   U.pulse = function (id, i, n, label, p0, p1) {
     if (!U.held) return;
     if (U._loop) U._loop[id] = i + 1;
-    if (label && n != null) {
+    /* Only paint when a yield is due — touching the DOM on every loop
+       iteration (e.g. 6000 placePools tries) stalls a throttled phone
+       for minutes and the world never reaches ready. */
+    const due = performance.now() - (U._tSlice || 0) > 200;
+    if (due && label && n != null) {
       const a = p0 != null ? p0 : U.real, b = p1 != null ? p1 : a;
-      try { U.touch(a + (b - a) * (i + 1) / Math.max(1, n), label, 92); } catch (_) {}
+      try { U.touch(a + (b - a) * (i + 1) / Math.max(1, n), label, 99); } catch (_) {}
     }
     U.maybeYield();
   };
@@ -226,6 +368,8 @@
     U._gen9 = null;
     U._featX = 0;
     U._plant = null;
+    U._pools = null;
+    U._p1248 = null;
     U._passed = Object.create(null);
     U._ret = Object.create(null);
     U._loop = Object.create(null);
@@ -251,14 +395,13 @@
             U.held = 0;
             throw new Error('generate yield overflow');
           }
-          /* Catch the bar up to real on each yield so the painted % tracks the work. */
-          try {
-            if (U.real > U.shown) {
-              U.shown += (U.real - U.shown) * 0.35;
-              if (U.real - U.shown < 0.35) U.shown = U.real;
-            }
-          } catch (_) {}
+          /* Catch the displayed bar up from the time curve and real work. */
+          try { applyDisplay(); } catch (_) {}
           await yieldPaint();
+          /* Fresh 200ms work budget after the yield. Otherwise the
+             wrapper-chain / paint time already burns the slice and
+             a loop like placePools does one try per yield. */
+          U._tSlice = performance.now();
         }
       }
     }
@@ -273,6 +416,41 @@
     setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
     try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
     return r;
+  };
+
+  /* Mud pools are not needed to enter. Running them inside generate() on a
+     throttled phone never finished (wrapper resume + 6000 site scans), so
+     they are deferred until after the world is playable and stepped with
+     soft yields so they do not hitch the first seconds of play. */
+  U.runDeferredPools = async function () {
+    if (!U._deferPools) return;
+    U._deferPools = 0;
+    U._softHold = 1;
+    U._tSlice = performance.now();
+    try {
+      while (true) {
+        try {
+          const ch = typeof placePools1248 === 'function' ? placePools1248() : (typeof placePools === 'function' ? placePools(7, null) : []);
+          try {
+            if (Array.isArray(ch) && typeof markDirty === 'function') {
+              for (let i = 0; i < ch.length; i++) markDirty(ch[i][0], ch[i][1]);
+            }
+          } catch (_) {}
+          break;
+        } catch (e) {
+          if (!U.isYield(e)) throw e;
+          await new Promise(function (res) {
+            try {
+              const mc = new MessageChannel();
+              mc.port1.onmessage = function () { res(); };
+              mc.port2.postMessage(0);
+            } catch (_) { res(); }
+          });
+          U._tSlice = performance.now();
+        }
+      }
+    } catch (e) { ERR('pools', e); }
+    U._softHold = 0;
   };
 
   /* Take over the original enterWorld rAF lerp so both sources share one meter. */
@@ -316,9 +494,12 @@
             ensureDom();
             if (!U.live) start();
           } else if (U.live && name !== 'loading') {
-            finish();
-            paint(100);
-            setTimeout(function () { try { U.stop(); } catch (_) {} }, 80);
+            if (!U.finishing) finish();
+            /* Do not snap the bar — the 400ms glide should already be at 100. */
+            if (U.shown >= 99.5) {
+              try { paint(U.shown); } catch (_) {}
+              setTimeout(function () { try { U.stop(); } catch (_) {} }, 80);
+            }
           }
         } catch (e) { ERR('ss', e); }
         return ss.apply(this, arguments);

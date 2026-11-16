@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 'use strict';
-/* Fold into the current 1.2.85 tree: do not bump GAME_VERSION past 1.2.85. */
+/* Fold-in later: do NOT bump GAME_VERSION, version.json, PATCH_NOTES, or CREDITS. */
 const fs = require('fs');
 const path = require('path');
 const root = path.resolve(__dirname, '..');
@@ -8,51 +8,61 @@ const root = path.resolve(__dirname, '..');
 function must(cond, msg) { if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 function replaceOnce(s, a, b, label) {
   const n = s.split(a).length - 1;
+  if (n === 0) {
+    if (b && s.includes(b)) { console.log('skip (already applied):', label); return s; }
+    must(false, label + ': expected 1 match, got 0');
+  }
   must(n === 1, label + ': expected 1 match, got ' + n);
   return s.split(a).join(b);
 }
 
 let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-must(html.includes("const GAME_VERSION = '1.2.85';"), 'must stay on 1.2.85');
+must(html.includes("const GAME_VERSION = '1.2.86';"), 'must stay on 1.2.86 (no version bump)');
+must(!html.includes("const GAME_VERSION = '1.2.87';"), 'must not bump to 1.2.87');
 
 const src = fs.readFileSync(path.join(root, 'tools/content-source/loading-1285.js'), 'utf8');
 must(src.includes('GLX-LOAD1285'), 'source marker');
 must(src.includes('__glenLoad'), 'source API');
-
-/* Re-running after the 1.2.85 hands build must not fail: the generate()
-   needles are already replaced. Skip inject when the load1285 fold is present. */
-if (html.includes('<!-- glencraft-build: load1285 -->') && html.includes('/* GLX-LOAD1285') && html.includes('throw __L.YIELD')) {
-  must(html.includes("const GAME_VERSION = '1.2.85';"), 'version still 1.2.85');
-  must((html.split('/* GLX-LOAD1285').length - 1) === 1, 'one LOAD1285 block');
-  console.log('build load1285 already applied, skipping inject, index bytes', html.length);
-  process.exit(0);
-}
-
 
 /* 1) Cooperative GEN9 generate: lattice, columns, ores and features all
       yield every ~200ms and resume from a phase stash. Innermost registers
       as __glenLoad._gen9 and sets genDone so wrapper post-work can be pumped
       separately without re-running terrain. */
 const gen9Old = `function generate() {
+  const __L = window.__glenLoad, __resume = !!(__L && __L.held && __L._g9);
+  let rnd, hash, cav, tun, tri;
+  if (__resume) {
+    rnd = __L._g9.rnd; hash = __L._g9.hash; cav = __L._g9.cav; tun = __L._g9.tun; tri = __L._g9.tri;
+  } else {
   if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0;
   G9P = g9perm(gSeed); genVer = GEN9; NSEED = gSeed;
-  const rnd = g9rng(gSeed ^ 0x9e3779b9), hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  rnd = g9rng(gSeed ^ 0x9e3779b9); hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
   world.fill(T.AIR);
   g9cols = new Int16Array(W * D * 2);
   // cavern density on a coarse 4x4x4 lattice, trilinearly interpolated (64x fewer noise calls)
-  const SX = Math.ceil(W / 4) + 1, SY = Math.ceil(H / 4) + 1, SZ = Math.ceil(D / 4) + 1, cav = new Float32Array(SX * SY * SZ), tun = new Float32Array(SX * SY * SZ);
+  const SX = Math.ceil(W / 4) + 1, SY = Math.ceil(H / 4) + 1, SZ = Math.ceil(D / 4) + 1;
+  cav = new Float32Array(SX * SY * SZ); tun = new Float32Array(SX * SY * SZ);
   for (let i = 0; i < SX; i++) for (let j = 0; j < SY; j++) for (let k = 0; k < SZ; k++) {
     const x = i * 4, y = j * 4, z = k * 4, o = (i * SY + j) * SZ + k;
     cav[o] = g9n3(x / 38, y / 16, z / 38) + 0.5 * g9n3(x / 17, y / 9, z / 17);
     tun[o] = Math.abs(g9n3(x / 26 + 100, y / 15, z / 26 - 50));
   }
-  const tri = (A, x, y, z) => {
+  tri = (A, x, y, z) => {
     const fx = x / 4, fy = y / 4, fz = z / 4, i = Math.floor(fx), j = Math.floor(fy), k = Math.floor(fz), u = fx - i, v = fy - j, w = fz - k;
     const at = (a, b, c) => A[((i + a) * SY + (j + b)) * SZ + (k + c)];
     const L = (a, b, t) => a + (b - a) * t;
     return L(L(L(at(0, 0, 0), at(1, 0, 0), u), L(at(0, 1, 0), at(1, 1, 0), u), v), L(L(at(0, 0, 1), at(1, 0, 1), u), L(at(0, 1, 1), at(1, 1, 1), u), v), w);
   };
-  for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
+  if (__L && __L.held) {
+    __L._g9 = {rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
+    try { __L.touch(6, 'Raising the mountains… 0/' + W, 70); } catch (_) {}
+    throw __L.YIELD;
+  }
+  }
+  const __x0 = (__L && __L.held && __L.genX) || 0;
+  let __tSlice = performance.now();
+  for (let x = __x0; x < W; x++) {
+    for (let z = 0; z < D; z++) {
     const c = g9height(x, z), h = c.h;
     const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
     let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
@@ -77,7 +87,14 @@ const gen9Old = `function generate() {
       const d = tri(cav, x, y, z), t = tri(tun, x, y, z);
       if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
     }
+    }
+    if (__L && __L.held && (performance.now() - __tSlice > 200)) {
+      __L.genX = x + 1;
+      try { __L.touch(6 + 58 * (x + 1) / Math.max(1, W), 'Raising the mountains… ' + (x + 1) + '/' + W, 70); } catch (_) {}
+      throw __L.YIELD;
+    }
   }
+  if (__L && __L.held) { __L.genX = 0; __L._g9 = null; try { __L.touch(66, 'Carving the glens…', 90); } catch (_) {} }
   // ores: veins by depth (rarity per 1000 columns)
   const vein = (ore, n, y0, y1, r) => {
     for (let i = 0; i < n; i++) {
@@ -363,7 +380,7 @@ html = replaceOnce(
 html = replaceOnce(
   html,
   'placePools(7, null);',
-  coopCall('placePools(7, null)', 'pools', 'Planting the glens…', 88) + ';',
+  coopCall('(window.__glenLoad && __glenLoad.live ? ((__glenLoad._deferPools = 1), []) : placePools(7, null))', 'pools', 'Planting the glens…', 88) + ';',
   'coop pools'
 );
 
@@ -484,9 +501,58 @@ const animNew = `  const anim = () => {
   requestAnimationFrame(anim);`;
 html = replaceOnce(html, animOld, animNew, 'anim hook');
 
-const readyOld = "    if (ready && shown > 98.5) {";
-const readyNew = "    if (ready && (shown > 98.5 || (window.__glenLoad && __glenLoad.shown > 98.5))) {";
-html = replaceOnce(html, readyOld, readyNew, 'ready uses shared meter');
+const readyOldA = "    if (ready && shown > 98.5) {";
+const readyOldB = "    if (ready && (shown > 98.5 || (window.__glenLoad && (__glenLoad.shown > 98.5 || __glenLoad.done)))) {";
+const readyNew = "    if (ready && (window.__glenLoad ? __glenLoad.shown > 99.5 : shown > 98.5)) {";
+if (html.includes(readyOldA)) html = replaceOnce(html, readyOldA, readyNew, 'ready waits for the 400ms finish glide');
+else if (html.includes(readyOldB)) html = replaceOnce(html, readyOldB, readyNew, 'ready waits for the 400ms finish glide (folded)');
+else html = replaceOnce(html, readyOldA, readyNew, 'ready waits for the 400ms finish glide');
+
+/* Do not block the finish glide (or the bar) on a synchronous first render —
+   under a throttled phone GPU that present can take many seconds and freeze
+   the meter at ~96%. Start the 400ms glide immediately; present after enter. */
+const firstPresentOld = `      ready = true; loadStep('first render');
+      // 1.2.43: one quick present is enough to enter; full shader compile streams in after playable.
+      try { renderer.render(scene, camera); } catch (e) { loadErr('first render', e); }
+      loadStep('entering the world');
+      target = 100; tip.textContent = 'Ready!';
+      return;`;
+const firstPresentNew = `      ready = true; loadStep('entering the world');
+      target = 100; tip.textContent = 'Ready!';
+      try { if (window.__glenLoad && __glenLoad.finish) __glenLoad.finish(); } catch (_) {}
+      return;`;
+html = replaceOnce(html, firstPresentOld, firstPresentNew, 'ready starts finish glide before first render');
+
+const afterEnterOld = `      try { setTimeout(function () { try { if (dirtyAll || dirtyCh.size) rebuild(80); } catch (_) {} try { if (renderer && renderer.compileAsync) renderer.compileAsync(scene, camera); else if (renderer && renderer.compile) renderer.compile(scene, camera); } catch (_) {} }, 0); } catch (_) {}`;
+const afterEnterNew = `      try { setTimeout(function () { try { if (dirtyAll || dirtyCh.size) rebuild(80); } catch (_) {} try { renderer.render(scene, camera); } catch (e) { loadErr('first render', e); } try { if (renderer && renderer.compileAsync) renderer.compileAsync(scene, camera); else if (renderer && renderer.compile) renderer.compile(scene, camera); } catch (_) {} try { if (window.__glenLoad && __glenLoad.runDeferredPools) __glenLoad.runDeferredPools(); } catch (_) {} }, 0); } catch (_) {}`;
+html = replaceOnce(html, afterEnterOld, afterEnterNew, 'defer first render until after enter');
+
+/* 4d) placePools can scan 6000 candidate sites on an 864 map and freeze the
+   bar for tens of seconds on a throttled phone. Yield every 200ms and resume. */
+const poolsOld = "function placePools(maxN, safe) { const R = Math.random, made = [], cx0 = W >> 1, cz0 = D >> 1, changed = [];\n    for (let tries = 0; tries < 6000 && made.length < maxN; tries++) {";
+const poolsNew = `function placePools(maxN, safe) { const __Lpools = window.__glenLoad; let __st = (__Lpools && __Lpools._pools && __Lpools._pools.maxN === maxN) ? __Lpools._pools : {tries: 0, made: [], changed: [], maxN: maxN}; const R = Math.random, made = __st.made, cx0 = W >> 1, cz0 = D >> 1, changed = __st.changed;
+    for (; __st.tries < 6000 && made.length < maxN; __st.tries++) {
+      try { if (__Lpools && __Lpools.pulse) __Lpools.pulse('pools', __st.tries, 6000, 'Planting the glens…', 86, 88); } catch (e) { if (__Lpools && __Lpools.isYield && __Lpools.isYield(e)) { __Lpools._pools = __st; throw e; } throw e; }`;
+html = replaceOnce(html, poolsOld, poolsNew, 'placePools yields and resumes');
+const poolsEndOld = "    U.placed = made; return changed; }";
+const poolsEndNew = "    if (window.__glenLoad) __glenLoad._pools = null; U.placed = made; return changed; }";
+html = replaceOnce(html, poolsEndOld, poolsEndNew, 'placePools clears resume state');
+
+/* 4e) A later wrapper (placePools1248) replants mud if __c118.placed is empty.
+   After we defer c118 pools during load, this unsliced 8000-try pass froze
+   the bar for tens of seconds. Defer it too, and yield/resume the loop. */
+const p1248CallOld = "if (!have || __c118.placed.length < 4) placePools1248();";
+const p1248CallNew = "if (window.__glenLoad && __glenLoad.live) { __glenLoad._deferPools = 1; } else if (!have || __c118.placed.length < 4) placePools1248();";
+html = replaceOnce(html, p1248CallOld, p1248CallNew, 'defer placePools1248 during load');
+
+const p1248LoopOld = "    for (let tries = 0; tries < 8000 && made.length < want; tries++) {";
+const p1248LoopNew = `    const __L1248 = window.__glenLoad; let __st1248 = (__L1248 && __L1248._p1248) ? __L1248._p1248 : {tries: 0, made: made, changed: changed};
+    if (__st1248.made !== made && __st1248.tries) { made.push.apply(made, __st1248.made); changed.push.apply(changed, __st1248.changed); }
+    __st1248.made = made; __st1248.changed = changed;
+    for (; __st1248.tries < 8000 && made.length < want; __st1248.tries++) {
+      try { if (__L1248 && __L1248.pulse) __L1248.pulse('p1248', __st1248.tries, 8000, 'Planting the glens…', 86, 88); } catch (e) { if (__L1248 && __L1248.isYield && __L1248.isYield(e)) { __L1248._p1248 = __st1248; throw e; } throw e; }`;
+html = replaceOnce(html, p1248LoopOld, p1248LoopNew, 'placePools1248 yields and resumes');
+
 
 
 /* 4b) The 20s "full rebuild" used rebuild() with no budget and stalled the meter.
@@ -571,13 +637,22 @@ html = replaceOnce(
   'loadW markup'
 );
 
-/* 6) Append the runtime once, before the closing script. */
-if (!html.includes('/* GLX-LOAD1285')) {
-  const needle = '\n</script>\n</body>\n</html>';
-  must(html.endsWith(needle) || html.slice(-needle.length) === needle || html.includes(needle), 'closing script found');
-  const idx = html.lastIndexOf('\n</script>\n</body>\n</html>');
-  must(idx > 0, 'closing script index');
-  html = html.slice(0, idx) + '\n' + src + '\n' + html.slice(idx);
+/* 6) Insert or replace the runtime once, before the closing script. */
+{
+  const startMark = '/* GLX-LOAD1285';
+  const endMark = "})(typeof window !== 'undefined' ? window : this);";
+  const start = html.indexOf(startMark);
+  if (start >= 0) {
+    const end = html.indexOf(endMark, start);
+    must(end > start, 'existing LOAD1285 runtime end');
+    html = html.slice(0, start) + src + html.slice(end + endMark.length);
+  } else {
+    const needle = '\n</script>\n</body>\n</html>';
+    must(html.endsWith(needle) || html.slice(-needle.length) === needle || html.includes(needle), 'closing script found');
+    const idx = html.lastIndexOf('\n</script>\n</body>\n</html>');
+    must(idx > 0, 'closing script index');
+    html = html.slice(0, idx) + '\n' + src + '\n' + html.slice(idx);
+  }
 }
 
 if (!html.includes('<!-- glencraft-build: load1285 -->')) {
@@ -590,9 +665,10 @@ if (!html.includes('<!-- glencraft-build: load1285 -->')) {
   );
 }
 
-/* Safety: stay on the current 1.2.85 release, do not roll the version back. */
-must(html.includes("const GAME_VERSION = '1.2.85';"), 'version still 1.2.85');
-must(html.includes('"v":"v1.2.85"'), '1.2.85 patch notes stay');
+/* Safety: no version bump to 1.2.87. 1.2.86 notes already on this tree stay. */
+must(html.includes("const GAME_VERSION = '1.2.86';"), 'version still 1.2.86');
+must(!html.includes("const GAME_VERSION = '1.2.87';"), 'no 1.2.87 version bump');
+must(!html.includes('"v":"v1.2.87"'), 'no 1.2.87 patch notes');
 must(html.includes('/* GLX-LOAD1285'), 'runtime present');
 must(html.includes('__glenLoad.generate'), 'deferred generate present');
 must(html.includes('throw __L.YIELD'), 'column yield present');
@@ -604,7 +680,7 @@ must(html.includes('liquid1285'), 'liquid markup present');
 must((html.split('/* GLX-LOAD1285').length - 1) === 1, 'one LOAD1285 block');
 
 const vj = fs.readFileSync(path.join(root, 'version.json'), 'utf8');
-must(JSON.parse(vj).v === '1.2.85', 'version.json stays 1.2.85');
+must(JSON.parse(vj).v === '1.2.86', 'version.json stays 1.2.86');
 
 fs.writeFileSync(path.join(root, 'index.html'), html);
-console.log('build load1285 ok, index bytes', html.length, 'version stays 1.2.85');
+console.log('build load1285 ok, index bytes', html.length, 'version stays 1.2.86');

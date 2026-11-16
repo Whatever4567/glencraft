@@ -144,6 +144,10 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.87 Loading bar
+
+- The loading bar fills on a time curve for the whole load, so it keeps moving instead of sitting at 84% while the world finishes. After a hitch it catches up at most 8% per second, and the last stretch creeps toward 99 until the world is ready.
+
 ## v1.2.86 Smoother performance
 
 - The game runs more smoothly: first-person arm movement no longer piles up extra work while you play (the 1.2.80–1.2.82 sculpt wrappers were wrapping each other every second), and the crafting grid is only rebuilt when recipes actually change.
