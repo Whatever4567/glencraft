@@ -18,15 +18,18 @@
     err: null, on: 1, version: '1.2.85-tp-hand',
     /* t1225: blocky prism pieces off; detail lives in the skin shader. */
     prism: 0, cuffFolds: 0, bump: 0,
-    /* t1224: keep the pistol (and both wrists) at a visible hip spot
-       in camera space, clearly in front of the near plane. FRAME.pistol
-       no longer pushes the gun closer / down off the screen. */
-    pistolPush: 1,
+    /* C350 viewmodel + FRAME.pistol own the hip spot. Chasing the gun
+       with a world delta threw the __fpa wrists off-camera once the
+       viewmodel moved `held`. Left off; the safer push stays in the file. */
+    pistolPush: 0,
     /* gripLock can slide the glove off the cuff when the handle is far
        from the fist; left off so the hand stays on the linen sleeve.
        Tight fists come from bone curls; the pistol stays visible because
        the 1.2.80 FRAME rest nudge is zeroed in sculpt-1280. */
     gripLock: 0,
+    /* Bake each held-item fist into a non-skinned mesh so the glove
+       skeleton is not skinned or walked every frame. Hidden, not deleted. */
+    bakePose: 0,
     gunGripF: 0.30,
     attached: 0, hidden: 0, loaded: 0, kind: '',
     tune: { scale: 1, x: 0, y: -0.012, z: 0, rx: 0, ry: 3.14159, rz: 0 },
@@ -40,10 +43,10 @@
       bucket: { x: 0, y: 0.01, z: 0.00 },
       torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
-      pick:   { x: 0, y: 0.03, z: 0.00 },
-      p761:   { x: 0, y: 0.03, z: 0.00 },
-      p760:   { x: 0, y: 0.03, z: 0.00 },
-      pistol: { x: 0.02, y: -0.08, z: -0.02 },
+      pick:   { x: -0.04, y: 0.00, z: 0.12 },
+      p761:   { x: -0.04, y: 0.00, z: 0.12 },
+      p760:   { x: -0.04, y: 0.00, z: 0.12 },
+      pistol: { x: 0.02, y: -0.04, z: -0.02 },
       musket: { x: 0.00, y: 0.00, z: 0.02 }
     }
   };
@@ -83,9 +86,12 @@
     bucket: fist(),
     torch: fist(),
     sword: fist(),
-    pick: fist(),
-    p761: fist(),
-    p760: fist(),
+    /* Tight wrap around the pick shaft, short of a skin collapse. */
+    pick: {
+      p: [1.48, 1.56, 1.56, 1.44].map(v => S * v),
+      d: [1.55, 1.64, 1.64, 1.50].map(v => S * v),
+      t: [1.18 * S, 1.08 * S], tY: 0.88, tZ: 0.58
+    },
     axe: fist(),
     shovel: fist(),
     hoe: fist(),
@@ -111,6 +117,8 @@
       t: [0.40 * S, 0.28 * S], tY: 0.18, tZ: 0.10
     }
   };
+  POSES.p761 = POSES.pick;
+  POSES.p760 = POSES.pick;
   POSES.default = POSES.empty;
 
   const KIND_BY_ID = {
@@ -399,37 +407,33 @@
         v.fromBufferAttribute(pos, i).applyMatrix4(bm).applyMatrix4(inv);
         if (v.y < minY) minY = v.y;
         if (v.y > maxY) maxY = v.y;
-        /* +Y along fingers, -Y down the forearm. Keep the wrist, clip the
-           long TP forearm so the cream linen cuff can show under it. */
-        mask[i] = v.y < -0.022 ? 0 : 1;
-        if (!mask[i]) cut++;
+        /* Store hand-local Y. The fragment shader discards below uFpCuffCut
+           so tools can show the linen cuff at the wrist, while musket keeps
+           enough forearm to leave the frame (no clipped stump). Vertices
+           and normals stay as in the bind; collapsing them and calling
+           computeVertexNormals() was re-lighting the palm as dirty tan. */
+        mask[i] = v.y;
+        if (v.y < -0.022) cut++;
       }
     } else {
       for (let i = 0; i < n; i++) mask[i] = 1;
     }
     g.setAttribute('aFpHand1285', new T.BufferAttribute(mask, 1));
-    /* Collapse discarded forearm verts to a short wrist stump on the clone
-       only, so the cream linen cuff shows even if the discard shader misses. */
-    if (hi >= 0 && invs && invs[hi] && cut > 0) {
-      const toHand = new T.Matrix4().multiplyMatrices(invs[hi], bm);
-      const toBind = toHand.clone().invert();
-      const cutY = -0.022;
-      for (let i = 0; i < n; i++) {
-        if (mask[i] > 0.5) continue;
-        v.fromBufferAttribute(pos, i).applyMatrix4(toHand);
-        /* Collapse to a wrist-ring, not a needle, so the cuff can sit around it. */
-        const rad = Math.hypot(v.x, v.z) || 1e-6;
-        const r = Math.min(0.028, rad * 0.55);
-        v.x = v.x / rad * r;
-        v.z = v.z / rad * r;
-        v.y = cutY;
-        v.applyMatrix4(toBind);
-        pos.setXYZ(i, v.x, v.y, v.z);
-      }
-      pos.needsUpdate = true;
-      if (g.computeVertexNormals) g.computeVertexNormals();
-    }
     U.cuffStats = { side: side, minY: +minY.toFixed(3), maxY: +maxY.toFixed(3), cut: cut, n: n, hi: hi };
+  }
+
+  function cuffCutValue() {
+    /* Musket looks down the forearm, so the wrist cut must sit off-screen.
+       Tools keep a short cut so the cream linen cuff can show at the wrist. */
+    if (U.kind === 'musket') return -0.10;
+    if (U.kind === 'pistol') return -0.08;
+    return -0.022;
+  }
+  function syncCuffCut() {
+    const v = cuffCutValue();
+    const list = U._cuffUni;
+    if (!list) return;
+    for (let i = 0; i < list.length; i++) if (list[i]) list[i].value = v;
   }
 
   function patchMat(m, skin) {
@@ -441,7 +445,7 @@
       if (typeof prev === 'function') prev.call(this, sh, r);
       if (sh.vertexShader.indexOf('aFpHand1285') < 0) {
         const declV = 'attribute float aFpHand1285;\nvarying float vFpHand1285;';
-        const declF = 'varying float vFpHand1285;';
+        const declF = 'varying float vFpHand1285;\nuniform float uFpCuffCut;';
         function injectDecl(src, decl) {
           if (src.indexOf('#include <common>') >= 0)
             return src.replace('#include <common>', '#include <common>\n' + decl);
@@ -453,7 +457,10 @@
         else
           sh.vertexShader = sh.vertexShader.replace(/void main\s*\(\s*\)\s*\{/, 'void main() {\nvFpHand1285 = aFpHand1285;');
         sh.fragmentShader = injectDecl(sh.fragmentShader, declF);
-        sh.fragmentShader = sh.fragmentShader.replace(/void main\s*\(\s*\)\s*\{/, 'void main() {\nif (vFpHand1285 < 0.28) discard;');
+        if (!sh.uniforms.uFpCuffCut) sh.uniforms.uFpCuffCut = { value: cuffCutValue() };
+        U._cuffUni = U._cuffUni || [];
+        U._cuffUni.push(sh.uniforms.uFpCuffCut);
+        sh.fragmentShader = sh.fragmentShader.replace(/void main\s*\(\s*\)\s*\{/, 'void main() {\nif (vFpHand1285 < uFpCuffCut) discard;');
         U.shaderHook = 1;
       }
       if (!skin) return;
@@ -467,13 +474,13 @@
       frag = frag.replace('#include <lights_physical_fragment>', `
         {
           float cr = smoothstep(0.22, 0.85, vCrease1282);
-          /* Fold AO, warm blood in the crease, knuckle sheen, pale glossy nails. */
-          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.82, 0.74, 0.70), cr * 0.55);
+          /* Fold AO kept mild and cool so it does not dirty the cream skin. */
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.90, 0.87, 0.85), cr * 0.32);
           float kn = clamp(vKnk1282 * 1.8, 0.0, 1.0);
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.22 + vec3(0.05, 0.03, 0.025), kn);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.12 + vec3(0.03, 0.03, 0.03), kn);
           float nl = smoothstep(0.12, 0.55, vNail1282);
-          vec3 nailC = diffuseColor.rgb * vec3(1.28, 1.10, 1.04) + vec3(0.12, 0.07, 0.06);
-          nailC = mix(nailC, nailC + vec3(0.12, 0.10, 0.08), smoothstep(0.7, 1.0, vNail1282));
+          vec3 nailC = diffuseColor.rgb * vec3(1.16, 1.12, 1.10) + vec3(0.08, 0.07, 0.07);
+          nailC = mix(nailC, nailC + vec3(0.08, 0.08, 0.08), smoothstep(0.7, 1.0, vNail1282));
           diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.85);
           roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.15, 0.75, vNail1282));
           roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.22), smoothstep(0.08, 0.85, vCrease1282));
@@ -496,10 +503,18 @@
           float lifeF = 0.95 - 1.25 * pow(clamp((hA - 0.12) / 0.78, 0.0, 1.0), 1.5);
           float life = exp(-pow((hF - lifeF) / 0.09, 2.0)) * smoothstep(0.14, 0.28, hA) * (1.0 - smoothstep(0.82, 0.92, hA));
           float pcr = pc * max(max(heart, headL), life);
-          diffuseColor.rgb *= 1.0 + tend * 0.05 + kb * 0.045;
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.90, 0.92, 0.97), clamp(vein, 0.0, 1.0) * 0.12);
-          diffuseColor.rgb *= 1.0 - clamp(pcr * 0.09, 0.0, 0.09);
-          roughnessFactor = mix(roughnessFactor, max(0.22, roughnessFactor - 0.10), clamp(kb + tend * 0.4, 0.0, 1.0) * 0.5);
+          diffuseColor.rgb *= 1.0 + tend * 0.035 + kb * 0.03;
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.92, 0.93, 0.96), clamp(vein, 0.0, 1.0) * 0.08);
+          diffuseColor.rgb *= 1.0 - clamp(pcr * 0.06, 0.0, 0.06);
+          roughnessFactor = mix(roughnessFactor, max(0.22, roughnessFactor - 0.08), clamp(kb + tend * 0.4, 0.0, 1.0) * 0.4);
+          /* Pale/cream grade: match the 45e632a glove and t1214 refs.
+             Desaturate the orange-brown and lift toward cream. */
+          {
+            float luma = dot(diffuseColor.rgb, vec3(0.30, 0.54, 0.16));
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(luma), 0.30);
+            diffuseColor.rgb *= vec3(1.18, 1.12, 1.08);
+            diffuseColor.rgb = min(diffuseColor.rgb, vec3(1.0));
+          }
         }
         #include <lights_physical_fragment>`);
       sh.fragmentShader = frag;
@@ -1138,6 +1153,7 @@
     const align = new T.Group();
     align.userData.fpTpHand1285 = 1;
     wrap.add(align);
+    hookAlignBake(align, T);
 
     const srcHand = srcBones.find(function (b) { return norm(b.name) === 'hand' + side; });
     const invH = new T.Matrix4().copy(srcHand.matrixWorld).invert();
@@ -1228,6 +1244,14 @@
         if (U.sides.R) applyTune(U.sides.R);
         if (U.sides.L) applyTune(U.sides.L);
       } else applyTune(state);
+      try {
+        if (U.bakePose) {
+          if (U.sides) {
+            if (U.sides.R) bakeSidePose(U.sides.R, T);
+            if (U.sides.L) bakeSidePose(U.sides.L, T);
+          } else bakeSidePose(state, T);
+        }
+      } catch (e) { ERR('bakePose', e); }
       hookGunDraw(T);
       applyViewOff(T);
     }
@@ -1237,7 +1261,12 @@
 
   function applyTune(state) {
     const t = U.tune;
-    const seat = (U.seat && U.seat[U.kind]) || (U.seat && U.seat.empty) || {};
+    const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1 };
+    let seat = (U.seat && U.seat[U.kind]) || (U.seat && U.seat.empty) || {};
+    /* Seat offsets are for the holding hand. Applying them to the left
+       glove slid it into the play camera (two overlapping fists). */
+    if (state.side === 'L' && ONE_HAND[U.kind]) seat = (U.seat && U.seat.empty) || {};
+    if (state.wrap) state.wrap.visible = !(state.side === 'L' && ONE_HAND[U.kind]);
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
     const s = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
@@ -1391,17 +1420,20 @@
   function pushByWorld(obj, dWorld, tag, T) {
     if (!obj || !obj.parent) return;
     const tmp = viewTmp(T);
-    const cur = obj.position;
-    if (obj.userData._fpPushTag === tag && obj.userData._fpPushOut && cur.distanceToSquared(obj.userData._fpPushOut) < 1e-10) return;
-    if (!obj.userData._fpPushIn) obj.userData._fpPushIn = cur.clone();
-    else obj.userData._fpPushIn.copy(cur);
+    /* Capture the unpushed rest once. Re-copying the already-pushed
+       position into _fpPushIn accumulated a huge world delta and sent
+       the wrists off-camera (hand at camera-space ~400). */
+    if (obj.userData._fpPushTag !== tag || !obj.userData._fpPushIn) {
+      obj.userData._fpPushIn = obj.position.clone();
+      obj.userData._fpPushTag = tag;
+    }
+    obj.position.copy(obj.userData._fpPushIn);
     obj.parent.updateWorldMatrix(true, false);
     obj.getWorldPosition(tmp.w).add(dWorld);
     obj.parent.worldToLocal(tmp.w);
     obj.position.copy(tmp.w);
     if (!obj.userData._fpPushOut) obj.userData._fpPushOut = obj.position.clone();
     else obj.userData._fpPushOut.copy(obj.position);
-    obj.userData._fpPushTag = tag;
   }
   function viewTmp(T) {
     return U._viewTmp || (U._viewTmp = {
@@ -1465,12 +1497,19 @@
         return;
       }
       if (!cam || !heldObj || !heldObj.parent) return;
+      try { if (W.__vm && W.__vm.on) return; } catch (_) {}
       cam.updateMatrixWorld(true);
+      /* Measure from the unpushed rest so the delta is stable. */
+      if (heldObj.userData && heldObj.userData._fpPushIn) heldObj.position.copy(heldObj.userData._fpPushIn);
+      for (let i = 0; i < wrists.length; i++) {
+        const wri = wrists[i];
+        if (wri && wri.userData && wri.userData._fpPushIn) wri.position.copy(wri.userData._fpPushIn);
+      }
       heldObj.updateMatrixWorld(true);
       tmp.inv.copy(cam.matrixWorld).invert();
       heldObj.getWorldPosition(tmp.cur).applyMatrix4(tmp.inv);
-      /* Low, large, bottom-right, and clearly in front of the near plane. */
-      tmp.target.set(0.16, -0.22, -0.30);
+      /* Natural hip height, bottom-right, clearly in front of the near plane. */
+      tmp.target.set(0.14, -0.12, -0.32);
       tmp.w.copy(tmp.target).sub(tmp.cur);
       if (tmp.w.lengthSq() < 1e-8) return;
       cam.getWorldQuaternion(tmp.q);
@@ -1481,6 +1520,140 @@
       for (let i = 0; i < wrists.length; i++) pushByWorld(wrists[i], tmp.w, tag, T);
       U.viewOff = 1;
     } catch (e) { ERR('view', e); }
+  }
+
+  /* Bake the posed glove into a non-skinned mesh (one cache entry per
+     held kind). The SkinnedMesh and its bone graph stay in memory but
+     are hidden / skipped, so finger skinning is not paid every frame.
+     The baked mesh is parented to the same align group, so it still
+     follows the __fpa wrist and arm animations. */
+  function bakeSkinnedMesh(mesh, T) {
+    if (!mesh || !mesh.isSkinnedMesh || !mesh.skeleton || !mesh.geometry) return null;
+    const src = mesh.geometry;
+    const si = src.attributes.skinIndex, sw = src.attributes.skinWeight;
+    const spos = src.attributes.position;
+    if (!si || !sw || !spos) return null;
+    const geo = src.clone();
+    const pos = geo.attributes.position;
+    const snrm = src.attributes.normal;
+    const nrm = geo.attributes.normal;
+    const bones = mesh.skeleton.bones, invs = mesh.skeleton.boneInverses;
+    const bind = mesh.bindMatrix, bindI = mesh.bindMatrixInverse;
+    const skinM = [];
+    const nM = [];
+    const tmpM = new T.Matrix4();
+    for (let i = 0, n = bones.length; i < n; i++) {
+      const M = new T.Matrix4();
+      M.multiplyMatrices(bones[i] ? bones[i].matrixWorld : tmpM, invs[i] || tmpM);
+      M.multiply(bind);
+      skinM[i] = M;
+      nM[i] = new T.Matrix3().getNormalMatrix(M);
+    }
+    const bindIN = new T.Matrix3().getNormalMatrix(bindI);
+    const v = new T.Vector3(), acc = new T.Vector3(), tV = new T.Vector3();
+    const n = new T.Vector3(), nacc = new T.Vector3();
+    for (let i = 0, vn = spos.count; i < vn; i++) {
+      const ix = si.getX(i), iy = si.getY(i), iz = si.getZ(i), iw = si.getW(i);
+      const wx = sw.getX(i), wy = sw.getY(i), wz = sw.getZ(i), ww = sw.getW(i);
+      v.fromBufferAttribute(spos, i);
+      acc.set(0, 0, 0);
+      if (wx > 0) acc.addScaledVector(tV.copy(v).applyMatrix4(skinM[ix] || tmpM), wx);
+      if (wy > 0) acc.addScaledVector(tV.copy(v).applyMatrix4(skinM[iy] || tmpM), wy);
+      if (wz > 0) acc.addScaledVector(tV.copy(v).applyMatrix4(skinM[iz] || tmpM), wz);
+      if (ww > 0) acc.addScaledVector(tV.copy(v).applyMatrix4(skinM[iw] || tmpM), ww);
+      acc.applyMatrix4(bindI);
+      pos.setXYZ(i, acc.x, acc.y, acc.z);
+      if (snrm && nrm) {
+        n.fromBufferAttribute(snrm, i);
+        nacc.set(0, 0, 0);
+        if (wx > 0) nacc.addScaledVector(tV.copy(n).applyMatrix3(nM[ix]), wx);
+        if (wy > 0) nacc.addScaledVector(tV.copy(n).applyMatrix3(nM[iy]), wy);
+        if (wz > 0) nacc.addScaledVector(tV.copy(n).applyMatrix3(nM[iz]), wz);
+        if (ww > 0) nacc.addScaledVector(tV.copy(n).applyMatrix3(nM[iw]), ww);
+        nacc.applyMatrix3(bindIN);
+        const len = nacc.length() || 1;
+        nrm.setXYZ(i, nacc.x / len, nacc.y / len, nacc.z / len);
+      }
+    }
+    pos.needsUpdate = true;
+    if (nrm) nrm.needsUpdate = true;
+    let mat = mesh.material;
+    if (Array.isArray(mat)) mat = mat.map(function (m) { return m.clone(); });
+    else if (mat && mat.clone) mat = mat.clone();
+    const mats = Array.isArray(mat) ? mat : [mat];
+    for (let j = 0; j < mats.length; j++) {
+      if (!mats[j]) continue;
+      mats[j].skinning = false;
+      mats[j].needsUpdate = true;
+      const prevKey = mats[j].customProgramCacheKey;
+      mats[j].customProgramCacheKey = function () {
+        const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
+        return k + '|fpBake';
+      };
+    }
+    const out = new T.Mesh(geo, mat);
+    out.name = (mesh.name || 'fpHand') + 'Baked';
+    out.userData.fpTpHand1285 = 1;
+    out.userData.fpBaked1285 = 1;
+    out.frustumCulled = false;
+    out.castShadow = false;
+    out.renderOrder = 2;
+    out.position.copy(mesh.position);
+    out.quaternion.copy(mesh.quaternion);
+    out.scale.copy(mesh.scale);
+    return out;
+  }
+  function hookAlignBake(align, T) {
+    if (!align || align.updateMatrixWorld.__fpBake) return;
+    const prev = align.updateMatrixWorld;
+    align.updateMatrixWorld = function (force) {
+      if (this.userData && this.userData.fpBakedPose) {
+        if (this.matrixAutoUpdate) this.updateMatrix();
+        if (this.parent === null) this.matrixWorld.copy(this.matrix);
+        else this.matrixWorld.multiplyMatrices(this.parent.matrixWorld, this.matrix);
+        const ch = this.children;
+        for (let i = 0; i < ch.length; i++) {
+          const c = ch[i];
+          if (!c || c.isBone) continue;
+          if (c.isSkinnedMesh && c.visible === false) continue;
+          c.updateMatrixWorld(force);
+        }
+        return;
+      }
+      return prev.call(this, force);
+    };
+    align.updateMatrixWorld.__fpBake = 1;
+  }
+  function bakeSidePose(state, T) {
+    if (!state || !U.bakePose || !T) return;
+    const kind = U.kind || 'empty';
+    const poseName = (state.side === 'L' && (kind === 'pistol' || kind === 'musket')) ? 'support' : kind;
+    const key = kind + ':' + poseName;
+    if (state.bakedKey === key) return;
+    if (state.align && state.align.userData) state.align.userData.fpBakedPose = 0;
+    try { state.align.updateMatrixWorld(true); } catch (_) {}
+    try { if (state.skeleton && state.skeleton.update) state.skeleton.update(); } catch (_) {}
+    if (!state.bakedByKind) state.bakedByKind = {};
+    let bag = state.bakedByKind[key];
+    if (!bag) {
+      bag = { meshes: [] };
+      for (let i = 0; i < state.meshes.length; i++) {
+        try {
+          const baked = bakeSkinnedMesh(state.meshes[i], T);
+          if (baked) { state.align.add(baked); bag.meshes.push(baked); }
+        } catch (e) { ERR('bake', e); }
+      }
+      state.bakedByKind[key] = bag;
+      U.baked = (U.baked || 0) + 1;
+    }
+    for (const k in state.bakedByKind) {
+      const show = k === key;
+      const ms = state.bakedByKind[k].meshes;
+      for (let i = 0; i < ms.length; i++) ms[i].visible = show;
+    }
+    for (let i = 0; i < state.meshes.length; i++) state.meshes[i].visible = false;
+    if (state.align && state.align.userData) state.align.userData.fpBakedPose = 1;
+    state.bakedKey = key;
   }
 
   function poseState(state, name) {
@@ -1511,7 +1684,7 @@
     return { x: +w.x.toFixed(3), y: +w.y.toFixed(3), z: +w.z.toFixed(3) };
   }
   function debugSeat() {
-    const out = { kind: U.kind, cuff: U.cuffStats || null, sculpted: U.sculpted || 0, sculptVerts: U.sculptVerts || 0, cuffDressed: U.cuffDressed || 0 };
+    const out = { kind: U.kind, cuff: U.cuffStats || null, sculpted: U.sculpted || 0, sculptVerts: U.sculptVerts || 0, cuffDressed: U.cuffDressed || 0, baked: U.baked || 0, bakePose: U.bakePose };
     try {
       const T = T3(); if (!T || !U.sides || !U.sides.R) return out;
       const st = U.sides.R;
@@ -1561,10 +1734,12 @@
     const right = POSES[kind] ? kind : 'empty';
     if (U.sides.R) poseState(U.sides.R, right);
     if (U.sides.L) {
-      const left = (kind === 'pistol' || kind === 'musket') ? 'support' : right;
+      const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1 };
+      const left = (kind === 'pistol' || kind === 'musket') ? 'support' : (ONE_HAND[kind] ? 'empty' : right);
       poseState(U.sides.L, left);
     }
     U.kind = kind;
+    syncCuffCut();
   }
 
   function attach() {
