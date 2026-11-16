@@ -92,7 +92,7 @@ const loopEnd = `      if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.
 const loopEndNew = `      if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
     }
     }
-    if (__L && __L.held && (performance.now() - __tSlice > 40)) {
+    if (__L && __L.held && (performance.now() - __tSlice > 200)) {
       __L.genX = x + 1;
       try { __L.touch(6 + 58 * (x + 1) / Math.max(1, W), 'Raising the mountains… ' + (x + 1) + '/' + W, 70); } catch (_) {}
       throw __L.YIELD;
@@ -143,10 +143,18 @@ const readyNew = "    if (ready && (shown > 98.5 || (window.__glenLoad && (__gle
 html = replaceOnce(html, readyOld, readyNew, 'ready uses shared meter');
 
 
-/* 4b) The 20s "full rebuild" used rebuild() with no budget and stalled the meter. */
+/* 4b) The 20s "full rebuild" used rebuild() with no budget and stalled the meter.
+      Also: do not dirtyAll (that disposes already-meshed spawn chunks). */
 const rbOld = "console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(); }";
-const rbNew = "console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(32); }";
+const rbNew = "console.error('load: land still not built after 20 s - full rebuild'); try { rebuild(150); }";
 html = replaceOnce(html, rbOld, rbNew, 'bounded 20s rebuild');
+
+/* 4c) While loading, mesh R=2 so the floor(P/CH)±1 ring chunksReady tests is
+      fully covered. Stream rebuild uses P/CH-0.5, so R=1 misses the far side
+      and the loader sits at 4/9 until the 45s give-up. LOAD_R stays 1 (9 chunks). */
+const srOld = "try { if (!started || (typeof screen !== 'undefined' && screen === 'loading')) { const lr = (window.__loadChunkR != null ? window.__loadChunkR : 1); if (_sr > lr) _sr = lr; } } catch (_) {}";
+const srNew = "try { if (!started || (typeof screen !== 'undefined' && screen === 'loading')) { const lr = (window.__loadChunkR != null ? window.__loadChunkR : 1); const meshR = Math.max(lr, 2); if (_sr > meshR) _sr = meshR; } } catch (_) {}";
+html = replaceOnce(html, srOld, srNew, 'load mesh ring R=2');
 
 /* 5) Liquid markup (firstChild stays the fill so existing width writes still work). */
 html = replaceOnce(

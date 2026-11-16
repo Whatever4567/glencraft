@@ -18,6 +18,13 @@ ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runti
 ok(html.includes('id="loadW"') && html.includes('liquid1285'), 'liquid load bar markup');
 ok(html.includes('load-fill') && html.includes('load-wave'), 'fill + wave elements');
 ok(src.includes('setReal') && src.includes('yieldPaint') && src.includes('__glenLoad'), 'source has meter API');
+ok(src.includes('MessageChannel') && !/setTimeout\(res, 0\)/.test(src), 'yields use MessageChannel + rAF, not setTimeout(0)');
+ok(html.includes('performance.now() - __tSlice > 200'), 'column loop yields about every 200ms of work');
+ok(!html.includes('performance.now() - __tSlice > 40') && !html.includes('performance.now() - __tSlice > 8'), 'old 8ms/40ms yield cadence is gone');
+ok(src.includes('quiet3d') && src.includes('return !!U.held'), '3D render/step are skipped only while generate is running');
+ok(src.includes('if (U.held) return') && src.includes('budget == null) budget = 150'), 'generate does not mesh; unbounded rebuild is 150ms, rebuild(150) is unchanged');
+ok(html.includes("full rebuild'); try { rebuild(150); }") && !html.includes('dirtyAll = true; rebuild(150)'), '20s land retry keeps already-meshed chunks (no dirtyAll wipe)');
+ok(html.includes('const meshR = Math.max(lr, 2)') && html.includes('const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1)'), 'load meshes R=2 but still enters after 9 spawn chunks');
 ok(html.includes('await __glenLoad.generate()'), 'new survival generate is awaited');
 ok(html.includes("enterWorld = async function (save)"), 'survival map wrapper is async');
 ok(html.includes('throw __L.YIELD'), 'column loop yields to the browser');

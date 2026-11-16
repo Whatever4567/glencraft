@@ -25,9 +25,19 @@
 
   function $(id) { return document.getElementById(id); }
 
+  /* MessageChannel yields a macrotask without setTimeout's 4ms/1s clamp.
+     One rAF after that lets the browser composite the DOM bar — no 3D. */
+  const _mc = new MessageChannel();
+  _mc.port1.start();
   function yieldPaint() {
+    try { paint(U.shown); } catch (_) {}
+    // Kick a frame so the already-updated DOM bar can composite, but do
+    // not wait for rAF — headless and background tabs throttle it, and
+    // awaiting it was adding seconds of idle time between slices.
+    try { requestAnimationFrame(function () {}); } catch (_) {}
     return new Promise(function (res) {
-      requestAnimationFrame(function () { setTimeout(res, 0); });
+      try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
+      catch (_) { res(); }
     });
   }
   U.yieldPaint = yieldPaint;
@@ -91,6 +101,7 @@
     U.done = 1;
     U.cap = 100;
     U.real = 100;
+    U.shown = 100;
   }
   U.finish = finish;
 
@@ -158,7 +169,6 @@
     try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
     start(label || 'Preparing your glen…');
     await yieldPaint();
-    await yieldPaint();
   };
 
   U.generate = async function () {
@@ -168,6 +178,7 @@
     if (typeof generate !== 'function') throw new Error('generate missing');
     const g = generate;
     let guarded = 0;
+    const t0 = performance.now();
     while (true) {
       try {
         const r = g.apply(null, arguments);
@@ -175,6 +186,7 @@
         U._g9 = null;
         U.genX = 0;
         setReal(Math.max(U.real, 68), 'Building the land around you…', 99);
+        try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
         return r;
       } catch (e) {
         if (!U.isYield(e)) {
@@ -245,19 +257,50 @@
   } catch (e) { ERR('ssw', e); }
 
   /* Also creep-report from applySave so saved worlds are not a silent gap. */
-  /* Never run an unbounded rebuild behind the loading screen — that is a
-     multi-second main-thread stall, so the meter cannot paint or creep. */
+  /* During generate, do not mesh or draw the 3D scene — only the DOM bar.
+     Unbounded rebuild() on the loading screen is capped to the same 150ms
+     budget the loader already uses; rebuild(150) is left alone so land
+     meshing is not slower than 1.2.84. */
   try {
     if (typeof rebuild === 'function' && !rebuild.__load1285) {
       const rb = rebuild;
       rebuild = function (budget) {
-        if (U.live && (budget == null || budget > 32)) budget = 32;
+        if (U.held) return;
+        if (U.live && budget == null) budget = 150;
         return rb.apply(this, arguments);
       };
       rebuild.__load1285 = 1;
       try { WIN.rebuild = rebuild; } catch (_) {}
     }
   } catch (e) { ERR('rb', e); }
+
+  /* Only mute the 3D scene while generate() itself is on the stack.
+     After that the loader must mesh and present like 1.2.84, or the first
+     enter-frame pays a huge cold compile/render bill. */
+  function quiet3d() {
+    return !!U.held;
+  }
+  U.quiet3d = quiet3d;
+  try {
+    if (typeof render === 'function' && !render.__load1285) {
+      const rd = render;
+      render = function () {
+        if (quiet3d()) return;
+        return rd.apply(this, arguments);
+      };
+      render.__load1285 = 1;
+    }
+  } catch (e) { ERR('rd', e); }
+  try {
+    if (typeof step === 'function' && !step.__load1285) {
+      const st = step;
+      step = function () {
+        if (quiet3d()) return 0;
+        return st.apply(this, arguments);
+      };
+      step.__load1285 = 1;
+    }
+  } catch (e) { ERR('st', e); }
 
   try {
     if (typeof applySave === 'function' && !applySave.__load1285) {

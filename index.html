@@ -18600,7 +18600,7 @@ function enterWorld(save) {
       const cn = chunksReady.need || 9, cg = chunksReady.got || 0; target = Math.max(target, 70 + 29 * cg / Math.max(1, cn)); tip.textContent = (i <= LOAD_STEPS.length ? LOAD_STEPS[Math.min(i, LOAD_STEPS.length - 1)] + '... ' : '') + 'Building the land around you... ' + cg + '/' + cn;
       loadStep('building the land ' + cg + '/' + cn + ' (' + Math.round((performance.now() - t0) / 1000) + ' s)');
       if (!enterWorld._fb) { enterWorld._fb = 1; const fb = () => { if (screen !== 'loading' || ready) { enterWorld._fb = 0; return; } try { if (dirtyAll || dirtyCh.size) rebuild(25); } catch (e) {} requestAnimationFrame(fb); }; requestAnimationFrame(fb); }   // keep meshing between ticks so the land is ready sooner
-      if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { dirtyAll = true; rebuild(32); } catch (e) { console.error('load: full rebuild', e); } }
+      if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { rebuild(150); } catch (e) { console.error('load: full rebuild', e); } }
       if (!cr && performance.now() - t0 >= 45000) { console.error('load: gave up waiting for the land, entering anyway'); window.__loadSafe = 1; }
       if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { loadErr('rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } return; }
       ready = true; loadStep('first render');
@@ -20686,7 +20686,7 @@ function generate() {
       if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
     }
     }
-    if (__L && __L.held && (performance.now() - __tSlice > 40)) {
+    if (__L && __L.held && (performance.now() - __tSlice > 200)) {
       __L.genX = x + 1;
       try { __L.touch(6 + 58 * (x + 1) / Math.max(1, W), 'Raising the mountains… ' + (x + 1) + '/' + W, 70); } catch (_) {}
       throw __L.YIELD;
@@ -20820,7 +20820,7 @@ rebuild = function (budget) {
   }
   // 1.2.43: while loading, only mesh the enter ring so the playable frame arrives sooner; stream outwards after start.
   let _sr = streamRadius();
-  try { if (!started || (typeof screen !== 'undefined' && screen === 'loading')) { const lr = (window.__loadChunkR != null ? window.__loadChunkR : 1); if (_sr > lr) _sr = lr; } } catch (_) {}
+  try { if (!started || (typeof screen !== 'undefined' && screen === 'loading')) { const lr = (window.__loadChunkR != null ? window.__loadChunkR : 1); const meshR = Math.max(lr, 2); if (_sr > meshR) _sr = meshR; } } catch (_) {}
   const R = STREAM_R = _sr, pcx = P.x / CH - 0.5, pcz = P.z / CH - 0.5;
   const dist = id => Math.max(Math.abs(Math.floor(id / 64) - pcx), Math.abs(id % 64 - pcz));
   // unload far chunks (they stay "dirty" so they rebuild when you come back)
@@ -86455,9 +86455,19 @@ try {
 
   function $(id) { return document.getElementById(id); }
 
+  /* MessageChannel yields a macrotask without setTimeout's 4ms/1s clamp.
+     One rAF after that lets the browser composite the DOM bar — no 3D. */
+  const _mc = new MessageChannel();
+  _mc.port1.start();
   function yieldPaint() {
+    try { paint(U.shown); } catch (_) {}
+    // Kick a frame so the already-updated DOM bar can composite, but do
+    // not wait for rAF — headless and background tabs throttle it, and
+    // awaiting it was adding seconds of idle time between slices.
+    try { requestAnimationFrame(function () {}); } catch (_) {}
     return new Promise(function (res) {
-      requestAnimationFrame(function () { setTimeout(res, 0); });
+      try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
+      catch (_) { res(); }
     });
   }
   U.yieldPaint = yieldPaint;
@@ -86521,6 +86531,7 @@ try {
     U.done = 1;
     U.cap = 100;
     U.real = 100;
+    U.shown = 100;
   }
   U.finish = finish;
 
@@ -86588,7 +86599,6 @@ try {
     try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
     start(label || 'Preparing your glen…');
     await yieldPaint();
-    await yieldPaint();
   };
 
   U.generate = async function () {
@@ -86598,6 +86608,7 @@ try {
     if (typeof generate !== 'function') throw new Error('generate missing');
     const g = generate;
     let guarded = 0;
+    const t0 = performance.now();
     while (true) {
       try {
         const r = g.apply(null, arguments);
@@ -86605,6 +86616,7 @@ try {
         U._g9 = null;
         U.genX = 0;
         setReal(Math.max(U.real, 68), 'Building the land around you…', 99);
+        try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
         return r;
       } catch (e) {
         if (!U.isYield(e)) {
@@ -86675,19 +86687,50 @@ try {
   } catch (e) { ERR('ssw', e); }
 
   /* Also creep-report from applySave so saved worlds are not a silent gap. */
-  /* Never run an unbounded rebuild behind the loading screen — that is a
-     multi-second main-thread stall, so the meter cannot paint or creep. */
+  /* During generate, do not mesh or draw the 3D scene — only the DOM bar.
+     Unbounded rebuild() on the loading screen is capped to the same 150ms
+     budget the loader already uses; rebuild(150) is left alone so land
+     meshing is not slower than 1.2.84. */
   try {
     if (typeof rebuild === 'function' && !rebuild.__load1285) {
       const rb = rebuild;
       rebuild = function (budget) {
-        if (U.live && (budget == null || budget > 32)) budget = 32;
+        if (U.held) return;
+        if (U.live && budget == null) budget = 150;
         return rb.apply(this, arguments);
       };
       rebuild.__load1285 = 1;
       try { WIN.rebuild = rebuild; } catch (_) {}
     }
   } catch (e) { ERR('rb', e); }
+
+  /* Only mute the 3D scene while generate() itself is on the stack.
+     After that the loader must mesh and present like 1.2.84, or the first
+     enter-frame pays a huge cold compile/render bill. */
+  function quiet3d() {
+    return !!U.held;
+  }
+  U.quiet3d = quiet3d;
+  try {
+    if (typeof render === 'function' && !render.__load1285) {
+      const rd = render;
+      render = function () {
+        if (quiet3d()) return;
+        return rd.apply(this, arguments);
+      };
+      render.__load1285 = 1;
+    }
+  } catch (e) { ERR('rd', e); }
+  try {
+    if (typeof step === 'function' && !step.__load1285) {
+      const st = step;
+      step = function () {
+        if (quiet3d()) return 0;
+        return st.apply(this, arguments);
+      };
+      step.__load1285 = 1;
+    }
+  } catch (e) { ERR('st', e); }
 
   try {
     if (typeof applySave === 'function' && !applySave.__load1285) {
