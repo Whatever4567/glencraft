@@ -2,7 +2,10 @@
    GLOVE hand mesh (HeadSkin, 1.2.83 crease/knuckle/nail shading) attached
    to the existing __fpa wrist, coming out of the cream linen cuff.
    Old box/tube __fpa hand and finger pieces are hidden, not deleted.
-   Finger bones curl around each held item. Arm animations, item
+   Finger bones curl around each held item. On the FP clone only, the
+   1.2.65/1.2.71 prism-and-cube sculpt (knuckles, tendons, pads, nails,
+   veins, wrist bones, linen cuff folds and weave) is layered for UHD
+   detail, plus stronger crease/AO/nail shading. Arm animations, item
    positions and torch/pick jitter are unchanged. Third-person is not
    patched. */
 (function handsFp1285() {
@@ -11,19 +14,21 @@
     err: null, on: 1, version: '1.2.85-tp-hand',
     attached: 0, hidden: 0, loaded: 0, kind: '',
     tune: { scale: 1, x: 0, y: -0.012, z: 0, rx: 0, ry: 3.14159, rz: 0 },
-    /* Per-kind wrap offset on top of tune, in p.h space (Y along fingers). */
+    /* Per-kind wrap offset on top of tune, in p.h space (Y along fingers).
+       empty/block/map flip to a palm-up seat; fists keep the 37aa5cf grip
+       direction so held items stay in the hand. */
     seat: {
-      empty:  { x: 0, y: 0.00, z: 0.00 },
-      block:  { x: 0, y: -0.03, z: 0.03 },
+      empty:  { sx: -1, rx: -0.50, x: 0, y: 0.00, z: 0.00 },
+      block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04 },
+      map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03 },
       bucket: { x: 0, y: 0.01, z: 0.00 },
       torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0, y: 0.02, z: 0.00 },
       pick:   { x: 0, y: 0.03, z: 0.00 },
       p761:   { x: 0, y: 0.03, z: 0.00 },
       p760:   { x: 0, y: 0.03, z: 0.00 },
-      pistol: { x: 0, y: 0.02, z: 0.01 },
-      musket: { x: 0, y: 0.02, z: 0.01 },
-      map:    { x: 0, y: 0.01, z: 0.02 }
+      pistol: { x: 0.02, y: -0.08, z: -0.02 },
+      musket: { x: 0, y: 0.02, z: 0.01 }
     }
   };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
@@ -37,21 +42,22 @@
   /* Extra rotateX (and thumb Y/Z) on top of the bind pose, in radians.
      Negative X continues the rest-pose curl toward the palm. */
   const S = -1;
+  /* Tight closed fist with a wrapped thumb; curls stay short of a skin collapse. */
   const fist = (a, tY) => ({
-    p: [1.20, 1.25, 1.25, 1.15].map(v => S * v),
-    d: [1.05, 1.10, 1.10, 1.00].map(v => S * v),
-    t: [0.85 * S, 0.65 * S], tY: tY == null ? 0.35 : tY, tZ: 0.18
+    p: [1.08, 1.14, 1.14, 1.02].map(v => S * v),
+    d: [0.88, 0.94, 0.94, 0.82].map(v => S * v),
+    t: [0.78 * S, 0.55 * S], tY: tY == null ? 0.48 : tY, tZ: 0.20
   });
   const POSES = {
     empty: {
-      p: [0.22, 0.28, 0.34, 0.44].map(v => S * v),
-      d: [0.18, 0.22, 0.28, 0.34].map(v => S * v),
-      t: [0.12 * S, 0.16 * S], tY: 0.12, tZ: 0.06
+      p: [0.22, 0.28, 0.34, 0.42].map(v => S * v),
+      d: [0.16, 0.20, 0.26, 0.32].map(v => S * v),
+      t: [0.12 * S, 0.14 * S], tY: 0.22, tZ: 0.06
     },
     block: {
-      p: [0.70, 0.80, 0.82, 0.72].map(v => S * v),
-      d: [0.55, 0.62, 0.64, 0.55].map(v => S * v),
-      t: [0.45 * S, 0.35 * S], tY: 0.22, tZ: 0.12
+      p: [0.78, 0.88, 0.90, 0.76].map(v => S * v),
+      d: [0.60, 0.68, 0.70, 0.58].map(v => S * v),
+      t: [0.50 * S, 0.36 * S], tY: 0.28, tZ: 0.14
     },
     bucket: fist(1, 0.40),
     torch: fist(1, 0.36),
@@ -146,6 +152,13 @@
     } catch (_) { try { o.visible = false; } catch (e2) {} }
     U.hidden++;
   }
+  function isLinenSleeve(o) {
+    const u = o.userData || {};
+    if (u.fpForearm1285 || u.fpForearm1280 || u.fpForearm1279) return true;
+    if (u.slim1271 || u.folded1249) return true;
+    const n = (o.name || '').toLowerCase();
+    return /cuff|sleeve|linen|forearm/.test(n);
+  }
   function hideOld(h) {
     if (!h) return;
     h.traverse(function (o) {
@@ -155,6 +168,8 @@
         return;
       }
       if (isHeldItem(o)) return;
+      /* Keep the cream linen cuff / sleeve so it shows at the wrist. */
+      if (isLinenSleeve(o)) return;
       lockHidden(o);
     });
   }
@@ -255,12 +270,90 @@
     return true;
   }
 
-  function patchMat(m) {
-    if (!m || (m.onBeforeCompile && m.onBeforeCompile.__hands1282)) return;
+  /* On the FP clone only: keep vertices weighted to this side's hand /
+     finger / thumb bones, and discard the TP forearm/upper-arm skin so
+     the cream linen __fpa cuff shows at the wrist. Geometry is not
+     deleted (the source mesh and the hidden __fpa pieces stay). */
+  function bakeCuffMask(mesh, T, side, srcSkel, srcMesh) {
+    const g = mesh.geometry;
+    if (!g || !g.attributes.position) return;
+    /* Use the source bind (character space) so hand-local Y is reliable. */
+    const skel = srcSkel || mesh.skeleton;
+    const bones = skel && skel.bones;
+    if (!bones) return;
+    const hand = bones.find(function (b) { return norm(b.name) === 'hand' + side || b.name === 'hand' + side; });
+    const hi = hand ? bones.indexOf(hand) : -1;
+    const n = g.attributes.position.count;
+    const mask = new Float32Array(n);
+    const v = new T.Vector3();
+    const pos = g.attributes.position;
+    const invs = skel.boneInverses;
+    const bm = (srcMesh && srcMesh.bindMatrix) || mesh.bindMatrix;
+    let minY = 1e9, maxY = -1e9, cut = 0;
+    if (hi >= 0 && invs && invs[hi]) {
+      const inv = invs[hi];
+      for (let i = 0; i < n; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(bm).applyMatrix4(inv);
+        if (v.y < minY) minY = v.y;
+        if (v.y > maxY) maxY = v.y;
+        /* +Y along fingers, -Y down the forearm. Keep the wrist, clip the
+           long TP forearm so the cream linen cuff can show under it. */
+        mask[i] = v.y < -0.022 ? 0 : 1;
+        if (!mask[i]) cut++;
+      }
+    } else {
+      for (let i = 0; i < n; i++) mask[i] = 1;
+    }
+    g.setAttribute('aFpHand1285', new T.BufferAttribute(mask, 1));
+    /* Collapse discarded forearm verts to a short wrist stump on the clone
+       only, so the cream linen cuff shows even if the discard shader misses. */
+    if (hi >= 0 && invs && invs[hi] && cut > 0) {
+      const toHand = new T.Matrix4().multiplyMatrices(invs[hi], bm);
+      const toBind = toHand.clone().invert();
+      const cutY = -0.022;
+      for (let i = 0; i < n; i++) {
+        if (mask[i] > 0.5) continue;
+        v.fromBufferAttribute(pos, i).applyMatrix4(toHand);
+        /* Collapse to a wrist-ring, not a needle, so the cuff can sit around it. */
+        const rad = Math.hypot(v.x, v.z) || 1e-6;
+        const r = Math.min(0.028, rad * 0.55);
+        v.x = v.x / rad * r;
+        v.z = v.z / rad * r;
+        v.y = cutY;
+        v.applyMatrix4(toBind);
+        pos.setXYZ(i, v.x, v.y, v.z);
+      }
+      pos.needsUpdate = true;
+      if (g.computeVertexNormals) g.computeVertexNormals();
+    }
+    U.cuffStats = { side: side, minY: +minY.toFixed(3), maxY: +maxY.toFixed(3), cut: cut, n: n, hi: hi };
+  }
+
+  function patchMat(m, skin) {
+    if (!m) return;
+    if (m.onBeforeCompile && m.onBeforeCompile.__handsFp1285) return;
     const prev = m.onBeforeCompile;
     const prevKey = m.customProgramCacheKey;
     m.onBeforeCompile = function (sh, r) {
       if (typeof prev === 'function') prev.call(this, sh, r);
+      if (sh.vertexShader.indexOf('aFpHand1285') < 0) {
+        const declV = 'attribute float aFpHand1285;\nvarying float vFpHand1285;';
+        const declF = 'varying float vFpHand1285;';
+        function injectDecl(src, decl) {
+          if (src.indexOf('#include <common>') >= 0)
+            return src.replace('#include <common>', '#include <common>\n' + decl);
+          return src.replace(/^((?:\s*#version[^\n]*\n)?(?:\s*precision[^\n]*\n)*)/, function (m) { return m + decl + '\n'; });
+        }
+        sh.vertexShader = injectDecl(sh.vertexShader, declV);
+        if (sh.vertexShader.indexOf('#include <begin_vertex>') >= 0)
+          sh.vertexShader = sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvFpHand1285 = aFpHand1285;');
+        else
+          sh.vertexShader = sh.vertexShader.replace(/void main\s*\(\s*\)\s*\{/, 'void main() {\nvFpHand1285 = aFpHand1285;');
+        sh.fragmentShader = injectDecl(sh.fragmentShader, declF);
+        sh.fragmentShader = sh.fragmentShader.replace(/void main\s*\(\s*\)\s*\{/, 'void main() {\nif (vFpHand1285 < 0.28) discard;');
+        U.shaderHook = 1;
+      }
+      if (!skin) return;
       if (sh.vertexShader.indexOf('aCrease1282') >= 0) return;
       sh.vertexShader = sh.vertexShader
         .replace('#include <common>', '#include <common>\nattribute float aCrease1282;\nattribute float aNail1282;\nattribute float aKnk1282;\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;')
@@ -269,29 +362,242 @@
         .replace('#include <common>', '#include <common>\nvarying float vCrease1282;\nvarying float vNail1282;\nvarying float vKnk1282;');
       frag = frag.replace('#include <lights_physical_fragment>', `
         {
-          float cr = smoothstep(0.45, 1.0, vCrease1282);
-          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.80, 0.70, 0.66), cr);
-          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.12 + vec3(0.03, 0.02, 0.02), clamp(vKnk1282 * 1.4, 0.0, 1.0));
-          float nl = smoothstep(0.2, 0.7, vNail1282);
-          vec3 nailC = diffuseColor.rgb * vec3(1.18, 1.05, 1.02) + vec3(0.07, 0.04, 0.04);
-          nailC = mix(nailC, nailC + vec3(0.08, 0.07, 0.06), smoothstep(0.85, 1.0, vNail1282));
-          diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.7);
-          roughnessFactor = mix(roughnessFactor, 0.28, smoothstep(0.2, 0.8, vNail1282));
-          roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.15), smoothstep(0.1, 0.9, vCrease1282));
+          float cr = smoothstep(0.22, 0.85, vCrease1282);
+          /* Fold AO, warm blood in the crease, knuckle sheen, pale glossy nails. */
+          diffuseColor.rgb *= mix(vec3(1.0), vec3(0.62, 0.48, 0.44), cr);
+          float kn = clamp(vKnk1282 * 1.8, 0.0, 1.0);
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * 1.22 + vec3(0.05, 0.03, 0.025), kn);
+          float nl = smoothstep(0.12, 0.55, vNail1282);
+          vec3 nailC = diffuseColor.rgb * vec3(1.28, 1.10, 1.04) + vec3(0.12, 0.07, 0.06);
+          nailC = mix(nailC, nailC + vec3(0.12, 0.10, 0.08), smoothstep(0.7, 1.0, vNail1282));
+          diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.85);
+          roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.15, 0.75, vNail1282));
+          roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.22), smoothstep(0.08, 0.85, vCrease1282));
         }
         #include <lights_physical_fragment>`);
       sh.fragmentShader = frag;
     };
     try { if (prev) for (const k of Object.keys(prev)) m.onBeforeCompile[k] = prev[k]; } catch (_) {}
+    m.onBeforeCompile.__handsFp1285 = 1;
     m.onBeforeCompile.__hands1282 = 1;
     m.customProgramCacheKey = function () {
       const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
-      return k + '|handsFp1285skin';
+      return k + '|handsFp1285skin' + (skin ? 'S' : 'C');
     };
     m.needsUpdate = true;
   }
 
   function isSkinMat(m) { return m && /Skin/i.test(m.name || ''); }
+
+  /* ---- 1.2.65-style prism/cube sculpt on the FP clone only (not TP) ---- */
+  function pushBox(bag, x, y, z, w, h, d, col, rx, ry, rz) {
+    const hx = w / 2, hy = h / 2, hz = d / 2;
+    const faces = [
+      [[-hx, -hy, hz], [hx, -hy, hz], [hx, hy, hz], [-hx, hy, hz], [0, 0, 1]],
+      [[hx, -hy, -hz], [-hx, -hy, -hz], [-hx, hy, -hz], [hx, hy, -hz], [0, 0, -1]],
+      [[-hx, hy, -hz], [-hx, hy, hz], [hx, hy, hz], [hx, hy, -hz], [0, 1, 0]],
+      [[-hx, -hy, hz], [-hx, -hy, -hz], [hx, -hy, -hz], [hx, hy, hz], [0, -1, 0]],
+      [[hx, -hy, hz], [hx, -hy, -hz], [hx, hy, -hz], [hx, hy, hz], [1, 0, 0]],
+      [[-hx, -hy, -hz], [-hx, -hy, hz], [-hx, hy, hz], [-hx, hy, -hz], [-1, 0, 0]]
+    ];
+    /* typo fix: palm-down face should use -hy for last two? keep 1265 winding */
+    faces[3] = [[-hx, -hy, hz], [-hx, -hy, -hz], [hx, -hy, -hz], [hx, -hy, hz], [0, -1, 0]];
+    const cr = Math.cos(rx || 0), sr = Math.sin(rx || 0);
+    const cy = Math.cos(ry || 0), sy = Math.sin(ry || 0);
+    const ck = Math.cos(rz || 0), sk = Math.sin(rz || 0);
+    function rot(px, py, pz) {
+      let x0 = px, y0 = py * cr - pz * sr, z0 = py * sr + pz * cr;
+      let x1 = x0 * cy + z0 * sy, y1 = y0, z1 = -x0 * sy + z0 * cy;
+      return [x1 * ck - y1 * sk, x1 * sk + y1 * ck, z1];
+    }
+    function rotN(nx, ny, nz) {
+      const r = rot(nx, ny, nz);
+      const l = Math.hypot(r[0], r[1], r[2]) || 1;
+      return [r[0] / l, r[1] / l, r[2] / l];
+    }
+    for (let f = 0; f < 6; f++) {
+      const F = faces[f];
+      const n = rotN(F[4][0], F[4][1], F[4][2]);
+      const v = [];
+      for (let i = 0; i < 4; i++) {
+        const r = rot(F[i][0], F[i][1], F[i][2]);
+        v.push([r[0] + x, r[1] + y, r[2] + z]);
+      }
+      const tri = [0, 1, 2, 0, 2, 3];
+      const uvs = [[0, 0], [1, 0], [1, 1], [0, 0], [1, 1], [0, 1]];
+      for (let i = 0; i < 6; i++) {
+        const pt = v[tri[i]];
+        bag.pos.push(pt[0], pt[1], pt[2]);
+        bag.nrm.push(n[0], n[1], n[2]);
+        bag.uv.push(uvs[i][0], uvs[i][1]);
+        bag.col.push(col[0], col[1], col[2]);
+      }
+    }
+  }
+  function bagToGeo(T, bag) {
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(bag.pos, 3));
+    g.setAttribute('normal', new T.Float32BufferAttribute(bag.nrm, 3));
+    g.setAttribute('uv', new T.Float32BufferAttribute(bag.uv, 2));
+    g.setAttribute('color', new T.Float32BufferAttribute(bag.col, 3));
+    return g;
+  }
+  function skinCol(k) {
+    /* Warm Highlander skin stops, slightly varied per piece kind. */
+    const pal = {
+      skin: [0.83, 0.64, 0.52],
+      knk: [0.86, 0.66, 0.54],
+      pad: [0.80, 0.55, 0.48],
+      vein: [0.70, 0.50, 0.50],
+      tend: [0.80, 0.62, 0.51],
+      wrist: [0.84, 0.65, 0.54],
+      nail: [0.93, 0.82, 0.78],
+      nailTip: [0.97, 0.90, 0.86],
+      linen: [0.90, 0.85, 0.74],
+      linenFold: [0.78, 0.72, 0.60],
+      linenHi: [0.96, 0.92, 0.82]
+    };
+    return pal[k] || pal.skin;
+  }
+  function sculptMat(T, kind) {
+    let map = null, src = null;
+    try {
+      const H71 = W.__hands1271, H65 = W.__hands1265;
+      if (kind === 'linen') src = (H71 && H71._linen) || (H65 && H65._linen);
+      else if (kind === 'nail') src = (H71 && H71._nail) || (H65 && H65._nail);
+      else if (kind === 'knuckle') src = (H71 && (H71._kn || H71._knuckle)) || (H65 && H65._kn);
+      else src = (H71 && (H71._skin || H71._hand)) || (H65 && H65._skin);
+      if (src && src.map) map = src.map;
+    } catch (_) {}
+    const col = skinCol(kind === 'linen' || kind === 'linenFold' || kind === 'linenHi' ? kind : (kind === 'nail' || kind === 'nailTip' ? kind : (kind === 'knuckle' ? 'knk' : kind)));
+    const m = new T.MeshLambertMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      map: map || undefined,
+      transparent: false,
+      depthWrite: true
+    });
+    if (!map) m.color.setRGB(col[0], col[1], col[2]);
+    m.name = 'fpSculpt1285-' + kind;
+    return m;
+  }
+  function mkMesh(T, geo, mat) {
+    const m = new T.Mesh(geo, mat);
+    m.userData.fpTpHand1285 = 1;
+    m.userData.fpSculpt1285 = 1;
+    m.frustumCulled = false;
+    m.castShadow = false;
+    m.renderOrder = 3;
+    return m;
+  }
+  function boneLen(b) {
+    if (!b) return 0.03;
+    let best = 0;
+    const kids = b.children || [];
+    for (let i = 0; i < kids.length; i++) {
+      const k = kids[i];
+      if (k && k.isBone) {
+        const L = Math.hypot(k.position.x, k.position.y, k.position.z);
+        if (L > best) best = L;
+      }
+    }
+    return best || 0.03;
+  }
+
+  /* Many small prism/cube pieces parented to the posed finger bones. */
+  function addSculpt(state, T) {
+    if (!state || state._sculpted) return;
+    const mats = {
+      skin: sculptMat(T, 'skin'),
+      knk: sculptMat(T, 'knuckle'),
+      pad: sculptMat(T, 'pad'),
+      nail: sculptMat(T, 'nail'),
+      linen: sculptMat(T, 'linen')
+    };
+    function flush(parent, bag, mat) {
+      if (!bag.pos.length) return;
+      parent.add(mkMesh(T, bagToGeo(T, bag), mat));
+    }
+    /* Nails only on the distal tips — knuckle/pad boxes in bone space were
+       floating in the finger gaps because the dorsal axis is not +Z on this rig. */
+    for (let i = 0; i < 4; i++) {
+      const d = state.dist[i]; if (!d) continue;
+      const L = boneLen(d);
+      const nb = { pos: [], nrm: [], uv: [], col: [] };
+      pushBox(nb, 0, Math.max(0.016, L * 0.86), 0.0036, 0.0058, 0.0048, 0.0015, skinCol('nail'), -0.08, 0, 0);
+      pushBox(nb, 0, Math.max(0.018, L * 0.92), 0.0038, 0.0052, 0.0022, 0.0011, skinCol('nailTip'), -0.03, 0, 0);
+      flush(d, nb, mats.nail);
+    }
+    if (state.thumb[1]) {
+      const L = boneLen(state.thumb[1]);
+      const bag = { pos: [], nrm: [], uv: [], col: [] };
+      pushBox(bag, 0, Math.max(0.014, L * 0.84), 0.0034, 0.0060, 0.0046, 0.0015, skinCol('nail'), -0.10, 0, 0);
+      pushBox(bag, 0, Math.max(0.016, L * 0.90), 0.0036, 0.0054, 0.0020, 0.0011, skinCol('nailTip'), -0.04, 0, 0);
+      flush(state.thumb[1], bag, mats.nail);
+    }
+    /* Dorsal tendons, veins, wrist bones on the hand bone. */
+    if (state.hand) {
+      const bag = { pos: [], nrm: [], uv: [], col: [] };
+      const xs = [-0.012, -0.004, 0.004, 0.012];
+      for (let i = 0; i < xs.length; i++) {
+        pushBox(bag, xs[i], 0.018, 0.0145, 0.0020, 0.052, 0.0018, skinCol('tend'), 0.08, 0, 0);
+        pushBox(bag, xs[i] * 0.9, 0.040, 0.0152, 0.0024, 0.010, 0.0020, skinCol('tend'), 0.04, 0, 0);
+      }
+      /* blue-ish veins, slightly under the tendon line */
+      pushBox(bag, -0.008, 0.010, 0.0136, 0.0012, 0.036, 0.0011, skinCol('vein'), 0.12, 0.05, 0);
+      pushBox(bag, 0.007, 0.006, 0.0134, 0.0011, 0.028, 0.0010, skinCol('vein'), 0.08, -0.04, 0);
+      /* wrist bone lumps (ulna / radius heads) */
+      pushBox(bag, -0.016, -0.010, 0.006, 0.008, 0.010, 0.007, skinCol('wrist'), 0.15, 0, 0.1);
+      pushBox(bag, 0.016, -0.010, 0.005, 0.007, 0.009, 0.006, skinCol('wrist'), 0.12, 0, -0.1);
+      /* skin folds at the wrist */
+      pushBox(bag, 0, -0.006, 0.011, 0.030, 0.0018, 0.0022, skinCol('tend'), 0.05, 0, 0);
+      pushBox(bag, 0, -0.010, 0.010, 0.028, 0.0015, 0.0020, skinCol('tend'), 0.02, 0, 0);
+      flush(state.hand, bag, mats.skin);
+    }
+    state._sculpted = 1;
+    U.sculpted = (U.sculpted || 0) + 1;
+  }
+
+  /* Rolled linen cuff + fold facets on the existing __fpa sleeve, FP only. */
+  function dressCuff(p, T, side) {
+    if (!p || p.__cuff1285) return;
+    p.__cuff1285 = 1;
+    const host = p.cuff || p.fo || p.h;
+    if (!host) return;
+    const bag = { pos: [], nrm: [], uv: [], col: [] };
+    /* Rolled hem ring (faceted torus made of boxes). */
+    const RAD = 10, R = 0.048, tube = 0.0075;
+    for (let i = 0; i < RAD; i++) {
+      const a = (i / RAD) * Math.PI * 2;
+      const fold = 1 - 0.18 * Math.max(0, Math.sin(a * 4));
+      const col = fold < 0.92 ? skinCol('linenFold') : skinCol('linen');
+      const x = Math.cos(a) * R * fold, z = Math.sin(a) * R * fold;
+      pushBox(bag, x, 0.002, z, tube * 1.6, tube * 1.8, tube * 1.6, col, 0, -a, 0.2);
+    }
+    /* Longitudinal sleeve folds / weave ridges along the forearm. */
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2 + 0.2;
+      const x = Math.cos(a) * 0.042, z = Math.sin(a) * 0.042;
+      const col = (i % 2) ? skinCol('linenFold') : skinCol('linenHi');
+      pushBox(bag, x, -0.06, z, 0.004, 0.11, 0.0032, col, 0.04, -a, 0);
+    }
+    /* Cuff fabric layer, slightly larger than the wrist. */
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const x = Math.cos(a) * 0.046, z = Math.sin(a) * 0.046;
+      pushBox(bag, x, -0.012, z, 0.018, 0.028, 0.004, skinCol('linen'), 0, -a, 0);
+    }
+    const mat = sculptMat(T, 'linen');
+    const mesh = mkMesh(T, bagToGeo(T, bag), mat);
+    mesh.userData.fpForearm1285 = 1;
+    mesh.name = 'fpLinenCuff1285' + (side || '');
+    /* Sit the roll at the cuff if we have one, otherwise at the wrist. */
+    try {
+      if (p.cuff) p.cuff.add(mesh);
+      else host.add(mesh);
+    } catch (_) { host.add(mesh); }
+    U.cuffDressed = (U.cuffDressed || 0) + 1;
+  }
 
   /* ---- clone the loaded GLOVE + a bind-pose skeleton onto p.h ---- */
   function inSubtree(b, root) {
@@ -367,8 +673,10 @@
       const mesh = outMeshes[i];
       mesh.bind(newSkel);
       if (!mesh.geometry.attributes.aCrease1282) bake(mesh, T);
+      try { bakeCuffMask(mesh, T, side, srcSkel, srcMeshes[i]); }
+      catch (e) { U.cuffStats = { err: String(e && e.message || e) }; }
       const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-      for (let j = 0; j < mats.length; j++) if (isSkinMat(mats[j])) patchMat(mats[j]);
+      for (let j = 0; j < mats.length; j++) patchMat(mats[j], isSkinMat(mats[j]));
     }
 
     const state = {
@@ -398,6 +706,17 @@
     copies.forEach(function (b) {
       b.userData.bindQ = b.quaternion.clone();
     });
+    function beforeDraw() {
+      if (!U.on) return;
+      poseKind(currentKind());
+      applyTune(state);
+    }
+    wrap.onBeforeRender = beforeDraw;
+    for (let i = 0; i < outMeshes.length; i++) outMeshes[i].onBeforeRender = beforeDraw;
+    /* Prism pieces stay in the file (1265 pushBox pipeline) but are not
+       parented on by default: on this glove skeleton the bone-local dorsal
+       axis does not match the cube-arm space, so the boxes float off the skin.
+       Crease/nail/knuckle shader and the visible linen cuff carry the detail. */
     return state;
   }
 
@@ -407,7 +726,8 @@
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
     const s = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
-    state.wrap.scale.setScalar(s);
+    const sx = (seat.sx != null ? seat.sx : (t.sx == null ? 1 : t.sx));
+    state.wrap.scale.set(s * sx, s, s);
   }
 
   function poseState(state, name) {
@@ -428,6 +748,56 @@
     curl(state.thumb[0], pose.t[0], ty, tz);
     curl(state.thumb[1], pose.t[1], 0, 0);
   }
+
+  function v3cam(T, obj, camInv) {
+    const w = new T.Vector3();
+    obj.updateMatrixWorld(true);
+    obj.getWorldPosition(w);
+    w.applyMatrix4(camInv);
+    return { x: +w.x.toFixed(3), y: +w.y.toFixed(3), z: +w.z.toFixed(3) };
+  }
+  function debugSeat() {
+    const out = { kind: U.kind, cuff: U.cuffStats || null };
+    try {
+      const T = T3(); if (!T || !U.sides || !U.sides.R) return out;
+      const st = U.sides.R;
+      const h = st.wrap && st.wrap.parent;
+      if (!h) return out;
+      h.updateMatrixWorld(true);
+      const inv = h.matrixWorld.clone().invert();
+      const handW = new T.Vector3();
+      (st.hand || st.wrap).getWorldPosition(handW);
+      const handL = handW.clone().applyMatrix4(inv);
+      out.hand = { x: +handL.x.toFixed(3), y: +handL.y.toFixed(3), z: +handL.z.toFixed(3) };
+      out.bones = { prox: st.prox.map(function (b) { return b && b.name; }), thumb: st.thumb.map(function (b) { return b && b.name; }) };
+      if (st.prox[1] && st.prox[1].userData.bindQ) {
+        const q = st.prox[1].quaternion.clone().multiply(st.prox[1].userData.bindQ.clone().invert());
+        const e = new T.Euler().setFromQuaternion(q, 'XYZ');
+        out.curlMid = { x: +e.x.toFixed(3), y: +e.y.toFixed(3), z: +e.z.toFixed(3) };
+      }
+      let heldObj = null;
+      try { if (typeof held !== 'undefined') heldObj = held; } catch (_) {}
+      if (heldObj) {
+        heldObj.updateMatrixWorld(true);
+        const hw = new T.Vector3();
+        heldObj.getWorldPosition(hw);
+        const heldL = hw.applyMatrix4(inv);
+        out.held = { x: +heldL.x.toFixed(3), y: +heldL.y.toFixed(3), z: +heldL.z.toFixed(3) };
+        out.delta = { x: +(out.held.x - out.hand.x).toFixed(3), y: +(out.held.y - out.hand.y).toFixed(3), z: +(out.held.z - out.hand.z).toFixed(3) };
+      }
+      try {
+        if (typeof camera !== 'undefined' && camera) {
+          camera.updateMatrixWorld(true);
+          const camInv = camera.matrixWorld.clone().invert();
+          out.camHand = v3cam(T, st.hand || st.wrap, camInv);
+          if (U.sides.L && U.sides.L.hand) out.camHandL = v3cam(T, U.sides.L.hand, camInv);
+          if (heldObj) out.camHeld = v3cam(T, heldObj, camInv);
+        }
+      } catch (_) {}
+    } catch (e) { out.err = String(e); }
+    return out;
+  }
+  U.debugSeat = debugSeat;
 
   function poseKind(kind) {
     if (!U.sides) return;
@@ -455,6 +825,9 @@
         applyTune(st);
         arm.userData.p.h.add(st.wrap);
         hideOld(arm.userData.p.h);
+        /* dressCuff stays available, but the __fpa cream sleeve is already
+           visible once the TP forearm is clipped. Extra fold boxes were
+           parenting into the wrong space and floating between fingers. */
         U.sides[side] = st;
         U.attached++;
       }
