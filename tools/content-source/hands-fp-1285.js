@@ -1328,21 +1328,15 @@
       const stamp = (typeof performance !== 'undefined' && performance.now) ? (performance.now() | 0) : Date.now();
       if (U._poseStamp === stamp) return;
       U._poseStamp = stamp;
-      poseKind(currentKind());
-      if (U.sides) {
-        if (U.sides.R) applyTune(U.sides.R);
-        if (U.sides.L) applyTune(U.sides.L);
-      } else applyTune(state);
-      try {
-        if (U.bakePose) {
-          if (U.sides) {
-            if (U.sides.R) bakeSidePose(U.sides.R, T);
-            if (U.sides.L) bakeSidePose(U.sides.L, T);
-          } else bakeSidePose(state, T);
-        }
-      } catch (e) { ERR('bakePose', e); }
-      hookGunDraw(T);
-      applyViewOff(T);
+      fpRun('beforeDraw');
+      /* t1251: poseKind/applyTune used to run here every frame (once
+         per ms), which re-curled every finger and rewrote the wrist
+         seat after tick() had already been gated to item switch.
+         Seat, cuff-follow and curls stay on the once-per-switch
+         path. Only restamp HELD_OFF so a 1251/1261 freeze rewrite
+         cannot drop the constant table mid-draw. */
+      try { if (typeof drawOffOn === 'function') drawOffOn(); } catch (_) {}
+      try { applyViewOff(T); } catch (_) {}
     }
     for (let i = 0; i < outMeshes.length; i++) outMeshes[i].onBeforeRender = beforeDraw;
     return state;
@@ -1367,6 +1361,7 @@
        every time the scale changed. */
     if (state._cuffFk === fk) return;
     state._cuffFk = fk;
+    fpRun('cuffBody');
     const wrap = state.wrap;
     /* Wrist-local (p.h) delta, not a world delta. A world bake includes
        the current parent scale, so a later scale change (c350 / fpa)
@@ -1442,19 +1437,36 @@
 
   function applyTune(state) {
     const _pt = profBegin('applyTune');
-
-    const t = U.tune;
+    const t = U.tune || {};
     const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1, pistol: 1 };
     let seat = (U.seat && U.seat[U.kind]) || (U.seat && U.seat.empty) || {};
     /* Seat offsets are for the holding hand. Applying them to the left
        glove slid it into the play camera (two overlapping fists). */
     if (state.side === 'L' && ONE_HAND[U.kind]) seat = (U.seat && U.seat.empty) || {};
     if (state.side === 'L' && U.kind === 'musket' && U.seat && U.seat.musketL) seat = U.seat.musketL;
+    const sc = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
+    const sx = (seat.sx != null ? seat.sx : (t.sx == null ? 1 : t.sx));
+    const tk = (U.kind || '') + ':' + state.side
+      + ':' + ((t.x || 0) + (seat.x || 0)) + ',' + ((t.y || 0) + (seat.y || 0)) + ',' + ((t.z || 0) + (seat.z || 0))
+      + ':' + ((t.rx || 0) + (seat.rx || 0)) + ',' + ((t.ry || 0) + (seat.ry || 0)) + ',' + ((t.rz || 0) + (seat.rz || 0))
+      + ':' + sc + ',' + sx
+      + ':' + ((seat.cuffScale) || 1) + ':' + ((seat.cuffNx) || 0) + ',' + ((seat.cuffNy) || 0) + ',' + ((seat.cuffNz) || 0)
+      + ':' + (seat.cuffFollow ? 1 : 0);
+    /* Once per item/seat. Rewriting wrap.position every frame dirtied
+       the arm subtree (and, under a drifting viewmodel scale, forced
+       matrix updates) after the cuff-follow itself was already cached. */
+    if (state._tuneFk === tk) {
+      if (state.side === 'R') {
+        try { drawOffOn(); } catch (e) { ERR('itemGrip', e); }
+      }
+      profEnd('applyTune', _pt);
+      return;
+    }
+    state._tuneFk = tk;
+    fpRun('applyTuneBody');
     if (state.wrap) state.wrap.visible = !(state.side === 'L' && ONE_HAND[U.kind]);
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
-    const sc = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
-    const sx = (seat.sx != null ? seat.sx : (t.sx == null ? 1 : t.sx));
     state.wrap.scale.set(sc * sx, sc, sc);
     try { applyCuffFollow(state, seat); } catch (e) { ERR('cuffFollow', e); }
 
@@ -1961,8 +1973,15 @@
       drawOffOff();
       U._offKind = U.kind;
       U._offKey = offKey;
+      hookDrawOff();
+      fpRun('heldHook');
+    } else {
+      /* Re-hook only if 1251 replaced a child (new uuid, no hook). */
+      let h = null;
+      try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+      const c0 = h && h.children && h.children[0];
+      if (c0 && !c0.__fpOffHook1285) hookDrawOff();
     }
-    hookDrawOff();
     drawOffOn();
     const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
     const vx = v[0] || 0, vy = v[1] || 0, vz = v[2] || 0;
@@ -2591,6 +2610,23 @@
     const s = p[name] || (p[name] = {n: 0, ms: 0, max: 0});
     s.n++; s.ms += dt; if (dt > s.max) s.max = dt;
   }
+  function fpRun(name) {
+    const c = U._fpRun || (U._fpRun = {});
+    c[name] = (c[name] || 0) + 1;
+    U._fpTickN = (U._fpTickN || 0) + (name === 'tick' ? 1 : 0);
+    try { if (typeof performance !== 'undefined' && performance.mark) performance.mark('fp-' + name); } catch (_) {}
+  }
+  U.fpRunReset = function () { U._fpRun = {}; U._fpTickN = 0; };
+  U.fpRunSnap = function () {
+    const n = U._fpTickN || 0;
+    const c = U._fpRun || {};
+    const out = { ticks: n };
+    Object.keys(c).forEach(function (k) {
+      out[k] = c[k];
+      out[k + 'PerTick'] = n ? +(c[k] / n).toFixed(3) : 0;
+    });
+    return out;
+  };
   U.profStart = function () { U._profOn = 1; U._prof = {}; };
   U.profSnap = function () {
     const out = {};
@@ -2611,12 +2647,17 @@
       if (U.attached) {
         const k = currentKind();
         const switched = (U._tickKind !== k);
+        fpRun('tick');
         if (switched) {
           const _ph = profBegin('hideBoth'); hideBoth(); profEnd('hideBoth', _ph);
           const _pk = profBegin('poseKind');
           poseKind(k);
           profEnd('poseKind', _pk);
+          fpRun('poseKind');
           U._tickKind = k;
+          if (U.sides && U.sides.R) { U.sides.R._tuneFk = null; U.sides.R._cuffFk = null; }
+          if (U.sides && U.sides.L) { U.sides.L._tuneFk = null; U.sides.L._cuffFk = null; }
+          U._offKey = null;
         }
         if (U.sides) {
           if (U.sides.R) applyTune(U.sides.R);
