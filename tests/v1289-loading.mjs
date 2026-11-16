@@ -57,4 +57,7 @@ ok(html.includes('__kf.__tgFree = 1') && html.includes('requestAnimationFrame(__
 ok(html.includes('function castleWork()') && !html.includes('__Lc._loop.c77cast'), 'c77 castleWork is unsliced again so generate time stays at or below 1.2.88');
 ok(html.includes('if (loading) return;') && html.includes('window.chunksReady = chunksReady') && html.includes("setReal(Math.min(99.6, p), 'Building terrain meshes… '") && html.includes('Hold at 99.x until enterWorld can actually paint'), 'spawn-ring meshing reports 99.x and defers the 100 glide until enter can paint, and defers entity sync');
 ok(html.includes('Never write #loadPct from this fallback') && html.includes('creep 99.0–99.8') && html.includes('Never let the on-screen label go backwards'), 'the % label holds at 99.x with visible motion and never goes backwards after 100');
+
+ok(html.includes('bi + 1 < placed.length && (performance.now() - (__Lk._tSlice || 0)') && html.includes('ci + 1 < g9castles.length && (performance.now() - (__Lf._tSlice || 0)'), 'per-keep and per-castle yields only fire when the slice budget has elapsed');
+ok(html.includes("phase: 'cols'") && html.includes("if (performance.now() - (__L._tSlice || 0) > (typeof __SLB === 'function' ? __SLB() : 350)) throw __L.YIELD;"), 'GEN9 phase-boundary yields are budget-only');
 console.log('v1289-loading: ' + n + ' ok');
