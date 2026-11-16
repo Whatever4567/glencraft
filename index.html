@@ -21378,7 +21378,7 @@ function clyGenerate() {
   vein(T.REDORE, Math.round(A * 6), 2, 18, 2); vein(T.DIAMONDORE, Math.round(A * 9), 2, 16, 1.4);
   diamondBoost(gSeed ^ 0x51ed);
   // ---- the four fantasy castles ----
-  (C.castles || []).forEach(c => { try { buildCastle(c[0], c[1], c[2]); } catch (e) { console.warn('castle', c, e); } });
+  (C.castles || []).forEach(c => { try { buildCastle(c[0], c[1], c[2]); } catch (e) { if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('castle', c, e); } });
   // spawn: Dalmuir Park
   const dp = (C.places || []).find(p => p[0] === 'Dalmuir Park') || ['', N >> 1, N >> 1];
   g9spawn = cityFindSpawn(dp[1], dp[2]);
@@ -21396,47 +21396,137 @@ function cityFindSpawn(cx, cz) {
 }
 // ---------- castles (after the reference pictures) ----------
 function buildCastle(kind, cx, cz) {
+  /* GLX-LOAD1289: yield inside flatten/box and large fills so one keep
+     cannot block the thread for seconds. Resume by op-index + cursor.
+     Writes use only cityHash, so a resumed castle stays byte-identical. */
+  const __Lb = window.__glenLoad;
+  const __key = kind + ',' + cx + ',' + cz;
+  const __st0 = (__Lb && __Lb.held && __Lb._loop && __Lb._loop.bcas && __Lb._loop.bcas.key === __key) ? __Lb._loop.bcas : null;
+  let __op = 0;
+  let __tB = performance.now(), __wB = Date.now();
+  const __budget = function () { try { return (typeof __SLB === 'function' ? __SLB() : __Lb.sliceMs()); } catch (_) { return 350; } };
+  const __due = function () { return __Lb && __Lb.held && ((performance.now() - __tB > __budget()) || (Date.now() - __wB > __budget())); };
+  const __park = function (extra) {
+    if (!__Lb._loop) __Lb._loop = {};
+    __Lb._loop.bcas = Object.assign({key: __key, op: __op}, extra || {});
+    try { __Lb.touch(73.5, 'Raising the keeps…', 92); } catch (_) {}
+    throw __Lb.YIELD;
+  };
+  const __skip = function () { if (__st0 && __op < __st0.op) { __op++; return true; } return false; };
+  const __done = function () { __op++; };
+  const __maybePark = function () { if (__due()) __park({op: __op}); };
+  const __resuming = function () { return !!(__st0 && __st0.op === __op && __st0.hx != null); };
+
   const put = (x, y, z, b) => { if (x >= 0 && z >= 0 && x < W && z < D && y > 0 && y < H - 1) world[idx(x, y, z)] = b; };
   const hsh = cityHash;
   const groundAt = (x, z) => g9top(x, z) + 1;
-  const flatten = (r, gy, fill) => { for (let x = cx - r; x <= cx + r; x++) for (let z = cz - r; z <= cz + r; z++) { if (Math.hypot(x - cx, z - cz) > r + 0.5) continue; for (let y = gy; y < Math.min(H - 1, gy + 30); y++) put(x, y, z, T.AIR); for (let y = gy - 1; y > gy - 8; y--) if (getB(x, y, z) === T.AIR || getB(x, y, z) === T.WATER || LEAFY[getB(x, y, z)] || LOGGY[getB(x, y, z)]) put(x, y, z, fill || T.STONE); put(x, gy - 1, z, T.GRASS); } };
-  const box = (x0, x1, z0, z1, y0, y1, b, hollow) => { for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) for (let y = y0; y <= y1; y++) { const e = x === x0 || x === x1 || z === z0 || z === z1; if (!hollow || e) put(x, y, z, typeof b === 'function' ? b(x, y, z, e) : b); } };
+  const flatten = (r, gy, fill) => {
+    if (__skip()) return;
+    let x = __resuming() ? __st0.hx : (cx - r);
+    let takeZ = __resuming();
+    for (; x <= cx + r; x++) {
+      let z = (takeZ && __st0.hz != null) ? __st0.hz : (cz - r);
+      takeZ = false;
+      for (; z <= cz + r; z++) {
+        if (Math.hypot(x - cx, z - cz) > r + 0.5) continue;
+        for (let y = gy; y < Math.min(H - 1, gy + 30); y++) put(x, y, z, T.AIR);
+        for (let y = gy - 1; y > gy - 8; y--) if (getB(x, y, z) === T.AIR || getB(x, y, z) === T.WATER || LEAFY[getB(x, y, z)] || LOGGY[getB(x, y, z)]) put(x, y, z, fill || T.STONE);
+        put(x, gy - 1, z, T.GRASS);
+        if (__due()) __park({hx: x, hz: z + 1});
+      }
+    }
+    __done();
+    __maybePark();
+  };
+  const box = (x0, x1, z0, z1, y0, y1, b, hollow) => {
+    if (__skip()) return;
+    let x = __resuming() ? __st0.hx : x0;
+    let takeZ = __resuming();
+    for (; x <= x1; x++) {
+      let z = (takeZ && __st0.hz != null) ? __st0.hz : z0;
+      takeZ = false;
+      for (; z <= z1; z++) {
+        for (let y = y0; y <= y1; y++) { const e = x === x0 || x === x1 || z === z0 || z === z1; if (!hollow || e) put(x, y, z, typeof b === 'function' ? b(x, y, z, e) : b); }
+        if (__due()) __park({hx: x, hz: z + 1});
+      }
+    }
+    __done();
+    __maybePark();
+  };
   const tower = (x, z, r, y0, y1, wall, roof, cone) => {
+    if (__skip()) return;
     for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { const d = Math.hypot(dx, dz); if (d > r + 0.3) continue; for (let y = y0; y <= y1; y++) { const edge = d > r - 0.8; put(x + dx, y, z + dz, edge ? ((y - y0) % 4 === 2 && (dx === 0 || dz === 0) ? T.GLASS : (typeof wall === 'function' ? wall(x + dx, y, z + dz) : wall)) : T.AIR); } put(x + dx, y0 - 1, z + dz, T.STONEBRICK); }
     if (cone) for (let k = 0; k <= r + 2; k++) for (let dx = -r - 1; dx <= r + 1; dx++) for (let dz = -r - 1; dz <= r + 1; dz++) { const d = Math.hypot(dx, dz); if (d <= r + 1.2 - k * ((r + 1.2) / (r + 3)) * 1.0) put(x + dx, y1 + 1 + k, z + dz, roof); }
     else for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { const d = Math.hypot(dx, dz); if (d <= r + 0.3 && d > r - 0.8 && (dx + dz) % 2 === 0) put(x + dx, y1 + 1, z + dz, typeof wall === 'function' ? wall(x + dx, y1 + 1, z + dz) : wall); }
+    __done();
   };
-  const gableRoof = (x0, x1, z0, z1, y, roof, alongX) => { const span = alongX ? (z1 - z0) : (x1 - x0); for (let k = 0; k <= span / 2; k++) for (let x = x0 + (alongX ? 0 : k); x <= x1 - (alongX ? 0 : k); x++) for (let z = z0 + (alongX ? k : 0); z <= z1 - (alongX ? k : 0); z++) { const edge = alongX ? (z === z0 + k || z === z1 - k) : (x === x0 + k || x === x1 - k); if (edge) put(x, y + k, z, roof); else put(x, y + k, z, T.AIR); } };
-  const crowGable = (x0, x1, z, y, h, b) => { for (let k = 0; k < h; k++) for (let x = x0 + k; x <= x1 - k; x++) put(x, y + k, z, b); };
+  const gableRoof = (x0, x1, z0, z1, y, roof, alongX) => {
+    if (__skip()) return;
+    const span = alongX ? (z1 - z0) : (x1 - x0); for (let k = 0; k <= span / 2; k++) for (let x = x0 + (alongX ? 0 : k); x <= x1 - (alongX ? 0 : k); x++) for (let z = z0 + (alongX ? k : 0); z <= z1 - (alongX ? k : 0); z++) { const edge = alongX ? (z === z0 + k || z === z1 - k) : (x === x0 + k || x === x1 - k); if (edge) put(x, y + k, z, roof); else put(x, y + k, z, T.AIR); }
+    __done();
+  };
+  const crowGable = (x0, x1, z, y, h, b) => {
+    if (__skip()) return;
+    for (let k = 0; k < h; k++) for (let x = x0 + k; x <= x1 - k; x++) put(x, y + k, z, b);
+    __done();
+  };
   const mossy = (x, y, z) => hsh(x, y, z) < 0.28 ? T.MOSSYBRICK : hsh(x, y + 1, z) < 0.15 ? T.COBBLE : T.STONEBRICK;
   if (kind === 'citadel') {
     // white hilltop citadel with tiered terraces, keep, towers and torches (lit at night)
     const gy = groundAt(cx, cz); flatten(26, gy, T.WSTONE);
     for (let tier = 0; tier < 3; tier++) {
       const r = 24 - tier * 7, y0 = gy + tier * 4;
-      for (let x = cx - r; x <= cx + r; x++) for (let z = cz - r; z <= cz + r; z++) { const d = Math.max(Math.abs(x - cx), Math.abs(z - cz)); if (d > r) continue; for (let y = y0; y < y0 + 4; y++) put(x, y, z, d >= r - 0 || y < y0 + 3 ? T.WSTONE : T.AIR); if (d === r && (x + z) % 2 === 0) put(x, y0 + 4, z, T.WSTONE); }
+      if (!__skip()) {
+        let x = __resuming() ? __st0.hx : (cx - r);
+        let takeZ = __resuming();
+        for (; x <= cx + r; x++) {
+          let z = (takeZ && __st0.hz != null) ? __st0.hz : (cz - r);
+          takeZ = false;
+          for (; z <= cz + r; z++) {
+            const d = Math.max(Math.abs(x - cx), Math.abs(z - cz)); if (d > r) continue;
+            for (let y = y0; y < y0 + 4; y++) put(x, y, z, d >= r - 0 || y < y0 + 3 ? T.WSTONE : T.AIR);
+            if (d === r && (x + z) % 2 === 0) put(x, y0 + 4, z, T.WSTONE);
+            if (__due()) __park({hx: x, hz: z + 1});
+          }
+        }
+        __done();
+        __maybePark();
+      }
       for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { tower(cx + sx * r, cz + sz * r, 2, y0, y0 + 9, T.WSTONE, T.SLATE, true); put(cx + sx * r, y0 + 5, cz + sz * (r - 3), T.TORCH); }
-      for (let k = -r + 2; k < r - 1; k += 5) { put(cx + k, y0 + 3, cz - r + 1, T.TORCH); put(cx + k, y0 + 3, cz + r - 1, T.TORCH); put(cx - r + 1, y0 + 3, cz + k, T.TORCH); put(cx + r - 1, y0 + 3, cz + k, T.TORCH); }
-      // stair up the south face
-      for (let k = 0; k < 4; k++) for (let w = -1; w <= 1; w++) put(cx + w, y0 + k, cz + r + 3 - k, T.WSTONE);
+      if (!__skip()) {
+        for (let k = -r + 2; k < r - 1; k += 5) { put(cx + k, y0 + 3, cz - r + 1, T.TORCH); put(cx + k, y0 + 3, cz + r - 1, T.TORCH); put(cx - r + 1, y0 + 3, cz + k, T.TORCH); put(cx + r - 1, y0 + 3, cz + k, T.TORCH); }
+        // stair up the south face
+        for (let k = 0; k < 4; k++) for (let w = -1; w <= 1; w++) put(cx + w, y0 + k, cz + r + 3 - k, T.WSTONE);
+        __done();
+        __maybePark();
+      }
     }
     const ky = gy + 12; box(cx - 5, cx + 5, cz - 7, cz + 7, ky, ky + 10, (x, y, z, e) => e ? (((y - ky) % 3 === 1) && (x + z) % 2 === 0 ? T.GLASS : T.WSTONE) : T.AIR, true);
     gableRoof(cx - 6, cx + 6, cz - 8, cz + 8, ky + 11, T.SLATE, false);
     tower(cx, cz - 9, 3, ky, ky + 18, T.WSTONE, T.SLATE, true);
-    for (let k = -4; k <= 4; k += 4) { put(cx + k, ky + 1, cz + 8, T.TORCH); put(cx - 6, ky + 2, cz + k, T.TORCH); put(cx + 6, ky + 2, cz + k, T.TORCH); }
+    if (!__skip()) {
+      for (let k = -4; k <= 4; k += 4) { put(cx + k, ky + 1, cz + 8, T.TORCH); put(cx - 6, ky + 2, cz + k, T.TORCH); put(cx + 6, ky + 2, cz + k, T.TORCH); }
+      __done();
+    }
   } else if (kind === 'turrets') {
     // turreted castle with orange conical roofs
     const gy = groundAt(cx, cz); flatten(18, gy, T.STONE);
     box(cx - 10, cx + 10, cz - 10, cz + 10, gy, gy + 7, (x, y, z, e) => e ? ((y - gy) % 4 === 2 && (x + z) % 3 === 0 ? T.GLASS : mossy(x, y, z)) : T.AIR, true);
-    for (let x = cx - 10; x <= cx + 10; x += 2) { put(x, gy + 8, cz - 10, T.STONEBRICK); put(x, gy + 8, cz + 10, T.STONEBRICK); }
-    for (let z = cz - 10; z <= cz + 10; z += 2) { put(cx - 10, gy + 8, z, T.STONEBRICK); put(cx + 10, gy + 8, z, T.STONEBRICK); }
+    if (!__skip()) {
+      for (let x = cx - 10; x <= cx + 10; x += 2) { put(x, gy + 8, cz - 10, T.STONEBRICK); put(x, gy + 8, cz + 10, T.STONEBRICK); }
+      for (let z = cz - 10; z <= cz + 10; z += 2) { put(cx - 10, gy + 8, z, T.STONEBRICK); put(cx + 10, gy + 8, z, T.STONEBRICK); }
+      __done();
+    }
     for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) tower(cx + sx * 10, cz + sz * 10, 3, gy, gy + 13, mossy, T.RTILE, true);
     box(cx - 5, cx + 5, cz - 4, cz + 4, gy, gy + 12, (x, y, z, e) => e ? ((y - gy) % 3 === 1 && (x + z) % 2 === 0 ? T.GLASS : T.STONEBRICK) : T.AIR, true);
     gableRoof(cx - 6, cx + 6, cz - 5, cz + 5, gy + 13, T.RTILE, true);
     tower(cx + 4, cz - 4, 2, gy + 6, gy + 20, T.STONEBRICK, T.RTILE, true);
     tower(cx - 5, cz + 4, 1, gy + 8, gy + 17, T.STONEBRICK, T.RTILE, true);
-    for (let k = -1; k <= 1; k++) for (let y = gy; y < gy + 3; y++) put(cx + k, y, cz + 10, T.AIR);   // gate
-    put(cx - 2, gy + 2, cz + 11, T.TORCH); put(cx + 2, gy + 2, cz + 11, T.TORCH);
+    if (!__skip()) {
+      for (let k = -1; k <= 1; k++) for (let y = gy; y < gy + 3; y++) put(cx + k, y, cz + 10, T.AIR);   // gate
+      put(cx - 2, gy + 2, cz + 11, T.TORCH); put(cx + 2, gy + 2, cz + 11, T.TORCH);
+      __done();
+    }
   } else if (kind === 'towerhouse') {
     // ruined Scottish tower-house on the shore: crow-stepped gables, broken roofs, mossy walls
     const gy = groundAt(cx, cz); flatten(14, gy, T.STONE);
@@ -21445,23 +21535,40 @@ function buildCastle(kind, cx, cz) {
     box(cx, cx + 8, cz - 4, cz + 4, gy, gy + 15, (x, y, z, e) => e ? ((y - gy) % 4 === 2 && (x + z) % 3 === 0 ? T.AIR : ruin(x, y, z)) : T.AIR, true);
     crowGable(cx - 9, cx - 1, cz - 5, gy + 13, 4, T.STONEBRICK); crowGable(cx - 9, cx - 1, cz + 5, gy + 13, 4, T.STONEBRICK);
     crowGable(cx, cx + 8, cz - 4, gy + 16, 4, T.STONEBRICK); crowGable(cx, cx + 8, cz + 4, gy + 16, 4, T.STONEBRICK);
-    // half-collapsed red roof
-    for (let k = 0; k < 4; k++) for (let x = cx - 8 + k; x <= cx - 2 - k; x++) for (let z = cz - 4; z <= cz + 4; z++) if (hsh(x, k, z) < 0.6) put(x, gy + 13 + k, z, T.RTILE);
-    for (const [x, z] of [[cx - 9, cz - 5], [cx + 8, cz + 4], [cx + 8, cz - 4]]) for (let y = gy + 12; y < gy + 19; y++) put(x, y, z, T.STONEBRICK);   // chimneys
-    for (let k = 0; k < 40; k++) { const x = cx + Math.round((hsh(k, 1, 2) - 0.5) * 26), z = cz + Math.round((hsh(k, 3, 4) - 0.5) * 26); put(x, groundAt(x, z), z, T.COBBLE); }   // tumbled stones
+    if (!__skip()) {
+      // half-collapsed red roof
+      for (let k = 0; k < 4; k++) for (let x = cx - 8 + k; x <= cx - 2 - k; x++) for (let z = cz - 4; z <= cz + 4; z++) if (hsh(x, k, z) < 0.6) put(x, gy + 13 + k, z, T.RTILE);
+      for (const [x, z] of [[cx - 9, cz - 5], [cx + 8, cz + 4], [cx + 8, cz - 4]]) for (let y = gy + 12; y < gy + 19; y++) put(x, y, z, T.STONEBRICK);   // chimneys
+      for (let k = 0; k < 40; k++) { const x = cx + Math.round((hsh(k, 1, 2) - 0.5) * 26), z = cz + Math.round((hsh(k, 3, 4) - 0.5) * 26); put(x, groundAt(x, z), z, T.COBBLE); }   // tumbled stones
+      __done();
+    }
   } else if (kind === 'lochisle') {
     // ruined castle on a little island in a lochan, under the hills
     const gy = groundAt(cx, cz), wl = gy - 2;
-    for (let x = cx - 22; x <= cx + 22; x++) for (let z = cz - 22; z <= cz + 22; z++) {
-      const d = Math.hypot(x - cx, (z - cz) * 1.15) + (cityHash(x, 0, z) - 0.5) * 2.5; if (d > 22) continue;
-      if (d < 7.5) { for (let y = wl - 3; y <= wl + 1; y++) put(x, y, z, y === wl + 1 ? T.GRASS : T.DIRT); for (let y = wl + 2; y < gy + 30; y++) put(x, y, z, T.AIR); continue; }
-      for (let y = wl - (d < 18 ? 4 : 2); y <= wl; y++) put(x, y, z, T.WATER); put(x, wl - (d < 18 ? 5 : 3), z, T.MUD);
-      for (let y = wl + 1; y < gy + 30; y++) put(x, y, z, T.AIR);
+    if (!__skip()) {
+      let x = __resuming() ? __st0.hx : (cx - 22);
+      let takeZ = __resuming();
+      for (; x <= cx + 22; x++) {
+        let z = (takeZ && __st0.hz != null) ? __st0.hz : (cz - 22);
+        takeZ = false;
+        for (; z <= cz + 22; z++) {
+          const d = Math.hypot(x - cx, (z - cz) * 1.15) + (cityHash(x, 0, z) - 0.5) * 2.5; if (d > 22) continue;
+          if (d < 7.5) { for (let y = wl - 3; y <= wl + 1; y++) put(x, y, z, y === wl + 1 ? T.GRASS : T.DIRT); for (let y = wl + 2; y < gy + 30; y++) put(x, y, z, T.AIR); }
+          else { for (let y = wl - (d < 18 ? 4 : 2); y <= wl; y++) put(x, y, z, T.WATER); put(x, wl - (d < 18 ? 5 : 3), z, T.MUD); for (let y = wl + 1; y < gy + 30; y++) put(x, y, z, T.AIR); }
+          if (__due()) __park({hx: x, hz: z + 1});
+        }
+      }
+      __done();
+      __maybePark();
     }
     const y0 = wl + 2;
     tower(cx, cz, 3, y0, y0 + 14, (x, y, z) => (y > y0 + 8 && cityHash(x, y, z) < 0.3) ? T.AIR : mossy(x, y, z), null, false);
-    for (const [x, z, hh] of [[cx - 5, cz + 2, 7], [cx + 4, cz + 4, 9], [cx + 5, cz - 3, 5], [cx - 3, cz - 5, 10]]) for (let y = y0; y < y0 + hh; y++) { put(x, y, z, mossy(x, y, z)); put(x + 1, y, z, mossy(x + 1, y, z)); }
+    if (!__skip()) {
+      for (const [x, z, hh] of [[cx - 5, cz + 2, 7], [cx + 4, cz + 4, 9], [cx + 5, cz - 3, 5], [cx - 3, cz - 5, 10]]) for (let y = y0; y < y0 + hh; y++) { put(x, y, z, mossy(x, y, z)); put(x + 1, y, z, mossy(x + 1, y, z)); }
+      __done();
+    }
   }
+  if (__Lb && __Lb._loop && __Lb._loop.bcas && __Lb._loop.bcas.key === __key) __Lb._loop.bcas = null;
 }
 // ---------- saves: only the edits on top of the baked map are stored ----------
 (function () {
@@ -21575,7 +21682,7 @@ function g9PlaceCastles() {
   const startB = (__st && __st.phase === 'build') ? (__st.bi || 0) : 0;
   for (let bi = startB; bi < placed.length; bi++) {
     const c = placed[bi];
-    try { buildCastle(c[0], c[1], c[2]); } catch (e) { console.warn('castle', c, e); }
+    try { buildCastle(c[0], c[1], c[2]); } catch (e) { if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('castle', c, e); }
     if (__Lk && __Lk.held && bi + 1 < placed.length) {
       if (!__Lk._loop) __Lk._loop = {};
       __Lk._loop.keeps = {phase: 'build', bi: bi + 1, placed: placed};
@@ -22543,7 +22650,7 @@ function sstep(a, b, x) { const t = Math.max(0, Math.min(1, (x - a) / (b - a)));
     let r; try { r = pc.apply(this, arguments); } finally { castleAvoid = keep; }
     mtPaint();
     const bx = HOL_C[0], bz = HOL_C[1], bh = g9top(bx, bz);
-    try { buildCastle('towerhouse', bx, bz); } catch (e) { console.warn('peak castle', e); }
+    try { buildCastle('towerhouse', bx, bz); } catch (e) { if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('peak castle', e); }
     // braziers in the hollow (torches on cobble posts) - their light pools in the bowl
     for (let a = 0; a < 10; a++) {
       const x = Math.round(bx + Math.cos(a / 10 * 6.283) * 13), z = Math.round(bz + Math.sin(a / 10 * 6.283) * 13);
@@ -26422,7 +26529,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     const want = [['human', (x, z) => -Math.abs(Math.hypot(x - sp[0], z - sp[2]) - 50) * 3], ['mossy', (x, z) => -Math.hypot(x - cx0, z - cz0) * 2 - (Math.hypot(x - sp[0], z - sp[2]) < 45 ? 1e6 : 0)], ['black', (x, z) => Math.hypot(x - sp[0], z - sp[2]) - (W >= 800 ? Math.abs(Math.min(x, z, W - 1 - x, D - 1 - z) - 56) * 6 : 0)]];
     { const cn = window.__c101 && window.__c101.corners && window.__c101.corners(); if (cn) for (const w of want) { const q = cn[w[0]]; if (q) w[1] = q; } }   // GLX-C101: one castle in each corner
     for (const [k, sc] of want) { const S = SIZE[BASE[k]]; const p = best(S + 6, sc); if (p) placed.push([k, p[0], p[1]]); }
-    window.__bareKeep = true; try { for (const c of placed) { try { buildCastle(BASE[c[0]], c[1], c[2]); } catch (e) { console.warn('castle', c, e); } } } finally { window.__bareKeep = false; }
+    window.__bareKeep = true; try { for (const c of placed) { try { buildCastle(BASE[c[0]], c[1], c[2]); } catch (e) { if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('castle', c, e); } } } finally { window.__bareKeep = false; }
     g9castles = placed; return placed; };
   // ---- after every pass: empty clean interiors, one chest each, the castle's own look, the broken portal ----
   const DECOR = new Set([T.TORCH, 161, 216, 162, T.CHEST, T.TAPESTRY, T.RCARPET, T.BOOKSHELF, T.WOOL, 221, T.FURNACE, T.CAULDRON, T.TABLE, 164, T.COBWEB, T.BED, 219, 220, 222, 223, T.IRONBLOCK].filter(v => v !== undefined));
@@ -26434,13 +26541,25 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     const __st = (__Lf && __Lf.held && __Lf._loop && __Lf._loop.finishC) ? __Lf._loop.finishC : null;
     if (__st && __st.out) Array.prototype.push.apply(out, __st.out);
     for (let ci = __st ? __st.ci : 0; ci < g9castles.length; ci++) { const c = g9castles[ci]; if (!BASE[c[0]]) continue; const [k, cx, cz] = c, S = SIZE[BASE[k]], R = S + 2, gy = gyAt.get(cx + ',' + cz) || (solidTop(cx, cz) + 1);
-      let removed = 0;
-      for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) for (let y = Math.max(2, gy - 3); y < Math.min(H - 1, gy + 26); y++) { const i = idx(x, y, z), b = world[i]; if (!b) continue;
+      let removed = (__st && __st.ci === ci && __st.removed != null) ? __st.removed : 0;
+      const __same = (__st && __st.ci === ci);
+      if (!(__same && __st.phase === 'fin')) {
+      let __tF = performance.now(), __wF = Date.now();
+      for (let x = (__same && __st.x != null) ? __st.x : (cx - R); x <= cx + R; x++) {
+        for (let z = cz - R; z <= cz + R; z++) for (let y = Math.max(2, gy - 3); y < Math.min(H - 1, gy + 26); y++) { const i = idx(x, y, z), b = world[i]; if (!b) continue;
         if (placedSet && placedSet.has(i)) continue;
         if (DECOR.has(b)) { world[i] = b === T.RCARPET ? (k === 'black' ? BLK : T.STONEBRICK) : T.AIR; entMeta.delete(keyOf(x, y, z)); chests.delete(keyOf(x, y, z)); removed++; continue; }
         if (b === T.GLOWROCK || b === T.LAVA && y > gy) { world[i] = T.AIR; continue; }
         if (STONES.has(b)) { if (k === 'black') world[i] = BLK; else if (k === 'human') { if (b === T.MOSSYBRICK || b === T.COBBLE && y > gy) world[i] = T.STONEBRICK; }
           else { const r = h3(x, y, z); world[i] = r < 0.45 ? T.MOSSYBRICK : r < 0.6 ? T.COBBLE : T.STONEBRICK; if (y > gy + 4 && r > 0.955 && !world[idx(x, y + 1, z)]) world[i] = T.AIR; } } }
+        if (__Lf && __Lf.held && ((performance.now() - __tF > (__SLB())) || (Date.now() - __wF > (__SLB())))) {
+          if (!__Lf._loop) __Lf._loop = {};
+          __Lf._loop.finishC = {ci: ci, out: out, x: x + 1, removed: removed, phase: 'scan'};
+          try { __Lf.touch(80, 'Raising the keeps…', 92); } catch (_) {}
+          throw __Lf.YIELD;
+        }
+      }
+      }
       // the one chest, in the keep by the front door
       const KX = S - 6, kz1 = cz - 2, x0 = cx - KX, chx = x0 + 1, chz = kz1 - 1; let chy = gy; while (chy < gy + 3 && world[idx(chx, chy, chz)]) chy++;
       const loot = k === 'human' ? [[IT.IRONINGOT, 6], [IT.BREAD, 6], [IT.COOKEDMUTTON || IT.MUTTON, 4], [IT.DIAMOND, 3]] : k === 'mossy' ? [[IT.IRONINGOT, 3], [IT.BREAD, 3], [IT.POTATO, 4]] : [[IT.FLINTSTEEL, 1], [T.OBSIDIAN, 4]];
@@ -28645,19 +28764,44 @@ void main() {
   window.__trees2 = true;
   const AIRISH = b => b === T.AIR || (PLANT[b] === 1 && b !== T.WATER);
   function plant(seed) {
+    /* GLX-LOAD1289: yield across the built-column scan, tree grid, ground
+       pass and heather so planting the woods cannot block for seconds.
+       Resume persists rs, built, occ, st and the loop cursor. */
     const W0 = W, D0 = D, hs = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ seed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-    let rs = (seed ^ 0x5bd1e995) >>> 0 || 1; const r = () => { rs ^= rs << 13; rs >>>= 0; rs ^= rs >>> 17; rs ^= rs << 5; rs >>>= 0; return rs / 4294967296; };
-    const B = g9BuiltSet(), st = {trees: 0, byKind: {}, pos: {}, heather: 0, hpos: [], rejected: 0, ms: 0, ground: {}, bioMs: 0}; const t0 = performance.now();
-    if (!g9spawn) try { g9spawn = g9findSpawn(); } catch (_) {}
-    bioBuild(true); st.bioMs = Math.round(performance.now() - t0);
-    // columns with anything man-made in them (castles, ruins, bothies, stones, villages): keep trees 4 blocks away
-    const built = new Uint8Array(W0 * D0);
-    for (let x = 0; x < W0; x++) for (let z = 0; z < D0; z++) { const top = g9cols ? g9cols[(x * D0 + z) * 2] : SEA; for (let y = Math.max(1, top - 3); y < Math.min(H, top + 24); y++) { const b = world[(x * H + y) * D0 + z]; if (b && (B[b] || b === T.MOSSYBRICK || b === T.STONEBRICK || b === T.COBBLE || (b === T.STONE && y > top) || (T.BLACKSTONE && b === T.BLACKSTONE) || b === T.OBSIDIAN)) { built[x * D0 + z] = 1; break; } } }
-    try { if (window.__c101 && window.__c101.mark) window.__c101.mark(built, W0, D0); } catch (e) { console.warn('c101 mark', e); }   // GLX-C101: the spawn island keeps its own ground and trees
+    const __Lp = window.__glenLoad;
+    const __st = (__Lp && __Lp.held && __Lp._loop && __Lp._loop.plant && __Lp._loop.plant.seed === seed) ? __Lp._loop.plant : null;
+    let rs = __st ? __st.rs : ((seed ^ 0x5bd1e995) >>> 0 || 1); const r = () => { rs ^= rs << 13; rs >>>= 0; rs ^= rs >>> 17; rs ^= rs << 5; rs >>>= 0; return rs / 4294967296; };
+    const B = g9BuiltSet();
+    const st = __st ? __st.st : {trees: 0, byKind: {}, pos: {}, heather: 0, hpos: [], rejected: 0, ms: 0, ground: {}, bioMs: 0}; const t0 = (__st && __st.t0 != null) ? __st.t0 : performance.now();
+    const built = (__st && __st.built) ? __st.built : new Uint8Array(W0 * D0);
+    const occ = (__st && __st.occ) ? __st.occ : new Uint8Array(W0 * D0);
+    let phase = __st ? __st.phase : 'init';
+    let __tP = performance.now(), __wP = Date.now();
+    const __budget = function () { try { return (typeof __SLB === 'function' ? __SLB() : 350); } catch (_) { return 350; } };
+    const __due = function () { return __Lp && __Lp.held && ((performance.now() - __tP > __budget()) || (Date.now() - __wP > __budget())); };
+    const __park = function (ph, x) {
+      if (!__Lp._loop) __Lp._loop = {};
+      __Lp._loop.plant = {seed: seed, rs: rs, built: built, occ: occ, st: st, phase: ph, x: x, t0: t0};
+      try { __Lp.touch(86, 'Planting the woods… ' + (x || 0) + '/' + W0, 96); } catch (_) {}
+      throw __Lp.YIELD;
+    };
+    if (phase === 'init') {
+      if (!g9spawn) try { g9spawn = g9findSpawn(); } catch (_) {}
+      bioBuild(true); st.bioMs = Math.round(performance.now() - t0);
+      phase = 'built';
+      if (__due()) __park('built', 0);
+    }
+    if (phase === 'built') {
+      for (let x = (__st && __st.phase === 'built' && __st.x != null) ? __st.x : 0; x < W0; x++) {
+        for (let z = 0; z < D0; z++) { const top = g9cols ? g9cols[(x * D0 + z) * 2] : SEA; for (let y = Math.max(1, top - 3); y < Math.min(H, top + 24); y++) { const b = world[(x * H + y) * D0 + z]; if (b && (B[b] || b === T.MOSSYBRICK || b === T.STONEBRICK || b === T.COBBLE || (b === T.STONE && y > top) || (T.BLACKSTONE && b === T.BLACKSTONE) || b === T.OBSIDIAN)) { built[x * D0 + z] = 1; break; } } }
+        if (__due()) __park('built', x + 1);
+      }
+      try { if (window.__c101 && window.__c101.mark) window.__c101.mark(built, W0, D0); } catch (e) { console.warn('c101 mark', e); }   // GLX-C101: the spawn island keeps its own ground and trees
+      phase = 'trees';
+    }
     const nearBuilt = (x, z, R) => { for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= W0 || c >= D0 || built[a * D0 + c]) return true; } return false; };
     const castles = (typeof g9castles !== 'undefined' ? g9castles : []).map(c => ({k: c[0], x: c[1], z: c[2], R: c[0] === 'citadel' ? 34 : 26}));
     const spawn = g9spawn;
-    const occ = new Uint8Array(W0 * D0);
     const free = (x, z, R) => { for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) { const a = x + dx, c = z + dz; if (a >= 0 && c >= 0 && a < W0 && c < D0 && occ[a * D0 + c]) return false; } return true; };
     const at = (x, y, z) => world[(x * H + y) * D0 + z];
     const setW = (x, y, z, b) => { if (x < 1 || z < 1 || x >= W0 - 1 || z >= D0 - 1 || y < 1 || y >= H - 1) return; const i = (x * H + y) * D0 + z, o = world[i]; if (o === T.AIR || (PLANT[o] === 1 && o !== T.WATER) || LEAFY[o]) world[i] = b; };
@@ -28695,7 +28839,9 @@ void main() {
     const SOIL = new Set([T.GRASS, T.DIRT, T.PEAT, T.MUD, T.HEATHER, T.SNOW, GND.podzol, GND.moss].filter(v => v !== undefined));
     const wetNear = (x, z) => { for (const [dx, dz] of [[3, 0], [-3, 0], [0, 3], [0, -3], [2, 2], [-2, 2], [2, -2], [-2, -2], [5, 0], [-5, 0], [0, 5], [0, -5]]) { const a = x + dx, c = z + dz; if (a < 0 || c < 0 || a >= W0 || c >= D0) continue; if (g9cols[(a * D0 + c) * 2] <= SEA || at(a, SEA + 1, c) === T.WATER || at(a, g9cols[(a * D0 + c) * 2], c) === T.WATER) return true; } return false; };
     const CELL = 3;
-    for (let cx = 2; cx < W0 - 4; cx += CELL) for (let cz = 2; cz < D0 - 4; cz += CELL) {
+    if (phase === 'trees') {
+      for (let cx = (__st && __st.phase === 'trees' && __st.x != null) ? __st.x : 2; cx < W0 - 4; cx += CELL) {
+        for (let cz = 2; cz < D0 - 4; cz += CELL) {
       const x = cx + (hs(cx, 11, cz) * CELL | 0), z = cz + (hs(cx, 12, cz) * CELL | 0); if (x < 3 || z < 3 || x >= W0 - 3 || z >= D0 - 3) continue;
       const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1];
       if (kind === 3 || kind === 5 || kind === 4 || hh <= SEA) continue;
@@ -28718,12 +28864,18 @@ void main() {
       if (gb === T.GRASS || gb === T.HEATHER || gb === T.SNOW) world[(x * H + g) * D0 + z] = T.DIRT;   // dirt under the trunk, like MC
       let dz1 = false; try { dz1 = !!(window.__c101 && window.__c101.tree && window.__c101.tree(sp, x, g, z, r, setW, setL, free, occ, W0, D0)); } catch (e) { console.warn('c101 tree', e); }   // GLX-C101: designed trees
       if (!dz1) TREE[sp](x, g, z); occ[x * D0 + z] = 1; st.trees++; st.byKind[sp] = (st.byKind[sp] || 0) + 1; (st.pos[sp] || (st.pos[sp] = [])).length < 400 && st.pos[sp].push([x, g, z]);
+        }
+        if (__due()) __park('trees', cx + CELL);
+      }
+      phase = 'ground';
     }
     // ---- each biome's own ground: podzol + ferns under pine, mud / bog / reeds / puddles by the alder, moss under yew, flowers in birch, long grass in the highlands and hedgerows ----
     const gc = st.ground, cnt1 = k => { gc[k] = (gc[k] || 0) + 1; };
     const FLW = new Set([T.DANDELION, T.DAFFODIL, T.BLUEBELL]);
     const BI = {}; BIOS.forEach((b, i) => { BI[b] = i; });
-    for (let x = 2; x < W0 - 2; x++) for (let z = 2; z < D0 - 2; z++) {
+    if (phase === 'ground') {
+      for (let x = (__st && __st.phase === 'ground' && __st.x != null) ? __st.x : 2; x < W0 - 2; x++) {
+        for (let z = 2; z < D0 - 2; z++) {
       const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1]; if (hh <= SEA || kind === 3 || kind === 4 || kind === 5 || built[x * D0 + z]) continue;
       let g = -1; for (let y = Math.min(H - 2, hh + 3); y >= hh - 3 && y > 1; y--) { const b = at(x, y, z); if (b === T.AIR || PLANT[b] === 1) continue; g = y; break; }
       if (g < SEA + 1) continue; const gi = (x * H + g) * D0 + z; if (world[gi] !== T.GRASS) continue;
@@ -28742,9 +28894,15 @@ void main() {
       else if (b === BI.rowan) { if (q < 0.025 && ab === T.AIR) putP(T.THISTLE); }
       else if (b === BI.juniper) { if (n > 0.02) { world[gi] = T.HEATHER; cnt1('heath'); if (PLANT[ab] === 1) world[gi + D0] = T.AIR; } else if (n < -0.25) { world[gi] = T.PEAT; cnt1('peat'); } }
       else if (b === BI.hawthorn || b === BI.blackthorn) { if (q < 0.02 && ab === T.AIR && !occ[x * D0 + z]) { world[gi + D0] = b === BI.hawthorn ? LEAF.hawthorn : LEAF.blackthorn; cnt1('scrub'); } }
+        }
+        if (__due()) __park('ground', x + 1);
+      }
+      phase = 'heather';
     }
     // heather: low bushy clumps, mostly on the juniper moors
-    for (let cx = 2; cx < W0 - 4; cx += 5) for (let cz = 2; cz < D0 - 4; cz += 5) {
+    if (phase === 'heather') {
+      for (let cx = (__st && __st.phase === 'heather' && __st.x != null) ? __st.x : 2; cx < W0 - 4; cx += 5) {
+        for (let cz = 2; cz < D0 - 4; cz += 5) {
       const x = cx + (hs(cx, 21, cz) * 5 | 0), z = cz + (hs(cx, 22, cz) * 5 | 0); if (x < 4 || z < 4 || x >= W0 - 4 || z >= D0 - 4) continue;
       const ci = (x * D0 + z) * 2, hh = g9cols[ci], kind = g9cols[ci + 1], jun = bioAt(x, z) === 'juniper';
       if (kind === 3 || kind === 5 || hh <= SEA) continue;
@@ -28754,7 +28912,12 @@ void main() {
         const g = g9top(a, c), b = at(a, g, c); if (b !== T.GRASS && b !== T.HEATHER) continue; if (!AIRISH(at(a, g + 1, c))) continue;
         if (at(a, g + 1, c) !== T.AIR) world[(a * H + g + 1) * D0 + c] = T.AIR;
         if (d < 0.75 && hs(a, 26, c) < 0.8) { world[(a * H + g) * D0 + c] = T.DIRT; world[(a * H + g + 1) * D0 + c] = T.HEATHER; st.heather++; }   // a raised heather bush
-        else { world[(a * H + g) * D0 + c] = T.HEATHER; st.heather++; } } }
+        else { world[(a * H + g) * D0 + c] = T.HEATHER; st.heather++; } }
+        }
+        if (__due()) __park('heather', cx + 5);
+      }
+    }
+    if (__Lp && __Lp._loop) __Lp._loop.plant = null;
     st.ms = Math.round(performance.now() - t0); window.__c80grow = (sp, x, z) => { const g = g9top(x, z); TREE[sp](x, g, z); }; return st;
   }
   const ge = generate;

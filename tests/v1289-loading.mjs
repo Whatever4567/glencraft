@@ -47,4 +47,9 @@ ok(html.includes('U._postResume') && html.includes('if (!U._postResume) return o
 ok(html.includes('new MessageChannel()') && src.includes('_mc.port2.postMessage'), 'yields use MessageChannel so the event loop gets a turn');
 ok(html.includes('U.sliceMs') && html.includes('Math.min(400, b + 50)') && html.includes('Math.max(300, b - 25)') && html.includes('WIN.__SLB'), 'slice budget adapts between 300 and 400ms');
 
+ok(html.includes('__Lb._loop.bcas') && html.includes('__resuming') && html.includes('__skip()'), 'buildCastle yields mid-flatten/box/fill and resumes by op and cursor');
+ok(html.includes("if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('castle'"), 'buildCastle callers rethrow cooperative yields');
+ok(html.includes('__Lp._loop.plant') && html.includes("phase === 'built'") && html.includes("phase === 'heather'") && html.includes('rs: rs, built: built, occ: occ'), 'plant() is sliced across built, trees, ground and heather and persists rs');
+ok(html.includes("phase: 'scan'") && html.includes('__Lf._loop.finishC = {ci: ci, out: out, x: x + 1, removed: removed'), 'finishCastles yields mid-castle and resumes the column scan');
+
 console.log('v1289-loading: ' + n + ' ok');
