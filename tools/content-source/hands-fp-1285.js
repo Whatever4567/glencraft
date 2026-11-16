@@ -1843,15 +1843,14 @@
        it from scratch each frame (or copy the torch freeze), and the
        __fpa arm aims at `held`, not at this child, so a constant here
        is not chased. Restore-if-unchanged keeps it from accumulating. */
-    /* t1246: render-scoped. The item mesh (held.children[0]) gets the
-       solved constant only for the draw, then is put back, so the game's
-       own 1251/1261 writes (incl. smoothed / frozen torch-pick jitter
-       fixes) and the __fpa aim never see it: nothing accumulates, no
-       per-frame seek. O(1): two vector adds per frame. */
-    const m = h.children && h.children[0];
+    /* t1246: render-scoped on every held child (guns have several
+       meshes, not just children[0]). Applied in onBeforeRender and
+       undone in onAfterRender so 1251/1261 and the __fpa aim never
+       see it. O(1): a few vector adds per draw. */
     const t = heldOffOf(U.kind);
-    U._drawOff = (m && t && (t[0] || t[1] || t[2])) ? { m: m, x: t[0] || 0, y: t[1] || 0, z: t[2] || 0 } : null;
-    U.itemGripD = t ? +Math.hypot(t[0] || 0, t[1] || 0, t[2] || 0).toFixed(3) : 0;
+    const ox = t ? (t[0] || 0) : 0, oy = t ? (t[1] || 0) : 0, oz = t ? (t[2] || 0) : 0;
+    U._drawOff = (t && (ox || oy || oz)) ? { x: ox, y: oy, z: oz } : null;
+    U.itemGripD = t ? +Math.hypot(ox, oy, oz).toFixed(3) : 0;
     hookDrawOff();
     const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
     const vx = v[0] || 0, vy = v[1] || 0, vz = v[2] || 0;
@@ -1875,20 +1874,55 @@
     h.userData._fpView1285 = { base: base, out: h.position.clone(), kind: U.kind, vx: vx, vy: vy, vz: vz };
   }
 
+  function eachHeldChild(fn) {
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    if (!h || !h.children) return;
+    for (let i = 0; i < h.children.length; i++) fn(h.children[i]);
+  }
   function drawOffOn() {
     const d = U._drawOff;
     if (!d || U._drawOffOn) return;
-    d.m.position.x += d.x; d.m.position.y += d.y; d.m.position.z += d.z;
+    eachHeldChild(function (m) {
+      m.position.x += d.x; m.position.y += d.y; m.position.z += d.z;
+    });
     U._drawOffOn = d;
   }
   function drawOffOff() {
     const d = U._drawOffOn;
     if (!d) return;
-    d.m.position.x -= d.x; d.m.position.y -= d.y; d.m.position.z -= d.z;
+    eachHeldChild(function (m) {
+      m.position.x -= d.x; m.position.y -= d.y; m.position.z -= d.z;
+    });
     U._drawOffOn = null;
   }
   U.drawOffOn = drawOffOn; U.drawOffOff = drawOffOff;
+  function hookChildOff(m) {
+    if (!m || m.__fpOffHook1285) return;
+    const prevB = m.onBeforeRender;
+    const prevA = m.onAfterRender;
+    m.onBeforeRender = function () {
+      if (typeof prevB === 'function') prevB.apply(this, arguments);
+      const d = U._drawOff;
+      if (!d || m.userData._fpDrawOn1285) return;
+      m.position.x += d.x; m.position.y += d.y; m.position.z += d.z;
+      m.userData._fpDrawOn1285 = 1;
+      try { m.updateMatrixWorld(); } catch (_) {}
+    };
+    m.onAfterRender = function () {
+      if (m.userData._fpDrawOn1285) {
+        const d = U._drawOff || { x: 0, y: 0, z: 0 };
+        m.position.x -= d.x; m.position.y -= d.y; m.position.z -= d.z;
+        m.userData._fpDrawOn1285 = 0;
+      }
+      if (typeof prevA === 'function') prevA.apply(this, arguments);
+    };
+    m.__fpOffHook1285 = 1;
+  }
   function hookDrawOff() {
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    if (h && h.children) for (let i = 0; i < h.children.length; i++) hookChildOff(h.children[i]);
     let r = null;
     try { if (typeof renderer !== 'undefined') r = renderer; } catch (_) {}
     if (!r || r.__drawOff1285) return;
