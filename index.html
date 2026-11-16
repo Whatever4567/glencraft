@@ -89458,15 +89458,21 @@ try {
     } catch (_) {}
     let v, text;
     function labelFor(x) {
-      if (U.finishing || (U.done && x >= 99.5)) return Math.min(100, Math.round(x)) + '%';
+      /* Keep a one-decimal 99.x until the glide reaches 100 so 99.2 cannot snap to 99. */
+      if (x >= 99.95) return '100%';
       if (x < 90) return Math.floor(x + 1e-9) + '%';
       return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
     }
     if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
       v = Math.min(100, Math.max(prev, shown || 0));
-      const n = Math.min(100, Math.max(Math.round(prev), Math.round(v)));
-      v = n;
-      text = n + '%';
+      if (v >= 99.95) {
+        v = 100;
+        text = '100%';
+      } else {
+        const d = Math.floor(v * 10 + 1e-9) / 10;
+        v = d;
+        text = d.toFixed(1) + '%';
+      }
     } else {
       const aim = Math.max(shown || 0, displayAim(now));
       v = Math.min(99.8, Math.max(prev, aim));

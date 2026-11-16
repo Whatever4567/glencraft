@@ -267,7 +267,7 @@ ok(src.includes('stopFillAnim') && src.includes("fill.style.willChange = 'auto'"
 ok(src.includes('load1288shine') && src.includes('translateX(-120%)') && src.includes('translateX(280%)') && src.includes('will-change:transform'), 'shimmer/wave is a compositor translateX loop');
 ok(!src.includes('background-position') && !src.includes('load1285shine') && !src.includes('load1285wave'), 'old main-thread background-position shine is gone');
 ok(!src.includes("shown.toFixed(2) + '%'"), 'paint no longer drives the fill with style.width');
-ok(src.includes("d.toFixed(1) + '%'") && src.includes('pct.textContent = text') && src.includes('if (v < prev) v = prev') && !src.includes('TICK_MS = 2000'), '% text is monotonic, with one decimal past 90%, paced from the ETA');
+ok(src.includes("d.toFixed(1) + '%'") && src.includes('pct.textContent = text') && src.includes('if (v < prev) { v = prev') && !src.includes('TICK_MS = 2000'), '% text is monotonic, with one decimal past 90%, paced from the ETA');
 ok(src.includes('U._pctInt = 0') && src.includes('startFillAnim'), 'a new load resets the label and starts the fill animation');
 {
   const T = 60000, tail = 120000;
@@ -285,6 +285,28 @@ ok(src.includes('U._pctInt = 0') && src.includes('startFillAnim'), 'a new load r
   });
   // keyframes end at 97% at t=T and stay under 99 after
   ok(Math.abs(mid(T, T) - 97) < 0.01, 'baked curve still hits 97% at the expected duration');
+}
+
+
+ok(src.includes('Keep a one-decimal 99.x until the glide reaches 100') && html.includes('Keep a one-decimal 99.x until the glide reaches 100') && !src.includes("return Math.min(100, Math.round(x)) + '%'"), 'paint no longer rounds the finishing label to an integer below 100');
+{
+  function finishLabel(prev, shown) {
+    let v = Math.min(100, Math.max(prev, shown || 0));
+    let text;
+    function labelFor(x) {
+      if (x >= 99.95) return '100%';
+      if (x < 90) return Math.floor(x + 1e-9) + '%';
+      return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
+    }
+    if (v >= 99.95) { v = 100; text = '100%'; }
+    else { const d = Math.floor(v * 10 + 1e-9) / 10; v = d; text = d.toFixed(1) + '%'; }
+    if (v < prev) { v = prev; text = labelFor(v); }
+    return {v, text};
+  }
+  const snap = finishLabel(99.2, 99.27);
+  ok(snap.text === '99.2%' && snap.v === 99.2, 'finishing from 99.2% does not paint 99%');
+  ok(finishLabel(99.2, 99.64).text === '99.6%', 'finish glide keeps one decimal while climbing');
+  ok(finishLabel(99.8, 100).text === '100%', 'finish glide still reaches 100%');
 }
 
 console.log('PASS ' + n + ' v1285 loading checks');

@@ -60,4 +60,25 @@ ok(html.includes('Never write #loadPct from this fallback') && html.includes('cr
 
 ok(html.includes('bi + 1 < placed.length && (performance.now() - (__Lk._tSlice || 0)') && html.includes('ci + 1 < g9castles.length && (performance.now() - (__Lf._tSlice || 0)'), 'per-keep and per-castle yields only fire when the slice budget has elapsed');
 ok(html.includes("phase: 'cols'") && html.includes("if (performance.now() - (__L._tSlice || 0) > (typeof __SLB === 'function' ? __SLB() : 350)) throw __L.YIELD;"), 'GEN9 phase-boundary yields are budget-only');
+
+ok(html.includes('Keep a one-decimal 99.x until the glide reaches 100') && html.includes("if (v >= 99.95) {") && !html.includes("return Math.min(100, Math.round(x)) + '%'"), 'finish() keeps 99.x decimals so the label never snaps backwards to 99%');
+{
+  function finishLabel(prev, shown) {
+    let v = Math.min(100, Math.max(prev, shown || 0));
+    let text;
+    function labelFor(x) {
+      if (x >= 99.95) return '100%';
+      if (x < 90) return Math.floor(x + 1e-9) + '%';
+      return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
+    }
+    if (v >= 99.95) { v = 100; text = '100%'; }
+    else { const d = Math.floor(v * 10 + 1e-9) / 10; v = d; text = d.toFixed(1) + '%'; }
+    if (v < prev) { v = prev; text = labelFor(v); }
+    return {v, text};
+  }
+  const snap = finishLabel(99.2, 99.27);
+  ok(snap.text === '99.2%' && snap.v === 99.2, 'finishing from 99.2% does not paint 99%');
+  ok(finishLabel(99.2, 99.64).text === '99.6%', 'finish glide keeps one decimal while climbing');
+  ok(finishLabel(99.8, 100).text === '100%', 'finish glide still reaches 100%');
+}
 console.log('v1289-loading: ' + n + ' ok');
