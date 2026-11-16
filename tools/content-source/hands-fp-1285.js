@@ -2638,7 +2638,165 @@
     return out;
   };
 
+
+  /* t1252: one-time per-kind finger bake. align2's poseState is identical
+     to now, but the old glove onBeforeRender path re-curled every frame
+     after the wrist seat and world matrices were current. We do that
+     second curl once, after applyTune, then (for non-gun kinds) a
+     clamped one-shot fist-to-handle slide, then freeze the finger
+     bones so a later arm update cannot undo the bake. Pistol is not
+     slid; its locked seat stays as-is. */
+  function fingerBones(state) {
+    return [].concat((state && state.prox) || [], (state && state.dist) || [], (state && state.thumb) || []);
+  }
+  function setFingerAuto(state, on) {
+    const bones = fingerBones(state);
+    for (let i = 0; i < bones.length; i++) {
+      const b = bones[i]; if (!b) continue;
+      if (!on) { try { b.updateMatrix(); } catch (_) {} }
+      b.matrixAutoUpdate = !!on;
+    }
+  }
+  function refreshSkel(state) {
+    if (!state) return;
+    try { if (state.wrap) state.wrap.updateMatrixWorld(true); } catch (_) {}
+    try { if (state.skeleton && state.skeleton.update) state.skeleton.update(); } catch (_) {}
+  }
+  function heldReady() {
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    return !!(h && h.children && h.children.length);
+  }
+  /* Shift linen/cuff meshes by the same p.h-local delta as a fist-close
+     wrap slide, once. Bucket/torch/sword seats have cuffFollow off, so
+     without this a 5 mm–12 cm slide would open the cuff past 5 mm. */
+  function applyCuffDelta(state, dPh) {
+    if (!state || !dPh || dPh.lengthSq() < 1e-12) return;
+    const T = T3(); if (!T) return;
+    const R = rig();
+    const arm = R && R.userData && R.userData[state.side];
+    if (!arm) return;
+    const wrap = state.wrap;
+    const wrist = wrap && wrap.parent;
+    if (!wrist) return;
+    const tmp = U._cuffTmp || (U._cuffTmp = {
+      a: new T.Vector3(), b: new T.Vector3(), loc: new T.Vector3(0, -0.03, 0),
+      d: new T.Vector3(), p0: new T.Vector3(), p1: new T.Vector3(),
+      mat: new T.Matrix4(), inv: new T.Matrix4()
+    });
+    const visit = function (o) {
+      if (!o || !o.isMesh || !o.parent) return;
+      if (wrap && (o === wrap || o.parent === wrap)) return;
+      const n = (o.name || '') + ' ' + ((o.userData && o.userData.name) || '');
+      const linen = (typeof isLinenSleeve === 'function') && isLinenSleeve(o);
+      if (!linen && !/cuff|sleeve|linen|forearm/i.test(n) && !(arm.userData && arm.userData.p && o === arm.userData.p.cuff)) return;
+      if (o.parent === wrist) { o.position.add(dPh); return; }
+      tmp.mat.identity();
+      let node = o.parent, hops = 0, under = 0;
+      while (node && hops++ < 8) {
+        if (node === wrist) { under = 1; break; }
+        tmp.mat.premultiply(node.matrix);
+        node = node.parent;
+      }
+      if (under) {
+        tmp.mat.invert();
+      } else {
+        try { wrist.updateMatrixWorld(true); o.parent.updateMatrixWorld(true); } catch (_) {}
+        tmp.mat.copy(wrist.matrixWorld).premultiply(tmp.inv.copy(o.parent.matrixWorld).invert());
+      }
+      tmp.p0.set(0, 0, 0).applyMatrix4(tmp.mat);
+      tmp.p1.copy(dPh).applyMatrix4(tmp.mat);
+      o.position.add(tmp.p1.sub(tmp.p0));
+    };
+    if (arm.traverse) arm.traverse(visit);
+    else visit(arm.userData && arm.userData.p && arm.userData.p.cuff);
+  }
+  /* Clamped p.h-local slide of the wrap so the mid-finger hole sits on
+     the held grip. Cached per kind+mesh. Never used for pistol/musket. */
+  function bakeFistClose(state) {
+
+    if (!state || !state.wrap || !state.wrap.parent) return 0;
+    const k = U.kind || '';
+    if (k === 'pistol' || k === 'musket') return 1;
+    const T = T3(); if (!T) return 0;
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    if (!h || !h.children || !h.children.length) return 0;
+    const uid = (h.children[0] && h.children[0].uuid) || h.uuid;
+    const key = k + ':' + uid;
+    if (U._fistBakeKey === key) return 1;
+    try {
+      state.wrap.updateMatrixWorld(true);
+      h.updateMatrixWorld(true);
+      const holeW = new T.Vector3();
+      if (state.prox[1] && state.dist[1]) {
+        const a = state.prox[1].getWorldPosition(new T.Vector3());
+        const b = state.dist[1].getWorldPosition(new T.Vector3());
+        holeW.copy(a).add(b).multiplyScalar(0.5);
+      } else {
+        state.wrap.getWorldPosition(holeW);
+      }
+      const g = heldGripLocal(T, h, k);
+      if (!g) return 0;
+      const gripW = g.clone().applyMatrix4(h.matrixWorld);
+      const dW = holeW.clone().sub(gripW);
+      const dist = dW.length();
+      /* Not ready: a 1–2 m first sample must not be baked. */
+      if (dist > 0.22) return 0;
+      U._fistBakeKey = key;
+      if (dist < 0.006) return 1;
+      const maxD = (k === 'torch') ? 0.12 : (k === 'bucket' ? 0.025 : 0.035);
+      const ph = state.wrap.parent;
+      ph.updateMatrixWorld(true);
+      const inv = new T.Matrix4().copy(ph.matrixWorld).invert();
+      /* Parent-local delta (ancestor scale cancels). */
+      const holeL = holeW.clone().applyMatrix4(inv);
+      const gripL = gripW.clone().applyMatrix4(inv);
+      const dPh = holeL.sub(gripL);
+      if (dPh.length() > maxD) dPh.setLength(maxD);
+      state.wrap.position.add(dPh);
+      try { applyCuffDelta(state, dPh); } catch (e) { ERR('fistCuff', e); }
+      /* Seat cache still describes the pre-slide wrap; leave _tuneFk so
+         a later applyTune cannot pull the wrap back to the bare seat. */
+      fpRun('fistClose');
+      U.handleSeekD = +dPh.length().toFixed(3);
+      return 1;
+    } catch (e) { ERR('fistClose', e); return 0; }
+  }
+  function bakeKindFingers(kind) {
+    const _pk = profBegin('bakeKindFingers');
+    fpRun('poseKind');
+    const R = U.sides && U.sides.R, L = U.sides && U.sides.L;
+    if (R) setFingerAuto(R, 1);
+    if (L) setFingerAuto(L, 1);
+    poseKind(kind);
+    if (R) applyTune(R);
+    if (L) applyTune(L);
+    /* Second curl after the wrist seat and matrices are current — this
+       is the step the old per-frame beforeDraw path kept applying. */
+    if (R) refreshSkel(R);
+    if (L) refreshSkel(L);
+    poseKind(kind);
+    if (R) refreshSkel(R);
+    if (L) refreshSkel(L);
+    let closed = 1;
+    if (R && kind !== 'pistol' && kind !== 'musket') closed = bakeFistClose(R);
+    if (R) refreshSkel(R);
+    if (closed) {
+      poseKind(kind);
+      if (R) refreshSkel(R);
+      if (L) refreshSkel(L);
+      if (R) setFingerAuto(R, 0);
+      if (L) setFingerAuto(L, 0);
+      U._fistPending = 0;
+    } else {
+      U._fistPending = 1;
+    }
+    profEnd('bakeKindFingers', _pk);
+  }
+
   function tick() {
+
     const _pt = profBegin('tick');
     try {
       if (!U.on) return;
@@ -2650,21 +2808,35 @@
         fpRun('tick');
         if (switched) {
           const _ph = profBegin('hideBoth'); hideBoth(); profEnd('hideBoth', _ph);
-          const _pk = profBegin('poseKind');
-          poseKind(k);
-          profEnd('poseKind', _pk);
-          fpRun('poseKind');
           U._tickKind = k;
           if (U.sides && U.sides.R) { U.sides.R._tuneFk = null; U.sides.R._cuffFk = null; }
           if (U.sides && U.sides.L) { U.sides.L._tuneFk = null; U.sides.L._cuffFk = null; }
           U._offKey = null;
-        }
-        if (U.sides) {
-          if (U.sides.R) applyTune(U.sides.R);
-          if (U.sides.L) applyTune(U.sides.L);
-        }
-        if (switched) {
+          U._fistBakeKey = null;
+          U._fistPending = 1;
+          U._fistTries = 0;
+          bakeKindFingers(k);
           const _pg = profBegin('hookGunDraw'); hookGunDraw(T3()); profEnd('hookGunDraw', _pg);
+        } else {
+          if (U.sides) {
+            if (U.sides.R) applyTune(U.sides.R);
+            if (U.sides.L) applyTune(U.sides.L);
+          }
+          /* Held meshes can appear a tick after the switch. Finish only
+             the fist-close then (not a full re-pose), and give up after
+             a few tries so this cannot become a per-frame path. */
+          if (U._fistPending && U.sides && U.sides.R) {
+            U._fistTries = (U._fistTries || 0) + 1;
+            const done = (U._fistTries > 20) ? 1 : bakeFistClose(U.sides.R);
+            if (done) {
+              poseKind(k);
+              refreshSkel(U.sides.R);
+              if (U.sides.L) refreshSkel(U.sides.L);
+              setFingerAuto(U.sides.R, 0);
+              if (U.sides.L) setFingerAuto(U.sides.L, 0);
+              U._fistPending = 0;
+            }
+          }
         }
         const _pv = profBegin('applyViewOff'); applyViewOff(T3()); profEnd('applyViewOff', _pv);
       }
