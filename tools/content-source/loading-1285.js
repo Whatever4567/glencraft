@@ -89,6 +89,10 @@
     if (cap != null) U.cap = cap;
     const next = Math.max(U.real, Math.min(U.done ? 100 : U.cap, n));
     U.real = next;
+    /* During generate the lerp tick cannot run; keep shown within 5% of real
+       and never jump more than ~10% in one paint. */
+    if (U.held && U.shown < next - 5) U.shown = Math.min(next - 5, U.shown + 10);
+    try { if (U.held) paint(U.shown); } catch (_) {}
     if (label) U.label = label;
     U.creepT = performance.now();
     const tip = $('loadTip');
@@ -101,7 +105,8 @@
     U.done = 1;
     U.cap = 100;
     U.real = 100;
-    U.shown = 100;
+    /* Do not snap shown to 100 — tick/lerp fills the last few percent so
+       the bar does not jump 88→100 in one paint. */
   }
   U.finish = finish;
 
@@ -171,37 +176,103 @@
     await yieldPaint();
   };
 
+  U.maybeYield = function () {
+    if (!U.held) return false;
+    if (performance.now() - (U._tSlice || 0) > 200) {
+      U._tSlice = performance.now();
+      throw U.YIELD;
+    }
+    return false;
+  };
+  /* Run a wrapper post-stage once, then yield if the 200ms slice is used up.
+     On resume the cached result is returned so caves/settle/plant are not redone. */
+  U.coop = function (id, label, p, fn) {
+    if (!U._passed) U._passed = Object.create(null);
+    if (!U._ret) U._ret = Object.create(null);
+    if (U._passed[id]) return U._ret[id];
+    if (U.held && label) try { U.touch(p, label, 92); } catch (_) {}
+    const r = fn();
+    U._ret[id] = r;
+    U._passed[id] = 1;
+    /* Do not yield here — markPost yields after the wrapper is marked so
+       a resume can skip this wrapper's pre-apply work. */
+    return r;
+  };
+  /* After a yield in the outer post chain, skip wrapper post-bodies that
+     already finished so uncached posts are not redone on every slice. */
+  U.markPost = function (id) {
+    if (!U._passed) U._passed = Object.create(null);
+    U._passed['w:' + id] = 1;
+  };
+  U.skipPost = function (id) {
+    return !!(U.held && U.genDone && U._passed && U._passed['w:' + id]);
+  };
+
+  U.pulse = function (id, i, n, label, p0, p1) {
+    if (!U.held) return;
+    if (U._loop) U._loop[id] = i + 1;
+    if (label && n != null) {
+      const a = p0 != null ? p0 : U.real, b = p1 != null ? p1 : a;
+      try { U.touch(a + (b - a) * (i + 1) / Math.max(1, n), label, 92); } catch (_) {}
+    }
+    U.maybeYield();
+  };
+
   U.generate = async function () {
     U.held = 1;
+    U.genDone = 0;
     U.genX = 0;
     U._g9 = null;
+    U._gen9 = null;
+    U._featX = 0;
+    U._plant = null;
+    U._passed = Object.create(null);
+    U._ret = Object.create(null);
+    U._loop = Object.create(null);
+    U._tSlice = performance.now();
     if (typeof generate !== 'function') throw new Error('generate missing');
-    const g = generate;
+    const outer = generate;
+    const args = arguments;
     let guarded = 0;
     const t0 = performance.now();
-    while (true) {
-      try {
-        const r = g.apply(null, arguments);
-        U.held = 0;
-        U._g9 = null;
-        U.genX = 0;
-        setReal(Math.max(U.real, 68), 'Building the land around you…', 99);
-        try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
-        return r;
-      } catch (e) {
-        if (!U.isYield(e)) {
-          U.held = 0;
-          U._g9 = null;
-          throw e;
+    async function pump(pick) {
+      while (true) {
+        try {
+          return pick().apply(null, args);
+        } catch (e) {
+          if (!U.isYield(e)) {
+            U.held = 0;
+            U._g9 = null;
+            throw e;
+          }
+          guarded++;
+          U._yields = guarded;
+          if (guarded > 20000) {
+            U.held = 0;
+            throw new Error('generate yield overflow');
+          }
+          /* Catch the bar up to real on each yield so the painted % tracks the work. */
+          try {
+            if (U.real > U.shown) {
+              U.shown += (U.real - U.shown) * 0.35;
+              if (U.real - U.shown < 0.35) U.shown = U.real;
+            }
+          } catch (_) {}
+          await yieldPaint();
         }
-        guarded++;
-        if (guarded > 20000) {
-          U.held = 0;
-          throw new Error('generate yield overflow');
-        }
-        await yieldPaint();
       }
     }
+    /* After the first slice, resume the innermost GEN9 directly so the 50+
+       wrapper preambles are not paid again (that was most of the +7.7s). */
+    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? U._gen9 : outer; });
+    let r = rInner;
+    if (U.genDone) r = await pump(function () { return outer; });
+    U.held = 0;
+    U._g9 = null;
+    U.genX = 0;
+    setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
+    try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
+    return r;
   };
 
   /* Take over the original enterWorld rAF lerp so both sources share one meter. */

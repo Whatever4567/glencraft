@@ -25,6 +25,16 @@ ok(src.includes('quiet3d') && src.includes('return !!U.held'), '3D render/step a
 ok(src.includes('if (U.held) return') && src.includes('budget == null) budget = 150'), 'generate does not mesh; unbounded rebuild is 150ms, rebuild(150) is unchanged');
 ok(html.includes("full rebuild'); try { rebuild(150); }") && !html.includes('dirtyAll = true; rebuild(150)'), '20s land retry keeps already-meshed chunks (no dirtyAll wipe)');
 ok(html.includes('const meshR = Math.max(lr, 2)') && html.includes('const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1)'), 'load meshes R=2 but still enters after 9 spawn chunks');
+ok(html.includes("phase: 'lat'") && html.includes("phase: 'ores'") && html.includes("phase: 'feat'"), 'GEN9 generate is phased: lattice, columns, ores, features');
+ok(src.includes('U.coop') && src.includes('U.maybeYield') && src.includes('U.genDone'), 'wrapper post-stages are cached and yield every 200ms');
+ok(src.includes('U._gen9') && src.includes('!U.genDone && U._gen9'), 'column/lattice resumes skip the wrapper chain');
+ok(html.includes('__L._gen9 = __glenGen9 || generate') && html.includes('var __glenGen9 = generate;'), 'innermost GEN9 is captured before wrappers overwrite generate');
+ok(html.includes('__glenLoad.isYield && __glenLoad.isYield(e)) throw e') && html.includes("console.warn('c104', e)"), 'wrapper catch blocks rethrow cooperative yields');
+ok(src.includes('U.shown + 10') && src.includes('next - 5'), 'shown catch-up is capped at 10%');
+ok(html.includes('_loop.c104') && html.includes("phase: 'strip'"), 'c104 ore strip is sliced and resumable');
+ok(src.includes('U.skipPost') && src.includes('U.markPost') && html.includes('__glenLoad.skipPost'), 'already-finished wrapper posts are skipped on resume');
+ok(html.includes('__Lf._featX') && html.includes('__glenLoad.coop'), 'features and wrapper posts report progress');
+
 ok(html.includes('await __glenLoad.generate()'), 'new survival generate is awaited');
 ok(html.includes("enterWorld = async function (save)"), 'survival map wrapper is async');
 ok(html.includes('throw __L.YIELD'), 'column loop yields to the browser');
@@ -32,7 +42,7 @@ ok(html.includes('__L.touch(6 + 58 * (x + 1)'), 'column loop reports real progre
 ok(html.includes('if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear()'), 'flGen finally is yield-safe');
 ok(html.includes('__glenLoad.setReal(Math.max(target, __glenLoad.real || 0)'), 'original loader feeds the shared meter');
 ok(html.includes('shown = (window.__glenLoad && __glenLoad.shown) || 0'), 'original loader does not reset a filling bar');
-ok(html.includes('__glenLoad.shown > 98.5 || __glenLoad.done'), 'ready check uses the shared meter so the world can start');
+ok(html.includes('__glenLoad.shown > 98.5'), 'ready check uses the shared meter so the world can start');
 ok(/const LOAD_R = \(window\.__loadChunkR != null \? window\.__loadChunkR : 1\)/.test(html), 'load chunk ring still defaults to R=1');
 ok(html.includes('enterWorld._fauna'), 'deferred fauna stays');
 ok(html.includes("if (!started || (typeof screen !== 'undefined' && screen === 'loading'))"), 'stream radius still capped during load');
