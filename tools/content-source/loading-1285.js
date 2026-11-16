@@ -149,6 +149,71 @@
   U.timeCurve = timeCurve;
   U.readExpect = readExpect;
 
+  /* Displayed % blends real work with an ETA from the real-progress rate.
+     The integer label advances at least every 2s, never goes backwards,
+     and holds 99 until the world is almost ready. The 60s time curve is
+     only used to bake the compositor fill, not the number. */
+  const TICK_MS = 2000;
+  const NEAR_REAL = 92;
+  const NEAR_ETA = 6000;
+
+  function noteReal(now) {
+    if (!U._rate) U._rate = [];
+    const r = Math.max(0, Math.min(100, U.real || 0));
+    const last = U._rate.length ? U._rate[U._rate.length - 1] : null;
+    if (!last || now - last.t > 250 || Math.abs(r - last.r) > 0.3) {
+      U._rate.push({t: now, r: r});
+      if (U._rate.length > 12) U._rate.shift();
+    }
+  }
+
+  function etaMs(now) {
+    const elapsed = Math.max(1, now - (U.t0 || now));
+    const real = Math.max(0, Math.min(100, U.real || 0));
+    let rate = real / elapsed;
+    const rs = U._rate || [];
+    if (rs.length >= 2) {
+      const a = rs[0], b = rs[rs.length - 1];
+      if (b.t > a.t + 400 && b.r > a.r + 0.5) {
+        rate = 0.6 * ((b.r - a.r) / (b.t - a.t)) + 0.4 * rate;
+      }
+    }
+    let eta;
+    if (rate < 1e-6) eta = Math.max(elapsed * 3, 20000);
+    else {
+      const target = 96;
+      eta = elapsed + Math.max(0, (target - Math.min(real, target)) / rate) + 1500;
+    }
+    if (U._eta) {
+      if (eta < U._eta) eta = U._eta * 0.85 + eta * 0.15;
+      else eta = U._eta * 0.7 + eta * 0.3;
+    }
+    U._eta = eta;
+    return eta;
+  }
+
+  function displayAim(now) {
+    now = now || performance.now();
+    noteReal(now);
+    const elapsed = Math.max(0, now - (U.t0 || now));
+    const real = Math.max(0, Math.min(100, U.real || 0));
+    const eta = etaMs(now);
+    const fromReal = Math.min(97, real * 0.97);
+    const fromEta = eta > 0 ? Math.min(97, 97 * Math.min(1, elapsed / eta)) : 0;
+    let aim = Math.max(fromReal, fromEta, U.shown || 0);
+    const intNow = U._pctInt || 0;
+    const lastAt = U._pctIntAt || U.t0 || now;
+    const due = !U.finishing && !U.done && intNow < 99 && (now - lastAt) >= TICK_MS;
+    const nearly = real >= NEAR_REAL || (eta - elapsed) <= NEAR_ETA || U.real >= 99;
+    if (due) aim = Math.max(aim, intNow < 98 || nearly ? intNow + 1 : 99);
+    if (aim >= 99 && !U.finishing && !U.done && !nearly && !(due && intNow >= 98)) aim = 98.99;
+    aim = Math.min((U.finishing || U.done) ? 100 : 99, aim);
+    if (aim < (U.shown || 0) && !U.finishing) aim = U.shown;
+    return aim;
+  }
+  U.displayAim = displayAim;
+  U.etaMs = etaMs;
+
   const TAIL_MS = 120000;
 
   function fillEl() {
@@ -249,7 +314,7 @@
       return U.shown;
     }
     if (!U.t0) U.t0 = now;
-    const timed = timeCurve(now - U.t0, U.expectMs || EXPECT_DEFAULT);
+    const timed = displayAim(now);
     U.timed = timed;
     let aim = Math.max(U.shown, timed, Math.min(U.real || 0, TIMED_CAP));
     aim = Math.min(TIMED_CAP, aim);
@@ -323,11 +388,12 @@
     if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
       n = Math.min(100, Math.max(U._pctInt || 0, Math.round(shown || 0)));
     } else {
-      const timed = timeCurve(now - (U.t0 || now), U.expectMs || EXPECT_DEFAULT);
-      const aim = Math.max(shown || 0, timed, Math.min(U.real || 0, TIMED_CAP));
+      const aim = Math.max(shown || 0, displayAim(now));
       n = Math.min(99, Math.max(U._pctInt || 0, Math.floor(aim + 1e-9)));
+      if (n === (U._pctInt || 0) && n < 99 && (now - (U._pctIntAt || U.t0 || now)) >= TICK_MS) n = Math.min(99, n + 1);
     }
     if (n < (U._pctInt || 0)) n = U._pctInt;
+    if (n !== (U._pctInt || 0)) U._pctIntAt = now;
     U._pctInt = n;
     pct.textContent = n + '%';
   }
@@ -374,6 +440,9 @@
     U.expectMs = readExpect();
     U._tickAt = U.t0;
     U._pctInt = Math.max(0, U._pctInt || 0);
+    U._pctIntAt = U.t0;
+    U._rate = [];
+    U._eta = 0;
     if (label) setReal(U.real, label);
     applyDisplay();
     try { startFillAnim(); } catch (e) { ERR('startAnim', e); }

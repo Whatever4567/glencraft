@@ -55,8 +55,8 @@ ok(html.includes('__L.touch(6 + 58 * (x + 1)'), 'column loop reports real progre
 ok(html.includes('if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear()'), 'flGen finally is yield-safe');
 ok(html.includes('__glenLoad.setReal(Math.max(target, __glenLoad.real || 0)'), 'original loader feeds the shared meter');
 ok(html.includes('shown = (window.__glenLoad && __glenLoad.shown) || 0'), 'original loader does not reset a filling bar');
-ok(/await yieldPaint\(\);[\s\S]{0,240}U\._tSlice = performance\.now\(\);/.test(src), 'fresh 200ms work budget after each yield');
-ok(src.includes('const due = performance.now() - (U._tSlice || 0) > 200') && src.includes('if (due && label'), 'pulse paints only when a yield is due');
+ok(/await yieldPaint\(\);[\s\S]{0,800}U\._tSlice = performance\.now\(\);/.test(src), 'fresh work budget after each yield');
+ok(src.includes('const due = performance.now() - (U._tSlice || 0) > U.sliceMs()') && src.includes('if (due && label'), 'pulse paints only when a yield is due');
 ok(html.includes('__Lpools.pulse') && html.includes('__glenLoad._pools'), 'placePools yields every 200ms and resumes');
 ok(html.includes('_deferPools') && html.includes('runDeferredPools'), 'mud pools are deferred until after enter');
 ok(html.includes('__st1248') && html.includes('__glenLoad.live) { __glenLoad._deferPools = 1; }'), 'placePools1248 is deferred during load and yields');
@@ -163,45 +163,70 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
     if (d < minWindow) minWindow = d;
   }
   ok(frozen === 0, 'no 3s window under 0.15% movement on the time curve during 0..T (min ' + minWindow.toFixed(3) + ')');
-  // displayed = max(real, timed), never back, jump cap 8
-  let shown = 30;
-  const apply = (timed, real, dt = 0) => {
-    const cap = 98.98;
-    const room = cap - shown;
-    const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
-    const floor = floorRate * (dt / 1000);
-    const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
-    let aim = Math.max(shown, timed, Math.min(real, 99));
-    aim = Math.min(99, aim);
-    if (shown < cap) {
-      const stepped = Math.min(cap, shown + floor);
-      if (aim > shown) shown = Math.min(cap, Math.max(stepped, Math.min(aim, shown + maxStep)));
-      else shown = stepped;
+  // % text: blend real progress with an ETA, tick at least every 2s, never back.
+  ok(src.includes('function displayAim') && src.includes('TICK_MS = 2000') && src.includes('function etaMs'), '% text uses an ETA blend and a 2s tick, not only the 60s curve');
+  function simPct(duration, realAt) {
+    const st = {shown: 0, _pctInt: 0, _pctIntAt: 0, t0: 0, _rate: [], _eta: 0, real: 0, finishing: 0, done: 0};
+    const TICK_MS = 2000, NEAR_REAL = 92, NEAR_ETA = 6000, ints = [];
+    const note = (now) => {
+      const r = st.real;
+      const last = st._rate[st._rate.length - 1];
+      if (!last || now - last.t > 250 || Math.abs(r - last.r) > 0.3) {
+        st._rate.push({t: now, r: r});
+        if (st._rate.length > 12) st._rate.shift();
+      }
+    };
+    const etaOf = (now) => {
+      const elapsed = Math.max(1, now);
+      let rate = st.real / elapsed;
+      if (st._rate.length >= 2) {
+        const a = st._rate[0], b = st._rate[st._rate.length - 1];
+        if (b.t > a.t + 400 && b.r > a.r + 0.5) rate = 0.6 * ((b.r - a.r) / (b.t - a.t)) + 0.4 * rate;
+      }
+      let eta = rate < 1e-6 ? Math.max(elapsed * 3, 20000) : elapsed + Math.max(0, (96 - Math.min(st.real, 96)) / rate) + 1500;
+      if (st._eta) eta = eta < st._eta ? st._eta * 0.85 + eta * 0.15 : st._eta * 0.7 + eta * 0.3;
+      st._eta = eta;
+      return eta;
+    };
+    let back = 0, maxGap = 0, lastIntT = 0, lastInt = 0, t99 = null;
+    for (let now = 0; now <= duration; now += 200) {
+      st.real = realAt(now, duration);
+      note(now);
+      const elapsed = now, eta = etaOf(now);
+      const fromReal = Math.min(97, st.real * 0.97);
+      const fromEta = eta > 0 ? Math.min(97, 97 * Math.min(1, elapsed / eta)) : 0;
+      let aim = Math.max(fromReal, fromEta, st.shown);
+      const due = st._pctInt < 99 && (now - st._pctIntAt) >= TICK_MS;
+      const nearly = st.real >= NEAR_REAL || (eta - elapsed) <= NEAR_ETA;
+      if (due) aim = Math.max(aim, st._pctInt < 98 || nearly ? st._pctInt + 1 : 99);
+      if (aim >= 99 && !nearly && !(due && st._pctInt >= 98)) aim = 98.99;
+      aim = Math.min(99, aim);
+      if (aim < st.shown) aim = st.shown;
+      st.shown = aim;
+      let n = Math.min(99, Math.max(st._pctInt, Math.floor(aim + 1e-9)));
+      if (n === st._pctInt && n < 99 && (now - st._pctIntAt) >= TICK_MS) n = n + 1;
+      if (n < st._pctInt) { n = st._pctInt; back++; }
+      if (n !== st._pctInt) {
+        if (ints.length) maxGap = Math.max(maxGap, now - lastIntT);
+        st._pctInt = n; st._pctIntAt = now; lastIntT = now; lastInt = n;
+        ints.push({t: now, n: n});
+        if (n === 99 && t99 == null) t99 = now;
+      }
     }
-    return shown;
-  };
-  const a = apply(40, 10, 3000);    // hitch: +8 cap from 30 toward timed 40
-  ok(Math.abs(a - 38) < 1e-9, 'after a hitch, one paint catches up at most 8%');
-  const b = apply(50, 70, 16);
-  ok(b > a && b <= a + 0.2, 'following paints catch up at about 8%/s, not another 8% snap');
-  shown = 50;
-  const c = apply(20, 10, 0);
-  ok(c === 50, 'displayed never goes backwards if real/time drop');
-  shown = 93.64;
-  const floored = apply(93.76, 88, 3500);
-  ok(floored - 93.64 >= 0.15, 'floor creep still moves at least 0.15% over 3s even when the time curve is flatter');
-  shown = 97;
-  const tail = apply(timeCurve(T + 30000, T), 80, 3000);
-  ok(tail > 97 && tail < 99, 'after T, the bar still creeps toward 99');
-  let tailShown = 97, tailPrev = 97, tailFreeze = 0;
-  for (let i = 0; i < 40; i++) { // 40 * 3s = 120s of tail
-    shown = tailShown;
-    tailShown = apply(timeCurve(T + (i + 1) * 3000, T), 80, 3000);
-    if (tailShown <= tailPrev + 1e-9) tailFreeze++;
-    tailPrev = tailShown;
+    return {ints, maxGap, back, t99, lastInt, shown: st.shown};
   }
-  ok(tailShown < 99 && tailShown > 97.5, '120s past T the bar stays under 99 and above 97.5 (end ' + tailShown.toFixed(2) + ')');
-  ok(tailFreeze === 0, '120s past T the bar never hard-stops (end ' + tailShown.toFixed(2) + ', freezes ' + tailFreeze + ')');
+  const paced = simPct(60000, (t, T) => 90 * t / T);
+  ok(paced.back === 0, 'ETA-blend % never goes backwards (60s load)');
+  ok(paced.maxGap <= 2500, 'integer % gap is at most 2.5s on a 60s load (max ' + paced.maxGap + ')');
+  ok(paced.t99 == null || paced.t99 >= 50000, '99 is reserved until late in a 60s load (t99=' + paced.t99 + ')');
+  const long = simPct(400000, (t, T) => 85 * t / T);
+  ok(long.back === 0, 'ETA-blend % never goes backwards (400s load)');
+  ok(long.maxGap <= 2500, 'integer % gap is at most 2.5s on a 400s load (max ' + long.maxGap + ')');
+  const parked98 = long.ints.filter((e, i, a) => e.n === 98 && a[i + 1] && a[i + 1].t - e.t > 60000);
+  ok(parked98.length === 0, 'does not park at 98% for a minute on a long load');
+  ok(long.lastInt >= 98, 'a long load still reaches 98 or 99');
+  const drop = simPct(20000, (t) => t < 10000 ? 40 : 10);
+  ok(drop.back === 0 && drop.lastInt >= 1, 'displayed integer never drops if real progress falls back');
   // 400ms ease-out glide
   const finishFrom = 90, GLIDE = 400;
   const glide = (u) => {
@@ -223,7 +248,7 @@ ok(src.includes('stopFillAnim') && src.includes("fill.style.willChange = 'auto'"
 ok(src.includes('load1288shine') && src.includes('translateX(-120%)') && src.includes('translateX(280%)') && src.includes('will-change:transform'), 'shimmer/wave is a compositor translateX loop');
 ok(!src.includes('background-position') && !src.includes('load1285shine') && !src.includes('load1285wave'), 'old main-thread background-position shine is gone');
 ok(!src.includes("shown.toFixed(2) + '%'"), 'paint no longer drives the fill with style.width');
-ok(src.includes('Math.floor(aim + 1e-9)') && src.includes("pct.textContent = n + '%'") && src.includes('if (n < (U._pctInt || 0)) n = U._pctInt'), '% text is elapsed-time integers and never goes backwards');
+ok(src.includes('Math.floor(aim + 1e-9)') && src.includes("pct.textContent = n + '%'") && src.includes('if (n < (U._pctInt || 0)) n = U._pctInt') && src.includes('TICK_MS'), '% text is monotonic integers from the ETA blend and a 2s tick');
 ok(src.includes('U._pctInt = 0') && src.includes('startFillAnim'), 'a new load resets the label and starts the fill animation');
 {
   const T = 60000, tail = 120000;
