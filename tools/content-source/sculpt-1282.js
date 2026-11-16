@@ -148,7 +148,10 @@
   function install() {
     const R = rig();
     if (!R) return;
-    if (!R.updateMatrixWorld.__sculpt1282) {
+    /* t1224 perf: the marker on the function is lost when the next module
+       wraps it, so this re-wrapped every second (~1.5 nested wrappers/s,
+       each re-running the arm pass). R.userData keeps one wrap per module. */
+    if (!R.updateMatrixWorld.__sculpt1282 && !(R.userData && R.userData.sculpt1282)) {
       const prev = R.updateMatrixWorld;
       R.updateMatrixWorld = function (force) {
         const r = prev.call(this, force);
@@ -156,6 +159,7 @@
         return r;
       };
       R.updateMatrixWorld.__sculpt1282 = 1;
+      R.userData.sculpt1282 = 1;
       U.hook++;
     }
     try { refineGrip(); } catch (e) { ERR('install', e); }
