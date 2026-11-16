@@ -144,6 +144,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.89 Smoother, deterministic loading
+
+- World generation is sliced so the loading percentage keeps ticking and never goes backwards, including during the last stretch while the land around you is being built. The label holds at 99.x until the world can actually appear, then glides to 100.
+- The same seed always produces the same world, even when loading yields to the browser.
+
 ## v1.2.88 First-person hands and loading bar
 
 - First-person hands use the smooth third-person glove mesh with knuckles, tendons, creases and nails shaded into the skin. The older blocky prism pieces stay in the mesh but are hidden. Local third-person arms and gloves are hidden in the first-person camera only; nothing is deleted.

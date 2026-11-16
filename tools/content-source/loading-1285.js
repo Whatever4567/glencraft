@@ -43,7 +43,11 @@
     // Kick a frame so the already-updated DOM bar can composite, but do
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
-    try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
+    try { if (U.live) { const __kf = function () {}; __kf.__tgFree = 1; requestAnimationFrame(__kf); } } catch (_) {}
+    /* MessageChannel is the reliable macrotask yield (no setTimeout 4ms
+       clamp). scheduler.yield() in this Chrome resolved too early and
+       the pump never gave the event loop a turn, freezing the % text
+       for the whole generate. */
     return new Promise(function (res) {
       if (!_mcLive || !U.live) { res(); return; }
       try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
@@ -141,6 +145,90 @@
   }
   U.timeCurve = timeCurve;
   U.readExpect = readExpect;
+
+  /* Displayed % blends real work with an ETA from the real-progress rate.
+     Below 90% the label is an integer; past 90% it shows one decimal so
+     the number still moves every 1-2s on a long load. Pace follows the
+     ETA (99 only when almost ready) and never goes backwards. The 60s
+     time curve is only used to bake the compositor fill, not the number. */
+  const NEAR_REAL = 99;
+  const NEAR_ETA = 2500;
+
+  function noteReal(now) {
+    if (!U._rate) U._rate = [];
+    const r = Math.max(0, Math.min(100, U.real || 0));
+    const last = U._rate.length ? U._rate[U._rate.length - 1] : null;
+    if (!last || now - last.t > 250 || Math.abs(r - last.r) > 0.3) {
+      U._rate.push({t: now, r: r});
+      if (U._rate.length > 12) U._rate.shift();
+    }
+  }
+
+  function workReal() {
+    const w = U._workReal;
+    return Math.max(0, Math.min(100, w != null ? w : (U.real || 0)));
+  }
+
+  function etaMs(now) {
+    const elapsed = Math.max(1, now - (U.t0 || now));
+    const real = workReal();
+    let rate = real / elapsed;
+    const rs = U._rate || [];
+    if (rs.length >= 2) {
+      const a = rs[0], b = rs[rs.length - 1];
+      if (b.t > a.t + 400 && b.r > a.r + 0.5) {
+        rate = 0.6 * ((b.r - a.r) / (b.t - a.t)) + 0.4 * rate;
+      }
+    }
+    let eta;
+    if (rate < 1e-6) eta = Math.max(elapsed * 3, 20000);
+    else {
+      const target = 100;
+      eta = elapsed + Math.max(0, (target - Math.min(real, target)) / rate) + 400;
+    }
+    /* A front-loaded real % (mountains jump to ~60% in a few seconds)
+       would otherwise claim we are 2s from done. Floor remaining time
+       by half the expected duration times work left. */
+    const expect = Math.max(30000, U.expectMs || EXPECT_DEFAULT);
+    const minRemain = (100 - real) / 100 * expect * 0.5;
+    eta = Math.max(eta, elapsed + minRemain);
+    if (U._eta) {
+      if (eta < U._eta) eta = U._eta * 0.85 + eta * 0.15;
+      else eta = U._eta * 0.7 + eta * 0.3;
+    }
+    U._eta = eta;
+    return eta;
+  }
+
+  function displayAim(now) {
+    now = now || performance.now();
+    noteReal(now);
+    const elapsed = Math.max(0, now - (U.t0 || now));
+    const real = workReal();
+    const eta = etaMs(now);
+    const fromReal = Math.min(98.5, real * 0.985);
+    const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
+    let aim = Math.max(fromReal, fromEta, U.shown || 0);
+    const remain = Math.max(0, eta - elapsed);
+    /* Visibility floor: if the ETA/real blend has not moved the label
+       in ~2s, step it forward, but never past 98.9 until work is almost
+       done. This is not the pace — the ETA still leads when it is ahead. */
+    if (!U.finishing && !U.done) {
+      const last = U._pctShown || 0;
+      const lastAt = U._pctShownAt || U.t0 || now;
+      if (now - lastAt >= 2000 && last < 98.9) {
+        aim = Math.max(aim, last < 90 ? last + 1 : Math.round((last + 0.1) * 10) / 10);
+      }
+    }
+    const nearly = real >= NEAR_REAL || (real >= 96 && remain <= NEAR_ETA);
+    if (nearly && !U.finishing && !U.done) aim = Math.max(aim, 99);
+    if (aim >= 99 && !U.finishing && !U.done && !nearly) aim = 98.9;
+    aim = Math.min((U.finishing || U.done) ? 100 : (nearly ? 99 : 98.9), aim);
+    if (aim < (U.shown || 0) && !U.finishing) aim = U.shown;
+    return aim;
+  }
+  U.displayAim = displayAim;
+  U.etaMs = etaMs;
 
   const TAIL_MS = 120000;
 
@@ -242,7 +330,7 @@
       return U.shown;
     }
     if (!U.t0) U.t0 = now;
-    const timed = timeCurve(now - U.t0, U.expectMs || EXPECT_DEFAULT);
+    const timed = displayAim(now);
     U.timed = timed;
     let aim = Math.max(U.shown, timed, Math.min(U.real || 0, TIMED_CAP));
     aim = Math.min(TIMED_CAP, aim);
@@ -265,6 +353,17 @@
       }
     }
     if (U.shown < 0) U.shown = 0;
+    /* Once meshing has started, creep 99.0–99.8 so the label keeps moving
+       until enterWorld can paint. 100 is reserved for finish(). */
+    if (!U.finishing && !U.done && (U.real >= 98)) {
+      const holdCap = 99.8;
+      if (U.shown < 99) {
+        U.shown = Math.min(99, U.shown + Math.max(0.02, 0.2 * (dt / 1000)));
+      }
+      if (U.shown >= 99 && U.shown < holdCap) {
+        U.shown = Math.min(holdCap, U.shown + 0.06 * (dt / 1000));
+      }
+    }
     return U.shown;
   }
   U.applyDisplay = applyDisplay;
@@ -280,6 +379,7 @@
     if (cap != null) U.cap = cap;
     const next = Math.max(U.real, Math.min(U.done ? 100 : U.cap, n));
     U.real = next;
+    U._workReal = next;
     try { applyDisplay(); paint(U.shown); } catch (_) {}
     if (label) U.label = label;
     U.creepT = performance.now();
@@ -295,6 +395,7 @@
     U.done = 1;
     U.cap = 100;
     U.real = 100;
+    U._workReal = 100;
     U.finishing = 1;
     U.finishT = now;
     U.finishFrom = Math.max(0, Math.min(99, U.shown || 0));
@@ -306,23 +407,59 @@
 
   function paint(shown) {
     /* The fill is driven by a compositor transform animation, not width.
-       JS only updates the integer % label from elapsed time, never backwards,
-       and may nudge the animation currentTime forward after a hitch. */
+       JS only updates the % label from the ETA blend, never backwards,
+       and may nudge the animation currentTime forward after a hitch.
+       Past 90% the label shows one decimal so it keeps ticking on long loads. */
     try { resyncFillAnim(); } catch (_) {}
     const pct = $('loadPct');
     if (!pct) return;
     const now = performance.now();
-    let n;
-    if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
-      n = Math.min(100, Math.max(U._pctInt || 0, Math.round(shown || 0)));
-    } else {
-      const timed = timeCurve(now - (U.t0 || now), U.expectMs || EXPECT_DEFAULT);
-      const aim = Math.max(shown || 0, timed, Math.min(U.real || 0, TIMED_CAP));
-      n = Math.min(99, Math.max(U._pctInt || 0, Math.floor(aim + 1e-9)));
+    let prev = U._pctShown || 0;
+    try {
+      const cur = parseFloat(String(pct.textContent || '').replace(/%/g, ''));
+      if (Number.isFinite(cur)) prev = Math.max(prev, cur);
+    } catch (_) {}
+    let v, text;
+    function labelFor(x) {
+      /* Keep a one-decimal 99.x until the glide reaches 100 so 99.2 cannot snap to 99. */
+      if (x >= 99.95) return '100%';
+      if (x < 90) return Math.floor(x + 1e-9) + '%';
+      return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
     }
-    if (n < (U._pctInt || 0)) n = U._pctInt;
-    U._pctInt = n;
-    pct.textContent = n + '%';
+    if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
+      v = Math.min(100, Math.max(prev, shown || 0));
+      if (v >= 99.95) {
+        v = 100;
+        text = '100%';
+      } else {
+        const d = Math.floor(v * 10 + 1e-9) / 10;
+        v = d;
+        text = d.toFixed(1) + '%';
+      }
+    } else {
+      const aim = Math.max(shown || 0, displayAim(now));
+      v = Math.min(99.8, Math.max(prev, aim));
+      if (v < 90) {
+        const n = Math.min(89, Math.floor(v + 1e-9));
+        v = n;
+        text = n + '%';
+      } else {
+        const d = Math.floor(v * 10 + 1e-9) / 10;
+        v = d;
+        text = d.toFixed(1) + '%';
+      }
+    }
+    if (v < prev) { v = prev; text = labelFor(v); }
+    if (v !== prev) U._pctShownAt = now;
+    U._pctShown = v;
+    U._pctInt = Math.floor(v + 1e-9);
+    /* Never let the on-screen label go backwards, even if another writer
+       raced us or stop() cleared finishing mid-frame. */
+    try {
+      const on = parseFloat(String(pct.textContent || '').replace(/%/g, ''));
+      if (Number.isFinite(on) && v + 1e-9 < on) { v = on; text = pct.textContent; U._pctShown = v; }
+    } catch (_) {}
+    pct.textContent = text;
   }
 
   function tick() {
@@ -345,6 +482,7 @@
     if (U.live) _raf = requestAnimationFrame(tick);
     else _raf = 0;
   }
+  tick.__tgFree = 1;
 
   function start(label) {
     ensureDom();
@@ -365,7 +503,13 @@
     U.t0 = U.t0 || performance.now();
     U.expectMs = readExpect();
     U._tickAt = U.t0;
-    U._pctInt = Math.max(0, U._pctInt || 0);
+    U._pctInt = 0;
+    U._pctIntAt = U.t0;
+    U._pctShown = 0;
+    U._pctShownAt = U.t0;
+    U._workReal = U.real;
+    U._rate = [];
+    U._eta = 0;
     if (label) setReal(U.real, label);
     applyDisplay();
     try { startFillAnim(); } catch (e) { ERR('startAnim', e); }
@@ -410,32 +554,50 @@
   U.stop = stop;
 
   U.boot = async function (label) {
+    U.gateHold = 1; U.gateUntil = performance.now() + 3000;
     try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
     start(label || 'Preparing your glen…');
     await yieldPaint();
   };
 
+  /* Shared wall budget for in-generate yield checks (ores, keeps, plants). */
+  U.sliceMs = function () {
+    const n = U._sliceMs || 350;
+    return n < 300 ? 300 : (n > 400 ? 400 : n);
+  };
+  WIN.__SLB = function () {
+    try { return U.sliceMs(); } catch (_) { return 350; }
+  };
   U.maybeYield = function () {
     if (!U.held && !U._softHold) return false;
-    if (performance.now() - (U._tSlice || 0) > 200) {
+    if (performance.now() - (U._tSlice || 0) > U.sliceMs()) {
       U._tSlice = performance.now();
       throw U.YIELD;
     }
     return false;
   };
-  /* Run a wrapper post-stage once, then yield if the 200ms slice is used up.
+  /* Run a wrapper post-stage once, then yield if the adaptive slice is used up.
      On resume the cached result is returned so caves/settle/plant are not redone. */
   U.coop = function (id, label, p, fn) {
     if (!U._passed) U._passed = Object.create(null);
     if (!U._ret) U._ret = Object.create(null);
     if (U._passed[id]) return U._ret[id];
     if (U.held && label) try { U.touch(p, label, 99); } catch (_) {}
-    const r = fn();
-    U._ret[id] = r;
-    U._passed[id] = 1;
-    /* Do not yield here — markPost yields after the wrapper is marked so
-       a resume can skip this wrapper's pre-apply work. */
-    return r;
+    /* Resume this post directly after a yield. Re-entering the 50+ generate
+       wrappers each slice was the 6x load-time blow-up (settle 4.5s → 107s). */
+    U._postResume = function () { return U.coop(id, label, p, fn); };
+    try {
+      const r = fn();
+      U._ret[id] = r;
+      U._passed[id] = 1;
+      U._postResume = null;
+      /* Do not yield here — markPost yields after the wrapper is marked so
+         a resume can skip this wrapper's pre-apply work. */
+      return r;
+    } catch (e) {
+      if (!U.isYield(e)) U._postResume = null;
+      throw e;
+    }
   };
   /* After a yield in the outer post chain, skip wrapper post-bodies that
      already finished so uncached posts are not redone on every slice. */
@@ -456,7 +618,7 @@
     /* Only paint when a yield is due — touching the DOM on every loop
        iteration (e.g. 6000 placePools tries) stalls a throttled phone
        for minutes and the world never reaches ready. */
-    const due = performance.now() - (U._tSlice || 0) > 200;
+    const due = performance.now() - (U._tSlice || 0) > U.sliceMs();
     if (due && label && n != null) {
       const a = p0 != null ? p0 : U.real, b = p1 != null ? p1 : a;
       try { U.touch(a + (b - a) * (i + 1) / Math.max(1, n), label, 99); } catch (_) {}
@@ -477,6 +639,9 @@
     U._passed = Object.create(null);
     U._ret = Object.create(null);
     U._loop = Object.create(null);
+    U._postResume = null;
+    U._sliceMs = 350;
+    try { window.__c77 = null; } catch (_) {}
     U._tSlice = performance.now();
     if (typeof generate !== 'function') throw new Error('generate missing');
     const outer = generate;
@@ -495,14 +660,26 @@
           }
           guarded++;
           U._yields = guarded;
-          if (guarded > 20000) {
+          if (guarded > 100000) {
             U.held = 0;
             throw new Error('generate yield overflow');
           }
           /* Catch the displayed bar up from the time curve and real work. */
           try { applyDisplay(); } catch (_) {}
-          await yieldPaint();
-          /* Fresh 200ms work budget after the yield. Otherwise the
+          _randGap = 1;
+          const y0 = performance.now();
+          try { await yieldPaint(); }
+          finally { _randGap = 0; }
+          /* Grow the slice toward 400ms if yield overhead is large
+             (CPU throttle makes a small wall budget too small); keep a
+             300ms floor so progress stays visible without letting
+             per-yield cost dominate. */
+          const yMs = performance.now() - y0;
+          let b = U._sliceMs || 350;
+          if (yMs > 40) b = Math.min(400, b + 50);
+          else if (yMs < 8 && b > 300) b = Math.max(300, b - 25);
+          U._sliceMs = b;
+          /* Fresh work budget after the yield. Otherwise the
              wrapper-chain / paint time already burns the slice and
              a loop like placePools does one try per yield. */
           U._tSlice = performance.now();
@@ -511,10 +688,58 @@
     }
     /* After the first slice, resume the innermost GEN9 directly so the 50+
        wrapper preambles are not paid again (that was most of the +7.7s). */
-    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? U._gen9 : outer; });
-    let r = rInner;
-    if (U.genDone) r = await pump(function () { return outer; });
+    /* Keep generate's Math.random sequence isolated from timers/rAF that
+       run in MessageChannel yield gaps. Otherwise placeOreVeins/placeHives
+       (and any other Math.random stages) diverge from a synchronous run. */
+    const _origRandom = Math.random;
+    let _randGap = 0, _gapS = 0xC0FFEE;
+    Math.random = function () {
+      if (_randGap) {
+        _gapS = (Math.imul(_gapS, 1664525) + 1013904223) >>> 0;
+        return _gapS / 4294967296;
+      }
+      return _origRandom.call(Math);
+    };
+    U._randGap = function (on) { _randGap = on ? 1 : 0; };
+    let r;
+    try {
+    /* GLX-LOAD1289: resuming the innermost GEN9 skips the wrapper preambles,
+       whose finally blocks already reset their flags on the first yield.
+       Re-establish the flags those wrappers hold around the inner call
+       (c37busy from the c37 wrapper, __g12 from the c167 wrapper) so the
+       resumed slices behave exactly like one synchronous call. */
+    U._g12 = undefined;
+    const resume9 = function () {
+      let wasB, wasG;
+      try { wasB = c37busy; c37busy = true; } catch (_) {}
+      try { wasG = window.__g12; if (U._g12 !== undefined) window.__g12 = U._g12; } catch (_) {}
+      try { return U._gen9.apply(null, arguments); }
+      finally { try { c37busy = wasB; } catch (_) {} try { window.__g12 = wasG; } catch (_) {} }
+    };
+    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? resume9 : outer; });
+    r = rInner;
+    if (U.genDone) r = await pump(function () {
+      /* After GEN9, resume the in-flight post-stage (settle, ores, …)
+         instead of walking the wrapper chain every 200ms. When the post
+         finishes, fall through to outer so later posts still run. */
+      if (U._postResume) {
+        return function () {
+          const out = U._postResume();
+          if (!U._postResume) return outer.apply(null, args);
+          return out;
+        };
+      }
+      return outer;
+    });
+    } finally {
+      _randGap = 0;
+      Math.random = _origRandom;
+      U._randGap = null;
+    }
     U.held = 0;
+    U._postResume = null;
+    U.gateHold = 0;
+    try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
     setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
@@ -567,9 +792,11 @@
         U.real = 0;
         U.shown = 0;
         U._pctInt = 0;
+        U._pctShown = 0;
         U.done = 0;
         start(save ? 'Restoring your world…' : 'Preparing your glen…');
       } catch (e) { ERR('start', e); }
+      U.gateHold = 1; U.gateUntil = performance.now() + 3000;
       const self = this, args = arguments;
       const run = async function () {
         try { await yieldPaint(); } catch (_) {}
@@ -580,6 +807,8 @@
         } catch (e) {
           ERR('ew', e);
           throw e;
+        } finally {
+          if (U.gateHold) { U.gateHold = 0; try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {} }
         }
       };
       const p = run();
@@ -595,6 +824,7 @@
       const ss = showScreen;
       showScreen = function (name) {
         try {
+          U.uiScreen = name;
           if (name === 'loading') {
             ensureDom();
             if (!U.live) start();
@@ -624,18 +854,39 @@
       rebuild = function (budget) {
         if (U.held) return;
         if (U.live && budget == null) budget = 150;
-        return rb.apply(this, arguments);
+        const r = rb.apply(this, arguments);
+        try {
+          if (U.live && !U.finishing && !U.done && typeof chunksReady === 'function') {
+            chunksReady();
+            const cn = chunksReady.need || 9, cg = chunksReady.got || 0;
+            const p = 98 + 1.8 * cg / Math.max(1, cn);
+            /* Hold at 99.x until enterWorld can actually paint, then glide to 100.
+               Finishing here made the label hit 100 too early, then a stale
+               enterWorld fallback overwrote it with 98% after stop() cleared live. */
+            setReal(Math.min(99.6, p), 'Building terrain meshes… ' + cg + '/' + cn, 99.6);
+          }
+        } catch (_) {}
+        return r;
       };
       rebuild.__load1285 = 1;
       try { WIN.rebuild = rebuild; } catch (_) {}
     }
   } catch (e) { ERR('rb', e); }
 
-  /* Only mute the 3D scene while generate() itself is on the stack.
-     After that the loader must mesh and present like 1.2.84, or the first
-     enter-frame pays a huge cold compile/render bill. */
+  /* Mute render/step for the whole loading screen, not just generate.
+     Do not read the identifier `screen` — this runtime lives in a later
+     script tag than the game's `let screen`, so that name is window.screen
+     here and `screen === 'loading'` never matches. That leaked the first
+     render/compile after generate and blocked the Ready→start glide
+     (~87s at 6x). rebuild() still meshes as usual. */
   function quiet3d() {
-    return !!U.held;
+    if (U.held) return true;
+    if (U.uiScreen === 'loading') return true;
+    try {
+      const el = document.getElementById('scr-loading');
+      if (el && el.classList.contains('on')) return true;
+    } catch (_) {}
+    return false;
   }
   U.quiet3d = quiet3d;
   try {

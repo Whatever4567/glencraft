@@ -1,4 +1,4 @@
-// 1.2.88: compositor meter + time-driven display, version 1.2.88.
+// 1.2.89: smoother deterministic loading on the 1.2.88 compositor meter.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -7,23 +7,31 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.88';"), 'GAME_VERSION is 1.2.88');
+ok(html.includes("const GAME_VERSION = '1.2.89';"), 'GAME_VERSION is 1.2.89');
+ok(!html.includes("const GAME_VERSION = '1.2.88';"), 'GAME_VERSION is no longer 1.2.88');
 ok(!html.includes("const GAME_VERSION = '1.2.87';"), 'GAME_VERSION is no longer 1.2.87');
+ok(/"v"\s*:\s*"v1\.2\.89"/.test(html), '1.2.89 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.88"/.test(html), '1.2.88 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.87"/.test(html), '1.2.87 patch notes present');
 ok(/loading bar now fills smoothly the whole time/i.test(html), '1.2.87 notes mention the loading bar filling smoothly the whole time');
 ok(/never looks frozen/i.test(html), '1.2.88 notes mention the loading bar that never looks frozen');
 ok(/First-person hands are clearer now/i.test(html), '1.2.88 notes mention improved first-person hands');
+ok(/never jumps backwards/i.test(html), '1.2.89 notes mention the percentage never jumps backwards');
+ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention deterministic worlds');
+{
+  const st = html.indexOf('{"v":"v1.2.89"'), en = html.indexOf('{"v":"v1.2.88"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.89 notes first, no food');
+}
 {
   const st = html.indexOf('{"v":"v1.2.88"'), en = html.indexOf('{"v":"v1.2.87"', st);
-  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.88 notes first, no food');
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.88 notes still present, no food');
 }
 {
   const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes remain, no food');
 }
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.88', 'version.json is 1.2.88');
-ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->'), '1.2.84–1.2.88 build markers stay');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.89', 'version.json is 1.2.89');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->') && html.includes('<!-- glencraft-build: b1289-v1.2.89 -->'), '1.2.84–1.2.89 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runtime');
@@ -31,14 +39,15 @@ ok(html.includes('id="loadW"') && html.includes('liquid1285'), 'liquid load bar 
 ok(html.includes('load-fill') && html.includes('load-wave'), 'fill + wave elements');
 ok(src.includes('setReal') && src.includes('yieldPaint') && src.includes('__glenLoad'), 'source has meter API');
 ok(src.includes('MessageChannel') && !/setTimeout\(res, 0\)/.test(src), 'yields use MessageChannel + rAF, not setTimeout(0)');
-ok(html.includes('performance.now() - __tSlice > 200'), 'column loop yields about every 200ms of work');
+ok(html.includes('performance.now() - __tSlice > (__SLB())'), 'column loop yields on the adaptive 300-400ms slice budget');
 ok(!html.includes('performance.now() - __tSlice > 40') && !html.includes('performance.now() - __tSlice > 8'), 'old 8ms/40ms yield cadence is gone');
-ok(src.includes('quiet3d') && src.includes('return !!U.held'), '3D render/step are skipped only while generate is running');
+ok(src.includes('quiet3d') && src.includes('U.uiScreen === \'loading\'') && src.includes("getElementById('scr-loading')") && src.includes('if (U.held) return true'), '3D render/step stay muted on the loading screen until enter (not window.screen)');
 ok(src.includes('if (U.held) return') && src.includes('budget == null) budget = 150'), 'generate does not mesh; unbounded rebuild is 150ms, rebuild(150) is unchanged');
+ok(src.includes("Building terrain meshes") && html.includes("Building terrain meshes"), 'spawn-ring meshing reports as Building terrain meshes with chunk counts');
 ok(html.includes("full rebuild'); try { rebuild(150); }") && !html.includes('dirtyAll = true; rebuild(150)'), '20s land retry keeps already-meshed chunks (no dirtyAll wipe)');
 ok(html.includes('const meshR = Math.max(lr, 2)') && html.includes('const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1)'), 'load meshes R=2 but still enters after 9 spawn chunks');
 ok(html.includes("phase: 'lat'") && html.includes("phase: 'ores'") && html.includes("phase: 'feat'"), 'GEN9 generate is phased: lattice, columns, ores, features');
-ok(src.includes('U.coop') && src.includes('U.maybeYield') && src.includes('U.genDone'), 'wrapper post-stages are cached and yield every 200ms');
+ok(src.includes('U.coop') && src.includes('U.maybeYield') && src.includes('U.genDone'), 'wrapper post-stages are cached and yield on the adaptive slice');
 ok(src.includes('U._gen9') && src.includes('!U.genDone && U._gen9'), 'column/lattice resumes skip the wrapper chain');
 ok(html.includes('__L._gen9 = __glenGen9 || generate') && html.includes('var __glenGen9 = generate;'), 'innermost GEN9 is captured before wrappers overwrite generate');
 ok(html.includes('__glenLoad.isYield && __glenLoad.isYield(e)) throw e') && html.includes("console.warn('c104', e)"), 'wrapper catch blocks rethrow cooperative yields');
@@ -55,15 +64,15 @@ ok(html.includes('__L.touch(6 + 58 * (x + 1)'), 'column loop reports real progre
 ok(html.includes('if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear()'), 'flGen finally is yield-safe');
 ok(html.includes('__glenLoad.setReal(Math.max(target, __glenLoad.real || 0)'), 'original loader feeds the shared meter');
 ok(html.includes('shown = (window.__glenLoad && __glenLoad.shown) || 0'), 'original loader does not reset a filling bar');
-ok(/await yieldPaint\(\);[\s\S]{0,240}U\._tSlice = performance\.now\(\);/.test(src), 'fresh 200ms work budget after each yield');
-ok(src.includes('const due = performance.now() - (U._tSlice || 0) > 200') && src.includes('if (due && label'), 'pulse paints only when a yield is due');
+ok(/await yieldPaint\(\);[\s\S]{0,800}U\._tSlice = performance\.now\(\);/.test(src), 'fresh work budget after each yield');
+ok(src.includes('const due = performance.now() - (U._tSlice || 0) > U.sliceMs()') && src.includes('if (due && label'), 'pulse paints only when a yield is due');
 ok(html.includes('__Lpools.pulse') && html.includes('__glenLoad._pools'), 'placePools yields every 200ms and resumes');
 ok(html.includes('_deferPools') && html.includes('runDeferredPools'), 'mud pools are deferred until after enter');
 ok(html.includes('__st1248') && html.includes('__glenLoad.live) { __glenLoad._deferPools = 1; }'), 'placePools1248 is deferred during load and yields');
 ok(html.includes('__glenLoad.shown > 99.5'), 'ready waits for the 400ms finish glide before entering');
 ok(html.includes("ready = true; loadStep('entering the world');") && html.includes('__glenLoad.finish()'), 'ready starts the 400ms finish glide immediately');
 ok(!/ready = true;[\s\S]{0,240}renderer\.render\(scene, camera\)/.test(html), 'first present is not synchronous before the finish glide');
-ok(/started = true[\s\S]{0,500}setTimeout\(function \(\) \{[\s\S]{0,200}renderer\.render\(scene, camera\)/.test(html), 'first present runs after enter, on a later turn');
+ok(/started = true[\s\S]{0,900}requestAnimationFrame\(function \(\) \{ requestAnimationFrame\(function \(\) \{ setTimeout\(function \(\) \{[\s\S]{0,200}renderer\.render\(scene, camera\)/.test(html), 'first present runs after enter, after two rAFs so the 100% glide can paint');
 ok(/const LOAD_R = \(window\.__loadChunkR != null \? window\.__loadChunkR : 1\)/.test(html), 'load chunk ring still defaults to R=1');
 ok(html.includes('enterWorld._fauna'), 'deferred fauna stays');
 ok(html.includes("if (!started || (typeof screen !== 'undefined' && screen === 'loading'))"), 'stream radius still capped during load');
@@ -163,45 +172,88 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
     if (d < minWindow) minWindow = d;
   }
   ok(frozen === 0, 'no 3s window under 0.15% movement on the time curve during 0..T (min ' + minWindow.toFixed(3) + ')');
-  // displayed = max(real, timed), never back, jump cap 8
-  let shown = 30;
-  const apply = (timed, real, dt = 0) => {
-    const cap = 98.98;
-    const room = cap - shown;
-    const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
-    const floor = floorRate * (dt / 1000);
-    const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
-    let aim = Math.max(shown, timed, Math.min(real, 99));
-    aim = Math.min(99, aim);
-    if (shown < cap) {
-      const stepped = Math.min(cap, shown + floor);
-      if (aim > shown) shown = Math.min(cap, Math.max(stepped, Math.min(aim, shown + maxStep)));
-      else shown = stepped;
+  // % text: blend real progress with an ETA, decimals past 90%, never back.
+  ok(src.includes('function displayAim') && src.includes("d.toFixed(1) + '%'") && src.includes('function etaMs') && !src.includes('TICK_MS = 2000'), '% text uses an ETA blend and decimals past 90%, not a fixed 2s tick');
+  function simPct(duration, realAt) {
+    const st = {shown: 0, _pctShown: 0, _pctShownAt: 0, t0: 0, _rate: [], _eta: 0, real: 0, finishing: 0, done: 0};
+    const NEAR_REAL = 99, NEAR_ETA = 2500, labels = [];
+    const note = (now) => {
+      const r = st.real;
+      const last = st._rate[st._rate.length - 1];
+      if (!last || now - last.t > 250 || Math.abs(r - last.r) > 0.3) {
+        st._rate.push({t: now, r: r});
+        if (st._rate.length > 12) st._rate.shift();
+      }
+    };
+    const etaOf = (now) => {
+      const elapsed = Math.max(1, now);
+      let rate = st.real / elapsed;
+      if (st._rate.length >= 2) {
+        const a = st._rate[0], b = st._rate[st._rate.length - 1];
+        if (b.t > a.t + 400 && b.r > a.r + 0.5) rate = 0.6 * ((b.r - a.r) / (b.t - a.t)) + 0.4 * rate;
+      }
+      let eta = rate < 1e-6 ? Math.max(elapsed * 3, 20000) : elapsed + Math.max(0, (100 - Math.min(st.real, 100)) / rate) + 400;
+      const minRemain = (100 - st.real) / 100 * 60000 * 0.5;
+      eta = Math.max(eta, elapsed + minRemain);
+      if (st._eta) eta = eta < st._eta ? st._eta * 0.85 + eta * 0.15 : st._eta * 0.7 + eta * 0.3;
+      st._eta = eta;
+      return eta;
+    };
+    let back = 0, maxGap = 0, lastT = 0, lastV = 0, t99 = null, hasDec = false;
+    for (let now = 0; now <= duration; now += 200) {
+      st.real = realAt(now, duration);
+      note(now);
+      const elapsed = now, eta = etaOf(now);
+      const fromReal = Math.min(98.5, st.real * 0.985);
+      const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
+      let aim = Math.max(fromReal, fromEta, st.shown);
+      if (now - (st._pctShownAt || 0) >= 2000 && (st._pctShown || 0) < 98.9) {
+        const last = st._pctShown || 0;
+        aim = Math.max(aim, last < 90 ? last + 1 : Math.round((last + 0.1) * 10) / 10);
+      }
+      const nearly = st.real >= NEAR_REAL || (st.real >= 96 && (eta - elapsed) <= NEAR_ETA);
+      if (nearly) aim = Math.max(aim, 99);
+      if (aim >= 99 && !nearly) aim = 98.9;
+      aim = Math.min(nearly ? 99 : 98.9, aim);
+      if (aim < st.shown) aim = st.shown;
+      st.shown = aim;
+      let v = Math.min(99, Math.max(st._pctShown, aim));
+      let text;
+      if (v < 90) { v = Math.min(89, Math.floor(v + 1e-9)); text = v + '%'; }
+      else { v = Math.floor(v * 10 + 1e-9) / 10; text = v.toFixed(1) + '%'; hasDec = hasDec || v >= 90; }
+      if (v < st._pctShown) { v = st._pctShown; back++; }
+      if (v !== st._pctShown) {
+        if (labels.length) maxGap = Math.max(maxGap, now - lastT);
+        st._pctShown = v; st._pctShownAt = now; lastT = now; lastV = v;
+        labels.push({t: now, v: v, text: text});
+        if (v >= 99 && t99 == null) t99 = now;
+      }
     }
-    return shown;
-  };
-  const a = apply(40, 10, 3000);    // hitch: +8 cap from 30 toward timed 40
-  ok(Math.abs(a - 38) < 1e-9, 'after a hitch, one paint catches up at most 8%');
-  const b = apply(50, 70, 16);
-  ok(b > a && b <= a + 0.2, 'following paints catch up at about 8%/s, not another 8% snap');
-  shown = 50;
-  const c = apply(20, 10, 0);
-  ok(c === 50, 'displayed never goes backwards if real/time drop');
-  shown = 93.64;
-  const floored = apply(93.76, 88, 3500);
-  ok(floored - 93.64 >= 0.15, 'floor creep still moves at least 0.15% over 3s even when the time curve is flatter');
-  shown = 97;
-  const tail = apply(timeCurve(T + 30000, T), 80, 3000);
-  ok(tail > 97 && tail < 99, 'after T, the bar still creeps toward 99');
-  let tailShown = 97, tailPrev = 97, tailFreeze = 0;
-  for (let i = 0; i < 40; i++) { // 40 * 3s = 120s of tail
-    shown = tailShown;
-    tailShown = apply(timeCurve(T + (i + 1) * 3000, T), 80, 3000);
-    if (tailShown <= tailPrev + 1e-9) tailFreeze++;
-    tailPrev = tailShown;
+    return {labels, maxGap, back, t99, lastV, shown: st.shown, hasDec};
   }
-  ok(tailShown < 99 && tailShown > 97.5, '120s past T the bar stays under 99 and above 97.5 (end ' + tailShown.toFixed(2) + ')');
-  ok(tailFreeze === 0, '120s past T the bar never hard-stops (end ' + tailShown.toFixed(2) + ', freezes ' + tailFreeze + ')');
+  const genLike = (t, T) => t < T * 0.88 ? 90 * t / (T * 0.88) : 90 + 10 * (t - T * 0.88) / (T * 0.12);
+  const paced = simPct(60000, genLike);
+  ok(paced.back === 0, 'ETA-blend % never goes backwards (60s load)');
+  ok(paced.maxGap <= 2500, 'visible % gap is at most 2.5s on a 60s load (max ' + paced.maxGap + ')');
+  ok(paced.t99 == null || paced.t99 >= 50000, '99 is reserved until late in a 60s load (t99=' + paced.t99 + ')');
+  ok(paced.hasDec && paced.labels.some((e) => e.text.includes('.')), 'past 90% the label shows one decimal on a 60s load');
+  const long = simPct(400000, genLike);
+  ok(long.back === 0, 'ETA-blend % never goes backwards (400s load)');
+  const late = long.labels.filter((e) => e.v >= 90 && e.v < 98.9);
+  const lateGap = late.reduce((m, e, i, a) => i ? Math.max(m, e.t - a[i - 1].t) : 0, 0);
+  ok(lateGap <= 2500, 'past 90% and before 98.9 the visible % gap is at most 2.5s on a 400s load (max ' + lateGap + ')');
+  ok(long.t99 == null || long.t99 >= 350000, '99 is not reached until near the end of a 400s load (t99=' + long.t99 + ')');
+  const parked98 = long.labels.filter((e, i, a) => Math.floor(e.v) === 98 && a[i + 1] && a[i + 1].t - e.t > 60000);
+  ok(parked98.length === 0, 'does not park at 98 for a minute on a long load');
+  ok(long.lastV >= 98, 'a long load still advances through the 98.x decimals');
+  const drop = simPct(20000, (t) => t < 10000 ? 40 : 10);
+  ok(drop.back === 0 && drop.lastV >= 1, 'displayed % never drops if real progress falls back');
+  const burst = simPct(60000, (t, T) => t < 5000 ? 64 * t / 5000 : 64 + 36 * (t - 5000) / (T - 5000));
+  ok(burst.back === 0, 'front-loaded real % never goes backwards');
+  ok(!burst.labels.some((e) => e.v >= 99 && e.t < 50000), 'a fast early stage does not snap the label to 99 (first 99 at t=' + burst.t99 + ')');
+  ok(burst.maxGap <= 2500, 'visible % gap stays at most 2.5s on a front-loaded 60s load (max ' + burst.maxGap + ')');
+  const parked88 = burst.labels.filter((e, i, a) => Math.floor(e.v) === 88 && a[i + 1] && a[i + 1].t - e.t > 5000);
+  ok(parked88.length === 0, 'does not park at 88% for 5s+ on a front-loaded load');
   // 400ms ease-out glide
   const finishFrom = 90, GLIDE = 400;
   const glide = (u) => {
@@ -223,7 +275,7 @@ ok(src.includes('stopFillAnim') && src.includes("fill.style.willChange = 'auto'"
 ok(src.includes('load1288shine') && src.includes('translateX(-120%)') && src.includes('translateX(280%)') && src.includes('will-change:transform'), 'shimmer/wave is a compositor translateX loop');
 ok(!src.includes('background-position') && !src.includes('load1285shine') && !src.includes('load1285wave'), 'old main-thread background-position shine is gone');
 ok(!src.includes("shown.toFixed(2) + '%'"), 'paint no longer drives the fill with style.width');
-ok(src.includes('Math.floor(aim + 1e-9)') && src.includes("pct.textContent = n + '%'") && src.includes('if (n < (U._pctInt || 0)) n = U._pctInt'), '% text is elapsed-time integers and never goes backwards');
+ok(src.includes("d.toFixed(1) + '%'") && src.includes('pct.textContent = text') && src.includes('if (v < prev) { v = prev') && !src.includes('TICK_MS = 2000'), '% text is monotonic, with one decimal past 90%, paced from the ETA');
 ok(src.includes('U._pctInt = 0') && src.includes('startFillAnim'), 'a new load resets the label and starts the fill animation');
 {
   const T = 60000, tail = 120000;
@@ -241,6 +293,28 @@ ok(src.includes('U._pctInt = 0') && src.includes('startFillAnim'), 'a new load r
   });
   // keyframes end at 97% at t=T and stay under 99 after
   ok(Math.abs(mid(T, T) - 97) < 0.01, 'baked curve still hits 97% at the expected duration');
+}
+
+
+ok(src.includes('Keep a one-decimal 99.x until the glide reaches 100') && html.includes('Keep a one-decimal 99.x until the glide reaches 100') && !src.includes("return Math.min(100, Math.round(x)) + '%'"), 'paint no longer rounds the finishing label to an integer below 100');
+{
+  function finishLabel(prev, shown) {
+    let v = Math.min(100, Math.max(prev, shown || 0));
+    let text;
+    function labelFor(x) {
+      if (x >= 99.95) return '100%';
+      if (x < 90) return Math.floor(x + 1e-9) + '%';
+      return (Math.floor(x * 10 + 1e-9) / 10).toFixed(1) + '%';
+    }
+    if (v >= 99.95) { v = 100; text = '100%'; }
+    else { const d = Math.floor(v * 10 + 1e-9) / 10; v = d; text = d.toFixed(1) + '%'; }
+    if (v < prev) { v = prev; text = labelFor(v); }
+    return {v, text};
+  }
+  const snap = finishLabel(99.2, 99.27);
+  ok(snap.text === '99.2%' && snap.v === 99.2, 'finishing from 99.2% does not paint 99%');
+  ok(finishLabel(99.2, 99.64).text === '99.6%', 'finish glide keeps one decimal while climbing');
+  ok(finishLabel(99.8, 100).text === '100%', 'finish glide still reaches 100%');
 }
 
 console.log('PASS ' + n + ' v1285 loading checks');
