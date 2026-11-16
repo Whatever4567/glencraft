@@ -2714,55 +2714,12 @@
   /* Clamped p.h-local slide of the wrap so the mid-finger hole sits on
      the held grip. Cached per kind+mesh. Never used for pistol/musket. */
   function bakeFistClose(state, kind) {
-    if (!state || !state.wrap || !state.wrap.parent) return 1;
-    const k = kind || U.kind || '';
-    /* Only the bucket slide is proven to tighten fingers (t1252 1-run:
-       2.54 cm → 0.31 cm with hole-minus-grip, cuff still 2.6 mm). Torch
-       and sword both got worse when slid toward heldGripLocal, so they
-       keep the second curl + freeze and no wrap translation. */
-    if (k !== 'bucket') return 1;
-    const T = T3(); if (!T) return 0;
-    let h = null;
-    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
-    if (!h || !h.children || !h.children.length) return 0;
-    const uid = (h.children[0] && h.children[0].uuid) || h.uuid;
-    const key = k + ':' + uid;
-    if (U._fistBakeKey === key) return 1;
-    try {
-      state.wrap.updateMatrixWorld(true);
-      h.updateMatrixWorld(true);
-      const holeW = new T.Vector3();
-      if (state.prox[1] && state.dist[1]) {
-        const a = state.prox[1].getWorldPosition(new T.Vector3());
-        const b = state.dist[1].getWorldPosition(new T.Vector3());
-        holeW.copy(a).add(b).multiplyScalar(0.5);
-      } else {
-        state.wrap.getWorldPosition(holeW);
-      }
-      const g = heldGripLocal(T, h, k);
-      if (!g) return 0;
-      const gripW = g.clone().applyMatrix4(h.matrixWorld);
-      const dist = holeW.distanceTo(gripW);
-      if (dist > 0.22) return 0;
-      U._fistBakeKey = key;
-      if (dist < 0.006) { U.handleSeekD = 0; return 1; }
-      const maxD = 0.025;
-      const ph = state.wrap.parent;
-      ph.updateMatrixWorld(true);
-      const inv = new T.Matrix4().copy(ph.matrixWorld).invert();
-      /* Empirically, hole-minus-grip (not grip-minus-hole) is the
-         translation that drops the bucket tips onto the bail hoop.
-         heldGripLocal's bail-top is slightly above the contact region. */
-      const holeL = holeW.clone().applyMatrix4(inv);
-      const gripL = gripW.clone().applyMatrix4(inv);
-      const dPh = holeL.sub(gripL);
-      if (dPh.length() > maxD) dPh.setLength(maxD);
-      state.wrap.position.add(dPh);
-      try { applyCuffDelta(state, dPh); } catch (e) { ERR('fistCuff', e); }
-      fpRun('fistClose');
-      U.handleSeekD = +dPh.length().toFixed(3);
-      return 1;
-    } catch (e) { ERR('fistClose', e); return 0; }
+    /* t1252: a clamped wrap slide closed the bucket once (finger 0.31 cm)
+       but the same 2.5 cm hole-minus-grip bake was not reproducible
+       (next fresh page: 7.1 cm over 3 settled runs, cuff still 2.6 mm).
+       Torch/sword slides also opened the fingers. Leave wrap/cuff on
+       the once-per-switch seat; only the second curl + freeze stays. */
+    return 1;
   }
   function bakeKindFingers(kind) {
     const _pk = profBegin('bakeKindFingers');
