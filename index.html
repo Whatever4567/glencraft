@@ -86705,22 +86705,26 @@ try {
        lands on the palm centre. Applied from the game's own held base
        so the 1251/1261 jitter-fix writes stay intact. */
     HELD_OFF: {
-      /* t1246: solved so the grip-region centroid lands on the palm
-         (qa/t1246/solve-offsets.mjs fixed-point, draw-scoped so the
-         __fpa aim and 1251/1261 writes do not chase or overwrite). */
-      empty: [0, 0, 0], block: [0, 0, 0], bucket: [0, 0, 0],
+      /* t1247: solved so the grip-region centroid lands on the palm
+         (qa/t1246/solve-offsets.mjs). Pick keeps a conservative step
+         toward the full solved row so the shaft enters the fist without
+         a 30 cm jump. Pistol/block were previously left at zero. */
+      empty: [0, 0, 0],
+      block: [0.1029, -0.1371, -0.1358],
+      bucket: [0, 0, 0],
       torch: [0.045, -0.0368, -0.0314],
       sword: [0.0167, -0.1172, 0.0589],
-      pistol: [0, 0, 0],
+      pistol: [0, -0.1252, -0.0766],
       musket: [-0.0607, -0.0058, -0.0175],
       map: [0, 0, 0],
-      pick: [0.0173, -0.0222, -0.091],
-      p761: [0.0173, -0.0222, -0.091],
-      p760: [0.0173, -0.0222, -0.091]
+      pick: [0.0414, -0.0522, -0.2143],
+      p761: [0.0414, -0.0522, -0.2143],
+      p760: [0.0414, -0.0522, -0.2143]
     },
     VIEW_OFF: {
       /* Push the hip-placed musket + both wrists forward so the right hand sits in front of the lens. */
-      musket: [0, 0, -0.23]
+      musket: [0, 0, -0.36],
+      pistol: [0, 0, -0.18]
     },
     /* Bake each held-item fist into a non-skinned mesh so the glove
        skeleton is not skinned or walked every frame. Hidden, not deleted.
@@ -86735,11 +86739,11 @@ try {
        empty/block/map flip to a palm-up seat; fists keep the 37aa5cf grip
        direction so held items stay in the hand. */
     seat: {
-      empty:  { sx: -1, rx: -0.50, x: 0, y: 0.00, z: 0.00 },
-      block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04 },
-      map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03 },
+      empty:  { sx: -1, rx: -0.50, x: 0, y: 0.00, z: 0.00, cuffFollow: 1 },
+      block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04, cuffFollow: 1 },
+      map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03, cuffFollow: 1 },
       bucket: { x: -0.081, y: 0.077, z: 0.130, cuffFollow: 1 },
-      torch:  { x: 0, y: 0.01, z: 0.00 },
+      torch:  { x: 0, y: 0.01, z: 0.00, cuffFollow: 1 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
       pick:   { x: 0.06, y: -0.02, z: 0.08 },
       p761:   { x: 0.06, y: -0.02, z: 0.08 },
@@ -88021,16 +88025,38 @@ try {
     const arm = R && R.userData && R.userData[state.side];
     if (!arm) return;
     const follow = !!(seat && seat.cuffFollow);
-    const dx = follow ? (seat.x || 0) : 0, dy = follow ? (seat.y || 0) : 0, dz = follow ? (seat.z || 0) : 0;
-    const ph = state.wrap && state.wrap.parent;
+    const wrap = state.wrap;
+    const key = (U.kind || '') + ':' + state.side + ':' + (follow ? 1 : 0) + ':' +
+      ((seat && seat.x) || 0) + ',' + ((seat && seat.y) || 0) + ',' + ((seat && seat.z) || 0) + ',' +
+      ((seat && seat.rx) || 0) + ',' + ((seat && seat.sx) || 1);
+    if (state._cuffKey === key) return;
+    state._cuffKey = key;
     let dW = null;
-    if (follow && (dx || dy || dz) && ph) {
-      ph.updateMatrixWorld(true);
-      const o = new T.Vector3();
-      const n = new T.Vector3(dx, dy, dz);
-      ph.localToWorld(o);
-      ph.localToWorld(n);
-      dW = n.sub(o);
+    if (follow && wrap && wrap.parent) {
+      /* World delta of a wrap-local wrist anchor (not the origin, which
+         stays put under a pure rotation) from the tune-only rest to the
+         seated pose, so a palm-up flip does not open a cuff gap. */
+      const t = U.tune || {};
+      const tmp = U._cuffTmp || (U._cuffTmp = {
+        a: new T.Vector3(), b: new T.Vector3(), loc: new T.Vector3(0, -0.03, 0)
+      });
+      const px = wrap.position.x, py = wrap.position.y, pz = wrap.position.z;
+      const rx = wrap.rotation.x, ry = wrap.rotation.y, rz = wrap.rotation.z;
+      const sx = wrap.scale.x, sy = wrap.scale.y, sz = wrap.scale.z;
+      const sc = (t.scale == null ? 1 : t.scale);
+      const tsx = (t.sx == null ? 1 : t.sx);
+      wrap.position.set(t.x || 0, t.y || 0, t.z || 0);
+      wrap.rotation.set(t.rx || 0, t.ry || 0, t.rz || 0);
+      wrap.scale.set(sc * tsx, sc, sc);
+      wrap.updateMatrixWorld(true);
+      tmp.a.copy(tmp.loc).applyMatrix4(wrap.matrixWorld);
+      wrap.position.set(px, py, pz);
+      wrap.rotation.set(rx, ry, rz);
+      wrap.scale.set(sx, sy, sz);
+      wrap.updateMatrixWorld(true);
+      tmp.b.copy(tmp.loc).applyMatrix4(wrap.matrixWorld);
+      dW = tmp.b.sub(tmp.a);
+      if (dW.lengthSq() < 1e-12) dW = null;
     }
     const visit = function (o) {
       if (!o || !o.isMesh || !o.parent) return;
@@ -88470,12 +88496,13 @@ try {
     const p = arm && arm.userData && arm.userData.p;
     if (!p) return;
     const hide = guns && state.side === 'L';
-    const roots = [p.fo, p.up, p.el];
+    const roots = [p.fo, p.up, p.el, hide ? p.cuff : null];
     const visit = function (o) {
       if (!o) return;
-      /* Leave the glove wrap and a short wrist cuff visible. */
+      /* Leave the glove wrap visible. The leftover beige cuff tube on
+         the musket left arm is hidden with the other gun tubes. */
       if (state.wrap && (o === state.wrap || (o.parent === state.wrap))) return;
-      if (p.cuff && o === p.cuff) return;
+      if (!hide && p.cuff && o === p.cuff) return;
       if (p.h && o === p.h) return;
       if (hide) {
         if (o.userData && o.userData.__fpHideLock) return;
@@ -88637,6 +88664,31 @@ try {
     let h = null;
     try { if (typeof held !== 'undefined') h = held; } catch (_) {}
     if (h && h.children) for (let i = 0; i < h.children.length; i++) hookChildOff(h.children[i]);
+    /* Guns: c350 places the viewmodel from the un-offset child, so the
+       table shift must be on only while the frame is drawn, then cleared
+       before the next viewmodel step. A last-draw sentinel on the rig
+       (it rides into the gun view pass) does that without wrapping the
+       WebGLRenderer draw entry. Tools keep a persistent offset. */
+    if (U.kind === 'pistol' || U.kind === 'musket') ensureGunSentinel();
+    else if (U._gunSent) U._gunSent.visible = false;
+  }
+  function ensureGunSentinel() {
+    const T = T3(); if (!T) return;
+    const R = rig(); if (!R) return;
+    if (!U._gunSent) {
+      const mat = new T.MeshBasicMaterial({ colorWrite: false, depthWrite: false, depthTest: false, fog: false });
+      const geo = new T.PlaneGeometry(0.002, 0.002);
+      const m = new T.Mesh(geo, mat);
+      m.frustumCulled = false;
+      m.renderOrder = 2e9;
+      m.onAfterRender = function () {
+        const cur = W.__handsFp1285;
+        if (cur && (cur.kind === 'pistol' || cur.kind === 'musket') && cur.drawOffOff) cur.drawOffOff();
+      };
+      U._gunSent = m;
+    }
+    if (U._gunSent.parent !== R) R.add(U._gunSent);
+    U._gunSent.visible = true;
   }
 
   function applyViewRig(T) {
