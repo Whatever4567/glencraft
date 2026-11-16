@@ -13781,9 +13781,14 @@ function buildGate() {
 }
 // count-based ore placement so every world gets a dependable amount: n veins of lo..hi blocks between y0 and y1
 function placeOreVeins(ore, n, y0, y1, lo, hi) {
-  /* GLX-LOAD1289 */ const __Lv = window.__glenLoad;
-  const __key = [ore, n, y0, y1, lo, hi].join(',');
-  const __st = (__Lv && __Lv.held && __Lv._loop && __Lv._loop.silver && __Lv._loop.silver.key === __key) ? __Lv._loop.silver : null;
+  /* GLX-LOAD1289: each (ore, n, y-range, size) call has its own resume
+     slot. The silver post runs two placeOreVeins in one coop callback;
+     a single _loop.silver slot meant a yield in the second call re-ran
+     the first (or lost the second's cursor) and the world diverged. */
+  const __Lv = window.__glenLoad;
+  const __key = 'vein:' + [ore, n, y0, y1, lo, hi].join(',');
+  const __st = (__Lv && __Lv.held && __Lv._loop && __Lv._loop[__key]) ? __Lv._loop[__key] : null;
+  if (__st && __st.done) return;
   let v = __st ? __st.v : 0, tries = __st ? __st.tries : 0;
   let __tV = performance.now(), __wV = Date.now(), __nV = 0;
   for (; v < n && tries < n * 40; tries++) {
@@ -13791,7 +13796,7 @@ function placeOreVeins(ore, n, y0, y1, lo, hi) {
     const b = getB(x, y, z); if (b !== T.STONE && b !== T.DEEPSLATE) {
       if (__Lv && __Lv.held && ((performance.now() - __tV > (__SLB())) || (Date.now() - __wV > (__SLB())))) {
         if (!__Lv._loop) __Lv._loop = {};
-        __Lv._loop.silver = {key: __key, v: v, tries: tries + 1};
+        __Lv._loop[__key] = {v: v, tries: tries + 1};
         try { __Lv.touch(72.5, 'Laying the ores… ' + v + '/' + n, 92); } catch (_) {}
         throw __Lv.YIELD;
       }
@@ -13807,12 +13812,12 @@ function placeOreVeins(ore, n, y0, y1, lo, hi) {
     v++;
     if (__Lv && __Lv.held && ((performance.now() - __tV > (__SLB())) || (Date.now() - __wV > (__SLB())))) {
       if (!__Lv._loop) __Lv._loop = {};
-      __Lv._loop.silver = {key: __key, v: v, tries: tries + 1};
+      __Lv._loop[__key] = {v: v, tries: tries + 1};
       try { __Lv.touch(72.5, 'Laying the ores… ' + v + '/' + n, 92); } catch (_) {}
       throw __Lv.YIELD;
     }
   }
-  if (__Lv && __Lv._loop) __Lv._loop.silver = null;
+  if (__Lv && __Lv._loop) __Lv._loop[__key] = {done: 1};
 }
 function skyOpen(x, y, z) { for (let k = y + 1; k < H; k++) if (world[idx(x, k, z)] !== T.AIR) return false; return true; }
 function generate() {

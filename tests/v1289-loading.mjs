@@ -32,7 +32,7 @@ ok(!/function cavePass\(p\) \{ const t0 = performance.now\(\); sd = \(gSeed \^ 0
 ok(!/function orePass\(\) \{\n    const t0 = performance.now\(\); sd = \(gSeed \^ 0x77a11e\)/.test(html), 'unsliced c77 orePass is gone');
 
 ok(html.includes('veinJobs') && html.includes('__parkOres'), 'GEN9 ores and lochs are sliced');
-ok(html.includes('__Lv._loop.silver') && html.includes('__Lh._loop.hives'), 'placeOreVeins and placeHives are sliced');
+ok(html.includes("const __key = 'vein:' + [ore, n, y0, y1, lo, hi].join(',')") && html.includes('__Lv._loop[__key] = {done: 1}') && html.includes('__Lh._loop.hives'), 'placeOreVeins is sliced per-call (done flag) and placeHives is sliced');
 ok(html.includes("__Lk._loop.keeps") && html.includes('__L4._loop.c41') && html.includes('__Lf._loop.finishC'), 'castle placement, c41 and finishCastles are sliced');
 ok(html.includes('__Cv._loop.carve'), 'carveCaves is sliced and persists sd');
 ok(html.includes('Date.now() - __wT') && !html.includes('++__nT >= 4'), 'sliced column loops cap on wall-clock time, not a 4-column forced yield');
