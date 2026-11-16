@@ -201,12 +201,18 @@
     pick:   { dx: 0.045, dy: 0.05, dz: 0.02, fov: 0.68, s: 0.94, armS: 1.26 },
     p761:   { dx: 0.045, dy: 0.05, dz: 0.02, fov: 0.68, s: 0.94, armS: 1.26 },
     p760:   { dx: 0.045, dy: 0.05, dz: 0.02, fov: 0.68, s: 0.94, armS: 1.26 },
-    sword:  { dx: 0.00, dy: -0.04, dz: 0.05, fov: 0.70, s: 1.12, armS: 1.20 },
+    /* t1230: dz>0 is closer; armS scales the rig around the camera
+       (bigger = hand further out). Lower and pull back so the blade
+       reads in the play frame instead of a close-up of the fist. */
+    sword:  { dx: 0.03, dy: -0.12, dz: -0.18, fov: 0.88, s: 1.30, armS: 1.08 },
     bucket: { dx: -0.02, dy: -0.04, dz: 0.05, fov: 0.68, s: 1.12, armS: 1.22 },
     torch:  { dx: 0.00, dy: -0.02, dz: 0.10, fov: 0.64, s: 1.26, armS: 1.26 },
-    map:    { dx: 0.00, dy: 0.02, dz: 0.00, fov: 0.78, s: 1.06, armS: 1.16 },
-    pistol: { dx: 0.10, dy: -0.16, dz: 0.08, fov: 0.66, s: 1.42, armS: 1.12 },
-    musket: { dx: 0.04, dy: -0.06, dz: 0.04, fov: 0.86, s: 1.16, armS: 1.08 }
+    /* Vertical readable map, palm supporting it from below. Slightly
+       larger armS so the hand sits under the sheet instead of over it. */
+    map:    { dx: 0.00, dy: 0.00, dz: -0.04, fov: 0.78, s: 1.06, armS: 1.24 },
+    /* t1230: natural hip height, same size, not off the near plane. */
+    pistol: { dx: 0.06, dy:  0.02, dz: -0.04, fov: 0.66, s: 1.42, armS: 1.16 },
+    musket: { dx: 0.03, dy:  0.00, dz: -0.10, fov: 0.84, s: 1.12, armS: 1.14 }
   };
 
   function applyFrame() {
@@ -259,9 +265,9 @@
   const ITEM_REST = {
     bucket: { x: 0.00, y: -0.03, z: 0.00 },
     torch:  { x: 0.00, y: 0.00, z: -0.01 },
-    p761:   { x: 0.00, y: 0.01, z: -0.010 },
-    pick:   { x: 0.00, y: 0.01, z: -0.010 },
-    p760:   { x: 0.00, y: 0.01, z: -0.010 }
+    p761:   { x: 0.00, y: 0.00, z: -0.030 },
+    pick:   { x: 0.00, y: 0.00, z: -0.030 },
+    p760:   { x: 0.00, y: 0.00, z: -0.030 }
   };
 
   function applyItemRest() {

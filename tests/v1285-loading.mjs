@@ -1,4 +1,4 @@
-// 1.2.87: liquid meter + time-driven display, version 1.2.87.
+// 1.2.88: compositor meter + time-driven display, version 1.2.88.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -7,16 +7,23 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.87';"), 'GAME_VERSION is 1.2.87');
-ok(!html.includes("const GAME_VERSION = '1.2.86';"), 'GAME_VERSION is no longer 1.2.86');
+ok(html.includes("const GAME_VERSION = '1.2.88';"), 'GAME_VERSION is 1.2.88');
+ok(!html.includes("const GAME_VERSION = '1.2.87';"), 'GAME_VERSION is no longer 1.2.87');
+ok(/"v"\s*:\s*"v1\.2\.88"/.test(html), '1.2.88 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.87"/.test(html), '1.2.87 patch notes present');
 ok(/loading bar now fills smoothly the whole time/i.test(html), '1.2.87 notes mention the loading bar filling smoothly the whole time');
+ok(/never looks frozen/i.test(html), '1.2.88 notes mention the loading bar that never looks frozen');
+ok(/First-person hands are clearer now/i.test(html), '1.2.88 notes mention improved first-person hands');
+{
+  const st = html.indexOf('{"v":"v1.2.88"'), en = html.indexOf('{"v":"v1.2.87"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.88 notes first, no food');
+}
 {
   const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
-  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes first, no food');
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes remain, no food');
 }
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.87', 'version.json is 1.2.87');
-ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->'), '1.2.84–1.2.87 build markers stay');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.88', 'version.json is 1.2.88');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->'), '1.2.84–1.2.88 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runtime');
@@ -203,6 +210,37 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   };
   ok(Math.abs(glide(0) - 90) < 1e-9 && Math.abs(glide(1) - 100) < 1e-9, 'finish glide starts at current shown and ends at 100');
   ok(glide(0.25) > 90 && glide(0.25) < 98 && glide(1.2) === 100, '400ms glide is quick but not a snap');
+}
+
+// 1.2.88 compositor-only meter: fill and shimmer keep moving during long tasks.
+ok(src.includes("version: 'load-1288'"), 'source version is load-1288');
+ok(html.includes("version: 'load-1288'") && html.includes('/* GLX-LOAD1285'), 'load-1288 runtime is in the build');
+ok(src.includes('will-change:transform') && src.includes('transform-origin:left center') && src.includes('transform:scaleX(0)'), 'fill uses compositor scaleX with will-change');
+ok(src.includes('function startFillAnim') && src.includes('fill.animate(baked.frames') && src.includes('keyframesForCurve'), 'fill is a WAAPI transform animation baked from the time curve');
+ok(src.includes('anim.currentTime') && src.includes('if (elapsed > cur + 50)') && src.includes('if (jump > cur)'), 'resync only moves the fill animation forward');
+ok(src.includes('function glideTo100') && src.includes("transform: 'scaleX(1)'"), 'ready glides the fill to 100 and is still transform-only');
+ok(src.includes('stopFillAnim') && src.includes("fill.style.willChange = 'auto'") && src.includes("fill.style.transform = 'scaleX(1)'"), 'stop cancels the fill animation and freezes at 100');
+ok(src.includes('load1288shine') && src.includes('translateX(-120%)') && src.includes('translateX(280%)') && src.includes('will-change:transform'), 'shimmer/wave is a compositor translateX loop');
+ok(!src.includes('background-position') && !src.includes('load1285shine') && !src.includes('load1285wave'), 'old main-thread background-position shine is gone');
+ok(!src.includes("shown.toFixed(2) + '%'"), 'paint no longer drives the fill with style.width');
+ok(src.includes('Math.floor(aim + 1e-9)') && src.includes("pct.textContent = n + '%'") && src.includes('if (n < (U._pctInt || 0)) n = U._pctInt'), '% text is elapsed-time integers and never goes backwards');
+ok(src.includes('U._pctInt = 0') && src.includes('startFillAnim'), 'a new load resets the label and starts the fill animation');
+{
+  const T = 60000, tail = 120000;
+  const mid = (function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
+    T = Math.max(1, T || 60000);
+    const t = Math.max(0, elapsed);
+    if (t <= T) {
+      const u = t / T;
+      const e = 0.8 * u + 0.2 * (u * u * (3 - 2 * u));
+      return TIMED_AT_T * e;
+    }
+    const over = t - T;
+    const tau = 45000;
+    return Math.min(TIMED_CAP - 0.05, TIMED_AT_T + (TIMED_CAP - TIMED_AT_T) * (1 - 1 / (1 + over / tau)));
+  });
+  // keyframes end at 97% at t=T and stay under 99 after
+  ok(Math.abs(mid(T, T) - 97) < 0.01, 'baked curve still hits 97% at the expected duration');
 }
 
 console.log('PASS ' + n + ' v1285 loading checks');

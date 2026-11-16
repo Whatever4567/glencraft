@@ -161,6 +161,7 @@
         return r;
       };
       R.updateMatrixWorld.__sculpt1282 = 1;
+      R.userData.sculpt1282 = 1;
       U.hook++;
     }
     try { refineGrip(); } catch (e) { ERR('install', e); }

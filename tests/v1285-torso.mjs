@@ -14,20 +14,21 @@ ok(torso.includes('function buildV1SideGeo(') && torso.includes('function alignV
 ok(torso.includes('SHIRT_|_sewn_torso_with_open_throat') && torso.includes('visual_torso_outfit') && torso.includes('scottish-base-v1'), 'v1 source mesh names embedded');
 ok(/"tris":768/.test(torso) && /"srcTris":2688/.test(torso) && /"keptSrcTris":640/.test(torso), 'near v1 side tri counts');
 ok(torso.includes('attachFpCull(side)') && torso.includes('renderer.render.__torso1282'), 'sides hidden only in your own FP view');
+ok(torso.includes('ARM_FP: 1') && /visual_arm_slot\|GLOVE/.test(torso), 'local TP arms hidden in FP only');
 ok(!/geometry\.dispose|\.remove\(mesh\)|setDrawRange|setIndex\(new[^)]*keep/.test(torso), 'no player geometry deleted');
 ok(!torso.includes('SHOULDER') && !torso.includes('SH_K'), 'no shoulder WIP');
 ok(torso.includes('Object.assign(U, window.__torso1262cfg || {})'), 'QA config hook');
 ok(torso.includes('if (vBack1284 > 0.5) discard;'), 'sash back hidden by discard, not deleted');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 const credits = fs.readFileSync(path.join(root, 'CREDITS.md'), 'utf8');
-ok(['1.2.85', '1.2.86', '1.2.87'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';")), 'version 1.2.85+');
+ok(['1.2.85', '1.2.86', '1.2.87', '1.2.88'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.88';")), 'version 1.2.85+');
 ok(html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), 'build markers');
 { const st = html.indexOf('{"v":"v1.2.85"'), en = html.indexOf('{"v":"v1.2.84"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.85 notes remain, no food');
   const s0 = html.indexOf('window.PATCH_NOTES = ['), e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
   const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.85') : -1;
-  ok(k >= 0 && k <= 2 && arr[k + 1].v === 'v1.2.84', 'PATCH_NOTES parses, 1.2.85 before 1.2.84'); }
+  ok(k >= 0 && k <= 3 && arr[k + 1].v === 'v1.2.84', 'PATCH_NOTES parses, 1.2.85 before 1.2.84'); }
 ok(credits.includes('## v1.2.85 Original shirt sides'), 'CREDITS 1.2.85');
 ok(html.includes("version: '1.2.59-frame-torch'") && html.includes('/* GLX-SCULPT1282') && html.includes('/* GLX-HANDSTP1282'), 'torch/pick jitter, FP sculpt and TP hands stay');
 console.log('PASS', n, 'v1285-torso checks');
