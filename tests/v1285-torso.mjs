@@ -21,7 +21,7 @@ ok(torso.includes('Object.assign(U, window.__torso1262cfg || {})'), 'QA config h
 ok(torso.includes('if (vBack1284 > 0.5) discard;'), 'sash back hidden by discard, not deleted');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 const credits = fs.readFileSync(path.join(root, 'CREDITS.md'), 'utf8');
-ok(['1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.88';") || html.includes("const GAME_VERSION = '1.2.89';")), 'version 1.2.85+');
+ok(['1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.88';") || html.includes("const GAME_VERSION = '1.2.89';") || html.includes("const GAME_VERSION = '1.2.90';")), 'version 1.2.85+');
 ok(html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), 'build markers');
 { const st = html.indexOf('{"v":"v1.2.85"'), en = html.indexOf('{"v":"v1.2.84"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.85 notes remain, no food');
