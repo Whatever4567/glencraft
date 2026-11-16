@@ -51,7 +51,8 @@
       p760: [0.0173, -0.0222, -0.091]
     },
     VIEW_OFF: {
-      musket: [0, 0, 0]
+      /* Push the hip-placed musket + both wrists forward so the right hand sits in front of the lens. */
+      musket: [0, 0, -0.23]
     },
     /* Bake each held-item fist into a non-skinned mesh so the glove
        skeleton is not skinned or walked every frame. Hidden, not deleted.
@@ -75,8 +76,8 @@
       pick:   { x: 0.06, y: -0.02, z: 0.08 },
       p761:   { x: 0.06, y: -0.02, z: 0.08 },
       p760:   { x: 0.06, y: -0.02, z: 0.08 },
-      pistol: { x: 0.08, y:  0.00, z:  0.02 },
-      musket: { x: 0.00, y: 0.00, z: 0.02 },
+      pistol: { x: 0.076, y: 0.131, z: -0.048 },
+      musket: { x: 0.021, y: -0.015, z: -0.017 },
       /* Left wrap onto the forestock (p.h space). Translation only —
          a seat rotation drove the forearm into the near plane. */
       musketL:{ x: 0.04, y: -0.02, z: 0.00 }
