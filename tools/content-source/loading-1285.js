@@ -147,12 +147,12 @@
   U.readExpect = readExpect;
 
   /* Displayed % blends real work with an ETA from the real-progress rate.
-     The integer label advances at least every 2s, never goes backwards,
-     and holds 99 until the world is almost ready. The 60s time curve is
-     only used to bake the compositor fill, not the number. */
-  const TICK_MS = 2000;
-  const NEAR_REAL = 92;
-  const NEAR_ETA = 6000;
+     Below 90% the label is an integer; past 90% it shows one decimal so
+     the number still moves every 1-2s on a long load. Pace follows the
+     ETA (99 only when almost ready) and never goes backwards. The 60s
+     time curve is only used to bake the compositor fill, not the number. */
+  const NEAR_REAL = 99;
+  const NEAR_ETA = 2500;
 
   function noteReal(now) {
     if (!U._rate) U._rate = [];
@@ -178,8 +178,8 @@
     let eta;
     if (rate < 1e-6) eta = Math.max(elapsed * 3, 20000);
     else {
-      const target = 96;
-      eta = elapsed + Math.max(0, (target - Math.min(real, target)) / rate) + 1500;
+      const target = 100;
+      eta = elapsed + Math.max(0, (target - Math.min(real, target)) / rate) + 400;
     }
     if (U._eta) {
       if (eta < U._eta) eta = U._eta * 0.85 + eta * 0.15;
@@ -195,16 +195,14 @@
     const elapsed = Math.max(0, now - (U.t0 || now));
     const real = Math.max(0, Math.min(100, U.real || 0));
     const eta = etaMs(now);
-    const fromReal = Math.min(97, real * 0.97);
-    const fromEta = eta > 0 ? Math.min(97, 97 * Math.min(1, elapsed / eta)) : 0;
+    const fromReal = Math.min(98.5, real * 0.985);
+    const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
     let aim = Math.max(fromReal, fromEta, U.shown || 0);
-    const intNow = U._pctInt || 0;
-    const lastAt = U._pctIntAt || U.t0 || now;
-    const due = !U.finishing && !U.done && intNow < 99 && (now - lastAt) >= TICK_MS;
-    const nearly = real >= NEAR_REAL || (eta - elapsed) <= NEAR_ETA || U.real >= 99;
-    if (due) aim = Math.max(aim, intNow < 98 || nearly ? intNow + 1 : 99);
-    if (aim >= 99 && !U.finishing && !U.done && !nearly && !(due && intNow >= 98)) aim = 98.99;
-    aim = Math.min((U.finishing || U.done) ? 100 : 99, aim);
+    const remain = Math.max(0, eta - elapsed);
+    const nearly = real >= NEAR_REAL || remain <= NEAR_ETA || U.real >= 99;
+    if (nearly && !U.finishing && !U.done) aim = Math.max(aim, 99);
+    if (aim >= 99 && !U.finishing && !U.done && !nearly) aim = 98.9;
+    aim = Math.min((U.finishing || U.done) ? 100 : (nearly ? 99 : 98.9), aim);
     if (aim < (U.shown || 0) && !U.finishing) aim = U.shown;
     return aim;
   }
@@ -375,24 +373,38 @@
 
   function paint(shown) {
     /* The fill is driven by a compositor transform animation, not width.
-       JS only updates the integer % label from elapsed time, never backwards,
-       and may nudge the animation currentTime forward after a hitch. */
+       JS only updates the % label from the ETA blend, never backwards,
+       and may nudge the animation currentTime forward after a hitch.
+       Past 90% the label shows one decimal so it keeps ticking on long loads. */
     try { resyncFillAnim(); } catch (_) {}
     const pct = $('loadPct');
     if (!pct) return;
     const now = performance.now();
-    let n;
+    const prev = U._pctShown || 0;
+    let v, text;
     if (U.finishing || (U.done && (shown || 0) >= 99.5)) {
-      n = Math.min(100, Math.max(U._pctInt || 0, Math.round(shown || 0)));
+      v = Math.min(100, Math.max(prev, shown || 0));
+      const n = Math.min(100, Math.max(Math.round(prev), Math.round(v)));
+      v = n;
+      text = n + '%';
     } else {
       const aim = Math.max(shown || 0, displayAim(now));
-      n = Math.min(99, Math.max(U._pctInt || 0, Math.floor(aim + 1e-9)));
-      if (n === (U._pctInt || 0) && n < 99 && (now - (U._pctIntAt || U.t0 || now)) >= TICK_MS) n = Math.min(99, n + 1);
+      v = Math.min(99, Math.max(prev, aim));
+      if (v < 90) {
+        const n = Math.min(89, Math.floor(v + 1e-9));
+        v = n;
+        text = n + '%';
+      } else {
+        const d = Math.floor(v * 10 + 1e-9) / 10;
+        v = d;
+        text = d.toFixed(1) + '%';
+      }
     }
-    if (n < (U._pctInt || 0)) n = U._pctInt;
-    if (n !== (U._pctInt || 0)) U._pctIntAt = now;
-    U._pctInt = n;
-    pct.textContent = n + '%';
+    if (v < prev) v = prev;
+    if (v !== prev) U._pctShownAt = now;
+    U._pctShown = v;
+    U._pctInt = Math.floor(v + 1e-9);
+    pct.textContent = text;
   }
 
   function tick() {
@@ -436,8 +448,10 @@
     U.t0 = U.t0 || performance.now();
     U.expectMs = readExpect();
     U._tickAt = U.t0;
-    U._pctInt = Math.max(0, U._pctInt || 0);
+    U._pctInt = 0;
     U._pctIntAt = U.t0;
+    U._pctShown = 0;
+    U._pctShownAt = U.t0;
     U._rate = [];
     U._eta = 0;
     if (label) setReal(U.real, label);
@@ -490,9 +504,13 @@
     await yieldPaint();
   };
 
+  /* Shared wall budget for in-generate yield checks (ores, keeps, plants). */
   U.sliceMs = function () {
-    const n = U._sliceMs || 200;
-    return n < 100 ? 100 : (n > 300 ? 300 : n);
+    const n = U._sliceMs || 350;
+    return n < 300 ? 300 : (n > 400 ? 400 : n);
+  };
+  WIN.__SLB = function () {
+    try { return U.sliceMs(); } catch (_) { return 350; }
   };
   U.maybeYield = function () {
     if (!U.held && !U._softHold) return false;
@@ -502,7 +520,7 @@
     }
     return false;
   };
-  /* Run a wrapper post-stage once, then yield if the 200ms slice is used up.
+  /* Run a wrapper post-stage once, then yield if the adaptive slice is used up.
      On resume the cached result is returned so caves/settle/plant are not redone. */
   U.coop = function (id, label, p, fn) {
     if (!U._passed) U._passed = Object.create(null);
@@ -566,7 +584,7 @@
     U._ret = Object.create(null);
     U._loop = Object.create(null);
     U._postResume = null;
-    U._sliceMs = 200;
+    U._sliceMs = 350;
     try { window.__c77 = null; } catch (_) {}
     U._tSlice = performance.now();
     if (typeof generate !== 'function') throw new Error('generate missing');
@@ -596,13 +614,14 @@
           const y0 = performance.now();
           try { await yieldPaint(); }
           finally { _randGap = 0; }
-          /* Grow the slice toward 300ms if yield overhead is large
-             (CPU throttle makes a 200ms wall budget too small); shrink
-             back toward 200ms when yields are cheap. */
+          /* Grow the slice toward 400ms if yield overhead is large
+             (CPU throttle makes a small wall budget too small); keep a
+             300ms floor so progress stays visible without letting
+             per-yield cost dominate. */
           const yMs = performance.now() - y0;
-          let b = U._sliceMs || 200;
-          if (yMs > 40) b = Math.min(300, b + 50);
-          else if (yMs < 8 && b > 200) b = Math.max(200, b - 25);
+          let b = U._sliceMs || 350;
+          if (yMs > 40) b = Math.min(400, b + 50);
+          else if (yMs < 8 && b > 300) b = Math.max(300, b - 25);
           U._sliceMs = b;
           /* Fresh work budget after the yield. Otherwise the
              wrapper-chain / paint time already burns the slice and
@@ -717,6 +736,7 @@
         U.real = 0;
         U.shown = 0;
         U._pctInt = 0;
+        U._pctShown = 0;
         U.done = 0;
         start(save ? 'Restoring your world…' : 'Preparing your glen…');
       } catch (e) { ERR('start', e); }
@@ -784,11 +804,15 @@
     }
   } catch (e) { ERR('rb', e); }
 
-  /* Only mute the 3D scene while generate() itself is on the stack.
-     After that the loader must mesh and present like 1.2.84, or the first
-     enter-frame pays a huge cold compile/render bill. */
+  /* Mute render/step for the whole loading screen, not just generate.
+     First present is already deferred until after enter (setTimeout 0).
+     Unmuting after generate paid a cold compile/render bill that blocked
+     the Ready→start glide for a minute at 6x throttle. rebuild() still
+     meshes as usual — only the 3D present is held back. */
   function quiet3d() {
-    return !!U.held;
+    if (U.held) return true;
+    try { if (typeof screen !== 'undefined' && screen === 'loading') return true; } catch (_) {}
+    return false;
   }
   U.quiet3d = quiet3d;
   try {

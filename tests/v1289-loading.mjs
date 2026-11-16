@@ -13,16 +13,16 @@ ok(!html.includes("const GAME_VERSION = '1.2.89';"), 'no 1.2.89 version bump');
 ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.88', 'version.json stays 1.2.88');
 ok(html.includes('<!-- glencraft-build: load1285 -->') && html.includes('<!-- glencraft-build: load1289 -->'), 'load1285 and load1289 markers');
 ok(html.includes('/* GLX-LOAD1289 */'), 'LOAD1289 slice markers');
-ok(html.includes('__Ld._loop.diamonds') && html.includes('throw __Ld.YIELD'), 'diamondBoost yields every 200ms and resumes with PRNG state');
-ok(html.includes('__Lt._loop.torches') && html.includes('throw __Lt.YIELD'), 'fixTorches yields every 200ms and resumes by x');
+ok(html.includes('__Ld._loop.diamonds') && html.includes('throw __Ld.YIELD') && html.includes('__tD > (__SLB())'), 'diamondBoost yields on the adaptive slice and resumes with PRNG state');
+ok(html.includes('__Lt._loop.torches') && html.includes('throw __Lt.YIELD') && html.includes('__tT > (__SLB())'), 'fixTorches yields on the adaptive slice and resumes by x');
 ok(html.includes('__parkSettle') && html.includes("__prev.phase === 'att'"), 'c39Settle is resumable across structure and attachable phases');
 ok(html.includes('__Lo._loop.c77') && html.includes("phase: 'strip'") && html.includes('__st.sd == null'), 'c77 orePass strip and veins are sliced; veins persist sd');
 ok(html.includes('__Lo._loop.c104') && html.includes('__st.sd == null') && html.includes("phase: 'veins'"), 'c104 orePass veins are sliced and persist sd');
-ok(html.includes('__Lc._loop.c104cave') && html.includes('throw __Lc.YIELD'), 'cavePass yields every 200ms and resumes with sd');
+ok(html.includes('__Lc._loop.c104cave') && html.includes('throw __Lc.YIELD'), 'cavePass yields on the adaptive slice and resumes with sd');
 ok(html.includes('held && window.__c77)) window.__c77 = null') && html.includes('try { window.__c77 = null; } catch (_) {}'), 'c104 keeps __c77 on a held resume; generate clears it once at start');
 ok(html.includes('coop("c104caves"') || html.includes("coop('c104caves'"), 'cavePass is coop-wrapped');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'still one LOAD1285 runtime');
-ok(src.includes('MessageChannel') && html.includes('performance.now() - __tSlice > 200'), 'existing MessageChannel 200ms yields stay');
+ok(src.includes('MessageChannel') && html.includes('performance.now() - __tSlice > (__SLB())'), 'existing MessageChannel yields use the adaptive slice budget');
 ok(html.includes('_loop.c104') && html.includes("phase: 'strip'"), 'existing c104 strip slice stays');
 
 // The original unsliced loop heads must not remain for these culprits.
@@ -45,6 +45,6 @@ ok(html.includes('U.gateHold = 1') && html.includes('L.gateHold && performance.n
 ok(src.includes('U.gateHold = 1') && src.includes('U.gateHold = 0') && src.includes('U.gateUntil = performance.now() + 3000'), 'loading source sets and clears the pre-generate gate');
 ok(html.includes('U._postResume') && html.includes('if (!U._postResume) return outer.apply') && src.includes('U._postResume'), 'post-stages resume directly after a yield instead of re-entering generate wrappers');
 ok(html.includes('new MessageChannel()') && src.includes('_mc.port2.postMessage'), 'yields use MessageChannel so the event loop gets a turn');
-ok(html.includes('U.sliceMs') && html.includes('Math.min(300, b + 50)') && html.includes('Math.max(200, b - 25)'), 'slice budget adapts between 100 and 300ms');
+ok(html.includes('U.sliceMs') && html.includes('Math.min(400, b + 50)') && html.includes('Math.max(300, b - 25)') && html.includes('WIN.__SLB'), 'slice budget adapts between 300 and 400ms');
 
 console.log('v1289-loading: ' + n + ' ok');
