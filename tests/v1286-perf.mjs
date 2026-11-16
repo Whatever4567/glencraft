@@ -7,7 +7,8 @@ const html = fs.readFileSync(new URL('index.html', root), 'utf8');
 const src = n => fs.readFileSync(new URL('tools/content-source/' + n, root), 'utf8');
 let k = 0; const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.85';"), 'no version bump');
+ok(html.includes("const GAME_VERSION = '1.2.86';") && !html.includes("const GAME_VERSION = '1.2.85';"), 'GAME_VERSION is 1.2.86');
+ok(html.includes('<!-- glencraft-build: b1286-v1.2.86 -->'), '1.2.86 build marker');
 ok(html.includes('<!-- glencraft-build: perf1286 -->') && (html.split('(function perf1286(WIN)').length - 1) === 1, 'one perf1286 module');
 ok(!/if \(!R\.updateMatrixWorld\.__sculpt128[0-2]\)/.test(html), 'no outermost-function wrap flags left');
 for (const n of [1280, 1281, 1282]) ok((html.split('if (!WRAPPED' + n + '.has(R))').length - 1) === 1, 'sculpt' + n + ' wraps once per rig');
