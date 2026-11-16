@@ -86714,9 +86714,9 @@ try {
       pistol: [0, 0, 0],
       musket: [-0.0607, -0.0058, -0.0175],
       map: [0, 0, 0],
-      pick: [0, 0, 0],
-      p761: [0, 0, 0],
-      p760: [0, 0, 0]
+      pick: [0.0173, -0.0222, -0.091],
+      p761: [0.0173, -0.0222, -0.091],
+      p760: [0.0173, -0.0222, -0.091]
     },
     VIEW_OFF: {
       /* Push the hip-placed musket + both wrists forward so the right hand sits in front of the lens. */
@@ -86741,9 +86741,9 @@ try {
       bucket: { x: -0.081, y: 0.077, z: 0.130, cuffFollow: 1 },
       torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
-      pick:   { x: 0.063, y: -0.134, z: 0.047, cuffFollow: 1 },
-      p761:   { x: 0.063, y: -0.134, z: 0.047, cuffFollow: 1 },
-      p760:   { x: 0.063, y: -0.134, z: 0.047, cuffFollow: 1 },
+      pick:   { x: 0.06, y: -0.02, z: 0.08 },
+      p761:   { x: 0.06, y: -0.02, z: 0.08 },
+      p760:   { x: 0.06, y: -0.02, z: 0.08 },
       pistol: { x: 0.076, y: 0.131, z: -0.048 },
       musket: { x: 0.021, y: -0.015, z: -0.017 },
       /* Left wrap onto the forestock (p.h space). Translation only —
@@ -88016,22 +88016,28 @@ try {
      wrap, so a wrist seat that reaches a bail/shaft does not open a
      10 cm cuff gap. Base is captured once per cuff; not a per-frame seek. */
   function applyCuffFollow(state, seat) {
+    const T = T3(); if (!T) return;
     const R = rig();
     const arm = R && R.userData && R.userData[state.side];
     const cuff = arm && arm.userData && arm.userData.p && arm.userData.p.cuff;
     if (!cuff) return;
     if (!cuff.userData._fpCuffBase1285) cuff.userData._fpCuffBase1285 = cuff.position.clone();
-    const b = cuff.userData._fpCuffBase1285;
+    cuff.position.copy(cuff.userData._fpCuffBase1285);
     const follow = !!(seat && seat.cuffFollow);
-    const dx = follow ? (seat.x || 0) : 0;
-    const dy = follow ? (seat.y || 0) : 0;
-    const dz = follow ? (seat.z || 0) : 0;
-    /* Only apply in the same parent space as the wrap (p.h). */
-    if (follow && state.wrap && cuff.parent !== state.wrap.parent) {
-      cuff.position.copy(b);
-      return;
-    }
-    cuff.position.set(b.x + dx, b.y + dy, b.z + dz);
+    const dx = follow ? (seat.x || 0) : 0, dy = follow ? (seat.y || 0) : 0, dz = follow ? (seat.z || 0) : 0;
+    if (!(dx || dy || dz) || !state.wrap || !state.wrap.parent || !cuff.parent) return;
+    /* Seat is wrap-parent local. Carry the same world delta onto the cuff,
+       even when the cuff lives under the forearm rather than the wrist. */
+    const ph = state.wrap.parent;
+    ph.updateMatrixWorld(true);
+    cuff.parent.updateMatrixWorld(true);
+    const o = new T.Vector3();
+    const n = new T.Vector3(dx, dy, dz);
+    ph.localToWorld(o);
+    ph.localToWorld(n);
+    const w = cuff.getWorldPosition(new T.Vector3()).add(n.sub(o));
+    cuff.parent.worldToLocal(w);
+    cuff.position.copy(w);
   }
 
   function applyTune(state) {
