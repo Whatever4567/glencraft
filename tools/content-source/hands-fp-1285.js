@@ -15,7 +15,7 @@
 (function handsFp1285() {
   const W = window;
   const U = W.__handsFp1285 = {
-    err: null, on: 1, version: '1.2.85-tp-hand',
+    err: null, on: 1, version: '1.2.89-red',
     /* t1225: blocky prism pieces off; detail lives in the skin shader. */
     prism: 0, cuffFolds: 0, bump: 0,
     /* C350 viewmodel + FRAME.pistol own the hip spot. Chasing the gun
@@ -27,6 +27,12 @@
        Tight fists come from bone curls; the pistol stays visible because
        the 1.2.80 FRAME rest nudge is zeroed in sculpt-1280. */
     gripLock: 0,
+    /* Translation-only, clamped seeks so the fist hole sits on the
+       handle / forestock. No world delta on `held`, no cuff-sliding
+       gripLock. Targets are cached so this is cheap per frame. */
+    pistolGrip: 1,
+    musketSeek: 1,
+    handleSeek: 1,
     /* Bake each held-item fist into a non-skinned mesh so the glove
        skeleton is not skinned or walked every frame. Hidden, not deleted.
        t1231: kept in the file but off — bake still punched holes in
@@ -46,11 +52,14 @@
       bucket: { x: 0, y: 0.01, z: 0.00 },
       torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
-      pick:   { x: -0.04, y: 0.00, z: 0.12 },
-      p761:   { x: -0.04, y: 0.00, z: 0.12 },
-      p760:   { x: -0.04, y: 0.00, z: 0.12 },
-      pistol: { x: 0.08, y:  0.02, z:  0.00 },
-      musket: { x: 0.00, y: 0.00, z: 0.02 }
+      pick:   { x: 0.06, y: -0.02, z: 0.08 },
+      p761:   { x: 0.06, y: -0.02, z: 0.08 },
+      p760:   { x: 0.06, y: -0.02, z: 0.08 },
+      pistol: { x: 0.08, y:  0.00, z:  0.02 },
+      musket: { x: 0.00, y: 0.00, z: 0.02 },
+      /* Left wrap onto the forestock (p.h space). Translation only —
+         a seat rotation drove the forearm into the near plane. */
+      musketL:{ x: 0.04, y: -0.02, z: 0.00 }
     }
   };
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 260); };
@@ -88,31 +97,32 @@
     },
     bucket: fist(),
     torch: fist(),
-    /* Closed fist around the hilt so fingers do not read open. */
+    /* Tight closed fist around the hilt. Curls stay under ~1.65 rad so
+       the glove does not collapse and open holes between the fingers. */
     sword: {
-      p: [1.46, 1.54, 1.54, 1.42].map(v => S * v),
-      d: [1.52, 1.62, 1.62, 1.48].map(v => S * v),
-      t: [1.16 * S, 1.02 * S], tY: 0.84, tZ: 0.56
+      p: [1.52, 1.60, 1.60, 1.48].map(v => S * v),
+      d: [1.58, 1.66, 1.66, 1.54].map(v => S * v),
+      t: [1.20 * S, 1.08 * S], tY: 0.90, tZ: 0.60
     },
-    /* Locked tight wrap around the pick shaft, short of a skin collapse. */
+    /* Vice-tight wrap around the pick shaft, short of a skin collapse. */
     pick: {
-      p: [1.52, 1.62, 1.62, 1.48].map(v => S * v),
-      d: [1.60, 1.70, 1.70, 1.56].map(v => S * v),
-      t: [1.20 * S, 1.12 * S], tY: 0.90, tZ: 0.60
+      p: [1.56, 1.66, 1.66, 1.52].map(v => S * v),
+      d: [1.64, 1.74, 1.74, 1.60].map(v => S * v),
+      t: [1.24 * S, 1.16 * S], tY: 0.96, tZ: 0.64
     },
     axe: fist(),
     shovel: fist(),
     hoe: fist(),
-    /* Index almost straight for the trigger; remaining fingers and thumb wrap the grip. */
+    /* Middle/ring/pinky wrap the grip; index rests on the trigger guard. */
     pistol: {
-      p: [0.16, 1.32, 1.36, 1.24].map(v => S * v),
-      d: [0.10, 1.16, 1.20, 1.08].map(v => S * v),
-      t: [0.82 * S, 0.58 * S], tY: 0.42, tZ: 0.22
+      p: [0.28, 1.40, 1.44, 1.32].map(v => S * v),
+      d: [0.16, 1.22, 1.26, 1.14].map(v => S * v),
+      t: [0.92 * S, 0.66 * S], tY: 0.50, tZ: 0.28
     },
     musket: {
-      p: [0.38, 1.16, 1.20, 1.10].map(v => S * v),
-      d: [0.24, 1.00, 1.04, 0.94].map(v => S * v),
-      t: [0.62 * S, 0.40 * S], tY: 0.26, tZ: 0.12
+      p: [0.36, 1.24, 1.28, 1.16].map(v => S * v),
+      d: [0.22, 1.06, 1.10, 0.98].map(v => S * v),
+      t: [0.70 * S, 0.46 * S], tY: 0.30, tZ: 0.16
     },
     map: {
       p: [0.42, 0.44, 0.48, 0.50].map(v => S * v),
@@ -123,6 +133,12 @@
       p: [0.70, 0.76, 0.80, 0.74].map(v => S * v),
       d: [0.50, 0.55, 0.55, 0.50].map(v => S * v),
       t: [0.40 * S, 0.28 * S], tY: 0.18, tZ: 0.10
+    },
+    /* Left hand wraps the musket forestock (not the open support pose). */
+    forestock: {
+      p: [1.20, 1.32, 1.32, 1.18].map(v => S * v),
+      d: [1.00, 1.12, 1.12, 0.98].map(v => S * v),
+      t: [0.88 * S, 0.60 * S], tY: 0.48, tZ: 0.26
     }
   };
   POSES.p761 = POSES.pick;
@@ -493,8 +509,8 @@
           vec3 nailC = diffuseColor.rgb * vec3(1.16, 1.12, 1.10) + vec3(0.08, 0.07, 0.07);
           nailC = mix(nailC, nailC + vec3(0.08, 0.08, 0.08), smoothstep(0.7, 1.0, vNail1282));
           diffuseColor.rgb = mix(diffuseColor.rgb, min(nailC, vec3(1.0)), nl * 0.85);
-          roughnessFactor = mix(roughnessFactor, 0.18, smoothstep(0.15, 0.75, vNail1282));
-          roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.22), smoothstep(0.08, 0.85, vCrease1282));
+          roughnessFactor = mix(roughnessFactor, 0.70, smoothstep(0.15, 0.75, vNail1282) * 0.40);
+          roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.30), smoothstep(0.08, 0.85, vCrease1282));
           /* Subtle tendon / knuckle / vein / palm-crease shading on the
              pale HeadSkin (no normal mapping — same method as 1.2.83). */
           float hA = vHand1285.x, hF = vHand1285.y, hN = vHand1285.z;
@@ -517,15 +533,23 @@
           diffuseColor.rgb *= 1.0 + tend * 0.035 + kb * 0.03;
           diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.92, 0.93, 0.96), clamp(vein, 0.0, 1.0) * 0.08);
           diffuseColor.rgb *= 1.0 - clamp(pcr * 0.06, 0.0, 0.06);
-          roughnessFactor = mix(roughnessFactor, max(0.22, roughnessFactor - 0.08), clamp(kb + tend * 0.4, 0.0, 1.0) * 0.4);
-          /* Pale/cream grade: match the 45e632a glove and t1214 refs.
-             Stronger desat, less warmth than the t1230 grade so the
-             hand stays cream under both a red sky and a neutral sky. */
+          /* Do not polish knuckles / tendons: shine was reading as wet skin. */
+          roughnessFactor = mix(roughnessFactor, min(1.0, roughnessFactor + 0.08), clamp(kb + tend * 0.4, 0.0, 1.0) * 0.30);
+          /* Porcelain-cream grade toward the 45e632a glove and t1214 refs.
+             v1 desat 0.82 went chalk-white; this pass desats less, uses a
+             warmer cream, and keeps a roughness floor so the palm stays matte.
+             A cheap wrap/peach term (GPU Gems ch.16 idea, no LUT) warms the
+             terminator so the hand does not read as plaster. */
           {
             float luma = dot(diffuseColor.rgb, vec3(0.30, 0.54, 0.16));
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(luma), 0.55);
-            diffuseColor.rgb *= vec3(1.10, 1.08, 1.06);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(luma), 0.58);
+            vec3 cream = vec3(0.89, 0.82, 0.75);
+            diffuseColor.rgb = mix(diffuseColor.rgb, cream, 0.36);
+            diffuseColor.rgb *= vec3(1.05, 1.03, 1.01);
+            float wrap = smoothstep(0.08, 0.42, luma) * (1.0 - smoothstep(0.42, 0.75, luma));
+            diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(1.05, 0.96, 0.90) + vec3(0.03, 0.008, 0.0), wrap * 0.28);
             diffuseColor.rgb = min(diffuseColor.rgb, vec3(1.0));
+            roughnessFactor = max(roughnessFactor, 0.72);
           }
         }
         #include <lights_physical_fragment>`);
@@ -536,8 +560,15 @@
     m.onBeforeCompile.__hands1282 = 1;
     m.customProgramCacheKey = function () {
       const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
-      return k + '|handsFp1285skinC' + (skin ? 'S' : 'C') + (U.bump ? 'b' : '');
+      return k + '|handsFp1285skinF' + (skin ? 'S' : 'C') + (U.bump ? 'b' : '');
     };
+    if (skin) {
+      try { if (m.roughness != null) m.roughness = Math.max(+m.roughness || 0, 0.74); } catch (_) {}
+      try { if (m.metalness != null) m.metalness = 0; } catch (_) {}
+      try { if (m.shininess != null) m.shininess = Math.min(+m.shininess || 30, 8); } catch (_) {}
+      try { if (m.envMapIntensity != null) m.envMapIntensity = Math.min(+m.envMapIntensity || 1, 0.15); } catch (_) {}
+      try { if (m.specular && m.specular.setRGB) m.specular.setRGB(0.01, 0.01, 0.01); } catch (_) {}
+    }
     try { if (skin) { m.extensions = m.extensions || {}; m.extensions.derivatives = true; } } catch (_) {}
     m.needsUpdate = true;
   }
@@ -1278,6 +1309,7 @@
     /* Seat offsets are for the holding hand. Applying them to the left
        glove slid it into the play camera (two overlapping fists). */
     if (state.side === 'L' && ONE_HAND[U.kind]) seat = (U.seat && U.seat.empty) || {};
+    if (state.side === 'L' && U.kind === 'musket' && U.seat && U.seat.musketL) seat = U.seat.musketL;
     if (state.wrap) state.wrap.visible = !(state.side === 'L' && ONE_HAND[U.kind]);
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
@@ -1287,6 +1319,16 @@
     if (U.gripLock && state.side === 'R' && GRIP_KINDS[U.kind]) {
       try { gripLock(state); } catch (e) { ERR('grip', e); }
     }
+    if (U.pistolGrip && state.side === 'R' && U.kind === 'pistol') {
+      try { seekPistolGrip(state); } catch (e) { ERR('pistolGrip', e); }
+    }
+    if (U.musketSeek && state.side === 'L' && U.kind === 'musket') {
+      try { seekForestock(state); } catch (e) { ERR('musketSeek', e); }
+    }
+    if (U.handleSeek && state.side === 'R' && (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760' || U.kind === 'sword')) {
+      try { seekHandle(state); } catch (e) { ERR('handleSeek', e); }
+    }
+    try { clampCamZ(state); } catch (e) { ERR('camZ', e); }
   }
 
   /* t1225 grip lock: slide the glove (translation only, in p.h space) so
@@ -1417,6 +1459,185 @@
     U.gripD = +d.length().toFixed(3);
   }
 
+
+  /* Shared, translation-only, clamped slide of the glove so a cached
+     fist-hole (wrap-local) sits on a target already in p.h space. */
+  function seekWrapTo(state, targetPh, maxD, tag) {
+    const T = T3(); if (!T || !state || !state.wrap) return;
+    const tmp = U._gripTmp || (U._gripTmp = { m: new T.Matrix4(), a: new T.Vector3(), b: new T.Vector3(), c: new T.Vector3(), q: new T.Quaternion(), pi: new T.Matrix4() });
+    const skipIndex = (tag === 'pistol-seek');
+    if (state._holeKind !== tag || !state._hole) {
+      state.wrap.updateMatrixWorld(true);
+      const wi = new T.Matrix4().copy(state.wrap.matrixWorld).invert();
+      const K = new T.Vector3(), D = new T.Vector3(), v = new T.Vector3();
+      const f0 = skipIndex ? 1 : 0;
+      let n = 0;
+      for (let i = f0; i < 4; i++) {
+        if (state.prox[i]) { K.add(state.prox[i].getWorldPosition(v)); n++; }
+        if (state.dist[i]) { D.add(state.dist[i].getWorldPosition(v)); }
+      }
+      if (!n) return;
+      state._hole = K.multiplyScalar(1 / n).add(D.multiplyScalar(1 / n)).multiplyScalar(0.5).applyMatrix4(wi);
+      state._holeKind = tag;
+    }
+    state.wrap.updateMatrix();
+    const hPh = tmp.a.copy(state._hole).applyMatrix4(state.wrap.matrix);
+    const d = tmp.b.copy(targetPh).sub(hPh);
+    if (d.length() > maxD) d.setLength(maxD);
+    if (d.lengthSq() < 1e-8) return;
+    state.wrap.position.add(d);
+    return d.length();
+  }
+
+  /* Clamped, translation-only: slide the right glove so the fist hole
+     sits on the pistol grip. The held item and the __fpa rig stay put.
+     Max travel 0.045 m so the cuff cannot slide off the sleeve. */
+  function seekPistolGrip(state) {
+    const T = T3(); if (!T) return;
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    const ph = state.wrap.parent;
+    if (!h || !ph || !h.children || !h.children.length || !h.visible) return;
+    const gg = gunGrip(T, h);
+    if (!gg || !gg.mesh || !gg.mesh.visible) return;
+    const tmp = U._gripTmp || (U._gripTmp = { m: new T.Matrix4(), a: new T.Vector3(), b: new T.Vector3(), c: new T.Vector3(), q: new T.Quaternion(), pi: new T.Matrix4() });
+    tmp.pi.copy(ph.matrixWorld).invert();
+    tmp.m.multiplyMatrices(tmp.pi, gg.mesh.matrixWorld);
+    const A = tmp.a.copy(gg.A).applyMatrix4(tmp.m), B = tmp.c.copy(gg.B).applyMatrix4(tmp.m);
+    const Aw = gg.A.clone().applyMatrix4(gg.mesh.matrixWorld), Bw = gg.B.clone().applyMatrix4(gg.mesh.matrixWorld);
+    const cam = (typeof camera !== 'undefined' && camera) || W.camera;
+    let top = A, bot = B;
+    if (cam) {
+      const ci = U._camInv || (U._camInv = new T.Matrix4());
+      ci.copy(cam.matrixWorld).invert();
+      const ay = Aw.clone().applyMatrix4(ci).y, by = Bw.clone().applyMatrix4(ci).y;
+      if (by > ay) { top = B; bot = A; }
+    }
+    tmp.b.copy(top).lerp(bot, U.gunGripF);
+    const d = seekWrapTo(state, tmp.b, 0.045, 'pistol-seek');
+    if (d != null) U.pistolSeekD = +d.toFixed(3);
+  }
+
+  /* Clamped, translation-only: move the left glove onto the musket
+     forestock (about 40% of the way from the stock to the muzzle).
+     The long-axis target is cached per held-item children. */
+  function musketForestockLocal(T, h) {
+    const key = 'musket:' + h.children.map(function (c) { return c.uuid; }).join(',');
+    if (U._musketKey === key) return U._musket;
+    U._musketKey = key; U._musket = null;
+    const pts = [];
+    const hi = new T.Matrix4().copy(h.matrixWorld).invert();
+    h.updateMatrixWorld(true);
+    h.traverse(function (o) {
+      if (!o.isMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return;
+      const m = new T.Matrix4().multiplyMatrices(hi, o.matrixWorld);
+      const p = o.geometry.attributes.position;
+      const step = Math.max(1, (p.count / 240) | 0);
+      for (let i = 0; i < p.count; i += step) pts.push(new T.Vector3().fromBufferAttribute(p, i).applyMatrix4(m));
+    });
+    if (pts.length < 6) return null;
+    const c = new T.Vector3();
+    for (let i = 0; i < pts.length; i++) c.add(pts[i]);
+    c.multiplyScalar(1 / pts.length);
+    let ax = new T.Vector3(0, 0, 1);
+    const d = new T.Vector3();
+    for (let it = 0; it < 12; it++) {
+      const n = new T.Vector3();
+      for (let i = 0; i < pts.length; i++) { d.copy(pts[i]).sub(c); n.addScaledVector(d, d.dot(ax)); }
+      if (n.lengthSq() < 1e-12) break;
+      ax = n.normalize();
+    }
+    let lo = Infinity, hi2 = -Infinity;
+    for (let i = 0; i < pts.length; i++) { const t = d.copy(pts[i]).sub(c).dot(ax); if (t < lo) lo = t; if (t > hi2) hi2 = t; }
+    U._musket = { eA: c.clone().addScaledVector(ax, lo), eB: c.clone().addScaledVector(ax, hi2) };
+    return U._musket;
+  }
+  function seekForestock(state) {
+    const T = T3(); if (!T) return;
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    const ph = state.wrap.parent;
+    if (!h || !ph || !h.visible) return;
+    h.updateMatrixWorld(true);
+    ph.updateMatrixWorld(true);
+    const ends = musketForestockLocal(T, h);
+    if (!ends) return;
+    let stock = ends.eA, muzzle = ends.eB;
+    const stR = U.sides && U.sides.R;
+    if (stR && (stR.hand || stR.wrap)) {
+      const rw = new T.Vector3();
+      (stR.hand || stR.wrap).getWorldPosition(rw);
+      const aW = ends.eA.clone().applyMatrix4(h.matrixWorld);
+      const bW = ends.eB.clone().applyMatrix4(h.matrixWorld);
+      if (bW.distanceToSquared(rw) < aW.distanceToSquared(rw)) { stock = ends.eB; muzzle = ends.eA; }
+    }
+    const targetW = stock.clone().lerp(muzzle, 0.40).applyMatrix4(h.matrixWorld);
+    const targetPh = ph.worldToLocal(targetW);
+    const d = seekWrapTo(state, targetPh, 0.05, 'musket-seek');
+    if (d != null) U.musketSeekD = +d.toFixed(3);
+  }
+
+  /* Clamped seek of the right fist onto the pick shaft or sword hilt.
+     Pick grips mid-shaft (0.40); sword grips near the guard (0.22). */
+  function seekHandle(state) {
+    const T = T3(); if (!T) return;
+    let h = null;
+    try { if (typeof held !== 'undefined') h = held; } catch (_) {}
+    const ph = state.wrap.parent;
+    if (!h || !ph || !h.children || !h.children.length || !h.visible) return;
+    const g = heldGripLocal(T, h, U.kind);
+    if (!g) return;
+    const tmp = U._gripTmp || (U._gripTmp = { m: new T.Matrix4(), a: new T.Vector3(), b: new T.Vector3(), c: new T.Vector3(), q: new T.Quaternion(), pi: new T.Matrix4() });
+    tmp.pi.copy(ph.matrixWorld).invert();
+    tmp.m.multiplyMatrices(tmp.pi, h.matrixWorld);
+    /* heldGripLocal is 15% up the shaft; pick wants mid-shaft, so slide
+       further along the same cached point by re-deriving from g when
+       kind is pick. Cheapest: just use g and a slightly larger clamp. */
+    const targetPh = tmp.b.copy(g).applyMatrix4(tmp.m);
+    if (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760') {
+      /* Nudge further up the handle from the 15% point toward the head
+         by mixing 0.15 -> ~0.40 along the already-found axis, approx
+         by moving 0.08 m toward the held origin if it sits up-shaft. */
+      const originPh = tmp.a.set(0, 0, 0).applyMatrix4(tmp.m);
+      const along = originPh.sub(targetPh);
+      if (along.lengthSq() > 1e-8) {
+        along.setLength(Math.min(0.10, along.length() * 0.35));
+        targetPh.add(along);
+      }
+    }
+    const d = seekWrapTo(state, targetPh, 0.04, 'handle-seek-' + U.kind);
+    if (d != null) U.handleSeekD = +d.toFixed(3);
+  }
+
+  /* Keep the glove from sliding into the near plane (v1 musket left
+     hand ended 4 cm from the camera and filled the lens with sleeve).
+     Pistol viewmodels sit closer by design; others stay >= 20 cm. */
+  function clampCamZ(state) {
+    const T = T3(); if (!T || !state || !state.wrap || !state.wrap.parent) return;
+    const cam = (typeof camera !== 'undefined' && camera) || W.camera;
+    if (!cam) return;
+    let minDist = 0.20;
+    if (U.kind === 'pistol') minDist = 0.14;
+    if (U.kind === 'musket' && state.side === 'L') minDist = 0.22;
+    if (U.kind === 'musket' && state.side === 'R') minDist = 0.14;
+    cam.updateMatrixWorld(true);
+    const ci = U._camInv || (U._camInv = new T.Matrix4());
+    ci.copy(cam.matrixWorld).invert();
+    const tmp = U._gripTmp || (U._gripTmp = { m: new T.Matrix4(), a: new T.Vector3(), b: new T.Vector3(), c: new T.Vector3(), q: new T.Quaternion(), pi: new T.Matrix4() });
+    state.wrap.updateMatrixWorld(true);
+    const w = tmp.a;
+    state.wrap.getWorldPosition(w).applyMatrix4(ci);
+    if (w.z <= -minDist) return;
+    const need = (-minDist) - w.z;
+    if (need <= 0) return;
+    /* Camera looks down -Z, so world forward is cam's -Z axis. */
+    tmp.b.set(0, 0, -1).transformDirection(cam.matrixWorld);
+    state.wrap.getWorldPosition(tmp.c);
+    tmp.c.addScaledVector(tmp.b, need);
+    state.wrap.parent.worldToLocal(tmp.c);
+    state.wrap.position.copy(tmp.c);
+    U.camZClamp = +need.toFixed(3);
+  }
 
   /* Pull the pistol off the near plane in camera space, moving the held
      item and both wrists by the same world delta so the grip stays together.
@@ -1735,7 +1956,7 @@
     return { x: +w.x.toFixed(3), y: +w.y.toFixed(3), z: +w.z.toFixed(3) };
   }
   function debugSeat() {
-    const out = { kind: U.kind, cuff: U.cuffStats || null, sculpted: U.sculpted || 0, sculptVerts: U.sculptVerts || 0, cuffDressed: U.cuffDressed || 0, baked: U.baked || 0, bakePose: U.bakePose };
+    const out = { kind: U.kind, cuff: U.cuffStats || null, sculpted: U.sculpted || 0, sculptVerts: U.sculptVerts || 0, cuffDressed: U.cuffDressed || 0, baked: U.baked || 0, bakePose: U.bakePose, pistolSeekD: U.pistolSeekD || 0, musketSeekD: U.musketSeekD || 0, handleSeekD: U.handleSeekD || 0, camZClamp: U.camZClamp || 0, version: U.version };
     try {
       const T = T3(); if (!T || !U.sides || !U.sides.R) return out;
       const st = U.sides.R;
@@ -1786,7 +2007,7 @@
     if (U.sides.R) poseState(U.sides.R, right);
     if (U.sides.L) {
       const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1 };
-      const left = (kind === 'pistol' || kind === 'musket') ? 'support' : (ONE_HAND[kind] ? 'empty' : right);
+      const left = (kind === 'pistol') ? 'support' : (kind === 'musket') ? 'forestock' : (ONE_HAND[kind] ? 'empty' : right);
       poseState(U.sides.L, left);
     }
     U.kind = kind;
