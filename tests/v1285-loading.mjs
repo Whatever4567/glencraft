@@ -1,4 +1,4 @@
-// 1.2.85: liquid meter + cooperative world generate (folded into the 1.2.85 release).
+// 1.2.87: liquid meter + time-driven display, version 1.2.87.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -7,12 +7,16 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.85';"), 'GAME_VERSION is 1.2.85+');
-ok(!html.includes("const GAME_VERSION = '1.2.84';"), 'GAME_VERSION is no longer 1.2.84');
-ok(/"v"\s*:\s*"v1\.2\.85"/.test(html), '1.2.85 patch notes present');
-ok(/loading bar now fills smoothly like liquid/.test(html), '1.2.85 notes mention the liquid loading bar');
-ok(['1.2.85', '1.2.86'].includes(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v), 'version.json is 1.2.85+');
-ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), '1.2.84 build marker stays');
+ok(html.includes("const GAME_VERSION = '1.2.87';"), 'GAME_VERSION is 1.2.87');
+ok(!html.includes("const GAME_VERSION = '1.2.86';"), 'GAME_VERSION is no longer 1.2.86');
+ok(/"v"\s*:\s*"v1\.2\.87"/.test(html), '1.2.87 patch notes present');
+ok(/loading bar now fills smoothly the whole time/i.test(html), '1.2.87 notes mention the loading bar filling smoothly the whole time');
+{
+  const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes first, no food');
+}
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.87', 'version.json is 1.2.87');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->'), '1.2.84–1.2.87 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runtime');
@@ -26,6 +30,17 @@ ok(src.includes('quiet3d') && src.includes('return !!U.held'), '3D render/step a
 ok(src.includes('if (U.held) return') && src.includes('budget == null) budget = 150'), 'generate does not mesh; unbounded rebuild is 150ms, rebuild(150) is unchanged');
 ok(html.includes("full rebuild'); try { rebuild(150); }") && !html.includes('dirtyAll = true; rebuild(150)'), '20s land retry keeps already-meshed chunks (no dirtyAll wipe)');
 ok(html.includes('const meshR = Math.max(lr, 2)') && html.includes('const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1)'), 'load meshes R=2 but still enters after 9 spawn chunks');
+ok(html.includes("phase: 'lat'") && html.includes("phase: 'ores'") && html.includes("phase: 'feat'"), 'GEN9 generate is phased: lattice, columns, ores, features');
+ok(src.includes('U.coop') && src.includes('U.maybeYield') && src.includes('U.genDone'), 'wrapper post-stages are cached and yield every 200ms');
+ok(src.includes('U._gen9') && src.includes('!U.genDone && U._gen9'), 'column/lattice resumes skip the wrapper chain');
+ok(html.includes('__L._gen9 = __glenGen9 || generate') && html.includes('var __glenGen9 = generate;'), 'innermost GEN9 is captured before wrappers overwrite generate');
+ok(html.includes('__glenLoad.isYield && __glenLoad.isYield(e)) throw e') && html.includes("console.warn('c104', e)"), 'wrapper catch blocks rethrow cooperative yields');
+ok(src.includes('8 * (dt / 1000)') && src.includes('TIMED_CAP'), 'displayed catch-up is capped at 8%/s and follows the time curve');
+ok(html.includes('_loop.c104') && html.includes("phase: 'strip'"), 'c104 ore strip is sliced and resumable');
+ok(src.includes('U.skipPost') && src.includes('U.markPost') && html.includes('__glenLoad.skipPost'), 'already-finished wrapper posts are skipped on resume');
+ok(/U\._passed\['w:' \+ id\] = 1;[\s\S]{0,400}U\.maybeYield\(\);/.test(src), 'markPost yields only after the wrapper is marked');
+ok(html.includes('__Lf._featX') && html.includes('__glenLoad.coop'), 'features and wrapper posts report progress');
+
 ok(html.includes('await __glenLoad.generate()'), 'new survival generate is awaited');
 ok(html.includes("enterWorld = async function (save)"), 'survival map wrapper is async');
 ok(html.includes('throw __L.YIELD'), 'column loop yields to the browser');
@@ -33,7 +48,15 @@ ok(html.includes('__L.touch(6 + 58 * (x + 1)'), 'column loop reports real progre
 ok(html.includes('if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear()'), 'flGen finally is yield-safe');
 ok(html.includes('__glenLoad.setReal(Math.max(target, __glenLoad.real || 0)'), 'original loader feeds the shared meter');
 ok(html.includes('shown = (window.__glenLoad && __glenLoad.shown) || 0'), 'original loader does not reset a filling bar');
-ok(html.includes('__glenLoad.shown > 98.5 || __glenLoad.done'), 'ready check uses the shared meter so the world can start');
+ok(/await yieldPaint\(\);[\s\S]{0,240}U\._tSlice = performance\.now\(\);/.test(src), 'fresh 200ms work budget after each yield');
+ok(src.includes('const due = performance.now() - (U._tSlice || 0) > 200') && src.includes('if (due && label'), 'pulse paints only when a yield is due');
+ok(html.includes('__Lpools.pulse') && html.includes('__glenLoad._pools'), 'placePools yields every 200ms and resumes');
+ok(html.includes('_deferPools') && html.includes('runDeferredPools'), 'mud pools are deferred until after enter');
+ok(html.includes('__st1248') && html.includes('__glenLoad.live) { __glenLoad._deferPools = 1; }'), 'placePools1248 is deferred during load and yields');
+ok(html.includes('__glenLoad.shown > 99.5'), 'ready waits for the 400ms finish glide before entering');
+ok(html.includes("ready = true; loadStep('entering the world');") && html.includes('__glenLoad.finish()'), 'ready starts the 400ms finish glide immediately');
+ok(!/ready = true;[\s\S]{0,240}renderer\.render\(scene, camera\)/.test(html), 'first present is not synchronous before the finish glide');
+ok(/started = true[\s\S]{0,500}setTimeout\(function \(\) \{[\s\S]{0,200}renderer\.render\(scene, camera\)/.test(html), 'first present runs after enter, on a later turn');
 ok(/const LOAD_R = \(window\.__loadChunkR != null \? window\.__loadChunkR : 1\)/.test(html), 'load chunk ring still defaults to R=1');
 ok(html.includes('enterWorld._fauna'), 'deferred fauna stays');
 ok(html.includes("if (!started || (typeof screen !== 'undefined' && screen === 'loading'))"), 'stream radius still capped during load');
@@ -88,6 +111,98 @@ function stepMeter(U, opts) {
   let z = {real: 100, shown: 99.5, cap: 100, done: 1};
   z = stepMeter(z, {idle: 0});
   ok(z.shown === 100, 'shown reaches 100 only when done');
+}
+
+
+// Time-driven displayed progress (mirrors the runtime, no DOM).
+function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
+  T = Math.max(1, T || 60000);
+  const t = Math.max(0, elapsed);
+  if (t <= T) {
+    const u = t / T;
+    const e = 0.8 * u + 0.2 * (u * u * (3 - 2 * u));
+    return TIMED_AT_T * e;
+  }
+  const over = t - T;
+  const tau = 45000;
+  return Math.min(TIMED_CAP - 0.05, TIMED_AT_T + (TIMED_CAP - TIMED_AT_T) * (1 - 1 / (1 + over / tau)));
+}
+{
+  ok(src.includes('function timeCurve') && src.includes('glenLoadTimes') && src.includes('GLIDE_MS = 400'), 'time-driven meter, localStorage expect, 400ms finish glide');
+  ok(src.includes('cancelAnimationFrame(_raf)') && src.includes('_mcLive = 0') && src.includes("_mc.port1.onmessage = null"), 'stop cancels the rAF tick and detaches the MessageChannel');
+  ok(src.includes('TIMED_AT_T = 97') && src.includes('TIMED_CAP = 99'), 'time curve eases to 97 then creeps toward 99');
+  ok(src.includes('U.finishing && (U.shown >= 99.95') && src.includes('stop();'), 'tick stops rAF when the finish glide reaches 100');
+  ok(src.includes('load1285done') && src.includes('animation:none!important') && src.includes('#scr-loading:not(.on)'), 'wave/shine animations stop when entered or the loading screen is hidden');
+  ok(src.includes('EXPECT_DEFAULT = 60000') && src.includes('times.slice(-5)'), 'expected load starts at 60s and adapts from the last 5 times');
+  const T = 60000;
+  ok(timeCurve(0, T) === 0, 'time curve starts at 0');
+  const mid = timeCurve(T, T);
+  ok(Math.abs(mid - 97) < 0.01, 'time curve is ~97% at the expected duration');
+  ok(timeCurve(T * 2, T) > mid && timeCurve(T * 2, T) < 99, 'after the expected duration the curve creeps toward 99 and stays under it');
+  ok(timeCurve(T * 8, T) < 99 && timeCurve(T * 8, T) > timeCurve(T * 2, T), 'asymptotic creep never reaches 99 / never goes backwards');
+  let prev = -1, minWindow = 999, frozen = 0, backwards = 0;
+  for (let t = 0; t <= T * 2; t += 250) {
+    const v = timeCurve(t, T);
+    if (v < prev - 1e-9) backwards++;
+    prev = v;
+  }
+  ok(backwards === 0, 'time curve is monotonic over 0..2T');
+  // The expected-duration stretch must keep moving; the post-T tail is
+  // allowed to be flatter because applyDisplay adds a floor creep.
+  for (let t = 0; t + 3000 <= T; t += 250) {
+    const a = timeCurve(t, T), b = timeCurve(t + 3000, T);
+    const d = b - a;
+    if (d < 0.15) frozen++;
+    if (d < minWindow) minWindow = d;
+  }
+  ok(frozen === 0, 'no 3s window under 0.15% movement on the time curve during 0..T (min ' + minWindow.toFixed(3) + ')');
+  // displayed = max(real, timed), never back, jump cap 8
+  let shown = 30;
+  const apply = (timed, real, dt = 0) => {
+    const cap = 98.98;
+    const room = cap - shown;
+    const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
+    const floor = floorRate * (dt / 1000);
+    const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
+    let aim = Math.max(shown, timed, Math.min(real, 99));
+    aim = Math.min(99, aim);
+    if (shown < cap) {
+      const stepped = Math.min(cap, shown + floor);
+      if (aim > shown) shown = Math.min(cap, Math.max(stepped, Math.min(aim, shown + maxStep)));
+      else shown = stepped;
+    }
+    return shown;
+  };
+  const a = apply(40, 10, 3000);    // hitch: +8 cap from 30 toward timed 40
+  ok(Math.abs(a - 38) < 1e-9, 'after a hitch, one paint catches up at most 8%');
+  const b = apply(50, 70, 16);
+  ok(b > a && b <= a + 0.2, 'following paints catch up at about 8%/s, not another 8% snap');
+  shown = 50;
+  const c = apply(20, 10, 0);
+  ok(c === 50, 'displayed never goes backwards if real/time drop');
+  shown = 93.64;
+  const floored = apply(93.76, 88, 3500);
+  ok(floored - 93.64 >= 0.15, 'floor creep still moves at least 0.15% over 3s even when the time curve is flatter');
+  shown = 97;
+  const tail = apply(timeCurve(T + 30000, T), 80, 3000);
+  ok(tail > 97 && tail < 99, 'after T, the bar still creeps toward 99');
+  let tailShown = 97, tailPrev = 97, tailFreeze = 0;
+  for (let i = 0; i < 40; i++) { // 40 * 3s = 120s of tail
+    shown = tailShown;
+    tailShown = apply(timeCurve(T + (i + 1) * 3000, T), 80, 3000);
+    if (tailShown <= tailPrev + 1e-9) tailFreeze++;
+    tailPrev = tailShown;
+  }
+  ok(tailShown < 99 && tailShown > 97.5, '120s past T the bar stays under 99 and above 97.5 (end ' + tailShown.toFixed(2) + ')');
+  ok(tailFreeze === 0, '120s past T the bar never hard-stops (end ' + tailShown.toFixed(2) + ', freezes ' + tailFreeze + ')');
+  // 400ms ease-out glide
+  const finishFrom = 90, GLIDE = 400;
+  const glide = (u) => {
+    const e = 1 - (1 - Math.min(1, u)) * (1 - Math.min(1, u));
+    return finishFrom + (100 - finishFrom) * e;
+  };
+  ok(Math.abs(glide(0) - 90) < 1e-9 && Math.abs(glide(1) - 100) < 1e-9, 'finish glide starts at current shown and ends at 100');
+  ok(glide(0.25) > 90 && glide(0.25) < 98 && glide(1.2) === 100, '400ms glide is quick but not a snap');
 }
 
 console.log('PASS ' + n + ' v1285 loading checks');

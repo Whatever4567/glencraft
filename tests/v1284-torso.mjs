@@ -16,7 +16,7 @@ ok(html.includes('attachFpCull(side)') && html.includes('renderer.render.__torso
 ok(html.includes('Object.assign(U, window.__torso1262cfg || {})'), 'QA config hook');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 const credits = fs.readFileSync(path.join(root, 'CREDITS.md'), 'utf8');
-ok(['1.2.84', '1.2.85', '1.2.86'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.84';") || html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';")), 'version 1.2.84+');
+ok(['1.2.84', '1.2.85', '1.2.86', '1.2.87'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.84';") || html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';")), 'version 1.2.84+');
 ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1283-v1.2.83 -->'), 'build markers');
 { const st = html.indexOf('{"v":"v1.2.84"'), en = html.indexOf('{"v":"v1.2.83"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.84 notes remain, no food');

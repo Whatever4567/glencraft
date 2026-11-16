@@ -46,6 +46,7 @@
 <!-- glencraft-build: b1284-v1.2.84 -->
 <!-- glencraft-build: b1285-v1.2.85 -->
 <!-- glencraft-build: b1286-v1.2.86 -->
+<!-- glencraft-build: b1287-v1.2.87 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: perf1286 -->
 <!-- glencraft-build: b1251-popstar -->
@@ -13402,7 +13403,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.86';
+const GAME_VERSION = '1.2.87';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -18606,20 +18607,18 @@ function enterWorld(save) {
       if (!cr && !enterWorld._rs && performance.now() - t0 > 20000) { enterWorld._rs = 1; console.error('load: land still not built after 20 s - full rebuild'); try { rebuild(150); } catch (e) { console.error('load: full rebuild', e); } }
       if (!cr && performance.now() - t0 >= 45000) { console.error('load: gave up waiting for the land, entering anyway'); window.__loadSafe = 1; }
       if (!cr && performance.now() - t0 < 45000) { try { if (dirtyAll || dirtyCh.size) rebuild(150); } catch (e) { loadErr('rebuild', e); if (!window.__rbErr) window.__rbErr = String(e && e.stack || e); } return; }
-      ready = true; loadStep('first render');
-      // 1.2.43: one quick present is enough to enter; full shader compile streams in after playable.
-      try { renderer.render(scene, camera); } catch (e) { loadErr('first render', e); }
-      loadStep('entering the world');
+      ready = true; loadStep('entering the world');
       target = 100; tip.textContent = 'Ready!';
+      try { if (window.__glenLoad && __glenLoad.finish) __glenLoad.finish(); } catch (_) {}
       return;
     }
-    if (ready && (shown > 98.5 || (window.__glenLoad && (__glenLoad.shown > 98.5 || __glenLoad.done)))) {
+    if (ready && (window.__glenLoad ? __glenLoad.shown > 99.5 : shown > 98.5)) {
       clearInterval(tick);
       showScreen('none');
       started = true; lastAutosave = performance.now();
       if (!touchMode) { try { const pl = canvas.requestPointerLock(); if (pl && pl.catch) pl.catch(() => {}); } catch (_) {} }
       // Stream the next ring and warm shaders after the player can move.
-      try { setTimeout(function () { try { if (dirtyAll || dirtyCh.size) rebuild(80); } catch (_) {} try { if (renderer && renderer.compileAsync) renderer.compileAsync(scene, camera); else if (renderer && renderer.compile) renderer.compile(scene, camera); } catch (_) {} }, 0); } catch (_) {}
+      try { setTimeout(function () { try { if (dirtyAll || dirtyCh.size) rebuild(80); } catch (_) {} try { renderer.render(scene, camera); } catch (e) { loadErr('first render', e); } try { if (renderer && renderer.compileAsync) renderer.compileAsync(scene, camera); else if (renderer && renderer.compile) renderer.compile(scene, camera); } catch (_) {} try { if (window.__glenLoad && __glenLoad.runDeferredPools) __glenLoad.runDeferredPools(); } catch (_) {} }, 0); } catch (_) {}
       try { if (enterWorld._fauna) setTimeout(enterWorld._fauna, 120); } catch (_) {}
       try { STREAM_R = streamRadius(); } catch (_) {}
       if (!save) { const cw = current; setTimeout(() => { try { if (started && current === cw) saveWorld(true); } catch (_) {} }, 5000); }
@@ -20630,99 +20629,132 @@ function g9height(x, z) {
   return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), glen, mMask, loch: loch && glen > 0.55};
 }
 function generate() {
-  const __L = window.__glenLoad, __resume = !!(__L && __L.held && __L._g9);
+  const __L = window.__glenLoad;
+  if (__L && __L.genDone) return;
+  if (__L) __L._gen9 = __glenGen9 || generate;
   let rnd, hash, cav, tun, tri;
-  if (__resume) {
-    rnd = __L._g9.rnd; hash = __L._g9.hash; cav = __L._g9.cav; tun = __L._g9.tun; tri = __L._g9.tri;
-  } else {
-  if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0;
-  G9P = g9perm(gSeed); genVer = GEN9; NSEED = gSeed;
-  rnd = g9rng(gSeed ^ 0x9e3779b9); hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-  world.fill(T.AIR);
-  g9cols = new Int16Array(W * D * 2);
-  // cavern density on a coarse 4x4x4 lattice, trilinearly interpolated (64x fewer noise calls)
+  const st = (__L && __L.held && __L._g9) || null;
+  const phase = st && st.phase;
   const SX = Math.ceil(W / 4) + 1, SY = Math.ceil(H / 4) + 1, SZ = Math.ceil(D / 4) + 1;
-  cav = new Float32Array(SX * SY * SZ); tun = new Float32Array(SX * SY * SZ);
-  for (let i = 0; i < SX; i++) for (let j = 0; j < SY; j++) for (let k = 0; k < SZ; k++) {
-    const x = i * 4, y = j * 4, z = k * 4, o = (i * SY + j) * SZ + k;
-    cav[o] = g9n3(x / 38, y / 16, z / 38) + 0.5 * g9n3(x / 17, y / 9, z / 17);
-    tun[o] = Math.abs(g9n3(x / 26 + 100, y / 15, z / 26 - 50));
-  }
-  tri = (A, x, y, z) => {
-    const fx = x / 4, fy = y / 4, fz = z / 4, i = Math.floor(fx), j = Math.floor(fy), k = Math.floor(fz), u = fx - i, v = fy - j, w = fz - k;
-    const at = (a, b, c) => A[((i + a) * SY + (j + b)) * SZ + (k + c)];
-    const L = (a, b, t) => a + (b - a) * t;
-    return L(L(L(at(0, 0, 0), at(1, 0, 0), u), L(at(0, 1, 0), at(1, 1, 0), u), v), L(L(at(0, 0, 1), at(1, 0, 1), u), L(at(0, 1, 1), at(1, 1, 1), u), v), w);
-  };
-  if (__L && __L.held) {
-    __L._g9 = {rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
-    try { __L.touch(6, 'Raising the mountains… 0/' + W, 70); } catch (_) {}
-    throw __L.YIELD;
-  }
-  }
-  const __x0 = (__L && __L.held && __L.genX) || 0;
-  let __tSlice = performance.now();
-  for (let x = __x0; x < W; x++) {
-    for (let z = 0; z < D; z++) {
-    const c = g9height(x, z), h = c.h;
-    const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
-    let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
-    const steep = Math.abs(g9height(x + 1, z).h - h) + Math.abs(g9height(x, z + 1).h - h) >= 4;
-    if (h <= SEA) { top = hash(x, 1, z) < 0.5 ? T.SAND : T.DIRT; sub = T.SAND; kind = 5; }
-    else if ((h <= SEA + 1 && c.glen > 0.4) || (c.sand && h <= SEA + 4)) { top = T.SAND; sub = T.SAND; kind = 4; }
-    else if (h >= SEA + 30 || (steep && h >= SEA + 14)) { top = T.STONE; sub = T.STONE; kind = 3; }
-    else if ((c.glen > 0.6 && bog > 0.18) || (c.mar && bog > -0.03)) { top = hash(x, 2, z) < 0.6 ? T.PEAT : T.MUD; kind = 2; }
-    else if (heath > 0.08 && h > SEA + 5) { top = window.__trees2 ? T.GRASS : T.HEATHER; kind = 1; }   // v0.9.65: moor heather grows in clumps (c80), not as a carpet
-    g9cols[(x * D + z) * 2] = h; g9cols[(x * D + z) * 2 + 1] = kind;
-    const col = x * H * D + z;
-    for (let y = 0; y < h; y++) {
-      let b = y === h - 1 ? top : y >= h - 4 ? sub : (y < 14 ? T.DEEPSLATE : T.STONE);
-      if (y === 0) b = T.DEEPSLATE;
-      world[col + y * D] = b;
+  if (phase === 'cols' || phase === 'ores' || phase === 'feat') {
+    rnd = st.rnd; hash = st.hash; cav = st.cav; tun = st.tun; tri = st.tri;
+  } else {
+    if (!phase) {
+      if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0;
+      G9P = g9perm(gSeed); genVer = GEN9; NSEED = gSeed;
+      rnd = g9rng(gSeed ^ 0x9e3779b9); hash = (x, y, z) => { let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(z, 1274126177) ^ gSeed; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+      world.fill(T.AIR);
+      g9cols = new Int16Array(W * D * 2);
+      cav = new Float32Array(SX * SY * SZ); tun = new Float32Array(SX * SY * SZ);
+    } else {
+      rnd = st.rnd; hash = st.hash; cav = st.cav; tun = st.tun;
     }
-    for (let y = h; y <= SEA; y++) world[col + y * D] = T.WATER;
-    // caverns + tunnels: open halls well below the surface, kept under lochs/sea by a thick roof
-    const roof = h - (h <= SEA + 1 ? 9 : 6);
-    for (let y = 3; y < roof; y++) {
-      const depthK = y < 20 ? 0.0 : (y - 20) / 60;
-      const d = tri(cav, x, y, z), t = tri(tun, x, y, z);
-      if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
+    let __tLat = performance.now();
+    for (let i = (st && st.latI) || 0; i < SX; i++) {
+      for (let j = 0; j < SY; j++) for (let k = 0; k < SZ; k++) {
+        const x = i * 4, y = j * 4, z = k * 4, o = (i * SY + j) * SZ + k;
+        cav[o] = g9n3(x / 38, y / 16, z / 38) + 0.5 * g9n3(x / 17, y / 9, z / 17);
+        tun[o] = Math.abs(g9n3(x / 26 + 100, y / 15, z / 26 - 50));
+      }
+      if (__L && __L.held && (performance.now() - __tLat > 200)) {
+        __L._g9 = {phase: 'lat', rnd: rnd, hash: hash, cav: cav, tun: tun, latI: i + 1};
+        try { __L.touch(1 + 5 * (i + 1) / SX, 'Preparing the ground… ' + (i + 1) + '/' + SX, 70); } catch (_) {}
+        throw __L.YIELD;
+      }
     }
-    }
-    if (__L && __L.held && (performance.now() - __tSlice > 200)) {
-      __L.genX = x + 1;
-      try { __L.touch(6 + 58 * (x + 1) / Math.max(1, W), 'Raising the mountains… ' + (x + 1) + '/' + W, 70); } catch (_) {}
+    tri = (A, x, y, z) => {
+      const fx = x / 4, fy = y / 4, fz = z / 4, i = Math.floor(fx), j = Math.floor(fy), k = Math.floor(fz), u = fx - i, v = fy - j, w = fz - k;
+      const at = (a, b, c) => A[((i + a) * SY + (j + b)) * SZ + (k + c)];
+      const L = (a, b, t) => a + (b - a) * t;
+      return L(L(L(at(0, 0, 0), at(1, 0, 0), u), L(at(0, 1, 0), at(1, 1, 0), u), v), L(L(at(0, 0, 1), at(1, 0, 1), u), L(at(0, 1, 1), at(1, 1, 1), u), v), w);
+    };
+    if (__L && __L.held) {
+      __L._g9 = {phase: 'cols', rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
+      __L.genX = 0;
+      try { __L.touch(6, 'Raising the mountains… 0/' + W, 70); } catch (_) {}
       throw __L.YIELD;
     }
   }
-  if (__L && __L.held) { __L.genX = 0; __L._g9 = null; try { __L.touch(66, 'Carving the glens…', 90); } catch (_) {} }
-  // ores: veins by depth (rarity per 1000 columns)
-  const vein = (ore, n, y0, y1, r) => {
-    for (let i = 0; i < n; i++) {
-      const cx = Math.floor(rnd() * W), cz = Math.floor(rnd() * D), cy = y0 + Math.floor(rnd() * (y1 - y0));
-      const len = 3 + Math.floor(rnd() * (r * 3));
-      let x = cx, y = cy, z = cz;
-      for (let k = 0; k < len; k++) {
-        const b = getB(x, y, z); if (b === T.STONE || b === T.DEEPSLATE) world[idx(x, y, z)] = ore;
-        x += Math.floor(rnd() * 3) - 1; y += Math.floor(rnd() * 3) - 1; z += Math.floor(rnd() * 3) - 1;
+  if (phase !== 'ores' && phase !== 'feat') {
+    const __x0 = (__L && __L.held && __L.genX) || 0;
+    let __tSlice = performance.now();
+    for (let x = __x0; x < W; x++) {
+      for (let z = 0; z < D; z++) {
+      const c = g9height(x, z), h = c.h;
+      const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
+      let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
+      const steep = Math.abs(g9height(x + 1, z).h - h) + Math.abs(g9height(x, z + 1).h - h) >= 4;
+      if (h <= SEA) { top = hash(x, 1, z) < 0.5 ? T.SAND : T.DIRT; sub = T.SAND; kind = 5; }
+      else if ((h <= SEA + 1 && c.glen > 0.4) || (c.sand && h <= SEA + 4)) { top = T.SAND; sub = T.SAND; kind = 4; }
+      else if (h >= SEA + 30 || (steep && h >= SEA + 14)) { top = T.STONE; sub = T.STONE; kind = 3; }
+      else if ((c.glen > 0.6 && bog > 0.18) || (c.mar && bog > -0.03)) { top = hash(x, 2, z) < 0.6 ? T.PEAT : T.MUD; kind = 2; }
+      else if (heath > 0.08 && h > SEA + 5) { top = window.__trees2 ? T.GRASS : T.HEATHER; kind = 1; }   // v0.9.65: moor heather grows in clumps (c80), not as a carpet
+      g9cols[(x * D + z) * 2] = h; g9cols[(x * D + z) * 2 + 1] = kind;
+      const col = x * H * D + z;
+      for (let y = 0; y < h; y++) {
+        let b = y === h - 1 ? top : y >= h - 4 ? sub : (y < 14 ? T.DEEPSLATE : T.STONE);
+        if (y === 0) b = T.DEEPSLATE;
+        world[col + y * D] = b;
+      }
+      for (let y = h; y <= SEA; y++) world[col + y * D] = T.WATER;
+      // caverns + tunnels: open halls well below the surface, kept under lochs/sea by a thick roof
+      const roof = h - (h <= SEA + 1 ? 9 : 6);
+      for (let y = 3; y < roof; y++) {
+        const depthK = y < 20 ? 0.0 : (y - 20) / 60;
+        const d = tri(cav, x, y, z), t = tri(tun, x, y, z);
+        if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
+      }
+      }
+      if (__L && __L.held && (performance.now() - __tSlice > 200)) {
+        __L.genX = x + 1;
+        __L._g9 = {phase: 'cols', rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
+        try { __L.touch(6 + 58 * (x + 1) / Math.max(1, W), 'Raising the mountains… ' + (x + 1) + '/' + W, 70); } catch (_) {}
+        throw __L.YIELD;
       }
     }
-  };
-  const A = W * D / 1000;
-  vein(T.COALORE, Math.round(A * 32), 14, H - 6, 3); vein(T.COPPERORE, Math.round(A * 16), 18, SEA + 10, 2);
-  vein(T.IRONORE, Math.round(A * 20), 6, SEA + 4, 2); vein(T.GOLDORE, Math.round(A * 6), 3, 24, 2);
-  vein(T.REDORE, Math.round(A * 6), 2, 18, 2); vein(T.DIAMONDORE, Math.round(A * 9), 2, 16, 1.4);   // GLX-C1: ~MC rate (was A*3)
-  // underground lochs: some cavern floors flood (only at depth)
-  for (let n = 0; n < (window.__g12 ? 0 : Math.round(A * 0.6)); n++) {
-    const x0 = Math.floor(rnd() * W), z0 = Math.floor(rnd() * D);
-    for (let y = 8; y < 26; y++) if (getB(x0, y, z0) === T.AIR && solid(x0, y - 1, z0)) {
-      for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) { const x = x0 + dx, z = z0 + dz; if (getB(x, y, z) === T.AIR && solid(x, y - 1, z) && dx * dx + dz * dz < 36) world[idx(x, y, z)] = T.WATER; }
-      break;
+    if (__L && __L.held) {
+      __L.genX = 0;
+      __L._g9 = {phase: 'ores', rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
+      try { __L.touch(64, 'Laying the ores…', 90); } catch (_) {}
+      throw __L.YIELD;
+    }
+  }
+  if (phase !== 'feat') {
+    const vein = (ore, n, y0, y1, r) => {
+      for (let i = 0; i < n; i++) {
+        const cx = Math.floor(rnd() * W), cz = Math.floor(rnd() * D), cy = y0 + Math.floor(rnd() * (y1 - y0));
+        const len = 3 + Math.floor(rnd() * (r * 3));
+        let x = cx, y = cy, z = cz;
+        for (let k = 0; k < len; k++) {
+          const b = getB(x, y, z); if (b === T.STONE || b === T.DEEPSLATE) world[idx(x, y, z)] = ore;
+          x += Math.floor(rnd() * 3) - 1; y += Math.floor(rnd() * 3) - 1; z += Math.floor(rnd() * 3) - 1;
+        }
+      }
+    };
+    const A = W * D / 1000;
+    vein(T.COALORE, Math.round(A * 32), 14, H - 6, 3); vein(T.COPPERORE, Math.round(A * 16), 18, SEA + 10, 2);
+    vein(T.IRONORE, Math.round(A * 20), 6, SEA + 4, 2); vein(T.GOLDORE, Math.round(A * 6), 3, 24, 2);
+    vein(T.REDORE, Math.round(A * 6), 2, 18, 2); vein(T.DIAMONDORE, Math.round(A * 9), 2, 16, 1.4);   // GLX-C1: ~MC rate (was A*3)
+    // underground lochs: some cavern floors flood (only at depth)
+    for (let n = 0; n < (window.__g12 ? 0 : Math.round(A * 0.6)); n++) {
+      const x0 = Math.floor(rnd() * W), z0 = Math.floor(rnd() * D);
+      for (let y = 8; y < 26; y++) if (getB(x0, y, z0) === T.AIR && solid(x0, y - 1, z0)) {
+        for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) { const x = x0 + dx, z = z0 + dz; if (getB(x, y, z) === T.AIR && solid(x, y - 1, z) && dx * dx + dz * dz < 36) world[idx(x, y, z)] = T.WATER; }
+        break;
+      }
+    }
+    if (__L && __L.held) {
+      __L._g9 = {phase: 'feat', rnd: rnd, hash: hash, cav: cav, tun: tun, tri: tri};
+      try { __L.touch(68, 'Planting the glens…', 90); } catch (_) {}
+      throw __L.YIELD;
     }
   }
   gGenFeatures(rnd, hash);
   dirtyAll = true;
+  if (__L) { __L.genDone = 1; __L._g9 = null; __L.genX = 0; try { __L.touch(72, 'Building the land around you…', 92); } catch (_) {} }
 }
+var __glenGen9 = generate;
+
 function g9top(x, z) { if (!g9cols || x < 0 || z < 0 || x >= W || z >= D) return groundTop(x, z); for (let y = H - 1; y > 0; y--) { const b = world[idx(x, y, z)]; if (b !== T.AIR && b !== T.WATER && !LEAFY[b] && !LOGGY[b]) return y; } return 0; }
 function gPine(x, z, h, put) {
   const top = g9top(x, z), b = getB(x, top, z);
@@ -20746,14 +20778,24 @@ function gGenFeatures(rnd, hash) {
   const put = (x, y, z, b) => { if (x > 0 && z > 0 && x < W - 1 && z < D - 1 && y > 0 && y < H - 1 && getB(x, y, z) === T.AIR) world[idx(x, y, z)] = b; };
   const kindAt = (x, z) => g9cols[(x * D + z) * 2 + 1], hAt = (x, z) => g9cols[(x * D + z) * 2];
   // pine forests (dense patches) + lone Scots pines on the moor
-  for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) {
+  const __Lf = window.__glenLoad;
+  let __tFeat = performance.now();
+  for (let x = (__Lf && __Lf.held && __Lf._featX) || 3; x < W - 3; x++) {
+    for (let z = 3; z < D - 3; z++) {
     const f = g9fbm(x / 60 + 300, z / 60 - 300, 2), k = kindAt(x, z), h = hAt(x, z);
     if (k !== 0 && k !== 1) continue; if (h > SEA + 26) continue;
     const r = hash(x, 77, z);
     if (window.__trees2) continue;   // v0.9.65: trees are planted after the caves are carved (c80)
     if ((f > 0.12 && r < 0.055) || (f > 0.3 && r < 0.09) || (k === 1 && r < 0.003)) gPine(x, z, 7 + Math.floor(hash(x, 78, z) * 4), put);
     else if (k === 0 && f < -0.25 && r < 0.004) { const t = g9top(x, z); if (getB(x, t, z) === T.GRASS && getB(x, t + 1, z) === T.AIR) plantTree(x, z); }
+    }
+    if (__Lf && __Lf.held && (performance.now() - __tFeat > 200)) {
+      __Lf._featX = x + 1;
+      try { __Lf.touch(68 + 4 * (x + 1) / Math.max(1, W), 'Planting the glens… ' + (x + 1) + '/' + W, 90); } catch (_) {}
+      throw __Lf.YIELD;
+    }
   }
+  if (__Lf) __Lf._featX = 0;
   // standing stones: rings of tall stones on flat meadow or moor
   const flatSpot = (x, z, r) => { const h0 = hAt(x, z); for (let dx = -r; dx <= r; dx += 2) for (let dz = -r; dz <= r; dz += 2) { const xx = x + dx, zz = z + dz; if (xx < 2 || zz < 2 || xx >= W - 2 || zz >= D - 2 || Math.abs(hAt(xx, zz) - h0) > 1 || hAt(xx, zz) <= SEA + 1) return false; } return true; };
   let rings = 0, ruins = 0;
@@ -21072,7 +21114,7 @@ function diamondBoost(seed) {
   }
   return n;
 }
-(function () { const g = generate; generate = function () { const r = g.apply(this, arguments); diamondBoost(gSeed ^ 0x51ed); return r; }; })();
+(function () { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(1)) return g.apply(this, arguments);  const r = g.apply(this, arguments); (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("diamonds", "Laying the ores…", 72, function(){ return diamondBoost(gSeed ^ 0x51ed); }) : diamondBoost(gSeed ^ 0x51ed); { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(1); return r; } }; })();
 function countDiamonds() {
   let all = 0, exp = 0;
   for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) for (let y = 1; y < H - 1; y++) { const i = idx(x, y, z); if (world[i] !== T.DIAMONDORE) continue; all++;
@@ -21447,7 +21489,7 @@ function g9PlaceCastles() {
   return placed;
 }
 var g9castles = [];
-(function () { const g = generate; generate = function () { const r = g.apply(this, arguments); if (genVer === GEN9 && !cityGen) g9PlaceCastles(); return r; }; })();
+(function () { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(2)) return g.apply(this, arguments);  const r = g.apply(this, arguments); if (genVer === GEN9 && !cityGen) (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("castles0", "Raising the keeps…", 73, function(){ return g9PlaceCastles(); }) : g9PlaceCastles(); { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(2); return r; } }; })();
 // ---- Gold world: Clydebank (edits) -> Highlands, carrying every placed block exactly ----
 function cityBackMigrate(d) {
   const t0 = performance.now(), oN = d.cityW || 1168, B = g9BuiltSet();
@@ -23026,7 +23068,7 @@ setInterval(() => {
 // mud wallows: a few muddy patches by lochs and the sea shore for pigs
 (function () {
   const g = generate;
-  generate = function () {
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(3)) return g.apply(this, arguments); 
     const r = g.apply(this, arguments);
     if (genVer === GEN9 && !cityGen && g9cols) {
       let made = 0; const rnd = (n) => Math.floor(Math.random() * n);
@@ -23038,7 +23080,7 @@ setInterval(() => {
         made++;
       }
     }
-    return r;
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(3); return r; }
   };
 })();
 
@@ -23087,7 +23129,7 @@ RECIPES.push(rc('Silver lamp', '2 Silver ingots + 1 Torch', T.LAMP || T.TORCH, 2
     return r;
   };
   const g = generate;
-  generate = function () { const r = g.apply(this, arguments); if (genVer >= GEN9 && !cityGen && W > 200) { try { placeOreVeins(T.SILVERORE, Math.round(9 * W * D / 3136), 6, 34, 2, 5); placeOreVeins(T.SILVERORE, Math.round(5 * W * D / 3136), 30, 70, 1, 3); /* v0.9.59: Cairngorm ore removed, silver instead */ } catch (e) { console.warn(e); } } return r; };
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(4)) return g.apply(this, arguments);  const r = g.apply(this, arguments); if (genVer >= GEN9 && !cityGen && W > 200) { try { (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("silver", "Laying the ores…", 72.5, function(){ return (placeOreVeins(T.SILVERORE, Math.round(9 * W * D / 3136), 6, 34, 2, 5), placeOreVeins(T.SILVERORE, Math.round(5 * W * D / 3136), 30, 70, 1, 3)); }) : (placeOreVeins(T.SILVERORE, Math.round(9 * W * D / 3136), 6, 34, 2, 5), placeOreVeins(T.SILVERORE, Math.round(5 * W * D / 3136), 30, 70, 1, 3)); /* v0.9.59: Cairngorm ore removed, silver instead */ } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn(e); } } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(4); return r; } };
   // claymore looks like a big iron sword
   const mi = makeItemMesh;
   makeItemMesh = function (id) { if (id === IT.CLAYMORE) { const m = mi.call(this, IT.ISWORD); m.scale.set(1.15, 1.6, 1.15); return m; } return mi.apply(this, arguments); };
@@ -23224,11 +23266,11 @@ function castleCellars() {
 }
 (function () {
   const g = generate;
-  generate = function () {
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(5)) return g.apply(this, arguments); 
     if (typeof roomList !== 'undefined') roomList.length = 0;
     const r = g.apply(this, arguments);
-    if (genVer === GEN9 && W > 200 && !window.__g12) { try { const t = performance.now(); g9Underground(); g9Underground.stats.ms = Math.round(performance.now() - t); if (!cityGen && !(current && current.mode !== 'creative' && (current.created > 1792560600000 || current.newCastles))) g9Underground.stats.cellars = castleCellars(); console.log('[underground]', JSON.stringify(g9Underground.stats)); } catch (e) { console.warn('underground', e); } }
-    return r;
+    if (genVer === GEN9 && W > 200 && !window.__g12) { try { const t = performance.now(); (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("under", "Carving the caves…", 74, function(){ return g9Underground(); }) : g9Underground(); g9Underground.stats.ms = Math.round(performance.now() - t); if (!cityGen && !(current && current.mode !== 'creative' && (current.created > 1792560600000 || current.newCastles))) g9Underground.stats.cellars = castleCellars(); console.log('[underground]', JSON.stringify(g9Underground.stats)); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('underground', e); } }
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(5); return r; }
   };
 })();
 
@@ -23417,7 +23459,7 @@ function flowTick(lavaToo) {
   const sb = setB;
   setB = function (x, y, z, v) { const r = sb.apply(this, arguments); if (started && !flGen && x >= 0 && z >= 0 && x < W && z < D && y >= 0 && y < H) { const i = idx(x, y, z); if (!isFl(v)) FLV.delete(i); flQueue(x, y, z); } return r; };
   const ge = generate;
-  generate = function () { flGen = true; try { return ge.apply(this, arguments); } finally { if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear(); FLQ.clear(); } } };
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(6)) return ge.apply(this, arguments);  flGen = true; try { return ge.apply(this, arguments); } finally { if (!(window.__glenLoad && __glenLoad.held)) { flGen = false; FLV.clear(); FLQ.clear(); } } };
   const ser = serialize;
   serialize = function () { const d = ser.apply(this, arguments); if (FLV.size) { const a = []; for (const [k, v] of FLV) a.push(k, v); d.flv = a; } return d; };
   const ap = applySave;
@@ -23523,16 +23565,16 @@ var fires = new Map(), fireT = 0, portalT = 0, portalArm = true;
   const df = dropsFor; dropsFor = function (b) { if (b === T.GRAVEL) return Math.random() < 0.15 ? [[IT.FLINT, 1]] : [[T.GRAVEL, 1]]; if (b === T.FIRE || b === T.PORTAL) return []; if (b === T.GLOWROCK) return [[T.GLOWROCK, 1]]; return df.apply(this, arguments); };
   // gravel in new worlds: riverbeds / loch floors and underground pockets (older worlds get it from the crafting recipe, so their reset baseline is untouched)
   const ge = generate;
-  generate = function () {
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(7)) return ge.apply(this, arguments); 
     const r = ge.apply(this, arguments);
-    if (DIM.cur || !(current && current.created > 1792555200000)) return r;
+    if (DIM.cur || !(current && current.created > 1792555200000)) { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(7); return r; }
     let s = (gSeed || 9) ^ 0x6a7e1; const rnd = () => (s = (Math.imul(s, 16807) >>> 0) % 2147483647) / 2147483647;
     for (let n = 0; n < W * D / 900; n++) { const cx = 4 + rnd() * (W - 8) | 0, cz = 4 + rnd() * (D - 8) | 0, rr = 1.5 + rnd() * 2.5;
       for (let x = cx - 4; x <= cx + 4; x++) for (let z = cz - 4; z <= cz + 4; z++) { if (Math.hypot(x - cx, z - cz) > rr) continue;
         for (let y = H - 2; y > 2; y--) { const b = world[idx(x, y, z)]; if (b === T.AIR) continue; if (b === T.WATER) continue; if ((b === T.SAND || b === T.DIRT) && world[idx(x, y + 1, z)] === T.WATER) world[idx(x, y, z)] = T.GRAVEL; break; } } }
     for (let n = 0; n < W * D / 1400; n++) { const cx = 3 + rnd() * (W - 6) | 0, cz = 3 + rnd() * (D - 6) | 0, cy = 4 + rnd() * (SEA - 6) | 0;
       for (let x = cx - 2; x <= cx + 2; x++) for (let y = cy - 1; y <= cy + 1; y++) for (let z = cz - 2; z <= cz + 2; z++) if (x > 0 && z > 0 && x < W && z < D && world[idx(x, y, z)] === T.STONE && rnd() < 0.7) world[idx(x, y, z)] = T.GRAVEL; }
-    return r;
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(7); return r; }
   };
 })();
 // ---------- the portal frame: any closed obsidian loop, 2..21 wide, 3..21 tall, in either vertical plane ----------
@@ -23620,7 +23662,7 @@ function fireTick() {
   updatePlayer = function (dt) { const r = up.apply(this, arguments); burnCd -= dt; if (burnCd <= 0 && !MODE.noDamage && getB(Math.floor(P.x), Math.floor(P.y + 0.2), Math.floor(P.z)) === T.FIRE) { burnCd = 0.6; hurt(1, 'Burned to a crisp.'); } return r; };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); if (fires.size) d.fires = [...fires]; return d; };
   const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); fires = new Map(d && d.fires || []); return r; };
-  const ge = generate; generate = function () { fires = new Map(); return ge.apply(this, arguments); };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(8)) return ge.apply(this, arguments);  fires = new Map(); return ge.apply(this, arguments); };
 })();
 // ---------- Hell: hellrock caverns over a lava sea, soul sand, magma, glowrock, a hellbrick fortress ----------
 var HELL_W = 160; const HELL_H = 64, HELL_LAVA = 14;
@@ -23916,7 +23958,7 @@ function fixTorches() {
   return {fixed, removed};
 }
 (function () {
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { fixTorches(); } catch (e) { console.warn(e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(9)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("torches", "Lighting the hearths…", 75, function(){ return fixTorches(); }) : fixTorches(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn(e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(9); return r; } };
   const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); try { if (fixTorches().removed + 0 >= 0) rebuild(); } catch (e) { console.warn(e); } return r; };
 })();
 
@@ -25024,7 +25066,7 @@ var c37busy = false;
   setInterval(() => { const b = $('resetTerrainBtn'); if (!b) return; const t = DIM.cur === 'hell' ? 'Reset Hell' : 'Reset terrain'; if (b.textContent !== t) b.textContent = t; }, 400);
   // ---------- no stray items or block pops while a world is being generated ----------
   const di = dropItem; dropItem = function () { if (c37busy || (typeof flGen !== 'undefined' && flGen) || cityGen) return; return di.apply(this, arguments); };
-  const ge = generate; generate = function () { const was = c37busy; c37busy = true; try { return ge.apply(this, arguments); } finally { c37busy = was; } };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(10)) return ge.apply(this, arguments);  const was = c37busy; c37busy = true; try { return ge.apply(this, arguments); } finally { c37busy = was; } };
   // ---------- castles: lanterns and sconces instead of torches, painting + loot in every chest ----------
   const pc = g9PlaceCastles;
   g9PlaceCastles = function () {
@@ -25035,7 +25077,7 @@ var c37busy = false;
     } catch (e) { console.warn('castle37', e); }
     return r;
   };
-  const ge2 = generate; generate = function () { const r = ge2.apply(this, arguments); try {
+  const ge2 = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(11)) return ge2.apply(this, arguments);  const r = ge2.apply(this, arguments); try {
       for (const c of g9castles) { const R = c[0] === 'citadel' ? 42 : 36;
         for (let x = Math.max(0, c[1] - R); x < Math.min(W, c[1] + R); x++) for (let z = Math.max(0, c[2] - R); z < Math.min(D, c[2] + R); z++) for (let y = 1; y < H; y++) if (world[idx(x, y, z)] === T.TORCH) { const k = keyOf(x, y, z); entMeta.set(k, Object.assign({face: 0}, entMeta.get(k) || {}, {lamp: 1})); } }
       let s = (gSeed ^ 0x7a11) >>> 0 || 5; const rnd = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
@@ -25044,8 +25086,8 @@ var c37busy = false;
         if (!slots.some(q => q && q[0] === IT.PAINTING)) put([IT.PAINTING, 1]);
         if (rnd() < 0.7) put([IT.BREAD, 2 + Math.floor(rnd() * 4)]); if (rnd() < 0.5) put([IT.COAL, 3 + Math.floor(rnd() * 6)]); if (rnd() < 0.4) put([IT.IRONINGOT, 1 + Math.floor(rnd() * 4)]);
         if (rnd() < 0.25) put([IT.GOLDINGOT, 1 + Math.floor(rnd() * 3)]); if (rnd() < 0.3) put([IT.COOKEDMUTTON, 2 + Math.floor(rnd() * 3)]); }
-    } catch (e) { console.warn('castle37', e); }
-    return r;
+    } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('castle37', e); }
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(11); return r; }
   };
   const iron = new THREE.MeshLambertMaterial({color: 0x26231f}), glassM = new THREE.MeshBasicMaterial({color: 0xffc670, transparent: true, opacity: 0.55, depthWrite: false});
   const bx = (g, m, w, h, d, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); g.add(b); return b; };
@@ -25348,7 +25390,7 @@ var placedSet = new Set();
   };
   // run after every generation step (this wrapper is outermost)
   const ge = generate;
-  generate = function () { const r = ge.apply(this, arguments); try { if (!DIM.cur) { const was = c37busy; c37busy = true; const s = c39Settle(); c37busy = was; window.__settle = s; console.log('[settle] ' + JSON.stringify(s)); } } catch (e) { console.warn('settle', e); } return r; };
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(12)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { if (!DIM.cur) { const was = c37busy; c37busy = true; const s = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("settle", "Settling the land…", 76, function(){ return c39Settle(); }) : c39Settle(); c37busy = was; window.__settle = s; console.log('[settle] ' + JSON.stringify(s)); } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('settle', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(12); return r; } };
   if (typeof c2Generate === 'function') { const cg = c2Generate; c2Generate = function () { const r = cg.apply(this, arguments); try { c39Settle(); } catch (e) {} return r; }; }
   // existing worlds: settle once, only around generated castles (never near your builds)
   const ap = applySave;
@@ -25398,7 +25440,7 @@ var placedSet = new Set();
     }
     return {removed, cleared};
   };
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { window.__c41 = c41Castles(); } catch (e) { console.warn('c41', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(13)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { window.__c41 = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c41", "Raising the keeps…", 77, function(){ return c41Castles(); }) : c41Castles(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c41', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(13); return r; } };
   // ---- 3) water + lava: entry splash scaled by speed, surfacing splash, burning, under-lava view ----
   const ov = document.createElement('div'); ov.id = 'lavaOv'; ov.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:5;display:none;background:radial-gradient(ellipse at 50% 60%,rgba(255,170,40,.88),rgba(200,40,0,.96));mix-blend-mode:normal';
   const fireOv = document.createElement('div'); fireOv.id = 'burnOv'; fireOv.style.cssText = 'position:fixed;left:0;right:0;bottom:0;height:45%;pointer-events:none;z-index:5;display:none;background:linear-gradient(to top,rgba(255,110,0,.55),rgba(255,180,40,.25) 45%,rgba(255,200,80,0));animation:burnFl .18s infinite alternate';
@@ -25902,7 +25944,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
       } }
     return {ok, fixed, bad};
   };
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; c47FixStairs(); window.__c47 = c47FixStairs(); c37busy = was; } catch (e) { console.warn('c47', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(14)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; c47FixStairs(); window.__c47 = c47FixStairs(); c37busy = was; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c47', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(14); return r; } };
 })();
 
 /* ===================== GLX-C48 (v0.9.44): guns sit properly in the hand (first and third person) ===================== */
@@ -26032,7 +26074,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
       let fl = 0; for (let a = -6; a <= 6; a++) for (let c = -6; c <= 6; c++) { const g = solidTop(x + a, z + c); const b = world[idx(x + a, g + 1, z + c)]; if (FLOWERS.has(b) || FLOWERS.has(world[idx(x + a, g, z + c)])) fl++; } if (fl < 2) continue;
       world[idx(x, ly - 1, z)] = HIVE; entMeta.set(keyH(x, ly - 1, z), {honey: 5, face: Math.floor(Math.random() * 4)}); n++; }
     return n; }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__hives = placeHives(); c37busy = was; } catch (e) { console.warn('c49', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(15)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__hives = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("hives", "Planting the woods…", 79, function(){ return placeHives(); }) : placeHives(); c37busy = was; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c49', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(15); return r; } };
   // bees for nearby hives (respawned as you wander)
   // hive list is cached (rescanned from entMeta every 20 s) instead of scanning 80x80 columns every 3 s
   let hiveList = [], hiveT = 0;
@@ -26237,7 +26279,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
       out.push({k, cx, cz, gy, removed, chest: [chx, chy, chz], portal}); }
     try { scanLights(); validateLights(); } catch (_) {}
     return out; }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__c53 = finishCastles(); c37busy = was; } catch (e) { console.warn('c53', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(16)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; window.__c53 = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c53", "Raising the keeps…", 80, function(){ return finishCastles(); }) : finishCastles(); c37busy = was; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c53', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(16); return r; } };
   // no other ruins in new survival worlds
   window.__c53finish = finishCastles;
 })();
@@ -26284,7 +26326,7 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
       let x = cx, y = cy + 2, z = cz, yaw = rnd() * 6.283; for (let k = 0; k < 90 && y < 26; k++) { ball(x, y, z, 2, 2.2); yaw += (rnd() - .5) * 0.3; x += Math.cos(yaw) * 0.9; z += Math.sin(yaw) * 0.9; y += 0.4; if (x < 10 || z < 10 || x > W - 10 || z > D - 10) yaw += Math.PI; }
       deep.push([cx, cy, cz, r]); st.deep++; n++; }
     window.__deepCaves = deep; return st; }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; if (!window.__g12) window.__c54 = carveCaves(); c37busy = was; } catch (e) { console.warn('c54', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(17)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; if (!window.__g12) window.__c54 = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c54", "Carving the caves…", 82, function(){ return carveCaves(); }) : carveCaves(); c37busy = was; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c54', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(17); return r; } };
   const se = serialize; serialize = function () { const d = se.apply(this, arguments); d.deepCaves = window.__deepCaves; return d; };
   const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); window.__deepCaves = (d && d.deepCaves) || []; return r; };
   window.newCrawler = () => null;   // v0.9.58: crawlers removed
@@ -27301,7 +27343,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
     if (MODE.hotbar) MODE.hotbar = MODE.hotbar.map(v => map[v] || v);
     if (offhand && map[offhand.id]) offhand.id = map[offhand.id];
     try { for (const [, c] of chests) if (c && c.slots) for (const sl of c.slots) if (sl && map[sl[0]]) sl[0] = map[sl[0]]; } catch (_) {} }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); convertWorld(); return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(18)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); convertWorld(); { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(18); return r; } };
   const ap = applySave; applySave = function () { const r = ap.apply(this, arguments); convertWorld(); convertItems(); return r; };
   try { const i = CREATIVE_ALL.indexOf(179); if (i >= 0) CREATIVE_ALL.splice(i, 1); const j = CREATIVE_ALL.indexOf(180); if (j >= 0) CREATIVE_ALL.splice(j, 1); if (!CREATIVE_ALL.includes(IT.BROOCH)) CREATIVE_ALL.push(IT.BROOCH); } catch (_) {}
   window.__c74convert = () => { convertWorld(); convertItems(); return window.__c74conv; };
@@ -27552,16 +27594,16 @@ var ORE18 = false, ISL_S = 1;
         const x = a[0] + (b[0] - a[0]) * f + px * w * Math.sin(ph + f * 5), z = a[2] + (b[2] - a[2]) * f + pz * w * Math.sin(ph + f * 5), y = a[1] + (b[1] - a[1]) * f + Math.sin(ph * 2 + f * 9) * 1.5;
         if (!away(x, z)) continue; ball(x, y, z, 1.7 + 0.4 * Math.sin(f * 17 + ph)); carved++; } }
     window.__caveNodes = nodes; return {nodes: n, edges: edges.length, len: Math.round(len), ms: Math.round(performance.now() - t0)}; }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments);
-    if (!ORE18 || W !== BIG || DIM.cur || genVer !== GEN9 || (typeof cityGen !== 'undefined' && cityGen)) return r;
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(19)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments);
+    if (!ORE18 || W !== BIG || DIM.cur || genVer !== GEN9 || (typeof cityGen !== 'undefined' && cityGen)) { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(19); return r; }
     const was = c37busy; c37busy = true;
     try { const st = {}; const t = performance.now();
-      try { if (!window.__g12) st.caves = linkCaves(); } catch (e) { console.warn('c77 caves', e); }
-      try { st.castles = castleWork(); } catch (e) { console.warn('c77 castles', e); }
-      try { st.ores = orePass(); } catch (e) { console.warn('c77 ores', e); }
-      try { st.border = border(); } catch (e) { console.warn('c77 border', e); }
+      try { if (!window.__g12) st.caves = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c77caves", "Carving the caves…", 83, function(){ return linkCaves(); }) : linkCaves(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c77 caves', e); }
+      try { st.castles = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c77castles", "Raising the keeps…", 84, function(){ return castleWork(); }) : castleWork(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c77 castles', e); }
+      try { st.ores = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c77ores", "Laying the ores…", 85, function(){ return orePass(); }) : orePass(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c77 ores', e); }
+      try { st.border = border(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c77 border', e); }
       st.ms = Math.round(performance.now() - t); window.__c77 = st; console.log('[c77]', JSON.stringify(st)); } finally { c37busy = was; }
-    return r; };
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(19); return r; } };
   window.__c77parts = {orePass, border, castleWork, linkCaves};
   // ---- Hell: 288 wide for the big world (1/3 of the Highlands), a bedrock wall at the edge, cobalt low down, nether gold all through ----
   const gh = genHell; genHell = function () {
@@ -28476,10 +28518,10 @@ void main() {
     st.ms = Math.round(performance.now() - t0); window.__c80grow = (sp, x, z) => { const g = g9top(x, z); TREE[sp](x, g, z); }; return st;
   }
   const ge = generate;
-  generate = function () { const r = ge.apply(this, arguments);
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(20)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments);
     try { if (genVer === GEN9 && !cityGen && !DIM.cur && g9cols && W > 100) { const was = typeof c37busy !== 'undefined' ? c37busy : false; try { c37busy = true; } catch (_) {}
-      window.__c80 = plant(gSeed ^ 0x7ee5); try { if (!window.__hives && window.__beeHive) window.__hives = window.__beeHive.placeHives(); } catch (_) {} try { c37busy = was; } catch (_) {} dirtyAll = true; } else bioBuild(); } catch (e) { console.warn('c80', e); window.__c80err = String(e && e.stack || e); }
-    grassLayers(); return r; };
+      window.__c80 = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("plant", "Planting the woods…", 86, function(){ return plant(gSeed ^ 0x7ee5); }) : plant(gSeed ^ 0x7ee5); try { if (!window.__hives && window.__beeHive) window.__hives = window.__beeHive.placeHives(); } catch (_) {} try { c37busy = was; } catch (_) {} dirtyAll = true; } else bioBuild(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; console.warn('c80', e); window.__c80err = String(e && e.stack || e); }
+    grassLayers(); { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(20); return r; } };
   // ---- saves: biome map follows the seed/castles; old saves lose the removed woods (holly/willow/hazel/dead -> oak, aspen -> birch) ----
   const MIG = {138: T.LOG, 141: T.LOG, 144: T.LOG, 145: T.LOG, 142: LOG.birch, 149: T.LEAVES, 238: T.LEAVES, 251: T.LEAVES, 239: LEAF.birch};
   const migId = v => (typeof v === 'number' && MIG[v] !== undefined) ? MIG[v] : v;
@@ -30265,7 +30307,7 @@ body.inmenu #tvRem,body.inmenu #tvOsd{visibility:hidden}`;
     try { scanLights(); validateLights(); } catch (_) {}
     S.ms = Math.round(performance.now() - t0); return res;
   }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; try { S.done = work(); } finally { c37busy = was; } } catch (e) { S.err = String(e && e.stack || e); console.warn('c102', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(21)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { const was = c37busy; c37busy = true; try { S.done = work(); } finally { c37busy = was; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; S.err = String(e && e.stack || e); console.warn('c102', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(21); return r; } };
   // ---------- mist drifting over the mossy castle's island ----------
   const mistTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(235,240,238,.55)'); gr.addColorStop(1, 'rgba(235,240,238,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); })();
   const mistMat = new THREE.SpriteMaterial({map: mistTex, transparent: true, depthWrite: false, opacity: 0.5, fog: true}); const mist = [];
@@ -30510,9 +30552,25 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
       const r = rnd() * 6 | 0; if (r === 0) x++; else if (r === 1) x--; else if (r === 2) z++; else if (r === 3) z--; else if (r === 4) y++; else y--; }
     return put; }
   const ORESET = () => new Set([T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, T.LAZORE, T.RUBYORE, 179].filter(v => v !== undefined));
-  function orePass() { const t0 = performance.now(); sd = (gSeed ^ 0x104a0e) >>> 0 || 11;
-    const S = new Uint8Array(1024); for (const b of ORESET()) S[b] = 1; let stripped = 0;
-    for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) { const b0 = (x * H + y) * D; for (let z = 0; z < D; z++) { const i = b0 + z; if (S[world[i]] && !placed(i)) { world[i] = y < 21 ? T.DEEPSLATE : T.STONE; stripped++; } } }
+  function orePass() { const t0 = performance.now();
+    const __Lo = window.__glenLoad;
+    const __st = (__Lo && __Lo.held && __Lo._loop && __Lo._loop.c104) || {phase: 'strip', x: 0, stripped: 0, t0: t0};
+    if (!__st.t0) __st.t0 = t0;
+    const S = new Uint8Array(1024); for (const b of ORESET()) S[b] = 1; let stripped = __st.stripped || 0;
+    if (__st.phase !== 'veins') {
+      let __tO = performance.now();
+      for (let x = __st.x || 0; x < W; x++) {
+        for (let y = 0; y < H; y++) { const b0 = (x * H + y) * D; for (let z = 0; z < D; z++) { const i = b0 + z; if (S[world[i]] && !placed(i)) { world[i] = y < 21 ? T.DEEPSLATE : T.STONE; stripped++; } } }
+        if (__Lo && __Lo.held && (performance.now() - __tO > 200)) {
+          if (!__Lo._loop) __Lo._loop = {};
+          __Lo._loop.c104 = {phase: 'strip', x: x + 1, stripped: stripped, t0: __st.t0};
+          try { __Lo.touch(82 + 5 * (x + 1) / Math.max(1, W), 'Laying the ores… ' + (x + 1) + '/' + W, 92); } catch (_) {}
+          throw __Lo.YIELD;
+        }
+      }
+      if (__Lo && __Lo._loop) __Lo._loop.c104 = {phase: 'veins', stripped: stripped, t0: __st.t0};
+    }
+    sd = (gSeed ^ 0x104a0e) >>> 0 || 11;
     const cols = W * D / 1000, hist = {}, want = {};
     for (const [name, id, per, lo, hi, s0, s1, rule] of ORES()) { if (id === undefined) continue; const n = Math.round(per * cols); let pl = 0, miss = 0;
       for (let v = 0; v < n; v++) { let x = 2 + (rnd() * (W - 4) | 0), z = 2 + (rnd() * (D - 4) | 0); let y = Math.round(rule === 'u' || rule === 'hide' ? lo + rnd() * (hi - lo) : tri(lo, hi));
@@ -30549,14 +30607,14 @@ const CLIPS = {"RUN":[0.26,-1.18,-0.12,-1.4,0.12,-0.07,-0.17,-0.41,0.17,-0.26,-0
     for (let x = 0; x < W; x++) for (let y = 0; y < H; y++) { const b0 = (x * H + y) * D; for (let z = 0; z < D; z++) { const k = rev[world[b0 + z]]; if (k) { const band = y <= 10 ? '1-10' : y <= 20 ? '11-20' : y <= 30 ? '21-30' : y <= SEA ? '31-sea' : 'above'; h[k][band] = (h[k][band] || 0) + 1; } } }
     return h; }
   U.caveStats = caveStats; U.depthHist = depthHist; U.orePass = orePass; U.cavePass = cavePass; U.P = 0.024;
-  const ge = generate; generate = function () { window.__c77 = null; const r = ge.apply(this, arguments);
-    if (!window.__c77 || DIM.cur) return r;   // only the big Highlands worlds that got the c77 ore pass (new worlds only)
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(22)) return ge.apply(this, arguments);  window.__c77 = null; const r = ge.apply(this, arguments);
+    if (!window.__c77 || DIM.cur) { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(22); return r; }   // only the big Highlands worlds that got the c77 ore pass (new worlds only)
     const was = c37busy; c37busy = true;
     try { const st = {}; if (U.measure) st.before = caveStats();
-      st.ores = orePass(); if (U.measure) st.mid = caveStats();
+      st.ores = (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("c104ores", "Laying the ores…", 87, function(){ return orePass(); }) : orePass(); if (U.measure) st.mid = caveStats();
       st.caves = window.__g12 ? 'c131' : cavePass(U.P); if (U.measure) st.after = caveStats();
-      U.st = st; console.log('[c104]', JSON.stringify(st)); } catch (e) { U.err = String(e && e.stack || e); console.warn('c104', e); } finally { c37busy = was; }
-    return r; };
+      U.st = st; console.log('[c104]', JSON.stringify(st)); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); console.warn('c104', e); } finally { c37busy = was; }
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(22); return r; } };
   // ---- raw silver: a little cluster of shiny droplets (pixel art), nothing like raw iron ----
   try { ICONS[IT.RAWSILVER] = drawIcon(g => { g.imageSmoothingEnabled = false;
     const N = 16, px = 4, drops = [[5, 10, 2.6], [10.5, 11, 2.3], [8, 5.6, 2.0], [12.2, 5.2, 1.4], [3.6, 4.6, 1.2]], m = new Uint8Array(N * N);
@@ -31529,7 +31587,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
   U.frame = frame; U.TX = TX;
   // v1.0.23: Reset world / Reset terrain (any regenerate) starts the map afresh
   const bump = () => { window.__mapGen = (window.__mapGen | 0) + 1; };
-  try { const g0 = generate; generate = function () { try { return g0.apply(this, arguments); } finally { bump(); } }; } catch (_) {}
+  try { const g0 = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(23)) return g0.apply(this, arguments);  try { return g0.apply(this, arguments); } finally { bump(); } }; } catch (_) {}
   try { const r0 = resetTerrain; resetTerrain = async function () { try { return await r0.apply(this, arguments); } finally { bump(); } }; } catch (_) {}
 
   // ---------------- 5. HD held tool models ----------------
@@ -31856,16 +31914,16 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
 
   // ---------- generate: on for new worlds and "Reset world" (old saves keep their land) ----------
   const gen = generate;
-  generate = function () {
+  generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(24)) return gen.apply(this, arguments); 
     if (!L94()) { ON = false; return gen.apply(this, arguments); }
     setP(P12()); IS = ISL(); ISL_C = [W >> 1, D >> 1]; ISL_R = 1; MT_C = G42() ? __c208.MT() : G36() ? [Math.round(W * 0.2384), Math.round(D * 0.7778)] : [(W >> 1) - 290, (D >> 1) + 290]; HOL_C = [MT_C[0] + Math.round(20 * MT_R / 58), MT_C[1] + 2];
     ON = true; HC = null; let r; try { if (G12) { const t = performance.now(); if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0; G9P = g9perm(gSeed); buildHC(); U.hcMs = Math.round(performance.now() - t); } r = gen.apply(this, arguments); } finally { ON = false; HC = null; }
     const t0 = performance.now();
-    try { U.removed = removeSpawnHouses(); } catch (e) { U.err = 'houses ' + (e && e.stack || e); }
-    try { U.bridges = window.__g89 && __g89() ? [] : buildBridges(); } catch (e) { U.err = 'bridges ' + (e && e.stack || e); }
-    try { FARMS = buildFarms(); U.farms = FARMS.length; } catch (e) { U.err = 'farms ' + (e && e.stack || e); }
+    try { U.removed = removeSpawnHouses(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'houses ' + (e && e.stack || e); }
+    try { U.bridges = window.__g89 && __g89() ? [] : buildBridges(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'bridges ' + (e && e.stack || e); }
+    try { FARMS = buildFarms(); U.farms = FARMS.length; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'farms ' + (e && e.stack || e); }
     U.ms = Math.round(performance.now() - t0); U.on = true; fGen++;
-    return r; };
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(24); return r; } };
   const ew = enterWorld; enterWorld = function (save) {
     try { if (current) current.l94 = save ? !!(save.c113 && save.c113.l94) : true; } catch (_) {}
     if (!save) { FARMS = []; U.bridges = []; } U.on = false; return ew.apply(this, arguments); };
@@ -32911,8 +32969,9 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
   U.scanAll = scanAll; U.placePools = (n, safe) => placePools(n, safe); U.clustersFn = clusters;
 
   // ---------------- worldgen: a handful of irregular pools in low flat grassland ----------------
-  function placePools(maxN, safe) { const R = Math.random, made = [], cx0 = W >> 1, cz0 = D >> 1, changed = [];
-    for (let tries = 0; tries < 6000 && made.length < maxN; tries++) {
+  function placePools(maxN, safe) { const __Lpools = window.__glenLoad; let __st = (__Lpools && __Lpools._pools && __Lpools._pools.maxN === maxN) ? __Lpools._pools : {tries: 0, made: [], changed: [], maxN: maxN}; const R = Math.random, made = __st.made, cx0 = W >> 1, cz0 = D >> 1, changed = __st.changed;
+    for (; __st.tries < 6000 && made.length < maxN; __st.tries++) {
+      try { if (__Lpools && __Lpools.pulse) __Lpools.pulse('pools', __st.tries, 6000, 'Planting the glens…', 86, 88); } catch (e) { if (__Lpools && __Lpools.isYield && __Lpools.isYield(e)) { __Lpools._pools = __st; throw e; } throw e; }
       const a = R() * 6.283, rr = Math.sqrt(R()) * Math.min(W, D) * 0.42, x = Math.floor(cx0 + Math.sin(a) * rr), z = Math.floor(cz0 + Math.cos(a) * rr);
       if (x < 16 || z < 16 || x >= W - 16 || z >= D - 16) continue;
       if (made.some(m => Math.hypot(m[0] - x, m[1] - z) < 70)) continue;
@@ -32936,9 +32995,9 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
         const ab = world[idx(X, h + 1, Z)]; if (ab && PLANT[ab] === 1) world[idx(X, h + 1, Z)] = T.AIR;
         const be = world[idx(X, h - 1, Z)]; if (be === T.AIR || be === T.WATER) world[idx(X, h - 1, Z)] = T.DIRT; }
       if (n >= 12) made.push([x, z, h, n]); }
-    U.placed = made; return changed; }
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments);
-    try { U.flag = 1; if (genVer >= GEN9 && !cityGen && !DIM.cur && W >= 400 && D >= 400) { placePools(7, null); U.genMade = (U.placed || []).length; } } catch (e) { U.err = 'gen ' + (e && e.stack || e); } return r; };
+    if (window.__glenLoad) __glenLoad._pools = null; U.placed = made; return changed; }
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(25)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments);
+    try { U.flag = 1; if (genVer >= GEN9 && !cityGen && !DIM.cur && W >= 400 && D >= 400) { (window.__glenLoad && __glenLoad.coop) ? __glenLoad.coop("pools", "Planting the glens…", 88, function(){ return (window.__glenLoad && __glenLoad.live ? ((__glenLoad._deferPools = 1), []) : placePools(7, null)); }) : (window.__glenLoad && __glenLoad.live ? ((__glenLoad._deferPools = 1), []) : placePools(7, null)); U.genMade = (U.placed || []).length; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'gen ' + (e && e.stack || e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(25); return r; } };
   const ew = enterWorld; enterWorld = function (save) { try { U.flag = save ? +!!(save.c118 && save.c118.pools) : 1; U.needAdd = !!save && !U.flag; U.wref = null; } catch (_) {} return ew.apply(this, arguments); };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (!DIM.cur && U.flag) d.c118 = {pools: 1}; } catch (_) {} return d; };
   function addToOld() { // older saves: a few pools once, on untouched grass well away from anything built
@@ -34481,7 +34540,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
       try { if (d && Array.isArray(d.armour) && d.armour.length < 5) { while (armour.length < 5) armour.push(0); } } catch (_) {}
       return r; }; } catch (e) { warn('applySave', e); }
   try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { d.c121 = {v: 1, ponds: PD.list.map(p => p.slice())}; d.c121boats = boats.map(b => b.wood || 0); } catch (_) {} return d; }; } catch (e) { warn('serialize', e); }
-  try { const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (!DIM.cur) { PD.list = []; PD.need = true; } WK.clear(); } catch (_) {} return r; }; } catch (e) { warn('generate', e); }
+  try { const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(26)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (!DIM.cur) { PD.list = []; PD.need = true; } WK.clear(); } catch (_) {} { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(26); return r; } }; } catch (e) { warn('generate', e); }
   // dig ponds soon after a world opens (not at the exact load moment)
   setInterval(() => { try { if (started && PD.need && !DIM.cur && world && PD.wref !== world) { PD.wref = world; PD.need = false; const m = digPonds(Math.max(0, 6 - PD.list.length)); U.dug = m.length;
         if (PD.list.length) for (let i = 0; i < 2; i++) if (countKind('duck') < 2) spawnMob('duck'); } } catch (e) { warn('dig', e); } }, 1500);
@@ -36835,10 +36894,10 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     const hide = uk > 0.45, objs = [skyDome, typeof stars !== 'undefined' && stars, typeof sunDisc !== 'undefined' && sunDisc, typeof moonDisc !== 'undefined' && moonDisc, typeof moonHalo !== 'undefined' && moonHalo, typeof scenery !== 'undefined' && scenery].concat(typeof clouds !== 'undefined' ? clouds : []);
     for (const m of objs) { if (!m || !m.isObject3D) continue; const u = m.userData; if (hide) { if (!u.c131h) { u.c131h = 1; u.c131v = m.visible; } m.visible = false; } else if (u.c131h) { u.c131h = 0; m.visible = u.c131v; } } }
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); sky12(+dt || 0.016); return r; };
-  const gen = generate; generate = function () { const on = elig(); window.__g12 = on; let r;
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(27)) return gen.apply(this, arguments);  const on = elig(); window.__g12 = on; let r;
     try { r = gen.apply(this, arguments); } finally { window.__g12 = false; }
-    if (on) { try { U.st = post(); U.err = null; } catch (e) { U.err = String(e && e.stack || e); console.warn('c131', e); } } else U.st = null;
-    return r; };
+    if (on) { try { U.st = post(); U.err = null; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); console.warn('c131', e); } } else U.st = null;
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(27); return r; } };
 })();
 
 /* ===================== GLX-C132 (v1.0.12/13/14): relaxed ambient soundtrack - v1.0.14: remixes of the original Glencraft songs over the user's frequency tracks - the user's binaural tracks (assets/music, low-passed + quieter, gamma removed), procedural fallback, no chimes/bells/leads ===================== */
@@ -37039,8 +37098,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   function rivFromPaths(paths) { U.RIV.clear(); for (const P of paths || []) for (const [px, pz, r10, cd] of P) { const r = r10 / 10, R = Math.ceil(r); for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) if (Math.hypot(dx, dz) <= r) { const X = px + dx, Z = pz + dz; if (X >= 0 && Z >= 0 && X < W && Z < D) U.RIV.set(X * D + Z, cd); } } }
   const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g15 = save ? !!(save.c134 && save.c134.g15) : true; U.paths = save && save.c134 && save.c134.p || []; rivFromPaths(U.paths); } catch (_) {} return ew.apply(this, arguments); };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g15) d.c134 = {g15: 1, p: U.paths}; } catch (_) {} return d; };
-  const gen = generate; generate = function () { pendFalls = null; if (!elig()) { U.RIV.clear(); U.paths = []; } const r = gen.apply(this, arguments);
-    try { if (pendFalls && !DIM.cur) for (const k of pendFalls) if (world[k] === T.WATER) FLV.set(k, 1); } catch (e) { U.err = String(e); } pendFalls = null; return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(28)) return gen.apply(this, arguments);  pendFalls = null; if (!elig()) { U.RIV.clear(); U.paths = []; } const r = gen.apply(this, arguments);
+    try { if (pendFalls && !DIM.cur) for (const k of pendFalls) if (world[k] === T.WATER) FLV.set(k, 1); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e); } pendFalls = null; { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(28); return r; } };
   // ---------- 2) rendering: Minecraft-style sloped corners, flow-scrolled ripples, waterfall foam ----------
   const fl = (x, y, z) => (FLV.size ? FLV.get(idx(x, y, z)) || 0 : 0);
   const hOf = (x, y, z) => { if (getB(x, y + 1, z) === T.WATER) return 1; const l = fl(x, y, z); return l ? Math.max(0.1, (8 - l) / 8 * 0.88) : 0.88; };
@@ -37478,9 +37537,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   const elig = () => { try { return !!(current && current.mode !== 'creative' && current.g21 && current.g12 && !DIM.cur && !cityGen && W >= 600); } catch (_) { return false; } };
   const ew = enterWorld; enterWorld = function (save) { try { if (current) current.g21 = save ? !!(save.c141 && save.c141.g21) : true; U.sites = save && save.c141 && save.c141.s || null; } catch (_) {} return ew.apply(this, arguments); };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g21) d.c141 = {g21: 1, s: U.sites}; } catch (_) {} return d; };
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments);
-    if (elig()) { try { U.sites = post(); U.err = null; } catch (e) { U.err = String(e && e.stack || e); console.warn('c142', e); } } else if (!DIM.cur) U.sites = null;
-    return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(29)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments);
+    if (elig()) { try { U.sites = post(); U.err = null; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); console.warn('c142', e); } } else if (!DIM.cur) U.sites = null;
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(29); return r; } };
   const SH = 'Ag8ICgIQCAoDCwgKAwwICgMNCAoDDggKAw8ICgMQCAoECwcKBAwHCgQNBwoECggKBAsICgQMCAoEDQgKBA4ICgQPCAoEEAgKBAsJCgQMCQoEDQkKBQoHCgULBwoFDAcKBQkICgUKCAoFCwgKBQwICgUPCAoFEAgKBREICgUKCQoFCwkKBQwJCgYKBwoGCwcKBgkICgYKCAoGCwgKBg8ICgYQCAoGCgkKBgsJCgcLBgoHCQcKBwoHCgcLBwoHCQgKBwoICgcLCAoHCQkKBwoJCgcLCQoHCwoKCAoGCggLBgoICQcKCAoHCggLBwoICAgKCAkICggKCAoICQkKCAoJCggLCQoICgoKCAsKCgkIAAoJCAEKCQkCCgkJAwoJCgQKCQoFCgkKBgoJCwYKCQkHCgkKBwoJCAgKCQkICgkJCQoJCgkKCQoKCgkLCgoJCgsKCQoMCgkJDQoJCQ4KCQgPCgkIEAoKCgWcCgsFCgoKBgoKCAcKCgkHCgoKBwoKCAgKCgkICgoKCAoKCAkKCgkJCgoKCQoKCgoKCgoLTQoLCwoLCgUKCwsFnAsSBU4LCQYKCwoGCgsRBpwLEgacCxMGnAsIBwoLCQcKCxEHnAsSB5wLEwecCwgICgsJCAoLEQhOCxIITgsTCE4LCAkKCwkJCgsRCU4LEglOCxMJTgsJCgoLCgoKCxEKnAsSCpwLEwqcCwoLCgsLC00LEgucDAgACgwIAQoMCQIKDAkDCgwPA5wMEAOcDBED4wwUA5wMFQOcDAoECgwPBE4MEARODBEETgwSBE4MEwRODBQETgwVBE4MCgUKDA8FTgwQBU4MEQVODBMFTgwUBU4MFQVODAkGCgwKBgoMDwacDBAGnAwUBpwMFQacDAgHCgwJBwoMEAecDBQHnAwVB5wMCAgKDAkICgwQCE4MFAhODBUITgwICQoMCQkKDBAJTgwUCU4MFQlODAkKCgwKCgoMDwqcDBAKnAwUCpwMFQqcDAoLCgwPC5wMEAucDBELnAwTC5wMFAucDBULnAwKDAoMDwxODBAMTgwRDE4MEgxODBMMTgwUDE4MFQxODAkNCgwPDU4MEA1ODBEN4wwSDeMMFA3jDBUNTgwJDgoMCA8KDAgQCg0OApwNFgKcDQ4DnA0PA5wNFgOcDQ4ETg0WBE4NCgWWDQsFnA0OBU4NDwWcDRYFTg0JBgoNCgYKDQ4GnA0PBpwNFgacDQgHCg0JBwoNCgcKDQ4HnA0PB5wNFgecDQgICg0JCAoNCggKDQ8ITg0WCE4NCAkKDQkJCg0KCQoNDwlODRYJTg0JCgoNCgoKDQ4KnA0PCpwNFgqcDQoLTg0LC5wNDgucDQ8LnA0WC5wNDgxODRYMTg0ODU4NFg1ODRYOnA4OAqIOFgKiDhcCCg4MA6IODQOiDg4Dog4WA6IOFwMKDgwEog4OBKIOFgSiDhcECg4KBZwOCwWWDg4Fog4WBaIOFwUKDgkGCg4KBgoODgaiDhYGog4XBgoOCAcKDgkHCg4OB6IOFgeiDhcHCg4ICAoOCQgKDgoIDA4OCKIOFgiiDhcICg4ICQoOCQkKDg4Jog4WCaIOFwkKDgkKCg4KCgoODgqiDhYKog4XCgoOCgucDgsLTg4OC6IOFguiDhcLCg4MDKIODQyiDg4Mog4WDKIOFwwKDhkMnA4NDaIODg2iDhYNog4XDQoOFg6iDhcOCg8IAAoPCAEKDwkCCg8JAwoPCgQKDwsEog8MBKIPCgUKDwsFog8JBgoPCgYKDwgHCg8JBwoPCAgKDwkICg8KCAgPCwgIDwwICA8NCAgPDggIDw8ICA8QCAgPEQgIDxIICA8TCAgPFAgIDxUICA8WCAgPFwgIDxgICA8ZCKIPGgiiDxsIog8ICQoPCQkKDxoJmQ8bCZkPCQoKDwoKCg8LCqIPGQqcDxoKnA8KCwoPCwuiDwwLog8ZC04PCgwKDwwMog8JDQoPCQ4KDwgPCg8IEAoQCgWcEAsFThAJBgoQCgYKEAgHChAJBwoQCgcKEAgIChAJCAoQCggKEAgJChAJCQoQCgkKEAkKChAKCgoQCgucEAsLChEKBU4RCwWcEQkGChEKBgoRCAcKEQkHChEICAoRCQgKEQgJChEJCQoRCQoKEQoKChEKCwoRCwucEggAChIIAQoSCQIKEgkDChIKBAoSCgUKEgoGChIIBwoSCQcKEgoHChIICAoSCQgKEggJChIJCQoSCgkKEgoKChIKCwoSCgwKEgkNChIJDgoSCA8KEggQChMKBgoTCwYKEwgHChMJBwoTCgcKEwgIChMJCAoTCggKEwgJChMJCQoTCgkKEwoKChMLCgoUCwYKFAkHChQKBwoUCAgKFAkIChQKCAoUCQkKFAoJChQLCgoVCwYKFQkHChUKBwoVCwcKFQgIChUJCAoVCggKFQkJChUKCQoVCwkKFQsKChYKBwoWCwcKFgkIChYKCAoWCgkKFgsJChcKBwoXCwcKFwkIChcKCAoXCwgKFwwIChcNCAoXDggKFwoJChcLCQoYCwcKGAwHChgKCAoYCwgKGAwIChgOCAoYCwkKGAwJCg==';
   const N = (x, z) => x * D + z, inW = (x, z) => x > 2 && z > 2 && x < W - 3 && z < D - 3;
   const SKIP = b => !b || PLANT[b] || LEAFY[b] || LOGGY[b];
@@ -38190,7 +38249,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       let wet = false; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nb = world[idx(x + dx, y + 1, z + dz)]; if (nb === T.WATER || nb === T.LAVA) wet = true; } if (wet) continue;
       world[idx(x, y + 1, z)] = TG; n++; }
     U.st.gen = {n, ms: Math.round(performance.now() - t0)}; }
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments); if (elig()) { try { grow(); dirtyAll = true; } catch (e) { U.err = 'grow ' + e.message; } } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(30)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); if (elig()) { try { grow(); dirtyAll = true; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'grow ' + e.message; } } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(30); return r; } };
 })();
 
 /* ===================== GLX-C150 (v1.0.25): castle decor props (banners, antlers, chandeliers, coffins, cages, throne...) - one atlas, two merged meshes per castle ===================== */
@@ -38401,7 +38460,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   U.keepChests = (c, R) => { const out = []; try { for (const [key, v] of [...chests.entries()]) { const p = String(key).split(',').map(Number); if ((p[0] - c[1]) ** 2 + (p[2] - c[2]) ** 2 > R * R || mine(idx(p[0], p[1], p[2]))) continue; for (const s of (v && v.slots) || []) if (s && s[0] && s[1] > 0) out.push(s.slice()); } } catch (_) {} return out; };
   U.giveBack = (made, items) => { if (!items.length || !made.length) return; let j = 0; const box = made.map(p => chests.get(keyOf(p[0], p[1], p[2]))).filter(Boolean);
     for (const it of items) { let put = false; for (let k = 0; k < box.length * 27 && !put; k++) { const b = box[(j + (k / 27 | 0)) % box.length], si = k % 27; if (!b.slots[si]) { b.slots[si] = it; put = true; } } if (!put) U.lost = (U.lost || 0) + 1; j++; } };
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { const was = c37busy; c37busy = true; try { work(); } finally { c37busy = was; } } catch (e) { U.err = String(e && e.stack || e); } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(31)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { const was = c37busy; c37busy = true; try { work(); } finally { c37busy = was; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(31); return r; } };
 
   // ======================================================================================================
   // THE CLAN CASTLE: grey stone-brick tower house, round corner turrets with conical slate roofs, crow-stepped gables,
@@ -38809,7 +38868,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     if (!dry && (st.lamps + st.logs + st.leaves) && opt.redraw) dirtyAll = true;
     return st; }
   U.tidy = tidy;
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (!DIM.cur) { const was = c37busy; c37busy = true; try { U.st = tidy(); } finally { c37busy = was; } } } catch (e) { U.err = String(e && e.stack || e); } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(32)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (!DIM.cur) { const was = c37busy; c37busy = true; try { U.st = tidy(); } finally { c37busy = was; } } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(32); return r; } };
   // existing worlds: tidy once on load (never touches your own blocks)
   const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim && !d.c155) { U.load = tidy({redraw: 1}); } } catch (e) { U.err = String(e && e.stack || e); } return r; };
   const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (!DIM.cur) d.c155 = 1; } catch (_) {} return d; };
@@ -38845,7 +38904,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
       for (let dx = -1; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) { setB(x + dx, y, z + dz, T.STONE); setB(x + dx, y - 1, z + dz, T.STONE); }
       for (let dx = 0; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) setB(x + dx, y, z + dz, T.LAVA);
       st.made = 1; st.at = [x, y, z]; dirtyAll = true; return; } }
-  try { const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (!DIM.cur) { restoreLava(); U.pend = true; } } catch (e) { ERR(e); } return r; }; } catch (e) { ERR(e); }
+  try { const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(33)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (!DIM.cur) { restoreLava(); U.pend = true; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR(e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(33); return r; } }; } catch (e) { ERR(e); }
   /* ---- the Ghost (Linen Ghaist): rare, night only, one near you, normal sight range ---- */
   const C = window.__c123, GH = 'nm10', SEE = 16, LOSE = 24;
   const los = (a) => { const p = a.g.position, x0 = p.x, y0 = p.y + 1, z0 = p.z, x1 = P.x, y1 = P.y + 1.5, z1 = P.z, L = Math.hypot(x1 - x0, y1 - y0, z1 - z0), n = Math.ceil(L * 2);
@@ -39644,7 +39703,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
         if (put(px, hy, pz, T.TORCH)) { entMeta.set(keyOf(px, hy, pz), {face: 0, lamp: 1, wall: ww}); U.fixed.sconce++; chunks && chunks.add(Math.floor(px / CH) + ',' + Math.floor(pz / CH)); } return; } } }
   U.tidy = tidy;
   const ok = () => typeof current !== 'undefined' && current && !DIM.cur && window.__c113 && __c113.bridges && __c113.bridges.length;
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { if (ok()) { window.__c171gen = 1; try { tidy(__c113.bridges); } finally { window.__c171gen = 0; } current.c171u = true; } } catch (e) { warn('gen', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(34)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { if (ok()) { window.__c171gen = 1; try { tidy(__c113.bridges); } finally { window.__c171gen = 0; } current.c171u = true; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; warn('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(34); return r; } };
   const ew = enterWorld; enterWorld = function (save) { try { if (current) current.c171u = save ? !!save.c171 : true; } catch (_) {} return ew.apply(this, arguments); };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.c171u) d.c171 = 1; } catch (_) {} return d; };
   let wait = 2;
@@ -39726,7 +39785,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     U.pools = n; U.ms = Math.round(performance.now() - t0); return ch; }
   U.scorch = scorch;
   const ok = () => typeof current !== 'undefined' && current && !DIM.cur && current.mode !== 'creative' && black() && current.l94;
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { if (ok()) { scorch(black()); current.c172u = true; } } catch (e) { warn('gen', e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(35)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { if (ok()) { scorch(black()); current.c172u = true; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; warn('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(35); return r; } };
   const ew = enterWorld; enterWorld = function (save) { try { if (current) current.c172u = save ? !!save.c172 : true; } catch (_) {} return ew.apply(this, arguments); };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.c172u) d.c172 = 1; } catch (_) {} return d; };
   let wait = 3;
@@ -40558,9 +40617,9 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
 (function c186b() {
   const U = window.__c186b = {st: null, err: null};
   const NAT = () => new Set([T.GRASS, T.DIRT, T.SNOW, T.HEATHER, T.STONE, T.GRAVEL, T.PEAT, T.COBBLE].filter(v => v !== undefined));
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments);
-    try { if (!DIM.cur && window.__c181 && __c181.on() && window.__c104 && __c104.ORES && window.__c101 && __c101.isl) U.st = pass(); } catch (e) { U.err = String(e && e.stack || e); }
-    return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(36)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments);
+    try { if (!DIM.cur && window.__c181 && __c181.on() && window.__c104 && __c104.ORES && window.__c101 && __c101.isl) U.st = pass(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); }
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(36); return r; } };
   function pass() { const t0 = performance.now(), I = __c101.isl, R = I.R + 4, N = NAT(); let sd = ((gSeed || 1) ^ 0x186b0e) >>> 0 || 17; const rnd = () => (sd = (Math.imul(sd, 16807) >>> 0) % 2147483647) / 2147483647;
     const placed = i => typeof placedSet !== 'undefined' && placedSet && placedSet.has(i), host = b => b === T.STONE || b === T.DEEPSLATE;
     const tops = new Map(), top = (x, z) => { const k = x * D + z; let t = tops.get(k); if (t === undefined) { t = solidTop(x, z); tops.set(k, t); } return t; };
@@ -40889,7 +40948,7 @@ body.inmenu #tplHint,body.inmenu #itemName{visibility:hidden!important}`;
   let done = false;
   const hook = () => { const C = window.__c134; if (!C || C.__c192) return; const r0 = C.rivers; C.rivers = function () { try { if (on()) { carve(false); done = true; } } catch (e) { U.err = String(e && e.stack || e); } return r0.apply(this, arguments); }; C.__c192 = 1; };
   hook();
-  const gen = generate; generate = function () { done = false; hook(); const r = gen.apply(this, arguments); try { if (!done && on()) carve(true); } catch (e) { U.err = String(e && e.stack || e); } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(37)) return gen.apply(this, arguments);  done = false; hook(); const r = gen.apply(this, arguments); try { if (!done && on()) carve(true); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(37); return r; } };
 })();
 
 /* ===================== GLX-C193 (v1.0.37): gravity for natural blocks - logs, leaves and loose terrain with nothing holding them up fall; floating trees from world generation are cleared ===================== */
@@ -41713,7 +41772,7 @@ function make42(E) {
   // the river's outlets run on to the real coast
   U.coastR = (top, at, a, r0) => { const deg = Math.PI / 180; for (let R = r0; R < 430; R += 2) { const th = (a + 4 * Math.sin(R / 9 + a)) * deg, [x, z] = at(R, th), X = Math.round(x), Z = Math.round(z);
       if (X < 3 || Z < 3 || X >= W - 3 || Z >= D - 3) return R; if (top[X * D + Z] < SEA - 1) return R + 6; } return 430; };
-  const gen = generate; generate = function () { WT = null; U.T = null; const r = gen.apply(this, arguments); U.T = null; return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(38)) return gen.apply(this, arguments);  WT = null; U.T = null; const r = gen.apply(this, arguments); U.T = null; { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(38); return r; } };
 })();
 
 /* ===================== GLX-C209 (v1.0.43): the people talk - 100 seeded voice lines (villager "hmm / hrrm" mumbles crossed with alien-AI chatter: formant babble, pitch glides, question / answer tunes, faint AI shimmer, rolled r's, a Scottish lilt; no chirps), little back-and-forth conversations, hurt and death cries; each line is paired with a telepathy phrase (GLX-C210); v1.0.45: real Scots words via GLX-C212; v1.0.47: the words are gone again - only warm hummed tones, 100 of them, moods picked by the hive mind ===================== */
@@ -41886,7 +41945,7 @@ function make42(E) {
     // the pink tree is rare but there is always at least one in a new glen, somewhere on open grass away from spawn
     for (let k = 0; k < 400 && !n.pink; k++) { const x = 30 + ((rnd() * (W - 60)) | 0), z = 30 + ((rnd() * (D - 60)) | 0), y = okGround(x, z); if (y >= 0 && !near(x, z)) n.pink += pink(x, y, z); }
     U.ms = Math.round(performance.now() - t0); U.runs++; }
-  const ge = generate; generate = function () { const r = ge.apply(this, arguments); try { if (on()) { U.pinkAt = []; deco(); dirtyAll = true; } } catch (e) { if (!U.err) U.err = String(e && e.stack || e); } return r; };
+  const ge = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(39)) return ge.apply(this, arguments);  const r = ge.apply(this, arguments); try { if (on()) { U.pinkAt = []; deco(); dirtyAll = true; } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; if (!U.err) U.err = String(e && e.stack || e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(39); return r; } };
 })();
 
 /* ===================== GLX-C215 (v1.0.45): main terrain shaders + VFX. Settings > Shaders: Low / High (High by default).
@@ -44908,7 +44967,7 @@ function make42(E) {
   U.at = at;
   try { const rh = __c208.rawH; __c208.rawH = (x, z) => U.on() ? at(x, z) : rh(x, z); } catch (e) { ERR('rawH', e); }
   U.WS = 40;   /* v1.2.24: the ice wall builder is removed; WS stays as the old edge band width the shared shape helpers use */
-  const gen = generate; generate = function () { CAS = null; return gen.apply(this, arguments); };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(40)) return gen.apply(this, arguments);  CAS = null; return gen.apply(this, arguments); };
   // v1.0.92: no invisible barrier - climb the wall if you like; past it you freeze (GLX-C282). Only the world bounds hold you in.
   setInterval(() => { try { if (!U.on() || typeof started === 'undefined' || !started || (window.__ukHome && __ukHome())) return; P.x = Math.max(1.5, Math.min(W - 1.5, P.x)); P.z = Math.max(__XG ? __XZ + 1.5 : 1.5, Math.min(D - 1.5, P.z)); } catch (_) {} }, 250);
 })();
@@ -44967,11 +45026,11 @@ function make42(E) {
       for (let dx = -3; dx <= 3; dx++) for (let dy = -1; dy <= 4; dy++) for (let dz = -3; dz <= 3; dz++) { const X = Math.round(x + Math.cos(best) * 2) + dx, Y = g + dy, Z = Math.round(z + Math.sin(best) * 2) + dz; if (!inB(X, Y, Z)) continue; const b = world[idx(X, Y, Z)]; if ((b === T.STONE || b === T.DIRT) && rnd() < 0.4) world[idx(X, Y, Z)] = T.MOSSYCOBBLE || T.COBBLE || b; }
       const LX = Math.round(x + Math.cos(best) * 6), LZ = Math.round(z + Math.sin(best) * 6); let LY = g + 3; while (LY > 2 && !world[idx(LX, LY - 1, LZ)]) LY--; if (!world[idx(LX, LY, LZ)]) world[idx(LX, LY, LZ)] = 161;
       U.mouths.push([x, g + 1, z, +best.toFixed(2)]); n++; } }
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (on()) { const t0 = performance.now(); U.mouths = []; U.halls = 0; U.worms = 0;
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(41)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (on()) { const t0 = performance.now(); U.mouths = []; U.halls = 0; U.worms = 0;
         let s = ((gSeed | 0) ^ 0x2740c) >>> 0; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
         let tp = tops(); pits(tp); const pts = worms(tp, rnd); mouths(tp, rnd, pts);
         try { tp = tops(); for (let i = 0; i < W * D; i++) g9cols[i * 2] = tp[i] + 1; } catch (_) {}
-        try { dirtyAll = true; } catch (_) {} U.ms = Math.round(performance.now() - t0); } } catch (e) { ERR('gen', e); } return r; };
+        try { dirtyAll = true; } catch (_) {} U.ms = Math.round(performance.now() - t0); } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(41); return r; } };
 })();
 
 /* GLX-C275 (v1.0.90): winding paths for the Highlands map - gravel tracks that meander from the spawn meadow out to each castle, the
@@ -45023,7 +45082,7 @@ function make42(E) {
       try { const p = route(ax, az, bx, bz, ph += 1.7); lay(p); U.paths.push([k, p.length]); } catch (e) { ERR('path ' + k, e); } }
     try { const tp = g9cols; for (const [k] of U.paths) {} } catch (_) {}
     U.ms = Math.round(performance.now() - t0); }
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (on()) { U.paths = []; U.cut = U.tun = U.cols = 0; run(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(42)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (on()) { U.paths = []; U.cut = U.tun = U.cols = 0; run(); try { dirtyAll = true; } catch (_) {} } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(42); return r; } };
 })();
 
 /* GLX-C276 (v1.0.90): the OG Glencraft spawn - plain oak trees, grass, tall grass and flowers round the spawn meadow, and haggis
@@ -45047,7 +45106,7 @@ function make42(E) {
     for (let x = cx - 110; x <= cx + 110; x++) for (let z = cz - 110; z <= cz + 110; z++) { if (Math.hypot(x - cx, z - cz) > 110 || r() > 0.2) continue; const g = gtop(x, z);
       if (world[idx(x, g, z)] !== T.GRASS || world[idx(x, g + 1, z)]) continue; world[idx(x, g + 1, z)] = FL[Math.floor(r() * FL.length)]; t++; }
     U.oaks = n; U.tufts = t; }
-  const gen = generate; generate = function () { const r = gen.apply(this, arguments); try { if (on()) { grow(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('grow', e); } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(43)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (on()) { grow(); try { dirtyAll = true; } catch (_) {} } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('grow', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(43); return r; } };
   // haggis at spawn; no dinosaurs near it
   setInterval(() => { try { if (typeof started === 'undefined' || !started || DIM.cur || !current || current.mode === 'creative') return; const cx = W >> 1, cz = D >> 1;
       const D5 = window.__c165; if (D5 && D5.isD) for (const a of mobs.slice()) if (D5.isD(a) && !a.egg && Math.hypot(a.g.position.x - cx, a.g.position.z - cz) < 150) { try { removeMob(a); U.culled++; } catch (_) {} }
@@ -45270,7 +45329,7 @@ function make42(E) {
       if (m > 0.4 && r() < 0.012 && !world[idx(x, g + 1, z)] && !nearPath(x, z, g)) { for (let dx = -1; dx <= 1; dx++) for (let dz = -1; dz <= 1; dz++) for (let dy = 1; dy <= 2; dy++) { if (dy === 2 && (dx && dz)) continue; const i = idx(x + dx, g + dy, z + dz); if (!world[i] || PLANT[world[i]]) world[i] = BU; } b++; }
       else if (!world[idx(x, g + 1, z)] && r() < 0.05) world[idx(x, g + 1, z)] = r() < 0.6 ? T.BLUEBELL : T.FERN; }
     U.pines = n; U.heather = h; U.bushes = b; U.ms = Math.round(performance.now() - t0); }
-  const gen = generate; generate = function () { const res = gen.apply(this, arguments); try { if (on()) { dress(); try { dirtyAll = true; } catch (_) {} } } catch (e) { U.err = String(e && e.stack || e).slice(0, 300); } return res; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(44)) return gen.apply(this, arguments);  const res = gen.apply(this, arguments); try { if (on()) { dress(); try { dirtyAll = true; } catch (_) {} } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = String(e && e.stack || e).slice(0, 300); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(44); return res; } };
 })();
 
 /* GLX-C282 (v1.0.92): icy snow wall + freezing past the wall.
@@ -45340,7 +45399,7 @@ function make42(E) {
       let f = 0; try { f = g9fbm(x / 22 + 31.7, z / 22 - 9.3, 2); } catch (_) { f = Math.sin(x / 13) * Math.cos(z / 11) * 0.3; } if (f < 0.12) continue;
       for (let y = 2; y <= LY; y++) { const i = at(x, y, z); if (i >= 0 && !world[i]) { const b = world[at(x, y - 1, z)]; if (b || y === 2) { world[i] = LV; l++; } } } }
     U.gravel = g; U.lava = l; }
-  try { const gen = generate; generate = function () { const res = gen.apply(this, arguments); try { if (on()) { const t0 = performance.now(); caves(); U.ms = Math.round(performance.now() - t0); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('caves', e); } return res; }; } catch (e) { ERR('gen', e); }
+  try { const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(45)) return gen.apply(this, arguments);  const res = gen.apply(this, arguments); try { if (on()) { const t0 = performance.now(); caves(); U.ms = Math.round(performance.now() - t0); try { dirtyAll = true; } catch (_) {} } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('caves', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(45); return res; } }; } catch (e) { ERR('gen', e); }
   // ---------- never stuck inside a block ----------
   let safe = null;
   const inBlk = (x, y, z) => { try { return solid(Math.floor(x), Math.floor(y + 0.5), Math.floor(z)) && solid(Math.floor(x), Math.floor(y + 1.4), Math.floor(z)); } catch (_) { return false; } };
@@ -45823,7 +45882,7 @@ function make42(E) {
   /* v1.2.24: the old tunnel entry into the separate Agartha world is removed; Agartha is under Scotland (GLX-AGU). The mouth record (GLX-V1214 and the Watcher bowl keep out) now only comes from an old save (c294 v3). */
   U.WP = (d, a) => U.M ? WP(U.M, d, a) : null; U.AG = {CX, CZ, TL, AW, AD};
   Object.defineProperty(U, 'L', {get() { return DIM.cur === 'agartha' ? U.A : (!DIM.cur && window.__c307 && __c307.ready && __c307.L) || (U.Lw && U.Lw.v === 2 ? U.Lw : null); }, set(v) { U.Lw = v; }, configurable: true});
-  const gen = generate; generate = function () { U.L = null; U.M = null; const r = gen.apply(this, arguments); try { if (on()) { build(); try { dirtyAll = true; } catch (_) {} } } catch (e) { ERR('gen', e); } return r; };
+  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(46)) return gen.apply(this, arguments);  U.L = null; U.M = null; const r = gen.apply(this, arguments); try { if (on()) { build(); try { dirtyAll = true; } catch (_) {} } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(46); return r; } };
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && U.Lw) d.c294 = U.Lw; if (d && DIM.cur === 'agartha' && U.A) d.c294a = U.A; } catch (_) {} return d; };
   const ew = enterWorld; enterWorld = function (save) { try { U.L = save && save.c294 || null; U.M = U.Lw && U.Lw.v === 3 ? {x: U.Lw.mouth[0], z: U.Lw.mouth[1], y: U.Lw.mouth[2], e: U.Lw.e || 'N', c: U.Lw.c != null ? U.Lw.c : U.Lw.mouth[0], df: U.Lw.df || U.Lw.mouth[1], d0: U.Lw.d0, f0: U.Lw.f0} : null; U.A = null; } catch (_) {} return ew.apply(this, arguments); };
 })();
@@ -47710,7 +47769,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     U.kept = kept; U.cols = N - kept; U.trees = TR.length; U.ms = Math.round(performance.now() - t0); U.runs++; U.done = 1; try { world[(1 * H + 1) * D + 1] = MK(); world[(1 * H + 1) * D + 2] = MK(); } catch (_) {} try { __c339.fresh(); } catch (_) {} for (const t of [500, 4000, 12000]) setTimeout(() => { try { __c339.fresh(); } catch (_) {} }, t); }
   U.scot = scot; const MK = () => T.OBSIDIAN || 73; const marked = () => { try { return world[(1 * H + 1) * D + 1] === MK() && world[(1 * H + 1) * D + 2] === MK(); } catch (_) { return true; } };
   const elig = () => { try { return W === 864 && D === 864 && genVer === GEN9 && !DIM.cur && !cityGen && !!window.__c339; } catch (_) { return false; } };
-  try { const gen = generate; generate = function () { const r = gen.apply(this, arguments); U.gen = 1; U.busy = 0; return r; }; } catch (e) { ERR('g', e); }
+  try { const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(47)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); U.gen = 1; U.busy = 0; { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(47); return r; } }; } catch (e) { ERR('g', e); }
   try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && U.done) d.c341 = 1; } catch (_) {} return d; }; } catch (e) { ERR('s', e); }
   try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) { U.done = d.c341 ? 1 : 0; U.gen = 0; } return r; }; } catch (e) { ERR('a', e); }
   async function migrate() { U.busy = 1; try { const id = current.id, d0 = serialize(); delete d0.c341;
@@ -58052,7 +58111,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__sea1 = {err: null, pockets: 0, ponds: 0, runs: 0, busy: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   let fresh = false, lastW = null, job = null;
-  try { const g = generate; generate = function () { const r = g.apply(this, arguments); fresh = true; return r; }; } catch (e) { ERR('gen', e); }
+  try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(48)) return g.apply(this, arguments);  const r = g.apply(this, arguments); fresh = true; { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(48); return r; } }; } catch (e) { ERR('gen', e); }
   const SOL = b => b && b !== T.WATER && !(typeof PLANT !== 'undefined' && PLANT[b]) && !(typeof LEAFY !== 'undefined' && LEAFY[b]);
   let TER = null; const ter = () => TER || (TER = new Set([T.STONE, T.DIRT, T.GRASS, T.SAND, T.GRAVEL, T.DEEPSLATE, T.CLAY, T.SANDSTONE, T.HEATHER, T.MUD, T.COBBLE, T.BEDROCK, T.HBEDROCK, T.WSTONE].filter(Boolean)));
   // below sea level: water is the sea unless real ground (stone, earth, sand) lies over it; above sea level it is an old pond
@@ -59173,7 +59232,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   // new terrain: natural trees grow as Scots pine (runs on the freshly generated world, before any save is applied over it)
   const TREE = new Map([[T.LOG, 135], [136, 135], [T.LEAVES, 146], [147, 146]]);
   U.convertWorld = (arr) => { let n = 0; for (let i = 0; i < arr.length; i++) { const v = arr[i]; if (v === T.LOG || v === 136 || v === T.LEAVES || v === 147) { arr[i] = TREE.get(v); n++; } } return n; };
-  try { const g = generate; generate = function () { const r = g.apply(this, arguments); try { if (!DIM.cur) U.gen += U.convertWorld(world); } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('genwrap', e); }
+  try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(49)) return g.apply(this, arguments);  const r = g.apply(this, arguments); try { if (!DIM.cur) U.gen += U.convertWorld(world); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(49); return r; } }; } catch (e) { ERR('genwrap', e); }
   U.strip = strip; strip(); { let t = 0; const iv = setInterval(() => { strip(); if (++t > 30) clearInterval(iv); }, 2000); }
 })();
 
@@ -59346,7 +59405,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (d <= Rr) world[i] = y <= 4 ? (r > Math.sqrt(Math.max(0, Rr * Rr - dy * dy)) - 3 ? T.LAVA : 774) : T.AIR; else if (d <= Rr + 1.2) world[i] = 774; }
     for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, px = Math.round(cx + Math.cos(a) * (Rr - 6)), pz = Math.round(cz + Math.sin(a) * (Rr - 6)); for (let y = 3; y <= cy + 7; y++) for (const [ox, oz] of [[0, 0], [1, 0], [0, 1], [1, 1]]) world[idx(px + ox, y, pz + oz)] = 772; }
     U.eye = [cx + 0.5, cy + 1.5, cz + 0.5]; try { if (current) current.v1212eye = U.eye; } catch (_) {} return U.eye; };
-  try { const g = generate; generate = function () { const r = g.apply(this, arguments); try { if (!DIM.cur && !cityGen && H >= 40 && !window.__v1217) { U.conv = U.strata(); U.chamber(); } } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
+  try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(50)) return g.apply(this, arguments);  const r = g.apply(this, arguments); try { if (!DIM.cur && !cityGen && H >= 40 && !window.__v1217) { U.conv = U.strata(); U.chamber(); } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(50); return r; } }; } catch (e) { ERR('gw', e); }
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && U.eye) d.v1212eye = U.eye; } catch (_) {} return d; }; const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) U.eye = Array.isArray(d.v1212eye) ? d.v1212eye : null; } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
   // ---- the eye: one bounded mesh (two planes + a ring), emissive, shown within 70 blocks, slow look-at and blink ----
   let eye = null, t = 0;
@@ -59438,7 +59497,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     const fl = U.fall; seal(fl ? (x, y, z) => x === fl[0] && z === fl[2] && y >= fl[1] : null); U.lava = LAVA.length;
     const [mx, mf, mz] = at(0.02), [ex, ef, ez] = at(0.97); arch(Math.round(mx), Math.round(mz), mf, ax, 3); arch(Math.round(ex), Math.round(ez), ef, ax, 3);
     U.link = {from: [Math.round(sx), 6, Math.round(sz)], to: tgt, len: Math.round(len), halls}; try { if (current) current.v1214link = U.link; } catch (_) {} return U.link; };
-  try { const g = generate; generate = function () { const r = g.apply(this, arguments); try { U.link = null; U.why = null; U.cells = 0; if (!DIM.cur && !cityGen && H >= 40 && window.__v1212) U.build(__v1212.eye); } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
+  try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(51)) return g.apply(this, arguments);  const r = g.apply(this, arguments); try { U.link = null; U.why = null; U.cells = 0; if (!DIM.cur && !cityGen && H >= 40 && window.__v1212) U.build(__v1212.eye); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(51); return r; } }; } catch (e) { ERR('gw', e); }
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && U.link) d.v1214link = U.link; } catch (_) {} return d; };
     const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) U.link = d.v1214link || null; } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
 })();
@@ -59452,8 +59511,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
 (function v1215() {
   const U = window.__v1215 = {err: null, pending: false, late: 0, why: null};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
-  try { const g = generate; generate = function () { U.pending = false; const r = g.apply(this, arguments);
-      try { const A = window.__v1212; U.pending = !!(A && !A.eye && !DIM.cur && !cityGen && H >= 40 && /not known/.test(A.why || '')); U.wid = current && current.id; } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
+  try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(52)) return g.apply(this, arguments);  U.pending = false; const r = g.apply(this, arguments);
+      try { const A = window.__v1212; U.pending = !!(A && !A.eye && !DIM.cur && !cityGen && H >= 40 && /not known/.test(A.why || '')); U.wid = current && current.id; } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(52); return r; } }; } catch (e) { ERR('gw', e); }
   try { const ap = applySave; applySave = function () { U.pending = false; return ap.apply(this, arguments); }; } catch (e) { ERR('ap', e); }
   function late() { if (!U.pending) return; if (DIM.cur || (current && current.id) !== U.wid || !window.__c294 || !__c294.M) return; U.pending = false;
     const A = window.__v1212, L = window.__v1214; if (!A || !A.chamber) return; const e = A.chamber(); U.why = A.why || null;
@@ -59599,8 +59658,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       if (!ok) continue; for (let x = sx - 2; x <= sx + 2; x++) for (let z = sz - 2; z <= sz + 2; z++) { if (Math.hypot(x - sx, z - sz) > 2.6) continue; for (let y = 0; y < top; y++) { const i = idx(x, y, z); if (NAT.has(world[i])) world[i] = T.AIR; } } n++; }
     return n; }
   // ---- hooks ----
-  try { const g = generate; generate = function () { const r = g.apply(this, arguments); try { U.dl = false; EYE = null;
-      if (!DIM.cur && W >= 600 && !cityGen) { U.dl = true; EYE = [W >> 1, -196, D >> 1]; if (window.__v1212) __v1212.eye = EYE.slice(); try { if (current) current.v1212eye = EYE.slice(); } catch (_) {} U.ent = agOk() ? entrances() : 0; flush(); } } catch (e) { ERR('gen', e); } return r; }; } catch (e) { ERR('gw', e); }
+  try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(53)) return g.apply(this, arguments);  const r = g.apply(this, arguments); try { U.dl = false; EYE = null;
+      if (!DIM.cur && W >= 600 && !cityGen) { U.dl = true; EYE = [W >> 1, -196, D >> 1]; if (window.__v1212) __v1212.eye = EYE.slice(); try { if (current) current.v1212eye = EYE.slice(); } catch (_) {} U.ent = agOk() ? entrances() : 0; flush(); } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(53); return r; } }; } catch (e) { ERR('gw', e); }
   try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && U.dl) d.v1217dl = 1; } catch (_) {} return d; };
     const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) { const was = U.dl; U.dl = !!d.v1217dl; EYE = U.dl && Array.isArray(d.v1212eye) ? d.v1212eye : (U.dl ? [W >> 1, -196, D >> 1] : null); if (was !== U.dl) flush(); } } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
   let lastOn = null; setInterval(() => { try { const o = U.on(); if (o !== lastOn) { lastOn = o; flush(); } } catch (_) {} }, 1000);
@@ -61547,6 +61606,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.87","d":"2026-11-16","notes":["The loading bar now fills smoothly the whole time a world is loading, and no longer sits still at 84%."]},
 {"v":"v1.2.86","d":"2026-11-16","notes":["The game runs more smoothly. First-person arm movement no longer piles up extra work while you play, and the crafting grid isn't rebuilt over and over.","When the game is under strain it eases off a little — slightly softer pixels, and a slightly closer view of the world — so it can stay closer to your screen's refresh rate, then puts the extras back when there's headroom. There is no frame-rate cap."]},
 {"v":"v1.2.85","d":"2026-11-16","notes":["Your shirt's original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down.","First-person hands now use the same smooth third-person hand, coming out of your cream shirt cuff, with the fingers wrapped around whatever you're holding. Your current arm animations and grips stay as they are.","The loading bar now fills smoothly like liquid and keeps moving the whole time a world is loading, and worlds load faster."]},
 {"v":"v1.2.84","d":"2026-11-15","notes":["Your chest is back in third person with real volume: the shirt's open sides and the henley slit are closed using the shirt's own edges, and the chest, waist and back are fuller.","The side panels shade to match the front of the shirt, and the sash no longer runs across your back.","Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down, with or without the jetpack."]},
@@ -69932,7 +69992,11 @@ try {
     const R = rng((worldSeed() ^ 0x12480d) >>> 0), made = [], changed = [];
     const want = Math.max(6, Math.min(36, maxN || Math.round((W * D) / 90000)));
     const minD = Math.max(48, Math.min(90, Math.sqrt(W * D) / 14));
-    for (let tries = 0; tries < 8000 && made.length < want; tries++) {
+    const __L1248 = window.__glenLoad; let __st1248 = (__L1248 && __L1248._p1248) ? __L1248._p1248 : {tries: 0, made: made, changed: changed};
+    if (__st1248.made !== made && __st1248.tries) { made.push.apply(made, __st1248.made); changed.push.apply(changed, __st1248.changed); }
+    __st1248.made = made; __st1248.changed = changed;
+    for (; __st1248.tries < 8000 && made.length < want; __st1248.tries++) {
+      try { if (__L1248 && __L1248.pulse) __L1248.pulse('p1248', __st1248.tries, 8000, 'Planting the glens…', 86, 88); } catch (e) { if (__L1248 && __L1248.isYield && __L1248.isYield(e)) { __L1248._p1248 = __st1248; throw e; } throw e; }
       const x = 16 + (R() * (W - 32)) | 0, z = 16 + (R() * (D - 32)) | 0;
       if (made.some(m => Math.hypot(m[0] - x, m[1] - z) < minD)) continue;
       let h = 0;
@@ -69975,16 +70039,16 @@ try {
   U.placePools = placePools1248;
   try {
     const gen = generate;
-    window.generate = generate = function () {
+    window.generate = generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(54)) return gen.apply(this, arguments); 
       const r = gen.apply(this, arguments);
       try {
         if (!DIM.cur && !cityGen && W >= 200) {
           const have = window.__c118 && __c118.placed && __c118.placed.length;
-          if (!have || __c118.placed.length < 4) placePools1248();
+          if (window.__glenLoad && __glenLoad.live) { __glenLoad._deferPools = 1; } else if (!have || __c118.placed.length < 4) placePools1248();
           U.genPools = 1;
         }
-      } catch (e) { ERR('gen', e); }
-      return r;
+      } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); }
+      { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(54); return r; }
     };
   } catch (e) { ERR('genw', e); }
   try {
@@ -87157,6 +87221,11 @@ try {
     label: '',
     creepT: 0,
     t0: 0,
+    expectMs: 60000,
+    timed: 0,
+    finishing: 0,
+    finishT: 0,
+    finishFrom: 0,
     err: null
   };
 
@@ -87168,13 +87237,17 @@ try {
      One rAF after that lets the browser composite the DOM bar — no 3D. */
   const _mc = new MessageChannel();
   _mc.port1.start();
+  let _mcLive = 1;
+  let _raf = 0;
   function yieldPaint() {
-    try { paint(U.shown); } catch (_) {}
+    if (!U.live) return Promise.resolve();
+    try { applyDisplay(); paint(U.shown); } catch (_) {}
     // Kick a frame so the already-updated DOM bar can composite, but do
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
-    try { requestAnimationFrame(function () {}); } catch (_) {}
+    try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
     return new Promise(function (res) {
+      if (!_mcLive || !U.live) { res(); return; }
       try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
       catch (_) { res(); }
     });
@@ -87207,6 +87280,7 @@ try {
         '#scr-loading #loadW.liquid1285 .load-fill, #scr-loading #loadW.liquid1285 > i{display:block;position:absolute;left:0;top:0;bottom:0;height:100%;width:0;max-width:100%;background:linear-gradient(180deg,#fff1b0 0%,#ffe58e 18%,#f0c24a 48%,#d9a52c 76%,#a66b12 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 14px rgba(242,196,64,.45)!important;animation:none!important;background-image:none!important;background-size:auto!important;transition:none!important;border-radius:0 8px 8px 0}',
         '#scr-loading #loadW.liquid1285 .load-wave{position:absolute;top:-7px;left:-40%;right:-40%;height:14px;pointer-events:none;display:block;background:radial-gradient(ellipse 18px 8px at 12% 70%,rgba(255,249,220,.95) 0%,rgba(255,249,220,0) 70%),radial-gradient(ellipse 22px 9px at 36% 40%,rgba(255,236,170,.9) 0%,rgba(255,236,170,0) 70%),radial-gradient(ellipse 16px 8px at 58% 75%,rgba(255,249,220,.95) 0%,rgba(255,249,220,0) 70%),radial-gradient(ellipse 20px 9px at 82% 45%,rgba(255,236,170,.9) 0%,rgba(255,236,170,0) 70%);animation:load1285wave 1.15s linear infinite;opacity:.95;filter:drop-shadow(0 1px 0 rgba(80,40,0,.25))}',
         '#scr-loading #loadW.liquid1285 .load-fill::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.28) 45%,rgba(255,255,255,.02) 60%,transparent 100%);background-size:140% 100%;animation:load1285shine 2.2s linear infinite;pointer-events:none;mix-blend-mode:soft-light}',
+        '#scr-loading #loadW.liquid1285.load1285done .load-wave, #scr-loading #loadW.liquid1285.load1285done .load-fill::before, #scr-loading:not(.on) #loadW .load-wave, #scr-loading:not(.on) #loadW .load-fill::before{animation:none!important;-webkit-animation:none!important;display:none!important}',
         '@keyframes load1285wave{from{transform:translateX(0)}to{transform:translateX(20%)}}',
         '@keyframes load1285shine{from{background-position:-40% 0}to{background-position:140% 0}}',
         '#scr-loading #loadPct{font:800 clamp(20px,5.2vw,28px) GlenBold,system-ui,sans-serif;color:#fff6cf!important;letter-spacing:.04em;margin-top:2px;text-shadow:0 0 12px rgba(224,165,72,.55),0 2px 6px #000}',
@@ -87218,16 +87292,113 @@ try {
   }
   U.ensureDom = ensureDom;
 
+  /* Time-driven displayed progress, separate from real work.
+     displayed = max(real-based, time curve). The curve eases toward 97% over
+     the expected load, then creeps asymptotically toward 99% so the bar never
+     freezes if the world takes longer. Expected duration starts at 60s and
+     adapts from the last few actual loads in localStorage. When the world is
+     ready, shown glides to 100 over ~400ms and the rAF tick then stops. */
+  const LS_KEY = 'glenLoadTimes';
+  const EXPECT_DEFAULT = 60000;
+  const EXPECT_MIN = 30000;
+  const EXPECT_MAX = 120000;
+  const TIMED_AT_T = 97;
+  const TIMED_CAP = 99;
+  const GLIDE_MS = 400;
+
+  function readExpect() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
+      const times = (raw && Array.isArray(raw.times) ? raw.times : [])
+        .map(Number).filter(function (t) { return t >= 8000 && t <= 180000; });
+      if (!times.length) return EXPECT_DEFAULT;
+      const last = times.slice(-5);
+      const avg = last.reduce(function (a, b) { return a + b; }, 0) / last.length;
+      return Math.max(EXPECT_MIN, Math.min(EXPECT_MAX, avg));
+    } catch (_) { return EXPECT_DEFAULT; }
+  }
+  function rememberLoad(ms) {
+    ms = Math.round(ms);
+    if (!Number.isFinite(ms) || ms < 8000 || ms > 180000) return;
+    try {
+      const raw = JSON.parse(localStorage.getItem(LS_KEY) || 'null') || {};
+      const times = Array.isArray(raw.times) ? raw.times.slice() : [];
+      times.push(ms);
+      while (times.length > 5) times.shift();
+      localStorage.setItem(LS_KEY, JSON.stringify({times: times, v: 1}));
+    } catch (_) {}
+  }
+  /* Pure. elapsed and T in ms. Ease to 97% at t=T, then exp creep toward 99%. */
+  function timeCurve(elapsed, T) {
+    T = Math.max(1, T || EXPECT_DEFAULT);
+    const t = Math.max(0, elapsed);
+    if (t <= T) {
+      const u = t / T;
+      /* Mostly linear so the last seconds of T still move; a little ease so it is not a hard corner. */
+      const e = 0.8 * u + 0.2 * (u * u * (3 - 2 * u));
+      return TIMED_AT_T * e;
+    }
+    const over = t - T;
+    const tau = 45000;
+    return Math.min(TIMED_CAP - 0.05, TIMED_AT_T + (TIMED_CAP - TIMED_AT_T) * (1 - 1 / (1 + over / tau)));
+  }
+  U.timeCurve = timeCurve;
+  U.readExpect = readExpect;
+
+  function applyDisplay(now) {
+    now = now || performance.now();
+    const prevT = U._tickAt || now;
+    const dt = Math.max(0, Math.min(3000, now - prevT));
+    U._tickAt = now;
+    if (U.finishing) {
+      const u = Math.min(1, (now - (U.finishT || now)) / GLIDE_MS);
+      const e = 1 - (1 - u) * (1 - u);
+      let shown = (U.finishFrom || 0) + (100 - (U.finishFrom || 0)) * e;
+      if (u >= 1) shown = 100;
+      if (shown < U.shown) shown = U.shown;
+      U.shown = shown;
+      return U.shown;
+    }
+    if (!U.t0) U.t0 = now;
+    const timed = timeCurve(now - U.t0, U.expectMs || EXPECT_DEFAULT);
+    U.timed = timed;
+    let aim = Math.max(U.shown, timed, Math.min(U.real || 0, TIMED_CAP));
+    aim = Math.min(TIMED_CAP, aim);
+    /* Floor creep so a flat time-curve tail, or a tick after a long task,
+       still moves the bar. The rate tapers as shown nears 99 so the last
+       2% is not burned in ~25s, leaving the bar frozen until ready.
+       Catch-up after a hitch is capped at 8% per second (and 8% in one
+       paint) so two rAF frames cannot snap the bar 16%. */
+    const cap = TIMED_CAP - 0.02;
+    if (U.shown < cap) {
+      const room = cap - U.shown;
+      const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
+      const floor = floorRate * (dt / 1000);
+      const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
+      const stepped = Math.min(cap, U.shown + floor);
+      if (aim > U.shown) {
+        U.shown = Math.min(cap, Math.max(stepped, Math.min(aim, U.shown + maxStep)));
+      } else {
+        U.shown = stepped;
+      }
+    }
+    if (U.shown < 0) U.shown = 0;
+    return U.shown;
+  }
+  U.applyDisplay = applyDisplay;
+
   function setReal(n, label, cap) {
     n = +n;
     if (!Number.isFinite(n)) return;
-    if (U.done) {
+    if (U.done && !U.finishing) {
       U.real = 100;
       return;
     }
+    if (U.finishing) return;
     if (cap != null) U.cap = cap;
     const next = Math.max(U.real, Math.min(U.done ? 100 : U.cap, n));
     U.real = next;
+    try { applyDisplay(); paint(U.shown); } catch (_) {}
     if (label) U.label = label;
     U.creepT = performance.now();
     const tip = $('loadTip');
@@ -87237,10 +87408,16 @@ try {
   U.touch = setReal;
 
   function finish() {
+    if (U.finishing) return;
+    const now = performance.now();
     U.done = 1;
     U.cap = 100;
     U.real = 100;
-    U.shown = 100;
+    U.finishing = 1;
+    U.finishT = now;
+    U.finishFrom = Math.max(0, Math.min(99, U.shown || 0));
+    try { rememberLoad(now - (U.t0 || now)); } catch (_) {}
+    /* Do not snap shown to 100 — applyDisplay glides the last stretch in ~400ms. */
   }
   U.finish = finish;
 
@@ -87256,42 +87433,47 @@ try {
   function tick() {
     if (!U.live) return;
     const now = performance.now();
-    if (!U.done && U.real < U.cap) {
+    if (!U.done && !U.finishing && U.real < U.cap) {
       const idle = now - (U.creepT || now);
       if (idle > 180) {
-        const room = U.cap - U.real;
+        const room = Math.min(U.cap, TIMED_CAP) - U.real;
         const step = Math.min(room * 0.018, Math.max(0.07, room * 0.004));
-        U.real = Math.min(U.cap - 0.15, U.real + step);
+        U.real = Math.min(Math.min(U.cap, TIMED_CAP) - 0.15, U.real + step);
       }
     }
-    const target = U.done ? 100 : U.real;
-    let shown = U.shown;
-    if (target > shown) {
-      const k = U.done ? 0.22 : 0.16;
-      shown += (target - shown) * k;
-      if (target - shown < 0.04) shown = target;
+    applyDisplay(now);
+    paint(U.shown);
+    if (U.finishing && (U.shown >= 99.95 || (now - (U.finishT || now)) >= GLIDE_MS + 50)) {
+      stop();
+      return;
     }
-    if (shown > target) shown = target;
-    if (shown < 0) shown = 0;
-    if (U.done && shown > 99.4) shown = 100;
-    if (!U.done && shown > 99.2) shown = 99.2;
-    U.shown = shown;
-    paint(shown);
-    if (U.live) requestAnimationFrame(tick);
+    if (U.live) _raf = requestAnimationFrame(tick);
+    else _raf = 0;
   }
 
   function start(label) {
     ensureDom();
+    try {
+      const bar = $('loadW');
+      if (bar) bar.classList.remove('load1285done');
+    } catch (_) {}
+    _mcLive = 1;
+    try { if (_raf) cancelAnimationFrame(_raf); } catch (_) {}
+    _raf = 0;
     U.live = 1;
     U.done = 0;
+    U.finishing = 0;
     U.real = Math.max(U.real, 0.5);
     U.shown = Math.max(U.shown, 0);
-    U.cap = 92;
+    U.cap = 99;
     U.creepT = performance.now();
     U.t0 = U.t0 || performance.now();
+    U.expectMs = readExpect();
+    U._tickAt = U.t0;
     if (label) setReal(U.real, label);
+    applyDisplay();
     paint(U.shown);
-    requestAnimationFrame(tick);
+    _raf = requestAnimationFrame(tick);
   }
   U.start = start;
 
@@ -87299,8 +87481,30 @@ try {
     U.done = 1;
     U.real = 100;
     U.shown = 100;
-    paint(100);
+    U.finishing = 0;
     U.live = 0;
+    try { if (_raf) cancelAnimationFrame(_raf); } catch (_) {}
+    _raf = 0;
+    _mcLive = 0;
+    try { _mc.port1.onmessage = null; } catch (_) {}
+    try { paint(100); } catch (_) {}
+    try {
+      const bar = $('loadW');
+      if (bar) {
+        bar.classList.add('load1285done');
+        const wave = bar.querySelector('.load-wave');
+        if (wave) {
+          wave.style.animation = 'none';
+          wave.style.webkitAnimation = 'none';
+          wave.style.display = 'none';
+        }
+        const fill = bar.querySelector('.load-fill') || bar.firstElementChild;
+        if (fill) {
+          fill.style.animation = 'none';
+          fill.style.webkitAnimation = 'none';
+        }
+      }
+    } catch (_) {}
   }
   U.stop = stop;
 
@@ -87310,37 +87514,146 @@ try {
     await yieldPaint();
   };
 
+  U.maybeYield = function () {
+    if (!U.held && !U._softHold) return false;
+    if (performance.now() - (U._tSlice || 0) > 200) {
+      U._tSlice = performance.now();
+      throw U.YIELD;
+    }
+    return false;
+  };
+  /* Run a wrapper post-stage once, then yield if the 200ms slice is used up.
+     On resume the cached result is returned so caves/settle/plant are not redone. */
+  U.coop = function (id, label, p, fn) {
+    if (!U._passed) U._passed = Object.create(null);
+    if (!U._ret) U._ret = Object.create(null);
+    if (U._passed[id]) return U._ret[id];
+    if (U.held && label) try { U.touch(p, label, 99); } catch (_) {}
+    const r = fn();
+    U._ret[id] = r;
+    U._passed[id] = 1;
+    /* Do not yield here — markPost yields after the wrapper is marked so
+       a resume can skip this wrapper's pre-apply work. */
+    return r;
+  };
+  /* After a yield in the outer post chain, skip wrapper post-bodies that
+     already finished so uncached posts are not redone on every slice. */
+  U.markPost = function (id) {
+    if (!U._passed) U._passed = Object.create(null);
+    U._passed['w:' + id] = 1;
+    /* Yield only after the wrapper is marked so a resume skips its post. */
+    try { applyDisplay(); paint(U.shown); } catch (_) {}
+    U.maybeYield();
+  };
+  U.skipPost = function (id) {
+    return !!(U.held && U.genDone && U._passed && U._passed['w:' + id]);
+  };
+
+  U.pulse = function (id, i, n, label, p0, p1) {
+    if (!U.held) return;
+    if (U._loop) U._loop[id] = i + 1;
+    /* Only paint when a yield is due — touching the DOM on every loop
+       iteration (e.g. 6000 placePools tries) stalls a throttled phone
+       for minutes and the world never reaches ready. */
+    const due = performance.now() - (U._tSlice || 0) > 200;
+    if (due && label && n != null) {
+      const a = p0 != null ? p0 : U.real, b = p1 != null ? p1 : a;
+      try { U.touch(a + (b - a) * (i + 1) / Math.max(1, n), label, 99); } catch (_) {}
+    }
+    U.maybeYield();
+  };
+
   U.generate = async function () {
     U.held = 1;
+    U.genDone = 0;
     U.genX = 0;
     U._g9 = null;
+    U._gen9 = null;
+    U._featX = 0;
+    U._plant = null;
+    U._pools = null;
+    U._p1248 = null;
+    U._passed = Object.create(null);
+    U._ret = Object.create(null);
+    U._loop = Object.create(null);
+    U._tSlice = performance.now();
     if (typeof generate !== 'function') throw new Error('generate missing');
-    const g = generate;
+    const outer = generate;
+    const args = arguments;
     let guarded = 0;
     const t0 = performance.now();
-    while (true) {
-      try {
-        const r = g.apply(null, arguments);
-        U.held = 0;
-        U._g9 = null;
-        U.genX = 0;
-        setReal(Math.max(U.real, 68), 'Building the land around you…', 99);
-        try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
-        return r;
-      } catch (e) {
-        if (!U.isYield(e)) {
-          U.held = 0;
-          U._g9 = null;
-          throw e;
+    async function pump(pick) {
+      while (true) {
+        try {
+          return pick().apply(null, args);
+        } catch (e) {
+          if (!U.isYield(e)) {
+            U.held = 0;
+            U._g9 = null;
+            throw e;
+          }
+          guarded++;
+          U._yields = guarded;
+          if (guarded > 20000) {
+            U.held = 0;
+            throw new Error('generate yield overflow');
+          }
+          /* Catch the displayed bar up from the time curve and real work. */
+          try { applyDisplay(); } catch (_) {}
+          await yieldPaint();
+          /* Fresh 200ms work budget after the yield. Otherwise the
+             wrapper-chain / paint time already burns the slice and
+             a loop like placePools does one try per yield. */
+          U._tSlice = performance.now();
         }
-        guarded++;
-        if (guarded > 20000) {
-          U.held = 0;
-          throw new Error('generate yield overflow');
-        }
-        await yieldPaint();
       }
     }
+    /* After the first slice, resume the innermost GEN9 directly so the 50+
+       wrapper preambles are not paid again (that was most of the +7.7s). */
+    const rInner = await pump(function () { return (!U.genDone && U._gen9) ? U._gen9 : outer; });
+    let r = rInner;
+    if (U.genDone) r = await pump(function () { return outer; });
+    U.held = 0;
+    U._g9 = null;
+    U.genX = 0;
+    setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
+    try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
+    return r;
+  };
+
+  /* Mud pools are not needed to enter. Running them inside generate() on a
+     throttled phone never finished (wrapper resume + 6000 site scans), so
+     they are deferred until after the world is playable and stepped with
+     soft yields so they do not hitch the first seconds of play. */
+  U.runDeferredPools = async function () {
+    if (!U._deferPools) return;
+    U._deferPools = 0;
+    U._softHold = 1;
+    U._tSlice = performance.now();
+    try {
+      while (true) {
+        try {
+          const ch = typeof placePools1248 === 'function' ? placePools1248() : (typeof placePools === 'function' ? placePools(7, null) : []);
+          try {
+            if (Array.isArray(ch) && typeof markDirty === 'function') {
+              for (let i = 0; i < ch.length; i++) markDirty(ch[i][0], ch[i][1]);
+            }
+          } catch (_) {}
+          break;
+        } catch (e) {
+          if (!U.isYield(e)) throw e;
+          await new Promise(function (res) {
+            try {
+              const mc = new MessageChannel();
+              mc.port1.onmessage = function () { res(); };
+              mc.port2.postMessage(0);
+            } catch (_) { res(); }
+          });
+          U._tSlice = performance.now();
+        }
+      }
+    } catch (e) { ERR('pools', e); }
+    U._softHold = 0;
   };
 
   /* Take over the original enterWorld rAF lerp so both sources share one meter. */
@@ -87384,9 +87697,12 @@ try {
             ensureDom();
             if (!U.live) start();
           } else if (U.live && name !== 'loading') {
-            finish();
-            paint(100);
-            setTimeout(function () { try { U.stop(); } catch (_) {} }, 80);
+            if (!U.finishing) finish();
+            /* Do not snap the bar — the 400ms glide should already be at 100. */
+            if (U.shown >= 99.5) {
+              try { paint(U.shown); } catch (_) {}
+              setTimeout(function () { try { U.stop(); } catch (_) {} }, 80);
+            }
           }
         } catch (e) { ERR('ss', e); }
         return ss.apply(this, arguments);
@@ -87460,6 +87776,9 @@ try {
     try { ensureDom(); } catch (e) { ERR('dom', e); }
   }
 })(typeof window !== 'undefined' ? window : this);
+
+
+
 /* GLX-PERF1286: frame-rate work for phones, TVs and 120Hz screens (t1226/t1227/t1228).
    1) Bone textures are re-uploaded only when a skeleton's matrices really changed
       (the FP hand clone and the TP player were uploading the same bones several
