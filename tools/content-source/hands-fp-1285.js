@@ -1351,25 +1351,35 @@
     const T = T3(); if (!T) return;
     const R = rig();
     const arm = R && R.userData && R.userData[state.side];
-    const cuff = arm && arm.userData && arm.userData.p && arm.userData.p.cuff;
-    if (!cuff) return;
-    if (!cuff.userData._fpCuffBase1285) cuff.userData._fpCuffBase1285 = cuff.position.clone();
-    cuff.position.copy(cuff.userData._fpCuffBase1285);
+    if (!arm) return;
     const follow = !!(seat && seat.cuffFollow);
     const dx = follow ? (seat.x || 0) : 0, dy = follow ? (seat.y || 0) : 0, dz = follow ? (seat.z || 0) : 0;
-    if (!(dx || dy || dz) || !state.wrap || !state.wrap.parent || !cuff.parent) return;
-    /* Seat is wrap-parent local. Carry the same world delta onto the cuff,
-       even when the cuff lives under the forearm rather than the wrist. */
-    const ph = state.wrap.parent;
-    ph.updateMatrixWorld(true);
-    cuff.parent.updateMatrixWorld(true);
-    const o = new T.Vector3();
-    const n = new T.Vector3(dx, dy, dz);
-    ph.localToWorld(o);
-    ph.localToWorld(n);
-    const w = cuff.getWorldPosition(new T.Vector3()).add(n.sub(o));
-    cuff.parent.worldToLocal(w);
-    cuff.position.copy(w);
+    const ph = state.wrap && state.wrap.parent;
+    let dW = null;
+    if (follow && (dx || dy || dz) && ph) {
+      ph.updateMatrixWorld(true);
+      const o = new T.Vector3();
+      const n = new T.Vector3(dx, dy, dz);
+      ph.localToWorld(o);
+      ph.localToWorld(n);
+      dW = n.sub(o);
+    }
+    const visit = function (o) {
+      if (!o || !o.isMesh || !o.parent) return;
+      if (state.wrap && (o === state.wrap || o.parent === state.wrap)) return;
+      const n = (o.name || '') + ' ' + ((o.userData && o.userData.name) || '');
+      const linen = (typeof isLinenSleeve === 'function') && isLinenSleeve(o);
+      if (!linen && !/cuff|sleeve|linen|forearm/i.test(n) && !(arm.userData && arm.userData.p && o === arm.userData.p.cuff)) return;
+      if (!o.userData._fpCuffBase1285) o.userData._fpCuffBase1285 = o.position.clone();
+      o.position.copy(o.userData._fpCuffBase1285);
+      if (!dW) return;
+      o.parent.updateMatrixWorld(true);
+      const w = o.getWorldPosition(new T.Vector3()).add(dW);
+      o.parent.worldToLocal(w);
+      o.position.copy(w);
+    };
+    if (arm.traverse) arm.traverse(visit);
+    else visit(arm.userData && arm.userData.p && arm.userData.p.cuff);
   }
 
   function applyTune(state) {
