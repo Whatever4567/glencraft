@@ -291,16 +291,18 @@
     } catch (e) { ERR('rest', e); }
   }
 
+  const WRAPPED1280 = (typeof WeakSet === 'function') ? new WeakSet() : { _a: [], has(o) { return this._a.indexOf(o) >= 0; }, add(o) { this._a.push(o); } };
   function install() {
     const THREE = T3();
     const R = rig();
     if (!THREE || !R) return;
     holdFrame();
     applyThumb();
-    /* t1224 perf: the marker on the function is lost when the next module
-       wraps it, so this re-wrapped every second (~1.5 nested wrappers/s,
-       each re-running the arm pass). R.userData keeps one wrap per module. */
-    if (!R.updateMatrixWorld.__sculpt1280 && !(R.userData && R.userData.sculpt1280)) {
+    /* GLX-PERF1286: the wrapped flag lives on the rig (WeakSet), not on the outermost function.
+       Before, sculpt1280/1281/1282 each saw the other's wrapper on top every 1s install tick and
+       wrapped again, so R.updateMatrixWorld grew by 3 wrappers a second and frame cost kept rising. */
+    if (!WRAPPED1280.has(R)) {
+      WRAPPED1280.add(R);
       const prev = R.updateMatrixWorld;
       R.updateMatrixWorld = function (force) {
         try { if (U.on) upgradeArms(this); } catch (e) { ERR('pose', e); }

@@ -26,7 +26,7 @@ if (!html.includes('<!-- glencraft-build: b1285-v1.2.85 -->')) {
     'build marker');
 }
 
-const NOTE = '{"v":"v1.2.85","d":"2026-11-16","notes":["Your shirt\'s original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down.","First-person hands now use the same smooth third-person hand, coming out of your cream shirt cuff, with the fingers wrapped around whatever you\'re holding. Knuckles, tendons, pads, nails and linen cuff folds are sculpted on that hand the same way as the rest of you, and creases are shaded in. Your current arm animations stay as they are.","The loading meter now fills smoothly as the world is generated, without jumping."]},';
+const NOTE = '{"v":"v1.2.85","d":"2026-11-16","notes":["Your shirt\'s original sides are back in third person: the stomach and waist wrap from the first Scottish model, not stitched-on panels.","The chest matches that original shape. Your chest, kilt and sporran stay hidden only from your own first-person camera, so nothing blocks your view when you look down.","First-person hands now use the same smooth third-person hand, coming out of your cream shirt cuff, with the fingers wrapped around whatever you\'re holding. Knuckles, tendons, creases and nails are shaded into that skin. Your current arm animations stay as they are.","The loading bar now fills smoothly like liquid and keeps moving the whole time a world is loading, and worlds load faster."]},';
 if (!html.includes('"v":"v1.2.85"')) {
   html = replaceOnce(html,
     'window.PATCH_NOTES = [\n{"v":"v1.2.84"',
@@ -106,6 +106,7 @@ must(html.includes('function hideSashBack(') && html.includes('SASH_BACK: 1'), '
 must(html.includes('WIDEN: 0') && html.includes('FILL_GLOW: 0') && html.includes('BRIDGE: 0'), 'stitched bridges, glow and widen off');
 must(html.includes('SHIRT_|_sewn_torso_with_open_throat'), 'v1 source mesh name embedded');
 must(html.includes('<!-- glencraft-build: b1279-v1.2.79 -->'), '1.2.79 marker stays');
+must(html.includes('/* GLX-LOAD1285') && html.includes('<!-- glencraft-build: load1285 -->') && html.includes('liquid1285'), 'liquid loading bar is in the build');
 {
   const st = html.indexOf('{"v":"v1.2.85"');
   const en = html.indexOf('{"v":"v1.2.84"', st);

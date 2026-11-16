@@ -144,12 +144,18 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.86 Smoother performance
+
+- The game runs more smoothly: first-person arm movement no longer piles up extra work while you play (the 1.2.80–1.2.82 sculpt wrappers were wrapping each other every second), and the crafting grid is only rebuilt when recipes actually change.
+- Skeleton bone textures are uploaded only when the pose changes.
+- Quality now follows your display's refresh rate, with no frame-rate cap: when the GPU is busy the game lowers pixel ratio first, then trims the stream radius by at most one chunk, and restores them when there is headroom. The older c79 dynamic-resolution path stands down.
+
 ## v1.2.85 Original shirt sides
 
 - The 1.2.84 stitched side bridges and their side glow are replaced with the original 1.2.36 scottish-base-v1 shirt side and stomach geometry (SHIRT_|_sewn_torso_with_open_throat, plus the far-LOD visual_torso_outfit), skinned to the current torso bones and aligned to the current shirt so there are no gaps or z-fighting.
 - The 1.2.84 width/depth scale is off so the chest matches the original 1.2.36 shape. Sash-back hide and first-person-only torso hide are unchanged. Nothing on the player is deleted.
 - First-person hands now use the same third-person hand mesh and HeadSkin shading, attached to the existing __fpa wrist and coming out of the cream linen cuff. The old box and tube first-person hand pieces are hidden, not deleted. The cloned third-person forearm skin is clipped in first person only so the linen sleeve shows at the wrist. Fingers curl around each held item. On the first-person clone only, knuckles, tendons, creases and nails are shaded into the smooth skin (the older blocky prism pieces stay in the mesh but are hidden). Animations, torch and pick jitter, and third-person hands are unchanged.
-- The loading meter fills as a smooth liquid as the world is generated: terrain work yields cooperatively and post-column wrappers are sliced so the bar rises without jumps.
+- The world loading bar fills smoothly like liquid and keeps moving while the world is built. New worlds also load faster, because the game can keep drawing the bar during generation and no longer stalls the meter. Terrain work yields cooperatively and post-column wrappers are sliced so the bar rises without jumps.
 
 ## v1.2.84 Chest restored with volume
 

@@ -10,7 +10,7 @@ const frame = fs.readFileSync(path.join(root, 'tools/pilot-model-source/held-fra
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-const OKV = ['1.2.83', '1.2.84', '1.2.85'];
+const OKV = ['1.2.83', '1.2.84', '1.2.85', '1.2.86'];
 ok(OKV.includes(ver.v), 'version.json is 1.2.83+');
 ok(OKV.some(v => html.includes("const GAME_VERSION = '" + v + "';")), 'GAME_VERSION is 1.2.83+');
 ok(html.includes('<!-- glencraft-build: b1283-v1.2.83 -->'), 'build marker');
@@ -23,7 +23,7 @@ ok(credits.includes('## v1.2.83 Tartan colour, clear first-person view, finished
   const s0 = html.indexOf('window.PATCH_NOTES = [');
   const e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
-  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.83') : -1; ok(k >= 0 && k <= 3 && arr[k + 1].v === 'v1.2.82', 'PATCH_NOTES parses, 1.2.83 before 1.2.82'); }
+  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.83') : -1; ok(k >= 0 && k <= 4 && arr[k + 1].v === 'v1.2.82', 'PATCH_NOTES parses, 1.2.83 before 1.2.82'); }
 }
 {
   const re = /<script>([\s\S]*?)<\/script>/g; let m;
