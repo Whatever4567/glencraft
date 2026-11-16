@@ -75,7 +75,7 @@
       block:  { sx: -1, rx: -0.42, x: 0.00, y: -0.02, z: 0.04, cuffFollow: 1 },
       map:    { sx: -1, rx: -0.72, x: 0.00, y: 0.00, z: 0.03, cuffFollow: 1 },
       bucket: { x: -0.081, y: 0.077, z: 0.130, cuffFollow: 1 },
-      torch:  { x: 0, y: 0.01, z: 0.00, cuffFollow: 1 },
+      torch:  { x: 0, y: 0.01, z: 0.00 },
       sword:  { x: 0.00, y: 0.01, z: 0.02 },
       pick:   { x: 0.06, y: -0.02, z: 0.08 },
       p761:   { x: 0.06, y: -0.02, z: 0.08 },
@@ -1358,11 +1358,8 @@
     if (!arm) return;
     const follow = !!(seat && seat.cuffFollow);
     const wrap = state.wrap;
-    const key = (U.kind || '') + ':' + state.side + ':' + (follow ? 1 : 0) + ':' +
-      ((seat && seat.x) || 0) + ',' + ((seat && seat.y) || 0) + ',' + ((seat && seat.z) || 0) + ',' +
-      ((seat && seat.rx) || 0) + ',' + ((seat && seat.sx) || 1);
-    if (state._cuffKey === key) return;
-    state._cuffKey = key;
+    /* Recompute every pose tick so a first call before the wrap is
+       seated cannot stick a stale cuff delta. Vector temps are cached. */
     let dW = null;
     if (follow && wrap && wrap.parent) {
       /* World delta of a wrap-local wrist anchor (not the origin, which
