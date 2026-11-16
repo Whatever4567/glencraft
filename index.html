@@ -86748,9 +86748,9 @@ try {
      collapse: a little more proximal and distal curl, thumb wraps over
      the index instead of standing up or dropping through the palm. */
   const fist = () => ({
-    p: [1.32, 1.42, 1.42, 1.28].map(v => S * v),
-    d: [1.38, 1.48, 1.48, 1.34].map(v => S * v),
-    t: [1.08 * S, 0.95 * S], tY: 0.70, tZ: 0.48
+    p: [1.40, 1.50, 1.50, 1.36].map(v => S * v),
+    d: [1.46, 1.56, 1.56, 1.42].map(v => S * v),
+    t: [1.14 * S, 1.02 * S], tY: 0.78, tZ: 0.54
   });
   const POSES = {
     empty: {
@@ -86768,9 +86768,9 @@ try {
     /* Tight closed fist around the hilt. Curls stay under ~1.65 rad so
        the glove does not collapse and open holes between the fingers. */
     sword: {
-      p: [1.52, 1.60, 1.60, 1.48].map(v => S * v),
-      d: [1.58, 1.66, 1.66, 1.54].map(v => S * v),
-      t: [1.20 * S, 1.08 * S], tY: 0.90, tZ: 0.60
+      p: [1.56, 1.62, 1.62, 1.52].map(v => S * v),
+      d: [1.60, 1.66, 1.66, 1.56].map(v => S * v),
+      t: [1.22 * S, 1.12 * S], tY: 0.94, tZ: 0.62
     },
     /* Vice-tight wrap around the pick shaft, short of a skin collapse. */
     pick: {
@@ -86783,14 +86783,14 @@ try {
     hoe: fist(),
     /* Middle/ring/pinky wrap the grip; index rests on the trigger guard. */
     pistol: {
-      p: [0.28, 1.40, 1.44, 1.32].map(v => S * v),
-      d: [0.16, 1.22, 1.26, 1.14].map(v => S * v),
-      t: [0.92 * S, 0.66 * S], tY: 0.50, tZ: 0.28
+      p: [0.24, 1.50, 1.54, 1.42].map(v => S * v),
+      d: [0.14, 1.32, 1.36, 1.24].map(v => S * v),
+      t: [1.00 * S, 0.74 * S], tY: 0.56, tZ: 0.34
     },
     musket: {
-      p: [0.36, 1.24, 1.28, 1.16].map(v => S * v),
-      d: [0.22, 1.06, 1.10, 0.98].map(v => S * v),
-      t: [0.70 * S, 0.46 * S], tY: 0.30, tZ: 0.16
+      p: [0.32, 1.36, 1.40, 1.28].map(v => S * v),
+      d: [0.20, 1.16, 1.20, 1.08].map(v => S * v),
+      t: [0.80 * S, 0.54 * S], tY: 0.36, tZ: 0.20
     },
     map: {
       p: [0.42, 0.44, 0.48, 0.50].map(v => S * v),
@@ -86804,9 +86804,9 @@ try {
     },
     /* Left hand wraps the musket forestock (not the open support pose). */
     forestock: {
-      p: [1.20, 1.32, 1.32, 1.18].map(v => S * v),
-      d: [1.00, 1.12, 1.12, 0.98].map(v => S * v),
-      t: [0.88 * S, 0.60 * S], tY: 0.48, tZ: 0.26
+      p: [1.36, 1.48, 1.48, 1.32].map(v => S * v),
+      d: [1.18, 1.30, 1.30, 1.16].map(v => S * v),
+      t: [1.00 * S, 0.72 * S], tY: 0.56, tZ: 0.32
     }
   };
   POSES.p761 = POSES.pick;
@@ -86824,6 +86824,26 @@ try {
   };
 
   function T3() { return (typeof THREE !== 'undefined' && THREE) || W.THREE || null; }
+
+  /* glTF / meshopt often stores positions as normalized Int16. Three r128
+     Vector3.fromBufferAttribute does not apply the accessor scale (the
+     game's own C322 sight baker multiplies by nq for the same reason). */
+  function attrQuant(attr) {
+    if (!attr || !attr.normalized) return 1;
+    const A = attr.array;
+    if (A instanceof Int16Array) return 1 / 32767;
+    if (A instanceof Int8Array) return 1 / 127;
+    if (A instanceof Uint16Array) return 1 / 65535;
+    if (A instanceof Uint8Array) return 1 / 255;
+    return 1;
+  }
+  function fromPos(attr, i, target) {
+    target.fromBufferAttribute(attr, i);
+    const q = attrQuant(attr);
+    if (q !== 1) target.multiplyScalar(q);
+    return target;
+  }
+
 
   function currentKind() {
     let id = 0, got = 0;
@@ -87979,6 +87999,13 @@ try {
     if (state.side === 'L' && ONE_HAND[U.kind]) seat = (U.seat && U.seat.empty) || {};
     if (state.side === 'L' && U.kind === 'musket' && U.seat && U.seat.musketL) seat = U.seat.musketL;
     if (state.wrap) state.wrap.visible = !(state.side === 'L' && ONE_HAND[U.kind]);
+    /* Restore any previous wrist-snap so __fpa's pose is the base this frame
+       (a per-frame recapture of an already-offset wrist accumulated). */
+    if (state._snapOff && state.wrap && state.wrap.parent) {
+      state.wrap.parent.position.sub(state._snapOff);
+      state._snapOff = null;
+      state._snapKind = null;
+    }
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
     const s = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
@@ -87987,6 +88014,8 @@ try {
     if (U.gripLock && state.side === 'R' && GRIP_KINDS[U.kind]) {
       try { gripLock(state); } catch (e) { ERR('grip', e); }
     }
+    if (state.side === 'R') { U.pistolSeekD = 0; U.handleSeekD = 0; U.camZClamp = 0; U.wristSnapD = 0; }
+    if (state.side === 'L') { U.musketSeekD = 0; }
     if (U.pistolGrip && state.side === 'R' && U.kind === 'pistol') {
       try { seekPistolGrip(state); } catch (e) { ERR('pistolGrip', e); }
     }
@@ -88017,7 +88046,7 @@ try {
       const m = new T.Matrix4().multiplyMatrices(hi, o.matrixWorld);
       const p = o.geometry.attributes.position;
       const step = Math.max(1, (p.count / 300) | 0);
-      for (let i = 0; i < p.count; i += step) pts.push(new T.Vector3().fromBufferAttribute(p, i).applyMatrix4(m));
+      for (let i = 0; i < p.count; i += step) pts.push(fromPos(p, i, new T.Vector3()).applyMatrix4(m));
     });
     if (pts.length < 4) return null;
     const c = new T.Vector3();
@@ -88060,8 +88089,13 @@ try {
     let mag = null;
     h.traverse(function (o) { if (!mag && o.isMesh && /magazine/i.test(o.name || '')) mag = o; });
     if (!mag || !mag.geometry) return null;
-    mag.geometry.computeBoundingBox();
-    const bb = mag.geometry.boundingBox, c = bb.getCenter(new T.Vector3()), sz = bb.getSize(new T.Vector3());
+    /* Don't trust geometry.boundingBox: quantized Int16 boxes are huge. */
+    const pos = mag.geometry.attributes.position;
+    const tmp = new T.Vector3();
+    const bb = new T.Box3();
+    const step = Math.max(1, (pos.count / 400) | 0);
+    for (let i = 0; i < pos.count; i += step) bb.expandByPoint(fromPos(pos, i, tmp));
+    const c = bb.getCenter(new T.Vector3()), sz = bb.getSize(new T.Vector3());
     const k = sz.x > sz.y ? (sz.x > sz.z ? 'x' : 'z') : (sz.y > sz.z ? 'y' : 'z');
     const A = c.clone(), B = c.clone();
     A[k] = bb.min[k]; B[k] = bb.max[k];
@@ -88149,11 +88183,34 @@ try {
       state._holeKind = tag;
     }
     state.wrap.updateMatrix();
+    state.wrap.updateMatrixWorld(true);
     const hPh = tmp.a.copy(state._hole).applyMatrix4(state.wrap.matrix);
     const d = tmp.b.copy(targetPh).sub(hPh);
     if (d.length() > maxD) d.setLength(maxD);
     if (d.lengthSq() < 1e-8) return;
-    state.wrap.position.add(d);
+    /* Wrist-local IK: translate p.h (the __fpa wrist) in its parent (forearm)
+       space so the linen cuff rides with the glove. Shoulder / upper-arm
+       bones are not touched. Restore from a per-frame base so the __fpa
+       animation is not accumulated. */
+    const wrist = state.wrap.parent;
+    if (wrist && wrist.parent) {
+      /* applyTune already restored any previous offset, so wrist.position is the
+         animated rest. Save it once and add the (clamped) forearm-space delta. */
+      const base = wrist.position.clone();
+      wrist.updateMatrix();
+      wrist.updateMatrixWorld(true);
+      tmp.a.copy(d).transformDirection(wrist.matrixWorld);
+      const len = tmp.a.length();
+      tmp.pi.copy(wrist.parent.matrixWorld).invert();
+      tmp.a.transformDirection(tmp.pi);
+      if (tmp.a.lengthSq() > 1e-12) tmp.a.setLength(len);
+      wrist.position.copy(base).add(tmp.a);
+      state._snapOff = tmp.a.clone();
+      state._snapKind = tag;
+      U.wristSnapD = +tmp.a.length().toFixed(3);
+    } else {
+      state.wrap.position.add(d);
+    }
     return d.length();
   }
 
@@ -88182,7 +88239,7 @@ try {
       if (by > ay) { top = B; bot = A; }
     }
     tmp.b.copy(top).lerp(bot, U.gunGripF);
-    const d = seekWrapTo(state, tmp.b, 0.045, 'pistol-seek');
+    const d = seekWrapTo(state, tmp.b, 0.06, 'pistol-seek');
     if (d != null) U.pistolSeekD = +d.toFixed(3);
   }
 
@@ -88201,7 +88258,7 @@ try {
       const m = new T.Matrix4().multiplyMatrices(hi, o.matrixWorld);
       const p = o.geometry.attributes.position;
       const step = Math.max(1, (p.count / 240) | 0);
-      for (let i = 0; i < p.count; i += step) pts.push(new T.Vector3().fromBufferAttribute(p, i).applyMatrix4(m));
+      for (let i = 0; i < p.count; i += step) pts.push(fromPos(p, i, new T.Vector3()).applyMatrix4(m));
     });
     if (pts.length < 6) return null;
     const c = new T.Vector3();
@@ -88241,7 +88298,7 @@ try {
     }
     const targetW = stock.clone().lerp(muzzle, 0.40).applyMatrix4(h.matrixWorld);
     const targetPh = ph.worldToLocal(targetW);
-    const d = seekWrapTo(state, targetPh, 0.05, 'musket-seek');
+    const d = seekWrapTo(state, targetPh, 0.08, 'musket-seek');
     if (d != null) U.musketSeekD = +d.toFixed(3);
   }
 
@@ -88263,17 +88320,33 @@ try {
        kind is pick. Cheapest: just use g and a slightly larger clamp. */
     const targetPh = tmp.b.copy(g).applyMatrix4(tmp.m);
     if (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760') {
-      /* Nudge further up the handle from the 15% point toward the head
-         by mixing 0.15 -> ~0.40 along the already-found axis, approx
-         by moving 0.08 m toward the held origin if it sits up-shaft. */
+      /* Grip the shaft nearest the current fist hole, not mid-length of a
+         ~1 m pick (that target sat 20 cm past the hand). Fall back to the
+         15% heldGripLocal point if the hole is missing. */
+      state.wrap.updateMatrixWorld(true);
+      const holeW = new T.Vector3();
+      if (state.prox[1] && state.dist[1]) {
+        const a = state.prox[1].getWorldPosition(new T.Vector3());
+        const b = state.dist[1].getWorldPosition(new T.Vector3());
+        holeW.copy(a).add(b).multiplyScalar(0.5);
+      } else {
+        state.wrap.getWorldPosition(holeW);
+      }
+      const holePh = holeW.clone();
+      ph.worldToLocal(holePh);
+      /* Slide target along the shaft (held origin <-> g) to the closest point to the hole. */
       const originPh = tmp.a.set(0, 0, 0).applyMatrix4(tmp.m);
-      const along = originPh.sub(targetPh);
-      if (along.lengthSq() > 1e-8) {
-        along.setLength(Math.min(0.10, along.length() * 0.35));
-        targetPh.add(along);
+      const axis = originPh.clone().sub(tmp.b.copy(g).applyMatrix4(tmp.m));
+      if (axis.lengthSq() > 1e-8) {
+        const base = tmp.b.copy(g).applyMatrix4(tmp.m);
+        const t = holePh.clone().sub(base).dot(axis) / axis.lengthSq();
+        const tt = Math.max(-0.15, Math.min(0.55, t));
+        targetPh.copy(base).addScaledVector(axis, tt);
       }
     }
-    const d = seekWrapTo(state, targetPh, 0.04, 'handle-seek-' + U.kind);
+    /* Wrist snap keeps the cuff on the glove, so a slightly larger clamp is safe. */
+    const maxD = (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760') ? 0.10 : 0.05;
+    const d = seekWrapTo(state, targetPh, maxD, 'handle-seek-' + U.kind);
     if (d != null) U.handleSeekD = +d.toFixed(3);
   }
 
@@ -88284,10 +88357,10 @@ try {
     const T = T3(); if (!T || !state || !state.wrap || !state.wrap.parent) return;
     const cam = (typeof camera !== 'undefined' && camera) || W.camera;
     if (!cam) return;
-    let minDist = 0.20;
-    if (U.kind === 'pistol') minDist = 0.14;
-    if (U.kind === 'musket' && state.side === 'L') minDist = 0.22;
-    if (U.kind === 'musket' && state.side === 'R') minDist = 0.14;
+    let minDist = 0.12;
+    if (U.kind === 'pistol') minDist = 0.10;
+    if (U.kind === 'musket' && state.side === 'L') minDist = 0.16;
+    if (U.kind === 'musket' && state.side === 'R') minDist = 0.10;
     cam.updateMatrixWorld(true);
     const ci = U._camInv || (U._camInv = new T.Matrix4());
     ci.copy(cam.matrixWorld).invert();
@@ -88295,16 +88368,19 @@ try {
     state.wrap.updateMatrixWorld(true);
     const w = tmp.a;
     state.wrap.getWorldPosition(w).applyMatrix4(ci);
-    if (w.z <= -minDist) return;
-    const need = (-minDist) - w.z;
-    if (need <= 0) return;
-    /* Camera looks down -Z, so world forward is cam's -Z axis. */
+    /* Camera looks down -Z: more-negative z is further in front. z=-0.05 is
+       closer than z=-0.22. Push along the look vector when too close. */
+    const dz0 = w.z - (-minDist);
+    if (dz0 <= 0) return;
+    /* Cap the push so a single frame cannot slide the cuff off the glove
+       or throw the wrap through the lens. */
+    const dz = Math.min(0.03, dz0);
     tmp.b.set(0, 0, -1).transformDirection(cam.matrixWorld);
     state.wrap.getWorldPosition(tmp.c);
-    tmp.c.addScaledVector(tmp.b, need);
+    tmp.c.addScaledVector(tmp.b, dz);
     state.wrap.parent.worldToLocal(tmp.c);
     state.wrap.position.copy(tmp.c);
-    U.camZClamp = +need.toFixed(3);
+    U.camZClamp = +dz.toFixed(3);
   }
 
   /* Pull the pistol off the near plane in camera space, moving the held
