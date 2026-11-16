@@ -35,6 +35,9 @@ ok(html.includes('veinJobs') && html.includes('__parkOres'), 'GEN9 ores and loch
 ok(html.includes('__Lv._loop.silver') && html.includes('__Lh._loop.hives'), 'placeOreVeins and placeHives are sliced');
 ok(html.includes("__Lk._loop.keeps") && html.includes('__L4._loop.c41') && html.includes('__Lf._loop.finishC'), 'castle placement, c41 and finishCastles are sliced');
 ok(html.includes('__Cv._loop.carve'), 'carveCaves is sliced and persists sd');
-ok(html.includes('Date.now() - __wT') && html.includes('++__nT >= 4'), 'sliced column loops also cap on wall-clock time and column count');
+ok(html.includes('Date.now() - __wT') && !html.includes('++__nT >= 4'), 'sliced column loops cap on wall-clock time, not a 4-column forced yield');
+ok(!html.includes('++__nD >= 4') && !html.includes('++__nO >= 4') && !html.includes('++__nC >= 4') && !html.includes('__nS < 4'), 'no leftover 4-iteration forced yields');
+ok(html.includes("_origRandom") && html.includes('_randGap = 1'), 'Math.random is isolated during generate yield gaps');
+ok(html.includes("__parkSettle('struct', x, y + 1)") && html.includes("__parkSettle('att', x + 1, y)"), 'c39Settle can yield mid-column and mid-layer');
 
 console.log('v1289-loading: ' + n + ' ok');

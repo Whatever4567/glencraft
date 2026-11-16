@@ -502,7 +502,9 @@
           }
           /* Catch the displayed bar up from the time curve and real work. */
           try { applyDisplay(); } catch (_) {}
-          await yieldPaint();
+          _randGap = 1;
+          try { await yieldPaint(); }
+          finally { _randGap = 0; }
           /* Fresh 200ms work budget after the yield. Otherwise the
              wrapper-chain / paint time already burns the slice and
              a loop like placePools does one try per yield. */
@@ -512,9 +514,29 @@
     }
     /* After the first slice, resume the innermost GEN9 directly so the 50+
        wrapper preambles are not paid again (that was most of the +7.7s). */
+    /* Keep generate's Math.random sequence isolated from timers/rAF that
+       run in MessageChannel yield gaps. Otherwise placeOreVeins/placeHives
+       (and any other Math.random stages) diverge from a synchronous run. */
+    const _origRandom = Math.random;
+    let _randGap = 0, _gapS = 0xC0FFEE;
+    Math.random = function () {
+      if (_randGap) {
+        _gapS = (Math.imul(_gapS, 1664525) + 1013904223) >>> 0;
+        return _gapS / 4294967296;
+      }
+      return _origRandom.call(Math);
+    };
+    U._randGap = function (on) { _randGap = on ? 1 : 0; };
+    let r;
+    try {
     const rInner = await pump(function () { return (!U.genDone && U._gen9) ? U._gen9 : outer; });
-    let r = rInner;
+    r = rInner;
     if (U.genDone) r = await pump(function () { return outer; });
+    } finally {
+      _randGap = 0;
+      Math.random = _origRandom;
+      U._randGap = null;
+    }
     U.held = 0;
     U._g9 = null;
     U.genX = 0;
