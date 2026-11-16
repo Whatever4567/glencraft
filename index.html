@@ -86705,16 +86705,19 @@ try {
        lands on the palm centre. Applied from the game's own held base
        so the 1251/1261 jitter-fix writes stay intact. */
     HELD_OFF: {
-      /* t1246: solved offsets (qa/t1246/solve-offsets.mjs) do not hold:
-         the __fpa arm re-aims at the item each frame (pick/torch diverge,
-         sword converges to the same 10 cm), and the C350 seat overrides
-         the guns. Zero until the 1251 palm target is aligned. O(1) path. */
-      empty: [0, 0, 0], block: [0, 0, 0], bucket: [0, 0, 0], torch: [0, 0, 0],
-      sword: [0, 0, 0], pistol: [0, 0, 0], musket: [0, 0, 0], map: [0, 0, 0],
-      pick: [0, 0, 0], p761: [0, 0, 0], p760: [0, 0, 0]
+      /* t1246: solved so the grip-region centroid lands on the palm
+         (qa/t1246/solve-offsets.mjs fixed-point, draw-scoped so the
+         __fpa aim and 1251/1261 writes do not chase or overwrite). */
+      empty: [0, 0, 0], block: [0, 0, 0], bucket: [0, 0, 0],
+      torch: [0.045, -0.0368, -0.0314],
+      sword: [0.0167, -0.1172, 0.0589],
+      pistol: [0, 0, 0],
+      musket: [-0.0607, -0.0058, -0.0175],
+      map: [0, 0, 0],
+      pick: [0.0173, -0.0222, -0.091],
+      p761: [0.0173, -0.0222, -0.091],
+      p760: [0.0173, -0.0222, -0.091]
     },
-    /* Camera-space delta added to the __fpa rig and `held` (same world
-       move) so a hip gun's right hand sits in front of the lens. */
     VIEW_OFF: {
       musket: [0, 0, 0]
     },
@@ -88508,26 +88511,16 @@ try {
        it from scratch each frame (or copy the torch freeze), and the
        __fpa arm aims at `held`, not at this child, so a constant here
        is not chased. Restore-if-unchanged keeps it from accumulating. */
+    /* t1246: render-scoped. The item mesh (held.children[0]) gets the
+       solved constant only for the draw, then is put back, so the game's
+       own 1251/1261 writes (incl. smoothed / frozen torch-pick jitter
+       fixes) and the __fpa aim never see it: nothing accumulates, no
+       per-frame seek. O(1): two vector adds per frame. */
     const m = h.children && h.children[0];
     const t = heldOffOf(U.kind);
-    const ox = t ? (t[0] || 0) : 0, oy = t ? (t[1] || 0) : 0, oz = t ? (t[2] || 0) : 0;
-    if (m) {
-      const rec = m.userData && m.userData._fpOff1285;
-      const same = rec && m.position.distanceToSquared(rec.out) < 1e-12;
-      if (same && rec.kind === U.kind && rec.ox === ox && rec.oy === oy && rec.oz === oz) {
-        U.itemGripD = +Math.hypot(ox, oy, oz).toFixed(3);
-      } else {
-        if (same) m.position.copy(rec.base);
-        if (ox || oy || oz) {
-          const base = m.position.clone();
-          m.position.set(base.x + ox, base.y + oy, base.z + oz);
-          m.userData._fpOff1285 = { base: base, out: m.position.clone(), kind: U.kind, ox: ox, oy: oy, oz: oz };
-        } else if (m.userData) {
-          m.userData._fpOff1285 = null;
-        }
-        U.itemGripD = +Math.hypot(ox, oy, oz).toFixed(3);
-      }
-    }
+    U._drawOff = (m && t && (t[0] || t[1] || t[2])) ? { m: m, x: t[0] || 0, y: t[1] || 0, z: t[2] || 0 } : null;
+    U.itemGripD = t ? +Math.hypot(t[0] || 0, t[1] || 0, t[2] || 0).toFixed(3) : 0;
+    hookDrawOff();
     const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
     const vx = v[0] || 0, vy = v[1] || 0, vz = v[2] || 0;
     const hr = h.userData._fpView1285;
@@ -88548,6 +88541,33 @@ try {
     h.parent.worldToLocal(w);
     h.position.copy(w);
     h.userData._fpView1285 = { base: base, out: h.position.clone(), kind: U.kind, vx: vx, vy: vy, vz: vz };
+  }
+
+  function drawOffOn() {
+    const d = U._drawOff;
+    if (!d || U._drawOffOn) return;
+    d.m.position.x += d.x; d.m.position.y += d.y; d.m.position.z += d.z;
+    U._drawOffOn = d;
+  }
+  function drawOffOff() {
+    const d = U._drawOffOn;
+    if (!d) return;
+    d.m.position.x -= d.x; d.m.position.y -= d.y; d.m.position.z -= d.z;
+    U._drawOffOn = null;
+  }
+  U.drawOffOn = drawOffOn; U.drawOffOff = drawOffOff;
+  function hookDrawOff() {
+    let r = null;
+    try { if (typeof renderer !== 'undefined') r = renderer; } catch (_) {}
+    if (!r || r.__drawOff1285) return;
+    const prev = r.render;
+    r.render = function () {
+      const top = !U._drawDepth;
+      U._drawDepth = (U._drawDepth || 0) + 1;
+      if (top) drawOffOn();
+      try { return prev.apply(this, arguments); } finally { U._drawDepth--; if (top) drawOffOff(); }
+    };
+    r.__drawOff1285 = 1;
   }
 
   function applyViewRig(T) {
