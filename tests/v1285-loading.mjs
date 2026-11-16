@@ -184,6 +184,8 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
         if (b.t > a.t + 400 && b.r > a.r + 0.5) rate = 0.6 * ((b.r - a.r) / (b.t - a.t)) + 0.4 * rate;
       }
       let eta = rate < 1e-6 ? Math.max(elapsed * 3, 20000) : elapsed + Math.max(0, (100 - Math.min(st.real, 100)) / rate) + 400;
+      const minRemain = (100 - st.real) / 100 * 60000 * 0.5;
+      eta = Math.max(eta, elapsed + minRemain);
       if (st._eta) eta = eta < st._eta ? st._eta * 0.85 + eta * 0.15 : st._eta * 0.7 + eta * 0.3;
       st._eta = eta;
       return eta;
@@ -196,7 +198,7 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
       const fromReal = Math.min(98.5, st.real * 0.985);
       const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
       let aim = Math.max(fromReal, fromEta, st.shown);
-      const nearly = st.real >= NEAR_REAL || (eta - elapsed) <= NEAR_ETA;
+      const nearly = st.real >= NEAR_REAL || (st.real >= 96 && (eta - elapsed) <= NEAR_ETA);
       if (nearly) aim = Math.max(aim, 99);
       if (aim >= 99 && !nearly) aim = 98.9;
       aim = Math.min(nearly ? 99 : 98.9, aim);
@@ -233,6 +235,10 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   ok(long.lastV >= 98, 'a long load still advances through the 98.x decimals');
   const drop = simPct(20000, (t) => t < 10000 ? 40 : 10);
   ok(drop.back === 0 && drop.lastV >= 1, 'displayed % never drops if real progress falls back');
+  const burst = simPct(60000, (t, T) => t < 5000 ? 64 * t / 5000 : 64 + 36 * (t - 5000) / (T - 5000));
+  ok(burst.back === 0, 'front-loaded real % never goes backwards');
+  ok(!burst.labels.some((e) => e.v >= 99 && e.t < 50000), 'a fast early stage does not snap the label to 99 (first 99 at t=' + burst.t99 + ')');
+  ok(burst.maxGap <= 2500, 'visible % gap stays at most 2.5s on a front-loaded 60s load (max ' + burst.maxGap + ')');
   // 400ms ease-out glide
   const finishFrom = 90, GLIDE = 400;
   const glide = (u) => {

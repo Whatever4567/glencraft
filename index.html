@@ -89010,9 +89010,14 @@ try {
     }
   }
 
+  function workReal() {
+    const w = U._workReal;
+    return Math.max(0, Math.min(100, w != null ? w : (U.real || 0)));
+  }
+
   function etaMs(now) {
     const elapsed = Math.max(1, now - (U.t0 || now));
-    const real = Math.max(0, Math.min(100, U.real || 0));
+    const real = workReal();
     let rate = real / elapsed;
     const rs = U._rate || [];
     if (rs.length >= 2) {
@@ -89027,6 +89032,12 @@ try {
       const target = 100;
       eta = elapsed + Math.max(0, (target - Math.min(real, target)) / rate) + 400;
     }
+    /* A front-loaded real % (mountains jump to ~60% in a few seconds)
+       would otherwise claim we are 2s from done. Floor remaining time
+       by half the expected duration times work left. */
+    const expect = Math.max(30000, U.expectMs || EXPECT_DEFAULT);
+    const minRemain = (100 - real) / 100 * expect * 0.5;
+    eta = Math.max(eta, elapsed + minRemain);
     if (U._eta) {
       if (eta < U._eta) eta = U._eta * 0.85 + eta * 0.15;
       else eta = U._eta * 0.7 + eta * 0.3;
@@ -89039,13 +89050,13 @@ try {
     now = now || performance.now();
     noteReal(now);
     const elapsed = Math.max(0, now - (U.t0 || now));
-    const real = Math.max(0, Math.min(100, U.real || 0));
+    const real = workReal();
     const eta = etaMs(now);
     const fromReal = Math.min(98.5, real * 0.985);
     const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
     let aim = Math.max(fromReal, fromEta, U.shown || 0);
     const remain = Math.max(0, eta - elapsed);
-    const nearly = real >= NEAR_REAL || remain <= NEAR_ETA || U.real >= 99;
+    const nearly = real >= NEAR_REAL || (real >= 96 && remain <= NEAR_ETA);
     if (nearly && !U.finishing && !U.done) aim = Math.max(aim, 99);
     if (aim >= 99 && !U.finishing && !U.done && !nearly) aim = 98.9;
     aim = Math.min((U.finishing || U.done) ? 100 : (nearly ? 99 : 98.9), aim);
@@ -89193,6 +89204,7 @@ try {
     if (cap != null) U.cap = cap;
     const next = Math.max(U.real, Math.min(U.done ? 100 : U.cap, n));
     U.real = next;
+    U._workReal = next;
     try { applyDisplay(); paint(U.shown); } catch (_) {}
     if (label) U.label = label;
     U.creepT = performance.now();
@@ -89298,6 +89310,7 @@ try {
     U._pctIntAt = U.t0;
     U._pctShown = 0;
     U._pctShownAt = U.t0;
+    U._workReal = U.real;
     U._rate = [];
     U._eta = 0;
     if (label) setReal(U.real, label);
