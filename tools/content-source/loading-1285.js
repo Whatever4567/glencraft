@@ -411,6 +411,7 @@
   U.stop = stop;
 
   U.boot = async function (label) {
+    U.gateHold = 1; U.gateUntil = performance.now() + 3000;
     try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
     start(label || 'Preparing your glen…');
     await yieldPaint();
@@ -552,6 +553,7 @@
       U._randGap = null;
     }
     U.held = 0;
+    U.gateHold = 0;
     try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
@@ -608,6 +610,7 @@
         U.done = 0;
         start(save ? 'Restoring your world…' : 'Preparing your glen…');
       } catch (e) { ERR('start', e); }
+      U.gateHold = 1; U.gateUntil = performance.now() + 3000;
       const self = this, args = arguments;
       const run = async function () {
         try { await yieldPaint(); } catch (_) {}
@@ -618,6 +621,8 @@
         } catch (e) {
           ERR('ew', e);
           throw e;
+        } finally {
+          if (U.gateHold) { U.gateHold = 0; try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {} }
         }
       };
       const p = run();

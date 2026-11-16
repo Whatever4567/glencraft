@@ -423,6 +423,7 @@ must(html.includes('coop("c104caves"') || html.includes('coop(\"c104caves\"') ||
 must(html.includes('const resume9 = function') && html.includes('__glenLoad._g12 = on'), 'GEN9 resume re-holds c37busy/__g12 wrapper flags');
 
 must(html.includes('GLX-LOAD1289 timer gate') && html.includes('tick.__tgFree = 1') && html.includes('__tgate.flush()'), 'timer gate holds game timers during sliced generate');
+must(html.includes('U.gateHold = 1') && html.includes('L.gateHold && performance.now() < (L.gateUntil || 0)'), 'timer gate also holds for up to 3s before generate starts');
 
 const vj = fs.readFileSync(path.join(root, 'version.json'), 'utf8');
 must(JSON.parse(vj).v === '1.2.88', 'version.json stays 1.2.88');

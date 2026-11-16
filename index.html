@@ -12,14 +12,16 @@
    The loading meter's own callbacks are marked __tgFree and keep running. */
 (function () { try {
   var W = window, G = W.__tgate = {q: [], skipped: 0, deferred: 0};
-  var held = function () { try { return !!(W.__glenLoad && W.__glenLoad.held); } catch (_) { return false; } };
+  var held = function () { try { var L = W.__glenLoad; return !!(L && L.held); } catch (_) { return false; } };
+  /* Before generate starts (loading screen just shown), timeouts, frames and interval ticks wait for at most 3s, then generate holds them until it finishes. */
+  var pre = function () { try { var L = W.__glenLoad; return !!(L && L.gateHold && performance.now() < (L.gateUntil || 0)); } catch (_) { return false; } };
   var nST = W.setTimeout, nSI = W.setInterval, nRAF = W.requestAnimationFrame;
   W.setTimeout = function (fn, ms) { if (typeof fn !== 'function') return nST.apply(W, arguments); var a = Array.prototype.slice.call(arguments, 2);
-    return nST.call(W, function () { if (held() && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn.apply(W, a); }); return; } return fn.apply(W, a); }, ms); };
+    return nST.call(W, function () { if ((held() || pre()) && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn.apply(W, a); }); return; } return fn.apply(W, a); }, ms); };
   W.setInterval = function (fn, ms) { if (typeof fn !== 'function') return nSI.apply(W, arguments); var a = Array.prototype.slice.call(arguments, 2);
-    return nSI.call(W, function () { if (held() && !fn.__tgFree) { G.skipped++; return; } return fn.apply(W, a); }, ms); };
+    return nSI.call(W, function () { if ((held() || pre()) && !fn.__tgFree) { G.skipped++; return; } return fn.apply(W, a); }, ms); };
   if (nRAF) W.requestAnimationFrame = function (fn) { if (typeof fn !== 'function') return nRAF.apply(W, arguments);
-    return nRAF.call(W, function (t) { if (held() && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn(performance.now()); }); return; } return fn(t); }); };
+    return nRAF.call(W, function (t) { if ((held() || pre()) && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn(performance.now()); }); return; } return fn(t); }); };
   G.flush = function () { var q = G.q; G.q = []; for (var i = 0; i < q.length; i++) { try { q[i](); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } } };
 } catch (_) {} })();</script>
 <meta name="theme-color" content="#1a1206">
@@ -89255,6 +89257,7 @@ try {
   U.stop = stop;
 
   U.boot = async function (label) {
+    U.gateHold = 1; U.gateUntil = performance.now() + 3000;
     try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
     start(label || 'Preparing your glen…');
     await yieldPaint();
@@ -89396,6 +89399,7 @@ try {
       U._randGap = null;
     }
     U.held = 0;
+    U.gateHold = 0;
     try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
@@ -89452,6 +89456,7 @@ try {
         U.done = 0;
         start(save ? 'Restoring your world…' : 'Preparing your glen…');
       } catch (e) { ERR('start', e); }
+      U.gateHold = 1; U.gateUntil = performance.now() + 3000;
       const self = this, args = arguments;
       const run = async function () {
         try { await yieldPaint(); } catch (_) {}
@@ -89462,6 +89467,8 @@ try {
         } catch (e) {
           ERR('ew', e);
           throw e;
+        } finally {
+          if (U.gateHold) { U.gateHold = 0; try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {} }
         }
       };
       const p = run();
