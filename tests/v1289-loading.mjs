@@ -39,5 +39,9 @@ ok(html.includes('Date.now() - __wT') && !html.includes('++__nT >= 4'), 'sliced 
 ok(!html.includes('++__nD >= 4') && !html.includes('++__nO >= 4') && !html.includes('++__nC >= 4') && !html.includes('__nS < 4'), 'no leftover 4-iteration forced yields');
 ok(html.includes("_origRandom") && html.includes('_randGap = 1'), 'Math.random is isolated during generate yield gaps');
 ok(html.includes("__parkSettle('struct', x, y + 1)") && html.includes("__parkSettle('att', x + 1, y)"), 'c39Settle can yield mid-column and mid-layer');
+ok(html.includes('GLX-LOAD1289 timer gate') && html.includes('tick.__tgFree = 1') && html.includes('__tgate.flush()'), 'timer gate holds game timers during sliced generate');
+ok(html.includes('const resume9 = function') && html.includes('__glenLoad._g12 = on'), 'GEN9 resume re-holds c37busy/__g12 wrapper flags');
+ok(html.includes('U.gateHold = 1') && html.includes('L.gateHold && performance.now() < (L.gateUntil || 0)'), 'timer gate also holds for up to 3s before generate starts');
+ok(src.includes('U.gateHold = 1') && src.includes('U.gateHold = 0') && src.includes('U.gateUntil = performance.now() + 3000'), 'loading source sets and clears the pre-generate gate');
 
 console.log('v1289-loading: ' + n + ' ok');
