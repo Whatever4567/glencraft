@@ -86695,12 +86695,29 @@ try {
        Tight fists come from bone curls; the pistol stays visible because
        the 1.2.80 FRAME rest nudge is zeroed in sculpt-1280. */
     gripLock: 0,
-    /* Translation-only, clamped seeks so the fist hole sits on the
-       handle / forestock. No world delta on `held`, no cuff-sliding
-       gripLock. Targets are cached so this is cheap per frame. */
-    pistolGrip: 1,
-    musketSeek: 1,
-    handleSeek: 1,
+    /* t1246: per-frame seeks / snaps / clamps are off. A solved,
+       scale-correct constant table (HELD_OFF) seats the grip in the
+       palm; optional VIEW_OFF is a constant camera-space nudge. */
+    pistolGrip: 0,
+    musketSeek: 0,
+    handleSeek: 0,
+    /* held-parent-local translation, solved so the grip-region centroid
+       lands on the palm centre. Applied from the game's own held base
+       so the 1251/1261 jitter-fix writes stay intact. */
+    HELD_OFF: {
+      /* t1246: solved offsets (qa/t1246/solve-offsets.mjs) do not hold:
+         the __fpa arm re-aims at the item each frame (pick/torch diverge,
+         sword converges to the same 10 cm), and the C350 seat overrides
+         the guns. Zero until the 1251 palm target is aligned. O(1) path. */
+      empty: [0, 0, 0], block: [0, 0, 0], bucket: [0, 0, 0], torch: [0, 0, 0],
+      sword: [0, 0, 0], pistol: [0, 0, 0], musket: [0, 0, 0], map: [0, 0, 0],
+      pick: [0, 0, 0], p761: [0, 0, 0], p760: [0, 0, 0]
+    },
+    /* Camera-space delta added to the __fpa rig and `held` (same world
+       move) so a hip gun's right hand sits in front of the lens. */
+    VIEW_OFF: {
+      musket: [0, 0, 0]
+    },
     /* Bake each held-item fist into a non-skinned mesh so the glove
        skeleton is not skinned or walked every frame. Hidden, not deleted.
        t1231: kept in the file but off — bake still punched holes in
@@ -87991,6 +88008,8 @@ try {
   }
 
   function applyTune(state) {
+    const _pt = profBegin('applyTune');
+
     const t = U.tune;
     const ONE_HAND = { pick: 1, p761: 1, p760: 1, sword: 1, torch: 1, bucket: 1, axe: 1, shovel: 1, hoe: 1, block: 1, map: 1, pistol: 1 };
     let seat = (U.seat && U.seat[U.kind]) || (U.seat && U.seat.empty) || {};
@@ -87999,47 +88018,22 @@ try {
     if (state.side === 'L' && ONE_HAND[U.kind]) seat = (U.seat && U.seat.empty) || {};
     if (state.side === 'L' && U.kind === 'musket' && U.seat && U.seat.musketL) seat = U.seat.musketL;
     if (state.wrap) state.wrap.visible = !(state.side === 'L' && ONE_HAND[U.kind]);
-    /* Restore any previous wrist-snap so __fpa's pose is the base this frame
-       (a per-frame recapture of an already-offset wrist accumulated). */
-    if (state._snapOff && state.wrap && state.wrap.parent) {
-      state.wrap.parent.position.sub(state._snapOff);
-      state._snapOff = null;
-      state._snapKind = null;
-    }
-    if (state._cuffSnapOff) {
-      try {
-        const R = rig();
-        const arm = R && R.userData && R.userData[state.side];
-        const cuff = arm && arm.userData && arm.userData.p && arm.userData.p.cuff;
-        if (cuff) cuff.position.sub(state._cuffSnapOff);
-      } catch (_) {}
-      state._cuffSnapOff = null;
-    }
     state.wrap.position.set((t.x || 0) + (seat.x || 0), (t.y || 0) + (seat.y || 0), (t.z || 0) + (seat.z || 0));
     state.wrap.rotation.set((t.rx || 0) + (seat.rx || 0), (t.ry || 0) + (seat.ry || 0), (t.rz || 0) + (seat.rz || 0));
-    const s = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
+    const sc = (seat.scale != null ? seat.scale : (t.scale == null ? 1 : t.scale));
     const sx = (seat.sx != null ? seat.sx : (t.sx == null ? 1 : t.sx));
-    state.wrap.scale.set(s * sx, s, s);
-    if (U.gripLock && state.side === 'R' && GRIP_KINDS[U.kind]) {
-      try { gripLock(state); } catch (e) { ERR('grip', e); }
-    }
-    if (state.side === 'R') { U.pistolSeekD = 0; U.handleSeekD = 0; U.camZClamp = 0; U.wristSnapD = 0; }
-    if (state.side === 'L') { U.musketSeekD = 0; }
-    if (U.pistolGrip && state.side === 'R' && U.kind === 'pistol') {
-      try { seekPistolGrip(state); } catch (e) { ERR('pistolGrip', e); }
-    }
-    if (U.musketSeek && state.side === 'L' && U.kind === 'musket') {
-      try { seekForestock(state); } catch (e) { ERR('musketSeek', e); }
-    }
-    if (U.handleSeek && state.side === 'R' && (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760' || U.kind === 'sword')) {
-      try { seekHandle(state); } catch (e) { ERR('handleSeek', e); }
-    }
-    try { hideGunSleeveTubes(state); } catch (e) { ERR('hideTube', e); }
-    try { clampCamZ(state); } catch (e) { ERR('camZ', e); }
+    state.wrap.scale.set(sc * sx, sc, sc);
     if (state.side === 'R') {
-      try { pushMusketFront(state); } catch (e) { ERR('musketFront', e); }
-      try { applyHeldOffsets(); } catch (e) { ERR('itemGrip', e); }
+      if (U._tubeKind !== U.kind) {
+        try {
+          hideGunSleeveTubes(state);
+          if (U.sides && U.sides.L) hideGunSleeveTubes(U.sides.L);
+        } catch (e) { ERR('hideTube', e); }
+        U._tubeKind = U.kind;
+      }
+      try { const _ph = profBegin('applyHeldOffsets'); applyHeldOffsets(); profEnd('applyHeldOffsets', _ph); } catch (e) { ERR('itemGrip', e); }
     }
+    profEnd('applyTune', _pt);
   }
 
   /* t1225 grip lock: slide the glove (translation only, in p.h space) so
@@ -88494,37 +88488,88 @@ try {
      (torch/pick jitter-fix); we never edit those tables. Restore-if-
      unchanged so a live write from them is not accumulated, then add a
      constant held-parent translation. */
+  function heldOffOf(kind) {
+    const tab = U.HELD_OFF;
+    if (!tab) return null;
+    return tab[kind] || tab[kind === 'p761' || kind === 'p760' ? 'pick' : ''] || null;
+  }
+
+  /* O(1): compose the solved HELD_OFF (parent-local) and VIEW_OFF
+     (camera-space, applied to the __fpa rig and to `held` as the same
+     world delta) onto the game's own bases. Restore-if-unchanged so a
+     live 1251/1261 write is not accumulated. No vertex walk, no seek. */
   function applyHeldOffsets() {
     const T = T3(); if (!T) return;
+    applyViewRig(T);
     let h = null;
     try { if (typeof held !== 'undefined') h = held; } catch (_) {}
     if (!h || !h.parent) return;
-    const rec = h.userData._fpGrip1285;
-    if (rec && h.position.distanceToSquared(rec.out) < 1e-12) {
-      h.position.copy(rec.base);
+    /* Item mesh (held.children[0]) in held-local space. 1251/1261 write
+       it from scratch each frame (or copy the torch freeze), and the
+       __fpa arm aims at `held`, not at this child, so a constant here
+       is not chased. Restore-if-unchanged keeps it from accumulating. */
+    const m = h.children && h.children[0];
+    const t = heldOffOf(U.kind);
+    const ox = t ? (t[0] || 0) : 0, oy = t ? (t[1] || 0) : 0, oz = t ? (t[2] || 0) : 0;
+    if (m) {
+      const rec = m.userData && m.userData._fpOff1285;
+      const same = rec && m.position.distanceToSquared(rec.out) < 1e-12;
+      if (same && rec.kind === U.kind && rec.ox === ox && rec.oy === oy && rec.oz === oz) {
+        U.itemGripD = +Math.hypot(ox, oy, oz).toFixed(3);
+      } else {
+        if (same) m.position.copy(rec.base);
+        if (ox || oy || oz) {
+          const base = m.position.clone();
+          m.position.set(base.x + ox, base.y + oy, base.z + oz);
+          m.userData._fpOff1285 = { base: base, out: m.position.clone(), kind: U.kind, ox: ox, oy: oy, oz: oz };
+        } else if (m.userData) {
+          m.userData._fpOff1285 = null;
+        }
+        U.itemGripD = +Math.hypot(ox, oy, oz).toFixed(3);
+      }
     }
-    const kinds = { pick: 1, p761: 1, p760: 1, sword: 1, bucket: 1 };
-    const grip = kinds[U.kind] ? itemGripOff(T, h) : null;
-    const front = (U.kind === 'musket' && U._heldFront) ? U._heldFront : null;
-    U._heldFront = null;
-    if ((!grip || grip.lengthSq() < 1e-10) && !front) {
-      h.userData._fpGrip1285 = null;
-      U.itemGripD = 0;
+    const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
+    const vx = v[0] || 0, vy = v[1] || 0, vz = v[2] || 0;
+    const hr = h.userData._fpView1285;
+    const hsame = hr && h.position.distanceToSquared(hr.out) < 1e-12;
+    if (hsame && hr.kind === U.kind && hr.vx === vx && hr.vy === vy && hr.vz === vz) return;
+    if (hsame) h.position.copy(hr.base);
+    h.userData._fpView1285 = null;
+    U.musketFrontD = +Math.hypot(vx, vy, vz).toFixed(3);
+    if (!(vx || vy || vz)) return;
+    const cam = (typeof camera !== 'undefined' && camera) || W.camera;
+    if (!cam) return;
+    cam.updateMatrixWorld(true);
+    h.parent.updateMatrixWorld(true);
+    h.updateMatrixWorld(true);
+    const dW = new T.Vector3(vx, vy, vz).transformDirection(cam.matrixWorld).setLength(Math.hypot(vx, vy, vz));
+    const base = h.position.clone();
+    const w = h.getWorldPosition(new T.Vector3()).add(dW);
+    h.parent.worldToLocal(w);
+    h.position.copy(w);
+    h.userData._fpView1285 = { base: base, out: h.position.clone(), kind: U.kind, vx: vx, vy: vy, vz: vz };
+  }
+
+  function applyViewRig(T) {
+    const R = rig();
+    const v = (U.VIEW_OFF && U.VIEW_OFF[U.kind]) || [0, 0, 0];
+    const vx = v[0] || 0, vy = v[1] || 0, vz = v[2] || 0;
+    if (!R) return;
+    const rec = R.userData._fpViewOff1285;
+    if (!(vx || vy || vz)) {
+      if (rec && R.position.distanceToSquared(rec.out) < 1e-12) R.position.copy(rec.base);
+      R.userData._fpViewOff1285 = null;
       return;
     }
-    const base = h.position.clone();
-    if (grip) h.position.add(grip);
-    if (front) {
-      h.parent.updateMatrixWorld(true);
-      h.updateMatrixWorld(true);
-      const w = new T.Vector3();
-      h.getWorldPosition(w).add(front);
-      h.parent.worldToLocal(w);
-      h.position.copy(w);
-    }
-    h.userData._fpGrip1285 = { base: base, out: h.position.clone(), kind: U.kind };
-    U.itemGripD = +(grip ? grip.length() : 0).toFixed(3);
+    if (rec && rec.kind === U.kind && rec.vx === vx && rec.vy === vy && rec.vz === vz
+        && R.position.distanceToSquared(rec.out) < 1e-12) return;
+    if (rec && R.position.distanceToSquared(rec.out) < 1e-12) R.position.copy(rec.base);
+    const base = R.position.clone();
+    R.position.set(base.x + vx, base.y + vy, base.z + vz);
+    R.userData._fpViewOff1285 = { base: base, out: R.position.clone(), kind: U.kind, vx: vx, vy: vy, vz: vz };
   }
+
+  function applyViewOffConst() { /* folded into applyHeldOffsets */ }
 
   function itemGripOff(T, h) {
     const st = U.sides && U.sides.R;
@@ -89016,23 +89061,50 @@ try {
     } catch (e) { U._loading = 0; ERR('load', e); }
   }
 
+
+  function profBegin(name) {
+    if (!U._profOn) return 0;
+    return performance.now();
+  }
+  function profEnd(name, t0) {
+    if (!U._profOn || !t0) return;
+    const dt = performance.now() - t0;
+    const p = U._prof || (U._prof = {});
+    const s = p[name] || (p[name] = {n: 0, ms: 0, max: 0});
+    s.n++; s.ms += dt; if (dt > s.max) s.max = dt;
+  }
+  U.profStart = function () { U._profOn = 1; U._prof = {}; };
+  U.profSnap = function () {
+    const out = {};
+    const p = U._prof || {};
+    Object.keys(p).forEach(function (k) {
+      const s = p[k];
+      out[k] = {n: s.n, totalMs: +s.ms.toFixed(2), meanMs: +(s.ms / Math.max(1, s.n)).toFixed(3), maxMs: +s.max.toFixed(3)};
+    });
+    return out;
+  };
+
   function tick() {
+    const _pt = profBegin('tick');
     try {
       if (!U.on) return;
       if (!U.src) loadGlb();
       if (U.src && !U.attached) attach();
       if (U.attached) {
-        hideBoth();
+        const _ph = profBegin('hideBoth'); hideBoth(); profEnd('hideBoth', _ph);
+        const _pk = profBegin('poseKind');
         const k = currentKind();
         poseKind(k);
+        profEnd('poseKind', _pk);
         if (U.sides) {
           if (U.sides.R) applyTune(U.sides.R);
           if (U.sides.L) applyTune(U.sides.L);
         }
-        hookGunDraw(T3());
-        applyViewOff(T3());
+        const _pg = profBegin('hookGunDraw'); hookGunDraw(T3()); profEnd('hookGunDraw', _pg);
+        const _pv = profBegin('applyViewOff'); applyViewOff(T3()); profEnd('applyViewOff', _pv);
       }
     } catch (e) { ERR('tick', e); }
+    finally { profEnd('tick', _pt); }
   }
 
   function hook1271() {
