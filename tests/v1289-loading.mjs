@@ -1,5 +1,5 @@
 // 1.2.89: slice remaining multi-second generate post-stages so the loading
-// percentage can keep ticking. Released as 1.2.89.
+// percentage can keep ticking. Released as 1.2.89. Version is 1.2.90.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -8,9 +8,9 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.89';"), 'GAME_VERSION is 1.2.89');
-ok(!html.includes("const GAME_VERSION = '1.2.88';"), 'GAME_VERSION is no longer 1.2.88');
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.89', 'version.json is 1.2.89');
+ok(html.includes("const GAME_VERSION = '1.2.90';"), 'GAME_VERSION is 1.2.90');
+ok(!html.includes("const GAME_VERSION = '1.2.89';"), 'GAME_VERSION is no longer 1.2.89');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.90', 'version.json is 1.2.90');
 ok(html.includes('<!-- glencraft-build: load1285 -->') && html.includes('<!-- glencraft-build: load1289 -->'), 'load1285 and load1289 markers');
 ok(html.includes('/* GLX-LOAD1289 */'), 'LOAD1289 slice markers');
 ok(html.includes('__Ld._loop.diamonds') && html.includes('throw __Ld.YIELD') && html.includes('__tD > (__SLB())'), 'diamondBoost yields on the adaptive slice and resumes with PRNG state');
