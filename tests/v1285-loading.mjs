@@ -166,7 +166,7 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   // % text: blend real progress with an ETA, decimals past 90%, never back.
   ok(src.includes('function displayAim') && src.includes("d.toFixed(1) + '%'") && src.includes('function etaMs') && !src.includes('TICK_MS = 2000'), '% text uses an ETA blend and decimals past 90%, not a fixed 2s tick');
   function simPct(duration, realAt) {
-    const st = {shown: 0, _pctShown: 0, t0: 0, _rate: [], _eta: 0, real: 0, finishing: 0, done: 0};
+    const st = {shown: 0, _pctShown: 0, _pctShownAt: 0, t0: 0, _rate: [], _eta: 0, real: 0, finishing: 0, done: 0};
     const NEAR_REAL = 99, NEAR_ETA = 2500, labels = [];
     const note = (now) => {
       const r = st.real;
@@ -198,6 +198,10 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
       const fromReal = Math.min(98.5, st.real * 0.985);
       const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
       let aim = Math.max(fromReal, fromEta, st.shown);
+      if (now - (st._pctShownAt || 0) >= 2000 && (st._pctShown || 0) < 98.9) {
+        const last = st._pctShown || 0;
+        aim = Math.max(aim, last < 90 ? last + 1 : Math.round((last + 0.1) * 10) / 10);
+      }
       const nearly = st.real >= NEAR_REAL || (st.real >= 96 && (eta - elapsed) <= NEAR_ETA);
       if (nearly) aim = Math.max(aim, 99);
       if (aim >= 99 && !nearly) aim = 98.9;
@@ -211,7 +215,7 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
       if (v < st._pctShown) { v = st._pctShown; back++; }
       if (v !== st._pctShown) {
         if (labels.length) maxGap = Math.max(maxGap, now - lastT);
-        st._pctShown = v; lastT = now; lastV = v;
+        st._pctShown = v; st._pctShownAt = now; lastT = now; lastV = v;
         labels.push({t: now, v: v, text: text});
         if (v >= 99 && t99 == null) t99 = now;
       }
@@ -226,9 +230,9 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   ok(paced.hasDec && paced.labels.some((e) => e.text.includes('.')), 'past 90% the label shows one decimal on a 60s load');
   const long = simPct(400000, genLike);
   ok(long.back === 0, 'ETA-blend % never goes backwards (400s load)');
-  const late = long.labels.filter((e) => e.v >= 90);
+  const late = long.labels.filter((e) => e.v >= 90 && e.v < 98.9);
   const lateGap = late.reduce((m, e, i, a) => i ? Math.max(m, e.t - a[i - 1].t) : 0, 0);
-  ok(lateGap <= 2500, 'past 90% the visible % gap is at most 2.5s on a 400s load (max ' + lateGap + ')');
+  ok(lateGap <= 2500, 'past 90% and before 98.9 the visible % gap is at most 2.5s on a 400s load (max ' + lateGap + ')');
   ok(long.t99 == null || long.t99 >= 350000, '99 is not reached until near the end of a 400s load (t99=' + long.t99 + ')');
   const parked98 = long.labels.filter((e, i, a) => Math.floor(e.v) === 98 && a[i + 1] && a[i + 1].t - e.t > 60000);
   ok(parked98.length === 0, 'does not park at 98 for a minute on a long load');
@@ -239,6 +243,8 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   ok(burst.back === 0, 'front-loaded real % never goes backwards');
   ok(!burst.labels.some((e) => e.v >= 99 && e.t < 50000), 'a fast early stage does not snap the label to 99 (first 99 at t=' + burst.t99 + ')');
   ok(burst.maxGap <= 2500, 'visible % gap stays at most 2.5s on a front-loaded 60s load (max ' + burst.maxGap + ')');
+  const parked88 = burst.labels.filter((e, i, a) => Math.floor(e.v) === 88 && a[i + 1] && a[i + 1].t - e.t > 5000);
+  ok(parked88.length === 0, 'does not park at 88% for 5s+ on a front-loaded load');
   // 400ms ease-out glide
   const finishFrom = 90, GLIDE = 400;
   const glide = (u) => {

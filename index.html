@@ -89056,6 +89056,16 @@ try {
     const fromEta = eta > 0 ? Math.min(98.9, 98.9 * Math.min(1, elapsed / eta)) : 0;
     let aim = Math.max(fromReal, fromEta, U.shown || 0);
     const remain = Math.max(0, eta - elapsed);
+    /* Visibility floor: if the ETA/real blend has not moved the label
+       in ~2s, step it forward, but never past 98.9 until work is almost
+       done. This is not the pace — the ETA still leads when it is ahead. */
+    if (!U.finishing && !U.done) {
+      const last = U._pctShown || 0;
+      const lastAt = U._pctShownAt || U.t0 || now;
+      if (now - lastAt >= 2000 && last < 98.9) {
+        aim = Math.max(aim, last < 90 ? last + 1 : Math.round((last + 0.1) * 10) / 10);
+      }
+    }
     const nearly = real >= NEAR_REAL || (real >= 96 && remain <= NEAR_ETA);
     if (nearly && !U.finishing && !U.done) aim = Math.max(aim, 99);
     if (aim >= 99 && !U.finishing && !U.done && !nearly) aim = 98.9;
@@ -89220,6 +89230,7 @@ try {
     U.done = 1;
     U.cap = 100;
     U.real = 100;
+    U._workReal = 100;
     U.finishing = 1;
     U.finishT = now;
     U.finishFrom = Math.max(0, Math.min(99, U.shown || 0));
