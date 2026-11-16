@@ -88591,12 +88591,15 @@ try {
     const ox = t ? (t[0] || 0) : 0, oy = t ? (t[1] || 0) : 0, oz = t ? (t[2] || 0) : 0;
     U._drawOff = (t && (ox || oy || oz)) ? { x: ox, y: oy, z: oz } : null;
     U.itemGripD = t ? +Math.hypot(ox, oy, oz).toFixed(3) : 0;
-    /* Once per item switch: drop any previous row so we recapture the
-       1251/1261 base, then bake the new constant. Later ticks only
-       re-apply if a freeze rewrite clobbered the child. */
-    if (U._offKind !== U.kind) {
+    /* Once per item switch (or table-row edit): drop the previous
+       row so we recapture the 1251/1261 base, then bake the new
+       constant. Later ticks only re-apply if a freeze rewrite
+       clobbered the child. */
+    const offKey = (U.kind || '') + ':' + ox + ',' + oy + ',' + oz;
+    if (U._offKey !== offKey) {
       drawOffOff();
       U._offKind = U.kind;
+      U._offKey = offKey;
     }
     hookDrawOff();
     drawOffOn();
