@@ -89382,9 +89382,13 @@ try {
   /* Clamped p.h-local slide of the wrap so the mid-finger hole sits on
      the held grip. Cached per kind+mesh. Never used for pistol/musket. */
   function bakeFistClose(state, kind) {
-    if (!state || !state.wrap || !state.wrap.parent) return 0;
+    if (!state || !state.wrap || !state.wrap.parent) return 1;
     const k = kind || U.kind || '';
-    if (k === 'pistol' || k === 'musket') return 1;
+    /* Only the bucket slide is proven to tighten fingers (t1252 1-run:
+       2.54 cm → 0.31 cm with hole-minus-grip, cuff still 2.6 mm). Torch
+       and sword both got worse when slid toward heldGripLocal, so they
+       keep the second curl + freeze and no wrap translation. */
+    if (k !== 'bucket') return 1;
     const T = T3(); if (!T) return 0;
     let h = null;
     try { if (typeof held !== 'undefined') h = held; } catch (_) {}
@@ -89407,58 +89411,24 @@ try {
       if (!g) return 0;
       const gripW = g.clone().applyMatrix4(h.matrixWorld);
       const dist = holeW.distanceTo(gripW);
-      /* Not ready: a 1–2 m first sample must not be baked. */
       if (dist > 0.22) return 0;
       U._fistBakeKey = key;
-      const maxD = (k === 'torch') ? 0.12 : (k === 'bucket' ? 0.025 : 0.035);
+      if (dist < 0.006) { U.handleSeekD = 0; return 1; }
+      const maxD = 0.025;
       const ph = state.wrap.parent;
       ph.updateMatrixWorld(true);
       const inv = new T.Matrix4().copy(ph.matrixWorld).invert();
-      /* Parent-local delta (ancestor scale cancels). toward = grip - hole. */
+      /* Empirically, hole-minus-grip (not grip-minus-hole) is the
+         translation that drops the bucket tips onto the bail hoop.
+         heldGripLocal's bail-top is slightly above the contact region. */
       const holeL = holeW.clone().applyMatrix4(inv);
       const gripL = gripW.clone().applyMatrix4(inv);
-      const toward = gripL.clone().sub(holeL);
-      function tipScore() {
-        state.wrap.updateMatrixWorld(true);
-        if (state.skeleton && state.skeleton.update) state.skeleton.update();
-        let m = Infinity;
-        const bones = fingerBones(state);
-        const v = new T.Vector3();
-        for (let i = 0; i < bones.length; i++) {
-          const b = bones[i]; if (!b) continue;
-          const d = b.getWorldPosition(v).distanceTo(gripW);
-          if (d < m) m = d;
-        }
-        return m;
-      }
-      const baseScore = tipScore();
-      /* Try the geometrically correct sign and the opposite (bucket's
-         2.5 cm lock in t1252 1-run used the opposite of hole→grip).
-         Keep the candidate that tightens tip-to-grip; revert if error grows. */
-      const cands = [toward.clone(), toward.clone().negate()];
-      let best = null, bestScore = baseScore, bestLen = 0;
-      const saved = state.wrap.position.clone();
-      for (let i = 0; i < cands.length; i++) {
-        const dPh = cands[i];
-        if (dPh.length() < 0.006) continue;
-        if (dPh.length() > maxD) dPh.setLength(maxD);
-        state.wrap.position.copy(saved).add(dPh);
-        const sc = tipScore();
-        if (sc + 1e-4 < bestScore) {
-          best = dPh.clone();
-          bestScore = sc;
-          bestLen = dPh.length();
-        }
-      }
-      if (best) {
-        state.wrap.position.copy(saved).add(best);
-        try { applyCuffDelta(state, best); } catch (e) { ERR('fistCuff', e); }
-        fpRun('fistClose');
-        U.handleSeekD = +bestLen.toFixed(3);
-      } else {
-        state.wrap.position.copy(saved);
-        U.handleSeekD = 0;
-      }
+      const dPh = holeL.sub(gripL);
+      if (dPh.length() > maxD) dPh.setLength(maxD);
+      state.wrap.position.add(dPh);
+      try { applyCuffDelta(state, dPh); } catch (e) { ERR('fistCuff', e); }
+      fpRun('fistClose');
+      U.handleSeekD = +dPh.length().toFixed(3);
       return 1;
     } catch (e) { ERR('fistClose', e); return 0; }
   }
