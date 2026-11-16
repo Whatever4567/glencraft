@@ -28,9 +28,13 @@
    current torso bones, seams aligned to the current shirt so there are no
    gaps or z-fighting. The 1.2.84 width/depth scale is off so the chest
    matches the original 1.2.36 shape. Sash-back hide and first-person-only
-   torso hide are unchanged. Nothing on the player is deleted. */
+   torso hide are unchanged. Nothing on the player is deleted.
+
+   t1231: local TP arms and gloves (visual_arm_slot*, GLOVE) are also
+   hidden in the local first-person camera only (U.ARM_FP), using the
+   same attachFpCull / render wrap. Nothing is deleted. */
 (function torso1262() {
-  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.85', fpHid: 0, SIDES: 1, KILT_FP: 1, V1SIDES: 1, BRIDGE: 0, WIDEN: 0, SASH_BACK: 1, BRIDGE_NB: 0.7, FILL_GLOW: 0,
+  const U = window.__torso1262 = { err: null, patched: 0, sides: 0, version: '1.2.85', fpHid: 0, SIDES: 1, KILT_FP: 1, V1SIDES: 1, BRIDGE: 0, WIDEN: 0, SASH_BACK: 1, ARM_FP: 1, BRIDGE_NB: 0.7, FILL_GLOW: 0,
     /* 1.2.84 factors kept for QA (__torso1262cfg) but off: prefer the 1.2.36 chest */
     SX: 1.38, SZF: 1.34, SZB: 1.18, FADE_Y0: 1.33, FADE_Y1: 1.42 };
   try { Object.assign(U, window.__torso1262cfg || {}); } catch (_) {}
@@ -579,6 +583,11 @@
          bottom of the screen when looking down in first person. Hide them
          for your own FP camera only, like the torso. */
       if (U.KILT_FP && /visual_(kilt|sporran)_clothing/.test(n)) { attachFpCull(mesh); return false; }
+      /* t1231: hide local TP arms and gloves in first person only so
+         they cannot peek into the FP camera (orange hand / musket body).
+         Geometry stays; third person, mirrors and other players still
+         see the arms. ownModel() limits the hide to worldModel. */
+      if (U.ARM_FP && /visual_arm_slot|GLOVE\s*\|/.test(n)) { attachFpCull(mesh); return false; }
       if (!/visual_torso_outfit/.test(n)) return false;
       widenMesh(mesh);
       hideSashBack(mesh);

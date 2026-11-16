@@ -28,7 +28,10 @@
        the 1.2.80 FRAME rest nudge is zeroed in sculpt-1280. */
     gripLock: 0,
     /* Bake each held-item fist into a non-skinned mesh so the glove
-       skeleton is not skinned or walked every frame. Hidden, not deleted. */
+       skeleton is not skinned or walked every frame. Hidden, not deleted.
+       t1231: kept in the file but off — bake still punched holes in
+       the map palm and doubled the pick fist, even after filtering
+       the cuff and baking one mesh per side. */
     bakePose: 0,
     gunGripF: 0.30,
     attached: 0, hidden: 0, loaded: 0, kind: '',
@@ -46,7 +49,7 @@
       pick:   { x: -0.04, y: 0.00, z: 0.12 },
       p761:   { x: -0.04, y: 0.00, z: 0.12 },
       p760:   { x: -0.04, y: 0.00, z: 0.12 },
-      pistol: { x: 0.02, y: -0.04, z: -0.02 },
+      pistol: { x: 0.08, y:  0.02, z:  0.00 },
       musket: { x: 0.00, y: 0.00, z: 0.02 }
     }
   };
@@ -85,12 +88,17 @@
     },
     bucket: fist(),
     torch: fist(),
-    sword: fist(),
-    /* Tight wrap around the pick shaft, short of a skin collapse. */
+    /* Closed fist around the hilt so fingers do not read open. */
+    sword: {
+      p: [1.46, 1.54, 1.54, 1.42].map(v => S * v),
+      d: [1.52, 1.62, 1.62, 1.48].map(v => S * v),
+      t: [1.16 * S, 1.02 * S], tY: 0.84, tZ: 0.56
+    },
+    /* Locked tight wrap around the pick shaft, short of a skin collapse. */
     pick: {
-      p: [1.48, 1.56, 1.56, 1.44].map(v => S * v),
-      d: [1.55, 1.64, 1.64, 1.50].map(v => S * v),
-      t: [1.18 * S, 1.08 * S], tY: 0.88, tZ: 0.58
+      p: [1.52, 1.62, 1.62, 1.48].map(v => S * v),
+      d: [1.60, 1.70, 1.70, 1.56].map(v => S * v),
+      t: [1.20 * S, 1.12 * S], tY: 0.90, tZ: 0.60
     },
     axe: fist(),
     shovel: fist(),
@@ -423,11 +431,14 @@
   }
 
   function cuffCutValue() {
-    /* Musket looks down the forearm, so the wrist cut must sit off-screen.
-       Tools keep a short cut so the cream linen cuff can show at the wrist. */
-    if (U.kind === 'musket') return -0.10;
-    if (U.kind === 'pistol') return -0.08;
-    return -0.022;
+    /* Keep the wrist cut off the play camera. Musket looks down the
+       forearm; pick / sword / guns also showed a sliced stump with the
+       short -0.022 cut. The linen cuff still sits on the kept forearm. */
+    if (U.kind === 'musket') return -0.22;
+    if (U.kind === 'pick' || U.kind === 'p761' || U.kind === 'p760') return -0.14;
+    if (U.kind === 'sword' || U.kind === 'torch' || U.kind === 'bucket' || U.kind === 'axe' || U.kind === 'shovel' || U.kind === 'hoe') return -0.12;
+    if (U.kind === 'pistol') return -0.12;
+    return -0.08;
   }
   function syncCuffCut() {
     const v = cuffCutValue();
@@ -508,11 +519,12 @@
           diffuseColor.rgb *= 1.0 - clamp(pcr * 0.06, 0.0, 0.06);
           roughnessFactor = mix(roughnessFactor, max(0.22, roughnessFactor - 0.08), clamp(kb + tend * 0.4, 0.0, 1.0) * 0.4);
           /* Pale/cream grade: match the 45e632a glove and t1214 refs.
-             Desaturate the orange-brown and lift toward cream. */
+             Stronger desat, less warmth than the t1230 grade so the
+             hand stays cream under both a red sky and a neutral sky. */
           {
             float luma = dot(diffuseColor.rgb, vec3(0.30, 0.54, 0.16));
-            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(luma), 0.30);
-            diffuseColor.rgb *= vec3(1.18, 1.12, 1.08);
+            diffuseColor.rgb = mix(diffuseColor.rgb, vec3(luma), 0.55);
+            diffuseColor.rgb *= vec3(1.10, 1.08, 1.06);
             diffuseColor.rgb = min(diffuseColor.rgb, vec3(1.0));
           }
         }
@@ -524,7 +536,7 @@
     m.onBeforeCompile.__hands1282 = 1;
     m.customProgramCacheKey = function () {
       const k = typeof prevKey === 'function' ? prevKey.call(this) : '';
-      return k + '|handsFp1285skinB' + (skin ? 'S' : 'C') + (U.bump ? 'b' : '');
+      return k + '|handsFp1285skinC' + (skin ? 'S' : 'C') + (U.bump ? 'b' : '');
     };
     try { if (skin) { m.extensions = m.extensions || {}; m.extensions.derivatives = true; } } catch (_) {}
     m.needsUpdate = true;
@@ -1577,6 +1589,36 @@
     }
     pos.needsUpdate = true;
     if (nrm) nrm.needsUpdate = true;
+    /* Drop triangles that the cuff discard would punch through, then
+       raise the mask so the baked material never opens holes in the
+       palm. The cut itself stays off-screen (see cuffCutValue). */
+    try {
+      const mask = geo.getAttribute('aFpHand1285');
+      const cutY = (typeof cuffCutValue === 'function') ? cuffCutValue() : -0.12;
+      const idxAttr = geo.getIndex();
+      const vn = pos.count;
+      let idx;
+      if (idxAttr) idx = idxAttr.array;
+      else {
+        idx = new (vn > 65535 ? Uint32Array : Uint16Array)(vn);
+        for (let t = 0; t < vn; t++) idx[t] = t;
+      }
+      const keep = [];
+      const ya = mask ? mask.array : null;
+      for (let t = 0; t + 2 < idx.length; t += 3) {
+        const a = idx[t], b = idx[t + 1], c = idx[t + 2];
+        if (ya && (ya[a] < cutY || ya[b] < cutY || ya[c] < cutY)) continue;
+        keep.push(a, b, c);
+      }
+      if (keep.length >= 3) {
+        geo.setIndex(keep.length > 65535 ? new T.Uint32BufferAttribute(keep, 1) : new T.Uint16BufferAttribute(keep, 1));
+      }
+      if (mask) {
+        const arr = mask.array;
+        for (let t = 0; t < arr.length; t++) arr[t] = 1;
+        mask.needsUpdate = true;
+      }
+    } catch (e) { ERR('bakeCut', e); }
     let mat = mesh.material;
     if (Array.isArray(mat)) mat = mat.map(function (m) { return m.clone(); });
     else if (mat && mat.clone) mat = mat.clone();
@@ -1637,17 +1679,26 @@
     let bag = state.bakedByKind[key];
     if (!bag) {
       bag = { meshes: [] };
+      /* One source mesh per side — baking both LODs / GLOVE copies
+         doubled the fist. Prefer the densest skin mesh. */
+      let src = null, best = -1;
       for (let i = 0; i < state.meshes.length; i++) {
+        const m = state.meshes[i];
+        const n = (m && m.geometry && m.geometry.attributes && m.geometry.attributes.position && m.geometry.attributes.position.count) || 0;
+        if (n > best) { best = n; src = m; }
+      }
+      if (src) {
         try {
-          const baked = bakeSkinnedMesh(state.meshes[i], T);
+          const baked = bakeSkinnedMesh(src, T);
           if (baked) { state.align.add(baked); bag.meshes.push(baked); }
         } catch (e) { ERR('bake', e); }
       }
       state.bakedByKind[key] = bag;
       U.baked = (U.baked || 0) + 1;
     }
+    const hide = !!(state.wrap && state.wrap.visible === false);
     for (const k in state.bakedByKind) {
-      const show = k === key;
+      const show = k === key && !hide;
       const ms = state.bakedByKind[k].meshes;
       for (let i = 0; i < ms.length; i++) ms[i].visible = show;
     }

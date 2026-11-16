@@ -204,7 +204,7 @@
     /* t1230: dz>0 is closer; armS scales the rig around the camera
        (bigger = hand further out). Lower and pull back so the blade
        reads in the play frame instead of a close-up of the fist. */
-    sword:  { dx: 0.03, dy: -0.10, dz: -0.14, fov: 0.82, s: 1.28, armS: 1.10 },
+    sword:  { dx: 0.03, dy: -0.12, dz: -0.18, fov: 0.88, s: 1.30, armS: 1.08 },
     bucket: { dx: -0.02, dy: -0.04, dz: 0.05, fov: 0.68, s: 1.12, armS: 1.22 },
     torch:  { dx: 0.00, dy: -0.02, dz: 0.10, fov: 0.64, s: 1.26, armS: 1.26 },
     /* Vertical readable map, palm supporting it from below. Slightly
@@ -212,7 +212,7 @@
     map:    { dx: 0.00, dy: 0.00, dz: -0.04, fov: 0.78, s: 1.06, armS: 1.24 },
     /* t1230: natural hip height, same size, not off the near plane. */
     pistol: { dx: 0.06, dy:  0.02, dz: -0.04, fov: 0.66, s: 1.42, armS: 1.16 },
-    musket: { dx: 0.03, dy:  0.00, dz: -0.12, fov: 0.84, s: 1.12, armS: 1.14 }
+    musket: { dx: 0.03, dy:  0.00, dz: -0.10, fov: 0.84, s: 1.12, armS: 1.14 }
   };
 
   function applyFrame() {
