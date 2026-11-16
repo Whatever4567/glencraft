@@ -33,8 +33,9 @@ ok(src.includes('setReal') && src.includes('yieldPaint') && src.includes('__glen
 ok(src.includes('MessageChannel') && !/setTimeout\(res, 0\)/.test(src), 'yields use MessageChannel + rAF, not setTimeout(0)');
 ok(html.includes('performance.now() - __tSlice > (__SLB())'), 'column loop yields on the adaptive 300-400ms slice budget');
 ok(!html.includes('performance.now() - __tSlice > 40') && !html.includes('performance.now() - __tSlice > 8'), 'old 8ms/40ms yield cadence is gone');
-ok(src.includes('quiet3d') && src.includes("screen === 'loading'") && src.includes('if (U.held) return true'), '3D render/step stay muted on the loading screen until enter');
+ok(src.includes('quiet3d') && src.includes('U.uiScreen === \'loading\'') && src.includes("getElementById('scr-loading')") && src.includes('if (U.held) return true'), '3D render/step stay muted on the loading screen until enter (not window.screen)');
 ok(src.includes('if (U.held) return') && src.includes('budget == null) budget = 150'), 'generate does not mesh; unbounded rebuild is 150ms, rebuild(150) is unchanged');
+ok(src.includes("Building terrain meshes") && html.includes("Building terrain meshes"), 'spawn-ring meshing reports as Building terrain meshes with chunk counts');
 ok(html.includes("full rebuild'); try { rebuild(150); }") && !html.includes('dirtyAll = true; rebuild(150)'), '20s land retry keeps already-meshed chunks (no dirtyAll wipe)');
 ok(html.includes('const meshR = Math.max(lr, 2)') && html.includes('const LOAD_R = (window.__loadChunkR != null ? window.__loadChunkR : 1)'), 'load meshes R=2 but still enters after 9 spawn chunks');
 ok(html.includes("phase: 'lat'") && html.includes("phase: 'ores'") && html.includes("phase: 'feat'"), 'GEN9 generate is phased: lattice, columns, ores, features');
@@ -63,7 +64,7 @@ ok(html.includes('__st1248') && html.includes('__glenLoad.live) { __glenLoad._de
 ok(html.includes('__glenLoad.shown > 99.5'), 'ready waits for the 400ms finish glide before entering');
 ok(html.includes("ready = true; loadStep('entering the world');") && html.includes('__glenLoad.finish()'), 'ready starts the 400ms finish glide immediately');
 ok(!/ready = true;[\s\S]{0,240}renderer\.render\(scene, camera\)/.test(html), 'first present is not synchronous before the finish glide');
-ok(/started = true[\s\S]{0,500}setTimeout\(function \(\) \{[\s\S]{0,200}renderer\.render\(scene, camera\)/.test(html), 'first present runs after enter, on a later turn');
+ok(/started = true[\s\S]{0,900}requestAnimationFrame\(function \(\) \{ requestAnimationFrame\(function \(\) \{ setTimeout\(function \(\) \{[\s\S]{0,200}renderer\.render\(scene, camera\)/.test(html), 'first present runs after enter, after two rAFs so the 100% glide can paint');
 ok(/const LOAD_R = \(window\.__loadChunkR != null \? window\.__loadChunkR : 1\)/.test(html), 'load chunk ring still defaults to R=1');
 ok(html.includes('enterWorld._fauna'), 'deferred fauna stays');
 ok(html.includes("if (!started || (typeof screen !== 'undefined' && screen === 'loading'))"), 'stream radius still capped during load');

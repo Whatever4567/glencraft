@@ -792,6 +792,7 @@
       const ss = showScreen;
       showScreen = function (name) {
         try {
+          U.uiScreen = name;
           if (name === 'loading') {
             ensureDom();
             if (!U.live) start();
@@ -821,7 +822,16 @@
       rebuild = function (budget) {
         if (U.held) return;
         if (U.live && budget == null) budget = 150;
-        return rb.apply(this, arguments);
+        const r = rb.apply(this, arguments);
+        try {
+          if (U.live && !U.finishing && !U.done && typeof chunksReady === 'function') {
+            chunksReady();
+            const cn = chunksReady.need || 9, cg = chunksReady.got || 0;
+            const p = 98 + 1.5 * cg / Math.max(1, cn);
+            setReal(p, 'Building terrain meshes… ' + cg + '/' + cn, 99.8);
+          }
+        } catch (_) {}
+        return r;
       };
       rebuild.__load1285 = 1;
       try { WIN.rebuild = rebuild; } catch (_) {}
@@ -829,13 +839,18 @@
   } catch (e) { ERR('rb', e); }
 
   /* Mute render/step for the whole loading screen, not just generate.
-     First present is already deferred until after enter (setTimeout 0).
-     Unmuting after generate paid a cold compile/render bill that blocked
-     the Ready→start glide for a minute at 6x throttle. rebuild() still
-     meshes as usual — only the 3D present is held back. */
+     Do not read the identifier `screen` — this runtime lives in a later
+     script tag than the game's `let screen`, so that name is window.screen
+     here and `screen === 'loading'` never matches. That leaked the first
+     render/compile after generate and blocked the Ready→start glide
+     (~87s at 6x). rebuild() still meshes as usual. */
   function quiet3d() {
     if (U.held) return true;
-    try { if (typeof screen !== 'undefined' && screen === 'loading') return true; } catch (_) {}
+    if (U.uiScreen === 'loading') return true;
+    try {
+      const el = document.getElementById('scr-loading');
+      if (el && el.classList.contains('on')) return true;
+    } catch (_) {}
     return false;
   }
   U.quiet3d = quiet3d;
