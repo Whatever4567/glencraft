@@ -1927,22 +1927,11 @@
     if (!m || m.__fpOffHook1285) return;
     const prevB = m.onBeforeRender;
     const prevA = m.onAfterRender;
-    m.onBeforeRender = function () {
-      if (typeof prevB === 'function') prevB.apply(this, arguments);
-      const d = U._drawOff;
-      if (!d || m.userData._fpDrawOn1285) return;
-      m.position.x += d.x; m.position.y += d.y; m.position.z += d.z;
-      m.userData._fpDrawOn1285 = 1;
-      try { m.updateMatrixWorld(); } catch (_) {}
-    };
-    m.onAfterRender = function () {
-      if (m.userData._fpDrawOn1285) {
-        const d = U._drawOff || { x: 0, y: 0, z: 0 };
-        m.position.x -= d.x; m.position.y -= d.y; m.position.z -= d.z;
-        m.userData._fpDrawOn1285 = 0;
-      }
-      if (typeof prevA === 'function') prevA.apply(this, arguments);
-    };
+    /* Offset is applied once around renderer.render (drawOffOn/Off),
+       which also moves Group children. onBeforeRender is not used:
+       a Group is not drawn, and hooking both paths doubled the shift. */
+    if (typeof prevB === 'function' || typeof prevA === 'function') { /* keep any existing hooks */ }
+
     m.__fpOffHook1285 = 1;
   }
   function hookDrawOff() {
@@ -1953,9 +1942,12 @@
     try { if (typeof renderer !== 'undefined') r = renderer; } catch (_) {}
     if (!r || r.__drawOff1285) return;
     const prev = r.render;
-    /* Don't also apply here: onBeforeRender/onAfterRender already
-       shift the children for the draw. Applying twice doubled the
-       baked offset in screenshots. */
+    r.render = function () {
+      const top = !U._drawDepth;
+      U._drawDepth = (U._drawDepth || 0) + 1;
+      if (top) drawOffOn();
+      try { return prev.apply(this, arguments); } finally { U._drawDepth--; if (top) drawOffOff(); }
+    };
     r.__drawOff1285 = 1;
   }
 
