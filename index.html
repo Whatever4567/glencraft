@@ -8,10 +8,14 @@
    game timers and frame callbacks wait, exactly as they did when generate()
    was one synchronous call. Otherwise timers in the yield gaps (map preview,
    edge caches, ...) read a half-built world and the generated world changes.
-   Intervals skip their ticks; timeouts and frames run once generate ends.
-   The loading meter's own callbacks are marked __tgFree and keep running. */
+   Intervals skip their ticks. Timeouts that expire during a gap are re-armed
+   on a native macrotask after generate returns (not run inside flush), so a
+   timing-dependent flush cannot change the world before the caller snapshots
+   it. Frame callbacks are remembered by function identity and one rAF is
+   scheduled after generate, not a burst of every skipped frame. The loading
+   meter's own callbacks are marked __tgFree and keep running. */
 (function () { try {
-  var W = window, G = W.__tgate = {q: [], skipped: 0, deferred: 0};
+  var W = window, G = W.__tgate = {q: [], skipped: 0, deferred: 0, rafs: []};
   var held = function () { try { var L = W.__glenLoad; return !!(L && L.held); } catch (_) { return false; } };
   /* Before generate starts (loading screen just shown), timeouts, frames and interval ticks wait for at most 3s, then generate holds them until it finishes. */
   var pre = function () { try { var L = W.__glenLoad; return !!(L && L.gateHold && performance.now() < (L.gateUntil || 0)); } catch (_) { return false; } };
@@ -21,8 +25,15 @@
   W.setInterval = function (fn, ms) { if (typeof fn !== 'function') return nSI.apply(W, arguments); var a = Array.prototype.slice.call(arguments, 2);
     return nSI.call(W, function () { if ((held() || pre()) && !fn.__tgFree) { G.skipped++; return; } return fn.apply(W, a); }, ms); };
   if (nRAF) W.requestAnimationFrame = function (fn) { if (typeof fn !== 'function') return nRAF.apply(W, arguments);
-    return nRAF.call(W, function (t) { if ((held() || pre()) && !fn.__tgFree) { G.deferred++; G.q.push(function () { fn(performance.now()); }); return; } return fn(t); }); };
-  G.flush = function () { var q = G.q; G.q = []; for (var i = 0; i < q.length; i++) { try { q[i](); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } } };
+    return nRAF.call(W, function (t) { if ((held() || pre()) && !fn.__tgFree) { G.deferred++; if (G.rafs.indexOf(fn) < 0) G.rafs.push(fn); return; } return fn(t); }); };
+  G.flush = function () {
+    var q = G.q; G.q = [];
+    var rafs = G.rafs; G.rafs = [];
+    /* Re-arm expired timeouts on a later turn — not on this stack — so
+       generate() callers (and the world hash) see a sync-generate world. */
+    for (var i = 0; i < q.length; i++) { (function (cb) { nST.call(W, function () { try { cb(); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } }, 0); })(q[i]); }
+    for (var j = 0; j < rafs.length; j++) { (function (fn) { if (nRAF) nRAF.call(W, function (t) { try { fn(t); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } }); })(rafs[j]); }
+  };
 } catch (_) {} })();</script>
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
@@ -18616,6 +18627,7 @@ function enterWorld(save) {
     let need = 0, got = 0;
     for (let a = -LOAD_R; a <= LOAD_R; a++) for (let b = -LOAD_R; b <= LOAD_R; b++) { const cx = pcx + a, cz = pcz + b; if (cx < 0 || cz < 0 || cx * CH >= W || cz * CH >= D) continue; need++; if (chunkObjs.has(cx * 64 + cz)) got++; }
     chunksReady.need = need; chunksReady.got = got;
+    try { window.chunksReady = chunksReady; } catch (_) {}
     return got >= need;
   };
   const tick = setInterval(() => {
@@ -20947,7 +20959,11 @@ rebuild = function (budget) {
   rebuild._unloaded = false;
   ids.sort((a, b) => dist(a) - dist(b));
   const tB = performance.now();
-  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id); if (budget && performance.now() - tB > budget) break; }
+  const loading = !started;
+  for (const id of ids) { try { buildChunk(Math.floor(id / 64), id % 64); } catch (e) { if (!window.__chErr) { window.__chErr = String(e && e.stack || e); try { loadErr("chunk " + id, e); } catch (_) {} } } dirtyCh.delete(id);
+    if (loading) { try { if (typeof chunksReady === 'function' && chunksReady()) { if (window.__glenLoad && __glenLoad.finish && !__glenLoad.finishing && !__glenLoad.done) __glenLoad.finish(); break; } } catch (_) {} }
+    if (budget && performance.now() - tB > budget) break; }
+  if (loading) return;
   { const left = ids.some(id => dirtyCh.has(id)), nw = performance.now(); if (left && nw - (rebuild._es || 0) < 300) { rebuild._skipSync = (rebuild._skipSync || 0) + 1; return; } rebuild._es = nw; rebuild._syncs = (rebuild._syncs || 0) + 1; }
   const all = {};
   for (const L of chunkLists.values()) for (const t of [T.CAULDRON, T.CHEST, T.DOOR, T.TORCH, T.TV, T.REDORE, T.FURNACE, T.BED]) if (L[t]) (all[t] || (all[t] = [])).push(...L[t]);
@@ -27896,7 +27912,15 @@ var ORE18 = false, ISL_S = 1;
   const SIZE = {human: 15, mossy: 15, black: 13};
   const MINE = new Set([T.PLANKS, 162, T.COBWEB, T.TORCH, T.CHEST].filter(v => v !== undefined));
   function castleWork() { const out = [];
+    /* GLX-LOAD1289: yield after each keep so raising the keeps cannot block
+       the thread for seconds. Each keep is deterministic (h3 only). */
+    const __Lc = window.__glenLoad;
+    const __st = (__Lc && __Lc.held && __Lc._loop && __Lc._loop.c77cast) ? __Lc._loop.c77cast : null;
+    if (__st && __st.out) Array.prototype.push.apply(out, __st.out);
+    const __tC = performance.now(), __wC = Date.now();
+    let __ci = 0;
     for (const c of g9castles) { const [k, cx, cz] = c; const S = SIZE[k]; if (!S) continue;
+      if (__st && __ci < (__st.ci || 0)) { __ci++; continue; }
       const info = (window.__c53 || []).find(o => o.cx === cx && o.cz === cz); const gy = info ? info.gy : solidTop(cx, cz) + 1;
       const R = S + 4, fill = y => y < 21 ? T.DEEPSLATE : T.STONE; let filled = 0, mines = 0;
       // 1) mineshaft pieces under and around the castle go back to rock
@@ -27926,7 +27950,16 @@ var ORE18 = false, ISL_S = 1;
         if (ns < s) for (let x = cx - 1; x <= cx + 1; x++) { put(x, s, z - 1, 167); entMeta.set(keyOf(x, s, z - 1), {face: stairF(0, -1)}); }
         if (k === 'human' && j % 5 === 0) for (const sx of [-2, 2]) { const tt = solidTop(cx + sx, z); put(cx + sx, tt + 1, z, 162); put(cx + sx, tt + 2, z, T.TORCH); }
         s = ns; }
-      out.push({k, cx, cz, gy, filled, mines}); }
+      out.push({k, cx, cz, gy, filled, mines});
+      __ci++;
+      if (__Lc && __Lc.held && ((performance.now() - __tC > (__SLB())) || (Date.now() - __wC > (__SLB())))) {
+        if (!__Lc._loop) __Lc._loop = {};
+        __Lc._loop.c77cast = {ci: __ci, out: out};
+        try { __Lc.touch(84, 'Raising the keeps…', 92); } catch (_) {}
+        throw __Lc.YIELD;
+      }
+    }
+    if (__Lc && __Lc._loop) __Lc._loop.c77cast = null;
     try { scanLights(); validateLights(); } catch (_) {}
     return out; }
   // ---- caves: every cavern, deep cave and worm cave joined into one network ----
@@ -89052,7 +89085,7 @@ try {
     // Kick a frame so the already-updated DOM bar can composite, but do
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
-    try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
+    try { if (U.live) { const __kf = function () {}; __kf.__tgFree = 1; requestAnimationFrame(__kf); } } catch (_) {}
     /* MessageChannel is the reliable macrotask yield (no setTimeout 4ms
        clamp). scheduler.yield() in this Chrome resolved too early and
        the pump never gave the event loop a turn, freezing the % text
@@ -89836,8 +89869,9 @@ try {
           if (U.live && !U.finishing && !U.done && typeof chunksReady === 'function') {
             chunksReady();
             const cn = chunksReady.need || 9, cg = chunksReady.got || 0;
-            const p = 98 + 1.5 * cg / Math.max(1, cn);
+            const p = 98 + 1.8 * cg / Math.max(1, cn);
             setReal(p, 'Building terrain meshes… ' + cg + '/' + cn, 99.8);
+            if (cg >= cn && cn > 0 && !U.finishing && !U.done) U.finish();
           }
         } catch (_) {}
         return r;

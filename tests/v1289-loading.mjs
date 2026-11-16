@@ -52,4 +52,8 @@ ok(html.includes("if (window.__glenLoad && window.__glenLoad.isYield && window._
 ok(html.includes('__Lp._loop.plant') && html.includes("phase === 'built'") && html.includes("phase === 'heather'") && html.includes('rs: rs, built: built, occ: occ'), 'plant() is sliced across built, trees, ground and heather and persists rs');
 ok(html.includes("phase: 'scan'") && html.includes('__Lf._loop.finishC = {ci: ci, out: out, x: x + 1, removed: removed'), 'finishCastles yields mid-castle and resumes the column scan');
 
+ok(html.includes('G.rafs') && html.includes('nST.call(W, function () { try { cb(); }') && html.includes('if (G.rafs.indexOf(fn) < 0) G.rafs.push(fn)'), 'timer-gate flush re-arms timeouts after generate and dedupes skipped frames');
+ok(html.includes('__kf.__tgFree = 1') && html.includes('requestAnimationFrame(__kf)'), 'the yield-paint frame kick is exempt from the timer gate');
+ok(html.includes('__Lc._loop.c77cast') && html.includes('Raising the keeps'), 'c77 castleWork yields after each keep and persists out');
+ok(html.includes('if (loading) return;') && html.includes('window.chunksReady = chunksReady') && html.includes('if (cg >= cn && cn > 0 && !U.finishing && !U.done) U.finish()'), 'spawn-ring meshing starts the 100 glide once the ring is ready and defers entity sync');
 console.log('v1289-loading: ' + n + ' ok');

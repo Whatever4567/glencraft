@@ -43,7 +43,7 @@
     // Kick a frame so the already-updated DOM bar can composite, but do
     // not wait for rAF — headless and background tabs throttle it, and
     // awaiting it was adding seconds of idle time between slices.
-    try { if (U.live) requestAnimationFrame(function () {}); } catch (_) {}
+    try { if (U.live) { const __kf = function () {}; __kf.__tgFree = 1; requestAnimationFrame(__kf); } } catch (_) {}
     /* MessageChannel is the reliable macrotask yield (no setTimeout 4ms
        clamp). scheduler.yield() in this Chrome resolved too early and
        the pump never gave the event loop a turn, freezing the % text
@@ -827,8 +827,9 @@
           if (U.live && !U.finishing && !U.done && typeof chunksReady === 'function') {
             chunksReady();
             const cn = chunksReady.need || 9, cg = chunksReady.got || 0;
-            const p = 98 + 1.5 * cg / Math.max(1, cn);
+            const p = 98 + 1.8 * cg / Math.max(1, cn);
             setReal(p, 'Building terrain meshes… ' + cg + '/' + cn, 99.8);
+            if (cg >= cn && cn > 0 && !U.finishing && !U.done) U.finish();
           }
         } catch (_) {}
         return r;
