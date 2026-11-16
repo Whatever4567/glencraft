@@ -1,4 +1,4 @@
-// 1.2.86-loading (unpublished, version stays 1.2.86): liquid meter + time-driven display.
+// 1.2.87: liquid meter + time-driven display, version 1.2.87.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
@@ -7,11 +7,16 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.86';"), 'GAME_VERSION stays 1.2.86');
-ok(!html.includes("const GAME_VERSION = '1.2.87';"), 'no 1.2.87 version bump');
-ok(!/"v"\s*:\s*"v1\.2\.87"/.test(html), 'no 1.2.87 patch notes');
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.86', 'version.json stays 1.2.86');
-ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->'), '1.2.84–1.2.86 build markers stay');
+ok(html.includes("const GAME_VERSION = '1.2.87';"), 'GAME_VERSION is 1.2.87');
+ok(!html.includes("const GAME_VERSION = '1.2.86';"), 'GAME_VERSION is no longer 1.2.86');
+ok(/"v"\s*:\s*"v1\.2\.87"/.test(html), '1.2.87 patch notes present');
+ok(/loading bar now fills smoothly the whole time/i.test(html), '1.2.87 notes mention the loading bar filling smoothly the whole time');
+{
+  const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes first, no food');
+}
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.87', 'version.json is 1.2.87');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->'), '1.2.84–1.2.87 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runtime');
