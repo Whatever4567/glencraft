@@ -162,16 +162,19 @@
     let aim = Math.max(U.shown, timed, Math.min(U.real || 0, TIMED_CAP));
     aim = Math.min(TIMED_CAP, aim);
     /* Floor creep so a flat time-curve tail, or a tick after a long task,
-       still moves the bar. 0.08%/s is visible over 3s and lasts ~25s after T
-       before nearing the 99 cap. Always apply this as a minimum; do not
-       follow a flatter time-curve increment instead. */
-    const cap = TIMED_CAP - 0.05;
-    const floor = 0.08 * (dt / 1000);
+       still moves the bar. The rate tapers as shown nears 99 so the last
+       2% is not burned in ~25s, leaving the bar frozen until ready.
+       Catch-up after a hitch is capped at 8% per second (and 8% in one
+       paint) so two rAF frames cannot snap the bar 16%. */
+    const cap = TIMED_CAP - 0.02;
     if (U.shown < cap) {
+      const room = cap - U.shown;
+      const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
+      const floor = floorRate * (dt / 1000);
+      const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
       const stepped = Math.min(cap, U.shown + floor);
       if (aim > U.shown) {
-        /* Never jump more than 8% in one paint if a long task delayed ticks. */
-        U.shown = Math.min(cap, Math.max(stepped, Math.min(aim, U.shown + 8)));
+        U.shown = Math.min(cap, Math.max(stepped, Math.min(aim, U.shown + maxStep)));
       } else {
         U.shown = stepped;
       }

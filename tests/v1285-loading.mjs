@@ -30,7 +30,7 @@ ok(src.includes('U.coop') && src.includes('U.maybeYield') && src.includes('U.gen
 ok(src.includes('U._gen9') && src.includes('!U.genDone && U._gen9'), 'column/lattice resumes skip the wrapper chain');
 ok(html.includes('__L._gen9 = __glenGen9 || generate') && html.includes('var __glenGen9 = generate;'), 'innermost GEN9 is captured before wrappers overwrite generate');
 ok(html.includes('__glenLoad.isYield && __glenLoad.isYield(e)) throw e') && html.includes("console.warn('c104', e)"), 'wrapper catch blocks rethrow cooperative yields');
-ok(src.includes('U.shown + 8') && src.includes('TIMED_CAP'), 'displayed catch-up is capped at 8% and follows the time curve');
+ok(src.includes('8 * (dt / 1000)') && src.includes('TIMED_CAP'), 'displayed catch-up is capped at 8%/s and follows the time curve');
 ok(html.includes('_loop.c104') && html.includes("phase: 'strip'"), 'c104 ore strip is sliced and resumable');
 ok(src.includes('U.skipPost') && src.includes('U.markPost') && html.includes('__glenLoad.skipPost'), 'already-finished wrapper posts are skipped on resume');
 ok(/U\._passed\['w:' \+ id\] = 1;[\s\S]{0,400}U\.maybeYield\(\);/.test(src), 'markPost yields only after the wrapper is marked');
@@ -154,20 +154,24 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   // displayed = max(real, timed), never back, jump cap 8
   let shown = 30;
   const apply = (timed, real, dt = 0) => {
-    const cap = 98.95;
-    const floor = 0.08 * (dt / 1000);
+    const cap = 98.98;
+    const room = cap - shown;
+    const floorRate = Math.min(0.08, Math.max(0, room * 0.02));
+    const floor = floorRate * (dt / 1000);
+    const maxStep = Math.min(8, Math.max(floor, 8 * (dt / 1000)));
     let aim = Math.max(shown, timed, Math.min(real, 99));
     aim = Math.min(99, aim);
     if (shown < cap) {
       const stepped = Math.min(cap, shown + floor);
-      if (aim > shown) shown = Math.min(cap, Math.max(stepped, Math.min(aim, shown + 8)));
+      if (aim > shown) shown = Math.min(cap, Math.max(stepped, Math.min(aim, shown + maxStep)));
       else shown = stepped;
     }
     return shown;
   };
-  const a = apply(40, 10);          // follows time 40, +8 cap from 30
-  const b = apply(44, 70);          // real jumps 60, but cap +8
-  ok(Math.abs(a - 38) < 1e-9 && Math.abs(b - 46) < 1e-9, 'displayed follows the time curve and never jumps more than 8%');
+  const a = apply(40, 10, 3000);    // hitch: +8 cap from 30 toward timed 40
+  ok(Math.abs(a - 38) < 1e-9, 'after a hitch, one paint catches up at most 8%');
+  const b = apply(50, 70, 16);
+  ok(b > a && b <= a + 0.2, 'following paints catch up at about 8%/s, not another 8% snap');
   shown = 50;
   const c = apply(20, 10, 0);
   ok(c === 50, 'displayed never goes backwards if real/time drop');
@@ -176,7 +180,16 @@ function timeCurve(elapsed, T, TIMED_AT_T = 97, TIMED_CAP = 99) {
   ok(floored - 93.64 >= 0.15, 'floor creep still moves at least 0.15% over 3s even when the time curve is flatter');
   shown = 97;
   const tail = apply(timeCurve(T + 30000, T), 80, 3000);
-  ok(tail - 97 >= 0.15 && tail < 99, 'after T, floor creep still moves the bar toward 99 over 3s');
+  ok(tail > 97 && tail < 99, 'after T, the bar still creeps toward 99');
+  let tailShown = 97, tailPrev = 97, tailFreeze = 0;
+  for (let i = 0; i < 40; i++) { // 40 * 3s = 120s of tail
+    shown = tailShown;
+    tailShown = apply(timeCurve(T + (i + 1) * 3000, T), 80, 3000);
+    if (tailShown <= tailPrev + 1e-9) tailFreeze++;
+    tailPrev = tailShown;
+  }
+  ok(tailShown < 99 && tailShown > 97.5, '120s past T the bar stays under 99 and above 97.5 (end ' + tailShown.toFixed(2) + ')');
+  ok(tailFreeze === 0, '120s past T the bar never hard-stops (end ' + tailShown.toFixed(2) + ', freezes ' + tailFreeze + ')');
   // 400ms ease-out glide
   const finishFrom = 90, GLIDE = 400;
   const glide = (u) => {
