@@ -276,6 +276,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1293-v1.2.93 -->
 <!-- glencraft-build: b1294-v1.2.94 -->
 <!-- glencraft-build: b1295-v1.2.95 -->
+<!-- glencraft-build: b1296-v1.2.96 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: load1289 -->
@@ -13634,7 +13635,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.95';
+const GAME_VERSION = '1.2.96';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -43588,7 +43589,7 @@ function make42(E) {
         for (const v of [-4, 4]) { const [x, z] = L(-5, v); if (wall(x, hy + 2, z)) ok++; }
         { const [x, z] = L(6, 0); if (air(x, hy + 1, z)) ok++; }
         if (ok >= 11) return {cx, cy, cz, hy, fx, fz, rx, rz, L}; } return null; }
-    function find() { const R = 160, x0 = MT_C[0], z0 = MT_C[1], ys = SEA + 18, ye = Math.min(H - 2, SEA + 45);
+    function find() { try { if (typeof DIM !== 'undefined' && DIM.cur === 'egypt' && window.__egPyr) { const e = __egPyr(); if (e && e.L) return e; } } catch (_) {} const R = 160, x0 = MT_C[0], z0 = MT_C[1], ys = SEA + 18, ye = Math.min(H - 2, SEA + 45);
       for (let x = Math.max(1, x0 - R); x < Math.min(W - 1, x0 + R); x++) for (let z = Math.max(1, z0 - R); z < Math.min(D - 1, z0 + R); z++)
         for (let y = ys; y < ye; y++) if (world[idx(x, y, z)] === T.GOLDBLOCK && world[idx(x, y - 1, z)] === T.SANDSTONE && world[idx(x, y + 1, z)] === 0) { const o = orient(x, y, z); if (o) return o; }
       return null; }
@@ -43610,7 +43611,7 @@ function make42(E) {
       U.murals = grp.children.length; }
     let lastWorld = null, t = 0;
     const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { if (U.art) U.art.visible = !!((window.__c246b && __c246b.done) || (current && (localStorage.getItem('glen_met_' + current.id) || (current.c246 && current.c246.met)))); } catch (_) {}
-      try { if (!started || DIM.cur) { grp.visible = false; return r; } grp.visible = true; if ((t -= dt || 0.016) > 0) return r; t = 4;
+      try { if (!started || (DIM.cur && DIM.cur !== 'egypt')) { grp.visible = false; return r; } grp.visible = true; if ((t -= dt || 0.016) > 0) return r; t = 4;
         if (world !== lastWorld || !U.pyr) { if (world !== lastWorld) { U.pyr = null; while (grp.children.length) grp.remove(grp.children[0]); } lastWorld = world; U.pyr = find(); if (U.pyr) build(U.pyr); else t = 15; }
         else { const o = U.pyr; if (!o.L) return; const [x, z] = o.L(-0.5, 0); grp.visible = Math.hypot(P.x - x, P.z - z) < 90; }
       } catch (e) { if (!U.err) { U.err = String(e); console.warn('c239', e); } } return r; };
@@ -43658,9 +43659,9 @@ function make42(E) {
       U.n = folk.length; }
     function pick(f, o) { const u = -3.5 + Math.random() * 6, v = -4.2 + Math.random() * 8.4, [x, z] = o.L(Math.floor(u), Math.floor(v)); f.tx = x + 0.5; f.tz = z + 0.5; }
     const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
-      try { const o = window.__c239 && __c239.pyr; if (o && o !== key && o.L) { key = o; spawn(o); }   /* v1.0.86: never cleared when the pyramid scan blinks - c270 brings the saved pyramid back */
-        if (!o || !started) return r; const near = Math.hypot(P.x - (o.cx + 0.5), P.z - (o.cz + 0.5)) < 70, live = !paused && !dead && !DIM.cur; dt = Math.min(dt || 0.016, 0.1);
-        for (const f of folk) { f.g.visible = !DIM.cur; if (!near || !live) continue; if (f.dz) continue;
+      try { const o = window.__c239 && __c239.pyr; if (o && o !== key && o.L) { key = o; if (typeof DIM !== 'undefined' && DIM.cur === 'egypt') spawn(o); }   /* v1.0.86: never cleared when the pyramid scan blinks - c270 brings the saved pyramid back */
+        if (!o || !started) return r; const near = Math.hypot(P.x - (o.cx + 0.5), P.z - (o.cz + 0.5)) < 70, live = !paused && !dead && DIM.cur === 'egypt'; dt = Math.min(dt || 0.016, 0.1);
+        for (const f of folk) { f.g.visible = DIM.cur === 'egypt'; if (!near || !live) continue; if (f.dz) continue;
           const dpx = P.x - f.x, dpz = P.z - f.z, dp = Math.hypot(dpx, dpz); let mv = 0, want = f.yaw;
           if (dp < 4.5) want = Math.atan2(dpx, dpz); else { const dx = f.tx - f.x, dz = f.tz - f.z, dd = Math.hypot(dx, dz);
             if (dd < 0.15) { if ((f.wt -= dt) <= 0) { f.wt = 2 + Math.random() * 5; pick(f, o); } } else { const s = Math.min(dd, dt * 0.9); f.x += dx / dd * s; f.z += dz / dd * s; want = Math.atan2(dx, dz); mv = 1; } }
@@ -44477,7 +44478,7 @@ function make42(E) {
       blending: THREE.CustomBlending, blendSrc: THREE.SrcAlphaFactor, blendDst: THREE.OneMinusSrcAlphaFactor });
     const dome = new THREE.Mesh(new THREE.SphereGeometry(60, 48, 24), mat); dome.name = 'nsky'; dome.renderOrder = -100; dome.frustumCulled = false; dome.visible = false; scene.add(dome); U.dome = dome;
     const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try {
-        const off = !started || (typeof DIM !== 'undefined' && DIM.cur) || (window.__c295 && __c295.inside) || (window.__c244 && __c244.on) || P.y < SEA - 20;
+        const off = !started || (typeof DIM !== 'undefined' && DIM.cur && DIM.cur !== 'egypt') || (window.__c295 && __c295.inside) || (window.__c244 && __c244.on) || P.y < SEA - 20;
         const night = 1 - (typeof daylight === 'number' ? daylight : 1), k = off ? 0 : Math.max(0, Math.min(1, (night - 0.3) / 0.45)); U.k = +k.toFixed(2);
         dome.visible = k > 0.01; if (!dome.visible) return r; dome.position.copy(camera.position); mat.uniforms.uK.value = k * 0.93; mat.uniforms.uT.value = performance.now() / 1000;
         mat.uniforms.uRot.value = (typeof dayClock === 'number' && typeof CYCLE === 'number') ? dayClock / CYCLE * 6.283 * 0.35 : 0;
@@ -45162,7 +45163,7 @@ function make42(E) {
     const gy = e.hz !== undefined ? ground(e.x, e.z) : 0; if (gy && Math.abs(gy - e.y) < 2) e.y = gy; e.ph2 = (e.ph2 || 0) + d * 7; const sw = Math.sin(e.ph2) * 0.5; e.legs[0].rotation.set(sw, 0, 0); e.legs[1].rotation.set(-sw, 0, 0); e.arms[0].rotation.set(-sw * 0.7, 0, 0); e.arms[1].rotation.set(sw * 0.7, 0, 0); e.hd.rotation.set(0, 0, 0); e.g.position.set(e.x, e.y, e.z); }
   function stop() { U.on = 0; U.ph = ''; for (const e of out) if (e.dz) { e.ph2 = 0; e.ret = 1; } for (const e of all()) if (e.dz) { e.dz = 0; e.g.rotation.z = 0; e.hd.rotation.set(0, 0, 0); for (const q of e.arms.concat(e.legs)) q.rotation.set(0, 0, 0); } music(0); try { applyMusicVol(); } catch (_) {} }
   try { const am = applyMusicVol; applyMusicVol = function () { const l = musicLvl; if (U.on) musicLvl = 0; try { return am.apply(this, arguments); } finally { musicLvl = l; } }; } catch (e) { U.err = 'amv ' + e; }
-  function idle(f, dt, near) { f.g.visible = !DIM.cur; if (!f.g.visible || f.dz) return;   /* v1.0.74: always there */ if (f.ret) { f.gx = f.hx; f.gz = f.hz; f.arr = 0; walk(f, dt); if (!f.arr) return; f.ret = 0; f.ph2 = 0; } f.ph2 += dt; const t = f.ph2, A = f.arms, L = f.legs;
+  function idle(f, dt, near) { f.g.visible = DIM.cur === 'egypt'; if (!f.g.visible || f.dz) return;   /* v1.0.74: always there */ if (f.ret) { f.gx = f.hx; f.gz = f.hz; f.arr = 0; walk(f, dt); if (!f.arr) return; f.ret = 0; f.ph2 = 0; } f.ph2 += dt; const t = f.ph2, A = f.arms, L = f.legs;
     if (f.act === 'carry') { const s = Math.sin(t * 0.25), r = f.r + s * 6; f.x = (window.__c239.pyr.cx + 0.5) + Math.cos(f.a) * r; f.z = (window.__c239.pyr.cz + 0.5) + Math.sin(f.a) * r; f.yaw = Math.atan2(Math.cos(f.a) * Math.cos(t * 0.25), Math.sin(f.a) * Math.cos(t * 0.25)); const sw = Math.sin(t * 6) * 0.45; L[0].rotation.x = sw; L[1].rotation.x = -sw; A[0].rotation.set(PI, 0, -0.2); A[1].rotation.set(PI, 0, 0.2); f.y = ground(f.x, f.z) || f.y; }
     else if (f.act === 'pray') { L[0].rotation.x = L[1].rotation.x = -1.5; f.g.position.y = f.y - 0.35; const b = 0.35 + 0.35 * Math.max(0, Math.sin(t * 0.9)); f.hd.rotation.x = b; A[0].rotation.set(-2.6 + b, 0, 0.15); A[1].rotation.set(-2.6 + b, 0, -0.15); }
     else if (f.act === 'farm') { const s = Math.sin(t * 2.2); A[1].rotation.x = -1.0 + s * 0.8; A[0].rotation.x = -0.9 + s * 0.7; f.hd.rotation.x = 0.3; }
@@ -45170,8 +45171,8 @@ function make42(E) {
     if (f.act !== 'pray' && f.act !== 'drum') f.g.position.y = f.y; f.g.position.x = f.x; f.g.position.z = f.z; f.g.rotation.y = f.yaw; }
   let last = performance.now(), hb = 0;
   const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments);
-    try { const o = window.__c239 && __c239.pyr, ok = o ? o.cx + ',' + o.cz : null; if (ok !== key) { key = ok; if (U.on) { U.why = 'pyr'; stop(); } if (o && o.L) spawn(o); }   /* v1.0.86: folk are kept if the pyramid scan blinks */
-      if (!o || !started) return r; const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; const near = Math.hypot(P.x - o.cx, P.z - o.cz) < 80, live = !paused && !dead && !DIM.cur;
+    try { const o = window.__c239 && __c239.pyr, ok = o ? o.cx + ',' + o.cz : null; if (ok !== key) { key = ok; if (U.on) { U.why = 'pyr'; stop(); } if (o && o.L && typeof DIM !== 'undefined' && DIM.cur === 'egypt') spawn(o); }   /* v1.0.86: folk are kept if the pyramid scan blinks */
+      if (!o || !started) return r; const now = performance.now(), d = Math.min(0.1, (now - last) / 1000); last = now; const near = Math.hypot(P.x - o.cx, P.z - o.cz) < 80, live = !paused && !dead && DIM.cur === 'egypt';
       if ((hb -= d) <= 0) { hb = 2; hookBtn(); }
       if (live) for (const f of out) idle(f, d, near);
       const lt = live && ltDown(); if (lt && !ltPrev) { U.lt++; if (U.on) { U.why = 'lt'; stop(); } else { const f = aimed(); if (f) start(f); } } ltPrev = lt;
@@ -45179,7 +45180,7 @@ function make42(E) {
         if (all1 || U.gt > 6) { for (const e of U.ds) { e.x = e.gx; e.z = e.gz; e.arr = 1; e.g.rotation.y = e.gyaw; e.g.position.set(e.x, e.y, e.z); } U.ph = 'dance'; U.t = 0; U.snap = all1 ? 0 : 1; music(1); } }
       else if (U.on) { U.t += d; const p = pose(U.t); for (const e of U.ds) if (e.dz) { apply(e, p, U.t); e.g.rotation.y = e.gyaw; e.g.position.set(e.x, e.y, e.z); }
         if (pan) { const s = AC.currentTime; pan.positionX ? (pan.positionX.setValueAtTime(ctr.x, s), pan.positionY.setValueAtTime(ctr.y, s), pan.positionZ.setValueAtTime(ctr.z, s)) : pan.setPosition(ctr.x, ctr.y, ctr.z); }
-        U.far = Math.hypot(P.x - ctr.x, P.z - ctr.z) > 32 ? (U.far || 0) + d : 0; if (U.far > 2 || DIM.cur) { U.why = DIM.cur ? 'dim' : 'far'; stop(); } }   /* v1.0.83: keeps dancing (song loops) until you walk well away or press LT */
+        U.far = Math.hypot(P.x - ctr.x, P.z - ctr.z) > 32 ? (U.far || 0) + d : 0; if (U.far > 2 || DIM.cur !== 'egypt') { U.why = (DIM.cur !== 'egypt') ? 'dim' : 'far'; stop(); } }   /* v1.0.83: keeps dancing (song loops) until you walk well away or press LT */
     } catch (e) { if (!U.err) { U.err = String(e).slice(0, 200); console.warn('c259', e); } } return r; };
   /* v1.0.77: the terrain / biome music fades out for the whole dance and comes back after */ let wasOn = 0; setInterval(() => { const on = U.on ? 1 : 0; if (on !== wasOn) { wasOn = on; try { applyMusicVol(); } catch (_) {} } if (on && typeof AC !== 'undefined' && AC && AC.state === 'suspended') AC.resume().catch(() => {}); }, 150);
   U.reset = () => { try { if (src) music(0); } catch (_) {} buf = null; raw = null; };
@@ -45480,7 +45481,7 @@ function make42(E) {
         const tx = ld.load('assets/art/user_p' + (k + 1) + '.jpg'); try { tx.colorSpace = THREE.SRGBColorSpace; } catch (_) {}
         const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({map: tx, color: 0xeeeeee, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4}));
         m.position.set(px + nx * 0.02, y, pz + nz * 0.02); m.rotation.y = fr.rotation.y; m.userData.userArt = k + 1; grp.add(m); U.n++; } } }
-  setInterval(() => { try { if (!started || DIM.cur) { grp.visible = false; return; }
+  setInterval(() => { try { if (!started || (DIM.cur && DIM.cur !== 'egypt')) { grp.visible = false; return; }
     const o = window.__c239 && __c239.pyr, k = o ? o.cx + ',' + o.cz + ',' + o.hy : null; if (k !== key || world !== lastW) { key = k; lastW = world; if (o && o.L) build(o); else clear(); }
     if (o && o.L) { const [x, z] = o.L(1, 0); grp.visible = Math.hypot(P.x - x, P.z - z) < 70; } } catch (e) { if (!U.err) U.err = String(e); } }, 1000);
   try { const ew = enterWorld; enterWorld = function () { try { key = null; clear(); } catch (_) {} return ew.apply(this, arguments); }; } catch (e) { U.err = String(e); }
@@ -47451,38 +47452,38 @@ img,canvas.ui{max-width:100%}
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const C = () => window.__c246, A = () => window.__c294;
   const night = () => { try { return (typeof isNight !== 'undefined' && isNight) || (typeof daylight === 'number' && daylight < 0.3); } catch (_) { return false; } };
-  U.on = () => { try { const a = A(); return !!(started && a && (a.M || big()) && a.AG && window.__c239 && __c239.pyr); } catch (_) { return false; } };
+  U.on = () => { try { const a = A(); return !!(started && a && (a.M || big()) && a.AG && (window.__egPyr || (window.__c239 && __c239.pyr))); } catch (_) { return false; } };
   let PTS = null, LEN = 0, key = '';
   // v1.1.39: on the round Earth the saucer's home is on the sand beside the desert pyramid (the old ice wall mouth is gone)
   const big = () => { try { return !!(window.__ukHome && __ukHome() && !DIM.cur); } catch (_) { return false; } };
   // v1.1.40: the saucer lives at the North Pole beside the way down to Agartha, and flies FAST (about 260 blocks a second) round the curve of the Earth to the pyramids
   function buildN(py, po) { const k = 'n' + py.cx + ',' + po.x + ',' + po.z; if (k === key && PTS) return true; key = k; const e = __c320, c = e.E(), R = e.R, ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
-    if (e.flat) { const hx = po.x + 12, hz = po.z, R0 = window.__agw && __agw.route && __agw.route(); if (window.__agw && !R0) key = ''; PTS = (R0 || [['ow', hx + .5, po.top + 4, hz + .5]]).concat([['ow', hx + .5, SEA + 160, hz + .5], ['ow', py.cx + .5, SEA + 160, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]]);   /* v1.1.87: it sleeps in the crystal city under Scotland and flies out up the spiral cave */
+    if (e.flat) { const hx = po.x + 12, hz = po.z, R0 = window.__agw && __agw.route && __agw.route(); if (window.__agw && !R0) key = ''; PTS = (R0 || [['ow', hx + .5, po.top + 4, hz + .5]]).concat([['ow', hx + .5, SEA + 160, hz + .5], ['egypt', py.cx + .5, SEA + 160, py.cz + .5], ['egypt', py.cx + .5, hy, py.cz + .5]]);   /* v1.1.87: it sleeps in the crystal city under Scotland and flies out up the spiral cave */
       let L = 0; PTS[0].push(0); for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; L += Math.hypot(p[1] - q[1], p[2] - q[2], p[3] - q[3]); p.push(L); } LEN = L; U.len = Math.round(L); U.home = 'north pole'; U.sp = 260; return true; }
     const hx = po.x + 9, hz = po.z, A = [hx - c[0], po.top + 4 - c[1], hz - c[2]], B = [py.cx + .5 - c[0], ty - c[1], py.cz + .5 - c[2]], la = Math.hypot(...A), lb = Math.hypot(...B), a = A.map(v => v / la), b = B.map(v => v / lb);
     const om = Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))), so = Math.sin(om) || 1;
     PTS = [['ow', hx + .5, po.top + 4, hz + .5], ['ow', hx + .5, po.top + 140, hz + .5]]; const N = 24;
     for (let i = 1; i < N; i++) { const t = i / N, ka = Math.sin((1 - t) * om) / so, kb = Math.sin(t * om) / so, rr = R + 170; PTS.push(['ow', c[0] + (a[0] * ka + b[0] * kb) * rr, c[1] + (a[1] * ka + b[1] * kb) * rr, c[2] + (a[2] * ka + b[2] * kb) * rr]); }
-    PTS.push(['ow', py.cx + .5, ty, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]);
+    PTS.push(['egypt', py.cx + .5, ty, py.cz + .5], ['egypt', py.cx + .5, hy, py.cz + .5]);
     let L = 0; PTS[0].push(0); for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; L += Math.hypot(p[1] - q[1], p[2] - q[2], p[3] - q[3]); p.push(L); } LEN = L; U.len = Math.round(L); U.home = 'north pole'; U.sp = 260; return true; }
-  function buildP() { const py = __c239.pyr, po = window.__c332 && __c332.pole; if (po && window.__c320 && buildN(py, po)) return; const k = 'p' + py.cx + ',' + py.cz; if (k === key && PTS) return; key = k; const hx = py.cx + 70, hz = py.cz, ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
-    let gy = SEA + 2; try { gy = groundTop(hx, hz) + 1; } catch (_) {} PTS = [['ow', hx + .5, gy + 6, hz + .5], ['ow', hx + .5, ty, hz + .5], ['ow', py.cx + .5, ty, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]];
+  function buildP() { const py = (window.__egPyr && __egPyr()) || __c239.pyr, po = window.__c332 && __c332.pole; if (po && window.__c320 && buildN(py, po)) return; const k = 'p' + py.cx + ',' + py.cz; if (k === key && PTS) return; key = k; const hx = py.cx + 70, hz = py.cz, ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
+    let gy = SEA + 2; try { gy = groundTop(hx, hz) + 1; } catch (_) {} PTS = [['ow', hx + .5, gy + 6, hz + .5], ['ow', hx + .5, ty, hz + .5], ['egypt', py.cx + .5, ty, py.cz + .5], ['egypt', py.cx + .5, hy, py.cz + .5]];
     let L = 0; PTS[0].push(0); for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; L += Math.hypot(p[1] - q[1], p[2] - q[2], p[3] - q[3]); p.push(L); } LEN = L; U.len = Math.round(L); U.home = 'pyramid'; }
-  function build() { const a = A(), M = a.M; if (!M || big()) return buildP(); const G = a.AG, py = __c239.pyr, k = M.x + ',' + M.z + ',' + py.cx; if (k === key && PTS) return; key = k;
+  function build() { const a = A(), M = a.M; if (!M || big()) return buildP(); const G = a.AG, py = (window.__egPyr && __egPyr()) || __c239.pyr, k = M.x + ',' + M.z + ',' + py.cx; if (k === key && PTS) return; key = k;
     const X7 = window.__c307; if (X7 && X7.ready && X7.route) { const o2 = a.WP(M.df + 26, 0), ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38), c = X7.L.city;
       PTS = [['ow', c[0] + .5, X7.L.FL + 14, c[1] - 40]].concat(X7.route.slice().reverse().map(p => ['ow', p[0] + .5, p[1], p[2] + .5]));
-      PTS.push(['ow', o2[0] + .5, (M.f0 || SEA + 2) + 11, o2[1] + .5], ['ow', o2[0] + .5, ty, o2[1] + .5], ['ow', py.cx + .5, ty, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]);
+      PTS.push(['ow', o2[0] + .5, (M.f0 || SEA + 2) + 11, o2[1] + .5], ['ow', o2[0] + .5, ty, o2[1] + .5], ['egypt', py.cx + .5, ty, py.cz + .5], ['egypt', py.cx + .5, hy, py.cz + .5]);
       let L = 0; PTS[0].push(0); for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; L += Math.hypot(p[1] - q[1], p[2] - q[2], p[3] - q[3]); p.push(L); } LEN = L; U.len = Math.round(L); return; }
     const o1 = a.WP(1, 0), o2 = a.WP(M.df + 26, 0), ty = Math.min(H - 6, 122), hy = Math.min(H - 8, (py.cy || SEA + 20) + 38);
     PTS = [['ag', G.CX + .5, 19, G.CZ + 40], ['ag', G.CX + .5, 20, G.TL + 6], ['ag', G.CX + .5, 22, G.TL - 150], ['ag', G.CX + .5, 24, 1],
-      ['ow', o1[0] + .5, SEA + 13, o1[1] + .5], ['ow', o2[0] + .5, (M.f0 || SEA + 2) + 11, o2[1] + .5], ['ow', o2[0] + .5, ty, o2[1] + .5], ['ow', py.cx + .5, ty, py.cz + .5], ['ow', py.cx + .5, hy, py.cz + .5]];
+      ['ow', o1[0] + .5, SEA + 13, o1[1] + .5], ['ow', o2[0] + .5, (M.f0 || SEA + 2) + 11, o2[1] + .5], ['ow', o2[0] + .5, ty, o2[1] + .5], ['egypt', py.cx + .5, ty, py.cz + .5], ['egypt', py.cx + .5, hy, py.cz + .5]];
     let L = 0; PTS[0].push(0); for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; if (p[0] === q[0]) L += Math.hypot(p[1] - q[1], p[2] - q[2], p[3] - q[3]); p.push(L); } LEN = L; U.len = Math.round(L); }
   function at(s) { for (let i = 1; i < PTS.length; i++) { const p = PTS[i], q = PTS[i - 1]; if (s <= p[4]) { if (p[0] !== q[0]) return [p[0], p[1], p[2], p[3]];
         const k = (s - q[4]) / Math.max(1e-6, p[4] - q[4]); return [p[0], q[1] + (p[1] - q[1]) * k, q[2] + (p[2] - q[2]) * k, q[3] + (p[3] - q[3]) * k]; } }
     const e = PTS[PTS.length - 1]; return [e[0], e[1], e[2], e[3]]; }
   // all-night tic-tac over the desert
   const Z = {wp: null, hold: 0};
-  function zig(dt, p) { const py = __c239.pyr, e = PTS[PTS.length - 1]; if (Z.hold > 0) { Z.hold -= dt; return; }
+  function zig(dt, p) { const py = (window.__egPyr && __egPyr()) || __c239.pyr, e = PTS[PTS.length - 1]; if (Z.hold > 0) { Z.hold -= dt; return; }
     if (!Z.wp) { Z.n = ((Z.n || 0) + 1) % 4; Z.wp = [py.cx + (Math.random() - .5) * 160, e[2] - 8 + Math.random() * 26, py.cz + (Math.random() - .5) * 160]; }
     const dx = Z.wp[0] - p[1], dy = Z.wp[1] - p[2], dz = Z.wp[2] - p[3], L = Math.hypot(dx, dy, dz), st = Math.min(L, 140 * dt);
     p[1] += dx / Math.max(L, 1e-3) * st; p[2] += dy / Math.max(L, 1e-3) * st; p[3] += dz / Math.max(L, 1e-3) * st;
@@ -47498,7 +47499,7 @@ img,canvas.ui{max-width:100%}
       p[1] += dx / Math.max(L, 1e-3) * st; p[2] += dy / Math.max(L, 1e-3) * st; p[3] += dz / Math.max(L, 1e-3) * st; if (L < 1) { U.ph = 'back'; U.s = LEN; } }
     else if (U.ph === 'back') { U.s = Math.max(0, U.s - U.sp * dt); U.pos = at(U.s); if (U.s <= 0) U.ph = 'park'; }
     else { U.s = 0; U.pos = at(0); U.pos[2] += Math.sin(performance.now() / 900) * 0.6; } }
-  function show() { const c = C(); if (!c || !c.spawnAt) return; const here = DIM.cur === 'agartha' ? 'ag' : !DIM.cur ? 'ow' : null, p = U.pos, u = c.ufo();
+  function show() { const c = C(); if (!c || !c.spawnAt) return; const here = (typeof window.__eg1295 !== 'undefined' && __eg1295.ufoHereTag) ? __eg1295.ufoHereTag() : (DIM.cur === 'egypt' ? 'egypt' : DIM.cur === 'agartha' ? 'ag' : null), p = U.pos, u = c.ufo();
     const near = p && here === p[0] && Math.hypot(p[1] - P.x, p[3] - P.z) < 640;
     if (!near) { if (u && u.st === 'fly') c.drop(); return; }
     if (!u) { c.spawnAt(p[1], p[2], p[3]); U.sh++; } }
@@ -62775,6 +62776,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.96","d":"2026-11-17","notes":["The UFO paintings hang in the Egypt land pyramid again.","The Agartha saucer flies to the sand realm at night and no longer appears over Glencraft.","Egyptians only live at the temple in the sand realm.","Egypt land has its own desert sky: a deep blue day, orange and pink sunsets, and a clear starry night."]},
 {"v":"v1.2.95","d":"2026-11-17","notes":["The first-person pickaxe stays in your fist through the mining swing and is held upright in landscape, with the purple head clearly in view.","The held map is larger and readable in landscape, with your palm under the bottom of the sheet."]},
 {"v":"v1.2.94","d":"2026-11-17","notes":["The green loading fluid on the loading screen is visible again."]},
 {"v":"v1.2.93","d":"2026-11-17","notes":["The game now plays in landscape on phones."]},
@@ -91899,6 +91901,266 @@ try {
     try { requestAnimationFrame(loop); } catch (_) {}
   })();
 })();
+
+/* GLX-EG1295 (v1.2.96): Egypt / sand-realm fixes.
+   1. The player's UFO / alien paintings (c268 user_p1-6 and c239 hall murals)
+      hang in the Egypt land pyramid again. They were hidden whenever DIM.cur
+      was set, which hid them the moment Egypt became its own dimension.
+   2. The Agartha saucer (c304) leaves at night for the sand realm, patrols
+      over the Egypt pyramid, and never appears in the Glencraft overworld.
+   3. Egyptians (c240 hall folk and c259 village folk) only spawn and stay
+      visible in the sand realm.
+   4. Egypt land gets its own desert sky and matching fog (day, dusk/dawn,
+      night with stars). Glencraft, Agartha and space skies are unchanged.
+   Cheap WebGL1 uniforms-only tint of the existing sky dome. No geometry is
+   deleted. First-person hands, the gold D-pad, and overworld worldgen are
+   left alone. */
+(function egypt1295(WIN) {
+  const U = window.__eg1295 = {
+    version: '1.2.96-egypt', err: null, skyOn: 0, evicted: 0, ufoDrop: 0,
+    hook: 0, painted: 0
+  };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 280); };
+  const NAME = 'egypt';
+  const inEgypt = () => { try { return !!(typeof DIM !== 'undefined' && DIM && DIM.cur === NAME); } catch (_) { return false; } };
+  const dimNow = () => { try { return (typeof DIM !== 'undefined' && DIM && DIM.cur) || null; } catch (_) { return null; } };
+  const inAgartha = () => {
+    try {
+      if (typeof DIM !== 'undefined' && DIM && DIM.cur === 'agartha') return true;
+      if (window.__c295 && __c295.inside) return true;
+      const a = window.__agw;
+      const b = a && a.ok && Array.isArray(a.box) ? a.box : null;
+      if (!b || typeof P === 'undefined' || !P) return false;
+      return P.x >= b[0] - 2 && P.x <= b[3] + 2 && P.y >= b[1] - 2 && P.y <= b[4] + 2 && P.z >= b[2] - 2 && P.z <= b[5] + 2;
+    } catch (_) { return false; }
+  };
+  const onGlenSurface = () => { try { return !inEgypt() && !inAgartha() && !dimNow(); } catch (_) { return false; } };
+
+  // Deterministic Egypt-pyramid record (centre of the 256-wide Egypt land).
+  // Used by the saucer when the player has not visited Egypt yet.
+  function defaultPyr() {
+    const SEA0 = (typeof SEA === 'number') ? SEA : 32;
+    const cx = 128, cz = 128, G = SEA0 + 3;
+    return {
+      cx: cx - 8, cy: G + 8, cz: cz, hy: G + 4,
+      fx: 1, fz: 0, rx: 0, rz: 1,
+      L: (u, v) => [cx + u, cz + v]
+    };
+  }
+  function egyptPyr() {
+    try {
+      const e = window.__egypt1269 && window.__egypt1269.pyr;
+      if (e && e.cx != null) {
+        if (!e.L) e.L = (u, v) => [e.cx + u * (e.fx || 1) + v * (e.rx || 0), e.cz + u * (e.fz || 0) + v * (e.rz || 1)];
+        return e;
+      }
+    } catch (_) {}
+    return defaultPyr();
+  }
+  window.__egPyr = egyptPyr;
+  U.pyr = egyptPyr;
+  U.inEgypt = inEgypt;
+  U.inAgartha = inAgartha;
+  U.onGlenSurface = onGlenSurface;
+
+  // ---- desert sky (uniforms + fog only; existing WebGL1 sky dome / NSKY) ----
+  // Palette is also exposed so tests and the sheet can read it without a frame.
+  function desertSky(clock) {
+    const CYCLE0 = (typeof CYCLE === 'number' && CYCLE > 0) ? CYCLE : 720;
+    const p = (typeof clock === 'number') ? clock : ((typeof dayClock === 'number') ? dayClock / CYCLE0 : 0.25);
+    const ang = p * Math.PI * 2;
+    const sh = Math.sin(ang) + 0.2;
+    const day = (typeof clock !== 'number' && typeof daylight === 'number')
+      ? daylight
+      : Math.max(0, Math.min(1, (sh + 0.12) / 0.45));
+    const dusk = Math.max(0, 1 - Math.abs(sh - 0.05) * 5);
+    const night = 1 - day;
+    // Day: deep clear blue overhead, pale hazy warm sand horizon, hot sun.
+    const dayTop = [0.12, 0.38, 0.78], dayHor = [0.91, 0.82, 0.62], dayFog = [0.86, 0.77, 0.58];
+    // Sunset / sunrise: orange and pink.
+    const duskTop = [0.78, 0.32, 0.28], duskHor = [0.98, 0.62, 0.42], duskFog = [0.90, 0.52, 0.40];
+    const duskPink = [0.95, 0.48, 0.62];
+    // Night: dark clear sky, lots of stars.
+    const nightTop = [0.02, 0.04, 0.10], nightHor = [0.10, 0.13, 0.22], nightFog = [0.07, 0.09, 0.14];
+    const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    let top = lerp(nightTop, dayTop, day);
+    let hor = lerp(nightHor, dayHor, day);
+    let fog = lerp(nightFog, dayFog, day);
+    if (dusk > 0.02) {
+      const k = dusk * (0.45 + 0.55 * (1 - day));
+      top = lerp(top, duskTop, k);
+      hor = lerp(hor, lerp(duskHor, duskPink, 0.35), k);
+      fog = lerp(fog, duskFog, k);
+    }
+    // Slight heat-haze / dust veil in the day, cheap and stable.
+    const dust = 0.14 * day * (1 - dusk * 0.4);
+    hor = lerp(hor, [0.93, 0.80, 0.55], dust);
+    fog = lerp(fog, [0.90, 0.76, 0.52], dust * 0.8);
+    const sunK = Math.max(0, day * 1.15 + dusk * 0.55);
+    const sunCol = dusk > 0.2 ? [1, 0.78, 0.45] : [1, 0.95, 0.72];
+    const hemi = lerp([0.45, 0.52, 0.70], [1, 0.96, 0.86], day);
+    const ground = lerp([0.22, 0.16, 0.12], [0.78, 0.60, 0.36], day);
+    const starsK = Math.max(0, night * 1.35 - 0.08);
+    const fogNear = 36 + 10 * day;
+    const fogFar = (typeof PERF !== 'undefined' && PERF) ? 130 + 20 * day : 170 + 50 * day;
+    return { day, dusk, night, sh, top, hor, fog, sunK, sunCol, hemi, ground, starsK, fogNear, fogFar, dust };
+  }
+  U.desertSky = desertSky;
+
+  function applyDesertSky() {
+    if (!inEgypt()) return false;
+    const pal = desertSky();
+    U.sky = pal;
+    U.skyOn++;
+    try {
+      if (typeof skyUniforms !== 'undefined' && skyUniforms) {
+        if (skyUniforms.top && skyUniforms.top.value) skyUniforms.top.value.setRGB(pal.top[0], pal.top[1], pal.top[2]);
+        if (skyUniforms.hor && skyUniforms.hor.value) skyUniforms.hor.value.setRGB(pal.hor[0], pal.hor[1], pal.hor[2]);
+        if (skyUniforms.sunCol && skyUniforms.sunCol.value && pal.day + pal.dusk > 0.05) {
+          skyUniforms.sunCol.value.setRGB(pal.sunCol[0], pal.sunCol[1], pal.sunCol[2]);
+        }
+        if (skyUniforms.sunK) skyUniforms.sunK.value = Math.max(skyUniforms.sunK.value || 0, pal.sunK);
+      }
+    } catch (e) { ERR('skyu', e); }
+    try {
+      if (typeof scene !== 'undefined' && scene) {
+        if (scene.fog && scene.fog.color) {
+          scene.fog.color.setRGB(pal.fog[0], pal.fog[1], pal.fog[2]);
+          scene.fog.near = pal.fogNear;
+          scene.fog.far = pal.fogFar;
+        }
+        if (scene.background && scene.background.setRGB) scene.background.setRGB(pal.fog[0], pal.fog[1], pal.fog[2]);
+      }
+    } catch (e) { ERR('fog', e); }
+    try {
+      if (typeof hemi !== 'undefined' && hemi) {
+        hemi.color.setRGB(pal.hemi[0], pal.hemi[1], pal.hemi[2]);
+        if (hemi.groundColor) hemi.groundColor.setRGB(pal.ground[0], pal.ground[1], pal.ground[2]);
+        hemi.intensity = Math.max(hemi.intensity || 0, 0.55 + 0.4 * pal.day);
+      }
+      if (typeof sunL !== 'undefined' && sunL) {
+        if (pal.day + pal.dusk > 0.08) {
+          sunL.color.setRGB(pal.sunCol[0], pal.sunCol[1], pal.sunCol[2]);
+          sunL.intensity = Math.max(sunL.intensity || 0, 0.55 + 0.55 * pal.day + 0.25 * pal.dusk);
+        }
+      }
+    } catch (e) { ERR('lit', e); }
+    try {
+      if (typeof stars !== 'undefined' && stars && stars.material) {
+        stars.material.opacity = Math.max(stars.material.opacity || 0, pal.starsK);
+        stars.visible = pal.starsK > 0.02;
+      }
+      if (window.__nsky && window.__nsky.dome) {
+        const d = window.__nsky.dome;
+        if (pal.starsK > 0.02) {
+          d.visible = true;
+          try { if (d.material && d.material.uniforms && d.material.uniforms.uK) d.material.uniforms.uK.value = Math.max(d.material.uniforms.uK.value || 0, pal.starsK); } catch (_) {}
+        }
+      }
+    } catch (e) { ERR('stars', e); }
+    return true;
+  }
+  U.applyDesertSky = applyDesertSky;
+
+  // ---- keep decorative folk out of Glencraft ----
+  function evictEgyptians() {
+    if (inEgypt()) return 0;
+    let n = 0;
+    const lists = [];
+    try { if (window.__c240 && Array.isArray(__c240.folk)) lists.push(__c240.folk); } catch (_) {}
+    try { if (window.__c259 && typeof __c259.out === 'function') { const r = __c259.out(); if (Array.isArray(r)) lists.push(r); } } catch (_) {}
+    try { if (window.__c259 && typeof __c259.all === 'function') { const r = __c259.all(); if (Array.isArray(r)) lists.push(r); } } catch (_) {}
+    try {
+      const seen = new Set();
+      for (const list of lists) {
+        for (let i = 0; i < list.length; i++) {
+          const f = list[i];
+          if (!f || seen.has(f)) continue;
+          seen.add(f);
+          try {
+            if (f.g) {
+              f.g.visible = false;
+              if (f.g.parent && typeof f.g.parent.remove === 'function') { f.g.parent.remove(f.g); }
+              n++;
+            }
+          } catch (_) {}
+        }
+      }
+      try { if (window.__c240 && Array.isArray(__c240.folk)) __c240.folk.length = 0; } catch (_) {}
+      try { if (window.__c259 && typeof __c259.out === 'function') { const r = __c259.out(); if (Array.isArray(r)) r.length = 0; } } catch (_) {}
+    } catch (e) { ERR('evict', e); }
+    try {
+      if (typeof mobs !== 'undefined' && Array.isArray(mobs)) {
+        for (let i = mobs.length - 1; i >= 0; i--) {
+          const a = mobs[i];
+          if (a && (a.kind === 'egyptian' || a.kind === 'egypt' || a.type === 'egyptian' || a.egypt)) {
+            try { if (typeof removeMob === 'function') removeMob(a); else if (a.g && a.g.parent) a.g.parent.remove(a.g); } catch (_) {}
+            n++;
+          }
+        }
+      }
+    } catch (e) { ERR('evictm', e); }
+    if (n) U.evicted += n;
+    return n;
+  }
+  U.evictEgyptians = evictEgyptians;
+
+  // The Agartha saucer must never be drawn on the Glencraft surface.
+  function hideUfoOnSurface() {
+    if (!onGlenSurface()) return false;
+    try {
+      const c = window.__c246;
+      if (c && typeof c.ufo === 'function') {
+        const u = c.ufo();
+        if (u) {
+          try { if (typeof c.drop === 'function') c.drop(); } catch (_) {}
+          try { if (u.g) u.g.visible = false; } catch (_) {}
+          U.ufoDrop++;
+          return true;
+        }
+      }
+    } catch (e) { ERR('ufodrop', e); }
+    return false;
+  }
+  U.hideUfoOnSurface = hideUfoOnSurface;
+
+  // Where the c304 saucer is allowed to be shown.
+  function ufoHereTag() {
+    if (inEgypt()) return 'egypt';
+    if (inAgartha()) return 'ag';
+    return null;
+  }
+  U.ufoHereTag = ufoHereTag;
+
+  function hookSky() {
+    if (U.hook) return;
+    try {
+      if (typeof updateSky !== 'function') return;
+      const us = updateSky;
+      updateSky = function (dt) {
+        const r = us.apply(this, arguments);
+        try {
+          if (inEgypt()) applyDesertSky();
+          evictEgyptians();
+          hideUfoOnSurface();
+        } catch (e) { ERR('tick', e); }
+        return r;
+      };
+      U.hook = 1;
+    } catch (e) { ERR('hook', e); }
+  }
+
+  function boot() {
+    hookSky();
+    try { evictEgyptians(); } catch (_) {}
+    try { hideUfoOnSurface(); } catch (_) {}
+  }
+  U.boot = boot;
+  hookSky();
+  setTimeout(boot, 200);
+  setTimeout(boot, 1200);
+  setInterval(() => { try { evictEgyptians(); hideUfoOnSurface(); if (inEgypt()) applyDesertSky(); } catch (e) { ERR('iv', e); } }, 800);
+})(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
 </html>
