@@ -7,7 +7,7 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.98';") || html.includes("const GAME_VERSION = '1.2.99';"), 'GAME_VERSION is 1.2.98');
+ok(html.includes("const GAME_VERSION = '1.2.98';") || html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';"), 'GAME_VERSION is 1.2.98');
 ok(!html.includes("const GAME_VERSION = '1.2.97';"), 'GAME_VERSION is no longer 1.2.97');
 ok(!html.includes("const GAME_VERSION = '1.2.96';"), 'GAME_VERSION is no longer 1.2.96');
 ok(!html.includes("const GAME_VERSION = '1.2.95';"), 'GAME_VERSION is no longer 1.2.95');
@@ -52,8 +52,12 @@ ok(/stay on the pistol and musket during reloads/i.test(html), '1.2.90 notes men
 ok(/never jumps backwards/i.test(html), '1.2.89 notes mention the percentage never jumps backwards');
 ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention deterministic worlds');
 {
+  const st = html.indexOf('{"v":"v1.2.100"'), en = html.indexOf('{"v":"v1.2.99"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.100 notes first, no food');
+}
+{
   const st = html.indexOf('{"v":"v1.2.99"'), en = html.indexOf('{"v":"v1.2.98"', st);
-  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.99 notes first, no food');
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.99 notes still present, no food');
 }
 {
   const st = html.indexOf('{"v":"v1.2.98"'), en = html.indexOf('{"v":"v1.2.97"', st);
@@ -87,7 +91,7 @@ ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention de
   const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes remain, no food');
 }
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.99', 'version.json is 1.2.99');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.100', 'version.json is 1.2.100');
 ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->') && html.includes('<!-- glencraft-build: b1289-v1.2.89 -->') && html.includes('<!-- glencraft-build: b1290-v1.2.90 -->') && html.includes('<!-- glencraft-build: b1291-v1.2.91 -->') && html.includes('<!-- glencraft-build: b1292-v1.2.92 -->') && html.includes('<!-- glencraft-build: b1293-v1.2.93 -->') && html.includes('<!-- glencraft-build: b1294-v1.2.94 -->') && html.includes('<!-- glencraft-build: b1295-v1.2.95 -->') && html.includes('<!-- glencraft-build: b1296-v1.2.96 -->') && html.includes('<!-- glencraft-build: b1297-v1.2.97 -->') && html.includes('<!-- glencraft-build: b1298-v1.2.98 -->') && html.includes('<!-- glencraft-build: b1299-v1.2.99 -->'), '1.2.84–1.2.99 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');

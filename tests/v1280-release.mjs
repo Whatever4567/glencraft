@@ -10,7 +10,7 @@ let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
 ok(ver.v === '1.2.80', 'version.json is 1.2.80');
-ok(html.includes("const GAME_VERSION = '1.2.80';"), 'GAME_VERSION is 1.2.80');
+ok(html.includes("const GAME_VERSION = '1.2.80';") || html.includes("const GAME_VERSION = '1.2.100';"), 'GAME_VERSION is 1.2.80');
 ok(html.includes('<!-- glencraft-build: b1280-v1.2.80 -->'), 'build marker');
 ok(html.includes('<!-- glencraft-build: b1279-v1.2.79 -->'), '1.2.79 marker stays');
 ok(html.includes('"v":"v1.2.80"'), 'PATCH_NOTES has 1.2.80');

@@ -1,4 +1,4 @@
-// v1295: Egypt / sand-realm paintings, UFO night route, Egyptian spawns, desert sky. Released as 1.2.96. Version pins follow the current GAME_VERSION (1.2.99).
+// v1295: Egypt / sand-realm paintings, UFO night route, Egyptian spawns, desert sky. Released as 1.2.96. Version pins follow the current GAME_VERSION (1.2.100).
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -17,10 +17,11 @@ let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
 // ---------- source: version, notes, inject ----------
-ok(ver.v === '1.2.99', 'version.json is 1.2.99');
-ok(html.includes("const GAME_VERSION = '1.2.98';") || html.includes("const GAME_VERSION = '1.2.99';"), 'GAME_VERSION is 1.2.98');
+ok(ver.v === '1.2.100', 'version.json is 1.2.100');
+ok(html.includes("const GAME_VERSION = '1.2.98';") || html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';"), 'GAME_VERSION is 1.2.98');
 ok(html.includes('<!-- glencraft-build: b1296-v1.2.96 -->'), 'b1296 build marker');
 ok(html.includes('<!-- glencraft-build: b1299-v1.2.99 -->'), 'b1299 build marker');
+ok(html.includes('<!-- glencraft-build: b1300-v1.2.100 -->'), 'b1300 build marker');
 ok(html.includes('<!-- glencraft-build: b1295-v1.2.95 -->'), '1.2.95 pick/map marker stays');
 ok(html.includes('{"v":"v1.2.96"'), 'PATCH_NOTES has v1.2.96');
 ok(html.includes('{"v":"v1.2.95"'), '1.2.95 pick/map notes stay');

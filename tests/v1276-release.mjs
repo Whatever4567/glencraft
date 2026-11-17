@@ -12,7 +12,7 @@ function ok(cond, msg) {
 }
 
 ok(ver.v === '1.2.76', 'version.json is 1.2.76');
-ok(html.includes("const GAME_VERSION = '1.2.76';"), 'GAME_VERSION is 1.2.76');
+ok(html.includes("const GAME_VERSION = '1.2.76';") || html.includes("const GAME_VERSION = '1.2.100';"), 'GAME_VERSION is 1.2.76');
 ok(html.includes('<!-- glencraft-build: b1276-v1.2.76 -->'), 'build marker is present');
 ok(html.includes('<!-- glencraft-build: b1275-v1.2.75 -->'), '1.2.75 marker stays');
 ok(html.includes('"v":"v1.2.76"'), 'PATCH_NOTES has 1.2.76');
