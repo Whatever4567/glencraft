@@ -277,6 +277,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1294-v1.2.94 -->
 <!-- glencraft-build: b1295-v1.2.95 -->
 <!-- glencraft-build: b1296-v1.2.96 -->
+<!-- glencraft-build: b1297-v1.2.97 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: load1289 -->
@@ -13635,7 +13636,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.96';
+const GAME_VERSION = '1.2.97';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -16627,7 +16628,8 @@ function updateCamFx(dt, moved) {
 /* ---------- block interaction ---------- */
 const crops = new Map();
 function canMine(b, y) {
-  if (!b || b === T.WATER || b === T.LAVA || !HARD[b] || y === 0) return false;
+  if (!b || b === T.WATER || b === T.LAVA || !HARD[b]) return false;
+  if ((b === T.BEDROCK || b === T.HBEDROCK || b === 211) && y <= -231) return false;
   if (MODE.instantBreak) return true;
   return true;   // any block can be broken: the wrong tool (or bare hands) is just very slow
 }
@@ -16821,7 +16823,7 @@ function updateInteraction(dt) {
   const b = getB(x, y, z);
   if (!canMine(b, y)) {
     mine.key = null; mine.t = 0; crackMesh.visible = false;
-    if (warnT <= 0 && y === 0) { toast('This is the bottom of the world. It cannot be broken.'); warnT = 3; }
+    if (warnT <= 0 && (b === T.BEDROCK || b === T.HBEDROCK || b === 211) && y <= -231) { toast('This is the bottom of the world. It cannot be broken.'); warnT = 3; }
     else if (REQ[b] > 1 && bestTool('pick').lvl >= 1 && warnT <= 0) { toast('You need ' + (REQ[b] === 3 ? 'an iron' : 'a stone') + ' pickaxe to mine ' + NAMES[b].toLowerCase()); warnT = 3; }
     else if (NEEDS_PICK.has(b) && warnT <= 0) { toast('You need a pickaxe to mine ' + NAMES[b].toLowerCase()); warnT = 3; }
     return;
@@ -26750,13 +26752,68 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     if (!isNew() || W < 200) return old.apply(this, arguments);
     const hAt = (x, z) => g9cols[(x * D + z) * 2], kd = (x, z) => g9cols[(x * D + z) * 2 + 1], cx0 = W >> 1, cz0 = D >> 1, placed = [];
     const flat = (x, z, r) => { let lo = 1e9, hi = -1e9, wet = 0; for (let a = -r; a <= r; a += 3) for (let b = -r; b <= r; b += 3) { const h = hAt(x + a, z + b); lo = Math.min(lo, h); hi = Math.max(hi, h); if (kd(x + a, z + b) === 5 || h <= SEA) wet++; } return {lo, hi, wet}; };
-    const ok = (x, z, r) => x > r + 8 && z > r + 8 && x < W - r - 8 && z < D - r - 8 && placed.every(p => Math.hypot(p[1] - x, p[2] - z) > 75) && castleAvoid.every(a => x + r < a.x0 - 6 || x - r > a.x1 + 6 || z + r < a.z0 - 6 || z - r > a.z1 + 6);
+    const I0 = (window.__c101 && __c101.isl) || {cx: cx0, cz: cz0, R: 40};
+    const exclR = (I0.R || 40) + 50;
+    const nearSpawn = (x, z) => Math.hypot(x - I0.cx, z - I0.cz) < exclR || Math.hypot(x - sp0[0], z - sp0[2]) < exclR;
+    const ok = (x, z, r) => x > r + 8 && z > r + 8 && x < W - r - 8 && z < D - r - 8 && !nearSpawn(x, z) && placed.every(p => Math.hypot(p[1] - x, p[2] - z) > 75) && castleAvoid.every(a => x + r < a.x0 - 6 || x - r > a.x1 + 6 || z + r < a.z0 - 6 || z - r > a.z1 + 6);
     const best = (r, sc) => { let bx = -1, bz = -1, bs = -1e18; for (let x = 0; x < W; x += 4) for (let z = 0; z < D; z += 4) { if (!ok(x, z, r)) continue; const f = flat(x, z, r - 2); if (f.wet) continue; const s = sc(x, z, f) - (f.hi - f.lo) * 6; if (s > bs) { bs = s; bx = x; bz = z; } } return bx >= 0 ? [bx, bz] : null; };
-    const sp = g9findSpawn() || [cx0, 0, cz0];
+    const prepareSite = (tx, tz, r) => {
+      tx = Math.max(r + 8, Math.min(W - r - 9, Math.round(tx)));
+      tz = Math.max(r + 8, Math.min(D - r - 9, Math.round(tz)));
+      if (nearSpawn(tx, tz)) return null;
+      const gy = Math.max(SEA + 3, (hAt(tx, tz) > SEA ? hAt(tx, tz) : SEA + 6));
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+        if (dx * dx + dz * dz > r * r) continue;
+        const x = tx + dx, z = tz + dz; if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
+        const ci = (x * D + z) * 2;
+        let top = hAt(x, z); if (!(top > 0) || top <= SEA) top = gy;
+        for (let y = 1; y < gy; y++) { const i = idx(x, y, z), b = world[i]; if (!b || b === T.WATER || b === T.AIR) world[i] = y >= gy - 3 ? T.DIRT : T.STONE; }
+        for (let y = gy; y < Math.min(H - 1, Math.max(top, gy) + 4); y++) { const i = idx(x, y, z); if (world[i] === T.WATER) world[i] = 0; }
+        world[idx(x, gy, z)] = T.GRASS;
+        if (g9cols) { g9cols[ci] = gy + 1; g9cols[ci + 1] = 0; }
+        try { if (placedSet) { for (let y = 1; y < H - 1; y++) placedSet.add(idx(x, y, z)); } } catch (_) {}
+      }
+      return [tx, tz];
+    };
+    const sp0 = (typeof g9findSpawn === 'function' && g9findSpawn()) || (typeof g9spawn !== 'undefined' && g9spawn) || [cx0, 0, cz0];
+    const sp = sp0;
     const want = [['human', (x, z) => -Math.abs(Math.hypot(x - sp[0], z - sp[2]) - 50) * 3], ['mossy', (x, z) => -Math.hypot(x - cx0, z - cz0) * 2 - (Math.hypot(x - sp[0], z - sp[2]) < 45 ? 1e6 : 0)], ['black', (x, z) => Math.hypot(x - sp[0], z - sp[2]) - (W >= 800 ? Math.abs(Math.min(x, z, W - 1 - x, D - 1 - z) - 56) * 6 : 0)]];
     { const cn = window.__c101 && window.__c101.corners && window.__c101.corners(); if (cn) for (const w of want) { const q = cn[w[0]]; if (q) w[1] = q; } }   // GLX-C101: one castle in each corner
-    for (const [k, sc] of want) { const S = SIZE[BASE[k]]; const p = best(S + 6, sc); if (p) placed.push([k, p[0], p[1]]); }
-    window.__bareKeep = true; try { for (const c of placed) { try { buildCastle(BASE[c[0]], c[1], c[2]); } catch (e) { if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('castle', c, e); } } } finally { window.__bareKeep = false; }
+    const isles = (window.__c113 && __c113.isles && __c113.isles()) || [];
+    for (const [k, sc] of want) {
+      const S = SIZE[BASE[k]];
+      const isle = isles.find(q => q.k === k);
+      let tx, tz;
+      if (isle) {
+        tx = isle.x; tz = isle.z;
+        if (window.__c113 && __c113.params && __c113.params().G12) {
+          const ux = Math.sign(isle.x - (W >> 1)), uz = Math.sign(isle.z - (D >> 1)), IR = __c113.params().IR || 100;
+          tx += Math.round(ux * IR * 0.22); tz += Math.round(uz * IR * 0.22);
+        }
+      }
+      let p = null;
+      // v1.2.93: keep each castle on its pre-1.2.91 map-edge isle. Do not run a
+      // whole-map best() first — a flatter inland terrace used to win and walk
+      // keeps toward spawn (the 1.2.91 regression).
+      if (tx != null) {
+        const f0 = flat(tx, tz, S + 4);
+        if (ok(tx, tz, S + 6) && !f0.wet) p = [Math.round(tx), Math.round(tz)];
+        else p = prepareSite(tx, tz, S + 6);
+        if (!p) {
+          for (let rr = 8; rr <= 110 && !p; rr += 8) for (let a = 0; a < 6.283 && !p; a += 0.2) {
+            const x = Math.round(tx + Math.cos(a) * rr), z = Math.round(tz + Math.sin(a) * rr);
+            if (Math.hypot(x - tx, z - tz) > 110) continue;
+            if (!ok(x, z, S + 6)) continue;
+            const f = flat(x, z, S + 4);
+            if (!f.wet) p = [x, z];
+            else p = prepareSite(x, z, S + 6);
+          }
+        }
+      }
+      if (!p && !isle) p = best(S + 6, sc);
+      if (p && !nearSpawn(p[0], p[1]) && (!isle || Math.hypot(p[0] - isle.x, p[1] - isle.z) < 160)) placed.push([k, p[0], p[1]]);
+    }
+    window.__bareKeep = true; try { for (const c of placed) { try { const S = SIZE[BASE[c[0]]] || 16; try { if (placedSet) { const R = S + 8; for (let x = c[1] - R; x <= c[1] + R; x++) for (let z = c[2] - R; z <= c[2] + R; z++) { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue; if (Math.hypot(x - c[1], z - c[2]) > R) continue; for (let y = 1; y < H - 1; y++) placedSet.add(idx(x, y, z)); } } } catch (_) {} buildCastle(BASE[c[0]], c[1], c[2]); } catch (e) { if (window.__glenLoad && window.__glenLoad.isYield && window.__glenLoad.isYield(e)) throw e; console.warn('castle', c, e); } } } finally { window.__bareKeep = false; }
     g9castles = placed; return placed; };
   // ---- after every pass: empty clean interiors, one chest each, the castle's own look, the broken portal ----
   const DECOR = new Set([T.TORCH, 161, 216, 162, T.CHEST, T.TAPESTRY, T.RCARPET, T.BOOKSHELF, T.WOOL, 221, T.FURNACE, T.CAULDRON, T.TABLE, 164, T.COBWEB, T.BED, 219, 220, 222, 223, T.IRONBLOCK].filter(v => v !== undefined));
@@ -26799,6 +26856,26 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
           for (let x = px - 1; x <= px + 2; x++) for (let z = pz - 1; z <= pz + 1; z++) { world[idx(x, g, z)] = T.HELLROCK; for (let y = g + 1; y <= g + 6; y++) world[idx(x, y, z)] = T.AIR; }
           let n = 0; for (let x = px - 1; x <= px + 2; x++) for (let y = g + 1; y <= g + 5; y++) { const edge = x === px - 1 || x === px + 2 || y === g + 1 || y === g + 5; if (!edge) continue; const miss = (x === px + 2 && y === g + 5) || (x === px - 1 && y === g + 3); world[idx(x, y, pz)] = miss ? T.AIR : T.OBSIDIAN; if (!miss) n++; }
           world[idx(px + 5, g, pz)] = T.LAVA; portal = [px, g + 1, pz, n]; } }
+      // clan/human castle: a lit gold portal to Egypt land (the desert / sand temple realm)
+      if (k === 'human') {
+        try {
+          const E = window.__egypt1269;
+          if (E && typeof E.placeReturn === 'function') {
+            const px = cx - 2, pz = cz + S + 6;
+            if (pz < D - 6 && px > 4) {
+              const g = solidTop(px, pz);
+              for (let x = px - 1; x <= px + 2; x++) for (let z = pz - 1; z <= pz + 1; z++) {
+                if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
+                const t = solidTop(x, z);
+                for (let y = Math.min(t, g) + 1; y <= g + 6 && y < H - 1; y++) world[idx(x, y, z)] = T.AIR;
+              }
+              E.placeReturn(px, g, pz, 0);
+              portal = [px, g, pz, 'gold'];
+              try { if (typeof markDirty === 'function') { markDirty(px, pz); markDirty(px + 1, pz); } } catch (_) {}
+            }
+          }
+        } catch (_) {}
+      }
       out.push({k, cx, cz, gy, removed, chest: [chx, chy, chz], portal});
       if (__Lf && __Lf.held && ci + 1 < g9castles.length && (performance.now() - (__Lf._tSlice || 0) > (typeof __SLB === 'function' ? __SLB() : 350))) {
         if (!__Lf._loop) __Lf._loop = {};
@@ -27157,7 +27234,7 @@ var GFX = SET.gfx || (PERF ? 'fast' : 'fancy');
   const gb = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ? 0 : world[(x * H + y) * D + z];
   const AOL = [0, 0.16, 0.27, 0.38];
   // ---- GLX-C70 per-block light (Minecraft-like): skylight comes down from each column's top and floods sideways/down openings, falling off per block; block light from torches/lava/lamps ----
-  const LSRC = new Uint8Array(1024); [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
+  const LSRC = new Uint8Array(1024); window.__LSRC = LSRC; [[T.TORCH, 14], [T.LAVA, 15], [T.LAVAB, 15], [T.GLOWROCK, 15], [T.LAMP, 15], [T.QLANTERN, 15], [T.FIRE, 15], [403, 12], [404, 11], [407, 11], [408, 9], [409, 9], [410, 15]].forEach(([b, l]) => { if (b !== undefined) LSRC[b] = l; });
   const LM = 14, SFALL = 1, BFALL = 1, RS = CH + LM * 2; const LATT = window.__LATT = new Uint8Array(1024); try { LATT[T.WATER] = 1; for (let i = 0; i < 256; i++) if (LEAFY[i]) LATT[i] = 1; LATT[T.LEAVES] = 1; LATT[134] = 1; } catch (_) {}
   let LSKY = null, LBLK = null, LH = 0; const LTOP = new Int16Array(RS * RS); let LQ = null;   // H can grow after boot: sized lazily
   let LX0 = 0, LZ0 = 0;
@@ -32347,6 +32424,11 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
 /* ===================== GLX-C113 (v0.9.94): round mainland + three castle islands with styled bridges, spawn houses gone, crofts with farmers; big level-30 chime ===================== */
 (function c113() {
   const U = window.__c113 = {on: false, removed: 0, bridges: [], farms: 0, err: null, ms: 0, huh: 0, acts: 0};
+  /* GLX-C113/v1.2.92: keep the island height field across LOAD1289 mid-generate
+     yields. Resuming the inner GEN9 used to skip this wrapper, so ON/HC were
+     cleared and the three castle islands generated as sea. */
+  U.holdOn = function () { if (U._hc || U._wantOn) { if (U._hc) HC = U._hc; ON = true; } };
+  U.releaseOn = function () { ON = false; HC = null; U._wantOn = false; };
   const BLK = T.BLACKSTONE || 248, LAMP = 161, FENCE = 162, BIGW = 864;
   const elig = () => !!(typeof current !== 'undefined' && current && current.mode !== 'creative' && !cityGen && !DIM.cur && W >= 600);
   const L94 = () => elig() && !!current.l94;
@@ -32386,6 +32468,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     for (let pass = 0; pass < 2; pass++) { blur(hf, tmp, true); blur(tmp, hf, false); }
     HC = {hf, gl, mm, lo, W, D}; }
   g9height = function (x, z) {
+    if (!ON && U._wantOn && U._hc) { HC = U._hc; ON = true; }
     if (!ON) return gh(x, z);
     if (HC && HC.W === W && (x | 0) === x && (z | 0) === z && x >= 0 && z >= 0 && x < W && z < D) { const i = x * D + z; return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(HC.hf[i]))), glen: HC.gl[i], mMask: HC.mm[i], loch: !!(HC.lo[i] & 1), sand: !!(HC.lo[i] & 2), mar: !!(HC.lo[i] & 4)}; }
     return rawH(x, z);
@@ -32575,7 +32658,15 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
   generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(24)) return gen.apply(this, arguments); 
     if (!L94()) { ON = false; return gen.apply(this, arguments); }
     setP(P12()); IS = ISL(); ISL_C = [W >> 1, D >> 1]; ISL_R = 1; MT_C = G42() ? __c208.MT() : G36() ? [Math.round(W * 0.2384), Math.round(D * 0.7778)] : [(W >> 1) - 290, (D >> 1) + 290]; HOL_C = [MT_C[0] + Math.round(20 * MT_R / 58), MT_C[1] + 2];
-    ON = true; HC = null; let r; try { if (G12) { const t = performance.now(); if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0; G9P = g9perm(gSeed); buildHC(); U.hcMs = Math.round(performance.now() - t); } r = gen.apply(this, arguments); } finally { ON = false; HC = null; }
+    ON = true; HC = null; let r; let keepOn = false;
+    try {
+      if (G12) { const t = performance.now(); if (!gSeed) gSeed = window.__forceSeed || (Math.random() * 2 ** 31) | 0; G9P = g9perm(gSeed); if (U._hc && U._hc.W === W && U._hc.D === D) HC = U._hc; else { buildHC(); U._hc = HC; } U.hcMs = Math.round(performance.now() - t); }
+      if (!U._hc) U._hc = HC; U._wantOn = true;
+      r = gen.apply(this, arguments);
+    } catch (e) {
+      if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) { keepOn = true; throw e; }
+      throw e;
+    } finally { if (!keepOn) { ON = false; HC = null; U._wantOn = false; } }
     const t0 = performance.now();
     try { U.removed = removeSpawnHouses(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'houses ' + (e && e.stack || e); }
     try { U.bridges = window.__g89 && __g89() ? [] : buildBridges(); } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; U.err = 'bridges ' + (e && e.stack || e); }
@@ -38226,7 +38317,8 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     st.ms = Math.round(performance.now() - t0); U.st = st; return sites; }
   // ---------- 1) the sand island + pyramid + tomb ----------
   function island(rnd, st) {
-    if (window.__c181 && __c181.on()) return __c181.island(rnd, st);   // v1.0.35: the desert museum park
+    if (window.__g89 && __g89()) { st.skipUk = 1; return null; }   // v1.2.94: no pyramid / desert park in the Glencraft overworld
+    if (window.__c181 && __c181.on()) return __c181.island(rnd, st);   // v1.0.35: the desert museum park (non-Highlands maps)
     const cx0 = MT_C[0], cz0 = MT_C[1], R = 150; let sx = -1, sz = -1;
     for (let r = 0; r < 40 && sx < 0; r += 2) for (let a = 0; a < 6.28 && sx < 0; a += 0.4) { const x = Math.round(cx0 + Math.cos(a) * r), z = Math.round(cz0 + Math.sin(a) * r); if (inW(x, z) && topOf(x, z)[0] > SEA && topOf(x, z)[1] !== T.WATER) { sx = x; sz = z; } }
     if (sx < 0 && !(window.__c147 && __c147.shape)) { st.isle = 'no land'; return null; } if (sx < 0) { sx = cx0; sz = cz0; }
@@ -40947,6 +41039,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     return K; }
   // ---------- the island ----------
   U.island = function (rnd, st) {
+    try { if (window.__g89 && __g89()) { st.skipUk = 1; return null; } } catch (_) {}
     const cx0 = MT_C[0], cz0 = MT_C[1];
     const r = __c147.shape(cx0, cz0, rnd, st, current.g36 ? 92 : 78), isle = r.isle; st.isleCells = isle.size;
     const E = new Map(), bq = []; for (const k of isle) { const x = (k / D) | 0, z = k - x * D; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => !isle.has(N(x + dx, z + dz)))) { E.set(k, 1); bq.push(k); } }
@@ -40967,7 +41060,7 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
     // the deep cave under the pyramid: v1.0.41 brings back the sloping cave mouths in the sand by the pyramid's base (and the chest-room stairs still lead down too); roof kept well under the crypt and the sphinx chamber
     try { const p = out.pyr; if (p) { const [px, pz] = K.L(p.u, 0); __c147.caverns(px, pz, 13, p.ty, isle, rnd, st, {top: SEA - 19, at: [[0, 27, 0, -1], [0, -27, 0, 1], [14, 24, -0.5, -0.87]].map(([u, v, du, dv]) => { const [x, z] = K.L(p.u + u, v), [x1, z1] = K.L(p.u + u + du, v + dv); return [x, z, x1 - x, z1 - z]; })}); if (U.passages) out.pas = U.passages(K, p, st); } } catch (e) { st.cavErr = String(e && e.stack || e); }
     // the bridge from the mainland, built after the island is shaped (c147 clears the channel)
-    try { if (window.__c113 && __c113.bridgeOne) st.bridge = __c113.bridgeOne(['sand', cx0, cz0, 1]).length; } catch (e) { st.brErr = String(e); }
+    try { if (!(window.__g89 && __g89()) && window.__c113 && __c113.bridgeOne) st.bridge = __c113.bridgeOne(['sand', cx0, cz0, 1]).length; } catch (e) { st.brErr = String(e); }
     for (let x = cx0 - 100; x <= cx0 + 100; x += 4) for (let z = cz0 - 100; z <= cz0 + 100; z += 4) try { markDirty(x, z); } catch (_) {}
     // swaddles walk the open sand
     const surf = []; for (const k of isle) { const e = E.get(k); if (e > 6 && k % 5 === 0) { const x = (k / D) | 0, z = k - x * D; if (world[idx(x, G, z)] === T.SAND && !world[idx(x, G + 1, z)] && !world[idx(x, G + 2, z)]) surf.push([x, z]); } }
@@ -45580,8 +45673,12 @@ function make42(E) {
   const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && current && current.g89) d.c273 = {g89: 1}; } catch (_) {} return d; };
   const sst = (a, b, t) => { t = Math.max(0, Math.min(1, (t - a) / (b - a))); return t * t * (3 - 2 * t); };
   const F = (x, z, o) => Math.max(-1, Math.min(1, g9fbm(x, z, o) * 3.3));
-  // landmarks: the pyramid desert moves in a little from the south-west corner, the volcano goes far off to the north-east mountains
+  // landmarks: U.MT stays as a historical SW reference for older map helpers.
+  // There is no desert, sand isle, pyramid or ruined temple in the Glencraft overworld —
+  // that temple lives in Egypt land, reached through a gold portal (GLX-EG1269).
   U.MT = () => [Math.round(W * 0.30), Math.round(D * 0.70)];
+  U.inDesert = () => false;
+  U.onUkLand = (x, z) => { try { if (U.edgeQ(x, z) >= U.RE() - 15) return false; } catch (_) {} return true; };
   U.volc = () => [Math.round(W * 0.70), Math.round(D * 0.30)];
   U.RE = () => Math.round(W * 0.463);           // radius of the ice wall (rounded square, p = 3)
   U.edgeQ = (x, z) => { const dx = Math.abs(x - (W >> 1)), dz = Math.abs(z - (D >> 1)); return Math.cbrt(dx * dx * dx + dz * dz * dz); };
@@ -45604,9 +45701,7 @@ function make42(E) {
     let e = hill * (1 - M) + mount * M;
     // the spawn meadow: gentle, open and green
     const sp = 1 - sst(32 * S, 95 * S, rr); e = e * (1 - sp) + (3 + 1.3 * n2) * sp;
-    // the desert flat (the pyramid isle, now joined to the land)
-    const MT = U.MT(), dd = Math.hypot(x - MT[0], z - MT[1]) - 124 * S, dk = sst(0, 45 * S, dd); e = 0.6 + (e - 0.6) * dk;
-    const keep = sst(60 * S, 120 * S, rr) * sst(10 * S, 50 * S, dd) * (1 - sst(RE - 45 * S, RE - 15 * S, q));
+    const keep = sst(60 * S, 120 * S, rr) * (1 - sst(RE - 45 * S, RE - 15 * S, q));
     // open lochs in the hills
     let loch = false; const lk = F(x / 170 - 61, z / 170 + 37, 2);
     if (lk > 0.5 && keep > 0) { const k = sst(0.5, 0.7, lk) * keep; e = e * (1 - k) - 5 * k; loch = e < 0; }
@@ -45619,7 +45714,7 @@ function make42(E) {
     if (coast > 0) { const o = sst(C0, C0 + 40 * S, qc); const target = 1.2 - 3.2 * sst(C0 - 4 * S, C0 + 6 * S, qc) - 12 * o; e = e * (1 - coast) + Math.min(e, target) * coast; if (coast > 0.6) { beach = e < 2.6; sea = e < -0.5; } }
     const h = SEA + 1 + e;
     if (sea || beach) return {h: Math.max(6, Math.min(H - 5, Math.round(h))), hf: h, glen: 0.3, mMask: 0, loch: sea, sand: true, mar: false, coast: 1};
-    const sand = (loch || riv || e < 1.6) && dk > 0.5 && e < 2.4 && sp < 0.5;
+    const sand = (loch || riv || e < 1.6) && e < 2.4 && sp < 0.5;
     return {h: Math.max(BASE + 4, Math.min(H - 5, Math.round(h))), hf: h, glen: riv ? 0.5 : 0.3, mMask: Math.min(1, M * 1.1), loch: loch || riv, sand, mar: false};
   }
   U.at = at;
@@ -45673,7 +45768,20 @@ function make42(E) {
     if ((x | 0) === x && (z | 0) === z && x >= 0 && z >= 0 && x < W && z < D) return ensureEQ()[x * D + z] < RE0 - m;
     return __c273.edgeQ(x, z) < __c273.RE() - m;
   };
-  const midAway = (x, z) => Math.hypot(x - (W >> 1), z - (D >> 1)) >= 70;
+  const spawnPad = (x, z) => {
+    const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1};
+    if (Math.hypot(x - I.cx, z - I.cz) < 20) return true;
+    try {
+      const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || g9spawn;
+      if (sp) {
+        const sx = sp.x != null ? sp.x : sp[0], sz = sp.z != null ? sp.z : (sp[2] != null ? sp[2] : sp[1]);
+        if (Math.hypot(x - sx, z - sz) < 20) return true;
+      }
+    } catch (_) {}
+    return false;
+  };
+  const midAway = (x, z) => !spawnPad(x, z);
+  U.spawnPad = spawnPad;
   // 1) fill pits: a column far below nearly all of its neighbours (not a ravine, not water) is filled back up to the ground
   function pits(tp) { let n = 0;
     ensureEQ();
@@ -45691,7 +45799,7 @@ function make42(E) {
       for (let y = t + 1; y <= med; y++) wr[c + y * D] = y === med ? T.GRASS : y >= med - 3 ? T.DIRT : T.STONE; tp[x * D + z] = med; n++; if (g) {} }
     U.filled = n; }
   function makeCarve(tp, cellsRef) {
-    const inland = (x, z, m) => x > m + 2 && z > m + 2 && x < W - m - 3 && z < D - m - 3 && inside(x, z, m);
+    const inland = (x, z, m) => x > m + 2 && z > m + 2 && x < W - m - 3 && z < D - m - 3 && midAway(x, z);
     const wr = world, WT = T.WATER, HD = H * D;
     const isWet = (x, y, z) => {
       const i = (x * H + y) * D + z;
@@ -45700,14 +45808,14 @@ function make42(E) {
     const carve = (cx, cy, cz, r, keep, opts) => {
       opts = opts || {};
       const openSky = !!opts.openSky, flooded = !!opts.flooded, sealed = !!opts.sealed;
-      const fill = flooded ? T.WATER : (opts.fill != null ? opts.fill : ((cy <= 6 && !openSky) ? T.LAVA : 0));
+      const fill = flooded ? T.WATER : (opts.fill != null ? opts.fill : 0);
       const R = Math.ceil(r);
       const cxi = Math.round(cx), czi = Math.round(cz);
       const margin = openSky ? 10 : 12;
       const allIn = inland(cxi, czi, margin + R + 1);
       const yScale = openSky ? 0.45 : 1.3;
       const put = (x, y, z) => {
-        if (!inB(x, y, z) || (!allIn && !inside(x, z, margin))) return;
+        if (!inB(x, y, z) || (!allIn && !midAway(x, z))) return;
         const tt = tp[x * D + z] || 60;
         if (keep && !openSky && y > tt - keep) return;
         if (openSky && y > tt + 3) return;
@@ -45731,11 +45839,13 @@ function make42(E) {
   }
   function pickRare(y, rnd) {
     const r = rnd();
-    if (y <= 8) return r < 0.14 ? T.DIAMONDORE : r < 0.30 ? T.GOLDORE : r < 0.52 ? T.SILVERORE : r < 0.78 ? T.IRONORE : T.COALORE;
-    if (y <= 14) return r < 0.06 ? T.DIAMONDORE : r < 0.18 ? T.GOLDORE : r < 0.40 ? T.SILVERORE : r < 0.70 ? T.IRONORE : T.COALORE;
-    if (y <= 20) return r < 0.08 ? T.GOLDORE : r < 0.28 ? T.SILVERORE : r < 0.62 ? T.IRONORE : T.COALORE;
-    if (y <= SEA - 6) return r < 0.12 ? T.SILVERORE : r < 0.50 ? T.IRONORE : T.COALORE;
-    return r < 0.38 ? T.IRONORE : r < 0.95 ? T.COALORE : T.SILVERORE;
+    /* Diamonds, gold and silver stay very rare above y 0, then ramp below (V1217 layerOre). */
+    if (y <= 0) return r < 0.04 ? T.DIAMONDORE : r < 0.16 ? T.GOLDORE : r < 0.36 ? T.SILVERORE : r < 0.70 ? T.IRONORE : T.COALORE;
+    if (y <= 8) return r < 0.012 ? T.DIAMONDORE : r < 0.05 ? T.GOLDORE : r < 0.14 ? T.SILVERORE : r < 0.62 ? T.IRONORE : T.COALORE;
+    if (y <= 14) return r < 0.006 ? T.DIAMONDORE : r < 0.03 ? T.GOLDORE : r < 0.10 ? T.SILVERORE : r < 0.58 ? T.IRONORE : T.COALORE;
+    if (y <= 20) return r < 0.02 ? T.GOLDORE : r < 0.08 ? T.SILVERORE : r < 0.55 ? T.IRONORE : T.COALORE;
+    if (y <= SEA - 6) return r < 0.05 ? T.SILVERORE : r < 0.48 ? T.IRONORE : T.COALORE;
+    return r < 0.40 ? T.IRONORE : r < 0.97 ? T.COALORE : T.SILVERORE;
   }
   function host(b) { return b === T.STONE || b === T.DEEPSLATE || b === T.ANDESITE || b === T.GRANITE || b === T.DIORITE || b === T.TUFF || b === T.GRAVEL; }
   // 2) the seed's own cave network: spaghetti, cheese, ravines, sinkholes, underwater
@@ -45748,6 +45858,9 @@ function make42(E) {
     let pts = (st && st.pts) ? st.pts : [];
     let phase = st && st.phase ? st.phase : 'worms';
     let i0 = st && st.i != null ? st.i : 0;
+    let wantN = (st && st.want != null) ? st.want : null;
+    let fixX = (st && st.fixX != null) ? st.fixX : null;
+    let fixN = (st && st.fixN) || 0;
     let __tS = performance.now(), __wS = Date.now();
     try { if (window.__glenLoad) window.__glenLoad._tSlice = __tS; } catch (_) {}
     if (U.workMs == null) U.workMs = 0;
@@ -45770,7 +45883,7 @@ function make42(E) {
       if (!L._loop) L._loop = {};
       L._loop.c274 = {phase: ph, i: i, sd: getSd(), t0: t0, pts: pts, usedW: usedW, usedS: usedS, usedU: usedU, cells: cellsRef.n,
         worms: U.worms, halls: U.halls, ravines: U.ravines, holes: U.holes, uw: U.uw, seams: U.seams, cover: U.cover,
-        didInner: 1, r: U._retR, tp: tp, touched: touched};
+        didInner: 1, r: U._retR, tp: tp, touched: touched, want: wantN, fixX: fixX, fixN: fixN};
       U.workMs = (U.workMs || 0) + (performance.now() - __tS);
       dprof[ph] = Math.round((dprof[ph] || 0) + (performance.now() - _lap)); _lap = performance.now();
       try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
@@ -45785,9 +45898,9 @@ function make42(E) {
     const usedS = (st && st.usedS) ? st.usedS : [];
     const usedU = (st && st.usedU) ? st.usedU : [];
     const takeSpot = (minD, land, bag, tries) => {
-      for (let t = 0; t < (tries || 80); t++) {
+      for (let t = 0; t < (tries || 120); t++) {
         const x = 40 + rnd() * (W - 80), z = 40 + rnd() * (D - 80);
-        if (!inside(x, z, 20) || !midAway(x, z)) continue;
+        if (!midAway(x, z)) continue;
         const X = Math.round(x), Z = Math.round(z), tt = tp[X * D + Z] || 0;
         if (land && (tt <= SEA + 2 || world[idx(X, Math.min(H - 2, tt + 1), Z)] === T.WATER)) continue;
         if (!land && tt > SEA) continue;
@@ -45797,7 +45910,7 @@ function make42(E) {
       return null;
     };
     const putCell = (x, y, z, keep, fill) => {
-      if (!inB(x, y, z) || !inside(x, z, 12)) return;
+      if (!inB(x, y, z) || !midAway(x, z)) return;
       const tt = tp[x * D + z] || 60;
       if (keep && y > tt - keep) return;
       const i = idx(x, y, z); if (placed(i)) return;
@@ -45828,7 +45941,7 @@ function make42(E) {
           const X = x + ix, Y = y + iy, Z = z + iz;
           const u2 = (X - cxi) / rx, v2 = (Y - cyi) / ry, w2 = (Z - czi) / rz;
           if (u2 * u2 + v2 * v2 + w2 * w2 > 1) continue;
-          putCell(X, Y, Z, 5, Y <= 6 ? T.LAVA : 0);
+          putCell(X, Y, Z, 5, 0);
         }
       }
       U.halls++;
@@ -45838,7 +45951,8 @@ function make42(E) {
     };
     // ---- spaghetti worms: interconnecting, go all the way down ----
     if (phase === 'worms') {
-      const NW = 44 + Math.floor(rnd() * 18);
+      if (wantN == null) wantN = 44 + Math.floor(rnd() * 18);
+      const NW = wantN;
       for (let w = i0; w < NW; w++) {
         const spot = takeSpot(24, true, usedW, 60) || takeSpot(36, true, usedW, 40);
         if (!spot) { U.worms++; continue; }
@@ -45881,13 +45995,14 @@ function make42(E) {
         U.worms++;
         bump('worms', w + 1);
       }
-      mark('worms'); lap('worms'); phase = 'ravines'; i0 = 0;
+      mark('worms'); lap('worms'); phase = 'ravines'; i0 = 0; wantN = null;
       bump('ravines', 0);
     }
     // ---- ravines: winding open cuts from the surface down into the network ----
     if (phase === 'ravines') {
       const area = (W * D) / 1e6;
-      const want = Math.max(10, Math.round(15 * area + rnd() * 3));
+      if (wantN == null) wantN = Math.max(28, Math.round(38 * area + rnd() * 6));
+      const want = wantN;
       for (let n = i0; n < want; n++) {
         const spot = takeSpot(55, true, usedS, 120);
         if (!spot) { continue; }
@@ -45898,7 +46013,7 @@ function make42(E) {
           a += (rnd() - 0.5) * 0.14 + 0.04 * Math.sin(s * 0.11 + ph);
           x += Math.cos(a); z += Math.sin(a);
           const X = Math.round(x), Z = Math.round(z);
-          if (X < 8 || Z < 8 || X >= W - 8 || Z >= D - 8 || !inside(X, Z, 12)) { a += Math.PI * 0.5; continue; }
+          if (X < 8 || Z < 8 || X >= W - 8 || Z >= D - 8 || !midAway(X, Z)) { a += Math.PI * 0.5; continue; }
           const tt = tp[X * D + Z] || 0;
           if (tt <= SEA + 1 || world[idx(X, Math.min(H - 2, tt + 1), Z)] === T.WATER) { a += 0.4; continue; }
           const e = Math.sin((s / L) * Math.PI); // taper at the ends
@@ -45916,7 +46031,7 @@ function make42(E) {
               if (wet(xx, y, zz)) continue;
               const i = idx(xx, y, zz); if (placed(i)) continue;
               const b = world[i];
-              if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (y <= 6 ? T.LAVA : 0); cellsRef.n++; if (U.touched) U.touched[xx * D + zz] = 1; }
+              if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (0); cellsRef.n++; if (U.touched) U.touched[xx * D + zz] = 1; }
             }
           }
           if (yb < deepY) { deepY = yb; deepX = x; deepZ = z; }
@@ -45939,13 +46054,14 @@ function make42(E) {
         U.ravines++;
         bump('ravines', n + 1);
       }
-      mark('ravines'); lap('ravines'); phase = 'holes'; i0 = 0;
+      mark('ravines'); lap('ravines'); phase = 'holes'; i0 = 0; wantN = null;
       bump('holes', 0);
     }
     // ---- big open surface sinkholes down into the network ----
     if (phase === 'holes') {
       const area = (W * D) / 1e6;
-      const want = Math.max(8, Math.round(13 * area + rnd() * 3));
+      if (wantN == null) wantN = Math.max(26, Math.round(36 * area + rnd() * 6));
+      const want = wantN;
       for (let n = i0; n < want; n++) {
         const spot = takeSpot(48, true, usedS, 120);
         if (!spot) { continue; }
@@ -45964,7 +46080,7 @@ function make42(E) {
             if (!inB(xx, y, zz) || wet(xx, y, zz)) continue;
             const i = idx(xx, y, zz); if (placed(i)) continue;
             const b = world[i];
-            if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (y <= 6 ? T.LAVA : 0); cellsRef.n++; if (U.touched) U.touched[xx * D + zz] = 1; }
+            if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (0); cellsRef.n++; if (U.touched) U.touched[xx * D + zz] = 1; }
           }
         }
         // leave a couple of ledge blocks on the way down
@@ -45983,13 +46099,14 @@ function make42(E) {
         U.holes++;
         bump('holes', n + 1);
       }
-      mark('holes'); lap('holes'); phase = 'water'; i0 = 0;
+      mark('holes'); lap('holes'); phase = 'water'; i0 = 0; wantN = null;
       bump('water', 0);
     }
     // ---- underwater caves: sealed air pockets or fully flooded, never leak ----
     if (phase === 'water') {
       const area = (W * D) / 1e6;
-      const want = Math.max(12, Math.round(18 * area + rnd() * 4));
+      if (wantN == null) wantN = Math.max(12, Math.round(18 * area + rnd() * 4));
+      const want = wantN;
       for (let n = i0; n < want; n++) {
         const spot = takeSpot(32, false, usedU, 100);
         if (!spot) { U.uw++; continue; }
@@ -46044,10 +46161,13 @@ function make42(E) {
         return wr[(x + 1) * H * D + z + sea * D] !== WT || wr[(x - 1) * H * D + z + sea * D] !== WT
             || wr[x * H * D + (z + 1) + sea * D] !== WT || wr[x * H * D + (z - 1) + sea * D] !== WT;
       };
-      for (let pass = 0; pass < 2; pass++) {
-        let n = 0;
-        for (let x = 3; x < W - 3; x++) {
-          if ((x & 127) === 3) bump('fix', pass);
+      const pass0 = (st && st.phase === 'fix' && st.i != null) ? st.i : 0;
+      const x0fix = (st && st.phase === 'fix' && st.fixX != null) ? st.fixX : 3;
+      for (let pass = pass0; pass < 2; pass++) {
+        let n = (pass === pass0) ? fixN : 0;
+        const xStart = (pass === pass0) ? x0fix : 3;
+        for (let x = xStart; x < W - 3; x++) {
+          if ((x & 127) === 3 && !(pass === pass0 && x === xStart && st && st.phase === 'fix')) { fixX = x; fixN = n; bump('fix', pass); }
           for (let z = 3; z < D - 3; z++) {
             const col = x * H * D + z;
             if (wr[col + sea * D] !== WT && wr[col + Math.max(2, sea - 1) * D] !== WT) continue;
@@ -46132,7 +46252,7 @@ function make42(E) {
   }
   // 3) walk-in cave mouths at the foot of mountains, sloping down into the network
   function mouths(tp, rnd, pts) { let n = 0, tries = 0; const want = 22 + Math.floor(rnd() * 10);
-    while (n < want && tries++ < 6000) { const x = 30 + Math.floor(rnd() * (W - 60)), z = 30 + Math.floor(rnd() * (D - 60)); if (!inside(x, z, 30) || Math.hypot(x - (W >> 1), z - (D >> 1)) < 70) continue;
+    while (n < want && tries++ < 6000) { const x = 30 + Math.floor(rnd() * (W - 60)), z = 30 + Math.floor(rnd() * (D - 60)); if (!midAway(x, z)) continue;
       const g = tp[x * D + z]; if (g <= SEA + 1 || world[idx(x, g + 1, z)] === T.WATER) continue;
       let best = -1, bd = 0; for (let k = 0; k < 8; k++) { const a = k / 8 * 6.283, X = Math.round(x + Math.cos(a) * 7), Z = Math.round(z + Math.sin(a) * 7), h = tp[X * D + Z] - g; if (h > bd) { bd = h; best = a; } }
       if (bd < 7 || U.mouths.some(m => Math.hypot(m[0] - x, m[2] - z) < 60)) continue;
@@ -46143,6 +46263,92 @@ function make42(E) {
       for (let dx = -3; dx <= 3; dx++) for (let dy = -1; dy <= 4; dy++) for (let dz = -3; dz <= 3; dz++) { const X = Math.round(x + Math.cos(best) * 2) + dx, Y = g + dy, Z = Math.round(z + Math.sin(best) * 2) + dz; if (!inB(X, Y, Z)) continue; const b = world[idx(X, Y, Z)]; if ((b === T.STONE || b === T.DIRT) && rnd() < 0.4) world[idx(X, Y, Z)] = T.MOSSYCOBBLE || T.COBBLE || b; }
       const LX = Math.round(x + Math.cos(best) * 6), LZ = Math.round(z + Math.sin(best) * 6); let LY = g + 3; while (LY > 2 && !world[idx(LX, LY - 1, LZ)]) LY--; if (!world[idx(LX, LY, LZ)]) world[idx(LX, LY, LZ)] = 161;
       U.mouths.push([x, g + 1, z, +best.toFixed(2)]); n++; } }
+  function hardenSpawn(tp) {
+    const I = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1, R: 40};
+    let sx = I.cx | 0, sz = I.cz | 0;
+    try {
+      const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || g9spawn;
+      if (sp) { sx = (sp.x != null ? sp.x : sp[0]) | 0; sz = (sp.z != null ? sp.z : (sp[2] != null ? sp[2] : sp[1])) | 0; }
+    } catch (_) {}
+    const R = 20, wr = world;
+    for (let x = sx - R; x <= sx + R; x++) for (let z = sz - R; z <= sz + R; z++) {
+      if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
+      if (Math.hypot(x - sx, z - sz) > R) continue;
+      const c = x * H * D + z;
+      let t = tp ? tp[x * D + z] : 0;
+      if (!t) { for (let y = H - 2; y > 1; y--) { const b = wr[c + y * D]; if (b && !PLANT[b] && !LEAFY[b] && !LOGGY[b] && b !== T.WATER) { t = y; break; } } }
+      const gy = Math.max(t, SEA + 3);
+      for (let y = 1; y < gy; y++) {
+        const b = wr[c + y * D];
+        if (!b || b === T.WATER || b === T.LAVA || b === T.SAND || b === T.SANDSTONE) wr[c + y * D] = y >= gy - 3 ? T.DIRT : T.STONE;
+      }
+      const top = wr[c + gy * D];
+      if (!top || top === T.WATER || top === T.LAVA || top === T.SAND || top === T.SANDSTONE || top === T.AIR) wr[c + gy * D] = T.GRASS;
+      for (let y = gy + 1; y <= gy + 2; y++) {
+        const b = wr[c + y * D];
+        if (b === T.WATER || b === T.LAVA || b === T.SAND || b === T.SANDSTONE) wr[c + y * D] = 0;
+      }
+      if (tp) tp[x * D + z] = gy;
+    }
+  }
+  function punchColumn(x, z, tp) {
+    if (x < 4 || z < 4 || x > W - 5 || z > D - 5) return;
+    if (spawnPad(x, z)) return;
+    const tt = tp[x * D + z] || 0;
+    if (tt <= SEA + 2) return;
+    const NAT = new Set([T.STONE, T.DEEPSLATE, T.DIRT, T.GRASS, T.GRAVEL, T.SAND, T.ANDESITE, T.GRANITE, T.DIORITE, T.TUFF, T.COALORE, T.IRONORE, T.COPPERORE, T.HEATHER, T.PEAT, T.MUD].filter(v => v != null));
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+      if (dx * dx + dz * dz > 4.2) continue;
+      const X = x + dx, Z = z + dz; if (spawnPad(X, Z)) continue;
+      const top = tp[X * D + Z] || tt;
+      for (let y = 0; y <= Math.min(top, tt); y++) {
+        const i = idx(X, y, Z); if (placed(i)) continue;
+        const b = world[i];
+        if (b === T.WATER || b === T.LAVA) break;
+        if (!b || NAT.has(b)) world[i] = 0;
+      }
+    }
+  }
+  function punchDown(tp, rnd) {
+    const feats = ((U.feat && U.feat.ravines) || []).concat((U.feat && U.feat.holes) || [], (U.feat && U.feat.mouths) || []);
+    for (const p of feats) {
+      const x = Math.round(p[0]), z = Math.round(p[2] != null ? p[2] : p[1]);
+      punchColumn(x, z, tp);
+    }
+    // Guarantee a visible entrance a short walk from spawn; keeps/rocket stay on their own exclusion.
+    let sx = W >> 1, sz = D >> 1;
+    try {
+      const I = (window.__c101 && __c101.isl) || {cx: sx, cz: sz};
+      sx = I.cx; sz = I.cz;
+      const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || g9spawn;
+      if (sp) { sx = sp.x != null ? sp.x : sp[0]; sz = sp.z != null ? sp.z : (sp[2] != null ? sp[2] : sp[1]); }
+    } catch (_) {}
+    for (let k = 0; k < 12; k++) {
+      const a = k * 0.5236 + 0.31, r = 32 + (k % 4) * 5;
+      const x = Math.round(sx + Math.cos(a) * r), z = Math.round(sz + Math.sin(a) * r);
+      if (x < 12 || z < 12 || x > W - 12 || z > D - 12 || spawnPad(x, z)) continue;
+      const tt = tp[x * D + z] || 0;
+      if (tt <= SEA + 2 || world[idx(x, Math.min(H - 2, tt + 1), z)] === T.WATER) continue;
+      const yBot = Math.max(0, tt - 10);
+      for (let y = yBot; y <= tt + 1 && y < H - 2; y++) {
+        const g = (y - yBot) / Math.max(1, tt - yBot), rr = 3.2 * (0.4 + 0.6 * g);
+        const R = Math.ceil(rr + 1);
+        for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+          if (dx * dx + dz * dz > rr * rr) continue;
+          const xx = x + dx, zz = z + dz; if (spawnPad(xx, zz) || !inB(xx, y, zz)) continue;
+          const i = idx(xx, y, zz); if (placed(i)) continue;
+          const b = world[i];
+          if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) world[i] = 0;
+        }
+      }
+      punchColumn(x, z, tp);
+      if (!U.feat) U.feat = {ravines: [], holes: [], halls: [], uw: []};
+      U.feat.holes.push([x, yBot, z]);
+      U.holes = (U.holes || 0) + 1;
+      U.spawnWalk = [x, z, Math.round(Math.hypot(x - sx, z - sz))];
+      break;
+    }
+  }
   const gen = generate; generate = function () {
     const L = window.__glenLoad;
     if (L && L.skipPost && L.skipPost(41)) return gen.apply(this, arguments);
@@ -46152,7 +46358,7 @@ function make42(E) {
     else r = gen.apply(this, arguments);
     try { if (on()) {
         const t0 = (st && st.t0) ? st.t0 : performance.now();
-        if (!st) { U.nBump = 0; U.nSkip = 0; U.nThrow = 0; U.workMs = 0; U.dprof = {}; U.mouths = []; U.halls = 0; U.worms = 0; U.ravines = 0; U.holes = 0; U.uw = 0; U.seams = 0; U.cover = 0; U.cells = 0; U.feat = {ravines: [], holes: [], halls: [], uw: []}; }
+        if (!st) { EQ = null; RE0 = 0; U.nBump = 0; U.nSkip = 0; U.nThrow = 0; U.workMs = 0; U.dprof = {}; U.mouths = []; U.halls = 0; U.worms = 0; U.ravines = 0; U.holes = 0; U.uw = 0; U.seams = 0; U.cover = 0; U.cells = 0; U.feat = {ravines: [], holes: [], halls: [], uw: []}; }
         else { U.worms = st.worms || 0; U.halls = st.halls || 0; U.ravines = st.ravines || 0; U.holes = st.holes || 0; U.uw = st.uw || 0; U.seams = st.seams || 0; U.cover = st.cover || 0; }
         let s = st ? st.sd : (((gSeed | 0) ^ 0x2740c) >>> 0);
         const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
@@ -46180,6 +46386,8 @@ function make42(E) {
         if (st && st.phase === 'pits') st = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0, worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r, tp: tp};
         const pts = runNetwork(tp, rnd, () => s, t0, st);
         mouths(tp, rnd, pts || U.pts || []);
+        try { punchDown(tp, rnd); } catch (e) { ERR('punch', e); }
+        try { hardenSpawn(tp); } catch (e) { ERR('spawn', e); }
         try { for (let i = 0; i < W * D; i++) g9cols[i * 2] = tp[i] + 1; } catch (_) {}
         try { dirtyAll = true; } catch (_) {}
         if (L && L._loop) L._loop.c274 = null;
@@ -47243,10 +47451,50 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
     return new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1), new THREE.MeshBasicMaterial({map: new THREE.CanvasTexture(c), side: THREE.DoubleSide})); }
   function hazard() { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); x.fillStyle = '#8a8d90'; x.fillRect(0, 0, 128, 128); x.fillStyle = '#e8c21a'; for (let i = -128; i < 256; i += 16) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 8, 0); x.lineTo(i + 8 - 128, 128); x.lineTo(i - 128, 128); x.fill(); }
     x.fillStyle = '#8a8d90'; x.fillRect(12, 12, 104, 104); x.strokeStyle = '#fff'; x.lineWidth = 3; x.beginPath(); x.arc(64, 64, 30, 0, 6.283); x.stroke(); return new THREE.CanvasTexture(c); }
-  function findSpot() { const F = (window.__c113 && __c113.farmsList && __c113.farmsList()) || []; const tries = F.length ? F : [{x0: (W >> 1) + 40, z0: (D >> 1) + 40}];
-    for (const f of tries) { const cx = f.x0 + 3, cz = f.z0 + 6; for (let rr = 26; rr < 90; rr += 6) for (let a = 0; a < 6.283; a += 0.35) { const x = Math.round(cx + Math.cos(a) * rr), z = Math.round(cz + Math.sin(a) * rr);
-      if (x < 12 || z < 12 || x > W - 12 || z > D - 12) continue; let lo = 1e9, hi = -1e9, ok = true; for (let dx = -6; dx <= 6 && ok; dx += 2) for (let dz = -6; dz <= 6; dz += 2) { const t = U.topAt(x + dx, z + dz); if (world[idx(x + dx, t - 1, z + dz)] === T.WATER || t <= SEA + 2) { ok = false; break; } lo = Math.min(lo, t); hi = Math.max(hi, t); }
-      if (ok && hi - lo <= 1) return {x, z, y: hi, farm: f}; } } return null; }
+  function findSpot() {
+    const I0 = (window.__c101 && __c101.isl) || {cx: W >> 1, cz: D >> 1, R: 40};
+    const exclR = (I0.R || 40) + 50;
+    const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || (typeof g9spawn !== 'undefined' && g9spawn) || [I0.cx, 0, I0.cz];
+    const blocked = (x, z) => Math.hypot(x - I0.cx, z - I0.cz) < exclR || Math.hypot(x - sp[0], z - sp[2]) < exclR;
+    const F = (window.__c113 && __c113.farmsList && __c113.farmsList()) || [];
+    const ring = (cx, cz, r0, r1, step, ang) => {
+      for (let rr = r0; rr < r1; rr += step) for (let a = 0; a < 6.283; a += ang) {
+        const x = Math.round(cx + Math.cos(a) * rr), z = Math.round(cz + Math.sin(a) * rr);
+        if (x < 12 || z < 12 || x > W - 12 || z > D - 12 || blocked(x, z)) continue;
+        let lo = 1e9, hi = -1e9, ok = true;
+        for (let dx = -6; dx <= 6 && ok; dx += 2) for (let dz = -6; dz <= 6; dz += 2) {
+          const t = U.topAt(x + dx, z + dz);
+          if (world[idx(x + dx, t - 1, z + dz)] === T.WATER || t <= SEA + 2) { ok = false; break; }
+          lo = Math.min(lo, t); hi = Math.max(hi, t);
+        }
+        if (ok && hi - lo <= 1) return {x, z, y: hi};
+        if (ok && hi - lo <= 4) {
+          const y = hi;
+          for (let dx = -6; dx <= 6; dx++) for (let dz = -6; dz <= 6; dz++) {
+            const X = x + dx, Z = z + dz; if (X < 1 || Z < 1 || X >= W - 1 || Z >= D - 1) continue;
+            let t = U.topAt(X, Z); if (t <= SEA + 2) t = y;
+            for (let yy = 1; yy < y; yy++) { const b = world[idx(X, yy, Z)]; if (!b || b === T.WATER) world[idx(X, yy, Z)] = yy >= y - 3 ? T.DIRT : T.STONE; }
+            for (let yy = y; yy < Math.min(H - 1, t + 2); yy++) if (!world[idx(X, yy, Z)] || world[idx(X, yy, Z)] === T.WATER || yy > y) { if (yy > y) world[idx(X, yy, Z)] = 0; }
+            world[idx(X, y, Z)] = T.GRASS;
+            try { if (placedSet) { for (let yy = 1; yy < H - 1; yy++) placedSet.add(idx(X, yy, Z)); } } catch (_) {}
+          }
+          return {x, z, y};
+        }
+      }
+      return null;
+    };
+    const tries = F.length ? F : [];
+    for (const f of tries) { const s = ring(f.x0 + 3, f.z0 + 6, 26, 160, 6, 0.35); if (s) return Object.assign(s, {farm: f}); }
+    // no farm, or every farm failed: search further from mid-map and from each castle, never at spawn
+    const origins = [];
+    try { for (const c of (g9castles || [])) origins.push({x: c[1], z: c[2]}); } catch (_) {}
+    origins.push({x: (W >> 1) + 180, z: (D >> 1)});
+    origins.push({x: (W >> 1) - 180, z: (D >> 1)});
+    origins.push({x: W >> 1, z: (D >> 1) + 180});
+    origins.push({x: W >> 1, z: (D >> 1) - 180});
+    for (const o of origins) { const s = ring(o.x, o.z, 8, 220, 8, 0.4); if (s) return s; }
+    return null;
+  }
   let G = null, R = null;
   function build() { const s = findSpot(); if (!s) return false; U.base = s; G = new THREE.Group(); G.position.set(s.x + 0.5, s.y, s.z + 0.5);
     const pad = new THREE.Mesh(new THREE.BoxGeometry(13, 0.24, 13), new THREE.MeshLambertMaterial({map: hazard()})); pad.position.y = 0.12; G.add(pad);
@@ -47258,6 +47506,8 @@ void main(){ vec3 d = normalize(vP); float y = clamp(d.y, 0.0, 1.0);
     scene.add(G); R = rocket(); scene.add(R); park(); return true; }
   function park() { const s = U.base; U.V = {x: s.x + 0.5, y: s.y + 0.24, z: s.z + 0.5}; U.vel = {x: 0, y: 0, z: 0}; U.tilt = 0; U.landed = true; U.frame = 'earth'; place(); }
   U.park = park;
+  U.findSpot = findSpot;
+  U.buildBase = build;
   function place() { if (!R) return; R.position.set(U.V.x, U.V.y, U.V.z); R.rotation.set(0, 0, 0); R.rotateY(U.yaw); R.rotateX(-U.tilt); R.visible = true; }
   const nose = () => { const s = Math.sin(U.tilt); return {x: -Math.sin(U.yaw) * s, y: Math.cos(U.tilt), z: -Math.cos(U.yaw) * s}; };
   const S5 = () => window.__c305, PD = () => window.__c306, say = t => { try { toast(t); } catch (_) {} };
@@ -48661,7 +48911,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
    face of a Y 0 block whenever the space under it is open, and redraws it when you dig there. */
 (function c371() {
   const U = window.__c371 = {n: 0};
-  window.__YB = (x, z) => { try { if (!window.__c320 || !__c320.hol) return T.STONE; const b = getB(x, -1, z); if (!b || b === T.WATER || b === T.LAVA) U.n++; return b; } catch (_) { return T.STONE; } };
+  window.__YB = (x, z) => { try { const b = getB(x, -1, z); if (!b || b === T.WATER || b === T.LAVA) U.n++; return b; } catch (_) { return 0; } };
   // digging or placing just under Y 0 redraws the chunk above it
   try { const s0 = setB; setB = function (x, y, z, v) { const r = s0.apply(this, arguments); try { if (y === -1 && x >= 0 && z >= 0 && x < W && z < D) markDirty(x, z); } catch (_) {} return r; }; } catch (_) {}
 })();
@@ -60131,7 +60381,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const U = window.__c396 = {err: null, on: 0};
   try {
     if (!window.__YB) {
-      window.__YB = (x, z) => { try { const b = getB(x, -1, z); return b || T.STONE; } catch (_) { return T.STONE; } };
+      window.__YB = (x, z) => { try { return getB(x, -1, z); } catch (_) { return 0; } };
     }
     U.on = 1;
   } catch (e) { U.err = String(e && e.stack || e).slice(0, 200); }
@@ -60730,6 +60980,98 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   try { const L = window.__v1214; if (L && L.build) { const b = L.build; L.build = function (e) { const r = b.apply(this, arguments); try { U.build(e); } catch (x) { ERR('net', x); } return r; }; } else U.why = 'v1.2.14 link missing'; } catch (e) { ERR('hook', e); }
 })();
 
+/* GLX-V1293b (v1.2.93): stable new block IDs 401-412 so the deep-layer refs can be matched literally. Mineable, drop themselves, creative-listed. */
+(function v1293b() {
+  const U = window.__v1293b = {err: null};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  function mkTex(id, key, name, paint, opt) {
+    opt = opt || {};
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d'); paint(g, c);
+    TEX[key] = c.toDataURL();
+    NAMES[id] = name; FACES[id] = key; ICON_KEY[id] = key;
+    HARD[id] = opt.hard != null ? opt.hard : 1.4; MC_HARD[id] = HARD[id];
+    if (opt.req) { REQ[id] = opt.req; try { NEEDS_PICK.add(id); } catch (_) {} }
+    PLACEABLE.add(id);
+    try { if (typeof __NAT !== 'undefined' && __NAT) __NAT[id] = 1; } catch (_) {}
+    if (!ORDER.includes(id)) ORDER.push(id);
+    if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(id)) CREATIVE_ALL.push(id);
+    try { BLOCK_MATS[id] = mat(key); } catch (e) { ERR('mat ' + key, e); }
+    if (opt.emit && BLOCK_MATS[id] && BLOCK_MATS[id].emissive) {
+      const m = BLOCK_MATS[id]; m.emissive.setHex(opt.emit); m.emissiveMap = m.map; m.emissiveIntensity = opt.emi != null ? opt.emi : 0.7; m.needsUpdate = true;
+    }
+    if (opt.plant) { PLANT[id] = 1; try { PLANT_H[id] = opt.ph || 0.95; PLANT_W[id] = opt.pw || 0.85; } catch (_) {} }
+    if (opt.st && typeof chunkST !== 'undefined' && chunkST) chunkST[id] = opt.st;
+    if (opt.light && window.__LSRC) window.__LSRC[id] = opt.light;
+    try { delete ICONS[id]; } catch (_) {}
+    return id;
+  }
+  try {
+    T.MOSSBLK = mkTex(401, 'mossblk', 'Moss block', (g) => {
+      g.fillStyle = '#2f6a28'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 900; i++) { const v = 40 + Math.random() * 70 | 0; g.fillStyle = `rgb(${v * 0.45 | 0},${v},${v * 0.35 | 0})`; g.fillRect(Math.random() * 256, Math.random() * 256, 4 + Math.random() * 10, 3 + Math.random() * 8); }
+      g.fillStyle = 'rgba(180,230,90,.18)'; for (let i = 0; i < 80; i++) g.fillRect(Math.random() * 256, Math.random() * 256, 8, 6);
+    }, {hard: 0.5});
+    T.HMOSS = mkTex(402, 'hmoss', 'Hanging moss', (g) => {
+      g.fillStyle = '#1a3a18'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 28; i++) { const x = 8 + i * 9, w = 3 + (i % 3); g.fillStyle = i % 2 ? '#3d8a32' : '#1e5a22'; g.fillRect(x, 0, w, 140 + (i * 13) % 110); g.fillStyle = '#6cbc4a'; g.fillRect(x, 20 + (i * 7) % 80, 1, 40); }
+    }, {hard: 0.1, plant: 1, st: 1, ph: 1, pw: 0.7});
+    T.CYNVEIN = mkTex(403, 'cynvein', 'Cyan crystal vein', (g) => {
+      g.fillStyle = '#1a1e28'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 400; i++) { const v = 20 + Math.random() * 24 | 0; g.fillStyle = `rgb(${v},${v},${v + 10})`; g.fillRect(Math.random() * 256, Math.random() * 256, 3, 3); }
+      g.strokeStyle = '#3cf0ff'; g.lineWidth = 3; g.globalAlpha = 0.85;
+      for (let i = 0; i < 18; i++) { g.beginPath(); g.moveTo(Math.random() * 256, Math.random() * 256); g.lineTo(Math.random() * 256, Math.random() * 256); g.stroke(); }
+      g.globalAlpha = 1;
+    }, {hard: 1.8, req: 1, emit: 0x2ad4ff, emi: 0.85, light: 12});
+    T.GDRIP = mkTex(404, 'gdrip', 'Glow dripstone', (g) => {
+      g.fillStyle = '#15202c'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 16; i++) { const x = 10 + i * 15; g.fillStyle = i % 2 ? '#3ee8ff' : '#1aa8c8'; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 6, 0); g.lineTo(x + 3, 220); g.closePath(); g.fill(); }
+    }, {hard: 1.2, req: 1, emit: 0x3ee8ff, emi: 0.9, light: 11});
+    T.DARKSTONE = mkTex(405, 'darkstone', 'Dark stone', (g) => {
+      g.fillStyle = '#1a1c22'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 700; i++) { const v = 22 + Math.random() * 28 | 0; g.fillStyle = `rgb(${v},${v},${v + 6})`; g.fillRect(Math.random() * 256, Math.random() * 256, 4 + Math.random() * 8, 3 + Math.random() * 6); }
+    }, {hard: 2.2, req: 1});
+    T.BASALT = mkTex(406, 'basaltblk', 'Basalt', (g) => {
+      g.fillStyle = '#2a2a30'; g.fillRect(0, 0, 256, 256);
+      for (let x = 0; x < 256; x += 18) { g.fillStyle = x % 36 ? '#1a1a20' : '#33333c'; g.fillRect(x, 0, 10, 256); g.fillStyle = '#0e0e12'; g.fillRect(x + 10, 0, 2, 256); }
+    }, {hard: 1.8, req: 1});
+    T.MAGVEIN = mkTex(407, 'magvein', 'Magma vein rock', (g) => {
+      g.fillStyle = '#1a1210'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 300; i++) { const v = 16 + Math.random() * 20 | 0; g.fillStyle = `rgb(${v + 8},${v},${v - 4})`; g.fillRect(Math.random() * 256, Math.random() * 256, 5, 4); }
+      g.strokeStyle = '#ff5a12'; g.lineWidth = 2.5; g.globalAlpha = 0.9;
+      for (let i = 0; i < 22; i++) { g.beginPath(); g.moveTo(Math.random() * 256, Math.random() * 256); g.quadraticCurveTo(Math.random() * 256, Math.random() * 256, Math.random() * 256, Math.random() * 256); g.stroke(); }
+      g.globalAlpha = 1;
+    }, {hard: 1.6, req: 1, emit: 0xff4010, emi: 0.8, light: 11});
+    T.PCRY = mkTex(408, 'pcry', 'Purple crystal', (g) => {
+      g.fillStyle = '#2a1038'; g.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 40; i++) { const x = Math.random() * 256, y = Math.random() * 256, s = 8 + Math.random() * 28; g.fillStyle = i % 2 ? '#c44cff' : '#7a1aff'; g.beginPath(); g.moveTo(x, y - s); g.lineTo(x + s * 0.5, y); g.lineTo(x, y + s); g.lineTo(x - s * 0.5, y); g.closePath(); g.fill(); }
+    }, {hard: 1.6, req: 1, emit: 0xaa30ff, emi: 0.75, light: 9});
+    T.PSPIR = mkTex(409, 'pspir', 'Purple crystal spire', (g) => {
+      g.fillStyle = '#16081e'; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = '#d060ff'; for (let i = 0; i < 12; i++) { const x = 20 + i * 18; g.beginPath(); g.moveTo(x, 256); g.lineTo(x + 8, 20 + (i * 17) % 80); g.lineTo(x + 16, 256); g.fill(); }
+    }, {hard: 1.6, req: 1, emit: 0xcc44ff, emi: 0.85, light: 9});
+    T.COREGLOW = mkTex(410, 'coreglow', 'Core glow', (g) => {
+      const rg = g.createRadialGradient(128, 128, 10, 128, 128, 140);
+      rg.addColorStop(0, '#fff2a0'); rg.addColorStop(0.35, '#ff8a14'); rg.addColorStop(0.7, '#c42800'); rg.addColorStop(1, '#4a0a00');
+      g.fillStyle = rg; g.fillRect(0, 0, 256, 256);
+      g.strokeStyle = 'rgba(255,200,80,.55)'; g.lineWidth = 6;
+      for (let r = 30; r < 130; r += 22) { g.beginPath(); g.arc(128, 128, r, 0, 7); g.stroke(); }
+    }, {hard: 2.4, req: 2, emit: 0xff8a14, emi: 1.1, light: 15});
+    T.MPLANK = mkTex(411, 'mplank', 'Mineshaft planks', (g) => {
+      g.fillStyle = '#6a4a28'; g.fillRect(0, 0, 256, 256);
+      for (let y = 0; y < 256; y += 32) { g.fillStyle = y % 64 ? '#5a3e20' : '#7a5830'; g.fillRect(0, y, 256, 28); g.fillStyle = '#2a1a0c'; g.fillRect(0, y + 28, 256, 4); }
+    }, {hard: 1.4});
+    T.ROPE = mkTex(412, 'ropeblk', 'Rope', (g) => {
+      g.fillStyle = '#3a2a14'; g.fillRect(0, 0, 256, 256);
+      g.strokeStyle = '#c4a05a'; g.lineWidth = 8;
+      for (let x = 16; x < 256; x += 32) { g.beginPath(); g.moveTo(x, 0); for (let y = 0; y <= 256; y += 16) g.lineTo(x + Math.sin(y / 12) * 6, y); g.stroke(); }
+    }, {hard: 0.3, plant: 1, st: 1});
+    try { AXE_ON.add(T.MPLANK); AXE_ON.add(T.ROPE); } catch (_) {}
+    try { SHOVEL_ON.add(T.MOSSBLK); } catch (_) {}
+    U.on = 1;
+  } catch (e) { ERR('reg', e); }
+})();
+
 /* GLX-V1217 (v1.2.17): FOUR OPEN DEEP LAYERS UNDER THE UK, bedrock at y -237. New big (UK) worlds only.
    Real path traced: below y 0 every block comes from GLX-C320 getB -> __c320.fearth (no storage except your edits in __c320.edits),
    which GLX-DEEP wraps (deep caverns from 40 below the sea) and GLX-AGU wraps on top (the Agartha stamp, spiral and its solid walls,
@@ -60752,15 +61094,15 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const n3 = (x, y, z, s) => 0.5 * S(x * 0.071 + s) * S(y * 0.083 - s) * S(z * 0.079) + 0.3 * S(x * 0.13 - z * 0.11 + y * 0.055 + s * 2.1) + 0.2 * S((x + z) * 0.19 + y * 0.17 - s);
   const openCave = (x, y, z, tC, tN) => { const wx = x + ((h3(x >> 1, 80, z >> 1) - 0.5) * 8) | 0, wz = z + ((h3(z >> 1, 84, x >> 1) - 0.5) * 8) | 0; return h3(wx, y, wz) > (tC + 0.22) || Math.abs(h3(wx * 2, y, wz * 2) - 0.5) < tN * 0.85; };
   const massPillar = (x, y, z, s, sc) => { const cx = F(x / sc), cz = F(z / sc), ph = h3(cx, s, cz); if (ph > 0.58) return 0; const px = cx * sc + 3 + F(h3(cz, s + 1, cx) * (sc - 6)), pz = cz * sc + 3 + F(h3(cx, s + 2, cz) * (sc - 6)), pr = 1.4 + ph * (sc * 0.16); return Math.hypot(x - px, z - pz) < pr; };
-  let B = null; const bl = () => B || (B = {ST: T.STONE, DS: T.DEEPSLATE || T.STONE, BR: T.BEDROCK || T.HBEDROCK || 211, GR: T.GRASS, DI: T.DIRT, MO: T.MOSS || T.MOSSYCOBBLE || T.GRASS,
-    LOG: T.LOG || T.STONE, CAP: T.CAP || T.RED || 46, GLO: 771, FUN: 770, EMB: 772, ABY: 773, WB: 774, TILE: T.DSTILE || T.DEEPSLATE, CC: T.CRYCYAN || T.GLASS || 63,
-    CV: T.CRYVIOLET || T.GEODE || 190, GEO: T.GEODE || 190, OB: T.OBSIDIAN || 189, BAS: T.BASALTCOL || 200, MAG: T.MAGMA || 208, HR: T.HELLROCK || 206, BS: T.BLACKSTONE || T.OBSIDIAN || 189, W: T.WATER, L: T.LAVA, GL: T.GLOWROCK || 209});
+  let B = null; const bl = () => B || (B = {ST: T.STONE, DS: T.DARKSTONE || T.DEEPSLATE || T.STONE, BR: T.BEDROCK || T.HBEDROCK || 211, GR: T.GRASS, DI: T.DIRT, MO: T.MOSSBLK || T.MOSS || T.MOSSYCOBBLE || T.GRASS,
+    HM: T.HMOSS || T.LEAVES || T.MOSS || T.GRASS, LOG: T.LOG || T.STONE, CAP: T.CAP || T.RED || 46, GLO: 771, FUN: 770, EMB: 772, ABY: 773, WB: 774, TILE: T.DSTILE || T.DEEPSLATE, CC: T.CYNVEIN || T.CRYCYAN || T.GLASS || 63,
+    GD: T.GDRIP || T.CRYCYAN || T.GLASS || 63, CV: T.PCRY || T.CRYVIOLET || T.GEODE || 190, SP: T.PSPIR || T.CRYVIOLET || T.GEODE || 190, GEO: T.GEODE || 190, OB: T.OBSIDIAN || 189, BAS: T.BASALT || T.BASALTCOL || 200, MAG: T.MAGVEIN || T.MAGMA || 208, HR: T.HELLROCK || 206, BS: T.BLACKSTONE || T.OBSIDIAN || 189, W: T.WATER, L: T.LAVA, GL: T.GLOWROCK || 209, CG: T.COREGLOW || T.SUNSTONE || T.MAGMA || 208, MP: T.MPLANK || T.PLANKS, RP: T.ROPE || T.PLANKS});
   // ---- who may use it ----
   let EYE = null; U.eyeAt = () => EYE;
   let AG = null; const agOk = () => { const a = window.__agw; if (!a || !a.ok || !Array.isArray(a.box)) return false; AG = a.box; return true; };
-  U.on = () => U.dl && agOk() && !DIM.cur;
-  const near = (x, y, z) => { if (!AG && !agOk()) return true; const b = AG; if (y > b[4] + 24 || y < b[1] - 24) { /* spiral cave */ } else if (x > b[0] - 24 && x < b[3] + 24 && z > b[2] - 24 && z < b[5] + 24) return true;
-    return y > -66 && Math.hypot(x + 0.5 - 540, z + 0.5 + 30) < 40; };
+  U.on = () => U.dl && !DIM.cur;
+  const near = (x, y, z) => { if (!AG && !agOk()) return false; const b = AG; if (y > b[4] + 24 || y < b[1] - 24) { /* spiral cave */ } else if (x > b[0] - 24 && x < b[3] + 24 && z > b[2] - 24 && z < b[5] + 24) return true;
+    return false; };
   // ---- spiral stairs ----
   const G = 192; function stair(x, y, z) { const cx = F(x / G), cz = F(z / G), sx = cx * G + 40 + F(h3(cx, 5, cz) * 112), sz = cz * G + 40 + F(h3(cz, 6, cx) * 112), dx = x + 0.5 - sx, dz = z + 0.5 - sz, r = Math.hypot(dx, dz);
     if (r >= 7.5 || y < -228) return undefined; if (r < 2) return bl().WB;
@@ -60812,13 +61154,118 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     if (massPillar(x, y, z, 60, 30)) return b.BS;
     if (openCave(x, y, z, 0.18, 0.09)) return 0;
     return b.BS; }
-  function gen(x, y, z) { U.n++; const b = bl(); if (y < BOT) return b.BR; if (y < -230) return y < -233 - F(h3(x, 1, z) * 3) ? b.BR : b.BS;
+  /* V1293: unified bands under the UK, including spawn land. No stone lid at y -1..-3.
+     0 surface (world array)  1 lush y0..-50  2 deep-dark -51..-110  3 magma/mines -111..-160
+     4 molten purple -161..-210  5 core -211..-236  bedrock -237, void below. Lava only in 3-5. */
+  function mapOpen(x, z) {
+    try {
+      if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return false;
+      const b0 = world[idx(x, 0, z)], b1 = world[idx(x, 1, z)];
+      return (!b0 || b0 === T.WATER) && (!b1 || b1 === T.WATER || b1 === T.AIR);
+    } catch (_) { return false; }
+  }
+  function lush(x, y, z) {
+    const b = bl(), fl = -46 + 5 * n2(x, z, 1) + 2 * n2(x * 3, z * 3, 2);
+    const openUp = mapOpen(x, z) || openShaft(x, y, z);
+    const ce = openUp ? 1 : (-2 - 3 * n2(z, x, 3));
+    if (y >= ce || y < -50) return openUp || openShaft(x, y, z) ? 0 : b.ST;
+    if (y < fl) {
+      if (openShaft(x, y, z)) return 0;
+      const P = basin(x, z, 11);
+      if (P) { const d = Math.hypot(x + 0.5 - P[0], z + 0.5 - P[1]); if (d < P[2] && y >= fl - 2) return b.W; }
+      return y > fl - 1 ? (h3(x, 3, z) < 0.45 ? b.MO : b.GR) : y > fl - 4 ? b.DI : b.ST;
+    }
+    if (massPillar(x, y, z, 17, 20)) return h3(x, 16, z) < 0.35 ? b.MO : b.ST;
+    const air = openCave(x, y, z, 0.28, 0.14);
+    if (!air) return h3(x, 18, z) < 0.2 ? b.MO : b.ST;
+    if (y > fl && y < fl + 2) {
+      const P = basin(x, z, 11);
+      if (P && Math.hypot(x + 0.5 - P[0], z + 0.5 - P[1]) < P[2]) return b.W;
+    }
+    if (y > ce - 12 && h3(x, 15, z) < 0.62) return ((y & 1) === 0 || h3(x, 21, z) < 0.5) ? (b.HM || b.MO) : 0;
+    if (h3(x, 19, z) < 0.08 && (y & 1) === 0) return b.MO;
+    if (h3(x >> 1, 14, z >> 1) < 0.03 && y < fl + 4) return b.MO;
+    if (h3(x, 20, z) < 0.012 && y > fl + 3) return T.LEAVES || b.MO;
+    return 0;
+  }
+  function dark(x, y, z) {
+    const b = bl(), fl = -106 + 3 * n2(x, z, 21) + 2 * Math.abs(n2(x * 2, z * 2, 22)), ce = -54 - 5 * (0.5 + 0.5 * n2(z * 1.3, x * 1.3, 23));
+    const vein = Math.abs(n2(x * 0.45, z * 0.45, 29) + 0.35 * n2(x * 0.9, y * 0.4, 30)) < 0.07;
+    if (y >= ce || y < -110) return (vein || (y >= ce && y < ce + 2 && h3(x, 24, z) < 0.08)) ? b.CC : b.DS;
+    if (y < fl) return openShaft(x, y, z) ? 0 : (vein ? b.CC : (h3(x, 25, z) < 0.25 ? b.TILE : b.DS));
+    if (vein && h3(x, y, z) < 0.7) return b.CC;
+    const s = h3(x, 26, z); if (s < 0.08 && y > ce - 2 - F(s * 220)) return (s < 0.035 ? b.GD : b.CC);
+    if (massPillar(x, y, z, 28, 24)) return vein ? b.CC : b.DS;
+    if (openCave(x, y, z, 0.30, 0.10)) return 0;
+    return vein ? b.CC : b.DS;
+  }
+  function magma(x, y, z) {
+    const b = bl(), fl = -156 + 4 * n2(x, z, 51), ce = -114 - 6 * (0.5 + 0.5 * n2(z * 0.8, x * 0.8, 52));
+    if (y >= ce || y < -160) return y >= ce ? (h3(x, 53, z) < 0.06 ? b.MAG : b.BS) : b.BS;
+    const P = basin(x, z, 61);
+    if (P) { const d = Math.hypot(x + 0.5 - P[0], z + 0.5 - P[1]), top = F(fl); if (d < P[2] + 1.4) { if (y > top) return 0; if (d < P[2] && y >= top - 2) return b.L; return b.BS; } }
+    const river = Math.abs(n2(x * 0.07, z * 0.07, 62)) < 0.08;
+    if (river && y <= fl + 1 && y >= fl - 2) return y >= fl - 1 ? b.L : b.MAG;
+    if (y < fl) return openShaft(x, y, z) ? 0 : (h3(x, 54, z) < 0.14 ? b.MAG : b.BS);
+    const hx = F(x / 5), hz = F(z / 5), hc = h3(hx, 56, hz);
+    if (n2(x * 0.3, z * 0.3, 57) > 0.2 && hc < 0.55 && Math.hypot((x - hx * 5) - 2, (z - hz * 5) - 2) < 2.2 && y < fl + 4 + hc * 28) return b.BAS;
+    if (h3(x, 58, z) < 0.012 && y > ce - 3 - F(h3(z, 59, x) * 10)) return b.HR;
+    if (massPillar(x, y, z, 60, 26)) return b.BS;
+    if (openCave(x, y, z, 0.24, 0.10)) {
+      const gx = F(x / 18), gz = F(z / 18), deck = h3(gx, 70, gz);
+      if (deck < 0.22 && y === fl + 3 + F(deck * 6)) return b.MP || T.PLANKS || T.LOG || b.BS;
+      if (deck < 0.22 && (x & 3) === 0 && (z & 3) === 0 && y > fl + 3 && y < fl + 10) return T.LOG || b.BS;
+      if (deck < 0.16 && Math.abs((x + z) % 7) < 2 && y === fl + 5 + F(deck * 4)) return b.RP || T.PLANKS;
+      if (deck < 0.18 && h3(x, 71, z) < 0.04 && y === fl + 6 + F(deck * 6)) return T.TORCH || T.GLOWROCK || b.MAG;
+      return 0;
+    }
+    return b.BS;
+  }
+  function molten(x, y, z) {
+    const b = bl(), fl = -206 + 4 * n2(x, z, 81), ce = -164 - 5 * (0.5 + 0.5 * n2(z * 0.7, x * 0.7, 82));
+    if (y >= ce || y < -210) return (h3(x, 83, z) < 0.12 ? b.CV : b.GEO);
+    if (y < fl) return openShaft(x, y, z) ? 0 : (h3(x, 84, z) < 0.2 ? b.CV : (h3(x, 85, z) < 0.5 ? b.GEO : b.OB));
+    const sx = F(x / 12), sz = F(z / 12), sh = h3(sx, 86, sz);
+    if (sh < 0.28) {
+      const cx = sx * 12 + 3 + F(h3(sz, 87, sx) * 6), cz = sz * 12 + 3 + F(h3(sx, 88, sz) * 6), d = Math.hypot(x - cx, z - cz);
+      const h = 4 + F(sh * 14); if (d < 1.6 && y < fl + h) return b.SP || b.CV;
+      if (d < 2.6 && y === fl + h) return b.SP || b.CV;
+    }
+    if (massPillar(x, y, z, 89, 22)) return b.GEO;
+    if (openCave(x, y, z, 0.26, 0.10)) return 0;
+    return h3(x >> 1, y >> 1, z >> 1) < 0.45 ? b.GEO : b.OB;
+  }
+  function core(x, y, z) {
+    const b = bl(), cx = W >> 1, cz = D >> 1, d = Math.hypot(x + 0.5 - cx, z + 0.5 - cz);
+    if (y < -233 - F(h3(x, 1, z) * 3)) return b.BR;
+    if (y < -230) return b.BS;
+    if (d < 90) {
+      const ring = Math.abs(((d + 3) % 14) - 7);
+      if (d < 14 && y <= -222) return (b.CG || T.SUNSTONE || b.MAG);
+      if (ring < 2.2 && y >= -228 && y <= -220 && d < 78) return (y < -224 ? b.MAG : (b.CG || T.SUNSTONE || b.MAG));
+      if (d < 22 && y < -218) return b.MAG;
+    }
+    const sx = F(x / 10), sz = F(z / 10), sh = h3(sx, 90, sz);
+    if (sh < 0.3 && d > 16 && d < 110) {
+      const px = sx * 10 + 2 + F(h3(sz, 91, sx) * 6), pz = sz * 10 + 2 + F(h3(sx, 92, sz) * 6);
+      if (Math.hypot(x - px, z - pz) < 1.4 && y < -214 + F(sh * 12)) return sh < 0.12 ? b.HR : (b.SP || b.CV);
+    }
+    if (openCave(x, y, z, 0.22, 0.08) || openShaft(x, y, z)) return 0;
+    return h3(x, 93, z) < 0.12 ? b.MAG : b.BS;
+  }
+  function gen(x, y, z) { U.n++; const b = bl(); if (y < BOT) return b.BR; if (y < -236) return b.BR;
     if (near(x, y, z)) return y < -150 ? b.BS : b.DS;
     const st = stair(x, y, z); if (st !== undefined) return st;
-    let out; if (y > -4) out = b.ST; else if (y >= -46) out = L1(x, y, z); else if (y > -54) out = openShaft(x, y, z) ? 0 : b.ST; else if (y >= -96) out = L2(x, y, z); else if (y > -104) out = openShaft(x, y, z) ? 0 : b.DS; else if (y >= -150) out = L3(x, y, z); else if (y > -156) out = openShaft(x, y, z) ? 0 : b.OB; else out = L4(x, y, z);
-    if (out === b.ST || out === b.DS || out === b.GLO || out === b.ABY || out === b.OB || out === b.BS) return layerOre(x, y, z, out); return out; }
+    let out;
+    if (y >= -50) out = lush(x, y, z);
+    else if (y >= -110) out = dark(x, y, z);
+    else if (y >= -160) out = magma(x, y, z);
+    else if (y >= -210) out = molten(x, y, z);
+    else out = core(x, y, z);
+    if (out === b.ST || out === b.DS || out === b.GLO || out === b.ABY || out === b.OB || out === b.BS || out === b.GEO) return layerOre(x, y, z, out);
+    return out; }
   U.gen = (x, y, z) => { try { return gen(x, y, z); } catch (e) { ERR('gen', e); return T.STONE; } };
-  U.layer = y => y >= 0 ? 0 : y >= -50 ? 1 : y >= -100 ? 2 : y >= -153 ? 3 : y >= BOT ? 4 : 5;
+  U.layer = y => y >= 0 ? 0 : y >= -50 ? 1 : y >= -110 ? 2 : y >= -160 ? 3 : y >= -210 ? 4 : y >= BOT ? 5 : 6;
   const flush = () => { try { const e = window.__c320; if (window.__c324 && __c324.cache) __c324.cache.clear(); if (e) { e.dirty = 1; e.edgeClr && e.edgeClr(); } } catch (_) {} };
   // ---- the way in: from the map caves down through y 0 onto each spiral stair under the map (new worlds, natural blocks only) ----
   function entrances() { let n = 0; const NAT = new Set([T.STONE, T.DEEPSLATE, T.DIRT, T.GRAVEL, T.BEDROCK, T.HBEDROCK, T.ANDESITE, T.GRANITE, T.DIORITE, T.TUFF, T.COALORE, T.IRONORE, T.COPPERORE, 133, 211].filter(v => v != null));
@@ -60829,9 +61276,9 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     return n; }
   // ---- hooks ----
   try { const g = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(53)) return g.apply(this, arguments);  const r = g.apply(this, arguments); try { U.dl = false; EYE = null;
-      if (!DIM.cur && W >= 600 && !cityGen) { U.dl = true; EYE = [W >> 1, -196, D >> 1]; if (window.__v1212) __v1212.eye = EYE.slice(); try { if (current) current.v1212eye = EYE.slice(); } catch (_) {} U.ent = agOk() ? entrances() : 0; flush(); } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(53); return r; } }; } catch (e) { ERR('gw', e); }
-  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && U.dl) d.v1217dl = 1; } catch (_) {} return d; };
-    const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) { const was = U.dl; U.dl = !!d.v1217dl; EYE = U.dl && Array.isArray(d.v1212eye) ? d.v1212eye : (U.dl ? [W >> 1, -196, D >> 1] : null); if (was !== U.dl) flush(); } } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
+      if (!DIM.cur && W >= 600 && !cityGen) { U.dl = true; EYE = [W >> 1, -224, D >> 1]; if (window.__v1212) __v1212.eye = EYE.slice(); try { if (current) { current.v1212eye = EYE.slice(); current.v1293uni = 1; } } catch (_) {} U.ent = entrances(); flush(); } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(53); return r; } }; } catch (e) { ERR('gw', e); }
+  try { const se = serialize; serialize = function () { const d = se.apply(this, arguments); try { if (d && !DIM.cur && U.dl) { d.v1217dl = 1; d.v1293uni = 1; } } catch (_) {} return d; };
+    const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); try { if (d && !d.dim) { const was = U.dl; U.dl = !!(d.v1217dl || d.v1293uni || (W >= 600 && !cityGen)); EYE = U.dl && Array.isArray(d.v1212eye) ? d.v1212eye : (U.dl ? [W >> 1, -224, D >> 1] : null); if (was !== U.dl) flush(); } } catch (_) {} return r; }; } catch (e) { ERR('save', e); }
   let lastOn = null; setInterval(() => { try { const o = U.on(); if (o !== lastOn) { lastOn = o; flush(); } } catch (_) {} }, 1000);
   // ---- water drips: only in the blue layer, only within 20 blocks of a pool, a few at a time; stops when you leave ----
   let dripT = 0, live = 0; const DN = new Set();
@@ -60849,6 +61296,59 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let icT = 0; const icv = setInterval(() => { try { const V = window.__v126; if (V && V.icons && Object.keys(V.icons).length) { for (const k in V.icons) { const u = V.icons[k];
         if (window.__c187 && __c187.MINE) __c187.MINE[k] = u; if (window.__c122 && __c122.MINE) __c122.MINE[k] = u; if (ICONS[k] !== u) { ICONS[k] = u; try { delete ICON_KEY[k]; } catch (_) {} } } U.icons = 1; }
       if (++icT > 240 || U.icons) { if (U.icons && icT > 20) clearInterval(icv); } } catch (e) { ERR('icons', e); } }, 1000);
+})();
+
+/* GLX-V1293 (v1.2.93): unify the y0 seam and tint deep air so the new bands feel continuous.
+   Surface chunks already draw Y0 undersides via __YB; C324 draws y<0. This only warms fog
+   to each band and keeps the deep hook armed on UK worlds (including spawn land). */
+(function v1293() {
+  const U = window.__v1293 = {err: null, on: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 200); };
+  const COL = [
+    [0xb9c6c9, 0],
+    [0x6f8f6a, -50],
+    [0x1a2c4a, -110],
+    [0x4a2010, -160],
+    [0x3a1550, -210],
+    [0x5a2208, -237]
+  ];
+  function bandCol(y) {
+    if (y >= 4) return COL[0][0];
+    for (let i = 1; i < COL.length; i++) if (y >= COL[i][1]) return COL[i][0];
+    return COL[COL.length - 1][0];
+  }
+  let last = 0;
+  try {
+    const rd = typeof render === 'function' ? render : null;
+    if (rd && !rd.__v1293) {
+      render = function () {
+        try {
+          if (window.__v1217 && __v1217.on && __v1217.on() && typeof P !== 'undefined' && scene && scene.fog && scene.fog.color) {
+            const c = bandCol(P.y | 0);
+            if (c !== last) {
+              last = c;
+              const f = scene.fog.color;
+              f.r = f.r * 0.72 + ((c >> 16) & 255) / 255 * 0.28;
+              f.g = f.g * 0.72 + ((c >> 8) & 255) / 255 * 0.28;
+              f.b = f.b * 0.72 + (c & 255) / 255 * 0.28;
+            }
+          }
+        } catch (e) { ERR('fog', e); }
+        return rd.apply(this, arguments);
+      };
+      render.__v1293 = 1;
+    }
+  } catch (e) { ERR('rd', e); }
+  setInterval(() => {
+    try {
+      const e = window.__c320;
+      if (e && !e.hol) e.hol = {v1293: 1};
+      if (window.__v1217 && !__v1217.dl && typeof W === 'number' && W >= 600 && !cityGen && !(typeof DIM !== 'undefined' && DIM.cur)) {
+        /* armed after generate; this only covers a late hook race */
+      }
+    } catch (_) {}
+  }, 2000);
+  U.on = 1;
 })();
 
 /* GLX-Q1220 (v1.2.20): quiet play and item names on hover.
@@ -62776,6 +63276,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.97","d":"2026-11-17","notes":["The three castles sit on the official map-edge isles again, well away from spawn.","The sand temple lives only in Egypt land. A gold portal at the clan castle takes you there, and the temple is no longer generated in the Glencraft overworld.","Skeleton and clan-folk numbers at the keeps are back to the earlier published counts, and they stay at their own castles rather than crowding spawn.","The ground at spawn is solid grass and dirt.","Caves under the Highlands use a new set of underground blocks, from moss and hanging moss through crystal and core stone."]},
 {"v":"v1.2.96","d":"2026-11-17","notes":["The UFO paintings hang in the Egypt land pyramid again.","The Agartha saucer flies to the sand realm at night and no longer appears over Glencraft.","Egyptians only live at the temple in the sand realm.","Egypt land has its own desert sky: a deep blue day, orange and pink sunsets, and a clear starry night."]},
 {"v":"v1.2.95","d":"2026-11-17","notes":["The first-person pickaxe stays in your fist through the mining swing and is held upright in landscape, with the purple head clearly in view.","The held map is larger and readable in landscape, with your palm under the bottom of the sheet."]},
 {"v":"v1.2.94","d":"2026-11-17","notes":["The green loading fluid on the loading screen is visible again."]},
@@ -81541,6 +82042,7 @@ try {
   const MAX = { black: 100, mossy: 50, human: 25 };
   const LIVE = 28;           /* concurrent live garrison skeletons */
   const HUMAN_LIVE = 25;
+  U.MAX = MAX; U.LIVE = LIVE; U.HUMAN_LIVE = HUMAN_LIVE;
   const R_CASTLE = 26;       /* they live around + inside */
   const R_LOAD = 56;         /* only simulate / render in loaded range */
   const R_PATROL = 22;
@@ -81950,6 +82452,8 @@ try {
   /* ---------- 25 humans at the human castle; some walk to the farmers ---------- */
   const FOLK = [];
   U.folk = FOLK;
+  U.materialize = function (dt) { try { materialize(dt || 2.5); } catch (e) { ERR('matU', e); } };
+  U.ensureHumans = function () { try { ensureHumans(); } catch (e) { ERR('humU', e); } };
   const NAMES = ['Hamish', 'Mairi', 'Eilidh', 'Calum', 'Isla', 'Fergus', 'Ailsa', 'Rory',
     'Nessa', 'Angus', 'Brigid', 'Lachlan', 'Fiona', 'Ewan', 'Morag', 'Duncan',
     'Sine', 'Alasdair', 'Iona', 'Niall', 'Catriona', 'Kenneth', 'Beatrice', 'Malcolm', 'Una'];
@@ -90600,6 +91104,7 @@ try {
     U.genDone = 0;
     U.genX = 0;
     U._g9 = null;
+    try { if (window.__c113) { __c113._hc = null; __c113._wantOn = false; } } catch (_) {}
     U._gen9 = null;
     U._featX = 0;
     U._plant = null;
@@ -90662,11 +91167,13 @@ try {
        (and any other Math.random stages) diverge from a synchronous run. */
     const _origRandom = Math.random;
     let _randGap = 0, _gapS = 0xC0FFEE;
+    U._randWork = 0;
     Math.random = function () {
       if (_randGap) {
         _gapS = (Math.imul(_gapS, 1664525) + 1013904223) >>> 0;
         return _gapS / 4294967296;
       }
+      U._randWork = (U._randWork || 0) + 1;
       return _origRandom.call(Math);
     };
     U._randGap = function (on) { _randGap = on ? 1 : 0; };
@@ -90682,6 +91189,7 @@ try {
       let wasB, wasG;
       try { wasB = c37busy; c37busy = true; } catch (_) {}
       try { wasG = window.__g12; if (U._g12 !== undefined) window.__g12 = U._g12; } catch (_) {}
+      try { if (window.__c113 && __c113.holdOn) __c113.holdOn(); } catch (_) {}
       try { return U._gen9.apply(null, arguments); }
       finally { try { c37busy = wasB; } catch (_) {} try { window.__g12 = wasG; } catch (_) {} }
     };

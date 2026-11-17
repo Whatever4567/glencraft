@@ -7,12 +7,14 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.96';"), 'GAME_VERSION is 1.2.96');
+ok(html.includes("const GAME_VERSION = '1.2.97';"), 'GAME_VERSION is 1.2.97');
+ok(!html.includes("const GAME_VERSION = '1.2.96';"), 'GAME_VERSION is no longer 1.2.96');
 ok(!html.includes("const GAME_VERSION = '1.2.95';"), 'GAME_VERSION is no longer 1.2.95');
 ok(!html.includes("const GAME_VERSION = '1.2.93';"), 'GAME_VERSION is no longer 1.2.93');
 ok(!html.includes("const GAME_VERSION = '1.2.92';"), 'GAME_VERSION is no longer 1.2.92');
 ok(!html.includes("const GAME_VERSION = '1.2.91';"), 'GAME_VERSION is no longer 1.2.91');
 ok(!html.includes("const GAME_VERSION = '1.2.90';"), 'GAME_VERSION is no longer 1.2.90');
+ok(/"v"\s*:\s*"v1\.2\.97"/.test(html), '1.2.97 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.96"/.test(html), '1.2.96 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.95"/.test(html), '1.2.95 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.94"/.test(html), '1.2.94 patch notes still present');
@@ -28,6 +30,10 @@ ok(/never looks frozen/i.test(html), '1.2.88 notes mention the loading bar that 
 ok(/First-person hands are clearer now/i.test(html), '1.2.88 notes mention improved first-person hands');
 ok(/green loading fluid/i.test(html), '1.2.94 notes mention the green loading fluid');
 ok(/first-person pickaxe stays in your fist/i.test(html), '1.2.95 notes mention the pickaxe');
+ok(/official map-edge isles/i.test(html), '1.2.97 notes mention the edge-isle castles');
+ok(/gold portal at the clan castle/i.test(html), '1.2.97 notes mention the clan-castle gold portal');
+ok(/temple is no longer generated in the Glencraft overworld/i.test(html), '1.2.97 notes mention no overworld temple');
+ok(/ground at spawn is solid/i.test(html), '1.2.97 notes mention the solid spawn ground');
 ok(/UFO paintings hang in the Egypt land pyramid/i.test(html), '1.2.96 notes mention the UFO paintings');
 ok(/flies to the sand realm at night/i.test(html), '1.2.96 notes mention the saucer night route');
 ok(/Egyptians only live at the temple/i.test(html), '1.2.96 notes mention Egyptians only in the sand realm');
@@ -42,8 +48,8 @@ ok(/stay on the pistol and musket during reloads/i.test(html), '1.2.90 notes men
 ok(/never jumps backwards/i.test(html), '1.2.89 notes mention the percentage never jumps backwards');
 ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention deterministic worlds');
 {
-  const st = html.indexOf('{"v":"v1.2.96"'), en = html.indexOf('{"v":"v1.2.95"', st);
-  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.96 notes first, no food');
+  const st = html.indexOf('{"v":"v1.2.97"'), en = html.indexOf('{"v":"v1.2.96"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.97 notes first, no food');
 }
 {
   const st = html.indexOf('{"v":"v1.2.93"'), en = html.indexOf('{"v":"v1.2.92"', st);
@@ -73,8 +79,8 @@ ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention de
   const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes remain, no food');
 }
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.96', 'version.json is 1.2.96');
-ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->') && html.includes('<!-- glencraft-build: b1289-v1.2.89 -->') && html.includes('<!-- glencraft-build: b1290-v1.2.90 -->') && html.includes('<!-- glencraft-build: b1291-v1.2.91 -->') && html.includes('<!-- glencraft-build: b1292-v1.2.92 -->') && html.includes('<!-- glencraft-build: b1293-v1.2.93 -->') && html.includes('<!-- glencraft-build: b1294-v1.2.94 -->') && html.includes('<!-- glencraft-build: b1295-v1.2.95 -->') && html.includes('<!-- glencraft-build: b1296-v1.2.96 -->'), '1.2.84–1.2.96 build markers stay');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.97', 'version.json is 1.2.97');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->') && html.includes('<!-- glencraft-build: b1289-v1.2.89 -->') && html.includes('<!-- glencraft-build: b1290-v1.2.90 -->') && html.includes('<!-- glencraft-build: b1291-v1.2.91 -->') && html.includes('<!-- glencraft-build: b1292-v1.2.92 -->') && html.includes('<!-- glencraft-build: b1293-v1.2.93 -->') && html.includes('<!-- glencraft-build: b1294-v1.2.94 -->') && html.includes('<!-- glencraft-build: b1295-v1.2.95 -->') && html.includes('<!-- glencraft-build: b1296-v1.2.96 -->') && html.includes('<!-- glencraft-build: b1297-v1.2.97 -->'), '1.2.84–1.2.97 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runtime');
