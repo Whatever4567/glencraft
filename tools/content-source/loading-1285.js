@@ -79,7 +79,7 @@
       st.id = 'load1285css';
       st.textContent = [
         '#scr-loading #loadW.liquid1285{width:min(72vw,440px);height:18px;border-radius:11px;border:2px solid #e0a548;background:#120c06;overflow:hidden;position:relative;box-shadow:inset 0 1px 3px rgba(0,0,0,.65),0 0 0 1px rgba(0,0,0,.35);margin:4px 0 8px;transform:translateZ(0)}',
-        '#scr-loading #loadW.liquid1285 .load-fill, #scr-loading #loadW.liquid1285 > i{display:block;position:absolute;left:0;top:0;bottom:0;height:100%;width:100%;max-width:100%;background:linear-gradient(180deg,#fff1b0 0%,#ffe58e 18%,#f0c24a 48%,#d9a52c 76%,#a66b12 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 14px rgba(242,196,64,.45)!important;background-image:none!important;background-size:auto!important;transition:none!important;border-radius:0 8px 8px 0;transform:scaleX(0);transform-origin:left center;will-change:transform;backface-visibility:hidden}',
+        '#scr-loading #loadW.liquid1285 .load-fill, #scr-loading #loadW.liquid1285 > i{display:block;position:absolute;left:0;top:0;bottom:0;height:100%;width:100%;max-width:100%;background-color:#5fa52a!important;background-image:linear-gradient(180deg,#e8ffb0 0%,#b6f26a 16%,#7cbf3c 48%,#4e9a24 78%,#2d6a12 100%)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 16px rgba(126,200,60,.6)!important;background-size:auto!important;animation:none!important;transition:none!important;border-radius:0 8px 8px 0;transform:scaleX(0);transform-origin:left center;will-change:transform;backface-visibility:hidden}',
         '#scr-loading #loadW.liquid1285 .load-wave,#scr-loading #loadW.liquid1285 .load-shimmer{position:absolute;top:0;bottom:0;left:0;width:42%;pointer-events:none;display:block;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,0) 10%,rgba(255,255,255,.55) 50%,rgba(255,255,255,0) 90%,transparent 100%);transform:translateX(-120%) translateZ(0);will-change:transform;backface-visibility:hidden;animation:load1288shine 1.2s linear infinite}',
         '#scr-loading #loadW.liquid1285.load1285done .load-wave, #scr-loading #loadW.liquid1285.load1285done .load-shimmer, #scr-loading:not(.on) #loadW .load-wave, #scr-loading:not(.on) #loadW .load-shimmer{animation:none!important;-webkit-animation:none!important;display:none!important}',
         '@keyframes load1288shine{from{transform:translateX(-120%) translateZ(0)}to{transform:translateX(280%) translateZ(0)}}',
@@ -275,6 +275,9 @@
       fill.style.width = '100%';
       fill.style.transformOrigin = 'left center';
       fill.style.willChange = 'transform';
+      fill.style.backgroundColor = '#5fa52a';
+      fill.style.backgroundImage = 'linear-gradient(180deg,#e8ffb0 0%,#b6f26a 16%,#7cbf3c 48%,#4e9a24 78%,#2d6a12 100%)';
+      fill.style.animation = 'none';
       U._fillAnim = fill.animate(baked.frames, {duration: baked.total, easing: 'linear', fill: 'forwards'});
       const elapsed = Math.max(0, performance.now() - (U.t0 || performance.now()));
       if (elapsed > 16) {
