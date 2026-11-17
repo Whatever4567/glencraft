@@ -95174,6 +95174,178 @@ try {
 })();
 
 
+/* GLX-V1305: perf. Batch world HD torch Mesh parts into a few static
+   combined meshes (not InstancedMesh). Flame sprites stay on each torch
+   and still flicker. Bodies stay visible at the same 72-block range as
+   updateEntities. Rebuilds when the torch set or the player's cell
+   changes. lightSrc is unchanged. */
+(function v1305() {
+  const U = window.__v1305 = {err: null, inst: 0, n: 0, vis: 0, batched: 0, buckets: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const FAR2 = 72 * 72;
+  const CELL = 8;
+  const _v = new THREE.Vector3(), _m3 = new THREE.Matrix3();
+  let root = null, recs = null, lastCell = '';
+
+  function torchType() {
+    try { if (typeof T !== 'undefined' && T && T.TORCH != null) return T.TORCH; } catch (_) {}
+    return null;
+  }
+
+  function torchRoots() {
+    const out = [], seen = new Set();
+    const add = g => { if (g && !seen.has(g)) { seen.add(g); out.push(g); } };
+    try {
+      const tt = torchType();
+      if (typeof entObjs !== 'undefined' && tt != null) {
+        for (const o of entObjs.values()) if (o && o.type === tt && o.g) add(o.g);
+      }
+    } catch (e) { ERR('ents', e); }
+    try {
+      if (typeof scene === 'undefined' || !scene) return out;
+      for (const c of scene.children) {
+        if (c === root) continue;
+        const ud = c.userData || {};
+        if (ud.merged1304 || ud.batched1305) add(c);
+      }
+    } catch (e) { ERR('scene', e); }
+    return out;
+  }
+
+  function ensureRoot() {
+    if (root && typeof scene !== 'undefined' && root.parent === scene) return root;
+    root = new THREE.Group();
+    root.name = 'torchBatch1305';
+    root.frustumCulled = false;
+    root.matrixAutoUpdate = false;
+    root.userData.__dcR = 1e9;
+    root.userData.__dcK = 1;
+    scene.add(root);
+    return root;
+  }
+
+  function hideBody(g) {
+    if (!g || g.userData.batched1305) return;
+    g.traverse(o => {
+      if (o.isMesh && !o.isInstancedMesh && !(o.userData && o.userData._skip1305)) o.visible = false;
+    });
+    g.userData.batched1305 = 1;
+  }
+
+  function collect(list) {
+    const map = new Map();
+    for (const g of list) {
+      try {
+        g.updateMatrixWorld(true);
+        g.traverse(x => {
+          if (!x.isMesh || x.isInstancedMesh) return;
+          if (x.userData && x.userData._skip1305) return;
+          const mat = Array.isArray(x.material) ? x.material[0] : x.material;
+          if (!mat || !x.geometry || !x.geometry.attributes.position) return;
+          const k = mat.uuid + '|' + x.geometry.uuid;
+          let b = map.get(k);
+          if (!b) { b = {key: k, mat, items: []}; map.set(k, b); }
+          b.items.push({g, mesh: x, x: x.matrixWorld.elements[12], z: x.matrixWorld.elements[14], matrix: x.matrixWorld.clone()});
+        });
+        hideBody(g);
+      } catch (e) { ERR('col', e); }
+    }
+    return [...map.values()];
+  }
+
+  function bake(items) {
+    let n = 0;
+    for (const it of items) {
+      const ge = it.mesh.geometry;
+      n += ge.index ? ge.index.count : ge.attributes.position.count;
+    }
+    const P = new Float32Array(n * 3), N = new Float32Array(n * 3), UV = new Float32Array(n * 2);
+    let k = 0;
+    for (const it of items) {
+      const ge = it.mesh.geometry, pa = ge.attributes.position, na = ge.attributes.normal, ua = ge.attributes.uv;
+      const ix = ge.index, c = ix ? ix.count : pa.count;
+      _m3.getNormalMatrix(it.matrix);
+      for (let i = 0; i < c; i++) {
+        const j = ix ? ix.getX(i) : i;
+        _v.fromBufferAttribute(pa, j).applyMatrix4(it.matrix);
+        P[k * 3] = _v.x; P[k * 3 + 1] = _v.y; P[k * 3 + 2] = _v.z;
+        if (na) { _v.fromBufferAttribute(na, j).applyMatrix3(_m3).normalize(); N[k * 3] = _v.x; N[k * 3 + 1] = _v.y; N[k * 3 + 2] = _v.z; }
+        if (ua) { UV[k * 2] = ua.getX(j); UV[k * 2 + 1] = ua.getY(j); }
+        k++;
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(P, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(N, 3));
+    geo.setAttribute('uv', new THREE.BufferAttribute(UV, 2));
+    geo.computeBoundingSphere();
+    return geo;
+  }
+
+  function fill() {
+    const list = torchRoots();
+    const n = list.length;
+    if (!n) { U.n = 0; U.vis = 0; return; }
+    ensureRoot();
+    if (!recs || list.some(g => !g.userData.batched1305)) {
+      recs = collect(list);
+      U.batched++;
+      U.buckets = recs.length;
+    }
+    const px = (typeof P !== 'undefined' && P) ? P.x : 0;
+    const pz = (typeof P !== 'undefined' && P) ? P.z : 0;
+    while (root.children.length) {
+      const c = root.children[0];
+      root.remove(c);
+      if (c.geometry) c.geometry.dispose();
+    }
+    let vis = 0;
+    for (const b of recs) {
+      const items = b.items.filter(it => {
+        const dx = it.x - px, dz = it.z - pz;
+        return dx * dx + dz * dz <= FAR2;
+      });
+      if (!items.length) continue;
+      const mesh = new THREE.Mesh(bake(items), b.mat.clone());
+      mesh.frustumCulled = false;
+      mesh.matrixAutoUpdate = false;
+      mesh.userData._skip1305 = 1;
+      mesh.userData.__dcR = 1e9;
+      root.add(mesh);
+      vis += items.length;
+    }
+    U.n = n;
+    U.vis = vis;
+    U.inst = root.children.length;
+  }
+
+  function tick() {
+    try {
+      if (typeof started === 'undefined' || !started || typeof scene === 'undefined' || !scene) return;
+      const px = (typeof P !== 'undefined' && P) ? (P.x | 0) : 0;
+      const pz = (typeof P !== 'undefined' && P) ? (P.z | 0) : 0;
+      const cell = (px / CELL | 0) + ',' + (pz / CELL | 0);
+      const fresh = (() => { try { return torchRoots().some(g => !g.userData.batched1305); } catch (_) { return true; } })();
+      if (!fresh && cell === lastCell && recs) return;
+      lastCell = cell;
+      fill();
+    } catch (e) { ERR('tick', e); }
+  }
+
+  try {
+    if (typeof updateEntities === 'function') {
+      const u0 = updateEntities;
+      updateEntities = function () {
+        const r = u0.apply(this, arguments);
+        tick();
+        return r;
+      };
+    }
+  } catch (e) { ERR('wrap', e); }
+  U.tick = tick;
+})();
+
+
 (function v1300(G) {
   const U = G.__v1300 = {err: null, on: 0, sites: 0, ph: 'idle', site: -1, lava: 0, fronts: 0, maxReach: 0, steps: 0, cooled: 0, quench: 0,
     blocked: 0, prot: 0, shakeMax: 0, ms: 0, msMax: 0, frames: 0, phases: [], built: 0, booms: 0, bombs: 0, speed: 1, legacy: 0, ver: 1};
