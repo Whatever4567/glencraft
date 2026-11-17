@@ -23,7 +23,7 @@ ok(credits.includes('## v1.2.83 Tartan colour, clear first-person view, finished
   const s0 = html.indexOf('window.PATCH_NOTES = [');
   const e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
-  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.83') : -1; ok(k >= 0 && k <= 21 && arr[k + 1].v === 'v1.2.82', 'PATCH_NOTES parses, 1.2.83 before 1.2.82'); }
+  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.83') : -1; ok(k >= 0 && k <= 22 && arr[k + 1].v === 'v1.2.82', 'PATCH_NOTES parses, 1.2.83 before 1.2.82'); }
 }
 {
   const re = /<script>([\s\S]*?)<\/script>/g; let m;
