@@ -51,7 +51,7 @@ try {
   ok(!A.out.some(o => Math.hypot(o.x - 605, o.z - 259) < 30), 'nothing erupts from the old floating stamp spot (605,259)');
   ok(!A.leg || Math.hypot(A.leg[0] - A.c229[0], A.leg[2] - A.c229[2]) > 3, 'old stamp kept only as c229legacy (' + JSON.stringify(A.leg) + ')');
   ok(sv && sv.dSp >= 120, 'Ben Glencraft is >= 120 from spawn (' + (sv && sv.dSp.toFixed(1)) + ')');
-  ok(sv && cr.every(o => sv.h > o.h && sv.rimMax > o.rimMax), 'Ben Glencraft is taller than every other volcano (h ' + (sv && sv.h) + ', top y ' + (sv && sv.rimMax) + ')');
+  ok(sv && cr.every(o => sv.h > o.h && sv.rimMax > o.rimMax), 'Ben Glencraft is taller than every other volcano (h ' + (sv && sv.h) + ', top y ' + (sv && sv.rimMax) + ' vs max crater ' + Math.max(...cr.map(o => o.rimMax)) + ')');
   { const L = await page.evaluate(() => __v1300.list()); const S = L.find(q => q.k === 'S'); ok(L.every(q => q.k === 'S' || S.r > q.r), 'Ben Glencraft is wider than every other volcano (r ' + S.r + ')'); }
   const R = await page.evaluate(() => { const U = __v1300, sp = U.spawnXZ(), PR = U.PROT_R; const lavaNear = () => { let n = 0; for (let x = Math.floor(sp[0] - PR + 8); x <= sp[0] + PR - 8; x++) for (let z = Math.floor(sp[1] - PR + 8); z <= sp[1] + PR - 8; z++) { if (Math.hypot(x - sp[0], z - sp[1]) > PR - 8) continue; for (let y = SEA - 3; y < H - 1; y++) if (world[idx(x, y, z)] === T.LAVA) n++; } return n; };
     const l0 = lavaNear(); U.speed = 0; const ok0 = U.erupt('spawn'); let n = 0, sum = 0, mx = 0, shk = 0; const ts = [];

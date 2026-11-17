@@ -63,7 +63,7 @@
     const NAT = G.__NAT, nat = b => !b || b === T.WATER || (NAT && NAT[b]) || b === T.MAGMA || b === T.BASALT || b === T.BLACKSTONE || b === 156 || b === T.PACKSNOW || b === T.SNOW;
     const gt = (x, z) => { for (let y = H - 2; y > 1; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !PLANT[b] && !LEAFY[b] && !LOGGY[b]) return y; } return 0; };
     let g0 = 0, k = 0; for (let a = 0; a < 24; a++) { const t = gt(Math.round(cx + Math.sin(a / 24 * 6.2832) * R), Math.round(cz + Math.cos(a / 24 * 6.2832) * R)); if (t > SEA) { g0 += t; k++; } }
-    g0 = k ? Math.round(g0 / k) : SEA + 20; const PK = Math.min(H - 10, g0 + s.h), floor = PK - 10; let sd = 0x5eed1300 >>> 0; const rnd = () => (sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296;
+    g0 = k ? Math.round(g0 / k) : SEA + 20; const PK = Math.min(H - 8, Math.max(g0 + s.h, 118)), floor = PK - 10; let sd = 0x5eed1300 >>> 0; const rnd = () => (sd = (Math.imul(sd, 1664525) + 1013904223) >>> 0) / 4294967296;
     const flowA = [0.5, 1.9, 3.3, 4.6, 5.7]; const isFlow = (d, a) => d > RC + 3 && flowA.some(f => { const da = Math.abs(((a - f + 9.42) % 6.2832) - 3.1416); return da * d < 1.0 + Math.sin(d * 0.5 + f) * 0.5; });
     const hAt = (d, a) => { if (d > R) return -1; const n = Math.sin(a * 5 + 1.3) * 1.1 + Math.sin(a * 11 + 0.4) * 0.6 + Math.sin(a * 3 + d * 0.21) * 0.9;
       if (d < RC) return floor + Math.round((d / RC) * (d / RC) * 4); if (d < RC + 2.2) return PK + Math.round(n * 0.4);
