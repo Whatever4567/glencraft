@@ -279,6 +279,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1296-v1.2.96 -->
 <!-- glencraft-build: b1297-v1.2.97 -->
 <!-- glencraft-build: b1298-v1.2.98 -->
+<!-- glencraft-build: b1299-v1.2.99 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: load1289 -->
@@ -13637,7 +13638,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.98';
+const GAME_VERSION = '1.2.99';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -59521,8 +59522,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   let TER = null; const ter = () => TER || (TER = new Set([T.STONE, T.DIRT, T.GRASS, T.SAND, T.GRAVEL, T.DEEPSLATE, T.CLAY, T.SANDSTONE, T.HEATHER, T.MUD, T.COBBLE, T.BEDROCK, T.HBEDROCK, T.WSTONE].filter(Boolean)));
   // below sea level: water is the sea unless real ground (stone, earth, sand) lies over it; above sea level it is an old pond
   function column(x, z, full) { const top = SEA - 1, YM = Math.min(H - 2, SEA + 40), G = ter(); let n = 0, cov = false;
-    for (let y = top; y >= 0; y--) { const i = idx(x, y, z), b = world[i]; if (b === T.WATER) { if (cov) { world[i] = T.STONE; U.pockets++; n++; } } else if (G.has(b)) cov = true; }
-    if (full) for (let y = YM; y > top; y--) { const i = idx(x, y, z); if (world[i] !== T.WATER) continue; const up = world[idx(x, y + 1, z)]; world[i] = up === T.WATER || SOL(up) ? T.DIRT : T.GRASS; U.ponds++; n++; }
+    for (let y = top; y >= 0; y--) { const i = idx(x, y, z), b = world[i]; if (b === T.WATER) { if (window.__v1299 && __v1299.protect && __v1299.protect.has((x|0)*65536+(z|0))) continue; if (cov) { world[i] = T.STONE; U.pockets++; n++; } } else if (G.has(b)) cov = true; }
+    if (full) for (let y = YM; y > top; y--) { const i = idx(x, y, z); if (world[i] !== T.WATER) continue; if (window.__v1299 && __v1299.protect && __v1299.protect.has((x|0)*65536+(z|0))) continue; const up = world[idx(x, y + 1, z)]; world[i] = up === T.WATER || SOL(up) ? T.DIRT : T.GRASS; U.ponds++; n++; }
     return n; }
   function step() { if (!job) return; const t0 = performance.now(); let n = 0;
     while (job.x < W && performance.now() - t0 < 6) { for (let z = job.z0; z < D; z++) n += column(job.x, z, job.full); job.x++; }
@@ -63277,6 +63278,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.99","d":"2026-11-17","notes":["New and reset Highlands worlds have visible ravines and cave openings on the surface.","A small village stands at spawn, with wooden cottages, gravel paths, flowers and a winding river."]},
 {"v":"v1.2.98","d":"2026-11-17","notes":["First-person fingers and the pickaxe grip are back to how they were in 1.2.94.","The held map still shows on screen."]},
 {"v":"v1.2.97","d":"2026-11-17","notes":["The three castles sit on the official map-edge isles again, well away from spawn.","The sand temple lives only in Egypt land. A gold portal at the clan castle takes you there, and the temple is no longer generated in the Glencraft overworld.","Skeleton and clan-folk numbers at the keeps are back to the earlier published counts, and they stay at their own castles rather than crowding spawn.","The ground at spawn is solid grass and dirt.","Caves under the Highlands use a new set of underground blocks, from moss and hanging moss through crystal and core stone."]},
 {"v":"v1.2.96","d":"2026-11-17","notes":["The UFO paintings hang in the Egypt land pyramid again.","The Agartha saucer flies to the sand realm at night and no longer appears over Glencraft.","Egyptians only live at the temple in the sand realm.","Egypt land has its own desert sky: a deep blue day, orange and pink sunsets, and a clear starry night."]},
@@ -71732,6 +71734,597 @@ try {
       } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); }
       { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(54); return r; }
     };
+
+
+/* GLX-V1299 (v1.2.99): visible Minecraft-like ravines and cave mouths on the
+   UK surface, plus a spawn village matching the r1 / ref11 diorama.
+   New/reset Highlands (__g89) worlds only. Does not delete C274; it recarves
+   openings so they can actually be seen, then restamps g9cols from the real
+   tops. Saved edits (placedSet) and the solid spawn pad are left alone.
+   Castles stay on the official edge isles. */
+(function v1299() {
+  const U = window.__v1299 = {err: null, ravines: 0, holes: 0, mouths: 0, houses: 0, river: 0, oaks: 0, ms: 0, feat: {ravines: [], holes: [], mouths: []}, protect: new Set()};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const on = () => !!(window.__g89 && __g89());
+  const placed = i => !!(typeof placedSet !== 'undefined' && placedSet && placedSet.has(i));
+  const plant = b => !!(b && ((typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b]) || (typeof LOGGY !== 'undefined' && LOGGY[b])));
+  const inW = (x, y, z) => x > 2 && z > 2 && y >= 2 && x < W - 3 && z < D - 3 && y < H - 2;
+  const KEEP0 = () => new Set([T.PLANKS, T.ROTPLANKS, T.MPLANK, T.LOG, T.PINELOG, T.BIRCHLOG, T.ALDERLOG, T.ROWANLOG, T.YEWLOG, T.ROTLOG, T.DOOR, T.DOORTOP, T.GLASS, T.CHEST, T.BED, T.TABLE, T.FURNACE, T.BOOKSHELF, T.ENCHTABLE, T.WOOL, T.WOOLBLUE, T.WOOLGREEN, T.WOOLRED, T.WOOLPURPLE, T.FENCE, T.RAILING, T.LAMP, T.QLANTERN, T.TORCH, T.BARRIER, T.BEDROCK, T.HBEDROCK, T.BRICK, T.STONEBRICK, T.SLATE, T.RTILE, T.PAVE, T.ASPHALT, T.PORTAL, T.EGYPTPORTAL].filter(v => v != null));
+  let KEEP = null;
+  const keep = b => { if (!KEEP) KEEP = KEEP0(); return !!(b && KEEP.has(b)); };
+  const topOf = (x, z) => {
+    x = x | 0; z = z | 0;
+    if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return 0;
+    const c = x * H * D + z, wr = world;
+    for (let y = H - 2; y > 1; y--) { const b = wr[c + y * D]; if (b && b !== T.WATER && b !== T.LAVA && !plant(b)) return y; }
+    return 0;
+  };
+  const spawnXZ = () => {
+    let sx = W >> 1, sz = D >> 1;
+    try {
+      const I = (window.__c101 && __c101.isl) || {cx: sx, cz: sz};
+      sx = I.cx | 0; sz = I.cz | 0;
+      const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || (typeof g9spawn !== 'undefined' && g9spawn);
+      if (sp) { sx = (sp.x != null ? sp.x : sp[0]) | 0; sz = (sp.z != null ? sp.z : (sp[2] != null ? sp[2] : sp[1])) | 0; }
+    } catch (_) {}
+    return [sx, sz];
+  };
+  const VILLAGE_R = 52, PAD_R = 16, CLEAR_R = 30;
+  const inVillage = (x, z, sx, sz) => Math.hypot(x - sx, z - sz) < VILLAGE_R;
+  const inPad = (x, z, sx, sz) => Math.hypot(x - sx, z - sz) < PAD_R;
+  const dirty = new Set();
+  let tops = new Int16Array(1), topHit = new Uint8Array(1);
+  const ensureCache = () => {
+    const n = W * D;
+    if (tops.length !== n) { tops = new Int16Array(n); topHit = new Uint8Array(n); }
+    else topHit.fill(0);
+    dirty.clear();
+  };
+  const mark = (x, z) => { x = x | 0; z = z | 0; if (x > 0 && z > 0 && x < W && z < D) { dirty.add(x * D + z); topHit[x * D + z] = 0; } };
+  const protKey = (x, z) => ((x | 0) * 65536 + (z | 0));
+  const protect = (x, z) => { U.protect.add(protKey(x, z)); };
+  const isProt = (x, z) => U.protect.has(protKey(x, z));
+
+  const topC = (x, z) => {
+    x = x | 0; z = z | 0;
+    if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return 0;
+    const i = x * D + z;
+    if (topHit[i]) return tops[i];
+    const t = topOf(x, z); tops[i] = t; topHit[i] = 1; return t;
+  };
+  const put = (x, y, z, v) => {
+    x = x | 0; y = y | 0; z = z | 0;
+    if (!inW(x, y, z)) return false;
+    const i = idx(x, y, z); if (placed(i)) return false;
+    world[i] = v; mark(x, z); return true;
+  };
+  const carveAir = (x, y, z) => {
+    x = x | 0; y = y | 0; z = z | 0;
+    if (!inW(x, y, z)) return false;
+    const i = idx(x, y, z); if (placed(i)) return false;
+    const b = world[i];
+    if (b === T.WATER || b === T.LAVA) return false;
+    if (keep(b)) return false;
+    world[i] = 0; mark(x, z); return true;
+  };
+  function recanCols() {
+    try {
+      if (typeof g9cols === 'undefined' || !g9cols) return;
+      for (const i of dirty) g9cols[i * 2] = topOf((i / D) | 0, i % D) + 1;
+    } catch (_) {}
+  }
+  function maybeY() {
+    try { if (window.__glenLoad && __glenLoad.maybeYield) __glenLoad.maybeYield(); } catch (_) {}
+  }
+
+  /* ---- Minecraft-like canyon: narrow ends, wide deep middle, opens the grass ---- */
+  function carveRavine(x0, z0, ang, L, wMid, dMid, sx, sz, rnd) {
+    let x = x0, z = z0, a = ang, deepX = x0, deepZ = z0, deepY = 99, midX = x0, midZ = z0, n = 0, midAt = (L * 0.5) | 0, path = [];
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    for (let s = 0; s < L; s++) {
+      a += (rnd() - 0.5) * 0.1 + 0.03 * Math.sin(s * 0.11 + x0 * 0.01);
+      x += Math.cos(a); z += Math.sin(a);
+      const X = Math.round(x), Z = Math.round(z);
+      if (X < 10 || Z < 10 || X >= W - 10 || Z >= D - 10) { a += 0.6; continue; }
+      if (inVillage(X, Z, sx, sz) || inPad(X, Z, sx, sz)) { a += 0.4; continue; }
+      const tt = topC(X, Z);
+      if (tt <= sea + 2 || world[idx(X, Math.min(H - 2, tt + 1), Z)] === T.WATER) { a += 0.35; continue; }
+      const e = Math.sin((s / L) * Math.PI);
+      const hw = (5 + (wMid - 5) * e) * (0.94 + 0.12 * Math.sin(s * 0.31 + Z * 0.07));
+      const dep = 40 + (dMid - 40) * e;
+      const yb = Math.max(3, Math.round(tt - dep));
+      const span = Math.max(4, tt - yb);
+      const R = Math.ceil(hw + 1.6);
+      for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+        const d2 = dx * dx + dz * dz;
+        if (d2 > (hw + 1.6) * (hw + 1.6)) continue;
+        const xx = X + dx, zz = Z + dz;
+        if (inPad(xx, zz, sx, sz) || inVillage(xx, zz, sx, sz) || isProt(xx, zz)) continue;
+        const ratio = Math.sqrt(d2) / Math.max(0.2, hw);
+        let g0 = 0;
+        if (ratio > 0.42) {
+          const u = (ratio - 0.42) / 0.58;
+          g0 = u >= 1 ? 1 : Math.pow(u, 1 / 0.6);
+        }
+        const yStart = g0 >= 1 ? tt + 1 : Math.max(yb, Math.round(yb + g0 * span));
+        for (let y = yStart; y <= tt + 2 && y < H - 2; y++) if (carveAir(xx, y, zz)) n++;
+        if (inW(xx, tt + 1, zz)) {
+          for (let y = tt + 1; y <= tt + 10 && y < H - 2; y++) {
+            const b = world[idx(xx, y, zz)];
+            if ((plant(b) || !b) && !placed(idx(xx, y, zz))) { world[idx(xx, y, zz)] = 0; mark(xx, zz); }
+          }
+        }
+      }
+      if (s === midAt) { midX = X; midZ = Z; }
+      if (yb < deepY) { deepY = yb; deepX = X; deepZ = Z; }
+      if ((s % 6) === 0) path.push([X, Z, yb, tt]);
+    }
+    const cx = deepX | 0, cz = deepZ | 0, cy = Math.max(4, deepY + 1);
+    for (let k = 0; k < 24; k++) {
+      const xx = cx + ((k % 5) - 2), zz = cz + (((k / 5) | 0) - 2);
+      for (let y = cy; y <= cy + 3; y++) carveAir(xx, y, zz);
+    }
+    /* guarantee the slit is open to the sky along the path (far stretches
+       sometimes closed up because a later column used a stale top) */
+    let openX = midX | 0, openZ = midZ | 0, openDrop = 0;
+    for (const [X, Z, yb, tt0] of path) {
+      if (isProt(X, Z) || inVillage(X, Z, sx, sz)) continue;
+      const now = topOf(X, Z);
+      if (now > yb + 6) {
+        const R = 6;
+        for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+          if (dx * dx + dz * dz > 36) continue;
+          const xx = X + dx, zz = Z + dz;
+          if (isProt(xx, zz) || inVillage(xx, zz, sx, sz) || inPad(xx, zz, sx, sz)) continue;
+          for (let y = yb; y <= tt0 + 2 && y < H - 2; y++) carveAir(xx, y, zz);
+          for (let y = tt0 + 1; y <= tt0 + 10 && y < H - 2; y++) {
+            if (!inW(xx, y, zz)) continue;
+            const b = world[idx(xx, y, zz)];
+            if ((plant(b) || !b) && !placed(idx(xx, y, zz))) { world[idx(xx, y, zz)] = 0; mark(xx, zz); }
+          }
+        }
+      }
+      const t2 = topOf(X, Z), nb = Math.max(t2, tt0);
+      const drop = nb - t2;
+      if (drop > openDrop) { openDrop = drop; openX = X; openZ = Z; }
+    }
+    if (n > 40 && openDrop >= 8) {
+      U.ravines++;
+      U.feat.ravines.push([openX, topOf(openX, openZ) | 0, openZ, Math.round(L), Math.round(wMid), midX | 0, midZ | 0, +a.toFixed(3), openDrop | 0]);
+    }
+    return n;
+  }
+
+  function carveHole(x, z, r0, depth, sx, sz) {
+    x = x | 0; z = z | 0;
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    const tt = topC(x, z);
+    if (tt <= sea + 2 || inVillage(x, z, sx, sz) || inPad(x, z, sx, sz)) return 0;
+    const yb = Math.max(3, Math.round(tt - depth));
+    let n = 0;
+    const rTop = Math.max(4, r0);
+    const R = Math.ceil(rTop + 1);
+    for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+      const d2 = dx * dx + dz * dz;
+      if (d2 > rTop * rTop) continue;
+      const xx = x + dx, zz = z + dz;
+      if (inPad(xx, zz, sx, sz) || inVillage(xx, zz, sx, sz) || isProt(xx, zz)) continue;
+      const ratio = Math.sqrt(d2) / rTop;
+      const g0 = ratio <= 0.4 ? 0 : Math.min(1, (ratio - 0.4) / 0.6);
+      const yStart = Math.max(yb, Math.round(yb + g0 * (tt - yb)));
+      for (let y = yStart; y <= tt + 2 && y < H - 2; y++) if (carveAir(xx, y, zz)) n++;
+      for (let y = tt + 1; y <= tt + 8 && y < H - 2; y++) {
+        const b = world[idx(xx, y, zz)];
+        if (plant(b) && !placed(idx(xx, y, zz))) { world[idx(xx, y, zz)] = 0; mark(xx, zz); }
+      }
+    }
+    for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) for (let y = yb; y <= yb + 4; y++) carveAir(x + dx, y, z + dz);
+    if (n > 20) { U.holes++; U.feat.holes.push([x, yb, z]); }
+    return n;
+  }
+
+  function carveMouth(x, z, a, sx, sz) {
+    x = x | 0; z = z | 0;
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    const tt = topC(x, z);
+    if (tt <= sea + 2 || inVillage(x, z, sx, sz) || inPad(x, z, sx, sz)) return 0;
+    let n = 0, cx = x, cy = tt + 1, cz = z;
+    for (let s = 0; s < 40; s++) {
+      cx += Math.cos(a); cz += Math.sin(a);
+      if (s > 3) cy -= 0.75;
+      const r = s < 6 ? 3.6 : 2.5;
+      const R = Math.ceil(r);
+      const X = Math.round(cx), Y = Math.round(cy), Z = Math.round(cz);
+      for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
+        if (dx * dx + dy * dy * 0.7 + dz * dz > r * r) continue;
+        const xx = X + dx, yy = Y + dy, zz = Z + dz;
+        if (inPad(xx, zz, sx, sz) || inVillage(xx, zz, sx, sz) || isProt(xx, zz)) continue;
+        if (carveAir(xx, yy, zz)) n++;
+      }
+    }
+    if (n > 15) { U.mouths++; U.feat.mouths.push([x, tt, z]); }
+    return n;
+  }
+
+  function takeLand(minD, bag, sx, sz, rnd) {
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    for (let t = 0; t < 80; t++) {
+      const X = (16 + rnd() * (W - 32)) | 0, Z = (16 + rnd() * (D - 32)) | 0;
+      if (inVillage(X, Z, sx, sz)) continue;
+      const tt = topC(X, Z);
+      if (tt <= sea + 3) continue;
+      if (bag.some(p => Math.hypot(p[0] - X, p[1] - Z) < minD)) continue;
+      bag.push([X, Z]); return [X, Z, tt];
+    }
+    return null;
+  }
+
+  /* ---- r1 spawn village: river, paths, 4 cottages, oaks, flowers, cobble piles ---- */
+  function cottage(x0, z0, gy, face, wide) {
+    x0 = x0 | 0; z0 = z0 | 0; gy = gy | 0;
+    const Wd = wide ? 8 : 6, Dp = wide ? 6 : 5;
+    const wall = T.PINELOG || T.LOG, corner = T.PINELOG || T.LOG, roof = T.PLANKS, cob = T.COBBLE, moss = T.MOSSYCOBBLE || cob;
+    for (let dx = -1; dx <= Wd + 1; dx++) for (let dz = -1; dz <= Dp + 1; dz++) {
+      const x = x0 + dx, z = z0 + dz, t = topOf(x, z) || gy;
+      const lo = Math.min(t, gy), hi = Math.max(t, gy + 10);
+      for (let y = lo; y < gy; y++) put(x, y, z, y >= gy - 3 ? T.DIRT : T.STONE);
+      put(x, gy, z, T.GRASS);
+      for (let y = gy + 1; y <= hi && y < H - 2; y++) {
+        const b = world[idx(x, y, z)];
+        if (!b || plant(b) || !keep(b)) put(x, y, z, 0);
+      }
+    }
+    for (let dx = 0; dx <= Wd; dx++) for (let dz = 0; dz <= Dp; dz++) {
+      const x = x0 + dx, z = z0 + dz, edge = dx === 0 || dx === Wd || dz === 0 || dz === Dp, corn = (dx === 0 || dx === Wd) && (dz === 0 || dz === Dp);
+      put(x, gy, z, T.PLANKS);
+      put(x, gy - 1, z, cob);
+      for (let y = gy - 2; y > 2 && !world[idx(x, y, z)]; y--) put(x, y, z, cob);
+      if (edge) for (let y = gy + 1; y <= gy + 3; y++) put(x, y, z, corn ? corner : wall);
+    }
+    const dxd = face === 1 ? Wd : face === 3 ? 0 : (Wd >> 1);
+    const dzd = face === 0 ? Dp : face === 2 ? 0 : (Dp >> 1);
+    put(x0 + dxd, gy + 1, z0 + dzd, 0); put(x0 + dxd, gy + 2, z0 + dzd, 0);
+    if (T.DOOR) put(x0 + dxd, gy + 1, z0 + dzd, T.DOOR);
+    const wins = (face === 0 || face === 2)
+      ? [[2, 0], [Wd - 2, 0], [2, Dp], [Wd - 2, Dp], [0, 2], [Wd, 2]]
+      : [[0, 2], [0, Dp - 2], [Wd, 2], [Wd, Dp - 2], [2, 0], [2, Dp]];
+    for (const [wx, wz] of wins) if (T.GLASS) put(x0 + wx, gy + 2, z0 + wz, T.GLASS);
+    /* steep gable along z, peak on the short x axis */
+    const mid = Wd / 2;
+    for (let dx = -1; dx <= Wd + 1; dx++) {
+      const rise = Math.max(0, Math.round((Wd / 2 + 1) - Math.abs(dx - mid)));
+      const y = gy + 3 + rise;
+      for (let dz = -1; dz <= Dp + 1; dz++) {
+        put(x0 + dx, y, z0 + dz, rise >= Math.round(Wd / 2 + 1) - 0.1 ? corner : roof);
+        /* double-thick eaves so the roof is never a 1-block lip over air (uk-land pad check) */
+        put(x0 + dx, y - 1, z0 + dz, roof);
+      }
+    }
+    const cx = x0 + Wd - 1, cz = z0 + 1;
+    for (let y = gy + 3; y <= gy + 8; y++) put(cx, y, cz, cob);
+    put(cx, gy + 9, cz, moss);
+    if (T.TORCH) put(x0 + (Wd >> 1), gy + 3, z0 + (Dp >> 1), T.TORCH);
+    U.houses++;
+  }
+
+  function buildVillage(sx, sz, rnd) {
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    const samples = [];
+    for (let x = sx - 8; x <= sx + 8; x += 2) for (let z = sz - 8; z <= sz + 8; z += 2) {
+      const t = topOf(x, z);
+      if (t > sea + 3) samples.push(t);
+    }
+    samples.sort((a, b) => a - b);
+    let gy = samples.length ? samples[(samples.length * 0.6) | 0] : (topOf(sx, sz) || sea + 5);
+    if (gy < sea + 4) gy = sea + 5;
+    /* level a modest green clearing (cut AND fill); do not shear the far hills */
+    for (let x = sx - CLEAR_R; x <= sx + CLEAR_R; x++) for (let z = sz - CLEAR_R; z <= sz + CLEAR_R; z++) {
+      if (x < 3 || z < 3 || x >= W - 3 || z >= D - 3) continue;
+      const d = Math.hypot(x - sx, z - sz); if (d > CLEAR_R) continue;
+      const t = topOf(x, z) || gy;
+      const tgt = gy;
+      /* seal caves under the green so the river cannot drain */
+      for (let y = 2; y < tgt; y++) {
+        const b = world[idx(x, y, z)];
+        if (!b || b === T.WATER || b === T.LAVA || b === (T.STILL_WATER || -1)) put(x, y, z, y >= tgt - 3 ? T.DIRT : T.STONE);
+      }
+      if (t > tgt) {
+        for (let y = tgt + 1; y <= t + 8 && y < H - 2; y++) {
+          const b = world[idx(x, y, z)];
+          if (!keep(b)) put(x, y, z, 0);
+        }
+      }
+      put(x, tgt, z, T.GRASS);
+      if (tgt > 3) put(x, tgt - 1, z, T.DIRT);
+      for (let y = tgt + 1; y <= tgt + 3; y++) {
+        const b = world[idx(x, y, z)];
+        if (plant(b) || !b) put(x, y, z, 0);
+      }
+    }
+    const path = (x1, z1, x2, z2, w) => {
+      const steps = Math.max(8, Math.ceil(Math.hypot(x2 - x1, z2 - z1) * 1.5));
+      for (let i = 0; i <= steps; i++) {
+        const k = i / steps, wob = 2.2 * Math.sin(i * 0.33);
+        const x = Math.round(x1 + (x2 - x1) * k + wob * 0.25);
+        const z = Math.round(z1 + (z2 - z1) * k);
+        for (let dx = -w; dx <= w; dx++) for (let dz = -w; dz <= w; dz++) {
+          if (dx * dx + dz * dz > (w + 0.25) * (w + 0.25)) continue;
+          const xx = x + dx, zz = z + dz, t = topOf(xx, zz) || gy;
+          if (world[idx(xx, t, zz)] === T.WATER) continue;
+          put(xx, t, zz, (dx * dx + dz * dz < 1.4) ? T.GRAVEL : T.DIRT);
+          for (let y = t + 1; y <= t + 3; y++) if (plant(world[idx(xx, y, zz)])) put(xx, y, zz, 0);
+        }
+      }
+    };
+    /* 1 west of the river, 3 east, as in r1 */
+    /* r1 layout: one small cottage west of the river, three on the east bank */
+    const hWest = [sx - 16, sz + 4];
+    /* East cottages stay outside the r=8 spawn pad so roofs cannot fail the solid-pad check, and so all four roofs read separately in the aerial. */
+    const hEast = [[sx + 13, sz - 9], [sx + 17, sz + 6], [sx + 11, sz + 16]];
+    cottage(hWest[0], hWest[1], gy, 1, false);
+    cottage(hEast[0][0], hEast[0][1], gy, 3, true);
+    cottage(hEast[1][0], hEast[1][1], gy, 2, false);
+    cottage(hEast[2][0], hEast[2][1], gy, 3, true);
+    path(sx + 2, sz + 1, hEast[0][0] - 1, hEast[0][1] + 3, 1);
+    path(hEast[0][0] + 4, hEast[0][1] + 3, hEast[1][0] + 3, hEast[1][1] - 1, 1);
+    path(hEast[1][0] - 1, hEast[1][1] + 3, hEast[2][0] + 3, hEast[2][1] - 1, 1);
+    path(sx - 2, sz + 2, hWest[0] + 7, hWest[1] + 2, 1);
+    path(sx - 4, sz - 1, sx + 8, sz + 8, 1);
+    const FL = [T.BLUEBELL, T.BLUEBELL, T.HEATHER || T.THISTLE, T.THISTLE, T.DAFFODIL, T.DANDELION, T.TALLGRASS, T.FERN].filter(v => v);
+    for (let k = 0; k < 10; k++) {
+      const a = rnd() * 6.283, d = 14 + rnd() * 22;
+      const x = Math.round(sx + Math.cos(a) * d), z = Math.round(sz + Math.sin(a) * d);
+      const t = topOf(x, z) || gy;
+      if (world[idx(x, t, z)] === T.WATER) continue;
+      const r = 1 + (rnd() < 0.35 ? 1 : 0);
+      for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) if (dx * dx + dz * dz <= r * r && rnd() < 0.75) {
+        const yy = t + (dx * dx + dz * dz < 1 ? 1 : 0);
+        put(x + dx, yy, z + dz, rnd() < 0.55 ? T.MOSSYCOBBLE : T.COBBLE);
+      }
+    }
+    for (let x = sx - CLEAR_R + 2; x <= sx + CLEAR_R - 2; x++) for (let z = sz - CLEAR_R + 2; z <= sz + CLEAR_R - 2; z++) {
+      if (Math.hypot(x - sx, z - sz) > CLEAR_R - 2 || rnd() > 0.18) continue;
+      const t = topOf(x, z); if (!t || world[idx(x, t, z)] !== T.GRASS || world[idx(x, t + 1, z)]) continue;
+      put(x, t + 1, z, FL[(rnd() * FL.length) | 0]);
+    }
+    const LOG = T.LOG, LEAF = T.LEAVES;
+    const oak = (x, z) => {
+      x = x | 0; z = z | 0;
+      const t = topOf(x, z); if (t <= sea + 1 || (world[idx(x, t, z)] !== T.GRASS && world[idx(x, t, z)] !== T.DIRT)) return;
+      if (inPad(x, z, sx, sz) || Math.hypot(x - sx, z - sz) < 30) return;
+      const th = 5 + (rnd() * 3 | 0);
+      put(x, t, z, T.DIRT);
+      for (let y = 1; y <= th; y++) put(x, t + y, z, LOG);
+      for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) for (let dy = -2; dy <= 2; dy++) {
+        const q = Math.abs(dx) + Math.abs(dz) + Math.max(0, -dy);
+        if (q > 4 || (Math.abs(dx) === 3 && Math.abs(dz) === 3)) continue;
+        if (rnd() < 0.15 && q > 2) continue;
+        const yy = t + th + dy; if (!inW(x + dx, yy, z + dz)) continue;
+        const i = idx(x + dx, yy, z + dz);
+        if (!world[i] || plant(world[i])) put(x + dx, yy, z + dz, LEAF);
+      }
+      put(x, t + th + 2, z, LEAF); U.oaks++;
+    };
+    for (let k = 0; k < 200 && U.oaks < 110; k++) {
+      const a = rnd() * 6.283, d = 30 + rnd() * 22;
+      oak(Math.round(sx + Math.cos(a) * d), Math.round(sz + Math.sin(a) * d));
+    }
+    /* keep the inner green and river banks free of leftover trunks so the houses stay visible */
+    for (let x = sx - 28; x <= sx + 28; x++) for (let z = sz - 28; z <= sz + 28; z++) {
+      if (Math.hypot(x - sx, z - sz) > 26) continue;
+      const t = topOf(x, z) || gy;
+      for (let y = t - 1; y <= t + 10 && y < H - 2; y++) {
+        const b = world[idx(x, y, z)];
+        if (!b) continue;
+        if (b === T.LOG || b === T.LEAVES || b === T.PINELEAVES || b === T.BIRCHLEAVES || b === T.ROTLEAVES || b === T.ALDERLEAVES) {
+          /* do not strip cottage pine-log walls (those sit on a plank floor) */
+          const below = y > 2 ? world[idx(x, y - 1, z)] : 0;
+          if (b === T.PINELOG || below === T.PLANKS || below === (T.PINELOG || -1)) continue;
+          if (b === T.LOG && (below === T.PLANKS || below === T.PINELOG)) continue;
+          put(x, y, z, 0);
+        }
+      }
+    }
+    /* Re-pour the river LAST so cottages, paths and oaks cannot bury it. */
+    (function pourRiver() {
+      const bed = gy - 2;
+      const clay = T.CLAY || T.STONE;
+      const isHouse = (x, z) => {
+        for (let y = gy + 1; y <= gy + 9 && y < H - 2; y++) {
+          const b = world[idx(x, y, z)];
+          if (b === T.PLANKS || b === T.PINELOG || b === T.DOOR || b === T.GLASS) return true;
+        }
+        return false;
+      };
+      const cells = [];
+      for (let t = 0; t <= 1; t += 0.002) {
+        const x = Math.round(sx - 18 + t * 40 + 7 * Math.sin(t * 6.6));
+        const z = Math.round(sz + 6 + 10 * Math.sin(t * 3.4 + 0.1));
+        if (Math.hypot(x - sx, z - sz) > CLEAR_R - 2) continue;
+        cells.push([x, z]);
+      }
+      const waterAt = new Set(), bankAt = new Set();
+      for (const [x, z] of cells) {
+        for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) {
+          const rr = dx * dx + dz * dz; if (rr > 13.5) continue;
+          const xx = x + dx, zz = z + dz; if (!inW(xx, bed, zz)) continue;
+          if (Math.hypot(xx - sx, zz - sz) < 8 && rr <= 5) continue;
+          if (isHouse(xx, zz)) continue;
+          const k = protKey(xx, zz);
+          if (rr <= 4.2) waterAt.add(k); else bankAt.add(k);
+        }
+      }
+      for (const k of waterAt) bankAt.delete(k);
+      for (const k of bankAt) {
+        const xx = (k / 65536) | 0, zz = k & 65535;
+        for (let y = 2; y <= bed; y++) put(xx, y, zz, y >= bed - 1 ? clay : T.STONE);
+        protect(xx, zz);
+        put(xx, bed + 1, zz, clay);
+        if (gy - 1 > bed + 1) put(xx, gy - 1, zz, T.DIRT);
+        put(xx, gy, zz, T.GRASS);
+      }
+      for (const k of waterAt) {
+        const xx = (k / 65536) | 0, zz = k & 65535;
+        for (let y = 2; y <= bed; y++) put(xx, y, zz, y >= bed - 1 ? clay : T.STONE);
+        protect(xx, zz);
+        put(xx, bed + 1, zz, T.WATER);
+        put(xx, bed + 2, zz, T.WATER);
+        try { if (typeof FLV !== 'undefined' && FLV) { FLV.delete(idx(xx, bed + 1, zz)); FLV.delete(idx(xx, bed + 2, zz)); } } catch (_) {}
+        for (let y = bed + 3; y <= gy + 8 && y < H - 2; y++) put(xx, y, zz, 0);
+        U.river++;
+      }
+      for (const key of waterAt) {
+        const xx = (key / 65536) | 0, zz = key & 65535;
+        for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) for (let dy = -3; dy <= 3; dy++) {
+          if (dx * dx + dy * dy + dz * dz > 9.1) continue;
+          const x = xx + dx, y = bed + 1 + dy, z = zz + dz;
+          if (!inW(x, y, z) || isHouse(x, z)) continue;
+          protect(x, z);
+          if (world[idx(x, y, z)] === T.WATER) continue;
+          if (waterAt.has(protKey(x, z)) && (y === bed + 1 || y === bed + 2)) continue;
+          const b = world[idx(x, y, z)];
+          if (!b || b === T.LAVA || plant(b)) {
+            if (y <= bed) put(x, y, z, y >= bed - 1 ? clay : T.STONE);
+          }
+        }
+      }
+      let keep = 0;
+      for (const key of waterAt) {
+        const xx = (key / 65536) | 0, zz = key & 65535;
+        if (world[idx(xx, bed + 1, zz)] === T.WATER || world[idx(xx, bed + 2, zz)] === T.WATER) keep++;
+      }
+      U.waterCols = keep;
+    })();
+
+    /* player on the gravel path just north of the river, near the first east house */
+    const px = sx + 4, pz = sz + 2;
+    put(px, gy, pz, T.GRAVEL);
+    put(px, gy + 1, pz, 0); put(px, gy + 2, pz, 0); put(px + 1, gy, pz, T.GRAVEL);
+    /* Reinforce the 8-block spawn pad: top block always has a solid block under it (cottage eaves / thin lips). Do not fill river source water. */
+    for (let x = px - 8; x <= px + 8; x++) for (let z = pz - 8; z <= pz + 8; z++) {
+      if (!inW(x, gy, z) || Math.hypot(x - px, z - pz) > 8) continue;
+      let t = 0;
+      for (let y = H - 2; y > 1; y--) {
+        const b = world[idx(x, y, z)];
+        if (b && !plant(b) && b !== T.WATER && b !== T.LAVA && b !== (T.STILL_WATER || -1)) { t = y; break; }
+      }
+      if (!t) {
+        put(x, gy, z, T.GRASS);
+        if (gy > 3) put(x, gy - 1, z, T.DIRT);
+        continue;
+      }
+      const under = t > 1 ? world[idx(x, t - 1, z)] : 0;
+      if (!under || under === T.WATER || under === T.LAVA || under === (T.STILL_WATER || -1)) {
+        put(x, t - 1, z, (t - 1 >= gy - 1) ? T.DIRT : T.STONE);
+      }
+    }
+    try {
+      const sp = [px, gy + 1, pz];
+      g9spawn = sp.slice();
+      if (window.__c101 && __c101.sp) { __c101.sp[0] = px; __c101.sp[1] = gy + 1; __c101.sp[2] = pz; }
+      U.spawn = sp; U.gy = gy;
+    } catch (_) { U.spawn = [px, gy + 1, pz]; U.gy = gy; }
+  }
+
+  function run(rnd) {
+    const [sx, sz] = spawnXZ();
+    const t0 = performance.now();
+    ensureCache();
+    try { buildVillage(sx, sz, rnd); } catch (e) { ERR('village', e); }
+    maybeY();
+    const bag = [];
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    /* one clear ravine a short walk from spawn (outside the village, within 150) */
+    const near = [];
+    for (let k = 0; k < 20 && !near.length; k++) {
+      const a = 0.55 + k * 0.37, r = 88 + (k % 5) * 7;
+      const x = Math.round(sx + Math.cos(a) * r), z = Math.round(sz + Math.sin(a) * r);
+      const tt = topC(x, z);
+      if (tt > sea + 3 && !inVillage(x, z, sx, sz)) near.push([x, z, a + 1.15]);
+    }
+    if (near[0]) {
+      carveRavine(near[0][0], near[0][1], near[0][2], 110 + rnd() * 40, 13 + rnd() * 2, 54 + rnd() * 6, sx, sz, rnd);
+      bag.push([near[0][0], near[0][1]]);
+      maybeY();
+    }
+    for (let n = 0; n < 10; n++) {
+      const sp = takeLand(110, bag, sx, sz, rnd);
+      if (!sp) continue;
+      carveRavine(sp[0], sp[1], rnd() * 6.283, 70 + rnd() * 120, 10 + rnd() * 5, 44 + rnd() * 16, sx, sz, rnd);
+      if (n & 1) maybeY();
+    }
+    for (let n = 0; n < 12; n++) {
+      const sp = takeLand(80, bag, sx, sz, rnd);
+      if (!sp) continue;
+      carveHole(sp[0], sp[1], 5 + rnd() * 5, 24 + rnd() * 22, sx, sz);
+    }
+    for (let k = 0; k < 8; k++) {
+      const a = k * 0.8 + 0.25, r = 70 + k * 7;
+      const x = Math.round(sx + Math.cos(a) * r), z = Math.round(sz + Math.sin(a) * r);
+      if (topC(x, z) > sea + 3) carveHole(x, z, 6 + rnd() * 3, 30 + rnd() * 14, sx, sz);
+    }
+    for (let n = 0; n < 12; n++) {
+      const sp = takeLand(70, bag, sx, sz, rnd);
+      if (!sp) continue;
+      let best = rnd() * 6.283, bd = 0;
+      for (let k = 0; k < 8; k++) {
+        const a = k / 8 * 6.283, X = Math.round(sp[0] + Math.cos(a) * 8), Z = Math.round(sp[1] + Math.sin(a) * 8);
+        const h = topC(X, Z) - sp[2];
+        if (h > bd) { bd = h; best = a; }
+      }
+      carveMouth(sp[0], sp[1], best, sx, sz);
+    }
+    recanCols();
+    try { dirtyAll = true; } catch (_) {}
+    U.ms = Math.round(performance.now() - t0);
+    U.spawn0 = [sx, sz];
+  }
+
+
+  /* Source river water is excluded from fluid updates; SEA1 skips U.protect. */
+  try {
+    if (typeof flowCell === 'function') {
+      const _fc = flowCell;
+      flowCell = function (i) {
+        try {
+          const x = Math.floor(i / (H * D)), z = i % D;
+          if (U.protect.has(protKey(x, z)) && world[i] === T.WATER && !(typeof FLV !== 'undefined' && FLV && FLV.has(i))) return;
+        } catch (_) {}
+        return _fc.apply(this, arguments);
+      };
+    }
+  } catch (_) {}
+
+  const gen = generate;
+  generate = function () {
+    if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(55)) return gen.apply(this, arguments);
+    const r = gen.apply(this, arguments);
+    try {
+      if (on()) {
+        let s = (((typeof gSeed !== 'undefined' ? gSeed : 7) | 0) ^ 0x1299a) >>> 0;
+        const rnd = () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
+        run(rnd);
+      }
+    } catch (e) {
+      if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e;
+      ERR('gen', e);
+    }
+    { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(55); return r; }
+  };
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
   } catch (e) { ERR('genw', e); }
   try {
     const ew = enterWorld;
