@@ -95271,6 +95271,12 @@ try {
         for (const m of meshes) { if (m.parent) m.parent.remove(m); }
         g.userData.batched1305 = 1;
         g.matrixAutoUpdate = false;
+        try {
+          if (typeof scene !== 'undefined' && g.parent === scene) {
+            ensureRoot();
+            root.attach(g);
+          }
+        } catch (e) { ERR('attach', e); }
       } catch (e) { ERR('buck', e); }
     }
     return [...map.values()];
@@ -95318,7 +95324,7 @@ try {
       let mesh = b.inst;
       const capNeed = visItems.length;
       if (!mesh || !mesh.parent || (mesh.instanceMatrix && mesh.instanceMatrix.count < capNeed)) {
-        const cap = Math.max(16, capNeed);
+        const cap = Math.max(512, capNeed);
         if (mesh && mesh.parent) mesh.parent.remove(mesh);
         mesh = new THREE.InstancedMesh(b.geo, b.mat, cap);
         mesh.frustumCulled = false;
@@ -95334,6 +95340,23 @@ try {
       mesh.count = visItems.length;
       mesh.instanceMatrix.needsUpdate = true;
       vis += visItems.length;
+    }
+    const SPR2 = 48 * 48;
+    for (const g of list) {
+      try {
+        const dx = g.position.x - px, dz = g.position.z - pz, far = dx * dx + dz * dz > SPR2;
+        const park = g.userData._spr1305 || (g.userData._spr1305 = []);
+        if (far) {
+          const spr = [];
+          g.traverse(o => { if (o.isSprite) spr.push(o); });
+          for (const s of spr) {
+            if (s.parent) { park.push(s); s.parent.remove(s); }
+          }
+        } else if (park.length) {
+          for (const s of park) g.add(s);
+          park.length = 0;
+        }
+      } catch (e) { ERR('spr', e); }
     }
     U.n = n;
     U.vis = vis;
