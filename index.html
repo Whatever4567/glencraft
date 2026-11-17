@@ -81,6 +81,7 @@
 <!-- glencraft-build: b1288-v1.2.88 -->
 <!-- glencraft-build: b1289-v1.2.89 -->
 <!-- glencraft-build: b1290-v1.2.90 -->
+<!-- glencraft-build: b1292-v1.2.92 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: load1289 -->
@@ -13439,7 +13440,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.91';
+const GAME_VERSION = '1.2.92';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -62580,6 +62581,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.92","d":"2026-11-17","notes":["Fixed the controller inventory freeze. You can move around the menu and close it again."]},
 {"v":"v1.2.91","d":"2026-11-17","notes":["Caves on the Highlands now connect into one network, opening into bigger caverns the deeper you go.","Ravines and sinkholes open from the surface across the UK map and lead down into that network.","There are now caves under the water, sealed or flooded so the sea doesn't leak.","Rare ores like diamond, gold and silver are more common the deeper you go."]},
 {"v":"v1.2.90","d":"2026-11-16","notes":["First-person hands now stay on the pistol and musket during reloads."]},
 {"v":"v1.2.89","d":"2026-11-16","notes":["The loading percentage keeps ticking and never jumps backwards, even while the land around you is being built.","The same seed always makes the same world."]},
@@ -90850,6 +90852,67 @@ try {
   U.state = function () { return { hz: U.hz, budget: +U.budget.toFixed(2), pr: +getPR().toFixed(2), prMax: U.prMax, prMin: U.prMin, rdDrop: U.rdDrop, intAvg: U.intAvg, jsAvg: U.jsAvg, steps: U.steps.slice(-8), skel: U.skel, err: U.err }; };
 })(typeof window !== 'undefined' ? window : this);
 
+
+
+/* GLX-PAD1292 (v1.2.92): opening inventory with a controller no longer
+   freezes the game. updateCraftList used to throw
+   TypeError: Cannot read properties of undefined (reading 'tool')
+   when later patches spliced retired recipes out of RECIPES but left
+   stale craftBtns behind (186 buttons vs 149 recipes after boot).
+   openMenu always calls updateCraftList, so the Y (inventory) / X
+   (crafting) pad path threw inside readPad, which is not try/caught,
+   and the animation frame died. The same throw then hit updateHud on
+   the next frame if the menu was already marked open, so the player
+   could not move around the menu or close it.
+
+   This patch (1) makes canCraft reject a missing recipe instead of
+   reading r.tool, (2) rebuilds the craft button list with setCat /
+   buildCraftList when it is stale, before the existing
+   updateCraftList runs. Keyboard and touch use the same openMenu
+   path and are covered too. The pad mapping is unchanged: Y opens
+   the character / inventory tab, D-pad and left stick move focus,
+   A activates, B closes. */
+(function padInv1292() {
+  const U = window.__padInv1292 = {err: null, rebuilt: 0, guarded: 0, hook: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  function stale() {
+    try {
+      if (typeof craftBtns === 'undefined' || typeof RECIPES === 'undefined' || !craftBtns) return false;
+      for (let i = 0; i < craftBtns.length; i++) if (craftBtns[i] && !RECIPES[i]) return true;
+      return false;
+    } catch (e) { ERR('stale', e); return false; }
+  }
+  function rebuild() {
+    try {
+      if (typeof setCat === 'function' && typeof craftCat !== 'undefined') setCat(craftCat);
+      else if (typeof buildCraftList === 'function') buildCraftList();
+      U.rebuilt++;
+    } catch (e) { ERR('rebuild', e); }
+  }
+  try {
+    const cc = canCraft;
+    canCraft = function (r, near) {
+      if (!r) { U.guarded++; return false; }
+      return cc.apply(this, arguments);
+    };
+    try { window.canCraft = canCraft; } catch (_) {}
+    U.hook++;
+  } catch (e) { ERR('cc', e); }
+  try {
+    const uc = updateCraftList;
+    updateCraftList = function () {
+      try {
+        if (!updateCraftList._fixing && stale()) {
+          updateCraftList._fixing = 1;
+          try { rebuild(); } finally { updateCraftList._fixing = 0; }
+        }
+      } catch (e) { ERR('ucpre', e); try { updateCraftList._fixing = 0; } catch (_) {} }
+      return uc.apply(this, arguments);
+    };
+    try { window.updateCraftList = updateCraftList; } catch (_) {}
+    U.hook++;
+  } catch (e) { ERR('uc', e); }
+})();
 
 </script>
 </body>
