@@ -95266,7 +95266,7 @@ try {
             b = {key: k, geo: x.geometry, mat, items: []};
             map.set(k, b);
           }
-          b.items.push({g, mesh: x, x: g.position.x, z: g.position.z, matrix: x.matrixWorld.clone()});
+          const wx = g.position.x, wz = g.position.z, wp = x.matrixWorld; b.items.push({g, mesh: x, x: wp.elements[12], z: wp.elements[14], matrix: wp.clone()});
         });
         for (const m of meshes) { if (m.parent) m.parent.remove(m); }
         g.userData.batched1305 = 1;
@@ -95276,16 +95276,32 @@ try {
     return [...map.values()];
   }
 
+  function mergeBuckets(more) {
+    if (!buckets) buckets = [];
+    for (const b of more) {
+      const old = buckets.find(x => x.key === b.key);
+      if (old) old.items.push(...b.items);
+      else buckets.push(b);
+    }
+  }
+
+  function dropStale(list) {
+    const set = new Set(list);
+    if (!buckets) return;
+    for (const b of buckets) {
+      b.items = b.items.filter(it => it.g && (set.has(it.g) || it.g.parent));
+    }
+  }
+
   function fill() {
     const list = torchRoots();
     const n = list.length;
-    const sig = String(n);
-    if (!n) { U.n = 0; U.vis = 0; return; }
-    if (!buckets || sig !== lastSig) {
-      clearInst();
-      ensureRoot();
-      buckets = buildBuckets(list);
-      lastSig = sig;
+    ensureRoot();
+    if (!buckets) buckets = [];
+    dropStale(list);
+    const fresh = list.filter(g => !g.userData.batched1305);
+    if (fresh.length) {
+      mergeBuckets(buildBuckets(fresh));
       U.batched++;
       U.buckets = buckets.length;
     }
@@ -95326,12 +95342,11 @@ try {
   function tick() {
     try {
       if (typeof started === 'undefined' || !started || typeof scene === 'undefined' || !scene) return;
-      const n = (typeof scene !== 'undefined' && scene) ? scene.children.length : 0;
       const px = (typeof P !== 'undefined' && P) ? (P.x | 0) : 0;
       const pz = (typeof P !== 'undefined' && P) ? (P.z | 0) : 0;
       const cell = (px / CELL | 0) + ',' + (pz / CELL | 0);
-      const sig = String(torchRoots().length);
-      if (sig === lastSig && cell === lastCell && buckets) return;
+      const fresh = (() => { try { return torchRoots().some(g => !g.userData.batched1305); } catch (_) { return true; } })();
+      if (!fresh && cell === lastCell && buckets) return;
       lastCell = cell;
       fill();
     } catch (e) { ERR('tick', e); }
