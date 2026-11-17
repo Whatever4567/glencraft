@@ -94405,6 +94405,7 @@ try {
     WA: T.WATER,
     LA: T.LAVA,
     TO: T.TORCH || T.QLANTERN || T.LAMP,
+    CG: T.COREGLOW || T.MAGVEIN || T.LAVA,
     SN: T.PACKSNOW || T.SNOW || T.STONE
   });
 
@@ -94519,21 +94520,25 @@ try {
   function lushAt(x, y, z, R, B, dx, dy, dz, d2) {
     const floor = R.y - R.ry + 2;
     const ceil = R.y + R.ry - 1;
-    if (y <= floor) return y === floor ? B.MO : B.DI;
-    const pools = [[-7, -5, 6], [8, 4, 5.5], [0, 8, 3.5]];
+    /* stone bowl, not a dirt fill — moss carpets and cyan pools sit on it */
+    if (y < floor) return B.ST;
+    const pools = [[-6, -8, 7], [7, -3, 6], [0, 6, 6], [9, 8, 5]];
     for (const [px, pz, pr] of pools) {
       const d = Math.hypot(dx - px, dz - pz);
-      if (d < pr + 1.4 && y <= floor + 2) {
+      if (d < pr + 1.6 && y <= floor + 2) {
         if (d < pr && y >= floor && y <= floor + 1) return B.WA;
         if (d >= pr && y <= floor + 1) return B.CC;
-        if (d < pr + 0.7 && y === floor + 2 && h3(x, 9, z) < 0.45) return B.GD;
+        if (d < pr + 0.8 && y === floor + 2 && h3(x, 9, z) < 0.5) return B.GD;
       }
     }
-    /* dense hanging moss (solid 401 cubes only — never HMOSS/LEAVES, those were white) */
-    if (y < ceil && y > floor + 2) {
+    if (y === floor) return h3(x, 11, z) < 0.45 ? B.MO : B.ST;
+    /* sparse hanging-moss curtains (401 cubes only — never HMOSS/LEAVES).
+       Leave a clear central volume so a mid-south camera sees pools and walls. */
+    if (y < ceil && y > floor + 1) {
+      const wallish = d2 > 0.42;
       const cell = ((x * 13 + z * 29) & 15);
-      if (cell < 8) {
-        const len = 8 + ((x * 7 + z) & 11);
+      if (cell < (wallish ? 3 : 2) && (cell !== 1 || ((x + z) & 1) === 0)) {
+        const len = (wallish ? 12 : 7) + ((x * 7 + z) & 7);
         if (ceil - y <= len) return B.MO;
       }
     }
@@ -94574,8 +94579,8 @@ try {
     /* lava rivers on the floor, winding along X and a branch along Z */
     const riverZ = Math.sin((x - R.x) * 0.18) * 5;
     const riverX = Math.cos((z - R.z) * 0.16) * 4;
-    const inR1 = Math.abs(dz - riverZ) < 2.2 && Math.abs(dx) < R.rx - 3;
-    const inR2 = Math.abs(dx - riverX) < 1.8 && Math.abs(dz) < R.rz - 4 && dx > 2;
+    const inR1 = Math.abs(dz - riverZ) < 2.8 && Math.abs(dx) < R.rx - 3;
+    const inR2 = Math.abs(dx - riverX) < 2.3 && Math.abs(dz) < R.rz - 4 && dx > 2;
     if (y <= floor + 1 && (inR1 || inR2)) {
       if (y === floor || y === floor + 1) return B.LA;
     }
@@ -94591,15 +94596,22 @@ try {
     /* vertical supports */
     if ((Math.abs(dx + 2) <= 1 && Math.abs(dz - walkZ) <= 1 || Math.abs(dx - 8) <= 0 && Math.abs(dz - walkZ) <= 0) && y > floor && y < mid && (x + z) % 5 === 0) return B.LG;
     /* lamps along the walkway */
-    /* lava falls on the walls */
-    if (d2 > 0.72 && d2 < 0.98 && h3(x, 17, z) < 0.08) {
-      const fx = Math.round(x / 5) * 5, fz = Math.round(z / 5) * 5;
-      if (Math.hypot(x - fx, z - fz) < 1.6 && y > floor && y < ceil) return B.LA;
+    if (Math.abs(dz - walkZ) <= 1 && Math.abs(dx) < R.rx - 3 && y === mid + 1 && (x % 6) === 0) return B.TO;
+    /* lava falls on the walls only (not a mid-air pillar forest) */
+    if (d2 > 0.86 && d2 < 1.0 && h3(x, 17, z) < 0.07) {
+      const fx = Math.round(x / 7) * 7, fz = Math.round(z / 7) * 7;
+      if (Math.hypot(x - fx, z - fz) < 1.35 && y > floor && y < ceil) return B.LA;
     }
+    /* glowing banks so the lava rivers read in the dark */
+    if (y === floor + 2 && (inR1 || inR2) && ((x + z) & 3) === 0) return B.CG;
+    if (y === floor + 1 && (Math.abs(Math.abs(dz - riverZ) - 2.4) < 0.6 && Math.abs(dx) < R.rx - 3 ||
+        Math.abs(Math.abs(dx - riverX) - 2.0) < 0.6 && Math.abs(dz) < R.rz - 4) && ((x + z) & 1)) return B.MV;
     /* a lower plank deck over the lava */
     if (Math.abs(dz + 4) <= 1 && Math.abs(dx) < R.rx - 5 && y === floor + 5) return B.MP;
     if (Math.abs(dz + 4) === 2 && Math.abs(dx) < R.rx - 5 && y === floor + 6 && (x & 1)) return B.RP;
     if (Math.abs(dz + 4) <= 1 && (x % 7) === 0 && y === floor + 6 && Math.abs(dx) < R.rx - 6) return B.TO;
+    /* floor torches along the river banks */
+    if (y === floor + 2 && (inR1 || inR2) && (x % 8) === 0 && (z & 1)) return B.TO;
     return 0;
   }
 
@@ -94800,7 +94812,7 @@ try {
     };
     /* south terrace, looking north at the long face of the hall */
     U.cams = U.cams || {};
-    U.cams.r2 = {x: gx, y: bed + 9, z: gz - HALFZ - 36, yaw: Math.PI, pitch: 0.14, fov: 68};
+    U.cams.r2 = {x: gx - 4, y: bed + 10, z: gz - HALFZ - 36, yaw: Math.PI - 0.22, pitch: 0.10, fov: 70};
     U.rooms.r2 = {x: gx, y: gy, z: gz, bed: bed};
     recarvePlaza.B = B;
     U.recarvePlaza = recarvePlaza;
@@ -94952,10 +94964,10 @@ try {
     const mid = U.peakSites[0] || [origin.x, origin.t + 16, origin.z];
     /* camera sits at larger Z (south of the massif) and looks toward smaller Z */
     /* stand south of the massif, above local ground, looking slightly up at the spires */
-    const camZ = origin.z + 56;
+    const camZ = origin.z + 120;
     /* clear trees in the sight-line so the camera is not under a canopy */
     for (let z = origin.z - 8; z <= camZ + 8; z++) {
-      for (let x = origin.x - 28; x <= origin.x + 28; x++) {
+      for (let x = origin.x - 36; x <= origin.x + 36; x++) {
         if (!inW(x, 8, z) || inVillage(x, z) || isProt(x, z)) continue;
         if (keeps.some(k => Math.hypot(x - k[0], z - k[1]) < 40)) continue;
         const t0 = topOf(x, z);
@@ -94966,10 +94978,10 @@ try {
       }
     }
     U.cams.peaks = {
-      x: origin.x, y: Math.min(benTop - 2, origin.t + 10), z: origin.z + 64,
-      yaw: 0, pitch: -0.16, fov: 62
+      x: origin.x - 8, y: Math.min(benTop - 2, origin.t + 22), z: camZ,
+      yaw: 0.12, pitch: -0.26, fov: 66
     };
-    U.ridgeBox = {x0: origin.x - 50, x1: origin.x + 50, z0: origin.z - 50, z1: camZ + 8};
+    U.ridgeBox = {x0: origin.x - 70, x1: origin.x + 70, z0: origin.z - 60, z1: camZ + 16};
   }
 
   /* Mesh a set of surface chunks directly so a peaks shot does not wait on
@@ -94997,9 +95009,9 @@ try {
     /* stand in the west-south of each hall, look toward the centre, wide FOV */
     /* mid-south of each hall, looking north across the volume (not into a wall) */
     /* mid-south, looking north (+Z, yaw=π) across the volume — not into a wall */
-    U.cams.r3 = {x: A.r3.x, y: A.r3.y - 6, z: A.r3.z - (A.r3.rz - 6), yaw: Math.PI, pitch: 0.18, fov: 72};
-    U.cams.r4 = {x: A.r4.x, y: A.r4.y - 4, z: A.r4.z - (A.r4.rz - 6), yaw: Math.PI, pitch: 0.32, fov: 74};
-    U.cams.r5 = {x: A.r5.x - (A.r5.rx - 7), y: A.r5.y + 2, z: A.r5.z + 4, yaw: -Math.PI / 2, pitch: 0.06, fov: 72};
+    U.cams.r3 = {x: A.r3.x, y: A.r3.y - 2, z: A.r3.z - (A.r3.rz + 2), yaw: Math.PI, pitch: 0.10, fov: 76};
+    U.cams.r4 = {x: A.r4.x, y: A.r4.y - 2, z: A.r4.z - (A.r4.rz + 2), yaw: Math.PI, pitch: 0.16, fov: 76};
+    U.cams.r5 = {x: A.r5.x - (A.r5.rx - 4), y: A.r5.y + 8, z: A.r5.z - 2, yaw: -Math.PI / 2, pitch: -0.28, fov: 74};
   }
 
   /* Mesh only the room's chunk columns and y-bands (r=2), once. A full r=3/5
@@ -95029,7 +95041,7 @@ try {
       const pcx0 = Math.floor(x0 / Csz) - 1, pcx1 = Math.floor(x1 / Csz) + 1;
       const pcz0 = Math.floor(z0 / Csz) - 1, pcz1 = Math.floor(z1 / Csz) + 1;
       const before = C.meshed || 0;
-      const b0 = Math.floor((y0 - 40) / 8) * 8, b1 = Math.floor((y1 - 40) / 8) * 8;
+      const b0 = Math.floor((y0 - 40) / 8) * 8 - 8, b1 = Math.floor((y1 - 40) / 8) * 8 + 8;
       for (let band = b0; band <= b1; band += 8) {
         for (let cx = pcx0; cx <= pcx1; cx++) {
           for (let cz = pcz0; cz <= pcz1; cz++) {
