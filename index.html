@@ -94122,22 +94122,25 @@ try {
       for (let i = 0; i < 60; i++) g.fillRect((rnd() * 256) | 0, (rnd() * 256) | 0, 5, 4);
     }), {hard: 0.5});
 
-    /* 402 hanging moss — alpha strands so plants are not white cubes */
+    /* 402 hanging moss — opaque leafy texture. Do not use plant/alpha:
+       buildChunk draws these as solid cubes, and a blank plant map was white. */
     applyTex(402, 'hmoss', paintCanvas((g) => {
       const rnd = seedRnd(402002);
-      g.clearRect(0, 0, 256, 256);
+      g.fillStyle = '#1a3a18'; g.fillRect(0, 0, 256, 256);
       for (let i = 0; i < 22; i++) {
-        const x = 6 + i * 11 + (rnd() * 4 - 2);
-        const w = 2 + (i % 3);
-        const len = 150 + ((i * 17) % 100);
+        const x = 6 + i * 11;
+        const w = 3 + (i % 3);
         g.fillStyle = i % 2 ? '#3c8a30' : '#1c5a22';
-        g.fillRect(x, 0, w, len);
+        g.fillRect(x, 0, w, 256);
         g.fillStyle = '#6cbc4a';
-        g.fillRect(x, 16 + ((i * 9) % 70), 1, 36);
-        /* a few droop tips */
-        g.fillRect(x - 1, len - 8, w + 2, 6);
+        g.fillRect(x, 16 + ((i * 9) % 70), 1, 80);
       }
-    }), {plant: 1});
+      for (let i = 0; i < 200; i++) {
+        const v = 40 + (rnd() * 70) | 0;
+        g.fillStyle = 'rgb(' + ((v * 0.4) | 0) + ',' + v + ',' + ((v * 0.3) | 0) + ')';
+        g.fillRect((rnd() * 256) | 0, (rnd() * 256) | 0, 3, 5);
+      }
+    }));
 
     /* 403 cyan crystal vein — faceted crystals in dark stone, no scribble lines */
     applyTex(403, 'cynvein', paintCanvas((g) => {
@@ -94294,9 +94297,9 @@ try {
       }
     }));
 
-    /* 412 rope — alpha, twisted hemp strands */
+    /* 412 rope — opaque hemp on a dark board, safe as a solid cube */
     applyTex(412, 'ropeblk', paintCanvas((g) => {
-      g.clearRect(0, 0, 256, 256);
+      g.fillStyle = '#2a1c10'; g.fillRect(0, 0, 256, 256);
       g.lineCap = 'round';
       for (let col = 0; col < 8; col++) {
         const x0 = 16 + col * 32;
@@ -94309,7 +94312,7 @@ try {
         }
         g.stroke();
       }
-    }), {plant: 1});
+    }));
 
     U.texOk = 1;
   } catch (e) { ERR('texall', e); }
@@ -94466,7 +94469,7 @@ try {
       const cell = ((x * 13 + z * 29) & 15);
       if (cell < 4) {
         const len = 5 + ((x * 7 + z) & 7);
-        if (ceil - y <= len) return (cell & 1) ? B.HM : B.LV;
+        if (ceil - y <= len) return (cell & 1) ? B.MO : B.LV;
       }
     }
     if (y >= ceil) return B.ST;
@@ -94652,7 +94655,7 @@ try {
         for (let k = 0; k < len; k++) {
           const yy = gy + HALLH - k;
           if (world[idx(gx + dx, yy, gz + dz)]) break;
-          put(gx + dx, yy, gz + dz, (k & 1) ? B.HM : B.LV);
+          put(gx + dx, yy, gz + dz, (k & 1) ? B.MO : B.LV);
         }
       }
     }
@@ -94673,10 +94676,53 @@ try {
       put(x, bed + 3, z, B.LG);
       put(x, bed + 4, z, B.TO);
     }
+    /* 6. South viewing terrace: pull back the south wall between the arch legs
+       so a wide in-game camera looking north sees the whole colonnade. */
+    for (let dx = -HALFX + 1; dx <= HALFX - 1; dx++) {
+      for (let dz = -HALFZ - 18; dz <= -HALFZ; dz++) {
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        for (let y = Math.max(2, bed - 1); y <= LID + 3; y++) {
+          const b = world[idx(xx, y, zz)];
+          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          put(xx, y, zz, 0);
+        }
+      }
+      /* open the south face of the hall between the arch legs (keep the legs) */
+      const isLeg = ((dx + HALFX - 3) % 5 === 0);
+      if (!isLeg) {
+        for (let dz = -HALFZ; dz <= -3; dz++) {
+          const xx = gx + dx, zz = gz + dz;
+          if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+          for (let y = bed + 1; y <= gy + HALLH; y++) {
+            const b = world[idx(xx, y, zz)];
+            if (keep(b) || placed(idx(xx, y, zz))) continue;
+            if (b === T.WATER) continue;
+            put(xx, y, zz, 0);
+          }
+        }
+      }
+    }
+    /* reseal the grass lid so hanging moss cannot punch sky holes */
+    for (let dx = -HALFX - 2; dx <= HALFX + 2; dx++) {
+      for (let dz = -HALFZ - 2; dz <= HALFZ + 2; dz++) {
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        put(xx, LID, zz, B.GR);
+        put(xx, LID - 1, zz, B.DI);
+        put(xx, LID - 2, zz, B.DI);
+        const t0 = topOf(xx, zz);
+        for (let y = LID + 1; y <= t0; y++) {
+          const b = world[idx(xx, y, zz)];
+          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          put(xx, y, zz, 0);
+        }
+      }
+    }
     U.r2 = [gx, gy, gz, bed, HALFX, HALFZ, HALLH];
-    /* suggested camera: west mouth, looking east down the arches */
+    /* south terrace, looking north at the long face of the hall */
     U.cams = U.cams || {};
-    U.cams.r2 = {x: gx - HALFX - 4, y: bed + 6, z: gz + 1, yaw: -Math.PI / 2, pitch: 0.06, fov: 72};
+    U.cams.r2 = {x: gx + 1, y: bed + 6, z: gz - HALFZ - 14, yaw: Math.PI, pitch: 0.08, fov: 68};
     U.rooms.r2 = {x: gx, y: gy, z: gz, bed: bed};
   }
 
@@ -94724,8 +94770,8 @@ try {
         const d = Math.abs(s - p);
         if (d < 8) {
           const k = 1 - d / 8;
-          prof += Math.round(k * k * (18 + (p === 0 ? 6 : 0)));
-          if (k > 0.4) { isSpire = 1; spR = Math.max(spR, 7 + (1 - d / 8) * 5); }
+          prof += Math.round(k * k * (24 + (p === 0 ? 8 : 0)));
+          if (k > 0.35) { isSpire = 1; spR = Math.max(spR, 5 + (1 - d / 8) * 4); }
         }
       }
       const baseR = isSpire ? Math.max(10, spR + 4) : 8;
@@ -94741,7 +94787,7 @@ try {
           if (d > rad) continue;
           const u = d / Math.max(1, rad);
           /* pointed: almost linear on the skirts, quadratic near the tip */
-          const fall = isSpire ? Math.pow(1 - u, 1.15) : Math.pow(1 - u, 1.6);
+          const fall = isSpire ? Math.pow(1 - u, 1.65) : Math.pow(1 - u, 1.85);
           const t0 = topOf(xx, zz);
           const top = Math.min(benTop, Math.max(t0, origin.t - 4) + Math.round(prof * fall));
           if (top <= t0) continue;
@@ -94773,8 +94819,8 @@ try {
     /* stand south-west of the massif, look north-east at the whole ridge */
     const mid = U.peakSites[0] || [origin.x, origin.t + 16, origin.z];
     U.cams.peaks = {
-      x: mid[0] - 28, y: Math.min(benTop, mid[1] - 2), z: mid[2] + 36,
-      yaw: Math.PI + 0.45, pitch: -0.22, fov: 70
+      x: origin.x, y: Math.max(sea + 8, origin.t - 8), z: origin.z + 58,
+      yaw: Math.PI, pitch: -0.16, fov: 68
     };
   }
 
@@ -94783,9 +94829,10 @@ try {
     U.rooms.r3 = A.r3; U.rooms.r4 = A.r4; U.rooms.r5 = A.r5;
     U.cams = U.cams || {};
     /* stand in the west-south of each hall, look toward the centre, wide FOV */
-    U.cams.r3 = {x: A.r3.x - 10, y: A.r3.y + 1, z: A.r3.z + 8, yaw: 0.7, pitch: 0.18, fov: 75};
-    U.cams.r4 = {x: A.r4.x - 11, y: A.r4.y - 2, z: A.r4.z + 9, yaw: 0.65, pitch: 0.22, fov: 75};
-    U.cams.r5 = {x: A.r5.x - 14, y: A.r5.y + 3, z: A.r5.z + 8, yaw: 0.55, pitch: 0.12, fov: 72};
+    /* mid-south of each hall, looking north across the volume (not into a wall) */
+    U.cams.r3 = {x: A.r3.x, y: A.r3.y - 4, z: A.r3.z + 10, yaw: Math.PI, pitch: 0.12, fov: 72};
+    U.cams.r4 = {x: A.r4.x, y: A.r4.y - 6, z: A.r4.z + 11, yaw: Math.PI, pitch: 0.28, fov: 72};
+    U.cams.r5 = {x: A.r5.x - 16, y: A.r5.y + 4, z: A.r5.z + 6, yaw: -Math.PI / 2, pitch: -0.08, fov: 70};
   }
 
   function run() {
