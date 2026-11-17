@@ -96,13 +96,24 @@ const failures = [];
 const results = [];
 await boot();
 
-for (const seed of seeds) {
+for (let i = 0; i < seeds.length; i++) {
+  const seed = seeds[i];
+  if (i) await boot();
   const r = await page.evaluate(async (seed) => {
     current = {
       id: 't1294-' + seed, name: 'SpawnCountTest', mode: 'survival', created: Date.now(),
       l94: true, g12: true, g15: true, g21: true, g24: true, g25: true,
       g35: true, g36: true, g42: true, g89: true, newCastles: true
     };
+    try { if (typeof ORE18 !== 'undefined') ORE18 = true; } catch (_) {}
+    try { if (window.__islandLayout) window.__islandLayout(864); } catch (e) { return {err: 'layout ' + e}; }
+    try { g9Island = true; } catch (_) {}
+    const nw = (typeof ISL_W !== 'undefined' ? ISL_W : 864);
+    try { NEW_W = nw; setWorldSize(nw); } catch (e) { return {err: 'size ' + e}; }
+    gSeed = 0;
+    genVer = (typeof GEN9 !== 'undefined' ? GEN9 : 9);
+    cityGen = false;
+    try { if (typeof showScreen === 'function') showScreen('loading'); } catch (_) {}
     try {
       let _s = (Math.imul(seed ^ 0x9e3779b9, 1664525) + 1013904223) >>> 0 || 1;
       Math.random = function () {
