@@ -94352,7 +94352,8 @@ try {
       const x = (k / 65536) | 0, z = k & 65535;
       let t = 0;
       for (let y = H - 2; y > 0; y--) { if (world[idx(x, y, z)]) { t = y; break; } }
-      try { g9cols[x * D + z] = t; } catch (_) {}
+      /* g9cols is packed [height, kind] per column; height is the first air y (top solid + 1). */
+      try { g9cols[(x * D + z) * 2] = t ? (t + 1) : 0; } catch (_) {}
     }
     dirty.clear();
   };
@@ -94677,13 +94678,16 @@ try {
       put(x, bed + 3, z, B.LG);
       put(x, bed + 4, z, B.TO);
     }
-    /* 6. Low-Z viewing plaza and a full cutaway of the near face (no near legs)
-       so several arches read in one wide shot. */
+    /* 6. Low-Z cutaway: take the whole hillside off south of the hall (sky to
+       bed), not just a mid-band hollow. A leftover cap leaves official g9cols
+       tall; later remesh/repair then packs the plaza back with stone and the
+       camera sees a wall. A true cutaway, like the r2 ref, has to be open. */
+    const yTop = (typeof H === 'number' ? H - 2 : 88);
     for (let dx = -HALFX - 6; dx <= HALFX + 6; dx++) {
       for (let dz = -HALFZ - 36; dz <= -3; dz++) {
         const xx = gx + dx, zz = gz + dz;
         if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
-        for (let y = Math.max(2, bed - 1); y <= LID + 4; y++) {
+        for (let y = Math.max(2, bed - 1); y <= yTop; y++) {
           const b = world[idx(xx, y, zz)];
           if (keep(b) || placed(idx(xx, y, zz))) continue;
           if (b === T.WATER) continue;
