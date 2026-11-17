@@ -72791,7 +72791,10 @@ try {
       }
     }
     for (const [x, y, z, roof, t] of rooms) {
-      /* hanging moss from the roof */
+      /* hanging moss from the roof — 401 moss cubes, not HMOSS. HMOSS was
+         still flagged as a plant (Uint8Array delete is a no-op), so a blank
+         plant material rendered white. */
+      const GRN0 = T.MOSSBLK || T.MOSS || T.LEAVES || T.GRASS;
       for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
         const xx = x + dx, zz = z + dz;
         if (!inW(xx, 6, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
@@ -72802,7 +72805,7 @@ try {
         const len = 1 + (rnd() * 4 | 0);
         for (let k = 1; k <= len; k++) {
           if (world[idx(xx, ry - k, zz)]) break;
-          put(xx, ry - k, zz, HM());
+          put(xx, ry - k, zz, GRN0);
           U.vines++;
         }
       }
@@ -94087,8 +94090,15 @@ try {
       /* Always mint a new canvas map so a stale white/blank texCache entry
          cannot linger, and these IDs never stay in the plant/alpha path
          (buildChunk draws them as solid cubes). */
-      try { if (typeof PLANT !== 'undefined') delete PLANT[id]; } catch (_) {}
-      try { if (typeof LEAFY !== 'undefined') delete LEAFY[id]; } catch (_) {}
+      /* PLANT and LEAFY are Uint8Array(1024): delete is a no-op and left
+         402/412 marked as plants. buildChunk then draws them as cross
+         InstancedMeshes with a deleted PLANT_MATS entry, which shows as a
+         white/untextured placeholder even though the block is still minable. */
+      try { if (typeof PLANT !== 'undefined') PLANT[id] = 0; } catch (_) {}
+      try { if (typeof LEAFY !== 'undefined') LEAFY[id] = 0; } catch (_) {}
+      try { if (typeof chunkST !== 'undefined' && chunkST) chunkST[id] = 0; } catch (_) {}
+      try { if (typeof PLANT_H !== 'undefined') delete PLANT_H[id]; } catch (_) {}
+      try { if (typeof PLANT_W !== 'undefined') delete PLANT_W[id]; } catch (_) {}
       const T3 = window.THREE || THREE;
       let t = new T3.CanvasTexture(canvas);
       t.wrapS = t.wrapT = T3.RepeatWrapping;
