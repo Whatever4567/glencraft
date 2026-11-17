@@ -94634,7 +94634,7 @@ try {
     const B = ids();
     const gy = Math.max(16, (window.__v1299 && __v1299.gy ? __v1299.gy : sea + 5) - 14);
     const bed = gy - 2;
-    const HALFX = 20;   /* 41 long, ~8 arches */
+    const HALFX = 28;   /* 57 long, ~11 arches */
     const HALFZ = 10;   /* 21 wide */
     const HALLH = 18;
     const LID = gy + HALLH + 1;
@@ -94793,11 +94793,11 @@ try {
       x0: gx - HALFX - 16, x1: gx + HALFX + 16,
       z0: gz - HALFZ - 36, z1: gz - 3,
       zHall: gz - HALFZ,
-      camY: bed + 6, camZ: gz - HALFZ - 22
+      camY: bed + 6, camZ: gz - HALFZ - 32
     };
     /* south terrace, looking north at the long face of the hall */
     U.cams = U.cams || {};
-    U.cams.r2 = {x: gx, y: bed + 6, z: gz - HALFZ - 22, yaw: Math.PI, pitch: 0.10, fov: 68};
+    U.cams.r2 = {x: gx, y: bed + 6, z: gz - HALFZ - 32, yaw: Math.PI, pitch: 0.10, fov: 70};
     U.rooms.r2 = {x: gx, y: gy, z: gz, bed: bed};
     recarvePlaza.B = B;
     U.recarvePlaza = recarvePlaza;
@@ -94944,14 +94944,45 @@ try {
     /* stand south-west of the massif, look north-east at the whole ridge */
     const mid = U.peakSites[0] || [origin.x, origin.t + 16, origin.z];
     /* camera sits at larger Z (south of the massif) and looks toward smaller Z */
-    /* stand south of the massif, above local ground, looking UP at the spires */
-    const camZ = origin.z + 52;
+    /* stand south of the massif, above local ground, looking slightly up at the spires */
+    const camZ = origin.z + 56;
+    /* clear trees in the sight-line so the camera is not under a canopy */
+    for (let z = origin.z - 8; z <= camZ + 8; z++) {
+      for (let x = origin.x - 28; x <= origin.x + 28; x++) {
+        if (!inW(x, 8, z) || inVillage(x, z) || isProt(x, z)) continue;
+        if (keeps.some(k => Math.hypot(x - k[0], z - k[1]) < 40)) continue;
+        const t0 = topOf(x, z);
+        for (let y = t0; y > t0 - 12 && y > sea; y--) {
+          const b = world[idx(x, y, z)];
+          if (plant(b) || b === T.LOG || b === T.PINELOG || b === T.LEAVES || b === T.PINELEAVES) put(x, y, z, 0);
+        }
+      }
+    }
     const gnd = topOf(origin.x, camZ) || (sea + 8);
     U.cams.peaks = {
-      x: origin.x, y: Math.min(origin.t - 2, Math.max(gnd + 6, sea + 12)), z: camZ,
-      yaw: 0, pitch: 0.18, fov: 62
+      x: origin.x, y: Math.min(origin.t - 4, Math.max(gnd + 5, sea + 12)), z: camZ,
+      yaw: 0, pitch: 0.10, fov: 64
     };
+    U.ridgeBox = {x0: origin.x - 50, x1: origin.x + 50, z0: origin.z - 50, z1: camZ + 8};
   }
+
+  /* Mesh a set of surface chunks directly so a peaks shot does not wait on
+     a budgeted dirtyAll rebuild that never finishes a r=7 ring. */
+  U.meshAround = function (x, z, r) {
+    const out = {n: 0, err: null};
+    r = r == null ? 5 : r;
+    const Csz = (typeof CH === 'number' && CH) || 16;
+    const pcx = Math.floor(x / Csz), pcz = Math.floor(z / Csz);
+    try { dirtyAll = false; } catch (_) {}
+    for (let a = -r; a <= r; a++) {
+      for (let b = -r; b <= r; b++) {
+        const cx = pcx + a, cz = pcz + b;
+        if (cx < 0 || cz < 0) continue;
+        try { buildChunk(cx, cz); out.n++; } catch (e) { if (!out.err) out.err = String(e).slice(0, 160); }
+      }
+    }
+    return out;
+  };
 
   function publishRooms() {
     const A = anchors();
