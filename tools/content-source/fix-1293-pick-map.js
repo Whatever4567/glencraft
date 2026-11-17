@@ -32,7 +32,7 @@
 
   /* Camera-space shaft: mostly up, slightly toward the centre and into
      the scene (~12° from vertical). Face-roll keeps the crescent readable. */
-  const SHAFT_CAM = { x: -0.18, y: 0.96, z: -0.22 };
+  const SHAFT_CAM = { x: -0.30, y: 0.90, z: -0.22 };
   const FACE_ROLL = 1.57;
   /* Mid-haft in mesh-local Y (model shaft runs along +Y, butt at ~-0.45). */
   const GRIP_Y = -0.06;
@@ -141,7 +141,7 @@
     return (cam && cam.aspect) || 1;
   }
 
-  function applyPickRest(mesh, parent, THREE) {
+  function applyPickRest(mesh, parent, THREE, opts) {
     const cam = (typeof camera !== 'undefined' && camera) || null;
     if (!cam || !parent || !mesh) return false;
     const d = tmp(THREE);
@@ -160,8 +160,10 @@
 
     const dx = d.palmC.x - d.v.x, dy = d.palmC.y - d.v.y, dz = d.palmC.z - d.v.z;
     const dist = Math.hypot(dx, dy, dz);
-    /* Refuse a teleport (stale matrices / IK wind-up). */
-    if (dist > 0.55) return false;
+    U._lastPick = { dist: +dist.toFixed(3), palmC: [+d.palmC.x.toFixed(3), +d.palmC.y.toFixed(3), +d.palmC.z.toFixed(3)], swing: swinging() ? 1 : 0 };
+    /* Refuse a teleport at idle (stale matrices / IK wind-up). During the
+       swing we must still catch the fist, even after a 1281 frozen jump. */
+    if (dist > (opts && opts.loose ? 2.5 : 0.55)) return false;
 
     /* Upright-forward shaft in camera space, roll so the crescent is face-on. */
     d.shaftW.set(SHAFT_CAM.x, SHAFT_CAM.y, SHAFT_CAM.z).normalize();
@@ -182,16 +184,25 @@
     O.scale.set(1, 1, 1);
     O.updateMatrix();
     d.mw.copy(cam.matrixWorld).multiply(O.matrix);
-    d.inv.copy(parent.matrixWorld).invert().multiply(d.mw);
-    d.inv.decompose(d.pos, d.qParent, d.scl);
-    mesh.position.copy(d.pos);
-    mesh.quaternion.copy(d.qParent);
+    /* Position via worldToLocal (scale-safe). Rotation via parent world
+       quaternion — decompose(parentScale * desiredWorld) tilts the shaft. */
+    d.originW.setFromMatrixPosition(d.mw);
+    try { parent.worldToLocal(d.originW); } catch (_) {
+      d.inv.copy(parent.matrixWorld).invert();
+      d.originW.applyMatrix4(d.inv);
+    }
+    mesh.position.copy(d.originW);
+    cam.matrixWorld.decompose(d.pos, d.qRoll, d.scl);
+    d.qRoll.multiply(O.quaternion);
+    parent.matrixWorld.decompose(d.pos, d.qParent, d.scl);
+    mesh.quaternion.copy(d.qParent).invert().multiply(d.qRoll);
     try { mesh.updateMatrix(); mesh.updateWorldMatrix(false, false); } catch (_) {}
 
     d.gripW.set(0, GRIP_Y, 0).applyMatrix4(mesh.matrixWorld);
     const gap = d.gripW.distanceTo(d.palmW);
     U._lastGap = gap;
-    if (gap > 0.04) return false;
+    if (U._lastPick) U._lastPick.gap = +gap.toFixed(3);
+    if (!(opts && opts.loose) && gap > 0.04) return false;
     return true;
   }
 
@@ -211,6 +222,87 @@
     mesh.quaternion.set(L.qx, L.qy, L.qz, L.qw);
   }
 
+
+  function bindPickDraw(root) {
+    if (!root) return;
+    const hook = function (o) {
+      if (!o || (o.onBeforeRender && o.onBeforeRender.__pickMap1293)) return;
+      o.onBeforeRender = function () {
+        try { if (U.on) tickPick(T3()); } catch (e) { ERR('pobr', e); }
+      };
+      o.onBeforeRender.__pickMap1293 = 1;
+    };
+    hook(root);
+    try {
+      if (root.traverse) root.traverse(function (o) { if (o.isMesh) hook(o); });
+    } catch (_) {}
+  }
+
+  /* Camera-space palm targets. Landscape is the play view (ref10 / ref09). */
+  const MAP_PALM_LAND = { x: 0.08, y: -0.28, z: -0.50 };
+  const MAP_PALM_PORT = { x: 0.03, y: -0.22, z: -0.52 };
+  const PICK_PALM_LAND = { x: 0.18, y: -0.18, z: -0.44 };
+  const PICK_PALM_PORT = { x: 0.10, y: -0.10, z: -0.50 };
+  function gloveWrap() {
+    try {
+      const st = window.__handsFp1285 && __handsFp1285.sides && __handsFp1285.sides.R;
+      return st && st.wrap;
+    } catch (_) { return null; }
+  }
+  function nudgeGloveCam(THREE, cam, target) {
+    const wrap = gloveWrap();
+    if (!wrap || !wrap.parent || !cam || !target) return false;
+    try {
+      wrap.parent.updateWorldMatrix(true, false);
+      cam.updateWorldMatrix(true, false);
+      const dest = new THREE.Vector3(target.x, target.y, target.z);
+      cam.localToWorld(dest);
+      wrap.parent.worldToLocal(dest);
+      wrap.position.copy(dest);
+      wrap.updateWorldMatrix(false, true);
+      return true;
+    } catch (e) { ERR('nudgeG', e); return false; }
+  }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function nudgeMapHand(THREE, cam) {
+    const t = aspectOf(cam) >= 1 ? MAP_PALM_LAND : MAP_PALM_PORT;
+    if (nudgeGloveCam(THREE, cam, t)) U.nudge = 1;
+  }
+  /* Keep the fist in a visible lower-right box by translating the
+     whole __fpa rig (the 1285 glove stays on the wrist). The __fpa
+     swing still drives the arc, without leaving a landscape frustum. */
+  function containPickRig(THREE, cam) {
+    const R = rig();
+    const palm = palmNode();
+    if (!R || !palm || !cam) return;
+    try {
+      const rest = aspectOf(cam) >= 1 ? PICK_PALM_LAND : PICK_PALM_PORT;
+      const sw = swinging();
+      const box = sw
+        ? { x0: rest.x - 0.10, x1: rest.x + 0.10, y0: rest.y - 0.06, y1: rest.y + 0.18, z0: rest.z - 0.14, z1: rest.z + 0.04 }
+        : { x0: rest.x - 0.03, x1: rest.x + 0.03, y0: rest.y - 0.03, y1: rest.y + 0.03, z0: rest.z - 0.04, z1: rest.z + 0.04 };
+      cam.updateWorldMatrix(true, false);
+      palm.updateWorldMatrix(true, false);
+      const cur = new THREE.Vector3().setFromMatrixPosition(palm.matrixWorld);
+      cam.worldToLocal(cur);
+      const nx = clamp(cur.x, box.x0, box.x1);
+      const ny = clamp(cur.y, box.y0, box.y1);
+      const nz = clamp(cur.z, box.z0, box.z1);
+      const dx = nx - cur.x, dy = ny - cur.y, dz = nz - cur.z;
+      if (Math.hypot(dx, dy, dz) < 0.0005) return;
+      const a = new THREE.Vector3(0, 0, 0);
+      const b = new THREE.Vector3(dx, dy, dz);
+      cam.localToWorld(a); cam.localToWorld(b);
+      b.sub(a);
+      R.updateWorldMatrix(true, false);
+      const rp = new THREE.Vector3().setFromMatrixPosition(R.matrixWorld).add(b);
+      if (R.parent) { R.parent.updateWorldMatrix(true, false); R.parent.worldToLocal(rp); }
+      R.position.copy(rp);
+      R.updateWorldMatrix(true, true);
+      U.nudgePick = 1;
+    } catch (e) { ERR('contain', e); }
+  }
+
   function tickPick(THREE) {
     if (U._inPick) return;
     const kind = kindOf();
@@ -224,44 +316,23 @@
     if (!parent) return;
     U._inPick = 1;
     try {
-    let gloves = 0;
-    try { gloves = (window.__handsFp1285 && window.__handsFp1285.attached >= 1) ? 1 : 0; } catch (_) {}
-    if (swinging()) {
-      if (U.pickFrozen && U.loc && U.loc.kind === kind) applyFrozen(mesh);
-      return;
+    const cam = (typeof camera !== 'undefined' && camera) || null;
+    if (cam) {
+      try { containPickRig(THREE, cam); } catch (e) { ERR('containP', e); }
     }
-    if (U.pickFrozen && U.loc && U.loc.kind === kind && U.loc.gloves === gloves) {
-      applyFrozen(mesh);
-      /* If the frozen locals drifted off the palm, re-seat at idle. */
-      try {
-        mesh.updateWorldMatrix(false, false);
-        const d = tmp(THREE);
-        if (palmWorld(THREE, d.palmW)) {
-          d.gripW.set(0, GRIP_Y, 0).applyMatrix4(mesh.matrixWorld);
-          if (d.gripW.distanceTo(d.palmW) > 0.05) {
-            U._badGap = (U._badGap || 0) + 1;
-            if (U._badGap >= 3) { U.pickFrozen = 0; U.loc = null; }
-            else return;
-          } else {
-            U._badGap = 0;
-            return;
-          }
-        } else return;
-      } catch (_) { return; }
-    }
-    if (applyPickRest(mesh, parent, THREE)) {
-      if (gloves || U.pickRest >= 2) {
-        freezePick(mesh);
-        if (U.loc) U.loc.gloves = gloves;
-      }
-      U.pickRest++;
-    }
-    if (mesh && (!mesh.onBeforeRender || !mesh.onBeforeRender.__pickMap1293)) {
-      mesh.onBeforeRender = function () {
-        try { if (U.on) tickPick(T3()); } catch (e) { ERR('pobr', e); }
-      };
-      mesh.onBeforeRender.__pickMap1293 = 1;
-    }
+    try {
+      if (parent.updateWorldMatrix) parent.updateWorldMatrix(true, true);
+      const pn = palmNode();
+      if (pn && pn.updateWorldMatrix) pn.updateWorldMatrix(true, true);
+    } catch (_) {}
+    /* Always follow the visible palm. Frozen locals relative to `held`
+       go stale as the 1285 glove moves, and they do not ride the fist
+       through the mining swing. */
+    applyPickRest(mesh, parent, THREE, { loose: 1 });
+    U.pickFrozen = 0;
+    U.loc = null;
+    U.pickRest++;
+    bindPickDraw(mesh);
     } finally { U._inPick = 0; }
   }
 
@@ -276,6 +347,31 @@
     } catch (e) { ERR('unstash', e); }
   }
 
+
+  function refreshMapTex(plane, THREE) {
+    try {
+      try {
+        if (window.__c345 && window.__c345.uk) window.__c345.uk.want = 1;
+        if (window.__c112 && typeof window.__c112.frame === 'function') window.__c112.frame();
+      } catch (_) {}
+      const C = window.__c112;
+      if (!plane || !C || !C.TX || !THREE) return;
+      let mat = plane.material;
+      const img = C.TX;
+      const map = mat && mat.map;
+      if (!map || map.image !== img) {
+        const tex = new THREE.CanvasTexture(img);
+        tex.minFilter = THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.generateMipmaps = false;
+        tex.needsUpdate = true;
+        if (mat) { mat.map = tex; mat.needsUpdate = true; }
+      } else if ((U._texTick = (U._texTick || 0) + 1) % 6 === 1) {
+        map.needsUpdate = true;
+      }
+    } catch (e) { ERR('tex', e); }
+  }
+
   function seatMap(R, THREE) {
     if (!isMapHeld() || isTp() || !U.on || U._inSeat) return;
     const plane = sheet();
@@ -285,6 +381,7 @@
     try {
     unstash(plane, R);
     cam.updateWorldMatrix(true, false);
+    try { nudgeMapHand(THREE, cam); } catch (e) { ERR('nudgeM', e); }
     const d = tmp(THREE);
     if (!palmWorld(THREE, d.palmW)) return;
     d.camInv.copy(cam.matrixWorld).invert();
@@ -294,24 +391,25 @@
     const vFov = ((cam.fov || 75) * Math.PI) / 180;
     const halfY = Math.tan(vFov * 0.5) * Math.abs(depth);
     const halfX = halfY * aspectOf(cam);
-    /* Fit the 0.34m sheet with a margin so portrait keeps it on-screen. */
-    const maxHalf = Math.min(halfX, halfY) * 0.82;
-    const s = Math.max(0.42, Math.min(0.95, (2 * maxHalf) / 0.34));
+    /* Landscape is the play view: a large, readable sheet. Portrait
+       still has to keep the whole face on-screen. */
+    const asp = aspectOf(cam);
+    const land = asp >= 1;
+    const maxHalf = Math.min(halfX, halfY) * (land ? 0.72 : 0.82);
+    const sCap = land ? 1.08 : 0.88;
+    const s = Math.max(0.42, Math.min(sCap, (2 * maxHalf) / 0.34));
     const hs = 0.17 * s;
 
-    /* Palm on the bottom edge; shift the sheet left/right as needed so
-       the whole face stays inside the frustum (portrait: often the
-       bottom-right corner in the palm). */
+    /* Palm under the bottom edge. FRAME_MAP places the hand in the
+       lower-centre-right; the sheet grows up from that palm. */
     let cx = d.palmC.x;
-    let cy = d.palmC.y + hs * 0.88;
-    const z = depth + 0.012; /* a hair closer than the palm, still off near */
-    const asp = aspectOf(cam);
+    /* Sit the sheet above the palm so the hand is visible under the
+       bottom edge (ref09). Keep the sheet a little behind the fist so
+       the fingers can pass in front of the chart. */
+    let cy = d.palmC.y + hs * 1.14;
+    const z = depth - (land ? 0.03 : 0.02);
     const limitX = Math.max(hs + 0.01, halfX * 0.90);
     const limitY = Math.max(hs + 0.01, halfY * 0.90);
-    if (asp < 0.75) {
-      /* Phone portrait: keep the whole sheet on-screen, palm at bottom-right. */
-      if (s > 0.72) { /* s already computed from maxHalf; shrink a little more */ }
-    }
     if (cx + hs > limitX) cx = limitX - hs;
     if (cx - hs < -limitX) cx = -limitX + hs;
     if (cy + hs > limitY) cy = limitY - hs;
@@ -345,6 +443,7 @@
         plane.material.opacity = 1;
         plane.material.side = THREE.DoubleSide;
         if (plane.material.color) plane.material.color.setHex(0xffffff);
+        refreshMapTex(plane, THREE);
       }
     } catch (_) {}
     try {
@@ -442,14 +541,37 @@
     } catch (e) { info.mapErr = String(e); }
     info.lastSeat = U.lastSeat || null;
     info.lastGap = U._lastGap;
+    info.lastPick = U._lastPick || null;
     U.debug = info;
     return info;
+  }
+
+
+  function silence1279() {
+    try { if (window.__fix1279) window.__fix1279.on = 0; } catch (_) {}
+    try {
+      if (window.__c345 && window.__c345.uk) window.__c345.uk.want = 1;
+    } catch (_) {}
+    try {
+      const R = rig(); if (!R) return;
+      R.traverse(function (o) {
+        const u = o.userData || {};
+        if (u.fpForearm1279 || o.name === 'Forearm1279') {
+          o.visible = false;
+          if (!o.onBeforeRender || !o.onBeforeRender.__hide1279) {
+            o.onBeforeRender = function () { this.visible = false; };
+            o.onBeforeRender.__hide1279 = 1;
+          }
+        }
+      });
+    } catch (_) {}
   }
 
   function tick() {
     if (!U.on || isTp()) return;
     const THREE = T3();
     if (!THREE) return;
+    try { silence1279(); } catch (e) { ERR('s1279', e); }
     try { tightenMapCurl(); } catch (e) { ERR('curlTick', e); }
     try { tickPick(THREE); } catch (e) { ERR('pick', e); }
     try {
@@ -459,13 +581,16 @@
   }
 
 
-  const FRAME_PICK = { dx: 0.04, dy: 0.10, dz: 0.00, fov: 0.68, s: 0.94, armS: 1.22 };
-  function lockPickFrame() {
+  /* Landscape is the play frame. Closer / larger so the purple head fills
+     the view; dx kept modest so the fist stays bottom-right, not jammed
+     against the edge. */
+  const FRAME_PICK = { dx: 0.02, dy: -0.02, dz: 0.14, fov: 0.70, s: 1.20, armS: 1.02 };
+  const FRAME_MAP  = { dx: -0.05, dy: -0.10, dz: 0.06, fov: 0.82, s: 1.28, armS: 1.10 };
+  function lockFrame(keys, n) {
     try {
       const HF = window.__heldFrame1251;
       if (!HF || !HF.FRAME) return;
-      const n = FRAME_PICK;
-      ['pick', 'p761', 'p760'].forEach(function (k) {
+      keys.forEach(function (k) {
         const F = HF.FRAME[k];
         if (!F) return;
         ['dx', 'dy', 'dz', 'fov', 's', 'armS'].forEach(function (key) {
@@ -481,6 +606,10 @@
       });
       U.frame = 1;
     } catch (e) { ERR('frame', e); }
+  }
+  function lockPickFrame() {
+    lockFrame(['pick', 'p761', 'p760'], FRAME_PICK);
+    lockFrame(['map'], FRAME_MAP);
   }
 
   function install() {

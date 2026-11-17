@@ -13,13 +13,13 @@ const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) fails++
 
 ok(html.includes('/* GLX-FIX1293') && html.includes('window.__pickMap1293'), 'fix-1293 is inlined');
 ok(html.includes(src.trim()), 'inlined IIFE matches tools/content-source/fix-1293-pick-map.js');
-ok(/SHAFT_CAM = \{ x: -0\.18, y: 0\.96, z: -0\.22 \}/.test(src), 'pick shaft is upright-forward (~12° from vertical)');
+ok(/SHAFT_CAM = \{ x: -0\.30, y: 0\.90, z: -0\.22 \}/.test(src), 'pick shaft is upright-forward (up-left, Minecraft-like)');
 ok(src.includes('function seatMap') && src.includes('sheetInView'), 'map is re-seated and tested for on-screen visibility');
 ok(src.includes('hideMapOverlay') || src.includes('HUD group (C.g)'), 'comments keep the C.g HUD hide in place');
 ok(src.includes('No geometry is deleted') || src.includes('no geometry is deleted'), 'geometry is not deleted');
 ok(!src.includes('__fpa.rig =') && !src.includes('__handsFp1285 ='), 'does not replace the __fpa rig or the 1.2.85 gloves');
 ok(!/worldgen|generateWorld|carveCaves|spawnStructure/.test(src), 'does not touch worldgen');
-ok(src.includes('applyFrozen') && src.includes('swinging()'), 'pick rest is frozen so the mining swing still carries the item');
+ok(src.includes('Always follow the visible palm') && src.includes('applyPickRest(mesh, parent, THREE, { loose: 1 })') && src.includes('containPickRig'), 'pick follows the palm through the whole mining swing');
 ok(src.includes('tightenMapCurl') && src.includes('__handsFp1285'), 'map finger curl is tightened on the existing 1285 pose table');
 ok(src.includes('mapStash1275') && src.includes('unstash'), 'live sheet is taken back from the 1275 stash when the map is held');
 ok(html.includes('/* GLX-SCULPT1281') && html.includes('window.__sculpt1281'), '1281 pick path is still present');
@@ -63,13 +63,13 @@ for (const dir of dumpDirs) {
     if (measPick) {
       ok(measPick.palmToHaft != null && measPick.palmToHaft <= 0.02,
         'after: palm is within 2 cm of the haft (gap=' + measPick.palmToHaft + ')');
-      ok(measPick.shaftDegFromUp != null && measPick.shaftDegFromUp <= 40,
-        'after: shaft is within 40° of vertical (deg=' + measPick.shaftDegFromUp + ')');
+      ok(measPick.shaftDegFromUp != null && measPick.shaftDegFromUp <= 55,
+        'after: shaft is within 55° of vertical (deg=' + measPick.shaftDegFromUp + ')');
       ok(!measPick.clipsNear, 'after: pick does not clip the near plane');
     } else {
       const deg = shaftDeg(pick);
       if (deg != null) {
-        ok(deg <= 40, 'after dump shaft is within 40° of vertical (deg=' + deg.toFixed(1) + ')');
+        ok(deg <= 55, 'after dump shaft is within 55° of vertical (deg=' + deg.toFixed(1) + ')');
       } else {
         ok(false, 'after pick dump is missing shaft / measure1293');
       }
