@@ -95180,32 +95180,46 @@ try {
    72-block range as updateEntities. Rebuilds only when the torch set or
    the player's cell changes. lightSrc is unchanged. */
 (function v1305() {
-  const U = window.__v1305 = {err: null, inst: 0, n: 0, vis: 0, batched: 0};
+  const U = window.__v1305 = {err: null, inst: 0, n: 0, vis: 0, batched: 0, buckets: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   const FAR2 = 72 * 72;
   const CELL = 8;
-  let root = null, buckets = null, lastTorchN = -1, lastCell = '';
+  let root = null, buckets = null, lastSig = '', lastCell = '';
 
-  function torchList() {
-    const out = [];
-    try {
-      if (typeof entObjs === 'undefined' || typeof T === 'undefined') return out;
-      for (const o of entObjs.values()) if (o && o.type === T.TORCH && o.g) out.push(o);
-    } catch (e) { ERR('list', e); }
-    return out;
+  function torchType() {
+    try { if (typeof T !== 'undefined' && T && T.TORCH != null) return T.TORCH; } catch (_) {}
+    return null;
   }
 
-  function hideBody(g) {
-    if (!g || g.userData.batched1305) return;
-    g.traverse(o => {
-      if (o.isMesh || o.isInstancedMesh) {
-        o.visible = false;
-        o.frustumCulled = false;
-        o.matrixAutoUpdate = false;
+  function torchRoots() {
+    const out = [];
+    const seen = new Set();
+    const add = g => {
+      if (!g || seen.has(g)) return;
+      seen.add(g);
+      out.push(g);
+    };
+    try {
+      const tt = torchType();
+      if (typeof entObjs !== 'undefined' && tt != null) {
+        for (const o of entObjs.values()) if (o && o.type === tt && o.g) add(o.g);
       }
-    });
-    g.userData.batched1305 = 1;
-    g.matrixAutoUpdate = false;
+    } catch (e) { ERR('ents', e); }
+    try {
+      if (typeof scene === 'undefined' || !scene) return out;
+      for (const c of scene.children) {
+        if (c === root) continue;
+        const ud = c.userData || {};
+        if (ud.merged1304 || ud.batched1305) add(c);
+        else if (c.children && c.children.length) {
+          for (const ch of c.children) {
+            const u2 = ch.userData || {};
+            if (u2.merged1304 || u2.batched1305) add(ch);
+          }
+        }
+      }
+    } catch (e) { ERR('scene', e); }
+    return out;
   }
 
   function keyOfMatGeo(o) {
@@ -95235,40 +95249,45 @@ try {
 
   function buildBuckets(list) {
     const map = new Map();
-    for (const o of list) {
+    for (const g of list) {
       try {
-        if (!o.g) continue;
-        o.g.matrixAutoUpdate = true;
-        o.g.updateMatrixWorld(true);
-        o.g.traverse(x => {
+        g.matrixAutoUpdate = true;
+        g.updateMatrixWorld(true);
+        const meshes = [];
+        g.traverse(x => {
           if (!x.isMesh || x.isInstancedMesh) return;
           if (x.userData && x.userData._skip1305) return;
           const k = keyOfMatGeo(x);
           if (!k) return;
+          meshes.push(x);
           let b = map.get(k);
           if (!b) {
             const mat = Array.isArray(x.material) ? x.material[0] : x.material;
             b = {key: k, geo: x.geometry, mat, items: []};
             map.set(k, b);
           }
-          b.items.push({o, mesh: x});
+          b.items.push({g, mesh: x, x: g.position.x, z: g.position.z, matrix: x.matrixWorld.clone()});
         });
-        hideBody(o.g);
+        for (const m of meshes) { if (m.parent) m.parent.remove(m); }
+        g.userData.batched1305 = 1;
+        g.matrixAutoUpdate = false;
       } catch (e) { ERR('buck', e); }
     }
     return [...map.values()];
   }
 
   function fill() {
-    const list = torchList();
+    const list = torchRoots();
     const n = list.length;
+    const sig = String(n);
     if (!n) { U.n = 0; U.vis = 0; return; }
-    if (!buckets || n !== lastTorchN) {
+    if (!buckets || sig !== lastSig) {
       clearInst();
       ensureRoot();
       buckets = buildBuckets(list);
-      lastTorchN = n;
+      lastSig = sig;
       U.batched++;
+      U.buckets = buckets.length;
     }
     const px = (typeof P !== 'undefined' && P) ? P.x : 0;
     const pz = (typeof P !== 'undefined' && P) ? P.z : 0;
@@ -95276,14 +95295,14 @@ try {
     for (const b of buckets) {
       const visItems = [];
       for (const it of b.items) {
-        const o = it.o;
-        const dx = o.x - px, dz = o.z - pz;
+        const dx = it.x - px, dz = it.z - pz;
         if (dx * dx + dz * dz > FAR2) continue;
         visItems.push(it);
       }
       let mesh = b.inst;
-      if (!mesh || mesh.instanceMatrix.count < visItems.length || !mesh.parent) {
-        const cap = Math.max(16, visItems.length);
+      const capNeed = visItems.length;
+      if (!mesh || !mesh.parent || (mesh.instanceMatrix && mesh.instanceMatrix.count < capNeed)) {
+        const cap = Math.max(16, capNeed);
         if (mesh && mesh.parent) mesh.parent.remove(mesh);
         mesh = new THREE.InstancedMesh(b.geo, b.mat, cap);
         mesh.frustumCulled = false;
@@ -95295,12 +95314,7 @@ try {
         b.inst = mesh;
         U.inst++;
       }
-      for (let i = 0; i < visItems.length; i++) {
-        const it = visItems[i];
-        if (it.o.g) { it.o.g.matrixAutoUpdate = true; it.o.g.updateMatrixWorld(true); it.o.g.matrixAutoUpdate = false; }
-        it.mesh.updateMatrixWorld(true);
-        mesh.setMatrixAt(i, it.mesh.matrixWorld);
-      }
+      for (let i = 0; i < visItems.length; i++) mesh.setMatrixAt(i, visItems[i].matrix);
       mesh.count = visItems.length;
       mesh.instanceMatrix.needsUpdate = true;
       vis += visItems.length;
@@ -95312,11 +95326,12 @@ try {
   function tick() {
     try {
       if (typeof started === 'undefined' || !started || typeof scene === 'undefined' || !scene) return;
-      const n = torchList().length;
+      const n = (typeof scene !== 'undefined' && scene) ? scene.children.length : 0;
       const px = (typeof P !== 'undefined' && P) ? (P.x | 0) : 0;
       const pz = (typeof P !== 'undefined' && P) ? (P.z | 0) : 0;
       const cell = (px / CELL | 0) + ',' + (pz / CELL | 0);
-      if (n === lastTorchN && cell === lastCell && buckets) return;
+      const sig = String(torchRoots().length);
+      if (sig === lastSig && cell === lastCell && buckets) return;
       lastCell = cell;
       fill();
     } catch (e) { ERR('tick', e); }
@@ -95337,7 +95352,7 @@ try {
       const s0 = syncEntities;
       syncEntities = function () {
         const r = s0.apply(this, arguments);
-        lastTorchN = -1;
+        lastSig = '';
         return r;
       };
     }
