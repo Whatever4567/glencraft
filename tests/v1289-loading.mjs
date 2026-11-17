@@ -10,7 +10,7 @@ const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
 ok(html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';"), 'GAME_VERSION is 1.2.100');
 ok(!html.includes("const GAME_VERSION = '1.2.93';"), 'GAME_VERSION is no longer 1.2.93');
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.101' || JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.102', 'version.json is 1.2.101');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.101' || JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.102' || JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.103', 'version.json is 1.2.101');
 ok(html.includes('<!-- glencraft-build: load1285 -->') && html.includes('<!-- glencraft-build: load1289 -->'), 'load1285 and load1289 markers');
 ok(html.includes('background-image:linear-gradient(180deg,#e8ffb0') && !/#scr-loading #loadW.liquid1285 .load-fill[\s\S]{0,500}background-image:none!important/.test(html),
   'liquid fill keeps a visible green gradient and is not wiped to none');
