@@ -7,12 +7,13 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.94';"), 'GAME_VERSION is 1.2.94');
+ok(html.includes("const GAME_VERSION = '1.2.95';"), 'GAME_VERSION is 1.2.95');
 ok(!html.includes("const GAME_VERSION = '1.2.93';"), 'GAME_VERSION is no longer 1.2.93');
 ok(!html.includes("const GAME_VERSION = '1.2.92';"), 'GAME_VERSION is no longer 1.2.92');
 ok(!html.includes("const GAME_VERSION = '1.2.91';"), 'GAME_VERSION is no longer 1.2.91');
 ok(!html.includes("const GAME_VERSION = '1.2.90';"), 'GAME_VERSION is no longer 1.2.90');
-ok(/"v"\s*:\s*"v1\.2\.94"/.test(html), '1.2.94 patch notes present');
+ok(/"v"\s*:\s*"v1\.2\.95"/.test(html), '1.2.95 patch notes present');
+ok(/"v"\s*:\s*"v1\.2\.94"/.test(html), '1.2.94 patch notes still present');
 ok(/"v"\s*:\s*"v1\.2\.93"/.test(html), '1.2.93 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.92"/.test(html), '1.2.92 patch notes present');
 ok(/"v"\s*:\s*"v1\.2\.91"/.test(html), '1.2.91 patch notes present');
@@ -34,8 +35,8 @@ ok(/stay on the pistol and musket during reloads/i.test(html), '1.2.90 notes men
 ok(/never jumps backwards/i.test(html), '1.2.89 notes mention the percentage never jumps backwards');
 ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention deterministic worlds');
 {
-  const st = html.indexOf('{"v":"v1.2.94"'), en = html.indexOf('{"v":"v1.2.93"', st);
-  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.94 notes first, no food');
+  const st = html.indexOf('{"v":"v1.2.95"'), en = html.indexOf('{"v":"v1.2.94"', st);
+  ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.95 notes first, no food');
 }
 {
   const st = html.indexOf('{"v":"v1.2.93"'), en = html.indexOf('{"v":"v1.2.92"', st);
@@ -65,8 +66,8 @@ ok(/same seed always makes the same world/i.test(html), '1.2.89 notes mention de
   const st = html.indexOf('{"v":"v1.2.87"'), en = html.indexOf('{"v":"v1.2.86"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.87 notes remain, no food');
 }
-ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.94', 'version.json is 1.2.94');
-ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->') && html.includes('<!-- glencraft-build: b1289-v1.2.89 -->') && html.includes('<!-- glencraft-build: b1290-v1.2.90 -->') && html.includes('<!-- glencraft-build: b1291-v1.2.91 -->') && html.includes('<!-- glencraft-build: b1292-v1.2.92 -->') && html.includes('<!-- glencraft-build: b1293-v1.2.93 -->') && html.includes('<!-- glencraft-build: b1294-v1.2.94 -->'), '1.2.84–1.2.94 build markers stay');
+ok(JSON.parse(fs.readFileSync(new URL('../version.json', import.meta.url), 'utf8')).v === '1.2.95', 'version.json is 1.2.95');
+ok(html.includes('<!-- glencraft-build: b1284-v1.2.84 -->') && html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1286-v1.2.86 -->') && html.includes('<!-- glencraft-build: b1287-v1.2.87 -->') && html.includes('<!-- glencraft-build: b1288-v1.2.88 -->') && html.includes('<!-- glencraft-build: b1289-v1.2.89 -->') && html.includes('<!-- glencraft-build: b1290-v1.2.90 -->') && html.includes('<!-- glencraft-build: b1291-v1.2.91 -->') && html.includes('<!-- glencraft-build: b1292-v1.2.92 -->') && html.includes('<!-- glencraft-build: b1293-v1.2.93 -->') && html.includes('<!-- glencraft-build: b1294-v1.2.94 -->') && html.includes('<!-- glencraft-build: b1295-v1.2.95 -->'), '1.2.84–1.2.95 build markers stay');
 ok(html.includes('<!-- glencraft-build: load1285 -->'), 'load1285 build marker');
 ok(html.includes('/* GLX-LOAD1285'), 'GLX-LOAD1285 runtime');
 ok((html.split('/* GLX-LOAD1285').length - 1) === 1, 'exactly one LOAD1285 runtime');
