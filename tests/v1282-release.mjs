@@ -10,7 +10,7 @@ const frame = fs.readFileSync(path.join(root, 'tools/pilot-model-source/held-fra
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-const OKV = ['1.2.82', '1.2.83', '1.2.84', '1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90', '1.2.91', '1.2.92', '1.2.93', '1.2.94', '1.2.95', '1.2.96', '1.2.97', '1.2.98'];
+const OKV = ['1.2.82', '1.2.83', '1.2.84', '1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90', '1.2.91', '1.2.92', '1.2.93', '1.2.94', '1.2.95', '1.2.96', '1.2.97', '1.2.98', '1.2.99'];
 ok(OKV.includes(ver.v), 'version.json is 1.2.82+');
 ok(OKV.some(v => html.includes("const GAME_VERSION = '" + v + "';")), 'GAME_VERSION is 1.2.82+');
 ok(html.includes('<!-- glencraft-build: b1282-v1.2.82 -->'), 'build marker');
@@ -23,7 +23,7 @@ ok(credits.includes('## v1.2.82 Smooth first person, chest restored'), 'CREDITS 
   const s0 = html.indexOf('window.PATCH_NOTES = [');
   const e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
-  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.82') : -1; ok(k >= 0 && k <= 16 && arr[k + 1].v === 'v1.2.81', 'PATCH_NOTES parses, 1.2.82 before 1.2.81'); }
+  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.82') : -1; ok(k >= 0 && k <= 17 && arr[k + 1].v === 'v1.2.81', 'PATCH_NOTES parses, 1.2.82 before 1.2.81'); }
 }
 {
   const re = /<script>([\s\S]*?)<\/script>/g; let m;
