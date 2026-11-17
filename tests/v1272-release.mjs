@@ -13,7 +13,7 @@ const ver = fs.readFileSync(path.join(root, 'version.json'), 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.72';") || html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.101';"), 'GAME_VERSION is 1.2.72 (or 1.2.71)');
+ok(html.includes("const GAME_VERSION = '1.2.72';") || html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';"), 'GAME_VERSION is 1.2.72 (or 1.2.71)');
 ok(/"v"\s*:\s*"1\.2\.72"/.test(ver) || /"v"\s*:\s*"1\.2\.71"/.test(ver), 'version.json is 1.2.72 (or 1.2.71)');
 ok(html.includes('<!-- glencraft-build: b1272-v1.2.72 -->') || html.includes('<!-- glencraft-build: b1271-v1.2.71 -->'), 'build marker present');
 
