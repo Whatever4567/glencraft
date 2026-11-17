@@ -282,6 +282,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1299-v1.2.99 -->
 <!-- glencraft-build: b1300-v1.2.100 -->
 <!-- glencraft-build: b1301-v1.2.101 -->
+<!-- glencraft-build: b1305-v1.2.105 -->
 <!-- glencraft-build: b1304-v1.2.104 -->
 <!-- glencraft-build: b1303-v1.2.103 -->
 <!-- glencraft-build: b1302-v1.2.102 -->
@@ -13643,7 +13644,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.104';
+const GAME_VERSION = '1.2.105';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63284,6 +63285,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.105","d":"2026-11-17","notes":["Hanging moss in deep caves no longer shows as a white glitched placeholder; it renders as proper green moss. Rope is fixed the same way.","Cave halls, Highland peaks, streamed England, Ireland and Wales land, and volcano eruptions are unchanged."]},
 {"v":"v1.2.104","d":"2026-11-17","notes":["The lag that crept in after the 1.2.99–1.2.103 landscape and cave updates is reduced: a remesh loop that stacked work the longer you played is gone, and the many cave and village torches now share a merged model.","Ravines, deep caverns, Highland peaks, streamed England, Ireland and Wales land, and volcano eruptions are unchanged."]},
 {"v":"v1.2.103","d":"2026-11-17","notes":["The underground river hall is a wide multi-arch colonnade over blue water, with a grass lid, hanging moss and lamps.","Deep caves you can actually find include a lush moss chamber with a cyan pool, a dark hall of long cyan crystal spikes, and a basalt mines cavern with a magma river and plank walkways. The 401–412 block textures no longer show white faces or scribble veins.","New and reset Highlands worlds have a taller jagged northern stone ridge above heather and sea. Ben Glencraft stays the highest added peak.","England, Ireland and Wales beyond the main map, and the volcano eruptions, are unchanged."]},
 {"v":"v1.2.102","d":"2026-11-17","notes":["The underground river hall now shows stone arches over blue water, with a grass lid, hanging moss and lamps.","Deep cave layers can be walked in first person: mossy green caves, dark halls with blue crystal, and wooden mines with magma.","New and reset Highlands worlds have sharper snowy crags in the far north.","England, Ireland and Wales have their own look on the land beyond the main Highlands map."]},
@@ -72791,7 +72793,10 @@ try {
       }
     }
     for (const [x, y, z, roof, t] of rooms) {
-      /* hanging moss from the roof */
+      /* hanging moss from the roof — 401 moss cubes, not HMOSS. HMOSS was
+         still flagged as a plant (Uint8Array delete is a no-op), so a blank
+         plant material rendered white. */
+      const GRN0 = T.MOSSBLK || T.MOSS || T.LEAVES || T.GRASS;
       for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
         const xx = x + dx, zz = z + dz;
         if (!inW(xx, 6, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
@@ -72802,7 +72807,7 @@ try {
         const len = 1 + (rnd() * 4 | 0);
         for (let k = 1; k <= len; k++) {
           if (world[idx(xx, ry - k, zz)]) break;
-          put(xx, ry - k, zz, HM());
+          put(xx, ry - k, zz, GRN0);
           U.vines++;
         }
       }
@@ -94087,8 +94092,15 @@ try {
       /* Always mint a new canvas map so a stale white/blank texCache entry
          cannot linger, and these IDs never stay in the plant/alpha path
          (buildChunk draws them as solid cubes). */
-      try { if (typeof PLANT !== 'undefined') delete PLANT[id]; } catch (_) {}
-      try { if (typeof LEAFY !== 'undefined') delete LEAFY[id]; } catch (_) {}
+      /* PLANT and LEAFY are Uint8Array(1024): delete is a no-op and left
+         402/412 marked as plants. buildChunk then draws them as cross
+         InstancedMeshes with a deleted PLANT_MATS entry, which shows as a
+         white/untextured placeholder even though the block is still minable. */
+      try { if (typeof PLANT !== 'undefined') PLANT[id] = 0; } catch (_) {}
+      try { if (typeof LEAFY !== 'undefined') LEAFY[id] = 0; } catch (_) {}
+      try { if (typeof chunkST !== 'undefined' && chunkST) chunkST[id] = 0; } catch (_) {}
+      try { if (typeof PLANT_H !== 'undefined') delete PLANT_H[id]; } catch (_) {}
+      try { if (typeof PLANT_W !== 'undefined') delete PLANT_W[id]; } catch (_) {}
       const T3 = window.THREE || THREE;
       let t = new T3.CanvasTexture(canvas);
       t.wrapS = t.wrapT = T3.RepeatWrapping;
