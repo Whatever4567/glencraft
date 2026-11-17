@@ -282,6 +282,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1299-v1.2.99 -->
 <!-- glencraft-build: b1300-v1.2.100 -->
 <!-- glencraft-build: b1301-v1.2.101 -->
+<!-- glencraft-build: b1304-v1.2.104 -->
 <!-- glencraft-build: b1303-v1.2.103 -->
 <!-- glencraft-build: b1302-v1.2.102 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
@@ -13642,7 +13643,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.103';
+const GAME_VERSION = '1.2.104';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63283,6 +63284,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.104","d":"2026-11-17","notes":["The lag that crept in after the 1.2.99–1.2.103 landscape and cave updates is reduced: a remesh loop that stacked work the longer you played is gone, and the many cave and village torches now share a merged model.","Ravines, deep caverns, Highland peaks, streamed England, Ireland and Wales land, and volcano eruptions are unchanged."]},
 {"v":"v1.2.103","d":"2026-11-17","notes":["The underground river hall is a wide multi-arch colonnade over blue water, with a grass lid, hanging moss and lamps.","Deep caves you can actually find include a lush moss chamber with a cyan pool, a dark hall of long cyan crystal spikes, and a basalt mines cavern with a magma river and plank walkways. The 401–412 block textures no longer show white faces or scribble veins.","New and reset Highlands worlds have a taller jagged northern stone ridge above heather and sea. Ben Glencraft stays the highest added peak.","England, Ireland and Wales beyond the main map, and the volcano eruptions, are unchanged."]},
 {"v":"v1.2.102","d":"2026-11-17","notes":["The underground river hall now shows stone arches over blue water, with a grass lid, hanging moss and lamps.","Deep cave layers can be walked in first person: mossy green caves, dark halls with blue crystal, and wooden mines with magma.","New and reset Highlands worlds have sharper snowy crags in the far north.","England, Ireland and Wales have their own look on the land beyond the main Highlands map."]},
 {"v":"v1.2.101","d":"2026-11-17","notes":["Every lava crater on the map can now erupt from its own crater on the ground. The volcano that used to erupt in mid-air is gone.","Ben Glencraft, a bigger volcano, stands south of spawn, well away from the village.","Eruptions now start with a low rumble and a gentle shake. The crater lava sinks, pauses, then surges up in a thick jet under a black ash cloud.","Lava pours over the rim and floods far down the slopes, then cools into basalt, or obsidian where it meets water.","No more screen-shaking blasts or flying lava bombs. The spawn pad and village stay safe."]},
@@ -72476,7 +72478,9 @@ try {
   function wrapDeep() {
     try {
       const V = window.__v1217;
-      if (!V || !V.gen || V.gen.__v1300) return;
+      /* Module flag wins: never re-wrap after the first install, even if a
+         later hook (fix1278 / V1302) replaced the outermost gen. */
+      if (U._deepHooked || !V || !V.gen || V.gen.__v1300) return;
       const _g = V.gen;
       function h3(x, y, z) {
         let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263) ^ Math.imul(z | 0, 2147483647);
@@ -72597,21 +72601,24 @@ try {
         return b;
       };
       V.gen.__v1300 = 1;
+      /* Keep peer flags on the outermost fn so fix1278 (400ms) and V1302
+         do not treat this as a fresh gen and restack. */
+      try { if (_g.f1278) V.gen.f1278 = _g.f1278; } catch (_) {}
+      try { if (_g.__v1302) V.gen.__v1302 = 1; } catch (_) {}
       U.deepWrap = 1;
-      try { if (window.__c324 && __c324.cache && __c324.cache.clear) __c324.cache.clear(); } catch (_) {}
+      if (!U._deepHooked) {
+        U._deepHooked = 1;
+        try { if (window.__c324 && __c324.cache && __c324.cache.clear) __c324.cache.clear(); } catch (_) {}
+      }
     } catch (e) { ERR('wrap', e); }
   }
   wrapDeep();
-  setInterval(wrapDeep, 2000);
+  /* Do not poll-wrap. fix1278's hookGen (every 400ms) and V1302's hookGen
+     replace the outermost gen and drop .__v1300, so a 2s interval restacked
+     wrapDeep and cleared the C324 cache forever (same leak class as 1.2.85).
+     The 40ms C.dirty.add('near') was also a no-op (keys are 'cx,cz') that
+     could only hurt if something later expanded 'near'. */
 
-  /* Faster deep meshing while the player is below the surface (evidence / play). */
-  setInterval(() => {
-    try {
-      if (!started || typeof P === 'undefined' || P.y > 2) return;
-      const C = window.__c324;
-      if (C && C.dirty && C.dirty.add) C.dirty.add('near');
-    } catch (_) {}
-  }, 40);
 
   /* ---- Surface worldgen (new/reset g89 only): cliffs, peaks, castle blend, r2 cave dress ---- */
   function topOf(x, z) {
@@ -72920,6 +72927,7 @@ try {
 
   function run(rnd) {
     const t0 = performance.now();
+    try { hookStreamedBiomes(); } catch (e) { ERR('rehook', e); }
     const [sx, sz] = spawnXZ();
     try { sculptPeaks(sx, sz, rnd); } catch (e) { ERR('peaks', e); }
     try { sculptCliffs(rnd); } catch (e) { ERR('cliffs', e); }
@@ -73036,6 +73044,7 @@ try {
       };
       for (const k in f0) f[k] = f0[k];
       f.top = f0.top; f.c347 = f0.c347; f.dw = f0.dw; f.__v1301 = 1;
+      try { if (f0.f1278) f.f1278 = f0.f1278; } catch (_) {}
       e.fearth = f;
       try { if (window.__c324 && __c324.cache && __c324.cache.clear) __c324.cache.clear(); } catch (_) {}
       U.feHook = 1;
@@ -94634,6 +94643,8 @@ try {
         return g0.apply(this, arguments);
       };
       g.__v1302 = 1;
+      try { if (g0.f1278) g.f1278 = g0.f1278; } catch (_) {}
+      try { if (g0.__v1300) g.__v1300 = 1; } catch (_) {}
       v.gen = g;
       U.genHook = 1;
     } catch (e) { ERR('genhook', e); }
@@ -95090,6 +95101,66 @@ try {
     };
   } catch (e) { ERR('hook', e); }
 })();
+
+/* GLX-V1304: perf. Merge HD torch Mesh parts (9 Phong meshes each) into
+   one mesh per material via the v1222 merger. Flame sprites stay. Applied
+   when a torch is built and once after the world starts. No poll: a 4s
+   pass was a hitch source. Distance-cull world models only (lightSrc stays). */
+(function v1304() {
+  const U = window.__v1304 = {err: null, merged: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  function looksTorch(g) {
+    if (!g || (g.userData && g.userData.merged1304)) return false;
+    let cyl = 0, mesh = 0, spr = 0;
+    g.traverse(o => {
+      if (o.isSprite) spr++;
+      else if (o.isMesh) {
+        mesh++;
+        if (o.geometry && o.geometry.type === 'CylinderGeometry') cyl++;
+      }
+    });
+    return mesh >= 7 && cyl >= 3 && spr >= 1;
+  }
+  function mergeOne(g, world) {
+    if (!g || (g.userData && g.userData.merged1304)) return false;
+    const sprites = [];
+    g.traverse(o => { if (o.isSprite) sprites.push(o); });
+    for (const s of sprites) { if (s.parent) s.parent.remove(s); }
+    let ok = false;
+    try { if (window.__mergeG) ok = !!window.__mergeG(g, 'torchHD1304'); } catch (e) { ERR('mg', e); }
+    for (const s of sprites) g.add(s);
+    try {
+      g.userData.merged1304 = 1;
+      if (world) { g.userData.__dcK = 1; if (g.userData.__dcR == null) g.userData.__dcR = 72; }
+    } catch (_) {}
+    if (ok) U.merged++;
+    return ok;
+  }
+  function pass() {
+    try {
+      if (typeof scene === 'undefined' || !scene) return;
+      for (const c of scene.children) {
+        if (looksTorch(c)) mergeOne(c, true);
+        else if (c.children && c.children.length === 1 && looksTorch(c.children[0])) mergeOne(c.children[0], true);
+      }
+    } catch (e) { ERR('pass', e); }
+  }
+  U.pass = pass;
+  try {
+    if (typeof makeTorchModel === 'function') {
+      const mt = makeTorchModel;
+      makeTorchModel = function () {
+        const r = mt.apply(this, arguments);
+        try { if (r && r.g && !r.g.userData.merged1304) mergeOne(r.g, false); } catch (e) { ERR('mt', e); }
+        return r;
+      };
+    }
+  } catch (e) { ERR('wrap', e); }
+  const boot = () => { try { if (typeof started !== 'undefined' && started) pass(); } catch (e) { ERR('boot', e); } };
+  setTimeout(boot, 2500);
+  setTimeout(boot, 8000);
+})();
+
 
 (function v1300(G) {
   const U = G.__v1300 = {err: null, on: 0, sites: 0, ph: 'idle', site: -1, lava: 0, fronts: 0, maxReach: 0, steps: 0, cooled: 0, quench: 0,

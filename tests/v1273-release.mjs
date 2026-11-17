@@ -13,7 +13,7 @@ const ver = fs.readFileSync(path.join(root, 'version.json'), 'utf8');
 let n = 0;
 const ok = (c, label) => { assert.ok(c, label); console.log('ok ' + (++n) + ' ' + label); };
 
-ok(html.includes("const GAME_VERSION = '1.2.73';") || html.includes("const GAME_VERSION = '1.2.72';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';"), 'GAME_VERSION is 1.2.73 (or 1.2.72)');
+ok(html.includes("const GAME_VERSION = '1.2.73';") || html.includes("const GAME_VERSION = '1.2.72';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';"), 'GAME_VERSION is 1.2.73 (or 1.2.72)');
 ok(/"v"\s*:\s*"1\.2\.73"/.test(ver) || /"v"\s*:\s*"1\.2\.72"/.test(ver), 'version.json is 1.2.73 (or 1.2.72)');
 ok(html.includes('<!-- glencraft-build: b1273-v1.2.73 -->') || html.includes('<!-- glencraft-build: b1272-v1.2.72 -->'), 'build marker present');
 
