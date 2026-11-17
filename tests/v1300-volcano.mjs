@@ -37,6 +37,8 @@ try {
   await page.waitForFunction(() => typeof started !== 'undefined' && started && screen !== 'loading', null, {timeout: 600000});
   await page.waitForFunction(() => window.__v1300 && __v1300.built > 0, null, {timeout: 60000}).catch(() => {});
   await page.waitForTimeout(2500);
+  /* V1302 post-generate work can delay the 1s c229 housekeeping tick. */
+  await page.waitForFunction(() => current.c229 && current.c229.__v1300 !== undefined, null, {timeout: 20000});
   const A = await page.evaluate(() => { const U = __v1300, L = U.list(), sp = U.spawnXZ(); const out = [];
     for (const s of L) { const a = U.anchor(s.i, true), t = U.surf(s.x, s.z), below = getB(s.x, a.vent - 1, s.z);
       out.push({i: s.i, k: s.k, x: s.x, z: s.z, h: s.h, vent: a.vent, surf: t, below, rim: a.rim, rimMax: a.rimMax, base: a.base, dSp: Math.hypot(s.x - sp[0], s.z - sp[1])}); }
