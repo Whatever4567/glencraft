@@ -17,8 +17,8 @@ let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
 // ---------- source: version, notes, inject ----------
-ok(ver.v === '1.2.101' || ver.v === '1.2.102', 'version.json is 1.2.102');
-ok(html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';"), 'GAME_VERSION is 1.2.100');
+ok(ver.v === '1.2.101' || ver.v === '1.2.102' || ver.v === '1.2.103', 'version.json is 1.2.102');
+ok(html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';"), 'GAME_VERSION is 1.2.100');
 ok(html.includes('<!-- glencraft-build: b1296-v1.2.96 -->'), 'b1296 build marker');
 ok(html.includes('<!-- glencraft-build: b1299-v1.2.99 -->'), 'b1299 build marker');
 ok(html.includes('<!-- glencraft-build: b1300-v1.2.100 -->'), 'b1300 build marker');
