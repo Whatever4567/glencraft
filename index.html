@@ -94073,29 +94073,31 @@ try {
       NAMES[id] = NAMES[id] || key;
       FACES[id] = key;
       if (typeof ICON_KEY !== 'undefined') ICON_KEY[id] = key;
-      let t = (typeof texCache !== 'undefined') ? texCache[key] : null;
-      if (!t && typeof tex === 'function') {
-        try { t = tex(key); } catch (_) {}
-      }
-      if (t) {
-        t.image = canvas;
-        t.needsUpdate = true;
-        try { t.wrapS = t.wrapT = THREE.RepeatWrapping; } catch (_) {}
-        try { if (typeof TEXANISO !== 'undefined') t.anisotropy = TEXANISO; } catch (_) {}
-      }
+      /* Always mint a new canvas map so a stale white/blank texCache entry
+         cannot linger, and these IDs never stay in the plant/alpha path
+         (buildChunk draws them as solid cubes). */
+      try { if (typeof PLANT !== 'undefined') delete PLANT[id]; } catch (_) {}
+      try { if (typeof LEAFY !== 'undefined') delete LEAFY[id]; } catch (_) {}
+      const T3 = window.THREE || THREE;
+      let t = new T3.CanvasTexture(canvas);
+      t.wrapS = t.wrapT = T3.RepeatWrapping;
+      t.magFilter = T3.NearestFilter;
+      t.minFilter = T3.NearestFilter;
+      t.needsUpdate = true;
+      try { if (typeof TEXANISO !== 'undefined') t.anisotropy = TEXANISO; } catch (_) {}
+      try { if (typeof texCache !== 'undefined') texCache[key] = t; } catch (_) {}
       if (typeof matCache !== 'undefined') delete matCache[key];
       let m = null;
       try { m = (typeof mat === 'function') ? mat(key) : null; } catch (_) {}
       if (m) {
-        if (opt.plant) {
-          m.transparent = true;
-          m.alphaTest = 0.25;
-          m.side = THREE.DoubleSide;
-          m.depthWrite = true;
-        }
+        m.map = t;
+        m.transparent = false;
+        m.alphaTest = 0;
+        m.side = T3.FrontSide;
+        m.depthWrite = true;
         if (opt.emit && m.emissive) {
           m.emissive.setHex(opt.emit);
-          m.emissiveMap = m.map;
+          m.emissiveMap = t;
           m.emissiveIntensity = opt.emi != null ? opt.emi : 0.7;
         }
         m.needsUpdate = true;
@@ -94104,6 +94106,7 @@ try {
         BLOCK_MATS[id] = m || BLOCK_MATS[id];
         BLOCK_MATS[String(id)] = BLOCK_MATS[id];
       }
+      try { if (typeof PLANT_MATS !== 'undefined') delete PLANT_MATS[id]; } catch (_) {}
       U.tex++;
     } catch (e) { ERR('tex ' + key, e); }
   }
@@ -94196,18 +94199,23 @@ try {
     /* 406 basalt — columnar, but irregular edges so it is not a barcode */
     applyTex(406, 'basaltblk', paintCanvas((g) => {
       const rnd = seedRnd(406006);
-      g.fillStyle = '#1c1c22'; g.fillRect(0, 0, 256, 256);
+      g.fillStyle = '#1a1a20'; g.fillRect(0, 0, 256, 256);
       let x = 0;
       while (x < 256) {
-        const w = 12 + (rnd() * 10) | 0;
-        const shade = 28 + (rnd() * 28) | 0;
-        g.fillStyle = 'rgb(' + shade + ',' + shade + ',' + (shade + 6) + ')';
-        g.fillRect(x, 0, w - 2, 256);
-        g.fillStyle = '#0a0a0e';
-        g.fillRect(x + w - 2, 0, 2, 256);
-        /* subtle horizontal joints */
-        g.fillStyle = 'rgba(0,0,0,0.35)';
-        for (let y = 20 + ((x * 3) % 40); y < 256; y += 36 + (x % 10)) g.fillRect(x, y, w - 2, 2);
+        const w = 18 + (rnd() * 16) | 0;
+        const shade = 32 + (rnd() * 22) | 0;
+        g.fillStyle = 'rgb(' + shade + ',' + shade + ',' + (shade + 8) + ')';
+        g.fillRect(x, 0, w, 256);
+        /* mottled grain so columns do not read as a barcode */
+        for (let i = 0; i < 40; i++) {
+          const v = shade + ((rnd() * 18) | 0) - 8;
+          g.fillStyle = 'rgb(' + v + ',' + v + ',' + (v + 6) + ')';
+          g.fillRect(x + (rnd() * w) | 0, (rnd() * 256) | 0, 3 + (rnd() * 5) | 0, 4 + (rnd() * 8) | 0);
+        }
+        g.fillStyle = 'rgba(0,0,0,0.28)';
+        g.fillRect(x + w - 1, 0, 1, 256);
+        g.fillStyle = 'rgba(0,0,0,0.3)';
+        for (let y = 24 + ((x * 5) % 30); y < 256; y += 44 + (x % 12)) g.fillRect(x, y, w, 2);
         x += w;
       }
     }));
@@ -94221,17 +94229,23 @@ try {
         g.fillStyle = 'rgb(' + (v + 8) + ',' + v + ',' + (v - 2) + ')';
         g.fillRect((rnd() * 256) | 0, (rnd() * 256) | 0, 4, 3);
       }
-      g.lineCap = 'round';
-      for (let i = 0; i < 8; i++) {
-        let x = rnd() * 256, y = rnd() * 256;
-        g.strokeStyle = i % 2 ? '#ff6a1a' : '#ff3a10';
-        g.lineWidth = 3 + (i % 3);
-        g.beginPath(); g.moveTo(x, y);
-        for (let k = 0; k < 6; k++) {
-          x += (rnd() - 0.4) * 50; y += (rnd() - 0.3) * 60;
-          g.lineTo(x, y);
-        }
-        g.stroke();
+      /* a few wide molten seams, not random line scribbles */
+      for (let i = 0; i < 6; i++) {
+        const x0 = 20 + rnd() * 200, y0 = 16 + rnd() * 200;
+        const w = 10 + rnd() * 16, h = 40 + rnd() * 90;
+        const ang = (rnd() - 0.5) * 0.8;
+        g.save();
+        g.translate(x0, y0); g.rotate(ang);
+        const rg = g.createLinearGradient(0, 0, 0, h);
+        rg.addColorStop(0, '#ffd080'); rg.addColorStop(0.35, '#ff6a18'); rg.addColorStop(1, '#5a1000');
+        g.fillStyle = rg;
+        g.beginPath();
+        g.moveTo(-w * 0.2, 0);
+        g.lineTo(w * 0.2, 0);
+        g.lineTo(w * 0.55, h);
+        g.lineTo(-w * 0.45, h * 0.85);
+        g.closePath(); g.fill();
+        g.restore();
       }
     }), {emit: 0xff4010, emi: 0.7});
 
@@ -94394,15 +94408,60 @@ try {
     SN: T.PACKSNOW || T.SNOW || T.STONE
   });
 
-  /* ---------- Deep showcase chambers (wrap v1217.gen, not volcano) ---------- */
+  /* ---------- Deep caverns players actually walk into (wrap v1217.gen) ---------- */
   function anchors() {
     const [sx, sz] = spawnXZ();
     const gx = sx + 72, gz = sz + 48;
     return {
-      r3: {id: 'r3', x: gx, y: -28, z: gz, rx: 18, ry: 16, rz: 16, kind: 'lush'},
-      r4: {id: 'r4', x: gx + 8, y: -86, z: gz + 6, rx: 20, ry: 18, rz: 18, kind: 'crystal'},
-      r5: {id: 'r5', x: gx - 6, y: -140, z: gz + 10, rx: 24, ry: 20, rz: 22, kind: 'mines'}
+      r3: {id: 'r3', x: gx, y: -30, z: gz, rx: 22, ry: 22, rz: 20, kind: 'lush'},
+      r4: {id: 'r4', x: gx + 10, y: -90, z: gz + 4, rx: 26, ry: 24, rz: 24, kind: 'crystal'},
+      r5: {id: 'r5', x: gx - 8, y: -148, z: gz + 8, rx: 30, ry: 26, rz: 28, kind: 'mines'}
     };
+  }
+  let SITES = null, SITE_GRID = null;
+  function allSites() {
+    if (SITES) return SITES;
+    const list = [];
+    const A = anchors();
+    list.push(A.r3, A.r4, A.r5);
+    if (typeof W === 'number' && W >= 600 && typeof D === 'number') {
+      const [sx, sz] = spawnXZ();
+      const kinds = [
+        {kind: 'lush', y: -32, rx: 18, ry: 18, rz: 16},
+        {kind: 'crystal', y: -90, rx: 22, ry: 20, rz: 20},
+        {kind: 'mines', y: -148, rx: 26, ry: 22, rz: 24}
+      ];
+      const step = 160;
+      for (let x = 90; x < W - 90; x += step) {
+        for (let z = 90; z < D - 90; z += step) {
+          const xx = x + Math.floor(h3(x, 1, z) * 50) - 25;
+          const zz = z + Math.floor(h3(x, 2, z) * 50) - 25;
+          if (inVillage(xx, zz) || isProt(xx, zz) || skipDeep(xx, zz)) continue;
+          if (Math.hypot(xx - sx, zz - sz) < 80) continue;
+          if (Math.hypot(xx - 480, zz - 611) < 96) continue;
+          if (Math.hypot(xx - A.r3.x, zz - A.r3.z) < 64) continue;
+          const K = kinds[Math.floor(h3(xx, 7, zz) * 3) % 3];
+          list.push({id: 'g' + xx + '_' + zz, x: xx, y: K.y, z: zz, rx: K.rx, ry: K.ry, rz: K.rz, kind: K.kind});
+        }
+      }
+    }
+    SITES = list;
+    U.nSites = list.length;
+    return list;
+  }
+  function siteGrid() {
+    if (SITE_GRID) return SITE_GRID;
+    const G = 32, map = new Map();
+    for (const R of allSites()) {
+      const x0 = Math.floor((R.x - R.rx - 8) / G), x1 = Math.floor((R.x + R.rx + 8) / G);
+      const z0 = Math.floor((R.z - R.rz - 8) / G), z1 = Math.floor((R.z + R.rz + 8) / G);
+      for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) {
+        const k = cx + ',' + cz;
+        const a = map.get(k); if (a) a.push(R); else map.set(k, [R]);
+      }
+    }
+    SITE_GRID = map;
+    return map;
   }
   const skipDeep = (x, z) => {
     try {
@@ -94428,21 +94487,28 @@ try {
   function chamberAt(x, y, z) {
     if (y >= 0 || y <= -230) return null;
     if (typeof W === 'undefined' || W < 600) return null;
-    const A = anchors();
-    for (const key of ['r3', 'r4', 'r5']) {
-      const R = A[key];
+    const G = 32;
+    const bucket = siteGrid().get(Math.floor(x / G) + ',' + Math.floor(z / G));
+    if (!bucket) return null;
+    const B = ids();
+    for (const R of bucket) {
+      if (skipDeep(R.x, R.z)) continue;
       const dx = x + 0.5 - R.x, dy = y + 0.5 - R.y, dz = z + 0.5 - R.z;
+      /* short entrance tunnels so natural deep caves open into the halls */
+      const mid = R.y;
+      if (Math.abs(y - mid) <= 2) {
+        const alongX = Math.abs(dz) <= 2.2 && Math.abs(dx) >= R.rx - 1 && Math.abs(dx) <= R.rx + 10;
+        const alongZ = Math.abs(dx) <= 2.2 && Math.abs(dz) >= R.rz - 1 && Math.abs(dz) <= R.rz + 10;
+        if (alongX || alongZ) return 0;
+      }
       if (Math.abs(dx) > R.rx + 3 || Math.abs(dy) > R.ry + 3 || Math.abs(dz) > R.rz + 3) continue;
-      if (skipDeep(R.x, R.z)) return null;
       const d2 = (dx * dx) / (R.rx * R.rx) + (dy * dy) / (R.ry * R.ry) + (dz * dz) / (R.rz * R.rz);
-      if (d2 > 1.18) return null;
-      const B = ids();
+      if (d2 > 1.18) continue;
       if (d2 > 1.0) {
         if (R.kind === 'lush') return (y > R.y + R.ry - 4) ? B.ST : (h3(x, 3, z) < 0.3 ? B.MO : B.ST);
         if (R.kind === 'crystal') return h3(x, y, z) < 0.08 ? B.CC : B.DS;
         return h3(x, y, z) < 0.07 ? B.MV : B.BA;
       }
-      /* interior */
       if (R.kind === 'lush') return lushAt(x, y, z, R, B, dx, dy, dz, d2);
       if (R.kind === 'crystal') return cryAt(x, y, z, R, B, dx, dy, dz, d2);
       return mineAt(x, y, z, R, B, dx, dy, dz, d2);
@@ -94453,29 +94519,26 @@ try {
   function lushAt(x, y, z, R, B, dx, dy, dz, d2) {
     const floor = R.y - R.ry + 2;
     const ceil = R.y + R.ry - 1;
-    /* floor moss + dirt */
     if (y <= floor) return y === floor ? B.MO : B.DI;
-    /* cyan glow pools — two basins on the floor */
-    const pools = [[-6, -4, 5], [7, 3, 4.5]];
+    const pools = [[-7, -5, 6], [8, 4, 5.5], [0, 8, 3.5]];
     for (const [px, pz, pr] of pools) {
       const d = Math.hypot(dx - px, dz - pz);
-      if (d < pr + 1.2 && y <= floor + 2) {
+      if (d < pr + 1.4 && y <= floor + 2) {
         if (d < pr && y >= floor && y <= floor + 1) return B.WA;
         if (d >= pr && y <= floor + 1) return B.CC;
-        if (d < pr + 0.6 && y === floor + 2 && h3(x, 9, z) < 0.4) return B.GD;
+        if (d < pr + 0.7 && y === floor + 2 && h3(x, 9, z) < 0.45) return B.GD;
       }
     }
-    /* hanging vines / moss from the ceiling */
-    if (y < ceil && y > floor + 3) {
+    /* dense hanging moss (solid 401 cubes only — never HMOSS/LEAVES, those were white) */
+    if (y < ceil && y > floor + 2) {
       const cell = ((x * 13 + z * 29) & 15);
-      if (cell < 4) {
-        const len = 5 + ((x * 7 + z) & 7);
-        if (ceil - y <= len) return (cell & 1) ? B.MO : B.LV;
+      if (cell < 8) {
+        const len = 8 + ((x * 7 + z) & 11);
+        if (ceil - y <= len) return B.MO;
       }
     }
     if (y >= ceil) return B.ST;
-    /* a few moss boulders */
-    if (y <= floor + 3 && h3(x >> 1, 11, z >> 1) < 0.04 && Math.hypot((x & 3) - 1.5, y - floor - 0.5, (z & 3) - 1.5) < 2) return B.MO;
+    if (y <= floor + 3 && h3(x >> 1, 11, z >> 1) < 0.05 && Math.hypot((x & 3) - 1.5, y - floor - 0.5, (z & 3) - 1.5) < 2) return B.MO;
     return 0;
   }
 
@@ -94485,10 +94548,10 @@ try {
     if (y <= floor) return B.DS;
     if (y >= ceil) return h3(x, 4, z) < 0.15 ? B.CC : B.DS;
     /* long hanging cyan spikes from the ceiling, and shorter floor spikes */
-    const gx = Math.round(x / 7) * 7, gz = Math.round(z / 7) * 7;
-    if (Math.hypot(x - gx, z - gz) < 2.2 && h3(gx, 21, gz) < 0.72) {
-      const hang = 10 + Math.floor(h3(gx, 22, gz) * 12);
-      const rise = 5 + Math.floor(h3(gx, 23, gz) * 8);
+    const gx = Math.round(x / 6) * 6, gz = Math.round(z / 6) * 6;
+    if (Math.hypot(x - gx, z - gz) < 2.4 && h3(gx, 21, gz) < 0.82) {
+      const hang = 14 + Math.floor(h3(gx, 22, gz) * 16);
+      const rise = 6 + Math.floor(h3(gx, 23, gz) * 10);
       const rHang = 1.1 + h3(gx, 24, gz) * 0.8;
       const rRise = 0.9 + h3(gx, 25, gz) * 0.6;
       if (ceil - y <= hang) {
@@ -94528,8 +94591,15 @@ try {
     /* vertical supports */
     if ((Math.abs(dx + 2) <= 1 && Math.abs(dz - walkZ) <= 1 || Math.abs(dx - 8) <= 0 && Math.abs(dz - walkZ) <= 0) && y > floor && y < mid && (x + z) % 5 === 0) return B.LG;
     /* lamps along the walkway */
-    if (Math.abs(dz - walkZ) <= 1 && (x % 6) === 0 && y === mid + 1 && Math.abs(dx) < R.rx - 4) return B.TO;
-    if (y >= ceil) return B.BA;
+    /* lava falls on the walls */
+    if (d2 > 0.72 && d2 < 0.98 && h3(x, 17, z) < 0.08) {
+      const fx = Math.round(x / 5) * 5, fz = Math.round(z / 5) * 5;
+      if (Math.hypot(x - fx, z - fz) < 1.6 && y > floor && y < ceil) return B.LA;
+    }
+    /* a lower plank deck over the lava */
+    if (Math.abs(dz + 4) <= 1 && Math.abs(dx) < R.rx - 5 && y === floor + 5) return B.MP;
+    if (Math.abs(dz + 4) === 2 && Math.abs(dx) < R.rx - 5 && y === floor + 6 && (x & 1)) return B.RP;
+    if (Math.abs(dz + 4) <= 1 && (x % 7) === 0 && y === floor + 6 && Math.abs(dx) < R.rx - 6) return B.TO;
     return 0;
   }
 
@@ -94639,9 +94709,9 @@ try {
         const ay = bed + 3 + Math.round(Math.sin(t * Math.PI) * (HALLH - 3));
         put(xx, ay, gz + dz, B.ST);
         put(xx, ay + 1, gz + dz, B.ST);
-        /* legs only on the far bank (positive Z). The low-Z face is a cutaway
-           so a wide camera can see the whole colonnade, like the r2 ref. */
-        if (dz >= 3) {
+        /* two-legged arches; the plaza is now a real open cutaway so a pulled-back
+           camera can see the whole colonnade without a near-leg slot. */
+        if (dz <= -3 || dz >= 3) {
           for (let y = bed + 1; y < ay; y++) put(xx, y, gz + dz, B.ST);
         }
       }
@@ -94689,9 +94759,13 @@ try {
         if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
         for (let y = Math.max(2, bed - 1); y <= yTop; y++) {
           const b = world[idx(xx, y, zz)];
-          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          if (placed(idx(xx, y, zz))) continue;
+          /* clear trees and plants too — leftover logs pinned g9cols tall and a
+             later remesh packed the hollow with stone. Keep only real structures. */
+          if (keep(b) && !(b === T.LOG || b === T.PINELOG || b === T.BIRCHLOG || b === T.ALDERLOG || b === T.ROWANLOG || b === T.YEWLOG || b === T.ROTLOG)) continue;
           if (b === T.WATER) continue;
-          put(xx, y, zz, 0);
+          world[idx(xx, y, zz)] = 0;
+          mark(xx, zz);
         }
         /* flat floor so the camera is not buried in leftover hillside */
         if (dz < -HALFZ) put(xx, bed, zz, B.ST);
@@ -94714,10 +94788,66 @@ try {
       }
     }
     U.r2 = [gx, gy, gz, bed, HALFX, HALFZ, HALLH];
+    U.cut = {
+      gx, gz, bed, yTop, HALFX, HALFZ,
+      x0: gx - HALFX - 6, x1: gx + HALFX + 6,
+      z0: gz - HALFZ - 36, z1: gz - 3,
+      zHall: gz - HALFZ,
+      camY: bed + 8, camZ: gz - HALFZ - 30
+    };
     /* south terrace, looking north at the long face of the hall */
     U.cams = U.cams || {};
-    U.cams.r2 = {x: gx, y: bed + 7, z: gz - HALFZ - 28, yaw: Math.PI, pitch: 0.06, fov: 64};
+    U.cams.r2 = {x: gx, y: bed + 8, z: gz - HALFZ - 30, yaw: Math.PI, pitch: 0.02, fov: 66};
     U.rooms.r2 = {x: gx, y: gy, z: gz, bed: bed};
+    recarvePlaza.B = B;
+    U.recarvePlaza = recarvePlaza;
+  }
+
+  function recarvePlaza() {
+    const C = U.cut; if (!C) return 0;
+    const B = recarvePlaza.B || ids();
+    let n = 0;
+    for (let x = C.x0; x <= C.x1; x++) {
+      for (let z = C.z0; z <= C.z1; z++) {
+        if (!inW(x, C.bed, z) || inVillage(x, z) || isProt(x, z)) continue;
+        for (let y = C.bed + 1; y <= C.yTop; y++) {
+          const i = idx(x, y, z);
+          if (placed(i)) continue;
+          const b = world[i];
+          if (!b || b === T.WATER) continue;
+          if (keep(b) && !(b === T.LOG || b === T.PINELOG || b === T.BIRCHLOG || b === T.ALDERLOG || b === T.ROWANLOG || b === T.YEWLOG || b === T.ROTLOG)) continue;
+          world[i] = 0; mark(x, z); n++;
+        }
+        if (z < C.zHall && !world[idx(x, C.bed, z)]) { put(x, C.bed, z, B.ST); n++; }
+      }
+    }
+    recan();
+    return n;
+  }
+
+  function protectCutaway() {
+    if (!U.cut || U.cut._hook) return;
+    try {
+      const C = U.cut;
+      const inCut = (x, y, z) => x >= C.x0 && x <= C.x1 && z >= C.z0 && z <= C.z1 && y > C.bed && y <= C.yTop;
+      const natural = b => b === T.STONE || b === T.DIRT || b === T.GRASS || b === T.DEEPSLATE || b === (T.PACKSNOW || 0) || b === (T.SNOW || 0) || b === (T.HEATHER || 0);
+      const sb = setB;
+      setB = function (x, y, z, v) {
+        if (v && inCut(x | 0, y | 0, z | 0) && natural(v)) { U.cutBlock = (U.cutBlock || 0) + 1; return; }
+        return sb.apply(this, arguments);
+      };
+      const rb = rebuild;
+      rebuild = function () {
+        try {
+          if (world[idx(C.gx, C.camY, C.camZ + 2)]) {
+            U.cutFix = (U.cutFix || 0) + 1;
+            recarvePlaza();
+          }
+        } catch (_) {}
+        return rb.apply(this, arguments);
+      };
+      U.cut._hook = 1;
+    } catch (e) { ERR('cut', e); }
   }
 
   /* ---------- Jagged snowy Highland ridge (below Ben) ---------- */
@@ -94758,17 +94888,18 @@ try {
       const cx = Math.round(origin.x + ux * s);
       const cz = Math.round(origin.z + uz * s);
       /* ridge height profile: higher at spires, still under Ben */
-      let prof = 8 + 6 * Math.cos(s * 0.07);
+      let prof = 10 + 7 * Math.cos(s * 0.07);
       let isSpire = 0, spR = 0;
       for (const p of spireAt) {
         const d = Math.abs(s - p);
-        if (d < 8) {
-          const k = 1 - d / 8;
-          prof += Math.round(k * k * (24 + (p === 0 ? 8 : 0)));
-          if (k > 0.35) { isSpire = 1; spR = Math.max(spR, 5 + (1 - d / 8) * 4); }
+        if (d < 7) {
+          const k = 1 - d / 7;
+          /* sharper, taller cones, still capped later at benTop */
+          prof += Math.round(Math.pow(k, 1.25) * (28 + (p === 0 ? 12 : 4)));
+          if (k > 0.3) { isSpire = 1; spR = Math.max(spR, 4 + (1 - d / 7) * 3); }
         }
       }
-      const baseR = isSpire ? Math.max(10, spR + 4) : 8;
+      const baseR = isSpire ? Math.max(8, spR + 3) : 7;
       for (let dx = -baseR - 2; dx <= baseR + 2; dx++) {
         for (let dz = -baseR - 2; dz <= baseR + 2; dz++) {
           const xx = cx + dx, zz = cz + dz;
@@ -94776,12 +94907,12 @@ try {
           if (keeps.some(k => Math.hypot(xx - k[0], zz - k[1]) < (k[0] === 480 && k[1] === 611 ? 80 : 40))) continue;
           const d = Math.hypot(dx, dz);
           /* jagged radius: notches and steep falloff (almost cliffs on the side) */
-          const jag = 0.22 * Math.sin(xx * 0.51 + zz * 0.37) + 0.16 * Math.cos(zz * 0.73 - xx * 0.29);
-          const rad = baseR * (1 + jag);
+          const jag = 0.34 * Math.sin(xx * 0.71 + zz * 0.47) + 0.22 * Math.cos(zz * 1.03 - xx * 0.39) + 0.1 * Math.sin((xx + zz) * 1.3);
+          const rad = baseR * Math.max(0.45, 1 + jag);
           if (d > rad) continue;
           const u = d / Math.max(1, rad);
-          /* pointed: almost linear on the skirts, quadratic near the tip */
-          const fall = isSpire ? Math.pow(1 - u, 1.65) : Math.pow(1 - u, 1.85);
+          /* steeper sides, narrower tips */
+          const fall = isSpire ? Math.pow(1 - u, 1.35) : Math.pow(1 - u, 1.7);
           const t0 = topOf(xx, zz);
           const top = Math.min(benTop, Math.max(t0, origin.t - 4) + Math.round(prof * fall));
           if (top <= t0) continue;
@@ -94814,8 +94945,8 @@ try {
     const mid = U.peakSites[0] || [origin.x, origin.t + 16, origin.z];
     /* camera sits at larger Z (south of the massif) and looks toward smaller Z */
     U.cams.peaks = {
-      x: origin.x, y: Math.max(sea + 14, origin.t + 2), z: origin.z + 44,
-      yaw: 0, pitch: -0.18, fov: 62
+      x: origin.x - 8, y: Math.max(sea + 16, origin.t - 6), z: origin.z + 40,
+      yaw: 0.22, pitch: -0.22, fov: 60
     };
   }
 
@@ -94825,15 +94956,63 @@ try {
     U.cams = U.cams || {};
     /* stand in the west-south of each hall, look toward the centre, wide FOV */
     /* mid-south of each hall, looking north across the volume (not into a wall) */
-    U.cams.r3 = {x: A.r3.x, y: A.r3.y - 4, z: A.r3.z + 10, yaw: Math.PI, pitch: 0.12, fov: 72};
-    U.cams.r4 = {x: A.r4.x, y: A.r4.y - 6, z: A.r4.z + 11, yaw: Math.PI, pitch: 0.28, fov: 72};
-    U.cams.r5 = {x: A.r5.x - 16, y: A.r5.y + 4, z: A.r5.z + 6, yaw: -Math.PI / 2, pitch: -0.08, fov: 70};
+    /* mid-south, looking north (+Z, yaw=π) across the volume — not into a wall */
+    U.cams.r3 = {x: A.r3.x, y: A.r3.y - 6, z: A.r3.z - (A.r3.rz - 6), yaw: Math.PI, pitch: 0.18, fov: 72};
+    U.cams.r4 = {x: A.r4.x, y: A.r4.y - 4, z: A.r4.z - (A.r4.rz - 6), yaw: Math.PI, pitch: 0.32, fov: 74};
+    U.cams.r5 = {x: A.r5.x - (A.r5.rx - 7), y: A.r5.y + 2, z: A.r5.z + 4, yaw: -Math.PI / 2, pitch: 0.06, fov: 72};
   }
+
+  /* Mesh only the room's chunk columns and y-bands (r=2), once. A full r=3/5
+     band was several minutes per room and would time out a bundled capture. */
+  U.meshRoom = function (R, r) {
+    const out = {ok: 0, n: 0, c324: 0, err: null, ms: 0};
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    try {
+      if (!R) return out;
+      r = r == null ? 2 : r;
+      if (window.__v1301) {
+        try { if (__v1301.armDeep) __v1301.armDeep(); } catch (_) {}
+        try { if (__v1301.hookFearh) __v1301.hookFearh(); } catch (_) {}
+      }
+      const C = window.__c324, e = window.__c320;
+      if (!C || !C.mesh || !e) { out.err = 'no c324'; return out; }
+      try { if (C.cache && C.cache.clear) C.cache.clear(); } catch (_) {}
+      const Csz = (typeof CH === 'number' && CH) || 16;
+      const ax = (window.__c321 && __c321.ax != null) ? __c321.ax : 2;
+      const piv = ax === 2 ? [0, 0, 0] : ((window.__c321 && __c321.piv) || [0, 0, 0]).slice();
+      const x0 = R.x - (R.rx || 16) - 2, x1 = R.x + (R.rx || 16) + 2;
+      const z0 = R.z - (R.rz || 16) - 2, z1 = R.z + (R.rz || 16) + 2;
+      const y0 = R.y - (R.ry || 16) - 2, y1 = R.y + (R.ry || 16) + 2;
+      const cx0 = Math.floor(x0 / Csz) - r, cx1 = Math.floor(x1 / Csz) + r;
+      const cz0 = Math.floor(z0 / Csz) - r, cz1 = Math.floor(z1 / Csz) + r;
+      /* clamp r so we only add one chunk of padding beyond the room */
+      const pcx0 = Math.floor(x0 / Csz) - 1, pcx1 = Math.floor(x1 / Csz) + 1;
+      const pcz0 = Math.floor(z0 / Csz) - 1, pcz1 = Math.floor(z1 / Csz) + 1;
+      const before = C.meshed || 0;
+      const b0 = Math.floor((y0 - 40) / 8) * 8, b1 = Math.floor((y1 - 40) / 8) * 8;
+      for (let band = b0; band <= b1; band += 8) {
+        for (let cx = pcx0; cx <= pcx1; cx++) {
+          for (let cz = pcz0; cz <= pcz1; cz++) {
+            try { C.mesh(ax, piv, cx, cz, band); out.n++; } catch (er) { if (!out.err) out.err = String(er).slice(0, 160); }
+          }
+        }
+      }
+      out.c324 = (C.meshed || 0) - before;
+      try { scene.traverse(o => { if (o.name === 'earth324') o.visible = true; }); } catch (_) {}
+      out.ok = out.c324 > 0 || out.n > 0 ? 1 : 0;
+    } catch (e) { out.err = String(e && e.stack || e).slice(0, 220); }
+    out.ms = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - t0);
+    U.lastMesh = out;
+    return out;
+  };
 
   function run() {
     const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     hookGen();
+    SITES = null; SITE_GRID = null;
+    try { allSites(); } catch (e) { ERR('sites', e); }
     try { gallery(); } catch (e) { ERR('r2', e); }
+    try { protectCutaway(); } catch (e) { ERR('cut', e); }
     try { jaggedRidge(); } catch (e) { ERR('peaks', e); }
     try { publishRooms(); } catch (e) { ERR('rooms', e); }
     recan();
