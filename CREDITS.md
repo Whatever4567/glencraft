@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.103 Wide river hall, generated deep caverns and a jagged Highland ridge
+
+- The underground river hall is a wide multi-arch colonnade over blue water, with a grass lid, hanging moss and lamps.
+- Deep caves players can actually find include a lush moss chamber with a cyan pool, a dark hall of long cyan crystal spikes, and a basalt mines cavern with a magma river and plank walkways. Block textures 401–412 no longer show white faces or scribble veins.
+- New and reset Highlands worlds have a taller jagged northern stone ridge above heather and sea. Ben Glencraft stays the highest added peak.
+- England, Ireland and Wales on the land beyond the main Highlands map are unchanged. The 1.2.101 volcano work is unchanged.
+
 ## v1.2.102 Deep caves, river arches, northern crags and UK biomes
 
 - The underground river hall has stone arches over blue water, a grass lid, hanging moss and lamps.

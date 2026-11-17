@@ -7,7 +7,7 @@ const src = fs.readFileSync(new URL('../tools/content-source/loading-1285.js', i
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';"), 'GAME_VERSION is 1.2.100');
+ok(html.includes("const GAME_VERSION = '1.2.99';") || html.includes("const GAME_VERSION = '1.2.100';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';"), 'GAME_VERSION is 1.2.100');
 ok(!html.includes("const GAME_VERSION = '1.2.97';"), 'GAME_VERSION is no longer 1.2.97');
 ok(!html.includes("const GAME_VERSION = '1.2.96';"), 'GAME_VERSION is no longer 1.2.96');
 ok(!html.includes("const GAME_VERSION = '1.2.95';"), 'GAME_VERSION is no longer 1.2.95');
