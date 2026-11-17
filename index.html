@@ -95227,9 +95227,11 @@ try {
 
   function hideBody(g) {
     if (!g || g.userData.batched1305) return;
+    const drop = [];
     g.traverse(o => {
-      if (o.isMesh && !o.isInstancedMesh && !(o.userData && o.userData._skip1305)) o.visible = false;
+      if (o.isMesh && !o.isInstancedMesh && !(o.userData && o.userData._skip1305)) drop.push(o);
     });
+    for (const o of drop) { if (o.parent) o.parent.remove(o); }
     g.userData.batched1305 = 1;
   }
 
@@ -95293,42 +95295,27 @@ try {
       U.batched++;
       U.buckets = recs.length;
     }
-    const px = (typeof P !== 'undefined' && P) ? P.x : 0;
-    const pz = (typeof P !== 'undefined' && P) ? P.z : 0;
-    while (root.children.length) {
-      const c = root.children[0];
-      root.remove(c);
-      if (c.geometry) c.geometry.dispose();
-    }
-    let vis = 0;
-    for (const b of recs) {
-      const items = b.items.filter(it => {
-        const dx = it.x - px, dz = it.z - pz;
-        return dx * dx + dz * dz <= FAR2;
-      });
-      if (!items.length) continue;
-      const mesh = new THREE.Mesh(bake(items), b.mat.clone());
-      mesh.frustumCulled = false;
-      mesh.matrixAutoUpdate = false;
-      mesh.userData._skip1305 = 1;
-      mesh.userData.__dcR = 1e9;
-      root.add(mesh);
-      vis += items.length;
+    if (!root.children.length) {
+      for (const b of recs) {
+        if (!b.items.length) continue;
+        const mesh = new THREE.Mesh(bake(b.items), b.mat.clone());
+        mesh.frustumCulled = false;
+        mesh.matrixAutoUpdate = false;
+        mesh.userData._skip1305 = 1;
+        mesh.userData.__dcR = 1e9;
+        root.add(mesh);
+      }
     }
     U.n = n;
-    U.vis = vis;
+    U.vis = recs.reduce((s, b) => s + b.items.length, 0);
     U.inst = root.children.length;
   }
 
   function tick() {
     try {
       if (typeof started === 'undefined' || !started || typeof scene === 'undefined' || !scene) return;
-      const px = (typeof P !== 'undefined' && P) ? (P.x | 0) : 0;
-      const pz = (typeof P !== 'undefined' && P) ? (P.z | 0) : 0;
-      const cell = (px / CELL | 0) + ',' + (pz / CELL | 0);
       const fresh = (() => { try { return torchRoots().some(g => !g.userData.batched1305); } catch (_) { return true; } })();
-      if (!fresh && cell === lastCell && recs) return;
-      lastCell = cell;
+      if (!fresh && recs && root && root.children.length) return;
       fill();
     } catch (e) { ERR('tick', e); }
   }
