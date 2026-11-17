@@ -1,4 +1,4 @@
-// v1.2.93: first-person pickaxe is held upright-forward in the fist, and
+// v1.2.95: first-person pickaxe is held upright-forward in the fist, and
 // the live map sheet is visible when held (portrait and landscape).
 import fs from 'node:fs';
 import path from 'node:path';
