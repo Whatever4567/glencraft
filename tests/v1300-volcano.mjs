@@ -51,13 +51,14 @@ try {
   ok(!A.out.some(o => Math.hypot(o.x - 605, o.z - 259) < 30), 'nothing erupts from the old floating stamp spot (605,259)');
   ok(!A.leg || Math.hypot(A.leg[0] - A.c229[0], A.leg[2] - A.c229[2]) > 3, 'old stamp kept only as c229legacy (' + JSON.stringify(A.leg) + ')');
   ok(sv && sv.dSp >= 120, 'Ben Glencraft is >= 120 from spawn (' + (sv && sv.dSp.toFixed(1)) + ')');
-  ok(sv && cr.every(o => sv.h > o.h) && cr.every(o => (sv.rimMax - sv.base) > (o.rimMax - o.base)), 'Ben Glencraft is bigger than every other volcano');
+  ok(sv && cr.every(o => sv.h > o.h && sv.rimMax > o.rimMax), 'Ben Glencraft is taller than every other volcano (h ' + (sv && sv.h) + ', top y ' + (sv && sv.rimMax) + ')');
+  { const L = await page.evaluate(() => __v1300.list()); const S = L.find(q => q.k === 'S'); ok(L.every(q => q.k === 'S' || S.r > q.r), 'Ben Glencraft is wider than every other volcano (r ' + S.r + ')'); }
   const R = await page.evaluate(() => { const U = __v1300, sp = U.spawnXZ(), PR = U.PROT_R; const lavaNear = () => { let n = 0; for (let x = Math.floor(sp[0] - PR + 8); x <= sp[0] + PR - 8; x++) for (let z = Math.floor(sp[1] - PR + 8); z <= sp[1] + PR - 8; z++) { if (Math.hypot(x - sp[0], z - sp[1]) > PR - 8) continue; for (let y = SEA - 3; y < H - 1; y++) if (world[idx(x, y, z)] === T.LAVA) n++; } return n; };
     const l0 = lavaNear(); U.speed = 0; const ok0 = U.erupt('spawn'); let n = 0, sum = 0, mx = 0, shk = 0; const ts = [];
     while (U.state() && n < 30000) { const a = performance.now(); U.tick(0.05); const d = performance.now() - a; sum += d; ts.push(d); if (d > mx) mx = d; n++; if (shakeAmp > shk) shk = shakeAmp; }
     ts.sort((p, q) => p - q); const l1 = lavaNear(); let pad = 0; for (let x = Math.floor(sp[0]) - 12; x <= sp[0] + 12; x++) for (let z = Math.floor(sp[1]) - 12; z <= sp[1] + 12; z++) for (let y = SEA - 3; y < H - 1; y++) if (world[idx(x, y, z)] === T.LAVA) pad++;
-    const r = __c242.erupt(true), blue0 = {r, st: U.state()}; const ser = serialize();
-    return {ok0, n, avg: sum / n, p95: ts[Math.floor(ts.length * 0.95)], mx, phases: U.phases.slice(), reach: U.maxReach, lava: U.lava, cooled: U.cooled, l0, l1, pad, shk, shakeMax: U.shakeMax, cap: U.SHAKE_CAP, bombs: __c242.bombs, c242: current.c242, c279: window.__c279 ? __c279.on : 0, err: U.err, blue0, ser: !!(ser && ser.v1300)}; });
+    const phases = U.phases.slice(), reach = U.maxReach, lava = U.lava; const r = __c242.erupt(true), blue0 = {r, st: U.state()}; const ser = serialize();
+    return {ok0, n, avg: sum / n, p95: ts[Math.floor(ts.length * 0.95)], mx, phases, reach, lava, cooled: U.cooled, l0, l1, pad, shk, shakeMax: U.shakeMax, cap: U.SHAKE_CAP, bombs: __c242.bombs, c242: current.c242, c279: window.__c279 ? __c279.on : 0, err: U.err, blue0, ser: !!(ser && ser.v1300)}; });
   console.log(JSON.stringify(Object.assign({}, R, {phases: R.phases.join(',')})));
   ok(R.ok0, 'Ben Glencraft erupts');
   const want = ['sink', 'surge', 'gush', 'pour', 'flood', 'cool']; let k = -1; ok(want.every(w => { const j = R.phases.indexOf(w); const g = j > k; k = j; return g; }), 'phases in order sink > surge > gush > pour > flood > cool (' + R.phases.join(',') + ')');
