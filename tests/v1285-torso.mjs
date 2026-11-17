@@ -21,14 +21,14 @@ ok(torso.includes('Object.assign(U, window.__torso1262cfg || {})'), 'QA config h
 ok(torso.includes('if (vBack1284 > 0.5) discard;'), 'sash back hidden by discard, not deleted');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 const credits = fs.readFileSync(path.join(root, 'CREDITS.md'), 'utf8');
-ok(['1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90', '1.2.91', '1.2.92'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.88';") || html.includes("const GAME_VERSION = '1.2.89';") || html.includes("const GAME_VERSION = '1.2.92';") || html.includes("const GAME_VERSION = '1.2.91';") || html.includes("const GAME_VERSION = '1.2.90';")), 'version 1.2.85+');
+ok(['1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90', '1.2.91', '1.2.92', '1.2.93'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.85';") || html.includes("const GAME_VERSION = '1.2.86';") || html.includes("const GAME_VERSION = '1.2.87';") || html.includes("const GAME_VERSION = '1.2.88';") || html.includes("const GAME_VERSION = '1.2.89';") || html.includes("const GAME_VERSION = '1.2.93';") || html.includes("const GAME_VERSION = '1.2.92';") || html.includes("const GAME_VERSION = '1.2.91';") || html.includes("const GAME_VERSION = '1.2.90';")), 'version 1.2.85+');
 ok(html.includes('<!-- glencraft-build: b1285-v1.2.85 -->') && html.includes('<!-- glencraft-build: b1284-v1.2.84 -->'), 'build markers');
 { const st = html.indexOf('{"v":"v1.2.85"'), en = html.indexOf('{"v":"v1.2.84"', st);
   ok(st > 0 && en > st && !/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(st, en)), '1.2.85 notes remain, no food');
   const s0 = html.indexOf('window.PATCH_NOTES = ['), e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
   const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.85') : -1;
-  ok(k >= 0 && k <= 7 && arr[k + 1].v === 'v1.2.84', 'PATCH_NOTES parses, 1.2.85 before 1.2.84'); }
+  ok(k >= 0 && k <= 8 && arr[k + 1].v === 'v1.2.84', 'PATCH_NOTES parses, 1.2.85 before 1.2.84'); }
 ok(credits.includes('## v1.2.85 Original shirt sides'), 'CREDITS 1.2.85');
 ok(html.includes("version: '1.2.59-frame-torch'") && html.includes('/* GLX-SCULPT1282') && html.includes('/* GLX-HANDSTP1282'), 'torch/pick jitter, FP sculpt and TP hands stay');
 console.log('PASS', n, 'v1285-torso checks');
