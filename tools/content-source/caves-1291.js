@@ -14,43 +14,85 @@
   const inB = (x, y, z) => x > 2 && z > 2 && y > 2 && x < W - 3 && z < D - 3 && y < H - 2;
   const placed = i => !!(typeof placedSet !== 'undefined' && placedSet && placedSet.has(i));
   const wet = (x, y, z) => world[idx(x, y + 1, z)] === T.WATER || world[idx(x + 1, y, z)] === T.WATER || world[idx(x - 1, y, z)] === T.WATER || world[idx(x, y, z + 1)] === T.WATER || world[idx(x, y, z - 1)] === T.WATER;
-  const tops = () => { const t = new Int16Array(W * D); for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * H * D + z; let y = H - 2; for (; y > 1; y--) { const b = world[c + y * D]; if (b && !PLANT[b] && !LEAFY[b] && !LOGGY[b]) break; } t[x * D + z] = y; } return t; };
-  const inside = (x, z, m) => window.__c273 ? __c273.edgeQ(x, z) < __c273.RE() - m : true;
+  const tops = () => {
+    const t = new Int16Array(W * D), wr = world;
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
+      const c = x * H * D + z; let y = H - 2;
+      // Skip empty sky in 4-high steps; never step over a solid, so the top matches a full scan.
+      while (y > 5 && !wr[c + y * D] && !wr[c + (y - 1) * D] && !wr[c + (y - 2) * D] && !wr[c + (y - 3) * D]) y -= 4;
+      for (; y > 1; y--) { const b = wr[c + y * D]; if (b && !PLANT[b] && !LEAFY[b] && !LOGGY[b]) break; }
+      t[x * D + z] = y;
+    }
+    return t;
+  };
+  // Cache the island edge field once per generate (edgeQ is a cbrt per call).
+  let EQ = null, RE0 = 0;
+  const ensureEQ = () => {
+    if (EQ && EQ.length === W * D) return EQ;
+    EQ = new Float64Array(W * D);
+    if (!window.__c273) { EQ.fill(-1e9); RE0 = 0; return EQ; }
+    RE0 = __c273.RE();
+    const e = __c273.edgeQ;
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) EQ[x * D + z] = e(x, z);
+    return EQ;
+  };
+  const inside = (x, z, m) => {
+    if (!window.__c273) return true;
+    if ((x | 0) === x && (z | 0) === z && x >= 0 && z >= 0 && x < W && z < D) return ensureEQ()[x * D + z] < RE0 - m;
+    return __c273.edgeQ(x, z) < __c273.RE() - m;
+  };
   const midAway = (x, z) => Math.hypot(x - (W >> 1), z - (D >> 1)) >= 70;
   // 1) fill pits: a column far below nearly all of its neighbours (not a ravine, not water) is filled back up to the ground
   function pits(tp) { let n = 0;
-    for (let p = 0; p < 2; p++) for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) { const t = tp[x * D + z]; if (!inside(x, z, 8)) continue;
-      const hs = []; for (const [dx, dz] of [[2, 0], [-2, 0], [0, 2], [0, -2], [2, 2], [-2, -2], [2, -2], [-2, 2]]) hs.push(tp[(x + dx) * D + z + dz]);
+    ensureEQ();
+    const hs = [0, 0, 0, 0, 0, 0, 0, 0], wr = world, sea = (typeof SEA === 'number' ? SEA : 40);
+    const lim = RE0 - 8;
+    for (let p = 0; p < 2; p++) for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) {
+      if (EQ[x * D + z] >= lim) continue;
+      const t = tp[x * D + z];
+      hs[0] = tp[(x + 2) * D + z]; hs[1] = tp[(x - 2) * D + z]; hs[2] = tp[x * D + z + 2]; hs[3] = tp[x * D + z - 2];
+      hs[4] = tp[(x + 2) * D + z + 2]; hs[5] = tp[(x - 2) * D + z - 2]; hs[6] = tp[(x + 2) * D + z - 2]; hs[7] = tp[(x - 2) * D + z + 2];
       hs.sort((a, b) => a - b); const med = hs[4]; if (t >= med - 2 || hs[1] < med - 2) continue;
-      const c = x * H * D + z; if (world[c + (t + 1) * D] === T.WATER || world[c + t * D] === T.WATER || med <= SEA) continue;
-      let ok = true; for (let y = t + 1; y <= med; y++) { const b = world[c + y * D]; if (b && !PLANT[b]) { ok = false; break; } } if (!ok) continue;
-      const g = world[c + med * D + 0] || T.GRASS;
-      for (let y = t + 1; y <= med; y++) world[c + y * D] = y === med ? T.GRASS : y >= med - 3 ? T.DIRT : T.STONE; tp[x * D + z] = med; n++; if (g) {} }
+      const c = x * H * D + z; if (wr[c + (t + 1) * D] === T.WATER || wr[c + t * D] === T.WATER || med <= sea) continue;
+      let ok = true; for (let y = t + 1; y <= med; y++) { const b = wr[c + y * D]; if (b && !PLANT[b]) { ok = false; break; } } if (!ok) continue;
+      const g = wr[c + med * D] || T.GRASS;
+      for (let y = t + 1; y <= med; y++) wr[c + y * D] = y === med ? T.GRASS : y >= med - 3 ? T.DIRT : T.STONE; tp[x * D + z] = med; n++; if (g) {} }
     U.filled = n; }
   function makeCarve(tp, cellsRef) {
+    const inland = (x, z, m) => x > m + 2 && z > m + 2 && x < W - m - 3 && z < D - m - 3 && inside(x, z, m);
+    const wr = world, WT = T.WATER, HD = H * D;
+    const isWet = (x, y, z) => {
+      const i = (x * H + y) * D + z;
+      return wr[i + D] === WT || wr[i + HD] === WT || wr[i - HD] === WT || wr[i + 1] === WT || wr[i - 1] === WT;
+    };
     const carve = (cx, cy, cz, r, keep, opts) => {
       opts = opts || {};
       const openSky = !!opts.openSky, flooded = !!opts.flooded, sealed = !!opts.sealed;
       const fill = flooded ? T.WATER : (opts.fill != null ? opts.fill : ((cy <= 6 && !openSky) ? T.LAVA : 0));
       const R = Math.ceil(r);
-      for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
-        if (dx * dx + dy * dy * (openSky ? 0.45 : 1.3) + dz * dz > r * r) continue;
-        const x = Math.round(cx + dx), y = Math.round(cy + dy), z = Math.round(cz + dz);
-        if (!inB(x, y, z) || !inside(x, z, openSky ? 10 : 12)) continue;
+      const cxi = Math.round(cx), czi = Math.round(cz);
+      const margin = openSky ? 10 : 12;
+      const allIn = inland(cxi, czi, margin + R + 1);
+      const yScale = openSky ? 0.45 : 1.3;
+      const put = (x, y, z) => {
+        if (!inB(x, y, z) || (!allIn && !inside(x, z, margin))) return;
         const tt = tp[x * D + z] || 60;
-        if (keep && !openSky && y > tt - keep) continue;
-        if (openSky && y > tt + 3) continue;
-        const i = idx(x, y, z); if (placed(i)) continue;
-        const b = world[i];
+        if (keep && !openSky && y > tt - keep) return;
+        if (openSky && y > tt + 3) return;
+        const i = (x * H + y) * D + z; if (placed(i)) return;
+        const b = wr[i];
+        if (b === fill) return;
         const soft = nat(b) || (openSky && (!b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b]) || (typeof LOGGY !== 'undefined' && LOGGY[b])));
-        if (!soft) continue;
-        if (sealed && (wet(x, y, z) || b === T.WATER)) continue;
-        if (flooded && !b && !nat(b)) {
-          // already air: only fill if this is still under a roof / not a land cave open to sky
-          if (y >= tt - 1) continue;
-        }
-        if (!flooded && !openSky && !sealed && wet(x, y, z)) continue;
-        world[i] = fill; cellsRef.n++;
+        if (!soft) return;
+        if (sealed && (isWet(x, y, z) || b === WT)) return;
+        if (flooded && !b && y >= tt - 1) return;
+        if (!flooded && !openSky && !sealed && isWet(x, y, z)) return;
+        wr[i] = fill; cellsRef.n++;
+        if (U.touched) U.touched[x * D + z] = 1;
+      };
+      for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) for (let dz = -R; dz <= R; dz++) {
+        if (dx * dx + dy * dy * yScale + dz * dz > r * r) continue;
+        put(cxi + dx, Math.round(cy + dy), czi + dz);
       }
     };
     return carve;
@@ -67,23 +109,46 @@
   // 2) the seed's own cave network: spaghetti, cheese, ravines, sinkholes, underwater
   function runNetwork(tp, rnd, getSd, t0, st) {
     const cellsRef = {n: st && st.cells != null ? st.cells : 0};
+    const touched = (st && st.touched) ? st.touched : new Uint8Array(W * D);
+    U.touched = touched;
     const carve = makeCarve(tp, cellsRef);
     U.carve = (cx, cy, cz, r, keep, opts) => carve(cx, cy, cz, r, keep, opts);
     let pts = (st && st.pts) ? st.pts : [];
     let phase = st && st.phase ? st.phase : 'worms';
     let i0 = st && st.i != null ? st.i : 0;
     let __tS = performance.now(), __wS = Date.now();
+    try { if (window.__glenLoad) window.__glenLoad._tSlice = __tS; } catch (_) {}
+    if (U.workMs == null) U.workMs = 0;
+    const budget = () => {
+      try { return (typeof __SLB === 'function' ? __SLB() : ((window.__glenLoad && __glenLoad._sliceMs) || 350)); } catch (_) { return 350; }
+    };
     const bump = (ph, i) => {
       U.cells = cellsRef.n;
       const L = window.__glenLoad;
-      if (L && L.held && ((performance.now() - __tS > (__SLB())) || (Date.now() - __wS > (__SLB())))) {
-        if (!L._loop) L._loop = {};
-        L._loop.c274 = {phase: ph, i: i, sd: getSd(), t0: t0, pts: pts, usedW: usedW, usedS: usedS, usedU: usedU, cells: cellsRef.n,
-          worms: U.worms, halls: U.halls, ravines: U.ravines, holes: U.holes, uw: U.uw, seams: U.seams, cover: U.cover};
-        try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
-        throw L.YIELD;
-      }
+      U.nBump = (U.nBump || 0) + 1;
+      U.lastHeld = !!(L && L.held);
+      U.lastDt = Math.round(performance.now() - __tS);
+      U.lastB = 0;
+      if (!L || !L.YIELD || (!L.held && !L._softHold)) { U.nSkip = (U.nSkip || 0) + 1; return; }
+      // Time this resume only (__tS/__wS). Do not use L._tSlice — the wrapper
+      // preamble can already have burned it, which would yield with no progress.
+      const b = budget(); U.lastB = b;
+      if (!((performance.now() - __tS > b) || (Date.now() - __wS > b))) return;
+      U.nThrow = (U.nThrow || 0) + 1;
+      if (!L._loop) L._loop = {};
+      L._loop.c274 = {phase: ph, i: i, sd: getSd(), t0: t0, pts: pts, usedW: usedW, usedS: usedS, usedU: usedU, cells: cellsRef.n,
+        worms: U.worms, halls: U.halls, ravines: U.ravines, holes: U.holes, uw: U.uw, seams: U.seams, cover: U.cover,
+        didInner: 1, r: U._retR, tp: tp, touched: touched};
+      U.workMs = (U.workMs || 0) + (performance.now() - __tS);
+      dprof[ph] = Math.round((dprof[ph] || 0) + (performance.now() - _lap)); _lap = performance.now();
+      try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
+      throw L.YIELD;
     };
+    const prof = U.prof || (U.prof = {});
+    const mark = (k) => { prof[k] = Math.round(performance.now() - t0); };
+    const dprof = U.dprof || (U.dprof = {});
+    let _lap = performance.now();
+    const lap = (k) => { dprof[k] = Math.round((dprof[k] || 0) + (performance.now() - _lap)); _lap = performance.now(); };
     const usedW = (st && st.usedW) ? st.usedW : [];
     const usedS = (st && st.usedS) ? st.usedS : [];
     const usedU = (st && st.usedU) ? st.usedU : [];
@@ -99,19 +164,45 @@
       }
       return null;
     };
+    const putCell = (x, y, z, keep, fill) => {
+      if (!inB(x, y, z) || !inside(x, z, 12)) return;
+      const tt = tp[x * D + z] || 60;
+      if (keep && y > tt - keep) return;
+      const i = idx(x, y, z); if (placed(i)) return;
+      const b = world[i]; if (b === fill) return;
+      if (!nat(b) || wet(x, y, z)) return;
+      world[i] = fill; cellsRef.n++;
+      if (U.touched) U.touched[x * D + z] = 1;
+    };
     const cheeseAt = (cx, cy, cz, rx, ry, rz, rnd0) => {
+      const _ct = performance.now();
       const Rx = Math.ceil(rx), Ry = Math.ceil(ry), Rz = Math.ceil(rz), ph = rnd0() * 6.28;
-      for (let dx = -Rx; dx <= Rx; dx++) for (let dy = -Ry; dy <= Ry; dy++) for (let dz = -Rz; dz <= Rz; dz++) {
+      const cxi = Math.round(cx), cyi = Math.round(cy), czi = Math.round(cz);
+      // Sample the pillar/ledge field on a 2-block grid and interpolate, like
+      // Minecraft cheese caverns, so large halls stay cheap.
+      const keepAt = (x, y, z, v) => {
+        const px = Math.sin(x * 0.33 + ph) * Math.cos(z * 0.29 - ph);
+        if (px > 0.62 && Math.abs(v) < 0.78) return 1;
+        if (Math.sin(y * 0.85 + ph) > 0.78 && Math.abs(v) < 0.5) return 1;
+        if (v > 0.58 && ((x * 3 + z * 7 + cyi) % 5 === 0)) return 1;
+        return 0;
+      };
+      for (let dx = -Rx; dx <= Rx; dx += 2) for (let dy = -Ry; dy <= Ry; dy += 2) for (let dz = -Rz; dz <= Rz; dz += 2) {
         const u = dx / rx, v = dy / ry, w = dz / rz; if (u * u + v * v + w * w > 1) continue;
-        // pillars and ledges so a cavern is never a bare hall
-        const px = Math.sin((cx + dx) * 0.33 + ph) * Math.cos((cz + dz) * 0.29 - ph);
-        if (px > 0.62 && Math.abs(v) < 0.78) continue;
-        if (Math.sin((cy + dy) * 0.85 + ph) > 0.78 && Math.abs(v) < 0.5) continue;
-        if (v > 0.58 && ((Math.round(cx + dx) * 3 + Math.round(cz + dz) * 7 + (cy | 0)) % 5 === 0)) continue;
-        const x = Math.round(cx + dx), y = Math.round(cy + dy), z = Math.round(cz + dz);
-        carve(x, y, z, 1.05, 5);
+        const x = cxi + dx, y = cyi + dy, z = czi + dz;
+        if (keepAt(x, y, z, v)) continue;
+        // Fill the 2-block cell; in-between voxels inherit the coarse sample (Minecraft-style).
+        for (let ix = 0; ix <= 1; ix++) for (let iy = 0; iy <= 1; iy++) for (let iz = 0; iz <= 1; iz++) {
+          const X = x + ix, Y = y + iy, Z = z + iz;
+          const u2 = (X - cxi) / rx, v2 = (Y - cyi) / ry, w2 = (Z - czi) / rz;
+          if (u2 * u2 + v2 * v2 + w2 * w2 > 1) continue;
+          putCell(X, Y, Z, 5, Y <= 6 ? T.LAVA : 0);
+        }
       }
       U.halls++;
+      if (!U.feat) U.feat = {ravines: [], holes: [], halls: [], uw: []};
+      U.feat.halls.push([cxi, cyi, czi, Math.round(rx)]);
+      dprof.cheese = (dprof.cheese || 0) + (performance.now() - _ct);
     };
     // ---- spaghetti worms: interconnecting, go all the way down ----
     if (phase === 'worms') {
@@ -141,7 +232,7 @@
           x += Math.cos(a); z += Math.sin(a); y += p * 0.65;
           if (y < 4) { y = 4; p = Math.abs(p); }
           if (y > tt - 6) { p = -Math.abs(p) - 0.1; y = tt - 6; }
-          carve(x, y, z, r, 5);
+          if (!((s & 1) && r < 2.05)) carve(x, y, z, r, 5);
           if (s % 22 === 11) pts.push([x, y, z]);
           if (rnd() < 0.012 + 0.02 * depth) {
             // cheese pocket, larger deeper
@@ -156,8 +247,10 @@
           }
         }
         U.worms++;
+        bump('worms', w + 1);
       }
-      phase = 'ravines'; i0 = 0;
+      mark('worms'); lap('worms'); phase = 'ravines'; i0 = 0;
+      bump('ravines', 0);
     }
     // ---- ravines: winding open cuts from the surface down into the network ----
     if (phase === 'ravines') {
@@ -191,7 +284,7 @@
               if (wet(xx, y, zz)) continue;
               const i = idx(xx, y, zz); if (placed(i)) continue;
               const b = world[i];
-              if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (y <= 6 ? T.LAVA : 0); cellsRef.n++; }
+              if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (y <= 6 ? T.LAVA : 0); cellsRef.n++; if (U.touched) U.touched[xx * D + zz] = 1; }
             }
           }
           if (yb < deepY) { deepY = yb; deepX = x; deepZ = z; }
@@ -209,9 +302,13 @@
           }
         }
         pts.push([deepX, deepY + 2, deepZ]);
+        if (!U.feat) U.feat = {ravines: [], holes: [], halls: [], uw: []};
+        U.feat.ravines.push([Math.round(deepX), Math.round(deepY + 2), Math.round(deepZ)]);
         U.ravines++;
+        bump('ravines', n + 1);
       }
-      phase = 'holes'; i0 = 0;
+      mark('ravines'); lap('ravines'); phase = 'holes'; i0 = 0;
+      bump('holes', 0);
     }
     // ---- big open surface sinkholes down into the network ----
     if (phase === 'holes') {
@@ -235,7 +332,7 @@
             if (!inB(xx, y, zz) || wet(xx, y, zz)) continue;
             const i = idx(xx, y, zz); if (placed(i)) continue;
             const b = world[i];
-            if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (y <= 6 ? T.LAVA : 0); cellsRef.n++; }
+            if (nat(b) || !b || (typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])) { world[i] = (y <= 6 ? T.LAVA : 0); cellsRef.n++; if (U.touched) U.touched[xx * D + zz] = 1; }
           }
         }
         // leave a couple of ledge blocks on the way down
@@ -249,9 +346,13 @@
           }
         }
         pts.push([x, yBot + 2, z]);
+        if (!U.feat) U.feat = {ravines: [], holes: [], halls: [], uw: []};
+        U.feat.holes.push([Math.round(x), Math.round(yBot + 2), Math.round(z)]);
         U.holes++;
+        bump('holes', n + 1);
       }
-      phase = 'water'; i0 = 0;
+      mark('holes'); lap('holes'); phase = 'water'; i0 = 0;
+      bump('water', 0);
     }
     // ---- underwater caves: sealed air pockets or fully flooded, never leak ----
     if (phase === 'water') {
@@ -276,106 +377,92 @@
           carve(x, y, z, r, 0, opts);
           if (rnd() < 0.02) carve(x, y, z, 3.4 + rnd() * 2.4, 0, opts);
         }
+        if (!U.feat) U.feat = {ravines: [], holes: [], halls: [], uw: []};
+        U.feat.uw.push([Math.round(x), Math.round(y), Math.round(z), flooded ? 1 : 0]);
         U.uw++;
       }
-      phase = 'fix'; i0 = 0;
+      mark('water'); lap('water'); phase = 'fix'; i0 = 0;
     }
-    // ---- no broken water: flood isolated underground air that touches water; plug leaks to land/sky caves ----
+    // ---- no broken water: one or two sea-column walks, plug contacts, no full BFS ----
     if (phase === 'fix') {
       const sea = (typeof SEA === 'number' ? SEA : 40);
-      const seaCol = new Uint8Array(W * D);
-      for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
-        const top = tp[x * D + z] || 0;
-        if (top <= sea && (world[idx(x, Math.min(H - 2, Math.max(sea, top)), z)] === T.WATER || world[idx(x, sea, z)] === T.WATER || world[idx(x, Math.max(2, sea - 1), z)] === T.WATER)) seaCol[x * D + z] = 1;
-      }
-      const vis = new Uint8Array(W * H * D);
       const NB = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-      const airOf = [];
-      const seeWater = [];
-      const landish = [];
-      for (let x = 2; x < W - 2; x++) for (let z = 2; z < D - 2; z++) for (let y = 2; y < sea; y++) {
-        const i = idx(x, y, z);
-        if (vis[i] || world[i] !== 0) continue;
-        // BFS this underground air pocket
-        const stack = [x, y, z];
-        vis[i] = 1;
-        airOf.length = 0; seeWater.length = 0;
-        let land = 0, n = 0;
-        while (stack.length && n < 200000) {
-          const cz = stack.pop(), cy = stack.pop(), cx = stack.pop(); n++;
-          airOf.push(cx, cy, cz);
-          if (!seaCol[cx * D + cz] && (tp[cx * D + cz] || 0) > sea) land = 1;
-          for (let k = 0; k < 6; k++) {
-            const X = cx + NB[k][0], Y = cy + NB[k][1], Z = cz + NB[k][2];
-            if (!inB(X, Y, Z) || Y < 2 || Y > sea + 2) continue;
-            const j = idx(X, Y, Z), b = world[j];
-            if (b === T.WATER) seeWater.push(X, Y, Z);
-            else if (b === 0 && !vis[j]) { vis[j] = 1; stack.push(X, Y, Z); }
-          }
+      const wr = world, ST = T.STONE, WT = T.WATER;
+      // Never plug open sky above the sea — that was laying a stone lid on the ocean.
+      const caveAir = (x, y, z) => y >= 2 && y <= sea && inB(x, y, z) && wr[idx(x, y, z)] === 0 && !placed(idx(x, y, z));
+      const plugAir = (x, y, z) => {
+        let n = 0;
+        for (let k = 0; k < 6; k++) {
+          const X = x + NB[k][0], Y = y + NB[k][1], Z = z + NB[k][2];
+          if (Y > sea || Y < 2 || !inB(X, Y, Z)) continue;
+          const j = idx(X, Y, Z);
+          if (wr[j] !== 0 || placed(j)) continue;
+          wr[j] = ST; n++;
         }
-        if (!seeWater.length) continue;
-        if (land) {
-          // land cave that touched water: plug the contact, never flood the network
-          for (let k = 0; k < seeWater.length; k += 3) {
-            const X = seeWater[k], Y = seeWater[k + 1], Z = seeWater[k + 2];
-            const j = idx(X, Y, Z);
-            // only plug underground water, not the open sea itself (sea cells have sky above)
-            let roof = 0;
-            for (let yy = Y + 1; yy <= sea + 2 && yy < H; yy++) { const bb = world[idx(X, yy, Z)]; if (bb && bb !== T.WATER && !(typeof PLANT !== 'undefined' && PLANT[bb])) { roof = 1; break; } }
-            if (roof && !placed(j)) world[j] = T.STONE;
-            for (let t = 0; t < 6; t++) {
-              const ax = X + NB[t][0], ay = Y + NB[t][1], az = Z + NB[t][2];
-              if (!inB(ax, ay, az)) continue;
-              const u = idx(ax, ay, az);
-              if (world[u] === 0 && !placed(u) && seaCol[ax * D + az]) world[u] = T.STONE;
-            }
-          }
-        } else {
-          // isolated pocket under the sea: flood it completely
-          for (let k = 0; k < airOf.length; k += 3) {
-            const j = idx(airOf[k], airOf[k + 1], airOf[k + 2]);
-            if (!placed(j) && world[j] === 0) world[j] = T.WATER;
-          }
-        }
-      }
-      // last: no water sitting on air
-      for (let x = 3; x < W - 3; x++) for (let z = 3; z < D - 3; z++) for (let y = 3; y < sea; y++) {
-        const i = idx(x, y, z), k = idx(x, y - 1, z);
-        if (world[i] === T.WATER && world[k] === 0) {
-          if (!seaCol[x * D + z] || (tp[x * D + z] || 0) > sea) { if (!placed(i)) world[i] = T.STONE; }
-          else if (!placed(k)) world[k] = T.WATER;
-        }
-      }
-      phase = 'seams'; i0 = 0;
-      bump('seams', 0);
-    }
-    // ---- seams on the new cave walls + a coverage pass so every area gets ore ----
-    if (phase === 'seams') {
-      const p = 0.02;
-      const NB = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
-      for (let x = (i0 || 2); x < W - 2; x++) {
-        for (let z = 2; z < D - 2; z++) {
-          const yt = Math.min((tp[x * D + z] || SEA) - 4, H - 3);
-          for (let y = 2; y <= yt; y++) {
-            if (world[idx(x, y, z)] !== 0 || rnd() > p) continue;
-            const [a, b, c] = NB[(rnd() * 6) | 0], X = x + a, Y = y + b, Z = z + c;
-            if (!inB(X, Y, Z) || !host(world[idx(X, Y, Z)]) || placed(idx(X, Y, Z))) continue;
-            const ore = pickRare(Y, rnd), n = 3 + (rnd() * 5 | 0);
-            let px = X, py = Y, pz = Z;
-            for (let k = 0; k < n; k++) {
-              if (inB(px, py, pz)) { const j = idx(px, py, pz); if (host(world[j]) && !placed(j)) { world[j] = ore; U.seams++; } }
-              for (let t = 0; t < 4; t++) {
-                const [u, v, w] = NB[(rnd() * 6) | 0], qx = px + u, qy = py + v, qz = pz + w;
-                if (inB(qx, qy, qz) && host(world[idx(qx, qy, qz)]) && (t === 3 || !world[idx(qx + 1, qy, qz)] || !world[idx(qx - 1, qy, qz)] || !world[idx(qx, qy + 1, qz)] || !world[idx(qx, qy - 1, qz)] || !world[idx(qx, qy, qz + 1)] || !world[idx(qx, qy, qz - 1)])) { px = qx; py = qy; pz = qz; break; }
+        return n;
+      };
+      // Only walk columns we carved (plus a 1-cell halo) and coastline contacts.
+      // A full-ocean air scan was ~700 ms and is not needed to keep leaks at or below 1.2.90.
+      const nearTouch = (x, z) => {
+        const az = x * D + z;
+        return !!(touched[az] || touched[az + 1] || touched[az - 1] || touched[az + D] || touched[az - D]);
+      };
+      const isCoast = (x, z, col) => {
+        if (wr[col + sea * D] !== WT && wr[col + Math.max(2, sea - 1) * D] !== WT) return false;
+        return wr[(x + 1) * H * D + z + sea * D] !== WT || wr[(x - 1) * H * D + z + sea * D] !== WT
+            || wr[x * H * D + (z + 1) + sea * D] !== WT || wr[x * H * D + (z - 1) + sea * D] !== WT;
+      };
+      for (let pass = 0; pass < 2; pass++) {
+        let n = 0;
+        for (let x = 3; x < W - 3; x++) {
+          if ((x & 127) === 3) bump('fix', pass);
+          for (let z = 3; z < D - 3; z++) {
+            const col = x * H * D + z;
+            if (wr[col + sea * D] !== WT && wr[col + Math.max(2, sea - 1) * D] !== WT) continue;
+            if (!nearTouch(x, z) && !isCoast(x, z, col)) continue;
+            let seenS = false;
+            for (let y = sea; y >= 2; y--) {
+              const b = wr[col + y * D];
+              if (!seenS) {
+                if (b && b !== WT && !(typeof PLANT !== 'undefined' && PLANT[b])) { seenS = true; continue; }
+                if (b === WT && (caveAir(x, y - 1, z) || (y + 1 <= sea && wr[col + (y + 1) * D] === 0) || caveAir(x + 1, y, z) || caveAir(x - 1, y, z) || caveAir(x, y, z + 1) || caveAir(x, y, z - 1))) n += plugAir(x, y, z);
+                continue;
+              }
+              if (b === WT && (caveAir(x, y - 1, z) || (y + 1 <= sea && wr[col + (y + 1) * D] === 0) || caveAir(x + 1, y, z) || caveAir(x - 1, y, z) || caveAir(x, y, z + 1) || caveAir(x, y, z - 1))) n += plugAir(x, y, z);
+              else if (b === 0 && !placed(idx(x, y, z)) && (wr[col + (y + 1) * D] === WT || wr[col + (y - 1) * D] === WT)) {
+                wr[col + y * D] = ST; n++;
               }
             }
           }
         }
-        if (x % 8 === 7) bump('seams', x + 1);
+        if (!n) break;
       }
-      phase = 'cover'; i0 = 0;
+      mark('fix'); lap('fix'); phase = 'seams'; i0 = 0;
+      bump('seams', 0);
     }
-    if (phase === 'cover') {
+        // ---- seams only on the new cave walls (around path nodes), not a full-world scan ----
+    if (phase === 'seams') {
+      const NB = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+      const startP = i0 || 0;
+      for (let pi = startP; pi < pts.length; pi++) {
+        const p = pts[pi], x0 = Math.round(p[0]), y0 = Math.round(p[1]), z0 = Math.round(p[2]);
+        for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) for (let dz = -2; dz <= 2; dz++) {
+          const x = x0 + dx, y = y0 + dy, z = z0 + dz;
+          if (!inB(x, y, z) || world[idx(x, y, z)] !== 0 || rnd() > 0.18) continue;
+          const [a, b, c] = NB[(rnd() * 6) | 0], X = x + a, Y = y + b, Z = z + c;
+          if (!inB(X, Y, Z) || !host(world[idx(X, Y, Z)]) || placed(idx(X, Y, Z))) continue;
+          const ore = pickRare(Y, rnd), n = 3 + (rnd() * 5 | 0);
+          let px = X, py = Y, pz = Z;
+          for (let k = 0; k < n; k++) {
+            if (inB(px, py, pz)) { const j = idx(px, py, pz); if (host(world[j]) && !placed(j)) { world[j] = ore; U.seams++; } }
+            const [u, v, w] = NB[(rnd() * 6) | 0]; px += u; py += v; pz += w;
+          }
+        }
+        if (pi % 16 === 15) bump('seams', pi + 1);
+      }
+      mark('seams'); lap('seams'); phase = 'cover'; i0 = 0;
+    }
+        if (phase === 'cover') {
       const TILE = 32;
       const ores = new Set([T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.SILVERORE, T.DIAMONDORE, T.REDORE, T.LAZORE, T.RUBYORE].filter(v => v != null));
       const x0 = i0 || 2;
@@ -405,6 +492,8 @@
         bump('cover', tx + TILE);
       }
     }
+    mark('cover'); lap('cover');
+    U.workMs = (U.workMs || 0) + (performance.now() - __tS);
     U.cells = cellsRef.n;
     U.pts = pts;
     return pts;
@@ -422,19 +511,44 @@
       for (let dx = -3; dx <= 3; dx++) for (let dy = -1; dy <= 4; dy++) for (let dz = -3; dz <= 3; dz++) { const X = Math.round(x + Math.cos(best) * 2) + dx, Y = g + dy, Z = Math.round(z + Math.sin(best) * 2) + dz; if (!inB(X, Y, Z)) continue; const b = world[idx(X, Y, Z)]; if ((b === T.STONE || b === T.DIRT) && rnd() < 0.4) world[idx(X, Y, Z)] = T.MOSSYCOBBLE || T.COBBLE || b; }
       const LX = Math.round(x + Math.cos(best) * 6), LZ = Math.round(z + Math.sin(best) * 6); let LY = g + 3; while (LY > 2 && !world[idx(LX, LY - 1, LZ)]) LY--; if (!world[idx(LX, LY, LZ)]) world[idx(LX, LY, LZ)] = 161;
       U.mouths.push([x, g + 1, z, +best.toFixed(2)]); n++; } }
-  const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(41)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); try { if (on()) {
-        const L = window.__glenLoad;
-        const st = (L && L._loop && L._loop.c274) ? L._loop.c274 : null;
+  const gen = generate; generate = function () {
+    const L = window.__glenLoad;
+    if (L && L.skipPost && L.skipPost(41)) return gen.apply(this, arguments);
+    let st = (L && L._loop && L._loop.c274) ? L._loop.c274 : null;
+    let r;
+    if (st && st.didInner) r = st.r;
+    else r = gen.apply(this, arguments);
+    try { if (on()) {
         const t0 = (st && st.t0) ? st.t0 : performance.now();
-        if (!st) { U.mouths = []; U.halls = 0; U.worms = 0; U.ravines = 0; U.holes = 0; U.uw = 0; U.seams = 0; U.cover = 0; U.cells = 0; }
+        if (!st) { U.nBump = 0; U.nSkip = 0; U.nThrow = 0; U.workMs = 0; U.dprof = {}; U.mouths = []; U.halls = 0; U.worms = 0; U.ravines = 0; U.holes = 0; U.uw = 0; U.seams = 0; U.cover = 0; U.cells = 0; U.feat = {ravines: [], holes: [], halls: [], uw: []}; }
         else { U.worms = st.worms || 0; U.halls = st.halls || 0; U.ravines = st.ravines || 0; U.holes = st.holes || 0; U.uw = st.uw || 0; U.seams = st.seams || 0; U.cover = st.cover || 0; }
         let s = st ? st.sd : (((gSeed | 0) ^ 0x2740c) >>> 0);
         const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-        let tp = tops();
-        if (!st) pits(tp);
+        U._retR = r;
+        try { ensureEQ(); } catch (_) {}
+        // Start C274 on its own slice so it does not sit on the previous post's stall.
+        if (L && L.held && L.YIELD && !st) {
+          if (!L._loop) L._loop = {};
+          L._loop.c274 = {phase: 'pits', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0,
+            worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r};
+          try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
+          throw L.YIELD;
+        }
+        let tp;
+        if (st && st.tp) tp = st.tp;
+        else { const tA = performance.now(); tp = tops(); U.topsMs = Math.round(performance.now() - tA); }
+        if (!st || st.phase === 'pits') { const tB = performance.now(); pits(tp); U.pitsMs = Math.round(performance.now() - tB); }
+        if (st && st.phase === 'pits' && L && L.held && L.YIELD) {
+          if (!L._loop) L._loop = {};
+          L._loop.c274 = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0,
+            worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r, tp: tp};
+          try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
+          throw L.YIELD;
+        }
+        if (st && st.phase === 'pits') st = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0, worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r, tp: tp};
         const pts = runNetwork(tp, rnd, () => s, t0, st);
         mouths(tp, rnd, pts || U.pts || []);
-        try { tp = tops(); for (let i = 0; i < W * D; i++) g9cols[i * 2] = tp[i] + 1; } catch (_) {}
+        try { for (let i = 0; i < W * D; i++) g9cols[i * 2] = tp[i] + 1; } catch (_) {}
         try { dirtyAll = true; } catch (_) {}
         if (L && L._loop) L._loop.c274 = null;
         U.ms = Math.round(performance.now() - t0);
