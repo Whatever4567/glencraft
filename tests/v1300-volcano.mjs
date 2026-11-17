@@ -56,14 +56,14 @@ try {
   const R = await page.evaluate(() => { const U = __v1300, sp = U.spawnXZ(), PR = U.PROT_R; const lavaNear = () => { let n = 0; for (let x = Math.floor(sp[0] - PR + 8); x <= sp[0] + PR - 8; x++) for (let z = Math.floor(sp[1] - PR + 8); z <= sp[1] + PR - 8; z++) { if (Math.hypot(x - sp[0], z - sp[1]) > PR - 8) continue; for (let y = SEA - 3; y < H - 1; y++) if (world[idx(x, y, z)] === T.LAVA) n++; } return n; };
     const l0 = lavaNear(); U.speed = 0; const ok0 = U.erupt('spawn'); let n = 0, sum = 0, mx = 0, shk = 0; const ts = [];
     while (U.state() && n < 30000) { const a = performance.now(); U.tick(0.05); const d = performance.now() - a; sum += d; ts.push(d); if (d > mx) mx = d; n++; if (shakeAmp > shk) shk = shakeAmp; }
-    ts.sort((p, q) => p - q); const l1 = lavaNear(); let pad = 0; for (let x = Math.floor(sp[0]) - 12; x <= sp[0] + 12; x++) for (let z = Math.floor(sp[1]) - 12; z <= sp[1] + 12; z++) for (let y = SEA - 3; y < H - 1; y++) if (world[idx(x, y, z)] === T.LAVA) pad++;
+    ts.sort((p, q) => p - q); const l1 = lavaNear(); let pad = 0; for (let x = Math.floor(sp[0]) - 12; x <= sp[0] + 12; x++) for (let z = Math.floor(sp[1]) - 12; z <= sp[1] + 12; z++) for (let y = SEA - 3; y < H - 1; y++) if (world[idx(x, y, z)] === T.LAVA) { pad++; if (!window.__padAt) window.__padAt = [x, y, z, sp[0], sp[1], placedSet.has(idx(x, y, z)), U.surf ? U.surf(x, z) : 0]; }
     const phases = U.phases.slice(), reach = U.maxReach, lava = U.lava; const r = __c242.erupt(true), blue0 = {r, st: U.state()}; const ser = serialize();
-    return {ok0, n, avg: sum / n, p95: ts[Math.floor(ts.length * 0.95)], mx, phases, reach, lava, cooled: U.cooled, l0, l1, pad, shk, shakeMax: U.shakeMax, cap: U.SHAKE_CAP, bombs: __c242.bombs, c242: current.c242, c279: window.__c279 ? __c279.on : 0, err: U.err, blue0, ser: !!(ser && ser.v1300)}; });
+    return {ok0, n, avg: sum / n, p95: ts[Math.floor(ts.length * 0.95)], mx, phases, reach, lava, cooled: U.cooled, l0, l1, pad, shk, shakeMax: U.shakeMax, cap: U.SHAKE_CAP, bombs: __c242.bombs, c242: current.c242, c279: window.__c279 ? __c279.on : 0, err: U.err, blue0, ser: !!(ser && ser.v1300), padAt: window.__padAt || null}; });
   console.log(JSON.stringify(Object.assign({}, R, {phases: R.phases.join(',')})));
   ok(R.ok0, 'Ben Glencraft erupts');
   const want = ['sink', 'surge', 'gush', 'pour', 'flood', 'cool']; let k = -1; ok(want.every(w => { const j = R.phases.indexOf(w); const g = j > k; k = j; return g; }), 'phases in order sink > surge > gush > pour > flood > cool (' + R.phases.join(',') + ')');
   ok(R.reach > 60, 'lava floods more than 60 blocks from the crater (' + R.reach + ')');
-  ok(R.l1 <= R.l0 && R.pad === 0, 'no lava inside the spawn pad / village disc (' + R.l0 + ' -> ' + R.l1 + ', pad ' + R.pad + ')');
+  ok(R.l1 <= R.l0 && R.pad === 0, 'no lava inside the spawn pad / village disc (' + R.l0 + ' -> ' + R.l1 + ', pad ' + R.pad + ' ' + JSON.stringify(R.padAt) + ')');
   ok(R.cooled > 100, 'lava cools to magma / basalt / obsidian (' + R.cooled + ')');
   ok(R.bombs === 0 && !R.c242 && !R.c279, 'no lava bombs, old explosive eruption and Pompeii flash stay off');
   ok(R.shk <= R.cap + 1e-9 && R.shakeMax <= R.cap, 'shake stays subtle (max ' + R.shk.toFixed(4) + ' <= ' + R.cap + ')');
