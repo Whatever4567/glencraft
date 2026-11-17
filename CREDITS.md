@@ -144,6 +144,13 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.97 Castles, Egypt portal and underground blocks
+
+- The three keeps sit on the official map-edge isles, away from spawn, and the ground at spawn is solid grass and dirt.
+- The desert, pyramid and ruined temple are no longer generated in the Glencraft overworld. They live only in Egypt land, reached through a gold portal at the clan castle.
+- Garrison skeleton and clan-folk counts stay at the earlier published numbers (black 100, mossy 50, human 25) and they remain at their own keeps rather than crowding spawn.
+- New underground blocks 401–412 (moss, hanging moss, cyan vein, gold drip, dark stone, basalt, magma vein, purple crystal, purple spiral, core glow, mine plank, rope) for the cave layers under the UK.
+
 ## v1.2.96 Egypt land paintings, saucer and sky
 
 - The player's UFO and alien paintings (`assets/art/user_p1-6.jpg`, drawn by the player) hang again in the pyramid gallery in Egypt land, together with the original hall murals. They had been hidden since Egypt became its own dimension in v1.2.69.
