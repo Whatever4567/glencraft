@@ -94907,11 +94907,12 @@ try {
       rebuild = function () {
         try {
           const now = performance.now();
-          const due = !U._recarved || plazaDirty() || !U._recarveAt || (now - U._recarveAt > 2500);
+          const due = !U._recarved || plazaDirty() || (U._cutFixPend && U._recarveAt && now - U._recarveAt > 2500);
           if (due) {
             const n = recarvePlaza();
             U._recarved = 1;
             U._recarveAt = now;
+            U._cutFixPend = n > 0 ? 1 : 0;
             U.recarveN = (U.recarveN || 0) + 1;
             if (n) {
               U.cutFix = (U.cutFix || 0) + 1;
@@ -95467,13 +95468,15 @@ try {
    per frame so the first stream-in does not hitch. Flame sprites stay
    on each torch and still flicker. lightSrc is unchanged. */
 (function v1305() {
-  const U = window.__v1305 = {err: null, inst: 0, n: 0, vis: 0, batched: 0, buckets: 0, pending: 0};
+  const U = window.__v1305 = {err: null, inst: 0, n: 0, vis: 0, batched: 0, buckets: 0, pending: 0, skipped: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
   const BUDGET = 2.5;
+  const MAX_VERTS = 200000;
   const _v = new THREE.Vector3(), _m3 = new THREE.Matrix3();
   let root = null;
   const buckets = new Map();
   const pending = [];
+  const bakedKeys = new Set();
 
   function torchType() {
     try { if (typeof T !== 'undefined' && T && T.TORCH != null) return T.TORCH; } catch (_) {}
@@ -95568,6 +95571,7 @@ try {
     const ix = ge.index, c = ix ? ix.count : pa.count;
     if (!c) return;
     const b = ensureBucket(mat);
+    if (b.n + c > MAX_VERTS) { U.err = U.err || 'vert cap'; return; }
     grow(b, b.n + c);
     const P = b.geo.attributes.position.array, N = b.geo.attributes.normal.array, UV = b.geo.attributes.uv.array;
     mesh.updateWorldMatrix(true, false);
@@ -95591,9 +95595,22 @@ try {
     U.vis += 1;
   }
 
+  function rootKey(g) {
+    try {
+      const p = g.position;
+      return (p.x | 0) + ',' + (p.y | 0) + ',' + (p.z | 0);
+    } catch (_) { return null; }
+  }
+
   function ingest(g) {
     if (!g || g.userData.batched1305) return;
     try {
+      const k = rootKey(g);
+      if (k && bakedKeys.has(k)) {
+        hideBody(g);
+        U.skipped++;
+        return;
+      }
       g.updateMatrixWorld(true);
       const parts = [];
       g.traverse(x => {
@@ -95603,6 +95620,7 @@ try {
       });
       for (const x of parts) appendMesh(x);
       hideBody(g);
+      if (k) bakedKeys.add(k);
       U.batched++;
     } catch (e) { ERR('ing', e); }
   }
