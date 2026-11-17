@@ -11,7 +11,7 @@ let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
 ok(ver.v === '1.2.71' || ver.v === '1.2.70' || ver.v === '1.2.69' || ver.v === '1.2.68', 'version.json is 1.2.68');
-ok(html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';"), 'GAME_VERSION is 1.2.68');
+ok(html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.68';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';") || html.includes("const GAME_VERSION = '1.2.105';"), 'GAME_VERSION is 1.2.68');
 ok(html.includes('<!-- glencraft-build: b1271-v1.2.71 -->') || html.includes('<!-- glencraft-build: b1270-v1.2.70 -->') || html.includes('<!-- glencraft-build: b1269-v1.2.69 -->') || html.includes('<!-- glencraft-build: b1268-v1.2.68 -->'), 'build marker b1268');
 ok(html.includes('<!-- glencraft-build: b1267-v1.2.67 -->'), '1.2.67 build marker stays');
 ok(credits.includes('## v1.2.68 Castle garrisons and a path to the farmers'), 'CREDITS has the 1.2.68 section');
