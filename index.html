@@ -94496,13 +94496,25 @@ try {
     return false;
   };
 
+  let BIDS = null;
+  const CH_CACHE = new Map();
   function chamberAt(x, y, z) {
+    if (y >= 0 || y <= -230) return null;
+    if (typeof W === 'undefined' || W < 600) return null;
+    const k = ((x | 0) * 73856093) ^ ((y | 0) * 19349663) ^ ((z | 0) * 83492791);
+    if (CH_CACHE.has(k)) return CH_CACHE.get(k);
+    const out = chamberAtRaw(x, y, z);
+    if (CH_CACHE.size >= 180000) CH_CACHE.clear();
+    CH_CACHE.set(k, out);
+    return out;
+  }
+  function chamberAtRaw(x, y, z) {
     if (y >= 0 || y <= -230) return null;
     if (typeof W === 'undefined' || W < 600) return null;
     const G = 32;
     const bucket = siteGrid().get(Math.floor(x / G) + ',' + Math.floor(z / G));
     if (!bucket) return null;
-    const B = ids();
+    const B = BIDS || (BIDS = ids());
     for (const R of bucket) {
       if (skipDeep(R.x, R.z)) continue;
       const dx = x + 0.5 - R.x, dy = y + 0.5 - R.y, dz = z + 0.5 - R.z;
@@ -95159,6 +95171,178 @@ try {
   const boot = () => { try { if (typeof started !== 'undefined' && started) pass(); } catch (e) { ERR('boot', e); } };
   setTimeout(boot, 2500);
   setTimeout(boot, 8000);
+})();
+
+
+/* GLX-V1305: perf. Batch world HD torch Mesh parts into InstancedMeshes
+   so a few hundred static torches share a handful of draws. Flame sprites
+   stay on each torch and still flicker; bodies stay visible at the same
+   72-block range as updateEntities. Rebuilds only when the torch set or
+   the player's cell changes. lightSrc is unchanged. */
+(function v1305() {
+  const U = window.__v1305 = {err: null, inst: 0, n: 0, vis: 0, batched: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const FAR2 = 72 * 72;
+  const CELL = 8;
+  let root = null, buckets = null, lastTorchN = -1, lastCell = '';
+
+  function torchList() {
+    const out = [];
+    try {
+      if (typeof entObjs === 'undefined' || typeof T === 'undefined') return out;
+      for (const o of entObjs.values()) if (o && o.type === T.TORCH && o.g) out.push(o);
+    } catch (e) { ERR('list', e); }
+    return out;
+  }
+
+  function hideBody(g) {
+    if (!g || g.userData.batched1305) return;
+    g.traverse(o => {
+      if (o.isMesh || o.isInstancedMesh) {
+        o.visible = false;
+        o.frustumCulled = false;
+        o.matrixAutoUpdate = false;
+      }
+    });
+    g.userData.batched1305 = 1;
+    g.matrixAutoUpdate = false;
+  }
+
+  function keyOfMatGeo(o) {
+    const mat = Array.isArray(o.material) ? o.material[0] : o.material;
+    const geo = o.geometry;
+    if (!mat || !geo) return null;
+    return mat.uuid + '|' + geo.uuid;
+  }
+
+  function ensureRoot() {
+    if (root && typeof scene !== 'undefined' && root.parent === scene) return root;
+    root = new THREE.Group();
+    root.name = 'torchInst1305';
+    root.matrixAutoUpdate = false;
+    root.frustumCulled = false;
+    root.userData.__dcR = 1e9;
+    root.userData.__dcK = 1;
+    scene.add(root);
+    return root;
+  }
+
+  function clearInst() {
+    if (!root) return;
+    while (root.children.length) root.remove(root.children[0]);
+    buckets = null;
+  }
+
+  function buildBuckets(list) {
+    const map = new Map();
+    for (const o of list) {
+      try {
+        if (!o.g) continue;
+        o.g.matrixAutoUpdate = true;
+        o.g.updateMatrixWorld(true);
+        o.g.traverse(x => {
+          if (!x.isMesh || x.isInstancedMesh) return;
+          if (x.userData && x.userData._skip1305) return;
+          const k = keyOfMatGeo(x);
+          if (!k) return;
+          let b = map.get(k);
+          if (!b) {
+            const mat = Array.isArray(x.material) ? x.material[0] : x.material;
+            b = {key: k, geo: x.geometry, mat, items: []};
+            map.set(k, b);
+          }
+          b.items.push({o, mesh: x});
+        });
+        hideBody(o.g);
+      } catch (e) { ERR('buck', e); }
+    }
+    return [...map.values()];
+  }
+
+  function fill() {
+    const list = torchList();
+    const n = list.length;
+    if (!n) { U.n = 0; U.vis = 0; return; }
+    if (!buckets || n !== lastTorchN) {
+      clearInst();
+      ensureRoot();
+      buckets = buildBuckets(list);
+      lastTorchN = n;
+      U.batched++;
+    }
+    const px = (typeof P !== 'undefined' && P) ? P.x : 0;
+    const pz = (typeof P !== 'undefined' && P) ? P.z : 0;
+    let vis = 0;
+    for (const b of buckets) {
+      const visItems = [];
+      for (const it of b.items) {
+        const o = it.o;
+        const dx = o.x - px, dz = o.z - pz;
+        if (dx * dx + dz * dz > FAR2) continue;
+        visItems.push(it);
+      }
+      let mesh = b.inst;
+      if (!mesh || mesh.instanceMatrix.count < visItems.length || !mesh.parent) {
+        const cap = Math.max(16, visItems.length);
+        if (mesh && mesh.parent) mesh.parent.remove(mesh);
+        mesh = new THREE.InstancedMesh(b.geo, b.mat, cap);
+        mesh.frustumCulled = false;
+        mesh.matrixAutoUpdate = false;
+        mesh.userData.__dcR = 1e9;
+        mesh.userData._skip1305 = 1;
+        mesh.count = 0;
+        root.add(mesh);
+        b.inst = mesh;
+        U.inst++;
+      }
+      for (let i = 0; i < visItems.length; i++) {
+        const it = visItems[i];
+        if (it.o.g) { it.o.g.matrixAutoUpdate = true; it.o.g.updateMatrixWorld(true); it.o.g.matrixAutoUpdate = false; }
+        it.mesh.updateMatrixWorld(true);
+        mesh.setMatrixAt(i, it.mesh.matrixWorld);
+      }
+      mesh.count = visItems.length;
+      mesh.instanceMatrix.needsUpdate = true;
+      vis += visItems.length;
+    }
+    U.n = n;
+    U.vis = vis;
+  }
+
+  function tick() {
+    try {
+      if (typeof started === 'undefined' || !started || typeof scene === 'undefined' || !scene) return;
+      const n = torchList().length;
+      const px = (typeof P !== 'undefined' && P) ? (P.x | 0) : 0;
+      const pz = (typeof P !== 'undefined' && P) ? (P.z | 0) : 0;
+      const cell = (px / CELL | 0) + ',' + (pz / CELL | 0);
+      if (n === lastTorchN && cell === lastCell && buckets) return;
+      lastCell = cell;
+      fill();
+    } catch (e) { ERR('tick', e); }
+  }
+
+  try {
+    if (typeof updateEntities === 'function') {
+      const u0 = updateEntities;
+      updateEntities = function () {
+        const r = u0.apply(this, arguments);
+        tick();
+        return r;
+      };
+    }
+  } catch (e) { ERR('wrap', e); }
+  try {
+    if (typeof syncEntities === 'function') {
+      const s0 = syncEntities;
+      syncEntities = function () {
+        const r = s0.apply(this, arguments);
+        lastTorchN = -1;
+        return r;
+      };
+    }
+  } catch (e) { ERR('sync', e); }
+  U.tick = tick;
 })();
 
 
