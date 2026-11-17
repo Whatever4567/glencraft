@@ -72564,18 +72564,18 @@ try {
         if (inVillage(x, z) || isProt(x, z)) continue;
         const n = nationAt(x, z);
         if (n !== 'scotland') continue;
+        /* only the northern third: jagged snowy highland peaks, not a mid-map snow blanket */
+        if (z > D * 0.32) continue;
         const t = topOf(x, z);
-        if (t <= sea + 14) continue;
-        /* north (low z) and already-high ground: jagged snowy peaks */
-        const north = 1 - (z / D);
+        if (t <= sea + 16) continue;
         const rid = Math.sin(x * 0.11) * Math.cos(z * 0.08) + 0.55 * Math.sin((x + z) * 0.19);
-        const want = Math.round((t - sea) * (1 + 0.35 * north) + Math.max(0, rid) * (8 + 14 * north));
-        const add = Math.min(18, Math.max(0, (sea + 14 + want) - t - 20));
-        if (add < 2 && !(t > sea + 20 && rid > 0.35 && north > 0.35)) {
-          if (t > sea + 22 && rnd() < 0.35) { put(x, t, z, SN()); if (t + 1 < H - 2) put(x, t + 1, z, 0); U.peaks++; }
+        if (rid < 0.15 && t < sea + 22) continue;
+        const add = Math.min(12, Math.max(0, Math.round(rid * 10 + (t - sea - 16) * 0.25)));
+        if (add < 2) {
+          if (t > sea + 24 && rid > 0.4) { put(x, t, z, SN()); U.peaks++; }
           continue;
         }
-        const cap = Math.min(H - 4, t + Math.max(2, Math.min(14, add)));
+        const cap = Math.min(H - 4, t + add);
         for (let y = t + 1; y <= cap; y++) put(x, y, z, y > cap - 2 ? SN() : T.STONE);
         put(x, t, z, T.STONE);
         U.peaks++;
@@ -72651,7 +72651,7 @@ try {
       }
     } catch (_) {}
     const guess = [[761, 0, 406], [103, 0, 464], [432, 0, 95]];
-    if (!keeps.length) for (const g of guess) keeps.push(g);
+    for (const g of guess) if (!keeps.some(k => Math.hypot(k[0]-g[0], k[2]-g[2]) < 8)) keeps.push(g);
     for (const [cx, _cy, cz] of keeps) {
       /* find masonry footprint */
       let found = 0;
@@ -72662,7 +72662,7 @@ try {
           if (!inW(x, 8, z)) continue;
           let top = topOf(x, z);
           const b = top ? world[idx(x, top, z)] : 0;
-          const masonry = (b === T.STONEBRICK || b === T.BRICK || b === T.COBBLE || b === T.MOSSYBRICK || b === T.SLATE);
+          const masonry = !!(b && b !== T.GRASS && b !== T.DIRT && b !== T.SAND && b !== T.WATER && b !== T.HEATHER && !plant(b) && top >= (topOf(cx, cz) - 2));
           /* fill under walls */
           if (masonry) {
             for (let y = top - 1; y >= 2; y--) {
@@ -72742,7 +72742,7 @@ try {
       }
     }
     /* One showcase r2 gallery just outside the village, for a reliable ref shot. */
-    const gx = sx + 38, gz = sz + 22;
+    const gx = sx + 72, gz = sz + 48;
     const gy = Math.max(12, (window.__v1299 && __v1299.gy ? __v1299.gy : sea + 5) - 16);
     const bed = gy - 2;
     if (!inVillage(gx, gz)) {
@@ -72845,6 +72845,7 @@ try {
     };
   } catch (e) { ERR('hook', e); }
 })();
+
 
 
 
