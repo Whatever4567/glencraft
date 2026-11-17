@@ -35,6 +35,197 @@
     for (var j = 0; j < rafs.length; j++) { (function (fn) { if (nRAF) nRAF.call(W, function (t) { try { fn(t); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } }); })(rafs[j]); }
   };
 } catch (_) {} })();</script>
+<!-- glencraft-build: land1293 -->
+<style id="glen-land1293-css">
+#glenRotate{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;margin:0;padding:24px;box-sizing:border-box;background:rgba(8,12,10,.94);color:#f5f0d8;text-align:center;font:700 28px/1.25 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.02em;pointer-events:auto;-webkit-user-select:none;user-select:none;touch-action:none}
+#glenRotate.on{display:flex}
+#glenRotate .glen-rot-ico{width:86px;height:86px;margin:0 auto;color:#e9b649;filter:drop-shadow(0 2px 8px rgba(0,0,0,.6))}
+#glenRotate .glen-rot-msg{font-size:clamp(22px,6vw,34px);color:#f3cd63;text-shadow:0 2px 0 #4a2f08,0 4px 10px rgba(0,0,0,.7)}
+#glenRotate .glen-rot-sub{font-size:clamp(13px,3.4vw,16px);font-weight:600;color:#c9d6c4;letter-spacing:.04em;max-width:22em}
+html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
+</style>
+<script>
+/* GLX-LAND1293: phones stay in landscape from the loading screen onward.
+   Desktop and TV are not touched. The loading meter keeps running under the overlay. */
+(function land1293early(){
+  try {
+    var W = window;
+    var U = W.__glenLandscape = W.__glenLandscape || {
+      err: null, phone: false, portrait: false, blocked: false, shown: 0, hides: 0,
+      skippedResize: 0, locks: 0, fs: 0, laidLandscape: 0, lastW: 0, lastH: 0
+    };
+    var ERR = function (w, e) { if (!U.err) U.err = w + ' ' + String(e && e.message || e).slice(0, 220); };
+    function isTv() {
+      try {
+        var ua = navigator.userAgent || '';
+        return /SMART-TV|SmartTV|SmartTv|AppleTV|BRAVIA|WebOS|webOS|Tizen|\bTV Safari\b|CrKey|AFT[A-Z0-9]|Android TV|AndroidTV|GoogleTV|HbbTV|Roku|Viera|PlayStation|Xbox|Nintendo/i.test(ua);
+      } catch (_) { return false; }
+    }
+    function isPhone() {
+      try {
+        if (W.__glenForcePhone) return true;
+        if (W.__glenForceDesktop) return false;
+        if (isTv()) return false;
+        var ua = navigator.userAgent || '';
+        if (/Windows NT|Macintosh|X11; Linux x86_64|X11; Ubuntu|CrOS|Fedora|Debian/i.test(ua) && !/Mobile|Android|iPhone|iPod/i.test(ua)) return false;
+        if (/iPhone|iPod|Android.+Mobile|Opera Mini|IEMobile|BlackBerry|webOS/i.test(ua)) return true;
+        var coarse = false, noHover = false;
+        try { coarse = matchMedia('(pointer: coarse)').matches; } catch (_) {}
+        try { noHover = matchMedia('(hover: none)').matches; } catch (_) {}
+        var sw = (screen && screen.width) || W.innerWidth || 0;
+        var sh = (screen && screen.height) || W.innerHeight || 0;
+        var short = Math.min(sw, sh);
+        if (coarse && noHover && short && short <= 620) return true;
+        return false;
+      } catch (e) { ERR('phone', e); return false; }
+    }
+    function isPortrait() {
+      /* The layout viewport is what glitches positioning. Prefer it over
+         screen.orientation, which can lag or stay stale after a resize. */
+      var vw = W.innerWidth || 0, vh = W.innerHeight || 0;
+      if (vw && vh) return vw < vh;
+      try {
+        var vv = W.visualViewport;
+        if (vv && vv.width && vv.height) return vv.width < vv.height;
+      } catch (_) {}
+      try {
+        var o = screen.orientation || screen.mozOrientation || screen.msOrientation;
+        if (o && typeof o.type === 'string') return o.type.indexOf('portrait') === 0;
+        if (typeof o === 'string') return o.indexOf('portrait') === 0;
+      } catch (_) {}
+      return false;
+    }
+    function mount() {
+      try {
+        if (document.getElementById('glenRotate')) return document.getElementById('glenRotate');
+        var el = document.createElement('div');
+        el.id = 'glenRotate';
+        el.setAttribute('data-testid', 'rotate-phone-overlay');
+        el.setAttribute('role', 'dialog');
+        el.setAttribute('aria-live', 'polite');
+        el.setAttribute('aria-hidden', 'true');
+        el.innerHTML = '<div class="glen-rot-ico" aria-hidden="true"><svg viewBox="0 0 64 64" width="86" height="86" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><rect x="18" y="8" width="28" height="48" rx="5"/><path d="M8 28c-2 8 2 20 14 24"/><path d="M56 36c2-8-2-20-14-24"/><path d="M8 28l-5 8M8 28l8 3"/><path d="M56 36l5-8M56 36l-8-3"/></svg></div><div class="glen-rot-msg">Rotate your phone</div><div class="glen-rot-sub">Glencraft plays in landscape</div>';
+        (document.body || document.documentElement).appendChild(el);
+        el.addEventListener('pointerdown', function (e) { try { e.preventDefault(); e.stopPropagation(); if (U.requestLock) U.requestLock(); } catch (_) {} }, true);
+        el.addEventListener('click', function (e) { try { e.preventDefault(); e.stopPropagation(); if (U.requestLock) U.requestLock(); } catch (_) {} }, true);
+        return el;
+      } catch (e) { ERR('mount', e); return null; }
+    }
+    function setShown(on) {
+      try {
+        var el = mount();
+        if (!el) return;
+        if (on) {
+          if (!el.classList.contains('on')) U.shown++;
+          el.classList.add('on');
+          el.setAttribute('aria-hidden', 'false');
+          try { document.documentElement.classList.add('glen-portrait-lock'); } catch (_) {}
+        } else {
+          if (el.classList.contains('on')) U.hides++;
+          el.classList.remove('on');
+          el.setAttribute('aria-hidden', 'true');
+          try { document.documentElement.classList.remove('glen-portrait-lock'); } catch (_) {}
+        }
+      } catch (e) { ERR('setShown', e); }
+    }
+    function holdLandscapeSize() {
+      try {
+        var w = Math.max(W.innerWidth || 0, W.innerHeight || 0);
+        var h = Math.min(W.innerWidth || 0, W.innerHeight || 0);
+        if (w < 2 || h < 2) return;
+        U.lastW = w; U.lastH = h;
+        if (typeof renderer !== 'undefined' && renderer && renderer.setSize) {
+          renderer.setSize(w, h, false);
+          U.laidLandscape++;
+        }
+        if (typeof camera !== 'undefined' && camera) {
+          camera.aspect = w / h;
+          if (camera.updateProjectionMatrix) camera.updateProjectionMatrix();
+        }
+      } catch (e) { ERR('hold', e); }
+    }
+    function clearStickyInput() {
+      try { if (typeof keys !== 'undefined' && keys) { for (var k in keys) keys[k] = false; } } catch (_) {}
+      try { if (typeof jumpReq !== 'undefined') jumpReq = false; } catch (_) {}
+      try { if (typeof tjx !== 'undefined') tjx = 0; if (typeof tjy !== 'undefined') tjy = 0; } catch (_) {}
+    }
+    function resumeLayout() {
+      try {
+        if (typeof resize === 'function') resize();
+      } catch (e) { ERR('resumeResize', e); }
+      try { W.dispatchEvent(new Event('resize')); } catch (_) {}
+      try { if (W.__statPlace) W.__statPlace(); } catch (_) {}
+      setTimeout(function () {
+        try { if (typeof resize === 'function' && !U.blocked) resize(); } catch (_) {}
+        try { if (!U.blocked) W.dispatchEvent(new Event('resize')); } catch (_) {}
+        try { if (W.__statPlace && !U.blocked) W.__statPlace(); } catch (_) {}
+      }, 60);
+      setTimeout(function () {
+        try { if (typeof resize === 'function' && !U.blocked) resize(); } catch (_) {}
+        try { if (!U.blocked) W.dispatchEvent(new Event('resize')); } catch (_) {}
+        try { if (W.__statPlace && !U.blocked) W.__statPlace(); } catch (_) {}
+      }, 280);
+    }
+    function requestLock() {
+      if (!isPhone()) return;
+      var go = function () {
+        try {
+          var o = (screen && (screen.orientation || screen.mozOrientation)) || null;
+          if (o && o.lock) {
+            U.locks++;
+            var p = o.lock('landscape');
+            if (p && p.catch) p.catch(function () {});
+          }
+        } catch (_) {}
+      };
+      try {
+        var el = document.documentElement;
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        var fsNow = document.fullscreenElement || document.webkitFullscreenElement;
+        if (req && !fsNow) {
+          U.fs++;
+          try {
+            var p = req.call(el);
+            if (p && p.then) p.then(go).catch(function () { go(); });
+            else go();
+          } catch (_) { go(); }
+        } else go();
+      } catch (_) { go(); }
+    }
+    function sync() {
+      try {
+        U.phone = isPhone();
+        U.portrait = isPortrait();
+        var block = !!(U.phone && U.portrait);
+        var was = U.blocked;
+        U.blocked = block;
+        setShown(block);
+        if (block) {
+          clearStickyInput();
+          holdLandscapeSize();
+        } else if (was && !block) {
+          resumeLayout();
+        }
+        return U;
+      } catch (e) { ERR('sync', e); return U; }
+    }
+    U.isTv = isTv; U.isPhone = isPhone; U.isPortrait = isPortrait;
+    U.sync = sync; U.requestLock = requestLock; U.resumeLayout = resumeLayout;
+    U.holdLandscapeSize = holdLandscapeSize; U.mount = mount;
+    mount();
+    sync();
+    try { W.addEventListener('resize', function () { sync(); }, true); } catch (_) {}
+    try { W.addEventListener('orientationchange', function () { sync(); setTimeout(sync, 60); setTimeout(sync, 280); }); } catch (_) {}
+    try { if (W.visualViewport) W.visualViewport.addEventListener('resize', function () { sync(); }); } catch (_) {}
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { try { mount(); sync(); } catch (_) {} });
+    }
+  } catch (e) {
+    try { window.__glenLandscape = window.__glenLandscape || {}; window.__glenLandscape.err = String(e && e.message || e).slice(0, 220); } catch (_) {}
+  }
+})();
+</script>
+
 <meta name="theme-color" content="#1a1206">
 <!-- glencraft-cave-rollback: v1.1.97-caves -->
 <!-- glencraft-build: b1249-v1.2.49 -->
@@ -82,6 +273,7 @@
 <!-- glencraft-build: b1289-v1.2.89 -->
 <!-- glencraft-build: b1290-v1.2.90 -->
 <!-- glencraft-build: b1292-v1.2.92 -->
+<!-- glencraft-build: b1293-v1.2.93 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: load1289 -->
@@ -13440,7 +13632,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.92';
+const GAME_VERSION = '1.2.93';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -62581,6 +62773,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.93","d":"2026-11-17","notes":["The game now plays in landscape on phones."]},
 {"v":"v1.2.92","d":"2026-11-17","notes":["Fixed the controller inventory freeze. You can move around the menu and close it again."]},
 {"v":"v1.2.91","d":"2026-11-17","notes":["Caves on the Highlands now connect into one network, opening into bigger caverns the deeper you go.","Ravines and sinkholes open from the surface across the UK map and lead down into that network.","There are now caves under the water, sealed or flooded so the sea doesn't leak.","Rare ores like diamond, gold and silver are more common the deeper you go."]},
 {"v":"v1.2.90","d":"2026-11-16","notes":["First-person hands now stay on the pistol and musket during reloads."]},
@@ -90912,6 +91105,128 @@ try {
     try { window.updateCraftList = updateCraftList; } catch (_) {}
     U.hook++;
   } catch (e) { ERR('uc', e); }
+})();
+
+/* GLX-LAND1293 (v1.2.93 candidate): the game only lays out and accepts
+   input in landscape on phones, from the loading screen onward. A
+   "Rotate your phone" overlay covers portrait. Loading, worldgen and
+   the meter keep running underneath. Desktop and TV are unchanged.
+   Fullscreen + screen.orientation.lock('landscape') run on the first
+   Play / Start / Create gesture (and on a tap of the overlay). */
+(function land1293late() {
+  const W = typeof window !== 'undefined' ? window : this;
+  const U = W.__glenLandscape || (W.__glenLandscape = {err: null});
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  U.hook = U.hook || 0;
+  try { if (U.mount) U.mount(); if (U.sync) U.sync(); } catch (e) { ERR('resync', e); }
+
+  try {
+    if (typeof resize === 'function' && !resize.__land1293) {
+      const orig = resize;
+      const wrapped = function () {
+        try { if (U.sync) U.sync(); } catch (e) { ERR('rsync', e); }
+        if (U.blocked) {
+          U.skippedResize = (U.skippedResize || 0) + 1;
+          try { if (U.holdLandscapeSize) U.holdLandscapeSize(); } catch (_) {}
+          return;
+        }
+        return orig.apply(this, arguments);
+      };
+      wrapped.__land1293 = 1;
+      try { W.removeEventListener('resize', orig); } catch (_) {}
+      resize = wrapped;
+      try { W.resize = wrapped; } catch (_) {}
+      try { W.addEventListener('resize', wrapped); } catch (_) {}
+      U.hook++;
+    }
+  } catch (e) { ERR('resize', e); }
+  /* The original resize listener may already have the unbound function.
+     After any resize, restore the held landscape size if we are blocked. */
+  try {
+    W.addEventListener('resize', function land1293undo() {
+      try {
+        if (U.sync) U.sync();
+        if (U.blocked) {
+          U.skippedResize = (U.skippedResize || 0) + 1;
+          if (U.holdLandscapeSize) U.holdLandscapeSize();
+        }
+      } catch (e) { ERR('undo', e); }
+    });
+  } catch (e) { ERR('undoBind', e); }
+
+  try {
+    if (typeof step === 'function' && !step.__land1293) {
+      const orig = step;
+      const wrapped = function (dt, g) {
+        if (U.blocked) {
+          try { if (typeof keys !== 'undefined' && keys) { for (const k in keys) keys[k] = false; } } catch (_) {}
+          try { if (typeof jumpReq !== 'undefined') jumpReq = false; } catch (_) {}
+          try { if (typeof tjx !== 'undefined') tjx = 0; if (typeof tjy !== 'undefined') tjy = 0; } catch (_) {}
+          const none = {lx: 0, ly: 0, rx: 0, ry: 0, lx2: 0, ly2: 0};
+          if (g && typeof g === 'object') {
+            for (const k in g) none[k] = 0;
+          }
+          return orig.call(this, dt, none);
+        }
+        return orig.apply(this, arguments);
+      };
+      wrapped.__land1293 = 1;
+      step = wrapped;
+      try { W.step = wrapped; } catch (_) {}
+      U.hook++;
+    }
+  } catch (e) { ERR('step', e); }
+
+  try {
+    if (typeof readPad === 'function' && !readPad.__land1293) {
+      const orig = readPad;
+      const wrapped = function () {
+        if (U.blocked) return {lx: 0, ly: 0, rx: 0, ry: 0};
+        return orig.apply(this, arguments);
+      };
+      wrapped.__land1293 = 1;
+      readPad = wrapped;
+      try { W.readPad = wrapped; } catch (_) {}
+      U.hook++;
+    }
+  } catch (e) { ERR('pad', e); }
+
+  try {
+    const blockEvt = (e) => {
+      if (!U.blocked) return;
+      try { if (e && e.cancelable) e.preventDefault(); } catch (_) {}
+      try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+    };
+    ['keydown', 'keyup', 'keypress'].forEach((t) => W.addEventListener(t, blockEvt, true));
+    U.hook++;
+  } catch (e) { ERR('keys', e); }
+
+  function isStartGesture(t) {
+    try {
+      if (!t) return false;
+      if (t.id === 'glenRotate' || (t.closest && t.closest('#glenRotate'))) return true;
+      if (t.closest) {
+        return !!t.closest('#playBtn,#startBtn,#createGo,[data-testid="title-play-button"],[data-testid="start-game-button"],[data-testid="create-world-button"],[data-testid="world-create-tile"],#worldTiles .tile');
+      }
+      return false;
+    } catch (_) { return false; }
+  }
+  try {
+    const onGesture = (e) => {
+      try {
+        if (isStartGesture(e && e.target)) {
+          if (U.requestLock) U.requestLock();
+        }
+      } catch (err) { ERR('gesture', err); }
+    };
+    document.addEventListener('pointerdown', onGesture, true);
+    document.addEventListener('click', onGesture, true);
+    U.hook++;
+  } catch (e) { ERR('bind', e); }
+
+  try {
+    if (U.blocked && U.holdLandscapeSize) U.holdLandscapeSize();
+  } catch (e) { ERR('hold0', e); }
 })();
 
 </script>
