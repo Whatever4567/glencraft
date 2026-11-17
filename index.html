@@ -282,6 +282,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1299-v1.2.99 -->
 <!-- glencraft-build: b1300-v1.2.100 -->
 <!-- glencraft-build: b1301-v1.2.101 -->
+<!-- glencraft-build: b1302-v1.2.102 -->
 <!-- glencraft-build: b1291-v1.2.91 -->
 <!-- glencraft-build: load1285 -->
 <!-- glencraft-build: load1289 -->
@@ -13640,7 +13641,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.101';
+const GAME_VERSION = '1.2.102';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63281,6 +63282,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.102","d":"2026-11-17","notes":["The underground river hall now shows stone arches over blue water, with a grass lid, hanging moss and lamps.","Deep cave layers can be walked in first person: mossy green caves, dark halls with blue crystal, and wooden mines with magma.","New and reset Highlands worlds have sharper snowy crags in the far north.","England, Ireland and Wales have their own look on the land beyond the main Highlands map."]},
 {"v":"v1.2.101","d":"2026-11-17","notes":["Every lava crater on the map can now erupt from its own crater on the ground. The volcano that used to erupt in mid-air is gone.","Ben Glencraft, a bigger volcano, stands south of spawn, well away from the village.","Eruptions now start with a low rumble and a gentle shake. The crater lava sinks, pauses, then surges up in a thick jet under a black ash cloud.","Lava pours over the rim and floods far down the slopes, then cools into basalt, or obsidian where it meets water.","No more screen-shaking blasts or flying lava bombs. The spawn pad and village stay safe."]},
 {"v":"v1.2.100","d":"2026-11-17","notes":["The river at spawn is clearly blue.","New and reset Highlands worlds have steeper sea cliffs with columnar basalt, and the edge-isle keeps sit more naturally on the coast.","The far north of the map holds snowy highland ground."]},
 {"v":"v1.2.99","d":"2026-11-17","notes":["New and reset Highlands worlds have visible ravines and cave openings on the surface.","A small village stands at spawn, with wooden cottages, gravel paths, flowers and a winding river."]},
@@ -72946,6 +72948,501 @@ try {
         ERR('gen', e);
       }
       { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(56); return r; }
+    };
+  } catch (e) { ERR('hook', e); }
+})();
+
+/* GLX-V1301 (follow-up after 1.2.100): clean r2 stone arches, in-engine deep
+   meshes for r3–r5, jagged northern peaks. Streamed England/Ireland/Wales
+   biomes stay on real lat/lon (V1300 hook). Volcano eruption code is not
+   touched. New/reset Highlands (__g89) only for world sculpt. Saved edits,
+   the V1299 village and official edge-isle keeps are left alone. */
+(function v1301() {
+  const U = window.__v1301 = {err: null, arches: 0, peaks: 0, meshN: 0, ms: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const on = () => !!(window.__g89 && __g89());
+  const placed = i => !!(typeof placedSet !== 'undefined' && placedSet && placedSet.has(i));
+  const inW = (x, y, z) => x > 2 && z > 2 && y >= 2 && x < W - 3 && z < D - 3 && y < H - 2;
+  const KEEP0 = () => new Set([T.PLANKS, T.ROTPLANKS, T.MPLANK, T.LOG, T.PINELOG, T.BIRCHLOG, T.ALDERLOG, T.ROWANLOG, T.YEWLOG, T.ROTLOG, T.DOOR, T.DOORTOP, T.GLASS, T.CHEST, T.BED, T.TABLE, T.FURNACE, T.BOOKSHELF, T.ENCHTABLE, T.WOOL, T.WOOLBLUE, T.WOOLGREEN, T.WOOLRED, T.WOOLPURPLE, T.FENCE, T.RAILING, T.LAMP, T.QLANTERN, T.TORCH, T.BARRIER, T.BEDROCK, T.HBEDROCK, T.BRICK, T.STONEBRICK, T.SLATE, T.RTILE, T.PAVE, T.ASPHALT, T.PORTAL, T.EGYPTPORTAL].filter(v => v != null));
+  let KEEP = null;
+  const keep = b => !!(b && (KEEP || (KEEP = KEEP0())).has(b));
+  const protKey = (x, z) => (x | 0) * 65536 + (z | 0);
+  const isProt = (x, z) => !!(window.__v1299 && __v1299.protect && __v1299.protect.has(protKey(x, z)));
+  const spawnXZ = () => {
+    try { if (window.__v1299 && __v1299.spawn0) return __v1299.spawn0; } catch (_) {}
+    return [W >> 1, D >> 1];
+  };
+  const inVillage = (x, z) => {
+    const [sx, sz] = spawnXZ();
+    return Math.hypot(x - sx, z - sz) < 56;
+  };
+  const plant = b => !!(b && ((typeof PLANT !== 'undefined' && PLANT[b]) || (typeof LEAFY !== 'undefined' && LEAFY[b])));
+  const dirty = new Set();
+  const mark = (x, z) => dirty.add(((x | 0) * 65536 + (z | 0)));
+  const put = (x, y, z, b) => {
+    x = x | 0; y = y | 0; z = z | 0;
+    if (!inW(x, y, z)) return false;
+    const i = idx(x, y, z);
+    if (placed(i) || keep(world[i])) return false;
+    world[i] = b;
+    mark(x, z);
+    return true;
+  };
+  const recan = () => {
+    if (typeof g9cols === 'undefined' || !g9cols) return;
+    for (const k of dirty) {
+      const x = (k / 65536) | 0, z = k & 65535;
+      let t = 0;
+      for (let y = H - 2; y > 0; y--) { if (world[idx(x, y, z)]) { t = y; break; } }
+      try { g9cols[x * D + z] = t; } catch (_) {}
+    }
+    dirty.clear();
+  };
+  const topOf = (x, z) => {
+    x = x | 0; z = z | 0;
+    if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) return 0;
+    for (let y = H - 2; y > 0; y--) {
+      const b = world[idx(x, y, z)];
+      if (b && !plant(b)) return y;
+    }
+    return 0;
+  };
+
+  /* ---- Deep meshing: keep V1217 armed, and draw y<0 with C324 or an in-engine fallback ---- */
+  function armDeep() {
+    try { if (window.__v1217 && !DIM.cur && W >= 600) __v1217.dl = true; } catch (_) {}
+  }
+  armDeep();
+
+  function hookFearh() {
+    try {
+      const e = window.__c320;
+      if (!e || !e.fearth || e.fearth.__v1301) return;
+      const f0 = e.fearth;
+      let inFe = 0;
+      const f = function (x, y, z) {
+        if (inFe) return f0.apply(this, arguments);
+        try {
+          if (y < 0 && window.__v1217 && __v1217.gen) {
+            if (window.__ukb && __ukb.out && __ukb.out(x, z)) return 0;
+            inFe = 1;
+            try { return __v1217.gen(x, y, z); }
+            finally { inFe = 0; }
+          }
+        } catch (er) { inFe = 0; ERR('fe', er); }
+        return f0.apply(this, arguments);
+      };
+      for (const k in f0) f[k] = f0[k];
+      f.top = f0.top; f.c347 = f0.c347; f.dw = f0.dw; f.__v1301 = 1;
+      e.fearth = f;
+      try { if (window.__c324 && __c324.cache && __c324.cache.clear) __c324.cache.clear(); } catch (_) {}
+      U.feHook = 1;
+    } catch (e) { ERR('fehook', e); }
+  }
+  /* Hook after generate and again in meshDeep only. Do not poll-wrap:
+     later posts also replace fearth, and an interval would stack wrappers. */
+
+  const deepBlock = (x, y, z) => {
+    try {
+      if (y >= 0 && x >= 0 && z >= 0 && x < W && z < D && typeof world !== 'undefined') return world[idx(x, y, z)] | 0;
+      if (window.__v1217 && __v1217.gen && y < 0) return __v1217.gen(x, y, z) | 0;
+      if (window.__c320 && __c320.earth) return __c320.earth(x, y, z) | 0;
+    } catch (_) {}
+    return 0;
+  };
+
+  /* Build an in-engine textured group in the live scene (game camera / BLOCK_MATS). */
+  function buildFallback(ox, y0, oz, sx, sy, sz) {
+    const T3 = window.THREE || THREE;
+    const mats = (typeof BLOCK_MATS !== 'undefined' && BLOCK_MATS) || {};
+    const groups = {};
+    const keyOf = b => b;
+    const blockAt = (x, y, z) => {
+      if (x < ox || z < oz || y < y0 || x >= ox + sx || z >= oz + sz || y >= y0 + sy) return 0;
+      return deepBlock(x, y, z);
+    };
+    const geo = new T3.BoxGeometry(1, 1, 1);
+    let n = 0;
+    const faces = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+    const add = (b, x, y, z) => {
+      if (!groups[b]) groups[b] = [];
+      groups[b].push(x, y, z);
+      n++;
+    };
+    for (let x = ox; x < ox + sx; x++) for (let z = oz; z < oz + sz; z++) for (let y = y0; y < y0 + sy; y++) {
+      const b = blockAt(x, y, z);
+      if (!b) continue;
+      let exp = 0;
+      for (const [dx, dy, dz] of faces) { if (!blockAt(x + dx, y + dy, z + dz)) { exp = 1; break; } }
+      if (exp) add(b, x, y, z);
+    }
+    const root = new T3.Group();
+    root.name = 'deep1301';
+    for (const id of Object.keys(groups)) {
+      const arr = groups[id], count = arr.length / 3, bid = +id;
+      let mat = mats[bid] || mats[String(bid)];
+      if (Array.isArray(mat)) mat = mat[2] || mat[0];
+      if (!mat && bid === T.WATER && typeof waterMat !== 'undefined') mat = waterMat;
+      if (!mat) {
+        const col = bid === T.WATER ? 0x2f8ee0 : bid === T.LAVA ? 0xff6a14
+          : (bid === (T.GDRIP || -1) || bid === (T.CYNVEIN || -2)) ? 0x28d8ff
+          : (bid === (T.HMOSS || -3) || bid === (T.MOSSBLK || -4) || bid === T.LEAVES) ? 0x3a9a34
+          : (bid === (T.MPLANK || -5) || bid === T.PLANKS) ? 0x8c5a28
+          : bid === T.TORCH ? 0xffc84a : 0x6a6a70;
+        mat = new T3.MeshLambertMaterial({ color: col });
+      }
+      const im = new T3.InstancedMesh(geo, mat, count);
+      const m = new T3.Matrix4();
+      for (let i = 0; i < count; i++) {
+        m.makeTranslation(arr[i * 3] + 0.5, arr[i * 3 + 1] + 0.5, arr[i * 3 + 2] + 0.5);
+        im.setMatrixAt(i, m);
+      }
+      im.instanceMatrix.needsUpdate = true;
+      if (bid === T.WATER || bid === T.LAVA) im.renderOrder = 2;
+      root.add(im);
+    }
+    return {root, n};
+  }
+
+  U.meshDeep = function (x, y, z, r) {
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    armDeep();
+    hookFearh();
+    x = x != null ? x : P.x; y = y != null ? y : P.y; z = z != null ? z : P.z;
+    r = r || 3;
+    const Csz = (typeof CH === 'number' && CH) || 16;
+    const out = {c324: 0, fb: 0, err: null, band: 0, ukHome: 0};
+    try { out.ukHome = !!(window.__ukHome && __ukHome()); } catch (_) {}
+    try {
+      const C = window.__c324, e = window.__c320;
+      if (C && C.cache && C.cache.clear) C.cache.clear();
+      if (C && C.mesh && e) {
+        const ax = (window.__c321 && __c321.ax != null) ? __c321.ax : 2;
+        const piv = ax === 2 ? [0, 0, 0] : ((window.__c321 && __c321.piv) || [0, 0, 0]).slice();
+        const band = Math.floor((y - 40) / 8) * 8;
+        out.band = band;
+        const pcx = Math.floor(x / Csz), pcz = Math.floor(z / Csz);
+        const before = C.meshed || 0;
+        for (let cx = pcx - r; cx <= pcx + r; cx++) {
+          for (let cz = pcz - r; cz <= pcz + r; cz++) {
+            try { C.mesh(ax, piv, cx, cz, band); } catch (er) { if (!out.err) out.err = 'mesh ' + String(er).slice(0, 160); }
+          }
+        }
+        out.c324 = (C.meshed || 0) - before;
+        out.c324err = C.err || null;
+        out.c324n = C.n || 0;
+        try {
+          const root = null;
+          /* earth324 group lives in the scene */
+          scene.traverse(o => { if (o.name === 'earth324') o.visible = true; });
+        } catch (_) {}
+      }
+    } catch (e) { out.err = String(e && e.stack || e).slice(0, 220); }
+    /* If C324 produced nothing useful below the surface, plant a textured fallback in the live scene. */
+    try {
+      if ((y < 0 && out.c324 < 1) || U.forceFB) {
+        if (U.fb && U.fb.parent) { try { U.fb.parent.remove(U.fb); U.fb.traverse(o => { if (o.geometry && o !== U.fb) try { o.geometry.dispose(); } catch (_) {} }); } catch (_) {} }
+        const sx = 36, sy = 28, sz = 36;
+        const y0 = Math.round(y) - 10;
+        const built = buildFallback(Math.round(x) - (sx >> 1), y0, Math.round(z) - (sz >> 1), sx, sy, sz);
+        scene.add(built.root);
+        U.fb = built.root;
+        out.fb = built.n;
+      }
+    } catch (e) { out.fbErr = String(e && e.stack || e).slice(0, 200); }
+    out.ms = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - t0);
+    U.lastMesh = out;
+    U.meshN++;
+    return out;
+  };
+
+  U.xzLL = function (lat, lon) {
+    const K = (window.__c339 && __c339.K) || 300;
+    const LAT0 = (window.__c339 && __c339.LAT0) || 57.45;
+    const LON0 = (window.__c339 && __c339.LON0) || -3.75;
+    /* lat = LAT0 - (z-(D>>1))/K  =>  z = (D>>1) + (LAT0-lat)*K  (south is +Z) */
+    const z = (D >> 1) + (LAT0 - lat) * K;
+    const x = (W >> 1) + (lon - LON0) * K * Math.cos(lat * Math.PI / 180);
+    return [x, z];
+  };
+  U.streamH = function (x, z) {
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    try {
+      if (window.__c339 && __c339.col) {
+        const q = __c339.col(x | 0, z | 0);
+        if (q && q[0] != null) return sea + q[0];
+      }
+    } catch (_) {}
+    try {
+      if (window.__c320 && __c320.ground) {
+        const q = __c320.ground(x | 0, sea, z | 0, 0, 1, 0);
+        if (q && q[0] != null) return sea + q[0];
+      }
+    } catch (_) {}
+    return sea + 8;
+  };
+  /* After a deep mesh, stand in open air looking at a distinctive block. */
+  U.findView = function (cx, cz, yMid, want, spread) {
+    spread = spread || 28;
+    const air = b => !b || b === T.WATER || b === T.LAVA;
+    const sample = (x, y, z) => {
+      try { return (window.__v1301.deepBlock ? U._db : null) || 0; } catch (_) { return 0; }
+    };
+    /* use deepBlock from closure */
+    const at = (x, y, z) => deepBlock(x, y, z);
+    let best = null, score = -1;
+    for (let x = (cx | 0) - spread; x <= (cx | 0) + spread; x += 2)
+      for (let z = (cz | 0) - spread; z <= (cz | 0) + spread; z += 2)
+        for (let y = yMid - 8; y <= yMid + 8; y += 2) {
+          if (!air(at(x, y, z))) continue;
+          let feat = 0, open = 0;
+          for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 3; dy++) for (let dz = -2; dz <= 2; dz++) {
+            const b = at(x + dx, y + dy, z + dz);
+            if (air(b)) open++;
+            else if (want(b)) feat++;
+          }
+          const s = feat * 8 + Math.min(open, 40);
+          if (feat > 0 && s > score) { score = s; best = {x, y, z, score, feat, open}; }
+        }
+    return best;
+  };
+
+
+  /* ---- Clean r2 gallery: stone arches over a blue river, south-face cut ---- */
+  function gallery(sx, sz) {
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    const gx = sx + 72, gz = sz + 48;
+    const gy = Math.max(14, (window.__v1299 && __v1299.gy ? __v1299.gy : sea + 5) - 16);
+    const bed = gy - 2;
+    if (inVillage(gx, gz) || isProt(gx, gz)) return;
+    const clay = T.CLAY || T.STONE;
+    const GRN = T.MOSSBLK || T.MOSS || T.LEAVES || T.GRASS;
+    const PL = () => T.MPLANK || T.PLANKS;
+    const HALFX = 14, HALFZ = 5, HALLH = 8;
+    /* 1. Fill a solid stone mass, then carve the hall so the cut face is clean strata. */
+    for (let dx = -HALFX - 2; dx <= HALFX + 2; dx++) {
+      for (let dz = -14; dz <= HALFZ + 2; dz++) {
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        const t0 = topOf(xx, zz) || (sea + 8);
+        const lid = Math.max(gy + HALLH + 1, t0);
+        for (let y = Math.max(2, bed - 2); y <= Math.min(H - 3, lid); y++) {
+          const b = world[idx(xx, y, zz)];
+          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          if (y === lid) put(xx, y, zz, T.GRASS);
+          else if (y >= lid - 2) put(xx, y, zz, T.DIRT);
+          else put(xx, y, zz, T.STONE);
+        }
+      }
+    }
+    /* 2. Carve the hall (including the south viewing cut so the long side is open). */
+    for (let dx = -HALFX; dx <= HALFX; dx++) {
+      for (let dz = -14; dz <= HALFZ; dz++) {
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        const inHall = dz >= -HALFZ && dz <= HALFZ;
+        const inCut = dz < -HALFZ && dz >= -14 && Math.abs(dx) <= HALFX;
+        if (!inHall && !inCut) continue;
+        const t0 = topOf(xx, zz);
+        const lid = t0;
+        const clearTo = inCut ? Math.max(bed + 1, lid - 3) : (gy + HALLH);
+        for (let y = bed + 1; y <= clearTo; y++) {
+          const b = world[idx(xx, y, zz)];
+          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          if (b === T.WATER) continue;
+          put(xx, y, zz, 0);
+        }
+        if (inCut && lid >= 4) {
+          put(xx, lid, zz, T.GRASS);
+          put(xx, lid - 1, zz, T.DIRT);
+          if (lid - 2 > bed) put(xx, lid - 2, zz, T.DIRT);
+        }
+      }
+    }
+    /* 3. Stone arch ribs every 5 blocks, spanning Z, over the river. */
+    for (let dx = -HALFX + 1; dx <= HALFX - 1; dx += 5) {
+      const xx = gx + dx;
+      if (!inW(xx, gy, gz) || isProt(xx, gz) || inVillage(xx, gz)) continue;
+      for (let dz = -HALFZ; dz <= HALFZ; dz++) {
+        const t = (dz + HALFZ) / (HALFZ * 2);
+        const ay = bed + 3 + Math.round(Math.sin(t * Math.PI) * 5);
+        put(xx, ay, gz + dz, T.STONE);
+        put(xx, ay + 1, gz + dz, T.STONE);
+        /* legs only at the north wall — south is the viewing cut */
+        if (dz >= HALFZ - 1) {
+          for (let y = bed + 1; y < ay; y++) put(xx, y, gz + dz, T.STONE);
+        }
+      }
+      U.arches++;
+    }
+    /* 4. Clay-lined source river along X, not connected to the village river. */
+    for (let t = 0; t <= 1; t += 0.006) {
+      const x = Math.round(gx - HALFX + 1 + t * (HALFX * 2 - 2));
+      const z = Math.round(gz + Math.sin(t * 6.0) * 1.2);
+      if (!inW(x, bed, z) || inVillage(x, z) || isProt(x, z)) continue;
+      for (let dx = -2; dx <= 2; dx++) for (let dz = -2; dz <= 2; dz++) {
+        const xx = x + dx, zz = z + dz;
+        if (!inW(xx, bed, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        const rr = dx * dx + dz * dz;
+        if (rr > 5) continue;
+        put(xx, bed, zz, clay);
+        if (rr <= 2.1 && zz >= gz - HALFZ && zz <= gz + HALFZ) {
+          put(xx, bed + 1, zz, T.WATER);
+          put(xx, bed + 2, zz, T.WATER);
+          try { if (typeof FLV !== 'undefined' && FLV) { FLV.delete(idx(xx, bed + 1, zz)); FLV.delete(idx(xx, bed + 2, zz)); } } catch (_) {}
+          for (let y = bed + 3; y <= gy + 5; y++) {
+            const b = world[idx(xx, y, zz)];
+            if (!keep(b) && !placed(idx(xx, y, zz)) && b !== T.STONE && b !== T.WATER) put(xx, y, zz, 0);
+          }
+        } else if (rr <= 4) {
+          put(xx, bed + 1, zz, clay);
+        }
+      }
+    }
+    /* 5. Green hanging moss from the roof and from the underside of each arch. */
+    for (let dx = -HALFX + 2; dx <= HALFX - 2; dx++) {
+      if ((dx + HALFX + 1) % 5 === 0) continue;
+      for (let dz = -3; dz <= 3; dz++) {
+        if (((dx * 13 + dz * 29) & 7) > 3) continue;
+        const xx = gx + dx, zz = gz + dz;
+        const len = 1 + ((dx * 7 + dz) & 3);
+        for (let k = 0; k < len; k++) {
+          if (world[idx(xx, gy + HALLH - k, zz)]) break;
+          put(xx, gy + HALLH - k, zz, GRN);
+        }
+      }
+    }
+    for (let dx = -HALFX + 1; dx <= HALFX - 1; dx += 5) {
+      for (let dz = -HALFZ; dz <= HALFZ; dz++) {
+        const t = (dz + HALFZ) / (HALFZ * 2);
+        const ay = bed + 3 + Math.round(Math.sin(t * Math.PI) * 5);
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, ay, zz)) continue;
+        if (!world[idx(xx, ay - 1, zz)]) {
+          put(xx, ay - 1, zz, GRN);
+          if (t > 0.2 && t < 0.8 && !world[idx(xx, ay - 2, zz)]) put(xx, ay - 2, zz, T.LEAVES || GRN);
+        }
+      }
+    }
+    /* posts and lamps stand on the north bank, never in the river */
+    for (const [px, pz] of [[gx - 8, gz + 3], [gx - 3, gz + 4], [gx + 2, gz + 3], [gx + 7, gz + 4]]) {
+      if (inVillage(px, pz) || isProt(px, pz)) continue;
+      put(px, bed + 1, pz, clay);
+      put(px, bed + 2, pz, PL());
+      put(px, bed + 3, pz, T.LOG || PL());
+      put(px, bed + 4, pz, T.TORCH || T.QLANTERN || 0);
+    }
+    /* flatten to one lid height so the south face is a clean cut, not floating islands */
+    const LID = gy + HALLH + 1;
+    for (let dx = -HALFX - 2; dx <= HALFX + 2; dx++) {
+      for (let dz = -14; dz <= HALFZ + 2; dz++) {
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        const t0 = topOf(xx, zz);
+        for (let y = LID + 1; y <= Math.max(t0, LID + 6); y++) {
+          const b = world[idx(xx, y, zz)];
+          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          put(xx, y, zz, 0);
+        }
+        put(xx, LID, zz, T.GRASS);
+        put(xx, LID - 1, zz, T.DIRT);
+        put(xx, LID - 2, zz, T.DIRT);
+      }
+    }
+    /* open-air viewing hollow south of the cut so the face can be photographed like a diorama */
+    for (let dx = -HALFX - 4; dx <= HALFX + 4; dx++) {
+      for (let dz = -28; dz <= -15; dz++) {
+        const xx = gx + dx, zz = gz + dz;
+        if (!inW(xx, gy, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        for (let y = Math.max(2, bed - 1); y <= LID + 4; y++) {
+          const b = world[idx(xx, y, zz)];
+          if (keep(b) || placed(idx(xx, y, zz))) continue;
+          put(xx, y, zz, 0);
+        }
+      }
+    }
+    U.r2 = [gx, gy, gz, bed];
+  }
+
+  /* ---- Jagged snowy Highland peaks in the far north ---- */
+  function jaggedPeaks() {
+    const sea = (typeof SEA === 'number' ? SEA : 40);
+    const SN = () => T.PACKSNOW || T.SNOW || T.STONE;
+    /* a few sharp ridges in the northern fifth, skipping village / keeps */
+    /* official keeps, plus Ben Glencraft (1.2.101, south of spawn at 480,611). Do not out-tall Ben (PK = H-8). */
+    const keeps = [[761, 406], [103, 464], [432, 95], spawnXZ(), [480, 611]];
+    const BEN_TOP = (typeof H === 'number' ? H - 9 : 80);
+    const sites = [];
+    for (let z = 24; z < Math.floor(D * 0.26); z += 8) {
+      for (let x = 80; x < W - 80; x += 10) {
+        if (keeps.some(k => Math.hypot(x - k[0], z - k[1]) < (k[0] === 480 && k[1] === 611 ? 80 : 50))) continue;
+        const t = topOf(x, z);
+        if (t < sea + 14) continue;
+        const rid = Math.sin(x * 0.09) * Math.cos(z * 0.11) + 0.7 * Math.sin((x + z) * 0.17);
+        if (rid < 0.55) continue;
+        sites.push({x, z, t, rid});
+      }
+    }
+    sites.sort((a, b) => b.rid - a.rid || b.t - a.t);
+    const pick = sites.slice(0, 7);
+    U.peakSites = pick.map(s => [s.x, s.t, s.z]);
+    for (const s of pick) {
+      const R = 9 + ((s.x + s.z) % 5);
+      const cap = Math.min(BEN_TOP, s.t + 14 + ((s.rid * 8) | 0));
+      for (let dx = -R; dx <= R; dx++) for (let dz = -R; dz <= R; dz++) {
+        const xx = s.x + dx, zz = s.z + dz;
+        if (!inW(xx, 8, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        const d = Math.hypot(dx, dz) / R;
+        if (d > 1) continue;
+        /* craggy cone, not a smooth hill: notch the radius with high-frequency noise */
+        const jag = 0.18 * Math.sin(dx * 1.7 + zz * 0.4) + 0.12 * Math.cos(dz * 2.1 + xx * 0.3);
+        const td = d + Math.max(0, jag);
+        if (td > 1) continue;
+        const h = Math.round((1 - td * td) * (cap - s.t + 6));
+        const t0 = topOf(xx, zz);
+        const top = Math.min(BEN_TOP, Math.max(t0, s.t - 2) + h);
+        for (let y = t0 + 1; y <= top; y++) {
+          const snow = y > top - 3 || (y > top - 5 && td < 0.35);
+          put(xx, y, zz, snow ? SN() : T.STONE);
+        }
+        if (top - t0 >= 2) { put(xx, t0, zz, T.STONE); U.peaks++; }
+      }
+      /* strip trees and plants off the cone so the snowy crag reads from the north */
+      for (let dx = -R - 8; dx <= R + 8; dx++) for (let dz = -R - 8; dz <= R + 8; dz++) {
+        const xx = s.x + dx, zz = s.z + dz;
+        if (!inW(xx, 8, zz) || inVillage(xx, zz) || isProt(xx, zz)) continue;
+        const t0 = topOf(xx, zz);
+        for (let y = t0; y > t0 - 8 && y > sea; y--) {
+          const b = world[idx(xx, y, zz)];
+          if (plant(b) || b === T.LOG || b === T.PINELOG || b === T.LEAVES || b === T.PINELEAVES) put(xx, y, zz, 0);
+        }
+      }
+    }
+  }
+
+  function run() {
+    const t0 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const [sx, sz] = spawnXZ();
+    try { gallery(sx, sz); } catch (e) { ERR('r2', e); }
+    try { jaggedPeaks(); } catch (e) { ERR('peaks', e); }
+    recan();
+    try { dirtyAll = true; } catch (_) {}
+    armDeep();
+    hookFearh();
+    U.ms = Math.round(((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - t0);
+    U.spawn0 = [sx, sz];
+  }
+
+  try {
+    const gen = generate;
+    generate = function () {
+      if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(57)) return gen.apply(this, arguments);
+      const r = gen.apply(this, arguments);
+      try { if (on()) run(); } catch (e) {
+        if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e;
+        ERR('gen', e);
+      }
+      { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(57); return r; }
     };
   } catch (e) { ERR('hook', e); }
 })();

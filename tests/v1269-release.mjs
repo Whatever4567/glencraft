@@ -10,7 +10,7 @@ let n = 0;
 function ok(cond, msg) { n++; if (!cond) throw new Error('FAIL ' + n + ': ' + msg); }
 
 ok(ver.v === '1.2.71' || ver.v === '1.2.70' || ver.v === '1.2.69', 'version.json is 1.2.69');
-ok(html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.101';"), 'GAME_VERSION is 1.2.69');
+ok(html.includes("const GAME_VERSION = '1.2.71';") || html.includes("const GAME_VERSION = '1.2.70';") || html.includes("const GAME_VERSION = '1.2.69';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';"), 'GAME_VERSION is 1.2.69');
 ok(html.includes('<!-- glencraft-build: b1271-v1.2.71 -->') || html.includes('<!-- glencraft-build: b1270-v1.2.70 -->') || html.includes('<!-- glencraft-build: b1269-v1.2.69 -->'), 'build marker');
 ok(html.includes('"v":"v1.2.69"'), 'PATCH_NOTES entry');
 ok(html.includes('Egypt land is a new Earth-like dimension'), 'notes: Egypt land');
