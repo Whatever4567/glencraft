@@ -95701,17 +95701,20 @@ try {
   function retargetSpawn() {
     if (!isScaled()) return null;
     const [x0, z0] = xzLL(57.31, -4.36);
+    const okB = b => b === T.GRASS || b === T.HEATHER || b === T.DIRT || b === T.SAND || b === (T.GRAVEL || -1);
     const ok = (x, z) => {
       if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) return false;
       const t = (typeof g9top === 'function') ? g9top(x, z) : 0;
+      if (!t || t <= SEA) return false;
       const b = getB(x, t, z);
-      return (b === T.GRASS || b === T.HEATHER) && t > SEA + 1 && getB(x, t + 1, z) === T.AIR && getB(x, t + 2, z) === T.AIR;
+      return okB(b) && getB(x, t + 1, z) === T.AIR && getB(x, t + 2, z) === T.AIR;
     };
     let found = null;
-    for (let dx = 0; dx < 90 && !found; dx += 2) for (let dz = -24; dz <= 24; dz += 2) {
+    /* Stay on the east shore of Loch Ness; do not wander onto a peak face. */
+    for (let dx = 0; dx < 36 && !found; dx += 2) for (let dz = -16; dz <= 16; dz += 2) {
       const x = x0 + dx, z = z0 + dz; if (ok(x, z)) { found = [x, z]; break; }
     }
-    if (!found) for (let r = 2; r < 80 && !found; r += 2) for (let a = 0; a < 16; a++) {
+    if (!found) for (let r = 2; r < 40 && !found; r += 2) for (let a = 0; a < 16; a++) {
       const x = Math.round(x0 + Math.cos(a / 16 * 6.283) * r), z = Math.round(z0 + Math.sin(a / 16 * 6.283) * r);
       if (ok(x, z)) { found = [x, z]; break; }
     }
@@ -95911,7 +95914,7 @@ try {
       A.scot = function () {
         const r = s0.apply(this, arguments);
         try {
-          if (isScaled()) { retargetSpawn(); finishScaledSurface(); placeBen(); }
+          if (isScaled()) { finishScaledSurface(); retargetSpawn(); placeBen(); }
         } catch (er) { ERR('after', er); }
         return r;
       };
@@ -95984,7 +95987,7 @@ try {
     try {
       if (!isScaled() || !world || U.surfMs != null) return;
       if (!(window.__c341 && __c341.done)) return;
-      retargetSpawn(); finishScaledSurface(); placeBen();
+      finishScaledSurface(); retargetSpawn(); placeBen();
     } catch (e) { ERR('fin', e); }
   }, 400);
 })();
