@@ -95919,8 +95919,8 @@ try {
       const nFace = g - n0;
       const relief = g - Math.min(n0, n1, n2, n3);
       const localMax = g >= n0 && g >= n1 && g >= n2 && g >= n3;
-      const truePeak = localMax && relief >= 2 && g >= 62;
-      const northCrest = nFace >= 2 && relief >= 1 && g >= 66 && slope <= 4 && g >= Math.max(n1, n2, n3) - 1;
+      const truePeak = localMax && relief >= 2 && slope <= 2 && g >= 58;
+      const northCrest = nFace >= 2 && slope <= 2 && g >= 62 && g >= Math.max(n1, n2, n3) - 1;
       if (truePeak || northCrest) {
         candC.push(c);
         candS.push(g * 8 + relief * 6 + (localMax ? 12 : 0) + Math.max(0, nFace) * 2);
@@ -95939,26 +95939,30 @@ try {
     const DS = T.DEEPSLATE || ST, BL = T.BLACKSTONE || DS, BA = T.BASALT || T.BASALTCOL || BL;
     const rockAt = (x, z, g, slope, vk) => {
       const u = hs(x * 0.51 + 1.7, z * 0.37 - 4.2);
-      if (vk === 'b' || vk === 'l') return u < 0.55 ? BL : BA;
-      if (vk === 'r') return u < 0.5 ? ST : (u < 0.8 ? BA : SL);
-      if (slope >= 6 || g > 52) {
-        if (u < 0.28) return DS;
-        if (u < 0.52) return SL;
-        if (u < 0.74) return ST;
-        return BA;
+      if (vk === 'b' || vk === 'l') return u < 0.6 ? BL : BA;
+      if (vk === 'r') return u < 0.45 ? BA : (u < 0.75 ? SL : ST);
+      /* Steep faces and high slopes: dark rock, not pale stone that reads as snow. */
+      if (slope >= 3 || g > 40) {
+        if (u < 0.34) return DS;
+        if (u < 0.58) return BA;
+        if (u < 0.78) return SL;
+        return BL;
       }
-      if (slope >= 3) return u < 0.45 ? SL : ST;
-      return g > 24 ? SL : ST;
+      return u < 0.5 ? SL : ST;
     };
     let nSnow = 0, nStone = 0, nPine = 0, nKeep = 0, nLand = 0;
     for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
       const c = x * D + z, g = G[c];
       if (g <= 0) continue;
-      const top = SEA + g - 1;
-      if (top <= SEA || top >= WH - 2) continue;
+      let top = SEA + g - 1;
       const base = x * WH * D + z;
-      let b = world[base + top * D];
-      if (!b) continue;
+      if (top >= WH - 2) top = WH - 3;
+      let b = (top > SEA) ? world[base + top * D] : 0;
+      if (!b && top > SEA) {
+        const y0 = Math.min(WH - 2, top + 10), y1 = Math.max(SEA + 1, top - 10);
+        for (let y = y0; y >= y1; y--) { const bb = world[base + y * D]; if (bb) { top = y; b = bb; break; } }
+      }
+      if (!b || top <= SEA) continue;
       nLand++;
       const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]), Math.abs(g - G[c - 1]), Math.abs(g - G[c - D]));
       const steep = slope >= 4;
@@ -95970,7 +95974,7 @@ try {
       if (eligSnow) {
         if (!isSnow) world[base + top * D] = SN;
         b = SN; nKeep++;
-      } else if (isSnow || (steep && (b === GR || b === HE) && g > 8) || (g > 36 && (b === GR || b === HE))) {
+      } else if (isSnow || (g > 14 && steep && (b === GR || b === HE)) || (g > 36 && (b === GR || b === HE))) {
         const rk = rockAt(x, z, g, slope, VK[c]);
         world[base + top * D] = rk;
         if (top > 1) {
