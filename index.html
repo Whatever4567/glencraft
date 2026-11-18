@@ -95829,12 +95829,13 @@ try {
   } catch (e) { ERR('ht', e); }
 
   function finishScaledSurface() {
-    /* One W×D pass. Top comes from hT (same g scot painted), so we do not
-       rescan each column from H down. Replaces resurfaceSnow + morePines. */
+    /* One pass to cache g from hT, one pass to paint. Top = SEA+g-1, no y-scan.
+       Replaces resurfaceSnow + morePines. */
     if (!isScaled() || !world) return 0;
     const t0 = performance.now();
+    U.surfMs = -1;
     const SN = T.PACKSNOW || T.SNOW, HE = T.HEATHER || T.GRASS, GR = T.GRASS, DT = T.DIRT;
-    const ST = T.STONE, SL = T.SLATE || ST, GV = T.GRAVEL || ST;
+    const ST = T.STONE, SL = T.SLATE || ST;
     const LOG = T.PINELOG || T.LOG, LEAF = T.PINELEAVES || T.LEAVES;
     const WH = (typeof H === 'number' ? H : NEW_H);
     const SNOW_G = 64;
@@ -95842,17 +95843,21 @@ try {
     const ht = (x, z) => { try { return A && A.hT ? A.hT(x, z) : [0, 0, 0]; } catch (_) { return [0, 0, 0]; } };
     const [sx, sz] = U.spawn ? [U.spawn[0], U.spawn[2]] : (g9spawn ? [g9spawn[0], g9spawn[2]] : [W >> 1, D >> 1]);
     const bx = U.ben ? U.ben[0] : -1e9, bz = U.ben ? U.ben[1] : -1e9;
+    const N = W * D;
+    const G = new Int16Array(N);
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
+      G[x * D + z] = ht(x, z)[0] | 0;
+    }
     let nSnow = 0, nStone = 0, nPine = 0;
     for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
-      const h = ht(x, z), g = h[0], hi = h[1] || 0;
+      const c = x * D + z, g = G[c];
       if (g <= 0) continue;
       const top = SEA + g - 1;
       if (top <= SEA || top >= WH - 2) continue;
       const base = x * WH * D + z;
       let b = world[base + top * D];
       if (!b) continue;
-      const g1 = ht(x + 1, z)[0], g2 = ht(x, z + 1)[0];
-      const slope = Math.max(Math.abs(g - g1), Math.abs(g - g2));
+      const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]));
       const steep = slope >= 4;
       if (b === SN || b === T.SNOW) {
         if (g <= SNOW_G) {
