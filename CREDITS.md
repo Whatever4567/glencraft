@@ -144,6 +144,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.108 Bigger-scale Scotland
+
+- New Highlands worlds are twice the scale (more blocks between real places), with spawn on Loch Ness in the Great Glen, snowy jagged highlands, sea lochs, denser pine woods and Ben Glencraft near the glen.
+- Older saved worlds keep their original size and land. The held map still shows the whole country and is still built once per world in the background.
+
 ## v1.2.107 Held map shows the new UK terrain
 
 - When you start a new world, the map in your hand is drawn from the real generated land (Scotland's rivers, village and volcanoes, plus the rest of the UK and Ireland), not the old height-only chart.

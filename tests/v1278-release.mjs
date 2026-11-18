@@ -14,7 +14,7 @@ function ok(cond, msg) {
 }
 
 ok(ver.v === '1.2.78', 'version.json is 1.2.78');
-ok(html.includes("const GAME_VERSION = '1.2.78';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';") || html.includes("const GAME_VERSION = '1.2.105';") || html.includes("const GAME_VERSION = '1.2.106';") || html.includes("const GAME_VERSION = '1.2.107';"), 'GAME_VERSION is 1.2.78');
+ok(html.includes("const GAME_VERSION = '1.2.78';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';") || html.includes("const GAME_VERSION = '1.2.105';") || html.includes("const GAME_VERSION = '1.2.106';") || html.includes("const GAME_VERSION = '1.2.107';") || html.includes("const GAME_VERSION = '1.2.108';"), 'GAME_VERSION is 1.2.78');
 ok(html.includes('<!-- glencraft-build: b1278-v1.2.78 -->'), 'build marker is present');
 ok(html.includes('<!-- glencraft-build: b1277-v1.2.77 -->'), '1.2.77 marker stays');
 ok(html.includes('<!-- glencraft-build: b1276-v1.2.76 -->'), '1.2.76 marker stays');
