@@ -95796,6 +95796,44 @@ try {
   }
   U.morePines = morePines;
 
+  /* Memo for scaled hT (scot + finish each walk every column). */
+  const HT_EMPTY = -32768;
+  let htCache = null, htHi = null, htL = null, htKind = null, htCacheW = 0, htCacheH = 0;
+  function htCacheReset() {
+    htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0;
+  }
+  function htCacheAlloc() {
+    if (!isScaled()) return;
+    if (htCache && htCacheW === W && htCacheH === H && htCache.length === W * D) return;
+    const N = W * D;
+    htCache = new Int16Array(N).fill(HT_EMPTY);
+    htHi = new Int16Array(N);
+    htL = new Int16Array(N);
+    htKind = new Array(N);
+    htCacheW = W; htCacheH = H;
+  }
+  /* Official generate already stops at column h, but the cave lattice is
+     SY=H/4+1 and world.fill scales with H. New 2x creates generate at
+     official BASE_H, then expand so scot can paint the tall peaks. */
+  function expandWorldH(newH) {
+    if (typeof H !== 'number' || newH === H || !world) return 0;
+    const t0 = performance.now(), oldH = H, old = world;
+    const next = new Uint16Array(W * newH * D);
+    const srcRow = oldH * D, dstRow = newH * D;
+    for (let x = 0; x < W; x++) next.set(old.subarray(x * srcRow, x * srcRow + srcRow), x * dstRow);
+    world = next; H = newH; htCacheReset();
+    U.expandMs = Math.round(performance.now() - t0);
+    U.hGen = oldH; U.hNow = newH;
+    return U.expandMs;
+  }
+  U.expandWorldH = expandWorldH;
+  function shrinkWorldH(newH) {
+    if (typeof H !== 'number' || newH === H || !world) return 0;
+    world = new Uint16Array(W * newH * D);
+    H = newH; htCacheReset();
+    return newH;
+  }
+
   try {
     const A = window.__c341;
     if (A && A.hT) {
@@ -95803,6 +95841,11 @@ try {
       A.hT = function (x, z) {
         const h = h0(x, z);
         if (!isScaled()) return h;
+        htCacheAlloc();
+        if (htCache && htCacheW === W && htCacheH === H && x >= 0 && z >= 0 && x < W && z < D) {
+          const ci = x * D + z;
+          if (htCache[ci] !== HT_EMPTY) return [htCache[ci], htHi[ci] / 1000, htL[ci] / 1000, htKind[ci] || 0];
+        }
         const ll = window.__c339.fll(x, z), lat = ll[0], lon = ll[1];
         let g = h[0], hi = h[1], L = h[2], kind = h[3];
         const cap = H - SEA - 8, q = NEW_K / BASE_K;
@@ -95814,9 +95857,12 @@ try {
         } else if (g > 0 && hi > 0.18) {
           /* 1.18-style peaks spline: official glens stay low; highland
              ridges get a large offset so 2x horizontal scale keeps steep relief. */
-          const tPeak = ss(cl((g - 5) / 32, 0, 1)) * ss(cl((hi - 0.18) / 0.5, 0, 1));
+          /* Narrower 1.18-style peaks: only strong official ridges go to the
+             cap, so mid slopes stay rock and we do not flatten highlands into
+             snow plateaus. */
+          const tPeak = ss(cl((g - 10) / 28, 0, 1)) * ss(cl((hi - 0.28) / 0.45, 0, 1));
           if (tPeak > 0) {
-            g = g + tPeak * (g * 1.15 + 18);
+            g = g + tPeak * tPeak * (g * 1.05 + 22);
             const qx = fbm(x / (64 * q) + 2, z / (64 * q) - 1) - 0.5;
             const qz = fbm(x / (64 * q) - 5, z / (64 * q) + 8) - 0.5;
             const jag = ridgedMF((x / q + 20 * qx) / 28 + 3, (z / q + 20 * qz) / 28 - 2);
@@ -95826,7 +95872,15 @@ try {
         /* Rugged coastal cliffs (official L-band, highland only). */
         if (g > 0 && L > 0.5 && L < 0.68 && hi > 0.2) g += (14 + 10 * hi) * ss((0.68 - L) / 0.18);
         g = cl(g, -9, cap);
-        return [Math.round(g), hi, L, kind];
+        const out = [Math.round(g), hi, L, kind];
+        if (htCache && htCacheW === W && htCacheH === H && x >= 0 && z >= 0 && x < W && z < D) {
+          const ci = x * D + z;
+          htCache[ci] = out[0];
+          htHi[ci] = Math.round((hi || 0) * 1000);
+          htL[ci] = Math.round((L || 0) * 1000);
+          htKind[ci] = kind || 0;
+        }
+        return out;
       };
     }
   } catch (e) { ERR('ht', e); }
@@ -95841,17 +95895,31 @@ try {
     const ST = T.STONE, SL = T.SLATE || ST;
     const LOG = T.PINELOG || T.LOG, LEAF = T.PINELEAVES || T.LEAVES;
     const WH = (typeof H === 'number' ? H : NEW_H);
-    const SNOW_G = 70;
     const A = window.__c341;
-    const ht = (x, z) => { try { return A && A.hT ? A.hT(x, z) : [0, 0, 0]; } catch (_) { return [0, 0, 0]; } };
+    const ht = (x, z) => { try { return A && A.hT ? A.hT(x, z) : [0, 0, 0, 0]; } catch (_) { return [0, 0, 0, 0]; } };
     const [sx, sz] = U.spawn ? [U.spawn[0], U.spawn[2]] : (g9spawn ? [g9spawn[0], g9spawn[2]] : [W >> 1, D >> 1]);
     const bx = U.ben ? U.ben[0] : -1e9, bz = U.ben ? U.ben[1] : -1e9;
     const N = W * D;
     const G = new Int16Array(N);
+    const VK = new Array(N);
     for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
-      G[x * D + z] = ht(x, z)[0] | 0;
+      const h = ht(x, z); G[x * D + z] = h[0] | 0; VK[x * D + z] = h[3] || 0;
     }
-    let nSnow = 0, nStone = 0, nPine = 0;
+    const DS = T.DEEPSLATE || ST, BL = T.BLACKSTONE || DS, BA = T.BASALT || T.BASALTCOL || BL;
+    const rockAt = (x, z, g, slope, vk) => {
+      const u = hs(x * 0.51 + 1.7, z * 0.37 - 4.2);
+      if (vk === 'b' || vk === 'l') return u < 0.55 ? BL : BA;
+      if (vk === 'r') return u < 0.5 ? ST : (u < 0.8 ? BA : SL);
+      if (slope >= 6 || g > 52) {
+        if (u < 0.28) return DS;
+        if (u < 0.52) return SL;
+        if (u < 0.74) return ST;
+        return BA;
+      }
+      if (slope >= 3) return u < 0.45 ? SL : ST;
+      return g > 24 ? SL : ST;
+    };
+    let nSnow = 0, nStone = 0, nPine = 0, nKeep = 0, nLand = 0;
     for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
       const c = x * D + z, g = G[c];
       if (g <= 0) continue;
@@ -95860,27 +95928,26 @@ try {
       const base = x * WH * D + z;
       let b = world[base + top * D];
       if (!b) continue;
-      const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]));
+      nLand++;
+      const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]), Math.abs(g - G[c - 1]), Math.abs(g - G[c - D]));
       const steep = slope >= 4;
-      if (b === SN || b === T.SNOW) {
-        /* Snow only on flatter high summits; steep faces stay rock even high up. */
-        if (g <= SNOW_G || steep) {
-          world[base + top * D] = steep ? ST : (g > 16 ? HE : GR);
-          if (top > 1) {
-            const u = world[base + (top - 1) * D];
-            if (u === ST || u === SN || u === T.SNOW) world[base + (top - 1) * D] = steep ? ST : DT;
-          }
-          b = world[base + top * D];
-          nSnow++;
-        }
-      } else if (steep && (b === GR || b === HE) && g > 8) {
-        world[base + top * D] = g > 22 ? SL : ST;
+      /* z decreases to the north (LAT0-lat)*K, so a north face goes downhill toward -z. */
+      const nFace = g - G[c - 1];
+      const localMax = g >= G[c - 1] && g >= G[c + 1] && g >= G[c - D] && g >= G[c + D];
+      const keepSnow = (g >= 64 && localMax && slope <= 3) || (g >= 58 && nFace >= 2 && slope <= 5);
+      const isSnow = (b === SN || b === T.SNOW);
+      if (keepSnow && (isSnow || g >= 64)) {
+        if (!isSnow) world[base + top * D] = SN;
+        b = SN; nKeep++;
+      } else if (isSnow || (steep && (b === GR || b === HE) && g > 8) || (g > 36 && (b === GR || b === HE))) {
+        const rk = rockAt(x, z, g, slope, VK[c]);
+        world[base + top * D] = rk;
         if (top > 1) {
           const u = world[base + (top - 1) * D];
-          if (u === DT || u === GR || u === HE) world[base + (top - 1) * D] = ST;
+          if (u === ST || u === SN || u === T.SNOW || u === DT || u === GR || u === HE || u === SL) world[base + (top - 1) * D] = rk;
         }
-        b = world[base + top * D];
-        nStone++;
+        b = rk;
+        if (isSnow) nSnow++; else nStone++;
       }
       if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) continue;
       if (b !== GR && b !== HE) continue;
@@ -95903,7 +95970,10 @@ try {
       nPine++;
     }
     U.resnow = nSnow; U.rstone = nStone; U.pines = nPine;
+    U.snowKeep = nKeep; U.landN = nLand;
+    U.snowFrac = nLand ? +(nKeep / nLand).toFixed(4) : 0;
     U.surfMs = Math.round(performance.now() - t0);
+    try { const A2 = window.__c341; U.finAfter = A2 ? (A2.ms || 0) : 0; U.finRuns = A2 ? (A2.runs || 0) : 0; } catch (_) {}
     return nPine;
   }
   U.finishScaledSurface = finishScaledSurface;
@@ -95944,6 +96014,30 @@ try {
   } catch (e) { ERR('size', e); }
 
   try {
+    const gen0 = generate;
+    generate = function () {
+      const want = !!(U.want && (W === NEW_W || (typeof W === 'number' && W >= 1600)));
+      const t0 = performance.now();
+      let yielded = false;
+      try {
+        if (want && H === NEW_H) shrinkWorldH(BASE_H);
+        return gen0.apply(this, arguments);
+      } catch (e) {
+        const L = window.__glenLoad;
+        if (L && e === L.YIELD) { yielded = true; throw e; }
+        throw e;
+      } finally {
+        const L = window.__glenLoad;
+        const mid = !!(L && L._g9 && !L.genDone);
+        if (want && H === BASE_H && !yielded && !mid) {
+          try { expandWorldH(NEW_H); } catch (e) { ERR('exp', e); }
+        }
+        if (!yielded && !mid) U.genMs = Math.round(performance.now() - t0);
+      }
+    };
+  } catch (e) { ERR('gen', e); }
+
+  try {
     const ew = enterWorld;
     enterWorld = function (save) {
       try {
@@ -95982,15 +96076,46 @@ try {
   } catch (e) { ERR('btn', e); }
   try { applyProj(); } catch (e) { ERR('boot', e); }
   setInterval(() => { try { if (isScaled() && window.__c339 && __c339.K !== NEW_K) applyProj(); } catch (_) {} }, 2000);
-  /* C341 migrate calls its local scot(), not the wrapped A.scot, so the
-     finish pass is armed here once official scot has marked the world. */
+  /* C341 migrate calls its local scot(), not the wrapped A.scot. Re-run
+     finish whenever official scot has completed (including a later pass). */
   setInterval(() => {
     try {
-      if (!isScaled() || !world || U.surfMs != null) return;
-      if (!(window.__c341 && __c341.done)) return;
+      if (!isScaled() || !world) return;
+      const A = window.__c341;
+      if (!(A && A.done)) return;
+      const ms = A.ms || 0, runs = A.runs || 0;
+      if (U.surfMs != null && U.finAfter === ms && U.finRuns === runs) return;
       finishScaledSurface(); retargetSpawn(); placeBen();
     } catch (e) { ERR('fin', e); }
   }, 400);
+
+  /* 2x only: keep fog.far (stream radius / 121-chunk ring) but start the
+     haze later and tint it blue-grey so far peaks read as rock silhouettes
+     instead of a milky white sheet. */
+  try {
+    const us = updateSky;
+    updateSky = function () {
+      const r = us.apply(this, arguments);
+      try {
+        if (!isScaled() || !scene || !scene.fog || scene.fog.isFogExp2) return r;
+        if (typeof DIM !== 'undefined' && DIM.cur) return r;
+        if (typeof P !== 'undefined' && P && P.y < SEA - 8) return r;
+        const f = scene.fog, far = f.far;
+        if (far > 40 && f.near < far * 0.58) f.near = far * 0.58;
+        const c = f.color, lum = (c.r + c.g + c.b) / 3;
+        if (lum > 0.58) {
+          c.r = c.r * 0.62 + 0.42 * 0.38;
+          c.g = c.g * 0.62 + 0.50 * 0.38;
+          c.b = c.b * 0.62 + 0.62 * 0.38;
+          if (scene.background && scene.background.isColor) {
+            const b = scene.background, bl = (b.r + b.g + b.b) / 3;
+            if (bl > 0.7) { b.r = c.r; b.g = c.g; b.b = c.b; }
+          }
+        }
+      } catch (e) { ERR('fog', e); }
+      return r;
+    };
+  } catch (e) { ERR('fog0', e); }
 })();
 
 </script>
