@@ -95860,9 +95860,9 @@ try {
           /* Narrower 1.18-style peaks: only strong official ridges go to the
              cap, so mid slopes stay rock and we do not flatten highlands into
              snow plateaus. */
-          const tPeak = ss(cl((g - 10) / 28, 0, 1)) * ss(cl((hi - 0.28) / 0.45, 0, 1));
+          const tPeak = ss(cl((g - 12) / 26, 0, 1)) * ss(cl((hi - 0.32) / 0.42, 0, 1));
           if (tPeak > 0) {
-            g = g + tPeak * tPeak * (g * 1.05 + 22);
+            g = g + tPeak * tPeak * (g * 0.95 + 20);
             const qx = fbm(x / (64 * q) + 2, z / (64 * q) - 1) - 0.5;
             const qz = fbm(x / (64 * q) - 5, z / (64 * q) + 8) - 0.5;
             const jag = ridgedMF((x / q + 20 * qx) / 28 + 3, (z / q + 20 * qz) / 28 - 2);
@@ -95905,23 +95905,37 @@ try {
     for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
       const h = ht(x, z); G[x * D + z] = h[0] | 0; VK[x * D + z] = h[3] || 0;
     }
-    /* Quota ~8% of land: snow only the highest local summits and north faces.
-       A flat g>=58 rule previously left 36% of land white (whole highland flanks). */
-    const hist = new Int32Array(96);
+    /* Snow only on true summits (a real drop to a neighbour, not a flat cap)
+       and north-facing crests. Then keep the best ~8% of land so a single
+       cap-height bucket cannot paint a third of the map white. */
     let landHint = 0;
+    const candC = [], candS = [];
     for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
       const c = x * D + z, g = G[c];
       if (g <= 0) continue;
       landHint++;
-      const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]), Math.abs(g - G[c - 1]), Math.abs(g - G[c - D]));
-      const nFace = g - G[c - 1];
-      const localMax = g >= G[c - 1] && g >= G[c + 1] && g >= G[c - D] && g >= G[c + D];
-      if (g >= 60 && slope <= 3 && (localMax || nFace >= 2)) hist[Math.min(95, g)]++;
+      const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D];
+      const slope = Math.max(Math.abs(g - n3), Math.abs(g - n1), Math.abs(g - n0), Math.abs(g - n2));
+      const nFace = g - n0;
+      const relief = g - Math.min(n0, n1, n2, n3);
+      const localMax = g >= n0 && g >= n1 && g >= n2 && g >= n3;
+      const truePeak = localMax && relief >= 2 && g >= 62;
+      const northCrest = nFace >= 2 && relief >= 1 && g >= 66 && slope <= 4 && g >= Math.max(n1, n2, n3) - 1;
+      if (truePeak || northCrest) {
+        candC.push(c);
+        candS.push(g * 8 + relief * 6 + (localMax ? 12 : 0) + Math.max(0, nFace) * 2);
+      }
     }
     const snowTarget = Math.max(1, Math.round(landHint * 0.08));
-    let acc = 0, snowMinG = 80;
-    for (let gg = 95; gg >= 60; gg--) { acc += hist[gg]; snowMinG = gg; if (acc >= snowTarget) break; }
-    U.snowMinG = snowMinG; U.snowTarget = snowTarget;
+    const keepSnowAt = new Uint8Array(N);
+    if (candC.length && candC.length > snowTarget) {
+      const order = candC.map((_, i) => i);
+      order.sort((a, b) => candS[b] - candS[a]);
+      for (let i = 0; i < snowTarget; i++) keepSnowAt[candC[order[i]]] = 1;
+    } else {
+      for (let i = 0; i < candC.length; i++) keepSnowAt[candC[i]] = 1;
+    }
+    U.snowMinG = 0; U.snowTarget = snowTarget; U.snowCand = candC.length;
     const DS = T.DEEPSLATE || ST, BL = T.BLACKSTONE || DS, BA = T.BASALT || T.BASALTCOL || BL;
     const rockAt = (x, z, g, slope, vk) => {
       const u = hs(x * 0.51 + 1.7, z * 0.37 - 4.2);
@@ -95951,7 +95965,7 @@ try {
       /* z decreases to the north (LAT0-lat)*K, so a north face goes downhill toward -z. */
       const nFace = g - G[c - 1];
       const localMax = g >= G[c - 1] && g >= G[c + 1] && g >= G[c - D] && g >= G[c + D];
-      const eligSnow = g >= snowMinG && slope <= 3 && (localMax || nFace >= 2);
+      const eligSnow = !!keepSnowAt[c];
       const isSnow = (b === SN || b === T.SNOW);
       if (eligSnow) {
         if (!isSnow) world[base + top * D] = SN;
