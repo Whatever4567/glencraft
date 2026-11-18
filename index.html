@@ -95921,12 +95921,15 @@ try {
       const localMax = g >= n0 && g >= n1 && g >= n2 && g >= n3;
       const truePeak = localMax && relief >= 2 && slope <= 2 && g >= 58;
       const northCrest = nFace >= 2 && slope <= 2 && g >= 62 && g >= Math.max(n1, n2, n3) - 1;
-      if (truePeak || northCrest) {
+      /* slope===0 is a real cap/plateau, not a stair tread (slope>=1) that
+         would paint the visible wall white. */
+      const highFlat = g >= 66 && slope === 0;
+      if (truePeak || northCrest || highFlat) {
         candC.push(c);
-        candS.push(g * 8 + relief * 6 + (localMax ? 12 : 0) + Math.max(0, nFace) * 2);
+        candS.push((truePeak ? 400 : 0) + (northCrest ? 200 : 0) + g * 8 + relief * 6 + Math.max(0, nFace) * 2);
       }
     }
-    const snowTarget = Math.max(1, Math.round(landHint * 0.08));
+    const snowTarget = Math.max(1, Math.round(landHint * 0.07));
     const keepSnowAt = new Uint8Array(N);
     if (candC.length && candC.length > snowTarget) {
       const order = candC.map((_, i) => i);
@@ -95983,6 +95986,16 @@ try {
         }
         b = rk;
         if (isSnow) nSnow++; else nStone++;
+        /* Official scot leaves pale T.STONE on the column under the top;
+           on steep faces those sides are what you see from spawn. */
+        if (steep) {
+          const nMax = Math.max(G[c - 1], G[c + 1], G[c - D], G[c + D]);
+          const y0 = Math.max(SEA + 1, SEA + nMax);
+          for (let y = y0; y < top; y++) {
+            const cur = world[base + y * D];
+            if (cur === ST || cur === SN || cur === T.SNOW || cur === SL || cur === DS || cur === BA || cur === BL) world[base + y * D] = rk;
+          }
+        }
       }
       if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) continue;
       if (b !== GR && b !== HE) continue;
