@@ -283,6 +283,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1300-v1.2.100 -->
 <!-- glencraft-build: b1301-v1.2.101 -->
 <!-- glencraft-build: b1306-v1.2.106 -->
+<!-- glencraft-build: b1307-v1.2.107 -->
 <!-- glencraft-build: b1304-v1.2.104 -->
 <!-- glencraft-build: b1303-v1.2.103 -->
 <!-- glencraft-build: b1302-v1.2.102 -->
@@ -13644,7 +13645,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.106';
+const GAME_VERSION = '1.2.107';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -32217,7 +32218,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     const im = mg.createImageData(w, d), px = im.data, bio = window.__bio && __bio.info.on ? __bio : null;
     for (let dx = 0; dx < w; dx++) for (let dz = 0; dz < d; dz++) { const x = x0 + dx, z = z0 + dz, [h, b, dep] = column(x, z); let r, g, bb, al = 255;
       // v1.0.12: a cleaner map - flat crisp colours per surface/biome, clear water, a dark coastline, gentle relief only
-      if (b === T.WATER) { [r, g, bb] = window.__seaCol(dep); if (UKF()) al = 0;
+      if (b === T.WATER) { [r, g, bb] = window.__seaCol(dep);
         if (wAt(x - 1, z) === 0 || wAt(x + 1, z) === 0 || wAt(x, z - 1) === 0 || wAt(x, z + 1) === 0) { r = 30; g = 62; bb = 118; al = 255; } }
       else { const c = MPAL[b] || (LEAFY[b] ? MPAL.leaf : LOGGY[b] ? MPAL.leaf : colOf(b)); r = c[0]; g = c[1]; bb = c[2];
         if (bio && (b === T.GRASS || LEAFY[b] || LOGGY[b])) { const t = bio.tint(x, z); r *= t[0]; g *= t[1]; bb *= t[2]; }
@@ -32300,7 +32301,7 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     const now = performance.now(), dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
     const on = holding(); HG.visible = !!on; if (!on) { lyaw = null; return false; }
     if (wkey() !== key) reset();
-    try { if (window.__c345 && __c345.uk) { __c345.uk.want = 1; if (U.mapDone && UKF() && !ukUsed) compose(); } } catch (_) {}
+    try { if (window.__c345 && __c345.uk) { __c345.uk.want = 1; if (U.mapDone && UKF() && (!ukUsed || U._ukT !== __c345.ukT)) { compose(); U._ukT = __c345.ukT; } } } catch (_) {}
     if (!U.mapDone) build(10); else if ((refT -= dt) <= 0) { refT = 4; const px = Math.floor(P.x), pz = Math.floor(P.z); for (let x = Math.max(0, px - 25); x < Math.min(W, px + 25); x++) for (let z = Math.max(0, pz - 25); z < Math.min(D, pz + 25); z++) wm[x * D + z] = -1; paintRect(px - 24, pz - 24, 48, 48); compose(); }
     if (!tex) { tex = new THREE.CanvasTexture(TX); try { tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (_) { tex.anisotropy = 4; } tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter;
       try { if (renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; } catch (_) {} plane.material.map = tex; plane.material.needsUpdate = true; if (!U.mapDone) compose(); }
@@ -49287,18 +49288,72 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       case 36: return dd < 1 ? G() : dd < 3 ? T.DIRT : (T.SANDSTONE || ST()); }
     return 0; }
   U.lay = lay;
-  // the held map: the whole UK and Ireland, worked out from the same ground, a few rows at a time
+  // the held map: the whole UK and Ireland, sampled from the real generated world
+  // (and streamed ground past the 864 map), a few rows at a time, cached per seed
   const UK = U.uk = {cv: document.createElement('canvas'), N: 512, row: 0, done: 0, X0: 0, Z0: 0, S: 1, k: ''};
   function frame() { const c = __c339, K = c.K, xz = (lat, lon) => [(W >> 1) + (lon - c.LON0) * K * Math.cos(lat * Math.PI / 180), (D >> 1) + (c.LAT0 - lat) * K];
     const a = xz(61.0, -11), b = xz(49.8, -11), d = xz(49.8, 2.2), f = xz(61, 2.2); const x0 = Math.min(a[0], b[0]), x1 = Math.max(d[0], f[0]), z0 = a[1], z1 = b[1];
     const S = Math.max(x1 - x0, z1 - z0); UK.S = S; UK.X0 = (x0 + x1) / 2 - S / 2; UK.Z0 = (z0 + z1) / 2 - S / 2; }
-  function ukRows(ms) { const e = window.__c320, c = window.__c339; if (!UK.want || !e || !e.g345 || !c || !c.fll || UK.done) return; const N = UK.N; if (!UK.row) { frame(); UK.cv.width = UK.cv.height = N; UK.g = UK.cv.getContext('2d'); UK.im = UK.g.createImageData(N, N); }
+  function ukKey() {
+    let mark = 0, sb = 0, done = 0;
+    try { const mk = T.OBSIDIAN || 73; mark = (world && world[(1 * H + 1) * D + 1] === mk && world[(1 * H + 1) * D + 2] === mk) ? 1 : 0; } catch (_) {}
+    try { sb = current && current.v1300sb ? 1 : 0; } catch (_) {}
+    try { done = window.__c341 && __c341.done ? 1 : 0; } catch (_) {}
+    return ((current && current.id) || 'x') + '@' + (current && current.created) + '|' + (typeof gSeed !== 'undefined' ? gSeed : 0) + '#' + (window.__mapGen | 0) + '#' + mark + sb + done;
+  }
+  function ukReady() {
+    try {
+      if (typeof started === 'undefined' || !started || !world) return false;
+      if (window.__c341 && __c341.busy) return false;
+      if (window.__g89 && __g89()) {
+        const mk = T.OBSIDIAN || 73;
+        const marked = world[(1 * H + 1) * D + 1] === mk && world[(1 * H + 1) * D + 2] === mk;
+        if (!marked && !(window.__c341 && __c341.done)) return false;
+      }
+      return true;
+    } catch (_) { return false; }
+  }
+  function ukCol(e, x, z) {
+    const xi = Math.round(x), zi = Math.round(z);
+    if (xi >= 0 && zi >= 0 && xi < W && zi < D && world) {
+      const base = xi * H * D + zi;
+      let y = H - 1, b = 0;
+      for (; y > 0; y--) { b = world[base + y * D]; if (!(b === T.AIR || !FACES[b] || (typeof PLANT !== 'undefined' && PLANT[b] === 1))) break; }
+      let dep = 0;
+      if (b === T.WATER) { let yy = y; while (yy > 0 && world[base + yy * D] === T.WATER && dep < 8) { yy--; dep++; } }
+      return [y - SEA, b, dep];
+    }
+    const q = e.ground(x, SEA, z, 0, 1, 0), g = q[0];
+    if (g <= 0) return [g, T.WATER, Math.min(8, -g)];
+    let b = T.GRASS;
+    try { b = e.layer(e.R || 5000, 0.5, q[1], x, SEA + g, z); } catch (_) {}
+    return [g, b, 0];
+  }
+  U.ukCol = ukCol; U.ukKey = ukKey;
+  function ukRows(ms) {
+    const e = window.__c320, c = window.__c339;
+    if (!UK.want || !e || !e.g345 || !c || !c.fll) return;
+    const k = ukKey();
+    if (UK.k !== k) { UK.k = k; UK.row = 0; UK.done = 0; }
+    if (UK.done || !ukReady()) return;
+    const N = UK.N;
+    if (!UK.row) { frame(); UK.cv.width = UK.cv.height = N; UK.g = UK.cv.getContext('2d'); UK.im = UK.g.createImageData(N, N); }
     const t0 = performance.now(), px = UK.im.data, s = UK.S / N;
-    while (UK.row < N && performance.now() - t0 < ms) { const j = UK.row++; for (let i = 0; i < N; i++) { const x = UK.X0 + (i + 0.5) * s, z = UK.Z0 + (j + 0.5) * s, o = (j * N + i) * 4; let col;
-        try { const q = e.ground(x, SEA, z, 0, 1, 0), g = q[0]; if (g <= 0) col = __seaCol(Math.min(8, -g));
-          else { const b = e.layer(e.R || 5000, 0.5, q[1], x, SEA + g, z); col = BC(b, q[1]); const sh = 0.86 + 0.24 * Math.min(1, g / 50); col = col.map(v => v * sh); } } catch (_) { col = __seaCol(8); }
-        px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; px[o + 3] = 255; } }
-    if (UK.row >= N) { UK.g.putImageData(UK.im, 0, 0); UK.done = 1; U.ukT = performance.now(); } }
+    while (UK.row < N && performance.now() - t0 < ms) {
+      const j = UK.row++;
+      for (let i = 0; i < N; i++) {
+        const x = UK.X0 + (i + 0.5) * s, z = UK.Z0 + (j + 0.5) * s, o = (j * N + i) * 4;
+        let col;
+        try {
+          const [g, b, dep] = ukCol(e, x, z);
+          if (g <= 0 || b === T.WATER) col = __seaCol(dep || Math.min(8, Math.max(0, -g)));
+          else { col = BC(b, (b === (T.PACKSNOW || T.SNOW) || b === T.SNOW) ? 2 : 0); const sh = 0.86 + 0.24 * Math.min(1, Math.max(0, g / 50)); col = col.map(v => Math.max(0, Math.min(255, v * sh))); }
+        } catch (_) { col = __seaCol(8); }
+        px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; px[o + 3] = 255;
+      }
+    }
+    if (UK.row >= N) { UK.g.putImageData(UK.im, 0, 0); UK.done = 1; U.ukT = performance.now(); }
+  }
   const BCC = {}; function BC(b, k) { if (k === 2) return [236, 240, 246]; if (BCC[b]) return BCC[b]; const P = {[T.GRASS]: [112, 178, 76], [T.HEATHER]: [150, 104, 150], [T.PEAT]: [96, 76, 58], [T.MUD]: [110, 90, 64], [T.SAND]: [232, 214, 150], [T.STONE]: [150, 150, 146], [T.LAVA]: [235, 95, 25]};
     let c = P[b]; if (!c) { try { const f = FACES[b], t = Array.isArray(f) ? f[2] : f, h = AVG[t]; c = h !== undefined ? [(h >> 16) & 255, (h >> 8) & 255, h & 255] : [120, 140, 100]; } catch (_) { c = [120, 140, 100]; } } return BCC[b] = c; }
   setInterval(() => { try { ukRows(6); } catch (er) { ERR('uk', er); } }, 60);
@@ -63285,6 +63340,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.107","d":"2026-11-18","notes":["When you start a new world, the map in your hand now shows the real new UK terrain: the islands, Scotland / England / Wales / Ireland colours, volcanic highlands, rivers and the spawn village.","It is no longer the old purple Scotland chart. The map is still drawn once in the background, so the game stays as smooth as 1.2.106."]},
 {"v":"v1.2.106","d":"2026-11-17","notes":["The game runs more smoothly after the deep-cave and hall updates: a hall-repair pass no longer reruns every frame, and deep remesh is cheaper.","Ravines, deep caverns, Highland peaks, streamed England, Ireland and Wales land, volcano eruptions, and cave moss are unchanged."]},
 {"v":"v1.2.105","d":"2026-11-17","notes":["Hanging moss in deep caves no longer shows as a white glitched placeholder; it renders as proper green moss. Rope is fixed the same way.","Cave halls, Highland peaks, streamed England, Ireland and Wales land, and volcano eruptions are unchanged."]},
 {"v":"v1.2.104","d":"2026-11-17","notes":["The lag that crept in after the 1.2.99–1.2.103 landscape and cave updates is reduced: a remesh loop that stacked work the longer you played is gone, and the many cave and village torches now share a merged model.","Ravines, deep caverns, Highland peaks, streamed England, Ireland and Wales land, and volcano eruptions are unchanged."]},
@@ -95463,6 +95519,36 @@ try {
           if (d.c229legacy) current.c229legacy = d.c229legacy; E = null; if (v && v.E && sites()[v.E.si]) { E = {si: v.E.si, ph: 'cool', pt: v.E.ph === 'cool' ? v.E.pt : 0, t: 0, blue: !!v.E.blue, fronts: [], lava: v.E.lava || [], fill: v.E.fill || [], sunk: [], Q: [], qi: 0, acc: 0, coolI: 0, boomT: 9, nf: 0, feedT: 0}; U.ph = 'cool'; } } } catch (e) { ERR('ap', e); } return r; }; } catch (e) { ERR('ap0', e); }
   try { const ew = enterWorld; enterWorld = function (save) { try { E = null; U.ph = 'idle'; for (const k in REST_T) delete REST_T[k]; if (SITES) for (const s of SITES) s.a = null; idleArr = null; if (!save && current) { current.v1300sb = 0; current.c229legacy = null; } } catch (_) {} return ew.apply(this, arguments); }; } catch (e) { ERR('ew', e); }
 })(typeof window !== 'undefined' ? window : this);
+
+/* GLX-V1307 (v1.2.107): the held map is drawn from the real world, not the old
+   C341/C345 height-only UK chart. C345.ukRows now samples world[] inside the
+   864 official map (rivers, spawn village, nation blocks, volcanic highlands)
+   and the live streamed ground functions past it, once per seed. No per-frame
+   cost: the existing 6 ms / 60 ms bake is kept and the sheet is cached. */
+(function v1307() {
+  const U = window.__v1307 = {err: null, n: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  U.sample = function (x, z) {
+    try {
+      const e = window.__c320;
+      if (window.__c345 && __c345.ukCol) return __c345.ukCol(e, x, z);
+    } catch (er) { ERR('sample', er); }
+    return null;
+  };
+  try {
+    const g0 = generate;
+    generate = function () {
+      if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(59)) return g0.apply(this, arguments);
+      const r = g0.apply(this, arguments);
+      try {
+        const uk = window.__c345 && __c345.uk;
+        if (uk) { uk.done = 0; uk.row = 0; uk.k = ''; }
+        U.n++;
+      } catch (er) { ERR('gen', er); }
+      { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(59); return r; }
+    };
+  } catch (e) { ERR('hook', e); }
+})();
 
 </script>
 </body>
