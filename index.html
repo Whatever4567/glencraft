@@ -95905,6 +95905,23 @@ try {
     for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
       const h = ht(x, z); G[x * D + z] = h[0] | 0; VK[x * D + z] = h[3] || 0;
     }
+    /* Quota ~8% of land: snow only the highest local summits and north faces.
+       A flat g>=58 rule previously left 36% of land white (whole highland flanks). */
+    const hist = new Int32Array(96);
+    let landHint = 0;
+    for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
+      const c = x * D + z, g = G[c];
+      if (g <= 0) continue;
+      landHint++;
+      const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]), Math.abs(g - G[c - 1]), Math.abs(g - G[c - D]));
+      const nFace = g - G[c - 1];
+      const localMax = g >= G[c - 1] && g >= G[c + 1] && g >= G[c - D] && g >= G[c + D];
+      if (g >= 60 && slope <= 3 && (localMax || nFace >= 2)) hist[Math.min(95, g)]++;
+    }
+    const snowTarget = Math.max(1, Math.round(landHint * 0.08));
+    let acc = 0, snowMinG = 80;
+    for (let gg = 95; gg >= 60; gg--) { acc += hist[gg]; snowMinG = gg; if (acc >= snowTarget) break; }
+    U.snowMinG = snowMinG; U.snowTarget = snowTarget;
     const DS = T.DEEPSLATE || ST, BL = T.BLACKSTONE || DS, BA = T.BASALT || T.BASALTCOL || BL;
     const rockAt = (x, z, g, slope, vk) => {
       const u = hs(x * 0.51 + 1.7, z * 0.37 - 4.2);
@@ -95934,9 +95951,9 @@ try {
       /* z decreases to the north (LAT0-lat)*K, so a north face goes downhill toward -z. */
       const nFace = g - G[c - 1];
       const localMax = g >= G[c - 1] && g >= G[c + 1] && g >= G[c - D] && g >= G[c + D];
-      const keepSnow = (g >= 64 && localMax && slope <= 3) || (g >= 58 && nFace >= 2 && slope <= 5);
+      const eligSnow = g >= snowMinG && slope <= 3 && (localMax || nFace >= 2);
       const isSnow = (b === SN || b === T.SNOW);
-      if (keepSnow && (isSnow || g >= 64)) {
+      if (eligSnow) {
         if (!isSnow) world[base + top * D] = SN;
         b = SN; nKeep++;
       } else if (isSnow || (steep && (b === GR || b === HE) && g > 8) || (g > 36 && (b === GR || b === HE))) {
@@ -96020,7 +96037,10 @@ try {
       const t0 = performance.now();
       let yielded = false;
       try {
-        if (want && H === NEW_H) shrinkWorldH(BASE_H);
+        /* Never shrink a world that already finished official generate
+           (would wipe voxels). glenLoad slices resume at BASE_H. */
+        const done = !!(U._expanded || (window.__glenLoad && __glenLoad.genDone));
+        if (want && H === NEW_H && !done) { shrinkWorldH(BASE_H); U._shrunk = 1; }
         return gen0.apply(this, arguments);
       } catch (e) {
         const L = window.__glenLoad;
@@ -96030,9 +96050,10 @@ try {
         const L = window.__glenLoad;
         const mid = !!(L && L._g9 && !L.genDone);
         if (want && H === BASE_H && !yielded && !mid) {
-          try { expandWorldH(NEW_H); } catch (e) { ERR('exp', e); }
+          try { expandWorldH(NEW_H); U._expanded = 1; } catch (e) { ERR('exp', e); }
         }
-        if (!yielded && !mid) U.genMs = Math.round(performance.now() - t0);
+        U._genAcc = (U._genAcc || 0) + (performance.now() - t0);
+        if (!yielded && !mid) U.genMs = Math.round(U._genAcc);
       }
     };
   } catch (e) { ERR('gen', e); }
