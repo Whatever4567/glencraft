@@ -33312,8 +33312,31 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
     if (!started || paused || dead || DIM.cur || herds.filter(h => h.m.length >= 3).length >= HMAX || H.length > HMAX * HSIZE - 3) return;
     // v1.0.0: pick from the heather moor (the old Scots biome) round about you
     // v1.0.28: the heather moor is found a slice at a time (one whole-world scan used to stall a phone for a moment)
-    if (U.hw !== world) { U.hw = world; U.heath = []; U.hi = 0; }
-    if (U.hi < world.length) { const a0 = U.hi, e0 = Math.min(world.length, a0 + 3000000), sub = world.subarray(a0, e0); let j = sub.indexOf(T.HEATHER); while (j >= 0 && U.heath.length < 20000) { const i = a0 + j; const z = i % D, q = (i - z) / D, y = q % H, x = (q - y) / H; if (y + 1 < H && !solid(x, y + 1, z)) U.heath.push(x * 4096 + z); j = sub.indexOf(T.HEATHER, j + 1); } U.hi = U.heath.length >= 20000 ? world.length : e0; hgT = 0.3; return; }
+    // v1.2.109: on 2x (W=1728) worlds the 3e6-voxel slice still stalls a frame (~50-80ms) and
+    // takes minutes to finish, so it hit official-walk js95. Search heather near the player
+    // instead. Official 864 worlds keep the old scan.
+    const big = (typeof W === 'number' && W >= 1600) || (world && world.length > 120000000);
+    if (big) {
+      const px = Math.floor(P.x), pz = Math.floor(P.z);
+      if (U.hw !== world || U.hx == null || Math.hypot(px - U.hx, pz - (U.hz || 0)) > 24) {
+        U.hw = world; U.hx = px; U.hz = pz;
+        const heath = [], HE = T.HEATHER, WH = (typeof window.H === 'number' ? window.H : 90);
+        for (let r = 22; r < 64 && heath.length < 800; r += 2) {
+          const nA = Math.max(12, (r >> 1));
+          for (let a = 0; a < nA; a++) {
+            const x = px + Math.round(Math.cos(a / nA * 6.2831853) * r);
+            const z = pz + Math.round(Math.sin(a / nA * 6.2831853) * r);
+            if (x < 4 || z < 4 || x > W - 5 || z > D - 5) continue;
+            const y = solidTop(x, z);
+            if (y > SEA && y + 1 < WH && getB(x, y, z) === HE && !solid(x, y + 1, z)) heath.push(x * 4096 + z);
+          }
+        }
+        U.heath = heath;
+      }
+    } else {
+      if (U.hw !== world) { U.hw = world; U.heath = []; U.hi = 0; }
+      if (U.hi < world.length) { const a0 = U.hi, e0 = Math.min(world.length, a0 + 3000000), sub = world.subarray(a0, e0); let j = sub.indexOf(T.HEATHER); while (j >= 0 && U.heath.length < 20000) { const i = a0 + j; const z = i % D, q = (i - z) / D, y = q % H, x = (q - y) / H; if (y + 1 < H && !solid(x, y + 1, z)) U.heath.push(x * 4096 + z); j = sub.indexOf(T.HEATHER, j + 1); } U.hi = U.heath.length >= 20000 ? world.length : e0; hgT = 0.3; return; }
+    }
     const near = U.heath.filter(k => { const hx = k >> 12, hz = k & 4095, d = Math.hypot(hx - P.x, hz - P.z); return d > 22 && d < 60; }); if (!near.length) return;
     for (let t = 0; t < 12; t++) { const k = near[(R() * near.length) | 0], x = k >> 12, z = k & 4095;
       if (x < 4 || z < 4 || x > W - 5 || z > D - 5) continue; const y = solidTop(x, z) + 1; if (y <= SEA || getB(x, y - 1, z) !== T.HEATHER || getB(x, y, z) && getB(x, y, z) !== T.TALLGRASS && getB(x, y, z) !== T.HEATHER || Math.abs(y - P.y) > 14) continue;   // v1.0.0: only on the old Scots heather moor
@@ -95593,8 +95616,23 @@ try {
     [56.95, -4.55, 56.88, -4.15, 0.8, -4], [56.85, -4.38, 56.72, -4.15, 0.8, -4],
     [57.63, -5.50, 57.70, -5.00, 1.1, -5], [58.05, -4.85, 58.12, -4.40, 1.0, -4]
   ];
+  let WAYS_BOX = null;
+  function waysBox() {
+    if (WAYS_BOX) return WAYS_BOX;
+    let a=1e9,b=-1e9,c=1e9,d=-1e9;
+    for (let i = 0; i < WAYS.length; i++) {
+      const w = WAYS[i], pad = (w[4] || 1.6) / 100 + 0.15;
+      a = Math.min(a, w[0] - pad, w[2] - pad);
+      b = Math.max(b, w[0] + pad, w[2] + pad);
+      c = Math.min(c, w[1] - pad, w[3] - pad);
+      d = Math.max(d, w[1] + pad, w[3] + pad);
+    }
+    return (WAYS_BOX = [a, b, c, d]);
+  }
   function waterBed(lat, lon) {
     if (!lat) return 0;
+    const box = waysBox();
+    if (lat < box[0] || lat > box[1] || lon < box[2] || lon > box[3]) return 0;
     let best = 0;
     const mLat = 111.32, mLon = 111.32 * Math.cos(lat * Math.PI / 180);
     for (let i = 0; i < WAYS.length; i++) {
@@ -95670,20 +95708,50 @@ try {
   }
   U.retargetSpawn = retargetSpawn;
 
+  function resurfaceSnow() {
+    /* Official scot snow is hi>0.5 && g>40. The scaled height boost pushes mid
+       ridges over that line, so the held/top-down map reads as white snow blobs
+       instead of green glens with snow only on high peaks (t1291/t1292 refs).
+       Keep snow on the tallest peaks only; restore heather/grass below. */
+    if (!isScaled() || !world) return 0;
+    const SN = T.PACKSNOW || T.SNOW, HE = T.HEATHER || T.GRASS, GR = T.GRASS, DT = T.DIRT;
+    const WH = (typeof H === 'number' ? H : 90);
+    let n = 0;
+    for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
+      const base = x * WH * D + z;
+      let y = WH - 2, b = 0;
+      for (; y > SEA; y--) { b = world[base + y * D]; if (b) break; }
+      if (b !== SN && b !== T.SNOW) continue;
+      const g = y - SEA + 1;
+      if (g > 52) continue;
+      world[base + y * D] = g > 16 ? HE : GR;
+      if (y > 1) {
+        const u = world[base + (y - 1) * D];
+        if (u === T.STONE || u === SN || u === T.SNOW) world[base + (y - 1) * D] = DT;
+      }
+      n++;
+    }
+    U.resnow = n; return n;
+  }
+  U.resurfaceSnow = resurfaceSnow;
+
   function morePines() {
     if (!isScaled() || !world) return 0;
     const LOG = T.PINELOG || T.LOG, LEAF = T.PINELEAVES || T.LEAVES;
     const HE = T.HEATHER || T.GRASS;
     const [sx, sz] = U.spawn ? [U.spawn[0], U.spawn[2]] : (g9spawn ? [g9spawn[0], g9spawn[2]] : [W >> 1, D >> 1]);
     const bx = U.ben ? U.ben[0] : -1e9, bz = U.ben ? U.ben[1] : -1e9;
+    const tP = performance.now();
     let n = 0;
+    const hasTop = typeof g9top === 'function';
     for (let x = 6; x < W - 6; x++) for (let z = 6; z < D - 6; z++) {
       const p = hs(x * 0.37 + 4.1, z * 0.91 - 2.2);
       if (p > 0.055) continue;
       if (Math.hypot(x - sx, z - sz) < 70 || Math.hypot(x - bx, z - bz) < 80) continue;
       let top = 0, b = 0;
       const base = x * H * D + z;
-      for (let y = H - 2; y > SEA; y--) { b = world[base + y * D]; if (b) { top = y; break; } }
+      if (hasTop) { top = g9top(x, z); b = top ? world[base + top * D] : 0; }
+      else { for (let y = H - 2; y > SEA; y--) { b = world[base + y * D]; if (b) { top = y; break; } } }
       if (!top) continue;
       const g = top - SEA + 1;
       if (g < 3 || g > 28) continue;
@@ -95704,7 +95772,7 @@ try {
       }
       n++;
     }
-    U.pines = n; return n;
+    U.pines = n; U.pineMs = Math.round(performance.now() - tP); return n;
   }
   U.morePines = morePines;
 
@@ -95742,7 +95810,7 @@ try {
       A.scot = function () {
         const r = s0.apply(this, arguments);
         try {
-          if (isScaled()) { retargetSpawn(); morePines(); placeBen(); }
+          if (isScaled()) { retargetSpawn(); resurfaceSnow(); morePines(); placeBen(); }
         } catch (er) { ERR('after', er); }
         return r;
       };
