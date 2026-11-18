@@ -95801,6 +95801,21 @@ try {
   let htCache = null, htHi = null, htL = null, htKind = null, htCacheW = 0, htCacheH = 0;
   function htCacheReset() {
     htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0;
+    stReset();
+  }
+  /* solidTop scans from H-2; at H=128 a loch-shore column walks ~60 extra
+     empty cells per call. Official updateMobs/herd hit this every frame and
+     it showed up as ~40ms js95 spikes. Cache per column on 2× only. */
+  let stC = null, stW = 0, stD = 0;
+  function stReset() { stC = null; stW = 0; stD = 0; }
+  function stAlloc() {
+    if (!isScaled() || typeof W !== 'number') return;
+    if (stC && stW === W && stD === D && stC.length === W * D) return;
+    stC = new Int16Array(W * D).fill(-1); stW = W; stD = D;
+  }
+  function stInv(x, z) {
+    if (!stC || x < 0 || z < 0 || x >= stW || z >= stD) return;
+    stC[x * stD + z] = -1;
   }
   function htCacheAlloc() {
     if (!isScaled()) return;
@@ -96127,6 +96142,31 @@ try {
     if (btn) btn.addEventListener('click', () => { try { if (!qa()) U.want = 1; } catch (_) {} }, true);
   } catch (e) { ERR('btn', e); }
   try { applyProj(); } catch (e) { ERR('boot', e); }
+  try {
+    const st0 = solidTop;
+    solidTop = function (x, z) {
+      if (!isScaled()) return st0.apply(this, arguments);
+      stAlloc();
+      x = x | 0; z = z | 0;
+      if (stC && x >= 0 && z >= 0 && x < stW && z < stD) {
+        const i = x * stD + z, hit = stC[i];
+        if (hit >= 0) return hit;
+        const y = st0.apply(this, arguments);
+        stC[i] = y;
+        return y;
+      }
+      return st0.apply(this, arguments);
+    };
+  } catch (e) { ERR('st', e); }
+  try {
+    const sb0 = setB;
+    setB = function (x, y, z, b) {
+      const r = sb0.apply(this, arguments);
+      try { if (isScaled()) stInv(x | 0, z | 0); } catch (_) {}
+      return r;
+    };
+  } catch (e) { ERR('stb', e); }
+
   setInterval(() => { try { if (isScaled() && window.__c339 && __c339.K !== NEW_K) applyProj(); } catch (_) {} }, 2000);
   /* C341 migrate calls its local scot(), not the wrapped A.scot. Re-run
      finish whenever official scot has completed (including a later pass). */
