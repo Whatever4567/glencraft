@@ -12,7 +12,7 @@ function ok(cond, msg) {
 }
 
 ok(ver.v === '1.2.74', 'version.json is 1.2.74');
-ok(html.includes("const GAME_VERSION = '1.2.74';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';") || html.includes("const GAME_VERSION = '1.2.105';") || html.includes("const GAME_VERSION = '1.2.106';") || html.includes("const GAME_VERSION = '1.2.107';") || html.includes("const GAME_VERSION = '1.2.108';") || html.includes("const GAME_VERSION = '1.2.109';") || html.includes("const GAME_VERSION = '1.2.110';") || html.includes("const GAME_VERSION = '1.2.111';"), 'GAME_VERSION is 1.2.74');
+ok(html.includes("const GAME_VERSION = '1.2.74';") || html.includes("const GAME_VERSION = '1.2.101';") || html.includes("const GAME_VERSION = '1.2.102';") || html.includes("const GAME_VERSION = '1.2.103';") || html.includes("const GAME_VERSION = '1.2.104';") || html.includes("const GAME_VERSION = '1.2.105';") || html.includes("const GAME_VERSION = '1.2.106';") || html.includes("const GAME_VERSION = '1.2.107';") || html.includes("const GAME_VERSION = '1.2.108';") || html.includes("const GAME_VERSION = '1.2.109';") || html.includes("const GAME_VERSION = '1.2.110';") || html.includes("const GAME_VERSION = '1.2.111';") || html.includes("const GAME_VERSION = '1.2.113';"), 'GAME_VERSION is 1.2.74');
 ok(html.includes('<!-- glencraft-build: b1274-v1.2.74 -->'), 'build marker is present');
 ok(html.includes('"v":"v1.2.74"'), 'PATCH_NOTES has 1.2.74');
 ok(html.includes('no longer swing on their own'), 'patch notes mention tools sitting still');
