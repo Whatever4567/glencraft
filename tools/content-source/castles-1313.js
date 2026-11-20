@@ -21,6 +21,14 @@
   const MODEL_OF = {human: 'clansman', mossy: 'skeleton', black: 'black-skeleton'};
   const CASTLE_SKY_H = 192;
   const FOOT_R = 110; // unlock / setCol radius (ruin skirt is wider in pass 4)
+  // Keep AABBs (and the local +z gate face) so the site picker can demand land
+  // under the whole stamp and score the view cone from the facade outward —
+  // not from the origin, which sits tens of blocks behind the gate.
+  const FOOTPRINT = {
+    human: {x0: -66, z0: -17, x1: 66, z1: 55},
+    mossy: {x0: -96, z0: -12, x1: 96, z1: 68},
+    black: {x0: -99, z0: -15, x1: 99, z1: 66}
+  };
   const CAP_R = 400; // convert worldgen lava/magma/glowrock in the visible/remesh band
 
   function installSolidWool(id, key, hex, nice) {
@@ -208,8 +216,99 @@
     const mean = n ? sum / n : sea;
     return {lo: lo, hi: hi, mean: mean, slope: hi - lo, wet: wet, waterNear: waterNear, n: n};
   }
+  function gateDirOf(rot) {
+    // local +z = gate; same rotation as C.ctx wp / capture gateDir.
+    let x = 0, z = 1;
+    for (let i = 0; i < (rot || 0); i++) { const t = x; x = -z; z = t; }
+    return [x, z];
+  }
+
+  function rotOff(lx, lz, rot) {
+    let x = lx, z = lz;
+    for (let i = 0; i < (rot || 0); i++) { const t = x; x = -z; z = t; }
+    return [x, z];
+  }
+
+  function footprintLandOk(x, z, rot, kind) {
+    // The rotated AABB must sit on land so the stamped keep (and its
+    // foundations) cannot hang over the loch as a rectangular pier.
+    const f = FOOTPRINT[kind] || FOOTPRINT.human;
+    const sea = SEA0();
+    let n = 0, wet = 0, lo = 1e9;
+    const step = 4;
+    for (let lx = f.x0; lx <= f.x1; lx += step) {
+      for (let lz = f.z0; lz <= f.z1; lz += step) {
+        const off = rotOff(lx, lz, rot);
+        const xx = Math.round(x + off[0]), zz = Math.round(z + off[1]);
+        n++;
+        if (xx < 1 || zz < 1 || xx >= W - 1 || zz >= D - 1) { wet++; continue; }
+        const h = hAt(xx, zz), k = kindAt(xx, zz);
+        if (!(h > 0) || k === 5 || h <= sea + 1) wet++;
+        else if (h < lo) lo = h;
+      }
+    }
+    return n > 0 && wet <= n * 0.08 && lo >= sea + 2;
+  }
+
+  function gateViewScore(x, z, rot, kind) {
+    // Score a 60-block cone in front of the GATE FACE (local +z = aabb z1),
+    // not the keep origin. A short apron just past the facade must stay on
+    // land; beyond that, prefer downhill and water (the official loch).
+    const foot = FOOTPRINT[kind] || FOOTPRINT.human;
+    const zGate = foot.z1;
+    const [gx, gz] = gateDirOf(rot);
+    const rx = -gz, rz = gx;
+    const ox = x + gx * zGate, oz = z + gz * zGate;
+    const gy = hAt(x, z);
+    const sea = SEA0();
+    let apronN = 0, apronWet = 0;
+    for (let d = 2; d <= 14; d += 2) {
+      for (let s = -12; s <= 12; s += 3) {
+        const xx = Math.round(ox + gx * d + rx * s);
+        const zz = Math.round(oz + gz * d + rz * s);
+        apronN++;
+        if (xx < 1 || zz < 1 || xx >= W - 1 || zz >= D - 1) { apronWet++; continue; }
+        const h = hAt(xx, zz), k = kindAt(xx, zz);
+        if (k === 5 || h <= sea + 1) apronWet++;
+      }
+    }
+    // A wet apron means the facade hangs over water; reject this rotation.
+    if (apronN && apronWet > apronN * 0.2) return -1e15 + (1 - apronWet / apronN) * 100;
+    let n = 0, low = 0, water = 0, block = 0, closeBlock = 0, heightSum = 0;
+    for (let d = 16; d <= 76; d += 3) {
+      const half = Math.max(2, Math.round((d - 14) * 0.55));
+      for (let s = -half; s <= half; s += 3) {
+        const xx = Math.round(ox + gx * d + rx * s);
+        const zz = Math.round(oz + gz * d + rz * s);
+        n++;
+        if (xx < 1 || zz < 1 || xx >= W - 1 || zz >= D - 1) { block += 2; closeBlock += (d <= 40) ? 1 : 0; continue; }
+        const h = hAt(xx, zz);
+        const k = kindAt(xx, zz);
+        const wet = (k === 5 || h <= sea);
+        heightSum += h - gy;
+        if (wet) water++;
+        if (wet || h <= gy - 1) low++;
+        if (!wet && h >= gy + 2) {
+          block++;
+          if (d <= 40) closeBlock++;
+        }
+      }
+    }
+    if (!n) return -1e18;
+    return water * 8 + low * 3 - closeBlock * 12 - block * 3 - (heightSum / n) * 2;
+  }
+
+  function bestGateRot(x, z, kind) {
+    let br = 0, bs = -1e18;
+    for (let r = 0; r < 4; r++) {
+      const s = gateViewScore(x, z, r, kind);
+      if (s > bs) { bs = s; br = r; }
+    }
+    return {rot: br, s: bs};
+  }
+
   function downhill(x, z, r) {
-    // unit-ish step toward the lowest sampled neighbour — used as gate facing
+    // Kept as a fallback: unit-ish step toward the lowest sampled neighbour.
     let bx = 0, bz = 1, bh = 1e9;
     for (let a = -r; a <= r; a += 4) for (let b = -r; b <= r; b += 4) {
       if (!a && !b) continue;
@@ -250,12 +349,15 @@
       const f = landStats(x, z, 18, 4);
       if (f.wet > 2 || f.lo < sea + 2) return -1e18;
       if (f.slope < 3) return -1e18;
+      const gv = bestGateRot(x, z, 'human');
+      if (!footprintLandOk(x, z, gv.rot, 'human')) return -1e18;
       const slopeFit = -Math.abs(f.slope - 12);          // mid slope, not a cliff or a pad
       const elevFit = -Math.abs(f.mean - (sea + 14));
-      return f.waterNear * 6 + slopeFit * 3 + elevFit + Math.min(8, f.slope);
+      // Gate must face open/downhill (ideally a loch beyond the apron).
+      return slopeFit * 3 + elevFit + Math.min(8, f.slope) + gv.s * 2;
     }, placed);
     if (!human) return null;
-    placed.push({kind: 'human', x: human.x, z: human.z, rot: downhill(human.x, human.z, 16)});
+    placed.push({kind: 'human', x: human.x, z: human.z, rot: bestGateRot(human.x, human.z, 'human').rot});
 
     // Skeleton: local high ground / prominence, dry, far from human.
     const mossy = best((x, z) => {
@@ -263,10 +365,12 @@
       if (f.wet > 1 || f.lo <= sea + 1) return -1e18;
       const ring = landStats(x, z, 36, 6);
       const prom = f.mean - ring.mean;
-      return f.mean * 3 + prom * 8 + Math.min(10, f.slope);
+      const gv = bestGateRot(x, z, 'mossy');
+      if (!footprintLandOk(x, z, gv.rot, 'mossy')) return -1e18;
+      return f.mean * 3 + prom * 8 + Math.min(10, f.slope) + gv.s * 1.5;
     }, placed);
     if (!mossy) return null;
-    placed.push({kind: 'mossy', x: mossy.x, z: mossy.z, rot: downhill(mossy.x, mossy.z, 16)});
+    placed.push({kind: 'mossy', x: mossy.x, z: mossy.z, rot: bestGateRot(mossy.x, mossy.z, 'mossy').rot});
 
     // Black: second-best hilltop, far from both.
     const black = best((x, z) => {
@@ -274,10 +378,12 @@
       if (f.wet > 1 || f.lo <= sea + 1) return -1e18;
       const ring = landStats(x, z, 36, 6);
       const prom = f.mean - ring.mean;
-      return f.mean * 3 + prom * 8 + Math.min(10, f.slope);
+      const gv = bestGateRot(x, z, 'black');
+      if (!footprintLandOk(x, z, gv.rot, 'black')) return -1e18;
+      return f.mean * 3 + prom * 8 + Math.min(10, f.slope) + gv.s * 1.5;
     }, placed);
     if (!black) return null;
-    placed.push({kind: 'black', x: black.x, z: black.z, rot: downhill(black.x, black.z, 16)});
+    placed.push({kind: 'black', x: black.x, z: black.z, rot: bestGateRot(black.x, black.z, 'black').rot});
 
     U.sites = placed;
     return placed;
@@ -414,13 +520,16 @@
       if (!has) continue;
       let top = 0;
       try { top = (typeof solidTop === 'function') ? solidTop(wx, wz) : hAt(wx, wz); } catch (_) { top = hAt(wx, wz); }
-      // fill from just below the gate floor down to the natural surface (and a couple under)
+      // Hang down to natural land only. Never fill water — that built a
+      // rectangular pier when the gate faced a loch.
+      if (top <= sea) continue;
       const fromY = K.gy - 1;
-      const toY = Math.max(2, Math.min(fromY, Math.max(top, sea) - 0));
+      const toY = Math.max(2, Math.min(fromY, top));
       for (let y = fromY; y >= toY && y > 0; y--) {
         const i = idx(wx, y, wz);
         const b = world[i];
-        if (!b || b === T.AIR || b === T.WATER || b === T.LEAVES || b === T.SNOW) {
+        if (b === T.WATER || b === T.LAVAB) continue;
+        if (!b || b === T.AIR || b === T.LEAVES || b === T.SNOW) {
           world[i] = (fromY - y < 2) ? wallId : fillId;
         }
       }
@@ -721,6 +830,16 @@
     C.B.mossy = function (K) { return buildFromModel(K); };
     C.B.black = function (K) { return buildFromModel(K); };
     wrapPlacement();
+    // c151.work() faces the gate at spawn and clearSite()s a flattened pad.
+    // New worlds use pickNaturalSites + rebuildAll only.
+    if (typeof C.work === 'function' && !C.work.__c1313) {
+      const prevWork = C.work;
+      C.work = function (only) {
+        if (isNewWorld() && U.sites && U.sites.length) return;
+        return prevWork.apply(this, arguments);
+      };
+      C.work.__c1313 = 1;
+    }
     return true;
   }
 
@@ -740,8 +859,10 @@
   }
 
   function rotOf(c, st) {
-    if (st && st.rot != null) return st.rot;
+    // Prefer the picker result. c151.work() overwrites st.rot with approach()
+    // (gate-faces-spawn) before our rebuildAll runs.
     if (U.rots && U.rots[c[0]] != null) return U.rots[c[0]];
+    if (st && st.rot != null) return st.rot;
     return 0;
   }
 
