@@ -1,4 +1,4 @@
-// v1.2.112: time-of-day skies and volumetric clouds. Each realm keeps its own sky.
+// v1.2.112: time-of-day skies and a literal overworld sunset plate. Each realm keeps its own sky.
 import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -21,6 +21,8 @@ ok(html.includes('<!-- glencraft-build: b1310-v1.2.110 -->'), '1.2.110 marker st
 ok(src.includes('function sky1312(WIN)'), 'source IIFE is named sky1312(WIN)');
 ok(html.includes(src.trim()), 'skies-1312.js is injected into the page');
 ok(html.includes('__sky1312') && html.includes('function palette'), 'runtime helpers are present');
+ok(fs.existsSync(path.join(root, 'assets/sky/overworld-sunset.webp')), 'full-resolution sunset plate webp is shipped');
+ok(src.includes('assets/sky/overworld-sunset.webp') && src.includes('LinearMipmapLinearFilter'), 'plate is loaded with mipmaps and linear filtering');
 
 const s0 = html.indexOf('{"v":"v1.2.112"');
 const s1 = html.indexOf('{"v":"v1.2.111"', s0);
@@ -29,8 +31,8 @@ const notes = html.slice(s0, s1);
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew/i.test(notes), '1.2.112 notes have no food');
 ok(/own sky/i.test(notes) && /orange/i.test(notes) && /pink/i.test(notes), 'notes mention per-realm sky and sunset colours');
 ok(/desert sky/i.test(notes) && /starry/i.test(notes), 'notes mention the desert sky and starry night');
-ok(/Clouds/i.test(notes) && /Low/i.test(notes) && /ray/i.test(notes), 'notes mention Clouds quality and the raymarch');
-ok(credits.includes('## v1.2.112 Time-of-day skies and volumetric clouds'), 'CREDITS heading');
+ok(/photograph/i.test(notes) && /plate|dome|sunset/i.test(notes), 'notes mention the photographic sunset plate');
+ok(credits.includes('## v1.2.112 Time-of-day skies and a literal overworld sunset plate'), 'CREDITS heading');
 ok(credits.includes('## v1.2.111 New-world load and title wallpapers'), '1.2.111 CREDITS stay');
 
 // Does not touch protected systems
@@ -46,17 +48,9 @@ ok(src.includes('0.32, 0.08, 0.28') && src.includes('1.00, 0.52, 0.18'), 'overwo
 ok(src.includes('0.48, 0.14, 0.28') && src.includes('1.00, 0.62, 0.32'), 'Egypt dusk is orange and pink');
 ok(src.includes('0.12, 0.40, 0.82') && src.includes('0.91, 0.82, 0.62'), 'Egypt day is clear blue to sandy haze');
 ok(src.includes('starsK') && src.includes('holdNsky'), 'night stars stay, and the night overlay waits until after sunset');
-ok(src.includes("data-cq=\"low\"") && src.includes("data-cq=\"med\"") && src.includes("data-cq=\"high\""), 'Clouds Low / Medium / High setting is in the pause menu');
-ok(src.includes("return 'low'") && src.includes("return 'med'"), 'phones/PERF default Low, other devices Medium');
-
-// Volumetric approach
-ok(src.includes('Beer-Lambert') && src.includes('Henyey-Greenstein') && src.includes('powder'), 'raymarch uses Beer-Lambert, powder and Henyey-Greenstein');
-ok(src.includes('worley3') && src.includes('perlin3') && src.includes('bakeNoise') && src.includes('bakeWeather'), 'Worley+Perlin atlas and weather map are baked at load');
-ok(src.includes('uSteps') && src.includes('48') && src.includes('28'), 'High uses more steps than Medium');
-ok(src.includes("q === 'high' ? 2 : 4") || src.includes('quarter') || src.includes('/ 4'), 'Medium is quarter-res, High is half-res');
-ok(src.includes('depthTest: true') && src.includes('0.999'), 'upsample is composited behind terrain using framebuffer depth');
-ok(src.includes("mode = 'impostor'") && src.includes("q === 'low'"), 'Low keeps the existing impostor layer');
-ok(src.includes('uPlanetR') && src.includes('180') && src.includes('260'), 'cloud slab is a slightly curved y 180-260 layer');
+ok(src.includes("mode = 'photo'") && src.includes('tickPlate') && src.includes('uSunAz'), 'overworld uses a photographic sky plate, not a generated cloud layer');
+ok(src.includes('hideOldClouds') && src.includes('clouds'), 'old box clouds stay hidden');
+ok(!src.includes('Beer-Lambert') && !src.includes('uSteps'), 'the raymarch cloud path is no longer in the overworld sky');
 ok(!/camera\.far\s*=/.test(src) && !/SET\.dist\s*=/.test(src), 'does not change render distance or the far plane');
 
 // Existing Egypt / Hell / nsky paths stay
@@ -161,49 +155,27 @@ const rt = await page.evaluate(() => {
     };
     DIM.cur = null;
   } catch (e) { out.applyErr = String(e && e.stack || e); }
-  try { if (U.ensureUI) U.ensureUI(); } catch (_) {}
-  out.ui = !!document.getElementById('cloudSeg');
-  out.uiHost = !!document.getElementById('qSeg2');
-
-  // Low = impostors
-  try {
-    U.setQ('low');
-    U.apply();
-    out.low = { mode: U.mode, n: (U.puffs && U.puffs.length) || 0, volOn: !!U.volOn, err: U.err };
-  } catch (e) { out.low = { err: String(e && e.stack || e) }; }
-
-  // High = volumetric
   try {
     if (typeof started !== 'undefined') started = true;
-    U.setQ('high');
+    if (typeof DIM !== 'undefined' && DIM) DIM.cur = null;
     U.apply();
-    if (U.ensureVol) U.ensureVol();
     if (typeof renderer !== 'undefined' && renderer && typeof scene !== 'undefined' && typeof camera !== 'undefined') {
       renderer.render(scene, camera);
     }
-    out.high = {
+    out.plate = {
       mode: U.mode,
-      volOk: !!U.volOk,
-      volOn: !!U.volOn,
-      rendHook: !!U.rendHook,
-      hasRT: !!(U.cloudRT && U.cloudRT.texture),
-      rtW: U.rtW || 0,
-      rtH: U.rtH || 0,
-      volMs: (typeof U.volMs === 'number') ? +U.volMs.toFixed(2) : null,
-      steps: U.volUnis && U.volUnis.uSteps ? U.volUnis.uSteps.value : null,
-      cov: U.volUnis && U.volUnis.uCovMin ? U.volUnis.uCovMin.value : null,
-      err: U.err,
-      rootHidden: !!(U.root && U.root.visible === false)
+      hasTex: !!U.plateTex,
+      hasMesh: !!U.plateMesh,
+      visible: !!(U.plateMesh && U.plateMesh.visible),
+      mip: !!(U.plateTex && U.plateTex.generateMipmaps),
+      err: U.err
     };
     DIM.cur = 'egypt';
     U.apply();
-    if (typeof renderer !== 'undefined' && renderer) renderer.render(scene, camera);
-    out.highEg = {
-      egypt: U.volUnis && U.volUnis.uEgypt ? U.volUnis.uEgypt.value : null,
-      cov: U.volUnis && U.volUnis.uCovMin ? U.volUnis.uCovMin.value : null
-    };
+    out.plateEg = { mode: U.mode, visible: !!(U.plateMesh && U.plateMesh.visible) };
     DIM.cur = null;
-  } catch (e) { out.high = { err: String(e && e.stack || e) }; }
+    U.apply();
+  } catch (e) { out.plate = { err: String(e && e.stack || e) }; }
 
   return out;
 });
@@ -221,11 +193,8 @@ ok(rt.pal.egNight.top[2] < 0.2 && rt.pal.egNight.starsK > 0.5, 'Egypt night is a
 ok(rt.apply.ow && rt.apply.ow.nsky === false && rt.apply.ow.hor && rt.apply.ow.hor[0] > 0.7, 'at sunset the night overlay stays off in the overworld');
 ok(rt.apply.eg && rt.apply.eg.hor[0] > 0.7 && rt.apply.eg.nsky === false, 'Egypt sunset is not covered by the night overlay');
 ok(rt.hell && rt.hell.applied === false && rt.hell.topSame && rt.hell.fogSame, 'Hell sky uniforms are left unchanged');
-ok(rt.ui, 'Clouds quality row is in the pause menu');
-ok(rt.low && rt.low.mode === 'impostor' && rt.low.n > 0 && !rt.low.volOn, 'Low quality builds sun-lit impostors (' + (rt.low && rt.low.n) + ')');
-ok(rt.high && rt.high.mode === 'volume' && rt.high.volOk && rt.high.volOn && rt.high.hasRT, 'High quality builds the volumetric path (' + JSON.stringify(rt.high) + ')');
-ok(rt.high && !!rt.high.rendHook && rt.high.steps === 48, 'render hook is installed and High uses 48 steps');
-ok(rt.highEg && rt.highEg.egypt === 1 && rt.highEg.cov > (rt.high.cov || 0), 'Egypt coverage is sparser than the overworld');
+ok(rt.plate && rt.plate.mode === 'photo' && rt.plate.hasTex && rt.plate.hasMesh && rt.plate.visible, 'overworld sunset plate is on the dome (' + JSON.stringify(rt.plate) + ')');
+ok(rt.plateEg && rt.plateEg.mode === 'egypt' && rt.plateEg.visible === false, 'Egypt keeps its desert sky and does not show the Highlands plate');
 ok(pageErrors.filter(e => /sky1312|WEBGL|Shader|shader/i.test(e)).length === 0, 'no shader/page errors (' + pageErrors.slice(0, 3).join(' | ') + ')');
 
 await browser.close();
