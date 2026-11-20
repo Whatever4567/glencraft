@@ -96212,6 +96212,317 @@ try {
   } catch (e) { ERR('fog0', e); }
 })();
 
+/* GLX-V1311 (v1.2.111): real volumetric clouds and an enhanced look (t1302 / t1303).
+   Clouds: a ray-marched 3D cloud layer above build height (Horizon Zero Dawn "Nubis" / RDR2 style): a drifting
+   coverage map, cumulus height profile, 3D noise with detail erosion, sun shadowing through the cloud (Beer-Lambert),
+   silver lining (Henyey-Greenstein), dark bases, sunrise/sunset colour from the game's own sun, moonlit at night,
+   wind drift, storms thicken and darken them. Drawn at low resolution, a quarter of the pixels per frame, rebuilt over
+   frames by reprojection, then put on screen behind/in front of the land by depth (land hides them, they cover
+   the land when you fly above them). Only in the overworld sky: hidden in caves, Agartha and the other realms,
+   faded over the Egypt desert like the old clouds.
+   Look: fog takes the sun's glow toward the sun (matches the sky dome, so no seam on the horizon), a little low mist
+   lies in the far glens, and Medium/High add a gentle colour grade on top of ACES.
+   Setting "Sky & clouds" Low / Medium / High (live, no reload): phones and Performance mode default to Low,
+   tablets Medium, computers and TVs High. Nothing is deleted: the old box clouds stay hidden as before. */
+(function v1311() {
+  const U = window.__v1311 = {err: null, q: null, on: 0, n: 0, fd: 0, gl2: 0, march: 0, res: null};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  if (typeof THREE === 'undefined' || typeof renderer === 'undefined' || typeof scene === 'undefined') { U.err = 'no renderer'; return; }
+  let GL2 = false, FD = false;
+  try { GL2 = !!renderer.capabilities.isWebGL2; FD = GL2 || !!renderer.extensions.get('EXT_frag_depth'); } catch (e) { ERR('caps', e); }
+  U.gl2 = GL2 ? 1 : 0; U.fd = FD ? 1 : 0;
+
+  // ---------- quality ----------
+  const QP = {
+    low: {h: 150, steps: 18, ls: 1, oct: 2, det: 0, grade: 0, mist: 0.18},
+    med: {h: 220, steps: 26, ls: 2, oct: 3, det: 1, grade: 1, mist: 0.28},
+    high: {h: 320, steps: 36, ls: 3, oct: 3, det: 1, grade: 1, mist: 0.32}
+  };
+  const pickDefault = () => {
+    try {
+      const ua = (navigator && navigator.userAgent) || '';
+      if (typeof PERF !== 'undefined' && PERF) return 'low';
+      const tv = /Android TV|AFT[A-Z]|BRAVIA|SMART-TV|SmartTV|Tizen|Web0S|webOS|GoogleTV|CrKey|AndroidTV/i.test(ua);
+      if (tv) return 'high';
+      const small = Math.min(innerWidth || 0, innerHeight || 0) < 600;
+      const phone = /iPhone|iPod|Windows Phone|Android.*Mobile|Mobile.*Android/i.test(ua) || (typeof touchMode !== 'undefined' && touchMode && small);
+      if (phone) return 'low';
+      if (typeof touchMode !== 'undefined' && touchMode) return 'med';
+      return 'high';
+    } catch (_) { return 'med'; }
+  };
+  U.dflt = pickDefault();
+  let Q = (typeof SET !== 'undefined' && QP[SET.sky]) ? SET.sky : U.dflt;
+  U.q = Q;
+
+  // ---------- noise texture (iq's 3D value noise from a 2D texture: G = R shifted by (37,17); B independent) ----------
+  const NS = 256, nd = new Uint8Array(NS * NS * 4);
+  (function () { let s = 0x2f6b1d3; const rnd = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+    const R = new Uint8Array(NS * NS), B = new Uint8Array(NS * NS); for (let i = 0; i < R.length; i++) { R[i] = rnd() * 256; B[i] = rnd() * 256; }
+    for (let y = 0; y < NS; y++) for (let x = 0; x < NS; x++) { const i = y * NS + x, o = i * 4, j = ((y + 17) & 255) * NS + ((x + 37) & 255);
+      nd[o] = R[i]; nd[o + 1] = R[j]; nd[o + 2] = B[i]; nd[o + 3] = 255; } })();
+  const noiseTex = new THREE.DataTexture(nd, NS, NS, THREE.RGBAFormat);
+  noiseTex.wrapS = noiseTex.wrapT = THREE.RepeatWrapping; noiseTex.magFilter = THREE.LinearFilter; noiseTex.minFilter = THREE.LinearFilter; noiseTex.generateMipmaps = false; noiseTex.needsUpdate = true;
+
+  // ---------- shared uniforms ----------
+  const UN = {
+    uNoise: {value: noiseTex}, uInvProj: {value: new THREE.Matrix4()}, uCamWorld: {value: new THREE.Matrix4()}, uProj: {value: new THREE.Matrix4()},
+    uCamPos: {value: new THREE.Vector3()}, uBase: {value: 100}, uThick: {value: 36}, uCover: {value: 0.5}, uWind: {value: new THREE.Vector2()},
+    uL: {value: new THREE.Vector3(0, 1, 0)}, uSunC: {value: new THREE.Color(1, 1, 1)}, uAmbT: {value: new THREE.Color(0.5, 0.6, 0.8)}, uAmbB: {value: new THREE.Color(0.3, 0.32, 0.36)},
+    uHor: {value: new THREE.Color(0.8, 0.85, 0.9)}, uSig: {value: 0.11}, uFrame: {value: 0}, uTime: {value: 0}, uMaxD: {value: 1500}, uFadeD: {value: 650},
+    uRes: {value: new THREE.Vector2(1, 1)}, uQRes: {value: new THREE.Vector2(1, 1)}, uOff: {value: new THREE.Vector2()}, uQ: {value: null}, uPrev: {value: null},
+    uPrevVP: {value: new THREE.Matrix4()}, uWindD: {value: new THREE.Vector2()}, uReset: {value: 1}, uC: {value: null}, uTint: {value: new THREE.Color(1, 1, 1)}
+  };
+  const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+  const RAY = `
+    uniform mat4 uInvProj, uCamWorld; uniform vec3 uCamPos; uniform float uBase, uThick;
+    vec3 rayDir(vec2 uv){ vec4 v = uInvProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0); v.xyz /= v.w; return normalize((uCamWorld * vec4(v.xyz, 0.0)).xyz); }
+    vec2 slab(vec3 ro, vec3 rd){ float b = uBase, tp = uBase + uThick;
+      if (abs(rd.y) < 1e-4) { if (ro.y < b || ro.y > tp) return vec2(-1.0); return vec2(0.0, 2000.0); }
+      float ta = (b - ro.y) / rd.y, tb = (tp - ro.y) / rd.y; return vec2(max(min(ta, tb), 0.0), max(ta, tb)); }`;
+  const marchFS = (q) => `
+    #define STEPS ${q.steps}
+    #define LSTEPS ${q.ls}
+    #define OCT ${q.oct}
+    #define DETAIL ${q.det}
+    uniform sampler2D uNoise; uniform float uCover, uSig, uFrame, uTime, uMaxD, uFadeD; uniform vec2 uWind, uRes, uQRes, uOff;
+    uniform vec3 uL, uSunC, uAmbT, uAmbB, uHor;
+    ${RAY}
+    float n3(vec3 x){ vec3 p = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
+      vec2 uv = p.xz + vec2(37.0, 17.0) * p.y + f.xz; vec2 rg = texture2D(uNoise, (uv + 0.5) / 256.0).rg; return mix(rg.x, rg.y, f.y); }
+    float n2(vec2 x){ vec2 p = floor(x); vec2 f = fract(x); f = f * f * (3.0 - 2.0 * f); return texture2D(uNoise, (p + f + 0.5) / 256.0).b; }
+    float cover(vec2 xz){ vec2 q = (xz + uWind) * 0.0032; float c = n2(q) * 0.62 + n2(q * 2.7 + 13.1) * 0.38;
+      return smoothstep(1.0 - uCover - 0.16, 1.0 - uCover + 0.24, c); }
+    float dens(vec3 p, float cv, float lo){ float h = (p.y - uBase) / uThick; if (h < 0.0 || h > 1.0) return 0.0;
+      float top = mix(0.4, 1.0, cv); float m = cv * smoothstep(0.0, 0.12, h) * (1.0 - smoothstep(top * 0.5, top, h)); if (m < 0.02) return 0.0;
+      vec3 q = vec3(p.x + uWind.x, p.y - uTime * 0.15, p.z + uWind.y) * 0.021;
+      float n = n3(q) * 0.56 + n3(q * 2.03 + 3.1) * 0.29;
+      #if OCT > 2
+      if (lo < 0.5) n += n3(q * 4.11 + 7.7) * 0.15; else n += 0.075;
+      #else
+      n += 0.075;
+      #endif
+      float v = n + (m - 1.0) * 0.62; float d = clamp((v - 0.3) * 3.2, 0.0, 1.0);
+      #if DETAIL
+      if (lo < 0.5 && d > 0.0 && d < 0.9) d = clamp(d - n3(q * 9.3 + vec3(0.0, uTime * 0.05, 0.0)) * 0.42 * (1.0 - d), 0.0, 1.0);
+      #endif
+      return d; }
+    float hg(float c, float g){ float g2 = g * g; return (1.0 - g2) / pow(1.0 + g2 - 2.0 * g * c, 1.5); }
+    void main(){
+      vec2 px = floor(gl_FragCoord.xy) * 2.0 + uOff; vec2 uv = (px + 0.5) / uRes;
+      vec3 ro = uCamPos, rd = rayDir(uv); vec2 s = slab(ro, rd);
+      if (s.x < 0.0 || s.y <= s.x || s.x > uMaxD) { gl_FragColor = vec4(0.0); return; }
+      float t0 = s.x, t1 = min(s.y, t0 + 320.0), dt = (t1 - t0) / float(STEPS);
+      float ign = fract(52.9829189 * fract(dot(px + 5.588238 * mod(uFrame, 64.0), vec2(0.06711056, 0.00583715))));
+      float t = t0 + dt * ign;
+      float cosT = dot(rd, uL); float ph = mix(hg(cosT, 0.6), hg(cosT, -0.25), 0.35) * 0.85 + 0.15;
+      float T = 1.0; vec3 C = vec3(0.0); float tw = 0.0, ws = 0.0;
+      for (int i = 0; i < STEPS; i++) {
+        if (T < 0.03) break;
+        vec3 p = ro + rd * t; float cv = cover(p.xz); float d = cv > 0.02 ? dens(p, cv, 0.0) : 0.0;
+        if (d > 0.004) {
+          float od = 0.0, st = 5.0; vec3 lp = p;
+          for (int j = 0; j < LSTEPS; j++) { lp += uL * st; od += dens(lp, cover(lp.xz), 1.0) * st; st *= 2.0; }
+          #if LSTEPS < 2
+          od *= 2.4;
+          #endif
+          od *= uSig; float h = clamp((p.y - uBase) / uThick, 0.0, 1.0);
+          float beer = max(exp(-od), exp(-od * 0.25) * 0.65);
+          float powder = 1.0 - 0.55 * exp(-d * 5.0);
+          vec3 S = uSunC * beer * ph * powder + mix(uAmbB, uAmbT, h * h * 0.6 + h * 0.4) * (0.55 + 0.45 * h);
+          float se = d * uSig; float Tr = exp(-se * dt); float a = T * (1.0 - Tr);
+          C += S * a; tw += a * t; ws += a; T *= Tr; }
+        t += dt; }
+      float A = 1.0 - T; if (A < 0.002) { gl_FragColor = vec4(0.0); return; }
+      float ta = ws > 0.0 ? tw / ws : t0;
+      float fa = 1.0 - exp(-ta / uFadeD); C = mix(C, uHor * A, fa * 0.85);
+      float far = smoothstep(uMaxD * 0.55, uMaxD, ta); C *= 1.0 - far; A *= 1.0 - far;
+      gl_FragColor = vec4(C, A); }`;
+  const recFS = `
+    uniform sampler2D uQ, uPrev; uniform vec2 uRes, uQRes, uOff, uWindD; uniform mat4 uPrevVP; uniform float uReset;
+    ${RAY}
+    void main(){ vec2 px = floor(gl_FragCoord.xy); vec2 uv = (px + 0.5) / uRes; vec2 qp = floor(px * 0.5);
+      vec4 q = texture2D(uQ, (qp + 0.5) / uQRes);
+      bool fresh = abs(px.x - qp.x * 2.0 - uOff.x) + abs(px.y - qp.y * 2.0 - uOff.y) < 0.5;
+      vec3 ro = uCamPos, rd = rayDir(uv); float tp = uBase + uThick, t = 1500.0;
+      if (ro.y < uBase) { if (rd.y > 1e-3) t = (uBase - ro.y) / rd.y; } else if (ro.y > tp) { if (rd.y < -1e-3) t = (tp - ro.y) / rd.y; } else t = 40.0;
+      t = clamp(t, 1.0, 1500.0);
+      vec3 wp = ro + rd * t + vec3(uWindD.x, 0.0, uWindD.y);
+      vec4 pc = uPrevVP * vec4(wp, 1.0); bool ok = uReset < 0.5 && pc.w > 0.0;
+      vec2 pu = pc.xy / max(pc.w, 1e-5) * 0.5 + 0.5; ok = ok && pu.x > 0.002 && pu.x < 0.998 && pu.y > 0.002 && pu.y < 0.998;
+      vec4 h = texture2D(uPrev, pu);
+      gl_FragColor = ok ? (fresh ? mix(h, q, 0.5) : h) : q; }`;
+  const compFS = `
+    uniform sampler2D uC; uniform mat4 uProj; varying vec2 vUv;
+    ${RAY}
+    void main(){ vec4 c = texture2D(uC, vUv); if (c.a < 0.004) discard;
+      ${FD ? `vec4 v = uInvProj * vec4(vUv * 2.0 - 1.0, 1.0, 1.0); vec3 vd = normalize(v.xyz / v.w); vec3 rd = normalize((uCamWorld * vec4(vd, 0.0)).xyz);
+      float tp = uBase + uThick, t = 1e5;
+      if (uCamPos.y < uBase) { if (rd.y > 1e-4) t = (uBase - uCamPos.y) / rd.y; } else if (uCamPos.y > tp) { if (rd.y < -1e-4) t = (tp - uCamPos.y) / rd.y; } else t = 6.0;
+      vec4 cp = uProj * vec4(vd * min(t, 1e5), 1.0); gl_FragDepthEXT = clamp(cp.z / cp.w * 0.5 + 0.5, 0.0, 0.999999);` : ''}
+      gl_FragColor = c; }`;
+  const compVS = FD ? VS : 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.999999, 1.0); }';
+
+  // ---------- passes ----------
+  const quad = new THREE.PlaneGeometry(2, 2);
+  const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const passScene = new THREE.Scene(); passScene.autoUpdate = false;
+  const passMesh = new THREE.Mesh(quad); passMesh.frustumCulled = false; passScene.add(passMesh);
+  const pm = (fs) => new THREE.ShaderMaterial({uniforms: UN, vertexShader: VS, fragmentShader: fs, depthTest: false, depthWrite: false, blending: THREE.NoBlending, fog: false, toneMapped: false});
+  let marchMat = null, recMat = pm(recFS);
+  const compMat = new THREE.ShaderMaterial({uniforms: UN, vertexShader: compVS, fragmentShader: compFS, transparent: true, depthTest: true, depthWrite: false, fog: false, toneMapped: false,
+    blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.OneFactor, blendDstAlpha: THREE.OneMinusSrcAlphaFactor});
+  compMat.extensions = {fragDepth: FD};
+  const comp = new THREE.Mesh(quad, compMat); comp.frustumCulled = false; comp.renderOrder = -5; comp.name = 'v1311clouds'; comp.visible = false; comp.matrixAutoUpdate = false;
+  scene.add(comp); U.comp = comp;
+  let rtQ = null, rtA = null, rtB = null, rw = 0, rh = 0;
+  const mkRT = (w, h, near) => new THREE.WebGLRenderTarget(w, h, {minFilter: near ? THREE.NearestFilter : THREE.LinearFilter, magFilter: near ? THREE.NearestFilter : THREE.LinearFilter, format: THREE.RGBAFormat, depthBuffer: false, stencilBuffer: false, generateMipmaps: false});
+  const size = new THREE.Vector2();
+  function ensureRT() {
+    renderer.getDrawingBufferSize(size); const asp = size.x / Math.max(1, size.y);
+    let h = Math.min(QP[Q].h, Math.max(64, size.y)); h = Math.max(32, Math.round(h / 2) * 2); const w = Math.max(32, Math.round(h * asp / 2) * 2);
+    if (w === rw && h === rh && rtA) return;
+    for (const r of [rtQ, rtA, rtB]) if (r) r.dispose();
+    rw = w; rh = h; rtQ = mkRT(w / 2, h / 2, true); rtA = mkRT(w, h, false); rtB = mkRT(w, h, false);
+    UN.uRes.value.set(w, h); UN.uQRes.value.set(w / 2, h / 2); UN.uReset.value = 1; U.res = w + 'x' + h;
+  }
+  function setQ(q) {
+    if (!QP[q]) return; Q = q; U.q = q;
+    try { if (marchMat) marchMat.dispose(); } catch (_) {}
+    marchMat = pm(marchFS(QP[q])); rw = 0; ensureRT();
+    try { const want = QP[q].grade ? THREE.CustomToneMapping : THREE.ACESFilmicToneMapping; if (renderer.toneMapping !== want) renderer.toneMapping = want; } catch (e) { ERR('tm', e); }
+    FOGV[3] = 1; FOGC[3] = QP[q].mist;
+  }
+
+  // ---------- look: sun-aware fog + low glen mist (all built-in materials; uniforms shared by reference) ----------
+  const FOGV = new Float32Array([0, 1, 0, 1]);    // sun dir xyz, on
+  const FOGC = new Float32Array([0, 0, 0, 0.3]);  // sun glow colour rgb (sunCol * sunK), mist strength
+  const FOGH = new Float32Array([60, 41, 0, 0]);  // camera y, mist top y, mist on, unused
+  try {
+    const C = THREE.ShaderChunk;
+    if (C.fog_vertex.indexOf('vFogRel') < 0) {
+      C.fog_pars_vertex = C.fog_pars_vertex.replace('varying float fogDepth;', 'varying float fogDepth;\n\tvarying vec3 vFogRel;');
+      C.fog_vertex = C.fog_vertex.replace('fogDepth = - mvPosition.z;', 'fogDepth = - mvPosition.z;\n\tvFogRel = vec3( dot( viewMatrix[ 0 ].xyz, mvPosition.xyz ), dot( viewMatrix[ 1 ].xyz, mvPosition.xyz ), dot( viewMatrix[ 2 ].xyz, mvPosition.xyz ) );');
+      C.fog_pars_fragment = C.fog_pars_fragment.replace('varying float fogDepth;', 'varying float fogDepth;\n\tvarying vec3 vFogRel;\n\tuniform vec4 glxFogV;\n\tuniform vec4 glxFogC;\n\tuniform vec4 glxFogH;');
+      C.fog_fragment = C.fog_fragment.replace('gl_FragColor.rgb = mix( gl_FragColor.rgb, fogColor, fogFactor );',
+        'vec3 glxFC = fogColor;\n\tif ( glxFogV.w > 0.5 ) { float glxL = length( vFogRel ); if ( glxL > 0.01 ) { vec3 glxD = vFogRel / glxL; float glxS = max( dot( glxD, glxFogV.xyz ), 0.0 );\n' +
+        '\t\tglxFC += glxFogC.rgb * ( pow( glxS, 42.0 ) * 0.55 + pow( glxS, 6.0 ) * 0.18 );\n' +
+        '\t\tif ( glxFogH.z > 0.5 ) { float glxY = glxFogH.x + vFogRel.y; float glxM = glxFogC.w * ( 1.0 - exp( - glxL * 0.012 ) ) * exp( - max( glxY - glxFogH.y, 0.0 ) * 0.16 ); fogFactor = max( fogFactor, min( glxM, 0.6 ) ); } } }\n' +
+        '\tgl_FragColor.rgb = mix( gl_FragColor.rgb, glxFC, fogFactor );');
+      for (const k in THREE.ShaderLib) { const s = THREE.ShaderLib[k]; if (s && s.uniforms && s.uniforms.fogColor) { s.uniforms.glxFogV = {value: FOGV}; s.uniforms.glxFogC = {value: FOGC}; s.uniforms.glxFogH = {value: FOGH}; } }
+      U.fog = 1;
+    }
+    // colour grade on top of the existing ACES curve (Medium / High): a little more saturation and a soft S-curve
+    if (C.tonemapping_pars_fragment.indexOf('GLX1311') < 0) C.tonemapping_pars_fragment = C.tonemapping_pars_fragment.replace(/vec3 CustomToneMapping\( vec3 color \) \{ return color; \}/,
+      'vec3 CustomToneMapping( vec3 color ) { /* GLX1311 */ vec3 c = ACESFilmicToneMapping( color ); float l = dot( c, vec3( 0.2126, 0.7152, 0.0722 ) ); c = clamp( mix( vec3( l ), c, 1.12 ), 0.0, 1.0 ); return mix( c, c * c * ( 3.0 - 2.0 * c ), 0.14 ); }');
+    U.grade = C.tonemapping_pars_fragment.indexOf('GLX1311') >= 0 ? 1 : 0;
+  } catch (e) { ERR('chunks', e); }
+  setQ(Q);
+
+  // ---------- per frame state (after every other sky hook) ----------
+  const tmp = new THREE.Color(), base = new THREE.Color(), prevVP = new THREE.Matrix4(), vp = new THREE.Matrix4(), lastPos = new THREE.Vector3();
+  let wind = new THREE.Vector2(), prevWind = new THREE.Vector2(), fr = 0, tt = 0, active = false, wasActive = false;
+  const ss = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  function overworld() {
+    try {
+      if (!started || W <= 80) return false;
+      if (typeof DIM !== 'undefined' && DIM.cur) return false;
+      if (!skyDome.visible || !skyDome.parent) return false;
+      if (typeof caveK !== 'undefined' && caveK > 0.85) return false;
+      if (typeof P !== 'undefined' && P && P.y < 0) return false;
+      return true;
+    } catch (_) { return false; }
+  }
+  function frameState(dt) {
+    const on = overworld(); let fade = 1;
+    try { const c = window.__c250; if (c && typeof c.fade === 'number') fade = c.fade; } catch (_) {}
+    try { const e = window.__eg1295; if (e && e.inEgypt && e.inEgypt()) fade = 0; } catch (_) {}
+    active = on && fade > 0.01;
+    // fog look uniforms
+    const p = dayClock / CYCLE, ang = p * Math.PI * 2, sx = Math.cos(ang), sy = Math.sin(ang);
+    tmp.set(0, 0, 0);
+    let sl = Math.hypot(sx * 90, sy * 90, 30); FOGV[0] = sx * 90 / sl; FOGV[1] = sy * 90 / sl; FOGV[2] = 30 / sl;
+    try { const k = skyUniforms.sunK ? skyUniforms.sunK.value : 0, c = skyUniforms.sunCol ? skyUniforms.sunCol.value : tmp; const ok = skyDome.visible && !(typeof DIM !== 'undefined' && DIM.cur) && (typeof caveL === 'undefined' || caveL < 0.5);
+      FOGC[0] = ok ? c.r * k : 0; FOGC[1] = ok ? c.g * k : 0; FOGC[2] = ok ? c.b * k : 0; } catch (_) {}
+    FOGH[0] = camera.position.y; FOGH[1] = SEA + 4; FOGH[2] = (on && !(window.__eg1295 && __eg1295.inEgypt && __eg1295.inEgypt())) ? 1 : 0;
+    comp.visible = active;
+    if (!active) { wasActive = false; return; }
+    const wd = (typeof weather !== 'undefined' && weather.dark) || 0;
+    dt = Math.min(0.1, Math.max(0, +dt || 0)); tt += dt;
+    prevWind.copy(wind); const spd = 2.2 + wd * 5; wind.x += dt * spd * 0.94; wind.y += dt * spd * 0.34; UN.uWind.value.copy(wind); UN.uWindD.value.set(wind.x - prevWind.x, wind.y - prevWind.y);
+    UN.uTime.value = tt;
+    const day = typeof daylight !== 'undefined' ? daylight : 1;
+    UN.uBase.value = H + 8; UN.uThick.value = 36;
+    UN.uCover.value = Math.min(0.93, 0.47 + 0.07 * Math.sin(tt * 0.004) + wd * 0.42);
+    UN.uSig.value = 0.11 * (1 + wd * 0.8);
+    // light: the sun by day (warm and low at sunrise/sunset), the moon at night
+    const sunUp = ss(-0.12, 0.04, sy), low = 1 - ss(0.04, 0.45, sy);
+    if (sy > -0.12) { UN.uL.value.set(FOGV[0], Math.max(FOGV[1], 0.06), FOGV[2]).normalize();
+      tmp.setRGB(1.0, 0.97, 0.92).lerp(base.setRGB(1.0, 0.5, 0.26), low * 0.9).multiplyScalar(1.15 * sunUp * (1 - wd * 0.7)); }
+    else { UN.uL.value.set(-FOGV[0], Math.max(-FOGV[1], 0.06), -FOGV[2]).normalize();
+      const fm = (typeof fullMoon === 'function' && fullMoon()) ? 1 : 0.6; tmp.setRGB(0.32, 0.38, 0.5).multiplyScalar(0.55 * fm * (1 - wd * 0.7)); }
+    UN.uSunC.value.copy(tmp);
+    try { UN.uAmbT.value.copy(skyUniforms.top.value).multiplyScalar(0.92); UN.uHor.value.copy(skyUniforms.hor.value);
+      UN.uAmbB.value.copy(skyUniforms.top.value).lerp(skyUniforms.hor.value, 0.5).multiplyScalar(0.48 + 0.1 * day); } catch (_) {}
+    // tint from the old cloud colour pipeline (storm grey, castle crimson ...) relative to its plain value
+    try { const cl = (.25 + .67 * day) * (1 - wd * 0.45); base.setRGB(cl, cl * 1.01 + .02, cl * 1.03 + .05);
+      const c = cloudMat.color; UN.uTint.value.setRGB(Math.min(1.6, c.r / Math.max(0.05, base.r)), Math.min(1.6, c.g / Math.max(0.05, base.g)), Math.min(1.6, c.b / Math.max(0.05, base.b)));
+      UN.uSunC.value.multiply(UN.uTint.value); UN.uAmbT.value.multiply(UN.uTint.value); UN.uAmbB.value.multiply(UN.uTint.value); } catch (_) {}
+    if (fade < 0.999) { UN.uSunC.value.multiplyScalar(fade); UN.uAmbT.value.multiplyScalar(fade); UN.uAmbB.value.multiplyScalar(fade); UN.uCover.value *= fade; }
+    if (!wasActive) UN.uReset.value = 1; wasActive = true;
+  }
+  try { const us = updateSky; updateSky = function (dt) { const r = us.apply(this, arguments); try { frameState(dt); } catch (e) { ERR('sky', e); } return r; }; } catch (e) { ERR('wrap', e); }
+  // sun, moon and stars draw before the clouds so clouds pass in front of them
+  try { for (const o of [sunDisc, moonDisc, typeof moonHalo !== 'undefined' && moonHalo, typeof stars !== 'undefined' && stars]) if (o) o.renderOrder = Math.min(o.renderOrder || 0, -8); } catch (_) {}
+
+  // ---------- march + rebuild before the main scene render ----------
+  const offs = [[0, 0], [1, 1], [1, 0], [0, 1]];
+  let lastT = 0;
+  function cloudPass(r0) {
+    const now = performance.now(); if (now - lastT < 3) return; lastT = now;
+    ensureRT(); camera.updateMatrixWorld();
+    UN.uInvProj.value.copy(camera.projectionMatrixInverse); UN.uProj.value.copy(camera.projectionMatrix); UN.uCamWorld.value.copy(camera.matrixWorld);
+    camera.getWorldPosition(UN.uCamPos.value);
+    if (lastPos.distanceToSquared(UN.uCamPos.value) > 400) UN.uReset.value = 1; lastPos.copy(UN.uCamPos.value);
+    fr++; UN.uFrame.value = fr; const o = offs[fr & 3]; UN.uOff.value.set(o[0], o[1]);
+    const prevRT = renderer.getRenderTarget(), sm = renderer.shadowMap.needsUpdate, ac = renderer.autoClear;
+    renderer.autoClear = false;
+    try {
+      passMesh.material = marchMat; renderer.setRenderTarget(rtQ); r0.call(renderer, passScene, ortho);
+      UN.uQ.value = rtQ.texture; UN.uPrev.value = rtB.texture; UN.uPrevVP.value.copy(prevVP);
+      passMesh.material = recMat; renderer.setRenderTarget(rtA); r0.call(renderer, passScene, ortho);
+    } finally { renderer.setRenderTarget(prevRT); renderer.autoClear = ac; renderer.shadowMap.needsUpdate = sm; }
+    UN.uC.value = rtA.texture; const t = rtA; rtA = rtB; rtB = t;
+    vp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); prevVP.copy(vp); UN.uReset.value = 0; U.march++;
+  }
+  try {
+    const r0 = renderer.render;
+    renderer.render = function (s, c) {
+      if (s === scene && c === camera && comp.visible) { try { cloudPass(r0); } catch (e) { ERR('pass', e); comp.visible = false; } }
+      return r0.apply(this, arguments);
+    };
+  } catch (e) { ERR('render', e); }
+
+  // ---------- settings row: Sky & clouds Low / Medium / High (live) ----------
+  U.setQ = (q) => { setQ(q); try { SET.sky = q; saveSet(); } catch (_) {} try { syncRow(); } catch (_) {} };
+  let row = null;
+  function syncRow() { if (row) row.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === Q)); }
+  function addRow() {
+    try {
+      if (document.getElementById('skySeg')) return true;
+      const g = document.getElementById('gfxSeg') || document.getElementById('perfSeg'); if (!g) return false;
+      const host = g.closest('.set') || g.parentElement; if (!host) return false;
+      row = document.createElement('div'); row.className = host.className || 'set inline';
+      row.innerHTML = '<span>Sky &amp; clouds</span><div class="seg" id="skySeg">' + [['low', 'Low'], ['med', 'Medium'], ['high', 'High']].map(([v, n]) => '<button data-v="' + v + '" data-testid="sky-' + v + '">' + n + '</button>').join('') + '</div>';
+      host.after(row);
+      row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => U.setQ(b.dataset.v)));
+      syncRow(); return true;
+    } catch (e) { ERR('row', e); return true; }
+  }
+  if (!addRow()) { let n = 0; const iv = setInterval(() => { if (addRow() || ++n > 60) clearInterval(iv); }, 1000); }
+  U.on = 1;
+})();
+
 </script>
 </body>
 </html>
