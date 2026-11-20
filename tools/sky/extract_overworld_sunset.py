@@ -1,146 +1,272 @@
 #!/usr/bin/env python3
-"""Extract a full-resolution, seamless overworld sunset sky from the reference photo.
-No downscaling, no stylising: keep the source sky pixels and only inpaint foreground holes.
-Fast numpy row-propagation (no per-pixel Python flood fill).
+"""Extract a full-resolution, horizontally seamless overworld sunset sky
+from the reference photo. Keep literal source sky pixels; inpaint only
+foreground (trees, mountains, terrain). No downscaling, no stylising.
 """
 import os
 import numpy as np
 from PIL import Image, ImageFilter
+import cv2
 
 SRC = os.environ.get('SKY_REF', '/workspace/qa/sky/ref-sunset.jpg')
 OUT_WEBP = os.environ.get('SKY_WEBP', '/workspace/gc-sky/assets/sky/overworld-sunset.webp')
-OUT_PREVIEW = '/workspace/qa/sky/extracted-sky.png'
-OUT_MASK = '/workspace/qa/sky/extracted-sky-mask.png'
+OUT_PREVIEW = os.environ.get('SKY_PREVIEW', '/workspace/qa/sky/extracted-sky.png')
+OUT_MASK = os.environ.get('SKY_MASK', '/workspace/qa/sky/extracted-sky-mask.png')
+HORIZON = int(os.environ.get('SKY_HORIZON', '1320'))
 
 im = Image.open(SRC).convert('RGB')
 W, H = im.size
-arr = np.asarray(im, dtype=np.float32)
+arr = np.asarray(im)
 print('source', W, H, flush=True)
 
-r, g, b = arr[:, :, 0], arr[:, :, 1], arr[:, :, 2]
-yfrac = np.linspace(0, 1, H, dtype=np.float32)[:, None]
+bgr = cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+r = arr[:, :, 0].astype(np.float32)
+g = arr[:, :, 1].astype(np.float32)
+b = arr[:, :, 2].astype(np.float32)
+luma = 0.30 * r + 0.50 * g + 0.20 * b
+sat = arr.max(2).astype(np.float32) - arr.min(2).astype(np.float32)
+yy = np.arange(H)[:, None]
 
-fol = ((g > r + 8) & (g > b - 8)) | ((g > 38) & (g >= r - 6) & (g > b + 12))
-warm = (r >= g) & ((r - np.minimum(g, b)) >= 7) & (r >= 22)
-purple = (r > 18) & (b > g + 2) & ((r + b) > (2 * g - 8))
-gold = (r > 140) & (g > 35) & (b < g + 10)
-hint = (~fol) & (warm | purple | gold | (yfrac < 0.16))
+veg = (g > r + 5) & (g > b)
+trunk = (luma < 32) & (yy > 350) & (sat < 45)
+# warm-grey / tan stone in the mid-lower frame, not sunset gold
+sky_chroma = (
+    ((r > g + 18) & (sat > 45) & (r > 70))
+    | ((r > g + 6) & (b > g + 4) & (sat > 16))  # mauve / purple cloud
+)
+stone = (
+    (yy > int(0.38 * H))
+    & (sat < 52)
+    & (luma > 22)
+    & (luma < 230)
+    & ~sky_chroma
+)
+def_fg = veg | trunk | stone
+def_fg[:200, :] = False
 
-sky = np.zeros((H, W), dtype=bool)
-sky[0] = True
-# Downward + left/right propagation, a few passes per row
-for y in range(1, H):
-    if y > int(0.72 * H):
+top = yy < 90
+warm = (r > g + 8) & (sat > 35) & (r > 50) & ~def_fg
+purple = (r > g + 5) & (b > g + 4) & (yy < int(0.60 * H)) & ~def_fg
+def_sky = (top | warm | purple) & ~def_fg
+def_sky[:90, :] = True
+
+scale = 2
+h2, w2 = H // scale, W // scale
+small = cv2.resize(bgr, (w2, h2), interpolation=cv2.INTER_AREA)
+mask = np.full((h2, w2), cv2.GC_PR_BGD, np.uint8)
+ds = cv2.resize(def_sky.astype(np.uint8), (w2, h2), interpolation=cv2.INTER_AREA) > 0.5
+df = cv2.resize(def_fg.astype(np.uint8), (w2, h2), interpolation=cv2.INTER_AREA) > 0.5
+pr_sky = (cv2.resize((yy < int(0.5 * H)).astype(np.uint8), (w2, h2)) > 0) & ~df
+mask[pr_sky] = cv2.GC_PR_FGD
+mask[ds] = cv2.GC_FGD
+mask[df] = cv2.GC_BGD
+bgd = np.zeros((1, 65), np.float64)
+fgd = np.zeros((1, 65), np.float64)
+print('grabcut…', flush=True)
+cv2.grabCut(small, mask, None, bgd, fgd, 5, cv2.GC_INIT_WITH_MASK)
+sky_s = np.where((mask == cv2.GC_FGD) | (mask == cv2.GC_PR_FGD), 255, 0).astype(np.uint8)
+sky = cv2.resize(sky_s, (W, H), interpolation=cv2.INTER_NEAREST) > 0
+sky |= def_sky
+sky &= ~def_fg
+
+fg = (~sky).astype(np.uint8) * 255
+k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, k)
+fg = cv2.dilate(fg, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+fg[:80, :] = 0
+
+# Grow terrain only through non-sky-chroma pixels
+allow = ((~sky_chroma) & (yy > 280)).astype(np.uint8) * 255
+allow = cv2.bitwise_or(allow, fg)
+seed = fg.copy()
+for i in range(50):
+    nxt = cv2.dilate(seed, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+    nxt = cv2.bitwise_and(nxt, allow)
+    if np.array_equal(nxt, seed):
+        print('terrain flood settled at', i, flush=True)
         break
-    row = hint[y] & (sky[y - 1] | np.roll(sky[y - 1], 1) | np.roll(sky[y - 1], -1))
-    for _ in range(8):
-        nxt = row | (hint[y] & (np.roll(row, 1) | np.roll(row, -1)))
-        if nxt is row or np.array_equal(nxt, row):
+    seed = nxt
+fg = seed
+fg[:80, :] = 0
+
+# Keep only FG components that touch the horizon (trees/mountains sit on the ground)
+hor = min(HORIZON, H - 1)
+num, labels, stats, _ = cv2.connectedComponentsWithStats(fg, 8)
+keep = np.zeros(num, np.uint8)
+for i in range(1, num):
+    ys = labels[max(0, hor - 8):min(H, hor + 30), :] == i
+    if ys.any() and stats[i, cv2.CC_STAT_AREA] >= 200:
+        keep[i] = 1
+fg = keep[labels] * 255
+# Fill enclosed holes (unmasked stone faces inside the mountain)
+inv = cv2.bitwise_not(fg)
+ff = inv.copy()
+h0, w0 = ff.shape
+for seed_pt in [(0, 0), (w0 - 1, 0), (0, h0 - 1), (w0 - 1, h0 - 1), (1, hor // 2 if hor < h0 else 10)]:
+    if ff[seed_pt[1], seed_pt[0]] != 0:
+        cv2.floodFill(ff, None, seed_pt, 128)
+enclosed = (ff == 255)
+fg[enclosed] = 255
+# One more close + dilate so tree tips and mountain rims are covered
+fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21)))
+fg = cv2.dilate(fg, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+fg[:80, :] = 0
+# Re-drop any blob that no longer touches the horizon (close may have created sky islands? unlikely)
+num2, lab2, st2, _ = cv2.connectedComponentsWithStats(fg, 8)
+keep2 = np.zeros(num2, np.uint8)
+for i in range(1, num2):
+    ys = lab2[max(0, hor - 8):min(H, hor + 30), :] == i
+    if ys.any():
+        keep2[i] = 1
+fg = keep2[lab2] * 255
+print('kept FG components', int(keep.sum()), 'of', num - 1, 'after hole-fill fg frac', float((fg[:hor + 1] > 0).mean()), flush=True)
+
+sky = fg == 0
+
+# --- fill only the holes, up to the horizon ---
+crop_h = hor + 1
+img = arr[:crop_h].copy()
+hole = (fg[:crop_h] > 0).astype(np.uint8) * 255
+hole = cv2.dilate(hole, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (13, 13)))
+# eat a few leftover tree-tip / rim pixels
+print('hole frac', float((hole > 0).mean()), 'px', int((hole > 0).sum()), flush=True)
+np.save('/tmp/sky-hole.npy', hole)
+np.save('/tmp/sky-img.npy', img)
+print('saved /tmp/sky-hole.npy', flush=True)
+if os.environ.get('STOP_AFTER_MASK'): raise SystemExit(0)
+
+
+luma_c = (0.30 * img[:, :, 0] + 0.50 * img[:, :, 1] + 0.20 * img[:, :, 2]).astype(np.float32)
+# Do not use dark ocean / leftover terrain as colour sources
+# Also ignore a thin band just outside the hole (mixed sky/tree colours)
+src_ok = (hole == 0) & (luma_c > 58)
+edge_ban = cv2.dilate(hole, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+src_ok &= (edge_ban == 0) | (hole == 0)
+# actually edge_ban>=hole, so src_ok &= hole==0 already; drop mixed rim:
+src_ok &= (cv2.dilate(hole, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))) == 0)
+# restore: we still need some sources near the hole; only ban the 3px rim
+rim = cv2.dilate(hole, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)))
+src_ok = (hole == 0) & (luma_c > 58)
+src_ok &= (rim == 0) | (cv2.erode((hole == 0).astype(np.uint8) * 255, np.ones((3, 3), np.uint8)) > 0)
+# simpler final:
+src_ok = (hole == 0) & (luma_c > 58)
+
+def push_pull(img8, valid_bool, levels=8):
+    imgf = img8.astype(np.float32)
+    valid = valid_bool.astype(np.float32)
+    imgs, ws = [], []
+    cur, w = imgf, valid
+    for _ in range(levels):
+        imgs.append(cur)
+        ws.append(w)
+        if cur.shape[0] < 4 or cur.shape[1] < 4:
             break
-        row = nxt
-    # colour-continuity into darker cloud pockets from the row above
-    prev = arr[y - 1]
-    cur = arr[y]
-    d = np.abs(cur - prev).sum(axis=1)
-    loose = (~fol[y]) & (d < 42) & (yfrac[y, 0] < 0.66) & (
-        sky[y - 1] | np.roll(sky[y - 1], 1) | np.roll(sky[y - 1], -1)
-    )
-    sky[y] = row | loose
+        nw, nh = max(1, cur.shape[1] // 2), max(1, cur.shape[0] // 2)
+        premul = cur * w[:, :, None]
+        premul_d = cv2.resize(premul, (nw, nh), interpolation=cv2.INTER_AREA)
+        w_d = cv2.resize(w, (nw, nh), interpolation=cv2.INTER_AREA)
+        cur = premul_d / np.maximum(w_d[:, :, None], 1e-5)
+        w = (w_d > 0.02).astype(np.float32)
+    for i in range(len(imgs) - 2, -1, -1):
+        up = cv2.resize(cur, (imgs[i].shape[1], imgs[i].shape[0]), interpolation=cv2.INTER_LINEAR)
+        w_i = ws[i][:, :, None]
+        cur = imgs[i] * w_i + up * (1.0 - w_i)
+    return np.clip(cur, 0, 255)
 
-def dilate(m, k=2):
-    out = m.astype(np.uint8).copy()
-    for _ in range(k):
-        n = out.copy()
-        n[1:] |= out[:-1]
-        n[:-1] |= out[1:]
-        n[:, 1:] |= out[:, :-1]
-        n[:, :-1] |= out[:, 1:]
-        out = n
-    return out
+# Low-frequency target colour in the holes (sunset gradient, no dark ocean)
+low = push_pull(img, src_ok)
 
-def erode(m, k=2):
-    return (1 - dilate(~m if m.dtype == bool else (1 - m), k)).astype(np.uint8)
+# Build a clean sky atlas: pixels we are allowed to clone texture from
+atlas = src_ok.copy()
+# Prefer mid/upper sky (more cloud texture); still allow lower gold
+# Texture sample: pick a source that is definitely sky, preferably a large horizontal shift
+# into the left or right clean bands, plus a vertical wrap through the upper/mid band
+detail_img = img.astype(np.float32)
+# precompute lowfreq of source for colour transfer
+low_src = cv2.GaussianBlur(np.where(src_ok[:, :, None], detail_img, low), (0, 0), 18)
 
-closed = erode(dilate(sky, 3), 3).astype(bool)
+Hloc, Wloc = crop_h, img.shape[1]
+# candidate shifts into known clean regions
+shifts = [1200, -1200, 900, -900, 1600, -1600, 600, -600, 2000]
+# For each hole pixel, first shift that lands in atlas; then recolor to low target
+# Vectorized: try shifts in order, keep first hit
+remain = (hole > 0)
+ys, xs = np.indices((Hloc, Wloc))
+src_y = ys.copy()
+src_x = xs.copy()
+found = np.zeros((Hloc, Wloc), dtype=bool)
+for sh in shifts:
+    x2 = (xs + sh) % Wloc
+    # vertical jitter: map lower rows partly into a higher band so we don't
+    # sample near-horizon ocean; keep x the same height when the src row is clean
+    hit = remain & atlas[ys, x2] & (~found)
+    src_x[hit] = x2[hit]
+    src_y[hit] = ys[hit]
+    found |= hit
+# For remaining (wide lower holes where this row is almost all foreground),
+# sample from a higher clean row in the gold/pink cloud band.
+if (~found & remain).any():
+    for dy, sh in ((180, 1100), (280, -1000), (400, 800), (520, -800), (80, 1500)):
+        y2 = np.clip(ys - dy, 0, Hloc - 1)
+        x2 = (xs + sh) % Wloc
+        hit = remain & (~found) & atlas[y2, x2]
+        src_x[hit] = x2[hit]
+        src_y[hit] = y2[hit]
+        found |= hit
+# last resort: any atlas pixel via push-pull colour only (no extra texture)
+sampled = detail_img[src_y, src_x]
+src_low = np.maximum(low_src[src_y, src_x], 8.0)
+tgt_low = np.maximum(low, 8.0)
+# colour transfer: keep source texture, match local sunset colour
+recolor = sampled * (tgt_low / src_low)
+recolor = np.clip(recolor, 0, 255)
+# where we never found a texture sample, just use the low-frequency fill
+recolor = np.where(found[:, :, None], recolor, low)
 
-def side_horizon(m, sl):
-    col = m[:, sl].mean(axis=1)
-    ys = np.where(col > 0.4)[0]
-    return int(ys[-1]) if len(ys) else int(0.6 * H)
+filled = np.where(hole[:, :, None] > 0, recolor, detail_img)
 
-h_left = side_horizon(sky, slice(0, int(0.1 * W)))
-h_right = side_horizon(sky, slice(int(0.9 * W), W))
-horizon = int(round(0.5 * (h_left + h_right)))
-print('side horizons', h_left, h_right, 'use', horizon, flush=True)
+# Soften the seam: blur a copy and lerp on a feathered hole edge
+blur_f = cv2.GaussianBlur(filled, (0, 0), 3)
+# feather: 1 inside hole, 0 in literal sky, 0.5 on a 12px edge
+dist_in = cv2.distanceTransform((hole > 0).astype(np.uint8), cv2.DIST_L2, 5)
+dist_out = cv2.distanceTransform((hole == 0).astype(np.uint8), cv2.DIST_L2, 5)
+# we must never change literal sky; only feather inside the hole near the edge
+feather = np.clip(dist_in / 14.0, 0, 1).astype(np.float32)
+# near the edge (small dist_in), more blur
+filled = filled * feather[:, :, None] + blur_f * (1.0 - feather[:, :, None])
+filled = np.where((hole == 0)[:, :, None], detail_img, filled)
 
-pad = 8
-closed[horizon + pad:, :] = 0
-fg = (~closed) & (np.arange(H)[:, None] <= horizon + pad)
-fg = dilate(fg, 2).astype(bool)
-closed[fg & (np.arange(H)[:, None] <= horizon)] = False
-mask = closed
+# Telea inpaint on a narrow seam (mostly inside the hole plus 2px)
+edge = cv2.dilate(hole, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
+edge = cv2.subtract(edge, cv2.erode(hole, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))))
+edge_bgr = cv2.cvtColor(np.clip(filled, 0, 255).astype(np.uint8), cv2.COLOR_RGB2BGR)
+print('edge inpaint…', int((edge > 0).sum()), 'px', 'found tex', float(found[hole > 0].mean()) if (hole > 0).any() else 0, flush=True)
+inp = cv2.inpaint(edge_bgr, edge, 4, cv2.INPAINT_TELEA)
+comp = cv2.cvtColor(inp, cv2.COLOR_BGR2RGB).astype(np.float32)
+comp = np.where((hole == 0)[:, :, None], detail_img, comp)
 
-crop_h = min(H, horizon + 1)
-sky_px = arr[:crop_h].copy()
-sm = mask[:crop_h]
-out = sky_px.copy()
+SEAM = 280
+left = comp[:, :SEAM].copy()
+right = comp[:, -SEAM:].copy()
+mix = 0.5 * (left + right)
+amt = (0.5 + 0.5 * np.cos(np.linspace(0, np.pi, SEAM, dtype=np.float32)))[None, :, None]  # 1 at outer edge
+comp[:, :SEAM] = left * (1 - amt) + mix * amt
+comp[:, -SEAM:] = right * (1 - amt[:, ::-1, :]) + mix * amt[:, ::-1, :]
 
-for y in range(crop_h):
-    valid = np.where(sm[y])[0]
-    if valid.size < 2:
-        continue
-    holes = np.where(~sm[y])[0]
-    if holes.size == 0:
-        continue
-    for c in range(3):
-        out[y, holes, c] = np.interp(holes, valid, sky_px[y, valid, c])
+comp = np.clip(comp, 0, 255).astype(np.uint8)
+out_im = Image.fromarray(comp, 'RGB')
 
-filled_rows = [y for y in range(crop_h) if sm[y].mean() > 0.3]
-if filled_rows:
-    fr = np.array(filled_rows)
-    for y in range(crop_h):
-        if sm[y].mean() <= 0.3:
-            src = fr[np.argmin(np.abs(fr - y))]
-            out[y] = out[src]
-            sm[y] = True
-
-inp = ~mask[:crop_h]
-if inp.any():
-    blur = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius=1.6))
-    ba = np.asarray(blur, dtype=np.float32)
-    out[inp] = 0.65 * ba[inp] + 0.35 * out[inp]
-    blur2 = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius=0.8))
-    ba2 = np.asarray(blur2, dtype=np.float32)
-    out[inp] = 0.4 * ba2[inp] + 0.6 * out[inp]
-
-for i in range(1, 7):
-    y = crop_h - i
-    if y >= 0:
-        row = out[y]
-        k = 5
-        padrow = np.pad(row, ((k, k), (0, 0)), mode='wrap')
-        acc = np.zeros_like(row)
-        for o in range(-k, k + 1):
-            acc += padrow[k + o:k + o + W]
-        out[y] = acc / (2 * k + 1)
-
-s = 280
-L = out[:, :s].copy()
-R = out[:, -s:].copy()
-t = 0.5 - 0.5 * np.cos(np.linspace(0, np.pi, s, dtype=np.float32))[None, :, None]
-mixed = (1.0 - t) * R + t * L
-out[:, :s] = mixed
-out[:, -s:] = mixed
-
-sky_img = Image.fromarray(np.clip(out, 0, 255).astype(np.uint8), 'RGB')
-print('extracted sky', sky_img.size, 'width==source', sky_img.size[0] == W, flush=True)
+# previews
+mask_vis = arr[:crop_h].astype(np.float32).copy()
+m = hole > 0
+mask_vis[m] = mask_vis[m] * 0.35 + np.array([220, 30, 30], np.float32) * 0.65
+Image.fromarray(mask_vis.astype(np.uint8)).save(OUT_MASK)
+out_im.save(OUT_PREVIEW)
 os.makedirs(os.path.dirname(OUT_WEBP), exist_ok=True)
-sky_img.save(OUT_WEBP, 'WEBP', quality=95, method=6, exact=True)
-sky_img.save(OUT_PREVIEW, 'PNG')
-vis = arr[:crop_h].astype(np.uint8).copy()
-om = mask[:crop_h]
-vis[~om] = np.array([200, 30, 30], dtype=np.uint8)
-Image.fromarray(vis).save(OUT_MASK)
-print('wrote', OUT_WEBP, os.path.getsize(OUT_WEBP), 'bytes', flush=True)
-print('wrote', OUT_PREVIEW, os.path.getsize(OUT_PREVIEW), flush=True)
-print('wrote', OUT_MASK, flush=True)
+out_im.save(OUT_WEBP, 'WEBP', quality=98, method=6)
+print('wrote', OUT_WEBP, out_im.size, 'bytes', os.path.getsize(OUT_WEBP), flush=True)
+print('wrote', OUT_PREVIEW, OUT_MASK, flush=True)
+# also a small jpeg for inspection
+smallp = out_im.resize((1280, int(1280 * crop_h / W)), Image.Resampling.LANCZOS)
+smallp.save('/tmp/plate-new.jpg', 'JPEG', quality=92)
+print('preview /tmp/plate-new.jpg', flush=True)

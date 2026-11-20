@@ -247,8 +247,9 @@
       un.uSunAz.value = sunAz;
       un.uSunU.value = 0.92;
       un.uHalf.value = 1.05;
-      un.uDay.value = ph.day;
-      un.uNight.value = ph.night;
+      // Show the plate as-is at dusk; only fade/desaturate in true day or night.
+      un.uDay.value = ph.day * (1 - ph.dusk);
+      un.uNight.value = ph.night * (1 - ph.dusk);
       un.uDusk.value = ph.dusk;
       un.uAlpha.value = 1;
       un.uZenith.value.setRGB(pal.top[0], pal.top[1], pal.top[2]);
@@ -342,6 +343,7 @@
   }
   U.apply = apply;
   U.tick = function (dt) { try { tickPlate(dt || 0, palette(), realm()); } catch (e) { ERR('tick', e); } };
+  U.setQ = function (q) { U.q = q || U.q || 'photo'; return U.q; };
 
   function hook() {
     if (U.hook) return;
