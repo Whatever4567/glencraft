@@ -404,7 +404,7 @@
     '  vec4 we = texture2D(uWeather, wu);',
     '  vec4 wm = texture2D(uWeather, wp.xz * (1.0 / 620.0) + vec2(0.37, 0.19));',
     '  float cov = remap(we.r * mix(0.62, 1.0, wm.r), uCovMin * 0.32, 0.70);',
-    '  if (uEgypt > 0.5) cov *= 0.52;',
+    '  if (uEgypt > 0.5) cov *= 0.70;',
     '  if (cov <= 0.001) return 0.0;',
     '  float h = clamp(h01, 0.0, 1.0);',
     '  vec3 np = vec3(wp.xz * (1.0 / 200.0), h * 0.9 + 0.08);',
@@ -422,6 +422,7 @@
     '    vec4 n3 = tex3(np * 4.8 + vec3(2.9, 1.4, 0.6));',
     '    shape = max(0.0, shape - edge * near * (1.0 - n3.g) * 0.28);',
     '  }',
+    '  if (shape < 0.035) return 0.0;',
     '  return shape * uDens;',
     '}',
     'float height01(vec3 p, vec3 ctr){',
@@ -664,9 +665,9 @@
     un.uEgypt.value = egypt ? 1 : 0;
     un.uSteps.value = q === 'high' ? 48 : 28;
     un.uLSteps.value = q === 'high' ? 6 : 4;
-    un.uDens.value = egypt ? 1.05 : 1.35;
-    un.uAbs.value = egypt ? 0.82 : 0.92;
-    un.uCovMin.value = egypt ? 0.44 : 0.22;
+    un.uDens.value = egypt ? 1.15 : 1.35;
+    un.uAbs.value = egypt ? 0.84 : 0.92;
+    un.uCovMin.value = egypt ? 0.38 : 0.22;
     un.uTime.value = U.windT || 0;
     un.uWind.value.set((U.windT || 0) * 2.4, (U.windT || 0) * 0.7);
     un.uJitter.value = ((U.frameI || 0) % 8) / 8;
