@@ -95935,11 +95935,20 @@ try {
     if (typeof H !== 'number' || newH === H || !world) return 0;
     const t0 = performance.now(), oldH = H, old = world;
     try { htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0; } catch (_) {}
-    let next;
-    try { next = new Uint16Array(W * newH * D); }
-    catch (e) { ERR('expAlloc', e); U.expandFail = 1; U.hGen = oldH; U.hNow = oldH; return 0; }
     const srcRow = oldH * D, dstRow = newH * D;
-    for (let x = 0; x < W; x++) next.set(old.subarray(x * srcRow, x * srcRow + srcRow), x * dstRow);
+    let next;
+    /* t1313: in-place grow. setWorldSize reserved a buffer big enough for
+       newH, so move each x-slab up from the last one down (memmove) and zero
+       the new top rows. Peak stays one 764 MB buffer instead of 537+764 MB. */
+    if (old.byteOffset === 0 && old.buffer && old.buffer.byteLength >= W * newH * D * 2 && newH > oldH) {
+      next = new Uint16Array(old.buffer, 0, W * newH * D);
+      for (let x = W - 1; x >= 0; x--) { next.copyWithin(x * dstRow, x * srcRow, x * srcRow + srcRow); next.fill(0, x * dstRow + srcRow, x * dstRow + dstRow); }
+      U.expandInPlace = 1;
+    } else {
+      try { next = new Uint16Array(W * newH * D); }
+      catch (e) { ERR('expAlloc', e); U.expandFail = 1; U.hGen = oldH; U.hNow = oldH; return 0; }
+      for (let x = 0; x < W; x++) next.set(old.subarray(x * srcRow, x * srcRow + srcRow), x * dstRow);
+    }
     world = next; H = newH; htCacheReset();
     U.expandMs = Math.round(performance.now() - t0);
     U.hGen = oldH; U.hNow = newH;
@@ -95948,7 +95957,11 @@ try {
   U.expandWorldH = expandWorldH;
   function shrinkWorldH(newH) {
     if (typeof H !== 'number' || newH === H || !world) return 0;
-    world = new Uint16Array(W * newH * D);
+    /* t1313: reuse the existing buffer (a zeroed view) instead of a second
+       big array, so expandWorldH can later grow back in place. */
+    const n = W * newH * D;
+    if (newH < H && world.byteOffset === 0 && world.buffer && world.buffer.byteLength >= n * 2) { world = new Uint16Array(world.buffer, 0, n); world.fill(0); U.shrinkInPlace = 1; }
+    else world = new Uint16Array(n);
     H = newH; htCacheReset();
     return newH;
   }
@@ -96159,6 +96172,27 @@ try {
     }
   } catch (e) { ERR('scot', e); }
 
+  /* t1313: on a 2x world the loading tick still runs placeDecor (W !== the
+     official NEW_W), and its groundTop calls go through the whole solid()
+     wrapper chain from the sky down for all 3M columns: ~600 s on this box,
+     so new worlds sat on "Ready! 100%". Same rule, raw array scan. */
+  try {
+    const pd0 = placeDecor;
+    placeDecor = function () {
+      if (!isScaled() || typeof groundTop !== 'function') return pd0.apply(this, arguments);
+      const gt0 = groundTop, t0 = performance.now();
+      const WA = T.WATER, LA = T.LAVA, TO = T.TORCH;
+      groundTop = function (x, z) {
+        if (x < 0 || z < 0 || x >= W || z >= D) return gt0.apply(this, arguments);
+        const base = x * H * D + z;
+        for (let y = H - 1; y >= 0; y--) { const b = world[base + y * D]; if (b && b !== WA && b !== LA && b !== TO && PLANT[b] !== 1) return y; }
+        return 0;
+      };
+      try { return pd0.apply(this, arguments); }
+      finally { groundTop = gt0; U.decorMs = Math.round(performance.now() - t0); }
+    };
+  } catch (e) { ERR('decor', e); }
+
   try {
     const gf = g9findSpawn;
     g9findSpawn = function () {
@@ -96175,7 +96209,14 @@ try {
         /* t1293b: do not set H=NEW_H before official allocate — that made
            the first 2x world array 764 MB, then shrink+expand peaked at 1.21 GiB. */
       } catch (_) {}
-      const r = sws.call(this, n);
+      let r;
+      /* t1313: a new 2x world reserves one buffer sized for NEW_H up front and
+         generates in a BASE_H view of it, so expandWorldH can grow in place. */
+      if (U.want && n === NEW_W && typeof H === 'number' && H < NEW_H && !(typeof DIM !== 'undefined' && DIM && DIM.cur) && !(n === W && world && world.length === W * H * D)) {
+        W = n; D = n; world = null;
+        try { world = new Uint16Array(new ArrayBuffer(W * NEW_H * D * 2), 0, W * H * D); U.reserved = 1; }
+        catch (e) { ERR('reserve', e); world = new Uint16Array(W * H * D); }
+      } else r = sws.call(this, n);
       try { applyProj(); } catch (e) { ERR('sws', e); }
       return r;
     };
@@ -96356,8 +96397,10 @@ try {
     };
     function meshSpawn(budget) {
       try {
-        if (typeof dirtyAll !== 'undefined') dirtyAll = true;
-        if (typeof rebuild === 'function') rebuild(budget || 150);
+        /* t1313: never set dirtyAll here. It threw away every meshed chunk and
+           re-queued all 4489 2x chunks every 120 ms, so the spawn ring never
+           finished and the loading screen sat on Ready 100% forever. */
+        if (typeof rebuild === 'function' && ((typeof dirtyAll !== 'undefined' && dirtyAll) || (typeof dirtyCh !== 'undefined' && dirtyCh.size))) rebuild(budget || 150);
         if (typeof chunksReady === 'function') return !!chunksReady();
         if (window.chunksReady) return !!window.chunksReady();
       } catch (e) { ERR('mesh', e); }
@@ -96392,7 +96435,9 @@ try {
         }
         const ok = meshSpawn(150);
         U.meshTries = (U.meshTries || 0) + 1;
-        if (ok || U.meshTries > 40) {
+        if (!U.meshT0) U.meshT0 = performance.now();
+        if (ok || U.meshTries > 40 || performance.now() - U.meshT0 > 15000) {
+          U.readyMs = Math.round(performance.now() - U.meshT0);
           U.spawnReady = 1;
           if (U.pendingNone && ss0) { U.pendingNone = 0; ss0('none'); }
         }
