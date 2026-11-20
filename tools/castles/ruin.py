@@ -20,7 +20,7 @@ S = 3
 # left turret box(-14..-8) height 11 → *3
 LT = dict(x0=-14 * S, x1=-8 * S, z0=-2 * S, z1=3 * S, y1=20 * S)   # -42..-24, y1=60, rises above the arch
 # arch in the left wing, painted as a big hillside opening: x=-9..-3 in v2
-ARCH = dict(x0=-12 * S, x1=-4 * S, z=6 * S, y1=12 * S, depth=10)   # wide dominant arch, wall not a 50-tall slab
+ARCH = dict(x0=-15 * S, x1=-4 * S, z=7 * S, y1=17 * S, depth=12)   # bigger pointed left arch
 # mid ruined wall / pinnacles between left and center
 # central tower 0..7, -8..-1, height 22
 CT = dict(x0=0 * S, x1=7 * S, z0=-8 * S, z1=-1 * S, y1=28 * S)     # 0..21, -24..-3, y1=84  (the tall keep)
@@ -149,26 +149,25 @@ def collapsed_floor(g, x0, z0, x1, z1, y, pal, hole=0.35):
 # Each path is a list of (x,y,z) waypoints; veins are 1 block thick, with short
 # branches. They stay on the STRUCTURE (and a short foundation drop), not a stamped hill.
 BLACK_VEINS = [
-    # central tower face, 3–4 vertical runs (the painting's dominant veins)
-    [(10, 80, -2), (10, 60, -2), (9, 40, -1), (8, 20, 0), (7, 6, 1), (6, 0, 2), (5, -4, 3)],
-    [(14, 78, -2), (15, 55, -1), (15, 35, 0), (14, 18, 1), (13, 4, 2), (12, -3, 4)],
-    [(18, 74, -3), (18, 50, -2), (19, 30, -1), (20, 12, 0), (21, 2, 2), (22, -3, 4)],
-    [(6, 70, -3), (5, 48, -2), (4, 28, -1), (3, 12, 0), (2, 2, 2)],
-    # mid-left pinnacles down toward the arch
-    [(-10, 40, 6), (-12, 28, 7), (-14, 16, 8), (-16, 6, 8), (-18, 0, 9), (-20, -3, 10)],
-    [(-4, 36, 8), (-5, 22, 9), (-6, 10, 10), (-7, 2, 11), (-8, -3, 12)],
-    # through / under the arch, down-left
-    [(-24, 28, 12), (-26, 16, 13), (-28, 6, 14), (-30, 0, 15), (-32, -4, 16)],
-    [(-18, 22, 12), (-20, 10, 13), (-22, 2, 14), (-24, -3, 15)],
-    # right gable
-    [(36, 46, 6), (37, 30, 7), (38, 16, 8), (39, 6, 9), (40, 0, 10), (41, -3, 11)],
-    [(30, 40, 8), (31, 24, 8), (32, 10, 9), (33, 2, 10), (34, -2, 11)],
-    # mid-right connecting wall
-    [(22, 36, 2), (22, 20, 3), (23, 8, 4), (24, 1, 5), (25, -3, 6)],
+    # central tower, 4 dominant rivers (painting)
+    [(10, 90, -3), (11, 70, -1), (12, 50, 2), (13, 30, 8), (14, 14, 16), (16, 2, 24), (18, -2, 28)],
+    [(6, 86, -3), (5, 64, 0), (4, 42, 4), (3, 22, 12), (2, 8, 20), (1, 0, 26), (0, -2, 30)],
+    [(14, 88, -2), (15, 62, 1), (17, 40, 6), (19, 20, 14), (21, 6, 22), (23, -1, 27)],
+    [(8, 82, 0), (9, 55, 3), (10, 32, 10), (11, 12, 18), (12, 2, 25), (13, -2, 29)],
+    # mid-left mass / between arch and centre
+    [(-8, 64, 6), (-6, 44, 10), (-4, 24, 16), (-2, 8, 22), (0, 0, 27), (1, -2, 30)],
+    [(-16, 58, 8), (-15, 36, 12), (-14, 16, 18), (-13, 4, 24), (-12, -1, 28)],
+    # left arch / left slope
+    [(-30, 54, 8), (-32, 34, 12), (-36, 16, 18), (-40, 4, 24), (-44, -2, 28)],
+    [(-24, 48, 10), (-26, 28, 14), (-30, 12, 20), (-34, 2, 26), (-36, -2, 30)],
+    [(-38, 40, 10), (-42, 22, 16), (-48, 8, 22), (-52, 0, 26), (-56, -2, 30)],
+    # right tower and right slope
+    [(36, 58, 4), (38, 36, 10), (42, 16, 16), (46, 4, 22), (50, -1, 27)],
+    [(44, 54, 6), (48, 30, 12), (54, 12, 18), (60, 2, 24), (64, -2, 28)],
+    [(30, 44, 8), (32, 22, 14), (34, 8, 20), (36, 0, 26), (38, -2, 29)],
 ]
 
-
-def raster_vein(g, path, main=MAGMA, glow=LAVA, width=1):
+def raster_vein(g, path, main=MAGMA, glow=MAGMA, width=2):
     if len(path) < 2:
         return
     for i in range(len(path) - 1):
@@ -198,11 +197,139 @@ def raster_vein(g, path, main=MAGMA, glow=LAVA, width=1):
                         g.set(bx, by - k, bz, main)
 
 
+
+def spire(g, cx, cz, y0, y1, pal, r=2):
+    """Thin jagged pinnacle, 2–3 blocks across, broken top."""
+    for y in range(y0, y1 + 1):
+        rad = r if y < y1 - 4 else max(1, r - (y - (y1 - 4)))
+        for dx in range(-rad, rad + 1):
+            for dz in range(-rad, rad + 1):
+                if dx * dx + dz * dz <= rad * rad + 1:
+                    if y > y1 - 3 and rnd(cx + dx, y, cz + dz, 41) < 0.35:
+                        continue
+                    g.set(cx + dx, y, cz + dz, pal(cx + dx, y, cz + dz) if callable(pal) else pal)
+    # broken spike cap
+    for k in range(1, 2 + int(rnd(cx, y1, cz, 43) * 4)):
+        g.set(cx, y1 + k, cz, pal(cx, y1 + k, cz) if callable(pal) else pal)
+
+
+def flying_buttress(g, x0, y0, z0, x1, y1, z1, pal, thick=2):
+    """Diagonal rib between two points (flying buttress / structural ridge)."""
+    steps = max(abs(x1 - x0), abs(y1 - y0), abs(z1 - z0), 1)
+    for i in range(steps + 1):
+        t = i / steps
+        x = int(round(x0 + (x1 - x0) * t))
+        y = int(round(y0 + (y1 - y0) * t))
+        z = int(round(z0 + (z1 - z0) * t))
+        for dx in range(-thick + 1, thick):
+            for dz in range(-thick + 1, thick):
+                g.set(x + dx, y, z + dz, pal(x + dx, y, z + dz) if callable(pal) else pal)
+                if i < steps * 0.7:
+                    g.set(x + dx, y - 1, z + dz, pal(x + dx, y - 1, z + dz) if callable(pal) else pal)
+
+
+def crumbling_skirt(g, pal):
+    """Wide ruined masonry apron (structure, not a dirt crag). Height falls off
+    away from the towers and toward the camera so the mass is a slope of
+    jagged ribs, not a rectangular slab."""
+    cores = [(-33, 0, 52), (-8, 4, 44), (10, -4, 72), (36, 0, 42), (-20, 8, 36)]
+    x0, x1, z0, z1 = -88, 96, -20, 30
+    for x in range(x0, x1 + 1):
+        for z in range(z0, z1 + 1):
+            h = 0
+            for cx, cz, ch in cores:
+                d = ((x - cx) ** 2 / 900.0 + (z - cz) ** 2 / 400.0) ** 0.5
+                if d < 1.35:
+                    h = max(h, ch * max(0.0, 1.0 - d) * (0.55 + 0.45 * rnd(x, 0, z, 3)))
+            # front downslope (camera looks from +z)
+            if z > 4:
+                h *= max(0.12, 1.0 - (z - 4) / 22.0)
+            # also ease the far left/right so the sides aren't vertical cliffs
+            wing = max(0, abs(x - 8) - 36) / 50.0
+            h *= max(0.15, 1.0 - wing * 0.7)
+            h = int(h)
+            if h < 3:
+                continue
+            n = rnd(x, 1, z, 7)
+            rib = ((x * 3 + z * 5) % 6 == 0) or n > 0.8
+            # crust only: top few blocks, plus ribs that run partway down
+            for y in range(max(0, h - 2), h + 1):
+                g.set(x, y, z, pal(x, y, z) if callable(pal) else pal)
+            if rib:
+                y_lo = max(0, h - 10)
+                for y in range(y_lo, h - 1):
+                    if rnd(x, y, z, 8) > 0.35:
+                        g.set(x, y, z, pal(x, y, z) if callable(pal) else pal)
+            if n > 0.7:
+                for k in range(1, 2 + int(rnd(x, h, z, 11) * 5)):
+                    g.set(x, h + k, z, pal(x, h + k, z) if callable(pal) else pal)
+
+def densify_ruin(g, pal):
+    """Spires, flying buttresses, crumbling edges — the painting's gothic mass."""
+    crumbling_skirt(g, pal)
+    # many thin pinnacles at varied heights (mid-left cluster is the busiest)
+    spikes = [
+        (-22, 8, 28, 80, 2), (-16, 11, 30, 74, 2), (-10, 9, 32, 86, 3),
+        (-4, 12, 28, 78, 2), (2, 8, 24, 70, 2), (-18, 4, 22, 64, 2),
+        (-28, 10, 20, 68, 2), (8, 10, 30, 58, 2), (16, 7, 24, 56, 2),
+        (22, 9, 22, 64, 2), (28, 6, 20, 58, 2), (-34, 6, 18, 56, 2),
+        (-8, 14, 28, 72, 2), (4, 14, 26, 54, 2), (34, 8, 22, 60, 2),
+        (-40, 8, 14, 50, 2), (42, 5, 16, 52, 2), (-12, 0, 20, 62, 2),
+        (12, 12, 28, 52, 2), (-24, 14, 18, 54, 1), (20, 12, 18, 48, 1),
+        (-6, 6, 34, 82, 2), (-14, 8, 36, 76, 2), (6, 4, 30, 66, 2),
+    ]
+    for cx, cz, y0, y1, r in spikes:
+        spire(g, cx, cz, y0, y1, pal, r=r)
+    # flying buttresses from side masses toward the central keep and down the front
+    flying_buttress(g, -30, 48, 8, -4, 28, 4, pal, thick=2)
+    flying_buttress(g, -22, 56, 6, 2, 36, 2, pal, thick=2)
+    flying_buttress(g, 36, 46, 6, 16, 30, 0, pal, thick=2)
+    flying_buttress(g, 44, 40, 8, 20, 22, 4, pal, thick=2)
+    flying_buttress(g, -36, 36, 12, -18, 16, 16, pal, thick=2)
+    flying_buttress(g, 40, 32, 12, 24, 14, 16, pal, thick=2)
+    # extra dark moss drips across the front
+    moss_streaks(g, -50, 0, -4, 55, 70, 16, '+z', n=22)
+    moss_streaks(g, -40, 4, 4, 40, 50, 12, '+z', n=10)
+    # more cobwebs in the big left arch and lower recesses
+    cobweb_fill(g, ARCH['x0'] - 2, 2, ARCH['z'] - 4, ARCH['x1'] + 2, ARCH['y1'] + 4, ARCH['z'] + 4, 0.07)
+    cobweb_fill(g, -20, 4, 8, 8, 24, 18, 0.05)
+
+    # Chew the left rectangular arch-wall into a sloped, broken mass so it
+    # doesn't read as a flat slab. Keep the turret, arch soffit and mid spires.
+    spire_pts = [(-22, 8), (-16, 11), (-10, 9), (-4, 12), (2, 8), (-18, 4),
+                 (-28, 10), (-34, 6), (-8, 14), (-40, 8), (-12, 0), (-24, 14),
+                 (-6, 6), (-14, 8)]
+    def near_spire(x, z):
+        for sx, sz in spire_pts:
+            if (x - sx) ** 2 + (z - sz) ** 2 <= 20:
+                return True
+        return False
+    for x in range(-96, 8):
+        for z in range(-18, 36):
+            if LT['x0'] - 1 <= x <= LT['x1'] + 1 and LT['z0'] - 1 <= z <= LT['z1'] + 1:
+                continue
+            if near_spire(x, z):
+                continue
+            in_arch_ring = (ARCH['x0'] - 3 <= x <= ARCH['x1'] + 3
+                            and abs(z - (LT['z1'] + 3)) <= ARCH['depth'] + 4)
+            cap = 46
+            if x < -28:
+                cap -= int((-28 - x) * 0.75)
+            if z > 7:
+                cap -= int((z - 7) * 1.25)
+            if in_arch_ring:
+                cap = max(cap, ARCH['y1'] + 6)
+            cap = max(5, cap)
+            for y in range(cap + 1, 120):
+                if g.get(x, y, z):
+                    g.set0(x, y, z)
+
+
 def build_ruin(kind='mossy'):
     black = kind == 'black'
     pal = pal_black if black else pal_mossy
     step_id = DSTILE if black else OAKST
-    g = Grid(-70, 75, -8, 120, -45, 40)
+    g = Grid(-100, 110, -10, 140, -55, 50)
 
     # ----- LEFT RUINED TURRET -----
     x0, x1, z0, z1, y1 = LT['x0'], LT['x1'], LT['z0'], LT['z1'], LT['y1']
@@ -336,10 +463,12 @@ def build_ruin(kind='mossy'):
     skel_figure(g, rx0 + 2, ry1 + 2, rz1)
 
     # ----- DEAD TREES (decorations at the painted left/right of the footprint) -----
-    dead_tree(g, ax0 - 12, 0, az + 8, h=26)
-    dead_tree(g, rx1 + 12, 0, rz1 + 6, h=24)
+    dead_tree(g, -78, 0, 18, h=32)
+    dead_tree(g, 88, 0, 16, h=30)
     # a couple of smaller ones mid-slope left
-    dead_tree(g, ax0 - 8, 0, az - 2, h=18)
+    dead_tree(g, -70, 0, 6, h=22)
+    dead_tree(g, 80, 0, 8, h=20)
+    dead_tree(g, -62, 0, 22, h=18)
 
     # more cobwebs on the lower left (painting has several on the slope/arch)
     cobweb_fill(g, ax0 - 2, 4, az - 1, ax1 + 1, 14, az + 3, 0.06)
@@ -348,14 +477,24 @@ def build_ruin(kind='mossy'):
     relief_face(g, cx0, 8, cz1, cx1, cy1, cz1, pal, '+z', 0.08)
     relief_face(g, x0, 4, z1, x1, y1, z1, pal, '+z', 0.08)
 
+    densify_ruin(g, pal)
+
+    # Re-plant flank trees after the slope chew (it would strip earlier trunks).
+    dead_tree(g, -78, 0, 18, h=32)
+    dead_tree(g, 88, 0, 16, h=30)
+    dead_tree(g, -70, 0, 6, h=22)
+    dead_tree(g, 80, 0, 8, h=20)
+    dead_tree(g, -62, 0, 22, h=18)
+
+
     if black:
         for path in BLACK_VEINS:
-            raster_vein(g, path, main=MAGMA, glow=LAVA, width=1)
+            raster_vein(g, path, main=MAGMA, glow=MAGMA, width=2)
         # a small magma pool marker at the foot (foundations will carry it to ground)
-        for dx in range(-3, 4):
-            for dz in range(-2, 3):
-                if dx * dx + dz * dz <= 8:
-                    g.set(-28 + dx, -2, 16 + dz, MAGMA if dx * dx + dz * dz > 2 else LAVA)
+        for dx in range(-6, 7):
+            for dz in range(-3, 5):
+                if dx * dx + dz * dz <= 28:
+                    g.set(-28 + dx, -2, 22 + dz, MAGMA)
         # unfinished / broken nether portal in a chamber (c53 tradition)
         # obsidian frame, incomplete, in the central tower ground floor
         for y in range(1, 6):
@@ -379,7 +518,7 @@ def build_ruin(kind='mossy'):
                 g.set(x, -2, z, BLACKSTONE if black else COBBLE)
 
     # hero camera: low, slightly front, looking up at the cluster (matches the paintings)
-    g.mark('camera', name='hero', x=12, y=20, z=145, lx=2, ly=42, lz=2, fov=50)
-    g.mark('camera', name='hero-wide', x=10, y=14, z=80, lx=4, ly=40, lz=-6, fov=55)
+    g.mark('camera', name='hero', x=8, y=24, z=148, lx=8, ly=44, lz=6, fov=50)
+    g.mark('camera', name='hero-wide', x=6, y=22, z=170, lx=8, ly=42, lz=4, fov=50)
     g.mark('kind', name=kind)
     return g

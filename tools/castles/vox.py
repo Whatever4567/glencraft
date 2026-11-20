@@ -117,19 +117,29 @@ def ord2(a, b):
     return (a, b) if a <= b else (b, a)
 
 def stone_mix(x, y, z, palette=None, relief=True):
-    """Tight grey palette: almost all stonebrick, rare cobble. No slate/white speckles."""
+    """Weathered irregular greys — mostly rough stone/cobble, not a brick grid.
+    No harsh slate/white salt-and-pepper; dark accents are sparse deepslate."""
     r = rnd(x, y, z, 11)
-    if r < 0.90:
+    if r < 0.42:
+        return STONE
+    if r < 0.68:
+        return COBBLE
+    if r < 0.86:
         return STONEBRICK
-    return COBBLE
+    if r < 0.95:
+        return WSTONE
+    return DEEPSLATE
 
 def mossy_mix(x, y, z):
+    """Dark mossy ruin stone: mossy brick + raw stone/cobble, not a uniform grid."""
     r = rnd(x, y, z, 17)
-    if r < 0.82:
+    if r < 0.50:
         return MOSSYBRICK
-    if r < 0.95:
-        return STONEBRICK
-    return COBBLE
+    if r < 0.78:
+        return STONE
+    if r < 0.92:
+        return COBBLE
+    return STONEBRICK
 
 def black_mix(x, y, z):
     r = rnd(x, y, z, 23)

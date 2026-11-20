@@ -96426,7 +96426,7 @@ try {
   const SEA0 = () => (typeof SEA === 'number' ? SEA : 41);
   const MODEL_OF = {human: 'clansman', mossy: 'skeleton', black: 'black-skeleton'};
   const CASTLE_SKY_H = 192;
-  const FOOT_R = 90; // unlock / setCol radius for the upscaled keeps
+  const FOOT_R = 110; // unlock / setCol radius (ruin skirt is wider in pass 4)
 
   function installSolidWool(id, key, hex, nice) {
     // mat() expects a texture KEY string (it calls tex(key) which reads texCache).
@@ -96857,6 +96857,36 @@ try {
     }
   }
 
+
+  function capNearbyFluids(K) {
+    // Castle magma is a static MeshBasicMaterial "lava rock" (glowMat) — no
+    // LSRC flood and no flow ticks. Worldgen T.LAVA / T.LAVAB near a keep
+    // would otherwise flood per-block light and tick as a fluid (Black p95
+    // was seconds). Convert those in the footprint to MAGMA.
+    const lava = T.LAVA, lavab = T.LAVAB, mag = T.MAGMA || 208;
+    const R = FOOT_R;
+    const cx = K.cx, cz = K.cz;
+    const maxY = (typeof H === 'number' ? H - 2 : 200);
+    let n = 0;
+    for (let x = cx - R; x <= cx + R; x++) {
+      if (x < 1 || x >= W - 1) continue;
+      for (let z = cz - R; z <= cz + R; z++) {
+        if (z < 1 || z >= D - 1) continue;
+        if (Math.hypot(x - cx, z - cz) > R) continue;
+        for (let y = 1; y < maxY; y++) {
+          const i = idx(x, y, z);
+          const b = world[i];
+          if (b !== lava && b !== lavab) continue;
+          world[i] = mag;
+          n++;
+          try { if (typeof FLV !== 'undefined' && FLV && FLV.delete) FLV.delete(i); } catch (_) {}
+        }
+      }
+    }
+    U.fluidCap = U.fluidCap || {};
+    U.fluidCap[K.kind] = n;
+  }
+
   function decorate(K, kind) {
     // Small natural decorations around the footprint (not a stamped hill).
     const h3 = (x, z, s) => {
@@ -96870,23 +96900,24 @@ try {
       const x = cx + a, z = cz + b;
       if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
       const d = Math.hypot(a, b);
-      if (d < 22 || d > 68) continue;
+      if (d < 12 || d > 78) continue;
       let top = 0;
       try { top = solidTop(x, z); } catch (_) { continue; }
       if (top <= sea) continue;
       // skip if we already placed masonry here
       const above = world[idx(x, top + 1, z)];
       const here = world[idx(x, top, z)];
-      if (here === T.STONEBRICK || here === T.BLACKSTONE || here === T.MOSSYBRICK || here === T.SLATE) continue;
-      if (above && above !== T.AIR && above !== T.GRASS && above !== T.SNOW) continue;
+      if (here === T.STONEBRICK || here === T.BLACKSTONE || here === T.MOSSYBRICK || here === T.SLATE
+          || here === T.STONE || here === T.COBBLE || here === T.OBSIDIAN || here === (T.DEEPSLATE || 133)
+          || here === (T.WSTONE || 156) || here === (T.MAGMA || 208) || here === (T.HELLROCK || 206)) continue;
+      if (above && above !== T.AIR && above !== T.GRASS && above !== T.SNOW && above !== HEATH) continue;
       const u = h3(x, z, 19);
       if (kind === 'human') {
-        if (u < 0.08) world[idx(x, top + 1, z)] = HEATH;
-        else if (u > 0.97 && d > 40) {
-          // a few pines
-          const ht = 5 + ((h3(x, z, 23) * 5) | 0);
+        if (u < 0.22) world[idx(x, top + 1, z)] = HEATH;
+        else if (u > 0.94 && d > 32) {
+          const ht = 6 + ((h3(x, z, 23) * 6) | 0);
           for (let k = 1; k <= ht && top + k < H - 2; k++) {
-            world[idx(x, top + k, z)] = k < ht - 1 ? PINE : (NEED || PINE);
+            world[idx(x, top + k, z)] = k < ht - 2 ? PINE : (NEED || PINE);
           }
         }
       }
@@ -96983,6 +97014,7 @@ try {
     foundations(K, model);
     edgeBlend(K, model);
     decorate(K, K.kind);
+    capNearbyFluids(K);
     placeGold(K);
     U.counts[K.kind] = {gy: K.gy, tip: K.gy + (aabb[4] || 0), blocks: (model.stats && model.stats.blocks) || 0, aabb: aabb};
     return {kind: K.kind, gy: K.gy, specials: sp};

@@ -170,14 +170,38 @@ def build_clansman():
             if s < 2:
                 g.set(xx0, y, GH_Z1 + 1, pal(xx0, y, GH_Z1 + 1))
                 g.set(xx1, y, GH_Z1 + 1, pal(xx1, y, GH_Z1 + 1))
-    # inward stepped reveal at the top corners (crow-steps into the opening)
-    for s in range(1, 5):
-        for y in range(ARCH_Y1 - 2 * s, ARCH_Y1 + 1):
+    # More crow-step rings and a pointed (not rectangular) opening, same grey stone.
+    for s in range(5, 8):
+        xx0, xx1 = ARCH_X0 - 1 - s, ARCH_X1 + 1 + s
+        lintel = ARCH_Y1 + s
+        for x in range(xx0, xx1 + 1):
+            g.set(x, lintel, GH_Z1, pal(x, lintel, GH_Z1))
+        for y in range(max(1, spring + s * 2), lintel):
+            g.set(xx0, y, GH_Z1, pal(xx0, y, GH_Z1))
+            g.set(xx1, y, GH_Z1, pal(xx1, y, GH_Z1))
+    # inward crow-steps that close to a point at the crown
+    for s in range(1, 9):
+        for y in range(ARCH_Y1 - 2 * s, ARCH_Y1 + 1 + s // 2):
             g.set(ARCH_X0 + s, y, GH_Z1, pal(ARCH_X0 + s, y, GH_Z1))
             g.set(ARCH_X1 - s, y, GH_Z1, pal(ARCH_X1 - s, y, GH_Z1))
-    carve_box(g, ARCH_X0 + 1, 1, GH_Z1 - ARCH_DEPTH, ARCH_X1 - 1, ARCH_Y1 - 8, GH_Z1 + 2)
-    # keep the stepped top corners solid; punch the rectangular body of the opening
-    carve_box(g, ARCH_X0 + 2, 1, GH_Z1 - ARCH_DEPTH, ARCH_X1 - 2, ARCH_Y1 - 2, GH_Z1 + 1)
+            if s < 5:
+                g.set(ARCH_X0 + s, y, GH_Z1 + 1, pal(ARCH_X0 + s, y, GH_Z1 + 1))
+                g.set(ARCH_X1 - s, y, GH_Z1 + 1, pal(ARCH_X1 - s, y, GH_Z1 + 1))
+    # punch a pointed opening: full width low, tapering as y approaches the crown
+    for y in range(1, ARCH_Y1 + 3):
+        taper = 0 if y < ARCH_Y1 - 11 else (y - (ARCH_Y1 - 11))
+        xa0, xa1 = ARCH_X0 + 1 + taper, ARCH_X1 - 1 - taper
+        if xa0 > xa1:
+            continue
+        for x in range(xa0, xa1 + 1):
+            for z in range(GH_Z1 - ARCH_DEPTH, GH_Z1 + 2):
+                # keep the stepped hood itself (the outer +z face at/above the lintel)
+                if z >= GH_Z1 and y >= ARCH_Y1 + (x - (ARCH_X0 + ARCH_X1) // 2) * 0:
+                    # still carve the interior of the opening on the wall face
+                    if y < ARCH_Y1 + 2 - taper:
+                        g.set0(x, y, z)
+                else:
+                    g.set0(x, y, z)
 
     # Portcullis just inside the arch
     portcullis(g, ARCH_X0 + 1, ARCH_X1 - 1, 2, ARCH_Y1 - 2, GH_Z1 - 1)
@@ -462,6 +486,52 @@ def build_clansman():
                 g.set(x, -2, z, COBBLE)
 
     # Exterior cameras matching the painting (low, right of the gate, looking slightly up)
+
+    # Extra corner bartizans on the gatehouse front (painting has round turrets
+    # sitting on the crenellations, not just the four big roofs).
+    for bx, bz, bh, ch in (
+        (GH_X0 + 2, GH_Z1 - 1, WW_Y + 8, 8),
+        (GH_X1 - 2, GH_Z1 - 1, WW_Y + 8, 8),
+        (CORE_X0 + 2, CORE_Z1, ML['y1'] + 6, 7),
+        (CORE_X1 - 2, CORE_Z1, ML['y1'] + 6, 7),
+    ):
+        shell_cyl(g, bx, bz, 3, max(0, (WW_Y if bz >= GH_Z1 - 2 else ML['y1']) - 8), bh, pal, thick=2, floor=True, roof=True)
+        cone_roof(g, bx, bz, 4, bh, ch, lambda x, y, z: SLATE, thick=2)
+        # a couple of slit windows
+        window(g, bx, bh - 5, bz + 3, pal, '+z', w=1, h=2, recess=1)
+
+    # Forecourt: patchy stone path and purple heather in front of the gate, plus
+    # a few pines at the flanks — decorations in the model so they travel with it.
+    # stone path down the centre; scattered heather on the verges (not a solid carpet)
+    for x in range(-26, 30):
+        for z in range(GH_Z1 + 1, GH_Z1 + 16):
+            u = rnd(x, 0, z, 51)
+            on_path = abs(x) <= 4
+            if on_path or u < 0.28:
+                g.set(x, 0, z, STONE if u < 0.16 or on_path else COBBLE)
+            if (not on_path) and u < 0.22:
+                if not g.get(x, 0, z):
+                    g.set(x, 0, z, DIRT)
+                g.set(x, 1, z, HEATHER)
+    # denser heather beds left and right of the path
+    for x, z0 in ((-22, GH_Z1 + 3), (22, GH_Z1 + 3), (-16, GH_Z1 + 8), (18, GH_Z1 + 9)):
+        for dx in range(-4, 5):
+            for dz in range(-3, 5):
+                if dx * dx + dz * dz <= 16 and rnd(x + dx, 1, z0 + dz, 53) < 0.7:
+                    if not g.get(x + dx, 0, z0 + dz):
+                        g.set(x + dx, 0, z0 + dz, DIRT)
+                    g.set(x + dx, 1, z0 + dz, HEATHER)
+    def _pine(px, pz, h=8):
+        for k in range(h):
+            g.set(px, 1 + k, pz, PINE if k < h - 2 else NEED)
+            if k > h - 5:
+                for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    g.set(px + dx, 1 + k, pz + dz, NEED)
+    _pine(-30, GH_Z1 + 10, 11)
+    _pine(32, GH_Z1 + 8, 9)
+    _pine(-36, GH_Z1 + 4, 8)
+    _pine(40, GH_Z1 + 12, 10)
+
     g.mark('camera', name='hero', x=32, y=22, z=125, lx=6, ly=44, lz=8, fov=50)
     g.mark('camera', name='hero-wide', x=22, y=14, z=72, lx=6, ly=34, lz=6, fov=55)
     g.mark('gold', x=14 * S, y=0, z=-16 * S)  # v2 placeGold offset, will snap to solidTop in game
