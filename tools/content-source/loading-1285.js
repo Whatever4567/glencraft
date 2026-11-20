@@ -612,7 +612,7 @@
     U.maybeYield();
   };
   U.skipPost = function (id) {
-    return !!(U.held && U.genDone && U._passed && U._passed['w:' + id]);
+    return !!((U.held || U._softHold) && U.genDone && U._passed && U._passed['w:' + id]);
   };
 
   U.pulse = function (id, i, n, label, p0, p1) {
@@ -705,6 +705,8 @@
     };
     U._randGap = function (on) { _randGap = on ? 1 : 0; };
     let r;
+    let deferBig = false;
+    let postPump = null;
     try {
     /* GLX-LOAD1289: resuming the innermost GEN9 skips the wrapper preambles,
        whose finally blocks already reset their flags on the first yield.
@@ -721,32 +723,50 @@
     };
     const rInner = await pump(function () { return (!U.genDone && U._gen9) ? resume9 : outer; });
     r = rInner;
-    if (U.genDone) r = await pump(function () {
+    postPump = function () {
       /* After GEN9, resume the in-flight post-stage (settle, ores, …)
          instead of walking the wrapper chain every 200ms. When the post
          finishes, fall through to outer so later posts still run. */
-      if (U._postResume) {
-        return function () {
-          const out = U._postResume();
-          if (!U._postResume) return outer.apply(null, args);
-          return out;
-        };
-      }
-      return outer;
-    });
+      return pump(function () {
+        if (U._postResume) {
+          return function () {
+            const out = U._postResume();
+            if (!U._postResume) return outer.apply(null, args);
+            return out;
+          };
+        }
+        return outer;
+      });
+    };
+    /* 1.2.114: twice-scale (1728) new worlds finished terrain, then held the
+       loader for minutes on the 50+ post wrappers (UK land, trees, keeps,
+       decor). Enter as soon as GEN9 is done; run those posts in the
+       background with soft yields. Smaller worlds keep the old path. */
+    deferBig = !!(U.genDone && (function () { try { return typeof W === 'number' && W >= 1600; } catch (_) { return false; } })());
+    if (U.genDone && !deferBig) r = await postPump();
     } finally {
-      _randGap = 0;
-      Math.random = _origRandom;
-      U._randGap = null;
+      if (!deferBig) {
+        _randGap = 0;
+        Math.random = _origRandom;
+        U._randGap = null;
+      }
     }
     U.held = 0;
-    U._postResume = null;
+    if (deferBig) {
+      try { if (typeof spawnPlayer === 'function') spawnPlayer(); } catch (e) { ERR('spawn', e); }
+      try { if (typeof dirtyAll !== 'undefined') dirtyAll = true; } catch (_) {}
+    }
+    if (!deferBig) U._postResume = null;
     U.gateHold = 0;
     try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
     setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
-    try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
+    try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields' + (deferBig ? ' (posts deferred)' : '')); } catch (_) {}
+    if (deferBig) {
+      U._deferPosts = 1;
+      Promise.resolve().then(function () { return U.runDeferredPosts(postPump, _origRandom); }).catch(function (e) { ERR('posts', e); });
+    }
     return r;
   };
 
@@ -754,6 +774,25 @@
      throttled phone never finished (wrapper resume + 6000 site scans), so
      they are deferred until after the world is playable and stepped with
      soft yields so they do not hitch the first seconds of play. */
+  U.runDeferredPosts = async function (postPump, origRandom) {
+    if (!U._deferPosts) return;
+    U._deferPosts = 0;
+    U._softHold = 1;
+    U._tSlice = performance.now();
+    try {
+      if (typeof postPump === 'function') await postPump();
+    } catch (e) { ERR('posts', e); }
+    U._softHold = 0;
+    U._postResume = null;
+    try {
+      if (typeof origRandom === 'function') {
+        try { if (U._randGap) U._randGap(0); } catch (_) {}
+        Math.random = origRandom;
+        U._randGap = null;
+      }
+    } catch (_) {}
+  };
+
   U.runDeferredPools = async function () {
     if (!U._deferPools) return;
     U._deferPools = 0;
