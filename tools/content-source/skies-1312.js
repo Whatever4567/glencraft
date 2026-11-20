@@ -252,7 +252,12 @@
   const PLATE_R = 126;
   function plateRadius() {
     let far = PLATE_R / 0.8;
-    try { if (typeof camera !== 'undefined' && camera && typeof camera.far === 'number') far = camera.far; } catch (_) {}
+    try {
+      if (typeof camera !== 'undefined' && camera) {
+        const f = +camera.far;
+        if (f > 0) far = f;
+      }
+    } catch (_) {}
     return Math.max(24, Math.min(PLATE_R, far * 0.8));
   }
 
