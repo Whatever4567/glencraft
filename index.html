@@ -96427,6 +96427,7 @@ try {
   const MODEL_OF = {human: 'clansman', mossy: 'skeleton', black: 'black-skeleton'};
   const CASTLE_SKY_H = 192;
   const FOOT_R = 110; // unlock / setCol radius (ruin skirt is wider in pass 4)
+  const CAP_R = 220; // convert worldgen lava/magma in the view/remesh band (not just the footprint)
 
   function installSolidWool(id, key, hex, nice) {
     // mat() expects a texture KEY string (it calls tex(key) which reads texCache).
@@ -96692,7 +96693,7 @@ try {
     // Remove previously stamped keep masonry on an old isle (or a relocated site)
     // without deleting natural land (grass/dirt/stone/water/sand) outside walls.
     const masonry = new Set([T.STONEBRICK, T.MOSSYBRICK, T.COBBLE, T.SLATE, T.WSTONE,
-      T.BLACKSTONE, T.DSBRICK, T.DSTILE, T.OBSIDIAN, T.HELLROCK, T.HELLBRICK, T.MAGMA, T.LAVA,
+      T.BLACKSTONE, T.DSBRICK, T.DSTILE, T.OBSIDIAN, T.HELLROCK, T.HELLBRICK, T.MAGMA, T.LAVA, T.LAVAROCK,
       T.BARS || BARS, BARS, T.FENCE, T.COBWEB, T.DOOR, T.DOORTOP, T.CHEST, T.TORCH, T.BED,
       T.WOOL, T.WOOLRED, T.WOOLGREEN, T.WOOLYELLOW, T.PLANKS, T.OAKST || 164, 164, 167,
       T.MOSS, PINE, NEED, HEATH, SLATE].filter(Boolean));
@@ -96768,7 +96769,9 @@ try {
       const r = runs[i];
       const y = K.gy + r.y;
       if (y < 1 || y > maxY) continue;
-      for (let k = 0; k < r.n; k++) K.B(r.x + k, r.y, r.z, r.id);
+      let id = r.id;
+      if (id === (T.LAVA) || id === (T.LAVAB) || id === (T.MAGMA || 208)) id = lavaRockId();
+      for (let k = 0; k < r.n; k++) K.B(r.x + k, r.y, r.z, id);
     }
     const sp = model.specials || {};
     // doors
@@ -96858,13 +96861,42 @@ try {
   }
 
 
+
+  function installLavaRock() {
+    // Static decorative lava: magma albedo, mild emissive, NO LSRC flood, no flow.
+    // Replaces T.LAVA / T.MAGMA in the keep so SwiftShader is not buried in
+    // MeshBasicMaterial glowMat or liquid light propagation.
+    const id = (T.LAVAROCK = T.LAVAROCK || 261);
+    try {
+      if (typeof FACES !== 'undefined') FACES[id] = 'magma';
+      if (typeof NAMES !== 'undefined') NAMES[id] = 'Lava rock';
+      if (typeof PLACEABLE !== 'undefined' && PLACEABLE.add) PLACEABLE.add(id);
+      if (typeof BLOCK_MATS !== 'undefined') {
+        let m = null;
+        if (typeof mat === 'function') m = mat('magma');
+        if (m && m.clone) m = m.clone();
+        if (m && m.emissive && typeof THREE !== 'undefined') {
+          m.emissive.setHex(0xb33a08);
+          m.emissiveIntensity = 0.5;
+        }
+        if (m) BLOCK_MATS[id] = m;
+      }
+      try { if (window.__LSRC) window.__LSRC[id] = 0; } catch (_) {}
+    } catch (_) {}
+    return id;
+  }
+
+  function lavaRockId() {
+    return T.LAVAROCK || installLavaRock();
+  }
+
   function capNearbyFluids(K) {
     // Castle magma is a static MeshBasicMaterial "lava rock" (glowMat) — no
     // LSRC flood and no flow ticks. Worldgen T.LAVA / T.LAVAB near a keep
     // would otherwise flood per-block light and tick as a fluid (Black p95
     // was seconds). Convert those in the footprint to MAGMA.
-    const lava = T.LAVA, lavab = T.LAVAB, mag = T.MAGMA || 208;
-    const R = FOOT_R;
+    const lava = T.LAVA, lavab = T.LAVAB, mag = T.MAGMA || 208, glow = T.GLOWROCK || 209, rock = lavaRockId();
+    const R = CAP_R;
     const cx = K.cx, cz = K.cz;
     const maxY = (typeof H === 'number' ? H - 2 : 200);
     let n = 0;
@@ -96876,8 +96908,8 @@ try {
         for (let y = 1; y < maxY; y++) {
           const i = idx(x, y, z);
           const b = world[i];
-          if (b !== lava && b !== lavab) continue;
-          world[i] = mag;
+          if (b !== lava && b !== lavab && b !== mag && b !== glow) continue;
+          world[i] = rock;
           n++;
           try { if (typeof FLV !== 'undefined' && FLV && FLV.delete) FLV.delete(i); } catch (_) {}
         }
@@ -96909,7 +96941,7 @@ try {
       const here = world[idx(x, top, z)];
       if (here === T.STONEBRICK || here === T.BLACKSTONE || here === T.MOSSYBRICK || here === T.SLATE
           || here === T.STONE || here === T.COBBLE || here === T.OBSIDIAN || here === (T.DEEPSLATE || 133)
-          || here === (T.WSTONE || 156) || here === (T.MAGMA || 208) || here === (T.HELLROCK || 206)) continue;
+          || here === (T.WSTONE || 156) || here === (T.MAGMA || 208) || here === (T.HELLROCK || 206) || here === (T.LAVAROCK || 261)) continue;
       if (above && above !== T.AIR && above !== T.GRASS && above !== T.SNOW && above !== HEATH) continue;
       const u = h3(x, z, 19);
       if (kind === 'human') {
@@ -97003,6 +97035,7 @@ try {
 
   function buildFromModel(K) {
     ensureWool();
+    installLavaRock();
     const models = ensureModels();
     const model = models[K.kind];
     if (!model) return {kind: K.kind, missing: 1};
