@@ -288,9 +288,10 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1309-v1.2.109 -->
 <!-- glencraft-build: b1310-v1.2.110 -->
 <!-- glencraft-build: b1311-v1.2.111 -->
+<!-- glencraft-build: b1315-v1.2.115 -->
+<!-- glencraft-build: b1314-v1.2.114 -->
 <!-- glencraft-build: b1313-v1.2.113 -->
 <!-- glencraft-build: b1312-v1.2.112 -->
-<!-- glencraft-build: b1314-v1.2.114 -->
 <!-- glencraft-build: b1304-v1.2.104 -->
 <!-- glencraft-build: b1303-v1.2.103 -->
 <!-- glencraft-build: b1302-v1.2.102 -->
@@ -13747,7 +13748,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.114';
+const GAME_VERSION = '1.2.115';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63473,7 +63474,8 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{"v":"v1.2.114","d":"2026-11-20","notes":["The three survival keeps — Clansman, Skeleton and Black Skeleton — are now built as block-by-block copies of their concept paintings, and on new worlds they appear on naturally generated land with the gate facing open ground. Older saved worlds are unchanged."]},
+{"v":"v1.2.115","d":"2026-11-20","notes":["The three survival keeps — Clansman, Skeleton and Black Skeleton — are now built as block-by-block copies of their concept paintings, and on new worlds they appear on naturally generated land with the gate facing open ground. Older saved worlds are unchanged."]},
+{"v":"v1.2.114","d":"2026-11-20","notes":["New twice-scale Survival worlds become playable as soon as the land around you is ready. Trees, keeps and the rest of the country finish loading in the background, so creating a world no longer sits stuck on the loading screen."]},
 {"v":"v1.2.113","d":"2026-11-20","notes":["New worlds load faster and reliably"]},
 {"v":"v1.2.112","d":"2026-11-20","notes":["Each realm keeps its own sky. In the Highlands the sunset sky is the actual sky from the reference photograph, mapped onto the sky dome, with a dark starry night and a clear day sky.","Egypt land has a real desert sky: clear blue fading to a hazy sandy horizon by day, orange and pink at sunset, and a dark starry night.","The Highlands sunset plate is a full-resolution photograph of the sky, not a procedurally recreated cloud layer. It fades toward the day sky after dawn and toward the starry night after dusk. Distant hills pick up a soft blue-purple haze at sunset.","Hell, Agartha and the other realms keep their own skies.","New voxel loading screen and gold Glencraft logo. The loading screen now shows a blocky Highland sunset with the chunky gold Glencraft logo, a green loading bar in a gold frame, and the progress written underneath. The new logo replaces the old one on the title, start and reset screens too."]},
 {"v":"v1.2.111","d":"2026-11-20","notes":["Starting a new bigger Highlands world no longer tries to hold two full maps in memory at once, which could stop the world loading on a phone. The loading screen now stays up until the land around you is built.","The title menu has new Scottish landscape pictures (4K on a TV, 1080p on a phone). The old red-sky castle slide and the castle, isle and mossy menu backgrounds have been removed. Older saved worlds are unchanged."]},
@@ -93026,7 +93028,7 @@ try {
     U.maybeYield();
   };
   U.skipPost = function (id) {
-    return !!(U.held && U.genDone && U._passed && U._passed['w:' + id]);
+    return !!((U.held || U._softHold) && U.genDone && U._passed && U._passed['w:' + id]);
   };
 
   U.pulse = function (id, i, n, label, p0, p1) {
@@ -93122,6 +93124,8 @@ try {
     };
     U._randGap = function (on) { _randGap = on ? 1 : 0; };
     let r;
+    let deferBig = false;
+    let postPump = null;
     try {
     /* GLX-LOAD1289: resuming the innermost GEN9 skips the wrapper preambles,
        whose finally blocks already reset their flags on the first yield.
@@ -93139,32 +93143,50 @@ try {
     };
     const rInner = await pump(function () { return (!U.genDone && U._gen9) ? resume9 : outer; });
     r = rInner;
-    if (U.genDone) r = await pump(function () {
+    postPump = function () {
       /* After GEN9, resume the in-flight post-stage (settle, ores, …)
          instead of walking the wrapper chain every 200ms. When the post
          finishes, fall through to outer so later posts still run. */
-      if (U._postResume) {
-        return function () {
-          const out = U._postResume();
-          if (!U._postResume) return outer.apply(null, args);
-          return out;
-        };
-      }
-      return outer;
-    });
+      return pump(function () {
+        if (U._postResume) {
+          return function () {
+            const out = U._postResume();
+            if (!U._postResume) return outer.apply(null, args);
+            return out;
+          };
+        }
+        return outer;
+      });
+    };
+    /* 1.2.114: twice-scale (1728) new worlds finished terrain, then held the
+       loader for minutes on the 50+ post wrappers (UK land, trees, keeps,
+       decor). Enter as soon as GEN9 is done; run those posts in the
+       background with soft yields. Smaller worlds keep the old path. */
+    deferBig = !!(U.genDone && (function () { try { return typeof W === 'number' && W >= 1600; } catch (_) { return false; } })());
+    if (U.genDone && !deferBig) r = await postPump();
     } finally {
-      _randGap = 0;
-      Math.random = _origRandom;
-      U._randGap = null;
+      if (!deferBig) {
+        _randGap = 0;
+        Math.random = _origRandom;
+        U._randGap = null;
+      }
     }
     U.held = 0;
-    U._postResume = null;
+    if (deferBig) {
+      try { if (typeof spawnPlayer === 'function') spawnPlayer(); } catch (e) { ERR('spawn', e); }
+      try { if (typeof dirtyAll !== 'undefined') dirtyAll = true; } catch (_) {}
+    }
+    if (!deferBig) U._postResume = null;
     U.gateHold = 0;
     try { if (window.__tgate && __tgate.flush) __tgate.flush(); } catch (_) {}
     U._g9 = null;
     U.genX = 0;
     setReal(Math.max(U.real, 88), 'Building the land around you…', 99);
-    try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields'); } catch (_) {}
+    try { console.log('load: generate ' + Math.round(performance.now() - t0) + ' ms, ' + guarded + ' yields' + (deferBig ? ' (posts deferred)' : '')); } catch (_) {}
+    if (deferBig) {
+      U._deferPosts = 1;
+      Promise.resolve().then(function () { return U.runDeferredPosts(postPump, _origRandom); }).catch(function (e) { ERR('posts', e); });
+    }
     return r;
   };
 
@@ -93172,6 +93194,25 @@ try {
      throttled phone never finished (wrapper resume + 6000 site scans), so
      they are deferred until after the world is playable and stepped with
      soft yields so they do not hitch the first seconds of play. */
+  U.runDeferredPosts = async function (postPump, origRandom) {
+    if (!U._deferPosts) return;
+    U._deferPosts = 0;
+    U._softHold = 1;
+    U._tSlice = performance.now();
+    try {
+      if (typeof postPump === 'function') await postPump();
+    } catch (e) { ERR('posts', e); }
+    U._softHold = 0;
+    U._postResume = null;
+    try {
+      if (typeof origRandom === 'function') {
+        try { if (U._randGap) U._randGap(0); } catch (_) {}
+        Math.random = origRandom;
+        U._randGap = null;
+      }
+    } catch (_) {}
+  };
+
   U.runDeferredPools = async function () {
     if (!U._deferPools) return;
     U._deferPools = 0;
@@ -98176,6 +98217,34 @@ try {
   setTimeout(hook, 1200);
   setTimeout(hideOldClouds, 400);
 })(typeof window !== 'undefined' ? window : this);
+</script>
+
+<script>
+/* GLX-LOAD1314: never leave a twice-scale new world stuck on the loading screen. */
+(function load1314() {
+  let genDoneAt = 0;
+  setInterval(function () {
+    try {
+      if (typeof W !== 'number' || W < 1600) return;
+      const L = window.__glenLoad, V = window.__v1312;
+      if (!L) return;
+      if (L.genDone && !genDoneAt) genDoneAt = performance.now();
+      if (!genDoneAt) return;
+      const loadingEl = document.getElementById('scr-loading');
+      const loading = (L.uiScreen === 'loading') || (loadingEl && loadingEl.classList.contains('on'));
+      /* Only a backstop after terrain is already done: do not interrupt
+         smaller worlds or the normal 2x defer-and-enter path. */
+      if (L.genDone && L.held && (performance.now() - genDoneAt > 20000)) {
+        L.held = 0; L.gateHold = 0;
+      }
+      if (L.genDone && !L.held && loading && V && !V.spawnReady && (performance.now() - genDoneAt > 25000)) {
+        V.spawnReady = 1;
+        if (typeof showScreen === 'function') showScreen('none');
+        try { started = true; paused = false; } catch (_) {}
+      }
+    } catch (_) {}
+  }, 400);
+})();
 </script>
 </body>
 </html>

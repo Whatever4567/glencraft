@@ -8,8 +8,8 @@ const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'))
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-ok(ver.v === '1.2.111' || ver.v === '1.2.113' || ver.v === '1.2.114', 'version.json is 1.2.111, 1.2.113 or 1.2.114');
-ok(html.includes("const GAME_VERSION = '1.2.111';") || html.includes("const GAME_VERSION = '1.2.113';") || html.includes("const GAME_VERSION = '1.2.114';"), 'GAME_VERSION is 1.2.111, 1.2.113 or 1.2.114');
+ok(ver.v === '1.2.111' || ver.v === '1.2.113' || ver.v === '1.2.114' || ver.v === '1.2.115', 'version.json is 1.2.111, 1.2.113, 1.2.114 or 1.2.115');
+ok(html.includes("const GAME_VERSION = '1.2.111';") || html.includes("const GAME_VERSION = '1.2.113';") || html.includes("const GAME_VERSION = '1.2.114';") || html.includes("const GAME_VERSION = '1.2.115';"), 'GAME_VERSION is 1.2.111, 1.2.113, 1.2.114 or 1.2.115');
 ok(html.includes('<!-- glencraft-build: b1311-v1.2.111 -->'), '1.2.111 build marker stays');
 ok(html.includes('<!-- glencraft-build: b1310-v1.2.110 -->'), '1.2.110 marker stays');
 const st111 = html.indexOf('{"v":"v1.2.111"'), en = html.indexOf('{"v":"v1.2.110"', st111);
