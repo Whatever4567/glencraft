@@ -70,7 +70,6 @@ PALETTES = {
         (WOOLRED, (150, 36, 36)),
         (WOOLGREEN, (32, 96, 40)),
         (PLANKS, (126, 88, 48)),
-        (DSTILE, (40, 38, 42)),
     ],
     'skeleton': [
         (MOSSYBRICK, (96, 104, 84)),
@@ -440,7 +439,7 @@ def metric_t(disp, mask, t_med, span=DEPTH_SPAN):
 # ---------------------------------------------------------------------------
 # Palette
 # ---------------------------------------------------------------------------
-def quantize(rgb, kind, y_frac=None, is_roof=None):
+def quantize(rgb, kind, y_frac=None, x_frac=None, is_roof=None):
     pal = PALETTES[kind]
     ids = np.array([p[0] for p in pal], dtype=np.int32)
     cols = np.array([p[1] for p in pal], dtype=np.float32)
@@ -451,16 +450,39 @@ def quantize(rgb, kind, y_frac=None, is_roof=None):
     d2 = dist.sum(axis=2)
     # Prefer slate on dark Clansman roof pixels near the top of the keep.
     if kind == 'clansman' and y_frac is not None:
-        slate_i = next(i for i, p in enumerate(pal) if p[0] == SLATE)
-        dark = pix.mean(axis=1) < 55
-        top = y_frac < 0.42
-        d2[dark & top, slate_i] *= 0.45
-        # tartan: boost wool on saturated red/green mid-wall pixels
-        red_i = next(i for i, p in enumerate(pal) if p[0] == WOOLRED)
-        grn_i = next(i for i, p in enumerate(pal) if p[0] == WOOLGREEN)
+        def idx(bid):
+            return next(i for i, p in enumerate(pal) if p[0] == bid)
+        lum = pix.mean(axis=1)
         r, g, b = pix[:, 0], pix[:, 1], pix[:, 2]
-        d2[(r > g + 30) & (r > 80) & (g < 90), red_i] *= 0.25
-        d2[(g > r + 18) & (g > 50) & (r < 90), grn_i] *= 0.25
+        # Tight tartan (saturated banners only).
+        tartan_r = (r > g + 40) & (r > b + 40) & (r > 90) & (g < 80)
+        tartan_g = (g > r + 25) & (g > b + 10) & (g > 60) & (r < 80)
+        # Gate timber: lower-centre door leaves, not warm sunset masonry.
+        if x_frac is not None:
+            gate = (y_frac > 0.52) & (y_frac < 0.78) & (x_frac > 0.44) & (x_frac < 0.56)
+        else:
+            gate = (y_frac > 0.52) & (y_frac < 0.78)
+        wood = gate & (r > g + 22) & (g > b + 8) & (r > 95) & (r < 190) & (lum > 60) & (lum < 150)
+        # Pointed turret caps only (top ~14% of the frame, very dark).
+        roof = (lum < 48) & (y_frac < 0.14)
+        # Greener lower patches -> mossy brick, not moss carpet.
+        mossy = (g > r + 14) & (g > b + 8) & (y_frac > 0.48) & (lum < 95)
+        facade = ~(roof | wood | tartan_r | tartan_g | mossy)
+        stone_ids = {STONE, COBBLE, STONEBRICK, WSTONE}
+        for i, bid in enumerate(ids):
+            if int(bid) not in stone_ids:
+                d2[facade, i] = np.inf
+        # Sunset-dark walls are nearer moss/slate than STONE albedo; assign
+        # weathered greys by luminance band instead of raw Euclidean.
+        d2[facade & (lum < 70), idx(COBBLE)] *= 0.02
+        d2[facade & (lum >= 70) & (lum < 110), idx(STONE)] *= 0.02
+        d2[facade & (lum >= 110) & (lum < 150), idx(STONEBRICK)] *= 0.02
+        d2[facade & (lum >= 150), idx(WSTONE)] *= 0.02
+        d2[roof, idx(SLATE)] = 0
+        d2[wood, idx(PLANKS)] = 0
+        d2[tartan_r, idx(WOOLRED)] = 0
+        d2[tartan_g, idx(WOOLGREEN)] = 0
+        d2[mossy, idx(MOSSYBRICK)] = 0
     if kind == 'black-skeleton':
         mag_i = next(i for i, p in enumerate(pal) if p[0] == MAGMA)
         r, g, b = pix[:, 0], pix[:, 1], pix[:, 2]
@@ -487,7 +509,9 @@ def voxelize(rgb, mask, t, kind, stride=1):
     xs, ys, dirs, tt = xs[ok], ys[ok], dirs[ok], tt[ok]
     pts = eye[None, :] + dirs * tt[:, None]
     # Colour / id at those pixels
-    bid = quantize(rgb[ys, xs], kind, y_frac=ys / float(h))
+    x_span = max(1, int(xs.max()) - int(xs.min()))
+    bid = quantize(rgb[ys, xs], kind, y_frac=ys / float(h),
+                   x_frac=(xs - float(xs.min())) / x_span)
 
     # Extrude along the ray, behind the visible surface.
     thick = THICK[kind]
@@ -718,7 +742,7 @@ def _floor_pal(kind):
         return BLACKSTONE
     if kind == 'skeleton':
         return MOSSYBRICK
-    return STONEBRICK
+    return STONE
 
 
 def carve_interiors(g, kind):
@@ -770,8 +794,22 @@ def carve_interiors(g, kind):
             col_hi.append(yhi)
     if col_hi:
         hall_h = max(6, min(hall_h, int(np.percentile(col_hi, 40)) - 3))
-    _clear(g, hall_x0, 1, hall_z0, hall_x1, hall_h, hall_z1)
+    # Only excavate columns that already have a roof above the hall, so a
+    # thin or missing back shell does not open the room to the sky/world.
+    for x in range(hall_x0, hall_x1 + 1):
+        for z in range(hall_z0, hall_z1 + 1):
+            _, yhi = _col_range(g, x, z)
+            if yhi is None or yhi < hall_h + 3:
+                continue
+            for y in range(1, hall_h + 1):
+                g.set0(x, y, z)
     _fill(g, hall_x0, 0, hall_z0, hall_x1, 0, hall_z1, pal)
+    # Back/side walls and a thicker ceiling so the hall is a closed room
+    # (a 1-block skin was easy to miss against the open shell above).
+    _fill(g, hall_x0, 1, hall_z0, hall_x1, hall_h, hall_z0 + 2, pal)
+    _fill(g, hall_x0, 1, hall_z0, hall_x0, hall_h, hall_z1, pal)
+    _fill(g, hall_x1, 1, hall_z0, hall_x1, hall_h, hall_z1, pal)
+    _fill(g, hall_x0, hall_h, hall_z0, hall_x1, hall_h + 2, hall_z1, pal)
     # Open the passage into the hall.
     _clear(g, -gate_w // 2, 1, hall_z1, gate_w // 2, gate_h, hall_z1)
     # A couple of lamps / chests (specials); leave air under them.
@@ -786,8 +824,8 @@ def carve_interiors(g, kind):
     if kind == 'black-skeleton':
         g.mark('blackPortal', x=hall_x0 + 3, y=1, z=hall_z0 + 3)
     g.mark('camera', name='hall',
-           x=0, y=4, z=hall_z1 - 1,
-           lx=0, ly=6, lz=hall_z0 + 2, fov=60 if kind == 'clansman' else 70)
+           x=0, y=4, z=max(hall_z0 + 6, hall_z1 - 4),
+           lx=0, ly=3, lz=hall_z0 + 3, fov=60 if kind == 'clansman' else 70)
 
     # Wall-walk: a 3-wide walk on the front curtain, under the merlons.
     # Find a typical top of the front wall (not the keep spires).
@@ -801,12 +839,29 @@ def carve_interiors(g, kind):
         # Sit the walk on the curtain (mid-height of the keep), not on the
         # foundation shelf that dominates the front-band histogram.
         ww_y = max(hall_h + 8, min(int(0.52 * y1), y1 - 12))
-        # Walk just behind the outer shell — never punch the visible front face.
-        _clear(g, hall_x0 - 2, ww_y, front_z - 8, hall_x1 + 2, ww_y + 3, front_z - 4)
-        _fill(g, hall_x0 - 2, ww_y - 1, front_z - 8, hall_x1 + 2, ww_y - 1, front_z - 4, pal)
+        # Per-column walk behind the visible crust at this height. A single
+        # front_z taken at the gate porch would hang a slab in front of the
+        # set-back curtain / turrets (the light bar in the splat).
+        ww_z_mid = front_z - 7
+        for x in range(hall_x0 - 2, hall_x1 + 3):
+            fz = None
+            for z in range(z1, z0 - 1, -1):
+                if any(g.get(x, yy, z) for yy in (ww_y - 1, ww_y, ww_y + 1)):
+                    fz = z
+                    break
+            if fz is None:
+                continue
+            walk_z1 = fz - 5
+            walk_z0 = fz - 9
+            if walk_z1 < walk_z0:
+                continue
+            _clear(g, x, ww_y, walk_z0, x, ww_y + 3, walk_z1)
+            _fill(g, x, ww_y - 1, walk_z0, x, ww_y - 1, walk_z1, pal)
+            if x == 0:
+                ww_z_mid = (walk_z0 + walk_z1) // 2
         g.mark('camera', name='wallwalk',
-               x=0, y=ww_y + 3, z=front_z + 2,
-               lx=0, ly=ww_y + 2, lz=front_z - 8, fov=70)
+               x=0, y=ww_y + 2, z=ww_z_mid,
+               lx=8, ly=ww_y + 2, lz=ww_z_mid, fov=70)
     else:
         ww_y = hall_h + 4
 
@@ -1097,10 +1152,15 @@ def main():
     ap.add_argument('--kind', choices=['clansman', 'skeleton', 'black-skeleton', 'all'], default='all')
     ap.add_argument('--stride', type=int, default=1)
     ap.add_argument('--masks-only', action='store_true')
+    ap.add_argument('--out-dir', default=None, help='bin output dir (default: assets/castles)')
     args = ap.parse_args()
     kinds = ['clansman', 'skeleton', 'black-skeleton'] if args.kind == 'all' else [args.kind]
     seg_s, depth_s = load_sessions()
     results = {}
+    if args.out_dir:
+        global ASSETS
+        ASSETS = Path(args.out_dir)
+        ASSETS.mkdir(parents=True, exist_ok=True)
     for kind in kinds:
         results[kind] = process_kind(kind, seg_s, depth_s, stride=args.stride, skip_bin=args.masks_only)
     print('ALL DONE', {k: (v.get('iou') if isinstance(v, dict) else v) for k, v in results.items()})
