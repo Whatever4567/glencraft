@@ -288,6 +288,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1309-v1.2.109 -->
 <!-- glencraft-build: b1310-v1.2.110 -->
 <!-- glencraft-build: b1311-v1.2.111 -->
+<!-- glencraft-build: b1313-v1.2.113 -->
 <!-- glencraft-build: b1312-v1.2.112 -->
 <!-- glencraft-build: b1304-v1.2.104 -->
 <!-- glencraft-build: b1303-v1.2.103 -->
@@ -13745,7 +13746,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.112';
+const GAME_VERSION = '1.2.113';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63471,7 +63472,8 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
-{"v":"v1.2.112","d":"2026-11-20","notes":["Each realm keeps its own sky. In the Highlands the sunset sky is the actual sky from the reference photograph, mapped onto the sky dome, with a dark starry night and a clear day sky.","Egypt land has a real desert sky: clear blue fading to a hazy sandy horizon by day, orange and pink at sunset, and a dark starry night.","The Highlands sunset plate is a full-resolution photograph of the sky, not a procedurally recreated cloud layer. It fades toward the day sky after dawn and toward the starry night after dusk. Distant hills pick up a soft blue-purple haze at sunset.","Hell, Agartha and the other realms keep their own skies."]},
+{"v":"v1.2.113","d":"2026-11-20","notes":["New worlds load faster and reliably"]},
+{"v":"v1.2.112","d":"2026-11-20","notes":["Each realm keeps its own sky. In the Highlands the sunset sky is the actual sky from the reference photograph, mapped onto the sky dome, with a dark starry night and a clear day sky.","Egypt land has a real desert sky: clear blue fading to a hazy sandy horizon by day, orange and pink at sunset, and a dark starry night.","The Highlands sunset plate is a full-resolution photograph of the sky, not a procedurally recreated cloud layer. It fades toward the day sky after dawn and toward the starry night after dusk. Distant hills pick up a soft blue-purple haze at sunset.","Hell, Agartha and the other realms keep their own skies.","New voxel loading screen and gold Glencraft logo. The loading screen now shows a blocky Highland sunset with the chunky gold Glencraft logo, a green loading bar in a gold frame, and the progress written underneath. The new logo replaces the old one on the title, start and reset screens too."]},
 {"v":"v1.2.111","d":"2026-11-20","notes":["Starting a new bigger Highlands world no longer tries to hold two full maps in memory at once, which could stop the world loading on a phone. The loading screen now stays up until the land around you is built.","The title menu has new Scottish landscape pictures (4K on a TV, 1080p on a phone). The old red-sky castle slide and the castle, isle and mossy menu backgrounds have been removed. Older saved worlds are unchanged."]},
 {"v":"v1.2.110","d":"2026-11-18","notes":["New twice-scale Highlands worlds have taller jagged rock peaks and deep glens. Snow sits only on the true summits and north-facing tops, and steep faces are grey and dark rock rather than a sheet of snow.","Starting a new bigger world still takes about as long as before, and walking those worlds stays as smooth as the smaller ones. Older saved worlds are unchanged."]},
 {"v":"v1.2.109","d":"2026-11-18","notes":["On the bigger Highlands worlds, walking is as smooth as on the smaller ones. A search that used to scan the whole map while you walked now only looks near you.","Snow sits on the high peaks and ridges, with green glens and heather below, so the country no longer reads as a sheet of snow. Older saved worlds are unchanged."]},
@@ -95935,11 +95937,20 @@ try {
     if (typeof H !== 'number' || newH === H || !world) return 0;
     const t0 = performance.now(), oldH = H, old = world;
     try { htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0; } catch (_) {}
-    let next;
-    try { next = new Uint16Array(W * newH * D); }
-    catch (e) { ERR('expAlloc', e); U.expandFail = 1; U.hGen = oldH; U.hNow = oldH; return 0; }
     const srcRow = oldH * D, dstRow = newH * D;
-    for (let x = 0; x < W; x++) next.set(old.subarray(x * srcRow, x * srcRow + srcRow), x * dstRow);
+    let next;
+    /* t1313: in-place grow. setWorldSize reserved a buffer big enough for
+       newH, so move each x-slab up from the last one down (memmove) and zero
+       the new top rows. Peak stays one 764 MB buffer instead of 537+764 MB. */
+    if (old.byteOffset === 0 && old.buffer && old.buffer.byteLength >= W * newH * D * 2 && newH > oldH) {
+      next = new Uint16Array(old.buffer, 0, W * newH * D);
+      for (let x = W - 1; x >= 0; x--) { next.copyWithin(x * dstRow, x * srcRow, x * srcRow + srcRow); next.fill(0, x * dstRow + srcRow, x * dstRow + dstRow); }
+      U.expandInPlace = 1;
+    } else {
+      try { next = new Uint16Array(W * newH * D); }
+      catch (e) { ERR('expAlloc', e); U.expandFail = 1; U.hGen = oldH; U.hNow = oldH; return 0; }
+      for (let x = 0; x < W; x++) next.set(old.subarray(x * srcRow, x * srcRow + srcRow), x * dstRow);
+    }
     world = next; H = newH; htCacheReset();
     U.expandMs = Math.round(performance.now() - t0);
     U.hGen = oldH; U.hNow = newH;
@@ -95948,7 +95959,11 @@ try {
   U.expandWorldH = expandWorldH;
   function shrinkWorldH(newH) {
     if (typeof H !== 'number' || newH === H || !world) return 0;
-    world = new Uint16Array(W * newH * D);
+    /* t1313: reuse the existing buffer (a zeroed view) instead of a second
+       big array, so expandWorldH can later grow back in place. */
+    const n = W * newH * D;
+    if (newH < H && world.byteOffset === 0 && world.buffer && world.buffer.byteLength >= n * 2) { world = new Uint16Array(world.buffer, 0, n); world.fill(0); U.shrinkInPlace = 1; }
+    else world = new Uint16Array(n);
     H = newH; htCacheReset();
     return newH;
   }
@@ -96159,6 +96174,27 @@ try {
     }
   } catch (e) { ERR('scot', e); }
 
+  /* t1313: on a 2x world the loading tick still runs placeDecor (W !== the
+     official NEW_W), and its groundTop calls go through the whole solid()
+     wrapper chain from the sky down for all 3M columns: ~600 s on this box,
+     so new worlds sat on "Ready! 100%". Same rule, raw array scan. */
+  try {
+    const pd0 = placeDecor;
+    placeDecor = function () {
+      if (!isScaled() || typeof groundTop !== 'function') return pd0.apply(this, arguments);
+      const gt0 = groundTop, t0 = performance.now();
+      const WA = T.WATER, LA = T.LAVA, TO = T.TORCH;
+      groundTop = function (x, z) {
+        if (x < 0 || z < 0 || x >= W || z >= D) return gt0.apply(this, arguments);
+        const base = x * H * D + z;
+        for (let y = H - 1; y >= 0; y--) { const b = world[base + y * D]; if (b && b !== WA && b !== LA && b !== TO && PLANT[b] !== 1) return y; }
+        return 0;
+      };
+      try { return pd0.apply(this, arguments); }
+      finally { groundTop = gt0; U.decorMs = Math.round(performance.now() - t0); }
+    };
+  } catch (e) { ERR('decor', e); }
+
   try {
     const gf = g9findSpawn;
     g9findSpawn = function () {
@@ -96175,7 +96211,14 @@ try {
         /* t1293b: do not set H=NEW_H before official allocate — that made
            the first 2x world array 764 MB, then shrink+expand peaked at 1.21 GiB. */
       } catch (_) {}
-      const r = sws.call(this, n);
+      let r;
+      /* t1313: a new 2x world reserves one buffer sized for NEW_H up front and
+         generates in a BASE_H view of it, so expandWorldH can grow in place. */
+      if (U.want && n === NEW_W && typeof H === 'number' && H < NEW_H && !(typeof DIM !== 'undefined' && DIM && DIM.cur) && !(n === W && world && world.length === W * H * D)) {
+        W = n; D = n; world = null;
+        try { world = new Uint16Array(new ArrayBuffer(W * NEW_H * D * 2), 0, W * H * D); U.reserved = 1; }
+        catch (e) { ERR('reserve', e); world = new Uint16Array(W * H * D); }
+      } else r = sws.call(this, n);
       try { applyProj(); } catch (e) { ERR('sws', e); }
       return r;
     };
@@ -96356,8 +96399,10 @@ try {
     };
     function meshSpawn(budget) {
       try {
-        if (typeof dirtyAll !== 'undefined') dirtyAll = true;
-        if (typeof rebuild === 'function') rebuild(budget || 150);
+        /* t1313: never set dirtyAll here. It threw away every meshed chunk and
+           re-queued all 4489 2x chunks every 120 ms, so the spawn ring never
+           finished and the loading screen sat on Ready 100% forever. */
+        if (typeof rebuild === 'function' && ((typeof dirtyAll !== 'undefined' && dirtyAll) || (typeof dirtyCh !== 'undefined' && dirtyCh.size))) rebuild(budget || 150);
         if (typeof chunksReady === 'function') return !!chunksReady();
         if (window.chunksReady) return !!window.chunksReady();
       } catch (e) { ERR('mesh', e); }
@@ -96392,7 +96437,9 @@ try {
         }
         const ok = meshSpawn(150);
         U.meshTries = (U.meshTries || 0) + 1;
-        if (ok || U.meshTries > 40) {
+        if (!U.meshT0) U.meshT0 = performance.now();
+        if (ok || U.meshTries > 40 || performance.now() - U.meshT0 > 15000) {
+          U.readyMs = Math.round(performance.now() - U.meshT0);
           U.spawnReady = 1;
           if (U.pendingNone && ss0) { U.pendingNone = 0; ss0('none'); }
         }
@@ -96403,6 +96450,105 @@ try {
   } catch (e) { ERR('bg', e); }
 })();
 
+</script>
+<!-- glencraft-build: b1312-v1.2.112 -->
+<script>
+/* GLX-V1313UI (b1312-v1.2.112, t1318): user's voxel loading screen + chunky gold
+   GLENCRAFT logo. Old serif wordmark (.glogo ::after text / svg, #start h1) is
+   HIDDEN via CSS, not deleted. Loading screen: clean voxel sunset backdrop
+   (1920 / 3840 when width*dpr >= 2560), logo left of centre, gold-framed green
+   bar under it, status / % / version stacked left-aligned under the bar. */
+(function v1313ui() {
+  const U = window.__v1313ui = {err: null, ok: 0, logos: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  try {
+    const LOGO = 'assets/ui/logo-glencraft-blocky-gold.webp';
+    const four = (function () { try { return (innerWidth * (devicePixelRatio || 1)) >= 2560; } catch (_) { return false; } })();
+    const BG = four ? 'bg/voxel-sunset-4k.webp' : 'bg/voxel-sunset.webp';
+    U.bg = BG;
+    const css = [
+      /* hide old wordmark everywhere the new logo replaces it */
+      'html body .glogo.v1313has::after{content:none!important;display:none!important}',
+      'html body .glogo.v1313has > svg{display:none!important}',
+      'html body #start .panel h1.v1313old{display:none!important}',
+      'html body .glogo.v1313has{display:flex!important;justify-content:center;align-items:flex-start}',
+      'html body .glogo > img.v1313logo{display:block;width:min(86vw,820px,calc(26vh * 4.685));height:auto;max-width:100%;margin:0 auto;filter:drop-shadow(0 6px 10px rgba(0,0,0,.6));pointer-events:none;user-select:none}',
+      '@media (orientation:landscape) and (max-height:500px){html body .glogo > img.v1313logo{width:min(56vw,calc(24vh * 4.685))}}',
+      'html body #scr-title .glogo.v1313has, html body #scr-boot .glogo.v1313has{padding-top:max(10px,env(safe-area-inset-top))}',
+      'img.v1313logo.v1313start{display:block;width:min(80vw,520px);height:auto;margin:0 auto 8px}',
+      /* loading screen */
+      '#scr-loading.v1313{--lw:clamp(240px,43vw,1700px);background:#140c10!important}',
+      '#scr-loading.v1313 > .v1313bg{position:absolute;inset:0;z-index:0;background:#140c10 url(' + BG + ') 62% 50%/cover no-repeat;pointer-events:none}',
+      '#scr-loading.v1313 > .c122bg, #scr-loading.v1313 > .spin-blocks, #scr-loading.v1313 .c3d{display:none!important}',
+      '#scr-loading.v1313 > .glogo{display:none!important}',
+      '#v1313col{position:absolute;z-index:2;left:max(11.5vw,env(safe-area-inset-left),12px);top:35vh;width:var(--lw);display:flex;flex-direction:column;align-items:flex-start;gap:0}',
+      '#v1313col > img.v1313logo{display:block;width:100%;height:auto;filter:drop-shadow(0 calc(var(--lw)*.012) calc(var(--lw)*.014) rgba(0,0,0,.75));pointer-events:none;user-select:none}',
+      'html body #scr-loading.v1313 #v1313col #loadW.liquid1285, html body #scr-loading.v1313 #v1313col #loadW{position:relative;width:calc(var(--lw)*1.04)!important;max-width:none!important;margin:calc(var(--lw)*.035) 0 0 calc(var(--lw)*-.01)!important;height:clamp(12px,calc(var(--lw)*.04),60px)!important;border:clamp(2px,calc(var(--lw)*.006),8px) solid #e8b44a!important;border-radius:clamp(4px,calc(var(--lw)*.012),18px)!important;background:linear-gradient(180deg,#050403,#1b1308)!important;overflow:visible!important;box-shadow:0 0 0 clamp(1px,calc(var(--lw)*.003),4px) #6b4210,0 0 calc(var(--lw)*.02) rgba(255,190,80,.45),inset 0 2px 4px rgba(0,0,0,.8)!important}',
+      'html body #scr-loading.v1313 #v1313col #loadW .load-fill, html body #scr-loading.v1313 #v1313col #loadW > i{border-radius:clamp(2px,calc(var(--lw)*.008),12px);background-color:#3fd21e!important;background-image:linear-gradient(180deg,#e8ffb0 0%,#59ec2c 30%,#25b812 70%,#137a0a 100%)!important;box-shadow:0 0 calc(var(--lw)*.015) rgba(90,255,60,.6)}',
+      '#v1313col #loadW > .v1313cap{position:absolute;top:50%;width:clamp(8px,calc(var(--lw)*.026),40px);height:calc(100% + clamp(8px,calc(var(--lw)*.026),40px));transform:translateY(-50%);background:linear-gradient(180deg,#fff0b0,#e8b44a 45%,#8a5a14);border:clamp(1px,calc(var(--lw)*.003),4px) solid #5a3608;border-radius:3px;box-shadow:0 0 8px rgba(255,190,80,.5);pointer-events:none;z-index:3}',
+      '#v1313col #loadW > .v1313cap.l{left:calc(clamp(4px,calc(var(--lw)*.013),20px) * -1)}',
+      '#v1313col #loadW > .v1313cap.r{right:calc(clamp(4px,calc(var(--lw)*.013),20px) * -1)}',
+      'html body #scr-loading.v1313 #v1313col #loadTip, html body #scr-loading.v1313 #v1313col #loadPct, html body #scr-loading.v1313 #v1313col #loadDbg{text-align:left!important;color:#ffd98a!important;font-family:GlenBold,"Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif!important;font-weight:800!important;text-shadow:0 2px 0 #3a2304,0 0 10px rgba(0,0,0,.85)!important;opacity:1!important;max-width:none!important;letter-spacing:.01em!important;margin-left:calc(var(--lw)*.015)!important}',
+      'html body #scr-loading.v1313 #v1313col #loadTip{font-size:clamp(13px,calc(var(--lw)*.04),58px)!important;margin-top:calc(var(--lw)*.03)!important;line-height:1.2!important}',
+      'html body #scr-loading.v1313 #v1313col #loadPct{font-size:clamp(20px,calc(var(--lw)*.065),96px)!important;margin-top:calc(var(--lw)*.012)!important;line-height:1.1!important;color:#ffe2a0!important}',
+      'html body #scr-loading.v1313 #v1313col #loadDbg{font-size:clamp(10px,calc(var(--lw)*.028),40px)!important;margin-top:calc(var(--lw)*.01)!important;line-height:1.2!important;color:#f3dfb0!important}',
+      '@media (orientation:portrait){#scr-loading.v1313{--lw:min(86vw,760px)}#v1313col{left:max(7vw,env(safe-area-inset-left));top:28vh}#scr-loading.v1313 > .v1313bg{background-position:58% 50%}}',
+      '@media (orientation:portrait){html body #scr-title .glogo > img.v1313logo, html body #scr-boot .glogo > img.v1313logo{width:min(76vw,640px)}}',
+      'html body #pauseTitle .v1313oldtxt{display:none!important}',
+      'html body #pauseTitle img.v1313pause{display:block;width:min(70vw,300px);height:auto;margin:0 auto 4px;filter:drop-shadow(0 3px 5px rgba(0,0,0,.6))}',
+      'html body #pauseTitle.v1313has::before{display:none!important}',
+      '@media (orientation:landscape) and (max-height:500px){#scr-loading.v1313{--lw:min(43vw,96vh * 2)}#v1313col{top:30vh;left:max(9vw,env(safe-area-inset-left),12px)}}'
+    ].join('\n');
+    const st = document.createElement('style'); st.id = 'v1313css'; st.textContent = css; document.head.appendChild(st);
+    function mkLogo(extra) {
+      const im = new Image(); im.className = 'v1313logo' + (extra ? ' ' + extra : '');
+      im.alt = 'Glencraft'; im.decoding = 'async'; im.draggable = false; im.src = LOGO; return im;
+    }
+    function upgrade(root) {
+      (root || document).querySelectorAll('.glogo').forEach(function (g) {
+        if (g.querySelector(':scope > img.v1313logo')) { g.classList.add('v1313has'); return; }
+        g.classList.add('v1313has'); g.insertBefore(mkLogo(), g.firstChild); U.logos++;
+      });
+    }
+    upgrade(document);
+    try {
+      const h1 = document.querySelector('#start .panel h1');
+      if (h1 && !h1.classList.contains('v1313old')) { h1.classList.add('v1313old'); h1.parentNode.insertBefore(mkLogo('v1313start'), h1); U.logos++; }
+    } catch (e) { ERR('start', e); }
+    /* overlays that clone .glogo later (c263 reset screen) */
+    try {
+      new MutationObserver(function (ms) {
+        for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1 && (n.classList.contains('glogo') || n.querySelector && n.querySelector('.glogo'))) upgrade(n.parentNode || n);
+      }).observe(document.body, {childList: true, subtree: false});
+    } catch (e) { ERR('mo', e); }
+    const L = document.getElementById('scr-loading');
+    if (L) {
+      L.classList.add('v1313');
+      const bg = document.createElement('div'); bg.className = 'v1313bg'; bg.setAttribute('aria-hidden', 'true');
+      L.insertBefore(bg, L.firstChild);
+      const col = document.createElement('div'); col.id = 'v1313col'; col.setAttribute('data-testid', 'loading-voxel-column');
+      col.appendChild(mkLogo('v1313load'));
+      ['loadW', 'loadTip', 'loadPct', 'loadDbg'].forEach(function (id) { const el = document.getElementById(id); if (el) col.appendChild(el); });
+      L.appendChild(col);
+      const bar = document.getElementById('loadW');
+      if (bar) ['l', 'r'].forEach(function (s) { const c = document.createElement('b'); c.className = 'v1313cap ' + s; c.setAttribute('aria-hidden', 'true'); bar.appendChild(c); });
+    }
+    /* pause header: c292 writes 'Glencraft<span class=c292b>GAME PAUSED</span>' */
+    function fixPause() {
+      try {
+        const t = document.getElementById('pauseTitle'); if (!t) return;
+        for (const n of [...t.childNodes]) {
+          if (n.nodeType === 3 && /glencraft/i.test(n.textContent)) {
+            const sp = document.createElement('span'); sp.className = 'v1313oldtxt'; t.insertBefore(sp, n); sp.appendChild(n);
+          }
+        }
+        if (t.querySelector('.v1313oldtxt') && !t.querySelector('img.v1313pause')) { t.classList.add('v1313has'); t.insertBefore(mkLogo('v1313pause'), t.firstChild); U.logos++; }
+      } catch (e) { ERR('pause', e); }
+    }
+    fixPause(); setInterval(fixPause, 500);
+    U.ok = 1;
+  } catch (e) { ERR('init', e); }
+})();
 </script>
 <script>
 /* GLX-SKY1312 (v1.2.112): time-of-day skies and a literal overworld sunset plate.
