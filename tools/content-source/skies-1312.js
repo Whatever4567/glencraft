@@ -312,7 +312,7 @@
       let n = 0, A = 0.62, F = 1.15;
       for (let o = 0; o < 4; o++) { n += A * vn(u * F, v * F * 0.85, 1.2 + o * 0.4); A *= 0.5; F *= 2.0; }
       // Broad 1-3 km-scale mounds with soft sky gaps, not high-frequency camo.
-      const cov = clamp((n - 0.36) / 0.48, 0, 1);
+      const cov = clamp((n - 0.28) / 0.50, 0, 1);
       const typ = clamp(vn(u * 6, v * 6, 4.2), 0, 1);
       const o = (y * N + x) * 4;
       data[o] = cov * 255; data[o + 1] = typ * 255; data[o + 2] = clamp(n, 0, 1) * 255; data[o + 3] = 255;
@@ -400,10 +400,11 @@
     '}',
     'float densityAt(vec3 p, float h01){',
     '  vec3 wp = p + vec3(uWind.x, 0.0, uWind.y);',
-    '  vec2 wu = wp.xz * (1.0 / 2000.0) + vec2(0.11, 0.07);',
+    '  vec2 wu = wp.xz * (1.0 / 1400.0) + vec2(0.11, 0.07);',
     '  vec4 we = texture2D(uWeather, wu);',
-    '  float cov = remap(we.r, uCovMin * 0.4, 0.78);',
-    '  if (uEgypt > 0.5) cov *= 0.28;',
+    '  vec4 wm = texture2D(uWeather, wp.xz * (1.0 / 620.0) + vec2(0.37, 0.19));',
+    '  float cov = remap(we.r * mix(0.62, 1.0, wm.r), uCovMin * 0.32, 0.70);',
+    '  if (uEgypt > 0.5) cov *= 0.52;',
     '  if (cov <= 0.001) return 0.0;',
     '  float h = clamp(h01, 0.0, 1.0);',
     '  vec3 np = vec3(wp.xz * (1.0 / 200.0), h * 0.9 + 0.08);',
@@ -479,15 +480,15 @@
     '      float phase = hg(mu, 0.35) * 0.7 + hg(mu, -0.25) * 0.3;',
     '      phase = clamp(phase, 0.15, 1.8);',
     '      float powder = mix(1.0, 1.0 - exp(-d * step * 1.4), 0.28);',
-    '      float sunA = pow(clamp(dot(rd, uSunDir) * 0.5 + 0.5, 0.0, 1.0), 2.2);',
-    '      vec3 warm = mix(vec3(1.00, 0.42, 0.34), vec3(1.00, 0.78, 0.36), sunA);',
-    '      vec3 sunC = mix(uSunCol, warm, clamp(uDusk * 1.25, 0.0, 1.0));',
-    '      sunC *= uSunK * (1.35 + 1.15 * uDusk);',
+    '      float sunA = pow(clamp(dot(rd, uSunDir) * 0.5 + 0.5, 0.0, 1.0), 1.55);',
+    '      vec3 warm = mix(vec3(1.00, 0.28, 0.30), vec3(1.00, 0.82, 0.32), sunA);',
+    '      vec3 sunC = mix(uSunCol, warm, clamp(uDusk, 0.0, 1.0));',
+    '      sunC *= uSunK * (1.45 + 1.55 * uDusk);',
     '      vec3 skyA = mix(uSkyHor, uSkyTop, 0.30 + 0.55 * clamp(h01, 0.0, 1.0));',
-    '      vec3 amb = mix(uShad, skyA, 0.40 + 0.45 * clamp(h01, 0.0, 1.0));',
-    '      amb *= 0.55 + 0.28 * (1.0 - uNight);',
-    '      amb = mix(amb, uSkyHor * 0.9, uDusk * 0.42);',
-    '      vec3 s = amb + sunC * (0.22 + 0.78 * lt) * phase * powder;',
+    '      vec3 amb = mix(uShad, skyA, 0.32 + 0.50 * clamp(h01, 0.0, 1.0));',
+    '      amb *= 0.50 + 0.28 * (1.0 - uNight);',
+    '      amb = mix(amb, uSkyHor * 0.82, uDusk * 0.38);',
+    '      vec3 s = amb + sunC * (0.08 + 0.92 * lt) * phase * powder;',
     '      float absorb = exp(-d * step * uAbs);',
     '      C += T * s * (1.0 - absorb);',
     '      T *= absorb;',
@@ -496,10 +497,10 @@
     '  }',
     '  float alpha = clamp(1.0 - T, 0.0, 1.0);',
     '  float midT = mix(t0, t1, 0.5);',
-    '  float distF = 1.0 - smoothstep(500.0, 2800.0, midT);',
-    '  float horF = smoothstep(0.0, 0.055, rd.y);',
-    '  alpha *= mix(0.12, 1.0, horF) * mix(0.22, 1.0, distF);',
-    '  C = mix(uSkyHor, C, 0.35 + 0.65 * distF);',
+    '  float distF = 1.0 - smoothstep(650.0, 3400.0, midT);',
+    '  float horF = smoothstep(0.0, 0.045, rd.y);',
+    '  alpha *= mix(0.18, 1.0, horF) * mix(0.28, 1.0, distF);',
+    '  C = mix(uSkyHor, C, 0.40 + 0.60 * distF);',
     '  if (uNight > 0.55) { C *= 0.32 + 0.18 * (1.0 - uNight); alpha *= 0.62; }',
     '  gl_FragColor = vec4(C, alpha);',
     '}'
@@ -663,9 +664,9 @@
     un.uEgypt.value = egypt ? 1 : 0;
     un.uSteps.value = q === 'high' ? 48 : 28;
     un.uLSteps.value = q === 'high' ? 6 : 4;
-    un.uDens.value = egypt ? 0.95 : 1.2;
-    un.uAbs.value = egypt ? 0.80 : 0.88;
-    un.uCovMin.value = egypt ? 0.50 : 0.28;
+    un.uDens.value = egypt ? 1.05 : 1.35;
+    un.uAbs.value = egypt ? 0.82 : 0.92;
+    un.uCovMin.value = egypt ? 0.44 : 0.22;
     un.uTime.value = U.windT || 0;
     un.uWind.value.set((U.windT || 0) * 2.4, (U.windT || 0) * 0.7);
     un.uJitter.value = ((U.frameI || 0) % 8) / 8;
