@@ -96427,7 +96427,7 @@ try {
   const MODEL_OF = {human: 'clansman', mossy: 'skeleton', black: 'black-skeleton'};
   const CASTLE_SKY_H = 192;
   const FOOT_R = 110; // unlock / setCol radius (ruin skirt is wider in pass 4)
-  const CAP_R = 220; // convert worldgen lava/magma in the view/remesh band (not just the footprint)
+  const CAP_R = 400; // convert worldgen lava/magma/glowrock in the visible/remesh band
 
   function installSolidWool(id, key, hex, nice) {
     // mat() expects a texture KEY string (it calls tex(key) which reads texCache).
@@ -96871,15 +96871,13 @@ try {
       if (typeof FACES !== 'undefined') FACES[id] = 'magma';
       if (typeof NAMES !== 'undefined') NAMES[id] = 'Lava rock';
       if (typeof PLACEABLE !== 'undefined' && PLACEABLE.add) PLACEABLE.add(id);
-      if (typeof BLOCK_MATS !== 'undefined') {
-        let m = null;
-        if (typeof mat === 'function') m = mat('magma');
-        if (m && m.clone) m = m.clone();
-        if (m && m.emissive && typeof THREE !== 'undefined') {
-          m.emissive.setHex(0xb33a08);
-          m.emissiveIntensity = 0.5;
-        }
-        if (m) BLOCK_MATS[id] = m;
+      if (typeof BLOCK_MATS !== 'undefined' && typeof THREE !== 'undefined') {
+        let map = null;
+        try { if (typeof mat === 'function' && mat('magma')) map = mat('magma').map; } catch (_) {}
+        // MeshBasic is the cheap "lava rock" trick (unlit, no LSRC, no Phong).
+        // Fancy's mat('magma') is MeshPhong; cloning it with emissive made
+        // 10k+ decorative veins cost seconds per frame on SwiftShader.
+        BLOCK_MATS[id] = new THREE.MeshBasicMaterial({map: map, color: 0xff6a22});
       }
       try { if (window.__LSRC) window.__LSRC[id] = 0; } catch (_) {}
     } catch (_) {}
