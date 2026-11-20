@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Image-driven castle voxelization (Pass 5).
+"""Image-driven castle voxelization (Pass 6).
 
 For each official ref: castle-only mask (exclude sky, crag, trees), monocular
-depth (Depth Anything V2 Small ONNX), back-project at the matched hero camera,
-extrude + mirror the unseen back, quantize to game block ids, re-carve
-interiors, and pack assets/castles/*.bin (GC13 + JS13 specials footer).
+depth (Depth Anything V2 Small ONNX), denoise and snap facades to planes,
+back-project at the matched hero camera, extrude + mirror the unseen back,
+quantize to sunset-calibrated weathered stone, rebuild merlons/spires, drop
+floating voxels, even wall thickness, punch clean arches, re-carve interiors,
+and pack assets/castles/*.bin (GC13 + JS13 specials footer).
 
 Intended interpreter: /workspace/qa/castles/v5/.venv/bin/python
-(rembg, onnxruntime, opencv, numpy, pillow).
+(rembg, onnxruntime, opencv, numpy, pillow, scipy).
 """
 from __future__ import annotations
 
@@ -29,10 +31,11 @@ sys.path.insert(0, str(HERE))
 
 from ids import *  # noqa: E402
 from vox import Grid, pack_rle  # noqa: E402
+import postprocess_v6 as pp  # noqa: E402
 
 REFS = Path('/workspace/qa/castles/v2/refs')
-QA = Path('/workspace/qa/castles/v5')
-DEPTH_ONNX = QA / 'models/depth-anything-v2-small.onnx'
+QA = Path('/workspace/qa/castles/v6')
+DEPTH_ONNX = Path('/workspace/qa/castles/v5/models/depth-anything-v2-small.onnx')
 ASSETS = ROOT / 'assets' / 'castles'
 
 # Matched hero cameras (local +z = gate). Same as v4 specials / capture.
@@ -58,38 +61,38 @@ THICK = {'clansman': 10, 'skeleton': 12, 'black-skeleton': 12}
 
 PALETTES = {
     'clansman': [
-        (STONE, (112, 108, 102)),
-        (COBBLE, (88, 84, 78)),
-        (STONEBRICK, (138, 132, 124)),
-        (WSTONE, (168, 164, 156)),
-        (DEEPSLATE, (48, 50, 54)),
-        (DSBRICK, (42, 42, 48)),
-        (SLATE, (36, 38, 44)),
-        (MOSS, (42, 72, 36)),
-        (MOSSYBRICK, (86, 98, 72)),
+        (STONE, (168, 158, 142)),
+        (COBBLE, (128, 120, 108)),
+        (STONEBRICK, (186, 176, 158)),
+        (WSTONE, (210, 200, 180)),
+        (DEEPSLATE, (72, 74, 78)),
+        (DSBRICK, (64, 64, 70)),
+        (SLATE, (58, 60, 68)),
+        (MOSS, (56, 92, 48)),
+        (MOSSYBRICK, (120, 128, 96)),
         (WOOLRED, (150, 36, 36)),
         (WOOLGREEN, (32, 96, 40)),
-        (PLANKS, (126, 88, 48)),
+        (PLANKS, (150, 108, 62)),
     ],
     'skeleton': [
-        (MOSSYBRICK, (96, 104, 84)),
-        (STONE, (108, 106, 100)),
-        (COBBLE, (82, 80, 74)),
-        (STONEBRICK, (128, 124, 114)),
-        (MOSS, (40, 78, 38)),
-        (DEEPSLATE, (46, 46, 48)),
-        (DSBRICK, (40, 40, 44)),
+        (MOSSYBRICK, (140, 142, 118)),
+        (STONE, (162, 156, 142)),
+        (COBBLE, (118, 114, 102)),
+        (STONEBRICK, (176, 170, 154)),
+        (MOSS, (58, 96, 52)),
+        (DEEPSLATE, (70, 70, 74)),
+        (DSBRICK, (64, 64, 68)),
     ],
     'black-skeleton': [
-        (BLACKSTONE, (36, 32, 32)),
-        (OBSIDIAN, (16, 12, 22)),
-        (DEEPSLATE, (44, 42, 48)),
-        (DSBRICK, (50, 46, 50)),
-        (HELLROCK, (64, 30, 24)),
-        (DSTILE, (40, 36, 42)),
-        (STONE, (70, 64, 62)),
+        (BLACKSTONE, (58, 52, 52)),
+        (OBSIDIAN, (28, 24, 34)),
+        (DEEPSLATE, (72, 68, 72)),
+        (DSBRICK, (80, 72, 74)),
+        (HELLROCK, (88, 42, 34)),
+        (DSTILE, (66, 60, 64)),
+        (STONE, (110, 100, 94)),
         (MAGMA, (210, 78, 18)),
-        (HELLBRICK, (80, 28, 22)),
+        (HELLBRICK, (96, 38, 30)),
     ],
 }
 
@@ -600,17 +603,33 @@ def quantize(rgb, kind, y_frac=None, x_frac=None, is_roof=None):
         for i, bid in enumerate(ids):
             if int(bid) not in stone_ids:
                 d2[facade, i] = np.inf
-        # Sunset-dark walls are nearer moss/slate than STONE albedo; assign
-        # weathered greys by luminance band instead of raw Euclidean.
-        d2[facade & (lum < 70), idx(COBBLE)] *= 0.02
-        d2[facade & (lum >= 70) & (lum < 110), idx(STONE)] *= 0.02
-        d2[facade & (lum >= 110) & (lum < 150), idx(STONEBRICK)] *= 0.02
-        d2[facade & (lum >= 150), idx(WSTONE)] *= 0.02
+        # Facade ids are chosen on sunset-undone albedo so a second pass of
+        # the merged 1.2.113 plate does not leave the keep too dark.
+        alb = pp.sunset_albedo(pix)
+        d2_a = ((alb[:, None, :] - cols[None, :, :]) * w) ** 2
+        d2[facade] = d2_a.sum(axis=2)[facade]
+        for i, bid in enumerate(ids):
+            if int(bid) not in stone_ids:
+                d2[facade, i] = np.inf
+        lum_a = alb.mean(axis=1)
+        d2[facade & (lum_a < 110), idx(COBBLE)] *= 0.02
+        d2[facade & (lum_a >= 110) & (lum_a < 150), idx(STONE)] *= 0.02
+        d2[facade & (lum_a >= 150) & (lum_a < 190), idx(STONEBRICK)] *= 0.02
+        d2[facade & (lum_a >= 190), idx(WSTONE)] *= 0.02
         d2[roof, idx(SLATE)] = 0
         d2[wood, idx(PLANKS)] = 0
         d2[tartan_r, idx(WOOLRED)] = 0
         d2[tartan_g, idx(WOOLGREEN)] = 0
         d2[mossy, idx(MOSSYBRICK)] = 0
+    if kind in ('skeleton', 'black-skeleton'):
+        alb = pp.sunset_albedo(pix)
+        w2 = np.array([1.1, 1.0, 0.9], dtype=np.float32)
+        d2_a = (((alb[:, None, :] - cols[None, :, :]) * w2) ** 2).sum(axis=2)
+        if kind == 'black-skeleton':
+            r, g, b = pix[:, 0], pix[:, 1], pix[:, 2]
+            lava = (r > 90) & (r > g + 25) & (r > b + 20)
+            d2_a[lava] = d2[lava]
+        d2 = d2_a
     if kind == 'black-skeleton':
         mag_i = next(i for i, p in enumerate(pal) if p[0] == MAGMA)
         r, g, b = pix[:, 0], pix[:, 1], pix[:, 2]
@@ -1183,11 +1202,17 @@ def process_kind(kind, seg_s, depth_s, stride=1, skip_bin=False):
         castle, parts = mask_ruin(rgb, disp, kind)
     print(f'  mask frac={castle.mean():.4f}  px={int(castle.sum())}', flush=True)
 
+    print('  denoise depth + openings...', flush=True)
+    disp = pp.denoise_depth(disp, castle)
+    openings = pp.openings_mask(rgb, castle, kind)
+    print(f'  openings frac={openings.mean():.5f}  px={int(openings.sum())}', flush=True)
+
     # Save debug
     (QA / 'debug').mkdir(parents=True, exist_ok=True)
     (QA / 'masks').mkdir(parents=True, exist_ok=True)
     (QA / 'depth').mkdir(parents=True, exist_ok=True)
     Image.fromarray((castle * 255).astype(np.uint8)).resize((1920, 1080)).save(QA / 'masks' / f'{kind}-castle.png')
+    Image.fromarray((openings * 255).astype(np.uint8)).resize((1920, 1080)).save(QA / 'masks' / f'{kind}-openings.png')
     Image.fromarray(overlay(rgb, castle)).resize((1920, 1080), Image.Resampling.LANCZOS)\
         .save(QA / 'debug' / f'{kind}-mask-overlay.jpg', quality=92)
     vis = (rgb * 0.25).astype(np.uint8)
@@ -1195,21 +1220,30 @@ def process_kind(kind, seg_s, depth_s, stride=1, skip_bin=False):
     vis[castle] = dep[castle]
     Image.fromarray(vis).resize((1920, 1080), Image.Resampling.LANCZOS)\
         .save(QA / 'depth' / f'{kind}-depth.jpg', quality=92)
-    np.savez_compressed(QA / 'masks' / f'{kind}-data.npz', castle=castle, disp=disp)
+    np.savez_compressed(QA / 'masks' / f'{kind}-data.npz', castle=castle, disp=disp, openings=openings)
+    (QA / 'masks' / f'{kind}-frame.json').write_text(json.dumps(pp.frame_stats(castle), indent=2))
 
     if skip_bin:
         return None
 
-    # Metric depth
+    # Metric depth, then snap facade planes / per-column dominant depth.
     cam = CAMERAS[kind]
     tgt = np.array(TARGET[kind], dtype=np.float64)
     t_med = float(np.linalg.norm(np.array(cam['eye']) - tgt))
     t = metric_t(disp, castle, t_med)
+    t = pp.snap_facade_planes(t, castle, kind, openings=openings)
+    # Re-pin the median ray length so a closer plane fit cannot inflate the
+    # silhouette (that dropped v6's first Clansman offline IoU to 0.566).
+    med_after = float(np.median(t[castle]))
+    if med_after > 1e-3:
+        t = (t * (t_med / med_after)).astype(np.float32)
     print(f'  t_med target={t_med:.1f}  t[mask] med={float(np.median(t[castle])):.1f}  '
           f'p10={float(np.percentile(t[castle], 10)):.1f} p90={float(np.percentile(t[castle], 90)):.1f}',
           flush=True)
 
     print('  back-project...', flush=True)
+    # Extrude the full masonry mask; clean arches are punched later. v1 of
+    # this pass dropped openings from the mask and left the walls too holey.
     ids_vol, vmin, V, B, surf_pts, surf_bid, u, v = voxelize(rgb, castle, t, kind, stride=stride)
     print(f'  volume {ids_vol.shape} vmin={vmin.tolist()} solids={int((ids_vol>0).sum())}', flush=True)
 
@@ -1222,9 +1256,19 @@ def process_kind(kind, seg_s, depth_s, stride=1, skip_bin=False):
     used = g.bounds_used()
     print(f'  aligned aabb={used} blocks={g.count()}', flush=True)
 
+    print('  post-process volume (edges, merlons, spires, CC, thickness, arches)...', flush=True)
+    pp_info = pp.postprocess_grid(g, kind, rgb, castle, openings, cam, shift, t)
+    print(f'  volume cleanup {pp_info}', flush=True)
+    used = g.bounds_used()
+    print(f'  cleaned aabb={used} blocks={g.count()}', flush=True)
+
     print('  interiors...', flush=True)
     info = carve_interiors(g, kind)
     mark_cameras(g, kind, shift)
+    # Drop any carve debris that detached from the keep.
+    vol = pp.as_vol(g)
+    vol = pp.drop_floating(vol, min_size=32)
+    pp.write_vol(g, vol)
     print(f'  after carve blocks={g.count()} interiors={info}', flush=True)
 
     raw, spec, stats = pack_rle(g)
