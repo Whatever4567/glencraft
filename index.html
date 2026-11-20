@@ -96479,7 +96479,7 @@ try {
     const sunK = clamp(ph.sy * 4 + 0.45, 0, 1) * (1 - ph.wd) * (0.85 + 0.55 * ph.dusk);
     const starsK = Math.max(0, ph.night * 1.3 - 0.35) * (1 - ph.wd) * (1 - ph.dusk * 0.7);
     const clLit = ph.dusk > 0.08 ? lerp([0.98, 0.98, 1.00], [1.00, 0.48, 0.28], ph.dusk) : lerp([0.22, 0.24, 0.30], [0.98, 0.98, 1.00], ph.day);
-    const clShad = ph.dusk > 0.08 ? lerp([0.62, 0.66, 0.74], [0.28, 0.10, 0.32], ph.dusk) : lerp([0.10, 0.11, 0.16], [0.62, 0.66, 0.74], ph.day);
+    const clShad = ph.dusk > 0.08 ? lerp([0.62, 0.66, 0.74], [0.46, 0.18, 0.28], ph.dusk) : lerp([0.10, 0.11, 0.16], [0.62, 0.66, 0.74], ph.day);
     return { top, mid, hor, fog, sunCol, sunK, starsK, clLit, clShad, fogNear: 22 + 10 * ph.day, fogFar: (typeof PERF !== 'undefined' && PERF) ? 110 + 20 * ph.day : 160 + 40 * ph.day };
   }
 
@@ -96505,7 +96505,7 @@ try {
     const sunK = clamp(ph.day * 1.15 + ph.dusk * 0.7, 0, 1.4);
     const starsK = Math.max(0, ph.night * 1.35 - 0.28) * (1 - ph.dusk * 0.85);
     const clLit = ph.dusk > 0.08 ? lerp([1.00, 0.96, 0.88], [1.00, 0.55, 0.32], ph.dusk) : lerp([0.20, 0.18, 0.16], [1.00, 0.96, 0.88], ph.day);
-    const clShad = ph.dusk > 0.08 ? lerp([0.70, 0.62, 0.50], [0.36, 0.12, 0.28], ph.dusk) : lerp([0.12, 0.10, 0.10], [0.70, 0.62, 0.50], ph.day);
+    const clShad = ph.dusk > 0.08 ? lerp([0.70, 0.62, 0.50], [0.50, 0.22, 0.24], ph.dusk) : lerp([0.12, 0.10, 0.10], [0.70, 0.62, 0.50], ph.day);
     return { top, mid, hor, fog, sunCol, sunK, starsK, clLit, clShad, fogNear: 36 + 10 * ph.day, fogFar: (typeof PERF !== 'undefined' && PERF) ? 130 + 20 * ph.day : 170 + 50 * ph.day };
   }
 
@@ -96717,9 +96717,9 @@ try {
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const u = x / N, v = y / N;
       let n = 0, A = 0.62, F = 1.15;
-      for (let o = 0; o < 4; o++) { n += A * vn(u * F * 8, v * F * 8, 1.2 + o * 0.4); A *= 0.48; F *= 2.0; }
+      for (let o = 0; o < 4; o++) { n += A * vn(u * F, v * F * 0.85, 1.2 + o * 0.4); A *= 0.5; F *= 2.0; }
       // Broad 1-3 km-scale mounds with soft sky gaps, not high-frequency camo.
-      const cov = clamp((n - 0.28) / 0.50, 0, 1);
+      const cov = clamp((n - 0.36) / 0.48, 0, 1);
       const typ = clamp(vn(u * 6, v * 6, 4.2), 0, 1);
       const o = (y * N + x) * 4;
       data[o] = cov * 255; data[o + 1] = typ * 255; data[o + 2] = clamp(n, 0, 1) * 255; data[o + 3] = 255;
@@ -96807,25 +96807,26 @@ try {
     '}',
     'float densityAt(vec3 p, float h01){',
     '  vec3 wp = p + vec3(uWind.x, 0.0, uWind.y);',
-    '  vec2 wu = wp.xz * (1.0 / 150.0) + vec2(0.11, 0.07);',
+    '  vec2 wu = wp.xz * (1.0 / 2000.0) + vec2(0.11, 0.07);',
     '  vec4 we = texture2D(uWeather, wu);',
-    '  float cov = remap(we.r, uCovMin, uCovMin + 0.34 + 0.08 * we.g);',
+    '  float cov = remap(we.r, uCovMin * 0.4, 0.78);',
     '  if (uEgypt > 0.5) cov *= 0.28;',
     '  if (cov <= 0.001) return 0.0;',
     '  float h = clamp(h01, 0.0, 1.0);',
-    '  vec3 np = vec3(wp.xz * (1.0 / 110.0), h * 0.65 + 0.1);',
+    '  vec3 np = vec3(wp.xz * (1.0 / 200.0), h * 0.9 + 0.08);',
     '  vec4 n1 = tex3(np);',
-    '  vec4 n2 = tex3(np * 2.02 + vec3(0.17, 0.31, 0.09));',
-    '  float fbm = n1.r * 0.68 + n2.r * 0.32;',
-    '  float wor = n1.g * 0.72 + n2.g * 0.28;',
-    '  float bottom = smoothstep(0.0, 0.22, h);',
-    '  float top = 1.0 - smoothstep(0.42 + 0.28 * wor, 0.98, h);',
+    '  vec4 n2 = tex3(np * 2.05 + vec3(0.17, 0.31, 0.09));',
+    '  float fbm = n1.r * 0.72 + n2.r * 0.28;',
+    '  float wor = n1.g * 0.7 + n2.g * 0.3;',
+    '  float bottom = smoothstep(0.0, 0.20, h);',
+    '  float top = 1.0 - smoothstep(0.36 + 0.34 * wor, 0.98, h);',
     '  float hGrad = bottom * top;',
-    '  float shape = remap(fbm * hGrad, 1.0 - cov, 1.0);',
-    '  float edge = 1.0 - smoothstep(0.12, 0.55, shape);',
-    '  if (edge > 0.01) {',
-    '    vec4 n3 = tex3(np * 5.6 + vec3(2.9, 1.4, 0.6));',
-    '    shape = max(0.0, shape - edge * (1.0 - n3.g) * 0.32);',
+    '  float shape = remap(fbm * hGrad, 1.0 - cov * 0.9, 1.0);',
+    '  float edge = 1.0 - smoothstep(0.10, 0.52, shape);',
+    '  float near = 1.0 - smoothstep(500.0, 1400.0, length(p.xz - uCamPos.xz));',
+    '  if (edge > 0.01 && near > 0.02) {',
+    '    vec4 n3 = tex3(np * 4.8 + vec3(2.9, 1.4, 0.6));',
+    '    shape = max(0.0, shape - edge * near * (1.0 - n3.g) * 0.28);',
     '  }',
     '  return shape * uDens;',
     '}',
@@ -96848,7 +96849,7 @@ try {
     '}',
     'float lightT(vec3 p, vec3 ctr){',
     '  float acc = 0.0;',
-    '  float step = (uY1 - uY0) / max(4.0, uLSteps);',
+    '  float step = max((uY1 - uY0) / max(4.0, uLSteps), 22.0);',
     '  for (int i = 0; i < 8; i++) {',
     '    if (float(i) >= uLSteps) break;',
     '    p += uSunDir * step;',
@@ -96870,7 +96871,7 @@ try {
     '  if (!hitYSlab(ro, rd, t0, t1)) { gl_FragColor = vec4(0.0); return; }',
     '  if (t1 <= t0 + 0.05) { gl_FragColor = vec4(0.0); return; }',
     '  float span = t1 - t0;',
-    '  float step = min(span / max(8.0, uSteps), 5.5);',
+    '  float step = min(span / max(8.0, uSteps), 24.0);',
     '  float t = t0 + step * (0.25 + 0.5 * bn.r);',
     '  float T = 1.0;',
     '  vec3 C = vec3(0.0);',
@@ -96887,11 +96888,13 @@ try {
     '      float powder = mix(1.0, 1.0 - exp(-d * step * 1.4), 0.28);',
     '      float sunA = pow(clamp(dot(rd, uSunDir) * 0.5 + 0.5, 0.0, 1.0), 2.2);',
     '      vec3 warm = mix(vec3(1.00, 0.42, 0.34), vec3(1.00, 0.78, 0.36), sunA);',
-    '      vec3 sunC = mix(uSunCol, warm, clamp(uDusk * 1.15, 0.0, 1.0));',
-    '      sunC *= uSunK * (1.15 + 0.85 * uDusk);',
-    '      vec3 amb = mix(uShad, mix(uSkyHor, uSkyTop, clamp(h01, 0.0, 1.0)), 0.35 + 0.65 * clamp(h01, 0.0, 1.0));',
-    '      amb *= 0.40 + 0.28 * (1.0 - uNight);',
-    '      vec3 s = amb + sunC * lt * phase * powder;',
+    '      vec3 sunC = mix(uSunCol, warm, clamp(uDusk * 1.25, 0.0, 1.0));',
+    '      sunC *= uSunK * (1.35 + 1.15 * uDusk);',
+    '      vec3 skyA = mix(uSkyHor, uSkyTop, 0.30 + 0.55 * clamp(h01, 0.0, 1.0));',
+    '      vec3 amb = mix(uShad, skyA, 0.40 + 0.45 * clamp(h01, 0.0, 1.0));',
+    '      amb *= 0.55 + 0.28 * (1.0 - uNight);',
+    '      amb = mix(amb, uSkyHor * 0.9, uDusk * 0.42);',
+    '      vec3 s = amb + sunC * (0.22 + 0.78 * lt) * phase * powder;',
     '      float absorb = exp(-d * step * uAbs);',
     '      C += T * s * (1.0 - absorb);',
     '      T *= absorb;',
@@ -96900,10 +96903,10 @@ try {
     '  }',
     '  float alpha = clamp(1.0 - T, 0.0, 1.0);',
     '  float midT = mix(t0, t1, 0.5);',
-    '  float distF = 1.0 - smoothstep(900.0, 5000.0, midT);',
-    '  float horF = smoothstep(0.0, 0.035, rd.y);',
-    '  alpha *= mix(0.25, 1.0, horF) * mix(0.45, 1.0, distF);',
-    '  C = mix(uSkyHor, C, 0.55 + 0.45 * distF);',
+    '  float distF = 1.0 - smoothstep(500.0, 2800.0, midT);',
+    '  float horF = smoothstep(0.0, 0.055, rd.y);',
+    '  alpha *= mix(0.12, 1.0, horF) * mix(0.22, 1.0, distF);',
+    '  C = mix(uSkyHor, C, 0.35 + 0.65 * distF);',
     '  if (uNight > 0.55) { C *= 0.32 + 0.18 * (1.0 - uNight); alpha *= 0.62; }',
     '  gl_FragColor = vec4(C, alpha);',
     '}'
@@ -97044,13 +97047,9 @@ try {
     const sea = (typeof SEA === 'number') ? SEA : 32;
     // World slab around y 180-260, kept thin so it reads as a layer that recedes.
     // If that sits beyond the far plane, drop to a closer slab without changing camera.far.
-    const wantY0 = Math.max(sea + 110, 160), wantY1 = wantY0 + 40;
+    const wantY0 = Math.max(sea + 110, 180), wantY1 = wantY0 + 80; // y 180-260
     const camY = camera.position.y;
-    let y0 = wantY0, y1 = wantY1;
-    if (y0 - camY > far * 0.52) {
-      y0 = camY + Math.max(26, far * 0.24);
-      y1 = y0 + Math.max(18, far * 0.07);
-    }
+    const y0 = wantY0, y1 = wantY1;
     un.uY0.value = y0; un.uY1.value = y1;
     const mid = 0.5 * (y0 + y1);
     const want = far * 0.82;
@@ -97059,7 +97058,7 @@ try {
     if (!isFinite(R) || R < 180) R = 180;
     if (R > 8000) R = 8000;
     un.uPlanetR.value = R;
-    un.uSunDir.value.set(ph.sx, Math.max(0.04, ph.sy), 0.28).normalize();
+    un.uSunDir.value.set(ph.sx, Math.max(0.02, ph.sy), 0.33).normalize();
     un.uSunCol.value.setRGB(pal.sunCol[0], pal.sunCol[1], pal.sunCol[2]);
     un.uSkyTop.value.setRGB(pal.top[0], pal.top[1], pal.top[2]);
     un.uSkyHor.value.setRGB(pal.hor[0], pal.hor[1], pal.hor[2]);
@@ -97071,9 +97070,9 @@ try {
     un.uEgypt.value = egypt ? 1 : 0;
     un.uSteps.value = q === 'high' ? 48 : 28;
     un.uLSteps.value = q === 'high' ? 6 : 4;
-    un.uDens.value = egypt ? 0.9 : 1.15;
-    un.uAbs.value = egypt ? 0.95 : 1.05;
-    un.uCovMin.value = egypt ? 0.48 : 0.26;
+    un.uDens.value = egypt ? 0.95 : 1.2;
+    un.uAbs.value = egypt ? 0.80 : 0.88;
+    un.uCovMin.value = egypt ? 0.50 : 0.28;
     un.uTime.value = U.windT || 0;
     un.uWind.value.set((U.windT || 0) * 2.4, (U.windT || 0) * 0.7);
     un.uJitter.value = ((U.frameI || 0) % 8) / 8;
