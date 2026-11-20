@@ -96830,7 +96830,21 @@ try {
     '  return shape * uDens;',
     '}',
     'float height01(vec3 p, vec3 ctr){',
-    '  return (length(p - ctr) - uPlanetR - uY0) / max(0.001, uY1 - uY0);',
+    '  return (p.y - uY0) / max(0.001, uY1 - uY0);',
+    '}',
+    'bool hitYSlab(vec3 ro, vec3 rd, out float tEnter, out float tExit){',
+    '  if (abs(rd.y) < 0.0008) {',
+    '    if (ro.y < uY0 || ro.y > uY1) return false;',
+    '    tEnter = 0.0; tExit = 8000.0; return true;',
+    '  }',
+    '  float ta = (uY0 - ro.y) / rd.y;',
+    '  float tb = (uY1 - ro.y) / rd.y;',
+    '  tEnter = min(ta, tb);',
+    '  tExit = max(ta, tb);',
+    '  if (tExit < 0.0) return false;',
+    '  tEnter = max(tEnter, 0.0);',
+    '  if (tEnter > 12000.0) return false;',
+    '  return tExit > tEnter + 0.05;',
     '}',
     'float lightT(vec3 p, vec3 ctr){',
     '  float acc = 0.0;',
@@ -96851,10 +96865,9 @@ try {
     '  vec4 vc = uInvProj * ndc; vc.xyz /= vc.w;',
     '  vec3 rd = normalize((uInvView * vec4(vc.xyz, 0.0)).xyz);',
     '  vec3 ro = uCamPos;',
-    '  vec3 ctr = vec3(ro.x, -uPlanetR, ro.z);',
+    '  vec3 ctr = vec3(ro.x, 0.0, ro.z);',
     '  float t0, t1;',
-    '  if (!shell(ro, rd, uPlanetR + uY0, uPlanetR + uY1, ctr, t0, t1)) { gl_FragColor = vec4(0.0); return; }',
-    '  t1 = min(t1, uFar * 0.90);',
+    '  if (!hitYSlab(ro, rd, t0, t1)) { gl_FragColor = vec4(0.0); return; }',
     '  if (t1 <= t0 + 0.05) { gl_FragColor = vec4(0.0); return; }',
     '  float span = t1 - t0;',
     '  float step = min(span / max(8.0, uSteps), 5.5);',
@@ -96875,9 +96888,9 @@ try {
     '      float sunA = pow(clamp(dot(rd, uSunDir) * 0.5 + 0.5, 0.0, 1.0), 2.2);',
     '      vec3 warm = mix(vec3(1.00, 0.42, 0.34), vec3(1.00, 0.78, 0.36), sunA);',
     '      vec3 sunC = mix(uSunCol, warm, clamp(uDusk * 1.15, 0.0, 1.0));',
-    '      sunC *= uSunK * (0.85 + 0.55 * uDusk);',
-    '      vec3 amb = mix(uShad, mix(uSkyHor, uSkyTop, clamp(h01, 0.0, 1.0)), 0.25 + 0.6 * clamp(h01, 0.0, 1.0));',
-    '      amb *= 0.22 + 0.20 * (1.0 - uNight);',
+    '      sunC *= uSunK * (1.15 + 0.85 * uDusk);',
+    '      vec3 amb = mix(uShad, mix(uSkyHor, uSkyTop, clamp(h01, 0.0, 1.0)), 0.35 + 0.65 * clamp(h01, 0.0, 1.0));',
+    '      amb *= 0.40 + 0.28 * (1.0 - uNight);',
     '      vec3 s = amb + sunC * lt * phase * powder;',
     '      float absorb = exp(-d * step * uAbs);',
     '      C += T * s * (1.0 - absorb);',
@@ -96887,10 +96900,10 @@ try {
     '  }',
     '  float alpha = clamp(1.0 - T, 0.0, 1.0);',
     '  float midT = mix(t0, t1, 0.5);',
-    '  float distF = 1.0 - smoothstep(uFar * 0.52, uFar * 0.90, midT);',
-    '  float horF = smoothstep(-0.01, 0.10, rd.y);',
-    '  alpha *= mix(0.18, 1.0, horF) * mix(0.35, 1.0, distF);',
-    '  C = mix(uSkyHor, C, 0.35 + 0.65 * distF);',
+    '  float distF = 1.0 - smoothstep(900.0, 5000.0, midT);',
+    '  float horF = smoothstep(0.0, 0.035, rd.y);',
+    '  alpha *= mix(0.25, 1.0, horF) * mix(0.45, 1.0, distF);',
+    '  C = mix(uSkyHor, C, 0.55 + 0.45 * distF);',
     '  if (uNight > 0.55) { C *= 0.32 + 0.18 * (1.0 - uNight); alpha *= 0.62; }',
     '  gl_FragColor = vec4(C, alpha);',
     '}'
@@ -97058,9 +97071,9 @@ try {
     un.uEgypt.value = egypt ? 1 : 0;
     un.uSteps.value = q === 'high' ? 48 : 28;
     un.uLSteps.value = q === 'high' ? 6 : 4;
-    un.uDens.value = egypt ? 0.95 : 1.25;
-    un.uAbs.value = egypt ? 1.05 : 1.15;
-    un.uCovMin.value = egypt ? 0.46 : 0.28;
+    un.uDens.value = egypt ? 0.9 : 1.15;
+    un.uAbs.value = egypt ? 0.95 : 1.05;
+    un.uCovMin.value = egypt ? 0.48 : 0.26;
     un.uTime.value = U.windT || 0;
     un.uWind.value.set((U.windT || 0) * 2.4, (U.windT || 0) * 0.7);
     un.uJitter.value = ((U.frameI || 0) % 8) / 8;
