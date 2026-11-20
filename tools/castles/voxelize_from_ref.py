@@ -70,8 +70,7 @@ PALETTES = {
         (WOOLRED, (150, 36, 36)),
         (WOOLGREEN, (32, 96, 40)),
         (PLANKS, (126, 88, 48)),
-        (PINE, (58, 40, 24)),
-        (BARS, (40, 36, 36)),
+        (DSTILE, (40, 38, 42)),
     ],
     'skeleton': [
         (MOSSYBRICK, (96, 104, 84)),
@@ -81,8 +80,6 @@ PALETTES = {
         (MOSS, (40, 78, 38)),
         (DEEPSLATE, (46, 46, 48)),
         (DSBRICK, (40, 40, 44)),
-        (COBWEB, (200, 198, 194)),
-        (PINE, (40, 32, 24)),
     ],
     'black-skeleton': [
         (BLACKSTONE, (36, 32, 32)),
@@ -560,6 +557,41 @@ def voxelize(rgb, mask, t, kind, stride=1):
     solid = total > 0
     ids_vol = np.zeros(shape, dtype=np.int32)
     ids_vol[solid] = bids_u[winner[solid]]
+
+    # 3D close so ray-extrusion pillars become a watertight shell; new
+    # cells take the majority neighbour id (fallback: a mid palette stone).
+    try:
+        from scipy.ndimage import binary_closing, generate_binary_structure
+        st = generate_binary_structure(3, 2)
+        closed = binary_closing(ids_vol > 0, structure=st, iterations=2)
+        added = closed & (ids_vol == 0)
+        if added.any():
+            # pad and majority of existing ids in a 3x3x3
+            pad = np.pad(ids_vol, 1)
+            acc = np.zeros(ids_vol.shape, dtype=np.int32)
+            cnt = np.zeros(ids_vol.shape, dtype=np.int16)
+            for dx in range(3):
+                for dy in range(3):
+                    for dz in range(3):
+                        sl = pad[dx:dx + ids_vol.shape[0], dy:dy + ids_vol.shape[1], dz:dz + ids_vol.shape[2]]
+                        m = sl > 0
+                        acc[m] += sl[m]
+                        cnt[m] += 1
+            fill = np.zeros_like(ids_vol)
+            ok = cnt > 0
+            fill[ok] = (acc[ok] / np.maximum(cnt[ok], 1)).astype(np.int32)
+            # majority average may land between ids; snap to nearest used id
+            used = bids_u
+            if used.size:
+                # broadcast snap
+                flat = fill[added]
+                d = np.abs(flat[:, None] - used[None, :])
+                fill[added] = used[np.argmin(d, axis=1)]
+            default = int(used[len(used) // 2]) if used.size else STONE
+            fill[added & (fill == 0)] = default
+            ids_vol[added] = fill[added]
+    except Exception as e:
+        print('  3d-close skipped:', e, flush=True)
 
     # Align: gate x ≈ 0, gate floor y = 0, front stays near +z.
     # Use the original surface points (before rint/shift) to find the gate.
