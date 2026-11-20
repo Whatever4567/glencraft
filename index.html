@@ -96405,48 +96405,28 @@ try {
 
 
 /* GLX-C113 (v1.2.113): block-by-block replicas of the three official keep
-   paintings. Measured from the visible voxel grid (merlon pitch, tower
-   widths, arch, tartan, hill profile, lava-vein paths). Hidden backs and
-   sides are mirrored from the facade. Official map-edge positions, doors,
-   chests, garrisons and the clan gold portal stay in place. */
+   paintings, upscaled to the refs' brick pitch and fully explorable. Models
+   live in assets/castles/*.bin and are stamped onto naturally generated
+   land (no custom isles, crags or hill stamps). New worlds only: a
+   deterministic site picker places Clansman on a slope near water and the
+   skeleton keeps on high ground; old saves keep their existing keeps.
+   Doors, chests, garrisons and the clan gold portal move with the stamp. */
 (function c1313castles() {
-  const U = window.__c1313 = {err: null, ms: 0, ran: 0, gold: null, counts: {}};
+  const U = window.__c1313 = {err: null, ms: 0, ran: 0, gold: null, counts: {}, models: null, sites: null};
   const SLATE = 152, BARS = 163, FEN = 162, PINE = 135, NEED = 146, HEATH = 4;
   const MOSS = () => (T.MOSS || 144);
-  const GRAV = () => (T.GRAVEL || 202);
-  const POD = () => (T.PODZOL || 142);
-  const FERN = () => (T.FERN || 238);
-  const HR = () => (T.HELLROCK || 206);
-  const MG = () => (T.MAGMA || 208);
-  const LV = () => (T.LAVA || 52);
   const BLK = () => (T.BLACKSTONE || 248);
   const OB = () => (T.OBSIDIAN || 189);
+  const MG = () => (T.MAGMA || 208);
+  const LV = () => (T.LAVA || 52);
+  const HR = () => (T.HELLROCK || 206);
   const DS = () => (T.DSBRICK || T.DEEPSLATE || 228);
-  const DT = () => (T.DSTILE || 229);
-  const HB = () => (T.HELLBRICK || 210);
-  const SSAND = () => (T.SOULSAND || 207);
-  const WST = () => (T.WSTONE || 156);
-  const GP = 227, OAKST = 164, STST = 167;
   const FV = [[0, -1], [-1, 0], [0, 1], [1, 0]];
+  const FACE = {'-z': 0, '-x': 1, '+z': 2, '+x': 3};
   const SEA0 = () => (typeof SEA === 'number' ? SEA : 41);
-
-  /* Pixel-matched hunting tartan at block resolution (5 wide × 12 tall),
-     sampled from the right-curtain banner in the Clansman painting.
-     R red, G dark green, Y gold line, K black intersection, F fringe gap. */
-  const TARTAN = [
-    'RGRGR',
-    'RGRGR',
-    'GYKYG',
-    'RGRGR',
-    'RKRKR',
-    'GYKYG',
-    'RGRGR',
-    'RKRKR',
-    'GYKYG',
-    'RGRGR',
-    'RKRKR',
-    'RFRFR'
-  ];
+  const MODEL_OF = {human: 'clansman', mossy: 'skeleton', black: 'black-skeleton'};
+  const CASTLE_SKY_H = 192;
+  const FOOT_R = 90; // unlock / setCol radius for the upscaled keeps
 
   function installSolidWool(id, key, hex, nice) {
     try {
@@ -96483,845 +96463,491 @@ try {
     } catch (_) {}
     if (!T.WOOLRED) T.WOOLRED = 256;
     if (!T.WOOLGREEN) T.WOOLGREEN = 257;
-    // The late wool boot may have reserved the ids without a texture; paint
-    // a solid swatch so the tartan does not render as untextured white.
-    const missingR = !(typeof FACES !== 'undefined' && FACES[T.WOOLRED]);
-    const missingG = !(typeof FACES !== 'undefined' && FACES[T.WOOLGREEN]);
-    if (missingR) installSolidWool(T.WOOLRED, 'wool_red_c1313', '#c62828', 'Red wool');
-    if (missingG) installSolidWool(T.WOOLGREEN, 'wool_green_c1313', '#2e7d32', 'Green wool');
+    installSolidWool(T.WOOLRED, 'woolred', '#c62828', 'Red Wool');
+    installSolidWool(T.WOOLGREEN, 'woolgreen', '#2e7d32', 'Green Wool');
   }
 
-  function wool() {
-    ensureWool();
-    return {
-      R: T.WOOLRED || T.WOOLORANGE || T.BRICK || T.WOOL,
-      G: T.WOOLGREEN || T.WOOLPURPLE || T.WOOLBLUE || T.WOOL,
-      Y: T.WOOLYELLOW || T.WOOL,
-      K: BLK() || T.OBSIDIAN || T.WOOLPURPLE || T.WOOL,
-      F: 0
+  function isNewWorld() {
+    try {
+      if (!current || current.mode === 'creative') return false;
+      if (typeof NEW_CASTLES_AT === 'number' && current.created > NEW_CASTLES_AT) return true;
+      if (current.newCastles) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /* ---------- model loader (sync XHR of assets/castles/*.bin) ---------- */
+  function parseBin(buf) {
+    const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    if (u8[0] !== 71 || u8[1] !== 67 || u8[2] !== 49 || u8[3] !== 51) throw new Error('bad magic');
+    const ver = u8[4];
+    const aabb = [dv.getInt16(5, true), dv.getInt16(7, true), dv.getInt16(9, true),
+                  dv.getInt16(11, true), dv.getInt16(13, true), dv.getInt16(15, true)];
+    const nruns = dv.getUint32(17, true);
+    let off = 21;
+    const runs = new Array(nruns);
+    for (let i = 0; i < nruns; i++) {
+      runs[i] = {
+        x: dv.getInt16(off, true),
+        y: dv.getInt16(off + 2, true),
+        z: dv.getInt16(off + 4, true),
+        n: dv.getUint16(off + 6, true),
+        id: dv.getUint16(off + 8, true)
+      };
+      off += 10;
+    }
+    let specials = {}, stats = {runs: nruns, aabb: aabb};
+    // optional JSON footer: <json><u32 len>JS13
+    if (u8.byteLength >= off + 8) {
+      const tail = String.fromCharCode(u8[u8.byteLength - 4], u8[u8.byteLength - 3], u8[u8.byteLength - 2], u8[u8.byteLength - 1]);
+      if (tail === 'JS13') {
+        const len = dv.getUint32(u8.byteLength - 8, true);
+        const jsOff = u8.byteLength - 8 - len;
+        if (jsOff >= off) {
+          try {
+            const txt = new TextDecoder('utf-8').decode(u8.subarray(jsOff, jsOff + len));
+            const j = JSON.parse(txt);
+            specials = j.specials || {};
+            if (j.stats) stats = Object.assign(stats, j.stats);
+          } catch (_) {}
+        }
+      }
+    }
+    return {runs: runs, specials: specials, stats: stats, aabb: aabb};
+  }
+
+  function loadBin(name) {
+    const url = 'assets/castles/' + name + '.bin';
+    const x = new XMLHttpRequest();
+    x.open('GET', url, false);
+    // Sync XHR cannot use responseType='arraybuffer' in Chrome; read as a binary string.
+    x.overrideMimeType('text/plain; charset=x-user-defined');
+    x.send(null);
+    if (x.status !== 200 && x.status !== 0) throw new Error('xhr ' + x.status + ' ' + url);
+    const s = x.responseText || '';
+    const u8 = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) u8[i] = s.charCodeAt(i) & 0xff;
+    return parseBin(u8);
+  }
+
+  function ensureModels() {
+    if (U.models) return U.models;
+    const out = {};
+    const names = Object.keys(MODEL_OF);
+    for (let i = 0; i < names.length; i++) {
+      const kind = names[i], n = MODEL_OF[kind];
+      try {
+        out[kind] = loadBin(n);
+      } catch (e) {
+        if (!U.err) U.err = 'model ' + n + ' ' + e;
+      }
+    }
+    U.models = out;
+    return out;
+  }
+
+  /* ---------- H expand (new worlds only; never on old saves) ---------- */
+  function ensureSky(gy, modelH) {
+    const need = (gy | 0) + (modelH | 0) + 6;
+    if (typeof H !== 'number' || H >= need) return H;
+    const want = Math.max(need, CASTLE_SKY_H);
+    try {
+      if (window.__v1308 && typeof __v1308.expandWorldH === 'function') {
+        const got = __v1308.expandWorldH(want);
+        U.skyH = H;
+        U.expandMs = __v1308.expandMs;
+        U.expandFail = __v1308.expandFail || 0;
+        return H;
+      }
+    } catch (e) { U.expandErr = String(e); }
+    return H;
+  }
+
+  /* ---------- deterministic natural-terrain site picker (new worlds) ---------- */
+  function hAt(x, z) {
+    try {
+      if (typeof g9cols !== 'undefined' && g9cols) return g9cols[(x * D + z) * 2];
+    } catch (_) {}
+    try { if (typeof solidTop === 'function') return solidTop(x, z); } catch (_) {}
+    return SEA0();
+  }
+  function kindAt(x, z) {
+    try {
+      if (typeof g9cols !== 'undefined' && g9cols) return g9cols[(x * D + z) * 2 + 1];
+    } catch (_) {}
+    return 0;
+  }
+  function landStats(x, z, r, step) {
+    step = step || 4;
+    let lo = 1e9, hi = -1e9, sum = 0, n = 0, wet = 0, waterNear = 0;
+    const sea = SEA0();
+    for (let a = -r; a <= r; a += step) for (let b = -r; b <= r; b += step) {
+      const xx = x + a, zz = z + b;
+      if (xx < 1 || zz < 1 || xx >= W - 1 || zz >= D - 1) continue;
+      const h = hAt(xx, zz), k = kindAt(xx, zz);
+      if (!(h > 0)) continue;
+      lo = Math.min(lo, h); hi = Math.max(hi, h); sum += h; n++;
+      if (k === 5 || h <= sea) wet++;
+    }
+    // water in a ring 16–40 from the site (loch / shore)
+    for (let a = -40; a <= 40; a += 6) for (let b = -40; b <= 40; b += 6) {
+      const d = Math.hypot(a, b);
+      if (d < 16 || d > 40) continue;
+      const xx = x + a, zz = z + b;
+      if (xx < 1 || zz < 1 || xx >= W - 1 || zz >= D - 1) continue;
+      const h = hAt(xx, zz), k = kindAt(xx, zz);
+      if (k === 5 || h <= sea) waterNear++;
+    }
+    const mean = n ? sum / n : sea;
+    return {lo: lo, hi: hi, mean: mean, slope: hi - lo, wet: wet, waterNear: waterNear, n: n};
+  }
+  function downhill(x, z, r) {
+    // unit-ish step toward the lowest sampled neighbour — used as gate facing
+    let bx = 0, bz = 1, bh = 1e9;
+    for (let a = -r; a <= r; a += 4) for (let b = -r; b <= r; b += 4) {
+      if (!a && !b) continue;
+      const h = hAt(x + a, z + b);
+      if (h < bh) { bh = h; bx = a; bz = b; }
+    }
+    if (Math.abs(bz) >= Math.abs(bx)) return bz >= 0 ? 0 : 2;
+    return bx >= 0 ? 3 : 1;
+  }
+
+  function pickNaturalSites() {
+    const cx0 = W >> 1, cz0 = D >> 1;
+    const I0 = (window.__c101 && __c101.isl) || (window.__c208 && __c208.isl) || {cx: cx0, cz: cz0, R: 40};
+    const exclR = (I0.R || 40) + 50;
+    const sp0 = (typeof g9findSpawn === 'function' && g9findSpawn()) || (typeof g9spawn !== 'undefined' && g9spawn) || [cx0, 0, cz0];
+    const nearSpawn = (x, z) => Math.hypot(x - (I0.cx || cx0), z - (I0.cz || cz0)) < exclR ||
+      Math.hypot(x - sp0[0], z - sp0[2]) < exclR;
+    const minSep = 160;
+    const ok = (x, z, placed) => x > 90 && z > 90 && x < W - 90 && z < D - 90 &&
+      !nearSpawn(x, z) &&
+      placed.every(p => Math.hypot(p.x - x, p.z - z) > minSep);
+    const sea = SEA0();
+    const step = Math.max(8, (W / 108) | 0);
+
+    function best(scoreFn, placed) {
+      let bx = -1, bz = -1, bs = -1e18;
+      for (let x = 0; x < W; x += step) for (let z = 0; z < D; z += step) {
+        if (!ok(x, z, placed)) continue;
+        const s = scoreFn(x, z);
+        if (s > bs) { bs = s; bx = x; bz = z; }
+      }
+      return bs > -1e17 ? {x: bx, z: bz, s: bs} : null;
+    }
+
+    const placed = [];
+    // Clansman: hillside / slope, preferably near water, not a summit, dry centre.
+    const human = best((x, z) => {
+      const f = landStats(x, z, 18, 4);
+      if (f.wet > 2 || f.lo < sea + 2) return -1e18;
+      if (f.slope < 3) return -1e18;
+      const slopeFit = -Math.abs(f.slope - 12);          // mid slope, not a cliff or a pad
+      const elevFit = -Math.abs(f.mean - (sea + 14));
+      return f.waterNear * 6 + slopeFit * 3 + elevFit + Math.min(8, f.slope);
+    }, placed);
+    if (!human) return null;
+    placed.push({kind: 'human', x: human.x, z: human.z, rot: downhill(human.x, human.z, 16)});
+
+    // Skeleton: local high ground / prominence, dry, far from human.
+    const mossy = best((x, z) => {
+      const f = landStats(x, z, 16, 4);
+      if (f.wet > 1 || f.lo <= sea + 1) return -1e18;
+      const ring = landStats(x, z, 36, 6);
+      const prom = f.mean - ring.mean;
+      return f.mean * 3 + prom * 8 + Math.min(10, f.slope);
+    }, placed);
+    if (!mossy) return null;
+    placed.push({kind: 'mossy', x: mossy.x, z: mossy.z, rot: downhill(mossy.x, mossy.z, 16)});
+
+    // Black: second-best hilltop, far from both.
+    const black = best((x, z) => {
+      const f = landStats(x, z, 16, 4);
+      if (f.wet > 1 || f.lo <= sea + 1) return -1e18;
+      const ring = landStats(x, z, 36, 6);
+      const prom = f.mean - ring.mean;
+      return f.mean * 3 + prom * 8 + Math.min(10, f.slope);
+    }, placed);
+    if (!black) return null;
+    placed.push({kind: 'black', x: black.x, z: black.z, rot: downhill(black.x, black.z, 16)});
+
+    U.sites = placed;
+    return placed;
+  }
+
+  function hideKeepFootprint(cx, cz, R) {
+    // Remove previously stamped keep masonry on an old isle (or a relocated site)
+    // without deleting natural land (grass/dirt/stone/water/sand) outside walls.
+    const masonry = new Set([T.STONEBRICK, T.MOSSYBRICK, T.COBBLE, T.SLATE, T.WSTONE,
+      T.BLACKSTONE, T.DSBRICK, T.DSTILE, T.OBSIDIAN, T.HELLROCK, T.HELLBRICK, T.MAGMA, T.LAVA,
+      T.BARS || BARS, BARS, T.FENCE, T.COBWEB, T.DOOR, T.DOORTOP, T.CHEST, T.TORCH, T.BED,
+      T.WOOL, T.WOOLRED, T.WOOLGREEN, T.WOOLYELLOW, T.PLANKS, T.OAKST || 164, 164, 167,
+      T.MOSS, PINE, NEED, HEATH, SLATE].filter(Boolean));
+    try { if (T.WOOLRED) masonry.add(T.WOOLRED); if (T.WOOLGREEN) masonry.add(T.WOOLGREEN); } catch (_) {}
+    const sea = SEA0();
+    for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) {
+      if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
+      if (Math.hypot(x - cx, z - cz) > R) continue;
+      for (let y = 1; y < H - 1; y++) {
+        const i = idx(x, y, z), b = world[i];
+        if (!b) continue;
+        if (masonry.has(b) && y >= sea - 2) world[i] = 0;
+      }
+      try { if (typeof setCol === 'function') setCol(x, z); } catch (_) {}
+    }
+  }
+
+  function wrapPlacement() {
+    if (typeof g9PlaceCastles !== 'function') return;
+    const prev = g9PlaceCastles;
+    if (prev.__c1313) return;
+    g9PlaceCastles = function () {
+      const r = prev.apply(this, arguments);
+      try {
+        if (!isNewWorld() || (typeof DIM !== 'undefined' && DIM.cur) || W < 200) return r;
+        const old = (g9castles || []).map(c => [c[0], c[1], c[2]]);
+        const sites = pickNaturalSites();
+        if (!sites || sites.length < 3) { U.siteFail = 1; return r; }
+        // hide any keep already raised on the official map-edge isles (new worlds only)
+        for (let i = 0; i < old.length; i++) hideKeepFootprint(old[i][1], old[i][2], 36);
+        const placed = sites.map(s => [s.kind, s.x, s.z]);
+        g9castles = placed;
+        U.placed = placed;
+        U.rots = {};
+        sites.forEach(s => { U.rots[s.kind] = s.rot; });
+        // record st so later rebuild uses the new gy/rot
+        try {
+          const C = window.__c151;
+          if (C) {
+            C.st = C.st || {};
+            sites.forEach(s => {
+              const gy = Math.max(SEA0(), hAt(s.x, s.z));
+              C.st[s.kind] = {rot: s.rot, gy: gy, natural: 1};
+            });
+          }
+        } catch (_) {}
+        return placed;
+      } catch (e) {
+        if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e;
+        if (!U.err) U.err = 'place ' + e;
+        return r;
+      }
     };
+    g9PlaceCastles.__c1313 = 1;
   }
 
-  function seaY(K, ly) {
-    return ly - (K.gy - SEA0());
+  /* ---------- stamp ---------- */
+  function lootFor(tag) {
+    const I = (typeof IT !== 'undefined' && IT) || {};
+    if (tag === 'treasury') return [[I.GOLDINGOT || T.GOLD, 4], [I.IRONINGOT, 6], [T.TORCH, 8]];
+    if (tag === 'hall') return [[I.BREAD, 6], [I.ARROW, 16], [I.BOW, 1]];
+    if (tag === 'guard') return [[I.ARROW, 12], [I.IRONINGOT, 3], [T.TORCH, 6]];
+    if (tag === 'chamber') return [[I.BREAD, 4], [I.GOLDINGOT || T.GOLD, 1], [T.TORCH, 4]];
+    if (tag === 'ruin') return [[I.BONE || 171, 6], [I.ARROW, 8], [I.IRONINGOT, 2]];
+    if (tag === 'tower') return [[I.ARROW, 8], [T.TORCH, 4]];
+    return [[T.TORCH, 4]];
+  }
+
+  function stampModel(K, model) {
+    const runs = model.runs;
+    const maxY = (typeof H === 'number' ? H - 3 : 200);
+    for (let i = 0; i < runs.length; i++) {
+      const r = runs[i];
+      const y = K.gy + r.y;
+      if (y < 1 || y > maxY) continue;
+      for (let k = 0; k < r.n; k++) K.B(r.x + k, r.y, r.z, r.id);
+    }
+    const sp = model.specials || {};
+    // doors
+    const doors = sp.door || [];
+    for (let i = 0; i < doors.length; i++) {
+      const d = doors[i];
+      const f = FACE[d.face] != null ? FACE[d.face] : 2;
+      try { K.door(d.x, d.y, d.z, f); } catch (_) {}
+    }
+    const chests = sp.chest || [];
+    for (let i = 0; i < chests.length; i++) {
+      const c = chests[i];
+      const f = FACE[c.face] != null ? FACE[c.face] : 2;
+      try { K.chest(c.x, c.y, c.z, f, lootFor(c.loot)); } catch (_) {}
+    }
+    const lamps = sp.lamp || [];
+    for (let i = 0; i < lamps.length; i++) {
+      const L = lamps[i];
+      try { K.lamp(L.x, L.y, L.z, -1, {}); } catch (_) {}
+    }
+    const beds = sp.bed || [];
+    for (let i = 0; i < beds.length; i++) {
+      const b = beds[i];
+      const f = FACE[b.face] != null ? FACE[b.face] : 2;
+      try { K.bed(b.x, b.y, b.z, f); } catch (_) {}
+    }
+    return sp;
+  }
+
+  function foundations(K, model) {
+    // For every column that has a structure block at/near y=0, fill down to natural solid ground.
+    const aabb = model.aabb || model.stats && model.stats.aabb;
+    if (!aabb) return;
+    const [x0, y0, z0, x1, y1, z1] = aabb;
+    const fillId = K.kind === 'black' ? (T.BLACKSTONE || 248) : (T.COBBLE || 12);
+    const wallId = K.kind === 'black' ? (T.BLACKSTONE || 248) : (T.STONEBRICK || 28);
+    const sea = SEA0();
+    for (let lx = x0; lx <= x1; lx++) for (let lz = z0; lz <= z1; lz++) {
+      const [wx, _wy, wz] = K.wp(lx, 0, lz);
+      if (wx < 1 || wz < 1 || wx >= W - 1 || wz >= D - 1) continue;
+      // does this column have masonry in the model near the floor?
+      let has = false;
+      for (let ly = Math.min(0, y0); ly <= 2 && !has; ly++) {
+        if (K.G(lx, ly, lz)) has = true;
+      }
+      if (!has) continue;
+      let top = 0;
+      try { top = (typeof solidTop === 'function') ? solidTop(wx, wz) : hAt(wx, wz); } catch (_) { top = hAt(wx, wz); }
+      // fill from just below the gate floor down to the natural surface (and a couple under)
+      const fromY = K.gy - 1;
+      const toY = Math.max(2, Math.min(fromY, Math.max(top, sea) - 0));
+      for (let y = fromY; y >= toY && y > 0; y--) {
+        const i = idx(wx, y, wz);
+        const b = world[i];
+        if (!b || b === T.AIR || b === T.WATER || b === T.LEAVES || b === T.SNOW) {
+          world[i] = (fromY - y < 2) ? wallId : fillId;
+        }
+      }
+    }
+  }
+
+  function edgeBlend(K, model) {
+    // Gentle 1–2 block terracing at the footprint rim only — no new landmass.
+    const aabb = model.aabb || model.stats && model.stats.aabb;
+    if (!aabb) return;
+    const [x0, , z0, x1, , z1] = aabb;
+    const sea = SEA0();
+    for (let lx = x0 - 2; lx <= x1 + 2; lx++) for (let lz = z0 - 2; lz <= z1 + 2; lz++) {
+      const inside = lx >= x0 && lx <= x1 && lz >= z0 && lz <= z1;
+      const rim = !inside && lx >= x0 - 2 && lx <= x1 + 2 && lz >= z0 - 2 && lz <= z1 + 2;
+      if (!rim) continue;
+      const [wx, , wz] = K.wp(lx, 0, lz);
+      if (wx < 2 || wz < 2 || wx >= W - 2 || wz >= D - 2) continue;
+      let top = 0;
+      try { top = solidTop(wx, wz); } catch (_) { top = hAt(wx, wz); }
+      if (top <= sea) continue;
+      // if the adjacent interior column is much higher/lower, add a single step of dirt/grass
+      const [ix, , iz] = K.wp(Math.max(x0, Math.min(x1, lx)), 0, Math.max(z0, Math.min(z1, lz)));
+      let itop = top;
+      try { itop = solidTop(ix, iz); } catch (_) {}
+      const d = itop - top;
+      if (d >= 3 && top + 1 < K.gy && top + 1 < H - 2) {
+        world[idx(wx, top + 1, wz)] = T.DIRT || 2;
+        world[idx(wx, top + 2, wz)] = T.GRASS || 1;
+      }
+    }
+  }
+
+  function decorate(K, kind) {
+    // Small natural decorations around the footprint (not a stamped hill).
+    const h3 = (x, z, s) => {
+      let h = Math.imul(x + s, 374761393) ^ Math.imul(z, 668265263);
+      h = Math.imul(h ^ (h >>> 13), 1274126177);
+      return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    };
+    const [cx, cz] = [K.cx, K.cz];
+    const sea = SEA0();
+    for (let a = -70; a <= 70; a++) for (let b = -50; b <= 70; b++) {
+      const x = cx + a, z = cz + b;
+      if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
+      const d = Math.hypot(a, b);
+      if (d < 22 || d > 68) continue;
+      let top = 0;
+      try { top = solidTop(x, z); } catch (_) { continue; }
+      if (top <= sea) continue;
+      // skip if we already placed masonry here
+      const above = world[idx(x, top + 1, z)];
+      const here = world[idx(x, top, z)];
+      if (here === T.STONEBRICK || here === T.BLACKSTONE || here === T.MOSSYBRICK || here === T.SLATE) continue;
+      if (above && above !== T.AIR && above !== T.GRASS && above !== T.SNOW) continue;
+      const u = h3(x, z, 19);
+      if (kind === 'human') {
+        if (u < 0.08) world[idx(x, top + 1, z)] = HEATH;
+        else if (u > 0.97 && d > 40) {
+          // a few pines
+          const ht = 5 + ((h3(x, z, 23) * 5) | 0);
+          for (let k = 1; k <= ht && top + k < H - 2; k++) {
+            world[idx(x, top + k, z)] = k < ht - 1 ? PINE : (NEED || PINE);
+          }
+        }
+      }
+    }
+  }
+
+  function placeGold(K) {
+    if (K.kind !== 'human') return;
+    // Must sit within 40 of the keep origin (uk-land portal window) on solid
+    // ground at or above the sea. Prefer behind the keep (local -z).
+    const sea = SEA0();
+    function col(lx, lz) {
+      const [x, , z] = K.wp(lx, 0, lz);
+      let y = sea;
+      try { y = (typeof solidTop === 'function') ? solidTop(x, z) : y; } catch (_) {}
+      return {x: x, y: Math.max(sea, y), z: z, dry: y > sea};
+    }
+    let best = null;
+    // scan a small pad behind / beside the keep, keep radius < 36
+    for (let lz = -12; lz >= -32; lz--) {
+      for (let lx of [0, 8, -8, 14, -14, 20, -20]) {
+        if (lx * lx + lz * lz > 36 * 36) continue;
+        const c = col(lx, lz);
+        if (c.x < 2 || c.z < 2 || c.x >= W - 2 || c.z >= D - 2) continue;
+        // skip standing inside a wall
+        let blocked = 0;
+        try { blocked = world[idx(c.x, c.y + 1, c.z)] && world[idx(c.x, c.y + 1, c.z)] !== T.AIR; } catch (_) {}
+        if (blocked) continue;
+        // Prefer ground near the gate floor, not a tower roof (solidTop on a
+        // keep column is the battlement).
+        if (c.dry) {
+          c.score = -Math.abs(c.y - (K.gy || c.y));
+          if (!best || c.score > best.score) best = c;
+        }
+      }
+    }
+    if (!best) best = col(0, -24);
+    try {
+      if (window.__egypt1269 && typeof __egypt1269.placeReturn === 'function') {
+        __egypt1269.placeReturn(best.x, best.y, best.z);
+        U.gold = [best.x, best.y, best.z];
+      }
+    } catch (e) { if (!U.err) U.err = 'gold ' + e; }
+  }
+
+  function buildFromModel(K) {
+    ensureWool();
+    const models = ensureModels();
+    const model = models[K.kind];
+    if (!model) return {kind: K.kind, missing: 1};
+    const aabb = model.aabb || [0, 0, 0, 0, 0, 0];
+    const modelH = aabb[4] - Math.min(0, aabb[1]) + 2;
+    ensureSky(K.gy, modelH);
+    const sp = stampModel(K, model);
+    foundations(K, model);
+    edgeBlend(K, model);
+    decorate(K, K.kind);
+    placeGold(K);
+    U.counts[K.kind] = {gy: K.gy, tip: K.gy + (aabb[4] || 0), blocks: (model.stats && model.stats.blocks) || 0, aabb: aabb};
+    return {kind: K.kind, gy: K.gy, specials: sp};
   }
 
   function hook() {
     const C = window.__c151;
-    if (!C || !C.ctx || !C.B) return false;
-    if (C.__c1313) return true;
+    if (!C || C.__c1313) return true;
     C.__c1313 = 1;
-    const oldElig = C.elig;
-    C.elig = function () {
-      try {
-        if (current && current.mode !== 'creative' && current.g25 == null) current.g25 = true;
-        if (window.__c102 && !__c102.done && typeof g9castles !== 'undefined' && g9castles && g9castles.length) {
-          __c102.done = g9castles.map(function (q) {
-            const g = (typeof solidTop === 'function' ? solidTop(q[1], q[2]) : SEA0());
-            return {k: q[0], cx: q[1], cz: q[2], gy: g + 1};
-          });
-        }
-      } catch (_) {}
-      return oldElig ? oldElig.apply(this, arguments) : true;
-    };
-    const oldWork = C.work;
-    C.work = function (only) {
-      const cs = C.clearSite;
-      C.clearSite = function (c, gy, R, top) {
-        return cs.call(this, c, Math.min(gy, SEA0()), Math.max(R || 0, 44), top || 80);
-      };
-      const hadPS = (typeof placedSet !== 'undefined' && placedSet);
-      const savedPS = hadPS ? placedSet : null;
-      try {
-        if (hadPS && typeof g9castles !== 'undefined' && g9castles) {
-          placedSet = new Set(savedPS);
-          const list = only ? g9castles.filter(function (c) { return c[0] === only; }) : g9castles;
-          for (let i = 0; i < list.length; i++) {
-            const c = list[i], R = 46;
-            for (let x = c[1] - R; x <= c[1] + R; x++) for (let z = c[2] - R; z <= c[2] + R; z++) {
-              if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
-              if (Math.hypot(x - c[1], z - c[2]) > R) continue;
-              for (let y = 1; y < H - 1; y++) placedSet.delete(idx(x, y, z));
-            }
-          }
-        }
-        C.elig();
-        const r = oldWork.apply(this, arguments);
-        U.ran++;
-        U.ms = C.ms;
-        return r;
-      } catch (e) { U.err = String(e && e.stack || e); throw e; }
-      finally {
-        C.clearSite = cs;
-        if (savedPS) placedSet = savedPS;
-      }
-    };
-    C.B.human = buildClansman;
-    C.B.mossy = function (K) { return buildRuin(K, 'mossy'); };
-    C.B.black = function (K) { return buildRuin(K, 'black'); };
+    C.B = C.B || {};
+    C.B.human = function (K) { return buildFromModel(K); };
+    C.B.mossy = function (K) { return buildFromModel(K); };
+    C.B.black = function (K) { return buildFromModel(K); };
+    wrapPlacement();
     return true;
-  }
-
-  /* ---------------- primitives (local +z = gate) ---------------- */
-
-  function stone(K, x, y, z, kind) {
-    const v = K.h(x, y, z);
-    if (kind === 'black') {
-      if (v < 0.16) return OB();
-      if (v < 0.34) return DS();
-      if (v < 0.78) return BLK();
-      return HR();
-    }
-    if (kind === 'mossy') {
-      if (v < 0.28) return T.MOSSYBRICK;
-      if (v < 0.48) return T.COBBLE;
-      if (v < 0.62) return WST();
-      if (v < 0.9) return T.STONEBRICK;
-      return T.STONE || T.COBBLE;
-    }
-    if (v < 0.08) return T.MOSSYBRICK;
-    if (v < 0.16) return T.COBBLE;
-    return T.STONEBRICK;
-  }
-
-  function rock(K, x, y, z, kind) {
-    const v = K.h(x, y + 40, z);
-    if (kind === 'black') {
-      if (v < 0.45) return BLK();
-      if (v < 0.7) return HR();
-      if (v < 0.85) return DS();
-      return T.DEEPSLATE || T.STONE || BLK();
-    }
-    if (v < 0.4) return T.STONE || T.COBBLE;
-    if (v < 0.65) return T.COBBLE;
-    if (v < 0.82) return T.STONEBRICK;
-    return T.MOSSYBRICK;
-  }
-
-  function pal(K, kind) {
-    return function (x, y, z) { return stone(K, x, y, z, kind); };
-  }
-
-  function cyl(K, cx, cz, r, y0, y1, wall, inner) {
-    const r2 = r * r, i2 = (r - 1.15) * (r - 1.15);
-    const cR = Math.ceil(r);
-    for (let a = -cR; a <= cR; a++) for (let q = -cR; q <= cR; q++) {
-      const d = a * a + q * q;
-      if (d > r2) continue;
-      const edge = d >= i2;
-      for (let y = y0; y <= y1; y++) {
-        if (edge) K.B(cx + a, y, cz + q, typeof wall === 'function' ? wall(cx + a, y, cz + q) : wall);
-        else if (inner != null) K.B(cx + a, y, cz + q, typeof inner === 'function' ? inner(cx + a, y, cz + q) : inner);
-      }
-    }
-  }
-
-  function coneRoof(K, cx, cz, r, y0, n, id) {
-    const b = typeof id === 'function' ? id : function () { return id; };
-    for (let L = 0; L < n; L++) {
-      const rr = r - L * (r - 0.35) / Math.max(1, n - 1);
-      K.disc(cx, cz, Math.max(0.45, rr), y0 + L, b);
-    }
-    K.B(cx, y0 + n, cz, typeof id === 'function' ? id(cx, y0 + n, cz) : id);
-    return y0 + n;
-  }
-
-  function pyramid(K, cx, cz, half, y0, n, id) {
-    const b = typeof id === 'function' ? id : function () { return id; };
-    for (let L = 0; L < n; L++) {
-      const s = Math.max(0, half - (L >> 1));
-      K.box(cx - s, y0 + L, cz - s, cx + s, y0 + L, cz + s, b);
-    }
-    return y0 + n - 1;
-  }
-
-  function merlonRect(K, x0, z0, x1, z1, y, wall, opt) {
-    opt = opt || {};
-    const pitch = opt.pitch || 2, ht = opt.ht || 2, h = opt.h || K.h;
-    const broken = opt.broken || 0;
-    const cells = [];
-    for (let x = x0; x <= x1; x++) { cells.push([x, z0]); if (z1 !== z0) cells.push([x, z1]); }
-    for (let z = z0 + 1; z < z1; z++) { cells.push([x0, z]); cells.push([x1, z]); }
-    for (let i = 0; i < cells.length; i++) {
-      const x = cells[i][0], z = cells[i][1];
-      if ((x + z) % pitch) continue;
-      if (broken && h(x, y + 3, z) < broken) continue;
-      for (let k = 0; k < ht; k++) K.B(x, y + k, z, typeof wall === 'function' ? wall(x, y + k, z) : wall);
-    }
-  }
-
-  function merlonRing(K, cx, cz, r, y, wall, opt) {
-    opt = opt || {};
-    const pitch = opt.pitch || 2, ht = opt.ht || 2, h = opt.h || K.h;
-    const broken = opt.broken || 0;
-    const cR = Math.ceil(r);
-    const r2 = r * r, i2 = (r - 1.15) * (r - 1.15);
-    let i = 0;
-    for (let a = -cR; a <= cR; a++) for (let q = -cR; q <= cR; q++) {
-      const d = a * a + q * q;
-      if (d > r2 || d < i2) continue;
-      i++;
-      if (i % pitch) continue;
-      if (broken && h(cx + a, y + 3, cz + q) < broken) continue;
-      for (let k = 0; k < ht; k++) K.B(cx + a, y + k, cz + q, typeof wall === 'function' ? wall(cx + a, y + k, cz + q) : wall);
-    }
-  }
-
-  function slit(K, x, y, z, h, w, dz, dx) {
-    h = h || 2; w = w || 1; dz = dz || 0; dx = dx || 0;
-    for (let a = 0; a < w; a++) for (let b = 0; b < h; b++) K.B(x + a * (dx || (w > 1 ? 1 : 0)), y + b, z + a * dz, T.AIR);
-  }
-
-  function banner(K, x0, yTop, z, face, map) {
-    const Wl = wool();
-    const fv = FV[face & 3];
-    const sv = [[-1, 0], [0, -1], [1, 0], [0, 1]][face & 3];
-    map = map || TARTAN;
-    const Hm = map.length, Wm = map[0].length;
-    // oak rod
-    for (let c = 0; c < Wm; c++) {
-      const hx = x0 + sv[0] * c + fv[0], hz = z + sv[1] * c + fv[1];
-      K.log(hx, yTop + 1, hz, T.LOG, 1);
-    }
-    for (let r = 0; r < Hm; r++) {
-      const row = map[r];
-      for (let c = 0; c < row.length; c++) {
-        const ch = row[c];
-        if (ch === 'F' && (c & 1)) continue;
-        const id = Wl[ch];
-        if (!id) continue;
-        const hx = x0 + sv[0] * c + fv[0], hz = z + sv[1] * c + fv[1];
-        K.B(hx, yTop - r, hz, id);
-      }
-    }
-  }
-
-  function gateArch(K, x0, x1, y0, y1, zFace, depth, wall) {
-    for (let d = 0; d < depth; d++) {
-      const z = zFace - d;
-      for (let x = x0; x <= x1; x++) {
-        for (let y = y0; y <= y1; y++) {
-          const inset = (y >= y1 ? 2 : y === y1 - 1 ? 1 : 0);
-          if (x <= x0 + inset || x >= x1 - inset) {
-            if (d === 0 || d === depth - 1) K.B(x, y, z, typeof wall === 'function' ? wall(x, y, z) : wall);
-          } else {
-            K.B(x, y, z, T.AIR);
-          }
-        }
-        // lintel
-        K.B(x, y1 + 1, z, typeof wall === 'function' ? wall(x, y1 + 1, z) : wall);
-      }
-    }
-  }
-
-  function portcullis(K, x0, x1, y0, y1, z) {
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) {
-      if (((x + y) & 1) === 0) K.B(x, y, z, BARS);
-    }
-  }
-
-  function ladder(K, x, y0, y1, z) {
-    for (let y = y0; y <= y1; y++) {
-      K.B(x, y, z, ((y - y0) & 1) === 0 ? T.PLANKS : (T.FENCE || FEN));
-    }
-  }
-
-  function pine(K, x, z, y0, ht) {
-    ht = ht || 8;
-    for (let y = 0; y < ht; y++) K.B(x, y0 + y, z, PINE);
-    for (let y = 3; y <= ht; y++) {
-      const rr = y === ht ? 0.6 : 2.3 - (y - 3) * 1.5 / Math.max(1, ht - 3);
-      K.disc(x, z, rr, y0 + y, function (a, yy, b) { return K.G(a, yy, b) === T.AIR ? NEED : K.G(a, yy, b); });
-    }
-    K.B(x, y0 + ht + 1, z, NEED);
-  }
-
-  function deadTree(K, x, z, y0, h) {
-    const rot = T.ROTLOG || T.LOG;
-    const ht = 7 + (h(x, 3, z) * 3 | 0);
-    for (let y = 0; y < ht; y++) K.log(x, y0 + y, z, rot, 2);
-    K.log(x + 1, y0 + ht - 2, z, rot, 1);
-    K.log(x + 2, y0 + ht - 2, z + (h(x, 4, z) < 0.5 ? 0 : 1), rot, 1);
-    K.log(x, y0 + ht - 3, z - 1, rot, 1);
-    K.log(x - 1, y0 + ht - 1, z + 1, rot, 1);
-    if (h(x, 5, z) < 0.5) K.log(x - 1, y0 + ht - 3, z, rot, 1);
-    K.B(x, y0 + ht, z, rot);
-  }
-
-  function skelProp(K, x, y, z) {
-    const head = WST() || T.SANDSTONE || T.WOOL || T.STONEBRICK;
-    const bone = T.SANDSTONE || WST() || T.COBBLE;
-    K.B(x, y, z, bone);
-    K.B(x, y + 1, z, bone);
-    K.B(x, y + 2, z, head);
-    K.B(x - 1, y + 1, z, bone);
-    K.B(x + 1, y + 1, z, bone);
-  }
-
-  function vineStreak(K, x, z, y0, y1, face) {
-    const fv = FV[face & 3];
-    for (let y = y0; y <= y1; y++) {
-      if (K.h(x, y, z) < 0.72) K.B(x + fv[0], y, z + fv[1], MOSS());
-    }
-  }
-
-
-  function clearDecor(K) {
-    // Wipe worldgen trees and the stock isle palisade in the footprint and
-    // the gate approach, so they cannot stand in front of the facade shot.
-    // Intentional pines on the loch terraces (local x <= -14) are kept.
-    const TREE = new Set([T.LOG, T.PINELOG, T.BIRCHLOG, T.ALDERLOG, T.ROWANLOG, T.YEWLOG, T.ROTLOG, T.LEAVES, T.BLOSSOM, T.NEED, PINE, NEED, T.LPOST, 160].filter(Boolean));
-    const y0 = seaY(K, 0), y1 = seaY(K, 55);
-    for (let x = -50; x <= 50; x++) for (let z = -50; z <= 50; z++) {
-      const r = Math.hypot(x, z);
-      if (r > 50) continue;
-      const approach = z > 6 && Math.abs(x) < 18 && r < 48;
-      const ring = r > 22;
-      if (!approach && !ring) continue;
-      if (x <= -14 && z < 16 && !approach) continue;
-      for (let y = y0; y <= y1; y++) {
-        const b = K.G(x, y, z);
-        if (TREE.has(b)) K.B(x, y, z, T.AIR);
-      }
-    }
-  }
-
-  /* ---------------- Clansman ---------------- */
-
-  function buildClansman(K) {
-    wool();
-    const {B, box, h} = K;
-    const S = pal(K, 'human');
-    const F = seaY(K, 8);
-    const slate = function () { return SLATE; };
-
-    // Terraced hillside + loch on local -x / +z (left of the gate in the painting).
-    clearDecor(K);
-    terraces(K, F, S);
-
-    // Compact keep core the turrets sprout from (hollow, 3 floors).
-    const X0 = -8, X1 = 8, Z0 = -5, Z1 = 5;
-    for (let x = X0; x <= X1; x++) for (let z = Z0; z <= Z1; z++) {
-      const e = x === X0 || x === X1 || z === Z0 || z === Z1;
-      for (let y = F; y <= F + 16; y++) {
-        if (e || y === F || y === F + 8 || y === F + 16) B(x, y, z, S(x, y, z));
-        else B(x, y, z, T.AIR);
-      }
-    }
-    // floors already solid; punch a stair well
-    for (let k = 0; k < 8; k++) {
-      B(-6, F + k, -3, T.AIR);
-      K.stair(-6, F + k, -3, 0, STST);
-      B(-6, F + 8 + k, -3, T.AIR);
-      K.stair(-6, F + 8 + k, -3, 0, STST);
-    }
-
-    // Gatehouse: 15 wide, 5 deep, merlon deck 16 above the gate floor.
-    // Front face at z=9. Arch 5 wide × 7 high, stepped jambs, deep vault.
-    box(-7, F, 5, 7, F + 15, 9, function (x, y, z) {
-      const e = x === -7 || x === 7 || z === 5 || z === 9 || y === F || y === F + 15;
-      return e ? S(x, y, z) : T.AIR;
-    });
-    gateArch(K, -2, 2, F, F + 6, 9, 4, S);
-    portcullis(K, -2, 2, F + 1, F + 6, 8);
-    K.door(-1, F, 7, 2);
-    K.door(0, F, 7, 2);
-    merlonRect(K, -7, 5, 7, 9, F + 16, S, {pitch: 2, ht: 2});
-    // arrow slits on the gatehouse face, above the arch and on the piers
-    slit(K, -5, F + 10, 9, 2, 1);
-    slit(K, 5, F + 10, 9, 2, 1);
-    slit(K, 0, F + 12, 9, 2, 1);
-    // mirrored slits on the back of the gatehouse
-    slit(K, -5, F + 10, 5, 2, 1);
-    slit(K, 5, F + 10, 5, 2, 1);
-
-    // Two large tartan banners flanking the arch, third on the right curtain.
-    banner(K, -7, F + 14, 9, 2);
-    banner(K, 3, F + 14, 9, 2);
-
-    // Forward bartizan over the gate (small round, conical roof).
-    cyl(K, 0, 6, 2, F + 15, F + 22, S, T.AIR);
-    coneRoof(K, 0, 6, 2.4, F + 23, 8, slate);
-    slit(K, 0, F + 19, 8, 2, 1);
-
-    // Left round conical turret.
-    cyl(K, -7, 2, 3, F, F + 20, S, T.AIR);
-    coneRoof(K, -7, 2, 3.4, F + 21, 10, slate);
-    slit(K, -7, F + 8, 5, 2, 1);
-    slit(K, -7, F + 14, 5, 2, 1);
-    slit(K, -10, F + 11, 2, 2, 1);
-    slit(K, -7, F + 8, -1, 2, 1); // back
-
-    // Mid-left taller square crow-stepped pyramidal roof.
-    box(-6, F, -5, 0, F + 24, 1, function (x, y, z) {
-      const e = x === -6 || x === 0 || z === -5 || z === 1 || y === F || y === F + 24;
-      return e ? S(x, y, z) : T.AIR;
-    });
-    pyramid(K, -3, -2, 3, F + 25, 10, slate);
-    slit(K, -3, F + 12, 1, 2, 1);
-    slit(K, -3, F + 18, 1, 2, 1);
-    slit(K, -3, F + 12, -5, 2, 1);
-
-    // Mid-right taller square crow-step (slightly higher, uses the sea-to-sky budget).
-    box(1, F, -6, 7, F + 26, 0, function (x, y, z) {
-      const e = x === 1 || x === 7 || z === -6 || z === 0 || y === F || y === F + 26;
-      return e ? S(x, y, z) : T.AIR;
-    });
-    pyramid(K, 4, -3, 3, F + 27, 10, slate);
-    slit(K, 4, F + 14, 0, 2, 1);
-    slit(K, 4, F + 20, 0, 2, 1);
-    slit(K, 4, F + 14, -6, 2, 1);
-
-    // Right-back round conical turret.
-    cyl(K, 7, 1, 3, F, F + 22, S, T.AIR);
-    coneRoof(K, 7, 1, 3.4, F + 23, 11, slate);
-    slit(K, 7, F + 10, 4, 2, 1);
-    slit(K, 7, F + 16, 4, 2, 1);
-    slit(K, 10, F + 13, 1, 2, 1);
-    slit(K, 7, F + 10, -2, 2, 1);
-
-    // Right curtain wall + merloned round corner tower (no cone), third banner.
-    box(8, F, 6, 11, F + 15, 9, function (x, y, z) {
-      const e = z === 6 || z === 9 || y === F || y === F + 15 || x === 11;
-      return e ? S(x, y, z) : T.AIR;
-    });
-    merlonRect(K, 8, 6, 11, 9, F + 16, S, {pitch: 2, ht: 2});
-    banner(K, 8, F + 14, 9, 2);
-    cyl(K, 13, 6, 4, F - 1, F + 17, S, T.AIR);
-    merlonRing(K, 13, 6, 4, F + 18, S, {pitch: 2, ht: 2});
-    slit(K, 13, F + 8, 10, 2, 1);
-    slit(K, 13, F + 13, 10, 2, 1);
-    slit(K, 17, F + 10, 6, 2, 1);
-    slit(K, 13, F + 8, 2, 2, 1);
-
-    // Interior: chests, lamps, a table. Loot stays kind-specific via the kit.
-    K.chest(-4, F + 1, 0, 2, [[IT.BREAD, 4], [IT.IRONINGOT, 3], [T.TORCH, 8]]);
-    K.chest(3, F + 9, -1, 1, [[IT.GOLDINGOT, 2], [IT.ARROW, 12], [IT.BOW, 1]]);
-    K.lamp(-2, F + 7, 2, -1, {});
-    K.lamp(2, F + 15, 0, -1, {});
-    try { K.bed(-3, F + 9, 2, 2); } catch (_) {}
-
-    clearDecor(K);
-    placeGold(K, 14, -16);
-    U.counts.human = {F: F, tip: F + 27 + 10};
-    return {kind: 'human', F: F};
-  }
-
-  function terraces(K, F, S) {
-    const {B, box, h} = K;
-    // Solid plinth under the keep, stone-edged, sits at gate-floor level.
-    for (let x = -12; x <= 18; x++) for (let z = -10; z <= 12; z++) {
-      const r = Math.hypot(x * 0.85, z * 0.9);
-      if (r > 20 && x > 4) continue;
-      for (let y = seaY(K, 1); y <= F; y++) {
-        const edge = y === F || r > 18;
-        B(x, y, z, edge ? S(x, y, z) : (h(x, y, z) < 0.7 ? T.STONE : T.COBBLE));
-      }
-    }
-    // Left-hand terraces dropping toward the loch (local -x), 2-block rises,
-    // irregular retaining walls, heather, stone steps.
-    const bands = [
-      {x1: -12, x0: -16, top: F - 2},
-      {x1: -16, x0: -20, top: F - 4},
-      {x1: -20, x0: -24, top: F - 6},
-      {x1: -24, x0: -28, top: F - 8}
-    ];
-    for (let i = 0; i < bands.length; i++) {
-      const b = bands[i];
-      for (let x = b.x0; x <= b.x1; x++) for (let z = -8; z <= 18; z++) {
-        // leave a loch bite on the front-left (water visible beside the stairs)
-        if (x < -18 && z > 10) continue;
-        if (x < -24 && z > 4) continue;
-        const jag = (h(x, 2, z) * 2 | 0) - 1;
-        const top = b.top + jag;
-        for (let y = seaY(K, 1); y <= top; y++) {
-          const edge = (x === b.x0 || x === b.x1 || y === top);
-          B(x, y, z, edge ? S(x, y, z) : T.STONE);
-        }
-        if (h(x, 6, z) < 0.16) B(x, top + 1, z, HEATH);
-        else if (h(x, 7, z) < 0.1) B(x, top + 1, z, T.THISTLE || T.TALLGRASS);
-      }
-    }
-    // Forecourt stairs toward the camera (+z), slightly left, irregular 3-wide.
-    for (let s = 0; s <= 10; s++) {
-      const y = F - s;
-      const z0 = 12 + s;
-      const xo = -Math.floor(s / 4);
-      for (let x = -2 + xo; x <= 2 + xo; x++) {
-        for (let z = z0; z <= z0 + 1; z++) {
-          B(x, y, z, S(x, y, z));
-          if ((x + z + s) & 1) K.stair(x, y, z, 2, STST);
-        }
-        // fill under the step so it is not floating
-        for (let yb = seaY(K, 1); yb < y; yb++) B(x, yb, z0, T.STONE);
-      }
-    }
-    // Shoreline rocks where terrace meets the loch, water left open beyond.
-    for (let x = -30; x <= -14; x++) for (let z = 8; z <= 24; z++) {
-      if (x > -20 && z < 14) continue;
-      if (h(x, 1, z) < 0.35) {
-        const yy = seaY(K, 1);
-        B(x, yy, z, h(x, 2, z) < 0.5 ? T.COBBLE : GRAV());
-      }
-    }
-    // Heather clumps on the main terrace and path edge (explicit, from the painting).
-    const heath = [[-10, 8], [-11, 10], [-9, 12], [-13, 6], [-12, 14], [-8, 11],
-      [-15, 4], [-17, 8], [-14, 16], [-6, 13], [10, 12], [14, 10], [8, 14],
-      [-18, 0], [-16, -4], [15, 8]];
-    for (let i = 0; i < heath.length; i++) {
-      const x = heath[i][0], z = heath[i][1];
-      let y = F;
-      for (let k = F; k > seaY(K, 0); k--) { if (K.G(x, k, z) && K.G(x, k, z) !== T.AIR) { y = k + 1; break; } }
-      B(x, y, z, HEATH);
-    }
-    // Pines on the left terraces (positions taken from the painting).
-    const pines = [[-16, 8, 8], [-20, 2, 9], [-14, 16, 7], [-22, 12, 8], [-18, -2, 6]];
-    for (let i = 0; i < pines.length; i++) {
-      const p = pines[i];
-      let y0 = F - 4;
-      for (let k = F; k > seaY(K, 0); k--) { if (K.G(p[0], k, p[1]) && K.G(p[0], k, p[1]) !== T.AIR) { y0 = k + 1; break; } }
-      pine(K, p[0], p[1], y0, p[2]);
-    }
-  }
-
-  function placeGold(K, lx, lz) {
-    try {
-      const E = window.__egypt1269;
-      if (!E || typeof E.placeReturn !== 'function') return;
-      const [x, , z] = K.wp(lx, 0, lz);
-      if (x < 4 || z < 4 || x >= W - 4 || z >= D - 4) return;
-      const g = (typeof solidTop === 'function' ? solidTop(x, z) : K.gy);
-      for (let a = -1; a <= 2; a++) for (let b = -1; b <= 1; b++) {
-        const xx = x + a, zz = z + b;
-        if (xx < 2 || zz < 2 || xx >= W - 2 || zz >= D - 2) continue;
-        const t = (typeof solidTop === 'function' ? solidTop(xx, zz) : g);
-        for (let y = Math.min(t, g) + 1; y <= g + 6 && y < H - 1; y++) world[idx(xx, y, zz)] = T.AIR;
-      }
-      E.placeReturn(x, g, z, 0);
-      U.gold = [x, g, z];
-      try { if (typeof markDirty === 'function') { markDirty(x, z); markDirty(x + 1, z); } } catch (_) {}
-    } catch (e) { if (!U.err) U.err = 'gold ' + e; }
-  }
-
-  /* ---------------- Skeleton / Black Skeleton (shared silhouette) ---------------- */
-
-  function hillH(K, x, z) {
-    // Steep rocky crag, peak under the central tower, filling the lower frame.
-    // Measured: hill ~24-26 at the keep, dropping to the sea by r≈32, steeper
-    // on the camera face (+z).
-    const dx = x - 2, dz = z + 3;
-    const r = Math.hypot(dx * 0.8, dz * 0.7);
-    let h = 25 * Math.max(0, 1 - r / 30);
-    if (z > 2) h *= Math.max(0, 1 - (z - 2) / 20);
-    if (z > 14) h *= Math.max(0, 1 - (z - 14) / 14);
-    // left shoulder under the ruined turret, right under the gable
-    const left = Math.max(0, 16 - Math.hypot(x + 11, z - 4) * 1.1);
-    const right = Math.max(0, 15 - Math.hypot(x - 11, z - 2) * 1.15);
-    h = Math.max(h, left, right);
-    h += (K.h(x, 1, z) * 3 - 1.2);
-    if (h < 0.5) return 0;
-    return h;
-  }
-
-  function buildRuin(K, kind) {
-    const {B, box, h} = K;
-    const black = kind === 'black';
-    const S = pal(K, black ? 'black' : 'mossy');
-    const Rk = function (x, y, z) { return rock(K, x, y, z, black ? 'black' : 'mossy'); };
-    const Fhill = 24;
-    const sea = seaY(K, 0);
-    clearDecor(K);
-
-    // Crag: fill from the sea up, leave a little water around the foot.
-    for (let x = -32; x <= 28; x++) for (let z = -24; z <= 28; z++) {
-      const th = hillH(K, x, z);
-      if (th <= 0) continue;
-      const top = seaY(K, th);
-      for (let y = sea; y <= top; y++) {
-        const isTop = y >= top - 1;
-        let id = Rk(x, y, z);
-        if (isTop) {
-          const v = h(x, 9, z);
-          if (black) id = v < 0.35 ? BLK() : v < 0.55 ? HR() : v < 0.7 ? SSAND() : GRAV();
-          else id = v < 0.4 ? MOSS() : v < 0.6 ? T.MOSSYBRICK : v < 0.8 ? T.COBBLE : T.STONE;
-        }
-        B(x, y, z, id);
-      }
-    }
-
-    // Courtyard shelf behind the arch, in front of the central tower.
-    const courtY = seaY(K, 18);
-    for (let x = -8; x <= 8; x++) for (let z = -2; z <= 8; z++) {
-      if (K.G(x, courtY, z) === T.AIR) {
-        for (let y = sea; y <= courtY; y++) B(x, y, z, Rk(x, y, z));
-      }
-    }
-
-    // Large dark arch carved into the LEFT hillside (cobwebs in the vault).
-    const aX0 = -9, aX1 = -3, aY0 = courtY - 8, aY1 = courtY + 1, aZ = 9;
-    gateArch(K, aX0, aX1, aY0, aY1, aZ, 5, S);
-    // deepen / darken the throat
-    for (let x = aX0 + 1; x <= aX1 - 1; x++) for (let z = aZ - 5; z <= aZ; z++) {
-      for (let y = aY0; y <= aY1; y++) B(x, y, z, T.AIR);
-    }
-    if (!black) {
-      B(-6, aY1 - 1, aZ - 1, T.COBWEB);
-      B(-5, aY1, aZ - 2, T.COBWEB);
-      B(-7, aY0 + 3, aZ - 1, T.COBWEB);
-      B(-4, aY0 + 5, aZ, T.COBWEB);
-      B(-8, aY1 - 2, aZ - 3, T.COBWEB);
-      vineStreak(K, -9, 9, aY0 + 2, aY1 + 2, 2);
-      vineStreak(K, -3, 9, aY0 + 1, aY1 + 3, 2);
-    } else {
-      B(-6, aY0, aZ - 1, MG());
-      B(-5, aY0, aZ - 2, LV());
-    }
-
-    // Left ruined turret (broken merlons, moss, jagged crown).
-    const LT = seaY(K, 18);
-    const LTtop = LT + 11;
-    box(-14, LT - 2, 1, -8, LTtop, 7, function (x, y, z) {
-      const e = x === -14 || x === -8 || z === 1 || z === 7;
-      const jag = e ? (h(x, y, z) * 3 | 0) : 0;
-      if (y > LTtop - jag) return T.AIR;
-      if (!e && y > LT) return T.AIR;
-      return S(x, y, z);
-    });
-    merlonRect(K, -14, 1, -8, 7, LTtop + 1, S, {pitch: 2, ht: 2, broken: 0.45});
-    slit(K, -11, LT + 4, 7, 2, 1);
-    slit(K, -11, LT + 8, 7, 2, 1);
-    slit(K, -11, LT + 4, 1, 2, 1);
-    if (!black) {
-      B(-12, LTtop, 7, T.COBWEB);
-      B(-9, LTtop - 1, 6, T.COBWEB);
-      vineStreak(K, -11, 7, LT + 2, LTtop, 2);
-    }
-
-    // Mid crumbling merloned wall between left turret and central keep.
-    const midY = seaY(K, 19);
-    for (let x = -8; x <= 0; x++) for (let z = 4; z <= 7; z++) {
-      const top = midY + 6 - (h(x, 20, z) * 4 | 0) - (x > -2 ? 2 : 0);
-      for (let y = midY; y <= top; y++) {
-        if (z === 4 || z === 7 || y === midY) B(x, y, z, S(x, y, z));
-      }
-      if (((x + z) & 1) === 0 && h(x, 21, z) > 0.4) B(x, top + 1, z, S(x, top + 1, z));
-      if (!black && h(x, 22, z) < 0.3) B(x, top, z, T.COBWEB);
-    }
-
-    // Tall central square tower (~2× the side towers), jagged crown, holes, moss, a dead branch.
-    const C0x = 0, C1x = 7, C0z = -8, C1z = -1;
-    const baseC = seaY(K, 22);
-    const TOP = baseC + 22;
-    for (let x = C0x; x <= C1x; x++) for (let z = C0z; z <= C1z; z++) {
-      const e = x === C0x || x === C1x || z === C0z || z === C1z;
-      const jag = (h(x, 70, z) * 3 | 0) + (x > 5 && z < -5 ? 4 : 0);
-      const tt = TOP - jag;
-      for (let y = baseC; y <= tt; y++) {
-        if (e || (x >= 2 && x <= 5 && z >= -6 && z <= -3 && y < tt - 1 && (y === baseC))) B(x, y, z, S(x, y, z));
-        else if (e) B(x, y, z, S(x, y, z));
-        else B(x, y, z, T.AIR);
-      }
-      if (e && ((x + z) & 1) === 0 && jag < 2) B(x, tt + 1, z, S(x, tt + 1, z));
-      if (!black && e && h(x, 80, z) < 0.4) B(x, tt, z, T.COBWEB);
-    }
-    // face holes (and mirrored on the back)
-    box(2, baseC + 8, C1z, 4, baseC + 10, C1z, T.AIR);
-    box(5, baseC + 15, C1z, 6, baseC + 17, C1z, T.AIR);
-    box(2, baseC + 8, C0z, 4, baseC + 10, C0z, T.AIR);
-    box(5, baseC + 15, C0z, 6, baseC + 17, C0z, T.AIR);
-    if (black) {
-      B(3, baseC + 8, C1z, MG());
-      B(5, baseC + 15, C1z, MG());
-    }
-    if (!black) {
-      vineStreak(K, 2, C1z, baseC + 4, TOP - 2, 2);
-      vineStreak(K, 6, C1z, baseC + 6, TOP - 4, 2);
-      B(3, baseC + 12, C1z, T.COBWEB);
-    }
-    // dead branch sticking out of the +z face
-    const rot = T.ROTLOG || T.LOG;
-    K.log(6, baseC + 14, 0, rot, 1);
-    K.log(6, baseC + 14, 1, rot, 1);
-    K.log(7, baseC + 14, 1, rot, 1);
-    // interior stair
-    for (let k = 0; k < 20; k++) {
-      const sx = 2 + (k % 3), sz = -6 + ((k / 3 | 0) % 2);
-      K.stair(sx, baseC + k, sz, 2, 165);
-    }
-    K.lamp(3, TOP - 2, -4, -1, black ? {soul: 1} : {});
-
-    // Right ruined gabled turret, two stacked dark windows, ladder on the inner face.
-    const Rbase = seaY(K, 16);
-    const Rtop = Rbase + 12;
-    box(9, Rbase - 1, -1, 15, Rtop, 5, function (x, y, z) {
-      const e = x === 9 || x === 15 || z === -1 || z === 5;
-      const jag = e ? (h(x, y, z) * 2 | 0) : 0;
-      if (y > Rtop - jag) return T.AIR;
-      if (!e && y > Rbase) return T.AIR;
-      return S(x, y, z);
-    });
-    // broken gable on the +z face (and mirrored -z)
-    for (let L = 0; L < 5; L++) {
-      const s = 3 - L;
-      if (s < 0) break;
-      for (let x = 12 - s; x <= 12 + s; x++) {
-        if (h(x, 40, L) > 0.25) {
-          B(x, Rtop + 1 + L, 5, S(x, Rtop + 1 + L, 5));
-          B(x, Rtop + 1 + L, -1, S(x, Rtop + 1 + L, -1));
-        }
-      }
-    }
-    slit(K, 12, Rbase + 4, 5, 2, 1);
-    slit(K, 12, Rbase + 8, 5, 2, 1);
-    slit(K, 12, Rbase + 4, -1, 2, 1);
-    slit(K, 12, Rbase + 8, -1, 2, 1);
-    if (black) { B(12, Rbase + 4, 5, MG()); B(12, Rbase + 8, 5, MG()); }
-    // wooden ladder on the inner (-x) face
-    ladder(K, 8, Rbase + 1, Rtop - 1, 2);
-    if (!black) {
-      B(10, Rtop, 5, T.COBWEB);
-      vineStreak(K, 14, 5, Rbase + 2, Rtop, 2);
-    }
-
-    // Skeleton props on the battlements (the painting shows Minecraft-style
-    // skeletons standing on the walls — voxel stand-ins so they are visible
-    // in stills without touching garrison caps).
-    skelProp(K, -5, midY + 8, 7);
-    skelProp(K, -10, LTtop + 2, 4);
-    skelProp(K, 3, TOP + 1, -1);
-
-    // Dead bare trees either side of the crag.
-    deadTree(K, -20, 12, seaY(K, 4), h);
-    deadTree(K, 18, 10, seaY(K, 5), h);
-    deadTree(K, -16, -8, seaY(K, 8), h);
-
-    // Dress the court: ferns / cobwebs or magma seeps.
-    for (let x = -9; x <= 9; x++) for (let z = -2; z <= 9; z++) {
-      const v = h(x, 20, z);
-      if (K.G(x, courtY + 1, z) !== T.AIR) continue;
-      if (!black && v < 0.1) B(x, courtY + 1, z, FERN());
-      else if (!black && v < 0.2) B(x, courtY + 1, z, T.COBWEB);
-      else if (black && v < 0.08) B(x, courtY + 1, z, MG());
-    }
-
-    // Crypt under the central keep, kind-specific loot.
-    const cry = seaY(K, 8);
-    for (let x = 1; x <= 6; x++) for (let z = -7; z <= -3; z++) {
-      for (let y = cry - 1; y <= cry + 3; y++) {
-        const e = x === 1 || x === 6 || z === -7 || z === -3 || y === cry - 1 || y === cry + 3;
-        B(x, y, z, e ? Rk(x, y, z) : T.AIR);
-      }
-    }
-    if (black) K.chest(4, cry, -6, 2, [[IT.FLINTSTEEL, 1], [T.OBSIDIAN, 4], [IT.GOLDINGOT, 3]]);
-    else K.chest(4, cry, -6, 2, [[IT.IRONINGOT, 3], [IT.BREAD, 3], [IT.POTATO, 4]]);
-    // drop into the crypt from the court
-    for (let k = 0; k <= 8; k++) {
-      B(3, courtY - k, -2, T.AIR);
-      if (k < 8) K.stair(3, courtY - 1 - k, -2, 0, 165);
-    }
-
-    if (black) {
-      lavaVeins(K);
-      // unfinished nether portal, off to the side, not on the facade
-      blackPortal(K, courtY);
-    }
-
-    U.counts[kind] = {court: courtY, central: TOP, left: LTtop, right: Rtop};
-    return {kind: kind, courtY: courtY, TOP: TOP};
-  }
-
-  /* Vein polylines traced from the Black Skeleton painting: thick bright
-     lava running down the tower faces and the hill, pooling at the base. */
-  function lavaVeins(K) {
-    const paths = [
-      // central +z face, left streak from merlons down onto the hill then the foot
-      [[1, 44, -1], [1, 36, -1], [0, 28, 0], [0, 22, 2], [-1, 16, 6], [-2, 10, 10], [-2, 4, 14], [-1, 1, 18]],
-      // central +z face, right streak
-      [[6, 42, -1], [6, 32, -1], [7, 24, 0], [7, 18, 2], [8, 12, 6], [9, 6, 10], [10, 2, 14], [11, 1, 18]],
-      // mid front of the keep
-      [[3, 38, -1], [3, 30, 0], [3, 22, 1], [2, 14, 5], [2, 8, 10], [3, 3, 16]],
-      // left turret front, down the hill left of the arch
-      [[-11, 28, 7], [-11, 22, 7], [-12, 16, 8], [-13, 10, 10], [-14, 5, 14], [-15, 2, 18]],
-      // right gable front onto the right slope
-      [[13, 28, 5], [14, 22, 5], [15, 16, 6], [16, 10, 8], [17, 5, 12], [18, 2, 16]],
-      // hill seep left of the arch toward the pool
-      [[-6, 16, 9], [-5, 10, 12], [-4, 5, 16], [-3, 2, 20], [-1, 1, 22]],
-      // hill seep under the mid wall
-      [[-2, 18, 7], [-1, 12, 10], [0, 6, 14], [1, 2, 18], [2, 1, 22]]
-    ];
-    for (let p = 0; p < paths.length; p++) rasterVein(K, paths[p]);
-    // pool at the foot of the crag (front, toward the camera)
-    const sea = seaY(K, 1);
-    for (let x = -6; x <= 8; x++) for (let z = 16; z <= 24; z++) {
-      const d = Math.hypot(x - 1, z - 20);
-      if (d > 6) continue;
-      Bcap(K, x, sea, z, d < 3.5 ? LV() : MG());
-      if (d < 2.2) Bcap(K, x, sea + 1, z, LV());
-    }
-  }
-
-  function Bcap(K, x, y, z, id) {
-    // world y must stay in bounds; seaY already returns a K-local y
-    K.B(x, y, z, id);
-  }
-
-  function rasterVein(K, pts) {
-    const sea = seaY(K, 0);
-    for (let i = 0; i < pts.length - 1; i++) {
-      const a = pts[i], b = pts[i + 1];
-      const ay = seaY(K, a[1]), by = seaY(K, b[1]);
-      const n = Math.max(1, Math.abs(b[0] - a[0]), Math.abs(by - ay), Math.abs(b[2] - a[2])) * 2;
-      for (let t = 0; t <= n; t++) {
-        const u = t / n;
-        const x = Math.round(a[0] + (b[0] - a[0]) * u);
-        const y = Math.round(ay + (by - ay) * u);
-        const z = Math.round(a[2] + (b[2] - a[2]) * u);
-        K.B(x, y, z, MG());
-        K.B(x + 1, y, z, (K.h(x, y, z) < 0.5 ? LV() : MG()));
-        if (K.h(x, y + 3, z) < 0.4) K.B(x, y, z + 1, MG());
-        // a dim ember edge so the vein reads thick
-        if (K.h(x, y + 5, z) < 0.3) K.B(x - 1, y, z, HR());
-      }
-    }
-  }
-
-  function blackPortal(K, courtY) {
-    const x = -16, z = -10, y = courtY;
-    const ob = OB();
-    for (let a = 0; a < 5; a++) {
-      K.B(x + a, y, z, ob);
-      K.B(x + a, y + 6, z, a === 1 || a === 3 ? T.AIR : ob); // broken lintel
-    }
-    for (let b = 1; b <= 5; b++) {
-      K.B(x, y + b, z, ob);
-      if (b < 5) K.B(x + 4, y + b, z, ob);
-    }
-  }
-
-  /* Masonry-only touch-up after later generate wraps. Recolour grey stone
-     inside the black keep's footprint; never refill the hill or retrace veins. */
-  function touchUp() {
-    try {
-      if (typeof g9castles === 'undefined' || !g9castles) return;
-      const black = g9castles.find(function (c) { return c[0] === 'black'; });
-      if (!black) return;
-      const cx = black[1], cz = black[2], R = 36;
-      const grey = new Set([T.STONEBRICK, T.MOSSYBRICK, T.COBBLE, T.STONE, WST(), T.SLATE].filter(Boolean));
-      const skip = new Set([T.AIR, T.LAVA, T.MAGMA, T.WATER, LV(), MG(), T.CHEST, T.DOOR, T.DOORTOP, T.COBWEB, T.TORCH, T.BED, T.PORTAL, T.EGYPTPORTAL, T.LOG, T.ROTLOG, T.PLANKS, T.FENCE, T.WOOL, T.WOOLRED, T.WOOLGREEN, T.WOOLYELLOW, T.WOOLORANGE, T.WOOLBLUE, T.WOOLPURPLE].filter(Boolean));
-      for (let x = cx - R; x <= cx + R; x++) for (let z = cz - R; z <= cz + R; z++) {
-        if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
-        if (Math.hypot(x - cx, z - cz) > R) continue;
-        for (let y = 1; y < H - 1; y++) {
-          const i = idx(x, y, z), b = world[i];
-          if (!b || skip.has(b)) continue;
-          if (grey.has(b)) {
-            const v = (window.__c151 && __c151.h3) ? __c151.h3(x, y, z) : ((x * 13 + y * 7 + z * 3) & 255) / 255;
-            world[i] = v < 0.18 ? OB() : v < 0.4 ? DS() : v < 0.8 ? BLK() : HR();
-          }
-        }
-        if (typeof setCol === 'function') setCol(x, z);
-      }
-    } catch (e) { if (!U.err) U.err = 'touch ' + e; }
   }
 
   function unlockFootprint(list, R) {
@@ -97341,15 +96967,7 @@ try {
 
   function rotOf(c, st) {
     if (st && st.rot != null) return st.rot;
-    try {
-      const b = window.__c113 && __c113.bridges && __c113.bridges.find(function (q) { return q.k === c[0]; });
-      if (b && b.a) {
-        const ux = -b.a[2], uz = -b.a[3];
-        // local +z should line up with (ux, uz)
-        if (Math.abs(uz) >= Math.abs(ux)) return uz >= 0 ? 0 : 2;
-        return ux >= 0 ? 3 : 1;
-      }
-    } catch (_) {}
+    if (U.rots && U.rots[c[0]] != null) return U.rots[c[0]];
     return 0;
   }
 
@@ -97357,23 +96975,25 @@ try {
     const C = window.__c151;
     if (!C || !C.ctx || typeof g9castles === 'undefined' || !g9castles) return;
     ensureWool();
+    ensureModels();
     const list = only ? g9castles.filter(function (c) { return c[0] === only; }) : g9castles.slice();
-    const saved = unlockFootprint(list, 46);
+    const saved = unlockFootprint(list, FOOT_R);
     const t0 = performance.now();
     try {
       for (let ci = 0; ci < list.length; ci++) {
         const c = list[ci], fn = C.B[c[0]];
         if (!fn) continue;
         const st = (C.st && C.st[c[0]]) || {};
-        const gy = st.gy != null ? st.gy : (typeof solidTop === 'function' ? solidTop(c[1], c[2]) : SEA0());
+        const gy = st.gy != null ? st.gy : (typeof solidTop === 'function' ? Math.max(SEA0(), solidTop(c[1], c[2])) : SEA0());
         const rot = rotOf(c, st);
-        if (typeof C.clearSite === 'function') C.clearSite(c, Math.min(gy, SEA0()), 44, 80);
+        // Do NOT call C.clearSite — that flattens a pad. Only unlock and stamp;
+        // foundations hang down to natural ground.
         const K = C.ctx(c, ci, gy, rot);
         const ret = fn(K) || {};
         C.st[c[0]] = Object.assign({rot: rot, gy: gy}, ret, {lights: K.lights, chests: K.chestsN, rebuilt: 1});
         if (typeof setCol === 'function') {
-          for (let X = c[1] - 47; X <= c[1] + 47; X++) for (let Z = c[2] - 47; Z <= c[2] + 47; Z++) {
-            if (X > 0 && Z > 0 && X < W - 1 && Z < D - 1 && Math.hypot(X - c[1], Z - c[2]) <= 47) setCol(X, Z);
+          for (let X = c[1] - FOOT_R; X <= c[1] + FOOT_R; X++) for (let Z = c[2] - FOOT_R; Z <= c[2] + FOOT_R; Z++) {
+            if (X > 0 && Z > 0 && X < W - 1 && Z < D - 1 && Math.hypot(X - c[1], Z - c[2]) <= FOOT_R) setCol(X, Z);
           }
         }
       }
@@ -97394,7 +97014,6 @@ try {
       try {
         if (!DIM.cur && !cityGen) {
           rebuildAll();
-          touchUp();
         }
       } catch (e) {
         if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e;
@@ -97407,7 +97026,6 @@ try {
 
   hook();
 })();
-
 
 
 </script>
