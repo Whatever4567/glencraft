@@ -475,11 +475,36 @@ def mask_clansman(rgb, rembg_a):
     return seed, dict(sky=sky, trees=trees, heather=heather)
 
 
+def tidy_ruin_silhouette(castle, sky, kind):
+    """Keep spiky merlons, drop sky between them and leftover side-tree lumps."""
+    h, w = castle.shape
+    cap_y = int(0.16 * h)
+    body = castle.copy()
+    body[:cap_y] = False
+    body = close_open(body, 5, 3)
+    out = castle.copy()
+    out[cap_y:] = body[cap_y:]
+    top = out.copy()
+    top[cap_y:] = False
+    top = close_open(top, 3, 0)
+    out[:cap_y] = top[:cap_y]
+    if sky is not None:
+        x0, x1 = int(0.08 * w), int(0.92 * w)
+        for x in range(x0, x1):
+            for y in range(0, cap_y + int(0.04 * h)):
+                if out[y, x] and sky[y, x]:
+                    out[y, x] = False
+                elif out[y, x]:
+                    break
+    return keep_large_components(out, min_frac=0.004, min_rel=0.08)
+
+
 def mask_ruin(rgb, disp, kind):
     black = kind == 'black-skeleton'
     sky = sky_mask_ruin(rgb, black=black)
     trees = edge_trees(rgb, sky, frac=0.115)
-    sil = close_open((~sky) & (~trees), 5, 3)
+    # Light close only — a 5/3 close on the full silhouette fills merlon sky.
+    sil = close_open((~sky) & (~trees), 3, 0)
     sil = largest_component(sil)
     castle = cut_terrain(sil, disp, kind)
     # Side trees can still attach at the ankles — drop far sides below mid.
@@ -490,7 +515,7 @@ def mask_ruin(rgb, disp, kind):
     else:
         castle[:, :int(w * 0.08)] = False
         castle[:, int(w * 0.92):] = False
-    castle = keep_large_components(close_open(castle, 3, 3), min_frac=0.004, min_rel=0.08)
+    castle = tidy_ruin_silhouette(castle, sky, kind)
     return castle, dict(sky=sky, trees=trees, sil=sil)
 
 
