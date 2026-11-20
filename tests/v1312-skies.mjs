@@ -13,9 +13,9 @@ const src = fs.readFileSync(path.join(root, 'tools/content-source/skies-1312.js'
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
-ok(ver.v === '1.2.113', 'version.json is 1.2.113');
-ok(html.includes("const GAME_VERSION = '1.2.113';"), 'GAME_VERSION is 1.2.113');
-ok(html.includes('<!-- glencraft-build: b1313-v1.2.113 -->') && html.includes('<!-- glencraft-build: b1312-v1.2.112 -->'), '1.2.113 and 1.2.112 build markers');
+ok(ver.v === '1.2.114', 'version.json is 1.2.114');
+ok(html.includes("const GAME_VERSION = '1.2.114';"), 'GAME_VERSION is 1.2.114');
+ok(html.includes('<!-- glencraft-build: b1314-v1.2.114 -->') && html.includes('<!-- glencraft-build: b1313-v1.2.113 -->') && html.includes('<!-- glencraft-build: b1312-v1.2.112 -->'), '1.2.114, 1.2.113 and 1.2.112 build markers');
 ok(html.includes('<!-- glencraft-build: b1311-v1.2.111 -->'), '1.2.111 marker stays');
 ok(html.includes('<!-- glencraft-build: b1310-v1.2.110 -->'), '1.2.110 marker stays');
 ok(src.includes('function sky1312(WIN)'), 'source IIFE is named sky1312(WIN)');
@@ -24,10 +24,11 @@ ok(html.includes('__sky1312') && html.includes('function palette'), 'runtime hel
 ok(fs.existsSync(path.join(root, 'assets/sky/overworld-sunset.webp')), 'full-resolution sunset plate webp is shipped');
 ok(src.includes('assets/sky/overworld-sunset.webp') && src.includes('LinearMipmapLinearFilter'), 'plate is loaded with mipmaps and linear filtering');
 
+const s114 = html.indexOf('{"v":"v1.2.114"');
 const s113 = html.indexOf('{"v":"v1.2.113"');
 const s0 = html.indexOf('{"v":"v1.2.112"');
 const s1 = html.indexOf('{"v":"v1.2.111"', s0);
-ok(s113 > 0 && s113 < s0 && s1 > s0, 'PATCH_NOTES has 1.2.113 before 1.2.112 before 1.2.111');
+ok(s114 > 0 && s114 < s113 && s113 < s0 && s1 > s0, 'PATCH_NOTES has 1.2.114 before 1.2.113 before 1.2.112 before 1.2.111');
 const notes = html.slice(s0, s1);
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew/i.test(notes), '1.2.112 notes have no food');
 ok(/own sky/i.test(notes) && /orange/i.test(notes) && /pink/i.test(notes), 'notes mention per-realm sky and sunset colours');

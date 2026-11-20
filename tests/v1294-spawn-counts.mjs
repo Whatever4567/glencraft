@@ -3,7 +3,7 @@
 // LIVE 28 concurrent garrison skeletons, HUMAN_LIVE 25. Those constants did
 // not change in 1.2.91 — the 1.2.91 regression moved the keeps inland, so the
 // full garrisons appeared next to spawn. This test locks the published caps
-// and asserts that, with keeps back on the map-edge isles, almost none of
+// and asserts that, with keeps on their (now natural-terrain) sites, almost none of
 // those units materialize next to spawn.
 //
 // Usage: node tests/v1294-spawn-counts.mjs [indexDir]

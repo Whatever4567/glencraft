@@ -1,6 +1,9 @@
 // Highlands (Glencraft) land rules.
-//  1) The three keeps sit on the official map-edge isles (pre-1.2.91 layout),
-//     never inside the spawn exclusion (I.R + 50).
+//  1) The three keeps (human / mossy / black) spawn on naturally generated
+//     land, never inside the spawn exclusion (I.R + 50). New worlds no
+//     longer pin them to the pre-1.2.91 map-edge isles: Clansman prefers a
+//     hillside near water, the skeleton keeps prefer high ground. Positions
+//     are seed-deterministic. Old saves are unchanged.
 //  2) Sand / desert temples (sandstone pyramids and the ruined temple) must
 //     not exist anywhere in the Glencraft overworld (the temple lives in
 //     Egypt land, reached through the gold portal).
@@ -149,7 +152,8 @@ for (let i = 0; i < seeds.length; i++) {
       const dSp = spawn ? Math.hypot(c[1] - spawn[0], c[2] - spawn[2]) : dIsl;
       const isle = isles.find(q => q.k === c[0]);
       const dIsle = isle ? Math.hypot(c[1] - isle.x, c[2] - isle.z) : null;
-      return {k: c[0], x: c[1], z: c[2], dIsl: +dIsl.toFixed(1), dSpawn: +dSp.toFixed(1), dIsle: dIsle != null ? +dIsle.toFixed(1) : null, inside: dIsl < exclR || dSp < exclR, offIsle: dIsle != null && dIsle > 160};
+      const landY = (typeof solidTop === 'function') ? solidTop(c[1], c[2]) : 0;
+      return {k: c[0], x: c[1], z: c[2], dIsl: +dIsl.toFixed(1), dSpawn: +dSp.toFixed(1), dIsle: dIsle != null ? +dIsle.toFixed(1) : null, landY: landY, onLand: landY > (typeof SEA === 'number' ? SEA : 40), inside: dIsl < exclR || dSp < exclR, offIsle: dIsle != null && dIsle > 160};
     });
 
     // Sandstone temple / pyramid footprints anywhere in the Glencraft overworld.
@@ -309,12 +313,12 @@ for (let i = 0; i < seeds.length; i++) {
   const got = (r.kinds || []).slice().sort().join(',');
   const expect = want.slice().sort().join(',');
   const badC = (r.castles || []).filter(c => c.inside);
-  const off = (r.castles || []).filter(c => c.offIsle);
+  const wet = (r.castles || []).filter(c => c.onLand === false);
   const issues = [];
   if (r.nCastles !== 3) issues.push('expected 3 castles, got ' + r.nCastles + ' ' + JSON.stringify(r.castles));
   if (got !== expect) issues.push('kinds ' + got + ' != ' + expect);
   if (badC.length) issues.push('castles inside spawn exclusion ' + JSON.stringify(badC));
-  if (off.length) issues.push('castles not on map-edge isles ' + JSON.stringify(off));
+  if (wet.length) issues.push('castles not on natural land above sea ' + JSON.stringify(wet));
   if (r.nTemples) issues.push('desert temple/pyramid sandstone in Glencraft overworld ' + JSON.stringify(r.temples));
   if (r.pyr) issues.push('pyramid record in Glencraft overworld ' + JSON.stringify(r.pyr));
   if (!r.gold || !r.gold.ok) issues.push('no lit gold portal at the clan castle ' + JSON.stringify(r.gold));
@@ -347,4 +351,4 @@ if (failures.length || nOk !== seeds.length) {
   console.log('FAIL v1293-uk-land', nOk + '/' + seeds.length, 'failures', failures.length);
   process.exit(1);
 }
-console.log('PASS v1293-uk-land', nOk + '/' + seeds.length, 'seeds: edge keeps, no overworld desert temples, gold portal at the clan castle, Egypt temple present, solid spawn pad');
+console.log('PASS v1293-uk-land', nOk + '/' + seeds.length, 'seeds: natural-land keeps, no overworld desert temples, gold portal at the clan castle, Egypt temple present, solid spawn pad');

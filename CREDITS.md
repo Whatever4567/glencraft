@@ -144,6 +144,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.114 Clansman, Skeleton and Black Skeleton keeps
+
+- The three survival keeps are rebuilt as block-by-block replicas of the official concept paintings: Clansman is a compact clustered Scottish tower-house with conical and crow-stepped roofs, a portcullis gate, red tartan banners and heather terraces by a loch; Skeleton is a dense spiky gothic ruin with a tall broken keep; Black Skeleton is the same silhouette in blackstone with lava veins running down the walls.
+- On new worlds the keeps spawn on naturally generated land with the gate facing open or downhill ground. Doors, chests, garrisons and the clan gold portal move with the stamp. Older saved worlds are unchanged.
+
 ## v1.2.112 Time-of-day skies and a literal overworld sunset plate
 
 - Each realm keeps its own sky. In the Highlands the sky now shifts through the day: a warmer sunset of deep orange, pink and purple with a golden glow at the horizon, and a dark starry night.
