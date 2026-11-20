@@ -18,9 +18,9 @@ S = 3
 
 # v2 local layout (no hill):
 # left turret box(-14..-8) height 11 → *3
-LT = dict(x0=-14 * S, x1=-8 * S, z0=-2 * S, z1=4 * S, y1=14 * S)   # -42..-24, y1=42  (a bit taller than 11*3 for presence)
+LT = dict(x0=-14 * S, x1=-8 * S, z0=-2 * S, z1=3 * S, y1=20 * S)   # -42..-24, y1=60, rises above the arch
 # arch in the left wing, painted as a big hillside opening: x=-9..-3 in v2
-ARCH = dict(x0=-11 * S, x1=-4 * S, z=5 * S, y1=12 * S, depth=8)    # big hillside arch
+ARCH = dict(x0=-12 * S, x1=-4 * S, z=6 * S, y1=12 * S, depth=10)   # wide dominant arch, wall not a 50-tall slab
 # mid ruined wall / pinnacles between left and center
 # central tower 0..7, -8..-1, height 22
 CT = dict(x0=0 * S, x1=7 * S, z0=-8 * S, z1=-1 * S, y1=28 * S)     # 0..21, -24..-3, y1=84  (the tall keep)
@@ -91,17 +91,19 @@ def punch_holes(g, x0, y0, z0, x1, y1, z1, n=12, r=2):
         carve_box(g, x - r, y - r, z - r, x + r, y + r, z + r)
 
 
-def cobweb_fill(g, x0, y0, z0, x1, y1, z1, chance=0.12):
+def cobweb_fill(g, x0, y0, z0, x1, y1, z1, chance=0.06):
+    """Sparse cobwebs hanging under lintels and in corners — not face plaster."""
     x0, x1 = ord2(x0, x1); y0, y1 = ord2(y0, y1); z0, z1 = ord2(z0, z1)
     for x in range(x0, x1 + 1):
         for y in range(y0, y1 + 1):
             for z in range(z0, z1 + 1):
                 if g.get(x, y, z):
                     continue
-                # hang next to masonry
-                near = (g.get(x + 1, y, z) or g.get(x - 1, y, z) or
-                        g.get(x, y + 1, z) or g.get(x, y, z + 1) or g.get(x, y, z - 1))
-                if near and rnd(x, y, z, 21) < chance:
+                above = g.get(x, y + 1, z)
+                corner = sum(1 for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1)) if g.get(x + dx, y, z + dz))
+                if above and rnd(x, y, z, 21) < chance:
+                    g.set(x, y, z, COBWEB)
+                elif corner >= 2 and rnd(x, y, z, 22) < chance * 0.6:
                     g.set(x, y, z, COBWEB)
 
 
@@ -200,7 +202,7 @@ def build_ruin(kind='mossy'):
     black = kind == 'black'
     pal = pal_black if black else pal_mossy
     step_id = DSTILE if black else OAKST
-    g = Grid(-55, 60, -8, 110, -40, 30)
+    g = Grid(-70, 75, -8, 120, -45, 40)
 
     # ----- LEFT RUINED TURRET -----
     x0, x1, z0, z1, y1 = LT['x0'], LT['x1'], LT['z0'], LT['z1'], LT['y1']
@@ -217,19 +219,29 @@ def build_ruin(kind='mossy'):
     window(g, (x0 + x1) // 2 - 1, 16, z1, pal, '+z', w=2, h=4, recess=1)
     window(g, (x0 + x1) // 2 - 1, 28, z1, pal, '+z', w=2, h=3, recess=1)
     rubble_pile(g, (x0 + x1) // 2, z1 + 2, 0, pal, r=4, h=3)
-    cobweb_fill(g, x0, 8, z0, x1, y1, z1, 0.10)
+    cobweb_fill(g, x0, 8, z0, x1, y1, z1, 0.05)
 
     # ----- BIG ARCH in the left wing / lower left (reads as hillside arch on a slope) -----
-    # A thick ruined wall containing the arch, slightly in front of the left turret.
-    ax0, ax1, az, ay1, ad = ARCH['x0'] - 4, ARCH['x1'] + 2, LT['z1'] + 2, ARCH['y1'] + 4, ARCH['depth']
-    # wall mass (shell) the arch is cut from
-    shell_box(g, ax0, -2, az - ad, ax1, ay1 + 6, az + 2, pal, thick=2, floor=True, roof=False)
-    jagged_top(g, ax0, az - ad, ax1, az + 2, ay1, ay1 + 10, pal)
-    # the opening itself — tall rounded/stepped arch, >= 3 wide (painted is much wider)
-    archway(g, ax0 + 3, ax1 - 3, 0, ay1, az + 2, pal, depth=ad + 2, face='+z')
-    carve_box(g, ax0 + 4, 0, az - ad, ax1 - 4, ay1 - 2, az + 2)
-    # cobwebs in the arch
-    cobweb_fill(g, ax0 + 3, 2, az - 2, ax1 - 3, ay1, az + 2, 0.25)
+    # Wall is only as wide as the opening plus jambs, and only a little taller than
+    # the arch — not a flat 50-block slab. The left turret rises above the left jamb.
+    ax0, ax1, az, ay1, ad = ARCH['x0'] - 2, ARCH['x1'] + 2, LT['z1'] + 3, ARCH['y1'] + 6, ARCH['depth']
+    # sides stay lower than the crown over the opening
+    shell_box(g, ax0, -2, az - ad, ax1, ay1, az + 2, pal, thick=2, floor=True, roof=False)
+    # ruined, peaked top over the opening only — sides drop away
+    mid = (ax0 + ax1) // 2
+    for x in range(ax0, ax1 + 1):
+        drop = int(abs(x - mid) * 0.45)
+        jagged_top(g, x, az - ad, x, az + 2, ay1 - 2 - drop, ay1 + 6 - drop, pal)
+    # the opening itself — tall, wide, clearly empty (the painting's dominant left arch)
+    archway(g, ax0 + 2, ax1 - 2, 0, ay1, az + 2, pal, depth=ad + 2, face='+z')
+    carve_box(g, ax0 + 3, 0, az - ad - 1, ax1 - 3, ay1 - 1, az + 3)
+    # stepped inner soffit in the same stone, then keep the void empty
+    for s in range(1, 6):
+        for x in range(ax0 + 2 + s, ax1 - 1 - s + 1):
+            g.set(x, ay1 - 1 + s, az + 2, pal(x, ay1 - 1 + s, az + 2) if callable(pal) else pal)
+    carve_box(g, ax0 + 4, 0, az - ad, ax1 - 4, ay1 - 4, az + 3)
+    # cobwebs only under the soffit, not filling the opening
+    cobweb_fill(g, ax0 + 3, ay1 - 8, az - 2, ax1 - 3, ay1, az + 2, 0.08)
     rubble_pile(g, (ax0 + ax1) // 2, az + 3, 0, pal, r=5, h=2)
 
     # ----- MID RUINED WALL / PINNACLES -----
@@ -243,8 +255,8 @@ def build_ruin(kind='mossy'):
             skel_figure(g, px, ph - 2, pz + 3)
     # corridor through the mid wall at ground, 3 wide, linking left turret to center
     carve_box(g, MID_X0, 1, -1, MID_X1, 4, 1)
-    cobweb_fill(g, MID_X0, 1, MID_Z0, MID_X1, MID_Y, MID_Z1, 0.08)
-    moss_streaks(g, MID_X0, 0, MID_Z0, MID_X1, MID_Y, MID_Z1, '+z', n=14)
+    cobweb_fill(g, MID_X0, 1, MID_Z0, MID_X1, MID_Y, MID_Z1, 0.04)
+    moss_streaks(g, MID_X0, 0, MID_Z0, MID_X1, MID_Y, MID_Z1, '+z', n=6)
 
     # ----- CENTRAL TALL TOWER -----
     cx0, cx1, cz0, cz1, cy1 = CT['x0'], CT['x1'], CT['z0'], CT['z1'], CT['y1']
@@ -262,8 +274,8 @@ def build_ruin(kind='mossy'):
         if y in (32, 64):
             window(g, (cx0 + cx1) // 2 - 5, y + 4, cz1, pal, '+z', w=1, h=3, recess=1)
     punch_holes(g, cx0, 20, cz0, cx1, cy1 - 8, cz1, n=10, r=1)
-    moss_streaks(g, cx0, 0, cz0, cx1, cy1, cz1, '+z', n=12)
-    cobweb_fill(g, cx0, 10, cz0, cx1, cy1, cz1, 0.08)
+    moss_streaks(g, cx0, 0, cz0, cx1, cy1, cz1, '+z', n=5)
+    cobweb_fill(g, cx0, 10, cz0, cx1, cy1, cz1, 0.04)
     # skeletons on the upper battlements (painting has figures on the walls)
     skel_figure(g, cx0 + 2, cy1 + 3, cz1)
     skel_figure(g, cx1 - 2, cy1, cz1 - 1)
@@ -278,11 +290,19 @@ def build_ruin(kind='mossy'):
     carve_box(g, MID_X1 - 2, 1, -1, cx0 + 2, 4, 1)
 
     # Ruined connecting curtains so the three masses read as one structure (no stamped hill).
-    jagged_top(g, cx1 - 2, -4, RT['x0'] + 2, 4, 4, 28, pal)
-    jagged_top(g, LT['x1'] - 2, 0, CT['x0'] + 2, 6, 4, 32, pal)
-    # extra mid pinnacles (the painting's jagged mid-left spikes)
-    for px, pz, ph in ((-18, 4, 52), (-10, 6, 46), (-2, 3, 50), (4, 5, 38)):
-        jagged_top(g, px - 2, pz - 2, px + 2, pz + 2, 16, ph, pal)
+    jagged_top(g, cx1 - 2, -5, RT['x0'] + 2, 5, 2, 34, pal)
+    jagged_top(g, LT['x1'] - 2, -2, CT['x0'] + 2, 8, 2, 40, pal)
+    # Dominant mid-left pinnacles (the painting's jagged spikes between left and centre)
+    for px, pz, ph, w in ((-20, 8, 62, 2), (-14, 10, 56, 2), (-8, 7, 66, 3),
+                          (-2, 9, 58, 2), (4, 6, 48, 2), (-16, 4, 44, 2)):
+        jagged_top(g, px - w, pz - w, px + w, pz + w, 18, ph, pal)
+    # Break the boxy left / right silhouettes: bite corners, add depth jogs
+    punch_holes(g, LT['x0'], 10, LT['z0'], LT['x1'], LT['y1'] - 6, LT['z1'], n=14, r=2)
+    punch_holes(g, RT['x0'], 10, RT['z0'], RT['x1'], RT['y1'] - 4, RT['z1'], n=8, r=2)
+    # 1-block jogs on the left front so it isn't a flat rectangle
+    for x in range(LT['x0'], LT['x1'] + 1, 3):
+        if rnd(x, 0, LT['z1'], 61) > 0.45:
+            jagged_top(g, x, LT['z1'], x + 1, LT['z1'] + 2, 8, 16 + int(rnd(x, 1, 0, 62) * 20), pal)
 
     # ----- RIGHT GABLED TOWER + LADDER -----
     rx0, rx1, rz0, rz1, ry1 = RT['x0'], RT['x1'], RT['z0'], RT['z1'], RT['y1']
@@ -307,8 +327,8 @@ def build_ruin(kind='mossy'):
     ladder_up(g, rx0, 2, ry1 + 2, (rz0 + rz1) // 2 + 2, face='-x')
     # also visible from the front-right? the painting shows the ladder on the inner
     # (left) side of the right tower, facing the central keep — that's -x.
-    cobweb_fill(g, rx0, 4, rz0, rx1, ry1, rz1, 0.12)
-    moss_streaks(g, rx0, 0, rz0, rx1, ry1, rz1, '+z', n=8)
+    cobweb_fill(g, rx0, 4, rz0, rx1, ry1, rz1, 0.05)
+    moss_streaks(g, rx0, 0, rz0, rx1, ry1, rz1, '+z', n=4)
     rubble_pile(g, mid, rz1 + 3, 0, pal, r=4, h=3)
     # ground corridor from center to right
     carve_box(g, cx1 - 1, 1, -1, rx0 + 2, 4, 1)
@@ -316,17 +336,17 @@ def build_ruin(kind='mossy'):
     skel_figure(g, rx0 + 2, ry1 + 2, rz1)
 
     # ----- DEAD TREES (decorations at the painted left/right of the footprint) -----
-    dead_tree(g, ax0 - 10, 0, az + 6, h=22)
-    dead_tree(g, rx1 + 10, 0, rz1 + 4, h=20)
+    dead_tree(g, ax0 - 12, 0, az + 8, h=26)
+    dead_tree(g, rx1 + 12, 0, rz1 + 6, h=24)
     # a couple of smaller ones mid-slope left
-    dead_tree(g, ax0 - 6, 0, az - 4, h=14)
+    dead_tree(g, ax0 - 8, 0, az - 2, h=18)
 
     # more cobwebs on the lower left (painting has several on the slope/arch)
-    cobweb_fill(g, ax0 - 4, 0, az - 2, ax1 + 2, 16, az + 6, 0.18)
+    cobweb_fill(g, ax0 - 2, 4, az - 1, ax1 + 1, 14, az + 3, 0.06)
 
     # relief on front faces
-    relief_face(g, cx0, 8, cz1, cx1, cy1, cz1, pal, '+z', 0.22)
-    relief_face(g, x0, 4, z1, x1, y1, z1, pal, '+z', 0.2)
+    relief_face(g, cx0, 8, cz1, cx1, cy1, cz1, pal, '+z', 0.08)
+    relief_face(g, x0, 4, z1, x1, y1, z1, pal, '+z', 0.08)
 
     if black:
         for path in BLACK_VEINS:

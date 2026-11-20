@@ -23,6 +23,9 @@
   const FOOT_R = 90; // unlock / setCol radius for the upscaled keeps
 
   function installSolidWool(id, key, hex, nice) {
+    // mat() expects a texture KEY string (it calls tex(key) which reads texCache).
+    // Passing a THREE.Texture here used to produce a black/empty material, so the
+    // tartan banners rendered as black rectangles with only the yellow wool visible.
     try {
       const cnv = document.createElement('canvas');
       cnv.width = cnv.height = 16;
@@ -40,14 +43,22 @@
         tex.needsUpdate = true;
         if (typeof texCache !== 'undefined') texCache[key] = tex;
         if (typeof texImg !== 'undefined') texImg[key] = cnv;
+        try {
+          const rgb = hex.replace('#', '');
+          const av = parseInt(rgb.length === 6 ? rgb : '888888', 16);
+          if (typeof AVG !== 'undefined') AVG[key] = av;
+        } catch (_) {}
         if (typeof FACES !== 'undefined') FACES[id] = key;
         if (typeof BLOCK_MATS !== 'undefined') {
-          if (typeof mat === 'function') BLOCK_MATS[id] = mat(tex);
+          if (typeof mat === 'function') BLOCK_MATS[id] = mat(key);
           else BLOCK_MATS[id] = new THREE.MeshLambertMaterial({map: tex});
         }
       }
       if (typeof NAMES !== 'undefined') NAMES[id] = nice;
+      try { if (typeof ICON_KEY !== 'undefined') ICON_KEY[id] = key; } catch (_) {}
+      try { if (typeof HARD !== 'undefined') HARD[id] = (HARD[T.WOOL] || 0.8); } catch (_) {}
       try { if (typeof PLACEABLE !== 'undefined' && PLACEABLE.add) PLACEABLE.add(id); } catch (_) {}
+      try { if (typeof BUILT_T !== 'undefined') BUILT_T[id] = 1; } catch (_) {}
     } catch (_) {}
   }
 
@@ -57,8 +68,8 @@
     } catch (_) {}
     if (!T.WOOLRED) T.WOOLRED = 256;
     if (!T.WOOLGREEN) T.WOOLGREEN = 257;
-    installSolidWool(T.WOOLRED, 'woolred', '#c62828', 'Red Wool');
-    installSolidWool(T.WOOLGREEN, 'woolgreen', '#2e7d32', 'Green Wool');
+    installSolidWool(T.WOOLRED, 'wool_red', '#c62828', 'Red Wool');
+    installSolidWool(T.WOOLGREEN, 'wool_green', '#2e7d32', 'Green Wool');
   }
 
   function isNewWorld() {
@@ -515,6 +526,44 @@
     } catch (e) { if (!U.err) U.err = 'gold ' + e; }
   }
 
+
+  function carveInterior(K, model) {
+    // Bins store solid RLE only, so hillside dirt would otherwise fill halls
+    // and stairwells. For every column that has model masonry, clear worldgen
+    // between that column's lowest and highest model Y so interiors are walkable.
+    const runs = model.runs;
+    if (!runs || !runs.length) return;
+    const col = {};
+    for (let i = 0; i < runs.length; i++) {
+      const r = runs[i];
+      if (!r.id) continue;
+      const y = r.y;
+      for (let k = 0; k < r.n; k++) {
+        const key = (r.x + k) + ',' + r.z;
+        const cur = col[key];
+        if (!cur) col[key] = [y, y];
+        else {
+          if (y < cur[0]) cur[0] = y;
+          if (y > cur[1]) cur[1] = y;
+        }
+      }
+    }
+    const maxY = (typeof H === 'number' ? H - 3 : 200);
+    const keys = Object.keys(col);
+    for (let i = 0; i < keys.length; i++) {
+      const parts = keys[i].split(',');
+      const lx = +parts[0], lz = +parts[1];
+      const ylo = col[keys[i]][0], yhi = col[keys[i]][1];
+      for (let ly = ylo; ly <= yhi; ly++) {
+        const wy = K.gy + ly;
+        if (wy < 1 || wy > maxY) continue;
+        const [wx, , wz] = K.wp(lx, ly, lz);
+        if (wx < 1 || wz < 1 || wx >= W - 1 || wz >= D - 1) continue;
+        try { world[idx(wx, wy, wz)] = T.AIR || 0; } catch (_) {}
+      }
+    }
+  }
+
   function buildFromModel(K) {
     ensureWool();
     const models = ensureModels();
@@ -523,6 +572,7 @@
     const aabb = model.aabb || [0, 0, 0, 0, 0, 0];
     const modelH = aabb[4] - Math.min(0, aabb[1]) + 2;
     ensureSky(K.gy, modelH);
+    carveInterior(K, model);
     const sp = stampModel(K, model);
     foundations(K, model);
     edgeBlend(K, model);

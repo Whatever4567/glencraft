@@ -17,6 +17,7 @@ Blueprint, measured against the official painting (low 3/4 from the right):
 """
 from ids import *
 from vox import *
+import math
 
 # --- measured / upscaled constants (v2 layout * 3, openings near painted size) ---
 S = 3
@@ -42,15 +43,15 @@ CORE_Z0, CORE_Z1 = -5 * S, 5 * S      # -15 .. 15
 # Pulled outward/forward of the core so the four-spire cluster reads like the painting.
 LC = dict(cx=-8 * S - 4, cz=4 * S, r=3 * S + 1, y1=24 * S, cone=20)  # cx=-28, cz=12, r=10, y1=72, tip 92
 # Mid-left pyramid at (-3,-2), wall to F+24, pyramid 10
-ML = dict(cx=-3 * S, cz=-2 * S, half=3 * S + 1, y1=26 * S, pyr=20)   # half=10, y1=78, tip 98
+ML = dict(cx=-3 * S, cz=0, half=3 * S + 1, y1=28 * S, pyr=22)         # half=10, cz=0 (more forward), y1=84, tip 106
 # Mid-right pyramid at (4,-3), wall to F+26, pyramid 10
 MR = dict(cx=4 * S, cz=-3 * S, half=3 * S, y1=26 * S, pyr=20)        # y1=78, tip 98
 # Right cone
 RC = dict(cx=8 * S + 4, cz=3 * S, r=3 * S + 1, y1=25 * S, cone=20)  # cx=28, cz=9, r=10, y1=75, tip 95
 # Corner merloned tower cyl(13, 6, r=4) to F+17
-CT = dict(cx=13 * S, cz=6 * S, r=4 * S, y1=17 * S)                   # r=12, y1=51
+CT = dict(cx=16 * S, cz=7 * S, r=4 * S, y1=17 * S)                   # cx=48, r=12, y1=51 — clear of the curtain banner
 # Right curtain v2 box(8,F,6, 11,F+15,9)
-CU_X0, CU_X1 = 8 * S, 11 * S         # 24 .. 33
+CU_X0, CU_X1 = 8 * S, 14 * S         # 24 .. 42  (long merloned curtain for the third banner)
 CU_Z0, CU_Z1 = 6 * S, 9 * S          # 18 .. 27
 # Far-right lower wall + small turret (visible in the painting, missing in v2)
 FAR_X0, FAR_X1 = CT['cx'] + CT['r'] - 1, CT['cx'] + CT['r'] + 18     # ~50 .. 69
@@ -130,7 +131,7 @@ def window_grid(g, x0, y0, z, x1, y1, pal, face='+z', ww=2, hh=3, px=6, py=7, re
 
 def build_clansman():
     # generous AABB
-    g = Grid(-40, 80, -6, 120, -40, 50)
+    g = Grid(-55, 90, -6, 130, -40, 50)
 
     # ========== ENTRY PATH (short, inside the footprint — not a stamped isle) ==========
     for z in range(GH_Z1 + 1, GH_Z1 + 8):
@@ -150,26 +151,33 @@ def build_clansman():
     # floor of the passage stays
     floor_box(g, -2, GH_Z0, 2, GH_Z1 + 1, 0, lambda x, y, z: PLANKS if abs(x) < 2 else STONEBRICK)
 
-    # Stepped arch in the front face, then a protruding slate hood so the
-    # crow-steps read against the grey wall (as in the painting).
+    # Crow-step arch surround in the SAME grey stone as the wall (not a
+    # dark lintel). Steps rise one course and step out one block, 5 rings,
+    # proud by at most 2, framing the opening the way the painting does.
     archway(g, ARCH_X0, ARCH_X1, 1, ARCH_Y1, GH_Z1, pal, depth=ARCH_DEPTH, face='+z')
     carve_box(g, ARCH_X0 + 1, 1, GH_Z1 - ARCH_DEPTH, ARCH_X1 - 1, ARCH_Y1, GH_Z1)
-    for s in range(0, 8):
+    spring = ARCH_Y1 - 10
+    for s in range(0, 5):
         xx0, xx1 = ARCH_X0 - 1 - s, ARCH_X1 + 1 + s
-        yy1 = ARCH_Y1 + 1 + s
+        lintel = ARCH_Y1 + s
         for x in range(xx0, xx1 + 1):
-            g.set(x, yy1, GH_Z1, SLATE)
-            g.set(x, yy1, GH_Z1 + 1, SLATE)
-            if s < 5:
-                g.set(x, yy1, GH_Z1 + 2, SLATE)
-        for y in range(1, yy1 + 1):
-            # only the new outer jambs
-            if s == 0 or y >= ARCH_Y1 - 2 + s:
-                for zz in (GH_Z1, GH_Z1 + 1):
-                    g.set(xx0, y, zz, SLATE)
-                    g.set(xx1, y, zz, SLATE)
-    # re-open the arch after the hood so steps frame an actual opening
-    carve_box(g, ARCH_X0 + 1, 1, GH_Z1 - ARCH_DEPTH, ARCH_X1 - 1, ARCH_Y1, GH_Z1 + 2)
+            g.set(x, lintel, GH_Z1, pal(x, lintel, GH_Z1))
+            if s < 3:
+                g.set(x, lintel, GH_Z1 + 1, pal(x, lintel, GH_Z1 + 1))
+        for y in range(max(1, spring + s * 2), lintel):
+            g.set(xx0, y, GH_Z1, pal(xx0, y, GH_Z1))
+            g.set(xx1, y, GH_Z1, pal(xx1, y, GH_Z1))
+            if s < 2:
+                g.set(xx0, y, GH_Z1 + 1, pal(xx0, y, GH_Z1 + 1))
+                g.set(xx1, y, GH_Z1 + 1, pal(xx1, y, GH_Z1 + 1))
+    # inward stepped reveal at the top corners (crow-steps into the opening)
+    for s in range(1, 5):
+        for y in range(ARCH_Y1 - 2 * s, ARCH_Y1 + 1):
+            g.set(ARCH_X0 + s, y, GH_Z1, pal(ARCH_X0 + s, y, GH_Z1))
+            g.set(ARCH_X1 - s, y, GH_Z1, pal(ARCH_X1 - s, y, GH_Z1))
+    carve_box(g, ARCH_X0 + 1, 1, GH_Z1 - ARCH_DEPTH, ARCH_X1 - 1, ARCH_Y1 - 8, GH_Z1 + 2)
+    # keep the stepped top corners solid; punch the rectangular body of the opening
+    carve_box(g, ARCH_X0 + 2, 1, GH_Z1 - ARCH_DEPTH, ARCH_X1 - 2, ARCH_Y1 - 2, GH_Z1 + 1)
 
     # Portcullis just inside the arch
     portcullis(g, ARCH_X0 + 1, ARCH_X1 - 1, 2, ARCH_Y1 - 2, GH_Z1 - 1)
@@ -213,10 +221,20 @@ def build_clansman():
     wall_walk(g, GH_X0, GH_Z0, GH_X1, GH_Z1, WW_Y, pal, thick_out=2, walk=3, merlon_ht=2, pitch=2)
     corbel_wall(g, GH_X0, GH_Z0, GH_X1, GH_Z1, WW_Y - 1, pal, '+z', every=2)
 
-    # Left-end merloned bartizan on the gatehouse (the painting's crenellated left corner).
-    shell_cyl(g, GH_X0 - 1, GH_Z1 - 2, 5, 0, WW_Y + 2, pal, thick=2, floor=True, roof=True)
-    merlon_ring(g, GH_X0 - 1, GH_Z1 - 2, 5, WW_Y + 2, pal, pitch=2, ht=2)
-    corbel_ring(g, GH_X0 - 1, GH_Z1 - 2, 5, WW_Y + 1, pal, every=2)
+    # Lower-left merloned wing (the painting's crenellated left end, lower than the keep).
+    # Extends left of the gatehouse; the tall left turret rises behind it.
+    LW_X0, LW_X1 = GH_X0 - 16, GH_X0 + 1
+    LW_Z0, LW_Z1 = GH_Z1 - 8, GH_Z1
+    LW_Y = 32
+    shell_box(g, LW_X0, 0, LW_Z0, LW_X1, LW_Y, LW_Z1, pal, thick=2, floor=True, roof=True)
+    wall_walk(g, LW_X0, LW_Z0, LW_X1, LW_Z1, LW_Y, pal, walk=3, merlon_ht=2, pitch=2)
+    corbel_wall(g, LW_X0, LW_Z0, LW_X1, LW_Z1, LW_Y - 1, pal, '+z', every=2)
+    # merloned round end bartizan
+    shell_cyl(g, LW_X0 + 1, (LW_Z0 + LW_Z1) // 2, 5, 0, LW_Y + 3, pal, thick=2, floor=True, roof=True)
+    merlon_ring(g, LW_X0 + 1, (LW_Z0 + LW_Z1) // 2, 5, LW_Y + 3, pal, pitch=2, ht=2)
+    corbel_ring(g, LW_X0 + 1, (LW_Z0 + LW_Z1) // 2, 5, LW_Y + 2, pal, every=2)
+    # walkway through to the gatehouse wall-walk
+    carve_box(g, LW_X1 - 1, LW_Y + 1, (LW_Z0 + LW_Z1) // 2 - 1, GH_X0 + 2, LW_Y + 3, (LW_Z0 + LW_Z1) // 2 + 1)
 
     # Arrow slits / small windows on the gatehouse front, above the arch and on the piers
     slit(g, -14, 28, GH_Z1, pal, face='+z', h=3)
@@ -228,16 +246,14 @@ def build_clansman():
     slit(g, -14, 28, GH_Z0, pal, face='-z', h=3)
     slit(g, 14, 28, GH_Z0, pal, face='-z', h=3)
 
-    # Two large tartan banners flanking the arch (tops just under the merlon deck)
-    # Left banner: on the left pier, hanging from ~y=WW_Y-2
-    banner(g, -5 - BAN_W, WW_Y - 2, GH_Z1, face='+z')
-    # Right banner
-    banner(g, 6, WW_Y - 2, GH_Z1, face='+z')
+    # Two large tartan banners flanking the arch (hang beside the opening, not above it)
+    banner(g, ARCH_X0 - 1 - BAN_W, ARCH_Y1 + 8, GH_Z1, face='+z')
+    banner(g, ARCH_X1 + 2, ARCH_Y1 + 8, GH_Z1, face='+z')
 
     # Buttresses on the gatehouse front piers
     buttress(g, GH_X0 + 1, GH_Z1, 0, 24, pal, dx=0, dz=1, depth=3, width=3)
     buttress(g, GH_X1 - 3, GH_Z1, 0, 24, pal, dx=0, dz=1, depth=3, width=3)
-    relief_face(g, GH_X0, 0, GH_Z1, GH_X1, WW_Y, GH_Z1, pal, '+z', 0.16)
+    relief_face(g, GH_X0, 0, GH_Z1, GH_X1, WW_Y, GH_Z1, pal, '+z', 0.08)
 
     # ========== MAIN KEEP (core) + GREAT HALL ==========
     # Shell up through the upper floors; hall is 12 high in the center
@@ -314,12 +330,14 @@ def build_clansman():
 
     # Windows on the keep faces (dense, like the parapet crop)
     # Front (+z) of the keep, above the gatehouse
-    window_grid(g, CORE_X0 + 4, WW_Y + 2, CORE_Z1, CORE_X1 - 4, ML['y1'] - 4, pal, '+z', ww=2, hh=3, px=6, py=8)
-    window_grid(g, CORE_X0 + 4, 8, CORE_Z0, CORE_X1 - 4, ML['y1'] - 4, pal, '-z', ww=2, hh=3, px=6, py=8)
-    window_grid(g, CORE_X0, 8, CORE_Z0 + 4, CORE_X0, ML['y1'] - 4, pal, '-x', ww=2, hh=3, px=6, py=8)
-    # +x face is partly covered by the right cone / mid-right; still window the lower/open bits
-    window_grid(g, CORE_X1, 8, CORE_Z0 + 4, CORE_X1, 40, pal, '+x', ww=2, hh=3, px=6, py=8)
-    relief_face(g, CORE_X0, 8, CORE_Z1, CORE_X1, ML['y1'], CORE_Z1, pal, '+z', 0.20)
+    window_grid(g, CORE_X0 + 4, WW_Y + 3, CORE_Z1, CORE_X1 - 4, ML['y1'] - 4, pal, '+z', ww=2, hh=4, px=5, py=7, recess=2)
+    window_grid(g, CORE_X0 + 4, 8, CORE_Z0, CORE_X1 - 4, ML['y1'] - 4, pal, '-z', ww=2, hh=4, px=5, py=7, recess=2)
+    window_grid(g, CORE_X0, 8, CORE_Z0 + 4, CORE_X0, ML['y1'] - 4, pal, '-x', ww=2, hh=4, px=5, py=7, recess=2)
+    window_grid(g, CORE_X1, 8, CORE_Z0 + 4, CORE_X1, 40, pal, '+x', ww=2, hh=4, px=5, py=7, recess=2)
+    # corbel / string course under the upper-keep parapet and mid storey
+    corbel_wall(g, CORE_X0, CORE_Z0, CORE_X1, CORE_Z1, WW_Y + 1, pal, '+z', every=2)
+    corbel_wall(g, CORE_X0, CORE_Z0, CORE_X1, CORE_Z1, ML['y1'] - 1, pal, '+z', every=2)
+    relief_face(g, CORE_X0, 8, CORE_Z1, CORE_X1, ML['y1'], CORE_Z1, pal, '+z', 0.08)
 
     # Keep parapet / wall-walk at mid-left wall height where the body ends, before the roofs
     # Walk around the core at y=ML['y1'] for the mid-left, but mid-right is taller —
@@ -347,14 +365,16 @@ def build_clansman():
                     carve_box(g, cx - 1 + (0 if vz else vx * t), fy, cz - 1 + (0 if vx else vz * t),
                               cx + 1 + (0 if vz else vx * t), fy + 2, cz + 1 + (0 if vx else vz * t))
         # windows around the turret, two or three rings (as in the parapet crop)
-        for y in (16, 32, y1 - 10):
+        for y in (14, 26, 38, 50, y1 - 10):
             if 8 < y < y1 - 4:
-                for ang, face in ((90, '+z'), (0, '+x'), (180, '-x'), (270, '-z')):
+                for ang, face in ((90, '+z'), (45, '+z'), (0, '+x'), (180, '-x'), (270, '-z')):
                     rad = math.radians(ang)
                     wx = int(round(cx + (r - 1) * math.cos(rad)))
                     wz = int(round(cz + (r - 1) * math.sin(rad)))
-                    window(g, wx, y, wz, pal, face=face, w=2, h=3, recess=1)
-        # corbel table just under the roof / parapet
+                    window(g, wx, y, wz, pal, face=face, w=2, h=3, recess=2)
+        # slightly wider cap ring + corbel table so the turret reads as a bartizan
+        shell_cyl(g, cx, cz, r + 1, y1 - 3, y1, pal, thick=2, floor=False, roof=True)
+        corbel_ring(g, cx, cz, r + 1, y1 - 3, pal, every=1)
         corbel_ring(g, cx, cz, r, y1 - 1, pal, every=2)
         # merlons under the cone (a short battlement ring)
         merlon_ring(g, cx, cz, r, y1, pal, pitch=2, ht=2, jitter=False)
@@ -396,7 +416,7 @@ def build_clansman():
     wall_walk(g, CU_X0, CU_Z0, CU_X1, CU_Z1, WW_Y, pal, walk=3, merlon_ht=2, pitch=2)
     carve_box(g, CU_X0, WW_Y + 1, (CU_Z0 + CU_Z1) // 2 - 1, CU_X0 + 2, WW_Y + 3, (CU_Z0 + CU_Z1) // 2 + 1)
     # third tartan banner on the curtain face
-    banner(g, CU_X0 + 10, WW_Y - 2, CU_Z1, face='+z')
+    banner(g, CU_X0 + 4, WW_Y - 3, CU_Z1, face='+z')
     # interior corridor inside the curtain (3 wide) at ground, linking keep to corner
     carve_box(g, CU_X0 + 2, 1, CU_Z0 + 2, CU_X1 - 1, 4, CU_Z1 - 2)
     door_opening(g, CU_X0, 1, (CU_Z0 + CU_Z1) // 2, face='-x', w=3, h=3)
@@ -416,7 +436,7 @@ def build_clansman():
     slit(g, cx, 16, cz + r - 1, pal, '+z', h=3)
     slit(g, cx + r - 1, 22, cz, pal, '+x', h=3)
     slit(g, cx, 28, cz + r - 1, pal, '+z', h=3)
-    relief_face(g, cx - r, 0, cz + r, cx + r, y1, cz + r, pal, '+z', 0.18)
+    relief_face(g, cx - r, 0, cz + r, cx + r, y1, cz + r, pal, '+z', 0.08)
     g.mark('tower', name='corner', cx=cx, cz=cz, y1=y1, r=r)
     g.mark('chest', x=cx - 2, y=1, z=cz, face='+x', loot='tower')
 

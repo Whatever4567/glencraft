@@ -117,39 +117,27 @@ def ord2(a, b):
     return (a, b) if a <= b else (b, a)
 
 def stone_mix(x, y, z, palette=None, relief=True):
-    """palette: list of (id, weight) or a callable. Default clansman grey."""
+    """Tight grey palette: almost all stonebrick, rare cobble. No slate/white speckles."""
     r = rnd(x, y, z, 11)
-    if r < 0.72:
-        bid = STONEBRICK
-    elif r < 0.88:
-        bid = COBBLE
-    elif r < 0.96:
-        bid = SLATE
-    else:
-        bid = WSTONE
-    return bid
+    if r < 0.90:
+        return STONEBRICK
+    return COBBLE
 
 def mossy_mix(x, y, z):
     r = rnd(x, y, z, 17)
-    if r < 0.55:
+    if r < 0.82:
         return MOSSYBRICK
-    if r < 0.78:
+    if r < 0.95:
         return STONEBRICK
-    if r < 0.90:
-        return COBBLE
-    if r < 0.97:
-        return MOSS
-    return SLATE
+    return COBBLE
 
 def black_mix(x, y, z):
     r = rnd(x, y, z, 23)
-    if r < 0.70:
+    if r < 0.90:
         return BLACKSTONE
-    if r < 0.85:
+    if r < 0.97:
         return DSBRICK
-    if r < 0.93:
-        return OBSIDIAN
-    return HELLROCK
+    return OBSIDIAN
 
 def fill_box(g, x0, y0, z0, x1, y1, z1, pal):
     x0, x1 = ord2(x0, x1); y0, y1 = ord2(y0, y1); z0, z1 = ord2(z0, z1)
@@ -378,6 +366,12 @@ def window(g, x, y, z, pal, face='+z', w=2, h=3, recess=1, bars=False):
         if bars:
             for k in range(h):
                 g.set(x + wx * (w // 2), y + k, z + wz * (w // 2), BARS)
+    # dark back so the opening reads as a recessed cavity, not a pale hole
+    for i in range(w):
+        for k in range(h):
+            px = x + wx * i - dx * (recess + 1)
+            pz = z + wz * i - dz * (recess + 1)
+            g.set(px, y + k, pz, SLATE)
     # lintel + sill in pal
     for i in range(-1, w + 1):
         for r in range(recess + 1):
@@ -590,21 +584,30 @@ def skel_figure(g, x, y, z):
     g.mark('skel', x=x, y=y, z=z)
 
 def dead_tree(g, x, y, z, h=10):
-    # 2-block trunk, crooked leafless branches.
+    # Thick 3x3 base tapering to a 2x2 trunk, long crooked leafless arms.
     for k in range(h):
-        g.set(x, y + k, z, PINE)
-        g.set(x + 1, y + k, z, PINE)
+        span = 1 if k < max(3, h // 5) else 0
+        for dx in range(-span, 2 + span):
+            for dz in range(-span, 2 + span):
+                if span and (dx in (-span, 1 + span) and dz in (-span, 1 + span)):
+                    continue
+                g.set(x + dx, y + k, z + dz, PINE)
     arms = [
-        (h - 2, 2, 0, 3), (h - 3, 3, 1, 2), (h - 4, -2, 0, 3),
-        (h - 2, 0, 2, 2), (h - 5, 1, -2, 2), (h - 3, -1, -2, 2),
-        (h - 6, 2, -1, 2), (max(2, h // 2), -3, 1, 2),
+        (h - 2, 3, 0, 5), (h - 3, 4, 1, 4), (h - 4, -3, 0, 5),
+        (h - 2, 0, 3, 4), (h - 5, 2, -3, 4), (h - 3, -2, -3, 4),
+        (h - 6, 3, -2, 3), (max(3, h // 2), -4, 2, 4),
+        (h - 4, 2, 3, 3), (h - 7, -3, 2, 3), (int(h * 0.65), 4, -1, 3),
     ]
     for k, dx, dz, L in arms:
         if k <= 0:
             continue
         for i in range(1, L + 1):
-            g.set(x + dx * i, y + k + (1 if i > 1 else 0), z + dz * i, PINE)
-            g.set(x + dx * i, y + k, z + dz * i, PINE)
+            yy = y + k + (1 if i > 2 else 0)
+            g.set(x + dx * i, yy, z + dz * i, PINE)
+            g.set(x + dx * i, yy, z + dz * i + 1, PINE)
+            g.set(x + dx * i + (1 if dx == 0 else 0), yy, z + dz * i, PINE)
+            if i < L:
+                g.set(x + dx * i, yy + 1, z + dz * i, PINE)
     g.mark('deadtree', x=x, y=y, z=z, h=h)
 
 def pack_rle(g):
