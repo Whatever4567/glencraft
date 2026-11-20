@@ -22,7 +22,7 @@ ok(src.includes('function sky1312(WIN)'), 'source IIFE is named sky1312(WIN)');
 ok(html.includes(src.trim()), 'skies-1312.js is injected into the page');
 ok(html.includes('__sky1312') && html.includes('function palette'), 'runtime helpers are present');
 ok(fs.existsSync(path.join(root, 'assets/sky/overworld-sunset.webp')), 'full-resolution sunset plate webp is shipped');
-ok(src.includes('assets/sky/overworld-sunset.webp') && src.includes('LinearMipmapLinearFilter'), 'plate is loaded with mipmaps and linear filtering');
+ok(src.includes('assets/sky/overworld-sunset.webp') && src.includes('LinearFilter') && src.includes('ClampToEdgeWrapping'), 'plate is loaded with linear filtering and clamp-to-edge wrap');
 
 const s0 = html.indexOf('{"v":"v1.2.112"');
 const s1 = html.indexOf('{"v":"v1.2.111"', s0);

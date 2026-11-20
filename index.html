@@ -96453,7 +96453,8 @@ try {
 
   function glenPal(ph) {
     const dayTop = [0.30, 0.56, 0.87], dayMid = [0.58, 0.74, 0.92], dayHor = [0.78, 0.86, 0.91], dayFog = [0.72, 0.78, 0.84];
-    const duskTop = [0.32, 0.08, 0.28], duskMid = [0.96, 0.32, 0.28], duskHor = [1.00, 0.52, 0.18], duskFog = [0.58, 0.38, 0.52];
+    const duskTop = [0.32, 0.08, 0.28], duskMid = [0.96, 0.32, 0.28], duskHor = [1.00, 0.52, 0.18], duskFog = [0.81, 0.38, 0.17];
+    const duskSun = [1.00, 0.52, 0.18];
     const nightTop = [0.04, 0.06, 0.16], nightMid = [0.09, 0.10, 0.24], nightHor = [0.16, 0.14, 0.30], nightFog = [0.10, 0.13, 0.22];
     let top = lerp(nightTop, dayTop, ph.day);
     let mid = lerp(nightMid, dayMid, ph.day);
@@ -96529,10 +96530,10 @@ try {
     try {
       const loader = new THREE.TextureLoader();
       const tex = loader.load(SKY_URL, function (t) {
-        t.generateMipmaps = true;
-        t.minFilter = THREE.LinearMipmapLinearFilter;
+        t.generateMipmaps = false;
+        t.minFilter = THREE.LinearFilter;
         t.magFilter = THREE.LinearFilter;
-        t.wrapS = THREE.RepeatWrapping;
+        t.wrapS = THREE.ClampToEdgeWrapping;
         t.wrapT = THREE.ClampToEdgeWrapping;
         t.flipY = true;
         try {
@@ -96542,10 +96543,10 @@ try {
         t.needsUpdate = true;
         U.plateReady = 1;
       }, undefined, function (e) { ERR('tex', e); U.plateLoading = 0; });
-      tex.generateMipmaps = true;
-      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.generateMipmaps = false;
+      tex.minFilter = THREE.LinearFilter;
       tex.magFilter = THREE.LinearFilter;
-      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
       tex.wrapT = THREE.ClampToEdgeWrapping;
       U.plateTex = tex;
       return tex;
@@ -96568,21 +96569,25 @@ try {
     'varying vec3 vDir;',
     'void main(){',
     '  float elev = vDir.y;',
-    '  if (elev < -0.02) { gl_FragColor = vec4(0.0); return; }',
+    '  if (elev < -0.04) { gl_FragColor = vec4(0.0); return; }',
     '  float az = atan(vDir.x, vDir.z);',
     '  float rel = atan(sin(az - uSunAz), cos(az - uSunAz));',
-    '  float u = rel / max(0.15, 2.0 * uHalf) + uSunU + uDrift;',
-    '  float v = 1.0 - clamp(elev / 0.70, 0.0, 1.0);',
-    '  vec3 col = texture2D(uSky, vec2(u, v)).rgb;',
-    '  float topF = smoothstep(0.52, 0.80, elev);',
-    '  col = mix(col, uZenith, topF);',
+    '  float uRaw = uSunU + rel / max(0.15, 2.0 * uHalf) + uDrift;',
+    '  float v = 1.0 - clamp(elev / 0.78, 0.0, 1.0);',
+    '  vec3 col = texture2D(uSky, vec2(clamp(uRaw, 0.001, 0.888), v)).rgb;',
+    '  float pastSun = smoothstep(0.880, 0.918, uRaw);',
+    '  float pastLeft = 1.0 - smoothstep(-0.04, 0.02, uRaw);',
+    '  col = mix(col, uHor, clamp(pastSun + pastLeft, 0.0, 1.0));',
+    '  float u = uRaw;',
+    '  float topF = smoothstep(0.58, 0.90, elev);',
+    '  col = mix(col, uZenith, topF * 0.62);',
     '  float luma = dot(col, vec3(0.30, 0.50, 0.20));',
     '  col = mix(col, vec3(luma), uDay * 0.72);',
     '  col = mix(col, mix(uHor, uZenith, 0.45), uDay * 0.55);',
     '  col *= 1.0 - uNight * 0.88;',
-    '  float edge = 1.0 - smoothstep(uHalf * 0.82, uHalf, abs(rel));',
-    '  float horF = smoothstep(-0.02, 0.06, elev);',
-    '  float a = uAlpha * horF * edge * (1.0 - topF * 0.92);',
+    '  float horF = smoothstep(-0.03, 0.012, elev);',
+    '  float leftF = smoothstep(0.00, 0.05, clamp(u, 0.0, 1.0));',
+    '  float a = uAlpha * horF * leftF * (1.0 - topF * 0.55);',
     '  a *= (1.0 - uDay * 0.78) * (1.0 - uNight * 0.92);',
     '  a *= 0.35 + 0.65 * uDusk + 0.20 * (1.0 - uDay);',
     '  if (a < 0.01) { gl_FragColor = vec4(0.0); return; }',
@@ -96660,9 +96665,11 @@ try {
       un.uDusk.value = ph.dusk;
       un.uAlpha.value = 1;
       un.uZenith.value.setRGB(pal.top[0], pal.top[1], pal.top[2]);
-      un.uHor.value.setRGB(pal.hor[0], pal.hor[1], pal.hor[2]);
-      U.drift = (U.drift || 0) + Math.min(0.1, +dt || 0) * 0.0025;
-      un.uDrift.value = U.drift;
+      {
+        const hc = (pal.ph.dusk > 0.15) ? PLATE_HOR : pal.hor;
+        un.uHor.value.setRGB(hc[0], hc[1], hc[2]);
+      }
+      un.uDrift.value = 0;
       U.mode = 'photo';
     } catch (e) { ERR('tick', e); }
   }
@@ -96708,7 +96715,10 @@ try {
           const t = pal.ph.dusk > 0.2 ? [(pal.top[0] + pal.mid[0]) * 0.5, (pal.top[1] + pal.mid[1]) * 0.5, (pal.top[2] + pal.mid[2]) * 0.5] : pal.top;
           skyUniforms.top.value.setRGB(t[0], t[1], t[2]);
         }
-        if (skyUniforms.hor && skyUniforms.hor.value) skyUniforms.hor.value.setRGB(pal.hor[0], pal.hor[1], pal.hor[2]);
+        if (skyUniforms.hor && skyUniforms.hor.value) {
+          const hc = (r === null && pal.ph.dusk > 0.15) ? PLATE_HOR : pal.hor;
+          skyUniforms.hor.value.setRGB(hc[0], hc[1], hc[2]);
+        }
         if (skyUniforms.sunCol && skyUniforms.sunCol.value) skyUniforms.sunCol.value.setRGB(pal.sunCol[0], pal.sunCol[1], pal.sunCol[2]);
         if (skyUniforms.sunK) skyUniforms.sunK.value = pal.sunK;
         if (skyUniforms.dark) skyUniforms.dark.value = cave * 0.85;
@@ -96718,17 +96728,13 @@ try {
     try {
       if (typeof scene !== 'undefined' && scene) {
         if (scene.fog && scene.fog.color) {
-          scene.fog.color.setRGB(pal.fog[0], pal.fog[1], pal.fog[2]);
-          try {
-            if (typeof isScaled === 'function' && isScaled() && r === null && pal.ph.dusk < 0.2 && pal.ph.day > 0.65 && scene.fog.far > 40) {
-              if (scene.fog.near < scene.fog.far * 0.58) scene.fog.near = scene.fog.far * 0.58;
-            } else {
-              scene.fog.near = pal.fogNear;
-              scene.fog.far = pal.fogFar;
-            }
-          } catch (_) { scene.fog.near = pal.fogNear; scene.fog.far = pal.fogFar; }
+          const fc = (r === null && pal.ph.dusk > 0.15) ? PLATE_HOR : pal.fog;
+          scene.fog.color.setRGB(fc[0], fc[1], fc[2]);
         }
-        if (scene.background && scene.background.setRGB) scene.background.setRGB(pal.fog[0], pal.fog[1], pal.fog[2]);
+        if (scene.background && scene.background.setRGB) {
+          const fc = (r === null && pal.ph.dusk > 0.15) ? PLATE_HOR : pal.fog;
+          scene.background.setRGB(fc[0], fc[1], fc[2]);
+        }
       }
     } catch (e) { ERR('fog', e); }
     try {
@@ -96746,11 +96752,178 @@ try {
     } catch (_) {}
     holdNsky(pal);
     tickPlate(0, pal, r);
+    tintLights(pal, r);
+    hookShade();
+    hookWater(pal, r);
+    tuneTorches();
+    tickSunHalo(pal, r);
     return true;
   }
   U.apply = apply;
   U.tick = function (dt) { try { tickPlate(dt || 0, palette(), realm()); } catch (e) { ERR('tick', e); } };
   U.setQ = function (q) { U.q = q || U.q || 'photo'; return U.q; };
+
+
+  // Horizon / sun / ambient sampled from the plate (bottom rows, gold near the sun, upper mauve).
+  const PLATE_HOR = [0.808, 0.380, 0.172];
+  const PLATE_SUN = [0.856, 0.394, 0.153];
+  const PLATE_AMB = [0.293, 0.138, 0.187];
+
+  function tintLights(pal, r) {
+    try {
+      if (typeof sunL === 'undefined' || typeof hemi === 'undefined' || !pal || !pal.ph) return;
+      const cave = (typeof caveL === 'number') ? caveL : 0;
+      if (cave > 0.55) return;
+      const ph = pal.ph;
+      const dusk = (r === null) ? ph.dusk * (1 - cave) * (1 - ph.wd) : (r === 'egypt' ? ph.dusk * 0.85 : 0);
+      const day = ph.day, night = ph.night;
+      let sunC, skyC, gndC, sunI, hemiI;
+      if (r === 'egypt') {
+        sunC = dusk > 0.2 ? [1.00, 0.70, 0.32] : [1.00, 0.94, 0.72];
+        skyC = dusk > 0.2 ? [0.62, 0.38, 0.32] : [0.62, 0.78, 0.92];
+        gndC = dusk > 0.2 ? [0.32, 0.16, 0.08] : [0.42, 0.32, 0.18];
+        sunI = 0.7 + 0.55 * day + 0.35 * dusk;
+        hemiI = 0.32 + 0.28 * day;
+      } else {
+        const daySun = [1.00, 0.95, 0.82], daySky = [0.66, 0.80, 0.95], dayGnd = [0.26, 0.30, 0.20];
+        const duskSun = [1.00, 0.58, 0.20], duskSky = [0.40, 0.24, 0.42], duskGnd = [0.16, 0.08, 0.06];
+        const nightSun = [0.66, 0.75, 0.95], nightSky = [0.22, 0.28, 0.48], nightGnd = [0.08, 0.10, 0.14];
+        sunC = lerp(nightSun, daySun, day);
+        skyC = lerp(nightSky, daySky, day);
+        gndC = lerp(nightGnd, dayGnd, day);
+        if (dusk > 0.02) {
+          sunC = lerp(sunC, duskSun, dusk);
+          skyC = lerp(skyC, duskSky, dusk);
+          gndC = lerp(gndC, duskGnd, dusk);
+        }
+        sunI = (ph.sy > -0.05)
+          ? (0.55 + 0.70 * day * (1 - dusk) + 0.85 * dusk) * (1 - ph.wd * 0.7)
+          : (0.28 + 0.18 * (typeof fullMoon === 'function' && fullMoon() ? 1 : 0.45));
+        hemiI = (0.26 + 0.28 * day * (1 - dusk) + 0.18 * dusk) * (1 - ph.wd * 0.35);
+      }
+      sunL.color.setRGB(sunC[0], sunC[1], sunC[2]);
+      sunL.intensity = sunI * (1 - Math.min(1, cave * 1.5));
+      hemi.color.setRGB(skyC[0], skyC[1], skyC[2]);
+      if (hemi.groundColor) hemi.groundColor.setRGB(gndC[0], gndC[1], gndC[2]);
+      hemi.intensity = Math.max(0.16, hemiI * (1 - cave * 0.7));
+      U.lit = 1;
+    } catch (e) { ERR('light', e); }
+  }
+
+  function hookShade() {
+    if (U.shade) return;
+    const skip = { water: 0, lava: 1, glass: 1 };
+    const patch = function (shader) {
+      if (!shader || !shader.vertexShader || shader.vertexShader.indexOf('vWorldPos1312') >= 0) return;
+      shader.vertexShader = 'varying vec3 vWorldPos1312;\n' + shader.vertexShader.replace(
+        '#include <project_vertex>',
+        '#include <project_vertex>\n  vWorldPos1312 = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+      );
+      shader.fragmentShader = 'varying vec3 vWorldPos1312;\n' + shader.fragmentShader.replace(
+        '#include <dithering_fragment>',
+        [
+          '#ifdef USE_UV',
+          '  float e1312 = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));',
+          '  float ao1312 = 0.76 + 0.24 * smoothstep(0.0, 0.08, e1312);',
+          '#else',
+          '  float ao1312 = 1.0;',
+          '#endif',
+          '  float n1312 = fract(sin(dot(floor(vWorldPos1312 * 3.17), vec3(12.9898, 78.233, 37.719))) * 43758.5453);',
+          '  gl_FragColor.rgb *= ao1312 * (0.93 + 0.09 * n1312);',
+          '#include <dithering_fragment>'
+        ].join('\n')
+      );
+    };
+    const paint = function (m) {
+      if (!m || m.userData._ao1312) return;
+      if (m.isMeshBasicMaterial) return;
+      m.userData._ao1312 = 1;
+      const prev = m.onBeforeCompile;
+      m.onBeforeCompile = function (shader) {
+        try { if (typeof prev === 'function') prev.call(this, shader); } catch (_) {}
+        try { patch(shader); } catch (e) { ERR('shadeP', e); }
+      };
+      m.customProgramCacheKey = function () { return (prev && prev.customProgramCacheKey ? prev.customProgramCacheKey() : '') + 'ao1312'; };
+      m.needsUpdate = true;
+    };
+    try {
+      if (typeof matCache !== 'undefined') {
+        for (const k in matCache) if (!skip[k]) paint(matCache[k]);
+      }
+      if (typeof BLOCK_MATS !== 'undefined') {
+        for (const id in BLOCK_MATS) {
+          const m = BLOCK_MATS[id];
+          if (Array.isArray(m)) m.forEach(paint);
+          else paint(m);
+        }
+      }
+      if (typeof PLANT_MATS !== 'undefined') {
+        for (const id in PLANT_MATS) paint(PLANT_MATS[id]);
+      }
+      U.shade = 1;
+    } catch (e) { ERR('shade', e); }
+  }
+
+  function hookWater(pal, r) {
+    try {
+      if (typeof matCache === 'undefined' || !matCache.water || !pal) return;
+      const m = matCache.water;
+      const ph = pal.ph;
+      const k = (r === null) ? Math.max(0.15, ph.dusk) : 0.1;
+      // Tint the existing Lambert water toward the sky / plate horizon and add a mild specular glint via shininess if Phong, else emissive-free color.
+      if (m.color) {
+        const h = (r === null && ph.dusk > 0.2) ? PLATE_HOR : pal.hor;
+        m.color.setRGB(0.55 * h[0] + 0.1, 0.45 * h[1] + 0.22, 0.35 * h[2] + 0.40);
+      }
+      if (m.specular) m.specular.setRGB(1, 0.88, 0.55);
+      if (typeof m.shininess === 'number') m.shininess = 32 + 40 * k;
+      U.water = 1;
+    } catch (e) { ERR('water', e); }
+  }
+
+  function tuneTorches() {
+    try {
+      if (typeof torchLights === 'undefined' || !torchLights || U.torch) return;
+      for (let i = 0; i < torchLights.length; i++) {
+        const l = torchLights[i];
+        if (!l || l.userData.red) continue;
+        l.color.setHex(0xffb056);
+        l.distance = Math.max(l.distance || 0, 18);
+      }
+      U.torch = 1;
+    } catch (e) { ERR('torch', e); }
+  }
+
+  function tickSunHalo(pal, r) {
+    try {
+      if (typeof THREE === 'undefined' || typeof scene === 'undefined' || !scene) return;
+      if (!U.sunHalo) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0xffc878, transparent: true, opacity: 0.0, depthWrite: false, depthTest: true,
+          fog: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
+        });
+        const mesh = new THREE.Mesh(new THREE.CircleGeometry(9, 24), mat);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = -8;
+        mesh.name = 'sky1312-sun-halo';
+        mesh.visible = false;
+        scene.add(mesh);
+        U.sunHalo = mesh;
+      }
+      const h = U.sunHalo;
+      const show = r === null && pal && pal.ph && pal.ph.sy > -0.05 && pal.ph.wd < 0.3;
+      if (!show) { h.visible = false; return; }
+      if (typeof sunDisc !== 'undefined' && sunDisc) {
+        h.position.copy(sunDisc.position);
+        h.lookAt(camera.position);
+      }
+      const k = Math.max(pal.ph.dusk, pal.ph.day * 0.45);
+      h.material.opacity = 0.12 + 0.16 * pal.ph.dusk;
+      h.material.color.setRGB(1.0, 0.72 + 0.1 * pal.ph.day, 0.35 + 0.25 * pal.ph.day);
+      h.scale.setScalar(1 + 0.15 * pal.ph.dusk);
+      h.visible = k > 0.08;
+    } catch (e) { ERR('halo', e); }
+  }
 
   function hook() {
     if (U.hook) return;
