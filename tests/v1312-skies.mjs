@@ -13,9 +13,9 @@ const src = fs.readFileSync(path.join(root, 'tools/content-source/skies-1312.js'
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
-ok(ver.v === '1.2.114', 'version.json is 1.2.114');
-ok(html.includes("const GAME_VERSION = '1.2.114';"), 'GAME_VERSION is 1.2.114');
-ok(html.includes('<!-- glencraft-build: b1314-v1.2.114 -->') && html.includes('<!-- glencraft-build: b1313-v1.2.113 -->') && html.includes('<!-- glencraft-build: b1312-v1.2.112 -->'), '1.2.114, 1.2.113 and 1.2.112 build markers');
+ok(ver.v === '1.2.115', 'version.json is 1.2.115');
+ok(html.includes("const GAME_VERSION = '1.2.115';"), 'GAME_VERSION is 1.2.115');
+ok(html.includes('<!-- glencraft-build: b1315-v1.2.115 -->') && html.includes('<!-- glencraft-build: b1314-v1.2.114 -->') && html.includes('<!-- glencraft-build: b1313-v1.2.113 -->') && html.includes('<!-- glencraft-build: b1312-v1.2.112 -->'), '1.2.115, 1.2.114, 1.2.113 and 1.2.112 build markers');
 ok(html.includes('<!-- glencraft-build: b1311-v1.2.111 -->'), '1.2.111 marker stays');
 ok(html.includes('<!-- glencraft-build: b1310-v1.2.110 -->'), '1.2.110 marker stays');
 ok(src.includes('function sky1312(WIN)'), 'source IIFE is named sky1312(WIN)');
@@ -24,11 +24,12 @@ ok(html.includes('__sky1312') && html.includes('function palette'), 'runtime hel
 ok(fs.existsSync(path.join(root, 'assets/sky/overworld-sunset.webp')), 'full-resolution sunset plate webp is shipped');
 ok(src.includes('assets/sky/overworld-sunset.webp') && src.includes('LinearMipmapLinearFilter'), 'plate is loaded with mipmaps and linear filtering');
 
+const s115 = html.indexOf('{"v":"v1.2.115"');
 const s114 = html.indexOf('{"v":"v1.2.114"');
 const s113 = html.indexOf('{"v":"v1.2.113"');
 const s0 = html.indexOf('{"v":"v1.2.112"');
 const s1 = html.indexOf('{"v":"v1.2.111"', s0);
-ok(s114 > 0 && s114 < s113 && s113 < s0 && s1 > s0, 'PATCH_NOTES has 1.2.114 before 1.2.113 before 1.2.112 before 1.2.111');
+ok(s115 > 0 && s115 < s114 && s114 < s113 && s113 < s0 && s1 > s0, 'PATCH_NOTES has 1.2.115 before 1.2.114 before 1.2.113 before 1.2.112 before 1.2.111');
 const notes = html.slice(s0, s1);
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew/i.test(notes), '1.2.112 notes have no food');
 ok(/own sky/i.test(notes) && /orange/i.test(notes) && /pink/i.test(notes), 'notes mention per-realm sky and sunset colours');
@@ -50,7 +51,7 @@ ok(src.includes('0.32, 0.08, 0.28') && src.includes('1.00, 0.52, 0.18'), 'overwo
 ok(src.includes('0.48, 0.14, 0.28') && src.includes('1.00, 0.62, 0.32'), 'Egypt dusk is orange and pink');
 ok(src.includes('0.12, 0.40, 0.82') && src.includes('0.91, 0.82, 0.62'), 'Egypt day is clear blue to sandy haze');
 ok(src.includes('starsK') && src.includes('holdNsky'), 'night stars stay, and the night overlay waits until after sunset');
-ok(src.includes("mode = 'photo'") && src.includes('tickPlate') && src.includes('uSunAz'), 'overworld uses a photographic sky plate, not a generated cloud layer');
+ok(src.includes("mode = 'photo'") && src.includes('tickPlate') && src.includes('uSunAz') && src.includes('plateRadius') && src.includes('far * 0.8'), 'overworld uses a photographic sky plate kept inside the far plane');
 ok(src.includes('hideOldClouds') && src.includes('clouds'), 'old box clouds stay hidden');
 ok(!src.includes('Beer-Lambert') && !src.includes('uSteps'), 'the raymarch cloud path is no longer in the overworld sky');
 ok(!/camera\.far\s*=/.test(src) && !/SET\.dist\s*=/.test(src), 'does not change render distance or the far plane');
