@@ -96530,8 +96530,8 @@ try {
     try {
       const loader = new THREE.TextureLoader();
       const tex = loader.load(SKY_URL, function (t) {
-        t.generateMipmaps = false;
-        t.minFilter = THREE.LinearFilter;
+        t.generateMipmaps = true;
+        t.minFilter = THREE.LinearMipmapLinearFilter;
         t.magFilter = THREE.LinearFilter;
         t.wrapS = THREE.ClampToEdgeWrapping;
         t.wrapT = THREE.ClampToEdgeWrapping;
@@ -96543,8 +96543,8 @@ try {
         t.needsUpdate = true;
         U.plateReady = 1;
       }, undefined, function (e) { ERR('tex', e); U.plateLoading = 0; });
-      tex.generateMipmaps = false;
-      tex.minFilter = THREE.LinearFilter;
+      tex.generateMipmaps = true;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
       tex.magFilter = THREE.LinearFilter;
       tex.wrapS = THREE.ClampToEdgeWrapping;
       tex.wrapT = THREE.ClampToEdgeWrapping;
@@ -96567,6 +96567,27 @@ try {
     'uniform vec3 uZenith, uHor;',
     'uniform float uSunAz, uSunU, uHalf, uDrift, uDay, uNight, uDusk, uAlpha;',
     'varying vec3 vDir;',
+    // Map any azimuth's u (original plate UV, sun at uSunU) onto real photo
+    // clouds. Unique photo in [0,1]; past the short right edge we ping-pong the
+    // pre-sun segment [0, 0.88] so there is no second sun and no solid wall.
+    'float ping88(float dist){',
+    '  float s = 0.88;',
+    '  float p = mod(dist, 2.0 * s);',
+    '  if (p < 0.0) p += 2.0 * s;',
+    '  if (p <= s) return s - p;',
+    '  return p - s;',
+    '}',
+    'float mapPlateU(float u){',
+    '  float s = 0.88;',
+    '  if (u >= 0.0 && u <= 1.0) return clamp(u, 0.001, 0.999);',
+    '  if (u < 0.0) {',
+    '    float p = mod(-u, 2.0 * s);',
+    '    if (p < 0.0) p += 2.0 * s;',
+    '    if (p <= s) return max(0.001, p);',
+    '    return min(s, 2.0 * s - p);',
+    '  }',
+    '  return clamp(ping88(u - 1.0), 0.001, s);',
+    '}',
     'void main(){',
     '  float elev = vDir.y;',
     '  if (elev < -0.04) { gl_FragColor = vec4(0.0); return; }',
@@ -96574,26 +96595,29 @@ try {
     '  float rel = atan(sin(az - uSunAz), cos(az - uSunAz));',
     '  float uRaw = uSunU + rel / max(0.15, 2.0 * uHalf) + uDrift;',
     '  float v = 1.0 - clamp(elev / 0.78, 0.0, 1.0);',
-    '  vec3 col = texture2D(uSky, vec2(clamp(uRaw, 0.001, 0.888), v)).rgb;',
-    '  float pastSun = smoothstep(0.880, 0.918, uRaw);',
-    '  float pastLeft = 1.0 - smoothstep(-0.04, 0.02, uRaw);',
-    '  col = mix(col, uHor, clamp(pastSun + pastLeft, 0.0, 1.0));',
-    '  float u = uRaw;',
-    '  float topF = smoothstep(0.58, 0.90, elev);',
-    '  col = mix(col, uZenith, topF * 0.62);',
+    '  float uA = clamp(uRaw, 0.001, 0.999);',
+    '  float uB = mapPlateU(uRaw);',
+    '  float fadeR = smoothstep(0.935, 0.992, uRaw);',
+    '  float fadeL = 1.0 - smoothstep(-0.02, 0.02, uRaw);',
+    '  vec3 colA = texture2D(uSky, vec2(uA, v)).rgb;',
+    '  vec3 colB = texture2D(uSky, vec2(uB, v)).rgb;',
+    '  vec3 col = mix(colA, colB, clamp(fadeR + fadeL, 0.0, 1.0));',
+    '  if (uRaw < 0.0 || uRaw > 1.0) col = colB;',
+    '  float topF = smoothstep(0.62, 0.94, elev);',
+    '  col = mix(col, uZenith, topF * 0.45);',
     '  float luma = dot(col, vec3(0.30, 0.50, 0.20));',
     '  col = mix(col, vec3(luma), uDay * 0.72);',
     '  col = mix(col, mix(uHor, uZenith, 0.45), uDay * 0.55);',
     '  col *= 1.0 - uNight * 0.88;',
     '  float horF = smoothstep(-0.03, 0.012, elev);',
-    '  float leftF = smoothstep(0.00, 0.05, clamp(u, 0.0, 1.0));',
-    '  float a = uAlpha * horF * leftF * (1.0 - topF * 0.55);',
+    '  float a = uAlpha * horF * (1.0 - topF * 0.35);',
     '  a *= (1.0 - uDay * 0.78) * (1.0 - uNight * 0.92);',
     '  a *= 0.35 + 0.65 * uDusk + 0.20 * (1.0 - uDay);',
     '  if (a < 0.01) { gl_FragColor = vec4(0.0); return; }',
     '  gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));',
     '}'
   ].join('\n');
+
 
   function ensurePlate() {
     if (U.plateMesh && U.plateMesh.parent) return U.plateMesh;
@@ -96730,6 +96754,19 @@ try {
         if (scene.fog && scene.fog.color) {
           const fc = (r === null && pal.ph.dusk > 0.15) ? PLATE_HOR : pal.fog;
           scene.fog.color.setRGB(fc[0], fc[1], fc[2]);
+          if (r === null && !scene.fog.isFogExp2) {
+            let vf = 128;
+            try {
+              if (window.__perf1261 && typeof __perf1261.vfBlocks === 'function') vf = __perf1261.vfBlocks();
+              else if (typeof SET !== 'undefined' && typeof SET.rdist === 'number') vf = SET.rdist * 16;
+            } catch (_) {}
+            vf = Math.max(48, vf);
+            // Much lighter than updateSky's near~20 / far~62: only a distant haze,
+            // never a solid wall inside the view. Colour is a fallback; the
+            // terrain shader samples the plate horizon at that azimuth.
+            scene.fog.near = Math.max(vf * 0.70, 48);
+            scene.fog.far = Math.max(vf * 1.40, scene.fog.near + 32);
+          }
         }
         if (scene.background && scene.background.setRGB) {
           const fc = (r === null && pal.ph.dusk > 0.15) ? PLATE_HOR : pal.fog;
@@ -96757,6 +96794,21 @@ try {
     hookWater(pal, r);
     tuneTorches();
     tickSunHalo(pal, r);
+    try {
+      const sh = U.shadeU;
+      if (sh) {
+        sh.uSky.value = U.plateTex || sh.uSky.value;
+        if (pal && pal.ph) {
+          sh.uSunAz.value = Math.atan2(pal.ph.sx, 0.33);
+          sh.uDusk.value = pal.ph.dusk || 0;
+          if (sh.uSunDir.value && sh.uSunDir.value.set) sh.uSunDir.value.set(pal.ph.sx, pal.ph.sy, 0.33).normalize();
+        }
+        sh.uSunU.value = 0.92;
+        sh.uHalf.value = 1.05;
+        sh.uFogAmt.value = 0.42;
+        sh.uTexTier.value = (typeof HIGH !== 'undefined' && HIGH) ? 2.0 : 1.0;
+      }
+    } catch (e) { ERR('shadeU', e); }
     return true;
   }
   U.apply = apply;
@@ -96811,56 +96863,132 @@ try {
   }
 
   function hookShade() {
-    if (U.shade) return;
-    const skip = { water: 0, lava: 1, glass: 1 };
-    const patch = function (shader) {
+    if (U.shade === 2) return;
+    const skip = { lava: 1, glass: 1 };
+    const share = U.shadeU || (U.shadeU = {
+      uSky: { value: null },
+      uSunAz: { value: 0 },
+      uSunU: { value: 0.92 },
+      uHalf: { value: 1.05 },
+      uSunDir: { value: (typeof THREE !== 'undefined') ? new THREE.Vector3(-1, 0.05, 0.33) : null },
+      uDusk: { value: 0 },
+      uFogAmt: { value: 0.42 },
+      uTexTier: { value: 1 }
+    });
+    const patch = function (shader, kind) {
       if (!shader || !shader.vertexShader || shader.vertexShader.indexOf('vWorldPos1312') >= 0) return;
-      shader.vertexShader = 'varying vec3 vWorldPos1312;\n' + shader.vertexShader.replace(
+      shader.uniforms.uSky1312 = share.uSky;
+      shader.uniforms.uSunAz1312 = share.uSunAz;
+      shader.uniforms.uSunU1312 = share.uSunU;
+      shader.uniforms.uHalf1312 = share.uHalf;
+      shader.uniforms.uSunDir1312 = share.uSunDir;
+      shader.uniforms.uDusk1312 = share.uDusk;
+      shader.uniforms.uFogAmt1312 = share.uFogAmt;
+      shader.uniforms.uTexTier1312 = share.uTexTier;
+      shader.vertexShader = 'varying vec3 vWorldPos1312;\nvarying vec3 vN1312;\n' + shader.vertexShader.replace(
         '#include <project_vertex>',
-        '#include <project_vertex>\n  vWorldPos1312 = (modelMatrix * vec4(transformed, 1.0)).xyz;'
+        '#include <project_vertex>\n  vWorldPos1312 = (modelMatrix * vec4(transformed, 1.0)).xyz;\n  vN1312 = normalize((modelMatrix * vec4(normal, 0.0)).xyz);'
       );
-      shader.fragmentShader = 'varying vec3 vWorldPos1312;\n' + shader.fragmentShader.replace(
-        '#include <dithering_fragment>',
-        [
-          '#ifdef USE_UV',
-          '  float e1312 = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));',
-          '  float ao1312 = 0.76 + 0.24 * smoothstep(0.0, 0.08, e1312);',
-          '#else',
-          '  float ao1312 = 1.0;',
-          '#endif',
-          '  float n1312 = fract(sin(dot(floor(vWorldPos1312 * 3.17), vec3(12.9898, 78.233, 37.719))) * 43758.5453);',
-          '  gl_FragColor.rgb *= ao1312 * (0.93 + 0.09 * n1312);',
-          '#include <dithering_fragment>'
-        ].join('\n')
-      );
+      const fogRep = [
+        '#ifdef USE_FOG',
+        '  {',
+        '    vec3 viewD = vWorldPos1312 - cameraPosition;',
+        '    float az = atan(viewD.x, viewD.z);',
+        '    float rel = atan(sin(az - uSunAz1312), cos(az - uSunAz1312));',
+        '    float uRaw = uSunU1312 + rel / max(0.15, 2.0 * uHalf1312);',
+        '    float s = 0.88, uH;',
+        '    if (uRaw >= 0.0 && uRaw <= 1.0) uH = clamp(uRaw, 0.001, 0.999);',
+        '    else if (uRaw < 0.0) { float p = mod(-uRaw, 2.0 * s); if (p <= s) uH = max(0.001, p); else uH = min(s, 2.0 * s - p); }',
+        '    else { float p = mod(uRaw - 1.0, 2.0 * s); if (p <= s) uH = s - p; else uH = p - s; }',
+        '    vec3 horC = texture2D(uSky1312, vec2(clamp(uH, 0.001, 0.999), 0.92)).rgb;',
+        '    float fogF = smoothstep(fogNear, fogFar, fogDepth) * uFogAmt1312;',
+        '    gl_FragColor.rgb = mix(gl_FragColor.rgb, horC, clamp(fogF, 0.0, 0.55));',
+        '  }',
+        '#endif'
+      ].join('\n');
+      // albedo detail (e): limited-palette shift, per-block variation, darker edges, fine grain
+      const albedo = [
+        '  {',
+        '    vec3 wp = vWorldPos1312;',
+        '    vec3 fl = floor(wp + 1e-3);',
+        '    float n1 = fract(sin(dot(fl, vec3(12.9898, 78.233, 37.719))) * 43758.5453);',
+        '    float n2 = fract(sin(dot(fl, vec3(39.346, 11.135, 83.217))) * 24634.6345);',
+        '    float grain = fract(sin(dot(floor(wp * (8.0 + 8.0 * uTexTier1312)), vec3(9.1, 17.3, 5.7))) * 12345.67);',
+        '#ifdef USE_UV',
+        '    float e1312 = min(min(vUv.x, 1.0 - vUv.x), min(vUv.y, 1.0 - vUv.y));',
+        '    float edge = 0.78 + 0.22 * smoothstep(0.0, 0.10, e1312);',
+        '#else',
+        '    float edge = 1.0;',
+        '#endif',
+        '    float face = 0.88 + 0.16 * abs(vN1312.y) + 0.06 * max(vN1312.x, 0.0) - 0.07 * max(-vN1312.z, 0.0);',
+        '    vec3 alb = gl_FragColor.rgb;',
+        '    alb *= edge * face * (0.92 + 0.12 * n1) * (0.97 + 0.06 * grain);',
+        '    // slight per-block tint in a limited palette (warm / cool / earth)',
+        '    vec3 tint = mix(vec3(1.04, 0.98, 0.90), vec3(0.92, 0.98, 1.04), n2);',
+        '    alb *= mix(vec3(1.0), tint, 0.14);',
+        '    gl_FragColor.rgb = alb;',
+        '  }'
+      ].join('\n');
+      const water = [
+        '  if (abs(vN1312.y) > 0.55) {',
+        '    vec3 viewDir = normalize(vWorldPos1312 - cameraPosition);',
+        '    vec3 nrm = normalize(vN1312);',
+        '    vec3 rd = reflect(viewDir, nrm);',
+        '    float az = atan(rd.x, rd.z);',
+        '    float rel = atan(sin(az - uSunAz1312), cos(az - uSunAz1312));',
+        '    float uRaw = uSunU1312 + rel / max(0.15, 2.0 * uHalf1312);',
+        '    float s = 0.88, uR;',
+        '    if (uRaw >= 0.0 && uRaw <= 1.0) uR = clamp(uRaw, 0.001, 0.999);',
+        '    else if (uRaw < 0.0) { float p = mod(-uRaw, 2.0 * s); uR = (p <= s) ? max(0.001, p) : min(s, 2.0 * s - p); }',
+        '    else { float p = mod(uRaw - 1.0, 2.0 * s); uR = (p <= s) ? (s - p) : (p - s); }',
+        '    float vR = 1.0 - clamp(rd.y / 0.78, 0.0, 1.0);',
+        '    vec3 plate = texture2D(uSky1312, vec2(clamp(uR, 0.001, 0.999), vR)).rgb;',
+        '    float fres = pow(clamp(1.0 + viewDir.y, 0.0, 1.0), 3.0);',
+        '    gl_FragColor.rgb = mix(gl_FragColor.rgb, plate, 0.22 + 0.50 * fres);',
+        '    float glint = pow(clamp(dot(normalize(rd), normalize(uSunDir1312)), 0.0, 1.0), 48.0);',
+        '    gl_FragColor.rgb += vec3(1.0, 0.86, 0.45) * glint * (0.35 + 0.55 * uDusk1312);',
+        '  }'
+      ].join('\n');
+      let frag = 'varying vec3 vWorldPos1312;\nvarying vec3 vN1312;\n'
+        + 'uniform sampler2D uSky1312;\nuniform float uSunAz1312, uSunU1312, uHalf1312, uDusk1312, uFogAmt1312, uTexTier1312;\nuniform vec3 uSunDir1312;\n'
+        + shader.fragmentShader;
+      if (frag.indexOf('#include <fog_fragment>') >= 0) {
+        frag = frag.replace('#include <fog_fragment>', fogRep);
+      }
+      const injectAt = frag.indexOf('#include <dithering_fragment>');
+      const extra = albedo + (kind === 'water' ? ('\n' + water) : '');
+      if (injectAt >= 0) frag = frag.slice(0, injectAt) + extra + '\n' + frag.slice(injectAt);
+      else frag += '\n' + extra;
+      shader.fragmentShader = frag;
     };
-    const paint = function (m) {
-      if (!m || m.userData._ao1312) return;
+    const paint = function (m, kind) {
+      if (!m || m.userData._ao1312 === 2) return;
       if (m.isMeshBasicMaterial) return;
-      m.userData._ao1312 = 1;
+      m.userData._ao1312 = 2;
       const prev = m.onBeforeCompile;
       m.onBeforeCompile = function (shader) {
         try { if (typeof prev === 'function') prev.call(this, shader); } catch (_) {}
-        try { patch(shader); } catch (e) { ERR('shadeP', e); }
+        try { patch(shader, kind || m.userData.kind1312 || (m === (typeof matCache !== 'undefined' && matCache.water) ? 'water' : 'block')); } catch (e) { ERR('shadeP', e); }
       };
-      m.customProgramCacheKey = function () { return (prev && prev.customProgramCacheKey ? prev.customProgramCacheKey() : '') + 'ao1312'; };
+      m.customProgramCacheKey = function () { return 'ao1312b' + (kind || ''); };
       m.needsUpdate = true;
     };
     try {
       if (typeof matCache !== 'undefined') {
-        for (const k in matCache) if (!skip[k]) paint(matCache[k]);
+        for (const k in matCache) if (!skip[k]) paint(matCache[k], k === 'water' ? 'water' : 'block');
       }
       if (typeof BLOCK_MATS !== 'undefined') {
         for (const id in BLOCK_MATS) {
           const m = BLOCK_MATS[id];
-          if (Array.isArray(m)) m.forEach(paint);
-          else paint(m);
+          const kind = (typeof T !== 'undefined' && +id === T.WATER) ? 'water' : 'block';
+          if (Array.isArray(m)) m.forEach(function (x) { paint(x, kind); });
+          else paint(m, kind);
         }
       }
       if (typeof PLANT_MATS !== 'undefined') {
-        for (const id in PLANT_MATS) paint(PLANT_MATS[id]);
+        for (const id in PLANT_MATS) paint(PLANT_MATS[id], 'block');
       }
-      U.shade = 1;
+      U.shade = 2;
     } catch (e) { ERR('shade', e); }
   }
 
