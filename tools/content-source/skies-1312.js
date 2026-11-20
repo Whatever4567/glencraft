@@ -246,6 +246,16 @@
   ].join('\n');
 
 
+
+  // Same rule as GLX-C75 for the old skyDome (R=130): keep the plate inside
+  // camera.far so a low render distance cannot clip it into a pale disc.
+  const PLATE_R = 126;
+  function plateRadius() {
+    let far = PLATE_R / 0.8;
+    try { if (typeof camera !== 'undefined' && camera && typeof camera.far === 'number') far = camera.far; } catch (_) {}
+    return Math.max(24, Math.min(PLATE_R, far * 0.8));
+  }
+
   function ensurePlate() {
     if (U.plateMesh && U.plateMesh.parent) return U.plateMesh;
     if (typeof THREE === 'undefined' || typeof scene === 'undefined' || !scene) return null;
@@ -279,7 +289,7 @@
       });
       try { mat.toneMapped = false; } catch (_) {}
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.scale.setScalar(126);
+      mesh.scale.setScalar(plateRadius());
       mesh.frustumCulled = false;
       mesh.renderOrder = -9;
       mesh.name = 'sky1312-sunset-plate';
@@ -305,7 +315,7 @@
     try {
       mesh.visible = true;
       if (typeof camera !== 'undefined' && camera) mesh.position.copy(camera.position);
-      try { mesh.scale.setScalar(126); } catch (_) {}
+      try { mesh.scale.setScalar(plateRadius()); } catch (_) {}
       const ph = pal.ph;
       const sunAz = Math.atan2(ph.sx, 0.33);
       const un = U.plateMat.uniforms;
