@@ -144,6 +144,10 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.114 New twice-scale worlds play as soon as the land around you is ready
+
+- Creating a new twice-scale Highlands Survival world no longer sits on the loading screen after the land itself has been built. Trees, keeps and the wider country finish loading in the background, so you can walk as soon as the ground around spawn is meshed. Older saved worlds are unchanged.
+
 ## v1.2.112 Time-of-day skies and a literal overworld sunset plate
 
 - Each realm keeps its own sky. In the Highlands the sky now shifts through the day: a warmer sunset of deep orange, pink and purple with a golden glow at the horizon, and a dark starry night.
