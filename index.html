@@ -287,6 +287,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1308-v1.2.108 -->
 <!-- glencraft-build: b1309-v1.2.109 -->
 <!-- glencraft-build: b1310-v1.2.110 -->
+<!-- glencraft-build: b1311-v1.2.111 -->
 <!-- glencraft-build: b1304-v1.2.104 -->
 <!-- glencraft-build: b1303-v1.2.103 -->
 <!-- glencraft-build: b1302-v1.2.102 -->
@@ -13433,6 +13434,101 @@ html body #tradeUI .tp{background:rgba(10,18,40,.96)!important;border-color:rgba
 #pause .btns{display:grid!important;grid-template-columns:1fr 1fr;gap:8px}
 #pause .btns #resumeBtn{grid-column:1/-1}
 </style>
+
+<script>
+/* GLX-V1312 pre: rewrite menu/bg wallpaper URLs before c122/c253 request them.
+   1920x1080 by default; 3840x2160 when width*devicePixelRatio >= 2560.
+   m7 / castle / isle / mossy are retired and must not 404. */
+(function v1312pre(){
+  try {
+    const pick4k = function () {
+      try { return (innerWidth * (devicePixelRatio || 1)) >= 2560; } catch (_) { return false; }
+    };
+    const rewritePath = function (u) {
+      u = String(u || '');
+      const path = u.split('?')[0].split('#')[0];
+      const four = pick4k();
+      if (/bg\/(?:castle|isle|mossy|sunset(?:-4k)?)\.webp$/i.test(path))
+        return four ? 'bg/sunset-4k.webp' : 'bg/sunset.webp';
+      const m = path.match(/assets\/menu\/m(\d)(?:-4k)?\.webp$/i);
+      if (m) {
+        const n = +m[1];
+        if (n < 1 || n > 6) return '';
+        return four ? ('assets/menu/m' + n + '-4k.webp') : ('assets/menu/m' + n + '.webp');
+      }
+      return u;
+    };
+    const rewriteCss = function (v) {
+      return String(v == null ? '' : v).replace(/url\(\s*(['"]?)([^)'"]+)\1\s*\)/g, function (_, q, u) {
+        const n = rewritePath(u);
+        if (!n) return 'none';
+        return 'url(' + q + n + q + ')';
+      });
+    };
+    window.__v1312pre = {ok: 1, pick4k: pick4k, rewritePath: rewritePath};
+    const desc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    if (desc && desc.set && desc.get) {
+      Object.defineProperty(HTMLImageElement.prototype, 'src', {
+        configurable: true,
+        enumerable: !!desc.enumerable,
+        get: function () { return desc.get.call(this); },
+        set: function (v) {
+          const s = String(v || '');
+          if (/assets\/menu\/m7(?:-4k)?\.webp/i.test(s)) return;
+          const n = rewritePath(s);
+          if (!n) return;
+          desc.set.call(this, n);
+        }
+      });
+    }
+    try {
+      const proto = CSSStyleDeclaration.prototype;
+      const origSet = proto.setProperty;
+      proto.setProperty = function (name, value, prio) {
+        const k = String(name || '').toLowerCase();
+        if (k === 'background-image' || k === 'background') value = rewriteCss(value);
+        return origSet.call(this, name, value, prio);
+      };
+      const bgd = Object.getOwnPropertyDescriptor(proto, 'backgroundImage');
+      if (bgd && bgd.set && bgd.get) {
+        Object.defineProperty(proto, 'backgroundImage', {
+          configurable: true,
+          enumerable: !!bgd.enumerable,
+          get: function () { return bgd.get.call(this); },
+          set: function (v) { bgd.set.call(this, rewriteCss(v)); }
+        });
+      }
+    } catch (_) {}
+    const _si = window.setInterval;
+    window.setInterval = function (fn, t) {
+      if (t === 13000 && typeof fn === 'function') {
+        const wrapped = function () {
+          try {
+            if (typeof screen !== 'undefined' && screen !== 'title' && screen !== 'boot') return;
+            const ss = document.getElementById('m65ss');
+            if (!ss) return;
+            const els = [];
+            const kids = ss.children;
+            for (let i = 0; i < kids.length; i++) if (kids[i].dataset && kids[i].dataset.ok) els.push(kids[i]);
+            if (els.length < 2) return;
+            let cur = 0;
+            for (let i = 0; i < els.length; i++) if (els[i].classList.contains('on')) { cur = i; break; }
+            const nx = (cur + 1) % els.length;
+            els[cur].classList.remove('on');
+            els[nx].classList.remove('on');
+            void els[nx].offsetWidth;
+            els[nx].classList.add('on');
+          } catch (_) {}
+        };
+        return _si.call(this, wrapped, t);
+      }
+      return _si.apply(this, arguments);
+    };
+  } catch (e) {
+    try { window.__v1312pre = {ok: 0, err: String(e && e.message || e)}; } catch (_) {}
+  }
+})();
+</script>
 </head>
 <body class="inmenu">
 <div id="menu" data-testid="main-menu">
@@ -13648,7 +13744,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.110';
+const GAME_VERSION = '1.2.111';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63374,6 +63470,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.111","d":"2026-11-20","notes":["Starting a new bigger Highlands world no longer tries to hold two full maps in memory at once, which could stop the world loading on a phone. The loading screen now stays up until the land around you is built.","The title menu has new Scottish landscape pictures (4K on a TV, 1080p on a phone). The old red-sky castle slide and the castle, isle and mossy menu backgrounds have been removed. Older saved worlds are unchanged."]},
 {"v":"v1.2.110","d":"2026-11-18","notes":["New twice-scale Highlands worlds have taller jagged rock peaks and deep glens. Snow sits only on the true summits and north-facing tops, and steep faces are grey and dark rock rather than a sheet of snow.","Starting a new bigger world still takes about as long as before, and walking those worlds stays as smooth as the smaller ones. Older saved worlds are unchanged."]},
 {"v":"v1.2.109","d":"2026-11-18","notes":["On the bigger Highlands worlds, walking is as smooth as on the smaller ones. A search that used to scan the whole map while you walked now only looks near you.","Snow sits on the high peaks and ridges, with green glens and heather below, so the country no longer reads as a sheet of snow. Older saved worlds are unchanged."]},
 {"v":"v1.2.108","d":"2026-11-18","notes":["New Highlands worlds are twice the scale, so walking Scotland takes twice as many blocks between real places. You spawn on the shore of Loch Ness in the Great Glen, with snowy jagged highlands, sea lochs, pine woods and Ben Glencraft nearby.","Older saved worlds stay the size they were. The map in your hand still shows the whole country and is still drawn once in the background."]},
@@ -95835,7 +95932,10 @@ try {
   function expandWorldH(newH) {
     if (typeof H !== 'number' || newH === H || !world) return 0;
     const t0 = performance.now(), oldH = H, old = world;
-    const next = new Uint16Array(W * newH * D);
+    try { htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0; } catch (_) {}
+    let next;
+    try { next = new Uint16Array(W * newH * D); }
+    catch (e) { ERR('expAlloc', e); U.expandFail = 1; U.hGen = oldH; U.hNow = oldH; return 0; }
     const srcRow = oldH * D, dstRow = newH * D;
     for (let x = 0; x < W; x++) next.set(old.subarray(x * srcRow, x * srcRow + srcRow), x * dstRow);
     world = next; H = newH; htCacheReset();
@@ -96070,7 +96170,8 @@ try {
     setWorldSize = function (n) {
       try {
         if (U.want && n === BASE_W) n = NEW_W;
-        if (U.want && n === NEW_W) H = NEW_H;
+        /* t1293b: do not set H=NEW_H before official allocate — that made
+           the first 2x world array 764 MB, then shrink+expand peaked at 1.21 GiB. */
       } catch (_) {}
       const r = sws.call(this, n);
       try { applyProj(); } catch (e) { ERR('sws', e); }
@@ -96210,6 +96311,94 @@ try {
       return r;
     };
   } catch (e) { ERR('fog0', e); }
+})();
+
+
+/* GLX-V1312 (t1293b): create-world load — keep the loading screen up until
+   generate has finished and the spawn ring is meshed (official 20s/45s clocks
+   start when the loading screen opens, so an ~86s 2x generate already expired
+   them). Also tidy c122 to a single adaptive sunset wallpaper. */
+(function v1312() {
+  const U = window.__v1312 = {err: null, ok: 0, pendingNone: 0, spawnReady: 0, hold: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  try {
+    const pick4k = (window.__v1312pre && __v1312pre.pick4k) || function () {
+      try { return (innerWidth * (devicePixelRatio || 1)) >= 2560; } catch (_) { return false; }
+    };
+    const sunsetUrl = function () { return pick4k() ? 'bg/sunset-4k.webp' : 'bg/sunset.webp'; };
+    document.querySelectorAll('.c122bg').forEach(function (box) {
+      const kids = [...box.querySelectorAll('i')];
+      let keep = null;
+      kids.forEach(function (im, i) {
+        const bg = (im.style && im.style.backgroundImage) || '';
+        if (!keep && (/sunset/i.test(bg) || i === 0)) keep = im;
+        else im.remove();
+      });
+      if (keep) {
+        keep.style.backgroundImage = 'url(' + sunsetUrl() + ')';
+        keep.dataset.ok = 1;
+        keep.classList.add('on');
+      }
+    });
+    const scaled = function () {
+      try { return !!(window.__v1308 && __v1308.isScaled && __v1308.isScaled()); } catch (_) { return false; }
+    };
+    const want2x = function () {
+      try { return !!(window.__v1308 && __v1308.want); } catch (_) { return false; }
+    };
+    const genBusy = function () {
+      try {
+        const L = window.__glenLoad;
+        return !!(L && (L.held || (L._g9 && !L.genDone)));
+      } catch (_) { return false; }
+    };
+    function meshSpawn(budget) {
+      try {
+        if (typeof dirtyAll !== 'undefined') dirtyAll = true;
+        if (typeof rebuild === 'function') rebuild(budget || 150);
+        if (typeof chunksReady === 'function') return !!chunksReady();
+        if (window.chunksReady) return !!window.chunksReady();
+      } catch (e) { ERR('mesh', e); }
+      return false;
+    }
+    const ss0 = (typeof showScreen === 'function') ? showScreen : null;
+    if (ss0 && !ss0.__v1312) {
+      showScreen = function (name) {
+        try {
+          if (name === 'none' && (want2x() || scaled()) && !U.spawnReady) {
+            if (genBusy() || !U.spawnReady) {
+              U.pendingNone = 1;
+              U.hold = 1;
+              return;
+            }
+          }
+        } catch (e) { ERR('ss', e); }
+        return ss0.apply(this, arguments);
+      };
+      showScreen.__v1312 = 1;
+    }
+    function flush() {
+      try {
+        if (genBusy()) return;
+        if (!(want2x() || scaled())) {
+          if (U.pendingNone && ss0) { U.pendingNone = 0; U.spawnReady = 1; ss0('none'); }
+          return;
+        }
+        if (U.spawnReady) {
+          if (U.pendingNone && ss0) { U.pendingNone = 0; ss0('none'); }
+          return;
+        }
+        const ok = meshSpawn(150);
+        U.meshTries = (U.meshTries || 0) + 1;
+        if (ok || U.meshTries > 40) {
+          U.spawnReady = 1;
+          if (U.pendingNone && ss0) { U.pendingNone = 0; ss0('none'); }
+        }
+      } catch (e) { ERR('flush', e); }
+    }
+    setInterval(flush, 120);
+    U.ok = 1;
+  } catch (e) { ERR('bg', e); }
 })();
 
 </script>
