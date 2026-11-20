@@ -588,6 +588,72 @@
   }
 
 
+
+  function isCastleVeg(b) {
+    if (!b) return false;
+    return b === T.GRASS || b === T.LEAVES || b === T.LEAVES2 || b === T.LOG || b === T.LOG2
+      || b === T.WOOD || b === T.PINE || b === PINE || b === T.NEED || b === NEED
+      || b === T.HEATHER || b === HEATH || b === T.SNOW || b === T.TALLGRASS
+      || b === T.FERN || b === T.VINE || b === T.FLOWER || b === T.REDFLOWER
+      || b === T.YELFLOWER || b === T.SAPLING || b === T.MUSH || b === T.BROWNMUSH
+      || b === T.DEADBUSH || b === T.LILYPAD || b === T.REED || b === T.SHRUB;
+  }
+
+  function clearFootprintAndApron(K, model) {
+    // Clear trees and worldgen terrain inside the rotated keep AABB, plus a
+    // short apron in front of the gate, so the facade is naturally visible.
+    // Vegetation is removed at every Y; solids only above the gate floor so
+    // foundations can still hang down to natural ground. Not a view-corridor
+    // trench and not a flattened pad.
+    const aabb = model.aabb || (model.stats && model.stats.aabb);
+    if (!aabb || typeof K.wp !== 'function') return;
+    const [x0, y0, z0, x1, y1, z1] = aabb;
+    const maxY = (typeof H === 'number' ? H - 2 : 200);
+    const gy = K.gy;
+    const seen = new Set();
+    const clearCol = function (wx, wz) {
+      if (wx < 1 || wz < 1 || wx >= W - 1 || wz >= D - 1) return;
+      const key = wx + ',' + wz;
+      if (seen.has(key)) return;
+      seen.add(key);
+      for (let y = 1; y < maxY; y++) {
+        const i = idx(wx, y, wz);
+        const b = world[i];
+        if (!b) continue;
+        if (isCastleVeg(b) || b === T.LEAVES || b === T.SNOW) {
+          world[i] = T.AIR || 0;
+          continue;
+        }
+        if (y > gy && b !== T.WATER && b !== T.LAVAB && b !== (T.AIR || 0)) {
+          world[i] = T.AIR || 0;
+        }
+      }
+    };
+    const pad = 2;
+    for (let lx = x0 - pad; lx <= x1 + pad; lx++) {
+      for (let lz = z0 - pad; lz <= z1 + pad; lz++) {
+        const w = K.wp(lx, 0, lz);
+        clearCol(w[0], w[2]);
+      }
+    }
+    // Small apron in front of the gate (local +z), ~14 deep and ~24 wide.
+    const APRON_D = 14, APRON_HALF = 12;
+    const gx = (0 >= x0 && 0 <= x1) ? 0 : Math.round((x0 + x1) / 2);
+    for (let lx = gx - APRON_HALF; lx <= gx + APRON_HALF; lx++) {
+      for (let lz = z1 + 1; lz <= z1 + APRON_D; lz++) {
+        const w = K.wp(lx, 0, lz);
+        clearCol(w[0], w[2]);
+      }
+    }
+    // Height cache only for columns we touched (stamp already setCol's FOOT_R later).
+    if (typeof setCol === 'function') {
+      seen.forEach(function (key) {
+        const parts = key.split(',');
+        try { setCol(+parts[0], +parts[1]); } catch (_) {}
+      });
+    }
+  }
+
   function carveInterior(K, model) {
     // Bins store solid RLE only, so hillside dirt would otherwise fill halls
     // and stairwells. For every column that has model masonry, clear worldgen
@@ -634,6 +700,7 @@
     const aabb = model.aabb || [0, 0, 0, 0, 0, 0];
     const modelH = aabb[4] - Math.min(0, aabb[1]) + 2;
     ensureSky(K.gy, modelH);
+    clearFootprintAndApron(K, model);
     carveInterior(K, model);
     const sp = stampModel(K, model);
     foundations(K, model);

@@ -289,6 +289,110 @@ def cut_terrain(sil, disp, kind):
     return keep_large_components(castle)
 
 
+
+def tidy_clansman_silhouette(seed, sky):
+    """Keep pointed slate caps, drop sky valleys and the pine trees on the flanks.
+
+    A full-frame 9px close fills the sky between spires and swallows the
+    forest on the right. Close the body only; trim leading (border-flooded)
+    sky in the cap belt; then cut pines to the right of the last tall spire.
+    """
+    h, w = seed.shape
+    spire_y = int(0.16 * h)
+    body = seed.copy()
+    body[:spire_y] = False
+    body = close_open(body, 9, 3)
+    seed = seed.copy()
+    seed[spire_y:] = body[spire_y:]
+    top = seed.copy()
+    top[spire_y:] = False
+    top = close_open(top, 3, 0)
+    seed[:spire_y] = top[:spire_y]
+    # Trim only sky pixels above the first masonry in each column.
+    if sky is not None:
+        for x in range(int(0.40 * w), int(0.82 * w)):
+            for y in range(0, spire_y + int(0.04 * h)):
+                if seed[y, x] and sky[y, x]:
+                    seed[y, x] = False
+                elif seed[y, x]:
+                    break
+    seed[:, :int(w * 0.16)] = False
+    seed[int(h * 0.78):] = False
+    seed = keep_large_components(seed, min_frac=0.004, min_rel=0.15)
+
+    # Top contour: tall keep spires vs shorter pine peaks to the right.
+    tops = np.full(w, h, np.int32)
+    for x in range(w):
+        col = np.flatnonzero(seed[:, x])
+        if col.size:
+            tops[x] = col[0]
+    inv = (h - tops).astype(np.float64)
+    inv[tops >= h] = 0
+    # simple peak pick (prominence + min distance) so we don't require scipy.signal
+    peaks = []
+    min_dist = int(0.015 * w)
+    prom = 0.03 * h
+    i = 1
+    while i < w - 1:
+        if inv[i] >= inv[i - 1] and inv[i] >= inv[i + 1] and inv[i] > 0:
+            left = inv[max(0, i - min_dist):i]
+            right = inv[i + 1:min(w, i + min_dist + 1)]
+            base = max(left.min() if left.size else 0, right.min() if right.size else 0)
+            if inv[i] - base >= prom:
+                if not peaks or i - peaks[-1] >= min_dist:
+                    peaks.append(i)
+                elif inv[i] > inv[peaks[-1]]:
+                    peaks[-1] = i
+                i += min_dist
+                continue
+        i += 1
+    tall = [p for p in peaks if 0.48 * w < p < 0.80 * w and tops[p] < 0.13 * h]
+    if tall:
+        last = tall[-1]
+        x = int(last)
+        while x < w - 1 and tops[x] < 0.14 * h:
+            x += 1
+        x_cut = x + int(0.006 * w)
+        # Pines sit to the right of the last cap. Keep a short strip of the
+        # right-hand wall; drop tree tops next to the turret and the trunks
+        # further right.
+        wing_top = int(0.36 * h)
+        band = seed.copy()
+        band[:, :x_cut] = False
+        band[wing_top:, :] = False
+        seed[band] = False
+        trunk = seed.copy()
+        trunk[:, :x_cut + int(0.05 * w)] = False
+        trunk[int(0.52 * h):, :] = False
+        seed[trunk] = False
+        num, lab, stats, _ = cv2.connectedComponentsWithStats(seed.astype(np.uint8), 8)
+        if num > 1:
+            main = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+            for i in range(1, num):
+                if i == main:
+                    continue
+                cx = stats[i, cv2.CC_STAT_LEFT] + stats[i, cv2.CC_STAT_WIDTH] / 2.0
+                if cx > x_cut:
+                    seed[lab == i] = False
+
+    # Skinny hanging pine on the left of the terrace (not the left turret).
+    y0, y1 = int(0.45 * h), int(0.70 * h)
+    thick = seed[y0:y1, :].mean(axis=0)
+    xs = np.flatnonzero(thick > 0.45)
+    if xs.size:
+        le = int(xs[0])
+        left = seed.copy()
+        left[:, le:] = False
+        left[int(0.58 * h):, :] = False
+        num, lab, stats, _ = cv2.connectedComponentsWithStats(left.astype(np.uint8), 8)
+        for i in range(1, num):
+            ww, hh = stats[i, cv2.CC_STAT_WIDTH], stats[i, cv2.CC_STAT_HEIGHT]
+            ys, xs0 = stats[i, cv2.CC_STAT_TOP], stats[i, cv2.CC_STAT_LEFT]
+            if xs0 < le - int(0.01 * w) and ww < 0.07 * w and ys < 0.55 * h:
+                seed[lab == i] = False
+    return keep_large_components(seed, min_frac=0.004, min_rel=0.15)
+
+
 def mask_clansman(rgb, rembg_a):
     sky = sky_mask_clansman(rgb)
     a = rgb.astype(np.int16)
@@ -367,9 +471,8 @@ def mask_clansman(rgb, rembg_a):
     seed = drop_thin_spikes(seed, int(0.26 * w), int(0.48 * w), max_w_frac=0.028, min_aspect=1.7, y_max_frac=0.52)
     seed[:, :int(w * 0.16)] = False
     seed[int(h * 0.78):] = False
-    castle = close_open(seed, 9, 3)
-    castle = keep_large_components(castle, min_frac=0.004, min_rel=0.15)
-    return castle, dict(sky=sky, trees=trees, heather=heather)
+    seed = tidy_clansman_silhouette(seed, sky)
+    return seed, dict(sky=sky, trees=trees, heather=heather)
 
 
 def mask_ruin(rgb, disp, kind):
