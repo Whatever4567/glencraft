@@ -1,9 +1,9 @@
 /* GLX-SKY1312 (v1.2.112): time-of-day skies and a literal overworld sunset plate.
    Each realm keeps its own sky. The Highlands sunset is the actual sky from the
-   reference photograph (full-resolution seamless webp on a dome — no procedural
+   reference photograph (full-resolution seamless webp on a dome -- no procedural
    cloud recreation, no raymarch on top). By day the plate desaturates toward the
    existing day sky; at night it fades so the starry night remains. Egypt keeps a
-   real desert sky — clear blue fading to a hazy sandy horizon by day, orange and
+   real desert sky -- clear blue fading to a hazy sandy horizon by day, orange and
    pink at sunset, dark and starry at night. Hell, Agartha and other realm skies
    are left alone. Old box clouds are hidden, not deleted. */
 (function sky1312(WIN) {
@@ -149,7 +149,7 @@
   const PLATE_VERT = [
     'varying vec3 vDir;',
     'void main(){',
-    '  vDir = normalize(position);',
+    '  vDir = position;',
     '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
     '}'
   ].join('\n');
@@ -157,12 +157,19 @@
   const PLATE_FRAG = [
     'precision highp float;',
     'uniform sampler2D uSky;',
-    'uniform vec3 uZenith, uHor;',
+    'uniform vec3 uZenith, uHor, uSunDir;',
     'uniform float uSunAz, uSunU, uHalf, uDrift, uDay, uNight, uDusk, uAlpha;',
     'varying vec3 vDir;',
-    // Map any azimuth's u (original plate UV, sun at uSunU) onto real photo
-    // clouds. Unique photo in [0,1]; past the short right edge we ping-pong the
-    // pre-sun segment [0, 0.88] so there is no second sun and no solid wall.
+    'float hash21(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+    'float vnoise(vec2 p){',
+    '  vec2 i = floor(p); vec2 f = fract(p);',
+    '  float a = hash21(i);',
+    '  float b = hash21(i + vec2(1.0, 0.0));',
+    '  float c = hash21(i + vec2(0.0, 1.0));',
+    '  float d = hash21(i + vec2(1.0, 1.0));',
+    '  vec2 u = f * f * (3.0 - 2.0 * f);',
+    '  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);',
+    '}',
     'float ping88(float dist){',
     '  float s = 0.88;',
     '  float p = mod(dist, 2.0 * s);',
@@ -181,27 +188,54 @@
     '  }',
     '  return clamp(ping88(u - 1.0), 0.001, s);',
     '}',
+    'float wrapU(float u){',
+    '  if (u < 0.0) {',
+    '    float p = mod(-u, 1.76);',
+    '    if (p < 0.0) p += 1.76;',
+    '    if (p <= 0.88) return max(0.001, p);',
+    '    return min(0.88, 1.76 - p);',
+    '  }',
+    '  return clamp(ping88(u - 1.0), 0.001, 0.88);',
+    '}',
+    'vec3 sampUV(float u, float v){',
+    '  return texture2D(uSky, vec2(clamp(u, 0.001, 0.999), clamp(v, 0.001, 0.999))).rgb;',
+    '}',
     'void main(){',
-    '  float elev = vDir.y;',
+    '  vec3 dir = normalize(vDir);',
+    '  float elev = dir.y;',
     '  if (elev < -0.04) { gl_FragColor = vec4(0.0); return; }',
-    '  float az = atan(vDir.x, vDir.z);',
+    '  float az = atan(dir.x, dir.z);',
     '  float rel = atan(sin(az - uSunAz), cos(az - uSunAz));',
     '  float uRaw = uSunU + rel / max(0.15, 2.0 * uHalf) + uDrift;',
     '  float v = 1.0 - clamp(elev / 0.78, 0.0, 1.0);',
-    '  float uA = clamp(uRaw, 0.001, 0.999);',
-    '  float uB = mapPlateU(uRaw);',
-    '  float fadeR = smoothstep(0.935, 0.992, uRaw);',
-    '  float fadeL = 1.0 - smoothstep(-0.02, 0.02, uRaw);',
-    '  vec3 colA = texture2D(uSky, vec2(uA, v)).rgb;',
-    '  vec3 colB = texture2D(uSky, vec2(uB, v)).rgb;',
-    '  vec3 col = mix(colA, colB, clamp(fadeR + fadeL, 0.0, 1.0));',
-    '  if (uRaw < 0.0 || uRaw > 1.0) col = colB;',
+    // Warped mix coordinate: the blend edge wiggles with elevation so it is
+    // never a straight vertical line. Band width ~10% of u.
+    '  float n = vnoise(vec2(v * 1.6, 3.17));',
+    '  float warp = (n - 0.5) * 0.08;',
+    '  vec3 colU = sampUV(clamp(uRaw, 0.001, 0.999), v);',
+    '  vec3 colW = sampUV(wrapU(uRaw), v);',
+    // Wide, warped crossfade past the sun into the continuation (fixes the old
+    // hard cut at u=1, where the previous fade compared identical samples).
+    '  float fadeR = smoothstep(0.94 + warp, 1.05 + warp, uRaw);',
+    '  float fadeL = 1.0 - smoothstep(-0.08 + warp, 0.02 + warp, uRaw);',
+    '  vec3 col = mix(colU, colW, clamp(fadeR + fadeL, 0.0, 1.0));',
+    '  if (uRaw < -0.08 || uRaw > 1.05) col = colW;',
     '  float topF = smoothstep(0.62, 0.94, elev);',
     '  col = mix(col, uZenith, topF * 0.45);',
     '  float luma = dot(col, vec3(0.30, 0.50, 0.20));',
     '  col = mix(col, vec3(luma), uDay * 0.72);',
     '  col = mix(col, mix(uHor, uZenith, 0.45), uDay * 0.55);',
     '  col *= 1.0 - uNight * 0.88;',
+    // Soft additive sun: hot core into the photo's own gold glow. No mesh disc.
+    '  vec3 sDir = normalize(uSunDir);',
+    '  float mu = max(0.0, dot(dir, sDir));',
+    '  float core = pow(mu, 420.0);',
+    '  float bloom = pow(mu, 36.0);',
+    '  float haze = pow(mu, 8.0);',
+    '  vec3 sunAdd = vec3(1.0, 0.92, 0.55) * core * 1.7',
+    '             + vec3(1.0, 0.70, 0.22) * bloom * 0.70',
+    '             + vec3(1.0, 0.48, 0.10) * haze * 0.22;',
+    '  col += sunAdd * (0.25 + 0.75 * uDusk) * (1.0 - uNight) * (1.0 - uDay * 0.85);',
     '  float horF = smoothstep(-0.03, 0.012, elev);',
     '  float a = uAlpha * horF * (1.0 - topF * 0.35);',
     '  a *= (1.0 - uDay * 0.78) * (1.0 - uNight * 0.92);',
@@ -218,12 +252,13 @@
     const tex = loadPlate();
     if (!tex) return null;
     try {
-      const geo = new THREE.SphereGeometry(126, 48, 24);
+      const geo = new THREE.IcosahedronGeometry(1, 4);
       const mat = new THREE.ShaderMaterial({
         uniforms: {
           uSky: { value: tex },
           uZenith: { value: new THREE.Color(0.32, 0.08, 0.28) },
           uHor: { value: new THREE.Color(1.0, 0.52, 0.18) },
+          uSunDir: { value: new THREE.Vector3(-1, 0.04, 0.33) },
           uSunAz: { value: 0 },
           uSunU: { value: 0.92 },
           uHalf: { value: 1.05 },
@@ -244,6 +279,7 @@
       });
       try { mat.toneMapped = false; } catch (_) {}
       const mesh = new THREE.Mesh(geo, mat);
+      mesh.scale.setScalar(126);
       mesh.frustumCulled = false;
       mesh.renderOrder = -9;
       mesh.name = 'sky1312-sunset-plate';
@@ -269,13 +305,16 @@
     try {
       mesh.visible = true;
       if (typeof camera !== 'undefined' && camera) mesh.position.copy(camera.position);
-      try { if (typeof skyDome !== 'undefined' && skyDome && skyDome.scale) mesh.scale.copy(skyDome.scale); } catch (_) {}
+      try { mesh.scale.setScalar(126); } catch (_) {}
       const ph = pal.ph;
       const sunAz = Math.atan2(ph.sx, 0.33);
       const un = U.plateMat.uniforms;
       un.uSunAz.value = sunAz;
       un.uSunU.value = 0.92;
       un.uHalf.value = 1.05;
+      if (un.uSunDir && un.uSunDir.value && un.uSunDir.value.set) {
+        un.uSunDir.value.set(ph.sx, Math.max(ph.sy, 0.03), 0.33).normalize();
+      }
       // Show the plate as-is at dusk; only fade/desaturate in true day or night.
       un.uDay.value = ph.day * (1 - ph.dusk);
       un.uNight.value = ph.night * (1 - ph.dusk);
@@ -375,8 +414,10 @@
       }
     } catch (e) { ERR('stars', e); }
     try {
-      if (typeof sunDisc !== 'undefined' && sunDisc) {
-        if (pal.ph.dusk > 0.2 && sunDisc.material && sunDisc.material.color) sunDisc.material.color.setRGB(1, 0.82, 0.45);
+      if (r === null && pal.ph.dusk > 0.15) {
+        if (typeof sunDisc !== 'undefined' && sunDisc) sunDisc.visible = false;
+      } else if (typeof sunDisc !== 'undefined' && sunDisc && pal.ph.dusk > 0.2 && sunDisc.material && sunDisc.material.color) {
+        sunDisc.material.color.setRGB(1, 0.82, 0.45);
       }
       if (typeof moonDisc !== 'undefined' && moonDisc && pal.ph.sy > 0.04) moonDisc.visible = false;
     } catch (_) {}
@@ -456,7 +497,7 @@
   }
 
   function hookShade() {
-    if (U.shade === 2) return;
+    if (U.shade === 3) return;
     const skip = { lava: 1, glass: 1 };
     const share = U.shadeU || (U.shadeU = {
       uSky: { value: null },
@@ -519,6 +560,8 @@
         '    // slight per-block tint in a limited palette (warm / cool / earth)',
         '    vec3 tint = mix(vec3(1.04, 0.98, 0.90), vec3(0.92, 0.98, 1.04), n2);',
         '    alb *= mix(vec3(1.0), tint, 0.14);',
+        '    float ndl = max(0.0, dot(normalize(vN1312), normalize(uSunDir1312)));',
+        '    alb += vec3(1.00, 0.55, 0.16) * pow(ndl, 1.4) * uDusk1312 * 0.12;',
         '    gl_FragColor.rgb = alb;',
         '  }'
       ].join('\n');
@@ -555,15 +598,15 @@
       shader.fragmentShader = frag;
     };
     const paint = function (m, kind) {
-      if (!m || m.userData._ao1312 === 2) return;
+      if (!m || m.userData._ao1312 === 3) return;
       if (m.isMeshBasicMaterial) return;
-      m.userData._ao1312 = 2;
+      m.userData._ao1312 = 3;
       const prev = m.onBeforeCompile;
       m.onBeforeCompile = function (shader) {
         try { if (typeof prev === 'function') prev.call(this, shader); } catch (_) {}
         try { patch(shader, kind || m.userData.kind1312 || (m === (typeof matCache !== 'undefined' && matCache.water) ? 'water' : 'block')); } catch (e) { ERR('shadeP', e); }
       };
-      m.customProgramCacheKey = function () { return 'ao1312b' + (kind || ''); };
+      m.customProgramCacheKey = function () { return 'ao1312c' + (kind || ''); };
       m.needsUpdate = true;
     };
     try {
@@ -581,7 +624,7 @@
       if (typeof PLANT_MATS !== 'undefined') {
         for (const id in PLANT_MATS) paint(PLANT_MATS[id], 'block');
       }
-      U.shade = 2;
+      U.shade = 3;
     } catch (e) { ERR('shade', e); }
   }
 
@@ -617,32 +660,17 @@
 
   function tickSunHalo(pal, r) {
     try {
-      if (typeof THREE === 'undefined' || typeof scene === 'undefined' || !scene) return;
-      if (!U.sunHalo) {
-        const mat = new THREE.MeshBasicMaterial({
-          color: 0xffc878, transparent: true, opacity: 0.0, depthWrite: false, depthTest: true,
-          fog: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide
-        });
-        const mesh = new THREE.Mesh(new THREE.CircleGeometry(9, 24), mat);
-        mesh.frustumCulled = false;
-        mesh.renderOrder = -8;
-        mesh.name = 'sky1312-sun-halo';
-        mesh.visible = false;
-        scene.add(mesh);
-        U.sunHalo = mesh;
-      }
-      const h = U.sunHalo;
-      const show = r === null && pal && pal.ph && pal.ph.sy > -0.05 && pal.ph.wd < 0.3;
-      if (!show) { h.visible = false; return; }
-      if (typeof sunDisc !== 'undefined' && sunDisc) {
-        h.position.copy(sunDisc.position);
-        h.lookAt(camera.position);
-      }
-      const k = Math.max(pal.ph.dusk, pal.ph.day * 0.45);
-      h.material.opacity = 0.12 + 0.16 * pal.ph.dusk;
-      h.material.color.setRGB(1.0, 0.72 + 0.1 * pal.ph.day, 0.35 + 0.25 * pal.ph.day);
-      h.scale.setScalar(1 + 0.15 * pal.ph.dusk);
-      h.visible = k > 0.08;
+      // Hard CircleGeometry halo is retired: it read as a grey ring. The plate
+      // shader adds a warm, soft, additive core that blends into the photo glow.
+      if (U.sunHalo) U.sunHalo.visible = false;
+      try {
+        if (r === null && pal && pal.ph && pal.ph.dusk > 0.15) {
+          if (typeof glow !== 'undefined' && glow) {
+            glow.visible = false;
+            if (glow.material) glow.material.opacity = 0;
+          }
+        }
+      } catch (_) {}
     } catch (e) { ERR('halo', e); }
   }
 
