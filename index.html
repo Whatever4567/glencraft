@@ -49384,15 +49384,23 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
   const ss = t => t * t * (3 - 2 * t);
   function vxs() { if (VX) return VX; const c = C9(); if (!c || !c.K || c.LAT0 === undefined) return []; VX = V.map(([la, lo, r, h, k]) => { const [x, z] = xz(la, lo), q = c.K / 300; return {x, z, r: r * q, h, k, la, lo}; }); U.n = VX.length; return VX; }
   U.craters = () => vxs().filter(v => v.k === 'v'); U.list = () => vxs().map(v => [v.k, Math.round(v.x), Math.round(v.z), v.r]);
-  function hT(x, z) { const h = A().hT0(x, z); let g = h[0], kind = 0, L = h[2];
-    for (const v of vxs()) { const dx = x - v.x, dz = z - v.z, d2 = dx * dx + dz * dz; if (d2 > v.r * v.r) continue; const d = Math.sqrt(d2) / v.r, base = Math.max(1, g);
+  /* t1338: on MC-terrain worlds the footprints are domain-warped with a noisy radius, so volcanoes, crags and basalt
+     isles have irregular outlines and wavy (not concentric) zones instead of stamped discs */
+  let mwF = 0, mwT = -1; const mcw = () => { const t = (performance.now() / 250) | 0; if (t !== mwT || !mwF) { mwT = t; try { mwF = window.__v1308 && __v1308.mc && __v1308.mc.elig() ? 1 : 2; } catch (_) { mwF = 2; } } return mwF === 1; };
+  function hT(x, z) { const h = A().hT0(x, z); let g = h[0], kind = 0, L = h[2]; const MW = mcw();
+    for (const v of vxs()) { let dx = x - v.x, dz = z - v.z, d2 = dx * dx + dz * dz; let d;
+      if (MW) { if (d2 > v.r * v.r * 1.9) continue; const sc = 1 / Math.max(8, v.r * 0.55), ox = v.x * 0.013, oz = v.z * 0.017;
+        const wx = dx + 0.32 * v.r * g9fbm(x * sc + ox, z * sc - oz, 2), wz = dz + 0.32 * v.r * g9fbm(x * sc - 7.1 - oz, z * sc + 3.3 + ox, 2);
+        const rr = v.r * (1 + 0.22 * g9fbm(x * sc * 2.1 + 5, z * sc * 2.1 - 2, 2)); d = Math.sqrt(wx * wx + wz * wz) / rr; if (d > 1) continue; }
+      else { if (d2 > v.r * v.r) continue; d = Math.sqrt(d2) / v.r; }
+      const base = Math.max(1, g);
       let t = ss(1 - d), add;
       if (v.k === 's') { if (Math.max(1, h[0]) > 1) { g = Math.max(1, h[0]); kind = d < 0.55 ? 'w' : 'r'; } continue; }
       if (v.k === 'k') { const cx = Math.floor((x + (Math.floor(z / 2) & 1)) / 2), cz = Math.floor(z / 2); add = Math.round(v.h * ss(Math.min(1, (1 - d) * 1.6)) * (0.6 + 0.4 * hs(cx, cz))); }
       else if (v.k === 'c') { const n = hs(Math.floor(x / 3), Math.floor(z / 3)); add = Math.round(v.h * Math.pow(t, 0.7) * (0.8 + 0.3 * n)); if (dx > 0) add = Math.round(add * (0.75 + 0.25 * (1 - d))); }
       else if (v.k === 'v') { add = Math.round(v.h * (d < 0.3 ? ss(d / 0.3) * 0.75 : ss((1 - d) / 0.7))); }
       else add = Math.round(v.h * t * (0.9 + 0.15 * hs(Math.floor(x / 4), Math.floor(z / 4))));
-      const ng = base + add; if (ng > g || (v.k === 'v' && d < 0.3)) { g = ng; L = Math.max(L, 0.7); kind = v.k === 'v' && d < 0.22 ? 'l' : (v.k === 'k' || v.k === 'v' || (v.k === 'c' && d < 0.55)) ? 'b' : (v.k === 'c' ? 'r' : kind); if (kind === 'l') g = base + Math.round(v.h * 0.35); } }
+      const ng = base + add; if (ng > g || (v.k === 'v' && d < 0.3)) { g = ng; L = Math.max(L, 0.7); kind = v.k === 'v' && d < 0.22 ? 'l' : ((v.k === 'k' || v.k === 'v') && (!MW || d < 0.55 + 0.2 * g9fbm(x / 9, z / 9, 2)) || (v.k === 'c' && d < 0.55)) ? 'b' : (v.k === 'c' || (MW && (v.k === 'k' || v.k === 'v')) ? 'r' : kind); if (kind === 'l') g = base + Math.round(v.h * 0.35); } }
     return [g, h[1], L, kind]; }
   // hook into the Scotland rebuild and the land outside the map
   try { const a = A(); a.hT0 = a.hT; a.hT = hT; } catch (e) { ERR('ht', e); }
@@ -96158,7 +96166,11 @@ try {
         const ll = window.__c339.fll(x, z), lat = ll[0], lon = ll[1];
         let g = h[0], hi = h[1], L = h[2], kind = h[3];
         const cap = H - SEA - 8, q = NEW_K / BASE_K;
-        const bed = waterBed(lat, lon);
+        let bed;
+        if (MC.elig()) { /* t1338: rivers and lochs meander (domain-warped lookup into the straight waterway segments) */
+          mcInit(); const Kk = window.__c339.K, wx = 26 * n2(x / 110 + 1.7, z / 110 - 3.1) + 7 * n2(x / 31, z / 31 + 9), wz = 26 * n2(x / 110 - 5.2, z / 110 + 2.4) + 7 * n2(x / 31 - 4, z / 31);
+          bed = !lat ? 0 : waterBed(lat - wz / Kk, lon + wx / (Kk * Math.cos(lat * Math.PI / 180))); }
+        else bed = waterBed(lat, lon);
         if (MC.elig()) {
           /* t1327/t1329: castles adapt the land like Minecraft's beardifier: the ground eases from the
              castle's own floor level (kept core, castle + moat) out into the surrounding MC terrain
@@ -96368,9 +96380,9 @@ try {
         const c = x * D + z, g = G[c]; if (g <= 0) continue; const vk = VK[c]; if (vk === 'b' || vk === 'l' || vk === 'r') continue;
         const top = SEA + g - 1, base = x * WH * D + z; if (top < 1 || top >= WH - 1) continue; let b = world[base + top * D]; if (!NAT.has(b)) continue; nLand++;
         const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D], slope = Math.max(Math.abs(g - n0), Math.abs(g - n1), Math.abs(g - n2), Math.abs(g - n3)), hi = HI[c] / 100;
-        const snowLine = Math.max(36, cap - 5) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 2 : 0);
+        const snowLine = Math.max(31, cap - 10) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 2 : 0);
         /* t1338: white caps on the peaks, steep ones too (only sheer faces stay stone); patchy snow just below the line */
-        const peaky = g >= snowLine - 4 && (() => { let mn = g; for (let a = 0; a < 8; a++) { const xx = Math.round(x + 6 * Math.cos(a * 0.785)), zz = Math.round(z + 6 * Math.sin(a * 0.785)); if (xx > 0 && zz > 0 && xx < W && zz < D) mn = Math.min(mn, G[xx * D + zz]); } return g - mn >= 5; })();
+        const peaky = g >= snowLine - 4 && (() => { let mn = g; for (let a = 0; a < 8; a++) { const xx = Math.round(x + 6 * Math.cos(a * 0.785)), zz = Math.round(z + 6 * Math.sin(a * 0.785)); if (xx > 0 && zz > 0 && xx < W && zz < D) mn = Math.min(mn, G[xx * D + zz]); } return g - mn >= 3; })();
         if (hi > 0.25 && peaky && (g >= snowLine && slope <= 5 || g >= snowLine - 4 && slope <= 2 && fbm(x / 13 - 6, z / 13 + 2) > 0.55)) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
         if ((slope >= 3 || (slope >= 2 && g >= 22)) && b !== T.SAND) {
           const lay = !nearBlack(x, z); world[base + top * D] = lay ? mcRock(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
@@ -96382,7 +96394,7 @@ try {
         if (bio === 'moor' || (bio === 'pine' && g > 22 && fbm(x / 40 + 3, z / 40) > 0.58)) { if (fbm(x / 11 + 5, z / 11 - 1) > 0.3) { world[base + top * D] = HE; b = HE; nHe++; } }
         else if (bio === 'scrub' && T.PEAT && fbm(x / 9 - 3, z / 9 + 8) > 0.5) { world[base + top * D] = T.PEAT; b = T.PEAT; }
         else if (b === HE) { world[base + top * D] = GR; b = GR; }
-        if (slope > 2 || g < 3 || x < 6 || z < 6 || x >= W - 6 || z >= D - 6 || Math.hypot(x - sx, z - sz) < 14 || Math.hypot(x - bx, z - bz) < 80) continue;
+        if (slope > 2 || g < 3 || g >= snowLine - 3 || x < 6 || z < 6 || x >= W - 6 || z >= D - 6 || Math.hypot(x - sx, z - sz) < 14 || Math.hypot(x - bx, z - bz) < 80) continue;
         const fm = fbm(x / 150 + 20, z / 150 - 9), dens = bio === 'yew' ? DEN.yew : DEN[bio] * (fm > 0.47 ? Math.min(1, (fm - 0.47) / 0.12) : 0.06);
         const p = hs(x * 0.37 + 4.1, z * 0.91 - 2.2); if (p >= dens) continue;
         let busy = false; const RR = bio === 'yew' ? 5 : 8; for (let dx = -RR; dx <= RR && !busy; dx++) for (let dz = -RR; dz <= RR; dz++) if (occ[c + dx * D + dz]) { busy = true; break; } if (busy) continue;
