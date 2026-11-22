@@ -176,10 +176,12 @@ ok(rp.inv === rb.inv - 1, 'placing used one Singer (' + rb.inv + ' -> ' + rp.inv
 await page.evaluate(() => {
   selId = 0; try { renderHotbar(); } catch (_) {}
   const s = __sing1316.list[__sing1316.list.length - 1], c = [s.x + 0.5, s.y + 1, s.z + 0.5];
-  window.__shotCam = [c[0] + 0.55, c[1] + 0.12, c[2] + 0.95, c[0], c[1] - 0.12, c[2]];
+  window.__shotCam = [c[0] + 0.9, c[1] + 1.0, c[2] + 2.3, c[0], c[1] - 0.25, c[2]];   // ~2.6 blocks away, looking slightly down at the single planks block
 });
 await page.waitForTimeout(1500);
 await page.screenshot({path: path.join(OUT, 'singer-placed-on-block.png')});
+const shotH = await page.evaluate(() => { const s = __sing1316.list[__sing1316.list.length - 1]; s.g.updateMatrixWorld(true); let m = null; s.g.traverse(o => { if (o.isSkinnedMesh) m = o; }); m.skeleton.update(); const b = new THREE.Box3(), v = new THREE.Vector3(); for (let i = 0; i < m.geometry.attributes.position.count; i += 7) { m.boneTransform(i, v); v.applyMatrix4(m.matrixWorld); b.expandByPoint(v); } return {h: b.max.y - b.min.y, minY: b.min.y, top: s.y + 1, inX: b.min.x >= s.x && b.max.x <= s.x + 1, inZ: b.min.z >= s.z && b.max.z <= s.z + 1}; });
+ok(shotH.h > 0.22 && shotH.h < 0.42 && Math.abs(shotH.minY - shotH.top) < 0.06 && shotH.inX && shotH.inZ, 'in the on-block shot she is ~0.3 blocks tall, standing on the planks top face (' + JSON.stringify(shotH) + ')');
 await page.evaluate(() => { const s = __sing1316.list[__sing1316.list.length - 1], c = [s.x + 0.5, s.y + 1, s.z + 0.5]; window.__shotCam = [c[0] + 0.3, c[1] + 0.2, c[2] + 0.5, c[0], c[1] + 0.1, c[2]]; });
 await page.waitForTimeout(1200);
 await page.screenshot({path: path.join(OUT, 'singer-placed-macro.png')});
