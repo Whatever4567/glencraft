@@ -144,6 +144,11 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.119 Minecraft-style UK terrain, cumulus clouds, map-based woods
+
+- The cumulus cloud sheet is original procedural artwork painted in game (tileable value-noise fBm on a canvas) and drawn on a sky dome as a classic planar cloud layer. No outside images.
+- On new twice-scale worlds the woods follow a map of Scotland worked out from the game's own latitude and longitude, and steep mountainsides use the game's existing stone, gravel and red sandstone blocks in layered bands. No new textures or models.
+
 ## v1.2.117 New hand-drawn UK map when you hold the map
 
 - The map you hold in your hand now shows the hand-drawn UK chart, with the labelled woods, highlands and the gold frame. Your position marker stays on it. The old generated chart is still in the code, hidden under this picture.
