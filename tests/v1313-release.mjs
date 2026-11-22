@@ -10,9 +10,9 @@ const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'))
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
-ok(['1.2.113', '1.2.114', '1.2.115', '1.2.117'].includes(ver.v), 'version.json is 1.2.113 or later');
+ok(['1.2.113', '1.2.114', '1.2.115', '1.2.117', '1.2.118'].includes(ver.v), 'version.json is 1.2.113 or later');
 ok(html.includes('<!-- glencraft-build: b1313-v1.2.113 -->'), '1.2.113 build marker stays');
-ok(html.includes("const GAME_VERSION = '1.2.114';") || html.includes("const GAME_VERSION = '1.2.115';") || html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.113';"), 'GAME_VERSION is 1.2.113 or 1.2.114');
+ok(html.includes("const GAME_VERSION = '1.2.114';") || html.includes("const GAME_VERSION = '1.2.115';") || html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.113';"), 'GAME_VERSION is 1.2.113 or 1.2.114');
 const s113 = html.indexOf('{"v":"v1.2.113"');
 const s112 = html.indexOf('{"v":"v1.2.112"', s113 > 0 ? s113 - 800 : 0);
 ok(s113 > 0, 'PATCH_NOTES has 1.2.113');
