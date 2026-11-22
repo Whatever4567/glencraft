@@ -32739,6 +32739,11 @@ window.__seaCol = () => [42, 98, 186]; /* v1.1.52: one sea colour for the whole 
       let lo = 1e9, hi = -1e9, bad = false; const tops = [];
       for (let x = x0 - 2; x <= x0 + 8 && !bad; x += 2) for (let z = z0 - 2; z <= z0 + 13; z += 2) { const t = gtop(x, z); if (get(x, t + 1, z) === T.WATER || t <= SEA + 1) { bad = true; break; } lo = Math.min(lo, t); hi = Math.max(hi, t); tops.push(t); }
       if (bad || hi - lo > 3) continue; let bon = 0;
+      /* t1338: on MC worlds a croft only goes where the final (MC) ground is gentle and close to this pad,
+         so farms sit on farmable flat-ish land and the ground blends round them */
+      try { const M = window.__v1308 && __v1308.mc; if (M && M.elig()) { let a = 1e9, b = -1e9; const cap = H - SEA - 8;
+        for (const [dx, dz] of [[-2, -2], [8, -2], [-2, 13], [8, 13], [3, 6]]) { const gm = M.height(x0 + dx, z0 + dz, 0.3, cap)[0]; a = Math.min(a, gm); b = Math.max(b, gm); }
+        const pad = lo - SEA + 1; if (b - a > 3.5 || a < 1.5 || Math.abs((a + b) / 2 - pad) > 4) continue; } } catch (_) {}
       if (G35()) { const inI = IS.find(q => Math.hypot((x0 + 3 - q.x) / (q.sx || 1), (z0 + 6 - q.z) / (q.sz || 1)) < IR * 1.15); if (inI && !inI.nc) continue; if (inI) bon = -6; if (Math.hypot(x0 + 3 - MT_C[0], z0 + 6 - MT_C[1]) < 110) continue; }
       tops.sort((p, q) => p - q); cand.push({x0, z0, gy: tops[tops.length >> 1], sc: hi - lo + h3(x0, 1, z0) + bon}); }
     cand.sort((p, q) => p.sc - q.sc); const pick = [];
@@ -96077,7 +96082,7 @@ try {
   /* coarse grid (every 4 blocks) for the three big fields, bilinear between */
   const GS = 4;
   function mcGrid() {
-    mcInit(); if (MC.grid && MC.grid.W === W && MC.grid.seed === mcSeed) return MC.grid;
+    mcInit(); const KK = (window.__c339 && __c339.K) || 0; if (MC.grid && MC.grid.W === W && MC.grid.seed === mcSeed && MC.grid.K === KK) return MC.grid;
     const t0 = performance.now(), gw = Math.ceil(W / GS) + 2, gd = Math.ceil(D / GS) + 2, C = new Float32Array(gw * gd), E = new Float32Array(gw * gd), Wd = new Float32Array(gw * gd);
     const land = (window.__c341 && __c341.land) || (() => 1), R1 = 0.05, R2 = 0.14;
     for (let i = 0; i < gw; i++) for (let j = 0; j < gd; j++) { const x = i * GS, z = j * GS, ll = __c339.fll(x, z), la = ll[0], lo = ll[1], k = i * gd + j;
@@ -96087,7 +96092,7 @@ try {
       C[k] = (lb - 0.5) * 2 + 0.1 * n2(x / 700 + 3, z / 700 - 8);
       E[k] = f2(x / 950 + 11, z / 950 - 3, 3) * 0.9 - 0.6 * hi + 0.2;
       Wd[k] = f2(x / 430 - 7, z / 430 + 5, 3) * 1.25; }
-    MC.grid = {W, seed: mcSeed, gw, gd, C, E, Wd}; MC.gridMs = Math.round(performance.now() - t0); return MC.grid; }
+    MC.grid = {W, seed: mcSeed, K: KK, gw, gd, C, E, Wd}; MC.gridMs = Math.round(performance.now() - t0); return MC.grid; }
   const gbl = (A, G, x, z) => { const fx = x / GS, fz = z / GS, i = Math.floor(fx), j = Math.floor(fz), a = fx - i, b = fz - j, k = i * G.gd + j;
     return (A[k] * (1 - a) + A[k + G.gd] * a) * (1 - b) + (A[k + 1] * (1 - a) + A[k + G.gd + 1] * a) * b; };
   /* returns [g (top above sea), jaggedness] for a land column */
