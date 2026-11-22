@@ -156,6 +156,49 @@ await page.waitForTimeout(2500);
 const back = await page.evaluate(() => cnt(__sing1316.id));
 ok(back === after.inv + 1, 'walking near picks the Singer back up (inv=' + back + ')');
 
+// Second round, on a raised block: put a planks block on the ground, aim at it and
+// place with the real useItem path (LT / right-click / tap Place all call useItem),
+// screenshot her ON that block close up with an empty hand, then hit to pick her up.
+const rb = await page.evaluate(() => {
+  try { flying = false; } catch (_) {}
+  const top = (x, z) => { for (let y = H - 2; y > 1; y--) if (solid(x, y, z)) return y; return -1; };
+  let bx = Math.floor(P.x), bz = Math.floor(P.z) - 2, gy = top(bx, bz), py = top(bx, bz + 2);
+  setB(bx, gy + 1, bz, T.PLANKS); for (let k = 2; k < 5; k++) setB(bx, gy + k, bz, T.AIR);
+  P.x = bx + 0.5; P.z = bz + 2.5; P.y = py + 1; P.vy = 0; P.yaw = 0;
+  const dy = (gy + 1.95) - (P.y + EYE); P.pitch = Math.atan2(dy, 1.55);
+  selId = __sing1316.id; try { renderHotbar(); } catch (_) {}
+  return {blk: [bx, gy + 1, bz], inv: cnt(__sing1316.id), n: __sing1316.list.length};
+});
+await page.waitForTimeout(900);
+const rp = await page.evaluate(() => { const r = raycast(5); const res = useItem(); return {hit: r && r.hit, n: __sing1316.list.length, last: __sing1316.last, inv: cnt(__sing1316.id)}; });
+ok(rp.n === rb.n + 1 && JSON.stringify(rp.last) === JSON.stringify(rb.blk), 'useItem with the Singer selected puts her on top of the aimed planks block (' + JSON.stringify({rb, rp}) + ')');
+ok(rp.inv === rb.inv - 1, 'placing used one Singer (' + rb.inv + ' -> ' + rp.inv + ')');
+await page.evaluate(() => {
+  selId = 0; try { renderHotbar(); } catch (_) {}
+  const s = __sing1316.list[__sing1316.list.length - 1], c = [s.x + 0.5, s.y + 1, s.z + 0.5];
+  window.__shotCam = [c[0] + 0.55, c[1] + 0.12, c[2] + 0.95, c[0], c[1] - 0.12, c[2]];
+});
+await page.waitForTimeout(1500);
+await page.screenshot({path: path.join(OUT, 'singer-placed-on-block.png')});
+await page.evaluate(() => { const s = __sing1316.list[__sing1316.list.length - 1], c = [s.x + 0.5, s.y + 1, s.z + 0.5]; window.__shotCam = [c[0] + 0.3, c[1] + 0.2, c[2] + 0.5, c[0], c[1] + 0.1, c[2]]; });
+await page.waitForTimeout(1200);
+await page.screenshot({path: path.join(OUT, 'singer-placed-macro.png')});
+await page.evaluate(() => { window.__shotCam = null; });
+const rh0 = await page.evaluate(() => {
+  const s = __sing1316.list[__sing1316.list.length - 1];
+  const cx = s.g.position.x, cy = s.g.position.y + 0.15, cz = s.g.position.z;
+  const dx = cx - P.x, dy = cy - (P.y + EYE), dz = cz - P.z; P.yaw = Math.atan2(-dx, -dz); P.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  return {aimed: !!__sing1316.aimed(4), n: __sing1316.list.length, inv: cnt(__sing1316.id), blk: getB(s.x, s.y, s.z)};
+});
+await page.evaluate(() => { attackMouse = true; });
+await page.waitForTimeout(500);
+await page.evaluate(() => { attackMouse = false; });
+await page.waitForTimeout(2500);
+const rh1 = await page.evaluate(() => ({n: __sing1316.list.length, inv: cnt(__sing1316.id), blk: getB(...__sing1316.last)}));
+ok(rh0.aimed && rh1.n === rh0.n - 1, 'hitting her on the planks block removes her (' + JSON.stringify({rh0, rh1}) + ')');
+ok(rh1.inv === rh0.inv + 1, 'and the Singer item is back in the inventory (' + rh0.inv + ' -> ' + rh1.inv + ')');
+ok(rh1.blk === T.PLANKS, 'the planks block under her is left alone');
+
 // Persistence record + cap + per-frame cost with 20 singers.
 const cap = await page.evaluate(() => {
   const s0 = P; const bx = Math.floor(P.x), bz = Math.floor(P.z);
