@@ -96352,17 +96352,17 @@ try {
           blob(Math.round(x + Math.cos(a) * L), by + (L >> 1) + 1, Math.round(z + Math.sin(a) * L), 3.0, F); }
         blob(x, y + h + 1, z, 4.2, F); };
       const juniper = (x, y, z, u) => { set(x, y, z, PL, true); blob(x, y + 1, z, 1.4 + u, JF); };
-      const yew = (x, y, z, u) => { trunk(x, y, z, 5, YL); blob(x, y + 5, z, 4.2, YF); blob(x, y + 8, z, 2.8, YF); };
+      const yew = (x, y, z, u) => { trunk(x, y, z, 6, YL); blob(x, y + 5, z, 4.8 + u * 0.8, YF); blob(x, y + 9, z, 3.2, YF); };
       const [scX, scZ] = [sx, sz];
       const biomeAt = (x, z, hi) => { if (nearBlack(x, z)) return 'alder'; if (Math.hypot(x - scX, z - scZ) < 120) return 'oak';
         const ll = __c339.fll(x, z), la = ll[0], lo = ll[1], fl = 56.0 + (lo + 4.7) * 0.38, m = fbm(x / 160 + 7, z / 160 - 3);
         if (la > fl + 0.05) return m > 0.56 ? 'moor' : (m < 0.3 && hi < 0.7 ? 'rowan' : 'pine');
         if (lo < -4.9) return m > 0.55 ? 'moor' : 'scrub';
-        if (la >= 55.75) return m > 0.62 ? (lo > -3.6 ? 'yew' : 'oak') : (m < 0.46 ? 'moor' : (m > 0.54 ? 'oak' : 'birch'));
+        if (la >= 55.75) { if (lo > -3.6) return m < 0.3 ? 'moor' : 'yew'; return m > 0.62 ? 'oak' : (m < 0.46 ? 'moor' : (m > 0.54 ? 'oak' : 'birch')); }
         if (la < 55.6 && lo > -3.3) return 'alder'; return m > 0.55 ? 'yew' : 'moor'; };
       const mcRock = (x, y, z) => { const off = (fbm(x / 300 + 11, z / 300 - 7) - 0.5) * 9 + (fbm(x / 46 - 3, z / 46 + 5) - 0.5) * 4.5, band = Math.floor((y + off) / 3), hb = hs(band * 7.13 + 0.37, 1.91 + band * 0.11);
-        return hb < (x < nwX ? 0.05 : 0.02) ? RS : (hb < 0.17 ? GV : ST); };
-      const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.018, moor: 0.0015, scrub: 0.03};
+        return hb < 0.17 ? GV : ST; };
+      const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.05, moor: 0.0015, scrub: 0.03};
       let nSnow = 0, nStone = 0, nTree = 0, nHe = 0, nLand = 0;
       for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
         const c = x * D + z, g = G[c]; if (g <= 0) continue; const vk = VK[c]; if (vk === 'b' || vk === 'l' || vk === 'r') continue;
@@ -96370,7 +96370,8 @@ try {
         const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D], slope = Math.max(Math.abs(g - n0), Math.abs(g - n1), Math.abs(g - n2), Math.abs(g - n3)), hi = HI[c] / 100;
         const snowLine = Math.max(36, cap - 5) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 2 : 0);
         /* t1338: white caps on the peaks, steep ones too (only sheer faces stay stone); patchy snow just below the line */
-        if (hi > 0.25 && (g >= snowLine && slope <= 5 || g >= snowLine - 4 && slope <= 2 && fbm(x / 13 - 6, z / 13 + 2) > 0.55)) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
+        const peaky = g >= snowLine - 4 && (() => { let mn = g; for (let a = 0; a < 8; a++) { const xx = Math.round(x + 6 * Math.cos(a * 0.785)), zz = Math.round(z + 6 * Math.sin(a * 0.785)); if (xx > 0 && zz > 0 && xx < W && zz < D) mn = Math.min(mn, G[xx * D + zz]); } return g - mn >= 5; })();
+        if (hi > 0.25 && peaky && (g >= snowLine && slope <= 5 || g >= snowLine - 4 && slope <= 2 && fbm(x / 13 - 6, z / 13 + 2) > 0.55)) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
         if ((slope >= 3 || (slope >= 2 && g >= 22)) && b !== T.SAND) {
           const lay = !nearBlack(x, z); world[base + top * D] = lay ? mcRock(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
           const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? mcRock(x, y, z) : rockAt(x, z, g, slope, vk); }
@@ -96382,9 +96383,9 @@ try {
         else if (bio === 'scrub' && T.PEAT && fbm(x / 9 - 3, z / 9 + 8) > 0.5) { world[base + top * D] = T.PEAT; b = T.PEAT; }
         else if (b === HE) { world[base + top * D] = GR; b = GR; }
         if (slope > 2 || g < 3 || x < 6 || z < 6 || x >= W - 6 || z >= D - 6 || Math.hypot(x - sx, z - sz) < 14 || Math.hypot(x - bx, z - bz) < 80) continue;
-        const fm = fbm(x / 150 + 20, z / 150 - 9), dens = DEN[bio] * (fm > 0.47 ? Math.min(1, (fm - 0.47) / 0.12) : 0.06);
+        const fm = fbm(x / 150 + 20, z / 150 - 9), dens = bio === 'yew' ? DEN.yew : DEN[bio] * (fm > 0.47 ? Math.min(1, (fm - 0.47) / 0.12) : 0.06);
         const p = hs(x * 0.37 + 4.1, z * 0.91 - 2.2); if (p >= dens) continue;
-        let busy = false; for (let dx = -8; dx <= 8 && !busy; dx++) for (let dz = -8; dz <= 8; dz++) if (occ[c + dx * D + dz]) { busy = true; break; } if (busy) continue;
+        let busy = false; const RR = bio === 'yew' ? 5 : 8; for (let dx = -RR; dx <= RR && !busy; dx++) for (let dz = -RR; dz <= RR; dz++) if (occ[c + dx * D + dz]) { busy = true; break; } if (busy) continue;
         occ[c] = 1; const u = hs(x * 1.7 - 3, z * 2.3 + 1), y = top + 1;
         if (bio === 'pine') pine(x, y, z, u); else if (bio === 'birch') birch(x, y, z, u); else if (bio === 'rowan') birch(x, y, z, u * 0.5), set(x, y + 9, z, RF);
         else if (bio === 'oak') oak(x, y, z, u, OL, OF); else if (bio === 'alder') oak(x, y, z, u + 0.4, AL, AF); else if (bio === 'yew') yew(x, y, z, u); else juniper(x, y, z, u);
