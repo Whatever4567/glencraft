@@ -194,10 +194,10 @@ await page.evaluate(() => { attackMouse = true; });
 await page.waitForTimeout(500);
 await page.evaluate(() => { attackMouse = false; });
 await page.waitForTimeout(2500);
-const rh1 = await page.evaluate(() => ({n: __sing1316.list.length, inv: cnt(__sing1316.id), blk: getB(...__sing1316.last)}));
+const rh1 = await page.evaluate(() => ({n: __sing1316.list.length, inv: cnt(__sing1316.id), blk: getB(...__sing1316.last), planks: getB(...__sing1316.last) === T.PLANKS}));
 ok(rh0.aimed && rh1.n === rh0.n - 1, 'hitting her on the planks block removes her (' + JSON.stringify({rh0, rh1}) + ')');
 ok(rh1.inv === rh0.inv + 1, 'and the Singer item is back in the inventory (' + rh0.inv + ' -> ' + rh1.inv + ')');
-ok(rh1.blk === T.PLANKS, 'the planks block under her is left alone');
+ok(rh1.planks, 'the planks block under her is left alone');
 
 // Persistence record + cap + per-frame cost with 20 singers.
 const cap = await page.evaluate(() => {
