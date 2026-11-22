@@ -95975,6 +95975,7 @@ try {
   /* Memo for scaled hT (scot + finish each walk every column). */
   const HT_EMPTY = -32768;
   let htCache = null, htHi = null, htL = null, htKind = null, htJ = null, htCacheW = 0, htCacheH = 0;
+  let htCacheK = 0;
   function htCacheReset() {
     htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0;
     stReset();
@@ -95995,7 +95996,11 @@ try {
   }
   function htCacheAlloc() {
     if (!isScaled()) return;
-    if (htCache && htCacheW === W && htCacheH === H && htCache.length === W * D) return;
+    /* t1338: the cache is only valid for one projection; a call made before applyProj switched K
+       (e.g. 300 -> 600 on 2x) used to poison it and halve the land (the 765,900 spawn variant) */
+    const KK = (window.__c339 && __c339.K) || 0;
+    if (htCache && htCacheW === W && htCacheH === H && htCache.length === W * D && htCacheK === KK) return;
+    htCacheK = KK;
     const N = W * D;
     htCache = new Int16Array(N).fill(HT_EMPTY);
     htHi = new Int16Array(N);
