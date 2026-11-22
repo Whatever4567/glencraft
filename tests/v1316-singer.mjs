@@ -1,4 +1,4 @@
-// v1.2.116: tiny dancing Singer item. LT / right-click (useItem) places a cup-sized
+// v1.2.115: Singer item. LT / right-click (useItem) places a cup-sized
 // singer on the aimed block; hitting her drops the Singer item back; the giant is held off.
 import fs from 'node:fs';
 import http from 'node:http';
@@ -11,11 +11,11 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
-ok(ver.v === '1.2.116', 'version.json is 1.2.116');
-ok(html.includes("const GAME_VERSION = '1.2.116';"), 'GAME_VERSION is 1.2.116');
-ok(html.includes('<!-- glencraft-build: b1316-v1.2.116 -->'), 'build marker b1316-v1.2.116');
-const s0 = html.indexOf('{"v":"v1.2.116"'), s1 = html.indexOf('{"v":"v1.2.114"', s0);
-ok(s0 > 0 && s1 > s0 && html.slice(s0, s1).includes('Tiny dancing Singer you can place on any block'), 'patch note present');
+ok(ver.v === '1.2.115', 'version.json is 1.2.115');
+ok(html.includes("const GAME_VERSION = '1.2.115';"), 'GAME_VERSION is 1.2.115');
+ok(html.includes('<!-- glencraft-build: b1315-v1.2.115 -->'), 'build marker b1315-v1.2.115');
+const s0 = html.indexOf('{"v":"v1.2.115"'), s1 = html.indexOf('{"v":"v1.2.114"', s0);
+ok(s0 > 0 && s1 > s0 && html.slice(s0, s1).includes('Singer you can place on any block to dance'), 'patch note present');
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew/i.test(html.slice(s0, s1)), 'no food in the note');
 ok(html.includes('GLX-SING1316'), 'singer patch inlined');
 
