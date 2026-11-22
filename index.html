@@ -98256,5 +98256,59 @@ try {
   setInterval(vis, 250);
 })(typeof window !== 'undefined' ? window : this);
 </script>
+<script>
+/* GLX-BIO1316 (v1.2.116, t1326): on new twice-scale Highlands worlds the wood
+   types follow the real map instead of random cells. North of the Highland
+   Boundary Fault (the same line the terrain and its pine/birch trees already
+   use) is Scots pine with the odd rowan glen; south of it, the Northern
+   Lowlands, is silver birch with a few oak pockets; south Scotland is heather
+   (juniper) moor and the Borders alder. Oak stays round spawn and the castle
+   islands keep their own woods (alder round the Black Skeleton castle).
+   Deterministic from the seed. Worlds made before this update keep their old
+   random biomes; the 864 test worlds are unchanged. */
+(function bio1316(WIN) {
+  const U = WIN.__bio1316 = {err: null, on: 0, built: 0, ms: 0, CUT: Date.UTC(2026, 10, 22, 8, 0)};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const elig = () => { try { return !!(WIN.__v1308 && __v1308.isScaled && __v1308.isScaled() && WIN.__c339 && __c339.fll && !(typeof DIM !== 'undefined' && DIM && DIM.cur) && current && (current.created || 0) >= U.CUT); } catch (_) { return false; } };
+  U.elig = elig;
+  function geo(x, z, b) {
+    const ll = __c339.fll(x, z), lat = ll[0], lon = ll[1];
+    if (!lat) return b;
+    const fl = 56.0 + (lon + 4.7) * 0.38;
+    if (lat > fl + 0.05) return b === 3 ? 3 : 1;          // Highlands: pine, rowan pockets
+    if (lat >= 55.75) return b === 0 ? 0 : 2;             // Northern Lowlands: birch, oak pockets
+    if (lat < 55.6 && lon > -3.3) return 4;               // Borders: alder
+    return 6;                                             // southern uplands: heather / juniper moor
+  }
+  U.geo = geo;
+  function hook() {
+    try {
+      const C = WIN.__c113; if (!C || !C.bioOv || C.bioOv.__b1316) return;
+      const o = C.bioOv;
+      C.bioOv = function (x, z, b) {
+        const r = o.apply(this, arguments);
+        try {
+          if (r !== b || !elig()) return r;                // castle-island woods win
+          const S = W / 864, sp = (WIN.__v1308 && __v1308.spawn) || (typeof g9spawn !== 'undefined' && g9spawn);
+          if (sp && Math.hypot(x - sp[0], z - sp[2]) < 95 * S) return 0;
+          const cs = (typeof g9castles !== 'undefined' && g9castles) || [];
+          for (const c of cs) if (c[0] === 'black' && Math.hypot(x - c[1], z - c[2]) < 125 * S) return 4;
+          U.on = 1; return geo(x, z, b);
+        } catch (e) { ERR('ov', e); return r; }
+      };
+      C.bioOv.__b1316 = 1;
+    } catch (e) { ERR('hook', e); }
+  }
+  hook(); setTimeout(hook, 500);
+  /* the official build ran while the seed was still 0 (biomes off); build
+     the map once the Highlands terrain is final */
+  try {
+    const A = WIN.__c341;
+    if (A && A.scot) { const s0 = A.scot; A.scot = function () { const r = s0.apply(this, arguments);
+      try { if (elig() && WIN.__bio && __bio.build) { const t0 = performance.now(); __bio.build(true); U.ms = Math.round(performance.now() - t0); U.built++; } } catch (e) { ERR('build', e); }
+      return r; }; }
+  } catch (e) { ERR('scot', e); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
 </body>
 </html>
