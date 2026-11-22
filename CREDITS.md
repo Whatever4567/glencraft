@@ -144,6 +144,10 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.115 Singer you can place on any block to dance
+
+- The pop star is now a cup-sized Singer item (about a third of a block tall). Press LT (right-click, or tap Place) to put her on top of any block; she struts round that one block doing her dance to a quiet loop of her song. Hit her to pick her up again. The giant pop star no longer roams the glen. Her model and song are the original Glencraft ones from v1.2.51.
+
 ## v1.2.114 New twice-scale worlds play as soon as the land around you is ready
 
 - Creating a new twice-scale Highlands Survival world no longer sits on the loading screen after the land itself has been built. Trees, keeps and the wider country finish loading in the background, so you can walk as soon as the ground around spawn is meshed. Older saved worlds are unchanged.
