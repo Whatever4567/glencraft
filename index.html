@@ -96107,7 +96107,12 @@ try {
     let J = 1.2 * (1 - e01);
     if (mM > 0.01) { const qx = n2(x / 120 + 5, z / 120), qz = n2(x / 120 - 9, z / 120 + 4), r = rdg((x + 26 * qx) / 310 + 1.3, (z + 26 * qz) / 310 - 2.1);
       g += mM * r * cap * (0.5 + 0.45 * hi); J += mM * (2 + 7 * r); }
-    g += 1.3 * n2(x / 21 + 2, z / 21 - 6) + 0.6 * n2(x / 9, z / 9);
+    /* t1338: Highland massifs - ranges of tall, jagged ridged peaks (snow above the snow line, grey stone faces), glens between */
+    const mR = ss(cl((f2(x / 640 - 13, z / 640 + 21, 2) + 0.25) / 0.7, 0, 1)), mH = Math.pow(cl(hi, 0, 1), 1.3) * inl * mR;
+    if (mH > 0.02) { const qx = n2(x / 90 + 15, z / 90 - 2), qz = n2(x / 90 - 3, z / 90 + 11), r2 = rdg((x + 30 * qx) / 190 - 4.4, (z + 30 * qz) / 190 + 0.7);
+      g += mH * (cap * 0.62 * r2 * r2 + cap * 0.16); J += mH * (1.5 + 6 * r2); }
+    /* layered detail at several scales so slopes are not uniform 1-block step bands */
+    g += 2.2 * n2(x / 48 - 9, z / 48 + 3) + 1.4 * n2(x / 21 + 2, z / 21 - 6) + 0.8 * n2(x / 9, z / 9) + 0.35 * n2(x / 4.3 + 7, z / 4.3);
     const rv = ss(cl((-0.8 - pv) / 0.16, 0, 1)) * ss(cl((cont - 0.02) / 0.12, 0, 1));
     g = Math.max(g, 1 + 1.5 * inl);   // official land stays land (coastline unchanged); only river channels dip below sea
     if (rv > 0) { g = g * (1 - rv) - 2.2 * rv; J *= 1 - rv; }
@@ -96336,25 +96341,27 @@ try {
       const [scX, scZ] = [sx, sz];
       const biomeAt = (x, z, hi) => { if (nearBlack(x, z)) return 'alder'; if (Math.hypot(x - scX, z - scZ) < 120) return 'oak';
         const ll = __c339.fll(x, z), la = ll[0], lo = ll[1], fl = 56.0 + (lo + 4.7) * 0.38, m = fbm(x / 160 + 7, z / 160 - 3);
-        if (la > fl + 0.05) return m > 0.62 ? 'moor' : (m < 0.3 && hi < 0.7 ? 'rowan' : 'pine');
-        if (la >= 55.75) return m > 0.6 ? 'oak' : (m < 0.32 ? 'moor' : 'birch');
+        if (la > fl + 0.05) return m > 0.56 ? 'moor' : (m < 0.3 && hi < 0.7 ? 'rowan' : 'pine');
+        if (lo < -4.9) return m > 0.55 ? 'moor' : 'scrub';
+        if (la >= 55.75) return m > 0.62 ? (lo > -3.6 ? 'yew' : 'oak') : (m < 0.46 ? 'moor' : (m > 0.54 ? 'oak' : 'birch'));
         if (la < 55.6 && lo > -3.3) return 'alder'; return m > 0.55 ? 'yew' : 'moor'; };
-      const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.014, moor: 0.0015};
+      const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.018, moor: 0.0015, scrub: 0.03};
       let nSnow = 0, nStone = 0, nTree = 0, nHe = 0, nLand = 0;
       for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
         const c = x * D + z, g = G[c]; if (g <= 0) continue; const vk = VK[c]; if (vk === 'b' || vk === 'l' || vk === 'r') continue;
         const top = SEA + g - 1, base = x * WH * D + z; if (top < 1 || top >= WH - 1) continue; let b = world[base + top * D]; if (!NAT.has(b)) continue; nLand++;
         const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D], slope = Math.max(Math.abs(g - n0), Math.abs(g - n1), Math.abs(g - n2), Math.abs(g - n3)), hi = HI[c] / 100;
-        const snowLine = Math.max(34, cap - 9) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 5 : 0);
+        const snowLine = Math.max(27, cap - 14) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 4 : 0);
         if (g >= snowLine && hi > 0.3 && slope <= 3) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
-        if (slope >= 3 && b !== T.SAND) {
+        if ((slope >= 3 || (slope >= 2 && g >= 22)) && b !== T.SAND) {
           const lay = !nearBlack(x, z); world[base + top * D] = lay ? strataAt(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
           const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? strataAt(x, y, z) : rockAt(x, z, g, slope, vk); }
           continue; }
         if (b === SN || b === T.SNOW || b === ST || b === GV || b === DS || b === SL) { if (g > 3) { world[base + top * D] = GR; if (top > 1 && world[base + (top - 1) * D] === ST) world[base + (top - 1) * D] = DT; b = GR; } }
         if (b !== GR && b !== HE) continue;
         const bio = biomeAt(x, z, hi);
-        if (bio === 'moor' || (bio === 'pine' && g > 22 && fbm(x / 40 + 3, z / 40) > 0.58)) { if (fbm(x / 11 + 5, z / 11 - 1) > 0.36) { world[base + top * D] = HE; b = HE; nHe++; } }
+        if (bio === 'moor' || (bio === 'pine' && g > 22 && fbm(x / 40 + 3, z / 40) > 0.58)) { if (fbm(x / 11 + 5, z / 11 - 1) > 0.3) { world[base + top * D] = HE; b = HE; nHe++; } }
+        else if (bio === 'scrub' && T.PEAT && fbm(x / 9 - 3, z / 9 + 8) > 0.5) { world[base + top * D] = T.PEAT; b = T.PEAT; }
         else if (b === HE) { world[base + top * D] = GR; b = GR; }
         if (slope > 2 || g < 3 || x < 6 || z < 6 || x >= W - 6 || z >= D - 6 || Math.hypot(x - sx, z - sz) < 14 || Math.hypot(x - bx, z - bz) < 80) continue;
         const fm = fbm(x / 150 + 20, z / 150 - 9), dens = DEN[bio] * (fm > 0.47 ? Math.min(1, (fm - 0.47) / 0.12) : 0.06);
