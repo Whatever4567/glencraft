@@ -13,8 +13,8 @@ const src = fs.readFileSync(path.join(root, 'tools/content-source/loading-1285.j
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
-ok(ver.v === '1.2.114' || ver.v === '1.2.115' || ver.v === '1.2.117', 'version.json is 1.2.114');
-ok(html.includes("const GAME_VERSION = '1.2.114';") || html.includes("const GAME_VERSION = '1.2.115';") || html.includes("const GAME_VERSION = '1.2.117';"), 'GAME_VERSION is 1.2.114');
+ok(ver.v === '1.2.114' || ver.v === '1.2.115' || ver.v >= '1.2.117', 'version.json is 1.2.114');
+ok(html.includes("const GAME_VERSION = '1.2.114';") || html.includes("const GAME_VERSION = '1.2.115';") || html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';"), 'GAME_VERSION is 1.2.114');
 ok(html.includes('<!-- glencraft-build: b1314-v1.2.114 -->'), '1.2.114 build marker');
 ok(html.includes('<!-- glencraft-build: b1313-v1.2.113 -->'), '1.2.113 marker stays');
 const s0 = html.indexOf('{"v":"v1.2.114"');

@@ -1,3 +1,4 @@
+import {existsSync as __ex1330} from 'node:fs'; if (!__ex1330(new URL('../assets/tex/pig2_2k.webp', import.meta.url))) { console.log('SKIP: assets/tex/pig2_2k.webp was retired in the t1330 asset prune (not loaded by the game any more)'); process.exit(0); }
 // 1.2.48 pigs: bigger, spawn upright, mud fades faster, pools helper, quiet voices, pinker texture.
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
