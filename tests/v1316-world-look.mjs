@@ -17,7 +17,9 @@ ok(html.includes('<!-- glencraft-build: b1316-v1.2.116 -->'), 'build marker b131
 const s0 = html.indexOf('{"v":"v1.2.116"'), s1 = html.indexOf('{"v":"v1.2.115"', s0);
 ok(s0 > 0 && s1 > s0 && html.slice(s0, s1).includes('cumulus clouds'), 'patch note present, newest first');
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew|eat/i.test(html.slice(s0, s1)), 'no food in the note');
-ok(html.includes('GLX-CL1316') && html.includes('GLX-BIO1316') && html.includes('function strataAt('), 'cloud, biome and strata patches inlined');
+ok(html.includes('GLX-CL1316') && html.includes('GLX-BIO1316') && html.includes('const strataAt = (x, y, z)'), 'cloud, biome and strata patches inlined');
+const OUT = process.env.LOOK_OUT || '/tmp/t1326-look';
+fs.mkdirSync(OUT, {recursive: true});
 const PORT = Number(process.env.PORT || 8926);
 const MIME = {'.html':'text/html; charset=utf-8','.js':'text/javascript','.json':'application/json','.png':'image/png','.css':'text/css','.glb':'model/gltf-binary','.jpg':'image/jpeg','.webp':'image/webp','.mp3':'audio/mpeg','.ogg':'audio/ogg','.woff2':'font/woff2','.wasm':'application/wasm','.svg':'image/svg+xml'};
 const server = http.createServer((req, res) => {
@@ -36,7 +38,7 @@ page.setDefaultTimeout(180000);
 const errors = [];
 page.on('pageerror', e => { const s = String(e && (e.stack || e.message) || e).slice(0, 400); errors.push(s); console.log('PAGEERROR', s); });
 await page.addInitScript(() => { window.__forceSeed = 7; });
-await page.goto('http://127.0.0.1:' + PORT + '/index.html?nosw=1&qa=t1326look', {waitUntil: 'domcontentloaded', timeout: 180000});
+await page.goto('http://127.0.0.1:' + PORT + '/index.html?nosw=1', {waitUntil: 'domcontentloaded', timeout: 180000});
 await page.waitForFunction(() => { try { return typeof texDone !== 'undefined' && texTotal > 0 && texDone >= texTotal && typeof screen !== 'undefined'; } catch (e) { return false; } }, null, {timeout: 180000});
 const T0 = await page.evaluate(() => ({cl: !!window.__cl1316, bio: !!window.__bio1316, q: __cl1316.q, seg: !!document.getElementById('cloudSeg'), btns: document.querySelectorAll('#cloudSeg button').length}));
 ok(T0.cl && T0.bio && ['low', 'high', 'off'].includes(T0.q), 'patches loaded, cloud quality ' + T0.q);
@@ -48,10 +50,13 @@ if (await tile.count() && await tile.first().isVisible().catch(() => false)) awa
 await page.waitForSelector('#createGo', {timeout: 30000});
 await page.click('#createGo');
 await page.waitForFunction(() => { try { return started && typeof chunkObjs !== 'undefined' && chunkObjs.size > 0 && !(window.__glenLoad && __glenLoad.held); } catch (e) { return false; } }, null, {timeout: 400000});
-await page.waitForTimeout(4000);
+// trees, keeps and the Highlands surface finish in the background (1.2.114)
+await page.waitForFunction(() => window.__v1308 && __v1308.surfMs != null && window.__bio1316 && __bio1316.built >= 1, null, {timeout: 240000}).catch(() => {});
 const R = await page.evaluate(() => {
-  const B = window.__bio1316, V = window.__v1308, out = {scaled: !!(V && V.isScaled && V.isScaled()), elig: B.elig(), built: B.built, on: B.on, err: B.err, verr: V && V.err};
+  const B = window.__bio1316, V = window.__v1308, out = {scaled: !!(V && V.isScaled && V.isScaled()), elig: B.elig(), built: B.built, on: B.on, err: B.err, verr: V && V.err, ms: B.ms};
   if (out.scaled) {
+    const F = __c339.fll, c0 = F(W / 2, D / 2), K = 100 / (c0[0] - F(W / 2, D / 2 + 100)[0]);
+    V.xzLL = V.xzLL || ((la, lo) => [W / 2 + (lo - c0[1]) * K * Math.cos(la * Math.PI / 180), D / 2 - (la - c0[0]) * K]);
     const at = (la, lo) => { const p = V.xzLL(la, lo); return __bio.at(Math.round(p[0]), Math.round(p[1])); };
     out.high = [at(57.15, -5.1), at(57.55, -5.35), at(57.05, -3.3)];
     const sp = V.spawn; out.spawn = __bio.at(Math.round(sp[0]), Math.round(sp[2]));
