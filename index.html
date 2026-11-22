@@ -49291,7 +49291,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     U.discs = discs;
     try { if (window.__v1308 && __v1308.isScaled && __v1308.isScaled()) {
       const sp = (__v1308.spawn && [__v1308.spawn[0], __v1308.spawn[2]]) || (typeof g9spawn !== 'undefined' && g9spawn && [g9spawn[0], g9spawn[2]]);
-      if (sp) discs.push([sp[0] | 0, sp[1] | 0, 96]);
+      if (sp && !(window.__v1308 && __v1308.mc && __v1308.mc.elig())) discs.push([sp[0] | 0, sp[1] | 0, 96]);   // t1327: MC worlds keep no flat spawn disc (spawn houses are still kept as built blocks)
       if (__v1308.ben) discs.push([__v1308.ben[0] | 0, __v1308.ben[1] | 0, 80]);
     } } catch (_) {}
     for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * D + z; let top = SEA - 1, land = false, b0 = false;
@@ -49303,14 +49303,26 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     for (let x = W - 1; x >= 0; x--) for (let z = D - 1; z >= 0; z--) { const c = x * D + z; let v = dist[c]; if (x < W - 1) v = Math.min(v, dist[c + D] + 1); if (z < D - 1) v = Math.min(v, dist[c + 1] + 1); if (x < W - 1 && z < D - 1) v = Math.min(v, dist[c + D + 1] + 1.414); if (x < W - 1 && z) v = Math.min(v, dist[c + D - 1] + 1.414); dist[c] = v; }
     const SN = T.PACKSNOW || T.SNOW || T.STONE, HE = T.HEATHER || T.GRASS, GV = T.GRAVEL || T.STONE; let kept = 0; const TR = [];
     for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { const c = x * D + z; if (keep[c]) { kept++; continue; }
-      const h = U.hT(x, z); let g = h[0]; const w = ss(cl(dist[c] / 22, 0, 1));
+      const h = U.hT(x, z); let g = h[0]; const MCW = h.length > 4, w = ss(cl(dist[c] / (MCW ? 44 : 22), 0, 1));
       if (w < 1) { const o = oh[c]; g = Math.round(o * (1 - w) + g * w); if (h[0] > 0 && g < 1) g = 1; }
       g = cl(g, -9, H - SEA - 8); const top = SEA + g - 1, hi = h[1], beach = g <= 2 && h[2] < 0.62;
       const vk = h[3], tb = vk === 'l' && g > 0 ? T.LAVA : vk === 'b' && g > 0 ? (T.BLACKSTONE || T.STONE) : vk === 'r' && g > 0 ? T.STONE : g <= 0 ? (g < -4 ? GV : T.SAND) : beach ? T.SAND : hi > 0.5 && g > 40 ? SN : hi > 0.5 && g > 30 ? (fbm(x / 6, z / 6) > 0.5 ? T.STONE : GV) : hi > 0.4 && fbm(x / 23 + 3, z / 23) > 0.56 ? HE : T.GRASS;
+      const J = MCW && w >= 1 && g > 3 ? h[4] : 0; let top2 = top;
+      if (J >= 1.5) {
+        /* t1327: 1.18-style 3D density band (jagged cliffs, ledges and overhangs). Walk down,
+           restarting the soil run under every gap so ledges get grass like Minecraft. */
+        const M = window.__v1308.mc, yHi = Math.min(H - 3, top + Math.ceil(J)), yLo = Math.max(SEA + 1, top - Math.ceil(J * 1.6)); let run = 0; top2 = -1;
+        for (let y = H - 2; y >= Y0; y--) { const i = (x * H + y) * D + z; let sol;
+          if (y > yHi) sol = false; else if (y < yLo) sol = true; else sol = M.dens(x, y, z, top, J);
+          let b; if (sol) { if (top2 < 0) top2 = y; b = run === 0 ? tb : run < 3 ? (tb === T.SAND || tb === GV ? T.SAND : tb === SN || tb === T.STONE ? T.STONE : T.DIRT) : T.STONE; run++; if (y < Y0 + 2 && world[i] && world[i] !== T.WATER) b = world[i]; }
+          else { b = y < SEA ? T.WATER : 0; run = 0; }
+          world[i] = b; }
+        if (top2 < 0) top2 = top; if (top2 !== top) { M.setTop(x, z, top2 - SEA + 1); M.carved++; }
+      } else
       for (let y = Y0; y < H - 1; y++) { const i = (x * H + y) * D + z; let b;
         if (y <= top) { const dd = top - y; b = dd === 0 ? tb : vk === 'b' || vk === 'l' ? (T.DEEPSLATE || T.STONE) : dd < 3 ? (tb === T.SAND || tb === GV ? T.SAND : tb === SN || tb === T.STONE ? T.STONE : T.DIRT) : T.STONE; if (y < Y0 + 2 && world[i] && world[i] !== T.WATER) b = world[i]; }
         else b = y < SEA ? T.WATER : 0; world[i] = b; }
-      if (g > 1 && (tb === T.GRASS || tb === HE) && dist[c] > 8 && x > 3 && z > 3 && x < W - 4 && z < D - 4) { const p = hs(x * 0.37, z * 0.91), dn = hi > 0.5 ? (g < 26 ? 0.012 : 0) : 0.006 + 0.02 * ss(cl(fbm(x / 70 + 50, z / 70) * 2 - 1, 0, 1)); if (p < dn) TR.push([x, top + 1, z, hi > 0.5]); } }
+      if (g > 1 && (tb === T.GRASS || tb === HE) && dist[c] > 8 && x > 3 && z > 3 && x < W - 4 && z < D - 4) { const p = hs(x * 0.37, z * 0.91), dn = hi > 0.5 ? (g < 26 ? 0.012 : 0) : 0.006 + 0.02 * ss(cl(fbm(x / 70 + 50, z / 70) * 2 - 1, 0, 1)); if (p < dn) TR.push([x, top2 + 1, z, hi > 0.5]); } }
     for (const [x, y, z, pine] of TR) { const L = pine ? (T.PINELOG || T.LOG) : (T.BIRCHLOG || T.LOG), F = pine ? (T.PINELEAVES || T.LEAVES) : (T.BIRCHLEAVES || T.LEAVES), n = 4 + (hs(x, z) * 3 | 0);
       if (y + n + 2 >= H - 1) continue; for (let k = 0; k < n; k++) world[(x * H + y + k) * D + z] = L;
       for (let dy = n - 2; dy <= n + 1; dy++) { const r = pine ? Math.max(0, 2 - ((dy - n + 2) >> 1)) : (dy > n ? 1 : 2);
@@ -95950,7 +95962,7 @@ try {
 
   /* Memo for scaled hT (scot + finish each walk every column). */
   const HT_EMPTY = -32768;
-  let htCache = null, htHi = null, htL = null, htKind = null, htCacheW = 0, htCacheH = 0;
+  let htCache = null, htHi = null, htL = null, htKind = null, htJ = null, htCacheW = 0, htCacheH = 0;
   function htCacheReset() {
     htCache = null; htHi = null; htL = null; htKind = null; htCacheW = 0; htCacheH = 0;
     stReset();
@@ -95977,6 +95989,7 @@ try {
     htHi = new Int16Array(N);
     htL = new Int16Array(N);
     htKind = new Array(N);
+    htJ = new Uint8Array(N);
     htCacheW = W; htCacheH = H;
   }
   /* Official generate already stops at column h, but the cave lattice is
@@ -96017,6 +96030,81 @@ try {
     return newH;
   }
 
+  /* ===== GLX-MC1327 (t1327): Minecraft 1.18+-style terrain for new twice-scale UK worlds =====
+     Same method as the 1.18 noise router: three low-frequency 2D fields
+       continentalness (how far inland; from the real UK land map, blurred, plus noise),
+       erosion (low = rugged, high = flat; Highlands biased rugged),
+       weirdness folded into peaks-and-valleys PV = 1-|3|w|-2|,
+     feed Catmull-Rom offset splines (coast -> beach -> inland rise), erosion-scaled
+     rolling hills, ridged mountains where erosion is low and PV high, PV valleys that
+     carry rivers down to sea level, a soft (exponential) ceiling instead of a clamp,
+     and a "jaggedness" amplitude used by scot for a 3D density band
+     (density = (top - y)/J + noise3) so cliffs get ledges and overhangs.
+     Only for worlds generated with this build (current.mc1327, saved with the world);
+     older worlds keep their exact shape. */
+  const MC = U.mc = {on: 0, ms: 0, cols: 0, carved: 0};
+  MC.elig = () => { try { return isScaled() && typeof current !== 'undefined' && current && !!current.mc1327 && !(typeof DIM !== 'undefined' && DIM && DIM.cur); } catch (_) { return false; } };
+  let mcPerm = null, mcSeed = null;
+  const mcInit = () => { const sd = (typeof gSeed === 'number' && gSeed) || 7; if (mcPerm && mcSeed === sd) return; mcSeed = sd;
+    const p = new Uint8Array(256); for (let i = 0; i < 256; i++) p[i] = i; let r = (Math.imul(sd, 2654435761) ^ 0x5bd1e995) >>> 0 || 1;
+    for (let i = 255; i > 0; i--) { r ^= r << 13; r >>>= 0; r ^= r >>> 17; r ^= r << 5; r >>>= 0; const j = r % (i + 1); const t = p[i]; p[i] = p[j]; p[j] = t; }
+    mcPerm = new Uint8Array(512); for (let i = 0; i < 512; i++) mcPerm[i] = p[i & 255]; MC.grid = null; };
+  const fd = t => t * t * t * (t * (t * 6 - 15) + 10), lp = (a, b, t) => a + (b - a) * t;
+  const g2 = (h, x, z) => { switch (h & 7) { case 0: return x + z; case 1: return x - z; case 2: return -x + z; case 3: return -x - z; case 4: return x; case 5: return -x; case 6: return z; default: return -z; } };
+  const n2 = (x, z) => { const P = mcPerm, X = Math.floor(x), Z = Math.floor(z), xf = x - X, zf = z - Z, xi = X & 255, zi = Z & 255, u = fd(xf), v = fd(zf);
+    const a = P[xi] + zi, b = P[xi + 1] + zi;
+    return lp(lp(g2(P[a], xf, zf), g2(P[b], xf - 1, zf), u), lp(g2(P[a + 1], xf, zf - 1), g2(P[b + 1], xf - 1, zf - 1), u), v) * 0.7; };
+  const g3 = (h, x, y, z) => { const k = h & 15, u = k < 8 ? x : y, v = k < 4 ? y : (k === 12 || k === 14 ? x : z); return ((k & 1) ? -u : u) + ((k & 2) ? -v : v); };
+  const n3 = (x, y, z) => { const P = mcPerm, X = Math.floor(x), Y = Math.floor(y), Z = Math.floor(z), xf = x - X, yf = y - Y, zf = z - Z, xi = X & 255, yi = Y & 255, zi = Z & 255, u = fd(xf), v = fd(yf), w = fd(zf);
+    const A = P[xi] + yi, AA = P[A] + zi, AB = P[A + 1] + zi, B = P[xi + 1] + yi, BA = P[B] + zi, BB = P[B + 1] + zi;
+    return lp(lp(lp(g3(P[AA], xf, yf, zf), g3(P[BA], xf - 1, yf, zf), u), lp(g3(P[AB], xf, yf - 1, zf), g3(P[BB], xf - 1, yf - 1, zf), u), v),
+      lp(lp(g3(P[AA + 1], xf, yf, zf - 1), g3(P[BA + 1], xf - 1, yf, zf - 1), u), lp(g3(P[AB + 1], xf, yf - 1, zf - 1), g3(P[BB + 1], xf - 1, yf - 1, zf - 1), u), v), w); };
+  const f2 = (x, z, o) => { let s = 0, a = 1, n = 0; for (let i = 0; i < o; i++) { s += a * n2(x + i * 17.3, z - i * 9.1); n += a; a *= 0.5; x *= 2.03; z *= 2.03; } return s / n * 1.6; };
+  const rdg = (x, z) => { let s = 0, a = 1, w = 1, n = 0; for (let i = 0; i < 4; i++) { let v = 1 - Math.abs(n2(x, z) * 1.4); v = v < 0 ? 0 : v; v *= v; v *= w; w = Math.min(1, v * 1.6); s += v * a; n += a; a *= 0.5; x = x * 2.05 + 3.1; z = z * 2.05 - 1.7; } return s / n; };
+  /* Catmull-Rom through spline points (smooth slopes, no flat steps at the knots) */
+  const cr = (pts, t) => { const n = pts.length; if (t <= pts[0][0]) return pts[0][1]; if (t >= pts[n - 1][0]) return pts[n - 1][1];
+    let i = 0; while (t > pts[i + 1][0]) i++; const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(n - 1, i + 2)], u = (t - p1[0]) / (p2[0] - p1[0]);
+    const m1 = (p2[1] - p0[1]) / (p2[0] - p0[0] || 1) * (p2[0] - p1[0]), m2 = (p3[1] - p1[1]) / (p3[0] - p1[0] || 1) * (p2[0] - p1[0]), u2 = u * u, u3 = u2 * u;
+    return (2 * u3 - 3 * u2 + 1) * p1[1] + (u3 - 2 * u2 + u) * m1 + (-2 * u3 + 3 * u2) * p2[1] + (u3 - u2) * m2; };
+  const CONT = [[-0.05, 0], [0.04, 1.6], [0.14, 3.2], [0.35, 7], [0.65, 11], [1, 14]];
+  /* coarse grid (every 4 blocks) for the three big fields, bilinear between */
+  const GS = 4;
+  function mcGrid() {
+    mcInit(); if (MC.grid && MC.grid.W === W && MC.grid.seed === mcSeed) return MC.grid;
+    const t0 = performance.now(), gw = Math.ceil(W / GS) + 2, gd = Math.ceil(D / GS) + 2, C = new Float32Array(gw * gd), E = new Float32Array(gw * gd), Wd = new Float32Array(gw * gd);
+    const land = (window.__c341 && __c341.land) || (() => 1), R1 = 0.05, R2 = 0.14;
+    for (let i = 0; i < gw; i++) for (let j = 0; j < gd; j++) { const x = i * GS, z = j * GS, ll = __c339.fll(x, z), la = ll[0], lo = ll[1], k = i * gd + j;
+      let lb = 0; if (la) { const cs = 1 / Math.cos(la * Math.PI / 180); lb = land(la, lo) * 0.2;
+        for (let a = 0; a < 8; a++) { const s = Math.sin(a * 0.785), c = Math.cos(a * 0.785); lb += land(la + s * R1, lo + c * R1 * cs) * 0.06 + land(la + s * R2, lo + c * R2 * cs) * 0.04; } }
+      const fl = 56.0 + (lo + 4.7) * 0.38, hi = ss(cl((la - fl) * 2.2 + 0.5, 0, 1));
+      C[k] = (lb - 0.5) * 2 + 0.1 * n2(x / 700 + 3, z / 700 - 8);
+      E[k] = f2(x / 950 + 11, z / 950 - 3, 3) * 0.9 - 0.6 * hi + 0.2;
+      Wd[k] = f2(x / 430 - 7, z / 430 + 5, 3) * 1.25; }
+    MC.grid = {W, seed: mcSeed, gw, gd, C, E, Wd}; MC.gridMs = Math.round(performance.now() - t0); return MC.grid; }
+  const gbl = (A, G, x, z) => { const fx = x / GS, fz = z / GS, i = Math.floor(fx), j = Math.floor(fz), a = fx - i, b = fz - j, k = i * G.gd + j;
+    return (A[k] * (1 - a) + A[k + G.gd] * a) * (1 - b) + (A[k + 1] * (1 - a) + A[k + G.gd + 1] * a) * b; };
+  /* returns [g (top above sea), jaggedness] for a land column */
+  function mcHeight(x, z, hi, cap) {
+    const G = mcGrid(), cont = gbl(G.C, G, x, z), e = gbl(G.E, G, x, z), w = gbl(G.Wd, G, x, z);
+    const pv = 1 - Math.abs(3 * Math.abs(w) - 2), e01 = cl((e + 1) * 0.5, 0, 1), inl = ss(cl(cont / 0.3, 0, 1));
+    let g = cr(CONT, cont);
+    const hillAmp = (3 + 22 * Math.pow(1 - e01, 1.5)) * (0.35 + 0.65 * inl);
+    g += hillAmp * (0.5 * f2(x / 170 + 40, z / 170 - 20, 4) + 0.25);
+    g += pv * 7 * (1 - e01) * inl;
+    const mM = ss(cl((0.4 - e) / 0.9, 0, 1)) * ss(cl((pv + 0.35) / 1.05, 0, 1)) * inl;
+    let J = 1.2 * (1 - e01);
+    if (mM > 0.01) { const qx = n2(x / 120 + 5, z / 120), qz = n2(x / 120 - 9, z / 120 + 4), r = rdg((x + 26 * qx) / 310 + 1.3, (z + 26 * qz) / 310 - 2.1);
+      g += mM * r * (34 + 46 * hi); J += mM * (2 + 9 * r); }
+    g += 1.3 * n2(x / 21 + 2, z / 21 - 6) + 0.6 * n2(x / 9, z / 9);
+    const rv = ss(cl((-0.8 - pv) / 0.16, 0, 1)) * ss(cl((cont - 0.02) / 0.12, 0, 1));
+    if (rv > 0) { g = g * (1 - rv) - 2.2 * rv; J *= 1 - rv; }
+    const k = cap - 20; if (g > k) g = k + 20 * (1 - Math.exp(-(g - k) / 20));
+    return [g, J]; }
+  MC.height = mcHeight; MC.n3 = (x, y, z) => { mcInit(); return n3(x, y, z); };
+  /* scot asks: is (x,y,z) solid inside the jagged band of a column with top `top` and jaggedness J */
+  MC.dens = (x, y, z, top, J) => (top - y) / J + n3(x / 22, y / 15, z / 22) * 1.15 + n3(x / 9 + 50, y / 7, z / 9 - 50) * 0.35 > 0;
+  /* scot reports the real highest solid after carving so finish paints the right cell */
+  MC.setTop = (x, z, g) => { try { if (htCache && x >= 0 && z >= 0 && x < W && z < D) htCache[x * D + z] = g; } catch (_) {} };
   try {
     const A = window.__c341;
     if (A && A.hT) {
@@ -96027,12 +96115,22 @@ try {
         htCacheAlloc();
         if (htCache && htCacheW === W && htCacheH === H && x >= 0 && z >= 0 && x < W && z < D) {
           const ci = x * D + z;
-          if (htCache[ci] !== HT_EMPTY) return [htCache[ci], htHi[ci] / 1000, htL[ci] / 1000, htKind[ci] || 0];
+          if (htCache[ci] !== HT_EMPTY) return [htCache[ci], htHi[ci] / 1000, htL[ci] / 1000, htKind[ci] || 0, htJ ? htJ[ci] / 10 : 0];
         }
         const ll = window.__c339.fll(x, z), lat = ll[0], lon = ll[1];
         let g = h[0], hi = h[1], L = h[2], kind = h[3];
         const cap = H - SEA - 8, q = NEW_K / BASE_K;
         const bed = waterBed(lat, lon);
+        if (!kind && g > 0 && MC.elig()) {
+          /* t1327: 1.18-style shaping replaces the multiply-then-clamp peaks */
+          const mh = mcHeight(x, z, hi, cap); let gg = mh[0], J = mh[1];
+          if (bed < 0) { gg = Math.min(gg, bed + (fbm(x / 18, z / 18) - 0.5) * 1.2); if (gg < 0) J = 0; }
+          if (g <= 2 && gg > g) gg = Math.min(gg, g + (gg - g) * 0.5);   // keep the official beach band low
+          gg = cl(gg, -9, cap);
+          const out = [Math.round(gg), hi, L, kind, J];
+          if (htCache && htCacheW === W && htCacheH === H && x >= 0 && z >= 0 && x < W && z < D) { const ci = x * D + z; htCache[ci] = out[0]; htHi[ci] = Math.round((hi || 0) * 1000); htL[ci] = Math.round((L || 0) * 1000); htKind[ci] = 0; htJ && (htJ[ci] = Math.round(J * 10)); }
+          MC.on = 1; return out;
+        }
         if (bed < 0) {
           const wr = (fbm(x / 18, z / 18) - 0.5) * 1.2;
           g = Math.min(g, bed + wr);
@@ -98334,6 +98432,17 @@ try {
       U.key = key; const t0 = performance.now(); __bio.build(true); U.ms = Math.round(performance.now() - t0); U.built++;
     } catch (e) { ERR('poll', e); }
   }, 500);
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script>
+/* GLX-MC1327 flag (t1327): worlds generated from now on use the Minecraft 1.18-style
+   UK terrain (V1308 MC module). The flag is saved with the world so a world keeps the
+   generator it was made with; older saves never change shape. */
+(function mc1327flag(WIN) {
+  const U = WIN.__mc1327 = {err: null, set: 0, loaded: 0};
+  try { const gen = generate; generate = function () { try { if (typeof current !== 'undefined' && current && !(typeof DIM !== 'undefined' && DIM && DIM.cur) && !WIN.__noMC1327) { current.mc1327 = true; U.set++; } } catch (e) { U.err = String(e); } return gen.apply(this, arguments); }; } catch (e) { U.err = 'gen ' + e; }
+  try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !d.dim && current && current.mc1327) d.mc1327 = 1; } catch (_) {} return d; }; } catch (e) { U.err = 'ser ' + e; }
+  try { const ap = applySave; applySave = function (d) { try { if (d && !d.dim && typeof current !== 'undefined' && current) { current.mc1327 = !!d.mc1327; U.loaded++; } } catch (_) {} return ap.apply(this, arguments); }; } catch (e) { U.err = 'ap ' + e; }
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
