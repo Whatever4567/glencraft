@@ -96353,7 +96353,7 @@ try {
         if (la >= 55.75) return m > 0.62 ? (lo > -3.6 ? 'yew' : 'oak') : (m < 0.46 ? 'moor' : (m > 0.54 ? 'oak' : 'birch'));
         if (la < 55.6 && lo > -3.3) return 'alder'; return m > 0.55 ? 'yew' : 'moor'; };
       const mcRock = (x, y, z) => { const off = (fbm(x / 300 + 11, z / 300 - 7) - 0.5) * 9 + (fbm(x / 46 - 3, z / 46 + 5) - 0.5) * 4.5, band = Math.floor((y + off) / 3), hb = hs(band * 7.13 + 0.37, 1.91 + band * 0.11);
-        return hb < (x < nwX ? 0.07 : 0.03) ? RS : (hb < 0.3 ? GV : (hs(x * 0.61 + y * 0.3, z * 0.47 - 2) < 0.12 ? (T.COBBLE || ST) : ST)); };
+        return hb < (x < nwX ? 0.05 : 0.02) ? RS : (hb < 0.17 ? GV : ST); };
       const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.018, moor: 0.0015, scrub: 0.03};
       let nSnow = 0, nStone = 0, nTree = 0, nHe = 0, nLand = 0;
       for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
@@ -96361,7 +96361,8 @@ try {
         const top = SEA + g - 1, base = x * WH * D + z; if (top < 1 || top >= WH - 1) continue; let b = world[base + top * D]; if (!NAT.has(b)) continue; nLand++;
         const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D], slope = Math.max(Math.abs(g - n0), Math.abs(g - n1), Math.abs(g - n2), Math.abs(g - n3)), hi = HI[c] / 100;
         const snowLine = Math.max(27, cap - 14) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 4 : 0);
-        if (g >= snowLine && hi > 0.3 && slope <= 3) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
+        /* t1338: white caps on the peaks, steep ones too (only sheer faces stay stone); patchy snow just below the line */
+        if (hi > 0.25 && (g >= snowLine && slope <= 5 || g >= snowLine - 4 && slope <= 2 && fbm(x / 13 - 6, z / 13 + 2) > 0.55)) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
         if ((slope >= 3 || (slope >= 2 && g >= 22)) && b !== T.SAND) {
           const lay = !nearBlack(x, z); world[base + top * D] = lay ? mcRock(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
           const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? mcRock(x, y, z) : rockAt(x, z, g, slope, vk); }
@@ -97259,8 +97260,10 @@ try {
             // Much lighter than updateSky's near~20 / far~62: only a distant haze,
             // never a solid wall inside the view. Colour is a fallback; the
             // terrain shader samples the plate horizon at that azimuth.
-            scene.fog.near = Math.max(vf * 0.70, 48);
-            scene.fog.far = Math.max(vf * 1.40, scene.fog.near + 32);
+            /* t1338: MC-terrain worlds: lighter distance haze so ridges and valleys read across the view */
+            let mcw = false; try { mcw = !!(window.__v1308 && __v1308.mc && __v1308.mc.elig()); } catch (_) {}
+            scene.fog.near = Math.max(vf * (mcw ? 0.88 : 0.70), 48);
+            scene.fog.far = Math.max(vf * (mcw ? 1.6 : 1.40), scene.fog.near + 32);
           }
         }
         if (scene.background && scene.background.setRGB) {
