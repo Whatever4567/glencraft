@@ -96257,6 +96257,72 @@ try {
     /* the black castle keeps its dark rock (no strata bands round it) */
     const BKC = (() => { try { const k = ((typeof g9castles !== 'undefined' && g9castles) || []).find(c => c[0] === 'black'); return k ? [k[1], k[2], (170 * W / 864) ** 2] : null; } catch (_) { return null; } })();
     const nearBlack = (x, z) => !!BKC && (x - BKC[0]) ** 2 + (z - BKC[1]) ** 2 < BKC[2];
+    if (MC.elig()) {
+      /* t1327: Minecraft-style surface and trees for MC worlds (the old pass below is kept for older worlds).
+         Grass on gentle ground at every height, rock (strata) only on steep faces, snow on high peaks,
+         purple heather moor, beaches/stony shores from scot, and forests in patches with big
+         species-specific trees so each region reads as a landmark. */
+      const r = mcPaint(G, VK, HI);
+      U.surfMs = Math.round(performance.now() - t0);
+      try { const A2 = window.__c341; U.finAfter = A2 ? (A2.ms || 0) : 0; U.finRuns = A2 ? (A2.runs || 0) : 0; } catch (_) {}
+      return r;
+    }
+    function mcPaint(G, VK, HI) {
+      const cap = WH - SEA - 8, occ = new Uint8Array(N);
+      const PL = T.PINELOG || T.LOG, PF = T.PINELEAVES || T.LEAVES, BLg = T.BIRCHLOG || T.LOG, BF = T.BIRCHLEAVES || T.LEAVES, OL = T.LOG, OF = T.LEAVES,
+        AL = T.ALDERLOG || T.LOG, AF = T.ALDERLEAVES || T.LEAVES, RL = T.ROWANLOG || BLg, RF = T.ROWANLEAVES || BF, JF = T.JUNIPERLEAVES || PF, YL = T.YEWLOG || T.LOG, YF = T.YEWLEAVES || T.LEAVES;
+      const NAT = new Set([GR, HE, DT, ST, SN, T.SNOW, T.SAND, GV, DS, SL].filter(v => v));
+      const set = (x, y, z, b, force) => { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y < 1 || y >= WH - 1) return; const i = (x * WH + y) * D + z; if (force || !world[i]) world[i] = b; };
+      const blob = (cx, cy, cz, r, F) => { const r2 = r * r + 0.6; for (let dx = -Math.ceil(r); dx <= r; dx++) for (let dy = -Math.ceil(r); dy <= r; dy++) for (let dz = -Math.ceil(r); dz <= r; dz++) { const d2 = dx * dx + dy * dy * 1.3 + dz * dz; if (d2 <= r2 && !(d2 > r2 - 1.2 && hs(cx + dx * 3.1 + dy, cz + dz * 2.7 - dy) < 0.35)) set(cx + dx, cy + dy, cz + dz, F); } };
+      const trunk = (x, y, z, h, Lg, w2) => { for (let k = 0; k < h; k++) { set(x, y + k, z, Lg, true); if (w2) { set(x + 1, y + k, z, Lg, true); set(x, y + k, z + 1, Lg, true); set(x + 1, y + k, z + 1, Lg, true); } } };
+      /* tall Scots pine: bare trunk, conical layers that end in a broad flat crown; mega variant has a 2x2 trunk */
+      const pine = (x, y, z, u) => { const mega = u < 0.07, h = mega ? 20 + (u * 60 | 0) % 6 : 11 + (u * 97 | 0) % 7, w2 = mega ? 1 : 0; trunk(x, y, z, h, PL, w2);
+        const c0 = Math.round(h * (mega ? 0.45 : 0.55)), R = mega ? 4.6 : 3.1, flat = hs(x * 1.3, z * 0.7) < 0.35;
+        for (let k = c0; k <= h + 1; k++) { const t = (k - c0) / (h + 1 - c0); let r = flat ? (t < 0.6 ? R * (0.45 + 0.4 * t) : R * (1.1 - t * 0.9)) : R * (1 - t) + 0.6; if (!flat && (k - c0) % 2 === 1) r -= 0.9; r = Math.max(0.6, r);
+          const ri = Math.ceil(r); for (let dx = -ri; dx <= ri + w2; dx++) for (let dz = -ri; dz <= ri + w2; dz++) { const ex = dx > 0 && w2 ? dx - 1 : dx, ez = dz > 0 && w2 ? dz - 1 : dz; if (ex * ex + ez * ez <= r * r + 0.3) set(x + dx, y + k, z + dz, PF); } } };
+      const birch = (x, y, z, u) => { const h = 8 + (u * 89 | 0) % 5; trunk(x, y, z, h, BLg); for (let k = h - 4; k <= h + 1; k++) { const r = k > h - 1 ? 1.2 : 2.2; const ri = Math.ceil(r); for (let dx = -ri; dx <= ri; dx++) for (let dz = -ri; dz <= ri; dz++) if (dx * dx + dz * dz <= r * r + 0.5 && hs(x + dx * 5.3, z + dz * 4.1 + k) > 0.12) set(x + dx, y + k, z + dz, BF); } };
+      /* big oak: thick trunk with 3-4 branches, each ending in a leaf cluster, plus a crown */
+      const oak = (x, y, z, u, Lg, F) => { const big = u < 0.45, h = big ? 7 + (u * 31 | 0) % 4 : 5 + (u * 13 | 0) % 2; trunk(x, y, z, h, Lg);
+        if (!big) { blob(x, y + h, z, 2.6, F); return; }
+        const nb = 3 + (u * 7 | 0) % 2; for (let b = 0; b < nb; b++) { const a = b / nb * 6.283 + u * 9, L = 3 + (hs(x + b, z - b) * 2 | 0), by = y + h - 2 - (b % 2);
+          for (let k = 1; k <= L; k++) set(Math.round(x + Math.cos(a) * k), by + (k >> 1), Math.round(z + Math.sin(a) * k), Lg, true);
+          blob(Math.round(x + Math.cos(a) * L), by + (L >> 1) + 1, Math.round(z + Math.sin(a) * L), 2.4, F); }
+        blob(x, y + h + 1, z, 3.2, F); };
+      const juniper = (x, y, z, u) => { set(x, y, z, PL, true); blob(x, y + 1, z, 1.4 + u, JF); };
+      const yew = (x, y, z, u) => { trunk(x, y, z, 4, YL); blob(x, y + 4, z, 3.3, YF); blob(x, y + 6, z, 2.2, YF); };
+      const [scX, scZ] = [sx, sz];
+      const biomeAt = (x, z, hi) => { if (nearBlack(x, z)) return 'alder'; if (Math.hypot(x - scX, z - scZ) < 120) return 'oak';
+        const ll = __c339.fll(x, z), la = ll[0], lo = ll[1], fl = 56.0 + (lo + 4.7) * 0.38, m = fbm(x / 160 + 7, z / 160 - 3);
+        if (la > fl + 0.05) return m > 0.62 ? 'moor' : (m < 0.3 && hi < 0.7 ? 'rowan' : 'pine');
+        if (la >= 55.75) return m > 0.6 ? 'oak' : (m < 0.32 ? 'moor' : 'birch');
+        if (la < 55.6 && lo > -3.3) return 'alder'; return m > 0.55 ? 'yew' : 'moor'; };
+      const DEN = {pine: 0.05, rowan: 0.03, birch: 0.04, oak: 0.03, alder: 0.05, yew: 0.025, moor: 0.004};
+      let nSnow = 0, nStone = 0, nTree = 0, nHe = 0, nLand = 0;
+      for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
+        const c = x * D + z, g = G[c]; if (g <= 0) continue; const vk = VK[c]; if (vk === 'b' || vk === 'l' || vk === 'r') continue;
+        const top = SEA + g - 1, base = x * WH * D + z; if (top < 1 || top >= WH - 1) continue; let b = world[base + top * D]; if (!NAT.has(b)) continue; nLand++;
+        const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D], slope = Math.max(Math.abs(g - n0), Math.abs(g - n1), Math.abs(g - n2), Math.abs(g - n3)), hi = HI[c] / 100;
+        const snowLine = cap - 13 + 7 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 4 : 0);
+        if (g >= snowLine && hi > 0.3 && slope <= 3) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
+        if (slope >= 3 && b !== T.SAND) {
+          const lay = !nearBlack(x, z); world[base + top * D] = lay ? strataAt(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
+          const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? strataAt(x, y, z) : rockAt(x, z, g, slope, vk); }
+          continue; }
+        if (b === SN || b === T.SNOW || b === ST || b === GV || b === DS || b === SL) { if (g > 3) { world[base + top * D] = GR; if (top > 1 && world[base + (top - 1) * D] === ST) world[base + (top - 1) * D] = DT; b = GR; } }
+        if (b !== GR && b !== HE) continue;
+        const bio = biomeAt(x, z, hi);
+        if (bio === 'moor' || (bio === 'pine' && g > 22 && fbm(x / 40 + 3, z / 40) > 0.58)) { if (fbm(x / 11 + 5, z / 11 - 1) > 0.36) { world[base + top * D] = HE; b = HE; nHe++; } }
+        else if (b === HE) { world[base + top * D] = GR; b = GR; }
+        if (slope > 2 || g < 3 || x < 6 || z < 6 || x >= W - 6 || z >= D - 6 || Math.hypot(x - sx, z - sz) < 14 || Math.hypot(x - bx, z - bz) < 80) continue;
+        const fm = fbm(x / 150 + 20, z / 150 - 9), dens = DEN[bio] * (fm > 0.47 ? Math.min(1, (fm - 0.47) / 0.12) : 0.06);
+        const p = hs(x * 0.37 + 4.1, z * 0.91 - 2.2); if (p >= dens) continue;
+        let busy = false; for (let dx = -3; dx <= 3 && !busy; dx++) for (let dz = -3; dz <= 3; dz++) if (occ[c + dx * D + dz]) { busy = true; break; } if (busy) continue;
+        occ[c] = 1; const u = hs(x * 1.7 - 3, z * 2.3 + 1), y = top + 1;
+        if (bio === 'pine') pine(x, y, z, u); else if (bio === 'birch') birch(x, y, z, u); else if (bio === 'rowan') birch(x, y, z, u * 0.5), set(x, y + 9, z, RF);
+        else if (bio === 'oak') oak(x, y, z, u, OL, OF); else if (bio === 'alder') oak(x, y, z, u + 0.4, AL, AF); else if (bio === 'yew') yew(x, y, z, u); else juniper(x, y, z, u);
+        nTree++; }
+      U.resnow = nSnow; U.rstone = nStone; U.pines = nTree; U.heath = nHe; U.landN = nLand; MC.trees = nTree; MC.paint = 1;
+      return nTree; }
     let nSnow = 0, nStone = 0, nPine = 0, nKeep = 0, nLand = 0, nShore = 0;
     const [shX, shZ] = (() => { try { return xzLL(57.31, -4.36); } catch (_) { return [-1e9, -1e9]; } })();
     for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
