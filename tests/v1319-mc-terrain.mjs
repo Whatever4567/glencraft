@@ -1,4 +1,4 @@
-// v1.2.116: cumulus cloud layer (Clouds Off/Low/High), map-based woods and
+// v1.2.119 (built as 1.2.116, never released): cumulus cloud layer (Clouds Off/Low/High), map-based woods and
 // layered mountain rock on new twice-scale worlds.
 import fs from 'node:fs';
 import http from 'node:http';
@@ -11,10 +11,10 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
-ok(ver.v === '1.2.116', 'version.json is 1.2.116');
-ok(html.includes("const GAME_VERSION = '1.2.116';"), 'GAME_VERSION is 1.2.116');
-ok(html.includes('<!-- glencraft-build: b1316-v1.2.116 -->'), 'build marker b1316-v1.2.116');
-const s0 = html.indexOf('{"v":"v1.2.116"'), s1 = html.indexOf('{"v":"v1.2.115"', s0);
+ok(ver.v === '1.2.119', 'version.json is 1.2.119');
+ok(html.includes("const GAME_VERSION = '1.2.119';"), 'GAME_VERSION is 1.2.119');
+ok(html.includes('<!-- glencraft-build: b1319-v1.2.119 -->'), 'build marker b1319-v1.2.119');
+const s0 = html.indexOf('{"v":"v1.2.119"'), s1 = html.indexOf('{"v":"v1.2.118"', s0);
 ok(s0 > 0 && s1 > s0 && html.slice(s0, s1).includes('cumulus clouds'), 'patch note present, newest first');
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew|eat/i.test(html.slice(s0, s1)), 'no food in the note');
 ok(html.includes('GLX-MC1327') && html.includes('function mcPaint(G, VK, HI)'), 'MC-style terrain module inlined');
