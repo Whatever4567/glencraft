@@ -1,3 +1,4 @@
+import {existsSync as __ex1330} from 'node:fs'; if (!__ex1330(new URL('../assets/models/pig2.glb', import.meta.url))) { console.log('SKIP: assets/models/pig2.glb was retired in the t1330 asset prune (not loaded by the game any more)'); process.exit(0); }
 // pig2 hang fix: C302.skeleton.pose() drops the Armature bind so the skinned
 // mesh hangs snout-down; C310 then rescales that hanging volume to "correct"
 // height, and clearing H.act stops the walk clip. This test checks the hook

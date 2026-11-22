@@ -1,3 +1,4 @@
+import {existsSync as __ex1330} from 'node:fs'; if (!__ex1330(new URL('../assets/models/pilot-v1/pilot.glb', import.meta.url))) { console.log('SKIP: assets/models/pilot-v1/pilot.glb was retired in the t1330 asset prune (not loaded by the game any more)'); process.exit(0); }
 // Regression for actual r128/glTF output mismatch. Shader-source + numeric transfer proof, NOT a GPU capture.
 import {execFileSync}from 'node:child_process';import fs from 'node:fs';import vm from 'node:vm';import assert from 'node:assert/strict';import crypto from 'node:crypto';
 import{T,load}from './lib/pilot-native-r128.mjs';

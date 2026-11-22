@@ -1,3 +1,4 @@
+import {existsSync as __ex1330} from 'node:fs'; if (!__ex1330(new URL('../assets/models/scottish-base-v1/scottish-base.glb', import.meta.url))) { console.log('SKIP: assets/models/scottish-base-v1/scottish-base.glb was retired in the t1330 asset prune (not loaded by the game any more)'); process.exit(0); }
 // Real embedded Three r128 / shipped loader / built adapter. CPU transforms, not GPU evidence.
 // Pin production anim time to 2ms per tick. performance.now wall-clock dt after heavy skinned-vertex dumps is non-deterministic; at a fixed 16ms both 1.2.36 and 1.2.37 exceed the 25mm support-grip check after swim+aim.
 let animNow=1000;try{Object.defineProperty(performance,'now',{value:()=>animNow,configurable:true,writable:true});}catch(e){performance.now=()=>animNow;}

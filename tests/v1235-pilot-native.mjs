@@ -1,3 +1,4 @@
+import {existsSync as __ex1330} from 'node:fs'; if (!__ex1330(new URL('../assets/models/pilot-v1/pilot.glb', import.meta.url))) { console.log('SKIP: assets/models/pilot-v1/pilot.glb was retired in the t1330 asset prune (not loaded by the game any more)'); process.exit(0); }
 // Actual production r128 engine + shipped GLTFLoader + original GLB maps. CPU, not GPU/FPS proof.
 import vm from 'node:vm';import fs from 'node:fs';import crypto from 'node:crypto';import assert from 'node:assert/strict';
 import{T,load,runtime,legacy,animation,skinnedVertices}from './lib/pilot-native-r128.mjs';

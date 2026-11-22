@@ -1,3 +1,4 @@
+import {existsSync as __ex1330} from 'node:fs'; if (!__ex1330(new URL('../assets/models/scottish-base-v1/scottish-base.glb', import.meta.url))) { console.log('SKIP: assets/models/scottish-base-v1/scottish-base.glb was retired in the t1330 asset prune (not loaded by the game any more)'); process.exit(0); }
 // Actual UI capture logic + actual inventory functions + actual built/native rendering lifecycle.
 import fs from 'node:fs';import assert from 'node:assert/strict';import{G,document,U,tap,ARMOUR}from './v1222-equip.mjs';import{load,builtRuntime,legacy}from './lib/pilot-native-r128.mjs';
 const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');let checks=0;const ok=(c,s)=>{assert.ok(c,s);console.log('ok '+(++checks)+' '+s);};
