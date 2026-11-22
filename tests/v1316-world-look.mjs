@@ -17,6 +17,7 @@ ok(html.includes('<!-- glencraft-build: b1316-v1.2.116 -->'), 'build marker b131
 const s0 = html.indexOf('{"v":"v1.2.116"'), s1 = html.indexOf('{"v":"v1.2.115"', s0);
 ok(s0 > 0 && s1 > s0 && html.slice(s0, s1).includes('cumulus clouds'), 'patch note present, newest first');
 ok(!/haggis|food|sausage|pie\b|bread|meat|stew|eat/i.test(html.slice(s0, s1)), 'no food in the note');
+ok(html.includes('GLX-MC1327') && html.includes('function mcPaint(G, VK, HI)'), 'MC-style terrain module inlined');
 ok(html.includes('GLX-CL1316') && html.includes('GLX-BIO1316') && html.includes('const strataAt = (x, y, z)'), 'cloud, biome and strata patches inlined');
 const OUT = process.env.LOOK_OUT || '/tmp/t1326-look';
 fs.mkdirSync(OUT, {recursive: true});
