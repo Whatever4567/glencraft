@@ -96124,7 +96124,9 @@ try {
     for (const c of cs) { const dx = x - c[1], dz = z - c[2], d2 = dx * dx + dz * dz; if (d2 > 110 * 110) continue;
       const key = c[0] + c[1] + ',' + c[2] + ':' + W; let gc = CBG[key];
       if (gc === undefined) { gc = 3; try { const cx = c[1] | 0, cz = c[2] | 0; for (let y = H - 2; y > SEA - 6; y--) { const b = world[(cx * H + y) * D + cz]; if (b && b !== T.WATER && !(LEAFY && LEAFY[b])) { gc = Math.max(2, Math.min(14, y - SEA + 1)); break; } } } catch (_) {} CBG[key] = gc; }
-      const d = Math.sqrt(d2); return {gc, w: ss(cl((d - 36) / 74, 0, 1))}; }
+      /* t1338: noisy radius so the eased ground has an irregular natural outline (no concentric rings round island keeps) */
+      mcInit(); const d = Math.sqrt(d2) + 15 * n2(x / 38 + 3.3, z / 38 - 1.1) + 6 * n2(x / 13 - 2, z / 13 + 5);
+      return {gc, w: ss(cl((d - 34) / 66, 0, 1)), nd: 2.4 * n2(x / 17 + 9, z / 17 - 4) + 1.1 * n2(x / 7, z / 7 + 2)}; }
     return null; }
   MC.castleBlend = castleBlend;
   MC.height = mcHeight; MC.n3 = (x, y, z) => { mcInit(); return n3(x, y, z); };
@@ -96155,7 +96157,7 @@ try {
           const cb = castleBlend(x, z);
           if (cb) {
             let gm = g > 0 && !kind ? mcHeight(x, z, hi, cap)[0] : (g > 0 ? g : Math.min(g, 0));
-            const gg = Math.round(cl(cb.gc * (1 - cb.w) + gm * cb.w, -9, cap)), out = [gg, hi, Math.max(L, gg > 0 ? 0.6 : L), cb.w > 0.6 ? kind : 0, 0, 1];
+            const gg = Math.round(cl(cb.gc * (1 - cb.w) + gm * cb.w + cb.nd * Math.min(1, 4 * cb.w * (1 - cb.w)), -9, cap)), out = [gg, hi, Math.max(L, gg > 0 ? 0.6 : L), cb.w > 0.6 ? kind : 0, 0, 1];
             if (htCache && htCacheW === W && htCacheH === H && x >= 0 && z >= 0 && x < W && z < D) { const ci = x * D + z; htCache[ci] = out[0]; htHi[ci] = Math.round((hi || 0) * 1000); htL[ci] = Math.round((out[2] || 0) * 1000); htKind[ci] = out[3] || 0; htJ && (htJ[ci] = 0); }
             return out;
           }
@@ -96345,6 +96347,8 @@ try {
         if (lo < -4.9) return m > 0.55 ? 'moor' : 'scrub';
         if (la >= 55.75) return m > 0.62 ? (lo > -3.6 ? 'yew' : 'oak') : (m < 0.46 ? 'moor' : (m > 0.54 ? 'oak' : 'birch'));
         if (la < 55.6 && lo > -3.3) return 'alder'; return m > 0.55 ? 'yew' : 'moor'; };
+      const mcRock = (x, y, z) => { const off = (fbm(x / 300 + 11, z / 300 - 7) - 0.5) * 9 + (fbm(x / 46 - 3, z / 46 + 5) - 0.5) * 4.5, band = Math.floor((y + off) / 3), hb = hs(band * 7.13 + 0.37, 1.91 + band * 0.11);
+        return hb < (x < nwX ? 0.07 : 0.03) ? RS : (hb < 0.3 ? GV : (hs(x * 0.61 + y * 0.3, z * 0.47 - 2) < 0.12 ? (T.COBBLE || ST) : ST)); };
       const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.018, moor: 0.0015, scrub: 0.03};
       let nSnow = 0, nStone = 0, nTree = 0, nHe = 0, nLand = 0;
       for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
@@ -96354,8 +96358,8 @@ try {
         const snowLine = Math.max(27, cap - 14) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 4 : 0);
         if (g >= snowLine && hi > 0.3 && slope <= 3) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
         if ((slope >= 3 || (slope >= 2 && g >= 22)) && b !== T.SAND) {
-          const lay = !nearBlack(x, z); world[base + top * D] = lay ? strataAt(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
-          const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? strataAt(x, y, z) : rockAt(x, z, g, slope, vk); }
+          const lay = !nearBlack(x, z); world[base + top * D] = lay ? mcRock(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
+          const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? mcRock(x, y, z) : rockAt(x, z, g, slope, vk); }
           continue; }
         if (b === SN || b === T.SNOW || b === ST || b === GV || b === DS || b === SL) { if (g > 3) { world[base + top * D] = GR; if (top > 1 && world[base + (top - 1) * D] === ST) world[base + (top - 1) * D] = DT; b = GR; } }
         if (b !== GR && b !== HE) continue;
