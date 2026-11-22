@@ -98105,7 +98105,7 @@ try {
 
   /* ---- tileable cumulus sheet (r = alpha/density, g = light) ---- */
   function painter(N) {
-    const P = 8, perm = new Float32Array(64 * 64);
+    const P = 6, perm = new Float32Array(64 * 64);
     let s = 0x1316c10d; const rnd = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
     for (let i = 0; i < perm.length; i++) perm[i] = rnd();
     const vn = (x, y, per) => { const i = Math.floor(x), j = Math.floor(y), a = x - i, b = y - j, u = a * a * (3 - 2 * a), w = b * b * (3 - 2 * b);
@@ -98194,7 +98194,9 @@ try {
     try { mat.toneMapped = false; } catch (_) {}
     mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), mat);
     mesh.frustumCulled = false; mesh.renderOrder = -7; mesh.name = 'cl1316-cumulus'; mesh.visible = false;
-    mesh.onBeforeRender = function () { try { upd(); } catch (e) { ERR('upd', e); } };
+    /* per-frame update from the render call itself (other patches replace
+       onBeforeRender on scene meshes) */
+    try { const r0 = renderer.render; renderer.render = function (sc, cam) { if (sc === scene && mesh.visible) { try { upd(); } catch (e) { ERR('upd', e); } } return r0.apply(this, arguments); }; } catch (e) { ERR('rhook', e); }
     scene.add(mesh); U.mesh = mesh;
     return mesh;
   }
