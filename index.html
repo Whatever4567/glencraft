@@ -96082,9 +96082,9 @@ try {
     const bx = U.ben ? U.ben[0] : -1e9, bz = U.ben ? U.ben[1] : -1e9;
     const N = W * D;
     const G = new Int16Array(N);
-    const VK = new Array(N);
+    const VK = new Array(N), HI = new Uint8Array(N);
     for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
-      const h = ht(x, z); G[x * D + z] = h[0] | 0; VK[x * D + z] = h[3] || 0;
+      const h = ht(x, z); G[x * D + z] = h[0] | 0; VK[x * D + z] = h[3] || 0; HI[x * D + z] = Math.round((h[1] || 0) * 100);
     }
     /* Snow only on true summits (a real drop to a neighbour, not a flat cap)
        and north-facing crests. Then keep the best ~8% of land so a single
@@ -96121,6 +96121,26 @@ try {
     }
     U.snowMinG = 0; U.snowTarget = snowTarget; U.snowCand = candC.length;
     const DS = T.DEEPSLATE || ST, BL = T.BLACKSTONE || DS, BA = T.BASALT || T.BASALTCOL || BL;
+    /* t1326 (v1.2.116): Highland rock reads as layered grey crag with rusty
+       orange/brown bands (Torridon red sandstone in the NW), like the refs,
+       instead of a per-column salt-and-pepper of four dark rocks and slate
+       roof tiles. Bands follow height (contour layering), tilt slowly across
+       the map and a few columns carry vertical rust streaks. Volcanic ground
+       (Ben Glencraft) keeps its dark rock. New 2x worlds only. */
+    const RS = T.RSAND || ST, GV = T.GRAVEL || ST, S16 = U.strata !== 0;
+    const nwX = (() => { try { return xzLL(57.3, -5.0)[0]; } catch (_) { return -1e9; } })();
+    const strataAt = (x, y, z) => {
+      const off = (fbm(x / 300 + 11, z / 300 - 7) - 0.5) * 9 + (fbm(x / 46 - 3, z / 46 + 5) - 0.5) * 4.5;
+      const band = Math.floor((y + off) / 3);
+      const hb = hs(band * 7.13 + 0.37, 1.91 + band * 0.11);
+      const nw = x < nwX ? 1 : 0, pR = nw ? 0.30 : 0.15;
+      if (hb < pR) return RS;
+      if (hs(x * 0.93 + 0.5, z * 0.71 - 1.3) < (nw ? 0.08 : 0.045) && hs(band * 1.7, 3.3) < 0.7) return RS;
+      /* T.STONE reads pale tan in daylight, so the crag body is the darker
+         grey stone with lighter gravel layers between. */
+      return hb < pR + 0.26 ? GV : DS;
+    };
+    U.strataAt = strataAt;
     const rockAt = (x, z, g, slope, vk) => {
       const u = hs(x * 0.51 + 1.7, z * 0.37 - 4.2);
       if (vk === 'b' || vk === 'l') return u < 0.6 ? BL : BA;
@@ -96134,7 +96154,8 @@ try {
       }
       return u < 0.5 ? SL : ST;
     };
-    let nSnow = 0, nStone = 0, nPine = 0, nKeep = 0, nLand = 0;
+    let nSnow = 0, nStone = 0, nPine = 0, nKeep = 0, nLand = 0, nShore = 0;
+    const [shX, shZ] = (() => { try { return xzLL(57.31, -4.36); } catch (_) { return [-1e9, -1e9]; } })();
     for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) {
       const c = x * D + z, g = G[c];
       if (g <= 0) continue;
@@ -96159,24 +96180,33 @@ try {
         if (!isSnow) world[base + top * D] = SN;
         b = SN; nKeep++;
       } else if (isSnow || (g > 14 && steep && (b === GR || b === HE)) || (g > 36 && (b === GR || b === HE))) {
-        const rk = rockAt(x, z, g, slope, VK[c]);
+        const vkc = VK[c], lay = S16 && vkc !== 'b' && vkc !== 'l' && vkc !== 'r';
+        const rk = lay ? strataAt(x, top, z) : rockAt(x, z, g, slope, vkc);
         world[base + top * D] = rk;
         if (top > 1) {
           const u = world[base + (top - 1) * D];
-          if (u === ST || u === SN || u === T.SNOW || u === DT || u === GR || u === HE || u === SL) world[base + (top - 1) * D] = rk;
+          if (u === ST || u === SN || u === T.SNOW || u === DT || u === GR || u === HE || u === SL) world[base + (top - 1) * D] = lay ? strataAt(x, top - 1, z) : rk;
         }
         b = rk;
         if (isSnow) nSnow++; else nStone++;
         /* Official scot leaves pale T.STONE on the column under the top;
            on steep faces those sides are what you see from spawn. */
-        if (steep) {
-          const nMax = Math.max(G[c - 1], G[c + 1], G[c - D], G[c + D]);
+        if (steep || (lay && slope >= 2)) {
+          const nMax = lay ? Math.min(G[c - 1], G[c + 1], G[c - D], G[c + D]) : Math.max(G[c - 1], G[c + 1], G[c - D], G[c + D]);
           const y0 = Math.max(SEA + 1, SEA + nMax);
           for (let y = y0; y < top; y++) {
             const cur = world[base + y * D];
-            if (cur === ST || cur === SN || cur === T.SNOW || cur === SL || cur === DS || cur === BA || cur === BL) world[base + y * D] = rk;
+            if (cur === ST || cur === SN || cur === T.SNOW || cur === SL || cur === DS || cur === BA || cur === BL || (lay && cur === DT)) world[base + y * D] = lay ? strataAt(x, y, z) : rk;
           }
         }
+      }
+      /* t1326: Highland lochs and sea lochs get stony shores (grey stone and
+         gravel in soft patches), not sand or grass to the water's edge. */
+      if (S16 && g <= 3 && HI[c] >= 30 && (b === GR || b === HE || b === T.SAND) && (G[c - 1] <= 0 || G[c + 1] <= 0 || G[c - D] <= 0 || G[c + D] <= 0)
+        && Math.hypot(x - sx, z - sz) > 40 && Math.hypot(x - shX, z - shZ) > 40) {
+        const sb = fbm(x / 9 + 4, z / 9 - 2) > 0.52 ? ST : GV;
+        world[base + top * D] = sb; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = GV;
+        b = sb; nShore++;
       }
       if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) continue;
       if (b !== GR && b !== HE) continue;
@@ -96198,7 +96228,7 @@ try {
       }
       nPine++;
     }
-    U.resnow = nSnow; U.rstone = nStone; U.pines = nPine;
+    U.resnow = nSnow; U.rstone = nStone; U.pines = nPine; U.shore = nShore;
     U.snowKeep = nKeep; U.landN = nLand;
     U.snowFrac = nLand ? +(nKeep / nLand).toFixed(4) : 0;
     U.surfMs = Math.round(performance.now() - t0);
@@ -98042,6 +98072,189 @@ try {
   try { setInterval(function () { try { install(); if (U.ready) { paint(); placeMark(); } } catch (e) { ERR('int', e); } }, 1000); } catch (_) {}
 })();
 
+</script>
+<script>
+/* GLX-CL1316 (v1.2.116, t1326): big soft cumulus clouds over the Highlands by day.
+   Established "planar cloud layer" technique (a cloud sheet projected onto the
+   sky dome, as in classic sky domes / mobile games): one tileable cumulus
+   texture is painted once on a canvas in small idle slices (tileable fBm,
+   coverage threshold, bright sunlit rims and grey thick cores as seen from
+   below), then drawn as one transparent dome with a single texture lookup per
+   pixel, drifting slowly with the wind and fading into the horizon haze. No
+   ray marching, no render targets, no per-frame JS loops. Colours follow the
+   GLX-SKY1312 time-of-day palette (white by day, peach at dusk, grey in
+   storms, gone at night). Overworld only; hidden in caves, other realms and
+   Egypt. Setting "Clouds" Off / Low / High: phones and Performance mode
+   default to Low (smaller texture), computers and TVs to High. */
+(function cl1316(WIN) {
+  const U = WIN.__cl1316 = {err: null, q: null, ready: 0, n: 0, vis: 0, res: 0, paintMs: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 260); };
+  if (typeof THREE === 'undefined' || typeof scene === 'undefined' || typeof camera === 'undefined') { U.err = 'no scene'; return; }
+  const RES = {low: 384, high: 768};
+  const dflt = () => {
+    try {
+      if (typeof PERF !== 'undefined' && PERF) return 'low';
+      const ua = (navigator && navigator.userAgent) || '';
+      if (/Android TV|AFT[A-Z]|BRAVIA|SMART-TV|SmartTV|Tizen|Web0S|webOS|GoogleTV|CrKey|AndroidTV/i.test(ua)) return 'high';
+      if (/iPhone|iPod|Android.*Mobile|Mobile.*Android/i.test(ua)) return 'low';
+      return 'high';
+    } catch (_) { return 'low'; }
+  };
+  let Q = (typeof SET !== 'undefined' && (SET.clouds === 'off' || RES[SET.clouds])) ? SET.clouds : dflt();
+  U.q = Q;
+
+  /* ---- tileable cumulus sheet (r = alpha/density, g = light) ---- */
+  function painter(N) {
+    const P = 8, perm = new Float32Array(64 * 64);
+    let s = 0x1316c10d; const rnd = () => { s ^= s << 13; s >>>= 0; s ^= s >>> 17; s ^= s << 5; s >>>= 0; return s / 4294967296; };
+    for (let i = 0; i < perm.length; i++) perm[i] = rnd();
+    const vn = (x, y, per) => { const i = Math.floor(x), j = Math.floor(y), a = x - i, b = y - j, u = a * a * (3 - 2 * a), w = b * b * (3 - 2 * b);
+      const i0 = ((i % per) + per) % per, j0 = ((j % per) + per) % per, i1 = (i0 + 1) % per, j1 = (j0 + 1) % per, h = (p, q) => perm[(q & 63) * 64 + (p & 63)];
+      return (h(i0, j0) * (1 - u) + h(i1, j0) * u) * (1 - w) + (h(i0, j1) * (1 - u) + h(i1, j1) * u) * w; };
+    const cv = document.createElement('canvas'); cv.width = cv.height = N;
+    const g = cv.getContext('2d'), im = g.createImageData(N, N), px = im.data;
+    let row = 0;
+    return {cv, step(budget) {
+      const t0 = performance.now();
+      while (row < N && performance.now() - t0 < budget) {
+        for (let xI = 0; xI < N; xI++) {
+          const x = xI / N, y = row / N;
+          /* low-frequency coverage: clear blue gaps between cloud groups */
+          const cov = vn(x * 3, y * 3, 3) * 0.65 + vn(x * 6 + 0.5, y * 6 + 0.5, 6) * 0.35;
+          /* billowy cumulus body */
+          let f = 0, amp = 0.5, tot = 0;
+          for (let o = 0, fr = P; o < 5; o++, fr *= 2) { f += amp * vn(x * fr + o * 1.7, y * fr - o * 2.3, fr); tot += amp; amp *= 0.52; }
+          f /= tot;
+          const d = f + (cov - 0.5) * 0.9 - 0.42;
+          const a = Math.max(0, Math.min(1, d / 0.16));
+          const dens = a * a * (3 - 2 * a);
+          const thick = Math.max(0, Math.min(1, (d - 0.06) / 0.30));
+          const lit = 1 - 0.72 * thick * thick * (3 - 2 * thick);
+          const o4 = (row * N + xI) * 4;
+          px[o4] = dens * 255; px[o4 + 1] = lit * 255; px[o4 + 2] = 0; px[o4 + 3] = 255;
+        }
+        row++;
+      }
+      if (row >= N) { g.putImageData(im, 0, 0); return true; }
+      return false;
+    }};
+  }
+
+  const VS = 'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }';
+  const FS = [
+    'precision highp float;',
+    'uniform sampler2D uCl; uniform vec2 uOff; uniform float uK, uScale, uRim;',
+    'uniform vec3 uLit, uShad, uHaze, uSun;',
+    'varying vec3 vDir;',
+    'void main(){',
+    '  vec3 d = normalize(vDir);',
+    '  if (d.y < 0.012) discard;',
+    '  vec2 p = d.xz / (d.y + 0.035) * uScale + uOff;',
+    '  vec4 c = texture2D(uCl, p);',
+    '  float a = c.r * uK * smoothstep(0.012, 0.16, d.y);',
+    '  if (a < 0.004) discard;',
+    '  vec3 col = mix(uShad, uLit, c.g);',
+    '  float mu = max(0.0, dot(d, uSun));',
+    '  col += uLit * (pow(mu, 10.0) * 0.55 * (1.0 - c.r * 0.6) + pow(mu, 3.0) * 0.12) * uRim;',
+    '  col = mix(uHaze, col, smoothstep(0.012, 0.22, d.y));',
+    '  gl_FragColor = vec4(col, a);',
+    '}'].join('\n');
+
+  let mesh = null, mat = null, tex = null, job = null, drift = 0, lastT = 0; const CP = new THREE.Vector3();
+  function build() {
+    if (Q === 'off') return;
+    const N = RES[Q] || 384;
+    if (U.res === N && tex) return;
+    job = painter(N); U.res = N; U.ready = 0;
+    const t0 = performance.now();
+    const tick = () => {
+      try {
+        if (!job) return;
+        if (job.step(6)) {
+          const t = new THREE.CanvasTexture(job.cv);
+          t.wrapS = t.wrapT = THREE.RepeatWrapping; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+          try { t.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy()); } catch (_) {}
+          t.needsUpdate = true;
+          if (tex) tex.dispose();
+          tex = t; job = null; U.ready = 1; U.paintMs = Math.round(performance.now() - t0);
+          if (mat) mat.uniforms.uCl.value = tex;
+          return;
+        }
+      } catch (e) { ERR('paint', e); job = null; return; }
+      setTimeout(tick, 30);
+    };
+    setTimeout(tick, 60);
+  }
+  function ensureMesh() {
+    if (mesh || !tex) return mesh;
+    mat = new THREE.ShaderMaterial({
+      uniforms: {uCl: {value: tex}, uOff: {value: new THREE.Vector2()}, uK: {value: 0}, uScale: {value: 0.32}, uRim: {value: 1},
+        uLit: {value: new THREE.Color(1, 1, 1)}, uShad: {value: new THREE.Color(0.62, 0.66, 0.74)}, uHaze: {value: new THREE.Color(0.78, 0.86, 0.91)}, uSun: {value: new THREE.Vector3(0, 1, 0)}},
+      vertexShader: VS, fragmentShader: FS, side: THREE.BackSide, transparent: true, depthWrite: false, depthTest: true, fog: false});
+    try { mat.toneMapped = false; } catch (_) {}
+    mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), mat);
+    mesh.frustumCulled = false; mesh.renderOrder = -7; mesh.name = 'cl1316-cumulus'; mesh.visible = false;
+    mesh.onBeforeRender = function () { try { upd(); } catch (e) { ERR('upd', e); } };
+    scene.add(mesh); U.mesh = mesh;
+    return mesh;
+  }
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  function upd() {
+    const S = WIN.__sky1312, pal = S && S.sky; if (!pal || !pal.ph || !mat) return;
+    const now = performance.now(), dt = lastT ? Math.min(0.1, (now - lastT) / 1000) : 0; lastT = now;
+    drift += dt * 0.0016;
+    camera.getWorldPosition(CP); if (!isFinite(CP.x) || !isFinite(CP.z)) return;
+    const far = (camera.far || 400) * 0.9; mesh.scale.setScalar(Math.max(60, Math.min(far, 900)));
+    mesh.position.copy(CP); mesh.updateMatrixWorld(true);
+    const ph = pal.ph, un = mat.uniforms;
+    un.uOff.value.set(drift + CP.x / 2400, drift * 0.35 + CP.z / 2400);
+    const day = ph.day, dusk = ph.dusk, wd = ph.wd || 0;
+    const k = Math.max(0, Math.min(1, day * 1.15 + dusk * 0.6)) * (1 - 0.35 * wd);
+    un.uK.value = k * 0.97;
+    let lit = pal.clLit || [1, 1, 1], sh = pal.clShad || [0.62, 0.66, 0.74];
+    /* warm sunlight on the tops */
+    if (dusk < 0.1) lit = lerp3(lit, [1.0, 0.97, 0.9], 0.6 * day);
+    if (wd > 0.2) { lit = lerp3(lit, [0.72, 0.74, 0.77], Math.min(1, wd)); sh = lerp3(sh, [0.38, 0.40, 0.43], Math.min(1, wd)); }
+    un.uLit.value.setRGB(lit[0], lit[1], lit[2]); un.uShad.value.setRGB(sh[0], sh[1], sh[2]);
+    const hz = pal.hor || pal.fog; un.uHaze.value.setRGB(hz[0], hz[1], hz[2]);
+    un.uSun.value.set(ph.sx, Math.max(ph.sy, 0.02), 0.33).normalize();
+    un.uRim.value = Q === 'high' ? 1 : 0.6;
+  }
+  function vis() {
+    try {
+      if (Q === 'off') { if (mesh) mesh.visible = false; U.vis = 0; return; }
+      ensureMesh(); if (!mesh) return;
+      const S = WIN.__sky1312;
+      let ok = !!(S && S.sky && S.realm === null && typeof started !== 'undefined' && started);
+      try { if (typeof caveL === 'number' && caveL > 0.55) ok = false; } catch (_) {}
+      try { if (typeof DIM !== 'undefined' && DIM && DIM.cur) ok = false; } catch (_) {}
+      try { if (S && S.sky && S.sky.ph && S.sky.ph.day < 0.03 && S.sky.ph.dusk < 0.05) ok = false; } catch (_) {}
+      mesh.visible = ok; U.vis = ok ? 1 : 0; if (ok) U.n++;
+    } catch (e) { ERR('vis', e); }
+  }
+  U.setQ = function (q) {
+    if (q !== 'off' && !RES[q]) return Q;
+    Q = U.q = q; try { SET.clouds = q; saveSet(); } catch (_) {}
+    if (q !== 'off') build(); vis(); syncRow(); return Q;
+  };
+  let row = null;
+  function syncRow() { if (row) row.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === Q)); }
+  function addRow() {
+    try {
+      if (document.getElementById('cloudSeg')) return true;
+      const g = document.getElementById('perfSeg'); if (!g) return false;
+      const host = g.closest('.set') || g.parentElement; if (!host) return false;
+      row = document.createElement('div'); row.className = host.className || 'set inline';
+      row.innerHTML = '<span>Clouds</span><div class="seg" id="cloudSeg">' + [['off', 'Off'], ['low', 'Low'], ['high', 'High']].map(([v, n]) => '<button data-v="' + v + '" data-testid="settings-cloudSeg-' + v + '">' + n + '</button>').join('') + '</div>';
+      host.after(row);
+      row.querySelectorAll('button').forEach(b => b.addEventListener('click', () => U.setQ(b.dataset.v)));
+      syncRow(); return true;
+    } catch (e) { ERR('row', e); return true; }
+  }
+  if (!addRow()) { let n = 0; const iv = setInterval(() => { if (addRow() || ++n > 60) clearInterval(iv); }, 1000); }
+  build();
+  setInterval(vis, 250);
+})(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
 </html>
