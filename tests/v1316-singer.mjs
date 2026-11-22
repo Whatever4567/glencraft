@@ -136,7 +136,7 @@ await page.evaluate(() => { inv[__sing1316.id] = Math.max(0, cnt(__sing1316.id) 
 const hit0 = await page.evaluate(() => {
   const s = __sing1316.list[0]; try { flying = false; } catch (_) {}
   P.x = s.x + 0.5; P.z = s.z + 0.5 + 1.6; P.y = s.y + 1; P.vy = 0; P.yaw = 0;
-  const cx = s.g.position.x, cy = s.g.position.y + 0.15, cz = s.g.position.z;
+  const cx = s.x + 0.5, cy = s.y + 1.15, cz = s.z + 0.5;   // aim at the middle of her block; she struts within 0.2 of it
   const dx = cx - P.x, dy = cy - (P.y + EYE), dz = cz - P.z; P.yaw = Math.atan2(-dx, -dz); P.pitch = Math.atan2(dy, Math.hypot(dx, dz));
   return {aimed: !!__sing1316.aimed(4), drops: drops.length, blk: getB(s.x, s.y, s.z)};
 });
@@ -186,7 +186,7 @@ await page.screenshot({path: path.join(OUT, 'singer-placed-macro.png')});
 await page.evaluate(() => { window.__shotCam = null; });
 const rh0 = await page.evaluate(() => {
   const s = __sing1316.list[__sing1316.list.length - 1];
-  const cx = s.g.position.x, cy = s.g.position.y + 0.15, cz = s.g.position.z;
+  const cx = s.x + 0.5, cy = s.y + 1.15, cz = s.z + 0.5;   // aim at the middle of her block; she struts within 0.2 of it
   const dx = cx - P.x, dy = cy - (P.y + EYE), dz = cz - P.z; P.yaw = Math.atan2(-dx, -dz); P.pitch = Math.atan2(dy, Math.hypot(dx, dz));
   return {aimed: !!__sing1316.aimed(4), n: __sing1316.list.length, inv: cnt(__sing1316.id), blk: getB(s.x, s.y, s.z)};
 });
