@@ -289,6 +289,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1310-v1.2.110 -->
 <!-- glencraft-build: b1311-v1.2.111 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
+<!-- glencraft-build: b1317-v1.2.117 -->
 <!-- glencraft-build: b1314-v1.2.114 -->
 <!-- glencraft-build: b1313-v1.2.113 -->
 <!-- glencraft-build: b1312-v1.2.112 -->
@@ -13748,7 +13749,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.115';
+const GAME_VERSION = '1.2.117';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63474,6 +63475,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.117","d":"2026-11-22","notes":["New hand-drawn UK map when you hold the map."]},
 {"v":"v1.2.115","d":"2026-11-22","notes":["Singer you can place on any block to dance. Select the Singer in your hotbar and press LT (right-click, or tap Place) on a block: she stands on top of it, struts round that block and dances to her song. Hit her to pick her up and get the Singer back. Up to 20 at once."]},
 {"v":"v1.2.114","d":"2026-11-20","notes":["New twice-scale Survival worlds become playable as soon as the land around you is ready. Trees, keeps and the rest of the country finish loading in the background, so creating a world no longer sits stuck on the loading screen."]},
 {"v":"v1.2.113","d":"2026-11-20","notes":["New worlds load faster and reliably"]},
@@ -97737,6 +97739,307 @@ try {
     };
   } catch (e) { ERR('miw', e); }
 })();
+
+/* GLX-MAP1317 (v1.2.117): the map in your hand is the player's hand-drawn UK chart.
+   The old C112/C345 compose still runs; this paint hides it under the artwork.
+   The red player arrow and heading stay live, georeferenced to the chart.
+   The sheet uses the art's portrait aspect, with no stretch and no mirror.
+   Hands, guns, __fpa, and the torch/pick jitter fixes are not touched. */
+(function map1317() {
+  const U = window.__map1317 = {
+    err: null, on: 1, version: '1.2.117',
+    src: 'assets/ui/uk-hand-map.webp',
+    artW: 1200, artH: 1648,
+    fx0: 65, fy0: 18, fx1: 1134, fy1: 1632,
+    latN: 61.0, latS: 49.8, lonW: -11, lonE: 2.2,
+    ready: 0, painted: 0, img: null, tw: 0, th: 0, hook: 0
+  };
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const T3 = () => (typeof THREE !== 'undefined' && THREE) || window.THREE || null;
+  const MS = 0.34;
+  const MAP_ID = () => { try { return (typeof IT !== 'undefined' && IT.MAP) || 410; } catch (_) { return 410; } };
+
+  function sheet() {
+    try {
+      const P = window.__pickMap1293;
+      if (P && typeof P !== 'undefined') {
+        const C = window.__c112; if (!C) return null;
+        const p = C.inset && C.inset.parent;
+        if (p && p.isMesh && p.geometry && p.geometry.parameters && Math.abs(p.geometry.parameters.width - MS) < 0.001) return p;
+        const s = C._sheet1274;
+        if (s && s.isMesh && s.geometry && s.geometry.parameters && Math.abs(s.geometry.parameters.width - MS) < 0.001) return s;
+      }
+    } catch (_) {}
+    try {
+      const C = window.__c112; if (!C) return null;
+      const p = C.inset && C.inset.parent;
+      if (p && p.isMesh) return p;
+      if (C._sheet1274 && C._sheet1274.isMesh) return C._sheet1274;
+    } catch (_) {}
+    return null;
+  }
+
+  function findMark(plane) {
+    try {
+      if (!plane) return null;
+      for (const c of plane.children || []) {
+        if (c === (window.__c112 && window.__c112.inset)) continue;
+        if (c.isGroup && c.children && c.children.length >= 2) return c;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function paint() {
+    try {
+      const C = window.__c112;
+      if (!C || !C.TX || !U.img || !U.ready) return;
+      const TX = C.TX, w = U.tw, h = U.th;
+      if (!w || !h) return;
+      if (TX.width !== w || TX.height !== h) { TX.width = w; TX.height = h; U._texGen = (U._texGen || 0) + 1; }
+      const tg = TX.getContext('2d');
+      tg.setTransform(1, 0, 0, 1, 0, 0);
+      tg.imageSmoothingEnabled = true;
+      try { tg.imageSmoothingQuality = 'high'; } catch (_) {}
+      tg.clearRect(0, 0, w, h);
+      tg.drawImage(U.img, 0, 0, w, h);
+      U.painted = 1;
+      const THREE = T3();
+      const plane = sheet();
+      const mat = plane && plane.material;
+      const map = mat && mat.map;
+      if (THREE && mat) {
+        if (!map || map.image !== TX || (U._boundGen || 0) !== U._texGen) {
+          const tex = new THREE.CanvasTexture(TX);
+          tex.minFilter = THREE.LinearFilter;
+          tex.magFilter = THREE.LinearFilter;
+          tex.generateMipmaps = false;
+          tex.flipY = true;
+          try { if (typeof renderer !== 'undefined' && renderer && renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; } catch (_) {}
+          tex.needsUpdate = true;
+          mat.map = tex;
+          if (mat.color) mat.color.setHex(0xffffff);
+          mat.needsUpdate = true;
+          U._boundGen = U._texGen;
+        } else {
+          map.needsUpdate = true;
+        }
+      }
+    } catch (e) { ERR('paint', e); }
+  }
+
+  function worldToCanvas(x, z) {
+    let lat, lon;
+    try {
+      const c = window.__c339;
+      if (c && typeof c.fll === 'function') {
+        const ll = c.fll(x, z);
+        if (ll && !(ll[0] === 0 && ll[1] === -150)) { lat = ll[0]; lon = ll[1]; }
+      }
+    } catch (_) {}
+    if (lat == null) {
+      try {
+        const c = window.__c339 || {};
+        const K = c.K || 300, LAT0 = c.LAT0 || 57.45, LON0 = c.LON0 || -3.75;
+        const WW = (typeof W !== 'undefined' ? W : 864), DD = (typeof D !== 'undefined' ? D : 864);
+        lat = LAT0 - (z - (DD >> 1)) / K;
+        lon = LON0 + (x - (WW >> 1)) / (K * Math.cos(lat * Math.PI / 180));
+      } catch (e) { ERR('ll', e); return null; }
+    }
+    const u = (lon - U.lonW) / (U.lonE - U.lonW);
+    const v = (U.latN - lat) / (U.latN - U.latS);
+    if (u < -0.04 || u > 1.04 || v < -0.04 || v > 1.04) return null;
+    const uc = Math.max(0, Math.min(1, u)), vc = Math.max(0, Math.min(1, v));
+    const sx = (U.tw || U.artW) / U.artW, sy = (U.th || U.artH) / U.artH;
+    const x0 = U.fx0 * sx, y0 = U.fy0 * sy, x1 = U.fx1 * sx, y1 = U.fy1 * sy;
+    return [x0 + uc * (x1 - x0), y0 + vc * (y1 - y0)];
+  }
+
+  function placeMark() {
+    try {
+      const plane = sheet(); if (!plane) return;
+      const mark = findMark(plane); if (!mark) return;
+      const C = window.__c112; if (!C || !C.TX) return;
+      const tw = C.TX.width || U.tw, th = C.TX.height || U.th;
+      if (!tw || !th) return;
+      const geom = plane.geometry && plane.geometry.parameters;
+      const pw = (geom && geom.width) || MS;
+      const ph = (geom && geom.height) || MS;
+      if (typeof DIM !== 'undefined' && DIM.cur) { mark.visible = false; return; }
+      if (typeof P === 'undefined' || !P) return;
+      const q = worldToCanvas(P.x, P.z);
+      if (!q) { mark.visible = false; U.markPx = null; return; }
+      mark.visible = true;
+      mark.position.set((q[0] / tw - 0.5) * pw, (0.5 - q[1] / th) * ph, 0.001);
+      try { mark.rotation.z = P.yaw; } catch (_) {}
+      U.markPx = [+q[0].toFixed(1), +q[1].toFixed(1)];
+    } catch (e) { ERR('mark', e); }
+  }
+
+  function fitPlane() {
+    try {
+      const plane = sheet(); if (!plane || !U.tw || !U.th) return;
+      const THREE = T3(); if (!THREE) return;
+      const wantH = MS * (U.th / U.tw);
+      const p = plane.geometry && plane.geometry.parameters;
+      if (!p || Math.abs((p.height || 0) - wantH) > 0.002 || Math.abs((p.width || 0) - MS) > 0.002) {
+        const old = plane.geometry;
+        plane.geometry = new THREE.PlaneGeometry(MS, wantH);
+        if (old && !U._oldGeom) U._oldGeom = old;
+        U.planeH = wantH;
+      }
+    } catch (e) { ERR('geom', e); }
+  }
+
+  function fitSeat() {
+    try {
+      const plane = sheet(); if (!plane || !U.tw || !U.th) return;
+      const asp = U.th / U.tw;
+      const last = window.__pickMap1293 && window.__pickMap1293.lastSeat;
+      if (!last) return;
+      const s = plane.scale && plane.scale.x || 1;
+      const halfX = 0.17 * s;
+      const halfY = 0.17 * s * asp;
+      const limitY = Math.max(halfX, (last.halfY || 0) * 0.90);
+      const limitX = Math.max(halfX, (last.halfX || 0) * 0.90);
+      let s2 = s;
+      if (halfY > limitY && limitY > 0.05) s2 = Math.min(s2, s * (limitY / halfY));
+      if (halfX > limitX && limitX > 0.05) s2 = Math.min(s2, s * (limitX / halfX));
+      if (s2 > 0.2 && Math.abs(s2 - s) > 0.002) plane.scale.set(s2, s2, s2);
+    } catch (e) { ERR('seat', e); }
+  }
+
+  function afterFrame() {
+    if (!U.on) return;
+    try { if (window.__c112 && window.__c112.inset) window.__c112.inset.visible = false; } catch (_) {}
+    if (U.ready) {
+      fitPlane();
+      paint();
+      placeMark();
+      fitSeat();
+    }
+  }
+
+  function restyleCard(g) {
+    try {
+      if (!g || !U.ready || !U.tw) return;
+      const THREE = T3(); if (!THREE) return;
+      const C = window.__c112;
+      const asp = U.th / U.tw;
+      const w = 0.24, h = 0.24 * asp;
+      g.traverse(function (o) {
+        if (!o.isMesh || !o.geometry) return;
+        const typ = o.geometry.type;
+        const p = o.geometry.parameters || {};
+        if (typ === 'TorusGeometry' || typ === 'CircleGeometry') { o.visible = false; return; }
+        if (p.width === 0.12 && p.depth === 0.12 && p.height === 0.008) { o.visible = false; return; }
+        if (p.width === 0.34 && p.depth === 0.28) {
+          if (!o.geometry.__map1317) {
+            if (!U._hidGeo) U._hidGeo = [];
+            U._hidGeo.push(o.geometry);
+            o.geometry = new THREE.BoxGeometry(w + 0.02, 0.01, h + 0.02);
+            o.geometry.__map1317 = 1;
+          }
+        }
+        if (p.width === 0.32 && p.height === 0.26) {
+          if (!o.geometry.__map1317) {
+            if (!U._hidGeo) U._hidGeo = [];
+            U._hidGeo.push(o.geometry);
+            o.geometry = new THREE.PlaneGeometry(w, h);
+            o.geometry.__map1317 = 1;
+          }
+          if (o.material && C && C.TX) {
+            const tex = new THREE.CanvasTexture(C.TX);
+            tex.minFilter = THREE.LinearFilter;
+            tex.magFilter = THREE.LinearFilter;
+            tex.generateMipmaps = false;
+            tex.flipY = true;
+            tex.needsUpdate = true;
+            o.material.map = tex;
+            if (o.material.color) o.material.color.setHex(0xffffff);
+            o.material.needsUpdate = true;
+          }
+        }
+      });
+    } catch (e) { ERR('tp', e); }
+  }
+
+  function hookCompose() {
+    try {
+      const C = window.__c112; if (!C || !C.frame || C.frame.__map1317) return;
+      const prev = C.frame;
+      C.frame = function () {
+        const r = prev.apply(this, arguments);
+        try { afterFrame(); } catch (e) { ERR('af', e); }
+        return r;
+      };
+      C.frame.__map1317 = 1;
+      U.hook++;
+    } catch (e) { ERR('cf', e); }
+  }
+
+  function hookHeld() {
+    try {
+      const h = window.__held1240;
+      if (h && typeof h.buildMapCard === 'function' && !h.buildMapCard.__map1317) {
+        const prev = h.buildMapCard;
+        h.buildMapCard = function (tex) {
+          const g = prev.apply(this, arguments);
+          try { restyleCard(g); } catch (e) { ERR('card', e); }
+          return g;
+        };
+        h.buildMapCard.__map1317 = 1;
+        U.hook++;
+      }
+    } catch (e) { ERR('held', e); }
+  }
+
+  function hookRender() {
+    try {
+      if (typeof renderer === 'undefined' || !renderer || !renderer.render || renderer.__map1317) return;
+      const rd = renderer.render.bind(renderer);
+      renderer.render = function (sc, cam) {
+        try { hookCompose(); hookHeld(); afterFrame(); } catch (e) { ERR('pre', e); }
+        return rd.apply(this, arguments);
+      };
+      renderer.__map1317 = 1;
+      U.hook++;
+    } catch (e) { ERR('rd', e); }
+  }
+
+  function install() {
+    hookCompose();
+    hookHeld();
+    hookRender();
+    try { afterFrame(); } catch (e) { ERR('boot', e); }
+  }
+  U.install = install;
+  U.paint = paint;
+  U.worldToCanvas = worldToCanvas;
+  U.sheet = sheet;
+
+  try {
+    const img = new Image();
+    img.onload = function () {
+      try {
+        U.img = img;
+        U.tw = img.naturalWidth || img.width;
+        U.th = img.naturalHeight || img.height;
+        U.ready = 1;
+        U._texGen = 1;
+        install();
+        paint();
+      } catch (e) { ERR('on', e); }
+    };
+    img.onerror = function () { ERR('img', 'failed to load ' + U.src); };
+    img.src = U.src;
+  } catch (e) { ERR('new', e); }
+
+  try { install(); } catch (e) { ERR('init', e); }
+  [200, 800, 2000, 5000, 12000].forEach(function (t) { try { setTimeout(install, t); } catch (_) {} });
+  try { setInterval(function () { try { install(); if (U.ready) { paint(); placeMark(); } } catch (e) { ERR('int', e); } }, 1000); } catch (_) {}
+})();
+
 </script>
 </body>
 </html>
