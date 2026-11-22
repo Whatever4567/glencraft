@@ -288,6 +288,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1309-v1.2.109 -->
 <!-- glencraft-build: b1310-v1.2.110 -->
 <!-- glencraft-build: b1311-v1.2.111 -->
+<!-- glencraft-build: b1316-v1.2.116 -->
 <!-- glencraft-build: b1314-v1.2.114 -->
 <!-- glencraft-build: b1313-v1.2.113 -->
 <!-- glencraft-build: b1312-v1.2.112 -->
@@ -13747,7 +13748,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.114';
+const GAME_VERSION = '1.2.116';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63473,6 +63474,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.116","d":"2026-11-20","notes":["Tiny dancing Singer you can place on any block"]},
 {"v":"v1.2.114","d":"2026-11-20","notes":["New twice-scale Survival worlds become playable as soon as the land around you is ready. Trees, keeps and the rest of the country finish loading in the background, so creating a world no longer sits stuck on the loading screen."]},
 {"v":"v1.2.113","d":"2026-11-20","notes":["New worlds load faster and reliably"]},
 {"v":"v1.2.112","d":"2026-11-20","notes":["Each realm keeps its own sky. In the Highlands the sunset sky is the actual sky from the reference photograph, mapped onto the sky dome, with a dark starry night and a clear day sky.","Egypt land has a real desert sky: clear blue fading to a hazy sandy horizon by day, orange and pink at sunset, and a dark starry night.","The Highlands sunset plate is a full-resolution photograph of the sky, not a procedurally recreated cloud layer. It fades toward the day sky after dawn and toward the starry night after dusk. Distant hills pick up a soft blue-purple haze at sunset.","Hell, Agartha and the other realms keep their own skies.","New voxel loading screen and gold Glencraft logo. The loading screen now shows a blocky Highland sunset with the chunky gold Glencraft logo, a green loading bar in a gold frame, and the progress written underneath. The new logo replaces the old one on the title, start and reset screens too."]},
@@ -97316,6 +97318,424 @@ try {
       }
     } catch (_) {}
   }, 400);
+})();
+</script>
+<script>
+/* GLX-SING1316 (v1.2.116): the pop star becomes a tiny dancing Singer.
+   - The giant pop star no longer spawns or roams (her code is kept, just held off:
+     spawn / teleport calls are refused and the Teleport to Pop Star row is hidden).
+   - New item "Singer". With it selected, LT / right-click / tap Place (the normal
+     useItem path) puts a cup-sized singer (~0.3 blocks) on top of the block you aim at.
+     She struts a small circle on that one block top doing her four-pose dance, with her
+     song playing quietly from the nearest singer (spatial).
+   - Hitting her (RT / left-click / hold) picks her up and drops the Singer item back.
+   - Cheap: one hidden master rig is posed once per frame; each singer is a clone that
+     shares every geometry and material and just copies the animated node transforms.
+     Capped at 20, hidden past 36 blocks, no collider (she never blocks you).
+   - Placed singers are saved with the world (prog.singers1316, keyed by world id). */
+(function sing1316() {
+  const U = window.__sing1316 = {err: null, id: 0, placed: 0, removed: 0, given: 0, giantBlocked: 0, list: [], CAP: 20, HEIGHT: 0.3, nodes: 0, animNodes: 0, meshes: 0, songOn: 0, poseMs: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const C = window.__popstarCore;
+  if (!C) { ERR('core', 'missing __popstarCore'); return; }
+  const say = t => { try { toast(t); } catch (_) {} };
+
+  // ---------- 1. hold the giant off (hide, never delete) ----------
+  function holdGiant() {
+    const V = window.__v1251;
+    if (!V || V._s1316) return !!V;
+    V._s1316 = 1;
+    ['spawnAt', 'maybeSpawn', 'forcePresent', 'teleportTo', 'flushPending'].forEach(name => {
+      if (typeof V[name] !== 'function') return;
+      const orig = V[name];
+      V[name] = function () {
+        if (window.__giantPopstarOK) return orig.apply(this, arguments);
+        U.giantBlocked++;
+        if (name === 'teleportTo') { say('The pop star is a tiny Singer now. Place her from your inventory!'); return false; }
+        return null;
+      };
+    });
+    try { V.pendingPresent = null; V.pendingTp = null; } catch (_) {}
+    try { if (V.present && typeof V.despawn === 'function') V.despawn(); } catch (e) { ERR('desp', e); }
+    try {
+      const tpm = window.__tpm || window.__ui22;
+      if (tpm && typeof tpm.list === 'function' && !tpm._s1316) {
+        const ls = tpm.list;
+        tpm.list = function () { const L = ls.apply(this, arguments) || []; return window.__giantPopstarOK ? L : L.filter(e => !e || e.id !== 'tpmPopstar'); };
+        tpm._s1316 = 1;
+      }
+    } catch (e) { ERR('tpm', e); }
+    return true;
+  }
+  try { const st = document.createElement('style'); st.textContent = '#tpmPopstar{display:none!important}'; document.head.appendChild(st); } catch (_) {}
+  holdGiant();
+  setInterval(() => { try { holdGiant(); const V = window.__v1251; if (V && V.present && !window.__giantPopstarOK) V.despawn(); } catch (e) { ERR('hold', e); } }, 2000);
+
+  // ---------- 2. the item ----------
+  try {
+    let id = 1316; while ((NAMES[id] !== undefined && NAMES[id] !== 'Singer') || (ICONS[id] && NAMES[id] !== 'Singer')) id++;
+    U.id = id; IT.SINGER = id; NAMES[id] = 'Singer';
+    try { if (typeof DESC !== 'undefined' && DESC) DESC[id] = 'LT / right-click / tap Place: put a tiny dancing singer on a block. Hit her to pick her up.'; } catch (_) {}
+    ICONS[id] = drawIcon(g => {
+      // long blonde hair behind
+      g.fillStyle = '#e8c45a'; g.beginPath(); g.ellipse(0, -14, 10, 9, 0, 0, 7); g.fill();
+      g.beginPath(); g.moveTo(-10, -14); g.quadraticCurveTo(-13, 0, -8, 4); g.lineTo(8, 4); g.quadraticCurveTo(13, 0, 10, -14); g.fill();
+      // legs + gold boots
+      g.fillStyle = '#f9d6b0'; g.fillRect(-5, 10, 4, 12); g.fillRect(1.5, 10, 4, 12);
+      g.fillStyle = '#f2c21a'; g.fillRect(-6, 20, 5.5, 8); g.fillRect(1, 20, 5.5, 8);
+      g.fillStyle = '#fff1a8'; g.fillRect(-5.5, 21, 1.5, 6); g.fillRect(1.5, 21, 1.5, 6);
+      // arms: left on hip, right up with mic
+      g.strokeStyle = '#f9d6b0'; g.lineWidth = 3.2;
+      g.beginPath(); g.moveTo(-6, -6); g.lineTo(-11, 1); g.lineTo(-7, 6); g.stroke();
+      g.beginPath(); g.moveTo(6, -6); g.lineTo(11, -12); g.lineTo(7, -18); g.stroke();
+      g.fillStyle = '#222'; g.save(); g.translate(7.5, -20); g.rotate(-0.5); g.fillRect(-1.2, -1, 2.4, 7); g.restore();
+      g.fillStyle = '#9a9a9a'; g.beginPath(); g.arc(6.4, -21.5, 2.2, 0, 7); g.fill();
+      // gold sparkly mini-dress
+      const gr = g.createLinearGradient(0, -8, 0, 12); gr.addColorStop(0, '#ffe066'); gr.addColorStop(1, '#d99a00');
+      g.fillStyle = gr; g.beginPath(); g.moveTo(-6, -8); g.lineTo(6, -8); g.lineTo(5, 0); g.lineTo(9, 12); g.lineTo(-9, 12); g.lineTo(-5, 0); g.closePath(); g.fill();
+      g.strokeStyle = '#8a5a00'; g.lineWidth = 0.8; g.stroke();
+      g.fillStyle = '#fffbe0'; for (let j = 0; j < 12; j++) { g.beginPath(); g.arc(Math.sin(j * 2.3) * 6, Math.cos(j * 1.7) * 9 + 2, 0.75, 0, 7); g.fill(); }
+      // star belt
+      g.fillStyle = '#fff6c0'; g.beginPath(); for (let k = 0; k < 10; k++) { const a = -Math.PI / 2 + k * Math.PI / 5, r = k % 2 ? 1.2 : 2.8; g.lineTo(Math.cos(a) * r, Math.sin(a) * r); } g.closePath(); g.fill();
+      // head + face, side fringe
+      g.fillStyle = '#f9d6b0'; g.beginPath(); g.arc(0, -15, 5.6, 0, 7); g.fill();
+      g.fillStyle = '#ffe08a'; g.beginPath(); g.ellipse(-1, -19.5, 6.4, 3, -0.2, Math.PI, 0); g.fill();
+      g.fillStyle = '#2a4a8a'; g.fillRect(-2.8, -15.5, 1.4, 1.4); g.fillRect(1.4, -15.5, 1.4, 1.4);
+      g.fillStyle = '#d0485a'; g.fillRect(-1.2, -12.4, 2.4, 1);
+    });
+    if (!ORDER.includes(id)) ORDER.push(id);
+    try { if (typeof CREATIVE_ALL !== 'undefined' && !CREATIVE_ALL.includes(id)) CREATIVE_ALL.push(id); } catch (_) {}
+  } catch (e) { ERR('item', e); }
+
+  // ---------- 3. shared model: ONE skinned mesh per singer ----------
+  // The full pop-star rig has ~270 meshes. At cup size that would be ~270 draw calls
+  // per singer, so it is baked once into a single vertex-coloured SkinnedMesh: every
+  // part is skinned (weight 1) to the node the dance moves it with. Each singer then
+  // costs one draw call plus copying ~40 bone matrices from the one posed rig.
+  let rig = null, bones = null, bindInv = null, geo = null, mat = null, S = 1;
+  const rel = [];                        // per-frame bone matrices (root-local), shared by every singer
+  function avgTex(t) {
+    try {
+      const im = t && t.image; if (!im || !(im.width > 0)) return null;
+      const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d');
+      g.drawImage(im, 0, 0, 16, 16); const d = g.getImageData(0, 0, 16, 16).data;
+      let r = 0, gg = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 4) { if (d[i + 3] < 40) continue; r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
+      if (!n) return null;
+      const out = new THREE.Color(r / n / 255, gg / n / 255, b / n / 255);
+      try { if (THREE.sRGBEncoding != null && t.encoding === THREE.sRGBEncoding) out.convertSRGBToLinear(); } catch (_) {}
+      return out;
+    } catch (_) { return null; }
+  }
+  function ensureMaster() {
+    if (rig) return rig;
+    const parts = C.make();
+    if (parts.light) { try { parts.g.remove(parts.light); } catch (_) {} parts.light = null; }
+    S = U.HEIGHT / (C.HEIGHT || 32);
+    const nodes = []; parts.g.traverse(o => nodes.push(o));
+    const snap = () => nodes.map(o => [o.position.x, o.position.y, o.position.z, o.quaternion.x, o.quaternion.y, o.quaternion.z, o.quaternion.w, o.scale.x, o.scale.y, o.scale.z]);
+    C.applyPose(parts, C.stepState(0.01)); const base = snap(); const moved = new Set([0]);
+    for (const t of [1.7, 4.1, 7.3, 9.9, 13.6, 17.2, 21.5, 26.1, 29.3, 31.9]) {
+      C.applyPose(parts, C.stepState(t)); const sn = snap();
+      for (let i = 1; i < sn.length; i++) for (let k = 0; k < 10; k++) if (Math.abs(sn[i][k] - base[i][k]) > 1e-6) { moved.add(i); break; }
+    }
+    // bind pose = a mid-dance pose
+    C.applyPose(parts, C.stepState(0.01));
+    parts.g.position.set(0, 0, 0); parts.g.rotation.set(0, 0, 0); parts.g.scale.set(1, 1, 1);
+    parts.g.updateMatrixWorld(true);
+    bones = [...moved].sort((a, b) => a - b).map(i => nodes[i]);
+    const boneIx = new Map(bones.map((o, i) => [o, i]));
+    const rootInv = new THREE.Matrix4().copy(parts.g.matrixWorld).invert();
+    bindInv = bones.map(o => new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld).invert());
+    const P3 = [], N3 = [], C3 = [], SI = [], SW = [], IX = [];
+    let vbase = 0, meshes = 0;
+    const visibleChain = o => { for (let q = o; q; q = q.parent) if (q.visible === false) return false; return true; };
+    const col = new THREE.Color(), em = new THREE.Color();
+    parts.g.traverse(o => {
+      if (!o.isMesh || !o.geometry || !visibleChain(o)) return;
+      let bo = o; while (bo && !boneIx.has(bo)) bo = bo.parent;
+      const bi = bo ? boneIx.get(bo) : 0;
+      const g = o.geometry.clone();
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(rootInv, o.matrixWorld));
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      col.set(0xffffff); if (m && m.color) col.copy(m.color);
+      if (m && m.map) { const a = avgTex(m.map); if (a) col.multiply(a); }
+      const isDress = !!(m && parts.dressMat && m === parts.dressMat);
+      if (m && m.emissive) { em.copy(m.emissive).multiplyScalar(Math.min(1, (m.emissiveIntensity || 1) * 0.35)); col.r = Math.min(1, col.r + em.r); col.g = Math.min(1, col.g + em.g); col.b = Math.min(1, col.b + em.b); }
+      const pos = g.attributes.position, nor = g.attributes.normal; if (!pos) return;
+      for (let i = 0; i < pos.count; i++) {
+        P3.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+        if (nor) N3.push(nor.getX(i), nor.getY(i), nor.getZ(i)); else N3.push(0, 1, 0);
+        if (isDress) {   // gold sequins: per-vertex sparkle instead of the sequin texture
+          const h = Math.sin(i * 12.9898 + vbase * 78.233) * 43758.5453, r = h - Math.floor(h);
+          const k = r > 0.93 ? 1.6 : 0.78 + r * 0.42;
+          C3.push(Math.min(1, col.r * k), Math.min(1, col.g * k), Math.min(1, col.b * k * (r > 0.93 ? 1.8 : 1)));
+        } else C3.push(col.r, col.g, col.b);
+        SI.push(bi, 0, 0, 0); SW.push(1, 0, 0, 0);
+      }
+      if (g.index) { const a = g.index.array; for (let i = 0; i < a.length; i++) IX.push(a[i] + vbase); }
+      else for (let i = 0; i < pos.count; i++) IX.push(i + vbase);
+      vbase += pos.count; meshes++;
+      g.dispose();
+    });
+    geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(P3, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(N3, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(C3, 3));
+    geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(SI, 4));
+    geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(SW, 4));
+    geo.setIndex(vbase > 65535 ? new THREE.Uint32BufferAttribute(IX, 1) : new THREE.Uint16BufferAttribute(IX, 1));
+    geo.computeBoundingSphere();
+    geo.boundingSphere.radius = Math.max(geo.boundingSphere.radius, 24);   // she sways; keep culling generous (model units)
+    mat = new THREE.MeshPhongMaterial({vertexColors: true, skinning: true, side: THREE.DoubleSide, emissive: 0x2a2008, shininess: 40, specular: 0x5a4a2a});
+    try { mat.toneMapped = false; } catch (_) {}
+    rig = parts;
+    U.nodes = nodes.length; U.animNodes = bones.length; U.meshes = 1; U.srcMeshes = meshes; U.verts = vbase; U.tris = IX.length / 3;
+    for (let i = 0; i < bones.length; i++) rel.push(new THREE.Matrix4());
+    poseRig(0.01);
+    return rig;
+  }
+  // Pose the one rig and work out each bone's root-local matrix.
+  const _inv = new THREE.Matrix4();
+  function poseRig(t) {
+    C.applyPose(rig, C.stepState(t), {l: 0, r: 0, h: 0});
+    rig.g.updateMatrixWorld(true);
+    _inv.copy(rig.g.matrixWorld).invert();
+    for (let i = 0; i < bones.length; i++) rel[i].multiplyMatrices(_inv, bones[i].matrixWorld);
+  }
+  function makeClone() {
+    ensureMaster();
+    const g = new THREE.Group();
+    const bs = bones.map(() => { const b = new THREE.Bone(); b.matrixAutoUpdate = false; return b; });
+    const mesh = new THREE.SkinnedMesh(geo, mat);
+    bs.forEach(b => mesh.add(b));
+    mesh.bind(new THREE.Skeleton(bs, bindInv), new THREE.Matrix4());
+    mesh.frustumCulled = true; mesh.castShadow = false; mesh.receiveShadow = false;
+    g.add(mesh);
+    g.scale.setScalar(S);
+    g.name = 'tinySinger';
+    for (let i = 0; i < bs.length; i++) bs[i].matrix.copy(rel[i]);
+    return {g, mesh, anim: bs};
+  }
+
+  // ---------- 4. singers ----------
+  const keyOf = (x, y, z) => x + ',' + y + ',' + z;
+  const curDim = () => { try { return (typeof DIM !== 'undefined' && DIM && DIM.cur) ? String(DIM.cur) : ''; } catch (_) { return ''; } };
+  const worldKey = () => { try { return (typeof current !== 'undefined' && current && current.id) ? String(current.id) : ''; } catch (_) { return ''; } };
+  function save() {
+    try { prog.singers1316 = {w: worldKey(), L: U.list.map(s => [s.x, s.y, s.z, +s.ph.toFixed(3), s.dim])}; } catch (e) { ERR('save', e); }
+  }
+  function add(x, y, z, ph, dim, quiet) {
+    if (U.list.length >= U.CAP) return null;
+    const c = makeClone();
+    const s = {x, y, z, ph: ph == null ? Math.random() * Math.PI * 2 : ph, dim: dim || '', g: c.g, anim: c.anim};
+    s.g.position.set(x + 0.5, y + 1, z + 0.5);
+    try { scene.add(s.g); } catch (e) { ERR('add', e); }
+    U.list.push(s);
+    if (!quiet) save();
+    return s;
+  }
+  function remove(s, drop) {
+    const i = U.list.indexOf(s); if (i < 0) return;
+    U.list.splice(i, 1);
+    try { scene.remove(s.g); } catch (_) {}   // clones own no geometry/material, nothing to dispose
+    if (drop && !MODE.infinite) {
+      let landed = false;
+      try { const last0 = drops[drops.length - 1]; dropItem(U.id, 1, s.x + 0.5, s.y + 1.2, s.z + 0.5, (Math.random() - .5) * 1.2, 2.4, (Math.random() - .5) * 1.2, 0.35); const d = drops[drops.length - 1]; landed = !!(d && d !== last0 && d.id === U.id); } catch (e) { ERR('drop', e); }
+      if (!landed) { try { addItem(U.id, 1); renderHotbar(); } catch (e) { ERR('give2', e); } }   // drops can be paused while the world is still building
+      U.lastDrop = landed ? 'drop' : 'inv';
+    }
+    U.removed++;
+    save();
+  }
+  function clearAll() { for (const s of U.list.slice()) { try { scene.remove(s.g); } catch (_) {} } U.list.length = 0; }
+  U.at = (x, y, z) => U.list.find(s => s.x === x && s.y === y && s.z === z) || null;
+  U.add = add; U.remove = remove; U.clearAll = clearAll;
+
+  // Restore saved singers when a world starts; never leak them between worlds.
+  let loadedFor = null;
+  setInterval(() => {
+    try {
+      if (typeof started === 'undefined' || !started) { if (loadedFor !== null && U.list.length) clearAll(); loadedFor = null; return; }
+      const wk = worldKey();
+      if (loadedFor === wk) return;
+      loadedFor = wk; clearAll();
+      const d = prog && prog.singers1316;
+      if (d && d.w === wk && Array.isArray(d.L)) for (const r of d.L) add(r[0], r[1], r[2], r[3], r[4] || '', true);
+      U.restored = U.list.length;
+    } catch (e) { ERR('restore', e); }
+  }, 700);
+
+  // ---------- 5. given once ----------
+  U.give = () => { try {
+    if (typeof started === 'undefined' || !started || typeof prog === 'undefined' || !prog || prog.singer1316) return false;
+    prog.singer1316 = 1; addItem(U.id, 1); U.given++;
+    try { if (MODE && Array.isArray(MODE.hotbar) && !MODE.hotbar.includes(U.id)) { const j = MODE.hotbar.findIndex(v => !v); if (j >= 0) MODE.hotbar[j] = U.id; } } catch (_) {}
+    try { renderHotbar(); } catch (_) {}
+    return true; } catch (e) { ERR('give', e); return false; } };
+  setInterval(U.give, 1500);
+
+  // ---------- 6. place: LT / right-click / tap Place (normal useItem path) ----------
+  U.place = function () {
+    if (menuOpen || paused || dead || !started) return 'busy';
+    if (!(MODE.infinite || cnt(U.id) > 0)) { say('No Singer left'); return 'none'; }
+    const r = raycast(5);
+    if (!r) { say('Aim at a block to put the Singer on'); return 'aim'; }
+    let [x, y, z] = r.hit;
+    let b = getB(x, y, z);
+    try { if ((PLANT[b] === 1 || b === T.TALLGRASS) && solid(x, y - 1, z)) { y -= 1; b = getB(x, y, z); } } catch (_) {}
+    if (!solid(x, y, z) || b === T.WATER || b === T.LAVA) { say('The Singer needs a solid block'); return 'nosolid'; }
+    const above = getB(x, y + 1, z);
+    if (solid(x, y + 1, z) && !(PLANT[above] === 1 || above === T.TALLGRASS)) { say('Clear the top of the block first'); return 'covered'; }
+    if (U.at(x, y, z)) { say('A singer is already dancing there'); return 'taken'; }
+    if (U.list.length >= U.CAP) { say('Up to ' + U.CAP + ' singers at once'); return 'cap'; }
+    const s = add(x, y, z, null, curDim());
+    if (!s) return 'fail';
+    useUp(U.id);
+    U.placed++;
+    try { swing('place'); placeT = 0.2; } catch (_) {}
+    try { sfx('pop', .5); } catch (_) {}
+    try { renderHotbar(); } catch (_) {}
+    U.last = [x, y, z];
+    return 'ok';
+  };
+  try {
+    const ui0 = useItem;
+    useItem = function () { if (selId === U.id) { try { U.place(); } catch (e) { ERR('place', e); } return; } return ui0.apply(this, arguments); };
+  } catch (e) { ERR('uiw', e); }
+
+  // ---------- 7. hit her to pick her up ----------
+  function aimed(maxT) {
+    const d = lookDir(), ox = P.x, oy = P.y + EYE, oz = P.z;
+    let best = null, bt = maxT;
+    for (const s of U.list) {
+      if (!s.g.visible) continue;
+      const cx = s.g.position.x, cy = s.g.position.y + U.HEIGHT * 0.5, cz = s.g.position.z;
+      const vx = cx - ox, vy = cy - oy, vz = cz - oz, t = vx * d[0] + vy * d[1] + vz * d[2];
+      if (t < 0 || t > bt) continue;
+      const px = ox + d[0] * t - cx, py = oy + d[1] * t - cy, pz = oz + d[2] * t - cz;
+      if (Math.hypot(px, py * 0.7, pz) < 0.26) { best = s; bt = t; }
+    }
+    return best;
+  }
+  U.aimed = aimed;
+  let holdOff = false;
+  U.hit = function (s) { if (!s) return false; remove(s, true); try { swing(); } catch (_) {} try { sfx('pop', .6); } catch (_) {} try { burst(s.x + .5, s.y + 1.15, s.z + .5, 0xf2c21a, 10, .6); } catch (_) {} return true; };
+  try {
+    const uI = updateInteraction;
+    updateInteraction = function (dt) {
+      try {
+        const att = !!(attackMouse || attackPad || attackTouch);
+        if (!att) holdOff = false;
+        else if (holdOff) { try { if (attackCd > 0) attackCd -= dt; } catch (_) {} return; }   // do not mine the block under her in the same press
+        else if (U.list.length && !menuOpen && !paused && !dead && started) {
+          const s = aimed(4);
+          if (s) { const rs = raycast(5); if (!rs || rs.t + 0.6 >= Math.hypot(s.g.position.x - P.x, s.g.position.y + 0.15 - P.y - EYE, s.g.position.z - P.z)) { U.hit(s); holdOff = true; return; } }
+        }
+      } catch (e) { ERR('hit', e); }
+      return uI.apply(this, arguments);
+    };
+  } catch (e) { ERR('uiw2', e); }
+
+  // ---------- 8. per-frame dance (one pose, many cheap copies) ----------
+  const R = 0.2;                               // strut circle radius on the block top
+  const OMEGA = (C.STRIDE / C.BEAT) * (U.HEIGHT / (C.HEIGHT || 32)) / R;
+  let tLocal = 0, nextCheck = 0;
+  const song = {src: null, gain: null, pan: null, t0: 0, want: 0, loading: 0};
+  function acOk() { try { return typeof AC !== 'undefined' && AC && AC.createGain && AC.state !== 'closed'; } catch (_) { return false; } }
+  function songV() { try { return Math.max(0, Math.min(1, Math.max(SET.music, SET.sfx * 0.55))); } catch (_) { return 0.6; } }
+  function songStart() {
+    if (song.src || !acOk()) return;
+    const V = window.__v1251, buf = V && V.songBuf;
+    if (!buf) { if (V && typeof V.loadSong === 'function' && !song.loading) { song.loading = 1; try { V.loadSong(); } catch (_) {} setTimeout(() => { song.loading = 0; }, 4000); } return; }
+    try {
+      const src = AC.createBufferSource(); src.buffer = buf; src.loop = true;
+      const g = AC.createGain(); g.gain.value = 0.0001;
+      let out = g;
+      if (AC.createPanner) {
+        const p = AC.createPanner();
+        try { p.panningModel = 'equalpower'; p.distanceModel = 'linear'; p.refDistance = 1.5; p.maxDistance = 22; p.rolloffFactor = 1; } catch (_) {}
+        g.connect(p); out = p; song.pan = p;
+      }
+      out.connect((typeof master !== 'undefined' && master) ? master : AC.destination);
+      src.connect(g); src.start();
+      song.src = src; song.gain = g; song.t0 = AC.currentTime; U.songOn = 1;
+    } catch (e) { ERR('song', e); }
+  }
+  function songStop() {
+    if (!song.src) return;
+    try { song.src.stop(); } catch (_) {}
+    try { song.src.disconnect(); song.gain.disconnect(); if (song.pan) song.pan.disconnect(); } catch (_) {}
+    song.src = song.gain = song.pan = null; U.songOn = 0;
+  }
+  U.songStop = songStop;
+
+  function tick(dt) {
+    if (!U.list.length) { if (song.src) songStop(); return; }
+    if (typeof started !== 'undefined' && !started) return;
+    const t0 = performance.now();
+    if (paused) { if (song.gain) try { song.gain.gain.setTargetAtTime(0.0001, AC.currentTime, 0.05); } catch (_) {} return; }
+    tLocal += Math.min(0.1, dt || 0);
+    const t = (song.src && acOk()) ? ((AC.currentTime - song.t0) % C.LOOP) : (tLocal % C.LOOP);
+    const cam = (typeof camera !== 'undefined' && camera) ? camera.position : P;
+    const dim = curDim();
+    let anyVis = false, near = null, nd = 1e9;
+    for (const s of U.list) {
+      const dx = s.x + 0.5 - cam.x, dy = s.y + 1 - cam.y, dz = s.z + 0.5 - cam.z, d = Math.hypot(dx, dy, dz);
+      const vis = s.dim === dim && d < 36;
+      s.g.visible = vis;
+      if (!vis) continue;
+      anyVis = true;
+      if (d < nd) { nd = d; near = s; }
+    }
+    // A singer whose block was dug out pops off as an item.
+    const now = performance.now();
+    if (now > nextCheck) {
+      nextCheck = now + 250;
+      for (const s of U.list.slice()) { if (s.dim !== dim) continue; try { if (!solid(s.x, s.y, s.z)) remove(s, true); } catch (_) {} }
+    }
+    if (anyVis) {
+      ensureMaster();
+      poseRig(t);
+      const ang = OMEGA * t;
+      for (const s of U.list) {
+        if (!s.g.visible) continue;
+        const a = s.ph + ang;
+        s.g.position.set(s.x + 0.5 + Math.sin(a) * R, s.y + 1, s.z + 0.5 + Math.cos(a) * R);
+        s.g.rotation.set(0, a + Math.PI / 2, 0);
+        const A = s.anim;
+        for (let i = 0; i < A.length; i++) A[i].matrix.copy(rel[i]);
+      }
+    }
+    // Quiet spatial song from the nearest singer.
+    if (near && nd < 22 && songV() > 0.01) {
+      songStart();
+      if (song.src) {
+        try {
+          const p = song.pan, x = near.g.position.x, y = near.g.position.y + 0.15, z = near.g.position.z;
+          if (p) { if (p.positionX) { p.positionX.value = x; p.positionY.value = y; p.positionZ.value = z; } else p.setPosition(x, y, z); }
+          song.gain.gain.setTargetAtTime(0.32 * songV(), AC.currentTime, 0.2);
+        } catch (_) {}
+      }
+    } else if (song.src) {
+      try { song.gain.gain.setTargetAtTime(0.0001, AC.currentTime, 0.3); } catch (_) {}
+      if (!near || nd > 40) songStop();
+    }
+    U.poseMs = performance.now() - t0;
+  }
+  U.tick = tick;
+  try {
+    const um = updateMobs;
+    updateMobs = function (dt) { const r = um.apply(this, arguments); try { tick(dt); } catch (e) { ERR('tick', e); } return r; };
+  } catch (e) { ERR('umw', e); }
+
+  // ---------- 9. held item: a wee static singer in your hand ----------
+  try {
+    const mi = makeItemMesh;
+    makeItemMesh = function (id) {
+      if (id === U.id) { try { const c = makeClone(); const g = new THREE.Group(); c.g.scale.setScalar(0.24 / (C.HEIGHT || 32)); c.g.position.y = -0.1; c.g.rotation.y = 0.6; c.mesh.frustumCulled = false; g.add(c.g); g.userData.__gs = null; return g; } catch (e) { ERR('mi', e); } }
+      return mi.apply(this, arguments);
+    };
+  } catch (e) { ERR('miw', e); }
 })();
 </script>
 </body>
