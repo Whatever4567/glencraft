@@ -84128,6 +84128,7 @@ try {
 
   /* ---------- roster: logical garrison, materialized nearby ---------- */
   const ROSTER = { black: null, mossy: null };
+  U.ROSTER = ROSTER; U.seedRoster = (k) => seedRoster(k);   /* t1352: GB6 tops the garrison up when you come back */
   function seedRoster(k) {
     const c = castle(k);
     if (!c) return null;
@@ -98964,14 +98965,30 @@ try {
   U.marks = MK; U.markNow = () => { MK.key = ''; marks(); return MK.pts; };
   try { setInterval(() => { try { marks(); } catch (e) { ERR('marks', e); } }, 1000); } catch (_) {}
   /* clansmen at the clan keeps out on the land (the on-grid clan castle keeps its own spawner) */
-  let clT = 0;
-  function clans(dt) { clT -= dt; if (clT > 0 || !on() || typeof P === 'undefined') return; clT = 3;
-    for (const k of ['clanIre', 'clanEA']) { const S = OS[k]; if (!S || Math.hypot(P.x - S.X, P.z - S.Z) > 64) continue;
-      const here = mobs.filter(a => a.kind === 'clansman' && a.home && a.home[0] === S.X && a.home[1] === S.Z).length;
-      for (let i = here, tries = 0; i < 3 && tries < 20; tries++) { const x = S.X + Math.round((h3(i, tries, 7) - 0.5) * 16), z = S.Z + Math.round((h3(tries, i, 9) - 0.5) * 16); const y = U.groundAt(x, z);
-        if (y > S.gy + 2 || Math.hypot(P.x - x, P.z - z) < 6) continue; let m = null;
+  /* clan keeps out on the land: fill to the cap as soon as you arrive (the on-grid clan castle keeps its own spawner) */
+  const CL_MAX = 6; let clT = 0;
+  const isClan = a => a && (a.kind === 'clansman' || a.type === 'clansman');
+  function clans(dt) { clT -= dt; if (clT > 0 || !on() || typeof P === 'undefined') return; clT = 1;
+    for (const k of ['clanIre', 'clanEA']) { const S = OS[k]; if (!S) continue; const dP = Math.hypot(P.x - S.X, P.z - S.Z);
+      if (dP > 80) continue;
+      let here = mobs.filter(a => isClan(a) && a.home && a.home[0] === S.X && a.home[1] === S.Z && a.hp > 0).length;
+      for (let tries = 0; here < CL_MAX && tries < 60; tries++) { const an = h3(here, tries, 7) * 6.2832, r = 4 + h3(tries, here, 9) * 16;
+        const x = Math.round(S.X + Math.cos(an) * r), z = Math.round(S.Z + Math.sin(an) * r), y = U.groundAt(x, z);
+        if (!(y > 0) || y > S.gy + 3 || Math.hypot(P.x - x, P.z - z) < 5) continue; let m = null;
         try { WIN.__egg = true; WIN.__eggSpot = [x + .5, y, z + .5, x, z]; m = spawnMob('clansman'); } catch (e) { ERR('clan', e); } finally { WIN.__egg = false; WIN.__eggSpot = null; }
-        if (!m) break; try { m.g.position.set(x + .5, y, z + .5); } catch (_) {} m.home = [S.X, S.Z]; m.shaded = true; U.clansmen = (U.clansmen || 0) + 1; i++; } } }
+        if (!m) { U.clanFail = (U.clanFail || 0) + 1; break; } try { m.g.position.set(x + .5, y, z + .5); } catch (_) {} m.home = [S.X, S.Z]; m.kind = 'clansman'; m.shaded = true; U.clansmen = (U.clansmen || 0) + 1; here++; } }
+    garrison(); }
+  /* the black castle (and skeleton castle) garrison is there on every visit: when you come within 90 blocks, dead slots
+     under the cap come straight back and any slot that drifted off (or fell) is put back on the castle ground */
+  const GIN = {};
+  function garrison() { const C = WIN.__castle1268; if (!C || !C.ROSTER || typeof P === 'undefined') return;
+    for (const k of ['black', 'mossy']) { const R = C.ROSTER[k]; if (!R || !R.c) continue; const cx = R.c.x, cz = R.c.z, inside = Math.hypot(P.x - cx, P.z - cz) < 90;
+      if (inside && !GIN[k]) { const cm = C.cap ? C.cap(k) : R.slots.length; let alive = R.slots.filter(s => s.alive).length; let n = 0;
+        R.slots.forEach((sl, i) => { if (!sl.alive && alive < cm) { sl.alive = 1; sl.respawnT = 0; alive++; n++; }
+          if (sl.alive && !sl.live && (!isFinite(sl.y) || Math.hypot(sl.x - cx, sl.z - cz) > 30 || sl.y < U.groundAt(sl.x, sl.z) - 1)) {
+            const an = h3(i, 3, k.length) * 6.2832, r = Math.sqrt(h3(i, 5, 11)) * 24; sl.x = cx + Math.cos(an) * r; sl.z = cz + Math.sin(an) * r; sl.y = U.groundAt(sl.x, sl.z); n++; } });
+        U.topUp = U.topUp || {}; U.topUp[k] = {n, alive, cap: cm, at: Math.round(performance.now())}; }
+      GIN[k] = inside; } }
   try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { clans(+dt || 0.016); } catch (e) { ERR('clans', e); } return r; }; } catch (e) { ERR('um', e); }
   setInterval(() => { try { if (typeof started === 'undefined' || !started) return; hook(); } catch (e) { ERR('tick', e); } }, 500);
   U.go = (k) => { const S = OS[k || 'black']; if (!S) return false; P.x = S.X + 0.5; P.z = S.Z + 30.5; P.y = U.groundAt(P.x, P.z) + 0.1; P.vy = 0; return true; };
