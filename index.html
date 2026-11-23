@@ -99013,6 +99013,18 @@ try {
         const root = g.parent; if (!root || !cam) return;
         // first person only: the third-person copy never slides
         let fp = false; try { let q = root; while (q) { if (typeof held !== 'undefined' && q === held) { fp = true; break; } q = q.parent; } } catch (_) {}
+        // The gun viewmodel (__vm) owns the pose once the real rifle is in: it puts
+        // that rifle's sight line on the crosshair, so line our sights up with it.
+        const u = root.userData;
+        if (fp && W.__vm && W.__vm.on && u && u.c322 && u.sight && u.rig) {
+          g.userData.adsK = 0; g.userData.vmAlign = 1;
+          const sg = u.sight.clone();
+          const m = tmpM.identity(); for (let x = u.rig; x && x !== root; x = x.parent) { x.updateMatrix(); m.premultiply(x.matrix); }
+          sg.applyMatrix4(m);
+          g.position.set(sg.x, sg.y - SIGHT_Y, 0);
+          return;
+        }
+        g.userData.vmAlign = 0;
         const want = (fp && isAds()) ? 1 : 0;
         g.userData.adsK += (want - g.userData.adsK) * 0.25;
         const k = g.userData.adsK;
@@ -99082,8 +99094,13 @@ try {
       if (!o.isMesh || o.userData.fp1347 || o.userData.fp1347Hid) return;
       let p = o, mine = false; while (p && p !== root) { if (p.userData && p.userData.fp1347) { mine = true; break; } p = p.parent; }
       if (mine) return;
-      o.userData.fp1347Hid = 1; lockHidden(o);
+      // Hide by render layer, not visibility: the GLB swap (__c322) and the
+      // gun viewmodel (__vm) measure the visible rig, so it must stay visible.
+      o.userData.fp1347Hid = 1; layerHide(o);
     });
+  }
+  function layerHide(o) {
+    try { o.layers.set(31); const L = o.layers; Object.defineProperty(o, 'layers', {get() { return L; }, set(_) {}, configurable: true}); L.enable = function () {}; L.enableAll = function () {}; L.toggle = function () {}; L.set = function () {}; } catch (_) {}
   }
 
   /* ---------- 7. map: aged parchment with torn, curled edges + brass compass ---------- */
@@ -99245,11 +99262,43 @@ try {
       return true;
     } catch (e) { ERR('wrap', e); return false; }
   }
+  /* ---------- 8. viewmodel framing (t1347 pass 2) ----------
+     Long gun: the gun viewmodel (__vm) places the gun, then calls __fpa.step
+     to solve the arms. Wrapping step lets us re-frame the gun first, so the
+     arms are solved onto the re-framed gun (no detached hands). Hip: stock
+     low right, barrel angled in toward the centre. Aim: the gun slides
+     along the eye ray so the sight stays on the crosshair but less of the
+     stock and hand fills the screen. All values are camera space. */
+  const GT = U.gunTune = {hip: {yaw: 0.16, pitch: 0.03, roll: -0.10, dx: -0.02, dy: -0.01, dz: 0.0}, adsF: 1.35, on: 1};
+  const gq = {a: null, b: null, e: null, v: null, w: null};
+  function frameGun() {
+    const T = T3(); if (!GT.on) return;
+    if (!W.__vm || !W.__vm.on || !W.__fpa || !W.__fpa.fromVm) return;
+    if (typeof hand === 'undefined' || !hand || hand.parent !== camera) return;
+    const g = held && held.children[0]; if (!g || !g.userData || +g.userData.gun !== 213) return;
+    if (!gq.a) { gq.a = new T.Quaternion(); gq.e = new T.Euler(); gq.v = new T.Vector3(); gq.w = new T.Vector3(); }
+    const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k), h = 1 - e, H = GT.hip;
+    const sg = W.__vm.sight; const piv = gq.w.set(sg ? sg[0] : 0.12, sg ? sg[1] : -0.06, sg ? sg[2] : -0.28);
+    gq.e.set(H.pitch * h, H.yaw * h, H.roll * h, 'YXZ'); gq.a.setFromEuler(gq.e);
+    gq.v.copy(hand.position).sub(piv).applyQuaternion(gq.a).add(piv);
+    gq.v.x += H.dx * h; gq.v.y += H.dy * h; gq.v.z += H.dz * h;
+    gq.v.multiplyScalar(1 + (GT.adsF - 1) * e);
+    hand.position.copy(gq.v); hand.quaternion.premultiply(gq.a);
+    U.gunFramed = (U.gunFramed || 0) + 1;
+  }
+  function wrapStep() {
+    try {
+      const F = W.__fpa; if (!F || typeof F.step !== 'function' || F.step.__fp1347) return;
+      const prev = F.step;
+      F.step = function () { try { frameGun(); } catch (e) { ERR('fg', e); } return prev.apply(this, arguments); };
+      F.step.__fp1347 = 1;
+    } catch (e) { ERR('ws', e); }
+  }
   /* Late wrappers can install after this one; re-check, and upgrade the
      live held item in place (the held tree also covers GLB attach). */
   function tick() {
     try {
-      wrap();
+      wrap(); wrapStep();
       if (typeof held === 'undefined' || !held) return;
       let id = null; try { id = selId; } catch (_) {}
       U.kind = '';

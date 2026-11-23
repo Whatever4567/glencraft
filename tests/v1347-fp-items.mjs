@@ -46,7 +46,7 @@ for (const [name, id] of ITEMS) {
         let p = o, inOld = false; while (p) { if (p.name === 'fp1347Old') inOld = true; p = p.parent; }
         if (inOld) out.oldVisMeshes++;
         const m = o.material; if (m && o.userData.fp1347 && (m.transparent || m.opacity < 1)) out.transparent.push(o.type);
-        if (/bolt_action/.test(o.name)) out.gunVis++;
+        if (/bolt_action/.test(o.name) && (o.layers.mask & 1)) out.gunVis++;
         if (m && m.userData && m.userData.fp1347 && o.geometry && o.geometry.type === 'BoxGeometry' && m.map && m.map.image && m.map.image.width === 64) out.granite++;
       }
     });
