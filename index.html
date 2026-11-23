@@ -99265,9 +99265,14 @@ try {
    the old meshes are moved into a hidden "fp1347Old" child (hidden, not
    deleted) and the old builders stay in the file. Everything new is opaque.
    __fpa, the guns system and the torch/pick jitter fixes are untouched.
-   Kill switch: window.__noFP1347 = 1 before load. */
+   Kill switch: window.__noFP1347 = 1 before load.
+   Rifle texture: by default the flintlock uses the 1.2.119 bolt-action
+   rifle's wood/steel maps (cropped from the hidden GLB). Set
+   window.__noRifleTex1357 = 1 before load to keep the 1.2.120 phong
+   walnutTex + solid steel/brass materials. Geometry, hand pinning and
+   animations stay on the 1.2.122 flintlock either way. */
 (function fp1347(W) {
-  const U = W.__fp1347 = {err: null, on: 0, version: '1.2.120-fp-items', made: {}, kind: '', wraps: 0, map: 0};
+  const U = W.__fp1347 = {err: null, on: 0, version: '1.2.122-rifle-tex', made: {}, kind: '', wraps: 0, map: 0, rifleTex: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 260); };
   if (W.__noFP1347) return;
   const T3 = () => (typeof THREE !== 'undefined' && THREE) || W.THREE || null;
@@ -99673,7 +99678,145 @@ try {
   }
 
   /* ---------- 6. flintlock musket ---------- */
+  /* t1357r: 1.2.119 rifle maps live on the 1.2.122 flintlock geometry.
+     Crop rects are in the 2048 body atlas of gun_rifle_{2k,4k}.glb. */
+  const RIFLE_CROP = {
+    wood:  [640, 1696, 368, 96],
+    butt:  [1216, 1216, 640, 320],
+    steel: [1520, 1720, 160, 120]
+  };
+  function stdMat(o) {
+    const T = T3();
+    const m = new T.MeshStandardMaterial(o);
+    m.transparent = false; m.opacity = 1; m.depthWrite = true;
+    m.userData.fp1347 = 1; m.userData.crystalCore1249 = 1; m.userData.sculptKeep = 1; m.userData.held1240Crystal = 'p';
+    m.c121 = 1;
+    return m;
+  }
+  function setGrainUV(geo, part) {
+    try {
+      const uv = geo.attributes.uv, pos = geo.attributes.position, nor = geo.attributes.normal;
+      if (!uv || !pos || !nor) return geo;
+      const TILE = part === 'butt' ? 0.22 : part === 'steel' || part === 'brass' ? 0.10 : 0.18;
+      for (let i = 0; i < pos.count; i++) {
+        const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
+        const nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i));
+        let u, v;
+        if (nx > 0.5) { u = pz / TILE; v = py / TILE; }
+        else if (ny > 0.5) { u = pz / TILE; v = px / TILE; }
+        else { u = px / TILE; v = py / TILE; }
+        uv.setXY(i, u, v);
+      }
+      uv.needsUpdate = true;
+    } catch (_) {}
+    return geo;
+  }
+  function tagPart(o, part) {
+    o.userData.riflePart = part;
+    try { if (o.geometry && /Box|Buffer/.test(o.geometry.type)) setGrainUV(o.geometry, part); } catch (_) {}
+    return o;
+  }
+  function cropTex(src, rect, linear) {
+    const T = T3();
+    const im = src.image, sw = im.width || 2048, sh = im.height || 2048;
+    const [x, y, w, h] = rect;
+    const sx = x * sw / 2048, sy = y * sh / 2048, tw = w * sw / 2048, th = h * sh / 2048;
+    const c = document.createElement('canvas');
+    c.width = Math.max(2, Math.round(tw)); c.height = Math.max(2, Math.round(th));
+    c.getContext('2d').drawImage(im, sx, sy, tw, th, 0, 0, c.width, c.height);
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.magFilter = T.LinearFilter; t.minFilter = T.LinearMipmapLinearFilter; t.generateMipmaps = true;
+    if (!linear && T.SRGBColorSpace) t.colorSpace = T.SRGBColorSpace;
+    t.needsUpdate = true;
+    return t;
+  }
+  function findRifleMaps() {
+    if (U._rifleMaps && U._rifleMaps.map && U._rifleMaps.map.image) return U._rifleMaps;
+    let found = null;
+    const grab = (root) => {
+      if (!root || found) return;
+      try {
+        root.traverse(o => {
+          if (found || !o.isMesh || !o.material) return;
+          for (const m of [].concat(o.material)) {
+            if (!m || !m.map || !m.map.image) continue;
+            const nm = (m.name || o.name || '') + '';
+            if (/bolt_action_rifle_7_62$/.test(nm) || (/bolt_action_rifle_7_62/.test(nm) && !/accesories/.test(nm) && m.map.image.width >= 1024)) {
+              found = {map: m.map, mr: m.metalnessMap || m.roughnessMap || null, nor: m.normalMap || null};
+              return;
+            }
+          }
+        });
+      } catch (_) {}
+    };
+    try { if (typeof held !== 'undefined' && held) grab(held); } catch (_) {}
+    try { if (typeof worldModel !== 'undefined' && worldModel) grab(worldModel); } catch (_) {}
+    try { if (typeof scene !== 'undefined' && scene) grab(scene); } catch (_) {}
+    if (found) U._rifleMaps = found;
+    return found;
+  }
+  function paintRifleMats() {
+    if (W.__noRifleTex1357) return 0;
+    const M = U._flintMats; if (!M || M.kind !== '119') return 0;
+    const src = findRifleMaps(); if (!src || !src.map || !src.map.image) return 0;
+    if (U.rifleTex) return 1;
+    const woodMap = cropTex(src.map, RIFLE_CROP.wood, 0);
+    const buttMap = cropTex(src.map, RIFLE_CROP.butt, 0);
+    const steelMap = cropTex(src.map, RIFLE_CROP.steel, 0);
+    let woodMR, steelMR, woodNor, steelNor;
+    if (src.mr && src.mr.image) {
+      woodMR = cropTex(src.mr, RIFLE_CROP.wood, 1);
+      steelMR = cropTex(src.mr, RIFLE_CROP.steel, 1);
+    }
+    if (src.nor && src.nor.image) {
+      woodNor = cropTex(src.nor, RIFLE_CROP.wood, 1);
+      steelNor = cropTex(src.nor, RIFLE_CROP.steel, 1);
+    }
+    const paint = (mat, map, mr, nor, metal, rough) => {
+      mat.map = map; mat.color.setHex(0xffffff);
+      mat.metalness = metal; mat.roughness = rough;
+      if (mr) { mat.metalnessMap = mr; mat.roughnessMap = mr; mat.metalness = 1; mat.roughness = 1; }
+      if (nor) { mat.normalMap = nor; if (mat.normalScale) mat.normalScale.set(0.6, 0.6); }
+      mat.needsUpdate = true;
+    };
+    paint(M.wood, woodMap, woodMR, woodNor, 0.02, 0.52);
+    paint(M.butt, buttMap, woodMR, woodNor, 0.02, 0.52);
+    paint(M.steel, steelMap, steelMR, steelNor, 0.75, 0.42);
+    paint(M.brass, steelMap, steelMR, steelNor, 0.7, 0.45);
+    M.brass.color.setHex(0xb08a3a);
+    M.brass.metalness = 0.65; M.brass.roughness = 0.4;
+    if (steelMR) { M.brass.metalness = 1; M.brass.roughness = 1; }
+    U.rifleTex = 1;
+    return 1;
+  }
+  function flintMats() {
+    if (U._flintMats) return U._flintMats;
+    const T = T3();
+    if (W.__noRifleTex1357) {
+      U._flintMats = {
+        kind: '120',
+        wood: mat('phong', {map: walnutTex(), color: 0xffffff, shininess: 30, specular: 0x2a2018}),
+        butt: mat('phong', {map: walnutTex(), color: 0xffffff, shininess: 30, specular: 0x2a2018}),
+        steel: mat('phong', {color: 0x3a3d42, shininess: 70, specular: 0x7a7e86}),
+        brass: mat('phong', {color: 0x9a7a3a, shininess: 60, specular: 0x8a7040})
+      };
+      return U._flintMats;
+    }
+    // 1.2.119 look: PBR standard materials. Maps are filled in once the GLB atlas is in.
+    // Placeholder colours match the atlas means so the gun is never flat dark-phong brown.
+    U._flintMats = {
+      kind: '119',
+      wood: stdMat({color: 0x824c29, metalness: 0.02, roughness: 0.52}),
+      butt: stdMat({color: 0x87502c, metalness: 0.02, roughness: 0.52}),
+      steel: stdMat({color: 0x4c4c4e, metalness: 0.75, roughness: 0.42}),
+      brass: stdMat({color: 0xb08a3a, metalness: 0.65, roughness: 0.4})
+    };
+    try { paintRifleMats(); } catch (e) { ERR('rifleTex', e); }
+    return U._flintMats;
+  }
   function walnutTex() {
+
     return canvasTex('walnut', 128, 32, (g, w, h) => {
       g.fillStyle = '#3e2414'; g.fillRect(0, 0, w, h);
       for (let y = 0; y < h; y += 2) { g.strokeStyle = (y % 4) ? 'rgba(92,56,30,0.55)' : 'rgba(22,12,6,0.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= w; x += 16) g.lineTo(x, y + Math.sin(x * 0.05 + y) * 1.5); g.stroke(); }
@@ -99682,12 +99825,10 @@ try {
   function buildFlintlock() {
     const T = T3();
     const g = new T.Group();
-    const wood = mat('phong', {map: walnutTex(), color: 0xffffff, shininess: 30, specular: 0x2a2018});
-    const steel = mat('phong', {color: 0x3a3d42, shininess: 70, specular: 0x7a7e86});
-    const brass = mat('phong', {color: 0x9a7a3a, shininess: 60, specular: 0x8a7040});
+    const FM = flintMats(), wood = FM.wood, steel = FM.steel, brass = FM.brass, buttM = FM.butt;
     // gun space: barrel along -Z, muzzle ~ z -0.73, grip ~ z +0.12, sight line y ~ 0.071
     const BY = 0.046, BR = 0.0115;
-    const barrel = mesh(new T.CylinderGeometry(BR * 0.92, BR * 1.12, 0.80, 10), steel, 0, BY, -0.33, Math.PI / 2, 0, 0);
+    const barrel = tagPart(mesh(new T.CylinderGeometry(BR * 0.92, BR * 1.12, 0.80, 10), steel, 0, BY, -0.33, Math.PI / 2, 0, 0), 'steel');
     g.add(barrel);
     // Aiming: the gun system holds the root low for the old rifle. Slide only
     // this model so the sights sit on the crosshair (root and anchors untouched).
@@ -99728,39 +99869,39 @@ try {
         g.position.set(tgt.x * k, (tgt.y - SIGHT_Y) * k, (tgt.z - 0.02) * k);
       } catch (_) {}
     };
-    g.add(mesh(new T.CylinderGeometry(BR * 1.25, BR * 1.25, 0.03, 10), steel, 0, BY, -0.715, Math.PI / 2, 0, 0)); // muzzle swell
-    g.add(mesh(new T.BoxGeometry(0.004, 0.012, 0.012), brass, 0, BY + BR + 0.005, -0.70)); // front sight
-    g.add(mesh(new T.BoxGeometry(0.016, 0.009, 0.010), steel, 0, BY + BR + 0.002, 0.02)); // rear sight
+    g.add(tagPart(mesh(new T.CylinderGeometry(BR * 1.25, BR * 1.25, 0.03, 10), steel, 0, BY, -0.715, Math.PI / 2, 0, 0), 'steel')); // muzzle swell
+    g.add(tagPart(mesh(new T.BoxGeometry(0.004, 0.012, 0.012), brass, 0, BY + BR + 0.005, -0.70), 'brass')); // front sight
+    g.add(tagPart(mesh(new T.BoxGeometry(0.016, 0.009, 0.010), steel, 0, BY + BR + 0.002, 0.02), 'steel')); // rear sight
     // full-length stock under the barrel (fore-end)
-    const fore = mesh(new T.BoxGeometry(0.036, 0.030, 0.56), wood, 0, BY - 0.022, -0.27);
+    const fore = tagPart(mesh(new T.BoxGeometry(0.036, 0.030, 0.56), wood, 0, BY - 0.022, -0.27), 'wood');
     g.add(fore);
     // ramrod under the fore-end
-    g.add(mesh(new T.CylinderGeometry(0.0035, 0.0035, 0.56, 6), steel, 0, BY - 0.042, -0.36, Math.PI / 2, 0, 0));
+    g.add(tagPart(mesh(new T.CylinderGeometry(0.0035, 0.0035, 0.56, 6), steel, 0, BY - 0.042, -0.36, Math.PI / 2, 0, 0), 'steel'));
     // barrel bands
-    for (const z of [-0.18, -0.38, -0.56]) g.add(mesh(new T.BoxGeometry(0.040, 0.050, 0.007), steel, 0, BY - 0.011, z));
+    for (const z of [-0.18, -0.38, -0.56]) g.add(tagPart(mesh(new T.BoxGeometry(0.040, 0.050, 0.007), steel, 0, BY - 0.011, z), 'steel'));
     // lock area / wrist / butt (shaped from boxes and a tapered butt)
-    g.add(mesh(new T.BoxGeometry(0.040, 0.044, 0.10), wood, 0, BY - 0.018, 0.04));
-    const wrist = mesh(new T.CylinderGeometry(0.016, 0.019, 0.12, 8), wood, 0, BY - 0.034, 0.13, Math.PI / 2 + 0.32, 0, 0);
+    g.add(tagPart(mesh(new T.BoxGeometry(0.040, 0.044, 0.10), wood, 0, BY - 0.018, 0.04), 'wood'));
+    const wrist = tagPart(mesh(new T.CylinderGeometry(0.016, 0.019, 0.12, 8), wood, 0, BY - 0.034, 0.13, Math.PI / 2 + 0.32, 0, 0), 'wood');
     g.add(wrist);
     const butt = new T.BoxGeometry(0.042, 0.075, 0.20, 1, 1, 2);
     const bp = butt.attributes.position;
     for (let i = 0; i < bp.count; i++) { const z = bp.getZ(i), y = bp.getY(i); const k = (z + 0.10) / 0.20; bp.setY(i, y * (0.55 + 0.75 * k) - 0.012 * k); bp.setX(i, bp.getX(i) * (0.8 + 0.3 * k)); }
     butt.computeVertexNormals();
-    g.add(mesh(butt, wood, 0, BY - 0.075, 0.27, 0.14, 0, 0));
-    g.add(mesh(new T.BoxGeometry(0.046, 0.11, 0.008), brass, 0, BY - 0.085, 0.37, 0.14, 0, 0)); // butt plate
+    g.add(tagPart(mesh(butt, buttM, 0, BY - 0.075, 0.27, 0.14, 0, 0), 'butt'));
+    g.add(tagPart(mesh(new T.BoxGeometry(0.046, 0.11, 0.008), brass, 0, BY - 0.085, 0.37, 0.14, 0, 0), 'brass')); // butt plate
     // lock plate, frizzen, pan and the cock (hammer) on the right side
-    g.add(mesh(new T.BoxGeometry(0.004, 0.022, 0.085), steel, 0.021, BY - 0.012, 0.035));
-    g.add(mesh(new T.BoxGeometry(0.012, 0.006, 0.016), steel, 0.024, BY + 0.002, 0.005)); // pan
-    g.add(mesh(new T.BoxGeometry(0.010, 0.026, 0.006), steel, 0.024, BY + 0.016, -0.002, -0.25, 0, 0)); // frizzen
+    g.add(tagPart(mesh(new T.BoxGeometry(0.004, 0.022, 0.085), steel, 0.021, BY - 0.012, 0.035), 'steel'));
+    g.add(tagPart(mesh(new T.BoxGeometry(0.012, 0.006, 0.016), steel, 0.024, BY + 0.002, 0.005), 'steel')); // pan
+    g.add(tagPart(mesh(new T.BoxGeometry(0.010, 0.026, 0.006), steel, 0.024, BY + 0.016, -0.002, -0.25, 0, 0), 'steel')); // frizzen
     const cock = new T.Group(); cock.position.set(0.026, BY + 0.004, 0.058); cock.rotation.x = -0.55;
-    cock.add(mesh(new T.BoxGeometry(0.006, 0.040, 0.010), steel, 0, 0.018, 0));
-    cock.add(mesh(new T.BoxGeometry(0.006, 0.008, 0.020), steel, 0, 0.036, -0.008));
+    cock.add(tagPart(mesh(new T.BoxGeometry(0.006, 0.040, 0.010), steel, 0, 0.018, 0), 'steel'));
+    cock.add(tagPart(mesh(new T.BoxGeometry(0.006, 0.008, 0.020), steel, 0, 0.036, -0.008), 'steel'));
     cock.add(mesh(new T.BoxGeometry(0.008, 0.006, 0.008), mat('lambert', {color: 0x2a2a30}), 0, 0.032, -0.016)); // flint
     g.add(cock);
     // trigger guard + trigger
-    const tg = mesh(new T.TorusGeometry(0.020, 0.0025, 5, 14, Math.PI), brass, 0, BY - 0.045, 0.095, 0, Math.PI / 2, Math.PI);
+    const tg = tagPart(mesh(new T.TorusGeometry(0.020, 0.0025, 5, 14, Math.PI), brass, 0, BY - 0.045, 0.095, 0, Math.PI / 2, Math.PI), 'brass');
     g.add(tg);
-    g.add(mesh(new T.BoxGeometry(0.003, 0.018, 0.004), steel, 0, BY - 0.048, 0.095, 0.3, 0, 0));
+    g.add(tagPart(mesh(new T.BoxGeometry(0.003, 0.018, 0.004), steel, 0, BY - 0.048, 0.095, 0.3, 0, 0), 'steel'));
     return g;
   }
   function isAds() {
@@ -100214,7 +100355,7 @@ try {
      live held item in place (the held tree also covers GLB attach). */
   function tick() {
     try {
-      wrap(); wrapStep(); wrapUH(); frameTable(); wrapRig(); musketPose();
+      wrap(); wrapStep(); wrapUH(); frameTable(); wrapRig(); musketPose(); try { paintRifleMats(); } catch (e) { ERR('rifleTex', e); }
       if (typeof held === 'undefined' || !held) return;
       let id = null; try { id = selId; } catch (_) {}
       U.kind = '';
