@@ -67,11 +67,12 @@ for (const [name, id] of ITEMS) {
   if (name === 'musket') ok(r.gunVis === 0, 'musket: old rifle meshes hidden');
 }
 await page.evaluate(() => { selId = 213; try { MODE.hotbar[0] = 213; renderHotbar(); } catch (_) {} window.__c145 = window.__c145 || {}; __c145.force = true; });
-await page.waitForFunction(() => { let m = null; held.traverse(o => { if (o.name === 'fp1347Model' && o.userData.fp1347 === 'musket') m = o; }); return m && m.userData.adsK > 0.5; }, null, {timeout: 90000, polling: 500}).catch(() => {});
-const ads = await page.evaluate(() => { let m = null; held.traverse(o => { if (o.name === 'fp1347Model' && o.userData.fp1347 === 'musket') m = o; }); return m ? {k: m.userData.adsK, y: m.position.y} : null; });
+await page.waitForFunction(() => { let m = null; held.traverse(o => { if (o.name === 'fp1347Model' && o.userData.fp1347 === 'musket') m = o; }); return m && ((window.__vm && __vm.on === 1 && m.userData.vmAlign === 1 && __vm.k > 0.5) || m.userData.adsK > 0.5); }, null, {timeout: 90000, polling: 500}).catch(() => {});
+const ads = await page.evaluate(() => { let m = null; held.traverse(o => { if (o.name === 'fp1347Model' && o.userData.fp1347 === 'musket') m = o; }); return m ? {k: m.userData.adsK, y: m.position.y, vm: window.__vm ? __vm.on : -1, vk: window.__vm ? __vm.k : 0, al: m.userData.vmAlign | 0} : null; });
 await page.evaluate(() => { __c145.force = false; });
 console.log('ads', JSON.stringify(ads));
-ok(ads && ads.k > 0.5 && ads.y > 0.05, 'musket: sights slide up to the crosshair when aiming');
+ok(ads && ads.vm === 1, 'musket: GLB swap ran and the __vm viewmodel is live');
+ok(ads && ((ads.al === 1 && ads.vk > 0.5) || (ads.k > 0.5 && ads.y > 0.05)), 'musket: sights line up with the crosshair when aiming');
 ok(errors.length === 0, 'no page errors (' + errors.slice(0, 3).join(' | ') + ')');
 await browser.close(); server.close();
 console.log('PASS v1347-fp-items ' + k);
