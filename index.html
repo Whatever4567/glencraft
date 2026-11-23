@@ -99047,10 +99047,15 @@ try {
           const sg = u.sight.clone();
           const m = tmpM.identity(); for (let x = u.rig; x && x !== root; x = x.parent) { x.updateMatrix(); m.premultiply(x.matrix); }
           sg.applyMatrix4(m);
-          g.position.set(sg.x, sg.y - SIGHT_Y, 0);
+          // aiming: the flintlock grows to a true musket length about its rear sight
+          // (hands stay hand-sized), so the stock drops away under the cheek
+          const GT2 = U.gunTune || {}, kk = Math.max(0, Math.min(1, +W.__vm.k || 0)), ee = kk * kk * (3 - 2 * kk);
+          const sc = 1 + ((GT2.adsS || 1) - 1) * ee;
+          if (Math.abs(g.scale.x - sc) > 1e-4) g.scale.setScalar(sc);
+          g.position.set(sg.x, sg.y - SIGHT_Y * sc, -0.02 * (sc - 1));
           return;
         }
-        g.userData.vmAlign = 0;
+        g.userData.vmAlign = 0; if (g.scale.x !== 1) g.scale.setScalar(1);
         const want = (fp && isAds()) ? 1 : 0;
         g.userData.adsK += (want - g.userData.adsK) * 0.25;
         const k = g.userData.adsK;
@@ -99301,7 +99306,7 @@ try {
   // wrist (right hand) at (wx, wy) of the half-screen at depth wz; the barrel
   // points at screen point (ax, ay); cant = roll (rad). adsF pushes the aimed
   // gun along the eye ray (sight stays on the crosshair, stock/hand smaller).
-  const GT = U.gunTune = {wx: 0.55, wy: -0.85, wz: -0.30, ax: -0.15, ay: 0.0, cant: -0.25, adsF: 0.9, adsP: 0.14, adsY: 0.08, sx: 0.10, sy: -0.10, sz: 0.0, kr: 1.2, krA: 2.2, on: 1};
+  const GT = U.gunTune = {wx: 0.55, wy: -0.85, wz: -0.30, ax: -0.15, ay: 0.0, cant: -0.25, adsF: 1.2, adsP: 0.08, adsY: 0.02, adsR: 0.35, adsS: 1.8, sx: 0.10, sy: -0.10, sz: 0.0, kr: 1.2, krA: 2.2, on: 1};
   // sx/sy/sz: the arms are solved with the gun shifted by -s, then gun and arm
   // rig move together by +s (shoulders effectively lower and more central, so
   // the support arm comes up from the bottom instead of across the screen).
@@ -99344,8 +99349,8 @@ try {
     hand.position.addScaledVector(piv0, (GT.adsF - 1) * e);   // slide along the eye ray through the sight
     // ads: tip the gun about the sight (muzzle a touch up, butt down/right) so the
     // stock drops out under the eye instead of filling the screen end-on
-    if (e > 0 && (GT.adsP || GT.adsY)) {
-      const P = toCam(new T.Vector3(0, SIGHT_Y0, 0.02)), qa = new T.Quaternion().setFromEuler(new T.Euler((GT.adsP || 0) * e, (GT.adsY || 0) * e, 0, 'YXZ'));
+    if (e > 0 && (GT.adsP || GT.adsY || GT.adsR)) {
+      const P = toCam(new T.Vector3(0, SIGHT_Y0, GT.adsPz != null ? GT.adsPz : 0.02)), qa = new T.Quaternion().setFromEuler(new T.Euler((GT.adsP || 0) * e, (GT.adsY || 0) * e, (GT.adsR || 0) * e, 'YXZ'));
       hand.position.sub(P).applyQuaternion(qa).add(P); hand.quaternion.premultiply(qa);
     }
     // ads: the shoulder shift fades out with the hip pose (sight stays on the crosshair)
@@ -99440,11 +99445,115 @@ try {
       F.step.__fp1347 = 1;
     } catch (e) { ERR('ws', e); }
   }
+
+  /* ---------- 9. musket hands (t1347 pass 3) ----------
+     The __fpa rig still solves both arms; for the flintlock the visible hands
+     (glove + Forearm1279, all children of p.h) are then seated on the gun from
+     model-space frames: right hand closed round the wrist (thumb over the top,
+     index at the trigger), left hand palm-up under the fore-end with the
+     forearm running down-left off screen and shortened when aiming. Runs in
+     the rig's updateMatrixWorld (after the 1279 seat), so it follows bob, kick
+     and the ADS blend frame by frame. Kill switch: __fp1347.mh.on = 0. */
+  const MH = U.mh = {
+    on: 1,
+    rG: [0, 0.010, 0.125], rY: [-0.30, 0.70, -0.60], rZ: [-1, 0, 0], rOff: 0.075, rOz: 0.034,
+    lG: [0, 0.006, -0.30], lY: [0.62, 0.30, -0.45], lZ: [-0.25, 1, 0], lOff: 0.075, lOz: 0.030,
+    // aiming: support hand palm-in on the left of the fore-end near the lock, forearm straight down
+    lYA: [0.3, 0.95, -0.1], lGA: [0, 0.006, -0.08], lZA: [1, 0.2, 0], rYA: [-0.3, 0.9, -0.3], rGA: null, rZA: null,
+    lFa: 0.75, lFaA: 1.0, rFa: 1.0, rFaA: 0.35,
+    rPose: {p: [1.25, 1.60, 1.65, 1.55], d: [1.10, 1.40, 1.45, 1.35], t: [1.00, 0.90], tY: 0.70, tZ: 0.42},
+    lPose: {p: [1.25, 1.35, 1.40, 1.30], d: [1.00, 1.15, 1.20, 1.10], t: [0.40, 0.28], tY: 0.18, tZ: 0.10}
+  };
+  const mhT = {};
+  function musketModel() {
+    try {
+      if (typeof held === 'undefined' || !held) return null;
+      const g = held.children[0]; if (!g || !g.userData || +g.userData.gun !== 213) return null;
+      let m = null; for (const c of g.children) if (c.name === 'fp1347Model') m = c;
+      return m && m.visible !== false ? m : null;
+    } catch (_) { return null; }
+  }
+  function seatMusketHands(rig) {
+    const T = T3(); if (!MH.on || !T || !rig || !rig.visible) return;
+    const mdl = (typeof camMode !== 'undefined' && camMode !== 0) || !W.__vm || !W.__vm.on ? null : musketModel();
+    if (!mdl) { restoreFa(rig); return; }
+    if (!mhT.m) { mhT.m = new T.Matrix4(); mhT.i = new T.Matrix4(); mhT.p = new T.Vector3(); mhT.q = new T.Quaternion(); mhT.s = new T.Vector3(); mhT.G = new T.Vector3(); mhT.x = new T.Vector3(); mhT.y = new T.Vector3(); mhT.z = new T.Vector3(); }
+    mdl.updateWorldMatrix(true, false);
+    const mw = mdl.matrixWorld;
+    const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k);
+    const rel = W.__fpa ? +W.__fpa.rel || 0 : 0;
+    const lerp3 = (a, b, t) => b ? a.map((v, i) => v + (b[i] - v) * t) : a;
+    for (const S of ['R', 'L']) {
+      const arm = rig.userData[S]; if (!arm || !arm.visible) continue;
+      const h = arm.userData && arm.userData.p && arm.userData.p.h; if (!h || !h.parent) continue;
+      const L = S === 'L';
+      const w = L ? (rel > 0 ? 1 - Math.sin(Math.PI * Math.min(1, rel)) : 1) : 1;
+      if (w <= 0.001) continue;
+      const Gm = L ? lerp3(MH.lG, MH.lGA, e) : lerp3(MH.rG, MH.rGA, e), Ym = L ? lerp3(MH.lY, MH.lYA, e) : lerp3(MH.rY, MH.rYA, e), Zm = L ? lerp3(MH.lZ, MH.lZA, e) : lerp3(MH.rZ, MH.rZA, e);
+      const G = mhT.G.set(Gm[0], Gm[1], Gm[2]).applyMatrix4(mw);
+      const y = mhT.y.set(Ym[0], Ym[1], Ym[2]).transformDirection(mw);
+      const z = mhT.z.set(Zm[0], Zm[1], Zm[2]).transformDirection(mw); z.addScaledVector(y, -z.dot(y)).normalize();
+      const x = mhT.x.crossVectors(y, z).normalize();
+      const off = L ? MH.lOff : MH.rOff, oz = L ? MH.lOz : MH.rOz;
+      const pos = G.clone().addScaledVector(y, -off).addScaledVector(z, -oz);
+      const m = mhT.m.makeBasis(x, y, z).setPosition(pos);
+      h.parent.updateWorldMatrix(true, false);
+      m.premultiply(mhT.i.copy(h.parent.matrixWorld).invert());
+      m.decompose(mhT.p, mhT.q, mhT.s);
+      if (!isFinite(mhT.p.x + mhT.p.y + mhT.p.z + mhT.q.w)) continue;
+      if (w >= 0.999) { h.position.copy(mhT.p); h.quaternion.copy(mhT.q); }
+      else { h.position.lerp(mhT.p, w); h.quaternion.slerp(mhT.q, w); }
+      const fa = h.userData.forearm1279;
+      if (fa) {
+        // absolute length (1 = the 0.42 forearm); shown while aiming too (the
+        // 1280 linen sleeve is tucked for guns in ADS), so no glove cuff stub
+        const f = L ? MH.lFa + (MH.lFaA - MH.lFa) * e : MH.rFa + (MH.rFaA - MH.rFa) * e;
+        fa.scale.y = f; fa.userData.fp1347On = 1;
+        const sl = h.userData.forearm1280;
+        if (!(sl && sl.visible)) fa.visible = true;
+      }
+      h.updateMatrixWorld(true);
+    }
+    U.mhN = (U.mhN || 0) + 1;
+  }
+  function restoreFa(rig) {
+    for (const S of ['R', 'L']) {
+      const a = rig.userData[S], h = a && a.userData && a.userData.p && a.userData.p.h, fa = h && h.userData.forearm1279;
+      if (fa && fa.userData.fp1347On) { fa.scale.y = 1; fa.userData.fp1347On = 0; }
+    }
+  }
+  function musketPose() {
+    try {
+      const H = W.__handsFp1285; if (!H || !H.POSES || !H.POSES.musket || !H.POSES.support) return;
+      if (!U.poseOld) U.poseOld = {musket: JSON.parse(JSON.stringify(H.POSES.musket)), support: JSON.parse(JSON.stringify(H.POSES.support))};
+      const set = (P, R) => { P.p = R.p.slice(); P.d = R.d.slice(); P.t = R.t.slice(); P.tY = R.tY; P.tZ = R.tZ; };
+      const P = H.POSES.musket; if (P.__fp1347 !== MH.rPose) { set(P, MH.rPose); P.__fp1347 = MH.rPose; U.poseDirty = 1; }
+      // the support pose is shared with the pistol: curl it only while the musket is up
+      const want = MH.on && H.kind === 'musket' ? MH.lPose : U.poseOld.support, Sp = H.POSES.support;
+      if (Sp.__fp1347 !== want) { set(Sp, want); Sp.__fp1347 = want; U.poseDirty = 1; }
+      if (U.poseDirty && H.poseKind && H.kind) { U.poseDirty = 0; H.poseKind(H.kind); }
+    } catch (e) { ERR('pose', e); }
+  }
+  function wrapRig() {
+    try {
+      if (!W.__fpa || !W.__fpa.rig) return;
+      const rig = W.__fpa.rig(); if (!rig) return;
+      if (rig.updateMatrixWorld.__fp1347) return;
+      const prev = rig.updateMatrixWorld;
+      const f = function (force) {
+        const r = prev.call(this, force);
+        try { seatMusketHands(this); } catch (e) { ERR('mh', e); }
+        return r;
+      };
+      for (const k of Object.keys(prev)) f[k] = prev[k];
+      f.__fp1347 = 1; rig.updateMatrixWorld = f; U.rigWraps = (U.rigWraps || 0) + 1;
+    } catch (e) { ERR('wrapRig', e); }
+  }
   /* Late wrappers can install after this one; re-check, and upgrade the
      live held item in place (the held tree also covers GLB attach). */
   function tick() {
     try {
-      wrap(); wrapStep(); wrapUH(); frameTable();
+      wrap(); wrapStep(); wrapUH(); frameTable(); wrapRig(); musketPose();
       if (typeof held === 'undefined' || !held) return;
       let id = null; try { id = selId; } catch (_) {}
       U.kind = '';
