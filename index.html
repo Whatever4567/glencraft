@@ -98711,6 +98711,29 @@ try {
     return root;
   }
 
+  /* Slide a model (child of the item root) so its grip point sits in the
+     first-person right palm. Only under `held` (first person), only when the
+     __fpa rig is drawn; otherwise the model sits at its built spot. */
+  const PS = {v: null, w: null, m: null};
+  function palmSnap(mdl, gx, gy, gz) {
+    try {
+      const T = T3(); if (!mdl || !mdl.parent) return;
+      if (!PS.v) { PS.v = new T.Vector3(); PS.w = new T.Vector3(); PS.m = new T.Matrix4(); }
+      let fp = false; for (let q = mdl.parent; q; q = q.parent) if (typeof held !== 'undefined' && q === held) { fp = true; break; }
+      const R = fp && W.__fpa && W.__fpa.on && W.__fpa.rig && W.__fpa.rig();
+      const h = R && R.visible && R.userData.R && R.userData.R.visible && R.userData.R.userData.p && R.userData.R.userData.p.h;
+      if (!h || U.snapOff) { if (mdl.position.lengthSq()) mdl.position.set(0, 0, 0); return; }
+      h.updateWorldMatrix(true, false); mdl.parent.updateWorldMatrix(true, false);
+      const palm = PS.v.set(0, 0.055, 0.020); h.localToWorld(palm);
+      PS.m.copy(mdl.parent.matrixWorld).invert(); palm.applyMatrix4(PS.m);   // palm in item-root space
+      // grip point in item-root space with the model at the origin
+      mdl.updateMatrix(); const gp = PS.w.set(gx, gy, gz).applyQuaternion(mdl.quaternion).multiply(mdl.scale);
+      const d = palm.sub(gp);
+      if (d.length() > 0.6) return;   // something else owns the pose (swing, reload); leave it
+      mdl.position.copy(d); mdl.updateMatrix(); mdl.updateMatrixWorld(true);
+      U.snaps = (U.snaps || 0) + 1;
+    } catch (e) { ERR('snap', e); }
+  }
   /* ---------- 1. purple crystal pickaxe (voxel) ---------- */
   function buildPick() {
     const T = T3();
@@ -98826,7 +98849,10 @@ try {
     g.add(mesh(new T.BoxGeometry(0.018, 0.024, 0.028), guardM, 0.085, 0.112, 0));
     g.add(mesh(new T.BoxGeometry(0.040, 0.026, 0.026), guardM, 0, 0.112, 0));
     // straight double-edged blade with a fuller
-    g.add(mesh(bladeGeo(0.58, 0.030, 0.0075, 0.70), steelM, 0, 0.124, 0));
+    const blade = mesh(bladeGeo(0.58, 0.030, 0.0075, 0.70), steelM, 0, 0.124, 0);
+    g.add(blade);
+    // First person: postHand() keeps the leather grip in the closed hand.
+    g.userData.snap = [0, 0.046, 0];
     return g;
   }
 
@@ -99127,7 +99153,8 @@ try {
     for (let i = 0; i < p.count; i++) {
       const x = p.getX(i) / (wd / 2), y = p.getY(i) / (ht / 2);
       const cx = Math.max(0, Math.abs(x) - 0.82) / 0.18, cy = Math.max(0, Math.abs(y) - 0.86) / 0.14;
-      p.setZ(i, 0.012 * (cx * cx + cy * cy) + 0.004 * Math.sin(x * 3 + y * 2));
+      // edges curl away from the eye (behind the sheet), so the parchment can never cover the map art
+      p.setZ(i, -0.012 * (cx * cx + cy * cy) - 0.002 * (1 + Math.sin(x * 3 + y * 2)));
     }
     geo.computeVertexNormals();
     return geo;
@@ -99328,11 +99355,17 @@ try {
     R.position.set(GT.sx, GT.sy, GT.sz);
     U.gunPost = (U.gunPost || 0) + 1;
   }
+  /* After all hand passes this frame: models that carry userData.snap are
+     slid so that grip point sits in the right palm (first person only). */
+  function postHand() {
+    if (typeof held === 'undefined' || !held) return;
+    for (const c of held.children) c.traverse(o => { if (o.name === 'fp1347Model' && o.userData.snap) { const g = o.userData.snap; palmSnap(o, g[0], g[1], g[2]); } });
+  }
   function wrapUH() {
     try {
       if (typeof updateHand !== 'function' || updateHand.__fp1347) return;
       const prev = updateHand, layer = (U.uhWraps || 0) + 1; U.uhWraps = layer;
-      updateHand = function () { const r = prev.apply(this, arguments); if (layer === U.uhWraps) { try { postGun(); } catch (e) { ERR('pg', e); } } return r; };
+      updateHand = function () { const r = prev.apply(this, arguments); if (layer === U.uhWraps) { try { postGun(); } catch (e) { ERR('pg', e); } try { postHand(); } catch (e) { ERR('ph', e); } } return r; };
       for (const k of Object.keys(prev)) { try { updateHand[k] = prev[k]; } catch (_) {} }
       updateHand.__fp1347 = 1;
     } catch (e) { ERR('wuh', e); }
@@ -99342,11 +99375,21 @@ try {
      hands); the gun framing above owns the musket pose. */
   // U.frameTune[kind][field] = number or function(aspect) -> number; fields we
   // list are pinned (other passes still write the rest, which pass through).
-  const FT = U.frameTune = {musket: {dx: 0, dy: 0, dz: 0}};
+  // A(p, l): portrait value p, landscape value l, blended by screen aspect.
+  const A = (p, l) => asp => { const t = Math.max(0, Math.min(1, (asp - 0.45) / (1.78 - 0.45))); return p + (l - p) * t; };
+  U.A = A;
+  const FT = U.frameTune = {
+    musket: {dx: 0, dy: 0, dz: 0},
+    sword: {dx: 0.03, dy: -0.14, dz: -0.18, fov: 0.95, s: 1.0}
+  };
   function frameTable() {
     const HF = W.__heldFrame1251; if (!HF || !HF.FRAME) return;
-    for (const kind of Object.keys(FT)) {
-      const F = HF.FRAME[kind]; if (!F) continue;
+    // Sword: the palm seat and the arm solve chased each other (the hand jumped
+    // round the screen). The arm now follows the sword and postHand() keeps the
+    // grip in the palm, so the sword's seat spec is parked (kept, not deleted).
+    if (HF.GRIP && HF.GRIP.sword) { U.gripOld = U.gripOld || {}; U.gripOld.sword = HF.GRIP.sword; HF.GRIP.sword = null; }
+    for (const kind of Object.keys(FT)) for (const F of [HF.FRAME[kind], HF.__bowl && HF.__bowl[kind] && HF.__bowl[kind].frame]) {
+      if (!F) continue;
       for (const fld of ['dx', 'dy', 'dz', 'fov', 's', 'armS']) {
         const d = Object.getOwnPropertyDescriptor(F, fld);
         if (d && d.get && d.get.__fp1347) continue;
