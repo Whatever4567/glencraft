@@ -144,6 +144,12 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.120 Graphics edition, map-guided terrain, farmer hamlets
+
+- The clear-day lighting is the game's own code: lights, fog and sky colours, and a saturation step after the existing ACES tone mapping. No new textures.
+- New worlds use the hand-painted UK map already in the game (`assets/ui/uk-hand-map.webp`, see v1.2.117) as a large-scale guide. Three small blurred masks for mountains, heather and forest are made from its colours and stored in the code. No other images are used.
+- The farmer hamlets are built only from existing blocks (alder logs, yew and rowan planks, cobblestone, gravel, oak, thistles). No new models or textures.
+
 ## v1.2.119 Minecraft-style UK terrain, cumulus clouds, map-based woods
 
 - The cumulus cloud sheet is original procedural artwork painted in game (tileable value-noise fBm on a canvas) and drawn on a sky dome as a classic planar cloud layer. No outside images.
