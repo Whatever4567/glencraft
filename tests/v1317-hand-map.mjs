@@ -14,7 +14,7 @@ let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
 ok(ver.v >= '1.2.117', 'version.json is 1.2.117');
-ok(html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.119';"), 'GAME_VERSION is 1.2.117');
+ok(html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.119';") || html.includes("const GAME_VERSION = '1.2.120';"), 'GAME_VERSION is 1.2.117');
 ok(html.includes('<!-- glencraft-build: b1317-v1.2.117 -->'), 'build marker b1317-v1.2.117');
 ok(html.includes('<!-- glencraft-build: b1315-v1.2.115 -->'), '1.2.115 marker stays');
 const s0 = html.indexOf('{"v":"v1.2.117"'), s1 = html.indexOf('{"v":"v1.2.115"', s0);
@@ -136,6 +136,30 @@ ok(goldish(S.compass) && !goldish(S.compassMirror), 'compass is on the right, no
 ok(navy(S.sea) || (S.sea && S.sea[2] >= S.sea[0]), 'upper sea is a dark blue (sea=' + S.sea + ')');
 
 // Export the TX canvas and a first-person screenshot.
+// t1352: the held map projects through a coastline-fitted thin-plate spline (GLX-MAPWARP), for the arrow and castle marks alike
+const warp = await page.evaluate(() => {
+  const U = window.__map1317, MW = window.__mapWarp, c = window.__c339;
+  if (!MW || !c || typeof U.worldToCanvas !== 'function') return {missing: !MW ? 'warp' : !c ? 'c339' : 'w2c'};
+  const sx = (U.tw || 746) / 746;
+  const at = (lat, lon) => { const x = (W >> 1) + (lon - c.LON0) * c.K * Math.cos(lat * Math.PI / 180), z = (D >> 1) + (c.LAT0 - lat) * c.K; const q = U.worldToCanvas(x, z); return q && [q[0] / sx, q[1] / sx]; };
+  const pts = {Duncansby: [58.645, -3.025, 398, 180], Kintyre: [55.31, -5.803, 220, 462], Malin: [55.381, -7.373, 145, 462], Dublin: [53.35, -6.2, 226, 620],
+    Carmel: [53.405, -4.565, 258, 623], LandsEnd: [50.066, -5.716, 155, 942], Lowestoft: [52.481, 1.758, 677, 720], Flamborough: [54.116, -0.08, 588, 610]};
+  const res = {}; for (const k in pts) { const q = at(pts[k][0], pts[k][1]); res[k] = q ? +Math.hypot(q[0] - pts[k][2], q[1] - pts[k][3]).toFixed(1) : -1; }
+  const ireland = at(53.42, -7.94), wales = at(52.4, -3.6), midlands = at(52.95, -1.15);
+  let marks = null; try { const G = window.__gb6; if (G && G.markNow) marks = G.markNow(); } catch (_) {}
+  return {on: !!MW.on, res, ireland, wales, midlands, marks};
+});
+ok(warp.on && !warp.missing, 'held-map warp is on (' + (warp.missing || 'GLX-MAPWARP') + ')');
+ok(Object.values(warp.res).every(r => r >= 0 && r <= 8), 'coast control points land on the painted coast within 8 px (' + JSON.stringify(warp.res) + ')');
+ok(warp.ireland && warp.wales && warp.ireland[0] < warp.wales[0] - 90, 'Ireland is drawn well west of Wales (IE=' + JSON.stringify(warp.ireland) + ' WA=' + JSON.stringify(warp.wales) + ')');
+ok(warp.midlands && warp.midlands[0] > warp.wales[0] + 40 && warp.midlands[0] < 640, 'Midlands sit between Wales and the east coast (' + JSON.stringify(warp.midlands) + ')');
+if (warp.marks && warp.marks.length) {
+  const sx = (info.tw || 746) / 746, m = Object.fromEntries(warp.marks.map(p => [p[0], [p[1] / sx, p[2] / sx]]));
+  if (m.clanIre) ok(m.clanIre[0] < 215, 'Ireland clan keep mark is in Ireland, not Wales (' + JSON.stringify(m.clanIre) + ')');
+  if (m.black) ok(m.black[0] > 330 && m.black[1] > 600 && m.black[1] < 760, 'black castle mark is in the Midlands (' + JSON.stringify(m.black) + ')');
+  if (m.mossy) ok(m.mossy[1] < 300, 'skeleton castle mark is in the Highlands (' + JSON.stringify(m.mossy) + ')');
+}
+
 const txData = await page.evaluate(() => window.__c112.TX.toDataURL('image/png'));
 const txBuf = Buffer.from(txData.replace(/^data:image\/png;base64,/, ''), 'base64');
 fs.writeFileSync(path.join(OUT, 'held-map-tx.png'), txBuf);

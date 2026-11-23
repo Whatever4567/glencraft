@@ -132,8 +132,11 @@ for (let i = 0; i < seeds.length; i++) {
     const spawn = (typeof g9findSpawn === 'function' ? g9findSpawn() : null) || (typeof g9spawn !== 'undefined' ? g9spawn : null);
     const isl = (window.__c101 && __c101.isl) ? {cx: __c101.isl.cx, cz: __c101.isl.cz, R: __c101.isl.R} : {cx: W >> 1, cz: D >> 1, R: 40};
     const exclR = (isl.R || 40) + 50;
-    const kinds = (g9castles || []).map(c => c[0]);
-    const castles = (g9castles || []).map(c => {
+    /* GB6 (t1342): castles stand at their spots on the player's map (the black castle and the Ireland / East Anglia keeps out on the UK land) */
+    const G6 = (window.__gb6 && __gb6.on && __gb6.on()) ? __gb6 : null;
+    const CS = G6 ? G6.castles() : (g9castles || []);
+    const kinds = CS.map(c => c[0]).filter(k => k === 'human' || k === 'mossy' || k === 'black');
+    const castles = CS.filter(c => c[0] === 'human' || c[0] === 'mossy' || c[0] === 'black').map(c => {
       const dIsl = Math.hypot(c[1] - isl.cx, c[2] - isl.cz);
       const dSp = spawn ? Math.hypot(c[1] - spawn[0], c[2] - spawn[2]) : dIsl;
       return {k: c[0], x: c[1], z: c[2], dIsl: +dIsl.toFixed(1), dSpawn: +dSp.toFixed(1), inside: dIsl < exclR || dSp < exclR};

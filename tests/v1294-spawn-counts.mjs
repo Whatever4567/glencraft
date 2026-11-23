@@ -138,7 +138,11 @@ for (let i = 0; i < seeds.length; i++) {
     const spawn = (typeof g9findSpawn === 'function' ? g9findSpawn() : null) || (typeof g9spawn !== 'undefined' ? g9spawn : null);
     const sx = spawn ? spawn[0] : (W >> 1), sz = spawn ? (spawn[2] != null ? spawn[2] : spawn[1]) : (D >> 1);
     const exclR = 90;
-    const keeps = (typeof g9castles !== 'undefined' && g9castles) ? g9castles.map(c => ({k: c[0], x: c[1], z: c[2], dSp: Math.hypot(c[1] - sx, c[2] - sz)})) : [];
+    /* GB6 (t1342): castles stand at their spots on the player's map; the black castle is in the English Midlands and on
+       1x worlds it is built off the base grid by the GB6 builder (listed by __gb6.castles(), not g9castles) */
+    const G6 = (window.__gb6 && __gb6.on && __gb6.on()) ? __gb6 : null;
+    const CS = G6 ? G6.castles() : ((typeof g9castles !== 'undefined' && g9castles) || []);
+    const keeps = CS.filter(c => c[0] === 'human' || c[0] === 'mossy' || c[0] === 'black').map(c => ({k: c[0], x: c[1], z: c[2], dSp: Math.hypot(c[1] - sx, c[2] - sz), off: c[1] < 0 || c[2] < 0 || c[1] >= W || c[2] >= D}));
 
     started = true; paused = false;
     P.x = sx + 0.5; P.z = sz + 0.5; P.y = 60; P.vy = 0;
@@ -184,6 +188,16 @@ for (let i = 0; i < seeds.length; i++) {
   }, seed);
 
   results.push(r);
+  /* an off-grid keep must really be built and garrisoned: walk there, let the GB6 builder and garrison timers run */
+  const offK = (r.keeps || []).filter(q => q.off);
+  for (const q of offK) {
+    await page.evaluate(([k, x, z]) => { paused = false; if (!(window.__gb6 && __gb6.go && __gb6.go(k))) { P.x = x + 0.5; P.z = z + 30.5; P.y = 80; P.vy = 0; } }, [q.k, q.x, q.z]);
+    await page.waitForTimeout(12000);
+    q.check = await page.evaluate(([k, x, z]) => { const C = window.__castle1268; try { if (C && C.materialize) C.materialize(2.5); } catch (_) {} const R = C && C.ROSTER && C.ROSTER[k]; const slots = R && R.c && Math.hypot(R.c.x - x, R.c.z - z) < 60 ? R.slots.filter(s => s.alive).length : 0; const b = window.__gb6 && __gb6.built && __gb6.built[k]; const kind = k === 'black' ? 'blackskel' : k === 'mossy' ? 'skeleton' : 'clansman'; let n = 0;
+      for (const a of (mobs || [])) if (a && a.g && a.kind === kind && Math.hypot(a.g.position.x - x, a.g.position.z - z) < 90) n++;
+      return {blocks: b ? b.blocks : 0, at: b ? [b.X, b.Z, b.gy] : null, live: n, slots, garrison: Math.max(n, slots), topUp: window.__gb6 && __gb6.topUp && __gb6.topUp[k] || null}; }, [q.k, q.x, q.z]);
+    console.log('off-grid keep', q.k, JSON.stringify(q.check));
+  }
   if (r.err) {
     failures.push({seed, why: r.err});
     console.log('FAIL seed', seed, r.err);
@@ -209,6 +223,7 @@ for (let i = 0; i < seeds.length; i++) {
   if (ac.human && ac.human.live > BASELINE.human)
     issues.push('human folk live count exceeds MAX.human ' + JSON.stringify(ac.human));
   if ((r.keeps || []).length !== 3) issues.push('expected 3 keeps ' + JSON.stringify(r.keeps));
+  for (const q of (r.keeps || []).filter(q => q.off)) if (!q.check || !(q.check.blocks > 500) || !(q.check.garrison > 0)) issues.push('off-grid ' + q.k + ' castle not built or not garrisoned ' + JSON.stringify(q.check));
   if (issues.length) {
     failures.push({seed, why: issues.join('; '), r});
     console.log('FAIL seed', seed, issues.join('; '));
