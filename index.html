@@ -99301,11 +99301,12 @@ try {
   // wrist (right hand) at (wx, wy) of the half-screen at depth wz; the barrel
   // points at screen point (ax, ay); cant = roll (rad). adsF pushes the aimed
   // gun along the eye ray (sight stays on the crosshair, stock/hand smaller).
-  const GT = U.gunTune = {wx: 0.55, wy: -0.85, wz: -0.30, ax: -0.15, ay: 0.0, cant: -0.25, adsF: 1.7, sx: 0.10, sy: -0.10, sz: 0.0, kr: 1.2, on: 1};
+  const GT = U.gunTune = {wx: 0.55, wy: -0.85, wz: -0.30, ax: -0.15, ay: 0.0, cant: -0.25, adsF: 0.9, adsP: 0.14, adsY: 0.08, sx: 0.10, sy: -0.10, sz: 0.0, kr: 1.2, krA: 2.2, on: 1};
   // sx/sy/sz: the arms are solved with the gun shifted by -s, then gun and arm
   // rig move together by +s (shoulders effectively lower and more central, so
   // the support arm comes up from the bottom instead of across the screen).
   const gq = {};
+  const SIGHT_Y0 = 0.0635;   // musket rear sight (model space)
   function frameGun() {
     const T = T3(); if (!GT.on) return;
     if (!W.__vm || !W.__vm.on || !W.__fpa || !W.__fpa.fromVm) return;
@@ -99313,8 +99314,9 @@ try {
     const g = held && held.children[0]; if (!g || !g.userData || +g.userData.gun !== 213) return;
     let mdl = null; for (const c of g.children) if (c.name === 'fp1347Model') mdl = c; if (!mdl) return;
     if (!gq.q) { gq.q = new T.Quaternion(); gq.qi = new T.Quaternion(); gq.m = new T.Matrix4(); gq.mi = new T.Matrix4(); gq.a = new T.Vector3(); gq.b = new T.Vector3(); gq.c = new T.Vector3(); gq.d = new T.Vector3(); gq.e = new T.Vector3(); gq.f = new T.Vector3(); gq.x = new T.Vector3(); gq.y = new T.Vector3(); gq.z = new T.Vector3(); }
-    if (GT.kr != null) W.__kr = GT.kr;   // rifle support hand: fingers more forward, forearm from the lower left
     const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k), h = 1 - e;
+    // rifle support hand: fingers more forward, forearm from the lower left (more so when aiming)
+    if (GT.kr != null) W.__kr = GT.kr + ((GT.krA != null ? GT.krA : GT.kr) - GT.kr) * e;
     // current wrist / muzzle / up in camera space (model space -> camera, through hand)
     const toCam = v => { for (let o = mdl; o && o !== camera; o = o.parent) { o.updateMatrix(); v.applyMatrix4(o.matrix); } return v; };
     const sg0 = W.__vm.sight, piv0 = new T.Vector3(sg0 ? sg0[0] : 0, sg0 ? sg0[1] : 0.014, sg0 ? sg0[2] : -0.5);
@@ -99340,6 +99342,12 @@ try {
     hand.position.copy(wB).add(off);
     hand.quaternion.premultiply(gq.qi);
     hand.position.addScaledVector(piv0, (GT.adsF - 1) * e);   // slide along the eye ray through the sight
+    // ads: tip the gun about the sight (muzzle a touch up, butt down/right) so the
+    // stock drops out under the eye instead of filling the screen end-on
+    if (e > 0 && (GT.adsP || GT.adsY)) {
+      const P = toCam(new T.Vector3(0, SIGHT_Y0, 0.02)), qa = new T.Quaternion().setFromEuler(new T.Euler((GT.adsP || 0) * e, (GT.adsY || 0) * e, 0, 'YXZ'));
+      hand.position.sub(P).applyQuaternion(qa).add(P); hand.quaternion.premultiply(qa);
+    }
     // ads: the shoulder shift fades out with the hip pose (sight stays on the crosshair)
     hand.position.x -= GT.sx * e; hand.position.y -= GT.sy * e; hand.position.z -= GT.sz * e;   // postGun adds +s back
     gq.on = 1; gq.h = h;
