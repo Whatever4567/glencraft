@@ -99194,5 +99194,988 @@ try {
   } catch (e) { U.err = String(e).slice(0, 200); }
 })(typeof window !== 'undefined' ? window : this);
 </script>
+<script id="glx-fp1347">
+/* GLX-FP1347 (t1347): first-person held items rebuilt to match the user's
+   reference shots: purple crystal voxel pickaxe, steel arming sword with a
+   fuller and leather grip, charred wrapped torch with a live flame and
+   sparks, staved wooden bucket with iron bands and an iron bail, granite
+   stone block, flintlock musket, and the held map on aged parchment with a
+   brass compass. Each item keeps its root group, userData and grip sockets;
+   the old meshes are moved into a hidden "fp1347Old" child (hidden, not
+   deleted) and the old builders stay in the file. Everything new is opaque.
+   __fpa, the guns system and the torch/pick jitter fixes are untouched.
+   Kill switch: window.__noFP1347 = 1 before load. */
+(function fp1347(W) {
+  const U = W.__fp1347 = {err: null, on: 0, version: '1.2.120-fp-items', made: {}, kind: '', wraps: 0, map: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 260); };
+  if (W.__noFP1347) return;
+  const T3 = () => (typeof THREE !== 'undefined' && THREE) || W.THREE || null;
+
+  /* ---------- small helpers ---------- */
+  let seed = 1347;
+  const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+  const C = hex => { const T = T3(); return new T.Color(hex); };
+  const cache = {};
+  function canvasTex(key, w, h, draw, nearest) {
+    if (cache[key]) return cache[key];
+    const T = T3();
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); seed = 1347 + key.length * 97; draw(g, w, h);
+    const t = new T.CanvasTexture(c);
+    if (nearest) { t.magFilter = T.NearestFilter; t.minFilter = T.NearestFilter; t.generateMipmaps = false; }
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    try { if (typeof renderer !== 'undefined' && renderer && renderer.outputEncoding === T.sRGBEncoding) t.encoding = T.sRGBEncoding; } catch (_) {}
+    return (cache[key] = t);
+  }
+  function mat(kind, o) {
+    const T = T3();
+    const m = kind === 'basic' ? new T.MeshBasicMaterial(o) : kind === 'phong' ? new T.MeshPhongMaterial(o) : new T.MeshLambertMaterial(o);
+    m.transparent = false; m.opacity = 1; m.depthWrite = true;
+    m.userData.fp1347 = 1;
+    // Earlier held passes recolour or swap held materials; these opt out.
+    m.userData.crystalCore1249 = 1; m.userData.sculptKeep = 1; m.userData.held1240Crystal = 'p';
+    return m;
+  }
+  function mesh(geo, m, x, y, z, rx, ry, rz) {
+    const T = T3();
+    const o = new T.Mesh(geo, m);
+    o.position.set(x || 0, y || 0, z || 0);
+    o.rotation.set(rx || 0, ry || 0, rz || 0);
+    o.userData.fp1347 = 1;
+    o.castShadow = false; o.receiveShadow = false;
+    // Lock the material so later held passes cannot replace it.
+    try { Object.defineProperty(o, 'material', {get() { return m; }, set(_) {}, configurable: true}); } catch (_) {}
+    return o;
+  }
+  /* Voxel mesh: cells [x,y,z,hex] on a grid of size s in a plane, with
+     hidden inner faces culled and per-face shading baked into vertex
+     colours (top light, sides mid, bottom dark) like a Minecraft item. */
+  function voxGeo(cells, s, ox, oy, oz) {
+    const T = T3();
+    const key = c => c[0] + ',' + c[1] + ',' + c[2];
+    const has = new Set(cells.map(key));
+    const pos = [], col = [], nrm = [], idx = [];
+    const F = [
+      {n: [1, 0, 0], v: [[1, 0, 0], [1, 1, 0], [1, 1, 1], [1, 0, 1]], k: 0.86},
+      {n: [-1, 0, 0], v: [[0, 0, 1], [0, 1, 1], [0, 1, 0], [0, 0, 0]], k: 0.86},
+      {n: [0, 1, 0], v: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], k: 1.0},
+      {n: [0, -1, 0], v: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], k: 0.62},
+      {n: [0, 0, 1], v: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], k: 0.94},
+      {n: [0, 0, -1], v: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], k: 0.78}
+    ];
+    for (const c of cells) {
+      const cc = new T.Color(c[3]);
+      for (const f of F) {
+        if (has.has((c[0] + f.n[0]) + ',' + (c[1] + f.n[1]) + ',' + (c[2] + f.n[2]))) continue;
+        const b = pos.length / 3;
+        for (const v of f.v) {
+          pos.push((c[0] + v[0]) * s + ox, (c[1] + v[1]) * s + oy, (c[2] + v[2]) * s + oz);
+          nrm.push(f.n[0], f.n[1], f.n[2]);
+          col.push(cc.r * f.k, cc.g * f.k, cc.b * f.k);
+        }
+        idx.push(b, b + 1, b + 2, b, b + 2, b + 3);
+      }
+    }
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    g.setAttribute('normal', new T.Float32BufferAttribute(nrm, 3));
+    g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    g.computeBoundingSphere();
+    return g;
+  }
+  const lerpHex = (a, b, t) => { const T = T3(); return new T.Color(a).lerp(new T.Color(b), Math.max(0, Math.min(1, t))).getHex(); };
+
+  /* Lock a hidden holder so later per-frame passes cannot show it again. */
+  function lockHidden(o) {
+    try {
+      o.visible = false;
+      Object.defineProperty(o, 'visible', {get() { return false; }, set(_) {}, configurable: true});
+    } catch (_) {}
+  }
+  /* Some older passes rebuild a held group and copy its userData across,
+     so "done" is judged by our own child being present, not a flag. */
+  const hasModel = r => !!(r && r.children && r.children.some(c => c.name === 'fp1347Model'));
+  /* Move the old children into a hidden holder and add the new model. */
+  function swapIn(root, model, tag) {
+    const T = T3();
+    if (!root || hasModel(root)) return root;
+    const old = new T.Group(); old.name = 'fp1347Old'; old.userData.fp1347Old = 1;
+    const kids = root.children.slice();
+    for (const k of kids) old.add(k);
+    root.add(old); lockHidden(old);
+    model.name = 'fp1347Model'; model.userData.fp1347 = tag;
+    root.add(model);
+    root.userData.fp1347 = tag;
+    U.made[tag] = (U.made[tag] || 0) + 1;
+    return root;
+  }
+
+  /* Slide a model (child of the item root) so its grip point sits in the
+     first-person right palm. Only under `held` (first person), only when the
+     __fpa rig is drawn; otherwise the model sits at its built spot. */
+  const PS = {v: null, w: null, m: null};
+  function palmSnap(mdl, gx, gy, gz) {
+    try {
+      const T = T3(); if (!mdl || !mdl.parent) return;
+      if (!PS.v) { PS.v = new T.Vector3(); PS.w = new T.Vector3(); PS.m = new T.Matrix4(); }
+      let fp = false; for (let q = mdl.parent; q; q = q.parent) if (typeof held !== 'undefined' && q === held) { fp = true; break; }
+      const R = fp && W.__fpa && W.__fpa.on && W.__fpa.rig && W.__fpa.rig();
+      const h = R && R.visible && R.userData.R && R.userData.R.visible && R.userData.R.userData.p && R.userData.R.userData.p.h;
+      if (!h || U.snapOff) { if (mdl.position.lengthSq()) mdl.position.set(0, 0, 0); return; }
+      h.updateWorldMatrix(true, false); mdl.parent.updateWorldMatrix(true, false);
+      const palm = PS.v.set(0, 0.055, 0.020); h.localToWorld(palm);
+      PS.m.copy(mdl.parent.matrixWorld).invert(); palm.applyMatrix4(PS.m);   // palm in item-root space
+      // grip point in item-root space with the model at the origin
+      mdl.updateMatrix(); const gp = PS.w.set(gx, gy, gz).applyQuaternion(mdl.quaternion).multiply(mdl.scale);
+      const d = palm.sub(gp);
+      if (d.length() > 0.6) return;   // something else owns the pose (swing, reload); leave it
+      mdl.position.copy(d); mdl.updateMatrix(); mdl.updateMatrixWorld(true);
+      U.snaps = (U.snaps || 0) + 1;
+    } catch (e) { ERR('snap', e); }
+  }
+  /* ---------- 1. purple crystal pickaxe (voxel) ---------- */
+  function buildPick() {
+    const T = T3();
+    const g = new T.Group();
+    const s = 0.026;
+    // Dark handle: 2x2 voxel column, y -0.07 .. 0.66, x/z centred on 0.
+    const hc = [];
+    const handleShades = [0x2b1a0f, 0x35200f, 0x24150b, 0x3d2614];
+    for (let j = 0; j < 28; j++) for (let a = 0; a < 2; a++) for (let b = 0; b < 2; b++) {
+      hc.push([a, j, b, handleShades[(j * 3 + a + b * 2) % 4]]);
+    }
+    // Wrapped grip band near the butt and a pommel voxel ring.
+    for (let j = 0; j < 2; j++) for (let a = -1; a < 3; a++) for (let b = -1; b < 3; b++) {
+      if (a >= 0 && a < 2 && b >= 0 && b < 2) continue;
+      if ((a === -1 || a === 2) && (b === -1 || b === 2)) continue;
+      hc.push([a, j, b, 0x1a0f08]);
+    }
+    const handle = mesh(voxGeo(hc, s, -s, -0.07, -s), mat('lambert', {vertexColors: true}));
+    g.add(handle);
+    // Head: a long, thin crescent in the Y-Z plane (thin along X, which
+    // faces the camera in first person), arched at the middle and
+    // curving down to two points. Gradient: deep violet tips -> bright
+    // magenta -> white-pink sparkle core over the haft.
+    const hv = [];
+    const N = 11; // half-length in voxels
+    for (let k = -N; k <= N; k++) {
+      const t = k / N, at = Math.abs(t);
+      const yc = Math.round(3.6 * Math.cos(at * Math.PI * 0.5) - 4.2 * at * at);
+      const thick = at > 0.82 ? 1 : 2;
+      for (let r = 0; r < thick; r++) {
+        const y = yc - r;
+        const core = 1 - at;
+        let hex = lerpHex(0x4a1290, 0xa13ef2, Math.pow(core, 0.8));
+        if (r === 0) hex = lerpHex(hex, 0xd99cff, 0.25 + 0.35 * core);
+        if (r === thick - 1 && thick > 1) hex = lerpHex(hex, 0x3a0c74, 0.4);
+        const h1 = Math.sin((k * 12.9898 + r * 78.233) * 43758.5453) * 0.5 + 0.5;
+        if (h1 > 0.88 && r === 0) hex = 0xf6d8ff;            // sparkle voxel
+        hv.push([0, y, k, hex]);
+      }
+    }
+    // Small dark-violet socket where the head meets the haft.
+    for (let y = -2; y <= -1; y++) for (const z of [-1, 0]) hv.push([0, y, z, 0x2e0c58]);
+    const headM = mat('basic', {vertexColors: true});
+    const head = mesh(voxGeo(hv, 0.024, -0.024 * 0.5 - 0.006, 0.60, -0.012), headM);
+    head.scale.x = 1.5;
+    head.userData.fp1347Head = 1;
+    g.add(head);
+    // Slow sparkle: re-tint a few head voxels without new materials.
+    head.onBeforeRender = function () {
+      try {
+        const now = performance.now();
+        if (now - (this.userData.t || 0) < 140) return;
+        this.userData.t = now;
+        this.material.color.setScalar(0.92 + 0.08 * Math.sin(now * 0.004));
+      } catch (_) {}
+    };
+    return g;
+  }
+
+  /* ---------- 2. steel arming sword ---------- */
+  function bladeGeo(L, w, t, fullerEnd) {
+    const T = T3();
+    const rows = 24, pos = [], col = [], idx = [];
+    const steel = new T.Color(0xc9ced6), edge = new T.Color(0xeef2f7), full = new T.Color(0x7d858f);
+    for (let i = 0; i <= rows; i++) {
+      const v = i / rows, y = v * L;
+      const tip = v > 0.84 ? 1 - (v - 0.84) / 0.16 : 1;
+      const ww = w * (1 - 0.18 * v) * Math.max(0, tip);
+      const tt = t * (1 - 0.3 * v) * Math.max(0.15, tip);
+      const fd = v < fullerEnd ? 0.45 : Math.min(1, 0.45 + (v - fullerEnd) * 6);
+      const fw = ww * 0.32;
+      // cross-section, +Z face then -Z face: edge, bevel, fuller l, fuller r, bevel, edge
+      const sec = [[-ww, 0, edge], [-fw, tt, steel], [-fw * 0.55, tt * fd, full], [fw * 0.55, tt * fd, full], [fw, tt, steel], [ww, 0, edge],
+                   [fw, -tt, steel], [fw * 0.55, -tt * fd, full], [-fw * 0.55, -tt * fd, full], [-fw, -tt, steel]];
+      for (const p of sec) { pos.push(p[0], y, p[1]); col.push(p[2].r, p[2].g, p[2].b); }
+    }
+    const S = 10;
+    for (let i = 0; i < rows; i++) for (let k = 0; k < S; k++) {
+      const a = i * S + k, b = i * S + (k + 1) % S, c = a + S, d = b + S;
+      idx.push(a, b, d, a, d, c);
+    }
+    const g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
+  function leatherTex() {
+    return canvasTex('leather', 64, 128, (g, w, h) => {
+      g.fillStyle = '#4a2a16'; g.fillRect(0, 0, w, h);
+      for (let y = -w; y < h + w; y += 12) {
+        g.fillStyle = '#6b3f22'; g.beginPath(); g.moveTo(0, y); g.lineTo(w, y + 14); g.lineTo(w, y + 22); g.lineTo(0, y + 8); g.fill();
+        g.strokeStyle = 'rgba(20,8,2,0.8)'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, y + 9); g.lineTo(w, y + 23); g.stroke();
+      }
+      for (let i = 0; i < 300; i++) { g.fillStyle = 'rgba(0,0,0,' + (rnd() * 0.15) + ')'; g.fillRect(rnd() * w, rnd() * h, 2, 2); }
+    });
+  }
+  function buildSword(id) {
+    const T = T3();
+    const g = new T.Group();
+    const gold = id === 98, dia = id === 126;
+    const steelM = mat('phong', {vertexColors: true, shininess: 90, specular: 0x8a9098, color: gold ? 0xffd870 : dia ? 0x9ff0ff : 0xffffff});
+    const guardM = mat('phong', {color: gold ? 0xd8a838 : 0x8a9099, shininess: 70, specular: 0x666a70});
+    const gripM = mat('lambert', {map: leatherTex(), color: 0xffffff});
+    // pommel: a wheel disc
+    g.add(mesh(new T.CylinderGeometry(0.026, 0.026, 0.020, 14), guardM, 0, -0.045, 0, Math.PI / 2, 0, 0));
+    g.add(mesh(new T.CylinderGeometry(0.010, 0.012, 0.014, 8), guardM, 0, -0.028, 0));
+    // leather-wrapped grip, slightly swelled
+    g.add(mesh(new T.CylinderGeometry(0.0145, 0.0155, 0.128, 10), gripM, 0, 0.042, 0));
+    // simple straight crossguard with squared ends
+    g.add(mesh(new T.BoxGeometry(0.170, 0.016, 0.022), guardM, 0, 0.112, 0));
+    g.add(mesh(new T.BoxGeometry(0.018, 0.024, 0.028), guardM, -0.085, 0.112, 0));
+    g.add(mesh(new T.BoxGeometry(0.018, 0.024, 0.028), guardM, 0.085, 0.112, 0));
+    g.add(mesh(new T.BoxGeometry(0.040, 0.026, 0.026), guardM, 0, 0.112, 0));
+    // straight double-edged blade with a fuller
+    const blade = mesh(bladeGeo(0.58, 0.030, 0.0075, 0.70), steelM, 0, 0.124, 0);
+    g.add(blade);
+    // First person: postHand() keeps the leather grip in the closed hand.
+    g.userData.snap = [0, 0.046, 0];
+    return g;
+  }
+
+  /* ---------- 3. torch: rough stick, charred wrap, live flame + sparks ---------- */
+  function barkTex() {
+    return canvasTex('bark', 64, 256, (g, w, h) => {
+      g.fillStyle = '#6a4424'; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 70; i++) { const x = rnd() * w; g.strokeStyle = rnd() < 0.5 ? 'rgba(40,22,8,0.7)' : 'rgba(140,96,54,0.5)'; g.lineWidth = 1 + rnd() * 2; g.beginPath(); g.moveTo(x, rnd() * h); g.lineTo(x + (rnd() - 0.5) * 6, rnd() * h); g.stroke(); }
+      for (let i = 0; i < 8; i++) { g.fillStyle = '#3a220e'; g.beginPath(); g.ellipse(rnd() * w, rnd() * h, 3, 5, 0, 0, 7); g.fill(); }
+    });
+  }
+  function wrapTex() {
+    return canvasTex('charwrap', 64, 64, (g, w, h) => {
+      g.fillStyle = '#2a1d14'; g.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 8) {
+        g.fillStyle = (y / 8) % 2 ? '#3b2a1c' : '#1c130d'; g.fillRect(0, y, w, 6);
+        g.fillStyle = 'rgba(0,0,0,0.6)'; g.fillRect(0, y + 6, w, 2);
+      }
+      for (let i = 0; i < 40; i++) { g.fillStyle = rnd() < 0.4 ? '#ff7a1a' : '#0c0806'; g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 3, 1 + rnd() * 2); }
+    });
+  }
+  function flameGeo(r, h, hot) {
+    const T = T3();
+    const pts = [];
+    for (let i = 0; i <= 12; i++) { const v = i / 12; pts.push(new T.Vector2(Math.max(0.0005, r * Math.sin(Math.PI * Math.pow(v, 0.55)) * (1 - 0.35 * v)), v * h)); }
+    const g = new T.LatheGeometry(pts, 10);
+    // base-to-tip gradient: white-yellow -> amber -> orange -> red tip
+    const p = g.attributes.position, col = [];
+    const stops = hot ? [[0, 0xfffbe0], [0.45, 0xffe070], [1, 0xffa020]] : [[0, 0xffe68a], [0.3, 0xffa82a], [0.7, 0xff5a12], [1, 0xc42a08]];
+    const c = new T.Color();
+    for (let i = 0; i < p.count; i++) {
+      const v = p.getY(i) / h;
+      let j = 0; while (j < stops.length - 2 && v > stops[j + 1][0]) j++;
+      const a = stops[j], b = stops[j + 1];
+      c.set(a[1]).lerp(new T.Color(b[1]), Math.max(0, Math.min(1, (v - a[0]) / (b[0] - a[0]))));
+      col.push(c.r, c.g, c.b);
+    }
+    g.setAttribute('color', new T.Float32BufferAttribute(col, 3));
+    return g;
+  }
+  /* Generic (this-relative) so cloned torches animate on their own parts. */
+  function torchAnim() {
+    try {
+      const fl = this.parent, g = fl && fl.parent; if (!g) return;
+      const t = performance.now() * 0.001;
+      const f = 1 + 0.10 * Math.sin(t * 17) + 0.06 * Math.sin(t * 29 + 1.3);
+      fl.scale.set(1.2 * (1 + 0.05 * Math.sin(t * 23)), 1.2 * f, 1.2 * (1 + 0.05 * Math.cos(t * 19)));
+      fl.rotation.z = 0.06 * Math.sin(t * 7); fl.rotation.x = 0.05 * Math.cos(t * 9);
+      for (const c of fl.children) {
+        if (c.userData.fpMid) { c.position.x = 0.012 + 0.008 * Math.sin(t * 31); c.scale.y = 1 + 0.15 * Math.sin(t * 13 + 2); }
+        else if (c.userData.fpTongue != null) { const i = c.userData.fpTongue; c.scale.y = 0.8 + 0.35 * Math.abs(Math.sin(t * (9 + i * 3) + i)); }
+      }
+      for (const s of g.children) {
+        if (!s.userData.fpSpark) continue;
+        const ph = (t * 0.55 + s.userData.ph) % 1;
+        const a = s.userData.ang + ph * 2.5;
+        s.position.set(Math.cos(a) * (0.03 + ph * 0.07), 0.66 + ph * 0.42, Math.sin(a) * (0.03 + ph * 0.05));
+        s.scale.setScalar(Math.max(0.05, 1 - ph));
+      }
+    } catch (_) {}
+  }
+  function buildTorch() {
+    const T = T3();
+    const g = new T.Group();
+    // rough stick, slightly bent, octagonal with a knot
+    const stickM = mat('lambert', {map: barkTex()});
+    const st = mesh(new T.CylinderGeometry(0.036, 0.044, 0.58, 8, 6), stickM, 0, 0.14, 0);
+    const p = st.geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) { const y = p.getY(i); p.setX(i, p.getX(i) + 0.012 * Math.sin(y * 7) + (Math.sin(i * 7.1) * 0.004)); p.setZ(i, p.getZ(i) + Math.cos(i * 3.3) * 0.004); }
+    st.geometry.computeVertexNormals();
+    g.add(st);
+    // charred cloth wrap: three uneven bands
+    const wm = mat('lambert', {map: wrapTex(), color: 0x6a5e56, emissive: 0x1a0600});
+    const bands = [[0.41, 0.060, 0.07, 0.2], [0.47, 0.068, 0.07, -0.25], [0.53, 0.072, 0.07, 0.3], [0.585, 0.066, 0.05, 0]];
+    for (const b of bands) g.add(mesh(new T.CylinderGeometry(b[1], b[1] * 0.96, b[2], 9), wm, 0, b[0], 0, b[3] * 0.25, b[3], 0));
+    // flame: nested opaque emissive lathes that flicker
+    const fl = new T.Group(); fl.position.y = 0.60; fl.scale.setScalar(1.2); fl.userData.fp1347Flame = 1;
+    const fm = mat('basic', {vertexColors: true});
+    const outer = mesh(flameGeo(0.080, 0.30), fm);
+    const mid = mesh(flameGeo(0.050, 0.40), fm, 0.012, 0.0, 0.0); mid.userData.fpMid = 1;
+    const core = mesh(flameGeo(0.045, 0.15, 1), mat('basic', {vertexColors: true}), 0, 0.0, 0.034);
+    const tongues = [];
+    for (let i = 0; i < 4; i++) {
+      const a = i * 1.7;
+      const tg = mesh(flameGeo(0.028, 0.20 + 0.05 * (i % 2)), fm, Math.cos(a) * 0.045, 0.02, Math.sin(a) * 0.045, Math.sin(a) * 0.25, 0, -Math.cos(a) * 0.25);
+      tg.userData.fpTongue = i; tongues.push(tg); fl.add(tg);
+    }
+    fl.add(outer); fl.add(mid); fl.add(core);
+    g.add(fl);
+    // sparks: tiny opaque cubes rising and resetting
+    const sparks = [];
+    const sm = [mat('basic', {color: 0xffd060}), mat('basic', {color: 0xff7a20})];
+    const sg = new T.BoxGeometry(0.018, 0.018, 0.018);
+    for (let i = 0; i < 9; i++) {
+      const s = mesh(sg, sm[i % 2]); s.userData.fpSpark = 1; s.userData.ph = i / 9; s.userData.ang = i * 2.39;
+      sparks.push(s); g.add(s);
+    }
+    outer.onBeforeRender = torchAnim;
+    return g;
+  }
+
+  /* ---------- 4. bucket: staves, two iron bands, iron bail ---------- */
+  function staveTex() {
+    return canvasTex('stave', 64, 64, (g, w, h) => {
+      g.fillStyle = '#9a6a3a'; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 26; i++) { g.strokeStyle = rnd() < 0.5 ? 'rgba(90,54,22,0.55)' : 'rgba(190,140,86,0.4)'; g.lineWidth = 1; const x = rnd() * w; g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + 3, h * 0.3, x - 3, h * 0.6, x + 1, h); g.stroke(); }
+    });
+  }
+  function buildBucket(id) {
+    const T = T3();
+    const g = new T.Group();
+    const n = 14, rB = 0.084, rT = 0.100, H = 0.17;
+    const tones = [0xffffff, 0xe6d2bc, 0xf4e2cc, 0xd8c0a4];
+    const st = staveTex();
+    for (let i = 0; i < n; i++) {
+      const a = (i + 0.5) / n * Math.PI * 2;
+      const rm = (rB + rT) / 2, wv = 2 * Math.PI * rm / n * 0.96;
+      const m = mesh(new T.BoxGeometry(wv, H, 0.012), mat('lambert', {map: st, color: tones[i % 4]}));
+      m.position.set(Math.sin(a) * rm, H / 2, Math.cos(a) * rm);
+      m.rotation.set(-Math.atan2(rT - rB, H) * Math.cos(0), a, 0);
+      m.rotation.order = 'YXZ'; m.rotation.set(-Math.atan((rT - rB) / H), a, 0);
+      g.add(m);
+    }
+    g.add(mesh(new T.CylinderGeometry(rB - 0.004, rB - 0.004, 0.012, 16), mat('lambert', {map: st, color: 0xc8a888}), 0, 0.01, 0));
+    const iron = mat('phong', {color: 0x3a3c40, shininess: 40, specular: 0x55585c});
+    const band = (y, r) => { const b = mesh(new T.TorusGeometry(r, 0.006, 6, 28), iron, 0, y, 0, Math.PI / 2, 0, 0); b.scale.z = 2.2; return b; };
+    g.add(band(0.035, rB + 0.0055 + 0.016 * (0.035 / H)));
+    g.add(band(0.140, rB + 0.0055 + 0.016 * (0.140 / H)));
+    // iron ears + bail
+    for (const sx of [-1, 1]) g.add(mesh(new T.BoxGeometry(0.008, 0.034, 0.022), iron, sx * (rT + 0.004), 0.150, 0));
+    const bail = mesh(new T.TorusGeometry(rT + 0.006, 0.0045, 6, 24, Math.PI), iron, 0, 0.155, 0);
+    bail.scale.y = 1.05; g.add(bail);
+    if (id === 48 || id === 201) g.add(mesh(new T.CircleGeometry(rT - 0.012, 18), mat('lambert', {color: id === 201 ? 0xff5a10 : 0x2f6fb0, emissive: id === 201 ? 0x8a2000 : 0x0a1a30}), 0, H - 0.02, 0, -Math.PI / 2, 0, 0));
+    return g;
+  }
+
+  /* ---------- 5. stone block: granite speckle ---------- */
+  function graniteMat() {
+    if (cache.graniteM) return cache.graniteM;
+    const t = canvasTex('granite', 64, 64, (g, w, h) => {
+      g.fillStyle = '#8c8a88'; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 900; i++) {
+        const r = rnd(); g.fillStyle = r < 0.32 ? '#4e4c4c' : r < 0.55 ? '#b4b0ac' : r < 0.68 ? '#2c2a2a' : r < 0.78 ? '#c9b3a6' : r < 0.9 ? '#9a9692' : '#e2e0dc';
+        g.fillRect(Math.floor(rnd() * w), Math.floor(rnd() * h), 1 + (rnd() < 0.3 ? 1 : 0), 1 + (rnd() < 0.3 ? 1 : 0));
+      }
+      const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, 'rgba(255,255,255,0.08)'); gr.addColorStop(1, 'rgba(0,0,0,0.10)');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      g.strokeStyle = 'rgba(30,28,28,0.55)'; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+    }, true);
+    return (cache.graniteM = mat('lambert', {map: t}));
+  }
+  function upgradeBlock(root, id) {
+    if (id !== 3) return;
+    let n = 0;
+    root.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === 'BoxGeometry' && o.material !== graniteMat()) { o.userData.fp1347OldMat = o.material; o.material = graniteMat(); n++; } });
+    if (n) { root.userData.fp1347 = 'block'; U.made.block = (U.made.block || 0) + 1; }
+  }
+
+  /* ---------- 6. flintlock musket ---------- */
+  function walnutTex() {
+    return canvasTex('walnut', 128, 32, (g, w, h) => {
+      g.fillStyle = '#3e2414'; g.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 2) { g.strokeStyle = (y % 4) ? 'rgba(92,56,30,0.55)' : 'rgba(22,12,6,0.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= w; x += 16) g.lineTo(x, y + Math.sin(x * 0.05 + y) * 1.5); g.stroke(); }
+    });
+  }
+  function buildFlintlock() {
+    const T = T3();
+    const g = new T.Group();
+    const wood = mat('phong', {map: walnutTex(), color: 0xffffff, shininess: 30, specular: 0x2a2018});
+    const steel = mat('phong', {color: 0x3a3d42, shininess: 70, specular: 0x7a7e86});
+    const brass = mat('phong', {color: 0x9a7a3a, shininess: 60, specular: 0x8a7040});
+    // gun space: barrel along -Z, muzzle ~ z -0.73, grip ~ z +0.12, sight line y ~ 0.071
+    const BY = 0.046, BR = 0.0115;
+    const barrel = mesh(new T.CylinderGeometry(BR * 0.92, BR * 1.12, 0.80, 10), steel, 0, BY, -0.33, Math.PI / 2, 0, 0);
+    g.add(barrel);
+    // Aiming: the gun system holds the root low for the old rifle. Slide only
+    // this model so the sights sit on the crosshair (root and anchors untouched).
+    const SIGHT_Y = BY + BR + 0.006;
+    const tmpM = new T.Matrix4(), tgt = new T.Vector3();
+    g.userData.adsK = 0;
+    barrel.onBeforeRender = function (r, sc, cam) {
+      try {
+        const g = this.parent; if (!g) return;
+        const root = g.parent; if (!root || !cam) return;
+        // first person only: the third-person copy never slides
+        let fp = false; try { let q = root; while (q) { if (typeof held !== 'undefined' && q === held) { fp = true; break; } q = q.parent; } } catch (_) {}
+        // The gun viewmodel (__vm) owns the pose once the real rifle is in: it puts
+        // that rifle's sight line on the crosshair, so line our sights up with it.
+        const u = root.userData;
+        if (fp && W.__vm && W.__vm.on && u && u.c322 && u.sight && u.rig) {
+          g.userData.adsK = 0; g.userData.vmAlign = 1;
+          const sg = u.sight.clone();
+          const m = tmpM.identity(); for (let x = u.rig; x && x !== root; x = x.parent) { x.updateMatrix(); m.premultiply(x.matrix); }
+          sg.applyMatrix4(m);
+          // aiming: the flintlock grows to a true musket length about its rear sight
+          // (hands stay hand-sized), so the stock drops away under the cheek
+          const GT2 = U.gunTune || {}, kk = Math.max(0, Math.min(1, +W.__vm.k || 0)), ee = kk * kk * (3 - 2 * kk);
+          const sc = 1 + ((GT2.adsS || 1) - 1) * ee;
+          if (Math.abs(g.scale.x - sc) > 1e-4) g.scale.setScalar(sc);
+          g.position.set(sg.x, sg.y - SIGHT_Y * sc, -0.02 * (sc - 1));
+          return;
+        }
+        g.userData.vmAlign = 0; if (g.scale.x !== 1) g.scale.setScalar(1);
+        const want = (fp && isAds()) ? 1 : 0;
+        g.userData.adsK += (want - g.userData.adsK) * 0.25;
+        const k = g.userData.adsK;
+        if (k < 0.002) { g.position.set(0, 0, 0); return; }
+        // rear sight (model z 0.02) a hand-span in front of the eye
+        tgt.set(0, -0.020, -0.40).applyMatrix4(cam.matrixWorld);
+        tmpM.copy(root.matrixWorld).invert();
+        tgt.applyMatrix4(tmpM);
+        g.position.set(tgt.x * k, (tgt.y - SIGHT_Y) * k, (tgt.z - 0.02) * k);
+      } catch (_) {}
+    };
+    g.add(mesh(new T.CylinderGeometry(BR * 1.25, BR * 1.25, 0.03, 10), steel, 0, BY, -0.715, Math.PI / 2, 0, 0)); // muzzle swell
+    g.add(mesh(new T.BoxGeometry(0.004, 0.012, 0.012), brass, 0, BY + BR + 0.005, -0.70)); // front sight
+    g.add(mesh(new T.BoxGeometry(0.016, 0.009, 0.010), steel, 0, BY + BR + 0.002, 0.02)); // rear sight
+    // full-length stock under the barrel (fore-end)
+    const fore = mesh(new T.BoxGeometry(0.036, 0.030, 0.56), wood, 0, BY - 0.022, -0.27);
+    g.add(fore);
+    // ramrod under the fore-end
+    g.add(mesh(new T.CylinderGeometry(0.0035, 0.0035, 0.56, 6), steel, 0, BY - 0.042, -0.36, Math.PI / 2, 0, 0));
+    // barrel bands
+    for (const z of [-0.18, -0.38, -0.56]) g.add(mesh(new T.BoxGeometry(0.040, 0.050, 0.007), steel, 0, BY - 0.011, z));
+    // lock area / wrist / butt (shaped from boxes and a tapered butt)
+    g.add(mesh(new T.BoxGeometry(0.040, 0.044, 0.10), wood, 0, BY - 0.018, 0.04));
+    const wrist = mesh(new T.CylinderGeometry(0.016, 0.019, 0.12, 8), wood, 0, BY - 0.034, 0.13, Math.PI / 2 + 0.32, 0, 0);
+    g.add(wrist);
+    const butt = new T.BoxGeometry(0.042, 0.075, 0.20, 1, 1, 2);
+    const bp = butt.attributes.position;
+    for (let i = 0; i < bp.count; i++) { const z = bp.getZ(i), y = bp.getY(i); const k = (z + 0.10) / 0.20; bp.setY(i, y * (0.55 + 0.75 * k) - 0.012 * k); bp.setX(i, bp.getX(i) * (0.8 + 0.3 * k)); }
+    butt.computeVertexNormals();
+    g.add(mesh(butt, wood, 0, BY - 0.075, 0.27, 0.14, 0, 0));
+    g.add(mesh(new T.BoxGeometry(0.046, 0.11, 0.008), brass, 0, BY - 0.085, 0.37, 0.14, 0, 0)); // butt plate
+    // lock plate, frizzen, pan and the cock (hammer) on the right side
+    g.add(mesh(new T.BoxGeometry(0.004, 0.022, 0.085), steel, 0.021, BY - 0.012, 0.035));
+    g.add(mesh(new T.BoxGeometry(0.012, 0.006, 0.016), steel, 0.024, BY + 0.002, 0.005)); // pan
+    g.add(mesh(new T.BoxGeometry(0.010, 0.026, 0.006), steel, 0.024, BY + 0.016, -0.002, -0.25, 0, 0)); // frizzen
+    const cock = new T.Group(); cock.position.set(0.026, BY + 0.004, 0.058); cock.rotation.x = -0.55;
+    cock.add(mesh(new T.BoxGeometry(0.006, 0.040, 0.010), steel, 0, 0.018, 0));
+    cock.add(mesh(new T.BoxGeometry(0.006, 0.008, 0.020), steel, 0, 0.036, -0.008));
+    cock.add(mesh(new T.BoxGeometry(0.008, 0.006, 0.008), mat('lambert', {color: 0x2a2a30}), 0, 0.032, -0.016)); // flint
+    g.add(cock);
+    // trigger guard + trigger
+    const tg = mesh(new T.TorusGeometry(0.020, 0.0025, 5, 14, Math.PI), brass, 0, BY - 0.045, 0.095, 0, Math.PI / 2, Math.PI);
+    g.add(tg);
+    g.add(mesh(new T.BoxGeometry(0.003, 0.018, 0.004), steel, 0, BY - 0.048, 0.095, 0.3, 0, 0));
+    return g;
+  }
+  function isAds() {
+    try {
+      if (W.__c340 && +W.__c340.k > 0.45) return true;
+      if (typeof S !== 'undefined' && S && S.adsK > 0.45) return true;
+      if (W.__c288 && W.__c288.aiming) return true;
+      if (W.__c145 && (W.__c145.force || W.__c145.hold)) return true;
+    } catch (_) {}
+    return false;
+  }
+  function upgradeGun(root) {
+    if (!root || +root.userData.gun !== 213) return;
+    if (!hasModel(root)) {
+      const T = T3();
+      const mdl = model('musket', buildFlintlock);
+      mdl.name = 'fp1347Model'; mdl.userData.fp1347 = 'musket'; mdl.userData.adsK = 0;
+      root.add(mdl); root.userData.fp1347 = 'musket';
+      U.made.musket = (U.made.musket || 0) + 1;
+    }
+    // Hide the old rifle meshes (the GLB can attach after build). Anchors stay.
+    root.traverse(o => {
+      if (!o.isMesh || o.userData.fp1347 || o.userData.fp1347Hid) return;
+      let p = o, mine = false; while (p && p !== root) { if (p.userData && p.userData.fp1347) { mine = true; break; } p = p.parent; }
+      if (mine) return;
+      // Hide by render layer, not visibility: the GLB swap (__c322) and the
+      // gun viewmodel (__vm) measure the visible rig, so it must stay visible.
+      o.userData.fp1347Hid = 1; layerHide(o);
+    });
+  }
+  function layerHide(o) {
+    try { o.layers.set(31); const L = o.layers; Object.defineProperty(o, 'layers', {get() { return L; }, set(_) {}, configurable: true}); L.enable = function () {}; L.enableAll = function () {}; L.toggle = function () {}; L.set = function () {}; } catch (_) {}
+  }
+
+  /* ---------- 7. map: aged parchment with torn, curled edges + brass compass ---------- */
+  function parchTex() {
+    return canvasTex('parch', 256, 352, (g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.beginPath();
+      const P = [];
+      const edge = (x0, y0, x1, y1, n) => { for (let i = 0; i < n; i++) { const t = i / n; const j = (rnd() - 0.5) * 10 + (rnd() < 0.12 ? -8 : 0); const nx = -(y1 - y0), ny = x1 - x0, L = Math.hypot(nx, ny); P.push([x0 + (x1 - x0) * t + nx / L * j, y0 + (y1 - y0) * t + ny / L * j]); } };
+      const m = 10; edge(m, m, w - m, m, 26); edge(w - m, m, w - m, h - m, 34); edge(w - m, h - m, m, h - m, 26); edge(m, h - m, m, m, 34);
+      g.moveTo(P[0][0], P[0][1]); for (const p of P) g.lineTo(p[0], p[1]); g.closePath();
+      g.save(); g.clip();
+      const gr = g.createRadialGradient(w / 2, h / 2, 20, w / 2, h / 2, h * 0.7); gr.addColorStop(0, '#e9d3a2'); gr.addColorStop(0.65, '#d4b47a'); gr.addColorStop(1, '#8a6232');
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 500; i++) { g.fillStyle = 'rgba(' + (90 + rnd() * 60 | 0) + ',' + (60 + rnd() * 40 | 0) + ',20,' + (rnd() * 0.12) + ')'; g.beginPath(); g.arc(rnd() * w, rnd() * h, 1 + rnd() * 6, 0, 7); g.fill(); }
+      g.lineWidth = 9; g.strokeStyle = 'rgba(70,40,12,0.55)'; g.stroke();
+      g.restore();
+    });
+  }
+  function curledPlane(wd, ht) {
+    const T = T3();
+    const geo = new T.PlaneGeometry(wd, ht, 12, 16);
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i) / (wd / 2), y = p.getY(i) / (ht / 2);
+      const cx = Math.max(0, Math.abs(x) - 0.82) / 0.18, cy = Math.max(0, Math.abs(y) - 0.86) / 0.14;
+      // edges curl away from the eye (behind the sheet), so the parchment can never cover the map art
+      p.setZ(i, -0.012 * (cx * cx + cy * cy) - 0.002 * (1 + Math.sin(x * 3 + y * 2)));
+    }
+    geo.computeVertexNormals();
+    return geo;
+  }
+  function buildMapDeco(plane) {
+    const T = T3();
+    const pp = plane.geometry.parameters || {width: 0.34, height: 0.47};
+    const wd = pp.width * 1.12, ht = pp.height * 1.09;
+    const pm = mat('lambert', {map: parchTex(), side: T.DoubleSide, alphaTest: 0.5});
+    pm.transparent = false;
+    const back = mesh(curledPlane(wd, ht), pm, 0, 0, -0.0025);
+    back.name = 'fp1347MapParchment';
+    back.renderOrder = -1;
+    // brass compass clipped at the lower-left corner
+    const brass = mat('phong', {color: 0xb08a3c, shininess: 80, specular: 0xffe0a0});
+    const dark = mat('lambert', {color: 0x2a2418});
+    const face = mat('basic', {map: canvasTex('compass', 128, 128, (g, w, h) => {
+      g.fillStyle = '#efe2c0'; g.beginPath(); g.arc(64, 64, 62, 0, 7); g.fill();
+      g.strokeStyle = '#5a4020'; g.lineWidth = 2; g.beginPath(); g.arc(64, 64, 54, 0, 7); g.stroke();
+      for (let i = 0; i < 32; i++) { const a = i / 32 * Math.PI * 2, r0 = i % 8 ? 48 : 40; g.beginPath(); g.moveTo(64 + Math.sin(a) * r0, 64 - Math.cos(a) * r0); g.lineTo(64 + Math.sin(a) * 54, 64 - Math.cos(a) * 54); g.stroke(); }
+      g.fillStyle = '#3a2a14'; g.font = 'bold 16px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('N', 64, 26); g.fillText('S', 64, 102); g.fillText('E', 102, 64); g.fillText('W', 26, 64);
+      g.fillStyle = '#a01818'; g.beginPath(); g.moveTo(64, 30); g.lineTo(71, 64); g.lineTo(57, 64); g.fill();
+      g.fillStyle = '#2a2a2a'; g.beginPath(); g.moveTo(64, 98); g.lineTo(71, 64); g.lineTo(57, 64); g.fill();
+      g.fillStyle = '#b08a3c'; g.beginPath(); g.arc(64, 64, 5, 0, 7); g.fill();
+    })});
+    const comp = mesh(new T.CylinderGeometry(0.036, 0.038, 0.012, 20), brass, -wd * 0.40, -ht * 0.42, 0.010, Math.PI / 2, 0, 0);
+    comp.name = 'fp1347Compass';
+    comp.add(mesh(new T.CircleGeometry(0.030, 20), face, 0, 0.0065, 0, -Math.PI / 2, 0, 0));
+    comp.add(mesh(new T.TorusGeometry(0.034, 0.004, 6, 20), brass, 0, 0.007, 0, Math.PI / 2, 0, 0));
+    comp.add(mesh(new T.TorusGeometry(0.008, 0.0025, 5, 10), brass, 0, 0, -0.042, 0, 0, 0)); // bow ring
+    // brass clip over the parchment edge
+    back.add(mesh(new T.BoxGeometry(0.022, 0.030, 0.006), brass, -wd * 0.40 + 0.03, -ht * 0.42 + 0.03, 0.006, 0, 0, 0.7));
+    back.add(mesh(new T.BoxGeometry(0.018, 0.024, 0.004), dark, -wd * 0.40 + 0.03, -ht * 0.42 + 0.03, -0.004, 0, 0, 0.7));
+    back.add(comp);
+    back.userData.fp1347 = 'map';
+    return back;
+  }
+  function ensureMap() {
+    try {
+      const M = W.__map1317; if (!M || !M.sheet) return;
+      const plane = M.sheet(); if (!plane || !plane.isMesh) return;
+      const pp = plane.geometry && plane.geometry.parameters;
+      const key = pp ? pp.width.toFixed(3) + 'x' + pp.height.toFixed(3) : '';
+      let deco = plane.userData.fp1347Deco;
+      if (deco && deco.userData.key === key && deco.parent === plane) return;
+      if (deco && deco.parent) deco.parent.remove(deco);
+      deco = buildMapDeco(plane); deco.userData.key = key;
+      // Mesh root (not a Group) so map1317 findMark() still picks the player arrow.
+      plane.add(deco); plane.userData.fp1347Deco = deco;
+      U.map++;
+    } catch (e) { ERR('map', e); }
+  }
+
+  /* ---------- model cache: geometry/materials shared, parts cloned ---------- */
+  const MODELS = {};
+  function lockMats(o) { o.traverse(m => { if (m.isMesh) { const mm = m.material; try { Object.defineProperty(m, 'material', {get() { return mm; }, set(_) {}, configurable: true}); } catch (_) {} } }); }
+  function copyHooks(a, b) {
+    if (Object.prototype.hasOwnProperty.call(a, 'onBeforeRender')) b.onBeforeRender = a.onBeforeRender;
+    for (let i = 0; i < a.children.length && i < b.children.length; i++) copyHooks(a.children[i], b.children[i]);
+  }
+  function model(key, build) {
+    if (!MODELS[key]) MODELS[key] = build();
+    const src = MODELS[key];
+    const m = src.clone(true);
+    copyHooks(src, m);
+    lockMats(m);
+    U.clones = (U.clones || 0) + 1;
+    return m;
+  }
+
+  /* ---------- dispatch ---------- */
+  const SWORD = {42: 1, 43: 1, 94: 1, 98: 1, 126: 1, 217: 1, 266: 1};
+  function torchRoot(g) { let r = g.userData.torch ? g : null; if (!r) g.traverse(o => { if (!r && o.userData && o.userData.torch) r = o; }); return r; }
+  function bucketRoot(g) { let r = g.userData.bucket ? g : null; if (!r) g.traverse(o => { if (!r && o.userData && o.userData.bucket) r = o; }); return r; }
+  /* makeItemMesh path: the id is authoritative. */
+  function upgrade(g, id) {
+    if (!g || !g.userData) return g;
+    const T = T3(); if (!T) return g;
+    id = +id;
+    try {
+      const u = g.userData;
+      if (hasModel(g)) return g;
+      if (id === 761) return swapIn(g, model('pick', buildPick), 'pick');
+      if (SWORD[id] && u.kind !== 'claymore') return swapIn(g, model('sword' + id, () => buildSword(id)), 'sword');
+      if (id === 67) { const r = torchRoot(g); if (r && !hasModel(r)) swapIn(r, model('torch', buildTorch), 'torch'); return g; }
+      if (id === 39 || id === 48) { const r = bucketRoot(g); if (r && !hasModel(r)) swapIn(r, model('bucket' + id, () => buildBucket(id)), 'bucket'); return g; }
+      if (id === 3) { upgradeBlock(g, id); return g; }
+      if (id === 213 || +u.gun === 213) { upgradeGun(g); return g; }
+    } catch (e) { ERR('upgrade ' + id, e); }
+    return g;
+  }
+  /* Live/cached held path: judge by the item's own userData, never by selId alone. */
+  function upgradeLive(item, sel) {
+    try {
+      const u = item.userData;
+      if (hasModel(item)) return item;
+      if (u.p761 || u.crystalPick === 'purple') return swapIn(item, model('pick', buildPick), 'pick');
+      if (u.sword && u.kind !== 'claymore') return swapIn(item, model('sword' + (SWORD[sel] ? sel : 94), () => buildSword(SWORD[sel] ? sel : 94)), 'sword');
+      if (u.torch) return swapIn(item, model('torch', buildTorch), 'torch');
+      if (u.bucket) return swapIn(item, model('bucket' + (sel === 48 ? 48 : 39), () => buildBucket(sel === 48 ? 48 : 39)), 'bucket');
+    } catch (e) { ERR('live', e); }
+    return item;
+  }
+  U.upgrade = upgrade;
+
+  function wrapSetHeld() {
+    try {
+      if (typeof setHeld !== 'function' || setHeld.__fp1347) return;
+      const sh = setHeld;
+      const layer = (U.shWraps = (U.shWraps || 0) + 1);
+      setHeld = function () { const r = sh.apply(this, arguments); if (layer === U.shWraps) { try { tick(); } catch (_) {} } return r; };
+      setHeld.__fp1347 = 1;
+    } catch (e) { ERR('wsh', e); }
+  }
+  function wrap() {
+    wrapSetHeld();
+    try {
+      if (typeof makeItemMesh !== 'function' || makeItemMesh.__fp1347) return false;
+      const mi = makeItemMesh;
+      const layer = U.wraps + 1;
+      // Later modules wrap makeItemMesh lazily, so this re-wraps on top;
+      // only the outermost layer upgrades, inner layers pass through.
+      makeItemMesh = function (id) {
+        const g = mi.apply(this, arguments);
+        if (layer !== U.wraps) return g;
+        try { upgrade(g, id); } catch (e) { ERR('mi', e); }
+        return g;
+      };
+      for (const k of Object.keys(mi)) { try { makeItemMesh[k] = mi[k]; } catch (_) {} }
+      makeItemMesh.__fp1347 = 1;
+      U.wraps++;
+      return true;
+    } catch (e) { ERR('wrap', e); return false; }
+  }
+  /* ---------- 8. viewmodel framing (t1347 pass 2) ----------
+     Long gun: the gun viewmodel (__vm) places the gun, then calls __fpa.step
+     to solve the arms. Wrapping step lets us re-frame the gun first, so the
+     arms are solved onto the re-framed gun (no detached hands). Hip: stock
+     low right, barrel angled in toward the centre. Aim: the gun slides
+     along the eye ray so the sight stays on the crosshair but less of the
+     stock and hand fills the screen. All values are camera space. */
+  // Hip pose by screen fraction, so portrait and landscape frame alike:
+  // wrist (right hand) at (wx, wy) of the half-screen at depth wz; the barrel
+  // points at screen point (ax, ay); cant = roll (rad). adsF pushes the aimed
+  // gun along the eye ray (sight stays on the crosshair, stock/hand smaller).
+  const GT = U.gunTune = {wx: 0.55, wy: -0.85, wz: -0.30, ax: -0.15, ay: 0.0, cant: -0.25, adsF: 1.2, adsP: 0.08, adsY: 0.02, adsR: 0.35, adsS: 1.8, sx: 0.10, sy: -0.10, sz: 0.0, kr: 1.2, krA: 2.2, on: 1};
+  // sx/sy/sz: the arms are solved with the gun shifted by -s, then gun and arm
+  // rig move together by +s (shoulders effectively lower and more central, so
+  // the support arm comes up from the bottom instead of across the screen).
+  const gq = {};
+  const SIGHT_Y0 = 0.0635;   // musket rear sight (model space)
+  function frameGun() {
+    const T = T3(); if (!GT.on) return;
+    if (!W.__vm || !W.__vm.on || !W.__fpa || !W.__fpa.fromVm) return;
+    if (typeof hand === 'undefined' || !hand || hand.parent !== camera) return;
+    const g = held && held.children[0]; if (!g || !g.userData || +g.userData.gun !== 213) return;
+    let mdl = null; for (const c of g.children) if (c.name === 'fp1347Model') mdl = c; if (!mdl) return;
+    if (!gq.q) { gq.q = new T.Quaternion(); gq.qi = new T.Quaternion(); gq.m = new T.Matrix4(); gq.mi = new T.Matrix4(); gq.a = new T.Vector3(); gq.b = new T.Vector3(); gq.c = new T.Vector3(); gq.d = new T.Vector3(); gq.e = new T.Vector3(); gq.f = new T.Vector3(); gq.x = new T.Vector3(); gq.y = new T.Vector3(); gq.z = new T.Vector3(); }
+    const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k), h = 1 - e;
+    // rifle support hand: fingers more forward, forearm from the lower left (more so when aiming)
+    if (GT.kr != null) W.__kr = GT.kr + ((GT.krA != null ? GT.krA : GT.kr) - GT.kr) * e;
+    // current wrist / muzzle / up in camera space (model space -> camera, through hand)
+    const toCam = v => { for (let o = mdl; o && o !== camera; o = o.parent) { o.updateMatrix(); v.applyMatrix4(o.matrix); } return v; };
+    const sg0 = W.__vm.sight, piv0 = new T.Vector3(sg0 ? sg0[0] : 0, sg0 ? sg0[1] : 0.014, sg0 ? sg0[2] : -0.5);
+    const wC = toCam(gq.a.set(0, 0.012, 0.13)), mC = toCam(gq.b.set(0, 0.046, -0.73)), uC = toCam(gq.c.set(0, 0.2, 0.13)).sub(wC).normalize();
+    const dC = mC.clone().sub(wC).normalize();
+    // desired
+    const fk = (W.__heldFrame1251 && W.__heldFrame1251.fovK) || 1;
+    const tv = Math.tan(camera.fov * fk * Math.PI / 360), th = tv * (camera.aspect || 1);
+    const wz = GT.wz, wT = gq.d.set(GT.wx * th * -wz - GT.sx, GT.wy * tv * -wz - GT.sy, wz - GT.sz);
+    const far = -3, aim = gq.e.set(GT.ax * th * -far, GT.ay * tv * -far, far);
+    const dT = aim.sub(wT).normalize();
+    const uT0 = gq.f.set(0, 1, 0); uT0.addScaledVector(dT, -uT0.dot(dT)).normalize(); uT0.applyAxisAngle(dT, GT.cant);
+    // rotation: current basis -> desired basis
+    const rC = gq.x.crossVectors(dC, uC).normalize(), uCo = new T.Vector3().crossVectors(rC, dC);
+    gq.m.makeBasis(rC, uCo, dC.clone().negate());   // right-handed: r x u = -d
+    const rT = gq.y.crossVectors(dT, uT0).normalize(), uTo = gq.z.crossVectors(rT, dT);
+    gq.mi.makeBasis(rT, uTo, dT.clone().negate());
+    const qC = new T.Quaternion().setFromRotationMatrix(gq.m), qT = new T.Quaternion().setFromRotationMatrix(gq.mi);
+    const q = qT.multiply(qC.invert());               // maps current -> desired
+    gq.qi.identity().slerp(q, h);                     // fade out into the aim pose
+    const off = hand.position.clone().sub(wC).applyQuaternion(gq.qi);
+    const wB = wC.clone().lerp(wT, h);
+    hand.position.copy(wB).add(off);
+    hand.quaternion.premultiply(gq.qi);
+    hand.position.addScaledVector(piv0, (GT.adsF - 1) * e);   // slide along the eye ray through the sight
+    // ads: tip the gun about the sight (muzzle a touch up, butt down/right) so the
+    // stock drops out under the eye instead of filling the screen end-on
+    if (e > 0 && (GT.adsP || GT.adsY || GT.adsR)) {
+      const P = toCam(new T.Vector3(0, SIGHT_Y0, GT.adsPz != null ? GT.adsPz : 0.02)), qa = new T.Quaternion().setFromEuler(new T.Euler((GT.adsP || 0) * e, (GT.adsY || 0) * e, (GT.adsR || 0) * e, 'YXZ'));
+      hand.position.sub(P).applyQuaternion(qa).add(P); hand.quaternion.premultiply(qa);
+    }
+    // ads: the shoulder shift fades out with the hip pose (sight stays on the crosshair)
+    hand.position.x -= GT.sx * e; hand.position.y -= GT.sy * e; hand.position.z -= GT.sz * e;   // postGun adds +s back
+    gq.on = 1; gq.h = h;
+    U.gunFramed = (U.gunFramed || 0) + 1;
+  }
+  /* After every other hand pass this frame (held-frame offsets included), move
+     the gun and the arm rig together by the shoulder shift. */
+  function postGun() {
+    if (!gq.on) return; gq.on = 0;
+    if (!W.__vm || !W.__vm.on || typeof hand === 'undefined' || hand.parent !== camera) return;
+    const R = W.__fpa && W.__fpa.rig && W.__fpa.rig(); if (!R || R.parent !== camera) return;
+    hand.position.x += GT.sx; hand.position.y += GT.sy; hand.position.z += GT.sz;
+    R.position.set(GT.sx, GT.sy, GT.sz);
+    U.gunPost = (U.gunPost || 0) + 1;
+  }
+  /* After all hand passes this frame: models that carry userData.snap are
+     slid so that grip point sits in the right palm (first person only). */
+  function postHand() {
+    if (typeof held === 'undefined' || !held) return;
+    for (const c of held.children) c.traverse(o => { if (o.name === 'fp1347Model' && o.userData.snap) { const g = o.userData.snap; palmSnap(o, g[0], g[1], g[2]); } });
+    // held block: the seat ran before the last arm pass; put the cube back on the palm
+    const b = held.children[0];
+    if (b && b.userData && b.userData.block && !U.snapOff) {
+      try {
+        const T = T3(), R = W.__fpa && W.__fpa.on && W.__fpa.rig && W.__fpa.rig();
+        const h = R && R.visible && R.userData.R && R.userData.R.visible && R.userData.R.userData.p.h; if (!h) return;
+        const HF = W.__heldFrame1251, bw = HF && HF.__palmBowl && HF.__bowl && HF.__bowl.block && HF.__bowl.block.grip;
+        const pl = bw ? bw.palm : [0, 0.058, 0.03];
+        h.updateWorldMatrix(true, false); held.updateWorldMatrix(true, false);
+        const palm = new T.Vector3(pl[0], pl[1], pl[2]); h.localToWorld(palm); held.worldToLocal(palm);
+        if (palm.distanceTo(b.position) < 0.6) { b.position.copy(palm); b.updateMatrix(); U.blockSnap = (U.blockSnap || 0) + 1; }
+      } catch (e) { ERR('bsnap', e); }
+    }
+  }
+  function wrapUH() {
+    try {
+      if (typeof updateHand !== 'function' || updateHand.__fp1347) return;
+      const prev = updateHand, layer = (U.uhWraps || 0) + 1; U.uhWraps = layer;
+      updateHand = function () { const r = prev.apply(this, arguments); if (layer === U.uhWraps) { try { postGun(); } catch (e) { ERR('pg', e); } try { postHand(); } catch (e) { ERR('ph', e); } } return r; };
+      for (const k of Object.keys(prev)) { try { updateHand[k] = prev[k]; } catch (_) {} }
+      updateHand.__fp1347 = 1;
+    } catch (e) { ERR('wuh', e); }
+  }
+  /* held-frame table (__heldFrame1251.FRAME): its offsets move the hand after
+     the arms are solved, so for the long gun they must be zero (no detached
+     hands); the gun framing above owns the musket pose. */
+  // U.frameTune[kind][field] = number or function(aspect) -> number; fields we
+  // list are pinned (other passes still write the rest, which pass through).
+  // A(p, l): portrait value p, landscape value l, blended by screen aspect.
+  const A = (p, l) => asp => { const t = Math.max(0, Math.min(1, (asp - 0.45) / (1.78 - 0.45))); return p + (l - p) * t; };
+  U.A = A;
+  const FT = U.frameTune = {
+    musket: {dx: 0, dy: 0, dz: 0},
+    sword: {dx: 0.03, dy: -0.14, dz: -0.18, fov: 0.95, s: 1.0},
+    // portrait: inward from the right edge, cuff/sleeve in view; map centred low (Minecraft-style)
+    empty: {dx: A(-0.20, -0.18), dy: A(-0.15, -0.03), dz: -0.10, fov: A(0.90, 0.66)},
+    block: {dx: A(-0.10, -0.02), dy: A(-0.08, -0.11), dz: A(-0.04, -0.02), fov: A(0.85, 0.62)},
+    map: {dx: -0.17, dy: A(-0.24, -0.15), dz: -0.08, fov: A(1.0, 0.82)},
+    pick: {dx: -0.03, dy: -0.04, dz: 0.0, fov: A(1.16, 0.78)},
+    p761: {dx: -0.03, dy: -0.04, dz: 0.0, fov: A(1.16, 0.78)},
+    torch: {dx: A(-0.08, -0.12), dy: -0.06, dz: 0.02, fov: A(0.78, 0.60)},
+    bucket: {dx: A(-0.08, -0.12), dy: -0.06, dz: 0.0, fov: A(0.84, 0.62)}
+  };
+  function frameTable() {
+    const HF = W.__heldFrame1251; if (!HF || !HF.FRAME) return;
+    // Sword: the palm seat and the arm solve chased each other (the hand jumped
+    // round the screen). The arm now follows the sword and postHand() keeps the
+    // grip in the palm, so the sword's seat spec is parked (kept, not deleted).
+    if (HF.GRIP && HF.GRIP.sword) { U.gripOld = U.gripOld || {}; U.gripOld.sword = HF.GRIP.sword; HF.GRIP.sword = null; }
+    for (const kind of Object.keys(FT)) for (const F of [HF.FRAME[kind], HF.__bowl && HF.__bowl[kind] && HF.__bowl[kind].frame]) {
+      if (!F) continue;
+      for (const fld of ['dx', 'dy', 'dz', 'fov', 's', 'armS']) {
+        const d = Object.getOwnPropertyDescriptor(F, fld);
+        if (d && d.get && d.get.__fp1347) continue;
+        let shadow = d ? d.value : 0;
+        const get = function () { const t = FT[kind] && FT[kind][fld]; if (t == null) return shadow; if (typeof t === 'function') { try { return t((typeof camera !== 'undefined' && camera.aspect) || 1, shadow); } catch (_) { return shadow; } } return t; };
+        get.__fp1347 = 1;
+        try { Object.defineProperty(F, fld, {get, set(v) { shadow = v; }, configurable: true, enumerable: true}); } catch (_) {}
+      }
+    }
+  }
+  function wrapStep() {
+    try {
+      const F = W.__fpa; if (!F || typeof F.step !== 'function' || F.step.__fp1347) return;
+      const prev = F.step, layer = (U.stepWraps || 0) + 1; U.stepWraps = layer;
+      // later modules re-wrap step on top; only the outermost of our layers frames
+      F.step = function () { if (layer === U.stepWraps) { try { frameGun(); } catch (e) { ERR('fg', e); } } return prev.apply(this, arguments); };
+      // keep the inner wrappers' own flags visible (e.g. __is1266) so they do not re-wrap on top forever
+      for (const k of Object.keys(prev)) { try { F.step[k] = prev[k]; } catch (_) {} }
+      F.step.__fp1347 = 1;
+    } catch (e) { ERR('ws', e); }
+  }
+
+  /* ---------- 9. musket hands (t1347 pass 3) ----------
+     The __fpa rig still solves both arms; for the flintlock the visible hands
+     (glove + Forearm1279, all children of p.h) are then seated on the gun from
+     model-space frames: right hand closed round the wrist (thumb over the top,
+     index at the trigger), left hand palm-up under the fore-end with the
+     forearm running down-left off screen and shortened when aiming. Runs in
+     the rig's updateMatrixWorld (after the 1279 seat), so it follows bob, kick
+     and the ADS blend frame by frame. Kill switch: __fp1347.mh.on = 0. */
+  const MH = U.mh = {
+    on: 1,
+    rG: [0, 0.010, 0.125], rY: [-0.30, 0.70, -0.60], rZ: [-1, 0, 0], rOff: 0.075, rOz: 0.034,
+    lG: [0, 0.006, -0.30], lY: [0.62, 0.30, -0.45], lZ: [-0.25, 1, 0], lOff: 0.075, lOz: 0.030,
+    // aiming: support hand palm-in on the left of the fore-end near the lock, forearm straight down
+    lYA: [0.3, 0.95, -0.1], lGA: [0, 0.006, -0.08], lZA: [1, 0.2, 0], rYA: [-0.3, 0.9, -0.3], rGA: null, rZA: null,
+    lFa: 0.75, lFaA: 1.0, rFa: 1.0, rFaA: 0.35,
+    rPose: {p: [1.25, 1.60, 1.65, 1.55], d: [1.10, 1.40, 1.45, 1.35], t: [1.00, 0.90], tY: 0.70, tZ: 0.42},
+    lPose: {p: [1.25, 1.35, 1.40, 1.30], d: [1.00, 1.15, 1.20, 1.10], t: [0.40, 0.28], tY: 0.18, tZ: 0.10}
+  };
+  const mhT = {};
+  function musketModel() {
+    try {
+      if (typeof held === 'undefined' || !held) return null;
+      const g = held.children[0]; if (!g || !g.userData || +g.userData.gun !== 213) return null;
+      let m = null; for (const c of g.children) if (c.name === 'fp1347Model') m = c;
+      return m && m.visible !== false ? m : null;
+    } catch (_) { return null; }
+  }
+  function seatMusketHands(rig) {
+    const T = T3(); if (!MH.on || !T || !rig || !rig.visible) return;
+    const mdl = (typeof camMode !== 'undefined' && camMode !== 0) || !W.__vm || !W.__vm.on ? null : musketModel();
+    if (!mdl) { restoreFa(rig); return; }
+    if (!mhT.m) { mhT.m = new T.Matrix4(); mhT.i = new T.Matrix4(); mhT.p = new T.Vector3(); mhT.q = new T.Quaternion(); mhT.s = new T.Vector3(); mhT.G = new T.Vector3(); mhT.x = new T.Vector3(); mhT.y = new T.Vector3(); mhT.z = new T.Vector3(); }
+    mdl.updateWorldMatrix(true, false);
+    const mw = mdl.matrixWorld;
+    const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k);
+    const rel = W.__fpa ? +W.__fpa.rel || 0 : 0;
+    const lerp3 = (a, b, t) => b ? a.map((v, i) => v + (b[i] - v) * t) : a;
+    for (const S of ['R', 'L']) {
+      const arm = rig.userData[S]; if (!arm || !arm.visible) continue;
+      const h = arm.userData && arm.userData.p && arm.userData.p.h; if (!h || !h.parent) continue;
+      const L = S === 'L';
+      const w = L ? (rel > 0 ? 1 - Math.sin(Math.PI * Math.min(1, rel)) : 1) : 1;
+      if (w <= 0.001) continue;
+      const Gm = L ? lerp3(MH.lG, MH.lGA, e) : lerp3(MH.rG, MH.rGA, e), Ym = L ? lerp3(MH.lY, MH.lYA, e) : lerp3(MH.rY, MH.rYA, e), Zm = L ? lerp3(MH.lZ, MH.lZA, e) : lerp3(MH.rZ, MH.rZA, e);
+      const G = mhT.G.set(Gm[0], Gm[1], Gm[2]).applyMatrix4(mw);
+      const y = mhT.y.set(Ym[0], Ym[1], Ym[2]).transformDirection(mw);
+      const z = mhT.z.set(Zm[0], Zm[1], Zm[2]).transformDirection(mw); z.addScaledVector(y, -z.dot(y)).normalize();
+      const x = mhT.x.crossVectors(y, z).normalize();
+      const off = L ? MH.lOff : MH.rOff, oz = L ? MH.lOz : MH.rOz;
+      const pos = G.clone().addScaledVector(y, -off).addScaledVector(z, -oz);
+      const m = mhT.m.makeBasis(x, y, z).setPosition(pos);
+      h.parent.updateWorldMatrix(true, false);
+      m.premultiply(mhT.i.copy(h.parent.matrixWorld).invert());
+      m.decompose(mhT.p, mhT.q, mhT.s);
+      if (!isFinite(mhT.p.x + mhT.p.y + mhT.p.z + mhT.q.w)) continue;
+      if (w >= 0.999) { h.position.copy(mhT.p); h.quaternion.copy(mhT.q); }
+      else { h.position.lerp(mhT.p, w); h.quaternion.slerp(mhT.q, w); }
+      const fa = h.userData.forearm1279;
+      if (fa) {
+        // absolute length (1 = the 0.42 forearm); shown while aiming too (the
+        // 1280 linen sleeve is tucked for guns in ADS), so no glove cuff stub
+        const f = L ? MH.lFa + (MH.lFaA - MH.lFa) * e : MH.rFa + (MH.rFaA - MH.rFa) * e;
+        fa.scale.y = f; fa.userData.fp1347On = 1;
+        const sl = h.userData.forearm1280;
+        if (!(sl && sl.visible)) fa.visible = true;
+      }
+      h.updateMatrixWorld(true);
+    }
+    U.mhN = (U.mhN || 0) + 1;
+  }
+  function restoreFa(rig) {
+    for (const S of ['R', 'L']) {
+      const a = rig.userData[S], h = a && a.userData && a.userData.p && a.userData.p.h, fa = h && h.userData.forearm1279;
+      if (fa && fa.userData.fp1347On) { fa.scale.y = 1; fa.userData.fp1347On = 0; }
+    }
+  }
+  function musketPose() {
+    try {
+      const H = W.__handsFp1285; if (!H || !H.POSES || !H.POSES.musket || !H.POSES.support) return;
+      if (!U.poseOld) U.poseOld = {musket: JSON.parse(JSON.stringify(H.POSES.musket)), support: JSON.parse(JSON.stringify(H.POSES.support))};
+      const set = (P, R) => { P.p = R.p.slice(); P.d = R.d.slice(); P.t = R.t.slice(); P.tY = R.tY; P.tZ = R.tZ; };
+      const P = H.POSES.musket; if (P.__fp1347 !== MH.rPose) { set(P, MH.rPose); P.__fp1347 = MH.rPose; U.poseDirty = 1; }
+      // the support pose is shared with the pistol: curl it only while the musket is up
+      const want = MH.on && H.kind === 'musket' ? MH.lPose : U.poseOld.support, Sp = H.POSES.support;
+      if (Sp.__fp1347 !== want) { set(Sp, want); Sp.__fp1347 = want; U.poseDirty = 1; }
+      if (U.poseDirty && H.poseKind && H.kind) { U.poseDirty = 0; H.poseKind(H.kind); }
+    } catch (e) { ERR('pose', e); }
+  }
+  function wrapRig() {
+    try {
+      if (!W.__fpa || !W.__fpa.rig) return;
+      const rig = W.__fpa.rig(); if (!rig) return;
+      if (rig.updateMatrixWorld.__fp1347) return;
+      const prev = rig.updateMatrixWorld;
+      const f = function (force) {
+        const r = prev.call(this, force);
+        try { seatMusketHands(this); } catch (e) { ERR('mh', e); }
+        return r;
+      };
+      for (const k of Object.keys(prev)) f[k] = prev[k];
+      f.__fp1347 = 1; rig.updateMatrixWorld = f; U.rigWraps = (U.rigWraps || 0) + 1;
+    } catch (e) { ERR('wrapRig', e); }
+  }
+  /* Late wrappers can install after this one; re-check, and upgrade the
+     live held item in place (the held tree also covers GLB attach). */
+  function tick() {
+    try {
+      wrap(); wrapStep(); wrapUH(); frameTable(); wrapRig(); musketPose();
+      if (typeof held === 'undefined' || !held) return;
+      let id = null; try { id = selId; } catch (_) {}
+      U.kind = '';
+      for (const c of held.children) {
+        let gun = null;
+        c.traverse(o => { if (!gun && o.userData && +o.userData.gun === 213) gun = o; });
+        if (gun) { upgradeGun(gun); U.kind = 'musket'; continue; }
+        let item = null;
+        c.traverse(o => { if (!item && o !== held && o.userData && (o.userData.p761 || o.userData.crystalPick === 'purple' || o.userData.sword || o.userData.torch || o.userData.bucket)) item = o; });
+        if (item && !item.userData.fp1347Old) upgradeLive(item, +id);
+        if (item) U.kind = item.userData.fp1347 || '';
+      }
+      try { if (+id === 410 || +id === ((typeof IT !== 'undefined' && IT.MAP) || 410)) ensureMap(); } catch (_) {}
+      U.on = 1;
+    } catch (e) { ERR('tick', e); }
+  }
+  U.tick = tick;
+  U.refresh = function () { try { heldId = ''; setHeld(selId); } catch (e) { ERR('refresh', e); } };
+  wrap();
+  setInterval(tick, 250);
+  try { W.addEventListener('load', function () { wrap(); setTimeout(U.refresh, 400); }); } catch (_) {}
+})(typeof window !== 'undefined' ? window : this);
+</script>
 </body>
 </html>
