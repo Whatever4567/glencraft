@@ -99121,8 +99121,8 @@ try {
    Fix (standard colour-grading practice: warm the midtones, protect the highlights so whites stay white): the warm tint
    and the saturation lift fade out as the pixel's luminance rises from 0.60 to 0.88, so snow, cloud-white wool and quartz
    keep their own colour while grass, wood and stone get exactly the old grade.
-   Heather: the moor block's albedo is pulled down and towards purple-brown (material colour multiplier; the texture array
-   bakes it into its layer), matching the dusky mauve of the painted map (mean 90,68,84 on the map's own dark palette).
+   Heather: the moor block's texture is re-toned once (45% desaturated, purple-brown tint; the texture array
+   picks up the new image), matching the dusky mauve of the painted map (mean 90,68,84 on the map's own dark palette).
    Off switches: window.__noG1356C (snow grade) and window.__noG1356H (heather colour). ===================== */
 (function g1356c(WIN) {
   const U = WIN.__g1356c = {grade: 0, heather: 0, err: null};
@@ -99136,9 +99136,16 @@ try {
         m.needsUpdate = true; U.grade = 1; } else U.grade = m ? -1 : 0;   // -1: Low shaders / grade not present (nothing to fix)
     }
     if (!WIN.__noG1356H && typeof BLOCK_MATS !== 'undefined' && T.HEATHER) {
-      const HM = WIN.__g1356hc || [0.52, 0.4, 0.58];
-      for (const mm of [].concat(BLOCK_MATS[T.HEATHER] || [])) if (mm && mm.color) { mm.color.setRGB(HM[0], HM[1], HM[2]); mm.needsUpdate = true; U.heather++; }
-      try { if (WIN.__TA && __TA.flush) __TA.flush(); } catch (_) {}
+      /* r1 showed a plain multiplier keeps the flowers neon magenta, so the texture itself is re-toned once: 45% towards its own
+         grey, then a purple-brown tint (Calluna moor in bloom), same pattern and size. The material colour stays white. */
+      const HM = WIN.__g1356hc || [0.86, 0.68, 0.8], DS = WIN.__g1356hd != null ? WIN.__g1356hd : 0.45;
+      const tone = (mm) => { const im = mm.map && mm.map.image; if (!im || mm.map.g1356) return false; if (!(im.width || im.naturalWidth) || im.complete === false) return false;
+        const w = im.width || im.naturalWidth, h = im.height || im.naturalHeight, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.drawImage(im, 0, 0);
+        const d = g.getImageData(0, 0, w, h), a = d.data; for (let i = 0; i < a.length; i += 4) { const l = 0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2];
+          for (let k = 0; k < 3; k++) a[i + k] = Math.max(0, Math.min(255, (a[i + k] + (l - a[i + k]) * DS) * HM[k])); }
+        g.putImageData(d, 0, 0); mm.map.image = c; mm.map.g1356 = 1; mm.map.needsUpdate = true; U.heather++; return true; };
+      const all = () => { let left = 0; for (const mm of [].concat(BLOCK_MATS[T.HEATHER] || [])) if (mm && mm.map && !mm.map.g1356) { if (!tone(mm)) left++; } return left; };
+      if (all()) { let n = 0; const iv = setInterval(() => { if (!all() || ++n > 60) clearInterval(iv); }, 500); }
     }
     /* t1356: a direct Scotland pass (tools, tests, a later re-run) grows the 2x world first too, same as C341 migrate */
     try { const A = WIN.__c341; if (A && A.scot && !A.scot.g1356) { const s0 = A.scot; A.scot = function () { try { if (WIN.__v1308 && __v1308.preScot) __v1308.preScot(); } catch (_) {} return s0.apply(this, arguments); }; A.scot.g1356 = 1; } } catch (_) {}
