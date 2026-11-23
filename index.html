@@ -98797,10 +98797,15 @@ try {
         T.PLANKS, T.GLASS, T.FENCE, T.DOOR, T.DOORTOP, T.TORCH, T.BED, T.TALLGRASS, T.SNOW, T.COALORE, T.IRONORE, T.COPPERORE, T.SILVERORE, 167].filter(v => v !== undefined));
       const isSoft = b => soft.has(b) || !!(LEAFY && LEAFY[b]) || !!(LOGGY && LOGGY[b]) || !!(PLANT && PLANT[b]);
       const natTop = (x, z) => { for (let y = H - 3; y > 1; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !(LEAFY && LEAFY[b]) && !(LOGGY && LOGGY[b]) && !(PLANT && PLANT[b])) return y; } return SEA; };
-      function seat(K) { const cx = K.cx, cz = K.cz, NA = 48, ring = [];
+      // the lit gold portal (EG1269) by the clan castle: its columns are left alone and its blocks put back after the build
+      const keepPortal = (cx, cz) => { const P = T.EGYPTPORTAL || 773, G = T.GOLDBLOCK || 75, blocks = [], cols = new Set();
+        for (let x = cx - 40; x <= cx + 40; x++) for (let z = cz - 40; z <= cz + 40; z++) { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
+          for (let y = 2; y < H - 2; y++) { const i = idx(x, y, z), b = world[i]; if (b === P || b === G) { blocks.push([i, b]); for (let a = -1; a <= 1; a++) for (let q = -1; q <= 1; q++) cols.add((x + a) * 4096 + z + q); } } }
+        return blocks.some(e => e[1] === P) ? {blocks, cols} : {blocks: [], cols: new Set()}; };
+      function seat(K, keep) { const cx = K.cx, cz = K.cz, NA = 48, ring = [];
         for (let a = 0; a < NA; a++) { const an = a / NA * 6.2832; ring.push(Math.max(SEA, natTop(Math.round(cx + Math.cos(an) * (RB + 2)), Math.round(cz + Math.sin(an) * (RB + 2))))); }
         const srt = ring.slice().sort((p, q) => p - q); const gy = Math.max(SEA + 2, srt[NA >> 1]); const snowy = K.kind === 'mossy';
-        for (let dx = -RB; dx <= RB; dx++) for (let dz = -RB; dz <= RB; dz++) { const r = Math.hypot(dx, dz); if (r > RB) continue; const x = cx + dx, z = cz + dz; if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
+        for (let dx = -RB; dx <= RB; dx++) for (let dz = -RB; dz <= RB; dz++) { const r = Math.hypot(dx, dz); if (r > RB) continue; const x = cx + dx, z = cz + dz; if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue; if (keep && keep.cols.has(x * 4096 + z)) continue;
           let an = Math.atan2(dz, dx); if (an < 0) an += 6.2832; const f = an / 6.2832 * NA, i0 = Math.floor(f) % NA, i1 = (i0 + 1) % NA, w = f - Math.floor(f);
           const rim = Math.max(SEA + 1, ring[i0] * (1 - w) + ring[i1] * w), t = r <= RF ? 0 : ss((r - RF) / (RB - RF));
           const h = Math.round(gy + (rim - gy) * t + (r > RF ? (h3(x, 6, z) - 0.5) * 0.8 : 0));
@@ -98813,9 +98818,20 @@ try {
         try { if (typeof markDirty === 'function') for (let x = cx - RB; x <= cx + RB; x += 8) for (let z = cz - RB; z <= cz + RB; z += 8) markDirty(x, z); } catch (_) {}
         return gy; }
       const fresh = (K, fn) => { const ps = (typeof placedSet !== 'undefined') ? placedSet : null; if (ps) placedSet = new Set();
-        try { const gy = seat(K); U.seat = U.seat || {}; U.seat[K.kind] = {cx: K.cx, cz: K.cz, gy, was: K.gy};
-          const K2 = C.ctx ? C.ctx([K.kind, K.cx, K.cz], K.ci, gy + 1, K.rot) : K; const r = fn(K2); K.lights = K2.lights; K.chestsN = K2.chestsN; return r; }
+        try { const kp = keepPortal(K.cx, K.cz); const gy = seat(K, kp); U.seat = U.seat || {}; U.seat[K.kind] = {cx: K.cx, cz: K.cz, gy, was: K.gy};
+          const K2 = C.ctx ? C.ctx([K.kind, K.cx, K.cz], K.ci, gy + 1, K.rot) : K; const r = fn(K2); for (const [i, b] of kp.blocks) world[i] = b; if (kp.blocks.length) U.portalKept = kp.blocks.length; if (K.kind === 'human') try { fixPortal(null); } catch (e) { ERR('portal2', e); } K.lights = K2.lights; K.chestsN = K2.chestsN; return r; }
         finally { if (ps) { for (const i of placedSet) ps.add(i); placedSet = ps; } } };
+      // C151 work clears the plot (r 23) before any builder runs, which cut the gold portal in half: keep it across the whole work call
+      const w0 = C.work; if (w0) C.work = function () { if (!on()) return w0.apply(this, arguments); let kp = null;
+        try { const h = (typeof g9castles !== 'undefined' && g9castles || []).find(c => c[0] === 'human'); if (h) kp = keepPortal(h[1], h[2]); } catch (_) {}
+        try { return w0.apply(this, arguments); } finally { try { fixPortal(kp); } catch (e) { ERR('portal', e); } } };
+      function fixPortal(kp) { if (kp) for (const [i, b] of kp.blocks) world[i] = b;
+        const E = WIN.__egypt1269, P = T.EGYPTPORTAL || 773, h = (typeof g9castles !== 'undefined' && g9castles || []).find(c => c[0] === 'human'); if (!E || !E.returnAt || !h) return;
+        const [rx, ry, rz] = E.returnAt, X = Math.floor(rx), Y = Math.round(ry) - 1, Z = Math.floor(rz); if (Math.hypot(X - h[1], Z - h[2]) > 40) return;
+        let n = 0; for (let x = X - 1; x <= X + 2; x++) for (let y = Y; y <= Y + 4; y++) if (world[idx(x, y, Z)] === P) n++;
+        if (n < 6) { for (let x = X - 1; x <= X + 2; x++) for (let z = Z - 1; z <= Z + 1; z++) for (let y = Y + 1; y <= Y + 5; y++) world[idx(x, y, z)] = 0; E.placeReturn(X, Y, Z, 0); U.portalFixed = (U.portalFixed || 0) + 1; }
+        try { if (typeof markDirty === 'function') { markDirty(X, Z); markDirty(X + 1, Z); } } catch (_) {} }
+      U.fixPortal = fixPortal;
       C.B.human = function (K) { if (on()) { try { return fresh(K, designClan); } catch (e) { ERR('clan', e); } } return h0 ? h0.apply(this, arguments) : {}; };
       C.B.mossy = function (K) { if (on()) { try { return fresh(K, designMossy); } catch (e) { ERR('mossy', e); } } return m0 ? m0.apply(this, arguments) : {}; };
       U.hooks++;
