@@ -98149,6 +98149,11 @@ try {
     const u = (lon - U.lonW) / (U.lonE - U.lonW);
     const v = (U.latN - lat) / (U.latN - U.latS);
     if (u < -0.04 || u > 1.04 || v < -0.04 || v > 1.04) return null;
+    /* t1352: the painted chart is not a true projection; a coastline-fitted thin-plate spline (GLX-MAPWARP in GB6)
+       puts the arrow where it really is on the art. The linear box below stays as the fallback. */
+    try { const MW = window.__mapWarp; if (MW && MW.on && MW.px) { const q = MW.px(lat, lon), sx = (U.tw || U.artW) / MW.W, sy = (U.th || U.artH) / MW.H;
+        const fx0 = U.fx0 * (U.tw || U.artW) / U.artW, fy0 = U.fy0 * (U.th || U.artH) / U.artH, fx1 = U.fx1 * (U.tw || U.artW) / U.artW, fy1 = U.fy1 * (U.th || U.artH) / U.artH;
+        if (q && isFinite(q[0]) && isFinite(q[1])) return [Math.max(fx0, Math.min(fx1, q[0] * sx)), Math.max(fy0, Math.min(fy1, q[1] * sy))]; } } catch (e) { ERR('warp', e); }
     const uc = Math.max(0, Math.min(1, u)), vc = Math.max(0, Math.min(1, v));
     const sx = (U.tw || U.artW) / U.artW, sy = (U.th || U.artH) / U.artH;
     const x0 = U.fx0 * sx, y0 = U.fy0 * sy, x1 = U.fx1 * sx, y1 = U.fy1 * sy;
@@ -98946,6 +98951,16 @@ try {
       const lx = (x > w * 0.62 || x < w * 0.33) ? x - (28 + 92) * s : x + 26 * s;
       g.drawImage(I, i * 92 * R, 72 * R, 92 * R, 30 * R, lx, y - 17 * s, 92 * s, 30 * s); }
     M.img = cv; M._texGen = (M._texGen || 0) + 1; try { if (M.paint) M.paint(); } catch (_) {} }
+  /* GLX-MAPWARP */
+  /* ---------- 8) held map projection: thin-plate spline from lat/lon to the painted chart (t1352) ----------
+     The painted art is not a true projection (Ireland sits much further north, Wales further west), so the old linear
+     lat/lon box put Ireland over Wales. 25 coastline control points picked on this art (qa/t1342/cp/fit_tps.py,
+     LOO rms 24 px, the linear box was 99.5 px rms) drive a TPS used by the red arrow (GLX-MAP1317 worldToCanvas)
+     and the castle marks alike. Output is in the 746x1024 art. */
+  const MW = WIN.__mapWarp = {on: 1, W: 746, H: 1024, c54: Math.cos(54 * Math.PI / 180),
+    src: [[-2.938926, 58.625], [-1.77805, 58.645], [-1.178509, 57.698], [-1.04038, 57.47], [-3.679536, 58.515], [-3.410918, 55.31], [-2.854873, 54.635], [-2.110149, 54.492], [-2.566858, 54.416], [-2.804323, 54.055], [-2.68324, 53.405], [-2.797858, 52.8], [-3.12114, 51.9], [-3.359781, 50.066], [-3.057659, 49.959], [0.805854, 51.14], [1.033326, 52.481], [-0.047023, 54.116], [-4.333741, 55.381], [-3.614879, 55.222], [-3.379765, 54.68], [-3.644269, 53.35], [-3.738314, 52.17], [-5.772051, 51.45], [-5.877853, 54.3]], wx: [-4.895001, -3.496392, 28.358885, -24.209559, 4.722402, -42.801088, -21.353022, 10.944783, -12.021868, 32.94393, -36.552784, 17.47867, -33.719658, -20.487947, 16.648939, 6.401927, -6.334486, 8.261818, -17.461078, 62.017537, -0.935858, 5.08392, 28.137373, 3.603665, -0.335108, 369.700435, 95.73464, 1.421176], wy: [-1.526445, 2.96206, 2.16681, -4.59965, 0.593383, -54.055684, -42.397128, -24.19638, 54.703554, 3.74253, -11.669042, 4.200423, 0.389188, 1.333942, 0.839634, 0.704321, -5.794227, 10.454403, -12.513021, 69.284257, 13.523549, -12.811021, 6.013982, -3.966686, 2.617248, 5122.146854, 5.873084, -83.545833]};
+  MW.px = (lat, lon) => { const fx = lon * MW.c54, fy = lat, S = MW.src, n = S.length; let x = MW.wx[n] + MW.wx[n + 1] * fx + MW.wx[n + 2] * fy, y = MW.wy[n] + MW.wy[n + 1] * fx + MW.wy[n + 2] * fy;
+    for (let i = 0; i < n; i++) { const dx = fx - S[i][0], dy = fy - S[i][1], d2 = dx * dx + dy * dy; if (d2 > 1e-18) { const u = 0.5 * d2 * Math.log(d2); x += u * MW.wx[i]; y += u * MW.wy[i]; } } return [x, y]; };
   U.marks = MK; U.markNow = () => { MK.key = ''; marks(); return MK.pts; };
   try { setInterval(() => { try { marks(); } catch (e) { ERR('marks', e); } }, 1000); } catch (_) {}
   /* clansmen at the clan keeps out on the land (the on-grid clan castle keeps its own spawner) */
