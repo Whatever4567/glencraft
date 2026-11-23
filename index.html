@@ -99257,6 +99257,7 @@ try {
         try { upgrade(g, id); } catch (e) { ERR('mi', e); }
         return g;
       };
+      for (const k of Object.keys(mi)) { try { makeItemMesh[k] = mi[k]; } catch (_) {} }
       makeItemMesh.__fp1347 = 1;
       U.wraps++;
       return true;
@@ -99269,28 +99270,101 @@ try {
      low right, barrel angled in toward the centre. Aim: the gun slides
      along the eye ray so the sight stays on the crosshair but less of the
      stock and hand fills the screen. All values are camera space. */
-  const GT = U.gunTune = {hip: {yaw: 0.16, pitch: 0.03, roll: -0.10, dx: -0.02, dy: -0.01, dz: 0.0}, adsF: 1.35, on: 1};
-  const gq = {a: null, b: null, e: null, v: null, w: null};
+  // Hip pose by screen fraction, so portrait and landscape frame alike:
+  // wrist (right hand) at (wx, wy) of the half-screen at depth wz; the barrel
+  // points at screen point (ax, ay); cant = roll (rad). adsF pushes the aimed
+  // gun along the eye ray (sight stays on the crosshair, stock/hand smaller).
+  const GT = U.gunTune = {wx: 0.55, wy: -0.85, wz: -0.30, ax: -0.15, ay: 0.0, cant: -0.25, adsF: 1.7, sx: 0.10, sy: -0.10, sz: 0.0, kr: 1.2, on: 1};
+  // sx/sy/sz: the arms are solved with the gun shifted by -s, then gun and arm
+  // rig move together by +s (shoulders effectively lower and more central, so
+  // the support arm comes up from the bottom instead of across the screen).
+  const gq = {};
   function frameGun() {
     const T = T3(); if (!GT.on) return;
     if (!W.__vm || !W.__vm.on || !W.__fpa || !W.__fpa.fromVm) return;
     if (typeof hand === 'undefined' || !hand || hand.parent !== camera) return;
     const g = held && held.children[0]; if (!g || !g.userData || +g.userData.gun !== 213) return;
-    if (!gq.a) { gq.a = new T.Quaternion(); gq.e = new T.Euler(); gq.v = new T.Vector3(); gq.w = new T.Vector3(); }
-    const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k), h = 1 - e, H = GT.hip;
-    const sg = W.__vm.sight; const piv = gq.w.set(sg ? sg[0] : 0.12, sg ? sg[1] : -0.06, sg ? sg[2] : -0.28);
-    gq.e.set(H.pitch * h, H.yaw * h, H.roll * h, 'YXZ'); gq.a.setFromEuler(gq.e);
-    gq.v.copy(hand.position).sub(piv).applyQuaternion(gq.a).add(piv);
-    gq.v.x += H.dx * h; gq.v.y += H.dy * h; gq.v.z += H.dz * h;
-    gq.v.multiplyScalar(1 + (GT.adsF - 1) * e);
-    hand.position.copy(gq.v); hand.quaternion.premultiply(gq.a);
+    let mdl = null; for (const c of g.children) if (c.name === 'fp1347Model') mdl = c; if (!mdl) return;
+    if (!gq.q) { gq.q = new T.Quaternion(); gq.qi = new T.Quaternion(); gq.m = new T.Matrix4(); gq.mi = new T.Matrix4(); gq.a = new T.Vector3(); gq.b = new T.Vector3(); gq.c = new T.Vector3(); gq.d = new T.Vector3(); gq.e = new T.Vector3(); gq.f = new T.Vector3(); gq.x = new T.Vector3(); gq.y = new T.Vector3(); gq.z = new T.Vector3(); }
+    if (GT.kr != null) W.__kr = GT.kr;   // rifle support hand: fingers more forward, forearm from the lower left
+    const k = Math.max(0, Math.min(1, +W.__vm.k || 0)), e = k * k * (3 - 2 * k), h = 1 - e;
+    // current wrist / muzzle / up in camera space (model space -> camera, through hand)
+    const toCam = v => { for (let o = mdl; o && o !== camera; o = o.parent) { o.updateMatrix(); v.applyMatrix4(o.matrix); } return v; };
+    const sg0 = W.__vm.sight, piv0 = new T.Vector3(sg0 ? sg0[0] : 0, sg0 ? sg0[1] : 0.014, sg0 ? sg0[2] : -0.5);
+    const wC = toCam(gq.a.set(0, 0.012, 0.13)), mC = toCam(gq.b.set(0, 0.046, -0.73)), uC = toCam(gq.c.set(0, 0.2, 0.13)).sub(wC).normalize();
+    const dC = mC.clone().sub(wC).normalize();
+    // desired
+    const fk = (W.__heldFrame1251 && W.__heldFrame1251.fovK) || 1;
+    const tv = Math.tan(camera.fov * fk * Math.PI / 360), th = tv * (camera.aspect || 1);
+    const wz = GT.wz, wT = gq.d.set(GT.wx * th * -wz - GT.sx, GT.wy * tv * -wz - GT.sy, wz - GT.sz);
+    const far = -3, aim = gq.e.set(GT.ax * th * -far, GT.ay * tv * -far, far);
+    const dT = aim.sub(wT).normalize();
+    const uT0 = gq.f.set(0, 1, 0); uT0.addScaledVector(dT, -uT0.dot(dT)).normalize(); uT0.applyAxisAngle(dT, GT.cant);
+    // rotation: current basis -> desired basis
+    const rC = gq.x.crossVectors(dC, uC).normalize(), uCo = new T.Vector3().crossVectors(rC, dC);
+    gq.m.makeBasis(rC, uCo, dC.clone().negate());   // right-handed: r x u = -d
+    const rT = gq.y.crossVectors(dT, uT0).normalize(), uTo = gq.z.crossVectors(rT, dT);
+    gq.mi.makeBasis(rT, uTo, dT.clone().negate());
+    const qC = new T.Quaternion().setFromRotationMatrix(gq.m), qT = new T.Quaternion().setFromRotationMatrix(gq.mi);
+    const q = qT.multiply(qC.invert());               // maps current -> desired
+    gq.qi.identity().slerp(q, h);                     // fade out into the aim pose
+    const off = hand.position.clone().sub(wC).applyQuaternion(gq.qi);
+    const wB = wC.clone().lerp(wT, h);
+    hand.position.copy(wB).add(off);
+    hand.quaternion.premultiply(gq.qi);
+    hand.position.addScaledVector(piv0, (GT.adsF - 1) * e);   // slide along the eye ray through the sight
+    // ads: the shoulder shift fades out with the hip pose (sight stays on the crosshair)
+    hand.position.x -= GT.sx * e; hand.position.y -= GT.sy * e; hand.position.z -= GT.sz * e;   // postGun adds +s back
+    gq.on = 1; gq.h = h;
     U.gunFramed = (U.gunFramed || 0) + 1;
+  }
+  /* After every other hand pass this frame (held-frame offsets included), move
+     the gun and the arm rig together by the shoulder shift. */
+  function postGun() {
+    if (!gq.on) return; gq.on = 0;
+    if (!W.__vm || !W.__vm.on || typeof hand === 'undefined' || hand.parent !== camera) return;
+    const R = W.__fpa && W.__fpa.rig && W.__fpa.rig(); if (!R || R.parent !== camera) return;
+    hand.position.x += GT.sx; hand.position.y += GT.sy; hand.position.z += GT.sz;
+    R.position.set(GT.sx, GT.sy, GT.sz);
+    U.gunPost = (U.gunPost || 0) + 1;
+  }
+  function wrapUH() {
+    try {
+      if (typeof updateHand !== 'function' || updateHand.__fp1347) return;
+      const prev = updateHand, layer = (U.uhWraps || 0) + 1; U.uhWraps = layer;
+      updateHand = function () { const r = prev.apply(this, arguments); if (layer === U.uhWraps) { try { postGun(); } catch (e) { ERR('pg', e); } } return r; };
+      for (const k of Object.keys(prev)) { try { updateHand[k] = prev[k]; } catch (_) {} }
+      updateHand.__fp1347 = 1;
+    } catch (e) { ERR('wuh', e); }
+  }
+  /* held-frame table (__heldFrame1251.FRAME): its offsets move the hand after
+     the arms are solved, so for the long gun they must be zero (no detached
+     hands); the gun framing above owns the musket pose. */
+  // U.frameTune[kind][field] = number or function(aspect) -> number; fields we
+  // list are pinned (other passes still write the rest, which pass through).
+  const FT = U.frameTune = {musket: {dx: 0, dy: 0, dz: 0}};
+  function frameTable() {
+    const HF = W.__heldFrame1251; if (!HF || !HF.FRAME) return;
+    for (const kind of Object.keys(FT)) {
+      const F = HF.FRAME[kind]; if (!F) continue;
+      for (const fld of ['dx', 'dy', 'dz', 'fov', 's', 'armS']) {
+        const d = Object.getOwnPropertyDescriptor(F, fld);
+        if (d && d.get && d.get.__fp1347) continue;
+        let shadow = d ? d.value : 0;
+        const get = function () { const t = FT[kind] && FT[kind][fld]; if (t == null) return shadow; if (typeof t === 'function') { try { return t((typeof camera !== 'undefined' && camera.aspect) || 1, shadow); } catch (_) { return shadow; } } return t; };
+        get.__fp1347 = 1;
+        try { Object.defineProperty(F, fld, {get, set(v) { shadow = v; }, configurable: true, enumerable: true}); } catch (_) {}
+      }
+    }
   }
   function wrapStep() {
     try {
       const F = W.__fpa; if (!F || typeof F.step !== 'function' || F.step.__fp1347) return;
-      const prev = F.step;
-      F.step = function () { try { frameGun(); } catch (e) { ERR('fg', e); } return prev.apply(this, arguments); };
+      const prev = F.step, layer = (U.stepWraps || 0) + 1; U.stepWraps = layer;
+      // later modules re-wrap step on top; only the outermost of our layers frames
+      F.step = function () { if (layer === U.stepWraps) { try { frameGun(); } catch (e) { ERR('fg', e); } } return prev.apply(this, arguments); };
+      // keep the inner wrappers' own flags visible (e.g. __is1266) so they do not re-wrap on top forever
+      for (const k of Object.keys(prev)) { try { F.step[k] = prev[k]; } catch (_) {} }
       F.step.__fp1347 = 1;
     } catch (e) { ERR('ws', e); }
   }
@@ -99298,7 +99372,7 @@ try {
      live held item in place (the held tree also covers GLB attach). */
   function tick() {
     try {
-      wrap(); wrapStep();
+      wrap(); wrapStep(); wrapUH(); frameTable();
       if (typeof held === 'undefined' || !held) return;
       let id = null; try { id = selId; } catch (_) {}
       U.kind = '';
