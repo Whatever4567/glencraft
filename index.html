@@ -93902,6 +93902,7 @@ try {
       } catch (_) {}
       const C = window.__c112;
       if (!plane || !C || !C.TX || !THREE) return;
+      try { const M7 = window.__map1357; if (M7 && M7.bind && M7.bind(plane)) return; } catch (_) {}   /* t1357 sharp texture */
       let mat = plane.material;
       const img = C.TX;
       const map = mat && mat.map;
@@ -93945,18 +93946,21 @@ try {
       /* Modest scale: large enough to read, not a hand-moving FRAME lock. */
       const maxHalf = Math.min(halfX, halfY) * (land ? 0.55 : 0.82);
       const sCap = land ? 0.95 : 0.88;
-      const s = Math.max(0.42, Math.min(sCap, (2 * maxHalf) / 0.34));
+      let s = Math.max(0.42, Math.min(sCap, (2 * maxHalf) / 0.34));
       const hs = 0.17 * s;
 
       let cx = d.palmC.x;
       let cy = d.palmC.y + hs * 0.92;
-      const z = depth + 0.01;
+      let z = depth + 0.01;
       const limitX = Math.max(hs + 0.01, halfX * 0.90);
       const limitY = Math.max(hs + 0.01, halfY * 0.90);
       if (cx + hs > limitX) cx = limitX - hs;
       if (cx - hs < -limitX) cx = -limitX + hs;
       if (cy + hs > limitY) cy = limitY - hs;
       if (cy - hs < -limitY) cy = -limitY + hs;
+      /* t1357: GLX-MAP1357 holds the sheet big, flat and square-on (window.__noMap1357 = 1 restores the seat above) */
+      let tilt = -0.22, flat = 0;
+      try { const M7 = window.__map1357; if (M7 && M7.on && !window.__noMap1357 && M7.seat) { const o = M7.seat({palm: d.palmC, halfX, halfY, depth, asp, cam}); if (o) { cx = o.cx; cy = o.cy; z = o.z; s = o.s; tilt = o.tilt; flat = o.flat ? 1 : 0; } } } catch (e) { ERR('m1357', e); }
       U.lastSeat = { asp: +asp.toFixed(3), halfX: +halfX.toFixed(3), halfY: +halfY.toFixed(3),
         cx: +cx.toFixed(3), cy: +cy.toFixed(3), z: +z.toFixed(3), s: +s.toFixed(3),
         palm: [+d.palmC.x.toFixed(3), +d.palmC.y.toFixed(3), +d.palmC.z.toFixed(3)] };
@@ -93965,8 +93969,8 @@ try {
       O.position.set(cx, cy, z);
       O.quaternion.identity();
       O.up.set(0, 1, 0);
-      O.lookAt(0, 0, 0);
-      O.rotateX(-0.22);
+      if (!flat) O.lookAt(0, 0, 0);
+      O.rotateX(tilt);
       O.updateMatrix();
 
       d.mw.copy(cam.matrixWorld).multiply(O.matrix);
@@ -98178,6 +98182,13 @@ try {
       if (!C || !C.TX || !U.img || !U.ready) return;
       const TX = C.TX, w = U.tw, h = U.th;
       if (!w || !h) return;
+      /* t1357: with GLX-MAP1357 on, the sheet wears its own sharp texture, so TX (third-person card, tests) is
+         repainted only when the art changes or once a second instead of every frame (and never re-uploaded here). */
+      const M7 = window.__map1357, own = !!(M7 && M7.on && !window.__noMap1357 && M7.bind);
+      if (own) { const pl = sheet(); const nowT = performance.now();
+        if (pl && M7.bind(pl) && TX.width === w && TX.height === h && U._paintGen === U._texGen && nowT - (U._paintT || 0) < 1000) return;
+        U._paintGen = U._texGen; U._paintT = nowT;
+        if (pl && M7.owns && M7.owns(pl)) { if (TX.width !== w || TX.height !== h) { TX.width = w; TX.height = h; } const tg0 = TX.getContext('2d'); tg0.setTransform(1, 0, 0, 1, 0, 0); tg0.clearRect(0, 0, w, h); tg0.drawImage(U.img, 0, 0, w, h); U.painted = 1; return; } }
       if (TX.width !== w || TX.height !== h) { TX.width = w; TX.height = h; U._texGen = (U._texGen || 0) + 1; }
       const tg = TX.getContext('2d');
       tg.setTransform(1, 0, 0, 1, 0, 0);
@@ -98280,6 +98291,7 @@ try {
 
   function fitSeat() {
     try {
+      if (window.__map1357 && window.__map1357.on && !window.__noMap1357) return;   /* t1357: MAP1357 sizes the sheet */
       const plane = sheet(); if (!plane || !U.tw || !U.th) return;
       const asp = U.th / U.tw;
       const last = window.__pickMap1293 && window.__pickMap1293.lastSeat;
@@ -99253,6 +99265,313 @@ try {
     setInterval(() => { try { if (typeof current === 'undefined' || !current || current.g1340v !== 0 || (DIM && DIM.cur)) return; if (!fresh()) { if (current.mc1327 === false || (WIN.__c341 && __c341.done && WIN.__v1308 && !__v1308.isScaled())) current.g1340v = 1; return; }
       const A = WIN.__c341; if (!A || !A.done || A.busy || !(WIN.__v1308 && __v1308.surfMs >= 0) || !current.v1300sb) return; current.g1340v = 1; run(); } catch (e) { if (!U.err) U.err = 'poll ' + String(e).slice(0, 160); } }, 700);
   } catch (e) { U.err = String(e).slice(0, 200); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script id="glx-map1357">
+/* GLX-MAP1357 (t1357): a held map you can actually read.
+   Research (Minecraft's held map grows and centres when you look down; Far Cry 2 / Firewatch hold a big, flat
+   paper map in front of the camera; most games add a full-screen map on one button) led to three changes:
+   1) The sheet is held big, flat and square-on to the camera (no tilt, no perspective skew), about 80% of the
+      screen height, nearer than the hand so the hand grips its right edge instead of covering the art.
+      FIX1293 still unstashes and seats it; this only supplies the seat numbers (FIX1293 calls __map1357.seat).
+   2) The sheet uses a sharp 1200x1648 copy of the painted chart (assets/ui/uk-hand-map-hd.webp) with mipmaps and
+      anisotropic filtering, and is only re-uploaded when the castle marks change (MAP1317 used to re-upload the
+      chart every frame).
+   3) A full-screen map view: LT / right-click / USE with the map in hand (when not aiming at a door, chest, table
+      or similar), R3, M, or the "Map" button opens it. Pinch, +/- buttons, wheel, LB/RB or A zoom; drag, sticks,
+      D-pad or mouse pan; "Me" re-centres; B, LT, Esc, M or the close button closes it.
+   Hands, guns, __fpa, the torch/pick jitter fixes, controller menus and saved settings are not touched.
+   Off switch: window.__noMap1357 = 1 (old seat and texture come straight back). */
+(function map1357(WIN) {
+  const U = WIN.__map1357 = {err: null, on: 1, version: 't1357', open: 0, opens: 0, seats: 0, binds: 0, uploads: 0, hdReady: 0, zoom: 1,
+    F_LAND: 0.80, F_PORT: 0.62, TOP: 0.90, GRIP: 0.035, TILT: -0.03};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 260); };
+  const T3 = () => (typeof THREE !== 'undefined' && THREE) || WIN.THREE || null;
+  const live = () => U.on && !WIN.__noMap1357;
+  const MAP_ID = () => { try { return (typeof IT !== 'undefined' && IT.MAP) || 410; } catch (_) { return 410; } };
+  const mapHeld = () => { try { return started && !dead && (selId === MAP_ID() || selId === 410) && cnt(selId) > 0 && !(typeof camMode !== 'undefined' && camMode); } catch (_) { return false; } };
+
+  /* ---------- 1) seat: called from FIX1293 seatMap with camera-space numbers ---------- */
+  U.seat = function (a) {
+    try {
+      if (!live()) return null;
+      const M = WIN.__map1317; const art = (M && M.tw) ? M.th / M.tw : 1648 / 1200;
+      const cam = a.cam, tf = Math.tan(((cam && cam.fov) || 75) * Math.PI / 360), asp = a.asp || 1;
+      const pz = (a.palm && a.palm.z < -0.28) ? a.palm.z : -0.48;
+      const z = pz + 0.13;                        // nearer than the hand: the sheet hides the fingers instead of the other way round
+      const hY = tf * Math.abs(z), hX = hY * asp;
+      const land = asp >= 1;
+      let H = (land ? U.F_LAND : U.F_PORT) * 2 * hY;   // sheet height on screen
+      let Wd = H / art;
+      const maxW = (land ? 0.62 : 0.94) * 2 * hX;
+      if (Wd > maxW) { Wd = maxW; H = Wd * art; }
+      const s = Wd / 0.34;
+      // the palm, projected to the sheet's depth
+      const k = Math.abs(z) / Math.abs(a.palm && a.palm.z || pz);
+      const px = (a.palm ? a.palm.x : 0) * k;
+      let cx = land ? px - Wd / 2 + U.GRIP * k : 0;   // right edge just past the palm: the hand grips that edge
+      let cy = U.TOP * hY - H / 2;
+      const lim = 0.96 * hX - Wd / 2; if (cx < -lim) cx = -lim; if (cx > lim) cx = lim;
+      if (cy - H / 2 < -0.96 * hY) cy = -0.96 * hY + H / 2;
+      U.seats++;
+      U.last = {asp: +asp.toFixed(3), s: +s.toFixed(3), cx: +cx.toFixed(3), cy: +cy.toFixed(3), z: +z.toFixed(3), hY: +hY.toFixed(3), fracH: +(H / (2 * hY)).toFixed(3), fracW: +(Wd / (2 * hX)).toFixed(3)};
+      return {cx, cy, z, s, tilt: U.TILT, flat: 1};
+    } catch (e) { ERR('seat', e); return null; }
+  };
+
+  /* ---------- 2) sharp texture ---------- */
+  const HD = {img: null, cv: null, key: '', tex: null, want: 0};
+  function loadHD() {
+    if (HD.img) return;
+    HD.img = new Image();
+    HD.img.onload = function () { U.hdReady = 1; HD.key = ''; };
+    HD.img.onerror = function () { ERR('hd', 'failed to load hd chart'); };
+    HD.img.src = 'assets/ui/uk-hand-map-hd.webp';
+  }
+  function marksPts() { try { const G = WIN.__gb6; return (G && G.marks && G.marks.pts) || []; } catch (_) { return []; } }
+  function marksImg() { try { const G = WIN.__gb6; const I = G && G.marks && G.marks.img; return I && I.complete && I.naturalWidth ? I : null; } catch (_) { return null; } }
+  const ICON = {black: 0, mossy: 1, human: 2, clanIre: 2, clanEA: 2};
+  /* the chart plus castle marks at full resolution (same sprite layout as GB6 marks, positions from its 746-wide art) */
+  function compose() {
+    if (!U.hdReady) return null;
+    const pts = marksPts(), I = marksImg();
+    const key = (I ? 'm' : '-') + pts.map(p => p[0] + '@' + p[1].toFixed(1) + ',' + p[2].toFixed(1)).join('|');
+    if (HD.cv && key === HD.key) return HD.cv;
+    const w = HD.img.naturalWidth, h = HD.img.naturalHeight;
+    const cv = HD.cv || (HD.cv = document.createElement('canvas')); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d'); g.imageSmoothingEnabled = true; try { g.imageSmoothingQuality = 'high'; } catch (_) {}
+    g.drawImage(HD.img, 0, 0, w, h);
+    if (I) {
+      const s = w / 746, R = 2;
+      for (const [k, x0, y0] of pts) { const i = ICON[k]; if (i === undefined) continue; const x = x0 * s, y = y0 * s;
+        g.drawImage(I, i * 72 * R, 0, 72 * R, 72 * R, x - 36 * s, y - 36 * s, 72 * s, 72 * s);
+        const lx = (x > w * 0.62 || x < w * 0.33) ? x - (28 + 92) * s : x + 26 * s;
+        g.drawImage(I, i * 92 * R, 72 * R, 92 * R, 30 * R, lx, y - 17 * s, 92 * s, 30 * s); }
+    }
+    HD.key = key; HD.gen = (HD.gen || 0) + 1;
+    return cv;
+  }
+  /* MAP1317 paint() and FIX1293 refreshMapTex() ask this first; true = the sheet already wears the sharp texture */
+  U.bind = function (plane) {
+    try {
+      if (!live() || !plane || !plane.material) return false;
+      loadHD();
+      const cv = compose(); if (!cv) return false;
+      const THREE = T3(); if (!THREE) return false;
+      if (!HD.tex || HD.tex.image !== cv) {
+        const tex = new THREE.CanvasTexture(cv);
+        let gl2 = false; try { gl2 = !!(renderer.capabilities && renderer.capabilities.isWebGL2); } catch (_) {}
+        tex.generateMipmaps = gl2;   // WebGL1 cannot mip a non-power-of-two texture
+        tex.minFilter = gl2 ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        try { tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (_) { tex.anisotropy = 4; }
+        try { if (renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; } catch (_) {}
+        tex.flipY = true; tex.needsUpdate = true; HD.tex = tex; HD.upGen = HD.gen; U.uploads++;
+      } else if (HD.upGen !== HD.gen) { HD.tex.needsUpdate = true; HD.upGen = HD.gen; U.uploads++; }
+      const mat = plane.material;
+      if (mat.map !== HD.tex) { mat.map = HD.tex; if (mat.color) mat.color.setHex(0xffffff); mat.needsUpdate = true; U.binds++; }
+      return true;
+    } catch (e) { ERR('bind', e); return false; }
+  };
+  U.owns = function (plane) { try { return live() && !!HD.tex && plane && plane.material && plane.material.map === HD.tex; } catch (_) { return false; } };
+
+  /* ---------- 3) full-screen map ---------- */
+  let ov = null, cvs = null, hint = null, pill = null, setMenu = false, view = {z: 1, cx: 0.5, cy: 0.5}, drawT = 0, raf = 0;
+  const css = '#map1357{position:fixed;inset:0;z-index:2147482000;display:none;background:radial-gradient(ellipse at center,rgba(40,30,18,.94),rgba(8,8,10,.97));touch-action:none;user-select:none;-webkit-user-select:none}' +
+    '#map1357.on{display:block}#map1357 canvas{position:absolute;inset:0;width:100%;height:100%}' +
+    '#map1357 .mb{position:absolute;min-width:46px;height:46px;padding:0 12px;border-radius:23px;border:2px solid #d9b45a;background:rgba(30,22,10,.82);color:#f3dfa6;font:700 20px/42px system-ui,sans-serif;text-align:center;box-sizing:border-box;cursor:pointer}' +
+    '#map1357 .mb:active{background:rgba(90,66,24,.9)}' +
+    '#map1357 .hint{position:absolute;left:50%;bottom:max(8px,env(safe-area-inset-bottom));transform:translateX(-50%);padding:4px 12px;border-radius:12px;background:rgba(0,0,0,.55);color:#e9dcb8;font:600 13px/1.35 system-ui,sans-serif;white-space:nowrap;pointer-events:none}' +
+    '#map1357pill{position:fixed;z-index:60;display:none;padding:0 12px;height:34px;border-radius:17px;border:2px solid #d9b45a;background:rgba(30,22,10,.78);color:#f3dfa6;font:700 15px/30px system-ui,sans-serif;box-sizing:border-box;pointer-events:auto;cursor:pointer;touch-action:manipulation}' +
+    '#map1357pill.on{display:block}';
+  function el(tag, attrs, parent, html) { const e = document.createElement(tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (html != null) e.innerHTML = html; if (parent) parent.appendChild(e); return e; }
+  function padNow() { try { return !!(typeof padConnected !== 'undefined' && padConnected && pickPad()); } catch (_) { return false; } }
+  function touchy() { try { return matchMedia('(pointer:coarse)').matches || 'ontouchstart' in WIN; } catch (_) { return false; } }
+  let cssDone = 0; function ensureCss() { if (!cssDone) { el('style', {}, document.head, css); cssDone = 1; } }
+  function mount() {
+    if (ov) return ov;
+    ensureCss();
+    ov = el('div', {id: 'map1357', role: 'dialog', 'aria-label': 'Map', 'data-testid': 'full-map'}, document.body);
+    cvs = el('canvas', {'data-testid': 'full-map-canvas'}, ov);
+    const btn = (txt, st, fn, tid) => { const b = el('button', {class: 'mb', style: st, 'data-testid': tid}, ov, txt); b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); }); return b; };
+    btn('&#10005;', 'top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right))', () => close(), 'full-map-close');
+    btn('+', 'top:max(10px,env(safe-area-inset-top));left:max(10px,env(safe-area-inset-left))', () => zoomBy(1.5), 'full-map-zoom-in');
+    btn('&minus;', 'top:max(64px,calc(env(safe-area-inset-top) + 54px));left:max(10px,env(safe-area-inset-left))', () => zoomBy(1 / 1.5), 'full-map-zoom-out');
+    btn('Me', 'top:max(118px,calc(env(safe-area-inset-top) + 108px));left:max(10px,env(safe-area-inset-left));font-size:16px', () => { view.follow = 1; draw(1); }, 'full-map-me');
+    hint = el('div', {class: 'hint'}, ov);
+    // touch / mouse: drag to pan, pinch or wheel to zoom, double-tap to zoom in
+    const pts = new Map(); let pinch = null, lastTap = 0;
+    cvs.addEventListener('pointerdown', e => { e.preventDefault(); try { cvs.setPointerCapture(e.pointerId); } catch (_) {} pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = {d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: view.z}; }
+      const now = performance.now(); if (pts.size === 1 && now - lastTap < 300) { zoomBy(2, e.clientX, e.clientY); lastTap = 0; } else lastTap = now; });
+    cvs.addEventListener('pointermove', e => { const p = pts.get(e.pointerId); if (!p) return; const dx = e.clientX - p[0], dy = e.clientY - p[1]; pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size >= 2 && pinch) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]); setZoom(pinch.z * d / Math.max(20, pinch.d)); }
+      else if (pts.size === 1) panPx(dx, dy); });
+    const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; };
+    cvs.addEventListener('pointerup', up); cvs.addEventListener('pointercancel', up);
+    ov.addEventListener('wheel', e => { e.preventDefault(); e.stopPropagation(); zoomBy(e.deltaY < 0 ? 1.25 : 0.8, e.clientX, e.clientY); }, {passive: false});
+    WIN.addEventListener('resize', () => { if (U.open) draw(1); });
+    return ov;
+  }
+  function geom() {
+    const vw = WIN.innerWidth || 800, vh = WIN.innerHeight || 450, img = HD.cv || compose() || (WIN.__map1317 && __map1317.img);
+    const iw = img ? (img.naturalWidth || img.width) : 1200, ih = img ? (img.naturalHeight || img.height) : 1648;
+    const fit = Math.min((vw - 16) / iw, (vh - 16) / ih);          // zoom 1 = the whole chart fits the screen
+    return {vw, vh, iw, ih, sc: fit * view.z, img};
+  }
+  function clampView() { const g = geom(); const hw = g.vw / (2 * g.sc * g.iw), hh = g.vh / (2 * g.sc * g.ih);
+    view.cx = hw >= 0.5 ? 0.5 : Math.max(hw, Math.min(1 - hw, view.cx)); view.cy = hh >= 0.5 ? 0.5 : Math.max(hh, Math.min(1 - hh, view.cy)); }
+  function setZoom(z, fx, fy) { const g0 = geom(); const z1 = Math.max(1, Math.min(5, z));
+    if (fx != null) { const u = view.cx + (fx - g0.vw / 2) / (g0.sc * g0.iw), v = view.cy + (fy - g0.vh / 2) / (g0.sc * g0.ih); view.z = z1; const g1 = geom();
+      view.cx = u - (fx - g1.vw / 2) / (g1.sc * g1.iw); view.cy = v - (fy - g1.vh / 2) / (g1.sc * g1.ih); }
+    else view.z = z1;
+    U.zoom = +view.z.toFixed(2); clampView(); draw(1); }
+  function zoomBy(f, fx, fy) { if (fx == null && view.z * f > 1.01 && view.z <= 1.01) { const q = me(); if (q) { view.cx = q[0]; view.cy = q[1]; } } setZoom(view.z * f, fx, fy); }
+  function panPx(dx, dy) { const g = geom(); view.follow = 0; view.cx -= dx / (g.sc * g.iw); view.cy -= dy / (g.sc * g.ih); clampView(); draw(1); }
+  function me() { try { const M = WIN.__map1317; if (!M || typeof P === 'undefined') return null; const q = M.worldToCanvas(P.x, P.z); if (!q) return null; return [q[0] / (M.tw || 746), q[1] / (M.th || 1024)]; } catch (_) { return null; } }
+  function hintText() {
+    if (padNow()) return '<b>B</b> close &middot; <b>LB</b>/<b>RB</b> or <b>A</b> zoom &middot; sticks or D-pad move &middot; <b>Y</b> centre on you';
+    if (touchy()) return 'Pinch, double-tap or <b>+</b>/<b>&minus;</b> to zoom &middot; drag to move &middot; <b>&#10005;</b> to close';
+    return '<b>M</b> or <b>Esc</b> close &middot; wheel or <b>+</b>/<b>&minus;</b> zoom &middot; arrows or mouse move';
+  }
+  function draw(force) {
+    if (!U.open || !cvs) return;
+    const now = performance.now(); if (!force && now - drawT < 66) return; drawT = now;
+    const g = geom(), dpr = Math.min(2.5, WIN.devicePixelRatio || 1);
+    const W2 = Math.round(g.vw * dpr), H2 = Math.round(g.vh * dpr);
+    if (cvs.width !== W2 || cvs.height !== H2) { cvs.width = W2; cvs.height = H2; }
+    if (view.follow && view.z > 1.01) { const q = me(); if (q) { view.cx = q[0]; view.cy = q[1]; clampView(); } }
+    const c = cvs.getContext('2d'); c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W2, H2);
+    const sc = g.sc * dpr, ox = W2 / 2 - view.cx * g.iw * sc, oy = H2 / 2 - view.cy * g.ih * sc;
+    c.imageSmoothingEnabled = true; try { c.imageSmoothingQuality = 'high'; } catch (_) {}
+    if (g.img) { c.save(); c.shadowColor = 'rgba(0,0,0,.6)'; c.shadowBlur = 18 * dpr; c.drawImage(g.img, ox, oy, g.iw * sc, g.ih * sc); c.restore(); }
+    // you: red arrow with a white rim and a soft ring so it is easy to find
+    const q = me();
+    if (q && !(typeof DIM !== 'undefined' && DIM.cur)) {
+      const x = ox + q[0] * g.iw * sc, y = oy + q[1] * g.ih * sc, r = Math.max(11, Math.min(20, 9 + view.z * 2)) * dpr;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 260);
+      c.beginPath(); c.arc(x, y, r * (1.5 + 0.35 * pulse), 0, 7); c.fillStyle = 'rgba(255,240,200,' + (0.18 + 0.12 * pulse).toFixed(3) + ')'; c.fill();
+      c.save(); c.translate(x, y); c.rotate(-((typeof P !== 'undefined' && P.yaw) || 0));
+      c.beginPath(); c.moveTo(0, -r); c.lineTo(r * 0.68, r * 0.8); c.lineTo(0, r * 0.38); c.lineTo(-r * 0.68, r * 0.8); c.closePath();
+      c.lineJoin = 'round'; c.lineWidth = 3.2 * dpr; c.strokeStyle = '#fff'; c.stroke(); c.fillStyle = '#d01818'; c.fill(); c.restore();
+      U.mePx = [Math.round(x / dpr), Math.round(y / dpr)];
+    } else U.mePx = null;
+    U.drawn = (U.drawn || 0) + 1;
+  }
+  function loop() { raf = 0; if (!U.open) return; draw(0); raf = requestAnimationFrame(loop); }
+  function open() {
+    if (!live() || U.open) return false;
+    try { loadHD(); mount(); compose(); } catch (e) { ERR('mount', e); return false; }
+    U.open = 1; U.opens++; view = {z: 1, cx: 0.5, cy: 0.5, follow: 0}; U.zoom = 1;
+    try { for (const k in keys) keys[k] = false; } catch (_) {}
+    try { if (typeof menuOpen !== 'undefined' && !menuOpen) { menuOpen = true; setMenu = true; } } catch (_) {}
+    try { syncPad(); } catch (_) {}
+    hint.innerHTML = hintText(); ov.classList.add('on'); draw(1); if (!raf) raf = requestAnimationFrame(loop);
+    return true;
+  }
+  function close() {
+    if (!U.open) return;
+    U.open = 0; if (ov) ov.classList.remove('on');
+    try { if (setMenu) menuOpen = false; } catch (_) {} setMenu = false;
+    try { for (const k in keys) keys[k] = false; } catch (_) {}
+    try { syncGame(); } catch (_) {}
+  }
+  U.openMap = open; U.closeMap = close; U.toggle = () => (U.open ? close() : open());
+  U.debug = () => ({open: U.open, zoom: U.zoom, last: U.last || null, seats: U.seats, binds: U.binds, uploads: U.uploads, hdReady: U.hdReady, owns: (function () { try { return U.owns(WIN.__map1317.sheet()); } catch (_) { return false; } })(), err: U.err, mePx: U.mePx || null});
+
+  /* controller: while the map is open it reads the pad itself; the game sees no buttons */
+  const pPrev = {};
+  function syncPad() { const gp = pickPad && pickPad(); if (!gp) return; for (let i = 0; i < 17; i++) { const b = gp.buttons[i]; pPrev[i] = !!(b && (b.pressed || b.value > 0.4)); } }
+  function syncGame() { try { const gp = pickPad && pickPad(); if (!gp || typeof gpPrev === 'undefined') return; for (let i = 0; i < 17; i++) { const b = gp.buttons[i]; gpPrev[i] = !!(b && (b.pressed || b.value > 0.4)); } } catch (_) {} }
+  function padMap() {
+    const gp = pickPad && pickPad(); if (!gp) return;
+    const pr = i => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.4));
+    const E = []; for (let i = 0; i < 17; i++) { const n = pr(i); E[i] = n && !pPrev[i]; pPrev[i] = n; }
+    if (E[1] || E[6] || E[11] || E[9]) { close(); return; }
+    if (E[5] || E[0]) zoomBy(E[0] && view.z >= 4.9 ? 0.2 : 1.5); if (E[4] || E[2]) zoomBy(1 / 1.5);
+    if (E[3]) { view.follow = 1; draw(1); }
+    const dz = v => (Math.abs(v) < 0.18 ? 0 : v);
+    let ax = dz(gp.axes[0] || 0) + dz(gp.axes[2] || 0), ay = dz(gp.axes[1] || 0) + dz(gp.axes[3] || 0);
+    if (pr(14)) ax -= 1; if (pr(15)) ax += 1; if (pr(12)) ay -= 1; if (pr(13)) ay += 1;
+    if (ax || ay) panPx(-ax * 14, -ay * 14);
+  }
+  function hookPad() {
+    try {
+      if (typeof readPad !== 'function' || readPad.__map1357) return;
+      const orig = readPad;
+      const wrapped = function () {
+        if (U.open) { try { padMap(); } catch (e) { ERR('pad', e); } return {lx: 0, ly: 0, rx: 0, ry: 0}; }
+        const r = orig.apply(this, arguments);
+        try { if (live() && mapHeld() && !menuOpen && !paused && typeof gpPrev !== 'undefined' && gpPrev[11] && !U._r3) { U._r3 = 1; open(); } if (!gpPrev[11]) U._r3 = 0; } catch (_) {}
+        return r;
+      };
+      wrapped.__map1357 = 1; readPad = wrapped; try { WIN.readPad = wrapped; } catch (_) {}
+    } catch (e) { ERR('hookPad', e); }
+  }
+  /* LT / right-click / USE with the map: open the full map unless aiming at something you use (door, chest, table...) */
+  const USE_RX = /DOOR|CHEST|CRAFT|TABLE|BED|FURN|TV|GATE|TRAP|LEVER|BUTTON|ANVIL|BARREL|PORTAL|JUKE|SIGN|BELL|LOOM|OVEN|ALTAR|SHRINE|CAULD|LECTERN|SAFE|MAILBOX/;
+  let useSet = null;
+  function usable(id) { try { if (!useSet) { useSet = new Set(); for (const k in T) if (USE_RX.test(k)) useSet.add(T[k]); } return useSet.has(id); } catch (_) { return false; } }
+  function hookUse() {
+    try {
+      if (typeof useItem !== 'function' || useItem.__map1357) return;
+      const orig = useItem;
+      const wrapped = function () {
+        try {
+          if (live() && mapHeld() && !menuOpen && !paused && !U.open) {
+            let tb = 0; try { const r = raycast(5); tb = r ? getB(...r.hit) : 0; } catch (_) {}
+            if (!usable(tb)) { open(); return; }
+          }
+        } catch (e) { ERR('use', e); }
+        return orig.apply(this, arguments);
+      };
+      wrapped.__map1357 = 1; useItem = wrapped; try { WIN.useItem = wrapped; } catch (_) {}
+    } catch (e) { ERR('hookUse', e); }
+  }
+  /* keyboard: M toggles; while open, keys go to the map only */
+  WIN.addEventListener('keydown', e => {
+    try {
+      if (U.open) {
+        e.preventDefault(); e.stopImmediatePropagation(); e.stopPropagation();
+        const c = e.code;
+        if (c === 'Escape' || c === 'KeyM' || c === 'KeyB') close();
+        else if (c === 'Equal' || c === 'NumpadAdd' || c === 'KeyE') zoomBy(1.5);
+        else if (c === 'Minus' || c === 'NumpadSubtract' || c === 'KeyQ') zoomBy(1 / 1.5);
+        else if (c === 'ArrowLeft' || c === 'KeyA') panPx(60, 0); else if (c === 'ArrowRight' || c === 'KeyD') panPx(-60, 0);
+        else if (c === 'ArrowUp' || c === 'KeyW') panPx(0, 60); else if (c === 'ArrowDown' || c === 'KeyS') panPx(0, -60);
+        else if (c === 'KeyC' || c === 'Space') { view.follow = 1; draw(1); }
+        return;
+      }
+      if (e.code === 'KeyM' && live() && mapHeld() && !menuOpen && !paused && !e.repeat) { e.preventDefault(); open(); }
+    } catch (err) { ERR('key', err); }
+  }, true);
+  WIN.addEventListener('keyup', e => { if (U.open) { e.stopImmediatePropagation(); } }, true);
+  document.addEventListener('mousemove', e => { try { if (U.open && document.pointerLockElement && view.z > 1.01) panPx(-e.movementX, -e.movementY); } catch (_) {} }, true);
+  WIN.addEventListener('wheel', e => { if (U.open) { e.stopImmediatePropagation(); e.stopPropagation(); } }, {capture: true, passive: true});
+
+  /* "Map" pill next to the held sheet (tap to open); shows LT / R3 when a controller is in use */
+  const pv = {v: null};
+  function placePill() {
+    try {
+      if (!pill) { ensureCss(); pill = el('button', {id: 'map1357pill', 'data-testid': 'held-map-open'}, document.body, 'Map');
+        pill.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); open(); }); }
+      const show = live() && mapHeld() && !U.open && !menuOpen && !paused && !(typeof DIM !== 'undefined' && DIM.cur);
+      const M = WIN.__map1317, plane = show && M && M.sheet && M.sheet(), THREE = T3();
+      if (!show || !plane || !plane.visible || !THREE || typeof camera === 'undefined') { pill.classList.remove('on'); return; }
+      const p = plane.geometry.parameters; plane.updateWorldMatrix(true, false);
+      const v = pv.v || (pv.v = new THREE.Vector3());
+      v.set(p.width / 2, p.height / 2, 0).applyMatrix4(plane.matrixWorld).project(camera);
+      const vw = WIN.innerWidth, vh = WIN.innerHeight; let x = (v.x * 0.5 + 0.5) * vw + 8, y = (-v.y * 0.5 + 0.5) * vh;
+      pill.innerHTML = padNow() ? '&#128269; Map <small>LT</small>' : '&#128269; Map';
+      x = Math.min(vw - 110, Math.max(8, x)); y = Math.min(vh - 50, Math.max(8, y));
+      pill.style.left = x.toFixed(0) + 'px'; pill.style.top = y.toFixed(0) + 'px'; pill.classList.add('on');
+      U.pillXY = [Math.round(x), Math.round(y)];
+    } catch (e) { ERR('pill', e); }
+  }
+  function install() { hookPad(); hookUse(); }
+  install();
+  [500, 2000, 6000, 15000].forEach(t => setTimeout(install, t));
+  setInterval(function () { try { install(); if (live() && mapHeld()) loadHD(); placePill(); if (U.open && (!live() || dead)) close(); } catch (e) { ERR('int', e); } }, 250);
 })(typeof window !== 'undefined' ? window : this);
 </script>
 <script id="glx-fp1347">
