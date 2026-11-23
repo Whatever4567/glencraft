@@ -12,7 +12,7 @@ const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'))
 let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 ok(ver.v === '1.2.115' || ver.v >= '1.2.117', 'version.json is 1.2.115');
-ok(html.includes("const GAME_VERSION = '1.2.115';") || html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.119';") || html.includes("const GAME_VERSION = '1.2.120';"), 'GAME_VERSION is 1.2.115');
+ok(html.includes("const GAME_VERSION = '1.2.115';") || html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.119';") || html.includes("const GAME_VERSION = '1.2.120';") || html.includes("const GAME_VERSION = '1.2.121';"), 'GAME_VERSION is 1.2.115');
 ok(html.includes('<!-- glencraft-build: b1315-v1.2.115 -->'), 'build marker b1315-v1.2.115');
 const s0 = html.indexOf('{"v":"v1.2.115"'), s1 = html.indexOf('{"v":"v1.2.114"', s0);
 ok(s0 > 0 && s1 > s0 && html.slice(s0, s1).includes('Singer you can place on any block to dance'), 'patch note present');
