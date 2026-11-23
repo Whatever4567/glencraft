@@ -98641,10 +98641,17 @@ try {
   // C53 asks where to put an on-grid castle: the map spot, nudged out of the spawn exclusion and onto dry land
   U.target = (k, nearSpawn, exclR) => { try { if (!on() || !U.SITES[k] || U.OFF.includes(k)) return null; let [x, z] = U.xz(k); const t0 = [x, z];
       const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || (typeof g9spawn !== 'undefined' && g9spawn) || [W >> 1, 0, D >> 1];
-      if (nearSpawn && nearSpawn(x, z)) { const dx = x - sp[0], dz = z - sp[2], L = Math.hypot(dx, dz) || 1, R = (exclR || 90) + 28; x = Math.round(sp[0] + dx / L * R); z = Math.round(sp[2] + dz / L * R); }
-      const top = (x, z) => { for (let y = H - 2; y > 0; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !(LEAFY && LEAFY[b])) return [y, world[idx(x, y + 1, z)] === T.WATER]; } return [0, true]; };
-      const dry = (x, z) => { if (x < 30 || z < 30 || x >= W - 30 || z >= D - 30) return false; const t = top(x, z); return t[0] > SEA + 1 && !t[1] && !(nearSpawn && nearSpawn(x, z)); };
-      if (!dry(x, z)) { let f = null; for (let r = 4; r <= 220 && !f; r += 4) for (let a = 0; a < 6.283 && !f; a += 4 / r) { const X = Math.round(x + Math.cos(a) * r), Z = Math.round(z + Math.sin(a) * r); if (dry(X, Z)) f = [X, Z]; } if (f) { x = f[0]; z = f[1]; } }
+      // best plot near the map spot: dry all round (no coast, loch or moat ring), fairly level, close to the spot;
+      // the skeleton castle also likes height (the snowy NW Highlands)
+      const top = (x, z) => { for (let y = H - 2; y > 0; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !(LEAFY && LEAFY[b]) && !(LOGGY && LOGGY[b]) && !(PLANT && PLANT[b] === 1)) return [y, world[idx(x, y + 1, z)] === T.WATER]; } return [0, true]; };
+      const dry = (x, z) => { if (x < 40 || z < 40 || x >= W - 40 || z >= D - 40) return false; const t = top(x, z); return t[0] > SEA + 1 && !t[1]; };
+      const plot = (X, Z) => { if (!dry(X, Z) || (nearSpawn && (nearSpawn(X, Z) || nearSpawn(X + 30, Z) || nearSpawn(X - 30, Z) || nearSpawn(X, Z + 30) || nearSpawn(X, Z - 30)))) return null;
+        let lo = 1e9, hi = -1e9; for (let a = 0; a < 16; a++) for (const r of [14, 30]) { const qx = Math.round(X + Math.cos(a * 0.3927) * r), qz = Math.round(Z + Math.sin(a * 0.3927) * r); if (!dry(qx, qz)) return null; const t = top(qx, qz)[0]; if (t < lo) lo = t; if (t > hi) hi = t; }
+        return {lo, hi, c: top(X, Z)[0]}; };
+      let best = null, bs = -1e18;
+      for (let dx = -230; dx <= 230; dx += 6) for (let dz = -230; dz <= 230; dz += 6) { const d = Math.hypot(dx, dz); if (d > 230) continue; const X = t0[0] + dx, Z = t0[1] + dz; const q = plot(X, Z); if (!q) continue;
+        const sc = -d - (q.hi - q.lo) * 5 + (k === 'mossy' ? Math.min(q.c - SEA, 40) * 2.5 : 0); if (sc > bs) { bs = sc; best = [X, Z]; } }
+      if (best) { x = best[0]; z = best[1]; } else if (nearSpawn && nearSpawn(x, z)) { const dx = x - sp[0], dz = z - sp[2], L = Math.hypot(dx, dz) || 1, R = (exclR || 90) + 28; x = Math.round(sp[0] + dx / L * R); z = Math.round(sp[2] + dz / L * R); }
       (U.placed = U.placed || {})[k] = {map: t0, at: [x, z]}; return [x, z]; } catch (e) { ERR('target', e); return null; } };
   U.blackC = () => { if (!on()) return null; const q = U.xz('black'); return q && offGrid(q[0], q[1]) ? ['black', OS.black ? OS.black.X : q[0], OS.black ? OS.black.Z : q[1]] : null; };
   U.castles = () => { const out = []; try { for (const c of (typeof g9castles !== 'undefined' && g9castles) || []) out.push([c[0], c[1], c[2]]); } catch (_) {} if (!on()) return out;
@@ -98782,8 +98789,32 @@ try {
   try { const C = WIN.__c151; if (C && C.B) { const h0 = C.B.human, m0 = C.B.mossy;
       // C53 marks each castle plot in placedSet (so later terrain passes leave it alone) and the kit will not write over
       // placedSet cells, so on 2x worlds the new builds never landed. Clear + build with a clean set, then put the old set back.
+      // Paste the plot into the land: the castle floor is the median height of the land round it; inside r 20 the
+      // ground is that floor, from r 20 to 36 it eases back to the real land (no pit, no trench ring, no moat of
+      // sea), then the castle is built on that floor. Only terrain and old-castle blocks are touched (the gold portal stays).
+      const RB = 36, RF = 20;
+      const soft = new Set([0, T.WATER, T.STONE, T.DIRT, T.GRASS, T.HEATHER, T.SAND, T.PODZOL, T.PACKSNOW, T.GRAVEL, T.COBBLE, T.STONEBRICK, T.MOSSYBRICK,
+        T.PLANKS, T.GLASS, T.FENCE, T.DOOR, T.DOORTOP, T.TORCH, T.BED, T.TALLGRASS, T.SNOW, T.COALORE, T.IRONORE, T.COPPERORE, T.SILVERORE, 167].filter(v => v !== undefined));
+      const isSoft = b => soft.has(b) || !!(LEAFY && LEAFY[b]) || !!(LOGGY && LOGGY[b]) || !!(PLANT && PLANT[b]);
+      const natTop = (x, z) => { for (let y = H - 3; y > 1; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !(LEAFY && LEAFY[b]) && !(LOGGY && LOGGY[b]) && !(PLANT && PLANT[b])) return y; } return SEA; };
+      function seat(K) { const cx = K.cx, cz = K.cz, NA = 48, ring = [];
+        for (let a = 0; a < NA; a++) { const an = a / NA * 6.2832; ring.push(Math.max(SEA, natTop(Math.round(cx + Math.cos(an) * (RB + 2)), Math.round(cz + Math.sin(an) * (RB + 2))))); }
+        const srt = ring.slice().sort((p, q) => p - q); const gy = Math.max(SEA + 2, srt[NA >> 1]); const snowy = K.kind === 'mossy';
+        for (let dx = -RB; dx <= RB; dx++) for (let dz = -RB; dz <= RB; dz++) { const r = Math.hypot(dx, dz); if (r > RB) continue; const x = cx + dx, z = cz + dz; if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) continue;
+          let an = Math.atan2(dz, dx); if (an < 0) an += 6.2832; const f = an / 6.2832 * NA, i0 = Math.floor(f) % NA, i1 = (i0 + 1) % NA, w = f - Math.floor(f);
+          const rim = Math.max(SEA + 1, ring[i0] * (1 - w) + ring[i1] * w), t = r <= RF ? 0 : ss((r - RF) / (RB - RF));
+          const h = Math.round(gy + (rim - gy) * t + (r > RF ? (h3(x, 6, z) - 0.5) * 0.8 : 0));
+          for (let y = 2; y < H - 2; y++) { const i = idx(x, y, z), b = world[i]; if (!isSoft(b)) { if (y > h) break; continue; }
+            if (y < h - 3) { if (!b || b === T.WATER) world[i] = T.STONE; }
+            else if (y < h) { if (!b || b === T.WATER || y >= h - 1 || r <= RF) world[i] = T.DIRT; }
+            else if (y === h) world[i] = (snowy && h3(x, 9, z) < 0.55) ? (T.PACKSNOW || 255) : T.GRASS;
+            else if (y <= h + 48) world[i] = 0; }
+          try { if (typeof g9cols !== 'undefined' && g9cols) { const t = natTop(x, z), ci = (x * D + z) * 2, bt = world[idx(x, t, z)]; g9cols[ci] = t + 1; g9cols[ci + 1] = t + 1 <= SEA ? 5 : bt === T.SAND ? 4 : bt === T.STONE ? 3 : 0; } } catch (_) {} }
+        try { if (typeof markDirty === 'function') for (let x = cx - RB; x <= cx + RB; x += 8) for (let z = cz - RB; z <= cz + RB; z += 8) markDirty(x, z); } catch (_) {}
+        return gy; }
       const fresh = (K, fn) => { const ps = (typeof placedSet !== 'undefined') ? placedSet : null; if (ps) placedSet = new Set();
-        try { try { if (C.clearSite) C.clearSite([K.kind, K.cx, K.cz], K.gy, 22, 62); } catch (e) { ERR('clear', e); } return fn(K); }
+        try { const gy = seat(K); U.seat = U.seat || {}; U.seat[K.kind] = {cx: K.cx, cz: K.cz, gy, was: K.gy};
+          const K2 = C.ctx ? C.ctx([K.kind, K.cx, K.cz], K.ci, gy + 1, K.rot) : K; const r = fn(K2); K.lights = K2.lights; K.chestsN = K2.chestsN; return r; }
         finally { if (ps) { for (const i of placedSet) ps.add(i); placedSet = ps; } } };
       C.B.human = function (K) { if (on()) { try { return fresh(K, designClan); } catch (e) { ERR('clan', e); } } return h0 ? h0.apply(this, arguments) : {}; };
       C.B.mossy = function (K) { if (on()) { try { return fresh(K, designMossy); } catch (e) { ERR('mossy', e); } } return m0 ? m0.apply(this, arguments) : {}; };
@@ -98870,6 +98901,34 @@ try {
   function dirty() { const e = WIN.__c320; if (!e) return;
     try { const c = WIN.__c324; if (c && c.cache) c.cache.clear(); e.dirty = 1; if (c && c.dirty) for (const k of U.OFF) { const S = OS[k]; if (!S) continue; for (let a = -S.RM - 16; a <= S.RM + 16; a += 16) for (let b = -S.RM - 16; b <= S.RM + 16; b += 16) c.dirty.add(Math.floor((S.X + a) / 16) + ',' + Math.floor((S.Z + b) / 16)); } } catch (_) {} }
   U.hook = hook;
+
+  /* ---------- 7) held map: castle marks painted where each castle really stands (any world size) ----------
+     The painted chart (GLX-MAP1317) is the base. Each second the castles' block positions go through the same
+     world -> chart projection the red player arrow uses, and the marks are drawn on top: black castle + black skull,
+     grey ruin + white skull for the skeleton castle, a clansman's head for each clan castle, each with its label. */
+  const MK = {img: null, key: '', base: null, cv: null, pts: null};
+  const ICON = {black: 0, mossy: 1, human: 2, clanIre: 2, clanEA: 2};
+  function marks() { const M = WIN.__map1317; if (!M || !M.ready || !M.img || typeof M.worldToCanvas !== 'function') return;
+    if (!MK.img) { MK.img = new Image(); MK.img.src = 'assets/ui/castle-marks.webp'; return; }
+    if (!MK.img.complete || !MK.img.naturalWidth) return;
+    if (M.img !== MK.cv) { MK.base = M.img; MK.key = ''; }
+    const pts = []; let cs = []; try { cs = U.castles(); } catch (_) {}
+    try { if (!cs.some(c => c[0] === 'black') && typeof g9castles !== 'undefined') { /* old worlds keep the black castle on the grid */ } } catch (_) {}
+    for (const c of cs) { if (ICON[c[0]] === undefined) continue; const q = M.worldToCanvas(c[1] + 0.5, c[2] + 0.5); if (q) pts.push([c[0], q[0], q[1]]); }
+    const w = M.tw || MK.base.width, h = M.th || MK.base.height;
+    const key = w + 'x' + h + ':' + pts.map(p => p[0] + '@' + p[1].toFixed(1) + ',' + p[2].toFixed(1)).join('|');
+    if (key === MK.key) return; MK.key = key; MK.pts = pts;
+    const cv = MK.cv || (MK.cv = document.createElement('canvas')); cv.width = w; cv.height = h; const g = cv.getContext('2d');
+    g.imageSmoothingEnabled = true; try { g.imageSmoothingQuality = 'high'; } catch (_) {}
+    g.drawImage(MK.base, 0, 0, w, h);
+    const s = w / 746, R = 2, I = MK.img;   // sprite sheet: 3 icons 72x72, then 3 labels 92x30 (asset px, drawn 2x)
+    for (const [k, x, y] of pts) { const i = ICON[k];
+      g.drawImage(I, i * 72 * R, 0, 72 * R, 72 * R, x - 36 * s, y - 36 * s, 72 * s, 72 * s);
+      const lx = (x > w * 0.62 || x < w * 0.33) ? x - (28 + 92) * s : x + 26 * s;
+      g.drawImage(I, i * 92 * R, 72 * R, 92 * R, 30 * R, lx, y - 17 * s, 92 * s, 30 * s); }
+    M.img = cv; M._texGen = (M._texGen || 0) + 1; try { if (M.paint) M.paint(); } catch (_) {} }
+  U.marks = MK; U.markNow = () => { MK.key = ''; marks(); return MK.pts; };
+  try { setInterval(() => { try { marks(); } catch (e) { ERR('marks', e); } }, 1000); } catch (_) {}
   /* clansmen at the clan keeps out on the land (the on-grid clan castle keeps its own spawner) */
   let clT = 0;
   function clans(dt) { clT -= dt; if (clT > 0 || !on() || typeof P === 'undefined') return; clT = 3;
