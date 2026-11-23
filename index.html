@@ -26896,10 +26896,11 @@ function disposeObj(o) {   // free GPU memory of a removed object (geometries + 
     { const cn = window.__c101 && window.__c101.corners && window.__c101.corners(); if (cn) for (const w of want) { const q = cn[w[0]]; if (q) w[1] = q; } }   // GLX-C101: one castle in each corner
     const isles = (window.__c113 && __c113.isles && __c113.isles()) || [];
     for (const [k, sc] of want) {
-      if (k === 'black' && window.__gb6 && __gb6.skipBlack && __gb6.skipBlack()) continue;   /* GB6 (t1342): the black castle stands at its painted map spot in the Borders (outside the Highlands base map) */
+      if (k === 'black' && window.__gb6 && __gb6.skipBlack && __gb6.skipBlack()) continue;   /* GB6 (t1342): the black castle stands at its map spot in the English Midlands (outside the Highlands base map) */
       const S = SIZE[BASE[k]];
-      const isle = isles.find(q => q.k === k);
-      let tx, tz;
+      const G6 = (window.__gb6 && __gb6.target) ? __gb6.target(k, nearSpawn, exclR) : null;   /* GB6: clan + skeleton castles at their spots on the player's map */
+      const isle = G6 ? null : isles.find(q => q.k === k);
+      let tx, tz; if (G6) { tx = G6[0]; tz = G6[1]; }
       if (isle) {
         tx = isle.x; tz = isle.z;
         if (window.__c113 && __c113.params && __c113.params().G12) {
@@ -60550,7 +60551,14 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     G = new THREE.Group(); const y0 = SEA - 80, y1 = U.YT, h = y1 - y0, X0 = U.X0, X1 = U.X1, Z0 = U.Z0, Z1 = U.Z1;
     const side = (len, x, z, ry) => { const tt = t.clone(); tt.needsUpdate = true; tt.repeat.set(len / 64, h / 64); const mm = m.clone(); mm.map = tt; const p = new THREE.Mesh(new THREE.PlaneGeometry(len, h), mm); p.position.set(x, y0 + h / 2, z); p.rotation.y = ry; p.frustumCulled = false; p.renderOrder = 5; G.add(p); };
     side(X1 - X0, (X0 + X1) / 2, Z0, 0); side(X1 - X0, (X0 + X1) / 2, Z1, 0); side(Z1 - Z0, X0, (Z0 + Z1) / 2, Math.PI / 2); side(Z1 - Z0, X1, (Z0 + Z1) / 2, Math.PI / 2); scene.add(G); }
-  setInterval(() => { try { const s = live() && typeof started !== 'undefined' && started; if (s && !G) mk(); if (G) G.visible = !!s; } catch (e) { ERR('vis', e); } }, 1000);
+  /* GB6 (t1342): the wall's bounds were fixed blocks for the 864 map, so on the 2x Highlands worlds (K=600) it stood at about
+     54.3N and cut off England, Wales and Ireland. The bounds now scale with the world round the map centre (864 worlds unchanged). */
+  U.B0 = {X0: U.X0, X1: U.X1, Z0: U.Z0, Z1: U.Z1};
+  U.fit = () => { try { if (typeof W !== 'number' || W < 600) return; const s = W / 864, b = U.B0, cx = W >> 1, cz = D >> 1;
+      const n = {X0: Math.round(cx + (b.X0 - 432) * s), X1: Math.round(cx + (b.X1 - 432) * s), Z0: Math.round(cz + (b.Z0 - 432) * s), Z1: Math.round(cz + (b.Z1 - 432) * s)};
+      if (n.X0 === U.X0 && n.X1 === U.X1 && n.Z0 === U.Z0 && n.Z1 === U.Z1) return; Object.assign(U, n); U.fits = (U.fits || 0) + 1;
+      if (G) { try { scene.remove(G); } catch (_) {} G = null; } try { if (window.__c324 && __c324.cache) __c324.cache.clear(); if (window.__c320) __c320.dirty = 1; } catch (_) {} } catch (e) { ERR('fit', e); } };
+  setInterval(() => { try { U.fit(); const s = live() && typeof started !== 'undefined' && started; if (s && !G) mk(); if (G) G.visible = !!s; } catch (e) { ERR('vis', e); } }, 1000);
 })();
 
 /* GLX-TPM (v1.1.86): A TELEPORT BUTTON YOU CAN FIND. Pause the game (the pause button on a phone, Start or Menu on a controller,
@@ -98607,8 +98615,9 @@ try {
    - Older saves keep their castles exactly as they were (flag saved with the world).
    Hands, guns, __fpa and the torch/pick jitter fixes are not touched. */
 (function gb6(WIN) {
-  const U = WIN.__gb6 = {err: null, set: 0, loaded: 0, LL: [55.24, -3.92], hooks: 0, built: null, ms: 0, version: 'gb6-1'};
+  const U = WIN.__gb6 = {err: null, set: 0, loaded: 0, LL: [55.24, -3.92], hooks: 0, ran: {}, wlog: [], built: null, ms: 0, version: 'gb6-1'};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const BS = () => (typeof T !== 'undefined' && T.BLACKSTONE) || 248;
   const ss = t => t * t * (3 - 2 * t), cl = (v, a, b) => v < a ? a : v > b ? b : v;
   const h3 = (x, y, z) => { let k = Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663) ^ Math.imul(z | 0, 83492791) ^ 0x6b6; k = Math.imul(k ^ (k >>> 13), 1274126177); return ((k ^ (k >>> 16)) >>> 0) / 4294967296; };
 
@@ -98619,17 +98628,35 @@ try {
   const on = U.on = () => { try { return !!(current && current.gb6 && genVer === GEN9 && !cityGen && !(DIM && DIM.cur) && W >= 600); } catch (_) { return false; } };
   U.skipBlack = () => on();
 
-  /* ---------- 2) where the painted black castle is, in blocks (the held map's own projection) ---------- */
-  U.site = () => { try { const c = WIN.__c339; if (!c) return null; const K = 300 * W / 864, lat = U.LL[0], lon = U.LL[1];
-      return {x: Math.round((W >> 1) + (lon - c.LON0) * K * Math.cos(lat * Math.PI / 180)), z: Math.round((D >> 1) + (c.LAT0 - lat) * K), K}; } catch (_) { return null; } };
-  U.blackC = () => { if (!on()) return null; const s = U.site(); return s && s.z >= D ? ['black', s.x, s.z] : null; };
-  U.castles = () => { const out = []; try { for (const c of (typeof g9castles !== 'undefined' && g9castles) || []) out.push([c[0], c[1], c[2]]); } catch (_) {} const b = U.blackC(); if (b && !out.some(c => c[0] === 'black')) out.push(b); return out; };
+  /* ---------- 2) where each castle is: the player's v2 map (pixels fitted to the real coast, t1351) -> lat/lon -> blocks ---------- */
+  // kind: [lat, lon, map px on the player's v2 map]. human / mossy are on the Highlands grid; the rest stand out on the UK land.
+  U.SITES = {mossy: [58.314, -5.881, [285, 205]], human: [57.456, -4.688, [352, 280]], black: [53.129, -1.958, [482, 628]], clanIre: [52.888, -7.444, [148, 625]], clanEA: [52.467, 0.36, [632, 690]]};
+  U.OFF = ['black', 'clanIre', 'clanEA'];
+  U.LL = U.SITES.black;
+  const KofW = () => 300 * W / 864;
+  const xzLL = (lat, lon) => { const c = WIN.__c339, K = KofW(); return [Math.round((W >> 1) + (lon - c.LON0) * K * Math.cos(lat * Math.PI / 180)), Math.round((D >> 1) + (c.LAT0 - lat) * K)]; };
+  U.xz = (k) => { try { const s = U.SITES[k]; return s && WIN.__c339 ? xzLL(s[0], s[1]) : null; } catch (_) { return null; } };
+  U.site = (k) => { const q = U.xz(k || 'black'); return q ? {x: q[0], z: q[1], K: KofW()} : null; };
+  const offGrid = (x, z) => x < 0 || z < 0 || x >= W || z >= D;
+  // C53 asks where to put an on-grid castle: the map spot, nudged out of the spawn exclusion and onto dry land
+  U.target = (k, nearSpawn, exclR) => { try { if (!on() || !U.SITES[k] || U.OFF.includes(k)) return null; let [x, z] = U.xz(k); const t0 = [x, z];
+      const sp = (typeof g9findSpawn === 'function' && g9findSpawn()) || (typeof g9spawn !== 'undefined' && g9spawn) || [W >> 1, 0, D >> 1];
+      if (nearSpawn && nearSpawn(x, z)) { const dx = x - sp[0], dz = z - sp[2], L = Math.hypot(dx, dz) || 1, R = (exclR || 90) + 28; x = Math.round(sp[0] + dx / L * R); z = Math.round(sp[2] + dz / L * R); }
+      const top = (x, z) => { for (let y = H - 2; y > 0; y--) { const b = world[idx(x, y, z)]; if (b && b !== T.WATER && !(LEAFY && LEAFY[b])) return [y, world[idx(x, y + 1, z)] === T.WATER]; } return [0, true]; };
+      const dry = (x, z) => { if (x < 30 || z < 30 || x >= W - 30 || z >= D - 30) return false; const t = top(x, z); return t[0] > SEA + 1 && !t[1] && !(nearSpawn && nearSpawn(x, z)); };
+      if (!dry(x, z)) { let f = null; for (let r = 4; r <= 220 && !f; r += 4) for (let a = 0; a < 6.283 && !f; a += 4 / r) { const X = Math.round(x + Math.cos(a) * r), Z = Math.round(z + Math.sin(a) * r); if (dry(X, Z)) f = [X, Z]; } if (f) { x = f[0]; z = f[1]; } }
+      (U.placed = U.placed || {})[k] = {map: t0, at: [x, z]}; return [x, z]; } catch (e) { ERR('target', e); return null; } };
+  U.blackC = () => { if (!on()) return null; const q = U.xz('black'); return q && offGrid(q[0], q[1]) ? ['black', OS.black ? OS.black.X : q[0], OS.black ? OS.black.Z : q[1]] : null; };
+  U.castles = () => { const out = []; try { for (const c of (typeof g9castles !== 'undefined' && g9castles) || []) out.push([c[0], c[1], c[2]]); } catch (_) {} if (!on()) return out;
+    for (const k of U.OFF) { if (out.some(c => c[0] === k)) continue; const q = U.xz(k); if (q && offGrid(q[0], q[1])) out.push([k, OS[k] ? OS[k].X : q[0], OS[k] ? OS[k].Z : q[1]]); } return out; };
+  const OS = {};   // off-grid sites once built: {X, Z, gy, ...}
+  U.OS = OS;
 
   /* ---------- 3) shared pieces of the designs (builder-kit style: local coords, gate toward local +z) ---------- */
   function deadTree(K, x, z, y0, n, wood) { const s = K.h(x, 77, z); let dx = 0, dz = 0;
     for (let y = 0; y < n; y++) { K.B(x + dx, y0 + y, z + dz, wood); if (y === 2 || y === n - 2) { if (s < 0.5) dx += (s < 0.25 ? 1 : -1); else dz += (s < 0.75 ? 1 : -1); K.B(x + dx, y0 + y, z + dz, wood); } }
     const top = y0 + n - 1; for (const [a, b, l] of [[1, 0, 2 + (s * 3 | 0) % 2], [-1, 1, 2], [0, -1, 1 + (s * 7 | 0) % 2]]) for (let k = 1; k <= l; k++) K.B(x + dx + a * k, top + (k > 1 ? 1 : 0), z + dz + b * k, wood); }
-  function skullPike(K, x, z, y0) { K.B(x, y0, z, T.FENCE || 162); K.B(x, y0 + 1, z, T.FENCE || 162); K.B(x, y0 + 2, z, T.WOOL || 32); }
+  function skullPike(K, x, z, y0, post) { const p = post || BS(); K.B(x, y0, z, p); K.B(x, y0 + 1, z, p); K.B(x, y0 + 2, z, T.WOOL || 32); }   // a skull on a solid stone post
   /* the ruined silhouette shared by the black and the skeleton castle: curtain wall with merlons, four crenellated
      corner towers, two gate towers, a tall central keep with corner turrets */
   function ruin(K, P) { const {B} = K;
@@ -98664,7 +98691,7 @@ try {
   }
 
   /* ---------- 4) the three designs ---------- */
-  const BS = () => T.BLACKSTONE || 248, DB = () => T.DSBRICK || 228, DC = () => T.DSCOBBLE || 249, OB = () => T.OBSIDIAN || 189, MG = () => T.MAGMA || 208, LV = () => T.LAVA || 52;
+   const DB = () => T.DSBRICK || 228, DC = () => T.DSCOBBLE || 249, OB = () => T.OBSIDIAN || 189, MG = () => T.MAGMA || 208, LV = () => T.LAVA || 52;
   // BLACK: dark blackstone castle, tall keep with a spire, crenellated side towers, glowing lava running down the walls, skulls
   function designBlack(K, H0) { const {B} = K;
     const wall = (x, y, z) => { const v = h3(K.cx + x, y, K.cz + z); return v < 0.55 ? BS() : v < 0.8 ? DB() : v < 0.93 ? DC() : OB(); };
@@ -98676,14 +98703,15 @@ try {
     for (const [x, z] of [[-2, 5], [2, 5], [5, -2], [-5, 2], [5, 2], [-5, -2]]) for (let y = 1; y <= 18; y++) { const wx = Math.sign(x) * Math.min(4, Math.abs(x)), wz = Math.sign(z) * Math.min(4, Math.abs(z)); B(Math.abs(x) === 5 ? wx : x, y, Math.abs(z) === 5 ? wz : z, LV()); }
     for (const [x, z] of [[-11, 13], [11, 13], [-13, -11], [13, -11]]) for (let y = 1; y <= 11; y++) B(x === 13 || x === -13 ? Math.sign(x) * 13 : x, y, z === 13 ? 13 : z, y === 11 ? MG() : LV());
     // skulls on pikes either side of the path, dead trees in the bailey
-    for (const z of [14, 17, 20]) for (const x of [-3, 3]) skullPike(K, x, z, 0);
+    for (const z of [14, 17, 20]) for (const x of [-3, 3]) skullPike(K, x, z, 0, BS());
+    for (let x = -11; x <= 11; x++) for (let z = -11; z <= 11; z++) if (Math.max(Math.abs(x), Math.abs(z)) === 11 && ((x * 7 + z * 3) & 7) === 0 && K.G(x, 8, z)) K.B(x, 9, z, T.WOOL || 32);   // skulls on the battlements
     for (const [x, z] of [[-7, 6], [7, -7], [-7, -7]]) deadTree(K, x, z, 1, 5, T.ROTLOG || 138);
     // the unfinished portal (two obsidian missing) and its chest, as before
     for (let x = 5; x <= 8; x++) for (let y = 1; y <= 5; y++) { const edge = x === 5 || x === 8 || y === 1 || y === 5; if (!edge) continue; const miss = (x === 8 && y === 5) || (x === 5 && y === 3); B(x, y, 6, miss ? 0 : OB()); }
     return {top};
   }
   // SKELETON (mossy): the same ruined silhouette in grey stone with moss and vines, cobwebs, ladders, dead trees; no lava
-  function designMossy(K) { const {B} = K;
+  function designMossy(K) { const {B} = K; U.ran.mossy = (U.ran.mossy || 0) + 1;
     const wall = (x, y, z) => { const v = h3(K.cx + x, y, K.cz + z); return v < 0.42 ? (T.MOSSYBRICK || 29) : v < 0.78 ? (T.STONEBRICK || 28) : v < 0.93 ? (T.COBBLE || 12) : (T.HMOSS || T.MOSSYBRICK || 29); };
     ruin(K, {wall, floor: (x, y, z) => { const v = h3(K.cx + x, y + 9, K.cz + z); return v < 0.35 ? (T.COBBLE || 12) : v < 0.7 ? (T.MOSSYBRICK || 29) : (T.GRAVEL || 202); }, win: () => 0, path: (x, z) => h3(x, 5, z) < 0.5 ? (T.COBBLE || 12) : (T.GRAVEL || 202), ruin: 0.22});
     // vines (hanging moss) down the outer walls, cobwebs in corners, rope ladders up the walls
@@ -98692,12 +98720,18 @@ try {
     for (const [x, z] of [[-9, -9], [9, -9], [-9, 9], [9, 9], [-3, -3], [3, 3]]) B(x, 6, z, T.COBWEB || 90);
     for (const [x, z] of [[-6, -10], [6, -10]]) for (let y = 1; y <= 7; y++) B(x, y, z + 1, T.ROPE || 412);   // ladders to the wall-walk
     for (const [x, z] of [[-7, 6], [7, -6], [7, 6], [-6, -7]]) deadTree(K, x, z, 1, 4 + (h3(x, 1, z) * 3 | 0), T.ROTLOG || 138);
-    for (const z of [15, 19]) for (const x of [-3, 3]) skullPike(K, x, z, 0);
+    for (const z of [15, 19]) for (const x of [-3, 3]) skullPike(K, x, z, 0, T.COBBLE || 12);
+    // in snow: snow caps on the battlements and tower tops, snow on the ground round it
+    const SN = T.PACKSNOW || 255;
+    for (let x = -21; x <= 21; x++) for (let z = -21; z <= 21; z++) { if (Math.hypot(x, z) > 21.5) continue; let topY = -99;
+      for (let y = 30; y >= 0; y--) { const b = K.G(x, y, z); if (b && b !== (T.ROPE || 412) && b !== (T.COBWEB || 90) && b !== (T.ROTLOG || 138)) { topY = y; break; } }
+      if (topY > 4 && K.G(x, topY + 1, z) === 0) K.B(x, topY + 1, z, SN);
+      else if (topY === -99 && Math.max(Math.abs(x), Math.abs(z)) > 12 && K.G(x, -1, z) && h3(K.cx + x, 31, K.cz + z) < 0.7) K.B(x, -1, z, SN); }
     return {};
   }
   // CLAN: grey stone Scottish castle, conical slate turrets, crenellated curtain wall, red tartan banners, portcullis,
   // stone path, heather all round, pines and a wee loch beside it
-  function designClan(K) { const {B} = K, SL = T.SLATE || 152, GP = T.GPANE || 227;
+  function designClan(K) { U.ran.clan = (U.ran.clan || 0) + 1; const {B} = K, SL = T.SLATE || 152, GP = T.GPANE || 227;
     const st = (x, y, z) => { const v = h3(K.cx + x, y, K.cz + z); return v < 0.08 ? (T.MOSSYBRICK || 29) : v < 0.2 ? (T.COBBLE || 12) : (T.STONEBRICK || 28); };
     const round = (tx, tz, R, y1, roofN) => { K.tower(tx, tz, R, 0, y1, st, 0); K.disc(tx, tz, R - 1, 0, T.PLANKS || 10); K.disc(tx, tz, R - 1, Math.round(y1 / 2), T.PLANKS || 10);
       for (const [a, b] of [[R | 0, 0], [-(R | 0), 0], [0, R | 0], [0, -(R | 0)]]) B(tx + a, y1 - 3, tz + b, GP);
@@ -98746,75 +98780,108 @@ try {
 
   /* ---------- 5) clan + skeleton castles: bypass the old C151 builders on GB6 worlds (old builders kept) ---------- */
   try { const C = WIN.__c151; if (C && C.B) { const h0 = C.B.human, m0 = C.B.mossy;
-      C.B.human = function (K) { if (on()) { try { return designClan(K); } catch (e) { ERR('clan', e); } } return h0 ? h0.apply(this, arguments) : {}; };
-      C.B.mossy = function (K) { if (on()) { try { return designMossy(K); } catch (e) { ERR('mossy', e); } } return m0 ? m0.apply(this, arguments) : {}; };
-      U.hooks++; } } catch (e) { ERR('c151', e); }
+      // C53 marks each castle plot in placedSet (so later terrain passes leave it alone) and the kit will not write over
+      // placedSet cells, so on 2x worlds the new builds never landed. Clear + build with a clean set, then put the old set back.
+      const fresh = (K, fn) => { const ps = (typeof placedSet !== 'undefined') ? placedSet : null; if (ps) placedSet = new Set();
+        try { try { if (C.clearSite) C.clearSite([K.kind, K.cx, K.cz], K.gy, 22, 62); } catch (e) { ERR('clear', e); } return fn(K); }
+        finally { if (ps) { for (const i of placedSet) ps.add(i); placedSet = ps; } } };
+      C.B.human = function (K) { if (on()) { try { return fresh(K, designClan); } catch (e) { ERR('clan', e); } } return h0 ? h0.apply(this, arguments) : {}; };
+      C.B.mossy = function (K) { if (on()) { try { return fresh(K, designMossy); } catch (e) { ERR('mossy', e); } } return m0 ? m0.apply(this, arguments) : {}; };
+      U.hooks++;
+    } } catch (e) { ERR('c151', e); }
 
-  /* ---------- 6) the black castle out in the Borders: mound + castle worked out on the fly ---------- */
-  const RM = 56, CR = 21;
-  let S = null;   // {key, X, Z, gy, BY, g0[], top[], M (castle blocks), f0}
-  const N = 2 * RM + 1;
-  function build(f0) { const t0 = performance.now(), s = U.site(); if (!s) return null; const X = s.x, Z = s.z;
-    const g0 = new Int16Array(N * N), top = new Int16Array(N * N);
-    const ground = (x, z) => { let y0 = SEA + 50; try { if (f0.top) { const q = f0.top(x, z); if (q > -50 && q < 60) y0 = SEA + q + 2; } } catch (_) {} for (let y = Math.min(H - 2, y0); y > SEA - 12; y--) { const b = f0(x, y, z); if (b && b !== T.WATER) return y; } return SEA - 12; };
-    for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) { const x = X - RM + a, z = Z - RM + b; g0[a * N + b] = Math.hypot(x - X, z - Z) <= RM + 1 ? ground(x, z) : SEA; }
-    let sum = 0, n = 0; for (let a = -CR; a <= CR; a += 3) for (let b = -CR; b <= CR; b += 3) { if (a * a + b * b > CR * CR) continue; sum += Math.max(SEA, g0[(a + RM) * N + b + RM]); n++; }
-    const base = Math.round(sum / Math.max(1, n)), MH = cl(H - 32 - base, 6, 12), BY = base + MH, gy = BY + 1;
-    const lava = [];   // lava channels down the mound (not on the path side, local +z)
-    for (const a of [-1.57, -0.5, 0.45, 2.6, 3.55]) lava.push(a);
-    const ang = (x, z) => Math.atan2(z, x);
-    for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) { const dx = a - RM, dz = b - RM, i = a * N + b, g = Math.max(g0[i], SEA - 1), th = ang(dx, dz);
-      const r = Math.hypot(dx, dz) * (1 + 0.1 * Math.sin(3 * th + 1.3) + 0.05 * Math.sin(7 * th + 0.4));
-      let t; if (r <= CR) t = BY; else if (r >= RM - 2) t = g0[i]; else { const u = (r - CR) / (RM - 2 - CR); t = Math.round(BY + (g - BY) * Math.pow(ss(u), 0.75) + (h3(X + dx, 3, Z + dz) - 0.5) * 1.2 * u * (1 - u) * 4); }
-      top[i] = Math.max(g0[i], t); }
-    const M = new Map(), key = (x, y, z) => ((x - X + RM) * N + (z - Z + RM)) * 256 + y;
-    const inb = (x, y, z) => Math.abs(x - X) <= RM && Math.abs(z - Z) <= RM && y > 0 && y < H - 1;
-    const K = {cx: X, cz: Z, gy, rot: 0, ci: -1, kind: 'black', lights: 0, chestsN: 0, end: [0, 30]};
+  /* ---------- 6) castles out on the UK land past the Highlands grid (black, Ireland clan, East Anglia keep) ----------
+     Built like the GLX-LHSE lighthouse: the mound and the castle are worked out on the fly from the land under them; only
+     the blocks you change are stored. Each site: a mound (a steep black volcano mound for the black castle, a low grassy
+     plinth for the clan keeps) that eases into the land round it, and the castle on top. */
+  const RMAX = 56, N = 2 * RMAX + 1;
+  const SPEC = {black: {RM: 56, CR: 21, MH: [8, 14], design: 'black', lavaN: 5}, clanIre: {RM: 40, CR: 22, MH: [2, 4], design: 'clan'}, clanEA: {RM: 40, CR: 22, MH: [2, 4], design: 'clan'}};
+  function mapK(S, X, Z, gy) { const key = (x, y, z) => ((x - X + RMAX) * N + (z - Z + RMAX)) * 256 + y, M = S.M;
+    const inb = (x, y, z) => Math.abs(x - X) <= RMAX && Math.abs(z - Z) <= RMAX && y > 0 && y < H - 1;
+    const K = {cx: X, cz: Z, gy, rot: 0, ci: -1, kind: S.k, lights: 0, chestsN: 0, end: [0, 30]};
     K.wp = (dx, y, dz) => [X + dx, gy + y, Z + dz];
     K.h = (dx, y, dz) => h3(X + dx * 3, gy + y, Z + dz * 7);
     K.B = (dx, y, dz, v) => { const x = X + dx, Y = gy + y, z = Z + dz; if (inb(x, Y, z)) M.set(key(x, Y, z), v | 0); };
-    K.G = (dx, y, dz) => { const v = M.get(key(X + dx, gy + y, Z + dz)); return v === undefined ? 0 : v; };
-    K.box = (x0, y0, z0, x1, y1, z1, v) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) K.B(x, y, z, v); };
-    K.meta = () => {}; K.lamp = (dx, y, dz) => K.B(dx, y, dz, T.GLOWROCK || 209); K.prop = () => null; K.door = () => {}; K.stair = (dx, y, dz) => K.B(dx, y, dz, DB());
-    // a lava channel continues down the mound from each wall lava fall
-    const res = designBlack(K, H - 2 - gy);
-    // dead twisted trees and skull pikes on the mound, rooted on its surface
-    const surf = (dx, dz) => top[(dx + RM) * N + dz + RM];
-    const TK = {B: (dx, y, dz, v) => { const x = X + dx, z = Z + dz; if (inb(x, y, z)) M.set(key(x, y, z), v | 0); }, h: (dx, y, dz) => h3(X + dx, y, Z + dz)};
-    for (let i = 0; i < 14; i++) { const a = h3(i, 11, 5) * 6.283, r = CR + 4 + h3(i, 12, 6) * (RM - CR - 14); const dx = Math.round(Math.cos(a) * r), dz = Math.round(Math.sin(a) * r);
-      if (Math.abs(dx) <= 3 && dz > 0) continue; if (lava.some(l => Math.abs(Math.atan2(Math.sin(a - l), Math.cos(a - l))) * r < 4)) continue;
-      const y0 = surf(dx, dz) + 1; deadTree(TK, dx, dz, y0, 4 + (h3(i, 3, 3) * 4 | 0), T.ROTLOG || 138); }
-    for (let i = 0; i < 10; i++) { const a = h3(i, 21, 5) * 6.283, r = CR + 2 + h3(i, 22, 6) * 16; const dx = Math.round(Math.cos(a) * r), dz = Math.round(Math.sin(a) * r); if (Math.abs(dx) <= 2 && dz > 0) continue; skullPike(TK, dx, dz, surf(dx, dz) + 1); }
-    S = {key: kOf(), X, Z, gy, BY, base, g0, top, M, f0, lava, top8: gy + (res.top || 30) + 2, ms: Math.round(performance.now() - t0)};
-    U.built = {X, Z, gy, BY, base, MH, blocks: M.size, ms: S.ms}; return S; }
+    K.G = (dx, y, dz) => { const x = X + dx, Y = gy + y, z = Z + dz, v = M.get(key(x, Y, z)); if (v !== undefined) return v; const q = ground(S, x, Y, z); return q === undefined ? 0 : q; };
+    K.box = (x0, y0, z0, x1, y1, z1, v) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let z = Math.min(z0, z1); z <= Math.max(z0, z1); z++) K.B(x, y, z, typeof v === 'function' ? v(x, y, z) : v); };
+    K.disc = (tx, tz, R, y, b) => { for (let a = -Math.ceil(R); a <= Math.ceil(R); a++) for (let q = -Math.ceil(R); q <= Math.ceil(R); q++) if (a * a + q * q <= R * R) K.B(tx + a, y, tz + q, typeof b === 'function' ? b(tx + a, y, tz + q) : b); };
+    K.cone = (tx, tz, R, y0, n, b) => { for (let L = 0; L < n; L++) { const rr = R - L * (R - 0.4) / (n - 1); K.disc(tx, tz, Math.max(0.5, rr), y0 + L, b); } return y0 + n; };
+    K.tower = (tx, tz, R, y0, y1, wall, inner) => { const r2 = R * R, i2 = (R - 1.2) * (R - 1.2); for (let a = -Math.ceil(R); a <= Math.ceil(R); a++) for (let q = -Math.ceil(R); q <= Math.ceil(R); q++) { const d2 = a * a + q * q; if (d2 > r2) continue;
+        for (let y = y0; y <= y1; y++) K.B(tx + a, y, tz + q, d2 > i2 ? (typeof wall === 'function' ? wall(tx + a, y, tz + q) : wall) : (inner === undefined ? 0 : inner)); } };
+    K.meta = (dx, y, dz, m) => { try { const [x, Y, z] = K.wp(dx, y, dz); entMeta.set(keyOf(x, Y, z), m); } catch (_) {} };
+    K.lamp = (dx, y, dz) => K.B(dx, y, dz, T.LAMP || T.GLOWROCK || 209);
+    K.prop = () => null; K.door = () => {}; K.bed = () => {}; K.stair = (dx, y, dz) => K.B(dx, y, dz, T.STONEBRICK || 28);
+    K.chest = (dx, y, dz, f, loot) => { const [x, Y, z] = K.wp(dx, y, dz); K.B(dx, y, dz, T.CHEST); try { const k = keyOf(x, Y, z); if (!chests.has(k)) { const slots = new Array(27).fill(null); loot.forEach(([id, n], j) => { if (id) slots[[4, 10, 13, 16][j]] = [id, n]; }); chests.set(k, {slots, castle: S.k}); } } catch (_) {} return [x, Y, z]; };
+    return K; }
+  function build(k, f0) { const t0 = performance.now(), sp = SPEC[k], q = U.xz(k); if (!q) return null; let X = q[0], Z = q[1]; const RM = sp.RM, CR = sp.CR;
+    const gcol = (x, z) => { let y0 = SEA + 50; try { if (f0.top) { const t = f0.top(x, z); if (t > -50 && t < 60) y0 = SEA + t + 2; } } catch (_) {} for (let y = Math.min(H - 2, y0); y > SEA - 12; y--) { const b = f0(x, y, z); if (b && b !== T.WATER) return y; } return SEA - 12; };
+    // on the sea or a beach? move to the nearest dry ground with room for the castle
+    const roomy = (x, z) => { for (const [a, b] of [[0, 0], [CR, 0], [-CR, 0], [0, CR], [0, -CR], [CR * 0.7, CR * 0.7], [-CR * 0.7, -CR * 0.7]]) if (gcol(Math.round(x + a), Math.round(z + b)) <= SEA + 1) return false; return true; };
+    if (!roomy(X, Z)) { let f = null; for (let r = 6; r <= 240 && !f; r += 6) for (let a = 0; a < 6.283 && !f; a += 6 / r) { const x = Math.round(X + Math.cos(a) * r), z = Math.round(Z + Math.sin(a) * r); if (roomy(x, z)) f = [x, z]; } if (f) { X = f[0]; Z = f[1]; } }
+    const g0 = new Int16Array(N * N), top = new Int16Array(N * N);
+    for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) { const dx = a - RMAX, dz = b - RMAX; g0[a * N + b] = Math.hypot(dx, dz) <= RM + 1 ? gcol(X + dx, Z + dz) : SEA; }
+    let sum = 0, n = 0; for (let a = -CR; a <= CR; a += 3) for (let b = -CR; b <= CR; b += 3) { if (a * a + b * b > CR * CR) continue; sum += Math.max(SEA, g0[(a + RMAX) * N + b + RMAX]); n++; }
+    const base = Math.round(sum / Math.max(1, n)), headroom = sp.design === 'black' ? 31 : 24, MH = cl(H - 2 - headroom - base - 1, sp.MH[0], sp.MH[1]), BY = base + MH, gy = BY + 1;
+    for (let a = 0; a < N; a++) for (let b = 0; b < N; b++) { const dx = a - RMAX, dz = b - RMAX, i = a * N + b, th = Math.atan2(dz, dx);
+      const r = Math.hypot(dx, dz) * (1 + 0.1 * Math.sin(3 * th + 1.3) + 0.05 * Math.sin(7 * th + 0.4)), g = Math.max(g0[i], SEA - 1);
+      let t; if (r <= CR) t = BY; else if (r >= RM - 2) t = g0[i]; else { const u = (r - CR) / (RM - 2 - CR); t = Math.round(BY + (g - BY) * Math.pow(ss(u), sp.design === 'black' ? 0.7 : 1)); }
+      top[i] = Math.max(g0[i], t); }
+    const S = {k, X, Z, gy, BY, base, MH, RM, CR, g0, top, M: new Map(), lava: sp.lavaN ? [-1.57, -0.5, 0.45, 2.6, 3.55] : [], design: sp.design};
+    const K = mapK(S, X, Z, gy);
+    OS[k] = S;   // ground() is ready for the design's K.G
+    const res = (sp.design === 'black' ? designBlack(K, H - 2 - gy) : designClan(K)) || {};
+    const TK = {B: (dx, y, dz, v) => { const x = X + dx, z = Z + dz; if (Math.abs(dx) <= RMAX && Math.abs(dz) <= RMAX && y > 0 && y < H - 1) S.M.set(((x - X + RMAX) * N + (z - Z + RMAX)) * 256 + y, v | 0); }, h: (dx, y, dz) => h3(X + dx, y, Z + dz)};
+    const surf = (dx, dz) => top[(dx + RMAX) * N + dz + RMAX];
+    if (sp.design === 'black') {   // dead twisted trees and skulls on posts, rooted on the mound
+      for (let i = 0; i < 14; i++) { const a = h3(i, 11, 5) * 6.283, r = CR + 4 + h3(i, 12, 6) * (RM - CR - 14); const dx = Math.round(Math.cos(a) * r), dz = Math.round(Math.sin(a) * r);
+        if (Math.abs(dx) <= 3 && dz > 0) continue; if (S.lava.some(l => Math.abs(Math.atan2(Math.sin(a - l), Math.cos(a - l))) * r < 4)) continue;
+        deadTree(TK, dx, dz, surf(dx, dz) + 1, 4 + (h3(i, 3, 3) * 4 | 0), T.ROTLOG || 138); }
+      for (let i = 0; i < 10; i++) { const a = h3(i, 21, 5) * 6.283, r = CR + 2 + h3(i, 22, 6) * 16; const dx = Math.round(Math.cos(a) * r), dz = Math.round(Math.sin(a) * r); if (Math.abs(dx) <= 2 && dz > 0) continue; if (S.lava.some(l => Math.abs(Math.atan2(Math.sin(a - l), Math.cos(a - l))) * r < 3)) continue; skullPike(TK, dx, dz, surf(dx, dz) + 1, BS()); } }
+    S.top8 = gy + (res.top || 26) + 2; S.ms = Math.round(performance.now() - t0); S.key = kOf();
+    (U.built = U.built || {})[k] = {X, Z, gy, BY, base, MH, blocks: S.M.size, ms: S.ms, moved: X !== q[0] || Z !== q[1] ? [q[0], q[1]] : null}; return S; }
   const kOf = () => { try { return (current && current.id) + ':' + W + ':' + (WIN.__c339 && __c339.LAT0); } catch (_) { return '?'; } };
-  function inLava(dx, dz) { const r = Math.hypot(dx, dz); if (r < CR - 0.5 || r > RM - 5) return false; const a = Math.atan2(dz, dx) + 0.18 * Math.sin(r / 5);
+  function inLava(S, dx, dz) { if (!S.lava.length) return 0; const r = Math.hypot(dx, dz); if (r < S.CR - 0.5 || r > S.RM - 5) return 0; const a = Math.atan2(dz, dx) + 0.18 * Math.sin(r / 5);
     for (const l of S.lava) { const d = Math.atan2(Math.sin(a - l), Math.cos(a - l)) * r; if (Math.abs(d) < 0.75) return 2; if (Math.abs(d) < 1.6) return 1; } return 0; }
-  function blk(x, y, z) { const dx = x - S.X, dz = z - S.Z; if (dx < -RM || dx > RM || dz < -RM || dz > RM) return undefined;
-    const m = S.M.get(((dx + RM) * N + (dz + RM)) * 256 + y); if (m !== undefined) return m;
-    const i = (dx + RM) * N + dz + RM, t = S.top[i], g = S.g0[i]; if (t <= g) return undefined;
+  // the mound's own blocks (undefined = the land as it was)
+  function ground(S, x, y, z) { const dx = x - S.X, dz = z - S.Z; if (dx < -S.RM || dx > S.RM || dz < -S.RM || dz > S.RM) return undefined;
+    const i = (dx + RMAX) * N + dz + RMAX, t = S.top[i], g = S.g0[i]; if (t <= g) return undefined;
     if (y > t) return y <= SEA ? T.WATER : 0;
     if (y <= g) return undefined;
-    const lv = inLava(dx, dz), r = Math.hypot(dx, dz);
-    if (y === t) { if (lv === 2) return T.LAVA || 52; if (lv === 1) return MG(); if (Math.abs(dx) <= 1 && dz > CR - 1) return h3(x, y, z) < 0.5 ? DB() : DC();   // the road down the mound
-      const v = h3(x, 7, z); return r <= CR ? (v < 0.6 ? BS() : DC()) : v < 0.45 ? BS() : v < 0.7 ? DC() : v < 0.82 ? (T.SOULSAND || 207) : v < 0.94 ? (T.HELLROCK || 206) : MG(); }
-    if (lv === 2 && y === t - 1) return MG();
-    const v = h3(x, y, z); return v < 0.7 ? BS() : v < 0.92 ? (T.BASALT || T.STONE || 3) : MG(); }
-  U.blk = (x, y, z) => S ? blk(x, y, z) : undefined;
-  U.outside = (x, z) => { try { const s = U.site(); return !!(on() && s && (x >= W || z >= D || x < 0 || z < 0) && Math.abs(x - s.x) <= RM + 4 && Math.abs(z - s.z) <= RM + 4); } catch (_) { return false; } };
+    const r = Math.hypot(dx, dz), v = h3(x, y, z);
+    if (S.design === 'black') { const lv = inLava(S, dx, dz);
+      if (y === t) { if (lv === 2) return T.LAVA || 52; if (lv === 1) return MG(); if (Math.abs(dx) <= 1 && dz > S.CR - 1) return v < 0.5 ? DB() : DC(); return v < 0.82 ? BS() : DC(); }
+      if (lv === 2 && y === t - 1) return MG(); return v < 0.75 ? BS() : (T.BASALT || T.STONE || 3); }
+    if (y === t) { if (Math.abs(dx) <= 1 && dz > S.CR - 1) return v < 0.3 ? (T.GRAVEL || 202) : (T.COBBLE || 12); return r > 13 && h3(x, 9, z) < 0.5 ? (T.HEATHER || 4) : (T.GRASS || 1); }
+    return y > t - 3 ? (T.DIRT || 2) : (T.STONE || 3); }
+  function blk(S, x, y, z) { const dx = x - S.X, dz = z - S.Z; if (dx < -S.RM || dx > S.RM || dz < -S.RM || dz > S.RM) return undefined;
+    const m = S.M.get(((dx + RMAX) * N + (dz + RMAX)) * 256 + y); if (m !== undefined) return m; return ground(S, x, y, z); }
+  U.blk = (x, y, z) => { for (const k of U.OFF) { const S = OS[k]; if (S) { const q = blk(S, x, y, z); if (q !== undefined) return q; } } return undefined; };
+  U.outside = (x, z) => { try { if (!on() || !offGrid(x, z)) return false; for (const k of U.OFF) { const S = OS[k]; if (S && Math.abs(x - S.X) <= S.RM + 4 && Math.abs(z - S.Z) <= S.RM + 4) return true; } return false; } catch (_) { return false; } };
   U.groundAt = (x, z) => { x = Math.floor(x); z = Math.floor(z); for (let y = H - 2; y > 1; y--) { let b = 0; try { b = getB(x, y, z); } catch (_) {} if (b && b !== T.WATER && b !== T.LAVA && !(typeof PLANT !== 'undefined' && PLANT[b] === 1) && !(LEAFY && LEAFY[b])) return y + 1; } return SEA + 1; };
-  function hook() { if (!on()) return; const e = WIN.__c320; if (!e || !e.flat || !e.fearth) return; const s = U.site(); if (!s || s.z < D) return;
-    if (e.fearth.gb6) { if ((!S || S.key !== kOf()) && U._f0) { build(U._f0); dirty(); } return; }   // already in the chain (maybe under later wrappers)
-    const f0 = e.fearth; U._f0 = f0; build(f0);
-    const f = function (x, y, z) { if (S && on()) { const q = blk(x, y, z); if (q !== undefined) return q; } return f0.apply(this, arguments); };
-    for (const k in f0) f[k] = f0[k]; f.gb6 = 1; f.__gb6prev = f0;
-    if (f0.top) { const t0 = f0.top; f.top = function (x, z) { const v = t0.apply(this, arguments); return (S && on() && Math.abs(x - S.X) <= RM && Math.abs(z - S.Z) <= RM) ? Math.max(v, S.top8 - SEA + 2) : v; }; }
+  function buildAll(f0) { for (const k of U.OFF) { const q = U.xz(k); if (q && offGrid(q[0], q[1])) build(k, f0); else delete OS[k]; } }
+  function hook() { if (!on() || WIN.__gb6pause) return; const e = WIN.__c320; if (!e || !e.flat || !e.fearth) return; try { if (WIN.__ukb && __ukb.fit) __ukb.fit(); } catch (_) {}
+    const fresh = () => U.OFF.every(k => !OS[k] || OS[k].key === kOf()) && U.OFF.some(k => OS[k]);
+    if (e.fearth.gb6) { if (!fresh() && U._f0) { buildAll(U._f0); dirty(); } return; }   // already in the chain (maybe under later wrappers)
+    const f0 = e.fearth; U._f0 = f0; buildAll(f0);
+    const f = function (x, y, z) { if (on()) { const q = U.blk(x, y, z); if (q !== undefined) return q; } return f0.apply(this, arguments); };
+    for (const k in f0) f[k] = f0[k]; f.gb6 = 1;
+    if (f0.top) { const t0 = f0.top; f.top = function (x, z) { const v = t0.apply(this, arguments); if (!on()) return v; for (const k of U.OFF) { const S = OS[k]; if (S && Math.abs(x - S.X) <= S.RM && Math.abs(z - S.Z) <= S.RM) return Math.max(v, S.top8 - SEA + 2); } return v; }; f.top.ukb = t0.ukb; }
     e.fearth = f; U.hooks++; dirty(); }
-  function dirty() { const e = WIN.__c320; if (!S || !e) return;
-    try { const c = WIN.__c324; if (c && c.cache) c.cache.clear(); e.dirty = 1; if (c && c.dirty) for (let a = -RM - 16; a <= RM + 16; a += 16) for (let b = -RM - 16; b <= RM + 16; b += 16) c.dirty.add(Math.floor((S.X + a) / 16) + ',' + Math.floor((S.Z + b) / 16)); } catch (_) {} }
+  function dirty() { const e = WIN.__c320; if (!e) return;
+    try { const c = WIN.__c324; if (c && c.cache) c.cache.clear(); e.dirty = 1; if (c && c.dirty) for (const k of U.OFF) { const S = OS[k]; if (!S) continue; for (let a = -S.RM - 16; a <= S.RM + 16; a += 16) for (let b = -S.RM - 16; b <= S.RM + 16; b += 16) c.dirty.add(Math.floor((S.X + a) / 16) + ',' + Math.floor((S.Z + b) / 16)); } } catch (_) {} }
   U.hook = hook;
+  /* clansmen at the clan keeps out on the land (the on-grid clan castle keeps its own spawner) */
+  let clT = 0;
+  function clans(dt) { clT -= dt; if (clT > 0 || !on() || typeof P === 'undefined') return; clT = 3;
+    for (const k of ['clanIre', 'clanEA']) { const S = OS[k]; if (!S || Math.hypot(P.x - S.X, P.z - S.Z) > 64) continue;
+      const here = mobs.filter(a => a.kind === 'clansman' && a.home && a.home[0] === S.X && a.home[1] === S.Z).length;
+      for (let i = here, tries = 0; i < 3 && tries < 20; tries++) { const x = S.X + Math.round((h3(i, tries, 7) - 0.5) * 16), z = S.Z + Math.round((h3(tries, i, 9) - 0.5) * 16); const y = U.groundAt(x, z);
+        if (y > S.gy + 2 || Math.hypot(P.x - x, P.z - z) < 6) continue; let m = null;
+        try { WIN.__egg = true; WIN.__eggSpot = [x + .5, y, z + .5, x, z]; m = spawnMob('clansman'); } catch (e) { ERR('clan', e); } finally { WIN.__egg = false; WIN.__eggSpot = null; }
+        if (!m) break; try { m.g.position.set(x + .5, y, z + .5); } catch (_) {} m.home = [S.X, S.Z]; m.shaded = true; U.clansmen = (U.clansmen || 0) + 1; i++; } } }
+  try { const um = updateMobs; updateMobs = function (dt) { const r = um.apply(this, arguments); try { clans(+dt || 0.016); } catch (e) { ERR('clans', e); } return r; }; } catch (e) { ERR('um', e); }
   setInterval(() => { try { if (typeof started === 'undefined' || !started) return; hook(); } catch (e) { ERR('tick', e); } }, 500);
-  U.go = () => { if (!S) return false; P.x = S.X + 0.5; P.z = S.Z + 30.5; P.y = U.groundAt(P.x, P.z) + 0.1; P.vy = 0; return true; };
+  U.go = (k) => { const S = OS[k || 'black']; if (!S) return false; P.x = S.X + 0.5; P.z = S.Z + 30.5; P.y = U.groundAt(P.x, P.z) + 0.1; P.vy = 0; return true; };
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>

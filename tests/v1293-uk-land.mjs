@@ -143,13 +143,17 @@ for (let i = 0; i < seeds.length; i++) {
       .map(q => ({k: q.k, x: q.x, z: q.z, nc: q.nc || 0}));
     const mt = (window.__c273 && __c273.MT) ? __c273.MT() : (window.__c208 && __c208.MT ? __c208.MT() : null);
     const inDesert = () => false;
-    const kinds = (g9castles || []).map(c => c[0]);
-    const castles = (g9castles || []).map(c => {
+    /* GB6 (t1342): castles stand at their spots on the player's map (the black castle and the Ireland / East Anglia keeps out on the UK land) */
+    const G6 = (window.__gb6 && __gb6.on && __gb6.on()) ? __gb6 : null;
+    const CS = G6 ? G6.castles() : (g9castles || []);
+    const kinds = CS.map(c => c[0]).filter(k => k === 'human' || k === 'mossy' || k === 'black');
+    const castles = CS.filter(c => c[0] === 'human' || c[0] === 'mossy' || c[0] === 'black').map(c => {
       const dIsl = Math.hypot(c[1] - isl.cx, c[2] - isl.cz);
       const dSp = spawn ? Math.hypot(c[1] - spawn[0], c[2] - spawn[2]) : dIsl;
-      const isle = isles.find(q => q.k === c[0]);
-      const dIsle = isle ? Math.hypot(c[1] - isle.x, c[2] - isle.z) : null;
-      return {k: c[0], x: c[1], z: c[2], dIsl: +dIsl.toFixed(1), dSpawn: +dSp.toFixed(1), dIsle: dIsle != null ? +dIsle.toFixed(1) : null, inside: dIsl < exclR || dSp < exclR, offIsle: dIsle != null && dIsle > 160};
+      const isle = G6 ? null : isles.find(q => q.k === c[0]);
+      const want6 = G6 ? ((G6.placed && G6.placed[c[0]] && G6.placed[c[0]].at) || G6.xz(c[0])) : null;   /* GB6: distance from the castle's map spot (after the spawn / dry-land nudge) */
+      const dIsle = isle ? Math.hypot(c[1] - isle.x, c[2] - isle.z) : want6 ? Math.hypot(c[1] - want6[0], c[2] - want6[1]) : null;
+      return {k: c[0], x: c[1], z: c[2], dIsl: +dIsl.toFixed(1), dSpawn: +dSp.toFixed(1), dIsle: dIsle != null ? +dIsle.toFixed(1) : null, inside: dIsl < exclR || dSp < exclR, offIsle: dIsle != null && dIsle > (G6 ? 60 : 160), gb6: !!G6};
     });
 
     // Sandstone temple / pyramid footprints anywhere in the Glencraft overworld.
@@ -188,7 +192,7 @@ for (let i = 0; i < seeds.length; i++) {
     // Lit gold portal at the clan/human castle (existing EG1269 mechanic).
     const PID = (typeof T !== 'undefined' && T.EGYPTPORTAL) || 773;
     const GB = T.GOLDBLOCK;
-    const human = (g9castles || []).find(c => c[0] === 'human');
+    const human = (g9castles || []).find(c => c[0] === 'human');   /* the on-grid clan castle keeps the gold portal */
     const gold = {ok: 0, nPortal: 0, nGold: 0, at: null, entered: 0, dim: null};
     if (human) {
       const cx = human[1], cz = human[2];
