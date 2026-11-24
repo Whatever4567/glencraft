@@ -2021,6 +2021,9 @@
   }
   function seatReloadHands(T) {
     if (!T || !U.on || !U.sides) return;
+    /* t1359: while the pistol reload pins the gun into the solved right hand, the wrists are not dragged onto the grip
+       point (that pulled the hand 8 cm into the gun and seated a fingertip on it instead of the palm) */
+    try { if (W.__pmag1359 && W.__pmag1359.pinActive && W.__pmag1359.pinActive()) { U._rlSettle = 0; return; } } catch (_) {}
     const g = gunHeld();
     if (!g) return;
     const info = reloadOn();
