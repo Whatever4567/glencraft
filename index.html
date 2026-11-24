@@ -86789,7 +86789,11 @@ try {
       const HF = WIN.__heldFrame1251;
       if (!HF || !HF.FRAME) return;
       const P = HF.FRAME.pistol;
-      if (P) {
+      /* t1359: once 1280 has set the pistol rest frame, this boot-time nudge (re-run on every hands apply) put its older
+         values back for up to a second at a time, so the pistol jumped 12 cm toward the eye with the arm across the lens.
+         window.__noFrameFix1359 = 1 restores the old behaviour. */
+      if (P && P._nudge1280 && !WIN.__noFrameFix1359) { /* keep 1280's values */ }
+      else if (P) {
         if (!P._nudge1271) U.nudged++;
         P.dx = 0.06;
         P.dy = 0.04;
@@ -87165,6 +87169,9 @@ try {
       });
     } catch (e) { ERR('seat-find', e); return 0; }
     if (!F || !M) return 0;
+    /* t1359: the pistol magazine is seated in the grip by GLX-PMAG1359 (this box reads the quantized GLB raw, ~32767x
+       too big, and threw the magazine ~100 m away). window.__noPmag1359 = 1 gives the old seat back. */
+    if (M.userData.__pm1359Seat && !window.__noPmag1359) return 2;
     try { root.updateMatrixWorld(true); } catch (_) {}
     const bf = modelBox(root, F), bm = modelBox(root, M);
     if (!bf || !bm) return 0;
@@ -92386,6 +92393,9 @@ try {
   }
   function seatReloadHands(T) {
     if (!T || !U.on || !U.sides) return;
+    /* t1359: while the pistol reload pins the gun into the solved right hand, the wrists are not dragged onto the grip
+       point (that pulled the hand 8 cm into the gun and seated a fingertip on it instead of the palm) */
+    try { if (W.__pmag1359 && W.__pmag1359.pinActive && W.__pmag1359.pinActive()) { U._rlSettle = 0; return; } } catch (_) {}
     const g = gunHeld();
     if (!g) return;
     const info = reloadOn();
@@ -100814,6 +100824,25 @@ try {
   function gunHeld() { try { if (typeof held === 'undefined' || !held) return null; const g = held.children[0]; return g && g.userData && g.userData.gun === IT.PISTOL && g.userData.c322 && selId === IT.PISTOL ? g : null; } catch (_) { return null; } }
   function tp() { try { return !!(W.__thirdPerson || (typeof camMode !== 'undefined' && camMode)); } catch (_) { return false; } }
 
+  /* ---- the magazine in the grip ----
+     FIX1273 read the quantized GLB raw (r128 does not scale normalized attributes), so its seat moved the magazine ~100 m
+     away and the pistol had no visible magazine at all; the GLB's own pose has it outside the gun. Seat it from the real
+     geometry instead: the base of the magazine on the base of the grip (bottom quarter of the frame, its centre), so the
+     raked magazine runs up inside the grip with the floor plate just showing. FIX1273 leaves a magazine marked here. */
+  function ptsOf(mesh, inv, step) { const p = mesh.geometry.attributes.position, a = p.array, nq = p.normalized ? (a instanceof Int16Array ? 1 / 32767 : a instanceof Int8Array ? 1 / 127 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Uint8Array ? 1 / 255 : 1) : 1;
+    const mm = M4().multiplyMatrices(inv, mesh.matrixWorld), out = [], v = V(); for (let i = 0; i < p.count; i += Math.max(1, (p.count / (step || 2500)) | 0)) out.push(v.fromBufferAttribute(p, i).multiplyScalar(nq).applyMatrix4(mm).clone()); return out; }
+  function lowCentroid(pts, f) { let lo = 1e9, hi = -1e9; for (const q of pts) { if (q.y < lo) lo = q.y; if (q.y > hi) hi = q.y; } const cut = lo + (hi - lo) * f, c = V(); let n = 0; for (const q of pts) if (q.y <= cut) { c.add(q); n++; } return {c: c.divideScalar(Math.max(1, n)), lo, hi}; }
+  function seatInGrip(g, mesh, hold) {
+    if (mesh.userData.__pm1359Seat === U.ver || U.noSeat) return;
+    let F = null; g.traverse(o => { if (!F && o.isMesh && /pistol_a$/.test(o.name || '')) F = o; }); if (!F || !mesh.parent) return;
+    hold.updateMatrixWorld(true); g.updateMatrixWorld(true); const inv = M4().copy(hold.matrixWorld).invert();
+    const fb = lowCentroid(ptsOf(F, inv), 0.22), mb = lowCentroid(ptsOf(mesh, inv), 0.12);
+    // floor plate 4 mm below the frame's lowest point
+    const d = V(fb.c.x - mb.c.x, (fb.lo - 0.004) - mb.lo, fb.c.z - mb.c.z);
+    // hold space shift -> the mesh parent's space
+    const pi = M4().multiplyMatrices(inv, mesh.parent.matrixWorld).invert(); const o0 = V().applyMatrix4(pi), o1 = d.clone().applyMatrix4(pi);
+    mesh.position.add(o1.sub(o0)); mesh.updateMatrixWorld(true); mesh.userData.__pm1359Seat = U.ver; mesh.userData.__seated1273 = 1;
+    U.seat = {d: d.toArray().map(x => +x.toFixed(4)), frameLo: +fb.lo.toFixed(4), gripC: fb.c.toArray().map(x => +x.toFixed(4))}; }
   /* ---- per gun setup: measure the magazine in hold space, make the spent (drop) and fresh copies ---- */
   function build(g) {
     const X = T3(), u = g.userData, w = u.mag; if (!w || !w.parent) return null;
@@ -100821,6 +100850,7 @@ try {
     if (u.__pm) { const o = u.__pm; for (const k of [o.fresh, o.drop, o.anch]) if (k && k.parent) k.parent.remove(k); if (u.anch && u.anch.well === o.anch) u.anch.well = o.well0 || u.anch.well; u.__pm = null; }
     let mesh = null; w.traverse(o => { if (!mesh && o.isMesh && /magazine/i.test(o.name || '')) mesh = o; }); if (!mesh) return null;
     const hold = w.parent; w.position.set(0, 0, 0); w.rotation.set(0, 0, 0); hold.updateMatrixWorld(true);
+    try { seatInGrip(g, mesh, hold); } catch (e) { ERR('seat', e); }
     const inv = M4().copy(hold.matrixWorld).invert(), mm = M4().multiplyMatrices(inv, mesh.matrixWorld);
     // the magazine's long axis and its two ends, measured from the vertices (hold space)
     const p = mesh.geometry.attributes.position, a = p.array, nq = p.normalized ? (a instanceof Int16Array ? 1 / 32767 : a instanceof Int8Array ? 1 / 127 : a instanceof Uint16Array ? 1 / 65535 : a instanceof Uint8Array ? 1 / 255 : 1) : 1;
@@ -100994,7 +101024,7 @@ try {
       for (const k in uh) try { f[k] = uh[k]; } catch (_) {} f.__pm1359 = 1; updateHand = f; } catch (e) { ERR('hookHand', e); } }
   function cleanup() { try { const g = gunHeld(); const S = g && g.userData.__pm; if (S && S.last >= 0) { S.w.visible = true; S.w.position.set(0, 0, 0); S.fresh.visible = false; S.drop.visible = false; restoreAnch(g.userData, S); S.last = -1; } } catch (_) {} }
 
-  U.tick = dt => { try { if (U.freeze != null) qaHold(+U.freeze); if (!off()) { apply(dt); } else { cleanup(); if (U.freeze != null) oldFreeze(+U.freeze); } } catch (e) { ERR('apply', e); } };
+  U.tick = dt => { try { if (U._poseOn && !U.pinActive()) poses(0); if (U.freeze != null) qaHold(+U.freeze); if (!off()) { apply(dt); } else { cleanup(); if (U.freeze != null) oldFreeze(+U.freeze); } } catch (e) { ERR('apply', e); } };
   /* QA only: hold every reload clock at one fraction (C43's __c43rf and GLX-RLA's __rl, which the arm rig reads) */
   function qaHold(rf) { W.__c43rf = rf; try { const R = W.__rl; if (R) { R.dur = DUR(); R.t = rf > 0 && rf < 1 ? R.dur * (1 - rf) : 0; R.id = IT.PISTOL; } } catch (_) {} }
   /* QA only: hold the OLD reload (C43 + GS1222, flag off) at a reload fraction, for before/after frame strips.
@@ -101011,7 +101041,7 @@ try {
   /* palm-down overhand rack (index.html __fpa support grip reads U.rk). At 1 the IK swung the whole left arm across the
      screen from above (TV strip), so it is off by default; the hand still travels to the slide rear for the rack. */
   if (U.rkGain == null) U.rkGain = 0;
-  U.pose = U.pose || {x: -0.01, y: 0.04, z: 0.01, rx: 0.12, ry: 0.10, rz: 0.18};
+  U.pose = U.pose || {x: -0.01, y: 0.025, z: 0.02, rx: 0.12, ry: 0.10, rz: 0.10};
   // the delta (camera space) for this frame, or null
   function presentDelta() { if (off() || !(U.rf > 0) || typeof hand === 'undefined' || !hand || hand.parent !== camera) return null;
     const g = gunHeld(); if (!g || !W.__vm || !__vm.on) return null; const S = g.userData.__pm; if (!S) return null;
@@ -101045,9 +101075,165 @@ try {
       for (const k of Object.keys(prev)) { try { F.step[k] = prev[k]; } catch (_) {} } F.step.__pm1359 = 1; } catch (e) { ERR('ws', e); } }
   U.present = present;
 
-  U.hook = () => { hookHand(); hookRl(); wrapStep(); };
+  /* ---- round 2: the gun is pinned in the right hand for the whole reload ----
+     The __fpa rig solves the right hand onto the grip (GS1222 grip frame: palm on the grip, fingers round it, wrist
+     0.075 back along the fingers and 0.032 off the palm). Later passes (the held-frame rest offset and item scale, the
+     arm rig scale) then move the gun and the arms apart, so in the reload the gun floated away from both hands. At draw
+     time the gun is moved rigidly so its grip frame lands exactly in the drawn right hand, and the left arm gets the same
+     move (it was solved on the same gun), like glx-fp1347 seats the musket hands. Restored straight after the frame.
+     The 1285 reload wrist pull (wrist dragged onto the grip point, fingertip seated on it) is skipped while this runs.
+     __pmag1359.pin = 0 turns it off. */
+  if (U.pin == null) U.pin = 1;
+  U.hg = U.hg || {k: 0.62, n: 0.03, u: 0.0, yaw: 0, rake: 0, flip: 0};
+  U.pinActive = () => { try { return !off() && !!U.pin && U.rf > 0 && !tp() && !!W.__vm && !!__vm.on && !!gunHeld() && !!W.__fpa && !!__fpa.on; } catch (_) { return false; } };
+  function pinDelta() {
+    if (!U.pinActive()) return null; const X = T3(), g = gunHeld(), R = __fpa.rig && __fpa.rig(); if (!g || !R || R.parent !== camera || !R.visible) return null;
+    const A = R.userData.R, h = A && A.visible && A.userData.p && A.userData.p.h; if (!h || !W.__gs1222 || !__gs1222.gun || !__gs1222.af) return null;
+    camera.updateMatrixWorld(true); hand.updateMatrixWorld(true); R.updateMatrixWorld(true);
+    const ci = new X.Matrix4().copy(camera.matrixWorld).invert(), loc = o => new X.Vector3().setFromMatrixPosition(o.matrixWorld).applyMatrix4(ci);
+    const u = g.userData, mz = u.muzzle ? loc(u.muzzle) : null, fw = mz ? mz.sub(loc(g)).normalize() : new X.Vector3(0, 0, -1);
+    const S = u.__pm; if (!S) return null;
+    // the gun's grip frame (camera space): the magazine centre (inside the grip), the grip axis (up the magazine), the barrel
+    const hm = new X.Matrix4().multiplyMatrices(ci, S.hold.matrixWorld), G = S.c.clone().applyMatrix4(hm);
+    const ga = S.ax.clone().transformDirection(hm), bf = fw.clone().addScaledVector(ga, -fw.dot(ga)).normalize(), br = new X.Vector3().crossVectors(bf, ga).normalize();
+    // the glove's fist frame (hand space, from its bones): knuckle line pinky -> index is up the grip, wrist -> knuckles
+    // along the barrel, the grip centre between the palm and the curled fingers (tunable: U.hg)
+    const st = W.__handsFp1285 && __handsFp1285.sides && __handsFp1285.sides.R; if (!st || !st.prox || st.prox.length < 4) return null;
+    const hi = new X.Matrix4().copy(h.matrixWorld).invert(), hb = o => { o.updateWorldMatrix(true, false); return new X.Vector3().setFromMatrixPosition(o.matrixWorld).applyMatrix4(hi); };
+    const k0 = hb(st.prox[0]), k3 = hb(st.prox[3]), kc = k0.clone().add(k3).multiplyScalar(0.5), wr = hb(st.hand || st.wrap), o = U.hg;
+    const up = k0.clone().sub(k3).normalize(); if (o.inv) up.negate(); const fy = kc.clone().sub(wr); fy.addScaledVector(up, -fy.dot(up)).normalize();
+    const nz = new X.Vector3().crossVectors(up, fy).normalize();   // palm side (sign checked by the frames; U.hg.flip turns it over)
+    const gH = wr.clone().lerp(kc, o.k).addScaledVector(nz, o.n * (o.flip ? -1 : 1)).addScaledVector(up, o.u);
+    // hand space -> camera space
+    const Mh = new X.Matrix4().multiplyMatrices(ci, h.matrixWorld);
+    const gC = gH.clone().applyMatrix4(Mh), upC = up.clone().transformDirection(Mh), fC0 = fy.clone().transformDirection(Mh);
+    const qr = new X.Quaternion().setFromAxisAngle(upC, o.yaw); const fC = fC0.applyQuaternion(qr); fC.addScaledVector(upC, -fC.dot(upC)).normalize();
+    const tilt = new X.Quaternion().setFromAxisAngle(new X.Vector3().crossVectors(fC, upC).normalize(), o.rake); fC.applyQuaternion(tilt); const upT = upC.clone().applyQuaternion(tilt);
+    const rC = new X.Vector3().crossVectors(fC, upT).normalize();
+    const Mg = new X.Matrix4().makeBasis(br, ga, bf).setPosition(G), Mt = new X.Matrix4().makeBasis(rC, upT, fC).setPosition(gC);
+    const D = Mt.multiply(Mg.invert()), dp = new X.Vector3(), dq = new X.Quaternion(), ds = new X.Vector3(); D.decompose(dp, dq, ds);
+    if (!isFinite(dp.x + dp.y + dp.z + dq.w) || dp.length() > 0.6) return null;
+    // fade in at the start of the reload and out at the end (no pop)
+    const w = ss(0, 0.05, U.rf) * (1 - ss(0.95, 1, U.rf)); U.pinW = +w.toFixed(3); U.pinD = +dp.length().toFixed(3); U.pinA = +(2 * Math.acos(Math.min(1, Math.abs(dq.w)))).toFixed(3);
+    dp.multiplyScalar(w); dq.slerp(new X.Quaternion(), 1 - w);   // = identity.slerp(dq, w)
+    return new X.Matrix4().compose(dp, dq, new X.Vector3(1, 1, 1));
+  }
+  function moveCam(o, Dc) { // apply a camera space rigid move to an object somewhere under the camera
+    const X = T3(), ci = new X.Matrix4().copy(camera.matrixWorld).invert(); o.updateMatrixWorld(true);
+    const Mo = new X.Matrix4().multiplyMatrices(ci, o.matrixWorld), Mn = new X.Matrix4().multiplyMatrices(Dc, Mo);
+    const Pp = new X.Matrix4().multiplyMatrices(ci, o.parent.matrixWorld).invert(); Mn.premultiply(Pp); Mn.decompose(o.position, o.quaternion, new X.Vector3()); o.updateMatrixWorld(true); }
+  /* ---- round 2b: both hands seated on the gun from gun-space frames (like glx-fp1347 seats the musket hands) ----
+     Each hand pose is a grip frame in the gun's hold space (or the fresh magazine's): G the point held, Y the finger
+     direction, Z the palm normal (into what is held); the wrist goes 0.075 back along the fingers and 0.034 off the palm,
+     the same formula the __fpa solve and the musket use, so the glove closes round G. Right hand: on the grip for the whole
+     reload. Left hand: down at the belt (off screen) while the spent magazine drops, carrying the fresh magazine up, palm
+     under it for the slap, over the slide for the rack (empty), then back down. Applied at draw time, restored after.
+     __pmag1359.hands = 0 turns it off; __pmag1359.HF holds the frames (tunable). */
+  if (U.hands == null) U.hands = 1;
+  U.HF = U.HF || {
+    R: {g: [0, 0.10, 0], c: [0, -0.012, 0], fa: [0.5, -0.7, 0.5], side: 1},       // g: along the grip axis from the magazine centre (x L); c: fist centre nudge (hand space)
+    Lc: {g: [0, -0.2, 0], c: [0, -0.012, 0], fa: [-0.5, -0.7, 0.45]},     // carrying the fresh magazine
+    Ls: {d: 0.15, c: [0, -0.03, 0], fa: [-0.45, -0.8, 0.35]},             // palm under the base plate (d: below it, x L)
+    Lr: {d: -0.05, f: 0.0, s: 0.02, c: [0, -0.012, 0], fa: [-0.5, -0.7, 0.45]},             // palm over the slide rear (d: above it, x L)
+    belt: [-0.16, -0.40, -0.16], faR: 0.85, faL: 0.7
+  };
+  function frameM(G, y0, z0, off, oz, sA) { const X = T3(); const z = z0.clone().normalize(), y = y0.clone().addScaledVector(z, -y0.dot(z)).normalize(), x = new X.Vector3().crossVectors(y, z).normalize();
+    const pos = G.clone().addScaledVector(y, -off * sA).addScaledVector(z, -oz * sA); return new X.Matrix4().makeBasis(x, y, z).setPosition(pos); }
+  // a hand's world matrix that puts its fist centre at G with the knuckle line along up and the fingers along fwd
+  function fistM(side, G, up, fwd, o) {
+    const X = T3(), R = __fpa.rig(), arm = R.userData[side], h = arm && arm.userData.p && arm.userData.p.h, st = W.__handsFp1285 && __handsFp1285.sides && __handsFp1285.sides[side]; if (!h || !st || !st.prox) return null;
+    const hi = new X.Matrix4().copy(h.matrixWorld).invert(), hb = b => { b.updateWorldMatrix(true, false); return new X.Vector3().setFromMatrixPosition(b.matrixWorld).applyMatrix4(hi); };
+    const pc = V(), dc = V(); for (const b of st.prox) pc.add(hb(b)); pc.divideScalar(st.prox.length); for (const b of st.dist) dc.add(hb(b)); dc.divideScalar(st.dist.length);
+    const C = pc.add(dc).multiplyScalar(0.5).add(V(o.c[0], o.c[1], o.c[2]));
+    const hs = new X.Vector3(); h.matrixWorld.decompose(new X.Vector3(), new X.Quaternion(), hs);
+    // the forearm (it runs back from the wrist along -y of the hand) is given its direction in camera space (o.fa), so it
+    // comes up from the bottom of the screen; the knuckle line is then as close to the grip axis as that allows and the
+    // palm is turned to face the grip (o.side: the gun side the palm lies on, +1 = the gun's right side)
+    let f, u, z;
+    if (o.fa) { const fa = V(o.fa[0], o.fa[1], o.fa[2]).transformDirection(camera.matrixWorld); f = fa.negate().normalize();
+      u = up.clone().addScaledVector(f, -up.dot(f)).normalize(); z = new X.Vector3().crossVectors(u, f).normalize();
+      const rt = new X.Vector3().crossVectors(fwd, up).normalize(), want = o.want ? o.want.clone() : rt.clone().multiplyScalar(-(o.side || 1));
+      if (z.dot(want) < 0) { u.negate(); z.negate(); } }
+    else { u = up.clone().normalize().multiplyScalar(o.us || 1); f = fwd.clone().addScaledVector(u, -fwd.dot(u)).normalize().multiplyScalar(o.fs || 1); z = new X.Vector3().crossVectors(u, f).normalize(); }
+    const Mg = new X.Matrix4().makeBasis(u, f, z).setPosition(G);
+    const Rt = new X.Matrix4().makeRotationFromEuler(new X.Euler(o.rx || 0, o.ry || 0, o.rz || 0, 'XYZ'));
+    return Mg.multiply(Rt).multiply(new X.Matrix4().makeTranslation(-C.x * hs.x, -C.y * hs.y, -C.z * hs.z));
+  }
+  function blendM(a, b, k) { const X = T3(); if (k <= 0) return a; if (k >= 1) return b; const pa = new X.Vector3(), qa = new X.Quaternion(), pb = new X.Vector3(), qb = new X.Quaternion(), s1 = new X.Vector3();
+    a.decompose(pa, qa, s1); b.decompose(pb, qb, s1); return new X.Matrix4().compose(pa.lerp(pb, k), qa.slerp(qb, k), new X.Vector3(1, 1, 1)); }
+  function handPoses(g, S) {   // world matrices for the right and left hand, or null
+    const X = T3(), H = U.HF, rf = U.rf, E = S.E, P = E ? TE : TT, Vv = a => new X.Vector3(a[0], a[1], a[2]);
+    camera.updateMatrixWorld(true); S.hold.updateWorldMatrix(true, true); const hw = S.hold.matrixWorld, sc = new X.Vector3(); hw.decompose(new X.Vector3(), new X.Quaternion(), sc); const sA = 1;
+    const hp = v => v.clone().applyMatrix4(hw), hd = v => v.clone().transformDirection(hw);
+    // right: the glove's fist (from its bones) closed round the grip: knuckle line up the grip, wrist -> knuckles along the
+    // barrel, palm on the right side of the grip
+    const gR = S.c.clone().addScaledVector(S.ax, H.R.g[1] * S.L).add(V(H.R.g[0], 0, H.R.g[2]));
+    const MR = fistM('R', hp(gR), hd(S.ax.clone()), hd(V(0, 0, -1)), H.R);
+    // left poses: a fist round the fresh magazine (palm on its left side), the palm flat under its base plate (the slap),
+    // the palm over the slide (the rack); the forearms come up from the lower left (o.fa, camera space)
+    S.fresh.updateWorldMatrix(true, false); const fw = S.fresh.matrixWorld, fp = v => v.clone().applyMatrix4(fw), fd = v => v.clone().transformDirection(fw);
+    const gfw = hd(V(0, 0, -1)), gup = hd(S.ax.clone()), grt = new X.Vector3().crossVectors(gfw, gup).normalize();
+    const gC = S.c.clone().addScaledVector(S.ax, H.Lc.g[1] * S.L);
+    const Mc = fistM('L', fp(gC), fd(S.ax.clone()), fd(V(0, 0, -1)), Object.assign({}, H.Lc, {want: fd(V(1, 0, 0))}));
+    const Ms = fistM('L', fp(S.base.clone().addScaledVector(S.ax, -H.Ls.d * S.L)), gfw, gup, Object.assign({}, H.Ls, {want: gup}));
+    const rear = S.rear.clone(); try { rear.z += g.userData.slide ? g.userData.slide.position.z : 0; } catch (_) {}
+    // rack: a pinch round the slide rear from the left (knuckle line up the slide's flank, palm on its left side), the
+    // forearm from the lower left, so the hand stays small and on the gun instead of hovering over it
+    const Mr = fistM('L', hp(rear.addScaledVector(S.ax, H.Lr.d * S.L)).addScaledVector(gfw, H.Lr.f || 0).addScaledVector(grt, -(H.Lr.s || 0)), gup, grt, Object.assign({}, H.Lr, {want: grt}));
+    if (!Mc || !Ms || !Mr || !MR) return null;
+    camera.updateMatrixWorld(true); const bp = camera.localToWorld(Vv(H.belt)); const Mb = Mc.clone().setPosition(bp);
+    let ML;
+    if (rf < P.belt - 0.03) ML = Mb;
+    else if (rf < P.ins) ML = blendM(Mb, Mc, ss(P.belt - 0.03, P.belt + 0.02, rf));
+    else if (rf < P.seat) ML = blendM(Mc, Ms, ss(P.ins, P.ins + 0.035, rf));
+    else if (E && rf < P.go) ML = blendM(Ms, Mr, ss(P.seat + 0.005, P.rk0 + 0.03, rf));
+    else ML = blendM(E ? Mr : Ms, Mb, ss(E ? P.go : P.seat + 0.01, P.home, rf));
+    return {MR, ML, belt: rf < P.belt - 0.01 || rf > P.home - 0.02};
+  }
+  function seatH(h, Mw, w, fa) { const X = T3(); if (!h || !h.parent || !Mw) return null; const saved = [h, h.position.clone(), h.quaternion.clone()];
+    h.parent.updateWorldMatrix(true, false); const m = Mw.clone().premultiply(new X.Matrix4().copy(h.parent.matrixWorld).invert()), p = new X.Vector3(), q = new X.Quaternion(), s1 = new X.Vector3(); m.decompose(p, q, s1);
+    if (!isFinite(p.x + p.y + p.z + q.w)) return null; if (w >= 0.999) { h.position.copy(p); h.quaternion.copy(q); } else { h.position.lerp(p, w); h.quaternion.slerp(q, w); } h.updateMatrixWorld(true); return saved; }
+  /* finger curls while reloading: the right hand closed round the grip, the left closed on the fresh magazine, flat for the
+     slap, half closed over the slide; the 1285 poses are put back after the reload */
+  const POSE = {fist: {p: [1.15, 1.5, 1.55, 1.45], d: [1.0, 1.3, 1.35, 1.25], t: [0.95, 0.85], tY: 0.65, tZ: 0.4},
+    carry: {p: [1.2, 1.3, 1.35, 1.3], d: [1.05, 1.15, 1.15, 1.05], t: [0.9, 0.7], tY: 0.5, tZ: 0.3},
+    flat: {p: [0.12, 0.14, 0.16, 0.18], d: [0.08, 0.1, 0.1, 0.12], t: [0.25, 0.15], tY: 0.2, tZ: 0.05},
+    rack: {p: [0.95, 1.0, 1.05, 1.0], d: [0.8, 0.85, 0.9, 0.85], t: [0.7, 0.5], tY: 0.4, tZ: 0.2}};
+  const mixPose = (a, b, k) => { const m = (x, y) => Array.isArray(x) ? x.map((v, i) => v + (y[i] - v) * k) : x + (y - x) * k; return {p: m(a.p, b.p), d: m(a.d, b.d), t: m(a.t, b.t), tY: m(a.tY, b.tY), tZ: m(a.tZ, b.tZ)}; };
+  const setPose = (P, v) => { P.p = v.p.slice(); P.d = v.d.slice(); P.t = v.t.slice(); P.tY = v.tY; P.tZ = v.tZ; };
+  function poses(on, S) { const H = W.__handsFp1285; if (!H || !H.POSES || !H.POSES.pistol || !H.POSES.support) return;
+    if (!U._pose0) U._pose0 = {pistol: JSON.parse(JSON.stringify(H.POSES.pistol)), support: JSON.parse(JSON.stringify(H.POSES.support))};
+    if (!on) { if (U._poseOn) { setPose(H.POSES.pistol, U._pose0.pistol); setPose(H.POSES.support, U._pose0.support); U._poseOn = 0; } return; }
+    const rf = U.rf, P = S.E ? TE : TT, w = ss(0, 0.05, rf) * (1 - ss(0.94, 1, rf));
+    setPose(H.POSES.pistol, mixPose(U._pose0.pistol, POSE.fist, w));
+    let L = POSE.carry; if (rf >= P.ins) L = mixPose(POSE.carry, POSE.flat, ss(P.ins, P.ins + 0.03, rf)); if (rf >= P.seat) L = mixPose(POSE.flat, S.E ? POSE.rack : U._pose0.support, ss(P.seat, P.seat + 0.04, rf));
+    if (S.E && rf >= P.go) L = mixPose(POSE.rack, U._pose0.support, ss(P.go, P.home, rf));
+    setPose(H.POSES.support, L); U._poseOn = 1; }
+  function seatHands() {
+    if (!U.hands || !U.pinActive()) return null; const g = gunHeld(), S = g && g.userData.__pm, R = __fpa.rig && __fpa.rig(); if (!S || !R || !R.visible) return null;
+    const hp = handPoses(g, S); if (!hp) return null; try { poses(1, S); } catch (e) { ERR('pose', e); } const w = ss(0, 0.04, U.rf) * (1 - ss(0.96, 1, U.rf)); U.handsW = +w.toFixed(3);
+    const out = []; const hR = R.userData.R && R.userData.R.userData.p && R.userData.R.userData.p.h, hL = R.userData.L && R.userData.L.userData.p && R.userData.L.userData.p.h;
+    const a = seatH(hR, hp.MR, w); if (a) out.push(a);
+    if (R.userData.L && R.userData.L.visible) { const b = seatH(hL, hp.ML, w); if (b) out.push(b); }
+    // shorter forearms while the hands work close to the gun, so a sleeve never reaches the lens (put back after the frame)
+    U._faS = []; for (const [hh, k] of [[hR, U.HF.faR], [hL, U.HF.faL]]) { const fa = hh && hh.userData.forearm1279; if (fa && k != null) { U._faS.push([fa, fa.scale.y]); fa.scale.y = fa.scale.y * (1 - (1 - k) * w); } }
+    if (U.dbg) { try { const X = T3(), st = __handsFp1285.sides.R, pc = new X.PerspectiveCamera(camera.fov, camera.aspect, 0.01, 50); pc.matrixWorld.copy(camera.matrixWorld); pc.matrixWorldInverse.copy(camera.matrixWorld).invert();
+        const px = v => { const q = v.clone().project(pc); return [Math.round((q.x + 1) / 2 * innerWidth), Math.round((1 - q.y) / 2 * innerHeight)]; }, wp = o => { o.updateWorldMatrix(true, false); return new X.Vector3().setFromMatrixPosition(o.matrixWorld); };
+        const S = gunHeld().userData.__pm; S.hold.updateMatrixWorld(true);
+        U.dbgPx = {prox: st.prox.map(b => px(wp(b))), dist: st.dist.map(b => px(wp(b))), hand: px(wp(hR)), G: px(S.c.clone().applyMatrix4(S.hold.matrixWorld)), base: px(S.base.clone().applyMatrix4(S.hold.matrixWorld)), top: px(S.top.clone().applyMatrix4(S.hold.matrixWorld)), rear: px(S.rear.clone().applyMatrix4(S.hold.matrixWorld))}; } catch (e) { U.dbgPx = String(e); } }
+    U.handsN = (U.handsN || 0) + 1; return out;
+  }
+  U.seatHands = seatHands;
+  function wrapPin() { try { if (typeof renderer === 'undefined' || !renderer || W.__pm1359Hooks.pin) return; W.__pm1359Hooks.pin = 1; const rd = renderer.render;
+      const f = function (sc0, cam) { let saved = null;
+        try { const Z = W.__pmag1359; if (sc0 === scene && cam === camera && Z && Z.seatHands && Z.hands) { const sv = Z.seatHands(); if (sv) saved = sv; } else if (sc0 === scene && cam === camera && Z && Z.pinDelta) { const Dc = Z.pinDelta(); if (Dc) { const R = __fpa.rig(), L = R && R.userData.L; saved = [];
+              for (const o of [hand].concat(L && L.visible ? [L] : [])) { saved.push([o, o.position.clone(), o.quaternion.clone()]); moveCam(o, Dc); } Z.pinN = (Z.pinN || 0) + 1; } } } catch (e) { ERR('pin', e); }
+        try { return rd.apply(this, arguments); } finally { if (saved) for (const [o, p, q] of saved) { o.position.copy(p); o.quaternion.copy(q); o.updateMatrixWorld(true); } try { const Z = W.__pmag1359; if (Z && Z._faS) { for (const [fa, y] of Z._faS) fa.scale.y = y; Z._faS = null; } } catch (_) {} } };
+      for (const k of Object.keys(rd)) { try { f[k] = rd[k]; } catch (_) {} } f.__pm1359pin = 1; renderer.render = f; } catch (e) { ERR('wp', e); } }
+  U.pinDelta = pinDelta;
+  U.hook = () => { hookHand(); hookRl(); wrapStep(); wrapPin(); };
   U.enableRenderPresent = () => { U.presentMode = 'render'; wrapRender(); };   // off by default; wraps renderer.render once when asked
-  U.hook(); setTimeout(U.hook, 0); let tries = 0; const iv = setInterval(() => { try { hookRl(); hookHand(); wrapStep(); const H = W.__pm1359Hooks; if ((H.hand && H.rl && H.step) || ++tries > 240) clearInterval(iv); } catch (_) {} }, 500);
+  U.hook(); setTimeout(U.hook, 0); let tries = 0; const iv = setInterval(() => { try { hookRl(); hookHand(); wrapStep(); const H = W.__pm1359Hooks; wrapPin(); if ((H.hand && H.rl && H.step && H.pin) || ++tries > 240) clearInterval(iv); } catch (_) {} }, 500);
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
