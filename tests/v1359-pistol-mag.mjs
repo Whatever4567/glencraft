@@ -81,5 +81,8 @@ ok(/seatReloadHands[\s\S]{0,400}__pmag1359\.pinActive\(\)\) \{ U\._rlSettle = 0;
 ok(U.hands === 1 && U.pin && typeof U.seatHands === 'function' && U.HF && U.HF.R && U.HF.Lr, 'hands seated on gun frames by default (__pmag1359.hands = 0 turns it off)');
 ok(U.poseCurl === 0, 'run-time POSES edits stay off (1285 bakes glove poses)');
 ok(src.includes('U.rackPose') && src.includes('faR') && src.includes('faL'), 'rack present pose and shorter forearms while seated');
+{ const n0 = html.indexOf('{"v":"v1.2.124"'), n1 = html.indexOf('{"v":"v1.2.123"', n0); const note = n0 > 0 && n1 > n0 ? html.slice(n0, n1) : '';
+  ok(note.includes('Pistol reload rebuilt') && note.includes('magazine') && note.includes('slide'), '1.2.124 patch note covers the pistol reload');
+  ok(!/haggis|food|sausage|pie\b|bread|meat|stew/i.test(note), 'no food in the 1.2.124 note'); }
 at(0.4); W.__noPmag1359 = 1; U.freeze = null; U.tick(0.016); ok(w.visible && !fresh.visible && W.__gs1222.rl2(true, 0.4).phase === 'old', 'window.__noPmag1359 puts the old reload back');
 console.log('PASS v1359-pistol-mag ' + n + ' checks');
