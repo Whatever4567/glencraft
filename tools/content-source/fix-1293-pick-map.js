@@ -103,6 +103,7 @@
       } catch (_) {}
       const C = window.__c112;
       if (!plane || !C || !C.TX || !THREE) return;
+      try { const M7 = window.__map1357; if (M7 && M7.bind && M7.bind(plane)) return; } catch (_) {}   /* t1357 sharp texture */
       let mat = plane.material;
       const img = C.TX;
       const map = mat && mat.map;
@@ -146,18 +147,21 @@
       /* Modest scale: large enough to read, not a hand-moving FRAME lock. */
       const maxHalf = Math.min(halfX, halfY) * (land ? 0.55 : 0.82);
       const sCap = land ? 0.95 : 0.88;
-      const s = Math.max(0.42, Math.min(sCap, (2 * maxHalf) / 0.34));
+      let s = Math.max(0.42, Math.min(sCap, (2 * maxHalf) / 0.34));
       const hs = 0.17 * s;
 
       let cx = d.palmC.x;
       let cy = d.palmC.y + hs * 0.92;
-      const z = depth + 0.01;
+      let z = depth + 0.01;
       const limitX = Math.max(hs + 0.01, halfX * 0.90);
       const limitY = Math.max(hs + 0.01, halfY * 0.90);
       if (cx + hs > limitX) cx = limitX - hs;
       if (cx - hs < -limitX) cx = -limitX + hs;
       if (cy + hs > limitY) cy = limitY - hs;
       if (cy - hs < -limitY) cy = -limitY + hs;
+      /* t1357: GLX-MAP1357 holds the sheet big, flat and square-on (window.__noMap1357 = 1 restores the seat above) */
+      let tilt = -0.22, flat = 0;
+      try { const M7 = window.__map1357; if (M7 && M7.on && !window.__noMap1357 && M7.seat) { const o = M7.seat({palm: d.palmC, halfX, halfY, depth, asp, cam}); if (o) { cx = o.cx; cy = o.cy; z = o.z; s = o.s; tilt = o.tilt; flat = o.flat ? 1 : 0; } } } catch (e) { ERR('m1357', e); }
       U.lastSeat = { asp: +asp.toFixed(3), halfX: +halfX.toFixed(3), halfY: +halfY.toFixed(3),
         cx: +cx.toFixed(3), cy: +cy.toFixed(3), z: +z.toFixed(3), s: +s.toFixed(3),
         palm: [+d.palmC.x.toFixed(3), +d.palmC.y.toFixed(3), +d.palmC.z.toFixed(3)] };
@@ -166,8 +170,8 @@
       O.position.set(cx, cy, z);
       O.quaternion.identity();
       O.up.set(0, 1, 0);
-      O.lookAt(0, 0, 0);
-      O.rotateX(-0.22);
+      if (!flat) O.lookAt(0, 0, 0);
+      O.rotateX(tilt);
       O.updateMatrix();
 
       d.mw.copy(cam.matrixWorld).multiply(O.matrix);

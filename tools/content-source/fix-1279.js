@@ -94,6 +94,8 @@
     Mx.copy(cam.matrixWorld).multiply(O0.matrix);
     Mi.copy(R.matrixWorld).invert().multiply(Mx).decompose(plane.position, plane.quaternion, plane.scale);
     plane.scale.multiplyScalar(s);
+    /* t1357: GLX-MAP1357 holds it big, flat and square-on with the thumb on the left frame edge (window.__noMap1357 = 1 restores the above) */
+    try { const M7 = window.__map1357; if (M7 && M7.place) M7.place(R, plane, cam, V0); } catch (e) { ERR('m1357', e); }
     plane.material = m.sheet;
     m.sheet.depthTest = true; m.sheet.depthWrite = true; m.sheet.transparent = false; m.sheet.opacity = 1;
     plane.renderOrder = 0; plane.visible = true; plane.frustumCulled = false;
