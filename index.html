@@ -99697,14 +99697,21 @@ try {
     try {
       const uv = geo.attributes.uv, pos = geo.attributes.position, nor = geo.attributes.normal;
       if (!uv || !pos || !nor) return geo;
-      const TILE = part === 'butt' ? 0.22 : part === 'steel' || part === 'brass' ? 0.10 : 0.18;
+      // Anisotropic tiling: the atlas crops are short strips (wood 368x96).
+      // A single TILE of 0.18 only covered ~0.17 of the 96px height across a
+      // 0.03-tall fore-end, which stretched the grain. TILE_V ≈ part thickness
+      // so V covers ~one crop height; TILE_U is tighter along the barrel so
+      // density is closer to the uniquely-unwrapped GLB atlas.
+      const metal = part === 'steel' || part === 'brass';
+      const TILE_U = metal ? 0.08 : 0.10;
+      const TILE_V = metal ? 0.028 : 0.032;
       for (let i = 0; i < pos.count; i++) {
         const px = pos.getX(i), py = pos.getY(i), pz = pos.getZ(i);
         const nx = Math.abs(nor.getX(i)), ny = Math.abs(nor.getY(i));
         let u, v;
-        if (nx > 0.5) { u = pz / TILE; v = py / TILE; }
-        else if (ny > 0.5) { u = pz / TILE; v = px / TILE; }
-        else { u = px / TILE; v = py / TILE; }
+        if (nx > 0.5) { u = pz / TILE_U; v = py / TILE_V; }
+        else if (ny > 0.5) { u = pz / TILE_U; v = px / TILE_V; }
+        else { u = px / TILE_V; v = py / TILE_V; }
         uv.setXY(i, u, v);
       }
       uv.needsUpdate = true;
@@ -99727,7 +99734,24 @@ try {
     const t = new T.CanvasTexture(c);
     t.wrapS = t.wrapT = T.RepeatWrapping;
     t.magFilter = T.LinearFilter; t.minFilter = T.LinearMipmapLinearFilter; t.generateMipmaps = true;
-    if (!linear && T.SRGBColorSpace) t.colorSpace = T.SRGBColorSpace;
+    // r128 Texture / CanvasTexture default encoding is LinearEncoding (3000).
+    // THREE.SRGBColorSpace is undefined in this build, so a colorSpace-only
+    // assignment was a no-op and the cropped sRGB bytes were sampled as
+    // linear — that washed the walnut to pale tan. Match the live GLB map
+    // (GLTFLoader sets sRGBEncoding on colour, LinearEncoding on MR/normal,
+    // flipY=false).
+    t.flipY = !!src.flipY;
+    t.anisotropy = src.anisotropy || 4;
+    if (linear) {
+      if (T.LinearEncoding != null) t.encoding = T.LinearEncoding;
+      else if (src.encoding != null) t.encoding = src.encoding;
+      if (T.LinearSRGBColorSpace) t.colorSpace = T.LinearSRGBColorSpace;
+    } else {
+      if (src.encoding != null) t.encoding = src.encoding;
+      else if (T.sRGBEncoding != null) t.encoding = T.sRGBEncoding;
+      if (src.colorSpace) t.colorSpace = src.colorSpace;
+      else if (T.SRGBColorSpace) t.colorSpace = T.SRGBColorSpace;
+    }
     t.needsUpdate = true;
     return t;
   }
@@ -99743,7 +99767,7 @@ try {
             if (!m || !m.map || !m.map.image) continue;
             const nm = (m.name || o.name || '') + '';
             if (/bolt_action_rifle_7_62$/.test(nm) || (/bolt_action_rifle_7_62/.test(nm) && !/accesories/.test(nm) && m.map.image.width >= 1024)) {
-              found = {map: m.map, mr: m.metalnessMap || m.roughnessMap || null, nor: m.normalMap || null};
+              found = {map: m.map, mr: m.metalnessMap || m.roughnessMap || null, nor: m.normalMap || null, mat: m};
               return;
             }
           }
@@ -99761,8 +99785,10 @@ try {
     const M = U._flintMats; if (!M || M.kind !== '119') return 0;
     const src = findRifleMaps(); if (!src || !src.map || !src.map.image) return 0;
     if (U.rifleTex) return 1;
+    // Long-grain crop for every wood part. The figured 1958 oval (RIFLE_CROP.butt)
+    // is a unique, non-tileable island — tiling it on the butt at TILE 0.22 made
+    // the ADS panel a pale, stretched tan slab.
     const woodMap = cropTex(src.map, RIFLE_CROP.wood, 0);
-    const buttMap = cropTex(src.map, RIFLE_CROP.butt, 0);
     const steelMap = cropTex(src.map, RIFLE_CROP.steel, 0);
     let woodMR, steelMR, woodNor, steelNor;
     if (src.mr && src.mr.image) {
@@ -99777,17 +99803,26 @@ try {
       mat.map = map; mat.color.setHex(0xffffff);
       mat.metalness = metal; mat.roughness = rough;
       if (mr) { mat.metalnessMap = mr; mat.roughnessMap = mr; mat.metalness = 1; mat.roughness = 1; }
-      if (nor) { mat.normalMap = nor; if (mat.normalScale) mat.normalScale.set(0.6, 0.6); }
+      if (nor) { mat.normalMap = nor; if (mat.normalScale) mat.normalScale.set(1, 1); }
+      // Carry the GLB body's env response so varnish/steel highlights match.
+      if (src.mat) {
+        if (src.mat.envMap) mat.envMap = src.mat.envMap;
+        if (src.mat.envMapIntensity != null) mat.envMapIntensity = src.mat.envMapIntensity;
+      }
       mat.needsUpdate = true;
     };
     paint(M.wood, woodMap, woodMR, woodNor, 0.02, 0.52);
-    paint(M.butt, buttMap, woodMR, woodNor, 0.02, 0.52);
+    paint(M.butt, woodMap, woodMR, woodNor, 0.02, 0.52);
     paint(M.steel, steelMap, steelMR, steelNor, 0.75, 0.42);
     paint(M.brass, steelMap, steelMR, steelNor, 0.7, 0.45);
     M.brass.color.setHex(0xb08a3a);
     M.brass.metalness = 0.65; M.brass.roughness = 0.4;
     if (steelMR) { M.brass.metalness = 1; M.brass.roughness = 1; }
-    U.rifleTex = 1;
+    U.rifleTex = {
+      enc: woodMap.encoding, flipY: woodMap.flipY,
+      mr: !!woodMR, nor: !!woodNor,
+      srcEnc: src.map && src.map.encoding, srcFlip: src.map && src.map.flipY
+    };
     return 1;
   }
   function flintMats() {
