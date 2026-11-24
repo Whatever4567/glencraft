@@ -31,3 +31,5 @@ ok(U.applied === 0 && JSON.stringify(H.POSES.pistol) === JSON.stringify(old) && 
 ok(PM.HF.R.side === 1 && PM.HF.Lr.d === 0 && PM.HF.faR === 0.6, '__noPhand1360 restores the 1.2.124 reload frames');
 delete W.__noPhand1360; U.sync(); ok(U.applied === 1 && H.POSES.pistol.p[2] >= 1.5, 'turning it back on re-applies');
 console.log('v1360-phand: ' + n + ' passed');
+{ const n0 = html.indexOf('{"v":"v1.2.125"'), n1 = html.indexOf('{"v":"v1.2.124"', n0); const note = n0 > 0 && n1 > n0 ? html.slice(n0, n1) : '';
+  if (n0 > 0) { assert.ok(note.includes('fingers') && note.includes('grip') && note.includes('magazine'), '1.2.125 patch note covers the pistol hands'); console.log('ok 1.2.125 patch note covers the pistol hands'); } }
