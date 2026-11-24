@@ -99286,7 +99286,7 @@ try {
    Off switch: window.__noMap1357 = 1 (old seat and texture come straight back). */
 (function map1357(WIN) {
   const U = WIN.__map1357 = {err: null, on: 1, version: 't1357', open: 0, opens: 0, seats: 0, binds: 0, uploads: 0, hdReady: 0, zoom: 1,
-    F_LAND: 0.74, F_PORT: 0.60, TOP: 0.84, GRIP: 0.02, TILT: 0};
+    F_LAND: 0.70, F_PORT: 0.58, TOP: 0.80, GRIP: -0.10, TILT: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 260); };
   const T3 = () => (typeof THREE !== 'undefined' && THREE) || WIN.THREE || null;
   const live = () => U.on && !WIN.__noMap1357;
@@ -99312,7 +99312,7 @@ try {
       let H = (land ? U.F_LAND : U.F_PORT) * 2 * hY, Wd = H / art;
       const maxW = (land ? 0.62 : 0.94) * 2 * hX; if (Wd > maxW) { Wd = maxW; H = Wd * art; }
       const k = Math.abs(z) / Math.abs(thumb.z || z);
-      let cx = thumb.x * k + Wd / 2 - U.GRIP * Wd;            // the thumb pinches the left frame edge
+      let cx = thumb.x * k + Wd / 2 - U.GRIP * Wd;            // the left frame edge sits under the hand's right side, so the fingers cover frame and sea, not land
       let cy = U.TOP * hY - H / 2;
       const lx = 0.97 * hX - Wd / 2; if (cx > lx) cx = lx; if (cx < -lx) cx = -lx;
       if (cy - H / 2 < -0.97 * hY) cy = -0.97 * hY + H / 2;
@@ -99401,7 +99401,7 @@ try {
         tex.generateMipmaps = gl2;   // WebGL1 cannot mip a non-power-of-two texture
         tex.minFilter = gl2 ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
         tex.magFilter = THREE.LinearFilter;
-        try { tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); } catch (_) { tex.anisotropy = 4; }
+        try { tex.anisotropy = Math.min(WIN.__m1357aniso || 8, renderer.capabilities.getMaxAnisotropy()); } catch (_) { tex.anisotropy = 4; }
         try { if (renderer.outputEncoding === THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding; } catch (_) {}
         tex.flipY = true; tex.needsUpdate = true; HD.tex = tex; HD.upGen = HD.gen; U.uploads++;
       } else if (HD.upGen !== HD.gen) { HD.tex.needsUpdate = true; HD.upGen = HD.gen; U.uploads++; }
@@ -99595,9 +99595,10 @@ try {
       const show = live() && mapHeld() && !U.open && !menuOpen && !paused && !(typeof DIM !== 'undefined' && DIM.cur);
       const M = WIN.__map1317, plane = show && M && M.sheet && M.sheet(), THREE = T3();
       if (!show || !plane || !plane.visible || !THREE || typeof camera === 'undefined') { pill.classList.remove('on'); return; }
+      let vc = camera; try { const R = WIN.__fpa && __fpa.rig && __fpa.rig(); if (R && R.parent && R.parent.isCamera) vc = R.parent; } catch (_) {}   // the hands' camera draws the sheet
       const p = plane.geometry.parameters; plane.updateWorldMatrix(true, false);
       const v = pv.v || (pv.v = new THREE.Vector3());
-      v.set(-p.width / 2, p.height / 2, 0).applyMatrix4(plane.matrixWorld).project(camera);   // top-left corner: the pill sits just left of it
+      v.set(-p.width / 2, p.height / 2, 0).applyMatrix4(plane.matrixWorld).project(vc);   // top-left corner: the pill sits just left of it
       const vw = WIN.innerWidth, vh = WIN.innerHeight; let x = (v.x * 0.5 + 0.5) * vw - (pill.offsetWidth || 90) - 8, y = (-v.y * 0.5 + 0.5) * vh + 40;
       pill.innerHTML = padNow() ? '&#128269; Map <small>LT</small>' : '&#128269; Map';
       x = Math.min(vw - 110, Math.max(8, x)); y = Math.min(vh - 50, Math.max(8, y));
