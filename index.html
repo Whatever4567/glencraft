@@ -101041,9 +101041,15 @@ try {
   /* palm-down overhand rack (index.html __fpa support grip reads U.rk). At 1 the IK swung the whole left arm across the
      screen from above (TV strip), so it is off by default; the hand still travels to the slide rear for the rack. */
   if (U.rkGain == null) U.rkGain = 0;
-  U.pose = U.pose || {x: -0.02, y: 0.03, z: 0.0, rx: 0.10, ry: 0.10, rz: -0.7};
+  U.pose = U.pose || {x: -0.03, y: 0.05, z: -0.03, rx: 0.10, ry: 0.10, rz: 0};
   // the delta (camera space) for this frame, or null
-  function presentDelta() { if (off() || !(U.rf > 0) || typeof hand === 'undefined' || !hand || hand.parent !== camera) return null;
+  /* the older reload under this one tips the pistol muzzle-up by up to ~0.6 rad mid-reload, which turns the grip end-on to
+     the camera; measured against the idle hold, it is evened out to U.pitchTarget for the whole reload (the frames where the
+     magazine reads best), instead of swinging in and out */
+  if (U.pitchCancel == null) U.pitchCancel = 1;
+  if (U.pitchTarget == null) U.pitchTarget = 0.4;   // the mid-reload tip (grip toward the camera, magazine in view) held for the whole reload
+  function presentDelta() { try { if (!(U.rf > 0) && typeof hand !== 'undefined' && hand && hand.parent === camera) U._q0 = (U._q0 || hand.quaternion.clone()).copy(hand.quaternion); } catch (_) {}
+    if (off() || !(U.rf > 0) || typeof hand === 'undefined' || !hand || hand.parent !== camera) return null;
     const g = gunHeld(); if (!g || !W.__vm || !__vm.on) return null; const S = g.userData.__pm; if (!S) return null;
     const X = T3(), rf = U.rf, P = S.E ? TE : TT, D = DUR(), o = U.pose;
     const pw = ss(0, 0.13, rf) * (1 - ss(P.home - 0.1, 1, rf));
@@ -101055,7 +101061,8 @@ try {
     const slam = S.E && rf > P.rk2 ? Math.exp(-(rf - P.rk2) * D * 20) * Math.min(1, (rf - P.rk2) * D * 60) : 0;
     const a = g.userData.anch && g.userData.anch.grip; if (!a) return null;
     camera.updateMatrixWorld(true); hand.updateMatrixWorld(true); const piv = camera.worldToLocal(a.getWorldPosition(V()));
-    const q = Q().setFromEuler(new X.Euler(o.rx * pw + 0.06 * bump + 0.08 * slam, o.ry * pw - 0.05 * flick + R.ry * rkw, o.rz * pw + 0.14 * flick + R.rz * rkw, 'YXZ'));
+    let tip = 0; if (U._q0 && U.pitchCancel) { const e = new X.Euler().setFromQuaternion(hand.quaternion.clone().multiply(U._q0.clone().invert()), 'YXZ'); tip = (U.pitchTarget - e.x) * U.pitchCancel * pw; } U.tip = +tip.toFixed(3);
+    const q = Q().setFromEuler(new X.Euler(tip + o.rx * pw + 0.06 * bump + 0.08 * slam, o.ry * pw - 0.05 * flick + R.ry * rkw, o.rz * pw + 0.14 * flick + R.rz * rkw, 'YXZ'));
     const t = V(o.x * pw, o.y * pw + 0.006 * bump + R.y * rkw, o.z * pw + 0.004 * slam + R.z * rkw);
     U.pw = +pw.toFixed(3); return {piv, q, t}; }
   /* Applied at draw time to the gun AND the arm rig together (a rigid move about the grip), so whatever placed the hands
@@ -101137,8 +101144,8 @@ try {
     R: {g: [0, 0.10, 0], c: [0, -0.012, 0], fa: [0.5, -0.7, 0.5], side: 1},       // g: along the grip axis from the magazine centre (x L); c: fist centre nudge (hand space)
     Lc: {g: [0, -0.2, 0], c: [0, -0.012, 0], fa: [-0.5, -0.7, 0.45]},     // carrying the fresh magazine
     Ls: {d: 0.15, c: [0, -0.03, 0], fa: [-0.45, -0.8, 0.35]},             // palm under the base plate (d: below it, x L)
-    Lr: {d: 0.1, f: 0.03, s: 0, c: [0, -0.012, 0], fa: [-0.85, -0.45, 0.25]},             // palm over the slide rear (d: above it, x L)
-    belt: [-0.16, -0.40, -0.16], faR: 0.85, faL: 0.7
+    Lr: {d: 0.1, f: 0.03, s: 0, c: [0, -0.012, 0], fa: [-0.55, -0.75, 0.35]},             // palm over the slide rear (d: above it, x L)
+    belt: [-0.16, -0.40, -0.16], faR: 0.85, faL: 0.6
   };
   function frameM(G, y0, z0, off, oz, sA) { const X = T3(); const z = z0.clone().normalize(), y = y0.clone().addScaledVector(z, -y0.dot(z)).normalize(), x = new X.Vector3().crossVectors(y, z).normalize();
     const pos = G.clone().addScaledVector(y, -off * sA).addScaledVector(z, -oz * sA); return new X.Matrix4().makeBasis(x, y, z).setPosition(pos); }
