@@ -99622,7 +99622,7 @@ try {
       '.m1367c{position:absolute;left:0;top:0;will-change:transform}.m1367c img{position:absolute;display:block;max-width:none;max-height:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}' +
       '.m1367c b{position:absolute;left:0;white-space:nowrap;padding:2px 10px 3px;background:rgba(243,226,182,.96);border:1.5px solid #7a5a22;border-radius:3px;color:#2b1a0b;font:700 12px/1.15 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.4)}' +
       '.m1367c b i{display:block;font:italic 400 10.5px/1.1 Georgia,serif;color:#5a3a14;letter-spacing:0}');
-    cvs.style.background = 'transparent';
+    FV.cvsBg = cvs.style.background; cvs.style.background = 'transparent';
     // input: record pointers; the gesture is resolved once per frame in ftick()
     const P2 = FV.pts; let lastTap = 0;
     cvs.addEventListener('pointerdown', e => { if (!FV.on()) return; e.stopImmediatePropagation(); e.preventDefault(); try { cvs.setPointerCapture(e.pointerId); } catch (_) {}
@@ -99648,6 +99648,7 @@ try {
   }
   function fpan(dx, dy, glide) { const v = glide ? FV.tgt : FV.cur, g = fgeom(v); v.cx -= dx / (g.sc * g.iw); v.cy -= dy / (g.sc * g.ih); fclamp(v); if (!glide) Object.assign(FV.tgt, FV.cur); kick(); }
   function kick() { if (!FV.raf && U.open) FV.raf = requestAnimationFrame(ftick); }
+  FV.kick = kick; FV.zoom = (f, x, y) => fzoom(f, x, y, 1);
   function ftick(t) {
     FV.raf = 0; if (!U.open || !FV.on()) return;
     const dt = Math.min(0.05, FV.t ? (t - FV.t) / 1000 : 0.016); FV.t = t;
@@ -99711,7 +99712,7 @@ try {
   }
   function fopen() {
     fmount(); if (!FV.layer) return false;
-    cvs.style.display = 'block'; cvs.getContext('2d').clearRect(0, 0, cvs.width, cvs.height);
+    FV.layer.style.display = FV.mk.style.display = ''; cvs.style.background = 'transparent'; cvs.style.display = 'block'; cvs.getContext('2d').clearRect(0, 0, cvs.width, cvs.height);
     FV.cur = {z: 1, cx: .5, cy: .5}; FV.tgt = {z: 1, cx: .5, cy: .5}; FV.follow = 0; FV.pts.clear(); FV.prev = null; FV.applied = ''; FV.ax = FV.ay = 0; FV.t = 0;
     ov.style.background = 'radial-gradient(ellipse at center,#2a1e12,#0a0a0c)';   // opaque: the 3D world is not drawn underneath
     fapply(); kick(); return true;
@@ -99744,7 +99745,7 @@ try {
     try { if (typeof menuOpen !== 'undefined' && !menuOpen) { menuOpen = true; setMenu = true; } } catch (_) {}
     try { syncPad(); } catch (_) {}
     hint.innerHTML = hintText(); ov.classList.add('on');
-    if (!(FV.on() && fopen())) { ov.style.background = ''; cvs.style.display = ''; draw(1); if (!raf) raf = requestAnimationFrame(loop); }   /* t1367 fast view */
+    if (!(FV.on() && fopen())) { if (FV.layer) { FV.layer.style.display = FV.mk.style.display = 'none'; cvs.style.background = FV.cvsBg || ''; } ov.style.background = ''; cvs.style.display = ''; draw(1); if (!raf) raf = requestAnimationFrame(loop); }   /* t1367 fast view */
     return true;
   }
   function close() {
