@@ -99609,7 +99609,8 @@ try {
   function fmount() {
     if (FV.layer) return;
     const cv = baseCanvas(); if (!cv) return;
-    FV.layer = el('div', {'data-testid': 'full-map-layer', style: 'position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;box-shadow:0 0 22px 6px rgba(0,0,0,.6);contain:layout paint'}, null);
+    FV.layer = el('div', {'data-testid': 'full-map-layer', style: 'position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform;box-shadow:0 0 22px 6px rgba(0,0,0,.6)'}, null);
+    FV.layer.style.width = cv.width + 'px'; FV.layer.style.height = cv.height + 'px';
     cv.style.cssText = 'display:block;width:' + cv.width + 'px;height:' + cv.height + 'px';
     FV.layer.appendChild(cv);
     ov.insertBefore(FV.layer, cvs);
@@ -99618,8 +99619,8 @@ try {
       '<div style="position:absolute;left:-26px;top:-26px;width:52px;height:52px;border-radius:50%;background:rgba(255,240,200,.28);animation:m1367p 1.6s ease-in-out infinite"></div>' +
       '<svg width="44" height="44" viewBox="-22 -22 44 44" style="position:absolute;left:-22px;top:-22px;overflow:visible"><path d="M0-17L12 14 0 7-12 14z" fill="#d01818" stroke="#fff" stroke-width="3.4" stroke-linejoin="round"/></svg>');
     el('style', {}, document.head, '@keyframes m1367p{0%,100%{transform:scale(.85);opacity:.55}50%{transform:scale(1.25);opacity:1}}' +
-      '.m1367c{position:absolute;left:0;top:0;will-change:transform}.m1367c img{position:absolute;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}' +
-      '.m1367c b{position:absolute;left:0;transform:translateX(-50%);white-space:nowrap;padding:2px 10px 3px;background:rgba(243,226,182,.96);border:1.5px solid #7a5a22;border-radius:3px;color:#2b1a0b;font:700 12px/1.15 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.4)}' +
+      '.m1367c{position:absolute;left:0;top:0;will-change:transform}.m1367c img{position:absolute;display:block;max-width:none;max-height:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55))}' +
+      '.m1367c b{position:absolute;left:0;white-space:nowrap;padding:2px 10px 3px;background:rgba(243,226,182,.96);border:1.5px solid #7a5a22;border-radius:3px;color:#2b1a0b;font:700 12px/1.15 Georgia,"Times New Roman",serif;letter-spacing:.04em;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.4)}' +
       '.m1367c b i{display:block;font:italic 400 10.5px/1.1 Georgia,serif;color:#5a3a14;letter-spacing:0}');
     cvs.style.background = 'transparent';
     // input: record pointers; the gesture is resolved once per frame in ftick()
@@ -99681,7 +99682,7 @@ try {
     const key = ox.toFixed(2) + ',' + oy.toFixed(2) + ',' + gm.sc.toFixed(5);
     if (key !== FV.applied) { FV.layer.style.transform = 'translate3d(' + ox.toFixed(2) + 'px,' + oy.toFixed(2) + 'px,0) scale(' + gm.sc.toFixed(5) + ')'; FV.applied = key; FV.frames++; }
     // castle drawings: vector, at their chart spots, growing a little as you zoom in
-    const pts = castlePts(), sz = Math.round(Math.max(56, Math.min(120, 46 + c.z * 14)));
+    const pts = castlePts(), sz = Math.round(Math.max(50, Math.min(112, 38 + c.z * 13)));
     const s746 = gm.iw / 746;
     if (FV.marks.length !== pts.length || FV.mkey !== pts.map(p => p[0]).join()) {
       for (const m of FV.marks) m.remove(); FV.marks = [];
@@ -99690,11 +99691,18 @@ try {
       FV.mkey = pts.map(p => p[0]).join(); FV.msz = 0;
       FV.mk.insertBefore(FV.arrow, null);
     }
-    if (FV.msz !== sz) { for (const m of FV.marks) { const im = m.firstChild, lb = m.lastChild; im.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;left:' + (-sz / 2) + 'px;top:' + (-sz * 0.53) + 'px'; lb._t = null; } FV.msz = sz; }
+    if (FV.msz !== sz) { for (const m of FV.marks) { const im = m.firstChild, lb = m.lastChild; im.style.cssText = 'width:' + sz + 'px;height:' + sz + 'px;left:' + (-sz / 2) + 'px;top:' + (-sz * 0.53) + 'px'; } FV.msz = sz; FV.lkey = null; }
     const xy = pts.map(p => [ox + p[1] * s746 * gm.sc, oy + p[2] * s746 * gm.sc]);
     for (let i = 0; i < pts.length; i++) { const [x, y] = xy[i]; FV.marks[i].style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
-      let below = true; for (let j = 0; j < xy.length; j++) { if (j === i) continue; const dx = xy[j][0] - x, dy = xy[j][1] - y; if (Math.abs(dx) < 1.6 * sz && dy > 0 && dy < 1.5 * sz) below = false; }
-      const lb = FV.marks[i].lastChild, top = below ? sz * 0.44 : -sz * 0.53 - 34; if (lb._t !== top) { lb.style.top = top + 'px'; lb._t = top; } }
+    }
+    // labels: greedy placement (below, above, right, left) clear of every drawing and earlier label; relayout only when the scale changes
+    const lk = gm.sc.toFixed(4) + '|' + sz + '|' + FV.mkey;
+    if (FV.lkey !== lk) { FV.lkey = lk; const boxes = xy.map(([x, y]) => [x - sz * 0.46, y - sz * 0.53, x + sz * 0.46, y + sz * 0.42]);
+      const hit = (r) => boxes.some(o => r[0] < o[2] && r[2] > o[0] && r[1] < o[3] && r[3] > o[1]);
+      for (let i = 0; i < pts.length; i++) { const lb = FV.marks[i].lastChild, w = lb._w || (lb._w = lb.offsetWidth || 120), h = lb._h || (lb._h = lb.offsetHeight || 34), [x, y] = xy[i];
+        const C = [[-w / 2, sz * 0.44], [-w / 2, -sz * 0.55 - h], [sz * 0.48, -h / 2], [-sz * 0.48 - w, -h / 2]];
+        let pick = C[0]; for (const c of C) { if (!hit([x + c[0], y + c[1], x + c[0] + w, y + c[1] + h])) { pick = c; break; } }
+        lb.style.left = pick[0].toFixed(1) + 'px'; lb.style.top = pick[1].toFixed(1) + 'px'; boxes.push([x + pick[0], y + pick[1], x + pick[0] + w, y + pick[1] + h]); } }
     const q = me();
     if (q && !(typeof DIM !== 'undefined' && DIM.cur)) { const x = ox + q[0] * gm.iw * gm.sc, y = oy + q[1] * gm.ih * gm.sc; const yaw = (typeof P !== 'undefined' && P.yaw) || 0;
       FV.arrow.style.display = ''; FV.arrow.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + (-yaw).toFixed(3) + 'rad)'; U.mePx = [Math.round(x), Math.round(y)]; }
