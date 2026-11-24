@@ -14,7 +14,7 @@ let k = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++k) + ' ' + l); };
 
 ok(ver.v >= '1.2.117', 'version.json is 1.2.117');
-ok(html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.119';") || html.includes("const GAME_VERSION = '1.2.120';") || html.includes("const GAME_VERSION = '1.2.121';") || html.includes("const GAME_VERSION = '1.2.122';") || html.includes("const GAME_VERSION = '1.2.123';") || html.includes("const GAME_VERSION = '1.2.124';") || html.includes("const GAME_VERSION = '1.2.125';") || html.includes("const GAME_VERSION = '1.2.126';") || html.includes("const GAME_VERSION = '1.2.127';"), 'GAME_VERSION is 1.2.117');
+ok(html.includes("const GAME_VERSION = '1.2.117';") || html.includes("const GAME_VERSION = '1.2.118';") || html.includes("const GAME_VERSION = '1.2.119';") || html.includes("const GAME_VERSION = '1.2.120';") || html.includes("const GAME_VERSION = '1.2.121';") || html.includes("const GAME_VERSION = '1.2.122';") || html.includes("const GAME_VERSION = '1.2.123';") || html.includes("const GAME_VERSION = '1.2.124';") || html.includes("const GAME_VERSION = '1.2.125';") || html.includes("const GAME_VERSION = '1.2.126';") || html.includes("const GAME_VERSION = '1.2.127';") || html.includes("const GAME_VERSION = '1.2.128';"), 'GAME_VERSION is 1.2.117');
 ok(html.includes('<!-- glencraft-build: b1317-v1.2.117 -->'), 'build marker b1317-v1.2.117');
 ok(html.includes('<!-- glencraft-build: b1315-v1.2.115 -->'), '1.2.115 marker stays');
 const s0 = html.indexOf('{"v":"v1.2.117"'), s1 = html.indexOf('{"v":"v1.2.115"', s0);
