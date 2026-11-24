@@ -72,5 +72,14 @@ ok(at(0.5).fresh && at(0.8).seated, 'tactical: still a full magazine swap');
 U.freeze = null; ok(U.TE.rel < U.TE.drop && U.TE.drop < U.TE.belt && U.TE.belt < U.TE.up && U.TE.up < U.TE.ins && U.TE.ins < U.TE.seat && U.TE.seat < U.TE.rk1 && U.TE.rk1 < U.TE.rk2 && U.TE.rk2 < U.TE.home, 'empty timeline is in order');
 ok(U.TT.seat < U.TT.home && U.TT.rk1 > 1, 'tactical timeline skips the rack');
 // flag off
+// round 2: the magazine is seated in the grip by its own geometry (FIX1273's raw quantized read had parked it ~120 m away),
+// the hands are seated on the gun for the whole reload, and each part has its own off switch
+ok(mag.userData.__pm1359Seat && U.seat && Array.isArray(U.seat.d), 'magazine seated in the grip from its geometry (seatInGrip)');
+ok(html.includes('if (M.userData.__pm1359Seat && !window.__noPmag1359) return 2;'), 'FIX1273 seatMag leaves a pmag-seated magazine alone (flagged)');
+ok(html.includes('P._nudge1280 && !WIN.__noFrameFix1359'), '1271 nudgeFrame no longer flips the pistol frame back to dz .08 (flag __noFrameFix1359)');
+ok(/seatReloadHands[\s\S]{0,400}__pmag1359\.pinActive\(\)\) \{ U\._rlSettle = 0; return; \}/.test(html), '1285 seatReloadHands steps aside while the hands are seated on the gun');
+ok(U.hands === 1 && U.pin && typeof U.seatHands === 'function' && U.HF && U.HF.R && U.HF.Lr, 'hands seated on gun frames by default (__pmag1359.hands = 0 turns it off)');
+ok(U.poseCurl === 0, 'run-time POSES edits stay off (1285 bakes glove poses)');
+ok(src.includes('U.rackPose') && src.includes('faR') && src.includes('faL'), 'rack present pose and shorter forearms while seated');
 at(0.4); W.__noPmag1359 = 1; U.freeze = null; U.tick(0.016); ok(w.visible && !fresh.visible && W.__gs1222.rl2(true, 0.4).phase === 'old', 'window.__noPmag1359 puts the old reload back');
 console.log('PASS v1359-pistol-mag ' + n + ' checks');
