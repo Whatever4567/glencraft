@@ -10,7 +10,7 @@ const frame = fs.readFileSync(path.join(root, 'tools/pilot-model-source/held-fra
 let n = 0;
 function ok(cond, msg) { n++; if (!cond) { console.error('FAIL:', msg); process.exit(1); } }
 
-const OKV = ['1.2.83', '1.2.84', '1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90', '1.2.91', '1.2.92', '1.2.93', '1.2.94', '1.2.95', '1.2.96', '1.2.97', '1.2.98', '1.2.99', '1.2.100', '1.2.101', '1.2.102', '1.2.103', '1.2.104', '1.2.105', '1.2.106', '1.2.107', '1.2.108', '1.2.109', '1.2.110', '1.2.111', '1.2.112', '1.2.113', '1.2.114', '1.2.115', '1.2.117', '1.2.118', '1.2.119', '1.2.120', '1.2.121', '1.2.122', '1.2.123', '1.2.124', '1.2.125', '1.2.126'];
+const OKV = ['1.2.83', '1.2.84', '1.2.85', '1.2.86', '1.2.87', '1.2.88', '1.2.89', '1.2.90', '1.2.91', '1.2.92', '1.2.93', '1.2.94', '1.2.95', '1.2.96', '1.2.97', '1.2.98', '1.2.99', '1.2.100', '1.2.101', '1.2.102', '1.2.103', '1.2.104', '1.2.105', '1.2.106', '1.2.107', '1.2.108', '1.2.109', '1.2.110', '1.2.111', '1.2.112', '1.2.113', '1.2.114', '1.2.115', '1.2.117', '1.2.118', '1.2.119', '1.2.120', '1.2.121', '1.2.122', '1.2.123', '1.2.124', '1.2.125', '1.2.126', '1.2.127'];
 ok(OKV.includes(ver.v), 'version.json is 1.2.83+');
 ok(OKV.some(v => html.includes("const GAME_VERSION = '" + v + "';")), 'GAME_VERSION is 1.2.83+');
 ok(html.includes('<!-- glencraft-build: b1283-v1.2.83 -->'), 'build marker');
@@ -23,7 +23,7 @@ ok(credits.includes('## v1.2.83 Tartan colour, clear first-person view, finished
   const s0 = html.indexOf('window.PATCH_NOTES = [');
   const e0 = html.indexOf('\n];', s0);
   const arr = (new Function('return ' + html.slice(s0 + 'window.PATCH_NOTES = '.length, e0 + 2)))();
-  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.83') : -1; ok(k >= 0 && k <= 42 && arr[k + 1].v === 'v1.2.82', 'PATCH_NOTES parses, 1.2.83 before 1.2.82'); }
+  { const k = Array.isArray(arr) ? arr.findIndex(e => e.v === 'v1.2.83') : -1; ok(k >= 0 && k <= 43 && arr[k + 1].v === 'v1.2.82', 'PATCH_NOTES parses, 1.2.83 before 1.2.82'); }
 }
 {
   const re = /<script>([\s\S]*?)<\/script>/g; let m;
