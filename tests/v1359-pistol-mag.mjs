@@ -45,8 +45,8 @@ ok(U.geo && U.geo.L > 0.09 && U.geo.L < 0.13 && U.geo.ax[1] > 0.9, 'magazine axi
 // empty reload
 const s1 = at(0.02); ok(s1.seated && s1.slideZ > 0.03, 'empty: before the release the magazine is in and the slide is locked back');
 const s2 = at(0.12);
-const dropObj = (() => { let o = null; hand.traverse(x => { if (x.name === 'pmag1359' && x.parent === hand) o = x; }); return o; })();
-ok(dropObj && dropObj.visible && !s2.seated, 'the spent magazine is out of the grip and falling on its own (child of the hand pass)');
+const dropObj = (() => { let o = null; hand.traverse(x => { if (x.name === 'pmag1359' && x.parent === held) o = x; }); return o; })();
+ok(dropObj && dropObj.visible && !s2.seated, 'the spent magazine is out of the grip and falling on its own (under held, so the older viewmodel passes do not hide it)');
 const y12 = camLocal(dropObj).y; at(0.2); const y20 = camLocal(dropObj).y; at(0.3); const y30 = dropObj.visible ? camLocal(dropObj).y : -9;
 ok(y20 < y12 - 0.01 && y30 < y20, 'it falls faster and faster (y ' + [y12, y20, y30].map(v => v.toFixed(3)).join(' > ') + ')');
 const s3 = at(0.2); ok(s3.ph2.phase === 'belt' || s3.ph2.phase === 'mag out', 'GS1222 phases come from the new timeline (' + s3.ph2.phase + ')');
