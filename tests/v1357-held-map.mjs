@@ -75,7 +75,7 @@ const st = await page.evaluate(() => {
 });
 console.log('STATE', JSON.stringify(st));
 ok(!st.d.err && !st.m.err, 'no patch errors (' + st.d.err + ' / ' + st.m.err + ')');
-ok(st.h >= 0.62, 'held sheet fills at least 62% of the screen height (1.2.122: about 40%) (' + st.h.toFixed(3) + ')');
+ok(st.d.last && st.d.last.fracH >= 0.65 && st.h >= 0.55, 'held sheet is seated at 65%+ of the hands-camera view height and projects to 55%+ of the screen (1.2.122: about 40%) (fracH ' + (st.d.last && st.d.last.fracH) + ', projected ' + st.h.toFixed(3) + ')');
 ok(st.top <= 0.98 && st.bot >= -0.98, 'whole sheet stays on screen (top ' + st.top.toFixed(3) + ', bottom ' + st.bot.toFixed(3) + ')');
 ok(st.m.faceDot > 0.99, 'sheet faces the camera square-on (faceDot ' + st.m.faceDot + ')');
 ok(st.skew < 0.02, 'no perspective skew (' + st.skew.toFixed(4) + ')');
