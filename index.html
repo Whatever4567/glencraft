@@ -88937,6 +88937,8 @@ try {
     Mx.copy(cam.matrixWorld).multiply(O0.matrix);
     Mi.copy(R.matrixWorld).invert().multiply(Mx).decompose(plane.position, plane.quaternion, plane.scale);
     plane.scale.multiplyScalar(s);
+    /* t1357: GLX-MAP1357 holds it big, flat and square-on with the thumb on the left frame edge (window.__noMap1357 = 1 restores the above) */
+    try { const M7 = window.__map1357; if (M7 && M7.place) M7.place(R, plane, cam, V0); } catch (e) { ERR('m1357', e); }
     plane.material = m.sheet;
     m.sheet.depthTest = true; m.sheet.depthWrite = true; m.sheet.transparent = false; m.sheet.opacity = 1;
     plane.renderOrder = 0; plane.visible = true; plane.frustumCulled = false;
@@ -99284,17 +99286,52 @@ try {
    Off switch: window.__noMap1357 = 1 (old seat and texture come straight back). */
 (function map1357(WIN) {
   const U = WIN.__map1357 = {err: null, on: 1, version: 't1357', open: 0, opens: 0, seats: 0, binds: 0, uploads: 0, hdReady: 0, zoom: 1,
-    F_LAND: 0.80, F_PORT: 0.62, TOP: 0.90, GRIP: 0.035, TILT: -0.03};
+    F_LAND: 0.80, F_PORT: 0.62, TOP: 0.90, GRIP: 0.045, TILT: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 260); };
   const T3 = () => (typeof THREE !== 'undefined' && THREE) || WIN.THREE || null;
   const live = () => U.on && !WIN.__noMap1357;
   const MAP_ID = () => { try { return (typeof IT !== 'undefined' && IT.MAP) || 410; } catch (_) { return 410; } };
   const mapHeld = () => { try { return started && !dead && (selId === MAP_ID() || selId === 410) && cnt(selId) > 0 && !(typeof camMode !== 'undefined' && camMode); } catch (_) { return false; } };
 
-  /* ---------- 1) seat: called from FIX1293 seatMap with camera-space numbers ---------- */
+  /* ---------- 1) seat ----------
+     FIX1279 seats the sheet every frame inside the rig's updateMatrixWorld (the seat you actually see: thumb tip on the
+     bottom-left corner, s 0.8, turned to the eye); FIX1293 re-seats afterwards (its numbers only reach measure()).
+     Both now ask here. place() keeps FIX1279's pinch (thumb in front, fingers behind) but holds the sheet big and
+     square-on, with the thumb on the left frame edge instead of over Wales and Ireland. */
+  let PV = null;
+  U.place = function (R, plane, cam, thumb) {
+    try {
+      if (!live() || !R || !plane || !cam || !thumb) return false;
+      const THREE = T3(); if (!THREE) return false;
+      if (!PV) PV = {O: new THREE.Object3D(), A: new THREE.Matrix4(), B: new THREE.Matrix4()};
+      const M = WIN.__map1317; const art = (M && M.tw) ? M.th / M.tw : 1648 / 1200;
+      const tf = Math.tan(((cam.fov || 75) * Math.PI) / 360);
+      let asp = cam.aspect || 1; try { const el = renderer.domElement; if (el && el.clientHeight) asp = el.clientWidth / el.clientHeight; } catch (_) {}
+      const z = Math.min(-0.3, thumb.z - 0.03);            // just behind the thumb tip: thumb in front, fingers behind
+      const hY = tf * Math.abs(z), hX = hY * asp, land = asp >= 1;
+      let H = (land ? U.F_LAND : U.F_PORT) * 2 * hY, Wd = H / art;
+      const maxW = (land ? 0.62 : 0.94) * 2 * hX; if (Wd > maxW) { Wd = maxW; H = Wd * art; }
+      const k = Math.abs(z) / Math.abs(thumb.z || z);
+      let cx = thumb.x * k + Wd / 2 - U.GRIP * Wd;            // the thumb pinches the left frame edge
+      let cy = U.TOP * hY - H / 2;
+      const lx = 0.97 * hX - Wd / 2; if (cx > lx) cx = lx; if (cx < -lx) cx = -lx;
+      if (cy - H / 2 < -0.97 * hY) cy = -0.97 * hY + H / 2;
+      const s = Wd / 0.34;
+      const O = PV.O; O.position.set(cx, cy, z); O.quaternion.identity(); O.rotation.set(U.TILT, 0, 0); O.scale.set(1, 1, 1); O.updateMatrix();
+      R.updateWorldMatrix(false, false);
+      PV.A.copy(cam.matrixWorld).multiply(O.matrix);
+      PV.B.copy(R.matrixWorld).invert().multiply(PV.A).decompose(plane.position, plane.quaternion, plane.scale);
+      plane.scale.set(s, s, s);
+      U.cam = {cx, cy, z, s, t: performance.now()};
+      U.places = (U.places || 0) + 1;
+      U.last = {asp: +asp.toFixed(3), s: +s.toFixed(3), cx: +cx.toFixed(3), cy: +cy.toFixed(3), z: +z.toFixed(3), hY: +hY.toFixed(3), fracH: +(H / (2 * hY)).toFixed(3), fracW: +(Wd / (2 * hX)).toFixed(3), thumb: [+thumb.x.toFixed(3), +thumb.y.toFixed(3), +thumb.z.toFixed(3)]};
+      return true;
+    } catch (e) { ERR('place', e); return false; }
+  };
   U.seat = function (a) {
     try {
       if (!live()) return null;
+      if (U.cam && performance.now() - U.cam.t < 500) { U.seats++; return {cx: U.cam.cx, cy: U.cam.cy, z: U.cam.z, s: U.cam.s, tilt: U.TILT, flat: 1}; }
       const M = WIN.__map1317; const art = (M && M.tw) ? M.th / M.tw : 1648 / 1200;
       const cam = a.cam, tf = Math.tan(((cam && cam.fov) || 75) * Math.PI / 360), asp = a.asp || 1;
       const pz = (a.palm && a.palm.z < -0.28) ? a.palm.z : -0.48;
@@ -99477,7 +99514,7 @@ try {
     try { syncGame(); } catch (_) {}
   }
   U.openMap = open; U.closeMap = close; U.toggle = () => (U.open ? close() : open());
-  U.debug = () => ({open: U.open, zoom: U.zoom, last: U.last || null, seats: U.seats, binds: U.binds, uploads: U.uploads, hdReady: U.hdReady, owns: (function () { try { return U.owns(WIN.__map1317.sheet()); } catch (_) { return false; } })(), err: U.err, mePx: U.mePx || null});
+  U.debug = () => ({open: U.open, zoom: U.zoom, last: U.last || null, places: U.places || 0, seats: U.seats, binds: U.binds, uploads: U.uploads, hdReady: U.hdReady, owns: (function () { try { return U.owns(WIN.__map1317.sheet()); } catch (_) { return false; } })(), err: U.err, mePx: U.mePx || null});
 
   /* controller: while the map is open it reads the pad itself; the game sees no buttons */
   const pPrev = {};
