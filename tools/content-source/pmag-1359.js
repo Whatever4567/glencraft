@@ -11,6 +11,9 @@
    window.__noPmag1359 = 1 (or __pmag1359.on = 0) puts the old reload back (the old C43 and GS1222 code is untouched). */
 (function (W) {
   'use strict';
+  /* each hook is installed once per page (also across a QA hot reload of this file), so later wrappers that drop our
+     flags cannot make it wrap again and again */
+  W.__pm1359Hooks = W.__pm1359Hooks || {};
   const U = W.__pmag1359 = {ver: Date.now(), err: null, on: 1, n: 0, frames: 0, empty: 0, rf: -1, ph: 'idle', drop: 0, fresh: 0, seat: 0, freeze: null, qaEmpty: null, beats: [], snd: 1, gap: -1, built: 0};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const T3 = () => W.THREE;
@@ -196,6 +199,7 @@
     else { ph = 'return'; const at = E ? P.go : P.seat; w = 1 - ss(at, P.home, rf);
       if (E) { const rear = S.rear.clone(); rear.z += u.slide ? u.slide.position.z : 0; tgt = rear.add(V(-0.004, 0.02 * ss(at, at + 0.05, rf), 0)); rk = 1 - ss(at, at + 0.06, rf); }
       else { tgt = S.base.clone().addScaledVector(S.ax, -0.004); wl = 1 - ss(at, at + 0.08, rf); } }
+    rk *= (U.rkGain == null ? 1 : U.rkGain);
     S.anch.position.copy(tgt); S.anch.updateMatrixWorld(true);
     U.ph = ph; U.w = +w.toFixed(3); U.wl = +wl.toFixed(3); U.rk = +rk.toFixed(3);
     S.phase = {phase: ph, to: 'well', w, belt: 0, well: wl, rk};
@@ -205,11 +209,11 @@
   function restoreAnch(u, S) { const a = u.anch; if (a && a.well === S.anch) a.well = S.well0 || a.well; }
 
   /* hand phases: GS1222's pistol phases come from here while this is on (the musket keeps its own) */
-  function hookRl() { const G = W.__gs1222; if (!G || !G.rl2 || G.rl2.__pm1359) return !!(G && G.rl2 && G.rl2.__pm1359);
+  function hookRl() { const G = W.__gs1222; if (!G || !G.rl2 || G.rl2.__pm1359 || W.__pm1359Hooks.rl) return true; W.__pm1359Hooks.rl = 1;
     const prev = G.rl2; G.rl2 = function (isP, x) { try { const Z = W.__pmag1359; if (isP && Z && Z.phaseNow) { const r = Z.phaseNow(); if (r) return r; } } catch (e) { ERR('rl2', e); } return prev.apply(this, arguments); };
     G.rl2.__pm1359 = 1; return true; }
 
-  function hookHand() { try { if (typeof updateHand !== 'function' || updateHand.__pm1359) return; const uh = updateHand;
+  function hookHand() { try { if (typeof updateHand !== 'function' || updateHand.__pm1359 || W.__pm1359Hooks.hand) return; W.__pm1359Hooks.hand = 1; const uh = updateHand;
       const f = function (dt) { try { const Z = W.__pmag1359; if (Z && Z.tick) Z.tick(dt); } catch (e) { ERR('apply', e); } return uh.apply(this, arguments); };
       for (const k in uh) try { f[k] = uh[k]; } catch (_) {} f.__pm1359 = 1; updateHand = f; } catch (e) { ERR('hookHand', e); } }
   function cleanup() { try { const g = gunHeld(); const S = g && g.userData.__pm; if (S && S.last >= 0) { S.w.visible = true; S.w.position.set(0, 0, 0); S.fresh.visible = false; S.drop.visible = false; restoreAnch(g.userData, S); S.last = -1; } } catch (_) {} }
@@ -228,6 +232,9 @@
      the hotbar covers the bottom of the grip, so the magazine change was out of sight. While reloading the gun is brought
      up and in, the muzzle tipped up and right and the grip rolled so the magazine well faces the off hand and the camera
      (as Leon and most realistic shooters do). Applied before the arms are solved, so both hands stay on the gun. */
+  /* palm-down overhand rack (index.html __fpa support grip reads U.rk). At 1 the IK swung the whole left arm across the
+     screen from above (TV strip), so it is off by default; the hand still travels to the slide rear for the rack. */
+  if (U.rkGain == null) U.rkGain = 0;
   U.pose = U.pose || {x: -0.01, y: 0.04, z: 0.01, rx: 0.12, ry: 0.10, rz: 0.18};
   // the delta (camera space) for this frame, or null
   function presentDelta() { if (off() || !(U.rf > 0) || typeof hand === 'undefined' || !hand || hand.parent !== camera) return null;
@@ -257,11 +264,12 @@
   U.presentMode = U.presentMode || 'step';
   function present() { if (U.presentMode !== 'step' || !W.__fpa || !__fpa.fromVm) return; const d = presentDelta(); if (!d) return;
     hand.position.sub(d.piv).applyQuaternion(d.q).add(d.piv).add(d.t); hand.quaternion.premultiply(d.q); hand.updateMatrixWorld(true); }
-  function wrapStep() { try { const F = W.__fpa; if (!F || typeof F.step !== 'function' || F.step.__pm1359) return; const prev = F.step;
+  function wrapStep() { try { const F = W.__fpa; if (!F || typeof F.step !== 'function' || F.step.__pm1359 || W.__pm1359Hooks.step) return; W.__pm1359Hooks.step = 1; const prev = F.step;
       F.step = function () { try { const Z = W.__pmag1359; if (Z && Z.present) Z.present(); } catch (e) { ERR('present', e); } return prev.apply(this, arguments); };
       for (const k of Object.keys(prev)) { try { F.step[k] = prev[k]; } catch (_) {} } F.step.__pm1359 = 1; } catch (e) { ERR('ws', e); } }
   U.present = present;
 
-  U.hook = () => { hookHand(); hookRl(); wrapRender(); wrapStep(); };
-  U.hook(); setTimeout(U.hook, 0); const iv = setInterval(() => { try { hookRl(); hookHand(); wrapRender(); wrapStep(); if (W.__gs1222 && __gs1222.rl2 && __gs1222.rl2.__pm1359 && updateHand.__pm1359 && renderer.render.__pm1359 && W.__fpa && __fpa.step && __fpa.step.__pm1359) clearInterval(iv); } catch (_) {} }, 500);
+  U.hook = () => { hookHand(); hookRl(); wrapStep(); };
+  U.enableRenderPresent = () => { U.presentMode = 'render'; wrapRender(); };   // off by default; wraps renderer.render once when asked
+  U.hook(); setTimeout(U.hook, 0); let tries = 0; const iv = setInterval(() => { try { hookRl(); hookHand(); wrapStep(); const H = W.__pm1359Hooks; if ((H.hand && H.rl && H.step) || ++tries > 240) clearInterval(iv); } catch (_) {} }, 500);
 })(typeof window !== 'undefined' ? window : this);

@@ -61,7 +61,7 @@ ok(p58.clone().sub(p50).normalize().dot(ax) > 0.9, 'it slides up the grip along 
 const s6 = at(0.63); ok(s6.seated && !s6.fresh, 'seated: the fresh magazine is home in the grip');
 const s7 = at(0.76); ok(s7.ph === 'cycle' && s7.slideZ > 0.04, 'empty: the off hand racks the slide past the lock');
 const s8 = at(0.86); ok(s8.slideZ < 0.005, 'slide released: it slams home');
-ok(U.rk > 0 || at(0.75).ph === 'cycle', 'overhand rack weight drives the support hand');
+ok(at(0.75).ph === 'cycle' && U.rkGain === 0, 'empty: rack phase runs (palm-down overhand grip off by default, rkGain 0)');
 const s9 = at(0.99); ok(s9.w < 0.1, 'hand back on the grip at the end');
 at(null); ok(w.visible && !fresh.visible && !dropObj.visible && g.userData.anch.well === well0, 'after the reload: copies hidden, old anchor back');
 // tactical
