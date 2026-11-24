@@ -100961,7 +100961,9 @@ try {
     else {
       S.w.visible = rf >= P.seat;   // seated again once the fresh one is home
       S.w.position.set(0, 0, 0);
-      if (typeof hand !== 'undefined' && hand && S.drop.parent !== hand) hand.add(S.drop);
+      /* under held, not straight under hand: two older viewmodel passes hide every hand child that is not the gun's own branch
+         (that is why the spent magazine never showed) */
+      { const par = (typeof held !== 'undefined' && held && held.parent) ? held : (typeof hand !== 'undefined' ? hand : null); if (par && S.drop.parent !== par) par.add(S.drop); }
       if (!S.d0 || U.freeze != null) { // release pose in camera space; the camera's down and the mag's axis there
         S.w.updateMatrixWorld(true); const M0 = M4().copy(camera.matrixWorld).invert().multiply(S.w.matrixWorld);
         const p0 = V(), q0 = Q(), s0 = V(); M0.decompose(p0, q0, s0);
@@ -100976,8 +100978,10 @@ try {
       }
       const d0 = S.d0, t = Math.max(0, tDrop), gk = 9.8 * d0.k;
       // out of the well along the grip (pushed by the spring and the flick) then free fall with a slow tumble
-      const cpos = d0.cC.clone().addScaledVector(d0.axC, -(0.9 * d0.k) * t).addScaledVector(d0.down, 0.5 * gk * t * t).addScaledVector(d0.rtC, 0.25 * d0.k * t);
-      const spin = Q().setFromAxisAngle(d0.rtC, -5.0 * t * t * 4).multiply(Q().setFromAxisAngle(d0.axC, 2.2 * t));
+      // (it slides clear of the well first, ~6 cm in 0.06 s, so the empty magazine reads before gravity takes it)
+      const tf = Math.max(0, t - 0.05);
+      const cpos = d0.cC.clone().addScaledVector(d0.axC, -(U.ejectV || 1.1) * d0.k * Math.min(t, 0.06) - 0.3 * d0.k * Math.max(0, t - 0.06)).addScaledVector(d0.down, 0.5 * gk * tf * tf).addScaledVector(d0.rtC, 0.25 * d0.k * t);
+      const spin = Q().setFromAxisAngle(d0.rtC, -5.0 * tf * tf * 4).multiply(Q().setFromAxisAngle(d0.axC, 2.2 * t));
       const q = spin.clone().multiply(d0.q0), pos = cpos.clone().add(d0.ofs.clone().applyQuaternion(spin));
       const vis = t < 0.7 && cpos.y > -0.9;
       S.drop.visible = vis; if (vis && S.drop.parent) camLocalToParent(S.drop, M4().compose(pos, q, d0.s0));
@@ -101056,7 +101060,7 @@ try {
     const flick = rf > P.rel ? Math.sin(cl((rf - P.rel) / 0.08) * Math.PI) : 0;
     // the rack (empty only): the gun is pushed a little further out and turned so its left flank faces the camera, so the off
     // hand working the slide rear stays a normal size instead of filling the lens
-    const rkw = S.E ? ss(P.seat - 0.02, P.rk0, rf) * (1 - ss(P.rk2, P.go + 0.06, rf)) : 0, R = U.rackPose || {z: -0.06, y: -0.01, ry: 0.3, rz: -0.12};
+    const rkw = S.E ? ss(P.seat - 0.02, P.rk0, rf) * (1 - ss(P.rk2, P.go + 0.06, rf)) : 0, R = U.rackPose || {z: -0.09, y: -0.01, ry: 0.3, rz: -0.12};
     const bump = rf > P.seat ? Math.exp(-(rf - P.seat) * D * 22) * Math.min(1, (rf - P.seat) * D * 60) : 0;
     const slam = S.E && rf > P.rk2 ? Math.exp(-(rf - P.rk2) * D * 20) * Math.min(1, (rf - P.rk2) * D * 60) : 0;
     const a = g.userData.anch && g.userData.anch.grip; if (!a) return null;
@@ -101144,8 +101148,8 @@ try {
     R: {g: [0, 0.10, 0], c: [0, -0.012, 0], fa: [0.5, -0.7, 0.5], side: 1},       // g: along the grip axis from the magazine centre (x L); c: fist centre nudge (hand space)
     Lc: {g: [0, -0.2, 0], c: [0, -0.012, 0], fa: [-0.5, -0.7, 0.45]},     // carrying the fresh magazine
     Ls: {d: 0.15, c: [0, -0.03, 0], fa: [-0.45, -0.8, 0.35]},             // palm under the base plate (d: below it, x L)
-    Lr: {d: 0.1, f: 0.03, s: 0, c: [0, -0.012, 0], fa: [-0.55, -0.75, 0.35]},             // palm over the slide rear (d: above it, x L)
-    belt: [-0.16, -0.40, -0.16], faR: 0.85, faL: 0.6
+    Lr: {d: 0.1, f: 0.07, s: 0, c: [0, -0.012, 0], fa: [-0.55, -0.75, 0.35]},             // palm over the slide rear (d: above it, x L)
+    belt: [-0.16, -0.40, -0.16], faR: 0.85, faL: 0.5
   };
   function frameM(G, y0, z0, off, oz, sA) { const X = T3(); const z = z0.clone().normalize(), y = y0.clone().addScaledVector(z, -y0.dot(z)).normalize(), x = new X.Vector3().crossVectors(y, z).normalize();
     const pos = G.clone().addScaledVector(y, -off * sA).addScaledVector(z, -oz * sA); return new X.Matrix4().makeBasis(x, y, z).setPosition(pos); }
