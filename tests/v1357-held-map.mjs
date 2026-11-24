@@ -18,6 +18,9 @@ ok(html.includes('GLX-MAP1317') && html.includes('/* GLX-FIX1293'), 'older map p
 ok(html.includes("O.lookAt(0, 0, 0);") && html.includes("O.rotateX(tilt);"), 'old seat code stays behind __noMap1357');
 ok(fs.existsSync(asset) && fs.statSync(asset).size < 350 * 1024, 'sharp chart asset present and under 350 KB');
 ok(html.includes('1.2.59-frame-torch'), 'torch/pick jitter fix stays');
+{ const n0 = html.indexOf('{"v":"v1.2.123"'), n1 = html.indexOf('{"v":"v1.2.122"', n0); const note = n0 > 0 && n1 > n0 ? html.slice(n0, n1) : '';
+  ok(note.includes('Full-screen map') && note.includes('held map'), '1.2.123 patch note covers the held map and the full-screen map');
+  ok(!/haggis|food|sausage|pie\b|bread|meat|stew/i.test(note), 'no food in the 1.2.123 note'); }
 
 const OUT = process.env.MAP1357_OUT || '/workspace/qa/t1357/test-shots';
 fs.mkdirSync(OUT, {recursive: true});
