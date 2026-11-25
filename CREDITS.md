@@ -144,6 +144,10 @@ The modified CC BY-SA clips are shared under the same licence.
 - The Classic soundtrack restores Glencraft's own original mp3 themes from v0.9.9–v1.0.105 (`music/highland_mist.mp3`, `glen_dawn.mp3`, `loch_night.mp3`, `heather_air.mp3`, `under_the_glen.mp3`, `glencraft_theme_extended.mp3`, `old_pine.mp3`, `skye_embers.mp3`, `stone_and_peat.mp3`, `cairn.mp3`, `ember_sea.mp3`). These were removed as unused in v1.0.105 and are brought back in 1.2.48. The Happy Hardcore remix layers slices of those same tracks over the procedural beat. No outside copyrighted music.
 - `assets/tex/pig2_2k.webp` and `assets/tex/pig2_4k.webp` (v1.2.48): the existing pig colour textures, regraded to a slightly more pinkish farm-pig skin with pores, fine bristles and light dirt only on the legs and belly. Still based on the v1.1.23 upscale of the player-supplied pig2 texture (see Pig model v1.0.109). No other source.
 
+## v1.2.128 Smooth map zoom, castle drawings
+
+- Code-only. The castle drawings on the map are in-game vector art drawn by the game code (no images, fonts or outside artwork). The map itself is unchanged (the player's own painted UK map).
+
 ## v1.2.126 England, Wales and Ireland relief
 
 - Height data: ETOPO1 1 Arc-Minute Global Relief Model (ice surface), NOAA National Centers for Environmental Information (formerly NGDC). Amante, C. and B. W. Eakins, 2009, NOAA Technical Memorandum NESDIS NGDC-24. Downloaded from NOAA ERDDAP (etopo180). Licence: "The data may be used and redistributed for free" (US Government data, no warranty). Only land south of 55.9N was kept, resampled to whole metres/4 and stored inline in index.html.
