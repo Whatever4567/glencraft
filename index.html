@@ -326,6 +326,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1367t-v1.2.129 -->
 <!-- glencraft-build: b1371-v1.2.130 -->
 <!-- glencraft-build: b1376-v1.2.131 -->
+<!-- glencraft-build: b1377-v1.2.132 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13790,7 +13791,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.131';
+const GAME_VERSION = '1.2.132';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -49805,7 +49806,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       wind.gain.setTargetAtTime(night ? 0.5 : 0.22 + Math.min(0.4, Math.max(0, (P.y - SEA) / 200)), t, 2); windF.frequency.setTargetAtTime(300 + Math.random() * 200, t, 3);
       rain.gain.setTargetAtTime(rainy ? 0.0 : night && water ? 0.25 : 0, t, 2); rainF.frequency.setTargetAtTime(night && water ? 900 : 3200, t, 1);
       if (outdoor > 0.3 && t > nextB) { const p = R(-0.9, 0.9), v = R(0.14, 0.32);
-        if (night) { if (Math.random() < 0.6) { SONG.owl(t + 0.1, v, p); U.owls++; } nextB = t + R(45, 180); }
+        if (window.__bird1377 && __bird1377.play && !window.__noBird1377) { __bird1377.play(night, coast); nextB = t + (night ? R(45, 180) : (__bird1377.dawn ? R(8, 25) : R(20, 90))); }
+        else if (night) { if (Math.random() < 0.6) { SONG.owl(t + 0.1, v, p); U.owls++; } nextB = t + R(45, 180); }
         else { const pool = ['robin', 'robin', 'blackbird', 'blackbird', 'wren', 'skylark', 'curlew']; if (coast) pool.push('gull', 'gull', 'gull'); const k = pool[Math.random() * pool.length | 0]; SONG[k](t + 0.1, v, p); U.birds++; U.last = k; nextB = t + R(20, 90); } }
       if (outdoor > 0.3 && !night && t > nextP) { if (nextP) SONG.plane(t + 0.1, R(0.25, 0.45), Math.random() < 0.5 ? -0.8 : 0.8); nextP = t + R(150, 330); }
       const band = U.cave ? U.band : -1; caveBus.gain.setTargetAtTime(band >= 0 ? Math.max(0, Math.min(1, SET.music)) * 0.18 : 0, t, 2);
@@ -63570,6 +63572,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.132","d":"2026-11-25","notes":["The main menu now plays a richer Glencraft theme, remixed from the game's own music. It plays only on the menu and fades out when you start, so it does not sit on top of the soundtrack.","Outdoors, the birds are now real Scottish and UK species that change with the land: each region has its own mix, with a dawn chorus and a tawny owl at night. They stay quiet under the music and stay silent indoors and in caves.","The guns, the torch, the map, the land and the soundtrack picker are unchanged."]},
 {"v":"v1.2.131","d":"2026-11-25","notes":["The gold Glencraft logo now shows from the moment the game starts loading, on the title and pause screens, and as the page icon.","The older drawn wordmark is still in the file, just hidden."]},
 {"v":"v1.2.130","d":"2026-11-25","notes":["At sunset the sky no longer paints over walls and blocks your view. The painted sunset stays behind the land, in caves and indoors too, and the same goes for sunrise.","The rest of the sky, the guns, the torch, the map and the land are unchanged."]},
 {"v":"v1.2.129","d":"2026-11-24","notes":["The land now matches the painted map. The map's coastline was lined up against the whole coast of the world, so the red arrow and the castle marks sit where you really are on the painted coast.","Where the painting and the land still differed, the land now follows the painting: bays, headlands and islands appear where they are painted and the sea comes in where the painting shows sea, with natural beaches and shallows. Rivers, lochs and loughs stay. Before and after, the coast matched the painting 78% of the way; now it matches 98%.","Every part of the UK and Ireland now has its own woods and ground out past the Highlands: rocky islands with machair, heather Southern Uplands with pine plantations, Lake District fells with oak and rowan in the dales, bare Pennine heather moors, Welsh oak woods and rocky tops, the painted Oak Woods in the Midlands and north, the painted Yew Woods in the south with yews on the chalk downs, flat open Fens with alders by the water and reeds, the painted Hawthorn and Blackthorn scrub in the south-west, and Ireland's green drumlin hills with hawthorn, oak, juniper and open bog.","Trees are spread out naturally, one to a patch of ground, in woods and open country instead of the same birch everywhere. The painted snowy ranges, heather and woods on the map now line up with the land too.","Saved worlds: anything you have built is never changed. Older big worlds get the new coast and woods out past the Highlands only if nothing of yours is out there; inside the Highlands it is new worlds only. Volcanoes, the purple trees, castles and the pool rooms under spawn are untouched."]},
@@ -102402,6 +102405,251 @@ try {
     U.ok = 1;
   } catch (e) { ERR('init', e); }
 })(typeof window !== 'undefined' ? window : this);
+</script>
+<script id="glx-menu1377">
+/* GLX-MENU1377 (t1377, v1.2.132): a richer Glencraft theme on the main menu.
+   Remixed only from in-repo tracks (the_glen_opens, glencraft_theme_extended,
+   highland_mist, glen_dawn, heather_air, old_pine). Plays on the title screen
+   only and fades out when the game starts, so it does not sit on top of the
+   soundtrack. window.__noMenu1377 = 1 brings back the old menu ambience. */
+(function menu1377(WIN) {
+  const U = WIN.__menu1377 = {on: 0, err: null, src: null, loop: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const OFF = !!(WIN.__noMenu1377 || (typeof location !== 'undefined' && /[?&]nomenu1377\b/.test(location.search)));
+  if (OFF) { U.off = 1; return; }
+  const LOOP0 = 48, LOOP1 = 112;
+  const SRC_OGG = 'music/menu_theme.ogg', SRC_MP3 = 'music/menu_theme.mp3';
+  let buf = null, node = null, gain = null, loading = 0, want = 0, faded = 0;
+
+  function acOk() { return typeof AC !== 'undefined' && AC; }
+
+  function load() {
+    if (buf || loading) return loading;
+    if (!acOk()) return 0;
+    loading = 1; U.src = SRC_OGG;
+    const tryUrl = (url, next) => fetch(url).then(r => { if (!r.ok) throw new Error(url + ' ' + r.status); return r.arrayBuffer(); })
+      .then(ab => AC.decodeAudioData(ab.slice ? ab.slice(0) : ab))
+      .then(b => { buf = b; loading = 2; U.src = url; if (want && !started) start(); })
+      .catch(e => { if (next) return tryUrl(next, null); ERR('load', e); loading = 0; });
+    tryUrl(SRC_OGG, SRC_MP3);
+    return 1;
+  }
+
+  function vol() {
+    try { return Math.max(0, Math.min(1, (typeof SET !== 'undefined' && SET && SET.music) || 0)) * 0.72; } catch (_) { return 0.5; }
+  }
+
+  function start() {
+    try {
+      if (OFF || (typeof started !== 'undefined' && started) || !acOk()) return;
+      want = 1; faded = 0;
+      if (AC.state === 'suspended') try { AC.resume(); } catch (_) {}
+      if (!buf) { load(); return; }
+      if (node) return;
+      if (!gain) { gain = AC.createGain(); gain.gain.value = 0; gain.connect(AC.destination); }
+      const s = AC.createBufferSource();
+      s.buffer = buf; s.loop = true; s.loopStart = LOOP0; s.loopEnd = Math.min(LOOP1, buf.duration);
+      s.connect(gain); s.start(0);
+      node = s; U.loop = 1; U.on = 1;
+      try { gain.gain.cancelScheduledValues(AC.currentTime); gain.gain.setValueAtTime(0.0001, AC.currentTime); gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol()), AC.currentTime + 1.2); } catch (_) { gain.gain.value = vol(); }
+    } catch (e) { ERR('start', e); }
+  }
+
+  function fade() {
+    try {
+      want = 0;
+      if (!gain || !node) { U.on = 0; return; }
+      if (faded) return; faded = 1;
+      const t = AC.currentTime;
+      try { gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(Math.max(0.0001, gain.gain.value || vol()), t); gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.15); } catch (_) { gain.gain.value = 0; }
+      const n = node; node = null; U.on = 0;
+      setTimeout(() => { try { n.stop(); n.disconnect(); } catch (_) {} }, 1400);
+    } catch (e) { ERR('fade', e); }
+  }
+
+  function hushC132() {
+    try {
+      const C = WIN.__c132; if (!C || C._m1377 || typeof C.tick !== 'function') return;
+      const old = C.tick;
+      C.tick = function () { try { if (!OFF && typeof started !== 'undefined' && !started) return; } catch (_) {} return old.apply(this, arguments); };
+      C._m1377 = 1;
+    } catch (e) { ERR('c132', e); }
+  }
+  function hushAlbum() {
+    try {
+      const A = WIN.__v126x; if (!A || A._m1377 || typeof A.tick !== 'function') return;
+      const old = A.tick;
+      A.tick = function () { try { if (!OFF && typeof started !== 'undefined' && !started) return; } catch (_) {} return old.apply(this, arguments); };
+      A._m1377 = 1;
+    } catch (e) { ERR('album', e); }
+  }
+
+  setInterval(() => {
+    try {
+      hushC132(); hushAlbum();
+      if (typeof started === 'undefined') return;
+      if (!started) start();
+      else if (want || node || U.on) fade();
+      if (gain && U.on && acOk()) {
+        const v = vol();
+        try { if (Math.abs((gain.gain.value || 0) - v) > 0.04) gain.gain.setTargetAtTime(Math.max(0.0001, v), AC.currentTime, 0.2); } catch (_) {}
+      }
+    } catch (e) { ERR('tick', e); }
+  }, 250);
+  U.start = start; U.fade = fade;
+})(window);
+</script>
+<script id="glx-bird1377">
+/* GLX-BIRD1377 (t1377/t1378, v1.2.132): outdoor birds are real Scottish and UK
+   recordings, picked by the 1.2.129 regional biome, with a dawn chorus and a
+   tawny owl at night. Sparse 3D one-shots, quiet under the music, silent
+   indoors and in caves. The soundtrack is not touched.
+   window.__noBird1377 = 1 brings back the old synthesised birds. */
+(function bird1377(WIN) {
+  const U = WIN.__bird1377 = {on: 0, err: null, last: null, bio: 0, n: 0, dawn: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const OFF = !!(WIN.__noBird1377 || (typeof location !== 'undefined' && /[?&]nobird1377\b/.test(location.search)));
+  if (OFF) { U.off = 1; return; }
+  const SRC = 'assets/sfx/birds1377/';
+  const FILES = ['robin','wren','blackbird','song_thrush','chaffinch','nuthatch','woodpecker','great_tit','blue_tit','skylark','curlew','cuckoo','snipe','yellowhammer','corn_bunting','reed_warbler','sedge_warbler','lapwing','raven','buzzard','corncrake','oystercatcher','gull','gull_bh','crossbill','golden_eagle','stonechat','whitethroat','owl'];
+  const B = {HIGH:1, ISLE:2, SUPL:3, LAKE:4, MOOR:5, OAKN:6, WALES:7, YEW:8, FEN:9, SCRUB:10, IRE:11};
+  const POOL = {
+    1: ['crossbill','crossbill','crossbill','raven'],
+    2: ['corncrake','oystercatcher','oystercatcher','gull','gull_bh'],
+    3: ['skylark','skylark','curlew','crossbill'],
+    4: ['raven','buzzard','buzzard','wren','robin'],
+    5: ['curlew','curlew','skylark','skylark'],
+    6: ['woodpecker','nuthatch','robin','robin','wren','wren','chaffinch','blackbird','song_thrush','great_tit','blue_tit'],
+    7: ['raven','buzzard','buzzard','wren','robin'],
+    8: ['skylark','skylark','yellowhammer','yellowhammer','corn_bunting'],
+    9: ['reed_warbler','reed_warbler','sedge_warbler','lapwing','lapwing'],
+    10:['stonechat','stonechat','whitethroat','whitethroat','wren'],
+    11:['curlew','curlew','snipe','skylark','cuckoo']
+  };
+  const WOOD = ['robin','wren','blackbird','song_thrush','chaffinch','great_tit','blue_tit'];
+  const COAST = ['oystercatcher','gull','gull','gull_bh'];
+  const RARE = {1: 'golden_eagle'};
+  const cache = {};
+  let loading = {}, bus = null, lis = null;
+
+  function acOk() { return typeof AC !== 'undefined' && AC; }
+  function load(id) {
+    if (cache[id] || loading[id] || FILES.indexOf(id) < 0) return cache[id];
+    loading[id] = 1;
+    const url = SRC + id + '.ogg';
+    fetch(url).then(r => { if (!r.ok) throw new Error(id + ' ' + r.status); return r.arrayBuffer(); })
+      .then(ab => AC.decodeAudioData(ab.slice ? ab.slice(0) : ab))
+      .then(b => { cache[id] = b; loading[id] = 0; })
+      .catch(e => { loading[id] = 0; ERR('load', e); });
+    return null;
+  }
+  function ensure() {
+    if (bus || !acOk()) return !!bus;
+    try {
+      bus = AC.createGain(); bus.gain.value = 1;
+      if (AC.listener && AC.createPanner) {
+        try { if (typeof AC.listener.positionX !== 'undefined') { AC.listener.positionX.value = 0; AC.listener.positionY.value = 0; AC.listener.positionZ.value = 0; } } catch (_) {}
+      }
+      bus.connect(AC.destination);
+      FILES.forEach(load);
+      U.on = 1; return true;
+    } catch (e) { ERR('wire', e); return false; }
+  }
+
+  function biomeAt(x, z) {
+    try {
+      const G = WIN.__g1367;
+      if (!G || !G.biome || WIN.__noG1367) return 6;
+      const ll = (WIN.__c339 && __c339.fll) ? __c339.fll(x, z) : null;
+      if (!ll) return 6;
+      const g = (typeof groundTop === 'function') ? groundTop(x, z) : (typeof P !== 'undefined' ? P.y : 10);
+      return G.biome(ll[0], ll[1], x, z, g) || 6;
+    } catch (e) { ERR('bio', e); return 6; }
+  }
+
+  function mixPools() {
+    const px = (typeof P !== 'undefined') ? P.x : 0, pz = (typeof P !== 'undefined') ? P.z : 0;
+    const offs = [[0,0],[80,0],[-80,0],[0,80],[0,-80],[50,50],[-50,50]];
+    const w = {};
+    for (const [dx, dz] of offs) {
+      const b = biomeAt(px + dx, pz + dz);
+      w[b] = (w[b] || 0) + (dx === 0 && dz === 0 ? 3 : 1);
+    }
+    let pool = [];
+    let main = 6, mw = 0;
+    for (const k in w) { if (w[k] > mw) { mw = w[k]; main = +k; } }
+    U.bio = main; U.blend = w;
+    for (const k in w) {
+      const p = POOL[+k] || POOL[6];
+      for (let i = 0; i < w[k]; i++) pool = pool.concat(p);
+    }
+    try { if (WIN.__uks && __uks.coast) pool = pool.concat(COAST, COAST); } catch (_) {}
+    return {pool: pool, main: main};
+  }
+
+  function isDawn() {
+    try {
+      if (typeof isNight !== 'undefined' && isNight) return 0;
+      if (typeof daylight === 'number' && daylight > 0 && daylight < 0.42) return 1;
+      if (typeof dayClock === 'number' && typeof CYCLE === 'number' && CYCLE) {
+        const f = ((dayClock / CYCLE) % 1 + 1) % 1;
+        if (f < 0.14) return 1;
+      }
+    } catch (_) {}
+    return 0;
+  }
+
+  function playId(id, pan) {
+    if (!ensure() || !acOk() || !cache[id]) { load(id); return 0; }
+    const t = AC.currentTime + 0.05;
+    const src = AC.createBufferSource(); src.buffer = cache[id];
+    const g = AC.createGain();
+    let sfx = 0.5, mus = 0.5;
+    try { sfx = SET.sfx; mus = SET.music; } catch (_) {}
+    const v = (0.07 + Math.random() * 0.07) * Math.max(0, Math.min(1, (sfx * 0.7 + mus * 0.3)));
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0001, v), t + 0.03);
+    const dur = cache[id].duration || 4;
+    g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.3, dur - 0.05));
+    let panner;
+    try {
+      panner = AC.createPanner(); panner.panningModel = 'equalpower'; panner.distanceModel = 'inverse';
+      panner.refDistance = 8; panner.maxDistance = 80; panner.rolloffFactor = 0.8;
+      const ang = (pan != null ? pan : (Math.random() * 2 - 1)) * Math.PI;
+      const dist = 14 + Math.random() * 28;
+      const x = Math.sin(ang) * dist, z = -Math.cos(ang) * dist, y = 2 + Math.random() * 8;
+      if (typeof panner.positionX !== 'undefined') { panner.positionX.setValueAtTime(x, t); panner.positionY.setValueAtTime(y, t); panner.positionZ.setValueAtTime(z, t); }
+      else panner.setPosition(x, y, z);
+    } catch (_) { panner = AC.createStereoPanner ? AC.createStereoPanner() : null; if (panner) panner.pan.value = pan || (Math.random() * 1.6 - 0.8); }
+    src.connect(g); if (panner) { g.connect(panner); panner.connect(bus); } else g.connect(bus);
+    src.start(t); src.stop(t + dur + 0.1);
+    U.last = id; U.n++; return 1;
+  }
+
+  U.play = function (night, coast) {
+    try {
+      if (OFF || !ensure()) return 0;
+      const hid = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+      if (hid) return 0;
+      const pan = Math.random() * 1.8 - 0.9;
+      if (night) {
+        if (Math.random() < 0.6 && cache.owl) { playId('owl', pan); try { if (WIN.__uks) __uks.owls++; } catch (_) {} }
+        return 1;
+      }
+      const M = mixPools();
+      let pool = M.pool.slice();
+      if (isDawn()) { U.dawn = 1; pool = pool.concat(WOOD, WOOD, WOOD); }
+      else U.dawn = 0;
+      if (RARE[M.main] && Math.random() < 0.06) pool.push(RARE[M.main], RARE[M.main]);
+      pool = pool.filter(id => cache[id] || FILES.indexOf(id) >= 0);
+      if (!pool.length) return 0;
+      const id = pool[Math.random() * pool.length | 0];
+      if (!cache[id]) { load(id); return 0; }
+      playId(id, pan);
+      try { if (WIN.__uks) { __uks.birds++; __uks.last = id; } } catch (_) {}
+      return 1;
+    } catch (e) { ERR('play', e); return 0; }
+  };
+})(window);
 </script>
 </body>
 </html>

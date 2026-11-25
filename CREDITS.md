@@ -139,6 +139,45 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.132 Menu theme and Scottish birds
+
+- Menu theme (`music/menu_theme.ogg` and `.mp3`): an original remix made for Glencraft from its own tracks — `music/album/the_glen_opens`, `music/glencraft_theme_extended.mp3`, `music/highland_mist.mp3`, `music/glen_dawn.mp3`, `music/heather_air.mp3` and `music/old_pine.mp3`. No outside music.
+
+- Outdoor bird one-shots in `assets/sfx/birds1377/` are real recordings with a CC0 or CC-BY licence (no NC or ND). CC-BY recordings are credited below. The old synthesised birds stay in the code behind `__noBird1377`.
+
+  CC-BY recordings:
+  - `wren.ogg` — "Eurasian Wren close CLEAN 1124AM 220124_0326.wav" by klankbeeld, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/klankbeeld/sounds/616767
+  - `blackbird.ogg` — "Common Blackbird song (Turdus merula)" by Diana Tudor, https://creativecommons.org/licenses/by/4.0/. Source: https://commons.wikimedia.org/wiki/File:Common_Blackbird_song_(Turdus_merula).ogg
+  - `song_thrush.ogg` — "Song Thrush processed.wav" by evernaut, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/evernaut/sounds/35721
+  - `great_tit.ogg` — "Great Tit song.mp3" by Gaina, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/Gaina/sounds/89952
+  - `curlew.ogg` — "curlew River ScheldeNL 751AM 210303_0264.wav" by klankbeeld, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/klankbeeld/sounds/565300
+  - `snipe.ogg` — "Common Snipe (Gallinago gallinago)" by The British Library (via Wikimedia Commons), https://creativecommons.org/licenses/by/4.0/. Source: https://commons.wikimedia.org/wiki/File:Common_Snipe_(Gallinago_gallinago)_(W_GALLINAGO_GALLINAGO_R3_C5).ogg
+  - `yellowhammer.ogg` — "2012_04_14_Yellowhammer.wav" by reinsamba, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/reinsamba/sounds/152224
+  - `lapwing.ogg` — "Lapwing.wav" by juskiddink, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/juskiddink/sounds/72560
+  - `buzzard.ogg` — "Female Common Buzzard calling" by johnmessingham, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/johnmessingham/sounds/508873
+  - `oystercatcher.ogg` — "Eurasian Oystercatcher 804PM 210626_0299.wav" by klankbeeld, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/klankbeeld/sounds/615621
+  - `gull_bh.ogg` — "Mouette rieuse - Chroicocephalus ridibundus" by Simon Elliott, https://creativecommons.org/licenses/by/4.0/. Source: https://commons.wikimedia.org/wiki/File:Mouette_rieuse_-_Chroicocephalus_ridibundus.wav
+  - `crossbill.ogg` — "Loxia curvirostra.mp3" by goran1709, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/goran1709/sounds/240249
+  - `golden_eagle.ogg` — "Golden eagle.ogg" by Bubulcus, https://creativecommons.org/licenses/by/3.0/. Source: https://commons.wikimedia.org/wiki/File:Golden_eagle.ogg
+  - `stonechat.ogg` — "20130418_stonechat.08.flac" by dobroide, https://creativecommons.org/licenses/by/4.0/. Source: https://freesound.org/people/dobroide/sounds/185511
+  - `whitethroat.ogg` — "Sylvia communis" by Justin Jansen, https://creativecommons.org/licenses/by/3.0/. Source: https://commons.wikimedia.org/wiki/File:Sylvia_communis.mp3
+
+  CC0 / public domain recordings:
+  - `robin.ogg` — "Robin song (Erithacus Rubecula)" by Sacha.Julien. Source: https://freesound.org/people/Sacha.Julien/sounds/725024
+  - `chaffinch.ogg` — "Common Chaffinch (Fringilla coelebs) song" by Sacha.Julien. Source: https://freesound.org/people/Sacha.Julien/sounds/725328
+  - `nuthatch.ogg` — "Eurasian Nuthatch.wav" by rjbaker_uk. Source: https://freesound.org/people/rjbaker_uk/sounds/680657
+  - `woodpecker.ogg` — "CourtshipDrummingOfWoodpecker.wav" by JKata. Source: https://freesound.org/people/JKata/sounds/620236
+  - `blue_tit.ogg` — "Blue Tit and Great Tit" by naturenotesuk. Source: https://freesound.org/people/naturenotesuk/sounds/427402
+  - `skylark.ogg` — "Single Skylark" by Kinoton. Source: https://freesound.org/people/Kinoton/sounds/387426
+  - `cuckoo.ogg` — "CUCKOO - 3" by SamuelGremaud. Source: https://freesound.org/people/SamuelGremaud/sounds/517780
+  - `corn_bunting.ogg` — "Miliaria calandra.ogg" by unknown (public domain). Source: https://commons.wikimedia.org/wiki/File:Miliaria_calandra.ogg
+  - `reed_warbler.ogg` — "reed warbler sings in the windy reeds" by Garuda1982. Source: https://freesound.org/people/Garuda1982/sounds/572502
+  - `sedge_warbler.ogg` — "Sedge Warbler" by SiliconeSound. Source: https://freesound.org/people/SiliconeSound/sounds/475048
+  - `raven.ogg` — "Common Raven - Yellowstone National Park" by Nivatius. Source: https://freesound.org/people/Nivatius/sounds/519591
+  - `corncrake.ogg` — "Corn crake voice" by Kedziorek1998d. Source: https://commons.wikimedia.org/wiki/File:Corn_crake_voice.ogg
+  - `gull.ogg` — "Herring Gull 1.wav" by Canardo55. Source: https://freesound.org/people/Canardo55/sounds/538016
+  - `owl.ogg` — "Tawny owl.wav" by Elanor1995. Source: https://freesound.org/people/Elanor1995/sounds/688869
+
 ## v1.2.131 Gold logo on the loading screen and page icon
 
 - The existing chunky gold Glencraft logo (from 1.2.112) now sits in the page from the first paint, including the boot screen before the late scripts finish, and is used for the page icon, Apple touch icon, manifest icons and the share image. The older drawn wordmark stays in the file and is only hidden. No new logo artwork.
