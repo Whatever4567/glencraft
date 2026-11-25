@@ -20,7 +20,7 @@ ok(!src.includes('.remove(') && !src.includes('dispose('), 'does not delete play
 ok(!src.includes('new THREE.GLTFLoader') && !src.includes('.glb'), 'does not swap in a new arms model');
 ok(src.includes('empty:') && src.includes('sx: 1') && src.includes('p761'), 'reseats empty/pick holds');
 ok(src.includes('updateHand') && src.includes('dressSleeves'), 'hooks the live arm loop and dresses the linen cuff');
-ok(ver.v === '1.2.133' && html.includes("const GAME_VERSION = '1.2.133';") || html.includes("const GAME_VERSION = '1.2.134';") || html.includes("const GAME_VERSION = '1.2.135';"), 'version is 1.2.133');
+ok(['1.2.133','1.2.134','1.2.135','1.2.136'].includes(ver.v) && (html.includes("const GAME_VERSION = '1.2.133';") || html.includes("const GAME_VERSION = '1.2.134';") || html.includes("const GAME_VERSION = '1.2.135';") || html.includes("const GAME_VERSION = '1.2.136';")), 'version is 1.2.133+');
 ok(credits.includes('v1.2.133') && credits.includes('__noArm1373'), 'CREDITS mentions 1.2.133 and the flag');
 const notes = html.match(/window\.PATCH_NOTES = \[([\s\S]{0,2500})/);
 const head = notes ? notes[1].slice(0, 2000).toLowerCase() : '';
