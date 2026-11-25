@@ -139,6 +139,10 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.135 Lava overflow
+
+- Code only: the existing V1300 / 1379 eruption overflow is upgraded in place (terrain-hugging, advancing, thick flow meshes with a width profile and molten shader). Flag __noErupt1379 brings back the old jet and the old thin ribbons. No new artwork files.
+
 ## v1.2.134 Volcano eruption upgrade
 
 - Code only: the existing V1300 eruption is upgraded in place (full-mouth fountain, molten shader, bombs, overflow streams, shockwave, haptics). Flag __noErupt1379 brings back the old jet. No new artwork files.

@@ -329,6 +329,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1377-v1.2.132 -->
 <!-- glencraft-build: b1373-v1.2.133 -->
 <!-- glencraft-build: b1379-v1.2.134 -->
+<!-- glencraft-build: b1388-v1.2.135 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13793,7 +13794,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.134';
+const GAME_VERSION = '1.2.135';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63574,6 +63575,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.135","d":"2026-11-25","notes":["Lava overflowing a volcano now pours over the rim and runs down the slopes as a thick, glowing flow that hugs the ground, widens along the channel and cools to a dark crust. The thin floating strips are gone.","The old look is still in the game, switched off with the same flag as the last eruption upgrade."]},
 {"v":"v1.2.134","d":"2026-11-25","notes":["Volcano eruptions are a live event now. Lava bursts out of the whole crater, not a thin column in the middle, with a tall fountain, lava bombs, an ash cloud and streams running down the slopes that cool to a dark crust.","The ground shakes, a boom rolls in late from far away, your phone or controller rumbles, ash can fall around you, the sky goes a bit red, and the map marks the volcano while it is going. The old look is still in the game, switched off."]},
 {"v":"v1.2.133","d":"2026-11-25","notes":["First-person arms: the empty hand no longer sits twisted off a floating cuff when you look up or down, and a held block now sits in the palm.","The glove stays seated on the linen cuff. A leftover held item is hidden when your hand is empty.","The guns, the torch, the pick jitter lock and the third-person model are unchanged."]},
 {"v":"v1.2.132","d":"2026-11-25","notes":["The main menu now plays a richer Glencraft theme, remixed from the game's own music. It plays only on the menu and fades out when you start, so it does not sit on top of the soundtrack.","Outdoors, the birds are now real Scottish and UK species that change with the land: each region has its own mix, with a dawn chorus and a tawny owl at night. They stay quiet under the music and stay silent indoors and in caves.","The guns, the torch, the map, the land and the soundtrack picker are unchanged."]},
@@ -102853,16 +102855,18 @@ try {
 })();
 </script>
 <script id="glx-erupt1379">
-/* GLX-ERUPT1379 (t1379): upgrade the existing V1300 eruption in place.
+/* GLX-ERUPT1379 (t1379 / t1388): upgrade the existing V1300 eruption in place.
    The old jet was a thin central cylinder whose height was sine-waved, so
    after the crater rose, only the middle popped up and bobbed. The same
    eruption machine is kept (rumble, sink, surge, gush, pour, flood, cool,
    downhill lava fronts, mushroom ash, WebAudio). This pass fills the whole
    crater mouth with a fountain, a molten shader, lava bombs, overflow
    streams, a shockwave, and a few cheap live-event touches.
-   window.__noErupt1379 = 1 brings back the old thin bobbing jet. */
+   t1388: overflow is a thick, terrain-hugging, advancing flow (not a flat
+   constant-width ribbon). window.__noErupt1379 = 1 brings back the old jet
+   and the old thin ribbons. */
 (function erupt1379(WIN) {
-  const U = WIN.__erupt1379 = {on: 0, err: null, bombs: 0, ignite: 0, flee: 0, vibr: 0, waves: 0, why: '', ver: 1, tier: 1};
+  const U = WIN.__erupt1379 = {on: 0, err: null, bombs: 0, ignite: 0, flee: 0, vibr: 0, waves: 0, why: '', ver: 2, tier: 1};
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
   const LOW = () => { try { return !!(WIN.touchMode || (typeof PERF !== 'undefined' && PERF) || (typeof touchMode !== 'undefined' && touchMode)); } catch (_) { return false; } };
   const HI = () => { try { return (typeof HIGH !== 'undefined' && HIGH) && !LOW(); } catch (_) { return false; } };
@@ -103035,10 +103039,12 @@ try {
       }
     }
 
-    const nR = low ? 3 : 6, ribbons = [], rPath = [];
+    const nR = low ? 3 : (tier === 2 ? 6 : 4), ribbons = [], rPath = [];
     for (let i = 0; i < nR; i++) {
-      const gg = new THREE.PlaneGeometry(1, 1, 1, low ? 12 : 20);
-      const r = new THREE.Mesh(gg, lavaMat(blue));
+      const gg = new THREE.PlaneGeometry(1, 1, 1, 1);
+      const mat = lavaMat(blue);
+      mat.polygonOffset = true; mat.polygonOffsetFactor = -2; mat.polygonOffsetUnits = -2;
+      const r = new THREE.Mesh(gg, mat);
       r.userData.__e1379x = 1; r.visible = false; r.frustumCulled = false; g.add(r);
       ribbons.push(r); rPath.push(null);
     }
@@ -103123,41 +103129,82 @@ try {
     s.userData.vy = 0.8 + Math.random() * 0.6;
   }
 
-  function buildPath(vx, vz, rim, ang, steps) {
+  function buildPath(vx, vz, rim, ang, steps, startR) {
     const out = [];
-    let x = vx + Math.sin(ang) * 4, z = vz + Math.cos(ang) * 4, y = rim;
+    const R0 = startR == null ? 8 : startR;
+    let x = vx + Math.sin(ang) * R0, z = vz + Math.cos(ang) * R0, y = surfY(x, z, rim);
+    out.push(x, y, z);
+    const step = 1;
     for (let i = 0; i < steps; i++) {
       let best = null, bh = 1e9;
       for (let k = 0; k < 8; k++) {
-        const a = ang + (k - 3.5) * 0.28, nx = x + Math.sin(a) * 2.2, nz = z + Math.cos(a) * 2.2, t = surfY(nx, nz, y);
-        const h = t + ((Math.sin(a) * Math.sin(ang) + Math.cos(a) * Math.cos(ang)) < 0 ? 2 : 0);
+        const a = ang + (k - 3.5) * 0.4, nx = x + Math.sin(a) * step, nz = z + Math.cos(a) * step, t = surfY(nx, nz, y);
+        const outward = Math.sin(a) * Math.sin(ang) + Math.cos(a) * Math.cos(ang);
+        const h = t + (outward < 0 ? 4 : 0) + (t > y + 1.6 ? 3 : 0);
         if (h < bh) { bh = h; best = [nx, t, nz]; }
       }
       if (!best) break;
       x = best[0]; y = best[1]; z = best[2];
-      out.push(x, y + 0.12, z);
-      if (i > 6 && y >= rim - 0.5) break;
+      out.push(x, y, z);
+      if (i > 8 && y >= rim - 0.5) break;
     }
     return out;
   }
 
-  function setRibbon(mesh, path, width) {
+  function flowWidth(v, nearTip, low) {
+    // v is 0 at the rim lip and 1 at the current leading front
+    let w = 1.2 + 2.8 * Math.sin(Math.PI * Math.min(1, Math.max(0, v) * 0.94));
+    if (v > 0.78) w *= 1.04 + 0.32 * Math.sin(((v - 0.78) / 0.22) * Math.PI);
+    if (nearTip) w *= 0.84;
+    return w * (low ? 0.85 : 1);
+  }
+
+  function flowFrac(ph, pt, DUR) {
+    if (ph === 'gush') return Math.min(0.28, 0.07 + Math.max(0, pt - 2) * 0.05);
+    if (ph === 'pour') return Math.min(0.62, 0.24 + pt / Math.max(8, DUR.pour || 22) * 0.5);
+    if (ph === 'flood') return Math.min(1, 0.55 + pt / Math.max(40, (DUR.flood || 150) * 0.45) * 0.5);
+    if (ph === 'cool') return 1;
+    return 0;
+  }
+
+  function setRibbon(mesh, path, opt) {
     if (!path || path.length < 9) { mesh.visible = false; return; }
-    const n = path.length / 3, pos = [], uv = [];
+    const nAll = path.length / 3;
+    const frac = Math.max(0.1, Math.min(1, opt && opt.frac != null ? opt.frac : 1));
+    const n = Math.max(3, Math.min(nAll, Math.floor(nAll * frac)));
+    if (n < 3) { mesh.visible = false; return; }
+    const low = !!(opt && opt.low);
+    const thick = (opt && opt.thick) || (low ? 0.45 : 0.62);
+    const lift = 0.34;
+    const col = 5, pos = [], uv = [];
     for (let i = 0; i < n; i++) {
-      const x = path[i * 3], y = path[i * 3 + 1], z = path[i * 3 + 2];
+      const x = path[i * 3], y0 = path[i * 3 + 1], z = path[i * 3 + 2];
       let tx, tz;
       if (i < n - 1) { tx = path[(i + 1) * 3] - x; tz = path[(i + 1) * 3 + 2] - z; }
       else { tx = x - path[(i - 1) * 3]; tz = z - path[(i - 1) * 3 + 2]; }
-      const L = Math.hypot(tx, tz) || 1, px = -tz / L * width, pz = tx / L * width, v = i / (n - 1);
-      pos.push(x - px, y, z - pz, x + px, y, z + pz);
-      uv.push(0, v * 4, 1, v * 4);
+      const L = Math.hypot(tx, tz) || 1, px = -tz / L, pz = tx / L;
+      const v = n > 1 ? i / (n - 1) : 0;
+      const w = flowWidth(v, i >= n - 2, low);
+      const xL = x - px * w, zL = z - pz * w, xR = x + px * w, zR = z + pz * w;
+      const clampY = (t, y) => (t == null || t <= 1 || t < y - 6 || t > y + 5) ? y : t;
+      const yL = clampY(surfY(xL, zL, y0), y0), yR = clampY(surfY(xR, zR, y0), y0);
+      const yLB = yL + lift * 0.4, yRB = yR + lift * 0.4;
+      const yLT = yL + lift + thick * 0.45, yRT = yR + lift + thick * 0.45;
+      const yCT = Math.max(y0, (yL + yR) * 0.5) + lift + thick;
+      pos.push(xL, yLB, zL, xL, yLT, zL, x, yCT, z, xR, yRT, zR, xR, yRB, zR);
+      const uV = v * 5;
+      uv.push(0, uV, 0.12, uV, 0.5, uV, 0.88, uV, 1, uV);
     }
     const idx = [];
     for (let i = 0; i < n - 1; i++) {
-      const a = i * 2;
-      idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      const a = i * col, b = (i + 1) * col;
+      for (let k = 0; k < col - 1; k++) {
+        idx.push(a + k, a + k + 1, b + k, a + k + 1, b + k + 1, b + k);
+      }
+      idx.push(a, b, a + col - 1, b, b + col - 1, a + col - 1);
     }
+    const t = (n - 1) * col;
+    idx.push(t, t + 1, t + 2, t, t + 2, t + 3, t, t + 3, t + 4);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
@@ -103476,15 +103523,31 @@ try {
     } catch (_) {}
 
     if (ph === 'pour' || ph === 'flood' || ph === 'gush' || ph === 'cool') {
-      if (!f.pathsReady && (ph === 'pour' || ph === 'flood' || (ph === 'gush' && pt > 2))) {
-        f.pathsReady = 1;
-        for (let i = 0; i < f.ribbons.length; i++) {
-          const ang = i * 2.39996 + 0.4;
-          f.rPath[i] = buildPath(vx, vz, rim, ang, LOW() ? 14 : 22);
-          setRibbon(f.ribbons[i], f.rPath[i], ph === 'cool' ? 1.1 : 1.6);
+      const wantFlow = ph === 'pour' || ph === 'flood' || ph === 'cool' || (ph === 'gush' && pt > 2);
+      if (wantFlow) {
+        if (!f.pathsReady) {
+          f.pathsReady = 1; f.flowN = -1;
+          const steps = LOW() ? 28 : 42, startR = (s.rc || 8) + 1.2;
+          const spills = (a.spill && a.spill.length) ? a.spill : null;
+          for (let i = 0; i < f.ribbons.length; i++) {
+            let ang = i * 2.39996 + 0.4;
+            if (spills) {
+              const sp = spills[i % spills.length];
+              if (sp && sp.a != null) ang = sp.a + (i >= spills.length ? 0.41 : 0);
+            }
+            f.rPath[i] = buildPath(vx, vz, rim, ang, steps, startR);
+          }
         }
+        const frac = flowFrac(ph, pt, DUR);
+        const key = ph === 'cool' ? 1000 : Math.floor(frac * 80);
+        if (key !== f.flowN) {
+          f.flowN = key;
+          f.ribbons.forEach((r, i) => setRibbon(r, f.rPath[i], {frac: frac, low: LOW()}));
+        }
+        f.ribbons.forEach((r, i) => { r.visible = !!f.rPath[i] && f.rPath[i].length > 9 && ph !== 'surge'; });
+      } else {
+        f.ribbons.forEach(r => { r.visible = false; });
       }
-      f.ribbons.forEach((r, i) => { r.visible = !!f.rPath[i] && f.rPath[i].length > 9 && ph !== 'surge'; });
     } else {
       f.ribbons.forEach(r => { r.visible = false; });
     }
