@@ -139,6 +139,10 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.133 First-person arms
+
+- Code only: first-person glove seats, linen cuff visibility and empty-hand cleanup on the existing __fpa / 1285 rig. No new models, textures or sounds. Flag: window.__noArm1373 = 1 puts the previous seats back.
+
 ## v1.2.132 Menu theme and Scottish birds
 
 - Menu theme (`music/menu_theme.ogg` and `.mp3`): an original remix made for Glencraft from its own tracks — `music/album/the_glen_opens`, `music/glencraft_theme_extended.mp3`, `music/highland_mist.mp3`, `music/glen_dawn.mp3`, `music/heather_air.mp3` and `music/old_pine.mp3`. No outside music.
