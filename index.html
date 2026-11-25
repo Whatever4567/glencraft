@@ -297,6 +297,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1326-v1.2.127 -->
 <!-- glencraft-build: b1367-v1.2.128 -->
 <!-- glencraft-build: b1367t-v1.2.129 -->
+<!-- glencraft-build: b1371-v1.2.130 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13760,7 +13761,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.129';
+const GAME_VERSION = '1.2.130';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63540,6 +63541,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.130","d":"2026-11-25","notes":["At sunset the sky no longer paints over walls and blocks your view. The painted sunset stays behind the land, in caves and indoors too, and the same goes for sunrise.","The rest of the sky, the guns, the torch, the map and the land are unchanged."]},
 {"v":"v1.2.129","d":"2026-11-24","notes":["The land now matches the painted map. The map's coastline was lined up against the whole coast of the world, so the red arrow and the castle marks sit where you really are on the painted coast.","Where the painting and the land still differed, the land now follows the painting: bays, headlands and islands appear where they are painted and the sea comes in where the painting shows sea, with natural beaches and shallows. Rivers, lochs and loughs stay. Before and after, the coast matched the painting 78% of the way; now it matches 98%.","Every part of the UK and Ireland now has its own woods and ground out past the Highlands: rocky islands with machair, heather Southern Uplands with pine plantations, Lake District fells with oak and rowan in the dales, bare Pennine heather moors, Welsh oak woods and rocky tops, the painted Oak Woods in the Midlands and north, the painted Yew Woods in the south with yews on the chalk downs, flat open Fens with alders by the water and reeds, the painted Hawthorn and Blackthorn scrub in the south-west, and Ireland's green drumlin hills with hawthorn, oak, juniper and open bog.","Trees are spread out naturally, one to a patch of ground, in woods and open country instead of the same birch everywhere. The painted snowy ranges, heather and woods on the map now line up with the land too.","Saved worlds: anything you have built is never changed. Older big worlds get the new coast and woods out past the Highlands only if nothing of yours is out there; inside the Highlands it is new worlds only. Volcanoes, the purple trees, castles and the pool rooms under spawn are untouched."]},
 {"v":"v1.2.128","d":"2026-11-24","notes":["Full-screen map: zooming and moving the map is now smooth and instant. Pinch, drag, double-tap, the + and - buttons, the mouse wheel and the controller stick all move it at full frame rate, and the buttons glide to the new zoom instead of jumping.","The game world is paused from drawing while the full-screen map covers it, so your phone spends all its effort on the map. Close the map and everything carries on as before.","Castles on the map: every castle now has its own drawing at its real spot, the Black Castle with its lava ring, the Skeleton Castle in the Highlands, and the Clansmen Castles in the Highlands, Ireland and East Anglia. Each has a parchment name tag.","The castle drawings stay sharp at any zoom and grow a little as you zoom in. They are on the map in your hand too."]},
 {"v":"v1.2.127","d":"2026-11-24","notes":["Pool rooms under spawn: a few steps from where you start there is now a wide arched tunnel of pearly rainbow tiles going down, with water foaming down the steps from a curved teal spout and brass globe lamps along both walls.","At the bottom is a big tiled pool hall: turquoise water with rippling light, foaming jets, three ring fountains with falling water curtains, tiled pillars, arched alcoves, round pink porthole tunnels with pink spheres, potted palms in the corners and round ceiling lights in the cream roof.","New worlds get it. An older world gets it once too, but only if that ground is untouched: if you have built, dug or left anything of yours there, or are standing in it, your world is left exactly as it is.","The steps are half-blocks, so you can walk all the way down and back up without jumping, and the water sheets and foam are light enough for phones."]},
@@ -102297,6 +102299,57 @@ try {
     const tick = () => { try { hookWarp(); hookHT(); hookEarth(); hookC347(); hookMapAt(); const s = on(); if (s !== U.last) { U.last = s; flush(); } } catch (er) { ERR('iv', er); } };
     setInterval(tick, 400); tick();
   } catch (e) { ERR('init', e); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script id="glx-sky1371">
+/* GLX-SKY1371 (t1371, v1.2.130): the sunset sky stays behind the land.
+   The painted sunset plate was drawn without a depth test, so at dusk it
+   painted over walls and blocked the view. It is now written at the far
+   plane and tested against the depth buffer, the usual way a sky is done
+   in Three.js. window.__noSky1371 = 1 brings back the old plate. */
+(function sky1371(WIN) {
+  const U = WIN.__sky1371 = {on: 0, err: null, n: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  const OLD = 'gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);';
+  const FAR = 'vec4 p1371 = projectionMatrix * modelViewMatrix * vec4(position, 1.0); gl_Position = p1371.xyww;';
+  function apply(mesh) {
+    if (WIN.__noSky1371) return restore(mesh);
+    if (!mesh || !mesh.material) return;
+    const mat = mesh.material, vs = mat.vertexShader || '';
+    if (mat.userData && mat.userData.sky1371 && /xyww/.test(vs) && mat.depthTest === true) return;
+    try {
+      if (!mat.userData) mat.userData = {};
+      if (!mat.userData._vs1371) mat.userData._vs1371 = vs;
+      if (!/xyww/.test(vs) && vs.indexOf(OLD) >= 0) { mat.vertexShader = vs.replace(OLD, FAR); mat.needsUpdate = true; }
+      mat.depthTest = true;
+      mat.depthWrite = false;
+      mat.userData.sky1371 = 1;
+      U.on = 1; U.n++;
+    } catch (e) { ERR('apply', e); }
+  }
+  function restore(mesh) {
+    if (!mesh || !mesh.material) return;
+    const mat = mesh.material;
+    try {
+      if (mat.userData && mat.userData._vs1371) { mat.vertexShader = mat.userData._vs1371; mat.needsUpdate = true; }
+      mat.depthTest = false;
+      mat.depthWrite = false;
+      if (mat.userData) mat.userData.sky1371 = 0;
+      U.on = 0;
+    } catch (e) { ERR('rest', e); }
+  }
+  function tick() {
+    try { const S = WIN.__sky1312; if (S && S.plateMesh) apply(S.plateMesh); } catch (e) { ERR('tick', e); }
+  }
+  U.apply = apply; U.tick = tick; U.restore = restore;
+  try {
+    if (typeof updateSky === 'function') {
+      const us = updateSky;
+      updateSky = function () { const r = us.apply(this, arguments); tick(); return r; };
+    }
+    setInterval(tick, 400);
+    tick();
+  } catch (e) { ERR('hook', e); }
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
