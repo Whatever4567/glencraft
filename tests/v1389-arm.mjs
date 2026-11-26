@@ -13,7 +13,7 @@ ok((html.split('(function arm1389').length - 1) === 1, 'exactly one IIFE');
 ok(html.includes('id="glx-arm1389"'), 'script id');
 ok(html.includes('id="glx-arm1380"') && html.includes('id="glx-arm1373"'), '1380 and 1373 IIFEs stay');
 ok(html.indexOf('id="glx-arm1380"') < html.indexOf('id="glx-arm1389"'), '1389 is after 1380');
-ok(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v === '1.2.137' && html.includes("const GAME_VERSION = '1.2.137';"), 'version is 1.2.137');
+ok(['1.2.137','1.2.138'].includes(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v) && (html.includes("const GAME_VERSION = '1.2.137';") || html.includes("const GAME_VERSION = '1.2.138';")), 'version is 1.2.137+');
 ok(src.includes('window.__noArm1389') && src.includes('U.active = () => !W.__noArm1389'), 'flag restores 1.2.136 seats');
 ok(src.includes('__fp1347') && src.includes('__handsFp1285') && src.includes('__fpa'), 'keeps existing rig');
 ok(!src.includes('.remove(') && !src.includes('dispose('), 'does not delete player geometry');

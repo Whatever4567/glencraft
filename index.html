@@ -330,7 +330,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1373-v1.2.133 -->
 <!-- glencraft-build: b1379-v1.2.134 -->
 <!-- glencraft-build: b1388-v1.2.135 -->
-<!-- glencraft-build: b1380-v1.2.136 b1389-v1.2.137 -->
+<!-- glencraft-build: b1380-v1.2.136 b1389-v1.2.137 b1390-v1.2.138 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13795,7 +13795,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.137';
+const GAME_VERSION = '1.2.138';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63576,6 +63576,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.138","d":"2026-11-26","notes":["First-person fingertips are closed and rounded on the existing hand meshes, instead of chopped nail wells. The guns, the torch and the arm rig stay as they are. Flag __noArm1390 puts the previous finger geometry back."]},
 {"v":"v1.2.137","d":"2026-11-26","notes":["First-person empty and block hands take a relaxed curl or a cup, and the pick and sword fists fill the handle. The musket support hand is a tighter wrap on the stock.","The guns, the torch and the third-person model stay on the existing rig. Flag __noArm1389 puts the previous seats back."]},
 {"v":"v1.2.136","d":"2026-11-25","notes":["The musket support hand is a gloved wrap on the stock, not pale sticks off the barrel. The pick fist is a full-size grip on the shaft, and the bucket hand sits on the bail instead of clipping through the tub.","The guns, the torch and the third-person model stay on the existing rig. Flag __noArm1380 puts the previous seats back."]},
 {"v":"v1.2.135","d":"2026-11-25","notes":["Lava overflowing a volcano now pours over the rim and runs down the slopes as a thick, glowing flow that hugs the ground, widens along the channel and cools to a dark crust. The thin floating strips are gone.","The old look is still in the game, switched off with the same flag as the last eruption upgrade."]},
@@ -103978,6 +103979,142 @@ try {
   U.tick = tick;
   U.wrap = wrap;
   try { setInterval(wrap, 1000); } catch (_) {}
+})();
+</script>
+<script id="glx-arm1390">
+/* GLX-ARM1390 (t1390): sculpt the existing GLOVE finger meshes on the
+   __fpa / 1285 / 1347 / 1380 / 1389 rig. Chopped fingertip nail wells are
+   closed into rounded pulps on the same vertices, bones and weights.
+   The original geometry is kept and restored by window.__noArm1390 = 1.
+   Does not replace the arms model, the guns, or earlier arm flags. */
+(function arm1390() {
+  const W = window;
+  const U = W.__arm1390 = {
+    ver: 'arm-1390', err: null, on: 1, applied: 0, n: 0
+  };
+  U.active = function () { return !W.__noArm1390; };
+  const ERR = function (w, e) {
+    if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240);
+  };
+
+  const SKIN_N = 2220;
+  const PATH = {
+    R: 'assets/models/fp-hands-1390/skin-R-pos.bin',
+    L: 'assets/models/fp-hands-1390/skin-L-pos.bin'
+  };
+  const pos = { R: null, L: null };
+
+  function loadBins() {
+    if (pos.R && pos.L) return Promise.resolve();
+    return Promise.all(['R', 'L'].map(function (side) {
+      return fetch(PATH[side] + '?v=1390')
+        .then(function (r) {
+          if (!r.ok) throw new Error('fetch ' + side + ' ' + r.status);
+          return r.arrayBuffer();
+        })
+        .then(function (b) {
+          const f = new Float32Array(b);
+          if (f.length !== SKIN_N * 3) throw new Error(side + ' count ' + f.length);
+          pos[side] = f;
+        });
+    })).then(function () { U.n++; }).catch(function (e) { ERR('load', e); });
+  }
+
+  function sideOf(mesh) {
+    const n = String((mesh && mesh.name) || '');
+    if (/_R_articulated|GLOVE_\|_R_|visual_arm_slot0|\| R\b/.test(n)) return 'R';
+    if (/_L_articulated|GLOVE_\|_L_|visual_arm_slot1|\| L\b/.test(n)) return 'L';
+    return null;
+  }
+
+  function isSkin(mesh) {
+    if (!mesh || !mesh.isMesh || !mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) return false;
+    if (mesh.geometry.attributes.position.count !== SKIN_N) return false;
+    const n = String(mesh.name || '');
+    if (/finger_0_1/.test(n)) return true;
+    const mat = mesh.material;
+    const mn = Array.isArray(mat) ? (mat[0] && mat[0].name) : (mat && mat.name);
+    return /HeadSkin/i.test(String(mn || ''));
+  }
+
+  function applyMesh(mesh) {
+    try {
+      const side = sideOf(mesh);
+      if (!side || !pos[side] || !isSkin(mesh)) return 0;
+      const g = mesh.geometry;
+      const attr = g.attributes.position;
+      if (attr.count !== SKIN_N) return 0;
+      if (!g.userData) g.userData = {};
+      if (!g.userData._pos137) {
+        g.userData._pos137 = new Float32Array(attr.array);
+        g.userData._pos137.set(attr.array);
+      }
+      const src = U.active() ? pos[side] : g.userData._pos137;
+      attr.array.set(src);
+      attr.needsUpdate = true;
+      if (typeof g.computeVertexNormals === 'function') g.computeVertexNormals();
+      U.applied++;
+      return 1;
+    } catch (e) { ERR('apply', e); return 0; }
+  }
+
+  function walk(o) {
+    let n = 0;
+    if (!o) return 0;
+    if (o.traverse) o.traverse(function (c) { n += applyMesh(c); });
+    else if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) n += walk(o[i]); }
+    else if (o.isMesh) n += applyMesh(o);
+    else if (typeof o === 'object') {
+      if (o.scene) n += walk(o.scene);
+      if (o.wrap) n += walk(o.wrap);
+      if (o.meshes) n += walk(o.meshes);
+      if (o.bySide) n += walk(o.bySide);
+      if (o.R) n += walk(o.R);
+      if (o.L) n += walk(o.L);
+    }
+    return n;
+  }
+
+  function applyAll() {
+    if (!pos.R || !pos.L) return 0;
+    let n = 0;
+    try {
+      const H = W.__handsFp1285;
+      if (H) { n += walk(H.src); n += walk(H.sides); }
+    } catch (e) { ERR('fp', e); }
+    try { if (typeof worldModel !== 'undefined' && worldModel) n += walk(worldModel); } catch (e) {}
+    try {
+      const f = W.__fpa && __fpa.rig && __fpa.rig();
+      if (f) n += walk(f);
+    } catch (e) {}
+    return n;
+  }
+
+  function hook() {
+    try {
+      const H = W.__handsFp1285;
+      if (H && typeof H.updateHand === 'function' && !H.updateHand.__arm1390) {
+        const prev = H.updateHand;
+        H.updateHand = function () {
+          const r = prev.apply(this, arguments);
+          try { if (U._want && U.applied < 1) applyAll(); } catch (e) { ERR('tick', e); }
+          return r;
+        };
+        H.updateHand.__arm1390 = 1;
+      }
+    } catch (e) { ERR('hook', e); }
+  }
+
+  function start() {
+    hook();
+    loadBins().then(function () {
+      U._want = 1;
+      applyAll();
+    });
+  }
+
+  try { start(); } catch (e) { ERR('start', e); }
+  try { setInterval(function () { hook(); if (pos.R && U._want && U.applied < 1) applyAll(); }, 1000); } catch (_) {}
 })();
 </script>
 
