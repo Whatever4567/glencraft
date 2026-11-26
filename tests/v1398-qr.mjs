@@ -45,4 +45,11 @@ ok(!/pie|cake|bread|snack|jam|honey|dinner|lunch|breakfast/.test(
   (html.match(/GLX-QR1398[\s\S]{0,800}/) || [''])[0].toLowerCase()
 ), 'QR comment has no food words');
 
+ok(html.includes('_qrAwaitEarly') && html.includes('GLs.sliceMs'),
+  'enterWorld asks generate to hand off early; direct awaiters still wait for the full land');
+ok(html.includes('if (!window.__noQR1398 && GLs._softHold && !GLs.held) return 8'),
+  'background generate uses an 8ms slice once the player is in control');
+ok(html.includes('(!window.__noQR1398 && __Lk._softHold)') && html.includes('(!window.__noQR1398 && L._softHold)'),
+  'post-generate keeps and pits also yield under _softHold');
+
 console.log('pass', n);
