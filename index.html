@@ -334,6 +334,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1393-v1.2.139 b1392-v1.2.140 -->
 <!-- glencraft-build: b1397-v1.2.141 b1403-v1.2.142 b1404-v1.2.143 b1398-v1.2.144 b1405-v1.2.145 -->
 <!-- glencraft-build: b1403-v1.2.146 -->
+<!-- glencraft-build: b1403-v1.2.147 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13798,7 +13799,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.146';
+const GAME_VERSION = '1.2.147';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -48968,7 +48969,7 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
     [[1, 0, 0], [0, -1, 0], [0, 0, -1]], [[1, 0, 0], [0, 0, 1], [0, -1, 0]], [[1, 0, 0], [0, 0, -1], [0, 1, 0]]];
   const QS = MS.map(m => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...m[0]), new THREE.Vector3(...m[1]), new THREE.Vector3(...m[2]))));
   const root = new THREE.Group(); root.name = 'earth324'; scene.add(root); const meshes = new Map(); let fAx = -1, fPiv = '', band = null, TMP = null;
-  const drop = k => { const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); };
+  const drop = k => { try { if (window.__cave1403 && !window.__noCave1403 && window.__cave1403.c324Keep && window.__cave1403.c324Keep.has(k)) return; } catch (_e) {} const g = meshes.get(k); meshes.delete(k); if (!g) return; root.remove(g); g.traverse(o => { if (o.isInstancedMesh) o.dispose(); else if (o.geometry) o.geometry.dispose(); }); }; /* v1403-c324-drop */
   const dropAll = () => { for (const k of [...meshes.keys()]) drop(k); stale.clear(); };
   U.dirty = new Set(); U.op = new Map(); const eB = {k: null, v: null, m: null}; const stale = new Set();
   // v1.1.38: generated blocks are cached in 8 high slabs per chunk column, so digging, walking and going down rebuild from the cache, not from the noise
@@ -49012,8 +49013,8 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
       const bY = e.flat ? Math.min(SEA - 12, P.y - 40) : P.y - 40;   /* v1.1.91: the slice drawn always holds your own depth, also just under sea level where caves were left undrawn */ if (band === null || Math.abs(bY + 40 - (band + 40)) > 14) { const nb = Math.floor(bY / SL) * SL; if (band === null) dropAll(); else for (const k of meshes.keys()) stale.add(k); band = nb; }   /* v1.1.38: old chunks stay drawn until rebuilt, no remesh storm */
       if (U.wv !== world) { U.wv = world; cache.clear(); eV = -1; dropAll(); band = Math.floor(bY / SL) * SL; } if (e.dirty) { e.dirty = 0; eV = -1; }   /* v1.1.38: an edit no longer redraws every chunk at once; the chunk you changed is redrawn first */
       const pcx = Math.floor(P.x / C), pcz = Math.floor(P.z / C);
-      for (const k of [...meshes.keys()]) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) drop(k); }
-      const Z0s = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0, upS = e.flat && P.y >= 12; if (U.opW !== world) { U.opW = world; U.op.clear(); } const OPEN = (cx, cz) => { const k = cx + ',' + cz; let o = U.op.get(k); if (o === undefined) { o = false; for (let x = cx * C; x < cx * C + C && !o; x++) for (let z = cz * C; z < cz * C + C; z++) { const b = world[idx(x, 0, z)]; if (!b || b === T.WATER || b === T.LAVA) { o = true; break; } } U.op.set(k, o); } return o; }, SKIP = (cx, cz) => upS && Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > 1 && cx * C >= 0 && (cx + 1) * C <= W && cz * C >= Z0s && (cz + 1) * C <= D && !OPEN(cx, cz); U.skipUp = upS; const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (SKIP(cx, cz)) continue; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); }
+      for (const k of [...meshes.keys()]) { const [cx, cz] = k.split(',').map(Number); if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > RN + 1) { let _k1403 = false; try { _k1403 = !!(window.__cave1403 && !window.__noCave1403 && window.__cave1403.c324Keep && window.__cave1403.c324Keep.has(k)); } catch (_e) {} if (!_k1403) drop(k); } } /* v1403-c324-keep */
+      const Z0s = (typeof __XZ !== 'undefined' && __XZ) ? __XZ : 0, upS = e.flat && P.y >= 12; if (U.opW !== world) { U.opW = world; U.op.clear(); } const OPEN = (cx, cz) => { const k = cx + ',' + cz; let o = U.op.get(k); if (o === undefined) { o = false; for (let x = cx * C; x < cx * C + C && !o; x++) for (let z = cz * C; z < cz * C + C; z++) { const b = world[idx(x, 0, z)]; if (!b || b === T.WATER || b === T.LAVA) { o = true; break; } } U.op.set(k, o); } return o; }, SKIP = (cx, cz) => upS && Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > 1 && cx * C >= 0 && (cx + 1) * C <= W && cz * C >= Z0s && (cz + 1) * C <= D && !OPEN(cx, cz); U.skipUp = upS; const want = []; for (let cx = pcx - RN; cx <= pcx + RN; cx++) for (let cz = pcz - RN; cz <= pcz + RN; cz++) { const k = cx + ',' + cz; if (SKIP(cx, cz)) continue; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0) + (stale.has(k) && meshes.get(k) ? 0.5 : 0), cx, cz, k]); } try { const _K1403 = window.__cave1403 && !window.__noCave1403 && window.__cave1403.c324Keep; if (_K1403 && _K1403.size) { for (const k of _K1403) { if (SKIP.apply(null, k.split(',').map(Number))) continue; if (!meshes.has(k) || U.dirty.has(k) || stale.has(k)) { const p = k.split(','), cx = +p[0], cz = +p[1]; want.push([Math.hypot(cx - pcx, cz - pcz) - (U.dirty.has(k) ? 99 : 0), cx, cz, k]); } } } } catch (_e) {} /* v1403-c324-want */
       want.sort((a, b) => a[0] - b[0]); const mk = pcx + ',' + pcz, near = want.filter(q => q[0] < 1.5).length; U.hold = (!meshes.has(mk) && !SKIP(pcx, pcz)) || near > 0;   /* v1.1.36: the ground under you is built first and fast, and you wait for it */
       const t1 = performance.now(), bud = U.hold ? (PH ? 10 : 14) : e.flat ? (PH ? 6 : 8) : (PH ? 5 : 8); for (let i = 0; i < want.length && performance.now() - t1 < bud; i++) { const q = want[i]; if (!ready(ax, piv, q[1], q[2], band, t1, bud)) break; if (i > 0 && !(U.hold && q[0] < 1.5) && performance.now() - t1 + (U.ema || 4) > bud) { U.defer = (U.defer || 0) + 1; break; } U.dirty.delete(q[3]); stale.delete(q[3]); mesh(ax, piv, q[1], q[2], band); U.ema = U.ema ? U.ema * 0.8 + U.ms * 0.2 : U.ms; } U.n = meshes.size; U.band = band; U.mk = meshes.has(mk); U.tk = Math.round(performance.now() - t1); } catch (e) { ERR('loop', e); } }, PH ? 120 : 70);
   setTimeout(() => { try { const up = updatePlayer; updatePlayer = function (dt) { try { const e = E(); if (U.hold && root.visible && !flying && e) { const w = F().pw(); const al = e.alt(w.x, w.y, w.z); if (al < 60 && al > -60 && P.vy < 0 && (U.hf || 0) < 90) { P.vy = 0; U.held = (U.held || 0) + 1; U.hf = (U.hf || 0) + 1; } } else U.hf = 0; } catch (_) {} return up.apply(this, arguments); }; } catch (e) { ERR('hold', e); } }, 3200);
@@ -63596,6 +63597,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.147","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. The deep tube toward the city is drawn as a narrow corridor, so the cavern is there when you look down it, not empty sky. Fog and the camera stay inside the loaded ground. Flag __noCave1403."]},
 {"v":"v1.2.146","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. Fog and the camera stay inside the loaded ground, so you never look out into empty unloaded space. Flag __noCave1403."]},
 {"v":"v1.2.145","d":"2026-11-26","notes":["After a world opens, every chunk around you stays on screen: land is no longer meshed as empty air and then left blank, and when the highlands grow taller the visible ring is remeshed at once. Caves and the ground above them both keep their chunks. Coming back to a world you just left, and the spawn on the east shore of Loch Ness, are unchanged.","Flag __noQR1398 restores the previous 1.2.144 behaviour."]},
 {"v":"v1.2.144","d":"2026-11-26","notes":["Worlds open sooner. A new world lets you walk the glen around spawn first and streams the rest of the land behind you. Coming back to a world you just left is nearly instant, like Xbox Quick Resume, and after a full reload the ground around you is restored first.","New Highlands worlds no longer start you at x 666. You still appear on the east shore of Loch Ness, just a short way along from that spot.","Flags __noQR1398 and __noSpawn1401 restore the previous behaviour."]},
@@ -105717,7 +105719,7 @@ try {
 (function cave1403(WIN) {
   const U = WIN.__cave1403 = {
     on: 1, err: null, under: 0, budget: 0, pump: 0, dirtied: 0, recull: 0,
-    fogF: 0, edge: 0, hole: 0, fullR: 0, why: '', keep: 0, pref: 0, ag: 0
+    fogF: 0, edge: 0, hole: 0, fullR: 0, why: '', keep: 0, pref: 0, ag: 0, c324: 0
   };
   if (WIN.__noCave1403) { U.on = 0; U.why = 'flag'; return; }
   const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
@@ -105725,6 +105727,10 @@ try {
   const enabled = () => U.on && !WIN.__noCave1403;
   const chSize = () => (typeof CH === 'number' && CH > 0) ? CH : 26;
   const keep = new Set();
+  /* Narrow C324 corridor keys ("cx,cz") past the underground RN=5 cap.
+     C324's drop/want hooks read this set (flag-gated). */
+  const c324Keep = new Set();
+  U.c324Keep = c324Keep;
 
   function isUnder() {
     try {
@@ -105925,6 +105931,7 @@ try {
       }
       const L = agL();
       const agHooked = !!(WIN.__agw && WIN.__agw.ok && WIN.__c320 && __c320.fearth && __c320.fearth.agw);
+      c324Keep.clear();
       if (L && L.city && inAgWorks() && agHooked) {
         const [X, Z, Rc] = L.city;
         const hx = X - P.x, hz = Z - P.z, Hlen = Math.hypot(hx, hz) || 1;
@@ -105932,23 +105939,16 @@ try {
         const end = Math.max(0, Hlen - Math.max(8, (Rc || 80) * 0.15));
         for (let t = 0; t <= end; t += ch * 0.5) {
           const cx = Math.floor((P.x + ux * t) / ch), cz = Math.floor((P.z + uz * t) / ch);
-          for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) add(cx + ox, cz + oz, true);
-        }
-        let last = 0;
-        for (let t = 0; t <= end; t += ch * 0.5) {
-          const cx = Math.floor((P.x + ux * t) / ch), cz = Math.floor((P.z + uz * t) / ch);
-          let ok = true;
           for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) {
+            add(cx + ox, cz + oz, true);
             const sx = cx + ox, sz = cz + oz;
-            if (sx < 0 || sz < 0 || sx >= ncx || sz >= ncz) continue;
-            if (!(typeof chunkObjs !== 'undefined' && chunkObjs && chunkObjs.has(sx * 64 + sz))) ok = false;
+            if (sx >= 0 && sz >= 0 && sx < ncx && sz < ncz) c324Keep.add(sx + ',' + sz);
           }
-          if (!ok) break;
-          last = t + ch;
         }
-        U._holeAg = last;
+        U._holeAg = c324Horizon();
         U.ag = 1;
-      } else U.ag = 0;
+        U.c324 = c324Keep.size;
+      } else { U.ag = 0; U.c324 = 0; }
     } catch (e) { ERR('ahead', e); }
     U.keep = keep.size;
   }
@@ -105988,6 +105988,90 @@ try {
       return performance.now() - t0;
     } catch (e) { ERR('meshA', e); return 0; }
   }
+
+  /* Which earth324 columns are currently drawn (C324 parents them at
+     cx*CH - CH - piv). Used for the corridor horizon and to skip remesh. */
+  function c324Have() {
+    const have = new Set();
+    try {
+      const r = typeof scene !== 'undefined' && scene && scene.getObjectByName && scene.getObjectByName('earth324');
+      if (!r) return have;
+      const ch = chSize();
+      let pivx = 0, pivz = 0;
+      try {
+        const f = WIN.__c321;
+        if (f && f.ax !== 2 && f.piv) { pivx = f.piv[0] || 0; pivz = f.piv[2] || 0; }
+      } catch (_) {}
+      for (const g of r.children) {
+        if (!g) continue;
+        const cx = Math.round((g.position.x + ch + pivx) / ch);
+        const cz = Math.round((g.position.z + ch + pivz) / ch);
+        have.add(cx + ',' + cz);
+      }
+    } catch (e) { ERR('c324h', e); }
+    return have;
+  }
+
+  /* Distance along the city corridor to the first 3-wide C324 gap, so fog
+     never opens past unmeshed deep walls. */
+  function c324Horizon() {
+    try {
+      const L = agL();
+      if (!L || !L.city || typeof P === 'undefined') return 0;
+      const ch = chSize();
+      const [X, Z] = L.city;
+      const hx = X - P.x, hz = Z - P.z, Hlen = Math.hypot(hx, hz) || 1;
+      const ux = hx / Hlen, uz = hz / Hlen;
+      const have = c324Have();
+      if (!have.size) return 0;
+      let last = 0;
+      const end = Math.max(0, Hlen - 8);
+      for (let t = 0; t <= end; t += ch * 0.5) {
+        const cx = Math.floor((P.x + ux * t) / ch), cz = Math.floor((P.z + uz * t) / ch);
+        let ok = true;
+        for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) {
+          if (!have.has((cx + ox) + ',' + (cz + oz))) { ok = false; break; }
+        }
+        if (!ok) break;
+        last = t + ch;
+      }
+      return last;
+    } catch (e) { ERR('c324z', e); return 0; }
+  }
+
+  /* Time-sliced call of C324's own mesh() (slab cache + __bcBase). Only the
+     keep-set corridor, nearest first. Safe: C324's interval is not on the
+     stack, and drop/want hooks will retain these keys. */
+  function meshC324Ahead(budgetMs) {
+    try {
+      const C = WIN.__c324;
+      if (!C || typeof C.mesh !== 'function') return 0;
+      if (!(WIN.__agw && WIN.__agw.ok && WIN.__c320 && __c320.fearth && __c320.fearth.agw)) return 0;
+      if (C.band == null || C.band === undefined) return 0;
+      const f = WIN.__c321;
+      if (!f) return 0;
+      const ax = f.ax, piv = (ax === 2 || !f.piv) ? [0, 0, 0] : f.piv.slice();
+      const have = c324Have();
+      const ch = chSize();
+      const pcx = Math.floor(P.x / ch), pcz = Math.floor(P.z / ch);
+      const ids = [];
+      for (const k of c324Keep) {
+        if (have.has(k)) continue;
+        const p = k.split(','), cx = +p[0], cz = +p[1];
+        ids.push([Math.hypot(cx - pcx, cz - pcz), cx, cz, k]);
+      }
+      ids.sort((a, b) => a[0] - b[0]);
+      const t0 = performance.now();
+      let n = 0;
+      for (const q of ids) {
+        if (performance.now() - t0 > budgetMs) break;
+        try { C.mesh(ax, piv, q[1], q[2], C.band); n++; } catch (e) { ERR('c324m', e); break; }
+      }
+      if (n) { U._holeAg = c324Horizon(); U.pref += n; }
+      return performance.now() - t0;
+    } catch (e) { ERR('c324a', e); return 0; }
+  }
+  U.meshC324 = meshC324Ahead;
 
   function showAgVista() {
     try {
@@ -106117,12 +106201,12 @@ try {
         const now = performance.now();
         const under = isUnder();
         U.under = under ? 1 : 0;
-        if (under && !wasUnder) dirtyCulledInRing();
+        if (under && !wasUnder) { dirtyCulledInRing(); U._dirtyAt = now; }
         if (!under && wasUnder) recullBeyond();
         wasUnder = under;
-        if (!under) { keep.clear(); U.keep = 0; U.ag = 0; return; }
+        if (!under) { keep.clear(); c324Keep.clear(); U.keep = 0; U.ag = 0; U.c324 = 0; return; }
         collectAhead();
-        dirtyCulledInRing();
+        if (now - (U._dirtyAt || 0) > 400) { dirtyCulledInRing(); U._dirtyAt = now; }
         /* Stop the 1.2.43 streamer unloading keep-set meshes just past the ring. */
         try {
           const ch = chSize(), R = Math.max(streamR(), 3);
@@ -106134,17 +106218,24 @@ try {
             }
           }
         } catch (_) {}
-        if (now - lastPump < 40) return;
+        const gap = U.ag ? 40 : 80;
+        if (now - lastPump < gap) return;
         lastPump = now;
-        const spent = meshAhead(U.ag ? 16 : 8);
-        const left = Math.max(6, 16 - spent);
-        if (typeof rebuild === 'function' && (typeof dirtyCh === 'undefined' || dirtyCh.size)) {
-          rebuild(left); U.pump++;
+        let spent = 0;
+        if (U.ag) {
+          spent = meshC324Ahead(10);
+          try {
+            const er = typeof scene !== 'undefined' && scene && scene.getObjectByName && scene.getObjectByName('earth324');
+            if (er) er.visible = true;
+          } catch (_) {}
+          U.pump++;
+        } else {
+          spent = meshAhead(6);
+          const left = Math.max(6, 12 - spent);
+          if (typeof rebuild === 'function' && (typeof dirtyCh === 'undefined' || dirtyCh.size)) {
+            rebuild(left); U.pump++;
+          }
         }
-        try {
-          const er = typeof scene !== 'undefined' && scene && scene.getObjectByName && scene.getObjectByName('earth324');
-          if (er) er.visible = true;
-        } catch (_) {}
       } catch (e) { ERR('pump', e); }
     }, 50);
   } catch (e) { ERR('iv', e); }
@@ -106155,6 +106246,44 @@ try {
        follows the meshed corridor to the city so the view is not a locked
        black wall. Applied again onBeforeRender so later wraps (AGU's 150
        cap, C295 sky) cannot close it. ---- */
+  /* Cache overworld sky/cloud plates and hide them in the Agartha works so
+     the far end of the tube shows the city sky, not the glen clouds. */
+  let skyHide = null, skyHideAt = 0;
+  function hideOverworldSky(ag) {
+    try {
+      const skip = {agsky: 1, agsun: 1, earth324: 1};
+      const named = {nsky: 1, planets: 1, skyDome: 1, stars: 1, sunDisc: 1, moonDisc: 1, moonHalo: 1, scenery: 1, clouds: 1};
+      const now = performance.now();
+      if (!skyHide || now - skyHideAt > 2000) {
+        const list = [];
+        const add = m => { if (m && m.isObject3D && !skip[m.name] && list.indexOf(m) < 0) list.push(m); };
+        try { const S = WIN.__sky1312; if (S && S.plateMesh) add(S.plateMesh); } catch (_) {}
+        try { if (WIN.__nsky && __nsky.dome) add(__nsky.dome); } catch (_) {}
+        try { add(typeof skyDome !== 'undefined' && skyDome); } catch (_) {}
+        try { add(typeof stars !== 'undefined' && stars); } catch (_) {}
+        try { add(typeof sunDisc !== 'undefined' && sunDisc); } catch (_) {}
+        try { add(typeof moonDisc !== 'undefined' && moonDisc); } catch (_) {}
+        try { add(typeof moonHalo !== 'undefined' && moonHalo); } catch (_) {}
+        try { add(typeof scenery !== 'undefined' && scenery); } catch (_) {}
+        try {
+          if (typeof clouds !== 'undefined' && clouds) {
+            if (Array.isArray(clouds)) for (const c of clouds) add(c); else add(clouds);
+          }
+        } catch (_) {}
+        if (ag && typeof scene !== 'undefined' && scene) {
+          scene.traverse(o => {
+            if (!o || !o.isObject3D || skip[o.name]) return;
+            const n = o.name || '';
+            if (named[n] || n.indexOf('cl1316') === 0 || n.indexOf('sky1312') === 0) add(o);
+          });
+        }
+        skyHide = list; skyHideAt = now;
+      }
+      if (!ag) return;
+      for (const m of skyHide) { try { if (m && m.name !== 'agsky' && m.name !== 'agsun') m.visible = false; } catch (_) {} }
+    } catch (e) { ERR('hide', e); }
+  }
+
   function applyFogVista() {
     try {
       if (!enabled()) return;
@@ -106167,21 +106296,16 @@ try {
       const vista = !!(L && inAgWorks() && lookingAtCity(L));
       const edge = edgeAhead();
       const holeIso = unloadedHorizon();
+      if (vista) U._holeAg = c324Horizon();
       const hole = (vista && U._holeAg > 12 && U._holeAg < 900) ? U._holeAg : holeIso;
       U.edge = +edge.toFixed(2);
-      try {
-        const S = WIN.__sky1312; if (S && S.plateMesh) S.plateMesh.visible = false;
-      } catch (_) {}
-      try { if (WIN.__nsky && __nsky.dome) __nsky.dome.visible = false; } catch (_) {}
+      hideOverworldSky(vista || inAgWorks());
       try { const er = scene.getObjectByName && scene.getObjectByName('earth324'); if (er) er.visible = true; } catch (_) {}
-      const hide = [typeof skyDome !== 'undefined' && skyDome, typeof stars !== 'undefined' && stars,
-        typeof sunDisc !== 'undefined' && sunDisc, typeof moonDisc !== 'undefined' && moonDisc,
-        typeof moonHalo !== 'undefined' && moonHalo, typeof scenery !== 'undefined' && scenery];
-      if (typeof clouds !== 'undefined' && clouds) {
-        if (Array.isArray(clouds)) hide.push.apply(hide, clouds); else hide.push(clouds);
-      }
-      for (const m of hide) {
-        if (m && m.isObject3D && m.name !== 'agsky' && m.name !== 'agsun') m.visible = false;
+      /* Fill the deep corridor during the frame when the 50 ms pump is
+         throttled (headless shot waits). Tight 6 ms slice, Agartha only. */
+      if (vista || inAgWorks()) {
+        if (!c324Keep.size) collectAhead();
+        meshC324Ahead(6);
       }
       showAgVista();
       try {
@@ -106193,11 +106317,11 @@ try {
       } catch (_) {}
       let far;
       if (vista) {
-        /* C324 only meshes RN=5 chunks underground (v1.1.81). Seeing past that
-           opens a void in the tube walls, so the far plane stays inside it. */
-        const deepCap = 5 * chSize() + 16;
-        far = Math.min(edge - 6, hole - 8, deepCap);
-        if (!(far > 0) || far < 12) far = Math.max(8, Math.min(edge - 4, hole - 5, deepCap, 24));
+        /* Fog follows the meshed C324 corridor, not the underground RN=5 cap,
+           so the city can appear at the far end once those slabs are drawn. */
+        const hz = (U._holeAg > 12 && U._holeAg < 900) ? U._holeAg : hole;
+        far = Math.min(edge - 6, hz - 8);
+        if (!(far > 0) || far < 12) far = Math.max(8, Math.min(edge - 4, hz - 5, 24));
       } else {
         far = Math.min(vf - 4, edge - 6, hole - 8);
         if (!(far > 0) || far < 8) far = Math.max(6, Math.min(vf - 4, edge - 4, hole - 5, 12));
@@ -106209,7 +106333,7 @@ try {
       U.fogF = far;
       if (typeof camera !== 'undefined' && camera && camera.isPerspectiveCamera) {
         const camFar = vista
-          ? Math.max(far + 8, Math.min(far + 24, edge - 2))
+          ? Math.max(far + 8, Math.min(far + 48, edge - 2, (U._holeAg || far) + 16))
           : Math.max(far + 6, Math.min(far + 12, edge - 2, hole - 2, vf + 8));
         if (Math.abs(camera.far - camFar) > 1) {
           camera.far = Math.max(far + 4, camFar);
@@ -106260,10 +106384,12 @@ try {
       on: U.on, under: U.under, budget: U.budget, pump: U.pump, dirtied: U.dirtied,
       recull: U.recull, fogF: U.fogF, edge: U.edge, hole: U.hole, fullR: U.fullR,
       err: U.err, why: U.why, vf: vfBlocks(), sr: streamR(),
-      keep: U.keep, pref: U.pref, ag: U.ag, holeAg: U._holeAg || 0
+      keep: U.keep, pref: U.pref, ag: U.ag, holeAg: U._holeAg || 0, c324: U.c324 || 0
     };
   };
 })(typeof window !== 'undefined' ? window : this);
+
+
 
 
 
