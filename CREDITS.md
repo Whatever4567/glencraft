@@ -139,6 +139,10 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.139 Grass block top and dirt
+
+- Code and maps made for the game: the new grass top and dirt were synthesised from the game's own grass-block side map already in the file. No outside artwork added.
+
 ## v1.2.138 First-person fingertips
 
 Fingertip nail wells on the existing GLOVE hand meshes are closed into rounded pulps. Flag `__noArm1390` restores the 1.2.137 geometry.
