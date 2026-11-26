@@ -139,6 +139,10 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.138 First-person fingertips
+
+Fingertip nail wells on the existing GLOVE hand meshes are closed into rounded pulps. Flag `__noArm1390` restores the 1.2.137 geometry.
+
 ## v1.2.137 First-person hands
 
 Empty and block hands take a relaxed curl or a cup instead of a splayed open hand. The pick and sword fists fill the handle, and the musket support wrap is tighter. Flag `__noArm1389` restores the 1.2.136 seats.
