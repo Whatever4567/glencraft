@@ -332,6 +332,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1388-v1.2.135 -->
 <!-- glencraft-build: b1380-v1.2.136 b1389-v1.2.137 b1390-v1.2.138 -->
 <!-- glencraft-build: b1393-v1.2.139 b1392-v1.2.140 -->
+<!-- glencraft-build: b1397-v1.2.141 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13796,7 +13797,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.140';
+const GAME_VERSION = '1.2.141';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63577,6 +63578,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.141","d":"2026-11-26","notes":["The main menu no longer plays the old nature-day bed under the theme, so you no longer hear birds on the title and world-select screens. The menu theme is unchanged, and outdoor birds still play in the world. Flag __noMenuBird1397."]},
 {"v":"v1.2.140","d":"2026-11-26","notes":["The leftover sniper-scope glass on the musket is gone, and the extra musket that appeared when you looked down is gone too. Flag __noRifle1392."]},
 {"v":"v1.2.139","d":"2026-11-26","notes":["The top of a grass block now has the same kind of rich turf you already see on its sides — blades and moss, looked at from above — instead of the old flatter carpet. Dirt now uses the soil from those same sides.","The original maps are still in the game. Flag __noTex1393 puts them back."]},
 {"v":"v1.2.138","d":"2026-11-26","notes":["First-person fingertips are closed and rounded on the existing hand meshes, instead of chopped nail wells. The guns, the torch and the arm rig stay as they are. Flag __noArm1390 puts the previous finger geometry back."]},
@@ -104390,6 +104392,84 @@ try {
   try { setInterval(() => { hook(); apply(); }, 500); } catch (_) {}
 })(typeof window !== 'undefined' ? window : this);
 
+</script>
+<script id="glx-menuBird1397">
+/* GLX-MENUBIRD1397 (t1397): stop the old nature-day bed (birds included) from
+   playing under the 1.2.132 menu theme. C132's interval keeps the original
+   tick, so wrapping __c132.tick in MENU1377 did not actually hush it.
+   In-world birds1377 and the menu theme are unchanged. The nature-day files
+   stay in the game. window.__noMenuBird1397 = 1 restores the previous
+   menu-birds behaviour. */
+(function menuBird1397(WIN) {
+  const U = WIN.__menuBird1397 = {on: 1, stopped: 0, err: null, held: 0};
+  const OFF = !!(WIN.__noMenuBird1397 || (typeof location !== 'undefined' && /[?&]nomenubird1397\b/.test(location.search)));
+  if (OFF) { U.off = 1; U.on = 0; return; }
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const held = [];
+
+  function onMenu() {
+    try {
+      if (WIN.__noMenu1377) return false;
+      return typeof started !== 'undefined' && !started;
+    } catch (_) { return false; }
+  }
+  function isNature(el) {
+    try {
+      const s = (el && (el.currentSrc || el.src)) || '';
+      return /assets\/music\/nature_day/.test(s) || /assets\/music\/nature_night/.test(s);
+    } catch (_) { return false; }
+  }
+  function remember(el) {
+    if (el && isNature(el) && held.indexOf(el) < 0) { held.push(el); U.held = held.length; }
+  }
+  function hushEl(el) {
+    try {
+      if (!el || !isNature(el)) return;
+      remember(el);
+      if (!el.paused) {
+        try { el.pause(); } catch (_) {}
+        U.stopped++;
+        U.last = String(el.currentSrc || el.src || '').split('/').pop();
+      }
+    } catch (e) { ERR('hush', e); }
+  }
+
+  try {
+    const origPlay = HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play = function () {
+      try {
+        remember(this);
+        if (!OFF && onMenu() && isNature(this)) {
+          hushEl(this);
+          return Promise.resolve();
+        }
+      } catch (e) { ERR('play', e); }
+      return origPlay.apply(this, arguments);
+    };
+  } catch (e) { ERR('hookPlay', e); }
+
+  try {
+    const desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
+    if (desc && desc.get) {
+      Object.defineProperty(HTMLMediaElement.prototype, 'currentTime', {
+        get() { try { remember(this); } catch (_) {} return desc.get.call(this); },
+        set(v) { return desc.set ? desc.set.call(this, v) : v; },
+        configurable: true, enumerable: desc.enumerable
+      });
+    }
+  } catch (e) { ERR('hookTime', e); }
+
+  function tick() {
+    try {
+      if (OFF) return;
+      if (!onMenu()) return;
+      try { if (WIN.__c132 && typeof __c132.el === 'function') __c132.el(); } catch (_) {}
+      for (let i = 0; i < held.length; i++) hushEl(held[i]);
+    } catch (e) { ERR('tick', e); }
+  }
+  setInterval(tick, 200);
+  U.tick = tick;
+})(window);
 </script>
 </body>
 </html>
