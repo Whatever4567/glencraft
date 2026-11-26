@@ -335,6 +335,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1397-v1.2.141 b1403-v1.2.142 b1404-v1.2.143 b1398-v1.2.144 b1405-v1.2.145 -->
 <!-- glencraft-build: b1403-v1.2.146 -->
 <!-- glencraft-build: b1403-v1.2.147 -->
+<!-- glencraft-build: b1410-v1.2.148 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13799,7 +13800,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.147';
+const GAME_VERSION = '1.2.148';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63597,6 +63598,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.148","d":"2026-11-26","notes":["Caves, ravines and sinkholes are back on new worlds. Since 1.2.120 the background step that carves the Highlands caves, ravines and sinkholes after you enter often stopped when the loading bar finished, so most new worlds had almost none and few holes in the land. It now always runs to the end, the same as 1.2.119: winding tunnels, big caverns, ravines and sinkholes that open onto the surface. Worlds made since 1.2.120 keep their saved ground; make a new world to get them. Flag __noYP1410."]},
 {"v":"v1.2.147","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. The deep tube toward the city is drawn as a narrow corridor, so the cavern is there when you look down it, not empty sky. Fog and the camera stay inside the loaded ground. Flag __noCave1403."]},
 {"v":"v1.2.146","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. Fog and the camera stay inside the loaded ground, so you never look out into empty unloaded space. Flag __noCave1403."]},
 {"v":"v1.2.145","d":"2026-11-26","notes":["After a world opens, every chunk around you stays on screen: land is no longer meshed as empty air and then left blank, and when the highlands grow taller the visible ring is remeshed at once. Caves and the ground above them both keep their chunks. Coming back to a world you just left, and the spawn on the east shore of Loch Ness, are unchanged.","Flag __noQR1398 restores the previous 1.2.144 behaviour."]},
@@ -93116,6 +93118,10 @@ try {
     _raf = 0;
     try { stopFillAnim(); } catch (_) {}
     _mcLive = 0;
+    /* t1410 (GLX-YP1410, v1.2.148): the deferred post chain (caves, ravines, sinkholes, trees, keeps...) may be waiting on this
+       channel right now. Clearing the handler alone left that wait unresolved forever, so on most new worlds since 1.2.120 the
+       chain stopped and the Highlands caves (C274) were never carved. Resolve the pending yield first. Off: window.__noYP1410 = 1. */
+    try { const _h1410 = _mc.port1.onmessage; if (_h1410 && !window.__noYP1410) Promise.resolve().then(function () { try { _h1410(); } catch (_) {} }); } catch (_) {}
     try { _mc.port1.onmessage = null; } catch (_) {}
     try { paint(100); } catch (_) {}
     try {
@@ -106397,6 +106403,43 @@ try {
 
 
 
+</script>
+<script>
+/* ===================== GLX-YP1410 (t1410, v1.2.148): caves, ravines and sinkholes are back on new worlds.
+   The loader fix is in stop() above (a pending deferred-post yield is resolved instead of dropped), so the post chain that
+   carves the Highlands caves (C274) runs to the end again, as it did up to 1.2.119. Once that chain finishes, a late post can
+   put the spawn back on the x 666 projection; re-pin the 1.2.144 spawn (only if it is on that default, nothing is moved
+   otherwise, no blocks change). Off switch: window.__noYP1410 = 1. ===================== */
+(function yp1410(WIN) {
+  const U = WIN.__yp1410 = {err: null, posts: 0, repin: 0};
+  try {
+    if (WIN.__noYP1410) return;
+    const L = WIN.__glenLoad;
+    if (!L || typeof L.runDeferredPosts !== 'function') { U.err = 'no loader'; return; }
+    /* The deferred chain resumes through the outer generate on every slice, and the 1.2.120+ wrappers reset their
+       "built once after the land is final" flags on every call (hamlets g1340v, pool rooms cave1366v). Before this fix the
+       chain stalled early so they were built once; now that it runs to the end they would be rebuilt again and again as the
+       land changes (pool room box poking out at spawn). Keep those flags across resumed slices so each is built once, as in 1.2.147. */
+    const KEEP = ['g1340v', 'cave1366v'];
+    const gen0 = generate;
+    generate = function () {
+      let saved = null;
+      try { if (L._softHold && L.genDone && typeof current !== 'undefined' && current) { saved = {}; for (const k of KEEP) saved[k] = current[k]; } } catch (_) { saved = null; }
+      try { return gen0.apply(this, arguments); }
+      finally { if (saved) try { for (const k of KEEP) if (saved[k] !== undefined) current[k] = saved[k]; U.kept = (U.kept || 0) + 1; } catch (_) {} }
+    };
+    const rd = L.runDeferredPosts;
+    L.runDeferredPosts = async function () {
+      const r = await rd.apply(this, arguments);
+      U.posts++;
+      try {
+        const Q = WIN.__qr1398, sp = (WIN.__v1308 && __v1308.spawn) || (typeof g9spawn !== 'undefined' && g9spawn);
+        if (Q && Q.pinOfficialSpawn && Q.isDefault666 && sp && Q.isDefault666(sp[0], sp[2])) { if (Q.pinOfficialSpawn()) U.repin++; }
+      } catch (e) { if (!U.err) U.err = 'pin ' + String(e).slice(0, 160); }
+      return r;
+    };
+  } catch (e) { U.err = String(e).slice(0, 200); }
+})(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
 </html>
