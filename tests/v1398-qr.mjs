@@ -10,7 +10,7 @@ const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'))
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.144';") || html.includes("const GAME_VERSION = '1.2.143';"), 'GAME_VERSION is 1.2.144');
+ok(html.includes("const GAME_VERSION = '1.2.145';") || html.includes("const GAME_VERSION = '1.2.144';"), 'GAME_VERSION is 1.2.145');
 ok(html.includes('GLX-QR1398') && html.includes('GLX-SPAWN1401'), 'QR1398 / SPAWN1401 patches are present');
 ok(html.includes('window.__noQR1398') && html.includes('window.__noSpawn1401'), 'restore flags are present');
 ok(html.includes('const __qrBusy = () => !!(__L && (__L.held || (!window.__noQR1398 && __L._softHold)))'),
@@ -47,9 +47,15 @@ ok(!/pie|cake|bread|snack|jam|honey|dinner|lunch|breakfast/.test(
 
 ok(html.includes('_qrAwaitEarly') && html.includes('GLs.sliceMs'),
   'enterWorld asks generate to hand off early; direct awaiters still wait for the full land');
-ok(html.includes('if (!window.__noQR1398 && GLs._softHold && !GLs.held) return 8'),
-  'background generate uses an 8ms slice once the player is in control');
+ok(html.includes('GLs._softHold && !GLs.held') && html.includes('return 8') && html.includes('inRangeUnmeshed() > 0') && html.includes('return 2'),
+  'background generate uses a short slice once the player is in, and yields further while visible chunks are unmeshed');
 ok(html.includes('(!window.__noQR1398 && __Lk._softHold)') && html.includes('(!window.__noQR1398 && L._softHold)'),
   'post-generate keeps and pits also yield under _softHold');
+
+
+ok(html.includes('afterWorldGrow') && html.includes('chunkColsReady') && html.includes('rebuild.__qr1398'),
+  'visible chunks are remeshed after early enter and after the world grows');
+ok(html.includes("markDirty(x, z)") && html.includes('__L._qrEarly && !__L.held && typeof markDirty'),
+  'official columns markDirty after early enter so air-meshed chunks are rebuilt');
 
 console.log('pass', n);

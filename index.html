@@ -332,7 +332,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1388-v1.2.135 -->
 <!-- glencraft-build: b1380-v1.2.136 b1389-v1.2.137 b1390-v1.2.138 -->
 <!-- glencraft-build: b1393-v1.2.139 b1392-v1.2.140 -->
-<!-- glencraft-build: b1397-v1.2.141 b1403-v1.2.142 b1404-v1.2.143 b1398-v1.2.144 -->
+<!-- glencraft-build: b1397-v1.2.141 b1403-v1.2.142 b1404-v1.2.143 b1398-v1.2.144 b1405-v1.2.145 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13797,7 +13797,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.144';
+const GAME_VERSION = '1.2.145';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -21148,6 +21148,7 @@ function generate() {
         const d = tri(cav, x, y, z), t = tri(tun, x, y, z);
         if (!window.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
       }
+      if (!window.__noQR1398 && __L && __L._qrEarly && !__L.held && typeof markDirty === 'function') markDirty(x, z);
       }
       if (__qrBusy() && (performance.now() - __tSlice > (__SLB()))) {
         __L.genX = x + 1;
@@ -63594,6 +63595,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.145","d":"2026-11-26","notes":["After a world opens, every chunk around you stays on screen: land is no longer meshed as empty air and then left blank, and when the highlands grow taller the visible ring is remeshed at once. Caves and the ground above them both keep their chunks. Coming back to a world you just left, and the spawn on the east shore of Loch Ness, are unchanged.","Flag __noQR1398 restores the previous 1.2.144 behaviour."]},
 {"v":"v1.2.144","d":"2026-11-26","notes":["Worlds open sooner. A new world lets you walk the glen around spawn first and streams the rest of the land behind you. Coming back to a world you just left is nearly instant, like Xbox Quick Resume, and after a full reload the ground around you is restored first.","New Highlands worlds no longer start you at x 666. You still appear on the east shore of Loch Ness, just a short way along from that spot.","Flags __noQR1398 and __noSpawn1401 restore the previous behaviour."]},
 {"v":"v1.2.143","d":"2026-11-26","notes":["The Highland musket uses the original 1.2.1 rifle texture again: the Poly Haven bolt-action maps on their own model, not the later cropped flintlock look. The 1.2.140 hide of leftover scope glass stays. Flag __noRifle1404."]},
 {"v":"v1.2.142","d":"2026-11-26","notes":["Stone, sand, sandstone, peat, cobblestone, stone bricks, gold ore, and deepslate now have richer detail in the same colours they already had. Deepslate is no longer just a copy of stone.","The original maps are still in the game. Flag __noTex1403 puts the 1.2.139 maps back. The grass and dirt work from 1.2.139 (__noTex1393) is unchanged."]},
@@ -104952,7 +104954,12 @@ try {
       const hash = ctx.hash;
       if (typeof hash !== 'function') return 0;
       const [sx, sz] = officialXZ();
-      const R = 88;
+      /* Chebyshev, at least the visible ring plus a chunk of slack, so a
+         short walk or a drop into a cave does not step into unfilled land. */
+      const ch = (typeof CH === 'number' && CH) || 26;
+      let sr = 4;
+      try { if (typeof streamRadius === 'function') sr = Math.max(sr, streamRadius() | 0); } catch (_) {}
+      const R = Math.max(88, (sr + 2) * ch);
       let tri = ctx.tri, cav = ctx.cav, tun = ctx.tun;
       if (typeof tri !== 'function' && typeof g9n3 === 'function') {
         const x0 = Math.max(0, sx - R - 4), x1 = Math.min(W - 1, sx + R + 4);
@@ -104982,7 +104989,7 @@ try {
         if (x < 0 || x >= W) continue;
         for (let z = sz - R; z <= sz + R; z++) {
           if (z < 0 || z >= D) continue;
-          if ((x - sx) * (x - sx) + (z - sz) * (z - sz) > R * R) continue;
+          if (Math.max(Math.abs(x - sx), Math.abs(z - sz)) > R) continue;
           const c = g9height(x, z), h = c.h;
           const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
           let top = T.GRASS, sub = T.DIRT, kind = 0;
@@ -105008,6 +105015,7 @@ try {
               if (!WIN.__g12 && (d > 0.36 + depthK * 0.35 || (t < 0.045 && y > 8))) world[col + y * D] = y <= 6 ? T.LAVA : T.AIR;
             }
           }
+          try { if (typeof markDirty === 'function') markDirty(x, z); } catch (_) {}
           n++;
         }
       }
@@ -105118,7 +105126,10 @@ try {
     if (GLs && typeof GLs.sliceMs === 'function' && !GLs.sliceMs.__qr1398) {
       const sl0 = GLs.sliceMs.bind(GLs);
       GLs.sliceMs = function () {
-        if (!window.__noQR1398 && GLs._softHold && !GLs.held) return 8;
+        if (!window.__noQR1398 && GLs._softHold && !GLs.held) {
+          try { if (typeof started !== 'undefined' && started && inRangeUnmeshed() > 0) return 2; } catch (_) {}
+          return 8;
+        }
         return sl0();
       };
       GLs.sliceMs.__qr1398 = 1;
@@ -105135,7 +105146,7 @@ try {
         let want = false;
         try { want = !!(WIN.__v1308 && __v1308.want) || (typeof W === 'number' && W >= 1600); } catch (_) {}
         if (!want) return gen0.apply(this, arguments);
-        GL._qrEarly = 1;
+        GL._qrEarly = GL._qrAwaitEarly ? 1 : 0;
         GL.qrSpawnReady = 0;
         let resolved = false;
         const early = new Promise(function (res) {
@@ -105495,8 +105506,202 @@ try {
     setInterval(pin, 200);
   } catch (e) { ERR('pump0', e); }
 
+  function chunkColCounts(cx, cz) {
+    const out = {n: 0, hit: 0};
+    try {
+      if (typeof g9cols === 'undefined' || !g9cols || typeof W !== 'number') return {n: 0, hit: 1};
+      const ch = (typeof CH === 'number' && CH) || 26;
+      const x0 = cx * ch, z0 = cz * ch, x1 = Math.min(W, x0 + ch), z1 = Math.min(D, z0 + ch);
+      for (let x = x0; x < x1; x++) {
+        const row = x * D;
+        for (let z = z0; z < z1; z++) {
+          out.n++;
+          if (g9cols[(row + z) * 2]) out.hit++;
+        }
+      }
+    } catch (e) { ERR('colCnt', e); }
+    return out;
+  }
+  /* Mesh as soon as any column has been written (spawn-disc edges are a
+     circle inside a square view). Re-dirty until the chunk is complete. */
+  function chunkColsReady(cx, cz) {
+    try {
+      if (!qrOn()) return true;
+      const GL = L();
+      if (GL && GL.genDone) return true;
+      if (typeof g9cols === 'undefined' || !g9cols) return true;
+      return chunkColCounts(cx, cz).hit > 0;
+    } catch (e) { ERR('colReady', e); return true; }
+  }
+  function chunkColsComplete(cx, cz) {
+    try {
+      const GL = L();
+      if (GL && GL.genDone) return true;
+      const c = chunkColCounts(cx, cz);
+      return !c.n || c.hit >= c.n;
+    } catch (e) { return true; }
+  }
+  U.chunkColsReady = chunkColsReady;
+  U.chunkColsComplete = chunkColsComplete;
+
+  function inRangeUnmeshed() {
+    try {
+      if (typeof started === 'undefined' || !started) return 0;
+      if (typeof chunkObjs === 'undefined' || !chunkObjs) return 0;
+      const ch = (typeof CH === 'number' && CH) || 26;
+      const sr = (typeof streamRadius === 'function') ? streamRadius() : ((typeof STREAM_R === 'number' && STREAM_R) || 4);
+      const R = Math.max(2, sr | 0, sr);
+      const ncx = Math.ceil(W / ch), ncz = Math.ceil(D / ch);
+      const pcx = P.x / ch - 0.5, pcz = P.z / ch - 0.5;
+      let n = 0;
+      const x0 = Math.max(0, Math.floor(pcx - R)), x1 = Math.min(ncx - 1, Math.ceil(pcx + R));
+      const z0 = Math.max(0, Math.floor(pcz - R)), z1 = Math.min(ncz - 1, Math.ceil(pcz + R));
+      for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) {
+        if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > R) continue;
+        if (!chunkColsReady(cx, cz)) continue;
+        if (!chunkObjs.get(cx * 64 + cz)) n++;
+      }
+      return n;
+    } catch (e) { ERR('unmesh', e); return 0; }
+  }
+  U.inRangeUnmeshed = inRangeUnmeshed;
+
+  function afterWorldGrow() {
+    try { if (typeof streamRadius === 'function') STREAM_R = streamRadius(); } catch (_) {}
+    try { dirtyAll = true; } catch (_) {}
+    U._meshPri = performance.now() + 8000;
+    try {
+      if (typeof rebuild === 'function') {
+        /* Height expand invalidates every mesh (the world array is re-laid).
+           Mesh the visible ring to completion now, or the glen goes empty
+           for seconds while 6ms frames fight background generate. */
+        const t0 = performance.now();
+        let guard = 0;
+        do {
+          rebuild(220);
+          guard++;
+        } while (inRangeUnmeshed() > 0 && performance.now() - t0 < 3000 && guard < 40);
+      }
+    } catch (e) { ERR('growMesh', e); }
+  }
+  U.afterWorldGrow = afterWorldGrow;
+
+  try {
+    if (typeof rebuild === 'function' && !rebuild.__qr1398) {
+      const rb0 = rebuild;
+      rebuild = function (budget) {
+        if (qrOn() && typeof started !== 'undefined' && started && (U.early || (L() && L()._qrAwaitEarly))) {
+          try {
+            if (inRangeUnmeshed() === 0) U._meshPri = 0;
+            else if (U._meshPri && performance.now() < U._meshPri) budget = Math.max(budget || 0, 80);
+            else if (inRangeUnmeshed() > 0) budget = Math.max(budget || 0, 80);
+          } catch (_) {}
+        }
+        /* Consume dirtyAll first (height expand invalidates every mesh),
+           then park still-unfilled columns so we do not mesh air and drop
+           them from the queue. Doing the park before dirtyAll let the
+           official rebuild re-queue and mesh empty land. */
+        try {
+          if (qrOn() && typeof dirtyAll !== 'undefined' && dirtyAll) {
+            const ch = (typeof CH === 'number' && CH) || 26;
+            const ncx = Math.ceil(W / ch), ncz = Math.ceil(D / ch);
+            if (typeof chunkObjs !== 'undefined' && chunkObjs) {
+              for (const g of Array.from(chunkObjs.values())) {
+                try {
+                  if (typeof blockGroup !== 'undefined' && blockGroup) blockGroup.remove(g);
+                  if (g && g.children) g.children.forEach(function (c) {
+                    if (c.isInstancedMesh) c.dispose();
+                    else if (c.geometry) c.geometry.dispose();
+                  });
+                } catch (_) {}
+              }
+              chunkObjs.clear();
+              try { if (typeof chunkLists !== 'undefined' && chunkLists && chunkLists.clear) chunkLists.clear(); } catch (_) {}
+            }
+            if (typeof dirtyCh !== 'undefined' && dirtyCh) {
+              for (let cx = 0; cx < ncx; cx++) for (let cz = 0; cz < ncz; cz++) dirtyCh.add(cx * 64 + cz);
+            }
+            dirtyAll = false;
+            try { rebuild._sg = null; rebuild._unloaded = true; } catch (_) {}
+          }
+        } catch (e) { ERR('dirtyAll', e); }
+        const parked = [];
+        try {
+          if (qrOn() && typeof dirtyCh !== 'undefined' && dirtyCh && typeof g9cols !== 'undefined' && g9cols) {
+            const GL = L();
+            if (GL && GL._qrEarly && !GL.genDone) {
+              for (const id of Array.from(dirtyCh)) {
+                const cx = Math.floor(id / 64), cz = id % 64;
+                if (!chunkColsReady(cx, cz)) { dirtyCh.delete(id); parked.push(id); }
+              }
+            }
+          }
+        } catch (e) { ERR('park', e); }
+        try { return rb0.call(this, budget); }
+        finally {
+          try { for (let i = 0; i < parked.length; i++) dirtyCh.add(parked[i]); } catch (_) {}
+          try {
+            const GL = L();
+            if (qrOn() && GL && GL._qrEarly && !GL.genDone && typeof dirtyCh !== 'undefined' && dirtyCh && typeof P !== 'undefined' && P) {
+              const ch = (typeof CH === 'number' && CH) || 26;
+              const sr = (typeof streamRadius === 'function') ? streamRadius() : 4;
+              const R = Math.max(2, sr);
+              const ncx = Math.ceil(W / ch), ncz = Math.ceil(D / ch);
+              const pcx = P.x / ch - 0.5, pcz = P.z / ch - 0.5;
+              const x0 = Math.max(0, Math.floor(pcx - R)), x1 = Math.min(ncx - 1, Math.ceil(pcx + R));
+              const z0 = Math.max(0, Math.floor(pcz - R)), z1 = Math.min(ncz - 1, Math.ceil(pcz + R));
+              for (let cx = x0; cx <= x1; cx++) for (let cz = z0; cz <= z1; cz++) {
+                if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > R) continue;
+                if (!chunkColsComplete(cx, cz)) dirtyCh.add(cx * 64 + cz);
+              }
+            }
+          } catch (e) { ERR('redirty', e); }
+        }
+      };
+      rebuild.__qr1398 = 1;
+      try { WIN.rebuild = rebuild; } catch (_) {}
+    }
+  } catch (e) { ERR('rb', e); }
+
+  try {
+    const V = WIN.__v1308;
+    if (V && typeof V.expandWorldH === 'function' && !V.expandWorldH.__qr1398) {
+      const ex = V.expandWorldH.bind(V);
+      V.expandWorldH = function () {
+        const r = ex.apply(this, arguments);
+        try { if (qrOn() && typeof started !== 'undefined' && started && (U.early || (L() && L()._qrAwaitEarly))) afterWorldGrow(); } catch (e) { ERR('expW', e); }
+        return r;
+      };
+      V.expandWorldH.__qr1398 = 1;
+    }
+  } catch (e) { ERR('ex', e); }
+
+  /* The v1308 finally-path calls its local expandWorldH, not U.expandWorldH,
+     so also watch H and remesh the visible ring when the world is grown. */
+  try {
+    let lastH = 0;
+    const growWatch = function () {
+      if (!qrOn()) return;
+      try {
+        if (typeof started === 'undefined' || !started) return;
+        if (!(U.early || (L() && L()._qrAwaitEarly))) return;
+        if (typeof H !== 'number') return;
+        if (lastH && H !== lastH) afterWorldGrow();
+        lastH = H;
+      } catch (e) { ERR('hWatch', e); }
+    };
+    growWatch.__tgFree = 1;
+    setInterval(growWatch, 50);
+  } catch (e) { ERR('hW', e); }
+
   U.ok = 1;
 })(typeof window !== 'undefined' ? window : this);
+
+
+
+
+
+
 
 
 </script>
