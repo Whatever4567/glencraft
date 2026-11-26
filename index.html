@@ -331,6 +331,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1379-v1.2.134 -->
 <!-- glencraft-build: b1388-v1.2.135 -->
 <!-- glencraft-build: b1380-v1.2.136 b1389-v1.2.137 b1390-v1.2.138 -->
+<!-- glencraft-build: b1393-v1.2.139 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13795,7 +13796,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.138';
+const GAME_VERSION = '1.2.139';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63576,6 +63577,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.139","d":"2026-11-26","notes":["The top of a grass block now has the same kind of rich turf you already see on its sides — blades and moss, looked at from above — instead of the old flatter carpet. Dirt now uses the soil from those same sides.","The original maps are still in the game. Flag __noTex1393 puts them back."]},
 {"v":"v1.2.138","d":"2026-11-26","notes":["First-person fingertips are closed and rounded on the existing hand meshes, instead of chopped nail wells. The guns, the torch and the arm rig stay as they are. Flag __noArm1390 puts the previous finger geometry back."]},
 {"v":"v1.2.137","d":"2026-11-26","notes":["First-person empty and block hands take a relaxed curl or a cup, and the pick and sword fists fill the handle. The musket support hand is a tighter wrap on the stock.","The guns, the torch and the third-person model stay on the existing rig. Flag __noArm1389 puts the previous seats back."]},
 {"v":"v1.2.136","d":"2026-11-25","notes":["The musket support hand is a gloved wrap on the stock, not pale sticks off the barrel. The pick fist is a full-size grip on the shaft, and the bucket hand sits on the bail instead of clipping through the tub.","The guns, the torch and the third-person model stay on the existing rig. Flag __noArm1380 puts the previous seats back."]},
@@ -104118,5 +104120,119 @@ try {
 })();
 </script>
 
+
+<script id="glx-tex1393">
+/* GLX-TEX1393 (t1393): the grass block's top uses the same rich turf already
+   visible on its sides (blades, moss, clover — a top-down view, not a second
+   cutaway and not a black map). Dirt uses the soil from those same sides.
+   The original TEX maps are kept. Off switch: window.__noTex1393 = 1. */
+(function tex1393(WIN) {
+  const U = WIN.__tex1393 = {on: 0, keys: [], err: null, restored: 0, applied: 0};
+  U.active = function () { return !WIN.__noTex1393; };
+  const MAP = {
+    grass_top: 'assets/tex/grass_top-1393.webp',
+    dirt: 'assets/tex/dirt-1393.webp'
+  };
+  const OLD = {};
+
+  function toCanvas(img) {
+    const c = document.createElement('canvas');
+    c.width = img.width || img.naturalWidth;
+    c.height = img.height || img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    return c;
+  }
+
+  function avgOf(canvas) {
+    try {
+      const s = document.createElement('canvas'); s.width = s.height = 1;
+      const g = s.getContext('2d'); g.drawImage(canvas, 0, 0, 1, 1);
+      const d = g.getImageData(0, 0, 1, 1).data;
+      return (d[0] << 16) | (d[1] << 8) | d[2];
+    } catch (_) { return null; }
+  }
+
+  function applyKey(key, canvas) {
+    if (typeof texCache !== 'undefined' && texCache[key]) {
+      if (!OLD[key]) OLD[key] = {img: texCache[key].image, map: (typeof matCache !== 'undefined' && matCache[key] && matCache[key].map) || texCache[key]};
+      texCache[key].image = canvas;
+      texCache[key].needsUpdate = true;
+    }
+    if (typeof texImg !== 'undefined') {
+      if (!OLD[key]) OLD[key] = {img: texImg[key]};
+      texImg[key] = canvas;
+    }
+    if (typeof matCache !== 'undefined' && matCache[key] && matCache[key].map) {
+      matCache[key].map.image = canvas;
+      matCache[key].map.needsUpdate = true;
+    }
+    try { const a = avgOf(canvas); if (a != null && typeof AVG !== 'undefined') AVG[key] = a; } catch (_) {}
+  }
+
+  function restore() {
+    for (const k of Object.keys(OLD)) {
+      const o = OLD[k], img = o && o.img;
+      if (!img) continue;
+      try { if (typeof texCache !== 'undefined' && texCache[k]) { texCache[k].image = img; texCache[k].needsUpdate = true; } } catch (_) {}
+      try { if (typeof texImg !== 'undefined') texImg[k] = img; } catch (_) {}
+      try { if (typeof matCache !== 'undefined' && matCache[k] && matCache[k].map) { matCache[k].map.image = img; matCache[k].map.needsUpdate = true; } } catch (_) {}
+    }
+    U.on = 0; U.restored = 1;
+    try { if (WIN.__TA && __TA.flush) __TA.flush(); } catch (_) {}
+  }
+  U.restore = restore;
+
+  function loadOne(key, url) {
+    return new Promise(function (res, rej) {
+      const im = new Image();
+      im.onload = function () { res(im); };
+      im.onerror = function () { rej(new Error('load ' + key)); };
+      const v = (typeof GAME_VERSION !== 'undefined' ? GAME_VERSION : 't1393');
+      im.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + 'v=' + v;
+    });
+  }
+
+  function applyAll(imgs) {
+    if (!U.active()) { U.on = 0; return; }
+    const keys = Object.keys(MAP);
+    for (let i = 0; i < keys.length; i++) applyKey(keys[i], toCanvas(imgs[keys[i]]));
+    U.on = 1; U.applied = 1; U.keys = keys.slice();
+    try { if (WIN.__TA && __TA.flush) __TA.flush(); } catch (_) {}
+  }
+
+  function boot() {
+    if (!U.active()) { U.on = 0; return; }
+    let started = 0;
+    const begin = function () {
+      if (started) return true;
+      const ready = typeof texDone !== 'undefined' && typeof texTotal !== 'undefined' && texDone >= texTotal && typeof texImg !== 'undefined' && texImg.grass_top && texImg.dirt;
+      if (!ready) return false;
+      started = 1;
+      Promise.all(Object.keys(MAP).map(function (k) { return loadOne(k, MAP[k]).then(function (im) { return [k, im]; }); }))
+        .then(function (pairs) {
+          if (!U.active()) return;
+          const imgs = {};
+          for (let i = 0; i < pairs.length; i++) imgs[pairs[i][0]] = pairs[i][1];
+          applyAll(imgs);
+        })
+        .catch(function (e) { U.err = String(e && e.message || e).slice(0, 200); });
+      return true;
+    };
+    if (!begin()) {
+      let n = 0;
+      const iv = setInterval(function () { if (begin() || ++n > 160) clearInterval(iv); }, 250);
+    }
+    // If the flag is flipped on later, put the live maps back.
+    try {
+      setInterval(function () {
+        if (WIN.__noTex1393 && U.on) restore();
+      }, 1000);
+    } catch (_) {}
+  }
+
+  try { boot(); } catch (e) { U.err = String(e && e.message || e).slice(0, 200); }
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
 </body>
 </html>
