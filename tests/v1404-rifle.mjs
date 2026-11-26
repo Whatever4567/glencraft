@@ -14,7 +14,7 @@ ok(html.includes('id="glx-rifle1404"'), 'script id');
 ok(html.indexOf('id="glx-rifle1404"') > html.indexOf('id="glx-rifle1392"'), '1404 is after the 1.2.140 hide IIFE');
 ok(html.includes('id="glx-tex1403"') && html.indexOf('id="glx-rifle1404"') > html.indexOf('id="glx-tex1403"'), 'rifle IIFE is after the 1.2.142 texture IIFE');
 ok(html.indexOf('id="glx-rifle1404"') < html.lastIndexOf('</body>'), 'script is before body close');
-ok(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v === '1.2.143' && html.includes("const GAME_VERSION = '1.2.143';") || html.includes("const GAME_VERSION = '1.2.144';") || html.includes("const GAME_VERSION = '1.2.145';"), 'version is 1.2.143');
+ok(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v === '1.2.143' && html.includes("const GAME_VERSION = '1.2.143';") || html.includes("const GAME_VERSION = '1.2.144';") || html.includes("const GAME_VERSION = '1.2.145';") || html.includes("const GAME_VERSION = '1.2.146';"), 'version is 1.2.143');
 ok(src.includes('window.__noRifle1404') && src.includes('const off = () => !!W.__noRifle1404'), 'flag restores the previous look');
 ok(src.includes('isGlbMusketMesh') && src.includes('layerMask') && src.includes('gun_rifle_'), 'shows the 1.2.1 GLB maps');
 ok(src.includes('isFlintMusketMesh') && src.includes('hidFlint'), 'hides the flintlock musket instead of deleting it');
