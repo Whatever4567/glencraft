@@ -14,7 +14,7 @@ ok(html.includes('id="glx-rifle1392"'), 'script id');
 ok(html.indexOf('id="glx-rifle1392"') > html.indexOf('id="glx-arm1390"'), 'rifle IIFE is after the arm IIFE');
 ok(html.includes('id="glx-tex1393"') && html.indexOf('id="glx-rifle1392"') > html.indexOf('id="glx-tex1393"'), 'rifle IIFE is after the 1.2.139 texture IIFE');
 ok(html.indexOf('id="glx-rifle1392"') < html.lastIndexOf('</body>'), 'script is before body close');
-ok(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v === '1.2.140' && html.includes("const GAME_VERSION = '1.2.140';"), 'version is 1.2.140');
+ok(['1.2.140','1.2.141'].includes(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v) && (html.includes("const GAME_VERSION = '1.2.140';") || html.includes("const GAME_VERSION = '1.2.141';")), 'version is 1.2.140+');
 ok(src.includes('window.__noRifle1392') && src.includes('const off = () => !!W.__noRifle1392'), 'flag restores the previous look');
 ok(src.includes('accesories_glass') && src.includes('lockHide') && src.includes('isScopeScreen'), 'hides leftover scope glass');
 ok(src.includes('hideFpBodyGun') && src.includes('P.pitch < -0.5'), 'hides the extra look-down musket');
