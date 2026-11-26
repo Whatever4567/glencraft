@@ -139,6 +139,10 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.140 Rifle screens
+
+The leftover bolt-action scope glass no longer appears on the musket, and the extra musket that showed when looking down in first person is hidden. Flag `__noRifle1392`.
+
 ## v1.2.139 Grass block top and dirt
 
 - Code and maps made for the game: the new grass top and dirt were synthesised from the game's own grass-block side map already in the file. No outside artwork added.
