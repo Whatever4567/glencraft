@@ -13,7 +13,7 @@ ok((html.split('(function arm1390').length - 1) === 1, 'exactly one IIFE');
 ok(html.includes('id="glx-arm1390"'), 'script id');
 ok(html.includes('id="glx-arm1389"') && html.includes('id="glx-arm1380"') && html.includes('id="glx-arm1373"'), 'earlier arm IIFEs stay');
 ok(html.indexOf('id="glx-arm1389"') < html.indexOf('id="glx-arm1390"'), '1390 is after 1389');
-ok(['1.2.138','1.2.139','1.2.140', '1.2.141'].includes(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v) && (html.includes("const GAME_VERSION = '1.2.138';") || html.includes("const GAME_VERSION = '1.2.139';") || html.includes("const GAME_VERSION = '1.2.140';") || html.includes("const GAME_VERSION = '1.2.141';")), 'version is 1.2.138+');
+ok(['1.2.138','1.2.139','1.2.140', '1.2.141', '1.2.142'].includes(JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v) && (html.includes("const GAME_VERSION = '1.2.138';") || html.includes("const GAME_VERSION = '1.2.139';") || html.includes("const GAME_VERSION = '1.2.140';") || html.includes("const GAME_VERSION = '1.2.141';") || html.includes("const GAME_VERSION = '1.2.142';")), 'version is 1.2.138+');
 ok(src.includes('window.__noArm1390') && src.includes('U.active = function () { return !W.__noArm1390; }'), 'flag restores 1.2.137 geometry');
 ok(src.includes('__handsFp1285') && src.includes('__fpa'), 'keeps existing rig');
 ok(!src.includes('.remove(') && !src.includes('dispose('), 'does not delete player geometry');
