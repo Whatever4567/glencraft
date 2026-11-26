@@ -139,6 +139,10 @@ The modified CC BY-SA clips are shared under the same licence.
 ## Agartha clip (v1.2.13)
 `assets/video/v6_agartha.mp4` is original procedurally generated artwork (node-canvas + ffmpeg), made for Glencraft.
 
+## v1.2.143 Rifle texture
+
+The held musket shows the original 1.2.1 Poly Haven bolt-action maps again (same `gun_rifle_2k/4k.glb` files). The later flintlock mesh is only hidden, not removed. Flag `__noRifle1404`. The 1.2.140 scope-glass hide stays.
+
 ## v1.2.140 Rifle screens
 
 The leftover bolt-action scope glass no longer appears on the musket, and the extra musket that showed when looking down in first person is hidden. Flag `__noRifle1392`.
