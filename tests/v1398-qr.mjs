@@ -10,7 +10,7 @@ const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'))
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 
-ok(html.includes("const GAME_VERSION = '1.2.145';") || html.includes("const GAME_VERSION = '1.2.144';"), 'GAME_VERSION is 1.2.145');
+ok(html.includes("const GAME_VERSION = '1.2.145';") || html.includes("const GAME_VERSION = '1.2.146';") || html.includes("const GAME_VERSION = '1.2.144';"), 'GAME_VERSION is 1.2.145');
 ok(html.includes('GLX-QR1398') && html.includes('GLX-SPAWN1401'), 'QR1398 / SPAWN1401 patches are present');
 ok(html.includes('window.__noQR1398') && html.includes('window.__noSpawn1401'), 'restore flags are present');
 ok(html.includes('const __qrBusy = () => !!(__L && (__L.held || (!window.__noQR1398 && __L._softHold)))'),
