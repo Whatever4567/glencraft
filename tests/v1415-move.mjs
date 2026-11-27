@@ -13,4 +13,5 @@ ok(html.includes('function* finishScaledSurfaceG1415()') && html.includes('  fun
 ok(html.includes("const GAME_VERSION = '1.2.149';") || /GAME_VERSION = '1\.2\.(1[5-9]\d|[2-9]\d\d)'/.test(html), 'GAME_VERSION is 1.2.149 or later');
 ok(!/\b(pie|cake|bread|food|eat|meal|snack)\b/i.test(JSON.stringify((html.match(/\{"v":"v1\.2\.149"[^\n]*/) || [''])[0])), 'patch note has no food words');
 ok(html.includes('GLX-PY1415b') && html.includes('const sl0 = scanLights;') && html.includes('function scanLights() {'), 'torch light scan is sliced in play, original scanLights kept');
+ok(html.includes('U._keptPos1415 = 1;'), 'background land finishing does not teleport you back to spawn');
 console.log('PASS ' + n);
