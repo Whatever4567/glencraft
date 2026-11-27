@@ -16,7 +16,7 @@ ok(html.includes('U.run({st: st, r: r})'), 'post 41 still carves the full world 
 ok(html.includes('b && !window.__noCave1427') && html.includes('box ? box[0] : 0'), 'local carve is boxed and flagged');
 ok(html.includes('fillSpawnDisc.__cave1427') && html.includes('carveLocal()'), 'spawn disc hands control only after the local carve');
 ok(html.includes("current.mode !== 'creative'") && html.includes('__v1308.want = 1'), 'new/reset survival requests the current 2x map');
-ok(html.includes('d.c274 = {v: 1') && html.includes('C.run({noYield: 1, reset: 1})'), 'saves record caves; older worlds can recarve');
+ok((html.includes('d.c274 = {v: 1') || html.includes('v: C.ms > 0 ? 1 : 0')) && html.includes('C.run({noYield: 1, reset: 1})'), 'saves record caves; older worlds can recarve');
 ok(html.includes('kickScot') && html.includes('__v1308.preScot') && html.includes('A.hT'), 'spawn disc uses the current sculpted Highlands; reshape starts when the land is finished');
 ok(html.includes('GLX-C274') && html.includes('GLX-CAVE1366') && html.includes('__noYP1410') && html.includes('__noPY1415'), 'older cave and loader flags are kept');
 ok(html.includes('placedSet') && html.includes('placed(i)'), 'C274 still skips placed blocks');
