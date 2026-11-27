@@ -106806,5 +106806,55 @@ try {
   } catch (e) { U.err = String(e).slice(0, 200); }
 })(typeof window !== 'undefined' ? window : this);
 </script>
+<script>
+/* ===================== GLX-PY1415b (t1415, v1.2.149): torch light scan without freezing play.
+   scanLights() reads every block of the world (1728 x 128 x 1728 on a 2x world) to find torches and lamps, about 3 s in one go, and the
+   land, cave and castle steps call it again and again. Before you enter that is hidden behind the loading bar; once you are in the world
+   (and while the land finishes in the background) it froze the game each time. In play, requests are now merged into one scan that
+   reads a few columns per frame and then swaps in the result. Before you enter it runs exactly as before. Off: window.__noPY1415 = 1. */
+(function py1415b(WIN) {
+  const U = WIN.__py1415 = {err: null, scans: 0, slices: 0, merged: 0, sync: 0};
+  try {
+    if (typeof scanLights !== 'function' || typeof lightSrc === 'undefined') { U.err = 'no scanLights'; return; }
+    const sl0 = scanLights;
+    let running = false, again = false;
+    const inPlay = function () {
+      try { const L = WIN.__glenLoad; return !WIN.__noPY1415 && typeof started !== 'undefined' && !!started && !!(L && L.playYield1415) && !L.held; } catch (_) { return false; }
+    };
+    async function sliced() {
+      running = true;
+      try {
+        do {
+          again = false;
+          const L = WIN.__glenLoad, w0 = world, H0 = H, W0 = W, D0 = D, out = new Map(), TT = T.TORCH;
+          let t = performance.now(), restart = false;
+          for (let x = 0; x < W0; x++) {
+            for (let y = 0; y < H0; y++) { const b0 = (x * H0 + y) * D0; for (let z = 0; z < D0; z++) { const b = w0[b0 + z]; if (b === TT || b === 161 || b === 216) out.set((x * 4096 + z) * 256 + y, [x + .5, y + (b === TT ? .7 : .5), z + .5, b]); } }
+            if (performance.now() - t > 6) {
+              U.slices++;
+              await L.playYield1415();
+              t = performance.now();
+              if (world !== w0 || H !== H0 || W !== W0 || D !== D0) { restart = true; break; }
+            }
+          }
+          if (restart) { again = true; continue; }
+          lightSrc.clear();
+          for (const [k, v] of out) lightSrc.set(k, v);
+          try { if (typeof validateLights === 'function') validateLights(); } catch (_) {}
+          try { if (typeof farGlow !== 'undefined' && farGlow) farGlow.userData.dirty = true; } catch (_) {}
+          U.scans++;
+        } while (again && inPlay());
+      } catch (e) { if (!U.err) U.err = String(e).slice(0, 200); }
+      finally { running = false; }
+      if (again) { try { sl0(); U.sync++; } catch (_) {} }
+    }
+    scanLights = function () {
+      if (!inPlay()) { U.sync++; return sl0.apply(this, arguments); }
+      if (running) { again = true; U.merged++; return; }
+      sliced();
+    };
+  } catch (e) { U.err = String(e).slice(0, 200); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
 </body>
 </html>
