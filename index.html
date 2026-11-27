@@ -336,6 +336,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1403-v1.2.146 -->
 <!-- glencraft-build: b1403-v1.2.147 -->
 <!-- glencraft-build: b1410-v1.2.148 -->
+<!-- glencraft-build: b1415-v1.2.149 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13800,7 +13801,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.148';
+const GAME_VERSION = '1.2.149';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -49419,19 +49420,80 @@ window.__SSPAL = {"mercury": "lpWVlpSVmZiYlJOUkZCQk5KQlpWTm5qZmpmYm5qYo6KgpaSjoq
         for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.abs(dx) + Math.abs(dz) > r + 1 || (!dx && !dz && dy < n)) continue; const i = ((x + dx) * H + y + dy) * D + z + dz; if (!world[i]) world[i] = F; } } }
     { const BRK = world[(5 * H) * D + 5], DS = T.DEEPSLATE || T.STONE; U.brk = BRK; if (BRK && BRK !== DS) for (let i = 0, n = W * D; i < n; i++) { const x = (i / D) | 0, z = i - x * D; for (let y = 0; y < 3; y++) { const j = (x * H + y) * D + z; if (world[j] === BRK) world[j] = (x === 1 && z === 1 && y === 1) ? world[j] : DS; } } }
     U.kept = kept; U.cols = N - kept; U.trees = TR.length; U.ms = Math.round(performance.now() - t0); U.runs++; U.done = 1; try { world[(1 * H + 1) * D + 1] = MK(); world[(1 * H + 1) * D + 2] = MK(); } catch (_) {} try { __c339.fresh(); } catch (_) {} for (const t of [500, 4000, 12000]) setTimeout(() => { try { __c339.fresh(); } catch (_) {} }, t); }
+  /* t1415 (GLX-PY1415, v1.2.149): the same reshape as scot() above, as a generator that pauses every few ms so the game keeps
+     drawing frames and you can move while a new world gets its Scotland shape after you enter. scot() is unchanged and still used
+     with window.__noPY1415 = 1. */
+  function* scotG1415() {
+    let __t1415 = performance.now(); const __due1415 = function () { return performance.now() - __t1415 > ((window.__glenLoad && __glenLoad.sliceMs1415) || 8); };
+    /* t1338: always sample the map at the projection for this world size (a K=300 left over on a 2x world
+       halved the land and moved spawn - the 765,898 variant) */
+    try { const V = window.__v1308; if (V && V.isScaled && V.isScaled() && V.applyProj && window.__c339 && __c339.K !== 600) V.applyProj(); } catch (_) {}
+    const t0 = performance.now(), N = W * D, Y0 = Math.max(2, SEA - 10), BS = built(), SF = SOFT();
+    const keep = new Uint8Array(N), oh = new Int16Array(N), dist = new Float32Array(N).fill(1e9);
+    const discs = (window.__v1308 && __v1308.isScaled && __v1308.isScaled()) ? [] : [[W >> 1, D >> 1, 90]]; try { const mcw = !!(window.__v1308 && __v1308.mc && __v1308.mc.elig()); for (const c of g9castles) discs.push([c[1], c[2], mcw ? 34 : 50]); } catch (_) {} const DZ = (() => { try { return [MT_C[0], MT_C[1], 140]; } catch (_) { return null; } })(), placed = i => { try { return typeof placedSet !== 'undefined' && placedSet.has(i); } catch (_) { return false; } };
+    try { if (spawnPt) discs.push([Math.floor(spawnPt.x !== undefined ? spawnPt.x : spawnPt[0]), Math.floor(spawnPt.z !== undefined ? spawnPt.z : spawnPt[2]), 30]); } catch (_) {}
+    U.discs = discs;
+    try { if (window.__v1308 && __v1308.isScaled && __v1308.isScaled()) {
+      const sp = (__v1308.spawn && [__v1308.spawn[0], __v1308.spawn[2]]) || (typeof g9spawn !== 'undefined' && g9spawn && [g9spawn[0], g9spawn[2]]);
+      if (sp && !(window.__v1308 && __v1308.mc && __v1308.mc.elig())) discs.push([sp[0] | 0, sp[1] | 0, 96]);   // t1327: MC worlds keep no flat spawn disc (spawn houses are still kept as built blocks)
+      if (__v1308.ben && !(__v1308.mc && __v1308.mc.elig())) discs.push([__v1308.ben[0] | 0, __v1308.ben[1] | 0, 80]);   // t1327: MC worlds build Ben Glencraft on the real ground afterwards
+    } } catch (_) {}
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (z === 0) if (__due1415()) { yield 0; __t1415 = performance.now(); } const c = x * D + z; let top = SEA - 1, land = false, b0 = false;
+      for (let y = H - 2; y >= Y0; y--) { const b = world[(x * H + y) * D + z]; if (!b) continue; if (BS.has(b) && !(DZ && (x - DZ[0]) ** 2 + (z - DZ[1]) ** 2 < DZ[2] * DZ[2] && !placed((x * H + y) * D + z))) { if (!b0) { U.kbt = U.kbt || {}; U.kbt[b] = (U.kbt[b] || 0) + 1; } b0 = true; } if (!land && !SF.has(b)) { top = y; land = b !== T.WATER; if (!b0 && y < SEA - 6) break; } }
+      oh[c] = land ? top - SEA + 1 : 0; if (b0) { keep[c] = 1; U.kb = (U.kb || 0) + 1; if (!U.kbt) U.kbt = {}; }
+      else if (land) for (const d of discs) { const dx = x - d[0], dz = z - d[1]; if (dx * dx + dz * dz < d[2] * d[2]) { keep[c] = 1; break; } } }
+    for (let c = 0; c < N; c++) if (keep[c]) dist[c] = 0;
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (z === 0) if (__due1415()) { yield 0; __t1415 = performance.now(); } const c = x * D + z; let v = dist[c]; if (x) v = Math.min(v, dist[c - D] + 1); if (z) v = Math.min(v, dist[c - 1] + 1); if (x && z) v = Math.min(v, dist[c - D - 1] + 1.414); if (x && z < D - 1) v = Math.min(v, dist[c - D + 1] + 1.414); dist[c] = v; }
+    for (let x = W - 1; x >= 0; x--) for (let z = D - 1; z >= 0; z--) { if (z === D - 1) if (__due1415()) { yield 0; __t1415 = performance.now(); } const c = x * D + z; let v = dist[c]; if (x < W - 1) v = Math.min(v, dist[c + D] + 1); if (z < D - 1) v = Math.min(v, dist[c + 1] + 1); if (x < W - 1 && z < D - 1) v = Math.min(v, dist[c + D + 1] + 1.414); if (x < W - 1 && z) v = Math.min(v, dist[c + D - 1] + 1.414); dist[c] = v; }
+    const SN = T.PACKSNOW || T.SNOW || T.STONE, HE = T.HEATHER || T.GRASS, GV = T.GRAVEL || T.STONE; let kept = 0; const TR = [];
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (z === 0) if (__due1415()) { yield 0; __t1415 = performance.now(); } const c = x * D + z; if (keep[c]) { kept++; continue; }
+      const h = U.hT(x, z); let g = h[0]; const MCW = h.length > 4, w = h[5] ? 1 : ss(cl(dist[c] / (MCW ? 44 : 22), 0, 1));
+      if (w < 1) { const o = oh[c]; g = Math.round(o * (1 - w) + g * w); if (h[0] > 0 && g < 1) g = 1; }
+      g = cl(g, -9, H - SEA - (MCW && window.__v1308.mc.g1340 ? 3 : 8)); const top = SEA + g - 1, hi = h[1], beach = g <= 2 && h[2] < 0.62;
+      const vk = h[3], tb = vk === 'l' && g > 0 ? T.LAVA : vk === 'b' && g > 0 ? (T.BLACKSTONE || T.STONE) : vk === 'r' && g > 0 ? T.STONE : g <= 0 ? (g < -4 ? GV : T.SAND) : beach ? T.SAND : hi > 0.5 && g > 40 ? SN : hi > 0.5 && g > 30 ? (fbm(x / 6, z / 6) > 0.5 ? T.STONE : GV) : hi > 0.4 && fbm(x / 23 + 3, z / 23) > 0.56 ? HE : T.GRASS;
+      const J = MCW && w >= 1 && g > 3 ? h[4] : 0; let top2 = top;
+      if (J >= 1.5) {
+        /* t1327: 1.18-style 3D density band (jagged cliffs, ledges and overhangs). Walk down,
+           restarting the soil run under every gap so ledges get grass like Minecraft. */
+        const M = window.__v1308.mc, yHi = Math.min(H - 3, top + Math.ceil(J)), yLo = Math.max(SEA + 1, top - Math.ceil(J * 1.6)); let run = 0; top2 = -1;
+        const BSOL = new Uint8Array(yHi - yLo + 2); for (let y = yLo; y <= yHi; y++) { let v = M.dens(x, y, z, top, J); if (y > top && !BSOL[y - 1 - yLo]) v = false; if (y === yLo) v = true; BSOL[y - yLo] = v ? 1 : 0; }
+        for (let y = H - 2; y >= Y0; y--) { const i = (x * H + y) * D + z; let sol;
+          if (y > yHi) sol = false; else if (y < yLo) sol = true; else sol = !!BSOL[y - yLo];
+          let b; if (sol) { if (top2 < 0) top2 = y; b = run === 0 ? tb : run < 3 ? (tb === T.SAND || tb === GV ? T.SAND : tb === SN || tb === T.STONE ? T.STONE : T.DIRT) : T.STONE; run++; if (y < Y0 + 2 && world[i] && world[i] !== T.WATER) b = world[i]; }
+          else { b = y < SEA ? T.WATER : 0; run = 0; }
+          world[i] = b; }
+        if (top2 < 0) top2 = top; if (top2 !== top) { M.setTop(x, z, top2 - SEA + 1); M.carved++; }
+      } else
+      for (let y = Y0; y < H - 1; y++) { const i = (x * H + y) * D + z; let b;
+        if (y <= top) { const dd = top - y; b = dd === 0 ? tb : vk === 'b' || vk === 'l' ? (T.DEEPSLATE || T.STONE) : dd < 3 ? (tb === T.SAND || tb === GV ? T.SAND : tb === SN || tb === T.STONE ? T.STONE : T.DIRT) : T.STONE; if (y < Y0 + 2 && world[i] && world[i] !== T.WATER) b = world[i]; }
+        else b = y < SEA ? T.WATER : 0; world[i] = b; }
+      if (!MCW && g > 1 && (tb === T.GRASS || tb === HE) && dist[c] > 8 && x > 3 && z > 3 && x < W - 4 && z < D - 4) { const p = hs(x * 0.37, z * 0.91), dn = hi > 0.5 ? (g < 26 ? 0.012 : 0) : 0.006 + 0.02 * ss(cl(fbm(x / 70 + 50, z / 70) * 2 - 1, 0, 1)); if (p < dn) TR.push([x, top2 + 1, z, hi > 0.5]); } }
+    for (const [x, y, z, pine] of TR) { const L = pine ? (T.PINELOG || T.LOG) : (T.BIRCHLOG || T.LOG), F = pine ? (T.PINELEAVES || T.LEAVES) : (T.BIRCHLEAVES || T.LEAVES), n = 4 + (hs(x, z) * 3 | 0);
+      if (y + n + 2 >= H - 1) continue; for (let k = 0; k < n; k++) world[(x * H + y + k) * D + z] = L;
+      for (let dy = n - 2; dy <= n + 1; dy++) { const r = pine ? Math.max(0, 2 - ((dy - n + 2) >> 1)) : (dy > n ? 1 : 2);
+        for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) { if (Math.abs(dx) + Math.abs(dz) > r + 1 || (!dx && !dz && dy < n)) continue; const i = ((x + dx) * H + y + dy) * D + z + dz; if (!world[i]) world[i] = F; } } }
+    { const BRK = world[(5 * H) * D + 5], DS = T.DEEPSLATE || T.STONE; U.brk = BRK; if (BRK && BRK !== DS) for (let i = 0, n = W * D; i < n; i++) { const x = (i / D) | 0, z = i - x * D; for (let y = 0; y < 3; y++) { const j = (x * H + y) * D + z; if (world[j] === BRK) world[j] = (x === 1 && z === 1 && y === 1) ? world[j] : DS; } } }
+    U.kept = kept; U.cols = N - kept; U.trees = TR.length; U.ms = Math.round(performance.now() - t0); U.runs++; U.done = 1; try { world[(1 * H + 1) * D + 1] = MK(); world[(1 * H + 1) * D + 2] = MK(); } catch (_) {} try { __c339.fresh(); } catch (_) {} for (const t of [500, 4000, 12000]) setTimeout(() => { try { __c339.fresh(); } catch (_) {} }, t); }
   U.scot = scot; const MK = () => T.OBSIDIAN || 73; const marked = () => { try { return world[(1 * H + 1) * D + 1] === MK() && world[(1 * H + 1) * D + 2] === MK(); } catch (_) { return true; } };
   const elig = () => { try { return (W === 864 || W === 1728) && D === W && genVer === GEN9 && !DIM.cur && !cityGen && !!window.__c339; } catch (_) { return false; } };
   try { const gen = generate; generate = function () {if (window.__glenLoad && __glenLoad.skipPost && __glenLoad.skipPost(47)) return gen.apply(this, arguments);  const r = gen.apply(this, arguments); U.gen = 1; U.busy = 0; { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(47); return r; } }; } catch (e) { ERR('g', e); }
   try { const ser = serialize; serialize = function () { const d = ser.apply(this, arguments); try { if (d && !DIM.cur && U.done) d.c341 = 1; } catch (_) {} return d; }; } catch (e) { ERR('s', e); }
   try { const ap = applySave; applySave = function (d) { const r = ap.apply(this, arguments); if (d && !d.dim) { U.done = d.c341 ? 1 : 0; U.gen = 0; } return r; }; } catch (e) { ERR('a', e); }
-  async function migrate() { U.busy = 1; try { const id = current.id, d0 = serialize(); delete d0.c341;
+  async function migrate() { U.busy = 1; try { const id = current.id, d0 = (U.gen && !window.__noPY1415) ? null : serialize(); if (d0) delete d0.c341;   /* t1415: d0 is only the backup of an older world; a fresh world skips the extra full save */
       if (!U.gen) try { await idbPut('worlds', 'backup_' + id + '_scotland_' + Date.now().toString(36), Object.assign({}, d0, {backupOf: id, backedUp: Date.now()})); } catch (e) { ERR('bk', e); return; }
-      if (!elig() || marked()) return; try { if (window.__v1308 && __v1308.preScot) __v1308.preScot(); } catch (_) {} scot();   /* t1356: 2x worlds grow to their full height first */
+      if (!elig() || marked()) return; try { if (window.__v1308 && __v1308.preScot) __v1308.preScot(); } catch (_) {}
+      /* t1415 (GLX-PY1415): reshape in small slices with a frame between them, so you keep moving (scot() itself is unchanged). */
+      if (!window.__noPY1415 && window.__glenLoad && __glenLoad.playYield1415 && started) { const g = scotG1415(); U.sliced1415 = 0; while (!g.next().done) { U.sliced1415++; await __glenLoad.playYield1415(); } } else
+      scot();   /* t1356: 2x worlds grow to their full height first */
       const px = Math.floor(P.x), pz = Math.floor(P.z); if (px >= 0 && pz >= 0 && px < W && pz < D && P.y >= 0) { let y = Math.floor(P.y); while (y < H - 2 && (getB(px, y, pz) && getB(px, y, pz) !== T.WATER || getB(px, y + 1, pz) && getB(px, y + 1, pz) !== T.WATER)) y++; if (y > P.y && y - P.y < 8) { P.y = y + 0.05; P.vy = 0; } }
       dirtyAll = true; try { saveWorld(true); } catch (e) { ERR('sv', e); } try { toast('Glencraft is now the real shape of Scotland. Your builds are kept and a backup was saved.'); } catch (_) {}
     } catch (e) { ERR('mig', e); } finally { U.busy = 0; } }
   U.migrate = migrate;
-  setInterval(() => { try { if (!window.__noscot && !marked() && !U.busy && started && !paused && !DIM.busy && elig() && typeof current !== 'undefined' && current && current.id) migrate(); } catch (e) { ERR('tick', e); } }, 1500);
+  /* t1415 (GLX-PY1415): while a new world is still generating in the background after you enter (Quick Resume hand-off and the
+     deferred post chain), do not run the Scotland reshape on half-made land; wait until generation is finished, in the same order
+     as a world that finished loading first (land, posts, then this). Off: window.__noPY1415 = 1. */
+  const bgGen1415 = () => { try { const L = window.__glenLoad; return !window.__noPY1415 && !!(L && (L.held || L._softHold || L._inPosts1415 || L._deferPosts)); } catch (_) { return false; } };
+  setInterval(() => { try { if (!window.__noscot && !marked() && !U.busy && started && !paused && !DIM.busy && !bgGen1415() && elig() && typeof current !== 'undefined' && current && current.id) migrate(); } catch (e) { ERR('tick', e); } }, 1500);
 })();
 
 /* GLX-C342 (v1.1.48): SCOTTISH LAND, NOT DESERT, AND THE UK VOLCANOES. The pyramid desert is gone (Scotland has no desert): its land is laid
@@ -63598,6 +63660,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.149","d":"2026-11-26","notes":["You can move as soon as you enter a new world. Since 1.2.148 the background step that finishes the land, caves, ravines and sinkholes ran in one go right after you entered, so the game froze until it was done. It now runs in small steps with a frame drawn between each, so you can walk, look and jump while it finishes. The Scotland shape and surface paint that follow are done the same way, and they wait until the land is finished. Your caves and ravines are unchanged. Flag __noPY1415."]},
 {"v":"v1.2.148","d":"2026-11-26","notes":["Caves, ravines and sinkholes are back on new worlds. Since 1.2.120 the background step that carves the Highlands caves, ravines and sinkholes after you enter often stopped when the loading bar finished, so most new worlds had almost none and few holes in the land. It now always runs to the end, the same as 1.2.119: winding tunnels, big caverns, ravines and sinkholes that open onto the surface. Worlds made since 1.2.120 keep their saved ground; make a new world to get them. Flag __noYP1410."]},
 {"v":"v1.2.147","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. The deep tube toward the city is drawn as a narrow corridor, so the cavern is there when you look down it, not empty sky. Fog and the camera stay inside the loaded ground. Flag __noCave1403."]},
 {"v":"v1.2.146","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. Fog and the camera stay inside the loaded ground, so you never look out into empty unloaded space. Flag __noCave1403."]},
@@ -92624,7 +92687,36 @@ try {
   _mc.port1.start();
   let _mcLive = 1;
   let _raf = 0;
+  /* t1415 (GLX-PY1415, v1.2.149): after the loader stops (U.live = 0) the deferred post chain (caves, ravines,
+     sinkholes, settle, torches...) still yields through here every few ms. The old code returned an already-resolved
+     promise, which is only a microtask, so since 1.2.148 (when the chain started running to the end) the whole chain
+     ran as ONE task of 30+ seconds right after you entered: no frames, no input, the player looked frozen until it all
+     loaded. While that background phase runs, yield a real turn instead: let the next game frame draw (one rAF), then a
+     macrotask, so each slice is followed by a frame you can move in. A 50 ms timer keeps it going in hidden tabs.
+     Off: window.__noPY1415 = 1 (old behaviour). */
+  const _mc1415 = new MessageChannel();
+  const _q1415 = [];
+  _mc1415.port1.onmessage = function () { const q = _q1415.splice(0); for (let i = 0; i < q.length; i++) { try { q[i](); } catch (_) {} } };
+  try { _mc1415.port1.start(); } catch (_) {}
+  function playYield1415() {
+    U._py1415 = (U._py1415 || 0) + 1;
+    return new Promise(function (res) {
+      let fired = 0;
+      const go = function () {
+        if (fired) return; fired = 1;
+        _q1415.push(res);
+        try { _mc1415.port2.postMessage(0); } catch (_) { res(); }
+      };
+      try { const f = function () { go(); }; f.__tgFree = 1; requestAnimationFrame(f); } catch (_) {}
+      setTimeout(go, 50);
+    });
+  }
+  U.playYield1415 = playYield1415;
+  function wantPlayYield1415() {
+    return !window.__noPY1415 && !U.held && !!(U._softHold || U._inPosts1415);
+  }
   function yieldPaint() {
+    if (!U.live && wantPlayYield1415()) return playYield1415();
     if (!U.live) return Promise.resolve();
     try { applyDisplay(); paint(U.shown); } catch (_) {}
     // Kick a frame so the already-updated DOM bar can composite, but do
@@ -92636,6 +92728,7 @@ try {
        the pump never gave the event loop a turn, freezing the % text
        for the whole generate. */
     return new Promise(function (res) {
+      if ((!_mcLive || !U.live) && wantPlayYield1415()) { playYield1415().then(res); return; }
       if (!_mcLive || !U.live) { res(); return; }
       try { _mc.port1.onmessage = function () { res(); }; _mc.port2.postMessage(0); }
       catch (_) { res(); }
@@ -93373,10 +93466,12 @@ try {
     if (!U._deferPosts) return;
     U._deferPosts = 0;
     U._softHold = 1;
+    U._inPosts1415 = 1;   /* t1415: the background post chain is running (see GLX-PY1415) */
     U._tSlice = performance.now();
     try {
       if (typeof postPump === 'function') await postPump();
     } catch (e) { ERR('posts', e); }
+    U._inPosts1415 = 0;
     U._softHold = 0;
     U._postResume = null;
     try {
@@ -96701,6 +96796,264 @@ try {
     try { const A2 = window.__c341; U.finAfter = A2 ? (A2.ms || 0) : 0; U.finRuns = A2 ? (A2.runs || 0) : 0; } catch (_) {}
     return nPine;
   }
+  /* t1415 (GLX-PY1415, v1.2.149): the same surface paint as finishScaledSurface() above, as a generator that pauses every few ms
+     so a world finishing in the background does not freeze the game. The original is unchanged (window.__noPY1415 = 1 uses it). */
+  function* finishScaledSurfaceG1415() {
+    let __t1415 = performance.now(); const __due1415 = function () { return performance.now() - __t1415 > ((window.__glenLoad && __glenLoad.sliceMs1415) || 8); };
+    /* One pass to cache g from hT, one pass to paint. Top = SEA+g-1, no y-scan.
+       Replaces resurfaceSnow + morePines. */
+    if (!isScaled() || !world) return 0;
+    const t0 = performance.now();
+    U.surfMs = -1;
+    const SN = T.PACKSNOW || T.SNOW, HE = T.HEATHER || T.GRASS, GR = T.GRASS, DT = T.DIRT;
+    const ST = T.STONE, SL = T.SLATE || ST;
+    const LOG = T.PINELOG || T.LOG, LEAF = T.PINELEAVES || T.LEAVES;
+    const WH = (typeof H === 'number' ? H : NEW_H);
+    const A = window.__c341;
+    const ht = (x, z) => { try { return A && A.hT ? A.hT(x, z) : [0, 0, 0, 0]; } catch (_) { return [0, 0, 0, 0]; } };
+    const [sx, sz] = U.spawn ? [U.spawn[0], U.spawn[2]] : (g9spawn ? [g9spawn[0], g9spawn[2]] : [W >> 1, D >> 1]);
+    const bx = U.ben ? U.ben[0] : -1e9, bz = U.ben ? U.ben[1] : -1e9;
+    const N = W * D;
+    const G = new Int16Array(N);
+    const VK = new Array(N), HI = new Uint8Array(N);
+    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) { if (z === 0) if (__due1415()) { yield 0; __t1415 = performance.now(); }
+      const h = ht(x, z); G[x * D + z] = h[0] | 0; VK[x * D + z] = h[3] || 0; HI[x * D + z] = Math.round((h[1] || 0) * 100);
+    }
+    /* Snow only on true summits (a real drop to a neighbour, not a flat cap)
+       and north-facing crests. Then keep the best ~8% of land so a single
+       cap-height bucket cannot paint a third of the map white. */
+    let landHint = 0;
+    const candC = [], candS = [];
+    for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) { if (z === 1) if (__due1415()) { yield 0; __t1415 = performance.now(); }
+      const c = x * D + z, g = G[c];
+      if (g <= 0) continue;
+      landHint++;
+      const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D];
+      const slope = Math.max(Math.abs(g - n3), Math.abs(g - n1), Math.abs(g - n0), Math.abs(g - n2));
+      const nFace = g - n0;
+      const relief = g - Math.min(n0, n1, n2, n3);
+      const localMax = g >= n0 && g >= n1 && g >= n2 && g >= n3;
+      const truePeak = localMax && relief >= 2 && slope <= 2 && g >= 58;
+      const northCrest = nFace >= 2 && slope <= 2 && g >= 62 && g >= Math.max(n1, n2, n3) - 1;
+      /* slope===0 is a real cap/plateau, not a stair tread (slope>=1) that
+         would paint the visible wall white. */
+      const highFlat = g >= 66 && slope === 0;
+      if (truePeak || northCrest || highFlat) {
+        candC.push(c);
+        candS.push((truePeak ? 400 : 0) + (northCrest ? 200 : 0) + g * 8 + relief * 6 + Math.max(0, nFace) * 2);
+      }
+    }
+    const snowTarget = Math.max(1, Math.round(landHint * 0.07));
+    const keepSnowAt = new Uint8Array(N);
+    if (candC.length && candC.length > snowTarget) {
+      const order = candC.map((_, i) => i);
+      order.sort((a, b) => candS[b] - candS[a]);
+      for (let i = 0; i < snowTarget; i++) keepSnowAt[candC[order[i]]] = 1;
+    } else {
+      for (let i = 0; i < candC.length; i++) keepSnowAt[candC[i]] = 1;
+    }
+    U.snowMinG = 0; U.snowTarget = snowTarget; U.snowCand = candC.length;
+    const DS = T.DEEPSLATE || ST, BL = T.BLACKSTONE || DS, BA = T.BASALT || T.BASALTCOL || BL;
+    /* t1326 (v1.2.116): Highland rock reads as layered grey crag with rusty
+       orange/brown bands (Torridon red sandstone in the NW), like the refs,
+       instead of a per-column salt-and-pepper of four dark rocks and slate
+       roof tiles. Bands follow height (contour layering), tilt slowly across
+       the map and a few columns carry vertical rust streaks. Volcanic ground
+       (Ben Glencraft) keeps its dark rock. New 2x worlds only. */
+    const RS = T.RSAND || ST, GV = T.GRAVEL || ST, S16 = U.strata !== 0;
+    const nwX = (() => { try { return xzLL(57.3, -5.0)[0]; } catch (_) { return -1e9; } })();
+    const strataAt = (x, y, z) => {
+      const off = (fbm(x / 300 + 11, z / 300 - 7) - 0.5) * 9 + (fbm(x / 46 - 3, z / 46 + 5) - 0.5) * 4.5;
+      const band = Math.floor((y + off) / 3);
+      const hb = hs(band * 7.13 + 0.37, 1.91 + band * 0.11);
+      const nw = x < nwX ? 1 : 0, pR = nw ? 0.24 : 0.12;
+      if (hb < pR) return RS;
+      if (hs(x * 0.93 + 0.5, z * 0.71 - 1.3) < (nw ? 0.08 : 0.045) && hs(band * 1.7, 3.3) < 0.7) return RS;
+      /* T.STONE reads pale tan in daylight, so the crag body is the darker
+         grey stone with lighter gravel layers between. */
+      return hb < pR + 0.26 ? GV : DS;
+    };
+    U.strataAt = strataAt;
+    const rockAt = (x, z, g, slope, vk) => {
+      const u = hs(x * 0.51 + 1.7, z * 0.37 - 4.2);
+      if (vk === 'b' || vk === 'l') return u < 0.6 ? BL : BA;
+      if (vk === 'r') return u < 0.45 ? BA : (u < 0.75 ? SL : ST);
+      /* Steep faces and high slopes: dark rock, not pale stone that reads as snow. */
+      if (slope >= 3 || g > 40) {
+        if (u < 0.34) return DS;
+        if (u < 0.58) return BA;
+        if (u < 0.78) return SL;
+        return BL;
+      }
+      return u < 0.5 ? SL : ST;
+    };
+    /* the black castle keeps its dark rock (no strata bands round it) */
+    const BKC = (() => { try { const k = ((typeof g9castles !== 'undefined' && g9castles) || []).find(c => c[0] === 'black'); return k ? [k[1], k[2], (170 * W / 864) ** 2] : null; } catch (_) { return null; } })();
+    const nearBlack = (x, z) => !!BKC && (x - BKC[0]) ** 2 + (z - BKC[1]) ** 2 < BKC[2];
+    if (MC.elig()) {
+      /* t1327: Minecraft-style surface and trees for MC worlds (the old pass below is kept for older worlds).
+         Grass on gentle ground at every height, rock (strata) only on steep faces, snow on high peaks,
+         purple heather moor, beaches/stony shores from scot, and forests in patches with big
+         species-specific trees so each region reads as a landmark. */
+      const r = yield* mcPaint(G, VK, HI);
+      U.surfMs = Math.round(performance.now() - t0);
+      try { const A2 = window.__c341; U.finAfter = A2 ? (A2.ms || 0) : 0; U.finRuns = A2 ? (A2.runs || 0) : 0; } catch (_) {}
+      return r;
+    }
+    function* mcPaint(G, VK, HI) {
+      const cap = WH - SEA - 8, occ = new Uint8Array(N);
+      const PL = T.PINELOG || T.LOG, PF = T.PINELEAVES || T.LEAVES, BLg = T.BIRCHLOG || T.LOG, BF = T.BIRCHLEAVES || T.LEAVES, OL = T.LOG, OF = T.LEAVES,
+        AL = T.ALDERLOG || T.LOG, AF = T.ALDERLEAVES || T.LEAVES, RL = T.ROWANLOG || BLg, RF = T.ROWANLEAVES || BF, JF = T.JUNIPERLEAVES || PF, YL = T.YEWLOG || T.LOG, YF = T.YEWLEAVES || T.LEAVES;
+      const NAT = new Set([GR, HE, DT, ST, SN, T.SNOW, T.SAND, GV, DS, SL].filter(v => v));
+      const set = (x, y, z, b, force) => { if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1 || y < 1 || y >= WH - 1) return; const i = (x * WH + y) * D + z; if (force || !world[i]) world[i] = b; };
+      const blob = (cx, cy, cz, r, F) => { const r2 = r * r + 0.6; for (let dx = -Math.ceil(r); dx <= r; dx++) for (let dy = -Math.ceil(r); dy <= r; dy++) for (let dz = -Math.ceil(r); dz <= r; dz++) { const d2 = dx * dx + dy * dy * 1.3 + dz * dz; if (d2 <= r2 && !(d2 > r2 - 1.2 && hs(cx + dx * 3.1 + dy, cz + dz * 2.7 - dy) < 0.35)) set(cx + dx, cy + dy, cz + dz, F); } };
+      const trunk = (x, y, z, h, Lg, w2) => { for (let k = 0; k < h; k++) { set(x, y + k, z, Lg, true); if (w2) { set(x + 1, y + k, z, Lg, true); set(x, y + k, z + 1, Lg, true); set(x + 1, y + k, z + 1, Lg, true); } } };
+      /* tall Scots pine: bare trunk, conical layers that end in a broad flat crown; mega variant has a 2x2 trunk */
+      const pine = (x, y, z, u) => { const mega = u < 0.15, h = mega ? 22 + (u * 60 | 0) % 7 : 15 + (u * 97 | 0) % 7, w2 = mega ? 1 : 0; trunk(x, y, z, h, PL, w2);
+        const c0 = Math.round(h * (mega ? 0.45 : 0.55)), R = mega ? 5.6 : 4.0, flat = hs(x * 1.3, z * 0.7) < 0.35;
+        for (let k = c0; k <= h + 1; k++) { const t = (k - c0) / (h + 1 - c0); let r = flat ? (t < 0.6 ? R * (0.45 + 0.4 * t) : R * (1.1 - t * 0.9)) : R * (1 - t) + 0.6; if (!flat && (k - c0) % 2 === 1) r -= 0.9; r = Math.max(0.6, r);
+          const ri = Math.ceil(r); for (let dx = -ri; dx <= ri + w2; dx++) for (let dz = -ri; dz <= ri + w2; dz++) { const ex = dx > 0 && w2 ? dx - 1 : dx, ez = dz > 0 && w2 ? dz - 1 : dz; if (ex * ex + ez * ez <= r * r + 0.3) set(x + dx, y + k, z + dz, PF); } } };
+      const birch = (x, y, z, u) => { const h = 11 + (u * 89 | 0) % 5; trunk(x, y, z, h, BLg); for (let k = h - 4; k <= h + 1; k++) { const r = k > h - 1 ? 1.6 : 2.8; const ri = Math.ceil(r); for (let dx = -ri; dx <= ri; dx++) for (let dz = -ri; dz <= ri; dz++) if (dx * dx + dz * dz <= r * r + 0.5 && hs(x + dx * 5.3, z + dz * 4.1 + k) > 0.12) set(x + dx, y + k, z + dz, BF); } };
+      /* big oak: thick trunk with 3-4 branches, each ending in a leaf cluster, plus a crown */
+      const oak = (x, y, z, u, Lg, F) => { const big = u < 0.85, h = big ? 8 + (u * 31 | 0) % 4 : 6 + (u * 13 | 0) % 2; trunk(x, y, z, h, Lg);
+        if (!big) { blob(x, y + h, z, 3.4, F); return; }
+        const nb = 4 + (u * 7 | 0) % 2; for (let b = 0; b < nb; b++) { const a = b / nb * 6.283 + u * 9, L = 4 + (hs(x + b, z - b) * 2 | 0), by = y + h - 2 - (b % 2);
+          for (let k = 1; k <= L; k++) set(Math.round(x + Math.cos(a) * k), by + (k >> 1), Math.round(z + Math.sin(a) * k), Lg, true);
+          blob(Math.round(x + Math.cos(a) * L), by + (L >> 1) + 1, Math.round(z + Math.sin(a) * L), 3.0, F); }
+        blob(x, y + h + 1, z, 4.2, F); };
+      const juniper = (x, y, z, u) => { set(x, y, z, PL, true); blob(x, y + 1, z, 1.4 + u, JF); };
+      const yew = (x, y, z, u) => { trunk(x, y, z, 6, YL); blob(x, y + 5, z, 4.8 + u * 0.8, YF); blob(x, y + 9, z, 3.2, YF); };
+      const [scX, scZ] = [sx, sz];
+      const biomeAt = (x, z, hi) => { if (nearBlack(x, z)) return 'alder'; if (Math.hypot(x - scX, z - scZ) < 120) return 'oak';
+        const ll = __c339.fll(x, z), la = ll[0], lo = ll[1], fl = 56.0 + (lo + 4.7) * 0.38, m = fbm(x / 160 + 7, z / 160 - 3);
+        if (MC.g1340 && la) { /* t1340: the painted map picks heather moor and dense pine/yew forest; blended edges via noise */
+          const pm = MC.mapAt(la, lo), e = (fbm(x / 37 - 2, z / 37 + 9) - 0.5) * 0.3;
+          if (pm[1] + e > 0.42) return 'moor';
+          if (pm[2] + e > 0.55) return la > fl ? 'pine' : 'yew';
+          if (pm[0] + e > 0.5 && la > fl) return m > 0.5 ? 'moor' : 'scrub'; }
+        if (la > fl + 0.05) return m > 0.56 ? 'moor' : (m < 0.3 && hi < 0.7 ? 'rowan' : 'pine');
+        if (lo < -4.9) return m > 0.55 ? 'moor' : 'scrub';
+        if (la >= 55.75) { if (lo > -3.6) return m < 0.3 ? 'moor' : 'yew'; return m > 0.62 ? 'oak' : (m < 0.46 ? 'moor' : (m > 0.54 ? 'oak' : 'birch')); }
+        if (la < 55.6 && lo > -3.3) return 'alder'; return m > 0.55 ? 'yew' : 'moor'; };
+      const mcRock = (x, y, z) => { const off = (fbm(x / 300 + 11, z / 300 - 7) - 0.5) * 9 + (fbm(x / 46 - 3, z / 46 + 5) - 0.5) * 4.5, band = Math.floor((y + off) / 3), hb = hs(band * 7.13 + 0.37, 1.91 + band * 0.11);
+        return hb < 0.17 ? GV : ST; };
+      const DEN = {pine: 0.024, rowan: 0.016, birch: 0.02, oak: 0.016, alder: 0.022, yew: 0.05, moor: 0.0015, scrub: 0.03};
+      let nSnow = 0, nStone = 0, nTree = 0, nHe = 0, nLand = 0;
+      for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) { if (z === 1) if (__due1415()) { yield 0; __t1415 = performance.now(); }
+        const c = x * D + z, g = G[c]; if (g <= 0) continue; const vk = VK[c]; if (vk === 'b' || vk === 'l' || vk === 'r') continue;
+        const top = SEA + g - 1, base = x * WH * D + z; if (top < 1 || top >= WH - 1) continue; let b = world[base + top * D]; if (!NAT.has(b)) continue; nLand++;
+        const n0 = G[c - 1], n1 = G[c + 1], n2 = G[c - D], n3 = G[c + D], slope = Math.max(Math.abs(g - n0), Math.abs(g - n1), Math.abs(g - n2), Math.abs(g - n3)), hi = HI[c] / 100;
+        const tall = MC.g1356 && cap > 41;   /* t1356: full-height world - snow and rock follow the real peaks, not the 128-row ceiling */
+        const snowLine = (tall ? 52 : Math.max(31, cap - 10)) + 6 * (fbm(x / 70 + 1, z / 70 - 4) - 0.5) - (x < nwX ? 2 : 0);
+        /* t1338: white caps on the peaks, steep ones too (only sheer faces stay stone); patchy snow just below the line */
+        const peaky = g >= snowLine - 4 && (() => { let mn = g; for (let a = 0; a < 8; a++) { const xx = Math.round(x + 6 * Math.cos(a * 0.785)), zz = Math.round(z + 6 * Math.sin(a * 0.785)); if (xx > 0 && zz > 0 && xx < W && zz < D) mn = Math.min(mn, G[xx * D + zz]); } return g - mn >= 3; })();
+        if (hi > 0.25 && peaky && (g >= snowLine && slope <= 5 || g >= snowLine - 4 && slope <= 2 && fbm(x / 13 - 6, z / 13 + 2) > 0.55)) { world[base + top * D] = SN; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = ST; nSnow++; continue; }
+        if ((slope >= 3 || (slope >= 2 && g >= (tall ? 40 : 22))) && b !== T.SAND) {
+          const lay = !nearBlack(x, z); world[base + top * D] = lay ? mcRock(x, top, z) : rockAt(x, z, g, slope, vk); nStone++;
+          const y0 = Math.max(SEA + 1, SEA + Math.min(n0, n1, n2, n3)); for (let y = y0; y < top; y++) { const cur = world[base + y * D]; if (cur === ST || cur === DT || cur === GR || cur === DS) world[base + y * D] = lay ? mcRock(x, y, z) : rockAt(x, z, g, slope, vk); }
+          continue; }
+        if (b === SN || b === T.SNOW || b === ST || b === GV || b === DS || b === SL) { if (g > 3) { world[base + top * D] = GR; if (top > 1 && world[base + (top - 1) * D] === ST) world[base + (top - 1) * D] = DT; b = GR; } }
+        if (b !== GR && b !== HE) continue;
+        const bio = biomeAt(x, z, hi);
+        if (bio === 'moor' || (bio === 'pine' && g > 22 && fbm(x / 40 + 3, z / 40) > 0.58)) { if (fbm(x / 11 + 5, z / 11 - 1) > 0.3) { world[base + top * D] = HE; b = HE; nHe++; } }
+        else if (bio === 'scrub' && T.PEAT && fbm(x / 9 - 3, z / 9 + 8) > 0.5) { world[base + top * D] = T.PEAT; b = T.PEAT; }
+        else if (b === HE) { world[base + top * D] = GR; b = GR; }
+        if (slope > 2 || g < 3 || g >= snowLine - 3 || x < 6 || z < 6 || x >= W - 6 || z >= D - 6 || Math.hypot(x - sx, z - sz) < 14 || Math.hypot(x - bx, z - bz) < 80) continue;
+        const fm = fbm(x / 150 + 20, z / 150 - 9), dens = bio === 'yew' ? DEN.yew : DEN[bio] * (fm > 0.47 ? Math.min(1, (fm - 0.47) / 0.12) : 0.06);
+        const p = hs(x * 0.37 + 4.1, z * 0.91 - 2.2); if (p >= dens) continue;
+        let busy = false; const RR = bio === 'yew' ? 5 : 8; for (let dx = -RR; dx <= RR && !busy; dx++) for (let dz = -RR; dz <= RR; dz++) if (occ[c + dx * D + dz]) { busy = true; break; } if (busy) continue;
+        occ[c] = 1; const u = hs(x * 1.7 - 3, z * 2.3 + 1), y = top + 1;
+        if (bio === 'pine') pine(x, y, z, u); else if (bio === 'birch') birch(x, y, z, u); else if (bio === 'rowan') birch(x, y, z, u * 0.5), set(x, y + 9, z, RF);
+        else if (bio === 'oak') oak(x, y, z, u, OL, OF); else if (bio === 'alder') oak(x, y, z, u + 0.4, AL, AF); else if (bio === 'yew') yew(x, y, z, u); else juniper(x, y, z, u);
+        nTree++; }
+      U.resnow = nSnow; U.rstone = nStone; U.pines = nTree; U.heath = nHe; U.landN = nLand; MC.trees = nTree; MC.paint = 1;
+      return nTree; }
+    let nSnow = 0, nStone = 0, nPine = 0, nKeep = 0, nLand = 0, nShore = 0;
+    const [shX, shZ] = (() => { try { return xzLL(57.31, -4.36); } catch (_) { return [-1e9, -1e9]; } })();
+    for (let x = 1; x < W - 1; x++) for (let z = 1; z < D - 1; z++) { if (z === 1) if (__due1415()) { yield 0; __t1415 = performance.now(); }
+      const c = x * D + z, g = G[c];
+      if (g <= 0) continue;
+      let top = SEA + g - 1;
+      const base = x * WH * D + z;
+      if (top >= WH - 2) top = WH - 3;
+      let b = (top > SEA) ? world[base + top * D] : 0;
+      if (!b && top > SEA) {
+        const y0 = Math.min(WH - 2, top + 10), y1 = Math.max(SEA + 1, top - 10);
+        for (let y = y0; y >= y1; y--) { const bb = world[base + y * D]; if (bb) { top = y; b = bb; break; } }
+      }
+      if (!b || top <= SEA) continue;
+      nLand++;
+      const slope = Math.max(Math.abs(g - G[c + D]), Math.abs(g - G[c + 1]), Math.abs(g - G[c - 1]), Math.abs(g - G[c - D]));
+      const steep = slope >= 4;
+      /* z decreases to the north (LAT0-lat)*K, so a north face goes downhill toward -z. */
+      const nFace = g - G[c - 1];
+      const localMax = g >= G[c - 1] && g >= G[c + 1] && g >= G[c - D] && g >= G[c + D];
+      const eligSnow = !!keepSnowAt[c];
+      const isSnow = (b === SN || b === T.SNOW);
+      if (eligSnow) {
+        if (!isSnow) world[base + top * D] = SN;
+        b = SN; nKeep++;
+      } else if (S16 && slope <= 1 && VK[c] !== 'b' && VK[c] !== 'l' && VK[c] !== 'r' && (isSnow || ((g > 36) && (b === GR || b === HE)))) {
+        /* t1326: gentle high ground stays green (stepped grass terraces up to
+           the crags, as in the refs); only true summits keep snow. */
+        if (isSnow) { world[base + top * D] = GR; if (top > 1 && world[base + (top - 1) * D] === ST) world[base + (top - 1) * D] = DT; b = GR; nSnow++; }
+      } else if (isSnow || (g > 14 && steep && (b === GR || b === HE)) || (g > 36 && (b === GR || b === HE))) {
+        const vkc = VK[c], lay = S16 && vkc !== 'b' && vkc !== 'l' && vkc !== 'r' && !nearBlack(x, z);
+        /* flat high tops: grey scree in soft patches (bare rock tops read as sand in sunlight) */
+        const rk = lay ? strataAt(x, top, z) : rockAt(x, z, g, slope, vkc);
+        world[base + top * D] = rk;
+        if (top > 1) {
+          const u = world[base + (top - 1) * D];
+          if (u === ST || u === SN || u === T.SNOW || u === DT || u === GR || u === HE || u === SL) world[base + (top - 1) * D] = lay ? strataAt(x, top - 1, z) : rk;
+        }
+        b = rk;
+        if (isSnow) nSnow++; else nStone++;
+        /* Official scot leaves pale T.STONE on the column under the top;
+           on steep faces those sides are what you see from spawn. */
+        if (steep || (lay && slope >= 2)) {
+          const nMax = lay ? Math.min(G[c - 1], G[c + 1], G[c - D], G[c + D]) : Math.max(G[c - 1], G[c + 1], G[c - D], G[c + D]);
+          const y0 = Math.max(SEA + 1, SEA + nMax);
+          for (let y = y0; y < top; y++) {
+            const cur = world[base + y * D];
+            if (cur === ST || cur === SN || cur === T.SNOW || cur === SL || cur === DS || cur === BA || cur === BL || (lay && cur === DT)) world[base + y * D] = lay ? strataAt(x, y, z) : rk;
+          }
+        }
+      }
+      /* t1326: Highland lochs and sea lochs get stony shores (grey stone and
+         gravel in soft patches), not sand or grass to the water's edge. */
+      if (S16 && g <= 3 && HI[c] >= 30 && (b === GR || b === HE || b === T.SAND) && (G[c - 1] <= 0 || G[c + 1] <= 0 || G[c - D] <= 0 || G[c + D] <= 0)
+        && Math.hypot(x - sx, z - sz) > 40 && Math.hypot(x - shX, z - shZ) > 40) {
+        const sb = fbm(x / 9 + 4, z / 9 - 2) > 0.52 ? ST : GV;
+        world[base + top * D] = sb; if (top > 1 && world[base + (top - 1) * D] === DT) world[base + (top - 1) * D] = GV;
+        b = sb; nShore++;
+      }
+      if (x < 6 || z < 6 || x >= W - 6 || z >= D - 6) continue;
+      if (b !== GR && b !== HE) continue;
+      if (steep || g < 5 || g > 48) continue;
+      if (Math.hypot(x - sx, z - sz) < 36 || Math.hypot(x - bx, z - bz) < 80) continue;
+      const p = hs(x * 0.37 + 4.1, z * 0.91 - 2.2);
+      const band = g < 28 ? 0.11 : 0.06;
+      if (p > band) continue;
+      const hgt = 8 + (hs(x, z) * 7 | 0);
+      if (top + 1 + hgt + 2 >= WH - 1) continue;
+      for (let k = 0; k < hgt; k++) world[base + (top + 1 + k) * D] = LOG;
+      for (let dy = hgt - 5; dy <= hgt + 1; dy++) {
+        const r = Math.max(0, Math.ceil((hgt + 1 - dy) * 0.5));
+        for (let dx = -r; dx <= r; dx++) for (let dz = -r; dz <= r; dz++) {
+          if (dx * dx + dz * dz > r * r + 1 || (!dx && !dz && dy < hgt)) continue;
+          const i = ((x + dx) * WH + top + 1 + dy) * D + z + dz;
+          if (i >= 0 && i < world.length && !world[i]) world[i] = LEAF;
+        }
+      }
+      nPine++;
+    }
+    U.resnow = nSnow; U.rstone = nStone; U.pines = nPine; U.shore = nShore;
+    U.snowKeep = nKeep; U.landN = nLand;
+    U.snowFrac = nLand ? +(nKeep / nLand).toFixed(4) : 0;
+    U.surfMs = Math.round(performance.now() - t0);
+    try { const A2 = window.__c341; U.finAfter = A2 ? (A2.ms || 0) : 0; U.finRuns = A2 ? (A2.runs || 0) : 0; } catch (_) {}
+    return nPine;
+  }
   U.finishScaledSurface = finishScaledSurface;
 
   try {
@@ -96868,6 +97221,16 @@ try {
       if (!(A && A.done)) return;
       const ms = A.ms || 0, runs = A.runs || 0;
       if (U.surfMs != null && U.finAfter === ms && U.finRuns === runs) return;
+      /* t1415 (GLX-PY1415): in play, paint the surface in small slices (one frame between them) instead of one long freeze. */
+      if (!window.__noPY1415 && typeof started !== 'undefined' && started && window.__glenLoad && __glenLoad.playYield1415) {
+        if (U.fin1415) return;
+        U.fin1415 = 1; U.finSlices1415 = 0;
+        (async function () {
+          try { const g = finishScaledSurfaceG1415(); while (!g.next().done) { U.finSlices1415++; await __glenLoad.playYield1415(); } retargetSpawn(); placeBen(); try { dirtyAll = true; } catch (_) {} }
+          catch (e) { ERR('fin1415', e); } finally { U.fin1415 = 0; }
+        })();
+        return;
+      }
       finishScaledSurface(); retargetSpawn(); placeBen();
     } catch (e) { ERR('fin', e); }
   }, 400);
@@ -105178,10 +105541,12 @@ try {
             try { dirtyAll = true; } catch (_) {}
             U.early = 1;
             done.then(function () {
-              GL._softHold = 0;
+              /* t1415 (GLX-PY1415): generate() returns before its deferred post chain ends; that chain keeps the
+                 soft phase (small slices, frame-paced yields) until it finishes and clears it itself. */
+              if (window.__noPY1415 || !GL._inPosts1415) GL._softHold = 0;
               GL._qrEnterResolve = null;
             }, function () {
-              GL._softHold = 0;
+              if (window.__noPY1415 || !GL._inPosts1415) GL._softHold = 0;
               GL._qrEnterResolve = null;
             });
             return;

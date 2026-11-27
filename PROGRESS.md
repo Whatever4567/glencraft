@@ -1,0 +1,1 @@
+- 00:21 GMT: fix149b: probes on time (T+2 at entry+3 s vs ~115 s on 1.2.148), chain completes (C274 235 halls/114 ravines/113 holes, cave air 2.03M), but remaining single long tasks: migrate→scot 20.5 s, finishScaledSurface 8.7 s, posts fullRescan/scanLights 7.8 s, sculptCliffs 7.3 s. Running 1.2.148 real-flow reference probe (out/ref148.log) for cave parity.
