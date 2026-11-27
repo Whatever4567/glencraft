@@ -337,6 +337,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1403-v1.2.147 -->
 <!-- glencraft-build: b1410-v1.2.148 -->
 <!-- glencraft-build: b1415-v1.2.149 -->
+<!-- glencraft-build: b1417-v1.2.150 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13801,7 +13802,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.149';
+const GAME_VERSION = '1.2.150';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63660,6 +63661,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.150","d":"2026-11-27","notes":["Caves: see right across big caverns. Underground the game now traces what you can actually see through the open cave air and draws those chunks out to at least 144 blocks (further with a higher render distance), the ones in front of you first, always with their full cave walls. There is no fog wall and no void any more: the view reaches as far as the cave has been fully drawn, the space beyond is dark rock and never sky, and it opens out within a moment as the far chunks arrive. Chunks you cannot see underground are skipped, which keeps it smooth. Seam walls at the edge of ground that is still arriving are rebuilt once the land is there. Blocks, caves and terrain are unchanged. Flag __noCV1417."]},
 {"v":"v1.2.149","d":"2026-11-26","notes":["You can move as soon as you enter a new world. Since 1.2.148 the background step that finishes the land, caves, ravines and sinkholes ran in one go right after you entered, so the game froze until it was done. It now runs in small steps with a frame drawn between each, so you can walk, look and jump while it finishes. The Scotland shape, surface paint and torch light scan that follow are done the same way, and when the land finishes you stay where you are instead of being put back at the spawn point. Your caves and ravines are unchanged. Flag __noPY1415."]},
 {"v":"v1.2.148","d":"2026-11-26","notes":["Caves, ravines and sinkholes are back on new worlds. Since 1.2.120 the background step that carves the Highlands caves, ravines and sinkholes after you enter often stopped when the loading bar finished, so most new worlds had almost none and few holes in the land. It now always runs to the end, the same as 1.2.119: winding tunnels, big caverns, ravines and sinkholes that open onto the surface. Worlds made since 1.2.120 keep their saved ground; make a new world to get them. Flag __noYP1410."]},
 {"v":"v1.2.147","d":"2026-11-26","notes":["Caves keep their current shape. The land around you in a tunnel is drawn sooner, including ahead of where you walk or look, and you can see to the far end. From the Agartha entrance tunnel you can see the city, its sky and its lights in the distance. The deep tube toward the city is drawn as a narrow corridor, so the cavern is there when you look down it, not empty sky. Fog and the camera stay inside the loaded ground. Flag __noCave1403."]},
@@ -106665,6 +106667,8 @@ try {
   function applyFogVista() {
     try {
       if (!enabled()) return;
+      /* t1417: GLX-CV1417 owns the far view in Highlands caves (no fog clip); flag __noCV1417 restores this path. */
+      try { if (WIN.__cv1417 && typeof WIN.__cv1417.owns === 'function' && WIN.__cv1417.owns()) return; } catch (_) {}
       if (typeof DIM !== 'undefined' && DIM.cur && DIM.cur !== 'agartha') return;
       if (!scene || !scene.fog || scene.fog.isFogExp2) return;
       if (!isUnder()) return;
@@ -106757,6 +106761,8 @@ try {
     }
   } catch (e) { ERR('obr0', e); }
 
+  /* t1417: shared with GLX-CV1417 (read-only helpers). */
+  U.isUnder = isUnder; U.inAgWorks = inAgWorks; U.colsReady = colsReady; U.colsComplete = colsComplete; U.lookXZ = lookXZ;
   U.state = function () {
     return {
       on: U.on, under: U.under, budget: U.budget, pump: U.pump, dirtied: U.dirtied,
@@ -106861,6 +106867,415 @@ try {
       sliced();
     };
   } catch (e) { U.err = String(e).slice(0, 200); }
+})(typeof window !== 'undefined' ? window : this);
+/* ===================== GLX-CV1417 (t1417, v1.2.150): see right across big caverns, no fog and no void.
+   Underground in the Highlands (not Agartha, not other dimensions) the view now reaches the far walls of the cave you are in:
+   - visibility rays: a fan of voxel rays from your eyes through open cave air finds the chunks you can actually see
+     (look direction first, full circle every few ticks), out to the cave view distance (render distance x1.6, at least 144 blocks);
+   - only those chunks are meshed past the normal ring, nearest-in-view first, in small time slices, always as FULL meshes
+     (never the surface cave-cull mesh, which leaves out dark cave walls and made floating tunnel shells with sky behind);
+   - a chunk is only meshed once its own columns and its four neighbours' columns have land, so no seam walls ("veils")
+     at the edge of ground that has not arrived yet; neighbours are remeshed when their land arrives;
+   - the far plane follows the meshed horizon along those rays: anything not yet fully meshed is never looked through,
+     so rock never turns into sky or void; once meshed, the far plane opens out to the full distance;
+   - no fog wall underground (only a very faint distance tint); behind the far plane is a dark rock colour, and the
+     overworld sky is hidden while no ray reaches a real opening to the sky;
+   - chunks you cannot see underground are skipped for drawing (conservative: kept if seen in the last 4 s or next to a seen one).
+   - anywhere (surface too): a chunk built while a neighbour's land had not arrived is remeshed once it has, so the
+     seam walls at the edge of half-loaded ground do not stay standing;
+   No block, cave shape or terrain is changed. Flags: window.__noCV1417 = 1 (all off, back to the 1.2.146 cave view),
+   window.__noCV1417occ = 1 (keep drawing hidden chunks), window.__noCV1417veil = 1 (no seam remesh). */
+(function cv1417(WIN) {
+  const U = WIN.__cv1417 = {on: 1, err: null, active: 0, Rc: 0, vis: 0, seen: 0, built: 0, buildMs: 0, maxBuild: 0, rays: 0, rayMs: 0,
+    horizon: 0, camFar: 0, unl: 0, hid: 0, skyOpen: 0, queue: 0, waitN: 0, skyHid: 0, ticks: 0};
+  if (WIN.__noCV1417) { U.on = 0; return; }
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String((e && e.stack) || e).slice(0, 240); };
+  const C = () => WIN.__cave1403;
+  const enabled = () => U.on && !WIN.__noCV1417 && !WIN.__noCave1403 && C() && C().on;
+  const ch = () => (typeof CH === 'number' && CH > 0) ? CH : 26;
+  let act = false;
+  U.owns = () => act && enabled();
+  function calcActive() {
+    try {
+      if (!enabled()) return false;
+      if (typeof started !== 'undefined' && !started) return false;
+      if (typeof DIM !== 'undefined' && DIM.cur) return false;
+      if (typeof W !== 'number' || W < 100) return false;
+      const c = C();
+      if (c.inAgWorks && c.inAgWorks()) return false;
+      if (c.isUnder && c.isUnder()) { U.why = '1403'; return true; }
+      if (rockOver()) { U.why = 'rock'; return true; }
+      return false;
+    } catch (e) { ERR('act', e); return false; }
+  }
+  /* rock above your head here and around you, and the land top well above: you are in a cave */
+  function colCover(x, y, z) {
+    const S = solidTab(); let n = 0, top = -1;
+    if (x < 0 || z < 0 || x >= W || z >= D) return [0, 0];
+    for (let yy = H - 1; yy > y; yy--) { const b = world[(x * H + yy) * D + z]; if (b && S[b]) { n++; if (top < 0) top = yy; } }
+    return [n, top < 0 ? 0 : top - y];
+  }
+  function rockOver() {
+    try {
+      const x = Math.floor(P.x), z = Math.floor(P.z), y = Math.floor(P.y + 1.6);
+      const [n0, d0] = colCover(x, y, z);
+      if (n0 < 4 || d0 < 6) return false;
+      let k = 0;
+      for (const [a, b] of [[5, 0], [-5, 0], [0, 5], [0, -5]]) { const [n, d] = colCover(x + a, y, z + b); if (n >= 3 && d >= 4) k++; }
+      return k >= 3;
+    } catch (e) { ERR('rock', e); return false; }
+  }
+  function vf() { let n = 8; try { if (typeof SET !== 'undefined' && typeof SET.rdist === 'number') n = SET.rdist; } catch (_) {} return Math.max(3, Math.min(16, n)) * 16; }
+  function caveR() { const v = vf(); return Math.min(320, Math.max(144, v * 1.6, v + 64)); }
+  const ready = (cx, cz) => { try { const c = C(); return !c.colsReady || !!c.colsReady(cx, cz); } catch (_) { return true; } };
+  const complete = (cx, cz) => { try { const c = C(); return !c.colsComplete || !!c.colsComplete(cx, cz); } catch (_) { return true; } };
+  const ncx = () => Math.ceil(W / ch()), ncz = () => Math.ceil(D / ch());
+  const inMap = (cx, cz) => cx >= 0 && cz >= 0 && cx < ncx() && cz < ncz();
+  /* neighbours must have land before a border is meshed (else their air makes a seam wall) */
+  const nbReady = (cx, cz) => ready(cx, cz) && complete(cx, cz) && [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([a, b]) => !inMap(cx + a, cz + b) || (ready(cx + a, cz + b) && complete(cx + a, cz + b)));
+
+  let SOL = null;
+  function solidTab() {
+    if (SOL) return SOL;
+    SOL = new Uint8Array(1024);
+    for (let b = 1; b < 1024; b++) {
+      let s = 1;
+      try { if (typeof PLANT !== 'undefined' && PLANT[b]) s = 0; } catch (_) {}
+      try { if (typeof LEAFY !== 'undefined' && LEAFY[b]) s = 0; } catch (_) {}
+      try { if (b === T.WATER || b === T.GLASS || b === T.TORCH || b === T.COBWEB) s = 0; } catch (_) {}
+      SOL[b] = s;
+    }
+    return SOL;
+  }
+
+  /* id -> last time a ray reached it */
+  const seen = new Map();
+  /* chunks that a ray crossed or hit in the last pass: id -> nearest ray distance */
+  let lastHz = 999, hzAt = 0;
+  const good = id => { const g = chunkObjs.get(id); return !!(g && g.userData && !g.userData.cav && !(g.userData.cv17n)); };
+
+  /* One ray, voxel DDA. Marks chunks, returns [hitDist, firstBadDist, sky]. */
+  function castRay(ox, oy, oz, dx, dy, dz, maxT, now, S, wr) {
+    const c = ch(), HD = H * D;
+    let x = Math.floor(ox), y = Math.floor(oy), z = Math.floor(oz);
+    const sx = dx > 0 ? 1 : -1, sy = dy > 0 ? 1 : -1, sz = dz > 0 ? 1 : -1;
+    const tdx = dx !== 0 ? Math.abs(1 / dx) : 1e9, tdy = dy !== 0 ? Math.abs(1 / dy) : 1e9, tdz = dz !== 0 ? Math.abs(1 / dz) : 1e9;
+    let tmx = dx !== 0 ? ((dx > 0 ? (x + 1 - ox) : (ox - x)) * tdx) : 1e9;
+    let tmy = dy !== 0 ? ((dy > 0 ? (y + 1 - oy) : (oy - y)) * tdy) : 1e9;
+    let tmz = dz !== 0 ? ((dz > 0 ? (z + 1 - oz) : (oz - z)) * tdz) : 1e9;
+    let t = 0, lastId = -1, bad = 999;
+    for (let k = 0; k < 2000 && t < maxT; k++) {
+      if (x < 0 || z < 0 || x >= W || z >= D) return [t, bad, 0];
+      if (y >= H) return [t, bad, 1];
+      if (y < 0) return [t, bad, 0];
+      const id = Math.floor(x / c) * 64 + Math.floor(z / c);
+      if (id !== lastId) { lastId = id; seen.set(id, now); if (bad > 900 && !good(id)) bad = t; }
+      const b = wr[(x * H + y) * D + z];
+      if (b && S[b]) return [t, bad, 0];
+      if (tmx < tmy && tmx < tmz) { x += sx; t = tmx; tmx += tdx; }
+      else if (tmy < tmz) { y += sy; t = tmy; tmy += tdy; }
+      else { z += sz; t = tmz; tmz += tdz; }
+    }
+    return [t, bad, 0];
+  }
+
+  const PIT = [-1.05, -0.75, -0.5, -0.3, -0.12, 0, 0.12, 0.3, 0.5, 0.75, 1.05];
+  let pass = 0;
+  function rays(now) {
+    const t0 = performance.now();
+    try {
+      const S = solidTab(), wr = world, Rc = U.Rc;
+      const ox = camera.position.x, oy = camera.position.y, oz = camera.position.z;
+      const v = U._v || (U._v = new THREE.Vector3()); camera.getWorldDirection(v);
+      const ly = Math.atan2(v.x, v.z), lp = Math.asin(Math.max(-1, Math.min(1, v.y)));
+      const fovH = ((camera.fov || 70) * Math.PI / 180) * 0.5 * Math.max(1, camera.aspect || 1) * 1.25;
+      const jit = ((pass * 0.618) % 1);
+      let hz = 999, sky = 0, n = 0;
+      /* front cone: dense, every tick (this also drives the far plane) */
+      const NY = 40;
+      for (let i = 0; i < NY; i++) {
+        const a = ly + (((i + jit) / NY) * 2 - 1) * fovH;
+        for (let j = 0; j < PIT.length; j++) {
+          const p = lp + PIT[j] * 0.9 + (jit - 0.5) * 0.08;
+          const cp = Math.cos(p), dx = Math.sin(a) * cp, dz = Math.cos(a) * cp, dy = Math.sin(p);
+          const r = castRay(ox, oy, oz, dx, dy, dz, Rc, now, S, wr); n++;
+          if (r[2]) sky++;
+          if (r[1] < 900) { const dot = dx * v.x + dy * v.y + dz * v.z; if (dot > 0) hz = Math.min(hz, r[1] * dot); }
+        }
+      }
+      /* full circle every 4th tick so turning round is already meshed */
+      if (pass % 4 === 0) {
+        const NA = 72;
+        for (let i = 0; i < NA; i++) {
+          const a = ((i + jit) / NA) * Math.PI * 2;
+          for (let j = 0; j < PIT.length; j += 2) {
+            const p = PIT[j]; const cp = Math.cos(p);
+            const r = castRay(ox, oy, oz, Math.sin(a) * cp, Math.sin(p), Math.cos(a) * cp, Rc, now, S, wr); n++;
+            if (r[2]) sky++;
+          }
+        }
+      }
+      pass++;
+      U.rays = n; U.skyOpen = sky; lastHz = hz; hzAt = now;
+      U.horizon = hz > 900 ? 999 : +hz.toFixed(1);
+    } catch (e) { ERR('rays', e); }
+    U.rayMs = +(performance.now() - t0).toFixed(2);
+  }
+
+  const lastBuilt = new Map();
+  /* mesh queue: rays' chunks that are missing, cave-culled or dirty, nearest-in-view first */
+  function meshSome(budget) {
+    const t0 = performance.now();
+    try {
+      const c = ch(), pcx = P.x / c - 0.5, pcz = P.z / c - 0.5, Rch = U.Rc / c + 0.75, now = performance.now();
+      const [lx, lz] = (C().lookXZ ? C().lookXZ() : [0, 1]);
+      const q = []; let wait = 0;
+      for (const [id, ts] of seen) {
+        if (now - ts > 6000) continue;
+        const cx = Math.floor(id / 64), cz = id % 64;
+        const dd = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz));
+        if (dd > Rch) continue;
+        const g = chunkObjs.get(id);
+        const need = !g || (g.userData && (g.userData.cav || g.userData.cv17n)) || dirtyCh.has(id);
+        if (!need) continue;
+        if (!nbReady(cx, cz)) { wait++; continue; }
+        const lb = lastBuilt.get(id); if (lb && now - lb < 3000) { U.again = (U.again || 0) + 1; continue; }  // never churn one chunk
+        const mx = cx - pcx, mz = cz - pcz, h = Math.hypot(mx, mz) || 1;
+        const dot = (mx * lx + mz * lz) / h;
+        q.push([h * (1.7 - dot), cx, cz, id]);
+      }
+      q.sort((a, b) => a[0] - b[0]);
+      U.queue = q.length; U.waitN = wait;
+      let n = 0;
+      for (const it of q) {
+        if (n && performance.now() - t0 > budget) break;
+        const tb = performance.now();
+        try { buildChunk(it[1], it[2]); } catch (e) { ERR('build', e); }
+        const g = chunkObjs.get(it[3]); if (g && g.userData) g.userData.cv17 = 1; lastBuilt.set(it[3], performance.now());
+        dirtyCh.delete(it[3]);
+        const bm = performance.now() - tb; U.lastBuild = bm; if (bm > U.maxBuild) U.maxBuild = +bm.toFixed(1);
+        n++; U.built++;
+      }
+    } catch (e) { ERR('mesh', e); }
+    const ms = performance.now() - t0; U.buildMs = +ms.toFixed(2); return ms;
+  }
+
+  /* own unloader while underground (the 1.2.43 streamer is held off so the far cave meshes stay) */
+  function unloadFar(now) {
+    try {
+      const c = ch(), pcx = P.x / c - 0.5, pcz = P.z / c - 0.5, Rch = U.Rc / c + 2;
+      let R = 4; try { R = streamRadius(); } catch (_) {}
+      const t0 = performance.now(); let n = 0;
+      for (const [id, g] of chunkObjs) {
+        const cx = Math.floor(id / 64), cz = id % 64, dd = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz));
+        const ts = seen.get(id) || 0;
+        if (dd > Rch || (dd > R + 2.5 && now - ts > 10000)) {
+          blockGroup.remove(g); g.children.forEach(m => { if (m.isInstancedMesh) m.dispose(); else if (m.geometry) m.geometry.dispose(); });
+          chunkObjs.delete(id); try { chunkLists.delete(id); } catch (_) {} dirtyCh.add(id); n++;
+          if (performance.now() - t0 > 2) break;
+        }
+      }
+      if (n) { U.unl += n; try { rebuild._unloaded = true; } catch (_) {} }
+      for (const [id, ts] of seen) if (now - ts > 20000) seen.delete(id);
+      for (const [id, t] of lastBuilt) if (now - t > 5000) lastBuilt.delete(id);
+    } catch (e) { ERR('unl', e); }
+  }
+
+  /* veils: when a chunk's land arrives, remesh the borders of its neighbours we already built */
+  const wasReady = new Map();
+  function borderWatch() {
+    try {
+      for (const [id, g] of chunkObjs) {
+        if (!g.userData || !g.userData.cv17) continue;
+        const cx = Math.floor(id / 64), cz = id % 64;
+        const r = nbReady(cx, cz) ? 1 : 0, w = wasReady.get(id);
+        if (w === 0 && r === 1) dirtyCh.add(id);
+        wasReady.set(id, r);
+      }
+    } catch (e) { ERR('bw', e); }
+  }
+
+  let lastMesh = 0, lastRay = 0, lastUnl = 0, lastBw = 0, wasAct = false, lastSync = 0, lastSyncN = 0;
+  setInterval(() => {
+    try {
+      const now = performance.now();
+      act = calcActive(); U.active = act ? 1 : 0;
+      if (!act) {
+        if (wasAct) { seen.clear(); restoreFar(); }
+        wasAct = false; return;
+      }
+      wasAct = true; U.ticks++;
+      U.Rc = caveR();
+      try { streamT = now; } catch (_) {}
+      if (now - lastRay >= 90) { lastRay = now; rays(now); }
+      /* slow meshers (phones): one heavy chunk per 100 ms so frames stay smooth while the cavern fills in */
+      if (!(U.lastBuild > 12 && now - lastMesh < 100)) { lastMesh = now; meshSome(U.queue > 6 ? 10 : 7); }
+      if (now - lastUnl > 600) { lastUnl = now; unloadFar(now); }
+      if (now - lastBw > 1000) { lastBw = now; borderWatch(); }
+      /* torches, chests, lanterns in the far chunks: let the 1.2.43 rebuild run its entity sync once in a while */
+      if (U.built !== lastSyncN && now - lastSync > 900) { lastSync = now; lastSyncN = U.built; try { rebuild._unloaded = true; rebuild(2); } catch (e) { ERR('sync', e); } }
+      U.seen = seen.size;
+    } catch (e) { ERR('tick', e); }
+  }, 50);
+
+  /* Seam walls ("veils") anywhere, surface too: while the land is still arriving in the background, a chunk built next to
+     columns that have no land yet gets side faces against that air — a sheet of wall at the edge of the ground, often far away.
+     1.2.145 only re-dirties the chunk that was incomplete, not its finished neighbours. Remember every chunk built before
+     its four neighbours were complete and remesh it once they are. Flag window.__noCV1417veil = 1. */
+  const veilWatch = new Set();
+  try {
+    if (typeof buildChunk === 'function' && !buildChunk.__cv1417) {
+      const bc = buildChunk;
+      buildChunk = function (cx, cz) {
+        const r = bc.apply(this, arguments);
+        try { if (!WIN.__noCV1417veil && U.on && !WIN.__noCV1417) { const id = cx * 64 + cz; if (!nbReady(cx, cz)) veilWatch.add(id); else veilWatch.delete(id); } } catch (_) {}
+        return r;
+      };
+      buildChunk.__cv1417 = 1;
+    }
+  } catch (e) { ERR('bc', e); }
+  setInterval(() => {
+    try {
+      if (!veilWatch.size || WIN.__noCV1417veil) return;
+      const t0 = performance.now();
+      for (const id of veilWatch) {
+        if (!chunkObjs.has(id)) { veilWatch.delete(id); continue; }
+        if (nbReady(Math.floor(id / 64), id % 64)) { veilWatch.delete(id); dirtyCh.add(id); U.veil = (U.veil || 0) + 1; }
+        if (performance.now() - t0 > 2) break;
+      }
+      U.veilW = veilWatch.size;
+    } catch (e) { ERR('veil', e); }
+  }, 500);
+
+  /* the 1.2.61 cap evict must not drop the far cave meshes */
+  try {
+    const P126 = WIN.__perf1261;
+    if (P126 && typeof P126.evict === 'function' && !P126.evict.__cv1417) {
+      const ev = P126.evict;
+      P126.evict = function () {
+        if (!U.owns() || typeof chunkObjs === 'undefined') return ev.apply(this, arguments);
+        const parked = [];
+        for (const [id, g] of chunkObjs) if (g.userData && g.userData.cv17) { let l; try { l = chunkLists.get(id); } catch (_) {} parked.push([id, g, l]); }
+        for (const [id] of parked) { chunkObjs.delete(id); try { chunkLists.delete(id); } catch (_) {} }
+        try { return ev.apply(this, arguments); }
+        finally { for (const [id, g, l] of parked) { chunkObjs.set(id, g); if (l !== undefined) try { chunkLists.set(id, l); } catch (_) {} } }
+      };
+      P126.evict.__cv1417 = 1;
+    }
+  } catch (e) { ERR('ev', e); }
+
+  /* the surface cave-cull mesh is never used for a chunk a ray reached (full walls) */
+  try {
+    if (typeof WIN.__caveCull === 'function' && !WIN.__caveCull.__cv1417) {
+      const cc = WIN.__caveCull;
+      WIN.__caveCull = function (cx, cz) {
+        if (U.owns() && seen.has(cx * 64 + cz)) return null;
+        return cc.apply(this, arguments);
+      };
+      WIN.__caveCull.__cv1417 = 1;
+    }
+  } catch (e) { ERR('cc', e); }
+
+  /* far plane, backdrop, sky */
+  const ROCK = 0x15120f;
+  let farSaved = 0, skyList = null, skyHidden = [];
+  function setFar() {
+    if (!camera || !camera.isPerspectiveCamera) return;
+    if (!farSaved) farSaved = camera.far;
+    const Rc = U.Rc || caveR();
+    /* never look through a chunk that is not fully meshed yet */
+    let f = Rc + 40;
+    if (performance.now() - hzAt < 1500 && lastHz < 900) f = Math.min(f, Math.max(10, lastHz - 0.5));
+    if (Math.abs(camera.far - f) > 0.5) { camera.far = f; camera.updateProjectionMatrix(); }
+    U.camFar = +f.toFixed(1);
+  }
+  function restoreFar() { try { if (farSaved && camera) { camera.far = farSaved; camera.updateProjectionMatrix(); } } catch (_) {} farSaved = 0; }
+  function skyObjs() {
+    if (skyList) return skyList;
+    const L = [];
+    const add = m => { if (m && m.isObject3D && L.indexOf(m) < 0) L.push(m); };
+    try { add(typeof skyDome !== 'undefined' && skyDome); } catch (_) {}
+    try { add(typeof stars !== 'undefined' && stars); } catch (_) {}
+    try { add(typeof sunDisc !== 'undefined' && sunDisc); } catch (_) {}
+    try { add(typeof moonDisc !== 'undefined' && moonDisc); } catch (_) {}
+    try { add(typeof moonHalo !== 'undefined' && moonHalo); } catch (_) {}
+    try { add(typeof scenery !== 'undefined' && scenery); } catch (_) {}
+    try { const S = WIN.__sky1312; if (S && S.plateMesh) add(S.plateMesh); } catch (_) {}
+    try { if (WIN.__nsky && __nsky.dome) add(__nsky.dome); } catch (_) {}
+    try { if (typeof clouds !== 'undefined' && clouds) { if (Array.isArray(clouds)) clouds.forEach(add); else add(clouds); } } catch (_) {}
+    try { scene.traverse(o => { const n = o.name || ''; if (/^(nsky|planets|skyDome|stars|sunDisc|moonDisc|moonHalo|clouds)$/.test(n) || n.indexOf('cl1316') === 0 || n.indexOf('sky1312') === 0) add(o); }); } catch (_) {}
+    return (skyList = L);
+  }
+  /* sky objects are hidden only for the draw (onBeforeRender -> onAfterRender), so nothing is left hidden after you leave */
+  function hideSky() {
+    for (const m of skyObjs()) if (m.visible) { m.visible = false; skyHidden.push(m); }
+    U.skyHid = skyHidden.length;
+  }
+  function restoreSky() { for (const m of skyHidden) try { m.visible = true; } catch (_) {} skyHidden = []; }
+  let inDraw = false;
+  function frameView() {
+    try {
+      if (!U.owns()) return;
+      if (scene.fog && !scene.fog.isFogExp2) {
+        const Rc = U.Rc || caveR(), col = U._col || (U._col = new THREE.Color(ROCK));
+        scene.fog.color.copy(col);
+        scene.fog.near = Rc * 0.7; scene.fog.far = Rc * 4;   // very faint tint only
+        U.fogF = scene.fog.far;
+      }
+      if (scene.background && scene.background.isColor) scene.background.setHex(ROCK); else if (!scene.background) scene.background = new THREE.Color(ROCK);
+      if (inDraw && U.skyOpen === 0) hideSky();
+      setFar();
+    } catch (e) { ERR('view', e); }
+  }
+  /* chunks no ray reached are not drawn underground (rock hides them anyway) */
+  const seenNear = (id, now) => {
+    const t = seen.get(id); if (t && now - t < 4000) return true;
+    const cx = Math.floor(id / 64), cz = id % 64;
+    for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) { const u = seen.get((cx + a) * 64 + cz + b); if (u && now - u < 4000) return true; }
+    return false;
+  };
+  try {
+    const cc0 = cullChunks;
+    cullChunks = function (cam) {
+      if (!U.owns()) return cc0.apply(this, arguments);
+      try { frameView(); } catch (_) {}
+      const r = cc0.apply(this, arguments);
+      try {
+        const now = performance.now(), Rc = U.Rc || caveR(), c = ch();
+        const MM = U._mm || (U._mm = new THREE.Matrix4()), FR = U._fr || (U._fr = new THREE.Frustum()), BX = U._bx || (U._bx = new THREE.Box3());
+        MM.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse); FR.setFromProjectionMatrix(MM);
+        const px = cam.position.x, pz = cam.position.z; let hid = 0;
+        const occ = !WIN.__noCV1417occ;
+        for (const [id, g] of chunkObjs) {
+          const x0 = Math.floor(id / 64) * c, z0 = (id % 64) * c;
+          const dx = Math.max(0, x0 - px, px - x0 - c), dz = Math.max(0, z0 - pz, pz - z0 - c);
+          if (g.userData && g.userData.cav) { if (g.visible && seen.has(id)) { g.visible = false; hid++; } continue; }  // cull mesh lacks cave walls
+          if (dx * dx + dz * dz > (Rc + c) * (Rc + c)) continue;
+          if (!g.visible) { BX.min.set(x0 - 1, -1, z0 - 1); BX.max.set(x0 + c + 1, H + 1, z0 + c + 1); if (FR.intersectsBox(BX)) g.visible = true; }
+          if (occ && g.visible && (dx > c || dz > c) && !seenNear(id, now)) { g.visible = false; hid++; }
+        }
+        U.hid = hid;
+      } catch (e) { ERR('cull', e); }
+      return r;
+    };
+  } catch (e) { ERR('cc0', e); }
+  try {
+    if (typeof scene !== 'undefined' && scene && !scene.__cv1417) {
+      const prev = scene.onBeforeRender;
+      scene.onBeforeRender = function () {
+        try { if (typeof prev === 'function') prev.apply(this, arguments); } catch (_) {}
+        try { inDraw = true; frameView(); } catch (e) { ERR('obr', e); } finally { inDraw = false; }
+      };
+      const prevA = scene.onAfterRender;
+      scene.onAfterRender = function () {
+        try { if (typeof prevA === 'function') prevA.apply(this, arguments); } catch (_) {}
+        try { restoreSky(); } catch (_) {}
+      };
+      scene.__cv1417 = 1;
+    }
+  } catch (e) { ERR('obr0', e); }
+  U.state = () => ({on: U.on, active: U.active, Rc: U.Rc, seen: U.seen, built: U.built, buildMs: U.buildMs, maxBuild: U.maxBuild, rays: U.rays, rayMs: U.rayMs,
+    horizon: U.horizon, why: U.why, fogF: U.fogF, camFar: U.camFar, unl: U.unl, hid: U.hid, skyOpen: U.skyOpen, skyHid: U.skyHid, queue: U.queue, waitN: U.waitN, veil: U.veil || 0, again: U.again || 0, veilW: U.veilW || 0, err: U.err});
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
