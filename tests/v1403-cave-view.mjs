@@ -56,6 +56,9 @@ try {
   // ---------- seed 7 2x world: view distance, appear time, void clip, flag restore ----------
   const page = await browser.newPage({viewport: {width: 960, height: 540}});
   page.setDefaultTimeout(300000);
+  // t1417: this file checks the 1.2.146 fog-clip path, which is kept as the fallback behind __noCV1417
+  // (GLX-CV1417 replaces it with the no-fog far view; tests/v1417-cave-far.mjs covers that).
+  await page.addInitScript(() => { window.__noCV1417 = 1; });
   page.on('pageerror', e => { const s = String(e && (e.stack || e.message) || e).slice(0, 400); errors.push(s); console.log('PAGEERROR', s); });
   page.on('console', msg => { if (msg.type() === 'error') console.log('CONERR', msg.text().slice(0, 240)); });
   await page.goto(`http://127.0.0.1:${PORT}/index.html?nosw=1`, {waitUntil: 'domcontentloaded', timeout: 240000});
