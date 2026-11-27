@@ -34,7 +34,8 @@ ok(!/world\[|setB\(|generate\s*=/.test(src), 'does not touch terrain blocks or w
 ok(html.includes('__fpa'), 'keeps the __fpa rig');
 const notes = html.match(/window\.PATCH_NOTES = \[\n(\{[^\n]*\})/);
 const top = notes ? notes[1] : '';
-ok(top.includes('"v1.2.151"') && /120/.test(top) && /Performance mode/.test(top) && top.includes('__noFps1414'), 'patch notes: 1.2.151, 120 fps, Performance mode, flag');
+ok(top.includes('"v' + ver + '"'), 'patch notes lead with the current version');
+ok(html.includes('"v1.2.151"') && /120/.test(html) && /Performance mode/.test(html) && html.includes('__noFps1414'), '1.2.151 notes kept: 120 fps, Performance mode, flag');
 ok(!/\b(food|eat|bread|cake|pie|apple|cheese|meat|soup|cookie|snack|tasty|delicious|recipe)\b/i.test(top), 'no food words in the notes');
 console.log(fail ? `FAILED ${fail}/${n}` : `PASS ${n}/${n}`);
 process.exit(fail ? 1 : 0);

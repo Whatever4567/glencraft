@@ -1,0 +1,30 @@
+// t1427: caves around spawn before you start walking; current Highlands map on new/reset;
+// older worlds without caves get one carve that leaves placed blocks alone. Flag: __noCave1427.
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v;
+let n = 0, fail = 0;
+function ok(cond, msg) { n++; if (!cond) { fail++; console.error('FAIL', msg); } else console.log('ok', msg); }
+ok(ver === '1.2.152' || /^1\.2\.(15[2-9]|1[6-9]\d|[2-9]\d\d)$/.test(ver), 'version is 1.2.152+');
+ok(html.includes("const GAME_VERSION = '" + ver + "';"), 'GAME_VERSION matches version.json');
+ok(html.includes('GLX-CAVE1427 (t1427)') && html.includes('window.__noCave1427'), 'GLX-CAVE1427 inlined with off switch');
+ok(html.includes('U.carveAround = function') && html.includes('U.run = function (opts)'), 'C274 exposes run and carveAround; old generate wrap kept');
+ok(html.includes('U.run({st: st, r: r})'), 'post 41 still carves the full world through U.run');
+ok(html.includes('b && !window.__noCave1427') && html.includes('box ? box[0] : 0'), 'local carve is boxed and flagged');
+ok(html.includes('fillSpawnDisc.__cave1427') && html.includes('carveLocal()'), 'spawn disc hands control only after the local carve');
+ok(html.includes("current.mode !== 'creative'") && html.includes('__v1308.want = 1'), 'new/reset survival requests the current 2x map');
+ok(html.includes('d.c274 = {v: 1') && html.includes('C.run({noYield: 1, reset: 1})'), 'saves record caves; older worlds can recarve');
+ok(html.includes('kickScot') && html.includes('__v1308.preScot') && html.includes('A.hT'), 'spawn disc uses the current sculpted Highlands; reshape starts when the land is finished');
+ok(html.includes('GLX-C274') && html.includes('GLX-CAVE1366') && html.includes('__noYP1410') && html.includes('__noPY1415'), 'older cave and loader flags are kept');
+ok(html.includes('placedSet') && html.includes('placed(i)'), 'C274 still skips placed blocks');
+ok(html.includes('__qr1398.inDisc(x, z)') && html.includes('U.noY'), 'spawn disc is not rebuilt, local carve does not yield mid-way');
+ok(html.includes('C.run.__cave1427s') && html.includes('U.waitScot'), 'full cave carve waits for the Scotland reshape');
+const notes = html.match(/window\.PATCH_NOTES = \[\n(\{[^\n]*\})/);
+const top = notes ? notes[1] : '';
+ok(top.includes('"v' + ver + '"') && /caves/i.test(top) && /Reset world/.test(top), 'patch notes lead with caves and Reset world');
+ok(!/\b(food|eat|bread|cake|pie|apple|cheese|meat|soup|cookie|snack|tasty|delicious|recipe)\b/i.test(top), 'no food words in the notes');
+console.log(fail ? `FAILED ${fail}/${n}` : `PASS ${n}/${n}`);
+process.exit(fail ? 1 : 0);

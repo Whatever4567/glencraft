@@ -62,6 +62,7 @@ html.noLogo1376 #start .panel h1.v1313old{display:block!important}
     for (var j = 0; j < rafs.length; j++) { (function (fn) { if (nRAF) nRAF.call(W, function (t) { try { fn(t); } catch (e) { try { console.warn('tgate', e); } catch (_) {} } }); })(rafs[j]); }
   };
 } catch (_) {} })();</script>
+<!-- glencraft-build: b1427-v1.2.152 -->
 <!-- glencraft-build: land1293 -->
 <style id="glen-land1293-css">
 #glenRotate{position:fixed;inset:0;z-index:2147483000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;margin:0;padding:24px;box-sizing:border-box;background:rgba(8,12,10,.94);color:#f5f0d8;text-align:center;font:700 28px/1.25 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.02em;pointer-events:auto;-webkit-user-select:none;user-select:none;touch-action:none}
@@ -13803,7 +13804,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.151';
+const GAME_VERSION = '1.2.152';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -21131,6 +21132,8 @@ function generate() {
     let __tSlice = performance.now();
     for (let x = __x0; x < W; x++) {
       for (let z = 0; z < D; z++) {
+      /* t1427: do not rebuild the Quick Resume spawn disc — local caves would be filled back in. Flag: __noCave1427. */
+      if (!window.__noCave1427 && !window.__noQR1398 && __L && __L._qrDisc && window.__qr1398 && typeof __qr1398.inDisc === 'function' && __qr1398.inDisc(x, z)) continue;
       const c = g9height(x, z), h = c.h;
       const heath = g9fbm(x / 40 + 7, z / 40 - 3, 2), bog = g9fbm(x / 33 - 21, z / 33 + 9, 2);
       let top = T.GRASS, sub = T.DIRT, kind = 0;   // kind 0 meadow, 1 moor, 2 bog, 3 mountain rock, 4 shore, 5 loch bed
@@ -45968,12 +45971,19 @@ function make42(E) {
   const on = () => !!(window.__g89 && __g89());
   let NAT = null;
   const nat = b => { if (!NAT) { NAT = new Uint8Array(1024); for (const v of [T.STONE, T.DEEPSLATE, T.DIRT, T.GRAVEL, T.COALORE, T.IRONORE, T.COPPERORE, T.GOLDORE, T.REDORE, T.DIAMONDORE, T.SILVERORE, T.GRASS, T.HEATHER, T.PEAT, T.MUD, T.SAND, 156, 178]) if (v !== undefined) NAT[v] = 1; } return !!NAT[b]; };
-  const inB = (x, y, z) => x > 2 && z > 2 && y > 2 && x < W - 3 && z < D - 3 && y < H - 2;
+  const inB = (x, y, z) => {
+    if (!(x > 2 && z > 2 && y > 2 && x < W - 3 && z < D - 3 && y < H - 2)) return false;
+    const b = U.box;
+    if (b && !window.__noCave1427) return x >= b[0] && z >= b[1] && x <= b[2] && z <= b[3];
+    return true;
+  };
   const placed = i => !!(typeof placedSet !== 'undefined' && placedSet && placedSet.has(i));
   const wet = (x, y, z) => world[idx(x, y + 1, z)] === T.WATER || world[idx(x + 1, y, z)] === T.WATER || world[idx(x - 1, y, z)] === T.WATER || world[idx(x, y, z + 1)] === T.WATER || world[idx(x, y, z - 1)] === T.WATER;
   const tops = () => {
     const t = new Int16Array(W * D), wr = world;
-    for (let x = 0; x < W; x++) for (let z = 0; z < D; z++) {
+    const box = (!window.__noCave1427 && U.box) ? U.box : null;
+    const xA = box ? box[0] : 0, zA = box ? box[1] : 0, xB = box ? box[2] : W - 1, zB = box ? box[3] : D - 1;
+    for (let x = xA; x <= xB; x++) for (let z = zA; z <= zB; z++) {
       const c = x * H * D + z; let y = H - 2;
       // Skip empty sky in 4-high steps; never step over a solid, so the top matches a full scan.
       while (y > 5 && !wr[c + y * D] && !wr[c + (y - 1) * D] && !wr[c + (y - 2) * D] && !wr[c + (y - 3) * D]) y -= 4;
@@ -46104,7 +46114,7 @@ function make42(E) {
       U.lastHeld = !!(L && L.held);
       U.lastDt = Math.round(performance.now() - __tS);
       U.lastB = 0;
-      if (!L || !L.YIELD || (!L.held && !L._softHold)) { U.nSkip = (U.nSkip || 0) + 1; return; }
+      if (!L || !L.YIELD || (!L.held && !L._softHold) || (U.noY && !window.__noCave1427)) { U.nSkip = (U.nSkip || 0) + 1; return; }
       // Time this resume only (__tS/__wS). Do not use L._tSlice — the wrapper
       // preamble can already have burned it, which would yield with no progress.
       const b = budget(); U.lastB = b;
@@ -46579,6 +46589,67 @@ function make42(E) {
       break;
     }
   }
+  U.run = function (opts) {
+    opts = opts || {};
+    if (!on()) return 0;
+    const L = window.__glenLoad;
+    let st = (opts.st !== undefined) ? opts.st : ((L && L._loop && L._loop.c274) ? L._loop.c274 : null);
+    if (opts.reset) st = null;
+    const t0 = (st && st.t0) ? st.t0 : performance.now();
+    if (!st) { EQ = null; RE0 = 0; U.nBump = 0; U.nSkip = 0; U.nThrow = 0; U.workMs = 0; U.dprof = {}; U.mouths = []; U.halls = 0; U.worms = 0; U.ravines = 0; U.holes = 0; U.uw = 0; U.seams = 0; U.cover = 0; U.cells = 0; U.feat = {ravines: [], holes: [], halls: [], uw: []}; }
+    else { U.worms = st.worms || 0; U.halls = st.halls || 0; U.ravines = st.ravines || 0; U.holes = st.holes || 0; U.uw = st.uw || 0; U.seams = st.seams || 0; U.cover = st.cover || 0; }
+    let s = st ? st.sd : (((gSeed | 0) ^ 0x2740c) >>> 0);
+    const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+    if (opts.r !== undefined) U._retR = opts.r;
+    try { ensureEQ(); } catch (_) {}
+    const canY = !opts.noYield && L && (L.held || (!window.__noQR1398 && L._softHold)) && L.YIELD;
+    if (canY && !st) {
+      if (!L._loop) L._loop = {};
+      L._loop.c274 = {phase: 'pits', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0,
+        worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: opts.r};
+      try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
+      throw L.YIELD;
+    }
+    let tp;
+    if (st && st.tp) tp = st.tp;
+    else { const tA = performance.now(); tp = tops(); U.topsMs = Math.round(performance.now() - tA); }
+    if (!st || st.phase === 'pits') { const tB = performance.now(); pits(tp); U.pitsMs = Math.round(performance.now() - tB); }
+    if (st && st.phase === 'pits' && canY) {
+      if (!L._loop) L._loop = {};
+      L._loop.c274 = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0,
+        worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: opts.r, tp: tp};
+      try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
+      throw L.YIELD;
+    }
+    if (st && st.phase === 'pits') st = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0, worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: opts.r, tp: tp};
+    const pts = runNetwork(tp, rnd, () => s, t0, st);
+    mouths(tp, rnd, pts || U.pts || []);
+    try { punchDown(tp, rnd); } catch (e) { ERR('punch', e); }
+    try { hardenSpawn(tp); } catch (e) { ERR('spawn', e); }
+    try {
+      if (U.box) {
+        const b = U.box;
+        for (let x = b[0]; x <= b[2]; x++) for (let z = b[1]; z <= b[3]; z++) g9cols[(x * D + z) * 2] = tp[x * D + z] + 1;
+      } else {
+        for (let i = 0; i < W * D; i++) g9cols[i * 2] = tp[i] + 1;
+      }
+    } catch (_) {}
+    try { dirtyAll = true; } catch (_) {}
+    if (L && L._loop && !U.box) L._loop.c274 = null;
+    U.ms = Math.round(performance.now() - t0);
+    return U.cells || 0;
+  };
+  U.carveAround = function (cx, cz, R) {
+    if (window.__noCave1427 || !on() || !world) return 0;
+    cx = cx | 0; cz = cz | 0; R = Math.max(48, R | 0);
+    const x0 = Math.max(3, cx - R), z0 = Math.max(3, cz - R), x1 = Math.min(W - 4, cx + R), z1 = Math.min(D - 4, cz + R);
+    U.box = [x0, z0, x1, z1];
+    U.noY = 1;
+    try { U.run({noYield: 1, reset: 1}); U.localMs = U.ms; U.localAt = [cx, cz, R]; }
+    catch (e) { ERR('local', (e && (e.stack || e.message)) || String(e)); }
+    finally { U.noY = 0; U.box = null; U.ms = 0; }
+    return U.cells || 0;
+  };
   const gen = generate; generate = function () {
     const L = window.__glenLoad;
     if (L && L.skipPost && L.skipPost(41)) return gen.apply(this, arguments);
@@ -46587,41 +46658,7 @@ function make42(E) {
     if (st && st.didInner) r = st.r;
     else r = gen.apply(this, arguments);
     try { if (on()) {
-        const t0 = (st && st.t0) ? st.t0 : performance.now();
-        if (!st) { EQ = null; RE0 = 0; U.nBump = 0; U.nSkip = 0; U.nThrow = 0; U.workMs = 0; U.dprof = {}; U.mouths = []; U.halls = 0; U.worms = 0; U.ravines = 0; U.holes = 0; U.uw = 0; U.seams = 0; U.cover = 0; U.cells = 0; U.feat = {ravines: [], holes: [], halls: [], uw: []}; }
-        else { U.worms = st.worms || 0; U.halls = st.halls || 0; U.ravines = st.ravines || 0; U.holes = st.holes || 0; U.uw = st.uw || 0; U.seams = st.seams || 0; U.cover = st.cover || 0; }
-        let s = st ? st.sd : (((gSeed | 0) ^ 0x2740c) >>> 0);
-        const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-        U._retR = r;
-        try { ensureEQ(); } catch (_) {}
-        // Start C274 on its own slice so it does not sit on the previous post's stall.
-        if (L && (L.held || (!window.__noQR1398 && L._softHold)) && L.YIELD && !st) {
-          if (!L._loop) L._loop = {};
-          L._loop.c274 = {phase: 'pits', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0,
-            worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r};
-          try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
-          throw L.YIELD;
-        }
-        let tp;
-        if (st && st.tp) tp = st.tp;
-        else { const tA = performance.now(); tp = tops(); U.topsMs = Math.round(performance.now() - tA); }
-        if (!st || st.phase === 'pits') { const tB = performance.now(); pits(tp); U.pitsMs = Math.round(performance.now() - tB); }
-        if (st && st.phase === 'pits' && L && (L.held || (!window.__noQR1398 && L._softHold)) && L.YIELD) {
-          if (!L._loop) L._loop = {};
-          L._loop.c274 = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0,
-            worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r, tp: tp};
-          try { L.touch(84, 'Carving the caves…', 92); } catch (_) {}
-          throw L.YIELD;
-        }
-        if (st && st.phase === 'pits') st = {phase: 'worms', i: 0, sd: s, t0: t0, pts: [], usedW: [], usedS: [], usedU: [], cells: 0, worms: 0, halls: 0, ravines: 0, holes: 0, uw: 0, seams: 0, cover: 0, didInner: 1, r: r, tp: tp};
-        const pts = runNetwork(tp, rnd, () => s, t0, st);
-        mouths(tp, rnd, pts || U.pts || []);
-        try { punchDown(tp, rnd); } catch (e) { ERR('punch', e); }
-        try { hardenSpawn(tp); } catch (e) { ERR('spawn', e); }
-        try { for (let i = 0; i < W * D; i++) g9cols[i * 2] = tp[i] + 1; } catch (_) {}
-        try { dirtyAll = true; } catch (_) {}
-        if (L && L._loop) L._loop.c274 = null;
-        U.ms = Math.round(performance.now() - t0);
+        U.run({st: st, r: r});
       } } catch (e) { if (window.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e; ERR('gen', e); } { if (window.__glenLoad && __glenLoad.markPost) __glenLoad.markPost(41); return r; } };
 })();
 
@@ -63663,6 +63700,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.152","d":"2026-11-27","notes":["Caves, ravines and sinkholes are carved around you before you start walking a new world. The rest of the glen gets them as soon as the land is finished.","A new or Reset world uses the current sculpted Highlands around spawn from the start, not the older hills. The rest of the map catches up as soon as the land is finished. Older worlds that were saved without caves get them too, without changing anything you placed."]},
 {"v":"v1.2.151","d":"2026-11-27","notes":["Smoother frame rate, up to 120 fps on 90/120 Hz phones and TVs. Performance mode no longer locks the game to 30 fps; it now runs at your screen's full rate with its lighter graphics.","Less work every frame: the scope-glass and time-box checks skip work they already did, and chunk building takes a smaller share of each frame on fast screens (same building speed per second) so 120 Hz frames stay short. Caves, terrain, guns and the arm rig look and behave the same. window.__noFps1414 = 1 before load restores the old behaviour."]},
 {"v":"v1.2.150","d":"2026-11-27","notes":["Caves: see right across big caverns. Underground the game now traces what you can actually see through the open cave air and draws those chunks out to at least 144 blocks (further with a higher render distance), the ones in front of you first, always with their full cave walls. There is no fog wall and no void any more: the view reaches as far as the cave has been fully drawn, the space beyond is dark rock and never sky, and it opens out within a moment as the far chunks arrive. Chunks you cannot see underground are skipped, which keeps it smooth. Seam walls at the edge of ground that is still arriving are rebuilt once the land is there. Blocks, caves and terrain are unchanged. Flag __noCV1417."]},
 {"v":"v1.2.149","d":"2026-11-26","notes":["You can move as soon as you enter a new world. Since 1.2.148 the background step that finishes the land, caves, ravines and sinkholes ran in one go right after you entered, so the game froze until it was done. It now runs in small steps with a frame drawn between each, so you can walk, look and jump while it finishes. The Scotland shape, surface paint and torch light scan that follow are done the same way, and when the land finishes you stay where you are instead of being put back at the spawn point. Your caves and ravines are unchanged. Flag __noPY1415."]},
@@ -107345,6 +107383,235 @@ try {
       try { WIN.rebuild = rebuild; } catch (_) {}
     }
   } catch (e) { ERR('rebuild', e); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script>
+/* ===================== GLX-CAVE1427 (t1427): caves and the current Highlands
+   map are there when you start walking a new or reset world, not minutes later.
+   Quick Resume still lets you in early, but the visible ring around spawn is
+   carved first. The rest of the glen gets the same caves as soon as the land is
+   finished. Reset world uses the current 2x map. Older worlds that never got
+   caves get one carve into untouched natural ground only (anything you placed
+   is left alone). Off: window.__noCave1427 = 1. ===================== */
+(function cave1427(WIN) {
+  const U = WIN.__cave1427 = {err: null, local: 0, full: 0, resume: 0, want: 0, kick: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  if (WIN.__noCave1427) { U.err = 'flag'; return; }
+  const qa = () => { try { return /(?:\?|&)qa=/.test(location.search || ''); } catch (_) { return false; } };
+  const onH = () => { try { return !!(WIN.__g89 && __g89()); } catch (_) { return false; } };
+
+  /* New / reset survival: always request the current 2x sculpted Highlands.
+     (createGo already does this; Reset world and other enterWorld(null) paths did not.) */
+  try {
+    const ew = enterWorld;
+    enterWorld = function (save) {
+      try {
+        if (!qa() && !save && typeof current !== 'undefined' && current && current.mode !== 'creative') {
+          if (WIN.__v1308) { WIN.__v1308.want = 1; U.want++; }
+        }
+      } catch (e) { ERR('ew', e); }
+      return ew.apply(this, arguments);
+    };
+  } catch (e) { ERR('ew0', e); }
+
+  /* Carve the spawn ring after the disc is filled, still on the loading
+     screen, before control is handed over. */
+  function carveLocal() {
+    try {
+      const C = WIN.__c274;
+      if (!C || typeof C.carveAround !== 'function') return 0;
+      if (!onH()) return 0;
+      if (C.localMs) return C.localMs;
+      let sx, sz, R = 120;
+      try {
+        const Q = WIN.__qr1398;
+        const sp = (Q && Q.officialXZ && Q.officialXZ()) || (WIN.__v1308 && __v1308.spawn) || (typeof g9spawn !== 'undefined' && g9spawn);
+        if (sp) { sx = (sp[0] != null ? sp[0] : sp.x) | 0; sz = (sp[2] != null ? sp[2] : (sp[1] != null ? sp[1] : sp.z)) | 0; }
+        const ch = (typeof CH === 'number' && CH) || 26;
+        let sr = 4; try { if (typeof streamRadius === 'function') sr = Math.max(sr, streamRadius() | 0); } catch (_) {}
+        R = Math.max(88, (sr + 2) * ch);
+      } catch (_) {}
+      if (sx == null || sz == null) return 0;
+      try {
+        const Q = WIN.__qr1398 || (WIN.__qr1398 = {});
+        Q.discSX = sx; Q.discSZ = sz; Q.discR = R;
+        Q.inDisc = function (x, z) { return Math.max(Math.abs((x | 0) - sx), Math.abs((z | 0) - sz)) <= R; };
+      } catch (_) {}
+      const n = C.carveAround(sx, sz, R);
+      U.local++; U.localN = n; U.localAt = [sx, sz, R];
+      return n;
+    } catch (e) { ERR('local', e); return 0; }
+  }
+
+  try {
+    const hook = () => {
+      const Q = WIN.__qr1398;
+      if (!Q || typeof Q.fillSpawnDisc !== 'function' || Q.fillSpawnDisc.__cave1427) return !!Q;
+      const fd = Q.fillSpawnDisc;
+      Q.fillSpawnDisc = function (ctx) {
+        const GL = WIN.__glenLoad;
+        const res = GL && GL._qrEnterResolve;
+        if (typeof res === 'function' && !res.__cave1427) {
+          const wrap = function () {
+            try { carveLocal(); } catch (e) { ERR('pre', e); }
+            try { if (GL._qrEnterResolve === wrap) GL._qrEnterResolve = res; } catch (_) {}
+            return res.apply(this, arguments);
+          };
+          wrap.__cave1427 = 1;
+          GL._qrEnterResolve = wrap;
+        }
+        /* Lay the current sculpted Highlands (V1308 / t1327–t1356 hT) in the
+           spawn disc, after growing to H=128, so a new world does not open
+           on the older g9height hills. Flag: __noCave1427. */
+        let gh = null;
+        try {
+          try { if (WIN.__v1308 && typeof __v1308.preScot === 'function') __v1308.preScot(); } catch (e) { ERR('preScot', e); }
+          const A = WIN.__c341, V = WIN.__v1308;
+          if (A && typeof A.hT === 'function' && V && V.isScaled && V.isScaled()) {
+            gh = g9height;
+            g9height = function (x, z) {
+              try {
+                const h = A.hT(x, z), g = h[0] | 0;
+                const sea = (typeof SEA === 'number' ? SEA : 31);
+                const capH = (typeof H === 'number' ? H : 90) - 2;
+                const top = Math.max(2, Math.min(capH, sea + g - 1));
+                const r = gh(x, z);
+                r.h = top;
+                r.loch = g <= 0;
+                if (g <= 2 && h[2] != null && h[2] < 0.62) r.sand = 1;
+                return r;
+              } catch (_) { return gh(x, z); }
+            };
+            U.map = (U.map || 0) + 1;
+          }
+          try {
+            const sp = (Q.officialXZ && Q.officialXZ()) || (V && V.spawn) || (typeof g9spawn !== 'undefined' && g9spawn);
+            if (sp) {
+              const sx = (sp[0] != null ? sp[0] : sp.x) | 0;
+              const sz = (sp[2] != null ? sp[2] : (sp[1] != null ? sp[1] : sp.z)) | 0;
+              const ch = (typeof CH === 'number' && CH) || 26;
+              let sr = 4; try { if (typeof streamRadius === 'function') sr = Math.max(sr, streamRadius() | 0); } catch (_) {}
+              const R = Math.max(88, (sr + 2) * ch);
+              Q.discSX = sx; Q.discSZ = sz; Q.discR = R;
+              Q.inDisc = function (x, z) { return Math.max(Math.abs((x | 0) - sx), Math.abs((z | 0) - sz)) <= R; };
+            }
+          } catch (_) {}
+        } catch (e) { ERR('map', e); }
+        try { return fd.apply(this, arguments); }
+        finally { if (gh) try { g9height = gh; } catch (_) {} }
+      };
+      Q.fillSpawnDisc.__cave1427 = 1;
+      return true;
+    };
+    if (!hook()) { const t = setInterval(() => { if (hook()) clearInterval(t); }, 200); setTimeout(() => clearInterval(t), 20000); }
+  } catch (e) { ERR('qr', e); }
+
+  /* Remember that this world has the current caves, so a mid-load save
+     can still resume a missing carve on the next open. */
+  try {
+    const se = serialize;
+    serialize = function () {
+      const d = se.apply(this, arguments);
+      try {
+        const C = WIN.__c274;
+        if (d && !d.dim && C && (C.ms > 0 || C.localMs > 0)) d.c274 = {v: 1, ms: C.ms || 0, local: C.localMs || 0, worms: C.worms || 0, halls: C.halls || 0, ravines: C.ravines || 0, holes: C.holes || 0};
+      } catch (e) { ERR('ser', e); }
+      return d;
+    };
+  } catch (e) { ERR('ser0', e); }
+
+  try {
+    const ap = applySave;
+    applySave = function (d) {
+      const r = ap.apply(this, arguments);
+      try {
+        if (d && !d.dim) U.need = !(d.c274 && d.c274.v === 1);
+      } catch (_) {}
+      return r;
+    };
+  } catch (e) { ERR('ap', e); }
+
+  /* Existing Highlands world with no cave marker: one carve, natural blocks only. */
+  setInterval(() => {
+    try {
+      if (U.need !== true) return;
+      if (typeof started === 'undefined' || !started) return;
+      if (typeof DIM !== 'undefined' && (DIM.cur || DIM.busy)) return;
+      const L = WIN.__glenLoad;
+      if (L && (L.held || L._softHold || L._inPosts1415 || L._deferPosts || !L.genDone)) return;
+      const C = WIN.__c274;
+      if (!C || typeof C.run !== 'function' || !onH()) { U.need = false; return; }
+      if (C.ms > 0) { U.need = false; return; }
+      U.need = false;
+      U.resume++;
+      try { C.run({noYield: 1, reset: 1}); } catch (e) { ERR('resume', e); }
+    } catch (e) { ERR('tick', e); }
+  }, 1200);
+
+  /* Start the Scotland reshape as soon as GEN9 has filled the land, not after
+     the cave post chain. Full C274 waits so it carves the sculpted ground. */
+  const kickScot = () => {
+    const A = WIN.__c341, L = WIN.__glenLoad;
+    if (!A || A.done || A.busy || typeof A.migrate !== 'function') return 0;
+    if (typeof started === 'undefined' || !started) return 0;
+    if (typeof DIM !== 'undefined' && DIM && (DIM.cur || DIM.busy)) return 0;
+    if (L && (!L.genDone || L._g9)) return 0;
+    U.kick++;
+    A.migrate();
+    return 1;
+  };
+  try {
+    const L = WIN.__glenLoad;
+    if (L && typeof L.runDeferredPosts === 'function' && !L.runDeferredPosts.__cave1427) {
+      const rd = L.runDeferredPosts;
+      L.runDeferredPosts = async function () {
+        try { kickScot(); } catch (e) { ERR('kick0', e); }
+        const r = await rd.apply(this, arguments);
+        try { kickScot(); } catch (e) { ERR('kick', e); }
+        return r;
+      };
+      L.runDeferredPosts.__cave1427 = 1;
+    }
+  } catch (e) { ERR('rd', e); }
+  try {
+    const hookRun = () => {
+      const C = WIN.__c274;
+      if (!C || typeof C.run !== 'function' || C.run.__cave1427s) return !!(C && C.run);
+      const r0 = C.run;
+      C.run = function (opts) {
+        try {
+          if (!WIN.__noCave1427 && !(opts && (opts.box || C.box))) {
+            const A = WIN.__c341, V = WIN.__v1308;
+            if (A && !A.done && V && V.isScaled && V.isScaled()) {
+              U.waitScot = (U.waitScot || 0) + 1;
+              const L = WIN.__glenLoad;
+              if (L && L.YIELD && !(opts && opts.noYield)) throw L.YIELD;
+              return 0;
+            }
+          }
+        } catch (e) {
+          if (WIN.__glenLoad && __glenLoad.isYield && __glenLoad.isYield(e)) throw e;
+          ERR('wait', e);
+        }
+        return r0.apply(this, arguments);
+      };
+      C.run.__cave1427s = 1;
+      return true;
+    };
+    if (!hookRun()) { const t = setInterval(() => { if (hookRun()) clearInterval(t); }, 200); setTimeout(() => clearInterval(t), 20000); }
+  } catch (e) { ERR('runw', e); }
+  setInterval(() => {
+    try {
+      kickScot();
+      const C = WIN.__c274, A = WIN.__c341, L = WIN.__glenLoad;
+      if (!C || typeof C.run !== 'function' || C.ms > 0) return;
+      if (A && !A.done) return;
+      if (L && (L.held || !L.genDone)) return;
+      if (!U.waitScot) return;
+      U.waitScot = 0;
+      C.run({reset: 1});
+    } catch (e) { ERR('tick2', e); }
+  }, 400);
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
