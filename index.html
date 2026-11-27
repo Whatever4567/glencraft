@@ -338,6 +338,7 @@ html.glen-portrait-lock,html.glen-portrait-lock body{overflow:hidden!important}
 <!-- glencraft-build: b1410-v1.2.148 -->
 <!-- glencraft-build: b1415-v1.2.149 -->
 <!-- glencraft-build: b1417-v1.2.150 -->
+<!-- glencraft-build: b1414-v1.2.151 -->
 <!-- glencraft-build: b1321-v1.2.121 -->
 <!-- glencraft-build: b1330-v1.2.118 -->
 <!-- glencraft-build: b1315-v1.2.115 -->
@@ -13802,7 +13803,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.150';
+const GAME_VERSION = '1.2.151';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -19145,7 +19146,8 @@ let last = performance.now();
 const waterTex = tex('water'), lavaTex = tex('lava');
 let TS = 1; // simulation steps per frame (test hook only)
 function frame(now) {
-  if (PERF && now - last < 1000 / 30 - 4) { requestAnimationFrame(frame); return; }
+  /* t1414 (v1.2.151): Performance mode no longer caps the game at 30 fps; it runs at the screen's rate like normal mode. Old cap: window.__noFps1414 = 1 (or __noUncap1414). */
+  if (PERF && (window.__noFps1414 || window.__noUncap1414) && now - last < 1000 / 30 - 4) { requestAnimationFrame(frame); return; }
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   const g = readPad();
@@ -63661,6 +63663,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.151","d":"2026-11-27","notes":["Smoother frame rate, up to 120 fps on 90/120 Hz phones and TVs. Performance mode no longer locks the game to 30 fps; it now runs at your screen's full rate with its lighter graphics.","Less work every frame: the scope-glass and time-box checks skip work they already did, and chunk building takes a smaller share of each frame on fast screens (same building speed per second) so 120 Hz frames stay short. Caves, terrain, guns and the arm rig look and behave the same. window.__noFps1414 = 1 before load restores the old behaviour."]},
 {"v":"v1.2.150","d":"2026-11-27","notes":["Caves: see right across big caverns. Underground the game now traces what you can actually see through the open cave air and draws those chunks out to at least 144 blocks (further with a higher render distance), the ones in front of you first, always with their full cave walls. There is no fog wall and no void any more: the view reaches as far as the cave has been fully drawn, the space beyond is dark rock and never sky, and it opens out within a moment as the far chunks arrive. Chunks you cannot see underground are skipped, which keeps it smooth. Seam walls at the edge of ground that is still arriving are rebuilt once the land is there. Blocks, caves and terrain are unchanged. Flag __noCV1417."]},
 {"v":"v1.2.149","d":"2026-11-26","notes":["You can move as soon as you enter a new world. Since 1.2.148 the background step that finishes the land, caves, ravines and sinkholes ran in one go right after you entered, so the game froze until it was done. It now runs in small steps with a frame drawn between each, so you can walk, look and jump while it finishes. The Scotland shape, surface paint and torch light scan that follow are done the same way, and when the land finishes you stay where you are instead of being put back at the spawn point. Your caves and ravines are unchanged. Flag __noPY1415."]},
 {"v":"v1.2.148","d":"2026-11-26","notes":["Caves, ravines and sinkholes are back on new worlds. Since 1.2.120 the background step that carves the Highlands caves, ravines and sinkholes after you enter often stopped when the loading bar finished, so most new worlds had almost none and few holes in the land. It now always runs to the end, the same as 1.2.119: winding tunnels, big caverns, ravines and sinkholes that open onto the surface. Worlds made since 1.2.120 keep their saved ground; make a new world to get them. Flag __noYP1410."]},
@@ -80939,6 +80942,8 @@ try {
       scene.traverse(o => {
         if (!o.isMesh && !o.isInstancedMesh) return;
         if (o.userData && (o.userData.t1264floor || o.userData.tboxFloor)) return;
+        /* t1414: nothing to patch on this mesh -> skip the parent walk (same result, much less work per frame) */
+        if (!window.__noFps1414) { const m0 = o.material; if (!m0) return; if (Array.isArray(m0)) { if (m0.every(m => !m || m.userData.t1264clip)) return; } else if (m0.userData.t1264clip) return; }
         /* Do not clip the time-box's own meshes (shell lives in the main scene). */
         let p = o, skip = false;
         while (p) {
@@ -93766,7 +93771,7 @@ try {
 
   const HZ = [30, 48, 50, 60, 72, 75, 90, 100, 120, 144, 165, 240];
   function snapHz(ms) { const f = 1000 / ms; let b = 60, d = 1e9; for (const h of HZ) { const x = Math.abs(h - f); if (x < d) { d = x; b = h; } } return b; }
-  function setHz(h) { U.hz = h; U.budget = 1000 / (perfMode ? Math.min(h, 30) : h); }
+  function setHz(h) { U.hz = h; U.budget = 1000 / (perfMode && (WIN.__noFps1414 || WIN.__noUncap1414) ? Math.min(h, 30) : h); }   /* t1414: no 30 fps budget in Performance mode */
 
   let last = 0, ints = [], jsAcc = 0, n = 0, intAcc = 0, slow = 0, cal = [];
   function active() {
@@ -104661,6 +104666,17 @@ try {
   function isScopeScreen(o) {
     if (!o) return false;
     const mat = o.material && (Array.isArray(o.material) ? o.material[0] : o.material);
+    /* t1414: remember the answer per object (same name + material = same answer) instead of a regex test every frame */
+    if (!W.__noFps1414) {
+      const c = o.__scs1414, mn = mat && mat.name;
+      if (c && c[0] === o.name && c[1] === mat && c[2] === mn) return c[3];
+      const r = isScopeScreen0(o, mat);
+      o.__scs1414 = [o.name, mat, mn, r];
+      return r;
+    }
+    return isScopeScreen0(o, mat);
+  }
+  function isScopeScreen0(o, mat) {
     const nm = ((o.name || '') + ' ' + ((mat && mat.name) || '')).toLowerCase();
     if (/bolt_action_rifle_7_62_scope|_scope$/.test(nm)) return true;
     if (/accesories_glass|accessories_glass/.test(nm)) return true;
@@ -104756,7 +104772,13 @@ try {
     if (off()) { U.on = 0; return; }
     try { if (typeof held !== 'undefined' && held) hideScreens(held); } catch (_) {}
     try { if (typeof worldModel !== 'undefined' && worldModel) hideScreens(worldModel); } catch (_) {}
-    try { if (typeof scene !== 'undefined' && scene) hideScreens(scene); } catch (_) {}
+    /* t1414: the held item, the body and the camera (first-person guns) are still checked on every call; the whole-scene
+       pass (thousands of terrain meshes) runs at most once per frame and 4 times a second. Off: window.__noFps1414 = 1. */
+    try {
+      const F = W.__fps1414, fid = F && !W.__noFps1414 ? F.fid : -1, now = performance.now();
+      if (fid >= 0) { try { if (typeof camera !== 'undefined' && camera) hideScreens(camera); } catch (_) {} }
+      if (fid < 0 || (U._sf1414 !== fid && !(now - (U._st1414 || 0) < 250))) { U._sf1414 = fid; U._st1414 = now; if (typeof scene !== 'undefined' && scene) hideScreens(scene); }
+    } catch (_) {}
     U.on = 1;
   }
 
@@ -107276,6 +107298,53 @@ try {
   } catch (e) { ERR('obr0', e); }
   U.state = () => ({on: U.on, active: U.active, Rc: U.Rc, seen: U.seen, built: U.built, buildMs: U.buildMs, maxBuild: U.maxBuild, rays: U.rays, rayMs: U.rayMs,
     horizon: U.horizon, why: U.why, fogF: U.fogF, camFar: U.camFar, unl: U.unl, hid: U.hid, skyOpen: U.skyOpen, skyHid: U.skyHid, queue: U.queue, waitN: U.waitN, veil: U.veil || 0, again: U.again || 0, veilW: U.veilW || 0, err: U.err});
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script id="glx-fps1414">
+/* ===================== GLX-FPS1414 (t1414, v1.2.151): frame-rate work for 90/120 Hz phones and TVs.
+   - Performance mode no longer caps at 30 fps (edit in frame() and the GLX-PERF1286 budget).
+   - Scope-glass sweep (GLX-RIFLE1392) runs its whole-scene pass once per frame (frame id below).
+   - Chunk meshing budget per frame is scaled by 60 / refresh rate on screens of 90 Hz and up, so the meshing work per
+     second is the same as at 60 Hz but each 120 Hz frame stays short. Terrain blocks and cave shapes are not touched.
+   Nothing is saved. Off switch for all of it: window.__noFps1414 = 1 before load
+   (single parts: __noUncap1414, __noBudget1414). ===================== */
+(function fps1414(WIN) {
+  const U = WIN.__fps1414 = {version: 'fps-1414', err: null, fid: 0, budget: {scaled: 0, last: null}};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 240); };
+  const off = () => !!WIN.__noFps1414;
+  /* frame id (for once-per-frame work) */
+  try {
+    if (typeof frame === 'function' && !frame.__fps1414) {
+      const f0 = frame;
+      frame = function () { U.fid = (U.fid + 1) | 0; return f0.apply(this, arguments); };
+      for (const k in f0) try { frame[k] = f0[k]; } catch (_) {}
+      frame.__fps1414 = 1;
+    }
+  } catch (e) { ERR('frame', e); }
+
+  /* ---- chunk meshing budget on fast screens ---- */
+  try {
+    if (typeof rebuild === 'function' && !rebuild.__fps1414) {
+      const rb = rebuild;
+      const f = function (budget) {
+        if (!off() && !WIN.__noBudget1414 && arguments.length === 1 && typeof budget === 'number' && budget > 0 && budget <= 16) {
+          try {
+            const G = WIN.__perf1286, hz = G && G.on === 1 ? G.hz : 60;
+            if (hz >= 90 && typeof started !== 'undefined' && started && !(typeof screen !== 'undefined' && screen === 'loading')) {
+              const b = Math.max(2, budget * 60 / hz);
+              U.budget.scaled++; U.budget.last = [budget, +b.toFixed(2), hz];
+              return rb.call(this, b);
+            }
+          } catch (e) { ERR('budget', e); }
+        }
+        return rb.apply(this, arguments);
+      };
+      for (const k of Object.keys(rb)) if (k.startsWith('__') || k.startsWith('_p')) try { f[k] = rb[k]; } catch (_) {}
+      f.__fps1414 = 1;
+      rebuild = f;
+      try { WIN.rebuild = rebuild; } catch (_) {}
+    }
+  } catch (e) { ERR('rebuild', e); }
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
