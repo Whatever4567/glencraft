@@ -265,6 +265,8 @@
       scene.traverse(o => {
         if (!o.isMesh && !o.isInstancedMesh) return;
         if (o.userData && (o.userData.t1264floor || o.userData.tboxFloor)) return;
+        /* t1414: nothing to patch on this mesh -> skip the parent walk (same result, much less work per frame) */
+        if (!window.__noFps1414) { const m0 = o.material; if (!m0) return; if (Array.isArray(m0)) { if (m0.every(m => !m || m.userData.t1264clip)) return; } else if (m0.userData.t1264clip) return; }
         /* Do not clip the time-box's own meshes (shell lives in the main scene). */
         let p = o, skip = false;
         while (p) {

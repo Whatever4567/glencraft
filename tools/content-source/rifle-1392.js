@@ -17,6 +17,17 @@
   function isScopeScreen(o) {
     if (!o) return false;
     const mat = o.material && (Array.isArray(o.material) ? o.material[0] : o.material);
+    /* t1414: remember the answer per object (same name + material = same answer) instead of a regex test every frame */
+    if (!W.__noFps1414) {
+      const c = o.__scs1414, mn = mat && mat.name;
+      if (c && c[0] === o.name && c[1] === mat && c[2] === mn) return c[3];
+      const r = isScopeScreen0(o, mat);
+      o.__scs1414 = [o.name, mat, mn, r];
+      return r;
+    }
+    return isScopeScreen0(o, mat);
+  }
+  function isScopeScreen0(o, mat) {
     const nm = ((o.name || '') + ' ' + ((mat && mat.name) || '')).toLowerCase();
     if (/bolt_action_rifle_7_62_scope|_scope$/.test(nm)) return true;
     if (/accesories_glass|accessories_glass/.test(nm)) return true;
@@ -112,7 +123,13 @@
     if (off()) { U.on = 0; return; }
     try { if (typeof held !== 'undefined' && held) hideScreens(held); } catch (_) {}
     try { if (typeof worldModel !== 'undefined' && worldModel) hideScreens(worldModel); } catch (_) {}
-    try { if (typeof scene !== 'undefined' && scene) hideScreens(scene); } catch (_) {}
+    /* t1414: the held item, the body and the camera (first-person guns) are still checked on every call; the whole-scene
+       pass (thousands of terrain meshes) runs at most once per frame and 4 times a second. Off: window.__noFps1414 = 1. */
+    try {
+      const F = W.__fps1414, fid = F && !W.__noFps1414 ? F.fid : -1, now = performance.now();
+      if (fid >= 0) { try { if (typeof camera !== 'undefined' && camera) hideScreens(camera); } catch (_) {} }
+      if (fid < 0 || (U._sf1414 !== fid && !(now - (U._st1414 || 0) < 250))) { U._sf1414 = fid; U._st1414 = now; if (typeof scene !== 'undefined' && scene) hideScreens(scene); }
+    } catch (_) {}
     U.on = 1;
   }
 
