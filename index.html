@@ -40366,6 +40366,275 @@ body.touch:not(.inmenu) #fsBtn{top:calc(8px + var(--sat))!important;right:calc(1
   U.force = t => { setWeather(t || 'heavy'); weather.pending = null; };
 })();
 
+/* ===================== GLX-RAIN1440: heavier, more realistic rain - streaked wind-slanted drops with depth (near = faster, bigger, brighter; far = fainter),
+   gusting wind, splash rings + droplet sprays where drops land on the ground, water, roofs and castle walls, puddles that grow while it rains and
+   shrink as it dries, and a light rain mist. Replaces the thin line drops and the old puddle decals of C164 / C70 (they are only hidden, not deleted).
+   Phone-safe: every pool is preallocated and capped, splashes and puddle ripples are animated on the GPU (no per-frame CPU work), the drop count
+   scales with the Graphics setting / touch mode and backs off by itself if the frame rate drops. Off: window.__noRain1440 = 1. ===================== */
+(function rain1440() {
+  const U = window.__rain1440 = {err: null, on: false, drops: 0, scale: 1, ripples: 0, sprays: 0, puddles: 0, gust: 0, wind: [0, 0], ms: 0, hidden: 0};
+  const ERR = e => { if (!U.err) U.err = String(e && e.stack || e); console.warn('rain1440', e); };
+  if (window.__noRain1440) { U.err = 'flag'; return; }
+  try {
+    const PH = typeof touchMode !== 'undefined' && !!touchMode;
+    const LV = (typeof PERF !== 'undefined' && PERF) || GFX === 'fast' ? 0 : GFX === 'fancy' ? 1 : 2;   // existing Graphics setting
+    const NMAX = (PH ? [450, 820, 1000] : [800, 1500, 2100])[LV];           // streaked drops
+    const R = PH ? 12 : 16, RC = R + 3;                                    // rain column radius round the player
+    const NRIP = PH ? 48 : 110, NSPR = PH ? 150 : 380, NPUD = (PH ? [6, 10, 14] : [10, 18, 28])[LV];   // pools
+    const RS = PH ? 9 : 13;                                                // splash radius (impacts further out are not drawn)
+    const MAXIMP = PH ? 5 : 10;                                            // splash spawns per frame at most
+    const clock = {t: 1000};
+    const uni = {
+      uTime: {value: 0}, uWind: {value: new THREE.Vector2()}, uCol: {value: new THREE.Color(0xc8d4e2)}, uK: {value: 0}, uR: {value: R},
+      uWet: {value: 0}, uRain: {value: 0}, uLight: {value: 1}, uSky: {value: new THREE.Color(0x8a96a6)}, uFogCol: {value: new THREE.Color(0x56606a)},
+      uFogNear: {value: 30}, uFogFar: {value: 90}, uPx: {value: 600}
+    };
+    const COMMON_F = 'uniform vec3 uFogCol; uniform float uFogNear; uniform float uFogFar;\n';
+    // ---------- drops: camera-facing streak quads along the wind-slanted fall direction ----------
+    const dg = new THREE.InstancedBufferGeometry();
+    dg.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, 1, 1, 0, -1, 1, 0]), 3));
+    const dPos = new Float32Array(NMAX * 3), dVar = new Float32Array(NMAX * 3), dVel = new Float32Array(NMAX);
+    const aPos = new THREE.InstancedBufferAttribute(dPos, 3), aVar = new THREE.InstancedBufferAttribute(dVar, 3);
+    aPos.setUsage(THREE.DynamicDrawUsage); aVar.setUsage(THREE.DynamicDrawUsage);
+    dg.setAttribute('aPos', aPos); dg.setAttribute('aVar', aVar); dg.instanceCount = 0;
+    const dm = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false, side: THREE.DoubleSide,
+      vertexShader: 'attribute vec3 aPos; attribute vec3 aVar; uniform vec2 uWind; uniform float uR; varying vec2 vE; varying float vA;\n' +
+        'void main() {\n vec3 vel = vec3(uWind.x, -aVar.x, uWind.y); vec3 ax = normalize(vel); float L = aVar.x * 0.034 * aVar.y;\n' +
+        ' vec3 mid = aPos - ax * (L * position.y); float d = distance(cameraPosition, mid);\n' +
+        ' vec3 side = normalize(cross(ax, normalize(cameraPosition - mid)));\n' +
+        ' float w = (0.0055 + 0.0035 * aVar.y) * (1.0 + d * 0.09);\n' +
+        ' vec3 wp = mid + side * position.x * w;\n' +
+        ' float fade = (1.0 - smoothstep(uR * 0.55, uR * 1.02, d)) * smoothstep(0.5, 2.2, d);\n' +
+        ' vA = aVar.z * fade * (1.0 - position.y * 0.5); vE = vec2(position.x, position.y);\n' +
+        ' gl_Position = projectionMatrix * viewMatrix * vec4(wp, 1.0);\n}',
+      fragmentShader: 'uniform vec3 uCol; uniform float uK; varying vec2 vE; varying float vA;\n' +
+        'void main() {\n float e = 1.0 - vE.x * vE.x; float a = vA * uK * e * 1.5;\n if (a < 0.01) discard;\n gl_FragColor = vec4(uCol, min(a, 0.9));\n}'
+    });
+    const drops = new THREE.Mesh(dg, dm); drops.frustumCulled = false; drops.renderOrder = 6; drops.visible = false; scene.add(drops);
+    // ---------- splash rings: flat expanding ripples (GPU animated from a spawn time) ----------
+    const rg = new THREE.InstancedBufferGeometry();
+    rg.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, -1, 1, 0, 1, -1, 0, 1]), 3));
+    const rA = new Float32Array(NRIP * 4).fill(0), rB = new Float32Array(NRIP);
+    for (let i = 0; i < NRIP; i++) rA[i * 4 + 3] = -999;
+    const raA = new THREE.InstancedBufferAttribute(rA, 4), raB = new THREE.InstancedBufferAttribute(rB, 1);
+    raA.setUsage(THREE.DynamicDrawUsage); raB.setUsage(THREE.DynamicDrawUsage);
+    rg.setAttribute('aRip', raA); rg.setAttribute('aSz', raB); rg.instanceCount = NRIP;
+    const rm = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+      vertexShader: 'attribute vec4 aRip; attribute float aSz; uniform float uTime; varying vec2 vP; varying float vAge; varying float vD;\n' +
+        'void main() {\n float age = (uTime - aRip.w) / 0.55; vAge = age; vP = position.xz;\n' +
+        ' if (age < 0.0 || age > 1.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }\n' +
+        ' float r = aSz * (0.18 + 0.82 * sqrt(age));\n vec4 mv = viewMatrix * vec4(aRip.xyz + vec3(position.x * r, 0.0, position.z * r), 1.0); vD = -mv.z;\n gl_Position = projectionMatrix * mv;\n}',
+      fragmentShader: COMMON_F + 'uniform vec3 uCol; uniform float uLight; uniform float uK; varying vec2 vP; varying float vAge; varying float vD;\n' +
+        'void main() {\n float d = length(vP); if (d > 1.0) discard;\n float ring = smoothstep(0.62, 0.86, d) * (1.0 - smoothstep(0.86, 1.0, d));\n' +
+        ' float a = ring * (1.0 - vAge) * (1.0 - vAge) * 0.85 * uK;\n if (a < 0.01) discard;\n' +
+        ' vec3 c = mix(uCol, uFogCol, smoothstep(uFogNear, uFogFar, vD)); gl_FragColor = vec4(c * (0.55 + 0.45 * uLight), a);\n}'
+    });
+    const ripples = new THREE.Mesh(rg, rm); ripples.frustumCulled = false; ripples.renderOrder = 6; ripples.visible = false; scene.add(ripples);
+    // ---------- droplet sprays: tiny ballistic points (GPU animated: p = p0 + v t + g t^2 / 2) ----------
+    const sg = new THREE.BufferGeometry();
+    const sP = new Float32Array(NSPR * 3), sV = new Float32Array(NSPR * 3), sT = new Float32Array(NSPR).fill(-999);
+    const saP = new THREE.BufferAttribute(sP, 3), saV = new THREE.BufferAttribute(sV, 3), saT = new THREE.BufferAttribute(sT, 1);
+    saP.setUsage(THREE.DynamicDrawUsage); saV.setUsage(THREE.DynamicDrawUsage); saT.setUsage(THREE.DynamicDrawUsage);
+    sg.setAttribute('position', saP); sg.setAttribute('aV', saV); sg.setAttribute('aT', saT);
+    const sm = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false,
+      vertexShader: 'attribute vec3 aV; attribute float aT; uniform float uTime; uniform float uPx; varying float vA;\n' +
+        'void main() {\n float t = uTime - aT; vA = 1.0 - t / 0.42;\n' +
+        ' if (t < 0.0 || t > 0.42) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; }\n' +
+        ' vec3 p = position + aV * t + vec3(0.0, -9.0 * t * t * 0.5, 0.0);\n vec4 mv = viewMatrix * vec4(p, 1.0);\n' +
+        ' gl_PointSize = clamp(0.05 * uPx / max(-mv.z, 0.3), 1.6, 6.0); gl_Position = projectionMatrix * mv;\n}',
+      fragmentShader: 'uniform vec3 uCol; uniform float uK; varying float vA;\n' +
+        'void main() {\n vec2 q = gl_PointCoord - 0.5; float r = dot(q, q) * 4.0; if (r > 1.0) discard;\n gl_FragColor = vec4(uCol, vA * (1.0 - r) * 0.9 * uK);\n}'
+    });
+    const sprays = new THREE.Points(sg, sm); sprays.frustumCulled = false; sprays.renderOrder = 6; sprays.visible = false; scene.add(sprays);
+    // ---------- puddles: dark glossy patches that reflect the sky, grow with the wetness and ripple under the rain ----------
+    const pg = new THREE.InstancedBufferGeometry();
+    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, 0, -1, 1, 0, -1, 1, 0, 1, -1, 0, -1, 1, 0, 1, -1, 0, 1]), 3));
+    const pA = new Float32Array(NPUD * 4), pB = new Float32Array(NPUD * 4);
+    const paA = new THREE.InstancedBufferAttribute(pA, 4), paB = new THREE.InstancedBufferAttribute(pB, 4);
+    paA.setUsage(THREE.DynamicDrawUsage); paB.setUsage(THREE.DynamicDrawUsage);
+    pg.setAttribute('aPud', paA); pg.setAttribute('aPud2', paB); pg.instanceCount = NPUD;
+    const pm = new THREE.ShaderMaterial({
+      uniforms: uni, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+      vertexShader: 'attribute vec4 aPud; attribute vec4 aPud2; uniform float uWet; uniform float uTime; varying vec2 vP; varying float vSeed; varying float vGrow; varying float vD; varying vec3 vV;\n' +
+        'void main() {\n float g = smoothstep(aPud2.x, aPud2.x + 0.3, uWet) * smoothstep(0.0, 3.0, uTime - aPud2.z); vGrow = g; vP = position.xz; vSeed = aPud2.y;\n' +
+        ' if (g < 0.02 || aPud.w <= 0.0) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }\n' +
+        ' float r = aPud.w * (0.35 + 0.65 * g);\n vec3 wp = aPud.xyz + vec3(position.x * r, 0.0, position.z * r);\n vV = normalize(cameraPosition - wp);\n' +
+        ' vec4 mv = viewMatrix * vec4(wp, 1.0); vD = -mv.z; gl_Position = projectionMatrix * mv;\n}',
+      fragmentShader: COMMON_F + 'uniform vec3 uSky; uniform float uLight; uniform float uTime; uniform float uRain; varying vec2 vP; varying float vSeed; varying float vGrow; varying float vD; varying vec3 vV;\n' +
+        'float hsh(float n) { return fract(sin(n * 91.345 + vSeed * 17.13) * 43758.5453); }\n' +
+        'void main() {\n float d = length(vP); float an = atan(vP.y, vP.x);\n' +
+        ' float edge = 0.78 + 0.16 * sin(an * 3.0 + vSeed * 6.0) + 0.09 * sin(an * 5.0 + vSeed * 11.0) + 0.05 * sin(an * 9.0 + vSeed * 3.0);\n' +
+        ' float m = 1.0 - smoothstep(edge - 0.16, edge, d); if (m < 0.01) discard;\n' +
+        ' float fres = 0.18 + 0.7 * pow(1.0 - clamp(vV.y, 0.0, 1.0), 2.0);\n' +
+        ' vec3 wetc = vec3(0.07, 0.085, 0.10) * (0.4 + 0.6 * uLight);\n vec3 col = mix(wetc, uSky * (0.5 + 0.5 * uLight), fres);\n' +
+        ' float rip = 0.0;\n for (int k = 0; k < 3; k++) { float fk = float(k); float ph = fract(uTime * (0.75 + 0.2 * hsh(fk + 1.0)) + hsh(fk + 7.0));\n' +
+        '   vec2 c = (vec2(hsh(fk + 3.0), hsh(fk + 5.0)) - 0.5) * 1.0; float dd = length(vP - c);\n' +
+        '   rip += smoothstep(0.07, 0.0, abs(dd - ph * 0.45)) * (1.0 - ph); }\n' +
+        ' col += vec3(0.55, 0.6, 0.66) * rip * uRain * (0.4 + 0.6 * uLight);\n' +
+        ' col = mix(col, uFogCol, smoothstep(uFogNear, uFogFar, vD));\n' +
+        ' gl_FragColor = vec4(col, m * (0.55 + 0.3 * fres) * smoothstep(0.02, 0.25, vGrow));\n}'
+    });
+    const puddles = new THREE.Mesh(pg, pm); puddles.frustumCulled = false; puddles.renderOrder = 4; puddles.visible = false; scene.add(puddles);
+
+    // ---------- column tops (cached grid round the player): solid top, or the water surface ----------
+    const GN = RC * 2 + 1, gTop = new Float32Array(GN * GN), gWet = new Uint8Array(GN * GN);
+    let gx = -99999, gz = -99999, gT = 0;
+    const NONE = -1e9;
+    function gridReset() { gx = Math.floor(P.x) - RC; gz = Math.floor(P.z) - RC; gTop.fill(NONE); gT = clock.t; }
+    function scanCol(x, z) {
+      if (x < 0 || z < 0 || x >= W || z >= D) return colTop(x, z);
+      const b0 = x * H * D + z;
+      for (let y = H - 1; y > 0; y--) { const b = world[b0 + y * D]; if (b === 0) continue; if (b === T.WATER) return -(y + 0.9); if (solid(x, y, z)) return y + 1; }
+      return 0;
+    }
+    function topAt(x, z) {   // > 0: solid top; < 0: water surface at -value
+      const i = x - gx, k = z - gz;
+      if (i < 0 || k < 0 || i >= GN || k >= GN) return scanCol(x, z);
+      const j = k * GN + i; let v = gTop[j]; if (v === NONE) { v = scanCol(x, z); gTop[j] = v; } return v;
+    }
+    // ---------- wind: slow direction drift plus gusts ----------
+    const wind = {a: 0.7, s: 0, gust: 0};
+    function updateWind(t, k) {
+      const a = 0.7 + 0.45 * Math.sin(t * 0.045) + 0.2 * Math.sin(t * 0.13 + 1.3);
+      const g = Math.max(0, Math.sin(t * 0.31) * Math.sin(t * 0.083 + 0.7) + 0.35 * Math.sin(t * 1.1));   // gust 0..1.3
+      wind.gust = g; wind.a = a; wind.s = (1.4 + 3.2 * g) * k;
+      uni.uWind.value.set(Math.cos(a) * wind.s, Math.sin(a) * wind.s); U.gust = Math.round(g * 100) / 100; U.wind = [Math.round(uni.uWind.value.x * 10) / 10, Math.round(uni.uWind.value.y * 10) / 10];
+    }
+    // ---------- spawn / recycle ----------
+    let ripI = 0, sprI = 0, imp = 0, ripN = 0, sprN = 0;
+    function spray(x, y, z, n, up, nx, nz) {
+      for (let c = 0; c < n; c++) { const i = sprI, a = Math.random() * 6.283, h = 0.35 + Math.random() * 0.9; sprI = (sprI + 1) % NSPR;
+        sP[i * 3] = x; sP[i * 3 + 1] = y; sP[i * 3 + 2] = z;
+        sV[i * 3] = Math.cos(a) * h + nx * 1.2; sV[i * 3 + 1] = up * (0.7 + Math.random() * 0.9); sV[i * 3 + 2] = Math.sin(a) * h + nz * 1.2; sT[i] = clock.t; sprN++; }
+      saP.needsUpdate = saV.needsUpdate = saT.needsUpdate = true;
+    }
+    function ripple(x, y, z, big) {
+      const i = ripI; ripI = (ripI + 1) % NRIP; rA[i * 4] = x; rA[i * 4 + 1] = y + 0.025; rA[i * 4 + 2] = z; rA[i * 4 + 3] = clock.t; rB[i] = (big ? 0.5 : 0.3) * (0.7 + Math.random() * 0.6); ripN++;
+      raA.needsUpdate = raB.needsUpdate = true;
+    }
+    function respawn(i, fresh) {
+      const px = P.x, pz = P.z;
+      for (let tr = 0; tr < 3; tr++) {
+        const a = Math.random() * 6.283, r = Math.sqrt(Math.random()) * R, x = px + Math.cos(a) * r, z = pz + Math.sin(a) * r, tp = topAt(Math.floor(x), Math.floor(z)), top = Math.abs(tp);
+        if (top > P.y + 24) continue;
+        const k = 1 - r / R, base = Math.max(top, P.y - 10);
+        dPos[i * 3] = x; dPos[i * 3 + 1] = base + (fresh ? Math.random() * 24 : 14 + Math.random() * 10); dPos[i * 3 + 2] = z;
+        dVel[i] = 18 + 9 * k + Math.random() * 3;                          // near drops fall faster
+        dVar[i * 3] = dVel[i]; dVar[i * 3 + 1] = 0.7 + 0.55 * k + Math.random() * 0.3;   // streak length / width scale: bigger when near
+        dVar[i * 3 + 2] = (0.3 + 0.62 * k) * (0.65 + Math.random() * 0.35);   // far drops are fainter
+        return;
+      }
+      dPos[i * 3 + 1] = -999; dVar[i * 3 + 2] = 0;
+    }
+    let was = false, nAct = 0;
+    function stepDrops(dt, n) {
+      const px = P.x, pz = P.z, wx = uni.uWind.value.x * dt, wz = uni.uWind.value.y * dt, R2 = R * 2; imp = 0;
+      for (let i = 0; i < n; i++) {
+        const o = i * 3; let x = dPos[o] + wx, y = dPos[o + 1] - dVel[i] * dt, z = dPos[o + 2] + wz;
+        let dx = x - px, dz = z - pz, wrapped = false;
+        if (dx > R) { x -= R2; wrapped = true; } else if (dx < -R) { x += R2; wrapped = true; }
+        if (dz > R) { z -= R2; wrapped = true; } else if (dz < -R) { z += R2; wrapped = true; }
+        if (wrapped || y < P.y - 12) { respawn(i, false); continue; }
+        const tp = topAt(Math.floor(x), Math.floor(z)), top = tp < 0 ? -tp : tp;
+        if (y < top) {
+          if (imp < MAXIMP && Math.random() < 0.34 && (x - px) * (x - px) + (z - pz) * (z - pz) < RS * RS) {
+            imp++;
+            if (dPos[o + 1] >= top - 0.05) {   // fell onto a flat top (ground, roof, battlement or water)
+              ripple(x, top, z, tp < 0 || Math.random() < 0.25); if (tp > 0 && Math.random() < 0.7) spray(x, top + 0.03, z, 2, 2.2, 0, 0);
+            } else spray(x, y, z, 2, 1.0, -Math.sign(wx) * 0.6, -Math.sign(wz) * 0.6);   // blew into a wall: splash off the face
+          }
+          respawn(i, false); continue;
+        }
+        dPos[o] = x; dPos[o + 1] = y; dPos[o + 2] = z;
+      }
+      aPos.needsUpdate = true;
+    }
+    // ---------- puddles ----------
+    const PUD_OK = new Set([T.GRASS, T.DIRT, T.STONE, T.COBBLE, T.STONEBRICK, T.MOSSYBRICK, T.SAND, T.SANDSTONE, T.PLANKS, T.PEAT, T.MUD, T.BRICK, T.DEEPSLATE, T.HEATHER].filter(v => v !== undefined));
+    const pOk = new Uint8Array(NPUD), pXZ = new Float32Array(NPUD * 2); let pTry = 0;
+    function putPud(i) {
+      const a = Math.random() * 6.283, rr = 2.5 + Math.random() * 13, x = Math.floor(P.x + Math.cos(a) * rr), z = Math.floor(P.z + Math.sin(a) * rr);
+      if (x < 2 || z < 2 || x >= W - 2 || z >= D - 2) return;
+      const t = topAt(x, z); if (t <= 0 || Math.abs(t - 1 - P.y) > 12) return;
+      const b = world[(x * H + t - 1) * D + z]; if (!PUD_OK.has(b) || world[(x * H + t) * D + z] !== 0) return;
+      let f4 = 0, f8 = 0; for (let ox = -1; ox <= 1; ox++) for (let oz = -1; oz <= 1; oz++) { if (!ox && !oz) continue; if (topAt(x + ox, z + oz) === t) { f8++; if (!ox || !oz) f4++; } }
+      let r; if (f8 === 8) r = 1.0 + Math.random() * 0.6; else if (f4 === 4) r = 0.55 + Math.random() * 0.35; else return;
+      for (let j = 0; j < NPUD; j++) if (pOk[j] && j !== i && Math.abs(pXZ[j * 2] - x) < 2 && Math.abs(pXZ[j * 2 + 1] - z) < 2) return;
+      pA[i * 4] = x + 0.5 + (Math.random() - 0.5) * 0.3; pA[i * 4 + 1] = t + 0.016; pA[i * 4 + 2] = z + 0.5 + (Math.random() - 0.5) * 0.3; pA[i * 4 + 3] = r;
+      pB[i * 4] = 0.12 + Math.random() * 0.62; pB[i * 4 + 1] = Math.random(); pB[i * 4 + 2] = clock.t; pOk[i] = 1; pXZ[i * 2] = x; pXZ[i * 2 + 1] = z; paA.needsUpdate = paB.needsUpdate = true;
+    }
+    function hidePud(i) { pOk[i] = 0; pA[i * 4 + 3] = 0; paA.needsUpdate = true; }
+    function managePuddles(wetv) {
+      let ch = 0;
+      for (let i = 0; i < NPUD; i++) {
+        if (pOk[i] && Math.hypot(pXZ[i * 2] - P.x, pXZ[i * 2 + 1] - P.z) > 21) hidePud(i);
+        if (!pOk[i] && wetv > 0.1) { putPud(i); if (!pOk[i]) putPud(i); }
+        if (pOk[i]) ch++;
+      }
+      U.puddles = ch;
+    }
+    // ---------- retire the old rain draws (C164 lines + sprays, C70 puddle decals) ----------
+    let oldPud = null, oldT = 0;
+    function findOld() { scene.traverse(o => { try { if (o.isInstancedMesh && o.material && o.material.alphaMap && o.material.color && o.material.color.getHex() === 0x4a5866) oldPud = o; } catch (_) {} }); }
+    // ---------- per frame ----------
+    let ema = 16, adapt = 1, pT = 0, mistK = 0;
+    const tmp = new THREE.Color(), WHITE = new THREE.Color(1, 1, 1), MIST = new THREE.Color(0.62, 0.67, 0.72);
+    const uw = updateWeather; updateWeather = function (dt) {
+      const r = uw.apply(this, arguments);
+      try {
+        const t0 = performance.now(), c = window.__c164;
+        if (!c || !c.lines) return r;
+        c.lines.visible = false; if (c.spl) c.spl.visible = false;
+        if (c.sheets) for (const s of c.sheets) s.m.opacity *= 0.8;      // keep a faint haze of streaks, the real drops are ours
+        if (!oldPud && (oldT -= dt) <= 0) { oldT = 3; findOld(); } if (oldPud) { oldPud.visible = false; oldPud.count = 0; }
+        clock.t += Math.min(dt, 0.1); uni.uTime.value = clock.t;
+        const wt = WEATHER[weather.type], on = !!c.on && !!wt.drops && !window.__noRain1440;
+        // frame-rate guard: back off the drop count when frames get long, creep back up when they are short
+        ema += (Math.min(dt, 0.2) * 1000 - ema) * 0.05;
+        if (!window.__rain1440Fixed) { if (ema > 38) adapt = Math.max(0.35, adapt - dt * 0.25); else if (ema < 26) adapt = Math.min(1, adapt + dt * 0.1); } else adapt = 1;
+        U.scale = Math.round(adapt * 100) / 100;
+        const inten = Math.min(1, weather.dark / Math.max(0.01, wt.dark || 1) + 0.15) * (weather.type === 'light' ? 0.55 : weather.type === 'thunder' ? 1.15 : 1);
+        const dk = window.__c216 ? __c216.deep : caveK, vis = on ? Math.min(1, inten) * (1 - dk) : 0;
+        // colours follow the sky / fog so night and storms read right
+        const fc = scene.fog ? scene.fog.color : null, lit = 0.35 + 0.65 * Math.max(0, Math.min(1, daylight));
+        if (fc) { tmp.copy(fc).lerp(WHITE, 0.62).multiplyScalar(0.62 + 0.38 * lit); uni.uCol.value.copy(tmp); uni.uSky.value.copy(fc).lerp(WHITE, 0.25).multiplyScalar(0.75 + 0.25 * lit); uni.uFogCol.value.copy(fc); uni.uFogNear.value = scene.fog.near; uni.uFogFar.value = scene.fog.far; }
+        uni.uLight.value = lit * (1 - 0.35 * weather.dark); uni.uPx.value = renderer.domElement.height * 0.5 / Math.tan((camera.fov || 70) * Math.PI / 360);
+        uni.uK.value = (0.7 + 0.3 * Math.min(1, vis)) * (1 + 0.8 * Math.min(1, flashA || 0)); uni.uRain.value = vis;
+        const wk = weather.type === 'light' ? 0.45 : weather.type === 'thunder' ? 1.5 : 1;
+        // ---- drops, rings, sprays
+        U.on = on && vis > 0.02; drops.visible = U.on; ripples.visible = U.on; sprays.visible = U.on;
+        if (U.on) {
+          if (!was) { gridReset(); for (let i = 0; i < NMAX; i++) respawn(i, true); aPos.needsUpdate = aVar.needsUpdate = true; was = true; }
+          if (clock.t - gT > 1.5 || Math.abs(P.x - gx - RC) > 5 || Math.abs(P.z - gz - RC) > 5) gridReset();
+          updateWind(clock.t, wk);
+          nAct = Math.max(40, Math.round(NMAX * adapt * Math.min(1, 0.2 + vis))); U.drops = nAct;
+          for (let i = 0; i < nAct; i++) { if (dVar[i * 3 + 2] === 0 && dPos[i * 3 + 1] < -900) respawn(i, true); }
+          stepDrops(Math.min(dt, 0.05), nAct); aVar.needsUpdate = true;
+          dg.instanceCount = nAct; U.ripples = ripN; U.sprays = sprN;
+        } else { was = false; dg.instanceCount = 0; }
+        // ---- wet look + puddles (grow while it is wet, shrink as it dries)
+        const wetv = !DIM.cur && typeof __wetLvl === 'function' ? __wetLvl() : 0, snowy = window.__snowWx && __snowWx();
+        uni.uWet.value = wetv; puddles.visible = !DIM.cur && !snowy && wetv > 0.12 && dk < 0.6;
+        if (puddles.visible || U.puddles) { pT -= dt; if (pT <= 0) { pT = 0.45; if (wetv <= 0.08 && U.puddles) { for (let i = 0; i < NPUD; i++) if (pOk[i]) hidePud(i); } else managePuddles(wetv); } }
+        // ---- rain mist: a cool grey haze that thickens while it pours
+        mistK += ((on ? Math.min(1, inten) * (1 - dk) : 0) - mistK) * Math.min(1, dt * 0.4);
+        if (mistK > 0.01 && scene.fog && !DIM.cur) { scene.fog.color.lerp(MIST, 0.22 * mistK * lit); scene.fog.far = Math.max(scene.fog.near + 16, scene.fog.far * (1 - 0.16 * mistK)); if (scene.fog.near > scene.fog.far * 0.45) scene.fog.near = scene.fog.far * 0.45; }
+        U.ms = Math.round((performance.now() - t0) * 100) / 100;
+      } catch (e) { ERR(e); }
+      return r;
+    };
+    U.info = () => ({on: U.on, drops: U.drops, scale: U.scale, ripples: U.ripples, sprays: U.sprays, puddles: U.puddles, gust: U.gust, wind: U.wind, ms: U.ms, caps: {NMAX, NRIP, NSPR, NPUD}, err: U.err});
+    U.force = t => { __c164.force(t || 'heavy'); };
+    U.meshes = {drops, ripples, sprays, puddles};
+    U.puddleAt = () => { const o = []; for (let i = 0; i < NPUD; i++) if (pOk[i]) o.push([pA[i * 4], pA[i * 4 + 1], pA[i * 4 + 2], +pA[i * 4 + 3].toFixed(2)]); return o; };
+    // debug: ?rain / ?rain=light|heavy|thunder switches the weather on as soon as a world is running
+    try { const m = /[?&]rain(?:=(light|heavy|thunder))?(?:&|$)/.exec(location.search); if (m) { const iv = setInterval(() => { try { if (started) { clearInterval(iv); setWeather(m[1] || 'heavy'); weather.pending = null; } } catch (_) {} }, 800); } } catch (_) {}
+  } catch (e) { ERR(e); }
+})();
+
 /* ===================== GLX-C167 (v1.0.31): Hell overhaul 1 - a bigger nether (384 wide), four biomes, four gothic build sites carved into great caverns ===================== */
 (function c167() {
   const U = window.__c167 = {b: [], props: [], err: null, st: {}, ms: 0, retro: null, R: 23};
