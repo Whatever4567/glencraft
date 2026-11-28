@@ -7,7 +7,7 @@ const html = readFileSync(resolve(root, 'index.html'), 'utf8');
 const ver = JSON.parse(readFileSync(resolve(root, 'version.json'), 'utf8')).v;
 let n = 0, fail = 0;
 function ok(cond, msg) { n++; if (!cond) { fail++; console.error('FAIL', msg); } else console.log('ok', msg); }
-ok(ver === '1.2.153' || /^1\.2\.(15[3-9]|1[6-9]\d|[2-9]\d\d)$/.test(ver), 'version is 1.2.153+');
+ok(ver === '1.2.153' || /^1\.2\.(15[3-9]|1[6-9]\d|[2-9]\d\d)(-[a-z]+)?$/.test(ver), 'version is 1.2.153+');
 ok(html.includes("const GAME_VERSION = '" + ver + "';"), 'GAME_VERSION matches version.json');
 ok(html.includes('GLX-MAP1430') && html.includes('window.__noMap1430'), 'GLX-MAP1430 inlined with off switch');
 ok(html.includes('A.hT0') && html.includes('hookHeight') && html.includes('g9height.__map1430'), 'GEN9/spawn columns use t1290 hT0 heights');

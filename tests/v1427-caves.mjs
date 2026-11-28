@@ -8,7 +8,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v;
 let n = 0, fail = 0;
 function ok(cond, msg) { n++; if (!cond) { fail++; console.error('FAIL', msg); } else console.log('ok', msg); }
-ok(ver === '1.2.152' || /^1\.2\.(15[2-9]|1[6-9]\d|[2-9]\d\d)$/.test(ver), 'version is 1.2.152+');
+ok(ver === '1.2.152' || /^1\.2\.(15[2-9]|1[6-9]\d|[2-9]\d\d)(-[a-z]+)?$/.test(ver), 'version is 1.2.152+');
 ok(html.includes("const GAME_VERSION = '" + ver + "';"), 'GAME_VERSION matches version.json');
 ok(html.includes('GLX-CAVE1427 (t1427)') && html.includes('window.__noCave1427'), 'GLX-CAVE1427 inlined with off switch');
 ok(html.includes('U.carveAround = function') && html.includes('U.run = function (opts)'), 'C274 exposes run and carveAround; old generate wrap kept');

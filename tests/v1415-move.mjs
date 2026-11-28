@@ -10,7 +10,7 @@ ok(html.includes('if (window.__noPY1415 || !GL._inPosts1415) GL._softHold = 0;')
 ok(html.includes('!bgGen1415() && elig()'), 'the Scotland reshape waits until background generation is finished');
 ok(html.includes('function* scotG1415()') && html.includes('  function scot() {'), 'sliced reshape added, original scot() kept');
 ok(html.includes('function* finishScaledSurfaceG1415()') && html.includes('  function finishScaledSurface() {') && html.includes('const r = yield* mcPaint(G, VK, HI);'), 'sliced surface paint added, original kept');
-ok(html.includes("const GAME_VERSION = '1.2.149';") || (html.includes("const GAME_VERSION = '1.2.150';") || html.includes("const GAME_VERSION = '1.2.151';")) || /GAME_VERSION = '1\.2\.(1[5-9]\d|[2-9]\d\d)'/.test(html), 'GAME_VERSION is 1.2.149 or later');
+ok(html.includes("const GAME_VERSION = '1.2.149';") || (html.includes("const GAME_VERSION = '1.2.150';") || html.includes("const GAME_VERSION = '1.2.151';")) || /GAME_VERSION = '1\.2\.(1[5-9]\d|[2-9]\d\d)(-[a-z]+)?'/.test(html), 'GAME_VERSION is 1.2.149 or later');
 ok(!/\b(pie|cake|bread|food|eat|meal|snack)\b/i.test(JSON.stringify((html.match(/\{"v":"v1\.2\.149"[^\n]*/) || [''])[0])), 'patch note has no food words');
 ok(html.includes('GLX-PY1415b') && html.includes('const sl0 = scanLights;') && html.includes('function scanLights() {'), 'torch light scan is sliced in play, original scanLights kept');
 ok(html.includes('U._keptPos1415 = 1;'), 'background land finishing does not teleport you back to spawn');

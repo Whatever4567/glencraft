@@ -13804,7 +13804,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.154';
+const GAME_VERSION = '1.2.154-water';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63700,6 +63700,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.154-water","d":"2026-11-28","notes":["Water looks like real water: shallow water near the shore is clear turquoise and you can see the bottom, deep water is a darker blue.","Water is clear when you look straight down and shines like a mirror when you look across it.","The sun leaves a bright sparkle on the water that moves with the sun, and fades at night, in caves and in storms.","Soft white foam laps at the edge of the water where it meets the bank.","Shallow water has rippling light patterns on it (Fancy graphics and up).","Under water it gets darker and murkier the deeper you swim. On Realistic and Photo-real the surface above you looks bright, and like a mirror at a slant.","Nothing about water as a block has changed. Flowing water, swimming, buckets, the UK map, deep caves, woods, music, grass and your saves all work as before, a Reset world gets the same water, and it adds no extra rendering work on phones."]},
 {"v":"v1.2.154","d":"2026-11-27","notes":["On a new or Reset world the clan castle has taller spires, a portcullis and tartan banners, the ruin sits on a rocky crag with vines and cobwebs, the black castle has lava running down its walls, and the spawn hill has tall pines and lanterns.","A new or Reset world uses the current UK map (Britain and Ireland, with the Highland peaks and islands) and the deep cave layers under it, all the way down. Each part of the land keeps its own woods and its own music. Caves, ravines and sinkholes are still carved around you before you start walking.","The top of a grass block now uses the same green turf you already see on its sides, with no dirt patches.","Older worlds that were saved without caves still get them, without changing anything you placed."]},
 {"v":"v1.2.152","d":"2026-11-27","notes":["Caves, ravines and sinkholes are carved around you before you start walking a new world. The rest of the glen gets them as soon as the land is finished.","A new or Reset world uses the current sculpted Highlands around spawn from the start, not the older hills. The rest of the map catches up as soon as the land is finished. Older worlds that were saved without caves get them too, without changing anything you placed."]},
 {"v":"v1.2.151","d":"2026-11-27","notes":["Smoother frame rate, up to 120 fps on 90/120 Hz phones and TVs. Performance mode no longer locks the game to 30 fps; it now runs at your screen's full rate with its lighter graphics.","Less work every frame: the scope-glass and time-box checks skip work they already did, and chunk building takes a smaller share of each frame on fast screens (same building speed per second) so 120 Hz frames stay short. Caves, terrain, guns and the arm rig look and behave the same. window.__noFps1414 = 1 before load restores the old behaviour."]},
@@ -108438,6 +108439,163 @@ try {
     }, 1000);
   }
   try { boot(); } catch (e) { ERR('boot', e); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script>
+/* ===================== GLX-WATER1450 (v1.2.154-water): game-style water detail on the existing water faces.
+   Nothing about water as a block changes (same block id, flow, swimming, saves). Only how it is drawn:
+   - depth colour: shallow water is clear turquoise, deep water is deep blue and less see-through (depth read from the
+     water column under each surface corner when the chunk is meshed, blended smoothly between corners)
+   - fresnel: clearer looking straight down, more reflective at a glancing angle
+   - a sharp sun glint that follows the real sun (and fades at night, in caves and in bad weather)
+   - shoreline foam that laps where water meets a block
+   - caustic light shimmer in the shallows (Fancy and up)
+   - from underneath, the surface shows a bright window above you and turns mirror-like at a slant (Realistic and Photo-real)
+   - under water the fog gets darker and closer the deeper you swim
+   No extra render passes and no reflection textures on any setting. Fast graphics (or Performance mode) gets the cheap path.
+   Off switch: window.__noWater1450 = 1 before load, or localStorage glen_water1450 = 'off'. ===================== */
+(function water1450(WIN) {
+  const U = WIN.__water1450 = {err: null, geo: 0, sh: 0, tier: '', retro: 0};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && e.stack || e).slice(0, 300); };
+  try { if (WIN.__noWater1450 || localStorage.getItem('glen_water1450') === 'off') { U.off = 1; return; } } catch (_) {}
+  if (typeof waterMat === 'undefined' || !waterMat || typeof buildWaterGeo !== 'function' || typeof THREE === 'undefined') { U.err = 'missing water'; return; }
+  const G = typeof GFX !== 'undefined' ? GFX : 'fancy', PF = typeof PERF !== 'undefined' && PERF;
+  const phoneQ = typeof QUALITY !== 'undefined' && QUALITY === 'phone';
+  const TIER = (PF || G === 'fast') ? 'low' : ((G === 'realistic' || G === 'photo') && !phoneQ) ? 'full' : 'mid';
+  U.tier = TIER;
+
+  // ---------- 1) per-vertex water data: aW1 = (depth code, shore, top) ----------
+  const WT = T.WATER;
+  function addAttrs(g) {
+    const p = g.attributes.position, nr = g.attributes.normal; if (!p || !nr || g.attributes.aW1) return;
+    const rot = !!(WIN.__c321 && __c321.ax !== 2 && !WIN.__c317mesh), fast = !rot && !(typeof DIM !== 'undefined' && DIM.cur);
+    const gb = (x, y, z) => (fast && x >= 0 && x < W && z >= 0 && z < D && y >= 0 && y < H) ? world[idx(x, y, z)] : getB(x, y, z);
+    const dm = new Map(), cm = new Map();
+    const key = (x, y, z) => ((x + 8192) * 16384 + (z + 8192)) * 2048 + (y + 1024);
+    const depth = (x, y, z) => { const k = key(x, y, z); let d = dm.get(k); if (d !== undefined) return d; d = 0;
+      for (let yy = y; yy > y - 10; yy--) { if (gb(x, yy, z) === WT) d++; else break; } dm.set(k, d); return d; };
+    const hard = b => !!b && b !== WT && b !== T.LAVA && !waterOpenTo(b);
+    const corner = (vx, y, vz) => { const k = key(vx, y, vz); let c = cm.get(k); if (c) return c; let s = 0, n = 0, sh = 0;
+      for (let a = -1; a <= 0; a++) for (let b = -1; b <= 0; b++) { const X = vx + a, Z = vz + b, bb = gb(X, y, Z);
+        if (bb === WT) { s += depth(X, y, Z); n++; } else if (hard(bb)) sh = 1; else if (sh < 0.7 && hard(gb(X, y - 1, Z))) sh = 0.7; }
+      c = [n ? s / n : 1, sh]; cm.set(k, c); return c; };
+    const enc = d => 0.05 + 0.95 * Math.min(1, Math.max(0, (d - 1) / 9));
+    const N = p.count, o = new Float32Array(N * 3);
+    for (let t = 0; t + 2 < N; t += 3) {
+      const ny = nr.getY(t);
+      if (ny > 0.5) { for (let j = t; j < t + 3; j++) { const c = corner(Math.round(p.getX(j)), Math.floor(p.getY(j) - 0.02), Math.round(p.getZ(j))); o[j * 3] = enc(c[0]); o[j * 3 + 1] = c[1]; o[j * 3 + 2] = 1; } }
+      else { const cx = (p.getX(t) + p.getX(t + 1) + p.getX(t + 2)) / 3 - nr.getX(t) * 0.5, cy = (p.getY(t) + p.getY(t + 1) + p.getY(t + 2)) / 3 - ny * 0.5, cz = (p.getZ(t) + p.getZ(t + 1) + p.getZ(t + 2)) / 3 - nr.getZ(t) * 0.5;
+        const v = enc(Math.max(1, depth(Math.floor(cx), Math.floor(cy), Math.floor(cz)))); for (let j = t; j < t + 3; j++) { o[j * 3] = v; o[j * 3 + 1] = 0; o[j * 3 + 2] = 0; } }
+    }
+    g.setAttribute('aW1', new THREE.BufferAttribute(o, 3)); U.geo++;
+  }
+  U.addAttrs = addAttrs;
+  try { const bw = buildWaterGeo; buildWaterGeo = function (arr) { const g = bw.apply(this, arguments); try { if (g) addAttrs(g); } catch (e) { ERR('geo', e); } return g; }; } catch (e) { ERR('wrap', e); }
+
+  // ---------- 2) shader ----------
+  const u = {uW1T: {value: 0}, uW1Day: {value: 1}, uW1Uw: {value: 0}, uW1Sun: {value: new THREE.Vector3(0, 1, 0)}, uW1SunC: {value: new THREE.Color(1, 0.95, 0.85)}};
+  U.u = u;
+  const DEF = TIER === 'low' ? '#define W1_LOW\n' : TIER === 'full' ? '#define W1_FULL\n' : '';
+  const VS_HEAD = 'attribute vec3 aW1;\nvarying vec3 vW1;\nvarying vec3 vW1P;\nvarying float vW1Up;\n';
+  const VS_BODY = `
+  vW1 = aW1;
+  #ifdef USE_INSTANCING
+    vW1P = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+  #else
+    vW1P = (modelMatrix * vec4(transformed, 1.0)).xyz;
+  #endif
+  vW1Up = normalize((modelMatrix * vec4(objectNormal, 0.0)).xyz).y;`;
+  const FS_HEAD = DEF + 'uniform float uW1T;\nuniform float uW1Day;\nuniform float uW1Uw;\nuniform vec3 uW1Sun;\nuniform vec3 uW1SunC;\nvarying vec3 vW1;\nvarying vec3 vW1P;\nvarying float vW1Up;\n';
+  // after the normal maps and before lighting: foam and caustics are lit like the rest of the water
+  const FS_DIFFUSE = `
+  float w1Dep = vW1.x < 0.01 ? 1.0 : clamp((vW1.x - 0.05) / 0.95, 0.0, 1.0);
+  float w1Top = vW1.x < 0.01 ? step(0.5, vW1Up) : step(0.5, vW1.z);
+  #ifndef W1_LOW
+  { vec2 w1cp = vW1P.xz * 0.9;
+    float w1c1 = sin(w1cp.x * 2.3 + sin(w1cp.y * 1.9 + uW1T * 1.2) * 1.4 + uW1T * 0.9);
+    float w1c2 = sin(w1cp.y * 2.1 + sin(w1cp.x * 1.6 - uW1T * 1.0) * 1.5 - uW1T * 0.8);
+    float w1cs = pow(1.0 - abs(w1c1 * w1c2), 8.0);
+    float w1sh = (1.0 - w1Dep) * (1.0 - w1Dep);
+    diffuseColor.rgb += vec3(0.26, 0.38, 0.36) * w1cs * w1sh * w1Top * uW1Day; }
+  #endif
+  if (vW1.y > 0.01) {
+    float w1s = smoothstep(0.3, 1.0, vW1.y);
+    float w1lap = 0.5 + 0.5 * sin(uW1T * 1.6 - vW1.y * 5.0 + dot(vW1P.xz, vec2(0.7, 0.45)));
+    #ifdef W1_LOW
+    float w1f = w1s * (0.45 + 0.3 * w1lap);
+    #else
+    float w1nz = 0.5 + 0.5 * sin(vW1P.x * 6.7 + uW1T * 0.9) * sin(vW1P.z * 7.3 - uW1T * 0.7);
+    float w1f = w1s * smoothstep(0.2, 0.8, w1nz * 0.6 + w1lap * 0.55);
+    #endif
+    w1f = clamp(w1f, 0.0, 0.85);
+    diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.96, 1.0), w1f);
+    diffuseColor.a = mix(diffuseColor.a, 0.96, w1f * 0.8);
+  }`;
+  // after lighting, before fog: depth tint, see-through amount, fresnel, sun glint, view from below
+  const FS_FINAL = `
+  { vec3 w1V = normalize(vViewPosition); vec3 w1N = normalize(normal);
+    float w1co = clamp(abs(dot(w1V, w1N)), 0.0, 1.0);
+    float w1F = 0.02 + 0.98 * pow(1.0 - w1co, 5.0);
+    vec3 w1Tint = mix(vec3(0.86, 1.10, 1.04), vec3(0.64, 0.80, 1.08), w1Dep);
+    gl_FragColor.rgb *= mix(vec3(1.0), w1Tint, 0.15 + 0.85 * w1Top);
+    float w1A = mix(0.6, 0.93, w1Dep);
+    gl_FragColor.a = clamp(gl_FragColor.a + (w1A - 0.88) * w1Top, 0.3, 0.98);
+    gl_FragColor.a = mix(gl_FragColor.a, 0.97, w1F * 0.8);
+    float w1fd = gl_FrontFacing ? 1.0 : 0.0;
+    vec3 w1H = normalize(uW1Sun + w1V);
+    float w1nh = max(dot(w1N, w1H), 0.0);
+    float w1S = pow(w1nh, 260.0) * 2.4;
+    #ifdef W1_FULL
+    w1S += pow(w1nh, 28.0) * 0.12;
+    #endif
+    w1S *= uW1Day * w1Top * w1fd;
+    gl_FragColor.rgb += uW1SunC * w1S;
+    gl_FragColor.a = max(gl_FragColor.a, min(0.98, w1S));
+    #ifdef W1_FULL
+    if (w1fd < 0.5 && w1Top > 0.5 && uW1Uw > 0.5) {
+      float w1tir = smoothstep(0.72, 0.55, w1co);
+      gl_FragColor.rgb = mix(gl_FragColor.rgb * 1.2, vec3(0.05, 0.2, 0.32) * (0.3 + 0.7 * uW1Day), w1tir);
+      gl_FragColor.a = mix(gl_FragColor.a, 0.96, w1tir);
+    }
+    #endif
+  }`;
+  function patchShader(sh) {
+    let v = sh.vertexShader, f = sh.fragmentShader;
+    if (v.indexOf('#include <project_vertex>') < 0 || f.indexOf('#include <emissivemap_fragment>') < 0 || f.indexOf('#include <tonemapping_fragment>') < 0) return false;
+    v = VS_HEAD + v.replace('#include <project_vertex>', () => '#include <project_vertex>\n' + VS_BODY);
+    f = FS_HEAD + f.replace('#include <emissivemap_fragment>', () => '#include <emissivemap_fragment>\n' + FS_DIFFUSE)
+      .replace('#include <tonemapping_fragment>', () => FS_FINAL + '\n#include <tonemapping_fragment>');
+    Object.assign(sh.uniforms, u); sh.vertexShader = v; sh.fragmentShader = f; return true;
+  }
+  U.patchShader = patchShader; U.src = {VS_HEAD, VS_BODY, FS_HEAD, FS_DIFFUSE, FS_FINAL};
+  try { const ob = waterMat.onBeforeCompile; waterMat.onBeforeCompile = function (sh, r) { if (ob) ob.call(this, sh, r); try { if (patchShader(sh)) U.sh++; } catch (e) { ERR('sh', e); } };
+    const ck = waterMat.customProgramCacheKey; waterMat.customProgramCacheKey = function () { return (ck ? ck.call(this) : '') + 'w1450' + TIER; }; waterMat.needsUpdate = true; } catch (e) { ERR('mat', e); }
+
+  // ---------- 3) water already drawn before this script ran ----------
+  function retro() { try { scene.traverse(o => { if (o.isMesh && o.material === waterMat && o.geometry && o.geometry.attributes && o.geometry.attributes.aSurf && !o.geometry.attributes.aW1) { addAttrs(o.geometry); U.retro++; } }); } catch (e) { ERR('retro', e); } }
+  retro(); setTimeout(retro, 2500); setTimeout(retro, 8000);
+
+  // ---------- 4) per frame: sun, daylight, under water fog by depth ----------
+  const sv = new THREE.Vector3(), cS = new THREE.Color(), cLow = new THREE.Color(1.0, 0.62, 0.38), cHigh = new THREE.Color(1.0, 0.95, 0.85);
+  const fogTop = new THREE.Color(0x2a7ab8), fogDeep = new THREE.Color(0x0a2a48), fogC = new THREE.Color();
+  let frame = 0, above = 0, lastOp = -1;
+  function tick(cam) {
+    u.uW1T.value = waterUniforms.uTime.value;
+    let sy = 1;
+    try { sv.copy(skyUniforms.sunDir.value); if (sv.lengthSq() < 1e-6) sv.set(0, 1, 0); sv.normalize(); sy = sv.y;
+      if (cam && cam.matrixWorldInverse) sv.transformDirection(cam.matrixWorldInverse); u.uW1Sun.value.copy(sv);
+      const dark = Math.min(1, (skyUniforms.dark.value || 0) / 0.85), hell = typeof DIM !== 'undefined' && DIM.cur === 'hell';
+      u.uW1Day.value = hell ? 0 : Math.max(0, Math.min(1, skyUniforms.sunK.value)) * (1 - dark);
+    } catch (_) {}
+    cS.copy(cLow).lerp(cHigh, Math.max(0, Math.min(1, sy * 3))); u.uW1SunC.value.copy(cS);
+    const uw = !!WIN.__uw; u.uW1Uw.value = uw ? 1 : 0;
+    if (!uw) { if (lastOp >= 0) { const ov = document.getElementById('uwBlue'); if (ov) ov.style.opacity = ''; lastOp = -1; } return; }
+    if ((frame++ % 10) === 0) { try { const x = Math.floor(cam.position.x), z = Math.floor(cam.position.z); let y = Math.floor(cam.position.y), n = 0; while (n < 40 && getB(x, y + 1, z) === WT) { y++; n++; } above = n; } catch (_) {} }
+    const k = Math.min(1, above / 26), lt = 0.3 + 0.7 * Math.max(u.uW1Day.value, 0.15);
+    try { if (scene.fog && scene.fog.isFog) { fogC.copy(fogTop).lerp(fogDeep, k).multiplyScalar(lt); scene.fog.color.copy(fogC); scene.fog.near = 0.5; scene.fog.far = 24 - 12 * k; if (scene.background && scene.background.isColor) scene.background.copy(fogC); } } catch (_) {}
+    const op = Math.round((0.75 + 0.25 * k) * 50) / 50; if (op !== lastOp) { const ov = document.getElementById('uwBlue'); if (ov) ov.style.opacity = String(op); lastOp = op; }
+  }
+  try { const rd = renderer.render; renderer.render = function (s, c) { if (s === scene) { try { tick(c || camera); } catch (e) { ERR('tick', e); } } return rd.apply(this, arguments); }; } catch (e) { ERR('render', e); }
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
