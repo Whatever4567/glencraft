@@ -13804,7 +13804,7 @@ const SET = {sens: 1.8, pad: 1.8, sfx: 0.8, music: 0.6, fov: 75, bob: 1, touch: 
 try { Object.assign(SET, JSON.parse(localStorage.getItem('glen_set') || '{}')); } catch (_) {}
 function saveSet() { try { localStorage.setItem('glen_set', JSON.stringify(SET)); } catch (_) {} }
 // GLX-B7: one version string, bump on every push
-const GAME_VERSION = '1.2.154-water';
+const GAME_VERSION = '1.2.155';
 const PERF = !!SET.perf;   // Performance mode (read once at boot; toggling reloads)
 if (PERF) TEXSIZE = 256;   // GLX-C30: Performance mode keeps smaller tiles
 
@@ -63700,6 +63700,7 @@ try {
 <script>
 /* PATCH NOTES - newest first. With every version bump, add an entry at the TOP: {v:'v0.9.xx', d:'YYYY-MM-DD', notes:['...', '...']} */
 window.PATCH_NOTES = [
+{"v":"v1.2.155","d":"2026-11-28","notes":["Real 3D grass: grass blocks near you now grow dense clumps of curved, tapered blades in the same greens as the grass block sides, darker at the roots and lighter at the tips. They sway in the wind, bend away from your feet and fade softly into the distance. Tall grass gets taller 3D clumps up close. Settings > Disable foliage hides it too."]},{"v":"v1.2.154","d":"2026-11-27","notes":["On a new or Reset world the clan castle has taller spires, a portcullis and tartan banners, the ruin sits on a rocky crag with vines and cobwebs, the black castle has lava running down its walls, and the spawn hill has tall pines and lanterns.","A new or Reset world uses the current UK map (Britain and Ireland, with the Highland peaks and islands) and the deep cave layers under it, all the way down. Each part of the land keeps its own woods and its own music. Caves, ravines and sinkholes are still carved around you before you start walking.","The top of a grass block now uses the same green turf you already see on its sides, with no dirt patches.","Older worlds that were saved without caves still get them, without changing anything you placed."]},
 {"v":"v1.2.154-water","d":"2026-11-28","notes":["Water looks like real water: shallow water near the shore is clear turquoise and you can see the bottom, deep water is a darker blue.","Water is clear when you look straight down and shines like a mirror when you look across it.","The sun leaves a bright sparkle on the water that moves with the sun, and fades at night, in caves and in storms.","Soft white foam laps at the edge of the water where it meets the bank.","Shallow water has rippling light patterns on it (Fancy graphics and up).","Under water it gets darker and murkier the deeper you swim. On Realistic and Photo-real the surface above you looks bright, and like a mirror at a slant.","Nothing about water as a block has changed. Flowing water, swimming, buckets, the UK map, deep caves, woods, music, grass and your saves all work as before, a Reset world gets the same water, and it adds no extra rendering work on phones."]},
 {"v":"v1.2.154","d":"2026-11-27","notes":["On a new or Reset world the clan castle has taller spires, a portcullis and tartan banners, the ruin sits on a rocky crag with vines and cobwebs, the black castle has lava running down its walls, and the spawn hill has tall pines and lanterns.","A new or Reset world uses the current UK map (Britain and Ireland, with the Highland peaks and islands) and the deep cave layers under it, all the way down. Each part of the land keeps its own woods and its own music. Caves, ravines and sinkholes are still carved around you before you start walking.","The top of a grass block now uses the same green turf you already see on its sides, with no dirt patches.","Older worlds that were saved without caves still get them, without changing anything you placed."]},
 {"v":"v1.2.152","d":"2026-11-27","notes":["Caves, ravines and sinkholes are carved around you before you start walking a new world. The rest of the glen gets them as soon as the land is finished.","A new or Reset world uses the current sculpted Highlands around spawn from the start, not the older hills. The rest of the map catches up as soon as the land is finished. Older worlds that were saved without caves get them too, without changing anything you placed."]},
@@ -108596,6 +108597,254 @@ try {
     const op = Math.round((0.75 + 0.25 * k) * 50) / 50; if (op !== lastOp) { const ov = document.getElementById('uwBlue'); if (ov) ov.style.opacity = String(op); lastOp = op; }
   }
   try { const rd = renderer.render; renderer.render = function (s, c) { if (s === scene) { try { tick(c || camera); } catch (e) { ERR('tick', e); } } return rd.apply(this, arguments); }; } catch (e) { ERR('render', e); }
+})(typeof window !== 'undefined' ? window : this);
+</script>
+<script>
+/* ===================== GLX-GRASS1435 (t1435): real 3D grass on top of grass blocks.
+   Dense clumps of curved, tapered blades (actual geometry, no flat cut-out cards) on every grass block near you,
+   coloured and textured from the grass block's own SIDE turf (the photo grass band), so blocks and blades read as one.
+   - Two instanced meshes (2 draw calls): a dense near ring and a lighter far ring; blades shrink smoothly into the
+     ground at the edge of each ring (no pop, no alpha blending, no discard on the blades).
+   - Wind is done in the vertex shader (slow sway + rolling gusts + flutter, weighted by blade height); blades bend
+     away from your feet.
+   - Root-to-tip shading (dark mossy roots, lit tips), same biome tint as the grass blocks, same daylight as before.
+   - The old cross-quad tall grass blocks are hidden only inside the 3D ring (they get taller 3D clumps there) and stay
+     as they were further away. The old C81 tufts are hidden while this is on (kept in the file, untouched).
+   Technique follows the common public approach (instanced tapered blade strips + vertex-shader wind + distance LOD), e.g.
+   James-Smyth/three-grass-demo (MIT) and threejsresources.com/guides/grass; no code copied.
+   Off: window.__noGrass1435 = 1 (old grass). Respects Settings > Disable foliage. ===================== */
+(function grass1435(WIN) {
+  const U = WIN.__grass1435 = {err: null, on: 0, near: 0, far: 0, builds: 0, ms: 0, tex: 0, tall: 0, tier: ''};
+  const ERR = (w, e) => { if (!U.err) U.err = w + ' ' + String(e && (e.stack || e.message) || e).slice(0, 240); };
+  if (WIN.__noGrass1435) { U.err = 'flag'; return; }
+  if (typeof THREE === 'undefined') { U.err = 'no three'; return; }
+
+  const touch = typeof touchMode !== 'undefined' && !!touchMode;
+  const lowMem = (navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4;
+  const LO = touch || lowMem;
+  U.tier = LO ? 'phone' : 'full';
+  const CFG = LO ? {RN: 11, RF: 22, BN: 26, BF: 8, SN: 4, SF: 3} : {RN: 14, RF: 30, BN: 36, BF: 10, SN: 4, SF: 3};
+  const MAXN = Math.ceil(Math.PI * (CFG.RN + 3) * (CFG.RN + 3)), MAXF = Math.ceil(Math.PI * (CFG.RF + 3) * (CFG.RF + 3));
+
+  /* ---------- blade texture from the grass block's side turf ---------- */
+  function sideCanvas() {
+    const im = (typeof texImg !== 'undefined' && texImg && texImg.grass_side) || (typeof texCache !== 'undefined' && texCache.grass_side && texCache.grass_side.image);
+    if (!im) return null;
+    const w = im.width || im.naturalWidth, h = im.height || im.naturalHeight;
+    if (!w || !h) return null;
+    const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(im, 0, 0); return c;
+  }
+  function bladeTex(side) {
+    const w = side.width, h = side.height, g = side.getContext('2d'), d = g.getImageData(0, 0, w, h).data;
+    let cut = (h * 0.3) | 0;
+    for (let y = (h * 0.08) | 0; y < h; y++) { let gr = 0, n = 0; for (let x = 0; x < w; x += 4) { const o = (y * w + x) * 4; gr += d[o + 1] - d[o]; n++; } if (n && gr / n < 10) { cut = y; break; } }
+    cut = Math.max(16, Math.min(cut, (h * 0.4) | 0));
+    /* average green so gaps between the photo blades never show soil or black on a 3D blade */
+    let R = 0, G = 0, B = 0, n = 0;
+    for (let y = 0; y < cut; y += 2) for (let x = 0; x < w; x += 3) { const o = (y * w + x) * 4; if (d[o + 1] - d[o] >= 12) { R += d[o]; G += d[o + 1]; B += d[o + 2]; n++; } }
+    const avg = n ? [R / n, G / n, B / n] : [80, 130, 50];
+    U.avg = avg.map(v => v | 0);
+    /* blade tones: dark / mid / light greens picked from the side turf by brightness (relative to its average) */
+    const gp = [];
+    for (let y = 0; y < cut; y += 3) for (let x = 0; x < w; x += 5) { const o = (y * w + x) * 4; if (d[o + 1] - d[o] >= 12) gp.push([d[o], d[o + 1], d[o + 2], d[o] * 0.3 + d[o + 1] * 0.59 + d[o + 2] * 0.11]); }
+    gp.sort((a, b) => a[3] - b[3]);
+    const pick = q => { if (!gp.length) return [0.33, 0.4, 0.12]; const a = gp[Math.min(gp.length - 1, (q * gp.length) | 0)]; return [a[0] / 255, a[1] / 255, Math.min(a[2], a[1] * 0.55) / 255]; };
+    TONES = [pick(0.15), pick(0.3), pick(0.45), pick(0.6), pick(0.75)];
+    U.tones = TONES.map(t => t.map(v => Math.round(v * 100) / 100));
+    const TW = 256, TH = 128, out = document.createElement('canvas'); out.width = TW; out.height = TH;
+    const og = out.getContext('2d'); og.imageSmoothingEnabled = true; og.drawImage(side, 0, 0, w, cut, 0, 0, TW, TH);
+    const img = og.getImageData(0, 0, TW, TH), p = img.data;
+    for (let i = 0; i < p.length; i += 4) {
+      const gr = p[i + 1] - p[i], lum = 0.3 * p[i] + 0.59 * p[i + 1] + 0.11 * p[i + 2];
+      /* not green enough (soil, shadow gaps) -> pull to the average turf green, keeping some of its light */
+      const k = Math.max(0, Math.min(1, (14 - gr) / 14)), dark = Math.max(0, Math.min(1, (60 - lum) / 60));
+      const m = Math.max(k, dark * 0.7);
+      p[i] = p[i] + (avg[0] * 0.85 - p[i]) * m; p[i + 1] = p[i + 1] + (avg[1] * 0.85 - p[i + 1]) * m; p[i + 2] = p[i + 2] + (avg[2] * 0.85 - p[i + 2]) * m; p[i + 3] = 255;
+    }
+    og.putImageData(img, 0, 0);
+    U.cut = cut; U.texW = w;
+    const t = new THREE.CanvasTexture(out); t.wrapS = THREE.RepeatWrapping; t.wrapT = THREE.ClampToEdgeWrapping;
+    t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+    try { if (THREE.sRGBEncoding && texCache && texCache.grass_side && texCache.grass_side.encoding) t.encoding = texCache.grass_side.encoding; } catch (_) {}
+    return t;
+  }
+
+  let TONES = [[0.25, 0.33, 0.1], [0.33, 0.4, 0.12], [0.4, 0.5, 0.15]];
+  /* ---------- clump geometry: B curved tapered blades spread over one block top ---------- */
+  function clumpGeo(B, S, seed, wide) {
+    let s = seed >>> 0; const R = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 4294967296;
+    const pos = [], uv = [], ix = [], cl = [];
+    for (let b = 0; b < B; b++) {
+      const bx = (R() - 0.5) * 0.96, bz = (R() - 0.5) * 0.96, hh = 0.3 + 0.7 * Math.pow(R(), 1.3);
+      const w0 = (wide ? 0.035 : 0.013) + (wide ? 0.025 : 0.013) * R(), face = R() * Math.PI, lean = (0.15 + 0.3 * R()) * hh * (R() < 0.5 ? -1 : 1);
+      const fx = Math.cos(face), fz = Math.sin(face), lx = -fz, lz = fx;   /* width along f, lean along l */
+      const u0 = R() * 0.94, du = 0.02 + 0.03 * R(), base = pos.length / 3, tn = TONES[(R() * TONES.length) | 0], dry = R() < 0.08 ? [1.2, 1.08, 0.75] : [1, 1, 1];
+      const cv = t => { const ao = 0.3 + 0.7 * Math.pow(t, 0.6), tip = 1 + 0.12 * Math.max(0, (t - 0.6) / 0.4); return [tn[0] * dry[0] * ao * tip, tn[1] * dry[1] * ao * tip, tn[2] * dry[2] * ao * tip]; };
+      for (let k = 0; k <= S; k++) {
+        const t = k / S, y = hh * t * (1 - 0.12 * t * Math.abs(lean)), off = lean * t * t, cx = bx + lx * off, cz = bz + lz * off;
+        const c3 = cv(t);
+        if (k === S) { pos.push(cx, y, cz); uv.push(u0 + du * 0.5, 1); cl.push(...c3); }
+        else { const hw = w0 * Math.pow(1 - t, 0.7); pos.push(cx - fx * hw, y, cz - fz * hw, cx + fx * hw, y, cz + fz * hw); uv.push(u0, t, u0 + du, t); cl.push(...c3, ...c3); }
+      }
+      for (let k = 0; k < S - 1; k++) { const a = base + k * 2; ix.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+      const a = base + (S - 1) * 2; ix.push(a, a + 1, a + 2);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cl, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(new Float32Array(pos.length).fill(0).map((v, i) => i % 3 === 1 ? 1 : 0), 3));
+    g.setIndex(ix);
+    g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e5);   /* never culled as a small far prop */
+    U.tris = (U.tris || 0) + ix.length / 3;
+    return g;
+  }
+
+  const UNI = {uTime: {value: 0}, uPl: {value: new THREE.Vector3(0, -999, 0)}, uWind: {value: 0.11}, uCam: {value: new THREE.Vector3()}};   /* own camera uniform: three r128 does not upload cameraPosition to MeshBasicMaterial */
+  function makeMat(tex, far) {
+    const m = new THREE.MeshBasicMaterial({side: THREE.DoubleSide, vertexColors: true});   /* blade colours are the side turf's own greens (no photo map: the photo on a 3D blade just blends into the block top) */ m.userData.tex = tex;   /* unlit material (game block-light patches expect chunk attributes); lit by hand below like an up-facing block top */
+    const uFar = {value: far ? CFG.RF : CFG.RN}, uFade = {value: far ? 5.0 : 2.5};
+    m.userData.g1435 = {uFar, uFade};
+    m.onBeforeCompile = sh => {
+      sh.uniforms.uTime = UNI.uTime; sh.uniforms.uPl = UNI.uPl; sh.uniforms.uWind = UNI.uWind; sh.uniforms.uCam = UNI.uCam; sh.uniforms.uFar = uFar; sh.uniforms.uFade = uFade;
+      sh.vertexShader = 'uniform float uTime; uniform vec3 uPl; uniform vec3 uCam; uniform float uWind; uniform float uFar; uniform float uFade; varying float vH; varying float vDk;\n' + sh.vertexShader.replace('#include <project_vertex>', [
+        'vec4 wp = vec4(transformed, 1.0); vec3 o = vec3(0.0);',
+        '#ifdef USE_INSTANCING', 'wp = instanceMatrix * wp; o = instanceMatrix[3].xyz;', '#endif',
+        'float h = uv.y;',
+        'float dC = distance(o.xz, uCam.xz);',
+        'float fd = 1.0 - smoothstep(uFar - uFade, uFar, dC);',
+        'wp.y = o.y + (wp.y - o.y) * fd;',
+        'float ph = uTime * 1.3 + dot(o.xz, vec2(0.23, 0.17));',
+        'float gust = sin(ph) * 0.45 + sin(ph * 0.37 + o.x * 0.05) * 0.35 + sin(uTime * 4.7 + o.z * 1.9 + o.x * 1.3) * 0.12;',
+        'float k = h * h * uWind;',
+        'wp.xz += vec2(0.8, 0.6) * (gust + 0.45) * k;',
+        'vec2 aw = wp.xz - uPl.xz; float dl = length(aw);',
+        'float push = (1.0 - smoothstep(0.25, 1.2, dl)) * (1.0 - step(1.6, abs(o.y - uPl.y)));',
+        'wp.xz += (aw / max(dl, 0.001)) * push * 0.45 * h; wp.y = o.y + (wp.y - o.y) * (1.0 - 0.45 * push);',
+        'vH = h; vDk = 0.5 + 0.5 * gust;',
+        'vec4 mvPosition = modelViewMatrix * wp;',
+        'gl_Position = projectionMatrix * mvPosition;'
+      ].join('\n'));
+      sh.fragmentShader = 'varying float vH; varying float vDk;\n' + sh.fragmentShader.replace('#include <map_fragment>', [
+        '#include <map_fragment>',
+        'diffuseColor.rgb *= 0.9 + 0.2 * vDk * smoothstep(0.5, 1.0, vH);'
+      ].join('\n'));
+    };
+    m.customProgramCacheKey = () => 'g1435' + (far ? 'f' : 'n');
+    return m;
+  }
+
+  /* ---------- old cross-quad tall grass: hidden only inside the 3D ring ---------- */
+  const uHide = {value: 0};
+  function patchTall() {
+    try {
+      if (typeof PLANT_MATS === 'undefined' || typeof T === 'undefined') return;
+      const L = [].concat(PLANT_MATS[T.TALLGRASS] || []);
+      for (const m of L) {
+        if (!m || m.userData.g1435t) continue;
+        const prev = m.onBeforeCompile, prevKey = m.customProgramCacheKey;
+        m.onBeforeCompile = function (sh, r) {
+          if (prev) prev.call(this, sh, r);
+          sh.uniforms.uG1435 = uHide;
+          sh.vertexShader = sh.vertexShader.replace('#include <fog_vertex>', '#include <fog_vertex>\nvG1435 = length(mvPosition.xyz);').replace('void main() {', 'varying float vG1435;\nvoid main() {');
+          sh.fragmentShader = sh.fragmentShader.replace('void main() {', 'uniform float uG1435; varying float vG1435;\nvoid main() {\nif (vG1435 < uG1435) discard;');
+        };
+        m.customProgramCacheKey = function () { return (prevKey ? prevKey.call(this) : '') + '|g1435t'; };
+        m.userData.g1435t = 1; m.needsUpdate = true; U.tall++;
+      }
+    } catch (e) { ERR('tall', e); }
+  }
+
+  let near = null, far = null, mats = [];
+  function build() {
+    const side = sideCanvas(); if (!side) return false;
+    const tex = bladeTex(side); U.tex = 1;
+    const mn = makeMat(tex, false), mf = makeMat(tex, true); mats = [mn, mf];
+    near = new THREE.InstancedMesh(clumpGeo(CFG.BN, CFG.SN, 1435, false), mn, MAXN);
+    far = new THREE.InstancedMesh(clumpGeo(CFG.BF, CFG.SF, 7351, true), mf, MAXF);
+    for (const im of [near, far]) {
+      im.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(im.count * 3).fill(1), 3);
+      im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); im.count = 0; im.frustumCulled = false; im.userData.c81 = 1; im.userData.g1435 = 1; im.renderOrder = 0;
+    }
+    near.onBeforeRender = far.onBeforeRender = (r, sc, cam) => { UNI.uTime.value = (performance.now() % 1e6) / 1000; try { UNI.uCam.value.setFromMatrixPosition(cam.matrixWorld); } catch (_) {} try { UNI.uPl.value.set(P.x, P.y, P.z); } catch (_) {} };
+    WIN.__g1435near = near; WIN.__g1435far = far;
+    return true;
+  }
+
+  const hsh = (x, z, o) => { let h = Math.imul(x, 374761393) + Math.imul(z, 668265263) + o * 1442695041; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+  const col = new THREE.Color();
+  function put(im, n, x, y, z, sy, tall) {
+    const a = hsh(x, z, 4) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), k = 0.85 + 0.3 * hsh(x, z, 5), hy = sy * (0.75 + 0.5 * hsh(x, z, 6)) * (tall ? 1.6 : 1);
+    const M = im.instanceMatrix.array, o = n * 16;
+    M[o] = c * k; M[o + 1] = 0; M[o + 2] = -s * k; M[o + 3] = 0;
+    M[o + 4] = 0; M[o + 5] = hy; M[o + 6] = 0; M[o + 7] = 0;
+    M[o + 8] = s * k; M[o + 9] = 0; M[o + 10] = c * k; M[o + 11] = 0;
+    M[o + 12] = x + 0.5 + (hsh(x, z, 2) - 0.5) * 0.12; M[o + 13] = y; M[o + 14] = z + 0.5 + (hsh(x, z, 3) - 0.5) * 0.12; M[o + 15] = 1;
+    col.setRGB(0.9 + 0.18 * hsh(x, z, 7), 0.92 + 0.14 * hsh(x, z, 8), 0.85 + 0.1 * hsh(x, z, 9));
+    try { if (WIN.__bioTintC) __bioTintC(col, x, z); } catch (_) {}
+    const C = im.instanceColor.array; C[n * 3] = col.r; C[n * 3 + 1] = col.g; C[n * 3 + 2] = col.b;
+  }
+  function scan(im, R0, R1, max, sy) {
+    const t0 = performance.now(), px = Math.floor(P.x), pz = Math.floor(P.z), py = Math.floor(P.y), G = T.GRASS, TG = T.TALLGRASS;
+    let n = 0;
+    for (let dx = -R1; dx <= R1 && n < max; dx++) for (let dz = -R1; dz <= R1 && n < max; dz++) {
+      const r2 = dx * dx + dz * dz; if (r2 > R1 * R1 || r2 < R0 * R0) continue;
+      const x = px + dx, z = pz + dz; if (x < 1 || z < 1 || x >= W - 1 || z >= D - 1) continue;
+      for (let y = Math.min(H - 3, py + 10); y >= Math.max(1, py - 14); y--) {
+        const b = world[(x * H + y) * D + z]; if (b === 0) continue;
+        if (b === TG) continue;
+        if (b === G) { const up = world[(x * H + y + 1) * D + z]; if (up === 0 || up === TG) { put(im, n, x, y + 1, z, sy, up === TG); n++; } }
+        break;
+      }
+    }
+    im.count = n; im.instanceMatrix.needsUpdate = true; im.instanceColor.needsUpdate = true;
+    U.ms = Math.round((performance.now() - t0) * 10) / 10;
+    return n;
+  }
+
+  /* light an up-facing top like the scene does: ambient + hemisphere sky + sun * max(0, sun height) */
+  const LC = new THREE.Color(), tmp = new THREE.Color(), dv = new THREE.Vector3(); let lights = [], lsc = 0;
+  function light() {
+    try {
+      if (!lights.length || ++lsc > 50) { lsc = 0; lights = []; scene.traverse(o => { if (o.isAmbientLight || o.isHemisphereLight || o.isDirectionalLight) lights.push(o); }); }
+      LC.setRGB(0, 0, 0);
+      for (const o of lights) {
+        if (!o.visible || !o.intensity) continue;
+        if (o.isAmbientLight) LC.add(tmp.copy(o.color).multiplyScalar(o.intensity));
+        else if (o.isHemisphereLight) LC.add(tmp.copy(o.color).multiplyScalar(o.intensity));
+        else { dv.copy(o.position); if (o.target) dv.sub(o.target.position); const l = dv.length() || 1; LC.add(tmp.copy(o.color).multiplyScalar(o.intensity * Math.max(0, dv.y / l))); }
+      }
+      const g = U.gain;
+      LC.r = Math.min(2.4, LC.r * g); LC.g = Math.min(2.4, LC.g * g); LC.b = Math.min(2.4, LC.b * g);
+      if (LC.r + LC.g + LC.b < 0.05) { const dl = typeof daylight === 'number' ? daylight : 1; LC.setScalar((0.12 + 0.88 * dl) * 1.6); }
+      for (const m of mats) m.color.copy(LC);
+      U.light = [LC.r, LC.g, LC.b].map(v => Math.round(v * 100) / 100);
+    } catch (e) { ERR('light', e); }
+  }
+  U.gain = 0.85;
+  let lnx = 1e9, lnz = 1e9, lfx = 1e9, lfz = 1e9, lt = 0, ly = 1e9;
+  function tick() {
+    try {
+      if (WIN.__noGrass1435) { if (near) near.visible = far.visible = false; uHide.value = 0; try { if (WIN.__c81tuft) __c81tuft.layers.set(0); } catch (_) {} U.on = 0; return; }
+      if (!near && !build()) return;
+      patchTall();
+      const ok = typeof started !== 'undefined' && started && !(typeof DIM !== 'undefined' && DIM.cur) && typeof world !== 'undefined' && world && typeof P !== 'undefined';
+      const ck = typeof caveK === 'number' ? caveK : 0, nofol = typeof SET !== 'undefined' && SET && SET.noFoliage;
+      const vis = !!ok && ck < 0.85 && !nofol;
+      if (ok && near.parent !== scene) { scene.add(near); scene.add(far); lt = 0; }
+      near.visible = far.visible = vis;
+      uHide.value = vis ? CFG.RN - 1.5 : 0;
+      try { if (WIN.__c81tuft) __c81tuft.layers.set(30); } catch (_) {}
+      U.on = vis ? 1 : 0;
+      if (!vis) return;
+      light();
+      const now = performance.now();
+      if (Math.abs(P.x - lnx) + Math.abs(P.z - lnz) > 1.5 || Math.abs(P.y - ly) > 3 || now - lt > 2500) { lnx = P.x; lnz = P.z; ly = P.y; lt = now; U.near = scan(near, 0, CFG.RN + 2, MAXN, 0.8); U.builds++; }
+      if (Math.abs(P.x - lfx) + Math.abs(P.z - lfz) > 4 || far.count === 0 && now - lt > 400) { lfx = P.x; lfz = P.z; U.far = scan(far, CFG.RN - 3, CFG.RF + 3, MAXF, 0.75); }
+    } catch (e) { ERR('tick', e); }
+  }
+  setInterval(tick, 200);
+  U.cfg = CFG;
 })(typeof window !== 'undefined' ? window : this);
 </script>
 </body>
