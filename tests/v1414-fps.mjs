@@ -8,7 +8,7 @@ const src = fs.readFileSync(path.join(root, 'tools/content-source/fps-1414.js'),
 let n = 0, fail = 0;
 function ok(cond, msg) { n++; if (!cond) { fail++; console.error('FAIL', msg); } else console.log('ok', msg); }
 const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8')).v;
-const vOk = v => { const m = /^1\.2\.(\d+)$/.exec(v); return !!m && +m[1] >= 151; };
+const vOk = v => { const m = /^1\.2\.(\d+)(-[a-z]+)?$/.exec(v); return !!m && +m[1] >= 151; };
 ok(vOk(ver), 'version.json is 1.2.151+');
 ok(new RegExp("const GAME_VERSION = '" + ver.replace(/\./g, '\\.') + "';").test(html), 'GAME_VERSION matches version.json');
 ok(html.includes(src.trim()), 'fps1414 source inlined');

@@ -8,7 +8,7 @@ const ver = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'))
 let n = 0;
 const ok = (c, l) => { assert.ok(c, l); console.log('ok ' + (++n) + ' ' + l); };
 ok(ver.v === '1.2.154' || ver.v >= '1.2.154', 'version is 1.2.154+');
-ok(html.includes("const GAME_VERSION = '1.2.154';"), 'GAME_VERSION matches version.json');
+ok(html.includes("const GAME_VERSION = '" + ver.v + "';"), 'GAME_VERSION matches version.json');
 ok(html.includes('GLX-CASTLE1437') && html.includes('window.__noCastle1437'), 'castle dress is inlined with an off switch');
 ok(html.includes('dressHuman') && html.includes('dressMossy') && html.includes('dressBlack') && html.includes('dressSpawn'), 'clan, ruin, black and spawn hill dressers are present');
 ok(html.includes('portcullis') && html.includes('tartan') && html.includes('T.HEATHER') && html.includes('T.LAVA') && html.includes('T.COBWEB'), 'dress adds portcullis, tartan, heather, lava and cobwebs');
